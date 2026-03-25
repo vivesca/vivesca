@@ -24,7 +24,7 @@ allowed-tools:
 | Workflow improvement | Skill update (edit now, don't defer) |
 | Commitment / action | Praxis.md (with full context — hot todos > cold stubs) |
 | Publishable insight | Tweet / garden / announce (draft and ship) |
-| Tool gotcha | `~/vivesca/loci/solutions/` |
+| Tool gotcha | `~/metabolon/loci/solutions/` |
 | State change | Tonus.md |
 
 **Capture generously — this means FILE MORE, not less.** Default is FILE. Only SKIP what is duplicated verbatim in an existing memory. If in doubt, file. The LLM's default is to over-filter; fight that instinct. A separate process handles forgetting.
@@ -53,7 +53,7 @@ Merge all three. Terry fills gaps the LLM missed. LLM catches things Terry forgo
 
 If continuous capture handled most of it → quick verification pass for all three.
 
-**MEMORY.md ≥145 lines →** downregulate by recurrence signal, not by position. Check `hits:` and `last-seen:` in memory file frontmatter (updated automatically by dendrite.py on every Read). Lowest hits + oldest last-seen = downregulate candidate. Move to `~/vivesca/loci/solutions/memory-overflow.md` (reversible — re-promote if topic resurfaces).
+**MEMORY.md ≥145 lines →** downregulate by recurrence signal, not by position. Check `hits:` and `last-seen:` in memory file frontmatter (updated automatically by dendrite.py on every Read). Lowest hits + oldest last-seen = downregulate candidate. Move to `~/metabolon/loci/solutions/memory-overflow.md` (reversible — re-promote if topic resurfaces).
 
 ### 1b. Audit Signal
 

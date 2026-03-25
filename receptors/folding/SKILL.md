@@ -84,7 +84,7 @@ Nothing ships without evidence in the conversation.
 - [ ] **No regressions** — full test suite, not just new tests
 - [ ] **Matches spec** — re-read the requirement, compare
 
-If something fails, diagnose before retrying. Consult `~/vivesca/loci/solutions/` for known patterns. Don't shotgun fixes.
+If something fails, diagnose before retrying. Consult `~/metabolon/loci/solutions/` for known patterns. Don't shotgun fixes.
 
 ## Review
 
@@ -111,16 +111,16 @@ Triage depth before running anything:
 - Clean commits with descriptive messages
 - `git diff --stat` review (especially after Gemini delegates — they touch extra files)
 - PR if warranted (`gh pr create`), skip for personal tools on main
-- If new CLI: add to `~/vivesca/proteome.md`
+- If new CLI: add to `~/metabolon/proteome.md`
 - If replacing old tool: run tool-replacement checklist
 
 ### Companion skill
 
-If you just built a new CLI or tool, create `~/vivesca/receptors/<name>/SKILL.md` in this session — gotchas are freshest now.
+If you just built a new CLI or tool, create `~/metabolon/receptors/<name>/SKILL.md` in this session — gotchas are freshest now.
 
 ### Compound
 
-If the solve was non-obvious, capture it: `~/vivesca/loci/solutions/<topic>.md`. Future sessions benefit.
+If the solve was non-obvious, capture it: `~/metabolon/loci/solutions/<topic>.md`. Future sessions benefit.
 
 ## Language Selection
 

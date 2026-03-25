@@ -87,7 +87,7 @@ And how does it apply to Capco clients specifically?
 
 **Scenario sources (in priority order):**
 1. `~/epigenome/chromatin/Career/Consulting Readiness Program.md` — primary scenario bank
-2. `~/vivesca/loci/solutions/agent-tests/` — HK FS consulting scenarios with multi-model analysis (proposal-architect, governance-sentinel, eval-designer). Use these for deeper domain practice: present the client brief, ask Terry how he'd approach it, then share the key insights from the README as the debrief.
+2. `~/metabolon/loci/solutions/agent-tests/` — HK FS consulting scenarios with multi-model analysis (proposal-architect, governance-sentinel, eval-designer). Use these for deeper domain practice: present the client brief, ask Terry how he'd approach it, then share the key insights from the README as the debrief.
 
 1. Read the program note's scenario bank
 2. Pick a scenario Terry hasn't done recently (prioritise unplayed, then least recent)

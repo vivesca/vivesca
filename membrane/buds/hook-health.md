@@ -11,7 +11,7 @@ Audit the vivesca hook nervous system. Hooks fail silently — catch it here.
 2. Check hook logs: `ls ~/logs/` and grep for hook-related errors in last 24h
    - Look for: FAILED, ERROR, timeout, exit code != 0
 3. Check hook consolidation script health: the 7 Python scripts from consolidation
-   - `ls ~/vivesca/bin/*.py | xargs -I{} head -3 {}` — confirm they exist and are valid Python
+   - `ls ~/metabolon/bin/*.py | xargs -I{} head -3 {}` — confirm they exist and are valid Python
 4. Fire rate: check if any hooks are firing too frequently (logs > 100 lines/day)
 5. Silent hooks: hooks that haven't fired in > 7 days (may be dead or bypassed)
 6. nociceptor specifically: confirm it fires in scripts and doesn't block claude
