@@ -140,7 +140,7 @@ Rules:
 
     # Use max20 CLI wrapper (handles Max20 auth — strips CLAUDECODE + ANTHROPIC_API_KEY)
     result = subprocess.run(
-        ["/Users/terry/reticulum/bin/max20", "sonnet", "-p", prompt],
+        ["max20", "sonnet", "-p", prompt],
         capture_output=True,
         text=True,
         timeout=120,

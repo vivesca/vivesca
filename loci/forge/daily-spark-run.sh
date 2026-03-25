@@ -5,4 +5,4 @@ set -e
 
 source "$HOME/.zshenv.local"
 
-exec /usr/bin/python3 /Users/terry/reticulum/forge/daily-spark.py
+exec /usr/bin/python3 /Users/terry/code/vivesca/loci/forge/daily-spark.py

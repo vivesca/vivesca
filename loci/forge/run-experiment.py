@@ -20,7 +20,7 @@ EXPERIMENTS = Path.home() / "code/vivesca-terry/chromatin/Consulting/Experiments
 TIERS_FILE = EXPERIMENTS / "context-tiers.md"
 TASKS_FILE = EXPERIMENTS / "experiment-tasks.md"
 RESULTS_DIR = EXPERIMENTS / "results"
-MAX20 = "/Users/terry/reticulum/bin/max20"
+MAX20 = "max20"
 
 RUNS_PER_COMBO = 10
 
