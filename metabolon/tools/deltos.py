@@ -46,10 +46,10 @@ def exocytosis_text(text: str, format: str = "html") -> ExocytosisResult:
     """Secrete a text message into the Telegram channel. Packaging applied."""
     if format == "html":
         text = _package_for_telegram(text)
-    from metabolon.organelles.secretory_vesicle import send_text
+    from metabolon.organelles.secretory_vesicle import secrete_text
 
     html_mode = format != "plain"
-    result = send_text(text, html=html_mode)
+    result = secrete_text(text, html=html_mode)
     return ExocytosisResult(success=True, message=result)
 
 
@@ -60,11 +60,11 @@ def exocytosis_text(text: str, format: str = "html") -> ExocytosisResult:
 )
 def exocytosis_image(path: str, caption: str = "") -> ExocytosisResult:
     """Secrete an image into the Telegram channel."""
-    from metabolon.organelles.secretory_vesicle import send_photo
+    from metabolon.organelles.secretory_vesicle import secrete_image
 
     expanded = os.path.expanduser(path)
     if not os.path.isfile(expanded):
         raise ValueError(f"File not found: {expanded}")
 
-    result = send_photo(expanded, caption=caption)
+    result = secrete_image(expanded, caption=caption)
     return ExocytosisResult(success=True, message=result)

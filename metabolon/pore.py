@@ -1340,7 +1340,7 @@ def endocytosis_digest(month, dry_run, themes, model, tag, weekly):
     import json
 
     from metabolon.organelles.endocytosis_rss.config import restore_config
-    from metabolon.organelles.endocytosis_rss.digest import run_digest, metabolize_weekly
+    from metabolon.organelles.endocytosis_rss.digest import metabolize_digest, metabolize_weekly
 
     cfg = restore_config()
 
@@ -1356,7 +1356,7 @@ def endocytosis_digest(month, dry_run, themes, model, tag, weekly):
         return
 
     try:
-        themes_result, output_path = run_digest(
+        themes_result, output_path = metabolize_digest(
             cfg=cfg,
             month=month,
             dry_run=dry_run,
@@ -1386,11 +1386,11 @@ def endocytosis_digest(month, dry_run, themes, model, tag, weekly):
 @click.option("--dry-run", is_flag=True, help="Detect signals but do not notify.")
 def endocytosis_breaking(dry_run: bool):
     """Scan recent news for breaking signals and notify if found."""
-    from metabolon.organelles.endocytosis_rss.breaking import run_breaking
+    from metabolon.organelles.endocytosis_rss.breaking import scan_breaking
     from metabolon.organelles.endocytosis_rss.config import restore_config
 
     cfg = restore_config()
-    result = run_breaking(cfg=cfg, dry_run=dry_run)
+    result = scan_breaking(cfg=cfg, dry_run=dry_run)
     raise SystemExit(result)
 
 
@@ -1502,11 +1502,11 @@ def endocytosis_relevance(top: int | None):
     """Show relevance scoring stats or top-scored items."""
     from metabolon.organelles.endocytosis_rss.relevance import (
         affinity_stats,
-        get_top_cargo,
+        top_cargo,
     )
 
     if top is not None:
-        items = get_top_cargo(limit=top)
+        items = top_cargo(limit=top)
         if not items:
             click.echo("No recent relevance data found.")
             return
@@ -1541,8 +1541,8 @@ def endocytosis_relevance(top: int | None):
 def endocytosis_discover(count: int | None):
     """Discover new receptor candidates from X/Twitter timeline."""
     from metabolon.organelles.endocytosis_rss.config import restore_config
-    from metabolon.organelles.endocytosis_rss.discover import run_discover
+    from metabolon.organelles.endocytosis_rss.discover import scout_sources
 
     cfg = restore_config()
-    result = run_discover(cfg=cfg, count=count, bird_path=cfg.resolve_bird())
+    result = scout_sources(cfg=cfg, count=count, bird_path=cfg.resolve_bird())
     raise SystemExit(result)

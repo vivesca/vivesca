@@ -491,9 +491,9 @@ def anabolism_flywheel() -> AnabolismResult:
 
     # 3. Calendar load
     try:
-        from metabolon.organelles.circadian_clock import list_events
+        from metabolon.organelles.circadian_clock import scheduled_events
 
-        fasti_out = list_events()
+        fasti_out = scheduled_events()
         events = 0
         for line in fasti_out.splitlines():
             line = line.strip()

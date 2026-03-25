@@ -2,7 +2,7 @@
 
 Prompts:
   research       — structured research brief with sources and synthesis
-  draft_message  — draft a message in Terry's voice for a given platform
+  compose_signal  — draft a message in Terry's voice for a given platform
   morning_brief  — morning situation report combining calendar and context
 """
 
@@ -45,7 +45,7 @@ def research(
 
 
 @prompt(
-    name="draft_message",
+    name="compose_signal",
     description=(
         "Draft a message in Terry's voice for a specific platform and recipient. "
         "Produces front-stage copy ready for review — never sends directly."

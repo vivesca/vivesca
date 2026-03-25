@@ -43,8 +43,8 @@ def metabolize_statement(
     from pypdf import PdfReader
 
     from metabolon.respirometry.payments import (
-        add_pending_payment,
-        create_payment_reminder,
+        queue_payment,
+        schedule_payment_reminder,
         is_autopay,
     )
 
@@ -99,14 +99,14 @@ def metabolize_statement(
             f"will be deducted by {meta.due_date}"
         )
     else:
-        add_pending_payment(
+        queue_payment(
             payments_file,
             bank=bank,
             amount=balance,
             due_date=meta.due_date,
             statement_date=meta.statement_date,
         )
-        create_payment_reminder(bank, balance, meta.due_date)
+        schedule_payment_reminder(bank, balance, meta.due_date)
         payment_action = f"ACTION: Pay {bank.upper()} HKD {balance:,.2f} by {meta.due_date}"
 
     return {

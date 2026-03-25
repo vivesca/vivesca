@@ -48,9 +48,9 @@ class ReceptorList(Secretion):
 def ligand_bind(name: str, limit: int = 20) -> LigandResult:
     """Bind to a conversation receptor and read its ligands."""
     contact = _contact_type(name)
-    from metabolon.organelles.gap_junction import read_messages
+    from metabolon.organelles.gap_junction import receive_signals
 
-    result = read_messages(name, limit)
+    result = receive_signals(name, limit)
     prefix = f"[{contact}] " if contact == "gap_junction" else ""
     return LigandResult(messages=f"{prefix}{result}")
 
@@ -62,9 +62,9 @@ def ligand_bind(name: str, limit: int = 20) -> LigandResult:
 )
 def ligand_draft(name: str, message: str) -> LigandDraft:
     """Draft a ligand for manual secretion."""
-    from metabolon.organelles.gap_junction import draft_message
+    from metabolon.organelles.gap_junction import compose_signal
 
-    result = draft_message(name, message)
+    result = compose_signal(name, message)
     return LigandDraft(draft=result)
 
 
@@ -75,9 +75,9 @@ def ligand_draft(name: str, message: str) -> LigandDraft:
 )
 def receptor_list(limit: int = 20) -> ReceptorList:
     """List available conversation receptors."""
-    from metabolon.organelles.gap_junction import list_chats
+    from metabolon.organelles.gap_junction import active_junctions
 
-    result = list_chats(limit)
+    result = active_junctions(limit)
     return ReceptorList(chats=result)
 
 
@@ -88,7 +88,7 @@ def receptor_list(limit: int = 20) -> ReceptorList:
 )
 def receptor_sync() -> Vital:
     """Check receptor synchronisation state."""
-    from metabolon.organelles.gap_junction import sync_status
+    from metabolon.organelles.gap_junction import junction_status
 
-    result = sync_status()
+    result = junction_status()
     return Vital(status="ok", message=result)

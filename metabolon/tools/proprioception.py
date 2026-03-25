@@ -96,9 +96,9 @@ def _anatomy() -> str:
 def _circadian() -> str:
     """Circadian oscillator: rhythm phases, not just event lists."""
 
-    from metabolon.organelles.circadian_clock import list_events
+    from metabolon.organelles.circadian_clock import scheduled_events
 
-    events = list_events()
+    events = scheduled_events()
 
     # Circadian oscillator: overlay rhythm phases onto events
     hour = datetime.now(HKT).hour

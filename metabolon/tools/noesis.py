@@ -25,7 +25,7 @@ class ChemotaxisResult(Secretion):
 )
 def chemotaxis_search(query: str) -> ChemotaxisResult:
     """Quick chemotactic gradient sensing."""
-    from metabolon.organelles.chemotaxis_engine import search as _search
+    from metabolon.organelles.chemotaxis_engine import recall as _search
 
     result = _search(query)
     return ChemotaxisResult(synthesis=result)
@@ -71,7 +71,7 @@ def _gradient_score(result: str) -> int:
     return score
 
 
-def gradient_search(query: str, threshold: int = 2, max_iterations: int = 3) -> ChemotaxisResult:
+def gradient_recall(query: str, threshold: int = 2, max_iterations: int = 3) -> ChemotaxisResult:
     """Chemotaxis: gradient-following iterative search.
 
     Searches, scores result quality, and if below threshold,
@@ -81,7 +81,7 @@ def gradient_search(query: str, threshold: int = 2, max_iterations: int = 3) -> 
     best_result = ""
     best_score = -1
 
-    from metabolon.organelles.chemotaxis_engine import search as _search
+    from metabolon.organelles.chemotaxis_engine import recall as _search
 
     for _i in range(max_iterations):
         result = _search(query)

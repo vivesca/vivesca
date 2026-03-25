@@ -30,7 +30,7 @@ def _write_tonus(content: str) -> None:
 
 
 @tool(
-    name="histone_mark",
+    name="tonus_mark",
     description="Update a Tonus progress item's status or description.",
     annotations=ToolAnnotations(readOnlyHint=False),
 )
@@ -100,7 +100,7 @@ def histone_mark(
 
 
 @tool(
-    name="histone_status",
+    name="tonus_status",
     description="List current Tonus progress items.",
     annotations=ToolAnnotations(readOnlyHint=True),
 )

@@ -32,9 +32,9 @@ class CheckpointAction(EffectorResult):
 )
 def checkpoint_list(date: str = "today") -> CheckpointList:
     """List cell cycle checkpoints for a date."""
-    from metabolon.organelles.circadian_clock import list_events
+    from metabolon.organelles.circadian_clock import scheduled_events
 
-    result = list_events(date)
+    result = scheduled_events(date)
     return CheckpointList(events=result)
 
 
@@ -57,9 +57,9 @@ def checkpoint_set(
         args.extend(["--description", description])
     if location:
         args.extend(["--location", location])
-    from metabolon.organelles.circadian_clock import create_event
+    from metabolon.organelles.circadian_clock import schedule_event
 
-    result = create_event(summary, date, from_time)
+    result = schedule_event(summary, date, from_time)
     return CheckpointAction(success=True, message=result)
 
 
@@ -70,9 +70,9 @@ def checkpoint_set(
 )
 def checkpoint_move(event_id: str, date: str, time: str) -> CheckpointAction:
     """Reschedule an existing checkpoint."""
-    from metabolon.organelles.circadian_clock import move_event
+    from metabolon.organelles.circadian_clock import reschedule_event
 
-    result = move_event(event_id, date, time)
+    result = reschedule_event(event_id, date, time)
     return CheckpointAction(success=True, message=result)
 
 
@@ -83,7 +83,7 @@ def checkpoint_move(event_id: str, date: str, time: str) -> CheckpointAction:
 )
 def checkpoint_delete(event_id: str) -> CheckpointAction:
     """Remove a checkpoint from the cell cycle."""
-    from metabolon.organelles.circadian_clock import delete_event
+    from metabolon.organelles.circadian_clock import cancel_event
 
-    result = delete_event(event_id)
+    result = cancel_event(event_id)
     return CheckpointAction(success=True, message=result)
