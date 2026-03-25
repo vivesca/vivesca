@@ -1,4 +1,0 @@
-log_path: ~/epigenome/chromatin/AI News Log.md
-digest_output_dir: ~/epigenome/chromatin/AI & Tech
-max_log_lines: 500
-digest_model: anthropic/claude-sonnet-4-6
