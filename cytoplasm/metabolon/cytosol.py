@@ -86,4 +86,4 @@ def synthesize(
 
 
 # Deprecated alias -- use synthesize() directly
-invoke_llm = synthesize
+invoke_symbiont = synthesize

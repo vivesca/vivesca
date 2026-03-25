@@ -475,12 +475,12 @@ def run_cross_model_review(manifest_path: Path):
         print("pulse-review not found -- skipping cross-model review")
 
 
-def post_acta_summary(total_waves: int, stop_reason: str):
+def post_efferens_summary(total_waves: int, stop_reason: str):
     """Post a summary to ACTA board so Terry sees results in his inbox."""
     try:
         from metabolon.cytosol import VIVESCA_ROOT
 
-        import acta
+        from metabolon import symbiont as acta  # TODO: rename acta module
 
         acta.post(
             f"Pulse completed {total_waves} wave(s). Stop reason: {stop_reason}. "
@@ -497,7 +497,7 @@ def post_acta_summary(total_waves: int, stop_reason: str):
 def autophagy(wave: int, stop_reason: str):
     """Autophagy — recycle the cardiac cycle: write vital signs, archive log, review."""
     write_vital_signs(wave, stop_reason)
-    post_acta_summary(wave, stop_reason)
+    post_efferens_summary(wave, stop_reason)
     if CARDIAC_LOG.exists():
         ts = datetime.datetime.now().strftime("%Y-%m-%d-%H%M")
         archive = CARDIAC_LOG.with_name(f"pulse-{ts}.md")

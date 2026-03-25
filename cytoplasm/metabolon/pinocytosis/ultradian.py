@@ -1,4 +1,4 @@
-"""Ultradian gather — situational snapshot (was kairos).
+"""Ultradian gather — situational snapshot (situational snapshot).
 
 Sub-circadian rhythm: what's actionable right now?
 Collects: calendar, TODO, Tonus, alerts.
@@ -7,7 +7,7 @@ Collects: calendar, TODO, Tonus, alerts.
 
 def intake(as_json: bool = True) -> str:
     """Run ultradian gather. Returns formatted string."""
-    raise NotImplementedError("ultradian gather not yet implemented — migrate from kairos")
+    raise NotImplementedError("ultradian gather not yet implemented — stub — not yet implemented")
 
 
 def main() -> None:

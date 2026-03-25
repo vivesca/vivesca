@@ -458,7 +458,7 @@ def _exocytose(result: str, seed: str, title: str | None, draft_model: str = "ge
     import subprocess as _sp
     from datetime import datetime
 
-    llm = _acquire_catalyst()
+    symbiont = _acquire_catalyst()
     post_title = title or seed[:60]
     slug = post_title.lower().replace(" ", "-")
     # Remove non-alphanumeric except hyphens
@@ -480,7 +480,7 @@ tags: [ai, agents, design, vivesca]
 ---"""
 
     try:
-        content = llm.query(draft_model, prompt, timeout=120)
+        content = symbiont.query(draft_model, prompt, timeout=120)
         post_path = Path.home() / "notes" / "Writing" / "Blog" / "Published" / f"{slug}.md"
         post_path.write_text(content)
         click.echo(f"Drafted: {post_path}")
@@ -622,7 +622,7 @@ def metabolise(seed, expander, pusher, rounds, output, no_publish, title, no_cha
                                 queue.append((chain_item, depth + 1))
         return
 
-    llm = _acquire_catalyst()
+    symbiont = _acquire_catalyst()
 
     header = f"─── Metabolise: {seed} "
     header += "─" * max(1, 50 - len(header))
@@ -644,7 +644,7 @@ def metabolise(seed, expander, pusher, rounds, output, no_publish, title, no_cha
             )
 
         try:
-            expansion = llm.query(expander, expand_prompt, timeout=120)
+            expansion = symbiont.query(expander, expand_prompt, timeout=120)
         except Exception as e:
             click.echo(f"Round {round_num} [{expander}]: ERROR — {e}")
             break
@@ -652,7 +652,7 @@ def metabolise(seed, expander, pusher, rounds, output, no_publish, title, no_cha
         # ── Compress ─────────────────────────────────────────────────
         compress_prompt = CRYSTALLISATION_TEMPLATE.format(expansion=expansion)
         try:
-            compression = llm.query(expander, compress_prompt, timeout=120)
+            compression = symbiont.query(expander, compress_prompt, timeout=120)
         except Exception as e:
             click.echo(f"Round {round_num} [{expander} compress]: ERROR — {e}")
             break
@@ -673,7 +673,7 @@ def metabolise(seed, expander, pusher, rounds, output, no_publish, title, no_cha
         if round_num < rounds:
             push_prompt = SELECTION_PRESSURE_TEMPLATE.format(compression=compression)
             try:
-                push_text = llm.query(pusher, push_prompt, timeout=120)
+                push_text = symbiont.query(pusher, push_prompt, timeout=120)
             except Exception as e:
                 click.echo(f"Round {round_num + 1} [{pusher} push]: ERROR — {e}")
                 break

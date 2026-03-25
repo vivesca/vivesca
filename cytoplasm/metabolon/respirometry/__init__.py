@@ -23,7 +23,7 @@ CATEGORIES_FILE = SPENDING_DIR / "categories.yaml"
 CONFIG_FILE = SPENDING_DIR / "config.yaml"
 PAYMENTS_FILE = SPENDING_DIR / "payments.yaml"
 DEDUP_LEDGER = SPENDING_DIR / ".processed"
-ACTA_DIR = Path.home() / "notes" / "ACTA"
+EFFERENS_DIR = Path.home() / "notes" / "Efferens"
 HKT = timezone(timedelta(hours=8))
 
 
@@ -168,14 +168,14 @@ def scan_and_process(
     if results:
         successes = [r for r in results if "error" not in r]
         if successes:
-            _write_acta(successes, results)
+            _write_efferens(successes, results)
 
     return results
 
 
-def _write_acta(successes: list[dict], all_results: list[dict]) -> None:
+def _write_efferens(successes: list[dict], all_results: list[dict]) -> None:
     """Write an ACTA note summarising processed statements."""
-    ACTA_DIR.mkdir(parents=True, exist_ok=True)
+    EFFERENS_DIR.mkdir(parents=True, exist_ok=True)
     now = datetime.now(HKT)
     ts = now.strftime("%Y-%m-%dT%H:%M%z")
     ts_prefix = now.strftime("%Y-%m-%d-%H%M")
@@ -224,5 +224,5 @@ def _write_acta(successes: list[dict], all_results: list[dict]) -> None:
 
     content = f"---\nfrom: spending\nto: terry\nseverity: info\nts: {ts}\n---\n\n{body}\n"
 
-    acta_path = ACTA_DIR / f"{ts_prefix}-{slug}.md"
-    acta_path.write_text(content)
+    efferens_path = EFFERENS_DIR / f"{ts_prefix}-{slug}.md"
+    efferens_path.write_text(content)

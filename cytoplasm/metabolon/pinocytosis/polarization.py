@@ -7,7 +7,7 @@ Collects: consumption check, guard status, north stars.
 
 def intake(as_json: bool = True) -> str:
     """Run polarization preflight gather. Returns formatted string."""
-    raise NotImplementedError("polarization gather not yet implemented — migrate from copia-gather")
+    raise NotImplementedError("polarization gather not yet implemented — stub — not yet implemented")
 
 
 def guard(action: str = "status") -> str:

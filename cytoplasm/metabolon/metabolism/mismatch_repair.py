@@ -182,13 +182,13 @@ def _detect_structural_gaps(src: Path = SRC_DIR) -> list[StructuralGap]:
             is_labelled_cortical = "cortical" in docstring.lower()
 
             # Check actual imports, not string mentions
-            imports_llm = any(
+            imports_symbiont = any(
                 (isinstance(n, ast.ImportFrom) and n.module and "llm" in n.module)
                 or (isinstance(n, ast.Import) and any("llm" in a.name for a in n.names))
                 for n in ast.iter_child_nodes(tree)
             )
 
-            if is_labelled_autonomic and imports_llm:
+            if is_labelled_autonomic and imports_symbiont:
                 lesions.append(
                     StructuralGap(
                         file=py_file.name,
@@ -198,7 +198,7 @@ def _detect_structural_gaps(src: Path = SRC_DIR) -> list[StructuralGap]:
                         reason=f"{node.name} claims autonomic but imports LLM",
                     )
                 )
-            elif is_labelled_cortical and not imports_llm and "substrate" not in py_file.name:
+            elif is_labelled_cortical and not imports_symbiont and "substrate" not in py_file.name:
                 # Substrates are cortical by intent (produce proposals for LLM evaluation)
                 # even though they don't call LLM directly — sweep.py does
                 lesions.append(

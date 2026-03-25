@@ -26,7 +26,7 @@ from metabolon.cytosol import VIVESCA_ROOT
 
 LOG_DIR = Path.home() / "logs"
 EVENT_LOG = LOG_DIR / "vivesca-events.jsonl"
-_LEGACY_EVENT_LOG = LOG_DIR / "copia-events.jsonl"
+_LEGACY_EVENT_LOG = LOG_DIR / "polarization-events.jsonl"
 CONF_PATH = VIVESCA_ROOT / "respiration.conf"
 DAILY_STATE_FILE = Path.home() / "tmp" / "respiration-daily.json"
 SKIP_UNTIL_FILE = Path.home() / "tmp" / ".respiration-skip-until"

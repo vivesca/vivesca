@@ -85,11 +85,11 @@ def metabolise(
 
 def draft(result: str, title: str, slug: str, model: str = "gemini") -> Path | None:
     """Reaction 2: crystallised insight → spore."""
-    llm = _acquire_catalyst()
+    symbiont = _acquire_catalyst()
     timestamp = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%S.000Z")
     prompt = DRAFT_PROMPT.format(result=result, title=title, timestamp=timestamp)
     try:
-        content = llm.query(model, prompt, timeout=120)
+        content = symbiont.query(model, prompt, timeout=120)
         post_path = PUBLISHED / f"{slug}.md"
         post_path.write_text(content)
         return post_path
