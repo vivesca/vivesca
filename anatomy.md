@@ -37,7 +37,7 @@ returns its product, terminates.
 
 #### Bud definition format
 
-File: `claude/agents/{phenotype}.md`
+File: `membrane/buds/{phenotype}.md`
 
 ```yaml
 ---

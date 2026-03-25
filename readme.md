@@ -17,7 +17,7 @@ uv add vivesca
 - **25 tools** across 8 domains — messaging, search, calendar, memory, browser, health, metabolism
 - **Structured output** — every tool returns Pydantic models with `outputSchema`
 - **Metabolism engine** — signal collection, fitness computation, variant evolution, promotion gates
-- **4 resources** — budget, calendar, search log, memory stats
+- **12 resources** — budget, calendar, search log, memory stats
 - **3 prompts** — research, draft message, morning brief
 
 ## Hypothesis

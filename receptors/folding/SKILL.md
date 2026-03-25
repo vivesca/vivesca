@@ -84,7 +84,7 @@ Nothing ships without evidence in the conversation.
 - [ ] **No regressions** — full test suite, not just new tests
 - [ ] **Matches spec** — re-read the requirement, compare
 
-If something fails, diagnose before retrying. Consult `~/docs/solutions/` for known patterns. Don't shotgun fixes.
+If something fails, diagnose before retrying. Consult `~/code/vivesca/loci/solutions/` for known patterns. Don't shotgun fixes.
 
 ## Review
 
@@ -120,7 +120,7 @@ If you just built a new CLI or tool, create `~/code/vivesca/receptors/<name>/SKI
 
 ### Compound
 
-If the solve was non-obvious, capture it: `~/docs/solutions/<topic>.md`. Future sessions benefit.
+If the solve was non-obvious, capture it: `~/code/vivesca/loci/solutions/<topic>.md`. Future sessions benefit.
 
 ## Language Selection
 

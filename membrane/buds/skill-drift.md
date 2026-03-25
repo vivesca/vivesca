@@ -9,7 +9,7 @@ Check all skills and agents for stale references. Drift happens silently — cat
 
 1. Collect all skill/agent files:
    - ~/.claude/skills/*.md
-   - ~/code/vivesca/claude/agents/*.md
+   - ~/code/vivesca/membrane/buds/*.md
    - ~/.claude/agents/*.md (if any)
 
 2. For each file, extract:

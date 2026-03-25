@@ -150,7 +150,7 @@ Research agents SendMessage findings to the synthesizer for incorporation. Shut 
 - **Gemini sandbox:** Only accesses its workspace dir. Reference files within workspace, never ~/tmp/.
 - **Codex read-only:** Can't write files. Review output is inline — capture from task output.
 - **Don't role-assign Claude agents.** "Strategist", "red team", "hiring manager" — overkill. Different models provide diversity, not different prompts.
-- **Deliverables never in ~/tmp/.** Tell agents to write to vault or ~/docs/.
+- **Deliverables never in ~/tmp/.** Tell agents to write to vault or ~/code/vivesca/loci/.
 - **Don't narrate play-by-play to the user.** Set up the team, let it run, present the final result.
 
 ---

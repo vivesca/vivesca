@@ -84,7 +84,7 @@ quorum "question" --deep --vault
 quorum --prompt-file /tmp/prompt.txt --deep --vault
 
 # Batch/agent-test runs (--quick --quiet)
-quorum --quick --quiet --domain banking -o ~/docs/solutions/agent-tests/<name>.md "..."
+quorum --quick --quiet --domain banking -o ~/code/vivesca/loci/solutions/agent-tests/<name>.md "..."
 ```
 
 - `--vault` auto-saves to `~/notes/Councils/` with Obsidian Sync. Never `--output /tmp/` — wiped on reboot.

@@ -541,7 +541,7 @@ def _glycolytic_commit(repo_root, rel):
 # ── ligation: auto-commit to tracked repos ─────────────────
 
 LIGATION_REPOS = {str(_VIVESCA_ROOT): True}
-LIGATION_TEST_PREFIXES = ("claude/hooks/", "scripts/", "bin/")
+LIGATION_TEST_PREFIXES = ("membrane/cytoskeleton/", "loci/scripts/", "effectors/")
 
 
 def mod_ligation(data):

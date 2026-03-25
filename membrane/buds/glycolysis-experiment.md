@@ -9,7 +9,7 @@ Experiment: convert one LLM dependency to deterministic and measure the result.
 
 1. Run the glycolysis audit first:
    ```bash
-   cd ~/code/vivesca && grep -rn "synthesize\|_acquire_catalyst\|llm\.query\|max20\|anthropic" src/ claude/hooks/ --include="*.py" | grep -v __pycache__
+   cd ~/code/vivesca && grep -rn "synthesize\|_acquire_catalyst\|llm\.query\|max20\|anthropic" cytoplasm/ membrane/cytoskeleton/ --include="*.py" | grep -v __pycache__
    ```
 
 2. Classify each as Judgment/Classification/Formatting/Routing
