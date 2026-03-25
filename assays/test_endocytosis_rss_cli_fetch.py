@@ -58,6 +58,7 @@ def test_fetch_fallback_and_zeros(monkeypatch, mock_cfg, capsys):
     monkeypatch.setattr("metabolon.organelles.endocytosis_rss.state.refractory_elapsed", lambda *args, **kwargs: True)
     monkeypatch.setattr("metabolon.organelles.endocytosis_rss.cli.refractory_elapsed", lambda *args, **kwargs: True)
     monkeypatch.setattr("metabolon.organelles.endocytosis_rss.relevance.get_receptor_signal_ratio", lambda *args, **kwargs: 1.0)
+    monkeypatch.setattr("metabolon.organelles.endocytosis_rss.relevance.score_cargo", lambda *a, **kw: {"score": 5, "banking_angle": "N/A", "talking_point": "N/A"})
     monkeypatch.setattr("metabolon.organelles.endocytosis_rss.log.rotate_log", lambda *args: None)
     monkeypatch.setattr("metabolon.organelles.endocytosis_rss.log.load_title_prefixes", lambda _p: set())
     monkeypatch.setattr("metabolon.organelles.endocytosis_rss.log.is_junk", lambda _t: False)

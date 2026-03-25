@@ -595,7 +595,7 @@ _PATH_COMPONENTS = frozenset(
         "clear",
         "thesis",
         "askesis",
-        "officina",
+        "epigenome",
     }
 )
 

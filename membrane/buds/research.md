@@ -7,7 +7,7 @@ memory: project
 mcpServers:
   noesis:
     type: stdio
-    command: /Users/terry/officina/mcp/noesis/run.sh
+    command: noesis
 ---
 
 Research the given topic. One verb, any subject.

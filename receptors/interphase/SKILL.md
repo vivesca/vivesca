@@ -15,7 +15,7 @@ Phone-friendly (Blink/tmux). Target: one bus ride. No deep reflection — captur
 ## Context Load (parallel, before starting)
 
 - `[[Email Threads Tracker]]` (`~/notes/Email Threads Tracker.md`)
-- `~/code/vivesca/claude/memory/prospective.md` — check for `WHEN: email triage` or `WHEN: interphase` entries
+- `~/code/vivesca/engrams/prospective.md` — check for `WHEN: email triage` or `WHEN: interphase` entries
 - Today's daily note (`~/notes/Daily/YYYY-MM-DD.md`)
 
 ## Steps

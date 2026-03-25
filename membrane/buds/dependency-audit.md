@@ -1,6 +1,6 @@
 ---
 name: dependency-audit
-description: Check outdated pip/brew/cargo deps across vivesca and reticulum. Surface critical gaps.
+description: Check outdated pip/brew/cargo deps across vivesca and vivesca. Surface critical gaps.
 model: sonnet
 tools: ["Bash", "Read"]
 ---
@@ -12,7 +12,7 @@ Audit dependencies across all package managers. Surface outdated, vulnerable, or
    - Flag: anything > 2 major versions behind, security-critical tools (openssl, curl, git)
 
 2. Python (pip/uv):
-   - Check ~/code/vivesca/requirements.txt and ~/reticulum/requirements.txt
+   - Check ~/code/vivesca/requirements.txt and ~/code/vivesca/requirements.txt
    - `pip list --outdated` in each active venv if accessible
    - Flag: packages with known CVEs or > 6 months since last update
 

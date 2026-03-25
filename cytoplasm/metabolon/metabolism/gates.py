@@ -37,7 +37,7 @@ async def taste(
     """LLM-based holistic check: does the variant still accurately
     describe what the tool does? Compares against the founder genotype.
 
-    Uses vivesca/lib/llm.py for the LLM call.
+    Uses cofactors/llm.py for the LLM call.
     """
     import sys
 

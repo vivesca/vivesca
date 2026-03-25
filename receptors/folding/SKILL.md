@@ -111,7 +111,7 @@ Triage depth before running anything:
 - Clean commits with descriptive messages
 - `git diff --stat` review (especially after Gemini delegates — they touch extra files)
 - PR if warranted (`gh pr create`), skip for personal tools on main
-- If new CLI: add to `~/officina/claude/tool-index.md`
+- If new CLI: add to `~/code/vivesca/proteome.md`
 - If replacing old tool: run tool-replacement checklist
 
 ### Companion skill

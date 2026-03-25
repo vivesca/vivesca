@@ -9,10 +9,8 @@ from metabolon.organelles.endocytosis_rss import relevance
 
 @pytest.fixture(autouse=True)
 def force_keyword_fallback(monkeypatch):
-    def fake_run(*_args, **_kwargs):
-        raise FileNotFoundError
-
-    monkeypatch.setattr(relevance.subprocess, "run", fake_run)
+    """Block all LLM calls — force deterministic keyword fallback."""
+    monkeypatch.setattr(relevance, "_llm_query", lambda *a, **kw: (_ for _ in ()).throw(FileNotFoundError))
 
 
 def test_keyword_scoring():

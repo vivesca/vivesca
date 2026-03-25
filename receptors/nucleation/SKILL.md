@@ -133,7 +133,7 @@ Full-tier steps (Sonnet subagents, routed by file type):
 
 **7. Finish:**
 - Clean commits, PR creation (`gh pr create`), companion skill + GitHub push
-- If new CLI built: add to `~/code/vivesca/claude/tool-index.md`. If replacing old tool: run `~/code/vivesca/loci/solutions/patterns/tool-replacement-checklist.md`.
+- If new CLI built: add to `~/code/vivesca/proteome.md`. If replacing old tool: run `~/code/vivesca/loci/solutions/patterns/tool-replacement-checklist.md`.
 - Skip for: personal tools on main, single-commit changes
 
 ### 5. Companion skill + GitHub repo

@@ -41,7 +41,7 @@ _ENGAGEMENT_LOG = Path.home() / ".cache" / "lustro" / "engagement.jsonl"
 
 # ---------------------------------------------------------------------------
 # Internal JSONL reader (reads analytics logs without importing the organelle,
-# which has a reticulum/lib path dependency that may not be on the MCP server's PATH)
+# which has a cofactors/ path dependency that may not be on the MCP server's PATH)
 # ---------------------------------------------------------------------------
 
 

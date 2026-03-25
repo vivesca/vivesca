@@ -19,7 +19,7 @@ Check all skills and agents for stale references. Drift happens silently — cat
 
 3. Verify each:
    - Paths: does the file/directory exist?
-   - Binaries: `which <cmd>` or `ls ~/reticulum/bin/<cmd>`
+   - Binaries: `which <cmd>` or `ls ~/code/vivesca/bin/<cmd>`
    - Referenced config files: do they exist?
 
 4. Flag mismatches:

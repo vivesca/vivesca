@@ -1,6 +1,6 @@
 """Generate synthetic PDF test fixtures for spending parser tests.
 
-Run with: python tests/create_synthetic_fixtures.py
+Run with: python assays/create_synthetic_fixtures.py
 
 Uses fpdf2 to create PDFs whose pypdf-extracted text matches the exact patterns
 each parser expects.  All personal data is replaced with fake equivalents.

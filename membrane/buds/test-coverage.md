@@ -1,20 +1,20 @@
 ---
 name: test-coverage
-description: Find untested modules in vivesca and reticulum. Surface highest-risk gaps.
+description: Find untested modules in vivesca and vivesca. Surface highest-risk gaps.
 model: sonnet
 tools: ["Bash", "Read", "Grep", "Glob"]
 ---
 
-Audit test coverage across vivesca and reticulum. Find the highest-risk untested code.
+Audit test coverage across vivesca and vivesca. Find the highest-risk untested code.
 
 1. Inventory source modules:
    - `ls ~/code/vivesca/**/*.py` — all Python files
-   - `ls ~/reticulum/**/*.py` — reticulum Python
+   - `ls ~/code/vivesca/**/*.py` — vivesca Python
    - Exclude __pycache__, venv, .git
 
 2. Find test files:
    - `ls ~/code/vivesca/**/test_*.py` and `**/tests/*.py`
-   - `ls ~/reticulum/**/test_*.py`
+   - `ls ~/code/vivesca/**/test_*.py`
 
 3. Cross-reference: which source modules have no corresponding test file?
 
