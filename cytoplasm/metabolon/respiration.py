@@ -228,7 +228,7 @@ def respiratory_status() -> str:
         weekly = telemetry.get("seven_day", {}).get("utilization", 0)
         sonnet = telemetry.get("seven_day_sonnet", {}).get("utilization", 0)
         max_util = max(weekly, sonnet)
-        log_event("budget_raw", weekly=weekly, sonnet=sonnet)
+        record_event("budget_raw", weekly=weekly, sonnet=sonnet)
         if max_util < 95:
             return "green"
         elif max_util < 98:
@@ -246,7 +246,7 @@ def respiratory_status() -> str:
         )
         status = result.stdout.strip().lower() or "unknown"
         if status != "unknown":
-            log_event("budget_source", source="cached_stale")
+            record_event("budget_source", source="cached_stale")
         return status
     except Exception:
         return "unknown"
@@ -361,7 +361,7 @@ def interactive_pressure() -> float:
     blended = 0.7 * live_util + 0.3 * pattern_util if telemetry else pattern_util
     pressure = max(0.0, min(1.0, (blended - 20) / 40))
 
-    log_event(
+    record_event(
         "interactive_pressure",
         live=round(live_util, 1),
         pattern=round(pattern_util, 1),
@@ -399,7 +399,7 @@ def measured_cost_per_wave() -> float:
 
     if len(wave_deltas) >= 3:
         avg = sum(wave_deltas) / len(wave_deltas)
-        log_event(
+        record_event(
             "cost_measured",
             method="today_isolated",
             cost=round(avg, 3),
@@ -416,7 +416,7 @@ def measured_cost_per_wave() -> float:
                 deltas.append(d)
         if len(deltas) >= 10:
             avg = sum(deltas) / len(deltas)
-            log_event(
+            record_event(
                 "cost_measured",
                 method="historical_all",
                 cost=round(avg, 3),
@@ -465,12 +465,12 @@ def induce_apnea(
 
     if waves_today >= MAX_DAILY_WAVES:
         SKIP_UNTIL_FILE.write_text(midnight.isoformat())
-        log_event("skip_set", until=midnight.isoformat(), reason="daily_cap")
+        record_event("skip_set", until=midnight.isoformat(), reason="daily_cap")
         return
 
     skip_until = min(now + datetime.timedelta(hours=1), midnight)
     SKIP_UNTIL_FILE.write_text(skip_until.isoformat())
-    log_event("skip_set", until=skip_until.isoformat(), reason="pacing_recheck")
+    record_event("skip_set", until=skip_until.isoformat(), reason="pacing_recheck")
 
 
 def resume_breathing():
@@ -529,7 +529,7 @@ def assess_pacing() -> tuple[bool, str]:
     saturated_today = daily_saturated_count()
     estimated_burn = effective_burn(waves_today, saturated_today, cost_per_wave)
 
-    log_event(
+    record_event(
         "pacing_check",
         weekly=weekly,
         days_remaining=round(days_remaining, 1),

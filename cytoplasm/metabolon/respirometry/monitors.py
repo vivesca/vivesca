@@ -93,9 +93,9 @@ def activate_monitors(
 ) -> list[str]:
     """Run all monitors and return combined alerts."""
     alerts: list[str] = []
-    alerts.extend(check_unknown_high(transactions))
-    alerts.extend(check_duplicates(transactions))
-    alerts.extend(check_budget(transactions, monthly_budget, category_budgets))
+    alerts.extend(flag_anomalies(transactions))
+    alerts.extend(flag_duplicates(transactions))
+    alerts.extend(assess_budget(transactions, monthly_budget, category_budgets))
     if expected_subscriptions:
-        alerts.extend(check_subscriptions(transactions, expected_subscriptions))
+        alerts.extend(assess_subscriptions(transactions, expected_subscriptions))
     return alerts

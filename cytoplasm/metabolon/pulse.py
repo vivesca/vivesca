@@ -32,7 +32,7 @@ from metabolon.respiration import (
     breathe,
     is_apneic,
     log,
-    log_event,
+    record_event,
     measure_respiration,
     respiratory_genome,
     respiration_snapshot,
@@ -167,7 +167,7 @@ def compact_cardiac_log():
     recent = lines[-80:]
     compacted = [*header, f"\n(... {len(lines) - 83} earlier lines compacted ...)\n", *recent]
     CARDIAC_LOG.write_text("\n".join(compacted))
-    log_event("manifest_compacted", from_lines=len(lines), to_lines=len(compacted))
+    record_event("manifest_compacted", from_lines=len(lines), to_lines=len(compacted))
 
 
 # ---------------------------------------------------------------------------
@@ -189,14 +189,14 @@ def sense_disk_pressure() -> bool:
         return True
 
     log(f"Disk pressure: {free_gb:.1f}GB free (threshold {DISK_CLEAN_GB}GB). Running lysosome.")
-    log_event("disk_pressure", free_gb=round(free_gb, 1), action="lysosome")
+    record_event("disk_pressure", free_gb=round(free_gb, 1), action="lysosome")
 
     try:
         from metabolon.tools.checkpoint import lysosome_digest
 
         result = lysosome_digest()
         log(f"Lysosome: freed {result.freed_gb}GB ({result.before_gb}→{result.after_gb}GB)")
-        log_event(
+        record_event(
             "disk_lysosome_complete",
             before_gb=result.before_gb,
             after_gb=result.after_gb,
@@ -205,11 +205,11 @@ def sense_disk_pressure() -> bool:
         free_gb = result.after_gb
     except Exception as e:
         log(f"Lysosome failed: {e}")
-        log_event("disk_lysosome_failed", error=str(e))
+        record_event("disk_lysosome_failed", error=str(e))
 
     if free_gb < DISK_FLOOR_GB:
         log(f"Disk critically low ({free_gb:.1f}GB < {DISK_FLOOR_GB}GB). Refusing wave.")
-        log_event("disk_critical", free_gb=round(free_gb, 1))
+        record_event("disk_critical", free_gb=round(free_gb, 1))
         return False
 
     return True
@@ -257,7 +257,7 @@ def fire_wave(wave_num: int, model: str, focus: str | None = None) -> tuple[bool
     timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     header = f"\n{'=' * 60}\n=== Wave {wave_num} -- {timestamp} ===\n{'=' * 60}\n"
 
-    log_event("wave_start", wave=wave_num, model=model)
+    record_event("wave_start", wave=wave_num, model=model)
     start = time.time()
 
     with open(log_file, "a") as lf:
@@ -313,19 +313,19 @@ def fire_wave(wave_num: int, model: str, focus: str | None = None) -> tuple[bool
                 except Exception:
                     tail = "(unreadable)"
                 recent_count = _count_recent_secretions(SECRETION_DIRS, start)
-                log_event(
+                record_event(
                     "wave_yield",
                     wave=wave_num,
                     secretion_count=recent_count,
                 )
-                log_event(
+                record_event(
                     "wave_end",
                     wave=wave_num,
                     exit_code=ret,
                     elapsed_s=elapsed,
                     output_tail=tail,
                 )
-                write_status(state="completed", elapsed_s=elapsed)
+                record_status(state="completed", elapsed_s=elapsed)
                 return ret == 0, tail
 
             current_log_size = os.path.getsize(log_file)
@@ -337,7 +337,7 @@ def fire_wave(wave_num: int, model: str, focus: str | None = None) -> tuple[bool
 
             if stall_duration > stall_seconds:
                 if not stall_warned:
-                    log_event(
+                    record_event(
                         "wave_stall_warning",
                         wave=wave_num,
                         elapsed_s=elapsed_so_far,
@@ -346,7 +346,7 @@ def fire_wave(wave_num: int, model: str, focus: str | None = None) -> tuple[bool
                     stall_warned = True
             else:
                 if stall_warned:
-                    log_event(
+                    record_event(
                         "wave_stall_resolved",
                         wave=wave_num,
                         elapsed_s=elapsed_so_far,
@@ -363,7 +363,7 @@ def fire_wave(wave_num: int, model: str, focus: str | None = None) -> tuple[bool
 
             if churn_duration > churn_seconds and elapsed_so_far > churn_seconds:
                 if not churn_warned:
-                    log_event(
+                    record_event(
                         "wave_churn_warning",
                         wave=wave_num,
                         elapsed_s=elapsed_so_far,
@@ -372,7 +372,7 @@ def fire_wave(wave_num: int, model: str, focus: str | None = None) -> tuple[bool
                     churn_warned = True
             else:
                 if churn_warned:
-                    log_event(
+                    record_event(
                         "wave_churn_resolved",
                         wave=wave_num,
                         elapsed_s=elapsed_so_far,
@@ -384,7 +384,7 @@ def fire_wave(wave_num: int, model: str, focus: str | None = None) -> tuple[bool
                 proc.kill()
                 proc.wait()
                 log_fh.write(f"\n--- KILLED after {elapsed_so_far}s ---\n")
-                log_event(
+                record_event(
                     "wave_killed",
                     wave=wave_num,
                     elapsed_s=elapsed_so_far,
@@ -411,7 +411,7 @@ def fire_wave(wave_num: int, model: str, focus: str | None = None) -> tuple[bool
                     flush=True,
                 )
                 last_print_time = now
-            write_status(
+            record_status(
                 elapsed_s=elapsed_so_far,
                 stall_s=stall_duration,
                 churn_s=churn_duration,
@@ -423,7 +423,7 @@ def fire_wave(wave_num: int, model: str, focus: str | None = None) -> tuple[bool
 
     except Exception as e:
         elapsed = round(time.time() - start, 1)
-        log_event("wave_error", wave=wave_num, error=str(e), elapsed_s=elapsed)
+        record_event("wave_error", wave=wave_num, error=str(e), elapsed_s=elapsed)
         return False, ""
     finally:
         log_fh.close()
@@ -469,7 +469,7 @@ def cross_model_review(manifest_path: Path):
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
         )
-        log_event("cross_model_review", manifest=str(manifest_path))
+        record_event("cross_model_review", manifest=str(manifest_path))
         print(f"Cross-model review dispatched for {manifest_path.name}")
     except FileNotFoundError:
         print("pulse-review not found -- skipping cross-model review")
@@ -496,14 +496,14 @@ def post_efferens_summary(total_waves: int, stop_reason: str):
 
 def autophagy(wave: int, stop_reason: str):
     """Autophagy — recycle the cardiac cycle: write vital signs, archive log, review."""
-    write_vital_signs(wave, stop_reason)
+    record_vital_signs(wave, stop_reason)
     post_efferens_summary(wave, stop_reason)
     if CARDIAC_LOG.exists():
         ts = datetime.datetime.now().strftime("%Y-%m-%d-%H%M")
         archive = CARDIAC_LOG.with_name(f"pulse-{ts}.md")
         CARDIAC_LOG.rename(archive)
         print(f"Manifest archived to {archive.name}")
-        run_cross_model_review(archive)
+        cross_model_review(archive)
 
 
 # ---------------------------------------------------------------------------
@@ -542,7 +542,7 @@ def main(waves=None, model="opus", retry=1, focus=None, stop_after=None, dry_run
         return
 
     acquire_cardiac_lock()
-    rotate_event_log()
+    cycle_event_log()
 
     # Respiration: budget headroom (coarse gate)
     has_headroom, reason = assess_vital_capacity()
@@ -558,9 +558,9 @@ def main(waves=None, model="opus", retry=1, focus=None, stop_after=None, dry_run
     stop_after_str = stop_after or (CIRCADIAN_DEADLINE if is_overnight else None)
 
     LOG_DIR.mkdir(parents=True, exist_ok=True)
-    init_cardiac_log()
+    seed_cardiac_log()
 
-    log_event("run_start", max_waves=max_waves, model=model, overnight=is_overnight)
+    record_event("run_start", max_waves=max_waves, model=model, overnight=is_overnight)
 
     stop_reason = "completed"
     wave = 0
@@ -569,7 +569,7 @@ def main(waves=None, model="opus", retry=1, focus=None, stop_after=None, dry_run
 
     def sigint_handler(sig, frame):
         nonlocal stop_reason, wave
-        log_event("interrupted", wave=wave)
+        record_event("interrupted", wave=wave)
         stop_reason = "interrupted"
         autophagy(wave, stop_reason)
         sys.exit(0)
@@ -580,21 +580,21 @@ def main(waves=None, model="opus", retry=1, focus=None, stop_after=None, dry_run
     if stop_after_str:
         h, m = map(int, stop_after_str.split(":"))
         stop_after_time = datetime.time(h, m)
-        log_event("deadline_set", stop_after=stop_after_str)
+        record_event("deadline_set", stop_after=stop_after_str)
 
     for wave in range(1, max_waves + 1):
         if stop_after_time and datetime.datetime.now().time() >= stop_after_time:
             stop_reason = f"deadline_{stop_after_str}"
-            log_event("deadline_reached", wave=wave, deadline=stop_after_str)
+            record_event("deadline_reached", wave=wave, deadline=stop_after_str)
             print(f"  Past {stop_after_str} -- no new waves.", flush=True)
             break
 
         # Respiration: fine budget gate (per-wave)
         budget = respiratory_status()
-        log_event("budget_check", wave=wave, status=budget)
+        record_event("budget_check", wave=wave, status=budget)
         if budget in ("yellow", "red", "unknown"):
             stop_reason = f"budget_{budget}"
-            log_event("budget_stop", wave=wave, status=budget)
+            record_event("budget_stop", wave=wave, status=budget)
             if budget == "unknown":
                 print(
                     "  Budget unknown (live + cached both failed). Stopping as precaution.",
@@ -603,12 +603,12 @@ def main(waves=None, model="opus", retry=1, focus=None, stop_after=None, dry_run
             break
 
         # Autonomic: disk pressure relief
-        if not check_disk_pressure():
+        if not sense_disk_pressure():
             stop_reason = "disk_critical"
             break
 
         if dry_run:
-            log_event("dry_run", wave=wave)
+            record_event("dry_run", wave=wave)
             stop_reason = "dry_run"
             break
 
@@ -619,13 +619,13 @@ def main(waves=None, model="opus", retry=1, focus=None, stop_after=None, dry_run
         success = False
         wave_tail = ""
         for attempt in range(1, retry + 2):
-            success, wave_tail = run_wave(wave, model, focus)
+            success, wave_tail = fire_wave(wave, model, focus)
             if success:
                 consecutive_fails = 0
                 resume_breathing()
                 break
             if attempt <= retry:
-                log_event("retry", wave=wave, attempt=attempt)
+                record_event("retry", wave=wave, attempt=attempt)
                 time.sleep(5)
 
         # Log per-wave usage delta
@@ -633,7 +633,7 @@ def main(waves=None, model="opus", retry=1, focus=None, stop_after=None, dry_run
         usage_after = respiration_snapshot()
         if usage_before and usage_after:
             wave_delta = round(usage_after["weekly"] - usage_before["weekly"], 2)
-            log_event(
+            record_event(
                 "wave_usage",
                 wave=wave,
                 weekly_before=usage_before["weekly"],
@@ -652,7 +652,7 @@ def main(waves=None, model="opus", retry=1, focus=None, stop_after=None, dry_run
             if matched:
                 is_saturated = True
                 consecutive_saturation += 1
-                log_event(
+                record_event(
                     "saturation_detected",
                     wave=wave,
                     consecutive=consecutive_saturation,
@@ -666,7 +666,7 @@ def main(waves=None, model="opus", retry=1, focus=None, stop_after=None, dry_run
                 )
                 if consecutive_saturation >= 2:
                     stop_reason = f"saturation_{consecutive_saturation}_consecutive_waves"
-                    log_event("saturation_stop", wave=wave, consecutive=consecutive_saturation)
+                    record_event("saturation_stop", wave=wave, consecutive=consecutive_saturation)
                     print(
                         f"  Saturation confirmed over {consecutive_saturation} waves. Stopping.",
                         flush=True,
@@ -677,7 +677,7 @@ def main(waves=None, model="opus", retry=1, focus=None, stop_after=None, dry_run
 
         if success:
             daily_count = breathe(saturated=is_saturated, wave_delta=wave_delta)
-            log_event(
+            record_event(
                 "daily_wave_count",
                 wave=wave,
                 daily_total=daily_count,
@@ -697,7 +697,7 @@ def main(waves=None, model="opus", retry=1, focus=None, stop_after=None, dry_run
 
             is_killed = "KILLED" in fail_tail
             backoff = 120 if is_killed else 30
-            log_event(
+            record_event(
                 "wave_failed_backoff",
                 wave=wave,
                 consecutive=consecutive_fails,
@@ -711,7 +711,7 @@ def main(waves=None, model="opus", retry=1, focus=None, stop_after=None, dry_run
             )
             if consecutive_fails >= 3:
                 stop_reason = f"circuit_breaker_{consecutive_fails}_consecutive_fails"
-                log_event("circuit_breaker", wave=wave, consecutive=consecutive_fails)
+                record_event("circuit_breaker", wave=wave, consecutive=consecutive_fails)
                 print(
                     f"  Circuit breaker: {consecutive_fails} consecutive failures. Stopping.",
                     flush=True,
@@ -721,7 +721,7 @@ def main(waves=None, model="opus", retry=1, focus=None, stop_after=None, dry_run
     else:
         stop_reason = f"max_waves_{max_waves}"
 
-    log_event("run_end", waves=wave, reason=stop_reason)
+    record_event("run_end", waves=wave, reason=stop_reason)
     autophagy(wave, stop_reason)
 
     if stop_reason.startswith("circuit_breaker"):

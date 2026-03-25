@@ -365,7 +365,7 @@ def _run_breaking_locked(
                         f"(published_at={published_at or 'unknown'}): {title}",
                         file=sys.stderr,
                     )
-                    append_alert_signal(
+                    emit_alert_signal(
                         signal_log_path,
                         timestamp=now_iso,
                         title=title,
@@ -407,7 +407,7 @@ def _run_breaking_locked(
         throttled = not dry_run and not can_alert(state, now)
         if throttled:
             print(f"Throttled: {match['title']}", file=sys.stderr)
-            append_alert_signal(
+            emit_alert_signal(
                 signal_log_path,
                 timestamp=now_iso,
                 title=match["title"],
@@ -433,7 +433,7 @@ def _run_breaking_locked(
             state["alerts_today"] = int(state.get("alerts_today", 0)) + 1
             state["last_alert_time"] = now.isoformat()
             sent_matches.append(match)
-            append_alert_signal(
+            emit_alert_signal(
                 signal_log_path,
                 timestamp=now_iso,
                 title=match["title"],

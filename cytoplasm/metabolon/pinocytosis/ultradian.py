@@ -16,7 +16,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Gather context for /ultradian situational snapshot.")
     parser.add_argument("--json", action="store_true")
     args = parser.parse_args()
-    print(gather(as_json=args.json))
+    print(intake(as_json=args.json))
 
 
 if __name__ == "__main__":

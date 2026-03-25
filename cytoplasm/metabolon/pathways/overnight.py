@@ -94,7 +94,7 @@ def compose_post(result: str, title: str, slug: str, model: str = "gemini") -> P
         post_path.write_text(content)
         return post_path
     except Exception as e:
-        print(f"  draft error: {e}")
+        print(f"  compose_post error: {e}")
         return None
 
 
@@ -132,9 +132,9 @@ def metabolize_pipeline(seeds: list[dict], expander: str = "gemini", pusher: str
             results["no_convergence"].append(slug)
             continue
 
-        post_path = draft(crystal, title, slug)
+        post_path = compose_post(crystal, title, slug)
         if not post_path:
-            print("  ✗ draft failed")
+            print("  ✗ compose_post failed")
             results["failed"].append(slug)
             continue
 

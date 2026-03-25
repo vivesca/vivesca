@@ -70,7 +70,7 @@ def _read_file_raw(path: str) -> str | None:
 
 
 # ---------------------------------------------------------------------------
-# get_date
+# current_date
 # ---------------------------------------------------------------------------
 
 
@@ -384,7 +384,7 @@ def _parse_fasti_output(text: str) -> list[dict[str, str]]:
 
 
 # ---------------------------------------------------------------------------
-# check_budget
+# assess_budget
 # ---------------------------------------------------------------------------
 
 
@@ -428,7 +428,7 @@ def intake_context(
         return {"available": False, "path": todo_path, "items": [], "error": "skipped"}
 
     dispatch = {
-        "date": get_date,
+        "date": current_date,
         "todo": _gather_todo,
         "now": lambda: sense_tonus(path=now_path),
         "calendar": lambda: sense_calendar(date=calendar_date, days=calendar_days),

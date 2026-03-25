@@ -36,7 +36,7 @@ def restore_symbionts(config_path: str | None = None) -> dict:
 
 def available_symbionts(config_path: str | None = None) -> dict[str, str]:
     """Return {name: description} for all registered models."""
-    models = load_models(config_path)
+    models = restore_symbionts(config_path)
     return {name: cfg.get("description", name) for name, cfg in models.items()}
 
 
@@ -121,7 +121,7 @@ def _query_openrouter(model: str, prompt: str, timeout: int) -> str:
 
 def transduce(model_name: str, prompt: str, timeout: int = 180, config_path: str | None = None) -> str:
     """Query a single model. Returns response text. Raises on error."""
-    models = load_models(config_path)
+    models = restore_symbionts(config_path)
     if model_name not in models:
         if model_name.startswith("openrouter/"):
             return _query_openrouter(model_name.split("/", 1)[1], prompt, timeout)

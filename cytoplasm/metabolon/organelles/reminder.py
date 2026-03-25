@@ -199,7 +199,7 @@ def decode_time(
 def cmd_ls(data: dict | None = None) -> None:
     """List all reminders sorted by due date, printing a formatted table to stdout."""
     if data is None:
-        data = read_db()
+        data = recall_reminders()
     reminders = _sorted_reminders(data)
     if not reminders:
         print("No reminders.")
@@ -238,14 +238,14 @@ def cmd_add(
     if due is not None:
         if at is not None or date is not None:
             raise ValueError("--due cannot be combined with --at or --date.")
-        at, date = parse_due_string(due)
+        at, date = decode_due_string(due)
 
-    due_ts = parse_time(rel, at, date)
+    due_ts = decode_time(rel, at, date)
     if due_ts is None:
         raise ValueError("Specify a time with --in, --at, --date, or --due.")
 
     # Duplicate check
-    data = read_db()
+    data = recall_reminders()
     _check_duplicate(data, title, due_ts)
 
     ok = _sync_via_applescript(title, due_ts, recur)
@@ -261,7 +261,7 @@ def cmd_add(
 
 def cmd_log(n: int = 20, filter_str: str | None = None) -> None:
     """Show completion history from the Due DB log bucket ('lb' field)."""
-    data = read_db()
+    data = recall_reminders()
     entries: list[dict] = data.get("lb", [])
 
     entries = sorted(entries, key=lambda r: r.get("m", 0), reverse=True)

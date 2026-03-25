@@ -9,7 +9,7 @@ Respiration in biology measures metabolic rate — the rate at which fuel is con
 This organelle measures token budget consumption: how much of the weekly allocation
 has been burned, and whether the organism is at risk of anaerobic (over-budget) operation.
 
-Core functions: get_usage, budget_status, append_history, format_status.
+Core functions: sense_usage, budget_status, append_history, serialize_status.
 """
 
 import json
@@ -116,7 +116,7 @@ def sense_usage() -> tuple[dict, int | None]:
     """
     try:
         token = get_oauth_token()
-        usage = fetch_usage(token)
+        usage = internalize_usage(token)
         return usage, None
     except Exception as live_err:
         entry, age = _read_fallback()
@@ -145,7 +145,7 @@ def budget_status(usage: dict) -> str:
     """Classify budget pressure from usage metrics.
 
     Args:
-        usage: dict from get_usage() with "seven_day" / "seven_day_sonnet" keys.
+        usage: dict from sense_usage() with "seven_day" / "seven_day_sonnet" keys.
 
     Returns:
         One of: "SAFE", "CAUTION", "WARNING", "DANGER"
@@ -169,7 +169,7 @@ def record_breath(usage: dict) -> None:
     """Append a usage snapshot to the history JSONL file.
 
     Args:
-        usage: dict from fetch_usage() or get_usage().
+        usage: dict from internalize_usage() or sense_usage().
     """
     HISTORY_FILE.parent.mkdir(parents=True, exist_ok=True)
     row = {
@@ -197,7 +197,7 @@ def serialize_status(usage: dict, stale_age: int | None = None) -> dict:
     """Format usage as a structured status summary.
 
     Args:
-        usage: dict from get_usage().
+        usage: dict from sense_usage().
         stale_age: Seconds since last live fetch, or None if current.
 
     Returns:
@@ -236,10 +236,10 @@ def sense() -> dict:
     Never raises; returns {"error": "..."} on failure.
 
     Returns:
-        format_status() output or {"error": "message"}.
+        serialize_status() output or {"error": "message"}.
     """
     try:
-        usage, stale_age = get_usage()
-        return format_status(usage, stale_age)
+        usage, stale_age = sense_usage()
+        return serialize_status(usage, stale_age)
     except Exception as exc:
         return {"error": str(exc)}

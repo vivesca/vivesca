@@ -17,7 +17,7 @@ def main() -> None:
     parser.add_argument("--json", action="store_true")
     parser.add_argument("--send", action="store_true", help="Send weather to Tara.")
     args = parser.parse_args()
-    print(gather(as_json=args.json, send_weather=args.send))
+    print(intake(as_json=args.json, send_weather=args.send))
 
 
 if __name__ == "__main__":

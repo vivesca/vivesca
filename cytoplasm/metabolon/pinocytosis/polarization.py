@@ -31,7 +31,7 @@ def main() -> None:
     if args.command == "guard":
         print(guard(action=args.action))
     else:
-        print(gather(as_json=getattr(args, "json", True)))
+        print(intake(as_json=getattr(args, "json", True)))
 
 
 if __name__ == "__main__":

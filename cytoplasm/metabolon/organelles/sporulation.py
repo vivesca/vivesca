@@ -160,7 +160,7 @@ def publish(slug: str, push: bool = False) -> dict:
         "warnings": warnings,
     }
     if push:
-        push_result = push_site()
+        push_result = propagate_site()
         result["push"] = push_result
     return result
 

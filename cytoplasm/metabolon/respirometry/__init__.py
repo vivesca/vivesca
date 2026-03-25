@@ -151,7 +151,7 @@ def metabolize_statements(
             continue
 
         try:
-            result = process_statement(pdf, spending_dir=spending_dir, move_pdf=move_pdf)
+            result = metabolize_statement(pdf, spending_dir=spending_dir, move_pdf=move_pdf)
             if "error" not in result:
                 stamp_processed(sha, ledger)
             results.append(result)

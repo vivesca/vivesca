@@ -44,7 +44,7 @@ def _today_date():
 
 
 def _read_all() -> dict:
-    from metabolon.pinocytosis import read_todo
+    from metabolon.pinocytosis import recall_todo
 
     return recall_todo()
 
@@ -199,7 +199,7 @@ def spare() -> dict:
     Returns:
         {"date": "YYYY-MM-DD", "items": [...], "total_count": N, "overdue_count": N}
     """
-    from metabolon.pinocytosis import read_todo
+    from metabolon.pinocytosis import recall_todo
 
     today_date = _today_date()
     data = recall_todo(sections=["Spare Capacity"])
