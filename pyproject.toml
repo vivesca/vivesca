@@ -17,7 +17,7 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://vivesca.org"
+Homepage = "https://vivesca.sh"
 Repository = "https://github.com/vivesca/vivesca"
 Blog = "https://terryli.hm"
 
