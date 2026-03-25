@@ -158,7 +158,7 @@ Trigger: `/dokime mock` or "mock exam"
 - **Trap patterns:** `~/epigenome/chromatin/GARP RAI Trap Patterns.md`
 - **Glossary:** `~/epigenome/chromatin/GARP RAI Glossary.md` — acronyms (useful for rapid-fire)
 - **Raw content:** `~/epigenome/chromatin/GARP RAI Module {1-5} - Raw Content.md` — verbatim from GARP portal, verified complete Mar 2026
-- **GARP portal:** `https://garplearning.benchprep.com/app/rai26` — login flow + navigation gotchas: `~/code/vivesca/loci/solutions/garp-portal-navigation.md`
+- **GARP portal:** `https://garplearning.benchprep.com/app/rai26` — login flow + navigation gotchas: `~/vivesca/loci/solutions/garp-portal-navigation.md`
 - **CLI:** `melete` — `session`, `record`, `end`, `today`, `due`, `stats`, `topics`, `coverage`, `reconcile`
 
 ## Boundaries

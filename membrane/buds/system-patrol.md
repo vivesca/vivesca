@@ -8,7 +8,7 @@ skills: ["cytometry"]
 
 Audit the vivesca organism's health and autonomy. Check:
 
-1. Run `interoception anatomy` equivalent: `ls ~/code/vivesca/receptors/` for skill inventory
+1. Run `interoception anatomy` equivalent: `ls ~/vivesca/receptors/` for skill inventory
 2. `ls ~/.claude/agents/` for agent inventory
 3. Hook health: `ls ~/.claude/hooks/` and check for recent errors in `~/logs/`
 4. LaunchAgent health: `launchctl list | grep vivesca` — are all services running?

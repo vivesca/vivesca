@@ -9,7 +9,7 @@ Check all skills and agents for stale references. Drift happens silently — cat
 
 1. Collect all skill/agent files:
    - ~/.claude/skills/*.md
-   - ~/code/vivesca/membrane/buds/*.md
+   - ~/vivesca/membrane/buds/*.md
    - ~/.claude/agents/*.md (if any)
 
 2. For each file, extract:
@@ -19,7 +19,7 @@ Check all skills and agents for stale references. Drift happens silently — cat
 
 3. Verify each:
    - Paths: does the file/directory exist?
-   - Binaries: `which <cmd>` or `ls ~/code/vivesca/bin/<cmd>`
+   - Binaries: `which <cmd>` or `ls ~/vivesca/bin/<cmd>`
    - Referenced config files: do they exist?
 
 4. Flag mismatches:

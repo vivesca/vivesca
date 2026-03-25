@@ -70,7 +70,7 @@ Cover what's relevant: architecture, components, data flow, error handling, inte
 
 **Light scope:** No doc needed. The conversation IS the record.
 
-**Standard/Deep:** Write a requirements doc to `~/code/vivesca/loci/brainstorms/YYYY-MM-DD-<topic>.md`:
+**Standard/Deep:** Write a requirements doc to `~/vivesca/loci/brainstorms/YYYY-MM-DD-<topic>.md`:
 
 ```markdown
 ---

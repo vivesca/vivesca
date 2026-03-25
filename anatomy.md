@@ -160,7 +160,7 @@ at 1/3 the cost would produce 80% of the value, use buds.
 
 | Repo | Costume | Mechanism |
 |------|---------|-----------|
-| `~/code/vivesca/` (public) | **Genome** | Shareable, forkable, universal |
+| `~/vivesca/` (public) | **Genome** | Shareable, forkable, universal |
 | `~/epigenome/` (private) | **Epigenome** | Instance-specific expression |
 | `~/epigenome/chromatin/` | **Chromatin** | Long-term information storage within the epigenome; `~/epigenome/chromatin/` is a transitional symlink |
 

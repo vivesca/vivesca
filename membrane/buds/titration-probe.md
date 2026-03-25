@@ -8,7 +8,7 @@ tools: ["Read", "Grep", "Glob", "Bash"]
 Experiment: test the titration principle on a live target.
 
 1. Find a component that still uses a non-biological name:
-   - Grep for engineering terms in ~/code/vivesca/cytoplasm/metabolon/ (handler, manager, processor, helper, util, service, worker, dispatcher, controller)
+   - Grep for engineering terms in ~/vivesca/cytoplasm/metabolon/ (handler, manager, processor, helper, util, service, worker, dispatcher, controller)
    - Or check variable names, function names, class names
 
 2. Pick ONE candidate. Study the biological equivalent:

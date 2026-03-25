@@ -312,7 +312,7 @@ Alerts via Telegram if:
 ## Code Location
 
 ```
-~/code/vivesca/src/vivesca/
+~/vivesca/src/vivesca/
 ├── tools/spending_sense.py           # vigilis_check_spending tool
 ├── metabolism/substrates/spending.py # spending substrate
 ├── spending/                         # domain package (see ADR below)

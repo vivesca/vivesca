@@ -15,7 +15,7 @@ Phone-friendly (Blink/tmux). Target: one bus ride. No deep reflection — captur
 ## Context Load (parallel, before starting)
 
 - `[[Email Threads Tracker]]` (`~/epigenome/chromatin/Email Threads Tracker.md`)
-- `~/code/vivesca/engrams/prospective.md` — check for `WHEN: email triage` or `WHEN: interphase` entries
+- `~/vivesca/engrams/prospective.md` — check for `WHEN: email triage` or `WHEN: interphase` entries
 - Today's daily note (`~/epigenome/chromatin/Daily/YYYY-MM-DD.md`)
 
 ## Steps

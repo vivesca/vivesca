@@ -13,7 +13,7 @@ runtime: rust
 
 5 frontier models deliberate on a question, then Gemini judges and Claude critiques. Auto-routes by difficulty.
 
-> Source: `~/code/quorum/`. Extended reference: `~/code/vivesca/receptors/quorum/REFERENCE.md`.
+> Source: `~/code/quorum/`. Extended reference: `~/vivesca/receptors/quorum/REFERENCE.md`.
 
 ---
 
@@ -84,7 +84,7 @@ quorum "question" --deep --vault
 quorum --prompt-file /tmp/prompt.txt --deep --vault
 
 # Batch/agent-test runs (--quick --quiet)
-quorum --quick --quiet --domain banking -o ~/code/vivesca/loci/solutions/agent-tests/<name>.md "..."
+quorum --quick --quiet --domain banking -o ~/vivesca/loci/solutions/agent-tests/<name>.md "..."
 ```
 
 - `--vault` auto-saves to `~/epigenome/chromatin/Councils/` with Obsidian Sync. Never `--output /tmp/` — wiped on reboot.
@@ -148,4 +148,4 @@ quorum --doctor      # Check API keys and connectivity
 
 ## Reference
 
-Extended docs in `~/code/vivesca/receptors/quorum/REFERENCE.md`: prompting tips, model tendencies, flag compatibility matrix, follow-up workflow, cost & ROI, research foundations.
+Extended docs in `~/vivesca/receptors/quorum/REFERENCE.md`: prompting tips, model tendencies, flag compatibility matrix, follow-up workflow, cost & ROI, research foundations.

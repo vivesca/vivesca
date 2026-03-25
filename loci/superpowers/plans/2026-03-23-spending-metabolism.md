@@ -17,7 +17,7 @@
 ## File Structure
 
 ```
-~/code/vivesca/
+~/vivesca/
 ├── src/vivesca/
 │   ├── spending/                          # NEW — domain package
 │   │   ├── __init__.py                    # public API: parse_statement, scan_and_process

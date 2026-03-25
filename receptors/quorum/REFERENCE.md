@@ -170,7 +170,7 @@ See `[[Frontier Council Lessons]]` for full usage lessons. Critical ones:
 
 ## Research Foundations
 
-Consilium's architecture is grounded in group deliberation research. Full synthesis with 21 papers: `~/code/vivesca/loci/solutions/multi-llm-deliberation-research.md`.
+Consilium's architecture is grounded in group deliberation research. Full synthesis with 21 papers: `~/vivesca/loci/solutions/multi-llm-deliberation-research.md`.
 
 **Why the blind phase matters most** (Surowiecki, Delphi, Tetlock): Independence before exposure is the single most validated principle. The blind phase captures independent positions before herding kicks in.
 

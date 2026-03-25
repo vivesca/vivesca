@@ -22,13 +22,13 @@ REGISTRY_PATH = Path(os.path.expanduser("~/.local/share/vivesca/skill-forks.yaml
 
 DEFAULT_REGISTRY = {
     "superpowers": {
-        "local": os.path.expanduser("~/code/vivesca/receptors/superpowers"),
+        "local": os.path.expanduser("~/vivesca/receptors/superpowers"),
         "cache_pattern": os.path.expanduser(
             "~/.claude/plugins/cache/claude-plugins-official/superpowers"
         ),
     },
     "compound-engineering": {
-        "local": os.path.expanduser("~/code/vivesca/receptors/compound-engineering"),
+        "local": os.path.expanduser("~/vivesca/receptors/compound-engineering"),
         "cache_pattern": os.path.expanduser(
             "~/.claude/plugins/cache/every-marketplace/compound-engineering"
         ),
