@@ -1,0 +1,130 @@
+#!/usr/bin/env python3
+"""Vault proximity ranker — find notes connected to a given note via wikilinks.
+Inspired by Aider's PageRank repo map with chat-context personalization.
+
+Usage: vault-proximity "Note Name" [--depth 2] [--format json|paths]
+
+Outputs files ranked by link distance from the seed note.
+Depth 1 = directly linked. Depth 2 = two hops. Default depth: 2.
+"""
+
+import argparse
+import json
+import os
+import re
+from collections import defaultdict
+from pathlib import Path
+
+VAULT = Path(os.path.expanduser("~/notes"))
+WIKILINK_RE = re.compile(r"\[\[([^\]|#]+)(?:[|#][^\]]*)?]]")
+
+
+def find_note(name: str) -> Path | None:
+    """Find a note by name (case-insensitive, with or without .md)."""
+    name_lower = name.lower().replace(".md", "")
+    for p in VAULT.rglob("*.md"):
+        if p.stem.lower() == name_lower:
+            return p
+    return None
+
+
+def extract_links(path: Path) -> set[str]:
+    """Extract wikilink targets from a note."""
+    try:
+        text = path.read_text(errors="replace")
+        return {m.strip() for m in WIKILINK_RE.findall(text)}
+    except Exception:
+        return set()
+
+
+def build_graph() -> dict[str, set[str]]:
+    """Build bidirectional link graph: note name -> set of linked note names."""
+    forward = defaultdict(set)
+    for p in VAULT.rglob("*.md"):
+        if "/Archive/" in str(p) or "/.trash/" in str(p):
+            continue
+        name = p.stem
+        links = extract_links(p)
+        for link in links:
+            forward[name].add(link)
+            forward[link].add(name)  # bidirectional
+    return dict(forward)
+
+
+def rank_by_proximity(seed: str, graph: dict, max_depth: int = 2) -> list[tuple[str, int]]:
+    """BFS from seed note, return [(note_name, distance)] sorted by distance."""
+    visited = {seed: 0}
+    queue = [seed]
+    results = []
+
+    while queue:
+        current = queue.pop(0)
+        depth = visited[current]
+        if depth > 0:
+            results.append((current, depth))
+        if depth >= max_depth:
+            continue
+        for neighbor in graph.get(current, set()):
+            if neighbor not in visited:
+                visited[neighbor] = depth + 1
+                queue.append(neighbor)
+
+    results.sort(key=lambda x: (x[1], x[0]))
+    return results
+
+
+def resolve_path(name: str) -> str:
+    """Try to find the actual file path for a note name."""
+    p = find_note(name)
+    return str(p.relative_to(VAULT)) if p else f"(not found) {name}"
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Vault proximity ranker")
+    parser.add_argument("note", help="Seed note name")
+    parser.add_argument("--depth", type=int, default=2, help="Max link depth (default: 2)")
+    parser.add_argument("--format", choices=["json", "paths", "table"], default="table")
+    parser.add_argument("--limit", type=int, default=30, help="Max results")
+    args = parser.parse_args()
+
+    graph = build_graph()
+
+    # Find seed
+    seed = args.note.replace(".md", "")
+    if seed not in graph:
+        # Try case-insensitive match
+        for key in graph:
+            if key.lower() == seed.lower():
+                seed = key
+                break
+        else:
+            print(f"Note '{args.note}' not found in vault link graph")
+            return 1
+
+    ranked = rank_by_proximity(seed, graph, args.depth)[: args.limit]
+
+    if args.format == "json":
+        print(
+            json.dumps(
+                [{"note": n, "distance": d, "path": resolve_path(n)} for n, d in ranked], indent=2
+            )
+        )
+    elif args.format == "paths":
+        for name, dist in ranked:
+            print(resolve_path(name))
+    else:
+        print(f"Notes connected to [[{seed}]] (depth {args.depth}):\n")
+        current_depth = 0
+        for name, dist in ranked:
+            if dist != current_depth:
+                current_depth = dist
+                print(f"\n--- Depth {dist} ---")
+            path = resolve_path(name)
+            print(f"  {name}  →  {path}")
+        print(f"\nTotal: {len(ranked)} connected notes")
+
+    return 0
+
+
+if __name__ == "__main__":
+    exit(main())

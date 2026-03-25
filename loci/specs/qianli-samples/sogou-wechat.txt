@@ -1,0 +1,291 @@
+- document:
+  - link "欢迎进入 AI 银行的相关微信公众号文章 – 搜狗微信搜索,盲人用户进入智能盲道请按快捷键Ctrl+Alt+R；阅读详细操作说明请按快捷键Ctrl+Alt+问号键。" [ref=e1]:
+    - /url: javascript:void(0)
+  - link "无障碍" [ref=e2]:
+    - /url: javascript:void(0)
+  - link "登录" [ref=e3]:
+    - /url: javascript:void(0);
+  - link "回到搜狗首页" [ref=e4]:
+    - /url: /
+  - list:
+    - listitem:
+      - link "资讯" [ref=e5]:
+        - /url: https://www.sogou.com/sogou?ie=utf8&p=40230447&interation=1728053249&interV=&pid=sogou-wsse-7050094b04fd9aa3&query=AI 银行
+    - listitem:
+      - link "网页" [ref=e6]:
+        - /url: http://www.sogou.com/web?ie=utf8&query=AI 银行
+    - listitem:
+      - link "微信" [ref=e7]:
+        - /url: javascript:void(0)
+    - listitem:
+      - link "知乎" [ref=e8]:
+        - /url: http://zhihu.sogou.com/zhihu?ie=utf8&p=73351201&query=AI 银行
+    - listitem:
+      - link "图片" [ref=e9]:
+        - /url: http://pic.sogou.com/pics?ie=utf8&p=40230504&query=AI 银行
+    - listitem:
+      - link "视频" [ref=e10]:
+        - /url: https://v.sogou.com/v?ie=utf8&p=40230608&query=AI 银行
+    - listitem:
+      - link "医疗" [ref=e11]:
+        - /url: https://www.sogou.com/web?m2web=mingyi.sogou.com&ie=utf8&query=AI 银行
+    - listitem:
+      - link "汉语" [ref=e12]:
+        - /url: https://hanyu.sogou.com/result?query=AI 银行
+    - listitem:
+      - link "翻译" [ref=e13]:
+        - /url: https://fanyi.sogou.com/text?ie=utf8&keyword=AI 银行
+    - listitem:
+      - link "问问" [ref=e14]:
+        - /url: http://wenwen.sogou.com/s/?ch=weixinsearch&w=AI 银行
+    - listitem:
+      - link "百科" [ref=e15]:
+        - /url: https://www.sogou.com/sogou?ie=utf8&insite=baike.sogou.com&pid=sogou-wsse-17737832ac17be52&query=AI 银行
+    - listitem:
+      - link "更多>>" [ref=e16]:
+        - /url: http://www.sogou.com/docs/more.htm?v=1
+  - textbox [ref=e17]: AI 银行
+  - link [ref=e18]:
+    - /url: javascript:void(0)
+  - button "搜文章" [ref=e19]
+  - text: 以下内容来自微信公众平台
+  - list:
+    - listitem:
+      - link [ref=e20] [nth=1]:
+        - /url: /link?url=dn9a_-gY295K0Rci_xozVXfdMkSQTLW6cwJThYulHEtVjXrGTiVgS3P4hOlusR73_tJ2T1iByFGcO7r77S2yplqXa8Fplpd95yxpNY9hhIhmLKqNEecc9hXTn3idRZuUI2O7D4Y8XERlHV8JhtH1rv6KfxnvmBGmoZgKbqsp2_sGu91-hbjVN2kIZGUpd2BTvPwc0atM67NQW7inmVhFXbn_0_Cg1GVhYkmHclGomrokKSSuZ12oS5lEWJtssObBG1fW3I8xX4wC2Qmj7RgGwQ..&type=2&query=AI %E9%93%B6%E8%A1%8C&token=9DB37915B15184CE43450E81622EC7C3442552A969900B4A
+        - img
+      - heading "AI如何帮银行提升30%营销效率?银行人不可不知的知识点" [ref=e21] [level=3]:
+        - link "AI如何帮银行提升30%营销效率?银行人不可不知的知识点" [ref=e22]:
+          - /url: /link?url=dn9a_-gY295K0Rci_xozVXfdMkSQTLW6cwJThYulHEtVjXrGTiVgS3P4hOlusR73_tJ2T1iByFGcO7r77S2yplqXa8Fplpd95yxpNY9hhIhmLKqNEecc9hXTn3idRZuUI2O7D4Y8XERlHV8JhtH1rv6KfxnvmBGmoZgKbqsp2_sGu91-hbjVN2kIZGUpd2BTvPwc0atM67NQW7inmVhFXbn_0_Cg1GVhYkmHclGomrokKSSuZ12oS5lEWJtssObBG1fW3I8xX4wC2Qmj7RgGwQ..&type=2&query=AI %E9%93%B6%E8%A1%8C&token=9DB37915B15184CE43450E81622EC7C3442552A969900B4A
+          - emphasis: AI
+          - text: 如何帮
+          - emphasis: 银行
+          - text: 提升30%营销效率?
+          - emphasis: 银行
+          - text: 人不可不知的知识点
+      - paragraph:
+        - emphasis: AI
+        - text: 可以为
+        - emphasis: 银行
+        - text: 开辟线上新渠道,实现业绩突飞猛进.基于数据智能的全自动营销
+        - emphasis: AI
+        - text: 渗透入
+        - emphasis: 银行
+        - text: 网点、电话营销、网络营销、微信等各个...
+      - text: 零售生态圈2020-3-9
+    - listitem:
+      - link [ref=e23] [nth=2]:
+        - /url: /link?url=dn9a_-gY295K0Rci_xozVXfdMkSQTLW6cwJThYulHEtVjXrGTiVgS3P4hOlusR73_tJ2T1iByFGcO7r77S2yplqXa8Fplpd9RY8E3iEjMBZPrRAqGb1DllmMpLoYuOid_BaVLZbEbVOoiQPCeKmmasqtEni5YAO9yua_i3XiqqMPrU1BboTfYz-bIgkWn1h_HNIwsixU1jpZ-f4RI0twQ6Vr6XDhcqYiVjDFW_JvewE-bON25PVO1_gTv_XWJVgTS2fzGcPcDvqfxjh3za6jWA..&type=2&query=AI %E9%93%B6%E8%A1%8C&token=9DB37915B15184CE43450E81622EC7C3442552A969900B4A
+        - img
+      - heading "“AI鑫”计划出炉!银行零售金融的变革才刚刚开始" [ref=e24] [level=3]:
+        - link "“AI鑫”计划出炉!银行零售金融的变革才刚刚开始" [ref=e25]:
+          - /url: /link?url=dn9a_-gY295K0Rci_xozVXfdMkSQTLW6cwJThYulHEtVjXrGTiVgS3P4hOlusR73_tJ2T1iByFGcO7r77S2yplqXa8Fplpd9RY8E3iEjMBZPrRAqGb1DllmMpLoYuOid_BaVLZbEbVOoiQPCeKmmasqtEni5YAO9yua_i3XiqqMPrU1BboTfYz-bIgkWn1h_HNIwsixU1jpZ-f4RI0twQ6Vr6XDhcqYiVjDFW_JvewE-bON25PVO1_gTv_XWJVgTS2fzGcPcDvqfxjh3za6jWA..&type=2&query=AI %E9%93%B6%E8%A1%8C&token=9DB37915B15184CE43450E81622EC7C3442552A969900B4A
+          - text: “
+          - emphasis: AI
+          - text: 鑫”计划出炉!
+          - emphasis: 银行
+          - text: 零售金融的变革才刚刚开始
+      - paragraph:
+        - text: “
+        - emphasis: AI
+        - text: 鑫” 计划,由度小满金融与南京
+        - emphasis: 银行
+        - text: 共同推出,旨在通过分享经双方实践检验的技术和经验,在智能获客、大数据风控、客户运...
+      - text: Bank资管2018-11-15
+    - listitem:
+      - link [ref=e26] [nth=3]:
+        - /url: /link?url=dn9a_-gY295K0Rci_xozVXfdMkSQTLW6cwJThYulHEtVjXrGTiVgS3P4hOlusR73_tJ2T1iByFGcO7r77S2yplqXa8Fplpd9zYYIQksZ8vpZk6YywuIzynYxtbi3KEj8cJiwFiEmLOJswFiQGvB-hWmxYz34qd8x6Mrd4gZDlZfhR9nikFxFI8MOX4otZcYEUfORbyXIDwKh6jhWmPXaPy3Nf2rzlVKd-7JSw9968TTTH3-KwgznX0U-Yvp5-egWSqNcVLueGdB5Nu7CnoSqqg..&type=2&query=AI %E9%93%B6%E8%A1%8C&token=9DB37915B15184CE43450E81622EC7C3442552A969900B4A
+        - img
+      - heading "交通银行 AI 全布局" [ref=e27] [level=3]:
+        - link "交通银行 AI 全布局" [ref=e28]:
+          - /url: /link?url=dn9a_-gY295K0Rci_xozVXfdMkSQTLW6cwJThYulHEtVjXrGTiVgS3P4hOlusR73_tJ2T1iByFGcO7r77S2yplqXa8Fplpd9zYYIQksZ8vpZk6YywuIzynYxtbi3KEj8cJiwFiEmLOJswFiQGvB-hWmxYz34qd8x6Mrd4gZDlZfhR9nikFxFI8MOX4otZcYEUfORbyXIDwKh6jhWmPXaPy3Nf2rzlVKd-7JSw9968TTTH3-KwgznX0U-Yvp5-egWSqNcVLueGdB5Nu7CnoSqqg..&type=2&query=AI %E9%93%B6%E8%A1%8C&token=9DB37915B15184CE43450E81622EC7C3442552A969900B4A
+          - text: 交通
+          - emphasis: 银行
+          - emphasis: AI
+          - text: 全布局
+      - paragraph:
+        - emphasis: AI
+        - text: 平台近年来,交通
+        - emphasis: 银行
+        - text: 积极探索人工智能与
+        - emphasis: 银行
+        - text: 业务的应用触点,坚持以客户体验为核心,利用智能感知、智能认知、智能决策等人...
+      - text: AI金融评论2021-1-11
+    - listitem:
+      - link [ref=e29] [nth=4]:
+        - /url: /link?url=dn9a_-gY295K0Rci_xozVXfdMkSQTLW6cwJThYulHEtVjXrGTiVgS3P4hOlusR73_tJ2T1iByFGcO7r77S2yplqXa8Fplpd97NaEM57cbSxfpwR0zEsQcNZ1BlIEua7BQRUYcxc755__fHsKq-fWG9CXdSNm_tU5p4lKsxTmLhqLvxJCNkqfivBTvLTJhkbFtlbcd8Z8Cev3AxHOqKlK1mzDnGsThqfIgXSQ3N-BST97NcEuhsB23DfunecNZhNbSm9e4uoik8Xs46dn8Efgxg..&type=2&query=AI %E9%93%B6%E8%A1%8C&token=9DB37915B15184CE43450E81622EC7C3442552A969900B4A
+        - img
+      - heading "九卦 | 二八定律让位长尾定律,银行正用AI批量复制金牌客户经理" [ref=e30] [level=3]:
+        - link "九卦 | 二八定律让位长尾定律,银行正用AI批量复制金牌客户经理" [ref=e31]:
+          - /url: /link?url=dn9a_-gY295K0Rci_xozVXfdMkSQTLW6cwJThYulHEtVjXrGTiVgS3P4hOlusR73_tJ2T1iByFGcO7r77S2yplqXa8Fplpd97NaEM57cbSxfpwR0zEsQcNZ1BlIEua7BQRUYcxc755__fHsKq-fWG9CXdSNm_tU5p4lKsxTmLhqLvxJCNkqfivBTvLTJhkbFtlbcd8Z8Cev3AxHOqKlK1mzDnGsThqfIgXSQ3N-BST97NcEuhsB23DfunecNZhNbSm9e4uoik8Xs46dn8Efgxg..&type=2&query=AI %E9%93%B6%E8%A1%8C&token=9DB37915B15184CE43450E81622EC7C3442552A969900B4A
+          - text: 九卦 | 二八定律让位长尾定律,
+          - emphasis: 银行
+          - text: 正用
+          - emphasis: AI
+          - text: 批量复制金牌客户经理
+      - paragraph:
+        - text: 1业务流程
+        - emphasis: AI
+        - text: 化
+        - emphasis: 银行
+        - text: 客户经营大体经历了四个阶段.第一阶段是任务线索定向.告诉理财师你该去经营哪些用户,并提供适配的沟通由...
+      - text: 九卦金融圈2025-10-9
+    - listitem:
+      - link [ref=e32] [nth=5]:
+        - /url: /link?url=dn9a_-gY295K0Rci_xozVXfdMkSQTLW6cwJThYulHEtVjXrGTiVgS3P4hOlusR73_tJ2T1iByFGcO7r77S2yplqXa8Fplpd9lno2ZJTewe_91pa2D0FM2GhGy1hySF1bzJu8uPrQFd1JjXHhDQU5NoeLxGMWa0qpV__9HdYC9_i6zJE0nL6cmZqK2YjvJbNxz2MY5XGuWQ-N6-PD6f2iWNLE8bkNeP-hntX6lJ33yzL12ZgbcruPol3Bf2Dv7PNqlKhIbJ6mnpnm0CtGSSkZQQ..&type=2&query=AI %E9%93%B6%E8%A1%8C&token=9DB37915B15184CE43450E81622EC7C3442552A969900B4A
+        - img
+      - heading "AI银行真革命还是伪命题?网商银行的千亿豪赌" [ref=e33] [level=3]:
+        - link "AI银行真革命还是伪命题?网商银行的千亿豪赌" [ref=e34]:
+          - /url: /link?url=dn9a_-gY295K0Rci_xozVXfdMkSQTLW6cwJThYulHEtVjXrGTiVgS3P4hOlusR73_tJ2T1iByFGcO7r77S2yplqXa8Fplpd9lno2ZJTewe_91pa2D0FM2GhGy1hySF1bzJu8uPrQFd1JjXHhDQU5NoeLxGMWa0qpV__9HdYC9_i6zJE0nL6cmZqK2YjvJbNxz2MY5XGuWQ-N6-PD6f2iWNLE8bkNeP-hntX6lJ33yzL12ZgbcruPol3Bf2Dv7PNqlKhIbJ6mnpnm0CtGSSkZQQ..&type=2&query=AI %E9%93%B6%E8%A1%8C&token=9DB37915B15184CE43450E81622EC7C3442552A969900B4A
+          - emphasis: AI
+          - emphasis: 银行
+          - text: 真革命还是伪命题?网商
+          - emphasis: 银行
+          - text: 的千亿豪赌
+      - paragraph:
+        - emphasis: AI
+        - emphasis: 银行
+        - text: :前瞻还是无奈?面对眼下的增长难题,网商
+        - emphasis: 银行
+        - text: 行长冯亮提出了一个引人关注的“
+        - emphasis: AI
+        - emphasis: 银行
+        - text: ”战略.在2025年7月的一场战略发...
+      - text: 外参科技2025-10-17
+    - listitem:
+      - link [ref=e35] [nth=6]:
+        - /url: /link?url=dn9a_-gY295K0Rci_xozVXfdMkSQTLW6cwJThYulHEtVjXrGTiVgS3P4hOlusR73_tJ2T1iByFGcO7r77S2yplqXa8Fplpd9zYYIQksZ8vpZk6YywuIzynYxtbi3KEj8cJiwFiEmLOJswFiQGvB-hbrJ02zWyljOJaTns4r8Fw6-CrlY7BrBrT5sAoqCm8RT3OkSreI2PNkZWWH_j9Bj_Uht42-Xtf2r6LJdLnXCdr_UwS1rhSPLa7PwEYfhknE2aBh1ISDtxO7FcvUoAZZH7Q..&type=2&query=AI %E9%93%B6%E8%A1%8C&token=9DB37915B15184CE43450E81622EC7C3442552A969900B4A
+        - img
+      - heading "中国农业银行 AI 全布局" [ref=e36] [level=3]:
+        - link "中国农业银行 AI 全布局" [ref=e37]:
+          - /url: /link?url=dn9a_-gY295K0Rci_xozVXfdMkSQTLW6cwJThYulHEtVjXrGTiVgS3P4hOlusR73_tJ2T1iByFGcO7r77S2yplqXa8Fplpd9zYYIQksZ8vpZk6YywuIzynYxtbi3KEj8cJiwFiEmLOJswFiQGvB-hbrJ02zWyljOJaTns4r8Fw6-CrlY7BrBrT5sAoqCm8RT3OkSreI2PNkZWWH_j9Bj_Uht42-Xtf2r6LJdLnXCdr_UwS1rhSPLa7PwEYfhknE2aBh1ISDtxO7FcvUoAZZH7Q..&type=2&query=AI %E9%93%B6%E8%A1%8C&token=9DB37915B15184CE43450E81622EC7C3442552A969900B4A
+          - text: 中国农业
+          - emphasis: 银行
+          - emphasis: AI
+          - text: 全布局
+      - paragraph:
+        - text: 农业
+        - emphasis: 银行
+        - text: 的
+        - emphasis: AI
+        - text: 平台——“雅典娜”诞生,农行开启人工智能的全面应用.据悉,“金融大脑”平台大范围集成了人工智能核心技术,在...
+      - text: AI金融评论2020-12-7
+    - listitem:
+      - link [ref=e38] [nth=7]:
+        - /url: /link?url=dn9a_-gY295K0Rci_xozVXfdMkSQTLW6cwJThYulHEtVjXrGTiVgS3P4hOlusR73_tJ2T1iByFGcO7r77S2yplqXa8Fplpd9a3mFWr-w8ogvojvmmHg_WD63rPt4lvKeUD3TQmXcCo5lCNNA3I-WH7CZL_Wltevl7zhU4cpMFWhLvtgyXalNsZALRPCR81zIz-tM7LPgrSO-0M8awX0UIJvzrkLpovvxmET735rKJmsi3VEIaZdeG3kGQPBTL0pVQSek3sRsDCs89kyxDwoXvg..&type=2&query=AI %E9%93%B6%E8%A1%8C&token=9DB37915B15184CE43450E81622EC7C3442552A969900B4A
+        - img
+      - heading "2025堪称银行业“AI元年”!多家银行提出AI战略、成立相关组织" [ref=e39] [level=3]:
+        - link "2025堪称银行业“AI元年”!多家银行提出AI战略、成立相关组织" [ref=e40]:
+          - /url: /link?url=dn9a_-gY295K0Rci_xozVXfdMkSQTLW6cwJThYulHEtVjXrGTiVgS3P4hOlusR73_tJ2T1iByFGcO7r77S2yplqXa8Fplpd9a3mFWr-w8ogvojvmmHg_WD63rPt4lvKeUD3TQmXcCo5lCNNA3I-WH7CZL_Wltevl7zhU4cpMFWhLvtgyXalNsZALRPCR81zIz-tM7LPgrSO-0M8awX0UIJvzrkLpovvxmET735rKJmsi3VEIaZdeG3kGQPBTL0pVQSek3sRsDCs89kyxDwoXvg..&type=2&query=AI %E9%93%B6%E8%A1%8C&token=9DB37915B15184CE43450E81622EC7C3442552A969900B4A
+          - text: 2025堪称
+          - emphasis: 银行
+          - text: 业“
+          - emphasis: AI
+          - text: 元年”!多家
+          - emphasis: 银行
+          - text: 提出
+          - emphasis: AI
+          - text: 战略、成立相关组织
+      - paragraph:
+        - text: 《
+        - emphasis: 银行
+        - text: 科技研究社》(作者 木子剑):在刚刚过去的2025年,国内
+        - emphasis: 银行
+        - text: 业
+        - emphasis: AI
+        - text: 布局及应用推进明显加速.腾讯和毕马威联合发布的《...
+      - text: 银行科技研究社1天前
+    - listitem:
+      - link [ref=e41] [nth=8]:
+        - /url: /link?url=dn9a_-gY295K0Rci_xozVXfdMkSQTLW6cwJThYulHEtVjXrGTiVgS3P4hOlusR73_tJ2T1iByFGcO7r77S2yplqXa8Fplpd9qaCwD85XYYpVaFRieWvZqcsBA_SB0OY4Tmwn41G10y76lkPsyI97vf7ZoSiIRERQVLgLR6I0Vo9zq996GOmApWQ8ezkMWvVmCX-nwqBCi9nrGOXWYyJQKvHYFXho54E9cKQxvNr8g4he5OP2F9jJ3Z9VI1GKWsYSKfCMtJI57la54z_tGSZTqA..&type=2&query=AI %E9%93%B6%E8%A1%8C&token=9DB37915B15184CE43450E81622EC7C3442552A969900B4A
+        - img
+      - heading "从三大行入股AI公司说起:银行正在突围,但问题还很多 | 馨金融" [ref=e42] [level=3]:
+        - link "从三大行入股AI公司说起:银行正在突围,但问题还很多 | 馨金融" [ref=e43]:
+          - /url: /link?url=dn9a_-gY295K0Rci_xozVXfdMkSQTLW6cwJThYulHEtVjXrGTiVgS3P4hOlusR73_tJ2T1iByFGcO7r77S2yplqXa8Fplpd9qaCwD85XYYpVaFRieWvZqcsBA_SB0OY4Tmwn41G10y76lkPsyI97vf7ZoSiIRERQVLgLR6I0Vo9zq996GOmApWQ8ezkMWvVmCX-nwqBCi9nrGOXWYyJQKvHYFXho54E9cKQxvNr8g4he5OP2F9jJ3Z9VI1GKWsYSKfCMtJI57la54z_tGSZTqA..&type=2&query=AI %E9%93%B6%E8%A1%8C&token=9DB37915B15184CE43450E81622EC7C3442552A969900B4A
+          - text: 从三大行入股
+          - emphasis: AI
+          - text: "公司说起:"
+          - emphasis: 银行
+          - text: 正在突围,但问题还很多 | 馨金融
+      - paragraph:
+        - text: “三大国有
+        - emphasis: 银行
+        - text: ”、“
+        - emphasis: AI
+        - text: 公司”、“战略投资”,这几个关键词足以让金融科技行业和媒体都小小沸腾一把. 可是暂且不提根据《商业...
+      - text: 馨金融2018-1-31
+    - listitem:
+      - link [ref=e44] [nth=9]:
+        - /url: /link?url=dn9a_-gY295K0Rci_xozVXfdMkSQTLW6cwJThYulHEtVjXrGTiVgS3P4hOlusR73_tJ2T1iByFGcO7r77S2yplqXa8Fplpd9jZ36lKEcXXPtrHZG-T5CWSQ_Vw83aq88r4HRZVWEWunBok442VqrnAd0669GC0WmGIWNFuQS01NLauMz8albQfCanHUOvX01QNEH-f27UCVnNkUqO38Mh-QaRKnu0sbzPrcLGYJ-C5ikY74bxQuWV8b-cnLaDP481DaY8tKily16VKrzu_4XKA..&type=2&query=AI %E9%93%B6%E8%A1%8C&token=9DB37915B15184CE43450E81622EC7C3442552A969900B4A
+        - img
+      - heading "数字化观察(79)| AI银行:数据驱动与知识引导下的智能决策" [ref=e45] [level=3]:
+        - link "数字化观察(79)| AI银行:数据驱动与知识引导下的智能决策" [ref=e46]:
+          - /url: /link?url=dn9a_-gY295K0Rci_xozVXfdMkSQTLW6cwJThYulHEtVjXrGTiVgS3P4hOlusR73_tJ2T1iByFGcO7r77S2yplqXa8Fplpd9jZ36lKEcXXPtrHZG-T5CWSQ_Vw83aq88r4HRZVWEWunBok442VqrnAd0669GC0WmGIWNFuQS01NLauMz8albQfCanHUOvX01QNEH-f27UCVnNkUqO38Mh-QaRKnu0sbzPrcLGYJ-C5ikY74bxQuWV8b-cnLaDP481DaY8tKily16VKrzu_4XKA..&type=2&query=AI %E9%93%B6%E8%A1%8C&token=9DB37915B15184CE43450E81622EC7C3442552A969900B4A
+          - text: 数字化观察(79)|
+          - emphasis: AI
+          - emphasis: 银行
+          - text: :数据驱动与知识引导下的智能决策
+      - paragraph:
+        - emphasis: AI
+        - emphasis: 银行
+        - text: :我们现在的位置 近年来,人工智能、大数据、云计算等技术的高速发展,加速了科技与金融的高度融合,促进了包括
+        - emphasis: 银行
+        - text: 在内...
+      - text: 银行家杂志2023-8-3
+    - listitem:
+      - link [ref=e47] [nth=10]:
+        - /url: /link?url=dn9a_-gY295K0Rci_xozVXfdMkSQTLW6cwJThYulHEtVjXrGTiVgS3P4hOlusR73_tJ2T1iByFGcO7r77S2yplqXa8Fplpd9PFKnL48KXOAi6T-B5VmIZc5sNNNaGFtcNWJyA8PCpAtLY8UoS9W9Usp0ApCMmFrfab_FPK8h-JhNrdMFZTXS6kxIPpi1Iou_Zr_DL3D8-G4YO1hw2QtOEx6bR_n1SQoJRfveT_YR6NSsZnHN5iF1hUzdzn21CQppKh89coUEf1E5eBgmN3LoYQ..&type=2&query=AI %E9%93%B6%E8%A1%8C&token=9DB37915B15184CE43450E81622EC7C3442552A969900B4A
+        - img
+      - heading "很多人没意识到:AI银行正在重塑整个金融行业!" [ref=e48] [level=3]:
+        - link "很多人没意识到:AI银行正在重塑整个金融行业!" [ref=e49]:
+          - /url: /link?url=dn9a_-gY295K0Rci_xozVXfdMkSQTLW6cwJThYulHEtVjXrGTiVgS3P4hOlusR73_tJ2T1iByFGcO7r77S2yplqXa8Fplpd9PFKnL48KXOAi6T-B5VmIZc5sNNNaGFtcNWJyA8PCpAtLY8UoS9W9Usp0ApCMmFrfab_FPK8h-JhNrdMFZTXS6kxIPpi1Iou_Zr_DL3D8-G4YO1hw2QtOEx6bR_n1SQoJRfveT_YR6NSsZnHN5iF1hUzdzn21CQppKh89coUEf1E5eBgmN3LoYQ..&type=2&query=AI %E9%93%B6%E8%A1%8C&token=9DB37915B15184CE43450E81622EC7C3442552A969900B4A
+          - text: "很多人没意识到:"
+          - emphasis: AI
+          - emphasis: 银行
+          - text: 正在重塑整个金融行业!
+      - paragraph:
+        - text: 报告内容
+        - emphasis: AI
+        - text: 在
+        - emphasis: 银行
+        - text: 里,已经不只是“工具”,而是在变成真正的“干活主体”.这份白皮书提出,未来
+        - emphasis: AI
+        - emphasis: 银行
+        - text: 的核心,是以“智能体”...
+      - text: 达哥行业报告库2026-2-7
+  - text: "1"
+  - link "2" [ref=e50]:
+    - /url: "?query=AI+%E9%93%B6%E8%A1%8C&type=2&page=2&ie=utf8"
+  - link "3" [ref=e51]:
+    - /url: "?query=AI+%E9%93%B6%E8%A1%8C&type=2&page=3&ie=utf8"
+  - link "4" [ref=e52]:
+    - /url: "?query=AI+%E9%93%B6%E8%A1%8C&type=2&page=4&ie=utf8"
+  - link "5" [ref=e53]:
+    - /url: "?query=AI+%E9%93%B6%E8%A1%8C&type=2&page=5&ie=utf8"
+  - link "6" [ref=e54]:
+    - /url: "?query=AI+%E9%93%B6%E8%A1%8C&type=2&page=6&ie=utf8"
+  - link "7" [ref=e55]:
+    - /url: "?query=AI+%E9%93%B6%E8%A1%8C&type=2&page=7&ie=utf8"
+  - link "8" [ref=e56]:
+    - /url: "?query=AI+%E9%93%B6%E8%A1%8C&type=2&page=8&ie=utf8"
+  - link "9" [ref=e57]:
+    - /url: "?query=AI+%E9%93%B6%E8%A1%8C&type=2&page=9&ie=utf8"
+  - link "10" [ref=e58]:
+    - /url: "?query=AI+%E9%93%B6%E8%A1%8C&type=2&page=10&ie=utf8"
+  - link "下一页" [ref=e59]:
+    - /url: "?query=AI+%E9%93%B6%E8%A1%8C&type=2&page=2&ie=utf8"
+  - text: 找到约5,984条结果
+  - textbox [ref=e60] [nth=1]: AI 银行
+  - link [ref=e61] [nth=11]:
+    - /url: javascript:void(0)
+  - button "搜文章" [ref=e62] [nth=1]
+  - link "搜索帮助" [ref=e63]:
+    - /url: http://help.sogou.com/
+  - link "意见反馈及投诉" [ref=e64]:
+    - /url: https://fankui.sogou.com/index.php/web/web/index/type/4
+  - text: © 2026 SOGOU.COM
+  - link "免责声明" [ref=e65]:
+    - /url: http://www.sogou.com/docs/terms.htm
+  - link "隐私政策" [ref=e66]:
+    - /url: http://corp.sogou.com/private.html
+  - group "grammarly-integration": "{\"mode\":\"full\",\"isActive\":true,\"isUserDisabled\":false}"

@@ -1,0 +1,16 @@
+#!/bin/bash
+# Cleanup stuck processes that cause fork exhaustion
+
+echo "Killing stuck pyenv processes..."
+pkill -9 -f "pyenv" 2>/dev/null
+
+echo "Killing orphan Claude agents..."
+pkill -9 -f "node.*claude" 2>/dev/null
+pkill -9 -f "python.*agent" 2>/dev/null
+
+echo "Killing stuck playwright..."
+pkill -9 -f "playwright" 2>/dev/null
+pkill -9 -f "chromium" 2>/dev/null
+
+echo "Process count: $(ps aux | wc -l | tr -d ' ')"
+echo "Done. Open a new terminal tab for fresh environment."

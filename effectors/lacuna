@@ -1,0 +1,750 @@
+#!/usr/bin/env -S uv run --script --python 3.13
+# /// script
+# requires-python = ">=3.13"
+# dependencies = ["httpx", "rich", "typer"]
+# ///
+
+import os
+import time
+import re
+from typing import Annotated, List, Optional
+
+import httpx
+import typer
+from rich.console import Console
+from rich.markup import escape
+from rich.panel import Panel
+from rich.table import Table
+from rich.status import Status
+
+app = typer.Typer(help="Lacuna: Regulatory Gap Analysis Demo", no_args_is_help=True)
+console = Console()
+
+BASE_URL = os.getenv("LACUNA_API_URL", "https://lacuna.sh")
+TIMEOUT = httpx.Timeout(45.0)   # 45s: long enough for cold cache, short enough to fail fast on stage
+
+DISPLAY_NAMES = {
+    "f3db2d97-2201-4555-a81e-43a8721b2761": "HKMA GenAI Consumer Protection 2024",
+    "c301a654-f504-40dd-8ff4-49afe15a3b8b": "HKMA GenAI Financial Services 2024",
+    "ef69e813-eb38-4dc4-ab28-07996c9928e0": "HKMA GenAI Sandbox Arrangement 2024",
+    "129bbdc5-866f-4f6b-b4dd-b521f25cd6ed": "HKMA SPM CA-G-1 Revised 2024",
+    "de2b712a-bf43-4c33-b045-6bcfecef0d65": "EU AI Act (Regulation 2024/1689)",
+    "c3baf002-fd33-493a-b41b-b63dacebd197": "FCA AI Update 2024",
+    "023e19b1-15c2-4dfa-902e-a0c1db668af0": "MAS AI Risk Management Consultation 2025",
+    "ebe0ed4c-e7bd-4643-a4d5-74690c97f568": "MAS AI Model Risk Management 2024",
+    "16892478-6a04-4c59-98bd-1f133f779d65": "NIST AI Risk Management Framework 1.0",
+    "8e1cccff-0461-49b8-a974-026e53bb3971": "NIST AI RMF to ISO 42001 Crosswalk",
+    "058242a7-c7b8-4e11-be8a-5840ce978b5d": "Singapore GenAI Governance Framework 2024",
+    "33432979-fcf8-4388-837c-4e51b82cfe2b": "Codex Argentum v1.1",
+}
+
+BASELINES = {
+    "8e1cccff-0461-49b8-a974-026e53bb3971",
+    "16892478-6a04-4c59-98bd-1f133f779d65",
+    "33432979-fcf8-4388-837c-4e51b82cfe2b",
+}
+
+ALIASES = {
+    "demo-baseline": "33432979-fcf8-4388-837c-4e51b82cfe2b",
+    "eu-ai-act": "de2b712a-bf43-4c33-b045-6bcfecef0d65",
+    "fca": "c3baf002-fd33-493a-b41b-b63dacebd197",
+    "hkma-cp": "f3db2d97-2201-4555-a81e-43a8721b2761",
+    "hkma-gai": "c301a654-f504-40dd-8ff4-49afe15a3b8b",
+    "hkma-sandbox": "ef69e813-eb38-4dc4-ab28-07996c9928e0",
+    "hkma-spm": "129bbdc5-866f-4f6b-b4dd-b521f25cd6ed",
+    "mas-consult": "023e19b1-15c2-4dfa-902e-a0c1db668af0",
+    "mas-mrmf": "ebe0ed4c-e7bd-4643-a4d5-74690c97f568",
+    "nist-iso42001": "8e1cccff-0461-49b8-a974-026e53bb3971",
+    "nist-rmf": "16892478-6a04-4c59-98bd-1f133f779d65",
+    "sg-genai": "058242a7-c7b8-4e11-be8a-5840ce978b5d",
+}
+
+_UUID_RE = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", re.IGNORECASE)
+
+def _client(timeout=TIMEOUT) -> httpx.Client:
+    api_key = os.getenv("LACUNA_API_KEY", "")
+    headers = {"X-API-Key": api_key} if api_key else {}
+    return httpx.Client(timeout=timeout, headers=headers)
+
+def s(text) -> str:
+    """Escape Rich markup in any API-sourced string."""
+    return escape(str(text)) if text else ""
+
+def resolve(name: str) -> str:
+    name = name.strip()
+    return ALIASES.get(name, name)
+
+def validate_doc_id(name: str, label: str) -> str:
+    """Resolve alias and validate the result looks like a UUID."""
+    resolved = resolve(name)
+    if not _UUID_RE.match(resolved):
+        console.print(Panel(
+            f"[bold red]Unknown {label}:[/bold red] [yellow]{s(name)}[/yellow]\n\n"
+            f"Available aliases: {', '.join(sorted(ALIASES.keys()))}",
+            border_style="red"
+        ))
+        raise typer.Exit(code=1)
+    return resolved
+
+def handle_request_error(e: Exception):
+    if isinstance(e, httpx.TimeoutException):
+        msg = "Request timed out. Gap analysis can take 30s+ on cold cache. Try: lacuna warmup"
+    elif isinstance(e, httpx.HTTPStatusError):
+        msg = f"Backend error: HTTP {e.response.status_code}"
+    elif isinstance(e, httpx.RequestError):
+        msg = "Connection failed. Check your network and try again."
+    else:
+        msg = "Unexpected error. Check that the Lacuna service is running."
+    console.print(Panel(f"[bold red]{msg}[/bold red]", border_style="red"))
+    raise typer.Exit(code=1)
+
+
+@app.command()
+def docs():
+    """List available documents in the repository."""
+    try:
+        with _client() as client:
+            response = client.get(f"{BASE_URL}/documents")
+            response.raise_for_status()
+            data = response.json()
+
+        table = Table(title="Lacuna Documents")
+        table.add_column("Document", style="cyan")
+        table.add_column("Jurisdiction", style="magenta")
+        table.add_column("Chunks", justify="right")
+        table.add_column("Reqs", justify="right")
+        table.add_column("ID", style="dim")
+
+        for doc in data.get("documents") or []:
+            doc_id = doc.get("doc_id") or ""
+            jurisdiction = "-" if doc_id in BASELINES else s(doc.get("jurisdiction") or "-")
+            display_name = s(DISPLAY_NAMES.get(doc_id, doc.get("filename", "Unknown")))
+            reqs = doc.get("requirements")
+            req_count = str(len(reqs)) if isinstance(reqs, list) and reqs else "-"
+            table.add_row(display_name, jurisdiction, str(doc.get("chunks_count", 0)), req_count, doc_id[:8])
+
+        console.print(table)
+    except (typer.Exit, KeyboardInterrupt):
+        raise
+    except Exception as e:
+        handle_request_error(e)
+
+
+@app.command()
+def gap(
+    circular: Annotated[str, typer.Option(help="Circular document alias or UUID (e.g. hkma-cp)")],
+    baseline: Annotated[str, typer.Option(help="Baseline document alias or UUID (e.g. demo-baseline)")],
+    verbose: Annotated[bool, typer.Option("--verbose", "-v", help="Show reasoning and provenance")] = False,
+    amendments: Annotated[bool, typer.Option("--amendments", "-a", help="Generate draft policy amendment for each Partial/Gap finding (slower)")] = False,
+    interactive: Annotated[bool, typer.Option("--interactive", "-i", help="Pause for human review before finalising")] = False,
+):
+    """Run gap analysis: compare a regulatory circular against a policy baseline."""
+    circular_id = validate_doc_id(circular, "circular")
+    baseline_id = validate_doc_id(baseline, "baseline")
+
+    payload = {"circular_doc_id": circular_id, "baseline_id": baseline_id, "is_policy_baseline": False, "include_amendments": amendments, "interactive": interactive}
+
+    try:
+        with Status(f"Analyzing {circular} → {baseline}...", console=console):
+            with _client() as client:
+                response = client.post(f"{BASE_URL}/gap-analysis", json=payload)
+                response.raise_for_status()
+                data = response.json()
+
+        # Human-in-the-loop: if analysis was interrupted, prompt for review then resume
+        if data.get("status") == "interrupted":
+            thread_id = data.get("report_id")
+            findings = data.get("findings") or []
+            console.print(Panel("[bold yellow]Analysis paused for review[/bold yellow]", border_style="yellow"))
+            status_map = {"Full": "[green]●[/green]", "Partial": "[yellow]◑[/yellow]", "Gap": "[red]○[/red]"}
+            for finding in findings:
+                icon = status_map.get((finding.get("status") or "Gap").capitalize(), "[red]○[/red]")
+                desc = s(finding.get("description") or "")
+                console.print(f"{icon} {(desc[:97] + '...') if len(desc) > 100 else desc}")
+            console.print()
+            approved = typer.confirm("Approve findings and generate report?", default=True)
+            with Status("Finalising...", console=console):
+                with _client() as client:
+                    resume_response = client.post(f"{BASE_URL}/gap-analysis/resume", json={"thread_id": thread_id, "approved": approved})
+                    resume_response.raise_for_status()
+                    data = resume_response.json()
+            if not approved:
+                console.print("[yellow]Analysis rejected.[/yellow]")
+                raise typer.Exit(code=0)
+
+        summary = data.get("summary") or {}
+        # Normalise key casing defensively
+        summary = {k.capitalize(): v for k, v in summary.items()}
+        summary_str = f"Full: {summary.get('Full', 0)}  Partial: {summary.get('Partial', 0)}  Gap: {summary.get('Gap', 0)}"
+        console.print(Panel(
+            f"[bold white]Gap Analysis: {s(circular)} → {s(baseline)}[/bold white]\n{summary_str}",
+            border_style="blue"
+        ))
+
+        findings = data.get("findings") or []
+        if not findings:
+            console.print("[dim]No findings returned.[/dim]")
+            return
+
+        status_map = {
+            "Full":    "[green]●[/green]",
+            "Partial": "[yellow]◑[/yellow]",
+            "Gap":     "[red]○[/red]",
+        }
+
+        for finding in findings:
+            status_text = (finding.get("status") or "Gap").capitalize()
+            icon = status_map.get(status_text, "[red]○[/red]")
+            desc = s(finding.get("description") or "")
+            truncated = (desc[:97] + "...") if len(desc) > 100 else desc
+            console.print(f"{icon} {truncated}")
+
+            if verbose:
+                reasoning = s(finding.get("reasoning") or "")
+                console.print(f"  [italic dim]{reasoning}[/italic dim]")
+                for prov in (finding.get("provenance") or [])[:2]:
+                    seg = s(prov.get("text_segment") or "")
+                    trunc_seg = (seg[:117] + "...") if len(seg) > 120 else seg
+                    console.print(f"    [dim]→ {trunc_seg}[/dim]")
+
+            draft = finding.get("draft_amendment")
+            if draft:
+                console.print(f"  [bold cyan]Draft amendment:[/bold cyan] [cyan]{s(draft)}[/cyan]")
+
+    except (typer.Exit, KeyboardInterrupt):
+        raise
+    except Exception as e:
+        handle_request_error(e)
+
+
+@app.command()
+def query(
+    text: Annotated[str, typer.Argument(help="Question to ask the regulatory knowledge base")],
+    jurisdiction: Annotated[Optional[str], typer.Option(help="Filter by jurisdiction: hk, sg, eu, uk")] = None,
+):
+    """Query the regulatory knowledge base with a natural language question."""
+    jurisdiction_map = {"hk": "Hong Kong", "sg": "Singapore", "eu": "European Union", "uk": "United Kingdom"}
+
+    payload: dict = {"query": text, "n_results": 5}
+    if jurisdiction:
+        payload["jurisdiction"] = jurisdiction_map.get(jurisdiction, jurisdiction)
+
+    try:
+        with Status("Searching...", console=console):
+            with _client() as client:
+                response = client.post(f"{BASE_URL}/query", json=payload)
+                response.raise_for_status()
+                data = response.json()
+
+        summary = s(data.get("summary") or "No summary returned.")
+        console.print(Panel(summary, title="Summary", border_style="green"))
+
+        results = data.get("results") or []
+        if results:
+            console.print("\n[bold]Sources:[/bold]")
+            for res in results:
+                filename = s(res.get("metadata", {}).get("filename") or "Unknown")
+                doc_text = s(res.get("document") or "")
+                trunc = (doc_text[:117] + "...") if len(doc_text) > 120 else doc_text
+                console.print(f"• [cyan]{filename}[/cyan]: {trunc}")
+
+    except (typer.Exit, KeyboardInterrupt):
+        raise
+    except Exception as e:
+        handle_request_error(e)
+
+
+@app.command()
+def chat(
+    jurisdiction: Annotated[Optional[str], typer.Option(help="Filter by jurisdiction: hk, sg, eu, uk")] = None,
+):
+    """Interactive chat with the regulatory knowledge base."""
+    jurisdiction_map = {"hk": "Hong Kong", "sg": "Singapore", "eu": "European Union", "uk": "United Kingdom"}
+    jur_label = jurisdiction_map.get(jurisdiction or "", jurisdiction) if jurisdiction else "all jurisdictions"
+
+    console.print(Panel(
+        f"[bold]Lacuna Chat[/bold] — {jur_label}\n"
+        "[dim]Ask anything about the regulatory corpus. Empty line or Ctrl+C to exit.[/dim]",
+        border_style="blue"
+    ))
+
+    while True:
+        try:
+            question = console.input("\n[bold cyan]You ›[/bold cyan] ").strip()
+        except (KeyboardInterrupt, EOFError):
+            console.print("\n[dim]Bye.[/dim]")
+            break
+
+        if not question:
+            break
+
+        payload: dict = {"query": question, "n_results": 5}
+        if jurisdiction:
+            payload["jurisdiction"] = jurisdiction_map.get(jurisdiction, jurisdiction)
+
+        try:
+            with Status("Thinking...", console=console):
+                with _client() as client:
+                    response = client.post(f"{BASE_URL}/query", json=payload)
+                    response.raise_for_status()
+                    data = response.json()
+
+            summary = s(data.get("summary") or "No answer returned.")
+            console.print(f"\n[bold green]Lacuna ›[/bold green] {summary}")
+
+            results = data.get("results") or []
+            if results:
+                seen, sources = set(), []
+                for r in results[:5]:
+                    fname = s(r.get("metadata", {}).get("filename") or "Unknown")
+                    # Strip UUID prefix if present (e.g. "abc123_filename.pdf" → "filename.pdf")
+                    fname = fname.split("_", 1)[-1] if "_" in fname else fname
+                    if fname not in seen:
+                        seen.add(fname)
+                        sources.append(fname)
+                console.print(f"[dim]  Sources: {' · '.join(sources)}[/dim]")
+
+        except (KeyboardInterrupt, EOFError):
+            console.print("\n[dim]Bye.[/dim]")
+            break
+        except Exception as e:
+            handle_request_error(e)
+            break
+
+
+@app.command()
+def warmup():
+    """Pre-warm the Railway in-memory cache before the demo."""
+    payload = {
+        "circular_doc_id": ALIASES["hkma-cp"],
+        "baseline_id": ALIASES["demo-baseline"],
+        "is_policy_baseline": False,
+    }
+    try:
+        start = time.time()
+        with Status("Warming up cache...", console=console):
+            with _client() as client:
+                response = client.post(f"{BASE_URL}/gap-analysis", json=payload)
+                response.raise_for_status()
+                data = response.json()
+
+        # Validate response is a real gap analysis result, not an error page
+        summary = data.get("summary") or {}
+        if not summary:
+            console.print(Panel(
+                "[bold red]Warmup failed — backend returned an unexpected response.[/bold red]\n"
+                "The service may be starting up. Wait 30s and try again.",
+                border_style="red"
+            ))
+            raise typer.Exit(code=1)
+
+        elapsed = time.time() - start
+        counts = {k.capitalize(): v for k, v in summary.items()}
+        console.print(
+            f"hkma-cp × demo-baseline  [green]✓[/green]  ({elapsed:.1f}s)  "
+            f"Full:{counts.get('Full',0)} Partial:{counts.get('Partial',0)} Gap:{counts.get('Gap',0)}"
+        )
+        console.print("Cache is hot. Demo ready.")
+
+    except (typer.Exit, KeyboardInterrupt):
+        raise
+    except Exception as e:
+        handle_request_error(e)
+
+
+@app.command()
+def upload(
+    file: Annotated[str, typer.Option(help="Path to PDF, TXT, or DOCX file")],
+    name: Annotated[str, typer.Option(help="Display name (e.g. 'HSBC AI Standard v3')")],
+    no_llm: Annotated[bool, typer.Option(help="Skip requirement extraction (faster)")] = False,
+):
+    """Upload a client document as a gap analysis baseline."""
+    import pathlib
+    path = pathlib.Path(file)
+    if not path.exists():
+        console.print(f"[bold red]File not found:[/bold red] {file}")
+        raise typer.Exit(code=1)
+    suffix = path.suffix.lower()
+    if suffix not in (".pdf", ".txt", ".docx"):
+        console.print(f"[bold red]Unsupported format:[/bold red] {suffix} (use .pdf, .txt, or .docx)")
+        raise typer.Exit(code=1)
+
+    # DOCX extraction is handled server-side (python-docx); CLI sends raw bytes
+    try:
+        with Status(f"Uploading and processing [cyan]{path.name}[/cyan]...", console=console):
+            with _client(timeout=httpx.Timeout(600.0)) as client:
+                with open(path, "rb") as fh:
+                    response = client.post(
+                        f"{BASE_URL}/upload",
+                        params={"jurisdiction": "ILLUSTRATIVE", "no_llm": str(no_llm).lower()},
+                        files={"file": (path.name, fh, "application/octet-stream")},
+                    )
+        if response.status_code == 409:
+            data = response.json()
+            console.print(f"[yellow]Already exists[/yellow] (doc_id={data.get('detail', {}).get('doc_id', '?')})")
+            return
+        response.raise_for_status()
+        data = response.json()
+        doc_id = data.get("doc_id", "?")
+        req_count = data.get("requirements_count", 0)
+        console.print(f"[green]✓[/green] Uploaded  doc_id=[bold]{doc_id}[/bold]  requirements={req_count}")
+        console.print(f"  Use with: [dim]lacuna gap --circular hkma-cp --baseline {doc_id}[/dim]")
+    except (typer.Exit, KeyboardInterrupt):
+        raise
+    except Exception as e:
+        handle_request_error(e)
+
+
+@app.command()
+def multi_gap(
+    baseline: Annotated[str, typer.Option(help="Baseline document alias or UUID (e.g. demo-baseline)")],
+    jurisdiction: Annotated[str, typer.Option(help="Jurisdiction filter: hk, sg, eu, all")] = "all",
+):
+    '''Run gap analysis for multiple circulars against a single baseline.'''
+    baseline_id = validate_doc_id(baseline, "baseline")
+    
+    jur_map = {
+        "hk": ["hkma-cp", "hkma-gai", "hkma-sandbox", "hkma-spm"],
+        "sg": ["mas-consult", "mas-mrmf"],
+        "eu": ["eu-ai-act", "fca"],
+    }
+    
+    if jurisdiction == "all":
+        circular_aliases = jur_map["hk"] + jur_map["sg"] + jur_map["eu"]
+    elif jurisdiction in jur_map:
+        circular_aliases = jur_map[jurisdiction]
+    else:
+        console.print(f"[bold red]Invalid jurisdiction:[/bold red] [yellow]{jurisdiction}[/yellow]")
+        console.print(f"Supported: hk, sg, eu, all")
+        raise typer.Exit(code=1)
+
+    results = []
+    
+    with _client() as client:
+        for i, alias in enumerate(circular_aliases, 1):
+            circular_id = ALIASES.get(alias)
+            display_name = DISPLAY_NAMES.get(circular_id, alias)
+            
+            console.print(f"Analysing {i}/{len(circular_aliases)}: [cyan]{display_name}[/cyan]...")
+            
+            try:
+                payload = {"circular_doc_id": circular_id, "baseline_id": baseline_id, "is_policy_baseline": False}
+                response = client.post(f"{BASE_URL}/gap-analysis", json=payload)
+                response.raise_for_status()
+                data = response.json()
+                
+                summary = data.get("summary") or {}
+                summary = {k.capitalize(): v for k, v in summary.items()}
+                
+                full = summary.get("Full", 0)
+                partial = summary.get("Partial", 0)
+                gap = summary.get("Gap", 0)
+                
+                results.append({
+                    "name": display_name,
+                    "full": full,
+                    "partial": partial,
+                    "gap": gap,
+                    "total": full + partial + gap,
+                    "error": False
+                })
+            except Exception:
+                results.append({
+                    "name": display_name,
+                    "full": 0,
+                    "partial": 0,
+                    "gap": 0,
+                    "total": 0,
+                    "error": True
+                })
+
+    console.print()
+    table = Table(title=f"Multi-Gap Analysis (Baseline: {s(DISPLAY_NAMES.get(baseline_id, baseline))})")
+    table.add_column("Circular", style="cyan")
+    table.add_column("Full", justify="right")
+    table.add_column("Partial", justify="right")
+    table.add_column("Gap", justify="right")
+    table.add_column("Total", justify="right")
+
+    totals = {"full": 0, "partial": 0, "gap": 0, "total": 0}
+
+    for res in results:
+        if res["error"]:
+            table.add_row(res["name"], "[red]Error[/red]", "[red]Error[/red]", "[red]Error[/red]", "0")
+        else:
+            table.add_row(
+                res["name"],
+                f"[green]{res['full']}[/green]",
+                f"[yellow]{res['partial']}[/yellow]",
+                f"[red]{res['gap']}[/red]",
+                str(res["total"])
+            )
+            totals["full"] += res["full"]
+            totals["partial"] += res["partial"]
+            totals["gap"] += res["gap"]
+            totals["total"] += res["total"]
+
+    table.add_section()
+    table.add_row(
+        "TOTAL",
+        f"[bold green]{totals['full']}[/bold green]",
+        f"[bold yellow]{totals['partial']}[/bold yellow]",
+        f"[bold red]{totals['gap']}[/bold red]",
+        f"[bold]{totals['total']}[/bold]"
+    )
+
+    console.print(table)
+
+
+@app.command()
+def synthesize(
+    circulars: Annotated[List[str], typer.Option(help="Circular aliases or UUIDs (repeat flag for each)")],
+    baseline: Annotated[str, typer.Option(help="Baseline document alias or UUID")],
+    include_amendments: Annotated[bool, typer.Option(help="Include draft amendment suggestions")] = False,
+):
+    '''Run cross-jurisdiction synthesis: compare multiple circulars against one baseline.'''
+    circular_ids = [validate_doc_id(c, "circular") for c in circulars]
+    baseline_id = validate_doc_id(baseline, "baseline")
+
+    with console.status("[bold cyan]Running cross-jurisdiction synthesis...[/bold cyan]"):
+        with _client() as client:
+            try:
+                payload = {
+                    "circular_ids": circular_ids,
+                    "baseline_id": baseline_id,
+                    "is_policy_baseline": False,
+                    "include_amendments": include_amendments,
+                }
+                response = client.post(f"{BASE_URL}/synthesis", json=payload, timeout=120.0)
+                response.raise_for_status()
+                data = response.json()
+            except Exception as e:
+                console.print(f"[bold red]Synthesis failed:[/bold red] {e}")
+                raise typer.Exit(code=1)
+
+    jurisdictions = data.get("jurisdictions", [])
+    baseline_display = s(DISPLAY_NAMES.get(baseline_id, baseline))
+
+    table = Table(title=f"Cross-Jurisdiction Synthesis (Baseline: {baseline_display})")
+    table.add_column("Circular", style="cyan")
+    table.add_column("Jurisdiction", style="magenta")
+    table.add_column("Full", justify="right")
+    table.add_column("Partial", justify="right")
+    table.add_column("Gap", justify="right")
+
+    for j in jurisdictions:
+        summary = j.get("summary", {})
+        cid = j.get("circular_id", "")
+        table.add_row(
+            DISPLAY_NAMES.get(cid, cid),
+            j.get("jurisdiction", "—"),
+            f"[green]{summary.get('Full', 0)}[/green]",
+            f"[yellow]{summary.get('Partial', 0)}[/yellow]",
+            f"[red]{summary.get('Gap', 0)}[/red]",
+        )
+
+    console.print()
+    console.print(table)
+
+    summary_text = data.get("cross_jurisdiction_summary", "")
+    if summary_text:
+        console.print()
+        console.print(Panel(summary_text, title="Cross-Jurisdiction Summary", border_style="blue"))
+
+
+@app.command()
+def export(
+    circular: Annotated[str, typer.Option(help="Circular document alias or UUID")],
+    baseline: Annotated[str, typer.Option(help="Baseline document alias or UUID")],
+    output: Annotated[Optional[str], typer.Option(help="Filepath to save the report")] = None,
+    format: Annotated[str, typer.Option(help="Export format: md, pdf, docx")] = "md",
+):
+    '''Export gap analysis as a Markdown or PDF report.'''
+    circular_id = validate_doc_id(circular, "circular")
+    baseline_id = validate_doc_id(baseline, "baseline")
+
+    circular_name = DISPLAY_NAMES.get(circular_id, circular_id)
+    baseline_name = DISPLAY_NAMES.get(baseline_id, baseline_id)
+
+    payload = {"circular_doc_id": circular_id, "baseline_id": baseline_id, "is_policy_baseline": False}
+
+    if format.lower() == "pdf":
+        try:
+            with Status("Generating PDF report...", console=console):
+                with _client() as client:
+                    response = client.post(f"{BASE_URL}/gap-analysis/export", json=payload)
+                    response.raise_for_status()
+                    pdf_bytes = response.content
+
+            output_path = output or "lacuna-gap-report.pdf"
+            with open(output_path, "wb") as f:
+                f.write(pdf_bytes)
+            console.print(f"[green]Report written to {output_path}[/green]")
+            return
+        except Exception as e:
+            handle_request_error(e)
+    if format.lower() == "docx":
+        try:
+            with Status("Generating Word report...", console=console):
+                with _client() as client:
+                    response = client.post(f"{BASE_URL}/gap-analysis/export-docx", json=payload)
+                    response.raise_for_status()
+                    docx_bytes = response.content
+
+            output_path = output or "lacuna-gap-report.docx"
+            with open(output_path, "wb") as f:
+                f.write(docx_bytes)
+            console.print(f"[green]Report written to {output_path}[/green]")
+            return
+        except Exception as e:
+            handle_request_error(e)
+
+    try:
+        with Status(f"Generating report for {circular} → {baseline}...", console=console):
+            with _client() as client:
+                response = client.post(f"{BASE_URL}/gap-analysis", json=payload)
+                response.raise_for_status()
+                data = response.json()
+
+        summary = data.get("summary") or {}
+        summary = {k.capitalize(): v for k, v in summary.items()}
+        findings = data.get("findings") or []
+        
+        timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
+        
+        md = [
+            f"# Gap Analysis Report",
+            f"**Circular:** {circular_name}",
+            f"**Baseline:** {baseline_name}",
+            f"**Generated:** {timestamp}",
+            "",
+            "## Summary",
+            "| Status | Count |",
+            "|--------|-------|",
+            f"| Full   | {summary.get('Full', 0)} |",
+            f"| Partial| {summary.get('Partial', 0)} |",
+            f"| Gap    | {summary.get('Gap', 0)} |",
+            "",
+            "## Findings",
+            ""
+        ]
+
+        for f in findings:
+            status = (f.get("status") or "Gap").capitalize()
+            desc = f.get("description") or "No description"
+            reasoning = f.get("reasoning") or "No reasoning provided."
+            baseline_match = f.get("baseline_match")
+            
+            md.append(f"### {desc}")
+            md.append(f"**Status:** {status}")
+            md.append(f"**Reasoning:** {reasoning}")
+            if baseline_match:
+                md.append(f"**Baseline match:** {baseline_match}")
+            md.append("")
+            md.append("---")
+            md.append("")
+
+        report = "\n".join(md)
+
+        if output:
+            with open(output, "w") as f:
+                f.write(report)
+            console.print(f"[green]Report written to {output}[/green]")
+        else:
+            console.print(report)
+
+    except (typer.Exit, KeyboardInterrupt):
+        raise
+    except Exception as e:
+        handle_request_error(e)
+
+
+@app.command()
+def preflight():
+    """Pre-demo health check: network, API, documents, cache warmup."""
+    passed = True
+
+    def check(label: str, ok: bool, detail: str = ""):
+        nonlocal passed
+        icon = "[green]✓[/green]" if ok else "[red]✗[/red]"
+        suffix = f"  [dim]{detail}[/dim]" if detail else ""
+        console.print(f"  {icon}  {label}{suffix}")
+        if not ok:
+            passed = False
+
+    console.print("[bold]Lacuna preflight[/bold]")
+
+    # 1. API reachable
+    try:
+        start = time.time()
+        with _client(timeout=httpx.Timeout(10.0)) as client:
+            r = client.get(f"{BASE_URL}/documents")
+            r.raise_for_status()
+            docs_data = r.json()
+        latency = time.time() - start
+        doc_ids = {d.get("doc_id") for d in (docs_data.get("documents") or [])}
+        check("API reachable", True, f"{latency:.1f}s")
+    except Exception:
+        check("API reachable", False, "cannot reach backend")
+        console.print(Panel("[bold red]Preflight failed — API unreachable.[/bold red]", border_style="red"))
+        raise typer.Exit(code=1)
+
+    # 2. All expected doc UUIDs present
+    missing = [alias for alias, uid in ALIASES.items() if uid not in doc_ids]
+    check(
+        f"All {len(ALIASES)} documents present",
+        not missing,
+        f"missing: {', '.join(missing)}" if missing else f"{len(doc_ids)} docs found",
+    )
+
+    # 3. Cache warmup
+    payload = {
+        "circular_doc_id": ALIASES["hkma-cp"],
+        "baseline_id": ALIASES["demo-baseline"],
+        "is_policy_baseline": False,
+    }
+    try:
+        start = time.time()
+        with Status("  Warming cache...", console=console):
+            with _client() as client:
+                r = client.post(f"{BASE_URL}/gap-analysis", json=payload)
+                r.raise_for_status()
+                gap_data = r.json()
+        elapsed = time.time() - start
+        summary = gap_data.get("summary") or {}
+        counts = {k.capitalize(): v for k, v in summary.items()}
+        result_str = f"Full:{counts.get('Full',0)} Partial:{counts.get('Partial',0)} Gap:{counts.get('Gap',0)}"
+        check("Cache warm (hkma-cp × demo-baseline)", bool(summary), f"{elapsed:.1f}s  {result_str}")
+    except Exception:
+        check("Cache warm", False, "warmup failed — run lacuna warmup manually")
+
+    # 4. Decompose check
+    try:
+        with Status("  Checking decompose...", console=console):
+            with _client(timeout=httpx.Timeout(30.0)) as client:
+                r = client.post(
+                    f"{BASE_URL}/decompose",
+                    json={"doc_id": ALIASES["hkma-cp"], "fresh": False},
+                )
+                r.raise_for_status()
+                decompose_data = r.json()
+        decompose_total = decompose_data.get("total", 0)
+        check(
+            f"Decompose: hkma-cp \u2192 {decompose_total} requirements",
+            decompose_total > 0,
+            "" if decompose_total > 0 else "returned 0 requirements",
+        )
+    except Exception:
+        check("Decompose: hkma-cp", False, "request failed")
+
+    # Summary
+    console.print()
+    if passed:
+        console.print("[bold green]PASS[/bold green] — demo ready.")
+    else:
+        console.print("[bold red]FAIL[/bold red] — fix issues above before the demo.")
+        raise typer.Exit(code=1)
+
+
+if __name__ == "__main__":
+    app()

@@ -1,0 +1,427 @@
+#!/usr/bin/env python3
+"""
+photoreception-gather - assemble morning brief context into a single file.
+Deterministic data gathering; LLM synthesises from the output.
+
+Usage:
+    photoreception-gather           # plain text to stdout
+    photoreception-gather --json    # structured JSON to stdout
+"""
+
+import argparse
+import json
+import subprocess
+import sys
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
+
+# Shared gather-lib on the path regardless of invocation context
+sys.path.insert(0, str(Path.home() / "reticulum/lib"))
+from gather import gather_context
+
+HOME = Path.home()
+HKT = timezone(timedelta(hours=8))
+
+
+def run(cmd, timeout=5):
+    """Run a command; return (stdout, error_note). Never raises."""
+    try:
+        r = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+        out = (r.stdout or "").strip()
+        err = (r.stderr or "").strip()
+        if r.returncode != 0 and not out:
+            return "", f"exited {r.returncode}: {err[:120]}"
+        return out, ""
+    except FileNotFoundError:
+        return "", f"tool not found: {cmd[0]}"
+    except subprocess.TimeoutExpired:
+        return "", f"timed out after {timeout}s"
+    except Exception as exc:
+        return "", str(exc)[:120]
+
+
+def read_file(path, max_lines=None):
+    """Read a file; return (content, error_note)."""
+    try:
+        text = Path(path).read_text()
+        if max_lines:
+            text = "\n".join(text.splitlines()[:max_lines])
+        return text.strip(), ""
+    except FileNotFoundError:
+        return "", f"not found: {path}"
+    except Exception as exc:
+        return "", str(exc)[:120]
+
+
+def section(title, body, error=""):
+    lines = [f"## {title}"]
+    if error:
+        lines.append(f"[skipped - {error}]")
+    elif body:
+        lines.append(body)
+    else:
+        lines.append("[empty]")
+    return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
+# Convert gather-lib structured results to photoreception {"title", "data", "error"}
+# ---------------------------------------------------------------------------
+
+
+def _ctx_to_photoreception(title, available, data, error=""):
+    return {"title": title, "data": data, "error": error if not available else ""}
+
+
+def sections_from_ctx(ctx):
+    """Convert gather_context() dict to list of photoreception-style section dicts."""
+    sections = {}
+
+    # date → datetime section
+    d = ctx.get("date")
+    if d:
+        sections["datetime"] = {
+            "title": "Date & Time",
+            "data": d.get("datetime", "(unavailable)"),
+            "error": "",
+        }
+    else:
+        sections["datetime"] = {"title": "Date & Time", "data": "", "error": "unavailable"}
+
+    # calendar
+    cal = ctx.get("calendar")
+    if cal and cal.get("available"):
+        sections["calendar"] = {
+            "title": "Today's Calendar",
+            "data": cal.get("raw", "").strip(),
+            "error": "",
+        }
+    else:
+        err = cal.get("error", "unavailable") if cal else "unavailable"
+        sections["calendar"] = {"title": "Today's Calendar", "data": "", "error": err}
+
+    # budget
+    budget = ctx.get("budget")
+    if budget and budget.get("available"):
+        sections["budget"] = {
+            "title": "Budget Status",
+            "data": budget.get("raw", "").strip(),
+            "error": "",
+        }
+    else:
+        err = budget.get("error", "unavailable") if budget else "unavailable"
+        sections["budget"] = {"title": "Budget Status", "data": "", "error": err}
+
+    # now
+    now = ctx.get("now")
+    if now and now.get("available"):
+        sections["now"] = {
+            "title": "Tonus (current state)",
+            "data": now.get("raw", "").strip(),
+            "error": "",
+        }
+    else:
+        err = now.get("error", "unavailable") if now else "unavailable"
+        sections["now"] = {"title": "Tonus (current state)", "data": "", "error": err}
+
+    # todo — reconstruct display text from parsed items (max 40)
+    todo = ctx.get("todo")
+    if todo and todo.get("available"):
+        items = todo.get("items", [])
+        if items:
+            lines = []
+            for item in items[:40]:
+                done_mark = "x" if item.get("done") else " "
+                lines.append("- [{}] {}".format(done_mark, item.get("raw", item.get("text", ""))))
+            content = "\n".join(lines)
+        else:
+            content = "(no praxis items)"
+        sections["todo"] = {"title": "Praxis.md (first 40 lines)", "data": content, "error": ""}
+    else:
+        err = todo.get("error", "unavailable") if todo else "unavailable"
+        sections["todo"] = {"title": "Praxis.md (first 40 lines)", "data": "", "error": err}
+
+    return sections
+
+
+# ---------------------------------------------------------------------------
+# Script-specific gather functions — each returns {"title", "data", "error"}
+# ---------------------------------------------------------------------------
+
+
+def clean_weather(raw):
+    """Strip HKO jargon into plain language for Tara."""
+    import re as _re
+
+    text = raw.strip()
+    text = _re.sub(r"^[^\w\d]+", "", text).strip()
+    text = _re.sub(r",?\s*mainly fine\b", ", sunny", text, flags=_re.IGNORECASE)
+    text = _re.sub(r"\bcloudy periods\b", "cloudy", text, flags=_re.IGNORECASE)
+    text = _re.sub(r"\band coastal fog\b", "with fog", text, flags=_re.IGNORECASE)
+    text = _re.sub(r"\bduring the day\b", "", text, flags=_re.IGNORECASE)
+    text = _re.sub(r",?\s*muggy\b", "", text, flags=_re.IGNORECASE)
+    text = _re.sub(r",?\s*humid\b", "", text, flags=_re.IGNORECASE)
+    text = _re.sub(r"\.\s*,", ",", text)
+    text = _re.sub(r",\s*\.", ".", text)
+    text = _re.sub(r"\s{2,}", " ", text)
+    text = _re.sub(r",\s*,", ",", text)
+    return text.strip().rstrip(".,").strip()
+
+
+def send_weather_to_tara(weather_raw):
+    """Clean weather and send via iMessage. Returns (sent: bool, msg: str)."""
+    msg = clean_weather(weather_raw)
+    if not msg:
+        return False, ""
+    script = str(Path.home() / "scripts" / "imessage.sh")
+    out, err = run([script, msg], timeout=10)
+    return err == "", msg
+
+
+def gather_weather():
+    out, err = run(["caelum"], timeout=8)
+    if err:
+        # Fallback to wttr.in
+        out, err = run(["curl", "-s", "--max-time", "4", "wttr.in/Hong+Kong?format=3"])
+    return {"title": "Weather (Hong Kong)", "data": out, "error": err}
+
+
+def gather_sleep():
+    out, err = run(["sopor", "today"], timeout=15)
+    if err:
+        return {"title": "Sleep & Health", "data": "", "error": err}
+    note = ""
+    if out:
+        for line in out.splitlines():
+            if "Readiness:" in line:
+                try:
+                    val = int(line.split("Readiness:")[-1].strip().split()[0])
+                    if val < 65:
+                        note = f"\n[LOW READINESS: {val} - consider an easier day]"
+                except ValueError:
+                    pass
+    return {"title": "Sleep & Health", "data": out + note, "error": ""}
+
+
+def gather_reminders():
+    out, err = run(["moneo", "ls"])
+    if err:
+        return {"title": "Reminders Due Today", "data": "", "error": err}
+    lines = out.splitlines()
+    header = lines[:2] if len(lines) >= 2 else lines
+    today_lines = [l for l in lines if "today" in l.lower()]
+    body = "\n".join(header + today_lines) if today_lines else "(none due today)"
+    return {"title": "Reminders Due Today", "data": body, "error": ""}
+
+
+def gather_nightly_health():
+    path = HOME / ".claude" / "nightly-health.md"
+    content, err = read_file(path)
+    if err:
+        return {"title": "System Health (nightly)", "data": "", "error": err}
+    try:
+        age_h = (datetime.now().timestamp() - path.stat().st_mtime) / 3600
+        if age_h > 24:
+            return {
+                "title": "System Health (nightly)",
+                "data": "",
+                "error": f"stale ({age_h:.0f}h old)",
+            }
+    except Exception:
+        pass
+    return {"title": "System Health (nightly)", "data": content, "error": ""}
+
+
+def gather_skill_flywheel():
+    path = HOME / ".claude" / "skill-flywheel-daily.md"
+    content, err = read_file(path)
+    if err:
+        return {"title": "Skill Flywheel (routing misses)", "data": "", "error": err}
+    try:
+        age_h = (datetime.now().timestamp() - path.stat().st_mtime) / 3600
+        if age_h > 24:
+            return {
+                "title": "Skill Flywheel (routing misses)",
+                "data": "",
+                "error": f"stale ({age_h:.0f}h old)",
+            }
+    except Exception:
+        pass
+    return {"title": "Skill Flywheel (routing misses)", "data": content, "error": ""}
+
+
+def gather_legatus():
+    runs_dir = HOME / "cache" / "legatus-runs"
+    if not runs_dir.exists():
+        return {"title": "Legatus Overnight Results", "data": "", "error": "no runs dir"}
+    summaries = sorted(
+        runs_dir.glob("*/summary.md"),
+        key=lambda p: p.stat().st_mtime,
+        reverse=True,
+    )
+    if not summaries:
+        return {"title": "Legatus Overnight Results", "data": "", "error": "no summaries found"}
+    latest = summaries[0]
+    try:
+        age_h = (datetime.now().timestamp() - latest.stat().st_mtime) / 3600
+        if age_h > 24:
+            return {
+                "title": "Legatus Overnight Results",
+                "data": "",
+                "error": f"most recent summary stale ({age_h:.0f}h old)",
+            }
+    except Exception:
+        pass
+    content, err = read_file(latest)
+    return {"title": "Legatus Overnight Results", "data": content, "error": err}
+
+
+# ---------------------------------------------------------------------------
+# Rhythm signal — photoreceptor adaptation + entrainment
+# ---------------------------------------------------------------------------
+
+
+def detect_rhythm(sleep_data, calendar_data):
+    """Determine day type and intensity from readiness + calendar. Deterministic."""
+    # Day type
+    today = datetime.now(HKT)
+    weekday = today.weekday() < 5
+
+    # Readiness extraction
+    readiness = None
+    if sleep_data:
+        for line in sleep_data.splitlines():
+            if "Readiness:" in line:
+                try:
+                    readiness = int(line.split("Readiness:")[-1].strip().split()[0])
+                except ValueError:
+                    pass
+
+    # Calendar density
+    event_count = 0
+    if calendar_data:
+        event_count = len(
+            [l for l in calendar_data.splitlines() if l.strip() and not l.startswith("─")]
+        )
+
+    # Intensity classification (pupillary reflex)
+    if readiness is not None and readiness < 65:
+        intensity = "recovery"
+        guidance = "Low readiness. Light day — skip gym, protect sleep tonight."
+    elif readiness is not None and readiness < 75:
+        intensity = "light"
+        guidance = "Below baseline. Light exercise only if any. No heavy decisions late."
+    elif event_count >= 5:
+        intensity = "dense"
+        guidance = "Calendar-heavy. Batch admin, protect focus blocks."
+    else:
+        intensity = "full"
+        guidance = "Full capacity. Good day for hard work and training."
+
+    day_type = "weekday" if weekday else "weekend"
+
+    return {
+        "title": "Rhythm",
+        "data": f"Day: {day_type} | Readiness: {readiness or '?'} | Events: {event_count} | Intensity: {intensity}\n{guidance}",
+        "error": "",
+        "_structured": {
+            "day_type": day_type,
+            "readiness": readiness,
+            "event_count": event_count,
+            "intensity": intensity,
+            "guidance": guidance,
+        },
+    }
+
+
+# ---------------------------------------------------------------------------
+# Assemble — shared sources via gather-lib + script-specific in parallel
+# ---------------------------------------------------------------------------
+
+SCRIPT_GATHERERS = [
+    gather_weather,
+    gather_sleep,
+    gather_reminders,
+    gather_nightly_health,
+    gather_skill_flywheel,
+    gather_legatus,
+]
+
+# Display order: rhythm first (sets the frame), then data sections
+DISPLAY_ORDER = [
+    "datetime",
+    "rhythm",
+    "weather",
+    "sleep",
+    "calendar",
+    "reminders",
+    "budget",
+    "now",
+    "todo",
+    "nightly_health",
+    "skill_flywheel",
+    "legatus",
+]
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Assemble photoreception morning brief context.")
+    parser.add_argument(
+        "--json", action="store_true", help="Output structured JSON instead of plain text"
+    )
+    parser.add_argument(
+        "--send", action="store_true", help="Send cleaned weather to Tara via iMessage"
+    )
+    args = parser.parse_args()
+
+    # Shared sources via gather-lib (parallel I/O)
+    ctx = gather_context(include=["date", "calendar", "budget", "now", "todo"], todo_filter="all")
+    shared = sections_from_ctx(ctx)
+
+    # Script-specific gatherers in parallel
+    script_results = {}
+    with ThreadPoolExecutor(max_workers=len(SCRIPT_GATHERERS)) as pool:
+        futures = {pool.submit(fn): fn.__name__.replace("gather_", "") for fn in SCRIPT_GATHERERS}
+        for fut in as_completed(futures):
+            key = futures[fut]
+            try:
+                script_results[key] = fut.result()
+            except Exception as exc:
+                script_results[key] = {"title": key, "data": "", "error": str(exc)[:80]}
+
+    # Rhythm signal — reads sleep + calendar, must run after gather
+    sleep_raw = script_results.get("sleep", {}).get("data", "")
+    cal_raw = shared.get("calendar", {}).get("data", "")
+    script_results["rhythm"] = detect_rhythm(sleep_raw, cal_raw)
+
+    # Merge into display-ordered list
+    all_sections = {**shared, **script_results}
+    results = [all_sections[k] for k in DISPLAY_ORDER if k in all_sections]
+
+    # Send weather to Tara if requested
+    weather_sent = None
+    if args.send:
+        w = all_sections.get("weather", {})
+        if w.get("data"):
+            sent, msg = send_weather_to_tara(w["data"])
+            weather_sent = {"sent": sent, "message": msg}
+            if sent:
+                w["data"] += f"\n[Sent to Tara: {msg}]"
+
+    if args.json:
+        payload = {"sections": results}
+        if weather_sent is not None:
+            payload["weather_sent"] = weather_sent
+        print(json.dumps(payload, indent=2, ensure_ascii=False))
+        return
+
+    parts = ["# Photoreception — Morning Brief\n"]
+    for r in results:
+        parts.append(section(r["title"], r["data"], r["error"]))
+        parts.append("")
+    print("\n".join(parts))
+
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,112 @@
+#!/usr/bin/env python3
+"""Express — install membrane receptors for platform binding.
+
+Gene expression: make the cell's surface proteins available so
+symbionts (CC, Codex) can bind. Installs symlinks from platform
+directories into the organism's biological structure.
+
+Usage: express [--dry-run]
+"""
+import os
+import sys
+from pathlib import Path
+
+VIVESCA_ROOT = Path(__file__).resolve().parent.parent
+
+LINKS = [
+    # (platform path, organism path relative to VIVESCA_ROOT)
+    # CC membrane receptors
+    ("~/.claude/hooks", "membrane/cytoskeleton"),
+    ("~/.claude/CLAUDE.md", "membrane/phenotype.md"),
+    ("~/.claude/settings.json", "membrane/expression.json"),
+    ("~/.claude/agent-memory", "engrams"),
+    # Codex membrane receptor
+    ("~/.codex/AGENTS.md", "membrane/phenotype.md"),
+]
+
+# Per-item symlinks (each subdirectory gets its own link)
+PER_ITEM = [
+    ("~/.claude/skills", "receptors"),
+    ("~/.claude/agents", "membrane/buds"),
+    ("~/.claude/rules", "regulatory"),
+]
+
+
+def integrate(dry_run: bool = False) -> None:
+    print(f"Vivesca root: {VIVESCA_ROOT}")
+    print()
+
+    # Direct symlinks
+    for platform_path, org_rel in LINKS:
+        platform = Path(os.path.expanduser(platform_path))
+        organism = VIVESCA_ROOT / org_rel
+
+        if not organism.exists():
+            print(f"  SKIP {platform_path} — {org_rel} not found")
+            continue
+
+        if platform.is_symlink():
+            current = os.readlink(platform)
+            if current == str(organism):
+                print(f"  OK   {platform_path} → {org_rel}")
+                continue
+            print(f"  UPDATE {platform_path} → {org_rel} (was {current})")
+            if not dry_run:
+                platform.unlink()
+                platform.symlink_to(organism)
+        elif platform.exists():
+            print(f"  CONFLICT {platform_path} exists (not a symlink). Back up and remove first.")
+        else:
+            print(f"  LINK {platform_path} → {org_rel}")
+            if not dry_run:
+                platform.parent.mkdir(parents=True, exist_ok=True)
+                platform.symlink_to(organism)
+
+    # Per-item symlinks (skills, buds)
+    for platform_dir, org_rel in PER_ITEM:
+        platform_parent = Path(os.path.expanduser(platform_dir))
+        organism_dir = VIVESCA_ROOT / org_rel
+
+        if not organism_dir.is_dir():
+            print(f"  SKIP {platform_dir}/* — {org_rel}/ not found")
+            continue
+
+        if platform_parent.is_symlink():
+            if not dry_run:
+                platform_parent.unlink()
+                platform_parent.mkdir(parents=True, exist_ok=True)
+            else:
+                print(f"  RELINK {platform_dir} — stale symlink, will recreate as directory")
+                continue
+        else:
+            platform_parent.mkdir(parents=True, exist_ok=True)
+
+        for item in sorted(organism_dir.iterdir()):
+            if item.name.startswith("."):
+                continue
+            link = platform_parent / item.name
+            if link.is_symlink():
+                current = os.readlink(link)
+                if current == str(item):
+                    continue
+                if not dry_run:
+                    link.unlink()
+                    link.symlink_to(item)
+            elif not link.exists():
+                if not dry_run:
+                    link.symlink_to(item)
+            # Skip conflicts (real files/dirs)
+
+        linked = sum(1 for p in platform_parent.iterdir() if p.is_symlink())
+        print(f"  OK   {platform_dir}/* — {linked} items linked from {org_rel}/")
+
+    print()
+    if dry_run:
+        print("Dry run — no changes made. Run without --dry-run to apply.")
+    else:
+        print("Membrane integrated. Start a new CC session to pick up changes.")
+
+
+if __name__ == "__main__":
+    dry_run = "--dry-run" in sys.argv
+    integrate(dry_run)

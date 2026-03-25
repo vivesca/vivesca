@@ -1,0 +1,179 @@
+#!/usr/bin/env -S uv run --script --python 3.13
+# /// script
+# requires-python = ">=3.11"
+# ///
+"""
+plan-exec — Execute a plan doc using free AI tools with fallback chain.
+
+Usage:
+    plan-exec <plan-file> [--project <dir>] [--dry-run]
+
+Reads a plan/spec file, hands it to an AI orchestrator that decomposes
+and executes tasks. Tries tools in order: Gemini → Codex → OpenCode.
+Zero Max20 cost.
+
+The orchestrator AI reads the plan, creates files, runs tests, commits.
+This script just handles the fallback chain and validation.
+"""
+
+import argparse
+import os
+import subprocess
+import sys
+from datetime import datetime
+from pathlib import Path
+
+RESULTS_DIR = Path.home() / ".cache" / "plan-exec"
+
+BACKENDS = [
+    {
+        "name": "gemini",
+        "cmd": lambda project, prompt_file: [
+            "gemini", "-m", "gemini-3.1-pro-preview",
+            "-p", _build_prompt(project, prompt_file),
+            "--yolo",
+        ],
+        "cwd": lambda project: project,
+    },
+    {
+        "name": "codex",
+        "cmd": lambda project, prompt_file: [
+            "codex", "exec",
+            "--skip-git-repo-check",
+            "--sandbox", "danger-full-access",
+            "--full-auto",
+            _build_prompt(project, prompt_file),
+        ],
+        "cwd": lambda project: project,
+    },
+    {
+        "name": "opencode",
+        "cmd": lambda project, prompt_file: [
+            "opencode", "run",
+            "-m", os.environ.get("OPENCODE_MODEL", "opencode/glm-5"),
+            "--title", f"plan-exec-{datetime.now():%H%M}",
+            _build_prompt(project, prompt_file),
+        ],
+        "cwd": lambda project: project,
+        "env_extra": {"OPENCODE_HOME": str(Path.home() / ".opencode-lean")},
+    },
+]
+
+
+def _build_prompt(project: str, prompt_file: str) -> str:
+    plan_content = Path(prompt_file).read_text()
+    return f"""You are an autonomous code executor. Read the plan below and implement ALL tasks.
+
+RULES:
+1. Do NOT modify pyproject.toml, Cargo.toml, or package.json unless explicitly asked
+2. Read existing code files before writing — understand the patterns
+3. Implement fully — no stubs, no TODOs, no placeholder comments
+4. Run tests after implementation to verify
+5. Commit your work with descriptive messages
+
+PROJECT DIRECTORY: {project}
+
+PLAN:
+{plan_content}
+
+Execute every task in the plan. After completion, print:
+PLAN-EXEC-DONE
+Files touched: [list]
+Tests run: [results]
+"""
+
+
+def run_backend(backend: dict, project: str, prompt_file: str, output_file: Path) -> bool:
+    name = backend["name"]
+    print(f"  → Trying {name}...", flush=True)
+
+    cmd = backend["cmd"](project, prompt_file)
+    cwd = backend["cwd"](project)
+    env = os.environ.copy()
+    env.update(backend.get("env_extra", {}))
+    # Strip CLAUDECODE to avoid nesting issues
+    env.pop("CLAUDECODE", None)
+
+    try:
+        with open(output_file, "w") as f:
+            result = subprocess.run(
+                cmd, cwd=cwd, env=env,
+                stdout=f, stderr=subprocess.STDOUT,
+                timeout=600,  # 10 min max
+            )
+        if result.returncode == 0:
+            # Check if output contains success marker or at least produced files
+            output = output_file.read_text()
+            if "PLAN-EXEC-DONE" in output or "error" not in output.lower()[-200:]:
+                print(f"  ✓ {name} succeeded")
+                return True
+            else:
+                print(f"  ✗ {name} completed but output suggests errors")
+                return False
+        else:
+            # Check for quota errors
+            output = output_file.read_text()
+            if "429" in output or "quota" in output.lower() or "身份验证" in output:
+                print(f"  ✗ {name} quota/auth error — falling back")
+            else:
+                print(f"  ✗ {name} failed (exit {result.returncode})")
+            return False
+    except subprocess.TimeoutExpired:
+        print(f"  ✗ {name} timed out (10min)")
+        return False
+    except FileNotFoundError:
+        print(f"  ✗ {name} not installed")
+        return False
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Execute plan with free AI tools")
+    parser.add_argument("plan_file", help="Path to plan/spec file")
+    parser.add_argument("--project", "-p", default=".", help="Project directory")
+    parser.add_argument("--dry-run", action="store_true", help="Show what would run")
+    parser.add_argument("--backend", "-b", help="Force specific backend (gemini/codex/opencode)")
+    args = parser.parse_args()
+
+    plan_file = os.path.abspath(args.plan_file)
+    project = os.path.abspath(args.project)
+
+    if not os.path.exists(plan_file):
+        print(f"Error: plan file not found: {plan_file}", file=sys.stderr)
+        sys.exit(1)
+
+    # Results directory
+    ts = datetime.now().strftime("%Y-%m-%d-%H%M")
+    run_dir = RESULTS_DIR / ts
+    run_dir.mkdir(parents=True, exist_ok=True)
+
+    print(f"plan-exec: {plan_file}")
+    print(f"  project: {project}")
+    print(f"  results: {run_dir}")
+
+    if args.dry_run:
+        print(f"\n  Would try: {' → '.join(b['name'] for b in BACKENDS)}")
+        sys.exit(0)
+
+    # Filter to specific backend if requested
+    backends = BACKENDS
+    if args.backend:
+        backends = [b for b in BACKENDS if b["name"] == args.backend]
+        if not backends:
+            print(f"Error: unknown backend '{args.backend}'", file=sys.stderr)
+            sys.exit(1)
+
+    # Try each backend in order
+    for backend in backends:
+        output_file = run_dir / f"{backend['name']}.log"
+        if run_backend(backend, project, plan_file, output_file):
+            print(f"\n✓ Plan executed successfully via {backend['name']}")
+            print(f"  Output: {output_file}")
+            sys.exit(0)
+
+    print(f"\n✗ All backends failed. Escalate to Opus.")
+    print(f"  Logs: {run_dir}")
+    sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,60 @@
+#!/usr/bin/env python3
+import os
+import subprocess
+import sys
+
+# Path to actual binaries (avoiding recursion)
+BINARIES = {
+    "grep": "/usr/bin/grep",
+    "rg": "/usr/local/bin/rg",  # Standard location, will verify
+    "find": "/usr/bin/find",
+}
+
+
+def main():
+    binary_name = os.path.basename(sys.argv[0])
+    args = sys.argv[1:]
+
+    # Identify the target path in arguments
+    search_path = None
+    for arg in args:
+        if arg.startswith("/") or arg.startswith("~") or arg.startswith("."):
+            search_path = os.path.abspath(os.path.expanduser(arg))
+            break
+
+    # If no path specified, grep is reading from piped stdin — not a filesystem search, allow it
+    if not search_path:
+        os.execv(
+            BINARIES.get(binary_name, binary_name), [BINARIES.get(binary_name, binary_name)] + args
+        )
+
+    root_path = os.path.abspath(os.path.expanduser("~"))
+
+    # BLOCK: Root or Parents
+    if search_path in [root_path, "/Users/terry", "/"]:
+        print(f"\n❌ SEARCH BLOCKED: Broad search on '{search_path}' is prohibited.")
+        print("Reason: Performance bottleneck. Use a sub-directory.")
+        sys.exit(1)
+
+    # BLOCK: Massive directories
+    massive_dirs = ["/Users/terry/Library", "/Users/terry/Pictures", "/Users/terry/Downloads"]
+    if search_path in [os.path.abspath(d) for d in massive_dirs]:
+        print(f"\n❌ SEARCH BLOCKED: Directory '{search_path}' is too large.")
+        sys.exit(1)
+
+    # EXECUTE: Call real binary
+    real_bin = BINARIES.get(binary_name, binary_name)
+
+    # Fallback for rg if not in standard /usr/local/bin
+    if binary_name == "rg" and not os.path.exists(real_bin):
+        real_bin = subprocess.check_output(["which", "-a", "rg"]).decode().split("\n")[1].strip()
+
+    try:
+        os.execv(real_bin, [real_bin] + args)
+    except Exception as e:
+        print(f"Error executing {binary_name}: {e}")
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()

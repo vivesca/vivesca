@@ -1,0 +1,297 @@
+#!/usr/bin/env python3
+"""publish — garden CLI for terryli.hm.
+
+Commands: new, list, publish, revise, open, index, push.
+Replaces sarcio (Rust). Named for what it does: publish posts.
+"""
+
+import argparse
+import re
+import subprocess
+import sys
+from datetime import UTC, datetime
+from pathlib import Path
+
+VAULT_DIR = Path.home() / "notes" / "Writing" / "Blog" / "Published"
+INDEX_PATH = Path.home() / "notes" / "terryli.hm.md"
+SYNC_SCRIPT = Path.home() / "code" / "blog" / "sync-from-vault.sh"
+
+
+def now_iso() -> str:
+    return datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%S.000Z")
+
+
+def to_slug(title: str) -> str:
+    slug = re.sub(r"[^a-z0-9\s\-_]", "", title.lower())
+    slug = re.sub(r"[\s\-_]+", "-", slug).strip("-")
+    return slug
+
+
+def parse_frontmatter(content: str) -> dict | None:
+    if not content.startswith("---\n"):
+        return None
+    end = content.index("---", 4)
+    if end < 0:
+        return None
+    fm_text = content[4:end]
+    fm = {}
+    for line in fm_text.strip().splitlines():
+        if ":" in line:
+            key, _, val = line.partition(":")
+            val = val.strip().strip('"').strip("'")
+            if key.strip() == "tags":
+                val = [
+                    t.strip().strip('"').strip("'")
+                    for t in val.strip("[]").split(",")
+                    if t.strip()
+                ]
+            elif val.lower() == "true":
+                val = True
+            elif val.lower() == "false":
+                val = False
+            fm[key.strip()] = val
+    fm["_body_offset"] = end + 4  # after closing ---\n
+    return fm
+
+
+def scan_content(content: str) -> list[str]:
+    warnings = []
+    patterns = [
+        (r"\$[0-9]", "exact dollar figure"),
+        (r"HKD\s*[0-9]", "exact HKD figure"),
+        (r"[0-9]+\s*million\b", "exact million figure"),
+        (r"(?:Mr|Ms|Mrs|Dr|Prof)\.?\s+[A-Z][a-z]+", "named individual"),
+        (
+            r'(?i)(password|api.?key|secret|token)\s*[:=]\s*["\']?[A-Za-z0-9+/=_\-]{8,}',
+            "possible credential",
+        ),
+    ]
+    for pat, label in patterns:
+        m = re.search(pat, content, re.IGNORECASE)
+        if m:
+            snippet = content[m.start() : m.end() + 30].strip()
+            warnings.append(f'[sensitive] {label} — "{snippet}..."')
+    return warnings
+
+
+def cmd_new(args):
+    VAULT_DIR.mkdir(parents=True, exist_ok=True)
+    slug = to_slug(args.title)
+    path = VAULT_DIR / f"{slug}.md"
+    if path.exists():
+        print(f"File already exists: {path}", file=sys.stderr)
+        return 1
+    content = (
+        f'---\ntitle: "{args.title}"\ndescription: ""\n'
+        f"pubDatetime: {now_iso()}\ndraft: true\ntags: []\n---\n\n"
+    )
+    path.write_text(content)
+    print(f"Created {path} (draft)")
+    return 0
+
+
+def cmd_list(_args):
+    if not VAULT_DIR.exists():
+        print("No vault directory", file=sys.stderr)
+        return 1
+    posts = []
+    for p in sorted(VAULT_DIR.glob("*.md")):
+        content = p.read_text()
+        fm = parse_frontmatter(content)
+        if not fm:
+            continue
+        body = content[fm.get("_body_offset", 0) :]
+        words = len(body.split())
+        slug = p.stem
+        date = str(fm.get("pubDatetime", "")).split("T")[0]
+        draft = "(draft)" if fm.get("draft") else ""
+        title = fm.get("title", slug)
+        if len(title) > 40:
+            title = title[:37] + "..."
+        posts.append((date, slug, title, draft, words))
+    posts.sort(key=lambda x: x[0], reverse=True)
+    fmt = "{:<12} {:<40} {:<40} {:<8} {:>5}"
+    print(fmt.format("date", "slug", "title", "draft", "words"))
+    print("-" * 110)
+    for date, slug, title, draft, words in posts:
+        print(fmt.format(date, slug[:40], title[:40], draft, words))
+    return 0
+
+
+def cmd_publish(args):
+    path = VAULT_DIR / f"{args.slug}.md"
+    if not path.exists():
+        print(f"No post found: {args.slug}.md", file=sys.stderr)
+        return 1
+    content = path.read_text()
+    fm = parse_frontmatter(content)
+    if not fm:
+        print("Failed to parse frontmatter", file=sys.stderr)
+        return 1
+    if not fm.get("draft"):
+        print("Already published")
+        return 0
+    warnings = scan_content(content)
+    if warnings:
+        print("\nContent scan warnings:", file=sys.stderr)
+        for w in warnings:
+            print(f"  {w}", file=sys.stderr)
+    new_content = content.replace("draft: true", "draft: false")
+    path.write_text(new_content)
+    print(f"Published: {fm.get('title', args.slug)}")
+    if args.push:
+        return cmd_push(None)
+    return 0
+
+
+def cmd_revise(args):
+    path = VAULT_DIR / f"{args.slug}.md"
+    if not path.exists():
+        print(f"No post found: {args.slug}.md", file=sys.stderr)
+        return 1
+    content = path.read_text()
+    fm = parse_frontmatter(content)
+    if not fm:
+        print("Failed to parse frontmatter", file=sys.stderr)
+        return 1
+    lines = content.splitlines()
+    now = now_iso()
+    pub_idx = next((i for i, l in enumerate(lines) if l.startswith("pubDatetime:")), 0)
+    mod_idx = next((i for i, l in enumerate(lines) if l.startswith("modDatetime:")), None)
+    note_idx = next((i for i, l in enumerate(lines) if l.startswith("revisionNote:")), None)
+    if note_idx is not None:
+        lines[note_idx] = f'revisionNote: "{args.note}"'
+    else:
+        lines.insert(pub_idx + 1, f'revisionNote: "{args.note}"')
+    # Recalculate after possible insert
+    mod_idx_new = next((i for i, l in enumerate(lines) if l.startswith("modDatetime:")), None)
+    if mod_idx_new is not None:
+        lines[mod_idx_new] = f"modDatetime: {now}"
+    else:
+        pub_idx_new = next((i for i, l in enumerate(lines) if l.startswith("pubDatetime:")), 0)
+        lines.insert(pub_idx_new + 1, f"modDatetime: {now}")
+    path.write_text("\n".join(lines) + "\n")
+    print(f"Revised: {fm.get('title', args.slug)} — {args.note}")
+    return 0
+
+
+def cmd_open(args):
+    import os
+
+    path = VAULT_DIR / f"{args.slug}.md"
+    if not path.exists():
+        print(f"No post found: {args.slug}.md", file=sys.stderr)
+        return 1
+    editor = os.environ.get("EDITOR", "open" if sys.platform == "darwin" else "vi")
+    subprocess.run([editor, str(path)])
+    return 0
+
+
+def cmd_index(_args):
+    posts = []
+    if VAULT_DIR.exists():
+        for p in sorted(VAULT_DIR.glob("*.md")):
+            content = p.read_text()
+            fm = parse_frontmatter(content)
+            if not fm or fm.get("draft"):
+                continue
+            slug = p.stem
+            title = fm.get("title", slug)
+            pub = fm.get("pubDatetime", "")
+            tags = fm.get("tags", [])
+            if isinstance(tags, str):
+                tags = [tags] if tags else []
+            date_str = str(pub).split("T")[0] if pub else "—"
+            # Validate frontmatter
+            if not pub or not fm.get("description"):
+                print(f"[ERROR] {p.name} — missing pubDatetime or description", file=sys.stderr)
+                continue
+            posts.append((slug, title, date_str, tags))
+    posts.sort(key=lambda x: x[2], reverse=True)
+    now_str = datetime.now().strftime("%Y-%m-%d %H:%M")
+    lines = [
+        "---",
+        "title: terryli.hm garden index",
+        f"updated: {now_str}",
+        "---",
+        "",
+        "# terryli.hm",
+        "",
+        f"Personal garden at [terryli.hm](https://terryli.hm). {len(posts)} posts.",
+        f"*Auto-generated {now_str} — do not edit manually.*",
+        "",
+        "## All posts (recent first)",
+        "",
+    ]
+    for slug, title, date, tags in posts:
+        tag_str = "  " + ", ".join(f"`{t}`" for t in tags[:3]) if tags else ""
+        lines.append(f"- {date} — [[Writing/Blog/Published/{slug}|{title}]]{tag_str}")
+    lines.append("")
+    lines.append("## By topic")
+    lines.append("")
+    groups: dict[str, list] = {}
+    for slug, title, date, tags in posts:
+        for tag in tags:
+            groups.setdefault(tag, []).append((slug, title, date))
+    for tag in sorted(groups):
+        lines.append(f"### {tag}")
+        for slug, title, _ in sorted(groups[tag], key=lambda x: x[2], reverse=True):
+            lines.append(f"- [[Writing/Blog/Published/{slug}|{title}]]")
+        lines.append("")
+    INDEX_PATH.parent.mkdir(parents=True, exist_ok=True)
+    INDEX_PATH.write_text("\n".join(lines) + "\n")
+    print(f"Generated {INDEX_PATH} — {len(posts)} posts indexed")
+    return 0
+
+
+def cmd_push(_args):
+    if not SYNC_SCRIPT.exists():
+        print(f"Sync script not found: {SYNC_SCRIPT}", file=sys.stderr)
+        return 1
+    print("Syncing...")
+    result = subprocess.run(["bash", str(SYNC_SCRIPT)])
+    if result.returncode != 0:
+        print(f"Sync failed (exit {result.returncode})", file=sys.stderr)
+        return 1
+    print("Live at https://terryli.hm")
+    return 0
+
+
+def main():
+    parser = argparse.ArgumentParser(prog="publish", description="Garden CLI for terryli.hm")
+    sub = parser.add_subparsers(dest="command", required=True)
+
+    p_new = sub.add_parser("new", help="Create a new post")
+    p_new.add_argument("title")
+
+    sub.add_parser("list", help="List all posts")
+
+    p_pub = sub.add_parser("publish", help="Publish a draft post")
+    p_pub.add_argument("slug")
+    p_pub.add_argument("--push", action="store_true")
+
+    p_rev = sub.add_parser("revise", help="Revise a post")
+    p_rev.add_argument("slug")
+    p_rev.add_argument("--note", required=True)
+
+    p_open = sub.add_parser("open", help="Open a post in editor")
+    p_open.add_argument("slug")
+
+    sub.add_parser("index", help="Regenerate garden index")
+    sub.add_parser("push", help="Sync and push now")
+
+    args = parser.parse_args()
+    cmd = {
+        "new": cmd_new,
+        "list": cmd_list,
+        "publish": cmd_publish,
+        "revise": cmd_revise,
+        "open": cmd_open,
+        "index": cmd_index,
+        "push": cmd_push,
+    }
+    sys.exit(cmd[args.command](args))
+
+
+if __name__ == "__main__":
+    main()

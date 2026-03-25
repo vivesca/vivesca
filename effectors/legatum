@@ -1,0 +1,663 @@
+#!/usr/bin/env -S uv run --script --python 3.13
+# /// script
+# requires-python = ">=3.13"
+# dependencies = []
+# ///
+"""
+legatum — deterministic session-close gathering for the legatum skill.
+
+Extracts mechanical checks from the skill so the LLM handles only
+judgment (garden, summary, learning routing).
+
+Subcommands:
+  gather              Run all pre-wrap checks (repos, skills, memory, NOW age)
+  archive             Move completed [x] items to archive
+  daily TITLE         Append session log template to today's daily note
+
+Options:
+  --json              Machine-readable output (gather only)
+  --repos R1,R2,...   Extra repo paths to check (gather only)
+"""
+
+import argparse
+import json
+import os
+import re
+import subprocess
+import sys
+import time
+from datetime import datetime
+from pathlib import Path
+
+# ── Paths ────────────────────────────────────────────────────────────────────
+HOME = Path.home()
+NOTES = HOME / "notes"
+PRAXIS = NOTES / "Praxis.md"
+PRAXIS_ARCHIVE = NOTES / "Praxis Archive.md"
+DAILY_DIR = NOTES / "Daily"
+NOW_MD = NOTES / "Tonus.md"
+SKILLS = HOME / "code" / "vivesca" / "receptors"
+CLAUDE_SKILLS = HOME / ".claude" / "skills"
+MEMORY = HOME / ".claude" / "projects" / "-Users-terry" / "memory" / "MEMORY.md"
+MEMORY_LIMIT = 150
+
+# Always-checked repos
+DEFAULT_REPOS = {
+    "skills": SKILLS,
+    "officina": HOME / "officina",
+    "scripts": HOME / "scripts",
+}
+
+# ── Colours ──────────────────────────────────────────────────────────────────
+RESET = "\033[0m"
+BOLD = "\033[1m"
+DIM = "\033[2m"
+GREEN = "\033[32m"
+YELLOW = "\033[33m"
+RED = "\033[31m"
+CYAN = "\033[36m"
+
+OK = f"{GREEN}✓{RESET}"
+WARN = f"{YELLOW}⚠{RESET}"
+ERR = f"{RED}✗{RESET}"
+
+
+# ── Helpers ──────────────────────────────────────────────────────────────────
+def git_status(path: Path) -> str | None:
+    """Return git short status, or None if not a repo."""
+    try:
+        r = subprocess.run(
+            ["git", "-C", str(path), "status", "--short"],
+            capture_output=True, text=True, timeout=10,
+        )
+        return r.stdout.strip() if r.returncode == 0 else None
+    except (subprocess.TimeoutExpired, FileNotFoundError):
+        return None
+
+
+def now_age() -> tuple[str, int]:
+    """Return (label, seconds) for Tonus.md age."""
+    try:
+        mtime = os.path.getmtime(NOW_MD)
+        age = int(time.time() - mtime)
+        if age < 900:       # 15 min
+            return "fresh", age
+        elif age < 3600:
+            return "recent", age
+        elif age < 86400:
+            return "stale", age
+        else:
+            return "very stale", age
+    except FileNotFoundError:
+        return "missing", -1
+
+
+def memory_lines() -> int:
+    """Count lines in MEMORY.md."""
+    try:
+        return sum(1 for _ in open(MEMORY))
+    except FileNotFoundError:
+        return 0
+
+
+def skill_gaps() -> list[str]:
+    """Skills in ~/code/vivesca/receptors/ without a symlink in ~/.claude/skills/."""
+    try:
+        a = {f for f in os.listdir(SKILLS) if not f.startswith(".")}
+        b = {f for f in os.listdir(CLAUDE_SKILLS) if not f.startswith(".")}
+        return sorted(a - b)
+    except FileNotFoundError:
+        return []
+
+
+def dep_check() -> list[str]:
+    """Run dep-check, return warnings."""
+    try:
+        r = subprocess.run(
+            [str(HOME / "bin" / "dep-check")],
+            capture_output=True, text=True, timeout=30,
+        )
+        if r.returncode == 0 and r.stdout.strip():
+            return r.stdout.strip().splitlines()
+    except (subprocess.TimeoutExpired, FileNotFoundError):
+        pass
+    return []
+
+
+def peira_status() -> str | None:
+    """Return peira active experiment info, or None."""
+    try:
+        r = subprocess.run(
+            ["peira", "status"], capture_output=True, text=True, timeout=10,
+        )
+        if r.returncode == 0 and r.stdout.strip():
+            return r.stdout.strip()
+    except (subprocess.TimeoutExpired, FileNotFoundError):
+        pass
+    return None
+
+
+# ── Gather ───────────────────────────────────────────────────────────────────
+def latest_session_id() -> str | None:
+    """Get the most recent session ID from anam."""
+    try:
+        r = subprocess.run(
+            ["anam", "today"], capture_output=True, text=True, timeout=10,
+        )
+        if r.returncode != 0:
+            return None
+        # Parse last line matching session pattern: [id] N prompts (time) - Model
+        for line in reversed(r.stdout.splitlines()):
+            m = re.search(r"\[([a-f0-9]+)\]", line)
+            if m:
+                return m.group(1)
+    except (subprocess.TimeoutExpired, FileNotFoundError):
+        pass
+    return None
+
+
+def run_reflect(session_id: str) -> tuple[list[dict], dict]:
+    """Run reflection scan, return (parsed candidates, usage stats)."""
+    usage = {"input_tokens": 0, "output_tokens": 0}
+    try:
+        r = subprocess.run(
+            ["anam", "search", ".", "--session", session_id, "--json"],
+            capture_output=True, text=True, timeout=30,
+        )
+        if r.returncode != 0 or not r.stdout.strip():
+            return [], usage
+        messages = json.loads(r.stdout)
+    except (subprocess.TimeoutExpired, FileNotFoundError, json.JSONDecodeError):
+        return [], usage
+
+    if not messages:
+        return [], usage
+
+    transcript_lines = []
+    for msg in messages:
+        role = msg.get("role", "?")
+        snippet = msg.get("snippet", "").strip()
+        time_str = msg.get("time", "")
+        if snippet:
+            if role != "you" and len(snippet) > 500:
+                snippet = snippet[:500] + "..."
+            transcript_lines.append(f"[{time_str}] {role}: {snippet}")
+
+    transcript = "\n".join(transcript_lines)
+    prompt = REFLECT_PROMPT + transcript
+    usage["input_tokens"] = len(prompt) // 4  # rough estimate
+
+    try:
+        r = subprocess.run(
+            ["max20", "haiku", "-p", prompt],
+            capture_output=True, text=True, timeout=120,
+        )
+        if r.returncode != 0:
+            return [], usage
+        result = r.stdout.strip()
+        usage["output_tokens"] = len(result) // 4
+    except Exception:
+        return [], usage
+
+    findings = []
+    current = {}
+    for line in result.splitlines():
+        line = line.strip()
+        if line == "---":
+            if current:
+                findings.append(current)
+            current = {}
+        elif ":" in line:
+            key, _, val = line.partition(":")
+            key = key.strip().lower()
+            val = val.strip()
+            if key in ("category", "quote", "lesson", "memory_type"):
+                current[key] = val
+    if current:
+        findings.append(current)
+    return findings, usage
+
+
+def cmd_gather(args):
+    """Run all deterministic pre-wrap checks + reflection scan."""
+    results = {
+        "repos": {},
+        "skills": {"gaps": []},
+        "memory": {"lines": 0, "limit": MEMORY_LIMIT},
+        "now": {"age_label": "", "age_seconds": 0},
+        "deps": [],
+        "peira": None,
+        "reflect": [],
+    }
+
+    # Repos
+    repos = dict(DEFAULT_REPOS)
+    if args.repos:
+        for r in args.repos.split(","):
+            r = r.strip()
+            p = Path(r).expanduser()
+            repos[p.name] = p
+
+    for label, path in sorted(repos.items()):
+        status = git_status(path)
+        if status is None:
+            results["repos"][label] = {"clean": None, "status": "unavailable"}
+        elif status:
+            results["repos"][label] = {"clean": False, "status": status}
+        else:
+            results["repos"][label] = {"clean": True, "status": ""}
+
+    # Skills
+    results["skills"]["gaps"] = skill_gaps()
+
+    # Memory
+    lines = memory_lines()
+    results["memory"]["lines"] = lines
+
+    # Tonus
+    label, secs = now_age()
+    results["now"]["age_label"] = label
+    results["now"]["age_seconds"] = secs
+
+    # Deps
+    results["deps"] = dep_check()
+
+    # Peira
+    results["peira"] = peira_status()
+
+    # Reflection scan (auto-detect current session)
+    sid = latest_session_id()
+    if sid:
+        candidates, reflect_usage = run_reflect(sid)
+        results["reflect"] = candidates
+        results["reflect_session"] = sid
+        results["reflect_usage"] = reflect_usage
+
+    # Output
+    if args.syntactic:
+        print(json.dumps(results, indent=2))
+        return
+
+    if args.perceptual:
+        _print_human(results, sid)
+        return
+
+    # Default: compact text (LLM-optimized)
+    for label, info in sorted(results["repos"].items()):
+        if not info["clean"] and info["clean"] is not None:
+            print(f"repo:{label} dirty {info['status']}")
+    gaps = results["skills"]["gaps"]
+    if gaps:
+        print(f"skills:unlinked {','.join(gaps)}")
+    mem = results["memory"]
+    print(f"memory:{mem['lines']}/{mem['limit']}")
+    print(f"now:{results['now']['age_label']}")
+    if results["deps"]:
+        print(f"deps:{';'.join(results['deps'])}")
+    if results["peira"]:
+        print(f"peira:{results['peira']}")
+    reflect = results.get("reflect", [])
+    if reflect:
+        ru = results.get("reflect_usage", {})
+        cost_est = f" ~{ru.get('input_tokens',0)+ru.get('output_tokens',0)}tok" if ru else ""
+        print(f"reflect:{len(reflect)} candidates{cost_est}")
+        for i, f in enumerate(reflect, 1):
+            print(f"  {i}. [{f.get('category','')}] {f.get('lesson','')}")
+    return
+
+
+def _print_human(results, sid):
+    """Human-readable output for terminal debugging."""
+    print(f"{BOLD}─── Legatum Gather ───────────────────────────{RESET}")
+
+    # Repos
+    for label, info in sorted(results["repos"].items()):
+        if info["clean"] is None:
+            print(f"  {DIM}?{RESET}  {label}: unavailable")
+        elif info["clean"]:
+            print(f"  {OK}  {label}: clean")
+        else:
+            dirty_files = info["status"].count("\n") + 1
+            print(f"  {WARN}  {label}: {dirty_files} dirty")
+            for line in info["status"].splitlines():
+                print(f"       {DIM}{line}{RESET}")
+
+    # Skills
+    gaps = results["skills"]["gaps"]
+    if gaps:
+        print(f"  {WARN}  Skills: {len(gaps)} unlinked — {', '.join(gaps)}")
+    else:
+        print(f"  {OK}  Skills: synced")
+
+    # Memory
+    mem = results["memory"]
+    marker = WARN if mem["lines"] > MEMORY_LIMIT else OK
+    print(f"  {marker}  MEMORY.md: {mem['lines']}/{MEMORY_LIMIT} lines")
+
+    # Tonus
+    now = results["now"]
+    marker = WARN if now["age_label"] in ("stale", "very stale", "missing") else OK
+    print(f"  {marker}  Tonus: {now['age_label']}")
+
+    # Deps
+    if results["deps"]:
+        for d in results["deps"]:
+            print(f"  {WARN}  dep: {d}")
+    else:
+        print(f"  {OK}  Deps: current")
+
+    # Peira
+    if results["peira"]:
+        print(f"  {WARN}  Peira: {results['peira']}")
+
+    # Reflection
+    reflect = results.get("reflect", [])
+    if reflect:
+        print(f"\n{BOLD}─── Reflection ({len(reflect)} candidates) ──────────{RESET}")
+        for i, f in enumerate(reflect, 1):
+            cat = f.get("category", "?").replace("_", " ").title()
+            lesson = f.get("lesson", "?")
+            print(f"  {CYAN}{i}.{RESET} [{cat}] {lesson[:120]}")
+    elif sid:
+        print(f"  {OK}  Reflection: nothing surfaced")
+
+    print(f"{BOLD}──────────────────────────────────────────────{RESET}")
+
+
+# ── Archive ──────────────────────────────────────────────────────────────────
+def cmd_archive(args):
+    """Move completed [x] items from Praxis.md to Praxis Archive.md."""
+    if not PRAXIS.exists():
+        print("No Praxis.md found.", file=sys.stderr)
+        sys.exit(1)
+
+    lines = PRAXIS.read_text(encoding="utf-8").splitlines(keepends=True)
+    today = datetime.now().strftime("%Y-%m-%d")
+    month_header = datetime.now().strftime("%B %Y")  # e.g. "March 2026"
+
+    completed = []
+    remaining = []
+    skip_children = False
+
+    for line in lines:
+        stripped = line.rstrip()
+
+        # Detect completed top-level items: "- [x]"
+        if re.match(r"^- \[x\]", stripped):
+            # Add done tag if not already present
+            entry = stripped
+            if "done:" not in entry:
+                entry += f" `done:{today}`"
+            completed.append(entry)
+            skip_children = True
+            continue
+
+        # Skip indented children of completed items
+        if skip_children:
+            if re.match(r"^  +- ", stripped):
+                # Child of completed item — skip (don't archive sub-items)
+                continue
+            else:
+                skip_children = False
+
+        remaining.append(line)
+
+    if not completed:
+        print(f"  {OK}  No completed items to archive")
+        return
+
+    # Read archive
+    archive_text = PRAXIS_ARCHIVE.read_text(encoding="utf-8") if PRAXIS_ARCHIVE.exists() else ""
+
+    # Find or create month section
+    month_pattern = f"## {month_header}"
+    if month_pattern in archive_text:
+        # Insert after the month header
+        idx = archive_text.index(month_pattern) + len(month_pattern)
+        # Find end of line
+        nl = archive_text.index("\n", idx)
+        insert_text = "\n" + "\n".join(completed)
+        archive_text = archive_text[:nl] + insert_text + archive_text[nl:]
+    else:
+        # Add new month section after the intro paragraph
+        # Find the first "## " header to insert before it
+        first_section = archive_text.find("\n## ")
+        if first_section >= 0:
+            insert_text = f"\n{month_pattern}\n\n" + "\n".join(completed) + "\n"
+            archive_text = archive_text[:first_section] + insert_text + archive_text[first_section:]
+        else:
+            archive_text += f"\n{month_pattern}\n\n" + "\n".join(completed) + "\n"
+
+    # Write back
+    PRAXIS.write_text("".join(remaining), encoding="utf-8")
+    PRAXIS_ARCHIVE.write_text(archive_text, encoding="utf-8")
+
+    print(f"  {OK}  Archived {len(completed)} completed item(s)")
+    for c in completed:
+        print(f"       {DIM}{c[:80]}{RESET}")
+
+
+# ── Daily ────────────────────────────────────────────────────────────────────
+def cmd_daily(args):
+    """Append session log template to today's daily note."""
+    today = datetime.now().strftime("%Y-%m-%d")
+    weekday = datetime.now().strftime("%A")
+    now_time = datetime.now().strftime("%H:%M")
+    daily_path = DAILY_DIR / f"{today}.md"
+
+    title = args.title if args.title else "Session"
+    template = f"\n### {now_time}–??:?? — {title}\n\n- \n"
+
+    if daily_path.exists():
+        content = daily_path.read_text(encoding="utf-8")
+        content += template
+    else:
+        header = f"# {today} — {weekday}\n"
+        content = header + template
+
+    daily_path.write_text(content, encoding="utf-8")
+    print(f"  {OK}  Daily note: {daily_path}")
+    print(f"       Template appended — fill in outcomes")
+
+
+# ── Reflect ─────────────────────────────────────────────────────────────────
+REFLECT_PROMPT = """You are scanning a conversation transcript for learning opportunities.
+The transcript is between Terry (user) and Claude (assistant).
+
+Find instances of these six categories:
+
+1. **TASTE CALIBRATION** — Terry corrected Claude's judgment, approach, or framing.
+   Signals: "no not that", "you sure?", repeated pushback, steering toward a different solution.
+
+2. **POSITIVE FEEDBACK** — Terry confirmed a non-obvious approach (often quiet signals).
+   Signals: "yes exactly", "perfect", accepting an unusual choice, building on it.
+
+3. **DISCOVERY** — Something surprising was learned about a system, tool, or process.
+   Must be non-obvious and useful for future sessions.
+
+4. **ARCHITECTURE DECISION** — A design choice with reasoning worth recording.
+   Not the code, but WHY this approach over alternatives.
+
+5. **PROCESS GAP** — Wrong order, wrong tool, or fumbled approach when the right one
+   was available. "Should have done X first", trying three approaches before finding
+   the right one, not knowing a tool existed. Workflow lessons.
+
+6. **ASSUMPTION VIOLATION** — Something believed true that turned out false.
+   "I thought we already implemented X", "I assumed Y existed". Gaps between
+   mental model and reality.
+
+Selection criteria (from memory consolidation biology):
+- **Novelty** — first time this came up. New information worth encoding.
+- **Prediction error** — something believed true turned out false, or Claude was corrected.
+  These are the HIGHEST priority — the organism learns most from corrections.
+- **Emotional weight** — Terry pushed back strongly, repeated insistence, or strong reaction.
+  Intensity signals importance.
+- **Pattern completion** — connects to an existing memory or reinforces a known principle.
+  Update existing memory, don't create new.
+- **Routine/expected** — SKIP. Already known, unsurprising, no new information.
+
+For each finding, output EXACTLY this format (one per finding):
+
+---
+CATEGORY: <one of: taste_calibration, positive_feedback, discovery, architecture_decision, process_gap, assumption_violation>
+QUOTE: <the key user message or exchange, verbatim, max 2 lines>
+LESSON: <1-2 sentences: what should be remembered and why>
+MEMORY_TYPE: <feedback, finding, or project>
+CONSOLIDATION: <novelty, prediction_error, emotional_weight, or pattern_completion>
+---
+
+If nothing found for a category, skip it. Quality over quantity — only include
+findings that would genuinely help a future session. No cap — surface everything real.
+
+TRANSCRIPT:
+"""
+
+
+def cmd_reflect(args):
+    """Scan session transcript for reflection candidates."""
+    session_id = args.session
+    findings, usage = run_reflect(session_id)
+
+    if not findings:
+        print(f"  {OK}  No messages found for session {session_id}")
+        return
+
+    if args.json:
+        print(json.dumps(findings, indent=2))
+    else:
+        print(f"{BOLD}─── Reflection Scan ({len(findings)} candidates) ──────{RESET}")
+        for i, f in enumerate(findings, 1):
+            cat = f.get("category", "?").replace("_", " ").title()
+            lesson = f.get("lesson", "?")
+            quote = f.get("quote", "")
+            print(f"  {CYAN}{i}.{RESET} [{cat}] {lesson}")
+            if quote:
+                print(f"       {DIM}\"{quote[:100]}\"{RESET}")
+        print(f"{BOLD}──────────────────────────────────────────────{RESET}")
+
+
+# ── Extract ─────────────────────────────────────────────────────────────────
+EXTRACT_PROMPT = """You are reviewing reflection candidates from a session transcript scan.
+Your ONLY job: decide what to file as durable learnings. One focused task.
+
+For each candidate, output ONE of:
+- SKIP: <reason> (already known, too specific, doesn't generalise)
+- FILE: <memory_type> | <filename> | <one-line description>
+- PRINCIPLE: <filename> | <one-line thesis> (when a candidate reveals something that generalises beyond this instance)
+
+PRINCIPLE is the highest bar — it means "this applies to future work across domains."
+FILE means "useful for future sessions in this project/context."
+SKIP means "definitely already known or trivially obvious."
+
+Selection priority (from memory consolidation):
+- Prediction errors (corrections) > novelty > emotional weight > pattern completion.
+- Pattern completion → FILE as update to existing memory, not new entry.
+
+Be GENEROUS with FILE — when in doubt, capture. A separate pruning process handles
+forgetting over time. The cost of losing an insight exceeds the cost of filing too much.
+Only SKIP what is obviously already known or routine. Be demanding with PRINCIPLE.
+
+Output format (one per candidate, same order as input):
+---
+N. SKIP|FILE|PRINCIPLE: <details>
+---
+
+CANDIDATES:
+"""
+
+
+def cmd_extract(args):
+    """Review reflection candidates and produce filing recommendations."""
+    # Read gather output from stdin or file
+    if args.input:
+        data = Path(args.input).read_text()
+    else:
+        data = sys.stdin.read()
+
+    try:
+        gather = json.loads(data)
+        candidates = gather.get("reflect", [])
+    except json.JSONDecodeError:
+        # Try parsing as the semantic format
+        print("extract requires gather --syntactic output (JSON)", file=sys.stderr)
+        sys.exit(1)
+
+    if not candidates:
+        print("no candidates")
+        return
+
+    # Format candidates for the prompt
+    candidate_text = []
+    for i, c in enumerate(candidates, 1):
+        cat = c.get("category", "?")
+        lesson = c.get("lesson", "?")
+        quote = c.get("quote", "")
+        candidate_text.append(f"{i}. [{cat}] {lesson}")
+        if quote:
+            candidate_text.append(f"   Quote: \"{quote}\"")
+
+    prompt = EXTRACT_PROMPT + "\n".join(candidate_text)
+
+    try:
+        r = subprocess.run(
+            ["max20", "haiku", "-p", prompt],
+            capture_output=True, text=True, timeout=120,
+        )
+        if r.returncode != 0:
+            print(f"extract failed: {r.stderr.strip()}", file=sys.stderr)
+            sys.exit(1)
+        print(r.stdout.strip())
+    except Exception as e:
+        print(f"extract error: {e}", file=sys.stderr)
+        sys.exit(1)
+
+
+# ── Main ─────────────────────────────────────────────────────────────────────
+def main():
+    parser = argparse.ArgumentParser(
+        prog="legatum",
+        description="Deterministic session-close gathering.",
+    )
+    sub = parser.add_subparsers(dest="command")
+
+    # gather
+    g = sub.add_parser("gather", help="Run all pre-wrap checks")
+    g.add_argument("--syntactic", action="store_true", help="JSON output (for code)")
+    g.add_argument("--perceptual", action="store_true", help="Pretty terminal output")
+    g.add_argument("--repos", type=str, help="Extra repo paths (comma-separated)")
+
+    # archive
+    sub.add_parser("archive", help="Move completed items to archive")
+
+    # daily
+    d = sub.add_parser("daily", help="Append session log template")
+    d.add_argument("title", nargs="?", default=None, help="Session title")
+
+    # reflect
+    rf = sub.add_parser("reflect", help="Scan transcript for reflection candidates")
+    rf.add_argument("session", help="Session ID (prefix match for anam)")
+    rf.add_argument("--json", action="store_true", help="JSON output")
+
+    # extract
+    ex = sub.add_parser("extract", help="Review candidates, recommend filings")
+    ex.add_argument("--input", type=str, help="Path to gather JSON (default: stdin)")
+
+    args = parser.parse_args()
+
+    if args.command == "gather":
+        cmd_gather(args)
+    elif args.command == "archive":
+        cmd_archive(args)
+    elif args.command == "daily":
+        cmd_daily(args)
+    elif args.command == "reflect":
+        cmd_reflect(args)
+    elif args.command == "extract":
+        cmd_extract(args)
+    else:
+        parser.print_help()
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()

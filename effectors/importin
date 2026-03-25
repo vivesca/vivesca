@@ -1,0 +1,97 @@
+#!/usr/bin/env python3
+"""importin -- transport credentials from macOS Keychain into the shell environment.
+
+Named after nuclear importins: transport receptors that carry cargo bearing
+the right signal (NLS) through nuclear pores into the nucleus.
+
+Usage (in shell):
+    eval "$(importin)"
+
+Usage (in Python):
+    import importlib.util, os
+    spec = importlib.util.spec_from_file_location("importin", os.path.expanduser("~/code/vivesca/bin/importin"))
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    mod.load_keychain_env()
+
+Credentials stay out of the flat env namespace unless explicitly loaded.
+"""
+
+from __future__ import annotations
+
+import getpass
+import subprocess
+
+_USER = getpass.getuser()
+
+# Map: env var name -> keychain service name
+CREDENTIALS = {
+    # From .zshenv
+    "XAI_API_KEY": "xai-api-key",
+    "DEEPGRAM_API_KEY": "deepgram-api-key",
+    "SPEECHMATICS_API_KEY": "speechmatics-api-key",
+    "GOG_KEYRING_PASSWORD": "gog-keyring-password",
+    # From .secrets (.secrets was sourced after .zshenv, so these values win)
+    "GEMINI_API_KEY": "gemini-api-key-secrets",
+    "GOOGLE_API_KEY": "google-api-key-secrets",
+    "OPENROUTER_API_KEY": "openrouter-api-key",
+    "ANTHROPIC_API_KEY": "anthropic-api-key",
+    "OPENAI_API_KEY": "openai-api-key",
+    "MOONSHOT_API_KEY": "moonshot-api-key",
+    "BRAVE_API_KEY": "brave-api-key",
+    "TAVILY_API_KEY": "tavily-api-key",
+    "PERPLEXITY_API_KEY": "perplexity-api-key",
+    "EXA_API_KEY": "exa-api-key",
+    "SERPER_API_KEY": "serper-api-key",
+    "PYPI_TOKEN": "pypi-token",
+    "OP_MASTER_PASSWORD": "op-master-password",
+    "OP_SECRET_KEY": "op-secret-key",
+    "OURA_TOKEN": "oura-token",
+    "LLAMA_CLOUD_API_KEY": "llama-cloud-api-key",
+    "MXBAI_API_KEY": "mxbai-api-key",
+    "KILO_API_TOKEN": "kilo-api-token",
+    "HKGBOOK_API_KEY": "hkgbook-api-key",
+    "TELEGRAM_BOT_TOKEN": "telegram-bot-token",
+    "TELEGRAM_CHAT_ID": "telegram-chat-id",
+    "PLAYWRIGHT_MCP_EXTENSION_TOKEN": "playwright-mcp-token",
+}
+
+
+def get_keychain_value(service: str) -> str | None:
+    """Fetch a password from macOS Keychain."""
+    try:
+        result = subprocess.run(
+            ["security", "find-generic-password", "-a", _USER, "-s", service, "-w"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        if result.returncode == 0:
+            return result.stdout.strip()
+    except (subprocess.TimeoutExpired, FileNotFoundError):
+        pass
+    return None
+
+
+def load_keychain_env() -> dict[str, str]:
+    """Load all credentials from Keychain into os.environ. Returns loaded keys."""
+    import os
+
+    loaded = {}
+    for env_var, service in CREDENTIALS.items():
+        if env_var not in os.environ:
+            val = get_keychain_value(service)
+            if val:
+                os.environ[env_var] = val
+                loaded[env_var] = val
+    return loaded
+
+
+if __name__ == "__main__":
+    # Shell mode: print export statements
+    for env_var, service in CREDENTIALS.items():
+        val = get_keychain_value(service)
+        if val:
+            # Single-quote the value to prevent shell expansion
+            escaped = val.replace("'", "'\\''")
+            print(f"export {env_var}='{escaped}'")

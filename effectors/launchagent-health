@@ -1,0 +1,80 @@
+#!/usr/bin/env python3
+"""LaunchAgent health check — verify deployed plists match source and are valid XML."""
+
+import subprocess
+import sys
+from pathlib import Path
+
+LAUNCH_DIR = Path.home() / "Library" / "LaunchAgents"
+SOURCE_DIR = Path.home() / "officina" / "launchd"
+LOG = Path.home() / "logs" / "launchagent-health.log"
+
+
+def check():
+    issues = []
+
+    # Check all com.terry.* plists in LaunchAgents
+    for plist in sorted(LAUNCH_DIR.glob("com.terry.*.plist")):
+        # Skip symlinks (those are fine — they auto-update)
+        if plist.is_symlink():
+            continue
+
+        # Check if it's valid XML plist (not corrupted JSON)
+        content = plist.read_text(errors="replace")
+        if not content.strip().startswith("<?xml") and not content.strip().startswith("<!DOCTYPE"):
+            # Could be binary plist — check with plutil
+            result = subprocess.run(
+                ["plutil", "-lint", str(plist)], capture_output=True, text=True
+            )
+            if result.returncode != 0:
+                issues.append(f"INVALID: {plist.name} — not a valid plist")
+                continue
+
+        # Check if source exists and matches
+        source = SOURCE_DIR / plist.name
+        if source.exists():
+            import filecmp
+
+            if not filecmp.cmp(str(plist), str(source), shallow=False):
+                issues.append(f"DRIFT: {plist.name} — differs from source in officina/launchd/")
+
+    # Check for hardcoded secrets in text scripts (skip binaries)
+    import re
+
+    secret_re = re.compile(
+        r"(?:sk-[a-zA-Z0-9]{20,}|xoxb-[a-zA-Z0-9-]+|xoxp-[a-zA-Z0-9-]+|ghp_[a-zA-Z0-9]{36,})"
+    )
+    bin_dir = Path.home() / "bin"
+    for script in bin_dir.iterdir():
+        if not script.is_file():
+            continue
+        try:
+            text = script.read_text(errors="replace")
+            if "\x00" in text[:256]:  # skip binaries
+                continue
+        except Exception:
+            continue
+        for line in text.splitlines():
+            if secret_re.search(line) and "security find" not in line:
+                issues.append(
+                    f"HARDCODED KEY: {script.name} contains what looks like a plaintext secret"
+                )
+
+    return issues
+
+
+if __name__ == "__main__":
+    issues = check()
+    if issues:
+        output = "LaunchAgent health issues:\n" + "\n".join(f"  - {i}" for i in issues)
+        print(output)
+        # Write to log
+        LOG.parent.mkdir(exist_ok=True)
+        with open(LOG, "a") as f:
+            from datetime import datetime
+
+            f.write(f"\n[{datetime.now().isoformat()}]\n{output}\n")
+        sys.exit(1)
+    else:
+        print("All clear.")
+        sys.exit(0)

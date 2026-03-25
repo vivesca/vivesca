@@ -1,0 +1,7 @@
+#!/bin/zsh
+# Wrapper for LaunchAgent-invoked legatus — minimal env for launchd context
+# Only export what backends actually need: PATH + Homebrew.
+# Telegram, GOG, browser profile, 1Password token are NOT needed.
+eval "$(/opt/homebrew/bin/brew shellenv)"
+export PATH="/Users/terry/.local/bin:/Users/terry/bin:/Users/terry/.cargo/bin:$PATH"
+exec legatus --queue /Users/terry/notes/agent-queue.yaml "$@"

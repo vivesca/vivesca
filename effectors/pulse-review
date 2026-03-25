@@ -1,0 +1,97 @@
+#!/usr/bin/env -S uv run --script --python 3.13
+# /// script
+# requires-python = ">=3.13"
+# dependencies = []
+# ///
+"""
+copia-review — cross-model review of copia session manifests.
+
+Usage:
+  copia-review <manifest_path>
+
+Sends the manifest to Gemini 3.1 Pro and Codex in parallel for review.
+Saves combined results to ~/tmp/copia-review-YYYY-MM-DD.md.
+"""
+
+import sys
+import os
+from datetime import datetime
+from pathlib import Path
+
+# Shared dispatch module
+sys.path.insert(0, os.path.expanduser("~/code/vivesca/lib"))
+from llm import parallel_query  # noqa: E402
+
+MODELS = ["gemini-3.1-pro", "codex"]
+TIMEOUT = 120
+
+PROMPT_TEMPLATE = (
+    'Read the file at {manifest_path}. It\'s a manifest of an autonomous AI '
+    'system\'s overnight outputs. Review: (1) ROUTING: outputs labeled '
+    '\'self-sufficient\' vs \'needs Terry\' — flag any borderline mislabels. '
+    '(2) QUALITY: spot-check deliverables for factual issues or risky advice. '
+    'Only flag genuinely borderline items. If clean, say so.'
+)
+
+MODEL_LABELS = {
+    "gemini-3.1-pro": "Gemini 3.1 Pro",
+    "codex": "Codex (GPT-5.4)",
+}
+
+
+def main() -> None:
+    if len(sys.argv) < 2 or sys.argv[1] in ("-h", "--help"):
+        print(__doc__.strip())
+        sys.exit(0)
+
+    manifest_path = Path(sys.argv[1]).expanduser().resolve()
+    if not manifest_path.exists():
+        print(f"Error: manifest not found — {manifest_path}", file=sys.stderr)
+        sys.exit(1)
+
+    prompt = PROMPT_TEMPLATE.format(manifest_path=manifest_path)
+    now = datetime.now()
+
+    print(f"Reviewing: {manifest_path}")
+    print(f"Models: {', '.join(MODEL_LABELS[m] for m in MODELS)}")
+    print(f"Timeout: {TIMEOUT}s per model")
+    print("Running reviews in parallel…")
+
+    results = parallel_query(MODELS, prompt, timeout=TIMEOUT)
+    results_dict = dict(results)
+
+    # Build output
+    lines = [
+        f"# Copia Review — {now.strftime('%Y-%m-%d %H:%M')}",
+        "",
+        f"**Manifest:** `{manifest_path}`",
+        f"**Reviewed:** {now.strftime('%Y-%m-%d %H:%M:%S HKT')}",
+        "",
+        "---",
+    ]
+
+    for model in MODELS:
+        label = MODEL_LABELS.get(model, model)
+        review = results_dict.get(model, "(no response)")
+        lines.extend([
+            "",
+            f"## {label}",
+            "",
+            review,
+            "",
+            "---",
+        ])
+
+    output = "\n".join(lines) + "\n"
+
+    out_dir = Path.home() / "tmp"
+    out_dir.mkdir(exist_ok=True)
+    out_path = out_dir / f"copia-review-{now.strftime('%Y-%m-%d')}.md"
+    out_path.write_text(output, encoding="utf-8")
+
+    print(f"\nSaved to {out_path}")
+    print(output)
+
+
+if __name__ == "__main__":
+    main()

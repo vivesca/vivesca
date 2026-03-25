@@ -1,0 +1,310 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.13"
+# dependencies = ["anthropic"]
+# ///
+"""judge — LLM quality gate for content evaluation.
+
+Evaluates content against named rubrics and returns a structured verdict.
+Used by evaluate-job (step 8), sarcio auto-publish, and evaluate-article.
+
+Usage:
+    judge article < post.md
+    judge article post.md
+    judge job-eval analysis.md
+    judge article --json post.md
+    echo "content" | judge article
+    judge article --context "front-stage LinkedIn" post.md
+
+Rubrics:
+    article     — garden/blog posts (thesis, evidence, hook, conclusion, concision)
+    job-eval    — job evaluation quality (fit analysis, red flags, specificity,
+                  recommendation strength, career direction alignment)
+    outreach    — outreach messages (tone, specificity, no hallucination, CTA)
+
+Exit codes:
+    0 = PASS
+    1 = REVIEW (needs work but not fundamentally broken)
+    2 = FAIL
+    3 = error
+"""
+
+import argparse
+import json
+import os
+import sys
+from pathlib import Path
+
+import anthropic
+
+# ---------------------------------------------------------------------------
+# Model resolution
+# ---------------------------------------------------------------------------
+
+_LLM_MODELS_PATH = Path.home() / ".config" / "llm-models.json"
+
+
+def _model_id(key: str) -> str:
+    """Resolve a registry key to its Anthropic SDK model ID string."""
+    try:
+        registry = json.loads(_LLM_MODELS_PATH.read_text())
+        return registry[key]["model"]
+    except Exception:
+        return key
+
+
+# Default to haiku for cost efficiency (judge is high-volume, low-stakes per call)
+DEFAULT_MODEL = "haiku"
+
+# ---------------------------------------------------------------------------
+# Rubric definitions
+# ---------------------------------------------------------------------------
+
+RUBRICS: dict[str, dict] = {
+    "article": {
+        "description": "Garden/blog post quality",
+        "criteria": [
+            {"name": "clear_thesis", "weight": "HIGH", "prompt": "Is there one clear main point that the reader can state after reading?"},
+            {"name": "evidence", "weight": "HIGH", "prompt": "Are claims supported with examples, reasoning, or experience — not just assertions?"},
+            {"name": "hook", "weight": "MED", "prompt": "Does the opening draw the reader in within the first two sentences?"},
+            {"name": "conclusion", "weight": "MED", "prompt": "Does it end with a clear takeaway, not a summary or platitude?"},
+            {"name": "concise", "weight": "LOW", "prompt": "Is every paragraph earning its place? No filler, no redundancy?"},
+        ],
+    },
+    "job-eval": {
+        "description": "Job evaluation analysis quality",
+        "criteria": [
+            {"name": "fit_analysis", "weight": "HIGH", "prompt": "Does the analysis cover all relevant fit dimensions with specific evidence from the JD, not vague impressions?"},
+            {"name": "red_flags", "weight": "HIGH", "prompt": "Are potential red flags (anti-signals, competition, seniority mismatch) identified and addressed honestly?"},
+            {"name": "specificity", "weight": "HIGH", "prompt": "Is the reasoning specific to THIS role, not generic advice that could apply to any job?"},
+            {"name": "recommendation", "weight": "MED", "prompt": "Is the APPLY/CONSIDER/PASS recommendation clearly justified and actionable?"},
+            {"name": "career_direction", "weight": "MED", "prompt": "Does the analysis consider long-term career trajectory, not just immediate fit?"},
+        ],
+    },
+    "outreach": {
+        "description": "Outreach message quality",
+        "criteria": [
+            {"name": "tone", "weight": "HIGH", "prompt": "Is the tone professional but warm — not stiff, not sycophantic, not salesy?"},
+            {"name": "specificity", "weight": "HIGH", "prompt": "Does the message reference something specific about the recipient, not just their title?"},
+            {"name": "no_hallucination", "weight": "HIGH", "prompt": "Are all claims consistent with the input? Do NOT flag proper nouns, organisation names, or technical terms simply because you don't recognise them. Only flag claims that contradict the input or are internally inconsistent."},
+            {"name": "cta", "weight": "MED", "prompt": "Is there a clear, low-friction call to action?"},
+            {"name": "concise", "weight": "LOW", "prompt": "Is every sentence earning its place? Under 150 words for cold outreach?"},
+        ],
+    },
+}
+
+# ---------------------------------------------------------------------------
+# System prompt
+# ---------------------------------------------------------------------------
+
+SYSTEM_PROMPT = """You are a strict quality gate. Your job is to evaluate content against specific criteria and return a verdict.
+
+RULES:
+- Be strict. False positives (passing bad work) are worse than false negatives (failing good work).
+- Score each criterion 0-100.
+- Weight scores: HIGH criteria count 3x, MED criteria count 2x, LOW criteria count 1x.
+- For no_hallucination: only flag claims that contradict the input or are internally inconsistent. Do NOT flag proper nouns, organisation names, or technical terms simply because you don't recognise them.
+
+OUTPUT FORMAT — you MUST reply with ONLY this JSON, no markdown fencing, no commentary:
+{
+  "verdict": "PASS" or "REVIEW" or "FAIL",
+  "score": <weighted average 0-100>,
+  "criteria": {
+    "<name>": {"score": <0-100>, "note": "<one sentence>"}
+  },
+  "summary": "<one sentence overall verdict>"
+}
+
+VERDICT THRESHOLDS:
+- PASS: weighted average >= 75 AND no HIGH criterion below 60
+- REVIEW: weighted average >= 55 OR all HIGH criteria >= 50
+- FAIL: everything else
+
+Be concise. One sentence per criterion note. One sentence summary."""
+
+
+def build_user_prompt(content: str, rubric_name: str, context: str | None = None) -> str:
+    """Build the user prompt from content and rubric."""
+    rubric = RUBRICS[rubric_name]
+    criteria_text = "\n".join(
+        f"- {c['name']} ({c['weight']}): {c['prompt']}"
+        for c in rubric["criteria"]
+    )
+
+    parts = [
+        f"Rubric: {rubric_name} — {rubric['description']}",
+        f"\nCriteria:\n{criteria_text}",
+    ]
+    if context:
+        parts.append(f"\nContext: {context}")
+    parts.append(f"\n---\nContent to evaluate:\n\n{content}")
+
+    return "\n".join(parts)
+
+
+# ---------------------------------------------------------------------------
+# LLM call
+# ---------------------------------------------------------------------------
+
+def evaluate(content: str, rubric_name: str, context: str | None = None, model: str | None = None) -> dict:
+    """Run the judge evaluation. Returns parsed verdict dict."""
+    model_id = _model_id(model or DEFAULT_MODEL)
+    client = anthropic.Anthropic()
+
+    user_prompt = build_user_prompt(content, rubric_name, context)
+
+    msg = client.messages.create(
+        model=model_id,
+        max_tokens=500,
+        system=SYSTEM_PROMPT,
+        messages=[{"role": "user", "content": user_prompt}],
+    )
+
+    raw = msg.content[0].text.strip()
+
+    # Strip markdown fencing if present (model sometimes adds it despite instructions)
+    if raw.startswith("```"):
+        lines = raw.splitlines()
+        # Remove first line (```json or ```) and last line (```)
+        lines = [l for l in lines if not l.strip().startswith("```")]
+        raw = "\n".join(lines)
+
+    try:
+        result = json.loads(raw)
+    except json.JSONDecodeError:
+        return {
+            "verdict": "FAIL",
+            "score": 0,
+            "criteria": {},
+            "summary": f"Judge returned unparseable output: {raw[:200]}",
+            "_raw": raw,
+        }
+
+    # Ensure required fields exist
+    for field in ("verdict", "score", "summary"):
+        if field not in result:
+            result[field] = {"verdict": "FAIL", "score": 0, "summary": "Missing fields in judge output"}.get(field)
+
+    # Normalise verdict
+    v = str(result["verdict"]).upper().strip()
+    if v not in ("PASS", "REVIEW", "FAIL"):
+        v = "REVIEW"
+    result["verdict"] = v
+
+    return result
+
+
+# ---------------------------------------------------------------------------
+# CLI
+# ---------------------------------------------------------------------------
+
+def main() -> int:
+    parser = argparse.ArgumentParser(
+        prog="judge",
+        description="LLM quality gate — evaluate content against named rubrics.",
+    )
+    parser.add_argument(
+        "rubric",
+        nargs="?",
+        choices=list(RUBRICS.keys()),
+        default=None,
+        help="Rubric to evaluate against",
+    )
+    parser.add_argument(
+        "file",
+        nargs="?",
+        default=None,
+        help="File to evaluate (reads stdin if omitted)",
+    )
+    parser.add_argument(
+        "--json",
+        action="store_true",
+        dest="json_output",
+        help="Output raw JSON (default: human-readable)",
+    )
+    parser.add_argument(
+        "--context",
+        default=None,
+        help="Additional context for the judge (e.g. 'front-stage LinkedIn post')",
+    )
+    parser.add_argument(
+        "--model",
+        default=None,
+        help=f"Model registry key (default: {DEFAULT_MODEL})",
+    )
+    parser.add_argument(
+        "--list-rubrics",
+        action="store_true",
+        help="List available rubrics and exit",
+    )
+
+    args = parser.parse_args()
+
+    if args.list_rubrics:
+        for name, rubric in RUBRICS.items():
+            criteria_names = ", ".join(c["name"] for c in rubric["criteria"])
+            print(f"  {name:12s}  {rubric['description']}")
+            print(f"               [{criteria_names}]")
+        return 0
+
+    if args.rubric is None:
+        parser.error("the following arguments are required: rubric")
+
+    # Read content
+    if args.file:
+        path = Path(args.file).expanduser()
+        if not path.exists():
+            print(f"Error: file not found: {path}", file=sys.stderr)
+            return 3
+        content = path.read_text()
+    elif not sys.stdin.isatty():
+        content = sys.stdin.read()
+    else:
+        print("Error: no input — provide a file path or pipe content via stdin", file=sys.stderr)
+        return 3
+
+    if not content.strip():
+        print("Error: empty content", file=sys.stderr)
+        return 3
+
+    # Evaluate
+    try:
+        result = evaluate(content, args.rubric, context=args.context, model=args.model)
+    except anthropic.APIError as e:
+        print(f"Error: API call failed — {e}", file=sys.stderr)
+        return 3
+    except Exception as e:
+        print(f"Error: {e}", file=sys.stderr)
+        return 3
+
+    # Output
+    if args.json_output:
+        print(json.dumps(result, indent=2))
+    else:
+        verdict = result["verdict"]
+        score = result.get("score", "?")
+        summary = result.get("summary", "")
+
+        # Colour verdict for terminal
+        colours = {"PASS": "\033[32m", "REVIEW": "\033[33m", "FAIL": "\033[31m"}
+        reset = "\033[0m"
+        colour = colours.get(verdict, "")
+
+        print(f"{colour}{verdict}{reset} ({score}/100) — {summary}")
+
+        criteria = result.get("criteria", {})
+        if criteria:
+            print()
+            for name, detail in criteria.items():
+                s = detail.get("score", "?")
+                note = detail.get("note", "")
+                indicator = "\033[32m+\033[0m" if isinstance(s, (int, float)) and s >= 70 else "\033[31m-\033[0m"
+                print(f"  {indicator} {name}: {s} — {note}")
+
+    # Exit code based on verdict
+    exit_codes = {"PASS": 0, "REVIEW": 1, "FAIL": 2}
+    return exit_codes.get(result["verdict"], 3)
+
+
+if __name__ == "__main__":
+    sys.exit(main())

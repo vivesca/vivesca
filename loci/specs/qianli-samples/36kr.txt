@@ -1,0 +1,557 @@
+- document:
+  - text: 登录 搜索
+  - list:
+    - listitem:
+      - link "36氪Auto" [ref=e1]:
+        - /url: https://img.36krcdn.com/hsossms/20230605/v2_384be8e4c1e942a28cf13a2e427fe211@18900718_oswg78404oswg320oswg320_img_png
+      - link "数字时氪" [ref=e2]:
+        - /url: https://img.36krcdn.com/hsossms/20230605/v2_636063907bdc44389b46e7db9c761a38@18900718_oswg62424oswg320oswg320_img_png
+      - link "未来消费" [ref=e3]:
+        - /url: https://img.36krcdn.com/hsossms/20230210/v2_38d1cdabc8404b00806de58cbedb3b7b_oswg27031oswg320oswg320_img_png
+      - link "智能涌现" [ref=e4]:
+        - /url: https://img.36krcdn.com/hsossms/20230605/v2_da74c43ba887426f8fbccaede691b844@18900718_oswg76573oswg320oswg320_img_png
+      - link "未来城市" [ref=e5]:
+        - /url: https://img.36krcdn.com/hsossms/20230209/v2_8c2233c88a854c6496ff4f7842a9f9dd_oswg17629oswg320oswg320_img_png
+      - link "启动Power on" [ref=e6]:
+        - /url: https://img.36krcdn.com/hsossms/20230605/v2_632f36f1c5904a539a1e57efe4497e3a@18900718_oswg63630oswg320oswg320_img_png
+      - link "36氪出海" [ref=e7]:
+        - /url: http://letschuhai.com
+      - link "36氪研究院" [ref=e8]:
+        - /url: https://img.36krcdn.com/hsossms/20230605/v2_89fa42090fae495ca5e45ba921ee42ff@18900718_oswg65306oswg320oswg320_img_png
+      - link "潮生TIDE" [ref=e9]:
+        - /url: https://img.36krcdn.com/hsossms/20231204/v2_3b8447ffdda24a38a30fd839fd934baa@000000_oswg40121oswg430oswg430_img_jpeg
+      - link "36氪企服点评" [ref=e10]:
+        - /url: https://img.36krcdn.com/hsossms/20230605/v2_c4720503500642d294b5be04064ef870@18900718_oswg58529oswg320oswg320_img_png
+      - link "36氪财经" [ref=e11]:
+        - /url: https://img.36krcdn.com/hsossms/20230209/v2_d6d3f8b57fa04507915c48adf0f9620d_oswg16586oswg320oswg320_img_png
+      - link "职场bonus" [ref=e12]:
+        - /url: https://img.36krcdn.com/hsossms/20230605/v2_efc94b0cce7043dbac883c1dfe00c810@18900718_oswg57046oswg320oswg320_img_png
+      - link "36碳" [ref=e13]:
+        - /url: https://img.36krcdn.com/hsossms/20230209/v2_9eb02027be264174b61b9d49c391ca75_oswg15571oswg320oswg320_img_png
+      - link "后浪研究所" [ref=e14]:
+        - /url: https://img.36krcdn.com/hsossms/20230605/v2_86f220b69e164751946d583b5472c857@18900718_oswg97988oswg320oswg320_img_png
+      - link "暗涌Waves" [ref=e15]:
+        - /url: https://img.36krcdn.com/hsossms/20230209/v2_0c6a697748b54beea356d6e1f1fcec5f_oswg17066oswg320oswg320_img_png
+      - link "硬氪" [ref=e16]:
+        - /url: https://img.36krcdn.com/hsossms/20230209/v2_2f845ed16244458d8887a5526c63c6d6_oswg17346oswg320oswg320_img_png
+      - link "氪睿研究院" [ref=e17]:
+        - /url: https://img.36krcdn.com/hsossms/20251118/v2_d5e97c1ebb974011b0117c1338a9c747@000000_oswg146520oswg1280oswg1280_img_jpg
+      - text: 媒体品牌
+    - listitem:
+      - link "企业号" [ref=e18]:
+        - /url: https://q.36kr.com
+      - link "企服点评" [ref=e19]:
+        - /url: https://www.36dianping.com/
+      - link "36Kr研究院" [ref=e20]:
+        - /url: https://36kr.com/academe
+      - link "36Kr创新咨询" [ref=e21]:
+        - /url: https://innovation.36kr.com
+      - text: 企业服务
+    - listitem:
+      - link "核心服务" [ref=e22]:
+        - /url: https://www.36kr.com/p/2492318105786505
+      - link "城市之窗" [ref=e23]:
+        - /url: https://36kr.com/policy
+      - text: 政府服务
+    - listitem:
+      - link "创投发布" [ref=e24]:
+        - /url: https://topics.36kr.com/topic/1645523444931974
+      - link "LP源计划" [ref=e25]:
+        - /url: https://36kr.com/LPlan
+      - link "VClub" [ref=e26]:
+        - /url: https://36kr.com/VClub
+      - link "VClub投资机构库" [ref=e27]:
+        - /url: https://36kr.com/organization/
+      - link "投资机构职位推介" [ref=e28]:
+        - /url: https://36kr.com/topics/1620276089894403
+      - link "投资人认证" [ref=e29]:
+        - /url: https://pitchhub.36kr.com/audit-investor
+      - text: 投资人服务
+    - listitem:
+      - link "寻求报道" [ref=e30]:
+        - /url: https://36kr.com/seek-report-new
+      - link "36氪Pro" [ref=e31]:
+        - /url: https://img.36krcdn.com/hsossms/20230209/v2_95565530d4d94dc4ad904f3131c7b690_oswg23055oswg320oswg320_img_png
+      - link "创投氪堂" [ref=e32]:
+        - /url: https://topics.36kr.com/topic/1961250130199045
+      - link "企业入驻" [ref=e33]:
+        - /url: https://36kr.com/project-form/settled
+      - text: 创业者服务
+    - listitem: 创投平台
+    - listitem: AI测评网
+  - link [ref=e34]:
+    - /url: https://36kr.com/topics/799051634713857
+  - link [ref=e35] [nth=1]:
+    - /url: http://www.bjjubao.org.cn/node_1606.html
+  - link [ref=e36] [nth=2]:
+    - /url: ttps://36kr.com/topics/799051634713857
+  - link [ref=e37] [nth=3]:
+    - /url: /
+  - list:
+    - listitem:
+      - link "首页" [ref=e38]:
+        - /url: /
+    - listitem:
+      - link "快讯" [ref=e39]:
+        - /url: /newsflashes/
+    - listitem:
+      - link "资讯" [ref=e40]:
+        - /url: /information/web_news/
+      - list:
+        - listitem:
+          - link "推荐" [ref=e41]:
+            - /url: /information/web_recommend/
+        - listitem:
+          - link "财经" [ref=e42]:
+            - /url: /information/ccs/
+        - listitem:
+          - link "AI" [ref=e43]:
+            - /url: /information/AI/
+        - listitem:
+          - link "自助报道" [ref=e44]:
+            - /url: /information/aireport/
+        - listitem: 城市
+      - list:
+        - listitem:
+          - link "最新" [ref=e45]:
+            - /url: /information/web_news/latest/
+        - listitem:
+          - link "创投" [ref=e46]:
+            - /url: /information/contact/
+        - listitem:
+          - link "汽车" [ref=e47]:
+            - /url: /information/travel/
+        - listitem:
+          - link "科技" [ref=e48]:
+            - /url: /information/technology/
+        - listitem:
+          - link "专精特新" [ref=e49]:
+            - /url: /information/shuzihua/
+    - listitem:
+      - link "直播" [ref=e50]:
+        - /url: /live/channel
+    - listitem:
+      - link "视频" [ref=e51]:
+        - /url: /video/
+    - listitem:
+      - link "专题" [ref=e52]:
+        - /url: /topics/
+    - listitem:
+      - link "活动" [ref=e53]:
+        - /url: /activity
+  - text: 搜索
+  - link "寻求报道" [ref=e54] [nth=1]:
+    - /url: /seek-report-new?t=1771047791807
+  - text: 我要入驻
+  - link "城市合作" [ref=e55]:
+    - /url: /station-business
+  - textbox "请输入关键词" [ref=e56]: AI
+  - text: 站内搜索
+  - list:
+    - link "文章" [ref=e57]:
+      - /url: /search/articles/AI
+      - listitem: 文章
+    - link "快讯" [ref=e58] [nth=1]:
+      - /url: /search/newsflashes/AI
+      - listitem: 快讯
+    - link "直播" [ref=e59] [nth=1]:
+      - /url: /search/live/AI
+      - listitem: 直播
+    - link "视频" [ref=e60] [nth=1]:
+      - /url: /search/video/AI
+      - listitem: 视频
+    - link "专题" [ref=e61] [nth=1]:
+      - /url: /search/monographic/AI
+      - listitem: 专题
+    - link "作者" [ref=e62]:
+      - /url: /search/user/AI
+      - listitem: 作者
+    - link "项目" [ref=e63]:
+      - /url: /search/projects/AI
+      - listitem: 项目
+    - link "企业号" [ref=e64] [nth=1]:
+      - /url: /search/company/AI
+      - listitem: 企业号
+  - text: 相关性 | 发布时间
+  - list:
+    - listitem:
+      - link "<em>AI</em>群星闪耀时" [ref=e65]:
+        - /url: /p/3681640453287813
+        - img "<em>AI</em>群星闪耀时"
+      - paragraph:
+        - link "AI群星闪耀时" [ref=e66]:
+          - /url: /p/3681640453287813
+          - emphasis: AI
+          - text: 群星闪耀时
+      - link "在这个星河璀璨的2月，Seedance 2.0和GLM-5就是AI行业最耀眼的一对双子星。" [ref=e67]:
+        - /url: /p/3681640453287813
+      - text: 17小时前
+    - listitem:
+      - link "<em>AI</em> 版 WhatsApp，会是 WhatsApp 吗？" [ref=e68]:
+        - /url: /p/3681552414486148
+        - img "<em>AI</em> 版 WhatsApp，会是 WhatsApp 吗？"
+      - paragraph:
+        - link "AI 版 WhatsApp，会是 WhatsApp 吗？" [ref=e69]:
+          - /url: /p/3681552414486148
+          - emphasis: AI
+          - text: 版 WhatsApp，会是 WhatsApp 吗？
+      - link "AI 版微信+飞书+贴吧+推特，应该长什么样子？" [ref=e70]:
+        - /url: /p/3681552414486148
+      - text: 17小时前
+    - listitem:
+      - link "<em>AI</em> 眼镜最让人担心的事，还是发生了" [ref=e71]:
+        - /url: /p/3682575785029507
+        - img "<em>AI</em> 眼镜最让人担心的事，还是发生了"
+      - paragraph:
+        - link "AI 眼镜最让人担心的事，还是发生了" [ref=e72]:
+          - /url: /p/3682575785029507
+          - emphasis: AI
+          - text: 眼镜最让人担心的事，还是发生了
+      - link "趁你乱，录你脸。" [ref=e73]:
+        - /url: /p/3682575785029507
+      - text: 1小时前
+    - listitem:
+      - link "新春出境游，带上<em>AI</em>搭子成风尚：蚂蚁阿福等变身“<em>AI</em>三件套”" [ref=e74]:
+        - /url: /p/3681367460851587
+        - img "新春出境游，带上<em>AI</em>搭子成风尚：蚂蚁阿福等变身“<em>AI</em>三件套”"
+      - paragraph:
+        - link "新春出境游，带上AI搭子成风尚：蚂蚁阿福等变身“AI三件套”" [ref=e75]:
+          - /url: /p/3681367460851587
+          - text: 新春出境游，带上
+          - emphasis: AI
+          - text: 搭子成风尚：蚂蚁阿福等变身“
+          - emphasis: AI
+          - text: 三件套”
+      - link "在今年的出境游人群中，装上目前市面上火热的AI健康应用——蚂蚁阿福的人不少。" [ref=e76]:
+        - /url: /p/3681367460851587
+      - text: 23小时前
+    - listitem:
+      - link "不要被 <em>AI</em> 控制了，人类……" [ref=e77]:
+        - /url: /p/3681214132055941
+        - img "不要被 <em>AI</em> 控制了，人类……"
+      - paragraph:
+        - link "不要被 AI 控制了，人类……" [ref=e78]:
+          - /url: /p/3681214132055941
+          - text: 不要被
+          - emphasis: AI
+          - text: 控制了，人类……
+      - link "把 AI 当做一种空气去理解。" [ref=e79]:
+        - /url: /p/3681214132055941
+      - text: 21小时前
+    - listitem:
+      - link "全球首个<em>AI</em>原生社交平台「Teamily <em>AI</em>」硅谷亮相，开启「人机共生」社交新元年" [ref=e80]:
+        - /url: /p/3681505913008008
+        - img "全球首个<em>AI</em>原生社交平台「Teamily <em>AI</em>」硅谷亮相，开启「人机共生」社交新元年"
+      - paragraph:
+        - link "全球首个AI原生社交平台「Teamily AI」硅谷亮相，开启「人机共生」社交新元年" [ref=e81]:
+          - /url: /p/3681505913008008
+          - text: 全球首个
+          - emphasis: AI
+          - text: 原生社交平台「Teamily
+          - emphasis: AI
+          - text: 」硅谷亮相，开启「人机共生」社交新元年
+      - link "「你好，你的AI已加入群聊！」" [ref=e82]:
+        - /url: /p/3681505913008008
+      - text: 17小时前
+    - listitem:
+      - link "云+<em>AI</em>，七牛云的长期主义为何在<em>AI</em> Infra时代兑现" [ref=e83]:
+        - /url: /p/3678744705966726
+        - img "云+<em>AI</em>，七牛云的长期主义为何在<em>AI</em> Infra时代兑现"
+      - paragraph:
+        - link "云+AI，七牛云的长期主义为何在AI Infra时代兑现" [ref=e84]:
+          - /url: /p/3678744705966726
+          - text: 云+
+          - emphasis: AI
+          - text: ，七牛云的长期主义为何在
+          - emphasis: AI
+          - text: Infra时代兑现
+      - link "规模不是唯一的壁垒，理解才是。" [ref=e85]:
+        - /url: /p/3678744705966726
+      - text: 2026-02-12
+    - listitem:
+      - link "中国<em>AI</em>？美国<em>AI</em>？" [ref=e86]:
+        - /url: /p/3674355377726336
+        - img "中国<em>AI</em>？美国<em>AI</em>？"
+      - paragraph:
+        - link "中国AI？美国AI？" [ref=e87]:
+          - /url: /p/3674355377726336
+          - text: 中国
+          - emphasis: AI
+          - text: ？美国
+          - emphasis: AI
+          - text: ？
+      - link "笑话的保质期很短。" [ref=e88]:
+        - /url: /p/3674355377726336
+      - text: 2026-02-08
+    - listitem:
+      - link "马斯克的 <em>AI</em> 狂想，意外救活了沉寂三年的「钙钛矿」" [ref=e89]:
+        - /url: /p/3682647370362502
+        - img "马斯克的 <em>AI</em> 狂想，意外救活了沉寂三年的「钙钛矿」"
+      - paragraph:
+        - link "马斯克的 AI 狂想，意外救活了沉寂三年的「钙钛矿」" [ref=e90]:
+          - /url: /p/3682647370362502
+          - text: 马斯克的
+          - emphasis: AI
+          - text: 狂想，意外救活了沉寂三年的「钙钛矿」
+      - link "马斯克把太空光伏推向风口，也给了钙钛矿材料弯道超车的机会。" [ref=e91]:
+        - /url: /p/3682647370362502
+      - text: 47分钟前
+    - listitem:
+      - link "硅谷“赌”<em>AI</em>最狠的基金：非原生<em>AI</em>公司要么进化，要么消失" [ref=e92]:
+        - /url: /p/3680263496560257
+        - img "硅谷“赌”<em>AI</em>最狠的基金：非原生<em>AI</em>公司要么进化，要么消失"
+      - paragraph:
+        - link "硅谷“赌”AI最狠的基金：非原生AI公司要么进化，要么消失" [ref=e93]:
+          - /url: /p/3680263496560257
+          - text: 硅谷“赌”
+          - emphasis: AI
+          - text: 最狠的基金：非原生
+          - emphasis: AI
+          - text: 公司要么进化，要么消失
+      - link "AI泡沫言之尚早" [ref=e94]:
+        - /url: /p/3680263496560257
+      - text: 2026-02-12
+    - listitem:
+      - link [ref=e95] [nth=4]:
+        - /url: /p/3678646020940422
+      - paragraph:
+        - link "Teamily AI 推出”北美元宝派”加强版，支持多人与多个AI Agents实时社交丨涌现新项目" [ref=e96]:
+          - /url: /p/3678646020940422
+          - text: Teamily
+          - emphasis: AI
+          - text: 推出”北美元宝派”加强版，支持多人与多个
+          - emphasis: AI
+          - text: Agents实时社交丨涌现新项目
+      - link "探索AI和人类的协作，让人类更有效地连接和沟通。" [ref=e97]:
+        - /url: /p/3678646020940422
+      - text: 21小时前
+    - listitem:
+      - link [ref=e98] [nth=5]:
+        - /url: /p/3680999983902594
+      - paragraph:
+        - link "AI这把火，也该烧到网易了" [ref=e99]:
+          - /url: /p/3680999983902594
+          - emphasis: AI
+          - text: 这把火，也该烧到网易了
+      - link "丁磊，能过个好年吗？" [ref=e100]:
+        - /url: /p/3680999983902594
+      - text: 昨天
+    - listitem:
+      - link [ref=e101] [nth=6]:
+        - /url: /p/3681426605634050
+      - paragraph:
+        - link "笔与屏：AI硬件为何分化出两条路？" [ref=e102]:
+          - /url: /p/3681426605634050
+          - text: 笔与屏：
+          - emphasis: AI
+          - text: 硬件为何分化出两条路？
+      - link "分工差异背后，是AI企业想要定义新形态" [ref=e103]:
+        - /url: /p/3681426605634050
+      - text: 19小时前
+    - listitem:
+      - link [ref=e104] [nth=7]:
+        - /url: /p/3681577543233152
+      - paragraph:
+        - link "AI大战刚拉开序幕，商家这就开始站队了？" [ref=e105]:
+          - /url: /p/3681577543233152
+          - emphasis: AI
+          - text: 大战刚拉开序幕，商家这就开始站队了？
+      - link "酒旅业最先坐不住了。" [ref=e106]:
+        - /url: /p/3681577543233152
+      - text: 17小时前
+    - listitem:
+      - link [ref=e107] [nth=8]:
+        - /url: /p/3680540053795336
+      - paragraph:
+        - link "这个人，两次改写中国AI叙事" [ref=e108]:
+          - /url: /p/3680540053795336
+          - text: 这个人，两次改写中国
+          - emphasis: AI
+          - text: 叙事
+      - link "两条微博，间隔一年，刷屏两次。 一个游戏制作人，怎么忽然成了中国大模型的预言家？甚至一度两次改写中国AI叙事的走向？" [ref=e109]:
+        - /url: /p/3680540053795336
+      - text: 昨天
+    - listitem:
+      - link [ref=e110] [nth=9]:
+        - /url: /p/3680069655735945
+      - paragraph:
+        - link "大厂护城河，正在借AI重构" [ref=e111]:
+          - /url: /p/3680069655735945
+          - text: 大厂护城河，正在借
+          - emphasis: AI
+          - text: 重构
+      - link "AI 时代的网络效应" [ref=e112]:
+        - /url: /p/3680069655735945
+      - text: 2026-02-12
+    - listitem:
+      - link [ref=e113] [nth=10]:
+        - /url: /p/3681478467186569
+      - paragraph:
+        - link "孙正义对Open AI的豪赌迎来关键考验" [ref=e114]:
+          - /url: /p/3681478467186569
+          - text: 孙正义对Open
+          - emphasis: AI
+          - text: 的豪赌迎来关键考验
+      - link "软银因投资OpenAI利润大增5倍，拟追加300亿美元投资。" [ref=e115]:
+        - /url: /p/3681478467186569
+      - text: 17小时前
+    - listitem:
+      - link [ref=e116] [nth=11]:
+        - /url: /p/3681134157409921
+      - paragraph:
+        - link "狂飙的Seedance2.0，被炼丹的AI漫剧民工" [ref=e117]:
+          - /url: /p/3681134157409921
+          - text: 狂飙的Seedance2.0，被炼丹的
+          - emphasis: AI
+          - text: 漫剧民工
+      - link "AI的活人类还是干不了" [ref=e118]:
+        - /url: /p/3681134157409921
+      - text: 昨天
+    - listitem:
+      - link [ref=e119] [nth=12]:
+        - /url: /p/3678848965652352
+      - paragraph:
+        - link "AI游戏独角兽的焦虑：AI迭代太快，冲击传统VC决策" [ref=e120]:
+          - /url: /p/3678848965652352
+          - emphasis: AI
+          - text: 游戏独角兽的焦虑：
+          - emphasis: AI
+          - text: 迭代太快，冲击传统VC决策
+      - link "AI 高速演化，“认知更新能力”正在变成一种稀缺资源。" [ref=e121]:
+        - /url: /p/3678848965652352
+      - text: 2026-02-11
+    - listitem:
+      - link [ref=e122] [nth=13]:
+        - /url: /p/3680968338435718
+      - paragraph:
+        - link "荣耀前CEO赵明，加盟AI智驾公司" [ref=e123]:
+          - /url: /p/3680968338435718
+          - text: 荣耀前CEO赵明，加盟
+          - emphasis: AI
+          - text: 智驾公司
+      - link "又一大佬加入千里科技，将推进AI+车战略。" [ref=e124]:
+        - /url: /p/3680968338435718
+      - text: 昨天
+  - text: 查看更多
+  - heading "36氪APP" [ref=e125] [level=1]
+  - img "36氪APP"
+  - list:
+    - listitem:
+      - paragraph: 前沿有料行业资讯
+    - listitem:
+      - paragraph: 订阅栏目效率阅读
+    - listitem:
+      - paragraph: 音频新闻通勤首选
+  - text: 关于36氪
+  - listitem:
+    - link "城市合作" [ref=e126] [nth=1]:
+      - /url: /station-business
+  - listitem:
+    - link "寻求报道" [ref=e127] [nth=2]:
+      - /url: /seek-report-new
+  - listitem: 我要入驻
+  - listitem:
+    - link "投资者关系" [ref=e128]:
+      - /url: http://ir.36kr.com
+  - listitem: 商务合作
+  - listitem:
+    - link "关于我们" [ref=e129]:
+      - /url: /pages/about
+  - listitem: 联系我们
+  - listitem:
+    - link "加入我们" [ref=e130]:
+      - /url: https://zhaopin.36kr.com
+  - listitem:
+    - link "36氪欧洲站" [ref=e131]:
+      - /url: https://eu.36kr.com
+    - link "36氪欧洲站" [ref=e132] [nth=1]:
+      - /url: https://eu.36kr.com/zh
+    - link "36氪欧洲站" [ref=e133] [nth=2]:
+      - /url: https://eu.36kr.com/de
+    - link "Ai产品日报" [ref=e134]:
+      - /url: https://www.aicpb.com
+  - link "网络谣言信息举报入口" [ref=e135]:
+    - /url: /refute-rumor-notice
+  - text: 热门推荐
+  - listitem:
+    - link "热门资讯" [ref=e136]:
+      - /url: /hot-list/catalog
+  - listitem:
+    - link "热门产品" [ref=e137]:
+      - /url: /project
+  - listitem:
+    - link "文章标签" [ref=e138]:
+      - /url: /tags
+  - listitem:
+    - link "快讯标签" [ref=e139]:
+      - /url: /nftags
+  - text: 合作伙伴
+  - list:
+    - listitem:
+      - link "阿里云" [ref=e140]:
+        - /url: https://www.aliyun.com/
+        - img "阿里云"
+    - listitem:
+      - link "火山引擎" [ref=e141]:
+        - /url: https://www.volcengine.cn/
+        - img "火山引擎"
+    - listitem:
+      - img "高德"
+    - listitem:
+      - link "个推" [ref=e142]:
+        - /url: https://www.getui.com/cn/index.html
+        - img "个推"
+    - listitem:
+      - link "星球日报" [ref=e143]:
+        - /url: https://www.odaily.com
+        - img "星球日报"
+    - listitem:
+      - link "鲸准" [ref=e144]:
+        - /url: https://www.jingdata.com
+        - img "鲸准"
+    - listitem:
+      - link "氪空间" [ref=e145]:
+        - /url: https://www.krspace.cn
+        - img "氪空间"
+    - listitem:
+      - link "富途牛牛" [ref=e146]:
+        - /url: https://www.futunn.com/
+        - img "富途牛牛"
+    - listitem:
+      - link "企服点评" [ref=e147] [nth=1]:
+        - /url: https://www.36dianping.com/pk/
+        - img "企服点评"
+    - listitem:
+      - link "人人都是产品经理" [ref=e148]:
+        - /url: http://www.woshipm.com
+        - img "人人都是产品经理"
+    - listitem:
+      - link "领氪" [ref=e149]:
+        - /url: https://www.36linkr.com
+        - img "领氪"
+  - text: 36氪APP下载 iOS & Android
+  - link "36氪" [ref=e150]:
+    - /url: https://36kr.com/
+    - img "36氪"
+  - text: 本站由
+  - link "阿里云" [ref=e151] [nth=1]:
+    - /url: https://www.aliyun.com/
+  - text: 提供计算与安全服务 违法和不良信息、未成年人保护举报电话：010-89650707 举报邮箱：jubao@36kr.com
+  - link "网上有害信息举报" [ref=e152]:
+    - /url: https://www.12377.cn
+  - text: © 2011~2026 北京多氪信息科技有限公司 |
+  - link "京ICP备12031756号-6" [ref=e153]:
+    - /url: https://beian.miit.gov.cn/#/Integrated/index
+  - text: "|"
+  - link "京ICP证150143号" [ref=e154]:
+    - /url: https://dxzhgl.miit.gov.cn/dxxzsp/xkz/xkzgl/resource/qiyesearch.jsp?num=%25E5%258C%2597%25E4%25BA%25AC%25E5%25A4%259A%25E6%25B0%25AA%25E4%25BF%25A1%25E6%2581%25AF%25E7%25A7%2591%25E6%258A%2580%25E6%259C%2589%25E9%2599%2590%25E5%2585%25AC%25E5%258F%25B8&type=xuke
+  - text: "|"
+  - link "京公网安备11010502057322号" [ref=e155]:
+    - /url: http://www.beian.gov.cn/portal/registerSystemInfo?recordcode=11010502057322
+  - link "" [ref=e156]:
+    - /url: https://weibo.com/wow36kr
+  - link "" [ref=e157]:
+    - /url: /rss-center
+  - link [ref=e158] [nth=14]:
+    - /url: https://36kr.com/mform/1755983296602372
+  - group "grammarly-integration": "{\"mode\":\"full\",\"isActive\":true,\"isUserDisabled\":false}"

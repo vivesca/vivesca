@@ -1,0 +1,63 @@
+#!/usr/bin/env -S uv run --script --python 3.13
+# /// script
+# requires-python = ">=3.13"
+# dependencies = []
+# ///
+"""
+hkicpa — auto-login to HKICPA LMS and open course page.
+
+Usage:
+  hkicpa              open enrolled courses
+  hkicpa <course-url> open specific course
+"""
+
+import os
+import subprocess
+import sys
+import time
+
+HOME_URL = "https://lms.hkicpa.org.hk/web/user/html/index.html"
+LOGIN_URL = "https://lms.hkicpa.org.hk"
+
+
+def run(cmd: str) -> str:
+    result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+    return result.stdout.strip()
+
+
+def ab(*args: str) -> None:
+    subprocess.run(["agent-browser", *args])
+
+
+def get_password() -> str:
+    pw = run(f"security find-generic-password -s hkicpa -a {os.environ.get('USER', 'terry')} -w 2>/dev/null")
+    if not pw:
+        print("No HKICPA password in keychain.", file=sys.stderr)
+        print("  security add-generic-password -s hkicpa -a $USER -w <password>", file=sys.stderr)
+        sys.exit(1)
+    return pw
+
+
+def main() -> None:
+    target = sys.argv[1] if len(sys.argv) > 1 else HOME_URL
+    pw = get_password()
+
+    run("agent-browser close")
+    ab("--headed", "open", LOGIN_URL)
+    time.sleep(2)
+
+    ab("fill", "Password", pw)
+    ab("press", "Enter")
+    time.sleep(3)
+
+    url = run("agent-browser get url")
+    if "session/out" in url or "login" in url.lower():
+        print("Login failed", file=sys.stderr)
+        sys.exit(1)
+
+    ab("open", target)
+    print(f"Ready: {target}")
+
+
+if __name__ == "__main__":
+    main()

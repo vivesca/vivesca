@@ -1,0 +1,121 @@
+#!/usr/bin/env python3
+# /// script
+# requires-python = ">=3.11"
+# ///
+"""propinqua — ambient related-notes surfacer.
+
+Reads a vault note, queries qmd for related content, and either:
+  - appends a > [!related] callout to the note
+  - prints to stdout (--dry-run)
+
+Usage:
+  propinqua <note-path> [--dry-run] [--limit N]
+"""
+
+from __future__ import annotations
+
+import argparse
+import subprocess
+import sys
+from pathlib import Path
+
+
+def _extract_query(text: str) -> str:
+    """Extract meaningful words from note content for search."""
+    import re
+
+    # Strip markdown syntax
+    text = re.sub(r"[#*`\[\](){}|><!-]", " ", text)
+    text = re.sub(r"https?://\S+", "", text)
+    # Take first 15 meaningful words (>3 chars)
+    words = [w for w in text.split() if len(w) > 3][:15]
+    return " ".join(words)
+
+
+def query_qmd(text: str, limit: int = 5) -> str:
+    """Run qmd vsearch and return output."""
+    query = _extract_query(text)
+    result = subprocess.run(
+        ["qmd", "vsearch", query],
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    if result.returncode != 0:
+        print(f"qmd error: {result.stderr.strip()}", file=sys.stderr)
+        sys.exit(1)
+    return result.stdout.strip()
+
+
+def format_callout(qmd_output: str, note_path: Path) -> str:
+    """Format qmd results as an Obsidian callout, excluding self-references."""
+    note_name = note_path.stem
+    # Extract note paths from qmd output (lines containing qmd:// or .md)
+    entries = []
+    current_title = ""
+    for line in qmd_output.splitlines():
+        stripped = line.strip()
+        # Skip self-references
+        if note_name.lower() in stripped.lower():
+            continue
+        # Extract note references (qmd://path or Title: lines)
+        if stripped.startswith("qmd://"):
+            # qmd://notes/path/to/note.md:line #hash
+            path_part = stripped.split(":")[0].replace("qmd://notes/", "")
+            if path_part.endswith(".md"):
+                path_part = path_part[:-3]
+            current_title = path_part.split("/")[-1]
+        elif stripped.startswith("Title:"):
+            current_title = stripped.replace("Title:", "").strip()
+        elif stripped.startswith("Score:") and current_title:
+            score = stripped.replace("Score:", "").strip()
+            entries.append(f"[[{current_title}]] ({score})")
+            current_title = ""
+    if not entries:
+        return ""
+    callout = ["> [!related] Related notes", ">"]
+    for entry in entries[:6]:
+        callout.append(f"> - {entry}")
+    return "\n".join(callout) + "\n"
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description="Surface related vault notes.")
+    parser.add_argument("note", type=Path, help="Path to vault note")
+    parser.add_argument("-n", "--dry-run", action="store_true", help="Print, don't append")
+    parser.add_argument("-l", "--limit", type=int, default=5, help="Max results")
+    args = parser.parse_args()
+
+    if not args.note.exists():
+        print(f"Not found: {args.note}", file=sys.stderr)
+        sys.exit(1)
+
+    content = args.note.read_text(encoding="utf-8")
+    if len(content.strip()) < 50:
+        print("Note too short for meaningful query.", file=sys.stderr)
+        sys.exit(0)
+
+    # Use filename as primary query (most reliable), fall back to content extraction
+    query_text = args.note.stem.replace("-", " ").replace("_", " ")
+    if len(query_text.split()) < 3:
+        query_text = content  # _extract_query will clean it
+    qmd_output = query_qmd(query_text, args.limit)
+    if not qmd_output:
+        print("No related notes found.")
+        sys.exit(0)
+
+    callout = format_callout(qmd_output, args.note)
+    if not callout:
+        print("No related notes (excluding self).")
+        sys.exit(0)
+
+    if args.dry_run:
+        print(callout)
+    else:
+        with args.note.open("a", encoding="utf-8") as f:
+            f.write("\n\n" + callout)
+        print(f"Appended related notes to {args.note.name}")
+
+
+if __name__ == "__main__":
+    main()

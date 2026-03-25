@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+# Auto-update compound-engineering plugin for OpenCode and Codex
+
+set -e
+
+echo "🔄 Updating compound-engineering plugin..."
+echo ""
+
+echo "📦 Updating OpenCode installation..."
+bunx @every-env/compound-plugin install compound-engineering --to opencode
+
+echo ""
+echo "📦 Updating Codex installation..."
+bunx @every-env/compound-plugin install compound-engineering --to codex
+
+echo ""
+echo "✅ Update complete!"
+echo ""
+echo "Updated locations:"
+echo "  - OpenCode: ~/.config/opencode/"
+echo "  - Codex:    ~/.codex/"

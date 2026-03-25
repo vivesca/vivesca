@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+# Check status of compound-engineering auto-update
+
+echo "📊 Compound Engineering Auto-Update Status"
+echo "==========================================="
+echo ""
+
+# Check LaunchAgent status
+if launchctl list | grep -q "com.terry.compound-engineering-update"; then
+    echo "✅ LaunchAgent is loaded and active"
+    echo "   Schedule: Every Sunday at 2:00 AM HKT"
+else
+    echo "❌ LaunchAgent is not loaded"
+fi
+
+echo ""
+
+# Check when it last ran
+if [ -f "$HOME/.compound-engineering-updates.log" ]; then
+    echo "📝 Last update log:"
+    tail -20 "$HOME/.compound-engineering-updates.log"
+else
+    echo "ℹ️  No update logs yet (will run on next Sunday at 2 AM)"
+fi
+
+echo ""
+echo "🔧 Management Commands:"
+echo "   update-compound-engineering          - Run update now"
+echo "   compound-engineering-test            - Test the update script"
+echo "   launchctl unload ~/Library/LaunchAgents/com.terry.compound-engineering-update.plist - Disable auto-update"
+echo "   launchctl load ~/Library/LaunchAgents/com.terry.compound-engineering-update.plist   - Enable auto-update"

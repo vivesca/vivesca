@@ -1,0 +1,271 @@
+#!/usr/bin/env -S uv run --script --python 3.13
+# /// script
+# requires-python = ">=3.13"
+# dependencies = []
+# ///
+"""
+kairos-gather — gathers all deterministic context for the /kairos skill.
+"""
+
+import argparse
+import concurrent.futures
+import json
+import os
+import re
+import subprocess
+import sys
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
+
+# Shared gather lib
+sys.path.insert(0, str(Path.home() / "reticulum/lib"))
+from gather import gather_context, get_date, read_todo_today, read_now, get_calendar
+
+HKT = timezone(timedelta(hours=8))
+
+def _run(cmd, timeout=10):
+    try:
+        r = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+        if r.returncode == 0:
+            return True, r.stdout.strip()
+        return False, r.stderr.strip()
+    except Exception as e:
+        return False, str(e)
+
+def parse_time(time_str):
+    if not time_str:
+        return None
+    try:
+        h, m = map(int, time_str.split(':'))
+        return timedelta(hours=h, minutes=m)
+    except ValueError:
+        return None
+
+def gather_calendar():
+    cal = get_calendar("today", days=1)
+    if not cal.get("available"):
+        return {"events": [], "imminent": [], "upcoming": [], "just_ended": []}
+
+    now = datetime.now(HKT)
+    now_td = timedelta(hours=now.hour, minutes=now.minute)
+
+    imminent = []
+    upcoming = []
+    just_ended = []
+    events = []
+
+    for ev in cal.get("events", []):
+        events.append(ev)
+        start_td = parse_time(ev.get("time"))
+        end_td = parse_time(ev.get("end_time"))
+        
+        if start_td:
+            diff_mins = (start_td - now_td).total_seconds() / 60
+            if 0 <= diff_mins <= 60:
+                imminent.append(ev)
+            elif 60 < diff_mins <= 240:
+                upcoming.append(ev)
+                
+        if end_td:
+            diff_mins = (now_td - end_td).total_seconds() / 60
+            if 0 <= diff_mins <= 30:
+                just_ended.append(ev)
+                
+    return {
+        "events": events,
+        "imminent": imminent,
+        "upcoming": upcoming,
+        "just_ended": just_ended,
+    }
+
+def gather_reminders():
+    ok, out = _run(["moneo", "ls"], timeout=10)
+    return {"ok": ok, "content": out if ok else out}
+
+def gather_now():
+    now_res = read_now()
+    if not now_res.get("available"):
+        return {"facts": [], "progress": []}
+    
+    progress = []
+    for p in now_res.get("progress", []):
+        state = p.get("state", "").lower()
+        if state not in ("done", "decided", "x"):
+            progress.append(p)
+            
+    return {
+        "facts": now_res.get("facts", []),
+        "progress": progress
+    }
+
+def gather_todo():
+    today_iso = get_date()["iso"]
+    today_date = datetime.strptime(today_iso, "%Y-%m-%d").date()
+    
+    todo_res = read_todo_today()
+    if not todo_res.get("available"):
+        return {"items": [], "overdue_count": 0, "today_count": 0}
+        
+    items = []
+    overdue_count = 0
+    today_count = 0
+    
+    for item in todo_res.get("items", []):
+        if "someday" in item.get("section", "").lower() or "someday" in item.get("raw", "").lower():
+            continue
+            
+        due_str = item.get("due")
+        if due_str:
+            try:
+                due_date = datetime.strptime(due_str, "%Y-%m-%d").date()
+                if due_date < today_date:
+                    overdue_count += 1
+                else:
+                    today_count += 1
+            except ValueError:
+                today_count += 1
+        else:
+            today_count += 1
+            
+        items.append(item)
+        
+    return {
+        "items": items[:5],
+        "overdue_count": overdue_count,
+        "today_count": today_count
+    }
+
+def gather_job_alerts(now_hkt):
+    if now_hkt.hour < 12:
+        return None
+        
+    today_iso = now_hkt.strftime("%Y-%m-%d")
+    path = Path.home() / f"notes/Job Hunting/Job Alerts {today_iso}.md"
+    
+    if not path.exists():
+        return None
+        
+    try:
+        content = path.read_text(encoding="utf-8")
+        unchecked = len(re.findall(r"^\s*-\s*\[\s\]", content, re.MULTILINE))
+        if unchecked > 0:
+            return {"count": unchecked, "file": str(path)}
+    except Exception:
+        pass
+    return None
+
+def gather_diurna(now_hkt):
+    if now_hkt.hour >= 10:
+        return None
+        
+    today_iso = now_hkt.strftime("%Y-%m-%d")
+    yesterday_iso = (now_hkt - timedelta(days=1)).strftime("%Y-%m-%d")
+    
+    for iso in (today_iso, yesterday_iso):
+        path = Path.home() / f"notes/Transduction/Daily/{iso}.md"
+        if path.exists():
+            return {"available": True, "path": str(path)}
+            
+    return None
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--json", action="store_true")
+    args = parser.parse_args()
+
+    now_hkt = datetime.now(HKT)
+    date_info = get_date()
+
+    with concurrent.futures.ThreadPoolExecutor() as pool:
+        f_cal = pool.submit(gather_calendar)
+        f_reminders = pool.submit(gather_reminders)
+        f_now = pool.submit(gather_now)
+        f_todo = pool.submit(gather_todo)
+
+        cal_info = f_cal.result()
+        reminders_info = f_reminders.result()
+        now_info = f_now.result()
+        todo_info = f_todo.result()
+
+    job_alerts_info = gather_job_alerts(now_hkt)
+    diurna_info = gather_diurna(now_hkt)
+
+    output = {
+        "date": date_info,
+        "calendar": cal_info,
+        "reminders": reminders_info,
+        "now": now_info,
+        "todo": todo_info,
+    }
+    
+    if job_alerts_info:
+        output["job_alerts"] = job_alerts_info
+    if diurna_info:
+        output["diurna"] = diurna_info
+
+    # efferens inbox count
+    efferens_dir = Path.home() / "notes" / "efferens"
+    efferens_count = len(list(efferens_dir.glob("*.md"))) if efferens_dir.exists() else 0
+    if efferens_count:
+        output["efferens"] = {"count": efferens_count}
+
+    if args.json:
+        print(json.dumps(output, indent=2))
+        return
+
+    print("─── Kairos Context ──────────────────────────────")
+    print(f"  Time:      {date_info['day_of_week']} {date_info['datetime']}")
+    
+    cal_strs = []
+    for ev in cal_info["imminent"]:
+        start = parse_time(ev.get("time"))
+        now_td = timedelta(hours=now_hkt.hour, minutes=now_hkt.minute)
+        mins = int((start - now_td).total_seconds() / 60) if start else 0
+        cal_strs.append(f"[imminent] {ev['title']} in {mins} min")
+    for ev in cal_info["upcoming"]:
+        cal_strs.append(f"[upcoming] {ev['title']} {ev['time']}")
+    for ev in cal_info["just_ended"]:
+        cal_strs.append(f"[just_ended] {ev['title']}")
+        
+    cal_str = " | ".join(cal_strs) if cal_strs else "(none)"
+    print(f"  Calendar:  {cal_str}")
+    
+    if reminders_info["ok"]:
+        lines = [l for l in reminders_info["content"].splitlines() if l.strip()]
+        active_count = sum(1 for l in lines if re.match(r"^\d+", l.strip()))
+        reminders_str = f"{active_count} active"
+    else:
+        reminders_str = "unavailable"
+    print(f"  Reminders: {reminders_str}")
+
+    open_items = now_info["progress"]
+    state_counts = {}
+    for p in open_items:
+        s = p["state"]
+        state_counts[s] = state_counts.get(s, 0) + 1
+    
+    details = []
+    for s, c in state_counts.items():
+        details.append(f"{c} {s}")
+    
+    if details:
+        now_str = f"{len(open_items)} open items ({', '.join(details)})"
+    else:
+        now_str = "0 open items"
+    print(f"  Tonus:     {now_str}")
+    
+    print(f"  Praxis:   {todo_info['today_count']} today, {todo_info['overdue_count']} overdue")
+    
+    if job_alerts_info:
+        print(f"  Job alerts: {job_alerts_info['count']} unchecked")
+        
+    if diurna_info:
+        print(f"  Diurna:    today's or yesterday's daily note available")
+
+    if efferens_count:
+        print(f"  efferens:  {efferens_count} unread message(s)")
+
+    print("──────────────────────────────────────────────────")
+
+if __name__ == "__main__":
+    main()

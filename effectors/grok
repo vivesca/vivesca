@@ -1,0 +1,165 @@
+#!/usr/bin/env python3
+"""Grok CLI — web search via xAI API.
+
+Usage:
+    grok "query"                  # general web search
+    grok --x-only "query"        # search X/Twitter only
+    grok --domain example.com "query"  # restrict to domain(s)
+    grok --no-search "query"     # plain LLM (no web search)
+    grok --raw "query"           # print raw JSON response
+
+Cost: ~$0.01-0.03 per search (grok-4-1-fast-reasoning).
+"""
+
+import argparse
+import json
+import os
+import sys
+import urllib.request
+
+API_URL = "https://api.x.ai/v1/responses"
+
+
+def _keychain(service: str) -> str | None:
+    """Fetch a credential from macOS Keychain."""
+    import subprocess
+
+    try:
+        r = subprocess.run(
+            ["security", "find-generic-password", "-a", os.getlogin(), "-s", service, "-w"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        return r.stdout.strip() if r.returncode == 0 else None
+    except Exception:
+        return None
+
+
+DEFAULT_MODEL = "grok-4-1-fast-reasoning"
+PLAIN_MODEL = "grok-3-mini-fast"
+
+
+def search(
+    query: str,
+    allowed_domains: list[str] | None = None,
+    raw: bool = False,
+    no_search: bool = False,
+    model: str | None = None,
+) -> None:
+    api_key = os.environ.get("XAI_API_KEY") or _keychain("xai-api-key")
+    if not api_key:
+        print("Error: XAI_API_KEY not set and not in Keychain", file=sys.stderr)
+        sys.exit(1)
+
+    use_model = model or (PLAIN_MODEL if no_search else DEFAULT_MODEL)
+
+    payload: dict = {
+        "model": use_model,
+        "input": [{"role": "user", "content": query}],
+    }
+
+    if not no_search:
+        tool: dict = {"type": "web_search"}
+        if allowed_domains:
+            tool["filters"] = {"allowed_domains": allowed_domains}
+        payload["tools"] = [tool]
+
+    req = urllib.request.Request(
+        API_URL,
+        data=json.dumps(payload).encode(),
+        headers={
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {api_key}",
+            "User-Agent": "grok-cli/1.0",
+        },
+    )
+
+    try:
+        with urllib.request.urlopen(req, timeout=120) as resp:
+            data = json.loads(resp.read().decode())
+    except urllib.error.HTTPError as e:
+        body = e.read().decode() if e.fp else ""
+        print(f"API error {e.code}: {body}", file=sys.stderr)
+        sys.exit(1)
+    except urllib.error.URLError as e:
+        print(f"Connection error: {e.reason}", file=sys.stderr)
+        sys.exit(1)
+
+    if raw:
+        print(json.dumps(data, indent=2))
+        return
+
+    # Extract text from response output
+    text = ""
+    for item in data.get("output", []):
+        if item.get("type") == "message":
+            for content in item.get("content", []):
+                if content.get("type") == "output_text":
+                    text += content.get("text", "")
+
+    if text:
+        print(text)
+    else:
+        print(json.dumps(data.get("output", data), indent=2))
+
+    # Print citations if present
+    citations = data.get("citations", [])
+    if citations:
+        print("\n--- Sources ---")
+        for c in citations:
+            if isinstance(c, dict):
+                url = c.get("url", "")
+                title = c.get("title", url)
+                print(f"  {title}: {url}")
+            else:
+                print(f"  {c}")
+
+    # Print cost (1 tick = 10^-10 USD)
+    usage = data.get("usage", {})
+    cost = usage.get("cost_in_usd_ticks")
+    if cost is not None:
+        usd = cost / 10_000_000_000
+        print(f"\n[{usage.get('total_tokens', '?')} tokens, ${usd:.4f}]")
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="Grok web search via xAI API",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="Examples:\n"
+        '  grok "latest AI news"\n'
+        '  grok --x-only "mechanical keyboard switches"\n'
+        '  grok --domain reddit.com "best linear switch"\n'
+        '  grok --no-search "explain quantum computing"\n',
+    )
+    parser.add_argument("query", nargs="+", help="Search query")
+    parser.add_argument("--x-only", action="store_true", help="Search X/Twitter only")
+    parser.add_argument(
+        "--domain",
+        action="append",
+        dest="domains",
+        help="Restrict to domain (max 5, repeatable)",
+    )
+    parser.add_argument("--no-search", action="store_true", help="Plain LLM, no web search")
+    parser.add_argument("--model", help="Override model (default: grok-4-1-fast-reasoning)")
+    parser.add_argument("--raw", action="store_true", help="Print raw JSON response")
+
+    args = parser.parse_args()
+    query = " ".join(args.query)
+
+    domains = args.domains or []
+    if args.x_only:
+        domains = ["x.com"]
+
+    search(
+        query,
+        allowed_domains=domains or None,
+        raw=args.raw,
+        no_search=args.no_search,
+        model=args.model,
+    )
+
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,85 @@
+---
+name: ontogenesis
+description: Use when designing a new skill or promoting an ad-hoc solution into a reusable skill. "create a skill", "make this a skill", "build a skill for", "turn this into a skill"
+user_invocable: false
+---
+
+# ontogenesis -- skill design process
+
+Guide the full lifecycle of a skill from idea to deployed, tested, deterministic tool.
+
+## Testing Vocabulary
+
+| TDD | Biology | Meaning |
+|-----|---------|---------|
+| RED | **Lesion** | Observe the deficit: run task without skill, document failures |
+| GREEN | **Rescue** | Restore function: write skill, confirm it fixes the lesion |
+| REFACTOR | **Pruning** | Remove unnecessary structure while preserving function |
+
+## Stages
+
+A skill develops through stages. Each has a completion signal -- don't advance until it fires.
+
+### 1. Induction
+
+Sense the environment. Read schemas, check existing tools, map the problem space. In embryology, induction is the signal that triggers differentiation.
+
+**Done when:** you can describe the key gotchas an agent would hit without guidance.
+
+### 2. Assay
+
+**Lesion test.** Run the task with a subagent that has NO skill. Document what it gets right and wrong. This is your rescue target.
+
+**Done when:** you have specific, observed failures (not hypothetical ones).
+
+**Why this matters:** without an assay, you don't know what the skill needs to teach. You'll write for imagined problems instead of real ones.
+
+### 3. Gastrulation
+
+Build the working solution interactively. In embryology, gastrulation forms the basic body plan through iterative folding. Expect multiple attempts.
+
+**Done when:** the solution works reliably on real data.
+
+**Judgment call:** if the prototype is a Python script with no LLM judgment needed, skip straight to Stage 5 (Determination) -- make it a CLI, not a skill. Skills exist for judgment; deterministic work belongs in tools.
+
+### 4. Imprinting
+
+**Rescue experiment.** Write SKILL.md. Load `maturation` for quality heuristics (description triggers, token economy, progressive disclosure).
+
+Address the specific assay failures from Stage 2. Don't add content for hypothetical cases. In genomics, imprinting marks how a gene is read -- SKILL.md marks how an agent behaves.
+
+**Done when:** a subagent with the skill succeeds where the lesion test failed.
+
+### 5. Determination
+
+Commit to the final container. In cell biology, determination is when a cell irreversibly commits to its fate.
+
+| Signal | Container |
+|--------|-----------|
+| All logic is deterministic (no LLM judgment) | CLI tool only, no skill needed |
+| Mostly deterministic + one judgment point | CLI + thin skill that routes to it |
+| Multiple judgment points, needs context | Full skill |
+| Needs user dialogue mid-execution | Interactive skill |
+
+If a CLI is warranted, build it, then update the skill to be a thin router. The skill's job becomes discovery + routing, not execution.
+
+**Done when:** the solution lives in the lightest container that serves it.
+
+### 6. Innervation
+
+Wire into the system. In neuroscience, innervation connects neurons to target tissue.
+
+- Symlink to `~/.claude/skills/`
+- Update tool-index if the skill wraps a CLI
+- The skill should be findable by description triggers alone
+
+**Done when:** a fresh session can discover and use the skill without being told about it.
+
+## Transition Judgment Calls
+
+The non-obvious decisions happen between stages:
+
+- **Induction → Assay:** Don't skip the lesion test because "I already know what will fail." Observed failures > predicted failures.
+- **Gastrulation → Imprinting:** If the prototype is pure Python with no judgment, go to Determination instead. Not everything needs a skill.
+- **Imprinting → Determination:** Ask "does an LLM need to be in the loop?" If the skill is just a query recipe, it should be a CLI.
+- **Determination → Innervation:** The skill that wraps a CLI should be thinner than the skill it replaced. If it's not, you kept too much. **Pruning** applies here.

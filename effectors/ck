@@ -1,0 +1,7 @@
+#!/bin/bash
+export HOME=~/kimi-home
+export ANTHROPIC_API_KEY="$(security find-generic-password -s 'moonshot-api-key' -w | tr -d '\n')"
+export ANTHROPIC_BASE_URL="https://api.moonshot.cn/anthropic/"
+export ANTHROPIC_MODEL="kimi-k2.5"
+unset ANTHROPIC_AUTH_TOKEN
+exec /Users/terry/.local/bin/claude --dangerously-skip-permissions "$@"

@@ -1,0 +1,330 @@
+#!/usr/bin/env -S uv run --script --python 3.13
+# /// script
+# requires-python = ">=3.13"
+# dependencies = []
+# ///
+"""
+dep-check -- dependency version checker for daily wrap.
+
+Checks Claude Code, key npm globals, and key Python packages for updates.
+Emits one line per notable change, or nothing if everything is current.
+Writes state to ~/.config/dep-check/state.json.
+
+Usage:
+    dep-check                # normal run (respects 20h frequency gate)
+    dep-check --force        # bypass frequency gate
+    dep-check --dry-run      # check + print, do not update state or create TODOs
+"""
+
+import json
+import os
+import subprocess
+import sys
+from datetime import datetime, timezone, timedelta
+from pathlib import Path
+
+STATE_PATH = Path.home() / ".config" / "dep-check" / "state.json"
+HKT = timezone(timedelta(hours=8))
+FREQUENCY_HOURS = 20
+TODO_BIN = Path.home() / "officina" / "bin" / "todo"
+DRY_RUN = "--dry-run" in sys.argv
+FORCE = "--force" in sys.argv
+
+# Keywords that flag a CC release as potentially breaking
+CC_BREAKING_KEYWORDS = [
+    "breaking", "removed", "deprecated", "no longer",
+    "hook", "plugin", "permissions", "api change", "renamed",
+]
+
+# Python packages to track: (pip_name, state_key)
+PY_PACKAGES = [
+    ("anthropic", "anthropic-py"),
+    ("openai", "openai-py"),
+]
+
+# npm globals to track: (package_name, state_key)
+NPM_GLOBALS = [
+    ("@google/gemini-cli", "gemini-cli-npm"),
+    ("@openai/codex", "codex-npm"),
+]
+
+
+# ── PATH helper ──────────────────────────────────────────────────────────────
+
+def _path() -> str:
+    """Build a PATH that resolves gh, npm, pip regardless of invocation context."""
+    extra = [
+        "/opt/homebrew/bin",
+        str(Path.home() / "bin"),
+        str(Path.home() / "officina" / "bin"),
+        str(Path.home() / ".cargo" / "bin"),
+        str(Path.home() / ".local" / "bin"),
+        str(Path.home() / ".bun" / "bin"),
+    ]
+    return ":".join(extra) + ":" + os.environ.get("PATH", "")
+
+
+# ── State ────────────────────────────────────────────────────────────────────
+
+def _migrate_known_version(v) -> dict:
+    """Upgrade a bare string value from the old schema to the new nested dict."""
+    if isinstance(v, dict):
+        return v
+    return {"installed": v, "latest_seen": v, "todo_created_for": None}
+
+
+def load_state() -> dict:
+    try:
+        raw = json.loads(STATE_PATH.read_text())
+        # Migrate old string-valued entries to nested dicts
+        kv = raw.get("known_versions", {})
+        raw["known_versions"] = {k: _migrate_known_version(val) for k, val in kv.items()}
+        return raw
+    except Exception:
+        return {"known_versions": {}, "last_run": None, "last_notified": None}
+
+
+def save_state(state: dict) -> None:
+    if DRY_RUN:
+        return
+    STATE_PATH.parent.mkdir(parents=True, exist_ok=True)
+    STATE_PATH.write_text(json.dumps(state, indent=2))
+
+
+def should_run(state: dict) -> bool:
+    if FORCE:
+        return True
+    last = state.get("last_run")
+    if not last:
+        return True
+    try:
+        dt = datetime.fromisoformat(last)
+        return (datetime.now(HKT) - dt).total_seconds() > FREQUENCY_HOURS * 3600
+    except Exception:
+        return True
+
+
+# ── Subprocess helper ────────────────────────────────────────────────────────
+
+def run(cmd: list, timeout: int = 15) -> tuple[bool, str]:
+    """Run a command with enriched PATH. Returns (success, output). Never raises."""
+    try:
+        r = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            env={**os.environ, "PATH": _path()},
+        )
+        out = (r.stdout or "").strip()
+        err = (r.stderr or "").strip()
+        combined = out if out else err
+        return r.returncode == 0, combined
+    except subprocess.TimeoutExpired:
+        return False, f"[timed out after {timeout}s]"
+    except FileNotFoundError:
+        return False, f"[command not found: {cmd[0]}]"
+    except Exception as e:
+        return False, str(e)
+
+
+# ── Claude Code ─────────────────────────────────────────────────────────────
+
+def get_installed_cc_version() -> str | None:
+    link = Path.home() / ".local" / "bin" / "claude"
+    try:
+        target = link.resolve()
+        # Symlink points to .../versions/2.1.80 — basename is the version
+        return target.name
+    except Exception:
+        return None
+
+
+def get_latest_cc_release() -> tuple[str | None, str]:
+    """Returns (version, release_body) or (None, error_string)."""
+    ok, out = run(
+        ["gh", "release", "view", "--repo", "anthropics/claude-code",
+         "--json", "tagName,body"],
+        timeout=20,
+    )
+    if not ok:
+        return None, out
+    try:
+        d = json.loads(out)
+        tag = d["tagName"].lstrip("v")
+        body = d.get("body", "")
+        return tag, body
+    except Exception as e:
+        return None, str(e)
+
+
+def is_breaking(body: str) -> bool:
+    lower = body.lower()
+    return any(kw in lower for kw in CC_BREAKING_KEYWORDS)
+
+
+def check_claude_code(state: dict) -> list[str]:
+    alerts = []
+    installed = get_installed_cc_version()
+    if not installed:
+        return ["dep-check: cannot determine installed CC version"]
+
+    latest, body = get_latest_cc_release()
+    if latest is None:
+        return [f"dep-check: CC release check failed ({body[:60]})"]
+
+    kv = state["known_versions"].get("claude-code")
+    if not isinstance(kv, dict):
+        kv = {"installed": installed, "latest_seen": installed, "todo_created_for": None}
+
+    if latest != installed:
+        severity = "BREAKING" if is_breaking(body) else "update"
+        url = f"https://github.com/anthropics/claude-code/releases/tag/v{latest}"
+        alerts.append(
+            f"CC {severity}: installed {installed}, latest {latest} — {url}"
+        )
+        # Only create TODO if we haven't already created one for this exact latest version
+        if not DRY_RUN and kv.get("todo_created_for") != latest:
+            excerpt = body[:300].strip().replace("\n", " ") if body else "no changelog"
+            _create_todo(
+                f"CC v{installed}→v{latest}: {excerpt}. Full: {url}",
+                severity="HIGH" if is_breaking(body) else "INFO",
+            )
+            kv["todo_created_for"] = latest
+
+    kv["installed"] = installed
+    kv["latest_seen"] = latest
+    state["known_versions"]["claude-code"] = kv
+    return alerts
+
+
+# ── npm globals ──────────────────────────────────────────────────────────────
+
+def check_npm_globals(state: dict) -> list[str]:
+    alerts = []
+    ok, out = run(["npm", "outdated", "-g", "--json"], timeout=30)
+    # npm outdated exits non-zero when there ARE outdated packages — parse regardless
+    if not out:
+        return []
+    try:
+        data = json.loads(out)
+    except Exception:
+        return ["dep-check: npm outdated parse failed"]
+
+    for pkg, state_key in NPM_GLOBALS:
+        if pkg in data:
+            info = data[pkg]
+            current = info.get("current", "?")
+            latest = info.get("latest", "?")
+            kv = state["known_versions"].get(state_key)
+            if not isinstance(kv, dict):
+                kv = {"installed": current, "latest_seen": current, "todo_created_for": None}
+            try:
+                cur_major = int(current.split(".")[0])
+                lat_major = int(latest.split(".")[0])
+                severity = "BREAKING" if lat_major > cur_major else "update"
+            except Exception:
+                severity = "update"
+            alerts.append(f"npm {severity}: {pkg} {current} → {latest}")
+            if not DRY_RUN and kv.get("todo_created_for") != latest:
+                _create_todo(
+                    f"Update npm package {pkg}: {current} → {latest}. Run: npm update -g {pkg}",
+                    severity=severity,
+                )
+                kv["todo_created_for"] = latest
+            kv["installed"] = current
+            kv["latest_seen"] = latest
+            state["known_versions"][state_key] = kv
+
+    return alerts
+
+
+# ── Python packages ──────────────────────────────────────────────────────────
+
+def check_python_packages(state: dict) -> list[str]:
+    alerts = []
+    ok, out = run(
+        ["pip3", "list", "--outdated", "--format=json"],
+        timeout=30,
+    )
+    if not ok or not out:
+        return ["dep-check: pip outdated failed"] if not ok else []
+    try:
+        outdated = {p["name"].lower(): p for p in json.loads(out)}
+    except Exception:
+        return ["dep-check: pip outdated parse failed"]
+
+    for pip_name, state_key in PY_PACKAGES:
+        info = outdated.get(pip_name.lower())
+        if info:
+            current = info.get("version", "?")
+            latest = info.get("latest_version", "?")
+            kv = state["known_versions"].get(state_key)
+            if not isinstance(kv, dict):
+                kv = {"installed": current, "latest_seen": current, "todo_created_for": None}
+            try:
+                cur_major = int(current.split(".")[0])
+                lat_major = int(latest.split(".")[0])
+                is_major = lat_major > cur_major
+            except Exception:
+                is_major = False
+            if is_major:  # only flag major bumps for Python
+                alerts.append(f"pip major: {pip_name} {current} → {latest}")
+                if not DRY_RUN and kv.get("todo_created_for") != latest:
+                    _create_todo(
+                        f"Major Python package update: {pip_name} {current} → {latest}. Review changelog before upgrading.",
+                        severity="HIGH",
+                    )
+                    kv["todo_created_for"] = latest
+            kv["installed"] = current
+            kv["latest_seen"] = latest
+            state["known_versions"][state_key] = kv
+
+    return alerts
+
+
+# ── TODO creation ────────────────────────────────────────────────────────────
+
+def _create_todo(text: str, severity: str = "INFO") -> None:
+    prefix = "**[DEP]**" if severity == "HIGH" else "[dep]"
+    full_text = f"{prefix} {text}"
+    try:
+        subprocess.run(
+            [str(TODO_BIN), "add", full_text, "--tag", "agent:terry",
+             "--section", "Tool Fixes"],
+            capture_output=True,
+            env={**os.environ, "PATH": _path()},
+        )
+    except Exception:
+        pass  # never crash in a hook context
+
+
+# ── Main ─────────────────────────────────────────────────────────────────────
+
+def main() -> None:
+    state = load_state()
+
+    if not should_run(state):
+        return  # silent exit — frequency gate
+
+    alerts: list[str] = []
+    alerts += check_claude_code(state)
+    alerts += check_npm_globals(state)
+    alerts += check_python_packages(state)
+
+    now_str = datetime.now(HKT).isoformat()
+    state["last_run"] = now_str
+    if alerts:
+        state["last_notified"] = now_str
+
+    save_state(state)
+
+    if alerts:
+        print("\n".join(alerts))
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except Exception:
+        sys.exit(0)  # never crash in a hook context

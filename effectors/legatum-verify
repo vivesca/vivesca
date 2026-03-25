@@ -1,0 +1,212 @@
+#!/usr/bin/env python3
+"""legatum-verify — post-wrap auditor.
+
+Reads the current CC session transcript, extracts topics discussed,
+checks what actually landed on disk. Reports gaps.
+
+Usage:
+    legatum-verify                      # auto-detect current session
+    legatum-verify <session-id>         # specific session
+    legatum-verify --json               # machine-readable output
+"""
+
+import argparse
+import json
+import sys
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
+
+_HKT = timezone(timedelta(hours=8))
+_SESSIONS_DIR = Path.home() / ".claude" / "projects" / "-Users-terry"
+_ARSENAL = Path.home() / "notes" / "Consulting" / "Copia Arsenal Index - 2026-03.md"
+_TODO = Path.home() / "notes" / "Praxis.md"
+_EFFERENS_DIR = Path.home() / "notes" / "efferens"
+_DAILY_DIR = Path.home() / "notes" / "Daily"
+
+
+def find_current_session() -> Path | None:
+    """Find the most recently modified session JSONL."""
+    jsonls = list(_SESSIONS_DIR.glob("*.jsonl"))
+    if not jsonls:
+        return None
+    return max(jsonls, key=lambda p: p.stat().st_mtime)
+
+
+def extract_session_summary(path: Path) -> dict:
+    """Extract key signals from session transcript."""
+    user_messages = []
+    assistant_messages = []
+    tools_used = set()
+    files_modified = set()
+
+    for line in path.open():
+        try:
+            entry = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+
+        if entry.get("type") == "user":
+            msg = entry.get("message", {})
+            content = msg.get("content", "")
+            if isinstance(content, str) and content.strip():
+                user_messages.append(content[:500])
+
+        elif entry.get("type") == "assistant":
+            msg = entry.get("message", {})
+            content = msg.get("content", "")
+            if isinstance(content, list):
+                for block in content:
+                    if isinstance(block, dict) and block.get("type") == "text":
+                        assistant_messages.append(block.get("text", "")[:500])
+                    elif isinstance(block, dict) and block.get("type") == "tool_use":
+                        tools_used.add(block.get("name", ""))
+
+        elif entry.get("type") == "tool_result":
+            # Track file modifications
+            pass
+
+    return {
+        "user_message_count": len(user_messages),
+        "assistant_message_count": len(assistant_messages),
+        "tools_used": sorted(tools_used),
+        "user_messages_sample": user_messages[-20:],  # last 20 for context
+    }
+
+
+def check_daily_note() -> dict:
+    """Check if today's daily note was updated recently."""
+    today = datetime.now(_HKT).strftime("%Y-%m-%d")
+    path = _DAILY_DIR / f"{today}.md"
+    if not path.exists():
+        return {"ok": False, "reason": "no daily note for today"}
+    mtime = datetime.fromtimestamp(path.stat().st_mtime, _HKT)
+    age_min = (datetime.now(_HKT) - mtime).total_seconds() / 60
+    if age_min > 30:
+        return {"ok": False, "reason": f"daily note last modified {int(age_min)}min ago"}
+    return {"ok": True, "path": str(path)}
+
+
+def check_efferens() -> dict:
+    """Check for unaddressed efferens messages."""
+    if not _EFFERENS_DIR.exists():
+        return {"ok": True, "count": 0}
+    messages = list(_EFFERENS_DIR.glob("*.md"))
+    if messages:
+        return {"ok": False, "count": len(messages), "files": [f.name for f in messages]}
+    return {"ok": True, "count": 0}
+
+
+def check_arsenal_freshness() -> dict:
+    """Check if arsenal was modified recently."""
+    if not _ARSENAL.exists():
+        return {"ok": False, "reason": "arsenal file not found"}
+    mtime = datetime.fromtimestamp(_ARSENAL.stat().st_mtime, _HKT)
+    age_min = (datetime.now(_HKT) - mtime).total_seconds() / 60
+    return {
+        "ok": age_min < 30,
+        "last_modified_min": int(age_min),
+    }
+
+
+def check_todo_freshness() -> dict:
+    """Check if Praxis.md was modified recently."""
+    if not _TODO.exists():
+        return {"ok": False, "reason": "Praxis.md not found"}
+    mtime = datetime.fromtimestamp(_TODO.stat().st_mtime, _HKT)
+    age_min = (datetime.now(_HKT) - mtime).total_seconds() / 60
+    return {
+        "ok": age_min < 30,
+        "last_modified_min": int(age_min),
+    }
+
+
+def check_garden_posts() -> dict:
+    """Check if any garden posts were published recently."""
+    published = Path.home() / "notes" / "Writing" / "Blog" / "Published"
+    if not published.exists():
+        return {"ok": False, "reason": "published dir not found"}
+    recent = []
+    cutoff = datetime.now(_HKT) - timedelta(hours=2)
+    for f in published.glob("*.md"):
+        mtime = datetime.fromtimestamp(f.stat().st_mtime, _HKT)
+        if mtime > cutoff:
+            recent.append(f.stem)
+    return {"ok": len(recent) > 0, "recent": recent}
+
+
+def main():
+    parser = argparse.ArgumentParser(description="legatum-verify — post-wrap auditor")
+    parser.add_argument("session_id", nargs="?", help="Session UUID")
+    parser.add_argument("--json", action="store_true", help="JSON output")
+    args = parser.parse_args()
+
+    if args.session_id:
+        session_path = _SESSIONS_DIR / f"{args.session_id}.jsonl"
+    else:
+        session_path = find_current_session()
+
+    if not session_path or not session_path.exists():
+        print("No session found.", file=sys.stderr)
+        sys.exit(1)
+
+    checks = {
+        "session": {
+            "id": session_path.stem,
+            "lines": sum(1 for _ in session_path.open()),
+        },
+        "daily_note": check_daily_note(),
+        "efferens": check_efferens(),
+        "arsenal": check_arsenal_freshness(),
+        "todo": check_todo_freshness(),
+        "garden": check_garden_posts(),
+    }
+
+    gaps = []
+    if not checks["daily_note"]["ok"]:
+        gaps.append(f"Daily note: {checks['daily_note'].get('reason', 'not updated')}")
+    if not checks["efferens"]["ok"]:
+        gaps.append(f"efferens: {checks['efferens']['count']} unaddressed message(s)")
+    if not checks["arsenal"]["ok"]:
+        gaps.append(
+            f"Arsenal: not updated (last modified {checks['arsenal'].get('last_modified_min', '?')}min ago)"
+        )
+    if not checks["todo"]["ok"]:
+        gaps.append(
+            f"Praxis: not updated (last modified {checks['todo'].get('last_modified_min', '?')}min ago)"
+        )
+
+    checks["gaps"] = gaps
+
+    if args.json:
+        print(json.dumps(checks, indent=2))
+        return
+
+    print("─── Legatum Verify ──────────────────────────────")
+    print(f"  Session:   {session_path.stem} ({checks['session']['lines']} lines)")
+    print(
+        f"  Daily:     {'✓' if checks['daily_note']['ok'] else '⚠  ' + checks['daily_note'].get('reason', '')}"
+    )
+    print(
+        f"  efferens:  {'✓ empty' if checks['efferens']['ok'] else '⚠  ' + str(checks['efferens']['count']) + ' unaddressed'}"
+    )
+    print(
+        f"  Arsenal:   {'✓ updated' if checks['arsenal']['ok'] else '⚠  stale (' + str(checks['arsenal'].get('last_modified_min', '?')) + 'min)'}"
+    )
+    print(
+        f"  Praxis:      {'✓ updated' if checks['todo']['ok'] else '⚠  stale (' + str(checks['todo'].get('last_modified_min', '?')) + 'min)'}"
+    )
+    print(
+        f"  Garden:    {'✓ ' + ', '.join(checks['garden'].get('recent', [])) if checks['garden']['ok'] else '⚠  no recent posts'}"
+    )
+
+    if gaps:
+        print(f"\n  ⚠  {len(gaps)} gap(s) found:")
+        for g in gaps:
+            print(f"     - {g}")
+    else:
+        print("\n  ✓  All checks passed.")
+    print("──────────────────────────────────────────────────")
+
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,67 @@
+#!/usr/bin/env python3
+import os
+import subprocess
+
+SKILLS = "/Users/terry/skills"
+CLAUDE_SKILLS = "/Users/terry/.claude/skills"
+MEMORY = os.path.expanduser("~/.claude/projects/-Users-terry/memory/MEMORY.md")
+
+# Skill gap
+try:
+    a = {f for f in os.listdir(SKILLS) if not f.startswith(".")}
+    b = {f for f in os.listdir(CLAUDE_SKILLS) if not f.startswith(".")}
+    gaps = sorted(a - b)
+    if gaps:
+        for g in gaps:
+            print(f"⚠  Unlinked skill: {g}")
+    else:
+        print("✓  Skills synced")
+except Exception as e:
+    print(f"?  Skill link check unavailable: {e}")
+
+# Dirty repos
+for label, path in [("skills", SKILLS), ("officina", os.path.expanduser("~/officina"))]:
+    try:
+        r = subprocess.run(
+            ["git", "-C", path, "status", "--short"], capture_output=True, text=True
+        )
+        if r.stdout.strip():
+            print(f"⚠  {label} dirty:\n{r.stdout.rstrip()}")
+        else:
+            print(f"✓  {label} clean")
+    except Exception as e:
+        print(f"?  {label} status unavailable: {e}")
+
+# MEMORY.md budget
+try:
+    with open(MEMORY) as f:
+        lines = sum(1 for _ in f)
+    marker = "⚠ " if lines > 150 else "✓ "
+    print(f"{marker} MEMORY.md: {lines}/150 lines")
+except Exception as e:
+    print(f"?  MEMORY.md budget check unavailable: {e}")
+
+# Tonus age
+r = subprocess.run(["now-age"], capture_output=True, text=True)
+print(f"✓  Tonus: {r.stdout.strip()}")
+
+# Peira experiment status (optional — non-zero exit is not an error)
+r = subprocess.run(["peira", "status"], capture_output=True, text=True)
+if r.returncode == 0 and r.stdout.strip():
+    print(f"⚠  Peira active: {r.stdout.strip()}")
+
+# Dependency check (20h gate built-in; network calls — swallow timeouts)
+try:
+    r = subprocess.run(
+        [os.path.expanduser("~/bin/dep-check")],
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    if r.stdout.strip():
+        for line in r.stdout.strip().split("\n"):
+            print(f"⚠  dep: {line}")
+    else:
+        print("✓  Deps current")
+except Exception as e:
+    print(f"?  Dep check unavailable: {e}")

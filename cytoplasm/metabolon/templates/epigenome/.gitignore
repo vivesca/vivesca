@@ -1,0 +1,12 @@
+# Epigenome gitignore
+# Credentials and secrets are never committed — only templates.
+credentials/*.key
+credentials/*.env
+credentials/.env
+*.env
+.env
+.DS_Store
+__pycache__/
+*.pyc
+*.pyo
+*.log

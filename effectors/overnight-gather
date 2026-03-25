@@ -1,0 +1,401 @@
+#!/usr/bin/env -S uv run --script --python 3.13
+# /// script
+# requires-python = ">=3.13"
+# dependencies = []
+# ///
+"""
+overnight-gather — gather overnight legatus run results for the /overnight skill.
+
+Subcommands:
+  brief              Show the latest morning-dashboard output (default)
+  results            Show task results or list task statuses in latest run
+  list               Show the latest 5 runs with task summaries
+
+Options:
+  --json             Machine-readable output
+"""
+
+import argparse
+import json
+import re
+import sys
+from dataclasses import dataclass
+from pathlib import Path
+
+
+# ── Paths ────────────────────────────────────────────────────────────────────
+HOME = Path.home()
+RUNS_DIR = HOME / ".cache" / "legatus-runs"
+QUEUE_FILE = HOME / "notes" / "opencode-queue.yaml"
+
+
+# ── Colours ──────────────────────────────────────────────────────────────────
+RESET = "\033[0m"
+BOLD = "\033[1m"
+DIM = "\033[2m"
+GREEN = "\033[32m"
+YELLOW = "\033[33m"
+RED = "\033[31m"
+
+OK = f"{GREEN}✓{RESET}"
+WARN = f"{YELLOW}⚠{RESET}"
+ERR = f"{RED}✗{RESET}"
+
+FLAG_PATTERNS = ("NEEDS_ATTENTION", "ERROR", "FAIL")
+
+
+@dataclass
+class TaskSummary:
+    name: str
+    title: str | None
+    status: str
+    has_errors: bool
+    flagged: bool
+    flagged_lines: list[str]
+    stdout: str
+    stderr: str
+
+
+# ── Helpers ──────────────────────────────────────────────────────────────────
+def read_text(path: Path) -> str:
+    try:
+        return path.read_text(encoding="utf-8").strip()
+    except FileNotFoundError:
+        return ""
+
+
+def parse_run_timestamp(name: str) -> str:
+    match = re.fullmatch(r"(\d{4})-(\d{2})-(\d{2})-(\d{4})", name)
+    if not match:
+        return name
+    year, month, day, hm = match.groups()
+    return f"{year}-{month}-{day} {hm[:2]}:{hm[2:]}"
+
+
+def discover_runs(limit: int | None = None) -> list[Path]:
+    if not RUNS_DIR.exists():
+        return []
+    runs = [path for path in RUNS_DIR.iterdir() if path.is_dir() and re.match(r"^2\d{3}-\d{2}-\d{2}-\d{4}$", path.name)]
+    runs.sort(key=lambda path: path.name, reverse=True)
+    return runs[:limit] if limit is not None else runs
+
+
+def latest_run() -> Path | None:
+    runs = discover_runs(limit=1)
+    return runs[0] if runs else None
+
+
+def extract_flagged_lines(text: str) -> list[str]:
+    return [line for line in text.splitlines() if any(pattern in line for pattern in FLAG_PATTERNS)]
+
+
+def parse_queue_metadata() -> dict[str, dict[str, str]]:
+    if not QUEUE_FILE.exists():
+        return {}
+
+    metadata: dict[str, dict[str, str]] = {}
+    current_name: str | None = None
+
+    for raw_line in QUEUE_FILE.read_text(encoding="utf-8").splitlines():
+        line = raw_line.rstrip()
+        if not line or line.lstrip().startswith("#"):
+            continue
+
+        task_match = re.match(r"^([A-Za-z0-9_-]+):\s*$", line)
+        if task_match:
+            current_name = task_match.group(1)
+            metadata[current_name] = {}
+            continue
+
+        if current_name is None:
+            continue
+
+        field_match = re.match(r"^\s{2}([A-Za-z0-9_-]+):\s*(.+?)\s*$", line)
+        if not field_match:
+            continue
+
+        key, value = field_match.groups()
+        value = value.strip()
+        if len(value) >= 2 and value[0] == value[-1] and value[0] in {"'", '"'}:
+            value = value[1:-1]
+        metadata[current_name][key] = value
+
+    return metadata
+
+
+def summarize_task(task_dir: Path, metadata: dict[str, dict[str, str]]) -> TaskSummary:
+    stdout = read_text(task_dir / "stdout.txt")
+    stderr = read_text(task_dir / "stderr.txt")
+    flagged_lines = extract_flagged_lines(stdout) + extract_flagged_lines(stderr)
+    has_errors = bool(stderr)
+
+    if stdout:
+        status = "completed"
+    elif stderr:
+        status = "has errors"
+    else:
+        status = "no output"
+
+    task_meta = metadata.get(task_dir.name, {})
+    return TaskSummary(
+        name=task_dir.name,
+        title=task_meta.get("title"),
+        status=status,
+        has_errors=has_errors,
+        flagged=bool(flagged_lines),
+        flagged_lines=flagged_lines,
+        stdout=stdout,
+        stderr=stderr,
+    )
+
+
+def collect_tasks(run_dir: Path, metadata: dict[str, dict[str, str]]) -> list[TaskSummary]:
+    tasks = [path for path in run_dir.iterdir() if path.is_dir()]
+    tasks.sort(key=lambda path: path.name)
+    return [summarize_task(task_dir, metadata) for task_dir in tasks]
+
+
+def render_task_label(task: TaskSummary) -> str:
+    return f"{task.name} ({task.title})" if task.title else task.name
+
+
+def status_icon(task: TaskSummary) -> str:
+    if task.flagged or task.has_errors:
+        return WARN
+    if task.status == "completed":
+        return OK
+    return ERR
+
+
+def fail(message: str, *, json_mode: bool = False) -> None:
+    if json_mode:
+        print(json.dumps({"error": message}, indent=2))
+    else:
+        print(message, file=sys.stderr)
+    sys.exit(1)
+
+
+# ── Commands ─────────────────────────────────────────────────────────────────
+def cmd_brief(args: argparse.Namespace) -> None:
+    run_dir = latest_run()
+    if run_dir is None:
+        fail("No legatus runs found in ~/.cache/legatus-runs/", json_mode=args.json)
+
+    metadata = parse_queue_metadata()
+    tasks = collect_tasks(run_dir, metadata)
+    task_map = {task.name: task for task in tasks}
+    morning = task_map.get("morning-dashboard")
+    if morning is None or not morning.stdout:
+        fail(f"No morning dashboard found in {run_dir.name}", json_mode=args.json)
+
+    flagged_lines = extract_flagged_lines(morning.stdout)
+    passed = sum(1 for task in tasks if task.status == "completed" and not task.flagged and not task.has_errors)
+    flagged = sum(1 for task in tasks if task.flagged or task.has_errors)
+
+    if args.json:
+        payload = {
+            "latest_run": run_dir.name,
+            "tasks": [
+                {
+                    "name": task.name,
+                    "title": task.title,
+                    "status": task.status,
+                    "has_errors": task.has_errors,
+                    "flagged": task.flagged,
+                }
+                for task in tasks
+            ],
+            "morning_brief": morning.stdout,
+            "flagged_lines": flagged_lines,
+        }
+        print(json.dumps(payload, indent=2))
+        return
+
+    print(f"{BOLD}─── Overnight Results ───────────────────────────{RESET}")
+    print(f"  Latest run: {parse_run_timestamp(run_dir.name)}")
+    print(f"  Tasks: {len(tasks)} ran, {passed} passed, {flagged} flagged")
+    print()
+
+    for task in tasks:
+        line = f"  {status_icon(task)}  {render_task_label(task)}"
+        if task.flagged_lines:
+            sample = task.flagged_lines[0]
+            line += f" {DIM}({sample}){RESET}"
+        elif task.has_errors:
+            line += f" {DIM}(stderr) {RESET}"
+        print(line)
+
+    print(f"{BOLD}──────────────────────────────────────────────────{RESET}")
+    print()
+    print(morning.stdout)
+    if flagged_lines:
+        print()
+        print(f"{WARN}  Flagged lines")
+        for line in flagged_lines:
+            print(f"     {line}")
+
+
+def cmd_results(args: argparse.Namespace) -> None:
+    run_dir = latest_run()
+    if run_dir is None:
+        fail("No legatus runs found in ~/.cache/legatus-runs/", json_mode=args.json)
+
+    metadata = parse_queue_metadata()
+    tasks = collect_tasks(run_dir, metadata)
+
+    if args.task:
+        task_dir = run_dir / args.task
+        task = summarize_task(task_dir, metadata) if task_dir.is_dir() else None
+        if task is None:
+            fail(f"Task '{args.task}' not found in {run_dir.name}", json_mode=args.json)
+
+        if args.json:
+            payload = {
+                "latest_run": run_dir.name,
+                "task": {
+                    "name": task.name,
+                    "title": task.title,
+                    "status": task.status,
+                    "has_errors": task.has_errors,
+                    "flagged": task.flagged,
+                    "stdout": task.stdout,
+                    "stderr": task.stderr,
+                    "flagged_lines": task.flagged_lines,
+                },
+            }
+            print(json.dumps(payload, indent=2))
+            return
+
+        print(f"{BOLD}─── {render_task_label(task)} ───────────────────────────{RESET}")
+        print(f"  Run: {parse_run_timestamp(run_dir.name)}")
+        print(f"  Status: {task.status}")
+        if task.flagged_lines:
+            print(f"  Flags: {len(task.flagged_lines)}")
+        print(f"{BOLD}──────────────────────────────────────────────────{RESET}")
+        print()
+        if task.stdout:
+            print(task.stdout)
+        elif task.stderr:
+            print(task.stderr)
+        else:
+            print("No output.")
+        if task.stderr and task.stdout:
+            print()
+            print(f"{WARN} stderr")
+            print(task.stderr)
+        return
+
+    if args.json:
+        payload = {
+            "latest_run": run_dir.name,
+            "tasks": [
+                {
+                    "name": task.name,
+                    "title": task.title,
+                    "status": task.status,
+                    "has_errors": task.has_errors,
+                    "flagged": task.flagged,
+                }
+                for task in tasks
+            ],
+        }
+        print(json.dumps(payload, indent=2))
+        return
+
+    print(f"{BOLD}─── Latest Task Results ─────────────────────────{RESET}")
+    print(f"  Run: {parse_run_timestamp(run_dir.name)}")
+    print()
+    for task in tasks:
+        detail = task.status
+        if task.flagged_lines:
+            detail += f" | {task.flagged_lines[0]}"
+        elif task.has_errors:
+            detail += " | stderr"
+        print(f"  {status_icon(task)}  {render_task_label(task)}: {detail}")
+    print(f"{BOLD}──────────────────────────────────────────────────{RESET}")
+
+
+def cmd_list(args: argparse.Namespace) -> None:
+    runs = discover_runs(limit=5)
+    if not runs:
+        fail("No legatus runs found in ~/.cache/legatus-runs/", json_mode=args.json)
+
+    metadata = parse_queue_metadata()
+    items = []
+    for run_dir in runs:
+        tasks = collect_tasks(run_dir, metadata)
+        passed = sum(1 for task in tasks if task.status == "completed" and not task.flagged and not task.has_errors)
+        flagged = sum(1 for task in tasks if task.flagged or task.has_errors)
+        items.append(
+            {
+                "run": run_dir.name,
+                "timestamp": parse_run_timestamp(run_dir.name),
+                "tasks": [
+                    {
+                        "name": task.name,
+                        "title": task.title,
+                        "status": task.status,
+                        "has_errors": task.has_errors,
+                        "flagged": task.flagged,
+                    }
+                    for task in tasks
+                ],
+                "task_count": len(tasks),
+                "passed": passed,
+                "flagged": flagged,
+            }
+        )
+
+    if args.json:
+        print(json.dumps({"runs": items}, indent=2))
+        return
+
+    print(f"{BOLD}─── Overnight Runs ──────────────────────────────{RESET}")
+    for item in items:
+        print(f"  {item['timestamp']}  {DIM}({item['task_count']} tasks, {item['passed']} passed, {item['flagged']} flagged){RESET}")
+        for task in item["tasks"]:
+            marker = WARN if task["flagged"] or task["has_errors"] else OK if task["status"] == "completed" else ERR
+            label = f"{task['name']} ({task['title']})" if task["title"] else task["name"]
+            suffix = ""
+            if task["flagged"]:
+                suffix = " flagged"
+            elif task["has_errors"]:
+                suffix = " stderr"
+            elif task["status"] != "completed":
+                suffix = f" {task['status']}"
+            print(f"    {marker}  {label}{suffix}")
+        print()
+    print(f"{BOLD}──────────────────────────────────────────────────{RESET}")
+
+
+# ── Main ─────────────────────────────────────────────────────────────────────
+def main() -> None:
+    parser = argparse.ArgumentParser(
+        prog="overnight-gather",
+        description="Gather overnight legatus run results.",
+    )
+    parser.add_argument("--json", action="store_true", help="JSON output")
+    sub = parser.add_subparsers(dest="command")
+
+    sub.add_parser("brief", help="Show latest morning dashboard output")
+
+    results = sub.add_parser("results", help="Show latest task results")
+    results.add_argument("--task", type=str, help="Task name")
+
+    sub.add_parser("list", help="Show recent overnight runs")
+
+    args = parser.parse_args()
+
+    if args.command in (None, "brief"):
+        cmd_brief(args)
+    elif args.command == "results":
+        cmd_results(args)
+    elif args.command == "list":
+        cmd_list(args)
+    else:
+        parser.print_help()
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()

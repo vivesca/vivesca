@@ -1,0 +1,127 @@
+#!/usr/bin/env python3
+"""electroreception -- read iMessage/SMS from macOS chat.db.
+
+Usage:
+  electroreception                  # last 20 messages
+  electroreception -n 50            # last 50 messages
+  electroreception -s MoxBank       # filter by sender
+  electroreception -d 3             # last 3 days only
+  electroreception --incoming       # incoming only
+  electroreception -q "Bowtie"      # search text content
+  electroreception --json           # JSON output for piping
+"""
+
+import argparse
+import json
+import os
+import re
+import sqlite3
+import sys
+from datetime import datetime, timedelta
+
+DB = os.path.expanduser("~/Library/Messages/chat.db")
+
+
+def extract_text(blob):
+    """Extract text from NSAttributedString attributedBody blob."""
+    if not blob:
+        return None
+    try:
+        decoded = blob.decode("utf-8", errors="ignore")
+        runs = re.split(r"[\x00-\x08\x0b\x0c\x0e-\x1f]", decoded)
+        meta = re.compile(
+            r"streamtyped|NSString|NSMutable|NSObject|NSDictionary|NSArray|"
+            r"NSAttributed|NSParagraph|NSColor|NSFont|NSNumber|NSValue|NSData|"
+            r"__kIM|\$classname|\$classes|\$class|XDateTime|XAuthCode"
+        )
+        for r in runs:
+            r = r.strip()
+            if len(r) < 3 or meta.search(r):
+                continue
+            if r.startswith("+") and len(r) > 2:
+                r = r[2:]
+            r = r.strip()
+            if len(r) >= 2:
+                return r
+        return None
+    except Exception:
+        return None
+
+
+def main():
+    p = argparse.ArgumentParser(description="Read iMessage/SMS from macOS")
+    p.add_argument("-n", "--limit", type=int, default=20, help="number of messages")
+    p.add_argument("-s", "--sender", help="filter by sender (substring match)")
+    p.add_argument("-d", "--days", type=int, help="only messages from last N days")
+    p.add_argument("-q", "--query", help="search message text")
+    p.add_argument("--incoming", action="store_true", help="incoming messages only")
+    p.add_argument("--json", action="store_true", help="JSON output")
+    args = p.parse_args()
+
+    if not os.path.exists(DB):
+        print("chat.db not found. Is Messages enabled on this Mac?", file=sys.stderr)
+        sys.exit(1)
+
+    where = []
+    if args.incoming:
+        where.append("m.is_from_me = 0")
+    if args.sender:
+        where.append(f"h.id LIKE '%{args.sender}%'")
+    if args.days:
+        cutoff = datetime.now() - timedelta(days=args.days)
+        unix_ts = cutoff.timestamp()
+        apple_ns = int((unix_ts - 978307200) * 1_000_000_000)
+        where.append(f"m.date > {apple_ns}")
+
+    where_clause = f"WHERE {' AND '.join(where)}" if where else ""
+
+    sql = f"""
+        SELECT m.rowid,
+               datetime(m.date/1000000000 + 978307200, 'unixepoch', 'localtime') as dt,
+               CASE WHEN m.is_from_me = 1 THEN 'Me'
+                    ELSE coalesce(h.id, 'Unknown') END as sender,
+               m.text,
+               m.attributedBody,
+               m.is_from_me
+        FROM message m
+        LEFT JOIN handle h ON m.handle_id = h.rowid
+        {where_clause}
+        ORDER BY m.date DESC
+        LIMIT {args.limit}
+    """
+
+    conn = sqlite3.connect(DB)
+    cur = conn.cursor()
+    cur.execute(sql)
+
+    results = []
+    for row in cur.fetchall():
+        rowid, dt, sender, text, body, from_me = row
+        content = text or extract_text(body)
+        if not content:
+            continue
+        if args.query and args.query.lower() not in content.lower():
+            continue
+        results.append(
+            {
+                "dt": dt,
+                "sender": sender,
+                "text": content,
+                "from_me": bool(from_me),
+            }
+        )
+
+    conn.close()
+
+    if args.json:
+        json.dump(results, sys.stdout, ensure_ascii=False, indent=2)
+        print()
+    else:
+        for m in results:
+            direction = ">" if m["from_me"] else "<"
+            text_preview = m["text"][:120].replace("\n", " ")
+            print(f"{m['dt']}  {direction} {m['sender']}  {text_preview}")
+
+
+if __name__ == "__main__":
+    main()

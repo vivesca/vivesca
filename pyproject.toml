@@ -1,0 +1,113 @@
+[project]
+name = "metabolon"
+version = "0.3.0"
+description = "The metabolism engine of a living organism."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "click>=8.0",
+    "fastmcp>=3.0.0",
+    "jinja2>=3.1",
+    "pydantic>=2.0",
+    "pypdf>=4.0",
+    "pyyaml>=6.0.3",
+]
+
+[project.scripts]
+vivesca = "metabolon.pore:cli"
+
+[dependency-groups]
+dev = ["pytest", "pytest-asyncio", "ruff", "pyright", "pre-commit", "codespell", "pytest-cov"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["cytoplasm/metabolon"]
+
+[tool.pytest.ini_options]
+testpaths = ["assays"]
+asyncio_mode = "auto"
+addopts = "-m 'not slow'"
+markers = ["slow: boots full MCP server (skip with default opts)"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 99
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
+ignore = ["E501", "SIM115"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["metabolon"]
+
+[tool.pyright]
+pythonVersion = "3.11"
+typeCheckingMode = "basic"
+venvPath = "."
+venv = ".venv"
+reportMissingImports = "warning"
+reportCallIssue = "warning"
+
+[tool.codespell]
+# Absorbed external content, reference docs, and generated artefacts are excluded.
+# Our own code + new docs are still checked.
+# skip takes a comma-separated string; TOML arrays are joined with "," by codespell.
+skip = [
+    ".venv",
+    "uv.lock",
+    "*.pyc",
+    "*.pdf",
+    # External tool configs absorbed into the monorepo.
+    # Patterns use *path* so fnmatch matches regardless of whether codespell
+    # prefixes paths with "./" (standalone run) or not (pre-commit run).
+    "*opencode/node_modules*",
+    "*opencode/skills*",
+    "*opencode/agents*",
+    "*opencode/commands*",
+    "*opencode/*.json",
+    "*opencode/*.bak.*",
+    # Claude agent memory and rules (research extractions, quoted docs)
+    "*claude/agent-memory*",
+    "*claude/rules*",
+    "*claude-backup*",
+    # Absorbed lustro organelle (may contain quoted external content)
+    "*organelles/endocytosis_rss/sources*",
+    # Generated / event-log files
+    "*genome/vivesca-events.jsonl",
+    # Reference docs: plans, specs, brainstorms, solutions (may contain quoted text,
+    # non-English content, technical acronyms from external sources)
+    "*genome/solutions*",
+    "*genome/specs*",
+    "*genome/plans*",
+    "*genome/brainstorms*",
+    # Generated copia/pulse outputs (LLM-extracted docs, may contain non-English proper nouns)
+    "*genome/copia*",
+    "*genome/pulse*",
+    # Archived receptors (old skill versions)
+    "*receptors/.archive*",
+    # Test fixtures (binary files, sample data)
+    "*assays/fixtures*",
+]
+# False positives in our own code:
+#   rouge       — ROUGE NLP evaluation metric (effectors/add-garp-topics.py comment)
+#   nd          — variable name (nd = len(docs)) and time-unit suffix (Nh/Nm/Nd)
+#   selectin    — cell adhesion molecule family (receptors/layers/cell.yaml)
+#   ore         — in quoted Latin etymology ("the place you extract ore")
+#   unparseable — intentional word choice in error messages (effectors/judge)
+#   importin    — biological nuclear-import protein; also our CLI tool name
+#   sive        — sive.rs (Derek Sivers' domain) in lustro/sources.yaml
+#   wit         — "dry wit" in openclaw persona docs
+#   thats       — intentional informal-speech literals in synapse.py ("thats all", "thats it")
+#   stilus      — Latin stylus (original meaning preserved)
+ignore-words-list = "stilus,rouge,nd,selectin,ore,unparseable,importin,sive,wit,thats"
+
+[tool.coverage.run]
+source = ["metabolon"]
+omit = ["cytoplasm/metabolon/dispatch.py"]
+
+[tool.coverage.report]
+show_missing = true
+fail_under = 0

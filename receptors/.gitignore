@@ -1,0 +1,13 @@
+.cache/
+config.json
+--wait
+
+# agent-browser profile artifacts
+1/
+*/1/
+# Codex mirror/work directories
+consilium-*/
+*-work-*/
+.fastembed_cache/
+compound-engineering/
+superpowers/

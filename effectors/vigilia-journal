@@ -1,0 +1,226 @@
+#!/usr/bin/env python3
+"""vigilia-journal — CLI for the vigilia handoff journal.
+
+Bridges the cold-start problem between copia overnight sessions.
+The journal lives at ~/notes/.vigilia-journal.md.
+
+Commands:
+    read     Print full journal state as formatted text.
+    write    Append a single worker result (use mid-session).
+    status   Summary: last session time, queue counts.
+    clear    Archive current journal and reset.
+
+Usage:
+    vigilia-journal read
+    vigilia-journal write --worker "researcher-1" --task "HSBC DRA analysis" \\
+                          --outcome "completed" --discoveries "4-year governance gap"
+    vigilia-journal status
+    vigilia-journal clear
+"""
+
+import argparse
+import datetime
+import os
+import shutil
+import sys
+
+# Resolve lib path relative to this script (bin/ → lib/)
+_SCRIPT_DIR = os.path.dirname(os.path.realpath(__file__))
+_LIB_DIR = os.path.join(os.path.dirname(_SCRIPT_DIR), "lib")
+if _LIB_DIR not in sys.path:
+    sys.path.insert(0, _LIB_DIR)
+
+from vigilia_journal import (
+    JOURNAL_PATH,
+    _expand,
+    append_worker_result,
+    read_journal,
+)
+
+ARCHIVE_DIR = os.path.expanduser("~/notes/.vigilia-journal-archive")
+
+
+# ---------------------------------------------------------------------------
+# Command handlers
+# ---------------------------------------------------------------------------
+
+
+def cmd_read(args: argparse.Namespace) -> None:
+    path = args.journal
+    state = read_journal(path)
+
+    if not state["timestamp"]:
+        print("No journal found. First vigilia session will create it.")
+        return
+
+    print("Vigilia Handoff Journal")
+    print(f"Last session: {state['timestamp']}")
+    print()
+
+    workers = state.get("workers", [])
+    if workers:
+        print(f"=== Workers ({len(workers)}) ===")
+        for w in workers:
+            print(f"\n  {w['name']}")
+            print(f"    Task:    {w.get('task', '—')}")
+            print(f"    Outcome: {w.get('outcome', '—')}")
+            discoveries = w.get("discoveries", [])
+            if discoveries:
+                print("    Discoveries:")
+                for d in discoveries:
+                    print(f"      · {d}")
+    else:
+        print("=== Workers ===\n  (none recorded)")
+
+    print()
+    patterns = state.get("checker_patterns", [])
+    if patterns:
+        print(f"=== Checker Patterns ({len(patterns)}) ===")
+        for p in patterns:
+            print(f"  · {p}")
+    else:
+        print("=== Checker Patterns ===\n  (none recorded)")
+
+    print()
+    qs = state.get("queue_state", {})
+    completed = qs.get("completed", [])
+    remaining = qs.get("remaining", [])
+    blocked = qs.get("blocked", [])
+    print("=== Queue State ===")
+    print(f"  Completed ({len(completed)}): {', '.join(completed) if completed else '—'}")
+    print(f"  Remaining ({len(remaining)}): {', '.join(remaining) if remaining else '—'}")
+    print(f"  Blocked   ({len(blocked)}): {', '.join(blocked) if blocked else '—'}")
+
+    recs = state.get("recommendations", "")
+    if recs:
+        print()
+        print("=== Recommendations ===")
+        for line in recs.splitlines():
+            print(f"  {line}")
+
+
+def cmd_write(args: argparse.Namespace) -> None:
+    path = args.journal
+    discoveries_raw = args.discoveries or ""
+    discoveries = [d.strip() for d in discoveries_raw.split(";") if d.strip()]
+
+    append_worker_result(
+        path=path,
+        worker_name=args.worker or "",
+        task=args.task or "",
+        outcome=args.outcome or "",
+        discoveries=discoveries,
+    )
+
+    fpath = _expand(path)
+    print(f"Worker result written to {fpath}")
+    print(f"  Worker:      {args.worker}")
+    print(f"  Task:        {args.task}")
+    print(f"  Outcome:     {args.outcome}")
+    if discoveries:
+        print(f"  Discoveries: {'; '.join(discoveries)}")
+
+
+def cmd_status(args: argparse.Namespace) -> None:
+    path = args.journal
+    fpath = _expand(path)
+    state = read_journal(path)
+
+    if not state["timestamp"]:
+        print("Status: no journal (first run)")
+        return
+
+    qs = state.get("queue_state", {})
+    n_completed = len(qs.get("completed", []))
+    n_remaining = len(qs.get("remaining", []))
+    n_blocked = qs.get("blocked", [])
+    n_workers = len(state.get("workers", []))
+    n_patterns = len(state.get("checker_patterns", []))
+
+    size_kb = os.path.getsize(fpath) / 1024 if os.path.exists(fpath) else 0
+
+    print(f"Last session:     {state['timestamp']}")
+    print(f"Workers logged:   {n_workers}")
+    print(f"Checker patterns: {n_patterns}")
+    print(f"Queue — done:     {n_completed}  remaining: {n_remaining}  blocked: {len(n_blocked)}")
+    print(f"Journal size:     {size_kb:.1f} KB  ({fpath})")
+
+
+def cmd_clear(args: argparse.Namespace) -> None:
+    path = args.journal
+    fpath = _expand(path)
+
+    if not os.path.exists(fpath):
+        print("Nothing to clear — journal does not exist.")
+        return
+
+    os.makedirs(ARCHIVE_DIR, exist_ok=True)
+    date_str = datetime.date.today().isoformat()
+    archive_name = f"{date_str}.md"
+    archive_path = os.path.join(ARCHIVE_DIR, archive_name)
+
+    # Avoid clobbering existing archive for same date
+    if os.path.exists(archive_path):
+        timestamp = datetime.datetime.now().strftime("%H%M%S")
+        archive_name = f"{date_str}-{timestamp}.md"
+        archive_path = os.path.join(ARCHIVE_DIR, archive_name)
+
+    shutil.copy2(fpath, archive_path)
+    os.remove(fpath)
+
+    print(f"Journal archived to {archive_path}")
+    print("Journal reset. Next vigilia session starts clean.")
+
+
+# ---------------------------------------------------------------------------
+# Argument parsing
+# ---------------------------------------------------------------------------
+
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        prog="vigilia-journal",
+        description="Manage the vigilia handoff journal (~/notes/.vigilia-journal.md).",
+    )
+    parser.add_argument(
+        "--journal",
+        default=JOURNAL_PATH,
+        metavar="PATH",
+        help=f"Journal file path (default: {JOURNAL_PATH})",
+    )
+
+    sub = parser.add_subparsers(dest="command", metavar="COMMAND")
+    sub.required = True
+
+    sub.add_parser("read", help="Print full journal state.")
+    sub.add_parser("status", help="Summary: last session time, queue counts.")
+    sub.add_parser("clear", help="Archive current journal and reset.")
+
+    p_write = sub.add_parser("write", help="Append a worker result (mid-session).")
+    p_write.add_argument("--worker", required=True, metavar="NAME", help="Worker agent name.")
+    p_write.add_argument("--task", required=True, metavar="TASK", help="Task the worker ran.")
+    p_write.add_argument("--outcome", required=True, metavar="OUTCOME", help="What happened.")
+    p_write.add_argument(
+        "--discoveries",
+        metavar="TEXT",
+        help="What was learned. Separate multiple items with semicolons.",
+    )
+
+    return parser
+
+
+def main() -> None:
+    parser = build_parser()
+    args = parser.parse_args()
+
+    dispatch = {
+        "read": cmd_read,
+        "write": cmd_write,
+        "status": cmd_status,
+        "clear": cmd_clear,
+    }
+    dispatch[args.command](args)
+
+
+if __name__ == "__main__":
+    main()

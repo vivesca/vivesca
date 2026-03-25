@@ -1,0 +1,292 @@
+#!/usr/bin/env -S uv run --script --python 3.13
+# /// script
+# requires-python = ">=3.13"
+# dependencies = ["pyyaml"]
+# ///
+"""
+paracrine — lateral inhibition for feedback memories.
+
+Reads all feedback memory files, clusters by behavioral axis,
+detects tension pairs, and proposes reconciliation via LLM.
+
+Usage:
+  paracrine              show tension report (deterministic only)
+  paracrine --reconcile  run LLM reconciliation on tension pairs
+  paracrine --cluster    show clusters only
+  paracrine --json       output as JSON
+"""
+
+import subprocess
+import sys
+import yaml
+from pathlib import Path
+
+MEMORY_DIR = Path.home() / ".claude/projects/-Users-terry/memory"
+
+# Behavioral axes — feedbacks that pull on the same dimension
+AXES = {
+    "autonomy": [
+        "autonomous", "ask", "confirm", "permission", "just do", "stop asking",
+        "act and report", "gated", "hold", "judgment", "taste", "calibrat",
+    ],
+    "verbosity": [
+        "terse", "concise", "verbose", "summary", "summariz", "detail",
+        "explain", "brief", "short",
+    ],
+    "speed_vs_quality": [
+        "two-minute", "immediately", "quick", "fast", "careful", "thorough",
+        "verify", "validate", "check", "research before",
+    ],
+    "scope": [
+        "full scope", "comprehensive", "minimal", "simple", "over-engineer",
+        "scope", "cautious", "aggressive", "hedge",
+    ],
+    "routing": [
+        "sonnet", "opus", "haiku", "opencode", "gemini", "codex", "delegate",
+        "subagent", "model",
+    ],
+    "capture_vs_flow": [
+        "capture", "save", "remember", "flow", "thread", "energy",
+        "don't cut", "immediately", "ship",
+    ],
+    "intervention": [
+        "nag", "nudge", "flag", "alert", "silent", "autonomic",
+        "self-heal", "major the major",
+    ],
+}
+
+
+def load_feedback_memories() -> list[dict]:
+    """Load all feedback memory files with frontmatter and content."""
+    memories = []
+    for path in sorted(MEMORY_DIR.glob("feedback_*.md")):
+        text = path.read_text(encoding="utf-8")
+        # Parse YAML frontmatter
+        if text.startswith("---"):
+            parts = text.split("---", 2)
+            if len(parts) >= 3:
+                try:
+                    meta = yaml.safe_load(parts[1]) or {}
+                except yaml.YAMLError:
+                    meta = {}
+                body = parts[2].strip()
+            else:
+                meta, body = {}, text
+        else:
+            meta, body = {}, text
+
+        memories.append({
+            "file": path.name,
+            "name": meta.get("name", path.stem),
+            "description": meta.get("description", ""),
+            "body": body,
+            "full_text": (
+                f"{meta.get('name', '')} {meta.get('description', '')} {body}"
+            ).lower(),
+        })
+    return memories
+
+
+def cluster_by_axis(memories: list[dict]) -> dict[str, list[dict]]:
+    """Assign each memory to axes based on keyword overlap."""
+    clusters: dict[str, list[dict]] = {axis: [] for axis in AXES}
+    for mem in memories:
+        for axis, keywords in AXES.items():
+            if any(kw in mem["full_text"] for kw in keywords):
+                clusters[axis].append(mem)
+    return {k: v for k, v in clusters.items() if v}
+
+
+def detect_tensions(clusters: dict[str, list[dict]]) -> list[dict]:
+    """Find axes where multiple feedbacks may pull in opposite directions."""
+    tensions = []
+
+    # Autonomy axis: look for "do it" vs "hold/gate" signals
+    if "autonomy" in clusters:
+        do_it = []
+        hold = []
+        for mem in clusters["autonomy"]:
+            t = mem["full_text"]
+            if any(w in t for w in ["just do", "stop asking", "act and report",
+                                     "don't ask", "autonomous", "obvious"]):
+                do_it.append(mem)
+            if any(w in t for w in ["hold", "gate", "judgment", "calibrat",
+                                     "confirm", "taste"]):
+                hold.append(mem)
+        if do_it and hold:
+            tensions.append({
+                "axis": "autonomy",
+                "pull_a": [m["file"] for m in do_it],
+                "pull_b": [m["file"] for m in hold],
+                "label_a": "act immediately",
+                "label_b": "gate on judgment",
+                "count": len(do_it) + len(hold),
+            })
+
+    # Speed vs quality
+    if "speed_vs_quality" in clusters:
+        fast = []
+        careful = []
+        for mem in clusters["speed_vs_quality"]:
+            t = mem["full_text"]
+            if any(w in t for w in ["two-minute", "immediately", "quick",
+                                     "fast", "don't flag"]):
+                fast.append(mem)
+            if any(w in t for w in ["verify", "validate", "research before",
+                                     "check", "careful", "thorough"]):
+                careful.append(mem)
+        if fast and careful:
+            tensions.append({
+                "axis": "speed_vs_quality",
+                "pull_a": [m["file"] for m in fast],
+                "pull_b": [m["file"] for m in careful],
+                "label_a": "act fast",
+                "label_b": "verify first",
+                "count": len(fast) + len(careful),
+            })
+
+    # Capture vs flow
+    if "capture_vs_flow" in clusters:
+        capture = []
+        flow = []
+        for mem in clusters["capture_vs_flow"]:
+            t = mem["full_text"]
+            if any(w in t for w in ["capture", "save", "remember", "ship",
+                                     "immediately"]):
+                capture.append(mem)
+            if any(w in t for w in ["flow", "thread", "energy", "don't cut"]):
+                flow.append(mem)
+        if capture and flow:
+            tensions.append({
+                "axis": "capture_vs_flow",
+                "pull_a": [m["file"] for m in capture],
+                "pull_b": [m["file"] for m in flow],
+                "label_a": "capture everything",
+                "label_b": "protect flow",
+                "count": len(capture) + len(flow),
+            })
+
+    return tensions
+
+
+# ── Terminal formatting ──────────────────────────────────────────────────────
+RESET  = "\033[0m"
+BOLD   = "\033[1m"
+CYAN   = "\033[36m"
+YELLOW = "\033[33m"
+RED    = "\033[31m"
+GREEN  = "\033[32m"
+DIM    = "\033[2m"
+
+
+def print_clusters(clusters: dict[str, list[dict]]) -> None:
+    for axis, mems in sorted(clusters.items(), key=lambda x: -len(x[1])):
+        print(f"\n{BOLD}{CYAN}{axis}{RESET} ({len(mems)} memories)")
+        for m in mems:
+            print(f"  {DIM}{m['file']}{RESET}")
+
+
+def reconcile_tension(tension: dict, memories: list[dict]) -> str:
+    """Use LLM to judge whether a tension pair is real and propose resolution."""
+    mem_by_file = {m["file"]: m for m in memories}
+
+    # Build context: full text of each memory in the tension (3 per side)
+    all_files = set(tension["pull_a"][:3] + tension["pull_b"][:3])
+    context_parts = []
+    for f in sorted(all_files):
+        m = mem_by_file.get(f)
+        if m:
+            context_parts.append(f"### {f}\n{m['body'][:200]}")
+
+    context = "\n\n".join(context_parts)
+    prompt = f"""You are reviewing feedback memories that may contradict each other.
+
+Axis: {tension['axis']}
+Side A ({tension['label_a']}): {', '.join(tension['pull_a'][:5])}
+Side B ({tension['label_b']}): {', '.join(tension['pull_b'][:5])}
+
+Full text of memories:
+{context}
+
+Classify this tension as one of:
+1. FALSE POSITIVE — keywords matched but no real contradiction
+2. ALREADY RESOLVED — boundary conditions in the text already reconcile them
+3. REAL TENSION — genuinely contradictory, needs reconciliation
+
+If REAL TENSION, propose a one-sentence boundary condition that reconciles both sides.
+If FALSE POSITIVE or ALREADY RESOLVED, explain in one sentence why.
+
+Format: TYPE: explanation"""
+
+    env_clean = {
+        k: v for k, v in __import__("os").environ.items()
+        if k != "CLAUDECODE"
+    }
+    try:
+        result = subprocess.run(
+            ["max20", "haiku", "-p", prompt],
+            capture_output=True, text=True, timeout=60, env=env_clean,
+        )
+        return result.stdout.strip() or result.stderr.strip()
+    except (subprocess.TimeoutExpired, FileNotFoundError) as e:
+        return f"ERROR: {e}"
+
+
+def print_tensions(tensions: list[dict]) -> None:
+    if not tensions:
+        print(f"\n{GREEN}No tensions detected.{RESET}")
+        return
+    print(f"\n{BOLD}{RED}Tension pairs:{RESET}")
+    for t in tensions:
+        print(f"\n  {BOLD}{YELLOW}{t['axis']}{RESET} "
+              f"({t['count']} memories in tension)")
+        print(f"  {GREEN}← {t['label_a']}{RESET}: "
+              f"{', '.join(t['pull_a'][:3])}"
+              f"{'...' if len(t['pull_a']) > 3 else ''}")
+        print(f"  {RED}→ {t['label_b']}{RESET}: "
+              f"{', '.join(t['pull_b'][:3])}"
+              f"{'...' if len(t['pull_b']) > 3 else ''}")
+
+
+def main() -> None:
+    memories = load_feedback_memories()
+    print(f"{BOLD}Loaded {len(memories)} feedback memories{RESET}")
+
+    clusters = cluster_by_axis(memories)
+
+    if "--json" in sys.argv:
+        import json
+        tensions = detect_tensions(clusters)
+        print(json.dumps({
+            "total": len(memories),
+            "clusters": {k: [m["file"] for m in v] for k, v in clusters.items()},
+            "tensions": tensions,
+        }, indent=2))
+        return
+
+    print_clusters(clusters)
+
+    if "--cluster" not in sys.argv:
+        tensions = detect_tensions(clusters)
+        print_tensions(tensions)
+
+        if "--reconcile" in sys.argv and tensions:
+            print(f"\n{BOLD}Running LLM reconciliation...{RESET}\n")
+            for t in tensions:
+                print(f"  {BOLD}{CYAN}{t['axis']}{RESET}")
+                verdict = reconcile_tension(t, memories)
+                # Colour by verdict type
+                if verdict.startswith("FALSE POSITIVE"):
+                    print(f"  {GREEN}{verdict}{RESET}\n")
+                elif verdict.startswith("ALREADY RESOLVED"):
+                    print(f"  {GREEN}{verdict}{RESET}\n")
+                elif verdict.startswith("REAL TENSION"):
+                    print(f"  {RED}{verdict}{RESET}\n")
+                else:
+                    print(f"  {DIM}{verdict}{RESET}\n")
+        elif tensions and "--reconcile" not in sys.argv:
+            print(f"\n{DIM}Run with --reconcile for LLM judgment on each pair.{RESET}")
+
+
+if __name__ == "__main__":
+    main()

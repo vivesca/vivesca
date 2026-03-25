@@ -1,0 +1,30 @@
+"""{{ name }} prompt template.
+
+Prompts:
+  {{ name }} — {{ description }}
+"""
+
+from fastmcp.prompts import prompt
+
+
+@prompt(
+    name="{{ name }}",
+    description="{{ description }}",
+)
+def {{ func_name }}(
+    topic: str,
+    context: str = "",
+) -> str:
+    """{{ description }}.
+
+    Args:
+        topic: The subject for this prompt.
+        context: Optional background context.
+    """
+    context_block = f"\nContext: {context}\n" if context else ""
+
+    return (
+        f"{{ description }}\n\n"
+        f"Topic: {topic}\n"
+        f"{context_block}"
+    )

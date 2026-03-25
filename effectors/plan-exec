@@ -1,0 +1,3 @@
+#\!/bin/sh
+echo "plan-exec is deprecated. Use: opifex exec <plan> -p <project>"
+exit 1

@@ -1,0 +1,17 @@
+"""{{ name }} resource.
+
+Resources:
+  {{ uri }} — {{ description }}
+"""
+
+from fastmcp.resources import resource
+
+
+@resource("{{ uri }}")
+def {{ func_name }}() -> str:
+    """{{ description }}.
+
+    Returns context that agents can read on demand.
+    """
+    # TODO: Implement — return useful context
+    raise NotImplementedError("Implement {{ func_name }}")

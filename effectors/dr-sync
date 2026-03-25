@@ -1,0 +1,65 @@
+#!/usr/bin/env python3
+"""Disaster recovery sync — backs up local-only state to officina (git-backed)."""
+
+import shutil
+import subprocess
+from pathlib import Path
+
+HOME = Path.home()
+DEST = HOME / "officina" / "claude-backup"
+
+
+def sync():
+    # Claude Code settings
+    for f in ["settings.json", "settings.local.json"]:
+        src = HOME / ".claude" / f
+        if src.exists():
+            shutil.copy2(src, DEST / f)
+
+    # Claude Code memory
+    mem_src = HOME / ".claude" / "projects" / "-Users-terry" / "memory"
+    mem_dst = DEST / "memory"
+    if mem_src.exists():
+        if mem_dst.exists():
+            shutil.rmtree(mem_dst)
+        shutil.copytree(mem_src, mem_dst)
+
+    # Shell env
+    env_src = HOME / ".zshenv.local"
+    if env_src.exists():
+        shutil.copy2(env_src, DEST / "zshenv.local")
+
+    # Synaxis config
+    syn_src = HOME / ".config" / "synaxis" / "config.toml"
+    syn_dst = DEST / "config" / "synaxis"
+    syn_dst.mkdir(parents=True, exist_ok=True)
+    if syn_src.exists():
+        shutil.copy2(syn_src, syn_dst / "config.toml")
+
+    # Brewfile refresh
+    subprocess.run(
+        ["brew", "bundle", "dump", f"--file={HOME}/officina/Brewfile", "--force"],
+        capture_output=True,
+    )
+
+    # Auto-commit if changes
+    result = subprocess.run(
+        ["git", "status", "--porcelain", "claude-backup/", "Brewfile"],
+        capture_output=True,
+        text=True,
+        cwd=HOME / "officina",
+    )
+    if result.stdout.strip():
+        subprocess.run(["git", "add", "claude-backup/", "Brewfile"], cwd=HOME / "officina")
+        subprocess.run(
+            ["git", "commit", "-m", "DR sync: update backup"],
+            cwd=HOME / "officina",
+        )
+        subprocess.run(["git", "push"], cwd=HOME / "officina")
+        print("DR sync: committed and pushed")
+    else:
+        print("DR sync: no changes")
+
+
+if __name__ == "__main__":
+    sync()

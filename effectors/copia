@@ -1,0 +1,196 @@
+#!/usr/bin/env -S uv run --script --python 3.13
+# /// script
+# requires-python = ">=3.13"
+# dependencies = []
+# ///
+"""
+copia — search Capco vault notes by keyword.
+
+Usage:
+  copia <query>        fuzzy search across all 3 files
+  copia --cases        list use case titles from FS AI Use Case Library.md
+  copia --objections   list objection headers from AI Objection Handlers.md
+  copia --questions    list question sections from AI Engagement Qualifying Questions.md
+  copia --help         show this help
+"""
+
+import sys
+import re
+import os
+from pathlib import Path
+
+# ── Terminal colours ────────────────────────────────────────────────────────
+RESET  = "\033[0m"
+BOLD   = "\033[1m"
+CYAN   = "\033[36m"
+YELLOW = "\033[33m"
+GREEN  = "\033[32m"
+DIM    = "\033[2m"
+
+# ── Target files ─────────────────────────────────────────────────────────────
+HOME = Path.home()
+FILES = {
+    "cases":       HOME / "notes/Capco/FS AI Use Case Library.md",
+    "objections":  HOME / "notes/Capco/AI Objection Handlers.md",
+    "questions":   HOME / "notes/Capco/AI Engagement Qualifying Questions.md",
+}
+
+
+def warn_missing(path: Path) -> None:
+    print(f"{YELLOW}Warning: file not found — {path}{RESET}", file=sys.stderr)
+
+
+def read_file(path: Path) -> str | None:
+    if not path.exists():
+        warn_missing(path)
+        return None
+    return path.read_text(encoding="utf-8")
+
+
+# ── Section splitting ─────────────────────────────────────────────────────────
+def split_sections(text: str) -> list[dict]:
+    """Split markdown on ## / ### headings. Returns list of {heading, level, content}."""
+    sections = []
+    pattern = re.compile(r'^(#{2,3})\s+(.+)$', re.MULTILINE)
+    matches = list(pattern.finditer(text))
+    for i, m in enumerate(matches):
+        heading = m.group(2).strip()
+        level = len(m.group(1))
+        start = m.end()
+        end = matches[i + 1].start() if i + 1 < len(matches) else len(text)
+        content = text[start:end].strip()
+        sections.append({"heading": heading, "level": level, "content": content})
+    return sections
+
+
+# ── Fuzzy search ──────────────────────────────────────────────────────────────
+def score_section(keywords: list[str], heading: str, content: str) -> int:
+    """Count keyword hits (case-insensitive) across heading + content."""
+    combined = (heading + " " + content).lower()
+    return sum(combined.count(kw) for kw in keywords)
+
+
+def excerpt(content: str, keywords: list[str], max_chars: int = 200) -> str:
+    """Return up to max_chars of content, preferring lines containing keywords."""
+    lines = content.splitlines()
+    for kw in keywords:
+        for i, line in enumerate(lines):
+            if kw in line.lower():
+                # grab a window around the matching line
+                window = lines[max(0, i - 1): i + 3]
+                snippet = " · ".join(ln.strip() for ln in window if ln.strip())
+                return snippet[:max_chars]
+    # fallback: first non-empty lines
+    snippet = " · ".join(ln.strip() for ln in lines if ln.strip())
+    return snippet[:max_chars]
+
+
+def search(query: str) -> None:
+    keywords = [w.lower() for w in query.split()]
+    results = []
+
+    for key, path in FILES.items():
+        text = read_file(path)
+        if text is None:
+            continue
+        sections = split_sections(text)
+        for sec in sections:
+            sc = score_section(keywords, sec["heading"], sec["content"])
+            if sc > 0:
+                results.append({
+                    "file": path.name,
+                    "heading": sec["heading"],
+                    "level": sec["level"],
+                    "score": sc,
+                    "content": sec["content"],
+                })
+
+    if not results:
+        print(f"No matches found for: {query}")
+        return
+
+    results.sort(key=lambda r: r["score"], reverse=True)
+
+    for r in results:
+        prefix = "##" if r["level"] == 2 else "###"
+        print(f"\n{CYAN}{BOLD}{prefix} {r['heading']}{RESET}  {DIM}[{r['file']}]{RESET}")
+        snip = excerpt(r["content"], keywords)
+        if snip:
+            print(f"  {snip}")
+
+
+# ── Listing commands ──────────────────────────────────────────────────────────
+def list_cases() -> None:
+    path = FILES["cases"]
+    text = read_file(path)
+    if text is None:
+        return
+    # ## headings that contain "Case Study" (or any ## heading — spec says
+    # headings that follow "## Case Study" pattern, i.e. start with ## and
+    # reference a case study)
+    pattern = re.compile(r'^##\s+(.+)$', re.MULTILINE)
+    hits = [m.group(1).strip() for m in pattern.finditer(text)
+            if "case" in m.group(1).lower() or True]  # list all ## headings
+    # Per spec: "## headings from FS AI Use Case Library.md that follow '## Case Study'"
+    # Interpretation: all ## headings (they are use case titles in that doc)
+    if not hits:
+        print("No case study headings found.")
+        return
+    print(f"{GREEN}{BOLD}Use Cases — {path.name}{RESET}")
+    for h in hits:
+        print(f"  {CYAN}•{RESET} {h}")
+
+
+def list_objections() -> None:
+    path = FILES["objections"]
+    text = read_file(path)
+    if text is None:
+        return
+    pattern = re.compile(r'^##\s+(Objection.+)$', re.MULTILINE)
+    hits = [m.group(1).strip() for m in pattern.finditer(text)]
+    if not hits:
+        print("No objection headings found (expected '## Objection …').")
+        return
+    print(f"{GREEN}{BOLD}Objections — {path.name}{RESET}")
+    for h in hits:
+        print(f"  {CYAN}•{RESET} {h}")
+
+
+def list_questions() -> None:
+    path = FILES["questions"]
+    text = read_file(path)
+    if text is None:
+        return
+    pattern = re.compile(r'^##\s+(.+)$', re.MULTILINE)
+    hits = [m.group(1).strip() for m in pattern.finditer(text)]
+    if not hits:
+        print("No section headings found.")
+        return
+    print(f"{GREEN}{BOLD}Question Sections — {path.name}{RESET}")
+    for h in hits:
+        print(f"  {CYAN}•{RESET} {h}")
+
+
+# ── Help ──────────────────────────────────────────────────────────────────────
+def show_help() -> None:
+    print(__doc__.strip())
+
+
+# ── Entry point ───────────────────────────────────────────────────────────────
+def main() -> None:
+    args = sys.argv[1:]
+    if not args or args[0] in ("-h", "--help"):
+        show_help()
+        return
+    if args[0] == "--cases":
+        list_cases()
+    elif args[0] == "--objections":
+        list_objections()
+    elif args[0] == "--questions":
+        list_questions()
+    else:
+        search(" ".join(args))
+
+
+if __name__ == "__main__":
+    main()

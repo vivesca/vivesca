@@ -1,0 +1,43 @@
+#!/bin/bash
+# Mobile tmux session manager
+
+if [ $# -eq 0 ]; then
+    echo "Usage: tm [session-name]"
+    echo "       tm ls                  - list sessions"
+    echo "       tm kill [session]     - kill a session"
+    echo "       tm killall            - kill all sessions"
+    echo ""
+    echo "Current sessions:"
+    tmux list-sessions 2>/dev/null || echo "No active sessions"
+    exit 0
+fi
+
+case "$1" in
+    ls)
+        tmux list-sessions 2>/dev/null || echo "No active sessions"
+        ;;
+    kill)
+        if [ -z "$2" ]; then
+            echo "Please specify a session name to kill"
+            exit 1
+        fi
+        tmux kill-session -t "$2"
+        ;;
+    killall)
+        tmux kill-server
+        echo "All tmux sessions killed"
+        ;;
+    *)
+        SESSION_NAME="$1"
+        
+        # Check if session exists
+        if tmux has-session -t "$SESSION_NAME" 2>/dev/null; then
+            echo "Attaching to existing session: $SESSION_NAME"
+            tmux attach-session -t "$SESSION_NAME"
+        else
+            echo "Creating new session: $SESSION_NAME"
+            tmux new-session -d -s "$SESSION_NAME"
+            tmux attach-session -t "$SESSION_NAME"
+        fi
+        ;;
+esac
