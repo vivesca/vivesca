@@ -311,7 +311,7 @@ def read_now(path: str = TONUS_PATH) -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 
-def get_calendar(date: str = "today", days: int = 1) -> dict[str, Any]:
+def sense_calendar(date: str = "today", days: int = 1) -> dict[str, Any]:
     """Shell out to fasti and return parsed calendar events."""
     if days == 1:
         stdout, stderr = run_cmd(["fasti", "list", date])
@@ -388,7 +388,7 @@ def _parse_fasti_output(text: str) -> list[dict[str, str]]:
 # ---------------------------------------------------------------------------
 
 
-def check_budget() -> dict[str, Any]:
+def sense_budget() -> dict[str, Any]:
     """Shell out to respirometry and parse budget status."""
     stdout, stderr = run_cmd(["respirometry"], timeout=20)
     if not stdout and stderr:
@@ -398,13 +398,13 @@ def check_budget() -> dict[str, Any]:
 
 
 # ---------------------------------------------------------------------------
-# gather_context — composable shared gather
+# intake_context — composable shared gather
 # ---------------------------------------------------------------------------
 
 ALL_SOURCES = ["date", "todo", "now", "calendar", "budget"]
 
 
-def gather_context(
+def intake_context(
     include: list[str] | None = None,
     calendar_date: str = "today",
     calendar_days: int = 1,
@@ -431,8 +431,8 @@ def gather_context(
         "date": get_date,
         "todo": _gather_todo,
         "now": lambda: read_now(path=now_path),
-        "calendar": lambda: get_calendar(date=calendar_date, days=calendar_days),
-        "budget": check_budget,
+        "calendar": lambda: sense_calendar(date=calendar_date, days=calendar_days),
+        "budget": sense_budget,
     }
 
     result: dict[str, Any] = {k: None for k in ALL_SOURCES}
@@ -459,11 +459,11 @@ def gather_context(
 # ---------------------------------------------------------------------------
 
 
-def sections_from_ctx(ctx: dict[str, Any], calendar_keys: dict[str, str] | None = None) -> dict[str, dict]:
-    """Convert gather_context() results into {key: {label, ok, content}} section dicts.
+def transduce(ctx: dict[str, Any], calendar_keys: dict[str, str] | None = None) -> dict[str, dict]:
+    """Convert intake_context() results into {key: {label, ok, content}} section dicts.
 
     Args:
-        ctx: Output of gather_context(), potentially with extra calendar keys.
+        ctx: Output of intake_context(), potentially with extra calendar keys.
         calendar_keys: Mapping of ctx keys to labels for calendar sections.
             Default: {"calendar": "Calendar"}.
     """
@@ -522,7 +522,7 @@ def sections_from_ctx(ctx: dict[str, Any], calendar_keys: dict[str, str] | None 
     return sections
 
 
-def render_text(title: str, results: dict[str, dict], section_order: list[str]) -> str:
+def secrete_text(title: str, results: dict[str, dict], section_order: list[str]) -> str:
     """Render sections as human-readable text."""
     lines = ["=" * 70, f"  {title}", "=" * 70, ""]
     for key in section_order:
@@ -535,6 +535,6 @@ def render_text(title: str, results: dict[str, dict], section_order: list[str]) 
     return "\n".join(lines)
 
 
-def render_json(results: dict) -> str:
+def secrete_json(results: dict) -> str:
     """Render sections as JSON."""
     return json.dumps(results, indent=2, ensure_ascii=False)
