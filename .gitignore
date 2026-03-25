@@ -26,3 +26,39 @@ mcp-servers.json
 server.json
 zshenv.tpl
 Brewfile
+
+# Compiled binaries (platform-specific)
+effectors/deltos
+effectors/epistola
+effectors/evolvo
+effectors/exauro
+effectors/fasti
+effectors/iris
+effectors/iter
+effectors/keryx
+effectors/kinesin
+effectors/legatus
+effectors/melatonin
+effectors/melete
+effectors/nexis
+effectors/oghma
+effectors/oura
+effectors/pondus
+effectors/poros
+effectors/praeco
+effectors/quies
+effectors/speculor
+effectors/theoros
+
+# Platform state
+membrane/claude.json
+membrane/memory
+
+# Operational data
+loci/vivesca-events.jsonl
+loci/opencode/*.json
+loci/opencode/*.bak.*
+loci/solutions/1/
+
+# Symlinks to epigenome
+agent-memory
