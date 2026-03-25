@@ -4,7 +4,7 @@
 # ///
 """AKM Heartbeat — nightly vault health digest via Telegram.
 
-Scans ~/code/vivesca-terry/chromatin/ for stale notes, orphan links, overdue TODOs, and
+Scans ~/code/epigenome/chromatin/ for stale notes, orphan links, overdue TODOs, and
 prospective memory items due. Sends a consolidated morning digest
 via deltos (Telegram). Designed to feed into /zeitgeber.
 
@@ -19,7 +19,7 @@ import time
 from datetime import date, datetime
 from pathlib import Path
 
-VAULT = Path.home() / "code" / "vivesca-terry" / "chromatin"
+VAULT = Path.home() / "code" / "epigenome" / "chromatin"
 MEMORY_DIR = Path.home() / ".claude" / "projects" / "-Users-terry" / "memory"
 PRAXIS_FILE = VAULT / "Praxis.md"
 PROSPECTIVE_FILE = MEMORY_DIR / "prospective.md"

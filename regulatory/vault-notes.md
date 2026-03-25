@@ -11,4 +11,4 @@ paths:
 - `**Update (Month X):**` headers for dated changes.
 - Rename/move with wikilink update: `obsidian vault="notes" rename file="name" name="new-name"`.
 - Backlinks: `obsidian vault="notes" backlinks file="name"`.
-- Depth: see `~/code/vivesca-terry/chromatin/Reference/vault/note-structure.md`.
+- Depth: see `~/code/epigenome/chromatin/Reference/vault/note-structure.md`.

@@ -186,7 +186,7 @@ Tiering frameworks deep-dive: `/Users/terry/.claude/agent-memory/researcher/ai-r
 
 ## Persona & Role Prompting in Multi-Agent LLMs (Mar 2026)
 Full detail: `/Users/terry/.claude/agent-memory/researcher/persona-role-prompting-multiagent-research.md`
-- Output: `/Users/terry/code/vivesca-terry/chromatin/Persona vs Procedure in Multi-Agent Systems - Research.md`
+- Output: `/Users/terry/code/epigenome/chromatin/Persona vs Procedure in Multi-Agent Systems - Research.md`
 - **Core verdict:** Vanilla persona prompting = null/negative single-agent effect (Zheng EMNLP 2024, 162 roles, 9 models). In multi-agent: introduces conformity, in-group bias, persona collapse — actively undermines diversity goal.
 - **Exception:** Dynamic capability-aware role assignment (Zhang et al. arxiv:2601.17152) beats uniform by +74.8% — only when roles match *measured* agent capability, not human-declared labels.
 - **Model diversity** (not persona diversity) is the well-evidenced uncorrelated-error mechanism: 2 diverse models = 16 homogeneous (arxiv:2602.03794).
@@ -376,7 +376,7 @@ Research output: `/tmp/research_efficiency.md`
 - **Key AI author: Chinmoy Bhatiya** — most prolific on agentic AI and governance; appears US/global-facing not APAC. APAC AI = Bertie Haskins (Head of Data APAC).
 - **Capco's only confirmed AI platform partner: OpenAI** (Mar 2025, Beta Services Partner Program). Google Cloud is a solution partner but no AI-specific deal. No confirmed Anthropic/Azure/AWS AI partnerships.
 - **No confirmed Capco-HSBC engagement** in any public source. HSBC's own AI partners are Mistral AI (confirmed 2025) and internal teams. The connection exists via proximity (both FS FS-focused) but is not public.
-- **HK-specific Capco content:** Wealth management survey (74% HK affluents comfortable with AI), "Building Data Leadership in APAC" (Bertie Haskins, Dec 2025) with HKMA cross-sector AI guidelines reference. Full synthesis: `/Users/terry/code/vivesca-terry/chromatin/Capco AI Methodology Research.md`
+- **HK-specific Capco content:** Wealth management survey (74% HK affluents comfortable with AI), "Building Data Leadership in APAC" (Bertie Haskins, Dec 2025) with HKMA cross-sector AI guidelines reference. Full synthesis: `/Users/terry/code/epigenome/chromatin/Capco AI Methodology Research.md`
 
 ## HK Salaries Tax / Employment Transition Research (Mar 2026)
 - **gov.hk/en/residents/taxes/salaries/salariestax/chargeable/termination.htm** — authoritative, WebFetch works; covers taxable vs non-taxable termination payments clearly.
@@ -560,7 +560,7 @@ Full reference: `ai-benchmark-data-access.md`
 - **Debenture is entirely separate:** Own form + HK$50K cheque deposit to ESF Centre. NOT part of the online application. Priority Play Visit only (doesn't guarantee place alone).
 
 ## HK International School — VEO/VSA Pathway (Feb 24, 2026)
-Full research in `~/code/vivesca-terry/chromatin/Theo - International School Research.md` (VSA Deep Dive section).
+Full research in `~/code/epigenome/chromatin/Theo - International School Research.md` (VSA Deep Dive section).
 - **victoria.edu.hk/zh-hk/school-placement/** — official VEO placement data; WebFetch works; lists all destination schools with numbers
 - **vsa.edu.hk/admissions/** subpages — WebFetch works on how-to-apply and school-fees; Admissions Policy page (en/Admissions_Policy.aspx) returns 403
 - **schooland.hk/kg/victoria** — campus enrollment table; WebFetch works; no K3-specific breakdown

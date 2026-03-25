@@ -21,8 +21,8 @@ Use when:
 ## Workflow
 
 1. **Read current state**:
-   - `/Users/terry/code/vivesca-terry/chromatin/Job Hunting.md` — pipeline, networking, applications
-   - `/Users/terry/code/vivesca-terry/chromatin/CLAUDE.md` — context
+   - `/Users/terry/code/epigenome/chromatin/Job Hunting.md` — pipeline, networking, applications
+   - `/Users/terry/code/epigenome/chromatin/CLAUDE.md` — context
 
 2. **Identify week date range** (e.g., "Jan 19-25")
 
@@ -114,4 +114,4 @@ This skill integrates with:
 [Any market context or observations]
 ```
 
-**Location:** `/Users/terry/code/vivesca-terry/chromatin/Week of [date range].md`
+**Location:** `/Users/terry/code/epigenome/chromatin/Week of [date range].md`

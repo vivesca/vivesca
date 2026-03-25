@@ -66,7 +66,7 @@ Cross-reference questions:
 
 ## Phase 4: Monthly priority plan
 
-Write to `~/code/vivesca-terry/chromatin/Monthly Review - YYYY-MM.md`:
+Write to `~/code/epigenome/chromatin/Monthly Review - YYYY-MM.md`:
 
 ```markdown
 ## Monthly Review — [Month Year]

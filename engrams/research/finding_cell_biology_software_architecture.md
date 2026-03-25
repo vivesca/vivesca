@@ -4,7 +4,7 @@ description: What already exists at the intersection of cell biology and softwar
 type: reference
 ---
 
-Full research note at: `~/code/vivesca-terry/chromatin/Reference/cell-biology-software-architecture.md`
+Full research note at: `~/code/epigenome/chromatin/Reference/cell-biology-software-architecture.md`
 
 ## Key findings (March 2026)
 

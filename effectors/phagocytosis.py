@@ -4,8 +4,8 @@
 # ///
 """Snapshot Obsidian's lastOpenFiles to a JSONL consumption log.
 
-Reads ~/code/vivesca-terry/chromatin/.obsidian/workspace.json, extracts the lastOpenFiles array,
-and appends a timestamped entry to ~/code/vivesca-terry/chromatin/.consumption-log.jsonl.
+Reads ~/code/epigenome/chromatin/.obsidian/workspace.json, extracts the lastOpenFiles array,
+and appends a timestamped entry to ~/code/epigenome/chromatin/.consumption-log.jsonl.
 Skips if the file list is identical to the last snapshot (deduplication).
 """
 
@@ -13,7 +13,7 @@ import json
 import time
 from pathlib import Path
 
-VAULT = Path.home() / "code" / "vivesca-terry" / "chromatin"
+VAULT = Path.home() / "code" / "epigenome" / "chromatin"
 WORKSPACE = VAULT / ".obsidian" / "workspace.json"
 LOG_FILE = VAULT / ".consumption-log.jsonl"
 

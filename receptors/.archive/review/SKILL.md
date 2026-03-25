@@ -28,7 +28,7 @@ End-of-day reflection capturing job search progress, learnings, and mood.
 **Workflow:**
 1. Get today's date (YYYY-MM-DD, HKT timezone)
 2. Scan recent conversation for today's activity
-3. Check for existing note at `~/code/vivesca-terry/chromatin/YYYY-MM-DD.md`
+3. Check for existing note at `~/code/epigenome/chromatin/YYYY-MM-DD.md`
 4. Walk through sections conversationally:
    - **Job Search Activity**: Applications, status updates, pipeline
    - **Learnings**: Insights about job search, interviews, companies
@@ -147,8 +147,8 @@ cd ~/skills && git add -A && git commit -m "Update skills from review" && git pu
 
 ## Files
 
-- Daily notes: `~/code/vivesca-terry/chromatin/YYYY-MM-DD.md`
-- Job context: `~/code/vivesca-terry/chromatin/CLAUDE.md`
+- Daily notes: `~/code/epigenome/chromatin/YYYY-MM-DD.md`
+- Job context: `~/code/epigenome/chromatin/CLAUDE.md`
 - OpenClaw memory: `~/clawd/MEMORY.md`
 - Skills: `~/skills/`
 

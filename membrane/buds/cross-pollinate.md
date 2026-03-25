@@ -7,7 +7,7 @@ tools: ["Bash", "Read", "Grep", "Glob"]
 
 Forced cross-domain pattern transfer. Take a pattern from one domain, apply it elsewhere.
 
-1. Read recent vault content (last 14 days): ~/code/vivesca-terry/chromatin/Daily/ and ~/code/vivesca-terry/chromatin/Inbox/
+1. Read recent vault content (last 14 days): ~/code/epigenome/chromatin/Daily/ and ~/code/epigenome/chromatin/Inbox/
 2. Identify distinct domains in the recent content:
    - System design (vivesca, automation)
    - Consulting / banking
@@ -29,4 +29,4 @@ Forced cross-domain pattern transfer. Take a pattern from one domain, apply it e
 6. Does the insight suggest any concrete change — to vivesca design, consulting approach, personal system?
 
 Output: SOURCE pattern → TARGET application → where it breaks → the insight the break reveals.
-2-3 paragraphs. Save to ~/code/vivesca-terry/chromatin/Garden/seeds-cross-pollinate-YYYY-MM-DD.md if the insight is strong.
+2-3 paragraphs. Save to ~/code/epigenome/chromatin/Garden/seeds-cross-pollinate-YYYY-MM-DD.md if the insight is strong.

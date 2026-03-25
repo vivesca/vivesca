@@ -21,11 +21,11 @@ validate: parsed transaction total == statement-printed total
     ↓  (mismatch → quarantine PDF, alert, stop)
 categorise merchants (YAML map, prefix match)
     ↓
-write per-statement markdown:  ~/code/vivesca-terry/chromatin/Spending/YYYY-MM-bank.md
+write per-statement markdown:  ~/code/epigenome/chromatin/Spending/YYYY-MM-bank.md
     ↓
-write/update monthly summary:  ~/code/vivesca-terry/chromatin/Spending/YYYY-MM-summary.md
+write/update monthly summary:  ~/code/epigenome/chromatin/Spending/YYYY-MM-summary.md
     ↓
-move PDF to vault:             ~/code/vivesca-terry/chromatin/Spending/statements/YYYY-MM-bank.pdf
+move PDF to vault:             ~/code/epigenome/chromatin/Spending/statements/YYYY-MM-bank.pdf
     ↓
 run monitors (fraud, budget, subscription drift)
     ↓
@@ -100,7 +100,7 @@ Negative = charge. Positive = payment/refund/credit.
 ## Vault Structure
 
 ```
-~/code/vivesca-terry/chromatin/Spending/
+~/code/epigenome/chromatin/Spending/
 ├── config.yaml                  # budget targets, known subscriptions
 ├── categories.yaml              # merchant → category map
 ├── 2025-01-mox.md              # per-statement parsed output
@@ -260,12 +260,12 @@ _Deferred:_ "Unexpected geography" monitor (cross-border transactions from unsee
 
 - Compare this month's charges against `config.yaml` expected subscriptions.
 - Flag: missing expected subscription, price change > 5%.
-- **Recurrence detection:** a merchant is "recurring" if it appears in 2+ consecutive months with amount variance <10%. The monitor reads prior months' parsed markdown files from `~/code/vivesca-terry/chromatin/Spending/` to determine recurrence. New recurring charges not in the expected list are flagged for review.
+- **Recurrence detection:** a merchant is "recurring" if it appears in 2+ consecutive months with amount variance <10%. The monitor reads prior months' parsed markdown files from `~/code/epigenome/chromatin/Spending/` to determine recurrence. New recurring charges not in the expected list are flagged for review.
 - _Initial implementation:_ compare against `config.yaml` only. Automatic recurrence detection ships once 3+ months of data exist.
 
 ## Deduplication
 
-Before processing a PDF, compute SHA-256 hash of the file. Check against `~/code/vivesca-terry/chromatin/Spending/.processed` (one hash per line). If already processed, skip. After successful processing, append hash.
+Before processing a PDF, compute SHA-256 hash of the file. Check against `~/code/epigenome/chromatin/Spending/.processed` (one hash per line). If already processed, skip. After successful processing, append hash.
 
 This handles:
 - Re-downloading the same PDF
@@ -334,7 +334,7 @@ The `YYYY-MM` in filenames is derived from `statement_date`, not the transaction
 
 ## Privacy
 
-Parsed markdown contains merchant-level spending data (no card numbers, no addresses). Original PDFs contain full PII (name, address, partial card number). Both live in `~/code/vivesca-terry/chromatin/Spending/`.
+Parsed markdown contains merchant-level spending data (no card numbers, no addresses). Original PDFs contain full PII (name, address, partial card number). Both live in `~/code/epigenome/chromatin/Spending/`.
 
 - If the vault is git-tracked: `statements/*.pdf` must be in `.gitignore`.
 - If synced via iCloud: acceptable for a personal system — same security posture as the bank app itself.

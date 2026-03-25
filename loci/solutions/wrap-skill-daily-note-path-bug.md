@@ -2,7 +2,7 @@
 
 ## Problem
 
-The wrap skill wrote session logs to `~/code/vivesca-terry/chromatin/Daily/YYYY-MM-DD.md` but the vault stores daily notes flat at `~/code/vivesca-terry/chromatin/YYYY-MM-DD.md`. Morning and daily skills read the flat path — so all wrap entries were invisible to them.
+The wrap skill wrote session logs to `~/code/epigenome/chromatin/Daily/YYYY-MM-DD.md` but the vault stores daily notes flat at `~/code/epigenome/chromatin/YYYY-MM-DD.md`. Morning and daily skills read the flat path — so all wrap entries were invisible to them.
 
 ## Impact
 
@@ -14,7 +14,7 @@ Line 49 of `~/skills/wrap/SKILL.md` didn't specify the exact path, and the impli
 
 ## Fix
 
-Standardised all three skills (wrap, daily, morning) to use `~/code/vivesca-terry/chromatin/Daily/YYYY-MM-DD.md`. Moved 33 flat daily notes into `~/code/vivesca-terry/chromatin/Daily/`. Merged content where both versions existed.
+Standardised all three skills (wrap, daily, morning) to use `~/code/epigenome/chromatin/Daily/YYYY-MM-DD.md`. Moved 33 flat daily notes into `~/code/epigenome/chromatin/Daily/`. Merged content where both versions existed.
 
 ## Lesson
 

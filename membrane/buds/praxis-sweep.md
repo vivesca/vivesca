@@ -7,7 +7,7 @@ tools: ["Bash", "Read"]
 
 Sweep Praxis.md for hygiene.
 
-1. Read ~/code/vivesca-terry/chromatin/Praxis.md
+1. Read ~/code/epigenome/chromatin/Praxis.md
 2. Flag:
    - OVERDUE: items past their due date
    - STALE: items not touched in 14+ days (no edits, no mentions in daily notes)

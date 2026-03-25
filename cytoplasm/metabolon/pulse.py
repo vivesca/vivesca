@@ -72,7 +72,7 @@ You already have ~/CLAUDE.md (How to Think, meta-rules) and MEMORY.md loaded. Us
 
 ## Steps
 
-1. **Load session state.** Read ~/tmp/pulse-manifest.md (memory of prior waves), ~/code/vivesca-terry/chromatin/North Star.md (includes meta goal), ~/code/vivesca-terry/chromatin/Praxis.md (head 80), ~/code/vivesca-terry/chromatin/Tonus.md. Run `date`.
+1. **Load session state.** Read ~/tmp/pulse-manifest.md (memory of prior waves), ~/code/epigenome/chromatin/North Star.md (includes meta goal), ~/code/epigenome/chromatin/Praxis.md (head 80), ~/code/epigenome/chromatin/Tonus.md. Run `date`.
 2. **Scout.** What do the north stars need? What did prior waves reveal? Any `agent:claude` items in TODO? Any deadlines within 14 days? Pick the north star with least coverage. Allocate ~30% of agents to the meta goal (system improvement) while the system is young.
 3. **Dispatch 15-20 agents** with `run_in_background: true`, `mode: bypassPermissions`. Model routing: research/collection -> sonnet, synthesis/judgment -> opus. Each prompt starts: "Read ~/tmp/pulse-manifest.md. Do not duplicate completed work." When outputs naturally chain (research -> synthesis -> brief), dispatch as a pipeline.
 4. **Wait** for all agents. Process results.
@@ -85,7 +85,7 @@ You already have ~/CLAUDE.md (How to Think, meta-rules) and MEMORY.md loaded. Us
 8. **Exit.** Output summary and stop. Do NOT run another wave.
 
 ## Taste rules
-- **No duplicates.** Check ~/code/vivesca-terry/chromatin/ for existing files. Update, don't create "v2."
+- **No duplicates.** Check ~/code/epigenome/chromatin/ for existing files. Update, don't create "v2."
 - **Diminishing returns.** 0-5 files on a topic = good. 5-10 = only if novel. 10+ = move to a different star.
 - **Stance > deadline.** "if it fails, it fails" = deprioritized. Read context, not just the due date.
 - **Fix factual errors directly.** Typos, wrong acronyms, wrong dates = bugs. Fix them.
@@ -484,7 +484,7 @@ def post_efferens_summary(total_waves: int, stop_reason: str):
 
         acta.post(
             f"Pulse completed {total_waves} wave(s). Stop reason: {stop_reason}. "
-            f"Check ~/code/vivesca-terry/chromatin/Pulse Reports/ for details.",
+            f"Check ~/code/epigenome/chromatin/Pulse Reports/ for details.",
             sender="pulse",
             to="terry",
             severity="info",

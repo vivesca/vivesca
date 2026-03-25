@@ -19,7 +19,7 @@ The operon pattern: signal → regulatory check → bud expression.
 | Sun PM | spark-harvest | /expression or manual | Weekly consulting sparks |
 | Sun PM | praxis-sweep | /ecdysis or manual | Overdue/stale item list |
 | Sun PM | commit-hygiene | /ecdysis or manual | Git quality audit |
-| Sun PM | lustro weekly digest | LaunchAgent | ~/code/vivesca-terry/chromatin/Reference/weekly-ai-digest |
+| Sun PM | lustro weekly digest | LaunchAgent | ~/code/epigenome/chromatin/Reference/weekly-ai-digest |
 
 ## Monthly Cadence
 
@@ -47,6 +47,6 @@ Buds at daily/weekly cadence should be wired to kinesin tasks or
 LaunchAgents. On-demand buds are spawned manually or by skills.
 
 To wire a bud to a schedule:
-1. Add to ~/code/vivesca-terry/chromatin/agent-queue.yaml (kinesin task)
+1. Add to ~/code/epigenome/chromatin/agent-queue.yaml (kinesin task)
 2. Create LaunchAgent plist if needs to run without CC session
 3. The bud definition (.md) + the schedule = complete workflow

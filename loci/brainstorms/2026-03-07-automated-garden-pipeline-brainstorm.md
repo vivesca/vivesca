@@ -27,7 +27,7 @@ Session-triggered automation is the natural first step: Claude already spots pub
 
 **Voice consistency:** blog/CLAUDE.md is the style reference. Posts generated from session insights inherit session context — no hallucination risk since the content comes from the live conversation.
 
-**Phase 2 trigger:** Topic queue at `~/code/vivesca-terry/chromatin/Writing/Blog/Queue.md`. Each entry: topic, angle, optional seed notes. LaunchAgent runs daily (morning), picks the top unprocessed entry, generates, judges, publishes, and marks as done.
+**Phase 2 trigger:** Topic queue at `~/code/epigenome/chromatin/Writing/Blog/Queue.md`. Each entry: topic, angle, optional seed notes. LaunchAgent runs daily (morning), picks the top unprocessed entry, generates, judges, publishes, and marks as done.
 
 ## Phase 1 Architecture
 
@@ -50,7 +50,7 @@ Telegram notify     publish       Flag to Terry (deltos)
 ```
 LaunchAgent (daily, 8am)
     ↓
-Read ~/code/vivesca-terry/chromatin/Writing/Blog/Queue.md — pick top entry
+Read ~/code/epigenome/chromatin/Writing/Blog/Queue.md — pick top entry
     ↓
 Claude API call: generate post (style: blog/CLAUDE.md)
     ↓
@@ -88,4 +88,4 @@ Telegram notification with title + terryli.hm link
 - `sarcio` skill — publishing CLI
 - `judge` skill — quality gate
 - `~/code/blog/CLAUDE.md` — prose style guide
-- `~/code/vivesca-terry/chromatin/terryli.hm.md` — garden index
+- `~/code/epigenome/chromatin/terryli.hm.md` — garden index

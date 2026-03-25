@@ -31,8 +31,8 @@ Add to `~/.claude/settings.json`:
       "command": "/Users/terry/mcp-gmail/.venv/bin/python",
       "args": ["-m", "mcp_gmail.server"],
       "env": {
-        "MCP_GMAIL_CREDENTIALS_PATH": "/Users/terry/code/vivesca-terry/chromatin/scripts/credentials.json",
-        "MCP_GMAIL_TOKEN_PATH": "/Users/terry/code/vivesca-terry/chromatin/scripts/token.json"
+        "MCP_GMAIL_CREDENTIALS_PATH": "/Users/terry/code/epigenome/chromatin/scripts/credentials.json",
+        "MCP_GMAIL_TOKEN_PATH": "/Users/terry/code/epigenome/chromatin/scripts/token.json"
       }
     }
   }

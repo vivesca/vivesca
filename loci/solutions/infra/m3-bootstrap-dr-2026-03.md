@@ -61,7 +61,7 @@ gh auth login   # or: git clone with HTTPS + PAT if gh not yet installed
 git clone https://github.com/terry-li-hm/officina.git ~/officina
 git clone https://github.com/terry-li-hm/skills.git ~/skills
 git clone https://github.com/terry-li-hm/scripts.git ~/scripts
-git clone https://github.com/terry-li-hm/notes.git ~/code/vivesca-terry/chromatin
+git clone https://github.com/terry-li-hm/notes.git ~/code/epigenome/chromatin
 ```
 
 If `gh` is not yet available, install it first: `brew install gh && gh auth login`
@@ -382,10 +382,10 @@ launchctl load ~/Library/LaunchAgents/com.phron.*.plist
 
 ### 22. Obsidian vault (~5 min)
 
-The vault at `~/code/vivesca-terry/chromatin` is a git repo with `.obsidian/` config checked in, so plugins, settings, and themes transfer automatically.
+The vault at `~/code/epigenome/chromatin` is a git repo with `.obsidian/` config checked in, so plugins, settings, and themes transfer automatically.
 
-1. Open Obsidian → Add vault → `~/code/vivesca-terry/chromatin`
-2. Plugins will show as installed (they live in `~/code/vivesca-terry/chromatin/.obsidian/plugins/`)
+1. Open Obsidian → Add vault → `~/code/epigenome/chromatin`
+2. Plugins will show as installed (they live in `~/code/epigenome/chromatin/.obsidian/plugins/`)
 3. Enable community plugins if Obsidian asks (safe mode prompt)
 4. For `obsidian-git` plugin: confirm it can push/pull (uses `~/.ssh` keys from Step 6)
 
@@ -583,8 +583,8 @@ anam --version 2>/dev/null || echo "anam: needs build"
 fasti --version 2>/dev/null || echo "fasti: needs build"
 
 # Vault
-ls ~/code/vivesca-terry/chromatin | wc -l                     # should have hundreds of notes
-ls ~/code/vivesca-terry/chromatin/.obsidian/plugins | wc -l  # should be ~17 plugins
+ls ~/code/epigenome/chromatin | wc -l                     # should have hundreds of notes
+ls ~/code/epigenome/chromatin/.obsidian/plugins | wc -l  # should be ~17 plugins
 
 # LaunchAgents
 launchctl list | grep com.terry | wc -l  # should be 30+
@@ -667,7 +667,7 @@ brew install --cask 1password-cli && op signin
 gh auth login
 git clone https://github.com/terry-li-hm/officina.git ~/officina
 git clone https://github.com/terry-li-hm/skills.git ~/skills
-git clone https://github.com/terry-li-hm/notes.git ~/code/vivesca-terry/chromatin
+git clone https://github.com/terry-li-hm/notes.git ~/code/epigenome/chromatin
 
 # 7. Wire Claude Code
 mkdir -p ~/.claude

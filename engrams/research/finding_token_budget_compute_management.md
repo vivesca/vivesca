@@ -28,4 +28,4 @@ The landscape splits into four distinct layers. Key findings:
 ### The Gap (What Doesn't Exist Yet)
 No system combines: (a) continuous budget sensing across steps, (b) graduated multi-mode behavioral change, (c) cross-step cost trajectory memory, and (d) proactive conservation before hitting critical thresholds. BATS + BudgetThinker together get closest. Agent Contracts is the most complete formal model but not productionized.
 
-**Vault note:** ~/code/vivesca-terry/chromatin/Reference/token-budget-compute-management-agents.md
+**Vault note:** ~/code/epigenome/chromatin/Reference/token-budget-compute-management-agents.md

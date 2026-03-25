@@ -8,6 +8,6 @@ paths:
 
 - Front-stage voice: Terry's, not Claude's. Formal, understated, no AI-speak.
 - For current status, start date, PILON → always read [[Capco Transition]] first.
-- Consulting communication: see `~/code/vivesca-terry/chromatin/Reference/consulting/` for heuristics.
+- Consulting communication: see `~/code/epigenome/chromatin/Reference/consulting/` for heuristics.
 - OpenAI partnership (Nov 2025) — ask Bertie/Gavin about multi-vendor stance before assuming.
 - HSBC deliverables pathway — check [[Capco Transition]] for dates and status.

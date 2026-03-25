@@ -17,7 +17,7 @@ Never run Grep or Glob without a specific `path` parameter on `/Users/terry`. Th
 Grep: pattern="foo" path="/Users/terry"
 
 # GOOD
-Grep: pattern="foo" path="/Users/terry/code/vivesca-terry/chromatin"
+Grep: pattern="foo" path="/Users/terry/code/epigenome/chromatin"
 ```
 
 ### Destructive Operations

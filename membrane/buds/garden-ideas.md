@@ -7,9 +7,9 @@ tools: ["Bash", "Read", "Grep", "Glob"]
 
 Harvest ideas worth publishing to the digital garden from the week's thinking.
 
-1. Read this week's daily notes: ~/code/vivesca-terry/chromatin/Daily/ (last 7 days)
-2. Check recent vault additions: `cd ~/code/vivesca-terry/chromatin && git log --since="7 days ago" --name-only --format=''`
-3. Read ~/code/vivesca-terry/chromatin/Inbox/ for any unprocessed captures
+1. Read this week's daily notes: ~/code/epigenome/chromatin/Daily/ (last 7 days)
+2. Check recent vault additions: `cd ~/code/epigenome/chromatin && git log --since="7 days ago" --name-only --format=''`
+3. Read ~/code/epigenome/chromatin/Inbox/ for any unprocessed captures
 
 4. For each note/fragment, test against three filters:
    - Is there a transferable insight here? (not just personal logistics)
@@ -24,5 +24,5 @@ Harvest ideas worth publishing to the digital garden from the week's thinking.
 
 6. Flag format hint: tweet / short-post / long-form / thread
 
-Output: list of 3-7 seeds. Save to ~/code/vivesca-terry/chromatin/Garden/seeds-YYYY-WNN.md.
+Output: list of 3-7 seeds. Save to ~/code/epigenome/chromatin/Garden/seeds-YYYY-WNN.md.
 Quality over quantity — 3 strong seeds beats 10 weak ones.

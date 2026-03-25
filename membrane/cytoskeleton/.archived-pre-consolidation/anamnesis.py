@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """UserPromptSubmit hook — selective anamnesis at session start.
 
-Fires once per session. Pulls ~/code/vivesca-terry/chromatin, then injects all vivesca resources.
+Fires once per session. Pulls ~/code/epigenome/chromatin, then injects all vivesca resources.
 Core context (Tonus, constitution) always loads first.
 Optional resources reordered by keyword relevance to the first prompt —
 primacy effect means relevant context gets attended to.
@@ -14,7 +14,7 @@ import sys
 import tempfile
 from pathlib import Path
 
-NOTES_DIR = Path.home() / "code" / "vivesca-terry" / "chromatin"
+NOTES_DIR = Path.home() / "code" / "epigenome" / "chromatin"
 NOW_FILE = NOTES_DIR / "Tonus.md"
 CONSTITUTION = Path.home() / "reticulum" / "constitution.md"
 TMP_DIR = Path(tempfile.gettempdir())

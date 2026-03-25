@@ -11,7 +11,7 @@ DUEDB = (
     Path.home()
     / "Library/Containers/com.phocusllp.duemac/Data/Library/Application Support/Due App/Due.duedb"
 )
-EXPORT = Path.home() / "code/vivesca-terry/chromatin/Due Backup/reminders.md"
+EXPORT = Path.home() / "code/epigenome/chromatin/Due Backup/reminders.md"
 HKT = ZoneInfo("Asia/Hong_Kong")
 
 RECUR = {"d": "daily", "w": "weekly", "m": "monthly", "y": "yearly", "": ""}

@@ -138,7 +138,7 @@ def main():
             f"[meta-spiral] Blocked: {state['sarcio_count']} garden posts this session "
             f"with open Praxis.md items due within 7 days. "
             f"Finish a deadline item before publishing more. "
-            f"Run: grep 'due:' ~/code/vivesca-terry/chromatin/Praxis.md to see what's urgent."
+            f"Run: grep 'due:' ~/code/epigenome/chromatin/Praxis.md to see what's urgent."
         )
 
     # No deadline items due soon — allow freely

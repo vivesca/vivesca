@@ -45,7 +45,7 @@ If yes — act:
 
 ## Step 4: Meeting Routing
 
-- Check `~/code/vivesca-terry/chromatin/Praxis.md` for upcoming meetings
+- Check `~/code/epigenome/chromatin/Praxis.md` for upcoming meetings
 - Check `[[Capco Transition]]` for HSBC context
 - If relevant to a specific meeting/interview, add talking points directly to that prep note
 - For interview prep notes, add "Fresh intel" section with 3-4 bullets
@@ -58,4 +58,4 @@ If yes — act:
 
 ## Spark Routing
 
-If any governance-relevant shift was identified in Steps 2–3, append to `~/code/vivesca-terry/chromatin/Consulting/_sparks.md` under today's date: `- #policy-gap — **[Development]**: [one-line FS governance implication]`
+If any governance-relevant shift was identified in Steps 2–3, append to `~/code/epigenome/chromatin/Consulting/_sparks.md` under today's date: `- #policy-gap — **[Development]**: [one-line FS governance implication]`

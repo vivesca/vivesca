@@ -69,7 +69,7 @@ dedao-dl login -c "GAT=<your_token>"
 dedao-dl who   # Shows user info if logged in
 ```
 
-**Config location:** `~/code/vivesca-terry/chromatin/dedao-courses/config.json` (or current working directory)
+**Config location:** `~/code/epigenome/chromatin/dedao-courses/config.json` (or current working directory)
 
 ## Quick Reference
 

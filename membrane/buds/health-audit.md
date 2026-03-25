@@ -9,12 +9,12 @@ skills: ["restriction-point"]
 Assess Terry's current health and capacity. Check these sources:
 
 1. Run `sopor` via Bash for latest Oura readiness/sleep data
-2. `~/code/vivesca-terry/chromatin/Health/` directory — recent health notes
-3. `~/code/vivesca-terry/chromatin/Sleep/` directory — sleep patterns
+2. `~/code/epigenome/chromatin/Health/` directory — recent health notes
+3. `~/code/epigenome/chromatin/Sleep/` directory — sleep patterns
 4. `~/.claude/projects/-Users-terry/memory/user_health_sleep_headache_pattern.md`
 5. `~/.claude/projects/-Users-terry/memory/user_health_exercise_readiness.md`
 6. `~/.claude/projects/-Users-terry/memory/user_gym_routine_2026.md`
-7. `~/code/vivesca-terry/chromatin/Praxis.md` — health-related items
+7. `~/code/epigenome/chromatin/Praxis.md` — health-related items
 
 Assess:
 - Sleep trend (improving/stable/declining)

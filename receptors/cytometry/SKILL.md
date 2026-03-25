@@ -39,7 +39,7 @@ INTENTIONALLY GATED (human judgment required by design)
 
 Report the ratio: `X% self-governing, Y% needs mayor, Z% intentionally gated`
 
-Compare to prior audit if available (check `~/code/vivesca-terry/chromatin/` for previous cytometry results).
+Compare to prior audit if available (check `~/code/epigenome/chromatin/` for previous cytometry results).
 
 ### 4. DIAGNOSE — Find the actionable gaps
 

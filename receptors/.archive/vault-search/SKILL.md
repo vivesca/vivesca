@@ -36,12 +36,12 @@ Read `[[Vault Index]]` to identify which section/hub notes are relevant.
 
 ```bash
 # Top-level notes
-grep -il "term" ~/code/vivesca-terry/chromatin/*.md
+grep -il "term" ~/code/epigenome/chromatin/*.md
 
 # Key subdirectories
-grep -ril "term" ~/code/vivesca-terry/chromatin/Articles/
-grep -ril "term" ~/code/vivesca-terry/chromatin/memory/
-grep -ril "term" ~/code/vivesca-terry/chromatin/patterns/
+grep -ril "term" ~/code/epigenome/chromatin/Articles/
+grep -ril "term" ~/code/epigenome/chromatin/memory/
+grep -ril "term" ~/code/epigenome/chromatin/patterns/
 ```
 
 ### 4. Check Hub Notes

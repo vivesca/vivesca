@@ -11,9 +11,9 @@ retire_after: 2026-04-08
 
 Daily practice skill for building consulting mental models before Capco start. Three modes based on day of week. ~15 minutes per session.
 
-**Data:** `~/code/vivesca-terry/chromatin/Career/Consulting Readiness Program.md` (master program, reading list, scenario bank)
-**State:** `~/code/vivesca-terry/chromatin/Career/.consulting-prep-state.json` (progress tracking)
-**Log target:** Today's daily note at `~/code/vivesca-terry/chromatin/Daily/YYYY-MM-DD.md`
+**Data:** `~/code/epigenome/chromatin/Career/Consulting Readiness Program.md` (master program, reading list, scenario bank)
+**State:** `~/code/epigenome/chromatin/Career/.consulting-prep-state.json` (progress tracking)
+**Log target:** Today's daily note at `~/code/epigenome/chromatin/Daily/YYYY-MM-DD.md`
 
 **Expires:** 2026-04-08 (Capco start). After that, suggest switching to the live observation format described in the program note.
 
@@ -86,7 +86,7 @@ And how does it apply to Capco clients specifically?
 ### 2B. Scenario Practice Mode (Tue/Thu)
 
 **Scenario sources (in priority order):**
-1. `~/code/vivesca-terry/chromatin/Career/Consulting Readiness Program.md` — primary scenario bank
+1. `~/code/epigenome/chromatin/Career/Consulting Readiness Program.md` — primary scenario bank
 2. `~/code/vivesca/loci/solutions/agent-tests/` — HK FS consulting scenarios with multi-model analysis (proposal-architect, governance-sentinel, eval-designer). Use these for deeper domain practice: present the client brief, ask Terry how he'd approach it, then share the key insights from the README as the debrief.
 
 1. Read the program note's scenario bank

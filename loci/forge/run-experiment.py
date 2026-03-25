@@ -2,7 +2,7 @@
 """Run the context-window-governance experiment.
 
 3 tasks × 5 context tiers × 10 runs = 150 calls via max20 sonnet.
-Outputs raw results to ~/code/vivesca-terry/chromatin/Consulting/Experiments/results/
+Outputs raw results to ~/code/epigenome/chromatin/Consulting/Experiments/results/
 
 Usage:
     python3 run-experiment.py
@@ -16,7 +16,7 @@ from datetime import datetime
 from pathlib import Path
 
 # --- Paths ---
-EXPERIMENTS = Path.home() / "code/vivesca-terry/chromatin/Consulting/Experiments"
+EXPERIMENTS = Path.home() / "code/epigenome/chromatin/Consulting/Experiments"
 TIERS_FILE = EXPERIMENTS / "context-tiers.md"
 TASKS_FILE = EXPERIMENTS / "experiment-tasks.md"
 RESULTS_DIR = EXPERIMENTS / "results"

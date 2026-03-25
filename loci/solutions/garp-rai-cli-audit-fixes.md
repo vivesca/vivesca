@@ -14,8 +14,8 @@ component: rai.py
 related_files:
   - ~/garp-rai/rai.py
   - ~/garp-rai/skill.md
-  - ~/code/vivesca-terry/chromatin/GARP RAI Quiz Tracker.md
-  - ~/code/vivesca-terry/chromatin/.garp-fsrs-state.json
+  - ~/code/epigenome/chromatin/GARP RAI Quiz Tracker.md
+  - ~/code/epigenome/chromatin/.garp-fsrs-state.json
 related_docs:
   - ~/docs/solutions/spaced-repetition-mode-selection.md
   - ~/docs/solutions/patterns/tightening-pass.md

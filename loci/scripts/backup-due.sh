@@ -1,9 +1,9 @@
 #!/bin/bash
 # Backup Due.duedb to reticulum with git commit for changelog
 DUEDB="$HOME/Library/Containers/com.phocusllp.duemac/Data/Library/Application Support/Due App/Due.duedb"
-DEST="$HOME/code/vivesca-terry/chromatin/Due Backup/Due.duedb"
+DEST="$HOME/code/epigenome/chromatin/Due Backup/Due.duedb"
 
-mkdir -p "$HOME/code/vivesca-terry/chromatin/Due Backup"
+mkdir -p "$HOME/code/epigenome/chromatin/Due Backup"
 cp "$DUEDB" "$DEST"
 
 python3 "$HOME/reticulum/scripts/export-due.py"

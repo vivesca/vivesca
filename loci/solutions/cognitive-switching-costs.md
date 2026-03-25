@@ -1,6 +1,6 @@
 # Cognitive Switching Costs: Research-Backed Findings
 
-> **Context:** Investigated whether running multiple Claude Code sessions in parallel (round-robin across tmux tabs) is effective. Researched literature, then ran full LLM council (2026-02-20). Council transcript: `~/code/vivesca-terry/chromatin/Councils/LLM Council - Multi-Session CC Workflow - 2026-02-20.md`
+> **Context:** Investigated whether running multiple Claude Code sessions in parallel (round-robin across tmux tabs) is effective. Researched literature, then ran full LLM council (2026-02-20). Council transcript: `~/code/epigenome/chromatin/Councils/LLM Council - Multi-Session CC Workflow - 2026-02-20.md`
 
 ## TL;DR
 

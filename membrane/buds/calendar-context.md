@@ -9,8 +9,8 @@ Prepare context for tomorrow's calendar.
 
 1. Read tomorrow's calendar: `fasti list tomorrow`
 2. For each meeting/event:
-   - Search ~/code/vivesca-terry/chromatin/ for relevant vault notes (grep attendee names, topics)
-   - Search ~/code/vivesca-terry/chromatin/Reference/ for relevant reference docs
+   - Search ~/code/epigenome/chromatin/ for relevant vault notes (grep attendee names, topics)
+   - Search ~/code/epigenome/chromatin/Reference/ for relevant reference docs
    - Check ~/docs/sparks/ for relevant consulting sparks
 3. Output: per-meeting context card (5 lines max each):
    - Meeting: [title, time]

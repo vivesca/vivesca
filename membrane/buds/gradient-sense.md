@@ -23,6 +23,6 @@ Run the proprioception_gradient tool to sense what domains the organism is orien
    - Fading gradients: domains losing signal
    - Recommendation: should the organism lock orientation or stay exploratory?
 
-4. Compare against active north stars in ~/code/vivesca-terry/chromatin/Tonus.md -- is the detected gradient aligned with stated goals?
+4. Compare against active north stars in ~/code/epigenome/chromatin/Tonus.md -- is the detected gradient aligned with stated goals?
 
 This is a sensing agent, not an action agent. It reports the gradient. The nucleus (Terry) decides whether to follow it.

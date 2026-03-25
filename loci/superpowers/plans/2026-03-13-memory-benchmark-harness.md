@@ -736,7 +736,7 @@ Trigger: when Edit/Write tool modifies `MEMORY.md`, extract new entries and run 
 
 ### Task 21: Nightly legatus job
 
-Add to `~/code/vivesca-terry/chromatin/agent-queue.yaml`:
+Add to `~/code/epigenome/chromatin/agent-queue.yaml`:
 ```yaml
 - name: docima-benchmark
   enabled: true

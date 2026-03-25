@@ -13,7 +13,7 @@ severity: medium
 tags: [token-optimization, claude-code, system-prompt, plugins, claude-md]
 related_files:
   - ~/CLAUDE.md
-  - ~/code/vivesca-terry/chromatin/CLAUDE.md
+  - ~/code/epigenome/chromatin/CLAUDE.md
   - ~/.claude.json
   - ~/.claude/plugins/installed_plugins.json
   - ~/skills/delegation-reference/SKILL.md
@@ -111,7 +111,7 @@ for name, srv in cfg.get('mcpServers', {}).items():
 
 ### 5. Vault CLAUDE.md Trimming (~2,300 tokens saved)
 
-The vault CLAUDE.md (`~/code/vivesca-terry/chromatin/CLAUDE.md`) loads as a system-reminder on every turn. It had accumulated procedural content, reference material, and duplicated context from the main CLAUDE.md.
+The vault CLAUDE.md (`~/code/epigenome/chromatin/CLAUDE.md`) loads as a system-reminder on every turn. It had accumulated procedural content, reference material, and duplicated context from the main CLAUDE.md.
 
 **Trimming technique — linked notes:**
 - Move procedures to standalone Obsidian notes (e.g., `[[Interview Scheduling Protocol]]`)

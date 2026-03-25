@@ -49,24 +49,24 @@ Synthesize into **maximum 2-3 themes.** Don't linger — this is context for pla
 
 ### 3. Job alerts
 
-- Check `~/code/vivesca-terry/chromatin/Job Hunting/Job Alerts YYYY-MM-DD.md` for any flagged roles this week
+- Check `~/code/epigenome/chromatin/Job Hunting/Job Alerts YYYY-MM-DD.md` for any flagged roles this week
 - Surface unchecked items briefly
 - Skip silently if no alerts or file missing
 
 ### 4. TODO prune
 
-- Clear completed items from `~/code/vivesca-terry/chromatin/Praxis.md`
+- Clear completed items from `~/code/epigenome/chromatin/Praxis.md`
 - Flag anything untouched for 2+ weeks — delete or reschedule
 - Drop low-stakes items that keep lingering (see `memory/feedback_todo_hygiene.md`)
 
 ### 5. Garden cull
 
-- `ls -lt ~/code/vivesca-terry/chromatin/Writing/Blog/Published/ | head -10` — anything published this week?
+- `ls -lt ~/code/epigenome/chromatin/Writing/Blog/Published/ | head -10` — anything published this week?
 - Kill or merge weak posts (thin thesis, restating others, generic advice)
 
 ### 6. Write the weekly note
 
-Create `~/code/vivesca-terry/chromatin/Weekly/YYYY-Www.md`:
+Create `~/code/epigenome/chromatin/Weekly/YYYY-Www.md`:
 
 ```markdown
 # Week of YYYY-MM-DD

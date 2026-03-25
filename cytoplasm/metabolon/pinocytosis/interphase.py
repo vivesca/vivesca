@@ -62,7 +62,7 @@ def intake_reminders() -> dict:
 
 
 def intake_email_threads() -> dict:
-    ok, out = read_file("~/code/vivesca-terry/chromatin/Email Threads Tracker.md", max_lines=60)
+    ok, out = read_file("~/code/epigenome/chromatin/Email Threads Tracker.md", max_lines=60)
     return {"label": "Email Threads Tracker", "ok": ok, "content": out}
 
 

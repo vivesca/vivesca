@@ -46,14 +46,14 @@ Already injected via NOW.md. Pull open decisions (not `[decided]` or `[done]`)
 
 ### 3. LinkedIn job alerts (post-noon only)
 
-If current time is after 12:00 HKT, check `~/code/vivesca-terry/chromatin/Job Hunting/Job Alerts YYYY-MM-DD.md`:
+If current time is after 12:00 HKT, check `~/code/epigenome/chromatin/Job Hunting/Job Alerts YYYY-MM-DD.md`:
 - Count unchecked flagged roles (`- [ ]` lines)
 - If any exist, surface briefly: "X job alerts flagged — `/adhesion` when you have a moment"
 - Skip silently if file missing or all items checked
 
 ### 4. Overdue and today's TODO items
 
-Read `~/code/vivesca-terry/chromatin/Praxis.md`.
+Read `~/code/epigenome/chromatin/Praxis.md`.
 
 - If file is missing/unreadable, note "Praxis.md unavailable" and continue.
 
@@ -67,7 +67,7 @@ Read `~/code/vivesca-terry/chromatin/Praxis.md`.
 Based on current time and what was found:
 
 **Commute / transit (morning, before first meeting, no desk):**
-→ Surface today's acta (daily AI brief). Check: `ls ~/code/vivesca-terry/chromatin/Thalamus/Daily/$(date -v-1d +%Y-%m-%d).md 2>/dev/null || ls ~/code/vivesca-terry/chromatin/Thalamus/Daily/$(date +%Y-%m-%d).md 2>/dev/null`. Read and present key items grouped by lens. Flag any 🚨 READ ORIGINAL with links. If first meeting is soon, also surface one-line prep for it. This is the primary reading window — give the full brief, not a teaser.
+→ Surface today's acta (daily AI brief). Check: `ls ~/code/epigenome/chromatin/Thalamus/Daily/$(date -v-1d +%Y-%m-%d).md 2>/dev/null || ls ~/code/epigenome/chromatin/Thalamus/Daily/$(date +%Y-%m-%d).md 2>/dev/null`. Read and present key items grouped by lens. Flag any 🚨 READ ORIGINAL with links. If first meeting is soon, also surface one-line prep for it. This is the primary reading window — give the full brief, not a teaser.
 
 **Pre-meeting (< 45 min to next calendar event):**
 → Lead with the upcoming event. Surface any prep items. Keep it brief — they're about to be in a meeting.

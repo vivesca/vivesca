@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-UserPromptSubmit hook: keyword-based retrieval over ~/code/vivesca-terry/chromatin/Reference/.
+UserPromptSubmit hook: keyword-based retrieval over ~/code/epigenome/chromatin/Reference/.
 Scans markdown files for relevance to the user prompt, injects top matches
 as context. Lightweight — no embeddings, just TF-IDF-style scoring.
 """
@@ -13,7 +13,7 @@ import time
 from collections import Counter
 from pathlib import Path
 
-REFERENCE_DIR = Path.home() / "code" / "vivesca-terry" / "chromatin" / "Reference"
+REFERENCE_DIR = Path.home() / "code" / "epigenome" / "chromatin" / "Reference"
 DEBOUNCE_FILE = Path.home() / ".claude" / "retrieval-hook-state.json"
 DEBOUNCE_SECONDS = 300  # 5 min debounce
 TOP_K = 3

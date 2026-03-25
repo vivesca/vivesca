@@ -37,7 +37,7 @@ from metabolon.cytosol import VIVESCA_ROOT
 
 SKILLS_DIR = VIVESCA_ROOT / "receptors"
 SKILL_USAGE_LOG = Path.home() / ".claude" / "skill-usage.tsv"
-RECEPTOR_RETIREMENT_LOG = Path.home() / "code" / "vivesca-terry" / "chromatin" / "receptor-retirement.md"
+RECEPTOR_RETIREMENT_LOG = Path.home() / "code" / "epigenome" / "chromatin" / "receptor-retirement.md"
 
 # Shell builtins and ubiquitous utilities -- always resolvable
 BUILTINS = frozenset(
@@ -468,7 +468,7 @@ def integrin_apoptosis_check() -> ApoptosisResult:
     - Extended (7-30d)             → note only
     - Open (<7d)                   → healthy, no action
 
-    Anoikis candidates are appended to ~/code/vivesca-terry/chromatin/receptor-retirement.md
+    Anoikis candidates are appended to ~/code/epigenome/chromatin/receptor-retirement.md
     with a datestamp so the organism maintains a longitudinal record.
     """
     probe = integrin_probe()
@@ -557,7 +557,7 @@ _BUD_REF_RE = re.compile(r"invoke\s+([\w-]+)\s+bud", re.IGNORECASE)
 
 # Pattern: /skillname at start of token (skill invocation syntax).
 # Negative lookbehind for /, \w, and ~ to avoid matching path components
-# like ~/code/vivesca-terry/chromatin, /tmp, /usr, /var, etc.
+# like ~/code/epigenome/chromatin, /tmp, /usr, /var, etc.
 _SKILL_REF_RE = re.compile(r"(?<![/\w~])/([a-z][a-z0-9_-]+)")
 
 # Common path components that are NOT skill names -- used as a deny-list
@@ -743,7 +743,7 @@ def _extract_skill_skill_refs(skill_text: str) -> list[str]:
     """Extract /skillname cross-references from a SKILL.md body.
 
     Filters out common filesystem path components to avoid false positives
-    from path strings like ~/code/vivesca-terry/chromatin/..., /tmp/..., /docs/ in body text.
+    from path strings like ~/code/epigenome/chromatin/..., /tmp/..., /docs/ in body text.
     """
     return [
         name

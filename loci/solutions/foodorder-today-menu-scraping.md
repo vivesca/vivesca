@@ -88,7 +88,7 @@ done
 
 ### 5. Save to vault
 
-Save to `~/code/vivesca-terry/chromatin/<Restaurant Name> Menu.md` with categories, items, and prices.
+Save to `~/code/epigenome/chromatin/<Restaurant Name> Menu.md` with categories, items, and prices.
 
 ## Gotchas
 

@@ -16,11 +16,11 @@ Experiment: measure the autopoiesis trajectory.
 2. Count manual maintenance points:
    - Check git log for manual fixes in the last 7 days: `cd ~/code/vivesca && git log --oneline --since="7 days ago" --author=terry`
    - Check receptor-retirement.md for anoikis candidates (broken things not auto-fixed)
-   - Check ~/code/vivesca-terry/chromatin/Praxis.md for system/tool maintenance items
+   - Check ~/code/epigenome/chromatin/Praxis.md for system/tool maintenance items
 
 3. Compute the ratio: automated / (automated + manual)
 
-4. Compare to previous measurements (check ~/code/vivesca-terry/chromatin/Reference/ for prior autopoiesis-measure results)
+4. Compare to previous measurements (check ~/code/epigenome/chromatin/Reference/ for prior autopoiesis-measure results)
 
 5. Report:
    - Automation ratio: X%
@@ -29,4 +29,4 @@ Experiment: measure the autopoiesis trajectory.
    - Top 3 automated reactions that are MOST valuable
    - The test: does Terry need the organism less this month for plumbing?
 
-Save results to ~/code/vivesca-terry/chromatin/Reference/autopoiesis-measure-YYYY-MM-DD.md
+Save results to ~/code/epigenome/chromatin/Reference/autopoiesis-measure-YYYY-MM-DD.md

@@ -27,4 +27,4 @@ claude setup-token
 - Hetzner's "Heray" and Cloudflare both block agent-browser completely
 
 ## AWS Server Reference
-See `~/code/vivesca-terry/chromatin/AWS Cloud Dev Server.md` for full server details.
+See `~/code/epigenome/chromatin/AWS Cloud Dev Server.md` for full server details.

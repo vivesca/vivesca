@@ -25,4 +25,4 @@ Synthesize:
 - What should Terry be saying that no one else is?
 
 Output: competitive landscape summary (1 page), gap analysis (3 bullets), differentiation opportunity.
-Save to ~/code/vivesca-terry/chromatin/Reference/consulting/competitor-watch-YYYY-MM.md
+Save to ~/code/epigenome/chromatin/Reference/consulting/competitor-watch-YYYY-MM.md

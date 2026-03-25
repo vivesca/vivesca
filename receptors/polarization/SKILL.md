@@ -39,7 +39,7 @@ The guard is a Stop hook (`~/.claude/hooks/polarization-guard.py`). While active
 
 ### Step 1: Load Context (parallel)
 
-`~/code/vivesca-terry/chromatin/North Star.md`, `~/code/vivesca-terry/chromatin/Reference/epistemics/north-star-shapes.md`, `~/code/vivesca-terry/chromatin/Reference/epistemics/division-of-labour.md`, `~/code/vivesca-terry/chromatin/NOW.md`, `~/code/vivesca-terry/chromatin/Praxis.md` (head 80), `date`.
+`~/code/epigenome/chromatin/North Star.md`, `~/code/epigenome/chromatin/Reference/epistemics/north-star-shapes.md`, `~/code/epigenome/chromatin/Reference/epistemics/division-of-labour.md`, `~/code/epigenome/chromatin/NOW.md`, `~/code/epigenome/chromatin/Praxis.md` (head 80), `date`.
 
 ### Step 2: Shape-to-Leverage Filter
 
@@ -114,7 +114,7 @@ After each wave, two phases:
 
 ### Step 7: Route Outputs
 
-**Default: self-sufficient (~75%).** Study materials, research answers, meeting prep — archive to `~/code/vivesca-terry/chromatin/Praxis Archive.md`, no TODO item.
+**Default: self-sufficient (~75%).** Study materials, research answers, meeting prep — archive to `~/code/epigenome/chromatin/Praxis Archive.md`, no TODO item.
 
 **Needs review (~25%):** Only when: Terry's voice (content to publish), Terry's memory (facts only he knows), or Terry's hands (physical action). → Add to Praxis.md: `- [ ] **Review: [title].** [path]. [what to check]. \`agent:terry\``
 
@@ -124,7 +124,7 @@ After each wave, two phases:
 
 ### Step 8: Session Report
 
-Write `~/code/vivesca-terry/chromatin/Copia Reports/YYYY-MM-DD.md` with frontmatter (waves, items\_produced, items\_for\_review) + Produced list + Review Queue + Flywheel Trace + Quality Gate Results.
+Write `~/code/epigenome/chromatin/Copia Reports/YYYY-MM-DD.md` with frontmatter (waves, items\_produced, items\_for\_review) + Produced list + Review Queue + Flywheel Trace + Quality Gate Results.
 
 **No separate notification.** Praxis.md is the one inbox.
 
@@ -183,7 +183,7 @@ Verdict: PASS → proceed. PARTIAL → proceed, flag for Terry. FAIL → quarant
 
 ## Wrap
 
-1. Update `~/code/vivesca-terry/chromatin/NOW.md`
+1. Update `~/code/epigenome/chromatin/NOW.md`
 2. `TeamDelete` if team was used
 3. Delete `~/tmp/.polarization-guard-active` — deactivates the stop guard
 4. Archive `~/tmp/polarization-session.md` to `~/tmp/polarization-session-YYYY-MM-DD.md`

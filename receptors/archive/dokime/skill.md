@@ -14,7 +14,7 @@ Daily quiz skill for GARP RAI exam prep (Apr 4, 2026). Three components:
 
 1. **Skill** (this file) — question generation, evaluation, pedagogy. LLM-judgment work.
 2. **CLI** (`melete`) — FSRS scheduling, session planning, atomic state updates. Deterministic work.
-3. **Data** — `~/code/vivesca-terry/chromatin/GARP RAI Quiz Tracker.md` (human-readable stats + history) and `~/code/vivesca-terry/chromatin/.garp-fsrs-state.json` (FSRS scheduling state). Source material in `~/code/vivesca-terry/chromatin/GARP RAI Module {1-5} - Raw Content.md`.
+3. **Data** — `~/code/epigenome/chromatin/GARP RAI Quiz Tracker.md` (human-readable stats + history) and `~/code/epigenome/chromatin/.garp-fsrs-state.json` (FSRS scheduling state). Source material in `~/code/epigenome/chromatin/GARP RAI Module {1-5} - Raw Content.md`.
 
 **Model: Sonnet.** Formulaic skill — Opus is overkill.
 
@@ -39,23 +39,23 @@ This outputs:
 - Recent misses (show these to user as priming)
 - Question list with: topic, mode (drill/free-recall/MCQ), accuracy rate, source file + line range, `[drill]` tag if Definition Drills entry exists
 
-**If CLI fails**, fall back: read `~/code/vivesca-terry/chromatin/GARP RAI Quiz Tracker.md` + `~/code/vivesca-terry/chromatin/.garp-fsrs-state.json` manually.
+**If CLI fails**, fall back: read `~/code/epigenome/chromatin/GARP RAI Quiz Tracker.md` + `~/code/epigenome/chromatin/.garp-fsrs-state.json` manually.
 
 ### 2. For Each Question: Read Source → Generate → Present → Evaluate → Record
 
 **Read source material** (read at least two before generating; if a file is missing, skip it and use the next available source):
 
-**IMPORTANT: All source files must be read using absolute paths (`/Users/terry/code/vivesca-terry/chromatin/...`), never `~/code/vivesca-terry/chromatin/...`. Bash grep fails silently on paths with spaces — always use the Read or Grep tool with the full path.**
+**IMPORTANT: All source files must be read using absolute paths (`/Users/terry/code/epigenome/chromatin/...`), never `~/code/epigenome/chromatin/...`. Bash grep fails silently on paths with spaces — always use the Read or Grep tool with the full path.**
 
-1. `/Users/terry/code/vivesca-terry/chromatin/GARP RAI Definition Drills.md` — **mandatory when session plan shows `[drill]` tag.** Contains comparison tables, "exam trap" callouts, and "key distinction" sections. Read the relevant section and specifically test the documented trap pattern. **If a drill entry exists and you skip it, the question quality is compromised.**
-2. `/Users/terry/code/vivesca-terry/chromatin/GARP RAI Review Questions.md` — official GARP questions closest to exam voice. Search for the relevant module/chapter section and use or adapt these questions before inventing new ones.
-3. `/Users/terry/code/vivesca-terry/chromatin/GARP RAI Fairness Scenarios Drill.md` — **mandatory for M3-demographic-parity, M3-predictive-rate-parity, M3-equal-opportunity, M3-equalized-odds, M3-individual-fairness** (the 5 fairness measure topics). 10 curated scenarios with keyed answers. Use these scenarios (or variations) instead of inventing from scratch.
-4. `/Users/terry/code/vivesca-terry/chromatin/GARP RAI Practice Exam.md` — exam-style questions (save for mock/ramp phase)
+1. `/Users/terry/code/epigenome/chromatin/GARP RAI Definition Drills.md` — **mandatory when session plan shows `[drill]` tag.** Contains comparison tables, "exam trap" callouts, and "key distinction" sections. Read the relevant section and specifically test the documented trap pattern. **If a drill entry exists and you skip it, the question quality is compromised.**
+2. `/Users/terry/code/epigenome/chromatin/GARP RAI Review Questions.md` — official GARP questions closest to exam voice. Search for the relevant module/chapter section and use or adapt these questions before inventing new ones.
+3. `/Users/terry/code/epigenome/chromatin/GARP RAI Fairness Scenarios Drill.md` — **mandatory for M3-demographic-parity, M3-predictive-rate-parity, M3-equal-opportunity, M3-equalized-odds, M3-individual-fairness** (the 5 fairness measure topics). 10 curated scenarios with keyed answers. Use these scenarios (or variations) instead of inventing from scratch.
+4. `/Users/terry/code/epigenome/chromatin/GARP RAI Practice Exam.md` — exam-style questions (save for mock/ramp phase)
 5. Raw content files (from session plan `Read` path) — for generating new questions when sources 1-4 don't cover the topic
 
 **Source selection rule:** For any topic with `[drill]` tag → must read Definition Drills + one other source. For topics without `[drill]` tag → read Review Questions + raw content.
 
-**Before generating:** Read `~/code/vivesca-terry/chromatin/GARP RAI Trap Patterns.md` and grep for the topic. If a pattern entry exists, the question MUST target that exact failure mode — not a generic question on the topic. This step is mandatory, not optional.
+**Before generating:** Read `~/code/epigenome/chromatin/GARP RAI Trap Patterns.md` and grep for the topic. If a pattern entry exists, the question MUST target that exact failure mode — not a generic question on the topic. This step is mandatory, not optional.
 
 **Generate ONE question** based on the mode (CLI labels in parentheses):
 
@@ -72,7 +72,7 @@ All modes are text-only — no `AskUserQuestion`.
 **Question quality rubric** (self-check before presenting):
 - **One concept per question.** Don't test two things at once — if the user gets it wrong, you need to know exactly which concept failed.
 - **One unambiguous keyed answer.** If two options could arguably be correct, rewrite.
-- **Scenario-based where possible.** Model stems after the Practice Exam (`/Users/terry/code/vivesca-terry/chromatin/GARP RAI Practice Exam.md`): "A bank uses...", "An analyst is...", "A company is...".
+- **Scenario-based where possible.** Model stems after the Practice Exam (`/Users/terry/code/epigenome/chromatin/GARP RAI Practice Exam.md`): "A bank uses...", "An analyst is...", "A company is...".
 - **No attribution questions.** Never test "who coined X", "which year", or "which institution" — the exam never does this. Historical figures (Turing, Samuel, McCarthy) may appear as *context* only; the answer must turn on a concept.
 - **Trap-based distractors:** If Definition Drills has an "exam trap" for this topic, at least one distractor must target that exact trap. E.g., for regularization: "both reduces AND removes features" = Elastic Net, not LASSO.
 - **Option format — two valid patterns (both confirmed in Practice Exam):**
@@ -89,7 +89,7 @@ All modes are text-only — no `AskUserQuestion`.
 - State **Correct** or **Incorrect** (with right answer)
 - 2-3 sentence explanation max — **for self-generated questions: mandatory GARP section citation** (e.g., "M4 section 8.6 Unpredictability Issues"); for Practice Exam / Review Questions sourced questions: cite if helpful
 - If incorrect: highlight the key distinction missed
-- Check `~/code/vivesca-terry/chromatin/GARP RAI Trap Patterns.md` — name the pattern if it matches
+- Check `~/code/epigenome/chromatin/GARP RAI Trap Patterns.md` — name the pattern if it matches
 
 After the user answers, infer confidence from their response:
 - **C** (confident) — answered without hesitation, didn't hedge
@@ -123,7 +123,7 @@ melete end
 
 This increments the session count in the tracker. Then:
 - Show score (e.g., "3/5 — 60%"), weak areas, next focus
-- If any new mistake patterns emerged, append to `~/code/vivesca-terry/chromatin/GARP RAI Trap Patterns.md`
+- If any new mistake patterns emerged, append to `~/code/epigenome/chromatin/GARP RAI Trap Patterns.md`
 
 ## Rapid-Fire Mode
 
@@ -149,15 +149,15 @@ Trigger: `/dokime mock` or "mock exam"
 
 ## Key Files
 
-- **Quiz tracker:** `~/code/vivesca-terry/chromatin/GARP RAI Quiz Tracker.md`
-- **FSRS state:** `~/code/vivesca-terry/chromatin/.garp-fsrs-state.json`
-- **Review questions:** `~/code/vivesca-terry/chromatin/GARP RAI Review Questions.md` — official GARP questions, first choice for sourcing
-- **Fairness scenarios:** `~/code/vivesca-terry/chromatin/GARP RAI Fairness Scenarios Drill.md` — 10 curated scenarios with keyed answers
-- **Definition drills:** `~/code/vivesca-terry/chromatin/GARP RAI Definition Drills.md` — comparison tables + exam traps for weak topics
-- **Practice exam:** `~/code/vivesca-terry/chromatin/GARP RAI Practice Exam.md`
-- **Trap patterns:** `~/code/vivesca-terry/chromatin/GARP RAI Trap Patterns.md`
-- **Glossary:** `~/code/vivesca-terry/chromatin/GARP RAI Glossary.md` — acronyms (useful for rapid-fire)
-- **Raw content:** `~/code/vivesca-terry/chromatin/GARP RAI Module {1-5} - Raw Content.md` — verbatim from GARP portal, verified complete Mar 2026
+- **Quiz tracker:** `~/code/epigenome/chromatin/GARP RAI Quiz Tracker.md`
+- **FSRS state:** `~/code/epigenome/chromatin/.garp-fsrs-state.json`
+- **Review questions:** `~/code/epigenome/chromatin/GARP RAI Review Questions.md` — official GARP questions, first choice for sourcing
+- **Fairness scenarios:** `~/code/epigenome/chromatin/GARP RAI Fairness Scenarios Drill.md` — 10 curated scenarios with keyed answers
+- **Definition drills:** `~/code/epigenome/chromatin/GARP RAI Definition Drills.md` — comparison tables + exam traps for weak topics
+- **Practice exam:** `~/code/epigenome/chromatin/GARP RAI Practice Exam.md`
+- **Trap patterns:** `~/code/epigenome/chromatin/GARP RAI Trap Patterns.md`
+- **Glossary:** `~/code/epigenome/chromatin/GARP RAI Glossary.md` — acronyms (useful for rapid-fire)
+- **Raw content:** `~/code/epigenome/chromatin/GARP RAI Module {1-5} - Raw Content.md` — verbatim from GARP portal, verified complete Mar 2026
 - **GARP portal:** `https://garplearning.benchprep.com/app/rai26` — login flow + navigation gotchas: `~/code/vivesca/loci/solutions/garp-portal-navigation.md`
 - **CLI:** `melete` — `session`, `record`, `end`, `today`, `due`, `stats`, `topics`, `coverage`, `reconcile`
 
