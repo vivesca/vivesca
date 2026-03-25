@@ -1,9 +1,16 @@
 [project]
-name = "metabolon"
-version = "0.3.0"
-description = "The metabolism engine of a living organism."
-readme = "README.md"
+name = "vivesca"
+version = "0.4.0"
+description = "A living system built on cell biology as a design constraint."
+readme = "readme.md"
 requires-python = ">=3.11"
+license = {text = "MIT"}
+authors = [{name = "Terry Li"}]
+
+[project.urls]
+Homepage = "https://vivesca.org"
+Repository = "https://github.com/vivesca/vivesca"
+Blog = "https://terryli.hm"
 dependencies = [
     "click>=8.0",
     "fastmcp>=3.0.0",
