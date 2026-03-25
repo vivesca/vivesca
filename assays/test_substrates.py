@@ -603,7 +603,7 @@ class TestMemorySubstrate:
                 "type": "project",
                 "action": "migrate",
                 "target": (
-                    "Vault note (~/notes/)",
+                    "Vault note (~/code/vivesca-terry/chromatin/)",
                     "Project state belongs in source of truth",
                 ),
             }

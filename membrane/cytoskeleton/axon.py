@@ -249,10 +249,10 @@ def guard_bash(data):
         ):
             deny("agent-browser on financial sites blocked.", "bash-guard")
 
-    # 18. rm on ~/notes/*.md
+    # 18. rm on ~/code/vivesca-terry/chromatin/*.md
     if (
         re.search(r"\brm\b", cmd)
-        and re.search(r"(~/notes/|/Users/terry/notes/)", cmd)
+        and re.search(r"(~/code/vivesca-terry/chromatin/|/Users/terry/code/vivesca-terry/chromatin/)", cmd)
         and re.search(r"\.md\b", cmd)
     ):
         deny("Never delete vault notes. Archive instead.", "bash-guard")
@@ -471,18 +471,18 @@ def guard_write(data):
             )
 
     # Checked items in Praxis.md
-    if fp.endswith("/notes/Praxis.md"):
+    if fp.endswith("/chromatin/Praxis.md"):
         content = ti.get("content", "") or ti.get("new_string", "")
         if re.search(r"^- \[x\]", content, re.MULTILINE):
             deny(
-                "Edit contains checked items. REMOVE from Praxis.md and APPEND to ~/notes/Praxis Archive.md.",
+                "Edit contains checked items. REMOVE from Praxis.md and APPEND to ~/code/vivesca-terry/chromatin/Praxis Archive.md.",
                 "write-guard",
             )
 
     # Past daily notes immutable
     tool_name = data.get("tool", "")
     if tool_name in ("Write", "Edit", "MultiEdit"):
-        m = re.search(r"/notes/Daily/(\d{4}-\d{2}-\d{2})\.md$", fp)
+        m = re.search(r"/chromatin/Daily/(\d{4}-\d{2}-\d{2})\.md$", fp)
         if m:
             note_date = m.group(1)
             from datetime import timezone

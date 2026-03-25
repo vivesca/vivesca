@@ -98,7 +98,7 @@ def receptor_health(output: str | None):
 
     Deterministic health check — no LLM needed. Classifies all receptors by
     activation state, reports anoikis candidates, and appends retirement
-    candidates to ~/notes/receptor-retirement.md.
+    candidates to ~/code/vivesca-terry/chromatin/receptor-retirement.md.
 
     Exit 0 = clean or quiescent only. Exit 1 = anoikis candidates found.
     """
@@ -151,7 +151,7 @@ def receptor_health(output: str | None):
     lines.append(f"## Verdict: {verdict}")
     if apoptosis.retirement_log_updated:
         lines.append(
-            f"\nAnoikis candidates logged to ~/notes/receptor-retirement.md"
+            f"\nAnoikis candidates logged to ~/code/vivesca-terry/chromatin/receptor-retirement.md"
         )
 
     report = "\n".join(lines) + "\n"
@@ -1028,7 +1028,7 @@ CONSOLIDATION_PATHWAYS: dict[str, tuple[str, str]] = {
         "Constitution user section or relevant skill",
         "Preferences that matter every session",
     ),
-    "project": ("Vault note (~/notes/)", "Project state belongs in source of truth"),
+    "project": ("Vault note (~/code/vivesca-terry/chromatin/)", "Project state belongs in source of truth"),
     "reference": ("tool-index.md or skill file", "Pointers belong where the action is"),
 }
 

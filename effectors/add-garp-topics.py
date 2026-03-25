@@ -7,7 +7,7 @@
 import json
 import time
 
-STATE_FILE = "/Users/terry/notes/.garp-fsrs-state.json"
+STATE_FILE = "/Users/terry/code/vivesca-terry/chromatin/.garp-fsrs-state.json"
 
 NEW_TOPICS = [
     "M3-fairness-tradeoffs",  # Impossibility theorem, trade-off logic

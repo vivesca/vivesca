@@ -355,8 +355,8 @@ def test_run_weekly_digest_returns_count_and_path(xdg_env, monkeypatch, tmp_path
     cfg = load_config()
     _write_weekly_log(cfg, "2026-03-24")
 
-    # Point output to tmp_path (run_weekly_digest uses ~/notes/Reference)
-    notes_ref = tmp_path / "notes" / "Reference"
+    # Point output to tmp_path (run_weekly_digest uses ~/code/vivesca-terry/chromatin/Reference)
+    notes_ref = tmp_path / "code" / "vivesca-terry" / "chromatin" / "Reference"
     notes_ref.mkdir(parents=True, exist_ok=True)
     monkeypatch.setattr("metabolon.organelles.endocytosis_rss.digest.Path.home", lambda: tmp_path)
 

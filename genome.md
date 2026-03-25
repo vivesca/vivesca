@@ -21,7 +21,7 @@
 
 ## How to Think
 
-Match situation to operation. Depth in `~/notes/Reference/epistemics/`.
+Match situation to operation. Depth in `~/code/vivesca-terry/chromatin/Reference/epistemics/`.
 
 | I need to... | Do this |
 |-------------|---------|
@@ -44,7 +44,9 @@ Match situation to operation. Depth in `~/notes/Reference/epistemics/`.
 
 **Route by role, not cost.** OpenCode (GLM-5) for coding delegation — free, good enough for formulaic tasks. Gemini/Codex for judgment and knowledge — different training data complements Claude's blindspots. Claude for orchestration, taste, final decisions. Don't waste knowledge-rich models on boilerplate.
 
-**Deterministic over judgment.** If a transformation can be deterministic — whether action (file reads, git checks), knowledge retrieval (AST parsing, schema queries, tag search), or decision — program it. LLM judgment is a thin layer applied only where source structure runs out. This is the actus boundary: deterministic → program, judgment → actus. When a rule fires inconsistently, replace its trigger with a single binary question (e.g. "defending externally?" not a category list). Hooks > programs > skills > prompts. Shared gathering logic lives in `~/code/vivesca/cofactors/gather.py`. **Never add standalone hook scripts.** All hooks are consolidated: `synapse.py` (UserPromptSubmit), `axon.py` (PreToolUse), `dendrite.py` (PostToolUse). New hook logic = new function in the existing consolidated file, not a new process.
+**Deterministic over judgment.** If a transformation can be deterministic — whether action (file reads, git checks), knowledge retrieval (AST parsing, schema queries, tag search), or decision — program it. LLM judgment is a thin layer applied only where source structure runs out. This is the actus boundary: deterministic → program, judgment → actus. When a rule fires inconsistently, replace its trigger with a single binary question (e.g. "defending externally?" not a category list). Hooks > programs > skills > prompts. Shared gathering logic lives in `metabolon.pinocytosis`. **Never add standalone hook scripts.** All hooks are consolidated: `synapse.py` (UserPromptSubmit), `axon.py` (PreToolUse), `dendrite.py` (PostToolUse). New hook logic = new function in the existing consolidated file, not a new process.
+
+**Dispatch hierarchy for transformations.** sed > opencode > sonnet > opus. Literal find-and-replace is never LLM work. Formulaic code changes (scaffolding, boilerplate) route to OpenCode/Codex (free). Judgment calls (naming, design, review) route to Claude. Match the cheapest tool that handles the task.
 
 **Action is the fundamental unit.** An action is tools + knowledge + LLM judgment, scoped to one verb. It exists as a bridge (closing a gap between LLM default and desired outcome) or a seed (a crystallized pattern worth capturing — because it compounds, composes, and survives model changes). No delta from baseline = no action needed. One-off delta = just a prompt. Consistent, non-obvious delta = action. Name the action, not the actor. If you need "and" to describe it, split.
 
@@ -128,7 +130,7 @@ Capture is continuous, not terminal. Route findings the moment they surface — 
 | Publishable insight | Garden post via `sarcio new` or tweet draft | `exocytosis_text` |
 | Tool gotcha / how-to | `~/docs/solutions/` | Write |
 | State change | Tonus.md | Edit |
-| Reference knowledge (atomic) | `~/notes/Reference/<category>/` + `memory/finding_*.md` | Write |
+| Reference knowledge (atomic) | `~/code/vivesca-terry/chromatin/Reference/<category>/` + `memory/finding_*.md` | Write |
 
 **Dual-audience rule.** Human-facing artifacts (vault notes, garden posts) always get a companion `memory/finding_*.md` so a fresh session can recall the finding without searching. Two audiences, two files.
 
@@ -152,7 +154,7 @@ When triaging what to capture:
 
 ## Session Start
 
-1. Read `~/notes/Tonus.md`
+1. Read `~/code/vivesca-terry/chromatin/Tonus.md`
 2. Call `interoception(glycogen)` for token budget
 3. Call `interoception(circadian)` for today's calendar
 4. Call `interoception(vitals)` for health/activity context
@@ -167,7 +169,7 @@ When triaging what to capture:
 
 ## Knowledge Architecture
 
-`interoception(genome)` = rules + meta + tool routing. `MEMORY.md` = gotchas. `~/notes/Reference/` = atomic docs. Solutions KB = how-tos.
+`interoception(genome)` = rules + meta + tool routing. `MEMORY.md` = gotchas. `~/code/vivesca-terry/chromatin/Reference/` = atomic docs. Solutions KB = how-tos.
 
 **Match form to access pattern.** Always-loaded → constitution. On-demand → atomic + wikilinked (Reference/). Path-scoped → `.claude/rules/`.
 
@@ -175,7 +177,7 @@ When triaging what to capture:
 
 **Constitutional hygiene.** Promotion has a demotion twin: monthly review asks "which rules haven't fired?" Demote to Reference or kill. If the constitution grows 20% beyond its current size, pruning is mandatory before adding. Metabolism signals inform this — zero-signal rules are candidates. The constitution metabolises itself. Memory is crystallised experience; it dissolves into three knowledge artifacts (constitution, reference/skill, program) and ultimately into unnecessary.
 
-**Reference docs:** `~/notes/Reference/` — browse `ls <subdir>`, search `grep`, traverse `[[wikilinks]]`. Categories: search, epistemics, vault, development, browser-automation, consulting, personal, automation, comms.
+**Reference docs:** `~/code/vivesca-terry/chromatin/Reference/` — browse `ls <subdir>`, search `grep`, traverse `[[wikilinks]]`. Categories: search, epistemics, vault, development, browser-automation, consulting, personal, automation, comms.
 
 ## Autonomy
 

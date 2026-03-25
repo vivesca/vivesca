@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-PostToolUse hook — logs tool failures to ~/notes/failures.md.
+PostToolUse hook — logs tool failures to ~/code/vivesca-terry/chromatin/failures.md.
 Fires when: Bash exit non-zero, or is_error=true on any tool.
 Skipped: expected non-zero (grep/diff), hook-blocked calls.
 """

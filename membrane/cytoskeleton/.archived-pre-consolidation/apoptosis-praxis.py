@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """PostToolUse hook: block dismissed items from being added to Praxis.md.
 
-Reads ~/notes/Praxis Dismissed.md for suppressed patterns.
+Reads ~/code/vivesca-terry/chromatin/Praxis Dismissed.md for suppressed patterns.
 On any Edit/Write to Praxis.md, scans new checkbox lines against the
 dismissed list. If a match is found, prints a warning to stderr
 (advisory hook — does not block the write, but surfaces to the LLM).
@@ -11,8 +11,8 @@ import json
 import sys
 from pathlib import Path
 
-DISMISSED_PATH = Path.home() / "notes" / "Praxis Dismissed.md"
-PRAXIS_PATH = Path.home() / "notes" / "Praxis.md"
+DISMISSED_PATH = Path.home() / "code" / "vivesca-terry" / "chromatin" / "Praxis Dismissed.md"
+PRAXIS_PATH = Path.home() / "code" / "vivesca-terry" / "chromatin" / "Praxis.md"
 
 
 def load_dismissed() -> list[str]:
@@ -60,7 +60,7 @@ def main():
         print(
             f"DISMISSED ITEM DETECTED in Praxis.md write: {patterns}. "
             f"This item was previously dismissed by Terry. "
-            f"Remove it and do not re-add. See ~/notes/Praxis Dismissed.md.",
+            f"Remove it and do not re-add. See ~/code/vivesca-terry/chromatin/Praxis Dismissed.md.",
             file=sys.stderr,
         )
 

@@ -139,8 +139,8 @@ at 1/3 the cost would produce 80% of the value, use buds.
 | endocytosis_rss_* | **Receptor-mediated endocytosis** | Content intake (absorbed lustro) |
 | secretion/exocytosis | **Secretory vesicles** | Output (Telegram, X, LinkedIn) |
 | translocation_* | **Kinesin** | Scheduled transport along cytoskeleton |
-| histone_* | **Chromatin** | Memory marking and modification |
-| vault | **Vacuoles** | Storage |
+| histone_* | **Chromatin remodeling** | Memory marking and modification |
+| chromatin (`~/code/vivesca-terry/chromatin/`) | **Chromatin** | Long-term information in accessible form — the vault absorbed into the epigenome |
 | infection.py | **Immune response** | Acute + chronic pattern detection |
 | setpoint.py | **Homeostatic setpoints** | Thresholds with hysteresis |
 | gradient.py | **Proprioception** | Gradient sensing with sensor topology |
@@ -160,8 +160,9 @@ at 1/3 the cost would produce 80% of the value, use buds.
 
 | Repo | Costume | Mechanism |
 |------|---------|-----------|
-| vivesca (public) | **Genome** | Shareable, forkable, universal |
-| epigenome (private) | **Epigenome** | Instance-specific expression |
+| `~/code/vivesca/` (public) | **Genome** | Shareable, forkable, universal |
+| `~/code/vivesca-terry/` (private) | **Epigenome** | Instance-specific expression |
+| `~/code/vivesca-terry/chromatin/` | **Chromatin** | Long-term information storage within the epigenome; `~/notes/` is a transitional symlink |
 
 ## CC Platform Concepts
 

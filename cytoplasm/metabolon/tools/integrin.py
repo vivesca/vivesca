@@ -37,7 +37,7 @@ from metabolon.cytosol import VIVESCA_ROOT
 
 SKILLS_DIR = VIVESCA_ROOT / "receptors"
 SKILL_USAGE_LOG = Path.home() / ".claude" / "skill-usage.tsv"
-RECEPTOR_RETIREMENT_LOG = Path.home() / "notes" / "receptor-retirement.md"
+RECEPTOR_RETIREMENT_LOG = Path.home() / "code" / "vivesca-terry" / "chromatin" / "receptor-retirement.md"
 
 # Shell builtins and ubiquitous utilities -- always resolvable
 BUILTINS = frozenset(
@@ -468,7 +468,7 @@ def integrin_apoptosis_check() -> ApoptosisResult:
     - Extended (7-30d)             → note only
     - Open (<7d)                   → healthy, no action
 
-    Anoikis candidates are appended to ~/notes/receptor-retirement.md
+    Anoikis candidates are appended to ~/code/vivesca-terry/chromatin/receptor-retirement.md
     with a datestamp so the organism maintains a longitudinal record.
     """
     probe = integrin_probe()

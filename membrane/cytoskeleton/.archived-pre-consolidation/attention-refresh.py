@@ -6,7 +6,7 @@ import os
 
 MARKER = "/tmp/claude-attention-counter"
 INTERVAL = 25  # mutating tool calls between refreshes
-NOW_PATH = os.path.expanduser("~/notes/Tonus.md")
+NOW_PATH = os.path.expanduser("~/code/vivesca-terry/chromatin/Tonus.md")
 
 # Read current count
 try:

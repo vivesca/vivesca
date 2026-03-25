@@ -20,8 +20,8 @@ from typing import Any
 # HKT = UTC+8
 HKT = timezone(timedelta(hours=8))
 
-PRAXIS_PATH = os.path.expanduser("~/notes/Praxis.md")
-TONUS_PATH = os.path.expanduser("~/notes/Tonus.md")
+PRAXIS_PATH = os.path.expanduser("~/code/vivesca-terry/chromatin/Praxis.md")
+TONUS_PATH = os.path.expanduser("~/code/vivesca-terry/chromatin/Tonus.md")
 
 
 # ---------------------------------------------------------------------------

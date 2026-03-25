@@ -27,7 +27,7 @@ from metabolon.metabolism.setpoint import Threshold
 from metabolon.morphology import EffectorResult, Secretion
 
 SOPOR = "sopor"
-HEALTH_LOG = os.path.expanduser("~/notes/Health/Symptom Log.md")
+HEALTH_LOG = os.path.expanduser("~/code/vivesca-terry/chromatin/Health/Symptom Log.md")
 
 disk_threshold = Threshold(name="disk", default=15, clamp=(5, 50))
 
@@ -248,7 +248,7 @@ def homeostasis_financial() -> HomeostasisFinancialResult:
     """Read vault financial notes and flag overdue or upcoming items (within 14 days)."""
     import datetime
 
-    notes_dir = os.path.expanduser("~/notes/")
+    notes_dir = os.path.expanduser("~/code/vivesca-terry/chromatin/")
     today = datetime.date.today().isoformat()
 
     # Read each financial note
@@ -265,7 +265,7 @@ def homeostasis_financial() -> HomeostasisFinancialResult:
             note_parts.append(f"## {fname}\n(read error: {e})")
 
     # Read Praxis.md for financial-tagged items
-    praxis_path = os.path.expanduser("~/notes/Praxis.md")
+    praxis_path = os.path.expanduser("~/code/vivesca-terry/chromatin/Praxis.md")
     praxis_excerpt = ""
     try:
         with open(praxis_path) as f:
@@ -506,7 +506,7 @@ def anabolism_flywheel() -> AnabolismResult:
 
     # 4. Creative output
     try:
-        notes_dir = os.path.expanduser("~/notes/")
+        notes_dir = os.path.expanduser("~/code/vivesca-terry/chromatin/")
 
         vault_cmd = ["git", "log", "--since=7.days", "--oneline"]
         vault_out = subprocess.run(

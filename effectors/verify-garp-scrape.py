@@ -6,7 +6,7 @@
 
 import os
 
-VAULT = "/Users/terry/notes"
+VAULT = "/Users/terry/code/vivesca-terry/chromatin"
 MODULES = {
     1: "GARP RAI Module 1 - Raw Content.md",
     2: "GARP RAI Module 2 - Raw Content.md",

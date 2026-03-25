@@ -530,8 +530,8 @@ def run_weekly_digest(
     affinity_entries = load_affinity_entries_since(since_date)
     affinity_index = _build_affinity_index(affinity_entries)
 
-    # Secrete to ~/notes/Reference/weekly-ai-digest-YYYY-WNN.md
-    output_dir = Path.home() / "notes" / "Reference"
+    # Secrete to ~/code/vivesca-terry/chromatin/Reference/weekly-ai-digest-YYYY-WNN.md
+    output_dir = Path.home() / "code" / "vivesca-terry" / "chromatin" / "Reference"
     output_path = output_dir / f"weekly-ai-digest-{week_label}.md"
 
     written_path = write_weekly_digest(
