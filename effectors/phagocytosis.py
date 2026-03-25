@@ -4,8 +4,8 @@
 # ///
 """Snapshot Obsidian's lastOpenFiles to a JSONL consumption log.
 
-Reads ~/code/epigenome/chromatin/.obsidian/workspace.json, extracts the lastOpenFiles array,
-and appends a timestamped entry to ~/code/epigenome/chromatin/.consumption-log.jsonl.
+Reads ~/epigenome/chromatin/.obsidian/workspace.json, extracts the lastOpenFiles array,
+and appends a timestamped entry to ~/epigenome/chromatin/.consumption-log.jsonl.
 Skips if the file list is identical to the last snapshot (deduplication).
 """
 

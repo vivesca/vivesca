@@ -14,9 +14,9 @@ Phone-friendly (Blink/tmux). Target: one bus ride. No deep reflection — captur
 
 ## Context Load (parallel, before starting)
 
-- `[[Email Threads Tracker]]` (`~/code/epigenome/chromatin/Email Threads Tracker.md`)
+- `[[Email Threads Tracker]]` (`~/epigenome/chromatin/Email Threads Tracker.md`)
 - `~/code/vivesca/engrams/prospective.md` — check for `WHEN: email triage` or `WHEN: interphase` entries
-- Today's daily note (`~/code/epigenome/chromatin/Daily/YYYY-MM-DD.md`)
+- Today's daily note (`~/epigenome/chromatin/Daily/YYYY-MM-DD.md`)
 
 ## Steps
 
@@ -51,10 +51,10 @@ Capture to today's daily note. One or two exchanges max. Get it out of his head,
 
 ### 4. What Shipped Today
 
-- Read today's daily note (`~/code/epigenome/chromatin/Daily/YYYY-MM-DD.md`) for cytokinesis session logs
+- Read today's daily note (`~/epigenome/chromatin/Daily/YYYY-MM-DD.md`) for cytokinesis session logs
 - If empty/missing, delegate to subagent (haiku): `python3 ~/scripts/chat_history.py --full`
 - Write a 2-3 line summary to the daily note
-- If anything shipped has consulting relevance (methodology, governance, AI pattern), append one line to `~/code/epigenome/chromatin/Consulting/_sparks.md` under today's date: `- #[tag] — **[Title]**: [one-line consulting implication]`
+- If anything shipped has consulting relevance (methodology, governance, AI pattern), append one line to `~/epigenome/chromatin/Consulting/_sparks.md` under today's date: `- #[tag] — **[Title]**: [one-line consulting implication]`
 
 ### 5. Tomorrow Prep
 

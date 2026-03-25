@@ -6,7 +6,7 @@ LinkedIn displays profile photos as a square upload, shown as a circle. Cropping
 
 ## Council-Validated Guidelines (Feb 2026)
 
-Source: `~/code/epigenome/chromatin/Decisions/LLM Council - LinkedIn Photo Crop - 2026-02-15.md`
+Source: `~/epigenome/chromatin/Decisions/LLM Council - LinkedIn Photo Crop - 2026-02-15.md`
 
 ### Key Numbers
 
@@ -120,5 +120,5 @@ Don't guess pixel coordinates for face positioning — measure with face detecti
 
 ## Files
 
-- Source headshots: `~/code/epigenome/chromatin/assets/headshots/`
-- Council transcript: `~/code/epigenome/chromatin/Decisions/LLM Council - LinkedIn Photo Crop - 2026-02-15.md`
+- Source headshots: `~/epigenome/chromatin/assets/headshots/`
+- Council transcript: `~/epigenome/chromatin/Decisions/LLM Council - LinkedIn Photo Crop - 2026-02-15.md`

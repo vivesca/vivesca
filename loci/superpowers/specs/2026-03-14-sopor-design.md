@@ -103,7 +103,7 @@ N-day trend (default 30). ASCII charts for readiness and bedtime. Linear regress
 7-day before vs after comparison. Ported from nyx `event`.
 
 ### `sopor monthly [YYYY-MM]`
-Monthly summary + saves report to `~/code/epigenome/chromatin/Sleep/YYYY-MM-sopor.md`. Ported from nyx `monthly`.
+Monthly summary + saves report to `~/epigenome/chromatin/Sleep/YYYY-MM-sopor.md`. Ported from nyx `monthly`.
 
 ### `sopor hypnogram [date]`
 Sleep stage visualization (5-min intervals from `sleep_phase_5_min`). Ported from oura-cli `hypnogram`.

@@ -530,7 +530,7 @@ def metabolize_weekly(
     affinity_entries = recall_affinity_entries(since_date)
     affinity_index = _build_affinity_index(affinity_entries)
 
-    # Secrete to ~/code/epigenome/chromatin/Reference/weekly-ai-digest-YYYY-WNN.md
+    # Secrete to ~/epigenome/chromatin/Reference/weekly-ai-digest-YYYY-WNN.md
     output_dir = Path.home() / "code" / "epigenome" / "chromatin" / "Reference"
     output_path = output_dir / f"weekly-ai-digest-{week_label}.md"
 

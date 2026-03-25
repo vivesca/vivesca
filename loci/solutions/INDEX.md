@@ -51,7 +51,7 @@ Re-generate: `python3 ~/scripts/generate-solutions-index.py`
 - **web scraper parent link pattern** — Modern blog card layouts (Anthropic, Google DeepMind, likely others) wrap the entire card in an `<a>` tag with headings 
 - **webfetch sibling cascade error** — When multiple `WebFetch` calls are made in the same tool-call block and one returns a non-2xx status (e.g. 404), **all s
 - **workflow specific patterns** — Reference patterns for specific workflows. Lookup on demand — not needed every turn.
-- **wrap skill daily note path bug** — The wrap skill wrote session logs to `~/code/epigenome/chromatin/Daily/YYYY-MM-DD.md` but the vault stores daily notes flat at `~/code/epigenome/chromatin/YYY
+- **wrap skill daily note path bug** — The wrap skill wrote session logs to `~/epigenome/chromatin/Daily/YYYY-MM-DD.md` but the vault stores daily notes flat at `~/epigenome/chromatin/YYY
 
 ## Ai Tooling (7)
 

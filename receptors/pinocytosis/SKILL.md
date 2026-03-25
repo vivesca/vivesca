@@ -6,7 +6,7 @@ user_invocable: false
 
 # pinocytosis -- web content fetch routing
 
-When fetching content from a URL, follow the routing table at `~/code/epigenome/chromatin/Reference/browser-automation/fetch-routing.md`. Do not improvise.
+When fetching content from a URL, follow the routing table at `~/epigenome/chromatin/Reference/browser-automation/fetch-routing.md`. Do not improvise.
 
 ## Procedure
 
@@ -38,4 +38,4 @@ When fetching content from a URL, follow the routing table at `~/code/epigenome/
 
 - WebFetch is 10x faster than agent-browser. Only escalate on confirmed failure.
 - Pre-flight is cheap; retry is expensive.
-- Full routing table: `~/code/epigenome/chromatin/Reference/browser-automation/fetch-routing.md`
+- Full routing table: `~/epigenome/chromatin/Reference/browser-automation/fetch-routing.md`

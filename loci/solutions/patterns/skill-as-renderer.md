@@ -20,7 +20,7 @@ The skill becomes a pure reader. It can't fail due to network issues. It always 
 | Data | Background writer | Snapshot path | Skill |
 |------|------------------|---------------|-------|
 | Queue results | `legatus-notify` (post-batch) | `~/.cache/legatus-runs/latest-summary.md` | `/overnight`, `/auspex` |
-| AI news | `lustro` (LaunchAgent, daily) | `~/code/epigenome/chromatin/AI & Tech/` | `/auspex` |
+| AI news | `lustro` (LaunchAgent, daily) | `~/epigenome/chromatin/AI & Tech/` | `/auspex` |
 | Sleep data | `oura-sync` (LaunchAgent) | `~/oura-data/data/oura.duckdb` | `/oura`, `/nyx` |
 
 ## When to Apply

@@ -8,7 +8,7 @@ tools: ["Bash", "Read"]
 Analyze 7-day Oura sleep trend. Identify patterns, not just last night.
 
 1. Pull Oura data: try `oura sleep --days 7` or check ~/.cache/oura/ for cached data
-   - If CLI unavailable, check ~/code/epigenome/chromatin/Daily/ for manually logged sleep scores
+   - If CLI unavailable, check ~/epigenome/chromatin/Daily/ for manually logged sleep scores
 2. Extract per night: total sleep, REM, deep, HRV, resting HR, sleep score, bedtime/wake time
 
 3. Compute trend metrics:

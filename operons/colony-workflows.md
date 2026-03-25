@@ -39,7 +39,7 @@ Parallel buds are the default — colonies justify their coordination cost.
 4. Form: lead (opus) + workers (sonnet, max 5)
 5. Execute protocol (from colony template)
 6. Dissolve: colony terminates, product delivered
-7. Log: colony formation + outcome to ~/code/epigenome/chromatin/colony-log.md
+7. Log: colony formation + outcome to ~/epigenome/chromatin/colony-log.md
 ```
 
 ## Colony vs Parallel Buds Decision
@@ -59,7 +59,7 @@ Parallel buds are the default — colonies justify their coordination cost.
 
 ## Colony Log
 
-After every colony formation, append to ~/code/epigenome/chromatin/colony-log.md:
+After every colony formation, append to ~/epigenome/chromatin/colony-log.md:
 - Date, colony template used, trigger
 - Workers dispatched, cost estimate vs actual
 - Product quality: did synthesis add value over parallel buds?

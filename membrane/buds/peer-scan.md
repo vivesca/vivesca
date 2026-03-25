@@ -8,10 +8,10 @@ skills: ["chemotaxis"]
 
 Scan what peers, competitors, and adjacent practitioners are doing. Focus on:
 
-1. Check `~/code/epigenome/chromatin/Specula/` for recent scans — don't repeat work
+1. Check `~/epigenome/chromatin/Specula/` for recent scans — don't repeat work
 2. Web search for: AI governance consulting trends, agent/AI tool patterns, banking AI developments
-3. Check `~/code/epigenome/chromatin/AI News Log.md` for recent items worth deeper analysis
-4. Check `~/code/epigenome/chromatin/Market Radar.md` and `~/code/epigenome/chromatin/Market Signals.md`
+3. Check `~/epigenome/chromatin/AI News Log.md` for recent items worth deeper analysis
+4. Check `~/epigenome/chromatin/Market Radar.md` and `~/epigenome/chromatin/Market Signals.md`
 
 Extract transferable patterns (not products):
 - What problem does it solve?

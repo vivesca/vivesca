@@ -28,7 +28,7 @@
 
 ## Current Cards
 
-`~/code/epigenome/chromatin/Capco/Conversation Cards/`:
+`~/epigenome/chromatin/Capco/Conversation Cards/`:
 - AI Governance
 - Agentic AI
 - AI Cost and Pricing

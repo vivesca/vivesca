@@ -13,10 +13,10 @@ def test_restore_goals(tmp_path):
         "    until: '2026-05-08'\n"
         "  - name: delivery\n"
         "materials:\n"
-        "  - path: ~/code/epigenome/chromatin/HSBC Flashcard Deck - 2026-03-19.md\n"
+        "  - path: ~/epigenome/chromatin/HSBC Flashcard Deck - 2026-03-19.md\n"
         "    type: flashcards\n"
         "    categories: [D1, D2, D3, D4, D5, D6, D7]\n"
-        "  - path: ~/code/epigenome/chromatin/HSBC Delivery Readiness — Drill Map.md\n"
+        "  - path: ~/epigenome/chromatin/HSBC Delivery Readiness — Drill Map.md\n"
         "    type: drills\n"
     )
 
@@ -141,7 +141,7 @@ def test_synthesize_signal_summary(tmp_path):
             {"name": "delivery"},
         ],
         "materials": [
-            {"path": "~/code/epigenome/chromatin/deck.md", "type": "flashcards", "categories": ["D1", "D2", "D3"]},
+            {"path": "~/epigenome/chromatin/deck.md", "type": "flashcards", "categories": ["D1", "D2", "D3"]},
         ],
     }
 
@@ -180,7 +180,7 @@ def test_proprioception_sense_with_goal(tmp_path, monkeypatch):
         "    until: '2026-04-08'\n"
         "  - name: delivery\n"
         "materials:\n"
-        "  - path: ~/code/epigenome/chromatin/deck.md\n"
+        "  - path: ~/epigenome/chromatin/deck.md\n"
         "    type: flashcards\n"
         "    categories: [D1, D2]\n"
     )
@@ -234,7 +234,7 @@ def test_prep_sense_integration(tmp_path, monkeypatch):
         "    until: '2026-04-08'\n"
         "  - name: delivery\n"
         "materials:\n"
-        "  - path: ~/code/epigenome/chromatin/deck.md\n"
+        "  - path: ~/epigenome/chromatin/deck.md\n"
         "    type: flashcards\n"
         "    categories: [D1, D2, D3]\n"
     )

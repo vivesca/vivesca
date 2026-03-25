@@ -63,7 +63,7 @@
 
 ## HKMA GenAI Sandbox — Participant + Peer Mapping (Feb 2026)
 
-Full research note at: `/Users/terry/code/epigenome/chromatin/HKMA GenAI Sandbox Research.md`
+Full research note at: `/Users/terry/epigenome/chromatin/HKMA GenAI Sandbox Research.md`
 
 ### Cohort 1 (Dec 2024, 10 banks)
 HSBC, BOCHK, Standard Chartered, CNCBI, CCB Asia, Citibank HK, Dah Sing Bank, Hang Seng Bank, Livi Bank, Societe Generale

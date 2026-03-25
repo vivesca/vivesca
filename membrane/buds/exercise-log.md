@@ -7,7 +7,7 @@ tools: ["Bash", "Read", "Grep", "Glob"]
 
 Review and log gym sessions from the week's notes.
 
-1. Read recent daily notes: ~/code/epigenome/chromatin/Daily/ (last 14 days)
+1. Read recent daily notes: ~/epigenome/chromatin/Daily/ (last 14 days)
 2. Search for gym mentions: grep for "gym", "PURE", "upper body", "bike", "zone 2", "recumbent"
 3. Extract per session:
    - Date
@@ -29,4 +29,4 @@ Review and log gym sessions from the week's notes.
 6. Volume trend: is training load increasing, stable, or declining?
 
 Output: table of sessions + gap analysis + one observation on progression.
-Save log to ~/code/epigenome/chromatin/Health/gym-log-YYYY-WNN.md if session data found.
+Save log to ~/epigenome/chromatin/Health/gym-log-YYYY-WNN.md if session data found.

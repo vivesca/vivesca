@@ -12,7 +12,7 @@ from mcp.types import ToolAnnotations
 from metabolon.morphology import Secretion
 
 TODO_CLI = "todo-cli"
-PRAXIS = "~/code/epigenome/chromatin/Praxis.md"
+PRAXIS = "~/epigenome/chromatin/Praxis.md"
 
 SUBCOMMANDS = ("today", "upcoming", "overdue", "someday", "all", "spare", "stats", "clean")
 

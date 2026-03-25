@@ -19,9 +19,9 @@ Produces consulting intellectual capital from the week's accumulated sparks, AI 
 ## Prerequisites
 
 Before running, verify:
-- `~/code/epigenome/chromatin/Consulting/_sparks.md` has content (daily spark agent has been running)
-- `~/code/epigenome/chromatin/Thalamus.md` exists (landscape context)
-- `~/code/epigenome/chromatin/AI News Log.md` exists (raw news)
+- `~/epigenome/chromatin/Consulting/_sparks.md` has content (daily spark agent has been running)
+- `~/epigenome/chromatin/Thalamus.md` exists (landscape context)
+- `~/epigenome/chromatin/AI News Log.md` exists (raw news)
 
 If sparks are empty, warn Terry and offer to run a one-off spark generation first.
 
@@ -32,12 +32,12 @@ If sparks are empty, warn Terry and offer to run a one-off spark generation firs
 Read all inputs and produce a work plan:
 
 **Inputs to read:**
-1. `~/code/epigenome/chromatin/Consulting/_sparks.md` — this week's pre-triaged sparks
-2. `~/code/epigenome/chromatin/Thalamus.md` — AI landscape synthesis
-3. `~/code/epigenome/chromatin/North Star.md` — taste filter
-4. `~/code/epigenome/chromatin/AI News Log.md` — last 7 days (for context the sparks may have missed)
-5. Existing library: `ls ~/code/epigenome/chromatin/Consulting/{Policies,Architectures,"Use Cases",Experiments}/` — for dedup and enrichment
-6. Recent client work: `git log --oneline --since="7 days ago" -- ~/code/epigenome/chromatin/Capco/ ~/code/epigenome/chromatin/HSBC/ 2>/dev/null` (if any)
+1. `~/epigenome/chromatin/Consulting/_sparks.md` — this week's pre-triaged sparks
+2. `~/epigenome/chromatin/Thalamus.md` — AI landscape synthesis
+3. `~/epigenome/chromatin/North Star.md` — taste filter
+4. `~/epigenome/chromatin/AI News Log.md` — last 7 days (for context the sparks may have missed)
+5. Existing library: `ls ~/epigenome/chromatin/Consulting/{Policies,Architectures,"Use Cases",Experiments}/` — for dedup and enrichment
+6. Recent client work: `git log --oneline --since="7 days ago" -- ~/epigenome/chromatin/Capco/ ~/epigenome/chromatin/HSBC/ 2>/dev/null` (if any)
 
 **Plan output:** Which sparks map to which workers. Which existing assets to enrich. What cross-pollination opportunities exist.
 
@@ -53,12 +53,12 @@ Create a team and dispatch 6 parallel workers. Each worker gets:
 
 | Worker | Scope | Output directory |
 |--------|-------|-----------------|
-| content | Garden post drafts (via sarcio) + LinkedIn seeds | `~/code/epigenome/chromatin/Writing/Blog/Published/` + append to `_sparks.md` |
-| policy | P&P templates, regulatory deltas, framework updates | `~/code/epigenome/chromatin/Consulting/Policies/` |
-| architecture | Reference architectures, patterns, component notes | `~/code/epigenome/chromatin/Consulting/Architectures/` |
-| use-case | Use case entries with structured frontmatter | `~/code/epigenome/chromatin/Consulting/Use Cases/` |
-| experiment | Experiment designs (NOT execution), technique comparisons | `~/code/epigenome/chromatin/Consulting/Experiments/` |
-| intelligence | Weekly brief + competitor lens from `#competitor` sparks | `~/code/epigenome/chromatin/Consulting/_weekly/` (embedded in weekly report) |
+| content | Garden post drafts (via sarcio) + LinkedIn seeds | `~/epigenome/chromatin/Writing/Blog/Published/` + append to `_sparks.md` |
+| policy | P&P templates, regulatory deltas, framework updates | `~/epigenome/chromatin/Consulting/Policies/` |
+| architecture | Reference architectures, patterns, component notes | `~/epigenome/chromatin/Consulting/Architectures/` |
+| use-case | Use case entries with structured frontmatter | `~/epigenome/chromatin/Consulting/Use Cases/` |
+| experiment | Experiment designs (NOT execution), technique comparisons | `~/epigenome/chromatin/Consulting/Experiments/` |
+| intelligence | Weekly brief + competitor lens from `#competitor` sparks | `~/epigenome/chromatin/Consulting/_weekly/` (embedded in weekly report) |
 
 **Worker instructions template:**
 
@@ -89,7 +89,7 @@ Rules:
 
 **Frontmatter schemas — embed these verbatim in each worker prompt:**
 
-**policy worker** (`~/code/epigenome/chromatin/Consulting/Policies/`):
+**policy worker** (`~/epigenome/chromatin/Consulting/Policies/`):
 ```yaml
 ---
 type: guideline | framework | standard | checklist
@@ -101,7 +101,7 @@ created: YYYY-MM-DD
 ---
 ```
 
-**architecture worker** (`~/code/epigenome/chromatin/Consulting/Architectures/`):
+**architecture worker** (`~/epigenome/chromatin/Consulting/Architectures/`):
 ```yaml
 ---
 type: pattern | reference-architecture | component | integration
@@ -112,7 +112,7 @@ created: YYYY-MM-DD
 ---
 ```
 
-**use-case worker** (`~/code/epigenome/chromatin/Consulting/Use Cases/`):
+**use-case worker** (`~/epigenome/chromatin/Consulting/Use Cases/`):
 ```yaml
 ---
 type: use-case
@@ -125,7 +125,7 @@ created: YYYY-MM-DD
 ---
 ```
 
-**experiment worker** (`~/code/epigenome/chromatin/Consulting/Experiments/`):
+**experiment worker** (`~/epigenome/chromatin/Consulting/Experiments/`):
 ```yaml
 ---
 type: benchmark | tabletop | ablation | pilot
@@ -138,7 +138,7 @@ created: YYYY-MM-DD
 ---
 ```
 
-**content worker** (`~/code/epigenome/chromatin/Writing/Blog/Published/`):
+**content worker** (`~/epigenome/chromatin/Writing/Blog/Published/`):
 ```yaml
 ---
 title: "Post Title Here"
@@ -150,7 +150,7 @@ tags: [tag1, tag2, tag3]
 ---
 ```
 
-**intelligence worker** (`~/code/epigenome/chromatin/Consulting/_weekly/`):
+**intelligence worker** (`~/epigenome/chromatin/Consulting/_weekly/`):
 ```yaml
 ---
 type: intelligence-brief
@@ -179,9 +179,9 @@ Run a synthesis agent that:
 1. Reads all newly created/modified files across all subdirectories
 2. Cross-pollinates: flag where one asset should reference another (add `**Related:**` wikilinks)
 3. Identifies talk seeds: combinations of experiment + use case + insight that could become a conference talk
-4. Regenerates `~/code/epigenome/chromatin/Consulting/_index.md` with updated stats
+4. Regenerates `~/epigenome/chromatin/Consulting/_index.md` with updated stats
 5. Archives processed sparks: move this week's sections from `_sparks.md` into the weekly report
-6. Writes weekly report to `~/code/epigenome/chromatin/Consulting/_weekly/YYYY-WNN.md`, including:
+6. Writes weekly report to `~/epigenome/chromatin/Consulting/_weekly/YYYY-WNN.md`, including:
    - Funnel metric: `Sources: N → Sparks: N → Assets: N → Promoted: N → Used: N`
      (count `maturity: reviewed` for promoted, check daily notes for used)
    - Cross-pollination map

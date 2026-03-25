@@ -61,14 +61,14 @@ On skip: `**Skip** — [reason] / Domain: [source]`
 
 Before generating any note:
 
-1. Grep `~/code/epigenome/chromatin/` for `^tags:` (glob `*.md`, head\_limit 20) — build existing tag set
-2. Glob `~/code/epigenome/chromatin/*MOC*.md` and `~/code/epigenome/chromatin/Maps/*.md` — find relevant MOCs
+1. Grep `~/epigenome/chromatin/` for `^tags:` (glob `*.md`, head\_limit 20) — build existing tag set
+2. Glob `~/epigenome/chromatin/*MOC*.md` and `~/epigenome/chromatin/Maps/*.md` — find relevant MOCs
 
 **Rule:** Only use tags that already exist in vault. Never invent tags. If nothing fits, leave tags empty.
 
 ## Telemetry
 
-Append one row to `~/code/epigenome/chromatin/Meta/Analyze Telemetry.md`:
+Append one row to `~/epigenome/chromatin/Meta/Analyze Telemetry.md`:
 ```
 | [date] | [input] | [detected_type] | [confidence] | [override?] |
 ```
@@ -79,11 +79,11 @@ After saving the vault note, route its signal outward.
 
 **1. Find related notes (3–5)**
 
-Grep `~/code/epigenome/chromatin/` for the new note's tags and 2–3 key terms from its title/content. Identify the most relevant matches. Append a `**Related:**` line to the saved note with `[[wikilinks]]` to those files.
+Grep `~/epigenome/chromatin/` for the new note's tags and 2–3 key terms from its title/content. Identify the most relevant matches. Append a `**Related:**` line to the saved note with `[[wikilinks]]` to those files.
 
 **2. Consulting forge check**
 
-If the content contains a signal relevant to FS AI governance, model risk, regulatory exposure, or a client-ready use case — append one line to `~/code/epigenome/chromatin/Consulting/_sparks.md` under today's date section (create the date header if absent). Use the existing format:
+If the content contains a signal relevant to FS AI governance, model risk, regulatory exposure, or a client-ready use case — append one line to `~/epigenome/chromatin/Consulting/_sparks.md` under today's date section (create the date header if absent). Use the existing format:
 ```
 - #tag — **Label**: one-sentence insight with FS implication
 ```
@@ -91,7 +91,7 @@ Tags: `#policy-gap`, `#architecture`, `#use-case`, `#experiment-idea`, `#garden-
 
 **3. Praxis check**
 
-Read `~/code/epigenome/chromatin/Praxis.md`. If any open question or TODO item is directly addressed or advanced by the digested content, append a brief note (one sentence + wikilink to the new note) to that item. If no match, skip.
+Read `~/epigenome/chromatin/Praxis.md`. If any open question or TODO item is directly addressed or advanced by the digested content, append a brief note (one sentence + wikilink to the new note) to that item. If no match, skip.
 
 ## Boundaries
 

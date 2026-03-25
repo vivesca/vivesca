@@ -40,4 +40,4 @@ Persona prompting = null or negative single-agent effect. In multi-agent: introd
 
 ## Output
 
-Full vault note: `/Users/terry/code/epigenome/chromatin/Persona vs Procedure in Multi-Agent Systems - Research.md`
+Full vault note: `/Users/terry/epigenome/chromatin/Persona vs Procedure in Multi-Agent Systems - Research.md`

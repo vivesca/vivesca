@@ -50,7 +50,7 @@
 
 Vault files (created at runtime, not in code repo):
 ```
-~/code/epigenome/chromatin/Spending/
+~/epigenome/chromatin/Spending/
 ├── config.yaml
 ├── categories.yaml
 ├── .processed                             # SHA-256 dedup ledger
@@ -2088,33 +2088,33 @@ git commit -m "feat(spending): metabolism substrate for trend analysis"
 ### Task 14: Seed vault config files
 
 **Files:**
-- Create: `~/code/epigenome/chromatin/Spending/config.yaml`
-- Create: `~/code/epigenome/chromatin/Spending/categories.yaml`
+- Create: `~/epigenome/chromatin/Spending/config.yaml`
+- Create: `~/epigenome/chromatin/Spending/categories.yaml`
 
 - [ ] **Step 1: Create spending directory and config**
 
 ```bash
-mkdir -p ~/code/epigenome/chromatin/Spending/statements
+mkdir -p ~/epigenome/chromatin/Spending/statements
 ```
 
 - [ ] **Step 2: Write categories.yaml**
 
-Write `~/code/epigenome/chromatin/Spending/categories.yaml` with the full category map from the spec (all merchants seen in the Mox, HSBC, and CCBA test statements).
+Write `~/epigenome/chromatin/Spending/categories.yaml` with the full category map from the spec (all merchants seen in the Mox, HSBC, and CCBA test statements).
 
 - [ ] **Step 3: Write config.yaml**
 
-Write `~/code/epigenome/chromatin/Spending/config.yaml` with budget targets and expected subscriptions. Ask Terry for the monthly budget figure if not known — default to 15000 HKD.
+Write `~/epigenome/chromatin/Spending/config.yaml` with budget targets and expected subscriptions. Ask Terry for the monthly budget figure if not known — default to 15000 HKD.
 
 - [ ] **Step 4: Add .gitignore for PDFs**
 
 ```bash
-echo "statements/*.pdf" > ~/code/epigenome/chromatin/Spending/.gitignore
+echo "statements/*.pdf" > ~/epigenome/chromatin/Spending/.gitignore
 ```
 
 - [ ] **Step 5: Commit vault files**
 
 ```bash
-cd ~/code/epigenome/chromatin && git add Spending/config.yaml Spending/categories.yaml Spending/.gitignore
+cd ~/epigenome/chromatin && git add Spending/config.yaml Spending/categories.yaml Spending/.gitignore
 git commit -m "feat: seed spending config and categories"
 ```
 
@@ -2137,11 +2137,11 @@ print(result)
 "
 ```
 
-Verify: markdown file created in `~/code/epigenome/chromatin/Spending/2025-01-mox.md`, transactions parsed correctly, alerts list present.
+Verify: markdown file created in `~/epigenome/chromatin/Spending/2025-01-mox.md`, transactions parsed correctly, alerts list present.
 
 - [ ] **Step 2: Inspect the generated markdown**
 
-Read `~/code/epigenome/chromatin/Spending/2025-01-mox.md` and verify it matches the expected format from the spec.
+Read `~/epigenome/chromatin/Spending/2025-01-mox.md` and verify it matches the expected format from the spec.
 
 - [ ] **Step 3: Run the full scan**
 

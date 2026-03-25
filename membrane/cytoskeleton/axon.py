@@ -249,10 +249,10 @@ def guard_bash(data):
         ):
             deny("agent-browser on financial sites blocked.", "bash-guard")
 
-    # 18. rm on ~/code/epigenome/chromatin/*.md
+    # 18. rm on ~/epigenome/chromatin/*.md
     if (
         re.search(r"\brm\b", cmd)
-        and re.search(r"(~/code/epigenome/chromatin/|/Users/terry/code/epigenome/chromatin/)", cmd)
+        and re.search(r"(~/epigenome/chromatin/|/Users/terry/epigenome/chromatin/)", cmd)
         and re.search(r"\.md\b", cmd)
     ):
         deny("Never delete vault notes. Archive instead.", "bash-guard")
@@ -475,7 +475,7 @@ def guard_write(data):
         content = ti.get("content", "") or ti.get("new_string", "")
         if re.search(r"^- \[x\]", content, re.MULTILINE):
             deny(
-                "Edit contains checked items. REMOVE from Praxis.md and APPEND to ~/code/epigenome/chromatin/Praxis Archive.md.",
+                "Edit contains checked items. REMOVE from Praxis.md and APPEND to ~/epigenome/chromatin/Praxis Archive.md.",
                 "write-guard",
             )
 

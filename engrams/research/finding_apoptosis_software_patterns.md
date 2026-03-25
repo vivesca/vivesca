@@ -4,7 +4,7 @@ description: Research into patterns for programmed retirement/death of software 
 type: project
 ---
 
-Researched 2026-03-25. Full findings at `/Users/terry/code/epigenome/chromatin/Reference/apoptosis-software-patterns.md`.
+Researched 2026-03-25. Full findings at `/Users/terry/epigenome/chromatin/Reference/apoptosis-software-patterns.md`.
 
 Key findings:
 

@@ -2,7 +2,7 @@
 """Run the context-window-governance experiment.
 
 3 tasks × 5 context tiers × 10 runs = 150 calls via max20 sonnet.
-Outputs raw results to ~/code/epigenome/chromatin/Consulting/Experiments/results/
+Outputs raw results to ~/epigenome/chromatin/Consulting/Experiments/results/
 
 Usage:
     python3 run-experiment.py

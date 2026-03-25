@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """UserPromptSubmit hook — selective anamnesis at session start.
 
-Fires once per session. Pulls ~/code/epigenome/chromatin, then injects all vivesca resources.
+Fires once per session. Pulls ~/epigenome/chromatin, then injects all vivesca resources.
 Core context (Tonus, constitution) always loads first.
 Optional resources reordered by keyword relevance to the first prompt —
 primacy effect means relevant context gets attended to.

@@ -4,7 +4,7 @@
 # ///
 """AKM Heartbeat — nightly vault health digest via Telegram.
 
-Scans ~/code/epigenome/chromatin/ for stale notes, orphan links, overdue TODOs, and
+Scans ~/epigenome/chromatin/ for stale notes, orphan links, overdue TODOs, and
 prospective memory items due. Sends a consolidated morning digest
 via deltos (Telegram). Designed to feed into /zeitgeber.
 

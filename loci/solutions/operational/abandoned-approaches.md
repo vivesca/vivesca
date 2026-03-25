@@ -7,10 +7,10 @@ Negative knowledge: things we tried and deliberately dropped. Prevents re-litiga
 Daily notes use a consistent `**Abandoned:**` marker. Search with:
 
 ```bash
-grep -r "Abandoned:" ~/code/epigenome/chromatin/Daily/ | head -20
+grep -r "Abandoned:" ~/epigenome/chromatin/Daily/ | head -20
 ```
 
-Or via Grep tool: pattern `Abandoned:`, path `/Users/terry/code/epigenome/chromatin/Daily`.
+Or via Grep tool: pattern `Abandoned:`, path `/Users/terry/epigenome/chromatin/Daily`.
 
 ## Convention
 

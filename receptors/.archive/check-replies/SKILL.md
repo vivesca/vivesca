@@ -22,7 +22,7 @@ Use when:
 ## Workflow
 
 1. **Read context**:
-   - `/Users/terry/code/epigenome/chromatin/Job Hunting.md` — know who to watch for
+   - `/Users/terry/epigenome/chromatin/Job Hunting.md` — know who to watch for
    - Extract key contact names (recruiters, hiring managers, network)
 
 2. **Check Gmail** (via Gmail MCP):

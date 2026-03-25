@@ -7,7 +7,7 @@ tools: ["Bash", "Read", "Grep", "WebSearch", "WebFetch"]
 
 Research a company before a client meeting. Input: company name + meeting context.
 
-1. Vault first: `grep -r "[company name]" ~/code/epigenome/chromatin/` — what do we already know?
+1. Vault first: `grep -r "[company name]" ~/epigenome/chromatin/` — what do we already know?
 2. Web research:
    - Company overview: business model, size, HK/APAC presence
    - Recent news (last 90 days): M&A, leadership changes, regulatory issues, earnings
@@ -20,8 +20,8 @@ Research a company before a client meeting. Input: company name + meeting contex
    - What pain points does a bank of this type typically have?
    - What's the one question that would unlock the conversation?
 
-5. Save research to ~/code/epigenome/chromatin/Archive/Job_Hunting_2026/Prep/[CompanyName].md
-   OR ~/code/epigenome/chromatin/Reference/consulting/clients/[CompanyName].md
+5. Save research to ~/epigenome/chromatin/Archive/Job_Hunting_2026/Prep/[CompanyName].md
+   OR ~/epigenome/chromatin/Reference/consulting/clients/[CompanyName].md
 
 Output: 1-page brief. Business overview → AI posture → risks → conversation opener.
 Time-box web research to the most recent credible sources.

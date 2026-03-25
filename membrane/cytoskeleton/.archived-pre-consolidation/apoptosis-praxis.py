@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """PostToolUse hook: block dismissed items from being added to Praxis.md.
 
-Reads ~/code/epigenome/chromatin/Praxis Dismissed.md for suppressed patterns.
+Reads ~/epigenome/chromatin/Praxis Dismissed.md for suppressed patterns.
 On any Edit/Write to Praxis.md, scans new checkbox lines against the
 dismissed list. If a match is found, prints a warning to stderr
 (advisory hook — does not block the write, but surfaces to the LLM).
@@ -60,7 +60,7 @@ def main():
         print(
             f"DISMISSED ITEM DETECTED in Praxis.md write: {patterns}. "
             f"This item was previously dismissed by Terry. "
-            f"Remove it and do not re-add. See ~/code/epigenome/chromatin/Praxis Dismissed.md.",
+            f"Remove it and do not re-add. See ~/epigenome/chromatin/Praxis Dismissed.md.",
             file=sys.stderr,
         )
 

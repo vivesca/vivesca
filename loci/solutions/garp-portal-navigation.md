@@ -85,7 +85,7 @@ After any re-scrape, run:
 ```bash
 # First back up old files
 mkdir -p ~/tmp/garp-backup
-for n in 1 2 3 4 5; do cp "/Users/terry/code/epigenome/chromatin/GARP RAI Module $n - Raw Content.md" "~/tmp/garp-backup/m${n}-old.md"; done
+for n in 1 2 3 4 5; do cp "/Users/terry/epigenome/chromatin/GARP RAI Module $n - Raw Content.md" "~/tmp/garp-backup/m${n}-old.md"; done
 
 # Then verify new files
 uv run --script ~/bin/verify-garp-scrape.py

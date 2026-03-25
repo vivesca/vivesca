@@ -21,7 +21,7 @@ Monthly maintenance to keep the vault useful. Consolidates learnings, archives s
 The inbox is the "Items" layer — atomic facts waiting to be consolidated into "Category" notes.
 
 ```bash
-wc -l ~/code/epigenome/chromatin/Learnings\ Inbox.md
+wc -l ~/epigenome/chromatin/Learnings\ Inbox.md
 ```
 
 **Review each entry:**
@@ -54,7 +54,7 @@ For each flagged note, decide:
 |--------|------|
 | **Keep as reference** | Evergreen content (frameworks, credentials, historical records) |
 | **Update** | Content is outdated but topic still relevant |
-| **Archive** | No longer relevant → move to `~/code/epigenome/chromatin/.archive/` |
+| **Archive** | No longer relevant → move to `~/epigenome/chromatin/.archive/` |
 | **Delete** | Truly useless (empty stubs, abandoned drafts) |
 
 ### 3. Daily Note Archival
@@ -63,15 +63,15 @@ Daily notes older than 60 days should be archived unless they contain unique ins
 
 ```bash
 # List old daily notes
-ls -la ~/code/epigenome/chromatin/Daily\ Notes/ 2>/dev/null | head -20
+ls -la ~/epigenome/chromatin/Daily\ Notes/ 2>/dev/null | head -20
 # Or if flat structure:
-find ~/code/epigenome/chromatin -name "202[0-9]-[0-9][0-9]-[0-9][0-9]*.md" -mtime +60 | head -20
+find ~/epigenome/chromatin -name "202[0-9]-[0-9][0-9]-[0-9][0-9]*.md" -mtime +60 | head -20
 ```
 
 **Archive process:**
 1. Scan for any insights not yet in Learnings Inbox or topic notes
 2. Extract and consolidate if found
-3. Move daily note to `~/code/epigenome/chromatin/.archive/dailies/`
+3. Move daily note to `~/epigenome/chromatin/.archive/dailies/`
 
 ### 4. Duplicate Detection
 
@@ -79,11 +79,11 @@ Surface notes with similar titles or overlapping content:
 
 ```bash
 # Similar titles
-ls ~/code/epigenome/chromatin/*.md | xargs -I{} basename {} | sort | uniq -d
+ls ~/epigenome/chromatin/*.md | xargs -I{} basename {} | sort | uniq -d
 
 # Notes mentioning same topic
-grep -l "interview prep" ~/code/epigenome/chromatin/*.md | head -10
-grep -l "job hunting" ~/code/epigenome/chromatin/*.md | head -10
+grep -l "interview prep" ~/epigenome/chromatin/*.md | head -10
+grep -l "job hunting" ~/epigenome/chromatin/*.md | head -10
 ```
 
 **Merge candidates:**
@@ -96,7 +96,7 @@ grep -l "job hunting" ~/code/epigenome/chromatin/*.md | head -10
 Verify key links in CLAUDE.md still resolve:
 
 ```bash
-grep -o '\[\[.*\]\]' ~/code/epigenome/chromatin/CLAUDE.md | head -20
+grep -o '\[\[.*\]\]' ~/epigenome/chromatin/CLAUDE.md | head -20
 ```
 
 For each link, confirm the target note exists. Fix broken links.
@@ -135,7 +135,7 @@ For each link, confirm the target note exists. Fix broken links.
 
 ### 6. Save to Vault
 
-Save review to `/Users/terry/code/epigenome/chromatin/Vault Hygiene - YYYY-MM.md`
+Save review to `/Users/terry/epigenome/chromatin/Vault Hygiene - YYYY-MM.md`
 
 ## Quick Version (15 min)
 
@@ -166,7 +166,7 @@ nohup qmd embed > /tmp/qmd-embed.log 2>&1 &
 For notes with `type: person` frontmatter, review access patterns:
 
 ```bash
-grep -l "type: person" ~/code/epigenome/chromatin/*.md | xargs grep -l "access_count"
+grep -l "type: person" ~/epigenome/chromatin/*.md | xargs grep -l "access_count"
 ```
 
 - Notes with `access_count > 5` — Key relationships, keep fresh

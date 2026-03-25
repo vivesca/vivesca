@@ -24,7 +24,7 @@ Use when:
 ## Paths
 
 - **Repo:** `~/repos/waking-up-transcripts/`
-- **Output:** `~/code/epigenome/chromatin/Waking Up/[Pack]/[Title].md`
+- **Output:** `~/epigenome/chromatin/Waking Up/[Pack]/[Title].md`
 - **Cache:** `~/.cache/waking-up-audio/`
 
 ## Workflow
@@ -53,7 +53,7 @@ Use when:
    python download_and_transcribe.py --batch batch.json --model base
    ```
 
-4. **Verify output** in `~/code/epigenome/chromatin/Waking Up/[Pack]/`
+4. **Verify output** in `~/epigenome/chromatin/Waking Up/[Pack]/`
 
 ## Error Handling
 
@@ -63,7 +63,7 @@ Use when:
 
 ## Output
 
-Markdown files in `~/code/epigenome/chromatin/Waking Up/[Pack]/[Title].md`
+Markdown files in `~/epigenome/chromatin/Waking Up/[Pack]/[Title].md`
 
 ## Models
 

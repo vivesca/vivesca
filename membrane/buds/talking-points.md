@@ -9,7 +9,7 @@ Generate 5 fresh AI talking points for the current week. For client conversation
 
 Sources to pull from (use all):
 1. This week's lustro signal: ~/.cache/lustro/relevance.jsonl (last 7 days, score >= 7)
-2. Recent vault sparks: ~/code/epigenome/chromatin/Daily/ last 7 days
+2. Recent vault sparks: ~/epigenome/chromatin/Daily/ last 7 days
 3. Recent regulation-scan output if it exists
 4. Web: search "AI banking news [current week]" for 2-3 breaking items
 
@@ -27,4 +27,4 @@ Angle: [What does this mean for a bank risk/compliance/strategy leader?]
 Source: [where this came from]
 ```
 
-Output: exactly 5 talking points. Save to ~/code/epigenome/chromatin/Reference/consulting/talking-points-YYYY-WNN.md.
+Output: exactly 5 talking points. Save to ~/epigenome/chromatin/Reference/consulting/talking-points-YYYY-WNN.md.

@@ -33,7 +33,7 @@ from metabolon.cytosol import invoke_organelle, synthesize
 from metabolon.morphology import EffectorResult, Secretion
 
 HKT = timezone(timedelta(hours=8))
-NOTES = os.path.expanduser("~/code/epigenome/chromatin")
+NOTES = os.path.expanduser("~/epigenome/chromatin")
 
 # -- Chaperones: quality control before export --------------------------------
 # Cell biology: chaperones verify protein folding before secretion.
@@ -237,7 +237,7 @@ def emit_vault_note(
     content: str,
     mode: str = "append",
 ) -> EffectorResult:
-    """Write to a vault note. Path relative to ~/code/epigenome/chromatin/.
+    """Write to a vault note. Path relative to ~/epigenome/chromatin/.
 
     mode: 'append' adds to end, 'write' overwrites.
     """

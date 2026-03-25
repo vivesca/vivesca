@@ -35,7 +35,7 @@ Before asking about a person, company, or context:
 
 1. **Search the vault first**:
    ```
-   Grep: pattern="PersonName" path="/Users/terry/code/epigenome/chromatin"
+   Grep: pattern="PersonName" path="/Users/terry/epigenome/chromatin"
    ```
 
 2. **Check Active Pipeline** for job-related context

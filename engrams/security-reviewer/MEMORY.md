@@ -16,7 +16,7 @@
 - ~~**CRIT**: `~/officina/bin/cg` — hardcoded ZhipuAI API key committed to git repo.~~ **FIXED 2026-03-20** — now uses `${ZHIPU_API_KEY:?}` env var; key rotated; git history scrubbed. Commit: `383bd0c`.
 - ~~**CRIT**: `~/.claude/hooks/notification-telegram.sh` — unquoted `$MSG` in `curl -d text=`.~~ **FIXED 2026-03-20** — `$MSG` is double-quoted; curl invocation reviewed and accepted as low-risk for notification payloads.
 - **MED**: `~/scripts/imessage.sh` — `$MESSAGE` interpolated into Python source string. Use `sys.argv[1]` instead.
-- **MED**: `~/scripts/opencode-queue.py` — executes tasks from `~/code/epigenome/chromatin/agent-queue.yaml` without validating `backend` or `working_dir`. YAML file is in the Obsidian vault (synced, pull-on-session).
+- **MED**: `~/scripts/opencode-queue.py` — executes tasks from `~/epigenome/chromatin/agent-queue.yaml` without validating `backend` or `working_dir`. YAML file is in the Obsidian vault (synced, pull-on-session).
 - **LOW**: `~/.claude/hooks/glob-guard.js` — unscoped `**` glob passes through when `path` param is empty.
 - **LOW**: `~/officina/bin/cg` — `--dangerously-skip-permissions` bypasses all PreToolUse hooks.
 - **LOW**: `~/officina/launchd/com.terry.theoros.plist` — empty ANTHROPIC_API_KEY placeholder; remove it.
@@ -32,7 +32,7 @@
 1. **Convenience scripts bypass the keychain architecture** — tg-notify, tg-clip, job-heartbeat were written before keychain-env existed. When reviewing new scripts, check if they hardcode creds that keychain-env already manages.
 2. **Shell variable interpolation into Python `-c` strings** — seen in imessage.sh. Pattern: `python3 -c "...${VAR}..."` — always use `sys.argv`.
 3. **Unquoted variables in curl `-d`** — seen in notification-telegram.sh. `-d text="$VAR"` does not properly URL-encode; use `--data-urlencode`.
-4. **YAML/config files in synced vault as untrusted input to command execution** — agent-queue.yaml is in `~/code/epigenome/chromatin/` which is Obsidian-synced and git-pulled on every session. Validate fields from this source.
+4. **YAML/config files in synced vault as untrusted input to command execution** — agent-queue.yaml is in `~/epigenome/chromatin/` which is Obsidian-synced and git-pulled on every session. Validate fields from this source.
 
 ### Framework-Specific Notes
 - Claude Code hooks receive tool input as JSON on stdin. Always parse with JSON.parse/json.load — never eval.

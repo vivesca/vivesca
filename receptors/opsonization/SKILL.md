@@ -28,17 +28,17 @@ Scenario-based drill for upcoming meetings. Generates likely questions, objectio
 
 If the user provides a meeting description, use it directly. If they reference a note or person, read the relevant vault files:
 
-- `~/code/epigenome/chromatin/MOC - Capco & HSBC Engagement.md` — if Capco/HSBC-related
-- `~/code/epigenome/chromatin/Job Hunting.md` — CV narrative, comp, story framing
-- `~/code/epigenome/chromatin/Interview Q&A Bank.md` — prepared answers for common questions
-- `~/code/epigenome/chromatin/Core Story Bank.md` — STAR-format behavioral stories
-- `~/code/epigenome/chromatin/Praxis.md` — for meeting-specific context and deadlines
+- `~/epigenome/chromatin/MOC - Capco & HSBC Engagement.md` — if Capco/HSBC-related
+- `~/epigenome/chromatin/Job Hunting.md` — CV narrative, comp, story framing
+- `~/epigenome/chromatin/Interview Q&A Bank.md` — prepared answers for common questions
+- `~/epigenome/chromatin/Core Story Bank.md` — STAR-format behavioral stories
+- `~/epigenome/chromatin/Praxis.md` — for meeting-specific context and deadlines
 - Any person-specific or company-specific notes the user mentions
 
 Also read these for Terry's personal background and career context:
-- `~/code/epigenome/chromatin/Capco/Capco Transition.md` — current role, transition context, Capco engagement
-- `~/code/epigenome/chromatin/CNCBI Project Facts.md` — CNCBI project history, achievements, key facts
-- `~/code/epigenome/chromatin/Core Story Bank.md` — STAR-format behavioral stories for behavioral questions
+- `~/epigenome/chromatin/Capco/Capco Transition.md` — current role, transition context, Capco engagement
+- `~/epigenome/chromatin/CNCBI Project Facts.md` — CNCBI project history, achievements, key facts
+- `~/epigenome/chromatin/Core Story Bank.md` — STAR-format behavioral stories for behavioral questions
 
 ### 2. Generate Question
 
@@ -96,7 +96,7 @@ After the user answers:
 
 ### 6. Save Prep Notes (optional)
 
-Ask if they want to save. If yes, save to `~/code/epigenome/chromatin/Meeting Prep - [Context].md` with:
+Ask if they want to save. If yes, save to `~/epigenome/chromatin/Meeting Prep - [Context].md` with:
 - Meeting context header
 - Key talking points (best framings from session)
 - Any flagged blind spots
@@ -105,7 +105,7 @@ Ask if they want to save. If yes, save to `~/code/epigenome/chromatin/Meeting Pr
 ## Error Handling
 
 - **If no meeting context given**: Ask via AskUserQuestion — "Which meeting are you prepping for?" with recent upcoming meetings from Praxis.md as options
-- **If referenced note doesn't exist**: Fall back to user's description + background from `~/code/epigenome/chromatin/Capco/Capco Transition.md` and `~/code/epigenome/chromatin/CNCBI Project Facts.md`
+- **If referenced note doesn't exist**: Fall back to user's description + background from `~/epigenome/chromatin/Capco/Capco Transition.md` and `~/epigenome/chromatin/CNCBI Project Facts.md`
 - **If user wants to stop mid-session**: Show partial summary with talking points so far
 
 ## Output

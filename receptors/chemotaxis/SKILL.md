@@ -52,9 +52,9 @@ For each pattern found, classify:
 
 ### 4. Persist — Write findings
 
-For high-priority patterns tagged `capco` or `governance`, also append to `~/code/epigenome/chromatin/Consulting/_sparks.md` under today's date: `- #[capco|governance] — **[Pattern name]**: [one-line consulting implication]`
+For high-priority patterns tagged `capco` or `governance`, also append to `~/epigenome/chromatin/Consulting/_sparks.md` under today's date: `- #[capco|governance] — **[Pattern name]**: [one-line consulting implication]`
 
-Output vault note: `~/code/epigenome/chromatin/Specula/YYYY-MM Peer Scan.md`
+Output vault note: `~/epigenome/chromatin/Specula/YYYY-MM Peer Scan.md`
 
 Structure:
 ```markdown

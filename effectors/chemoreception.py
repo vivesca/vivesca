@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-UserPromptSubmit hook: keyword-based retrieval over ~/code/epigenome/chromatin/Reference/.
+UserPromptSubmit hook: keyword-based retrieval over ~/epigenome/chromatin/Reference/.
 Scans markdown files for relevance to the user prompt, injects top matches
 as context. Lightweight — no embeddings, just TF-IDF-style scoring.
 """

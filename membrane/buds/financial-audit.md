@@ -8,11 +8,11 @@ skills: ["homeostasis"]
 
 Audit Terry's financial status. Check these sources:
 
-1. `~/code/epigenome/chromatin/Praxis.md` — scan for financial items (IBKR, MPF, Bowtie, tax, mortgage, insurance)
-2. `~/code/epigenome/chromatin/Personal Finance Reference.md` — baseline figures
-3. `~/code/epigenome/chromatin/Finance/` and `~/code/epigenome/chromatin/Financial/` directories — any recent notes
+1. `~/epigenome/chromatin/Praxis.md` — scan for financial items (IBKR, MPF, Bowtie, tax, mortgage, insurance)
+2. `~/epigenome/chromatin/Personal Finance Reference.md` — baseline figures
+3. `~/epigenome/chromatin/Finance/` and `~/epigenome/chromatin/Financial/` directories — any recent notes
 4. `~/.claude/projects/-Users-terry/memory/user_financial_constraints.md` — constraints
-5. `~/code/epigenome/chromatin/Pre-Capco Countdown - Apr 8 Deadline.md` — time-sensitive items
+5. `~/epigenome/chromatin/Pre-Capco Countdown - Apr 8 Deadline.md` — time-sensitive items
 
 For each item found:
 - Status: done / in-progress / overdue / upcoming

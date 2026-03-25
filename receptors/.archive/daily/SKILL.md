@@ -33,7 +33,7 @@ Use when:
    - `mcp__oura__get_today_readiness_data` — get readiness score, HRV, recovery index
    - `mcp__oura__get_today_resilience_data` — get resilience level and stress score
 
-4. **Check for existing note** at `/Users/terry/code/epigenome/chromatin/YYYY-MM-DD.md`
+4. **Check for existing note** at `/Users/terry/epigenome/chromatin/YYYY-MM-DD.md`
 
 5. **Walk through each section** conversationally:
    - **Job Search Activity**: Applications, status updates, pipeline changes
@@ -43,7 +43,7 @@ Use when:
 
 6. **Create or update the note** using template below
 
-7. **Save to vault** at `/Users/terry/code/epigenome/chromatin/YYYY-MM-DD.md`
+7. **Save to vault** at `/Users/terry/epigenome/chromatin/YYYY-MM-DD.md`
 
 ## Error Handling
 
@@ -85,7 +85,7 @@ Use when:
 [Include Oura context in mood assessment]
 ```
 
-**Location:** `/Users/terry/code/epigenome/chromatin/YYYY-MM-DD.md`
+**Location:** `/Users/terry/epigenome/chromatin/YYYY-MM-DD.md`
 
 ## Examples
 

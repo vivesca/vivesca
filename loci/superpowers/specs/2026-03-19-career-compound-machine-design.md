@@ -34,10 +34,10 @@ Everything else — daily sparks, weekly forge, garden posts, intelligence brief
 
 ## Asset Schema & Storage
 
-All consulting IP lives under `~/code/epigenome/chromatin/Consulting/`:
+All consulting IP lives under `~/epigenome/chromatin/Consulting/`:
 
 ```
-~/code/epigenome/chromatin/Consulting/
+~/epigenome/chromatin/Consulting/
 ├── Policies/          # FS AI governance P&P templates
 ├── Architectures/     # Reference AI agent solution architectures
 ├── Use Cases/         # FS AI use case library
@@ -138,7 +138,7 @@ Experiments (designed by weekly agent, executed manually or via heuretes)
 **Runtime:** <2 minutes
 
 **Inputs:**
-- Lustro output from previous 24h (`~/code/epigenome/chromatin/AI News Log.md`, last 24h entries)
+- Lustro output from previous 24h (`~/epigenome/chromatin/AI News Log.md`, last 24h entries)
 - Calendar for today + tomorrow (fasti)
 - Existing `_sparks.md` (to avoid duplicates)
 
@@ -172,7 +172,7 @@ Experiments (designed by weekly agent, executed manually or via heuretes)
 
 **Inputs:**
 - Week's `_sparks.md` (pre-triaged by daily agents)
-- Thalamus landscape notes (`~/code/epigenome/chromatin/Thalamus.md`) — lead agent synthesises directly, no dialexis dependency
+- Thalamus landscape notes (`~/epigenome/chromatin/Thalamus.md`) — lead agent synthesises directly, no dialexis dependency
 - Git log of client work committed that week
 - Existing library (for dedup + gap identification)
 - North Star doc (taste filter)
@@ -193,7 +193,7 @@ Experiments (designed by weekly agent, executed manually or via heuretes)
    - Sends summary via Telegram (deltos)
 
 **Worker output rules:**
-- Each worker creates files directly in the appropriate `~/code/epigenome/chromatin/Consulting/` subdirectory
+- Each worker creates files directly in the appropriate `~/epigenome/chromatin/Consulting/` subdirectory
 - Filenames: `YYYY-MM-DD-slug.md` with standard frontmatter
 - Workers read existing library to avoid duplicates and to enrich existing entries
 - Workers flag items that upgrade existing drafts (e.g. a new data point that strengthens an existing use case)
@@ -202,7 +202,7 @@ Experiments (designed by weekly agent, executed manually or via heuretes)
 
 Build only what's needed to test the loop:
 
-1. **Create directory structure** — `~/code/epigenome/chromatin/Consulting/` with subdirectories
+1. **Create directory structure** — `~/epigenome/chromatin/Consulting/` with subdirectories
 2. **Seed the library** — generalize HSBC work into 3-5 initial assets
 3. **Daily spark agent** — `daily-spark.py` + LaunchAgent
 4. **`/forge` skill** — manual weekly batch trigger

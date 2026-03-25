@@ -14,7 +14,7 @@ Audit the vivesca organism's health and autonomy. Check:
 4. LaunchAgent health: `launchctl list | grep vivesca` — are all services running?
 5. MCP server: check if vivesca MCP is responsive
 6. Memory: count files in `~/.claude/projects/-Users-terry/memory/` — is it growing unbounded?
-7. `~/code/epigenome/chromatin/Praxis.md` — system/tool items
+7. `~/epigenome/chromatin/Praxis.md` — system/tool items
 
 Assess:
 - What percentage of workflows are self-governing vs need Terry?

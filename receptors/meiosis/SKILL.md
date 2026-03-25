@@ -23,7 +23,7 @@ First Saturday of March, June, September, December — after `/ecdysis` and `/mi
 
 ### 1. Direction audit
 
-Read `~/code/epigenome/chromatin/Life OS.md`. For each domain ask:
+Read `~/epigenome/chromatin/Life OS.md`. For each domain ask:
 - Is this still the right framing?
 - Has anything shifted?
 - Is the listed "next step" still relevant or stale?
@@ -67,7 +67,7 @@ Skip in Q1-Q3. In Q4, add:
 
 ### 6. Quarterly note
 
-Create `~/code/epigenome/chromatin/Quarterly/YYYY-QX.md`:
+Create `~/epigenome/chromatin/Quarterly/YYYY-QX.md`:
 
 ```markdown
 # YYYY QX Review

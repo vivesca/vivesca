@@ -58,7 +58,7 @@ Scraped 47 cover images from every.to (CloudFront CDN, `robots.txt` allows AI cr
 - **Anachronistic juxtaposition** — classical figures + modern tech objects
 - **Editorial magazine composition** — single focal figure, clean negative space
 
-### Curated 10 (source: `~/code/epigenome/chromatin/assets/every-covers/`)
+### Curated 10 (source: `~/epigenome/chromatin/assets/every-covers/`)
 
 | # | File | Subject | Background |
 |---|------|---------|------------|
@@ -106,7 +106,7 @@ Cloudflare blocks headless automation on midjourney.com. Do this in Chrome:
 
 1. Go to [midjourney.com/moodboards](https://www.midjourney.com/moodboards) (must be logged in)
 2. Click **Create New Moodboard**
-3. Paste these CloudFront URLs one at a time (or drag-drop the files from `~/code/epigenome/chromatin/assets/every-covers/`)
+3. Paste these CloudFront URLs one at a time (or drag-drop the files from `~/epigenome/chromatin/assets/every-covers/`)
 4. Name it "Every Editorial" or similar
 5. Copy the moodboard code → update this doc + `midjourney-reference.md`
 

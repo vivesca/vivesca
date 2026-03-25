@@ -21,7 +21,7 @@ For simple read/write operations, prefer direct file access (faster, no CLI over
 ## Prerequisites
 
 - `obsidian-cli` installed (`/opt/homebrew/bin/obsidian-cli`)
-- Default vault configured (Terry's vault: `/Users/terry/code/epigenome/chromatin`)
+- Default vault configured (Terry's vault: `/Users/terry/epigenome/chromatin`)
 
 ## Commands
 
@@ -103,7 +103,7 @@ When renaming a note that's linked from other notes:
 
 **Wrong way** (breaks links):
 ```bash
-mv "~/code/epigenome/chromatin/Old Name.md" "~/code/epigenome/chromatin/New Name.md"
+mv "~/epigenome/chromatin/Old Name.md" "~/epigenome/chromatin/New Name.md"
 ```
 
 **Right way** (updates links):

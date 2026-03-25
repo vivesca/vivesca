@@ -60,7 +60,7 @@ Terry already has rich data sources (Oura, calendar, vault, email, amicus) and c
 
 - Runs at 5am via LaunchAgent
 - Sources: HSBC news + filings, Capco publications, HKMA/MAS/FCA regulatory updates, McKinsey/BCG/Deloitte AI consulting moves
-- Output: digest written to `~/code/epigenome/chromatin/Capco/Daily Intelligence/YYYY-MM-DD-digest.md`
+- Output: digest written to `~/epigenome/chromatin/Capco/Daily Intelligence/YYYY-MM-DD-digest.md`
 - Summary pushed to Telegram
 
 ### 6. Health layer
@@ -75,7 +75,7 @@ Terry already has rich data sources (Oura, calendar, vault, email, amicus) and c
 
 - Config: `~/.config/comes/config.toml` (API keys, Oura token, Telegram chat ID)
 - State: `~/.config/comes/state.json` (drill history, last overnight run, health trend, coaching sessions)
-- Vault output: `~/code/epigenome/chromatin/Capco/Daily Intelligence/` for overnight digests
+- Vault output: `~/epigenome/chromatin/Capco/Daily Intelligence/` for overnight digests
 
 ## Integrations
 
@@ -84,7 +84,7 @@ Terry already has rich data sources (Oura, calendar, vault, email, amicus) and c
 | Oura Ring | Oura API (personal access token) |
 | Telegram | Bot API (already used by deltos/daemon pattern) |
 | Due | moneo CLI |
-| Obsidian vault | Direct file writes to `~/code/epigenome/chromatin/` |
+| Obsidian vault | Direct file writes to `~/epigenome/chromatin/` |
 | Calendar | fasti/gog calendar list |
 | Research | noesis (OpenRouter) |
 | Transcription | Whisper API |
@@ -146,4 +146,4 @@ The Telegram bot also becomes the natural interface for anything interactive on 
 - `capco-prep` skill (retiring Apr 8) — drill questions migrate to `comes coach`
 - `oura` skill — Oura API pattern to reuse
 - `auspex` skill — morning brief pattern, `comes brief` extends/replaces for this use case
-- `~/code/epigenome/chromatin/Capco/` — vault home for overnight digests and drill state
+- `~/epigenome/chromatin/Capco/` — vault home for overnight digests and drill state

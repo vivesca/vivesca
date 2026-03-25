@@ -21,7 +21,7 @@
 
 ## How to Think
 
-Match situation to operation. Depth in `~/code/epigenome/chromatin/Reference/epistemics/`.
+Match situation to operation. Depth in `~/epigenome/chromatin/Reference/epistemics/`.
 
 | I need to... | Do this |
 |-------------|---------|
@@ -130,7 +130,7 @@ Capture is continuous, not terminal. Route findings the moment they surface — 
 | Publishable insight | Garden post via `sarcio new` or tweet draft | `exocytosis_text` |
 | Tool gotcha / how-to | `~/docs/solutions/` | Write |
 | State change | Tonus.md | Edit |
-| Reference knowledge (atomic) | `~/code/epigenome/chromatin/Reference/<category>/` + `memory/finding_*.md` | Write |
+| Reference knowledge (atomic) | `~/epigenome/chromatin/Reference/<category>/` + `memory/finding_*.md` | Write |
 
 **Dual-audience rule.** Human-facing artifacts (vault notes, garden posts) always get a companion `memory/finding_*.md` so a fresh session can recall the finding without searching. Two audiences, two files.
 
@@ -154,7 +154,7 @@ When triaging what to capture:
 
 ## Session Start
 
-1. Read `~/code/epigenome/chromatin/Tonus.md`
+1. Read `~/epigenome/chromatin/Tonus.md`
 2. Call `interoception(glycogen)` for token budget
 3. Call `interoception(circadian)` for today's calendar
 4. Call `interoception(vitals)` for health/activity context
@@ -169,7 +169,7 @@ When triaging what to capture:
 
 ## Knowledge Architecture
 
-`interoception(genome)` = rules + meta + tool routing. `MEMORY.md` = gotchas. `~/code/epigenome/chromatin/Reference/` = atomic docs. Solutions KB = how-tos.
+`interoception(genome)` = rules + meta + tool routing. `MEMORY.md` = gotchas. `~/epigenome/chromatin/Reference/` = atomic docs. Solutions KB = how-tos.
 
 **Match form to access pattern.** Always-loaded → constitution. On-demand → atomic + wikilinked (Reference/). Path-scoped → `.claude/rules/`.
 
@@ -177,7 +177,7 @@ When triaging what to capture:
 
 **Constitutional hygiene.** Promotion has a demotion twin: monthly review asks "which rules haven't fired?" Demote to Reference or kill. If the constitution grows 20% beyond its current size, pruning is mandatory before adding. Metabolism signals inform this — zero-signal rules are candidates. The constitution metabolises itself. Memory is crystallised experience; it dissolves into three knowledge artifacts (constitution, reference/skill, program) and ultimately into unnecessary.
 
-**Reference docs:** `~/code/epigenome/chromatin/Reference/` — browse `ls <subdir>`, search `grep`, traverse `[[wikilinks]]`. Categories: search, epistemics, vault, development, browser-automation, consulting, personal, automation, comms.
+**Reference docs:** `~/epigenome/chromatin/Reference/` — browse `ls <subdir>`, search `grep`, traverse `[[wikilinks]]`. Categories: search, epistemics, vault, development, browser-automation, consulting, personal, automation, comms.
 
 ## Autonomy
 

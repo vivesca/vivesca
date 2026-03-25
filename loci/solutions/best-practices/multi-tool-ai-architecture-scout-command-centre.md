@@ -12,7 +12,7 @@ resolution_type: process_change
 severity: low
 tags: [ai-tools, openclaw, claude-code, architecture, delegation, cron]
 related_files:
-  - ~/code/epigenome/chromatin/AI Tool Architecture.md
+  - ~/epigenome/chromatin/AI Tool Architecture.md
   - ~/agent-config/openclaw/AGENTS.md
   - ~/CLAUDE.md
   - ~/skills/claude-code/SKILL.md
@@ -71,11 +71,11 @@ Push work downward to the cheapest capable tool:
 
 - When adding a new AI tool, explicitly define its role relative to existing tools
 - Document escalation paths (who delegates to whom, and when)
-- Keep the architecture doc (`~/code/epigenome/chromatin/AI Tool Architecture.md`) updated
+- Keep the architecture doc (`~/epigenome/chromatin/AI Tool Architecture.md`) updated
 - Review cron jobs monthly — dead crons waste scout cycles
 
 ## Related
 
-- `~/code/epigenome/chromatin/AI Tool Architecture.md` — full framing with diagrams
+- `~/epigenome/chromatin/AI Tool Architecture.md` — full framing with diagrams
 - delegation-reference skill — routing tables for Claude Code's delegates
 - `~/.openclaw/cron/jobs.json` — OpenClaw cron configuration

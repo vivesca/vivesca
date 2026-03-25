@@ -1,6 +1,6 @@
 ## Tool & CLI Index
 
-When triggers match, run the tool directly. Reference docs in `~/code/epigenome/chromatin/Reference/` for depth.
+When triggers match, run the tool directly. Reference docs in `~/epigenome/chromatin/Reference/` for depth.
 
 ### Communication
 | Trigger | Tool |
@@ -62,7 +62,7 @@ When triggers match, run the tool directly. Reference docs in `~/code/epigenome/
 | Extract page content (structured) | `navigator` (praeses MCP — fallbacks baked in) |
 | Screenshot a page | `navigator` |
 | Check browser auth | `navigator` |
-| Raw browser commands | `agent-browser` → see `~/code/epigenome/chromatin/Reference/browser-automation/` |
+| Raw browser commands | `agent-browser` → see `~/epigenome/chromatin/Reference/browser-automation/` |
 | Cookie bridge | `porta inject` |
 | Website auth | `tessera` |
 

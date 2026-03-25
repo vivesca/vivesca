@@ -140,7 +140,7 @@ at 1/3 the cost would produce 80% of the value, use buds.
 | secretion/exocytosis | **Secretory vesicles** | Output (Telegram, X, LinkedIn) |
 | translocation_* | **Kinesin** | Scheduled transport along cytoskeleton |
 | histone_* | **Chromatin remodeling** | Memory marking and modification |
-| chromatin (`~/code/epigenome/chromatin/`) | **Chromatin** | Long-term information in accessible form — the vault absorbed into the epigenome |
+| chromatin (`~/epigenome/chromatin/`) | **Chromatin** | Long-term information in accessible form — the vault absorbed into the epigenome |
 | infection.py | **Immune response** | Acute + chronic pattern detection |
 | setpoint.py | **Homeostatic setpoints** | Thresholds with hysteresis |
 | gradient.py | **Proprioception** | Gradient sensing with sensor topology |
@@ -161,8 +161,8 @@ at 1/3 the cost would produce 80% of the value, use buds.
 | Repo | Costume | Mechanism |
 |------|---------|-----------|
 | `~/code/vivesca/` (public) | **Genome** | Shareable, forkable, universal |
-| `~/code/epigenome/` (private) | **Epigenome** | Instance-specific expression |
-| `~/code/epigenome/chromatin/` | **Chromatin** | Long-term information storage within the epigenome; `~/code/epigenome/chromatin/` is a transitional symlink |
+| `~/epigenome/` (private) | **Epigenome** | Instance-specific expression |
+| `~/epigenome/chromatin/` | **Chromatin** | Long-term information storage within the epigenome; `~/epigenome/chromatin/` is a transitional symlink |
 
 ## CC Platform Concepts
 

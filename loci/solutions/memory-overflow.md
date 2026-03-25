@@ -62,18 +62,18 @@ Reviewed weekly in `/weekly`. Promote back to MEMORY.md if cited 2+ weeks runnin
 - **Fallback commands:** `ck` (Kimi K2.5), `cg` (GLM-5) — scripts in `~/bin/`, isolated `$HOME` dirs.
 - **`customApiKeyResponses` in `.claude.json`:** Keys stored as last 20 chars. Pre-approve in `approved` array.
 - **Isolated HOME required:** Scripts with `export` + `exec` are the clean approach.
-- **Full setup:** `~/code/epigenome/chromatin/solutions/Claude Code with Kimi K2 Setup.md`
+- **Full setup:** `~/epigenome/chromatin/solutions/Claude Code with Kimi K2 Setup.md`
 
 ## Networking Emails
 - **Calibrate status in language.** "Compare notes" implies peer-level — inappropriate for senior recipients. Use curiosity framing.
-- **LinkedIn slug ≠ GitHub handle:** `terrylihm` (LinkedIn) vs `terry-li-hm` (GitHub). Verify from `~/code/epigenome/chromatin/Personal Details for Applications.md`.
+- **LinkedIn slug ≠ GitHub handle:** `terrylihm` (LinkedIn) vs `terry-li-hm` (GitHub). Verify from `~/epigenome/chromatin/Personal Details for Applications.md`.
 
 ## Work Email Drafts
 - **Compliance/FCC emails: start at 3 lines, not 3 paragraphs.** Don't repeat recipient's numbers, don't explain internal mechanics, don't editorialize. Just answer the question.
 
 ## Financial / Investing
 - **Bank employee brokerage compliance:** Don't open new brokerage accounts while employed at a bank. Wait until after formal employment ends.
-- **IBKR HK is the only HK broker with self-service LSE access.** Full analysis in `~/code/epigenome/chromatin/Investing Strategy.md`.
+- **IBKR HK is the only HK broker with self-service LSE access.** Full analysis in `~/epigenome/chromatin/Investing Strategy.md`.
 
 ## AI Model Availability
 - **Verify API/CLI access before adopting social media model recommendations.** Always test first. Model status → `delegate` skill.

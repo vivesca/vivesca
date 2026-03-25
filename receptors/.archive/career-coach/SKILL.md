@@ -31,9 +31,9 @@ Strategic career coaching — reframe signals, pressure-test reasoning, evaluate
 Read these files (skip if already in context from this session):
 
 ```
-/Users/terry/code/epigenome/chromatin/CLAUDE.md          — personal background, situation
-/Users/terry/code/epigenome/chromatin/Active Pipeline.md — live pipeline (offers, interviews, leads)
-/Users/terry/code/epigenome/chromatin/Job Hunting.md     — comp, market signals, differentiators, wins/objections
+/Users/terry/epigenome/chromatin/CLAUDE.md          — personal background, situation
+/Users/terry/epigenome/chromatin/Active Pipeline.md — live pipeline (offers, interviews, leads)
+/Users/terry/epigenome/chromatin/Job Hunting.md     — comp, market signals, differentiators, wins/objections
 ```
 
 Key facts to have loaded:
