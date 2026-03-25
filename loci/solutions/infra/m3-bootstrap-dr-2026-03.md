@@ -338,20 +338,20 @@ for plist in ~/officina/launchd/com.terry.*.plist ~/officina/launchd/md.obsidian
 done
 ```
 
-Covers: `blog-sync`, `csb-ai-jobs`, `due-backup`, `garden-auto`, `lustro-*`, `nyx-monthly`, `oghma-*`, `oura-sync`, `pharos-sync`, `pondus-monitor`, `qmd-reindex`, `rotate-logs`, `speculor`, `update-coding-tools`, `usus-watch`, `vault-git-backup`, `wacli-sync`, `wewe-rss-health`, `obsidian-sync-headless`
+Covers: `blog-sync`, `csb-ai-jobs`, `due-backup`, `exocytosis`, `lustro-*`, `nyx-monthly`, `oghma-*`, `oura-sync`, `pharos-sync`, `pondus-monitor`, `qmd-reindex`, `rotate-logs`, `speculor`, `update-coding-tools`, `usus-watch`, `vault-git-backup`, `wacli-sync`, `wewe-rss-health`, `obsidian-sync-headless`
 
 **Type B — copies (manual install required):**
 These are standalone plists not in officina. Copy from primary:
 
 ```bash
 scp primary:~/Library/LaunchAgents/com.terry.nightly.plist ~/Library/LaunchAgents/
-scp primary:~/Library/LaunchAgents/com.terry.akm-heartbeat.plist ~/Library/LaunchAgents/
+scp primary:~/Library/LaunchAgents/com.terry.circadian-probe.plist ~/Library/LaunchAgents/
 scp primary:~/Library/LaunchAgents/com.terry.due-snapshot.plist ~/Library/LaunchAgents/
 scp primary:~/Library/LaunchAgents/com.terry.forge-spark.plist ~/Library/LaunchAgents/
 scp primary:~/Library/LaunchAgents/com.terry.launchagent-health.plist ~/Library/LaunchAgents/
 scp primary:~/Library/LaunchAgents/com.terry.location-receiver.plist ~/Library/LaunchAgents/
 scp primary:~/Library/LaunchAgents/com.terry.praeco.plist ~/Library/LaunchAgents/
-scp primary:~/Library/LaunchAgents/com.terry.vault-consume-snap.plist ~/Library/LaunchAgents/
+scp primary:~/Library/LaunchAgents/com.terry.phagocytosis.plist ~/Library/LaunchAgents/
 scp primary:~/Library/LaunchAgents/com.terry.wacli-catchup.plist ~/Library/LaunchAgents/
 scp primary:~/Library/LaunchAgents/com.terry.x-feed-lustro.plist ~/Library/LaunchAgents/
 # Legatus family:

@@ -8,7 +8,7 @@ Scans ~/code/vivesca-terry/chromatin/ for stale notes, orphan links, overdue TOD
 prospective memory items due. Sends a consolidated morning digest
 via deltos (Telegram). Designed to feed into /zeitgeber.
 
-Runs as a LaunchAgent: com.terry.akm-heartbeat
+Runs as a LaunchAgent: com.terry.circadian-probe
 """
 
 import re
