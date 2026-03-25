@@ -8,7 +8,7 @@ from pathlib import Path
 
 from pypdf import PdfReader
 
-from metabolon.spending.schema import StatementMeta, Transaction
+from metabolon.respirometry.schema import StatementMeta, Transaction
 
 # Transaction line: DD-MON DD-MON description  location  HKG  amount [CR]
 _TXN_PAT = re.compile(

@@ -1,6 +1,6 @@
 """Tests for parser dispatch."""
 
-from metabolon.spending.parsers import get_parser
+from metabolon.respirometry.parsers import get_parser
 
 
 def test_get_mox_parser():

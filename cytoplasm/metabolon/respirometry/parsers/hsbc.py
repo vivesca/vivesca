@@ -8,7 +8,7 @@ from pathlib import Path
 
 from pypdf import PdfReader
 
-from metabolon.spending.schema import StatementMeta, Transaction
+from metabolon.respirometry.schema import StatementMeta, Transaction
 
 # Lines that are continuation descriptors, not transactions
 _SKIP_LINES = re.compile(

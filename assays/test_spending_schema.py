@@ -1,6 +1,6 @@
 """Tests for spending transaction schema."""
 
-from metabolon.spending.schema import StatementMeta, Transaction
+from metabolon.respirometry.schema import StatementMeta, Transaction
 
 
 def test_transaction_charge():

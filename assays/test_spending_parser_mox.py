@@ -4,8 +4,8 @@ from pathlib import Path
 
 import pytest
 
-from metabolon.spending.parsers.mox import parse_mox
-from metabolon.spending.schema import StatementMeta
+from metabolon.respirometry.parsers.mox import parse_mox
+from metabolon.respirometry.schema import StatementMeta
 
 FIXTURE = Path(__file__).parent / "fixtures" / "mox_jan2025.pdf"
 

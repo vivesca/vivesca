@@ -1,7 +1,7 @@
 """Tests for vault writing, PDF archival, and deduplication."""
 
-from metabolon.spending.schema import StatementMeta, Transaction
-from metabolon.spending.vault import (
+from metabolon.respirometry.schema import StatementMeta, Transaction
+from metabolon.respirometry.vault import (
     format_markdown,
     is_processed,
     mark_processed,

@@ -8,7 +8,7 @@ import shutil
 from datetime import datetime
 from pathlib import Path
 
-from metabolon.spending.schema import StatementMeta, Transaction
+from metabolon.respirometry.schema import StatementMeta, Transaction
 
 
 def format_markdown(meta: StatementMeta, transactions: list[Transaction]) -> str:

@@ -4,8 +4,8 @@ from pathlib import Path
 
 import pytest
 
-from metabolon.spending.parsers.hsbc import parse_hsbc
-from metabolon.spending.schema import StatementMeta
+from metabolon.respirometry.parsers.hsbc import parse_hsbc
+from metabolon.respirometry.schema import StatementMeta
 
 FIXTURE = Path(__file__).parent / "fixtures" / "hsbc_mar2025.pdf"
 FIXTURE_FEB = Path(__file__).parent / "fixtures" / "hsbc_feb2025.pdf"

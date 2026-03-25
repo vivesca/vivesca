@@ -1,6 +1,6 @@
 """Tests for merchant categorisation."""
 
-from metabolon.spending.categories import categorise, load_categories
+from metabolon.respirometry.categories import categorise, load_categories
 
 
 def test_exact_prefix_match():

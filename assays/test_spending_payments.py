@@ -4,7 +4,7 @@ from datetime import datetime, timedelta, timezone
 
 import yaml
 
-from metabolon.spending.payments import (
+from metabolon.respirometry.payments import (
     add_pending_payment,
     check_missing_statements,
     check_overdue_payments,

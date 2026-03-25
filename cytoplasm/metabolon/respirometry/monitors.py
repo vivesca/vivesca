@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections import Counter
 
-from metabolon.spending.schema import Transaction
+from metabolon.respirometry.schema import Transaction
 
 
 def check_unknown_high(transactions: list[Transaction], threshold: float = 500.0) -> list[str]:

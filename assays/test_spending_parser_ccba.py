@@ -4,8 +4,8 @@ from pathlib import Path
 
 import pytest
 
-from metabolon.spending.parsers.ccba import parse_ccba
-from metabolon.spending.schema import StatementMeta
+from metabolon.respirometry.parsers.ccba import parse_ccba
+from metabolon.respirometry.schema import StatementMeta
 
 FIXTURE = Path(__file__).parent / "fixtures" / "ccba_sep2025.pdf"
 FIXTURE_MAR = Path(__file__).parent / "fixtures" / "ccba_mar2026.pdf"

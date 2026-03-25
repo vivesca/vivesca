@@ -6,11 +6,11 @@ import re
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-from metabolon.spending.categories import categorise, load_categories
-from metabolon.spending.detect import detect_bank, filename_matches
-from metabolon.spending.monitors import run_all_monitors
-from metabolon.spending.parsers import get_parser
-from metabolon.spending.vault import (
+from metabolon.respirometry.categories import categorise, load_categories
+from metabolon.respirometry.detect import detect_bank, filename_matches
+from metabolon.respirometry.monitors import run_all_monitors
+from metabolon.respirometry.parsers import get_parser
+from metabolon.respirometry.vault import (
     archive_pdf,
     file_hash,
     is_processed,
@@ -42,7 +42,7 @@ def process_statement(
     """
     from pypdf import PdfReader
 
-    from metabolon.spending.payments import (
+    from metabolon.respirometry.payments import (
         add_pending_payment,
         create_payment_reminder,
         is_autopay,
@@ -77,7 +77,7 @@ def process_statement(
     md_path = write_statement(meta, txns, spending_dir)
 
     # Write monthly summary
-    from metabolon.spending.vault import write_monthly_summary
+    from metabolon.respirometry.vault import write_monthly_summary
 
     month = meta.statement_date[:7]  # YYYY-MM
     write_monthly_summary(month, spending_dir)

@@ -4,8 +4,8 @@ from pathlib import Path
 
 import pytest
 
-from metabolon.spending.parsers.boc import parse_boc
-from metabolon.spending.schema import StatementMeta
+from metabolon.respirometry.parsers.boc import parse_boc
+from metabolon.respirometry.schema import StatementMeta
 
 FIXTURE = Path(__file__).parent / "fixtures" / "boc_feb2026.pdf"
 

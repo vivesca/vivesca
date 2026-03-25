@@ -45,8 +45,8 @@ def catabolism_spending(days: int = 30) -> CatabolismResult:
     Args:
         days: budget monitoring window (how many days of spending to evaluate).
     """
-    from metabolon.spending import scan_and_process
-    from metabolon.spending.payments import check_missing_statements, check_overdue_payments
+    from metabolon.respirometry import scan_and_process
+    from metabolon.respirometry.payments import check_missing_statements, check_overdue_payments
 
     config_file = SPENDING_DIR / "config.yaml"
     results = scan_and_process()
@@ -126,7 +126,7 @@ def catabolism_confirm(bank: str) -> CatabolismConfirmResult:
     Args:
         bank: bank identifier (mox, ccba, scb, hsbc).
     """
-    from metabolon.spending.payments import remove_pending_payment
+    from metabolon.respirometry.payments import remove_pending_payment
 
     bank = bank.lower().strip()
     removed = remove_pending_payment(PAYMENTS_FILE, bank)

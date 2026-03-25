@@ -1,12 +1,12 @@
 """Tests for spending monitors."""
 
-from metabolon.spending.monitors import (
+from metabolon.respirometry.monitors import (
     check_budget,
     check_duplicates,
     check_subscriptions,
     check_unknown_high,
 )
-from metabolon.spending.schema import Transaction
+from metabolon.respirometry.schema import Transaction
 
 
 def _txn(merchant: str, hkd: float, category: str = "Dining") -> Transaction:
