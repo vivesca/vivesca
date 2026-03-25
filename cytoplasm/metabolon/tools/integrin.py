@@ -542,9 +542,9 @@ def integrin_apoptosis_check() -> ApoptosisResult:
 #                → CLI binary
 
 
-COLONIES_DIR = VIVESCA_ROOT / "claude" / "colonies"
-BUDS_DIR = VIVESCA_ROOT / "claude" / "agents"
-TOOLS_DIR = VIVESCA_ROOT / "src" / "metabolon" / "tools"
+COLONIES_DIR = VIVESCA_ROOT / "membrane" / "colonies"
+BUDS_DIR = VIVESCA_ROOT / "membrane" / "buds"
+TOOLS_DIR = VIVESCA_ROOT / "cytoplasm" / "metabolon" / "tools"
 
 # YAML frontmatter parser (minimal -- no external deps)
 _FRONTMATTER_RE = re.compile(r"^---\s*\n(.*?)\n---\s*\n", re.DOTALL)

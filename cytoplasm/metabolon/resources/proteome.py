@@ -14,7 +14,7 @@ from metabolon.resources.anatomy import _extract_tool_details
 
 _BIN_DIR = VIVESCA_ROOT / "effectors"
 _VIVESCA_TOOLS = Path(__file__).resolve().parent.parent / "tools"
-_ROUTING_TABLE = VIVESCA_ROOT / "claude" / "tool-index.md"
+_ROUTING_TABLE = VIVESCA_ROOT / "proteome.md"
 
 
 def _scan_effector_dir(bin_dir: Path) -> list[dict]:

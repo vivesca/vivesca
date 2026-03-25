@@ -7,10 +7,6 @@ requires-python = ">=3.11"
 license = {text = "MIT"}
 authors = [{name = "Terry Li"}]
 
-[project.urls]
-Homepage = "https://vivesca.org"
-Repository = "https://github.com/vivesca/vivesca"
-Blog = "https://terryli.hm"
 dependencies = [
     "click>=8.0",
     "fastmcp>=3.0.0",
@@ -19,6 +15,11 @@ dependencies = [
     "pypdf>=4.0",
     "pyyaml>=6.0.3",
 ]
+
+[project.urls]
+Homepage = "https://vivesca.org"
+Repository = "https://github.com/vivesca/vivesca"
+Blog = "https://terryli.hm"
 
 [project.scripts]
 vivesca = "metabolon.pore:cli"
