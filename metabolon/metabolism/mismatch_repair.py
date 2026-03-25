@@ -19,7 +19,7 @@ import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
 
-SRC_DIR = Path(__file__).parent.parent  # cytoplasm/metabolon/
+SRC_DIR = Path(__file__).parent.parent  # metabolon/
 
 # Receptor binding sites — where resources activate (constitution, CLAUDE.md).
 _RECEPTOR_BINDING_SITES: list[Path] = [

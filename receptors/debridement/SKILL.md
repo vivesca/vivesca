@@ -16,10 +16,10 @@ Debridement removes necrotic tissue before it harbors infection. In vivesca, the
 
 ## Step 1 — Non-Bio Name Detection
 
-### Module names under cytoplasm/metabolon/ that aren't biological
+### Module names under metabolon/ that aren't biological
 
 ```bash
-ls /Users/terry/metabolon/cytoplasm/metabolon/
+ls /Users/terry/metabolon/metabolon/
 ```
 
 Flag any directory or `.py` file whose name is a generic English word (helper, utils, manager, handler, client, service, loader, parser, processor, runner, worker, base, common, core, main, shared, misc).
