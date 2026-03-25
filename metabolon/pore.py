@@ -1546,3 +1546,120 @@ def endocytosis_discover(count: int | None):
     cfg = restore_config()
     result = scout_sources(cfg=cfg, count=count, bird_path=cfg.resolve_bird())
     raise SystemExit(result)
+
+
+@cli.command("auscultate")
+def auscultate():
+    """Listen to the organism's internals — smoke test everything."""
+    import importlib
+    import subprocess
+    import sys
+
+    from metabolon.cytosol import VIVESCA_ROOT
+
+    checks = []
+
+    # 1. MCP server imports
+    try:
+        from metabolon.membrane import main  # noqa: F401
+        checks.append(("MCP server import", True, ""))
+    except Exception as e:
+        checks.append(("MCP server import", False, str(e)))
+
+    # 2. Key module imports
+    for mod in [
+        "metabolon.symbiont",
+        "metabolon.pinocytosis",
+        "metabolon.pinocytosis.interphase",
+        "metabolon.respiration",
+        "metabolon.respirometry",
+    ]:
+        try:
+            importlib.import_module(mod)
+            checks.append((f"import {mod.split('.')[-1]}", True, ""))
+        except Exception as e:
+            checks.append((f"import {mod.split('.')[-1]}", False, str(e)))
+
+    # 3. VIVESCA_ROOT resolves correctly
+    expected = str(VIVESCA_ROOT)
+    if expected.endswith("germline"):
+        checks.append(("VIVESCA_ROOT", True, expected))
+    else:
+        checks.append(("VIVESCA_ROOT", False, f"expected */germline, got {expected}"))
+
+    # 4. Key paths exist
+    from pathlib import Path
+    paths = {
+        "genome.md": VIVESCA_ROOT / "genome.md",
+        "anatomy.md": VIVESCA_ROOT / "anatomy.md",
+        "membrane/cytoskeleton": VIVESCA_ROOT / "membrane" / "cytoskeleton",
+        "membrane/receptors": VIVESCA_ROOT / "membrane" / "receptors",
+        "effectors": VIVESCA_ROOT / "effectors",
+        "chromatin": Path.home() / "epigenome" / "chromatin",
+        "engrams": Path.home() / "epigenome" / "engrams",
+    }
+    for name, path in paths.items():
+        checks.append((f"path {name}", path.exists(), str(path)))
+
+    # 5. Hooks symlink resolves
+    hooks = Path.home() / ".claude" / "hooks"
+    if hooks.is_symlink() and hooks.resolve().exists():
+        checks.append(("hooks symlink", True, str(hooks.resolve())))
+    else:
+        checks.append(("hooks symlink", False, "broken or missing"))
+
+    # 6. CC config symlinks
+    for name in ["settings.json", "CLAUDE.md"]:
+        p = Path.home() / ".claude" / name
+        if p.is_symlink() and p.resolve().exists():
+            checks.append((f"CC {name}", True, ""))
+        else:
+            checks.append((f"CC {name}", False, "broken symlink"))
+
+    # 7. Pyright undefined count
+    try:
+        r = subprocess.run(
+            [sys.executable, "-m", "pyright", str(VIVESCA_ROOT / "metabolon"), "--outputjson"],
+            capture_output=True, text=True, timeout=60,
+        )
+        import json
+        data = json.loads(r.stdout)
+        undefs = [d for d in data.get("generalDiagnostics", []) if d.get("rule") == "reportUndefinedVariable"]
+        checks.append(("pyright undefined", len(undefs) == 0, f"{len(undefs)} undefined"))
+    except Exception as e:
+        checks.append(("pyright undefined", None, f"skipped: {e}"))
+
+    # 8. Tests
+    try:
+        r = subprocess.run(
+            ["uv", "run", "pytest", str(VIVESCA_ROOT / "assays"), "-q", "--ignore", str(VIVESCA_ROOT / "assays" / "test_cli.py")],
+            capture_output=True, text=True, timeout=120, cwd=str(VIVESCA_ROOT),
+        )
+        last_line = r.stdout.strip().splitlines()[-1] if r.stdout.strip() else ""
+        passed = "passed" in last_line and "failed" not in last_line
+        checks.append(("pytest", passed, last_line))
+    except Exception as e:
+        checks.append(("pytest", None, f"skipped: {e}"))
+
+    # Report
+    click.echo("\n  AUSCULTATION — Organism Vital Signs\n")
+    all_ok = True
+    for name, ok, detail in checks:
+        if ok is True:
+            symbol = click.style("OK", fg="green")
+        elif ok is False:
+            symbol = click.style("FAIL", fg="red")
+            all_ok = False
+        else:
+            symbol = click.style("SKIP", fg="yellow")
+        line = f"  {symbol}  {name}"
+        if detail and ok is not True:
+            line += f"  ({detail})"
+        click.echo(line)
+
+    click.echo("")
+    if all_ok:
+        click.echo(click.style("  Organism is healthy.", fg="green", bold=True))
+    else:
+        click.echo(click.style("  Organism needs attention.", fg="red", bold=True))
+    click.echo("")
