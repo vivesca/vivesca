@@ -219,12 +219,15 @@ def _absorb_cofactors() -> None:
     from metabolon.cytosol import VIVESCA_ROOT
 
     path = str(VIVESCA_ROOT / "effectors" / "keychain-env")
-    loader = importlib.machinery.SourceFileLoader("keychain_env", path)
-    spec = importlib.util.spec_from_file_location("keychain_env", path, loader=loader)
-    if spec and spec.loader:
-        mod = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(mod)
-        mod.load_keychain_env()
+    try:
+        loader = importlib.machinery.SourceFileLoader("keychain_env", path)
+        spec = importlib.util.spec_from_file_location("keychain_env", path, loader=loader)
+        if spec and spec.loader:
+            mod = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(mod)
+            mod.load_keychain_env()
+    except FileNotFoundError:
+        pass  # keychain-env not present — keys loaded from environment instead
 
 
 def main():

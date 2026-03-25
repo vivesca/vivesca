@@ -6,7 +6,7 @@ import subprocess
 from pathlib import Path
 
 # Repo root: metabolon → src → vivesca
-VIVESCA_ROOT = Path(__file__).resolve().parent.parent.parent
+VIVESCA_ROOT = Path(__file__).resolve().parent.parent
 
 
 def invoke_organelle(
