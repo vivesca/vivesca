@@ -334,6 +334,55 @@ def guard_bash(data):
             deny(f'Lazy commit message "{m.group(1)}" blocked. Be specific.', "bash-guard")
 
 
+# ── guard_long_running: background advisory ────────────────
+
+
+def guard_long_running(data):
+    cmd = data.get("tool_input", {}).get("command", "")
+    bg = data.get("tool_input", {}).get("run_in_background") is True
+
+    if bg:
+        return  # already backgrounded — nothing to advise
+
+    # pytest / uv run pytest
+    if re.search(r"\b(uv\s+run\s+)?pytest\b", cmd):
+        allow_msg(
+            "pytest can be slow. Consider setting run_in_background: true so the "
+            "conversation stays live while tests run."
+        )
+        return
+
+    # pip install / uv pip install
+    if re.search(r"\b(uv\s+)?pip\s+install\b", cmd):
+        allow_msg(
+            "pip install may take a while. Consider setting run_in_background: true."
+        )
+        return
+
+    # npm install
+    if re.search(r"\bnpm\s+(install|i|ci)\b", cmd):
+        allow_msg(
+            "npm install can be slow. Consider setting run_in_background: true."
+        )
+        return
+
+    # brew install / brew upgrade
+    if re.search(r"\bbrew\s+(install|upgrade)\b", cmd):
+        allow_msg(
+            "brew install can take a while. Consider setting run_in_background: true."
+        )
+        return
+
+    # --timeout > 30000
+    m = re.search(r"--timeout[=\s]+(\d+)", cmd)
+    if m and int(m.group(1)) > 30000:
+        allow_msg(
+            f"Command has --timeout {m.group(1)}ms (>{30000}ms). "
+            "Consider setting run_in_background: true."
+        )
+        return
+
+
 # ── guard_glob: from nociceptor-glob.js ────────────────────
 
 
@@ -587,6 +636,8 @@ def guard_bifurcation(data):
         return
 
     tool_match = BIFURC_DELEGATE_RE.search(cmd)
+    if not tool_match:
+        return
     tool = tool_match.group(1).lower().replace(" exec", "")
     cd_match = re.search(r"cd\s+([^\s&;]+)", cmd)
     project = cd_match.group(1).replace("~", str(HOME)) if cd_match else "unknown"
@@ -689,6 +740,7 @@ def main():
     try:
         if tool == "Bash":
             guard_bash(data)
+            guard_long_running(data)
             guard_bifurcation(data)
         elif tool == "Glob":
             guard_glob(data)

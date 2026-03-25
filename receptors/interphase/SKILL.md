@@ -22,21 +22,18 @@ Phone-friendly (Blink/tmux). Target: one bus ride. No deep reflection — captur
 
 ### 0. Gather
 
-```bash
-interphase-gather
-```
-
-All deterministic gathering runs here (inbox, WhatsApp, calendar, Praxis, budget, reminders, email threads, prospective memory). Review output, then proceed.
+Call MCP tool `gather_interphase`. All deterministic gathering runs here (inbox, WhatsApp, calendar, Praxis, budget, reminders, email threads, prospective memory). Review output, then proceed.
 
 ### 1. Inbox Triage
 
 Use vivesca `sorting_*` MCP tools directly (search, thread, categorize, mark_read, archive). For each inbox email:
 
-1. **Drill** — `sorting_thread` on anything that isn't obvious noise
-2. **Decide** — action_required / monitor / archive
-3. **Act** — mark read + archive noise; flag action items to Terry
-4. **Cora briefs** — read today's morning + afternoon briefs via `sorting_thread`. Summarise anything Terry wouldn't have seen from the inbox scan alone (Cora archives emails before they hit inbox, so briefs may surface items the inbox doesn't show).
-5. **Email Threads Tracker** — update if threads resolved or new threads opened
+1. **Drill inbox** — `sorting_thread` on every unread inbox email (skip only obvious spam)
+2. **Drill archived** — from the gather output, `sorting_thread` on EVERY Cora-archived email tagged `Cora/Important Info` or `Cora/Important Context`. Also drill any archived email where the subject suggests a payment, failure, approval, or deadline. Don't rely on Cora's "needs attention" count — it misses things.
+3. **Cora briefs** — read today's morning + afternoon briefs via `sorting_thread`. Cross-check: every email mentioned in the briefs should already be drilled above. If any were missed, drill them now.
+4. **Decide** — for each drilled email: action_required / monitor / archive
+5. **Act** — mark read + archive noise; flag action items to Terry
+6. **Email Threads Tracker** — update if threads resolved or new threads opened
 
 Check prospective memory for email-triage triggers (Grammarly, M365, Surfshark, etc.) and apply.
 

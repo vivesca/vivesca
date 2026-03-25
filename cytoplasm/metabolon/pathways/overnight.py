@@ -39,8 +39,7 @@ def _acquire_catalyst():
     """Import and return the shared llm module — the reaction catalyst."""
     from metabolon.cytosol import VIVESCA_ROOT
 
-    sys.path.insert(0, str(VIVESCA_ROOT / "cofactors"))
-    import llm
+    from metabolon import symbiont as llm
 
     return llm
 

@@ -30,7 +30,6 @@ HKT = timezone(timedelta(hours=8))
 _VIVESCA_ROOT = Path(__file__).resolve().parent.parent.parent
 
 sys.path.insert(0, str(HOOKS_DIR))
-sys.path.insert(0, str(_VIVESCA_ROOT / "cofactors"))
 
 # Lazy hebbian_nudge
 _hebbian = None

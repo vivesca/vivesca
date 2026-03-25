@@ -480,7 +480,6 @@ def post_acta_summary(total_waves: int, stop_reason: str):
     try:
         from metabolon.cytosol import VIVESCA_ROOT
 
-        sys.path.insert(0, str(VIVESCA_ROOT / "cofactors"))
         import acta
 
         acta.post(

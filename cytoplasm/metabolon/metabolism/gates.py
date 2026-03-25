@@ -37,14 +37,13 @@ async def taste(
     """LLM-based holistic check: does the variant still accurately
     describe what the tool does? Compares against the founder genotype.
 
-    Uses cofactors/llm.py for the LLM call.
+    Uses metabolon.symbiont for the LLM call.
     """
     import sys
 
     from metabolon.cytosol import VIVESCA_ROOT
 
-    sys.path.insert(0, str(VIVESCA_ROOT / "cofactors"))
-    from llm import query
+    from metabolon.symbiont import query
 
     prompt = (
         f"You are evaluating a proposed tool description change.\n\n"

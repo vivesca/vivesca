@@ -21,7 +21,6 @@ HOOKS_DIR = HOME / ".claude" / "hooks"
 _VIVESCA_ROOT = Path(__file__).resolve().parent.parent.parent
 
 sys.path.insert(0, str(HOOKS_DIR))
-sys.path.insert(0, str(_VIVESCA_ROOT / "cofactors"))
 
 
 # ── chaperone_py: ruff + py_compile + test discovery ───────

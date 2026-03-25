@@ -26,13 +26,13 @@ def _make_signal(tool: str, outcome: Outcome = Outcome.success, tokens: int = 10
 
 
 @pytest.fixture
-def mock_llm():
-    """Inject a mock llm module into sys.modules so lazy imports find it."""
-    mock_mod = ModuleType("llm")
+def mock_symbiont():
+    """Inject a mock symbiont module so lazy imports find it."""
+    mock_mod = ModuleType("metabolon.symbiont")
     mock_mod.query = AsyncMock(return_value="An improved tool description for better results")  # type: ignore[attr-defined]
-    sys.modules["llm"] = mock_mod
+    sys.modules["metabolon.symbiont"] = mock_mod
     yield mock_mod
-    del sys.modules["llm"]
+    del sys.modules["metabolon.symbiont"]
 
 
 @pytest.fixture
@@ -51,7 +51,7 @@ def redirect_defaults(tmp_path):
 
 
 class TestSweepCLI:
-    def test_sweep_no_signals(self, redirect_defaults, mock_llm):
+    def test_sweep_no_signals(self, redirect_defaults, mock_symbiont):
         """Sweep with empty signal log returns early."""
         from metabolon.pore import cli
 
@@ -60,7 +60,7 @@ class TestSweepCLI:
         assert result.exit_code == 0
         assert "No stimuli found" in result.output
 
-    def test_sweep_no_candidates(self, redirect_defaults, mock_llm):
+    def test_sweep_no_candidates(self, redirect_defaults, mock_symbiont):
         """Sweep with all-healthy tools finds no candidates."""
         from metabolon.pore import cli
 
@@ -74,7 +74,7 @@ class TestSweepCLI:
         assert result.exit_code == 0
         assert "No candidates" in result.output
 
-    def test_sweep_promotes_variant(self, redirect_defaults, mock_llm):
+    def test_sweep_promotes_variant(self, redirect_defaults, mock_symbiont):
         """Full sweep: signals → fitness → mutation → gate → promotion."""
         from metabolon.pore import cli
 
@@ -93,7 +93,7 @@ class TestSweepCLI:
                 return "PASS"
             return "Improved description that fixes the issues with this tool"
 
-        mock_llm.query = AsyncMock(side_effect=smart_query)
+        mock_symbiont.query = AsyncMock(side_effect=smart_query)
 
         runner = CliRunner()
         result = runner.invoke(cli, ["metabolism", "sweep"])
@@ -104,7 +104,7 @@ class TestSweepCLI:
 
 
 class TestHotPathRepair:
-    def test_acute_immune_response_on_error(self, redirect_defaults, mock_llm):
+    def test_acute_immune_response_on_error(self, redirect_defaults, mock_symbiont):
         """Middleware triggers repair and promotes on tool error."""
         store = Genome()
         store.init_tool("failing_tool", "A tool that does something useful for testing")
@@ -116,7 +116,7 @@ class TestHotPathRepair:
                 return "PASS"
             return repaired
 
-        mock_llm.query = AsyncMock(side_effect=smart_query)
+        mock_symbiont.query = AsyncMock(side_effect=smart_query)
 
         from metabolon.membrane import SensoryMiddleware
 
@@ -128,7 +128,7 @@ class TestHotPathRepair:
         assert len(variants) >= 2
         assert store.get_active("failing_tool") == repaired
 
-    def test_acute_immune_response_skips_unknown_tool(self, redirect_defaults, mock_llm):
+    def test_acute_immune_response_skips_unknown_tool(self, redirect_defaults, mock_symbiont):
         """Repair skips tools not in variant store."""
         from metabolon.membrane import SensoryMiddleware
 
@@ -137,12 +137,12 @@ class TestHotPathRepair:
         # Should not raise
         asyncio.run(middleware._acute_immune_response("unknown_tool", "error"))
 
-    def test_acute_immune_response_does_not_block_on_failure(self, redirect_defaults, mock_llm):
+    def test_acute_immune_response_does_not_block_on_failure(self, redirect_defaults, mock_symbiont):
         """Repair failure doesn't propagate."""
         store = Genome()
         store.init_tool("tool", "A tool for doing some important work for users")
 
-        mock_llm.query = AsyncMock(side_effect=RuntimeError("LLM down"))
+        mock_symbiont.query = AsyncMock(side_effect=RuntimeError("LLM down"))
 
         from metabolon.membrane import SensoryMiddleware
 
@@ -153,7 +153,7 @@ class TestHotPathRepair:
 
         assert len(store.list_variants("tool")) == 1
 
-    def test_acute_immune_response_judge_rejects(self, redirect_defaults, mock_llm):
+    def test_acute_immune_response_judge_rejects(self, redirect_defaults, mock_symbiont):
         """Repair candidate rejected by judge is not promoted."""
         store = Genome()
         store.init_tool("tool", "Original description that should remain active here")
@@ -163,7 +163,7 @@ class TestHotPathRepair:
                 return "FAIL: misleading"
             return "A changed description that differs from original content"
 
-        mock_llm.query = AsyncMock(side_effect=reject_query)
+        mock_symbiont.query = AsyncMock(side_effect=reject_query)
 
         from metabolon.membrane import SensoryMiddleware
 

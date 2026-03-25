@@ -23,6 +23,11 @@ Blog = "https://terryli.hm"
 
 [project.scripts]
 vivesca = "metabolon.pore:cli"
+interphase-gather = "metabolon.pinocytosis.interphase:main"
+ultradian-gather = "metabolon.pinocytosis.ultradian:main"
+ecdysis-gather = "metabolon.pinocytosis.ecdysis:main"
+photoreception-gather = "metabolon.pinocytosis.photoreception:main"
+polarization-gather = "metabolon.pinocytosis.polarization:main"
 
 [dependency-groups]
 dev = ["pytest", "pytest-asyncio", "ruff", "pyright", "pre-commit", "codespell", "pytest-cov"]

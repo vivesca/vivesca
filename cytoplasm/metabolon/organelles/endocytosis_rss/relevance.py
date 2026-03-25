@@ -14,8 +14,7 @@ _VIVESCA_LIB = os.environ.get(
     "VIVESCA_ROOT",
     os.path.join(os.path.expanduser("~"), "code", "vivesca"),
 )
-sys.path.insert(0, os.path.join(_VIVESCA_LIB, "cofactors"))
-from llm import query as _llm_query
+from metabolon.symbiont import query as _symbiont_query
 
 AFFINITY_LOG = Path.home() / ".cache" / "lustro" / "relevance.jsonl"
 RECYCLING_LOG = Path.home() / ".cache" / "lustro" / "engagement.jsonl"
@@ -47,7 +46,7 @@ def score_cargo(title: str, source: str, summary: str) -> dict[str, Any]:
     prompt = SCORING_PROMPT.format(title=title, source=source, summary=summary)
 
     try:
-        text = _llm_query("gemini-flash", prompt, timeout=30)
+        text = _symbiont_query("gemini-flash", prompt, timeout=30)
         start = text.find("{")
         end = text.rfind("}") + 1
         if start >= 0 and end > start:

@@ -1,7 +1,7 @@
 """praxis — Praxis.md TODO list management (formerly todo-cli).
 
 Endosymbiosis: uv/Python script (vivesca/effectors/todo-cli) → Python organelle.
-The original script delegated parsing to vivesca/cofactors/gather.py and added
+The original script delegated parsing to a shared gather module and added
 CLI argument dispatch on top. This organelle exposes the same operations as
 direct Python functions that the /todo skill and emit_praxis tool can import
 without shelling out.
@@ -14,10 +14,8 @@ import sys
 from datetime import datetime, timedelta
 from pathlib import Path
 
-# Add vivesca cofactors to path for gather imports
 from metabolon.cytosol import VIVESCA_ROOT as _VIVESCA_ROOT
 
-sys.path.insert(0, str(_VIVESCA_ROOT / "cofactors"))
 
 HOME = Path.home()
 NOTES = HOME / "notes"
@@ -40,19 +38,19 @@ def _is_overdue(item: dict, today_date) -> bool:
 
 
 def _today_date():
-    from gather import get_date
+    from metabolon.pinocytosis import get_date
 
     return _parse_date(get_date()["iso"])
 
 
 def _read_all() -> dict:
-    from gather import read_todo
+    from metabolon.pinocytosis import read_todo
 
     return read_todo()
 
 
 def _read_today() -> dict:
-    from gather import read_todo_today
+    from metabolon.pinocytosis import read_todo_today
 
     return read_todo_today()
 
@@ -201,7 +199,7 @@ def spare() -> dict:
     Returns:
         {"date": "YYYY-MM-DD", "items": [...], "total_count": N, "overdue_count": N}
     """
-    from gather import read_todo
+    from metabolon.pinocytosis import read_todo
 
     today_date = _today_date()
     data = read_todo(sections=["Spare Capacity"])

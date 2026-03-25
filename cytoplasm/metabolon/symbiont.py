@@ -1,8 +1,11 @@
-"""Shared LLM dispatch module. Single source of truth for multi-model queries.
+"""Symbiont — shared LLM dispatch. Single source of truth for multi-model queries.
+
+The endosymbiont interface: deterministic routing to external LLM models.
+No judgment here — just transport.
 
 Config: ~/.config/llm-models.json
 Usage:
-    from llm import query, parallel_query, list_models
+    from metabolon.symbiont import query, parallel_query, list_models
     result = query("deepseek", "What is 2+2?")
     results = parallel_query(["gemini", "deepseek"], "What is 2+2?")
 """
@@ -46,7 +49,7 @@ def _query_cmd(cmd: list[str], prompt: str, timeout: int) -> str:
         stderr=subprocess.PIPE,
         text=True,
         env=env,
-        start_new_session=True,  # process group leader — enables killpg
+        start_new_session=True,
     )
     try:
         stdout, stderr = proc.communicate(timeout=timeout)
@@ -73,7 +76,7 @@ def _query_codex(cmd: list[str], prompt: str, timeout: int) -> str:
             stderr=subprocess.PIPE,
             text=True,
             env=env,
-            start_new_session=True,  # process group leader — enables killpg
+            start_new_session=True,
         )
         try:
             stdout, stderr = proc.communicate(timeout=timeout)
@@ -120,7 +123,6 @@ def query(model_name: str, prompt: str, timeout: int = 180, config_path: str | N
     """Query a single model. Returns response text. Raises on error."""
     models = load_models(config_path)
     if model_name not in models:
-        # Allow openrouter/<model-id> for ad-hoc models
         if model_name.startswith("openrouter/"):
             return _query_openrouter(model_name.split("/", 1)[1], prompt, timeout)
         raise ValueError(f"Unknown model: {model_name}. Available: {', '.join(models.keys())}")

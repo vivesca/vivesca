@@ -51,8 +51,7 @@ async def recombine(
     """
     import sys
 
-    from metabolon.cytosol import VIVESCA_ROOT; sys.path.insert(0, str(VIVESCA_ROOT / "cofactors"))
-    from llm import query
+    from metabolon.symbiont import query
 
     prompt = (
         f"You are performing differential evolution on an MCP tool description.\n\n"
@@ -70,8 +69,7 @@ async def mutate(tool: str, description: str, selection_pressure: str) -> str:
     """Derive a mutation instruction from the selection pressure, then apply it."""
     import sys
 
-    from metabolon.cytosol import VIVESCA_ROOT; sys.path.insert(0, str(VIVESCA_ROOT / "cofactors"))
-    from llm import query
+    from metabolon.symbiont import query
 
     prompt = (
         f"An MCP tool has this description:\n{description}\n\n"

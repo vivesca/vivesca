@@ -30,8 +30,7 @@ async def _mutate(request: ImmuneRequest) -> str:
     """Single LLM call to generate a revised description."""
     import sys
 
-    from metabolon.cytosol import VIVESCA_ROOT; sys.path.insert(0, str(VIVESCA_ROOT / "cofactors"))
-    from llm import query
+    from metabolon.symbiont import query
 
     prompt = (
         f"You are revising an MCP tool description to fix a specific failure.\n\n"
