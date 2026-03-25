@@ -84,16 +84,16 @@ skip = [
     # Absorbed lustro organelle (may contain quoted external content)
     "*organelles/endocytosis_rss/sources*",
     # Generated / event-log files
-    "*genome/vivesca-events.jsonl",
+    "*loci/vivesca-events.jsonl",
     # Reference docs: plans, specs, brainstorms, solutions (may contain quoted text,
     # non-English content, technical acronyms from external sources)
-    "*genome/solutions*",
-    "*genome/specs*",
-    "*genome/plans*",
-    "*genome/brainstorms*",
+    "*loci/solutions*",
+    "*loci/specs*",
+    "*loci/plans*",
+    "*loci/brainstorms*",
     # Generated copia/pulse outputs (LLM-extracted docs, may contain non-English proper nouns)
-    "*genome/copia*",
-    "*genome/pulse*",
+    "*loci/copia*",
+    "*loci/pulse*",
     # Archived receptors (old skill versions)
     "*receptors/.archive*",
     # Test fixtures (binary files, sample data)
