@@ -11,7 +11,7 @@ Adversarial design probe. Challenge one architectural decision in vivesca.
 2. Inventory key architectural decisions by reading:
    - ~/germline/membrane/buds/ — agent approach
    - ~/germline/membrane/cytoskeleton/ — hook consolidation
-   - ~/germline/receptors/ — receptor pattern
+   - ~/germline/membrane/receptors/ — receptor pattern
    - Any README or design docs
 
 3. Pick ONE decision at random (or the most load-bearing one if invoked with a topic)

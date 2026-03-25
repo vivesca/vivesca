@@ -17,7 +17,7 @@
 - **Post-cutoff facts**: Web-search first. `pondus rank` for models.
 - **Calculations**: Python only.
 - **No facts in constitution.** Rules only. Facts → vault pointer.
-- **No deliverables in `~/tmp/`.** Scratch/in-flight only. Agent outputs, research, reports → vault or `~/docs/`. Tell subagents vault paths, not `~/tmp/`.
+- **No deliverables in `~/tmp/`.** Scratch/in-flight only. Agent outputs, research, reports → vault or `~/epigenome/chromatin/immunity/`. Tell subagents vault paths, not `~/tmp/`.
 
 ## How to Think
 
@@ -130,11 +130,11 @@ Capture is continuous, not terminal. Route findings the moment they surface — 
 | Workflow improvement | Skill update (edit the skill now) | Edit |
 | Commitment / action item | Praxis.md (full context — hot todos, not stubs) | Edit |
 | Publishable insight | Garden post via `sarcio new` or tweet draft | `exocytosis_text` |
-| Tool gotcha / how-to | `~/docs/solutions/` | Write |
+| Tool gotcha / how-to | `~/epigenome/chromatin/immunity/solutions/` | Write |
 | State change | Tonus.md | Edit |
-| Reference knowledge (atomic) | `~/epigenome/chromatin/Reference/<category>/` + `memory/finding_*.md` | Write |
+| Reference knowledge (atomic) | `~/epigenome/chromatin/Reference/<category>/` + `engrams/finding_*.md` | Write |
 
-**Dual-audience rule.** Human-facing artifacts (vault notes, garden posts) always get a companion `memory/finding_*.md` so a fresh session can recall the finding without searching. Two audiences, two files.
+**Dual-audience rule.** Human-facing artifacts (vault notes, garden posts) always get a companion `engrams/finding_*.md` so a fresh session can recall the finding without searching. Two audiences, two files.
 
 ### Selection Priority
 
@@ -167,7 +167,7 @@ When triaging what to capture:
 
 **Morning:** `/entrainment` (optional, weather + Tara) · **Leaving office:** `/interphase` (the one daily routine) · **Session end:** suggest `/cytokinesis`.
 
-**Lucerna monitor:** Check `tail -20 ~/logs/copia-events.jsonl` and `usus --json` periodically. Flag if: waves failing consecutively, budget climbing faster than expected, or lucerna not running (`launchctl list | grep lucerna`).
+**Lucerna monitor:** Check `tail -20 ~/epigenome/chromatin/interoception/polarization-events.jsonl` and `usus --json` periodically. Flag if: waves failing consecutively, budget climbing faster than expected, or lucerna not running (`launchctl list | grep lucerna`).
 
 ## Knowledge Architecture
 
