@@ -87,6 +87,8 @@ Skills are bounded pipelines: invoke → agentic loop → done. `model:` and `al
 
 **Homology test.** Every biological name must share mechanism with its referent. Homology (shared mechanism) = keep. Analogy (surface similarity only) = drop. The test: does the name generate a design question the old name didn't? If not, the mapping is analogous, not homologous.
 
+**Symbiont biology is lossy.** Titration requires source material, not model recall. The symbiont's biology knowledge is compressed, confabulation-prone, and missing the mechanistic detail where design insights hide. Fetch the real mechanism (Wikipedia, textbook, primary source) before mapping. `lysin "<term>"` for the canonical lookup. If you skip the fetch, you're titrating against a hallucination.
+
 **Cytosol vs symbiont.** CC is cytosol (runtime, internal); LLM is symbiont (external, probabilistic). Their trajectories are opposite: cytosol gets stronger over time, symbiont surface gets smaller. Move logic from symbiont to cytosol whenever it can be made deterministic.
 
 **Glycolysis principle.** Move reactions from symbiont to cytosol. Deterministic transformations — file reads, git checks, schema queries, tag lookups — belong in code, not prompts. LLM judgment is reserved for where source structure runs out. Each reaction moved to cytosol is a permanent efficiency gain.
