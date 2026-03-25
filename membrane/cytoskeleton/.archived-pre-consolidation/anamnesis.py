@@ -14,7 +14,7 @@ import sys
 import tempfile
 from pathlib import Path
 
-NOTES_DIR = Path.home() / "notes"
+NOTES_DIR = Path.home() / "code" / "vivesca-terry" / "chromatin"
 NOW_FILE = NOTES_DIR / "Tonus.md"
 CONSTITUTION = Path.home() / "reticulum" / "constitution.md"
 TMP_DIR = Path(tempfile.gettempdir())
