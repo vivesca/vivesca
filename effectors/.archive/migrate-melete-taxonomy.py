@@ -7,8 +7,8 @@
 migrate-melete-taxonomy.py — Migrate melete FSRS state from 37-topic taxonomy to 64-topic taxonomy.
 
 Usage:
-    uv run ~/metabolon/effectors/migrate-melete-taxonomy.py --dry-run   # preview only
-    uv run ~/metabolon/effectors/migrate-melete-taxonomy.py             # write changes
+    uv run ~/germline/effectors/migrate-melete-taxonomy.py --dry-run   # preview only
+    uv run ~/germline/effectors/migrate-melete-taxonomy.py             # write changes
 
 Rules:
   - Splits: first replacement inherits old card state; additional replacements start fresh

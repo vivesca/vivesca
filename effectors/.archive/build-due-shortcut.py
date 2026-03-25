@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Rebuild ~/metabolon/effectors/DueAddRecurring.shortcut from scratch.
+"""Rebuild ~/germline/effectors/DueAddRecurring.shortcut from scratch.
 
 Run when the shortcut needs to be updated or re-signed.
-Usage: python3 ~/metabolon/effectors/build-due-shortcut.py
-Then: open ~/metabolon/effectors/DueAddRecurring.shortcut → click "Add Shortcut"
+Usage: python3 ~/germline/effectors/build-due-shortcut.py
+Then: open ~/germline/effectors/DueAddRecurring.shortcut → click "Add Shortcut"
 """
 
 import os
@@ -152,7 +152,7 @@ plist = {
 with tempfile.NamedTemporaryFile(suffix=".shortcut", delete=False) as f:
     tmp_unsigned = f.name
 
-tmp_signed = os.path.expanduser("~/metabolon/effectors/DueAddRecurring.shortcut")
+tmp_signed = os.path.expanduser("~/germline/effectors/DueAddRecurring.shortcut")
 
 plist_data = plistlib.dumps(plist, fmt=plistlib.FMT_BINARY)
 with open(tmp_unsigned, "wb") as f:
@@ -168,7 +168,7 @@ os.unlink(tmp_unsigned)
 if result.returncode == 0:
     print(f"Built: {tmp_signed}")
     print(
-        'Next: open ~/metabolon/effectors/DueAddRecurring.shortcut → click "Add Shortcut" in Shortcuts.app'
+        'Next: open ~/germline/effectors/DueAddRecurring.shortcut → click "Add Shortcut" in Shortcuts.app'
     )
     print('Imports as "DueAddRecurring" — moneo --sync will use this shortcut.')
 else:

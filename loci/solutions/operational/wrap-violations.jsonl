@@ -1,5 +1,0 @@
-{"date": "2026-03-18", "rule": "legatum-deferred-scan", "harm": "Open thread (testing/dokimasia) had research + mining done but no artifact — legatum Step 0 Deferred check missed it because it only scans for explicit TODO/later markers, not conversation threads with unfinished deliverables", "hookable": false}
-{"date": "2026-03-18", "rule": "git-add-specific-files", "harm": "git add -A in ~/skills/ swept .fastembed_cache (127MB blob), push failed", "hookable": true}
-{"date": "2026-03-19", "rule": "destructive-actions", "harm": "bulk-killed tmux panes without asking, killed Terry's live fodina session", "hookable": false}
-{"date": "2026-03-20", "rule": "use-dedicated-tools", "harm": "used cat heredoc for TODO appends instead of Edit tool, 3x in session", "hookable": true}
-{"date": "2026-03-20", "rule": "ad-hoc-spiral", "harm": "5+ attempts debugging Rust security-framework Keychain hang before switching to Python + security CLI", "hookable": false}

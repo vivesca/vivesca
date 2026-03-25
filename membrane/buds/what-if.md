@@ -7,11 +7,11 @@ tools: ["Bash", "Read", "Grep", "Glob"]
 
 Adversarial design probe. Challenge one architectural decision in vivesca.
 
-1. Read ~/metabolon/genotype.md and ~/metabolon/DESIGN.md (if exists)
+1. Read ~/germline/genotype.md and ~/germline/DESIGN.md (if exists)
 2. Inventory key architectural decisions by reading:
-   - ~/metabolon/membrane/buds/ — agent approach
-   - ~/metabolon/membrane/cytoskeleton/ — hook consolidation
-   - ~/metabolon/receptors/ — receptor pattern
+   - ~/germline/membrane/buds/ — agent approach
+   - ~/germline/membrane/cytoskeleton/ — hook consolidation
+   - ~/germline/receptors/ — receptor pattern
    - Any README or design docs
 
 3. Pick ONE decision at random (or the most load-bearing one if invoked with a topic)

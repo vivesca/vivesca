@@ -137,7 +137,7 @@ class TestExtractColonySkillRefs:
         assert "ecdysis" in refs
 
     def test_ignores_file_paths(self):
-        text = "See /Users/terry/metabolon/receptors/ for details.\n"
+        text = "See /Users/terry/germline/receptors/ for details.\n"
         refs = _extract_colony_skill_refs(text)
         assert "Users" not in refs
 

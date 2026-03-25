@@ -19,7 +19,7 @@ Debridement removes necrotic tissue before it harbors infection. In vivesca, the
 ### Module names under metabolon/ that aren't biological
 
 ```bash
-ls /Users/terry/metabolon/metabolon/
+ls /Users/terry/germline/metabolon/
 ```
 
 Flag any directory or `.py` file whose name is a generic English word (helper, utils, manager, handler, client, service, loader, parser, processor, runner, worker, base, common, core, main, shared, misc).
@@ -28,9 +28,9 @@ Flag any directory or `.py` file whose name is a generic English word (helper, u
 
 ```python
 # Run from vivesca root
-grep -rn "^class " /Users/terry/metabolon/cytoplasm/ \
-  /Users/terry/metabolon/membrane/ \
-  /Users/terry/metabolon/effectors/ \
+grep -rn "^class " /Users/terry/germline/cytoplasm/ \
+  /Users/terry/germline/membrane/ \
+  /Users/terry/germline/effectors/ \
   --include="*.py" | head_limit: 60
 ```
 
@@ -42,7 +42,7 @@ Generic verbs to flag in public function positions (not private/dunder):
 
 ```python
 grep -rn "^\s*def \(gather\|fetch\|send\|read\|write\|log\|start\|stop\|run\|get\|set\|update\|process\|handle\|execute\|perform\|do_\)\b" \
-  /Users/terry/metabolon/cytoplasm/ \
+  /Users/terry/germline/cytoplasm/ \
   --include="*.py" | head_limit: 40
 ```
 
@@ -52,7 +52,7 @@ Private methods (`_fetch`, `__send__`) are exempt — runtime mechanics.
 
 ```python
 grep -rn "\bllm\b\|\bcopia\b\|\bkairos\b\|\bcommute\b\|\bacta\b\|\breticulum\b" \
-  /Users/terry/metabolon/ \
+  /Users/terry/germline/ \
   --include="*.py" --include="*.md" --include="*.json" \
   --exclude-dir=".git" | head_limit: 40
 ```
@@ -65,7 +65,7 @@ grep -rn "\bllm\b\|\bcopia\b\|\bkairos\b\|\bcommute\b\|\bacta\b\|\breticulum\b" 
 
 ```bash
 grep -rn "cofactors/\|~/bin/\b\|reticulum/" \
-  /Users/terry/metabolon/ \
+  /Users/terry/germline/ \
   --include="*.py" --include="*.md" --include="*.json" \
   --exclude-dir=".git" | head_limit: 30
 ```
@@ -73,7 +73,7 @@ grep -rn "cofactors/\|~/bin/\b\|reticulum/" \
 ### Dead sys.path hacks
 
 ```python
-grep -rn "sys\.path\." /Users/terry/metabolon/ \
+grep -rn "sys\.path\." /Users/terry/germline/ \
   --include="*.py" --exclude-dir=".git" | head_limit: 20
 ```
 
@@ -81,7 +81,7 @@ grep -rn "sys\.path\." /Users/terry/metabolon/ \
 
 ```bash
 grep -rn "#.*\(llm\|copia\|kairos\|reticulum\|acta\b\|commute\)" \
-  /Users/terry/metabolon/ \
+  /Users/terry/germline/ \
   --include="*.py" --exclude-dir=".git" | head_limit: 20
 ```
 
@@ -141,10 +141,10 @@ Do not report private/dunder names, framework conventions (Flask route names, py
 
 Default sweep covers:
 
-- `/Users/terry/metabolon/cytoplasm/`
-- `/Users/terry/metabolon/membrane/`
-- `/Users/terry/metabolon/effectors/`
-- `/Users/terry/metabolon/receptors/` (SKILL.md frontmatter names only)
-- `/Users/terry/metabolon/anatomy.md`
+- `/Users/terry/germline/cytoplasm/`
+- `/Users/terry/germline/membrane/`
+- `/Users/terry/germline/effectors/`
+- `/Users/terry/germline/receptors/` (SKILL.md frontmatter names only)
+- `/Users/terry/germline/anatomy.md`
 
 If user specifies a subdirectory or file, scope to that.

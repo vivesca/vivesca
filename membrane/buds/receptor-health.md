@@ -27,7 +27,7 @@ Run the receptor health check for the vivesca organism.
 4. If anoikis candidates found, check ~/epigenome/chromatin/receptor-retirement.md for the log.
 
 5. For each anoikis candidate, check if the missing binary is:
-   - Renamed (grep for the binary name in ~/metabolon/effectors/)
+   - Renamed (grep for the binary name in ~/germline/effectors/)
    - Removed intentionally (check git log)
    - Actually broken (needs fix)
 

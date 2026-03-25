@@ -23,7 +23,7 @@ Accept any of:
 - A verbal feature description
 - A GitHub issue or bug report
 
-If a requirements doc exists in `~/metabolon/loci/brainstorms/` matching the topic, read it and use it as the origin. Reference it with `origin:` in frontmatter. Don't re-ask questions the transcription already answered.
+If a requirements doc exists in `~/germline/loci/brainstorms/` matching the topic, read it and use it as the origin. Reference it with `origin:` in frontmatter. Don't re-ask questions the transcription already answered.
 
 If inputs are too vague to plan, say so. Either ask targeted questions (one at a time) or suggest `/transcription` first.
 
@@ -32,7 +32,7 @@ If inputs are too vague to plan, say so. Either ask targeted questions (one at a
 Before planning, scan what exists. Match depth to scope:
 
 - **Light:** Search for relevant files, check for prior art. 30 seconds.
-- **Standard/Deep:** Read relevant source files, check `~/metabolon/loci/solutions/` for learnings, note patterns to follow. Check for system-wide impacts: what callbacks, middleware, or observers fire when this code runs? What breaks if this fails halfway?
+- **Standard/Deep:** Read relevant source files, check `~/germline/loci/solutions/` for learnings, note patterns to follow. Check for system-wide impacts: what callbacks, middleware, or observers fire when this code runs? What breaks if this fails halfway?
 
 If local context is sufficient, skip external research. If the domain is unfamiliar or high-risk (security, payments, external APIs), do targeted web research before planning.
 
@@ -70,8 +70,8 @@ When detected, name the disorder type explicitly. Don't silently interpret vague
 
 Mine prior builds to surface constraints the spec omits:
 
-1. **Search `~/metabolon/loci/solutions/`** for entries matching the domain — prior learnings encode constraints that were discovered the hard way
-2. **Search `~/metabolon/loci/plans/`** for similar past plans — what did they require that this spec doesn't mention?
+1. **Search `~/germline/loci/solutions/`** for entries matching the domain — prior learnings encode constraints that were discovered the hard way
+2. **Search `~/germline/loci/plans/`** for similar past plans — what did they require that this spec doesn't mention?
 3. **Check patterns in target codebase** — if modifying existing code, what conventions/middleware/callbacks/observers will fire? What breaks if this fails halfway?
 
 Present inferred constraints as a list: "Not stated, but implied by prior work: [constraint]". The user confirms or rejects before planning proceeds.
@@ -90,7 +90,7 @@ Present inferred constraints as a list: "Not stated, but implied by prior work: 
 **Disordered regions:** Error handling — no verb, unbounded scope ("handle errors gracefully")
 
 **Inferred constraints:**
-- Prior: `~/metabolon/loci/solutions/auth-token-rotation.md` — token refresh needs retry logic (not in spec)
+- Prior: `~/germline/loci/solutions/auth-token-rotation.md` — token refresh needs retry logic (not in spec)
 - Codebase: `middleware/audit.py` fires on all writes — plan must account for audit log entries
 ```
 
@@ -108,7 +108,7 @@ Scale the plan to the work. A 3-step task gets a compact plan. A cross-cutting f
 ---
 date: YYYY-MM-DD
 topic: <kebab-case>
-origin: ~/metabolon/loci/brainstorms/YYYY-MM-DD-<topic>.md  # if one exists
+origin: ~/germline/loci/brainstorms/YYYY-MM-DD-<topic>.md  # if one exists
 ---
 
 # <Feature Name>
@@ -192,7 +192,7 @@ If a step takes more than 5 minutes to describe or execute, it's multiple steps.
 
 ## Save
 
-Write the plan to `~/metabolon/loci/plans/YYYY-MM-DD-<topic>-plan.md`. Confirm the path.
+Write the plan to `~/germline/loci/plans/YYYY-MM-DD-<topic>-plan.md`. Confirm the path.
 
 ## Handoff
 

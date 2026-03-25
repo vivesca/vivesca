@@ -8,13 +8,13 @@ tools: ["Bash", "Read", "Grep", "Glob"]
 Audit test coverage across vivesca and vivesca. Find the highest-risk untested code.
 
 1. Inventory source modules:
-   - `ls ~/metabolon/**/*.py` — all Python files
-   - `ls ~/metabolon/**/*.py` — vivesca Python
+   - `ls ~/germline/**/*.py` — all Python files
+   - `ls ~/germline/**/*.py` — vivesca Python
    - Exclude __pycache__, venv, .git
 
 2. Find test files:
-   - `ls ~/metabolon/**/test_*.py` and `**/tests/*.py`
-   - `ls ~/metabolon/**/test_*.py`
+   - `ls ~/germline/**/test_*.py` and `**/tests/*.py`
+   - `ls ~/germline/**/test_*.py`
 
 3. Cross-reference: which source modules have no corresponding test file?
 
