@@ -12,7 +12,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
-from metabolon.organelles.endocytosis_rss.config import LustroConfig
+from metabolon.organelles.endocytosis_rss.config import EndocytosisConfig
 from metabolon.organelles.endocytosis_rss.fetcher import internalize_rss, internalize_web
 from metabolon.organelles.endocytosis_rss.log import append_to_log
 from metabolon.organelles.endocytosis_rss.state import lockfile
@@ -228,7 +228,7 @@ def append_alert_signal(
         fh.write(json.dumps(record, ensure_ascii=False) + "\n")
 
 
-def _source_candidates(cfg: LustroConfig) -> list[dict[str, Any]]:
+def _source_candidates(cfg: EndocytosisConfig) -> list[dict[str, Any]]:
     web_sources = cfg.sources_data.get("web_sources", [])
     if not isinstance(web_sources, list):
         return []
@@ -271,7 +271,7 @@ def _send_alert(
         print(f"Telegram error: {exc}", file=sys.stderr)
 
 
-def _append_breaking_log(cfg: LustroConfig, matches: list[dict[str, str]], now: datetime) -> None:
+def _append_breaking_log(cfg: EndocytosisConfig, matches: list[dict[str, str]], now: datetime) -> None:
     if not matches:
         return
     lines = [f"## {now.strftime('%Y-%m-%d')} (Breaking Alerts)\n", "### Breaking AI News\n"]
@@ -285,7 +285,7 @@ def _append_breaking_log(cfg: LustroConfig, matches: list[dict[str, str]], now: 
 
 
 def run_breaking(
-    cfg: LustroConfig,
+    cfg: EndocytosisConfig,
     dry_run: bool = False,
     now: datetime | None = None,
     state_path: Path | None = None,
@@ -300,7 +300,7 @@ def run_breaking(
 
 
 def _run_breaking_locked(
-    cfg: LustroConfig,
+    cfg: EndocytosisConfig,
     dry_run: bool,
     now: datetime,
     state_path: Path,

@@ -8,7 +8,7 @@ import sys
 from datetime import datetime, timezone
 from typing import Any
 
-from metabolon.organelles.endocytosis_rss.config import LustroConfig
+from metabolon.organelles.endocytosis_rss.config import EndocytosisConfig
 from metabolon.organelles.endocytosis_rss.log import append_to_log
 
 
@@ -52,7 +52,7 @@ def _sample(text: str, limit: int = 100) -> str:
 
 
 def _append_discovery_log(
-    cfg: LustroConfig,
+    cfg: EndocytosisConfig,
     now: datetime,
     scanned: int,
     matched_count: int,
@@ -71,7 +71,7 @@ def _append_discovery_log(
     append_to_log(cfg.log_path, "\n".join(lines) + "\n")
 
 
-def run_discover(cfg: LustroConfig, count: int | None = None, bird_path: str | None = None) -> int:
+def run_discover(cfg: EndocytosisConfig, count: int | None = None, bird_path: str | None = None) -> int:
     discovery_cfg = cfg.sources_data.get("x_discovery", {})
     if not isinstance(discovery_cfg, dict):
         discovery_cfg = {}

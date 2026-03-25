@@ -47,7 +47,7 @@ def default_sources_text() -> str:
 
 
 @dataclass(slots=True)
-class LustroConfig:
+class EndocytosisConfig:
     config_dir: Path
     cache_dir: Path
     data_dir: Path
@@ -88,14 +88,14 @@ class LustroConfig:
         return str(fallback) if fallback.is_file() else None
 
 
-def load_config() -> LustroConfig:
+def load_config() -> EndocytosisConfig:
     xdg_config = _xdg_base("XDG_CONFIG_HOME", ".config")
     xdg_cache = _xdg_base("XDG_CACHE_HOME", ".cache")
     xdg_data = _xdg_base("XDG_DATA_HOME", ".local/share")
 
-    config_dir = _env_path("LUSTRO_CONFIG_DIR", xdg_config / "lustro")
-    cache_dir = _env_path("LUSTRO_CACHE_DIR", xdg_cache / "lustro")
-    data_dir = _env_path("LUSTRO_DATA_DIR", xdg_data / "lustro")
+    config_dir = _env_path("ENDOCYTOSIS_CONFIG_DIR", xdg_config / "lustro")
+    cache_dir = _env_path("ENDOCYTOSIS_CACHE_DIR", xdg_cache / "lustro")
+    data_dir = _env_path("ENDOCYTOSIS_DATA_DIR", xdg_data / "lustro")
 
     config_path = config_dir / "config.yaml"
     sources_path = config_dir / "sources.yaml"
@@ -115,7 +115,7 @@ def load_config() -> LustroConfig:
     bird_path = config_data.get("bird_path")
     tg_notify_path = config_data.get("tg_notify_path")
 
-    return LustroConfig(
+    return EndocytosisConfig(
         config_dir=config_dir,
         cache_dir=cache_dir,
         data_dir=data_dir,

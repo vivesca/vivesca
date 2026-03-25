@@ -1,0 +1,1575 @@
+# AI News Sources Configuration
+# All sources fetched by cron (cadence-gated). Tier controls display priority:
+# Tier 1: Always surfaced in /ai-news
+# Tier 2: Surfaced only if noteworthy, or in deep mode
+#
+# cadence: daily | twice_weekly | weekly | biweekly | monthly
+#   Used by cron to skip sources unlikely to have new content since last fetch.
+# rss: Direct RSS/Atom feed URL (preferred for cron — structured, reliable)
+# url: Web page URL (fallback — needs HTML scraping)
+
+web_sources:
+  # General AI News
+  - name: Simon Willison
+    url: https://simonwillison.net
+    rss: https://simonwillison.net/atom/everything/
+    focus: LLMs, open source, hands-on
+    tier: 1
+    cadence: daily
+
+  - name: Shreya Shankar
+    url: https://www.sh-reya.com
+    rss: https://www.sh-reya.com/rss.xml
+    focus: LLM evals research, data-centric AI, evaluation methodology (UC Berkeley PhD)
+    tier: 1
+    cadence: monthly
+    notes: |
+      Co-teaches AI Evals course with Hamel Husain. Research on why error analysis
+      must precede evaluator design. Complements Hamel's practitioner angle with
+      academic rigour.
+
+  - name: Hamel Husain
+    url: https://hamel.dev
+    rss: https://hamel.dev/index.xml
+    focus: LLM evals, AI product quality, coding agents, practical AI engineering (Parlance Labs)
+    tier: 1
+    cadence: monthly
+    notes: |
+      Email unsubscribed Mar 2026 — covered by RSS. Publishes evals frameworks,
+      skills for coding agents, and practitioner guides from 50+ company experience.
+
+  - name: Eugene Yan
+    url: https://eugeneyan.com
+    rss: https://eugeneyan.com/rss/
+    focus: Applied ML, RecSys, LLMs in production
+    tier: 1
+    cadence: monthly
+
+  - name: Anthropic Blog
+    url: https://www.anthropic.com/news
+    rss: https://raw.githubusercontent.com/taobojlen/anthropic-rss-feed/main/anthropic_news_rss.xml
+    focus: Claude updates, research, safety
+    tier: 1
+    cadence: twice_weekly
+    notes: |
+      Official site is JS-rendered (no RSS). Community-maintained feed via GitHub
+      (taobojlen/anthropic-rss-feed) — scrapes anthropic.com/news, updated daily
+      via GitHub Actions (confirmed current Mar 2026). If feed stops updating,
+      fall back to Latent Space / Import AI which cover Anthropic announcements.
+
+  - name: Claude Code Changelog
+    url: https://github.com/anthropics/claude-code/blob/main/CHANGELOG.md
+    rss: https://github.com/anthropics/claude-code/releases.atom
+    focus: Claude Code feature velocity — agentic loops, MCP, parallel agents, model defaults
+    tier: 2
+    cadence: weekly
+    notes: |
+      Tracks CC releases at practitioner level. Useful for Capco consulting lens:
+      feature direction signals where AI dev tooling is heading. Weekly releases,
+      low noise. Complements Anthropic Blog (research/policy) with product specifics.
+
+  - name: Azure AI Updates
+    url: https://azure.microsoft.com/en-us/updates/
+    rss: https://www.microsoft.com/releasecommunications/api/v2/azure/rss
+    focus: Azure OpenAI Service, AI Foundry, Copilot Studio — what bank clients on Azure are working with
+    tier: 2
+    cadence: weekly
+    notes: |
+      Full Azure release communications feed (200 entries, clean XML, no auth).
+      Not AI-filtered — scan titles for AI/OpenAI/Copilot/cognitive keywords.
+      Key for "what can we do with Azure OpenAI" client conversations. Banks default
+      to Azure for compliance/data residency reasons, so this stack matters more than
+      AWS for most Capco clients.
+      Old category-filtered URL (azure.microsoft.com/en-us/updates/feed/?category=...)
+      301-redirects to a broken JS page (0 entries) as of Mar 2026.
+
+  - name: GitHub Changelog
+    url: https://github.blog/changelog/
+    rss: https://github.blog/changelog/feed/
+    focus: GitHub Copilot enterprise features, Actions, Codespaces — what banks evaluating dev tooling need to know
+    tier: 2
+    cadence: twice_weekly
+    notes: |
+      Covers all GitHub product changes; Copilot features dominate right now.
+      Filter mentally for Copilot/AI entries. Key for "enterprise coding tool" client conversations.
+
+  - name: Windsurf Blog
+    url: https://windsurf.com/blog
+    rss: https://windsurf.com/blog/rss.xml
+    focus: Agentic coding IDE, CC competitor, enterprise AI dev tooling
+    tier: 2
+    cadence: weekly
+    notes: |
+      Codeium's IDE product (rebranded Windsurf). Fastest-growing CC alternative.
+      Useful for "what are the options" conversations with bank clients evaluating AI coding tools.
+      RSS URL unverified — fallback to scraping if feed 404s.
+
+  - name: OpenAI News
+    url: https://openai.com/news
+    rss: https://openai.com/news/rss.xml
+    focus: Product launches, API/developer guides, research, company news
+    tier: 1
+    cadence: weekly
+
+  - name: Cursor Blog
+    url: https://cursor.com/blog
+    rss: https://raw.githubusercontent.com/Olshansk/rss-feeds/main/feeds/feed_cursor.xml
+    focus: AI coding agents, MoE training, inference optimization, systems engineering
+    tier: 1
+    cadence: weekly
+    notes: |
+      High-quality technical content. Research posts on custom models, CUDA kernels,
+      multi-agent coordination. Primary source for AI coding tool internals.
+      No native RSS — using community-maintained feed (Olshansk/rss-feeds on GitHub).
+      Verified working Mar 2026 with current items.
+
+  - name: Google DeepMind
+    url: https://deepmind.google/blog/
+    rss: https://deepmind.google/blog/rss.xml
+    focus: AI research, Gemini, AlphaFold, safety
+    tier: 1
+    cadence: weekly
+
+  - name: Meta AI (FAIR)
+    url: https://ai.meta.com/blog/
+    rss: https://engineering.fb.com/feed/
+    focus: Llama, open-source AI research, FAIR papers, Meta infrastructure AI
+    tier: 1
+    cadence: weekly
+    notes: |
+      No native RSS on ai.meta.com. Using Meta Engineering feed (engineering.fb.com)
+      as proxy — covers AI/ML posts alongside other Meta eng content. RSSHub route
+      /meta/ai/blog exists but public instance 403 — would need self-hosted RSSHub.
+
+  - name: Hugging Face Blog
+    url: https://huggingface.co/blog
+    rss: https://huggingface.co/blog/feed.xml
+    focus: Open-source models, benchmarks, datasets, transformers ecosystem
+    tier: 1
+    cadence: weekly
+
+  - name: Mistral AI
+    url: https://mistral.ai/news
+    stealth_web: true
+    focus: European AI lab, BNP Paribas partnership, open-weight models
+    tier: 2
+    cadence: weekly
+    notes: No RSS. stealth_web uses nodriver for JS-rendered page.
+
+  - name: NVIDIA Developer Blog (AI)
+    url: https://developer.nvidia.com/blog/category/artificial-intelligence/
+    rss: https://developer.nvidia.com/blog/feed
+    focus: GPU/AI infrastructure, CUDA, inference optimisation, model serving
+    tier: 2
+    cadence: weekly
+    notes: High volume — filter for AI category. General feed includes non-AI posts.
+
+  - name: steipete.me
+    url: https://steipete.me
+    rss: https://steipete.me/rss.xml
+    focus: AI workflows, agentic engineering, vibe coding, macOS AI tools
+    tier: 1
+    cadence: biweekly
+    notes: |
+      Founder of OpenClaw/VibeTunnel. High-signal posts on building agentic stacks
+      and the shift from practitioner to agentic engineer.
+
+  - name: OpenClaw Releases
+    url: https://github.com/openclaw/openclaw/releases
+    rss: https://github.com/openclaw/openclaw/releases.atom
+    focus: Personal AI agent runtime — changelog, new capabilities, breaking changes
+    tier: 2
+    cadence: weekly
+    tags: [tools]
+    notes: |
+      Installed locally at /opt/homebrew/bin/moltbot. Track for new agent primitives,
+      config schema changes, and capability expansions relevant to TerryMolty / Moltbook.
+
+  - name: Geoffrey Huntley
+    url: https://ghuntley.com
+    rss: https://ghuntley.com/rss/
+    focus: AI-assisted dev loops, context engineering, secure codegen patterns
+    tier: 2
+    cadence: monthly
+    notes: |
+      Ralph loop practitioner. Infrequent but tactical posts on back-pressure,
+      prompt calibration, and agentic dev workflows. Building @latentpatterns (AI education).
+
+  - name: Good AI List
+    url: https://goodailist.com/repos
+    focus: AI repository trending/velocity (Agents, RAG, production tools)
+    tier: 1
+    cadence: daily
+
+  - name: Epoch AI
+    url: https://epoch.ai/blog
+    rss: https://epochai.substack.com/feed
+    focus: AI compute tracking, scaling laws, infrastructure data (GPU clusters, data centers)
+    tier: 2
+    cadence: monthly
+    notes: |
+      Monthly "Epoch Brief" is the main signal. X account (@EpochAIResearch) covers
+      headlines faster. Deep value is in databases (epoch.ai/data) for ad hoc lookup,
+      not the blog feed. Skip Gradient Updates / Data Insights — too granular.
+
+  - name: Brendan Gregg
+    url: https://www.brendangregg.com/blog/
+    rss: https://www.brendangregg.com/blog/rss.xml
+    focus: Systems performance, AI infrastructure cost, eBPF, datacenter observability
+    tier: 2
+    cadence: monthly
+    notes: |
+      Joined OpenAI Feb 2026. Posts on AI datacenter perf optimization
+      are high-signal for enterprise AI cost discussions. Skip deep kernel internals.
+
+  - name: Fireworks AI Blog
+    url: https://fireworks.ai/blog
+    selector: "a[href*='/blog/']"
+    focus: Inference optimization, speculative decoding, model serving
+    tier: 2
+    cadence: biweekly
+    notes: Card-level <a> tags contain <h3> title inside — heading-child extraction handles clean title. No stealth needed (plain HTTP works).
+
+  - name: LangChain Blog
+    rss: https://blog.langchain.dev/rss/
+    focus: LangGraph agents, production LLM patterns, orchestration frameworks
+    tier: 2
+    cadence: weekly
+    notes: |
+      Active blog (Feb 2026). High relevance for AI agent architecture discussions
+      with bank clients — LangGraph is the dominant enterprise agent framework.
+
+  - name: Groq Blog
+    url: https://groq.com/blog
+    selector: "h2 a[href*='/blog/']"
+    focus: LPU inference, speed benchmarks, fast AI APIs
+    tier: 2
+    cadence: biweekly
+    notes: |
+      Relevant for latency-sensitive AI discussions in banking (trading, real-time fraud).
+      Plain HTTP works — no stealth needed.
+
+  - name: Together AI Blog
+    url: https://www.together.ai/blog
+    selector: "a[href*='/blog/']"
+    focus: Open-source LLM inference, fine-tuning, on-prem AI options
+    tier: 2
+    cadence: biweekly
+    notes: |
+      Relevant for banks exploring open-source/on-prem AI vs. closed APIs.
+      Plain HTTP works — heading-child extraction handles card titles.
+
+  - name: Exa Blog
+    url: https://exa.ai/blog
+    selector: "a[href*='/blog/']"
+    focus: Neural web search, retrieval for AI agents
+    tier: 2
+    cadence: monthly
+    notes: |
+      Interesting for RAG/retrieval architecture discussions. Less directly
+      banking-relevant but worth monitoring for agentic search patterns.
+
+  - name: LlamaIndex Blog
+    url: https://www.llamaindex.ai/blog
+    selector: "a[href*='/blog/']"
+    focus: RAG, agentic pipelines, LlamaIndex framework updates
+    tier: 2
+    cadence: biweekly
+    notes: |
+      Plain HTTP works — heading-child extraction handles card titles.
+      High relevance for enterprise RAG architecture discussions with bank clients.
+
+  - name: Weaviate Blog
+    rss: https://weaviate.io/blog/rss.xml
+    focus: Vector databases, RAG architecture, semantic search
+    tier: 2
+    cadence: weekly
+    notes: |
+      Active RSS (200+ entries). Strong technical depth on vector search and
+      RAG patterns — useful for bank data/search modernisation conversations.
+
+  - name: Pinecone Blog
+    url: https://www.pinecone.io/blog/
+    selector: "a[href*='/blog/']"
+    focus: Vector databases, embedding models, RAG at scale
+    tier: 2
+    cadence: biweekly
+    notes: |
+      Plain HTTP works. Pinecone is the dominant managed vector DB —
+      tracking their blog gives early signal on enterprise RAG adoption patterns.
+
+  - name: The Batch (Andrew Ng)
+    url: https://www.deeplearning.ai/the-batch/
+    # No RSS feed available
+    focus: Weekly AI news, Andrew Ng's letters, DeepLearning.AI
+    tier: 1
+    cadence: weekly
+
+  - name: Ben's Bites
+    url: https://www.bensbites.com
+    rss: https://www.bensbites.com/feed
+    focus: AI startups, tools, product building — practitioner-level
+    tier: 1
+    cadence: twice_weekly
+    notes: |
+      Ben Tossell. Terry has lifetime paid membership.
+      Tue/Thu news summaries (free) + paid community/tutorials.
+      Keep email subscription if paid content isn't in RSS/web archive.
+
+  - name: Longview (The Last Invention)
+    url: https://longviewinvestigations.substack.com
+    rss: https://longviewinvestigations.substack.com/feed
+    focus: Investigative AI journalism — doomers vs accelerationists vs scouts
+    tier: 2
+    cadence: weekly
+    notes: |
+      General investigative outlet — filter for AI/Last Invention content.
+      Hosted by Gregory Warner (ex-NPR). High-quality long-form, not breaking news.
+
+  - name: Dwarkesh Podcast
+    url: https://www.dwarkesh.com
+    rss: https://www.dwarkesh.com/feed
+    focus: Long-form AI interviews — researchers, founders, policymakers
+    tier: 1
+    cadence: weekly
+    notes: |
+      Dwarkesh Patel. Deep interviews with Ilya Sutskever, Dario Amodei, etc.
+      Podcast-first but Substack posts include transcripts and written analysis.
+
+  - name: Evident Banking Brief
+    url: https://evidentinsights.com/bankingbrief/
+    selector: "a[href*='/bankingbrief/']"
+    focus: AI in financial services, bank AI rankings and benchmarks
+    tier: 1
+    cadence: weekly
+    notes: |
+      No RSS feed. Selector targets archived brief links (/bankingbrief/<slug>/).
+      Email unsubscribed Feb 2026. Also posts on LinkedIn: /company/evidentinsights/
+
+  - name: AI Street
+    url: https://www.ai-street.co/
+    rss: https://www.ai-street.co/feed
+    focus: AI adoption in finance — hedge funds, banks, Wall Street strategy
+    tier: 2
+    cadence: weekly
+    notes: |
+      Matt Robinson (ex-Bloomberg). Practitioner-focused coverage of AI deployment
+      in financial services. Complements Evident (benchmarks) with strategy/case studies.
+
+  - name: Tearsheet
+    rss: https://tearsheet.co/feed
+    focus: AI in banking and fintech — deployment reality, strategy, product
+    tier: 2
+    cadence: weekly
+    notes: |
+      Practitioner-level fintech journalism. Covers JPMorgan LLM Suite, Goldman GS AI
+      Assistant, bank vendor deals. Good for "what are banks actually shipping" context
+      ahead of client conversations.
+
+  - name: Every
+    url: https://every.to
+    focus: AI tools for knowledge workers, accessible commentary
+    tier: 2
+    cadence: twice_weekly
+    notes: |
+      Good for zeitgeist and practical tool reviews. Not deep technical insight.
+      Treats surface-level findings as bigger insights than they are.
+      Skim for "what are people trying with AI this week", not strategy.
+
+  - name: Hacker News
+    url: https://news.ycombinator.com
+    rss: https://news.ycombinator.com/rss
+    focus: Tech/startup news, community picks
+    tier: 2
+    cadence: daily
+
+  - name: Import AI
+    url: https://jack-clark.net
+    rss: https://importai.substack.com/feed
+    focus: AI research, policy, Jack Clark
+    tier: 1
+    cadence: weekly
+    notes: |
+      Weekly research summaries with policy context. High signal-to-noise.
+      Good for staying current on research without reading papers directly.
+
+  - name: Gwern
+    url: https://gwern.net
+    rss: https://gwern.net/atom.xml
+    focus: Deep technical essays, scaling laws, AI philosophy
+    tier: 2
+    cadence: monthly
+    notes: |
+      Long-form essays requiring time to digest. Not news — evergreen thinking.
+      Check monthly for new posts. Essential for first-principles AI understanding.
+
+  - name: Latent Space / AINews
+    url: https://www.latent.space
+    rss: https://www.latent.space/feed
+    focus: AINews daily digest + editorial framing, podcasts, deep dives (swyx)
+    tier: 1
+    cadence: daily
+    notes: |
+      Paywalled Substack — Terry has a paid subscription.
+      RSS feed truncates paywalled content. For full text during /ai-news:
+        agent-browser --profile open "https://www.latent.space/p/<slug>"
+      Then extract with: agent-browser eval "document.querySelector('article').innerText"
+      Editorial intro (Karpathy quotes, cross-source narrative) is the unique value
+      over smol.ai, which has the same digest but no framing.
+
+  - name: Interconnects
+    url: https://www.interconnects.ai
+    rss: https://robotic.substack.com/feed
+    focus: AI scaling laws, alignment, Nathan Lambert
+    tier: 1
+    cadence: twice_weekly
+    notes: |
+      Primary source for "System 2" reasoning and inference-time scaling insights.
+      Essential for AgentOps and safety narratives.
+
+  # === Reader OPML Import (2026-02-21) ===
+
+  - name: Karpathy (bearblog)
+    rss: https://karpathy.bearblog.dev/feed/?type=rss
+    focus: Andrej Karpathy, AI education
+    tier: 2
+    cadence: monthly
+    notes: Blog inactive since Dec 2025 — Karpathy posts on X instead. X handle (@karpathy) remains Tier 1.
+
+  - name: Chip Huyen
+    rss: https://huyenchip.com/feed.xml
+    focus: ML systems, AI engineering
+    tier: 2
+    cadence: monthly
+    notes: Inactive since Jan 2025. Demoted from Tier 1 Feb 2026. Remove if still silent by May 2026.
+
+  - name: Lil'Log
+    rss: https://lilianweng.github.io/index.xml
+    focus: AI research deep dives, OpenAI
+    tier: 1
+    cadence: monthly
+
+  - name: One Useful Thing
+    rss: https://www.oneusefulthing.org/feed
+    focus: AI + work, Ethan Mollick (Wharton)
+    tier: 1
+    cadence: monthly
+
+  - name: Francois Chollet
+    rss: https://fchollet.substack.com/feed
+    focus: Keras creator, AI philosophy
+    tier: 2
+    cadence: monthly
+    notes: Inactive since Oct 2023. Demoted from Tier 1 Feb 2026. Remove if still silent by May 2026.
+
+  - name: fast.ai
+    rss: https://www.fast.ai/index.xml
+    focus: Practical deep learning, Jeremy Howard
+    tier: 1
+    cadence: monthly
+
+  - name: Sebastian Ruder
+    rss: https://ruder.io/rss/
+    focus: NLP research, Google DeepMind
+    tier: 1
+    cadence: monthly
+
+  - name: Guide to AI
+    rss: https://nathanbenaich.substack.com/feed
+    focus: State of AI report, Air Street Capital
+    tier: 1
+    cadence: weekly
+
+  - name: Paul Graham
+    rss: http://www.aaronsw.com/2002/feeds/pgessays.rss
+    focus: Startups, essays
+    tier: 1
+    cadence: monthly
+
+  - name: Cold Takes
+    rss: https://www.cold-takes.com/rss/
+    focus: AI safety, long-termism, Holden Karnofsky
+    tier: 1
+    cadence: monthly
+
+  - name: Bits about Money
+    rss: https://www.bitsaboutmoney.com/archive/rss/
+    focus: Fintech infrastructure, Patrick McKenzie
+    tier: 1
+    cadence: monthly
+
+  - name: Yoshua Bengio
+    rss: https://yoshuabengio.org/feed/
+    focus: Deep learning pioneer, AI safety
+    tier: 1
+    cadence: monthly
+
+  - name: EleutherAI Blog
+    rss: https://blog.eleuther.ai/index.xml
+    focus: Open-source AI research
+    tier: 1
+    cadence: monthly
+
+  - name: Sequoia Capital
+    rss: https://www.sequoiacap.com/feed
+    focus: VC insights, AI market
+    tier: 1
+    cadence: monthly
+
+  - name: Obsidian Blog
+    rss: https://obsidian.md/feed.xml
+    focus: Obsidian updates, PKM
+    tier: 1
+    cadence: monthly
+
+  - name: Ollama models
+    rss: https://simonw.github.io/ollama-models-atom-feed/atom.xml
+    focus: New Ollama model releases
+    tier: 1
+    cadence: daily
+
+  - name: LobeHub Blog
+    rss: https://lobehub.com/blog/feed
+    focus: Open-source AI chat framework
+    tier: 1
+    cadence: monthly
+
+  # Marc Andreessen Substack — removed Mar 2026 (8 months inactive)
+
+  - name: Eric Jang
+    rss: https://evjang.com/feed.xml
+    focus: Robotics, AI research
+    tier: 2
+    cadence: monthly
+
+  - name: Stephan Ango
+    rss: https://stephanango.com/feed.xml
+    focus: Obsidian CEO, tools for thought
+    tier: 2
+    cadence: monthly
+
+  - name: The Gradient
+    rss: https://thegradient.pub/rss/
+    focus: AI research magazine
+    tier: 2
+    cadence: monthly
+
+  # Hitchhiker's Guide to AI — removed Feb 2026 (domain pivoted to Parcha product blog)
+
+  - name: Eugene Wei
+    rss: https://www.eugenewei.com/blog?format=rss
+    focus: Tech strategy, culture, long-form
+    tier: 2
+    cadence: monthly
+
+  - name: balajis.com
+    rss: https://balajis.com/feed
+    focus: Network state, tech futures
+    tier: 2
+    cadence: monthly
+
+  - name: andrewchen
+    rss: http://andrewchen.com/feed/
+    focus: Growth, marketplaces, a16z
+    tier: 2
+    cadence: monthly
+
+  - name: Matt Turck
+    rss: https://mattturck.com/feed/
+    focus: MAD landscape, data/AI ecosystem
+    tier: 2
+    cadence: monthly
+
+  - name: Granted
+    rss: https://adamgrant.substack.com/feed
+    focus: Org psych, Adam Grant
+    tier: 2
+    cadence: weekly
+
+  # Spectral Newsletter — removed Mar 2026 (2 years inactive)
+
+  - name: Max Woolf
+    rss: https://minimaxir.com/post/index.xml
+    focus: AI experiments, data viz
+    tier: 2
+    cadence: monthly
+
+  - name: Frank Zliu
+    rss: https://frankzliu.com/feed.xml
+    focus: Vector DBs, Zilliz/Milvus
+    tier: 2
+    cadence: monthly
+
+  - name: Ken Schutte
+    rss: https://kenschutte.com/rss.xml
+    focus: ML engineering
+    tier: 2
+    cadence: monthly
+
+  - name: ThatsTheNorm
+    rss: https://thatsthenorm.com/rss/
+    focus: AI/ML commentary
+    tier: 2
+    cadence: monthly
+
+  - name: Maarten Grootendorst
+    rss: https://maartengrootendorst.substack.com/feed
+    focus: BERTopic, NLP tutorials
+    tier: 2
+    cadence: weekly
+
+  - name: Accelerated
+    rss: https://www.readaccelerated.com/feed
+    focus: AI research digest
+    tier: 2
+    cadence: monthly
+
+  - name: Superwise
+    rss: https://superwise.ai/feed/
+    focus: ML observability
+    tier: 2
+    cadence: monthly
+
+  - name: Lj Miranda
+    rss: https://ljvmiranda921.github.io/feed.xml
+    focus: ML engineering, open source
+    tier: 2
+    cadence: monthly
+
+  - name: Jay Alammar
+    rss: https://jayalammar.substack.com/feed
+    focus: Visual ML explainers
+    tier: 2
+    cadence: monthly
+    notes: Slow — ~4 months inactive as of Mar 2026. Remove if still silent by Jun 2026.
+
+  - name: Mindful Modeler
+    rss: https://mindfulmodeler.substack.com/feed
+    focus: ML modeling practice
+    tier: 2
+    cadence: weekly
+
+  - name: The Data Quarry
+    rss: https://thedataquarry.com/rss.xml
+    focus: Data engineering, Rust
+    tier: 2
+    cadence: monthly
+
+  # Dinner Table Discussions — removed Feb 2026 (moved to Beehiiv, no RSS)
+
+  - name: Andrey Kurenkov
+    rss: http://www.andreykurenkov.com/writing/feed.xml/
+    focus: AI history, research summaries
+    tier: 2
+    cadence: monthly
+
+  - name: Andy Konwinski
+    rss: https://andykonwinski.com/feed.xml
+    focus: Databricks co-founder, ML infra
+    tier: 2
+    cadence: monthly
+
+  - name: Xavier Amatriain
+    rss: https://amatriain.net/blog/feed.xml
+    focus: RecSys, ML leadership
+    tier: 2
+    cadence: monthly
+
+  # Generally Intelligent — removed Mar 2026 (2 years inactive)
+
+  - name: Building Nubank
+    url: https://building.nubank.com
+    rss: https://building.nubank.com/feed/
+    focus: ML ops, foundation models, AI agents, scaling to 127M+ customers
+    tier: 2
+    cadence: monthly
+    notes: |
+      Active WordPress blog, last post Feb 16 2026. Covers foundation models for
+      finance, AI agents with Clojure, payment latency optimization. Medium blog
+      (medium.com/building-nubank) inactive since ~2021 — superseded by this.
+
+  - name: AI in Production
+    rss: https://blog.doxray.com/feed
+    focus: Production ML systems
+    tier: 2
+    cadence: monthly
+
+  # NLP News — removed Mar 2026 (10 months inactive)
+
+  - name: AI Cathedral
+    rss: https://pashpashpash.substack.com/feed
+    focus: AI engineering
+    tier: 2
+    cadence: weekly
+
+  - name: The Sideways View
+    rss: https://sideways-view.com/feed/
+    focus: AI forecasting
+    tier: 2
+    cadence: monthly
+
+  - name: Context by Cohere
+    rss: https://txt.cohere.com/rss/
+    focus: Cohere AI research blog
+    tier: 2
+    cadence: monthly
+
+  # CardsFTW — removed Mar 2026 (empty Substack, no posts)
+
+  - name: Lyft Engineering
+    rss: https://medium.com/feed/lyft-engineering
+    focus: ML at scale, ride-sharing
+    tier: 2
+    cadence: monthly
+    notes: Migrated from eng.lyft.com (SSL error) to Medium feed Feb 2026.
+
+  - name: Tangent Space
+    rss: https://charlesfrye.github.io/feed.xml
+    focus: ML infra, Modal, Charles Frye
+    tier: 2
+    cadence: monthly
+
+  - name: Stripe Press
+    rss: https://stripepress.substack.com/feed
+    focus: Ideas, progress studies
+    tier: 2
+    cadence: weekly
+
+  - name: Gradient Labs (Substack)
+    rss: https://blog.gradient-labs.ai/feed
+    url: https://gradient-labs.ai/blog
+    focus: AI agents in financial services — guardrails, production incidents, fraud, compliance
+    tier: 2
+    cadence: monthly
+    notes: |
+      Ex-Monzo team. Substack has engineering content (Temporal, LLM failover, incident post-mortems).
+      Main blog has governance/compliance angle (tipping-off, vulnerability detection, FCA Consumer Duty).
+      ~8 Substack posts over 2 years — check both URLs. Vault reference: [[Gradient Labs - AI Agent Guardrails in FS]]
+
+  - name: GuardrailsAI Blog
+    url: https://www.guardrailsai.com/blog
+    stealth_web: true
+    selector: "a[href*='/blog/']"
+    focus: LLM guardrails, validation
+    tier: 2
+    cadence: monthly
+    notes: |
+      No RSS (Framer site). stealth_web + selector targets blog post links.
+      Titles may include category prefix (Framer rendering artifact) — harmless.
+
+  - name: Wait But Why
+    rss: https://waitbutwhy.com/feed
+    focus: Long-form explainers, Tim Urban
+    tier: 2
+    cadence: monthly
+
+  - name: 80,000 Hours
+    rss: https://80000hours.org/feed/
+    focus: Career impact, AI safety careers
+    tier: 2
+    cadence: monthly
+
+  - name: The Technium
+    rss: https://feedpress.me/thetechnium
+    focus: Kevin Kelly, tech philosophy
+    tier: 2
+    cadence: monthly
+
+  # Disabled — RSS feed returns broken Liquid template ({{ post.title }})
+  # - name: Joseph Cheng
+  #   rss: https://josephcheng.me/feed.xml
+  #   focus: Personal blog
+  #   tier: 2
+  #   cadence: monthly
+
+  - name: Jina AI
+    rss: https://jina.ai/feed.rss
+    focus: Neural search, embeddings
+    tier: 2
+    cadence: monthly
+
+  - name: AI Futures Project
+    rss: https://blog.ai-futures.org/feed
+    focus: Long-term AI policy
+    tier: 2
+    cadence: monthly
+
+  - name: AIGC Weekly (歸藏)
+    rss: https://quaily.com/op7418/feed/atom
+    stealth_fetch: true
+    focus: Chinese AI weekly digest — models, tools, creative AI (CN)
+    tier: 2
+    cadence: weekly
+    notes: |
+      Same author as 歸藏的AI工具箱 WeChat (already tracked via WeWe RSS).
+      Newsletter is a curated weekly roundup; WeChat is ad-hoc posts.
+      160+ issues, consistent since 2023. Free tier sufficient.
+      full_fetch gets ~3K chars (上周精选 section only). Deeper sections
+      (其他动态, 重点研究) are JS-rendered behind Cloudflare + localStorage
+      auth — not accessible via requests, trafilatura, or Playwright.
+      Keep Gmail subscription for full content. Do not attempt to automate.
+
+  # Restored — thinking/philosophy sources
+  - name: Smol AI News
+    url: https://news.smol.ai
+    rss: https://news.smol.ai/rss.xml
+    focus: Practitioner-focused, swyx
+    tier: 1
+    cadence: daily
+    notes: |
+      Same digest content as Latent Space AINews section, but free/no paywall.
+      Latent Space adds editorial framing — prefer it for /ai-news when auth is available.
+      Homepage shows one headline/day. Full issues at news.smol.ai/issues/YY-MM-DD-slug
+      For deep read: fetch last 3-5 full issues
+
+  - name: Vitalik Buterin
+    rss: https://vitalik.eth.limo/feed.xml
+    focus: Ethereum, crypto, tech philosophy
+    tier: 2
+    cadence: monthly
+    notes: |
+      Migrated from vitalik.ca (ECONNREFUSED) to ENS mirror Feb 2026.
+    tags: [thinkers]
+
+  - name: Daniel Doyon
+    rss: https://readwise-community.ghost.io/2defd8e965b87487102ef0c6db1880/rss/
+    focus: Readwise, reading tools
+    tier: 2
+    cadence: biweekly
+    tags: [thinkers]
+
+  - name: Planned Obsolescence
+    rss: https://www.planned-obsolescence.org/feed
+    focus: Digital humanities, open scholarship
+    tier: 2
+    cadence: monthly
+    tags: [thinkers]
+
+  - name: Mind the Future
+    rss: https://www.mindthefuture.info/feed
+    focus: Futures thinking
+    tier: 2
+    cadence: monthly
+    tags: [thinkers]
+
+  - name: PJ Wu
+    rss: https://world.hey.com/mimir/feed.atom
+    focus: Productivity, tools for thought
+    tier: 2
+    cadence: monthly
+    tags: [thinkers]
+
+  - name: cdixon
+    rss: https://cdixon.substack.com/feed
+    focus: Web3, a16z crypto
+    tier: 2
+    cadence: weekly
+    tags: [thinkers]
+
+  # Phronesis thinkers — practical wisdom, mental models, decision-making
+  # These feed the thalamus phronesis pipeline (domain: phronesis)
+  - name: Derek Sivers
+    url: https://sive.rs/blog
+    rss: https://sive.rs/en.atom
+    focus: Contrarian life design, doing the opposite, simplicity, self-reliance
+    tier: 1
+    cadence: monthly
+    tags: [thinkers, phronesis]
+
+  - name: Morgan Housel
+    url: https://collabfund.com/blog
+    rss: http://feeds.feedburner.com/collabfund
+    focus: Behavioral finance, long-term thinking, Psychology of Money, storytelling
+    tier: 1
+    cadence: weekly
+    tags: [thinkers, phronesis]
+    notes: |
+      Also tracked as @morganhousel on X (x_accounts section) for shorter takes.
+      RSS covers longer-form Collaborative Fund essays.
+
+  - name: Shane Parrish
+    url: https://fs.blog
+    rss: https://fs.blog/feed/
+    focus: Mental models, decision-making, Farnam Street, latticework of mental models
+    tier: 1
+    cadence: weekly
+    tags: [thinkers, phronesis]
+    notes: |
+      Also tracked as @shaneparrish on X (x_accounts section) for shorter takes.
+      RSS covers full Farnam Street essays and Knowledge Project summaries.
+
+  - name: Naval Ravikant
+    url: https://nav.al
+    rss: https://nav.al/feed
+    focus: Wealth creation, philosophy, leverage, specific knowledge, happiness
+    tier: 1
+    cadence: monthly
+    tags: [thinkers, phronesis]
+    notes: |
+      Low-volume, high-signal. RSS is podcast feed — transcripts are the content.
+      Naval publishes infrequently; each post is usually a concentrated argument.
+
+
+consulting_and_regulators:
+  - name: McKinsey / QuantumBlack
+    url: https://www.mckinsey.com/capabilities/quantumblack/our-insights
+    rss: https://quantumblack.medium.com/feed
+    focus: Enterprise AI strategy, state of AI surveys, AI transformation
+    tier: 1
+    cadence: biweekly
+    notes: |
+      Annual "State of AI" survey is essential reference. McKinsey site is JS-heavy
+      (times out on HTTP fetch) — use Medium RSS instead. Updated Feb 2026.
+      Competitive intelligence for Capco positioning.
+
+  - name: BCG AI
+    url: https://www.bcg.com/capabilities/artificial-intelligence/insights
+    stealth_web: true
+    selector: "a[href*='/publications/']"
+    focus: AI value realisation, transformation playbooks, responsible AI
+    tier: 2
+    cadence: monthly
+    notes: |
+      "Where's the Value in AI?" series is their flagship. More strategy
+      than technical. Useful for understanding how competitors frame AI advisory.
+      No RSS. Site 403 to plain HTTP — stealth_web bypasses. Selector targets
+      /publications/ links to avoid nav/team page links.
+
+  - name: HKIB LinkedIn
+    linkedin: the-hong-kong-institute-of-bankers
+    focus: HKIB event announcements, banking industry updates
+    tier: 2
+    cadence: weekly
+    notes: |
+      Uses agent-browser (requires active LinkedIn session). Verified working Mar 2026.
+      Complements HKIB Events web page — LinkedIn posts are timelier for event announcements.
+
+  - name: HKIB Events
+    url: https://www.hkib.org/page/61
+    selector: "a[href*='hkibcyber.hkib.org'], a[href*='bankingconference.hkib.org'], a[href*='hkib.org/event']"
+    focus: Hong Kong Institute of Bankers — forums, conferences, cybersecurity events, practitioner networking
+    tier: 2
+    cadence: monthly
+    notes: |
+      No RSS feed. Page uses flat <a> links — selector targets event subdomains.
+      Key annual events: Cybersecurity Solutions Day (March), Annual Banking Conference (September).
+      Primary signal: HKIB email list (auto-added after event registration).
+      Registered for Cybersecurity Solutions Day 2026 (Mar 4). Ref: 123105940415793420260304.
+
+  # MAS (Singapore) — SUSPENDED Mar 2026. mas.gov.sg is in maintenance mode (full-site outage).
+  # Restore when mas.gov.sg is back. Source config preserved below.
+  # Re-enable by un-commenting the block and removing the comment header.
+  # - name: MAS (Singapore)
+  #   url: https://www.mas.gov.sg/development/fintech/artificial-intelligence
+  #   stealth_web: true
+  #   focus: FEAT principles, AI model risk management, Veritas Consortium, PathFin.ai
+  #   tier: 2
+  #   cadence: monthly
+  #   notes: |
+  #     APAC regulatory leader on AI in finance. FEAT framework + Veritas
+  #     open-source toolkit (github.com/veritas-toolkit). Nov 2025 consultation
+  #     paper on AI risk management guidelines. Pairs with BIS and BoE.
+  #     stealth_web required: page is JS-rendered, plain HTTP returns only nav links.
+  #     Added Mar 2026.
+
+  - name: HKMA Press Releases
+    url: https://www.hkma.gov.hk/eng/news-and-media/press-releases/
+    api: https://api.hkma.gov.hk/public/press-releases?lang=en&offset=0
+    api_format: json
+    focus: GenAI Sandbox announcements, regulatory policy, banking supervision
+    tier: 1
+    cadence: daily
+    notes: |
+      Official HKMA press releases via JSON API. Returns date, title, link fields.
+      Catches time-sensitive announcements: GenAI Sandbox++, fintech policy, scam alerts.
+      API endpoint: api.hkma.gov.hk/public/press-releases?lang=en&offset=0
+      Filter for AI/fintech relevance — ignore bond tenders and scam alerts.
+
+  - name: HKMA inSight
+    url: https://www.hkma.gov.hk/eng/news-and-media/insight/
+    api: https://api.hkma.gov.hk/public/insight-articles?lang=en
+    api_format: json
+    focus: GenAI Sandbox analysis, fintech policy commentary, AI supervisory guidance
+    tier: 1
+    cadence: monthly
+    notes: |
+      Long-form analysis from HKMA leadership. GenAI Sandbox (cohort 1 CNCBI, cohort 2 Oct 2025).
+      Fintech Promotion Blueprint (Feb 2026). Nov 2024 GenAI research paper.
+      API returns date/title/link. Switched from stealth_web scrape Mar 2026.
+      Cadence changed weekly→monthly Mar 2026: HKMA publishes inSight infrequently
+      (last article Dec 2025). Weekly cadence was generating false zero-article warnings.
+
+  - name: HKMA Speeches
+    url: https://www.hkma.gov.hk/eng/news-and-media/speeches/
+    selector: "a[href*='/eng/news-and-media/speeches/'][href*='/20']"
+    focus: Eddie Yue fintech/AI strategy speeches, HKMA leadership positions
+    tier: 1
+    cadence: weekly
+    notes: |
+      High-signal: Eddie Yue speeches set HKMA AI/fintech direction before policy is formalised.
+      No API available — web scrape with selector. URL pattern: /speeches/YYYY/MM/YYYYMMDD-N/
+
+  # --- Added Mar 19, 2026: Career Compound Machine sources ---
+
+  - name: UK FCA (AI/FS)
+    rss: https://www.fca.org.uk/news/rss.xml
+    focus: AI in financial services, Consumer Duty, operational resilience, enforcement
+    tier: 1
+    cadence: weekly
+    notes: |
+      Full FCA news RSS — filter for AI/fintech keywords. Leading enforcement
+      posture on AI governance in FS. Aug 2026 EU AI Act alignment forcing moves.
+
+  - name: EBA (AI Act/Banking)
+    rss: https://www.eba.europa.eu/news-press/news/rss.xml
+    focus: EU AI Act banking implementation, supervisory convergence, factsheets
+    tier: 1
+    cadence: weekly
+    notes: |
+      Bridge between abstract EU AI Act text and what banks must actually do.
+      Nov 2025 factsheet on AI Act/banking intersection is key reference.
+
+  - name: OCC Bulletins
+    rss: https://www.occ.gov/rss/occ_bulletins.xml
+    focus: SR 11-7 updates, model risk guidance, third-party AI risk, enforcement
+    tier: 1
+    cadence: weekly
+    notes: |
+      Foundational for every bank AI governance programme globally. OCC AI
+      enforcement actions (17 matters since FY2020). Pairs with Fed guidance.
+
+  - name: IOSCO
+    url: https://www.iosco.org/v2/media_room/?subsection=media_releases
+    selector: "ol li"
+    focus: AI in capital markets, algorithmic trading, robo-advice, market surveillance
+    tier: 2
+    cadence: monthly
+    notes: |
+      RSS (iosco.org/rss/rss.xml) dead since May 2023 — abandoned feed, not updated.
+      /news/ and /media-releases/ return 403/404.
+      Switched to web scrape of /v2/media_room/ (ol li selector) Mar 2026.
+      Titles include inline date text (e.g. "IOSCO publishes X 19 Mar 2026") — acceptable.
+      Key reports: AI capital markets (2025), tokenisation, crypto regulation.
+
+  - name: Global Regulation Tomorrow (Norton Rose Fulbright)
+    rss: https://www.regulationtomorrow.com/feed/
+    focus: Multi-jurisdiction FS regulatory aggregator — EBA, FCA, OCC, MAS in one feed
+    tier: 1
+    cadence: daily
+    notes: |
+      Single highest-value regulatory source. Catches developments across all
+      jurisdictions in one feed. WordPress RSS — confirm on first fetch.
+
+  - name: Accenture Banking Blog
+    rss: https://bankingblog.accenture.com/feed
+    focus: AI transformation, responsible AI, FS-specific agent deployment
+    tier: 2
+    cadence: biweekly
+    notes: |
+      Competitor intelligence. $3.6B AI bookings. More practitioner-facing than
+      main accenture.com. WordPress RSS.
+
+  - name: arXiv cs.AI
+    rss: https://arxiv.org/rss/cs.AI
+    focus: AI governance papers, assurance methodology, fairness, explainability
+    tier: 2
+    cadence: weekly
+    notes: |
+      High volume — needs keyword filtering (governance, assurance, fairness,
+      financial). Academic preprints before peer review.
+
+  - name: arXiv q-fin
+    rss: https://arxiv.org/rss/q-fin
+    focus: Quantitative finance + AI intersection, model risk, algorithmic trading
+    tier: 2
+    cadence: weekly
+    notes: |
+      Lower volume than cs.AI. Financial-specific ML papers. Pairs with cs.AI
+      for comprehensive academic coverage.
+
+bank_tech_blogs:
+  # Tier 1 - Reliable, frequent updates
+  - name: Layer 6 (TD Bank)
+    url: https://layer6.ai/blog
+    focus: ML research, recommender systems, Toronto
+    tier: 1
+    cadence: biweekly
+
+  - name: Monzo Tech
+    url: https://monzo.com/blog/topic/technology
+    focus: ML platform, fraud, UK neobank
+    tier: 1
+    cadence: biweekly
+
+  - name: Plaid Blog
+    url: https://plaid.com/blog
+    # No RSS feed available
+    focus: Open banking, MCP, infra
+    tier: 1
+    cadence: weekly
+
+  - name: Sardine Blog
+    url: https://www.sardine.ai/blog
+    focus: Fraud ML, feature stores
+    tier: 1
+    cadence: biweekly
+
+  - name: Chainalysis Blog
+    url: https://www.chainalysis.com/blog
+    focus: Crypto compliance, blockchain analytics
+    tier: 1
+    cadence: weekly
+
+  # Tier 2 - Less frequent or JS-heavy
+  - name: Capital One Tech
+    url: https://www.capitalone.com/tech/machine-learning/
+    focus: ML in banking, MLOps, fraud
+    tier: 2
+    cadence: biweekly
+
+  - name: Two Sigma Articles
+    url: https://www.twosigma.com/articles
+    focus: Quant investing, AI in finance, engineering
+    tier: 2
+    cadence: monthly
+    notes: |
+      Filter by AI/ML tags — careers/culture pieces are filler.
+      Tag URLs: /tag/artificial-intelligence/ and /tag/machine-learning/
+
+  - name: AQR Capital Management
+    url: https://www.aqr.com/Insights/Research
+    focus: ML in portfolio construction, factor investing, Bryan Kelly (Head of ML)
+    tier: 1
+    cadence: biweekly
+    notes: |
+      Most academically rigorous quant fund publisher. ~20% of signals now ML-driven.
+      Also check Cliff's Perspectives (aqr.com/Insights/Perspectives) for opinionated takes.
+      ML Learning Center: aqr.com/Learning-Center/Machine-Learning
+      No RSS — email subscribe only.
+
+  - name: Jane Street
+    url: https://blog.janestreet.com
+    rss: https://blog.janestreet.com/feed.xml
+    focus: Engineering, CS theory, OCaml, FPGA, systems design
+    tier: 2
+    cadence: monthly
+    notes: |
+      Not finance AI per se — world-class engineering thinking at a trading firm.
+      Regularly surfaces on Hacker News. Also: Signals and Threads podcast.
+
+  - name: Man AHL / Oxford-Man Institute
+    url: https://www.man.com/maninstitute/man-ahl
+    focus: ML in systematic trading, academic quant finance
+    tier: 2
+    cadence: monthly
+    notes: |
+      ML in trading since 2014. Migrated from ahl.com (ECONNREFUSED) Feb 2026.
+      Oxford-Man Institute newsletter: oxford-man.ox.ac.uk/quant-finance-research-newsletter/
+
+  - name: Bridgewater
+    url: https://www.bridgewater.com/research-and-insights/artificial-intelligence
+    focus: Macro AI commentary, AI capex cycle, AIA Labs
+    tier: 2
+    cadence: monthly
+    notes: |
+      AI-as-investment-theme angle, not AI-as-tool. Useful for macro framing
+      in client conversations. AIA Labs content is high-level, no methodology detail.
+
+  # JPMorgan AI Research — removed Mar 2026. Unfetchable (JS nav only). Covered by
+  # "In Context" email newsletter (subscribed terry.li.hm@gmail.com, Mar 2026).
+
+  # Goldman Sachs Insights — removed Mar 2026. Unfetchable (dynamic load, 0 articles).
+  # Covered by Briefings email newsletter (subscribed terry.li.hm@gmail.com, Mar 2026).
+
+  - name: Nubank Engineering
+    url: https://building.nubank.com/engineering/
+    stealth_web: true
+    focus: ML ops, real-time ML, foundation models, Brazil fintech
+    tier: 2
+    cadence: monthly
+    notes: |
+      Active blog at building.nubank.com. stealth_web as backup if RSS fails.
+      Primary source: Building Nubank RSS above.
+
+  - name: Stripe Blog
+    url: https://stripe.com/blog
+    rss: https://stripe.com/blog/feed.rss
+    focus: Payments ML, fraud detection, Radar, agentic commerce
+    tier: 2
+    cadence: biweekly
+
+  - name: DBS Tech Blog
+    url: https://medium.com/dbs-tech-blog
+    rss: https://medium.com/feed/dbs-tech-blog
+    focus: Singapore, AI-fuelled banking
+    tier: 2
+    cadence: biweekly
+
+  - name: Wise Engineering
+    url: https://medium.com/wise-engineering
+    rss: https://medium.com/feed/wise-engineering
+    focus: 150+ ML models, fraud/AML
+    tier: 2
+    cadence: monthly
+
+  - name: Revolut Tech
+    url: https://medium.com/revolut/tagged/machine-learning
+    rss: https://medium.com/feed/revolut
+    focus: Fraud detection, Sherlock
+    tier: 2
+    cadence: monthly
+    notes: Medium page returns 403 (bot-block) — RSS feed works. Updated Feb 2026.
+
+  - name: Upstart Tech
+    url: https://medium.com/upstart-tech
+    rss: https://medium.com/feed/upstart-tech
+    focus: AI lending, credit ML
+    tier: 2
+    cadence: monthly
+
+  # Grab Tech — removed Mar 2026 (RSS empty, no articles returned on check)
+
+  - name: Adyen Tech
+    url: https://medium.com/adyen
+    rss: https://medium.com/feed/adyen
+    focus: Production RL for payment optimisation, fraud GNNs, DABstep benchmark
+    tier: 1
+    cadence: monthly
+    notes: |
+      Released DABstep benchmark with HuggingFace — genuine research contribution.
+      Filter by /tagged/machine-learning for AI content.
+
+  - name: PayPal Tech
+    url: https://medium.com/paypal-tech
+    rss: https://medium.com/feed/paypal-tech
+    focus: Cosmos.AI MLOps platform, fraud detection at scale, feature engineering
+    tier: 2
+    cadence: monthly
+
+  - name: ING Tech Blog
+    url: https://medium.com/ing-blog
+    rss: https://medium.com/feed/ing-blog
+    focus: Production ML, fraud detection, federated learning, NeurIPS collaborations
+    tier: 2
+    cadence: monthly
+    notes: |
+      Filter by /tagged/machine-learning. Volume dropped post-2022 but
+      ML posts are genuine practitioner writing, not marketing.
+
+  - name: BBVA AI Factory
+    url: https://www.bbvaaifactory.com/blog/
+    stealth_web: true
+    selector: "[class*='post'] a"
+    focus: Explainability (Mercury), causal inference, fairness/bias, LLM adaptation
+    tier: 2
+    cadence: monthly
+    notes: |
+      Best standalone AI blog from a big bank. Open-source tools (Mercury).
+      Cites NeurIPS/KDD. Cadence ~quarterly now. No RSS (disabled).
+      stealth_web + selector targets post card links.
+
+  - name: BIS (AI/Fintech)
+    url: https://www.bis.org/topic/fintech/innovation_ai.htm
+    rss: https://www.bis.org/doclist/bis_fsi_publs.rss
+    focus: AI governance, regulatory frameworks, ML for supervision, financial stability
+    tier: 2
+    cadence: monthly
+    notes: |
+      Academic/policy, not engineering. Essential for governance angle.
+      Innovation Hub has 26 active projects. RSS updated from wpubls.rss (404) Feb 2026.
+
+  - name: Bank of England (Fintech/AI)
+    url: https://www.bankofengland.co.uk/research/fintech
+    rss: https://www.bankofengland.co.uk/rss/publications
+    focus: AI Consortium, annual FI AI adoption survey, systemic risk, AI asset valuations
+    tier: 2
+    cadence: monthly
+    notes: |
+      Policy/economics, not engineering. Annual BoE/FCA AI survey is the most
+      rigorous public data on UK FI AI adoption. AI Consortium launched May 2025.
+
+chinese_sources:
+  - name: 机器之心 (Synced)
+    rss: http://localhost:8001/feed/3073282833.xml
+    focus: AI research, industry news (CN)
+    tier: 1
+    cadence: daily
+
+  - name: 量子位 (QbitAI)
+    rss: http://localhost:8001/feed/3236757533.xml
+    focus: AI startups, products, China scene (CN)
+    tier: 1
+    cadence: daily
+
+  - name: 新智元
+    rss: http://localhost:8001/feed/3271041950.xml
+    focus: AI news, Western research translations (CN)
+    tier: 2
+    cadence: daily
+
+  # === Wechat2RSS (local, localhost:8001) ===
+  - name: 数字生命卡兹克
+    rss: http://localhost:8001/feed/3223096120.xml
+    focus: AI tools, creativity, curiosity-driven AI content (CN)
+    tier: 1
+    cadence: daily
+
+  - name: CLUE中文语言理解测评基准
+    rss: http://localhost:8001/feed/3097015041.xml
+    focus: Chinese NLP benchmarks, AGI progress tracking (CN)
+    tier: 2
+    cadence: weekly
+
+  - name: 歸藏的AI工具箱
+    rss: http://localhost:8001/feed/3540975510.xml
+    focus: AI tools, image generation, product design workflows (CN)
+    tier: 2
+    cadence: daily
+
+  - name: 李国飞哲学与投资笔记
+    rss: http://localhost:8001/feed/3568144008.xml
+    focus: Philosophy, investment thinking, tech strategy (CN)
+    tier: 2
+    cadence: weekly
+
+  - name: 百度智能云技术站
+    rss: http://localhost:8001/feed/3919381376.xml
+    focus: Baidu Cloud AI, enterprise AI, LLM infrastructure (CN)
+    tier: 2
+    cadence: weekly
+
+  - name: 飞哥说AI
+    rss: http://localhost:8001/feed/3898891122.xml
+    focus: AI frontier tech, commercialisation, AGI (CN). By Li Zhifei (Mobvoi founder)
+    tier: 1
+    cadence: weekly
+
+  - name: 李继刚
+    rss: http://localhost:8001/feed/3913757353.xml
+    focus: Prompt engineering, structured prompts, AI thinking (CN)
+    tier: 2
+    cadence: weekly
+
+  - name: 银行科技研究社
+    rss: http://localhost:8001/feed/3211111715.xml
+    focus: Banking technology, open banking, fintech regulation (CN)
+    tier: 1
+    cadence: weekly
+
+  - name: 沙丘社区
+    rss: http://localhost:8001/feed/3923347106.xml
+    focus: AI community, AGI path, AI education (CN)
+    tier: 2
+    cadence: weekly
+
+  - name: M小姐研习录
+    rss: http://localhost:8001/feed/3535126748.xml
+    focus: ChatGPT deep dives, AI analysis, long-form commentary (CN)
+    tier: 2
+    cadence: weekly
+
+  # Pin 起來！ — removed Feb 2026 (SSL 526, Cloudflare origin cert broken, author needs to fix)
+
+x_accounts:
+  - handle: "@jeremyphoward"
+    name: Jeremy Howard
+    focus: fast.ai, practical deep learning, llms.txt proposal author
+    tier: 2
+
+  - handle: "@karpathy"
+    name: Andrej Karpathy
+    focus: Deep learning, AI education
+    tier: 1
+
+  - handle: "@steipete"
+    name: Peter Steinberger
+    focus: Agentic engineering, vibe coding, OpenClaw architect
+    tier: 1
+
+  - handle: "@GeoffreyHuntley"
+    name: Geoffrey Huntley
+    focus: Ralph loops, AI-assisted dev, context engineering
+    tier: 2
+
+  - handle: "@emollick"
+    name: Ethan Mollick
+    focus: AI + work/productivity, Wharton
+    tier: 1
+
+  - handle: "@eugeneyan"
+    name: Eugene Yan
+    focus: Applied ML, RecSys, Amazon, practical AI
+    tier: 1
+
+  - handle: "@chipro"
+    name: Chip Huyen
+    focus: AI engineering, ML systems, open source AI ecosystem tracking
+    tier: 1
+
+  - handle: "@sh_reya"
+    name: Shreya Shankar
+    focus: LLM evals research, data-centric AI, evaluation methodology
+    tier: 1
+
+  # Disabled — off-topic (manga/personal tweets dominate feed)
+  # - handle: "@brendangregg"
+  #   name: Brendan Gregg
+  #   focus: Systems performance, AI infra cost, OpenAI perf engineering
+  #   tier: 2
+
+  - handle: "@rauchg"
+    name: Guillermo Rauch
+    focus: AI deployment, Vercel, real-time web AI
+    tier: 2
+
+  - handle: "@shl"
+    name: Sahil Lavingia
+    focus: Indie agents, automation, lean business
+    tier: 2
+
+  - handle: "@atroyn"
+    name: Anton (Chroma)
+    focus: Vector databases, AI infra, memory systems
+    tier: 2
+
+  - handle: "@dotey"
+    name: Dotey
+    focus: AI tutorials, Chinese AI scene
+    tier: 2
+
+  - handle: "@danshipper"
+    name: Dan Shipper
+    focus: AI for knowledge work, Every
+    tier: 2
+
+  - handle: "@jerryjliu0"
+    name: Jerry Liu
+    focus: LlamaIndex, RAG, agents
+    tier: 2
+
+  - handle: "@AndrewYNg"
+    name: Andrew Ng
+    focus: The Batch, DeepLearning.AI
+    tier: 2
+
+  - handle: "@ylecun"
+    name: Yann LeCun
+    focus: Meta AI Chief, contrarian takes
+    tier: 2
+
+  - handle: "@ArtificialAnlys"
+    name: Artificial Analysis
+    focus: AI model benchmarks — quality, speed, pricing comparisons
+    tier: 1
+
+  - handle: "@EpochAIResearch"
+    name: Epoch AI
+    focus: AI compute, research trends, trajectory
+    tier: 2
+
+  - handle: "@_philschmid"
+    name: Phil Schmid
+    focus: Hugging Face, applied ML engineering, agent patterns
+    tier: 2
+
+  - handle: "@axtonliu"
+    name: Axton Liu
+    focus: Claude Code power user, context engineering, Chinese AI practitioner
+    tier: 2
+
+  - handle: "@systematicls"
+    name: sysls
+    focus: Agentic engineering patterns, production agent systems, context management
+    tier: 2
+
+  - handle: "@shao__meng"
+    name: Meng Shao
+    focus: Chinese-language AI curation — papers, agent frameworks, tools. Cross-language coverage.
+    tier: 2
+
+  - handle: "@svpino"
+    name: Santiago Valdarrama
+    focus: ML education, Claude Code skills, practical AI
+    tier: 2
+
+  # Non-AI thought leaders (cross-domain radar)
+  - handle: "@morganhousel"
+    name: Morgan Housel
+    focus: Behavioral finance, long-term thinking, Psychology of Money
+    tier: 2
+
+  - handle: "@shaneparrish"
+    name: Shane Parrish
+    focus: Mental models, decision-making, Farnam Street
+    tier: 2
+
+x_bookmarks:
+  - name: X Bookmarks
+    bookmarks: true
+    tier: 1
+    cadence: daily
+
+x_discovery:
+  enabled: true
+  cadence: weekly
+  count: 50  # tweets to fetch from For You feed
+  # Tweets matching any keyword (case-insensitive) are considered AI-relevant
+  keywords:
+    - "\\bAI\\b"
+    - "\\bLLM"
+    - "\\bGPT"
+    - "\\bClaude\\b"
+    - "\\bAnthropic\\b"
+    - "\\bOpenAI\\b"
+    - "\\bDeepSeek\\b"
+    - "\\bmachine learning"
+    - "\\bdeep learning"
+    - "\\btransformer"
+    - "\\bagent"
+    - "\\bRAG\\b"
+    - "\\bembedding"
+    - "\\bfine.?tun"
+    - "\\bprompt"
+    - "\\bGemini\\b"
+    - "\\bCopilot\\b"
+    - "\\bCursor\\b"
+    - "\\bCodex\\b"
+    - "\\bMCP\\b"
+    - "\\bGenAI\\b"
+    - "\\bAGI\\b"
+    - "\\bvibe cod"
+    - "\\bneural"
+    - "\\bmodel context"
+    - "\\bfoundation model"
+    - "\\bopen.?source model"
+    - "\\breasoning model"
+    - "\\bchain.of.thought"
+    - "\\bmultimodal"
+
+youtube_queries:
+  - "AI agents 2026"
+  - "LLM enterprise applications"
+  - "AI in banking fintech"
+  - "machine learning production"
+
+# WeChat public account articles (微信公众号)
+# Uses WebSearch with site: operator to find short URLs, then wechat.imagenie.us to extract
+wechat_search:
+  tier: 2  # Deep mode only (adds latency)
+  extraction_api: https://wechat.imagenie.us/extract
+  queries:
+    - query: "AI Agent 大模型 site:mp.weixin.qq.com/s/"
+      focus: Agent development, Chinese practitioner insights
+    - query: "Cursor Claude Anthropic site:mp.weixin.qq.com/s/"
+      focus: AI coding tools, Western tool adoption in China
+    - query: "MCP Skills 智能体 site:mp.weixin.qq.com/s/"
+      focus: MCP ecosystem, agent skills
+    - query: "Coze 扣子 Agent site:mp.weixin.qq.com/s/"
+      focus: Coze/ByteDance agent platform
+    - query: "提示词工程 Prompt site:mp.weixin.qq.com/s/"
+      focus: Prompt engineering practices
+  max_articles: 5  # Limit to avoid rate limits
+  notes: |
+    Only short URLs work with extraction API (mp.weixin.qq.com/s/ABC123).
+    Long URLs with ?__biz= params need conversion via search first.
+    See wechat-article skill for full extraction workflow.

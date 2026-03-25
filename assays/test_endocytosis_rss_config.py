@@ -14,9 +14,9 @@ def test_xdg_paths(xdg_env):
 
 
 def test_env_overrides(monkeypatch, tmp_path, xdg_env):
-    monkeypatch.setenv("LUSTRO_CONFIG_DIR", str(tmp_path / "custom-config"))
-    monkeypatch.setenv("LUSTRO_CACHE_DIR", str(tmp_path / "custom-cache"))
-    monkeypatch.setenv("LUSTRO_DATA_DIR", str(tmp_path / "custom-data"))
+    monkeypatch.setenv("ENDOCYTOSIS_CONFIG_DIR", str(tmp_path / "custom-config"))
+    monkeypatch.setenv("ENDOCYTOSIS_CACHE_DIR", str(tmp_path / "custom-cache"))
+    monkeypatch.setenv("ENDOCYTOSIS_DATA_DIR", str(tmp_path / "custom-data"))
     cfg = load_config()
     assert cfg.config_dir == Path(tmp_path / "custom-config").resolve()
     assert cfg.cache_dir == Path(tmp_path / "custom-cache").resolve()

@@ -7,7 +7,7 @@ import pytest
 import typer
 
 from metabolon.organelles.endocytosis_rss.cli import _fetch_locked
-from metabolon.organelles.endocytosis_rss.config import LustroConfig
+from metabolon.organelles.endocytosis_rss.config import EndocytosisConfig
 
 
 def _call_fetch_locked(cfg, no_archive: bool) -> None:
@@ -32,7 +32,7 @@ def mock_cfg(tmp_path):
         ]
     }
     
-    return LustroConfig(
+    return EndocytosisConfig(
         config_dir=config_dir,
         cache_dir=cache_dir,
         data_dir=data_dir,

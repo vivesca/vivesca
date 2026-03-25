@@ -7,7 +7,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
-from metabolon.organelles.endocytosis_rss.config import LustroConfig
+from metabolon.organelles.endocytosis_rss.config import EndocytosisConfig
 
 DEFAULT_THEME_COUNT = 8
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
@@ -26,7 +26,7 @@ def _resolve_month(month: str | None) -> str:
 
 
 def _get_api_key() -> str | None:
-    return os.environ.get("LUSTRO_API_KEY") or os.environ.get("OPENROUTER_API_KEY")  # LUSTRO_API_KEY kept for backward compat
+    return os.environ.get("ENDOCYTOSIS_API_KEY") or os.environ.get("OPENROUTER_API_KEY")  # ENDOCYTOSIS_API_KEY kept for backward compat
 
 
 def create_openai_client(api_key: str):
@@ -253,7 +253,7 @@ def write_digest(
     return output_path
 
 
-def _build_source_tags_map(cfg: LustroConfig) -> dict[str, list[str]]:
+def _build_source_tags_map(cfg: EndocytosisConfig) -> dict[str, list[str]]:
     result: dict[str, list[str]] = {}
     for source in cfg.sources:
         name = source.get("name", "")
@@ -505,7 +505,7 @@ def write_weekly_digest(
 
 
 def run_weekly_digest(
-    cfg: LustroConfig,
+    cfg: EndocytosisConfig,
     week_date: datetime | None = None,
     tags: list[str] | None = None,
 ) -> tuple[int, Path | None]:
@@ -555,7 +555,7 @@ def run_weekly_digest(
 
 
 def run_digest(
-    cfg: LustroConfig,
+    cfg: EndocytosisConfig,
     month: str | None,
     dry_run: bool,
     themes: int | None,
@@ -578,7 +578,7 @@ def run_digest(
 
     api_key = _get_api_key()
     if not api_key:
-        raise RuntimeError("Missing API key. Set LUSTRO_API_KEY or OPENROUTER_API_KEY.")
+        raise RuntimeError("Missing API key. Set ENDOCYTOSIS_API_KEY or OPENROUTER_API_KEY.")
     client = create_openai_client(api_key)
 
     identified_themes = identify_themes(

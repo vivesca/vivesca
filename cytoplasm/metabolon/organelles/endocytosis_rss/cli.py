@@ -8,7 +8,7 @@ from typing import Optional
 
 import typer
 
-from metabolon.organelles.endocytosis_rss.config import LustroConfig, default_sources_text, load_config
+from metabolon.organelles.endocytosis_rss.config import EndocytosisConfig, default_sources_text, load_config
 from metabolon.organelles.endocytosis_rss.state import load_state, lockfile, refractory_elapsed
 
 app = typer.Typer(help="endocytosis_rss — receptor-mediated endocytosis (RSS ingestion)")
@@ -113,7 +113,7 @@ def fetch(
         _fetch_locked(cfg, no_archive)
 
 
-def _fetch_locked(cfg: LustroConfig, no_archive: bool) -> None:
+def _fetch_locked(cfg: EndocytosisConfig, no_archive: bool) -> None:
     state = load_state(cfg.state_path)
     from metabolon.organelles.endocytosis_rss.fetcher import (
         archive_cargo,

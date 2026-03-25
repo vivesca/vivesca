@@ -12,7 +12,7 @@ from metabolon.tools.gradient import (
     GradientReport,
     GradientVector,
     _score_text,
-    _sense_lustro,
+    _sense_endocytosis,
     _sense_signals,
     _topology_weight,
     proprioception_gradient,
@@ -48,21 +48,21 @@ def test_score_text_multi_domain():
 
 
 # ---------------------------------------------------------------------------
-# Unit tests: _sense_lustro
+# Unit tests: _sense_endocytosis
 # ---------------------------------------------------------------------------
 
 
-def test_sense_lustro_empty(tmp_path, monkeypatch):
+def test_sense_endocytosis_empty(tmp_path, monkeypatch):
     """Empty log returns empty dicts."""
     import metabolon.tools.gradient as grad
 
     monkeypatch.setattr(grad, "_RELEVANCE_LOG", tmp_path / "empty.jsonl")
-    hits, titles = _sense_lustro(7)
+    hits, titles = _sense_endocytosis(7)
     assert hits == {}
     assert titles == {}
 
 
-def test_sense_lustro_filters_low_score(tmp_path, monkeypatch):
+def test_sense_endocytosis_filters_low_score(tmp_path, monkeypatch):
     """Items with score < 6 are excluded."""
     import metabolon.tools.gradient as grad
 
@@ -80,11 +80,11 @@ def test_sense_lustro_filters_low_score(tmp_path, monkeypatch):
         + "\n"
     )
     monkeypatch.setattr(grad, "_RELEVANCE_LOG", log)
-    hits, _ = _sense_lustro(7)
+    hits, _ = _sense_endocytosis(7)
     assert hits == {}
 
 
-def test_sense_lustro_includes_high_score(tmp_path, monkeypatch):
+def test_sense_endocytosis_includes_high_score(tmp_path, monkeypatch):
     """Items with score >= 6 within window are included."""
     import metabolon.tools.gradient as grad
 
@@ -102,11 +102,11 @@ def test_sense_lustro_includes_high_score(tmp_path, monkeypatch):
         + "\n"
     )
     monkeypatch.setattr(grad, "_RELEVANCE_LOG", log)
-    hits, titles = _sense_lustro(7)
+    hits, titles = _sense_endocytosis(7)
     assert "ai_governance" in hits or "banking_fintech" in hits
 
 
-def test_sense_lustro_filters_old_items(tmp_path, monkeypatch):
+def test_sense_endocytosis_filters_old_items(tmp_path, monkeypatch):
     """Items outside the time window are excluded."""
     import metabolon.tools.gradient as grad
 
@@ -124,7 +124,7 @@ def test_sense_lustro_filters_old_items(tmp_path, monkeypatch):
         + "\n"
     )
     monkeypatch.setattr(grad, "_RELEVANCE_LOG", log)
-    hits, _ = _sense_lustro(7)
+    hits, _ = _sense_endocytosis(7)
     assert hits == {}
 
 
@@ -363,21 +363,21 @@ def test_gradient_respects_window(tmp_path, monkeypatch):
 
 def test_topology_single_sensor():
     """One sensor → weight 1.0, bonus 'single'."""
-    w, bonus = _topology_weight({"lustro_relevance"})
+    w, bonus = _topology_weight({"endocytosis_signal"})
     assert w == 1.0
     assert bonus == "single"
 
 
 def test_topology_adjacent_pair():
     """lustro + noesis are adjacent — weight 1.5."""
-    w, bonus = _topology_weight({"lustro_relevance", "noesis_queries"})
+    w, bonus = _topology_weight({"endocytosis_signal", "noesis_queries"})
     assert w == 1.5
     assert bonus == "adjacent"
 
 
 def test_topology_independent_pair_lustro_tools():
     """lustro + tool_signals are independent — weight 2.0."""
-    w, bonus = _topology_weight({"lustro_relevance", "tool_signals"})
+    w, bonus = _topology_weight({"endocytosis_signal", "tool_signals"})
     assert w == 2.0
     assert bonus == "independent"
 
@@ -391,7 +391,7 @@ def test_topology_independent_pair_noesis_tools():
 
 def test_topology_all_three():
     """All three sensors → weight 3.0, bonus 'full'."""
-    w, bonus = _topology_weight({"lustro_relevance", "noesis_queries", "tool_signals"})
+    w, bonus = _topology_weight({"endocytosis_signal", "noesis_queries", "tool_signals"})
     assert w == 3.0
     assert bonus == "full"
 

@@ -49,13 +49,13 @@ _NOESIS_BIN = Path.home() / ".cargo" / "bin" / "noesis"
 # Adjacent pairs: both sensors scan external content — confirmation is
 # redundant (same side of the membrane).
 ADJACENT: set[frozenset[str]] = {
-    frozenset({"lustro_relevance", "noesis_queries"}),  # both are external content scanning
+    frozenset({"endocytosis_signal", "noesis_queries"}),  # both are external content scanning
 }
 
 # Independent pairs: what you read vs what you do — structurally orthogonal
 # sensors on opposite sides of the membrane.
 INDEPENDENT: set[frozenset[str]] = {
-    frozenset({"lustro_relevance", "tool_signals"}),  # what you read vs what you do
+    frozenset({"endocytosis_signal", "tool_signals"}),  # what you read vs what you do
     frozenset({"noesis_queries", "tool_signals"}),    # what you search vs what you do
 }
 
@@ -297,7 +297,7 @@ def _read_jsonl(path: Path) -> list[dict]:
     return rows
 
 
-def _sense_lustro(
+def _sense_endocytosis(
     days: int,
 ) -> tuple[dict[str, int], dict[str, list[str]]]:
     """Read lustro relevance log. Returns (domain_hits, domain_titles)."""
@@ -445,13 +445,13 @@ def proprioception_gradient(days: int = 7) -> GradientReport:
         days: Rolling window in days to consider (default 7).
     """
     # Sense each array
-    lustro_hits, lustro_titles = _sense_lustro(days)
+    lustro_hits, lustro_titles = _sense_endocytosis(days)
     signal_hits = _sense_signals(days)
     noesis_hits, noesis_queries = _sense_noesis(days)
 
     sensors_read = []
     if lustro_hits:
-        sensors_read.append("lustro_relevance")
+        sensors_read.append("endocytosis_signal")
     if signal_hits:
         sensors_read.append("tool_signals")
     if noesis_hits:
@@ -465,7 +465,7 @@ def proprioception_gradient(days: int = 7) -> GradientReport:
         sensors: dict[str, int] = {}
         total_hits = 0
         if domain in lustro_hits:
-            sensors["lustro_relevance"] = lustro_hits[domain]
+            sensors["endocytosis_signal"] = lustro_hits[domain]
             total_hits += lustro_hits[domain]
         if domain in signal_hits:
             sensors["tool_signals"] = signal_hits[domain]
