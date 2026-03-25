@@ -39,7 +39,7 @@ def _html_escape(text: str) -> str:
     return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
 
-def send_text(text: str, html: bool = True, label: str = "") -> str:
+def secrete_text(text: str, html: bool = True, label: str = "") -> str:
     """Send text to Telegram channel."""
     token = _keychain("telegram-bot-token")
     chat_id = _keychain("telegram-chat-id")
@@ -70,7 +70,7 @@ def send_text(text: str, html: bool = True, label: str = "") -> str:
     return "sent"
 
 
-def send_photo(path: str, caption: str = "") -> str:
+def secrete_image(path: str, caption: str = "") -> str:
     """Send photo to Telegram channel."""
     token = _keychain("telegram-bot-token")
     chat_id = _keychain("telegram-chat-id")

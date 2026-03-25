@@ -13,7 +13,7 @@ from metabolon.resources.anatomy import (
     _organism_theory,
     _scan_directory,
     _substrate_map,
-    generate_anatomy,
+    express_anatomy,
 )
 
 
@@ -143,7 +143,7 @@ def _build_fake_project(tmp_path: Path) -> Path:
         '"""Per-tool emotion computation from sensory aggregates."""\n\n'
         "class Emotion:\n"
         "    pass\n\n"
-        "def compute_emotion():\n"
+        "def sense_affect():\n"
         "    pass\n",
     )
     _write_tool_module(
@@ -377,7 +377,7 @@ class TestGenerateAnatomy:
 
     def test_returns_valid_markdown(self, tmp_path):
         src = self._build_fake_src(tmp_path)
-        result = generate_anatomy(src_root=src)
+        result = express_anatomy(src_root=src)
 
         assert isinstance(result, str)
         assert "# vivesca" in result
@@ -388,32 +388,32 @@ class TestGenerateAnatomy:
 
     def test_includes_tool_names(self, tmp_path):
         src = self._build_fake_src(tmp_path)
-        result = generate_anatomy(src_root=src)
+        result = express_anatomy(src_root=src)
 
         assert "fasti_list_events" in result
         assert "fasti_create_event" in result
 
     def test_includes_resource_uris(self, tmp_path):
         src = self._build_fake_src(tmp_path)
-        result = generate_anatomy(src_root=src)
+        result = express_anatomy(src_root=src)
 
         assert "vivesca://constitution" in result
 
     def test_includes_prompt_names(self, tmp_path):
         src = self._build_fake_src(tmp_path)
-        result = generate_anatomy(src_root=src)
+        result = express_anatomy(src_root=src)
 
         assert "research" in result
 
     def test_includes_metabolism_section(self, tmp_path):
         src = self._build_fake_src(tmp_path)
-        result = generate_anatomy(src_root=src)
+        result = express_anatomy(src_root=src)
 
         assert "Metabolism State" in result
 
     def test_lists_module_filenames(self, tmp_path):
         src = self._build_fake_src(tmp_path)
-        result = generate_anatomy(src_root=src)
+        result = express_anatomy(src_root=src)
 
         assert "fasti.py" in result
         assert "constitution.py" in result
@@ -606,18 +606,18 @@ class TestExtractSubstrateInfo:
 
 
 class TestGenerateAnatomyNewSections:
-    """Test that the full generate_anatomy output includes all new sections."""
+    """Test that the full express_anatomy output includes all new sections."""
 
     def test_includes_organism_theory_section(self, tmp_path):
         src = _build_fake_project(tmp_path)
-        result = generate_anatomy(src_root=src)
+        result = express_anatomy(src_root=src)
 
         assert "## Organism Theory" in result
         assert "organism is the unit" in result
 
     def test_includes_organ_descriptions_section(self, tmp_path):
         src = _build_fake_project(tmp_path)
-        result = generate_anatomy(src_root=src)
+        result = express_anatomy(src_root=src)
 
         assert "## Organ Descriptions" in result
         assert "### fasti" in result
@@ -626,7 +626,7 @@ class TestGenerateAnatomyNewSections:
 
     def test_includes_substrate_map_section(self, tmp_path):
         src = _build_fake_project(tmp_path)
-        result = generate_anatomy(src_root=src)
+        result = express_anatomy(src_root=src)
 
         assert "## Substrate Map" in result
         assert "ExecutiveSubstrate" in result
@@ -634,7 +634,7 @@ class TestGenerateAnatomyNewSections:
 
     def test_includes_metabolism_modules_section(self, tmp_path):
         src = _build_fake_project(tmp_path)
-        result = generate_anatomy(src_root=src)
+        result = express_anatomy(src_root=src)
 
         assert "## Metabolism Modules" in result
         assert "signals" in result
@@ -643,22 +643,22 @@ class TestGenerateAnatomyNewSections:
 
     def test_includes_known_lesions_section(self, tmp_path):
         src = _build_fake_project(tmp_path)
-        result = generate_anatomy(src_root=src)
+        result = express_anatomy(src_root=src)
 
         assert "## Known Lesions" in result
         assert "Wire metabolism loop" in result
 
     def test_output_under_300_lines(self, tmp_path):
         src = _build_fake_project(tmp_path)
-        result = generate_anatomy(src_root=src)
+        result = express_anatomy(src_root=src)
         line_count = len(result.splitlines())
         assert line_count < 300, f"Output is {line_count} lines, must be under 300"
 
 
 class TestGeneratorFunction:
     def test_generator_returns_string(self, tmp_path):
-        """generate_anatomy returns a string with valid markdown."""
+        """express_anatomy returns a string with valid markdown."""
         src = _build_fake_project(tmp_path)
-        result = generate_anatomy(src_root=src)
+        result = express_anatomy(src_root=src)
         assert isinstance(result, str)
         assert "# vivesca" in result

@@ -15,18 +15,18 @@ _REGISTRY: dict[str, Parser] = {}
 
 
 def _build_registry() -> dict[str, Parser]:
-    from metabolon.respirometry.parsers.boc import parse_boc
-    from metabolon.respirometry.parsers.ccba import parse_ccba
-    from metabolon.respirometry.parsers.hsbc import parse_hsbc
-    from metabolon.respirometry.parsers.mox import parse_mox
-    from metabolon.respirometry.parsers.scb import parse_scb
+    from metabolon.respirometry.parsers.boc import extract_boc
+    from metabolon.respirometry.parsers.ccba import extract_ccba
+    from metabolon.respirometry.parsers.hsbc import extract_hsbc
+    from metabolon.respirometry.parsers.mox import extract_mox
+    from metabolon.respirometry.parsers.scb import extract_scb
 
     return {
-        "mox": parse_mox,
-        "hsbc": parse_hsbc,
-        "ccba": parse_ccba,
-        "scb": parse_scb,
-        "boc": parse_boc,
+        "mox": extract_mox,
+        "hsbc": extract_hsbc,
+        "ccba": extract_ccba,
+        "scb": extract_scb,
+        "boc": extract_boc,
     }
 
 

@@ -41,7 +41,7 @@ _CADENCE_DAYS = {
 }
 
 
-def load_state(path: Path) -> dict[str, str]:
+def restore_state(path: Path) -> dict[str, str]:
     if not path.exists():
         return {}
     try:
@@ -57,7 +57,7 @@ def load_state(path: Path) -> dict[str, str]:
     }
 
 
-def save_state(path: Path, state: Mapping[str, str]) -> None:
+def persist_state(path: Path, state: Mapping[str, str]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     payload = json.dumps(dict(state), indent=2, sort_keys=True)
     fd, tmp_name = tempfile.mkstemp(prefix=f".{path.name}.", dir=str(path.parent))

@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from metabolon.respirometry.parsers.mox import parse_mox
+from metabolon.respirometry.parsers.mox import extract_mox
 from metabolon.respirometry.schema import StatementMeta
 
 FIXTURE = Path(__file__).parent / "fixtures" / "mox_jan2025.pdf"
@@ -13,7 +13,7 @@ FIXTURE = Path(__file__).parent / "fixtures" / "mox_jan2025.pdf"
 @pytest.mark.skipif(not FIXTURE.exists(), reason="test fixture not available")
 class TestMoxParser:
     def setup_method(self):
-        self.meta, self.txns = parse_mox(FIXTURE)
+        self.meta, self.txns = extract_mox(FIXTURE)
 
     def test_returns_metadata(self):
         assert isinstance(self.meta, StatementMeta)

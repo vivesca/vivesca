@@ -46,7 +46,7 @@ def test_collector_append_and_read(tmp_path):
     )
     collector.append(s)
 
-    signals = collector.read_all()
+    signals = collector.recall_all()
     assert len(signals) == 1
     assert signals[0].tool == "fasti_list_events"
 
@@ -66,7 +66,7 @@ def test_collector_append_multiple(tmp_path):
             )
         )
 
-    assert len(collector.read_all()) == 5
+    assert len(collector.recall_all()) == 5
 
 
 def test_collector_read_since(tmp_path):
@@ -96,7 +96,7 @@ def test_collector_read_since(tmp_path):
     collector.append(new)
 
     since = datetime.now(UTC) - timedelta(days=1)
-    recent = collector.read_since(since)
+    recent = collector.recall_since(since)
     assert len(recent) == 1
     assert recent[0].tool == "new"
 

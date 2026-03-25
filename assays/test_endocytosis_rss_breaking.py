@@ -5,8 +5,8 @@ from datetime import datetime, timedelta, timezone
 
 import yaml
 
-from metabolon.organelles.endocytosis_rss.breaking import can_alert, is_breaking, reset_daily_counter, run_breaking, title_fingerprint
-from metabolon.organelles.endocytosis_rss.config import load_config
+from metabolon.organelles.endocytosis_rss.breaking import can_alert, is_breaking, refractory_daily_counter, scan_breaking, title_fingerprint
+from metabolon.organelles.endocytosis_rss.config import restore_config
 
 
 def test_is_breaking_positive_and_negative():
@@ -102,8 +102,8 @@ def test_cross_source_dedup_in_run(monkeypatch, xdg_env, capsys):
     monkeypatch.setattr("metabolon.organelles.endocytosis_rss.breaking.internalize_rss", mock_fetch_rss)
     monkeypatch.setattr("metabolon.organelles.endocytosis_rss.breaking.internalize_web", lambda *_args, **_kwargs: [])
 
-    cfg = load_config()
-    exit_code = run_breaking(cfg=cfg, dry_run=True)
+    cfg = restore_config()
+    exit_code = scan_breaking(cfg=cfg, dry_run=True)
 
     assert exit_code == 0
     stderr = capsys.readouterr().err
@@ -119,7 +119,7 @@ def test_state_counter_reset_and_cooldown():
         "today_date": "2026-02-23",
         "last_alert_time": (now - timedelta(minutes=30)).isoformat(),
     }
-    reset_daily_counter(state, now)
+    refractory_daily_counter(state, now)
     assert state["alerts_today"] == 0
     assert state["today_date"] == "2026-02-24"
 
@@ -171,8 +171,8 @@ def test_cmd_breaking_dry_run(monkeypatch, xdg_env, capsys):
     )
     monkeypatch.setattr("metabolon.organelles.endocytosis_rss.breaking.internalize_web", lambda *_args, **_kwargs: [])
 
-    cfg = load_config()
-    exit_code = run_breaking(cfg=cfg, dry_run=True)
+    cfg = restore_config()
+    exit_code = scan_breaking(cfg=cfg, dry_run=True)
 
     assert exit_code == 0
     stderr = capsys.readouterr().err

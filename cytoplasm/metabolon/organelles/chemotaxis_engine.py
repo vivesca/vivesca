@@ -64,7 +64,7 @@ def _query(model: str, query: str, timeout: int = 300) -> str:
     return content
 
 
-def search(query: str) -> str:
+def recall(query: str) -> str:
     """Quick gradient sensing (~$0.006)."""
     return _query(_MODELS["search"], query, timeout=30)
 

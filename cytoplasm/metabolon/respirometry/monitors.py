@@ -7,7 +7,7 @@ from collections import Counter
 from metabolon.respirometry.schema import Transaction
 
 
-def check_unknown_high(transactions: list[Transaction], threshold: float = 500.0) -> list[str]:
+def flag_anomalies(transactions: list[Transaction], threshold: float = 500.0) -> list[str]:
     """Flag uncategorised transactions above threshold."""
     alerts = []
     for t in transactions:
@@ -16,7 +16,7 @@ def check_unknown_high(transactions: list[Transaction], threshold: float = 500.0
     return alerts
 
 
-def check_duplicates(transactions: list[Transaction]) -> list[str]:
+def flag_duplicates(transactions: list[Transaction]) -> list[str]:
     """Flag potential duplicate charges (same merchant, amount, date)."""
     keys = Counter((t.date, t.merchant, t.hkd) for t in transactions if t.is_charge)
     alerts = []
@@ -26,7 +26,7 @@ def check_duplicates(transactions: list[Transaction]) -> list[str]:
     return alerts
 
 
-def check_budget(
+def assess_budget(
     transactions: list[Transaction],
     monthly_budget: float,
     category_budgets: dict[str, float] | None = None,
@@ -57,7 +57,7 @@ def check_budget(
     return alerts
 
 
-def check_subscriptions(
+def assess_subscriptions(
     transactions: list[Transaction],
     expected: list[dict],
 ) -> list[str]:
@@ -85,7 +85,7 @@ def check_subscriptions(
     return alerts
 
 
-def run_all_monitors(
+def activate_monitors(
     transactions: list[Transaction],
     monthly_budget: float = 15000.0,
     category_budgets: dict[str, float] | None = None,

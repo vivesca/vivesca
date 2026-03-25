@@ -43,7 +43,7 @@ def current_phase(phases: list[dict], today: datetime.date | None = None) -> dic
     return phases[-1]
 
 
-def load_goals(goals_dir: Path = GOALS_DIR) -> list[dict]:
+def restore_goals(goals_dir: Path = GOALS_DIR) -> list[dict]:
     """Load all goal configs from YAML files in the goals directory."""
     if not goals_dir.exists():
         return []
@@ -87,7 +87,7 @@ class ProprioceptiveStore:
         with open(self.path, "a") as f:
             f.write(json.dumps(entry) + "\n")
 
-    def read_all(self) -> list[dict]:
+    def recall_all(self) -> list[dict]:
         if not self.path.exists():
             return []
         entries = []
@@ -98,12 +98,12 @@ class ProprioceptiveStore:
                     entries.append(json.loads(line))
         return entries
 
-    def read_since(self, since: datetime.datetime) -> list[dict]:
+    def recall_since(self, since: datetime.datetime) -> list[dict]:
         since_str = since.isoformat()
-        return [e for e in self.read_all() if e.get("ts", "") >= since_str]
+        return [e for e in self.recall_all() if e.get("ts", "") >= since_str]
 
 
-def parse_flashcard_deck(path: Path) -> list[dict]:
+def decode_flashcard_deck(path: Path) -> list[dict]:
     """Parse a flashcard deck markdown file into structured cards.
 
     Expected format:
@@ -162,7 +162,7 @@ def _goal_slugs(goal: dict) -> set[str]:
     return slugs
 
 
-def build_signal_summary(
+def synthesize_signal_summary(
     goal: dict,
     store: ProprioceptiveStore,
     today: datetime.date | None = None,
@@ -185,7 +185,7 @@ def build_signal_summary(
         all_categories.update(mat.get("categories", []))
 
     # Aggregate signals by category
-    signals = store.read_all()
+    signals = store.recall_all()
     slugs = _goal_slugs(goal)
     goal_signals = [s for s in signals if s.get("goal") in slugs]
 
@@ -246,7 +246,7 @@ class ProprioceptionResult(Secretion):
 )
 def proprioception_sense() -> ProprioceptionResult:
     """Proprioceptive readiness check."""
-    goals = load_goals(GOALS_DIR)
+    goals = restore_goals(GOALS_DIR)
     if not goals:
         return ProprioceptionResult(
             has_goal=False,
@@ -259,7 +259,7 @@ def proprioception_sense() -> ProprioceptionResult:
     for goal in goals:
         goal_slug = goal["name"].lower().replace(" ", "-")
         store = ProprioceptiveStore(SIGNALS_DIR / f"{goal_slug}-signals.jsonl")
-        summary = build_signal_summary(goal, store)
+        summary = synthesize_signal_summary(goal, store)
         summaries.append(summary)
 
         # Format for LLM consumption

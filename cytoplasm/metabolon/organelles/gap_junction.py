@@ -41,21 +41,21 @@ def contact_type(name: str) -> str:
     return "gap_junction" if name.lower() in GAP_JUNCTION_CONTACTS else "receptor"
 
 
-def read_messages(name: str, limit: int = 20) -> str:
+def receive_signals(name: str, limit: int = 20) -> str:
     """Read messages from a conversation."""
     return _wacli(["read", name, "--limit", str(limit)])
 
 
-def draft_message(name: str, message: str) -> str:
+def compose_signal(name: str, message: str) -> str:
     """Draft a message (NEVER sends — returns shell command)."""
     return _wacli(["send", name, message, "--copy"])
 
 
-def list_chats(limit: int = 20) -> str:
+def active_junctions(limit: int = 20) -> str:
     """List recent conversations."""
     return _wacli(["chats", "--limit", str(limit)])
 
 
-def sync_status() -> str:
+def junction_status() -> str:
     """Check wacli sync daemon status."""
     return _wacli(["sync", "status"])

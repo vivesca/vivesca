@@ -48,7 +48,7 @@ class OperonSubstrate:
     def sense(self, days: int = 30) -> list[dict]:
         """Map signal recency to expressed operons."""
         since = datetime.now(UTC) - timedelta(days=days)
-        signals = self.collector.read_since(since)
+        signals = self.collector.recall_since(since)
 
         # Build tool -> most recent timestamp
         tool_last_seen: dict[str, datetime] = {}

@@ -27,7 +27,7 @@ def filename_matches(filename: str) -> bool:
     return any(p.search(filename) for p in _FILENAME_PATTERNS)
 
 
-def detect_bank(page1_text: str) -> str | None:
+def identify_bank(page1_text: str) -> str | None:
     """Identify the issuing bank from page 1 text.
 
     Returns bank key ('mox', 'hsbc', 'ccba') or None if unrecognised.

@@ -27,17 +27,17 @@ from pathlib import Path
 
 from metabolon.respiration import (
     EVENT_LOG,
-    check_vital_capacity,
-    get_respiratory_status,
-    increment_daily_wave_count,
+    assess_vital_capacity,
+    respiratory_status,
+    breathe,
     is_apneic,
     log,
     log_event,
     measure_respiration,
-    read_respiratory_genome,
+    respiratory_genome,
     respiration_snapshot,
     resume_breathing,
-    send_distress_signal,
+    emit_distress_signal,
 )
 
 # ---------------------------------------------------------------------------
@@ -150,7 +150,7 @@ def release_cardiac_lock():
 # ---------------------------------------------------------------------------
 
 
-def init_cardiac_log():
+def seed_cardiac_log():
     if not CARDIAC_LOG.exists():
         today = datetime.date.today().isoformat()
         CARDIAC_LOG.write_text(f"# Pulse Manifest -- {today}\n\n## Completed\n\n## In Progress\n")
@@ -178,7 +178,7 @@ DISK_FLOOR_GB = 5  # below this, refuse to start a wave (ENOSPC risk)
 DISK_CLEAN_GB = 15  # below this, run lysosome before wave
 
 
-def check_disk_pressure() -> bool:
+def sense_disk_pressure() -> bool:
     """Sense disk pressure, auto-clean if needed. Returns True if safe to proceed."""
     try:
         free_gb = shutil.disk_usage("/").free / (1024**3)
@@ -237,7 +237,7 @@ def _count_recent_secretions(dirs: list, since: float) -> int:
     return count
 
 
-def run_wave(wave_num: int, model: str, focus: str | None = None) -> tuple[bool, str]:
+def fire_wave(wave_num: int, model: str, focus: str | None = None) -> tuple[bool, str]:
     """Run a single wave (one heartbeat). Returns (success, output_tail)."""
     log_file = LOG_DIR / "pulse-waves.log"
 
@@ -263,11 +263,11 @@ def run_wave(wave_num: int, model: str, focus: str | None = None) -> tuple[bool,
     with open(log_file, "a") as lf:
         lf.write(header)
 
-    genome = read_respiratory_genome()
+    genome = respiratory_genome()
     max_wave_seconds = genome.get("max_wave_seconds", 1800)
     stall_seconds = genome.get("stall_seconds", 300)
 
-    def write_status(**kwargs):
+    def record_status(**kwargs):
         """Write current wave vitals for external observers."""
         VITAL_SIGNS_FILE.write_text(
             json.dumps(
@@ -434,7 +434,7 @@ def run_wave(wave_num: int, model: str, focus: str | None = None) -> tuple[bool,
 # ---------------------------------------------------------------------------
 
 
-def write_vital_signs(total_waves: int, stop_reason: str):
+def record_vital_signs(total_waves: int, stop_reason: str):
     REPORT_DIR.mkdir(parents=True, exist_ok=True)
     ts = datetime.datetime.now().strftime("%Y-%m-%d-%H%M")
     report_path = REPORT_DIR / f"{ts}-pulse.md"
@@ -461,7 +461,7 @@ stop_reason: {stop_reason}
     print(f"Report written to {report_path}")
 
 
-def run_cross_model_review(manifest_path: Path):
+def cross_model_review(manifest_path: Path):
     """Run cross-model quality check in background."""
     try:
         subprocess.Popen(
@@ -511,7 +511,7 @@ def autophagy(wave: int, stop_reason: str):
 # ---------------------------------------------------------------------------
 
 
-def rotate_event_log():
+def cycle_event_log():
     """Rotate event log if it exceeds 1MB."""
     if not EVENT_LOG.exists():
         return
@@ -545,7 +545,7 @@ def main(waves=None, model="opus", retry=1, focus=None, stop_after=None, dry_run
     rotate_event_log()
 
     # Respiration: budget headroom (coarse gate)
-    has_headroom, reason = check_vital_capacity()
+    has_headroom, reason = assess_vital_capacity()
     if not has_headroom:
         log(f"No headroom: {reason}. Exiting.")
         return
@@ -590,7 +590,7 @@ def main(waves=None, model="opus", retry=1, focus=None, stop_after=None, dry_run
             break
 
         # Respiration: fine budget gate (per-wave)
-        budget = get_respiratory_status()
+        budget = respiratory_status()
         log_event("budget_check", wave=wave, status=budget)
         if budget in ("yellow", "red", "unknown"):
             stop_reason = f"budget_{budget}"
@@ -676,7 +676,7 @@ def main(waves=None, model="opus", retry=1, focus=None, stop_after=None, dry_run
                 consecutive_saturation = 0
 
         if success:
-            daily_count = increment_daily_wave_count(saturated=is_saturated, wave_delta=wave_delta)
+            daily_count = breathe(saturated=is_saturated, wave_delta=wave_delta)
             log_event(
                 "daily_wave_count",
                 wave=wave,
@@ -725,7 +725,7 @@ def main(waves=None, model="opus", retry=1, focus=None, stop_after=None, dry_run
     autophagy(wave, stop_reason)
 
     if stop_reason.startswith("circuit_breaker"):
-        send_distress_signal("Pulse: circuit breaker fired. Check ~/logs/vivesca-events.jsonl")
+        emit_distress_signal("Pulse: circuit breaker fired. Check ~/logs/vivesca-events.jsonl")
 
     post_usage = measure_respiration()
     if post_usage:

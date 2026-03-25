@@ -26,7 +26,7 @@ def _build_receptor_catalog() -> dict[str, type]:
     }
 
 
-def get_receptor_catalog() -> dict[str, type]:
+def receptor_catalog() -> dict[str, type]:
     """Return the substrate receptor catalog, building it on first call."""
     global _RECEPTOR_CATALOG
     if _RECEPTOR_CATALOG is None:
@@ -34,6 +34,6 @@ def get_receptor_catalog() -> dict[str, type]:
     return _RECEPTOR_CATALOG
 
 
-SUBSTRATES = property(lambda self: get_receptor_catalog())  # for module-level access
+SUBSTRATES = property(lambda self: receptor_catalog())  # for module-level access
 
-__all__ = ["get_receptor_catalog"]
+__all__ = ["receptor_catalog"]

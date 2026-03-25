@@ -51,7 +51,7 @@ def research(
         "Produces front-stage copy ready for review — never sends directly."
     ),
 )
-def draft_message(
+def compose_signal(
     platform: str,
     recipient: str,
     intent: str,

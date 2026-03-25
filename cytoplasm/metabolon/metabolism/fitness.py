@@ -20,7 +20,7 @@ class Emotion:
     valence: float | None  # None if insufficient data
 
 
-def compute_emotion(
+def sense_affect(
     stimuli: list[Stimulus],
     min_stimuli: int = 3,
 ) -> dict[str, Emotion]:

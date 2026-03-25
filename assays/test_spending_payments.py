@@ -5,14 +5,14 @@ from datetime import datetime, timedelta, timezone
 import yaml
 
 from metabolon.respirometry.payments import (
-    add_pending_payment,
-    check_missing_statements,
-    check_overdue_payments,
+    queue_payment,
+    assess_missing_statements,
+    flag_overdue_payments,
     is_autopay,
-    load_card_config,
-    load_payments,
-    remove_pending_payment,
-    save_payments,
+    restore_card_config,
+    restore_payments,
+    dequeue_payment,
+    persist_payments,
 )
 
 HKT = timezone(timedelta(hours=8))
@@ -30,11 +30,11 @@ def _write_payments(tmp_path, pending: list[dict]) -> None:
 
 class TestLoadCardConfig:
     def test_missing_file(self, tmp_path):
-        assert load_card_config(tmp_path / "missing.yaml") == {}
+        assert restore_card_config(tmp_path / "missing.yaml") == {}
 
     def test_with_cards(self, tmp_path):
         _write_config(tmp_path, {"mox": {"autopay": False}, "hsbc": {"autopay": True}})
-        cards = load_card_config(tmp_path / "config.yaml")
+        cards = restore_card_config(tmp_path / "config.yaml")
         assert cards["hsbc"]["autopay"] is True
         assert cards["mox"]["autopay"] is False
 
@@ -60,18 +60,18 @@ class TestLoadSavePayments:
     def test_load_empty_file(self, tmp_path):
         pf = tmp_path / "payments.yaml"
         pf.write_text("pending: []\n")
-        assert load_payments(pf) == []
+        assert restore_payments(pf) == []
 
     def test_load_missing_file(self, tmp_path):
-        assert load_payments(tmp_path / "missing.yaml") == []
+        assert restore_payments(tmp_path / "missing.yaml") == []
 
     def test_save_and_load_roundtrip(self, tmp_path):
         pf = tmp_path / "payments.yaml"
         entries = [
             {"bank": "ccba", "amount": 6107.99, "due_date": "2026-04-01"},
         ]
-        save_payments(pf, entries)
-        loaded = load_payments(pf)
+        persist_payments(pf, entries)
+        loaded = restore_payments(pf)
         assert len(loaded) == 1
         assert loaded[0]["bank"] == "ccba"
         assert loaded[0]["amount"] == 6107.99
@@ -82,7 +82,7 @@ class TestAddPendingPayment:
         pf = tmp_path / "payments.yaml"
         pf.write_text("pending: []\n")
 
-        entry = add_pending_payment(
+        entry = queue_payment(
             pf,
             bank="ccba",
             amount=6107.99,
@@ -92,34 +92,34 @@ class TestAddPendingPayment:
         assert entry["bank"] == "ccba"
         assert entry["amount"] == 6107.99
 
-        pending = load_payments(pf)
+        pending = restore_payments(pf)
         assert len(pending) == 1
 
     def test_deduplicates_same_bank_statement(self, tmp_path):
         pf = tmp_path / "payments.yaml"
         pf.write_text("pending: []\n")
 
-        add_pending_payment(pf, "ccba", 6107.99, "2026-04-01", "2026-03-07")
-        add_pending_payment(pf, "ccba", 6107.99, "2026-04-01", "2026-03-07")
+        queue_payment(pf, "ccba", 6107.99, "2026-04-01", "2026-03-07")
+        queue_payment(pf, "ccba", 6107.99, "2026-04-01", "2026-03-07")
 
-        pending = load_payments(pf)
+        pending = restore_payments(pf)
         assert len(pending) == 1
 
     def test_allows_different_statements(self, tmp_path):
         pf = tmp_path / "payments.yaml"
         pf.write_text("pending: []\n")
 
-        add_pending_payment(pf, "ccba", 6107.99, "2026-04-01", "2026-03-07")
-        add_pending_payment(pf, "mox", 2500.00, "2026-04-15", "2026-03-15")
+        queue_payment(pf, "ccba", 6107.99, "2026-04-01", "2026-03-07")
+        queue_payment(pf, "mox", 2500.00, "2026-04-15", "2026-03-15")
 
-        pending = load_payments(pf)
+        pending = restore_payments(pf)
         assert len(pending) == 2
 
     def test_creates_file_if_missing(self, tmp_path):
         pf = tmp_path / "payments.yaml"
-        add_pending_payment(pf, "mox", 1000.00, "2026-04-01", "2026-03-01")
+        queue_payment(pf, "mox", 1000.00, "2026-04-01", "2026-03-01")
         assert pf.exists()
-        assert len(load_payments(pf)) == 1
+        assert len(restore_payments(pf)) == 1
 
 
 class TestRemovePendingPayment:
@@ -130,15 +130,15 @@ class TestRemovePendingPayment:
             [{"bank": "ccba", "amount": 6107.99, "due_date": "2026-04-01"}],
         )
 
-        removed = remove_pending_payment(pf, "ccba")
+        removed = dequeue_payment(pf, "ccba")
         assert removed is not None
         assert removed["bank"] == "ccba"
-        assert load_payments(pf) == []
+        assert restore_payments(pf) == []
 
     def test_returns_none_when_not_found(self, tmp_path):
         pf = tmp_path / "payments.yaml"
         pf.write_text("pending: []\n")
-        assert remove_pending_payment(pf, "ccba") is None
+        assert dequeue_payment(pf, "ccba") is None
 
     def test_removes_only_matching_bank(self, tmp_path):
         pf = tmp_path / "payments.yaml"
@@ -150,8 +150,8 @@ class TestRemovePendingPayment:
             ],
         )
 
-        remove_pending_payment(pf, "ccba")
-        pending = load_payments(pf)
+        dequeue_payment(pf, "ccba")
+        pending = restore_payments(pf)
         assert len(pending) == 1
         assert pending[0]["bank"] == "mox"
 
@@ -160,7 +160,7 @@ class TestCheckOverduePayments:
     def test_empty_file_no_alerts(self, tmp_path):
         pf = tmp_path / "payments.yaml"
         pf.write_text("pending: []\n")
-        assert check_overdue_payments(pf) == []
+        assert flag_overdue_payments(pf) == []
 
     def test_due_tomorrow(self, tmp_path):
         pf = tmp_path / "payments.yaml"
@@ -169,7 +169,7 @@ class TestCheckOverduePayments:
             tmp_path,
             [{"bank": "ccba", "amount": 6107.99, "due_date": tomorrow}],
         )
-        alerts = check_overdue_payments(pf)
+        alerts = flag_overdue_payments(pf)
         assert len(alerts) == 1
         assert "CCBA" in alerts[0]
         assert "due soon" in alerts[0].lower() or "1 day" in alerts[0].lower()
@@ -181,7 +181,7 @@ class TestCheckOverduePayments:
             tmp_path,
             [{"bank": "mox", "amount": 2500.00, "due_date": yesterday}],
         )
-        alerts = check_overdue_payments(pf)
+        alerts = flag_overdue_payments(pf)
         assert len(alerts) == 1
         assert "OVERDUE" in alerts[0]
 
@@ -192,7 +192,7 @@ class TestCheckOverduePayments:
             tmp_path,
             [{"bank": "scb", "amount": 3000.00, "due_date": far}],
         )
-        assert check_overdue_payments(pf) == []
+        assert flag_overdue_payments(pf) == []
 
     def test_due_today(self, tmp_path):
         pf = tmp_path / "payments.yaml"
@@ -201,18 +201,18 @@ class TestCheckOverduePayments:
             tmp_path,
             [{"bank": "ccba", "amount": 1000.00, "due_date": today}],
         )
-        alerts = check_overdue_payments(pf)
+        alerts = flag_overdue_payments(pf)
         assert len(alerts) == 1
         assert "CCBA" in alerts[0]
 
     def test_missing_file_no_alerts(self, tmp_path):
-        assert check_overdue_payments(tmp_path / "missing.yaml") == []
+        assert flag_overdue_payments(tmp_path / "missing.yaml") == []
 
 
 class TestCheckMissingStatements:
     def test_no_cards_no_alerts(self, tmp_path):
         _write_config(tmp_path, {})
-        assert check_missing_statements(tmp_path / "config.yaml", tmp_path) == []
+        assert assess_missing_statements(tmp_path / "config.yaml", tmp_path) == []
 
     def test_statement_exists_no_alert(self, tmp_path):
         _write_config(
@@ -223,7 +223,7 @@ class TestCheckMissingStatements:
         # Create a vault file for current month
         vault_file = tmp_path / f"{now.strftime('%Y-%m')}-ccba.md"
         vault_file.write_text("---\nbank: ccba\n---\n")
-        alerts = check_missing_statements(tmp_path / "config.yaml", tmp_path)
+        alerts = assess_missing_statements(tmp_path / "config.yaml", tmp_path)
         assert not any("CCBA" in a for a in alerts)
 
     def test_missing_statement_after_grace(self, tmp_path):
@@ -236,7 +236,7 @@ class TestCheckMissingStatements:
             tmp_path,
             {"ccba": {"active": True, "statement_day": 1}},
         )
-        alerts = check_missing_statements(tmp_path / "config.yaml", tmp_path)
+        alerts = assess_missing_statements(tmp_path / "config.yaml", tmp_path)
         assert len(alerts) == 1
         assert "CCBA" in alerts[0]
 
@@ -245,7 +245,7 @@ class TestCheckMissingStatements:
             tmp_path,
             {"mox": {"active": False, "statement_day": 1}},
         )
-        alerts = check_missing_statements(tmp_path / "config.yaml", tmp_path)
+        alerts = assess_missing_statements(tmp_path / "config.yaml", tmp_path)
         assert alerts == []
 
     def test_before_grace_period_no_alert(self, tmp_path):
@@ -255,7 +255,7 @@ class TestCheckMissingStatements:
             tmp_path,
             {"boc": {"active": True, "statement_day": now.day}},
         )
-        alerts = check_missing_statements(tmp_path / "config.yaml", tmp_path)
+        alerts = assess_missing_statements(tmp_path / "config.yaml", tmp_path)
         assert alerts == []
 
 
@@ -267,15 +267,15 @@ class TestConfirmPaymentTool:
             tmp_path,
             [{"bank": "ccba", "amount": 6107.99, "due_date": "2026-04-01"}],
         )
-        removed = remove_pending_payment(pf, "ccba")
+        removed = dequeue_payment(pf, "ccba")
         assert removed is not None
         assert removed["amount"] == 6107.99
-        assert load_payments(pf) == []
+        assert restore_payments(pf) == []
 
     def test_confirm_nonexistent(self, tmp_path):
         pf = tmp_path / "payments.yaml"
         pf.write_text("pending: []\n")
-        assert remove_pending_payment(pf, "ccba") is None
+        assert dequeue_payment(pf, "ccba") is None
 
 
 class TestCatabolismConfirmResultType:

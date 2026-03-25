@@ -148,7 +148,7 @@ class Threshold:
 
         return self._gate_open
 
-    def reset_gate(self) -> None:
+    def refractory_gate(self) -> None:
         """Reset in-memory latch state (e.g. between test runs or daily resets)."""
         self._gate_open = None
 

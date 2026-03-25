@@ -7,7 +7,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from metabolon.membrane import SensoryMiddleware
-from metabolon.metabolism.infection import read_infections
+from metabolon.metabolism.infection import recall_infections
 from metabolon.metabolism.signals import SensorySystem
 
 
@@ -31,11 +31,11 @@ async def test_infection_logged_when_repair_skipped(tmp_path):
     mw = _middleware(tmp_path)
 
     with (
-        patch("metabolon.membrane.log_infection") as mock_log,
+        patch("metabolon.membrane.record_infection") as mock_log,
         patch("metabolon.metabolism.variants.Genome") as MockGenome,
     ):
         # Tool not in genome — repair is skipped, but infection must be logged.
-        MockGenome.return_value.list_tools.return_value = []
+        MockGenome.return_value.expressed_tools.return_value = []
         await mw._acute_immune_response("unknown_tool", "something broke")
 
     mock_log.assert_called_once()
@@ -57,7 +57,7 @@ async def test_infection_marked_healed_when_repair_succeeds(tmp_path):
     mock_judge.passed = True
 
     with (
-        patch("metabolon.membrane.log_infection") as mock_log,
+        patch("metabolon.membrane.record_infection") as mock_log,
         patch("metabolon.metabolism.variants.Genome") as MockGenome,
         patch(
             "metabolon.metabolism.repair.immune_response",
@@ -71,10 +71,10 @@ async def test_infection_marked_healed_when_repair_succeeds(tmp_path):
         ),
     ):
         store = MockGenome.return_value
-        store.list_tools.return_value = ["my_tool"]
-        store.get_active.return_value = "Current description."
-        store.get_founding.return_value = "Founding description."
-        store.add_variant.return_value = 2
+        store.expressed_tools.return_value = ["my_tool"]
+        store.active_allele.return_value = "Current description."
+        store.founding_allele.return_value = "Founding description."
+        store.express_variant.return_value = 2
 
         await mw._acute_immune_response("my_tool", "auth failed")
 
@@ -91,7 +91,7 @@ async def test_infection_logged_even_when_repair_fails(tmp_path):
     mw = _middleware(tmp_path)
 
     with (
-        patch("metabolon.membrane.log_infection") as mock_log,
+        patch("metabolon.membrane.record_infection") as mock_log,
         patch("metabolon.metabolism.variants.Genome") as MockGenome,
         patch(
             "metabolon.metabolism.repair.immune_response",
@@ -100,8 +100,8 @@ async def test_infection_logged_even_when_repair_fails(tmp_path):
         ),
     ):
         store = MockGenome.return_value
-        store.list_tools.return_value = ["broken_tool"]
-        store.get_active.return_value = "desc"
+        store.expressed_tools.return_value = ["broken_tool"]
+        store.active_allele.return_value = "desc"
 
         await mw._acute_immune_response("broken_tool", "network timeout")
 

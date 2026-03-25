@@ -41,7 +41,7 @@ _RECUR_LABEL = {"d": "daily", "w": "weekly", "m": "monthly", "q": "quarterly", "
 # ---------------------------------------------------------------------------
 
 
-def read_db() -> dict:
+def recall_reminders() -> dict:
     """Read and return the Due app JSON database (gzip-compressed)."""
     path = _DUE_DB
     if not path.exists():
@@ -115,7 +115,7 @@ def resolve_date_keyword(s: str) -> str:
     return s
 
 
-def parse_due_string(due: str) -> tuple[str | None, str | None]:
+def decode_due_string(due: str) -> tuple[str | None, str | None]:
     """
     Parse a --due string such as 'today 16:15', 'tomorrow', '2026-03-16 10:00', '16:15'.
     Returns (at, date) where at is HH:MM or None, date is YYYY-MM-DD or None.
@@ -135,7 +135,7 @@ def parse_due_string(due: str) -> tuple[str | None, str | None]:
     )
 
 
-def parse_time(
+def decode_time(
     rel: str | None = None,
     at: str | None = None,
     date: str | None = None,

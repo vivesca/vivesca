@@ -7,14 +7,14 @@ from types import SimpleNamespace
 
 import pytest
 
-from metabolon.organelles.endocytosis_rss.config import load_config
+from metabolon.organelles.endocytosis_rss.config import restore_config
 from metabolon.organelles.endocytosis_rss.digest import (
     _resolve_week_label,
     create_openai_client,
-    load_log_entries_since,
-    run_digest,
-    run_weekly_digest,
-    write_weekly_digest,
+    recall_log_entries,
+    metabolize_digest,
+    metabolize_weekly,
+    secrete_weekly_digest,
 )
 
 
@@ -87,18 +87,18 @@ def test_create_openai_client_sets_openrouter_base_url(monkeypatch):
     assert calls["api_key"] == "key-123"
 
 
-def test_run_digest_requires_api_key(xdg_env, monkeypatch):
-    cfg = load_config()
+def test_metabolize_digest_requires_api_key(xdg_env, monkeypatch):
+    cfg = restore_config()
     _write_month_data(cfg, "2026-02")
     monkeypatch.delenv("LUSTRO_API_KEY", raising=False)
     monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
 
     with pytest.raises(RuntimeError, match="Missing API key"):
-        run_digest(cfg, month="2026-02", dry_run=True, themes=4, model=None)
+        metabolize_digest(cfg, month="2026-02", dry_run=True, themes=4, model=None)
 
 
-def test_run_digest_dry_run_with_mock_llm(xdg_env, monkeypatch):
-    cfg = load_config()
+def test_metabolize_digest_dry_run_with_mock_llm(xdg_env, monkeypatch):
+    cfg = restore_config()
     _write_month_data(cfg, "2026-02")
     monkeypatch.setenv("LUSTRO_API_KEY", "test-key")
 
@@ -118,7 +118,7 @@ def test_run_digest_dry_run_with_mock_llm(xdg_env, monkeypatch):
     )
     monkeypatch.setattr("metabolon.organelles.endocytosis_rss.digest.create_openai_client", lambda _key: fake_client)
 
-    themes, output_path = run_digest(
+    themes, output_path = metabolize_digest(
         cfg,
         month="2026-02",
         dry_run=True,
@@ -132,7 +132,7 @@ def test_run_digest_dry_run_with_mock_llm(xdg_env, monkeypatch):
 
 
 def test_cmd_digest_writes_output_file(xdg_env, monkeypatch):
-    cfg = load_config()
+    cfg = restore_config()
     _write_month_data(cfg, "2026-02")
     monkeypatch.setenv("OPENROUTER_API_KEY", "router-key")
 
@@ -154,7 +154,7 @@ def test_cmd_digest_writes_output_file(xdg_env, monkeypatch):
     )
     monkeypatch.setattr("metabolon.organelles.endocytosis_rss.digest.create_openai_client", lambda _key: fake_client)
 
-    themes_result, output_path = run_digest(
+    themes_result, output_path = metabolize_digest(
         cfg=cfg,
         month="2026-02",
         dry_run=False,
@@ -210,12 +210,12 @@ def test_resolve_week_label_returns_correct_format():
     assert since == "2026-03-18"
 
 
-def test_load_log_entries_since_parses_transcytose_and_plain(xdg_env):
-    """load_log_entries_since distinguishes ★ (transcytose) from plain entries."""
-    cfg = load_config()
+def test_recall_log_entries_parses_transcytose_and_plain(xdg_env):
+    """recall_log_entries distinguishes ★ (transcytose) from plain entries."""
+    cfg = restore_config()
     _write_weekly_log(cfg, "2026-03-24")
 
-    entries = load_log_entries_since(cfg.log_path, "2026-03-20")
+    entries = recall_log_entries(cfg.log_path, "2026-03-20")
     assert len(entries) == 3
 
     transcytose = [e for e in entries if e["_transcytose"] == "1"]
@@ -228,9 +228,9 @@ def test_load_log_entries_since_parses_transcytose_and_plain(xdg_env):
     assert "LLM tool use patterns" in titles
 
 
-def test_load_log_entries_since_filters_by_date(xdg_env):
-    """load_log_entries_since excludes entries before since_date."""
-    cfg = load_config()
+def test_recall_log_entries_filters_by_date(xdg_env):
+    """recall_log_entries excludes entries before since_date."""
+    cfg = restore_config()
     cfg.log_path.parent.mkdir(parents=True, exist_ok=True)
     cfg.log_path.write_text(
         "\n".join([
@@ -245,13 +245,13 @@ def test_load_log_entries_since_filters_by_date(xdg_env):
         encoding="utf-8",
     )
     # Only entries on or after 2026-03-20 should be returned
-    entries = load_log_entries_since(cfg.log_path, "2026-03-20")
+    entries = recall_log_entries(cfg.log_path, "2026-03-20")
     assert len(entries) == 1
     assert entries[0]["title"] == "New article"
 
 
-def test_write_weekly_digest_creates_file_with_transcytose_section(tmp_path):
-    """write_weekly_digest secretes transcytose section and per-source grouping."""
+def test_secrete_weekly_digest_creates_file_with_transcytose_section(tmp_path):
+    """secrete_weekly_digest secretes transcytose section and per-source grouping."""
     output_path = tmp_path / "weekly-ai-digest-2026-W13.md"
     entries = [
         {
@@ -287,7 +287,7 @@ def test_write_weekly_digest_creates_file_with_transcytose_section(tmp_path):
         },
     }
 
-    result = write_weekly_digest(
+    result = secrete_weekly_digest(
         output_path=output_path,
         week_label="2026-W13",
         since_date="2026-03-18",
@@ -312,7 +312,7 @@ def test_write_weekly_digest_creates_file_with_transcytose_section(tmp_path):
     assert "Sunday" in content
 
 
-def test_write_weekly_digest_omits_low_score_items(tmp_path):
+def test_secrete_weekly_digest_omits_low_score_items(tmp_path):
     """Items with score < WEEKLY_STORE_THRESHOLD are dropped (lysosomal fate)."""
     from metabolon.organelles.endocytosis_rss.digest import WEEKLY_STORE_THRESHOLD
 
@@ -336,7 +336,7 @@ def test_write_weekly_digest_omits_low_score_items(tmp_path):
         },
     }
 
-    write_weekly_digest(
+    secrete_weekly_digest(
         output_path=output_path,
         week_label="2026-W13",
         since_date="2026-03-18",
@@ -350,20 +350,20 @@ def test_write_weekly_digest_omits_low_score_items(tmp_path):
     assert "No items met the score threshold" in content
 
 
-def test_run_weekly_digest_returns_count_and_path(xdg_env, monkeypatch, tmp_path):
-    """run_weekly_digest writes file and returns correct item count."""
-    cfg = load_config()
+def test_metabolize_weekly_returns_count_and_path(xdg_env, monkeypatch, tmp_path):
+    """metabolize_weekly writes file and returns correct item count."""
+    cfg = restore_config()
     _write_weekly_log(cfg, "2026-03-24")
 
-    # Point output to tmp_path (run_weekly_digest uses ~/code/vivesca-terry/chromatin/Reference)
+    # Point output to tmp_path (metabolize_weekly uses ~/code/vivesca-terry/chromatin/Reference)
     notes_ref = tmp_path / "code" / "vivesca-terry" / "chromatin" / "Reference"
     notes_ref.mkdir(parents=True, exist_ok=True)
     monkeypatch.setattr("metabolon.organelles.endocytosis_rss.digest.Path.home", lambda: tmp_path)
 
     # Stub out affinity log loading so no external files needed
-    monkeypatch.setattr("metabolon.organelles.endocytosis_rss.digest.load_affinity_entries_since", lambda _since: [])
+    monkeypatch.setattr("metabolon.organelles.endocytosis_rss.digest.recall_affinity_entries", lambda _since: [])
 
-    item_count, output_path = run_weekly_digest(cfg=cfg)
+    item_count, output_path = metabolize_weekly(cfg=cfg)
 
     # Two ★ items were logged; without affinity scores they pass via transcytose flag
     assert item_count >= 2
@@ -379,7 +379,7 @@ def test_cli_digest_weekly_flag(xdg_env, monkeypatch, tmp_path):
 
     from metabolon.organelles.endocytosis_rss.cli import app
 
-    cfg = load_config()
+    cfg = restore_config()
     _write_weekly_log(cfg, "2026-03-24")
 
     called: dict[str, bool] = {"weekly": False}
@@ -393,7 +393,7 @@ def test_cli_digest_weekly_flag(xdg_env, monkeypatch, tmp_path):
 
     import metabolon.organelles.endocytosis_rss.digest as _digest_mod
 
-    monkeypatch.setattr(_digest_mod, "run_weekly_digest", fake_run_weekly)
+    monkeypatch.setattr(_digest_mod, "metabolize_weekly", fake_run_weekly)
 
     runner = CliRunner()
     result = runner.invoke(app, ["digest", "--weekly"])

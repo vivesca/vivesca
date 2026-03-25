@@ -30,7 +30,7 @@ async def _mutate(request: ImmuneRequest) -> str:
     """Single LLM call to generate a revised description."""
     import sys
 
-    from metabolon.symbiont import query
+    from metabolon.symbiont import transduce
 
     prompt = (
         f"You are revising an MCP tool description to fix a specific failure.\n\n"
@@ -42,7 +42,7 @@ async def _mutate(request: ImmuneRequest) -> str:
         f"Change as little as possible. Output ONLY the new description, nothing else."
     )
 
-    return (await query(prompt, model="haiku")).strip()
+    return (await transduce(prompt, model="haiku")).strip()
 
 
 async def immune_response(

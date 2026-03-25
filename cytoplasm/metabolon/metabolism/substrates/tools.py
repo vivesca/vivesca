@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
 
-from metabolon.metabolism.fitness import Emotion, compute_emotion
+from metabolon.metabolism.fitness import Emotion, sense_affect
 from metabolon.metabolism.signals import SensorySystem
 from metabolon.metabolism.sweep import select
 from metabolon.metabolism.variants import Genome
@@ -31,16 +31,16 @@ class PhenotypeSubstrate:
     def sense(self, days: int = 30) -> list[dict]:
         """Read stimuli and genome, compute per-tool emotion."""
         since = datetime.now(UTC) - timedelta(days=days)
-        signals = self.collector.read_since(since)
-        emotions = compute_emotion(signals)
-        catalogued_loci = self.genome.list_tools()
+        signals = self.collector.recall_since(since)
+        emotions = sense_affect(signals)
+        catalogued_loci = self.genome.expressed_tools()
 
         sensed: list[dict] = []
         locus_population = sorted(set(list(emotions.keys()) + catalogued_loci))
 
         for tool in locus_population:
             emotion = emotions.get(tool)
-            variants = self.genome.list_variants(tool) if tool in catalogued_loci else []
+            variants = self.genome.allele_variants(tool) if tool in catalogued_loci else []
             sensed.append(
                 {
                     "tool": tool,

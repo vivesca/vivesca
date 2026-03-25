@@ -28,7 +28,7 @@ def _extract_reflex_name(command: str) -> str:
     return command[:40]
 
 
-def generate_reflex_inventory(settings_path: Path | None = None) -> str:
+def express_reflex_inventory(settings_path: Path | None = None) -> str:
     """Parse settings.json and build a hooks inventory."""
     path = settings_path or _SETTINGS
     if not path.exists():

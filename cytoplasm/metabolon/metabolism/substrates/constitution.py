@@ -55,7 +55,7 @@ class ExecutiveSubstrate:
 
         # Read signals
         since = datetime.now(UTC) - timedelta(days=days)
-        signals = self.collector.read_since(since)
+        signals = self.collector.recall_since(since)
 
         active_enzymes: set[str] = set()
         for s in signals:

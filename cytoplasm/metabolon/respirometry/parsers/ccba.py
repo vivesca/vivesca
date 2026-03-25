@@ -19,7 +19,7 @@ _TXN_PAT = re.compile(
 )
 
 
-def parse_ccba(pdf_path: Path) -> tuple[StatementMeta, list[Transaction]]:
+def extract_ccba(pdf_path: Path) -> tuple[StatementMeta, list[Transaction]]:
     """Parse a CCBA eye Credit Card statement PDF.
 
     Returns (metadata, transactions). Raises ValueError if balance validation

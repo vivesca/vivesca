@@ -11,7 +11,7 @@ from pathlib import Path
 from metabolon.respirometry.schema import StatementMeta, Transaction
 
 
-def format_markdown(meta: StatementMeta, transactions: list[Transaction]) -> str:
+def serialize_markdown(meta: StatementMeta, transactions: list[Transaction]) -> str:
     """Generate vault markdown from parsed statement data."""
     lines: list[str] = []
 
@@ -89,13 +89,13 @@ def is_processed(sha: str, ledger: Path) -> bool:
     return sha in ledger.read_text().splitlines()
 
 
-def mark_processed(sha: str, ledger: Path) -> None:
+def stamp_processed(sha: str, ledger: Path) -> None:
     """Record a file hash as processed."""
     with open(ledger, "a") as f:
         f.write(sha + "\n")
 
 
-def write_statement(
+def secrete_statement(
     meta: StatementMeta,
     transactions: list[Transaction],
     spending_dir: Path,
@@ -103,7 +103,7 @@ def write_statement(
     """Write parsed statement to vault and return the file path."""
     spending_dir.mkdir(parents=True, exist_ok=True)
     md_path = spending_dir / f"{meta.filename_stem}.md"
-    md_path.write_text(format_markdown(meta, transactions))
+    md_path.write_text(serialize_markdown(meta, transactions))
     return md_path
 
 
@@ -116,7 +116,7 @@ def archive_pdf(pdf_path: Path, meta: StatementMeta, spending_dir: Path) -> Path
     return dest
 
 
-def write_monthly_summary(month: str, spending_dir: Path) -> Path:
+def secrete_monthly_summary(month: str, spending_dir: Path) -> Path:
     """Generate/update YYYY-MM-summary.md aggregating all cards for the month.
 
     Args:

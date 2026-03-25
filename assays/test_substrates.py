@@ -13,7 +13,7 @@ import pytest
 
 from metabolon.metabolism.signals import Outcome, SensorySystem, Stimulus
 from metabolon.metabolism.substrate import Substrate
-from metabolon.metabolism.substrates import get_receptor_catalog
+from metabolon.metabolism.substrates import receptor_catalog
 from metabolon.metabolism.substrates.constitution import ExecutiveSubstrate
 from metabolon.metabolism.substrates.memory import ConsolidationSubstrate
 from metabolon.metabolism.substrates.tools import PhenotypeSubstrate
@@ -89,7 +89,7 @@ def redirect_defaults(tmp_path):
 
 class TestRegistry:
     def test_registry_contains_all_substrates(self):
-        reg = get_receptor_catalog()
+        reg = receptor_catalog()
         assert "phenotype" in reg
         assert "executive" in reg
         assert "consolidation" in reg
@@ -97,12 +97,12 @@ class TestRegistry:
         assert "hygiene" in reg
 
     def test_registry_values_are_classes(self):
-        reg = get_receptor_catalog()
+        reg = receptor_catalog()
         for name, cls in reg.items():
             assert callable(cls), f"{name} should be callable"
 
     def test_registry_instances_have_name(self):
-        reg = get_receptor_catalog()
+        reg = receptor_catalog()
         for name, cls in reg.items():
             instance = cls.__new__(cls)
             assert hasattr(instance, "name"), f"{name} should have a name attribute"
@@ -151,7 +151,7 @@ class TestToolSubstrate:
     def test_sense_with_variant_store(self, tmp_path, redirect_defaults):
         """Tools in variant store appear even without signals."""
         store = Genome()
-        store.init_tool("my_tool", "A description")
+        store.seed_tool("my_tool", "A description")
 
         substrate = PhenotypeSubstrate(genome=store)
         sensed = substrate.sense(days=7)
@@ -204,8 +204,8 @@ class TestToolSubstrate:
         """Full sense -> candidates -> act -> report cycle."""
         collector = SensorySystem()
         store = Genome()
-        store.init_tool("good_tool", "Works well")
-        store.init_tool("bad_tool", "Needs work")
+        store.seed_tool("good_tool", "Works well")
+        store.seed_tool("bad_tool", "Needs work")
 
         for _ in range(5):
             collector.append(_make_signal("good_tool"))

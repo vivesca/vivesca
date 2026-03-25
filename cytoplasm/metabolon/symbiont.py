@@ -5,8 +5,8 @@ No judgment here — just transport.
 
 Config: ~/.config/llm-models.json
 Usage:
-    from metabolon.symbiont import query, parallel_query, list_models
-    result = query("deepseek", "What is 2+2?")
+    from metabolon.symbiont import transduce, parallel_query, list_models
+    result = transduce("deepseek", "What is 2+2?")
     results = parallel_query(["gemini", "deepseek"], "What is 2+2?")
 """
 
@@ -27,14 +27,14 @@ def _strip_ansi(text: str) -> str:
     return re.sub(r"\x1b\[[0-9;]*m", "", text)
 
 
-def load_models(config_path: str | None = None) -> dict:
+def restore_symbionts(config_path: str | None = None) -> dict:
     """Load model registry from JSON config."""
     path = config_path or CONFIG_PATH
     with open(path, encoding="utf-8") as f:
         return json.load(f)
 
 
-def list_models(config_path: str | None = None) -> dict[str, str]:
+def available_symbionts(config_path: str | None = None) -> dict[str, str]:
     """Return {name: description} for all registered models."""
     models = load_models(config_path)
     return {name: cfg.get("description", name) for name, cfg in models.items()}
@@ -119,7 +119,7 @@ def _query_openrouter(model: str, prompt: str, timeout: int) -> str:
         return res_json["choices"][0]["message"]["content"].strip()
 
 
-def query(model_name: str, prompt: str, timeout: int = 180, config_path: str | None = None) -> str:
+def transduce(model_name: str, prompt: str, timeout: int = 180, config_path: str | None = None) -> str:
     """Query a single model. Returns response text. Raises on error."""
     models = load_models(config_path)
     if model_name not in models:
@@ -140,12 +140,12 @@ def query(model_name: str, prompt: str, timeout: int = 180, config_path: str | N
         raise ValueError(f"Unknown backend: {backend}")
 
 
-def query_safe(
+def transduce_safe(
     model_name: str, prompt: str, timeout: int = 180, config_path: str | None = None
 ) -> tuple[str, str]:
     """Query with error-as-string. Returns (model_name, result_or_error). Never raises."""
     try:
-        result = query(model_name, prompt, timeout, config_path)
+        result = transduce(model_name, prompt, timeout, config_path)
         return model_name, result
     except subprocess.TimeoutExpired:
         return model_name, f"(timed out after {timeout}s)"
@@ -155,7 +155,7 @@ def query_safe(
         return model_name, f"(error: {e})"
 
 
-def parallel_query(
+def parallel_transduce(
     model_names: list[str],
     prompt: str,
     timeout: int = 180,
@@ -165,7 +165,7 @@ def parallel_query(
     results = []
     with concurrent.futures.ThreadPoolExecutor(max_workers=len(model_names)) as pool:
         futures = {
-            pool.submit(query_safe, name, prompt, timeout, config_path): name
+            pool.submit(transduce_safe, name, prompt, timeout, config_path): name
             for name in model_names
         }
         for future in concurrent.futures.as_completed(futures):

@@ -51,7 +51,7 @@ def _llm_call(client: Any, model: str, system: str, user: str, max_tokens: int) 
     return response.choices[0].message.content or ""
 
 
-def load_archived_articles(article_cache_dir: Path, month: str) -> list[dict[str, Any]]:
+def recall_archived_articles(article_cache_dir: Path, month: str) -> list[dict[str, Any]]:
     if not article_cache_dir.exists():
         return []
     articles: list[dict[str, Any]] = []
@@ -67,7 +67,7 @@ def load_archived_articles(article_cache_dir: Path, month: str) -> list[dict[str
     return articles
 
 
-def load_news_log_entries(log_path: Path, month: str) -> list[dict[str, str]]:
+def recall_news_entries(log_path: Path, month: str) -> list[dict[str, str]]:
     if not log_path.exists():
         return []
 
@@ -119,7 +119,7 @@ def _parse_theme_json(raw: str) -> list[dict[str, Any]]:
     return [item for item in parsed if isinstance(item, dict)]
 
 
-def identify_themes(
+def sense_themes(
     client: Any,
     model: str,
     articles: list[dict[str, Any]],
@@ -220,7 +220,7 @@ def synthesize_theme(
     return _llm_call(client, model, system, user, max_tokens=6000)
 
 
-def write_digest(
+def secrete_digest(
     output_dir: Path,
     month: str,
     themes: list[dict[str, Any]],
@@ -302,10 +302,10 @@ def _resolve_week_label(week_date: datetime | None = None) -> tuple[str, str, st
     )
 
 
-def load_log_entries_since(log_path: Path, since_date: str) -> list[dict[str, str]]:
+def recall_log_entries(log_path: Path, since_date: str) -> list[dict[str, str]]:
     """Internalize log entries from since_date (inclusive) to present.
 
-    Parses the markdown log format written by lustro.log.format_markdown.
+    Parses the markdown log format written by lustro.log.serialize_markdown.
     Returns a list of dicts with: title, source, date, link, banking_angle,
     summary, _transcytose ('1' if item was marked with [★], else '0').
     """
@@ -359,7 +359,7 @@ def load_log_entries_since(log_path: Path, since_date: str) -> list[dict[str, st
     return entries
 
 
-def load_affinity_entries_since(since_date: str) -> list[dict[str, Any]]:
+def recall_affinity_entries(since_date: str) -> list[dict[str, Any]]:
     """Load scored cargo from the affinity log for the weekly window.
 
     Affinity log has richer metadata (score, banking_angle, talking_point)
@@ -392,7 +392,7 @@ def _build_affinity_index(affinity_entries: list[dict[str, Any]]) -> dict[str, d
     return index
 
 
-def write_weekly_digest(
+def secrete_weekly_digest(
     output_path: Path,
     week_label: str,
     since_date: str,
@@ -504,7 +504,7 @@ def write_weekly_digest(
     return output_path
 
 
-def run_weekly_digest(
+def metabolize_weekly(
     cfg: EndocytosisConfig,
     week_date: datetime | None = None,
     tags: list[str] | None = None,
@@ -517,7 +517,7 @@ def run_weekly_digest(
     since_date, until_date, week_label = _resolve_week_label(week_date)
 
     # Internalize log entries for the window
-    entries = load_log_entries_since(cfg.log_path, since_date)
+    entries = recall_log_entries(cfg.log_path, since_date)
 
     if tags:
         source_tags = _build_source_tags_map(cfg)
@@ -527,14 +527,14 @@ def run_weekly_digest(
         ]
 
     # Enrich with affinity log for score + talking_point data
-    affinity_entries = load_affinity_entries_since(since_date)
+    affinity_entries = recall_affinity_entries(since_date)
     affinity_index = _build_affinity_index(affinity_entries)
 
     # Secrete to ~/code/vivesca-terry/chromatin/Reference/weekly-ai-digest-YYYY-WNN.md
     output_dir = Path.home() / "code" / "vivesca-terry" / "chromatin" / "Reference"
     output_path = output_dir / f"weekly-ai-digest-{week_label}.md"
 
-    written_path = write_weekly_digest(
+    written_path = secrete_weekly_digest(
         output_path=output_path,
         week_label=week_label,
         since_date=since_date,
@@ -554,7 +554,7 @@ def run_weekly_digest(
     return item_count, written_path
 
 
-def run_digest(
+def metabolize_digest(
     cfg: EndocytosisConfig,
     month: str | None,
     dry_run: bool,
@@ -566,8 +566,8 @@ def run_digest(
     max_themes = themes if themes is not None else DEFAULT_THEME_COUNT
     model_id = model or cfg.digest_model
 
-    articles = load_archived_articles(cfg.article_cache_dir, target_month)
-    log_entries = load_news_log_entries(cfg.log_path, target_month)
+    articles = recall_archived_articles(cfg.article_cache_dir, target_month)
+    log_entries = recall_news_entries(cfg.log_path, target_month)
 
     if tags:
         source_tags = _build_source_tags_map(cfg)
@@ -581,7 +581,7 @@ def run_digest(
         raise RuntimeError("Missing API key. Set ENDOCYTOSIS_API_KEY or OPENROUTER_API_KEY.")
     client = create_openai_client(api_key)
 
-    identified_themes = identify_themes(
+    identified_themes = sense_themes(
         client=client,
         model=model_id,
         articles=articles,
@@ -595,7 +595,7 @@ def run_digest(
         synthesize_theme(client, model_id, theme, articles, log_entries)
         for theme in identified_themes
     ]
-    output_path = write_digest(
+    output_path = secrete_digest(
         output_dir=cfg.digest_output_dir,
         month=target_month,
         themes=identified_themes,

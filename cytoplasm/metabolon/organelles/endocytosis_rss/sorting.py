@@ -66,7 +66,7 @@ def sort_by_fate(
     return compartments
 
 
-def filter_for_log(
+def select_for_log(
     items: list[dict],
     threshold_high: int = 7,
     threshold_low: int = 4,
@@ -74,7 +74,7 @@ def filter_for_log(
     """Return only cargo that survives degradation (transcytose + store fates).
 
     Convenience wrapper used by the fetch pipeline to strip low-signal items
-    before handing the remainder to format_markdown / append_to_log.
+    before handing the remainder to serialize_markdown / record_cargo.
 
     Args:
         items: Scored article dicts from a single source.

@@ -40,7 +40,7 @@ def _fingerprint(tool: str, error: str) -> str:
     return hashlib.sha256(raw.encode()).hexdigest()[:12]
 
 
-def log_infection(
+def record_infection(
     tool: str,
     error: str,
     healed: bool = False,
@@ -63,7 +63,7 @@ def log_infection(
     return event
 
 
-def read_infections(log_path: Path = DEFAULT_LOG) -> list[InfectionEvent]:
+def recall_infections(log_path: Path = DEFAULT_LOG) -> list[InfectionEvent]:
     """Read all infection events from the log. Returns empty list if log absent."""
     if not log_path.exists():
         return []
@@ -97,7 +97,7 @@ def chronic_infections(
     A chronic infection is the same fingerprint appearing >= threshold times,
     regardless of whether individual events were healed.
     """
-    events = read_infections(log_path)
+    events = recall_infections(log_path)
     if not events:
         return []
 
@@ -134,7 +134,7 @@ def infection_summary(log_path: Path = DEFAULT_LOG) -> str:
 
     Returns an empty string if no infections are logged.
     """
-    events = read_infections(log_path)
+    events = recall_infections(log_path)
     if not events:
         return ""
 

@@ -10,7 +10,7 @@ import ast
 from pathlib import Path
 
 
-def check_project(project_dir: Path) -> list[str]:
+def probe_gastrulation(project_dir: Path) -> list[str]:
     """Check a vivesca project for convention violations.
 
     Returns a list of issue descriptions. Empty list = all good.

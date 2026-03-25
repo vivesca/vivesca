@@ -8,7 +8,7 @@ from metabolon.organelles.endocytosis_rss.sorting import (
     FATE_DEGRADE,
     FATE_STORE,
     FATE_TRANSCYTOSE,
-    filter_for_log,
+    select_for_log,
     sort_by_fate,
 )
 
@@ -116,13 +116,13 @@ class TestSortByFate:
 
 
 # ---------------------------------------------------------------------------
-# filter_for_log
+# select_for_log
 # ---------------------------------------------------------------------------
 
 class TestFilterForLog:
     def test_drops_degrade_cargo(self):
         items = [_cargo(8), _cargo(5), _cargo(2)]
-        survivors = filter_for_log(items)
+        survivors = select_for_log(items)
         assert len(survivors) == 2
         scores = [int(s["score"]) for s in survivors]
         assert 2 not in scores
@@ -131,20 +131,20 @@ class TestFilterForLog:
         """Transcytose items must precede store items in the returned list."""
         store = _cargo(5)
         transcytose = _cargo(9)
-        survivors = filter_for_log([store, transcytose])
+        survivors = select_for_log([store, transcytose])
         assert survivors[0] == transcytose
         assert survivors[1] == store
 
     def test_all_degrade_returns_empty(self):
         items = [_cargo(1), _cargo(2), _cargo(3)]
-        assert filter_for_log(items) == []
+        assert select_for_log(items) == []
 
     def test_all_survive(self):
         items = [_cargo(7), _cargo(8), _cargo(5)]
-        assert len(filter_for_log(items)) == 3
+        assert len(select_for_log(items)) == 3
 
     def test_empty_input(self):
-        assert filter_for_log([]) == []
+        assert select_for_log([]) == []
 
 
 # ---------------------------------------------------------------------------
@@ -153,8 +153,8 @@ class TestFilterForLog:
 
 class TestTranscytoseMarkerInLog:
     def test_star_marker_for_transcytose_score(self):
-        """format_markdown should still emit [*] for items that survive with score>=7."""
-        from metabolon.organelles.endocytosis_rss.log import format_markdown
+        """serialize_markdown should still emit [*] for items that survive with score>=7."""
+        from metabolon.organelles.endocytosis_rss.log import serialize_markdown
 
         results = {
             "TestSource": [
@@ -168,12 +168,12 @@ class TestTranscytoseMarkerInLog:
                 }
             ]
         }
-        md = format_markdown(results, "2026-03-25")
+        md = serialize_markdown(results, "2026-03-25")
         assert "[★]" in md
 
     def test_no_star_marker_for_store_score(self):
         """Store-fate items (score 4-6) should not get the [*] marker."""
-        from metabolon.organelles.endocytosis_rss.log import format_markdown
+        from metabolon.organelles.endocytosis_rss.log import serialize_markdown
 
         results = {
             "TestSource": [
@@ -187,5 +187,5 @@ class TestTranscytoseMarkerInLog:
                 }
             ]
         }
-        md = format_markdown(results, "2026-03-25")
+        md = serialize_markdown(results, "2026-03-25")
         assert "[★]" not in md

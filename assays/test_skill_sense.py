@@ -1,6 +1,6 @@
-def test_load_fork_registry(tmp_path):
+def test_restore_fork_registry(tmp_path):
     """Registry YAML maps suite names to local and cache paths."""
-    from metabolon.tools.mutation_sense import load_fork_registry
+    from metabolon.tools.mutation_sense import restore_fork_registry
 
     registry_file = tmp_path / "skill-forks.yaml"
     registry_file.write_text(
@@ -12,7 +12,7 @@ def test_load_fork_registry(tmp_path):
         "  cache: /Users/terry/.claude/plugins/cache/every-marketplace/compound-engineering\n"
     )
 
-    registry = load_fork_registry(registry_file)
+    registry = restore_fork_registry(registry_file)
     assert len(registry) == 2
     assert registry["superpowers"]["local"] == "/Users/terry/skills/superpowers"
 
@@ -82,7 +82,7 @@ def test_proprioception_skills_no_changes(tmp_path, monkeypatch):
         }
     }
     monkeypatch.setattr(
-        "metabolon.tools.mutation_sense.load_fork_registry", lambda path=None: registry
+        "metabolon.tools.mutation_sense.restore_fork_registry", lambda path=None: registry
     )
 
     result = proprioception_skills()
@@ -110,7 +110,7 @@ def test_proprioception_skills_with_changes(tmp_path, monkeypatch):
         }
     }
     monkeypatch.setattr(
-        "metabolon.tools.mutation_sense.load_fork_registry", lambda path=None: registry
+        "metabolon.tools.mutation_sense.restore_fork_registry", lambda path=None: registry
     )
 
     result = proprioception_skills()

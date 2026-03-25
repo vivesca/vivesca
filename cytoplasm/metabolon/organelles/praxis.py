@@ -38,21 +38,21 @@ def _is_overdue(item: dict, today_date) -> bool:
 
 
 def _today_date():
-    from metabolon.pinocytosis import get_date
+    from metabolon.pinocytosis import current_date
 
-    return _parse_date(get_date()["iso"])
+    return _parse_date(current_date()["iso"])
 
 
 def _read_all() -> dict:
     from metabolon.pinocytosis import read_todo
 
-    return read_todo()
+    return recall_todo()
 
 
 def _read_today() -> dict:
-    from metabolon.pinocytosis import read_todo_today
+    from metabolon.pinocytosis import recall_todo_today
 
-    return read_todo_today()
+    return recall_todo_today()
 
 
 def today() -> dict:
@@ -202,7 +202,7 @@ def spare() -> dict:
     from metabolon.pinocytosis import read_todo
 
     today_date = _today_date()
-    data = read_todo(sections=["Spare Capacity"])
+    data = recall_todo(sections=["Spare Capacity"])
     if not data["available"]:
         return {"error": data["error"]}
 

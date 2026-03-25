@@ -74,7 +74,7 @@ def _read_file_raw(path: str) -> str | None:
 # ---------------------------------------------------------------------------
 
 
-def get_date() -> dict[str, str]:
+def current_date() -> dict[str, str]:
     """Return current HKT datetime as structured dict."""
     now = datetime.now(HKT)
     return {
@@ -135,7 +135,7 @@ def _parse_date(date_str: str | None) -> Any:
         return None
 
 
-def read_todo(
+def recall_todo(
     path: str = PRAXIS_PATH,
     sections: list[str] | None = None,
     tags: dict[str, str] | None = None,
@@ -174,12 +174,12 @@ def read_todo(
     return {"available": True, "path": expanded, "items": items, "error": None}
 
 
-def read_todo_today(date_iso: str | None = None) -> dict[str, Any]:
+def recall_todo_today(date_iso: str | None = None) -> dict[str, Any]:
     """Return only overdue and today's TODO items, max 10."""
     if date_iso is None:
-        date_iso = get_date()["iso"]
+        date_iso = current_date()["iso"]
 
-    result = read_todo()
+    result = recall_todo()
     if not result["available"]:
         return result
 
@@ -254,7 +254,7 @@ _PROGRESS_ITEM_RE = re.compile(
 )
 
 
-def read_now(path: str = TONUS_PATH) -> dict[str, Any]:
+def sense_tonus(path: str = TONUS_PATH) -> dict[str, Any]:
     """Parse Tonus.md and return structured facts and progress items."""
     expanded = os.path.expanduser(path)
     raw = _read_file_raw(expanded)
@@ -422,15 +422,15 @@ def intake_context(
 
     def _gather_todo() -> dict:
         if todo_filter == "today":
-            return read_todo_today()
+            return recall_todo_today()
         elif todo_filter == "all":
-            return read_todo(path=todo_path)
+            return recall_todo(path=todo_path)
         return {"available": False, "path": todo_path, "items": [], "error": "skipped"}
 
     dispatch = {
         "date": get_date,
         "todo": _gather_todo,
-        "now": lambda: read_now(path=now_path),
+        "now": lambda: sense_tonus(path=now_path),
         "calendar": lambda: sense_calendar(date=calendar_date, days=calendar_days),
         "budget": sense_budget,
     }
@@ -438,7 +438,7 @@ def intake_context(
     result: dict[str, Any] = {k: None for k in ALL_SOURCES}
 
     if "date" in include:
-        result["date"] = get_date()
+        result["date"] = current_date()
 
     parallel_keys = [k for k in include if k != "date"]
     if parallel_keys:

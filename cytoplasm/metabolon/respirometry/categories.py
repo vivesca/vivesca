@@ -7,7 +7,7 @@ from pathlib import Path
 import yaml
 
 
-def load_categories(path: Path) -> dict[str, str]:
+def restore_categories(path: Path) -> dict[str, str]:
     """Load merchant -> category map from YAML file."""
     if not path.exists():
         return {}

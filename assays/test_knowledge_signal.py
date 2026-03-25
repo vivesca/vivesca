@@ -27,7 +27,7 @@ def test_knowledge_signal_useful(redirect_collector):
     assert result.artifact == "memory/user_health.md"
 
     collector = SensorySystem()
-    signals = collector.read_all()
+    signals = collector.recall_all()
     assert len(signals) == 1
     assert signals[0].tool == "knowledge:memory/user_health.md"
     assert signals[0].outcome.value == "success"
@@ -42,7 +42,7 @@ def test_knowledge_signal_not_useful(redirect_collector):
     assert result.recorded_outcome == "error"
 
     collector = SensorySystem()
-    signals = collector.read_all()
+    signals = collector.recall_all()
     assert len(signals) == 1
     assert signals[0].outcome.value == "error"
 
@@ -53,7 +53,7 @@ def test_knowledge_signal_multiple(redirect_collector):
     metabolism_knowledge_signal(artifact="skill/rector", useful=True)
 
     collector = SensorySystem()
-    signals = collector.read_all()
+    signals = collector.recall_all()
     assert len(signals) == 3
     useful_count = sum(1 for s in signals if s.outcome.value == "success")
     assert useful_count == 2

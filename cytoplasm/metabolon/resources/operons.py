@@ -7,7 +7,7 @@ Resources:
 from __future__ import annotations
 
 
-def generate_operon_map() -> str:
+def express_operon_map() -> str:
     """Build the operon map from the operons registry."""
     try:
         from metabolon.operons import OPERONS

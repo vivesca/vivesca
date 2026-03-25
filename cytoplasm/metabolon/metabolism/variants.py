@@ -35,7 +35,7 @@ class Genome:
         mp = self._allele_metadata_path(tool)
         mp.write_text(json.dumps(meta))
 
-    def init_tool(self, tool: str, description: str) -> None:
+    def seed_tool(self, tool: str, description: str) -> None:
         """Create a tool directory with its founding variant (v0).
 
         Idempotent — if v0 already exists, does nothing.
@@ -47,17 +47,17 @@ class Genome:
             v0.write_text(description)
             self._write_meta(tool, {"active": 0, "next_id": 1})
 
-    def get_active(self, tool: str) -> str:
+    def active_allele(self, tool: str) -> str:
         """Return the description text of the currently active variant."""
         meta = self._read_meta(tool)
         vfile = self._locus_dir(tool) / f"v{meta['active']}.md"
         return vfile.read_text()
 
-    def get_founding(self, tool: str) -> str:
+    def founding_allele(self, tool: str) -> str:
         """Return the founding (v0) description. Always immutable."""
         return (self._locus_dir(tool) / "v0.md").read_text()
 
-    def add_variant(self, tool: str, description: str) -> int:
+    def express_variant(self, tool: str, description: str) -> int:
         """Add a new allele, returning its id. Enforces allele cap."""
         meta = self._read_meta(tool)
         vid = meta["next_id"]
@@ -76,7 +76,7 @@ class Genome:
         meta["active"] = allele_id
         self._write_meta(tool, meta)
 
-    def list_variants(self, tool: str) -> list[int]:
+    def allele_variants(self, tool: str) -> list[int]:
         """Return sorted list of variant ids for a tool."""
         d = self._locus_dir(tool)
         ids = []
@@ -87,7 +87,7 @@ class Genome:
                 continue
         return sorted(ids)
 
-    def list_tools(self) -> list[str]:
+    def expressed_tools(self) -> list[str]:
         """Return names of all tools with stored variants."""
         if not self.germ_line.exists():
             return []
@@ -95,7 +95,7 @@ class Genome:
 
     def _enforce_cap(self, tool: str) -> None:
         """Evict oldest non-founding, non-active alleles if over cap."""
-        variants = self.list_variants(tool)
+        variants = self.allele_variants(tool)
         if len(variants) <= self.allele_cap:
             return
         meta = self._read_meta(tool)

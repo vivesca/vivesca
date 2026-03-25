@@ -17,7 +17,7 @@ from fastmcp.server.middleware import CallNext, Middleware, MiddlewareContext
 from fastmcp.server.providers import FileSystemProvider
 from fastmcp.tools.tool import ToolResult
 
-from metabolon.metabolism.infection import log_infection
+from metabolon.metabolism.infection import record_infection
 from metabolon.metabolism.signals import Outcome, SensorySystem, Stimulus
 
 logger = logging.getLogger(__name__)
@@ -133,8 +133,8 @@ class SensoryMiddleware(Middleware):
             from metabolon.metabolism.variants import Genome
 
             store = Genome()
-            if tool_name in store.list_tools():
-                current_desc = store.get_active(tool_name)
+            if tool_name in store.expressed_tools():
+                current_desc = store.active_allele(tool_name)
                 request = ImmuneRequest(
                     tool=tool_name,
                     current_description=current_desc,
@@ -143,10 +143,10 @@ class SensoryMiddleware(Middleware):
                 repair_result = await immune_response(request)
                 if repair_result.accepted and repair_result.candidate:
                     # Constitutional gate: judge against founding description
-                    founding = store.get_founding(tool_name)
+                    founding = store.founding_allele(tool_name)
                     judge_result = await taste(tool_name, founding, repair_result.candidate)
                     if judge_result.passed:
-                        vid = store.add_variant(tool_name, repair_result.candidate)
+                        vid = store.express_variant(tool_name, repair_result.candidate)
                         store.promote(tool_name, vid)
                         logger.info(
                             "Acute immune response: promoted v%d for %s", vid, tool_name
@@ -159,7 +159,7 @@ class SensoryMiddleware(Middleware):
             # This is the honest part: the organism knows what it detected
             # even when it cannot repair.
             try:
-                log_infection(tool_name, error_msg, healed=healed)
+                record_infection(tool_name, error_msg, healed=healed)
             except Exception:
                 logger.debug("Infection log failed for %s", tool_name, exc_info=True)
 

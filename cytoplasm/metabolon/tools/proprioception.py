@@ -88,9 +88,9 @@ def _genome() -> str:
 
 
 def _anatomy() -> str:
-    from metabolon.resources.anatomy import generate_anatomy
+    from metabolon.resources.anatomy import express_anatomy
 
-    return generate_anatomy()
+    return express_anatomy()
 
 
 def _circadian() -> str:
@@ -121,9 +121,9 @@ def _circadian() -> str:
 
 
 def _vitals() -> str:
-    from metabolon.resources.vitals import generate_vitals
+    from metabolon.resources.vitals import express_vitals
 
-    return generate_vitals()
+    return express_vitals()
 
 
 def _glycogen() -> str:
@@ -133,9 +133,9 @@ def _glycogen() -> str:
 
 
 def _reflexes() -> str:
-    from metabolon.resources.reflexes import generate_reflex_inventory
+    from metabolon.resources.reflexes import express_reflex_inventory
 
-    return generate_reflex_inventory()
+    return express_reflex_inventory()
 
 
 def _consolidation() -> str:
@@ -149,10 +149,10 @@ def _consolidation() -> str:
 
 
 def _operons() -> str:
-    from metabolon.resources.operons import generate_operon_map
-    from metabolon.resources.receptome import generate_operon_index
+    from metabolon.resources.operons import express_operon_map
+    from metabolon.resources.receptome import express_operon_index
 
-    return generate_operon_map() + "\n\n" + generate_operon_index()
+    return express_operon_map() + "\n\n" + express_operon_index()
 
 
 def _sensorium() -> str:
@@ -178,9 +178,9 @@ def _hippocampus() -> str:
 
 
 def _effectors() -> str:
-    from metabolon.resources.proteome import generate_effector_index
+    from metabolon.resources.proteome import express_effector_index
 
-    return generate_effector_index()
+    return express_effector_index()
 
 
 _DISPATCH: dict[str, callable] = {

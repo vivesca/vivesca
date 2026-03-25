@@ -116,15 +116,15 @@ def _metabolism_summary() -> list[str]:
         from metabolon.metabolism.variants import Genome
 
         store = Genome()
-        tools = store.list_tools()
-        total_variants = sum(len(store.list_variants(t)) for t in tools)
+        tools = store.expressed_tools()
+        total_variants = sum(len(store.allele_variants(t)) for t in tools)
         lines.append(
             f"- Variant store: **{len(tools)}** tool(s), **{total_variants}** total variant(s)"
         )
 
         collector = SensorySystem()
         since = datetime.now(UTC) - timedelta(days=7)
-        recent = collector.read_since(since)
+        recent = collector.recall_since(since)
         lines.append(f"- Signals (last 7 days): **{len(recent)}**")
 
         if recent:
@@ -578,7 +578,7 @@ def _operon_summary() -> list[str]:
 # ── Main generator ──────────────────────────────────────────────
 
 
-def generate_anatomy(src_root: Path | None = None) -> str:
+def express_anatomy(src_root: Path | None = None) -> str:
     """Build the anatomy overview markdown.
 
     Accepts an optional *src_root* override for testing.

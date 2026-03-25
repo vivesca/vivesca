@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from metabolon.respirometry.parsers.hsbc import parse_hsbc
+from metabolon.respirometry.parsers.hsbc import extract_hsbc
 from metabolon.respirometry.schema import StatementMeta
 
 FIXTURE = Path(__file__).parent / "fixtures" / "hsbc_mar2025.pdf"
@@ -14,7 +14,7 @@ FIXTURE_FEB = Path(__file__).parent / "fixtures" / "hsbc_feb2025.pdf"
 @pytest.mark.skipif(not FIXTURE.exists(), reason="test fixture not available")
 class TestHsbcParser:
     def setup_method(self):
-        self.meta, self.txns = parse_hsbc(FIXTURE)
+        self.meta, self.txns = extract_hsbc(FIXTURE)
 
     def test_returns_metadata(self):
         assert isinstance(self.meta, StatementMeta)
@@ -72,7 +72,7 @@ class TestHsbcParser:
 @pytest.mark.skipif(not FIXTURE_FEB.exists(), reason="test fixture not available")
 class TestHsbcParserFeb:
     def setup_method(self):
-        self.meta, self.txns = parse_hsbc(FIXTURE_FEB)
+        self.meta, self.txns = extract_hsbc(FIXTURE_FEB)
 
     def test_statement_date(self):
         assert self.meta.statement_date == "2025-02-06"

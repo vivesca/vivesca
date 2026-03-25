@@ -1,6 +1,6 @@
 """Tests for merchant categorisation."""
 
-from metabolon.respirometry.categories import categorise, load_categories
+from metabolon.respirometry.categories import categorise, restore_categories
 
 
 def test_exact_prefix_match():
@@ -29,14 +29,14 @@ def test_first_match_wins():
     assert categorise("GOOGLE CLOUD PLATFORM", cats) == "Tech/Subscriptions"
 
 
-def test_load_categories(tmp_path):
+def test_restore_categories(tmp_path):
     yaml_file = tmp_path / "categories.yaml"
     yaml_file.write_text("GOOGLE: Tech/Subscriptions\nSMARTONE: Telecom\n")
-    cats = load_categories(yaml_file)
+    cats = restore_categories(yaml_file)
     assert cats["GOOGLE"] == "Tech/Subscriptions"
     assert cats["SMARTONE"] == "Telecom"
 
 
-def test_load_categories_missing_file(tmp_path):
-    cats = load_categories(tmp_path / "nonexistent.yaml")
+def test_restore_categories_missing_file(tmp_path):
+    cats = restore_categories(tmp_path / "nonexistent.yaml")
     assert cats == {}

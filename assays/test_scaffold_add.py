@@ -13,10 +13,10 @@ def _make_project(tmp_path: Path) -> Path:
 
 
 def test_add_tool_creates_file(tmp_path):
-    from metabolon.gastrulation.add import add_tool_to_project
+    from metabolon.gastrulation.add import graft_tool
 
     project = _make_project(tmp_path)
-    add_tool_to_project(project, domain="weather", verb="fetch", description="Fetch weather data")
+    graft_tool(project, domain="weather", verb="fetch", description="Fetch weather data")
 
     tool_file = project / "src" / "myserver" / "tools" / "weather.py"
     assert tool_file.exists()
@@ -29,10 +29,10 @@ def test_add_tool_creates_file(tmp_path):
 
 
 def test_add_tool_creates_test(tmp_path):
-    from metabolon.gastrulation.add import add_tool_to_project
+    from metabolon.gastrulation.add import graft_tool
 
     project = _make_project(tmp_path)
-    add_tool_to_project(project, domain="weather", verb="fetch", description="Fetch weather data")
+    graft_tool(project, domain="weather", verb="fetch", description="Fetch weather data")
 
     test_file = project / "assays" / "test_weather.py"
     assert test_file.exists()
@@ -42,10 +42,10 @@ def test_add_tool_creates_test(tmp_path):
 
 
 def test_add_tool_read_only_flag(tmp_path):
-    from metabolon.gastrulation.add import add_tool_to_project
+    from metabolon.gastrulation.add import graft_tool
 
     project = _make_project(tmp_path)
-    add_tool_to_project(
+    graft_tool(
         project, domain="weather", verb="fetch", description="Test", read_only=True
     )
 
@@ -54,10 +54,10 @@ def test_add_tool_read_only_flag(tmp_path):
 
 
 def test_add_tool_destructive_flag(tmp_path):
-    from metabolon.gastrulation.add import add_tool_to_project
+    from metabolon.gastrulation.add import graft_tool
 
     project = _make_project(tmp_path)
-    add_tool_to_project(
+    graft_tool(
         project,
         domain="cache",
         verb="purge",
@@ -70,10 +70,10 @@ def test_add_tool_destructive_flag(tmp_path):
 
 
 def test_add_prompt_creates_file(tmp_path):
-    from metabolon.gastrulation.add import add_prompt_to_project
+    from metabolon.gastrulation.add import graft_prompt
 
     project = _make_project(tmp_path)
-    add_prompt_to_project(project, name="research", description="Research brief")
+    graft_prompt(project, name="research", description="Research brief")
 
     prompt_file = project / "src" / "myserver" / "codons" / "research.py"
     assert prompt_file.exists()
@@ -84,10 +84,10 @@ def test_add_prompt_creates_file(tmp_path):
 
 
 def test_add_resource_creates_file(tmp_path):
-    from metabolon.gastrulation.add import add_resource_to_project
+    from metabolon.gastrulation.add import graft_resource
 
     project = _make_project(tmp_path)
-    add_resource_to_project(project, name="status", description="Server status", uri_path="status")
+    graft_resource(project, name="status", description="Server status", uri_path="status")
 
     resource_file = project / "src" / "myserver" / "resources" / "status.py"
     assert resource_file.exists()
@@ -102,9 +102,9 @@ def test_add_tool_detects_module_name(tmp_path):
     target = tmp_path / "my-server"
     scaffold_project("my-server", target=target, description="Test")
 
-    from metabolon.gastrulation.add import add_tool_to_project
+    from metabolon.gastrulation.add import graft_tool
 
-    add_tool_to_project(target, domain="weather", verb="fetch", description="Test")
+    graft_tool(target, domain="weather", verb="fetch", description="Test")
 
     tool_file = target / "src" / "my_server" / "tools" / "weather.py"
     assert tool_file.exists()

@@ -2,10 +2,10 @@
 
 from metabolon.respirometry.schema import StatementMeta, Transaction
 from metabolon.respirometry.vault import (
-    format_markdown,
+    serialize_markdown,
     is_processed,
-    mark_processed,
-    write_monthly_summary,
+    stamp_processed,
+    secrete_monthly_summary,
 )
 
 
@@ -52,21 +52,21 @@ def _sample_txns() -> list[Transaction]:
     ]
 
 
-def test_format_markdown_has_frontmatter():
-    md = format_markdown(_sample_meta(), _sample_txns())
+def test_serialize_markdown_has_frontmatter():
+    md = serialize_markdown(_sample_meta(), _sample_txns())
     assert md.startswith("---\n")
     assert "bank: mox" in md
     assert "balance: -600.0" in md
 
 
-def test_format_markdown_has_transactions():
-    md = format_markdown(_sample_meta(), _sample_txns())
+def test_serialize_markdown_has_transactions():
+    md = serialize_markdown(_sample_meta(), _sample_txns())
     assert "| 02 Jan | GOOGLE |" in md
     assert "| 02 Jan | SMOL AI |" in md
 
 
-def test_format_markdown_has_summary():
-    md = format_markdown(_sample_meta(), _sample_txns())
+def test_serialize_markdown_has_summary():
+    md = serialize_markdown(_sample_meta(), _sample_txns())
     assert "## Summary" in md
     assert "Tech/AI" in md
     assert "Telecom" in md
@@ -79,15 +79,15 @@ def test_dedup_new_file(tmp_path):
 
 def test_dedup_after_mark(tmp_path):
     ledger = tmp_path / ".processed"
-    mark_processed("abc123", ledger)
+    stamp_processed("abc123", ledger)
     assert is_processed("abc123", ledger)
     assert not is_processed("def456", ledger)
 
 
 def test_dedup_multiple(tmp_path):
     ledger = tmp_path / ".processed"
-    mark_processed("abc123", ledger)
-    mark_processed("def456", ledger)
+    stamp_processed("abc123", ledger)
+    stamp_processed("def456", ledger)
     assert is_processed("abc123", ledger)
     assert is_processed("def456", ledger)
 
@@ -109,7 +109,7 @@ def test_monthly_summary_single_card(tmp_path):
         "| Telecom | 1 | -168.00 |\n"
         "| **Total** | **2** | **-184.00** |\n"
     )
-    summary_path = write_monthly_summary("2025-01", tmp_path)
+    summary_path = secrete_monthly_summary("2025-01", tmp_path)
     assert summary_path.exists()
     content = summary_path.read_text()
     assert "month: 2025-01" in content
@@ -129,7 +129,7 @@ def test_monthly_summary_multi_card(tmp_path):
             "| Dining | 2 | -300.00 |\n"
             "| **Total** | **2** | **-300.00** |\n"
         )
-    summary_path = write_monthly_summary("2025-02", tmp_path)
+    summary_path = secrete_monthly_summary("2025-02", tmp_path)
     content = summary_path.read_text()
     assert "cards:" in content
     assert "mox" in content

@@ -14,7 +14,7 @@ from typing import Any
 
 from metabolon.organelles.endocytosis_rss.config import EndocytosisConfig
 from metabolon.organelles.endocytosis_rss.fetcher import internalize_rss, internalize_web
-from metabolon.organelles.endocytosis_rss.log import append_to_log
+from metabolon.organelles.endocytosis_rss.log import record_cargo
 from metabolon.organelles.endocytosis_rss.state import lockfile
 
 ALERT_SIGNAL_LOG = Path.home() / ".cache" / "lustro" / "alert-signals.jsonl"
@@ -106,7 +106,7 @@ def title_fingerprint(title: str) -> str:
     return hashlib.sha256(normalised.encode("utf-8")).hexdigest()[:16]
 
 
-def load_breaking_state(path: Path, now: datetime) -> dict[str, Any]:
+def restore_breaking_state(path: Path, now: datetime) -> dict[str, Any]:
     if path.exists():
         try:
             payload = json.loads(path.read_text(encoding="utf-8"))
@@ -123,7 +123,7 @@ def load_breaking_state(path: Path, now: datetime) -> dict[str, Any]:
     }
 
 
-def save_breaking_state(path: Path, state: dict[str, Any]) -> None:
+def persist_breaking_state(path: Path, state: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     payload = json.dumps(state, indent=2, sort_keys=True)
     fd, tmp_name = tempfile.mkstemp(prefix=f".{path.name}.", dir=str(path.parent))
@@ -138,7 +138,7 @@ def save_breaking_state(path: Path, state: dict[str, Any]) -> None:
             os.unlink(tmp_name)
 
 
-def reset_daily_counter(state: dict[str, Any], now: datetime) -> None:
+def refractory_daily_counter(state: dict[str, Any], now: datetime) -> None:
     today = now.date().isoformat()
     if state.get("today_date") != today:
         state["alerts_today"] = 0
@@ -183,7 +183,7 @@ def _age_minutes(published_at: str, now: datetime) -> float | None:
     return round((now - pub).total_seconds() / 60, 1)
 
 
-def append_alert_signal(
+def emit_alert_signal(
     path: Path,
     *,
     timestamp: str,
@@ -281,10 +281,10 @@ def _append_breaking_log(cfg: EndocytosisConfig, matches: list[dict[str, str]], 
         source = match["source"]
         title_part = f"[{title}]({link})" if link else title
         lines.append(f"- 🚨 **{title_part}** ({source})")
-    append_to_log(cfg.log_path, "\n".join(lines) + "\n")
+    record_cargo(cfg.log_path, "\n".join(lines) + "\n")
 
 
-def run_breaking(
+def scan_breaking(
     cfg: EndocytosisConfig,
     dry_run: bool = False,
     now: datetime | None = None,
@@ -305,8 +305,8 @@ def _run_breaking_locked(
     now: datetime,
     state_path: Path,
 ) -> int:
-    state = load_breaking_state(state_path, now)
-    reset_daily_counter(state, now)
+    state = restore_breaking_state(state_path, now)
+    refractory_daily_counter(state, now)
 
     seen_list = [str(value) for value in state.get("seen_ids", []) if isinstance(value, str)]
     seen_set = set(seen_list)
@@ -396,7 +396,7 @@ def _run_breaking_locked(
 
     if not matches:
         print("No breaking news.", file=sys.stderr)
-        save_breaking_state(state_path, state)
+        persist_breaking_state(state_path, state)
         return 0
 
     print(f"{len(matches)} breaking match(es) found.", file=sys.stderr)
@@ -450,5 +450,5 @@ def _run_breaking_locked(
     if not dry_run:
         _append_breaking_log(cfg, sent_matches, now)
 
-    save_breaking_state(state_path, state)
+    persist_breaking_state(state_path, state)
     return 0

@@ -21,7 +21,7 @@ def _get_storage():
     return _storage
 
 
-def search(
+def recall(
     query: str,
     category: str = "",
     source_enzyme: str = "",
@@ -59,7 +59,7 @@ def search(
     return results
 
 
-def add(content: str, category: str = "gotcha", confidence: float = 0.8) -> dict:
+def inscribe(content: str, category: str = "gotcha", confidence: float = 0.8) -> dict:
     """Add a memory (histone mark)."""
     s = _get_storage()
     return s.add_memory(

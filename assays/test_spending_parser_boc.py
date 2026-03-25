@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from metabolon.respirometry.parsers.boc import parse_boc
+from metabolon.respirometry.parsers.boc import extract_boc
 from metabolon.respirometry.schema import StatementMeta
 
 FIXTURE = Path(__file__).parent / "fixtures" / "boc_feb2026.pdf"
@@ -13,7 +13,7 @@ FIXTURE = Path(__file__).parent / "fixtures" / "boc_feb2026.pdf"
 @pytest.mark.skipif(not FIXTURE.exists(), reason="test fixture not available")
 class TestBocParser:
     def setup_method(self):
-        self.meta, self.txns = parse_boc(FIXTURE)
+        self.meta, self.txns = extract_boc(FIXTURE)
 
     def test_returns_metadata(self):
         assert isinstance(self.meta, StatementMeta)
@@ -43,7 +43,7 @@ class TestBocParser:
 
     def test_balance_validation(self):
         """Balance validation passes (would raise ValueError on mismatch)."""
-        # Already validated in parse_boc; this confirms no exception.
+        # Already validated in extract_boc; this confirms no exception.
         assert True
 
     def test_payment_excluded(self):

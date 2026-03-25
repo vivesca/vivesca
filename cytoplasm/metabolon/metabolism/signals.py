@@ -44,7 +44,7 @@ class SensorySystem:
         with self.cortex_path.open("a") as f:
             f.write(signal.model_dump_json() + "\n")
 
-    def read_all(self) -> list[Stimulus]:
+    def recall_all(self) -> list[Stimulus]:
         if not self.cortex_path.exists():
             return []
         signals = []
@@ -53,5 +53,5 @@ class SensorySystem:
                 signals.append(Stimulus.model_validate_json(line))
         return signals
 
-    def read_since(self, since: datetime) -> list[Stimulus]:
-        return [s for s in self.read_all() if s.ts >= since]
+    def recall_since(self, since: datetime) -> list[Stimulus]:
+        return [s for s in self.recall_all() if s.ts >= since]

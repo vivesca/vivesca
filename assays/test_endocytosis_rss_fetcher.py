@@ -4,7 +4,7 @@ import json
 from datetime import datetime, timezone
 from types import SimpleNamespace
 
-from metabolon.organelles.endocytosis_rss.fetcher import archive_cargo, internalize_rss, internalize_web, internalize_x_account, internalize_x_bookmarks, unbookmark_tweets
+from metabolon.organelles.endocytosis_rss.fetcher import archive_cargo, internalize_rss, internalize_web, internalize_x_account, internalize_x_bookmarks, release_bookmarks
 
 
 class Entry(dict):
@@ -162,7 +162,7 @@ def test_fetch_x_bookmarks(monkeypatch):
     assert articles[0]["_tweet_id"] == "333"
 
 
-def test_unbookmark_tweets(monkeypatch):
+def test_release_bookmarks(monkeypatch):
     monkeypatch.setattr("metabolon.organelles.endocytosis_rss.fetcher.shutil.which", lambda _name: "/usr/local/bin/bird")
 
     calls = []
@@ -173,14 +173,14 @@ def test_unbookmark_tweets(monkeypatch):
 
     monkeypatch.setattr("metabolon.organelles.endocytosis_rss.fetcher.subprocess.run", fake_run)
 
-    unbookmark_tweets(["111", "222"])
+    release_bookmarks(["111", "222"])
 
     assert len(calls) == 1
     assert calls[0] == ["/usr/local/bin/bird", "unbookmark", "111", "222"]
 
 
 def test_check_sources_zeros(monkeypatch, capsys):
-    from metabolon.organelles.endocytosis_rss.fetcher import check_receptors
+    from metabolon.organelles.endocytosis_rss.fetcher import probe_receptors
 
     sources = [{"name": "ZeroSource", "tier": 1, "url": "https://example.com"}]
     state = {"_zeros:ZeroSource": "3"}
@@ -194,6 +194,6 @@ def test_check_sources_zeros(monkeypatch, capsys):
 
     monkeypatch.setattr("metabolon.organelles.endocytosis_rss.fetcher.requests.get", lambda *args, **kwargs: FakeResp())
 
-    check_receptors(sources, [], state, now=now)
+    probe_receptors(sources, [], state, now=now)
     stderr = capsys.readouterr().err
     assert "(3x0)" in stderr

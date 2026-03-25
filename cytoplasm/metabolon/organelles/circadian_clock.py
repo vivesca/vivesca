@@ -25,12 +25,12 @@ def _gog(args: list[str], timeout: int = 15) -> str:
     return r.stdout.strip()
 
 
-def list_events(date: str = "today") -> str:
+def scheduled_events(date: str = "today") -> str:
     """List calendar events for a date."""
     return _gog(["calendar", "list", "--json" if date == "today" else date])
 
 
-def list_events_json(date: str = "today") -> list[dict]:
+def scheduled_events_json(date: str = "today") -> list[dict]:
     """List events as structured data."""
     raw = _gog(["calendar", "list", "--json"])
     try:
@@ -39,18 +39,18 @@ def list_events_json(date: str = "today") -> list[dict]:
         return []
 
 
-def create_event(title: str, date: str, time: str, duration: int = 60) -> str:
+def schedule_event(title: str, date: str, time: str, duration: int = 60) -> str:
     """Create a calendar event."""
     return _gog(
         ["calendar", "create", title, "--date", date, "--time", time, "--duration", str(duration)]
     )
 
 
-def move_event(event_id: str, date: str, time: str) -> str:
+def reschedule_event(event_id: str, date: str, time: str) -> str:
     """Move an event to a new date/time."""
     return _gog(["calendar", "update", event_id, "--from", f"{date}T{time}"])
 
 
-def delete_event(event_id: str) -> str:
+def cancel_event(event_id: str) -> str:
     """Delete a calendar event."""
     return _gog(["calendar", "delete", event_id, "--force"])

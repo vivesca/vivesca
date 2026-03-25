@@ -8,8 +8,8 @@ from typing import Optional
 
 import typer
 
-from metabolon.organelles.endocytosis_rss.config import EndocytosisConfig, default_sources_text, load_config
-from metabolon.organelles.endocytosis_rss.state import load_state, lockfile, refractory_elapsed
+from metabolon.organelles.endocytosis_rss.config import EndocytosisConfig, default_sources_text, restore_config
+from metabolon.organelles.endocytosis_rss.state import restore_state, lockfile, refractory_elapsed
 
 app = typer.Typer(help="endocytosis_rss — receptor-mediated endocytosis (RSS ingestion)")
 
@@ -105,16 +105,16 @@ def _source_since_date(
 
 
 @app.command()
-def fetch(
+def internalize(
     no_archive: bool = typer.Option(False, "--no-archive", help="Skip archiving full article text"),
 ) -> None:
-    cfg = load_config()
+    cfg = restore_config()
     with lockfile(cfg.state_path):
         _fetch_locked(cfg, no_archive)
 
 
 def _fetch_locked(cfg: EndocytosisConfig, no_archive: bool) -> None:
-    state = load_state(cfg.state_path)
+    state = restore_state(cfg.state_path)
     from metabolon.organelles.endocytosis_rss.fetcher import (
         archive_cargo,
         internalize_json_api,
@@ -123,24 +123,24 @@ def _fetch_locked(cfg: EndocytosisConfig, no_archive: bool) -> None:
         internalize_web,
         internalize_x_account,
         internalize_x_bookmarks,
-        unbookmark_tweets,
+        release_bookmarks,
     )
     from metabolon.organelles.endocytosis_rss.log import (
         _title_prefix,
-        append_to_log,
-        format_markdown,
-        is_junk,
-        load_title_prefixes,
-        rotate_log,
+        record_cargo,
+        serialize_markdown,
+        is_noise,
+        recall_title_prefixes,
+        cycle_log,
     )
-    from metabolon.organelles.endocytosis_rss.relevance import get_receptor_signal_ratio, log_affinity, score_cargo
-    from metabolon.organelles.endocytosis_rss.state import save_state
+    from metabolon.organelles.endocytosis_rss.relevance import receptor_signal_ratio, record_affinity, assess_cargo
+    from metabolon.organelles.endocytosis_rss.state import persist_state
 
     now = datetime.now(timezone.utc)
-    rotate_log(cfg.log_path, cfg.data_dir, cfg.config_data.get("max_log_lines", 500), now)
+    cycle_log(cfg.log_path, cfg.data_dir, cfg.config_data.get("max_log_lines", 500), now)
 
     global_since_date = _get_last_scan_date(state)
-    title_prefixes = load_title_prefixes(cfg.log_path)
+    title_prefixes = recall_title_prefixes(cfg.log_path)
     results: dict[str, list[dict[str, str]]] = {}
     failed_sources: list[str] = []
     archived_count = 0
@@ -160,7 +160,7 @@ def _fetch_locked(cfg: EndocytosisConfig, no_archive: bool) -> None:
         # Receptor downregulation: measure the source's signal-to-noise ratio
         # and extend the refractory period for chronically noisy sources so the
         # cell is not flooded with irrelevant ligands.
-        signal_ratio = get_receptor_signal_ratio(name)
+        signal_ratio = receptor_signal_ratio(name)
         if not refractory_elapsed(state, name, cadence, now=now, signal_ratio=signal_ratio):
             typer.echo(f"Skipping: {name} (cadence)", err=True)
             continue
@@ -233,7 +233,7 @@ def _fetch_locked(cfg: EndocytosisConfig, no_archive: bool) -> None:
 
         new_articles = []
         for article in articles:
-            if is_junk(article["title"]):
+            if is_noise(article["title"]):
                 continue
             prefix = _title_prefix(article["title"])
             if prefix in title_prefixes:
@@ -242,7 +242,7 @@ def _fetch_locked(cfg: EndocytosisConfig, no_archive: bool) -> None:
             title_prefixes.add(prefix)
 
         for article in new_articles:
-            scores = score_cargo(
+            scores = assess_cargo(
                 article.get("title", ""),
                 name,
                 article.get("summary", ""),
@@ -252,7 +252,7 @@ def _fetch_locked(cfg: EndocytosisConfig, no_archive: bool) -> None:
             article["score"] = str(scores.get("score", 0))
             article["banking_angle"] = str(scores.get("banking_angle", ""))
             article["talking_point"] = str(scores.get("talking_point", ""))
-            log_affinity(article, scores)
+            record_affinity(article, scores)
 
         if not no_archive:
             for article in new_articles:
@@ -289,7 +289,7 @@ def _fetch_locked(cfg: EndocytosisConfig, no_archive: bool) -> None:
                     err=True,
                 )
 
-    save_state(cfg.state_path, state)
+    persist_state(cfg.state_path, state)
     if failed_sources:
         typer.echo(f"Fetch errors ({len(failed_sources)}): {', '.join(failed_sources)}", err=True)
     if not results:
@@ -299,12 +299,12 @@ def _fetch_locked(cfg: EndocytosisConfig, no_archive: bool) -> None:
     # Endosome sorting: route each source's cargo to fate compartments.
     # Only store + transcytose cargo survives to the news log; degrade cargo
     # is silently dropped (lysosomal fate — not persisted).
-    from metabolon.organelles.endocytosis_rss.sorting import filter_for_log
+    from metabolon.organelles.endocytosis_rss.sorting import select_for_log
 
     sorted_results: dict[str, list[dict[str, str]]] = {}
     degraded_count = 0
     for source_name, source_articles in results.items():
-        survivors = filter_for_log(source_articles)
+        survivors = select_for_log(source_articles)
         dropped = len(source_articles) - len(survivors)
         degraded_count += dropped
         if survivors:
@@ -318,25 +318,25 @@ def _fetch_locked(cfg: EndocytosisConfig, no_archive: bool) -> None:
         raise typer.Exit(code=0)
 
     today = now.strftime("%Y-%m-%d")
-    md = format_markdown(sorted_results, today)
-    append_to_log(cfg.log_path, md)
+    md = serialize_markdown(sorted_results, today)
+    record_cargo(cfg.log_path, md)
     total = sum(len(v) for v in sorted_results.values())
     typer.echo(f"Logged {total} new articles.", err=True)
     if bookmark_ids_to_clear:
-        unbookmark_tweets(bookmark_ids_to_clear, bird_path=cfg.resolve_bird())
+        release_bookmarks(bookmark_ids_to_clear, bird_path=cfg.resolve_bird())
     raise typer.Exit(code=0)
 
 
 @app.command()
-def check() -> None:
-    cfg = load_config()
-    state = load_state(cfg.state_path)
-    from metabolon.organelles.endocytosis_rss.fetcher import check_receptors
+def probe_receptors() -> None:
+    cfg = restore_config()
+    state = restore_state(cfg.state_path)
+    from metabolon.organelles.endocytosis_rss.fetcher import probe_receptors
 
     web_sources = [s for s in cfg.sources if "handle" not in s and not s.get("bookmarks")]
     x_accounts = [s for s in cfg.sources if "handle" in s]
     x_bookmarks = [s for s in cfg.sources if s.get("bookmarks")]
-    check_receptors(
+    probe_receptors(
         web_sources, x_accounts, state, bird_path=cfg.resolve_bird(), x_bookmarks=x_bookmarks
     )
     raise typer.Exit(code=0)
@@ -355,15 +355,15 @@ def digest(
         help="Secrete weekly digest (past 7 days, no LLM — pure score-based endosome sorting)",
     ),
 ) -> None:
-    cfg = load_config()
+    cfg = restore_config()
 
     # Weekly secretion pathway: lightweight, no LLM, matches Sunday-night schedule.
     # Substrate was already scored during fetch; this is pure membrane secretion.
     if weekly:
-        from metabolon.organelles.endocytosis_rss.digest import run_weekly_digest
+        from metabolon.organelles.endocytosis_rss.digest import metabolize_weekly
 
         try:
-            item_count, output_path = run_weekly_digest(
+            item_count, output_path = metabolize_weekly(
                 cfg=cfg,
                 tags=tag or [],
             )
@@ -377,10 +377,10 @@ def digest(
         raise typer.Exit(code=0)
 
     # Monthly thematic digest pathway: LLM-powered theme identification.
-    from metabolon.organelles.endocytosis_rss.digest import run_digest
+    from metabolon.organelles.endocytosis_rss.digest import metabolize_digest
 
     try:
-        themes_result, output_path = run_digest(
+        themes_result, output_path = metabolize_digest(
             cfg=cfg,
             month=month,
             dry_run=dry_run,
@@ -410,10 +410,10 @@ def digest(
 
 
 @app.command()
-def log(
+def inscribe(
     lines: int = typer.Option(50, "--lines", "-n", help="Number of lines"),
 ) -> None:
-    cfg = load_config()
+    cfg = restore_config()
     if not cfg.log_path.exists():
         typer.echo(f"Not found: {cfg.log_path}")
         raise typer.Exit(code=1)
@@ -431,21 +431,21 @@ def log(
 def breaking(
     dry_run: bool = typer.Option(False, "--dry-run"),
 ) -> None:
-    cfg = load_config()
-    from metabolon.organelles.endocytosis_rss.breaking import run_breaking
+    cfg = restore_config()
+    from metabolon.organelles.endocytosis_rss.breaking import scan_breaking
 
-    result = run_breaking(cfg=cfg, dry_run=dry_run)
+    result = scan_breaking(cfg=cfg, dry_run=dry_run)
     raise typer.Exit(code=result)
 
 
 @app.command()
-def discover(
+def scout(
     count: Optional[int] = typer.Option(None, "--count", help="Number of tweets to scan"),
 ) -> None:
-    cfg = load_config()
-    from metabolon.organelles.endocytosis_rss.discover import run_discover
+    cfg = restore_config()
+    from metabolon.organelles.endocytosis_rss.discover import scout_sources
 
-    result = run_discover(cfg=cfg, count=count, bird_path=cfg.resolve_bird())
+    result = scout_sources(cfg=cfg, count=count, bird_path=cfg.resolve_bird())
     raise typer.Exit(code=result)
 
 
@@ -453,7 +453,7 @@ def discover(
 def sources(
     tier: Optional[int] = typer.Option(None, "--tier", help="Filter sources by tier"),
 ) -> None:
-    cfg = load_config()
+    cfg = restore_config()
     rows: list[tuple[str, str, int, str]] = []
 
     web_sources = cfg.sources_data.get("web_sources", [])
@@ -526,10 +526,10 @@ def relevance(
         None, "--top", help="Show top N highest-scored items from the last 7 days"
     ),
 ) -> None:
-    from metabolon.organelles.endocytosis_rss.relevance import get_affinity_stats, get_top_cargo
+    from metabolon.organelles.endocytosis_rss.relevance import affinity_stats, top_cargo
 
     if top is not None:
-        items = get_top_cargo(limit=top)
+        items = top_cargo(limit=top)
         if not items:
             typer.echo("No recent relevance data found.")
             raise typer.Exit(code=0)
@@ -544,7 +544,7 @@ def relevance(
             typer.echo(line)
         raise typer.Exit(code=0)
 
-    stats = get_affinity_stats()
+    stats = affinity_stats()
     if stats.get("status") == "insufficient_data":
         typer.echo("Relevance stats unavailable: insufficient_data")
         raise typer.Exit(code=0)
@@ -562,7 +562,7 @@ def relevance(
 
 @app.command()
 def status() -> None:
-    cfg = load_config()
+    cfg = restore_config()
     now = datetime.now().astimezone()
 
     typer.echo(f"endocytosis_rss Status  ({now.strftime('%Y-%m-%d %H:%M %Z')})")
@@ -573,7 +573,7 @@ def status() -> None:
     typer.echo(f"State file:    {_file_age(cfg.state_path, now)}")
     typer.echo(f"News log:      {_file_age(cfg.log_path, now)}")
 
-    state = load_state(cfg.state_path)
+    state = restore_state(cfg.state_path)
     if state:
         typer.echo(f"Sources:       {len(state)} tracked")
         latest = max(
@@ -598,7 +598,7 @@ def status() -> None:
 
 @app.command()
 def init() -> None:
-    cfg = load_config()
+    cfg = restore_config()
     cfg.config_dir.mkdir(parents=True, exist_ok=True)
     cfg.cache_dir.mkdir(parents=True, exist_ok=True)
     cfg.data_dir.mkdir(parents=True, exist_ok=True)

@@ -173,7 +173,7 @@ def _extract_summary(entry: Any) -> str:
     return first[:120]
 
 
-def fetch_stealth_url(url: str, profile_dir: Path) -> str | None:
+def internalize_stealth_url(url: str, profile_dir: Path) -> str | None:
     """Fetch URL using nodriver (stealth Chrome) to bypass Cloudflare.
 
     Returns extracted text or None on failure.
@@ -212,7 +212,7 @@ def fetch_stealth_url(url: str, profile_dir: Path) -> str | None:
         return None
 
 
-def fetch_stealth_html(url: str, profile_dir: Path) -> str | None:
+def internalize_stealth_html(url: str, profile_dir: Path) -> str | None:
     """Fetch URL using nodriver and return rendered body HTML for link extraction."""
     try:
         import asyncio
@@ -426,7 +426,7 @@ def internalize_rss(
 
             if stealth_fetch and link and _is_safe_url(link):
                 try:
-                    text = fetch_stealth_url(
+                    text = internalize_stealth_url(
                         link,
                         profile_dir or Path.home() / ".config" / "lustro" / "nodriver-profile",
                     )
@@ -477,7 +477,7 @@ def internalize_web(
 ) -> list[dict[str, str]]:
     try:
         if stealth and _is_safe_url(url):
-            html = fetch_stealth_html(
+            html = internalize_stealth_html(
                 url,
                 profile_dir or Path.home() / ".config" / "lustro" / "nodriver-profile",
             )
@@ -624,7 +624,7 @@ def internalize_x_bookmarks(
         return []
 
 
-def unbookmark_tweets(tweet_ids: list[str], bird_path: str | None = None) -> None:
+def release_bookmarks(tweet_ids: list[str], bird_path: str | None = None) -> None:
     if not tweet_ids:
         return
     bird_cli = bird_path or shutil.which("bird")
@@ -725,7 +725,7 @@ def archive_cargo(
     print(f"  Archived: {filename} [{len(text)} chars]", file=sys.stderr)
 
 
-def check_receptors(
+def probe_receptors(
     sources: list[dict[str, Any]],
     x_accounts: list[dict[str, Any]],
     state: Mapping[str, str],

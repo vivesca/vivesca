@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 from metabolon.organelles.endocytosis_rss.config import EndocytosisConfig
-from metabolon.organelles.endocytosis_rss.log import append_to_log
+from metabolon.organelles.endocytosis_rss.log import record_cargo
 
 
 def _compile_keywords(patterns: list[str]) -> list[re.Pattern[str]]:
@@ -22,7 +22,7 @@ def _compile_keywords(patterns: list[str]) -> list[re.Pattern[str]]:
     return compiled
 
 
-def matches_keywords(text: str, compiled_keywords: list[re.Pattern[str]]) -> bool:
+def has_affinity(text: str, compiled_keywords: list[re.Pattern[str]]) -> bool:
     return any(regex.search(text) for regex in compiled_keywords)
 
 
@@ -68,10 +68,10 @@ def _append_discovery_log(
             lines.append(f'- @{handle} ({count} matches) — "{sample}"')
     else:
         lines.append("- No new handles found.")
-    append_to_log(cfg.log_path, "\n".join(lines) + "\n")
+    record_cargo(cfg.log_path, "\n".join(lines) + "\n")
 
 
-def run_discover(cfg: EndocytosisConfig, count: int | None = None, bird_path: str | None = None) -> int:
+def scout_sources(cfg: EndocytosisConfig, count: int | None = None, bird_path: str | None = None) -> int:
     discovery_cfg = cfg.sources_data.get("x_discovery", {})
     if not isinstance(discovery_cfg, dict):
         discovery_cfg = {}
@@ -132,7 +132,7 @@ def run_discover(cfg: EndocytosisConfig, count: int | None = None, bird_path: st
         text = str(item.get("text", "")).strip()
         if not text:
             continue
-        if compiled and not matches_keywords(text, compiled):
+        if compiled and not has_affinity(text, compiled):
             continue
         if not compiled:
             continue

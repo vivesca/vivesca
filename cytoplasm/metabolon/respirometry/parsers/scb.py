@@ -11,7 +11,7 @@ from pypdf import PdfReader
 from metabolon.respirometry.schema import StatementMeta, Transaction
 
 
-def parse_scb(pdf_path: Path) -> tuple[StatementMeta, list[Transaction]]:
+def extract_scb(pdf_path: Path) -> tuple[StatementMeta, list[Transaction]]:
     """Parse a Standard Chartered Smart Credit Card statement PDF.
 
     Returns (metadata, transactions). Raises ValueError if balance validation

@@ -56,7 +56,7 @@ def get_oauth_token() -> str:
     return oauth["accessToken"]
 
 
-def fetch_usage(token: str, timeout: int = 10) -> dict:
+def internalize_usage(token: str, timeout: int = 10) -> dict:
     """Fetch live usage metrics from Anthropic OAuth API.
 
     Args:
@@ -102,7 +102,7 @@ def _read_fallback() -> tuple[dict | None, int | None]:
     return None, None
 
 
-def get_usage() -> tuple[dict, int | None]:
+def sense_usage() -> tuple[dict, int | None]:
     """Fetch usage metrics, falling back to cache on API failure.
 
     Returns:
@@ -165,7 +165,7 @@ def budget_status(usage: dict) -> str:
     return "DANGER"
 
 
-def append_history(usage: dict) -> None:
+def record_breath(usage: dict) -> None:
     """Append a usage snapshot to the history JSONL file.
 
     Args:
@@ -193,7 +193,7 @@ def _format_age(seconds: int) -> str:
     return f"{seconds // 86400}d ago"
 
 
-def format_status(usage: dict, stale_age: int | None = None) -> dict:
+def serialize_status(usage: dict, stale_age: int | None = None) -> dict:
     """Format usage as a structured status summary.
 
     Args:

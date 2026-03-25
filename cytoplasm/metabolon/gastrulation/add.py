@@ -27,7 +27,7 @@ def _to_class_name(s: str) -> str:
     return "".join(word.capitalize() for word in s.split("_"))
 
 
-def add_tool_to_project(
+def graft_tool(
     project_dir: Path,
     domain: str,
     verb: str,
@@ -61,7 +61,7 @@ def add_tool_to_project(
     return tool_file
 
 
-def add_prompt_to_project(
+def graft_prompt(
     project_dir: Path,
     name: str,
     description: str,
@@ -89,7 +89,7 @@ def add_prompt_to_project(
     return prompt_file
 
 
-def add_resource_to_project(
+def graft_resource(
     project_dir: Path,
     name: str,
     description: str,

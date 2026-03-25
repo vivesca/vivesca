@@ -10,11 +10,11 @@ from metabolon.organelles.endocytosis_rss import relevance
 @pytest.fixture(autouse=True)
 def force_keyword_fallback(monkeypatch):
     """Block all LLM calls — force deterministic keyword fallback."""
-    monkeypatch.setattr(relevance, "_symbiont_query", lambda *a, **kw: (_ for _ in ()).throw(FileNotFoundError))
+    monkeypatch.setattr(relevance, "_symbiont_transduce", lambda *a, **kw: (_ for _ in ()).throw(FileNotFoundError))
 
 
 def test_keyword_scoring():
-    result = relevance.score_cargo(
+    result = relevance.assess_cargo(
         "Enterprise agent governance benchmark released",
         "Example Source",
         "Production evaluation and governance patterns for enterprise AI teams.",
@@ -29,7 +29,7 @@ def test_log_score(tmp_path, monkeypatch):
     log_path = tmp_path / "relevance.jsonl"
     monkeypatch.setattr(relevance, "AFFINITY_LOG", log_path)
 
-    relevance.log_affinity(
+    relevance.record_affinity(
         {
             "timestamp": "2026-03-13T10:00:00+00:00",
             "title": "HKMA updates AML guidance",
@@ -59,7 +59,7 @@ def test_log_engagement(tmp_path, monkeypatch):
     log_path = tmp_path / "engagement.jsonl"
     monkeypatch.setattr(relevance, "RECYCLING_LOG", log_path)
 
-    relevance.log_recycling("Anthropic banking release", action="read_full")
+    relevance.record_recycling("Anthropic banking release", action="read_full")
 
     rows = [json.loads(line) for line in log_path.read_text(encoding="utf-8").splitlines()]
     assert len(rows) == 1
@@ -96,7 +96,7 @@ def test_get_stats(tmp_path, monkeypatch):
         encoding="utf-8",
     )
 
-    stats = relevance.get_affinity_stats()
+    stats = relevance.affinity_stats()
 
     assert stats["status"] == "ok"
     assert stats["total_scored"] == 3
@@ -107,7 +107,7 @@ def test_get_stats(tmp_path, monkeypatch):
 
 
 def test_score_banking_item_high():
-    result = relevance.score_cargo(
+    result = relevance.assess_cargo(
         "HKMA issues new AML guidance for banks using AI",
         "HKMA",
         "The update covers compliance, fraud detection, and model risk expectations for banks.",
@@ -117,7 +117,7 @@ def test_score_banking_item_high():
 
 
 def test_score_consumer_item_low():
-    result = relevance.score_cargo(
+    result = relevance.assess_cargo(
         "Consumer photo app adds fun AI selfie filters",
         "App Store Blog",
         "A new creator-focused entertainment feature for social media sharing.",
@@ -234,7 +234,7 @@ def test_get_source_signal_ratio_insufficient_data(tmp_path, monkeypatch):
     ]
     log_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
-    ratio = relevance.get_receptor_signal_ratio("NoisyFeed", window_days=30)
+    ratio = relevance.receptor_signal_ratio("NoisyFeed", window_days=30)
     assert ratio == 1.0
 
 
@@ -254,7 +254,7 @@ def test_get_source_signal_ratio_high_signal(tmp_path, monkeypatch):
     ]
     log_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
-    ratio = relevance.get_receptor_signal_ratio("SignalFeed", window_days=30)
+    ratio = relevance.receptor_signal_ratio("SignalFeed", window_days=30)
     assert ratio == pytest.approx(0.8)
 
 
@@ -274,7 +274,7 @@ def test_get_source_signal_ratio_high_noise(tmp_path, monkeypatch):
     ]
     log_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
-    ratio = relevance.get_receptor_signal_ratio("NoisyFeed", window_days=30)
+    ratio = relevance.receptor_signal_ratio("NoisyFeed", window_days=30)
     assert ratio == pytest.approx(0.0)
 
 
@@ -292,7 +292,7 @@ def test_get_source_signal_ratio_ignores_outside_window(tmp_path, monkeypatch):
     )
     log_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
-    ratio = relevance.get_receptor_signal_ratio("MixedFeed", window_days=30)
+    ratio = relevance.receptor_signal_ratio("MixedFeed", window_days=30)
     # Only the 5 recent items count; all score 1 → ratio = 0.0
     assert ratio == pytest.approx(0.0)
 
@@ -316,5 +316,5 @@ def test_get_source_signal_ratio_ignores_other_sources(tmp_path, monkeypatch):
     ]
     log_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
-    ratio = relevance.get_receptor_signal_ratio("TargetFeed", window_days=30)
+    ratio = relevance.receptor_signal_ratio("TargetFeed", window_days=30)
     assert ratio == pytest.approx(1.0)

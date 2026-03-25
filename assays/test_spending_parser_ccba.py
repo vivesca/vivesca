@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from metabolon.respirometry.parsers.ccba import parse_ccba
+from metabolon.respirometry.parsers.ccba import extract_ccba
 from metabolon.respirometry.schema import StatementMeta
 
 FIXTURE = Path(__file__).parent / "fixtures" / "ccba_sep2025.pdf"
@@ -14,7 +14,7 @@ FIXTURE_MAR = Path(__file__).parent / "fixtures" / "ccba_mar2026.pdf"
 @pytest.mark.skipif(not FIXTURE.exists(), reason="test fixture not available")
 class TestCcbaParser:
     def setup_method(self):
-        self.meta, self.txns = parse_ccba(FIXTURE)
+        self.meta, self.txns = extract_ccba(FIXTURE)
 
     def test_returns_metadata(self):
         assert isinstance(self.meta, StatementMeta)
@@ -60,7 +60,7 @@ class TestCcbaParser:
 @pytest.mark.skipif(not FIXTURE_MAR.exists(), reason="test fixture not available")
 class TestCcbaParserMar:
     def setup_method(self):
-        self.meta, self.txns = parse_ccba(FIXTURE_MAR)
+        self.meta, self.txns = extract_ccba(FIXTURE_MAR)
 
     def test_statement_date(self):
         assert self.meta.statement_date == "2026-03-07"

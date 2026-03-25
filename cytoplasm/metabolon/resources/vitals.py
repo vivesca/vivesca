@@ -14,7 +14,7 @@ _SETTINGS = Path.home() / ".claude" / "settings.json"
 _STATS_CACHE = Path.home() / ".claude" / "stats-cache.json"
 
 
-def generate_vitals(
+def express_vitals(
     health_path: Path | None = None,
     settings_path: Path | None = None,
     stats_path: Path | None = None,

@@ -22,7 +22,7 @@ _BALANCE_BF_PAT = re.compile(r"BALANCE B/F\s+([\d,]+\.\d{2})")
 _ODD_CENTS_PAT = re.compile(r"ODD CENTS TO NEXT BILL\s+([\d,]+\.\d{2})\s*(CR)?")
 
 
-def parse_boc(pdf_path: Path) -> tuple[StatementMeta, list[Transaction]]:
+def extract_boc(pdf_path: Path) -> tuple[StatementMeta, list[Transaction]]:
     """Parse a BOC Credit Card statement PDF.
 
     Returns (metadata, transactions). Raises ValueError if balance validation

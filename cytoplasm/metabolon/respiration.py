@@ -95,7 +95,7 @@ def log(msg: str):
     print(f"[{ts}] {msg}", flush=True)
 
 
-def log_event(event: str, **kwargs):
+def record_event(event: str, **kwargs):
     """Append structured event to JSONL log for observability."""
     entry = {
         "ts": datetime.datetime.now().isoformat(),
@@ -113,7 +113,7 @@ def log_event(event: str, **kwargs):
 # ---------------------------------------------------------------------------
 
 
-def send_distress_signal(msg: str):
+def emit_distress_signal(msg: str):
     """Send a cellular distress signal via Telegram."""
     try:
         subprocess.run(["deltos", msg], capture_output=True, timeout=10)
@@ -131,7 +131,7 @@ def _send_pacing_alert_once(reason: str):
             return
     except (FileNotFoundError, json.JSONDecodeError):
         pass
-    send_distress_signal(f"Pulse paused for today: {reason}")
+    emit_distress_signal(f"Pulse paused for today: {reason}")
     PACING_ALERT_FILE.write_text(json.dumps({"date": today}))
 
 
@@ -185,7 +185,7 @@ def respiration_snapshot() -> dict | None:
     return None
 
 
-def check_vital_capacity() -> tuple[bool, str]:
+def assess_vital_capacity() -> tuple[bool, str]:
     """Check vital capacity — coarse budget gate. Returns (has_capacity, reason)."""
     usage = measure_respiration()
     if usage is None:
@@ -209,10 +209,10 @@ def check_vital_capacity() -> tuple[bool, str]:
         )
 
     if weekly > TACHYCARDIA_THRESHOLD or sonnet > TACHYCARDIA_THRESHOLD:
-        send_distress_signal(f"Respiration: budget climbing -- weekly={weekly}%, sonnet={sonnet}%")
+        emit_distress_signal(f"Respiration: budget climbing -- weekly={weekly}%, sonnet={sonnet}%")
 
     # Pacing gate — are we burning faster than the week can sustain?
-    pacing_ok, pacing_reason = check_pacing()
+    pacing_ok, pacing_reason = assess_pacing()
     if not pacing_ok:
         _send_pacing_alert_once(pacing_reason)
         return False, pacing_reason
@@ -220,7 +220,7 @@ def check_vital_capacity() -> tuple[bool, str]:
     return True, f"ok_weekly={weekly}%_sonnet={sonnet}%"
 
 
-def get_respiratory_status() -> str:
+def respiratory_status() -> str:
     """Per-wave respiratory status. Returns: green, yellow, red, or unknown."""
     telemetry = _fetch_telemetry()
     if telemetry:
@@ -283,15 +283,15 @@ def _save_circadian_state(state: dict):
     DAILY_STATE_FILE.write_text(json.dumps(state))
 
 
-def get_daily_wave_count() -> int:
+def daily_wave_count() -> int:
     return _load_circadian_state().get("count", 0)
 
 
-def get_daily_saturated_count() -> int:
+def daily_saturated_count() -> int:
     return _load_circadian_state().get("saturated", 0)
 
 
-def increment_daily_wave_count(saturated: bool = False, wave_delta: float = 0.0):
+def breathe(saturated: bool = False, wave_delta: float = 0.0):
     """Record one more wave, its saturation status, and its measured delta."""
     circadian_state = _load_circadian_state()
     circadian_state["count"] = circadian_state.get("count", 0) + 1
@@ -304,7 +304,7 @@ def increment_daily_wave_count(saturated: bool = False, wave_delta: float = 0.0)
     return circadian_state["count"]
 
 
-def set_circadian_baseline(weekly: float):
+def calibrate_circadian(weekly: float):
     """Record the circadian baseline — weekly % at the start of today's first wave."""
     circadian_state = _load_circadian_state()
     if circadian_state.get("day_start_weekly") is None:
@@ -341,7 +341,7 @@ def _record_sympathetic_sample(hour: int, session_util: float):
     INTERACTIVE_PATTERN_FILE.write_text(json.dumps(pattern))
 
 
-def get_interactive_pressure() -> float:
+def interactive_pressure() -> float:
     """How actively Terry is using Claude (0.0 = idle, 1.0 = heavy).
 
     Combines live session utilization with learned hourly patterns.
@@ -373,12 +373,12 @@ def get_interactive_pressure() -> float:
     return pressure
 
 
-def get_tidal_volume() -> float:
+def tidal_volume() -> float:
     """Tidal volume — pulse's share of the daily budget, adjusted for sympathetic pressure."""
-    genome = read_respiratory_genome()
+    genome = respiratory_genome()
     base = genome.get("basal_rate", BASAL_RATE)
     floor = genome.get("min_basal_rate", MIN_BASAL_RATE)
-    pressure = get_interactive_pressure()
+    pressure = interactive_pressure()
     share = base - pressure * (base - floor)
     return share
 
@@ -388,7 +388,7 @@ def get_tidal_volume() -> float:
 # ---------------------------------------------------------------------------
 
 
-def get_measured_cost_per_wave() -> float:
+def measured_cost_per_wave() -> float:
     """Estimate actual cost per wave from isolated per-wave deltas.
 
     Including zeros is critical: integer-rounded deltas of [0,1,0,0,1,0,1]
@@ -483,9 +483,9 @@ def resume_breathing():
 # ---------------------------------------------------------------------------
 
 
-def get_effective_burn(waves_today: int, saturated_today: int, cost_per_wave: float) -> float:
+def effective_burn(waves_today: int, saturated_today: int, cost_per_wave: float) -> float:
     """Calculate effective budget burn, penalizing saturated waves."""
-    genome = read_respiratory_genome()
+    genome = respiratory_genome()
     penalty = genome.get("saturation_penalty", SATURATION_PENALTY)
     productive = waves_today - saturated_today
     effective_waves = productive + (saturated_today * penalty)
@@ -497,7 +497,7 @@ def get_effective_burn(waves_today: int, saturated_today: int, cost_per_wave: fl
 # ---------------------------------------------------------------------------
 
 
-def check_pacing() -> tuple[bool, str]:
+def assess_pacing() -> tuple[bool, str]:
     """Check whether pulse is burning faster than the week can sustain."""
     telemetry = _fetch_telemetry()
     if telemetry is None:
@@ -514,20 +514,20 @@ def check_pacing() -> tuple[bool, str]:
     except (ValueError, TypeError):
         return True, "pacing_bad_reset_format"
 
-    set_circadian_baseline(weekly)
+    calibrate_circadian(weekly)
 
     days_remaining = max((resets_at - now).total_seconds() / 86400, 0.25)
     remaining_budget = 100 - weekly - SYMPATHETIC_RESERVE
     sustainable_daily = remaining_budget / days_remaining
 
-    dynamic_share = get_tidal_volume()
+    dynamic_share = tidal_volume()
     daily_budget = sustainable_daily * dynamic_share
 
-    cost_per_wave = get_measured_cost_per_wave()
+    cost_per_wave = measured_cost_per_wave()
 
-    waves_today = get_daily_wave_count()
-    saturated_today = get_daily_saturated_count()
-    estimated_burn = get_effective_burn(waves_today, saturated_today, cost_per_wave)
+    waves_today = daily_wave_count()
+    saturated_today = daily_saturated_count()
+    estimated_burn = effective_burn(waves_today, saturated_today, cost_per_wave)
 
     log_event(
         "pacing_check",
@@ -566,7 +566,7 @@ def check_pacing() -> tuple[bool, str]:
 # ---------------------------------------------------------------------------
 
 
-def read_respiratory_genome() -> dict:
+def respiratory_genome() -> dict:
     """Read the respiratory genome (respiration.conf). Fresh on every call."""
     _maybe_migrate()
     try:

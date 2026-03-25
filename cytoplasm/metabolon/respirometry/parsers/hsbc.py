@@ -24,7 +24,7 @@ _TXN_PAT = re.compile(r"^(\d{2}[A-Z]{3})(\d{2}[A-Z]{3})(.+)")
 _FX_PAT = re.compile(r"(USD|GBP|EUR|JPY|AUD|CAD|SGD|CNY)\s*([\d,]+\.\d{2})\s*([\d,]+\.\d{2})$")
 
 
-def parse_hsbc(pdf_path: Path) -> tuple[StatementMeta, list[Transaction]]:
+def extract_hsbc(pdf_path: Path) -> tuple[StatementMeta, list[Transaction]]:
     """Parse an HSBC Visa Signature statement PDF.
 
     Returns (metadata, transactions). Raises ValueError if balance validation
@@ -90,7 +90,7 @@ def _extract_metadata(text: str) -> StatementMeta:
     if all_trans_dates and statement_date:
         year = int(statement_date[:4])
         try:
-            first_dt = _parse_hsbc_date(all_trans_dates[0], year)
+            first_dt = _extract_hsbc_date(all_trans_dates[0], year)
             period_start = first_dt.strftime("%d %b %Y")
         except ValueError:
             pass
@@ -109,7 +109,7 @@ def _extract_metadata(text: str) -> StatementMeta:
     )
 
 
-def _parse_hsbc_date(ddmon: str, year: int) -> datetime:
+def _extract_hsbc_date(ddmon: str, year: int) -> datetime:
     """Parse HSBC 'DDMON' date format (e.g., '07FEB') with year context."""
     return datetime.strptime(f"{ddmon}{year}", "%d%b%Y")
 
@@ -189,7 +189,7 @@ def _parse_transactions(full_text: str, year_str: str) -> list[Transaction]:
         merchant = _clean_merchant(desc_part)
 
         # Parse transaction date
-        trans_dt = _parse_hsbc_date(trans_date_raw, year)
+        trans_dt = _extract_hsbc_date(trans_date_raw, year)
         iso_date = trans_dt.strftime("%Y-%m-%d")
 
         raw_txns.append(

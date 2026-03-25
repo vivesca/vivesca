@@ -11,7 +11,7 @@ from pypdf import PdfReader
 from metabolon.respirometry.schema import StatementMeta, Transaction
 
 
-def parse_mox(pdf_path: Path) -> tuple[StatementMeta, list[Transaction]]:
+def extract_mox(pdf_path: Path) -> tuple[StatementMeta, list[Transaction]]:
     """Parse a Mox Credit statement PDF.
 
     Returns (metadata, transactions). Raises ValueError if balance validation

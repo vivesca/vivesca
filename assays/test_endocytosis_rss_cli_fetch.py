@@ -57,13 +57,13 @@ def test_fetch_fallback_and_zeros(monkeypatch, mock_cfg, capsys):
     # Patch both the module attribute and the name bound in cli's namespace
     monkeypatch.setattr("metabolon.organelles.endocytosis_rss.state.refractory_elapsed", lambda *args, **kwargs: True)
     monkeypatch.setattr("metabolon.organelles.endocytosis_rss.cli.refractory_elapsed", lambda *args, **kwargs: True)
-    monkeypatch.setattr("metabolon.organelles.endocytosis_rss.relevance.get_receptor_signal_ratio", lambda *args, **kwargs: 1.0)
-    monkeypatch.setattr("metabolon.organelles.endocytosis_rss.relevance.score_cargo", lambda *a, **kw: {"score": 5, "banking_angle": "N/A", "talking_point": "N/A"})
-    monkeypatch.setattr("metabolon.organelles.endocytosis_rss.log.rotate_log", lambda *args: None)
-    monkeypatch.setattr("metabolon.organelles.endocytosis_rss.log.load_title_prefixes", lambda _p: set())
-    monkeypatch.setattr("metabolon.organelles.endocytosis_rss.log.is_junk", lambda _t: False)
-    monkeypatch.setattr("metabolon.organelles.endocytosis_rss.log.format_markdown", lambda *args: "# News")
-    monkeypatch.setattr("metabolon.organelles.endocytosis_rss.log.append_to_log", lambda *args: None)
+    monkeypatch.setattr("metabolon.organelles.endocytosis_rss.relevance.receptor_signal_ratio", lambda *args, **kwargs: 1.0)
+    monkeypatch.setattr("metabolon.organelles.endocytosis_rss.relevance.assess_cargo", lambda *a, **kw: {"score": 5, "banking_angle": "N/A", "talking_point": "N/A"})
+    monkeypatch.setattr("metabolon.organelles.endocytosis_rss.log.cycle_log", lambda *args: None)
+    monkeypatch.setattr("metabolon.organelles.endocytosis_rss.log.recall_title_prefixes", lambda _p: set())
+    monkeypatch.setattr("metabolon.organelles.endocytosis_rss.log.is_noise", lambda _t: False)
+    monkeypatch.setattr("metabolon.organelles.endocytosis_rss.log.serialize_markdown", lambda *args: "# News")
+    monkeypatch.setattr("metabolon.organelles.endocytosis_rss.log.record_cargo", lambda *args: None)
     monkeypatch.setattr("metabolon.organelles.endocytosis_rss.fetcher.archive_cargo", lambda *args: None)
 
     # Run once for fallback success

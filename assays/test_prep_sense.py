@@ -1,6 +1,6 @@
-def test_load_goals(tmp_path):
+def test_restore_goals(tmp_path):
     """Load goal configs from YAML directory."""
-    from metabolon.tools.receptor import load_goals
+    from metabolon.tools.receptor import restore_goals
 
     goals_dir = tmp_path / "goals"
     goals_dir.mkdir()
@@ -20,7 +20,7 @@ def test_load_goals(tmp_path):
         "    type: drills\n"
     )
 
-    goals = load_goals(goals_dir)
+    goals = restore_goals(goals_dir)
     assert len(goals) == 1
     assert goals[0]["name"] == "Do well at Capco"
     assert len(goals[0]["phases"]) == 3
@@ -72,7 +72,7 @@ def test_signal_store_append_and_read(tmp_path):
         drill_type="flashcard",
     )
 
-    signals = store.read_all()
+    signals = store.recall_all()
     assert len(signals) == 2
     assert signals[0]["score"] == 2
     assert signals[1]["score"] == 3
@@ -90,13 +90,13 @@ def test_signal_store_read_since(tmp_path):
 
     # All signals are recent, so read_since yesterday should return all
     yesterday = datetime.datetime.now(datetime.UTC) - datetime.timedelta(days=1)
-    signals = store.read_since(yesterday)
+    signals = store.recall_since(yesterday)
     assert len(signals) == 1
 
 
-def test_parse_flashcard_deck(tmp_path):
+def test_decode_flashcard_deck(tmp_path):
     """Parses flashcard markdown into structured cards."""
-    from metabolon.tools.receptor import parse_flashcard_deck
+    from metabolon.tools.receptor import decode_flashcard_deck
 
     deck = tmp_path / "deck.md"
     deck.write_text(
@@ -114,7 +114,7 @@ def test_parse_flashcard_deck(tmp_path):
         "**A:** 10-15 use cases, >80% alignment.\n"
     )
 
-    cards = parse_flashcard_deck(deck)
+    cards = decode_flashcard_deck(deck)
     assert len(cards) == 3
     assert cards[0]["category"] == "D1"
     assert cards[0]["card_type"] == "Framework Recall"
@@ -122,11 +122,11 @@ def test_parse_flashcard_deck(tmp_path):
     assert cards[2]["category"] == "D2"
 
 
-def test_build_signal_summary(tmp_path):
+def test_synthesize_signal_summary(tmp_path):
     """Builds a structured summary from goal config + signals."""
     import datetime
 
-    from metabolon.tools.receptor import ProprioceptiveStore, build_signal_summary
+    from metabolon.tools.receptor import ProprioceptiveStore, synthesize_signal_summary
 
     store = ProprioceptiveStore(tmp_path / "signals.jsonl")
     store.append(goal="capco", material="deck", category="D1", score=3, drill_type="flashcard")
@@ -145,7 +145,7 @@ def test_build_signal_summary(tmp_path):
         ],
     }
 
-    summary = build_signal_summary(goal, store, today=datetime.date(2026, 3, 22))
+    summary = synthesize_signal_summary(goal, store, today=datetime.date(2026, 3, 22))
     assert summary["goal"] == "Do well at Capco"
     assert summary["phase"] == "pre-joining"
     assert summary["days_to_next_phase"] == 17
@@ -212,7 +212,7 @@ def test_proprioception_drill(tmp_path, monkeypatch):
     assert result.success is True
 
     store = ProprioceptiveStore(signals_dir / "do-well-at-capco-signals.jsonl")
-    signals = store.read_all()
+    signals = store.recall_all()
     assert len(signals) == 1
     assert signals[0]["category"] == "D1"
     assert signals[0]["score"] == 2

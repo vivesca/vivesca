@@ -36,7 +36,7 @@ DEFAULT_REGISTRY = {
 }
 
 
-def load_fork_registry(path: Path = REGISTRY_PATH) -> dict:
+def restore_fork_registry(path: Path = REGISTRY_PATH) -> dict:
     """Load fork registry from YAML, or return defaults."""
     if path.exists():
         with open(path) as f:
@@ -122,7 +122,7 @@ class EnzymeSenseResult(Secretion):
 )
 def proprioception_skills() -> EnzymeSenseResult:
     """Proprioceptive check for upstream enzyme (skill) changes."""
-    registry = load_fork_registry()
+    registry = restore_fork_registry()
     suites: list[dict] = []
     parts: list[str] = []
 

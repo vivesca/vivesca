@@ -83,13 +83,13 @@ def metabolise(
         return None
 
 
-def draft(result: str, title: str, slug: str, model: str = "gemini") -> Path | None:
+def compose_post(result: str, title: str, slug: str, model: str = "gemini") -> Path | None:
     """Reaction 2: crystallised insight → spore."""
     symbiont = _acquire_catalyst()
     timestamp = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%S.000Z")
     prompt = DRAFT_PROMPT.format(result=result, title=title, timestamp=timestamp)
     try:
-        content = symbiont.query(model, prompt, timeout=120)
+        content = symbiont.transduce(model, prompt, timeout=120)
         post_path = PUBLISHED / f"{slug}.md"
         post_path.write_text(content)
         return post_path
@@ -113,7 +113,7 @@ def publish(slug: str) -> bool:
         return False
 
 
-def run_pipeline(seeds: list[dict], expander: str = "gemini", pusher: str = "claude") -> dict:
+def metabolize_pipeline(seeds: list[dict], expander: str = "gemini", pusher: str = "claude") -> dict:
     """Run the full pipeline on a list of seeds.
 
     Each seed is a dict with 'seed', 'slug', 'title'.

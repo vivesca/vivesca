@@ -181,7 +181,7 @@ def add_tool(name: str, domain: str | None, verb: str | None, description: str, 
     NAME can be 'domain_verb' (e.g., 'weather_fetch') or just 'domain'
     with --verb flag.
     """
-    from metabolon.gastrulation.add import add_tool_to_project
+    from metabolon.gastrulation.add import graft_tool
 
     if "_" in name and not domain:
         parts = name.split("_", 1)
@@ -191,7 +191,7 @@ def add_tool(name: str, domain: str | None, verb: str | None, description: str, 
     if not verb:
         verb = "get"
 
-    path = add_tool_to_project(
+    path = graft_tool(
         Path.cwd(),
         domain=domain,
         verb=verb,
@@ -206,9 +206,9 @@ def add_tool(name: str, domain: str | None, verb: str | None, description: str, 
 @click.option("--description", default="TODO: describe this prompt.", help="Prompt description.")
 def add_prompt(name: str, description: str):
     """Add a prompt to the current project."""
-    from metabolon.gastrulation.add import add_prompt_to_project
+    from metabolon.gastrulation.add import graft_prompt
 
-    path = add_prompt_to_project(Path.cwd(), name=name, description=description)
+    path = graft_prompt(Path.cwd(), name=name, description=description)
     click.echo(f"Created {path.relative_to(Path.cwd())}")
 
 
@@ -222,9 +222,9 @@ def add_prompt(name: str, description: str):
 @click.option("--uri-path", default="", help="Custom URI path (default: name).")
 def add_resource(name: str, description: str, uri_path: str):
     """Add a resource to the current project."""
-    from metabolon.gastrulation.add import add_resource_to_project
+    from metabolon.gastrulation.add import graft_resource
 
-    path = add_resource_to_project(
+    path = graft_resource(
         Path.cwd(), name=name, description=description, uri_path=uri_path
     )
     click.echo(f"Created {path.relative_to(Path.cwd())}")
@@ -233,9 +233,9 @@ def add_resource(name: str, description: str, uri_path: str):
 @cli.command()
 def check():
     """Validate project against vivesca conventions."""
-    from metabolon.gastrulation.check import check_project
+    from metabolon.gastrulation.check import probe_gastrulation
 
-    issues = check_project(Path.cwd())
+    issues = probe_gastrulation(Path.cwd())
     if not issues:
         click.echo("All checks passed.")
     else:
@@ -480,7 +480,7 @@ tags: [ai, agents, design, vivesca]
 ---"""
 
     try:
-        content = symbiont.query(draft_model, prompt, timeout=120)
+        content = symbiont.transduce(draft_model, prompt, timeout=120)
         post_path = Path.home() / "notes" / "Writing" / "Blog" / "Published" / f"{slug}.md"
         post_path.write_text(content)
         click.echo(f"Drafted: {post_path}")
@@ -524,10 +524,10 @@ def metabolise(seed, expander, pusher, rounds, output, no_publish, title, no_cha
     SEED is a substrate (dna, phenotype, crystals, respiration, all),
     a seed idea string, or a JSON file path for batch parallel.
     """
-    from metabolon.metabolism.substrates import get_receptor_catalog
+    from metabolon.metabolism.substrates import receptor_catalog
 
     # ── Substrate mode: known biological name ─────────────────────
-    registry = get_receptor_catalog()
+    registry = receptor_catalog()
     if seed in registry or seed == "all":
         targets = list(registry.keys()) if seed == "all" else [seed]
         for i, name in enumerate(targets):
@@ -644,7 +644,7 @@ def metabolise(seed, expander, pusher, rounds, output, no_publish, title, no_cha
             )
 
         try:
-            expansion = symbiont.query(expander, expand_prompt, timeout=120)
+            expansion = symbiont.transduce(expander, expand_prompt, timeout=120)
         except Exception as e:
             click.echo(f"Round {round_num} [{expander}]: ERROR — {e}")
             break
@@ -652,7 +652,7 @@ def metabolise(seed, expander, pusher, rounds, output, no_publish, title, no_cha
         # ── Compress ─────────────────────────────────────────────────
         compress_prompt = CRYSTALLISATION_TEMPLATE.format(expansion=expansion)
         try:
-            compression = symbiont.query(expander, compress_prompt, timeout=120)
+            compression = symbiont.transduce(expander, compress_prompt, timeout=120)
         except Exception as e:
             click.echo(f"Round {round_num} [{expander} compress]: ERROR — {e}")
             break
@@ -673,7 +673,7 @@ def metabolise(seed, expander, pusher, rounds, output, no_publish, title, no_cha
         if round_num < rounds:
             push_prompt = SELECTION_PRESSURE_TEMPLATE.format(compression=compression)
             try:
-                push_text = symbiont.query(pusher, push_prompt, timeout=120)
+                push_text = symbiont.transduce(pusher, push_prompt, timeout=120)
             except Exception as e:
                 click.echo(f"Round {round_num + 1} [{pusher} push]: ERROR — {e}")
                 break
@@ -711,9 +711,9 @@ def _run_substrate(name: str, days: int) -> str:
 
     Returns the formatted report string.
     """
-    from metabolon.metabolism.substrates import get_receptor_catalog
+    from metabolon.metabolism.substrates import receptor_catalog
 
-    registry = get_receptor_catalog()
+    registry = receptor_catalog()
     cls = registry[name]
     substrate = cls()
     sensed = substrate.sense(days=days)
@@ -731,7 +731,7 @@ def metabolism_run(target: str, days: int):
     TARGET is a substrate name (phenotype, dna, crystals, respiration, all).
     Legacy names (tools, constitution, memory) also accepted.
     """
-    from metabolon.metabolism.substrates import get_receptor_catalog
+    from metabolon.metabolism.substrates import receptor_catalog
 
     # Accept both biological and legacy names
     legacy_map = {
@@ -741,7 +741,7 @@ def metabolism_run(target: str, days: int):
         "memory": "consolidation",
         "crystals": "consolidation",
     }
-    registry = get_receptor_catalog()
+    registry = receptor_catalog()
 
     if target == "all":
         targets = list(registry.keys())
@@ -772,11 +772,11 @@ def metabolism_init():
     store = Genome()
     server = assemble_organism()
 
-    tools = asyncio.run(server.list_tools())
+    tools = asyncio.run(server.expressed_tools())
     count = 0
     for tool in tools:
         if tool.description:
-            store.init_tool(tool.name, tool.description)
+            store.seed_tool(tool.name, tool.description)
             count += 1
 
     click.echo(f"Initialized {count} tool(s) in variant store.")
@@ -787,7 +787,7 @@ def metabolism_status():
     """Show per-tool emotion and variant info."""
     from datetime import datetime, timedelta
 
-    from metabolon.metabolism.fitness import compute_emotion
+    from metabolon.metabolism.fitness import sense_affect
     from metabolon.metabolism.signals import SensorySystem
     from metabolon.metabolism.variants import Genome
 
@@ -795,10 +795,10 @@ def metabolism_status():
     store = Genome()
 
     since = datetime.now(UTC) - timedelta(days=7)
-    signals = collector.read_since(since)
-    emotions = compute_emotion(signals)
+    signals = collector.recall_since(since)
+    emotions = sense_affect(signals)
 
-    tools = store.list_tools()
+    tools = store.expressed_tools()
     if not tools and not emotions:
         click.echo("No tools or stimuli found. Run 'vivesca-dev metabolism init' first.")
         return
@@ -808,7 +808,7 @@ def metabolism_status():
 
     for tool in sorted(set(list(emotions.keys()) + tools)):
         e = emotions.get(tool)
-        variants = store.list_variants(tool) if tool in tools else []
+        variants = store.allele_variants(tool) if tool in tools else []
 
         if e:
             val_str = f"{e.valence:.3f}" if e.valence is not None else "N/A"
@@ -827,7 +827,7 @@ def metabolism_sweep():
     import asyncio
     from datetime import datetime, timedelta
 
-    from metabolon.metabolism.fitness import compute_emotion
+    from metabolon.metabolism.fitness import sense_affect
     from metabolon.metabolism.gates import reflex_check, taste
     from metabolon.metabolism.signals import SensorySystem
     from metabolon.metabolism.sweep import mutate, recombine, select
@@ -837,13 +837,13 @@ def metabolism_sweep():
     store = Genome()
 
     since = datetime.now(UTC) - timedelta(days=7)
-    stimuli = collector.read_since(since)
+    stimuli = collector.recall_since(since)
 
     if not stimuli:
         click.echo("No stimuli found. Accumulate usage data first.")
         return
 
-    emotions = compute_emotion(stimuli)
+    emotions = sense_affect(stimuli)
     click.echo(f"Computed emotion for {len(emotions)} tool(s) from {len(stimuli)} stimuli.")
 
     candidates = select(emotions)
@@ -856,13 +856,13 @@ def metabolism_sweep():
     async def run_sweep() -> int:
         promoted = 0
         for tool_name in candidates:
-            if tool_name not in store.list_tools():
+            if tool_name not in store.expressed_tools():
                 click.echo(f"  {tool_name}: not in genome, skipping")
                 continue
 
-            current = store.get_active(tool_name)
-            founding = store.get_founding(tool_name)
-            variants = store.list_variants(tool_name)
+            current = store.active_allele(tool_name)
+            founding = store.founding_allele(tool_name)
+            variants = store.allele_variants(tool_name)
 
             # Choose mutation strategy
             non_active = [
@@ -892,7 +892,7 @@ def metabolism_sweep():
                 click.echo(f"  {tool_name}: taste rejected — {judge.reason}")
                 continue
 
-            vid = store.add_variant(tool_name, candidate_desc)
+            vid = store.express_variant(tool_name, candidate_desc)
             store.promote(tool_name, vid)
             click.echo(f"  {tool_name}: promoted v{vid}")
             promoted += 1
@@ -943,7 +943,7 @@ def metabolism_audit(days: int):
     # ── Read recent signals ──────────────────────────────────────────
     collector = SensorySystem()
     since = datetime.now(UTC) - timedelta(days=days)
-    signals = collector.read_since(since)
+    signals = collector.recall_since(since)
     click.echo(f"Signals (last {days} days): {len(signals)}\n")
 
     # Build a set of tool names that appear in signals
@@ -1169,7 +1169,7 @@ def metabolism_dissolve(memory_dir: str | None, days: int):
     # ── Read signals for cross-reference ────────────────────────────
     collector = SensorySystem()
     since = datetime.now(UTC) - timedelta(days=days)
-    signals = collector.read_since(since)
+    signals = collector.recall_since(since)
 
     signal_tools: set[str] = set()
     for s in signals:
@@ -1314,10 +1314,10 @@ def endocytosis_fetch(no_archive: bool):
     endosomal sorting, and append surviving articles to the news log.
     Long-running (60-300s depending on source count).
     """
-    from metabolon.organelles.endocytosis_rss.config import load_config
+    from metabolon.organelles.endocytosis_rss.config import restore_config
     from metabolon.organelles.endocytosis_rss.state import lockfile
 
-    cfg = load_config()
+    cfg = restore_config()
     with lockfile(cfg.state_path):
         from metabolon.organelles.endocytosis_rss.cli import _fetch_locked
 
@@ -1339,14 +1339,14 @@ def endocytosis_digest(month, dry_run, themes, model, tag, weekly):
     """
     import json
 
-    from metabolon.organelles.endocytosis_rss.config import load_config
-    from metabolon.organelles.endocytosis_rss.digest import run_digest, run_weekly_digest
+    from metabolon.organelles.endocytosis_rss.config import restore_config
+    from metabolon.organelles.endocytosis_rss.digest import run_digest, metabolize_weekly
 
-    cfg = load_config()
+    cfg = restore_config()
 
     if weekly:
         try:
-            item_count, output_path = run_weekly_digest(cfg=cfg, tags=list(tag))
+            item_count, output_path = metabolize_weekly(cfg=cfg, tags=list(tag))
         except Exception as exc:
             click.echo(f"Error: {exc}", err=True)
             raise SystemExit(1)
@@ -1387,9 +1387,9 @@ def endocytosis_digest(month, dry_run, themes, model, tag, weekly):
 def endocytosis_breaking(dry_run: bool):
     """Scan recent news for breaking signals and notify if found."""
     from metabolon.organelles.endocytosis_rss.breaking import run_breaking
-    from metabolon.organelles.endocytosis_rss.config import load_config
+    from metabolon.organelles.endocytosis_rss.config import restore_config
 
-    cfg = load_config()
+    cfg = restore_config()
     result = run_breaking(cfg=cfg, dry_run=dry_run)
     raise SystemExit(result)
 
@@ -1399,8 +1399,8 @@ def endocytosis_status():
     """Show receptor status: last fetch times, source count, cache size."""
     from datetime import datetime, timedelta, timezone
 
-    from metabolon.organelles.endocytosis_rss.config import load_config
-    from metabolon.organelles.endocytosis_rss.state import load_state
+    from metabolon.organelles.endocytosis_rss.config import restore_config
+    from metabolon.organelles.endocytosis_rss.state import restore_state
 
     def _file_age(path: Path, now: datetime) -> str:
         if not path.exists():
@@ -1424,7 +1424,7 @@ def endocytosis_status():
             dt = dt.replace(tzinfo=timezone.utc)
         return dt
 
-    cfg = load_config()
+    cfg = restore_config()
     now = datetime.now().astimezone()
     click.echo(f"Endocytosis Status  ({now.strftime('%Y-%m-%d %H:%M %Z')})")
     click.echo("=" * 44)
@@ -1433,7 +1433,7 @@ def endocytosis_status():
     click.echo(f"State file:    {_file_age(cfg.state_path, now)}")
     click.echo(f"News log:      {_file_age(cfg.log_path, now)}")
 
-    state = load_state(cfg.state_path)
+    state = restore_state(cfg.state_path)
     if state:
         click.echo(f"Sources:       {len(state)} tracked")
         latest = max(
@@ -1455,9 +1455,9 @@ def endocytosis_status():
 @click.option("--tier", type=int, default=None, help="Filter sources by tier.")
 def endocytosis_sources(tier: int | None):
     """List configured receptor sources."""
-    from metabolon.organelles.endocytosis_rss.config import load_config
+    from metabolon.organelles.endocytosis_rss.config import restore_config
 
-    cfg = load_config()
+    cfg = restore_config()
     rows: list[tuple[str, str, int, str]] = []
 
     for source in cfg.sources_data.get("web_sources", []):
@@ -1501,7 +1501,7 @@ def endocytosis_sources(tier: int | None):
 def endocytosis_relevance(top: int | None):
     """Show relevance scoring stats or top-scored items."""
     from metabolon.organelles.endocytosis_rss.relevance import (
-        get_affinity_stats,
+        affinity_stats,
         get_top_cargo,
     )
 
@@ -1521,7 +1521,7 @@ def endocytosis_relevance(top: int | None):
             click.echo(line)
         return
 
-    stats = get_affinity_stats()
+    stats = affinity_stats()
     if stats.get("status") == "insufficient_data":
         click.echo("Relevance stats unavailable: insufficient_data")
         return
@@ -1540,9 +1540,9 @@ def endocytosis_relevance(top: int | None):
 @click.option("--count", type=int, default=None, help="Number of tweets to scan.")
 def endocytosis_discover(count: int | None):
     """Discover new receptor candidates from X/Twitter timeline."""
-    from metabolon.organelles.endocytosis_rss.config import load_config
+    from metabolon.organelles.endocytosis_rss.config import restore_config
     from metabolon.organelles.endocytosis_rss.discover import run_discover
 
-    cfg = load_config()
+    cfg = restore_config()
     result = run_discover(cfg=cfg, count=count, bird_path=cfg.resolve_bird())
     raise SystemExit(result)

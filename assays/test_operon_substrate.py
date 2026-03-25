@@ -233,8 +233,8 @@ class TestReport:
 
 class TestRegistry:
     def test_operons_in_catalog(self):
-        from metabolon.metabolism.substrates import get_receptor_catalog
+        from metabolon.metabolism.substrates import receptor_catalog
 
-        reg = get_receptor_catalog()
+        reg = receptor_catalog()
         assert "operons" in reg
         assert reg["operons"] is OperonSubstrate

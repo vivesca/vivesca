@@ -51,7 +51,7 @@ async def recombine(
     """
     import sys
 
-    from metabolon.symbiont import query
+    from metabolon.symbiont import transduce
 
     prompt = (
         f"You are performing differential evolution on an MCP tool description.\n\n"
@@ -62,14 +62,14 @@ async def recombine(
         f"Identify what differs between A and B. Apply that difference to the current best "
         f"to produce a new variant. Output ONLY the new description."
     )
-    return (await query(prompt, model="haiku")).strip()
+    return (await transduce(prompt, model="haiku")).strip()
 
 
 async def mutate(tool: str, description: str, selection_pressure: str) -> str:
     """Derive a mutation instruction from the selection pressure, then apply it."""
     import sys
 
-    from metabolon.symbiont import query
+    from metabolon.symbiont import transduce
 
     prompt = (
         f"An MCP tool has this description:\n{description}\n\n"
@@ -77,4 +77,4 @@ async def mutate(tool: str, description: str, selection_pressure: str) -> str:
         f"First, derive a specific mutation instruction (what to change and why). "
         f"Then apply it. Output ONLY the revised description."
     )
-    return (await query(prompt, model="haiku")).strip()
+    return (await transduce(prompt, model="haiku")).strip()

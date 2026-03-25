@@ -43,7 +43,7 @@ def test_jaccard_empty():
 # ── Convergence detection ────────────────────────────────────────────
 
 
-def _mock_query_converges(model, prompt, timeout=120):
+def _mock_transduce_converges(model, prompt, timeout=120):
     """Always returns the same compression — should converge on round 2."""
     if "compress" in prompt.lower() or "one sentence" in prompt.lower():
         return "Ideas metabolise through adversarial compression cycles."
@@ -56,7 +56,7 @@ def test_convergence_detected():
     runner = CliRunner()
     with patch("metabolon.pore._acquire_catalyst") as mock_llm_mod:
         mock_mod = mock_llm_mod.return_value
-        mock_mod.query.side_effect = _mock_query_converges
+        mock_mod.transduce.side_effect = _mock_transduce_converges
         result = runner.invoke(cli, ["metabolise", "test idea", "--rounds", "5"])
 
     assert result.exit_code == 0
@@ -78,7 +78,7 @@ _DIVERGENT_COMPRESSIONS = [
 ]
 
 
-def _mock_query_diverges(model, prompt, timeout=120):
+def _mock_transduce_diverges(model, prompt, timeout=120):
     """Returns different compressions each time — never converges."""
     global _round_counter
     if "compress" in prompt.lower() or "one sentence" in prompt.lower():
@@ -96,7 +96,7 @@ def test_max_rounds_stops():
     runner = CliRunner()
     with patch("metabolon.pore._acquire_catalyst") as mock_llm_mod:
         mock_mod = mock_llm_mod.return_value
-        mock_mod.query.side_effect = _mock_query_diverges
+        mock_mod.transduce.side_effect = _mock_transduce_diverges
         result = runner.invoke(cli, ["metabolise", "test idea", "--rounds", "3"])
 
     assert result.exit_code == 0
@@ -113,7 +113,7 @@ def test_output_file_written(tmp_path):
     runner = CliRunner()
     with patch("metabolon.pore._acquire_catalyst") as mock_llm_mod:
         mock_mod = mock_llm_mod.return_value
-        mock_mod.query.side_effect = _mock_query_converges
+        mock_mod.transduce.side_effect = _mock_transduce_converges
         result = runner.invoke(cli, ["metabolise", "test idea", "-o", str(out_file)])
 
     assert result.exit_code == 0
@@ -126,7 +126,7 @@ def test_no_output_file_without_flag():
     runner = CliRunner()
     with patch("metabolon.pore._acquire_catalyst") as mock_llm_mod:
         mock_mod = mock_llm_mod.return_value
-        mock_mod.query.side_effect = _mock_query_converges
+        mock_mod.transduce.side_effect = _mock_transduce_converges
         result = runner.invoke(cli, ["metabolise", "test idea"])
 
     assert result.exit_code == 0
@@ -136,7 +136,7 @@ def test_no_output_file_without_flag():
 # ── Graceful error handling ──────────────────────────────────────────
 
 
-def _mock_query_fails_on_expand(model, prompt, timeout=120):
+def _mock_transduce_fails_on_expand(model, prompt, timeout=120):
     """Fails on expansion calls."""
     if "exploring an idea" in prompt.lower() or "go deeper" in prompt.lower():
         raise RuntimeError("Model unavailable")
@@ -147,14 +147,14 @@ def test_model_error_handled_gracefully():
     runner = CliRunner()
     with patch("metabolon.pore._acquire_catalyst") as mock_llm_mod:
         mock_mod = mock_llm_mod.return_value
-        mock_mod.query.side_effect = _mock_query_fails_on_expand
+        mock_mod.transduce.side_effect = _mock_transduce_fails_on_expand
         result = runner.invoke(cli, ["metabolise", "test idea"])
 
     assert result.exit_code == 0
     assert "ERROR" in result.output
 
 
-def _mock_query_fails_on_push(model, prompt, timeout=120):
+def _mock_transduce_fails_on_push(model, prompt, timeout=120):
     """Works for expand/compress, fails on push."""
     if "adversarial pusher" in prompt.lower():
         raise RuntimeError("Pusher model down")
@@ -167,7 +167,7 @@ def test_push_error_handled_gracefully():
     runner = CliRunner()
     with patch("metabolon.pore._acquire_catalyst") as mock_llm_mod:
         mock_mod = mock_llm_mod.return_value
-        mock_mod.query.side_effect = _mock_query_fails_on_push
+        mock_mod.transduce.side_effect = _mock_transduce_fails_on_push
         result = runner.invoke(cli, ["metabolise", "test idea", "--rounds", "3"])
 
     assert result.exit_code == 0
@@ -183,7 +183,7 @@ def test_output_format():
     runner = CliRunner()
     with patch("metabolon.pore._acquire_catalyst") as mock_llm_mod:
         mock_mod = mock_llm_mod.return_value
-        mock_mod.query.side_effect = _mock_query_converges
+        mock_mod.transduce.side_effect = _mock_transduce_converges
         result = runner.invoke(
             cli,
             [
@@ -210,7 +210,7 @@ def test_custom_models():
     runner = CliRunner()
     with patch("metabolon.pore._acquire_catalyst") as mock_llm_mod:
         mock_mod = mock_llm_mod.return_value
-        mock_mod.query.side_effect = _mock_query_converges
+        mock_mod.transduce.side_effect = _mock_transduce_converges
         result = runner.invoke(
             cli,
             [
@@ -284,7 +284,7 @@ def test_no_chain_flag_accepted():
     runner = CliRunner()
     with patch("metabolon.pore._acquire_catalyst") as mock_llm_mod:
         mock_mod = mock_llm_mod.return_value
-        mock_mod.query.side_effect = _mock_query_converges
+        mock_mod.transduce.side_effect = _mock_transduce_converges
         result = runner.invoke(cli, ["metabolise", "test idea", "--no-chain"])
 
     assert result.exit_code == 0

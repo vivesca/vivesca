@@ -8,7 +8,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 
-def load_title_prefixes(log_path: Path) -> set[str]:
+def recall_title_prefixes(log_path: Path) -> set[str]:
     if not log_path.exists():
         return set()
 
@@ -34,7 +34,7 @@ def _title_prefix(title: str) -> str:
     return " ".join(sig)
 
 
-def is_junk(title: str) -> bool:
+def is_noise(title: str) -> bool:
     norm = re.sub(r"[^\w\s]", "", title.lower()).strip()
     if len(norm) < 15:
         return True
@@ -83,7 +83,7 @@ def _sanitize_text(text: str) -> str:
     return text
 
 
-def format_markdown(results: dict[str, list[dict[str, str]]], date_str: str) -> str:
+def serialize_markdown(results: dict[str, list[dict[str, str]]], date_str: str) -> str:
     lines = [f"## {date_str} (Automated Daily Scan)\n"]
     for source, articles in results.items():
         if not articles:
@@ -103,7 +103,7 @@ def format_markdown(results: dict[str, list[dict[str, str]]], date_str: str) -> 
     return "\n".join(lines)
 
 
-def append_to_log(log_path: Path, markdown: str) -> None:
+def record_cargo(log_path: Path, markdown: str) -> None:
     markers = [
         "<!-- News entries below, added by /lustro -->",
         "<!-- News entries below -->",
@@ -127,7 +127,7 @@ def append_to_log(log_path: Path, markdown: str) -> None:
     _atomic_write(log_path, content)
 
 
-def rotate_log(
+def cycle_log(
     log_path: Path,
     archive_dir: Path,
     max_lines: int,

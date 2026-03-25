@@ -161,15 +161,15 @@ def test_hysteresis_example_from_spec(tmp_path, monkeypatch):
     assert sp.is_activated(0.65) is True   # dead-band, open state preserved
 
 
-def test_reset_gate_clears_latch(tmp_path, monkeypatch):
-    """reset_gate() discards the in-memory latch for fresh evaluation."""
+def test_refractory_gate_clears_latch(tmp_path, monkeypatch):
+    """refractory_gate() discards the in-memory latch for fresh evaluation."""
     monkeypatch.setattr("metabolon.metabolism.setpoint.SETPOINTS_DIR", tmp_path)
     sp = Threshold(name="test", default=10.0, hysteresis=0.3)
 
     sp.is_activated(15.0)  # open
     assert sp._gate_open is True
 
-    sp.reset_gate()
+    sp.refractory_gate()
     assert sp._gate_open is None
 
     # Next evaluation initialises from current signal (8.0 < activation 10 → closed)

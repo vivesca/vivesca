@@ -6,16 +6,16 @@ import re
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-from metabolon.respirometry.categories import categorise, load_categories
-from metabolon.respirometry.detect import detect_bank, filename_matches
-from metabolon.respirometry.monitors import run_all_monitors
+from metabolon.respirometry.categories import categorise, restore_categories
+from metabolon.respirometry.detect import identify_bank, filename_matches
+from metabolon.respirometry.monitors import activate_monitors
 from metabolon.respirometry.parsers import get_parser
 from metabolon.respirometry.vault import (
     archive_pdf,
     file_hash,
     is_processed,
-    mark_processed,
-    write_statement,
+    stamp_processed,
+    secrete_statement,
 )
 
 SPENDING_DIR = Path.home() / "notes" / "Spending"
@@ -27,7 +27,7 @@ EFFERENS_DIR = Path.home() / "notes" / "Efferens"
 HKT = timezone(timedelta(hours=8))
 
 
-def process_statement(
+def metabolize_statement(
     pdf_path: Path,
     spending_dir: Path = SPENDING_DIR,
     categories_file: Path = CATEGORIES_FILE,
@@ -56,7 +56,7 @@ def process_statement(
     # Detect bank
     reader = PdfReader(pdf_path)
     page1 = reader.pages[0].extract_text() or ""
-    bank = detect_bank(page1)
+    bank = identify_bank(page1)
     if bank is None:
         return {"error": f"Unrecognised bank: {pdf_path.name}"}
 
@@ -68,19 +68,19 @@ def process_statement(
     meta, txns = parser(pdf_path)
 
     # Categorise
-    cats = load_categories(categories_file)
+    cats = restore_categories(categories_file)
     for t in txns:
         if not t.category:
             t.category = categorise(t.merchant, cats)
 
     # Write to vault
-    md_path = write_statement(meta, txns, spending_dir)
+    md_path = secrete_statement(meta, txns, spending_dir)
 
     # Write monthly summary
-    from metabolon.respirometry.vault import write_monthly_summary
+    from metabolon.respirometry.vault import secrete_monthly_summary
 
     month = meta.statement_date[:7]  # YYYY-MM
-    write_monthly_summary(month, spending_dir)
+    secrete_monthly_summary(month, spending_dir)
 
     # Archive PDF
     pdf_dest = None
@@ -88,7 +88,7 @@ def process_statement(
         pdf_dest = archive_pdf(pdf_path, meta, spending_dir)
 
     # Run monitors
-    alerts = run_all_monitors(txns)
+    alerts = activate_monitors(txns)
 
     # Payment tracking
     balance = abs(meta.balance)
@@ -122,7 +122,7 @@ def process_statement(
     }
 
 
-def scan_and_process(
+def metabolize_statements(
     scan_path: Path | None = None,
     spending_dir: Path = SPENDING_DIR,
     move_pdf: bool = True,
@@ -153,7 +153,7 @@ def scan_and_process(
         try:
             result = process_statement(pdf, spending_dir=spending_dir, move_pdf=move_pdf)
             if "error" not in result:
-                mark_processed(sha, ledger)
+                stamp_processed(sha, ledger)
             results.append(result)
         except ValueError as e:
             results.append(

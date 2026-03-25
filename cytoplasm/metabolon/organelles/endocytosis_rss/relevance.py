@@ -14,7 +14,7 @@ _VIVESCA_LIB = os.environ.get(
     "VIVESCA_ROOT",
     os.path.join(os.path.expanduser("~"), "code", "vivesca"),
 )
-from metabolon.symbiont import query as _symbiont_query
+from metabolon.symbiont import transduce as _symbiont_transduce
 
 AFFINITY_LOG = Path.home() / ".cache" / "lustro" / "relevance.jsonl"
 RECYCLING_LOG = Path.home() / ".cache" / "lustro" / "engagement.jsonl"
@@ -41,12 +41,12 @@ Respond in JSON only:
 """
 
 
-def score_cargo(title: str, source: str, summary: str) -> dict[str, Any]:
+def assess_cargo(title: str, source: str, summary: str) -> dict[str, Any]:
     """Score a single cargo item using Gemini, with keyword fallback."""
     prompt = SCORING_PROMPT.format(title=title, source=source, summary=summary)
 
     try:
-        text = _symbiont_query("gemini-flash", prompt, timeout=30)
+        text = _symbiont_transduce("gemini-flash", prompt, timeout=30)
         start = text.find("{")
         end = text.rfind("}") + 1
         if start >= 0 and end > start:
@@ -191,7 +191,7 @@ def _keyword_score(title: str, summary: str, source: str = "") -> dict[str, Any]
     return {"score": score, "banking_angle": "N/A", "talking_point": "N/A"}
 
 
-def log_affinity(item: dict[str, Any], scores: dict[str, Any]) -> None:
+def record_affinity(item: dict[str, Any], scores: dict[str, Any]) -> None:
     """Append scored cargo to the affinity log."""
     AFFINITY_LOG.parent.mkdir(parents=True, exist_ok=True)
     entry = {
@@ -206,7 +206,7 @@ def log_affinity(item: dict[str, Any], scores: dict[str, Any]) -> None:
         fh.write(json.dumps(entry, ensure_ascii=False) + "\n")
 
 
-def log_recycling(title: str, action: str = "deepened") -> None:
+def record_recycling(title: str, action: str = "deepened") -> None:
     """Log when the user engages with cargo (endosomal recycling signal)."""
     RECYCLING_LOG.parent.mkdir(parents=True, exist_ok=True)
     entry = {
@@ -234,7 +234,7 @@ def _read_jsonl(path: Path) -> list[dict[str, Any]]:
     return rows
 
 
-def get_receptor_signal_ratio(source: str, window_days: int = 30) -> float:
+def receptor_signal_ratio(source: str, window_days: int = 30) -> float:
     """Measure the signal-to-noise ratio for a receptor (source) over a time window.
 
     Receptors chronically overstimulated by low-relevance ligands (articles)
@@ -273,7 +273,7 @@ def get_receptor_signal_ratio(source: str, window_days: int = 30) -> float:
     return signal / total
 
 
-def get_affinity_stats() -> dict[str, Any]:
+def affinity_stats() -> dict[str, Any]:
     """Analyse affinity vs recycling to find scoring gaps."""
     scored_rows = _read_jsonl(AFFINITY_LOG)
     engaged_rows = _read_jsonl(RECYCLING_LOG)
@@ -302,7 +302,7 @@ def get_affinity_stats() -> dict[str, Any]:
     }
 
 
-def get_top_cargo(limit: int = 10, days: int = 7) -> list[dict[str, Any]]:
+def top_cargo(limit: int = 10, days: int = 7) -> list[dict[str, Any]]:
     """Return the highest-scored cargo in the recent window."""
     cutoff = datetime.now(timezone.utc) - timedelta(days=days)
     items: list[dict[str, Any]] = []

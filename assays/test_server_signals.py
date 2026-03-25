@@ -38,7 +38,7 @@ async def test_signal_emitted_on_success(tmp_path):
     result = await mcp.call_tool("echo", {"text": "hello world"})
     assert result is not None
 
-    signals = collector.read_all()
+    signals = collector.recall_all()
     assert len(signals) == 1
 
     sig = signals[0]
@@ -60,7 +60,7 @@ async def test_signal_emitted_on_error(tmp_path):
     with pytest.raises(ToolError):
         await mcp.call_tool("fail_tool", {})
 
-    signals = collector.read_all()
+    signals = collector.recall_all()
     assert len(signals) == 1
 
     sig = signals[0]
@@ -80,7 +80,7 @@ async def test_multiple_calls_accumulate(tmp_path):
     for i in range(5):
         await mcp.call_tool("echo", {"text": f"call {i}"})
 
-    signals = collector.read_all()
+    signals = collector.recall_all()
     assert len(signals) == 5
     assert all(s.tool == "echo" for s in signals)
     assert all(s.outcome == "success" for s in signals)

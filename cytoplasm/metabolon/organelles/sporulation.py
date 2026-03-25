@@ -82,7 +82,7 @@ def _scan_content(content: str) -> list[str]:
     return warnings
 
 
-def new(title: str) -> dict:
+def germinate_post(title: str) -> dict:
     """Create a new draft garden post with frontmatter scaffold.
 
     Args:
@@ -105,7 +105,7 @@ def new(title: str) -> dict:
     return {"path": str(path), "slug": slug, "created": True}
 
 
-def list_posts() -> list[dict]:
+def dormant_posts() -> list[dict]:
     """List all posts in the vault directory.
 
     Returns:
@@ -165,7 +165,7 @@ def publish(slug: str, push: bool = False) -> dict:
     return result
 
 
-def revise(slug: str, note: str) -> dict:
+def mutate_post(slug: str, note: str) -> dict:
     """Record a revision note and update modDatetime on a post.
 
     Args:
@@ -205,7 +205,7 @@ def revise(slug: str, note: str) -> dict:
     return {"revised": True, "title": fm.get("title", slug), "slug": slug, "note": note}
 
 
-def push_site() -> dict:
+def propagate_site() -> dict:
     """Run sync-from-vault.sh to deploy the Astro blog.
 
     Returns:
@@ -220,7 +220,7 @@ def push_site() -> dict:
     return {"pushed": True, "url": "https://terryli.hm"}
 
 
-def index() -> dict:
+def catalog() -> dict:
     """Regenerate the terryli.hm.md garden index from published posts.
 
     Returns:

@@ -68,7 +68,7 @@ def _read_signal_routing(path: Path) -> str:
         return ""
 
 
-def generate_effector_index(
+def express_effector_index(
     bin_dir: Path | None = None,
     tools_dir: Path | None = None,
     routing_path: Path | None = None,

@@ -43,7 +43,7 @@ async def taste(
 
     from metabolon.cytosol import VIVESCA_ROOT
 
-    from metabolon.symbiont import query
+    from metabolon.symbiont import transduce
 
     prompt = (
         f"You are evaluating a proposed tool description change.\n\n"
@@ -55,7 +55,7 @@ async def taste(
         f"Reply with exactly 'PASS' or 'FAIL: <reason>'."
     )
 
-    response = await query(prompt, model="haiku")
+    response = await transduce(prompt, model="haiku")
     text = response.strip()
 
     if text.startswith("PASS"):

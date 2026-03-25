@@ -5,11 +5,11 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from metabolon.resources.operons import generate_operon_map
-from metabolon.resources.proteome import generate_effector_index
-from metabolon.resources.receptome import generate_operon_index
-from metabolon.resources.reflexes import generate_reflex_inventory
-from metabolon.resources.vitals import generate_vitals
+from metabolon.resources.operons import express_operon_map
+from metabolon.resources.proteome import express_effector_index
+from metabolon.resources.receptome import express_operon_index
+from metabolon.resources.reflexes import express_reflex_inventory
+from metabolon.resources.vitals import express_vitals
 
 
 def _write_skill(skills_dir: Path, name: str, frontmatter: str) -> None:
@@ -34,7 +34,7 @@ class TestSkillsIndex:
             "askesis",
             "---\nname: askesis\ndescription: Growth mode sessions\n---\n# Askesis\n",
         )
-        result = generate_operon_index(skills_root=tmp_path)
+        result = express_operon_index(skills_root=tmp_path)
         assert "todo" in result
         assert "askesis" in result
         assert "Manage TODOs" in result
@@ -46,35 +46,35 @@ class TestSkillsIndex:
         (sub / "SKILL.md").write_text(
             "---\nname: ce-plan\ndescription: Planning skill\n---\n# Plan\n"
         )
-        result = generate_operon_index(skills_root=tmp_path)
+        result = express_operon_index(skills_root=tmp_path)
         assert "compound-engineering:ce-plan" in result
 
     def test_skips_archive(self, tmp_path):
         _write_skill(tmp_path, "active", "---\nname: active\ndescription: Active\n---\n")
         _write_skill(tmp_path / "archive", "old", "---\nname: old\ndescription: Old\n---\n")
-        result = generate_operon_index(skills_root=tmp_path)
+        result = express_operon_index(skills_root=tmp_path)
         assert "active" in result
         assert "old" not in result
 
     def test_skips_hidden_dirs(self, tmp_path):
         _write_skill(tmp_path, ".hidden", "---\nname: hidden\ndescription: Hidden\n---\n")
-        result = generate_operon_index(skills_root=tmp_path)
+        result = express_operon_index(skills_root=tmp_path)
         assert "hidden" not in result
 
     def test_missing_directory(self, tmp_path):
-        result = generate_operon_index(skills_root=tmp_path / "nonexistent")
+        result = express_operon_index(skills_root=tmp_path / "nonexistent")
         assert "No receptor directory" in result
 
     def test_missing_frontmatter(self, tmp_path):
         d = tmp_path / "bad"
         d.mkdir()
         (d / "SKILL.md").write_text("# No frontmatter here\n")
-        result = generate_operon_index(skills_root=tmp_path)
+        result = express_operon_index(skills_root=tmp_path)
         assert "0 active" in result
 
     def test_includes_modified_date(self, tmp_path):
         _write_skill(tmp_path, "todo", "---\nname: todo\ndescription: Manage TODOs\n---\n")
-        result = generate_operon_index(skills_root=tmp_path)
+        result = express_operon_index(skills_root=tmp_path)
         # Should contain a date in YYYY-MM-DD format
         assert "20" in result  # Year prefix
 
@@ -90,7 +90,7 @@ class TestToolIndex:
         script.write_text("#!/bin/sh\necho hi\n")
         script.chmod(0o755)
 
-        result = generate_effector_index(bin_dir=bin_dir, tools_dir=tmp_path / "tools")
+        result = express_effector_index(bin_dir=bin_dir, tools_dir=tmp_path / "tools")
         assert "my-tool" in result
         assert "CLI Tools" in result
 
@@ -105,7 +105,7 @@ class TestToolIndex:
             '    """List calendar events."""\n'
             '    return ""\n'
         )
-        result = generate_effector_index(bin_dir=tmp_path / "bin", tools_dir=tools_dir)
+        result = express_effector_index(bin_dir=tmp_path / "bin", tools_dir=tools_dir)
         assert "fasti_list_events" in result
         assert "MCP Tools" in result
 
@@ -116,7 +116,7 @@ class TestToolIndex:
         readme.write_text("Just a readme\n")
         readme.chmod(0o644)
 
-        result = generate_effector_index(bin_dir=bin_dir, tools_dir=tmp_path / "tools")
+        result = express_effector_index(bin_dir=bin_dir, tools_dir=tmp_path / "tools")
         assert "README" not in result
 
     def test_skips_hidden_files(self, tmp_path):
@@ -126,7 +126,7 @@ class TestToolIndex:
         hidden.write_text("#!/bin/sh\n")
         hidden.chmod(0o755)
 
-        result = generate_effector_index(bin_dir=bin_dir, tools_dir=tmp_path / "tools")
+        result = express_effector_index(bin_dir=bin_dir, tools_dir=tmp_path / "tools")
         assert ".hidden" not in result
 
     def test_shows_total_count(self, tmp_path):
@@ -136,7 +136,7 @@ class TestToolIndex:
         s.write_text("#!/bin/sh\n")
         s.chmod(0o755)
 
-        result = generate_effector_index(bin_dir=bin_dir, tools_dir=tmp_path / "tools")
+        result = express_effector_index(bin_dir=bin_dir, tools_dir=tmp_path / "tools")
         assert "Total: 1 tools" in result
 
     def test_includes_routing_table(self, tmp_path):
@@ -144,7 +144,7 @@ class TestToolIndex:
         routing.write_text(
             "### Communication\n| Trigger | Tool |\n|---|---|\n| Email | `stilus` |\n"
         )
-        result = generate_effector_index(
+        result = express_effector_index(
             bin_dir=tmp_path / "bin",
             tools_dir=tmp_path / "tools",
             routing_path=routing,
@@ -153,7 +153,7 @@ class TestToolIndex:
         assert "stilus" in result
 
     def test_works_without_routing_table(self, tmp_path):
-        result = generate_effector_index(
+        result = express_effector_index(
             bin_dir=tmp_path / "bin",
             tools_dir=tmp_path / "tools",
             routing_path=tmp_path / "nonexistent.md",
@@ -166,13 +166,13 @@ class TestToolIndex:
 
 class TestOperonMap:
     def test_returns_operon_data(self):
-        result = generate_operon_map()
+        result = express_operon_map()
         # Should have real operon data from metabolon.operons
         assert "Operon Map" in result
         assert "expressed" in result.lower()
 
     def test_contains_table_structure(self):
-        result = generate_operon_map()
+        result = express_operon_map()
         assert "| Operon |" in result
         assert "|--------|" in result
 
@@ -212,7 +212,7 @@ class TestCCHooks:
                 }
             )
         )
-        result = generate_reflex_inventory(settings_path=settings)
+        result = express_reflex_inventory(settings_path=settings)
         assert "vault-pull" in result
         assert "dirty-repos" in result
         assert "UserPromptSubmit" in result
@@ -240,7 +240,7 @@ class TestCCHooks:
                 }
             )
         )
-        result = generate_reflex_inventory(settings_path=settings)
+        result = express_reflex_inventory(settings_path=settings)
         assert "[prompt]" in result
         assert "Agent" in result
 
@@ -265,17 +265,17 @@ class TestCCHooks:
                 }
             )
         )
-        result = generate_reflex_inventory(settings_path=settings)
+        result = express_reflex_inventory(settings_path=settings)
         assert "tool == 'Bash'" in result
 
     def test_missing_settings(self, tmp_path):
-        result = generate_reflex_inventory(settings_path=tmp_path / "nonexistent.json")
+        result = express_reflex_inventory(settings_path=tmp_path / "nonexistent.json")
         assert "No settings.json" in result
 
     def test_no_hooks(self, tmp_path):
         settings = tmp_path / "settings.json"
         settings.write_text(json.dumps({"env": {}}))
-        result = generate_reflex_inventory(settings_path=settings)
+        result = express_reflex_inventory(settings_path=settings)
         assert "No hooks configured" in result
 
 
@@ -286,7 +286,7 @@ class TestCCHealth:
     def test_includes_nightly_report(self, tmp_path):
         health = tmp_path / "nightly-health.md"
         health.write_text("## System OK\nAll checks passed.")
-        result = generate_vitals(
+        result = express_vitals(
             health_path=health,
             settings_path=tmp_path / "s.json",
             stats_path=tmp_path / "st.json",
@@ -306,7 +306,7 @@ class TestCCHealth:
                 }
             )
         )
-        result = generate_vitals(
+        result = express_vitals(
             health_path=tmp_path / "h.md",
             settings_path=settings,
             stats_path=tmp_path / "st.json",
@@ -326,7 +326,7 @@ class TestCCHealth:
                 }
             )
         )
-        result = generate_vitals(
+        result = express_vitals(
             health_path=tmp_path / "h.md",
             settings_path=tmp_path / "s.json",
             stats_path=stats,
@@ -336,7 +336,7 @@ class TestCCHealth:
         assert "Recent Activity" in result
 
     def test_missing_all_files(self, tmp_path):
-        result = generate_vitals(
+        result = express_vitals(
             health_path=tmp_path / "h.md",
             settings_path=tmp_path / "s.json",
             stats_path=tmp_path / "st.json",
@@ -345,7 +345,7 @@ class TestCCHealth:
         assert "no nightly health report" in result
 
     def test_vitals_via_generator(self):
-        result = generate_vitals()
+        result = express_vitals()
         assert isinstance(result, str)
         assert "Health" in result
 
@@ -357,21 +357,21 @@ class TestIntrospectionTools:
     """Verify proprioception tools can be imported and called."""
 
     def test_skills_tool_callable(self):
-        result = generate_operon_index()
+        result = express_operon_index()
         assert isinstance(result, str)
 
     def test_tool_index_callable(self):
-        result = generate_effector_index()
+        result = express_effector_index()
         assert isinstance(result, str)
 
     def test_operon_map_callable(self):
-        result = generate_operon_map()
+        result = express_operon_map()
         assert isinstance(result, str)
 
     def test_cc_hooks_callable(self):
-        result = generate_reflex_inventory()
+        result = express_reflex_inventory()
         assert isinstance(result, str)
 
     def test_cc_health_callable(self):
-        result = generate_vitals()
+        result = express_vitals()
         assert isinstance(result, str)

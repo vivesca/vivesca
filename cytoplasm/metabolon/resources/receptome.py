@@ -57,7 +57,7 @@ def _operon_entry(skill_dir: Path, prefix: str = "") -> dict | None:
     }
 
 
-def generate_operon_index(skills_root: Path | None = None) -> str:
+def express_operon_index(skills_root: Path | None = None) -> str:
     """Build a compact receptor index from disk."""
     root = skills_root or _SKILLS_ROOT
     entries: list[dict] = []

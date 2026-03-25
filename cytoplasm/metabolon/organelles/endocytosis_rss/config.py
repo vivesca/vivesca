@@ -88,7 +88,7 @@ class EndocytosisConfig:
         return str(fallback) if fallback.is_file() else None
 
 
-def load_config() -> EndocytosisConfig:
+def restore_config() -> EndocytosisConfig:
     xdg_config = _xdg_base("XDG_CONFIG_HOME", ".config")
     xdg_cache = _xdg_base("XDG_CACHE_HOME", ".cache")
     xdg_data = _xdg_base("XDG_DATA_HOME", ".local/share")

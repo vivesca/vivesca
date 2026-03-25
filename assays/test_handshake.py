@@ -39,7 +39,7 @@ async def test_handshake():
         assert result.capabilities.tools is not None, "Expected tools capability"
 
         # --- 2. List tools ---
-        tools_result = await session.list_tools()
+        tools_result = await session.expressed_tools()
         tools = tools_result.tools
         tool_names = sorted(t.name for t in tools)
 

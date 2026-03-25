@@ -13,7 +13,7 @@ HKT = timezone(timedelta(hours=8))
 FASTI_BINARY = shutil.which("fasti") or "fasti"
 
 
-def load_payments(payments_file: Path) -> list[dict]:
+def restore_payments(payments_file: Path) -> list[dict]:
     """Load pending payments from YAML file."""
     if not payments_file.exists():
         return []
@@ -21,7 +21,7 @@ def load_payments(payments_file: Path) -> list[dict]:
     return data.get("pending", []) or []
 
 
-def save_payments(payments_file: Path, pending: list[dict]) -> None:
+def persist_payments(payments_file: Path, pending: list[dict]) -> None:
     """Write pending payments back to YAML file."""
     payments_file.parent.mkdir(parents=True, exist_ok=True)
     content = "# Auto-managed by vivesca spending pipeline\n"
@@ -30,7 +30,7 @@ def save_payments(payments_file: Path, pending: list[dict]) -> None:
     payments_file.write_text(content)
 
 
-def load_card_config(config_file: Path) -> dict:
+def restore_card_config(config_file: Path) -> dict:
     """Load card autopay configuration."""
     if not config_file.exists():
         return {}
@@ -40,12 +40,12 @@ def load_card_config(config_file: Path) -> dict:
 
 def is_autopay(bank: str, config_file: Path) -> bool:
     """Check whether a card is on autopay."""
-    cards = load_card_config(config_file)
+    cards = restore_card_config(config_file)
     card_cfg = cards.get(bank, {})
     return card_cfg.get("autopay", False)
 
 
-def add_pending_payment(
+def queue_payment(
     payments_file: Path,
     bank: str,
     amount: float,
@@ -53,7 +53,7 @@ def add_pending_payment(
     statement_date: str,
 ) -> dict:
     """Add a pending payment entry and return it."""
-    pending = load_payments(payments_file)
+    pending = restore_payments(payments_file)
 
     # Avoid duplicate entries for same bank + statement_date
     for entry in pending:
@@ -69,22 +69,22 @@ def add_pending_payment(
         "created": now.strftime("%Y-%m-%d"),
     }
     pending.append(entry)
-    save_payments(payments_file, pending)
+    persist_payments(payments_file, pending)
     return entry
 
 
-def remove_pending_payment(payments_file: Path, bank: str) -> dict | None:
+def dequeue_payment(payments_file: Path, bank: str) -> dict | None:
     """Remove the oldest pending payment for a bank. Returns the removed entry or None."""
-    pending = load_payments(payments_file)
+    pending = restore_payments(payments_file)
     for i, entry in enumerate(pending):
         if entry.get("bank") == bank:
             removed = pending.pop(i)
-            save_payments(payments_file, pending)
+            persist_payments(payments_file, pending)
             return removed
     return None
 
 
-def create_payment_reminder(
+def schedule_payment_reminder(
     bank: str,
     amount: float,
     due_date: str,
@@ -126,7 +126,7 @@ def create_payment_reminder(
         return None
 
 
-def check_missing_statements(
+def assess_missing_statements(
     config_file: Path,
     spending_dir: Path,
 ) -> list[str]:
@@ -135,7 +135,7 @@ def check_missing_statements(
     For each active card with a statement_day, if today is past that day
     and no vault file exists for the current month, flag it.
     """
-    cards = load_card_config(config_file)
+    cards = restore_card_config(config_file)
     now = datetime.now(HKT).date()
     current_month = now.strftime("%Y-%m")
     alerts: list[str] = []
@@ -162,9 +162,9 @@ def check_missing_statements(
     return alerts
 
 
-def check_overdue_payments(payments_file: Path) -> list[str]:
+def flag_overdue_payments(payments_file: Path) -> list[str]:
     """Check for payments due within 2 days. Returns alert strings."""
-    pending = load_payments(payments_file)
+    pending = restore_payments(payments_file)
     if not pending:
         return []
 

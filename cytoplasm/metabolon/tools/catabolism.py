@@ -45,15 +45,15 @@ def catabolism_spending(days: int = 30) -> CatabolismResult:
     Args:
         days: budget monitoring window (how many days of spending to evaluate).
     """
-    from metabolon.respirometry import scan_and_process
-    from metabolon.respirometry.payments import check_missing_statements, check_overdue_payments
+    from metabolon.respirometry import metabolize_statements
+    from metabolon.respirometry.payments import assess_missing_statements, flag_overdue_payments
 
     config_file = SPENDING_DIR / "config.yaml"
-    results = scan_and_process()
+    results = metabolize_statements()
 
     # Check for overdue/upcoming payments regardless of new statements
-    payment_alerts = check_overdue_payments(PAYMENTS_FILE)
-    missing_alerts = check_missing_statements(config_file, SPENDING_DIR)
+    payment_alerts = flag_overdue_payments(PAYMENTS_FILE)
+    missing_alerts = assess_missing_statements(config_file, SPENDING_DIR)
 
     if not results and not payment_alerts and not missing_alerts:
         return CatabolismResult(summary="No new statements found. All cards accounted for.")
@@ -126,10 +126,10 @@ def catabolism_confirm(bank: str) -> CatabolismConfirmResult:
     Args:
         bank: bank identifier (mox, ccba, scb, hsbc).
     """
-    from metabolon.respirometry.payments import remove_pending_payment
+    from metabolon.respirometry.payments import dequeue_payment
 
     bank = bank.lower().strip()
-    removed = remove_pending_payment(PAYMENTS_FILE, bank)
+    removed = dequeue_payment(PAYMENTS_FILE, bank)
 
     if removed is None:
         return CatabolismConfirmResult(

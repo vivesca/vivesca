@@ -81,8 +81,8 @@ class TestSweepCLI:
         collector = SensorySystem()
         store = Genome()
 
-        store.init_tool("bad_tool", "Original bad description for this particular tool")
-        store.init_tool("good_tool", "Good tool that works perfectly for all lookups")
+        store.seed_tool("bad_tool", "Original bad description for this particular tool")
+        store.seed_tool("good_tool", "Good tool that works perfectly for all lookups")
 
         for _ in range(5):
             collector.append(_make_signal("bad_tool", Outcome.error))
@@ -93,21 +93,21 @@ class TestSweepCLI:
                 return "PASS"
             return "Improved description that fixes the issues with this tool"
 
-        mock_symbiont.query = AsyncMock(side_effect=smart_query)
+        mock_symbiont.transduce = AsyncMock(side_effect=smart_query)
 
         runner = CliRunner()
         result = runner.invoke(cli, ["metabolism", "sweep"])
 
         assert result.exit_code == 0
         assert "promoted" in result.output
-        assert len(store.list_variants("bad_tool")) >= 2
+        assert len(store.allele_variants("bad_tool")) >= 2
 
 
 class TestHotPathRepair:
     def test_acute_immune_response_on_error(self, redirect_defaults, mock_symbiont):
         """Middleware triggers repair and promotes on tool error."""
         store = Genome()
-        store.init_tool("failing_tool", "A tool that does something useful for testing")
+        store.seed_tool("failing_tool", "A tool that does something useful for testing")
 
         repaired = "An improved description that prevents tool failures here"
 
@@ -116,7 +116,7 @@ class TestHotPathRepair:
                 return "PASS"
             return repaired
 
-        mock_symbiont.query = AsyncMock(side_effect=smart_query)
+        mock_symbiont.transduce = AsyncMock(side_effect=smart_query)
 
         from metabolon.membrane import SensoryMiddleware
 
@@ -124,9 +124,9 @@ class TestHotPathRepair:
         middleware = SensoryMiddleware(collector=collector)
         asyncio.run(middleware._acute_immune_response("failing_tool", "tool crashed"))
 
-        variants = store.list_variants("failing_tool")
+        variants = store.allele_variants("failing_tool")
         assert len(variants) >= 2
-        assert store.get_active("failing_tool") == repaired
+        assert store.active_allele("failing_tool") == repaired
 
     def test_acute_immune_response_skips_unknown_tool(self, redirect_defaults, mock_symbiont):
         """Repair skips tools not in variant store."""
@@ -140,9 +140,9 @@ class TestHotPathRepair:
     def test_acute_immune_response_does_not_block_on_failure(self, redirect_defaults, mock_symbiont):
         """Repair failure doesn't propagate."""
         store = Genome()
-        store.init_tool("tool", "A tool for doing some important work for users")
+        store.seed_tool("tool", "A tool for doing some important work for users")
 
-        mock_symbiont.query = AsyncMock(side_effect=RuntimeError("LLM down"))
+        mock_symbiont.transduce = AsyncMock(side_effect=RuntimeError("LLM down"))
 
         from metabolon.membrane import SensoryMiddleware
 
@@ -151,19 +151,19 @@ class TestHotPathRepair:
         # Should not raise despite LLM failure
         asyncio.run(middleware._acute_immune_response("tool", "error"))
 
-        assert len(store.list_variants("tool")) == 1
+        assert len(store.allele_variants("tool")) == 1
 
     def test_acute_immune_response_judge_rejects(self, redirect_defaults, mock_symbiont):
         """Repair candidate rejected by judge is not promoted."""
         store = Genome()
-        store.init_tool("tool", "Original description that should remain active here")
+        store.seed_tool("tool", "Original description that should remain active here")
 
         async def reject_query(prompt, model="haiku"):
             if "accurately" in prompt:
                 return "FAIL: misleading"
             return "A changed description that differs from original content"
 
-        mock_symbiont.query = AsyncMock(side_effect=reject_query)
+        mock_symbiont.transduce = AsyncMock(side_effect=reject_query)
 
         from metabolon.membrane import SensoryMiddleware
 
@@ -171,4 +171,4 @@ class TestHotPathRepair:
         middleware = SensoryMiddleware(collector=collector)
         asyncio.run(middleware._acute_immune_response("tool", "error"))
 
-        assert store.get_active("tool") == "Original description that should remain active here"
+        assert store.active_allele("tool") == "Original description that should remain active here"

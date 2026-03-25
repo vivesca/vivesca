@@ -2,17 +2,17 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 
-from metabolon.organelles.endocytosis_rss.state import load_state, refractory_elapsed, save_state
+from metabolon.organelles.endocytosis_rss.state import restore_state, refractory_elapsed, persist_state
 
 
 def test_load_save_roundtrip(tmp_path, sample_state):
     state_path = tmp_path / "state.json"
-    save_state(state_path, sample_state)
-    loaded = load_state(state_path)
+    persist_state(state_path, sample_state)
+    loaded = restore_state(state_path)
     assert loaded == sample_state
 
 
-def test_save_state_atomic_write(tmp_path, monkeypatch, sample_state):
+def test_persist_state_atomic_write(tmp_path, monkeypatch, sample_state):
     state_path = tmp_path / "state.json"
     calls: list[tuple[str, str]] = []
     original_replace = __import__("os").replace
@@ -22,7 +22,7 @@ def test_save_state_atomic_write(tmp_path, monkeypatch, sample_state):
         return original_replace(src, dst)
 
     monkeypatch.setattr("metabolon.organelles.endocytosis_rss.state.os.replace", tracking_replace)
-    save_state(state_path, sample_state)
+    persist_state(state_path, sample_state)
     assert calls, "os.replace should be used for atomic writes"
     assert state_path.exists()
 

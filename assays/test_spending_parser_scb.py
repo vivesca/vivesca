@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from metabolon.respirometry.parsers.scb import parse_scb
+from metabolon.respirometry.parsers.scb import extract_scb
 from metabolon.respirometry.schema import StatementMeta
 
 FIXTURE = Path(__file__).parent / "fixtures" / "scb_mar2026.pdf"
@@ -13,7 +13,7 @@ FIXTURE = Path(__file__).parent / "fixtures" / "scb_mar2026.pdf"
 @pytest.mark.skipif(not FIXTURE.exists(), reason="test fixture not available")
 class TestScbParser:
     def setup_method(self):
-        self.meta, self.txns = parse_scb(FIXTURE)
+        self.meta, self.txns = extract_scb(FIXTURE)
 
     def test_returns_metadata(self):
         assert isinstance(self.meta, StatementMeta)
