@@ -47,6 +47,18 @@ Output: completed table + top 3 gaps ranked by operational impact.
 Titrate against the 21 design patterns. Reference: `~/epigenome/chromatin/Reference/andrews-21-patterns-titration.md`.
 Score each pattern: **implemented / partial / absent**. Surface the highest-leverage absences.
 
+## Grounding Step
+
+Before any mapping, fetch the real biology. Symbiont recall is lossy — titrating against a hallucination produces decorative names, not design insights.
+
+```
+lysin "<term>"              # summary + mechanism
+lysin "<term>" --full       # all sections
+lysin "<term>" --json       # structured output for programmatic use
+```
+
+Run `lysin` for every biological name in the titration. Read the mechanism. Only then map.
+
 ## Key Principles
 
 - **The break is the insight.** Where the analogy fails is not a problem — it is the finding. Mine it.

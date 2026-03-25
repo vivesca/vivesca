@@ -72,3 +72,7 @@ effectors/photoreception
 effectors/interphase-gather
 effectors/salus
 effectors/synaxis
+
+# External CC plugin repos (their own git)
+membrane/receptors/compound-engineering/
+membrane/receptors/superpowers/

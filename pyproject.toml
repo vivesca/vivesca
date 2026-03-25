@@ -28,6 +28,7 @@ ultradian-gather = "metabolon.pinocytosis.ultradian:main"
 ecdysis-gather = "metabolon.pinocytosis.ecdysis:main"
 photoreception-gather = "metabolon.pinocytosis.photoreception:main"
 polarization-gather = "metabolon.pinocytosis.polarization:main"
+lysin = "metabolon.lysin.cli:main"
 
 [dependency-groups]
 dev = ["pytest", "pytest-asyncio", "ruff", "pyright", "pre-commit", "codespell", "pytest-cov"]
