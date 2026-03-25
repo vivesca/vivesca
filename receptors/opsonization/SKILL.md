@@ -28,17 +28,17 @@ Scenario-based drill for upcoming meetings. Generates likely questions, objectio
 
 If the user provides a meeting description, use it directly. If they reference a note or person, read the relevant vault files:
 
-- `~/notes/MOC - Capco & HSBC Engagement.md` — if Capco/HSBC-related
-- `~/notes/Job Hunting.md` — CV narrative, comp, story framing
-- `~/notes/Interview Q&A Bank.md` — prepared answers for common questions
-- `~/notes/Core Story Bank.md` — STAR-format behavioral stories
-- `~/notes/Praxis.md` — for meeting-specific context and deadlines
+- `~/code/vivesca-terry/chromatin/MOC - Capco & HSBC Engagement.md` — if Capco/HSBC-related
+- `~/code/vivesca-terry/chromatin/Job Hunting.md` — CV narrative, comp, story framing
+- `~/code/vivesca-terry/chromatin/Interview Q&A Bank.md` — prepared answers for common questions
+- `~/code/vivesca-terry/chromatin/Core Story Bank.md` — STAR-format behavioral stories
+- `~/code/vivesca-terry/chromatin/Praxis.md` — for meeting-specific context and deadlines
 - Any person-specific or company-specific notes the user mentions
 
 Also read these for Terry's personal background and career context:
-- `~/notes/Capco/Capco Transition.md` — current role, transition context, Capco engagement
-- `~/notes/CNCBI Project Facts.md` — CNCBI project history, achievements, key facts
-- `~/notes/Core Story Bank.md` — STAR-format behavioral stories for behavioral questions
+- `~/code/vivesca-terry/chromatin/Capco/Capco Transition.md` — current role, transition context, Capco engagement
+- `~/code/vivesca-terry/chromatin/CNCBI Project Facts.md` — CNCBI project history, achievements, key facts
+- `~/code/vivesca-terry/chromatin/Core Story Bank.md` — STAR-format behavioral stories for behavioral questions
 
 ### 2. Generate Question
 
@@ -96,7 +96,7 @@ After the user answers:
 
 ### 6. Save Prep Notes (optional)
 
-Ask if they want to save. If yes, save to `~/notes/Meeting Prep - [Context].md` with:
+Ask if they want to save. If yes, save to `~/code/vivesca-terry/chromatin/Meeting Prep - [Context].md` with:
 - Meeting context header
 - Key talking points (best framings from session)
 - Any flagged blind spots
@@ -105,7 +105,7 @@ Ask if they want to save. If yes, save to `~/notes/Meeting Prep - [Context].md` 
 ## Error Handling
 
 - **If no meeting context given**: Ask via AskUserQuestion — "Which meeting are you prepping for?" with recent upcoming meetings from Praxis.md as options
-- **If referenced note doesn't exist**: Fall back to user's description + background from `~/notes/Capco/Capco Transition.md` and `~/notes/CNCBI Project Facts.md`
+- **If referenced note doesn't exist**: Fall back to user's description + background from `~/code/vivesca-terry/chromatin/Capco/Capco Transition.md` and `~/code/vivesca-terry/chromatin/CNCBI Project Facts.md`
 - **If user wants to stop mid-session**: Show partial summary with talking points so far
 
 ## Output

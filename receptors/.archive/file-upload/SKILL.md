@@ -100,7 +100,7 @@ Use when:
 ## Common File Paths
 
 - CV: Search for latest `Terry_Li_CV*.pdf` (location may change — check iCloud Drive, Downloads, or Desktop)
-- Notes: `/Users/terry/notes/`
+- Notes: `/Users/terry/code/vivesca-terry/chromatin/`
 
 ## Limitations
 

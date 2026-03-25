@@ -71,9 +71,9 @@ Skill names map to `~/skills/<name>/SKILL.md`.
 | interphase | Daily note "Interphase" section + NOW.md updated + Email Threads Tracker |
 | sorting | Triaged inbox + Email Threads Tracker updated |
 | involution | Daily note "Evening brain dump" section |
-| ecdysis | Weekly note (~/notes/Weekly/YYYY-Www.md) |
-| mitosis | Monthly Review note (~/notes/Monthly Review - YYYY-MM.md) + Praxis.md updated |
-| meiosis | Quarterly note (~/notes/Quarterly/YYYY-QX.md) + Life OS updated |
+| ecdysis | Weekly note (~/code/vivesca-terry/chromatin/Weekly/YYYY-Www.md) |
+| mitosis | Monthly Review note (~/code/vivesca-terry/chromatin/Monthly Review - YYYY-MM.md) + Praxis.md updated |
+| meiosis | Quarterly note (~/code/vivesca-terry/chromatin/Quarterly/YYYY-QX.md) + Life OS updated |
 
 ### Missing Signals
 
@@ -82,7 +82,7 @@ Skill names map to `~/skills/<name>/SKILL.md`.
 3. **entrainment → arousal**: both are morning skills but not chained — user invokes them independently. If entrainment finds system warnings, it doesn't cascade into arousal for deeper triage.
 4. **ecdysis job alerts → adhesion**: ecdysis surfaces unchecked job alert roles but does not route them to `/adhesion` — just mentions them.
 5. **meiosis → ecdysis**: quarterly direction update (Life OS) doesn't automatically propagate into the weekly planning cycle. Weekly focus picks could be inconsistent with quarterly priorities.
-6. **interphase "what shipped" → expression sparks**: daily ship summary dies in the daily note; no mechanism to route it into `~/notes/Consulting/_sparks.md` for weekly forging.
+6. **interphase "what shipped" → expression sparks**: daily ship summary dies in the daily note; no mechanism to route it into `~/code/vivesca-terry/chromatin/Consulting/_sparks.md` for weekly forging.
 
 ### Missing Feedback Loops
 
@@ -234,7 +234,7 @@ Skill names map to `~/skills/<name>/SKILL.md`.
 1. **chemotaxis → expression**: chemotaxis patterns classified as `stack` go to "Skill update or rector task" — but no mechanism propagates these patterns INTO expression's spark intake. The connection is manual.
 2. **expression → opsonization**: expression synthesis creates cross-pollination maps and talk seeds, but no signal fires to opsonization to say "new IP available for meeting prep."
 3. **chemoreception → expression**: chemoreception adds governance gap rows to the regulatory gap assessment, but doesn't generate a spark in `_sparks.md` for the expression forge to pick up.
-4. **expression intelligence worker → ecdysis**: the weekly intelligence brief in `~/notes/Consulting/_weekly/` is never referenced in weekly planning (ecdysis) — two parallel views of "what happened this week" with no connection.
+4. **expression intelligence worker → ecdysis**: the weekly intelligence brief in `~/code/vivesca-terry/chromatin/Consulting/_weekly/` is never referenced in weekly planning (ecdysis) — two parallel views of "what happened this week" with no connection.
 
 ### Missing Feedback Loops
 
@@ -244,7 +244,7 @@ Skill names map to `~/skills/<name>/SKILL.md`.
 
 ### Dead Ends
 
-- `~/notes/Consulting/_weekly/YYYY-WNN.md` intelligence briefs — filed and forgotten unless Terry reads them manually
+- `~/code/vivesca-terry/chromatin/Consulting/_weekly/YYYY-WNN.md` intelligence briefs — filed and forgotten unless Terry reads them manually
 - `Specula/YYYY-MM Peer Scan.md` peer scan outputs — accumulate but no systematic review
 - expression's "talk seeds" (combinations of experiment + use case + insight) — identified but no downstream path to actually submit a conference talk proposal
 
@@ -277,7 +277,7 @@ Skill names map to `~/skills/<name>/SKILL.md`.
 
 ### Missing Signals
 
-1. **phagocytosis → expression sparks**: articles and insights saved to vault could directly seed `~/notes/Consulting/_sparks.md`, but no mechanism routes them there. The connection is manual at best.
+1. **phagocytosis → expression sparks**: articles and insights saved to vault could directly seed `~/code/vivesca-terry/chromatin/Consulting/_sparks.md`, but no mechanism routes them there. The connection is manual at best.
 2. **adhesion APPLY → polymerization**: when adhesion recommends APPLY, it asks if user wants to proceed, but doesn't automatically create a Praxis.md follow-up task for application steps.
 3. **adhesion anti-signals**: red flag patterns come from `[[Job Hunting]] → Anti-Signals`, but there is no mechanism to UPDATE anti-signals from adhesion outcomes (the debrief skill that did this is archived).
 
@@ -322,7 +322,7 @@ Skill names map to `~/skills/<name>/SKILL.md`.
 | Cell | Output |
 |------|--------|
 | restriction-point | One sentence: readiness score + workout recommendation |
-| differentiation | Gym log file (~/notes/Health/Gym Log - YYYY-MM-DD.md) |
+| differentiation | Gym log file (~/code/vivesca-terry/chromatin/Health/Gym Log - YYYY-MM-DD.md) |
 | opsonization | Session summary + key talking points; optional Meeting Prep note |
 | autophagy | Behavioral mode only — no persistent output |
 
@@ -335,7 +335,7 @@ Skill names map to `~/skills/<name>/SKILL.md`.
 
 ### Missing Feedback Loops
 
-1. **Gym progression analysis**: gym logs accumulate in ~/notes/Health/ but no skill reads them periodically for plateau detection or progression analysis. Differentiation reads the LATEST log, not trends.
+1. **Gym progression analysis**: gym logs accumulate in ~/code/vivesca-terry/chromatin/Health/ but no skill reads them periodically for plateau detection or progression analysis. Differentiation reads the LATEST log, not trends.
 2. **Post-meeting debrief**: opsonization prepares for meetings but there is no structured post-meeting capture skill. What questions came up? What landed? What missed? This was handled by the archived `debrief` skill.
 3. **Autophagy session quality**: the skill has a self-test ("did Terry produce something or consume?") but no tracking mechanism. Growth mode sessions can fail without detection.
 4. **Meeting prep accuracy**: opsonization's MCQs are scenario-based but there's no comparison between what was drilled and what actually came up in the meeting.
@@ -372,7 +372,7 @@ Skill names map to `~/skills/<name>/SKILL.md`.
 
 | Cell | Output |
 |------|--------|
-| polarization | Copia report (~/notes/Copia Reports/YYYY-MM-DD.md) + Praxis.md review items + self-sufficient outputs archived |
+| polarization | Copia report (~/code/vivesca-terry/chromatin/Copia Reports/YYYY-MM-DD.md) + Praxis.md review items + self-sufficient outputs archived |
 | translocation | Background job dispatched; results in ~/.cache/kinesin-runs/ |
 | arousal | Morning brief with NEEDS_ATTENTION items surfaced |
 
@@ -380,7 +380,7 @@ Skill names map to `~/skills/<name>/SKILL.md`.
 
 1. **involution → translocation (THE KEY GAP)**: involution explicitly proposes overnight agent tasks ("Want me to queue an agent to research X tonight?"), but `translocation`/kinesin is NEVER invoked within involution. The proposal dies in chat. There is no structured handoff.
 2. **arousal → ultradian**: NEEDS_ATTENTION items from arousal don't automatically feed into the ultradian situational snapshot later in the day.
-3. **polarization quality → expression**: copia reports track what was produced, but don't automatically seed `~/notes/Consulting/_sparks.md` with produced IP. Two parallel production pipelines with no connection.
+3. **polarization quality → expression**: copia reports track what was produced, but don't automatically seed `~/code/vivesca-terry/chromatin/Consulting/_sparks.md` with produced IP. Two parallel production pipelines with no connection.
 
 ### Missing Feedback Loops
 
@@ -390,7 +390,7 @@ Skill names map to `~/skills/<name>/SKILL.md`.
 
 ### Dead Ends
 
-- `~/notes/Copia Reports/YYYY-MM-DD.md` — filed and not reviewed by any other skill
+- `~/code/vivesca-terry/chromatin/Copia Reports/YYYY-MM-DD.md` — filed and not reviewed by any other skill
 - Kinesin results in `~/.cache/kinesin-runs/` — ephemeral unless `output_dir` is set; arousal surfaces them once, then they're gone
 - `~/tmp/polarization-session.md` — archived per-run but no longitudinal trace
 
@@ -468,9 +468,9 @@ Skill names map to `~/skills/<name>/SKILL.md`.
 
 | Cell | Output |
 |------|--------|
-| quorum | Council output in ~/notes/Councils/ + decision recommendation |
+| quorum | Council output in ~/code/vivesca-terry/chromatin/Councils/ + decision recommendation |
 | proofreading | Top 3 challenges ranked by severity (chat only) |
-| transcription-factor | Decision note (~/notes/decisions/YYYY-MM-DD-<slug>.md) |
+| transcription-factor | Decision note (~/code/vivesca-terry/chromatin/decisions/YYYY-MM-DD-<slug>.md) |
 
 ### Missing Signals
 
@@ -481,14 +481,14 @@ Skill names map to `~/skills/<name>/SKILL.md`.
 ### Missing Feedback Loops
 
 1. **Decision outcomes**: transcription-factor's bouncer pattern detects recurrence (returning to a decided topic = implicit failure signal), but there's no explicit "how did this turn out?" review. Outcomes are inferred from recurrence, not captured.
-2. **Council performance**: quorum outputs accumulate in ~/notes/Councils/ but no skill reviews them for quality, consistency, or whether the recommended decisions turned out to be correct.
+2. **Council performance**: quorum outputs accumulate in ~/code/vivesca-terry/chromatin/Councils/ but no skill reviews them for quality, consistency, or whether the recommended decisions turned out to be correct.
 3. **Proofreading persistence**: proofreading output dies in chat unless cytokinesis captures it. The strongest counterarguments to a plan have no persistent home.
 
 ### Dead Ends
 
 - `proofreading` output → chat only, dies with session
-- `~/notes/Councils/` → accumulates without longitudinal review
-- `~/notes/decisions/` → reviewed only via transcription-factor bouncer, not periodically
+- `~/code/vivesca-terry/chromatin/Councils/` → accumulates without longitudinal review
+- `~/code/vivesca-terry/chromatin/decisions/` → reviewed only via transcription-factor bouncer, not periodically
 
 ---
 
@@ -539,7 +539,7 @@ Skill names map to `~/skills/<name>/SKILL.md`.
 
 - `Tonus.md` — updated by cytokinesis, read by nobody
 - `Praxis Archive.md` — completed tasks filed and never reviewed
-- `~/notes/Meta/Analyze Telemetry.md` (phagocytosis) — write-only
+- `~/code/vivesca-terry/chromatin/Meta/Analyze Telemetry.md` (phagocytosis) — write-only
 
 ---
 
@@ -597,7 +597,7 @@ Skill names map to `~/skills/<name>/SKILL.md`.
 
 ### 2. The Sparks Starvation Problem
 
-`expression` runs weekly and consumes `~/notes/Consulting/_sparks.md`. The sparks are supposed to be populated by a daily kinesin agent. But:
+`expression` runs weekly and consumes `~/code/vivesca-terry/chromatin/Consulting/_sparks.md`. The sparks are supposed to be populated by a daily kinesin agent. But:
 - `phagocytosis` vault notes don't route to sparks
 - `interphase` "what shipped" doesn't route to sparks
 - `chemotaxis` patterns don't route to sparks

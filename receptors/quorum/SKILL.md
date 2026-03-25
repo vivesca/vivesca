@@ -87,7 +87,7 @@ quorum --prompt-file /tmp/prompt.txt --deep --vault
 quorum --quick --quiet --domain banking -o ~/code/vivesca/loci/solutions/agent-tests/<name>.md "..."
 ```
 
-- `--vault` auto-saves to `~/notes/Councils/` with Obsidian Sync. Never `--output /tmp/` — wiped on reboot.
+- `--vault` auto-saves to `~/code/vivesca-terry/chromatin/Councils/` with Obsidian Sync. Never `--output /tmp/` — wiped on reboot.
 - **Always `run_in_background: true`** on the Bash tool.
 - Running 4+ parallel `--council` hits OpenRouter rate limits — use `--quick` for parallel batch runs.
 
@@ -99,7 +99,7 @@ quorum "..." --quick > ~/tmp/consi-<name>.txt 2>&1
 cat ~/tmp/consi-<name>.txt
 ```
 
-**Step 3: Parse and present** — read `[DECISION]` line, read vault file in `~/notes/Councils/`, synthesize: decision + key reasoning + dissents + cost. Never dump raw transcript into context.
+**Step 3: Parse and present** — read `[DECISION]` line, read vault file in `~/code/vivesca-terry/chromatin/Councils/`, synthesize: decision + key reasoning + dissents + cost. Never dump raw transcript into context.
 
 ---
 

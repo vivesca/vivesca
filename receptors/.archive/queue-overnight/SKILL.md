@@ -20,7 +20,7 @@ Queue background agents to run job hunting tasks while Terry sleeps. Results are
 1. **Get today's date** in `YYYY-MM-DD` format (HKT timezone)
 
 2. **Read context:**
-   - `/Users/terry/notes/Job Hunting.md` — check for upcoming interviews
+   - `/Users/terry/code/vivesca-terry/chromatin/Job Hunting.md` — check for upcoming interviews
    - Note any interviews in next 2 days that need prep
 
 3. **Confirm tasks to queue** (quick check with user):
@@ -43,7 +43,7 @@ Queue background agents to run job hunting tasks while Terry sleeps. Results are
    - `/interview-prep [company]` — deep research for upcoming interview
 
 5. **Create overnight summary file:**
-   - Path: `/Users/terry/notes/Overnight Queue - YYYY-MM-DD.md`
+   - Path: `/Users/terry/code/vivesca-terry/chromatin/Overnight Queue - YYYY-MM-DD.md`
    - Lists what's queued and expected outputs
    - Morning can check this + the output files
 
@@ -63,7 +63,7 @@ Run /process-job-alerts skill:
 1. Fetch recent LinkedIn job alert emails from Gmail
 2. Extract job URLs and filter against existing pipeline
 3. Quick-assess each role for fit
-4. Write summary to /Users/terry/notes/Job Alert Review - YYYY-MM-DD.md
+4. Write summary to /Users/terry/code/vivesca-terry/chromatin/Job Alert Review - YYYY-MM-DD.md
 
 Include:
 - Table of roles found with PASS/CONSIDER verdict
@@ -78,7 +78,7 @@ Run /scan-pipeline skill in full mode:
 2. Identify stale applications (>7 days no activity)
 3. Identify pending follow-ups
 4. Check for upcoming interviews needing prep
-5. Write to /Users/terry/notes/Pipeline Scan - YYYY-MM-DD.md
+5. Write to /Users/terry/code/vivesca-terry/chromatin/Pipeline Scan - YYYY-MM-DD.md
 
 Include:
 - Pipeline health summary
@@ -92,12 +92,12 @@ Run /interview-prep for [Company]:
 1. Research company deeply
 2. Pull relevant stories from Core Story Bank
 3. Match experience to role requirements
-4. Write to /Users/terry/notes/Interview Prep - [Company] - YYYY-MM-DD.md
+4. Write to /Users/terry/code/vivesca-terry/chromatin/Interview Prep - [Company] - YYYY-MM-DD.md
 ```
 
 ## Output
 
-**Overnight Queue file** at `/Users/terry/notes/Overnight Queue - YYYY-MM-DD.md`:
+**Overnight Queue file** at `/Users/terry/code/vivesca-terry/chromatin/Overnight Queue - YYYY-MM-DD.md`:
 
 ```markdown
 # Overnight Queue - YYYY-MM-DD

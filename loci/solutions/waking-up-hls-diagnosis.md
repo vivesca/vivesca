@@ -106,7 +106,7 @@ from pathlib import Path
 with open('/Users/terry/code/wu/batch_phase3.json') as f:
     items = json.load(f)
 
-vault_base = Path('/Users/terry/notes/Waking Up')
+vault_base = Path('/Users/terry/code/vivesca-terry/chromatin/Waking Up')
 pending = []
 for item in items:
     found = list(vault_base.rglob(f"{item['title']}.md"))

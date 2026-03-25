@@ -5,7 +5,7 @@
 ### AIA Group (AIA Hong Kong and Macau) — ARCHIVED
 - Researched: 2026-03-05. Archived: 2026-03-20 (process concluded; role no longer active).
 - Context: AI Architect role, Data Science Lab COE & Transformation — interview prep for Mar 6 call.
-- Note saved: `/Users/terry/notes/Archive/Job_Hunting_2026/Prep/AIA AI Architect - Call Prep (Mar 6).md`
+- Note saved: `/Users/terry/code/vivesca-terry/chromatin/Archive/Job_Hunting_2026/Prep/AIA AI Architect - Call Prep (Mar 6).md`
 - Sources that proved reliable (reuse for future AIA/HK insurance research):
   - DigFinGroup (digfingroup.com) — good for AIA strategy depth
   - Insurance Business Asia (insurancebusinessmag.com) — IA regulatory news

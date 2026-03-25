@@ -6,7 +6,7 @@ user_invocable: false
 
 # Vault Pathfinding
 
-Standard paths and conventions for Terry's Obsidian vault at `~/notes/`.
+Standard paths and conventions for Terry's Obsidian vault at `~/code/vivesca-terry/chromatin/`.
 
 ## Core Files
 
@@ -72,13 +72,13 @@ If a file doesn't exist:
 
 ```bash
 # Find all evaluations for a company
-grep -l "Company Name" ~/notes/*.md
+grep -l "Company Name" ~/code/vivesca-terry/chromatin/*.md
 
 # Find all roles with a specific anti-signal
-grep -l "too junior" ~/notes/Job\ Hunting\ -\ Passed\ Roles.md
+grep -l "too junior" ~/code/vivesca-terry/chromatin/Job\ Hunting\ -\ Passed\ Roles.md
 
 # Find recent daily notes
-ls -t ~/notes/2026-*.md | head -5
+ls -t ~/code/vivesca-terry/chromatin/2026-*.md | head -5
 ```
 
 ## Related Skills

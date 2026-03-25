@@ -28,8 +28,8 @@ Use when:
    - Identify key themes (leadership, technical depth, stakeholder management, etc.)
 
 2. **Load Terry's experience**:
-   - Read `/Users/terry/notes/CLAUDE.md` for background
-   - Read `/Users/terry/notes/Core Story Bank.md` if exists
+   - Read `/Users/terry/code/vivesca-terry/chromatin/CLAUDE.md` for background
+   - Read `/Users/terry/code/vivesca-terry/chromatin/Core Story Bank.md` if exists
    - Read master CV/resume if available
 
 3. **Identify keyword gaps**:
@@ -123,6 +123,6 @@ This skill works well in sequence:
 
 ## Files
 
-- Master context: `/Users/terry/notes/CLAUDE.md`
-- Story bank: `/Users/terry/notes/Core Story Bank.md`
-- Job tracking: `/Users/terry/notes/Job Hunting.md`
+- Master context: `/Users/terry/code/vivesca-terry/chromatin/CLAUDE.md`
+- Story bank: `/Users/terry/code/vivesca-terry/chromatin/Core Story Bank.md`
+- Job tracking: `/Users/terry/code/vivesca-terry/chromatin/Job Hunting.md`

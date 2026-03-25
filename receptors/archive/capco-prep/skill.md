@@ -28,18 +28,18 @@ Default (no args) = **drill** mode.
 
 ## Data
 
-- **Questions:** `~/notes/Capco/Capco Readiness Drill.md` — 40 numbered questions in 7 categories (A-G): tiering framework, regulatory landscape, AI/FS knowledge, consulting delivery, Capco culture, client questions (HSBC context), personal narrative
-- **State:** `~/notes/Capco/.capco-drill-state.json` — drill history and ratings
-- **Reference:** Questions link to source material in `~/notes/Capco/` — read if user asks "what's the answer?"
-- **Verbal Narrative Bank:** `~/notes/Capco/Verbal Narrative Bank.md` — practiced narratives for client and team introductions
-- **Client First Meeting Cheat Sheet:** `~/notes/Capco/Client First Meeting Cheat Sheet.md` — HSBC-specific first impression guide
-- **90-Day Scorecard:** `~/notes/Capco/90-Day Success Scorecard.md` — success metrics and gates for first 90 days
+- **Questions:** `~/code/vivesca-terry/chromatin/Capco/Capco Readiness Drill.md` — 40 numbered questions in 7 categories (A-G): tiering framework, regulatory landscape, AI/FS knowledge, consulting delivery, Capco culture, client questions (HSBC context), personal narrative
+- **State:** `~/code/vivesca-terry/chromatin/Capco/.capco-drill-state.json` — drill history and ratings
+- **Reference:** Questions link to source material in `~/code/vivesca-terry/chromatin/Capco/` — read if user asks "what's the answer?"
+- **Verbal Narrative Bank:** `~/code/vivesca-terry/chromatin/Capco/Verbal Narrative Bank.md` — practiced narratives for client and team introductions
+- **Client First Meeting Cheat Sheet:** `~/code/vivesca-terry/chromatin/Capco/Client First Meeting Cheat Sheet.md` — HSBC-specific first impression guide
+- **90-Day Scorecard:** `~/code/vivesca-terry/chromatin/Capco/90-Day Success Scorecard.md` — success metrics and gates for first 90 days
 
 ## Workflow
 
 ### 1. Load State
 
-Read `~/notes/Capco/.capco-drill-state.json`. If it doesn't exist, create it:
+Read `~/code/vivesca-terry/chromatin/Capco/.capco-drill-state.json`. If it doesn't exist, create it:
 
 ```json
 {
@@ -112,7 +112,7 @@ If all 40 questions have been drilled at least once, congratulate and suggest re
 
 ## Error Handling
 
-- **If question bank file missing:** Tell user to check `~/notes/Capco/Capco Readiness Drill.md`
+- **If question bank file missing:** Tell user to check `~/code/vivesca-terry/chromatin/Capco/Capco Readiness Drill.md`
 - **If state file corrupt:** Delete and recreate empty state
 - **If user gives a rating not in (confident/shaky/blank):** Map synonyms — "good"/"solid"/"yes" → confident, "ok"/"partial"/"sort of" → shaky, "no"/"nothing"/"skip" → blank
 
@@ -126,12 +126,12 @@ Pull-based replacement for the daily cron. User pulls when they want it, not pus
 
 1. **Run `date` first** — know the current date and days until Apr 8, 2026 start.
 
-2. **Check First 30 Days checklist** — Read `~/notes/Capco/Capco - First 30 Days.md`. Identify one unchecked item that's actionable today. Prioritise "Must do" over "Should do" over "Nice to have".
+2. **Check First 30 Days checklist** — Read `~/code/vivesca-terry/chromatin/Capco/Capco - First 30 Days.md`. Identify one unchecked item that's actionable today. Prioritise "Must do" over "Should do" over "Nice to have".
 
 3. **Search for fresh Capco content** — Web search for recent Capco publications on AI governance, financial crime, compliance technology. Filter to last 7 days. Also search HKMA + MAS + FCA for AI/fintech announcements.
    - If web search fails, output "No fresh signals retrieved" and continue with checklist + drill state only.
 
-4. **Check drill weak spots** — Read `~/notes/Capco/.capco-drill-state.json`. If there are "blank" or "shaky" questions, suggest revisiting one.
+4. **Check drill weak spots** — Read `~/code/vivesca-terry/chromatin/Capco/.capco-drill-state.json`. If there are "blank" or "shaky" questions, suggest revisiting one.
    - If state file read fails, skip weak-spot suggestion.
 
 5. **Output format** — concise, no fluff:
@@ -162,7 +162,7 @@ Meeting-specific preparation. The `<event>` is a free-text description like "cof
 1. **Identify the person(s)** from the event description.
    - If no person can be identified, ask one clarification question before proceeding.
 
-2. **Check vault first** — Search `~/notes/Capco/` for existing prep notes (e.g., `Coffee Prep - Simon and Tobin.md`, `Bertie Haskins Profile.md`). Read any matches.
+2. **Check vault first** — Search `~/code/vivesca-terry/chromatin/Capco/` for existing prep notes (e.g., `Coffee Prep - Simon and Tobin.md`, `Bertie Haskins Profile.md`). Read any matches.
    - If no matches, continue with web search only.
 
 3. **Web search for context** — Search LinkedIn and recent activity for each person. Search for any recent Capco publications they authored.
@@ -200,7 +200,7 @@ Quick dashboard of drill progress.
 
 ### Workflow
 
-1. Read `~/notes/Capco/.capco-drill-state.json` and `~/notes/Capco/Capco Readiness Drill.md`.
+1. Read `~/code/vivesca-terry/chromatin/Capco/.capco-drill-state.json` and `~/code/vivesca-terry/chromatin/Capco/Capco Readiness Drill.md`.
 
 2. Output:
 

@@ -19,7 +19,7 @@ Official headless client for Obsidian Sync (`obsidian-headless` npm package, CLI
 npm install -g obsidian-headless
 ob login                    # interactive — prompts for email/password/MFA
 ob sync-list-remote         # find vault name/ID
-cd ~/notes
+cd ~/code/vivesca-terry/chromatin
 ob sync-setup --vault "Notes" --device-name "iMac-headless"  # prompts for E2E password
 ob sync                     # one-shot test
 ob sync --continuous        # daemon mode
@@ -29,7 +29,7 @@ ob sync --continuous        # daemon mode
 
 Plist: `~/agent-config/launchd/md.obsidian.sync-headless.plist` (symlinked to `~/Library/LaunchAgents/`).
 
-- Runs `ob sync --continuous --path /Users/terry/notes`
+- Runs `ob sync --continuous --path /Users/terry/code/vivesca-terry/chromatin`
 - `KeepAlive: true` — auto-restarts on crash
 - `RunAtLoad: true` — starts on login
 - Log: `~/Library/Logs/obsidian-sync-headless.log`
@@ -46,7 +46,7 @@ launchctl unload ~/Library/LaunchAgents/md.obsidian.sync-headless.plist  # disab
 
 ## Desktop App Sync Disabled
 
-Set `"sync": false` in `~/notes/.obsidian/core-plugins.json` to avoid duplicate syncing. The headless daemon handles it. To re-enable desktop sync (e.g., travelling): flip back to `true` and restart Obsidian.
+Set `"sync": false` in `~/code/vivesca-terry/chromatin/.obsidian/core-plugins.json` to avoid duplicate syncing. The headless daemon handles it. To re-enable desktop sync (e.g., travelling): flip back to `true` and restart Obsidian.
 
 ## Key Commands
 

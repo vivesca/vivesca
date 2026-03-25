@@ -9,7 +9,7 @@ user_invocable: true
 ## Before the session
 
 1. Run `check-exercise-readiness` skill. Honour thresholds (<70 light, 70-75 moderate, >75 full).
-2. Find the latest gym log: `~/notes/Health/Gym Log - *.md`. Read it for working weights, notes for next session, and any form fixes flagged.
+2. Find the latest gym log: `~/code/vivesca-terry/chromatin/Health/Gym Log - *.md`. Read it for working weights, notes for next session, and any form fixes flagged.
 3. Prescribe today's exercises with target weights and rep ranges based on the log. Don't hardcode a programme — read from vault each time.
 
 ## During the session
@@ -26,7 +26,7 @@ user_invocable: true
 
 ## After the session
 
-8. Write the completed log to `~/notes/Health/Gym Log - YYYY-MM-DD.md` using this format:
+8. Write the completed log to `~/code/vivesca-terry/chromatin/Health/Gym Log - YYYY-MM-DD.md` using this format:
 
 ```
 ---

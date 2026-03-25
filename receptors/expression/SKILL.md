@@ -19,9 +19,9 @@ Produces consulting intellectual capital from the week's accumulated sparks, AI 
 ## Prerequisites
 
 Before running, verify:
-- `~/notes/Consulting/_sparks.md` has content (daily spark agent has been running)
-- `~/notes/Thalamus.md` exists (landscape context)
-- `~/notes/AI News Log.md` exists (raw news)
+- `~/code/vivesca-terry/chromatin/Consulting/_sparks.md` has content (daily spark agent has been running)
+- `~/code/vivesca-terry/chromatin/Thalamus.md` exists (landscape context)
+- `~/code/vivesca-terry/chromatin/AI News Log.md` exists (raw news)
 
 If sparks are empty, warn Terry and offer to run a one-off spark generation first.
 
@@ -32,12 +32,12 @@ If sparks are empty, warn Terry and offer to run a one-off spark generation firs
 Read all inputs and produce a work plan:
 
 **Inputs to read:**
-1. `~/notes/Consulting/_sparks.md` — this week's pre-triaged sparks
-2. `~/notes/Thalamus.md` — AI landscape synthesis
-3. `~/notes/North Star.md` — taste filter
-4. `~/notes/AI News Log.md` — last 7 days (for context the sparks may have missed)
-5. Existing library: `ls ~/notes/Consulting/{Policies,Architectures,"Use Cases",Experiments}/` — for dedup and enrichment
-6. Recent client work: `git log --oneline --since="7 days ago" -- ~/notes/Capco/ ~/notes/HSBC/ 2>/dev/null` (if any)
+1. `~/code/vivesca-terry/chromatin/Consulting/_sparks.md` — this week's pre-triaged sparks
+2. `~/code/vivesca-terry/chromatin/Thalamus.md` — AI landscape synthesis
+3. `~/code/vivesca-terry/chromatin/North Star.md` — taste filter
+4. `~/code/vivesca-terry/chromatin/AI News Log.md` — last 7 days (for context the sparks may have missed)
+5. Existing library: `ls ~/code/vivesca-terry/chromatin/Consulting/{Policies,Architectures,"Use Cases",Experiments}/` — for dedup and enrichment
+6. Recent client work: `git log --oneline --since="7 days ago" -- ~/code/vivesca-terry/chromatin/Capco/ ~/code/vivesca-terry/chromatin/HSBC/ 2>/dev/null` (if any)
 
 **Plan output:** Which sparks map to which workers. Which existing assets to enrich. What cross-pollination opportunities exist.
 
@@ -53,12 +53,12 @@ Create a team and dispatch 6 parallel workers. Each worker gets:
 
 | Worker | Scope | Output directory |
 |--------|-------|-----------------|
-| content | Garden post drafts (via sarcio) + LinkedIn seeds | `~/notes/Writing/Blog/Published/` + append to `_sparks.md` |
-| policy | P&P templates, regulatory deltas, framework updates | `~/notes/Consulting/Policies/` |
-| architecture | Reference architectures, patterns, component notes | `~/notes/Consulting/Architectures/` |
-| use-case | Use case entries with structured frontmatter | `~/notes/Consulting/Use Cases/` |
-| experiment | Experiment designs (NOT execution), technique comparisons | `~/notes/Consulting/Experiments/` |
-| intelligence | Weekly brief + competitor lens from `#competitor` sparks | `~/notes/Consulting/_weekly/` (embedded in weekly report) |
+| content | Garden post drafts (via sarcio) + LinkedIn seeds | `~/code/vivesca-terry/chromatin/Writing/Blog/Published/` + append to `_sparks.md` |
+| policy | P&P templates, regulatory deltas, framework updates | `~/code/vivesca-terry/chromatin/Consulting/Policies/` |
+| architecture | Reference architectures, patterns, component notes | `~/code/vivesca-terry/chromatin/Consulting/Architectures/` |
+| use-case | Use case entries with structured frontmatter | `~/code/vivesca-terry/chromatin/Consulting/Use Cases/` |
+| experiment | Experiment designs (NOT execution), technique comparisons | `~/code/vivesca-terry/chromatin/Consulting/Experiments/` |
+| intelligence | Weekly brief + competitor lens from `#competitor` sparks | `~/code/vivesca-terry/chromatin/Consulting/_weekly/` (embedded in weekly report) |
 
 **Worker instructions template:**
 
@@ -89,7 +89,7 @@ Rules:
 
 **Frontmatter schemas — embed these verbatim in each worker prompt:**
 
-**policy worker** (`~/notes/Consulting/Policies/`):
+**policy worker** (`~/code/vivesca-terry/chromatin/Consulting/Policies/`):
 ```yaml
 ---
 type: guideline | framework | standard | checklist
@@ -101,7 +101,7 @@ created: YYYY-MM-DD
 ---
 ```
 
-**architecture worker** (`~/notes/Consulting/Architectures/`):
+**architecture worker** (`~/code/vivesca-terry/chromatin/Consulting/Architectures/`):
 ```yaml
 ---
 type: pattern | reference-architecture | component | integration
@@ -112,7 +112,7 @@ created: YYYY-MM-DD
 ---
 ```
 
-**use-case worker** (`~/notes/Consulting/Use Cases/`):
+**use-case worker** (`~/code/vivesca-terry/chromatin/Consulting/Use Cases/`):
 ```yaml
 ---
 type: use-case
@@ -125,7 +125,7 @@ created: YYYY-MM-DD
 ---
 ```
 
-**experiment worker** (`~/notes/Consulting/Experiments/`):
+**experiment worker** (`~/code/vivesca-terry/chromatin/Consulting/Experiments/`):
 ```yaml
 ---
 type: benchmark | tabletop | ablation | pilot
@@ -138,7 +138,7 @@ created: YYYY-MM-DD
 ---
 ```
 
-**content worker** (`~/notes/Writing/Blog/Published/`):
+**content worker** (`~/code/vivesca-terry/chromatin/Writing/Blog/Published/`):
 ```yaml
 ---
 title: "Post Title Here"
@@ -150,7 +150,7 @@ tags: [tag1, tag2, tag3]
 ---
 ```
 
-**intelligence worker** (`~/notes/Consulting/_weekly/`):
+**intelligence worker** (`~/code/vivesca-terry/chromatin/Consulting/_weekly/`):
 ```yaml
 ---
 type: intelligence-brief
@@ -179,9 +179,9 @@ Run a synthesis agent that:
 1. Reads all newly created/modified files across all subdirectories
 2. Cross-pollinates: flag where one asset should reference another (add `**Related:**` wikilinks)
 3. Identifies talk seeds: combinations of experiment + use case + insight that could become a conference talk
-4. Regenerates `~/notes/Consulting/_index.md` with updated stats
+4. Regenerates `~/code/vivesca-terry/chromatin/Consulting/_index.md` with updated stats
 5. Archives processed sparks: move this week's sections from `_sparks.md` into the weekly report
-6. Writes weekly report to `~/notes/Consulting/_weekly/YYYY-WNN.md`, including:
+6. Writes weekly report to `~/code/vivesca-terry/chromatin/Consulting/_weekly/YYYY-WNN.md`, including:
    - Funnel metric: `Sources: N → Sparks: N → Assets: N → Promoted: N → Used: N`
      (count `maturity: reviewed` for promoted, check daily notes for used)
    - Cross-pollination map

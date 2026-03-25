@@ -52,9 +52,9 @@ For each pattern found, classify:
 
 ### 4. Persist — Write findings
 
-For high-priority patterns tagged `capco` or `governance`, also append to `~/notes/Consulting/_sparks.md` under today's date: `- #[capco|governance] — **[Pattern name]**: [one-line consulting implication]`
+For high-priority patterns tagged `capco` or `governance`, also append to `~/code/vivesca-terry/chromatin/Consulting/_sparks.md` under today's date: `- #[capco|governance] — **[Pattern name]**: [one-line consulting implication]`
 
-Output vault note: `~/notes/Specula/YYYY-MM Peer Scan.md`
+Output vault note: `~/code/vivesca-terry/chromatin/Specula/YYYY-MM Peer Scan.md`
 
 Structure:
 ```markdown

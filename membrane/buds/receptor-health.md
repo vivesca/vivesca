@@ -24,7 +24,7 @@ Run the receptor health check for the vivesca organism.
    - Focal adhesions (shared dependencies) -- single points of failure
    - Mechanically silent binaries -- exist but don't respond
 
-4. If anoikis candidates found, check ~/notes/receptor-retirement.md for the log.
+4. If anoikis candidates found, check ~/code/vivesca-terry/chromatin/receptor-retirement.md for the log.
 
 5. For each anoikis candidate, check if the missing binary is:
    - Renamed (grep for the binary name in ~/code/vivesca/effectors/)

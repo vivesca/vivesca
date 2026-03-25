@@ -47,7 +47,7 @@ Two gaps existed:
 
 2. **`~/docs/solutions/` not in QMD** — structured learnings from compound-engineering
    were only searchable via Oghma (if extracted) or direct grep. QMD only indexed
-   `~/notes/`.
+   `~/code/vivesca-terry/chromatin/`.
 
 ## Solution
 

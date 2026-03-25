@@ -29,7 +29,7 @@ Use this skill when the user:
 
 2. **Credentials file**
    - Download `credentials.json` from Google Cloud Console
-   - Place it in `/Users/terry/notes/scripts/credentials.json`
+   - Place it in `/Users/terry/code/vivesca-terry/chromatin/scripts/credentials.json`
 
 See [[Gmail API Setup]] for detailed setup instructions.
 
@@ -38,7 +38,7 @@ See [[Gmail API Setup]] for detailed setup instructions.
 ### Step 1: Run the Search Script
 
 ```bash
-cd /Users/terry/notes/scripts
+cd /Users/terry/code/vivesca-terry/chromatin/scripts
 uv run gmail_rejection_search.py
 ```
 
@@ -138,9 +138,9 @@ Combine with AND (space) or OR:
 
 ## Files
 
-- Script: `/Users/terry/notes/scripts/gmail_rejection_search.py`
-- Credentials: `/Users/terry/notes/scripts/credentials.json`
-- Token: `/Users/terry/notes/scripts/token.pickle` (created after first auth)
+- Script: `/Users/terry/code/vivesca-terry/chromatin/scripts/gmail_rejection_search.py`
+- Credentials: `/Users/terry/code/vivesca-terry/chromatin/scripts/credentials.json`
+- Token: `/Users/terry/code/vivesca-terry/chromatin/scripts/token.pickle` (created after first auth)
 - Setup notes: [[Gmail API Setup]]
 
 ## Troubleshooting

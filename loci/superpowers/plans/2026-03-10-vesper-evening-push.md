@@ -39,8 +39,8 @@ TODAY = datetime.now(HKT)
 TOMORROW = TODAY + timedelta(days=1)
 TOMORROW_STR = TOMORROW.strftime("%Y-%m-%d")
 TOMORROW_LABEL = TOMORROW.strftime("%a %b %-d")
-TODO_PATH = Path("/Users/terry/notes/Praxis.md")
-VAULT_DIR = Path("/Users/terry/notes/Job Hunting")
+TODO_PATH = Path("/Users/terry/code/vivesca-terry/chromatin/Praxis.md")
+VAULT_DIR = Path("/Users/terry/code/vivesca-terry/chromatin/Job Hunting")
 
 DRY_RUN = "--dry-run" in sys.argv
 

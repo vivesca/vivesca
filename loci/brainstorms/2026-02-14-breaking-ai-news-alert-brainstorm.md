@@ -91,7 +91,7 @@ Note: Anthropic Blog has no RSS. Options: scrape the page (like daily cron does)
   ├─ Notify: tg-notify.sh
   │   └─ Format: 🚨 *Breaking:* [Title](url)\nSource: Name • HH:MM HKT
   │
-  └─ Cross-post: append to ~/notes/AI News Log.md
+  └─ Cross-post: append to ~/code/vivesca-terry/chromatin/AI News Log.md
       └─ Prevents daily scan from re-surfacing same article
 ```
 

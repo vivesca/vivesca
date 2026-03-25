@@ -94,5 +94,5 @@ Silent coverage gaps emerge in any SRS system where the topic list is managed se
 
 - `~/docs/solutions/spaced-repetition-mode-selection.md` — mode selection (drill/free-recall/MCQ) based on accuracy tier
 - `~/docs/solutions/garp-rai-cli-audit-fixes.md` — prior CLI audit (11 bug fixes, data integrity)
-- `~/notes/GARP RAI Exam Prep.md` — official Learning Objectives and exam weights
-- `~/notes/GARP RAI Definition Drills.md` — drill entries including new KNN/SVM/Autoencoder tables
+- `~/code/vivesca-terry/chromatin/GARP RAI Exam Prep.md` — official Learning Objectives and exam weights
+- `~/code/vivesca-terry/chromatin/GARP RAI Definition Drills.md` — drill entries including new KNN/SVM/Autoencoder tables

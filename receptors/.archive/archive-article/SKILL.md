@@ -44,7 +44,7 @@ python ~/skills/archive-article/archive.py --url "https://blog.example.com/post"
 ## Output Structure
 
 ```
-~/notes/Archive/
+~/code/vivesca-terry/chromatin/Archive/
 └── 2026-02-05_article-title-slug/
     ├── content.md      # Article with local image paths
     └── images/

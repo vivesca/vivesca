@@ -7,9 +7,9 @@ tools: ["Bash", "Read", "Grep", "Glob"]
 
 Harvest consulting sparks from the week's metabolism.
 
-1. Read this week's daily notes: ~/notes/Daily/YYYY-MM-DD*.md
-2. Read this week's vault additions: `cd ~/notes && git log --oneline --since="7 days ago" --name-only`
-3. Read recent session context: check ~/notes/Reference/ modified in last 7 days
+1. Read this week's daily notes: ~/code/vivesca-terry/chromatin/Daily/YYYY-MM-DD*.md
+2. Read this week's vault additions: `cd ~/code/vivesca-terry/chromatin && git log --oneline --since="7 days ago" --name-only`
+3. Read recent session context: check ~/code/vivesca-terry/chromatin/Reference/ modified in last 7 days
 
 4. For each note/artifact, ask: is there a consulting-relevant insight here?
    - Banking/fintech application?

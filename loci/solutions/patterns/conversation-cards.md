@@ -28,7 +28,7 @@
 
 ## Current Cards
 
-`~/notes/Capco/Conversation Cards/`:
+`~/code/vivesca-terry/chromatin/Capco/Conversation Cards/`:
 - AI Governance
 - Agentic AI
 - AI Cost and Pricing

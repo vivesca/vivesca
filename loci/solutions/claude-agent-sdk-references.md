@@ -17,4 +17,4 @@ Best real-world Claude Agent SDK usage example found so far (evaluated 2026-02-2
 4. **MCP-over-filesystem IPC** — agent writes JSON to mounted dir, host polls. Cross-process communication without sockets.
 5. **Dangerous env var blocklist** — comprehensive set: LD_PRELOAD, NODE_OPTIONS, PATH, BASH_ENV, SSH_AUTH_SOCK, etc.
 
-**Full evaluation:** `~/notes/Decisions/2026-02-24-happyclaw-evaluation.md`
+**Full evaluation:** `~/code/vivesca-terry/chromatin/Decisions/2026-02-24-happyclaw-evaluation.md`

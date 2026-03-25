@@ -557,7 +557,7 @@ _BUD_REF_RE = re.compile(r"invoke\s+([\w-]+)\s+bud", re.IGNORECASE)
 
 # Pattern: /skillname at start of token (skill invocation syntax).
 # Negative lookbehind for /, \w, and ~ to avoid matching path components
-# like ~/notes, /tmp, /usr, /var, etc.
+# like ~/code/vivesca-terry/chromatin, /tmp, /usr, /var, etc.
 _SKILL_REF_RE = re.compile(r"(?<![/\w~])/([a-z][a-z0-9_-]+)")
 
 # Common path components that are NOT skill names -- used as a deny-list
@@ -743,7 +743,7 @@ def _extract_skill_skill_refs(skill_text: str) -> list[str]:
     """Extract /skillname cross-references from a SKILL.md body.
 
     Filters out common filesystem path components to avoid false positives
-    from path strings like ~/notes/..., /tmp/..., /docs/ in body text.
+    from path strings like ~/code/vivesca-terry/chromatin/..., /tmp/..., /docs/ in body text.
     """
     return [
         name

@@ -5,7 +5,7 @@
 
 ## What We're Building
 
-A daily automated LinkedIn feed digest. **`theoros`** — a Rust CLI — scrapes the top 10 posts from the LinkedIn feed via `agent-browser`, calls the Claude API to filter and summarise for relevance, and writes a structured vault note to `~/notes/LinkedIn/`. A LaunchAgent runs this at 8am daily. A skill wraps the script for manual invocation.
+A daily automated LinkedIn feed digest. **`theoros`** — a Rust CLI — scrapes the top 10 posts from the LinkedIn feed via `agent-browser`, calls the Claude API to filter and summarise for relevance, and writes a structured vault note to `~/code/vivesca-terry/chromatin/LinkedIn/`. A LaunchAgent runs this at 8am daily. A skill wraps the script for manual invocation.
 
 ## Why This Approach
 
@@ -18,7 +18,7 @@ Approach chosen: **Rust CLI (`theoros`) + LaunchAgent + skill wrapper**, matchin
 | Decision | Choice | Rationale |
 |----------|--------|-----------|
 | Delivery | Vault only | Morning routine skills already read vault; no extra noise |
-| Vault path | `~/notes/LinkedIn/YYYY-MM-DD LinkedIn Digest.md` | Grouped, searchable |
+| Vault path | `~/code/vivesca-terry/chromatin/LinkedIn/YYYY-MM-DD LinkedIn Digest.md` | Grouped, searchable |
 | Scroll depth | Top 10 posts | Fast, low token cost, sufficient for daily cadence |
 | Run time | 8am daily | Before morning brief; fresh when statio/auspex run |
 | Filter priorities | Job leads, industry news (AML/fintech/AI), Capco-related | Current phase: job hunt + Capco onboarding |
@@ -62,5 +62,5 @@ None — all resolved in brainstorm session.
 
 - **Delivery channel:** Vault-only (no email/Telegram push)
 - **Scroll depth:** Top 10 posts
-- **Vault location:** `~/notes/LinkedIn/`
+- **Vault location:** `~/code/vivesca-terry/chromatin/LinkedIn/`
 - **Filter priorities:** Job leads, industry news, Capco-related

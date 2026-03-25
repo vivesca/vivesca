@@ -117,6 +117,6 @@ v1 ships with either SwiftPhotoKit or OsxPhotos backend. Future contributors can
 ## References
 
 - Working prototype: `~/scripts/takeout-migrate.py`
-- Council transcript: `~/notes/Councils/LLM Council - Photoferry Architecture - 2026-02-21.md`
-- Naming council: `~/notes/Councils/LLM Council - Takeout Tool Name - 2026-02-21.md`
+- Council transcript: `~/code/vivesca-terry/chromatin/Councils/LLM Council - Photoferry Architecture - 2026-02-21.md`
+- Naming council: `~/code/vivesca-terry/chromatin/Councils/LLM Council - Takeout Tool Name - 2026-02-21.md`
 - Competitive research: In conversation (2026-02-21) — no tool covers full pipeline

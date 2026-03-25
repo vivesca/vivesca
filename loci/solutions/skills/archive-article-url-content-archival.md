@@ -22,7 +22,7 @@ Created `/archive-article` skill that:
 2. Extracts image URLs from markdown (standard `![](url)` and HTML `<img>`)
 3. Downloads images with platform-specific headers
 4. Rewrites paths to local `./images/img_01.jpg` format
-5. Saves to `~/notes/Archive/{date}_{slug}/` structure
+5. Saves to `~/code/vivesca-terry/chromatin/Archive/{date}_{slug}/` structure
 
 ### Key Code Pattern
 
@@ -69,7 +69,7 @@ python ~/skills/archive-article/archive.py --url "..." --title "My Title"
 ## Output Structure
 
 ```
-~/notes/Archive/
+~/code/vivesca-terry/chromatin/Archive/
 └── 2026-02-05_article-title-slug/
     ├── content.md      # Article with local image paths
     └── images/

@@ -24,10 +24,10 @@ Use when:
 ## Workflow
 
 1. **Read context files**:
-   - `/Users/terry/notes/CLAUDE.md` — personal context
-   - `/Users/terry/notes/Core Story Bank.md` — prepared stories (if exists)
-   - `/Users/terry/notes/Interview Preparation.md` — general prep notes (if exists)
-   - `/Users/terry/notes/Job Hunting.md` — notes on this role/company
+   - `/Users/terry/code/vivesca-terry/chromatin/CLAUDE.md` — personal context
+   - `/Users/terry/code/vivesca-terry/chromatin/Core Story Bank.md` — prepared stories (if exists)
+   - `/Users/terry/code/vivesca-terry/chromatin/Interview Preparation.md` — general prep notes (if exists)
+   - `/Users/terry/code/vivesca-terry/chromatin/Job Hunting.md` — notes on this role/company
 
 2. **Research interviewer** (if name known):
    - `/counter-intel` — Research interviewer background and style
@@ -112,7 +112,7 @@ Use when:
 - [Any prep actions before interview]
 ```
 
-**Location:** `/Users/terry/notes/Interview Prep - [Company].md`
+**Location:** `/Users/terry/code/vivesca-terry/chromatin/Interview Prep - [Company].md`
 
 ## Examples
 

@@ -4,7 +4,7 @@
 
 **Goal:** Build a CLI that creates persistent AI personalities ("residents") that live in an Obsidian vault, read notes on a schedule, develop opinions over time, and can be conversed with.
 
-**Architecture:** Each resident is a personality file + reading journal + exchange history. A scheduled loop picks vault notes based on focus directives, generates observations via `claude --print`, and drops them as vault notes in `~/notes/Lararium/`. Interactive mode loads the resident's full context for back-and-forth conversation. Personality files evolve after each reading/interaction session.
+**Architecture:** Each resident is a personality file + reading journal + exchange history. A scheduled loop picks vault notes based on focus directives, generates observations via `claude --print`, and drops them as vault notes in `~/code/vivesca-terry/chromatin/Lararium/`. Interactive mode loads the resident's full context for back-and-forth conversation. Personality files evolve after each reading/interaction session.
 
 **Tech Stack:** Python (uv script), `claude --print` (free on Max20), Obsidian vault, LaunchAgent for scheduling.
 
@@ -33,7 +33,7 @@
 │   └── stranger/
 └── config.toml               # Vault path, resident list, schedule
 
-~/notes/Lararium/              # Output folder — residents drop notes here
+~/code/vivesca-terry/chromatin/Lararium/              # Output folder — residents drop notes here
 ├── mirror-2026-03-14.md       # One note per resident per session
 ├── shadow-2026-03-14.md
 └── ...
@@ -101,7 +101,7 @@ Vault-resident personality CLI. Python + click.
 ## Conventions
 - Single-file CLI: `lararium.py`
 - Data dir: `~/.local/share/lararium/`
-- Output dir: `~/notes/Lararium/` (Obsidian vault)
+- Output dir: `~/code/vivesca-terry/chromatin/Lararium/` (Obsidian vault)
 - LLM backend: `claude --print` (subprocess, env CLAUDECODE unset)
 - JSONL for journals/exchanges, TOML for config, Markdown for personalities
 - Click for CLI framework
@@ -791,7 +791,7 @@ lararium run                     # Full cycle: all residents read + auto-evolve
 - Personalities: `~/.local/share/lararium/residents/<name>/personality.md`
 - Reading journal: `~/.local/share/lararium/residents/<name>/journal.jsonl`
 - Conversations: `~/.local/share/lararium/residents/<name>/exchanges.jsonl`
-- Output notes: `~/notes/Lararium/<name>-YYYY-MM-DD.md`
+- Output notes: `~/code/vivesca-terry/chromatin/Lararium/<name>-YYYY-MM-DD.md`
 
 ## Schedule
 
@@ -803,7 +803,7 @@ Auto-evolves personality every 10 readings.
 - Uses `claude --print --model haiku` for readings (cheap, fast)
 - `talk` mode uses haiku too — switch to sonnet in system prompt if conversations feel flat
 - CLAUDECODE env var is unset before subprocess calls
-- Vault notes in `~/notes/Lararium/` are append-mode (multiple sessions per day stack)
+- Vault notes in `~/code/vivesca-terry/chromatin/Lararium/` are append-mode (multiple sessions per day stack)
 ```
 
 - [ ] **Step 2: Commit skill**
@@ -830,7 +830,7 @@ gh repo create terry-li-hm/lararium --private --source . --push
 | **Language** | Python (click) |
 | **LLM backend** | `claude --print --model haiku` (free) |
 | **Data** | `~/.local/share/lararium/` |
-| **Output** | `~/notes/Lararium/` (Obsidian) |
+| **Output** | `~/code/vivesca-terry/chromatin/Lararium/` (Obsidian) |
 | **Schedule** | 8 AM + 8 PM via LaunchAgent |
 | **Residents** | 5 default: mirror, shadow, contrarian, archivist, stranger |
 | **Talk** | `lararium talk <name>` — interactive, exchange-logged |

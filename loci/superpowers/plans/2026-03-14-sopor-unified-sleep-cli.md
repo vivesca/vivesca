@@ -845,7 +845,7 @@ Reference: `~/code/nyx/src/main.rs` `monthly_view` (lines 329-406).
 
 - [ ] **Step 1: Write monthly.py**
 
-Monthly summary with averages, best/worst night, bedtime consistency (stddev). Saves markdown report to `~/notes/Sleep/YYYY-MM-sopor.md`.
+Monthly summary with averages, best/worst night, bedtime consistency (stddev). Saves markdown report to `~/code/vivesca-terry/chromatin/Sleep/YYYY-MM-sopor.md`.
 
 - [ ] **Step 2: Register, test, commit**
 

@@ -28,7 +28,7 @@ Use when:
 ### 1. Check Vault for Context
 
 Look for the contact in:
-- `/Users/terry/notes/Job Hunting.md` — networking section
+- `/Users/terry/code/vivesca-terry/chromatin/Job Hunting.md` — networking section
 - Any linked notes like `[[Contact Name]]`
 - Search vault for mentions
 

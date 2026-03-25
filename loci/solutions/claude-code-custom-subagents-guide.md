@@ -54,4 +54,4 @@ From consilium council (5-model consensus):
 - Official docs: https://code.claude.com/docs/en/sub-agents
 - Agent Teams (experimental): https://code.claude.com/docs/en/agent-teams
 - VoltAgent collection (templates, not tools): https://github.com/VoltAgent/awesome-claude-code-subagents
-- Consilium transcript: ~/notes/Councils/LLM Council - Subagent Ideas - 2026-02-18.md
+- Consilium transcript: ~/code/vivesca-terry/chromatin/Councils/LLM Council - Subagent Ideas - 2026-02-18.md

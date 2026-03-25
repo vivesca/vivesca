@@ -67,4 +67,4 @@ Linux: `~/.claude/projects/-home-terry/memory/MEMORY.md`
 No sync mechanism — manual copy when needed.
 
 ## NixOS migration reference
-See `~/notes/NixOS vs Nix-on-Ubuntu for Agent Machines.md` for the full comparison and why we moved.
+See `~/code/vivesca-terry/chromatin/NixOS vs Nix-on-Ubuntu for Agent Machines.md` for the full comparison and why we moved.

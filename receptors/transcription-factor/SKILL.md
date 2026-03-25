@@ -6,7 +6,7 @@ user_invocable: true
 
 # Gnome
 
-Capture decisions to `~/notes/decisions/` with the **bouncer pattern**: before logging anything new, search past decisions and surface similar ones. Recurrence = implicit outcome tracking — if you're back on a topic you already decided, that IS the signal.
+Capture decisions to `~/code/vivesca-terry/chromatin/decisions/` with the **bouncer pattern**: before logging anything new, search past decisions and surface similar ones. Recurrence = implicit outcome tracking — if you're back on a topic you already decided, that IS the signal.
 
 When logging, tag which lens shaped the decision:
 - **Reversibility** — reversible → move fast, irreversible → slow down
@@ -32,7 +32,7 @@ Free-text capture. User provides topic and reasoning in natural language; Claude
 
 0. **ROUTE FIRST:**
    > quorum = outcome is uncertain, needs perspectives.
-   - Can you run both options and compare with a measurable criterion? → `[[evaluation-theory]]` (see `~/notes/Reference/epistemics/evaluation-theory.md`)
+   - Can you run both options and compare with a measurable criterion? → `[[evaluation-theory]]` (see `~/code/vivesca-terry/chromatin/Reference/epistemics/evaluation-theory.md`)
    - Does it involve genuine trade-offs, values, or domain judgment? → `quorum`
    - Is it a committed choice that just needs capturing? → proceed below
 
@@ -41,7 +41,7 @@ Free-text capture. User provides topic and reasoning in natural language; Claude
 3. Extract the core topic from user's input (first clause before em-dash or period)
 
 4. **BOUNCER CHECK:**
-   - Use the Grep tool: search for `<topic keywords>` scoped to `path: ~/notes/decisions/`, `output_mode: content`, `head_limit: 20`. Also check frontmatter `decision:` lines with a second Grep if the first yields too many hits.
+   - Use the Grep tool: search for `<topic keywords>` scoped to `path: ~/code/vivesca-terry/chromatin/decisions/`, `output_mode: content`, `head_limit: 20`. Also check frontmatter `decision:` lines with a second Grep if the first yields too many hits.
    - If a past decision matches:
      - Read the matching decision note
      - Present: "You decided **[decision]** on **[date]**. Confidence: **[level]**. Context: [brief summary]. New situation, or are we re-litigating?"
@@ -62,7 +62,7 @@ Free-text capture. User provides topic and reasoning in natural language; Claude
    > *Compliance note: Patterns and principles only — no client names, project codes, or proprietary data.*
 
 7. Generate slug from topic: lowercase, kebab-case, max 5 words
-8. Write to `~/notes/decisions/YYYY-MM-DD-<slug>.md` using the template below
+8. Write to `~/code/vivesca-terry/chromatin/decisions/YYYY-MM-DD-<slug>.md` using the template below
 9. Confirm: "Decision logged: `decisions/YYYY-MM-DD-<slug>.md`"
 10. If the decision involved complex trade-offs, offer: "Want to stress-test this with `/quorum --redteam`?"
 
@@ -108,9 +108,9 @@ tags:
 Search past decisions semantically.
 
 **Logic:**
-1. Use the Grep tool: search for `<query keywords>` scoped to `path: ~/notes/decisions/`, `output_mode: files_with_matches`, `head_limit: 10`. For richer matching, also Grep the frontmatter `decision:` field.
+1. Use the Grep tool: search for `<query keywords>` scoped to `path: ~/code/vivesca-terry/chromatin/decisions/`, `output_mode: files_with_matches`, `head_limit: 10`. For richer matching, also Grep the frontmatter `decision:` field.
 2. Read frontmatter from each matched file to extract date, decision, confidence, domain.
-3. If no decision results found, also check `~/notes/Councils/` for council outputs that may contain decisions
+3. If no decision results found, also check `~/code/vivesca-terry/chromatin/Councils/` for council outputs that may contain decisions
 4. Present results with: date, decision summary (from frontmatter `decision:` field), confidence, domain
 5. Offer to read any full decision note
 
@@ -120,7 +120,7 @@ Surface decisions with a review date that has passed.
 
 **Logic:**
 1. Run `date +%Y-%m-%d` to get today
-2. Use Grep tool to search `~/notes/decisions/` for `review_date:` in files
+2. Use Grep tool to search `~/code/vivesca-terry/chromatin/decisions/` for `review_date:` in files
 3. For each file with `review_date:`, read the frontmatter and parse the date
 4. Filter for `review_date` <= today AND `status: active`
 5. If none due: "No decisions up for review."
@@ -133,12 +133,12 @@ Surface decisions with a review date that has passed.
 
 ## Notes
 
-- **Storage:** `~/notes/decisions/YYYY-MM-DD-<slug>.md` — Obsidian vault, searched via Grep tool at query time.
+- **Storage:** `~/code/vivesca-terry/chromatin/decisions/YYYY-MM-DD-<slug>.md` — Obsidian vault, searched via Grep tool at query time.
 - **No manual outcome tracking.** The bouncer IS the outcome tracker: if you come back to the same topic, the previous decision either held (you never return) or failed (you're back). Recurrence = implicit failure signal.
-- **Consilium integration:** For complex decisions, use `/quorum` first to deliberate, then `/transcription-factor` to log the outcome. Council outputs in `~/notes/Councils/` complement but don't replace decision notes.
+- **Consilium integration:** For complex decisions, use `/quorum` first to deliberate, then `/transcription-factor` to log the outcome. Council outputs in `~/code/vivesca-terry/chromatin/Councils/` complement but don't replace decision notes.
 - **Keep it fast.** Capture should take <30 seconds. If you're spending 2 minutes filling in fields, the skill is failing. Free-text in, structured note out.
 
 ## Calls
-- `Grep` tool (scoped to `~/notes/decisions/`) — bouncer search and decision lookup
+- `Grep` tool (scoped to `~/code/vivesca-terry/chromatin/decisions/`) — bouncer search and decision lookup
 - `[[evaluation-theory]]` — when outcome is measurable
 - `quorum` — when trade-offs need deliberation

@@ -19,7 +19,7 @@ The user wanted to ensure their growing technical knowledge base (`docs/solution
 
 ## Findings
 - **Location**: Technical documentation was being created in `~/docs/` at the system root.
-- **Constraint**: While the root directory was not a git repo, the user's Obsidian vault (`~/notes`) already had an established git backup and versioning workflow.
+- **Constraint**: While the root directory was not a git repo, the user's Obsidian vault (`~/code/vivesca-terry/chromatin`) already had an established git backup and versioning workflow.
 - **Requirement**: Maintain compatibility with CLI tools and agents that expect `~/docs` to be a valid path.
 
 ## Proposed Solutions
@@ -30,13 +30,13 @@ Move the physical files into the version-controlled vault and provide a symbolic
 **Implementation**:
 ```bash
 # 1. Create target structure in vault
-mkdir -p ~/notes/Technical
+mkdir -p ~/code/vivesca-terry/chromatin/Technical
 
 # 2. Move existing docs directory
-mv ~/docs ~/notes/Technical/docs
+mv ~/docs ~/code/vivesca-terry/chromatin/Technical/docs
 
 # 3. Create symlink back to root
-ln -s ~/notes/Technical/docs ~/docs
+ln -s ~/code/vivesca-terry/chromatin/Technical/docs ~/docs
 ```
 
 ## Recommended Action
@@ -44,11 +44,11 @@ Use the symlink pattern for any specialized data directory that needs to be "anc
 
 ## Technical Details
 - **Affected Path**: `~/docs` (now a symlink)
-- **Target Path**: `~/notes/Technical/docs` (physical storage)
+- **Target Path**: `~/code/vivesca-terry/chromatin/Technical/docs` (physical storage)
 - **Git Context**: Now automatically tracked by the vault's `.git` repository.
 
 ## Prevention
-- Standardize on `~/notes` as the single source of truth for all "knowledge" assets.
+- Standardize on `~/code/vivesca-terry/chromatin` as the single source of truth for all "knowledge" assets.
 - Use symlinks to bridge the gap between "conceptually centralized" storage and "physically required" paths.
 
 ## Related Issues

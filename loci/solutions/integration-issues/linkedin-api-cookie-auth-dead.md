@@ -14,7 +14,7 @@ resolution_type: tool_switch
 severity: medium
 tags: [linkedin, api, browser-automation, anti-bot, cookie-auth, openclaw-skills]
 related_files:
-  - ~/notes/Awesome OpenClaw Skills - Evaluation.md
+  - ~/code/vivesca-terry/chromatin/Awesome OpenClaw Skills - Evaluation.md
   - ~/skills/linkedin-cli/ (removed)
 ---
 

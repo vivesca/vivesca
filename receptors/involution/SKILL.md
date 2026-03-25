@@ -33,7 +33,7 @@ This is orientation only — no action, no planning. Just close the loop so your
 
 ### 2. Scan open items (30 seconds)
 
-Read `~/notes/NOW.md` — look for anything unresolved that might race tonight.
+Read `~/code/vivesca-terry/chromatin/NOW.md` — look for anything unresolved that might race tonight.
 
 - If anything is genuinely urgent for tomorrow → note it explicitly below
 - If it can wait → name it out loud and let it go
@@ -67,7 +67,7 @@ Offer 1–3 concrete tasks max. Don't over-queue — more tasks = more to review
 For each task Terry confirmed in Step 4:
 
 1. **If the task matches a pre-configured kinesin task** → `kinesin run <task-name>` (dispatches detached, survives session close).
-2. **If the task is ad-hoc** (named during brain dump, no kinesin entry) → append to `~/notes/agent-queue.yaml`:
+2. **If the task is ad-hoc** (named during brain dump, no kinesin entry) → append to `~/code/vivesca-terry/chromatin/agent-queue.yaml`:
 
 ```yaml
 - prompt: "<task description verbatim>"
@@ -109,4 +109,4 @@ Offer to check tomorrow morning. Don't run now — data isn't in yet.
 - `moneo` — if adding a reminder during the ritual
 - `oura` / `sopor` — tomorrow morning follow-up only
 - `kinesin run <name>` — dispatch pre-configured overnight task (Step 5)
-- `~/notes/agent-queue.yaml` — fallback queue for ad-hoc tasks (Step 5)
+- `~/code/vivesca-terry/chromatin/agent-queue.yaml` — fallback queue for ad-hoc tasks (Step 5)

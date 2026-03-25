@@ -156,7 +156,7 @@ Moved from MEMORY.md (Feb 2026). Searchable via oghma and grep. Only load when w
 
 ## Athena's Aegis (Old Vault)
 - **Directory name contains U+2019 (RIGHT SINGLE QUOTATION MARK `'`), not ASCII apostrophe (U+0027 `'`).** Read/Grep/Glob tools and Bash `cd` all fail with "path does not exist." Python `os.walk`/`os.listdir` and Spotlight `mdfind` work. Use `python3 -c` via Bash to access files there.
-- Athena's Aegis covers Jun–Dec 2024 only (80 daily notes). For older content (2022–2023), check Ideaverse/Metis-Codex/Bob-Fleeting in `~/notes/Archive/`.
+- Athena's Aegis covers Jun–Dec 2024 only (80 daily notes). For older content (2022–2023), check Ideaverse/Metis-Codex/Bob-Fleeting in `~/code/vivesca-terry/chromatin/Archive/`.
 
 ## Multi-Machine Setup
 - **Machines:** M1 iMac 8GB (current always-on, SSH + Claude Code) + M2 MacBook + M3 MacBook + iPhone.

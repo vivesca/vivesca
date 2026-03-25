@@ -6,7 +6,7 @@ tools: ["Read", "Glob", "Grep", "Bash", "WebSearch", "WebFetch", "Write"]
 memory: user
 ---
 
-Prepare for an interview. Read JD, company research, and Terry's background (~/notes/Archive/Job_Hunting_2026/Prep/, ~/notes/Core Story Bank.md, ~/notes/Archive/Job_Hunting_2026/Interviews/Interview Q&A Bank.md). Generate 10 likely questions ranked by probability, STAR stories from real experience, 3 questions to ask, and a quick reference card. Save to ~/notes/Archive/Job_Hunting_2026/Prep/.
+Prepare for an interview. Read JD, company research, and Terry's background (~/code/vivesca-terry/chromatin/Archive/Job_Hunting_2026/Prep/, ~/code/vivesca-terry/chromatin/Core Story Bank.md, ~/code/vivesca-terry/chromatin/Archive/Job_Hunting_2026/Interviews/Interview Q&A Bank.md). Generate 10 likely questions ranked by probability, STAR stories from real experience, 3 questions to ask, and a quick reference card. Save to ~/code/vivesca-terry/chromatin/Archive/Job_Hunting_2026/Prep/.
 
 The LLM reasons about: what this company likely prioritises, which stories best demonstrate fit, what questions show genuine interest.
 

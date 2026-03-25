@@ -10,7 +10,7 @@ Two modes: **suggest** (default) and **log**.
 
 ## Suggest
 
-1. Read `~/notes/Health/Weekly Meal Plan - Taikoo Place.md` -- the rotation and order log are both in this file.
+1. Read `~/code/vivesca-terry/chromatin/Health/Weekly Meal Plan - Taikoo Place.md` -- the rotation and order log are both in this file.
 2. Run `date '+%A'` to get today's day of week.
 3. Check the last 3 entries in the order log section.
 4. Suggest based on:

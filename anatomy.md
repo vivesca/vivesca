@@ -162,7 +162,7 @@ at 1/3 the cost would produce 80% of the value, use buds.
 |------|---------|-----------|
 | `~/code/vivesca/` (public) | **Genome** | Shareable, forkable, universal |
 | `~/code/vivesca-terry/` (private) | **Epigenome** | Instance-specific expression |
-| `~/code/vivesca-terry/chromatin/` | **Chromatin** | Long-term information storage within the epigenome; `~/notes/` is a transitional symlink |
+| `~/code/vivesca-terry/chromatin/` | **Chromatin** | Long-term information storage within the epigenome; `~/code/vivesca-terry/chromatin/` is a transitional symlink |
 
 ## CC Platform Concepts
 

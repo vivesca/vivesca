@@ -60,7 +60,7 @@ First attempt took 2 hours (learning cost). With the playbook below, expect **10
 3. `upload "input[type=file]" "/path"` for CV
 4. `eval "button.click()"` for Next/Submit (skip Playwright actionability checks)
 5. `check "#id"` for checkboxes
-6. Personal details from `~/notes/Personal Details for Applications.md`
+6. Personal details from `~/code/vivesca-terry/chromatin/Personal Details for Applications.md`
 7. Credentials from 1Password CLI
 
 **Still manual:** Workday dropdowns that timeout on `select` — click them yourself. Everything else is automatable.

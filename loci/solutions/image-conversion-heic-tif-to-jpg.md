@@ -40,4 +40,4 @@ sips -s format jpeg -s formatOptions 50 input.HEIC --out /tmp/preview.jpg
 
 ## Headshot vault location
 
-`~/notes/assets/headshots/`
+`~/code/vivesca-terry/chromatin/assets/headshots/`

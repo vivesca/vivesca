@@ -4,7 +4,7 @@ description: Research into patterns for programmed retirement/death of software 
 type: project
 ---
 
-Researched 2026-03-25. Full findings at `/Users/terry/notes/Reference/apoptosis-software-patterns.md`.
+Researched 2026-03-25. Full findings at `/Users/terry/code/vivesca-terry/chromatin/Reference/apoptosis-software-patterns.md`.
 
 Key findings:
 

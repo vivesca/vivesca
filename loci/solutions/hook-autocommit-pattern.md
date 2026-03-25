@@ -15,7 +15,7 @@ Agent writes to config repos (agent-config, skills) don't get committed atomical
 - **Per-write commits are right for config repos** — changes are always self-contained
 - **Per-write commits are wrong for vault/code repos** — breaks logical-unit commit principle, creates noise
 - **`git add -A` is acceptable for agent-config** — no partial/multi-file edits in practice
-- **Vault (~/notes)**: excluded from auto-commit. `dirty-repos.js` Stop hook warns at session end instead.
+- **Vault (~/code/vivesca-terry/chromatin)**: excluded from auto-commit. `dirty-repos.js` Stop hook warns at session end instead.
 
 ## Vault Sync Separate Problem
 Cron backup pushes to remote overnight → pull conflict on session start.

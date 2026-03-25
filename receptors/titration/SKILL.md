@@ -44,7 +44,7 @@ Map the system against the canonical cell organelle set. Score each: **mapped / 
 Output: completed table + top 3 gaps ranked by operational impact.
 
 ### 3. Andrews 21 Patterns
-Titrate against the 21 design patterns. Reference: `~/notes/Reference/andrews-21-patterns-titration.md`.
+Titrate against the 21 design patterns. Reference: `~/code/vivesca-terry/chromatin/Reference/andrews-21-patterns-titration.md`.
 Score each pattern: **implemented / partial / absent**. Surface the highest-leverage absences.
 
 ## Key Principles

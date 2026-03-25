@@ -33,7 +33,7 @@ Monthly evidence-grounded synthesis of AI developments, purpose-built for bankin
 **Architecture:**
 - Cron (`ai-news-daily.py`) archives Tier 1 article full text to `~/.cache/lustro-articles/` via trafilatura
 - `ai-digest.py` (uv script) runs monthly: loads cached articles + news log, identifies 5-8 thematic clusters, produces per-theme evidence briefs via Gemini Flash
-- Output: `~/notes/AI & Tech/YYYY-MM AI Thematic Digest.md`
+- Output: `~/code/vivesca-terry/chromatin/AI & Tech/YYYY-MM AI Thematic Digest.md`
 
 **Evidence brief format:**
 - Claims → primary sources with quotes
@@ -68,6 +68,6 @@ Latent Space advertises "weekday full AINews" as a paid benefit ($80/yr), but th
 
 ## Source: Three consilium sessions
 
-- [LLM Council - Unified Digest - 2026-02-21](~/notes/Councils/LLM%20Council%20-%20Unified%20Digest%20-%202026-02-21.md) — Option B won (keep separate)
-- [LLM Council - Content System Axis - 2026-02-21](~/notes/Councils/LLM%20Council%20-%20Content%20System%20Axis%20-%202026-02-21.md) — Processing mode vs topic
-- [LLM Council - AI Mediated Reading - 2026-02-21](~/notes/Councils/LLM%20Council%20-%20AI%20Mediated%20Reading%20-%202026-02-21.md) — "Claude reads everything" paradigm
+- [LLM Council - Unified Digest - 2026-02-21](~/code/vivesca-terry/chromatin/Councils/LLM%20Council%20-%20Unified%20Digest%20-%202026-02-21.md) — Option B won (keep separate)
+- [LLM Council - Content System Axis - 2026-02-21](~/code/vivesca-terry/chromatin/Councils/LLM%20Council%20-%20Content%20System%20Axis%20-%202026-02-21.md) — Processing mode vs topic
+- [LLM Council - AI Mediated Reading - 2026-02-21](~/code/vivesca-terry/chromatin/Councils/LLM%20Council%20-%20AI%20Mediated%20Reading%20-%202026-02-21.md) — "Claude reads everything" paradigm

@@ -23,9 +23,9 @@ Use when:
 ## Workflow
 
 1. **Read current state**:
-   - `/Users/terry/notes/Active Pipeline.md` — live pipeline (source of truth)
-   - `/Users/terry/notes/Job Hunting.md` — archive (comp, market signals, passed roles)
-   - `/Users/terry/notes/CLAUDE.md` — context
+   - `/Users/terry/code/vivesca-terry/chromatin/Active Pipeline.md` — live pipeline (source of truth)
+   - `/Users/terry/code/vivesca-terry/chromatin/Job Hunting.md` — archive (comp, market signals, passed roles)
+   - `/Users/terry/code/vivesca-terry/chromatin/CLAUDE.md` — context
 
 2. **Analyze pipeline**:
    - Count by status: Applied, Interviewing, Offered, Rejected
@@ -62,7 +62,7 @@ Suggested actions:
 1. [Action]
 ```
 
-**Full mode**: Also saves to `/Users/terry/notes/Pipeline Scan - [date].md`
+**Full mode**: Also saves to `/Users/terry/code/vivesca-terry/chromatin/Pipeline Scan - [date].md`
 
 ## Examples
 
