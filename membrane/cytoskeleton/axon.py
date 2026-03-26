@@ -751,10 +751,9 @@ def guard_rheotaxis(data):
     is authoritative for real-world facts — fan out across backends.
     """
     allow_msg(
-        "RHEOTAXIS: WebSearch is one backend. For factual claims (locations, "
-        "hours, specs, availability), prefer rheotaxis_multi MCP tool or "
-        "`rheotaxis` CLI — fires Perplexity, Exa, Tavily, Serper in parallel. "
-        "Multiple query framings catch what single searches miss."
+        "RHEOTAXIS: You have a /rheotaxis skill for multi-backend search. "
+        "Invoke it instead of bare WebSearch — it frames multiple queries "
+        "across Perplexity, Exa, Tavily, Serper and cross-checks results."
     )
 
 
