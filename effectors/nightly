@@ -1,0 +1,201 @@
+#!/usr/bin/env python3
+"""nightly — system health dashboard + flywheel report.
+
+Runs at 02:00 via com.terry.nightly LaunchAgent.
+Writes:
+  ~/.claude/nightly-health.md   — system health dashboard
+  ~/.claude/skill-flywheel-daily.md — skill routing report (stub)
+"""
+
+import subprocess
+import time
+from datetime import datetime
+from pathlib import Path
+
+HOME = Path.home()
+HEALTH_OUT = HOME / ".claude" / "nightly-health.md"
+FLYWHEEL_OUT = HOME / ".claude" / "skill-flywheel-daily.md"
+TODAY = datetime.now().strftime("%Y-%m-%d")
+
+
+def _line_count(path: Path) -> int | None:
+    try:
+        return sum(1 for _ in path.open())
+    except Exception:
+        return None
+
+
+def _run(cmd: list[str], timeout: int = 10) -> str:
+    try:
+        r = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+        return r.stdout.strip()
+    except Exception as e:
+        return f"error: {e}"
+
+
+def _file_age_minutes(path: Path) -> int | None:
+    try:
+        return int((time.time() - path.stat().st_mtime) / 60)
+    except Exception:
+        return None
+
+
+def _is_running(label: str) -> bool:
+    try:
+        r = subprocess.run(
+            ["launchctl", "list"], capture_output=True, text=True, timeout=5
+        )
+        return label in r.stdout
+    except Exception:
+        return False
+
+
+def check_health() -> list[tuple[str, str, str]]:
+    """Return list of (metric, value, status) tuples."""
+    rows: list[tuple[str, str, str]] = []
+
+    # MEMORY.md line count
+    mem_lines = _line_count(HOME / ".claude" / "projects" / "-Users-terry" / "memory" / "MEMORY.md")
+    if mem_lines is not None:
+        status = "ok" if mem_lines < 150 else ("warn" if mem_lines < 200 else "red")
+        rows.append(("MEMORY.md lines", f"{mem_lines}/150", status))
+
+    # Vault backup age
+    vault_dir = HOME / "epigenome" / "chromatin"
+    if vault_dir.exists():
+        age = _file_age_minutes(vault_dir / ".obsidian" / "workspace.json")
+        if age is not None:
+            status = "ok" if age < 120 else "warn"
+            rows.append(("Vault sync", f"{age}m ago", status))
+
+    # DR sync
+    dr_marker = HOME / ".cache" / "mitosis-last-sync"
+    if dr_marker.exists():
+        age = _file_age_minutes(dr_marker)
+        if age is not None:
+            status = "ok" if age < 120 else "warn"
+            rows.append(("DR sync", f"{age}m ago", status))
+
+    # MCP server
+    mcp_running = _is_running("com.vivesca.mcp")
+    rows.append(("MCP server", "running" if mcp_running else "DOWN", "ok" if mcp_running else "red"))
+
+    # LaunchAgent count
+    la_dir = HOME / "Library" / "LaunchAgents"
+    if la_dir.exists():
+        total = len(list(la_dir.glob("com.vivesca.*.plist"))) + len(list(la_dir.glob("com.terry.*.plist")))
+        # Check how many are loaded
+        try:
+            r = subprocess.run(["launchctl", "list"], capture_output=True, text=True, timeout=5)
+            loaded = sum(1 for line in r.stdout.splitlines() if "vivesca" in line or "com.terry" in line)
+        except Exception:
+            loaded = 0
+        status = "ok" if loaded >= total - 2 else "warn"
+        rows.append(("LaunchAgents", f"{loaded}/{total} loaded", status))
+
+    # Agent-browser profile
+    abp = HOME / ".agent-browser-profile"
+    rows.append(("Agent-browser profile", "present" if abp.exists() else "missing", "ok" if abp.exists() else "warn"))
+
+    # Op-env-cache
+    import tempfile
+    cache = Path(tempfile.gettempdir()) / "op-env-cache.sh"
+    if cache.exists():
+        size = cache.stat().st_size
+        status = "ok" if size > 100 else "red"
+        rows.append(("op-env-cache", f"{size}B", status))
+    else:
+        rows.append(("op-env-cache", "missing", "warn"))
+
+    # Hook fires (last 24h) — count lines in hook log
+    hook_log = HOME / "logs" / "hooks.jsonl"
+    if hook_log.exists():
+        try:
+            cutoff = time.time() - 86400
+            count = 0
+            for line in hook_log.open():
+                try:
+                    import json
+                    entry = json.loads(line)
+                    if entry.get("ts", 0) > cutoff:
+                        count += 1
+                except Exception:
+                    pass
+            rows.append(("Hook fires (24h)", str(count), "ok" if count < 50 else "warn"))
+        except Exception:
+            pass
+
+    # Vault broken links
+    broken_links_log = HOME / "logs" / "vault-broken-links.log"
+    if broken_links_log.exists():
+        age = _file_age_minutes(broken_links_log)
+        if age is not None and age < 1440:
+            try:
+                count = int(broken_links_log.read_text().strip().split("\n")[-1].split(":")[0])
+            except Exception:
+                count = None
+            if count is not None:
+                rows.append(("Vault broken links", str(count), "ok" if count < 5 else "warn"))
+
+    return rows
+
+
+def write_health(rows: list[tuple[str, str, str]]) -> None:
+    status_map = {"ok": "green", "warn": "warning", "red": "red"}
+    icon_map = {"ok": "\u2705", "warn": "\u26a0\ufe0f", "red": "\u274c"}
+
+    lines = [f"# Nightly Health \u2014 {TODAY}", ""]
+    lines.append("| Metric | Value | Status |")
+    lines.append("|--------|-------|--------|")
+    for metric, value, status in rows:
+        lines.append(f"| {metric} | {value} | {icon_map.get(status, status)} |")
+
+    # Auto-fixes
+    fixes: list[str] = []
+    for metric, value, status in rows:
+        if metric == "op-env-cache" and status == "red":
+            r = subprocess.run(
+                ["bash", "-c", 'op inject -i ~/.zshenv.tpl > "${TMPDIR}op-env-cache.sh" 2>/dev/null && chmod 600 "${TMPDIR}op-env-cache.sh"'],
+                capture_output=True, text=True, timeout=30,
+            )
+            if r.returncode == 0:
+                fixes.append("Regenerated op-env-cache")
+
+    if fixes:
+        lines.append("")
+        lines.append(f"**Auto-fixes (Tier 1):** {'; '.join(fixes)}.")
+
+    lines.extend(["", "---", f"*Generated at {datetime.now().strftime('%H:%M')} HKT.*", ""])
+    HEALTH_OUT.write_text("\n".join(lines))
+    print(f"Health dashboard written to {HEALTH_OUT}")
+
+
+def write_flywheel() -> None:
+    """Write minimal flywheel report. Full analysis deferred to skill routing."""
+    lines = [
+        f"# Skill Flywheel \u2014 {TODAY}",
+        "",
+        "## Mechanical Report",
+        "",
+        "Flywheel reconciliation deferred to entrainment_brief.",
+        "",
+        "---",
+        f"*Generated at {datetime.now().strftime('%H:%M')} HKT.*",
+        "",
+    ]
+    FLYWHEEL_OUT.write_text("\n".join(lines))
+    print(f"Flywheel report written to {FLYWHEEL_OUT}")
+
+
+def main() -> None:
+    print(f"=== Nightly run: {datetime.now().strftime('%a %b %d %H:%M:%S %Z %Y')} ===")
+    print("[nightly] Running health checks...")
+    rows = check_health()
+    write_health(rows)
+    print("[nightly] Running skill flywheel...")
+    write_flywheel()
+    print(f"[nightly] Done: {datetime.now().strftime('%a %b %d %H:%M:%S %Z %Y')}")
+
+
+if __name__ == "__main__":
+    main()
