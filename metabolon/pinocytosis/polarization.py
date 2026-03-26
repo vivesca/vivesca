@@ -8,7 +8,7 @@ import json
 import subprocess
 import sys
 import time
-from datetime import datetime
+from datetime import UTC, datetime, timedelta, timezone
 from pathlib import Path
 
 GUARD_FILE = Path.home() / "tmp" / ".polarization-guard-active"
@@ -259,6 +259,69 @@ def manifest_show() -> str:
     if not MANIFEST_FILE.exists():
         return f"Manifest not found: {MANIFEST_FILE}"
     return MANIFEST_FILE.read_text()
+
+
+# ---------------------------------------------------------------------------
+# Budget subcommand
+# ---------------------------------------------------------------------------
+
+HKT = timezone(timedelta(hours=8))
+
+
+def _fmt_resets(resets_at: str | None) -> str:
+    """Format an ISO resets_at string as 'YYYY-MM-DD HH:MM HKT', or '?' on failure."""
+    if not resets_at:
+        return "?"
+    try:
+        dt = datetime.fromisoformat(resets_at)
+        return dt.astimezone(HKT).strftime("%Y-%m-%d %H:%M HKT")
+    except (ValueError, TypeError):
+        return "?"
+
+
+def budget(as_json: bool = False) -> str:
+    """Fetch fresh budget data and return a clean summary."""
+    try:
+        from metabolon.respirometry import get_usage  # type: ignore[import]
+        usage = get_usage()
+    except Exception:
+        # Fallback: shell out to respirometry --json
+        usage = _respirometry()
+
+    if "error" in usage:
+        if as_json:
+            return json.dumps({"error": usage["error"]}, indent=2)
+        return f"Budget unavailable: {usage['error']}"
+
+    seven_day = usage.get("seven_day", {})
+    seven_day_sonnet = usage.get("seven_day_sonnet", {})
+    opus_pct = float(seven_day.get("utilization", -1))
+    sonnet_pct = float(seven_day_sonnet.get("utilization", -1))
+    opus_resets = _fmt_resets(seven_day.get("resets_at"))
+    sonnet_resets = _fmt_resets(seven_day_sonnet.get("resets_at"))
+    stale = usage.get("stale", False)
+    source = usage.get("source", "?")
+
+    if as_json:
+        data = {
+            "opus_pct": opus_pct,
+            "opus_resets": opus_resets,
+            "sonnet_pct": sonnet_pct,
+            "sonnet_resets": sonnet_resets,
+            "stale": stale,
+            "source": source,
+        }
+        return json.dumps(data, indent=2)
+
+    stale_note = "  [stale]" if stale else ""
+    lines = []
+    if opus_pct >= 0:
+        lines.append(f"opus:   {opus_pct:.0f}%  (resets {opus_resets}){stale_note}")
+    if sonnet_pct >= 0:
+        lines.append(f"sonnet: {sonnet_pct:.0f}%  (resets {sonnet_resets}){stale_note}")
+    if not lines:
+        lines.append("no budget data available")
+    return "\n".join(lines)
 
 
 # ---------------------------------------------------------------------------
