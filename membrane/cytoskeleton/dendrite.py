@@ -1155,6 +1155,39 @@ def _antisera_format(entry: dict) -> str:
     return f"[antiserum:{slug}]\n{content}"
 
 
+def _antisera_update_titer(entry: dict) -> None:
+    """Increment titer engagement count and timestamp in the antiserum's frontmatter."""
+    fp = ANTISERA_DIR / f"{entry['slug']}.md"
+    try:
+        content = fp.read_text(encoding="utf-8")
+    except Exception:
+        return
+    today = datetime.now().strftime("%Y-%m-%d")
+    if not content.startswith("---"):
+        return
+    end = content.find("---", 3)
+    if end == -1:
+        return
+    fm = content[3:end]
+    body = content[end:]
+    # Update or insert titer-hits and titer-last-seen
+    hits_match = re.search(r"^titer-hits:\s*(\d+)", fm, re.MULTILINE)
+    if hits_match:
+        old_hits = int(hits_match.group(1))
+        fm = re.sub(r"^titer-hits:\s*\d+", f"titer-hits: {old_hits + 1}", fm, count=1, flags=re.MULTILINE)
+    else:
+        fm = fm.rstrip("\n") + f"\ntiter-hits: 1\n"
+    seen_match = re.search(r"^titer-last-seen:", fm, re.MULTILINE)
+    if seen_match:
+        fm = re.sub(r"^titer-last-seen:.*", f"titer-last-seen: {today}", fm, count=1, flags=re.MULTILINE)
+    else:
+        fm = fm.rstrip("\n") + f"\ntiter-last-seen: {today}\n"
+    try:
+        fp.write_text(f"---{fm}{body}", encoding="utf-8")
+    except Exception:
+        pass
+
+
 def mod_antisera_discovery(data):
     """Progressive discovery: surface antisera on error or first domain use."""
     tool_name = data.get("tool_name", data.get("tool", "")).lower()
@@ -1200,6 +1233,7 @@ def mod_antisera_discovery(data):
 
     for entry in surfaced:
         print(_antisera_format(entry))
+        _antisera_update_titer(entry)
 
 
 
