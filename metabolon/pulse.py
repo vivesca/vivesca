@@ -692,6 +692,29 @@ def post_efferens_summary(total_systoles: int, stop_reason: str):
         log(f"ACTA post failed: {e}")
 
 
+def _auto_commit_germline():
+    """Commit any dirty pulse output so germline stays clean between sessions."""
+    germline = Path.home() / "germline"
+    try:
+        status = subprocess.run(
+            ["git", "status", "--porcelain", "loci/pulse/"],
+            capture_output=True, text=True, cwd=germline, timeout=10,
+        )
+        if not status.stdout.strip():
+            return
+        subprocess.run(
+            ["git", "add", "loci/pulse/"],
+            cwd=germline, capture_output=True, timeout=10,
+        )
+        subprocess.run(
+            ["git", "commit", "-m", f"pulse: auto-commit {datetime.datetime.now():%Y-%m-%d %H:%M}"],
+            cwd=germline, capture_output=True, timeout=10,
+        )
+        log("Auto-committed pulse output to germline")
+    except Exception as e:
+        log(f"Auto-commit failed: {e}")
+
+
 def autophagy(wave: int, stop_reason: str):
     """Autophagy — recycle the cardiac cycle: write vital signs, archive log, review."""
     record_vital_signs(wave, stop_reason)
@@ -702,6 +725,7 @@ def autophagy(wave: int, stop_reason: str):
         CARDIAC_LOG.rename(archive)
         print(f"Manifest archived to {archive.name}")
         cross_model_review(archive)
+    _auto_commit_germline()
 
 
 # ---------------------------------------------------------------------------
