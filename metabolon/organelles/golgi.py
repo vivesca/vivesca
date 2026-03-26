@@ -211,7 +211,7 @@ def index() -> int:
             posts.append({
                 "slug": path.stem,
                 "title": fm.get("title", path.stem),
-                "pubDatetime": fm.get("pubDatetime", ""),
+                "pubDatetime": str(fm.get("pubDatetime", "")),
                 "tags": fm.get("tags", []),
             })
 
@@ -282,7 +282,7 @@ def _cli() -> None:
     args = parser.parse_args()
 
     if args.cmd == "new":
-        slug, path = new(args.title)
+        _, path = new(args.title)
         print(f"Created {path} (draft)")
     elif args.cmd == "list":
         for p in list_posts():
