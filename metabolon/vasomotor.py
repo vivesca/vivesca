@@ -188,11 +188,26 @@ def vasomotor_snapshot() -> dict | None:
     return None
 
 
+_RESETS_AT_FILE = Path.home() / "tmp" / ".respiration-resets-at"
+
+
 def _hours_to_reset(telemetry: dict | None) -> float | None:
-    """Hours until the weekly budget resets. None if unknown."""
-    if not telemetry:
-        return None
-    resets_at_str = telemetry.get("seven_day", {}).get("resets_at", "")
+    """Hours until the weekly budget resets. None if unknown.
+
+    Persists resets_at to disk so stale telemetry doesn't erase the value.
+    """
+    resets_at_str = ""
+    if telemetry:
+        resets_at_str = telemetry.get("seven_day", {}).get("resets_at", "")
+        if resets_at_str:
+            # Persist for fallback when telemetry is stale/unavailable
+            _RESETS_AT_FILE.write_text(resets_at_str)
+    if not resets_at_str:
+        # Fallback: read last known reset time from disk
+        try:
+            resets_at_str = _RESETS_AT_FILE.read_text().strip()
+        except FileNotFoundError:
+            return None
     if not resets_at_str:
         return None
     try:
@@ -229,7 +244,10 @@ def assess_vital_capacity() -> tuple[bool, str]:
     tachycardia_threshold = genome.get("tachycardia_threshold", TACHYCARDIA_THRESHOLD)
 
     # Oxygen debt: relax thresholds when budget expires soon
+    # Falls through to persisted resets_at when live telemetry is stale
     hours = _hours_to_reset(usage)
+    if hours is None:
+        hours = _hours_to_reset(None)  # try persisted fallback
     debt = oxygen_debt(hours) if hours is not None else 0.0
     effective_ceiling = aerobic_ceiling + debt * 10  # 80% → 90% under full debt
     effective_reserve = sympathetic_reserve * (1 - 0.7 * debt)  # 15% → 4.5%

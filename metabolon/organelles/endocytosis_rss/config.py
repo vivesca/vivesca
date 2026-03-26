@@ -93,9 +93,9 @@ def restore_config() -> EndocytosisConfig:
     xdg_cache = _xdg_base("XDG_CACHE_HOME", ".cache")
     xdg_data = _xdg_base("XDG_DATA_HOME", ".local/share")
 
-    config_dir = _env_path("ENDOCYTOSIS_CONFIG_DIR", xdg_config / "lustro")
-    cache_dir = _env_path("ENDOCYTOSIS_CACHE_DIR", xdg_cache / "lustro")
-    data_dir = _env_path("ENDOCYTOSIS_DATA_DIR", xdg_data / "lustro")
+    config_dir = _env_path("ENDOCYTOSIS_CONFIG_DIR", xdg_config / "endocytosis")
+    cache_dir = _env_path("ENDOCYTOSIS_CACHE_DIR", xdg_cache / "endocytosis")
+    data_dir = _env_path("ENDOCYTOSIS_DATA_DIR", xdg_data / "endocytosis")
 
     config_path = config_dir / "config.yaml"
     sources_path = config_dir / "sources.yaml"

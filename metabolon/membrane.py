@@ -218,7 +218,7 @@ def _absorb_cofactors() -> None:
 
     from metabolon.cytosol import VIVESCA_ROOT
 
-    path = str(VIVESCA_ROOT / "effectors" / "keychain-env")
+    path = str(VIVESCA_ROOT / "effectors" / "importin")
     try:
         loader = importlib.machinery.SourceFileLoader("keychain_env", path)
         spec = importlib.util.spec_from_file_location("keychain_env", path, loader=loader)

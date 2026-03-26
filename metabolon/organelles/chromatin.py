@@ -5,9 +5,6 @@ Oghma's Storage class is imported directly instead of subprocess.
 Supports chromatin accessibility states (open/closed).
 """
 
-from pathlib import Path
-
-_DB_PATH = Path.home() / ".local" / "share" / "oghma" / "memories.db"
 _storage = None
 
 
@@ -15,9 +12,11 @@ def _get_storage():
     """Lazy-init Storage to avoid import overhead."""
     global _storage
     if _storage is None:
+        from oghma.config import load_config
         from oghma.storage import Storage
 
-        _storage = Storage(str(_DB_PATH))
+        config = load_config()
+        _storage = Storage(config=config)
     return _storage
 
 
@@ -79,6 +78,11 @@ def stats() -> dict:
 
 def status() -> str:
     """Database status: path, exists, size."""
-    exists = _DB_PATH.exists()
-    size = _DB_PATH.stat().st_size if exists else 0
-    return f"DB: {_DB_PATH} ({'exists' if exists else 'missing'}, {size / 1024:.0f}KB)"
+    from pathlib import Path
+
+    from oghma.config import load_config
+
+    db_path = Path(load_config()["storage"]["db_path"])
+    exists = db_path.exists()
+    size = db_path.stat().st_size if exists else 0
+    return f"DB: {db_path} ({'exists' if exists else 'missing'}, {size / 1024:.0f}KB)"

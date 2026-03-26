@@ -22,8 +22,9 @@ def cli():
 @click.option("--port", type=int, default=None, help="HTTP port (default: 8741)")
 def serve(http: bool, host: str | None, port: int | None):
     """Run as MCP server."""
-    from metabolon.membrane import DEFAULT_HOST, DEFAULT_PORT, assemble_organism
+    from metabolon.membrane import DEFAULT_HOST, DEFAULT_PORT, _absorb_cofactors, assemble_organism
 
+    _absorb_cofactors()
     mcp = assemble_organism()
     if http:
         mcp.run(
@@ -1753,3 +1754,86 @@ def auscultate():
     else:
         click.echo(click.style("  Organism needs attention.", fg="red", bold=True))
     click.echo("")
+
+
+# ---------------------------------------------------------------------------
+# mitosis — DR sync to lucerna hot standby
+# ---------------------------------------------------------------------------
+
+@cli.group()
+def mitosis():
+    """DR sync to lucerna hot standby."""
+    pass
+
+
+@mitosis.command("sync")
+@click.argument("targets", nargs=-1)
+@click.option("--quiet", "-q", is_flag=True, help="Suppress per-target output.")
+def mitosis_sync(targets: tuple[str, ...], quiet: bool):
+    """Push current state to lucerna. Optionally specify target names."""
+    from metabolon.organelles.mitosis import sync
+
+    target_list = list(targets) if targets else None
+    report = sync(target_list)
+
+    if not quiet:
+        for r in report.results:
+            symbol = click.style("OK", fg="green") if r.success else click.style("FAIL", fg="red")
+            line = f"  {symbol}  {r.target} ({r.elapsed_s:.1f}s)"
+            if r.message:
+                line += f"  {r.message}"
+            click.echo(line)
+        click.echo("")
+
+    click.echo(report.summary)
+    raise SystemExit(0 if report.ok else 1)
+
+
+@mitosis.command("status")
+def mitosis_status():
+    """Check lucerna health and sync freshness."""
+    from metabolon.organelles.mitosis import status
+
+    info = status()
+    if not info["reachable"]:
+        click.echo(click.style("lucerna: UNREACHABLE", fg="red"))
+        raise SystemExit(1)
+
+    click.echo(f"lucerna: {click.style('REACHABLE', fg='green')}  machine={info.get('machine_state', '?')}")
+
+    for name, t in info.get("targets", {}).items():
+        state = t.get("state", "unknown")
+        if state == "ok":
+            symbol = click.style("OK", fg="green")
+            detail = f"{t.get('age_minutes', '?')}m ago"
+        elif state == "stale":
+            symbol = click.style("STALE", fg="yellow")
+            detail = f"{t.get('age_minutes', '?')}m ago"
+        elif state == "missing":
+            symbol = click.style("MISSING", fg="red")
+            detail = ""
+        else:
+            symbol = click.style("?", fg="yellow")
+            detail = ""
+        click.echo(f"  {symbol}  {name}  {detail}")
+
+    raise SystemExit(0)
+
+
+@mitosis.command("setup")
+def mitosis_setup():
+    """Bootstrap lucerna with dirs, germline clone, and metabolon install."""
+    from metabolon.organelles.mitosis import setup
+
+    click.echo("Bootstrapping lucerna...")
+    result = setup()
+
+    for step in result.get("steps", []):
+        symbol = click.style("OK", fg="green") if step["success"] else click.style("FAIL", fg="red")
+        click.echo(f"  {symbol}  {step['name']}  {step.get('message', '')}")
+
+    if result["success"]:
+        click.echo(click.style("\nLucerna ready. Run `vivesca mitosis sync` to push state.", fg="green"))
+    else:
+        click.echo(click.style("\nSetup incomplete — check failures above.", fg="red"))
+        raise SystemExit(1)

@@ -8,7 +8,7 @@ web_sources:
     cadence: daily
     tags: [ai]
     # Category: breaking/official — major lab announcements warrant daily polling
-    rss: https://www.anthropic.com/news/rss.xml
+    # RSS dead (404) as of 2026-03-26 — removed rss field, web scrape fallback only
     url: https://www.anthropic.com/news
 
   - name: OpenAI Blog
@@ -148,7 +148,7 @@ web_sources:
     cadence: weekly
     tags: [ai]
     # Category: newsletter — published weekly by DeepLearning.AI
-    rss: https://www.deeplearning.ai/the-batch/feed/
+    # RSS dead (404) as of 2026-03-26 — removed rss field, web scrape fallback only
     url: https://www.deeplearning.ai/the-batch/
 
   - name: Import AI
