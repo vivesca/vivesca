@@ -531,7 +531,7 @@ def metabolize_weekly(
     affinity_index = _build_affinity_index(affinity_entries)
 
     # Secrete to ~/epigenome/chromatin/Reference/weekly-ai-digest-YYYY-WNN.md
-    output_dir = Path.home() / "code" / "epigenome" / "chromatin" / "Reference"
+    output_dir = __import__("metabolon.locus", fromlist=["CHEMOSENSORY"]).CHEMOSENSORY
     output_path = output_dir / f"weekly-ai-digest-{week_label}.md"
 
     written_path = secrete_weekly_digest(

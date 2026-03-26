@@ -1,0 +1,343 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.11"
+# dependencies = ["httpx"]
+# ///
+"""peira — life experiment tracker. Named after Greek πεῖρα (trial, experiment).
+
+Deterministic CLI for N=1 self-experiments with Oura Ring as the primary sensor.
+Creates vault notes, pulls baseline/check-in data, computes deltas at close.
+
+Usage:
+    peira new "caffeine cut" --hypothesis "..." --days 14
+    peira check [name]
+    peira close [name]
+    peira list
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import re
+import sys
+from datetime import date, timedelta
+from pathlib import Path
+from typing import Any
+
+# Oura data via chemoreceptor organelle
+sys.path.insert(0, str(Path.home() / "germline" / "metabolon"))
+from organelles.chemoreceptor import _fetch, _get_token
+
+VAULT = Path.home() / "epigenome" / "chromatin"
+EXPERIMENT_DIR = VAULT / "experiments"
+
+# ---------------------------------------------------------------------------
+# Oura helpers
+# ---------------------------------------------------------------------------
+
+
+def pull_oura(start: str, end: str) -> dict[str, dict[str, Any]]:
+    """Pull sleep + readiness data for a date range. Returns {date: {sleep_score, readiness_score, ...}}."""
+    token = _get_token()
+    sleep = _fetch("daily_sleep", start, end, token)
+    readiness = _fetch("daily_readiness", start, end, token)
+
+    by_date: dict[str, dict[str, Any]] = {}
+    for s in sleep:
+        d = s.get("day", "")
+        by_date.setdefault(d, {})["sleep_score"] = s.get("score")
+        by_date[d]["sleep_contributors"] = s.get("contributors", {})
+    for r in readiness:
+        d = r.get("day", "")
+        by_date.setdefault(d, {})["readiness_score"] = r.get("score")
+        by_date[d]["readiness_contributors"] = r.get("contributors", {})
+    return dict(sorted(by_date.items()))
+
+
+def summarise_period(data: dict[str, dict]) -> dict[str, Any]:
+    """Compute averages from a period of Oura data."""
+    sleep_scores = [v["sleep_score"] for v in data.values() if v.get("sleep_score")]
+    readiness_scores = [v["readiness_score"] for v in data.values() if v.get("readiness_score")]
+
+    hrv_vals = []
+    for v in data.values():
+        hrv = (v.get("readiness_contributors") or {}).get("hrv_balance")
+        if hrv is not None:
+            hrv_vals.append(hrv)
+
+    return {
+        "days": len(data),
+        "sleep_avg": round(sum(sleep_scores) / len(sleep_scores), 1) if sleep_scores else None,
+        "sleep_range": f"{min(sleep_scores)}-{max(sleep_scores)}" if sleep_scores else None,
+        "readiness_avg": round(sum(readiness_scores) / len(readiness_scores), 1) if readiness_scores else None,
+        "readiness_range": f"{min(readiness_scores)}-{max(readiness_scores)}" if readiness_scores else None,
+        "hrv_balance_avg": round(sum(hrv_vals) / len(hrv_vals), 1) if hrv_vals else None,
+        "hrv_balance_range": f"{min(hrv_vals)}-{max(hrv_vals)}" if hrv_vals else None,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Vault note helpers
+# ---------------------------------------------------------------------------
+
+
+def slugify(name: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
+
+
+def find_experiment(name: str | None) -> Path | None:
+    """Find an active experiment by name (fuzzy) or return the only active one."""
+    active = list(EXPERIMENT_DIR.glob("peira-*.md"))
+    if not active:
+        return None
+    if name:
+        slug = slugify(name)
+        for p in active:
+            if slug in p.stem:
+                return p
+        return None
+    # If only one active, return it
+    results = [p for p in active if _is_active(p)]
+    if len(results) == 1:
+        return results[0]
+    return None
+
+
+def _is_active(path: Path) -> bool:
+    text = path.read_text()
+    return "status: active" in text
+
+
+def list_experiments() -> list[Path]:
+    return sorted(EXPERIMENT_DIR.glob("peira-*.md"))
+
+
+# ---------------------------------------------------------------------------
+# Commands
+# ---------------------------------------------------------------------------
+
+
+def cmd_new(args: argparse.Namespace) -> None:
+    name = args.name
+    slug = slugify(name)
+    days = args.days
+    start = date.today()
+    end = start + timedelta(days=days)
+
+    # Pull baseline: same duration before start
+    baseline_start = start - timedelta(days=days)
+    baseline_end = start - timedelta(days=1)
+
+    print(f"Pulling {days}-day baseline from Oura ({baseline_start} to {baseline_end})...")
+    baseline_data = pull_oura(str(baseline_start), str(baseline_end))
+    baseline_summary = summarise_period(baseline_data)
+
+    filename = f"peira-{start}-{slug}.md"
+    path = EXPERIMENT_DIR / filename
+
+    hypothesis = args.hypothesis or "TBD"
+
+    content = f"""---
+type: experiment
+status: active
+start_date: {start}
+end_date: {end}
+name: "{name}"
+hypothesis: "{hypothesis}"
+baseline_days: {days}
+---
+
+# {name}
+
+## Hypothesis
+{hypothesis}
+
+## Protocol
+- **Duration:** {days} days ({start} to {end})
+- **Intervention:** {args.intervention or 'TBD'}
+- **Metrics:** Oura sleep score, readiness score, HRV balance
+
+## Baseline ({baseline_start} to {baseline_end})
+- Sleep: avg {baseline_summary['sleep_avg']}, range {baseline_summary['sleep_range']}
+- Readiness: avg {baseline_summary['readiness_avg']}, range {baseline_summary['readiness_range']}
+- HRV balance: avg {baseline_summary['hrv_balance_avg']}, range {baseline_summary['hrv_balance_range']}
+- Days with data: {baseline_summary['days']}
+
+## Check-ins
+"""
+
+    path.write_text(content)
+    print(f"Created: {path}")
+    print(f"Baseline: sleep {baseline_summary['sleep_avg']}, readiness {baseline_summary['readiness_avg']}, HRV balance {baseline_summary['hrv_balance_avg']}")
+    print(f"Experiment runs {start} to {end} ({days} days)")
+
+
+def cmd_check(args: argparse.Namespace) -> None:
+    path = find_experiment(args.name)
+    if not path:
+        print("No active experiment found.", file=sys.stderr)
+        sys.exit(1)
+
+    text = path.read_text()
+
+    # Parse start date from frontmatter
+    m = re.search(r"start_date:\s*(\d{4}-\d{2}-\d{2})", text)
+    if not m:
+        print("Cannot parse start_date", file=sys.stderr)
+        sys.exit(1)
+    start = m.group(1)
+    today = str(date.today())
+    day_num = (date.today() - date.fromisoformat(start)).days + 1
+
+    print(f"Day {day_num} — pulling Oura data ({start} to {today})...")
+    data = pull_oura(start, today)
+    summary = summarise_period(data)
+
+    # Parse baseline for comparison
+    baseline_sleep = _extract_float(text, r"Sleep: avg ([\d.]+)")
+    baseline_readiness = _extract_float(text, r"Readiness: avg ([\d.]+)")
+    baseline_hrv = _extract_float(text, r"HRV balance: avg ([\d.]+)")
+
+    # Format check-in entry
+    entry = f"\n### Day {day_num} — {today}\n"
+    entry += f"- Sleep: avg {summary['sleep_avg']} (baseline {baseline_sleep})"
+    if summary["sleep_avg"] and baseline_sleep:
+        delta = round(summary["sleep_avg"] - baseline_sleep, 1)
+        entry += f" [{'+' if delta > 0 else ''}{delta}]"
+    entry += "\n"
+    entry += f"- Readiness: avg {summary['readiness_avg']} (baseline {baseline_readiness})"
+    if summary["readiness_avg"] and baseline_readiness:
+        delta = round(summary["readiness_avg"] - baseline_readiness, 1)
+        entry += f" [{'+' if delta > 0 else ''}{delta}]"
+    entry += "\n"
+    entry += f"- HRV balance: avg {summary['hrv_balance_avg']} (baseline {baseline_hrv})"
+    if summary["hrv_balance_avg"] and baseline_hrv:
+        delta = round(summary["hrv_balance_avg"] - baseline_hrv, 1)
+        entry += f" [{'+' if delta > 0 else ''}{delta}]"
+    entry += "\n"
+
+    # Append to file
+    with open(path, "a") as f:
+        f.write(entry)
+
+    print(entry)
+    print(f"Appended to {path.name}")
+
+
+def cmd_close(args: argparse.Namespace) -> None:
+    path = find_experiment(args.name)
+    if not path:
+        print("No active experiment found.", file=sys.stderr)
+        sys.exit(1)
+
+    text = path.read_text()
+
+    m_start = re.search(r"start_date:\s*(\d{4}-\d{2}-\d{2})", text)
+    m_end = re.search(r"end_date:\s*(\d{4}-\d{2}-\d{2})", text)
+    if not m_start:
+        print("Cannot parse dates", file=sys.stderr)
+        sys.exit(1)
+
+    start = m_start.group(1)
+    today = str(date.today())
+
+    print(f"Pulling final data ({start} to {today})...")
+    data = pull_oura(start, today)
+    final = summarise_period(data)
+
+    baseline_sleep = _extract_float(text, r"Sleep: avg ([\d.]+)")
+    baseline_readiness = _extract_float(text, r"Readiness: avg ([\d.]+)")
+    baseline_hrv = _extract_float(text, r"HRV balance: avg ([\d.]+)")
+
+    verdict = "\n## Results\n"
+    verdict += f"- Sleep: {baseline_sleep} -> {final['sleep_avg']}"
+    if final["sleep_avg"] and baseline_sleep:
+        delta = round(final["sleep_avg"] - baseline_sleep, 1)
+        verdict += f" ({'+' if delta > 0 else ''}{delta})"
+    verdict += "\n"
+    verdict += f"- Readiness: {baseline_readiness} -> {final['readiness_avg']}"
+    if final["readiness_avg"] and baseline_readiness:
+        delta = round(final["readiness_avg"] - baseline_readiness, 1)
+        verdict += f" ({'+' if delta > 0 else ''}{delta})"
+    verdict += "\n"
+    verdict += f"- HRV balance: {baseline_hrv} -> {final['hrv_balance_avg']}"
+    if final["hrv_balance_avg"] and baseline_hrv:
+        delta = round(final["hrv_balance_avg"] - baseline_hrv, 1)
+        verdict += f" ({'+' if delta > 0 else ''}{delta})"
+    verdict += "\n"
+    verdict += f"- Days with data: {final['days']}\n"
+    verdict += "\n## Verdict\n_TBD — interpret with symbiont_\n"
+
+    # Append results and flip status
+    with open(path, "a") as f:
+        f.write(verdict)
+
+    text = path.read_text()
+    text = text.replace("status: active", "status: closed")
+    path.write_text(text)
+
+    print(verdict)
+    print(f"Experiment closed: {path.name}")
+
+
+def cmd_list(_args: argparse.Namespace) -> None:
+    experiments = list_experiments()
+    if not experiments:
+        print("No experiments found.")
+        return
+    for p in experiments:
+        status = "active" if _is_active(p) else "closed"
+        m = re.search(r'name:\s*"(.+?)"', p.read_text())
+        name = m.group(1) if m else p.stem
+        print(f"  [{status}] {name} — {p.name}")
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+
+def _extract_float(text: str, pattern: str) -> float | None:
+    m = re.search(pattern, text)
+    if m:
+        try:
+            return float(m.group(1))
+        except ValueError:
+            pass
+    return None
+
+
+# ---------------------------------------------------------------------------
+# CLI
+# ---------------------------------------------------------------------------
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description="peira — life experiment tracker")
+    sub = parser.add_subparsers(dest="command")
+
+    p_new = sub.add_parser("new", help="Start a new experiment")
+    p_new.add_argument("name", help="Experiment name")
+    p_new.add_argument("--hypothesis", "-H", help="What you expect to happen")
+    p_new.add_argument("--intervention", "-I", help="What you're changing")
+    p_new.add_argument("--days", "-d", type=int, default=14, help="Duration in days (default: 14)")
+
+    p_check = sub.add_parser("check", help="Pull latest data and append check-in")
+    p_check.add_argument("name", nargs="?", help="Experiment name (optional if only one active)")
+
+    p_close = sub.add_parser("close", help="Close experiment with final comparison")
+    p_close.add_argument("name", nargs="?", help="Experiment name (optional if only one active)")
+
+    sub.add_parser("list", help="List all experiments")
+
+    args = parser.parse_args()
+    if not args.command:
+        parser.print_help()
+        sys.exit(1)
+
+    {"new": cmd_new, "check": cmd_check, "close": cmd_close, "list": cmd_list}[args.command](args)
+
+
+if __name__ == "__main__":
+    main()

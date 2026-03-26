@@ -1,3 +1,4 @@
+from metabolon.locus import CHROMATIN, PRAXIS
 """checkpoint — homeostatic monitoring + system health.
 
 Tools:
@@ -27,7 +28,7 @@ from metabolon.metabolism.setpoint import Threshold
 from metabolon.morphology import EffectorResult, Secretion
 
 SOPOR = "sopor"
-HEALTH_LOG = os.path.expanduser("~/epigenome/chromatin/Health/Symptom Log.md")
+HEALTH_LOG = str(CHROMATIN / "Health" / "Symptom Log.md")
 
 disk_threshold = Threshold(name="disk", default=15, clamp=(5, 50))
 
@@ -248,7 +249,7 @@ def homeostasis_financial() -> HomeostasisFinancialResult:
     """Read vault financial notes and flag overdue or upcoming items (within 14 days)."""
     import datetime
 
-    notes_dir = os.path.expanduser("~/epigenome/chromatin/")
+    notes_dir = str(CHROMATIN)
     today = datetime.date.today().isoformat()
 
     # Read each financial note
@@ -265,7 +266,7 @@ def homeostasis_financial() -> HomeostasisFinancialResult:
             note_parts.append(f"## {fname}\n(read error: {e})")
 
     # Read Praxis.md for financial-tagged items
-    praxis_path = os.path.expanduser("~/epigenome/chromatin/Praxis.md")
+    praxis_path = str(PRAXIS)
     praxis_excerpt = ""
     try:
         with open(praxis_path) as f:
@@ -506,7 +507,7 @@ def anabolism_flywheel() -> AnabolismResult:
 
     # 4. Creative output
     try:
-        notes_dir = os.path.expanduser("~/epigenome/chromatin/")
+        notes_dir = str(CHROMATIN)
 
         vault_cmd = ["git", "log", "--since=7.days", "--oneline"]
         vault_out = subprocess.run(

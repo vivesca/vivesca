@@ -20,8 +20,9 @@ from typing import Any
 # HKT = UTC+8
 HKT = timezone(timedelta(hours=8))
 
-PRAXIS_PATH = os.path.expanduser("~/epigenome/chromatin/Praxis.md")
-TONUS_PATH = os.path.expanduser("~/epigenome/chromatin/Tonus.md")
+from metabolon.locus import PRAXIS as _PRAXIS_PATH, TONUS as _TONUS_PATH
+PRAXIS_PATH = str(_PRAXIS_PATH)
+TONUS_PATH = str(_TONUS_PATH)
 
 
 # ---------------------------------------------------------------------------
