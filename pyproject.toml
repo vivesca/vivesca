@@ -29,8 +29,15 @@ ecdysis-gather = "metabolon.pinocytosis.ecdysis:main"
 photoreception-gather = "metabolon.pinocytosis.photoreception:main"
 polarization-gather = "metabolon.pinocytosis.polarization:main"
 lysin = "metabolon.lysin.cli:main"
-sarcio = "metabolon.organelles.garden:_cli"
-legatus = "metabolon.organelles.dispatcher:_cli"
+sarcio = "metabolon.organelles.golgi:_cli"
+legatus = "metabolon.organelles.gemmation:_cli"
+anam = "metabolon.organelles.engram:_cli"
+pondus = "metabolon.organelles.pondus:_cli"
+caelum = "metabolon.organelles.caelum:_cli"
+stips = "metabolon.organelles.stips:_cli"
+melete = "metabolon.organelles.melete:_cli"
+moneo = "metabolon.organelles.moneo:_cli"
+keryx = "metabolon.organelles.gap_junction:_cli"
 
 [dependency-groups]
 dev = ["pytest", "pytest-asyncio", "ruff", "pyright", "pre-commit", "codespell", "pytest-cov"]

@@ -32,6 +32,7 @@ from mcp.types import ToolAnnotations
 
 from metabolon.cytosol import invoke_organelle, synthesize
 from metabolon.morphology import EffectorResult, Secretion
+from metabolon.organelles import moneo as _moneo
 
 HKT = timezone(timedelta(hours=8))
 NOTES = str(chromatin)
@@ -189,23 +190,23 @@ def emit_praxis(subcommand: str = "today", json_output: bool = True) -> PraxisRe
 )
 def emit_publish(subcommand: str, slug: str = "") -> EffectorResult:
     """Garden publish operations via Python organelle (formerly sarcio)."""
-    from metabolon.organelles import garden
+    from metabolon.organelles import golgi
 
     if subcommand == "new":
-        s, path = garden.new(slug)
+        s, path = golgi.new(slug)
         return EffectorResult(success=True, message=f"Created {path} (draft)")
     elif subcommand == "list":
-        posts = garden.list_posts()
+        posts = golgi.list_posts()
         lines = [f"{p['slug']:30s} {p['title'][:40]:40s} {'(draft)' if p['draft'] else ''}" for p in posts]
         return EffectorResult(success=True, message="\n".join(lines) or "No posts")
     elif subcommand == "publish":
-        title = garden.publish(slug, force=True)
+        title = golgi.publish(slug, force=True)
         return EffectorResult(success=True, message=f"Published: {title}")
     elif subcommand == "push":
-        msg = garden.push()
+        msg = golgi.push()
         return EffectorResult(success=True, message=msg)
     elif subcommand == "index":
-        count = garden.index()
+        count = golgi.index()
         return EffectorResult(success=True, message=f"Index updated -- {count} posts")
     else:
         return EffectorResult(success=False, message=f"Unknown subcommand: {subcommand}")
@@ -234,13 +235,12 @@ def emit_tweet(text: str) -> EffectorResult:
     annotations=ToolAnnotations(readOnlyHint=False, destructiveHint=False),
 )
 def emit_reminder(title: str, date: str = "") -> EffectorResult:
-    """Add a reminder to Due via moneo CLI."""
-    args = ["add"]
-    if date:
-        args.extend(["--date", date])
-    args.append(title)
-    result = invoke_organelle("moneo", args, timeout=15)
-    return EffectorResult(success=True, message=result)
+    """Add a reminder to Due via moneo organelle (Python direct, no subprocess)."""
+    try:
+        result = _moneo.add(title, date=date or None)
+        return EffectorResult(success=True, message=result)
+    except Exception as exc:
+        return EffectorResult(success=False, message=str(exc))
 
 
 @tool(

@@ -26,7 +26,7 @@ class TranslocationResult(Secretion):
 )
 def translocation_list() -> TranslocationResult:
     """List all configured kinesin tasks."""
-    from metabolon.organelles.dispatcher import list_tasks
+    from metabolon.organelles.gemmation import list_tasks
 
     return TranslocationResult(output=list_tasks())
 
@@ -38,7 +38,7 @@ def translocation_list() -> TranslocationResult:
 )
 def translocation_run(name: str) -> EffectorResult:
     """Dispatch a kinesin task by name."""
-    from metabolon.organelles.dispatcher import run_task
+    from metabolon.organelles.gemmation import run_task
 
     result = run_task(name)
     return EffectorResult(success=True, message=result)
@@ -51,7 +51,7 @@ def translocation_run(name: str) -> EffectorResult:
 )
 def translocation_cancel(name: str) -> EffectorResult:
     """Cancel a kinesin task."""
-    from metabolon.organelles.dispatcher import cancel_task
+    from metabolon.organelles.gemmation import cancel_task
 
     result = cancel_task(name)
     return EffectorResult(success=True, message=result)
@@ -64,6 +64,6 @@ def translocation_cancel(name: str) -> EffectorResult:
 )
 def translocation_results(name: str = "") -> TranslocationResult:
     """View results of a kinesin task run."""
-    from metabolon.organelles.dispatcher import get_results
+    from metabolon.organelles.gemmation import get_results
 
     return TranslocationResult(output=get_results(name or None))

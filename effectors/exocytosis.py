@@ -96,7 +96,7 @@ def judge(post: str) -> tuple[bool, str]:
 
 
 def publish(title: str, body: str) -> str:
-    from metabolon.organelles.garden import new, publish as garden_publish
+    from metabolon.organelles.golgi import new, publish as garden_publish
 
     slug, post_path = new(title)
     content = post_path.read_text()

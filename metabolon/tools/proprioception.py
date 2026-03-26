@@ -172,9 +172,34 @@ def _sensorium() -> str:
 
 
 def _hippocampus() -> str:
-    from metabolon.cytosol import invoke_organelle
+    """Memory database statistics via Python oghma package (migrated from Rust binary)."""
+    from io import StringIO
 
-    return invoke_organelle("oghma", ["stats"])
+    from oghma.config import load_config
+    from oghma.storage import Storage
+
+    config = load_config()
+    storage = Storage(config=config)
+    memories = storage.get_all_memories(status="active")
+
+    if not memories:
+        return "hippocampus: 0 active memories"
+
+    category_counts: dict[str, int] = {}
+    source_counts: dict[str, int] = {}
+    for memory in memories:
+        category_counts[memory["category"]] = category_counts.get(memory["category"], 0) + 1
+        source_counts[memory["source_tool"]] = source_counts.get(memory["source_tool"], 0) + 1
+
+    buf = StringIO()
+    buf.write(f"Total active memories: {len(memories)}\n")
+    buf.write("\nBy category:\n")
+    for cat, count in sorted(category_counts.items()):
+        buf.write(f"  {cat}: {count}\n")
+    buf.write("\nBy source tool:\n")
+    for src, count in sorted(source_counts.items()):
+        buf.write(f"  {src}: {count}\n")
+    return buf.getvalue().strip()
 
 
 def _effectors() -> str:
