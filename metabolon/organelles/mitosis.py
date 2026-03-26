@@ -4,7 +4,7 @@ The iMac is the self-renewing daughter cell. Lucerna (fly.io, nrt) is the
 differentiated standby — kept synchronized via one-way push, activated only
 when the primary dies.
 
-Sync is git-based and unidirectional: Mac pushes to GitHub, lucerna pulls.
+Sync is git-based and unidirectional: Mac pushes to GitHub, gemmule pulls.
 No direct SSH or rsync needed — all remote commands go through `fly ssh console`.
 
 State divergence is impossible by design: Mac is always authoritative.
@@ -20,11 +20,11 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 # Lucerna coordinates
-LUCERNA_APP = "gemmule"  # fly.io app name (formerly lucerna)
+LUCERNA_APP = "gemmule"  # fly.io app name (formerly gemmule)
 LUCERNA_USER = "terry"
 LUCERNA_HOME = f"/home/{LUCERNA_USER}"
 
-# Sync targets: git repos that get pushed locally then pulled on lucerna.
+# Sync targets: git repos that get pushed locally then pulled on gemmule.
 # All organism state lives in these repos.
 SYNC_TARGETS: list[dict] = [
     {
@@ -88,7 +88,7 @@ def _expand(path: str) -> str:
 
 
 def _fly_cmd(cmd: str, timeout: int = 60) -> subprocess.CompletedProcess:
-    """Run a command on lucerna via fly ssh console.
+    """Run a command on gemmule via fly ssh console.
 
     Wraps in bash -c "..." so pipes, variables, and semicolons work.
     The -C flag takes a single string which fly passes to the remote shell.
@@ -102,8 +102,8 @@ def _fly_cmd(cmd: str, timeout: int = 60) -> subprocess.CompletedProcess:
     )
 
 
-def _is_lucerna_reachable() -> bool:
-    """Check if lucerna machine is running via fly status."""
+def _is_gemmule_reachable() -> bool:
+    """Check if gemmule machine is running via fly status."""
     try:
         result = subprocess.run(
             ["fly", "status", "-a", LUCERNA_APP],
@@ -146,7 +146,7 @@ def _git_push(local_path: str) -> tuple[bool, str]:
 
 
 def _git_pull_remote(remote_path: str) -> tuple[bool, str]:
-    """Pull latest on lucerna. Returns (success, message)."""
+    """Pull latest on gemmule. Returns (success, message)."""
     try:
         result = _fly_cmd(
             f"cd {remote_path} && git pull --ff-only 2>&1",
@@ -174,7 +174,7 @@ def _sync_target(target: dict) -> SyncResult:
     # Push local (non-fatal — pull may still succeed from a prior push)
     push_ok, push_msg = _git_push(target["local"])
 
-    # Pull on lucerna
+    # Pull on gemmule
     pull_ok, pull_msg = _git_pull_remote(target["remote"])
     elapsed = time.monotonic() - t0
 
@@ -190,18 +190,18 @@ def _sync_target(target: dict) -> SyncResult:
 
 
 def sync(targets: list[str] | None = None) -> SyncReport:
-    """Push current state to lucerna.
+    """Push current state to gemmule.
 
-    Workflow per target: git add+commit+push locally, git pull on lucerna.
+    Workflow per target: git add+commit+push locally, git pull on gemmule.
 
     Args:
         targets: Specific target names to sync. None = all.
     """
     report = SyncReport(started=time.monotonic())
 
-    if not _is_lucerna_reachable():
+    if not _is_gemmule_reachable():
         report.finished = time.monotonic()
-        report.results.append(SyncResult("connectivity", False, 0, "lucerna not running"))
+        report.results.append(SyncResult("connectivity", False, 0, "gemmule not running"))
         return report
 
     manifest = SYNC_TARGETS
@@ -216,20 +216,20 @@ def sync(targets: list[str] | None = None) -> SyncReport:
 
 
 def status() -> dict:
-    """Check lucerna health and sync freshness."""
+    """Check gemmule health and sync freshness."""
     info: dict = {
         "reachable": False,
         "machine_state": "unknown",
         "targets": {},
     }
 
-    info["reachable"] = _is_lucerna_reachable()
+    info["reachable"] = _is_gemmule_reachable()
     if not info["reachable"]:
         return info
 
     info["machine_state"] = "started"
 
-    # Check each repo's last commit time on lucerna in one SSH call
+    # Check each repo's last commit time on gemmule in one SSH call
     stat_parts = []
     for target in SYNC_TARGETS:
         # Get epoch of last commit
@@ -274,14 +274,14 @@ def status() -> dict:
 
 
 def setup() -> dict:
-    """Bootstrap lucerna with required repos and vivesca install.
+    """Bootstrap gemmule with required repos and vivesca install.
 
     Idempotent — safe to run repeatedly.
     """
     steps: list[dict] = []
 
-    if not _is_lucerna_reachable():
-        return {"success": False, "error": "lucerna not running", "steps": steps}
+    if not _is_gemmule_reachable():
+        return {"success": False, "error": "gemmule not running", "steps": steps}
 
     # Clone missing repos
     for target in SYNC_TARGETS:

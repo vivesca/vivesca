@@ -1757,12 +1757,12 @@ def auscultate():
 
 
 # ---------------------------------------------------------------------------
-# mitosis — DR sync to lucerna hot standby
+# mitosis — DR sync to gemmule hot standby
 # ---------------------------------------------------------------------------
 
 @cli.group()
 def mitosis():
-    """DR sync to lucerna hot standby."""
+    """DR sync to gemmule hot standby."""
     pass
 
 
@@ -1770,7 +1770,7 @@ def mitosis():
 @click.argument("targets", nargs=-1)
 @click.option("--quiet", "-q", is_flag=True, help="Suppress per-target output.")
 def mitosis_sync(targets: tuple[str, ...], quiet: bool):
-    """Push current state to lucerna. Optionally specify target names."""
+    """Push current state to gemmule. Optionally specify target names."""
     from metabolon.organelles.mitosis import sync
 
     target_list = list(targets) if targets else None
@@ -1791,15 +1791,15 @@ def mitosis_sync(targets: tuple[str, ...], quiet: bool):
 
 @mitosis.command("status")
 def mitosis_status():
-    """Check lucerna health and sync freshness."""
+    """Check gemmule health and sync freshness."""
     from metabolon.organelles.mitosis import status
 
     info = status()
     if not info["reachable"]:
-        click.echo(click.style("lucerna: UNREACHABLE", fg="red"))
+        click.echo(click.style("gemmule: UNREACHABLE", fg="red"))
         raise SystemExit(1)
 
-    click.echo(f"lucerna: {click.style('REACHABLE', fg='green')}  machine={info.get('machine_state', '?')}")
+    click.echo(f"gemmule: {click.style('REACHABLE', fg='green')}  machine={info.get('machine_state', '?')}")
 
     for name, t in info.get("targets", {}).items():
         state = t.get("state", "unknown")
@@ -1822,10 +1822,10 @@ def mitosis_status():
 
 @mitosis.command("setup")
 def mitosis_setup():
-    """Bootstrap lucerna with dirs, germline clone, and metabolon install."""
+    """Bootstrap gemmule with dirs, germline clone, and metabolon install."""
     from metabolon.organelles.mitosis import setup
 
-    click.echo("Bootstrapping lucerna...")
+    click.echo("Bootstrapping gemmule...")
     result = setup()
 
     for step in result.get("steps", []):
