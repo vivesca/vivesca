@@ -1,3 +1,4 @@
+from metabolon.locus import chromatin
 """secretory -- efferent (outward) actions from skills.
 
 Biology: efferent nerves carry signals outward from the CNS to
@@ -33,7 +34,7 @@ from metabolon.cytosol import invoke_organelle, synthesize
 from metabolon.morphology import EffectorResult, Secretion
 
 HKT = timezone(timedelta(hours=8))
-NOTES = str(__import__("metabolon.locus", fromlist=["chromatin"]).chromatin)
+NOTES = str(chromatin)
 
 # -- Chaperones: quality control before export --------------------------------
 # Cell biology: chaperones verify protein folding before secretion.

@@ -1678,14 +1678,15 @@ def auscultate():
 
     # 4. Key paths exist
     from pathlib import Path
+    from metabolon.locus import chromatin as _chromatin, engrams as _engrams
     paths = {
         "genome.md": VIVESCA_ROOT / "genome.md",
         "anatomy.md": VIVESCA_ROOT / "anatomy.md",
         "membrane/cytoskeleton": VIVESCA_ROOT / "membrane" / "cytoskeleton",
         "membrane/receptors": VIVESCA_ROOT / "membrane" / "receptors",
         "effectors": VIVESCA_ROOT / "effectors",
-        "chromatin": __import__("metabolon.locus", fromlist=["chromatin"]).chromatin,
-        "engrams": __import__("metabolon.locus", fromlist=["engrams"]).engrams,
+        "chromatin": _chromatin,
+        "engrams": _engrams,
     }
     for name, path in paths.items():
         checks.append((f"path {name}", path.exists(), str(path)))

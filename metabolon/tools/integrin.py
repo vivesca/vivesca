@@ -1,3 +1,4 @@
+from metabolon.locus import chromatin
 """integrin -- attachment integrity probe.
 
 Biology: integrins are transmembrane receptors that connect a cell's
@@ -37,7 +38,7 @@ from metabolon.cytosol import VIVESCA_ROOT
 
 SKILLS_DIR = VIVESCA_ROOT / "receptors"
 SKILL_USAGE_LOG = Path.home() / ".claude" / "skill-usage.tsv"
-RECEPTOR_RETIREMENT_LOG = __import__("metabolon.locus", fromlist=["chromatin"]).chromatin / "receptor-retirement.md"
+RECEPTOR_RETIREMENT_LOG = chromatin / "receptor-retirement.md"
 
 # Shell builtins and ubiquitous utilities -- always resolvable
 BUILTINS = frozenset(
