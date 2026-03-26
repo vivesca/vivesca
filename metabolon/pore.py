@@ -245,6 +245,95 @@ def check():
         raise SystemExit(1)
 
 
+@cli.group()
+def hooks():
+    """Check and repair ~/.claude symlinks."""
+    pass
+
+
+def _hooks_status():
+    """Return (issues, hook_is_symlink) where issues is a list of problem strings."""
+    from metabolon.cytosol import VIVESCA_ROOT
+
+    claude = Path.home() / ".claude"
+    expected = {
+        "hooks": VIVESCA_ROOT / "membrane" / "cytoskeleton",
+        "settings.json": VIVESCA_ROOT / "membrane" / "expression.json",
+        "CLAUDE.md": VIVESCA_ROOT / "membrane" / "phenotype.md",
+    }
+    issues = []
+    for name, target in expected.items():
+        link = claude / name
+        if not link.is_symlink():
+            issues.append(f"{name}: not a symlink (is {'dir' if link.is_dir() else 'file' if link.exists() else 'missing'})")
+        elif link.resolve() != target.resolve():
+            issues.append(f"{name}: points to {os.readlink(link)!r}, expected {target}")
+
+    skills_dir = claude / "skills"
+    if skills_dir.exists():
+        for skill in skills_dir.iterdir():
+            if skill.is_symlink() and not skill.exists():
+                issues.append(f"skills/{skill.name}: broken -> {os.readlink(skill)}")
+
+    return issues
+
+
+@hooks.command("check")
+def hooks_check():
+    """Verify ~/.claude symlinks are intact."""
+    issues = _hooks_status()
+    if not issues:
+        click.echo("HEALTHY")
+    else:
+        click.echo("BROKEN:")
+        for issue in issues:
+            click.echo(f"  - {issue}")
+        raise SystemExit(1)
+
+
+@hooks.command("repair")
+def hooks_repair():
+    """Fix broken ~/.claude symlinks."""
+    from metabolon.cytosol import VIVESCA_ROOT
+
+    claude = Path.home() / ".claude"
+    repairs = {
+        "hooks": VIVESCA_ROOT / "membrane" / "cytoskeleton",
+        "settings.json": VIVESCA_ROOT / "membrane" / "expression.json",
+        "CLAUDE.md": VIVESCA_ROOT / "membrane" / "phenotype.md",
+    }
+    fixed = []
+    for name, target in repairs.items():
+        link = claude / name
+        if link.is_symlink() and link.resolve() == target.resolve():
+            continue
+        if link.exists() or link.is_symlink():
+            if link.is_dir() and not link.is_symlink():
+                import shutil
+                shutil.rmtree(link)
+            else:
+                link.unlink()
+        link.symlink_to(target)
+        fixed.append(f"{name} -> {target}")
+
+    skills_dir = claude / "skills"
+    receptors = VIVESCA_ROOT / "membrane" / "receptors"
+    if skills_dir.exists():
+        for skill in skills_dir.iterdir():
+            if skill.is_symlink() and not skill.exists():
+                new_target = receptors / skill.name
+                if new_target.exists():
+                    skill.unlink()
+                    skill.symlink_to(new_target)
+                    fixed.append(f"skills/{skill.name} -> {new_target}")
+
+    if fixed:
+        for item in fixed:
+            click.echo(f"Fixed: {item}")
+    else:
+        click.echo("Nothing to repair.")
+
+
 # ── metabolise (top-level) ───────────────────────────────────────────
 
 # Common words excluded from chain-seed detection (deterministic, no LLM)
