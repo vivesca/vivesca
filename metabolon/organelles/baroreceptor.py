@@ -1,4 +1,4 @@
-"""caelum — HK Observatory weather sensor (caelum = sky)."""
+"""baroreceptor — HK Observatory environmental sensor (baroreceptor = pressure sensor)."""
 
 import json
 import sys

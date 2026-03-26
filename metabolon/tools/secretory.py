@@ -32,7 +32,7 @@ from mcp.types import ToolAnnotations
 
 from metabolon.cytosol import invoke_organelle, synthesize
 from metabolon.morphology import EffectorResult, Secretion
-from metabolon.organelles import moneo as _moneo
+from metabolon.organelles import pacemaker as _pacemaker
 
 HKT = timezone(timedelta(hours=8))
 NOTES = str(chromatin)
@@ -237,7 +237,7 @@ def emit_tweet(text: str) -> EffectorResult:
 def emit_reminder(title: str, date: str = "") -> EffectorResult:
     """Add a reminder to Due via moneo organelle (Python direct, no subprocess)."""
     try:
-        result = _moneo.add(title, date=date or None)
+        result = _pacemaker.add(title, date=date or None)
         return EffectorResult(success=True, message=result)
     except Exception as exc:
         return EffectorResult(success=False, message=str(exc))

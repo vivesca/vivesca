@@ -1,4 +1,4 @@
-"""pondus — AI model benchmark aggregator (unchanged name: pondus = weight/measure)."""
+"""statolith — AI model benchmark aggregator (statolith = gravity-sensing dense body)."""
 
 # /// script
 # requires-python = ">=3.11"

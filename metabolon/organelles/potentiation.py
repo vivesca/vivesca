@@ -1,4 +1,4 @@
-"""melete — spaced repetition engine (melete = practice/study, one of the three Muses)."""
+"""potentiation — spaced repetition engine (potentiation = LTP, learning via timed stimulation)."""
 
 # GARP RAI spaced repetition: FSRS scheduling, tracker markdown, session planning.
 # Translated from Rust (~/code/melete/src/main.rs).

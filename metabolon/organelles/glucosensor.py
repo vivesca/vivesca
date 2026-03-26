@@ -1,4 +1,4 @@
-"""stips — OpenRouter budget sensor (stips = stipend/allowance)."""
+"""glucosensor — OpenRouter energy currency sensor (glucosensor = glucose level sensor)."""
 
 import json
 import os

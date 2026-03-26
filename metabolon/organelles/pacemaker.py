@@ -1,4 +1,4 @@
-"""moneo — reminder signaling (moneo = I remind/warn)."""
+"""pacemaker — reminder signaling (pacemaker = generates signals at scheduled intervals)."""
 
 from __future__ import annotations
 
