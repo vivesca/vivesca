@@ -66,7 +66,9 @@ def _build_cmd(task: dict, out_dir: Path) -> list[str]:
     backend = task.get("backend", "opencode")
 
     if backend == "claude":
-        return [str(home / ".local/bin/claude"), "--dangerously-skip-permissions", "-p", prompt]
+        import shutil
+        claude = shutil.which("claude") or str(home / ".local/bin/claude")
+        return [claude, "--dangerously-skip-permissions", "-p", prompt]
     elif backend == "gemini":
         return ["gemini", "-p", prompt, "--yolo"]
     elif backend == "codex":
@@ -130,6 +132,7 @@ def run_task(name: str, queue_path: Path | None = None) -> str:
         stderr=log_file,
         start_new_session=True,
     )
+    log_file.close()  # child inherited the fd; parent can release
 
     return (
         f"Dispatched '{name}' via {backend} (pid: {child.pid})\n"
@@ -163,7 +166,7 @@ def get_results(name: str | None = None) -> str:
         if not date_dirs:
             return f"No results found for '{name}'."
         task_dir = date_dirs[-1] / name
-        for fname in ("report.md", "stdout.txt"):
+        for fname in ("summary.md", "report.md", "stdout.txt"):
             f = task_dir / fname
             if f.exists():
                 content = f.read_text()

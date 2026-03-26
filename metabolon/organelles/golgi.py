@@ -1,7 +1,6 @@
-"""garden — blog publishing pipeline (formerly sarcio).
+"""golgi — blog publishing pipeline (packages, sorts, exports posts).
 
-Endosymbiosis: Rust binary -> Python organelle.
-Manages Markdown posts in ~/epigenome/chromatin/Garden Posts/.
+Manages Markdown posts in chromatin/Garden Posts/.
 Syncs to terryli.hm via ~/code/blog/sync-from-vault.sh.
 """
 
@@ -12,9 +11,11 @@ from pathlib import Path
 
 import yaml
 
-VAULT_DIR = Path.home() / "epigenome" / "chromatin" / "Garden Posts"
-INDEX_PATH = Path.home() / "epigenome" / "chromatin" / "terryli.hm.md"
-SYNC_SCRIPT = Path.home() / "code" / "blog" / "sync-from-vault.sh"
+from metabolon.locus import chromatin
+
+VAULT_DIR = chromatin / "Garden Posts"
+INDEX_PATH = chromatin / "terryli.hm.md"
+SYNC_SCRIPT = Path.home() / "code" / "blog" / "sync-from-vault.sh"  # outside organism
 BASE_URL = "https://terryli.hm/posts"
 
 
