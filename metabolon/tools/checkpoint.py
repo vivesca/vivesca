@@ -22,12 +22,11 @@ import subprocess
 from fastmcp.tools import tool
 from mcp.types import ToolAnnotations
 
-from metabolon.cytosol import invoke_organelle, synthesize
+from metabolon.cytosol import synthesize
 from metabolon.metabolism.mismatch_repair import summary as precision_summary
 from metabolon.metabolism.setpoint import Threshold
 from metabolon.morphology import EffectorResult, Secretion
 
-SOPOR = "sopor"
 HEALTH_LOG = str(chromatin / "Health" / "Symptom Log.md")
 
 disk_threshold = Threshold(name="disk", default=15, clamp=(5, 50))
@@ -468,24 +467,11 @@ def anabolism_flywheel() -> AnabolismResult:
 
     # 1. Sleep & Energy
     try:
-        sopor_out = invoke_organelle(SOPOR, ["today"], timeout=15)
+        from metabolon.organelles.chemoreceptor import today as _chemoreceptor_today
 
-        # Sleep
-        sleep_match = re.search(r"Sleep Score:\s*(\d+)", sopor_out)
-        if sleep_match:
-            score = int(sleep_match.group(1))
-            links.append({"name": "sleep", "score": score})
-        else:
-            links.append({"name": "sleep", "score": None})
-
-        # Energy
-        energy_match = re.search(r"Readiness:\s*(\d+)", sopor_out)
-        if energy_match:
-            readiness = int(energy_match.group(1))
-            links.append({"name": "energy", "score": readiness})
-        else:
-            links.append({"name": "energy", "score": None})
-
+        health = _chemoreceptor_today()
+        links.append({"name": "sleep", "score": health.get("sleep_score")})
+        links.append({"name": "energy", "score": health.get("readiness_score")})
     except Exception:
         links.append({"name": "sleep", "score": None})
         links.append({"name": "energy", "score": None})

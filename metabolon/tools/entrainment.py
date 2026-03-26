@@ -9,7 +9,7 @@ from pathlib import Path
 from fastmcp.tools import tool
 from mcp.types import ToolAnnotations
 
-from metabolon.cytosol import invoke_organelle
+from metabolon.cytosol import VIVESCA_ROOT, invoke_organelle
 from metabolon.morphology import Secretion
 
 SOPOR = "sopor"
@@ -85,7 +85,9 @@ def entrainment_brief() -> EntrainmentResult:
 
     # Kinesin overnight results
     try:
-        kinesin_out = invoke_organelle("overnight-gather", ["brief"], timeout=15)
+        kinesin_out = invoke_organelle(
+            str(VIVESCA_ROOT / "effectors" / "overnight-gather"), ["brief"], timeout=15
+        )
         if "NEEDS_ATTENTION" in kinesin_out or "CRITICAL" in kinesin_out:
             attention = [
                 ln

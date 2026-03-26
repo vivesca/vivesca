@@ -33,6 +33,8 @@ from mcp.types import ToolAnnotations
 from metabolon.cytosol import invoke_organelle, synthesize
 from metabolon.morphology import EffectorResult, Secretion
 from metabolon.organelles import pacemaker as _pacemaker
+from metabolon.organelles import praxis as _praxis
+from metabolon.organelles import secretory_vesicle as _secretory_vesicle
 
 HKT = timezone(timedelta(hours=8))
 NOTES = str(chromatin)
@@ -170,11 +172,24 @@ class PraxisResult(Secretion):
     annotations=ToolAnnotations(readOnlyHint=True, destructiveHint=False),
 )
 def emit_praxis(subcommand: str = "today", json_output: bool = True) -> PraxisResult:
-    """Query Praxis.md state via todo-cli."""
-    args = [subcommand]
-    if json_output:
-        args.append("--json")
-    result = invoke_organelle("todo-cli", args, timeout=15)
+    """Query Praxis.md state via praxis organelle."""
+    import json as _json
+
+    _dispatch = {
+        "today": _praxis.today,
+        "upcoming": _praxis.upcoming,
+        "overdue": _praxis.overdue,
+        "someday": _praxis.someday,
+        "all": _praxis.all_items,
+        "spare": _praxis.spare,
+        "clean": _praxis.clean,
+        "stats": _praxis.stats,
+    }
+    fn = _dispatch.get(subcommand)
+    if fn is None:
+        return PraxisResult(output=f"Unknown subcommand: {subcommand}")
+    data = fn()
+    result = _json.dumps(data) if json_output else str(data)
     return PraxisResult(output=result)
 
 
@@ -337,7 +352,7 @@ def exocytosis_tweet(insight: str, topic: str = "") -> EffectorResult:
 
             intent = "https://x.com/intent/tweet?text=" + urllib.parse.quote(text)
             with contextlib.suppress(Exception):
-                invoke_organelle("deltos_send_text", [text], timeout=15)
+                _secretory_vesicle.secrete_text(text)
             return EffectorResult(
                 success=False,
                 message=f"226 block. Intent URL: {intent}",
@@ -374,15 +389,8 @@ def secretion(tweet: str, topic: str = "") -> EffectorResult:
     post_body = synthesize(prompt, timeout=60)
     post_body = post_body.strip()
 
-    result = invoke_organelle("agoras", ["post", post_body], timeout=60)
-
-    # Log telemetry
-    label = topic or ((tweet[:50] + "...") if len(tweet) > 50 else tweet)
-    emit_telemetry(
-        channel="linkedin",
-        title=label,
-        source_skill="secretion",
-        tags=(tweet[:50] + "...") if len(tweet) > 50 else tweet,
+    return EffectorResult(
+        success=False,
+        message="LinkedIn posting unavailable: agoras binary does not exist and no Python organelle equivalent has been implemented.",
+        data={"post": post_body},
     )
-
-    return EffectorResult(success=True, message=result, data={"post": post_body})

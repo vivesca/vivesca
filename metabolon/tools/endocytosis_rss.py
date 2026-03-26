@@ -28,11 +28,7 @@ from typing import Any
 from fastmcp.tools import tool
 from mcp.types import ToolAnnotations
 
-from metabolon.cytosol import invoke_organelle
 from metabolon.morphology import EffectorResult, Secretion
-
-# Vivesca CLI binary: endocytosis subcommands are now vivesca endocytosis <cmd>
-_VIVESCA = "vivesca"
 
 # Affinity/engagement JSONL logs written during fetch cycles (path unchanged for data compat)
 _AFFINITY_LOG = Path.home() / ".cache" / "lustro" / "relevance.jsonl"
@@ -171,8 +167,57 @@ class EndocytosisTopResult(Secretion):
 )
 def endocytosis_rss_status() -> EndocytosisStatusResult:
     """Check current receptor state: last fetch, tracked sources, cache."""
-    output = invoke_organelle(_VIVESCA, ["endocytosis", "status"], timeout=15)
-    return EndocytosisStatusResult(output=output)
+    from metabolon.organelles.endocytosis_rss.config import restore_config
+    from metabolon.organelles.endocytosis_rss.state import restore_state
+
+    def _file_age(path: Path, now: datetime) -> str:
+        if not path.exists():
+            return "missing"
+        modified = datetime.fromtimestamp(path.stat().st_mtime, tz=now.tzinfo)
+        delta = now - modified
+        if delta.total_seconds() < 60:
+            return "just now"
+        if delta.total_seconds() < 3600:
+            return f"{int(delta.total_seconds() // 60)}m ago"
+        if delta.total_seconds() < 86400:
+            return f"{int(delta.total_seconds() // 3600)}h ago"
+        return f"{delta.days}d ago"
+
+    def _parse_aware(value: str) -> datetime | None:
+        try:
+            dt = datetime.fromisoformat(value)
+        except (ValueError, TypeError):
+            return None
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt
+
+    cfg = restore_config()
+    now = datetime.now().astimezone()
+    lines: list[str] = [
+        f"Endocytosis Status  ({now.strftime('%Y-%m-%d %H:%M %Z')})",
+        "=" * 44,
+        f"\nConfig dir:    {cfg.config_dir}",
+        f"Sources file:  {_file_age(cfg.sources_path, now)}",
+        f"State file:    {_file_age(cfg.state_path, now)}",
+        f"News log:      {_file_age(cfg.log_path, now)}",
+    ]
+    state = restore_state(cfg.state_path)
+    if state:
+        lines.append(f"Sources:       {len(state)} tracked")
+        latest = max(
+            (dt for ts in state.values() if isinstance(ts, str) for dt in [_parse_aware(ts)] if dt),
+            default=None,
+        )
+        if latest is not None:
+            lines.append(f"Last fetch:    {latest.strftime('%Y-%m-%d %H:%M')}")
+    if cfg.article_cache_dir.exists():
+        files = list(cfg.article_cache_dir.glob("*.json"))
+        size_kb = sum(f.stat().st_size for f in files) / 1024
+        lines.append(f"Article cache: {len(files)} files, {size_kb:.0f} KB")
+    else:
+        lines.append(f"Article cache: missing ({cfg.article_cache_dir})")
+    return EndocytosisStatusResult(output="\n".join(lines))
 
 
 @tool(
@@ -186,11 +231,14 @@ def endocytosis_rss_fetch(no_archive: bool = False) -> EffectorResult:
     no_archive=True skips full-text archiving (faster, tier-1 sources only).
     This is a long-running operation (60-300s depending on source count).
     """
-    args = ["endocytosis", "fetch"]
-    if no_archive:
-        args.append("--no-archive")
-    output = invoke_organelle(_VIVESCA, args, timeout=300)
-    return EffectorResult(success=True, message=output, data={"no_archive": no_archive})
+    from metabolon.organelles.endocytosis_rss.cli import _fetch_locked
+    from metabolon.organelles.endocytosis_rss.config import restore_config
+    from metabolon.organelles.endocytosis_rss.state import lockfile
+
+    cfg = restore_config()
+    with lockfile(cfg.state_path):
+        _fetch_locked(cfg, no_archive)
+    return EffectorResult(success=True, message="Fetch cycle complete.", data={"no_archive": no_archive})
 
 
 @tool(

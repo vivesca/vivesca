@@ -11,6 +11,7 @@ reading is compared to recent history to surface trends.
 import json
 import os
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 from typing import Literal
 
 from fastmcp.tools import tool
@@ -127,9 +128,16 @@ def _vitals() -> str:
 
 
 def _glycogen() -> str:
-    from metabolon.cytosol import invoke_organelle
+    from metabolon.organelles.respiration_sensor import sense as _respiration_sense
 
-    return invoke_organelle("respirometry", ["--statusline"], timeout=20)
+    s = _respiration_sense()
+    if "error" in s:
+        return f"Token budget: unavailable ({s['error']})"
+    status = s.get("status", "?")
+    weekly = s.get("weekly_pct", 0)
+    sonnet = s.get("sonnet_pct", 0)
+    stale = f" [{s['stale_label']}]" if s.get("stale") and s.get("stale_label") else ""
+    return f"Token budget: {status} — weekly {weekly:.0f}%, sonnet {sonnet:.0f}%{stale}"
 
 
 def _reflexes() -> str:
@@ -156,19 +164,22 @@ def _operons() -> str:
 
 
 def _sensorium() -> str:
-    import os
-    import subprocess
+    """Recent search queries. Reads chemotaxis signal log if available."""
+    import json
 
-    path = os.path.expanduser("~/.cargo/bin/noesis")
-    result = subprocess.run(
-        [path, "log"],
-        capture_output=True,
-        text=True,
-        check=True,
-        timeout=10,
-    )
-    lines = result.stdout.strip().splitlines()
-    return "\n".join(lines[-10:]) if len(lines) > 10 else result.stdout.strip()
+    log_path = Path.home() / "germline" / "loci" / "signals" / "chemotaxis.jsonl"
+    if not log_path.exists():
+        return "(no search log available)"
+    lines = log_path.read_text().strip().splitlines()
+    recent = lines[-10:] if len(lines) > 10 else lines
+    entries = []
+    for line in recent:
+        try:
+            row = json.loads(line)
+            entries.append(f"{row.get('ts', '?')}  {row.get('query', '?')}")
+        except json.JSONDecodeError:
+            continue
+    return "\n".join(entries) if entries else "(no search log available)"
 
 
 def _hippocampus() -> str:

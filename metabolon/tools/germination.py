@@ -14,10 +14,10 @@ import os
 from fastmcp.tools import tool
 from mcp.types import ToolAnnotations
 
-from metabolon.cytosol import invoke_organelle
+from metabolon.cytosol import VIVESCA_ROOT, invoke_organelle
 from metabolon.morphology import Secretion
 
-OVERNIGHT = "overnight-gather"
+OVERNIGHT = str(VIVESCA_ROOT / "effectors" / "overnight-gather")
 _GERMINATION_FLAG = os.path.expanduser("~/logs/germination-pending.flag")
 
 
