@@ -226,11 +226,25 @@ def hrv(target_date: str | None = None) -> dict[str, Any]:
             return 0
 
     best = max(records, key=_duration)
+
+    # Stage durations (seconds) and 5-min hypnogram
+    stages = {
+        "deep_sleep_duration": best.get("deep_sleep_duration"),
+        "light_sleep_duration": best.get("light_sleep_duration"),
+        "rem_sleep_duration": best.get("rem_sleep_duration"),
+        "awake_duration": best.get("awake_time"),
+        "total_sleep_duration": best.get("total_sleep_duration"),
+        "sleep_phase_5_min": best.get("sleep_phase_5_min"),
+        "bedtime_start": best.get("bedtime_start"),
+        "bedtime_end": best.get("bedtime_end"),
+    }
+
     return {
         "date": d,
         "average_hrv": best.get("average_hrv"),
         "average_heart_rate": best.get("average_heart_rate"),
         "lowest_heart_rate": best.get("lowest_heart_rate"),
+        **stages,
     }
 
 

@@ -94,9 +94,13 @@ def inflammasome_probe() -> InflammasomeResult:
 )
 def circadian_sleep(period: str = "today") -> CircadianResult:
     """Read circadian rhythm data with chemoreceptor-style threshold alerts."""
-    from metabolon.organelles.chemoreceptor import sense
+    from metabolon.organelles.chemoreceptor import sense, week
 
-    result = sense().get("formatted", str(sense()))
+    if period == "week":
+        return CircadianResult(summary=str(week()))
+
+    data = sense()
+    result = data.get("formatted", str(data))
 
     # Chemoreceptor: detect specific signals against thresholds
     alerts = []
@@ -113,6 +117,32 @@ def circadian_sleep(period: str = "today") -> CircadianResult:
 
     if alerts:
         result = "--- Chemoreceptor alerts ---\n" + "\n".join(alerts) + "\n\n" + result
+
+    # Append sleep stage breakdown if available
+    def _fmt_dur(secs):
+        if secs is None:
+            return "n/a"
+        h, m = divmod(int(secs) // 60, 60)
+        return f"{h}h{m:02d}m" if h else f"{m}m"
+
+    stage_keys = ("deep_sleep_duration", "light_sleep_duration",
+                  "rem_sleep_duration", "awake_duration", "total_sleep_duration")
+    if any(data.get(k) is not None for k in stage_keys):
+        result += "\n\n--- Sleep stages ---"
+        result += f"\nDeep:  {_fmt_dur(data.get('deep_sleep_duration'))}"
+        result += f"\nLight: {_fmt_dur(data.get('light_sleep_duration'))}"
+        result += f"\nREM:   {_fmt_dur(data.get('rem_sleep_duration'))}"
+        result += f"\nAwake: {_fmt_dur(data.get('awake_duration'))}"
+        result += f"\nTotal: {_fmt_dur(data.get('total_sleep_duration'))}"
+        if data.get("bedtime_start") and data.get("bedtime_end"):
+            result += f"\nBed:   {data['bedtime_start'][:16]} → {data['bedtime_end'][:16]}"
+
+    # Hypnogram (5-min epochs): 1=deep, 2=light, 3=REM, 4=awake
+    hyp = data.get("sleep_phase_5_min")
+    if hyp:
+        legend = {"1": "█", "2": "▓", "3": "░", "4": " "}
+        bar = "".join(legend.get(c, "?") for c in hyp)
+        result += f"\n\nHypnogram (5-min): █deep ▓light ░REM  ▁awake\n{bar}"
 
     return CircadianResult(summary=result)
 
