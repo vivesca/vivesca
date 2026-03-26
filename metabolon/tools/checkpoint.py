@@ -122,7 +122,7 @@ def homeostasis_system() -> HomeostasisResult:
         parts.append(f"Pulse: check failed ({e})")
 
     try:
-        from metabolon.organelles.respiration_sensor import sense
+        from metabolon.organelles.vasomotor_sensor import sense
 
         budget = sense()
         parts.append(f"Budget: {budget.get('formatted', str(budget))}")

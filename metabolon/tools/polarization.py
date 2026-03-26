@@ -100,7 +100,7 @@ def polarization_preflight() -> PolarizationPreflightResult:
         return PolarizationPreflightResult(
             raw="",
             data={"error": "timeout"},
-            summary=f"preflight timed out after 30s.",
+            summary="preflight timed out after 30s.",
         )
 
 

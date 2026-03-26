@@ -6,7 +6,6 @@ Tools:
 
 from __future__ import annotations
 
-import json
 import os
 import re
 import sqlite3
@@ -114,7 +113,7 @@ def electroreception_read(
 
     results = []
     for row in cur.fetchall():
-        rowid, dt, sender_id, text, body, from_me = row
+        _rowid, dt, sender_id, text, body, from_me = row
         content = text or _extract_text(body)
         if not content:
             continue

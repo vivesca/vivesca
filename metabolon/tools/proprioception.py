@@ -128,9 +128,9 @@ def _vitals() -> str:
 
 
 def _glycogen() -> str:
-    from metabolon.organelles.respiration_sensor import sense as _respiration_sense
+    from metabolon.organelles.vasomotor_sensor import sense as _vasomotor_sense
 
-    s = _respiration_sense()
+    s = _vasomotor_sense()
     if "error" in s:
         return f"Token budget: unavailable ({s['error']})"
     status = s.get("status", "?")

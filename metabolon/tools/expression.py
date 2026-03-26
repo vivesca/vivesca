@@ -18,7 +18,7 @@ from fastmcp.tools import tool
 from mcp.types import ToolAnnotations
 
 from metabolon.locus import chromatin
-from metabolon.morphology import Secretion, Vital
+from metabolon.morphology import Secretion
 
 _SPARKS = chromatin / "Consulting" / "_sparks.md"
 _THALAMUS = chromatin / "Thalamus.md"
@@ -58,10 +58,7 @@ def _count_sparks(path: Path) -> int:
     if not path.exists():
         return 0
     lines = path.read_text(encoding="utf-8").splitlines()
-    return sum(
-        1 for line in lines
-        if line.strip() and not line.strip().startswith("#")
-    )
+    return sum(1 for line in lines if line.strip() and not line.strip().startswith("#"))
 
 
 def _file_age_days(path: Path) -> float | None:
@@ -108,7 +105,9 @@ def expression_preflight() -> ForgePreflightResult:
     # Warn on stale thalamus (>7 days)
     thal_age = _file_age_days(_THALAMUS)
     if thal_age is not None and thal_age > 7:
-        warnings.append(f"Thalamus.md is {thal_age:.0f} days old — landscape context may be stale.")
+        warnings.append(
+            f"Thalamus.md is {thal_age:.0f} days old — landscape context may be stale."
+        )
 
     ready = not missing and spark_count > 0
 
@@ -152,8 +151,7 @@ def expression_library() -> ForgeLibraryResult:
         files = [f for f in dirpath.glob("*.md") if f.is_file()]
         totals[label] = len(files)
         recent[label] = sum(
-            1 for f in files
-            if datetime.datetime.fromtimestamp(f.stat().st_mtime) > cutoff
+            1 for f in files if datetime.datetime.fromtimestamp(f.stat().st_mtime) > cutoff
         )
 
     grand_total = sum(totals.values())

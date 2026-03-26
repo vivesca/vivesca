@@ -12,10 +12,9 @@ Tools:
 
 from __future__ import annotations
 
-import os
+import contextlib
 import random
-import re
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from fastmcp.tools import tool
@@ -26,14 +25,68 @@ from metabolon.morphology import Secretion
 _CHECKPOINT_DIR = Path.home() / ".claude" / "projects" / "-Users-terry" / "memory"
 
 _ADJECTIVES = [
-    "happy", "calm", "bold", "warm", "keen", "swift", "bright", "quiet", "wild", "crisp",
-    "pale", "dark", "soft", "sharp", "cool", "odd", "rare", "slim", "tall", "deep",
-    "gold", "iron", "blue", "red", "green", "silver", "amber", "coral", "jade", "onyx",
+    "happy",
+    "calm",
+    "bold",
+    "warm",
+    "keen",
+    "swift",
+    "bright",
+    "quiet",
+    "wild",
+    "crisp",
+    "pale",
+    "dark",
+    "soft",
+    "sharp",
+    "cool",
+    "odd",
+    "rare",
+    "slim",
+    "tall",
+    "deep",
+    "gold",
+    "iron",
+    "blue",
+    "red",
+    "green",
+    "silver",
+    "amber",
+    "coral",
+    "jade",
+    "onyx",
 ]
 _NOUNS = [
-    "cat", "fox", "owl", "elk", "bee", "ant", "bat", "cod", "eel", "yak",
-    "oak", "elm", "fig", "ash", "bay", "gem", "orb", "arc", "key", "bell",
-    "star", "moon", "rain", "leaf", "wave", "fern", "moss", "pine", "crow", "hawk",
+    "cat",
+    "fox",
+    "owl",
+    "elk",
+    "bee",
+    "ant",
+    "bat",
+    "cod",
+    "eel",
+    "yak",
+    "oak",
+    "elm",
+    "fig",
+    "ash",
+    "bay",
+    "gem",
+    "orb",
+    "arc",
+    "key",
+    "bell",
+    "star",
+    "moon",
+    "rain",
+    "leaf",
+    "wave",
+    "fern",
+    "moss",
+    "pine",
+    "crow",
+    "hawk",
 ]
 
 
@@ -55,7 +108,7 @@ def _existing_codenames() -> set[str]:
         return set()
     names = set()
     for p in _CHECKPOINT_DIR.glob("checkpoint_*.md"):
-        names.add(p.stem[len("checkpoint_"):])
+        names.add(p.stem[len("checkpoint_") :])
     return names
 
 
@@ -64,12 +117,12 @@ def _purge_stale() -> list[str]:
     purged = []
     if not _CHECKPOINT_DIR.exists():
         return purged
-    cutoff = datetime.now(timezone.utc).timestamp() - (7 * 86400)
+    cutoff = datetime.now(UTC).timestamp() - (7 * 86400)
     for p in _CHECKPOINT_DIR.glob("checkpoint_*.md"):
         try:
             if p.stat().st_mtime < cutoff:
                 p.unlink()
-                purged.append(p.stem[len("checkpoint_"):])
+                purged.append(p.stem[len("checkpoint_") :])
         except OSError:
             pass
     return purged
@@ -131,7 +184,7 @@ def sporulation_save(
             purged=purged,
         )
 
-    now = datetime.now(timezone.utc).strftime("%Y-%m-%d ~%H:%M HKT")
+    now = datetime.now(UTC).strftime("%Y-%m-%d ~%H:%M HKT")
     desc = summary or context[:80].strip()
     path = _checkpoint_path(codename)
 
@@ -174,10 +227,8 @@ def sporulation_load(codename: str, consume: bool = True) -> SporulationLoadResu
 
     content = path.read_text()
     if consume:
-        try:
+        with contextlib.suppress(OSError):
             path.unlink()
-        except OSError:
-            pass
     return SporulationLoadResult(codename=codename, content=content, found=True)
 
 
@@ -193,7 +244,7 @@ def sporulation_list() -> SporulationListResult:
 
     checkpoints = []
     for p in sorted(_CHECKPOINT_DIR.glob("checkpoint_*.md")):
-        codename = p.stem[len("checkpoint_"):]
+        codename = p.stem[len("checkpoint_") :]
         desc = ""
         try:
             for line in p.read_text().splitlines():
@@ -203,11 +254,13 @@ def sporulation_list() -> SporulationListResult:
         except OSError:
             pass
         mtime = p.stat().st_mtime
-        age_days = (datetime.now(timezone.utc).timestamp() - mtime) / 86400
-        checkpoints.append({
-            "codename": codename,
-            "description": desc,
-            "age_days": round(age_days, 1),
-        })
+        age_days = (datetime.now(UTC).timestamp() - mtime) / 86400
+        checkpoints.append(
+            {
+                "codename": codename,
+                "description": desc,
+                "age_days": round(age_days, 1),
+            }
+        )
 
     return SporulationListResult(checkpoints=checkpoints)

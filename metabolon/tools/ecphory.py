@@ -10,8 +10,6 @@ These tools are the deterministic search primitives it dispatches to.
 
 from __future__ import annotations
 
-import json
-
 from fastmcp.tools import tool
 from mcp.types import ToolAnnotations
 
@@ -90,7 +88,9 @@ def ecphory_chromatin(
         cat = r.get("category", "")
         source = r.get("source_tool", "")
         score = r.get("score", "")
-        meta = " | ".join(filter(None, [cat, source, f"score={score:.2f}" if isinstance(score, float) else ""]))
+        meta = " | ".join(
+            filter(None, [cat, source, f"score={score:.2f}" if isinstance(score, float) else ""])
+        )
         lines.append(f"  [{meta}] {title}")
         # Include a content snippet if present and different from title
         content = r.get("content", "")

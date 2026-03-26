@@ -7,9 +7,7 @@ Exposes the listening surfaces the auscultation skill taps:
 
 from __future__ import annotations
 
-import os
 import re
-import subprocess
 from collections import Counter
 from pathlib import Path
 
@@ -58,7 +56,7 @@ def auscultation_logs(
         return "No log files found in ~/Library/Logs/vivesca/ or ~/tmp/"
 
     if log_name:
-        logs = [l for l in logs if l.name == log_name]
+        logs = [lg for lg in logs if lg.name == log_name]
         if not logs:
             return f"Log not found: {log_name}"
 

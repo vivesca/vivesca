@@ -15,7 +15,6 @@ from __future__ import annotations
 
 import json
 import re
-import subprocess
 import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -86,6 +85,7 @@ def _read_efferens() -> str:
     try:
         sys.path.insert(0, str(Path.home() / "code" / "acta" / "src"))
         import acta
+
         msgs = acta.read()
         if not msgs:
             return "Efferens: board empty."
@@ -104,6 +104,7 @@ def _read_praxis_today() -> str:
     """Read today's and overdue Praxis tasks (max 5)."""
     try:
         from metabolon.organelles import praxis as _praxis
+
         data = _praxis.today()
         items = []
         for group in ("overdue", "today"):

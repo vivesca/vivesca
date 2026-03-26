@@ -67,7 +67,7 @@ def ingestion_log_meal(
     # Find the ## Order log section and append before the next ## or EOF
     log_marker = "## Order log"
     if log_marker not in text:
-        return f"'## Order log' section not found in meal plan."
+        return "'## Order log' section not found in meal plan."
 
     log_start = text.index(log_marker)
     # Find end of section (next ## heading or EOF)

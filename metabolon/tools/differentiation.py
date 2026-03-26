@@ -8,8 +8,6 @@ Deterministic actions for the differentiation gym-coaching skill:
 
 from __future__ import annotations
 
-import json
-import subprocess
 from datetime import date
 from pathlib import Path
 

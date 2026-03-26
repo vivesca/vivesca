@@ -55,7 +55,7 @@ def hemostasis_ps(pattern: str) -> ProcessListResult:
             text=True,
             timeout=5,
         )
-        lines = [l.strip() for l in result.stdout.splitlines() if l.strip()]
+        lines = [ln.strip() for ln in result.stdout.splitlines() if ln.strip()]
     except subprocess.TimeoutExpired:
         lines = []
 
@@ -213,11 +213,11 @@ def hemostasis_handoff(
     path = _HANDOFF_DIR / filename
 
     content = f"""---
-created: {now.strftime('%Y-%m-%d %H:%M')}
+created: {now.strftime("%Y-%m-%d %H:%M")}
 type: hemostasis-handoff
 ---
 
-# Hemostasis Handoff — {now.strftime('%Y-%m-%d %H:%M')}
+# Hemostasis Handoff — {now.strftime("%Y-%m-%d %H:%M")}
 
 ## What Was Stopped
 {what_stopped}
