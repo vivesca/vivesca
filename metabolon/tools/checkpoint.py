@@ -51,6 +51,36 @@ class HomeostasisResult(Secretion):
     sections: list[str]
 
 
+class AutoimmunityResult(Secretion):
+    """Self-test probe results."""
+
+    report: str
+    passed: int
+    total: int
+
+
+@tool(
+    name="autoimmunity_probe",
+    description="Self-test: verify all subsystems work end-to-end.",
+    annotations=ToolAnnotations(readOnlyHint=True, destructiveHint=False),
+)
+def autoimmunity_probe() -> AutoimmunityResult:
+    """Run innate immune probes on all organism subsystems."""
+    from metabolon.organelles.autoimmunity import run_all_probes
+
+    results = run_all_probes()
+    lines = []
+    for r in results:
+        tag = "PASS" if r["passed"] else "FAIL"
+        lines.append(f"[{tag}] {r['name']} — {r['message']} ({r['duration_ms']}ms)")
+    passed_count = sum(1 for r in results if r["passed"])
+    total = len(results)
+    lines.append(f"\nSummary: {passed_count}/{total} passed")
+    return AutoimmunityResult(
+        report="\n".join(lines), passed=passed_count, total=total
+    )
+
+
 @tool(
     name="circadian_sleep",
     description="Oura sleep data. 'today' for last night, 'week' for trend.",

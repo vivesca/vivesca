@@ -346,14 +346,20 @@ def setup() -> dict:
         steps.append({"name": "install-metabolon", "success": False, "message": str(e)[:200]})
 
     # Symlinks: vivesca config, CC membrane, PATH
+    _project_slug = "-home-" + LUCERNA_USER
     symlinks = [
         (f"{LUCERNA_HOME}/epigenome/phenotype/vivesca", f"{LUCERNA_HOME}/.config/vivesca"),
         (f"{LUCERNA_HOME}/germline/membrane/phenotype.md", f"{LUCERNA_HOME}/.claude/CLAUDE.md"),
         (f"{LUCERNA_HOME}/germline/membrane/cytoskeleton", f"{LUCERNA_HOME}/.claude/hooks"),
         (f"{LUCERNA_HOME}/germline/membrane/expression.json", f"{LUCERNA_HOME}/.claude/settings.json"),
         (f"{LUCERNA_HOME}/germline/membrane/receptors", f"{LUCERNA_HOME}/.claude/skills"),
+        # CC memory -> epigenome engrams (on Mac these are hardlinked; on Linux, symlink)
+        (f"{LUCERNA_HOME}/epigenome/engrams", f"{LUCERNA_HOME}/.claude/projects/{_project_slug}/memory"),
     ]
-    symlink_cmds = " && ".join(f"ln -sfn {src} {dst}" for src, dst in symlinks)
+    # rm -rf before ln to handle existing dirs (ln -sfn doesn't replace dirs)
+    symlink_cmds = " && ".join(
+        f"rm -rf {dst} && ln -sfn {src} {dst}" for src, dst in symlinks
+    )
     try:
         result = _fly_cmd(symlink_cmds)
         steps.append({

@@ -25,6 +25,21 @@ def serve(http: bool, host: str | None, port: int | None):
     from metabolon.membrane import DEFAULT_HOST, DEFAULT_PORT, _absorb_cofactors, assemble_organism
 
     _absorb_cofactors()
+
+    # Innate immune system: run self-test probes on startup
+    try:
+        from metabolon.organelles.autoimmunity import run_all_probes
+
+        results = run_all_probes()
+        failures = [r for r in results if not r["passed"]]
+        if failures:
+            import sys
+
+            for f in failures:
+                print(f"[autoimmunity] FAIL: {f['name']} — {f['message']}", file=sys.stderr)
+    except Exception:
+        pass  # probes must never block startup
+
     mcp = assemble_organism()
     if http:
         mcp.run(
