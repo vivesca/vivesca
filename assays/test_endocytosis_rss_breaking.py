@@ -62,7 +62,7 @@ def test_title_fingerprint_cross_source_dedup():
 def test_cross_source_dedup_in_run(monkeypatch, xdg_env, capsys):
     """Same story from two sources in one run should produce only one alert."""
     config_home, _, _ = xdg_env
-    sources_path = config_home / "lustro" / "sources.yaml"
+    sources_path = config_home / "endocytosis" / "sources.yaml"
     sources_path.parent.mkdir(parents=True, exist_ok=True)
     sources_path.write_text(
         yaml.safe_dump(
@@ -136,7 +136,7 @@ def test_state_counter_reset_and_cooldown():
 
 def test_cmd_breaking_dry_run(monkeypatch, xdg_env, capsys):
     config_home, _, _ = xdg_env
-    sources_path = config_home / "lustro" / "sources.yaml"
+    sources_path = config_home / "endocytosis" / "sources.yaml"
     sources_path.parent.mkdir(parents=True, exist_ok=True)
     sources_path.write_text(
         yaml.safe_dump(

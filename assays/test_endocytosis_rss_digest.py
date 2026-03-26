@@ -90,7 +90,7 @@ def test_create_openai_client_sets_openrouter_base_url(monkeypatch):
 def test_metabolize_digest_requires_api_key(xdg_env, monkeypatch):
     cfg = restore_config()
     _write_month_data(cfg, "2026-02")
-    monkeypatch.delenv("LUSTRO_API_KEY", raising=False)
+    monkeypatch.delenv("ENDOCYTOSIS_API_KEY", raising=False)
     monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
 
     with pytest.raises(RuntimeError, match="Missing API key"):
@@ -100,7 +100,7 @@ def test_metabolize_digest_requires_api_key(xdg_env, monkeypatch):
 def test_metabolize_digest_dry_run_with_mock_llm(xdg_env, monkeypatch):
     cfg = restore_config()
     _write_month_data(cfg, "2026-02")
-    monkeypatch.setenv("LUSTRO_API_KEY", "test-key")
+    monkeypatch.setenv("ENDOCYTOSIS_API_KEY", "test-key")
 
     fake_client = _FakeOpenAIClient(
         outputs=[

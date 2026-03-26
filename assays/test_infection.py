@@ -124,7 +124,8 @@ def test_chronic_detected_at_threshold(tmp_path):
 
 def test_chronic_healed_count(tmp_path):
     log = tmp_path / "infections.jsonl"
-    # 2 unhealed, 2 healed — total 4 = above threshold of 3
+    # 3 unhealed, 2 healed — unhealed meets threshold of 3
+    record_infection("t", "err", healed=False, log_path=log)
     record_infection("t", "err", healed=False, log_path=log)
     record_infection("t", "err", healed=False, log_path=log)
     record_infection("t", "err", healed=True, log_path=log)

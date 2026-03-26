@@ -8,9 +8,9 @@ from metabolon.organelles.endocytosis_rss.config import restore_config
 def test_xdg_paths(xdg_env):
     config_home, cache_home, data_home = xdg_env
     cfg = restore_config()
-    assert cfg.config_dir == config_home / "lustro"
-    assert cfg.cache_dir == cache_home / "lustro"
-    assert cfg.data_dir == data_home / "lustro"
+    assert cfg.config_dir == config_home / "endocytosis"
+    assert cfg.cache_dir == cache_home / "endocytosis"
+    assert cfg.data_dir == data_home / "endocytosis"
 
 
 def test_env_overrides(monkeypatch, tmp_path, xdg_env):

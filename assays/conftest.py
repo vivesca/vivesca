@@ -14,9 +14,9 @@ def xdg_env(monkeypatch: pytest.MonkeyPatch, tmp_path):
     monkeypatch.setenv("XDG_CONFIG_HOME", str(config_home))
     monkeypatch.setenv("XDG_CACHE_HOME", str(cache_home))
     monkeypatch.setenv("XDG_DATA_HOME", str(data_home))
-    monkeypatch.delenv("LUSTRO_CONFIG_DIR", raising=False)
-    monkeypatch.delenv("LUSTRO_CACHE_DIR", raising=False)
-    monkeypatch.delenv("LUSTRO_DATA_DIR", raising=False)
+    monkeypatch.delenv("ENDOCYTOSIS_CONFIG_DIR", raising=False)
+    monkeypatch.delenv("ENDOCYTOSIS_CACHE_DIR", raising=False)
+    monkeypatch.delenv("ENDOCYTOSIS_DATA_DIR", raising=False)
     return config_home, cache_home, data_home
 
 
@@ -47,7 +47,7 @@ def sample_sources():
 @pytest.fixture
 def write_sources_file(xdg_env, sample_sources):
     config_home, _, _ = xdg_env
-    target = config_home / "lustro" / "sources.yaml"
+    target = config_home / "endocytosis" / "sources.yaml"
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(yaml.safe_dump(sample_sources), encoding="utf-8")
     return target

@@ -14,7 +14,7 @@ def test_version_flag():
 
 def test_cmd_sources_lists_and_filters_tier(xdg_env, capsys):
     config_home, _, _ = xdg_env
-    sources_path = config_home / "lustro" / "sources.yaml"
+    sources_path = config_home / "endocytosis" / "sources.yaml"
     sources_path.parent.mkdir(parents=True, exist_ok=True)
     sources_path.write_text(
         yaml.safe_dump(

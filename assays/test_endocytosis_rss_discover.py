@@ -10,7 +10,7 @@ from metabolon.organelles.endocytosis_rss.discover import _compile_keywords, has
 
 
 def _write_sources_with_discovery(config_home):
-    sources_path = config_home / "lustro" / "sources.yaml"
+    sources_path = config_home / "endocytosis" / "sources.yaml"
     sources_path.parent.mkdir(parents=True, exist_ok=True)
     sources_path.write_text(
         yaml.safe_dump(
