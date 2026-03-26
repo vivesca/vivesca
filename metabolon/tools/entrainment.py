@@ -54,13 +54,42 @@ def entrainment_brief() -> EntrainmentResult:
     try:
         from metabolon.organelles.chemoreceptor import sense as _sense
 
-        sleep = _sense().get("formatted", "")
-        # Flag low readiness
-        import re
+        data = _sense()
+        if "error" in data:
+            sleep = f"sopor error: {data['error']}"
+        else:
+            parts = []
+            if data.get("sleep_score") is not None:
+                parts.append(f"Sleep: {data['sleep_score']}")
+            if data.get("readiness_score") is not None:
+                parts.append(f"Readiness: {data['readiness_score']}")
+            if data.get("spo2", {}).get("average") is not None:
+                parts.append(f"SpO2: {data['spo2']['average']}%")
+            if data.get("resilience", {}).get("level"):
+                parts.append(f"Resilience: {data['resilience']['level']}")
+            if data.get("stress", {}).get("day_summary"):
+                parts.append(f"Stress: {data['stress']['day_summary']}")
+            # Sleep detail
+            if data.get("total_sleep_duration") is not None:
+                hrs = data["total_sleep_duration"] / 3600
+                parts.append(f"Total sleep: {hrs:.1f}h")
+            if data.get("efficiency") is not None:
+                parts.append(f"Efficiency: {data['efficiency']}%")
+            if data.get("average_heart_rate") is not None:
+                parts.append(f"Avg HR: {data['average_heart_rate']} bpm")
+            if data.get("average_hrv") is not None:
+                parts.append(f"Avg HRV: {data['average_hrv']} ms")
+            if data.get("lowest_heart_rate") is not None:
+                parts.append(f"Lowest HR: {data['lowest_heart_rate']} bpm")
+            # Activity
+            if data.get("activity", {}).get("steps") is not None:
+                parts.append(f"Steps: {data['activity']['steps']}")
+            sleep = " | ".join(parts) if parts else "No Oura data for today"
 
-        match = re.search(r"Readiness:\s*(\d+)", sleep)
-        if match and int(match.group(1)) < 65:
-            alerts.append(f"Low readiness ({match.group(1)}) -- consider an easier day")
+            # Flag low readiness
+            readiness_val = data.get("readiness_score")
+            if readiness_val is not None and readiness_val < 65:
+                alerts.append(f"Low readiness ({readiness_val}) -- consider an easier day")
     except Exception:
         sleep = "sopor unavailable"
 

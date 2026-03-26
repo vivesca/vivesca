@@ -6,9 +6,8 @@ Collects: consumption check, guard status, north stars.
 
 import json
 import subprocess
-import sys
 import time
-from datetime import UTC, datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 GUARD_FILE = Path.home() / "tmp" / ".polarization-guard-active"
@@ -356,6 +355,9 @@ def main() -> None:
         choices=["init", "show", "update"],
     )
 
+    budget_cmd = sub.add_parser("budget", help="Show current token budget usage.")
+    budget_cmd.add_argument("--json", action="store_true", help="Output as JSON.")
+
     args = parser.parse_args()
 
     if args.command == "guard":
@@ -367,6 +369,8 @@ def main() -> None:
             print("manifest update: agents write directly to the manifest file.")
         else:
             print(manifest_show())
+    elif args.command == "budget":
+        print(budget(as_json=args.json))
     else:
         # Default: preflight
         as_json = getattr(args, "json", False)
