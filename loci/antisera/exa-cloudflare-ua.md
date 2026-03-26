@@ -1,6 +1,7 @@
 ---
 problem: Exa API returns 403 from Python urllib
 solution: Add User-Agent header — Cloudflare blocks Python-urllib default UA
+tags: [exa, search, http, urllib, cloudflare, 403]
 ---
 
 Exa API (`api.exa.ai/search`) returns HTTP 403 error code 1010 when called from Python `urllib.request` with default User-Agent. curl works fine.

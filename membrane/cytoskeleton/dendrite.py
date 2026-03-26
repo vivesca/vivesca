@@ -1027,7 +1027,182 @@ def mod_assay_nudge(data):
         )
 
 
-# ── main ───────────────────────────────────────────────────
+# ── antisera: progressive discovery of known gotcha/fix pairs ──────────
+#
+# Two triggers (both deterministic, no LLM):
+#   Reactive — tool result contains error signal → match error text against tags
+#   Primed   — first use of a tool/domain in session → surface relevant antisera once
+#
+# Session dedup: /tmp/antisera-presented-{pid_of_session}.txt
+# Token economy: each antiserum is ~200 tokens; zero cost when no match.
+
+ANTISERA_DIR = _VIVESCA_ROOT / "loci" / "antisera"
+
+# Error keywords that trigger reactive matching
+_ANTISERA_ERROR_SIGNALS = (
+    "error",
+    "fail",
+    "exception",
+    "traceback",
+    "exit code",
+    "403",
+    "401",
+    "no tty",
+    "permission denied",
+    "not found",
+    "connection refused",
+)
+
+
+def _antisera_session_file() -> Path:
+    """Path to per-session presented-antisera tracker.
+
+    Uses CLAUDE_SESSION_ID env var when available (CC sets it).
+    Falls back to PID-of-parent-process for robustness.
+    """
+    session_id = os.environ.get("CLAUDE_SESSION_ID") or str(os.getppid())
+    return Path(f"/tmp/antisera-presented-{session_id}.txt")
+
+
+def _antisera_already_presented(slug: str, session_file: Path) -> bool:
+    try:
+        if session_file.exists():
+            return slug in session_file.read_text().split("\n")
+    except Exception:
+        pass
+    return False
+
+
+def _antisera_mark_presented(slug: str, session_file: Path) -> None:
+    try:
+        with session_file.open("a") as f:
+            f.write(slug + "\n")
+    except Exception:
+        pass
+
+
+def _antisera_parse_tags(content: str) -> list[str]:
+    """Extract tags list from YAML frontmatter. Pure string parsing, no yaml import."""
+    if not content.startswith("---"):
+        return []
+    end = content.find("---", 3)
+    if end == -1:
+        return []
+    fm = content[3:end]
+    for line in fm.splitlines():
+        line = line.strip()
+        if line.startswith("tags:"):
+            # tags: [bird, twitter, x, cli]  or  tags:\n  - bird
+            bracket_match = re.search(r"\[([^\]]+)\]", line)
+            if bracket_match:
+                return [t.strip().strip("'\"") for t in bracket_match.group(1).split(",")]
+            # Inline without brackets: tags: bird, twitter
+            rest = line[5:].strip()
+            if rest:
+                return [t.strip().strip("'\"") for t in rest.split(",")]
+            # Multi-line list: look ahead in frontmatter
+            tags = []
+            in_tags = False
+            for fm_line in fm.splitlines():
+                if fm_line.strip().startswith("tags:"):
+                    in_tags = True
+                    continue
+                if in_tags:
+                    if fm_line.strip().startswith("- "):
+                        tags.append(fm_line.strip()[2:].strip().strip("'\""))
+                    elif fm_line.strip() and not fm_line.startswith(" "):
+                        break
+            return tags
+    return []
+
+
+def _antisera_load_index() -> list[dict]:
+    """Load all antisera files → [{slug, tags, content}]. Cached in module scope."""
+    if not ANTISERA_DIR.exists():
+        return []
+    entries = []
+    for fp in ANTISERA_DIR.glob("*.md"):
+        try:
+            content = fp.read_text(encoding="utf-8")
+            tags = _antisera_parse_tags(content)
+            if tags:
+                entries.append({"slug": fp.stem, "tags": tags, "content": content})
+        except Exception:
+            pass
+    return entries
+
+
+# Module-level cache: loaded once per process
+_ANTISERA_INDEX: list[dict] | None = None
+
+
+def _antisera_index() -> list[dict]:
+    global _ANTISERA_INDEX
+    if _ANTISERA_INDEX is None:
+        _ANTISERA_INDEX = _antisera_load_index()
+    return _ANTISERA_INDEX
+
+
+def _antisera_format(entry: dict) -> str:
+    """Format an antiserum entry for advisory output."""
+    slug = entry["slug"]
+    # Strip frontmatter from display content
+    content = entry["content"]
+    if content.startswith("---"):
+        end = content.find("---", 3)
+        if end != -1:
+            content = content[end + 3:].strip()
+    return f"[antiserum:{slug}]\n{content}"
+
+
+def mod_antisera_discovery(data):
+    """Progressive discovery: surface antisera on error or first domain use."""
+    tool_name = data.get("tool_name", data.get("tool", "")).lower()
+    result = data.get("tool_output", data.get("tool_result", ""))
+    result_text = (result if isinstance(result, str) else json.dumps(result)).lower()
+
+    index = _antisera_index()
+    if not index:
+        return
+
+    session_file = _antisera_session_file()
+    surfaced = []
+
+    # ── Reactive trigger: error signal in result ──────────────
+    has_error = any(sig in result_text for sig in _ANTISERA_ERROR_SIGNALS)
+    if has_error:
+        for entry in index:
+            slug = entry["slug"]
+            if _antisera_already_presented(slug, session_file):
+                continue
+            tags = entry["tags"]
+            # Match: any tag appears in the error text OR in the tool name
+            if any(tag.lower() in result_text or tag.lower() in tool_name for tag in tags):
+                surfaced.append(entry)
+                _antisera_mark_presented(slug, session_file)
+
+    # ── Primed trigger: first use of this tool domain ─────────
+    # Domain = tool_name itself (e.g. "bash", "mcp__vivesca__rheotaxis_search")
+    # Normalise to the leaf tool word for matching
+    tool_words = set(re.split(r"[_\-]+", tool_name))
+    if not has_error:  # only prime when no error (avoid double-firing on same entry)
+        primed_key = f"primed:{tool_name}"
+        if not _antisera_already_presented(primed_key, session_file):
+            _antisera_mark_presented(primed_key, session_file)
+            for entry in index:
+                slug = entry["slug"]
+                if _antisera_already_presented(slug, session_file):
+                    continue
+                tags_lower = [t.lower() for t in entry["tags"]]
+                if any(w in tags_lower for w in tool_words if len(w) > 2):
+                    surfaced.append(entry)
+                    _antisera_mark_presented(slug, session_file)
+
+    for entry in surfaced:
+        print(_antisera_format(entry))
+
+
+
 
 # Obfuscated to avoid self-triggering nociceptor-write
 _NPX = "np" + "x"

@@ -2,6 +2,7 @@
 name: gog-keyring-headless
 description: gog CLI needs GOG_KEYRING_PASSWORD env var for headless (no TTY) operation
 type: solution
+tags: [gog, gmail, keyring, tty, headless, env]
 ---
 
 ## Problem
