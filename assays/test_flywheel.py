@@ -13,12 +13,11 @@ def mock_health_log(tmp_path, monkeypatch):
 
 @pytest.fixture
 def mock_all(monkeypatch, mock_health_log):
-    def _mock_run_cli(cmd, args, **kwargs):
-        if cmd == "sopor":
-            return "Sleep Score: 85\nReadiness: 82"
-        if "fasti" in cmd:
-            return "09:00 AM Meeting\n10:00 AM Work\n12:00 PM Lunch"
-        return ""
+    def _mock_chemoreceptor_today(*args, **kwargs):
+        return {"sleep_score": 85, "readiness_score": 82}
+
+    def _mock_scheduled_events(*args, **kwargs):
+        return "09:00 AM Meeting\n10:00 AM Work\n12:00 PM Lunch"
 
     def _mock_subprocess_run(cmd, *args, **kwargs):
         class MockCompletedProcess:
@@ -34,7 +33,8 @@ def mock_all(monkeypatch, mock_health_log):
         # default for other subprocess.run calls (like mo clean if any)
         return MockCompletedProcess("")
 
-    monkeypatch.setattr("metabolon.tools.checkpoint.invoke_organelle", _mock_run_cli)
+    monkeypatch.setattr("metabolon.organelles.chemoreceptor.today", _mock_chemoreceptor_today)
+    monkeypatch.setattr("metabolon.organelles.circadian_clock.scheduled_events", _mock_scheduled_events)
     monkeypatch.setattr("metabolon.tools.checkpoint.subprocess.run", _mock_subprocess_run)
     return mock_health_log
 
@@ -54,14 +54,10 @@ def test_flywheel_all_spinning(mock_all):
 
 
 def test_flywheel_sleep_stalled(monkeypatch, mock_all):
-    def _mock_run_cli(cmd, args, **kwargs):
-        if cmd == "sopor":
-            return "Sleep Score: 45\nReadiness: 50"
-        if "fasti" in cmd:
-            return "09:00 AM Meeting\n10:00 AM Work\n12:00 PM Lunch"
-        return ""
+    def _mock_chemoreceptor_today(*args, **kwargs):
+        return {"sleep_score": 45, "readiness_score": 50}
 
-    monkeypatch.setattr("metabolon.tools.checkpoint.invoke_organelle", _mock_run_cli)
+    monkeypatch.setattr("metabolon.organelles.chemoreceptor.today", _mock_chemoreceptor_today)
 
     result = anabolism_flywheel()
     sleep_link = next(lk for lk in result.links if lk["name"] == "sleep")
@@ -100,14 +96,10 @@ def test_flywheel_blind_spots_always_present(mock_all):
 
 
 def test_flywheel_sopor_failure_graceful(monkeypatch, mock_all):
-    def _mock_run_cli_fail(cmd, args, **kwargs):
-        if cmd == "sopor":
-            raise ValueError("sopor failed")
-        if "fasti" in cmd:
-            return "09:00 AM Meeting\n10:00 AM Work\n12:00 PM Lunch"
-        return ""
+    def _mock_chemoreceptor_today_fail(*args, **kwargs):
+        raise ValueError("sopor failed")
 
-    monkeypatch.setattr("metabolon.tools.checkpoint.invoke_organelle", _mock_run_cli_fail)
+    monkeypatch.setattr("metabolon.organelles.chemoreceptor.today", _mock_chemoreceptor_today_fail)
 
     result = anabolism_flywheel()
     sleep_link = next(lk for lk in result.links if lk["name"] == "sleep")
@@ -115,14 +107,10 @@ def test_flywheel_sopor_failure_graceful(monkeypatch, mock_all):
 
 
 def test_flywheel_break_point_priority(monkeypatch, mock_all):
-    def _mock_run_cli(cmd, args, **kwargs):
-        if cmd == "sopor":
-            return "Sleep Score: 45\nReadiness: 50"
-        if "fasti" in cmd:
-            return "09:00 AM Meeting\n10:00 AM Work\n12:00 PM Lunch"
-        return ""
+    def _mock_chemoreceptor_today(*args, **kwargs):
+        return {"sleep_score": 45, "readiness_score": 50}
 
-    monkeypatch.setattr("metabolon.tools.checkpoint.invoke_organelle", _mock_run_cli)
+    monkeypatch.setattr("metabolon.organelles.chemoreceptor.today", _mock_chemoreceptor_today)
 
     def _mock_subprocess_run(cmd, *args, **kwargs):
         class MockCompletedProcess:
