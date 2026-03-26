@@ -100,51 +100,155 @@ def circadian_sleep(period: str = "today") -> CircadianResult:
         return CircadianResult(summary=str(week()))
 
     data = sense()
-    result = data.get("formatted", str(data))
+    if "error" in data:
+        return CircadianResult(summary=f"Error: {data['error']}")
 
-    # Chemoreceptor: detect specific signals against thresholds
-    alerts = []
-    sleep_m = re.search(r"Sleep Score:\s*(\d+)", result)
-    ready_m = re.search(r"Readiness:\s*(\d+)", result)
-    hrv_m = re.search(r"HRV.*?(\d+)", result)
-
-    if sleep_m and int(sleep_m.group(1)) < 70:
-        alerts.append(f"SLEEP LOW ({sleep_m.group(1)}): below 70 threshold")
-    if ready_m and int(ready_m.group(1)) < 70:
-        alerts.append(f"READINESS LOW ({ready_m.group(1)}): light activity only")
-    if hrv_m and int(hrv_m.group(1)) < 20:
-        alerts.append(f"HRV LOW ({hrv_m.group(1)}): recovery priority")
-
-    if alerts:
-        result = "--- Chemoreceptor alerts ---\n" + "\n".join(alerts) + "\n\n" + result
-
-    # Append sleep stage breakdown if available
     def _fmt_dur(secs):
         if secs is None:
             return "n/a"
         h, m = divmod(int(secs) // 60, 60)
         return f"{h}h{m:02d}m" if h else f"{m}m"
 
-    stage_keys = ("deep_sleep_duration", "light_sleep_duration",
-                  "rem_sleep_duration", "awake_duration", "total_sleep_duration")
-    if any(data.get(k) is not None for k in stage_keys):
-        result += "\n\n--- Sleep stages ---"
-        result += f"\nDeep:  {_fmt_dur(data.get('deep_sleep_duration'))}"
-        result += f"\nLight: {_fmt_dur(data.get('light_sleep_duration'))}"
-        result += f"\nREM:   {_fmt_dur(data.get('rem_sleep_duration'))}"
-        result += f"\nAwake: {_fmt_dur(data.get('awake_duration'))}"
-        result += f"\nTotal: {_fmt_dur(data.get('total_sleep_duration'))}"
-        if data.get("bedtime_start") and data.get("bedtime_end"):
-            result += f"\nBed:   {data['bedtime_start'][:16]} → {data['bedtime_end'][:16]}"
+    lines: list[str] = []
 
-    # Hypnogram (5-min epochs): 1=deep, 2=light, 3=REM, 4=awake
+    # --- Alerts ---
+    alerts = []
+    ss, rs = data.get("sleep_score"), data.get("readiness_score")
+    av_hrv = data.get("average_hrv")
+    if ss is not None and ss < 70:
+        alerts.append(f"SLEEP LOW ({ss}): below 70 threshold")
+    if rs is not None and rs < 70:
+        alerts.append(f"READINESS LOW ({rs}): light activity only")
+    if av_hrv is not None and av_hrv < 20:
+        alerts.append(f"HRV LOW ({av_hrv}): recovery priority")
+    if alerts:
+        lines.append("--- Alerts ---")
+        lines.extend(alerts)
+        lines.append("")
+
+    # --- Scores ---
+    lines.append("--- Scores ---")
+    lines.append(f"Sleep: {ss}  Readiness: {rs}")
+    lines.append(f"Sleep contributors: {data.get('sleep_contributors', {})}")
+    lines.append(f"Readiness contributors: {data.get('contributors', {})}")
+    lines.append(f"Temp deviation: {data.get('temperature_deviation')}°C  "
+                 f"Trend: {data.get('temperature_trend_deviation')}°C")
+    lines.append("")
+
+    # --- Sleep detail ---
+    lines.append("--- Sleep detail ---")
+    lines.append(f"Deep:  {_fmt_dur(data.get('deep_sleep_duration'))}  "
+                 f"Light: {_fmt_dur(data.get('light_sleep_duration'))}  "
+                 f"REM:   {_fmt_dur(data.get('rem_sleep_duration'))}")
+    lines.append(f"Awake: {_fmt_dur(data.get('awake_time'))}  "
+                 f"Total: {_fmt_dur(data.get('total_sleep_duration'))}  "
+                 f"In bed: {_fmt_dur(data.get('time_in_bed'))}")
+    if data.get("bedtime_start") and data.get("bedtime_end"):
+        lines.append(f"Bed:   {data['bedtime_start'][:16]} → {data['bedtime_end'][:16]}")
+    lines.append(f"Latency: {_fmt_dur(data.get('latency'))}  "
+                 f"Efficiency: {data.get('efficiency')}%  "
+                 f"Restless periods: {data.get('restless_periods')}")
+    lines.append(f"Avg HR: {data.get('average_heart_rate')} bpm  "
+                 f"Lowest HR: {data.get('lowest_heart_rate')} bpm  "
+                 f"Avg HRV: {data.get('average_hrv')} ms")
+    lines.append(f"Avg breath: {data.get('average_breath')} br/s  "
+                 f"Type: {data.get('type')}")
+    lines.append("")
+
+    # --- Hypnogram ---
     hyp = data.get("sleep_phase_5_min")
     if hyp:
         legend = {"1": "█", "2": "▓", "3": "░", "4": " "}
         bar = "".join(legend.get(c, "?") for c in hyp)
-        result += f"\n\nHypnogram (5-min): █deep ▓light ░REM  ▁awake\n{bar}"
+        lines.append("--- Hypnogram (5-min) ---")
+        lines.append("█=deep ▓=light ░=REM (space)=awake")
+        lines.append(bar)
+        lines.append("")
 
-    return CircadianResult(summary=result)
+    # --- Movement (30-sec) ---
+    mov = data.get("movement_30_sec")
+    if mov:
+        legend_m = {"1": "·", "2": "~", "3": "≈", "4": "▲"}
+        bar_m = "".join(legend_m.get(c, "?") for c in mov)
+        lines.append("--- Movement (30-sec) ---")
+        lines.append("·=still ~=restless ≈=tossing ▲=active")
+        lines.append(bar_m)
+        lines.append("")
+
+    # --- Activity ---
+    act = data.get("activity")
+    if act:
+        lines.append("--- Activity (yesterday) ---")
+        lines.append(f"Score: {act.get('score')}  Steps: {act.get('steps')}  "
+                     f"Calories: {act.get('active_calories')} active / {act.get('total_calories')} total")
+        lines.append(f"High: {_fmt_dur(act.get('high_activity_time'))}  "
+                     f"Med: {_fmt_dur(act.get('medium_activity_time'))}  "
+                     f"Low: {_fmt_dur(act.get('low_activity_time'))}  "
+                     f"Sedentary: {_fmt_dur(act.get('sedentary_time'))}")
+        lines.append(f"Walking equiv: {act.get('equivalent_walking_distance')}m")
+        lines.append("")
+
+    # --- Stress ---
+    st = data.get("stress")
+    if st:
+        lines.append("--- Stress ---")
+        lines.append(f"Summary: {st.get('day_summary')}  "
+                     f"Stress high: {_fmt_dur(st.get('stress_high'))}  "
+                     f"Recovery high: {_fmt_dur(st.get('recovery_high'))}")
+        lines.append("")
+
+    # --- SpO2 ---
+    sp = data.get("spo2")
+    if sp:
+        lines.append("--- SpO2 ---")
+        lines.append(f"Average: {sp.get('average')}%  "
+                     f"Breathing disturbance index: {sp.get('breathing_disturbance_index')}")
+        lines.append("")
+
+    # --- Resilience ---
+    res = data.get("resilience")
+    if res:
+        lines.append("--- Resilience ---")
+        lines.append(f"Level: {res.get('level')}  "
+                     f"Contributors: {res.get('contributors', {})}")
+        lines.append("")
+
+    # --- Sleep time recommendation ---
+    stm = data.get("sleep_time")
+    if stm:
+        lines.append("--- Bedtime recommendation ---")
+        lines.append(f"Recommendation: {stm.get('recommendation')}  "
+                     f"Status: {stm.get('status')}")
+        opt = stm.get("optimal_bedtime") or {}
+        if opt:
+            lines.append(f"Optimal window: {opt}")
+        lines.append("")
+
+    # --- Cardiovascular / VO2 ---
+    va, vo = data.get("vascular_age"), data.get("vo2_max")
+    if va is not None or vo is not None:
+        lines.append("--- Cardiovascular ---")
+        parts = []
+        if va is not None:
+            parts.append(f"Vascular age: {va}")
+        if vo is not None:
+            parts.append(f"VO2 max: {vo}")
+        lines.append("  ".join(parts))
+        lines.append("")
+
+    # --- Workouts ---
+    wk = data.get("workouts")
+    if wk:
+        lines.append("--- Workouts ---")
+        for w in wk:
+            start = (w.get("start") or "")[:16]
+            cal = w.get("calories")
+            lines.append(f"{w.get('activity')} ({w.get('intensity')}) "
+                         f"{start}  {f'{cal:.0f} kcal' if cal else ''} "
+                         f"[{w.get('source')}]")
+        lines.append("")
+
+    return CircadianResult(summary="\n".join(lines))
 
 
 @tool(

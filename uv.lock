@@ -3,6 +3,11 @@ revision = 2
 requires-python = ">=3.11"
 
 [[package]]
+name = "acta"
+version = "0.1.0"
+source = { editable = "../code/acta" }
+
+[[package]]
 name = "aiofile"
 version = "3.9.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1150,6 +1155,7 @@ name = "metabolon"
 version = "0.4.0"
 source = { editable = "." }
 dependencies = [
+    { name = "acta" },
     { name = "beautifulsoup4" },
     { name = "click" },
     { name = "fastmcp" },
@@ -1176,6 +1182,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "acta", editable = "../code/acta" },
     { name = "beautifulsoup4", specifier = ">=4.12" },
     { name = "click", specifier = ">=8.0" },
     { name = "fastmcp", specifier = ">=3.0.0" },

@@ -199,25 +199,25 @@ def sleep_score(target_date: str | None = None) -> dict[str, Any]:
     }
 
 
-def hrv(target_date: str | None = None) -> dict[str, Any]:
-    """Return average HRV and heart rate from last night's sleep.
+def sleep_detail(target_date: str | None = None) -> dict[str, Any]:
+    """Return full detailed sleep record from last night.
 
-    Reads from the detailed sleep endpoint (not daily summary) to extract
-    average_hrv and average_heart_rate from the longest sleep session.
+    Reads from the detailed sleep endpoint and returns all fields from the
+    longest sleep session, plus any additional sleep periods as 'extra_periods'.
 
     Args:
         target_date: ISO date string, defaults to today.
 
     Returns:
-        Dict with keys: date, average_hrv (ms, float|None), average_heart_rate (bpm, float|None).
+        Dict with all Oura sleep fields from the primary session.
+        Time-series fields (heart_rate, hrv) included as-is.
     """
     d = target_date or _today_date()
     records = _fetch("sleep", d, d)
 
     if not records:
-        return {"date": d, "average_hrv": None, "average_heart_rate": None}
+        return {"date": d}
 
-    # Pick the record with the longest total_sleep_duration
     def _duration(rec: dict) -> int:
         v = rec.get("total_sleep_duration", 0)
         try:
@@ -226,26 +226,20 @@ def hrv(target_date: str | None = None) -> dict[str, Any]:
             return 0
 
     best = max(records, key=_duration)
+    others = [r for r in records if r is not best]
 
-    # Stage durations (seconds) and 5-min hypnogram
-    stages = {
-        "deep_sleep_duration": best.get("deep_sleep_duration"),
-        "light_sleep_duration": best.get("light_sleep_duration"),
-        "rem_sleep_duration": best.get("rem_sleep_duration"),
-        "awake_duration": best.get("awake_time"),
-        "total_sleep_duration": best.get("total_sleep_duration"),
-        "sleep_phase_5_min": best.get("sleep_phase_5_min"),
-        "bedtime_start": best.get("bedtime_start"),
-        "bedtime_end": best.get("bedtime_end"),
-    }
+    result = {"date": d, **best}
+    # Remove Oura internal ID, keep everything else
+    result.pop("id", None)
+    if others:
+        result["extra_periods"] = [
+            {k: v for k, v in r.items() if k != "id"} for r in others
+        ]
+    return result
 
-    return {
-        "date": d,
-        "average_hrv": best.get("average_hrv"),
-        "average_heart_rate": best.get("average_heart_rate"),
-        "lowest_heart_rate": best.get("lowest_heart_rate"),
-        **stages,
-    }
+
+# Backward compat alias
+hrv = sleep_detail
 
 
 # ---------------------------------------------------------------------------
@@ -301,18 +295,108 @@ def week(days: int = 7) -> list[dict[str, Any]]:
 # ---------------------------------------------------------------------------
 
 
+def _fetch_daily(endpoint: str, d: str, token: str) -> dict[str, Any]:
+    """Fetch a single daily record, returning {} on failure."""
+    try:
+        records = _fetch(endpoint, d, d, token)
+        return records[0] if records else {}
+    except Exception:
+        return {}
+
+
 def sense() -> dict[str, Any]:
-    """Top-level sense call: today's health snapshot.
+    """Top-level sense call: today's full health snapshot.
 
     Primary entry point for invoke_organelle-style callers.
+    Fetches all available Oura daily endpoints.
     Never raises; returns {"error": "..."} on failure.
 
     Returns:
-        today() output merged with hrv() output, or {"error": "message"}.
+        Merged dict with sleep scores, readiness, detailed sleep, activity,
+        stress, spo2, resilience, and sleep_time data.
     """
     try:
-        t = today()
-        h = hrv(t.get("date"))
-        return {**t, **{k: v for k, v in h.items() if k != "date"}}
+        d = _today_date()
+        token = _get_token()
+
+        # Core: daily scores + detailed sleep
+        t = today(d)
+        sd = sleep_detail(d)
+
+        # Additional daily endpoints — each namespaced to avoid key collisions
+        activity = _fetch_daily("daily_activity", d, token)
+        stress = _fetch_daily("daily_stress", d, token)
+        spo2 = _fetch_daily("daily_spo2", d, token)
+        resilience = _fetch_daily("daily_resilience", d, token)
+        sleep_time = _fetch_daily("sleep_time", d, token)
+        cardio_age = _fetch_daily("daily_cardiovascular_age", d, token)
+        vo2 = _fetch_daily("vO2_max", d, token)
+        workouts = _fetch("workout", d, d, token)
+
+        result = {**t, **{k: v for k, v in sd.items() if k != "date"}}
+
+        if activity:
+            result["activity"] = {
+                "score": activity.get("score"),
+                "steps": activity.get("steps"),
+                "active_calories": activity.get("active_calories"),
+                "total_calories": activity.get("total_calories"),
+                "high_activity_time": activity.get("high_activity_time"),
+                "medium_activity_time": activity.get("medium_activity_time"),
+                "low_activity_time": activity.get("low_activity_time"),
+                "sedentary_time": activity.get("sedentary_time"),
+                "resting_time": activity.get("resting_time"),
+                "equivalent_walking_distance": activity.get("equivalent_walking_distance"),
+                "contributors": activity.get("contributors", {}),
+            }
+
+        if stress:
+            result["stress"] = {
+                "day_summary": stress.get("day_summary"),
+                "stress_high": stress.get("stress_high"),
+                "recovery_high": stress.get("recovery_high"),
+            }
+
+        if spo2:
+            result["spo2"] = {
+                "average": (spo2.get("spo2_percentage") or {}).get("average"),
+                "breathing_disturbance_index": spo2.get("breathing_disturbance_index"),
+            }
+
+        if resilience:
+            result["resilience"] = {
+                "level": resilience.get("level"),
+                "contributors": resilience.get("contributors", {}),
+            }
+
+        if sleep_time:
+            result["sleep_time"] = {
+                "recommendation": sleep_time.get("recommendation"),
+                "status": sleep_time.get("status"),
+                "optimal_bedtime": sleep_time.get("optimal_bedtime"),
+            }
+
+        if cardio_age:
+            result["vascular_age"] = cardio_age.get("vascular_age")
+
+        if vo2:
+            result["vo2_max"] = vo2.get("vo2_max")
+
+        if workouts:
+            result["workouts"] = [
+                {
+                    "activity": w.get("activity"),
+                    "calories": w.get("calories"),
+                    "distance": w.get("distance"),
+                    "intensity": w.get("intensity"),
+                    "source": w.get("source"),
+                    "start": w.get("start_datetime"),
+                    "end": w.get("end_datetime"),
+                    "label": w.get("label"),
+                }
+                for w in workouts
+            ]
+
+        return result
     except Exception as exc:
         return {"error": str(exc)}

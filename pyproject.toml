@@ -8,6 +8,7 @@ license = {text = "MIT"}
 authors = [{name = "Terry Li"}]
 
 dependencies = [
+    "acta",
     "beautifulsoup4>=4.12",
     "click>=8.0",
     "fastmcp>=3.0.0",
@@ -20,6 +21,9 @@ dependencies = [
     "trafilatura>=1.9",
     "typer>=0.9",
 ]
+
+[tool.uv.sources]
+acta = { path = "../code/acta", editable = true }
 
 [project.urls]
 Homepage = "https://vivesca.org"

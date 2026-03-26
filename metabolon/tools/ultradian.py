@@ -83,7 +83,6 @@ def _count_job_alerts() -> str:
 def _read_efferens() -> str:
     """Read efferens notice board via acta."""
     try:
-        sys.path.insert(0, str(Path.home() / "code" / "acta" / "src"))
         import acta
 
         msgs = acta.read()

@@ -696,7 +696,6 @@ def cross_model_review(manifest_path: Path):
 def post_efferens_summary(total_systoles: int, stop_reason: str):
     """Post a summary to efferens board so Terry sees results in his inbox."""
     try:
-        sys.path.insert(0, str(Path.home() / "code" / "acta" / "src"))
         import acta
 
         acta.post(

@@ -164,7 +164,13 @@ def _cli() -> None:
         try:
             print(sync_catchup())
         except ValueError as exc:
-            print(f"error: {exc}", file=sys.stderr)
+            msg = str(exc)
+            if "store is locked" in msg:
+                # Primary wacli-sync daemon is running and holding the lock.
+                # Continuous sync is already covered — treat as success.
+                print("catchup: daemon is running, sync covered — skipping", file=sys.stderr)
+                sys.exit(0)
+            print(f"error: {msg}", file=sys.stderr)
             sys.exit(1)
     else:
         print("usage: gap_junction sync catchup", file=sys.stderr)
