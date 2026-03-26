@@ -548,7 +548,7 @@ def cycle_event_log():
 # ---------------------------------------------------------------------------
 
 
-def main(waves=None, model="opus", retry=1, focus=None, stop_after=None, dry_run=False):
+def main(waves=None, model=None, retry=1, focus=None, stop_after=None, dry_run=False):
     """Main pulse loop."""
     log("=== Pulse starting ===")
 
@@ -560,6 +560,11 @@ def main(waves=None, model="opus", retry=1, focus=None, stop_after=None, dry_run
 
     acquire_cardiac_lock()
     cycle_event_log()
+
+    # Read model from conf if not explicitly passed
+    genome = respiratory_genome()
+    if model is None:
+        model = genome.get("wave_model", "sonnet")
 
     # Respiration: budget headroom (coarse gate)
     has_headroom, reason = assess_vital_capacity()
@@ -594,6 +599,8 @@ def main(waves=None, model="opus", retry=1, focus=None, stop_after=None, dry_run
     wave = 0
     consecutive_fails = 0
     consecutive_saturation = 0
+    total_saturated = 0
+    total_failed = 0
 
     def sigint_handler(sig, frame):
         nonlocal stop_reason, wave
@@ -680,6 +687,7 @@ def main(waves=None, model="opus", retry=1, focus=None, stop_after=None, dry_run
             if matched:
                 is_saturated = True
                 consecutive_saturation += 1
+                total_saturated += 1
                 record_event(
                     "saturation_detected",
                     wave=wave,
@@ -692,7 +700,8 @@ def main(waves=None, model="opus", retry=1, focus=None, stop_after=None, dry_run
                     f"Consecutive: {consecutive_saturation}.",
                     flush=True,
                 )
-                if consecutive_saturation >= 2:
+                patience = respiratory_genome().get("saturation_patience", 2)
+                if consecutive_saturation >= patience:
                     # Parasympathetic response: idle, don't die.
                     # Set max recovery interval so the organism rests but
                     # the pacemaker keeps ticking on the LaunchAgent schedule.
@@ -726,6 +735,7 @@ def main(waves=None, model="opus", retry=1, focus=None, stop_after=None, dry_run
 
         if not success:
             consecutive_fails += 1
+            total_failed += 1
             log_file = LOG_DIR / "pulse-waves.log"
             try:
                 with open(log_file) as f:
@@ -771,6 +781,9 @@ def main(waves=None, model="opus", retry=1, focus=None, stop_after=None, dry_run
         weekly = post_usage.get("seven_day", {}).get("utilization", 0)
         sonnet = post_usage.get("seven_day_sonnet", {}).get("utilization", 0)
         log(f"Final budget: weekly={weekly}%, sonnet={sonnet}%")
+
+    # LLM adaptation: review outcomes and adjust parameters for next cycle
+    adapt(waves_run=wave, saturated=total_saturated, failed=total_failed, stop_reason=stop_reason)
 
     # Set adaptive recovery: short interval under debt, long when relaxed
     set_recovery_interval()

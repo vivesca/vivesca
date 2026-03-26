@@ -642,20 +642,20 @@ def _write_genome(genome: dict):
 # ---------------------------------------------------------------------------
 
 YIELD_DIRS = [
-    Path.home() / "epigenome" / "chromatin",
     Path.home() / "notes" / "Pulse Reports",
+    Path.home() / "tmp",  # pulse-manifest, briefs
 ]
 
 
 def measure_yield(since_hours: float = 24) -> dict:
-    """Measure metabolic yield — did recent outputs persist?
+    """Measure metabolic yield — did recent pulse outputs persist?
 
-    Checks files created by pulse that still exist after `since_hours`.
-    Returns {created, survived, yield_pct}.
+    Counts files in pulse output dirs created since cutoff.
+    Also checks git for pulse commits that survived (not reverted).
+    Returns {files_created, git_commits, yield_summary}.
     """
     cutoff = datetime.datetime.now().timestamp() - since_hours * 3600
-    created = 0
-    survived = 0
+    files_created = 0
 
     for d in YIELD_DIRS:
         if not d.exists():
@@ -664,18 +664,32 @@ def measure_yield(since_hours: float = 24) -> dict:
             if not f.is_file():
                 continue
             try:
-                stat = f.stat()
-                if stat.st_ctime >= cutoff:
-                    created += 1
-                    # Survived = still exists (trivially true here) AND
-                    # was accessed or not immediately overwritten
-                    if stat.st_mtime >= cutoff:
-                        survived += 1
+                if f.stat().st_ctime >= cutoff and "pulse" in f.name.lower():
+                    files_created += 1
             except OSError:
                 continue
 
-    yield_pct = round(survived / created * 100) if created > 0 else 0
-    return {"created": created, "survived": survived, "yield_pct": yield_pct}
+    # Count git commits by pulse in tracked repos
+    git_commits = 0
+    since_iso = datetime.datetime.fromtimestamp(cutoff).isoformat()
+    for repo in [Path.home() / "germline", Path.home() / "epigenome"]:
+        if not (repo / ".git").exists():
+            continue
+        try:
+            result = subprocess.run(
+                ["git", "-C", str(repo), "log", f"--since={since_iso}",
+                 "--author=Claude", "--oneline"],
+                capture_output=True, text=True, timeout=5,
+            )
+            git_commits += len(result.stdout.strip().splitlines()) if result.stdout.strip() else 0
+        except Exception:
+            pass
+
+    return {
+        "files_created": files_created,
+        "git_commits": git_commits,
+        "yield_summary": f"{files_created} files, {git_commits} commits",
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -695,7 +709,7 @@ Waves run: {waves_run}, Saturated: {saturated}, Failed: {failed}
 Stop reason: {stop_reason}
 
 ## Yield (last 24h)
-Files created: {yield_created}, Survived: {yield_survived} ({yield_pct}%)
+{yield_summary}
 
 ## Recent events (last 10)
 {recent_events}
@@ -736,9 +750,7 @@ def adapt(waves_run: int, saturated: int, failed: int, stop_reason: str):
         saturated=saturated,
         failed=failed,
         stop_reason=stop_reason,
-        yield_created=yield_data["created"],
-        yield_survived=yield_data["survived"],
-        yield_pct=yield_data["yield_pct"],
+        yield_summary=yield_data["yield_summary"],
         recent_events=recent_lines,
     )
 
