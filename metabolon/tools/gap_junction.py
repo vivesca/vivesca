@@ -1,10 +1,11 @@
-"""keryx — ligand-receptor signalling via WhatsApp (wacli).
+"""gap_junction — ligand-receptor signalling via WhatsApp (wacli).
 
 Tools:
-  ligand_bind   — bind to a conversation (read messages)
-  ligand_draft  — draft a ligand for release (NEVER sends directly)
-  receptor_list — list available receptors (recent chats)
-  receptor_sync — check receptor synchronisation state
+  ligand_bind   — read a conversation (merges phone + LID JIDs)
+  ligand_search — search messages by text, optionally scoped to contact
+  ligand_draft  — draft a message (NEVER sends)
+  receptor_list — list recent chats
+  receptor_sync — check sync daemon status
 """
 
 from fastmcp.tools import tool
@@ -12,31 +13,22 @@ from mcp.types import ToolAnnotations
 
 from metabolon.morphology import Secretion, Vital
 
-# Gap junction contacts: direct, bidirectional, low-friction (family, close friends)
-# Receptor contacts: formal, packaged, selective (professional, acquaintances)
 GAP_JUNCTION_CONTACTS = {"tara", "mum", "dad", "brother", "sister", "yujie"}
 
 
 def _contact_type(name: str) -> str:
-    """Classify contact as gap junction (close) or receptor (formal)."""
     return "gap_junction" if name.lower() in GAP_JUNCTION_CONTACTS else "receptor"
 
 
 class LigandResult(Secretion):
-    """Bound ligand — messages from a conversation receptor."""
-
     messages: str
 
 
 class LigandDraft(Secretion):
-    """Draft ligand — prepared for manual release."""
-
     draft: str
 
 
 class ReceptorList(Secretion):
-    """Available receptors — recent WhatsApp conversations."""
-
     chats: str
 
 
@@ -46,26 +38,35 @@ class ReceptorList(Secretion):
     annotations=ToolAnnotations(readOnlyHint=True, destructiveHint=False),
 )
 def ligand_bind(name: str, limit: int = 20) -> LigandResult:
-    """Bind to a conversation receptor and read its ligands."""
-    contact = _contact_type(name)
     from metabolon.organelles.gap_junction import receive_signals
 
+    contact = _contact_type(name)
     result = receive_signals(name, limit)
     prefix = f"[{contact}] " if contact == "gap_junction" else ""
     return LigandResult(messages=f"{prefix}{result}")
 
 
 @tool(
+    name="ligand_search",
+    description="Search WhatsApp messages by text. Optionally scope to a contact.",
+    annotations=ToolAnnotations(readOnlyHint=True, destructiveHint=False),
+)
+def ligand_search(query: str, name: str = "", limit: int = 20) -> LigandResult:
+    from metabolon.organelles.gap_junction import search_signals
+
+    result = search_signals(query, name, limit)
+    return LigandResult(messages=result)
+
+
+@tool(
     name="ligand_draft",
-    description="Draft a WhatsApp message. NEVER sends — returns shell block for manual execution.",
+    description="Draft a WhatsApp message. NEVER sends -- returns shell command.",
     annotations=ToolAnnotations(readOnlyHint=True, destructiveHint=False),
 )
 def ligand_draft(name: str, message: str) -> LigandDraft:
-    """Draft a ligand for manual secretion."""
     from metabolon.organelles.gap_junction import compose_signal
 
-    result = compose_signal(name, message)
-    return LigandDraft(draft=result)
+    return LigandDraft(draft=compose_signal(name, message))
 
 
 @tool(
@@ -74,11 +75,9 @@ def ligand_draft(name: str, message: str) -> LigandDraft:
     annotations=ToolAnnotations(readOnlyHint=True, destructiveHint=False),
 )
 def receptor_list(limit: int = 20) -> ReceptorList:
-    """List available conversation receptors."""
     from metabolon.organelles.gap_junction import active_junctions
 
-    result = active_junctions(limit)
-    return ReceptorList(chats=result)
+    return ReceptorList(chats=active_junctions(limit))
 
 
 @tool(
@@ -87,8 +86,6 @@ def receptor_list(limit: int = 20) -> ReceptorList:
     annotations=ToolAnnotations(readOnlyHint=True, destructiveHint=False),
 )
 def receptor_sync() -> Vital:
-    """Check receptor synchronisation state."""
     from metabolon.organelles.gap_junction import junction_status
 
-    result = junction_status()
-    return Vital(status="ok", message=result)
+    return Vital(status="ok", message=junction_status())

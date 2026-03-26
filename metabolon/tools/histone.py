@@ -1,4 +1,4 @@
-"""oghma — histone memory database (FTS5 + vector embeddings).
+"""histone — memory database (FTS5 + vector embeddings).
 
 Chromatin-level storage: memories are histone marks that regulate
 which knowledge is accessible for transcription.
