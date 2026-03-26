@@ -1,0 +1,34 @@
+---
+name: integrin
+description: Receptor health scan — check for broken CLI binaries, dormant skills, and retirement candidates before system changes.
+model: sonnet
+---
+
+# Integrin — probe before trusting
+
+**Rule: existence on PATH is not the same as functional — pull to test stiffness.**
+
+## When this fires
+
+- After installing, removing, or renaming a CLI binary
+- Before a session that will invoke many skills (prevents mid-task failures)
+- When a skill invocation fails unexpectedly
+- Nightly health check cadence (via `integrin_apoptosis_check`)
+
+## Discipline
+
+1. **`integrin_probe` for full scan** — runs all six layers (PATH resolution, --help responsiveness, focal adhesions, anoikis, fragility, activation state). Only call this when you need the full picture; it's expensive.
+2. **Anoikis candidates first** — receptors with ALL references detached are retirement candidates. Surface these before anything else; they're silent failure vectors.
+3. **Focal adhesions = high risk** — binaries referenced by multiple receptors. A single broken focal adhesion breaks many skills simultaneously. Fix these before individual detachments.
+4. **Bent receptors (dormant > 30 days)** — note, but don't retire unless they're also anoikis candidates. Quiescent != dead.
+5. **`integrin_colony_probe`** — use when checking reference integrity across colonies and buds specifically; narrower than full probe.
+6. **After fixing** — rerun probe to confirm reattachment; mechanically silent binaries may resolve after --help check reveals the correct invocation.
+
+## Anti-patterns
+
+| Don't | Do |
+|-------|-----|
+| Assume PATH resolution = working binary | Check mechanically_silent list too |
+| Fix detachments without checking focal adhesions | Focal adhesions first (shared risk) |
+| Retire bent receptors immediately | Retire only anoikis candidates (bent + all detached) |
+| Run full probe for a single binary check | Use shutil.which() inline for one-off checks |

@@ -1,0 +1,34 @@
+---
+name: gradient
+description: Polarity sensing — detect which domains are co-trending across RSS, tool usage, and search before making focus decisions.
+model: sonnet
+---
+
+# Gradient — detect direction before committing
+
+**Rule: independent sensor confirmation outweighs raw signal strength — adjacent sensors are redundant, not additive.**
+
+## When this fires
+
+- User asks "what should I focus on?" or "what's been on my mind lately?"
+- Planning weekly priorities or sprint themes
+- Checking if attention drift matches stated goals
+- Assessing whether a new thread is worth pursuing or is noise
+
+## Discipline
+
+1. **Run `proprioception_gradient`** with default 7-day window; extend to 14 for slower-moving trends (career, health) or shorten to 3 for recent spike detection.
+2. **Read topology, not just rank** — `independent` 2-sensor confirmation beats `adjacent` 2-sensor. A domain confirmed by tool_signals + noesis_queries is stronger than RSS + noesis (both external scanning).
+3. **`diffuse` is a valid answer** — means no clear axis; don't force an interpretation. Report it as isotropic state.
+4. **Single-sensor results are hypotheses** — flag as "unconfirmed gradient" and prompt the user to verify against their own sense of what's been active.
+5. **Act on the gap** — if polarity vector diverges from stated goals (e.g., organism is orienting to health but user said career is priority), surface the divergence explicitly.
+
+## Anti-patterns
+
+| Don't | Do |
+|-------|-----|
+| Treat top-ranked domain as certain | Check sensor_coverage and topology_bonus |
+| Report all 8 gradients | Focus on top 3 with coverage >= 2 |
+| Ignore "diffuse" | Report it — isotropic state is informative |
+| Interpret without context | Pair gradient with stated current priorities |
+| Use as a one-time read | Compare across weeks to detect drift |
