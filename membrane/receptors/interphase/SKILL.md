@@ -64,7 +64,7 @@ Run in parallel: `fasti` (calendar), `checkpoint ls` (due items), Praxis.md (ite
 
 If meetings tomorrow: one-line prep note for each.
 
-**Thursday only:** Weekly token reset ~11am HKT tomorrow. Run `usus --json` — flag significant headroom.
+**Thursday only:** Weekly token reset ~11am HKT tomorrow. Run `respirometry --json` — flag significant headroom.
 
 ### 6. Nudge
 

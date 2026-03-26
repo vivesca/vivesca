@@ -1,1 +1,147 @@
-/Users/terry/.local/bin/respirometry
+#!/usr/bin/env python3
+# /// script
+# requires-python = ">=3.11"
+# ///
+"""
+respirometry-cached — read last respirometry-watch snapshot when live respirometry is unavailable.
+Designed to work inside Claude Code sandbox where Keychain access is blocked.
+"""
+
+import json
+import sys
+from datetime import UTC, datetime
+from pathlib import Path
+
+HISTORY = Path.home() / ".local/share/respirometry/history.jsonl"
+# Also check respirometry-watch log (different format, written by LaunchAgent)
+WATCH_LOG = Path.home() / "docs/respirometry-log.jsonl"
+
+
+def read_last_line(path: Path) -> dict | None:
+    if not path.exists():
+        return None
+    lines = path.read_text().strip().splitlines()
+    if not lines:
+        return None
+    return json.loads(lines[-1])
+
+
+def format_age(seconds: float) -> str:
+    if seconds < 60:
+        return f"{int(seconds)}s ago"
+    elif seconds < 3600:
+        return f"{int(seconds / 60)}m ago"
+    elif seconds < 86400:
+        return f"{int(seconds / 3600)}h ago"
+    else:
+        return f"{int(seconds / 86400)}d ago"
+
+
+def get_usage() -> dict:
+    """Read cached usage data. Returns dict with weekly_pct, sonnet_pct, session_pct, stale_age_seconds, source."""
+    entry = None
+    source = None
+
+    for path, name in [(HISTORY, "history"), (WATCH_LOG, "watch")]:
+        entry = read_last_line(path)
+        if entry:
+            source = name
+            break
+
+    if not entry:
+        return {"error": "no cached data"}
+
+    ts_str = entry.get("ts", "")
+    try:
+        ts = datetime.fromisoformat(ts_str)
+        age = (datetime.now(UTC) - ts.astimezone(UTC)).total_seconds()
+    except (ValueError, TypeError):
+        age = -1
+
+    if "metrics" in entry:
+        metrics = entry.get("metrics", {})
+        weekly = metrics.get("seven_day", {}).get("utilization", -1)
+        sonnet = metrics.get("seven_day_sonnet", {}).get("utilization", -1)
+        session = -1
+    else:
+        weekly = entry.get("weekly_pct", -1)
+        sonnet = entry.get("sonnet_pct", -1)
+        session = entry.get("session_pct", -1)
+
+    return {
+        "weekly_pct": weekly,
+        "sonnet_pct": sonnet,
+        "session_pct": session,
+        "stale": True,
+        "stale_age_seconds": int(age) if age >= 0 else None,
+        "source": source,
+    }
+
+
+def get_budget(mode: str = "interactive") -> str:
+    """Return budget tier based on mode.
+
+    Interactive (default): green <50%, yellow 50-70%, red >70%.
+    Overnight: green <90%, yellow 90-95%, red >95%.
+      Rationale: burn everything except ~5% for morning session.
+
+    Usage: respirometry-cached --budget [--overnight]
+    """
+    usage = get_usage()
+    if "error" in usage:
+        return "unknown"
+    max_util = max(usage.get("weekly_pct", 0), usage.get("sonnet_pct", 0))
+
+    if mode == "overnight":
+        if max_util < 95:
+            return "green"
+        elif max_util < 98:
+            return "yellow"
+        else:
+            return "red"
+    else:
+        if max_util < 50:
+            return "green"
+        elif max_util < 70:
+            return "yellow"
+        else:
+            return "red"
+
+
+def main():
+    if "--budget" in sys.argv:
+        mode = "overnight" if "--overnight" in sys.argv else "interactive"
+        print(get_budget(mode))
+        return
+
+    usage = get_usage()
+    if "error" in usage:
+        print(usage["error"], file=sys.stderr)
+        sys.exit(1)
+
+    if "--json" in sys.argv:
+        print(json.dumps(usage))
+    else:
+        age = usage.get("stale_age_seconds")
+        stale_str = f" (stale: {format_age(age)})" if age and age >= 0 else " (age unknown)"
+        print(f"Claude Code Usage — cached{stale_str}")
+        print()
+        if usage["session_pct"] >= 0:
+            print(f"  Session (5h)     {usage['session_pct']}%")
+        print(f"  Weekly           {usage['weekly_pct']}%")
+        print(f"  Weekly (Sonnet)  {usage['sonnet_pct']}%")
+        print()
+        max_util = max(usage["weekly_pct"], usage["sonnet_pct"])
+        if max_util < 50:
+            status = "SAFE"
+        elif max_util < 70:
+            status = "CAUTION"
+        elif max_util < 85:
+            status = "WARNING"
+        else:
+            status = "DANGER"
+        print(f"Status: {status}")
+
+
+if __name__ == "__main__":
+    main()

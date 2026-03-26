@@ -189,7 +189,7 @@ Cytokinesis is the error signal. When `/cytokinesis` consistently finds uncaptur
 
 **Morning:** `/entrainment` (optional, weather + Tara) · **Leaving office:** `/interphase` (the one daily routine) · **Session end:** suggest `/cytokinesis`.
 
-**Lucerna monitor:** Check `tail -20 ~/epigenome/chromatin/interoception/polarization-events.jsonl` and `usus --json` periodically. Flag if: waves failing consecutively, budget climbing faster than expected, or lucerna not running (`launchctl list | grep lucerna`).
+**Lucerna monitor:** Check `tail -20 ~/epigenome/chromatin/interoception/polarization-events.jsonl` and `respirometry --json` periodically. Flag if: waves failing consecutively, budget climbing faster than expected, or lucerna not running (`launchctl list | grep lucerna`).
 
 ## Knowledge Architecture
 
