@@ -40,7 +40,7 @@ WEEKLY_DIR = HOME / "epigenome" / "chromatin" / "Weekly"
 LOG_DIR = HOME / "logs"
 LOG_FILE = LOG_DIR / "anam-scan.log"
 SIGNALS_FILE = Path("~/.local/share/vivesca/signals.jsonl").expanduser()
-MAX20 = HOME / "germline" / "effectors" / "max20"
+CHANNEL = HOME / "germline" / "effectors" / "channel"
 ACTA = HOME / "germline" / "effectors" / "acta"
 CONF_FILE = HOME / "germline" / "mismatch-repair.conf"
 
@@ -283,25 +283,25 @@ def extract_user_prompts(sessions: list[dict], max_per_session: int | None = Non
     return session_prompts
 
 
-# ── LLM queries via max20 ────────────────────────────────────────────────────
+# ── LLM queries via channel ────────────────────────────────────────────────────
 def llm_query(prompt: str, model: str = "haiku") -> str:
-    """Query LLM via max20 (Claude Code Max subscription, zero API cost)."""
+    """Query LLM via channel (Claude Code Max subscription, zero API cost)."""
     try:
         result = subprocess.run(
-            [str(MAX20), model, "-p", prompt],
+            [str(CHANNEL), model, "-p", prompt],
             capture_output=True,
             text=True,
             timeout=180,
         )
         if result.returncode == 0:
             return result.stdout.strip()
-        log(f"max20 {model} returned {result.returncode}: {result.stderr[:200]}")
+        log(f"channel {model} returned {result.returncode}: {result.stderr[:200]}")
         return ""
     except subprocess.TimeoutExpired:
-        log(f"max20 {model} timed out after 180s")
+        log(f"channel {model} timed out after 180s")
         return ""
     except FileNotFoundError:
-        log(f"max20 not found at {MAX20}")
+        log(f"channel not found at {CHANNEL}")
         return ""
     except Exception as e:
         log(f"LLM query failed: {e}")
