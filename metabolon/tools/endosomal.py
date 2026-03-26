@@ -11,6 +11,7 @@ Tools:
   endosomal_categorize -- classify email text into triage bucket
   endosomal_archive    -- batch archive messages
   endosomal_mark_read  -- batch mark messages as read
+  endosomal_send       -- send or reply to email (replies always quote original)
   endosomal_label      -- create a Gmail label
   endosomal_filter     -- create a Gmail filter rule (dry-run by default)
 """
@@ -440,6 +441,50 @@ def endosomal_label(name: str) -> EffectorResult:
     """Create a Gmail label. Use Category/Name format for nested labels."""
     result = invoke_organelle(GOG, ["gmail", "labels", "create", name], timeout=15)
     return EffectorResult(success=True, message=result or f"Label created: {name}")
+
+
+@tool(
+    name="endosomal_send",
+    description="Send or reply to a Gmail message. Replies always include quoted original.",
+    annotations=ToolAnnotations(readOnlyHint=False, destructiveHint=True),
+)
+def endosomal_send(
+    to: str = "",
+    subject: str = "",
+    body: str = "",
+    reply_to_message_id: str = "",
+    attach: list[str] | None = None,
+    cc: str = "",
+) -> EffectorResult:
+    """Send a new email or reply to an existing message.
+
+    For replies: set reply_to_message_id. Recipients auto-populated via --reply-all.
+    Replies always include --quote (quoted original).
+    For new emails: set to, subject, and body.
+    """
+    args = ["gmail", "send"]
+
+    if reply_to_message_id:
+        args.extend(["--reply-to-message-id", reply_to_message_id, "--reply-all", "--quote"])
+    if to:
+        args.extend(["--to", to])
+    if subject:
+        args.extend(["--subject", subject])
+    if body:
+        args.extend(["--body", body])
+    if cc:
+        args.extend(["--cc", cc])
+    for path in attach or []:
+        args.extend(["--attach", path])
+
+    if not reply_to_message_id and (not to or not subject or not body):
+        return EffectorResult(
+            success=False,
+            message="New emails require to, subject, and body. Replies require reply_to_message_id.",
+        )
+
+    result = invoke_organelle(GOG, args, timeout=60)
+    return EffectorResult(success=True, message=result or "Email sent.")
 
 
 @tool(
