@@ -67,11 +67,11 @@
         ]
       },
       {
-        "matcher": "tool matches 'noesis_research|vivesca__noesis_research'",
+        "matcher": "tool matches 'chemotaxis_research|vivesca__chemotaxis_research'",
         "hooks": [
           {
             "type": "prompt",
-            "prompt": "The user is about to call noesis_research (~$0.40). Check '$ARGUMENTS': would noesis_search (~$0.006) or noesis_ask (~$0.01) answer this question? research is only justified for deep multi-source investigation that cheaper tiers can't handle. If search or ask would suffice, block with: 'Use noesis_search ($0.006) or noesis_ask ($0.01) instead — 60x cheaper. Reserve research for questions needing deep multi-source investigation.'"
+            "prompt": "The user is about to call chemotaxis_research (~$0.40). Check '$ARGUMENTS': would chemotaxis_search (~$0.006) or chemotaxis_ask (~$0.01) answer this question? research is only justified for deep multi-source investigation that cheaper tiers can't handle. If search or ask would suffice, block with: 'Use chemotaxis_search ($0.006) or chemotaxis_ask ($0.01) instead — 60x cheaper. Reserve research for questions needing deep multi-source investigation.'"
           }
         ]
       }
@@ -109,10 +109,10 @@
     "frontend-design@claude-plugins-official": false,
     "swift-lsp@claude-plugins-official": false,
     "evals-skills@hamelsmu-evals-skills": true,
-    "compound-engineering@every-marketplace": true,
+    "compound-engineering@every-marketplace": false,
     "obsidian@obsidian-skills": true,
     "claude-api@anthropic-agent-skills": true,
-    "superpowers@claude-plugins-official": true,
+    "superpowers@claude-plugins-official": false,
     "pyright-lsp@claude-plugins-official": true
   },
   "alwaysThinkingEnabled": true,
