@@ -154,6 +154,18 @@ When triaging what to capture:
 - **Consolidation** (`interoception(consolidation)`) is the cross-session layer — promote, prune, migrate. It assumes in-session capture already happened.
 - **Compaction** (PreCompact hook) auto-commits dirty repos. It does not capture learnings — that's this protocol's job before compaction fires.
 
+### Feedback Loop
+
+Cytokinesis is the error signal. When `/cytokinesis` consistently finds uncaptured material:
+
+1. **Single miss** — capture now, no action needed. Normal.
+2. **Pattern of misses** (same category, 3+ sessions) — the routing table has a gap or the trigger is unclear. Fix the table, not the habit.
+3. **Systemic miss** (uncaptured material across categories) — continuous capture is not firing. Root cause: either context is too long (capture deferred and forgotten) or the selection filter is too aggressive. Response: add a mid-session `/cytokinesis` checkpoint at natural breakpoints (domain switch, long tool run).
+
+**The metric:** cytokinesis residual — count of findings cytokinesis captures that should have been captured inline. Trending to zero = protocol is working. Flat or rising = protocol needs a mechanism change, not a reminder.
+
+**Escalation:** If cytokinesis residual stays > 3 per session across a week, promote the issue to Praxis as a system design problem, not a discipline problem.
+
 ## Session Start
 
 1. Read `~/epigenome/chromatin/Tonus.md`
