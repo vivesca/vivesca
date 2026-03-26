@@ -14,7 +14,7 @@ from pathlib import Path
 from fastmcp.tools import tool
 from mcp.types import ToolAnnotations
 
-TONUS = Path.home() / "notes" / "Tonus.md"
+TONUS = Path.home() / "epigenome" / "chromatin" / "Tonus.md"
 HKT = timezone(timedelta(hours=8))
 
 # Pattern: - [status] **Label.** description

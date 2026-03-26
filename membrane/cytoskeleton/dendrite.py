@@ -758,7 +758,7 @@ def mod_docima(data):
 
 ATTN_MARKER = "/tmp/claude-attention-counter"
 ATTN_INTERVAL = 25
-ATTN_NOW = str(HOME / "notes/Tonus.md")
+ATTN_NOW = str(HOME / "epigenome/chromatin/Tonus.md")
 
 
 def mod_attention(data):
