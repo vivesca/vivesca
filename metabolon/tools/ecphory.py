@@ -23,7 +23,7 @@ from metabolon.organelles import engram as _engram
     annotations=ToolAnnotations(readOnlyHint=True, destructiveHint=False),
 )
 def ecphory_engram(
-    pattern: str,
+    query: str,
     days: int = 7,
     deep: bool = True,
     role: str = "",
@@ -31,21 +31,21 @@ def ecphory_engram(
     """Search chat history (Claude + Codex + OpenCode) for a pattern.
 
     Args:
-        pattern: Search term or regex.
+        query: Search term or regex.
         days: How many days back to search (default 7).
         deep: True = search full transcripts; False = prompts only.
         role: Filter by speaker — 'user', 'assistant', or '' for all.
     """
     matches = _engram.search(
-        pattern,
+        query,
         days=days,
         deep=deep,
         role=role or None,
     )
     if not matches:
-        return f"No matches for '{pattern}' in last {days} days."
+        return f"No matches for '{query}' in last {days} days."
 
-    lines = [f"{len(matches)} match(es) for '{pattern}':"]
+    lines = [f"{len(matches)} match(es) for '{query}':"]
     for m in matches:
         lines.append(f"  [{m.date} {m.time_str}] [{m.role}] {m.snippet}")
     return "\n".join(lines)

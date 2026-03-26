@@ -107,7 +107,7 @@ def electroreception_read(
         LIMIT {limit}
     """
 
-    conn = sqlite3.connect(_DB)
+    conn = sqlite3.connect(f"file:{_DB}?mode=ro", uri=True)
     cur = conn.cursor()
     cur.execute(sql)
 

@@ -141,7 +141,7 @@ def compose_signal(name: str, message: str) -> str:
 
 def active_junctions(limit: int = 20) -> str:
     """List recent conversations."""
-    return _wacli(["chats", "--limit", str(limit)])
+    return _wacli(["chats", "list", "--limit", str(limit)])
 
 
 def junction_status() -> str:

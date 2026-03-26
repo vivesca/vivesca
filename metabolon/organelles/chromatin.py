@@ -70,6 +70,30 @@ def inscribe(content: str, category: str = "gotcha", confidence: float = 0.8) ->
     )
 
 
+def search(
+    query: str,
+    category: str = "",
+    source_enzyme: str = "",
+    limit: int = 10,
+    mode: str = "hybrid",
+    chromatin: str = "open",
+) -> list[dict]:
+    """Alias for recall() — histone_search tool calls this name."""
+    return recall(
+        query,
+        category=category,
+        source_enzyme=source_enzyme,
+        limit=limit,
+        mode=mode,
+        chromatin=chromatin,
+    )
+
+
+def add(content: str, category: str = "gotcha", confidence: float = 0.8) -> dict:
+    """Alias for inscribe() — histone_mark tool calls this name."""
+    return inscribe(content, category=category, confidence=confidence)
+
+
 def stats() -> dict:
     """Memory database statistics."""
     s = _get_storage()

@@ -1,24 +1,21 @@
-"""polymerization -- Praxis.md TODO management via todo-cli.
+"""polymerization -- Praxis.md TODO management via praxis organelle.
 
 Tools:
-  polymerization  -- run todo-cli subcommands against Praxis.md
+  polymerization  -- run praxis subcommands against Praxis.md
 """
 
-import subprocess
+import json
 
 from fastmcp.tools import tool
 from mcp.types import ToolAnnotations
 
 from metabolon.morphology import Secretion
 
-TODO_CLI = "todo-cli"
-PRAXIS = "~/epigenome/chromatin/Praxis.md"
-
 SUBCOMMANDS = ("today", "upcoming", "overdue", "someday", "all", "spare", "stats", "clean")
 
 
 class PolymerizationResult(Secretion):
-    """Output from todo-cli."""
+    """Output from praxis organelle."""
 
     subcommand: str
     output: str
@@ -26,30 +23,30 @@ class PolymerizationResult(Secretion):
 
 @tool(
     name="polymerization",
-    description="Run todo-cli on Praxis.md. Subcommands: today/upcoming/overdue/all/stats/clean.",
+    description="Run todo commands on Praxis.md. Subcommands: today/upcoming/overdue/all/stats/clean.",
     annotations=ToolAnnotations(readOnlyHint=False, destructiveHint=False),
 )
 def polymerization(subcommand: str = "today") -> PolymerizationResult:
-    """Invoke todo-cli against Praxis.md and return raw output.
+    """Invoke praxis organelle against Praxis.md and return formatted output.
 
     Valid subcommands: today, upcoming, overdue, someday, all, spare, stats, clean.
     """
     if subcommand not in SUBCOMMANDS:
         raise ValueError(f"Unknown subcommand '{subcommand}'. Valid: {', '.join(SUBCOMMANDS)}")
 
-    try:
-        result = subprocess.run(
-            [TODO_CLI, subcommand],
-            capture_output=True,
-            text=True,
-            timeout=15,
-        )
-        output = result.stdout.strip()
-        if result.returncode != 0:
-            stderr = result.stderr.strip()
-            raise ValueError(f"todo-cli {subcommand} failed: {stderr or 'non-zero exit'}")
-        return PolymerizationResult(subcommand=subcommand, output=output or "(no output)")
-    except FileNotFoundError as exc:
-        raise ValueError("todo-cli not found on PATH") from exc
-    except subprocess.TimeoutExpired as exc:
-        raise ValueError("todo-cli timed out (15s)") from exc
+    from metabolon.organelles import praxis
+
+    fn_map = {
+        "today": praxis.today,
+        "upcoming": praxis.upcoming,
+        "overdue": praxis.overdue,
+        "someday": praxis.someday,
+        "all": praxis.all_items,
+        "spare": praxis.spare,
+        "stats": praxis.stats,
+        "clean": praxis.clean,
+    }
+
+    result = fn_map[subcommand]()
+    output = json.dumps(result, indent=2, default=str)
+    return PolymerizationResult(subcommand=subcommand, output=output)
