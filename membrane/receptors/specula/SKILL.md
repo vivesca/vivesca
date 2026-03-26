@@ -1,17 +1,17 @@
 ---
-name: chemotaxis
-description: Peer pattern scanning — systematically scan what peers, competitors, and adjacent practitioners are doing, extract transferable patterns, route to domains (personal stack, consulting, governance). Use monthly as part of /monthly, or ad-hoc when entering a new domain or feeling behind. "What are others doing?", "steal from peers", "landscape scan", "chemotaxis".
+name: specula
+description: Peer pattern scanning — systematically scan what peers, competitors, and adjacent practitioners are doing, extract transferable patterns, route to domains (personal stack, consulting, governance). Use monthly as part of /monthly, or ad-hoc when entering a new domain or feeling behind. "What are others doing?", "steal from peers", "landscape scan", "specula".
 user_invocable: true
 ---
 
 # Specula — Peer Pattern Scanning
 
-From Latin *chemotaxis* — watchtower. Systematic reconnaissance of what peers and competitors are doing, with pattern extraction and domain routing.
+From Latin *specula* — watchtower. Systematic reconnaissance of what peers and competitors are doing, with pattern extraction and domain routing.
 
 ## When to Use
 
 - **Monthly** — as part of `/mitosis` review. Scheduled scan of key domains.
-- **Ad-hoc** — entering a new domain, starting a new project, feeling behind, or when curiosity strikes. Invoke directly via `/chemotaxis`.
+- **Ad-hoc** — entering a new domain, starting a new project, feeling behind, or when curiosity strikes. Invoke directly via `/specula`.
 
 ## The Process
 
@@ -87,7 +87,7 @@ For high-priority patterns:
 
 ## Monthly Cadence
 
-In `/mitosis`, chemotaxis runs as one of the review steps:
+In `/mitosis`, specula runs as one of the review steps:
 1. Pick 2-3 domains most relevant to current work
 2. Run parallel researchers (~10 min)
 3. Synthesize into vault note
@@ -96,15 +96,15 @@ In `/mitosis`, chemotaxis runs as one of the review steps:
 ## Ad-Hoc Usage
 
 ```
-/chemotaxis                    # Interactive — pick domains
-/chemotaxis agents             # Scan agent engineering specifically
-/chemotaxis governance         # Scan AI governance specifically
-/chemotaxis consulting         # Scan consulting delivery specifically
+/specula                    # Interactive — pick domains
+/specula agents             # Scan agent engineering specifically
+/specula governance         # Scan AI governance specifically
+/specula consulting         # Scan consulting delivery specifically
 ```
 
 ## Quality Bar
 
-A good chemotaxis scan produces **at least 3 actionable patterns** with concrete "how to steal" steps. If a scan returns only product descriptions or marketing — the researcher prompts need tightening.
+A good specula scan produces **at least 3 actionable patterns** with concrete "how to steal" steps. If a scan returns only product descriptions or marketing — the researcher prompts need tightening.
 
 ## Anti-Patterns
 
@@ -115,5 +115,5 @@ A good chemotaxis scan produces **at least 3 actionable patterns** with concrete
 ## Relationship to Other Skills
 
 - **dialexis** — AI landscape awareness for consulting conversations (different purpose: staying current vs pattern extraction)
-- **[[analogical-transfer]]** — cross-domain transfer (chemotaxis is same-domain; analogical-transfer is cross-domain)
-- **[[mental-models]]** — universal patterns discovered by chemotaxis may become topica entries
+- **[[analogical-transfer]]** — cross-domain transfer (specula is same-domain; analogical-transfer is cross-domain)
+- **[[mental-models]]** — universal patterns discovered by specula may become topica entries
