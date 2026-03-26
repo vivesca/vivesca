@@ -5,7 +5,7 @@ corrections, recurring topics, and unused memories. Complements
 within-session capture (nociception, hebbian nudge, telophase) with
 cross-session pattern detection.
 
-Design: ~/germline/loci/copia/cross-session-scanner-design-2026-03-23.md
+Design: ~/germline/loci/poiesis/cross-session-scanner-design-2026-03-23.md
 Architecture: ~/germline/loci/pulse/transcript-scan-architecture-2026-03-24.md
 """
 

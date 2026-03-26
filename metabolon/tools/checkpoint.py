@@ -51,7 +51,7 @@ class HomeostasisResult(Secretion):
     sections: list[str]
 
 
-class AutoimmunityResult(Secretion):
+class InflammasomeResult(Secretion):
     """Self-test probe results."""
 
     report: str
@@ -60,13 +60,13 @@ class AutoimmunityResult(Secretion):
 
 
 @tool(
-    name="autoimmunity_probe",
+    name="inflammasome_probe",
     description="Self-test: verify all subsystems work end-to-end.",
     annotations=ToolAnnotations(readOnlyHint=True, destructiveHint=False),
 )
-def autoimmunity_probe() -> AutoimmunityResult:
+def inflammasome_probe() -> InflammasomeResult:
     """Run innate immune probes on all organism subsystems."""
-    from metabolon.organelles.autoimmunity import run_all_probes
+    from metabolon.organelles.inflammasome import run_all_probes
 
     results = run_all_probes()
     lines = []
@@ -76,7 +76,7 @@ def autoimmunity_probe() -> AutoimmunityResult:
     passed_count = sum(1 for r in results if r["passed"])
     total = len(results)
     lines.append(f"\nSummary: {passed_count}/{total} passed")
-    return AutoimmunityResult(
+    return InflammasomeResult(
         report="\n".join(lines), passed=passed_count, total=total
     )
 

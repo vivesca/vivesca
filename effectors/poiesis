@@ -4,7 +4,7 @@
 # dependencies = []
 # ///
 """
-copia — search Capco vault notes by keyword.
+poiesis — search Capco vault notes by keyword.
 
 Usage:
   copia <query>        fuzzy search across all 3 files

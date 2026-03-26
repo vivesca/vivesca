@@ -1,0 +1,284 @@
+#!/Users/terry/.local/share/mise/installs/python/3.13.12/bin/python3.13
+"""inflammasome-probe — hourly runner for vivesca immune probes.
+
+Runs all inflammasome probes, logs failures to the infection log,
+prints results to stdout for the LaunchAgent log. Always exits 0.
+
+Layers:
+  1. run_all_probes()       — deterministic self-test
+  2. adaptive_response()    — known-pattern deterministic repair
+  3. novel_failure_repair() — LLM diagnosis for unrepaired novel failures
+"""
+
+from __future__ import annotations
+
+import json
+import subprocess
+import sys
+from datetime import UTC, datetime
+from pathlib import Path
+
+# ---------------------------------------------------------------------------
+# Cooldown / novel-failure tracking
+# ---------------------------------------------------------------------------
+
+_COOLDOWN_PATH = Path.home() / ".cache" / "autoimmunity" / "repair-cooldown.json"
+_METHYLATION_LOG = Path.home() / ".cache" / "autoimmunity" / "methylation-candidates.jsonl"
+_COOLDOWN_SECONDS = 86400  # 24 hours
+_MAX_REPAIRS_PER_CYCLE = 2
+_REPAIR_TIMEOUT_S = 120
+_NOVEL_CYCLE_LOOKBACK = 3  # failure must be absent from last N infection log entries per probe
+_CHANNEL = str(Path.home() / "germline" / "effectors" / "channel")
+
+
+def _load_cooldown() -> dict:
+    """Load {probe_name: last_attempt_ts} from cooldown file. Returns {} on any error."""
+    try:
+        if _COOLDOWN_PATH.exists():
+            return json.loads(_COOLDOWN_PATH.read_text())
+    except Exception:
+        pass
+    return {}
+
+
+def _save_cooldown(cooldown: dict) -> None:
+    """Persist cooldown dict. Silently ignores errors."""
+    try:
+        _COOLDOWN_PATH.parent.mkdir(parents=True, exist_ok=True)
+        _COOLDOWN_PATH.write_text(json.dumps(cooldown, indent=2))
+    except Exception:
+        pass
+
+
+def _is_on_cooldown(probe_name: str, cooldown: dict) -> bool:
+    """Return True if probe_name was attempted within the last 24 hours."""
+    last_ts_str = cooldown.get(probe_name)
+    if not last_ts_str:
+        return False
+    try:
+        last_ts = datetime.fromisoformat(last_ts_str)
+        now = datetime.now(UTC)
+        if last_ts.tzinfo is None:
+            last_ts = last_ts.replace(tzinfo=UTC)
+        return (now - last_ts).total_seconds() < _COOLDOWN_SECONDS
+    except Exception:
+        return False
+
+
+def _is_novel_failure(probe_name: str) -> bool:
+    """Return True if this failure has appeared fewer than _NOVEL_CYCLE_LOOKBACK
+    times as an unhealed event in the infection log.
+
+    Non-novel = already seen >= _NOVEL_CYCLE_LOOKBACK times without healing.
+    Conservative: returns True (treat as novel) on any read error.
+    """
+    try:
+        from metabolon.metabolism.infection import recall_infections
+
+        events = recall_infections()
+        tool_key = f"self_test_failure:{probe_name}"
+        unhealed_count = sum(
+            1 for e in events
+            if e.get("tool") == tool_key and not e.get("healed")
+        )
+        return unhealed_count < _NOVEL_CYCLE_LOOKBACK
+    except Exception:
+        return True
+
+
+def _dispatch_diagnosis(probe_name: str, message: str) -> str:
+    """Dispatch channel sonnet to diagnose and fix the root cause.
+
+    Returns the raw single-line output (FIXED: ... or UNFIXED: ...).
+    """
+    prompt = (
+        f'The vivesca organism\'s self-test probe "{probe_name}" failed with: {message}\n\n'
+        "Diagnose and fix the root cause. Steps:\n"
+        "1. Find the relevant source code in ~/germline/\n"
+        "2. Identify what's broken\n"
+        "3. Fix it if the fix is straightforward (wrong path, missing import, stale reference)\n"
+        "4. If the fix requires judgment, just report the diagnosis\n\n"
+        "Output: one line starting with FIXED: or UNFIXED: followed by what you did/found."
+    )
+    try:
+        result = subprocess.run(
+            [_CHANNEL, "sonnet", "-p", prompt],
+            capture_output=True,
+            text=True,
+            timeout=_REPAIR_TIMEOUT_S,
+        )
+        output = (result.stdout or "").strip()
+        if not output and result.stderr:
+            output = result.stderr.strip()[:300]
+        return output or "UNFIXED: channel returned no output"
+    except subprocess.TimeoutExpired:
+        return f"UNFIXED: channel timed out after {_REPAIR_TIMEOUT_S}s"
+    except Exception as exc:
+        return f"UNFIXED: dispatch error: {exc}"
+
+
+def _log_methylation_candidate(probe_name: str, failure_message: str, fix_description: str) -> None:
+    """Append a successful repair to the methylation candidates log."""
+    try:
+        _METHYLATION_LOG.parent.mkdir(parents=True, exist_ok=True)
+        entry = {
+            "ts": datetime.now(UTC).isoformat(),
+            "probe_name": probe_name,
+            "failure_message": failure_message,
+            "fix_description": fix_description,
+        }
+        with _METHYLATION_LOG.open("a") as f:
+            f.write(json.dumps(entry) + "\n")
+    except Exception:
+        pass  # methylation log must never block the repair loop
+
+
+def novel_failure_repair(results: list[dict], ts: str) -> None:
+    """LLM diagnosis layer for unrepaired novel failures.
+
+    Runs after adaptive_response(). For each still-failed probe where
+    repair_attempted is None (adaptive layer did not handle it):
+
+      - Skip chemotaxis/"not set" — known LaunchAgent env issue, importin handles it
+      - Skip if seen >= _NOVEL_CYCLE_LOOKBACK times unhealed (not novel)
+      - Skip if on 24-hour cooldown
+      - Otherwise dispatch channel sonnet for diagnosis/fix
+
+    Caps at _MAX_REPAIRS_PER_CYCLE dispatches per hourly run.
+    On FIXED: logs to infection log (healed=True) and methylation candidates.
+    On UNFIXED: logs to infection log for human review.
+    """
+    try:
+        from metabolon.metabolism.infection import record_infection
+    except Exception:
+        record_infection = None  # type: ignore[assignment]
+
+    def _log_infection(probe_name: str, error: str, healed: bool = False) -> None:
+        if record_infection is not None:
+            try:
+                record_infection(
+                    tool=f"self_test_failure:{probe_name}",
+                    error=error,
+                    healed=healed,
+                )
+            except Exception:
+                pass
+
+    cooldown = _load_cooldown()
+    repairs_dispatched = 0
+
+    for result in results:
+        if repairs_dispatched >= _MAX_REPAIRS_PER_CYCLE:
+            print(f"[{ts}] [DIAGNOSIS] cap reached ({_MAX_REPAIRS_PER_CYCLE}), skipping remaining")
+            break
+
+        # Only process failed probes that adaptive_response did not handle.
+        # adaptive_response sets repair_attempted to a non-None string for every
+        # probe it processes. repair_attempted=None on a failed probe means
+        # adaptive_response was not run or skipped this probe entirely.
+        if result.get("passed"):
+            continue
+        if result.get("repair_attempted") is not None:
+            continue
+
+        probe_name: str = result["name"]
+        message: str = result.get("message", "")
+
+        # Skip known LaunchAgent env issue — importin handles at MCP startup.
+        if probe_name == "chemotaxis" and "not set" in message:
+            print(f"[{ts}] [DIAGNOSIS] skip {probe_name}: known LaunchAgent env issue")
+            continue
+
+        # Skip if not a novel failure.
+        if not _is_novel_failure(probe_name):
+            print(
+                f"[{ts}] [DIAGNOSIS] skip {probe_name}: "
+                f"not novel (seen >= {_NOVEL_CYCLE_LOOKBACK} cycles unhealed)"
+            )
+            continue
+
+        # Skip if on cooldown.
+        if _is_on_cooldown(probe_name, cooldown):
+            print(f"[{ts}] [DIAGNOSIS] skip {probe_name}: on 24h cooldown")
+            continue
+
+        # Dispatch.
+        print(f"[{ts}] [DIAGNOSIS] dispatching agent for probe={probe_name}: {message[:80]}")
+        output = _dispatch_diagnosis(probe_name, message)
+        repairs_dispatched += 1
+
+        # Record cooldown immediately after dispatch.
+        cooldown[probe_name] = datetime.now(UTC).isoformat()
+        _save_cooldown(cooldown)
+
+        upper = output.upper()
+        if upper.startswith("FIXED:"):
+            fix_description = output[len("FIXED:"):].strip()
+            _log_infection(probe_name, f"agent repair ok: {fix_description}", healed=True)
+            _log_methylation_candidate(probe_name, message, fix_description)
+            result["repair_attempted"] = "agent:fixed"
+            print(f"[{ts}] [DIAGNOSIS] FIXED {probe_name}: {fix_description[:120]}")
+        else:
+            # UNFIXED: or anything else
+            fix_description = output[len("UNFIXED:"):].strip() if upper.startswith("UNFIXED:") else output
+            _log_infection(probe_name, f"agent diagnosis: {fix_description}")
+            result["repair_attempted"] = "agent:unfixed"
+            print(f"[{ts}] [DIAGNOSIS] UNFIXED {probe_name}: {fix_description[:120]}")
+
+
+def main() -> None:
+    ts = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+    print(f"[{ts}] inflammasome-probe starting")
+
+    # Load API keys from Keychain (same as MCP server startup)
+    try:
+        from metabolon.membrane import _absorb_cofactors
+        _absorb_cofactors()
+    except Exception:
+        pass  # best-effort — probes will report missing keys as failures
+
+    try:
+        from metabolon.organelles.inflammasome import run_all_probes
+    except Exception as exc:
+        print(f"[{ts}] FATAL: could not import inflammasome module: {exc}")
+        sys.exit(0)
+
+    try:
+        from metabolon.metabolism.infection import record_infection
+    except Exception as exc:
+        print(f"[{ts}] FATAL: could not import infection module: {exc}")
+        sys.exit(0)
+
+    results = run_all_probes()
+
+    # Adaptive layer: attempt repairs for known failure patterns
+    try:
+        from metabolon.organelles.inflammasome import adaptive_response
+        adaptive_response(results)
+    except Exception as exc:
+        print(f"[{ts}] WARN: adaptive_response failed: {exc}")
+
+    # Novel failure diagnosis layer: LLM repair for unhandled novel failures
+    try:
+        novel_failure_repair(results, ts)
+    except Exception as exc:
+        print(f"[{ts}] WARN: novel_failure_repair failed: {exc}")
+
+    passed = 0
+    failed = 0
+    for r in results:
+        tag = "PASS" if r["passed"] else "FAIL"
+        repair = r.get("repair_attempted", "")
+        suffix = f" [repair={repair}]" if repair else ""
+        print(f"[{ts}] [{tag}] {r['name']} — {r['message']} ({r['duration_ms']}ms){suffix}")
+        if r["passed"]:
+            passed += 1
+        else:
+            failed += 1
+
+    print(f"[{ts}] Summary: {passed}/{len(results)} passed, {failed} failure(s)")
+
+
+if __name__ == "__main__":
+    main()
+    sys.exit(0)

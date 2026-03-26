@@ -90,6 +90,12 @@ You already have ~/CLAUDE.md (How to Think, meta-rules) and MEMORY.md loaded. Us
    - **Needs a decision** (trade-off with no obvious winner) -> add to Praxis with `agent:terry`.
    - **Info-only** (status update, confirmation, FYI) -> manifest only. NOT Praxis.
    Most outputs are self-resolving or info-only. If in doubt, it's NOT an `agent:terry` item. Target: ≤3 new Praxis items per systole.
+
+   **Dispatch gate (mandatory before tagging agent:terry):** Pass ALL three checks or drop the tag:
+   (a) Sourced — did Terry or a Terry-approved task explicitly request this? If not and it creates an obligation: SKIP.
+   (b) Automated — is this Automated per division-of-labour.md? Presence/Sharpening/Collaborative tasks: SKIP.
+   (c) Not phantom — does this require Terry's name/voice/presence for something he never asked about? If yes: SKIP (archive instead).
+   Banned phantom patterns: conference abstracts, LinkedIn/bio drafts, self-audits of the system, rescue reports for routing errors, task chains built on unverified premises.
 6. **Post to ACTA** for any results that need inter-skill coordination or Terry's attention:
    - `efferens post "Brief: [title] ready at [path]" --from pulse --to terry --severity info`
    - `efferens post "Action needed: [description]" --from pulse --to terry --severity action`
@@ -316,10 +322,23 @@ def diastole(systole_num: int):
             record_event("diastole_topics_extracted", count=len(new_topics), systole=systole_num)
 
     # 3. Auto-convert confirmation items (raise ejection fraction)
-    from metabolon.respiration import auto_convert
+    from metabolon.respiration import auto_convert, phantom_sweep
     result = auto_convert()
     if result["converted"] > 0:
         record_event("diastole_auto_convert", count=result["converted"], systole=systole_num)
+
+    # 4. Phantom obligation sweep — flag invented agent:terry items
+    phantom_result = phantom_sweep()
+    if phantom_result["phantom_count"] > 0:
+        record_event(
+            "diastole_phantoms_detected",
+            count=phantom_result["phantom_count"],
+            systole=systole_num,
+        )
+        log(
+            f"Diastole: {phantom_result['phantom_count']} phantom agent:terry "
+            "item(s) detected in Praxis — systole should have filtered these"
+        )
 
     # 4. Log
     record_event("diastole", systole=systole_num)

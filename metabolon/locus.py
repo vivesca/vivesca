@@ -53,7 +53,7 @@ assays = germline / "assays"
 
 # Loci (deliverables output)
 loci = germline / "loci"
-copia = loci / "copia"
+poiesis = loci / "poiesis"
 pulse = loci / "pulse"
 
 # CC integration

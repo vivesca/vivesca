@@ -1,12 +1,19 @@
-"""autoimmunity — innate immune system for the vivesca organism.
+"""inflammasome — innate immune system for the vivesca organism.
 
 Deterministic self-test probes that verify each subsystem actually works.
 No LLM calls. No external state mutation. Probes never raise.
 
-Integration points (prepare only — not yet wired):
+Integration points:
   - Called on MCP server startup in pore.py serve()
-  - Registered as MCP tool `autoimmunity_probe`
-  - Failures should be logged to infection log with severity `self_test_failure`
+  - Registered as MCP tool `inflammasome_probe`
+  - Failures logged to infection log with tool name prefixed `self_test_failure:`
+  - After run_all_probes(), call adaptive_response(results) to attempt known repairs
+
+Adaptive immune layer (adaptive_response):
+  - Each probe result dict gains a `repair_attempted` field (str | None).
+  - Known fixable patterns receive a deterministic repair attempt (no LLM).
+  - Unknown failures are logged to the infection log for human review.
+  - Repairs are idempotent and never retried within the same probe cycle.
 """
 
 from __future__ import annotations
@@ -244,6 +251,8 @@ _PROBES: list[tuple[str, Any]] = [
 ]
 
 _PROBE_TIMEOUT_S = 10
+_PRIMING_PATH = Path.home() / ".cache" / "inflammasome" / "priming.json"
+_PYROPTOSIS_THRESHOLD = 3  # consecutive failed cycles before escalation
 
 
 def _run_probe_with_timeout(fn: Any) -> tuple[bool, str]:
@@ -315,6 +324,283 @@ def probe_report() -> str:
     total = len(results)
     lines.append(f"\nSummary: {passed_count}/{total} passed")
     return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
+# Adaptive immune layer
+# ---------------------------------------------------------------------------
+# Known repair patterns.  Each entry: (probe_name, match_fn, repair_fn, label)
+# match_fn(message: str) -> bool   — True when this pattern applies
+# repair_fn() -> tuple[bool, str]  — (success, detail); must never raise
+# label: str                       — short name for the repair_attempted field
+# ---------------------------------------------------------------------------
+
+
+def _repair_rss_stale() -> tuple[bool, str]:
+    """Fire-and-forget `vivesca endocytosis fetch` to refresh RSS state."""
+    try:
+        import shutil
+
+        binary = shutil.which("vivesca")
+        if not binary:
+            return False, "vivesca binary not found on PATH"
+        subprocess.Popen(
+            [binary, "endocytosis", "fetch"],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            close_fds=True,
+        )
+        return True, "dispatched: vivesca endocytosis fetch (background)"
+    except Exception as exc:
+        return False, f"dispatch failed: {exc}"
+
+
+def _repair_mcp_not_loaded() -> tuple[bool, str]:
+    """Load the com.vivesca.mcp LaunchAgent via launchctl."""
+    try:
+        plist = str(
+            Path.home() / "Library" / "LaunchAgents" / "com.vivesca.mcp.plist"
+        )
+        result = subprocess.run(
+            ["launchctl", "load", plist],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        if result.returncode != 0:
+            return False, f"launchctl load exited {result.returncode}: {result.stderr.strip()[:200]}"
+        return True, f"launchctl load {plist} ok"
+    except subprocess.TimeoutExpired:
+        return False, "launchctl load timed out (10s)"
+    except Exception as exc:
+        return False, f"exception: {exc}"
+
+
+def _repair_chemotaxis_key() -> tuple[bool, str]:
+    """Attempt to load PERPLEXITY_API_KEY from keychain via importin."""
+    try:
+        import importlib.machinery
+        import importlib.util
+
+        from metabolon.cytosol import VIVESCA_ROOT
+
+        importin_path = str(VIVESCA_ROOT / "effectors" / "importin")
+        loader = importlib.machinery.SourceFileLoader("keychain_env", importin_path)
+        spec = importlib.util.spec_from_file_location(
+            "keychain_env", importin_path, loader=loader
+        )
+        if spec is None or spec.loader is None:
+            return False, "could not build importlib spec for importin"
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)  # type: ignore[union-attr]
+        mod.load_keychain_env()
+        # Verify the key is now present
+        key = os.environ.get("PERPLEXITY_API_KEY")
+        if not key:
+            return False, "load_keychain_env() ran but PERPLEXITY_API_KEY still not set"
+        return True, f"PERPLEXITY_API_KEY loaded from keychain ({len(key)} chars)"
+    except FileNotFoundError:
+        return False, "importin effector not found — keychain env unavailable"
+    except Exception as exc:
+        return False, f"exception: {exc}"
+
+
+_REPAIR_PATTERNS: list[tuple[str, Any, Any, str]] = [
+    # (probe_name, match_fn, repair_fn, label)
+    (
+        "rss_state",
+        lambda msg: "stale" in msg,
+        _repair_rss_stale,
+        "rss_fetch_background",
+    ),
+    (
+        "mcp_server",
+        lambda msg: "not loaded" in msg,
+        _repair_mcp_not_loaded,
+        "launchctl_load_mcp",
+    ),
+    (
+        "chemotaxis",
+        lambda msg: "not set" in msg or "not set or empty" in msg,
+        _repair_chemotaxis_key,
+        "importin_load_keychain",
+    ),
+]
+
+# Probes whose failures are structural config issues — log CRITICAL, no repair.
+_CRITICAL_NO_REPAIR: dict[str, str] = {
+    "endocytosis": "dangling symlink or not found — config issue, needs human",
+}
+
+
+def _load_priming() -> dict:
+    """Load priming state: {probe_name: consecutive_failure_count}."""
+    try:
+        if _PRIMING_PATH.exists():
+            return json.loads(_PRIMING_PATH.read_text())
+    except Exception:
+        pass
+    return {}
+
+
+def _save_priming(state: dict) -> None:
+    """Persist priming state."""
+    try:
+        _PRIMING_PATH.parent.mkdir(parents=True, exist_ok=True)
+        _PRIMING_PATH.write_text(json.dumps(state))
+    except Exception:
+        pass
+
+
+def is_primed(probe_name: str, passed: bool, priming: dict) -> bool:
+    """Two-signal model: only activate on second consecutive failure.
+
+    Signal 1 (priming): first failure increments counter, returns False.
+    Signal 2 (activation): second+ consecutive failure returns True.
+    Pass resets the counter.
+    """
+    if passed:
+        priming.pop(probe_name, None)
+        return False
+    count = priming.get(probe_name, 0) + 1
+    priming[probe_name] = count
+    return count >= 2
+
+
+def check_pyroptosis(probe_name: str, priming: dict) -> bool:
+    """Pyroptosis: escalate loudly when repair keeps failing.
+
+    If a probe has failed >= _PYROPTOSIS_THRESHOLD consecutive cycles,
+    it needs human attention — flag for Telegram/loud alert.
+    """
+    return priming.get(probe_name, 0) >= _PYROPTOSIS_THRESHOLD
+
+
+def adaptive_response(results: list[dict]) -> list[dict]:
+    """Apply known repairs to probe failures; log unknowns for human review.
+
+    Mutates each result dict in-place, adding ``repair_attempted`` (str | None):
+      - None          — probe passed, no action taken
+      - "<label>:ok"  — repair dispatched/applied successfully
+      - "<label>:fail:<detail>" — repair attempted but failed
+      - "critical"    — known-critical config issue, logged for human review
+      - "unknown"     — no matching repair pattern, logged for human review
+
+    Rules:
+      - Only called for failed probes.
+      - At most one repair attempt per probe per cycle.
+      - All repair attempts and unknown failures are written to the infection log.
+      - Never raises.
+    """
+    try:
+        from metabolon.metabolism.infection import record_infection
+    except Exception:
+        record_infection = None  # type: ignore[assignment]
+
+    def _log(probe_name: str, error: str, healed: bool = False) -> None:
+        if record_infection is not None:
+            try:
+                record_infection(
+                    tool=f"self_test_failure:{probe_name}",
+                    error=error,
+                    healed=healed,
+                )
+            except Exception:
+                pass  # infection log must never block repair loop
+
+    # Two-signal model: load priming state
+    priming = _load_priming()
+
+    for result in results:
+        probe_name: str = result["name"]
+
+        # Passed probes: reset priming counter, skip.
+        if result.get("passed"):
+            result["repair_attempted"] = None
+            is_primed(probe_name, True, priming)
+            continue
+
+        message: str = result.get("message", "")
+
+        # Signal 1 (priming): first failure → log but don't repair yet.
+        if not is_primed(probe_name, False, priming):
+            result["repair_attempted"] = "priming"
+            continue
+
+        # Pyroptosis: if this probe has failed too many times, escalate.
+        if check_pyroptosis(probe_name, priming):
+            _log(probe_name, f"PYROPTOSIS — {priming[probe_name]} consecutive failures, human attention needed | {message}")
+            result["repair_attempted"] = f"pyroptosis:{priming[probe_name]}"
+            continue
+
+        # Check for critical/structural failures first.
+        if probe_name in _CRITICAL_NO_REPAIR:
+            # Only log if this failure matches the structural pattern.
+            critical_keywords = ("dangling symlink", "not found")
+            if any(kw in message for kw in critical_keywords):
+                detail = _CRITICAL_NO_REPAIR[probe_name]
+                _log(probe_name, f"CRITICAL — {detail} | probe message: {message}")
+                result["repair_attempted"] = "critical"
+                continue
+
+        # Walk the known repair patterns.
+        repaired = False
+        for pat_probe, match_fn, repair_fn, label in _REPAIR_PATTERNS:
+            if pat_probe != probe_name:
+                continue
+            try:
+                matched = match_fn(message)
+            except Exception:
+                matched = False
+            if not matched:
+                continue
+
+            # Attempt the repair.
+            try:
+                success, detail = repair_fn()
+            except Exception as exc:
+                success, detail = False, f"repair raised: {exc}"
+
+            if success:
+                _log(probe_name, f"repair ok [{label}]: {detail}", healed=True)
+                result["repair_attempted"] = f"{label}:ok"
+            else:
+                _log(probe_name, f"repair failed [{label}]: {detail}")
+                result["repair_attempted"] = f"{label}:fail:{detail}"
+
+            repaired = True
+            break  # at most one repair per probe per cycle
+
+        if not repaired:
+            # Unknown failure — log for human review.
+            _log(probe_name, f"unknown failure, human review needed | {message}")
+            result["repair_attempted"] = "unknown"
+
+    # Persist priming state for next cycle
+    _save_priming(priming)
+
+    # Post-repair verification: re-run probes that were repaired to confirm fix
+    for result in results:
+        ra = result.get("repair_attempted", "")
+        if ra and ":ok" in str(ra):
+            # Find the probe function and re-run
+            for pname, pfn in _PROBES:
+                if pname == result["name"]:
+                    try:
+                        passed, msg = _run_probe_with_timeout(pfn)
+                        if passed:
+                            result["verified"] = True
+                            # Reset priming counter on verified fix
+                            priming.pop(result["name"], None)
+                        else:
+                            result["verified"] = False
+                            _log(result["name"], f"repair claimed ok but verification failed: {msg}")
+                    except Exception:
+                        result["verified"] = False
+                    break
+
+    _save_priming(priming)
+    return results
 
 
 if __name__ == "__main__":

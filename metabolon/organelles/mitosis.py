@@ -211,6 +211,21 @@ def sync(targets: list[str] | None = None) -> SyncReport:
     for target in manifest:
         report.results.append(_sync_target(target))
 
+    # Sync claude credentials (base64 to preserve JSON through shell layers)
+    import base64
+    creds_path = Path.home() / ".claude" / ".credentials.json"
+    if creds_path.exists():
+        t0 = time.monotonic()
+        try:
+            b64 = base64.b64encode(creds_path.read_bytes()).decode()
+            result = _fly_cmd(
+                f"echo {b64} | base64 -d > {LUCERNA_HOME}/.claude/.credentials.json"
+            )
+            ok = result.returncode == 0
+            report.results.append(SyncResult("cc-auth", ok, time.monotonic() - t0))
+        except Exception as e:
+            report.results.append(SyncResult("cc-auth", False, time.monotonic() - t0, str(e)[:100]))
+
     report.finished = time.monotonic()
     return report
 

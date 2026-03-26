@@ -106,8 +106,8 @@ skip = [
     "*loci/specs*",
     "*loci/plans*",
     "*loci/brainstorms*",
-    # Generated copia/pulse outputs (LLM-extracted docs, may contain non-English proper nouns)
-    "*loci/copia*",
+    # Generated poiesis/pulse outputs (LLM-extracted docs, may contain non-English proper nouns)
+    "*loci/poiesis*",
     "*loci/pulse*",
     # Archived receptors (old skill versions)
     "*receptors/.archive*",

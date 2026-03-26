@@ -1,0 +1,360 @@
+#!/usr/bin/env -S uv run --script --python 3.13
+# /// script
+# requires-python = ">=3.13"
+# dependencies = ["pyyaml"]
+# ///
+"""
+linkedin-monitor — recurring activity monitor for key LinkedIn profiles.
+
+Reads config from ~/epigenome/phenotype/linkedin-monitor.yaml.
+Uses agent-browser to visit each profile's activity page.
+Saves digest to ~/epigenome/chromatin/Consulting/linkedin-activity-YYYY-MM-DD.md.
+Tracks seen posts via SHA-1 hashes in ~/.cache/linkedin-monitor/.
+
+Usage:
+  linkedin-monitor              # Run all profiles
+  linkedin-monitor --dry-run    # Print what would be fetched, don't write
+"""
+
+import hashlib
+import json
+import subprocess
+import sys
+import time
+from datetime import datetime
+from pathlib import Path
+
+import yaml
+
+
+# --- Paths ---
+CONFIG_PATH = Path.home() / "epigenome/phenotype/linkedin-monitor.yaml"
+OUTPUT_DIR = Path.home() / "epigenome/chromatin/Consulting"
+CACHE_DIR = Path.home() / ".cache/linkedin-monitor"
+AGENT_BROWSER = "/opt/homebrew/bin/agent-browser"
+
+# Delay between profile fetches to avoid rate-limiting
+INTER_PROFILE_DELAY = 5  # seconds
+
+
+# --- Helpers ---
+
+def _run(cmd: list[str], timeout: int = 30) -> tuple[bool, str]:
+    """Run command, return (success, stdout)."""
+    try:
+        r = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+        return r.returncode == 0, r.stdout.strip()
+    except (subprocess.TimeoutExpired, FileNotFoundError) as e:
+        return False, f"[error: {e}]"
+
+
+def hash_text(text: str) -> str:
+    return hashlib.sha1(text.encode()).hexdigest()[:16]
+
+
+def load_seen(profile_slug: str) -> set[str]:
+    """Load set of seen post hashes for a profile."""
+    path = CACHE_DIR / f"{profile_slug}.json"
+    if path.exists():
+        try:
+            return set(json.loads(path.read_text()))
+        except (json.JSONDecodeError, OSError):
+            return set()
+    return set()
+
+
+def save_seen(profile_slug: str, hashes: set[str]) -> None:
+    CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    path = CACHE_DIR / f"{profile_slug}.json"
+    path.write_text(json.dumps(sorted(hashes)))
+
+
+def profile_slug(name: str) -> str:
+    return name.lower().replace(" ", "-")
+
+
+# --- Extraction ---
+
+# JS to extract post text from LinkedIn activity page.
+# LinkedIn renders posts in .feed-shared-update-v2 or .update-components-text spans.
+EXTRACT_JS = """
+(function() {
+  var results = [];
+
+  // Try structured post containers first
+  var posts = document.querySelectorAll('.feed-shared-update-v2, [data-urn]');
+  posts.forEach(function(post) {
+    // Post text
+    var textEl = post.querySelector(
+      '.update-components-text, .feed-shared-text, .feed-shared-text__text-view'
+    );
+    var text = textEl ? textEl.innerText.trim() : '';
+
+    // Timestamp
+    var timeEl = post.querySelector('time, .feed-shared-actor__sub-description');
+    var ts = timeEl ? (timeEl.getAttribute('datetime') || timeEl.innerText.trim()) : '';
+
+    // Post URL
+    var linkEl = post.querySelector('a[href*="/posts/"], a[href*="/feed/update/"]');
+    var url = linkEl ? linkEl.href : '';
+
+    if (text.length > 20) {
+      results.push({text: text, timestamp: ts, url: url});
+    }
+  });
+
+  // Fallback: grab all update-components-text spans directly
+  if (results.length === 0) {
+    var spans = document.querySelectorAll('.update-components-text');
+    spans.forEach(function(s) {
+      var t = s.innerText.trim();
+      if (t.length > 20) results.push({text: t, timestamp: '', url: ''});
+    });
+  }
+
+  return JSON.stringify(results);
+})();
+"""
+
+
+def fetch_activity(profile_url: str) -> list[dict]:
+    """
+    Visit profile activity page with agent-browser.
+    Returns list of {text, timestamp, url} dicts.
+    Falls back to snapshot parse if eval yields nothing.
+    """
+    activity_url = profile_url.rstrip("/") + "/recent-activity/all/"
+
+    # Close any stale session
+    _run([AGENT_BROWSER, "close"], timeout=8)
+    time.sleep(1)
+
+    # Open activity page
+    ok, _ = _run([AGENT_BROWSER, "open", activity_url], timeout=20)
+    if not ok:
+        print(f"  [warn] agent-browser open failed for {activity_url}", file=sys.stderr)
+        return []
+
+    # Wait for feed to render
+    _run([AGENT_BROWSER, "wait", "6000"], timeout=15)
+
+    # Scroll down to trigger lazy-load
+    _run([AGENT_BROWSER, "scroll", "down", "600"], timeout=8)
+    time.sleep(2)
+
+    # Try JS eval extraction
+    ok, raw = _run([AGENT_BROWSER, "eval", EXTRACT_JS], timeout=15)
+    posts = _parse_eval_result(raw) if ok else []
+
+    # Fallback: snapshot (accessibility tree) text extraction
+    if not posts:
+        print("  [info] eval yielded nothing, trying snapshot fallback", file=sys.stderr)
+        ok, snapshot = _run([AGENT_BROWSER, "snapshot"], timeout=20)
+        if ok and snapshot:
+            posts = _parse_snapshot(snapshot)
+
+    # Close browser when done with this profile
+    _run([AGENT_BROWSER, "close"], timeout=8)
+
+    return posts
+
+
+def _parse_eval_result(raw: str) -> list[dict]:
+    """Parse JSON array from JS eval output."""
+    if not raw:
+        return []
+    # agent-browser eval may wrap the return value — unwrap if needed
+    raw = raw.strip()
+    # Sometimes the result is double-JSON-encoded as a string
+    try:
+        parsed = json.loads(raw)
+        # If it's a string (double encoded), decode again
+        if isinstance(parsed, str):
+            parsed = json.loads(parsed)
+        if isinstance(parsed, list):
+            return [p for p in parsed if isinstance(p, dict) and len(p.get("text", "")) > 20]
+    except (json.JSONDecodeError, TypeError):
+        pass
+    return []
+
+
+def _parse_snapshot(snapshot: str) -> list[dict]:
+    """
+    Heuristic extraction from accessibility tree snapshot.
+    Looks for blocks of text that look like post content.
+    """
+    posts = []
+    lines = snapshot.splitlines()
+    buffer = []
+    for line in lines:
+        stripped = line.strip()
+        # Accessibility tree text nodes are usually indented; collect substantial lines
+        if len(stripped) > 60 and not stripped.startswith("["):
+            buffer.append(stripped)
+        elif buffer:
+            combined = " ".join(buffer)
+            if len(combined) > 80:
+                posts.append({"text": combined, "timestamp": "", "url": ""})
+            buffer = []
+    # Flush remaining buffer
+    if buffer:
+        combined = " ".join(buffer)
+        if len(combined) > 80:
+            posts.append({"text": combined, "timestamp": "", "url": ""})
+
+    # Deduplicate by content
+    seen_texts: set[str] = set()
+    deduped = []
+    for p in posts:
+        key = p["text"][:80]
+        if key not in seen_texts:
+            seen_texts.add(key)
+            deduped.append(p)
+
+    return deduped[:20]  # cap to avoid noise
+
+
+# --- Auth gate detection ---
+
+AUTH_SIGNALS = [
+    "sign in", "log in", "create account", "join now", "authwall",
+    "join linkedin", "see who's hiring"
+]
+
+
+def is_auth_gated(posts: list[dict], raw_text: str = "") -> bool:
+    if not posts:
+        combined = raw_text.lower()
+        return any(s in combined for s in AUTH_SIGNALS)
+    return False
+
+
+# --- Digest formatting ---
+
+def format_digest(profile: dict, posts: list[dict], new_count: int) -> str:
+    name = profile["name"]
+    context = profile.get("context", "")
+    url = profile["url"]
+    lines = [
+        f"## {name}",
+        f"**Context:** {context}" if context else "",
+        f"**Profile:** {url}",
+        f"**New posts:** {new_count} of {len(posts)} seen",
+        "",
+    ]
+    lines = [l for l in lines if l != ""]  # remove empty optional lines
+    lines.append("")
+
+    for i, post in enumerate(posts, 1):
+        ts = post.get("timestamp", "")
+        post_url = post.get("url", "")
+        text = post.get("text", "").strip()
+        header = f"### Post {i}"
+        if ts:
+            header += f" — {ts}"
+        lines.append(header)
+        if post_url:
+            lines.append(f"[View on LinkedIn]({post_url})")
+        lines.append("")
+        lines.append(text)
+        lines.append("")
+
+    return "\n".join(lines)
+
+
+# --- Main ---
+
+def main():
+    dry_run = "--dry-run" in sys.argv
+
+    if not CONFIG_PATH.exists():
+        print(f"Config not found: {CONFIG_PATH}", file=sys.stderr)
+        sys.exit(1)
+
+    config = yaml.safe_load(CONFIG_PATH.read_text())
+    profiles = config.get("profiles", [])
+
+    if not profiles:
+        print("No profiles configured.", file=sys.stderr)
+        sys.exit(0)
+
+    today = datetime.now().strftime("%Y-%m-%d")
+    output_path = OUTPUT_DIR / f"linkedin-activity-{today}.md"
+
+    all_sections: list[str] = [
+        f"# LinkedIn Activity — {today}",
+        "",
+        f"Profiles monitored: {len(profiles)}",
+        "",
+        "---",
+        "",
+    ]
+
+    total_new = 0
+
+    for i, profile in enumerate(profiles):
+        name = profile.get("name", "Unknown")
+        url = profile.get("url", "")
+        slug = profile_slug(name)
+
+        print(f"[{i+1}/{len(profiles)}] Fetching: {name}", file=sys.stderr)
+
+        if dry_run:
+            activity_url = url.rstrip("/") + "/recent-activity/all/"
+            print(f"  DRY RUN: would fetch {activity_url}", file=sys.stderr)
+            all_sections.append(f"## {name}\nDRY RUN — no fetch performed.\n")
+            continue
+
+        seen = load_seen(slug)
+        posts = fetch_activity(url)
+
+        if not posts:
+            print(f"  [warn] No posts extracted for {name}", file=sys.stderr)
+            section = (
+                f"## {name}\n"
+                f"**Status:** No posts extracted — possible auth gate or empty feed.\n"
+            )
+            all_sections.append(section)
+            all_sections.append("")
+            continue
+
+        # Identify new posts
+        new_hashes: set[str] = set()
+        for post in posts:
+            h = hash_text(post["text"])
+            if h not in seen:
+                new_hashes.add(h)
+                post["_new"] = True
+            else:
+                post["_new"] = False
+
+        new_count = len(new_hashes)
+        total_new += new_count
+        print(f"  {new_count} new / {len(posts)} total posts", file=sys.stderr)
+
+        # Update seen set
+        all_hashes = seen | {hash_text(p["text"]) for p in posts}
+        save_seen(slug, all_hashes)
+
+        section = format_digest(profile, posts, new_count)
+        all_sections.append(section)
+        all_sections.append("---")
+        all_sections.append("")
+
+        # Delay between profiles
+        if i < len(profiles) - 1:
+            time.sleep(INTER_PROFILE_DELAY)
+
+    if not dry_run:
+        OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+        output_path.write_text("\n".join(all_sections))
+        print(f"\nDigest saved: {output_path}", file=sys.stderr)
+        print(f"Total new posts across all profiles: {total_new}", file=sys.stderr)
+        # Print path to stdout for pipeline use
+        print(output_path)
+    else:
+        print("\n".join(all_sections))
+
+
+if __name__ == "__main__":
+    main()

@@ -4,11 +4,11 @@ description: Leverage agent teams to advance north star goals. Use when user say
 user_invocable: true
 ---
 
-# Copia — Agent Teams for North Stars
+# Poiesis — Agent Teams for North Stars
 
 One pattern: **north stars → division of labour filter → shapes filter → sub-goals → agent teams → results.** Two modes: interactive (Terry at keyboard) and overnight (unattended flywheel).
 
-**Core principle:** The system exists to free Terry's attention for what SHOULD be done by a human — not what can't be automated, but what he chooses to keep. Copia only dispatches Automated tasks. The task space is infinite. The stop criterion is budget, not task exhaustion.
+**Core principle:** The system exists to free Terry's attention for what SHOULD be done by a human — not what can't be automated, but what he chooses to keep. Poiesis only dispatches Automated tasks. The task space is infinite. The stop criterion is budget, not task exhaustion.
 
 ## Pre-flight: Consumption Check
 
@@ -62,7 +62,7 @@ The guard is a Stop hook (`~/.claude/hooks/polarization-guard.py`). While active
 
 ### Step 2b: Division of Labour Filter
 
-| Category | Copia action |
+| Category | Poiesis action |
 |---|---|
 | **Presence** (Theo, Tara, being there) | Skip |
 | **Sharpening** (drilling, forming views) | Skip — Terry does this to stay sharp |
@@ -124,7 +124,7 @@ After each wave, two phases:
 
 ### Step 8: Session Report
 
-Write `~/epigenome/chromatin/Copia Reports/YYYY-MM-DD.md` with frontmatter (waves, items\_produced, items\_for\_review) + Produced list + Review Queue + Flywheel Trace + Quality Gate Results.
+Write `~/epigenome/chromatin/Poiesis Reports/YYYY-MM-DD.md` with frontmatter (waves, items\_produced, items\_for\_review) + Produced list + Review Queue + Flywheel Trace + Quality Gate Results.
 
 **No separate notification.** Praxis.md is the one inbox.
 

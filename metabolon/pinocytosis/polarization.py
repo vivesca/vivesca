@@ -1,4 +1,4 @@
-"""Polarization gather -- overnight flywheel preflight (was copia).
+"""Polarization gather -- overnight flywheel preflight (was poiesis).
 
 Establishing cell polarity before division: which direction to grow.
 Collects: consumption check, guard status, north stars.
@@ -13,7 +13,7 @@ from pathlib import Path
 
 GUARD_FILE = Path.home() / "tmp" / ".polarization-guard-active"
 MANIFEST_FILE = Path.home() / "tmp" / "polarization-session.md"
-REPORTS_DIR = Path.home() / "epigenome" / "chromatin" / "Copia Reports"
+REPORTS_DIR = Path.home() / "epigenome" / "chromatin" / "Poiesis Reports"
 NORTH_STAR_FILE = Path.home() / "epigenome" / "chromatin" / "North Star.md"
 PRAXIS_FILE = Path.home() / "epigenome" / "chromatin" / "Praxis.md"
 NOW_FILE = Path.home() / "epigenome" / "chromatin" / "NOW.md"
@@ -25,7 +25,7 @@ NOW_FILE = Path.home() / "epigenome" / "chromatin" / "NOW.md"
 
 
 def _consumption_count() -> int:
-    """Count Copia Report files modified in the last 7 days."""
+    """Count Poiesis Report files modified in the last 7 days."""
     if not REPORTS_DIR.exists():
         return 0
     cutoff = time.time() - 7 * 24 * 3600
@@ -84,6 +84,18 @@ def _praxis_agent_claude() -> list[str]:
     ]
 
 
+def _praxis_phantom_count() -> int:
+    """Count agent:terry items in Praxis that fail the dispatch gate heuristic."""
+    if not PRAXIS_FILE.exists():
+        return 0
+    try:
+        from metabolon.dispatch_gate import sweep_praxis_for_phantoms
+        phantoms = sweep_praxis_for_phantoms(PRAXIS_FILE.read_text())
+        return len(phantoms)
+    except Exception:
+        return 0
+
+
 def _now_md() -> str | None:
     """Return NOW.md content, or None if absent."""
     if not NOW_FILE.exists():
@@ -104,6 +116,7 @@ def intake(as_json: bool = False) -> str:
     manifest = _manifest_summary()
     stars = _north_stars()
     agent_claude_items = _praxis_agent_claude()
+    phantom_count = _praxis_phantom_count()
     now_content = _now_md()
 
     if as_json:
@@ -115,6 +128,7 @@ def intake(as_json: bool = False) -> str:
             "north_stars": stars,
             "praxis_agent_claude_count": len(agent_claude_items),
             "praxis_agent_claude_items": agent_claude_items,
+            "praxis_phantom_terry_count": phantom_count,
             "now_md": now_content,
         }
         return json.dumps(data, indent=2)
@@ -172,6 +186,14 @@ def intake(as_json: bool = False) -> str:
         lines.append(f"  {item}")
     if not agent_claude_items:
         lines.append("  (none)")
+    lines.append("")
+
+    # Dispatch gate: phantom obligation check
+    if phantom_count > 0:
+        lines.append(f"DISPATCH GATE  {phantom_count} suspect phantom agent:terry item(s) in Praxis")
+        lines.append("  Run `phantom_sweep()` in respiration to review. These may be un-sourced obligations.")
+    else:
+        lines.append("DISPATCH GATE  no phantom agent:terry items detected")
     lines.append("")
 
     # NOW.md

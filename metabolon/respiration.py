@@ -213,6 +213,33 @@ _PHYSICAL_ACTION_VERBS = [
 ]
 
 
+def phantom_sweep() -> dict:
+    """Scan Praxis for agent:terry items that are phantom obligations.
+
+    Phantom items are tasks the organism invented without Terry's request
+    that require his name/voice/presence.  Unlike auto_convert (which marks
+    completions), this flags items that should never have been tagged at all.
+
+    Does NOT modify Praxis — returns a report for the systole to act on.
+    The systole should: either remove the item, demote to archive, or
+    requeue without the agent:terry tag.
+
+    Returns:
+        {"phantom_count": N, "phantoms": [{"line_number", "line", "reason"}]}
+    """
+    from metabolon.dispatch_gate import sweep_praxis_for_phantoms
+
+    if not PRAXIS_FILE.exists():
+        return {"phantom_count": 0, "phantoms": []}
+
+    phantoms = sweep_praxis_for_phantoms(PRAXIS_FILE.read_text())
+    if phantoms:
+        record_event("phantom_sweep", count=len(phantoms), items=[p["line"][:80] for p in phantoms])
+        log(f"Phantom sweep: {len(phantoms)} suspect agent:terry items found")
+
+    return {"phantom_count": len(phantoms), "phantoms": phantoms}
+
+
 def auto_convert() -> dict:
     """Sweep Praxis for agent:terry items that are confirmations, not decisions.
 

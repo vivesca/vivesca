@@ -8,7 +8,7 @@ centrosome
 channel
 chemotaxis-local
 complement
-copia
+poiesis
 cytokinesis
 efferens
 electroreception

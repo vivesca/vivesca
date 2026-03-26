@@ -26,17 +26,23 @@ def serve(http: bool, host: str | None, port: int | None):
 
     _absorb_cofactors()
 
-    # Innate immune system: run self-test probes on startup
+    # Innate + adaptive immune system: run self-test probes on startup, then attempt repairs
     try:
-        from metabolon.organelles.autoimmunity import run_all_probes
+        from metabolon.organelles.inflammasome import adaptive_response, run_all_probes
 
         results = run_all_probes()
+        adaptive_response(results)
         failures = [r for r in results if not r["passed"]]
         if failures:
             import sys
 
             for f in failures:
-                print(f"[autoimmunity] FAIL: {f['name']} — {f['message']}", file=sys.stderr)
+                repair = f.get("repair_attempted")
+                repair_tag = f" [repair={repair}]" if repair else ""
+                print(
+                    f"[inflammasome] FAIL: {f['name']} — {f['message']}{repair_tag}",
+                    file=sys.stderr,
+                )
     except Exception:
         pass  # probes must never block startup
 
