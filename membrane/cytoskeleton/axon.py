@@ -744,6 +744,20 @@ def guard_autoimmune(data):
 # ── main ───────────────────────────────────────────────────
 
 
+def guard_rheotaxis(data):
+    """Nudge: use rheotaxis multi-backend search instead of bare WebSearch.
+
+    Allow WebSearch but inject advisory. The principle: no single source
+    is authoritative for real-world facts — fan out across backends.
+    """
+    allow_msg(
+        "RHEOTAXIS: WebSearch is one backend. For factual claims (locations, "
+        "hours, specs, availability), prefer rheotaxis_multi MCP tool or "
+        "`rheotaxis` CLI — fires Perplexity, Exa, Tavily, Serper in parallel. "
+        "Multiple query framings catch what single searches miss."
+    )
+
+
 def main():
     try:
         data = json.load(sys.stdin)
@@ -772,6 +786,8 @@ def main():
             guard_agent(data)
         elif tool == "Skill":
             guard_autoimmune(data)
+        elif tool == "WebSearch":
+            guard_rheotaxis(data)
     except SystemExit:
         raise
     except Exception:
