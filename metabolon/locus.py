@@ -51,6 +51,11 @@ operons = germline / "operons"
 symbionts = germline / "symbionts"
 assays = germline / "assays"
 
+# Loci (deliverables output)
+loci = germline / "loci"
+copia = loci / "copia"
+pulse = loci / "pulse"
+
 # CC integration
 claude_dir = home / ".claude"
 claude_hooks = claude_dir / "hooks"
