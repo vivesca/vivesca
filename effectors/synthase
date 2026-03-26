@@ -39,7 +39,7 @@ def _load_config() -> dict:
 
 
 def _backend_channel(prompt: str, model: str, timeout: int) -> str:
-    channel = _which("channel") or _which("max20")  # fallback during migration
+    channel = _which("channel")
     if not channel:
         raise RuntimeError("channel not found on PATH")
     result = subprocess.run(
@@ -129,7 +129,7 @@ def main():
     api_key_env = cfg.get("api_key_env", "OPENROUTER_API_KEY")
 
     try:
-        if backend in ("channel", "max20"):
+        if backend == "channel":
             output = _backend_channel(prompt, model, args.timeout)
         elif backend == "openrouter":
             output = _backend_openrouter(prompt, model, api_key_env, args.timeout)

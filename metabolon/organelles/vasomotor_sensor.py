@@ -33,32 +33,56 @@ _THRESHOLD_WARNING = _conf.getint("thresholds", "threshold_warning", fallback=85
 # above WARNING is DANGER
 
 
+_CREDENTIALS_FILE = Path.home() / ".claude" / ".credentials.json"
+
+
 def get_oauth_token() -> str:
-    """Read OAuth token from macOS Keychain via security CLI.
+    """Read OAuth token from ~/.claude/.credentials.json (CC CLI standard location).
+
+    Falls back to macOS Keychain entry 'Claude Code-credentials' for compatibility
+    with older setups that stored credentials there.
 
     Returns:
         Access token string.
 
     Raises:
-        RuntimeError: If keychain entry is missing or token is expired.
+        RuntimeError: If no valid token found.
     """
+    now_ms = int(datetime.now(UTC).timestamp() * 1000)
+
+    # Primary: read from CC CLI credentials file
+    if _CREDENTIALS_FILE.exists():
+        try:
+            data = json.loads(_CREDENTIALS_FILE.read_text())
+            oauth = data.get("claudeAiOauth", {})
+            if oauth.get("accessToken") and oauth.get("expiresAt", 0) >= now_ms:
+                return oauth["accessToken"]
+            if oauth.get("accessToken") and oauth.get("expiresAt", 0) < now_ms:
+                raise RuntimeError("Token in ~/.claude/.credentials.json is expired. Start a new CC session to refresh.")
+        except (json.JSONDecodeError, OSError) as e:
+            raise RuntimeError(f"Failed to read ~/.claude/.credentials.json: {e}") from e
+
+    # Fallback: macOS Keychain (legacy storage path)
     result = subprocess.run(
         ["security", "find-generic-password", "-s", "Claude Code-credentials", "-w"],
         capture_output=True,
         text=True,
         timeout=10,
     )
-    if result.returncode != 0:
-        raise RuntimeError("No Keychain entry for 'Claude Code-credentials'")
+    if result.returncode == 0:
+        try:
+            data = json.loads(result.stdout.strip())
+            oauth = data["claudeAiOauth"]
+            if oauth["expiresAt"] < now_ms:
+                raise RuntimeError("Keychain token expired. Start a Claude Code session to refresh.")
+            return oauth["accessToken"]
+        except (json.JSONDecodeError, KeyError) as e:
+            raise RuntimeError(f"Keychain entry malformed: {e}") from e
 
-    data = json.loads(result.stdout.strip())
-    oauth = data["claudeAiOauth"]
-
-    now_ms = int(datetime.now(UTC).timestamp() * 1000)
-    if oauth["expiresAt"] < now_ms:
-        raise RuntimeError("Token expired. Start a Claude Code session to refresh.")
-
-    return oauth["accessToken"]
+    raise RuntimeError(
+        "No OAuth token found. Expected ~/.claude/.credentials.json or "
+        "Keychain entry 'Claude Code-credentials'."
+    )
 
 
 def internalize_usage(token: str, timeout: int = 10) -> dict:
