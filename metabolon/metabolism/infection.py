@@ -99,8 +99,8 @@ def chronic_infections(
 ) -> list[ChronicPattern]:
     """Return tool+error patterns that exceed the chronic threshold.
 
-    A chronic infection is the same fingerprint appearing >= threshold times,
-    regardless of whether individual events were healed.
+    A chronic infection is a fingerprint with >= threshold *unhealed* events.
+    Fully-healed patterns are suppressed even if they were historically chronic.
     """
     events = recall_infections(log_path)
     if not events:
@@ -114,10 +114,12 @@ def chronic_infections(
 
     patterns: list[ChronicPattern] = []
     for fp, group in groups.items():
-        if len(group) < threshold:
+        unhealed = [e for e in group if not e["healed"]]
+        # Only chronic if unhealed occurrences meet the threshold
+        if len(unhealed) < threshold:
             continue
-        # Most recent event in the group
-        latest = max(group, key=lambda e: e["ts"])
+        # Most recent unhealed event
+        latest = max(unhealed, key=lambda e: e["ts"])
         patterns.append(
             ChronicPattern(
                 tool=latest["tool"],

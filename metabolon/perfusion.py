@@ -19,6 +19,24 @@ NORTH_STAR_FILE = Path.home() / "epigenome" / "chromatin" / "North Star.md"
 CARDIAC_LOG = Path.home() / "tmp" / "pulse-manifest.md"
 TOPIC_LOCK = Path.home() / "tmp" / "pulse-topics-done.txt"
 
+# Shapes where agent leverage is near-zero. Perfusion focus skips these.
+# Source: epigenome/chromatin/Reference/epistemics/north-star-shapes.md
+# Habit: value is in the doing, not the planning.
+# Attention: cannot be delegated or automated — be present.
+_LOW_LEVERAGE_SHAPES: dict[str, str] = {
+    "Protect health": "Habit",
+    "Strengthen the marriage": "Attention",
+}
+
+# Stars with meaningful agent leverage (Flywheel, Checklist, Decision).
+# "Raise Theo well" included at medium leverage — research phase only.
+_ROUTABLE_STARS: set[str] = {
+    "Build a career worth having",
+    "Build financial resilience",
+    "Raise Theo well",
+    "Maintain the knowledge system",
+}
+
 
 def north_star_names() -> list[str]:
     """Extract north star names from the canonical file."""
@@ -53,11 +71,18 @@ def coverage_map() -> dict[str, int]:
 
 
 def least_perfused() -> str | None:
-    """Return the north star with least coverage, or None."""
+    """Return the routable north star with least coverage, or None.
+
+    Skips Habit and Attention stars — agent leverage is near-zero there.
+    Only routes to Flywheel, Checklist, and Decision-shape stars.
+    """
     cov = coverage_map()
     if not cov:
         return None
-    return min(cov, key=cov.get)  # type: ignore[arg-type]
+    routable = {s: c for s, c in cov.items() if s in _ROUTABLE_STARS}
+    if not routable:
+        return None
+    return min(routable, key=routable.get)  # type: ignore[arg-type]
 
 
 def ischaemic_stars(threshold: int = 2) -> list[str]:
@@ -66,10 +91,16 @@ def ischaemic_stars(threshold: int = 2) -> list[str]:
 
 
 def perfusion_report() -> dict:
-    """Full perfusion status for injection into systole context."""
+    """Full perfusion status for injection into systole context.
+
+    focus_star only considers routable stars (Flywheel / Checklist / Decision).
+    Habit and Attention stars appear in coverage/ischaemic for visibility but
+    are excluded from focus selection — agents cannot help them.
+    """
     cov = coverage_map()
     ischaemic = [s for s, c in cov.items() if c < 2]
-    least = min(cov, key=cov.get) if cov else None  # type: ignore[arg-type]
+    routable = {s: c for s, c in cov.items() if s in _ROUTABLE_STARS}
+    least = min(routable, key=routable.get) if routable else None  # type: ignore[arg-type]
     record_event("perfusion_check", coverage=cov, ischaemic=ischaemic, focus=least)
     return {
         "coverage": cov,

@@ -27,7 +27,7 @@ from metabolon.cytosol import VIVESCA_ROOT
 LOG_DIR = Path.home() / "logs"
 EVENT_LOG = LOG_DIR / "vivesca-events.jsonl"
 _LEGACY_EVENT_LOG = LOG_DIR / "polarization-events.jsonl"
-CONF_PATH = VIVESCA_ROOT / "vasomotor.conf"
+CONF_PATH = VIVESCA_ROOT / "respiration.conf"
 METHYLATION_FILE = VIVESCA_ROOT / "methylation.jsonl"
 DAILY_STATE_FILE = Path.home() / "tmp" / "respiration-daily.json"
 SKIP_UNTIL_FILE = Path.home() / "tmp" / ".respiration-skip-until"
@@ -39,7 +39,8 @@ _LEGACY_DAILY_STATE = Path.home() / "tmp" / "lucerna-daily-waves.json"
 _LEGACY_SKIP_UNTIL = Path.home() / "tmp" / ".lucerna-skip-until"
 _LEGACY_PATTERN = Path.home() / "tmp" / ".lucerna-interactive-pattern.json"
 _LEGACY_ALERT = Path.home() / "tmp" / ".lucerna-pacing-alerted.json"
-_LEGACY_CONF = VIVESCA_ROOT / "lucerna.conf"
+_LEGACY_CONF = VIVESCA_ROOT / "vasomotor.conf"  # previous name before respiration.conf
+_LEGACY_CONF_LUCERNA = VIVESCA_ROOT / "lucerna.conf"
 
 # ---------------------------------------------------------------------------
 # Thresholds
@@ -72,7 +73,9 @@ def _ensure_migrated():
     _migrate_path(SKIP_UNTIL_FILE, _LEGACY_SKIP_UNTIL)
     _migrate_path(INTERACTIVE_PATTERN_FILE, _LEGACY_PATTERN)
     _migrate_path(PACING_ALERT_FILE, _LEGACY_ALERT)
-    _migrate_path(CONF_PATH, _LEGACY_CONF)
+    # Conf rename chain: lucerna.conf → vasomotor.conf → respiration.conf
+    _migrate_path(_LEGACY_CONF, _LEGACY_CONF_LUCERNA)  # lucerna → vasomotor
+    _migrate_path(CONF_PATH, _LEGACY_CONF)             # vasomotor → respiration
     _migrate_path(EVENT_LOG, _LEGACY_EVENT_LOG)
 
 

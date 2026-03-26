@@ -3,12 +3,24 @@
 # requires-python = ">=3.11"
 # ///
 """
-respirometry-cached — read last respirometry-watch snapshot when live respirometry is unavailable.
-Designed to work inside Claude Code sandbox where Keychain access is blocked.
+respirometry — Claude Code Max plan token budget usage.
+
+Tries live Anthropic OAuth API first (requires Keychain access).
+Falls back to cached JSONL history when Keychain is unavailable
+(e.g. inside Claude Code sandbox).
+
+Writes to history on every successful live fetch so the cache stays
+fresh for sandbox callers.
+
+Output for --json uses the canonical format:
+  {seven_day: {utilization, resets_at}, seven_day_sonnet: {utilization, resets_at},
+   stale: bool, stale_age_seconds: int|null, source: "live"|"history"|"watch"}
 """
 
 import json
+import subprocess
 import sys
+import urllib.request
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -16,14 +28,8 @@ HISTORY = Path.home() / ".local/share/respirometry/history.jsonl"
 # Also check respirometry-watch log (different format, written by LaunchAgent)
 WATCH_LOG = Path.home() / "docs/respirometry-log.jsonl"
 
-
-def read_last_line(path: Path) -> dict | None:
-    if not path.exists():
-        return None
-    lines = path.read_text().strip().splitlines()
-    if not lines:
-        return None
-    return json.loads(lines[-1])
+# Data is considered fresh if less than this many seconds old
+FRESH_THRESHOLD = 300  # 5 minutes
 
 
 def format_age(seconds: float) -> str:
@@ -37,60 +43,166 @@ def format_age(seconds: float) -> str:
         return f"{int(seconds / 86400)}d ago"
 
 
-def get_usage() -> dict:
-    """Read cached usage data. Returns dict with weekly_pct, sonnet_pct, session_pct, stale_age_seconds, source."""
-    entry = None
-    source = None
+# ---------------------------------------------------------------------------
+# Live API fetch
+# ---------------------------------------------------------------------------
 
-    for path, name in [(HISTORY, "history"), (WATCH_LOG, "watch")]:
-        entry = read_last_line(path)
-        if entry:
-            source = name
-            break
 
-    if not entry:
-        return {"error": "no cached data"}
+def _get_oauth_token() -> str:
+    """Read OAuth token from macOS Keychain. Raises RuntimeError on failure."""
+    result = subprocess.run(
+        ["security", "find-generic-password", "-s", "Claude Code-credentials", "-w"],
+        capture_output=True,
+        text=True,
+        timeout=10,
+    )
+    if result.returncode != 0:
+        raise RuntimeError("No Keychain entry for 'Claude Code-credentials'")
 
-    ts_str = entry.get("ts", "")
-    try:
-        ts = datetime.fromisoformat(ts_str)
-        age = (datetime.now(UTC) - ts.astimezone(UTC)).total_seconds()
-    except (ValueError, TypeError):
-        age = -1
+    data = json.loads(result.stdout.strip())
+    oauth = data["claudeAiOauth"]
+    now_ms = int(datetime.now(UTC).timestamp() * 1000)
+    if oauth["expiresAt"] < now_ms:
+        raise RuntimeError("OAuth token expired")
 
+    return oauth["accessToken"]
+
+
+def _fetch_live() -> dict:
+    """Fetch usage from Anthropic API. Returns raw API dict. Raises on failure."""
+    token = _get_oauth_token()
+    req = urllib.request.Request(
+        "https://api.anthropic.com/api/oauth/usage",
+        headers={
+            "Authorization": f"Bearer {token}",
+            "anthropic-beta": "oauth-2025-04-20",
+            "User-Agent": "respirometry/2.0.0",
+            "Accept": "application/json",
+        },
+    )
+    with urllib.request.urlopen(req, timeout=15) as resp:
+        return json.loads(resp.read())
+
+
+def _write_history(usage: dict) -> None:
+    """Persist a live fetch to history.jsonl."""
+    HISTORY.parent.mkdir(parents=True, exist_ok=True)
+    row = {
+        "ts": datetime.now(UTC).isoformat(),
+        "metrics": {
+            k: usage[k]
+            for k in ["seven_day", "seven_day_sonnet", "five_hour"]
+            if k in usage
+        },
+    }
+    with open(HISTORY, "a") as f:
+        f.write(json.dumps(row) + "\n")
+
+
+# ---------------------------------------------------------------------------
+# Cache read
+# ---------------------------------------------------------------------------
+
+
+def _read_last_line(path: Path) -> dict | None:
+    if not path.exists():
+        return None
+    lines = path.read_text().strip().splitlines()
+    if not lines:
+        return None
+    return json.loads(lines[-1])
+
+
+def _read_cache() -> tuple[dict | None, int | None]:
+    """Read most recent cached entry. Returns (entry, age_seconds) or (None, None)."""
+    for path in [HISTORY, WATCH_LOG]:
+        entry = _read_last_line(path)
+        if not entry:
+            continue
+        ts_str = entry.get("ts", "")
+        try:
+            ts = datetime.fromisoformat(ts_str)
+            age = int((datetime.now(UTC) - ts.astimezone(UTC)).total_seconds())
+        except (ValueError, TypeError):
+            age = -1
+        return entry, age if age >= 0 else None
+    return None, None
+
+
+def _normalise_cached(entry: dict) -> dict:
+    """Convert cached entry to canonical seven_day/seven_day_sonnet format."""
     if "metrics" in entry:
-        metrics = entry.get("metrics", {})
-        weekly = metrics.get("seven_day", {}).get("utilization", -1)
-        sonnet = metrics.get("seven_day_sonnet", {}).get("utilization", -1)
-        session = -1
-    else:
-        weekly = entry.get("weekly_pct", -1)
-        sonnet = entry.get("sonnet_pct", -1)
-        session = entry.get("session_pct", -1)
-
+        return entry["metrics"]
+    # Old flat format
     return {
-        "weekly_pct": weekly,
-        "sonnet_pct": sonnet,
-        "session_pct": session,
-        "stale": True,
-        "stale_age_seconds": int(age) if age >= 0 else None,
-        "source": source,
+        "seven_day": {"utilization": entry.get("weekly_pct", 0)},
+        "seven_day_sonnet": {"utilization": entry.get("sonnet_pct", 0)},
     }
 
 
+# ---------------------------------------------------------------------------
+# Main sense call
+# ---------------------------------------------------------------------------
+
+
+def get_usage() -> dict:
+    """Fetch usage, trying live API first. Returns canonical dict.
+
+    Keys: seven_day, seven_day_sonnet, stale, stale_age_seconds, source.
+    """
+    # Try live first
+    try:
+        live = _fetch_live()
+        _write_history(live)
+        return {
+            "seven_day": live.get("seven_day", {}),
+            "seven_day_sonnet": live.get("seven_day_sonnet", {}),
+            "stale": False,
+            "stale_age_seconds": None,
+            "source": "live",
+        }
+    except Exception:
+        pass
+
+    # Fall back to cache
+    entry, age = _read_cache()
+    if entry is None:
+        return {"error": "no cached data"}
+
+    metrics = _normalise_cached(entry)
+    stale = age is None or age > FRESH_THRESHOLD
+    return {
+        "seven_day": metrics.get("seven_day", {}),
+        "seven_day_sonnet": metrics.get("seven_day_sonnet", {}),
+        "stale": stale,
+        "stale_age_seconds": age,
+        "source": "cache",
+    }
+
+
+# ---------------------------------------------------------------------------
+# Derived helpers (used by --budget flag and human-readable output)
+# ---------------------------------------------------------------------------
+
+
+def _weekly_pct(usage: dict) -> float:
+    return float(usage.get("seven_day", {}).get("utilization", -1))
+
+
+def _sonnet_pct(usage: dict) -> float:
+    return float(usage.get("seven_day_sonnet", {}).get("utilization", -1))
+
+
 def get_budget(mode: str = "interactive") -> str:
-    """Return budget tier based on mode.
+    """Return budget tier: green / yellow / red.
 
     Interactive (default): green <50%, yellow 50-70%, red >70%.
-    Overnight: green <90%, yellow 90-95%, red >95%.
-      Rationale: burn everything except ~5% for morning session.
-
-    Usage: respirometry-cached --budget [--overnight]
+    Overnight: green <95%, yellow 95-98%, red >=98%.
     """
     usage = get_usage()
     if "error" in usage:
         return "unknown"
-    max_util = max(usage.get("weekly_pct", 0), usage.get("sonnet_pct", 0))
+    max_util = max(_weekly_pct(usage), _sonnet_pct(usage))
 
     if mode == "overnight":
         if max_util < 95:
@@ -108,7 +220,16 @@ def get_budget(mode: str = "interactive") -> str:
             return "red"
 
 
+# ---------------------------------------------------------------------------
+# Entry point
+# ---------------------------------------------------------------------------
+
+
 def main():
+    # `respirometry log` was previously a no-op stub; kept for compat.
+    if len(sys.argv) > 1 and sys.argv[1] == "log":
+        return
+
     if "--budget" in sys.argv:
         mode = "overnight" if "--overnight" in sys.argv else "interactive"
         print(get_budget(mode))
@@ -122,16 +243,24 @@ def main():
     if "--json" in sys.argv:
         print(json.dumps(usage))
     else:
+        weekly = _weekly_pct(usage)
+        sonnet = _sonnet_pct(usage)
         age = usage.get("stale_age_seconds")
-        stale_str = f" (stale: {format_age(age)})" if age and age >= 0 else " (age unknown)"
-        print(f"Claude Code Usage — cached{stale_str}")
+        source = usage.get("source", "?")
+        if not usage.get("stale"):
+            freshness = "live"
+        elif age is not None:
+            freshness = f"cached: {format_age(age)}"
+        else:
+            freshness = "cached: age unknown"
+        print(f"Claude Code Usage  [{source} / {freshness}]")
         print()
-        if usage["session_pct"] >= 0:
-            print(f"  Session (5h)     {usage['session_pct']}%")
-        print(f"  Weekly           {usage['weekly_pct']}%")
-        print(f"  Weekly (Sonnet)  {usage['sonnet_pct']}%")
+        if weekly >= 0:
+            print(f"  Weekly           {weekly:.0f}%")
+        if sonnet >= 0:
+            print(f"  Weekly (Sonnet)  {sonnet:.0f}%")
         print()
-        max_util = max(usage["weekly_pct"], usage["sonnet_pct"])
+        max_util = max(weekly, sonnet)
         if max_util < 50:
             status = "SAFE"
         elif max_util < 70:

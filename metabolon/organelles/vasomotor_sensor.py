@@ -122,6 +122,11 @@ def sense_usage() -> tuple[dict, int | None]:
     try:
         token = get_oauth_token()
         usage = internalize_usage(token)
+        # Persist live snapshot so cache stays fresh for sandbox callers
+        try:
+            record_breath(usage)
+        except Exception:
+            pass
         return usage, None
     except Exception as live_err:
         entry, age = _read_fallback()
