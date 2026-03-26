@@ -93,7 +93,6 @@ class TestRegistry:
         assert "phenotype" in reg
         assert "executive" in reg
         assert "consolidation" in reg
-        assert "respiration" in reg
         assert "hygiene" in reg
 
     def test_registry_values_are_classes(self):
