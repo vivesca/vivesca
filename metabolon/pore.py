@@ -1684,8 +1684,8 @@ def auscultate():
         "membrane/cytoskeleton": VIVESCA_ROOT / "membrane" / "cytoskeleton",
         "membrane/receptors": VIVESCA_ROOT / "membrane" / "receptors",
         "effectors": VIVESCA_ROOT / "effectors",
-        "chromatin": __import__("metabolon.locus", fromlist=["CHROMATIN"]).CHROMATIN,
-        "engrams": __import__("metabolon.locus", fromlist=["ENGRAMS"]).ENGRAMS,
+        "chromatin": __import__("metabolon.locus", fromlist=["chromatin"]).chromatin,
+        "engrams": __import__("metabolon.locus", fromlist=["engrams"]).engrams,
     }
     for name, path in paths.items():
         checks.append((f"path {name}", path.exists(), str(path)))

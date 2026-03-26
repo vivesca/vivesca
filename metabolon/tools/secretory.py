@@ -33,7 +33,7 @@ from metabolon.cytosol import invoke_organelle, synthesize
 from metabolon.morphology import EffectorResult, Secretion
 
 HKT = timezone(timedelta(hours=8))
-NOTES = str(__import__("metabolon.locus", fromlist=["CHROMATIN"]).CHROMATIN)
+NOTES = str(__import__("metabolon.locus", fromlist=["chromatin"]).chromatin)
 
 # -- Chaperones: quality control before export --------------------------------
 # Cell biology: chaperones verify protein folding before secretion.

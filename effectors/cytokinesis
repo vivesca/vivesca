@@ -31,22 +31,22 @@ from pathlib import Path
 
 # ── Paths ────────────────────────────────────────────────────────────────────
 from metabolon.locus import (
-    CHROMATIN, PRAXIS, PRAXIS_ARCHIVE, DAILY, TONUS,
-    RECEPTORS, CLAUDE_SKILLS, MEMORY_INDEX,
-    GERMLINE, EPIGENOME, HOME,
+    chromatin, praxis, praxis_archive, daily, tonus,
+    receptors, claude_skills, memory_index,
+    germline, epigenome, home,
 )
 
-DAILY_DIR = DAILY
-NOW_MD = TONUS
-SKILLS = RECEPTORS
-MEMORY = MEMORY_INDEX
+DAILY_DIR = daily
+NOW_MD = tonus
+SKILLS = receptors
+MEMORY = memory_index
 MEMORY_LIMIT = 150
 
 # Always-checked repos
 DEFAULT_REPOS = {
-    "germline": GERMLINE,
-    "epigenome": EPIGENOME,
-    "scripts": HOME / "scripts",
+    "germline": germline,
+    "epigenome": epigenome,
+    "scripts": home / "scripts",
 }
 
 # ── Colours ──────────────────────────────────────────────────────────────────
@@ -105,7 +105,7 @@ def skill_gaps() -> list[str]:
     """Skills in ~/code/vivesca/receptors/ without a symlink in ~/.claude/skills/."""
     try:
         a = {f for f in os.listdir(SKILLS) if not f.startswith(".")}
-        b = {f for f in os.listdir(CLAUDE_SKILLS) if not f.startswith(".")}
+        b = {f for f in os.listdir(claude_skills) if not f.startswith(".")}
         return sorted(a - b)
     except FileNotFoundError:
         return []
@@ -135,7 +135,7 @@ def dep_check() -> list[str]:
     """Run dep-check, return warnings."""
     try:
         r = subprocess.run(
-            [str(HOME / "bin" / "dep-check")],
+            [str(home / "bin" / "dep-check")],
             capture_output=True, text=True, timeout=30,
         )
         if r.returncode == 0 and r.stdout.strip():
@@ -396,11 +396,11 @@ def _print_human(results, sid):
 # ── Archive ──────────────────────────────────────────────────────────────────
 def cmd_archive(args):
     """Move completed [x] items from Praxis.md to Praxis Archive.md."""
-    if not PRAXIS.exists():
+    if not praxis.exists():
         print("No Praxis.md found.", file=sys.stderr)
         sys.exit(1)
 
-    lines = PRAXIS.read_text(encoding="utf-8").splitlines(keepends=True)
+    lines = praxis.read_text(encoding="utf-8").splitlines(keepends=True)
     today = datetime.now().strftime("%Y-%m-%d")
     month_header = datetime.now().strftime("%B %Y")  # e.g. "March 2026"
 
@@ -436,7 +436,7 @@ def cmd_archive(args):
         return
 
     # Read archive
-    archive_text = PRAXIS_ARCHIVE.read_text(encoding="utf-8") if PRAXIS_ARCHIVE.exists() else ""
+    archive_text = praxis_archive.read_text(encoding="utf-8") if praxis_archive.exists() else ""
 
     # Find or create month section
     month_pattern = f"## {month_header}"
@@ -458,8 +458,8 @@ def cmd_archive(args):
             archive_text += f"\n{month_pattern}\n\n" + "\n".join(completed) + "\n"
 
     # Write back
-    PRAXIS.write_text("".join(remaining), encoding="utf-8")
-    PRAXIS_ARCHIVE.write_text(archive_text, encoding="utf-8")
+    praxis.write_text("".join(remaining), encoding="utf-8")
+    praxis_archive.write_text(archive_text, encoding="utf-8")
 
     print(f"  {OK}  Archived {len(completed)} completed item(s)")
     for c in completed:

@@ -4,54 +4,54 @@ Single source of truth. Effectors, tools, and scripts import from here
 instead of hardcoding paths. When the organism moves, update this file only.
 
 Usage:
-    from metabolon.locus import GERMLINE, CHROMATIN, PRAXIS, ENGRAMS
+    from metabolon.locus import germline, chromatin, praxis, engrams
 """
 
 from pathlib import Path
 
-HOME = Path.home()
+home = Path.home()
 
 # The two repos
-GERMLINE = HOME / "germline"
-EPIGENOME = HOME / "epigenome"
+germline = home / "germline"
+epigenome = home / "epigenome"
 
 # Chromatin (vault)
-CHROMATIN = EPIGENOME / "chromatin"
-PRAXIS = CHROMATIN / "Praxis.md"
-PRAXIS_ARCHIVE = CHROMATIN / "Praxis Archive.md"
-TONUS = CHROMATIN / "Tonus.md"
-DAILY = CHROMATIN / "Daily"
+chromatin = epigenome / "chromatin"
+praxis = chromatin / "Praxis.md"
+praxis_archive = chromatin / "Praxis Archive.md"
+tonus = chromatin / "Tonus.md"
+daily = chromatin / "Daily"
 
 # Engrams (memory)
-ENGRAMS = EPIGENOME / "engrams"
-MEMORY_INDEX = ENGRAMS / "MEMORY.md"
+engrams = epigenome / "engrams"
+memory_index = engrams / "MEMORY.md"
 
 # Epigenome structure
-PHENOTYPE = EPIGENOME / "phenotype"
-COFACTORS = EPIGENOME / "cofactors"
-PACEMAKERS = EPIGENOME / "pacemakers"
-BUD_ENGRAMS = EPIGENOME / "bud-engrams"
+phenotype = epigenome / "phenotype"
+cofactors = epigenome / "cofactors"
+pacemakers = epigenome / "pacemakers"
+bud_engrams = epigenome / "bud-engrams"
 
 # Chromatin subdirs
-IMMUNITY = CHROMATIN / "immunity"
-CHEMOSENSORY = CHROMATIN / "chemosensory"
-INTEROCEPTION = CHROMATIN / "interoception"
-TRANSCRIPTS = CHROMATIN / "transcripts"
-HETEROCHROMATIN = CHROMATIN / "heterochromatin"
+immunity = chromatin / "immunity"
+chemosensory = chromatin / "chemosensory"
+interoception = chromatin / "interoception"
+transcripts = chromatin / "transcripts"
+heterochromatin = chromatin / "heterochromatin"
 
 # Germline structure
-MEMBRANE = GERMLINE / "membrane"
-CYTOSKELETON = MEMBRANE / "cytoskeleton"
-RECEPTORS = MEMBRANE / "receptors"
-BUDS = MEMBRANE / "buds"
-COLONIES = MEMBRANE / "colonies"
-EFFECTORS = GERMLINE / "effectors"
-REGULON = GERMLINE / "regulon"
-OPERONS = GERMLINE / "operons"
-SYMBIONTS = GERMLINE / "symbionts"
-ASSAYS = GERMLINE / "assays"
+membrane = germline / "membrane"
+cytoskeleton = membrane / "cytoskeleton"
+receptors = membrane / "receptors"
+buds = membrane / "buds"
+colonies = membrane / "colonies"
+effectors = germline / "effectors"
+regulon = germline / "regulon"
+operons = germline / "operons"
+symbionts = germline / "symbionts"
+assays = germline / "assays"
 
 # CC integration
-CLAUDE_DIR = HOME / ".claude"
-CLAUDE_HOOKS = CLAUDE_DIR / "hooks"
-CLAUDE_SKILLS = CLAUDE_DIR / "skills"
+claude_dir = home / ".claude"
+claude_hooks = claude_dir / "hooks"
+claude_skills = claude_dir / "skills"
