@@ -1,7 +1,7 @@
 #!/usr/bin/env -S uv run --script --python 3.13
 # /// script
 # requires-python = ">=3.13"
-# dependencies = []
+# dependencies = ["metabolon @ file:///Users/terry/germline"]
 # ///
 """
 cytokinesis — deterministic session-close gathering for the cytokinesis skill.
@@ -30,21 +30,22 @@ from datetime import datetime
 from pathlib import Path
 
 # ── Paths ────────────────────────────────────────────────────────────────────
-HOME = Path.home()
-CHROMATIN = HOME / "epigenome" / "chromatin"
-PRAXIS = CHROMATIN / "Praxis.md"
-PRAXIS_ARCHIVE = CHROMATIN / "Praxis Archive.md"
-DAILY_DIR = CHROMATIN / "Daily"
-NOW_MD = CHROMATIN / "Tonus.md"
-SKILLS = HOME / "germline" / "membrane" / "receptors"
-CLAUDE_SKILLS = HOME / ".claude" / "skills"
-MEMORY = HOME / "epigenome" / "engrams" / "MEMORY.md"
+from metabolon.locus import (
+    CHROMATIN, PRAXIS, PRAXIS_ARCHIVE, DAILY, TONUS,
+    RECEPTORS, CLAUDE_SKILLS, MEMORY_INDEX,
+    GERMLINE, EPIGENOME, HOME,
+)
+
+DAILY_DIR = DAILY
+NOW_MD = TONUS
+SKILLS = RECEPTORS
+MEMORY = MEMORY_INDEX
 MEMORY_LIMIT = 150
 
 # Always-checked repos
 DEFAULT_REPOS = {
-    "germline": HOME / "germline",
-    "epigenome": HOME / "epigenome",
+    "germline": GERMLINE,
+    "epigenome": EPIGENOME,
     "scripts": HOME / "scripts",
 }
 
