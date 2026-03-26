@@ -54,7 +54,7 @@ def main():
             json.dumps(
                 {
                     "reason": (
-                        "[ANABOLISM GUARD] Budget YELLOW. Finish current wave, "
+                        "[ANABOLISM GUARD] Budget YELLOW. Finish current systole, "
                         "write report, then stop."
                     )
                 }

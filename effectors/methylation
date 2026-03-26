@@ -23,6 +23,7 @@ from __future__ import annotations
 import json
 import subprocess
 import sys
+import time
 from collections import Counter
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -329,26 +330,64 @@ RATIONALE: why this improvement prevents future failures
 """
 
 
-def dispatch_sonnet(prompt: str) -> str | None:
-    """Call channel sonnet -p with the prompt. Return output or None on failure."""
+def _tissue_route(task_type: str, fallback: str = "sonnet") -> str:
+    """Return tissue-routed model for task_type; falls back to fallback on any error."""
+    try:
+        import sys as _sys
+        _germline = str(Path.home() / "germline")
+        if _germline not in _sys.path:
+            _sys.path.insert(0, _germline)
+        from metabolon.organelles.tissue_routing import route
+        model = route(task_type)
+        if model != fallback:
+            log(f"tissue routing: {task_type} -> {model} (overrides {fallback})")
+        return model
+    except Exception:
+        return fallback
+
+
+def _record_mitophagy(model: str, task_type: str, success: bool, duration_ms: int) -> None:
+    """Record LLM outcome to mitophagy. Silently skips on any error."""
+    try:
+        import sys as _sys
+        from pathlib import Path as _Path
+        _sys.path.insert(0, str(_Path.home() / "germline"))
+        from metabolon.organelles.mitophagy import record_outcome
+        record_outcome(model=model, task_type=task_type, success=success, duration_ms=duration_ms)
+    except Exception:
+        pass
+
+
+def dispatch_sonnet(prompt: str, task_type: str = "methylation") -> str | None:
+    """Call channel with tissue-routed model and the prompt. Return output or None on failure."""
     if not CHANNEL.exists():
         log(f"ERROR: channel effector not found at {CHANNEL}")
         return None
+    model = _tissue_route(task_type)
+    t0 = time.monotonic()
     try:
         result = subprocess.run(
-            [str(CHANNEL), "sonnet", "-p", prompt],
+            [str(CHANNEL), model, "-p", prompt],
             capture_output=True,
             text=True,
             timeout=120,
         )
+        duration_ms = int((time.monotonic() - t0) * 1000)
+        output = result.stdout.strip()
+        success = result.returncode == 0 and bool(output)
+        _record_mitophagy(model, task_type, success, duration_ms)
         if result.returncode != 0:
-            log(f"WARN: channel sonnet exited {result.returncode}: {result.stderr.strip()[:200]}")
+            log(f"WARN: channel {model} exited {result.returncode}: {result.stderr.strip()[:200]}")
             return None
-        return result.stdout.strip()
+        return output or None
     except subprocess.TimeoutExpired:
-        log("WARN: channel sonnet timed out (120s)")
+        duration_ms = int((time.monotonic() - t0) * 1000)
+        _record_mitophagy(model, task_type, False, duration_ms)
+        log(f"WARN: channel {model} timed out (120s)")
         return None
     except Exception as exc:
+        duration_ms = int((time.monotonic() - t0) * 1000)
+        _record_mitophagy(model, task_type, False, duration_ms)
         log(f"ERROR: channel dispatch failed: {exc}")
         return None
 
@@ -392,11 +431,11 @@ Review and apply manually; architectural changes require human judgment.
 
 
 # ---------------------------------------------------------------------------
-# Self-titration — discover new subsystem designs from observed gaps
+# Self-hybridization — discover new subsystem designs from observed gaps
 # ---------------------------------------------------------------------------
 
-TITRATION_PROMPT_TEMPLATE = """\
-You are the organism's titration layer. You observe a functional gap and must name it using cell biology.
+HYBRIDIZATION_PROMPT_TEMPLATE = """\
+You are the organism's hybridization layer. You observe a functional gap and must name it using cell biology.
 
 ## Observed gap
 {gap_description}
@@ -426,7 +465,7 @@ KNOWN_SUBSYSTEMS = {
 }
 
 
-def titration_pass(
+def hybridization_pass(
     patterns: dict,
     candidates: list[dict],
     infections: list[dict],
@@ -492,20 +531,20 @@ def titration_pass(
     return "\n".join(gap_parts)
 
 
-def write_titration_proposal(response: str, gap_description: str, date_str: str) -> Path:
-    """Write titration proposal to ~/tmp/titration-proposals-YYYY-MM-DD.md.
+def write_hybridization_proposal(response: str, gap_description: str, date_str: str) -> Path:
+    """Write hybridization proposal to ~/tmp/hybridization-proposals-YYYY-MM-DD.md.
 
     Appends if the file already exists (multiple gaps possible across runs,
     though max 1 dispatch per methylation cycle).
     """
     TMP_DIR.mkdir(parents=True, exist_ok=True)
-    proposal_path = TMP_DIR / f"titration-proposals-{date_str}.md"
+    proposal_path = TMP_DIR / f"hybridization-proposals-{date_str}.md"
 
-    header = f"# Titration Proposals — {date_str}\n\n" if not proposal_path.exists() else ""
+    header = f"# Hybridization Proposals — {date_str}\n\n" if not proposal_path.exists() else ""
     entry = f"""{header}## Gap observed
 {gap_description}
 
-## Sonnet titration output
+## Sonnet hybridization output
 {response}
 
 ---
@@ -618,25 +657,25 @@ def main() -> None:
         log("proposal requires human review before application")
 
     # ---------------------------------------------------------------------------
-    # Titration pass — discover new subsystem designs from observed gaps
+    # Hybridization pass — discover new subsystem designs from observed gaps
     # ---------------------------------------------------------------------------
-    log("running titration pass...")
-    gap_description = titration_pass(patterns, candidates, infections, log_failures)
+    log("running hybridization pass...")
+    gap_description = hybridization_pass(patterns, candidates, infections, log_failures)
 
     if gap_description is None:
-        log("titration pass: no gaps found — all failures map to known subsystems or below threshold")
+        log("hybridization pass: no gaps found — all failures map to known subsystems or below threshold")
     else:
-        log(f"titration pass: gap identified ({len(gap_description)} chars) — dispatching sonnet")
-        titration_prompt = TITRATION_PROMPT_TEMPLATE.format(gap_description=gap_description)
-        titration_response = dispatch_sonnet(titration_prompt)
+        log(f"hybridization pass: gap identified ({len(gap_description)} chars) — dispatching sonnet")
+        hybridization_prompt = HYBRIDIZATION_PROMPT_TEMPLATE.format(gap_description=gap_description)
+        hybridization_response = dispatch_sonnet(hybridization_prompt, task_type="hybridization")
 
-        if not titration_response:
-            log("ERROR: no response from sonnet for titration — skipping proposal")
+        if not hybridization_response:
+            log("ERROR: no response from sonnet for hybridization — skipping proposal")
         else:
-            log(f"titration response received ({len(titration_response)} chars)")
-            titration_path = write_titration_proposal(titration_response, gap_description, date_str)
-            log(f"titration proposal written: {titration_path}")
-            log("titration complete — review proposal before implementing any new subsystem")
+            log(f"hybridization response received ({len(hybridization_response)} chars)")
+            hybridization_path = write_hybridization_proposal(hybridization_response, gap_description, date_str)
+            log(f"hybridization proposal written: {hybridization_path}")
+            log("hybridization complete — review proposal before implementing any new subsystem")
 
     log("methylation complete")
 

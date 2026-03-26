@@ -98,7 +98,7 @@ def mod_anabolism():
         print(
             json.dumps(
                 {
-                    "reason": "[ANABOLISM GUARD] Budget YELLOW. Finish current wave, write report, then stop."
+                    "reason": "[ANABOLISM GUARD] Budget YELLOW. Finish current systole, write report, then stop."
                 }
             )
         )

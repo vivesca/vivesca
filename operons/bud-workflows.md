@@ -28,7 +28,7 @@ The operon pattern: signal → regulatory check → bud expression.
 | Month end | monthly-review colony | /ecdysis monthly | Monthly review doc |
 | Month end | autopoiesis-measure | Part of monthly colony | Automation ratio trend |
 | Month end | cosplay-detector | Manual | Bio-naming audit |
-| Month end | titration-probe | Manual | One new titration attempt |
+| Month end | hybridization-probe | Manual | One new hybridization attempt |
 
 ## On-Demand
 

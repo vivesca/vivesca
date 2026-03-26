@@ -8,7 +8,7 @@ from metabolon.lysin.format import format_text, format_json
 @click.option("--full", is_flag=True, help="Include all article sections")
 @click.option("--json", "as_json", is_flag=True, help="Output as JSON")
 def main(term: str, full: bool, as_json: bool):
-    """Fetch real biology for a term. Grounds titration in source material."""
+    """Fetch real biology for a term. Grounds hybridization in source material."""
     try:
         article = fetch_summary(term)
         if full:

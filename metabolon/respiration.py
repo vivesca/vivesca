@@ -97,7 +97,7 @@ def _count_waste() -> dict[str, int]:
             saturated += 1
         elif event == "reduced_ejection":
             churn += 1
-        elif event == "wave_error":
+        elif event == "systole_error":
             failed += 1
 
     return {"saturated": saturated, "churn_killed": churn, "failed": failed}
@@ -174,9 +174,9 @@ def metabolic_waste_ratio() -> float:
         except json.JSONDecodeError:
             continue
         event = evt.get("event", "")
-        if event == "wave_end":
+        if event == "systole_end":
             total_systoles += 1
-        if event in ("saturation_detected", "reduced_ejection", "wave_error"):
+        if event in ("saturation_detected", "reduced_ejection", "systole_error"):
             waste_systoles += 1
 
     return round(waste_systoles / total_systoles, 3) if total_systoles > 0 else 0.0

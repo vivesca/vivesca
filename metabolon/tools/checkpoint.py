@@ -10,6 +10,11 @@ Tools:
   nociception_log      — log a pain/symptom signal to vault
   anabolism_flywheel   — anabolic flywheel: are the links reinforcing?
   angiogenesis         — detect underserved subsystem connections, propose integrations
+  mitophagy_status     — model performance tracking and fitness scores
+  glycolysis_rate      — symbiont dependency ratio: % of organism that is deterministic
+  tissue_routing       — model routing by task type: which symbiont strain for which subsystem
+  retrograde_balance   — symbiont influence ratio: is the organism sovereign or dependent?
+  crispr_status        — adaptive memory: spacer count, recent acquisitions, guide coverage
 """
 
 import contextlib
@@ -576,3 +581,237 @@ def anabolism_flywheel() -> AnabolismResult:
     blind_spots = ["exercise (no sensor)", "mood/joy (ask)", "anxiety (ask)"]
 
     return AnabolismResult(links=links, blind_spots=blind_spots)
+
+
+class AngiogenesisResult(Secretion):
+    """Angiogenesis scan: hypoxic pairs and proposed vessels."""
+
+    hypoxic_pairs: list[dict]
+    proposals: list[dict]
+    existing_vessels: list[dict]
+
+
+class MitophagyResult(Secretion):
+    """Model performance fitness scores and blacklist status."""
+
+    fitness: list[dict]
+    blacklist: dict
+
+
+@tool(
+    name="mitophagy_status",
+    description="Model performance tracking and fitness scores.",
+    annotations=ToolAnnotations(readOnlyHint=True, destructiveHint=False),
+)
+def mitophagy_status(task_type: str = "", days: int = 7) -> MitophagyResult:
+    """Return model fitness scores and current blacklist for the last N days."""
+    from metabolon.organelles.mitophagy import _load_blacklist, model_fitness
+
+    fitness = model_fitness(task_type=task_type, days=days)
+    bl = _load_blacklist()
+    return MitophagyResult(fitness=fitness, blacklist=bl)
+
+
+@tool(
+    name="angiogenesis",
+    description="Detect underserved subsystem connections and propose new integrations.",
+    annotations=ToolAnnotations(readOnlyHint=False, destructiveHint=False),
+)
+def angiogenesis() -> AngiogenesisResult:
+    """Scan infection log for sequential failures, propose integrations between hypoxic pairs."""
+    from metabolon.organelles.angiogenesis import (
+        detect_hypoxia,
+        propose_vessel,
+        vessel_registry,
+    )
+
+    pairs = detect_hypoxia()
+    proposals = [propose_vessel(p["source"], p["target"]) for p in pairs]
+    existing = vessel_registry()
+    return AngiogenesisResult(
+        hypoxic_pairs=pairs,
+        proposals=proposals,
+        existing_vessels=existing,
+    )
+
+
+class GlycolysisResult(Secretion):
+    """Glycolysis rate — symbiont dependency ratio."""
+
+    deterministic_count: int
+    symbiont_count: int
+    hybrid_count: int
+    total: int
+    glycolysis_pct: float
+    trend: list[dict]
+    summary: str
+
+
+@tool(
+    name="glycolysis_rate",
+    description="Symbiont dependency ratio — what % of the organism is deterministic.",
+    annotations=ToolAnnotations(readOnlyHint=True, destructiveHint=False),
+)
+def glycolysis_rate(trend_days: int = 30) -> GlycolysisResult:
+    """Measure and return the organism's glycolysis rate with optional trend."""
+    from metabolon.organelles.glycolysis_rate import measure_rate, snapshot, trend
+
+    rate = snapshot()
+    trend_data = trend(days=trend_days)
+
+    summary_parts = [
+        f"Glycolysis: {rate['glycolysis_pct']}% deterministic",
+        f"  Deterministic: {rate['deterministic_count']}",
+        f"  Symbiont: {rate['symbiont_count']}",
+        f"  Hybrid: {rate['hybrid_count']}",
+        f"  Total capabilities: {rate['total']}",
+    ]
+    if len(trend_data) >= 2:
+        first = trend_data[0]["glycolysis_pct"]
+        last = trend_data[-1]["glycolysis_pct"]
+        delta = round(last - first, 1)
+        direction = "+" if delta >= 0 else ""
+        summary_parts.append(
+            f"  Trend ({trend_days}d): {direction}{delta}% ({trend_data[0]['date']} → {trend_data[-1]['date']})"
+        )
+
+    return GlycolysisResult(
+        deterministic_count=rate["deterministic_count"],
+        symbiont_count=rate["symbiont_count"],
+        hybrid_count=rate["hybrid_count"],
+        total=rate["total"],
+        glycolysis_pct=rate["glycolysis_pct"],
+        trend=trend_data,
+        summary="\n".join(summary_parts),
+    )
+
+
+class TissueRoutingResult(Secretion):
+    """Tissue routing — current model allocation by task type."""
+
+    routes: dict[str, str]
+    report: str
+
+
+@tool(
+    name="tissue_routing",
+    description="Model routing by task type — which symbiont strain for which subsystem.",
+    annotations=ToolAnnotations(readOnlyHint=True, destructiveHint=False),
+)
+def tissue_routing_tool() -> TissueRoutingResult:
+    """Return current tissue routing table with performance data from mitophagy."""
+    from metabolon.organelles.tissue_routing import observed_routes, route_report
+
+    routes = observed_routes()
+    report = route_report()
+    return TissueRoutingResult(routes=routes, report=report)
+
+
+class CrisprResult(Secretion):
+    """CRISPR adaptive immunity status."""
+
+    spacer_count: int
+    recent: list[dict]
+    guide_count: int
+    summary: str
+
+
+@tool(
+    name="crispr_status",
+    description="Adaptive memory: spacer count, recent acquisitions, guide coverage.",
+    annotations=ToolAnnotations(readOnlyHint=True, destructiveHint=False),
+)
+def crispr_status(recent_n: int = 5) -> CrisprResult:
+    """Return adaptive immune memory state: spacers acquired, compiled guides, recent entries."""
+    from metabolon.organelles.crispr import compile_guides, spacer_count
+
+    import json
+    from pathlib import Path
+
+    spacers_path = Path.home() / ".cache" / "crispr" / "spacers.jsonl"
+    count = spacer_count()
+    guides = compile_guides()
+
+    recent: list[dict] = []
+    if spacers_path.exists():
+        try:
+            lines = spacers_path.read_text().splitlines()
+            for line in reversed(lines):
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    entry = json.loads(line)
+                    recent.append({
+                        "ts": entry.get("ts", "")[:10],
+                        "tool": entry.get("tool", ""),
+                        "pattern": entry.get("pattern", "")[:80],
+                    })
+                    if len(recent) >= recent_n:
+                        break
+                except Exception:
+                    continue
+        except Exception:
+            pass
+
+    summary_lines = [
+        f"CRISPR spacers: {count} acquired, {len(guides)} guides compiled",
+    ]
+    if recent:
+        summary_lines.append("Recent acquisitions:")
+        for r in recent:
+            summary_lines.append(f"  [{r['ts']}] {r['tool']}: {r['pattern']}")
+    else:
+        summary_lines.append("No spacers acquired yet.")
+
+    return CrisprResult(
+        spacer_count=count,
+        recent=recent,
+        guide_count=len(guides),
+        summary="\n".join(summary_lines),
+    )
+
+
+class RetrogradeResult(Secretion):
+    """Retrograde signal balance — symbiont influence ratio."""
+
+    anterograde_count: int
+    retrograde_count: int
+    ratio: float
+    assessment: str
+    window_days: int
+    summary: str
+
+
+@tool(
+    name="retrograde_balance",
+    description="Symbiont influence ratio — is the organism sovereign or dependent?",
+    annotations=ToolAnnotations(readOnlyHint=True, destructiveHint=False),
+)
+def retrograde_balance(days: int = 7) -> RetrogradeResult:
+    """Measure anterograde vs retrograde signal balance over last N days.
+
+    Anterograde (organism→symbiont): pulse systoles, channel calls, agent dispatches.
+    Retrograde (symbiont→organism): agent git commits, methylation proposals, repairs.
+
+    Assessment: sovereign (>3:1), balanced (1–3:1), dependent (<1:1).
+    """
+    from metabolon.organelles.retrograde import signal_balance
+
+    b = signal_balance(days=days)
+    ratio_str = f"{b['ratio']:.1f}:1" if b["retrograde_count"] > 0 else f"{b['anterograde_count']}:0"
+    summary = (
+        f"Retrograde balance ({days}d): {b['assessment'].upper()}\n"
+        f"  Anterograde (organism→symbiont): {b['anterograde_count']}\n"
+        f"  Retrograde  (symbiont→organism): {b['retrograde_count']}\n"
+        f"  Ratio: {ratio_str}\n"
+        f"  Assessment: {b['assessment']}"
+    )
+    return RetrogradeResult(
+        anterograde_count=b["anterograde_count"],
+        retrograde_count=b["retrograde_count"],
+        ratio=b["ratio"],
+        assessment=b["assessment"],
+        window_days=days,
+        summary=summary,
+    )

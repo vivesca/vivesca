@@ -1,7 +1,8 @@
-"""entrainment — morning brief.
+"""entrainment — morning brief + circadian sync.
 
 Tools:
-  entrainment_brief — sleep scores + overnight results in one call
+  entrainment_brief  — sleep scores + overnight results in one call
+  entrainment_status — circadian sync: zeitgeber state and schedule recommendations
 """
 
 from pathlib import Path
@@ -104,3 +105,29 @@ def entrainment_brief() -> EntrainmentResult:
     overnight = "\n".join(overnight_parts) if overnight_parts else "No overnight data"
 
     return EntrainmentResult(sleep=sleep, overnight=overnight, alerts=alerts)
+
+
+class EntrainmentStatusResult(Secretion):
+    """Circadian sync: zeitgeber state and schedule recommendations."""
+
+    signals: dict
+    recommendations: dict
+    summary: str
+
+
+@tool(
+    name="entrainment_status",
+    description="Circadian sync: zeitgeber state and schedule recommendations.",
+    annotations=ToolAnnotations(readOnlyHint=True, destructiveHint=False),
+)
+def entrainment_status() -> EntrainmentStatusResult:
+    """Read current zeitgebers and return advisory schedule adjustments."""
+    from metabolon.organelles.entrainment import optimal_schedule, zeitgebers
+
+    signals = zeitgebers()
+    schedule = optimal_schedule(signals)
+    return EntrainmentStatusResult(
+        signals=signals,
+        recommendations=schedule["recommendations"],
+        summary=schedule["summary"],
+    )

@@ -273,7 +273,7 @@ cost produce 80% of the value, use buds.
 
 ## Naming Discipline
 
-- **Titration method:** force the bio name, study the mechanism; the break is the insight
+- **Hybridization method:** force the bio name, study the mechanism; the break is the insight
 - **Homology test:** shared mechanism = keep. Surface analogy only = drop
 - **One level:** cell only. Switch, don't stack. Signal: paragraph needed to justify mapping
 - **Boundary:** cell concept = bio name, runtime mechanic = Python name

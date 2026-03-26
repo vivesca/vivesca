@@ -99,12 +99,12 @@ def probe_vasomotor_conf() -> tuple[bool, str]:
             conf = json.load(f)
         if not isinstance(conf, dict) or not conf:
             return False, "conf file loaded but is empty or not a dict"
-        missing = [k for k in ("aerobic_ceiling", "wave_model") if k not in conf]
+        missing = [k for k in ("aerobic_ceiling", "systole_model") if k not in conf]
         if missing:
             return False, f"conf missing expected keys: {missing}"
         return True, (
             f"conf ok — aerobic_ceiling={conf['aerobic_ceiling']}, "
-            f"wave_model={conf['wave_model']!r}"
+            f"systole_model={conf['systole_model']!r}"
         )
     except Exception as exc:
         return False, f"exception: {exc}"

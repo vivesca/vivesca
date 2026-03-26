@@ -1,1 +1,1 @@
-"""lysin — fetch real biology mechanisms for titration grounding."""
+"""lysin — fetch real biology mechanisms for hybridization grounding."""

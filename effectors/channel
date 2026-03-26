@@ -15,6 +15,7 @@ Usage:
 import os
 import subprocess
 import sys
+import time
 
 CLAUDE = "/Users/terry/.local/bin/claude"
 MODELS = {
@@ -22,6 +23,21 @@ MODELS = {
     "haiku": "haiku",
     "opus": "opus",
 }
+
+_TISSUE_TASK = "poiesis_dispatch"
+
+
+def _tissue_default() -> str | None:
+    """Consult tissue_routing for the default channel model. Returns None on any failure."""
+    try:
+        import sys as _sys
+        _germline = str(__import__("pathlib").Path.home() / "germline")
+        if _germline not in _sys.path:
+            _sys.path.insert(0, _germline)
+        from metabolon.organelles.tissue_routing import route
+        return route(_TISSUE_TASK)
+    except Exception:
+        return None
 
 
 def _gate() -> bool:
@@ -39,15 +55,34 @@ def _gate() -> bool:
         return False
 
 
+def _record(model: str, success: bool, duration_ms: int) -> None:
+    """Record outcome to mitophagy. Silently skips on any error."""
+    try:
+        import sys as _sys
+        _sys.path.insert(0, str(__import__("pathlib").Path.home() / "germline"))
+        from metabolon.organelles.mitophagy import record_outcome
+        record_outcome(model=model, task_type="general", success=success, duration_ms=duration_ms)
+    except Exception:
+        pass
+
+
 def main():
     if len(sys.argv) < 2 or sys.argv[1] in ("-h", "--help"):
         print(__doc__.strip())
         sys.exit(0)
 
-    model = sys.argv[1]
-    if model not in MODELS:
-        print(f"Unknown model: {model}. Choose from: {', '.join(MODELS)}", file=sys.stderr)
-        sys.exit(1)
+    raw_model = sys.argv[1]
+    if raw_model not in MODELS:
+        # No explicit model — consult tissue routing for the default.
+        routed = _tissue_default()
+        if routed and routed in MODELS:
+            print(f"[channel] tissue routing: {_TISSUE_TASK} -> {routed}", file=sys.stderr)
+            model = routed
+        else:
+            print(f"Unknown model: {raw_model}. Choose from: {', '.join(MODELS)}", file=sys.stderr)
+            sys.exit(1)
+    else:
+        model = raw_model
 
     env = {k: v for k, v in os.environ.items() if k not in ("CLAUDECODE", "ANTHROPIC_API_KEY")}
 
@@ -56,7 +91,11 @@ def main():
         sys.exit(2)
 
     args = [CLAUDE, "--print", "--model", MODELS[model]] + sys.argv[2:]
-    os.execve(CLAUDE, args, env)
+    t0 = time.monotonic()
+    result = subprocess.run(args, env=env)
+    duration_ms = int((time.monotonic() - t0) * 1000)
+    _record(model, result.returncode == 0, duration_ms)
+    sys.exit(result.returncode)
 
 
 if __name__ == "__main__":

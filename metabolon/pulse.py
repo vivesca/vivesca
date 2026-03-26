@@ -10,7 +10,7 @@ Safety nets:
 3. --stop-after circadian deadline (default 07:00 overnight)
 4. Max systoles cap (3 overnight, 1 daytime per cycle)
 5. Circuit breaker (3 consecutive failures)
-6. Wave timeout with stall/churn detection
+6. Systole timeout with stall/churn detection
 7. Cardiac lock prevents concurrent instances
 """
 
@@ -27,7 +27,7 @@ from pathlib import Path
 
 from metabolon.vasomotor import (
     EVENT_LOG,
-    MAX_DAILY_WAVES,
+    MAX_DAILY_SYSTOLES,
     assess_vital_capacity,
     vasomotor_status,
     breathe,
@@ -43,7 +43,7 @@ from metabolon.vasomotor import (
     oxygen_debt,
     _fetch_telemetry,
     set_recovery_interval,
-    measured_cost_per_wave,
+    measured_cost_per_systole,
     adapt,
 )
 
@@ -58,7 +58,7 @@ REPORT_DIR = Path.home() / "notes" / "Pulse Reports"
 VITAL_SIGNS_FILE = Path.home() / "tmp" / "pulse-status.json"
 
 # ---------------------------------------------------------------------------
-# Wave defaults
+# Systole defaults
 # ---------------------------------------------------------------------------
 CIRCADIAN_DEADLINE = "07:00"
 MAX_SYSTOLES = 5  # overnight systoles per cycle
@@ -74,7 +74,7 @@ SATURATION_PHRASES = [
     "no further",
 ]
 
-WAVE_PROMPT_TEMPLATE = """One heartbeat. ONE wave per session — the shell loop handles iteration.
+SYSTOLE_PROMPT_TEMPLATE = """One heartbeat. ONE systole per session — the shell loop handles iteration.
 
 You already have ~/CLAUDE.md (How to Think, meta-rules) and MEMORY.md loaded. Use them — especially "Map is dark" and "bet, review, bet". Don't duplicate what's already in your context.
 
@@ -404,7 +404,7 @@ def sense_disk_pressure() -> bool:
 
 
 # ---------------------------------------------------------------------------
-# Wave execution
+# Systole execution
 # ---------------------------------------------------------------------------
 
 SECRETION_DIRS = [
@@ -432,7 +432,7 @@ def _build_systole_prompt(genome: dict, focus: str | None = None) -> str:
     focus_line = ""
     if focus_star:
         focus_line = f"\n   **FOCUS:** Prioritize '{focus_star}' this systole. Other stars get remaining capacity."
-    prompt = WAVE_PROMPT_TEMPLATE.format(infra_pct=infra_pct, focus_line=focus_line)
+    prompt = SYSTOLE_PROMPT_TEMPLATE.format(infra_pct=infra_pct, focus_line=focus_line)
     if focus and not focus_star:
         prompt += f"\n\n## FOCUS RESTRICTION\nThis loop instance ONLY works on: {focus}. Ignore all other north stars. Another loop handles the rest."
     return prompt
@@ -444,7 +444,7 @@ def fire_systole(systole_num: int, model: str, focus: str | None = None, prompt:
     If prompt is provided (from isovolumic_contraction), uses it directly.
     Otherwise falls back to building its own prompt.
     """
-    log_file = LOG_DIR / "pulse-waves.log"
+    log_file = LOG_DIR / "pulse-systoles.log"
 
     if prompt is None:
         genome = vasomotor_genome()
@@ -460,16 +460,16 @@ def fire_systole(systole_num: int, model: str, focus: str | None = None, prompt:
     ]
 
     timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    header = f"\n{'=' * 60}\n=== Wave {systole_num} -- {timestamp} ===\n{'=' * 60}\n"
+    header = f"\n{'=' * 60}\n=== Systole {systole_num} -- {timestamp} ===\n{'=' * 60}\n"
 
-    record_event("wave_start", systole=systole_num, model=model)
+    record_event("systole_start", systole=systole_num, model=model)
     start = time.time()
 
     with open(log_file, "a") as lf:
         lf.write(header)
 
     genome = vasomotor_genome()
-    max_wave_seconds = genome.get("max_wave_seconds", 1800)
+    max_systole_seconds = genome.get("max_systole_seconds", 1800)
     stall_seconds = genome.get("stall_seconds", 300)
 
     def record_status(**kwargs):
@@ -519,12 +519,12 @@ def fire_systole(systole_num: int, model: str, focus: str | None = None, prompt:
                     tail = "(unreadable)"
                 recent_count = _count_recent_secretions(SECRETION_DIRS, start)
                 record_event(
-                    "wave_yield",
+                    "systole_yield",
                     systole=systole_num,
                     secretion_count=recent_count,
                 )
                 record_event(
-                    "wave_end",
+                    "systole_end",
                     systole=systole_num,
                     exit_code=ret,
                     elapsed_s=elapsed,
@@ -569,7 +569,7 @@ def fire_systole(systole_num: int, model: str, focus: str | None = None, prompt:
             if churn_duration > churn_seconds and elapsed_so_far > churn_seconds:
                 if not churn_warned:
                     record_event(
-                        "wave_churn_warning",
+                        "systole_churn_warning",
                         systole=systole_num,
                         elapsed_s=elapsed_so_far,
                         churn_s=churn_duration,
@@ -591,19 +591,19 @@ def fire_systole(systole_num: int, model: str, focus: str | None = None, prompt:
             else:
                 if churn_warned:
                     record_event(
-                        "wave_churn_resolved",
+                        "systole_churn_resolved",
                         systole=systole_num,
                         elapsed_s=elapsed_so_far,
                         churn_s=churn_duration,
                     )
                 churn_warned = False
 
-            if elapsed_so_far > max_wave_seconds:
+            if elapsed_so_far > max_systole_seconds:
                 proc.kill()
                 proc.wait()
                 log_fh.write(f"\n--- KILLED after {elapsed_so_far}s ---\n")
                 record_event(
-                    "wave_killed",
+                    "systole_killed",
                     systole=systole_num,
                     elapsed_s=elapsed_so_far,
                     reason="timeout",
@@ -641,7 +641,7 @@ def fire_systole(systole_num: int, model: str, focus: str | None = None, prompt:
 
     except Exception as e:
         elapsed = round(time.time() - start, 1)
-        record_event("wave_error", systole=systole_num, error=str(e), elapsed_s=elapsed)
+        record_event("systole_error", systole=systole_num, error=str(e), elapsed_s=elapsed)
         return False, ""
     finally:
         log_fh.close()
@@ -663,14 +663,14 @@ def record_vital_signs(total_systoles: int, stop_reason: str):
 title: "Pulse Report -- {ts}"
 date: {datetime.date.today().isoformat()}
 tags: [pulse, report]
-waves: {total_systoles}
+systoles: {total_systoles}
 stop_reason: {stop_reason}
 ---
 
 # Pulse Report -- {ts}
 
 ## Summary
-- Waves completed: {total_systoles}
+- Systoles completed: {total_systoles}
 - Stop reason: {stop_reason}
 
 ## Manifest (final state)
@@ -700,7 +700,7 @@ def post_efferens_summary(total_systoles: int, stop_reason: str):
         import acta
 
         acta.post(
-            f"Pulse completed {total_systoles} wave(s). Stop reason: {stop_reason}. "
+            f"Pulse completed {total_systoles} systole(s). Stop reason: {stop_reason}. "
             f"Check ~/epigenome/chromatin/Pulse Reports/ for details.",
             sender="pulse",
             to="terry",
@@ -734,10 +734,10 @@ def _auto_commit_germline():
         log(f"Auto-commit failed: {e}")
 
 
-def autophagy(wave: int, stop_reason: str):
+def autophagy(systoles: int, stop_reason: str):
     """Autophagy — recycle the cardiac cycle: write vital signs, archive log, review."""
-    record_vital_signs(wave, stop_reason)
-    post_efferens_summary(wave, stop_reason)
+    record_vital_signs(systoles, stop_reason)
+    post_efferens_summary(systoles, stop_reason)
     if CARDIAC_LOG.exists():
         ts = datetime.datetime.now().strftime("%Y-%m-%d-%H%M")
         archive = CARDIAC_LOG.with_name(f"pulse-{ts}.md")
@@ -772,7 +772,61 @@ def cycle_event_log():
 # ---------------------------------------------------------------------------
 
 
-def main(waves=None, model=None, retry=1, focus=None, stop_after=None, dry_run=False):
+def _check_entrainment() -> tuple[bool, str]:
+    """Check circadian entrainment recommendations before firing a pulse cycle.
+
+    Returns (suppress, reason). Fast path: <1s. Never raises — if entrainment
+    is unavailable, returns (False, "entrainment_unavailable") so pulse proceeds.
+    """
+    try:
+        from metabolon.organelles import entrainment as _ent
+        from metabolon.vasomotor import SKIP_UNTIL_FILE
+
+        signals = _ent.zeitgebers()
+        sched = _ent.optimal_schedule(signals)
+        pulse_rec = sched.get("recommendations", {}).get("pulse", {})
+        action = pulse_rec.get("action", "normal")
+        reason = pulse_rec.get("reason", "nominal")
+
+        record_event(
+            "entrainment_check",
+            action=action,
+            reason=reason,
+            hkt_hour=signals.get("hkt_hour"),
+            budget_status=signals.get("budget_status"),
+            readiness=signals.get("readiness"),
+        )
+
+        if action == "suppress":
+            # Write skip-until so is_apneic() gates the next invocation too.
+            # Duration: night → skip to 06:00; budget_red → 1-hour recheck.
+            import datetime as _dt
+            HKT = _dt.timezone(_dt.timedelta(hours=8))
+            now = _dt.datetime.now(tz=HKT)
+            if reason == "night_hours":
+                # Skip until 06:00 HKT today (or tomorrow if already past 06:00)
+                wake = now.replace(hour=6, minute=0, second=0, microsecond=0)
+                if wake <= now:
+                    wake += _dt.timedelta(days=1)
+            else:
+                # Budget red or other: recheck in 1 hour
+                wake = now + _dt.timedelta(hours=1)
+            SKIP_UNTIL_FILE.parent.mkdir(parents=True, exist_ok=True)
+            SKIP_UNTIL_FILE.write_text(wake.isoformat())
+            log(f"Entrainment: suppress ({reason}). Skip until {wake.strftime('%H:%M HKT')}.")
+            return True, f"entrainment_suppress_{reason}"
+
+        if action == "accelerate":
+            log(f"Entrainment: accelerate signal ({reason}) — proceeding normally.")
+
+        return False, action
+
+    except Exception as e:
+        record_event("entrainment_check_failed", error=str(e))
+        return False, "entrainment_unavailable"
+
+
+def main(systoles=None, model=None, retry=1, focus=None, stop_after=None, dry_run=False):
     """Main pulse loop."""
     log("=== Pulse starting ===")
 
@@ -782,13 +836,32 @@ def main(waves=None, model=None, retry=1, focus=None, stop_after=None, dry_run=F
         log(f"Skipping: {skip_reason}")
         return
 
+    # Circadian entrainment: check schedule recommendations before firing
+    suppress, ent_reason = _check_entrainment()
+    if suppress:
+        log(f"Entrainment suppressed pulse: {ent_reason}")
+        return
+
     acquire_cardiac_lock()
     cycle_event_log()
 
     # Read model from conf if not explicitly passed
     genome = vasomotor_genome()
     if model is None:
-        model = genome.get("wave_model", "sonnet")
+        conf_model = genome.get("systole_model", "sonnet")
+        # Consult tissue routing as an advisory override (advisory — falls back to conf on failure).
+        try:
+            import sys as _sys
+            _germline = str(Path.home() / "germline")
+            if _germline not in _sys.path:
+                _sys.path.insert(0, _germline)
+            from metabolon.organelles.tissue_routing import route as _tr_route
+            routed_model = _tr_route("poiesis_dispatch")
+            if routed_model != conf_model:
+                log(f"tissue routing: poiesis_dispatch -> {routed_model} (conf had {conf_model})")
+            model = routed_model
+        except Exception:
+            model = conf_model
 
     # Respiration: budget headroom (coarse gate)
     has_headroom, reason = assess_vital_capacity()
@@ -800,23 +873,23 @@ def main(waves=None, model=None, retry=1, focus=None, stop_after=None, dry_run=F
     hour = datetime.datetime.now().hour
     is_overnight = hour >= 22 or hour < 7
 
-    # Adaptive cadence: budget-driven wave count
-    if waves is not None:
-        max_systoles = waves
+    # Adaptive cadence: budget-driven systole count
+    if systoles is not None:
+        max_systoles = systoles
     else:
         telemetry = _fetch_telemetry()
         hours = _hours_to_reset(telemetry)
         debt = oxygen_debt(hours) if hours is not None else 0.0
         weekly_util = (telemetry or {}).get("seven_day", {}).get("utilization", 50)
         remaining_pct = max(0, 100 - weekly_util - 5)  # 5% sympathetic floor
-        cost = measured_cost_per_wave()
+        cost = measured_cost_per_systole()
         budget_systoles = max(1, int(remaining_pct / cost)) if cost > 0 else DAYTIME_SYSTOLES
         if is_overnight:
-            max_systoles = min(budget_systoles, MAX_DAILY_WAVES)
+            max_systoles = min(budget_systoles, MAX_DAILY_SYSTOLES)
         else:
             # Scale by debt: low debt = conservative, high debt = burn what's left
             scaled = max(DAYTIME_SYSTOLES, round(DAYTIME_SYSTOLES + debt * (budget_systoles - DAYTIME_SYSTOLES)))
-            max_systoles = min(scaled, MAX_SYSTOLES, MAX_DAILY_WAVES)
+            max_systoles = min(scaled, MAX_SYSTOLES, MAX_DAILY_SYSTOLES)
         if debt > 0 or budget_systoles != DAYTIME_SYSTOLES:
             record_event("adaptive_cadence", debt=round(debt, 2), max_systoles=max_systoles,
                          budget_systoles=budget_systoles, remaining_pct=round(remaining_pct, 1))
@@ -828,17 +901,17 @@ def main(waves=None, model=None, retry=1, focus=None, stop_after=None, dry_run=F
     record_event("run_start", max_systoles=max_systoles, model=model, overnight=is_overnight)
 
     stop_reason = "completed"
-    wave = 0
+    systole_num = 0
     consecutive_fails = 0
     consecutive_saturation = 0
     total_saturated = 0
     total_failed = 0
 
     def sigint_handler(sig, frame):
-        nonlocal stop_reason, wave
-        record_event("interrupted", systole=wave)
+        nonlocal stop_reason, systole_num
+        record_event("interrupted", systole=systole_num)
         stop_reason = "interrupted"
-        autophagy(wave, stop_reason)
+        autophagy(systole_num, stop_reason)
         sys.exit(0)
 
     signal.signal(signal.SIGINT, sigint_handler)
@@ -849,19 +922,19 @@ def main(waves=None, model=None, retry=1, focus=None, stop_after=None, dry_run=F
         stop_after_time = datetime.time(h, m)
         record_event("deadline_set", stop_after=stop_after_str)
 
-    for wave in range(1, max_systoles + 1):
+    for systole_num in range(1, max_systoles + 1):
         if stop_after_time and datetime.datetime.now().time() >= stop_after_time:
             stop_reason = f"deadline_{stop_after_str}"
-            record_event("deadline_reached", systole=wave, deadline=stop_after_str)
+            record_event("deadline_reached", systole=systole_num, deadline=stop_after_str)
             print(f"  Past {stop_after_str} -- no new systoles.", flush=True)
             break
 
-        # Respiration: fine budget gate (per-wave)
+        # Respiration: fine budget gate (per-systole)
         budget = vasomotor_status()
-        record_event("budget_check", systole=wave, status=budget)
+        record_event("budget_check", systole=systole_num, status=budget)
         if budget in ("yellow", "red", "unknown"):
             stop_reason = f"budget_{budget}"
-            record_event("budget_stop", systole=wave, status=budget)
+            record_event("budget_stop", systole=systole_num, status=budget)
             if budget == "unknown":
                 print(
                     "  Budget unknown (live + cached both failed). Stopping as precaution.",
@@ -875,7 +948,7 @@ def main(waves=None, model=None, retry=1, focus=None, stop_after=None, dry_run=F
             break
 
         if dry_run:
-            record_event("dry_run", systole=wave)
+            record_event("dry_run", systole=systole_num)
             stop_reason = "dry_run"
             break
 
@@ -891,23 +964,23 @@ def main(waves=None, model=None, retry=1, focus=None, stop_after=None, dry_run=F
         success = False
         systole_tail = ""
         for attempt in range(1, retry + 2):
-            success, systole_tail = fire_systole(wave, model, focus, prompt=systole_prompt)
+            success, systole_tail = fire_systole(systole_num, model, focus, prompt=systole_prompt)
             if success:
                 consecutive_fails = 0
                 resume_breathing()
                 break
             if attempt <= retry:
-                record_event("retry", systole=wave, attempt=attempt)
+                record_event("retry", systole=systole_num, attempt=attempt)
                 time.sleep(5)
 
-        # Log per-wave usage delta
+        # Log per-systole usage delta
         systole_delta = 0.0
         usage_after = vasomotor_snapshot()
         if usage_before and usage_after:
             systole_delta = round(usage_after["weekly"] - usage_before["weekly"], 2)
             record_event(
-                "wave_usage",
-                systole=wave,
+                "systole_usage",
+                systole=systole_num,
                 weekly_before=usage_before["weekly"],
                 weekly_after=usage_after["weekly"],
                 weekly_delta=systole_delta,
@@ -927,7 +1000,7 @@ def main(waves=None, model=None, retry=1, focus=None, stop_after=None, dry_run=F
                 total_saturated += 1
                 record_event(
                     "saturation_detected",
-                    systole=wave,
+                    systole=systole_num,
                     consecutive=consecutive_saturation,
                     phrases=matched,
                     tail=systole_tail[-120:],
@@ -945,10 +1018,10 @@ def main(waves=None, model=None, retry=1, focus=None, stop_after=None, dry_run=F
                     from metabolon.vasomotor import SKIP_UNTIL_FILE
                     idle_until = datetime.datetime.now() + datetime.timedelta(hours=3)
                     SKIP_UNTIL_FILE.write_text(idle_until.isoformat())
-                    stop_reason = f"saturation_idle_{consecutive_saturation}_waves"
+                    stop_reason = f"saturation_idle_{consecutive_saturation}_systoles"
                     record_event(
                         "saturation_idle",
-                        systole=wave,
+                        systole=systole_num,
                         consecutive=consecutive_saturation,
                         idle_until=idle_until.isoformat(),
                     )
@@ -963,19 +1036,19 @@ def main(waves=None, model=None, retry=1, focus=None, stop_after=None, dry_run=F
         if success:
             daily_count = breathe(saturated=is_saturated, systole_delta=systole_delta)
             record_event(
-                "daily_wave_count",
-                systole=wave,
+                "daily_systole_count",
+                systole=systole_num,
                 daily_total=daily_count,
                 saturated=is_saturated,
                 systole_delta=systole_delta,
             )
             # Diastole: active recovery — compact, extract topics, prepare
-            diastole(wave)
+            diastole(systole_num)
 
         if not success:
             consecutive_fails += 1
             total_failed += 1
-            log_file = LOG_DIR / "pulse-waves.log"
+            log_file = LOG_DIR / "pulse-systoles.log"
             try:
                 with open(log_file) as f:
                     f.seek(max(0, os.path.getsize(log_file) - 200))
@@ -986,8 +1059,8 @@ def main(waves=None, model=None, retry=1, focus=None, stop_after=None, dry_run=F
             is_killed = "KILLED" in fail_tail
             backoff = 120 if is_killed else 30
             record_event(
-                "wave_failed_backoff",
-                systole=wave,
+                "systole_failed_backoff",
+                systole=systole_num,
                 consecutive=consecutive_fails,
                 backoff_s=backoff,
                 killed=is_killed,
@@ -999,7 +1072,7 @@ def main(waves=None, model=None, retry=1, focus=None, stop_after=None, dry_run=F
             )
             if consecutive_fails >= 3:
                 stop_reason = f"circuit_breaker_{consecutive_fails}_consecutive_fails"
-                record_event("circuit_breaker", systole=wave, consecutive=consecutive_fails)
+                record_event("circuit_breaker", systole=systole_num, consecutive=consecutive_fails)
                 print(
                     f"  Circuit breaker: {consecutive_fails} consecutive failures. Stopping.",
                     flush=True,
@@ -1009,8 +1082,8 @@ def main(waves=None, model=None, retry=1, focus=None, stop_after=None, dry_run=F
     else:
         stop_reason = f"max_systoles_{max_systoles}"
 
-    record_event("run_end", waves=wave, reason=stop_reason)
-    autophagy(wave, stop_reason)
+    record_event("run_end", systoles=systole_num, reason=stop_reason)
+    autophagy(systole_num, stop_reason)
 
     if stop_reason.startswith("circuit_breaker"):
         emit_distress_signal("Pulse: circuit breaker fired. Check ~/logs/vivesca-events.jsonl")
@@ -1022,9 +1095,9 @@ def main(waves=None, model=None, retry=1, focus=None, stop_after=None, dry_run=F
         log(f"Final budget: weekly={weekly}%, sonnet={sonnet}%")
 
     # LLM adaptation: review outcomes and adjust parameters for next cycle
-    adapt(waves_run=wave, saturated=total_saturated, failed=total_failed, stop_reason=stop_reason)
+    adapt(systoles_run=systole_num, saturated=total_saturated, failed=total_failed, stop_reason=stop_reason)
 
     # Set adaptive recovery: short interval under debt, long when relaxed
     set_recovery_interval()
 
-    log(f"=== Pulse finished. {wave} waves. Reason: {stop_reason} ===")
+    log(f"=== Pulse finished. {systole_num} systoles. Reason: {stop_reason} ===")

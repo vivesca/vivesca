@@ -87,13 +87,13 @@ class TestSense:
         substrate = VasomotorSubstrate(events_path=events_path)
         assert substrate.sense() == []
 
-    def test_parses_wave_starts(self, tmp_path):
-        """Wave starts are counted per day."""
+    def test_parses_systole_starts(self, tmp_path):
+        """Systole starts are counted per day."""
         events_path = tmp_path / "events.jsonl"
         events = [
-            _event("wave_start", days_ago=1, hours_ago=0),
-            _event("wave_start", days_ago=1, hours_ago=1),
-            _event("wave_start", days_ago=1, hours_ago=2),
+            _event("systole_start", days_ago=1, hours_ago=0),
+            _event("systole_start", days_ago=1, hours_ago=1),
+            _event("systole_start", days_ago=1, hours_ago=2),
         ]
         _write_events(events_path, events)
 
@@ -101,15 +101,15 @@ class TestSense:
         sensed = substrate.sense(days=7)
 
         assert len(sensed) == 1
-        assert sensed[0]["wave_count"] == 3
+        assert sensed[0]["systole_count"] == 3
 
     def test_parses_saturation(self, tmp_path):
         """Saturation events are counted per day."""
         events_path = tmp_path / "events.jsonl"
         events = [
-            _event("wave_start", days_ago=1),
+            _event("systole_start", days_ago=1),
             _event("saturation_detected", days_ago=1, wave=1, consecutive=1),
-            _event("wave_start", days_ago=1, hours_ago=1),
+            _event("systole_start", days_ago=1, hours_ago=1),
             _event("saturation_detected", days_ago=1, hours_ago=1, wave=2, consecutive=2),
         ]
         _write_events(events_path, events)
@@ -129,7 +129,7 @@ class TestSense:
                 weekly=30.0,
                 remaining_budget=55.0,
                 daily_budget=4.8,
-                waves_today=6,
+                systoles_today=6,
                 estimated_burn=6,
             ),
         ]
@@ -169,26 +169,26 @@ class TestSense:
         assert len(sensed[0]["cost_samples"]) == 2
         assert 0.571 in sensed[0]["cost_samples"]
 
-    def test_parses_wave_usage(self, tmp_path):
-        """Wave cost deltas extracted from wave_usage events."""
+    def test_parses_systole_usage(self, tmp_path):
+        """Systole cost deltas extracted from systole_usage events."""
         events_path = tmp_path / "events.jsonl"
         events = [
-            _event("wave_usage", days_ago=1, wave=1, weekly_delta=1.0),
-            _event("wave_usage", days_ago=1, hours_ago=1, wave=2, weekly_delta=2.0),
+            _event("systole_usage", days_ago=1, wave=1, weekly_delta=1.0),
+            _event("systole_usage", days_ago=1, hours_ago=1, wave=2, weekly_delta=2.0),
         ]
         _write_events(events_path, events)
 
         substrate = VasomotorSubstrate(events_path=events_path)
         sensed = substrate.sense(days=7)
 
-        assert sensed[0]["wave_costs"] == [1.0, 2.0]
+        assert sensed[0]["systole_costs"] == [1.0, 2.0]
 
     def test_respects_days_window(self, tmp_path):
         """Events outside the window are excluded."""
         events_path = tmp_path / "events.jsonl"
         events = [
-            _event("wave_start", days_ago=1),  # inside 7-day window
-            _event("wave_start", days_ago=10),  # outside
+            _event("systole_start", days_ago=1),  # inside 7-day window
+            _event("systole_start", days_ago=10),  # outside
         ]
         _write_events(events_path, events)
 
@@ -202,8 +202,8 @@ class TestSense:
         events_path = tmp_path / "events.jsonl"
         # Events 5 hours apart
         events = [
-            _event("wave_start", days_ago=1, hours_ago=0),
-            _event("wave_end", days_ago=1, hours_ago=5),
+            _event("systole_start", days_ago=1, hours_ago=0),
+            _event("systole_end", days_ago=1, hours_ago=5),
         ]
         _write_events(events_path, events)
 
@@ -216,24 +216,24 @@ class TestSense:
         """Malformed JSONL lines are skipped gracefully."""
         events_path = tmp_path / "events.jsonl"
         events_path.write_text(
-            '{"ts": "2026-03-20T10:00:00.000000", "event": "wave_start"}\n'
+            '{"ts": "2026-03-20T10:00:00.000000", "event": "systole_start"}\n'
             "not valid json\n"
-            '{"ts": "2026-03-20T11:00:00.000000", "event": "wave_start"}\n'
+            '{"ts": "2026-03-20T11:00:00.000000", "event": "systole_start"}\n'
         )
 
         substrate = VasomotorSubstrate(events_path=events_path)
         sensed = substrate.sense(days=30)
 
         assert len(sensed) == 1
-        assert sensed[0]["wave_count"] == 2  # both valid lines parsed
+        assert sensed[0]["systole_count"] == 2  # both valid lines parsed
 
     def test_multiple_days_sorted(self, tmp_path):
         """Sensed output is sorted by date."""
         events_path = tmp_path / "events.jsonl"
         events = [
-            _event("wave_start", days_ago=3),
-            _event("wave_start", days_ago=1),
-            _event("wave_start", days_ago=2),
+            _event("systole_start", days_ago=3),
+            _event("systole_start", days_ago=1),
+            _event("systole_start", days_ago=2),
         ]
         _write_events(events_path, events)
 
@@ -258,12 +258,12 @@ class TestCandidates:
         sensed = [
             {
                 "date": "2026-03-20",
-                "wave_count": 10,
+                "systole_count": 10,
                 "saturated_count": 0,
                 "daily_budget": 4.0,
                 "estimated_burn": 8.0,
                 "cost_samples": [],
-                "wave_costs": [],
+                "systole_costs": [],
                 "apnea_window": 1.0,
                 "event_count": 20,
             },
@@ -276,16 +276,16 @@ class TestCandidates:
         assert overburn[0]["count"] == 1
 
     def test_saturation_detection(self, tmp_path):
-        """>30% waves saturated triggers saturation issue."""
+        """>30% systoles saturated triggers saturation issue."""
         sensed = [
             {
                 "date": "2026-03-20",
-                "wave_count": 10,
+                "systole_count": 10,
                 "saturated_count": 5,
                 "daily_budget": 10.0,
                 "estimated_burn": 10.0,
                 "cost_samples": [],
-                "wave_costs": [],
+                "systole_costs": [],
                 "apnea_window": 1.0,
                 "event_count": 20,
             },
@@ -302,12 +302,12 @@ class TestCandidates:
         sensed = [
             {
                 "date": "2026-03-20",
-                "wave_count": 10,
+                "systole_count": 10,
                 "saturated_count": 3,
                 "daily_budget": 10.0,
                 "estimated_burn": 10.0,
                 "cost_samples": [],
-                "wave_costs": [],
+                "systole_costs": [],
                 "apnea_window": 1.0,
                 "event_count": 20,
             },
@@ -323,12 +323,12 @@ class TestCandidates:
         sensed = [
             {
                 "date": "2026-03-20",
-                "wave_count": 2,
+                "systole_count": 2,
                 "saturated_count": 0,
                 "daily_budget": 10.0,
                 "estimated_burn": 3.0,
                 "cost_samples": [],
-                "wave_costs": [],
+                "systole_costs": [],
                 "apnea_window": 1.0,
                 "event_count": 5,
             },
@@ -344,12 +344,12 @@ class TestCandidates:
         sensed = [
             {
                 "date": "2026-03-20",
-                "wave_count": 5,
+                "systole_count": 5,
                 "saturated_count": 0,
                 "daily_budget": None,
                 "estimated_burn": None,
                 "cost_samples": [],
-                "wave_costs": [0.1, 0.1, 0.1, 5.0, 5.0],
+                "systole_costs": [0.1, 0.1, 0.1, 5.0, 5.0],
                 "apnea_window": 1.0,
                 "event_count": 10,
             },
@@ -366,12 +366,12 @@ class TestCandidates:
         sensed = [
             {
                 "date": "2026-03-20",
-                "wave_count": 5,
+                "systole_count": 5,
                 "saturated_count": 0,
                 "daily_budget": None,
                 "estimated_burn": None,
                 "cost_samples": [],
-                "wave_costs": [1.0, 1.0, 1.0, 1.0, 1.0],
+                "systole_costs": [1.0, 1.0, 1.0, 1.0, 1.0],
                 "apnea_window": 1.0,
                 "event_count": 10,
             },
@@ -387,12 +387,12 @@ class TestCandidates:
         sensed = [
             {
                 "date": "2026-03-20",
-                "wave_count": 2,
+                "systole_count": 2,
                 "saturated_count": 0,
                 "daily_budget": None,
                 "estimated_burn": None,
                 "cost_samples": [],
-                "wave_costs": [],
+                "systole_costs": [],
                 "apnea_window": 6.5,
                 "event_count": 3,
             },
@@ -409,12 +409,12 @@ class TestCandidates:
         sensed = [
             {
                 "date": "2026-03-20",
-                "wave_count": 2,
+                "systole_count": 2,
                 "saturated_count": 0,
                 "daily_budget": None,
                 "estimated_burn": None,
                 "cost_samples": [],
-                "wave_costs": [],
+                "systole_costs": [],
                 "apnea_window": 3.5,
                 "event_count": 3,
             },
@@ -430,12 +430,12 @@ class TestCandidates:
         sensed = [
             {
                 "date": f"2026-03-{20 + i}",
-                "wave_count": 10,
+                "systole_count": 10,
                 "saturated_count": 0,
                 "daily_budget": 4.0,
                 "estimated_burn": 8.0,
                 "cost_samples": [],
-                "wave_costs": [],
+                "systole_costs": [],
                 "apnea_window": 1.0,
                 "event_count": 20,
             }
@@ -452,12 +452,12 @@ class TestCandidates:
         sensed = [
             {
                 "date": "2026-03-20",
-                "wave_count": 5,
+                "systole_count": 5,
                 "saturated_count": 0,
                 "daily_budget": 10.0,
                 "estimated_burn": 7.0,
                 "cost_samples": [1.0],
-                "wave_costs": [1.0, 1.0, 1.0],
+                "systole_costs": [1.0, 1.0, 1.0],
                 "apnea_window": 2.0,
                 "event_count": 15,
             },
@@ -523,12 +523,12 @@ class TestReport:
         sensed = [
             {
                 "date": "2026-03-20",
-                "wave_count": 5,
+                "systole_count": 5,
                 "saturated_count": 1,
                 "daily_budget": 4.8,
                 "estimated_burn": 6,
                 "cost_samples": [1.0],
-                "wave_costs": [1.0],
+                "systole_costs": [1.0],
                 "apnea_window": 2.0,
                 "event_count": 10,
             },
@@ -539,7 +539,7 @@ class TestReport:
         report = substrate.report(sensed, acted)
 
         assert "Respiration substrate: 1 day(s) sensed" in report
-        assert "Total waves: 5" in report
+        assert "Total systoles: 5" in report
         assert "Issues" in report
         assert "reduce dynamic_share" in report
         assert "1 issue(s) found" in report
@@ -548,12 +548,12 @@ class TestReport:
         sensed = [
             {
                 "date": "2026-03-20",
-                "wave_count": 5,
+                "systole_count": 5,
                 "saturated_count": 0,
                 "daily_budget": 10.0,
                 "estimated_burn": 7.0,
                 "cost_samples": [],
-                "wave_costs": [],
+                "systole_costs": [],
                 "apnea_window": 1.0,
                 "event_count": 10,
             },
@@ -576,10 +576,10 @@ class TestFullCycle:
         base_ts = _BASE_TIME - timedelta(days=1)
         base_date = base_ts.strftime("%Y-%m-%d")
         events = []
-        # 8 wave_starts on the same calendar day
+        # 8 systole_starts on the same calendar day
         for h in range(8):
             ts = f"{base_date}T{10 + h:02d}:00:00.000000"
-            events.append({"ts": ts, "event": "wave_start"})
+            events.append({"ts": ts, "event": "systole_start"})
         # pacing_check showing burn > budget on same day
         events.append(
             {
@@ -587,7 +587,7 @@ class TestFullCycle:
                 "event": "pacing_check",
                 "daily_budget": 3.0,
                 "estimated_burn": 8.0,
-                "waves_today": 8,
+                "systoles_today": 8,
             }
         )
         _write_events(events_path, events)
@@ -605,19 +605,19 @@ class TestFullCycle:
         """Full cycle with a healthy system produces no issues."""
         events_path = tmp_path / "events.jsonl"
         events = [
-            _event("wave_start", days_ago=1, hours_ago=0),
-            _event("wave_end", days_ago=1, hours_ago=0, exit_code=0, elapsed_s=300),
-            _event("wave_start", days_ago=1, hours_ago=1),
-            _event("wave_end", days_ago=1, hours_ago=1, exit_code=0, elapsed_s=400),
+            _event("systole_start", days_ago=1, hours_ago=0),
+            _event("systole_end", days_ago=1, hours_ago=0, exit_code=0, elapsed_s=300),
+            _event("systole_start", days_ago=1, hours_ago=1),
+            _event("systole_end", days_ago=1, hours_ago=1, exit_code=0, elapsed_s=400),
             _event(
                 "pacing_check",
                 days_ago=1,
                 daily_budget=10.0,
                 estimated_burn=5.0,
-                waves_today=2,
+                systoles_today=2,
             ),
-            _event("wave_usage", days_ago=1, wave=1, weekly_delta=1.0),
-            _event("wave_usage", days_ago=1, hours_ago=1, wave=2, weekly_delta=1.0),
+            _event("systole_usage", days_ago=1, wave=1, weekly_delta=1.0),
+            _event("systole_usage", days_ago=1, hours_ago=1, wave=2, weekly_delta=1.0),
         ]
         _write_events(events_path, events)
 

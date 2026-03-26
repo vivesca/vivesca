@@ -78,7 +78,7 @@ For each high-leverage star, identify sub-goals that are: actionable now, Automa
 1. Praxis.md items tagged `agent:claude` or where research/drafting is the bottleneck
 2. What the north stars need now, even if not in Praxis.md
 3. External signals (lustro outputs, calendar proximity)
-4. What wave N outputs revealed as the next logical step
+4. What systole N outputs revealed as the next logical step
 
 "Ran out of tasks" means "stopped looking." Ask: what would a good employee working on [star] do next?
 
@@ -98,7 +98,7 @@ Launch with `run_in_background: true`, `mode: bypassPermissions`. Every agent pr
 
 ### Step 6: Flywheel (Overnight Mode)
 
-After each wave, two phases:
+After each systole, two phases:
 
 **Phase A — Compound:** For each output, ask "what builds on this?" Research → synthesise → IP/publish → verify → cross-link.
 
@@ -107,7 +107,7 @@ After each wave, two phases:
 **Deliverables are functions, not documents.** "Give me market intel" → produce a fresh brief, not point to a stale file.
 
 **Stop conditions (in order):**
-- Budget yellow → finish current wave, then stop
+- Budget yellow → finish current systole, then stop
 - Budget red → stop immediately, report
 - All remaining tasks require Presence/Sharpening/Collaborative → stop (only human work remains)
 - **Task exhaustion is NOT a stop condition.**
@@ -124,7 +124,7 @@ After each wave, two phases:
 
 ### Step 8: Session Report
 
-Write `~/epigenome/chromatin/Poiesis Reports/YYYY-MM-DD.md` with frontmatter (waves, items\_produced, items\_for\_review) + Produced list + Review Queue + Flywheel Trace + Quality Gate Results.
+Write `~/epigenome/chromatin/Poiesis Reports/YYYY-MM-DD.md` with frontmatter (systoles, items\_produced, items\_for\_review) + Produced list + Review Queue + Flywheel Trace + Quality Gate Results.
 
 **No separate notification.** Praxis.md is the one inbox.
 
@@ -133,10 +133,10 @@ Write `~/epigenome/chromatin/Poiesis Reports/YYYY-MM-DD.md` with frontmatter (wa
 | | Interactive | Overnight |
 |---|---|---|
 | **Trigger** | "polarization", "burn tokens", "stellae" | "overnight", "vigilia", "going to sleep" |
-| **Mechanism** | This skill (in-session) | `lucerna` (fresh session per wave) |
+| **Mechanism** | This skill (in-session) | `lucerna` (fresh session per systole) |
 | **Clarifying questions** | Yes (max 1) | Forbidden |
-| **Agents per wave** | 3-5 | 8 (maintain thread pool) |
-| **Waves** | 1-2 | Flywheel until budget yellow |
+| **Agents per systole** | 3-5 | 8 (maintain thread pool) |
+| **Systoles** | 1-2 | Flywheel until budget yellow |
 | **Shared systems** | Ask first | Never touch |
 
 ## Manifest
@@ -155,9 +155,9 @@ Verdict: PASS → proceed. PARTIAL → proceed, flag for Terry. FAIL → quarant
 
 **Archive loop (never skip):** As each agent completes — classify (self-sufficient or needs review) → quality gate if high-stakes → archive or add review TODO → update manifest → keep going. Always archive before removing from Praxis.md.
 
-**Interactive session:** Maintain 6-8 running agents at all times. When count drops below 4, launch next wave immediately.
+**Interactive session:** Maintain 6-8 running agents at all times. When count drops below 4, launch next systole immediately.
 
-**Overnight runs use lucerna directly**, not this skill. Lucerna dispatches fresh CC sessions per wave; the manifest is memory between waves; budget check is real code, not model judgment.
+**Overnight runs use lucerna directly**, not this skill. Lucerna dispatches fresh CC sessions per systole; the manifest is memory between systoles; budget check is real code, not model judgment.
 
 ## Stopping Gate (mandatory before any stop)
 
@@ -166,11 +166,11 @@ Verdict: PASS → proceed. PARTIAL → proceed, flag for Terry. FAIL → quarant
 ```
 1. Is budget yellow or red?                           → if green, KEEP GOING
 2. Have all 6 north stars been checked for Automated  → if any unchecked, scout it
-   tasks in the last 2 waves?
+   tasks in the last 2 systoles?
 3. Have you checked lustro/transduction for new signals?   → if not, check now
 4. Have you checked the calendar for deadlines        → if not, check now
    within 14 days?
-5. Did the last wave's outputs reveal ANY follow-on?  → if yes, dispatch it
+5. Did the last systole's outputs reveal ANY follow-on?  → if yes, dispatch it
 6. Can you honestly say a good employee would have    → if no, think harder
    nothing to do for these north stars?
 ```

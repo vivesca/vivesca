@@ -72,23 +72,23 @@ The audit against Andrews' 21 minimal cell patterns (25 Mar 2026):
 
 The mapping works because both solve the same persistence problems — boundaries, adaptation, energy regulation, self-repair. Same problems produce same structures. But the organism is not a cell. A cell has no symbiont. This organism does — and is working to internalise it.
 
-### Titration
+### Hybridization
 
 The design method used throughout vivesca. Force a name from one biological domain (cell), at one abstraction level. Study the biology. The gap between biology and system is the design insight. The break is the feature, not the failure.
 
-From chemistry: add a reagent of known concentration to determine the unknown. The equivalence point is where the analogy holds. Past it, the precipitate forms — that precipitate is the design question.
+From molecular biology: a probe (bio name) hybridizes against a target (design problem). Where it binds = mechanism maps. Mismatch/denaturation = analogy breaks = design insight. Stringency = how exact the match needs to be.
 
 Three layers:
 
-- **Titration** — the method (add known biology, find break point)
-- **/morphogenesis** — the skill (executes one titration cycle)
+- **Hybridization** — the method (probe hybridizes against target, mismatch is the finding)
+- **/morphogenesis** — the skill (executes one hybridization cycle)
 - **Architecture Biopsy** — the consulting offering (histology workshop)
 
 Code naming boundary: if a concept is "in the cell" → biological name. If it is in the Python runtime → Python name. More things are in the cell than you'd think (CLI binaries are ligands, usage counts are valency). String splitting and JSON parsing are genuinely computational.
 
 When a name fits, that is confirmation. When it breaks, that is the design question. When it requires a paragraph to justify its mapping, the abstraction level is wrong.
 
-See `memory/finding_titration_method.md` and the garden post *Architecture Biopsy*.
+See `memory/finding_hybridization_method.md` and the garden post *Architecture Biopsy*.
 
 ## Growing Up
 

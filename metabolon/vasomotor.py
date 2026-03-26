@@ -2,14 +2,14 @@
 
 The organism's respiratory system. Pure arithmetic, no LLM judgment.
 Controls how fast the organism burns its budget: interactive pressure,
-daily wave counting, skip-until scheduling, saturation weighting,
-and the pacing gate that pulse consults before each wave.
+daily systole counting, skip-until scheduling, saturation weighting,
+and the pacing gate that pulse consults before each systole.
 
 Five-layer self-regulation:
 1. Interactive awareness — blends live session util with learned hourly patterns
-2. Measured wave cost — tracks per-wave deltas (including zeros) for accuracy
+2. Measured systole cost — tracks per-systole deltas (including zeros) for accuracy
 3. Skip-until — fast-exit scheduling when pacing blocks
-4. Saturation penalty — wasted waves count at 1.5x cost
+4. Saturation penalty — wasted systoles count at 1.5x cost
 5. Pacing gate — combines all layers into a single go/no-go decision
 """
 
@@ -51,9 +51,9 @@ SONNET_CEILING = 90  # % — stop if sonnet usage exceeds this
 SYMPATHETIC_RESERVE = 15  # % — reserve for interactive work
 BASAL_RATE = 0.5  # pulse's share when Terry is idle
 MIN_BASAL_RATE = 0.15  # pulse's share when Terry is very active
-MAX_DAILY_WAVES = 10  # hard cap on waves per calendar day
-DEFAULT_COST_PER_WAVE = 1.0  # fallback estimate; replaced by measured average
-SATURATION_PENALTY = 1.5  # saturated waves count 1.5x cost
+MAX_DAILY_SYSTOLES = 10  # hard cap on systoles per calendar day
+DEFAULT_COST_PER_SYSTOLE = 1.0  # fallback estimate; replaced by measured average
+SATURATION_PENALTY = 1.5  # saturated systoles count 1.5x cost
 
 
 # ---------------------------------------------------------------------------
@@ -280,7 +280,7 @@ def assess_vital_capacity() -> tuple[bool, str]:
 
 
 def vasomotor_status() -> str:
-    """Per-wave respiratory status. Returns: green, yellow, red, or unknown."""
+    """Per-systole respiratory status. Returns: green, yellow, red, or unknown."""
     telemetry = _fetch_telemetry()
     if telemetry:
         subprocess.run(["respirometry", "log"], capture_output=True, timeout=10)
@@ -312,7 +312,7 @@ def vasomotor_status() -> str:
 
 
 # ---------------------------------------------------------------------------
-# Daily wave counter (workaround for integer-rounded utilization)
+# Daily systole counter (workaround for integer-rounded utilization)
 # ---------------------------------------------------------------------------
 
 
@@ -334,7 +334,7 @@ def _load_circadian_state() -> dict:
         "count": 0,
         "saturated": 0,
         "day_start_weekly": None,
-        "wave_deltas": [],
+        "systole_deltas": [],
     }
 
 
@@ -342,8 +342,12 @@ def _save_circadian_state(state: dict):
     DAILY_STATE_FILE.write_text(json.dumps(state))
 
 
-def daily_wave_count() -> int:
+def daily_systole_count() -> int:
     return _load_circadian_state().get("count", 0)
+
+
+# Backward-compat alias
+daily_wave_count = daily_systole_count
 
 
 def daily_saturated_count() -> int:
@@ -356,16 +360,16 @@ def breathe(saturated: bool = False, systole_delta: float = 0.0, wave_delta: flo
     circadian_state["count"] = circadian_state.get("count", 0) + 1
     if saturated:
         circadian_state["saturated"] = circadian_state.get("saturated", 0) + 1
-    delta = systole_delta or wave_delta  # accept either name
-    deltas = circadian_state.get("wave_deltas", [])
+    delta = systole_delta or wave_delta  # accept either name (wave_delta: legacy compat)
+    deltas = circadian_state.get("systole_deltas", [])
     deltas.append(delta)
-    circadian_state["wave_deltas"] = deltas
+    circadian_state["systole_deltas"] = deltas
     _save_circadian_state(circadian_state)
     return circadian_state["count"]
 
 
 def calibrate_circadian(weekly: float):
-    """Record the circadian baseline — weekly % at the start of today's first wave."""
+    """Record the circadian baseline — weekly % at the start of today's first systole."""
     circadian_state = _load_circadian_state()
     if circadian_state.get("day_start_weekly") is None:
         circadian_state["day_start_weekly"] = weekly
@@ -444,26 +448,26 @@ def tidal_volume() -> float:
 
 
 # ---------------------------------------------------------------------------
-# Measured wave cost (layer 2)
+# Measured systole cost (layer 2)
 # ---------------------------------------------------------------------------
 
 
-def measured_cost_per_wave() -> float:
-    """Estimate actual cost per wave from isolated per-wave deltas.
+def measured_cost_per_systole() -> float:
+    """Estimate actual cost per systole from isolated per-systole deltas.
 
     Including zeros is critical: integer-rounded deltas of [0,1,0,0,1,0,1]
     average to 0.43, far more accurate than filtering to non-zero (always 1.0).
     """
     circadian_state = _load_circadian_state()
-    wave_deltas = circadian_state.get("wave_deltas", [])
+    systole_deltas = circadian_state.get("systole_deltas", [])
 
-    if len(wave_deltas) >= 3:
-        avg = sum(wave_deltas) / len(wave_deltas)
+    if len(systole_deltas) >= 3:
+        avg = sum(systole_deltas) / len(systole_deltas)
         record_event(
             "cost_measured",
             method="today_isolated",
             cost=round(avg, 3),
-            samples=len(wave_deltas),
+            samples=len(systole_deltas),
         )
         return max(avg, 0.1)
 
@@ -471,7 +475,7 @@ def measured_cost_per_wave() -> float:
         deltas = []
         for line in EVENT_LOG.read_text().strip().splitlines()[-500:]:
             e = json.loads(line)
-            if e.get("event") == "wave_usage":
+            if e.get("event") == "systole_usage":
                 d = e.get("weekly_delta", 0)
                 deltas.append(d)
         if len(deltas) >= 10:
@@ -487,7 +491,11 @@ def measured_cost_per_wave() -> float:
         pass
 
     genome = vasomotor_genome()
-    return genome.get("default_cost_per_wave", DEFAULT_COST_PER_WAVE)
+    return genome.get("default_cost_per_systole", DEFAULT_COST_PER_SYSTOLE)
+
+
+# Backward-compat alias — remove after all callers updated
+measured_cost_per_wave = measured_cost_per_systole
 
 
 # ---------------------------------------------------------------------------
@@ -516,17 +524,17 @@ def is_apneic() -> tuple[bool, str]:
 
 def induce_apnea(
     daily_budget: float,
-    cost_per_wave: float,
-    waves_today: int,
+    cost_per_systole: float,
+    systoles_today: int,
     sustainable_daily: float,
 ):
-    """Induce apnea — calculate when the next breath (wave) is permitted."""
+    """Induce apnea — calculate when the next breath (systole) is permitted."""
     genome = vasomotor_genome()
-    max_daily_waves = genome.get("max_daily_waves", MAX_DAILY_WAVES)
+    max_daily_systoles = genome.get("max_daily_systoles", MAX_DAILY_SYSTOLES)
     now = datetime.datetime.now()
     midnight = now.replace(hour=0, minute=0, second=0) + datetime.timedelta(days=1)
 
-    if waves_today >= max_daily_waves:
+    if systoles_today >= max_daily_systoles:
         SKIP_UNTIL_FILE.write_text(midnight.isoformat())
         record_event("skip_set", until=midnight.isoformat(), reason="daily_cap")
         return
@@ -537,7 +545,7 @@ def induce_apnea(
 
 
 def resume_breathing():
-    """Resume breathing — clear apnea state after a successful wave."""
+    """Resume breathing — clear apnea state after a successful systole."""
     SKIP_UNTIL_FILE.unlink(missing_ok=True)
 
 
@@ -561,13 +569,13 @@ def set_recovery_interval():
 # ---------------------------------------------------------------------------
 
 
-def effective_burn(waves_today: int, saturated_today: int, cost_per_wave: float) -> float:
-    """Calculate effective budget burn, penalizing saturated waves."""
+def effective_burn(systoles_today: int, saturated_today: int, cost_per_systole: float) -> float:
+    """Calculate effective budget burn, penalizing saturated systoles."""
     genome = vasomotor_genome()
     penalty = genome.get("saturation_penalty", SATURATION_PENALTY)
-    productive = waves_today - saturated_today
-    effective_waves = productive + (saturated_today * penalty)
-    return effective_waves * cost_per_wave
+    productive = systoles_today - saturated_today
+    effective_systoles = productive + (saturated_today * penalty)
+    return effective_systoles * cost_per_systole
 
 
 # ---------------------------------------------------------------------------
@@ -598,7 +606,7 @@ def assess_pacing() -> tuple[bool, str]:
 
     genome = vasomotor_genome()
     sympathetic_reserve = genome.get("sympathetic_reserve", SYMPATHETIC_RESERVE)
-    max_daily_waves = genome.get("max_daily_waves", MAX_DAILY_WAVES)
+    max_daily_systoles = genome.get("max_daily_systoles", MAX_DAILY_SYSTOLES)
 
     # Oxygen debt: reduce reserve and boost share when budget expires soon
     hours = days_remaining * 24
@@ -613,11 +621,11 @@ def assess_pacing() -> tuple[bool, str]:
         dynamic_share = min(0.8, dynamic_share + debt * 0.4)
     daily_budget = sustainable_daily * dynamic_share
 
-    cost_per_wave = measured_cost_per_wave()
+    cost_per_systole = measured_cost_per_systole()
 
-    waves_today = daily_wave_count()
+    systoles_today = daily_systole_count()
     saturated_today = daily_saturated_count()
-    estimated_burn = effective_burn(waves_today, saturated_today, cost_per_wave)
+    estimated_burn = effective_burn(systoles_today, saturated_today, cost_per_systole)
 
     record_event(
         "pacing_check",
@@ -628,26 +636,26 @@ def assess_pacing() -> tuple[bool, str]:
         sustainable_daily=round(sustainable_daily, 1),
         dynamic_share=round(dynamic_share, 2),
         daily_budget=round(daily_budget, 1),
-        cost_per_wave=round(cost_per_wave, 2),
-        waves_today=waves_today,
+        cost_per_systole=round(cost_per_systole, 2),
+        systoles_today=systoles_today,
         saturated_today=saturated_today,
         estimated_burn=round(estimated_burn, 1),
     )
 
     if estimated_burn >= daily_budget:
-        induce_apnea(daily_budget, cost_per_wave, waves_today, sustainable_daily)
+        induce_apnea(daily_budget, cost_per_systole, systoles_today, sustainable_daily)
         return False, (
-            f"pacing_exceeded: {waves_today} waves (eff ~{estimated_burn:.1f}%) "
+            f"pacing_exceeded: {systoles_today} systoles (eff ~{estimated_burn:.1f}%) "
             f">= daily allowance {daily_budget:.1f}% "
-            f"(share={dynamic_share:.0%}, cost={cost_per_wave:.2f}/wave)"
+            f"(share={dynamic_share:.0%}, cost={cost_per_systole:.2f}/systole)"
         )
 
-    if waves_today >= max_daily_waves:
-        induce_apnea(daily_budget, cost_per_wave, waves_today, sustainable_daily)
-        return False, f"daily_cap: {waves_today} >= {max_daily_waves}"
+    if systoles_today >= max_daily_systoles:
+        induce_apnea(daily_budget, cost_per_systole, systoles_today, sustainable_daily)
+        return False, f"daily_cap: {systoles_today} >= {max_daily_systoles}"
 
     return True, (
-        f"pacing_ok: {waves_today} waves (eff ~{estimated_burn:.1f}%), "
+        f"pacing_ok: {systoles_today} systoles (eff ~{estimated_burn:.1f}%), "
         f"allowance {daily_budget:.1f}%/day"
     )
 
@@ -755,8 +763,8 @@ ADAPT_PROMPT = """You are the organism's respiratory tuner. Review the current s
 ## Budget state
 Weekly: {weekly}%, Sonnet: {sonnet}%, Hours to reset: {hours_to_reset:.0f}h
 
-## Wave outcomes this cycle
-Waves run: {waves_run}, Saturated: {saturated}, Failed: {failed}
+## Systole outcomes this cycle
+Systoles run: {systoles_run}, Saturated: {saturated}, Failed: {failed}
 Stop reason: {stop_reason}
 
 ## Yield (last 24h)
@@ -767,10 +775,10 @@ Stop reason: {stop_reason}
 
 ## Rules
 - Output ONLY a JSON object with keys you want to change. Omit unchanged keys.
-- Adjustable keys (haiku): infra_pct, focus_star, default_cost_per_wave, saturation_penalty
-- Adjustable keys (sonnet adds): wave_model, saturation_patience, basal_rate, min_basal_rate, tachycardia_threshold
-- Adjustable keys (opus adds): aerobic_ceiling, sonnet_ceiling, sympathetic_reserve, max_daily_waves, bounds
-- Bounds: infra_pct [0,50], basal_rate [0.05,0.5], min_basal_rate [0.05,0.4], saturation_patience [1,5], wave_model [haiku,sonnet,opus], tachycardia_threshold [40,80], aerobic_ceiling [60,95], sonnet_ceiling [70,98], sympathetic_reserve [5,30], max_daily_waves [5,30], default_cost_per_wave [0.1,5.0], saturation_penalty [1.0,3.0]
+- Adjustable keys (haiku): infra_pct, focus_star, default_cost_per_systole, saturation_penalty
+- Adjustable keys (sonnet adds): systole_model, saturation_patience, basal_rate, min_basal_rate, tachycardia_threshold
+- Adjustable keys (opus adds): aerobic_ceiling, sonnet_ceiling, sympathetic_reserve, max_daily_systoles, bounds
+- Bounds: infra_pct [0,50], basal_rate [0.05,0.5], min_basal_rate [0.05,0.4], saturation_patience [1,5], systole_model [haiku,sonnet,opus], tachycardia_threshold [40,80], aerobic_ceiling [60,95], sonnet_ceiling [70,98], sympathetic_reserve [5,30], max_daily_systoles [5,30], default_cost_per_systole [0.1,5.0], saturation_penalty [1.0,3.0]
 - focus_star: null (balanced) or a specific north star name to prioritize
 - Think about: Is budget being wasted? Is the organism producing useful output? Should it shift focus?
 - If things look fine, output {{}}
@@ -911,7 +919,7 @@ def _mark_review(tier: str):
     _save_review_state(state)
 
 
-def _gather_adapt_context(waves_run: int, saturated: int, failed: int, stop_reason: str) -> dict:
+def _gather_adapt_context(systoles_run: int, saturated: int, failed: int, stop_reason: str) -> dict:
     """Gather raw data for all review tiers — each tier sees the same ground truth."""
     genome = vasomotor_genome()
     telemetry = _fetch_telemetry()
@@ -977,14 +985,14 @@ def _gather_adapt_context(waves_run: int, saturated: int, failed: int, stop_reas
         "crystal_log": crystal_log,
         "sonnet_observations": sonnet_obs,
         "organism_confs": org_confs,
-        "waves_run": waves_run,
+        "systoles_run": systoles_run,
         "saturated": saturated,
         "failed": failed,
         "stop_reason": stop_reason,
     }
 
 
-def adapt(waves_run: int, saturated: int, failed: int, stop_reason: str):
+def adapt(systoles_run: int, saturated: int, failed: int, stop_reason: str):
     """Post-cycle LLM review — three independent tiers.
 
     haiku (every cycle): parameter tuning from raw state.
@@ -993,7 +1001,7 @@ def adapt(waves_run: int, saturated: int, failed: int, stop_reason: str):
 
     Each tier reviews raw data independently — not the tier below's output.
     """
-    ctx = _gather_adapt_context(waves_run, saturated, failed, stop_reason)
+    ctx = _gather_adapt_context(systoles_run, saturated, failed, stop_reason)
     genome = ctx["genome"]
 
     # Base prompt — same raw data for all tiers
@@ -1002,7 +1010,7 @@ def adapt(waves_run: int, saturated: int, failed: int, stop_reason: str):
         weekly=ctx["weekly"],
         sonnet=ctx["sonnet_util"],
         hours_to_reset=ctx["hours"] or 0,
-        waves_run=waves_run,
+        systoles_run=ctx["systoles_run"],
         saturated=saturated,
         failed=failed,
         stop_reason=stop_reason,

@@ -4,7 +4,7 @@ Wraps the deterministic polarization-gather CLI:
   preflight  — consumption check, budget, guard status, north stars, manifest
   guard      — activate / deactivate the stop guard
 
-Orchestration (agent dispatch, flywheel, wave management) stays in the skill.
+Orchestration (agent dispatch, flywheel, systole management) stays in the skill.
 These tools give the skill grounded facts and guard control before dispatch.
 """
 

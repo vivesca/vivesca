@@ -9,7 +9,7 @@ Experiment: audit recent bio-renames for cosplay.
 
 1. Find recent bio-naming changes:
    ```bash
-   cd ~/code/vivesca && git log --oneline --since="30 days ago" | grep -i "rename\|bio\|titrat"
+   cd ~/code/vivesca && git log --oneline --since="30 days ago" | grep -i "rename\|bio\|hybridiz"
    ```
 
 2. For each rename commit, check the diff:
@@ -28,7 +28,7 @@ Experiment: audit recent bio-renames for cosplay.
 
 5. Report:
    - Total bio-renames reviewed: N
-   - Genuine titrations: N (with design questions listed)
+   - Genuine hybridizations: N (with design questions listed)
    - Cosplay: N (with revert recommendations)
    - Cosplay ratio: X% (lower is better)
    - Best rename: [the one that generated the most valuable question]

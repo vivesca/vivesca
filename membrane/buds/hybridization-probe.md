@@ -1,11 +1,11 @@
 ---
-name: titration-probe
-description: Pick a non-bio-named component, titrate it, report whether the rename generated an insight or was cosplay.
+name: hybridization-probe
+description: Pick a non-bio-named component, hybridize it, report whether the rename generated an insight or was cosplay.
 model: sonnet
 tools: ["Read", "Grep", "Glob", "Bash"]
 ---
 
-Experiment: test the titration principle on a live target.
+Experiment: test the hybridization principle on a live target.
 
 1. Find a component that still uses a non-biological name:
    - Grep for engineering terms in ~/germline/metabolon/ (handler, manager, processor, helper, util, service, worker, dispatcher, controller)
@@ -24,7 +24,7 @@ Experiment: test the titration principle on a live target.
    - Component: [name]
    - Proposed bio name: [name] (root decomposition)
    - Design question generated: [yes/no + the question]
-   - Verdict: titration (genuine insight) or cosplay (label swap)
-   - If titration: what should be built?
+   - Verdict: hybridization (genuine insight) or cosplay (label swap)
+   - If hybridization: what should be built?
 
 Do NOT rename anything. Just probe and report. The nucleus (Terry) decides whether to act.

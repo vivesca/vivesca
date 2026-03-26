@@ -1,14 +1,14 @@
 ---
-name: titration
-description: Forced-naming-as-design-constraint method — titrate a concept, a system, or architecture against biology or design patterns to surface gaps. Also covers single-concept naming (formerly /morphogenesis). "Titrate this", "cell completeness audit", "what are we missing", "run titration", "mine the name", "rename and inspire".
+name: hybridization
+description: Forced-naming-as-design-constraint method — hybridize a concept, a system, or architecture against biology or design patterns to surface gaps. Also covers single-concept naming (formerly /morphogenesis). "Hybridize this", "cell completeness audit", "what are we missing", "run hybridization", "mine the name", "rename and inspire".
 user_invocable: true
 model: sonnet
 context: fork
 ---
 
-# Titration — Forced Naming as Design Constraint
+# Hybridization — Forced Naming as Design Constraint
 
-Titration adds a known reagent to an unknown solution until the reaction reveals the gap. Here: biology (or design patterns) is the reagent; your system is the solution; the break IS the finding.
+Hybridization probes a target (design problem) with a known sequence (bio name). Where the probe binds, the mechanism maps. Where it mismatches or denatures, the analogy breaks — and the break IS the finding.
 
 Single concept? One cycle. Full system? Sweep all organelles or pattern sets.
 
@@ -61,12 +61,12 @@ Map the system against the canonical cell organelle set. Score each: **mapped / 
 Output: completed table + top 3 gaps ranked by operational impact.
 
 ### 3. Andrews 21 Patterns
-Titrate against the 21 design patterns. Reference: `~/epigenome/chromatin/Reference/andrews-21-patterns-titration.md`.
+Hybridize against the 21 design patterns. Reference: `~/epigenome/chromatin/Reference/andrews-21-patterns-titration.md`.
 Score each pattern: **implemented / partial / absent**. Surface the highest-leverage absences.
 
 ## Grounding Step
 
-Before any mapping, fetch the real biology. Symbiont recall is lossy — titrating against a hallucination produces decorative names, not design insights.
+Before any mapping, fetch the real biology. Symbiont recall is lossy — hybridizing against a hallucination produces decorative names, not design insights.
 
 ```
 lysin "<term>"              # summary + mechanism
@@ -74,7 +74,7 @@ lysin "<term>" --full       # all sections
 lysin "<term>" --json       # structured output for programmatic use
 ```
 
-Run `lysin` for every biological name in the titration. Read the mechanism. Only then map.
+Run `lysin` for every biological name in the hybridization. Read the mechanism. Only then map.
 
 ## Key Principles
 
@@ -87,4 +87,4 @@ Run `lysin` for every biological name in the titration. Read the mechanism. Only
 
 - Stopping at the match (match = 10% of value; gap = 90%)
 - Forcing a mapping that doesn't hold — the naming test IS the design test
-- Running titration without committing to the output table — gaps not written down are gaps not closed
+- Running hybridization without committing to the output table — gaps not written down are gaps not closed

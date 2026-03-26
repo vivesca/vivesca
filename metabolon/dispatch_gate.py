@@ -22,7 +22,7 @@ The gate answers three questions:
 
 Skip if: Q1=no AND Q3=yes.
 Skip if: Q2=no (wrong category).
-Also enforce: max 3 agent:terry items per wave.
+Also enforce: max 3 agent:terry items per systole.
 """
 
 from __future__ import annotations
@@ -73,8 +73,8 @@ _AUTOMATED_SIGNALS: list[re.Pattern] = [
     re.compile(r"\b(code|script|tool|automate|generate|extract)\b", re.I),
 ]
 
-# Max agent:terry tags per wave (hard limit from feedback_poiesis_dispatch_rule.md)
-MAX_TERRY_PER_WAVE = 3
+# Max agent:terry tags per systole (hard limit from feedback_poiesis_dispatch_rule.md)
+MAX_TERRY_PER_SYSTOLE = 3
 
 
 # ---------------------------------------------------------------------------
@@ -145,7 +145,7 @@ def is_terry_tag_approved(
 
     Args:
         task_description: What the output is / what review is needed.
-        current_terry_count: How many agent:terry items have been added this wave.
+        current_terry_count: How many agent:terry items have been added this systole.
         sourced: Did Terry or an approved task request this?
         creates_obligation: Does this require Terry's name/voice/presence?
                             None = auto-detect.
@@ -153,9 +153,9 @@ def is_terry_tag_approved(
     Returns:
         (approved: bool, reason: str)
     """
-    if current_terry_count >= MAX_TERRY_PER_WAVE:
+    if current_terry_count >= MAX_TERRY_PER_SYSTOLE:
         return False, (
-            f"wave terry cap reached: {current_terry_count}/{MAX_TERRY_PER_WAVE} "
+            f"systole terry cap reached: {current_terry_count}/{MAX_TERRY_PER_SYSTOLE} "
             "agent:terry items already queued — route to archive instead"
         )
 

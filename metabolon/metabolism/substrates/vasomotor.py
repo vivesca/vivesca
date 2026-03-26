@@ -58,15 +58,15 @@ class VasomotorSubstrate:
             lambda: {
                 "date": "",
                 "events": [],
-                "wave_count": 0,
+                "systole_count": 0,
                 "saturated_count": 0,
                 "pacing_checks": [],
                 "cost_samples": [],
-                "wave_costs": [],
-                "wave_yields": [],
-                "failed_waves": 0,
-                "successful_waves": 0,
-                "wave_durations": [],
+                "systole_costs": [],
+                "systole_yields": [],
+                "failed_systoles": 0,
+                "successful_systoles": 0,
+                "systole_durations": [],
                 "budget_samples": [],
                 "circuit_breakers": 0,
             }
@@ -105,8 +105,8 @@ class VasomotorSubstrate:
 
             evt_type = event.get("event", "")
 
-            if evt_type == "wave_start":
-                day["wave_count"] += 1
+            if evt_type == "systole_start":
+                day["systole_count"] += 1
 
             elif evt_type == "saturation_detected":
                 day["saturated_count"] += 1
@@ -119,22 +119,22 @@ class VasomotorSubstrate:
                 if cost is not None:
                     day["cost_samples"].append(float(cost))
 
-            elif evt_type == "wave_usage":
+            elif evt_type == "systole_usage":
                 delta = event.get("weekly_delta")
                 if delta is not None:
-                    day["wave_costs"].append(float(delta))
+                    day["systole_costs"].append(float(delta))
 
-            elif evt_type == "wave_yield":
-                day["wave_yields"].append(event.get("secretion_count", 0))
+            elif evt_type == "systole_yield":
+                day["systole_yields"].append(event.get("secretion_count", 0))
 
-            elif evt_type == "wave_end":
+            elif evt_type == "systole_end":
                 if event.get("exit_code") == 0:
-                    day["successful_waves"] += 1
+                    day["successful_systoles"] += 1
                 else:
-                    day["failed_waves"] += 1
+                    day["failed_systoles"] += 1
                 elapsed = event.get("elapsed_s")
                 if elapsed:
-                    day["wave_durations"].append(float(elapsed))
+                    day["systole_durations"].append(float(elapsed))
 
             elif evt_type == "budget_raw":
                 weekly = event.get("weekly")
@@ -174,13 +174,13 @@ class VasomotorSubstrate:
                     "lucerna_daily_budget"
                 )
                 estimated_burn = latest_pc.get("estimated_burn")
-                # Fall back: waves_today as burn proxy
+                # Fall back: systoles_today as burn proxy
                 if estimated_burn is None:
-                    estimated_burn = latest_pc.get("waves_today")
+                    estimated_burn = latest_pc.get("systoles_today") or latest_pc.get("waves_today")
 
-            # Compute avg wave duration
+            # Compute avg systole duration
             avg_duration = (
-                statistics.mean(day["wave_durations"]) if day["wave_durations"] else None
+                statistics.mean(day["systole_durations"]) if day["systole_durations"] else None
             )
 
             # Compute budget climb rate (% per hour)
@@ -197,26 +197,26 @@ class VasomotorSubstrate:
                 except (ValueError, TypeError):
                     pass
 
-            total_yield = sum(day["wave_yields"])
-            total_cost = sum(day["wave_costs"])
+            total_yield = sum(day["systole_yields"])
+            total_cost = sum(day["systole_costs"])
             rq = round(total_yield / total_cost, 2) if total_cost > 0 else None
 
             result.append(
                 {
                     "date": date_key,
-                    "wave_count": day["wave_count"],
+                    "systole_count": day["systole_count"],
                     "saturated_count": day["saturated_count"],
                     "daily_budget": daily_budget,
                     "estimated_burn": estimated_burn,
                     "cost_samples": day["cost_samples"],
-                    "wave_costs": day["wave_costs"],
-                    "wave_yields": day["wave_yields"],
+                    "systole_costs": day["systole_costs"],
+                    "systole_yields": day["systole_yields"],
                     "rq": rq,
                     "apnea_window": apnea_window,
                     "event_count": len(events),
-                    "failed_waves": day["failed_waves"],
-                    "successful_waves": day["successful_waves"],
-                    "avg_wave_duration": avg_duration,
+                    "failed_systoles": day["failed_systoles"],
+                    "successful_systoles": day["successful_systoles"],
+                    "avg_systole_duration": avg_duration,
                     "budget_climb_rate": budget_climb_rate,
                     "circuit_breakers": day["circuit_breakers"],
                 }
@@ -250,10 +250,10 @@ class VasomotorSubstrate:
                 if budget > 0 and burn < budget * 0.5:
                     starved_days.append(day)
 
-            # Saturation: >30% waves saturated
-            wave_count = day.get("wave_count", 0)
+            # Saturation: >30% systoles saturated
+            systole_count = day.get("systole_count", 0)
             sat_count = day.get("saturated_count", 0)
-            if wave_count > 0 and sat_count / wave_count > 0.3:
+            if systole_count > 0 and sat_count / systole_count > 0.3:
                 saturated_days.append(day)
 
             # Silence: >4h gap between events
@@ -280,7 +280,7 @@ class VasomotorSubstrate:
                     "issue": "saturation",
                     "severity": "high" if len(saturated_days) >= 3 else "medium",
                     "evidence": [
-                        f"{d['date']}: {d['saturated_count']}/{d['wave_count']} waves saturated"
+                        f"{d['date']}: {d['saturated_count']}/{d['systole_count']} systoles saturated"
                         for d in saturated_days
                     ],
                     "count": len(saturated_days),
@@ -300,10 +300,10 @@ class VasomotorSubstrate:
                 }
             )
 
-        # Volatility: cost_per_wave stddev > mean across all days
+        # Volatility: cost_per_systole stddev > mean across all days
         all_costs: list[float] = []
         for day in sensed:
-            all_costs.extend(day.get("wave_costs", []))
+            all_costs.extend(day.get("systole_costs", []))
 
         if len(all_costs) >= 3:
             mean_cost = statistics.mean(all_costs)
@@ -315,7 +315,7 @@ class VasomotorSubstrate:
                         "severity": "medium",
                         "evidence": [
                             f"cost stddev={stdev_cost:.2f} > mean={mean_cost:.2f} "
-                            f"across {len(all_costs)} waves"
+                            f"across {len(all_costs)} systoles"
                         ],
                         "count": 1,
                     }
@@ -337,8 +337,8 @@ class VasomotorSubstrate:
 
         # Failure ratio: more failures than successes in recent days
         recent = sensed[-7:]
-        total_fails = sum(d.get("failed_waves", 0) for d in recent)
-        total_ok = sum(d.get("successful_waves", 0) for d in recent)
+        total_fails = sum(d.get("failed_systoles", 0) for d in recent)
+        total_ok = sum(d.get("successful_systoles", 0) for d in recent)
         if total_fails >= 3 and total_fails > total_ok:
             dysregulations.append(
                 {
@@ -380,21 +380,21 @@ class VasomotorSubstrate:
                 }
             )
 
-        # Wave duration anomaly: recent avg >2x the overall avg
+        # Systole duration anomaly: recent avg >2x the overall avg
         all_durations = [
-            d["avg_wave_duration"] for d in sensed if d.get("avg_wave_duration") is not None
+            d["avg_systole_duration"] for d in sensed if d.get("avg_systole_duration") is not None
         ]
         if len(all_durations) >= 3 and recent:
             overall_avg = statistics.mean(all_durations)
             recent_durations = [
-                d["avg_wave_duration"] for d in recent if d.get("avg_wave_duration") is not None
+                d["avg_systole_duration"] for d in recent if d.get("avg_systole_duration") is not None
             ]
             if recent_durations and overall_avg > 0:
                 recent_avg = statistics.mean(recent_durations)
                 if recent_avg > overall_avg * 2:
                     dysregulations.append(
                         {
-                            "issue": "slow_waves",
+                            "issue": "slow_systoles",
                             "severity": "medium",
                             "evidence": [
                                 f"recent avg {recent_avg:.0f}s vs overall {overall_avg:.0f}s"
@@ -520,7 +520,7 @@ class VasomotorSubstrate:
         elif issue == "starvation":
             action = f"increase dynamic_share by 10% ({count} day(s) under 50% utilisation)"
         elif issue == "volatility":
-            action = "wave cost variance exceeds mean — monitoring"
+            action = "systole cost variance exceeds mean — monitoring"
         elif issue == "silence":
             action = f"check launchctl status ({count} day(s) with >4h gap)"
         elif issue == "overproduction" and severity == "high":
@@ -535,13 +535,13 @@ class VasomotorSubstrate:
             action = f"producing >20 files/day on {count} day(s) — symbiont can't absorb"
 
         elif issue == "failure_ratio":
-            action = f"{count} failed waves — check logs"
+            action = f"{count} failed systoles — check logs"
         elif issue == "circuit_breaker":
             action = f"circuit breaker fired {count}x — check ~/logs/vivesca-events.jsonl"
         elif issue == "fast_burn":
             action = f"budget climbing >5%/hr on {count} day(s)"
-        elif issue == "slow_waves":
-            action = "wave duration >2x baseline — possible stall pattern"
+        elif issue == "slow_systoles":
+            action = "systole duration >2x baseline — possible stall pattern"
         elif issue == "reafference_confirmed":
             action = f"prior action worked — {candidate.get('evidence', [''])[0]}"
         elif issue == "reafference_mismatch":
@@ -575,16 +575,16 @@ class VasomotorSubstrate:
         lines.append("")
 
         if sensed:
-            total_waves = sum(d.get("wave_count", 0) for d in sensed)
+            total_systoles = sum(d.get("systole_count", 0) for d in sensed)
             total_saturated = sum(d.get("saturated_count", 0) for d in sensed)
             budgeted_days = [d for d in sensed if d.get("daily_budget") is not None]
 
-            all_yields = sum(sum(d.get("wave_yields", [])) for d in sensed)
-            all_costs = sum(sum(d.get("wave_costs", [])) for d in sensed)
+            all_yields = sum(sum(d.get("systole_yields", [])) for d in sensed)
+            all_costs = sum(sum(d.get("systole_costs", [])) for d in sensed)
             overall_rq = round(all_yields / all_costs, 2) if all_costs > 0 else None
 
             lines.append("-- Overview --")
-            lines.append(f"  Total waves: {total_waves}")
+            lines.append(f"  Total systoles: {total_systoles}")
             lines.append(f"  Total saturated: {total_saturated}")
             if overall_rq is not None:
                 lines.append(f"  RQ (files/%-point): {overall_rq}")
@@ -607,7 +607,7 @@ class VasomotorSubstrate:
                 )
                 rq_str = f"{d['rq']}" if d.get("rq") is not None else "N/A"
                 lines.append(
-                    f"  {d['date']}: waves={d['wave_count']} "
+                    f"  {d['date']}: systoles={d['systole_count']} "
                     f"saturated={d['saturated_count']} "
                     f"budget={budget_str} burn={burn_str} "
                     f"rq={rq_str} "

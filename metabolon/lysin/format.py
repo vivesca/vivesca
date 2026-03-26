@@ -3,7 +3,7 @@ import json
 from metabolon.lysin.fetch import BioArticle
 
 def format_text(article: BioArticle, full: bool = False) -> str:
-    """Format article as human-readable text for titration."""
+    """Format article as human-readable text for hybridization."""
     lines = []
     lines.append("═══════════════════════════════════════")
     lines.append(f"LYSIN: {article.title}")
