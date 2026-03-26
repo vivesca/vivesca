@@ -1,0 +1,142 @@
+#!/usr/bin/env python3
+"""pinocytosis — deterministic web content extraction.
+
+Fallback chain: defuddle → agent-browser eval → error.
+Search mode: Perplexity API via chemotaxis_engine.
+
+Usage:
+  pinocytosis <url>                  # Extract text from URL
+  pinocytosis --search <query>       # Web search (quick)
+  pinocytosis --search --deep <q>    # Web search (thorough)
+  pinocytosis --screenshot <url>     # Screenshot to ~/tmp/
+"""
+
+import argparse
+import json
+import subprocess
+import sys
+import time
+
+
+def _run(cmd: list[str], timeout: int = 30) -> tuple[bool, str]:
+    """Run command, return (success, output)."""
+    try:
+        r = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+        return r.returncode == 0, r.stdout.strip()
+    except (subprocess.TimeoutExpired, FileNotFoundError):
+        return False, ""
+
+
+def _defuddle(url: str) -> str:
+    """Extract clean markdown via defuddle CLI."""
+    ok, text = _run(["npx", "defuddle", url], timeout=30)
+    if ok and text and len(text) > 100:
+        # Check for auth-gate signals
+        lower = text.lower()
+        auth_signals = ["sign in", "log in", "create account", "please login"]
+        if any(s in lower for s in auth_signals):
+            return ""  # Auth-gated, escalate
+        return text
+    return ""
+
+
+def _agent_browser_eval(url: str, wait_ms: int = 5000) -> str:
+    """Extract text via agent-browser eval innerText."""
+    # Close stale daemon first
+    _run(["agent-browser", "close"], timeout=5)
+    time.sleep(1)
+
+    ok, _ = _run(["agent-browser", "open", url], timeout=15)
+    if not ok:
+        return ""
+
+    _run(["agent-browser", "wait", str(wait_ms)], timeout=max(wait_ms // 1000 + 5, 15))
+
+    ok, text = _run(["agent-browser", "eval", "document.body.innerText"], timeout=10)
+    if ok and text and len(text) > 50:
+        return text
+
+    # Fallback: get text
+    ok, text = _run(["agent-browser", "get", "text"], timeout=10)
+    if ok and text:
+        return text
+
+    return ""
+
+
+def _screenshot(url: str, output: str) -> bool:
+    """Screenshot via agent-browser."""
+    _run(["agent-browser", "close"], timeout=5)
+    time.sleep(1)
+    ok, _ = _run(["agent-browser", "open", url], timeout=15)
+    if not ok:
+        return False
+    _run(["agent-browser", "wait", "3000"], timeout=10)
+    # Wake display
+    _run(["caffeinate", "-u", "-t", "2"], timeout=5)
+    ok, _ = _run(["agent-browser", "screenshot", output], timeout=10)
+    return ok
+
+
+def fetch_url(url: str) -> dict:
+    """Fetch URL content through fallback chain. Returns dict with text, method, url."""
+    # Layer 1: defuddle (fast, clean markdown)
+    text = _defuddle(url)
+    if text:
+        return {"success": True, "text": text, "method": "defuddle", "url": url}
+
+    # Layer 2: agent-browser eval (JS-rendered SPAs)
+    text = _agent_browser_eval(url)
+    if text:
+        return {"success": True, "text": text, "method": "agent-browser", "url": url}
+
+    return {"success": False, "text": "", "method": "none", "url": url,
+            "error": "All extraction methods failed"}
+
+
+def search(query: str, deep: bool = False) -> dict:
+    """Web search via Perplexity."""
+    try:
+        from metabolon.organelles.chemotaxis_engine import ask, recall
+        fn = ask if deep else recall
+        result = fn(query)
+        return {"success": True, "text": result, "method": "ask" if deep else "search"}
+    except Exception as e:
+        return {"success": False, "text": "", "error": str(e)}
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Web content extraction")
+    parser.add_argument("target", nargs="?", help="URL to fetch or search query")
+    parser.add_argument("--search", "-s", action="store_true", help="Search mode")
+    parser.add_argument("--deep", "-d", action="store_true", help="Deep search (thorough)")
+    parser.add_argument("--screenshot", action="store_true", help="Screenshot mode")
+    parser.add_argument("--output", "-o", default="", help="Output path for screenshot")
+    parser.add_argument("--json", action="store_true", help="JSON output")
+    args = parser.parse_args()
+
+    if not args.target:
+        parser.print_help()
+        sys.exit(1)
+
+    if args.search:
+        result = search(args.target, deep=args.deep)
+    elif args.screenshot:
+        output = args.output or f"{__import__('os').path.expanduser('~/tmp')}/screenshot.png"
+        ok = _screenshot(args.target, output)
+        result = {"success": ok, "path": output, "url": args.target}
+    else:
+        result = fetch_url(args.target)
+
+    if args.json:
+        print(json.dumps(result, ensure_ascii=False))
+    else:
+        if result.get("success"):
+            print(result.get("text") or result.get("path", ""))
+        else:
+            print(f"Error: {result.get('error', 'extraction failed')}", file=sys.stderr)
+            sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()
