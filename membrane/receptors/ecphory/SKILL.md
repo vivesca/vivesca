@@ -29,7 +29,7 @@ The organism has four stores with distinct memory profiles:
 |-------|-------------|--------|----------|
 | `anam search` | Episodic (raw session transcripts) | `anam search "<pattern>" --days N` | "we talked about X", "I entered Y", unpersisted session data |
 | `histone_search` | Episodic + semantic hybrid | MCP tool | Named facts from sessions that were explicitly saved to oghma |
-| `cerno` / vault | Semantic | `cerno "<query>"` | Stable reference knowledge, vault notes, research |
+| `receptor-scan` / vault | Semantic | `receptor-scan "<query>"` | Stable reference knowledge, vault notes, research |
 | `oghma` | Semantic structured | `oghma search "<query>"` | Categorised memory objects with metadata |
 
 ## The Retrieval Protocol
@@ -61,7 +61,7 @@ anam search "<keyword variants>" --days 7
 anam search "<keyword variants>" --days 30
 
 # Semantic primary
-cerno "<query>"
+receptor-scan "<query>"
 # or
 oghma search "<query>" --mode hybrid
 ```
@@ -78,7 +78,7 @@ Semantic miss → try histone_search, then anam (last 14 days)
 Explicit fan-out order:
 1. anam (episodic, unpersisted)
 2. histone_search (persisted session memory)
-3. cerno / vault grep (semantic, stable)
+3. receptor-scan / vault grep (semantic, stable)
 4. oghma (structured semantic)
 
 ### Step 4 — Synthesise

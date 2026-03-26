@@ -7,8 +7,11 @@ Credentials: PERPLEXITY_API_KEY env var.
 import json
 import os
 import urllib.request
+from datetime import datetime, timezone
+from pathlib import Path
 
 _API_URL = "https://api.perplexity.ai/chat/completions"
+_LOG_PATH = Path.home() / "germline" / "loci" / "signals" / "chemotaxis.jsonl"
 _MODELS = {
     "search": "sonar",
     "ask": "sonar-pro",
@@ -60,6 +63,18 @@ def _query(model: str, query: str, timeout: int = 300) -> str:
     citations = result.get("citations", [])
     if citations:
         content += "\n\nSources:\n" + "\n".join(f"- {c}" for c in citations)
+
+    # Log search for sensorium
+    try:
+        _LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
+        with open(_LOG_PATH, "a") as f:
+            f.write(json.dumps({
+                "ts": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+                "model": model,
+                "query": query,
+            }) + "\n")
+    except OSError:
+        pass
 
     return content
 

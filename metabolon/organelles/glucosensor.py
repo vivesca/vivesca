@@ -1,15 +1,30 @@
 """glucosensor — OpenRouter energy currency sensor (glucosensor = glucose level sensor)."""
 
+import configparser
 import json
 import os
 import subprocess
 import sys
 import urllib.request
+from pathlib import Path
 from urllib.error import HTTPError, URLError
 
 KEYCHAIN_SERVICE = "openrouter-api-key"
 KEYCHAIN_ACCOUNT = "openrouter"
-LOW_CREDITS_THRESHOLD = 5.0
+
+_CONF_PATH = Path(__file__).with_suffix(".conf")
+_DEFAULTS = {"thresholds": {"low_credits_threshold": "5.0"}}
+
+
+def _load_conf() -> configparser.ConfigParser:
+    cfg = configparser.ConfigParser()
+    cfg.read_dict(_DEFAULTS)
+    if _CONF_PATH.exists():
+        cfg.read(_CONF_PATH)
+    return cfg
+
+
+LOW_CREDITS_THRESHOLD = _load_conf().getfloat("thresholds", "low_credits_threshold")
 
 
 def _base_url() -> str:

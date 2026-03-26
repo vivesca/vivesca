@@ -7,6 +7,7 @@ Saves ~500ms per prompt by eliminating process startup overhead.
 Each module runs in try/except for fault isolation.
 """
 
+import configparser
 import json
 import math
 import os
@@ -28,6 +29,25 @@ HKT = timezone(timedelta(hours=8))
 
 # Repo root: hooks → claude → vivesca
 _VIVESCA_ROOT = Path(__file__).resolve().parent.parent.parent
+
+# ── conf: signal transduction thresholds ──────────────
+_SYNAPSE_CONF = configparser.ConfigParser()
+_SYNAPSE_CONF.read(_VIVESCA_ROOT / "germline" / "synapse.conf")
+
+
+def _sconf_float(section, key, default):
+    try:
+        return float(_SYNAPSE_CONF[section][key])
+    except (KeyError, ValueError):
+        return default
+
+
+def _sconf_int(section, key, default):
+    try:
+        return int(_SYNAPSE_CONF[section][key])
+    except (KeyError, ValueError):
+        return default
+
 
 sys.path.insert(0, str(HOOKS_DIR))
 
@@ -409,7 +429,7 @@ MIT_STANDALONE = [
     r"\bcargo (build|test|run|check)\b",
     r"\bwrite.{0,15}(in rust|in python|using clap|using ureq)\b",
 ]
-MIT_THRESHOLD = 3
+MIT_THRESHOLD = _sconf_int("mitogen", "mit_threshold", 3)
 
 
 def _mit_is_coding(prompt):
@@ -550,7 +570,7 @@ def mod_circaseptan(data):
 # ── calorimetry: respirometry autolog ──────────────────────
 
 CAL_STATE = HOME / ".local/share/respirometry/autolog-state.json"
-CAL_INTERVAL = 1800
+CAL_INTERVAL = _sconf_int("calorimetry", "cal_interval", 1800)
 
 
 def mod_calorimetry(data):
@@ -633,9 +653,9 @@ def mod_phenotype(data):
 
 ASSOC_REF = NOTES_DIR / "Reference"
 ASSOC_DEB = HOME / ".claude" / "retrieval-hook-state.json"
-ASSOC_DEB_SEC = 300
-ASSOC_TOP_K = 3
-ASSOC_MIN = 1.5
+ASSOC_DEB_SEC = _sconf_int("association", "debounce_seconds", 300)
+ASSOC_TOP_K = _sconf_int("association", "top_k", 3)
+ASSOC_MIN = _sconf_float("association", "min_score", 1.5)
 ASSOC_SKIP = {"knowledge-structure.md", ".obsidian", ".DS_Store"}
 ASSOC_STOP = {
     "the",

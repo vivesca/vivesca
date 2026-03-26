@@ -14,7 +14,7 @@ def _build_receptor_catalog() -> dict[str, type]:
     from metabolon.metabolism.substrates.respiration import RespirationSubstrate
     from metabolon.metabolism.substrates.spending import SpendingSubstrate
     from metabolon.metabolism.substrates.tools import PhenotypeSubstrate
-    from metabolon.metabolism.substrates.anam_scan import AnamScanSubstrate
+    from metabolon.metabolism.substrates.mismatch_repair import AnamScanSubstrate
 
     return {
         "phenotype": PhenotypeSubstrate,
@@ -24,7 +24,7 @@ def _build_receptor_catalog() -> dict[str, type]:
         "hygiene": HygieneSubstrate,
         "spending": SpendingSubstrate,
         "operons": OperonSubstrate,
-        "anam_scan": AnamScanSubstrate,
+        "mismatch_repair": AnamScanSubstrate,
     }
 
 

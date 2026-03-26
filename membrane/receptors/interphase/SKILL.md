@@ -58,7 +58,7 @@ Capture to today's daily note. One or two exchanges max. Get it out of his head,
 
 ### 5. Tomorrow Prep
 
-Run in parallel: `fasti` (calendar), `moneo ls` (due items), Praxis.md (items with tomorrow's date or overdue), Schedule.md (recurring commitments).
+Run in parallel: `fasti` (calendar), `checkpoint ls` (due items), Praxis.md (items with tomorrow's date or overdue), Schedule.md (recurring commitments).
 
 If meetings tomorrow: one-line prep note for each.
 

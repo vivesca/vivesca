@@ -16,7 +16,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-ANAM_SCAN = Path.home() / "germline" / "effectors" / "anam-scan"
+MISMATCH_REPAIR = Path.home() / "germline" / "effectors" / "mismatch-repair"
 
 
 def _run(
@@ -49,7 +49,7 @@ class AnamScanSubstrate:
     detects what the organism should remember, forget, or build.
     """
 
-    name: str = "anam_scan"
+    name: str = "mismatch_repair"
 
     def sense(self, days: int = 7) -> list[dict]:
         """Pull transcript signals by running anam-scan --dry-run.
@@ -58,7 +58,7 @@ class AnamScanSubstrate:
         invoking LLM calls (those happen in act()).
         """
         result = _run(
-            [sys.executable, str(ANAM_SCAN), "--days", str(days), "--dry-run"],
+            [sys.executable, str(MISMATCH_REPAIR), "--days", str(days), "--dry-run"],
         )
         if result.returncode != 0:
             return [{"kind": "error", "message": result.stderr[:200]}]
@@ -136,12 +136,12 @@ class AnamScanSubstrate:
 
         if action == "weekly_synthesis":
             result = _run(
-                [sys.executable, str(ANAM_SCAN), "--weekly"],
+                [sys.executable, str(MISMATCH_REPAIR), "--weekly"],
                 timeout=300,
             )
         else:
             result = _run(
-                [sys.executable, str(ANAM_SCAN), "--days", "1"],
+                [sys.executable, str(MISMATCH_REPAIR), "--days", "1"],
                 timeout=300,
             )
 

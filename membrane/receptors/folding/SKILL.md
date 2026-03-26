@@ -38,7 +38,7 @@ Quick checks before any code:
 - **Data governance:** Can this code leave the machine? No secrets, `.env`, proprietary data in commits.
 - **Parallel sessions?** If other work is in flight → `lucus new <branch>` first.
 - **Naming?** For new tools/CLIs: name before code. Check registry availability.
-- **Solutions KB:** `cerno "<topic>"` — catches gotchas the plan may have missed.
+- **Solutions KB:** `receptor-scan "<topic>"` — catches gotchas the plan may have missed.
 
 ## Weight Class
 

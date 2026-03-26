@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""redarguo — one-line adversarial challenge via OpenRouter."""
+"""complement — one-line adversarial challenge via OpenRouter."""
 
 import os
 import sys
@@ -28,7 +28,7 @@ def main():
         claim = sys.stdin.read().strip()
 
     if not claim:
-        print("Usage: redarguo <claim>  or  echo <claim> | redarguo", file=sys.stderr)
+        print("Usage: complement <claim>  or  echo <claim> | redarguo", file=sys.stderr)
         sys.exit(1)
 
     prompt = PROMPT.format(claim=claim)
@@ -36,11 +36,11 @@ def main():
     try:
         response = query("gemini-flash", prompt, timeout=30)
     except Exception as e:
-        print(f"🔴 redarguo failed: {e}", file=sys.stderr)
+        print(f"🔴 complement failed: {e}", file=sys.stderr)
         sys.exit(1)
 
     if not response:
-        print("🔴 redarguo failed to respond", file=sys.stderr)
+        print("🔴 complement failed to respond", file=sys.stderr)
         sys.exit(1)
 
     if "no strong counter" in response.lower() or "holds up" in response.lower():

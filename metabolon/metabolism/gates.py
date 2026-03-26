@@ -2,10 +2,16 @@
 
 from __future__ import annotations
 
+import configparser
 from dataclasses import dataclass
+from pathlib import Path
 
-MIN_WORDS = 5
-MAX_WORDS = 200
+_CONF_PATH = Path(__file__).parent / "gates.conf"
+_conf = configparser.ConfigParser()
+_conf.read(_CONF_PATH)
+
+MIN_WORDS = _conf.getint("reflex", "min_words", fallback=5)
+MAX_WORDS = _conf.getint("reflex", "max_words", fallback=200)
 
 
 @dataclass

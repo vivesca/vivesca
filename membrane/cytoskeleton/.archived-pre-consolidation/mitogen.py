@@ -105,7 +105,7 @@ def main():
     else:
         print(
             "[mitogen] Coding task detected — use /nucleation as the on-ramp "
-            "(cerno → CE plan → delegate to Codex/Gemini). "
+            "(receptor-scan → CE plan → delegate to Codex/Gemini). "
             "Don't implement in-session unless trivial (<50 lines, single file)."
         )
 

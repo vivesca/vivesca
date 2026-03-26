@@ -404,7 +404,7 @@ def guard_grep(data):
     path = data.get("tool_input", {}).get("path", "")
     if "/notes" in path or "notes/" in path:
         allow_msg(
-            'Vault search detected. Consider: `cerno "<query>"` for semantic lookups. '
+            'Vault search detected. Consider: `receptor-scan "<query>"` for semantic lookups. '
             "Grep is fine for exact strings, wikilinks, or file paths."
         )
 
@@ -478,6 +478,21 @@ def guard_write(data):
                 "Edit contains checked items. REMOVE from Praxis.md and APPEND to ~/epigenome/chromatin/Praxis Archive.md.",
                 "write-guard",
             )
+
+    # Effector naming gate: new files in effectors/ must be cell biology names
+    effectors_dir = str(HOME / "germline" / "effectors") + "/"
+    if fp.startswith(effectors_dir) and "/" not in fp[len(effectors_dir):]:
+        name = fp[len(effectors_dir):].rstrip("/")
+        if name and not name.startswith("."):
+            whitelist_path = _VIVESCA_ROOT / "germline" / "effector-names.txt"
+            if whitelist_path.exists():
+                approved = {n.strip() for n in whitelist_path.read_text().splitlines() if n.strip() and not n.startswith("#")}
+                if name not in approved:
+                    deny(
+                        f"New effector '{name}' not in approved names (effector-names.txt). "
+                        f"All effector names must be cell biology. Add to whitelist after naming review.",
+                        "write-guard",
+                    )
 
     # Past daily notes immutable
     tool_name = data.get("tool", "")

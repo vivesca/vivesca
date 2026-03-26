@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import configparser
 import json
 import os
 import re
@@ -9,14 +10,32 @@ from typing import Any
 
 from metabolon.organelles.endocytosis_rss.config import EndocytosisConfig
 
-DEFAULT_THEME_COUNT = 8
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 
-# Score thresholds for weekly digest secretion.
-# Transcytose (★): cargo crosses the membrane and reaches the client surface.
-WEEKLY_TRANSCYTOSE_THRESHOLD = 7
-# Store: cargo retained in the endosome for later reference.
-WEEKLY_STORE_THRESHOLD = 5
+# ---------------------------------------------------------------------------
+# Signal transduction: load thresholds from conf, fall back to hardcoded defaults.
+# Conf file: ~/germline/endocytosis.conf
+# Signal source for LLM review: ~/.cache/lustro/engagement.jsonl
+# ---------------------------------------------------------------------------
+
+_ENDOCYTOSIS_CONF = Path.home() / "germline" / "endocytosis.conf"
+
+def _load_thresholds() -> tuple[int, int, int]:
+    """Read thresholds from endocytosis.conf; return hardcoded defaults if absent."""
+    transcytose_default = 7
+    store_default = 5
+    theme_count_default = 8
+    if not _ENDOCYTOSIS_CONF.exists():
+        return transcytose_default, store_default, theme_count_default
+    cp = configparser.ConfigParser()
+    cp.read(_ENDOCYTOSIS_CONF)
+    sec = "thresholds"
+    transcytose = cp.getint(sec, "weekly_transcytose_threshold", fallback=transcytose_default)
+    store = cp.getint(sec, "weekly_store_threshold", fallback=store_default)
+    theme_count = cp.getint(sec, "default_theme_count", fallback=theme_count_default)
+    return transcytose, store, theme_count
+
+WEEKLY_TRANSCYTOSE_THRESHOLD, WEEKLY_STORE_THRESHOLD, DEFAULT_THEME_COUNT = _load_thresholds()
 
 
 def _resolve_month(month: str | None) -> str:

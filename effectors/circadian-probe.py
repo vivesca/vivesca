@@ -11,6 +11,7 @@ via deltos (Telegram). Designed to feed into /zeitgeber.
 Runs as a LaunchAgent: com.terry.circadian-probe
 """
 
+import configparser
 import re
 import shutil
 import subprocess
@@ -23,9 +24,15 @@ VAULT = Path.home() / "code" / "epigenome" / "chromatin"
 MEMORY_DIR = Path.home() / ".claude" / "projects" / "-Users-terry" / "memory"
 PRAXIS_FILE = VAULT / "Praxis.md"
 PROSPECTIVE_FILE = MEMORY_DIR / "prospective.md"
-STALE_DAYS = 30
-MAX_STALE_REPORT = 10
-MAX_ORPHAN_REPORT = 10
+
+_CONF_PATH = Path(__file__).parent / "circadian-probe.conf"
+_conf = configparser.ConfigParser()
+_conf.read(_CONF_PATH)
+
+STALE_DAYS = _conf.getint("scan", "stale_days", fallback=30)
+MAX_STALE_REPORT = _conf.getint("scan", "max_stale_report", fallback=10)
+MAX_ORPHAN_REPORT = _conf.getint("scan", "max_orphan_report", fallback=10)
+_PROXIMITY_WINDOW_DAYS = _conf.getint("scan", "proximity_window_days", fallback=3)
 
 # Directories to exclude from stale scan
 EXCLUDE_DIRS = {
@@ -170,7 +177,7 @@ def scan_prospective_memory() -> list[str]:
                 month = month_map.get(month_str)
                 if month:
                     trigger_date = date(today.year, month, day)
-                    if abs((trigger_date - today).days) <= 3:
+                    if abs((trigger_date - today).days) <= _PROXIMITY_WINDOW_DAYS:
                         then_match = re.search(r"→ THEN:\s*(.+?)(?:\(added:|\Z)", line)
                         if then_match:
                             action = then_match.group(1).strip()

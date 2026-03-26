@@ -83,8 +83,8 @@ You already have ~/CLAUDE.md (How to Think, meta-rules) and MEMORY.md loaded. Us
 4. **Wait** for all agents. Process results.
 5. **Update** ~/tmp/pulse-manifest.md manifest. Route: self-sufficient -> archive from TODO. Needs Terry -> add to Praxis.md with `agent:terry`.
 6. **Post to ACTA** for any results that need inter-skill coordination or Terry's attention:
-   - `acta post "Brief: [title] ready at [path]" --from pulse --to terry --severity info`
-   - `acta post "Action needed: [description]" --from pulse --to terry --severity action`
+   - `efferens post "Brief: [title] ready at [path]" --from pulse --to terry --severity info`
+   - `efferens post "Action needed: [description]" --from pulse --to terry --severity action`
    Use the CLI — it is at vivesca/effectors/efferens. Post sparingly: only actionable items or significant deliverables.
 7. **Observe** (append to manifest): which north stars got zero coverage? Any external signals? Any patterns?
 8. **Exit.** Output summary and stop. Do NOT run another wave.
@@ -493,13 +493,13 @@ def cross_model_review(manifest_path: Path):
 
 
 def post_efferens_summary(total_waves: int, stop_reason: str):
-    """Post a summary to ACTA board so Terry sees results in his inbox."""
+    """Post a summary to efferens board so Terry sees results in his inbox."""
     try:
         from metabolon.cytosol import VIVESCA_ROOT
 
-        from metabolon import symbiont as acta  # TODO: rename acta module
+        from metabolon import symbiont as efferens
 
-        acta.post(
+        efferens.post(
             f"Pulse completed {total_waves} wave(s). Stop reason: {stop_reason}. "
             f"Check ~/epigenome/chromatin/Pulse Reports/ for details.",
             sender="pulse",

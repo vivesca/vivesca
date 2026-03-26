@@ -2,11 +2,27 @@
 
 from __future__ import annotations
 
+import configparser
 from dataclasses import dataclass
+from pathlib import Path
 
 from pydantic import BaseModel
 
 from metabolon.metabolism.gates import GateResult, reflex_check
+
+_CONF_PATH = Path(__file__).with_suffix(".conf")
+_DEFAULTS = {"adaptation": {"max_adaptation_cycles": "3"}}
+
+
+def _load_conf() -> configparser.ConfigParser:
+    cfg = configparser.ConfigParser()
+    cfg.read_dict(_DEFAULTS)
+    if _CONF_PATH.exists():
+        cfg.read(_CONF_PATH)
+    return cfg
+
+
+_MAX_ADAPTATION_CYCLES = _load_conf().getint("adaptation", "max_adaptation_cycles")
 
 
 class ImmuneRequest(BaseModel):
@@ -47,9 +63,11 @@ async def _mutate(request: ImmuneRequest) -> str:
 
 async def immune_response(
     request: ImmuneRequest,
-    max_adaptation_cycles: int = 3,
+    max_adaptation_cycles: int | None = None,
 ) -> ImmuneResult:
     """Attempt targeted repair, retrying up to max_adaptation_cycles on gate failure."""
+    if max_adaptation_cycles is None:
+        max_adaptation_cycles = _MAX_ADAPTATION_CYCLES
     gate = GateResult(False, "no attempts made")
     for cycle in range(1, max_adaptation_cycles + 1):
         candidate_allele = await _mutate(request)

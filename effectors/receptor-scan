@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""km-ask — waterfall knowledge search.
+"""receptor-scan — waterfall knowledge search.
 
 QMD (authoritative vault) first, Oghma (conversation memory) fallback.
-Usage: km-ask <query>
+Usage: receptor-scan <query>
 
 Rewritten in Python to avoid bash-guard intercepting internal grep/echo.
 """
@@ -23,7 +23,7 @@ def run(cmd: list[str], timeout: int = 15) -> str:
 
 def main():
     if len(sys.argv) < 2:
-        print("Usage: km-ask <query>", file=sys.stderr)
+        print("Usage: receptor-scan <query>", file=sys.stderr)
         sys.exit(1)
 
     query = " ".join(sys.argv[1:])

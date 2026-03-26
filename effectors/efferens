@@ -2,14 +2,14 @@
 """efferens CLI — shared notice board for skills and humans.
 
 Usage:
-    acta                        # list all (same as acta list)
-    acta list [--to X]          # list messages, optionally filtered
-    acta post "msg" [opts]      # post a message
-    acta clear <id>             # delete one message
-    acta clear --all            # delete all messages
-    acta archive <id>           # move one to .archive/
-    acta archive --all          # archive all messages
-    acta count                  # just the number
+    efferens                        # list all (same as efferens list)
+    efferens list [--to X]          # list messages, optionally filtered
+    efferens post "msg" [opts]      # post a message
+    efferens clear <id>             # delete one message
+    efferens clear --all            # delete all messages
+    efferens archive <id>           # move one to .archive/
+    efferens archive --all          # archive all messages
+    efferens count                  # just the number
 """
 
 import argparse

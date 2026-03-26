@@ -23,7 +23,7 @@ Glycolysis is anaerobic: it runs without oxygen (the symbiont). Less efficient l
 
 Grep the codebase for:
 ```
-synthesize | _acquire_catalyst | llm.query | max20 | anthropic | _llm_query
+synthesize | _acquire_catalyst | llm.query | channel | anthropic | _llm_query
 ```
 
 ### Step 2 — Classify each call site

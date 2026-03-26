@@ -2,14 +2,14 @@
 # /// script
 # requires-python = ">=3.11"
 # ///
-"""propinqua — ambient related-notes surfacer.
+"""chemotaxis-local — ambient related-notes surfacer.
 
 Reads a vault note, queries qmd for related content, and either:
   - appends a > [!related] callout to the note
   - prints to stdout (--dry-run)
 
 Usage:
-  propinqua <note-path> [--dry-run] [--limit N]
+  chemotaxis-local <note-path> [--dry-run] [--limit N]
 """
 
 from __future__ import annotations

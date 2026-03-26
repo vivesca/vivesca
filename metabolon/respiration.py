@@ -28,6 +28,7 @@ LOG_DIR = Path.home() / "logs"
 EVENT_LOG = LOG_DIR / "vivesca-events.jsonl"
 _LEGACY_EVENT_LOG = LOG_DIR / "polarization-events.jsonl"
 CONF_PATH = VIVESCA_ROOT / "respiration.conf"
+METHYLATION_FILE = VIVESCA_ROOT / "methylation.jsonl"
 DAILY_STATE_FILE = Path.home() / "tmp" / "respiration-daily.json"
 SKIP_UNTIL_FILE = Path.home() / "tmp" / ".respiration-skip-until"
 INTERACTIVE_PATTERN_FILE = Path.home() / "tmp" / ".respiration-pattern.json"
@@ -221,16 +222,22 @@ def assess_vital_capacity() -> tuple[bool, str]:
 
     log(f"Budget: weekly={weekly}%, sonnet={sonnet}%")
 
+    genome = respiratory_genome()
+    aerobic_ceiling = genome.get("aerobic_ceiling", AEROBIC_CEILING)
+    sonnet_ceiling = genome.get("sonnet_ceiling", SONNET_CEILING)
+    sympathetic_reserve = genome.get("sympathetic_reserve", SYMPATHETIC_RESERVE)
+    tachycardia_threshold = genome.get("tachycardia_threshold", TACHYCARDIA_THRESHOLD)
+
     # Oxygen debt: relax thresholds when budget expires soon
     hours = _hours_to_reset(usage)
     debt = oxygen_debt(hours) if hours is not None else 0.0
-    effective_ceiling = AEROBIC_CEILING + debt * 10  # 80% → 90% under full debt
-    effective_reserve = SYMPATHETIC_RESERVE * (1 - 0.7 * debt)  # 15% → 4.5%
+    effective_ceiling = aerobic_ceiling + debt * 10  # 80% → 90% under full debt
+    effective_reserve = sympathetic_reserve * (1 - 0.7 * debt)  # 15% → 4.5%
 
     if weekly > effective_ceiling:
         return False, f"weekly_{weekly}%_exceeds_ceiling_{effective_ceiling:.0f}%"
-    if sonnet > SONNET_CEILING:
-        return False, f"sonnet_{sonnet}%_exceeds_{SONNET_CEILING}%"
+    if sonnet > sonnet_ceiling:
+        return False, f"sonnet_{sonnet}%_exceeds_{sonnet_ceiling}%"
 
     weekly_remaining = 100 - weekly
     if weekly_remaining < effective_reserve:
@@ -239,7 +246,7 @@ def assess_vital_capacity() -> tuple[bool, str]:
             f"weekly_remaining_{weekly_remaining}%_below_reserve_{effective_reserve:.0f}%",
         )
 
-    if weekly > TACHYCARDIA_THRESHOLD or sonnet > TACHYCARDIA_THRESHOLD:
+    if weekly > tachycardia_threshold or sonnet > tachycardia_threshold:
         emit_distress_signal(f"Respiration: budget climbing -- weekly={weekly}%, sonnet={sonnet}%")
 
     # Pacing gate — are we burning faster than the week can sustain?
@@ -457,7 +464,8 @@ def measured_cost_per_wave() -> float:
     except Exception:
         pass
 
-    return DEFAULT_COST_PER_WAVE
+    genome = respiratory_genome()
+    return genome.get("default_cost_per_wave", DEFAULT_COST_PER_WAVE)
 
 
 # ---------------------------------------------------------------------------
@@ -491,10 +499,12 @@ def induce_apnea(
     sustainable_daily: float,
 ):
     """Induce apnea — calculate when the next breath (wave) is permitted."""
+    genome = respiratory_genome()
+    max_daily_waves = genome.get("max_daily_waves", MAX_DAILY_WAVES)
     now = datetime.datetime.now()
     midnight = now.replace(hour=0, minute=0, second=0) + datetime.timedelta(days=1)
 
-    if waves_today >= MAX_DAILY_WAVES:
+    if waves_today >= max_daily_waves:
         SKIP_UNTIL_FILE.write_text(midnight.isoformat())
         record_event("skip_set", until=midnight.isoformat(), reason="daily_cap")
         return
@@ -564,10 +574,14 @@ def assess_pacing() -> tuple[bool, str]:
 
     days_remaining = max((resets_at - now).total_seconds() / 86400, 0.25)
 
+    genome = respiratory_genome()
+    sympathetic_reserve = genome.get("sympathetic_reserve", SYMPATHETIC_RESERVE)
+    max_daily_waves = genome.get("max_daily_waves", MAX_DAILY_WAVES)
+
     # Oxygen debt: reduce reserve and boost share when budget expires soon
     hours = days_remaining * 24
     debt = oxygen_debt(hours)
-    effective_reserve = SYMPATHETIC_RESERVE * (1 - 0.7 * debt)
+    effective_reserve = sympathetic_reserve * (1 - 0.7 * debt)
 
     remaining_budget = 100 - weekly - effective_reserve
     sustainable_daily = remaining_budget / days_remaining
@@ -606,9 +620,9 @@ def assess_pacing() -> tuple[bool, str]:
             f"(share={dynamic_share:.0%}, cost={cost_per_wave:.2f}/wave)"
         )
 
-    if waves_today >= MAX_DAILY_WAVES:
+    if waves_today >= max_daily_waves:
         induce_apnea(daily_budget, cost_per_wave, waves_today, sustainable_daily)
-        return False, f"daily_cap: {waves_today} >= {MAX_DAILY_WAVES}"
+        return False, f"daily_cap: {waves_today} >= {max_daily_waves}"
 
     return True, (
         f"pacing_ok: {waves_today} waves (eff ~{estimated_burn:.1f}%), "
@@ -632,8 +646,23 @@ def respiratory_genome() -> dict:
     return {}
 
 
+ROLLBACK_DIR = Path.home() / "tmp" / "conf-rollback"
+
+
+def _snapshot_conf(path: Path):
+    """Snapshot a conf file before modification — demethylation safety net."""
+    ROLLBACK_DIR.mkdir(parents=True, exist_ok=True)
+    ts = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+    snapshot = ROLLBACK_DIR / f"{path.name}.{ts}"
+    try:
+        snapshot.write_text(path.read_text())
+    except Exception:
+        pass
+
+
 def _write_genome(genome: dict):
-    """Write updated genome back to conf."""
+    """Write updated genome back to conf, with rollback snapshot."""
+    _snapshot_conf(CONF_PATH)
     CONF_PATH.write_text(json.dumps(genome, indent=2) + "\n")
 
 
@@ -716,24 +745,156 @@ Stop reason: {stop_reason}
 
 ## Rules
 - Output ONLY a JSON object with keys you want to change. Omit unchanged keys.
-- Adjustable keys: infra_pct, wave_model, saturation_patience, focus_star, basal_rate
-- Bounds: infra_pct [0,50], basal_rate [0.05,0.5], saturation_patience [1,5], wave_model [haiku,sonnet,opus]
+- Adjustable keys (haiku): infra_pct, focus_star, default_cost_per_wave, saturation_penalty
+- Adjustable keys (sonnet adds): wave_model, saturation_patience, basal_rate, min_basal_rate, tachycardia_threshold
+- Adjustable keys (opus adds): aerobic_ceiling, sonnet_ceiling, sympathetic_reserve, max_daily_waves, bounds
+- Bounds: infra_pct [0,50], basal_rate [0.05,0.5], min_basal_rate [0.05,0.4], saturation_patience [1,5], wave_model [haiku,sonnet,opus], tachycardia_threshold [40,80], aerobic_ceiling [60,95], sonnet_ceiling [70,98], sympathetic_reserve [5,30], max_daily_waves [5,30], default_cost_per_wave [0.1,5.0], saturation_penalty [1.0,3.0]
 - focus_star: null (balanced) or a specific north star name to prioritize
 - Think about: Is budget being wasted? Is the organism producing useful output? Should it shift focus?
 - If things look fine, output {{}}
+- CRYSTALLIZATION: If you notice a pattern in the recent events (e.g. "budget always wastes >15% near reset", "infra_pct gets lowered every cycle"), add a "crystallize" key with a one-line description of the formula that should replace this recurring judgment. Example: {{"infra_pct": 15, "crystallize": "lower infra_pct when yield >20 files/day"}}
 """
 
 
-def adapt(waves_run: int, saturated: int, failed: int, stop_reason: str):
-    """Post-cycle LLM review — adjust respiratory parameters based on outcomes."""
+_REVIEW_STATE_FILE = Path.home() / "tmp" / ".respiration-review-state.json"
+
+SONNET_SUFFIX = """
+
+## Sonnet-tier review (daily)
+You are the daily structural reviewer, independent of haiku's per-cycle adjustments.
+Review from raw data — do NOT assume haiku's recent adjustments were correct.
+In addition to parameter adjustments:
+1. Review the crystallization log below for patterns worth codifying as formulas
+2. Look for structural issues: wrong ramp curves, missing sensors, misaligned thresholds
+3. Check the adaptation history — is haiku making good or bad adjustments?
+4. Add "structural" key with observations (list of strings) if you see anything
+
+## Adaptation history (haiku's recent adjustments)
+{adapt_history}
+
+## Crystallization log
+{crystal_log}
+
+## All organism conf files (review any that need adjustment)
+{organism_confs}
+"""
+
+OPUS_SUFFIX = """
+
+## Opus-tier review (weekly)
+You are the weekly architectural reviewer. You see what haiku and sonnet cannot.
+Review from raw data — do NOT assume lower tiers' adjustments were correct.
+Your job is deeper:
+1. Are the FORMULAS themselves right? (e.g., is oxygen_debt's 36h→6h ramp the right curve?)
+2. Are there missing sensors? (what should the organism measure that it doesn't?)
+3. Are the bounds in the conf appropriate?
+4. Review the full crystallization log — which candidates should become deterministic rules?
+5. **Naming audit**: scan effector names, conf names, module names for non-cell-biology violations. ALL names must be cell biology. Latin, English, or acronyms that aren't cell bio = violation. Flag in "structural".
+6. **Stale reference audit**: check for broken symlinks, paths referencing old names, dead imports.
+7. Add "architectural" key with recommendations (list of strings) for code changes
+8. Add "crystallize" for any pattern you'd promote to a formula
+9. Add "structural" for naming violations, stale references, and anything sonnet-level
+
+## Adaptation history (all tiers)
+{adapt_history}
+
+## Crystallization log (full)
+{crystal_log}
+
+## Sonnet structural observations (if any)
+{sonnet_observations}
+
+## All organism conf files (review any, adjust any)
+{organism_confs}
+
+Output format: for respiration.conf adjustments, use the normal JSON format.
+For OTHER conf files, add an "organism_confs" key with a dict of {{filename: {{key: value}}}} changes.
+Example: {{"infra_pct": 20, "organism_confs": {{"endocytosis.conf": {{"weekly_transcytose_threshold": "5"}}, "synapse.conf": {{"mit_threshold": "4"}}}}}}
+"""
+
+
+def _load_review_state() -> dict:
+    """Load review state — tracks when each tier last ran."""
+    try:
+        return json.loads(_REVIEW_STATE_FILE.read_text())
+    except (FileNotFoundError, json.JSONDecodeError):
+        return {}
+
+
+def _save_review_state(state: dict):
+    _REVIEW_STATE_FILE.write_text(json.dumps(state))
+
+
+def _detect_ligand() -> str | None:
+    """Detect signal ligands that trigger higher-tier review regardless of schedule.
+
+    Returns tier name if a ligand is detected, None for clock-only.
+    """
+    try:
+        lines = EVENT_LOG.read_text().strip().splitlines()[-50:]
+    except Exception:
+        return None
+
+    recent = [l for l in lines]
+    circuit_breakers = sum(1 for l in recent if '"circuit_breaker"' in l)
+    saturations = sum(1 for l in recent if '"saturation_idle"' in l)
+    rejections = sum(1 for l in recent if '"adapt_rejected"' in l)
+
+    # Opus ligand: circuit breaker or repeated rejections (haiku trying to touch what it can't)
+    if circuit_breakers >= 1 or rejections >= 3:
+        return "opus"
+    # Sonnet ligand: repeated saturation (something structural is wrong)
+    if saturations >= 2:
+        return "sonnet"
+    return None
+
+
+def _select_review_tier() -> str:
+    """Select review tier: ligand-triggered (signal) OR clock-triggered (schedule).
+
+    Ligand binding overrides the clock — specific signals escalate to higher tiers.
+    Clock: haiku every cycle, sonnet daily, opus weekly.
+    """
+    # Ligand binding: specific signals trigger higher tiers
+    ligand = _detect_ligand()
+    if ligand:
+        record_event("ligand_detected", tier=ligand)
+        return ligand
+
+    # Clock-triggered fallback
+    state = _load_review_state()
+    now = datetime.datetime.now()
+
+    opus_last = state.get("opus_last", "")
+    sonnet_last = state.get("sonnet_last", "")
+
+    try:
+        if not opus_last or (now - datetime.datetime.fromisoformat(opus_last)).total_seconds() > 604800:
+            return "opus"
+    except ValueError:
+        return "opus"
+
+    try:
+        if not sonnet_last or (now - datetime.datetime.fromisoformat(sonnet_last)).total_seconds() > 86400:
+            return "sonnet"
+    except ValueError:
+        return "sonnet"
+
+    return "haiku"
+
+
+def _mark_review(tier: str):
+    state = _load_review_state()
+    state[f"{tier}_last"] = datetime.datetime.now().isoformat()
+    _save_review_state(state)
+
+
+def _gather_adapt_context(waves_run: int, saturated: int, failed: int, stop_reason: str) -> dict:
+    """Gather raw data for all review tiers — each tier sees the same ground truth."""
     genome = respiratory_genome()
     telemetry = _fetch_telemetry()
     hours = _hours_to_reset(telemetry)
-    weekly = telemetry.get("seven_day", {}).get("utilization", 0) if telemetry else 0
-    sonnet = telemetry.get("seven_day_sonnet", {}).get("utilization", 0) if telemetry else 0
-    yield_data = measure_yield()
 
-    # Gather recent events
     recent_lines = ""
     try:
         lines = EVENT_LOG.read_text().strip().splitlines()[-10:]
@@ -741,33 +902,132 @@ def adapt(waves_run: int, saturated: int, failed: int, stop_reason: str):
     except Exception:
         recent_lines = "(no events)"
 
+    # Adaptation history: what have previous adapt calls done?
+    adapt_history = ""
+    try:
+        all_lines = EVENT_LOG.read_text().strip().splitlines()
+        adapt_events = [l for l in all_lines[-200:] if '"adapt_applied"' in l or '"adapt_noop"' in l]
+        adapt_history = "\n".join(adapt_events[-20:]) or "(no history)"
+    except Exception:
+        adapt_history = "(no history)"
+
+    crystal_log = "(empty)"
+    crystal_file = METHYLATION_FILE
+    try:
+        crystal_log = crystal_file.read_text().strip() or "(empty)"
+    except FileNotFoundError:
+        pass
+
+    # Sonnet structural observations
+    sonnet_obs = ""
+    try:
+        all_lines = EVENT_LOG.read_text().strip().splitlines()
+        structural = [l for l in all_lines[-500:] if '"structural_observation"' in l]
+        sonnet_obs = "\n".join(structural[-10:]) or "(none)"
+    except Exception:
+        sonnet_obs = "(none)"
+
+    # Organism-wide conf scan (for sonnet/opus tiers)
+    org_confs = ""
+    try:
+        conf_files = sorted(VIVESCA_ROOT.rglob("*.conf"))
+        sections = []
+        for cf in conf_files:
+            if ".venv" in str(cf) or "__pycache__" in str(cf):
+                continue
+            content = cf.read_text().strip()
+            if content:
+                rel = cf.relative_to(VIVESCA_ROOT)
+                sections.append(f"### {rel}\n```\n{content[:500]}\n```")
+        org_confs = "\n\n".join(sections) or "(no conf files)"
+    except Exception:
+        org_confs = "(scan failed)"
+
+    return {
+        "genome": genome,
+        "telemetry": telemetry,
+        "hours": hours,
+        "weekly": telemetry.get("seven_day", {}).get("utilization", 0) if telemetry else 0,
+        "sonnet_util": telemetry.get("seven_day_sonnet", {}).get("utilization", 0) if telemetry else 0,
+        "yield_data": measure_yield(),
+        "recent_events": recent_lines,
+        "adapt_history": adapt_history,
+        "crystal_log": crystal_log,
+        "sonnet_observations": sonnet_obs,
+        "organism_confs": org_confs,
+        "waves_run": waves_run,
+        "saturated": saturated,
+        "failed": failed,
+        "stop_reason": stop_reason,
+    }
+
+
+def adapt(waves_run: int, saturated: int, failed: int, stop_reason: str):
+    """Post-cycle LLM review — three independent tiers.
+
+    haiku (every cycle): parameter tuning from raw state.
+    sonnet (daily): structural review + crystallization + haiku audit.
+    opus (weekly): architectural review + formula assessment + bounds check.
+
+    Each tier reviews raw data independently — not the tier below's output.
+    """
+    ctx = _gather_adapt_context(waves_run, saturated, failed, stop_reason)
+    genome = ctx["genome"]
+
+    # Base prompt — same raw data for all tiers
     prompt = ADAPT_PROMPT.format(
         conf_json=json.dumps({k: v for k, v in genome.items() if not k.startswith("_") and k != "bounds"}, indent=2),
-        weekly=weekly,
-        sonnet=sonnet,
-        hours_to_reset=hours or 0,
+        weekly=ctx["weekly"],
+        sonnet=ctx["sonnet_util"],
+        hours_to_reset=ctx["hours"] or 0,
         waves_run=waves_run,
         saturated=saturated,
         failed=failed,
         stop_reason=stop_reason,
-        yield_summary=yield_data["yield_summary"],
-        recent_events=recent_lines,
+        yield_summary=ctx["yield_data"]["yield_summary"],
+        recent_events=ctx["recent_events"],
     )
+
+    # Select tier and add tier-specific context
+    tier = _select_review_tier()
+    if tier == "opus":
+        prompt += OPUS_SUFFIX.format(
+            adapt_history=ctx["adapt_history"],
+            crystal_log=ctx["crystal_log"][-4000:],
+            sonnet_observations=ctx["sonnet_observations"],
+            organism_confs=ctx["organism_confs"],
+        )
+    elif tier == "sonnet":
+        prompt += SONNET_SUFFIX.format(
+            adapt_history=ctx["adapt_history"],
+            crystal_log=ctx["crystal_log"][-2000:],
+            organism_confs=ctx["organism_confs"],
+        )
+
+    # Route through conf-driven command — different models per tier
+    review_tiers = genome.get("review_tiers", {})
+    tier_conf = review_tiers.get(tier, {})
+    cmd_template = tier_conf.get("cmd", ["channel", tier, "-p"])
+    timeout = tier_conf.get("timeout", 60)
+
+    record_event("adapt_start", tier=tier, cmd=cmd_template[0])
 
     try:
         import shutil
-        channel = shutil.which("channel") or shutil.which("max20")
-        if not channel:
-            log("adapt: channel not found")
+        # Resolve first element to full path
+        binary = shutil.which(cmd_template[0])
+        if not binary:
+            log(f"adapt: {cmd_template[0]} not found")
             return
+        cmd = [binary] + cmd_template[1:] + [prompt]
         result = subprocess.run(
-            [channel, "haiku", "-p", prompt],
+            cmd,
             capture_output=True,
             text=True,
-            timeout=30,
+            timeout=timeout,
         )
         if result.returncode != 0:
-            log(f"adapt: haiku failed: {result.stderr.strip()[:100]}")
+            log(f"adapt: {tier} ({cmd_template[0]}) failed: {result.stderr.strip()[:100]}")
             return
 
         # Parse JSON from response (may be wrapped in markdown)
@@ -783,11 +1043,59 @@ def adapt(waves_run: int, saturated: int, failed: int, stop_reason: str):
             record_event("adapt_noop")
             return
 
-        # Apply bounded adjustments
+        # Crystallization: LLM spotted a recurring pattern worth codifying
+        crystal = adjustments.pop("crystallize", None)
+        structural = adjustments.pop("structural", None)
+        crystal_file = METHYLATION_FILE
+
+        if crystal:
+            record_event("crystallize_candidate", rule=crystal)
+            log(f"adapt: CRYSTALLIZE → {crystal}")
+            entry = {
+                "ts": datetime.datetime.now().isoformat(),
+                "type": "crystallize",
+                "candidate": crystal,
+            }
+            with open(crystal_file, "a") as f:
+                f.write(json.dumps(entry) + "\n")
+
+        if structural:
+            record_event("structural_observation", observations=structural)
+            log(f"adapt: STRUCTURAL → {structural}")
+            entry = {
+                "ts": datetime.datetime.now().isoformat(),
+                "type": "structural",
+                "observations": structural,
+            }
+            with open(crystal_file, "a") as f:
+                f.write(json.dumps(entry) + "\n")
+
+        # Architectural observations (opus-tier)
+        architectural = adjustments.pop("architectural", None)
+        if architectural:
+            record_event("architectural_observation", observations=architectural)
+            log(f"adapt: ARCHITECTURAL → {architectural}")
+            entry = {
+                "ts": datetime.datetime.now().isoformat(),
+                "type": "architectural",
+                "observations": architectural,
+                "tier": tier,
+            }
+            with open(crystal_file, "a") as f:
+                f.write(json.dumps(entry) + "\n")
+
+        _mark_review(tier)
+
+        # Apply bounded adjustments with authority check
         bounds = genome.get("bounds", {})
+        authority = genome.get("tier_authority", {}).get(tier, [])
         applied = {}
+        rejected = {}
         for key, new_val in adjustments.items():
             if key.startswith("_") or key == "bounds":
+                continue
+            if authority and key not in authority:
+                rejected[key] = new_val
                 continue
             if key in bounds:
                 b = bounds[key]
@@ -801,12 +1109,52 @@ def adapt(waves_run: int, saturated: int, failed: int, stop_reason: str):
                 genome[key] = new_val
                 applied[key] = {"from": old_val, "to": new_val}
 
+        if rejected:
+            record_event("adapt_rejected", tier=tier, keys=rejected)
+            log(f"adapt: {tier} rejected (no authority): {list(rejected.keys())}")
+
         if applied:
             _write_genome(genome)
-            record_event("adapt_applied", adjustments=applied)
+            record_event("adapt_applied", tier=tier, adjustments=applied)
             log(f"adapt: {applied}")
         else:
             record_event("adapt_noop", proposed=adjustments)
+
+        # Apply organism-wide conf adjustments (sonnet/opus only)
+        org_adjustments = adjustments.get("organism_confs", {})
+        if org_adjustments and isinstance(org_adjustments, dict):
+            import configparser
+            for conf_name, changes in org_adjustments.items():
+                if not isinstance(changes, dict):
+                    continue
+                # Find the conf file in the organism
+                matches = list(VIVESCA_ROOT.rglob(conf_name))
+                matches = [m for m in matches if ".venv" not in str(m)]
+                if not matches:
+                    log(f"adapt: conf {conf_name} not found")
+                    continue
+                conf_path = matches[0]
+                cp = configparser.ConfigParser()
+                try:
+                    cp.read(conf_path)
+                except configparser.Error:
+                    log(f"adapt: {conf_name} is not standard INI, skipping")
+                    continue
+                org_applied = {}
+                for key, val in changes.items():
+                    # Find which section contains this key
+                    for section in cp.sections():
+                        if key in cp[section]:
+                            old = cp[section][key]
+                            cp[section][key] = str(val)
+                            org_applied[key] = {"from": old, "to": str(val)}
+                            break
+                if org_applied:
+                    _snapshot_conf(conf_path)
+                    with open(conf_path, "w") as f:
+                        cp.write(f)
+                    record_event("adapt_organism_conf", conf=conf_name, adjustments=org_applied)
+                    log(f"adapt: {conf_name} → {org_applied}")
 
     except (json.JSONDecodeError, ValueError) as e:
         log(f"adapt: parse error: {e}")

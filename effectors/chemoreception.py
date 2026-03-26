@@ -5,6 +5,7 @@ Scans markdown files for relevance to the user prompt, injects top matches
 as context. Lightweight — no embeddings, just TF-IDF-style scoring.
 """
 
+import configparser
 import json
 import math
 import re
@@ -15,9 +16,13 @@ from pathlib import Path
 
 REFERENCE_DIR = Path.home() / "code" / "epigenome" / "chromatin" / "Reference"
 DEBOUNCE_FILE = Path.home() / ".claude" / "retrieval-hook-state.json"
-DEBOUNCE_SECONDS = 300  # 5 min debounce
-TOP_K = 3
-MIN_SCORE = 1.5  # minimum relevance score to inject
+
+# Signal transduction: read from synapse.conf, fallback to hardcoded defaults
+_CONF = configparser.ConfigParser()
+_CONF.read(Path(__file__).resolve().parent.parent / "synapse.conf")
+DEBOUNCE_SECONDS = _CONF.getint("association", "debounce_seconds", fallback=300)
+TOP_K = _CONF.getint("association", "top_k", fallback=3)
+MIN_SCORE = _CONF.getfloat("association", "min_score", fallback=1.5)
 
 # Skip these — too noisy or meta
 SKIP_PATTERNS = {"knowledge-structure.md", ".obsidian", ".DS_Store"}

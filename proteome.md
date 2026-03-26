@@ -21,7 +21,7 @@ When triggers match, run the tool directly. Reference docs in `~/epigenome/chrom
 | Trigger | Tool |
 |---------|------|
 | Calendar ops | `fasti` |
-| Reminders/Due | `sched` / `moneo` |
+| Reminders/Due | `sched` / `checkpoint` |
 | Appointment scheduling | `horizo` |
 
 ### Research & Search
@@ -75,7 +75,7 @@ When triggers match, run the tool directly. Reference docs in `~/epigenome/chrom
 ### Agent Coordination
 | Trigger | Tool |
 |---------|------|
-| Agent inbox, unread messages | `acta` (list/post/clear/archive) |
+| Agent inbox, unread messages | `efferens` (list/post/clear/archive) |
 
 ### Misc
 | Trigger | Tool |
@@ -83,7 +83,7 @@ When triggers match, run the tool directly. Reference docs in `~/epigenome/chrom
 | GitHub gists | `gist` (always secret) |
 | HK bus stops | `iter` |
 | CRM / contacts | `amicus` |
-| Adversarial challenge | `redarguo` |
+| Adversarial challenge | `complement` |
 | Client deliverable review | `judge` |
 | Experiment loop | `peira` |
 | Usage/budget | `respirometry` |

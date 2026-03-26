@@ -11,6 +11,7 @@ Chronic threshold: CHRONIC_THRESHOLD repeated errors with the same fingerprint.
 
 from __future__ import annotations
 
+import configparser
 import hashlib
 import json
 import logging
@@ -22,8 +23,12 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_LOG = Path.home() / ".local" / "share" / "vivesca" / "infections.jsonl"
 
+_CONF_PATH = Path(__file__).parent / "infection.conf"
+_conf = configparser.ConfigParser()
+_conf.read(_CONF_PATH)
+
 # A tool+error pattern repeated this many times is flagged as a chronic infection.
-CHRONIC_THRESHOLD = 3
+CHRONIC_THRESHOLD = _conf.getint("detection", "chronic_threshold", fallback=3)
 
 
 class InfectionEvent(TypedDict):

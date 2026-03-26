@@ -33,6 +33,7 @@ Match situation to operation. Depth in `~/epigenome/chromatin/Reference/epistemi
 | **Delegate or automate** | Spec quality > spec length. Gates not queues. Match freedom to where judgment matters. See [[delegation-theory]], [[automation-spectrum]] |
 | **Plan or start** | Goal → simulate → commit. Match depth to volatility. See [[planning-theory]] |
 | **Build on a platform** | Design the abstraction first. Platform categories are targets, not primitives. |
+| **Tune a control loop** | Formulas execute, LLM reflects. Post-cycle review adjusts setpoints within bounds. Recurring adjustments get methylated into deterministic rules. See signal transduction principle. |
 
 **Meta-rules:** Evidence > opinions. One correction = full sweep. Simple rules beat complex analysis under uncertainty. The model isn't reality. Scaffolding load test before building infrastructure. Bet, review, bet — validate before deepening. When in doubt, test it — experiments are cheap, opinions are expensive. Every principle has a domain of validity — knowing the boundary matters more than knowing the principle.
 
@@ -93,6 +94,11 @@ Skills are bounded pipelines: invoke → agentic loop → done. `model:` and `al
 
 **Glycolysis principle.** Move reactions from symbiont to cytosol. Deterministic transformations — file reads, git checks, schema queries, tag lookups — belong in code, not prompts. LLM judgment is reserved for where source structure runs out. Each reaction moved to cytosol is a permanent efficiency gain.
 
+**Signal transduction.** Deterministic systems need LLM reflection as a safety net — the receptor senses what the enzyme can't. Formulas execute from parameters (homeostasis); a cheap LLM call reviews outcomes and adjusts the parameters (signal transduction). Compound-conservative failures are invisible to the formula that creates them — the LLM sees the gestalt. Pattern: deterministic loop + post-cycle review + bounded parameter adjustment. The LLM earns its cost not by executing, but by catching what the formula can't see. Sub-principles:
+- **Methylation:** Recurring LLM adjustments are candidates for glycolysis — transient judgments that keep recurring get permanently marked as deterministic rules. The transduction layer should self-shrink. Each methylated pattern is one fewer judgment call per cycle. Organism-wide methylation log: `~/germline/methylation.jsonl`. Types: `crystallize` (pattern → formula candidate), `structural` (sonnet observations), `architectural` (opus observations), `standing` (permanent audit rules). All review tiers read and write this file.
+- **Post-translational / transcriptional / epigenetic review:** Three timescales on the same substrate, each independent. Post-translational (every cycle, cheap model) for parameter drift. Transcriptional (daily, mid-tier) for structural issues. Epigenetic (weekly, strongest) for formula correctness. Each tier reviews raw data — not the tier below's output.
+- **Cross-model review:** Different training data catches different blind spots. Route review tiers through different model families (Claude, Gemini, Codex), not just different sizes of one. The tier config is data (conf), not code.
+
 **Metabolic tiers.** The organism's behavioral response is graduated, AMPK-inspired: anabolic (surplus — invest, expand), homeostatic (balance — maintain, optimise), catabolic (deficit — reduce, defer), autophagic (crisis — recycle, strip to essentials). Not green/yellow/red. Each tier has distinct permitted actions. Match response to tier, not to subjective urgency.
 
 **Autopoiesis.** The north star: detection → self-repair → self-generation. The test is whether the organism needs Terry less each month for maintenance. If maintenance load is flat or rising, autopoiesis is failing. Every automation added should shift a maintenance task from human to organism.
@@ -111,7 +117,7 @@ Skills are bounded pipelines: invoke → agentic loop → done. `model:` and `al
 
 ## Write-Through Learning
 
-- `cerno "<topic>"` before starting non-trivial work. `anam search` for chat history.
+- `receptor-scan "<topic>"` before starting non-trivial work. `anam search` for chat history.
 - Check vault before asking personal questions — never ask Terry to re-state stored facts.
 - Vault-first for persistent data. Never `~/.cache/`, `/tmp/` for data worth keeping.
 - Act immediately with 1M context. Don't defer to "next session."

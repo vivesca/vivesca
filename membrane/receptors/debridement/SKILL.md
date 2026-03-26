@@ -51,7 +51,7 @@ Private methods (`_fetch`, `__send__`) are exempt — runtime mechanics.
 ### Variable names referencing old/deleted identities
 
 ```python
-grep -rn "\bllm\b\|\bcopia\b\|\bkairos\b\|\bcommute\b\|\bacta\b\|\breticulum\b" \
+grep -rn "\bllm\b\|\bcopia\b\|\bkairos\b\|\bcommute\b\|\befferens\b\|\breticulum\b" \
   /Users/terry/germline/ \
   --include="*.py" --include="*.md" --include="*.json" \
   --exclude-dir=".git" | head_limit: 40
@@ -80,7 +80,7 @@ grep -rn "sys\.path\." /Users/terry/germline/ \
 ### Comments mentioning old names
 
 ```bash
-grep -rn "#.*\(llm\|copia\|kairos\|reticulum\|acta\b\|commute\)" \
+grep -rn "#.*\(llm\|copia\|kairos\|reticulum\|efferens\b\|commute\)" \
   /Users/terry/germline/ \
   --include="*.py" --exclude-dir=".git" | head_limit: 20
 ```

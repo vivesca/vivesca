@@ -170,6 +170,6 @@ if result.returncode == 0:
     print(
         'Next: open ~/germline/effectors/DueAddRecurring.shortcut → click "Add Shortcut" in Shortcuts.app'
     )
-    print('Imports as "DueAddRecurring" — moneo --sync will use this shortcut.')
+    print('Imports as "DueAddRecurring" — checkpoint --sync will use this shortcut.')
 else:
     print(f"Sign failed: {result.stderr}")

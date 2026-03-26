@@ -5,6 +5,7 @@
 # ///
 """Headless garden post pipeline. Reads queue, generates, judges, publishes."""
 
+import configparser
 import json
 import re
 import subprocess
@@ -13,6 +14,14 @@ from pathlib import Path
 import anthropic
 
 _LLM_MODELS_PATH = Path.home() / ".config" / "llm-models.json"
+
+_CONF_PATH = Path(__file__).parent / "exocytosis.conf"
+_conf = configparser.ConfigParser()
+_conf.read(_CONF_PATH)
+
+_MAX_TOKENS_GENERATE = _conf.getint("generate", "max_tokens_generate", fallback=1000)
+_MAX_TOKENS_JUDGE = _conf.getint("judge", "max_tokens_judge", fallback=100)
+_JUDGE_RETRY_COUNT = _conf.getint("judge", "judge_retry_count", fallback=1)
 
 
 def _model_id(key: str) -> str:
@@ -78,7 +87,7 @@ def generate(topic: str, style_excerpt: str, extra: str = "") -> str:
     prompt = GENERATE_PROMPT.format(topic=topic + extra, style_excerpt=style_excerpt)
     msg = client.messages.create(
         model=_model_id("sonnet"),
-        max_tokens=1000,
+        max_tokens=_MAX_TOKENS_GENERATE,
         messages=[{"role": "user", "content": prompt}],
     )
     return msg.content[0].text.strip()
@@ -88,7 +97,7 @@ def judge(post: str) -> tuple[bool, str]:
     client = anthropic.Anthropic()
     msg = client.messages.create(
         model=_model_id("haiku"),
-        max_tokens=100,
+        max_tokens=_MAX_TOKENS_JUDGE,
         messages=[{"role": "user", "content": f"{JUDGE_PROMPT}\n\nPost:\n{post}"}],
     )
     verdict = msg.content[0].text.strip()
@@ -117,7 +126,9 @@ def main() -> None:
     post = generate(topic, style_excerpt)
     passed, verdict = judge(post)
 
-    if not passed:
+    for _ in range(_JUDGE_RETRY_COUNT):
+        if passed:
+            break
         post = generate(
             topic, style_excerpt, f"\n\nPrevious attempt failed: {verdict}. Fix the issues."
         )

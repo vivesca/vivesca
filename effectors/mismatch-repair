@@ -42,26 +42,82 @@ LOG_FILE = LOG_DIR / "anam-scan.log"
 SIGNALS_FILE = Path("~/.local/share/vivesca/signals.jsonl").expanduser()
 MAX20 = HOME / "germline" / "effectors" / "max20"
 ACTA = HOME / "germline" / "effectors" / "acta"
+CONF_FILE = HOME / "germline" / "mismatch-repair.conf"
 
 # HKT = UTC+8
 HKT = timezone(timedelta(hours=8))
 
+
+# ── Conf loader ────────────────────────────────────────────────────────────────
+def _load_conf() -> dict:
+    """Parse ~/germline/mismatch-repair.conf.
+
+    Format: key = value lines, [section] headers for list blocks,
+    blank lines and # comments ignored. Returns a dict with typed values.
+    """
+    # Hard-coded defaults (authoritative fallback)
+    defaults: dict = {
+        "days": 1,
+        "max_per_session": 3,
+        "snippet_cap": 5,
+        "correction_snippets_cap": 50,
+        "session_sample_cap": 60,
+        "correction_threshold": 10,
+        "correction_patterns": [
+            r"\bno[,.]?\s+(not|that|wrong)",
+            r"\bactually[,.]",
+            r"\bi meant\b",
+            r"\bthat'?s not (right|correct|what)",
+            r"\byou sure\b",
+            r"\bwrong\b",
+            r"\bnope\b",
+            r"\bincorrect\b",
+            r"\bnot what i\b",
+            r"\bstop\b.*\bdo(ing)?\b",
+        ],
+    }
+
+    if not CONF_FILE.exists():
+        return defaults
+
+    conf = {k: v for k, v in defaults.items()}  # shallow copy
+    section: str | None = None
+    pattern_lines: list[str] = []
+
+    try:
+        for raw in CONF_FILE.read_text().splitlines():
+            line = raw.strip()
+            if not line or line.startswith("#"):
+                continue
+            if line.startswith("[") and line.endswith("]"):
+                section = line[1:-1].strip()
+                continue
+            if section == "correction_patterns":
+                pattern_lines.append(line)
+                continue
+            if "=" in line:
+                key, _, val = line.partition("=")
+                key = key.strip()
+                val = val.split("#")[0].strip()  # strip inline comments
+                if key in ("days", "max_per_session", "snippet_cap",
+                           "correction_snippets_cap", "session_sample_cap",
+                           "correction_threshold"):
+                    conf[key] = int(val)
+        if pattern_lines:
+            conf["correction_patterns"] = pattern_lines
+    except Exception:
+        pass  # conf parse failure is non-fatal; defaults apply
+
+    return conf
+
+
+_CONF = _load_conf()
+
 # ── Correction signal patterns ────────────────────────────────────────────────
-# These fire on user prompts to detect pushback / error correction.
+# Loaded from conf; hard-coded list above is the fallback.
 CORRECTION_PATTERNS = [
     re.compile(p, re.IGNORECASE)
-    for p in [
-        r"\bno[,.]?\s+(not|that|wrong)",
-        r"\bactually[,.]",
-        r"\bi meant\b",
-        r"\bthat'?s not (right|correct|what)",
-        r"\byou sure\b",
-        r"\bwrong\b",
-        r"\bnope\b",
-        r"\bincorrect\b",
-        r"\bnot what i\b",
-        r"\bstop\b.*\bdo(ing)?\b",
-    ]
+    for p in _CONF["correction_patterns"]
 ]
 
 
@@ -193,14 +249,16 @@ def extract_corrections(sessions: list[dict]) -> list[dict]:
             corrections.append({
                 "session": sid,
                 "count": len(session_corrections),
-                "snippets": session_corrections[:5],  # cap at 5 per session
+                "snippets": session_corrections[:_CONF["snippet_cap"]],
             })
 
     return corrections
 
 
-def extract_user_prompts(sessions: list[dict], max_per_session: int = 3) -> list[dict]:
+def extract_user_prompts(sessions: list[dict], max_per_session: int | None = None) -> list[dict]:
     """Extract first N user prompts per session for topic analysis."""
+    if max_per_session is None:
+        max_per_session = _CONF["max_per_session"]
     session_prompts: list[dict] = []
 
     for session in sessions:
@@ -262,8 +320,8 @@ def classify_corrections(corrections: list[dict]) -> str:
     if not all_snippets:
         return "No correction snippets to classify."
 
-    # Sample if too many (haiku can handle ~50 comfortably)
-    sample = all_snippets[:50]
+    # Sample if too many
+    sample = all_snippets[:_CONF["correction_snippets_cap"]]
 
     prompt = f"""You are classifying user corrections from Claude Code sessions.
 Each snippet is the user pushing back on something the AI said or did.
@@ -288,8 +346,8 @@ def extract_topics(session_prompts: list[dict]) -> str:
     if not session_prompts:
         return "No session prompts to analyse."
 
-    # Cap at 60 sessions for haiku context window
-    sample = session_prompts[:60]
+    # Cap for haiku context window
+    sample = session_prompts[:_CONF["session_sample_cap"]]
 
     prompt = f"""You are analysing user prompts from {len(sample)} Claude Code sessions
 over recent days. Identify topics that recur across 3+ DIFFERENT sessions.
@@ -403,7 +461,7 @@ Daily scan of {len(sessions)} sessions. {correction_count} correction signal(s) 
         "brief_path": str(brief_path),
     })
 
-    if correction_count > 10:
+    if correction_count > _CONF["correction_threshold"]:
         post_acta(
             f"Anam scan: {correction_count} corrections across "
             f"{len(corrections)} sessions. Brief: {brief_path.name}",
@@ -524,8 +582,8 @@ def main() -> None:
         help="Run weekly synthesis instead of daily scan",
     )
     parser.add_argument(
-        "--days", type=int, default=1,
-        help="Days to scan (daily default: 1)",
+        "--days", type=int, default=_CONF["days"],
+        help="Days to scan (daily default: from conf, fallback 1)",
     )
     parser.add_argument(
         "--dry-run", action="store_true",

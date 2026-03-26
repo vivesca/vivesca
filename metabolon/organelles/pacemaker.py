@@ -7,7 +7,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
-# Endosymbiosis: import moneo-py directly (no subprocess).
+# Endosymbiosis: import checkpoint (moneo-py) directly (no subprocess).
 _MONEO_PY_DIR = Path.home() / "code" / "moneo-py"
 if str(_MONEO_PY_DIR) not in sys.path:
     sys.path.insert(0, str(_MONEO_PY_DIR))
@@ -184,6 +184,6 @@ def snapshot() -> str:
 
 
 def _cli(argv: list[str] | None = None) -> int:
-    """CLI passthrough to moneo-py."""
+    """CLI passthrough to checkpoint (moneo-py)."""
     _require_moneo()
     return _m.main(argv)

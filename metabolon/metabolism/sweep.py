@@ -2,20 +2,55 @@
 
 from __future__ import annotations
 
+import configparser
 import statistics
 from dataclasses import dataclass
+from pathlib import Path
 
 from metabolon.metabolism.fitness import Emotion
+
+_CONF_PATH = Path(__file__).with_suffix(".conf")
+_DEFAULTS = {
+    "selection": {
+        "min_phenotypes": "3",
+        "max_retries": "3",
+        "fitness_plateau": "0.8",
+        "offspring_per_generation": "2",
+    }
+}
+
+
+def _load_conf() -> configparser.ConfigParser:
+    cfg = configparser.ConfigParser()
+    cfg.read_dict(_DEFAULTS)
+    if _CONF_PATH.exists():
+        cfg.read(_CONF_PATH)
+    return cfg
+
+
+def _default_sweep_config() -> "SweepConfig":
+    cfg = _load_conf()
+    return SweepConfig(
+        min_phenotypes=cfg.getint("selection", "min_phenotypes"),
+        max_retries=cfg.getint("selection", "max_retries"),
+        fitness_plateau=cfg.getfloat("selection", "fitness_plateau"),
+        offspring_per_generation=cfg.getint("selection", "offspring_per_generation"),
+    )
 
 
 @dataclass
 class SweepConfig:
-    """Configuration for the weekly sweep."""
+    """Configuration for the weekly sweep. Defaults loaded from sweep.conf."""
 
     min_phenotypes: int = 3  # minimum observed phenotypes to evaluate
     max_retries: int = 3
     fitness_plateau: float = 0.8  # fitness stabilisation threshold
     offspring_per_generation: int = 2  # new candidates generated per sweep
+
+    @classmethod
+    def from_conf(cls) -> "SweepConfig":
+        """Load a SweepConfig from sweep.conf (falls back to dataclass defaults)."""
+        return _default_sweep_config()
 
 
 def select(

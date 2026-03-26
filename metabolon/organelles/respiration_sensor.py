@@ -12,6 +12,7 @@ has been burned, and whether the organism is at risk of anaerobic (over-budget) 
 Core functions: sense_usage, budget_status, append_history, serialize_status.
 """
 
+import configparser
 import json
 import subprocess
 import urllib.request
@@ -21,10 +22,14 @@ from pathlib import Path
 HISTORY_FILE = Path.home() / ".local/share/respirometry/history.jsonl"
 WATCH_LOG = Path.home() / "genome/respirometry-log.jsonl"
 
+_CONF_PATH = Path(__file__).parent / "respiration_sensor.conf"
+_conf = configparser.ConfigParser()
+_conf.read(_CONF_PATH)
+
 # Budget thresholds
-_THRESHOLD_SAFE = 50
-_THRESHOLD_CAUTION = 70
-_THRESHOLD_WARNING = 85
+_THRESHOLD_SAFE = _conf.getint("thresholds", "threshold_safe", fallback=50)
+_THRESHOLD_CAUTION = _conf.getint("thresholds", "threshold_caution", fallback=70)
+_THRESHOLD_WARNING = _conf.getint("thresholds", "threshold_warning", fallback=85)
 # above WARNING is DANGER
 
 

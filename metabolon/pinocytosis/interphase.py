@@ -52,12 +52,12 @@ def intake_whatsapp() -> dict:
 
 
 def intake_reminders() -> dict:
-    ok, out = run_cmd(["moneo", "ls"], timeout=10)
+    ok, out = run_cmd(["checkpoint", "ls"], timeout=10)
     if not ok:
         ok, out = run_cmd(["due", "list"], timeout=10)
         label = "Due Reminders"
     else:
-        label = "Reminders (moneo)"
+        label = "Reminders (checkpoint)"
     return {"label": label, "ok": ok, "content": out or "(none)"}
 
 

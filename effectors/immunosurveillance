@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
-"""custodes — dependency change detection CLI.
+"""immunosurveillance — dependency change detection CLI.
 
 Usage:
-    custodes check    # Check all deps, print diff report, update cache
-    custodes status   # Show current cached versions (no network)
-    custodes diff     # Check all deps, print diff only (don't update cache)
+    immunosurveillance check    # Check all deps, print diff report, update cache
+    immunosurveillance status   # Show current cached versions (no network)
+    immunosurveillance diff     # Check all deps, print diff only (don't update cache)
 
 Exit codes:
     0 — no changes (or status/diff ran cleanly)
-    1 — changes detected (for scripting: if custodes check; then ...; fi)
+    1 — changes detected (for scripting: if immunosurveillance check; then ...; fi)
     2 — usage error
 """
 

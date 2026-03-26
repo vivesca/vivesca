@@ -28,7 +28,7 @@ Unlike `entrainment` (morning delta), Kairos is stateless and anytime. No sessio
 ultradian-gather
 ```
 
-This runs all deterministic gathering in parallel (date, calendar, reminders, NOW.md, TODO today, job alerts, acta). Use `--json` for structured parsing.
+This runs all deterministic gathering in parallel (date, calendar, reminders, NOW.md, TODO today, job alerts, efferens). Use `--json` for structured parsing.
 
 ## Steps
 
@@ -67,7 +67,7 @@ Read `~/epigenome/chromatin/Praxis.md`.
 Based on current time and what was found:
 
 **Commute / transit (morning, before first meeting, no desk):**
-→ Surface today's acta (daily AI brief). Check: `ls ~/epigenome/chromatin/Thalamus/Daily/$(date -v-1d +%Y-%m-%d).md 2>/dev/null || ls ~/epigenome/chromatin/Thalamus/Daily/$(date +%Y-%m-%d).md 2>/dev/null`. Read and present key items grouped by lens. Flag any 🚨 READ ORIGINAL with links. If first meeting is soon, also surface one-line prep for it. This is the primary reading window — give the full brief, not a teaser.
+→ Surface today's efferens (daily AI brief). Check: `ls ~/epigenome/chromatin/Thalamus/Daily/$(date -v-1d +%Y-%m-%d).md 2>/dev/null || ls ~/epigenome/chromatin/Thalamus/Daily/$(date +%Y-%m-%d).md 2>/dev/null`. Read and present key items grouped by lens. Flag any 🚨 READ ORIGINAL with links. If first meeting is soon, also surface one-line prep for it. This is the primary reading window — give the full brief, not a teaser.
 
 **Pre-meeting (< 45 min to next calendar event):**
 → Lead with the upcoming event. Surface any prep items. Keep it brief — they're about to be in a meeting.
