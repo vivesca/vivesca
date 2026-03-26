@@ -1,0 +1,550 @@
+#!/usr/bin/env -S uv run --script --python 3.13
+# /// script
+# requires-python = ">=3.13"
+# dependencies = []
+# ///
+"""
+anam-scan -- cross-session transcript scanner.
+
+Scans Claude Code session transcripts for cross-session patterns:
+- Repeated corrections (user pushing back on the same errors)
+- Recurring topics (needs that keep surfacing across sessions)
+- Emergent clusters (topics that co-occur, suggesting deeper structure)
+
+Daily: extract correction patterns, recurring topics via haiku.
+Weekly (--weekly): synthesise the week's daily scans via sonnet.
+
+Uses haiku for extraction (cost efficiency via Max subscription).
+Only escalates to sonnet for weekly synthesis.
+
+Design doc: ~/germline/loci/copia/cross-session-scanner-design-2026-03-23.md
+Architecture: ~/germline/loci/pulse/transcript-scan-architecture-2026-03-24.md
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import re
+import subprocess
+import sys
+from datetime import date, datetime, timedelta, timezone
+from pathlib import Path
+
+# ── Paths ─────────────────────────────────────────────────────────────────────
+HOME = Path.home()
+TRANSCRIPT_DIRS = sorted(HOME.glob(".claude/projects/*/"))
+SCAN_DIR = HOME / "germline" / "loci" / "copia"
+WEEKLY_DIR = HOME / "epigenome" / "chromatin" / "Weekly"
+LOG_DIR = HOME / "logs"
+LOG_FILE = LOG_DIR / "anam-scan.log"
+SIGNALS_FILE = Path("~/.local/share/vivesca/signals.jsonl").expanduser()
+MAX20 = HOME / "germline" / "effectors" / "max20"
+ACTA = HOME / "germline" / "effectors" / "acta"
+
+# HKT = UTC+8
+HKT = timezone(timedelta(hours=8))
+
+# ── Correction signal patterns ────────────────────────────────────────────────
+# These fire on user prompts to detect pushback / error correction.
+CORRECTION_PATTERNS = [
+    re.compile(p, re.IGNORECASE)
+    for p in [
+        r"\bno[,.]?\s+(not|that|wrong)",
+        r"\bactually[,.]",
+        r"\bi meant\b",
+        r"\bthat'?s not (right|correct|what)",
+        r"\byou sure\b",
+        r"\bwrong\b",
+        r"\bnope\b",
+        r"\bincorrect\b",
+        r"\bnot what i\b",
+        r"\bstop\b.*\bdo(ing)?\b",
+    ]
+]
+
+
+# ── Logging ───────────────────────────────────────────────────────────────────
+def log(msg: str) -> None:
+    ts = datetime.now(HKT).strftime("%Y-%m-%d %H:%M:%S")
+    line = f"[{ts}] anam-scan: {msg}"
+    print(line, flush=True)
+    LOG_DIR.mkdir(parents=True, exist_ok=True)
+    with open(LOG_FILE, "a") as f:
+        f.write(line + "\n")
+
+
+def emit_signal(kind: str, data: dict) -> None:
+    """Append a signal to the organism's signal bus."""
+    SIGNALS_FILE.parent.mkdir(parents=True, exist_ok=True)
+    signal = {
+        "ts": datetime.now(HKT).isoformat(),
+        "source": "anam-scan",
+        "kind": kind,
+        **data,
+    }
+    with open(SIGNALS_FILE, "a") as f:
+        f.write(json.dumps(signal) + "\n")
+
+
+# ── Transcript reading ────────────────────────────────────────────────────────
+def read_sessions(days: int = 1) -> list[dict]:
+    """Read JSONL session transcripts from the last N days.
+
+    Returns list of dicts: {session_id, messages: [{role, content, timestamp}]}
+    """
+    cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+    sessions: dict[str, list[dict]] = {}
+
+    for project_dir in TRANSCRIPT_DIRS:
+        for jsonl_file in project_dir.glob("*.jsonl"):
+            # Quick age check via mtime before parsing
+            try:
+                mtime = datetime.fromtimestamp(jsonl_file.stat().st_mtime, tz=timezone.utc)
+                if mtime < cutoff:
+                    continue
+            except OSError:
+                continue
+
+            session_id = jsonl_file.stem
+            messages: list[dict] = []
+
+            try:
+                with open(jsonl_file) as f:
+                    for line in f:
+                        line = line.strip()
+                        if not line:
+                            continue
+                        try:
+                            entry = json.loads(line)
+                        except json.JSONDecodeError:
+                            continue
+
+                        msg_type = entry.get("type")
+                        if msg_type not in ("user", "assistant"):
+                            continue
+
+                        # Parse timestamp
+                        ts_str = entry.get("timestamp", "")
+                        try:
+                            ts = datetime.fromisoformat(ts_str.replace("Z", "+00:00"))
+                            if ts < cutoff:
+                                continue
+                        except (ValueError, AttributeError):
+                            continue
+
+                        # Extract content
+                        message = entry.get("message", {})
+                        role = message.get("role", msg_type)
+                        content = message.get("content", "")
+
+                        # content can be a list of blocks or a string
+                        if isinstance(content, list):
+                            text_parts = []
+                            for block in content:
+                                if isinstance(block, str):
+                                    text_parts.append(block)
+                                elif isinstance(block, dict) and block.get("type") == "text":
+                                    text_parts.append(block.get("text", ""))
+                            content = "\n".join(text_parts)
+
+                        if not content or len(content) < 3:
+                            continue
+
+                        messages.append({
+                            "role": role,
+                            "content": content,
+                            "timestamp": ts_str,
+                        })
+            except (OSError, UnicodeDecodeError):
+                continue
+
+            if messages:
+                sessions[session_id] = messages
+
+    return [{"session_id": sid, "messages": msgs} for sid, msgs in sessions.items()]
+
+
+# ── Correction detection ──────────────────────────────────────────────────────
+def extract_corrections(sessions: list[dict]) -> list[dict]:
+    """Find correction patterns in user prompts across sessions."""
+    corrections: list[dict] = []
+
+    for session in sessions:
+        sid = session["session_id"]
+        session_corrections: list[str] = []
+
+        for msg in session["messages"]:
+            if msg["role"] != "user":
+                continue
+            content = msg["content"]
+            # Skip command invocations (slash commands, etc.)
+            if content.startswith("<command-"):
+                continue
+            for pattern in CORRECTION_PATTERNS:
+                if pattern.search(content):
+                    # Take a snippet: first 150 chars
+                    snippet = content[:150].replace("\n", " ").strip()
+                    session_corrections.append(snippet)
+                    break  # one match per message is enough
+
+        if session_corrections:
+            corrections.append({
+                "session": sid,
+                "count": len(session_corrections),
+                "snippets": session_corrections[:5],  # cap at 5 per session
+            })
+
+    return corrections
+
+
+def extract_user_prompts(sessions: list[dict], max_per_session: int = 3) -> list[dict]:
+    """Extract first N user prompts per session for topic analysis."""
+    session_prompts: list[dict] = []
+
+    for session in sessions:
+        sid = session["session_id"]
+        prompts: list[str] = []
+
+        for msg in session["messages"]:
+            if msg["role"] != "user":
+                continue
+            content = msg["content"]
+            if content.startswith("<command-"):
+                continue
+            snippet = content[:200].replace("\n", " ").strip()
+            if len(snippet) > 10:
+                prompts.append(snippet)
+            if len(prompts) >= max_per_session:
+                break
+
+        if prompts:
+            session_prompts.append({"session": sid, "prompts": prompts})
+
+    return session_prompts
+
+
+# ── LLM queries via max20 ────────────────────────────────────────────────────
+def llm_query(prompt: str, model: str = "haiku") -> str:
+    """Query LLM via max20 (Claude Code Max subscription, zero API cost)."""
+    try:
+        result = subprocess.run(
+            [str(MAX20), model, "-p", prompt],
+            capture_output=True,
+            text=True,
+            timeout=180,
+        )
+        if result.returncode == 0:
+            return result.stdout.strip()
+        log(f"max20 {model} returned {result.returncode}: {result.stderr[:200]}")
+        return ""
+    except subprocess.TimeoutExpired:
+        log(f"max20 {model} timed out after 180s")
+        return ""
+    except FileNotFoundError:
+        log(f"max20 not found at {MAX20}")
+        return ""
+    except Exception as e:
+        log(f"LLM query failed: {e}")
+        return ""
+
+
+def classify_corrections(corrections: list[dict]) -> str:
+    """Use haiku to cluster correction snippets by error category."""
+    if not corrections:
+        return "No corrections found in scanned sessions."
+
+    all_snippets: list[str] = []
+    for c in corrections:
+        all_snippets.extend(c["snippets"])
+
+    if not all_snippets:
+        return "No correction snippets to classify."
+
+    # Sample if too many (haiku can handle ~50 comfortably)
+    sample = all_snippets[:50]
+
+    prompt = f"""You are classifying user corrections from Claude Code sessions.
+Each snippet is the user pushing back on something the AI said or did.
+
+Classify these into clusters by what the AI got wrong (category of error).
+Separate genuine corrections ("you got X wrong") from redirections ("let's do Y instead").
+Only genuine corrections count as error signals.
+
+Return ONLY a JSON array: [{{"cluster": "specific_error_name", "count": N, "severity": "low|medium|high", "examples": ["..."]}}]
+Keep clusters to 5-8 max. Be specific ("wrong file path" not "error").
+If all snippets are redirections (not corrections), return [{{"cluster": "no_genuine_corrections", "count": 0, "severity": "low", "examples": []}}]
+
+Correction snippets:
+{json.dumps(sample, indent=2)}"""
+
+    result = llm_query(prompt, "haiku")
+    return result if result else "Classification failed (LLM unavailable)."
+
+
+def extract_topics(session_prompts: list[dict]) -> str:
+    """Use haiku to identify recurring topics across sessions."""
+    if not session_prompts:
+        return "No session prompts to analyse."
+
+    # Cap at 60 sessions for haiku context window
+    sample = session_prompts[:60]
+
+    prompt = f"""You are analysing user prompts from {len(sample)} Claude Code sessions
+over recent days. Identify topics that recur across 3+ DIFFERENT sessions.
+
+Ignore topics that only appear in 1-2 sessions.
+Ignore meta-topics ("code", "file", "help") -- only flag specific domains.
+For each recurring topic, note whether a dedicated tool/skill might help.
+
+Return ONLY a JSON array: [{{"topic": "specific_name", "session_count": N, "signal": "brief description of what keeps coming up", "skill_candidate": true|false}}]
+
+Sessions and their opening prompts:
+{json.dumps(sample, indent=2)}"""
+
+    result = llm_query(prompt, "haiku")
+    return result if result else "Topic extraction failed (LLM unavailable)."
+
+
+# ── ACTA posting ──────────────────────────────────────────────────────────────
+def post_acta(msg: str, severity: str = "info") -> None:
+    """Post finding to ACTA notice board."""
+    try:
+        subprocess.run(
+            [str(ACTA), "post", msg,
+             "--from", "anam-scan", "--to", "terry", "--severity", severity],
+            capture_output=True,
+            timeout=10,
+        )
+    except Exception:
+        pass  # ACTA failure is non-critical
+
+
+# ── Daily scan ────────────────────────────────────────────────────────────────
+def daily_scan(days: int = 1, dry_run: bool = False) -> None:
+    """Run daily transcript scan."""
+    today = date.today()
+    log(f"Daily scan started (days={days}, dry_run={dry_run})")
+
+    # Phase 1: Read transcripts
+    sessions = read_sessions(days=days)
+    log(f"Read {len(sessions)} sessions from last {days} day(s)")
+
+    if not sessions:
+        log("No sessions found. Nothing to scan.")
+        return
+
+    # Phase 2: Extract correction signals
+    corrections = extract_corrections(sessions)
+    correction_count = sum(c["count"] for c in corrections)
+    log(f"Found {correction_count} correction(s) across {len(corrections)} session(s)")
+
+    # Phase 3: Extract user prompts for topic analysis
+    session_prompts = extract_user_prompts(sessions)
+    log(f"Extracted prompts from {len(session_prompts)} sessions for topic analysis")
+
+    if dry_run:
+        print(f"\n--- DRY RUN ---")
+        print(f"Sessions: {len(sessions)}")
+        print(f"Corrections: {correction_count} across {len(corrections)} sessions")
+        print(f"Session prompts: {len(session_prompts)}")
+        print(f"Would classify corrections via haiku: {'yes' if corrections else 'no'}")
+        print(f"Would extract topics via haiku: {'yes' if session_prompts else 'no'}")
+        print(f"Output path: {SCAN_DIR / f'anam-scan-{today}.md'}")
+        return
+
+    # Phase 4: LLM classification (haiku)
+    correction_clusters = classify_corrections(corrections)
+    topics = extract_topics(session_prompts)
+
+    # Phase 5: Write daily brief
+    brief_path = SCAN_DIR / f"anam-scan-{today}.md"
+    SCAN_DIR.mkdir(parents=True, exist_ok=True)
+
+    brief = f"""---
+title: Anam Scan -- {today}
+date: {today}
+type: anam-scan
+scope: daily
+sessions_scanned: {len(sessions)}
+corrections_found: {correction_count}
+correction_sessions: {len(corrections)}
+---
+
+# Anam Scan -- {today}
+
+**Sessions scanned:** {len(sessions)} | **Days:** {days}
+
+## Correction Clusters ({len(corrections)} sessions, {correction_count} corrections)
+
+{correction_clusters}
+
+## Recurring Topics
+
+{topics}
+
+## Unused Memories
+
+Deferred -- pending oghma access tracking (Phase 4).
+
+## Summary
+
+Daily scan of {len(sessions)} sessions. {correction_count} correction signal(s) across {len(corrections)} session(s). Topic analysis covered {len(session_prompts)} session prompt sets.
+"""
+    brief_path.write_text(brief)
+    log(f"Daily brief written: {brief_path}")
+
+    # Phase 6: Signal and notify
+    emit_signal("anam_scan_daily", {
+        "sessions": len(sessions),
+        "corrections": correction_count,
+        "correction_sessions": len(corrections),
+        "brief_path": str(brief_path),
+    })
+
+    if correction_count > 10:
+        post_acta(
+            f"Anam scan: {correction_count} corrections across "
+            f"{len(corrections)} sessions. Brief: {brief_path.name}",
+            severity="info",
+        )
+
+
+# ── Weekly synthesis ──────────────────────────────────────────────────────────
+def weekly_synthesis(dry_run: bool = False) -> None:
+    """Synthesise the week's daily scans using sonnet."""
+    today = date.today()
+    week_num = today.isocalendar()[1]
+    week_start = today - timedelta(days=today.weekday())
+
+    log(f"Weekly synthesis started (W{week_num})")
+
+    # Collect daily briefs from the past 7 days
+    briefs: list[str] = []
+    for i in range(7):
+        d = today - timedelta(days=i)
+        brief_path = SCAN_DIR / f"anam-scan-{d}.md"
+        if brief_path.exists():
+            briefs.append(brief_path.read_text())
+
+    if not briefs:
+        log("No daily briefs found for this week. Running a full-week scan first.")
+        # Fall back: run extraction on the full week
+        sessions = read_sessions(days=7)
+        if not sessions:
+            log("No sessions in the past 7 days. Skipping weekly synthesis.")
+            return
+        corrections = extract_corrections(sessions)
+        session_prompts = extract_user_prompts(sessions)
+        correction_clusters = classify_corrections(corrections)
+        topics = extract_topics(session_prompts)
+        briefs = [f"Ad-hoc full-week extraction:\n\nCorrections:\n{correction_clusters}\n\nTopics:\n{topics}"]
+
+    if dry_run:
+        print(f"\n--- DRY RUN (weekly) ---")
+        print(f"Daily briefs found: {len(briefs)}")
+        print(f"Would synthesise via sonnet")
+        output_path = WEEKLY_DIR / f"anam-synthesis-{today.isocalendar()[0]}-W{week_num:02d}.md"
+        print(f"Output path: {output_path}")
+        return
+
+    # Also pull full-week correction and topic data for cross-session analysis
+    sessions = read_sessions(days=7)
+    corrections = extract_corrections(sessions)
+    session_prompts = extract_user_prompts(sessions)
+    correction_clusters = classify_corrections(corrections)
+    topics = extract_topics(session_prompts)
+
+    prompt = f"""You are synthesising a week of cross-session transcript scans
+for a Claude Code organism (vivesca). The organism tracks patterns across sessions
+to identify systemic issues and learning opportunities.
+
+This week's daily scan briefs ({len(briefs)} days):
+{chr(10).join(briefs[:5])}
+
+Full-week correction clusters:
+{correction_clusters}
+
+Full-week recurring topics:
+{topics}
+
+Produce a weekly synthesis with these sections:
+1. **Strongest correction signals** -- what did the user correct most?
+   For each, recommend: memory file, hook fix, or guard.
+2. **Recurring topics** -- what needs a skill or better tool?
+3. **Prune candidates** -- patterns suggesting dead memories (speculative until oghma tracking exists).
+4. **Emergent clusters** -- topics that co-occur, suggesting deeper structure.
+5. **Recommended actions** -- concrete next steps, each tagged agent:claude or agent:terry.
+
+Be specific and actionable. No hedging. Use the organism's naming convention."""
+
+    synthesis = llm_query(prompt, "sonnet")
+
+    if not synthesis:
+        log("Weekly synthesis LLM call failed. Skipping.")
+        return
+
+    output_path = WEEKLY_DIR / f"anam-synthesis-{today.isocalendar()[0]}-W{week_num:02d}.md"
+    WEEKLY_DIR.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(f"""---
+title: Anam Synthesis -- W{week_num}
+date: {today}
+type: anam-synthesis
+scope: weekly
+week_start: {week_start}
+week_end: {today}
+---
+
+# Anam Synthesis -- W{week_num} ({week_start} to {today})
+
+{synthesis}
+""")
+    log(f"Weekly synthesis written: {output_path}")
+
+    emit_signal("anam_scan_weekly", {
+        "week": week_num,
+        "briefs_consumed": len(briefs),
+        "output_path": str(output_path),
+    })
+
+    post_acta(
+        f"Weekly anam synthesis W{week_num} ready: {output_path.name}",
+        severity="info",
+    )
+
+
+# ── CLI ───────────────────────────────────────────────────────────────────────
+def main() -> None:
+    parser = argparse.ArgumentParser(
+        description="Cross-session transcript scanner (anam-scan)",
+    )
+    parser.add_argument(
+        "--weekly", action="store_true",
+        help="Run weekly synthesis instead of daily scan",
+    )
+    parser.add_argument(
+        "--days", type=int, default=1,
+        help="Days to scan (daily default: 1)",
+    )
+    parser.add_argument(
+        "--dry-run", action="store_true",
+        help="Print what would be done without writing files or calling LLMs",
+    )
+    args = parser.parse_args()
+
+    try:
+        if args.weekly:
+            weekly_synthesis(dry_run=args.dry_run)
+        else:
+            daily_scan(days=args.days, dry_run=args.dry_run)
+    except KeyboardInterrupt:
+        log("Interrupted.")
+        sys.exit(130)
+    except Exception as e:
+        log(f"Fatal error: {e}")
+        raise
+
+
+if __name__ == "__main__":
+    main()
