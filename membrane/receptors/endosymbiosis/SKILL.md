@@ -51,7 +51,22 @@ Make the organelle read from organism sources:
 - Auth from organism's keychain (not its own credentials)
 - Logs via organism's telemetry (not its own log files)
 
-### Step 4 — Verify mutualism
+### Step 4 — Lysosomal digestion
+
+After absorption, the lysosome breaks down foreign material and keeps only what the organism needs. A blind port is undigested — foreign DNA running inside the cell.
+
+For each absorbed module, audit:
+
+1. **Should it exist?** Does the organism already have this capability in another organelle? Could it be 10 lines instead of 500?
+2. **Dead code?** Functions, branches, or features that served the foreign organism but not this one. Hardcoded dates, completed-purpose logic, unused flags.
+3. **Foreign patterns?** Idioms from the source language that don't belong in Python. Manual error propagation, explicit enum matching, double-encoded serialization, structs-as-classes.
+4. **Hardcoded paths?** The foreign organism had its own filesystem conventions. Replace with `metabolon.locus` or organism config.
+5. **Wrong abstraction level?** The foreign organism may have been a CLI with arg parsing, table formatting, color output. The organelle may only need the core logic — the CLI is a thin `_cli()` wrapper, not the organelle's identity.
+6. **Fragile external dependencies?** Scraped URLs, API endpoints, auth patterns that may have changed since the foreign code was written.
+
+The test: could a new contributor read this organelle and understand it in 60 seconds? If not, it's undigested.
+
+### Step 5 — Verify mutualism
 
 The absorbed organelle must give more than it costs:
 | Metric | Before absorption | After absorption |
@@ -61,7 +76,7 @@ The absorbed organelle must give more than it costs:
 | Organism visibility into behavior | | |
 | Upgrade surface (risk) | | |
 
-### Step 5 — Remove the external surface
+### Step 6 — Remove the external surface
 
 Once the organelle is stable: remove all direct invocations of the original external tool from organism code. The original binary/package may remain installed — but only the organelle may call it.
 
