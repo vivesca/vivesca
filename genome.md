@@ -64,6 +64,8 @@ Match situation to operation. Depth in `~/epigenome/chromatin/Reference/epistemi
 
 Skills are bounded pipelines: invoke → agentic loop → done. `model:` and `allowed-tools:` frontmatter apply for the pipeline's duration, then revert. Skills with `context: fork` and agents are mechanically identical — the choice is packaging. Agents add runtime composition (dynamic prompts, parallel dispatch) that static skill definitions can't express. Design the abstraction first, map to containers for implementation. Platform containers are artifacts, not constraints.
 
+**Three-layer standard.** Every non-trivial capability ships as three layers: MCP tool (structured interface, any agent discovers it), skill (judgment — when/how/why), organelle or CLI (deterministic execution). MCP tool without a skill is usable but undisciplined. Skill without an MCP tool is invisible to agents that lack skill support. The combo is the default; omit a layer only with a reason.
+
 **Dispatch earns its cost.** The unit of dispatch is the actus — one verb, one reasoning point. One actus = inline, regardless of tool-call count. Multiple independent actus = parallel dispatch. Don't split a single actus across subagents; don't inline independent actus when parallelism helps.
 
 **One call, one action.** Don't give one LLM call a checklist — quality degrades by position. Orchestrator decomposes, workers execute one task each. Workers recurse if compound — depth is emergent, not prescribed. Cap total agents (budget), not depth.
