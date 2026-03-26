@@ -46,7 +46,7 @@ def assess_cargo(title: str, source: str, summary: str) -> dict[str, Any]:
     prompt = SCORING_PROMPT.format(title=title, source=source, summary=summary)
 
     try:
-        text = _symbiont_transduce("gemini-flash", prompt, timeout=30)
+        text = _symbiont_transduce("gemini-flash", prompt, timeout=90)
         start = text.find("{")
         end = text.rfind("}") + 1
         if start >= 0 and end > start:
