@@ -41,13 +41,8 @@ SYNC_TARGETS: list[dict] = [
         "repo": "terry-li-hm/epigenome",
         "critical": True,
     },
-    {
-        "name": "officina",
-        "local": "~/officina",
-        "remote": f"{LUCERNA_HOME}/officina",
-        "repo": "terry-li-hm/officina",
-        "critical": False,
-    },
+    # officina is not a git repo locally — synced via its own mechanism
+
     {
         "name": "scripts",
         "local": "~/scripts",
@@ -173,21 +168,25 @@ def _git_pull_remote(remote_path: str) -> tuple[bool, str]:
 
 
 def _sync_target(target: dict) -> SyncResult:
-    """Sync one target: push local, pull remote."""
+    """Sync one target: commit+push local, pull remote."""
     t0 = time.monotonic()
 
-    # Push local
-    ok, msg = _git_push(target["local"])
-    if not ok:
-        return SyncResult(target["name"], False, time.monotonic() - t0, f"push failed: {msg}")
+    # Push local (non-fatal — pull may still succeed from a prior push)
+    push_ok, push_msg = _git_push(target["local"])
 
     # Pull on lucerna
-    ok, msg = _git_pull_remote(target["remote"])
+    pull_ok, pull_msg = _git_pull_remote(target["remote"])
     elapsed = time.monotonic() - t0
-    if not ok:
-        return SyncResult(target["name"], False, elapsed, f"pull failed: {msg}")
 
-    return SyncResult(target["name"], True, elapsed, msg)
+    if not pull_ok:
+        if not push_ok:
+            return SyncResult(target["name"], False, elapsed, f"push: {push_msg}; pull: {pull_msg}")
+        return SyncResult(target["name"], False, elapsed, f"pull failed: {pull_msg}")
+
+    if not push_ok:
+        return SyncResult(target["name"], True, elapsed, f"pull ok (push skipped: {push_msg})")
+
+    return SyncResult(target["name"], True, elapsed, pull_msg)
 
 
 def sync(targets: list[str] | None = None) -> SyncReport:
