@@ -943,6 +943,90 @@ def mod_apoptosis_praxis(data):
         print(f"DISMISSED ITEM DETECTED: {patterns}. Remove and do not re-add.", file=sys.stderr)
 
 
+# ── retrograde: log symbiont→organism memory writes ───────
+
+_RETROGRADE_LOG = HOME / ".cache" / "retrograde" / "signals.jsonl"
+_RETROGRADE_MEMORY_DIR = HOME / ".claude" / "projects" / _PROJECT_SLUG / "memory"
+
+
+def _retrograde_append(direction: str, signal_type: str, detail: str) -> None:
+    """Fire-and-forget append to retrograde signals.jsonl. Never raises."""
+    import datetime
+
+    try:
+        _RETROGRADE_LOG.parent.mkdir(parents=True, exist_ok=True)
+        entry = {
+            "ts": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+            "direction": direction,
+            "type": signal_type,
+            "detail": detail,
+        }
+        with _RETROGRADE_LOG.open("a") as _f:
+            _f.write(json.dumps(entry) + "\n")
+    except Exception:
+        pass
+
+
+def mod_retrograde(data):
+    """Log retrograde signals for memory writes not already captured passively.
+
+    Passive coverage in retrograde.py:
+      - git commits by Claude: git log --author=Claude  (no wiring needed)
+      - methylation: methylation-candidates.jsonl + methylation.jsonl  (no wiring needed)
+      - mismatch repair: infections.jsonl healed=True  (no wiring needed)
+
+    Gap: memory file writes are not in any passive source.
+    """
+    tool_name = data.get("tool", "")
+    if tool_name not in ("Edit", "Write"):
+        return
+
+    fp = data.get("tool_input", {}).get("file_path", "")
+    if not fp:
+        return
+
+    p = Path(fp)
+    # Memory writes: files under the project memory dir
+    if str(p.resolve()).startswith(str(_RETROGRADE_MEMORY_DIR)) and p.suffix == ".md":
+        _retrograde_append("retrograde", "memory_write", fp)
+
+
+# ── assay nudge: new organelle/tool without test ──────────
+
+
+_ASSAY_DIRS = ("organelles/", "tools/")
+_ASSAY_ROOT = _VIVESCA_ROOT / "assays"
+
+
+def mod_assay_nudge(data):
+    """Nudge when writing to organelles/ or tools/ without a test file."""
+    fp = data.get("tool_input", {}).get("file_path", "")
+    if not fp.endswith(".py"):
+        return
+    # Only fire for organelle/tool source files
+    matched_dir = None
+    for d in _ASSAY_DIRS:
+        if d in fp:
+            matched_dir = d
+            break
+    if not matched_dir:
+        return
+
+    # Extract module name from path
+    basename = Path(fp).stem
+    if basename.startswith("_") or basename == "__init__":
+        return
+
+    # Check if a test file exists
+    test_file = _ASSAY_ROOT / f"test_{basename}.py"
+    if not test_file.exists():
+        print(
+            f"ASSAY MISSING: no assays/test_{basename}.py for {matched_dir}{basename}.py. "
+            f"Genome rule: new organelles and tools ship with tests.",
+            file=sys.stderr,
+        )
+
+
 # ── main ───────────────────────────────────────────────────
 
 # Obfuscated to avoid self-triggering nociceptor-write
@@ -1017,6 +1101,14 @@ def main():
     # Praxis guard (Edit/Write on Praxis.md)
     if tool in ("Edit", "Write") and "Praxis.md" in fp:
         modules.append(mod_apoptosis_praxis)
+
+    # Assay nudge (Edit/Write on organelles/ or tools/)
+    if tool in ("Edit", "Write") and any(d in fp for d in _ASSAY_DIRS):
+        modules.append(mod_assay_nudge)
+
+    # Retrograde signal logging (Edit/Write on memory files)
+    if tool in ("Edit", "Write") and "memory/" in fp:
+        modules.append(mod_retrograde)
 
     for mod in modules:
         try:

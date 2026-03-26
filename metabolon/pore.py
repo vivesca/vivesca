@@ -26,7 +26,7 @@ def serve(http: bool, host: str | None, port: int | None):
 
     _absorb_cofactors()
 
-    # Innate + adaptive immune system: run self-test probes on startup, then attempt repairs
+    # Innate + adaptive autopoiesis: run self-test probes on startup, then attempt repairs
     try:
         from metabolon.organelles.inflammasome import adaptive_response, run_all_probes
 
@@ -354,6 +354,159 @@ def hooks_repair():
             click.echo(f"Fixed: {item}")
     else:
         click.echo("Nothing to repair.")
+
+
+# ── immune ───────────────────────────────────────────────────────────
+
+
+@cli.group()
+def autopoiesis():
+    """Autopoiesis: probes, repairs, and crystallization."""
+    pass
+
+
+@autopoiesis.command("probe")
+def autopoiesis_probe():
+    """Run all inflammasome probes and show results."""
+    try:
+        from metabolon.organelles.inflammasome import probe_report
+
+        click.echo(probe_report())
+    except ImportError as exc:
+        click.echo(f"inflammasome not available: {exc}", err=True)
+        raise SystemExit(1)
+
+
+@autopoiesis.command("repair")
+def autopoiesis_repair():
+    """Run probes + adaptive repair + novel diagnosis."""
+    try:
+        from metabolon.organelles.inflammasome import adaptive_response, run_all_probes
+
+        results = run_all_probes()
+        adaptive_response(results)
+        for r in results:
+            tag = "PASS" if r["passed"] else "FAIL"
+            repair = r.get("repair_attempted")
+            repair_tag = f" [repair={repair}]" if repair else ""
+            click.echo(f"[{tag}] {r['name']} — {r['message']} ({r['duration_ms']}ms){repair_tag}")
+        passed = sum(1 for r in results if r["passed"])
+        click.echo(f"\nSummary: {passed}/{len(results)} passed")
+    except ImportError as exc:
+        click.echo(f"inflammasome not available: {exc}", err=True)
+        raise SystemExit(1)
+
+
+@autopoiesis.command("methylate")
+def autopoiesis_methylate():
+    """Run the methylation cycle (crystallize patterns)."""
+    import shutil
+    import subprocess
+
+    binary = shutil.which("methylation")
+    if not binary:
+        methylation_path = Path.home() / "germline" / "effectors" / "methylation"
+        if methylation_path.exists():
+            binary = str(methylation_path)
+    if not binary:
+        click.echo("methylation effector not yet built — stub only", err=True)
+        raise SystemExit(1)
+    result = subprocess.run([binary], capture_output=False)
+    raise SystemExit(result.returncode)
+
+
+@autopoiesis.command("hybridize")
+def autopoiesis_hybridize():
+    """Run hybridization pass (discover missing subsystems)."""
+    import shutil
+    import subprocess
+
+    binary = shutil.which("methylation")
+    if not binary:
+        methylation_path = Path.home() / "germline" / "effectors" / "methylation"
+        if methylation_path.exists():
+            binary = str(methylation_path)
+    if not binary:
+        click.echo("methylation effector not found — hybridize stub only", err=True)
+        raise SystemExit(1)
+    # Try --hybridize flag; if unsupported, report stub
+    result = subprocess.run(
+        [binary, "--hybridize"],
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode == 2 and ("no such option" in result.stderr.lower() or "unrecognized" in result.stderr.lower()):
+        click.echo("methylation --hybridize not yet supported — hybridize stub only")
+    else:
+        if result.stdout:
+            click.echo(result.stdout, nl=False)
+        if result.stderr:
+            click.echo(result.stderr, nl=False, err=True)
+        raise SystemExit(result.returncode)
+
+
+@autopoiesis.command("status")
+def autopoiesis_status():
+    """Full status: probes + priming state + pyroptosis alerts + recent repairs."""
+    import json
+
+    # Probe results
+    try:
+        from metabolon.organelles.inflammasome import (
+            _PRIMING_PATH,
+            _PYROPTOSIS_THRESHOLD,
+            run_all_probes,
+        )
+
+        results = run_all_probes()
+        click.echo("=== Probe Results ===")
+        for r in results:
+            tag = "PASS" if r["passed"] else "FAIL"
+            click.echo(f"[{tag}] {r['name']} — {r['message']} ({r['duration_ms']}ms)")
+        passed = sum(1 for r in results if r["passed"])
+        click.echo(f"\nSummary: {passed}/{len(results)} passed")
+
+        # Priming state
+        priming: dict = {}
+        if _PRIMING_PATH.exists():
+            try:
+                priming = json.loads(_PRIMING_PATH.read_text())
+            except Exception:
+                pass
+        if priming:
+            click.echo("\n=== Priming State ===")
+            for name, count in priming.items():
+                alert = " [PYROPTOSIS — escalate]" if count >= _PYROPTOSIS_THRESHOLD else ""
+                click.echo(f"  {name}: {count} consecutive failure(s){alert}")
+        else:
+            click.echo("\n=== Priming State: clean ===")
+
+        # Pyroptosis alerts
+        pyroptosis = [n for n, c in priming.items() if c >= _PYROPTOSIS_THRESHOLD]
+        if pyroptosis:
+            click.echo("\n=== PYROPTOSIS ALERTS ===")
+            for name in pyroptosis:
+                click.echo(f"  !! {name} — {priming[name]} consecutive failures, human attention needed")
+
+    except ImportError as exc:
+        click.echo(f"inflammasome not available: {exc}", err=True)
+
+    # Recent infection log entries
+    try:
+        from metabolon.metabolism.infection import recall_infections
+
+        events = recall_infections()
+        recent = events[-10:] if len(events) > 10 else events
+        if recent:
+            click.echo("\n=== Recent Infections (last 10) ===")
+            for ev in recent:
+                healed = " [healed]" if ev.get("healed") else ""
+                ts = ev.get("ts", "")[:16]
+                click.echo(f"  {ts} {ev['tool']}: {ev['error'][:80]}{healed}")
+        else:
+            click.echo("\n=== Infection Log: empty ===")
+    except ImportError:
+        pass
 
 
 # ── metabolise (top-level) ───────────────────────────────────────────
@@ -1182,10 +1335,10 @@ def _keyword_overlap(text_a: str, text_b: str, min_word_len: int = 4) -> set[str
     "--waves",
     type=int,
     default=None,
-    help="Max waves (default: auto based on time of day).",
+    help="Max systoles (default: auto based on time of day).",
 )
 @click.option("--model", default="opus", help="Model (default: opus).")
-@click.option("--retry", type=int, default=1, help="Retries per failed wave (default: 1).")
+@click.option("--retry", type=int, default=1, help="Retries per failed systole (default: 1).")
 @click.option(
     "--focus",
     type=str,
@@ -1198,11 +1351,11 @@ def _keyword_overlap(text_a: str, text_b: str, min_word_len: int = 4) -> set[str
     default=None,
     help="Stop dispatching after HH:MM (e.g. '07:00').",
 )
-@click.option("--overnight", is_flag=True, help="Force overnight mode (3 waves, 07:00 deadline).")
+@click.option("--overnight", is_flag=True, help="Force overnight mode (3 systoles, 07:00 deadline).")
 @click.option("--max-waves", type=int, default=None, help="Alias for --waves.")
 @click.option("--dry-run", is_flag=True, help="Show plan without executing.")
 def pulse(waves, model, retry, focus, stop_after, overnight, max_waves, dry_run):
-    """The organism's heartbeat — wave executor."""
+    """The organism's heartbeat — systole executor."""
     from metabolon.pulse import main as pulse_main
 
     # --max-waves is an alias for --waves
@@ -1216,7 +1369,7 @@ def pulse(waves, model, retry, focus, stop_after, overnight, max_waves, dry_run)
             stop_after = "07:00"
 
     pulse_main(
-        waves=effective_waves,
+        systoles=effective_waves,
         model=model,
         retry=retry,
         focus=focus,
@@ -1839,6 +1992,26 @@ def mitosis_status():
         click.echo(f"  {symbol}  {name}  {detail}")
 
     raise SystemExit(0)
+
+
+@mitosis.command("test")
+def mitosis_test():
+    """End-to-end DR smoke test: write passcode, sync, read back from gemmule."""
+    from metabolon.organelles.mitosis import smoketest
+
+    click.echo("Running DR smoke test...")
+    result = smoketest()
+
+    if result["success"]:
+        auth = click.style("OK", fg="green") if result.get("claude_auth") else click.style("EXPIRED", fg="yellow")
+        click.echo(click.style(f"\nPASS — gemmule read back: {result['passcode']}", fg="green"))
+        click.echo(f"  claude auth: {auth}")
+    else:
+        click.echo(click.style(f"\nFAIL — {result.get('error', 'unknown')}", fg="red"))
+        if "expected" in result:
+            click.echo(f"  expected: {result['expected']}")
+            click.echo(f"  got:      {result['got']}")
+        raise SystemExit(1)
 
 
 @mitosis.command("setup")

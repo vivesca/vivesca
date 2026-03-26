@@ -42,7 +42,6 @@ SYNC_TARGETS: list[dict] = [
         "critical": True,
     },
     # officina is not a git repo locally — synced via its own mechanism
-
     {
         "name": "scripts",
         "local": "~/scripts",
@@ -96,9 +95,10 @@ def _fly_cmd(cmd: str, timeout: int = 60) -> subprocess.CompletedProcess:
     # Double-quote the command inside bash -c so $VARS expand on remote
     wrapped = f'bash -c "{cmd}"'
     return subprocess.run(
-        ["fly", "ssh", "console", "-a", LUCERNA_APP, "-u", LUCERNA_USER,
-         "-q", "-C", wrapped],
-        capture_output=True, text=True, timeout=timeout,
+        ["fly", "ssh", "console", "-a", LUCERNA_APP, "-u", LUCERNA_USER, "-q", "-C", wrapped],
+        capture_output=True,
+        text=True,
+        timeout=timeout,
     )
 
 
@@ -107,7 +107,9 @@ def _is_gemmule_reachable() -> bool:
     try:
         result = subprocess.run(
             ["fly", "status", "-a", LUCERNA_APP],
-            capture_output=True, text=True, timeout=15,
+            capture_output=True,
+            text=True,
+            timeout=15,
         )
         return result.returncode == 0 and "started" in result.stdout
     except (subprocess.TimeoutExpired, FileNotFoundError):
@@ -123,19 +125,25 @@ def _git_push(local_path: str) -> tuple[bool, str]:
     # Stage all changes
     subprocess.run(
         ["git", "-C", local, "add", "-A"],
-        capture_output=True, text=True, timeout=30,
+        capture_output=True,
+        text=True,
+        timeout=30,
     )
 
     # Commit if there are changes (ignore exit code if nothing to commit)
     result = subprocess.run(
         ["git", "-C", local, "commit", "-m", "mitosis: sync checkpoint"],
-        capture_output=True, text=True, timeout=30,
+        capture_output=True,
+        text=True,
+        timeout=30,
     )
 
     # Push
     result = subprocess.run(
         ["git", "-C", local, "push"],
-        capture_output=True, text=True, timeout=120,
+        capture_output=True,
+        text=True,
+        timeout=120,
     )
     if result.returncode != 0:
         stderr = result.stderr.strip()
@@ -154,8 +162,11 @@ def _git_pull_remote(remote_path: str) -> tuple[bool, str]:
         )
         stdout = result.stdout.strip()
         # fly ssh console mixes warnings into output
-        lines = [l for l in stdout.splitlines()
-                 if not l.startswith("Connecting to") and not l.startswith("Warning:")]
+        lines = [
+            l
+            for l in stdout.splitlines()
+            if not l.startswith("Connecting to") and not l.startswith("Warning:")
+        ]
         clean = "\n".join(lines).strip()
 
         if result.returncode != 0:
@@ -180,7 +191,9 @@ def _sync_target(target: dict) -> SyncResult:
 
     if not pull_ok:
         if not push_ok:
-            return SyncResult(target["name"], False, elapsed, f"push: {push_msg}; pull: {pull_msg}")
+            return SyncResult(
+                target["name"], False, elapsed, f"push: {push_msg}; pull: {pull_msg}"
+            )
         return SyncResult(target["name"], False, elapsed, f"pull failed: {pull_msg}")
 
     if not push_ok:
@@ -213,18 +226,19 @@ def sync(targets: list[str] | None = None) -> SyncReport:
 
     # Sync claude credentials (base64 to preserve JSON through shell layers)
     import base64
+
     creds_path = Path.home() / ".claude" / ".credentials.json"
     if creds_path.exists():
         t0 = time.monotonic()
         try:
             b64 = base64.b64encode(creds_path.read_bytes()).decode()
-            result = _fly_cmd(
-                f"echo {b64} | base64 -d > {LUCERNA_HOME}/.claude/.credentials.json"
-            )
+            result = _fly_cmd(f"echo {b64} | base64 -d > {LUCERNA_HOME}/.claude/.credentials.json")
             ok = result.returncode == 0
             report.results.append(SyncResult("cc-auth", ok, time.monotonic() - t0))
         except Exception as e:
-            report.results.append(SyncResult("cc-auth", False, time.monotonic() - t0, str(e)[:100]))
+            report.results.append(
+                SyncResult("cc-auth", False, time.monotonic() - t0, str(e)[:100])
+            )
 
     report.finished = time.monotonic()
     return report
@@ -312,23 +326,29 @@ def setup() -> dict:
                     timeout=180,
                 )
                 ok = result.returncode == 0 and "fatal" not in result.stdout
-                steps.append({
-                    "name": f"clone-{target['name']}",
-                    "success": ok,
-                    "message": "cloned" if ok else result.stdout.strip()[-200:],
-                })
+                steps.append(
+                    {
+                        "name": f"clone-{target['name']}",
+                        "success": ok,
+                        "message": "cloned" if ok else result.stdout.strip()[-200:],
+                    }
+                )
             else:
-                steps.append({
-                    "name": f"clone-{target['name']}",
-                    "success": True,
-                    "message": "already present",
-                })
+                steps.append(
+                    {
+                        "name": f"clone-{target['name']}",
+                        "success": True,
+                        "message": "already present",
+                    }
+                )
         except Exception as e:
-            steps.append({
-                "name": f"clone-{target['name']}",
-                "success": False,
-                "message": str(e)[:200],
-            })
+            steps.append(
+                {
+                    "name": f"clone-{target['name']}",
+                    "success": False,
+                    "message": str(e)[:200],
+                }
+            )
 
     # Create directories for non-git state
     dirs = [
@@ -338,11 +358,13 @@ def setup() -> dict:
     ]
     try:
         result = _fly_cmd(f"mkdir -p {' '.join(dirs)}")
-        steps.append({
-            "name": "create-dirs",
-            "success": result.returncode == 0,
-            "message": "ok",
-        })
+        steps.append(
+            {
+                "name": "create-dirs",
+                "success": result.returncode == 0,
+                "message": "ok",
+            }
+        )
     except Exception as e:
         steps.append({"name": "create-dirs", "success": False, "message": str(e)[:200]})
 
@@ -352,11 +374,13 @@ def setup() -> dict:
             f"cd {LUCERNA_HOME}/germline && ~/.local/bin/uv sync 2>&1 | tail -3",
             timeout=300,
         )
-        steps.append({
-            "name": "install-metabolon",
-            "success": result.returncode == 0,
-            "message": result.stdout.strip()[-200:],
-        })
+        steps.append(
+            {
+                "name": "install-metabolon",
+                "success": result.returncode == 0,
+                "message": result.stdout.strip()[-200:],
+            }
+        )
     except Exception as e:
         steps.append({"name": "install-metabolon", "success": False, "message": str(e)[:200]})
 
@@ -366,22 +390,28 @@ def setup() -> dict:
         (f"{LUCERNA_HOME}/epigenome/phenotype/vivesca", f"{LUCERNA_HOME}/.config/vivesca"),
         (f"{LUCERNA_HOME}/germline/membrane/phenotype.md", f"{LUCERNA_HOME}/.claude/CLAUDE.md"),
         (f"{LUCERNA_HOME}/germline/membrane/cytoskeleton", f"{LUCERNA_HOME}/.claude/hooks"),
-        (f"{LUCERNA_HOME}/germline/membrane/expression.json", f"{LUCERNA_HOME}/.claude/settings.json"),
+        (
+            f"{LUCERNA_HOME}/germline/membrane/expression.json",
+            f"{LUCERNA_HOME}/.claude/settings.json",
+        ),
         (f"{LUCERNA_HOME}/germline/membrane/receptors", f"{LUCERNA_HOME}/.claude/skills"),
         # CC memory -> epigenome engrams (on Mac these are hardlinked; on Linux, symlink)
-        (f"{LUCERNA_HOME}/epigenome/engrams", f"{LUCERNA_HOME}/.claude/projects/{_project_slug}/memory"),
+        (
+            f"{LUCERNA_HOME}/epigenome/engrams",
+            f"{LUCERNA_HOME}/.claude/projects/{_project_slug}/memory",
+        ),
     ]
     # rm -rf before ln to handle existing dirs (ln -sfn doesn't replace dirs)
-    symlink_cmds = " && ".join(
-        f"rm -rf {dst} && ln -sfn {src} {dst}" for src, dst in symlinks
-    )
+    symlink_cmds = " && ".join(f"rm -rf {dst} && ln -sfn {src} {dst}" for src, dst in symlinks)
     try:
         result = _fly_cmd(symlink_cmds)
-        steps.append({
-            "name": "symlinks",
-            "success": result.returncode == 0,
-            "message": "ok" if result.returncode == 0 else result.stderr.strip()[:200],
-        })
+        steps.append(
+            {
+                "name": "symlinks",
+                "success": result.returncode == 0,
+                "message": "ok" if result.returncode == 0 else result.stderr.strip()[:200],
+            }
+        )
     except Exception as e:
         steps.append({"name": "symlinks", "success": False, "message": str(e)[:200]})
 
@@ -392,13 +422,88 @@ def setup() -> dict:
             f"grep -q 'germline/.venv/bin' {LUCERNA_HOME}/.zshenv 2>/dev/null "
             f"|| echo '{path_line}' >> {LUCERNA_HOME}/.zshenv"
         )
-        steps.append({
-            "name": "path-setup",
-            "success": result.returncode == 0,
-            "message": "ok",
-        })
+        steps.append(
+            {
+                "name": "path-setup",
+                "success": result.returncode == 0,
+                "message": "ok",
+            }
+        )
     except Exception as e:
         steps.append({"name": "path-setup", "success": False, "message": str(e)[:200]})
 
     all_ok = all(s["success"] for s in steps)
     return {"success": all_ok, "steps": steps}
+
+
+def smoketest() -> dict:
+    """End-to-end DR test: write passcode locally, sync, ask claude on gemmule to read it back.
+
+    Proves: sync pipeline + memory access + claude auth + full round-trip.
+    """
+    import random
+    import string
+
+    if not _is_gemmule_reachable():
+        return {"success": False, "error": "gemmule not running"}
+
+    # Generate random passcode
+    passcode = "mitosis-" + "".join(random.choices(string.ascii_lowercase + string.digits, k=8))
+
+    # Write passcode to a memory file locally (in epigenome/engrams, which is hardlinked to CC memory)
+    probe_file = Path.home() / "epigenome" / "engrams" / "mitosis_probe.md"
+    probe_file.write_text(
+        f"---\nname: mitosis probe\ndescription: DR smoke test probe — ephemeral\ntype: project\n---\n\n"
+        f"Passcode: {passcode}\n"
+    )
+
+    # Sync to gemmule
+    report = sync(["epigenome"])
+    if not report.ok:
+        probe_file.unlink(missing_ok=True)
+        return {"success": False, "error": "sync failed", "sync": report.summary}
+
+    # Read the passcode back from gemmule's memory (via synced engrams symlink)
+    memory_path = f"{LUCERNA_HOME}/.claude/projects/-home-{LUCERNA_USER}/memory/mitosis_probe.md"
+    try:
+        result = _fly_cmd(f"cat {memory_path} 2>&1", timeout=15)
+        response = ""
+        for line in result.stdout.strip().splitlines():
+            if line.startswith("Connecting to") or line.startswith("Warning:"):
+                continue
+            response += line.strip() + " "
+        response = response.strip()
+    except Exception as e:
+        probe_file.unlink(missing_ok=True)
+        return {"success": False, "error": f"read failed: {e}"}
+
+    # Also verify claude auth is valid
+    try:
+        auth_result = _fly_cmd(
+            f"export PATH={LUCERNA_HOME}/germline/.venv/bin:{LUCERNA_HOME}/.local/bin:$PATH && "
+            f"claude --version 2>&1",
+            timeout=15,
+        )
+        auth_ok = "Claude Code" in auth_result.stdout
+    except Exception:
+        auth_ok = False
+
+    # Clean up probe file
+    probe_file.unlink(missing_ok=True)
+    # Push cleanup
+    sync(["epigenome"])
+
+    # Verify
+    if passcode in response:
+        return {
+            "success": True,
+            "passcode": passcode,
+            "claude_auth": auth_ok,
+        }
+    return {
+        "success": False,
+        "error": "passcode mismatch",
+        "expected": passcode,
+        "got": response[:200],
+        "claude_auth": auth_ok,
+    }

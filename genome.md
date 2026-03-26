@@ -66,6 +66,8 @@ Skills are bounded pipelines: invoke → agentic loop → done. `model:` and `al
 
 **Three-layer standard.** Every non-trivial capability ships as three layers: MCP tool (structured interface, any agent discovers it), skill (judgment — when/how/why), organelle or CLI (deterministic execution). MCP tool without a skill is usable but undisciplined. Skill without an MCP tool is invisible to agents that lack skill support. The combo is the default; omit a layer only with a reason.
 
+**Assays ship with code.** New organelles and tools ship with a corresponding `assays/test_*.py`. Unit tests (mocked, fast) are mandatory. Integration tests (live infra, gated by env var) are encouraged. No test = not done.
+
 **Dispatch earns its cost.** The unit of dispatch is the actus — one verb, one reasoning point. One actus = inline, regardless of tool-call count. Multiple independent actus = parallel dispatch. Don't split a single actus across subagents; don't inline independent actus when parallelism helps.
 
 **One call, one action.** Don't give one LLM call a checklist — quality degrades by position. Orchestrator decomposes, workers execute one task each. Workers recurse if compound — depth is emergent, not prescribed. Cap total agents (budget), not depth.
@@ -88,11 +90,11 @@ Skills are bounded pipelines: invoke → agentic loop → done. `model:` and `al
 
 **Now, not next time.** Complete every change in one pass — commit, restart, verify, clean. Don't defer steps to "next session." Deferred steps get forgotten and compound as silent debt.
 
-**Titration method.** Force a biological name onto a design problem. Study the mechanism the name implies. The point where the analogy breaks IS the design insight — the gap reveals what the engineering name hid. The break is the feature, not the failure.
+**Hybridization method.** Force a biological name onto a design problem. Study the mechanism the name implies. The point where the analogy breaks IS the design insight — the gap reveals what the engineering name hid. The break is the feature, not the failure.
 
 **Homology test.** Every biological name must share mechanism with its referent. Homology (shared mechanism) = keep. Analogy (surface similarity only) = drop. The test: does the name generate a design question the old name didn't? If not, the mapping is analogous, not homologous.
 
-**Symbiont biology is lossy.** Titration requires source material, not model recall. The symbiont's biology knowledge is compressed, confabulation-prone, and missing the mechanistic detail where design insights hide. Fetch the real mechanism (Wikipedia, textbook, primary source) before mapping. `lysin "<term>"` for the canonical lookup. If you skip the fetch, you're titrating against a hallucination.
+**Symbiont biology is lossy.** Hybridization requires source material, not model recall. The symbiont's biology knowledge is compressed, confabulation-prone, and missing the mechanistic detail where design insights hide. Fetch the real mechanism (Wikipedia, textbook, primary source) before mapping. `lysin "<term>"` for the canonical lookup. If you skip the fetch, you're hybridizing against a hallucination.
 
 **Cytosol vs symbiont.** CC is cytosol (runtime, internal); LLM is symbiont (external, probabilistic). Their trajectories are opposite: cytosol gets stronger over time, symbiont surface gets smaller. Move logic from symbiont to cytosol whenever it can be made deterministic.
 
@@ -189,7 +191,7 @@ Cytokinesis is the error signal. When `/cytokinesis` consistently finds uncaptur
 
 **Morning:** `/entrainment` (optional, weather + Tara) · **Leaving office:** `/interphase` (the one daily routine) · **Session end:** suggest `/cytokinesis`.
 
-**Lucerna monitor:** Check `tail -20 ~/epigenome/chromatin/interoception/polarization-events.jsonl` and `respirometry --json` periodically. Flag if: waves failing consecutively, budget climbing faster than expected, or lucerna not running (`launchctl list | grep lucerna`).
+**Lucerna monitor:** Check `tail -20 ~/epigenome/chromatin/interoception/polarization-events.jsonl` and `respirometry --json` periodically. Flag if: systoles failing consecutively, budget climbing faster than expected, or lucerna not running (`launchctl list | grep lucerna`).
 
 ## Knowledge Architecture
 
