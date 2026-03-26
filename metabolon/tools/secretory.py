@@ -188,12 +188,27 @@ def emit_praxis(subcommand: str = "today", json_output: bool = True) -> PraxisRe
     annotations=ToolAnnotations(readOnlyHint=False, destructiveHint=False),
 )
 def emit_publish(subcommand: str, slug: str = "") -> EffectorResult:
-    """Invoke the garden publish CLI."""
-    args = [subcommand]
-    if slug:
-        args.append(slug)
-    result = invoke_organelle("publish", args, timeout=30)
-    return EffectorResult(success=True, message=result)
+    """Garden publish operations via Python organelle (formerly sarcio)."""
+    from metabolon.organelles import garden
+
+    if subcommand == "new":
+        s, path = garden.new(slug)
+        return EffectorResult(success=True, message=f"Created {path} (draft)")
+    elif subcommand == "list":
+        posts = garden.list_posts()
+        lines = [f"{p['slug']:30s} {p['title'][:40]:40s} {'(draft)' if p['draft'] else ''}" for p in posts]
+        return EffectorResult(success=True, message="\n".join(lines) or "No posts")
+    elif subcommand == "publish":
+        title = garden.publish(slug, force=True)
+        return EffectorResult(success=True, message=f"Published: {title}")
+    elif subcommand == "push":
+        msg = garden.push()
+        return EffectorResult(success=True, message=msg)
+    elif subcommand == "index":
+        count = garden.index()
+        return EffectorResult(success=True, message=f"Index updated -- {count} posts")
+    else:
+        return EffectorResult(success=False, message=f"Unknown subcommand: {subcommand}")
 
 
 # -- Individual effectors -------------------------------------------------

@@ -116,7 +116,9 @@ def record_event(event: str, **kwargs):
 def emit_distress_signal(msg: str):
     """Send a cellular distress signal via Telegram."""
     try:
-        subprocess.run(["deltos", msg], capture_output=True, timeout=10)
+        from metabolon.organelles.secretory_vesicle import secrete_text
+
+        secrete_text(msg, html=False, label="Distress")
     except Exception:
         log(f"TG alert failed: {msg}")
 

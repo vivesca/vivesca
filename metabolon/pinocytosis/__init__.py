@@ -313,12 +313,15 @@ def sense_tonus(path: str = TONUS_PATH) -> dict[str, Any]:
 
 
 def sense_calendar(date: str = "today", days: int = 1) -> dict[str, Any]:
-    """Shell out to fasti and return parsed calendar events."""
+    """Get calendar events via circadian clock organelle (formerly fasti)."""
+    from metabolon.organelles.circadian_clock import scheduled_events
+
     if days == 1:
-        stdout, stderr = run_cmd(["fasti", "list", date])
-        if not stdout and stderr:
-            return {"available": False, "date": date, "days": days, "raw": None, "events": [], "error": stderr}
-        return {"available": True, "date": date, "days": days, "raw": stdout, "events": _parse_fasti_output(stdout), "error": None}
+        try:
+            stdout = scheduled_events(date)
+        except Exception as e:
+            return {"available": False, "date": date, "days": days, "raw": None, "events": [], "error": str(e)}
+        return {"available": True, "date": date, "days": days, "raw": stdout, "events": _parse_calendar_output(stdout), "error": None}
 
     if date in ("today", "tomorrow"):
         now = datetime.now(HKT)
@@ -334,14 +337,14 @@ def sense_calendar(date: str = "today", days: int = 1) -> dict[str, Any]:
     for offset in range(days):
         target = base + timedelta(days=offset)
         target_str = target.isoformat()
-        stdout, stderr = run_cmd(["fasti", "list", target_str])
-        if stderr and not stdout:
-            errors.append(f"{target_str}: {stderr}")
-        else:
+        try:
+            stdout = scheduled_events(target_str)
             all_raw.append(stdout)
-            for event in _parse_fasti_output(stdout):
+            for event in _parse_calendar_output(stdout):
                 event["date"] = target_str
                 all_events.append(event)
+        except Exception as e:
+            errors.append(f"{target_str}: {e}")
 
     return {
         "available": bool(all_events or not errors),
@@ -350,7 +353,7 @@ def sense_calendar(date: str = "today", days: int = 1) -> dict[str, Any]:
     }
 
 
-def _parse_fasti_output(text: str) -> list[dict[str, str]]:
+def _parse_calendar_output(text: str) -> list[dict[str, str]]:
     """Parse fasti list output into event dicts."""
     events: list[dict[str, str]] = []
     if not text:

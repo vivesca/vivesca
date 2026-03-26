@@ -54,7 +54,9 @@ Return ONLY the post body. No title, no frontmatter."""
 
 
 def notify(msg: str) -> None:
-    subprocess.run(f'echo "{msg}" | deltos "garden"', shell=True)
+    from metabolon.organelles.secretory_vesicle import secrete_text
+
+    secrete_text(msg, html=False, label="garden")
 
 
 def get_next_topic() -> tuple[int, str] | None:
@@ -94,17 +96,12 @@ def judge(post: str) -> tuple[bool, str]:
 
 
 def publish(title: str, body: str) -> str:
-    result = subprocess.run(["sarcio", "new", title], capture_output=True, text=True, check=True)
-    match = re.search(r"/([^/]+)\.md", result.stdout)
-    if not match:
-        raise RuntimeError(f"Could not parse slug from sarcio output: {result.stdout}")
-    slug = match.group(1)
+    from metabolon.organelles.garden import new, publish as garden_publish
 
-    post_path = Path.home() / f"notes/Writing/Blog/Published/{slug}.md"
-    frontmatter = post_path.read_text()
-    post_path.write_text(frontmatter.rstrip() + "\n\n" + body + "\n")
-
-    subprocess.run(["sarcio", "publish", slug], check=True)
+    slug, post_path = new(title)
+    content = post_path.read_text()
+    post_path.write_text(content.rstrip() + "\n\n" + body + "\n")
+    garden_publish(slug, force=True)
     return slug
 
 

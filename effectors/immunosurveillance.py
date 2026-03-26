@@ -73,7 +73,9 @@ def main():
     message = "\n".join(lines)
     print(message)
 
-    subprocess.run(["deltos", "Cargo Audit"], input=message.encode(), capture_output=True)
+    from metabolon.organelles.secretory_vesicle import secrete_text
+
+    secrete_text(message, html=False, label="Cargo Audit")
 
 
 if __name__ == "__main__":

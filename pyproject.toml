@@ -29,6 +29,7 @@ ecdysis-gather = "metabolon.pinocytosis.ecdysis:main"
 photoreception-gather = "metabolon.pinocytosis.photoreception:main"
 polarization-gather = "metabolon.pinocytosis.polarization:main"
 lysin = "metabolon.lysin.cli:main"
+sarcio = "metabolon.organelles.garden:_cli"
 
 [dependency-groups]
 dev = ["pytest", "pytest-asyncio", "ruff", "pyright", "pre-commit", "codespell", "pytest-cov"]

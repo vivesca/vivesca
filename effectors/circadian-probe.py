@@ -238,26 +238,15 @@ def build_digest() -> str:
     return "\n\n".join(sections)
 
 
-def send_via_deltos(message: str) -> bool:
-    """Send message via deltos binary.
-
-    deltos takes [LABEL] [CONTENT] — pass a label as the first arg
-    and pipe the digest body via stdin so it doesn't block on empty input
-    in LaunchAgent context.
-    """
+def send_via_telegram(message: str) -> bool:
+    """Send message via secretory vesicle (Telegram API directly)."""
     try:
-        result = subprocess.run(
-            [shutil.which("deltos") or "deltos", "AKM Heartbeat"],
-            input=message.encode(),
-            capture_output=True,
-            timeout=30,
-        )
-        if result.returncode != 0:
-            stderr = result.stderr.decode(errors="replace").strip()
-            print(f"deltos exited {result.returncode}: {stderr}", file=sys.stderr)
-        return result.returncode == 0
-    except (subprocess.TimeoutExpired, FileNotFoundError) as exc:
-        print(f"deltos send failed: {exc}", file=sys.stderr)
+        from metabolon.organelles.secretory_vesicle import secrete_text
+
+        secrete_text(message, html=False, label="AKM Heartbeat")
+        return True
+    except Exception as exc:
+        print(f"Telegram send failed: {exc}", file=sys.stderr)
         return False
 
 
@@ -265,8 +254,8 @@ def main() -> None:
     digest = build_digest()
     print(digest)  # Log to stdout (captured by LaunchAgent)
 
-    if not send_via_deltos(digest):
-        print("WARNING: Failed to send via deltos", file=sys.stderr)
+    if not send_via_telegram(digest):
+        print("WARNING: Failed to send via Telegram", file=sys.stderr)
         sys.exit(1)
 
 

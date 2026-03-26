@@ -109,8 +109,13 @@ def _anam_load(key):
 
         return "Effectors (tool routing)", generate_effector_index()
     elif key == "circadian":
-        r = subprocess.run(["fasti", "list", "today"], capture_output=True, text=True, timeout=10)
-        return "Circadian (today's schedule)", r.stdout.strip() if r.returncode == 0 else ""
+        from metabolon.organelles.circadian_clock import scheduled_events
+
+        try:
+            events = scheduled_events("today")
+        except Exception:
+            events = ""
+        return "Circadian (today's schedule)", events
     elif key == "vitals":
         from metabolon.resources.vitals import generate_vitals
 
