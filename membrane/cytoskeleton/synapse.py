@@ -852,6 +852,38 @@ def mod_association(data):
     return []
 
 
+# ── rheotaxis: factual question detection ─────────────────
+
+_RHEO_PATTERNS = [
+    # Location questions — "where is X" (excluding code: "where is the function/file/bug")
+    r"\bwhere\b.{0,5}\b(is|are|can|to)\b(?!.{0,10}\b(function|file|bug|error|class|method|variable|defined|declared)\b)",
+    r"\b(nearest|closest|near me|nearby)\b",
+    r"\b(is there|are there)\b.{0,20}\b(a |any )",
+    # Hours/availability
+    r"\b(what|when)\b.{0,15}\b(open|close|hour|time)\b",
+    r"\b(how much|price|cost)\b.{0,20}\b(is|does|for)\b",
+    r"\b(do they|does it|is it)\b.{0,15}\b(still|open|available|exist)\b",
+    # Store/location explicit
+    r"\b(store|shop|branch|outlet|restaurant|clinic)\b.{0,15}\b(location|address|in |at |near)\b",
+]
+_RHEO_RE = [re.compile(p, re.IGNORECASE) for p in _RHEO_PATTERNS]
+
+
+def mod_rheotaxis(data):
+    """Detect factual real-world questions and nudge toward search-first."""
+    prompt = data.get("prompt", "")
+    if not prompt or len(prompt) < 8:
+        return []
+    for pat in _RHEO_RE:
+        if pat.search(prompt):
+            return [
+                "[rheotaxis] Factual real-world question detected. "
+                "Search before asserting — use rheotaxis skill or "
+                "rheotaxis_multi MCP tool. Never answer from model memory."
+            ]
+    return []
+
+
 # ── main ───────────────────────────────────────────────────
 
 
@@ -866,6 +898,7 @@ def main():
         mod_allostasis,
         mod_chemoreceptor,
         mod_priming,
+        mod_rheotaxis,
         mod_mitogen,
         mod_senescence,
         mod_circaseptan,
