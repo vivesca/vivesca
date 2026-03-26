@@ -38,6 +38,11 @@ from metabolon.respiration import (
     respiration_snapshot,
     resume_breathing,
     emit_distress_signal,
+    _hours_to_reset,
+    oxygen_debt,
+    _fetch_telemetry,
+    set_recovery_interval,
+    adapt,
 )
 
 # ---------------------------------------------------------------------------
@@ -66,14 +71,14 @@ SATURATION_PHRASES = [
     "no further",
 ]
 
-WAVE_PROMPT = """One heartbeat. ONE wave per session — the shell loop handles iteration.
+WAVE_PROMPT_TEMPLATE = """One heartbeat. ONE wave per session — the shell loop handles iteration.
 
 You already have ~/CLAUDE.md (How to Think, meta-rules) and MEMORY.md loaded. Use them — especially "Map is dark" and "bet, review, bet". Don't duplicate what's already in your context.
 
 ## Steps
 
 1. **Load session state.** Read ~/tmp/pulse-manifest.md (memory of prior waves), ~/epigenome/chromatin/North Star.md (includes meta goal), ~/epigenome/chromatin/Praxis.md (head 80), ~/epigenome/chromatin/Tonus.md. Run `date`.
-2. **Scout.** What do the north stars need? What did prior waves reveal? Any `agent:claude` items in TODO? Any deadlines within 14 days? Pick the north star with least coverage. Allocate ~30% of agents to the meta goal (system improvement) while the system is young.
+2. **Scout.** What do the north stars need? What did prior waves reveal? Any `agent:claude` items in TODO? Any deadlines within 14 days? Pick the north star with least coverage. Allocate ~{infra_pct}% of agents to the meta goal (system improvement) while the system is young.{focus_line}
 3. **Dispatch 15-20 agents** with `run_in_background: true`, `mode: bypassPermissions`. Model routing: research/collection -> sonnet, synthesis/judgment -> opus. Each prompt starts: "Read ~/tmp/pulse-manifest.md. Do not duplicate completed work." When outputs naturally chain (research -> synthesis -> brief), dispatch as a pipeline.
 4. **Wait** for all agents. Process results.
 5. **Update** ~/tmp/pulse-manifest.md manifest. Route: self-sufficient -> archive from TODO. Needs Terry -> add to Praxis.md with `agent:terry`.
@@ -237,16 +242,28 @@ def _count_recent_secretions(dirs: list, since: float) -> int:
     return count
 
 
+def _build_wave_prompt(genome: dict, focus: str | None = None) -> str:
+    """Build wave prompt from template + conf-driven parameters."""
+    infra_pct = genome.get("infra_pct", 30)
+    focus_star = focus or genome.get("focus_star")
+    focus_line = ""
+    if focus_star:
+        focus_line = f"\n   **FOCUS:** Prioritize '{focus_star}' this wave. Other stars get remaining capacity."
+    prompt = WAVE_PROMPT_TEMPLATE.format(infra_pct=infra_pct, focus_line=focus_line)
+    if focus and not focus_star:
+        prompt += f"\n\n## FOCUS RESTRICTION\nThis loop instance ONLY works on: {focus}. Ignore all other north stars. Another loop handles the rest."
+    return prompt
+
+
 def fire_wave(wave_num: int, model: str, focus: str | None = None) -> tuple[bool, str]:
     """Run a single wave (one heartbeat). Returns (success, output_tail)."""
     log_file = LOG_DIR / "pulse-waves.log"
 
-    prompt = WAVE_PROMPT
-    if focus:
-        prompt += f"\n\n## FOCUS RESTRICTION\nThis loop instance ONLY works on: {focus}. Ignore all other north stars. Another loop handles the rest."
+    genome = respiratory_genome()
+    prompt = _build_wave_prompt(genome, focus)
 
     cmd = [
-        "max20",
+        "channel",
         model,
         "-p",
         "--dangerously-skip-permissions",
@@ -554,7 +571,18 @@ def main(waves=None, model="opus", retry=1, focus=None, stop_after=None, dry_run
     hour = datetime.datetime.now().hour
     is_overnight = hour >= 22 or hour < 7
 
-    max_waves = waves if waves is not None else (MAX_WAVES if is_overnight else DAYTIME_WAVES)
+    # Adaptive cadence: scale waves per invocation by oxygen debt
+    if waves is not None:
+        max_waves = waves
+    elif is_overnight:
+        max_waves = MAX_WAVES
+    else:
+        hours = _hours_to_reset(_fetch_telemetry())
+        debt = oxygen_debt(hours) if hours is not None else 0.0
+        # 1 wave normally, up to MAX_WAVES under full debt
+        max_waves = max(DAYTIME_WAVES, round(DAYTIME_WAVES + debt * (MAX_WAVES - DAYTIME_WAVES)))
+        if debt > 0:
+            record_event("adaptive_cadence", debt=round(debt, 2), max_waves=max_waves)
     stop_after_str = stop_after or (CIRCADIAN_DEADLINE if is_overnight else None)
 
     LOG_DIR.mkdir(parents=True, exist_ok=True)
@@ -665,10 +693,21 @@ def main(waves=None, model="opus", retry=1, focus=None, stop_after=None, dry_run
                     flush=True,
                 )
                 if consecutive_saturation >= 2:
-                    stop_reason = f"saturation_{consecutive_saturation}_consecutive_waves"
-                    record_event("saturation_stop", wave=wave, consecutive=consecutive_saturation)
+                    # Parasympathetic response: idle, don't die.
+                    # Set max recovery interval so the organism rests but
+                    # the pacemaker keeps ticking on the LaunchAgent schedule.
+                    from metabolon.respiration import SKIP_UNTIL_FILE
+                    idle_until = datetime.datetime.now() + datetime.timedelta(hours=3)
+                    SKIP_UNTIL_FILE.write_text(idle_until.isoformat())
+                    stop_reason = f"saturation_idle_{consecutive_saturation}_waves"
+                    record_event(
+                        "saturation_idle",
+                        wave=wave,
+                        consecutive=consecutive_saturation,
+                        idle_until=idle_until.isoformat(),
+                    )
                     print(
-                        f"  Saturation confirmed over {consecutive_saturation} waves. Stopping.",
+                        f"  Saturation confirmed. Idling until {idle_until.strftime('%H:%M')}.",
                         flush=True,
                     )
                     break
@@ -732,5 +771,8 @@ def main(waves=None, model="opus", retry=1, focus=None, stop_after=None, dry_run
         weekly = post_usage.get("seven_day", {}).get("utilization", 0)
         sonnet = post_usage.get("seven_day_sonnet", {}).get("utilization", 0)
         log(f"Final budget: weekly={weekly}%, sonnet={sonnet}%")
+
+    # Set adaptive recovery: short interval under debt, long when relaxed
+    set_recovery_interval()
 
     log(f"=== Pulse finished. {wave} waves. Reason: {stop_reason} ===")

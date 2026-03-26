@@ -38,12 +38,12 @@ def _load_config() -> dict:
         return {}
 
 
-def _backend_max20(prompt: str, model: str, timeout: int) -> str:
-    max20 = _which("max20")
-    if not max20:
-        raise RuntimeError("max20 not found on PATH")
+def _backend_channel(prompt: str, model: str, timeout: int) -> str:
+    channel = _which("channel") or _which("max20")  # fallback during migration
+    if not channel:
+        raise RuntimeError("channel not found on PATH")
     result = subprocess.run(
-        [max20, model, "-p", prompt],
+        [channel, model, "-p", prompt],
         capture_output=True,
         text=True,
         timeout=timeout,
@@ -51,7 +51,7 @@ def _backend_max20(prompt: str, model: str, timeout: int) -> str:
     output = result.stdout.strip()
     if not output:
         err = result.stderr.strip() or "no output"
-        raise RuntimeError(f"max20 error: {err}")
+        raise RuntimeError(f"channel error: {err}")
     return output
 
 
@@ -106,7 +106,7 @@ def main():
     )
     parser.add_argument("prompt", nargs="?", help="Prompt text (or pipe via stdin)")
     parser.add_argument("--model", help="Model override (haiku/sonnet/opus or full id)")
-    parser.add_argument("--backend", help="Backend override (max20/openrouter/anthropic)")
+    parser.add_argument("--backend", help="Backend override (channel/openrouter/anthropic)")
     parser.add_argument("--timeout", type=int, default=60, help="Timeout in seconds")
     args = parser.parse_args()
 
@@ -129,8 +129,8 @@ def main():
     api_key_env = cfg.get("api_key_env", "OPENROUTER_API_KEY")
 
     try:
-        if backend == "max20":
-            output = _backend_max20(prompt, model, args.timeout)
+        if backend in ("channel", "max20"):
+            output = _backend_channel(prompt, model, args.timeout)
         elif backend == "openrouter":
             output = _backend_openrouter(prompt, model, api_key_env, args.timeout)
         elif backend == "anthropic":

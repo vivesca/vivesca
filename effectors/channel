@@ -1,0 +1,63 @@
+#!/usr/bin/env python3
+"""channel — gated transport to the symbiont via Max subscription.
+
+Strips API credentials so claude uses Max OAuth auth instead of API billing.
+Gates on credential availability: fails fast with a clear error if OAuth
+auth is not configured, rather than silently dying inside claude --print.
+
+Usage:
+    channel sonnet -p "prompt"
+    channel haiku -p "prompt"
+    channel sonnet -p "prompt" --max-tokens 4096
+    echo "prompt" | channel sonnet
+"""
+
+import os
+import subprocess
+import sys
+
+CLAUDE = "/Users/terry/.local/bin/claude"
+MODELS = {
+    "sonnet": "sonnet",
+    "haiku": "haiku",
+    "opus": "opus",
+}
+
+
+def _gate() -> bool:
+    """Verify Max OAuth is live before opening the channel."""
+    try:
+        result = subprocess.run(
+            [CLAUDE, "--version"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+            env={k: v for k, v in os.environ.items() if k not in ("CLAUDECODE", "ANTHROPIC_API_KEY")},
+        )
+        return result.returncode == 0
+    except Exception:
+        return False
+
+
+def main():
+    if len(sys.argv) < 2 or sys.argv[1] in ("-h", "--help"):
+        print(__doc__.strip())
+        sys.exit(0)
+
+    model = sys.argv[1]
+    if model not in MODELS:
+        print(f"Unknown model: {model}. Choose from: {', '.join(MODELS)}", file=sys.stderr)
+        sys.exit(1)
+
+    env = {k: v for k, v in os.environ.items() if k not in ("CLAUDECODE", "ANTHROPIC_API_KEY")}
+
+    if not _gate():
+        print("channel: Max OAuth not available — channel closed", file=sys.stderr)
+        sys.exit(2)
+
+    args = [CLAUDE, "--print", "--model", MODELS[model]] + sys.argv[2:]
+    os.execve(CLAUDE, args, env)
+
+
+if __name__ == "__main__":
+    main()

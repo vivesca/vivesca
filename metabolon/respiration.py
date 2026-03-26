@@ -187,6 +187,29 @@ def respiration_snapshot() -> dict | None:
     return None
 
 
+def _hours_to_reset(telemetry: dict | None) -> float | None:
+    """Hours until the weekly budget resets. None if unknown."""
+    if not telemetry:
+        return None
+    resets_at_str = telemetry.get("seven_day", {}).get("resets_at", "")
+    if not resets_at_str:
+        return None
+    try:
+        resets_at = datetime.datetime.fromisoformat(resets_at_str)
+        now = datetime.datetime.now(resets_at.tzinfo)
+        return max((resets_at - now).total_seconds() / 3600, 0.5)
+    except (ValueError, TypeError):
+        return None
+
+
+def oxygen_debt(hours_to_reset: float) -> float:
+    """Use-it-or-lose-it pressure: 0.0 (no urgency) to 1.0 (budget expiring).
+
+    Ramps linearly from 36h (0.0) to 6h (1.0). Below 6h, full debt.
+    """
+    return max(0.0, min(1.0, (36 - hours_to_reset) / 30))
+
+
 def assess_vital_capacity() -> tuple[bool, str]:
     """Check vital capacity — coarse budget gate. Returns (has_capacity, reason)."""
     usage = measure_respiration()
@@ -198,16 +221,22 @@ def assess_vital_capacity() -> tuple[bool, str]:
 
     log(f"Budget: weekly={weekly}%, sonnet={sonnet}%")
 
-    if weekly > AEROBIC_CEILING:
-        return False, f"weekly_{weekly}%_exceeds_{AEROBIC_CEILING}%"
+    # Oxygen debt: relax thresholds when budget expires soon
+    hours = _hours_to_reset(usage)
+    debt = oxygen_debt(hours) if hours is not None else 0.0
+    effective_ceiling = AEROBIC_CEILING + debt * 10  # 80% → 90% under full debt
+    effective_reserve = SYMPATHETIC_RESERVE * (1 - 0.7 * debt)  # 15% → 4.5%
+
+    if weekly > effective_ceiling:
+        return False, f"weekly_{weekly}%_exceeds_ceiling_{effective_ceiling:.0f}%"
     if sonnet > SONNET_CEILING:
         return False, f"sonnet_{sonnet}%_exceeds_{SONNET_CEILING}%"
 
     weekly_remaining = 100 - weekly
-    if weekly_remaining < SYMPATHETIC_RESERVE:
+    if weekly_remaining < effective_reserve:
         return (
             False,
-            f"weekly_remaining_{weekly_remaining}%_below_reserve_{SYMPATHETIC_RESERVE}%",
+            f"weekly_remaining_{weekly_remaining}%_below_reserve_{effective_reserve:.0f}%",
         )
 
     if weekly > TACHYCARDIA_THRESHOLD or sonnet > TACHYCARDIA_THRESHOLD:
@@ -480,6 +509,21 @@ def resume_breathing():
     SKIP_UNTIL_FILE.unlink(missing_ok=True)
 
 
+def set_recovery_interval():
+    """Set next-beat delay based on oxygen debt. High debt = short recovery."""
+    telemetry = _fetch_telemetry()
+    hours = _hours_to_reset(telemetry)
+    if hours is None:
+        minutes = 120  # fallback: 2h
+    else:
+        debt = oxygen_debt(hours)
+        # 120min at debt=0, 30min at debt=1
+        minutes = max(30, round(120 - debt * 90))
+    skip_until = datetime.datetime.now() + datetime.timedelta(minutes=minutes)
+    SKIP_UNTIL_FILE.write_text(skip_until.isoformat())
+    record_event("recovery_interval", minutes=minutes, until=skip_until.isoformat())
+
+
 # ---------------------------------------------------------------------------
 # Saturation-weighted burn (layer 4)
 # ---------------------------------------------------------------------------
@@ -519,10 +563,18 @@ def assess_pacing() -> tuple[bool, str]:
     calibrate_circadian(weekly)
 
     days_remaining = max((resets_at - now).total_seconds() / 86400, 0.25)
-    remaining_budget = 100 - weekly - SYMPATHETIC_RESERVE
+
+    # Oxygen debt: reduce reserve and boost share when budget expires soon
+    hours = days_remaining * 24
+    debt = oxygen_debt(hours)
+    effective_reserve = SYMPATHETIC_RESERVE * (1 - 0.7 * debt)
+
+    remaining_budget = 100 - weekly - effective_reserve
     sustainable_daily = remaining_budget / days_remaining
 
     dynamic_share = tidal_volume()
+    if debt > 0:
+        dynamic_share = min(0.8, dynamic_share + debt * 0.4)
     daily_budget = sustainable_daily * dynamic_share
 
     cost_per_wave = measured_cost_per_wave()
@@ -535,6 +587,7 @@ def assess_pacing() -> tuple[bool, str]:
         "pacing_check",
         weekly=weekly,
         days_remaining=round(days_remaining, 1),
+        oxygen_debt=round(debt, 2),
         remaining_budget=round(remaining_budget, 1),
         sustainable_daily=round(sustainable_daily, 1),
         dynamic_share=round(dynamic_share, 2),
@@ -577,3 +630,175 @@ def respiratory_genome() -> dict:
     except Exception:
         pass
     return {}
+
+
+def _write_genome(genome: dict):
+    """Write updated genome back to conf."""
+    CONF_PATH.write_text(json.dumps(genome, indent=2) + "\n")
+
+
+# ---------------------------------------------------------------------------
+# Yield sensor
+# ---------------------------------------------------------------------------
+
+YIELD_DIRS = [
+    Path.home() / "epigenome" / "chromatin",
+    Path.home() / "notes" / "Pulse Reports",
+]
+
+
+def measure_yield(since_hours: float = 24) -> dict:
+    """Measure metabolic yield — did recent outputs persist?
+
+    Checks files created by pulse that still exist after `since_hours`.
+    Returns {created, survived, yield_pct}.
+    """
+    cutoff = datetime.datetime.now().timestamp() - since_hours * 3600
+    created = 0
+    survived = 0
+
+    for d in YIELD_DIRS:
+        if not d.exists():
+            continue
+        for f in d.iterdir():
+            if not f.is_file():
+                continue
+            try:
+                stat = f.stat()
+                if stat.st_ctime >= cutoff:
+                    created += 1
+                    # Survived = still exists (trivially true here) AND
+                    # was accessed or not immediately overwritten
+                    if stat.st_mtime >= cutoff:
+                        survived += 1
+            except OSError:
+                continue
+
+    yield_pct = round(survived / created * 100) if created > 0 else 0
+    return {"created": created, "survived": survived, "yield_pct": yield_pct}
+
+
+# ---------------------------------------------------------------------------
+# LLM adaptation — post-cycle parameter tuning
+# ---------------------------------------------------------------------------
+
+ADAPT_PROMPT = """You are the organism's respiratory tuner. Review the current state and adjust parameters.
+
+## Current conf
+{conf_json}
+
+## Budget state
+Weekly: {weekly}%, Sonnet: {sonnet}%, Hours to reset: {hours_to_reset:.0f}h
+
+## Wave outcomes this cycle
+Waves run: {waves_run}, Saturated: {saturated}, Failed: {failed}
+Stop reason: {stop_reason}
+
+## Yield (last 24h)
+Files created: {yield_created}, Survived: {yield_survived} ({yield_pct}%)
+
+## Recent events (last 10)
+{recent_events}
+
+## Rules
+- Output ONLY a JSON object with keys you want to change. Omit unchanged keys.
+- Adjustable keys: infra_pct, wave_model, saturation_patience, focus_star, basal_rate
+- Bounds: infra_pct [0,50], basal_rate [0.05,0.5], saturation_patience [1,5], wave_model [haiku,sonnet,opus]
+- focus_star: null (balanced) or a specific north star name to prioritize
+- Think about: Is budget being wasted? Is the organism producing useful output? Should it shift focus?
+- If things look fine, output {{}}
+"""
+
+
+def adapt(waves_run: int, saturated: int, failed: int, stop_reason: str):
+    """Post-cycle LLM review — adjust respiratory parameters based on outcomes."""
+    genome = respiratory_genome()
+    telemetry = _fetch_telemetry()
+    hours = _hours_to_reset(telemetry)
+    weekly = telemetry.get("seven_day", {}).get("utilization", 0) if telemetry else 0
+    sonnet = telemetry.get("seven_day_sonnet", {}).get("utilization", 0) if telemetry else 0
+    yield_data = measure_yield()
+
+    # Gather recent events
+    recent_lines = ""
+    try:
+        lines = EVENT_LOG.read_text().strip().splitlines()[-10:]
+        recent_lines = "\n".join(lines)
+    except Exception:
+        recent_lines = "(no events)"
+
+    prompt = ADAPT_PROMPT.format(
+        conf_json=json.dumps({k: v for k, v in genome.items() if not k.startswith("_") and k != "bounds"}, indent=2),
+        weekly=weekly,
+        sonnet=sonnet,
+        hours_to_reset=hours or 0,
+        waves_run=waves_run,
+        saturated=saturated,
+        failed=failed,
+        stop_reason=stop_reason,
+        yield_created=yield_data["created"],
+        yield_survived=yield_data["survived"],
+        yield_pct=yield_data["yield_pct"],
+        recent_events=recent_lines,
+    )
+
+    try:
+        import shutil
+        channel = shutil.which("channel") or shutil.which("max20")
+        if not channel:
+            log("adapt: channel not found")
+            return
+        result = subprocess.run(
+            [channel, "haiku", "-p", prompt],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        if result.returncode != 0:
+            log(f"adapt: haiku failed: {result.stderr.strip()[:100]}")
+            return
+
+        # Parse JSON from response (may be wrapped in markdown)
+        text = result.stdout.strip()
+        if "```" in text:
+            text = text.split("```")[1]
+            if text.startswith("json"):
+                text = text[4:]
+            text = text.strip()
+
+        adjustments = json.loads(text)
+        if not adjustments:
+            record_event("adapt_noop")
+            return
+
+        # Apply bounded adjustments
+        bounds = genome.get("bounds", {})
+        applied = {}
+        for key, new_val in adjustments.items():
+            if key.startswith("_") or key == "bounds":
+                continue
+            if key in bounds:
+                b = bounds[key]
+                if isinstance(b, list) and isinstance(b[0], (int, float)):
+                    new_val = max(b[0], min(b[1], new_val))
+                elif isinstance(b, list) and isinstance(b[0], str):
+                    if new_val not in b:
+                        continue
+            old_val = genome.get(key)
+            if old_val != new_val:
+                genome[key] = new_val
+                applied[key] = {"from": old_val, "to": new_val}
+
+        if applied:
+            _write_genome(genome)
+            record_event("adapt_applied", adjustments=applied)
+            log(f"adapt: {applied}")
+        else:
+            record_event("adapt_noop", proposed=adjustments)
+
+    except (json.JSONDecodeError, ValueError) as e:
+        log(f"adapt: parse error: {e}")
+        record_event("adapt_error", error=str(e))
+    except Exception as e:
+        log(f"adapt: {e}")
+        record_event("adapt_error", error=str(e))
