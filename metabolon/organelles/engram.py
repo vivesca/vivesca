@@ -4,13 +4,13 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import re
 import sys
-import time
+from dataclasses import dataclass, asdict
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
-from typing import Any
+
+from metabolon import locus
 
 # HKT = UTC+8
 _HKT = timezone(timedelta(hours=8))
@@ -20,24 +20,19 @@ _HKT = timezone(timedelta(hours=8))
 # Path helpers
 # ---------------------------------------------------------------------------
 
-def _home() -> Path:
-    return Path.home()
-
-
 def _history_files() -> list[tuple[str, Path]]:
-    home = _home()
     return [
-        ("Claude", home / ".claude" / "history.jsonl"),
-        ("Codex", home / ".codex" / "history.jsonl"),
+        ("Claude", locus.claude_dir / "history.jsonl"),
+        ("Codex", Path.home() / ".codex" / "history.jsonl"),
     ]
 
 
 def _projects_dir() -> Path:
-    return _home() / ".claude" / "projects"
+    return locus.claude_dir / "projects"
 
 
 def _opencode_storage() -> Path:
-    return _home() / ".local" / "share" / "opencode" / "storage"
+    return Path.home() / ".local" / "share" / "opencode" / "storage"
 
 
 # ---------------------------------------------------------------------------
@@ -58,8 +53,7 @@ def _resolve_date(s: str) -> str:
     try:
         datetime.strptime(s, "%Y-%m-%d")
     except ValueError:
-        print(f"Invalid date format: {s}. Use YYYY-MM-DD.", file=sys.stderr)
-        sys.exit(1)
+        raise ValueError(f"Invalid date format: {s}. Use YYYY-MM-DD.")
     return s
 
 
@@ -76,25 +70,17 @@ def _ms_to_hkt(ms: int) -> datetime:
 
 def _parse_rfc3339(s: str) -> datetime | None:
     """Parse RFC-3339 / ISO-8601 timestamp to aware datetime."""
-    s = s.replace("Z", "+00:00")
     try:
-        return datetime.fromisoformat(s)
+        return datetime.fromisoformat(s.replace("Z", "+00:00"))
     except ValueError:
-        pass
-    # Try without fractional seconds
-    for fmt in ("%Y-%m-%dT%H:%M:%S%z", "%Y-%m-%dT%H:%M%z"):
-        try:
-            return datetime.strptime(s, fmt)
-        except ValueError:
-            continue
-    return None
+        return None
 
 
 # ---------------------------------------------------------------------------
 # Content extraction (Claude transcript blocks)
 # ---------------------------------------------------------------------------
 
-def _extract_text(content: Any) -> str:
+def _extract_text(content: object) -> str:
     if isinstance(content, str):
         return content
     if isinstance(content, list):
@@ -149,42 +135,41 @@ def _matches_role(role: str, filt: str) -> bool:
 # Data structures
 # ---------------------------------------------------------------------------
 
+@dataclass(slots=True)
 class Prompt:
-    __slots__ = ("time_str", "timestamp_ms", "session", "session_full", "prompt", "tool")
-
-    def __init__(self, time_str: str, timestamp_ms: int, session: str, session_full: str, prompt: str, tool: str):
-        self.time_str = time_str
-        self.timestamp_ms = timestamp_ms
-        self.session = session
-        self.session_full = session_full
-        self.prompt = prompt
-        self.tool = tool
+    time_str: str
+    timestamp_ms: int
+    session: str
+    session_full: str
+    prompt: str
+    tool: str
 
 
+@dataclass(slots=True)
 class SearchMatch:
-    __slots__ = ("date", "time_str", "timestamp_ms", "session", "role", "snippet", "tool")
-
-    def __init__(self, date: str, time_str: str, timestamp_ms: int, session: str, role: str, snippet: str, tool: str):
-        self.date = date
-        self.time_str = time_str
-        self.timestamp_ms = timestamp_ms
-        self.session = session
-        self.role = role
-        self.snippet = snippet
-        self.tool = tool
+    date: str
+    time_str: str
+    timestamp_ms: int
+    session: str
+    role: str
+    snippet: str
+    tool: str
 
 
 # ---------------------------------------------------------------------------
-# OpenCode scan
+# OpenCode message iterator (shared traversal)
 # ---------------------------------------------------------------------------
 
-def _scan_opencode(start_ms: int, end_ms: int) -> list[Prompt]:
+def _iter_opencode_messages(
+    start_ms: int,
+    end_ms: int,
+    session_filter: str | None,
+):
+    """Yield (sess_id, msg, ts_ms) for all OpenCode messages in the time range."""
     storage = _opencode_storage()
     session_dir = storage / "session"
     if not session_dir.exists():
-        return []
-
-    prompts: list[Prompt] = []
+        return
 
     for sess_path in session_dir.iterdir():
         if not sess_path.is_dir():
@@ -205,6 +190,10 @@ def _scan_opencode(start_ms: int, end_ms: int) -> list[Prompt]:
             if not sess_id:
                 continue
 
+            if session_filter:
+                if not (sess_id.startswith(session_filter) or sess_id[:8].startswith(session_filter)):
+                    continue
+
             msg_dir = storage / "message" / sess_id
             if not msg_dir.exists():
                 continue
@@ -220,41 +209,58 @@ def _scan_opencode(start_ms: int, end_ms: int) -> list[Prompt]:
                 except Exception:
                     continue
 
-                if msg.get("role") != "user":
-                    continue
-
                 mt = msg.get("time") or {}
                 ts_ms = mt.get("created") or 0
                 if ts_ms < start_ms or ts_ms >= end_ms:
                     continue
 
-                msg_id = msg.get("id")
-                if not msg_id:
-                    continue
+                yield sess_id, msg, ts_ms
 
-                part_dir = storage / "part" / msg_id
-                prompt_text = ""
-                if part_dir.exists():
-                    parts_sorted = sorted(part_dir.iterdir(), key=lambda f: f.name)
-                    for pf in parts_sorted:
-                        try:
-                            part = json.loads(pf.read_text())
-                            text = part.get("text", "")
-                            if text:
-                                prompt_text += text
-                        except Exception:
-                            continue
 
-                if prompt_text:
-                    dt = _ms_to_hkt(ts_ms)
-                    prompts.append(Prompt(
-                        time_str=dt.strftime("%H:%M"),
-                        timestamp_ms=ts_ms,
-                        session=sess_id[:8],
-                        session_full=sess_id,
-                        prompt=prompt_text,
-                        tool="OpenCode",
-                    ))
+def _read_opencode_text(storage: Path, msg_id: str) -> str:
+    """Concatenate all part texts for an OpenCode message."""
+    part_dir = storage / "part" / msg_id
+    if not part_dir.exists():
+        return ""
+    parts: list[str] = []
+    for pf in sorted(part_dir.iterdir(), key=lambda f: f.name):
+        try:
+            part = json.loads(pf.read_text())
+            t = part.get("text", "")
+            if t:
+                parts.append(t)
+        except Exception:
+            continue
+    return "".join(parts)
+
+
+# ---------------------------------------------------------------------------
+# OpenCode scan (date mode, user prompts only)
+# ---------------------------------------------------------------------------
+
+def _scan_opencode(start_ms: int, end_ms: int) -> list[Prompt]:
+    storage = _opencode_storage()
+    prompts: list[Prompt] = []
+
+    for sess_id, msg, ts_ms in _iter_opencode_messages(start_ms, end_ms, session_filter=None):
+        if msg.get("role") != "user":
+            continue
+
+        msg_id = msg.get("id")
+        if not msg_id:
+            continue
+
+        prompt_text = _read_opencode_text(storage, msg_id)
+        if prompt_text:
+            dt = _ms_to_hkt(ts_ms)
+            prompts.append(Prompt(
+                time_str=dt.strftime("%H:%M"),
+                timestamp_ms=ts_ms,
+                session=sess_id[:8],
+                session_full=sess_id,
+                prompt=prompt_text,
+                tool="OpenCode",
+            ))
 
     return prompts
 
@@ -314,7 +320,7 @@ def _scan_history(date_str: str, tool_filter: str | None = None) -> list[Prompt]
 # ---------------------------------------------------------------------------
 
 def _search_prompts(
-    pattern: str,
+    regex: re.Pattern[str],
     start_ms: int,
     end_ms: int,
     tool_filter: str | None,
@@ -325,12 +331,7 @@ def _search_prompts(
     if role_filter and not _matches_role("you", role_filter):
         return []
 
-    try:
-        regex = re.compile(pattern, re.IGNORECASE)
-    except re.error:
-        print(f"Invalid regex pattern: {pattern}", file=sys.stderr)
-        sys.exit(1)
-
+    storage = _opencode_storage()
     matches: list[SearchMatch] = []
 
     for label, path in _history_files():
@@ -376,20 +377,25 @@ def _search_prompts(
 
     # OpenCode prompts
     if not tool_filter or tool_filter.lower() == "opencode":
-        oc_prompts = _scan_opencode(start_ms, end_ms)
-        for p in oc_prompts:
-            if session_filter:
-                if not (p.session_full.startswith(session_filter) or p.session.startswith(session_filter)):
-                    continue
-            m = regex.search(p.prompt)
-            if m:
+        for sess_id, msg, ts_ms in _iter_opencode_messages(start_ms, end_ms, session_filter):
+            if msg.get("role") != "user":
+                continue
+            msg_id = msg.get("id")
+            if not msg_id:
+                continue
+            prompt_text = _read_opencode_text(storage, msg_id)
+            if not prompt_text:
+                continue
+            mo = regex.search(prompt_text)
+            if mo:
+                dt = _ms_to_hkt(ts_ms)
                 matches.append(SearchMatch(
-                    date=_ms_to_hkt(p.timestamp_ms).strftime("%Y-%m-%d"),
-                    time_str=p.time_str,
-                    timestamp_ms=p.timestamp_ms,
-                    session=p.session,
+                    date=dt.strftime("%Y-%m-%d"),
+                    time_str=dt.strftime("%H:%M"),
+                    timestamp_ms=ts_ms,
+                    session=sess_id[:8],
                     role="you",
-                    snippet=_make_snippet(p.prompt, m.start(), m.end()),
+                    snippet=_make_snippet(prompt_text, mo.start(), mo.end()),
                     tool="OpenCode",
                 ))
 
@@ -402,19 +408,14 @@ def _search_prompts(
 # ---------------------------------------------------------------------------
 
 def _search_transcripts(
-    pattern: str,
+    regex: re.Pattern[str],
     start_ms: int,
     end_ms: int,
     tool_filter: str | None,
     role_filter: str | None,
     session_filter: str | None,
 ) -> list[SearchMatch]:
-    try:
-        regex = re.compile(pattern, re.IGNORECASE)
-    except re.error:
-        print(f"Invalid regex pattern: {pattern}", file=sys.stderr)
-        sys.exit(1)
-
+    storage = _opencode_storage()
     matches: list[SearchMatch] = []
 
     # Claude transcripts
@@ -500,90 +501,36 @@ def _search_transcripts(
 
     # OpenCode transcripts
     if not tool_filter or tool_filter.lower() == "opencode":
-        storage = _opencode_storage()
-        session_dir = storage / "session"
-        if session_dir.exists():
-            for sess_path in session_dir.iterdir():
-                if not sess_path.is_dir():
-                    continue
-                for jf in sess_path.glob("*.json"):
-                    try:
-                        sess = json.loads(jf.read_text())
-                    except Exception:
-                        continue
+        for sess_id, msg, ts_ms in _iter_opencode_messages(start_ms, end_ms, session_filter):
+            role_str = msg.get("role") or ""
+            if role_str not in ("user", "assistant"):
+                continue
 
-                    t = sess.get("time") or {}
-                    created = t.get("created") or 0
-                    updated = t.get("updated") or 0
-                    if not ((start_ms <= created < end_ms) or (start_ms <= updated < end_ms)):
-                        continue
+            role = "you" if role_str == "user" else "opencode"
 
-                    sess_id = sess.get("id")
-                    if not sess_id:
-                        continue
+            if role_filter and not _matches_role(role, role_filter):
+                continue
 
-                    if session_filter:
-                        if not (sess_id.startswith(session_filter) or sess_id[:8].startswith(session_filter)):
-                            continue
+            msg_id = msg.get("id")
+            if not msg_id:
+                continue
 
-                    msg_dir = storage / "message" / sess_id
-                    if not msg_dir.exists():
-                        continue
+            text = _read_opencode_text(storage, msg_id)
+            if not text:
+                continue
 
-                    msg_files = sorted(
-                        (f for f in msg_dir.iterdir() if f.name.startswith("msg_") and f.name.endswith(".json")),
-                        key=lambda f: f.name,
-                    )
-
-                    for mf in msg_files:
-                        try:
-                            msg = json.loads(mf.read_text())
-                        except Exception:
-                            continue
-
-                        role_str = msg.get("role") or ""
-                        if role_str not in ("user", "assistant"):
-                            continue
-
-                        role = "you" if role_str == "user" else "opencode"
-
-                        if role_filter and not _matches_role(role, role_filter):
-                            continue
-
-                        mt = msg.get("time") or {}
-                        ts_ms = mt.get("created") or 0
-                        if ts_ms < start_ms or ts_ms >= end_ms:
-                            continue
-
-                        msg_id = msg.get("id")
-                        if not msg_id:
-                            continue
-
-                        part_dir = storage / "part" / msg_id
-                        text = ""
-                        if part_dir.exists():
-                            for pf in sorted(part_dir.iterdir(), key=lambda f: f.name):
-                                try:
-                                    part = json.loads(pf.read_text())
-                                    t_text = part.get("text", "")
-                                    if t_text:
-                                        text += t_text
-                                except Exception:
-                                    continue
-
-                        if text:
-                            m = regex.search(text)
-                            if m:
-                                dt = _ms_to_hkt(ts_ms)
-                                matches.append(SearchMatch(
-                                    date=dt.strftime("%Y-%m-%d"),
-                                    time_str=dt.strftime("%H:%M"),
-                                    timestamp_ms=ts_ms,
-                                    session=sess_id[:8],
-                                    role=role,
-                                    snippet=_make_snippet(text, m.start(), m.end()),
-                                    tool="OpenCode",
-                                ))
+            m = regex.search(text)
+            if m:
+                dt = _ms_to_hkt(ts_ms)
+                matches.append(SearchMatch(
+                    date=dt.strftime("%Y-%m-%d"),
+                    time_str=dt.strftime("%H:%M"),
+                    timestamp_ms=ts_ms,
+                    session=sess_id[:8],
+                    role=role,
+                    snippet=_make_snippet(text, m.start(), m.end()),
+                    tool="OpenCode",
+                ))
 
     matches.sort(key=lambda x: x.timestamp_ms, reverse=True)
     return matches
@@ -621,9 +568,9 @@ def _print_scan(prompts: list[Prompt], date_str: str, full: bool) -> None:
     print()
 
     if sorted_sessions:
-        first = sorted_sessions[0]
-        last = sorted_sessions[-1]
-        print(f"Time range: {first['first'].strftime('%H:%M')} - {last['last'].strftime('%H:%M')}")
+        first_s = sorted_sessions[0]
+        last_s = sorted_sessions[-1]
+        print(f"Time range: {first_s['first'].strftime('%H:%M')} - {last_s['last'].strftime('%H:%M')}")
         print()
 
     print("Sessions:")
@@ -654,11 +601,12 @@ def _print_search(
     session_filter: str | None,
 ) -> None:
     mode = "full transcripts" if deep else "prompts only"
-    filters = ""
+    filters_parts: list[str] = []
     if role_filter:
-        filters += f", role={role_filter}"
+        filters_parts.append(f"role={role_filter}")
     if session_filter:
-        filters += f", session={session_filter}"
+        filters_parts.append(f"session={session_filter}")
+    filters = (", " + ", ".join(filters_parts)) if filters_parts else ""
     print(f'Search: "{pattern}" (last {days} days, {mode}{filters})')
 
     if not matches:
@@ -705,26 +653,14 @@ def _print_json_scan(prompts: list[Prompt], date_str: str) -> None:
 
 
 def _print_json_search(matches: list[SearchMatch]) -> None:
-    output = [
-        {
-            "date": m.date,
-            "time": m.time_str,
-            "timestamp": m.timestamp_ms,
-            "session": m.session,
-            "role": m.role,
-            "snippet": m.snippet,
-            "tool": m.tool,
-        }
-        for m in matches
-    ]
-    print(json.dumps(output, indent=2))
+    print(json.dumps([asdict(m) for m in matches], indent=2))
 
 
 # ---------------------------------------------------------------------------
 # Public API (for organelle callers)
 # ---------------------------------------------------------------------------
 
-def scan(date: str = "today", tool: str | None = None, full: bool = False) -> list[Prompt]:
+def scan(date: str = "today", tool: str | None = None) -> list[Prompt]:
     """Return prompts for a given date. date = 'today', 'yesterday', or YYYY-MM-DD."""
     date_str = _resolve_date(date)
     return _scan_history(date_str, tool)
@@ -739,15 +675,20 @@ def search(
     session: str | None = None,
 ) -> list[SearchMatch]:
     """Search chat history. deep=True searches full transcripts; False = prompts only."""
+    try:
+        regex = re.compile(pattern, re.IGNORECASE)
+    except re.error as exc:
+        raise ValueError(f"Invalid regex pattern: {pattern}") from exc
+
     now = _now_hkt()
     tomorrow = now.replace(hour=0, minute=0, second=0, microsecond=0) + timedelta(days=1)
     end_ms = int(tomorrow.timestamp() * 1000)
     start_ms = end_ms - days * 86400 * 1000
 
     if deep:
-        return _search_transcripts(pattern, start_ms, end_ms, tool, role, session)
+        return _search_transcripts(regex, start_ms, end_ms, tool, role, session)
     else:
-        return _search_prompts(pattern, start_ms, end_ms, tool, role, session)
+        return _search_prompts(regex, start_ms, end_ms, tool, role, session)
 
 
 # ---------------------------------------------------------------------------
@@ -755,81 +696,84 @@ def search(
 # ---------------------------------------------------------------------------
 
 def _cli() -> None:
-    argv = sys.argv[1:]
+    import time as _time
 
-    # Detect whether this is a search invocation by looking for "search"
-    # as the first non-flag argument. This avoids argparse swallowing the
-    # date positional as a subcommand token.
-    is_search = len(argv) > 0 and argv[0] == "search"
+    parser = argparse.ArgumentParser(
+        prog="engram",
+        description="Search AI coding chat history",
+    )
+    parser.add_argument(
+        "date",
+        nargs="?",
+        default="today",
+        help="Date to scan (YYYY-MM-DD, 'today', 'yesterday')",
+    )
+    parser.add_argument("--full", action="store_true", help="Show all prompts (not just last 50)")
+    parser.add_argument("--json", action="store_true", help="Output as JSON")
+    parser.add_argument("--tool", help="Filter by tool (Claude, Codex, OpenCode)")
 
-    if is_search:
-        parser = argparse.ArgumentParser(
-            prog="engram search",
-            description="Search prompts or transcripts",
-        )
-        parser.add_argument("pattern", help="Search pattern (regex)")
-        parser.add_argument("--days", type=int, default=7, help="Number of days to search (default: 7)")
-        parser.add_argument(
-            "--prompts-only",
-            action="store_true",
-            help="Search user prompts only (default: search full transcripts)",
-        )
-        parser.add_argument("--tool", help="Filter by tool (Claude, Codex, OpenCode)")
-        parser.add_argument("--role", help="Filter by role (you, claude, opencode, assistant)")
-        parser.add_argument("--session", help="Filter by session ID (prefix match)")
-        parser.add_argument("--json", action="store_true", help="Output as JSON")
+    subparsers = parser.add_subparsers(dest="subcommand")
+    search_parser = subparsers.add_parser("search", help="Search prompts or transcripts")
+    search_parser.add_argument("pattern", help="Search pattern (regex)")
+    search_parser.add_argument("--days", type=int, default=7, help="Number of days to search (default: 7)")
+    search_parser.add_argument(
+        "--prompts-only",
+        action="store_true",
+        help="Search user prompts only (default: search full transcripts)",
+    )
+    search_parser.add_argument("--tool", help="Filter by tool (Claude, Codex, OpenCode)")
+    search_parser.add_argument("--role", help="Filter by role (you, claude, opencode, assistant)")
+    search_parser.add_argument("--session", help="Filter by session ID (prefix match)")
+    search_parser.add_argument("--json", action="store_true", help="Output as JSON")
 
-        args = parser.parse_args(argv[1:])
-        deep = not args.prompts_only
-        now = _now_hkt()
-        tomorrow = now.replace(hour=0, minute=0, second=0, microsecond=0) + timedelta(days=1)
-        end_ms = int(tomorrow.timestamp() * 1000)
-        start_ms = end_ms - args.days * 86400 * 1000
+    args = parser.parse_args()
 
-        t0 = time.monotonic()
+    try:
+        if args.subcommand == "search":
+            deep = not args.prompts_only
+            now = _now_hkt()
+            tomorrow = now.replace(hour=0, minute=0, second=0, microsecond=0) + timedelta(days=1)
+            end_ms = int(tomorrow.timestamp() * 1000)
+            start_ms = end_ms - args.days * 86400 * 1000
 
-        if deep:
-            results = _search_transcripts(
-                args.pattern, start_ms, end_ms,
-                args.tool, args.role, args.session,
-            )
+            try:
+                regex = re.compile(args.pattern, re.IGNORECASE)
+            except re.error as exc:
+                raise ValueError(f"Invalid regex pattern: {args.pattern}") from exc
+
+            t0 = _time.monotonic()
+
+            if deep:
+                results = _search_transcripts(
+                    regex, start_ms, end_ms,
+                    args.tool, args.role, args.session,
+                )
+            else:
+                results = _search_prompts(
+                    regex, start_ms, end_ms,
+                    args.tool, args.role, args.session,
+                )
+
+            elapsed = _time.monotonic() - t0
+
+            if args.json:
+                _print_json_search(results)
+            else:
+                _print_search(results, args.pattern, args.days, deep, args.role, args.session)
+                print(f"({elapsed:.1f}s)")
+
         else:
-            results = _search_prompts(
-                args.pattern, start_ms, end_ms,
-                args.tool, args.role, args.session,
-            )
+            date_str = _resolve_date(args.date)
+            prompts = _scan_history(date_str, args.tool)
 
-        elapsed = time.monotonic() - t0
+            if args.json:
+                _print_json_scan(prompts, date_str)
+            else:
+                _print_scan(prompts, date_str, args.full)
 
-        if args.json:
-            _print_json_search(results)
-        else:
-            _print_search(results, args.pattern, args.days, deep, args.role, args.session)
-            print(f"({elapsed:.1f}s)")
-
-    else:
-        parser = argparse.ArgumentParser(
-            prog="engram",
-            description="Search AI coding chat history",
-        )
-        parser.add_argument(
-            "date",
-            nargs="?",
-            default="today",
-            help="Date to scan (YYYY-MM-DD, 'today', 'yesterday')",
-        )
-        parser.add_argument("--full", action="store_true", help="Show all prompts (not just last 50)")
-        parser.add_argument("--json", action="store_true", help="Output as JSON")
-        parser.add_argument("--tool", help="Filter by tool (Claude, Codex, OpenCode)")
-
-        args = parser.parse_args(argv)
-        date_str = _resolve_date(args.date)
-        prompts = _scan_history(date_str, args.tool)
-
-        if args.json:
-            _print_json_scan(prompts, date_str)
-        else:
-            _print_scan(prompts, date_str, args.full)
+    except ValueError as exc:
+        print(str(exc), file=sys.stderr)
+        sys.exit(1)
 
 
 if __name__ == "__main__":

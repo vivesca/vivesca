@@ -11,18 +11,18 @@
 from __future__ import annotations
 
 import argparse
+import dataclasses
 import json
 import math
 import os
-import platform
 import shutil
 import subprocess
 import sys
-import time
+import tomllib
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 import httpx
 import yaml
@@ -34,9 +34,15 @@ import yaml
 
 LIVEBENCH_FROZEN_SINCE = (2025, 4)  # April 2025
 
-BUNDLED_MODELS_TOML_PATH = Path(__file__).parent.parent.parent.parent / "code" / "pondus" / "models.toml"
+BUNDLED_MODELS_TOML_PATH = Path.home() / "code" / "pondus" / "models.toml"
 
 HTTP_TIMEOUT = 30.0
+CACHE_TTL_HOURS = 24
+
+# macOS-only paths
+CACHE_DIR = Path.home() / "Library" / "Caches" / "pondus"
+CONFIG_DIR = Path.home() / "Library" / "Application Support" / "pondus"
+MONITOR_STATE_PATH = CONFIG_DIR / "monitors.json"
 
 
 # ---------------------------------------------------------------------------
@@ -51,13 +57,13 @@ class ModelScore:
     model: str
     source_model_name: str
     metrics: dict[str, MetricValue] = field(default_factory=dict)
-    rank: Optional[int] = None
+    rank: int | None = None
 
 
 @dataclass
 class SourceResult:
     source: str
-    fetched_at: Optional[datetime] = None
+    fetched_at: datetime | None = None
     status: str = "ok"  # "ok" | "cached" | "unavailable" | "error:<msg>"
     scores: list[ModelScore] = field(default_factory=list)
 
@@ -65,9 +71,9 @@ class SourceResult:
 @dataclass
 class QueryInfo:
     query_type: str
-    model: Optional[str] = None
-    models: Optional[list[str]] = None
-    top: Optional[int] = None
+    model: str | None = None
+    models: list[str] | None = None
+    top: int | None = None
 
 
 @dataclass
@@ -75,30 +81,19 @@ class PondusOutput:
     timestamp: datetime
     query: QueryInfo
     sources: list[SourceResult]
-    source_tags: Optional[dict[str, list[str]]] = None
+    source_tags: dict[str, list[str]] | None = None
 
 
 # ---------------------------------------------------------------------------
 # Cache
 # ---------------------------------------------------------------------------
 
-def _cache_dir() -> Path:
-    system = platform.system()
-    if system == "Darwin":
-        base = Path.home() / "Library" / "Caches"
-    elif system == "Windows":
-        base = Path(os.environ.get("LOCALAPPDATA", Path.home() / "AppData" / "Local"))
-    else:
-        base = Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache"))
-    return base / "pondus"
-
-
 class Cache:
-    def __init__(self, ttl_hours: int = 24):
-        self.dir = _cache_dir()
+    def __init__(self, ttl_hours: int = CACHE_TTL_HOURS):
+        self.dir = CACHE_DIR
         self.ttl_hours = ttl_hours
 
-    def get(self, source: str) -> Optional[tuple[datetime, Any]]:
+    def get(self, source: str) -> tuple[datetime, Any] | None:
         path = self.dir / f"{source}.json"
         if not path.exists():
             return None
@@ -131,140 +126,60 @@ class Cache:
 
 
 # ---------------------------------------------------------------------------
-# Config
-# ---------------------------------------------------------------------------
-
-def _config_dir() -> Path:
-    system = platform.system()
-    if system == "Darwin":
-        return Path.home() / "Library" / "Application Support" / "pondus"
-    elif system == "Windows":
-        base = Path(os.environ.get("APPDATA", Path.home()))
-        return base / "pondus"
-    else:
-        return Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config")) / "pondus"
-
-
-@dataclass
-class Config:
-    ttl_hours: int = 24
-    alias_path: Optional[str] = None
-    aa_api_key: Optional[str] = None
-    agent_browser_path: str = "agent-browser"
-    source_tags: dict[str, list[str]] = field(default_factory=dict)
-
-    @classmethod
-    def load(cls) -> "Config":
-        cfg = cls()
-        config_path = _config_dir() / "config.toml"
-        if config_path.exists():
-            try:
-                import tomllib  # type: ignore
-            except ImportError:
-                try:
-                    import tomli as tomllib  # type: ignore
-                except ImportError:
-                    tomllib = None  # type: ignore
-
-            if tomllib:
-                try:
-                    raw = tomllib.loads(config_path.read_text())
-                    cache_cfg = raw.get("cache", {})
-                    cfg.ttl_hours = int(cache_cfg.get("ttl_hours", 24))
-                    alias_cfg = raw.get("alias", {})
-                    cfg.alias_path = alias_cfg.get("path")
-                    # AA api key
-                    aa_section = raw.get("artificial-analysis") or raw.get("artificial_analysis", {})
-                    if isinstance(aa_section, dict):
-                        cfg.aa_api_key = aa_section.get("api_key")
-                    # agent browser path
-                    for section_name in ("seal", "swe-rebench"):
-                        section = raw.get(section_name, {})
-                        if isinstance(section, dict) and "agent_browser_path" in section:
-                            cfg.agent_browser_path = section["agent_browser_path"]
-                            break
-                except Exception:
-                    pass
-
-        # Env var override for AA key
-        env_key = os.environ.get("AA_API_KEY", "").strip()
-        if env_key:
-            cfg.aa_api_key = env_key
-
-        # Load source tags from sources.toml
-        sources_path = _config_dir() / "sources.toml"
-        if sources_path.exists() and tomllib:  # type: ignore
-            try:
-                raw_sources = tomllib.loads(sources_path.read_text())
-                cfg.source_tags = {k: v.get("tags", []) for k, v in raw_sources.items()}
-            except Exception:
-                pass
-
-        return cfg
-
-
-# ---------------------------------------------------------------------------
 # Alias map
 # ---------------------------------------------------------------------------
 
+def _load_alias_toml(toml_str: str, to_canonical: dict[str, str]) -> None:
+    try:
+        entries = tomllib.loads(toml_str)
+        for entry in entries.values():
+            if not isinstance(entry, dict):
+                continue
+            canonical = entry.get("canonical", "").lower()
+            if not canonical:
+                continue
+            to_canonical[canonical] = canonical
+            for alias in entry.get("aliases", []):
+                to_canonical[alias.lower()] = canonical
+    except Exception:
+        pass
+
+
+def _build_alias_map(override_path: str | None = None) -> dict[str, str]:
+    to_canonical: dict[str, str] = {}
+    if BUNDLED_MODELS_TOML_PATH.exists():
+        _load_alias_toml(BUNDLED_MODELS_TOML_PATH.read_text(), to_canonical)
+    if override_path:
+        p = Path(override_path)
+        if p.exists():
+            _load_alias_toml(p.read_text(), to_canonical)
+    else:
+        default_override = CONFIG_DIR / "models.toml"
+        if default_override.exists():
+            _load_alias_toml(default_override.read_text(), to_canonical)
+    return to_canonical
+
+
+@dataclass
 class AliasMap:
-    def __init__(self, to_canonical: dict[str, str]):
-        self._map = to_canonical  # lower_name -> canonical
+    _map: dict[str, str]
 
     @classmethod
-    def load(cls, override_path: Optional[str] = None) -> "AliasMap":
-        to_canonical: dict[str, str] = {}
-
-        # Load bundled aliases from pondus repo
-        if BUNDLED_MODELS_TOML_PATH.exists():
-            cls._parse_into(BUNDLED_MODELS_TOML_PATH.read_text(), to_canonical)
-
-        # User override
-        if override_path:
-            p = Path(override_path)
-            if p.exists():
-                cls._parse_into(p.read_text(), to_canonical)
-        else:
-            default_override = _config_dir() / "models.toml"
-            if default_override.exists():
-                cls._parse_into(default_override.read_text(), to_canonical)
-
-        return cls(to_canonical)
-
-    @staticmethod
-    def _parse_into(toml_str: str, to_canonical: dict[str, str]) -> None:
-        try:
-            try:
-                import tomllib  # type: ignore
-            except ImportError:
-                import tomli as tomllib  # type: ignore
-            entries = tomllib.loads(toml_str)
-            for entry in entries.values():
-                if not isinstance(entry, dict):
-                    continue
-                canonical = entry.get("canonical", "").lower()
-                if not canonical:
-                    continue
-                to_canonical[canonical] = canonical
-                for alias in entry.get("aliases", []):
-                    to_canonical[alias.lower()] = canonical
-        except Exception:
-            pass
+    def load(cls, override_path: str | None = None) -> "AliasMap":
+        return cls(_map=_build_alias_map(override_path))
 
     def resolve(self, name: str) -> str:
         lower = name.lower()
-        # Exact match
         if lower in self._map:
             return self._map[lower]
-        # Prefix match
         best = self._prefix_match(lower)
         return best if best is not None else lower
 
     def matches(self, source_name: str, canonical: str) -> bool:
         return self.resolve(source_name) == canonical.lower()
 
-    def _prefix_match(self, lower_name: str) -> Optional[str]:
-        best: Optional[tuple[int, str]] = None
+    def _prefix_match(self, lower_name: str) -> str | None:
+        best: tuple[int, str] | None = None
         for alias, canonical in self._map.items():
             if len(lower_name) > len(alias) and lower_name.startswith(alias):
                 next_char = lower_name[len(alias)]
@@ -281,7 +196,7 @@ class AliasMap:
 
 
 # ---------------------------------------------------------------------------
-# Agent-browser helper
+# Agent-browser helper (arena scrape only)
 # ---------------------------------------------------------------------------
 
 def _run_agent_browser(agent_browser_path: str, args: list[str]) -> str:
@@ -309,7 +224,7 @@ def _map_command_error(source: str, step: str, exc: Exception) -> SourceResult:
     )
 
 
-def _extract_cell_value(line: str) -> Optional[str]:
+def _extract_cell_value(line: str) -> str | None:
     start = line.find('"')
     if start == -1:
         return None
@@ -334,12 +249,6 @@ def classify_effort_level(model_name: str) -> str:
     return "standard"
 
 
-def effort_matches(effort_filter: str, effort: str) -> bool:
-    if effort_filter == "all":
-        return True
-    return effort_filter == effort
-
-
 def apply_aa_effort_filter(results: list[SourceResult], effort: str) -> None:
     if effort == "all":
         return
@@ -348,108 +257,30 @@ def apply_aa_effort_filter(results: list[SourceResult], effort: str) -> None:
             continue
         result.scores = [
             s for s in result.scores
-            if effort_matches(effort, classify_effort_level(s.source_model_name))
+            if (effort == "all" or effort == classify_effort_level(s.source_model_name))
         ]
 
 
 # ---------------------------------------------------------------------------
-# Source: Artificial Analysis
+# Generic cached-score parser
 # ---------------------------------------------------------------------------
 
-def _fetch_aa(config: Config, cache: Cache) -> SourceResult:
-    cached = cache.get("artificial-analysis")
-    if cached:
-        fetched_at, data = cached
-        return _parse_aa_cached(data, fetched_at, "cached")
-
-    if config.aa_api_key:
-        try:
-            result = _fetch_aa_api(config.aa_api_key, cache)
-            return result
-        except Exception as api_err:
-            try:
-                fallback = _fetch_aa_scrape(config, cache)
-                if fallback.status == "ok":
-                    return fallback
-            except Exception:
-                pass
-            return SourceResult(
-                source="artificial-analysis",
-                status=f"error:AA API failed and scrape fallback failed: {api_err}",
-            )
-
-    return _fetch_aa_scrape(config, cache)
-
-
-def _fetch_aa_api(api_key: str, cache: Cache) -> SourceResult:
-    with httpx.Client(timeout=HTTP_TIMEOUT) as client:
-        resp = client.get(
-            "https://artificialanalysis.ai/api/v2/data/llms/models",
-            headers={"x-api-key": api_key},
-        )
-    if resp.status_code != 200:
-        raise RuntimeError(f"AA API returned HTTP {resp.status_code}")
-
-    payload = resp.json()
-    ranked: list[tuple[str, float]] = []
-    for model in payload.get("data", []):
-        score = (model.get("evaluations") or {}).get("artificial_analysis_intelligence_index")
-        if score is not None:
-            ranked.append((model["name"], float(score)))
-
-    if not ranked:
-        raise RuntimeError("AA API returned no models with intelligence index")
-
-    ranked.sort(key=lambda x: x[1], reverse=True)
-    cached_rows = [{"source_model_name": n, "intelligence_index": s} for n, s in ranked]
-    cache_value = {"scores": cached_rows}
-    cache.set("artificial-analysis", cache_value)
-    return _parse_aa_cached(cache_value, datetime.now(timezone.utc), "ok")
-
-
-def _fetch_aa_scrape(config: Config, cache: Cache) -> SourceResult:
-    agent_browser = config.agent_browser_path
-    try:
-        _run_agent_browser(agent_browser, ["open", "https://artificialanalysis.ai/leaderboards/models"])
-    except Exception as exc:
-        return _map_command_error("artificial-analysis", "open", exc)
-
-    try:
-        _run_agent_browser(agent_browser, ["wait", "3000"])
-    except Exception:
-        pass
-
-    try:
-        page_text = _run_agent_browser(agent_browser, ["snapshot"])
-    except Exception as exc:
-        return _map_command_error("artificial-analysis", "snapshot", exc)
-
-    parsed = _parse_aa_scores_from_text(page_text)
-    if not parsed:
-        return SourceResult(
-            source="artificial-analysis",
-            fetched_at=datetime.now(timezone.utc),
-            status="error:Failed to parse any model scores from AA leaderboard page",
-        )
-
-    parsed.sort(key=lambda x: x[1], reverse=True)
-    cached_rows = [{"source_model_name": n, "intelligence_index": s} for n, s in parsed]
-    cache_value = {"scores": cached_rows}
-    cache.set("artificial-analysis", cache_value)
-    return _parse_aa_cached(cache_value, datetime.now(timezone.utc), "ok")
-
-
-def _parse_aa_cached(data: Any, fetched_at: Optional[datetime], status: str) -> SourceResult:
+def _parse_scored_cached(
+    source: str,
+    metric_key: str,
+    data: Any,
+    fetched_at: datetime | None,
+    status: str,
+) -> SourceResult:
     rows: list[tuple[str, float]] = []
     for entry in (data.get("scores") or []):
         name = entry.get("source_model_name")
-        score = entry.get("intelligence_index") or entry.get("score")
+        score = entry.get(metric_key) or entry.get("score")
         if name and score is not None:
             try:
                 rows.append((name, float(score)))
             except (ValueError, TypeError):
                 pass
-
     rows.sort(key=lambda x: x[1], reverse=True)
     scores = []
     for idx, (source_model_name, score) in enumerate(rows):
@@ -457,69 +288,37 @@ def _parse_aa_cached(data: Any, fetched_at: Optional[datetime], status: str) -> 
         scores.append(ModelScore(
             model=source_model_name.lower().replace(" ", "-").replace("_", "-"),
             source_model_name=source_model_name,
-            metrics={"intelligence_index": score, "rank": rank},
+            metrics={metric_key: score, "rank": rank},
             rank=rank,
         ))
-    return SourceResult(source="artificial-analysis", fetched_at=fetched_at, status=status, scores=scores)
-
-
-def _parse_aa_scores_from_text(text: str) -> list[tuple[str, float]]:
-    results: dict[str, float] = {}
-    lines = text.splitlines()
-    i = 0
-    while i < len(lines):
-        trimmed = lines[i].strip()
-        if trimmed.startswith('- row "') and "Model Providers" in trimmed:
-            cells: list[str] = []
-            j = i + 1
-            while j < len(lines):
-                cell_line = lines[j].strip()
-                if cell_line.startswith('- cell "'):
-                    val = _extract_cell_value(cell_line)
-                    if val is not None:
-                        cells.append(val)
-                elif cell_line.startswith("- row "):
-                    break
-                j += 1
-
-            if len(cells) >= 4:
-                model_name = cells[0]
-                try:
-                    score = float(cells[3])
-                    if model_name and 1.0 <= score <= 100.0:
-                        if model_name not in results or score > results[model_name]:
-                            results[model_name] = score
-                except (ValueError, TypeError):
-                    pass
-            i = j
-        else:
-            i += 1
-
-    return list(results.items())
+    return SourceResult(source=source, fetched_at=fetched_at, status=status, scores=scores)
 
 
 # ---------------------------------------------------------------------------
 # Source: Arena
 # ---------------------------------------------------------------------------
 
-def _fetch_arena(config: Config, cache: Cache) -> SourceResult:
+_ARENA_AGENT_BROWSER_PATH = "agent-browser"
+
+
+def _fetch_arena(cache: Cache, client: httpx.Client) -> SourceResult:
     cached = cache.get("arena")
     if cached:
         fetched_at, data = cached
-        return _parse_arena_cached(data, fetched_at, "cached")
+        return _parse_scored_cached("arena", "elo_score", data, fetched_at, "cached")
 
     try:
-        result = _fetch_arena_scrape(config, cache)
+        result = _fetch_arena_scrape(cache)
         if result.scores:
             return result
     except Exception:
         pass
 
-    return _fetch_arena_json(cache)
+    return _fetch_arena_json(cache, client)
 
 
-def _fetch_arena_scrape(config: Config, cache: Cache) -> SourceResult:
-    agent_browser = config.agent_browser_path
+def _fetch_arena_scrape(cache: Cache) -> SourceResult:
+    agent_browser = _ARENA_AGENT_BROWSER_PATH
     try:
         _run_agent_browser(agent_browser, ["open", "https://lmarena.ai/leaderboard/text"])
     except Exception as exc:
@@ -546,15 +345,14 @@ def _fetch_arena_scrape(config: Config, cache: Cache) -> SourceResult:
     cached_rows = [{"source_model_name": n, "elo_score": e} for n, e in parsed]
     cache_value = {"scores": cached_rows}
     cache.set("arena", cache_value)
-    return _parse_arena_cached(cache_value, datetime.now(timezone.utc), "ok")
+    return _parse_scored_cached("arena", "elo_score", cache_value, datetime.now(timezone.utc), "ok")
 
 
-def _fetch_arena_json(cache: Cache) -> SourceResult:
+def _fetch_arena_json(cache: Cache, client: httpx.Client) -> SourceResult:
     try:
-        with httpx.Client(timeout=HTTP_TIMEOUT) as client:
-            resp = client.get(
-                "https://raw.githubusercontent.com/nakasyou/lmarena-history/main/output/scores.json"
-            )
+        resp = client.get(
+            "https://raw.githubusercontent.com/nakasyou/lmarena-history/main/output/scores.json"
+        )
         if resp.status_code != 200:
             return SourceResult(source="arena", status=f"error:HTTP {resp.status_code}")
         data = resp.json()
@@ -572,30 +370,7 @@ def _fetch_arena_json(cache: Cache) -> SourceResult:
     cached_rows = [{"source_model_name": n, "elo_score": e} for n, e in scores]
     cache_value = {"scores": cached_rows}
     cache.set("arena", cache_value)
-    return _parse_arena_cached(cache_value, datetime.now(timezone.utc), "ok")
-
-
-def _parse_arena_cached(data: Any, fetched_at: Optional[datetime], status: str) -> SourceResult:
-    rows: list[tuple[str, float]] = []
-    for entry in (data.get("scores") or []):
-        name = entry.get("source_model_name")
-        elo = entry.get("elo_score")
-        if name and elo is not None:
-            try:
-                rows.append((name, float(elo)))
-            except (ValueError, TypeError):
-                pass
-    rows.sort(key=lambda x: x[1], reverse=True)
-    scores = []
-    for idx, (source_model_name, elo) in enumerate(rows):
-        rank = idx + 1
-        scores.append(ModelScore(
-            model=source_model_name.lower().replace(" ", "-").replace("_", "-"),
-            source_model_name=source_model_name,
-            metrics={"elo_score": elo, "rank": rank},
-            rank=rank,
-        ))
-    return SourceResult(source="arena", fetched_at=fetched_at, status=status, scores=scores)
+    return _parse_scored_cached("arena", "elo_score", cache_value, datetime.now(timezone.utc), "ok")
 
 
 def _is_image_or_video_model(name: str) -> bool:
@@ -618,7 +393,7 @@ def _parse_arena_from_snapshot(text: str) -> list[tuple[str, float]]:
 
         if found_first_table and trimmed.startswith('- row "'):
             cells: list[str] = []
-            model_link_name: Optional[str] = None
+            model_link_name: str | None = None
             j = i + 1
 
             while j < len(lines):
@@ -639,7 +414,6 @@ def _parse_arena_from_snapshot(text: str) -> list[tuple[str, float]]:
                 elo_str = cells[3].split()[0] if cells[3].split() else ""
                 model_name = model_link_name
                 if model_name is None:
-                    # Strip provider prefix words from cell text
                     tokens = cells[2].split()
                     model_name = " ".join(
                         t for t in tokens
@@ -688,7 +462,7 @@ def _parse_arena_json_response(data: Any) -> list[tuple[str, float]]:
 # Source: SWE-bench
 # ---------------------------------------------------------------------------
 
-def _fetch_swebench(_config: Config, cache: Cache) -> SourceResult:
+def _fetch_swebench(cache: Cache, client: httpx.Client) -> SourceResult:
     cached = cache.get("swebench")
     if cached:
         fetched_at, data = cached
@@ -701,8 +475,7 @@ def _fetch_swebench(_config: Config, cache: Cache) -> SourceResult:
 
     url = "https://raw.githubusercontent.com/SWE-bench/swe-bench.github.io/master/data/leaderboards.json"
     try:
-        with httpx.Client(timeout=HTTP_TIMEOUT) as client:
-            resp = client.get(url)
+        resp = client.get(url)
     except Exception as exc:
         return SourceResult(source="swebench", status=f"error:{exc}")
 
@@ -759,7 +532,7 @@ def _parse_swebench_scores(data: Any) -> list[ModelScore]:
     return deduped
 
 
-def _extract_swebench_model_score(result: Any) -> Optional[ModelScore]:
+def _extract_swebench_model_score(result: Any) -> ModelScore | None:
     if not isinstance(result, dict):
         return None
     name = result.get("name")
@@ -792,7 +565,7 @@ def _extract_swebench_model_score(result: Any) -> Optional[ModelScore]:
 AIDER_URL = "https://raw.githubusercontent.com/Aider-AI/aider/main/aider/website/_data/polyglot_leaderboard.yml"
 
 
-def _fetch_aider(_config: Config, cache: Cache) -> SourceResult:
+def _fetch_aider(cache: Cache, client: httpx.Client) -> SourceResult:
     cached = cache.get("aider")
     if cached:
         fetched_at, data = cached
@@ -804,8 +577,7 @@ def _fetch_aider(_config: Config, cache: Cache) -> SourceResult:
         )
 
     try:
-        with httpx.Client(timeout=HTTP_TIMEOUT) as client:
-            resp = client.get(AIDER_URL)
+        resp = client.get(AIDER_URL)
     except Exception as exc:
         return SourceResult(source="aider", status=f"error:{exc}")
 
@@ -872,45 +644,44 @@ HF_ROWS_URL = "https://datasets-server.huggingface.co/rows"
 LIVEBENCH_BATCH = 100
 
 
-def _fetch_livebench(_config: Config, cache: Cache) -> SourceResult:
+def _fetch_livebench(cache: Cache, client: httpx.Client) -> SourceResult:
     cached = cache.get("livebench")
     if cached:
         fetched_at, data = cached
-        return _parse_livebench_cached(data, fetched_at, "cached")
+        return _parse_scored_cached("livebench", "global_average", data, fetched_at, "cached")
 
     all_scores: dict[str, list[float]] = {}
     offset = 0
     try:
-        with httpx.Client(timeout=HTTP_TIMEOUT) as client:
-            while True:
-                url = (
-                    f"{HF_ROWS_URL}?dataset=livebench/model_judgment"
-                    f"&config=default&split=leaderboard&offset={offset}&length={LIVEBENCH_BATCH}"
-                )
-                try:
-                    resp = client.get(url)
-                    data = resp.json()
-                except Exception:
-                    break
+        while True:
+            url = (
+                f"{HF_ROWS_URL}?dataset=livebench/model_judgment"
+                f"&config=default&split=leaderboard&offset={offset}&length={LIVEBENCH_BATCH}"
+            )
+            try:
+                resp = client.get(url)
+                data = resp.json()
+            except Exception:
+                break
 
-                rows = data.get("rows") or []
-                if not rows:
-                    break
+            rows = data.get("rows") or []
+            if not rows:
+                break
 
-                for row_wrapper in rows:
-                    row = row_wrapper.get("row") or {}
-                    model = row.get("model")
-                    score = row.get("score")
-                    if model and score is not None:
-                        try:
-                            all_scores.setdefault(model, []).append(float(score))
-                        except (ValueError, TypeError):
-                            pass
+            for row_wrapper in rows:
+                row = row_wrapper.get("row") or {}
+                model = row.get("model")
+                score = row.get("score")
+                if model and score is not None:
+                    try:
+                        all_scores.setdefault(model, []).append(float(score))
+                    except (ValueError, TypeError):
+                        pass
 
-                total = int(data.get("num_rows_total") or 0)
-                offset += LIVEBENCH_BATCH
-                if offset >= total:
-                    break
+            total = int(data.get("num_rows_total") or 0)
+            offset += LIVEBENCH_BATCH
+            if offset >= total:
+                break
     except Exception:
         pass
 
@@ -930,30 +701,7 @@ def _fetch_livebench(_config: Config, cache: Cache) -> SourceResult:
     cached_rows = [{"source_model_name": m, "global_average": s} for m, s in model_avgs]
     cache_value = {"scores": cached_rows}
     cache.set("livebench", cache_value)
-    return _parse_livebench_cached(cache_value, datetime.now(timezone.utc), "ok")
-
-
-def _parse_livebench_cached(data: Any, fetched_at: Optional[datetime], status: str) -> SourceResult:
-    rows: list[tuple[str, float]] = []
-    for entry in (data.get("scores") or []):
-        name = entry.get("source_model_name")
-        score = entry.get("global_average")
-        if name and score is not None:
-            try:
-                rows.append((name, float(score)))
-            except (ValueError, TypeError):
-                pass
-    rows.sort(key=lambda x: x[1], reverse=True)
-    scores = []
-    for idx, (source_model_name, score) in enumerate(rows):
-        rank = idx + 1
-        scores.append(ModelScore(
-            model=source_model_name.lower().replace(" ", "-").replace("_", "-"),
-            source_model_name=source_model_name,
-            metrics={"global_average": score, "rank": rank},
-            rank=rank,
-        ))
-    return SourceResult(source="livebench", fetched_at=fetched_at, status=status, scores=scores)
+    return _parse_scored_cached("livebench", "global_average", cache_value, datetime.now(timezone.utc), "ok")
 
 
 # ---------------------------------------------------------------------------
@@ -963,7 +711,7 @@ def _parse_livebench_cached(data: Any, fetched_at: Optional[datetime], status: s
 HF_API_URL = "https://huggingface.co/api/datasets/sabhay/terminal-bench-2-leaderboard"
 
 
-def _fetch_tbench(_config: Config, cache: Cache) -> SourceResult:
+def _fetch_tbench(cache: Cache, client: httpx.Client) -> SourceResult:
     cached = cache.get("terminal-bench")
     if cached:
         fetched_at, data = cached
@@ -975,8 +723,7 @@ def _fetch_tbench(_config: Config, cache: Cache) -> SourceResult:
         )
 
     try:
-        with httpx.Client(timeout=HTTP_TIMEOUT) as client:
-            resp = client.get(HF_API_URL)
+        resp = client.get(HF_API_URL)
     except Exception as exc:
         return SourceResult(source="terminal-bench", status=f"error:{exc}")
 
@@ -1034,234 +781,17 @@ def _extract_tbench_from_siblings(data: Any) -> list[ModelScore]:
 
 
 # ---------------------------------------------------------------------------
-# Source: SEAL
-# ---------------------------------------------------------------------------
-
-def _fetch_seal(config: Config, cache: Cache) -> SourceResult:
-    cached = cache.get("seal")
-    if cached:
-        fetched_at, data = cached
-        return _parse_seal_cached(data, fetched_at, "cached")
-
-    agent_browser = config.agent_browser_path
-    try:
-        _run_agent_browser(agent_browser, ["open", "https://scale.com/leaderboard"])
-    except Exception as exc:
-        return _map_command_error("seal", "open", exc)
-
-    try:
-        _run_agent_browser(agent_browser, ["wait", "2000"])
-    except Exception:
-        pass
-
-    try:
-        page_text = _run_agent_browser(agent_browser, ["snapshot"])
-    except Exception as exc:
-        return _map_command_error("seal", "snapshot", exc)
-
-    parsed = _parse_seal_from_text(page_text)
-    if not parsed:
-        return SourceResult(
-            source="seal",
-            fetched_at=datetime.now(timezone.utc),
-            status="error:Failed to parse any model scores from SEAL page output",
-        )
-
-    parsed.sort(key=lambda x: x[1], reverse=True)
-    cached_rows = [{"source_model_name": n, "score": s} for n, s in parsed]
-    cache_value = {"scores": cached_rows}
-    cache.set("seal", cache_value)
-    return _parse_seal_cached(cache_value, datetime.now(timezone.utc), "ok")
-
-
-def _parse_seal_cached(data: Any, fetched_at: Optional[datetime], status: str) -> SourceResult:
-    rows: list[tuple[str, float]] = []
-    for entry in (data.get("scores") or []):
-        name = entry.get("source_model_name")
-        score = entry.get("score")
-        if name and score is not None:
-            try:
-                rows.append((name, float(score)))
-            except (ValueError, TypeError):
-                pass
-    rows.sort(key=lambda x: x[1], reverse=True)
-    scores = []
-    for idx, (source_model_name, score) in enumerate(rows):
-        rank = idx + 1
-        scores.append(ModelScore(
-            model=source_model_name.lower().replace(" ", "-").replace("_", "-"),
-            source_model_name=source_model_name,
-            metrics={"overall_score": score, "rank": rank},
-            rank=rank,
-        ))
-    return SourceResult(source="seal", fetched_at=fetched_at, status=status, scores=scores)
-
-
-def _parse_seal_from_text(text: str) -> list[tuple[str, float]]:
-    model_scores: dict[str, list[float]] = {}
-    for line in text.splitlines():
-        trimmed = line.strip()
-        if "View Full Ranking" not in trimmed:
-            continue
-        start = trimmed.find('"')
-        if start == -1:
-            continue
-        rest = trimmed[start + 1:]
-        end = rest.rfind("View Full Ranking")
-        if end == -1:
-            continue
-        link_text = rest[:end]
-        for model, score in _seal_extract_model_scores(link_text):
-            model_scores.setdefault(model, []).append(score)
-
-    return [
-        (model, sum(scores) / len(scores))
-        for model, scores in model_scores.items()
-    ]
-
-
-def _seal_extract_model_scores(text: str) -> list[tuple[str, float]]:
-    tokens = text.split()
-    results: list[tuple[str, float]] = []
-    score_positions = [i for i, t in enumerate(tokens) if "±" in t]
-
-    if not score_positions:
-        return results
-
-    for si, score_pos in enumerate(score_positions):
-        score_str = tokens[score_pos].split("±")[0]
-        try:
-            score = float(score_str)
-        except ValueError:
-            continue
-
-        search_start = score_positions[si - 1] + 1 if si > 0 else 0
-        rank_pos = next(
-            (j for j in range(search_start, score_pos)
-             if tokens[j].isdigit() and int(tokens[j]) <= 500),
-            None,
-        )
-        name_start = (rank_pos + 1) if rank_pos is not None else search_start
-        name = " ".join(t for t in tokens[name_start:score_pos] if t != "NEW")
-        name = name.rstrip("*").strip()
-        if len(name) >= 2 and any(c.isalpha() for c in name):
-            results.append((name, score))
-
-    return results
-
-
-# ---------------------------------------------------------------------------
-# Source: SWE-rebench
-# ---------------------------------------------------------------------------
-
-def _fetch_swe_rebench(config: Config, cache: Cache) -> SourceResult:
-    cached = cache.get("swe-rebench")
-    if cached:
-        fetched_at, data = cached
-        return _parse_swe_rebench_cached(data, fetched_at, "cached")
-
-    agent_browser = config.agent_browser_path
-    try:
-        _run_agent_browser(agent_browser, ["open", "https://swe-rebench.com/"])
-    except Exception as exc:
-        return _map_command_error("swe-rebench", "open", exc)
-
-    try:
-        _run_agent_browser(agent_browser, ["wait", "2000"])
-    except Exception:
-        pass
-
-    try:
-        page_text = _run_agent_browser(agent_browser, ["snapshot"])
-    except Exception as exc:
-        return _map_command_error("swe-rebench", "snapshot", exc)
-
-    parsed = _parse_swe_rebench_from_text(page_text)
-    if not parsed:
-        return SourceResult(
-            source="swe-rebench",
-            fetched_at=datetime.now(timezone.utc),
-            status="error:Failed to parse any model scores from SWE-rebench page output",
-        )
-
-    parsed.sort(key=lambda x: x[1], reverse=True)
-    cached_rows = [{"source_model_name": n, "score": s} for n, s in parsed]
-    cache_value = {"scores": cached_rows}
-    cache.set("swe-rebench", cache_value)
-    return _parse_swe_rebench_cached(cache_value, datetime.now(timezone.utc), "ok")
-
-
-def _parse_swe_rebench_cached(data: Any, fetched_at: Optional[datetime], status: str) -> SourceResult:
-    rows: list[tuple[str, float]] = []
-    for entry in (data.get("scores") or []):
-        name = entry.get("source_model_name")
-        score = entry.get("score")
-        if name and score is not None:
-            try:
-                rows.append((name, float(score)))
-            except (ValueError, TypeError):
-                pass
-    rows.sort(key=lambda x: x[1], reverse=True)
-    scores = []
-    for idx, (source_model_name, score) in enumerate(rows):
-        rank = idx + 1
-        scores.append(ModelScore(
-            model=source_model_name.lower().replace(" ", "-").replace("_", "-"),
-            source_model_name=source_model_name,
-            metrics={"resolve_rate": score, "rank": rank},
-            rank=rank,
-        ))
-    return SourceResult(source="swe-rebench", fetched_at=fetched_at, status=status, scores=scores)
-
-
-def _parse_swe_rebench_from_text(text: str) -> list[tuple[str, float]]:
-    results: dict[str, float] = {}
-    lines = text.splitlines()
-    i = 0
-    while i < len(lines):
-        trimmed = lines[i].strip()
-        if trimmed.startswith('- row "') and "%" in trimmed:
-            cells: list[str] = []
-            j = i + 1
-            while j < len(lines):
-                cell_line = lines[j].strip()
-                if cell_line.startswith('- cell "'):
-                    val = _extract_cell_value(cell_line)
-                    if val is not None:
-                        cells.append(val)
-                elif cell_line.startswith("- row "):
-                    break
-                j += 1
-
-            if len(cells) >= 3:
-                model_name = cells[1]
-                score_str = cells[2].rstrip("%")
-                try:
-                    score = float(score_str)
-                    if model_name and any(c.isalpha() for c in model_name) and model_name != "Model":
-                        results.setdefault(model_name, score)
-                except (ValueError, TypeError):
-                    pass
-            i = j
-        else:
-            i += 1
-
-    return list(results.items())
-
-
-# ---------------------------------------------------------------------------
 # Source: OpenRouter
 # ---------------------------------------------------------------------------
 
-def _fetch_openrouter(_config: Config, cache: Cache) -> SourceResult:
+def _fetch_openrouter(cache: Cache, client: httpx.Client) -> SourceResult:
     cached = cache.get("openrouter")
     if cached:
         fetched_at, data = cached
         return _parse_openrouter_cached(data, fetched_at, "cached")
 
     try:
-        with httpx.Client(timeout=HTTP_TIMEOUT) as client:
-            resp = client.get("https://openrouter.ai/api/v1/models")
+        resp = client.get("https://openrouter.ai/api/v1/models")
     except Exception as exc:
         return SourceResult(source="openrouter", status=f"error:{exc}")
 
@@ -1308,7 +838,7 @@ def _fetch_openrouter(_config: Config, cache: Cache) -> SourceResult:
     return _parse_openrouter_cached(cache_value, datetime.now(timezone.utc), "ok")
 
 
-def _parse_openrouter_cached(data: Any, fetched_at: Optional[datetime], status: str) -> SourceResult:
+def _parse_openrouter_cached(data: Any, fetched_at: datetime | None, status: str) -> SourceResult:
     scores: list[ModelScore] = []
     for entry in (data.get("scores") or []):
         name = entry.get("source_model_name")
@@ -1333,50 +863,45 @@ def _parse_openrouter_cached(data: Any, fetched_at: Optional[datetime], status: 
 # ---------------------------------------------------------------------------
 
 SOURCE_TAGS: dict[str, list[str]] = {
-    "artificial-analysis": ["reasoning", "general"],
     "arena": ["reasoning", "general"],
     "swebench": ["coding"],
     "aider": ["coding"],
     "livebench": ["reasoning"],
     "terminal-bench": ["coding", "agentic"],
-    "seal": ["reasoning"],
-    "swe-rebench": ["coding"],
     "openrouter": ["general"],
 }
 
 SOURCE_FETCHERS = {
-    "artificial-analysis": _fetch_aa,
     "arena": _fetch_arena,
     "swebench": _fetch_swebench,
     "aider": _fetch_aider,
     "livebench": _fetch_livebench,
     "terminal-bench": _fetch_tbench,
-    "seal": _fetch_seal,
-    "swe-rebench": _fetch_swe_rebench,
     "openrouter": _fetch_openrouter,
 }
 
 SOURCE_ORDER = [
-    "artificial-analysis", "arena", "swebench", "aider",
-    "livebench", "terminal-bench", "seal", "swe-rebench", "openrouter",
+    "arena", "swebench", "aider",
+    "livebench", "terminal-bench", "openrouter",
 ]
 
 
-def fetch_all(config: Config, cache: Cache) -> list[SourceResult]:
+def fetch_all(cache: Cache) -> list[SourceResult]:
     results = []
-    for source_name in SOURCE_ORDER:
-        fetcher = SOURCE_FETCHERS[source_name]
-        try:
-            result = fetcher(config, cache)
-        except Exception as exc:
-            result = SourceResult(source=source_name, status=f"error:{exc}")
-        results.append(result)
+    with httpx.Client(timeout=HTTP_TIMEOUT) as client:
+        for source_name in SOURCE_ORDER:
+            fetcher = SOURCE_FETCHERS[source_name]
+            try:
+                result = fetcher(cache, client)
+            except Exception as exc:
+                result = SourceResult(source=source_name, status=f"error:{exc}")
+            results.append(result)
     return results
 
 
-def _source_tags_for_output(config: Config) -> dict[str, list[str]]:
+def _source_tags_for_output(source_tag_overrides: dict[str, list[str]]) -> dict[str, list[str]]:
     tags = dict(SOURCE_TAGS)
-    for source, override in config.source_tags.items():
+    for source, override in source_tag_overrides.items():
         tags[source.lower()] = override
     return tags
 
@@ -1464,17 +989,6 @@ def aggregate_results(
     return agg_result, excluded if show_excluded else []
 
 
-def _excluded_models(results: list[SourceResult], min_sources: int) -> list[tuple[str, int]]:
-    counts: dict[str, int] = {}
-    for source in results:
-        for score in source.scores:
-            if score.rank is not None:
-                counts[score.model] = counts.get(score.model, 0) + 1
-    excluded = [(m, c) for m, c in counts.items() if c < min_sources]
-    excluded.sort(key=lambda x: (-x[1], x[0]))
-    return excluded
-
-
 # ---------------------------------------------------------------------------
 # Recommend
 # ---------------------------------------------------------------------------
@@ -1486,20 +1000,12 @@ TASK_SPECS = {
             {"source": "swebench", "label": "SWE-bench", "metric": "resolved_rate", "sort": "desc"},
             {"source": "terminal-bench", "label": "Terminal-Bench", "metric": "tasks_completed", "sort": "desc"},
             {"source": "aider", "label": "Aider", "metric": "pass_rate_1", "sort": "desc"},
-            {"source": "swe-rebench", "label": "SWE-rebench", "metric": "resolve_rate", "sort": "desc"},
         ],
     },
     "agentic": {
         "description": "Use agentic execution benchmarks with Terminal-Bench weighted first.",
         "sources": [
             {"source": "terminal-bench", "label": "Terminal-Bench", "metric": "tasks_completed", "sort": "desc"},
-            {"source": "seal", "label": "SEAL", "metric": "overall_score", "sort": "desc"},
-        ],
-    },
-    "intelligence": {
-        "description": "Use Artificial Analysis intelligence index; max-effort variants are best.",
-        "sources": [
-            {"source": "artificial-analysis", "label": "Artificial Analysis", "metric": "intelligence_index", "sort": "desc"},
         ],
     },
     "general": {
@@ -1514,20 +1020,12 @@ TASK_SPECS = {
             {"source": "openrouter", "label": "OpenRouter", "metric": "total_cost", "sort": "asc"},
         ],
     },
-    "value": {
-        "description": "Intelligence per dollar — AA intelligence index divided by OpenRouter cost per 1M tokens.",
-        "sources": [
-            {"source": "value", "label": "Value (intel/$)", "metric": "value_score", "sort": "desc"},
-            {"source": "artificial-analysis", "label": "Intelligence", "metric": "intelligence_index", "sort": "desc"},
-            {"source": "openrouter", "label": "Cost", "metric": "total_cost", "sort": "asc"},
-        ],
-    },
 }
 
 VALID_TASKS = list(TASK_SPECS.keys())
 
 
-def _extract_metric(score: ModelScore, metric_name: str) -> Optional[float]:
+def _extract_metric(score: ModelScore, metric_name: str) -> float | None:
     if metric_name == "total_cost":
         p = _get_float(score.metrics, "prompt_per_1m")
         c = _get_float(score.metrics, "completion_per_1m")
@@ -1548,44 +1046,6 @@ def _canonical_model_name(aliases: AliasMap, score: ModelScore) -> str:
     if by_source != score.source_model_name.lower():
         return by_source
     return score.model.lower()
-
-
-def _inject_value_scores(results: list[SourceResult], aliases: AliasMap) -> None:
-    aa_scores: dict[str, float] = {}
-    for r in results:
-        if r.source == "artificial-analysis":
-            for score in r.scores:
-                v = score.metrics.get("intelligence_index")
-                if isinstance(v, (int, float)):
-                    aa_scores[_canonical_model_name(aliases, score)] = float(v)
-
-    or_costs: dict[str, float] = {}
-    for r in results:
-        if r.source == "openrouter":
-            for score in r.scores:
-                p = score.metrics.get("prompt_per_1m")
-                c = score.metrics.get("completion_per_1m")
-                if isinstance(p, (int, float)) and isinstance(c, (int, float)):
-                    total = float(p) + float(c)
-                    if total > 0:
-                        or_costs[_canonical_model_name(aliases, score)] = total
-
-    value_scores: list[ModelScore] = []
-    for model, intel in aa_scores.items():
-        cost = or_costs.get(model)
-        if cost is not None:
-            value = intel / cost
-            value_scores.append(ModelScore(
-                model=model,
-                source_model_name=model,
-                metrics={"value_score": value},
-            ))
-
-    value_scores.sort(key=lambda s: _get_float(s.metrics, "value_score"), reverse=True)
-    for i, s in enumerate(value_scores):
-        s.rank = i + 1
-
-    results.append(SourceResult(source="value", status="ok", scores=value_scores))
 
 
 def _rank_models(
@@ -1641,9 +1101,9 @@ def _rank_models(
 
 
 def cmd_recommend(
-    config: Config,
     cache: Cache,
     aliases: AliasMap,
+    source_tag_overrides: dict[str, list[str]],
     task: str,
     top: int,
     effort: str,
@@ -1659,26 +1119,21 @@ def cmd_recommend(
         sys.exit(1)
 
     spec = TASK_SPECS[task]
-    wanted_sources = {s["source"] for s in spec["sources"] if s["source"] != "value"}
+    wanted_sources = {s["source"] for s in spec["sources"]}
     results: list[SourceResult] = []
-    for source_name in wanted_sources:
-        fetcher = SOURCE_FETCHERS.get(source_name)
-        if fetcher is None:
-            continue
-        try:
-            result = fetcher(config, cache)
-        except Exception as exc:
-            result = SourceResult(source=source_name, status=f"error:{exc}")
-        results.append(result)
-
-    if any(s["source"] == "artificial-analysis" for s in spec["sources"]):
-        apply_aa_effort_filter(results, effort)
+    with httpx.Client(timeout=HTTP_TIMEOUT) as client:
+        for source_name in wanted_sources:
+            fetcher = SOURCE_FETCHERS.get(source_name)
+            if fetcher is None:
+                continue
+            try:
+                result = fetcher(cache, client)
+            except Exception as exc:
+                result = SourceResult(source=source_name, status=f"error:{exc}")
+            results.append(result)
 
     for r in results:
         print(f"[{r.source}] {_status_label(r.status)}", file=sys.stderr)
-
-    if task == "value":
-        _inject_value_scores(results, aliases)
 
     rows = _rank_models(spec, results, aliases, top)
 
@@ -1759,7 +1214,7 @@ def _render_recommend_markdown(spec: dict, output: dict) -> str:
     return "\n".join(lines)
 
 
-def _format_recommend_metric(metric_name: str, value: Optional[float]) -> str:
+def _format_recommend_metric(metric_name: str, value: float | None) -> str:
     if value is None:
         return "-"
     if metric_name in ("resolved_rate", "resolve_rate", "pass_rate_1"):
@@ -1779,31 +1234,18 @@ def _format_recommend_metric(metric_name: str, value: Optional[float]) -> str:
 # Monitor
 # ---------------------------------------------------------------------------
 
-def _monitor_state_path() -> Path:
-    system = platform.system()
-    if system == "Darwin":
-        return Path.home() / "Library" / "Application Support" / "pondus" / "monitors.json"
-    elif system == "Windows":
-        base = Path(os.environ.get("LOCALAPPDATA", Path.home()))
-        return base / "pondus" / "monitors.json"
-    else:
-        return Path(os.environ.get("XDG_DATA_HOME", Path.home() / ".local" / "share")) / "pondus" / "monitors.json"
-
-
 def _load_monitor_state() -> dict:
-    path = _monitor_state_path()
-    if path.exists():
+    if MONITOR_STATE_PATH.exists():
         try:
-            return json.loads(path.read_text())
+            return json.loads(MONITOR_STATE_PATH.read_text())
         except Exception:
             pass
     return {"watched": []}
 
 
 def _save_monitor_state(state: dict) -> None:
-    path = _monitor_state_path()
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(state, indent=2))
+    MONITOR_STATE_PATH.parent.mkdir(parents=True, exist_ok=True)
+    MONITOR_STATE_PATH.write_text(json.dumps(state, indent=2))
 
 
 def cmd_monitor_add(model: str, aliases: AliasMap) -> None:
@@ -1844,13 +1286,13 @@ def cmd_monitor_remove(model: str, aliases: AliasMap) -> None:
         print(f"Removed '{canonical}' from watchlist.")
 
 
-def cmd_monitor_check(config: Config, cache: Cache, aliases: AliasMap) -> None:
+def cmd_monitor_check(cache: Cache, aliases: AliasMap) -> None:
     state = _load_monitor_state()
     if not state["watched"]:
         print("No models on the watchlist.")
         return
 
-    results = fetch_all(config, cache)
+    results = fetch_all(cache)
     today = datetime.now().strftime("%Y-%m-%d")
     state_changed = False
 
@@ -1882,22 +1324,37 @@ def cmd_monitor_check(config: Config, cache: Cache, aliases: AliasMap) -> None:
                 msg = f"pondus: new benchmark data for {w['model']}\n{source}: {info}"
                 print(f"  {source}: {info}")
                 token = os.environ.get("TELEGRAM_BOT_TOKEN", "").strip()
+                chat_id_str = os.environ.get("TELEGRAM_CHAT_ID", "").strip()
+                if not chat_id_str:
+                    import subprocess as _sp
+                    try:
+                        chat_id_str = _sp.check_output(
+                            ["security", "find-generic-password", "-a", "TELEGRAM_CHAT_ID", "-w"],
+                            text=True,
+                        ).strip()
+                    except Exception:
+                        pass
                 notified = False
-                if token:
+                if token and chat_id_str:
                     try:
                         with httpx.Client(timeout=10) as client:
                             resp = client.post(
                                 f"https://api.telegram.org/bot{token}/sendMessage",
-                                json={"chat_id": 6201770409, "text": msg},
+                                json={"chat_id": chat_id_str, "text": msg},
                             )
                         notified = resp.status_code == 200
                     except Exception:
                         pass
                 if not notified:
-                    try:
-                        subprocess.run(["deltos", msg], check=False)
-                    except Exception:
-                        print(f"  [notify] {msg}")
+                    deltos_bin = shutil.which("deltos")
+                    if deltos_bin:
+                        try:
+                            subprocess.run([deltos_bin, msg], check=False)
+                            notified = True
+                        except Exception:
+                            pass
+                if not notified:
+                    print(f"  [notify] {msg}")
 
     if state_changed:
         _save_monitor_state(state)
@@ -1933,7 +1390,7 @@ def _format_metric(metric_name: str, value: MetricValue) -> str:
     return str(value)
 
 
-def _format_age(fetched_at: Optional[datetime], now: datetime) -> str:
+def _format_age(fetched_at: datetime | None, now: datetime) -> str:
     if fetched_at is None:
         return "unknown"
     delta = now - fetched_at
@@ -1959,44 +1416,18 @@ def render_output(output: PondusOutput, output_format: str) -> str:
 
 
 def _render_json(output: PondusOutput) -> str:
-    def _serialize(obj: Any) -> Any:
+    def _to_dict(obj: Any) -> Any:
         if isinstance(obj, datetime):
             return obj.isoformat()
-        if isinstance(obj, PondusOutput):
-            d: dict = {
-                "timestamp": obj.timestamp,
-                "query": _serialize(obj.query),
-                "sources": [_serialize(s) for s in obj.sources],
-            }
-            if obj.source_tags is not None:
-                d["source_tags"] = obj.source_tags
-            return d
-        if isinstance(obj, QueryInfo):
-            d = {"type": obj.query_type}
-            if obj.model is not None:
-                d["model"] = obj.model
-            if obj.models is not None:
-                d["models"] = obj.models
-            if obj.top is not None:
-                d["top"] = obj.top
-            return d
-        if isinstance(obj, SourceResult):
-            return {
-                "source": obj.source,
-                "fetched_at": obj.fetched_at,
-                "status": obj.status,
-                "scores": [_serialize(s) for s in obj.scores],
-            }
-        if isinstance(obj, ModelScore):
-            return {
-                "model": obj.model,
-                "source_model_name": obj.source_model_name,
-                "metrics": obj.metrics,
-                "rank": obj.rank,
-            }
+        if dataclasses.is_dataclass(obj) and not isinstance(obj, type):
+            return {k: _to_dict(v) for k, v in dataclasses.asdict(obj).items()}
+        if isinstance(obj, list):
+            return [_to_dict(i) for i in obj]
+        if isinstance(obj, dict):
+            return {k: _to_dict(v) for k, v in obj.items()}
         return obj
 
-    return json.dumps(_serialize(output), indent=2, default=str)
+    return json.dumps(_to_dict(output), indent=2, default=str)
 
 
 def _render_table(output: PondusOutput) -> str:
@@ -2099,23 +1530,34 @@ def _render_sources_markdown(output: PondusOutput) -> str:
 # Command implementations
 # ---------------------------------------------------------------------------
 
+def _load_source_tag_overrides() -> dict[str, list[str]]:
+    sources_path = CONFIG_DIR / "sources.toml"
+    if sources_path.exists():
+        try:
+            raw = tomllib.loads(sources_path.read_text())
+            return {k: v.get("tags", []) for k, v in raw.items()}
+        except Exception:
+            pass
+    return {}
+
+
 def cmd_rank(
-    config: Config,
     cache: Cache,
     aliases: AliasMap,
+    source_tag_overrides: dict[str, list[str]],
     output_format: str,
-    top: Optional[int],
-    source_filter: Optional[str],
-    tag: Optional[str],
-    sources_filter: Optional[str],
+    top: int | None,
+    source_filter: str | None,
+    tag: str | None,
+    sources_filter: str | None,
     aggregate: bool,
-    min_sources: Optional[int],
+    min_sources: int | None,
     show_excluded: bool,
-    max_age: Optional[int],
+    max_age: int | None,
     show_freshness: bool,
     effort: str,
 ) -> None:
-    results = fetch_all(config, cache)
+    results = fetch_all(cache)
     now = datetime.now(timezone.utc)
 
     if max_age is not None:
@@ -2136,7 +1578,7 @@ def cmd_rank(
         if tag_lower not in ("reasoning", "coding", "agentic", "general"):
             print(f"[error] Unknown tag: '{tag}'. Expected one of: reasoning, coding, agentic, general", file=sys.stderr)
             sys.exit(1)
-        tags_by_source = _source_tags_for_output(config)
+        tags_by_source = _source_tags_for_output(source_tag_overrides)
         results = [r for r in results if tag_lower in tags_by_source.get(r.source.lower(), [])]
 
     merged_sources = sources_filter or source_filter
@@ -2168,10 +1610,7 @@ def cmd_rank(
 
     if aggregate:
         threshold = min_sources if min_sources is not None else 2
-        excluded_for_count = [] if show_excluded else _excluded_models(results, threshold)
         agg_result, excluded_list = aggregate_results(results, threshold, show_excluded)
-        if not show_excluded:
-            excluded_list = excluded_for_count
 
         if excluded_list:
             print(
@@ -2186,8 +1625,15 @@ def cmd_rank(
             agg_result.scores = agg_result.scores[:top]
         results = [agg_result]
     elif top is not None:
-        for result in results:
-            result.scores = result.scores[:top]
+        results = [
+            SourceResult(
+                source=r.source,
+                fetched_at=r.fetched_at,
+                status=r.status,
+                scores=r.scores[:top],
+            )
+            for r in results
+        ]
 
     output = PondusOutput(
         timestamp=now,
@@ -2198,7 +1644,6 @@ def cmd_rank(
 
 
 def cmd_check(
-    config: Config,
     cache: Cache,
     aliases: AliasMap,
     output_format: str,
@@ -2206,7 +1651,7 @@ def cmd_check(
     show_matches: bool,
 ) -> None:
     canonical = aliases.resolve(model)
-    results = fetch_all(config, cache)
+    results = fetch_all(cache)
 
     filtered: list[SourceResult] = []
     for r in results:
@@ -2241,7 +1686,6 @@ def cmd_check(
 
 
 def cmd_compare(
-    config: Config,
     cache: Cache,
     aliases: AliasMap,
     output_format: str,
@@ -2251,7 +1695,7 @@ def cmd_compare(
 ) -> None:
     c1 = aliases.resolve(model1)
     c2 = aliases.resolve(model2)
-    results = fetch_all(config, cache)
+    results = fetch_all(cache)
     apply_aa_effort_filter(results, effort)
 
     filtered = []
@@ -2275,69 +1719,9 @@ def cmd_compare(
     print(render_output(output, output_format))
 
 
-def cmd_watch(
-    config: Config,
-    cache: Cache,
-    aliases: AliasMap,
-    model: str,
-    interval: Optional[int],
-    once: bool,
-) -> None:
-    canonical = aliases.resolve(model)
-    interval_secs = interval if interval is not None else 3600
-
-    while True:
-        results = fetch_all(config, cache)
-        covered = 0
-        total_sources = len(results)
-        status_lines: list[str] = []
-
-        for r in results:
-            matched = next(
-                (s for s in r.scores
-                 if s.model.lower() == canonical or aliases.matches(s.source_model_name, canonical)),
-                None,
-            )
-            if matched is not None:
-                covered += 1
-                if matched.rank is not None:
-                    rank_str = f"rank {matched.rank}/{len(r.scores)}"
-                else:
-                    rank_str = "no rank"
-                metric_parts = sorted(
-                    f"{name} {_format_metric(name, val)}"
-                    for name, val in matched.metrics.items()
-                    if name != "rank"
-                )
-                metrics_str = (", " + ", ".join(metric_parts)) if metric_parts else ""
-                status_lines.append(f"  {r.source:<13} \u2713  {rank_str}{metrics_str}")
-            else:
-                status_lines.append(f"  {r.source:<13} \u2717  not yet indexed")
-
-        now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        print(f"Watching: {model}  [{covered}/{total_sources} sources]  {now_str}")
-        print()
-        for line in status_lines:
-            print(line)
-        print()
-
-        if covered == total_sources:
-            print(f"All {total_sources} sources have data for {model}.")
-            sys.exit(0)
-
-        if once:
-            print(f"{covered} of {total_sources} sources have data.")
-            sys.exit(1)
-
-        print(f"{covered} of {total_sources} sources have data. Rechecking in {interval_secs}s...")
-        time.sleep(interval_secs)
-        cache.clear()
-        print("\n---\n")
-
-
-def cmd_sources(config: Config, cache: Cache, output_format: str) -> None:
-    results = fetch_all(config, cache)
-    source_tags = _source_tags_for_output(config)
+def cmd_sources(cache: Cache, source_tag_overrides: dict[str, list[str]], output_format: str) -> None:
+    results = fetch_all(cache)
+    source_tags = _source_tags_for_output(source_tag_overrides)
     output = PondusOutput(
         timestamp=datetime.now(timezone.utc),
         query=QueryInfo(query_type="sources"),
@@ -2390,12 +1774,6 @@ def _cli() -> None:
     compare_p.add_argument("model2", help="Second model")
     compare_p.add_argument("--effort", default="all", choices=["all", "max", "standard", "low"])
 
-    # watch
-    watch_p = subparsers.add_parser("watch", help="Watch a model across all sources until all have data")
-    watch_p.add_argument("model", help="Model name (canonical or alias)")
-    watch_p.add_argument("--interval", type=int, default=None, help="Interval in seconds for polling (default: 3600)")
-    watch_p.add_argument("--once", action="store_true", help="Run once and exit with status code 1 if any source is missing data")
-
     # monitor
     monitor_p = subparsers.add_parser("monitor", help="Monitor models for new benchmark data")
     monitor_sub = monitor_p.add_subparsers(dest="monitor_command")
@@ -2423,9 +1801,9 @@ def _cli() -> None:
     args = parser.parse_args()
 
     output_format = "markdown" if args.format == "md" else args.format
-    config = Config.load()
-    cache = Cache(ttl_hours=config.ttl_hours)
-    aliases = AliasMap.load(config.alias_path)
+    cache = Cache()
+    aliases = AliasMap.load()
+    source_tag_overrides = _load_source_tag_overrides()
 
     if args.refresh:
         cache.clear()
@@ -2434,36 +1812,34 @@ def _cli() -> None:
 
     if command == "rank":
         cmd_rank(
-            config, cache, aliases, output_format,
-            top=args.top if command == "rank" else None,
-            source_filter=args.source if command == "rank" else None,
-            tag=args.tag if command == "rank" else None,
-            sources_filter=args.sources if command == "rank" else None,
-            aggregate=args.aggregate if command == "rank" else False,
-            min_sources=args.min_sources if command == "rank" else None,
-            show_excluded=args.show_excluded if command == "rank" else False,
-            max_age=args.max_age if command == "rank" else None,
-            show_freshness=args.show_freshness if command == "rank" else False,
-            effort=args.effort if command == "rank" else "all",
+            cache, aliases, source_tag_overrides, output_format,
+            top=args.top,
+            source_filter=args.source,
+            tag=args.tag,
+            sources_filter=args.sources,
+            aggregate=args.aggregate,
+            min_sources=args.min_sources,
+            show_excluded=args.show_excluded,
+            max_age=args.max_age,
+            show_freshness=args.show_freshness,
+            effort=args.effort,
         )
     elif command == "check":
-        cmd_check(config, cache, aliases, output_format, args.model, args.show_matches)
+        cmd_check(cache, aliases, output_format, args.model, args.show_matches)
     elif command == "compare":
-        cmd_compare(config, cache, aliases, output_format, args.model1, args.model2, args.effort)
-    elif command == "watch":
-        cmd_watch(config, cache, aliases, args.model, args.interval, args.once)
+        cmd_compare(cache, aliases, output_format, args.model1, args.model2, args.effort)
     elif command == "sources":
-        cmd_sources(config, cache, output_format)
+        cmd_sources(cache, source_tag_overrides, output_format)
     elif command == "refresh":
         cache.clear()
         print("Cache cleared. Re-fetching all sources...", file=sys.stderr)
-        cmd_rank(config, cache, aliases, output_format,
+        cmd_rank(cache, aliases, source_tag_overrides, output_format,
                  top=None, source_filter=None, tag=None, sources_filter=None,
                  aggregate=False, min_sources=None, show_excluded=False,
                  max_age=None, show_freshness=False, effort="all")
     elif command == "recommend":
         cmd_recommend(
-            config, cache, aliases,
+            cache, aliases, source_tag_overrides,
             task=args.task or "",
             top=args.top,
             effort=args.effort,
@@ -2479,7 +1855,7 @@ def _cli() -> None:
         elif monitor_command == "remove":
             cmd_monitor_remove(args.model, aliases)
         elif monitor_command == "check":
-            cmd_monitor_check(config, cache, aliases)
+            cmd_monitor_check(cache, aliases)
         else:
             monitor_p.print_help()
 
