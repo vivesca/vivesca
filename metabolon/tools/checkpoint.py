@@ -44,6 +44,11 @@ class CircadianResult(Secretion):
     summary: str
 
 
+class HeartRateResult(Secretion):
+    """Heart rate time-series from Oura."""
+    summary: str
+
+
 class MembranePotentialResult(Secretion):
     """Membrane potential — readiness with exercise guidance."""
 
@@ -249,6 +254,50 @@ def circadian_sleep(period: str = "today") -> CircadianResult:
         lines.append("")
 
     return CircadianResult(summary="\n".join(lines))
+
+
+@tool(
+    name="circadian_heartrate",
+    description="Oura HR time-series. Defaults to last night's sleep window.",
+    annotations=ToolAnnotations(readOnlyHint=True, destructiveHint=False),
+)
+def circadian_heartrate(
+    start_datetime: str = "", end_datetime: str = ""
+) -> HeartRateResult:
+    """Heart rate time-series from Oura, bucketed into 10-min intervals."""
+    from metabolon.organelles.chemoreceptor import heartrate
+
+    records = heartrate(start_datetime or None, end_datetime or None)
+    if not records:
+        return HeartRateResult(summary="No heart rate data available.")
+
+    # Bucket into 10-min intervals for readability
+    from collections import defaultdict
+    buckets: dict[str, list[int]] = defaultdict(list)
+    for r in records:
+        ts = r.get("timestamp", "")[:15]  # "2026-03-27T01:2" → 10-min bucket
+        bpm = r.get("bpm")
+        if ts and bpm is not None:
+            bucket_key = ts + "0"  # round to 10-min
+            buckets[bucket_key].append(bpm)
+
+    lines = [f"HR time-series ({len(records)} readings, {len(buckets)} buckets)"]
+    lines.append("Time           Avg  Min  Max  Source-mix")
+    for key in sorted(buckets):
+        vals = buckets[key]
+        avg_bpm = sum(vals) // len(vals)
+        mn, mx = min(vals), max(vals)
+        lines.append(f"{key}  {avg_bpm:>3}  {mn:>3}  {mx:>3}")
+
+    # Summary stats
+    all_bpm = [r["bpm"] for r in records if r.get("bpm") is not None]
+    if all_bpm:
+        lines.append("")
+        lines.append(f"Overall: avg {sum(all_bpm)//len(all_bpm)} bpm, "
+                     f"min {min(all_bpm)} bpm, max {max(all_bpm)} bpm, "
+                     f"{len(all_bpm)} readings")
+
+    return HeartRateResult(summary="\n".join(lines))
 
 
 @tool(

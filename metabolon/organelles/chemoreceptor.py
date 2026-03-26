@@ -3,7 +3,7 @@
 Reads Oura Ring data via the Oura API v2. Credential resolution: OURA_TOKEN env var first,
 then macOS Keychain entry 'oura-token'. Requires httpx (already a vivesca dependency).
 
-Core functions: today(), week(), readiness(), sleep_score(), hrv().
+Core functions: today(), week(), readiness(), sleep_score(), sleep_detail(), heartrate(), sense().
 """
 
 from __future__ import annotations
@@ -95,6 +95,57 @@ def _fetch(endpoint: str, start: str, end: str, token: str | None = None) -> lis
         )
         resp.raise_for_status()
         return resp.json().get("data", [])
+
+
+def _fetch_datetime(
+    endpoint: str, start_dt: str, end_dt: str, token: str | None = None
+) -> list[dict[str, Any]]:
+    """Fetch a datetime range from Oura API v2 (for heartrate endpoint).
+
+    Args:
+        endpoint: Oura collection name, e.g. 'heartrate'.
+        start_dt: ISO datetime string, e.g. '2026-03-27T00:00:00+08:00'.
+        end_dt: ISO datetime string.
+        token: Override token; resolved automatically if None.
+
+    Returns:
+        List of data records from the API response.
+    """
+    if token is None:
+        token = _get_token()
+    with httpx.Client(
+        base_url=API_BASE,
+        headers={"Authorization": f"Bearer {token}"},
+        timeout=30,
+    ) as client:
+        resp = client.get(
+            f"/{endpoint}",
+            params={"start_datetime": start_dt, "end_datetime": end_dt},
+        )
+        resp.raise_for_status()
+        return resp.json().get("data", [])
+
+
+def heartrate(start_dt: str | None = None, end_dt: str | None = None) -> list[dict[str, Any]]:
+    """Return heart rate time-series for a datetime range.
+
+    Defaults to last night (bedtime_start to bedtime_end from sleep_detail).
+    Each record: {bpm, source, timestamp}.
+
+    Args:
+        start_dt: ISO datetime, defaults to last night's bedtime_start.
+        end_dt: ISO datetime, defaults to last night's bedtime_end.
+
+    Returns:
+        List of {bpm, source, timestamp} dicts.
+    """
+    if not start_dt or not end_dt:
+        sd = sleep_detail()
+        start_dt = start_dt or sd.get("bedtime_start")
+        end_dt = end_dt or sd.get("bedtime_end")
+    if not start_dt or not end_dt:
+        return []
+    return _fetch_datetime("heartrate", start_dt, end_dt)
 
 
 def _today_date() -> str:
