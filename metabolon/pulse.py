@@ -677,11 +677,10 @@ def cross_model_review(manifest_path: Path):
 def post_efferens_summary(total_systoles: int, stop_reason: str):
     """Post a summary to efferens board so Terry sees results in his inbox."""
     try:
-        from metabolon.cytosol import VIVESCA_ROOT
+        sys.path.insert(0, str(Path.home() / "code" / "acta" / "src"))
+        import acta
 
-        from metabolon import symbiont as efferens
-
-        efferens.post(
+        acta.post(
             f"Pulse completed {total_systoles} wave(s). Stop reason: {stop_reason}. "
             f"Check ~/epigenome/chromatin/Pulse Reports/ for details.",
             sender="pulse",
