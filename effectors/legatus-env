@@ -3,5 +3,5 @@
 # Only export what backends actually need: PATH + Homebrew.
 # Telegram, GOG, browser profile, 1Password token are NOT needed.
 eval "$(/opt/homebrew/bin/brew shellenv)"
-export PATH="/Users/terry/.local/bin:/Users/terry/bin:/Users/terry/.cargo/bin:$PATH"
-exec legatus --queue /Users/terry/notes/agent-queue.yaml "$@"
+export PATH="/Users/terry/germline/.venv/bin:/Users/terry/.local/bin:/Users/terry/.cargo/bin:$PATH"
+exec legatus --queue /Users/terry/epigenome/chromatin/agent-queue.yaml "$@"
