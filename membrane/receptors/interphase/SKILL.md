@@ -8,6 +8,8 @@ user_invocable: true
 
 The quiet phase between divisions. Everything between "leaving the office" and "walking through the door." Process inputs, consolidate, prep for the next cycle.
 
+**Boundary:** interphase = work closure on commute. `/involution` = sleep hygiene at home. If Terry is at home winding down, use involution instead.
+
 ## Design
 
 Phone-friendly (Blink/tmux). Target: one bus ride. No deep reflection — capture facts, clear queues, prep tomorrow.

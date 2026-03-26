@@ -1,6 +1,6 @@
 ---
 name: titration
-description: Forced-naming-as-design-constraint method — titrate a concept, a system, or architecture against biology or design patterns to surface gaps. "Titrate this", "cell completeness audit", "what are we missing", "run titration".
+description: Forced-naming-as-design-constraint method — titrate a concept, a system, or architecture against biology or design patterns to surface gaps. Also covers single-concept naming (formerly /morphogenesis). "Titrate this", "cell completeness audit", "what are we missing", "run titration", "mine the name", "rename and inspire".
 user_invocable: true
 model: sonnet
 context: fork
@@ -10,20 +10,37 @@ context: fork
 
 Titration adds a known reagent to an unknown solution until the reaction reveals the gap. Here: biology (or design patterns) is the reagent; your system is the solution; the break IS the finding.
 
-`/morphogenesis` does one cycle on one name. `/titration` runs the full method across an entire system.
+Single concept? One cycle. Full system? Sweep all organelles or pattern sets.
 
 ## Three Modes
 
 ### 1. Single Concept
-Same cycle as `/morphogenesis`, explicitly framed as titration.
+One cycle on one name — mine a biological mapping for design gaps.
 ```
 NAME   → honest biological mapping (verb first, process noun)
-STUDY  → 3-5 properties the biology actually has
+STUDY  → 3-5 properties the biology actually has (fetch via lysin, not recall)
 COMPARE → which properties does the implementation have / lack?
 BREAK  → where the analogy fails is the design gap, not a flaw in the method
 BUILD  → implement the highest-value gap now
 ```
-Invoke when: one component needs a name or an existing name hasn't been mined.
+Invoke when: one component needs a name, or an existing name hasn't been mined.
+
+**When renaming:** Don't pick the first bio word that sounds cool. Ask "what is the honest verb?" Find the process that does that verb. Run the cycle before committing the name.
+
+**When a name already exists:** Read the biology. Ask "which properties does our implementation lack?" The missing property IS the design insight.
+
+#### Validated examples
+
+| Name | Biology says | We had | Gap found | Built |
+|------|-------------|--------|-----------|-------|
+| respirometry | Measures efficiency (RQ), not just fuel level | Raw % gauge | Yield-per-token, sprint detection | Noted |
+| consolidation | Happens during sleep, not on calendar | Weekly schedule only | Post-session trigger | Stop hook (6h debounce) |
+| anamnesis | Selective — experienced doctor adjusts questions | Uniform loading | Keyword-relevance reordering | Primacy-based loading |
+| ecphory | Cue-trace interaction; memory-type routing; reconstructive | Uniform sweep | Route by episodic/semantic + age | Built: /ecphory |
+| sporulation | Environmentally triggered, not user-initiated; mother cell flushes before lysing | User-initiated only | Auto-suggest at budget=red; flush before checkpoint | Built |
+| endocytosis | Pathway selection is cargo-dependent; endosome sorts after intake | Each skill reimplemented fetch | Canonical routing table; intake/processing separation | Built |
+
+The naming convention isn't decoration — it's a design review tool. Every bio name is a hypothesis: "this component behaves like [biological process]." Study the biology, check whether the implementation matches. Mismatches are design gaps.
 
 ### 2. System Audit — Organelle Completeness
 Map the system against the canonical cell organelle set. Score each: **mapped / partial / gap**.

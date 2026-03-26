@@ -10,6 +10,8 @@ context: fork
 
 Flow cytometry sorts cells into populations by measurable properties. This skill sorts organism subsystems into autonomy populations: what self-regulates, what waits for instructions, what requires human judgment by design.
 
+**Sibling structural audits:** `/karyotyping` (full component layout — what's missing/duplicated?) · `/histology` (client workshop format). For diagnostics: `/auscultation` → `/palpation` → `/integrin`.
+
 ## The Audit
 
 For each subsystem in `vivesca://anatomy`:

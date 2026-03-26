@@ -10,6 +10,8 @@ context: fork
 
 In cytogenetics, karyotyping arranges chromosomes by size and banding to reveal deletions, duplications, and translocations. Here: lay out the organism's components in canonical order and look for what's wrong at a glance.
 
+**Sibling structural audits:** `/cytometry` (autonomy classification — who self-governs?) · `/histology` (client workshop — cell biology lens). For diagnostics: `/auscultation` (passive) → `/palpation` (deep probe) → `/integrin` (automated scan).
+
 ## When to Use
 
 - Before a major refactor — know what's there before cutting

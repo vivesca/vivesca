@@ -9,6 +9,8 @@ disable-model-invocation: true
 
 Personal close-of-day ritual for sleep hygiene. Distinct from `/eow` (work closure) — this closes the *day*, not the workday.
 
+**Boundary:** involution = sleep hygiene at home. `/interphase` = work closure on commute. If Terry is still in transit, use interphase instead.
+
 ## Context
 
 - Theo bedtime routine runs ~9:30–10pm

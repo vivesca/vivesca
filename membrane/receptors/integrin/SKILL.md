@@ -8,6 +8,8 @@ model: sonnet
 
 **Rule: existence on PATH is not the same as functional — pull to test stiffness.**
 
+**Sibling diagnostics:** `/auscultation` (passive log listening, broad) → `/palpation` (manual deep-probe, narrow) → integrin (automated surface scan, systematic). For structural audits: `/karyotyping` (full component layout) or `/cytometry` (autonomy classification).
+
 ## When this fires
 
 - After installing, removing, or renaming a CLI binary
