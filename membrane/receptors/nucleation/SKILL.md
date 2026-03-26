@@ -15,7 +15,7 @@ context: fork
 
 # /nucleation — Delegate-First Dev Workflow
 
-Orchestrate here, execute elsewhere. Full reference: `~/germline/loci/solutions/rector-reference.md`
+Orchestrate here, execute elsewhere. Full reference: `~/germline/loci/antisera/rector-reference.md`
 
 ## Triggers
 
@@ -103,7 +103,7 @@ RESEARCH → SPEC ANALYSIS → PLAN → EXECUTE → VERIFY → REVIEW → FINISH
 - Backend selection: `-b gemini` (default/boilerplate), `-b codex` (Rust, hard bugs), `-b opencode` (bulk). Details: `rector-reference.md`
 - **Fallback:** if opifex fails (infra issue, not task issue), fall back to raw CLI (`gemini -p "$(cat /tmp/plan.md)"`) — but note the gap in logging.
 - **In-session subagents** (`subagent-driven-development`): ONLY when vault context or live user decisions are needed mid-execution — not as a convenience shortcut.
-- **Agent Teams** (TeamCreate): when true coordination needed (shared API design, exploratory refactor, unknown-scope bugs) — see `~/germline/loci/solutions/rector-reference.md` for decomposition, topology, and parallelism heuristics
+- **Agent Teams** (TeamCreate): when true coordination needed (shared API design, exploratory refactor, unknown-scope bugs) — see `~/germline/loci/antisera/rector-reference.md` for decomposition, topology, and parallelism heuristics
 
 **5. Verify** (hard gate — if something fails, consult [[debugging-theory]] reference doc before shotgunning fixes):
 - [ ] Tests pass — paste actual output
@@ -133,7 +133,7 @@ Full-tier steps (Sonnet subagents, routed by file type):
 
 **7. Finish:**
 - Clean commits, PR creation (`gh pr create`), companion skill + GitHub push
-- If new CLI built: add to `~/germline/proteome.md`. If replacing old tool: run `~/germline/loci/solutions/patterns/tool-replacement-checklist.md`.
+- If new CLI built: add to `~/germline/proteome.md`. If replacing old tool: run `~/germline/loci/antisera/patterns/tool-replacement-checklist.md`.
 - Skip for: personal tools on main, single-commit changes
 
 ### 5. Companion skill + GitHub repo
@@ -150,7 +150,7 @@ GitHub backup every session: `cd ~/code/<name> && git push` (or `gh repo create 
 
 ### 6. Compound (if non-obvious solve)
 
-`/compound-engineering:ce-compound` — captures learnings in `~/germline/loci/solutions/`.
+`/compound-engineering:ce-compound` — captures learnings in `~/germline/loci/antisera/`.
 
 ## Hard Rules
 
@@ -166,13 +166,13 @@ GitHub backup every session: `cd ~/code/<name> && git push` (or `gh repo create 
 
 ## Language Selection
 
-**Default: Python.** Rust only when: CPU-bound, startup speed, extending existing Rust tool. Capco/client = always Python. Full: `~/germline/loci/solutions/rust-vs-python-heuristic.md`.
+**Default: Python.** Rust only when: CPU-bound, startup speed, extending existing Rust tool. Capco/client = always Python. Full: `~/germline/loci/antisera/rust-vs-python-heuristic.md`.
 
 ## Troubleshooting
 
-See `~/germline/loci/solutions/rector-reference.md` for: routing tables, launch commands, context packaging checklist, systematic debugging, troubleshooting quick reference, parallel delegation pipeline details, Agent Teams patterns, post-delegate checklist.
+See `~/germline/loci/antisera/rector-reference.md` for: routing tables, launch commands, context packaging checklist, systematic debugging, troubleshooting quick reference, parallel delegation pipeline details, Agent Teams patterns, post-delegate checklist.
 
-Also: `~/germline/loci/solutions/delegation-reference.md` for tool-specific gotchas.
+Also: `~/germline/loci/antisera/delegation-reference.md` for tool-specific gotchas.
 
 ## Boundaries
 

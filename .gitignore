@@ -58,13 +58,13 @@ membrane/memory
 loci/vivesca-events.jsonl
 loci/opencode/*.json
 loci/opencode/*.bak.*
-loci/solutions/1/
+loci/antisera/1/
 
 # Symlinks to epigenome
 agent-memory
 *.shortcut
 *.bak
-loci/solutions/*/
+loci/antisera/*/
 effectors/cibus
 effectors/deleo
 effectors/kleis

@@ -107,7 +107,7 @@ skip = [
     "*loci/vivesca-events.jsonl",
     # Reference docs: plans, specs, brainstorms, solutions (may contain quoted text,
     # non-English content, technical acronyms from external sources)
-    "*loci/solutions*",
+    "*loci/antisera*",
     "*loci/specs*",
     "*loci/plans*",
     "*loci/brainstorms*",

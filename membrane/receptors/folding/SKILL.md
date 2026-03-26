@@ -84,7 +84,7 @@ Nothing ships without evidence in the conversation.
 - [ ] **No regressions** — full test suite, not just new tests
 - [ ] **Matches spec** — re-read the requirement, compare
 
-If something fails, diagnose before retrying. Consult `~/germline/loci/solutions/` for known patterns. Don't shotgun fixes.
+If something fails, diagnose before retrying. Consult `~/germline/loci/antisera/` for known patterns. Don't shotgun fixes.
 
 ## Review
 
@@ -120,7 +120,7 @@ If you just built a new CLI or tool, create `~/germline/receptors/<name>/SKILL.m
 
 ### Compound
 
-If the solve was non-obvious, capture it: `~/germline/loci/solutions/<topic>.md`. Future sessions benefit.
+If the solve was non-obvious, capture it: `~/germline/loci/antisera/<topic>.md`. Future sessions benefit.
 
 ## Language Selection
 

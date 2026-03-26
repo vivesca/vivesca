@@ -32,7 +32,7 @@ If inputs are too vague to plan, say so. Either ask targeted questions (one at a
 Before planning, scan what exists. Match depth to scope:
 
 - **Light:** Search for relevant files, check for prior art. 30 seconds.
-- **Standard/Deep:** Read relevant source files, check `~/germline/loci/solutions/` for learnings, note patterns to follow. Check for system-wide impacts: what callbacks, middleware, or observers fire when this code runs? What breaks if this fails halfway?
+- **Standard/Deep:** Read relevant source files, check `~/germline/loci/antisera/` for learnings, note patterns to follow. Check for system-wide impacts: what callbacks, middleware, or observers fire when this code runs? What breaks if this fails halfway?
 
 If local context is sufficient, skip external research. If the domain is unfamiliar or high-risk (security, payments, external APIs), do targeted web research before planning.
 
@@ -70,7 +70,7 @@ When detected, name the disorder type explicitly. Don't silently interpret vague
 
 Mine prior builds to surface constraints the spec omits:
 
-1. **Search `~/germline/loci/solutions/`** for entries matching the domain — prior learnings encode constraints that were discovered the hard way
+1. **Search `~/germline/loci/antisera/`** for entries matching the domain — prior learnings encode constraints that were discovered the hard way
 2. **Search `~/germline/loci/plans/`** for similar past plans — what did they require that this spec doesn't mention?
 3. **Check patterns in target codebase** — if modifying existing code, what conventions/middleware/callbacks/observers will fire? What breaks if this fails halfway?
 
@@ -90,7 +90,7 @@ Present inferred constraints as a list: "Not stated, but implied by prior work: 
 **Disordered regions:** Error handling — no verb, unbounded scope ("handle errors gracefully")
 
 **Inferred constraints:**
-- Prior: `~/germline/loci/solutions/auth-token-rotation.md` — token refresh needs retry logic (not in spec)
+- Prior: `~/germline/loci/antisera/auth-token-rotation.md` — token refresh needs retry logic (not in spec)
 - Codebase: `middleware/audit.py` fires on all writes — plan must account for audit log entries
 ```
 
