@@ -9,6 +9,7 @@ Tools:
   lysosome_digest      — digest disk caches when pressure is high
   nociception_log      — log a pain/symptom signal to vault
   anabolism_flywheel   — anabolic flywheel: are the links reinforcing?
+  angiogenesis         — detect underserved subsystem connections, propose integrations
 """
 
 import contextlib

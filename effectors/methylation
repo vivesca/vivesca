@@ -1,0 +1,649 @@
+#!/Users/terry/.local/share/mise/installs/python/3.13.12/bin/python3.13
+"""methylation — weekly crystallization effector for the vivesca organism.
+
+Reads the three signal sources from the past 7 days:
+  - ~/.cache/inflammasome/methylation-candidates.jsonl  (successful repairs)
+  - ~/.local/share/vivesca/infections.jsonl             (infection patterns)
+  - ~/logs/inflammasome.log                             (probe results)
+
+Groups failures and repairs by pattern (probe name, repair label).
+If any pattern appears >= 2 times, dispatches channel sonnet -p for one
+synthesis call that proposes either:
+  a. A new probe function for inflammasome.py
+  b. A new _REPAIR_PATTERNS entry
+  c. A systemic architectural observation
+
+Writes proposal to ~/tmp/methylation-proposal-YYYY-MM-DD.md.
+Logs to ~/logs/methylation.log.
+Always exits 0.
+"""
+
+from __future__ import annotations
+
+import json
+import subprocess
+import sys
+from collections import Counter
+from datetime import UTC, datetime, timedelta
+from pathlib import Path
+
+# ---------------------------------------------------------------------------
+# Paths
+# ---------------------------------------------------------------------------
+
+METHYLATION_CANDIDATES = Path.home() / ".cache" / "inflammasome" / "methylation-candidates.jsonl"
+INFECTION_LOG = Path.home() / ".local" / "share" / "vivesca" / "infections.jsonl"
+INFLAMMASOME_LOG = Path.home() / "logs" / "inflammasome.log"
+INFLAMMASOME_PY = Path.home() / "germline" / "metabolon" / "organelles" / "inflammasome.py"
+CHANNEL = Path.home() / "germline" / "effectors" / "channel"
+LOG_FILE = Path.home() / "logs" / "methylation.log"
+TMP_DIR = Path.home() / "tmp"
+
+MAX_ENTRIES = 100
+MIN_PATTERN_COUNT = 2
+WINDOW_DAYS = 7
+
+# ---------------------------------------------------------------------------
+# Logging
+# ---------------------------------------------------------------------------
+
+def log(msg: str) -> None:
+    ts = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+    line = f"[{ts}] {msg}"
+    print(line, flush=True)
+    try:
+        LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
+        with LOG_FILE.open("a") as f:
+            f.write(line + "\n")
+    except Exception:
+        pass
+
+# ---------------------------------------------------------------------------
+# Signal reading
+# ---------------------------------------------------------------------------
+
+def _cutoff() -> datetime:
+    return datetime.now(UTC) - timedelta(days=WINDOW_DAYS)
+
+
+def _parse_ts(ts_str: str) -> datetime | None:
+    """Parse ISO-8601 timestamp; return None on failure."""
+    try:
+        dt = datetime.fromisoformat(ts_str)
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=UTC)
+        return dt
+    except Exception:
+        return None
+
+
+def read_methylation_candidates() -> list[dict]:
+    """Read successful repairs from the methylation candidates log."""
+    if not METHYLATION_CANDIDATES.exists():
+        return []
+    cutoff = _cutoff()
+    events = []
+    try:
+        lines = METHYLATION_CANDIDATES.read_text().splitlines()
+        for line in lines[-MAX_ENTRIES:]:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                ev = json.loads(line)
+                ts = _parse_ts(ev.get("ts", ""))
+                if ts and ts >= cutoff:
+                    events.append(ev)
+            except Exception:
+                continue
+    except Exception as exc:
+        log(f"WARN: could not read methylation candidates: {exc}")
+    return events
+
+
+def read_infections() -> list[dict]:
+    """Read infection events from the past 7 days, max 100."""
+    if not INFECTION_LOG.exists():
+        return []
+    cutoff = _cutoff()
+    events = []
+    try:
+        lines = INFECTION_LOG.read_text().splitlines()
+        for line in lines[-MAX_ENTRIES:]:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                ev = json.loads(line)
+                ts = _parse_ts(ev.get("ts", ""))
+                if ts and ts >= cutoff:
+                    events.append(ev)
+            except Exception:
+                continue
+    except Exception as exc:
+        log(f"WARN: could not read infection log: {exc}")
+    return events
+
+
+def read_inflammasome_log() -> list[dict]:
+    """Parse inflammasome.log for FAIL lines in the past 7 days.
+
+    Each FAIL line looks like:
+      [2026-03-26T09:10:30Z] [FAIL] probe_name — message (123ms)
+
+    Returns list of {ts, probe, message}.
+    """
+    if not INFLAMMASOME_LOG.exists():
+        return []
+    cutoff = _cutoff()
+    failures = []
+    try:
+        lines = INFLAMMASOME_LOG.read_text().splitlines()
+        for line in lines:
+            line = line.strip()
+            if "[FAIL]" not in line:
+                continue
+            # Extract timestamp
+            ts_str = None
+            if line.startswith("["):
+                end = line.find("]")
+                if end > 0:
+                    ts_str = line[1:end]
+            ts = _parse_ts(ts_str) if ts_str else None
+            if ts and ts < cutoff:
+                continue
+            # Extract probe name and message
+            # Format: [...] [FAIL] probe_name — message (Xms)
+            after_fail = line.split("[FAIL]", 1)[-1].strip()
+            if " — " in after_fail:
+                probe, rest = after_fail.split(" — ", 1)
+                probe = probe.strip()
+                # strip trailing (Xms)
+                message = rest.rsplit("(", 1)[0].strip() if "(" in rest else rest.strip()
+            else:
+                probe = after_fail.strip()
+                message = ""
+            failures.append({"ts": ts_str or "", "probe": probe, "message": message})
+    except Exception as exc:
+        log(f"WARN: could not parse inflammasome log: {exc}")
+    return failures
+
+
+# ---------------------------------------------------------------------------
+# Pattern extraction
+# ---------------------------------------------------------------------------
+
+def extract_probe_names() -> list[str]:
+    """Extract _PROBES names from inflammasome.py without importing."""
+    try:
+        src = INFLAMMASOME_PY.read_text()
+        probes = []
+        in_probes = False
+        for line in src.splitlines():
+            if "_PROBES" in line and "list[" in line:
+                in_probes = True
+            if in_probes:
+                if line.strip().startswith('("') or line.strip().startswith("(\""):
+                    # Line like:    ("chromatin", probe_chromatin),
+                    parts = line.strip().strip("(").strip(")").split(",")
+                    if parts:
+                        name = parts[0].strip().strip('"').strip("'")
+                        if name and not name.startswith("#"):
+                            probes.append(name)
+                if line.strip() == "]":
+                    in_probes = False
+        return probes
+    except Exception:
+        return []
+
+
+def extract_repair_pattern_labels() -> list[str]:
+    """Extract _REPAIR_PATTERNS labels from inflammasome.py without importing."""
+    try:
+        src = INFLAMMASOME_PY.read_text()
+        labels = []
+        in_patterns = False
+        for line in src.splitlines():
+            if "_REPAIR_PATTERNS" in line and "list[" in line:
+                in_patterns = True
+            if in_patterns:
+                # Label is 4th element: ("rss_state", lambda..., _repair_fn, "label"),
+                stripped = line.strip()
+                if stripped.startswith('"') and stripped.endswith('",'):
+                    # Could be a label line (4th element on its own line)
+                    candidate = stripped.strip('",')
+                    if candidate and "_" in candidate and " " not in candidate:
+                        labels.append(candidate)
+                if line.strip() == "]":
+                    in_patterns = False
+        return labels
+    except Exception:
+        return []
+
+
+def summarize_repairs(candidates: list[dict]) -> str:
+    """Build a text summary of methylation candidates (successful repairs)."""
+    if not candidates:
+        return "No successful repairs logged in the past 7 days."
+    # Group by probe/tool name
+    counts: Counter = Counter()
+    for ev in candidates:
+        key = ev.get("probe") or ev.get("tool") or ev.get("repair_label") or "unknown"
+        counts[key] += 1
+    lines = ["Successful repairs (last 7 days):"]
+    for name, count in counts.most_common(10):
+        lines.append(f"  {name}: {count}x")
+    # Add a sample of raw entries
+    lines.append("\nSample entries:")
+    for ev in candidates[:5]:
+        lines.append(f"  {json.dumps(ev)}")
+    return "\n".join(lines)
+
+
+def summarize_infections(events: list[dict], failures: list[dict]) -> str:
+    """Build a text summary of infection events and log failures."""
+    lines = []
+    if events:
+        tool_counts: Counter = Counter(ev.get("tool", "unknown") for ev in events)
+        lines.append("Infection log patterns (last 7 days):")
+        for tool, count in tool_counts.most_common(10):
+            # Count healed vs unhealed
+            healed = sum(1 for ev in events if ev.get("tool") == tool and ev.get("healed"))
+            lines.append(f"  {tool}: {count}x ({healed} healed)")
+    else:
+        lines.append("No infection events in the past 7 days.")
+
+    if failures:
+        probe_counts: Counter = Counter(f["probe"] for f in failures)
+        lines.append("\nProbe failures from inflammasome.log (last 7 days):")
+        for probe, count in probe_counts.most_common(10):
+            lines.append(f"  {probe}: {count}x")
+    else:
+        lines.append("\nNo probe failures in inflammasome.log in the past 7 days.")
+
+    return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
+# Pattern qualification — only crystallize patterns seen >= MIN_PATTERN_COUNT
+# ---------------------------------------------------------------------------
+
+def find_crystallizable_patterns(
+    candidates: list[dict],
+    infections: list[dict],
+    log_failures: list[dict],
+) -> dict:
+    """Return patterns that cross the MIN_PATTERN_COUNT threshold.
+
+    Returns dict with keys:
+      'repair_candidates': {name: count} — repairs done >= N times
+      'probe_failures': {probe: count}   — probes that failed >= N times
+      'infection_tools': {tool: count}   — infection tools >= N times
+    """
+    repair_counts: Counter = Counter()
+    for ev in candidates:
+        key = ev.get("probe") or ev.get("tool") or ev.get("repair_label") or "unknown"
+        repair_counts[key] += 1
+
+    probe_fail_counts: Counter = Counter(f["probe"] for f in log_failures)
+
+    infection_counts: Counter = Counter(ev.get("tool", "unknown") for ev in infections)
+
+    return {
+        "repair_candidates": {k: v for k, v in repair_counts.items() if v >= MIN_PATTERN_COUNT},
+        "probe_failures": {k: v for k, v in probe_fail_counts.items() if v >= MIN_PATTERN_COUNT},
+        "infection_tools": {k: v for k, v in infection_counts.items() if v >= MIN_PATTERN_COUNT},
+    }
+
+
+# ---------------------------------------------------------------------------
+# Sonnet dispatch
+# ---------------------------------------------------------------------------
+
+PROMPT_TEMPLATE = """\
+You are the organism's methylation layer. Your job: turn repair experience into permanent capability.
+
+## This week's repair data
+{repairs_summary}
+
+## Infection patterns
+{infection_summary}
+
+## Current probes (for reference)
+{probe_names}
+
+## Current repair patterns
+{repair_labels}
+
+## Task
+Identify ONE improvement to make. Choose the highest-value:
+1. A new probe function (Python) that would catch a failure class seen this week
+2. A new repair pattern (Python) for a successful repair that should be automated
+3. A systemic observation that needs architectural attention
+
+Output format (use these exact labels on their own lines):
+TYPE: probe|repair|architectural
+NAME: short_name
+CODE: (Python function if probe or repair, or brief description if architectural)
+RATIONALE: why this improvement prevents future failures
+"""
+
+
+def dispatch_sonnet(prompt: str) -> str | None:
+    """Call channel sonnet -p with the prompt. Return output or None on failure."""
+    if not CHANNEL.exists():
+        log(f"ERROR: channel effector not found at {CHANNEL}")
+        return None
+    try:
+        result = subprocess.run(
+            [str(CHANNEL), "sonnet", "-p", prompt],
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+        if result.returncode != 0:
+            log(f"WARN: channel sonnet exited {result.returncode}: {result.stderr.strip()[:200]}")
+            return None
+        return result.stdout.strip()
+    except subprocess.TimeoutExpired:
+        log("WARN: channel sonnet timed out (120s)")
+        return None
+    except Exception as exc:
+        log(f"ERROR: channel dispatch failed: {exc}")
+        return None
+
+
+# ---------------------------------------------------------------------------
+# Proposal writing
+# ---------------------------------------------------------------------------
+
+def write_proposal(response: str, patterns: dict, date_str: str) -> Path:
+    """Write methylation proposal to ~/tmp/methylation-proposal-YYYY-MM-DD.md."""
+    TMP_DIR.mkdir(parents=True, exist_ok=True)
+    proposal_path = TMP_DIR / f"methylation-proposal-{date_str}.md"
+
+    crystallizable = []
+    for k, v in patterns["repair_candidates"].items():
+        crystallizable.append(f"- repair `{k}` seen {v}x")
+    for k, v in patterns["probe_failures"].items():
+        crystallizable.append(f"- probe failure `{k}` seen {v}x")
+    for k, v in patterns["infection_tools"].items():
+        crystallizable.append(f"- infection tool `{k}` seen {v}x")
+
+    content = f"""# Methylation Proposal — {date_str}
+
+Generated by the weekly methylation effector.
+Review and apply manually; architectural changes require human judgment.
+
+## Crystallizable patterns this week
+
+{chr(10).join(crystallizable) if crystallizable else "- (none above threshold)"}
+
+## Sonnet synthesis
+
+{response}
+
+---
+*Auto-apply rule: safe mechanical probes (path/import checks) only.*
+*All other changes require manual review and edit to inflammasome.py.*
+"""
+    proposal_path.write_text(content)
+    return proposal_path
+
+
+# ---------------------------------------------------------------------------
+# Self-titration — discover new subsystem designs from observed gaps
+# ---------------------------------------------------------------------------
+
+TITRATION_PROMPT_TEMPLATE = """\
+You are the organism's titration layer. You observe a functional gap and must name it using cell biology.
+
+## Observed gap
+{gap_description}
+
+## Current subsystems (for reference)
+inflammasome (self-test probes), angiogenesis (connection detection), entrainment (schedule sync), \
+poiesis (agent production), endocytosis (content intake), chemotaxis (search), perfusion (routing)
+
+## Task
+1. Name a cell biology mechanism that handles this exact function
+2. Describe the mechanism in 2-3 sentences (the REAL biology, not a metaphor)
+3. Map it: what would this mechanism do in the organism?
+4. Where does the analogy BREAK? (The break IS the design insight)
+5. Propose: one Python module, one function, what it does
+
+Output format:
+MECHANISM: <name>
+BIOLOGY: <description>
+MAPPING: <what it does in vivesca>
+BREAK: <where the analogy fails and what that reveals>
+PROPOSAL: <module name, function, purpose>
+"""
+
+KNOWN_SUBSYSTEMS = {
+    "inflammasome", "angiogenesis", "entrainment", "poiesis",
+    "endocytosis", "chemotaxis", "perfusion",
+}
+
+
+def titration_pass(
+    patterns: dict,
+    candidates: list[dict],
+    infections: list[dict],
+    log_failures: list[dict],
+) -> str | None:
+    """Look for gaps that don't match existing subsystems.
+
+    A 'gap' is a repeated pattern that:
+    - Wasn't caught by existing probes (novel failure)
+    - Wasn't fixed by existing repair patterns
+    - Involves interaction between 2+ subsystems
+
+    Returns a gap description string, or None if no gap qualifies.
+    """
+    # Collect all tools/probes that appear in failures
+    failing_tools = set(patterns["probe_failures"].keys()) | set(patterns["infection_tools"].keys())
+
+    # Find unhealed infections — these were not fixed by repair patterns
+    unhealed: list[dict] = [ev for ev in infections if not ev.get("healed")]
+    unhealed_tools = {ev.get("tool", "unknown") for ev in unhealed if ev.get("tool")}
+
+    # Find probe failures that also appear as infection tools — cross-subsystem failures
+    # These are failures that span more than one layer (probe layer + infection layer)
+    cross_subsystem = failing_tools & unhealed_tools
+
+    # Also look for failure sequences: probe X fails AND tool Y infects within the same window
+    # as a proxy for inter-subsystem causality
+    if not cross_subsystem and len(failing_tools) < 2 and len(unhealed_tools) < 1:
+        return None  # No gap evidence
+
+    # Build gap description
+    gap_parts: list[str] = []
+
+    if cross_subsystem:
+        for name in sorted(cross_subsystem):
+            count_fail = patterns["probe_failures"].get(name, 0)
+            count_infect = patterns["infection_tools"].get(name, 0)
+            gap_parts.append(
+                f"'{name}' appears as both a probe failure ({count_fail}x) and an unhealed "
+                f"infection ({count_infect}x) — the self-test layer and the infection layer "
+                f"both see this failure, but neither resolves it."
+            )
+
+    if not gap_parts and failing_tools and unhealed_tools:
+        # Different names but multiple subsystems both registering failures
+        gap_parts.append(
+            f"Probe failures ({', '.join(sorted(failing_tools))}) and unhealed infections "
+            f"({', '.join(sorted(unhealed_tools))}) co-occur in the same 7-day window. "
+            f"No existing repair pattern bridged them — they interacted but the organism "
+            f"had no mechanism to coordinate their resolution."
+        )
+
+    if not gap_parts:
+        return None
+
+    # Check that none of these map cleanly to an existing subsystem name
+    all_names = failing_tools | unhealed_tools
+    novel = all_names - KNOWN_SUBSYSTEMS
+    if not novel and all_names:
+        # All failing components are already known subsystems — this is coverage, not a gap
+        return None
+
+    return "\n".join(gap_parts)
+
+
+def write_titration_proposal(response: str, gap_description: str, date_str: str) -> Path:
+    """Write titration proposal to ~/tmp/titration-proposals-YYYY-MM-DD.md.
+
+    Appends if the file already exists (multiple gaps possible across runs,
+    though max 1 dispatch per methylation cycle).
+    """
+    TMP_DIR.mkdir(parents=True, exist_ok=True)
+    proposal_path = TMP_DIR / f"titration-proposals-{date_str}.md"
+
+    header = f"# Titration Proposals — {date_str}\n\n" if not proposal_path.exists() else ""
+    entry = f"""{header}## Gap observed
+{gap_description}
+
+## Sonnet titration output
+{response}
+
+---
+*Proposals are for human review only. Never auto-implement new subsystems.*
+*To act: create a new module in ~/germline/metabolon/organelles/ and wire via MCP.*
+"""
+    with proposal_path.open("a") as f:
+        f.write(entry)
+    return proposal_path
+
+
+# ---------------------------------------------------------------------------
+# Auto-apply gate — only probe functions that are pure path/import checks
+# ---------------------------------------------------------------------------
+
+def is_safe_to_autoapply(response: str) -> bool:
+    """Return True only if the proposal is a probe that checks a path or import.
+
+    Conservative gate: the code must:
+      - Be TYPE: probe
+      - Contain only Path.home(), .exists(), import/shutil.which checks
+      - Not modify any file, run subprocesses, or write to disk
+    """
+    if "TYPE: probe" not in response:
+        return False
+    unsafe_patterns = [
+        "subprocess", "open(", "write(", ".unlink", ".rmdir", "os.remove",
+        "shutil.copy", "shutil.move", "Popen", "check_call", "check_output",
+        "run(", ".mkdir(", "chmod", "symlink",
+    ]
+    code_section = ""
+    in_code = False
+    for line in response.splitlines():
+        if line.startswith("CODE:"):
+            in_code = True
+            code_section += line[5:] + "\n"
+        elif in_code and line.startswith(("TYPE:", "NAME:", "RATIONALE:")):
+            in_code = False
+        elif in_code:
+            code_section += line + "\n"
+
+    for pat in unsafe_patterns:
+        if pat in code_section:
+            return False
+
+    # Must contain .exists() or shutil.which or import check
+    safe_indicators = [".exists()", "shutil.which", "import ", "Path.home()"]
+    return any(ind in code_section for ind in safe_indicators)
+
+
+# ---------------------------------------------------------------------------
+# Main
+# ---------------------------------------------------------------------------
+
+def main() -> None:
+    date_str = datetime.now(UTC).strftime("%Y-%m-%d")
+    log(f"methylation starting — date={date_str}, window={WINDOW_DAYS}d, threshold={MIN_PATTERN_COUNT}")
+
+    # Read signals
+    candidates = read_methylation_candidates()
+    infections = read_infections()
+    log_failures = read_inflammasome_log()
+
+    log(f"signals read — candidates={len(candidates)}, infections={len(infections)}, log_failures={len(log_failures)}")
+
+    # Find patterns worth crystallizing
+    patterns = find_crystallizable_patterns(candidates, infections, log_failures)
+    has_patterns = any(patterns[k] for k in patterns)
+
+    if not has_patterns:
+        log("no patterns above threshold — no crystallization needed this week")
+        return
+
+    log(f"crystallizable patterns: {patterns}")
+
+    # Build summaries
+    repairs_summary = summarize_repairs(candidates)
+    infection_summary = summarize_infections(infections, log_failures)
+    probe_names = extract_probe_names()
+    repair_labels = extract_repair_pattern_labels()
+
+    probe_names_str = "\n".join(f"  - {n}" for n in probe_names) if probe_names else "  (could not extract)"
+    repair_labels_str = "\n".join(f"  - {l}" for l in repair_labels) if repair_labels else "  (could not extract)"
+
+    prompt = PROMPT_TEMPLATE.format(
+        repairs_summary=repairs_summary,
+        infection_summary=infection_summary,
+        probe_names=probe_names_str,
+        repair_labels=repair_labels_str,
+    )
+
+    log("dispatching channel sonnet for synthesis...")
+    response = dispatch_sonnet(prompt)
+
+    if not response:
+        log("ERROR: no response from sonnet — aborting proposal")
+        return
+
+    log(f"sonnet response received ({len(response)} chars)")
+
+    # Write proposal
+    proposal_path = write_proposal(response, patterns, date_str)
+    log(f"proposal written: {proposal_path}")
+
+    # Auto-apply gate
+    if is_safe_to_autoapply(response):
+        log("NOTICE: proposal passes auto-apply gate — but auto-apply is not implemented")
+        log("  Manual review still required. Apply via: edit inflammasome.py directly.")
+    else:
+        log("proposal requires human review before application")
+
+    # ---------------------------------------------------------------------------
+    # Titration pass — discover new subsystem designs from observed gaps
+    # ---------------------------------------------------------------------------
+    log("running titration pass...")
+    gap_description = titration_pass(patterns, candidates, infections, log_failures)
+
+    if gap_description is None:
+        log("titration pass: no gaps found — all failures map to known subsystems or below threshold")
+    else:
+        log(f"titration pass: gap identified ({len(gap_description)} chars) — dispatching sonnet")
+        titration_prompt = TITRATION_PROMPT_TEMPLATE.format(gap_description=gap_description)
+        titration_response = dispatch_sonnet(titration_prompt)
+
+        if not titration_response:
+            log("ERROR: no response from sonnet for titration — skipping proposal")
+        else:
+            log(f"titration response received ({len(titration_response)} chars)")
+            titration_path = write_titration_proposal(titration_response, gap_description, date_str)
+            log(f"titration proposal written: {titration_path}")
+            log("titration complete — review proposal before implementing any new subsystem")
+
+    log("methylation complete")
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except Exception as exc:
+        log(f"FATAL: unhandled exception: {exc}")
+    sys.exit(0)
