@@ -10,10 +10,7 @@ Tools:
 from fastmcp.tools import tool
 from mcp.types import ToolAnnotations
 
-from metabolon.cytosol import invoke_organelle
 from metabolon.morphology import EffectorResult, Secretion
-
-KINESIN = "kinesin"
 
 
 class TranslocationResult(Secretion):
@@ -29,8 +26,9 @@ class TranslocationResult(Secretion):
 )
 def translocation_list() -> TranslocationResult:
     """List all configured kinesin tasks."""
-    result = invoke_organelle(KINESIN, ["list"], timeout=15)
-    return TranslocationResult(output=result)
+    from metabolon.organelles.dispatcher import list_tasks
+
+    return TranslocationResult(output=list_tasks())
 
 
 @tool(
@@ -40,7 +38,9 @@ def translocation_list() -> TranslocationResult:
 )
 def translocation_run(name: str) -> EffectorResult:
     """Dispatch a kinesin task by name."""
-    result = invoke_organelle(KINESIN, ["run", name], timeout=30)
+    from metabolon.organelles.dispatcher import run_task
+
+    result = run_task(name)
     return EffectorResult(success=True, message=result)
 
 
@@ -51,7 +51,9 @@ def translocation_run(name: str) -> EffectorResult:
 )
 def translocation_cancel(name: str) -> EffectorResult:
     """Cancel a kinesin task."""
-    result = invoke_organelle(KINESIN, ["cancel", name], timeout=15)
+    from metabolon.organelles.dispatcher import cancel_task
+
+    result = cancel_task(name)
     return EffectorResult(success=True, message=result)
 
 
@@ -62,8 +64,6 @@ def translocation_cancel(name: str) -> EffectorResult:
 )
 def translocation_results(name: str = "") -> TranslocationResult:
     """View results of a kinesin task run."""
-    args = ["results"]
-    if name:
-        args.append(name)
-    result = invoke_organelle(KINESIN, args, timeout=15)
-    return TranslocationResult(output=result)
+    from metabolon.organelles.dispatcher import get_results
+
+    return TranslocationResult(output=get_results(name or None))
