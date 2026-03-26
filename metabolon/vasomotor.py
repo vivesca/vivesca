@@ -1,4 +1,4 @@
-"""respiration — autonomic pacing and budget regulation.
+"""vasomotor — autonomic pacing and budget regulation.
 
 The organism's respiratory system. Pure arithmetic, no LLM judgment.
 Controls how fast the organism burns its budget: interactive pressure,
@@ -27,7 +27,7 @@ from metabolon.cytosol import VIVESCA_ROOT
 LOG_DIR = Path.home() / "logs"
 EVENT_LOG = LOG_DIR / "vivesca-events.jsonl"
 _LEGACY_EVENT_LOG = LOG_DIR / "polarization-events.jsonl"
-CONF_PATH = VIVESCA_ROOT / "respiration.conf"
+CONF_PATH = VIVESCA_ROOT / "vasomotor.conf"
 METHYLATION_FILE = VIVESCA_ROOT / "methylation.jsonl"
 DAILY_STATE_FILE = Path.home() / "tmp" / "respiration-daily.json"
 SKIP_UNTIL_FILE = Path.home() / "tmp" / ".respiration-skip-until"
@@ -172,12 +172,12 @@ def _fetch_telemetry() -> dict | None:
         return None
 
 
-def measure_respiration() -> dict | None:
+def measure_vasomotor_tone() -> dict | None:
     """Measure current respiration rate — live token usage. Returns full dict or None."""
     return _fetch_telemetry()
 
 
-def respiration_snapshot() -> dict | None:
+def vasomotor_snapshot() -> dict | None:
     """Snapshot current respiratory rate as {weekly, sonnet}. Returns None on failure."""
     telemetry = _fetch_telemetry()
     if telemetry:
@@ -208,12 +208,12 @@ def oxygen_debt(hours_to_reset: float) -> float:
 
     Ramps linearly from 36h (0.0) to 6h (1.0). Below 6h, full debt.
     """
-    return max(0.0, min(1.0, (36 - hours_to_reset) / 30))
+    return max(0.0, min(1.0, (48 - hours_to_reset) / 42))
 
 
 def assess_vital_capacity() -> tuple[bool, str]:
     """Check vital capacity — coarse budget gate. Returns (has_capacity, reason)."""
-    usage = measure_respiration()
+    usage = measure_vasomotor_tone()
     if usage is None:
         return False, "budget_unknown"
 
@@ -222,7 +222,7 @@ def assess_vital_capacity() -> tuple[bool, str]:
 
     log(f"Budget: weekly={weekly}%, sonnet={sonnet}%")
 
-    genome = respiratory_genome()
+    genome = vasomotor_genome()
     aerobic_ceiling = genome.get("aerobic_ceiling", AEROBIC_CEILING)
     sonnet_ceiling = genome.get("sonnet_ceiling", SONNET_CEILING)
     sympathetic_reserve = genome.get("sympathetic_reserve", SYMPATHETIC_RESERVE)
@@ -258,7 +258,7 @@ def assess_vital_capacity() -> tuple[bool, str]:
     return True, f"ok_weekly={weekly}%_sonnet={sonnet}%"
 
 
-def respiratory_status() -> str:
+def vasomotor_status() -> str:
     """Per-wave respiratory status. Returns: green, yellow, red, or unknown."""
     telemetry = _fetch_telemetry()
     if telemetry:
@@ -329,14 +329,15 @@ def daily_saturated_count() -> int:
     return _load_circadian_state().get("saturated", 0)
 
 
-def breathe(saturated: bool = False, wave_delta: float = 0.0):
-    """Record one more wave, its saturation status, and its measured delta."""
+def breathe(saturated: bool = False, systole_delta: float = 0.0, wave_delta: float = 0.0):
+    """Record one more systole, its saturation status, and its measured delta."""
     circadian_state = _load_circadian_state()
     circadian_state["count"] = circadian_state.get("count", 0) + 1
     if saturated:
         circadian_state["saturated"] = circadian_state.get("saturated", 0) + 1
+    delta = systole_delta or wave_delta  # accept either name
     deltas = circadian_state.get("wave_deltas", [])
-    deltas.append(wave_delta)
+    deltas.append(delta)
     circadian_state["wave_deltas"] = deltas
     _save_circadian_state(circadian_state)
     return circadian_state["count"]
@@ -413,7 +414,7 @@ def interactive_pressure() -> float:
 
 def tidal_volume() -> float:
     """Tidal volume — pulse's share of the daily budget, adjusted for sympathetic pressure."""
-    genome = respiratory_genome()
+    genome = vasomotor_genome()
     base = genome.get("basal_rate", BASAL_RATE)
     floor = genome.get("min_basal_rate", MIN_BASAL_RATE)
     pressure = interactive_pressure()
@@ -464,7 +465,7 @@ def measured_cost_per_wave() -> float:
     except Exception:
         pass
 
-    genome = respiratory_genome()
+    genome = vasomotor_genome()
     return genome.get("default_cost_per_wave", DEFAULT_COST_PER_WAVE)
 
 
@@ -499,7 +500,7 @@ def induce_apnea(
     sustainable_daily: float,
 ):
     """Induce apnea — calculate when the next breath (wave) is permitted."""
-    genome = respiratory_genome()
+    genome = vasomotor_genome()
     max_daily_waves = genome.get("max_daily_waves", MAX_DAILY_WAVES)
     now = datetime.datetime.now()
     midnight = now.replace(hour=0, minute=0, second=0) + datetime.timedelta(days=1)
@@ -541,7 +542,7 @@ def set_recovery_interval():
 
 def effective_burn(waves_today: int, saturated_today: int, cost_per_wave: float) -> float:
     """Calculate effective budget burn, penalizing saturated waves."""
-    genome = respiratory_genome()
+    genome = vasomotor_genome()
     penalty = genome.get("saturation_penalty", SATURATION_PENALTY)
     productive = waves_today - saturated_today
     effective_waves = productive + (saturated_today * penalty)
@@ -574,7 +575,7 @@ def assess_pacing() -> tuple[bool, str]:
 
     days_remaining = max((resets_at - now).total_seconds() / 86400, 0.25)
 
-    genome = respiratory_genome()
+    genome = vasomotor_genome()
     sympathetic_reserve = genome.get("sympathetic_reserve", SYMPATHETIC_RESERVE)
     max_daily_waves = genome.get("max_daily_waves", MAX_DAILY_WAVES)
 
@@ -635,8 +636,8 @@ def assess_pacing() -> tuple[bool, str]:
 # ---------------------------------------------------------------------------
 
 
-def respiratory_genome() -> dict:
-    """Read the respiratory genome (respiration.conf). Fresh on every call."""
+def vasomotor_genome() -> dict:
+    """Read the respiratory genome (vasomotor.conf). Fresh on every call."""
     _maybe_migrate()
     try:
         if CONF_PATH.exists():
@@ -807,7 +808,7 @@ Your job is deeper:
 ## All organism conf files (review any, adjust any)
 {organism_confs}
 
-Output format: for respiration.conf adjustments, use the normal JSON format.
+Output format: for vasomotor.conf adjustments, use the normal JSON format.
 For OTHER conf files, add an "organism_confs" key with a dict of {{filename: {{key: value}}}} changes.
 Example: {{"infra_pct": 20, "organism_confs": {{"endocytosis.conf": {{"weekly_transcytose_threshold": "5"}}, "synapse.conf": {{"mit_threshold": "4"}}}}}}
 """
@@ -891,7 +892,7 @@ def _mark_review(tier: str):
 
 def _gather_adapt_context(waves_run: int, saturated: int, failed: int, stop_reason: str) -> dict:
     """Gather raw data for all review tiers — each tier sees the same ground truth."""
-    genome = respiratory_genome()
+    genome = vasomotor_genome()
     telemetry = _fetch_telemetry()
     hours = _hours_to_reset(telemetry)
 

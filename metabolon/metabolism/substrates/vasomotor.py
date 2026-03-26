@@ -1,4 +1,4 @@
-"""RespirationSubstrate — metabolism of autonomous pacing/budgeting.
+"""VasomotorSubstrate — metabolism of autonomous pacing/budgeting.
 
 Senses the vivesca-events JSONL log to assess respiration pacing health:
 daily burn vs budget, saturation rates, cost volatility, and process
@@ -29,7 +29,7 @@ def _parse_ts(ts_str: str) -> datetime:
     return datetime.fromisoformat(ts_str)
 
 
-class RespirationSubstrate:
+class VasomotorSubstrate:
     """Substrate for respiration pacing system health."""
 
     name: str = "respiration"
@@ -43,7 +43,7 @@ class RespirationSubstrate:
     ):
         self.events_path = events_path or (Path.home() / "logs" / "vivesca-events.jsonl")
         self.state_path = state_path or (Path.home() / "tmp" / "respiration-daily.json")
-        self.config_path = config_path or (VIVESCA_ROOT / "respiration.conf")
+        self.config_path = config_path or (VIVESCA_ROOT / "vasomotor.conf")
         self.pulse_dir = pulse_dir or (Path.home() / "docs" / "pulse")
 
     def sense(self, days: int = 30) -> list[dict]:
@@ -472,7 +472,7 @@ class RespirationSubstrate:
         """Apply autonomic tuning for a pacing issue.
 
         High-severity issues with deterministic fixes are applied directly
-        to respiration.conf. Medium/low issues are reported but not applied.
+        to vasomotor.conf. Medium/low issues are reported but not applied.
         All adjustments are bounded to prevent runaway feedback.
         """
         issue = candidate.get("issue", "unknown")

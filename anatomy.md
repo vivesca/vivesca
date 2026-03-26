@@ -42,7 +42,7 @@ vivesca = Terry + Claude + germline + epigenome
       ecdysis.py          Transition context (role change, etc.)
       photoreception.py   Light/time context
       polarization.py     Directional context
-    respiration.py        Budget tracking
+    vasomotor.py        Budget tracking
     respirometry/         Financial statement processing (was: spending/)
     organelles/           Functional units
     metabolism/           Self-improvement loop
@@ -84,7 +84,7 @@ vivesca = Terry + Claude + germline + epigenome
 | `sporulation.py` | **Sporulation** | Dormancy and dispersal packaging |
 | `chemotaxis_engine.py` | **Chemotaxis motor** | Directional movement toward signal |
 | `chemoreceptor.py` | **Chemoreceptor** | Signal detection and binding |
-| `respiration_sensor.py` | **Metabolic sensor** | Budget / energy state sensing |
+| `vasomotor_sensor.py` | **Metabolic sensor** | Budget / energy state sensing |
 
 ### Metabolism (`metabolon/metabolism/`)
 

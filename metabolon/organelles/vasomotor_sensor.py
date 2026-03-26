@@ -1,4 +1,4 @@
-"""respiration_sensor — Claude Code Max plan token budget usage (formerly respirometry).
+"""vasomotor_sensor — Claude Code Max plan token budget usage (formerly respirometry).
 
 Endosymbiosis: standalone Python script (~/.local/bin/respirometry) → Python organelle.
 The original script fetched live OAuth usage from Anthropic's API, fell back to cached
@@ -22,7 +22,7 @@ from pathlib import Path
 HISTORY_FILE = Path.home() / ".local/share/respirometry/history.jsonl"
 WATCH_LOG = Path.home() / "genome/respirometry-log.jsonl"
 
-_CONF_PATH = Path(__file__).parent / "respiration_sensor.conf"
+_CONF_PATH = Path(__file__).parent / "vasomotor_sensor.conf"
 _conf = configparser.ConfigParser()
 _conf.read(_CONF_PATH)
 
@@ -76,7 +76,7 @@ def internalize_usage(token: str, timeout: int = 10) -> dict:
         headers={
             "Authorization": f"Bearer {token}",
             "anthropic-beta": "oauth-2025-04-20",
-            "User-Agent": "respiration_sensor/1.0.0",
+            "User-Agent": "vasomotor_sensor/1.0.0",
             "Accept": "application/json",
         },
     )
@@ -146,15 +146,17 @@ def sense_usage() -> tuple[dict, int | None]:
         }, age
 
 
-def budget_status(usage: dict) -> str:
+def budget_status(usage) -> str:
     """Classify budget pressure from usage metrics.
 
     Args:
-        usage: dict from sense_usage() with "seven_day" / "seven_day_sonnet" keys.
+        usage: dict from sense_usage() (or the tuple it returns — first element is used).
 
     Returns:
         One of: "SAFE", "CAUTION", "WARNING", "DANGER"
     """
+    if isinstance(usage, tuple):
+        usage = usage[0]
     seven = usage.get("seven_day", {})
     sonnet = usage.get("seven_day_sonnet", {})
     max_util = max(

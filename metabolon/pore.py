@@ -1660,7 +1660,7 @@ def auscultate():
         "metabolon.symbiont",
         "metabolon.pinocytosis",
         "metabolon.pinocytosis.interphase",
-        "metabolon.respiration",
+        "metabolon.vasomotor",
         "metabolon.respirometry",
     ]:
         try:

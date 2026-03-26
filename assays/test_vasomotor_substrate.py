@@ -1,4 +1,4 @@
-"""Tests for RespirationSubstrate — pacing system metabolism.
+"""Tests for VasomotorSubstrate — pacing system metabolism.
 
 Tests the full sense -> candidates -> act -> report cycle using
 fixture JSONL events. No real filesystem state required.
@@ -12,13 +12,13 @@ from datetime import UTC, datetime, timedelta
 import pytest
 
 from metabolon.metabolism.substrate import Substrate
-from metabolon.metabolism.substrates.respiration import RespirationSubstrate
+from metabolon.metabolism.substrates.vasomotor import VasomotorSubstrate
 
 
 @pytest.fixture(autouse=True)
 def _isolated_respiration(tmp_path, monkeypatch):
-    """Ensure RespirationSubstrate never reads real filesystem state."""
-    _orig_init = RespirationSubstrate.__init__
+    """Ensure VasomotorSubstrate never reads real filesystem state."""
+    _orig_init = VasomotorSubstrate.__init__
 
     def _patched_init(self, events_path=None, state_path=None, config_path=None, pulse_dir=None):
         _orig_init(
@@ -29,7 +29,7 @@ def _isolated_respiration(tmp_path, monkeypatch):
             pulse_dir=pulse_dir or (tmp_path / "pulse"),
         )
 
-    monkeypatch.setattr(RespirationSubstrate, "__init__", _patched_init)
+    monkeypatch.setattr(VasomotorSubstrate, "__init__", _patched_init)
 
 
 # ── Helpers ──────────────────────────────────────────────────────────
@@ -64,11 +64,11 @@ def _write_events(path, events: list[dict]):
 
 class TestProtocol:
     def test_is_substrate(self, tmp_path):
-        substrate = RespirationSubstrate(events_path=tmp_path / "e.jsonl")
+        substrate = VasomotorSubstrate(events_path=tmp_path / "e.jsonl")
         assert isinstance(substrate, Substrate)
 
     def test_has_name(self):
-        assert RespirationSubstrate.name == "respiration"
+        assert VasomotorSubstrate.name == "respiration"
 
 
 # ── Sense ────────────────────────────────────────────────────────────
@@ -77,14 +77,14 @@ class TestProtocol:
 class TestSense:
     def test_missing_events_file(self, tmp_path):
         """Missing event log returns empty."""
-        substrate = RespirationSubstrate(events_path=tmp_path / "nonexistent.jsonl")
+        substrate = VasomotorSubstrate(events_path=tmp_path / "nonexistent.jsonl")
         assert substrate.sense() == []
 
     def test_empty_events_file(self, tmp_path):
         """Empty event log returns empty."""
         events_path = tmp_path / "events.jsonl"
         events_path.write_text("")
-        substrate = RespirationSubstrate(events_path=events_path)
+        substrate = VasomotorSubstrate(events_path=events_path)
         assert substrate.sense() == []
 
     def test_parses_wave_starts(self, tmp_path):
@@ -97,7 +97,7 @@ class TestSense:
         ]
         _write_events(events_path, events)
 
-        substrate = RespirationSubstrate(events_path=events_path)
+        substrate = VasomotorSubstrate(events_path=events_path)
         sensed = substrate.sense(days=7)
 
         assert len(sensed) == 1
@@ -114,7 +114,7 @@ class TestSense:
         ]
         _write_events(events_path, events)
 
-        substrate = RespirationSubstrate(events_path=events_path)
+        substrate = VasomotorSubstrate(events_path=events_path)
         sensed = substrate.sense(days=7)
 
         assert sensed[0]["saturated_count"] == 2
@@ -135,7 +135,7 @@ class TestSense:
         ]
         _write_events(events_path, events)
 
-        substrate = RespirationSubstrate(events_path=events_path)
+        substrate = VasomotorSubstrate(events_path=events_path)
         sensed = substrate.sense(days=7)
 
         assert sensed[0]["daily_budget"] == 4.8
@@ -163,7 +163,7 @@ class TestSense:
         ]
         _write_events(events_path, events)
 
-        substrate = RespirationSubstrate(events_path=events_path)
+        substrate = VasomotorSubstrate(events_path=events_path)
         sensed = substrate.sense(days=7)
 
         assert len(sensed[0]["cost_samples"]) == 2
@@ -178,7 +178,7 @@ class TestSense:
         ]
         _write_events(events_path, events)
 
-        substrate = RespirationSubstrate(events_path=events_path)
+        substrate = VasomotorSubstrate(events_path=events_path)
         sensed = substrate.sense(days=7)
 
         assert sensed[0]["wave_costs"] == [1.0, 2.0]
@@ -192,7 +192,7 @@ class TestSense:
         ]
         _write_events(events_path, events)
 
-        substrate = RespirationSubstrate(events_path=events_path)
+        substrate = VasomotorSubstrate(events_path=events_path)
         sensed = substrate.sense(days=7)
 
         assert len(sensed) == 1  # only the recent day
@@ -207,7 +207,7 @@ class TestSense:
         ]
         _write_events(events_path, events)
 
-        substrate = RespirationSubstrate(events_path=events_path)
+        substrate = VasomotorSubstrate(events_path=events_path)
         sensed = substrate.sense(days=7)
 
         assert sensed[0]["apnea_window"] >= 4.9
@@ -221,7 +221,7 @@ class TestSense:
             '{"ts": "2026-03-20T11:00:00.000000", "event": "wave_start"}\n'
         )
 
-        substrate = RespirationSubstrate(events_path=events_path)
+        substrate = VasomotorSubstrate(events_path=events_path)
         sensed = substrate.sense(days=30)
 
         assert len(sensed) == 1
@@ -237,7 +237,7 @@ class TestSense:
         ]
         _write_events(events_path, events)
 
-        substrate = RespirationSubstrate(events_path=events_path)
+        substrate = VasomotorSubstrate(events_path=events_path)
         sensed = substrate.sense(days=7)
 
         dates = [d["date"] for d in sensed]
@@ -250,7 +250,7 @@ class TestSense:
 class TestCandidates:
     def test_empty_sensed(self, tmp_path):
         """No sensed data produces no candidates."""
-        substrate = RespirationSubstrate(events_path=tmp_path / "e.jsonl")
+        substrate = VasomotorSubstrate(events_path=tmp_path / "e.jsonl")
         assert substrate.candidates([]) == []
 
     def test_overburn_detection(self, tmp_path):
@@ -268,7 +268,7 @@ class TestCandidates:
                 "event_count": 20,
             },
         ]
-        substrate = RespirationSubstrate(events_path=tmp_path / "e.jsonl")
+        substrate = VasomotorSubstrate(events_path=tmp_path / "e.jsonl")
         issues = substrate.candidates(sensed)
 
         overburn = [i for i in issues if i["issue"] == "overburn"]
@@ -290,7 +290,7 @@ class TestCandidates:
                 "event_count": 20,
             },
         ]
-        substrate = RespirationSubstrate(events_path=tmp_path / "e.jsonl")
+        substrate = VasomotorSubstrate(events_path=tmp_path / "e.jsonl")
         issues = substrate.candidates(sensed)
 
         saturation = [i for i in issues if i["issue"] == "saturation"]
@@ -312,7 +312,7 @@ class TestCandidates:
                 "event_count": 20,
             },
         ]
-        substrate = RespirationSubstrate(events_path=tmp_path / "e.jsonl")
+        substrate = VasomotorSubstrate(events_path=tmp_path / "e.jsonl")
         issues = substrate.candidates(sensed)
 
         saturation = [i for i in issues if i["issue"] == "saturation"]
@@ -333,7 +333,7 @@ class TestCandidates:
                 "event_count": 5,
             },
         ]
-        substrate = RespirationSubstrate(events_path=tmp_path / "e.jsonl")
+        substrate = VasomotorSubstrate(events_path=tmp_path / "e.jsonl")
         issues = substrate.candidates(sensed)
 
         starvation = [i for i in issues if i["issue"] == "starvation"]
@@ -354,7 +354,7 @@ class TestCandidates:
                 "event_count": 10,
             },
         ]
-        substrate = RespirationSubstrate(events_path=tmp_path / "e.jsonl")
+        substrate = VasomotorSubstrate(events_path=tmp_path / "e.jsonl")
         issues = substrate.candidates(sensed)
 
         volatility = [i for i in issues if i["issue"] == "volatility"]
@@ -376,7 +376,7 @@ class TestCandidates:
                 "event_count": 10,
             },
         ]
-        substrate = RespirationSubstrate(events_path=tmp_path / "e.jsonl")
+        substrate = VasomotorSubstrate(events_path=tmp_path / "e.jsonl")
         issues = substrate.candidates(sensed)
 
         volatility = [i for i in issues if i["issue"] == "volatility"]
@@ -397,7 +397,7 @@ class TestCandidates:
                 "event_count": 3,
             },
         ]
-        substrate = RespirationSubstrate(events_path=tmp_path / "e.jsonl")
+        substrate = VasomotorSubstrate(events_path=tmp_path / "e.jsonl")
         issues = substrate.candidates(sensed)
 
         silence = [i for i in issues if i["issue"] == "silence"]
@@ -419,7 +419,7 @@ class TestCandidates:
                 "event_count": 3,
             },
         ]
-        substrate = RespirationSubstrate(events_path=tmp_path / "e.jsonl")
+        substrate = VasomotorSubstrate(events_path=tmp_path / "e.jsonl")
         issues = substrate.candidates(sensed)
 
         silence = [i for i in issues if i["issue"] == "silence"]
@@ -441,7 +441,7 @@ class TestCandidates:
             }
             for i in range(4)
         ]
-        substrate = RespirationSubstrate(events_path=tmp_path / "e.jsonl")
+        substrate = VasomotorSubstrate(events_path=tmp_path / "e.jsonl")
         issues = substrate.candidates(sensed)
 
         overburn = [i for i in issues if i["issue"] == "overburn"]
@@ -462,7 +462,7 @@ class TestCandidates:
                 "event_count": 15,
             },
         ]
-        substrate = RespirationSubstrate(events_path=tmp_path / "e.jsonl")
+        substrate = VasomotorSubstrate(events_path=tmp_path / "e.jsonl")
         issues = substrate.candidates(sensed)
 
         assert len(issues) == 0
@@ -473,7 +473,7 @@ class TestCandidates:
 
 class TestAct:
     def test_overburn_proposal(self, tmp_path):
-        substrate = RespirationSubstrate(events_path=tmp_path / "e.jsonl")
+        substrate = VasomotorSubstrate(events_path=tmp_path / "e.jsonl")
         result = substrate.act(
             {"issue": "overburn", "severity": "high", "count": 3, "evidence": []}
         )
@@ -481,28 +481,28 @@ class TestAct:
         assert "APPLIED" in result
 
     def test_saturation_proposal(self, tmp_path):
-        substrate = RespirationSubstrate(events_path=tmp_path / "e.jsonl")
+        substrate = VasomotorSubstrate(events_path=tmp_path / "e.jsonl")
         result = substrate.act(
             {"issue": "saturation", "severity": "medium", "count": 2, "evidence": []}
         )
         assert "saturation penalty" in result
 
     def test_starvation_proposal(self, tmp_path):
-        substrate = RespirationSubstrate(events_path=tmp_path / "e.jsonl")
+        substrate = VasomotorSubstrate(events_path=tmp_path / "e.jsonl")
         result = substrate.act(
             {"issue": "starvation", "severity": "low", "count": 1, "evidence": []}
         )
         assert "increase dynamic_share" in result
 
     def test_volatility_proposal(self, tmp_path):
-        substrate = RespirationSubstrate(events_path=tmp_path / "e.jsonl")
+        substrate = VasomotorSubstrate(events_path=tmp_path / "e.jsonl")
         result = substrate.act(
             {"issue": "volatility", "severity": "medium", "count": 1, "evidence": []}
         )
         assert "variance" in result
 
     def test_silence_proposal(self, tmp_path):
-        substrate = RespirationSubstrate(events_path=tmp_path / "e.jsonl")
+        substrate = VasomotorSubstrate(events_path=tmp_path / "e.jsonl")
         result = substrate.act(
             {"issue": "silence", "severity": "high", "count": 5, "evidence": []}
         )
@@ -514,7 +514,7 @@ class TestAct:
 
 class TestReport:
     def test_report_empty(self, tmp_path):
-        substrate = RespirationSubstrate(events_path=tmp_path / "e.jsonl")
+        substrate = VasomotorSubstrate(events_path=tmp_path / "e.jsonl")
         report = substrate.report([], [])
         assert "Respiration substrate: 0 day(s) sensed" in report
         assert "0 issue(s) found" in report
@@ -535,7 +535,7 @@ class TestReport:
         ]
         acted = ["[high] reduce dynamic_share by 10% (3 day(s) over budget)"]
 
-        substrate = RespirationSubstrate(events_path=tmp_path / "e.jsonl")
+        substrate = VasomotorSubstrate(events_path=tmp_path / "e.jsonl")
         report = substrate.report(sensed, acted)
 
         assert "Respiration substrate: 1 day(s) sensed" in report
@@ -558,7 +558,7 @@ class TestReport:
                 "event_count": 10,
             },
         ]
-        substrate = RespirationSubstrate(events_path=tmp_path / "e.jsonl")
+        substrate = VasomotorSubstrate(events_path=tmp_path / "e.jsonl")
         report = substrate.report(sensed, [])
 
         assert "No pacing issues detected" in report
@@ -592,7 +592,7 @@ class TestFullCycle:
         )
         _write_events(events_path, events)
 
-        substrate = RespirationSubstrate(events_path=events_path)
+        substrate = VasomotorSubstrate(events_path=events_path)
         sensed = substrate.sense(days=7)
         cands = substrate.candidates(sensed)
         acted = [substrate.act(c) for c in cands]
@@ -621,7 +621,7 @@ class TestFullCycle:
         ]
         _write_events(events_path, events)
 
-        substrate = RespirationSubstrate(events_path=events_path)
+        substrate = VasomotorSubstrate(events_path=events_path)
         sensed = substrate.sense(days=7)
         cands = substrate.candidates(sensed)
         acted = [substrate.act(c) for c in cands]
