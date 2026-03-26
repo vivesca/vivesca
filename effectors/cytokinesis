@@ -31,19 +31,20 @@ from pathlib import Path
 
 # ── Paths ────────────────────────────────────────────────────────────────────
 HOME = Path.home()
-NOTES = HOME / "notes"
-PRAXIS = NOTES / "Praxis.md"
-PRAXIS_ARCHIVE = NOTES / "Praxis Archive.md"
-DAILY_DIR = NOTES / "Daily"
-NOW_MD = NOTES / "Tonus.md"
-SKILLS = HOME / "code" / "vivesca" / "receptors"
+CHROMATIN = HOME / "epigenome" / "chromatin"
+PRAXIS = CHROMATIN / "Praxis.md"
+PRAXIS_ARCHIVE = CHROMATIN / "Praxis Archive.md"
+DAILY_DIR = CHROMATIN / "Daily"
+NOW_MD = CHROMATIN / "Tonus.md"
+SKILLS = HOME / "germline" / "membrane" / "receptors"
 CLAUDE_SKILLS = HOME / ".claude" / "skills"
-MEMORY = HOME / ".claude" / "projects" / "-Users-terry" / "memory" / "MEMORY.md"
+MEMORY = HOME / "epigenome" / "engrams" / "MEMORY.md"
 MEMORY_LIMIT = 150
 
 # Always-checked repos
 DEFAULT_REPOS = {
-    "vivesca": HOME / "code" / "vivesca",
+    "germline": HOME / "germline",
+    "epigenome": HOME / "epigenome",
     "scripts": HOME / "scripts",
 }
 
