@@ -345,18 +345,39 @@ def setup() -> dict:
     except Exception as e:
         steps.append({"name": "install-metabolon", "success": False, "message": str(e)[:200]})
 
-    # Symlink vivesca config from epigenome
+    # Symlinks: vivesca config, CC membrane, PATH
+    symlinks = [
+        (f"{LUCERNA_HOME}/epigenome/phenotype/vivesca", f"{LUCERNA_HOME}/.config/vivesca"),
+        (f"{LUCERNA_HOME}/germline/membrane/phenotype.md", f"{LUCERNA_HOME}/.claude/CLAUDE.md"),
+        (f"{LUCERNA_HOME}/germline/membrane/cytoskeleton", f"{LUCERNA_HOME}/.claude/hooks"),
+        (f"{LUCERNA_HOME}/germline/membrane/expression.json", f"{LUCERNA_HOME}/.claude/settings.json"),
+        (f"{LUCERNA_HOME}/germline/membrane/receptors", f"{LUCERNA_HOME}/.claude/skills"),
+    ]
+    symlink_cmds = " && ".join(f"ln -sfn {src} {dst}" for src, dst in symlinks)
+    try:
+        result = _fly_cmd(symlink_cmds)
+        steps.append({
+            "name": "symlinks",
+            "success": result.returncode == 0,
+            "message": "ok" if result.returncode == 0 else result.stderr.strip()[:200],
+        })
+    except Exception as e:
+        steps.append({"name": "symlinks", "success": False, "message": str(e)[:200]})
+
+    # Ensure germline venv is on PATH in .zshenv
+    path_line = f"export PATH={LUCERNA_HOME}/germline/.venv/bin:{LUCERNA_HOME}/.local/bin:{LUCERNA_HOME}/.cargo/bin:{LUCERNA_HOME}/.bun/bin:\\$PATH"
     try:
         result = _fly_cmd(
-            f"ln -sfn {LUCERNA_HOME}/epigenome/phenotype/vivesca {LUCERNA_HOME}/.config/vivesca"
+            f"grep -q 'germline/.venv/bin' {LUCERNA_HOME}/.zshenv 2>/dev/null "
+            f"|| echo '{path_line}' >> {LUCERNA_HOME}/.zshenv"
         )
         steps.append({
-            "name": "symlink-config",
+            "name": "path-setup",
             "success": result.returncode == 0,
             "message": "ok",
         })
     except Exception as e:
-        steps.append({"name": "symlink-config", "success": False, "message": str(e)[:200]})
+        steps.append({"name": "path-setup", "success": False, "message": str(e)[:200]})
 
     all_ok = all(s["success"] for s in steps)
     return {"success": all_ok, "steps": steps}

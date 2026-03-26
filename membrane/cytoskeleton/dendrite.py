@@ -287,7 +287,8 @@ def mod_perseveration(data):
 
 # ── chromatin: MEMORY.md budget check ──────────────────────
 
-CHROMATIN_PATH = HOME / ".claude" / "projects" / "-Users-terry" / "memory" / "MEMORY.md"
+_PROJECT_SLUG = "-" + str(HOME).lstrip("/").replace("/", "-")  # /Users/terry -> -Users-terry, /home/terry -> -home-terry
+CHROMATIN_PATH = HOME / ".claude" / "projects" / _PROJECT_SLUG / "memory" / "MEMORY.md"
 CHROMATIN_BUDGET = 150
 
 
@@ -308,7 +309,7 @@ def mod_chromatin(data):
 
 # ── recurrence: track memory file access for downregulation signal ────
 
-MEMORY_DIR = HOME / ".claude" / "projects" / "-Users-terry" / "memory"
+MEMORY_DIR = HOME / ".claude" / "projects" / _PROJECT_SLUG / "memory"
 
 
 def mod_recurrence(data):

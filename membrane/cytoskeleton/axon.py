@@ -128,11 +128,13 @@ def guard_bash(data):
     # 3. grep/rg/find on unscoped home
     if re.search(r"\b(grep|rg|find)\b", cmd):
         padded = " " + cmd
+        _home_str = str(HOME)
+        _home_esc = re.escape(_home_str)
         home_pats = [
             r"\s~(\s|$)",
             r"\s~/(\s|$)",
-            r"\s/Users/terry(\s|$)",
-            r"\s/Users/terry/(\s|$)",
+            rf"\s{_home_esc}(\s|$)",
+            rf"\s{_home_esc}/(\s|$)",
             r"\s\$HOME(\s|$)",
             r"\s\$HOME/(\s|$)",
         ]
@@ -252,7 +254,7 @@ def guard_bash(data):
     # 18. rm on ~/epigenome/chromatin/*.md
     if (
         re.search(r"\brm\b", cmd)
-        and re.search(r"(~/epigenome/chromatin/|/Users/terry/epigenome/chromatin/)", cmd)
+        and re.search(rf"(~/epigenome/chromatin/|{re.escape(str(HOME))}/epigenome/chromatin/)", cmd)
         and re.search(r"\.md\b", cmd)
     ):
         deny("Never delete vault notes. Archive instead.", "bash-guard")
@@ -392,9 +394,9 @@ def guard_glob(data):
     search_path = ti.get("path", "")
 
     if "**" in pattern:
-        home_paths = ["/Users/terry", "$HOME"]
+        home_paths = [str(HOME), "$HOME"]
         if any(search_path == h or search_path == h + "/" for h in home_paths):
-            deny("Glob ** on /Users/terry times out. Scope to a subdirectory.", "glob-guard")
+            deny(f"Glob ** on {HOME} times out. Scope to a subdirectory.", "glob-guard")
 
 
 # ── guard_grep: from saccade.js ────────────────────────────
@@ -452,7 +454,7 @@ def guard_write(data):
             deny(f"Never use {_NPX} in hooks. Use direct path.", "write-guard")
 
     # Facts in CLAUDE.md
-    is_main = fp in ("/Users/terry/CLAUDE.md", str(_VIVESCA_ROOT / "claude" / "CLAUDE.md"))
+    is_main = fp in (str(HOME / "CLAUDE.md"), str(_VIVESCA_ROOT / "claude" / "CLAUDE.md"))
     if is_main:
         nc = ti.get("new_string", "") or ti.get("content", "")
         fact_pats = [
@@ -614,7 +616,7 @@ def guard_agent(data):
 def guard_efferent(data):
     ti = data.get("tool_input", {})
     fp = ti.get("file_path", "")
-    if not re.search(r"/Users/terry/code/", fp):
+    if not re.search(re.escape(str(HOME / "code")) + r"/", fp):
         return
     if re.search(r"\.(md|toml|lock|gitignore|txt|json|yaml|yml)$", fp):
         return

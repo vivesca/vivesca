@@ -289,6 +289,9 @@ def _fetch_locked(cfg: EndocytosisConfig, no_archive: bool) -> None:
                     err=True,
                 )
 
+        # Persist after each source so state survives mid-run timeouts.
+        persist_state(cfg.state_path, state)
+
     persist_state(cfg.state_path, state)
     if failed_sources:
         typer.echo(f"Fetch errors ({len(failed_sources)}): {', '.join(failed_sources)}", err=True)

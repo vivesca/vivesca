@@ -1833,7 +1833,7 @@ def mitosis_setup():
         click.echo(f"  {symbol}  {step['name']}  {step.get('message', '')}")
 
     if result["success"]:
-        click.echo(click.style("\nLucerna ready. Run `vivesca mitosis sync` to push state.", fg="green"))
+        click.echo(click.style("\nGemmule ready. Run `vivesca mitosis sync` to push state.", fg="green"))
     else:
         click.echo(click.style("\nSetup incomplete — check failures above.", fg="red"))
         raise SystemExit(1)
