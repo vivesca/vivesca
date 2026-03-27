@@ -12,9 +12,13 @@ Usage:
 """
 
 import argparse
+import os
+import pty
+import re
+import select
 import subprocess
 import sys
-import tempfile
+import time
 from datetime import datetime
 from pathlib import Path
 
@@ -23,23 +27,101 @@ DEFAULT_MODEL = "haiku"
 
 # Models that need direct CLI invocation (not via channel)
 DIRECT_MODELS = {
-    "gemini": ["gemini", "-p"],         # slow startup (~30s), loads repo context
-    "opencode": ["opencode", "-p"],     # GLM-5, free — needs TTY workaround
+    "gemini": ["gemini", "-p"],
+    "opencode": ["opencode", "--prompt"],
     "codex": ["codex", "--dangerously-bypass-approvals-and-sandbox", "-q", "--skip-git-repo-check"],
 }
+# Models needing PTY wrapper (TUI-based CLIs)
+PTY_MODELS = {"opencode", "codex"}
 # Per-model timeout overrides
 MODEL_TIMEOUT_FLOOR = {
-    "gemini": 120,    # loads full repo context
-    "opencode": 120,  # GLM-5 can be slow
-    "codex": 120,     # reasoning model
+    "gemini": 120,
+    "opencode": 120,
+    "codex": 120,
 }
+
+_ANSI_RE = re.compile(r'\x1b\[[^a-zA-Z]*[a-zA-Z]|\x1b\][^\x07]*\x07|\x1b[()][^a-zA-Z]*[a-zA-Z]?')
+_CTRL_RE = re.compile(r'[\x00-\x09\x0b-\x1f\x7f]')
+_BOX_CHARS = set('█▀▄▐░▌▍▎▏╹╸╺╻┃■⬝')
+
+
+def _pty_query(cmd: list[str], timeout: int) -> str:
+    """Run a TUI command with a pseudo-TTY and extract clean text."""
+    master, slave = pty.openpty()
+    env = {k: v for k, v in os.environ.items() if k != "CLAUDECODE"}
+    proc = subprocess.Popen(
+        cmd, stdin=slave, stdout=slave, stderr=slave,
+        close_fds=True, env=env, cwd=str(HOME / "germline"),
+    )
+    os.close(slave)
+    output = b''
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        r, _, _ = select.select([master], [], [], 1)
+        if r:
+            try:
+                chunk = os.read(master, 4096)
+                if not chunk:
+                    break
+                output += chunk
+            except OSError:
+                break
+        if proc.poll() is not None:
+            # drain
+            while True:
+                r, _, _ = select.select([master], [], [], 0.5)
+                if not r:
+                    break
+                try:
+                    chunk = os.read(master, 4096)
+                    if not chunk:
+                        break
+                    output += chunk
+                except OSError:
+                    break
+            break
+    try:
+        os.close(master)
+    except OSError:
+        pass
+    if proc.poll() is None:
+        proc.kill()
+
+    # Clean ANSI + control chars + TUI chrome
+    clean = _ANSI_RE.sub('', output.decode('utf-8', errors='replace'))
+    clean = _CTRL_RE.sub('', clean)
+    lines = []
+    for line in clean.splitlines():
+        s = line.strip()
+        if s and len(s) > 2 and not any(c in _BOX_CHARS for c in s):
+            lines.append(s)
+    # Heuristic: the actual response is after "Thinking:" or the last substantial block
+    response_lines = []
+    capture = False
+    for line in lines:
+        if "Thinking:" in line:
+            capture = True
+            continue
+        if capture:
+            response_lines.append(line)
+    return "\n".join(response_lines).strip() if response_lines else "\n".join(lines[-10:]).strip()
 
 
 def query_twin(model: str, prompt: str, timeout: int = 120) -> str:
-    """Query the twin model. Direct CLI for some, channel for others."""
-    env = {**__import__("os").environ, "CLAUDECODE": ""}
-    cmd = DIRECT_MODELS.get(model, ["channel", model, "-p"])
+    """Query the twin model. PTY for TUI apps, direct for others, channel as default."""
     effective_timeout = max(timeout, MODEL_TIMEOUT_FLOOR.get(model, 0))
+
+    if model in PTY_MODELS:
+        cmd_base = DIRECT_MODELS.get(model, [model])
+        cmd = [*cmd_base, prompt]
+        try:
+            result = _pty_query(cmd, effective_timeout)
+            return result if result else "[twin error: empty response after PTY extraction]"
+        except Exception as e:
+            return f"[twin error: {e}]"
+
+    env = {k: v for k, v in os.environ.items() if k != "CLAUDECODE"}
+    cmd = DIRECT_MODELS.get(model, ["channel", model, "-p"])
     try:
         r = subprocess.run(
             [*cmd, prompt],
