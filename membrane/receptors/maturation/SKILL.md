@@ -1,6 +1,6 @@
 ---
 name: maturation
-description: Use when writing or editing a skill's SKILL.md -- quality heuristics for description, structure, and token economy
+description: Writing/editing a SKILL.md — quality heuristics for description and structure.
 user_invocable: false
 ---
 

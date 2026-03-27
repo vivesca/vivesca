@@ -1,6 +1,6 @@
 ---
 name: annealing
-description: Iterative artifact refinement — start hot (wild), cool to convergence. "annealing", "polish draft", "refine spec", "iterative improvement", "cool down".
+description: Iterative artifact refinement — start hot (wild), cool to convergence.
 user_invocable: true
 model: sonnet
 context: fork

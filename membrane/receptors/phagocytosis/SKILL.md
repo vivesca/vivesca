@@ -1,6 +1,6 @@
 ---
 name: phagocytosis
-description: Classify content, extract insights, and save a structured vault note. Use when user shares content (article, job posting, repo, video) and wants it catalogued in the vault. NOT for quick summaries without vault save (use summarize) or job evaluation (use evaluate-job).
+description: Classify content, extract insights, save a vault note — URL or pasted content.
 model: sonnet
 user_invocable: true
 context: fork

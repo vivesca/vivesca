@@ -1,6 +1,6 @@
 ---
 name: integrin
-description: Receptor health scan — check for broken CLI binaries, dormant skills, and retirement candidates before system changes.
+description: Receptor health scan — check broken CLI binaries, dormant/retirement candidates.
 model: sonnet
 ---
 

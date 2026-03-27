@@ -1,6 +1,6 @@
 ---
 name: conjugation
-description: Exchange effective patterns between two systems — cross-pollinate what works. "conjugation", "cross-pollinate", "import pattern", "borrow design", "what works elsewhere".
+description: Cross-pollinate working patterns between systems. "conjugation", "borrow design"
 user_invocable: true
 model: sonnet
 context: fork

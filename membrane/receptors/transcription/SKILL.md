@@ -1,6 +1,6 @@
 ---
 name: transcription
-description: Collaborative design before building — one question at a time, approaches with recommendation, right-sized spec. Use before any feature, tool, or non-trivial change.
+description: Collaborative design before building — one question at a time, right-sized spec.
 user_invocable: true
 epistemics: [design, plan]
 ---

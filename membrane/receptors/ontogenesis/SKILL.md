@@ -1,6 +1,6 @@
 ---
 name: ontogenesis
-description: Use when designing a new skill or promoting an ad-hoc solution into a reusable skill. "create a skill", "make this a skill", "build a skill for", "turn this into a skill"
+description: Design or promote an ad-hoc solution into a reusable skill. "create a skill"
 user_invocable: false
 ---
 

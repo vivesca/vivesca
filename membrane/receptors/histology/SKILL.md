@@ -1,6 +1,6 @@
 ---
 name: histology
-description: AI system architecture review through cell biology lens. Map components to cell-level names, force one level, find gaps from broken mappings. Use for system design, architecture reviews, consulting workshops. "histology", "cell review", "architecture biopsy", "map to biology".
+description: Architecture review via cell biology lens — map components, find gaps.
 user_invocable: true
 model: opus
 context: fork

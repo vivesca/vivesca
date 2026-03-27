@@ -1,6 +1,6 @@
 ---
 name: sporulation
-description: "Save session checkpoint with a codename for instant resume in a new session. Use when MCP drops, context shifts, or session needs to split."
+description: Save session checkpoint with codename for instant resume in a new session.
 user_invocable: true
 triggers:
   - sporulation

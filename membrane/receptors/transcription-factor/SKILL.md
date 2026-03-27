@@ -1,6 +1,6 @@
 ---
 name: transcription-factor
-description: Capture structured decisions with past-decision surfacing (bouncer pattern). Use when user says "transcription-factor", "/transcription-factor", "I need to decide", or is weighing options with trade-offs.
+description: Capture structured decisions with bouncer pattern — surfaces past similar ones.
 user_invocable: true
 epistemics: [decide]
 ---

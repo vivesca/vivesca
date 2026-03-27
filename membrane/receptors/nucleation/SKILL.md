@@ -1,6 +1,6 @@
 ---
 name: nucleation
-description: Structured on-ramp for delegate-first dev work. Use at the start of any coding task. Runs solutions KB check → research → spec analysis → plan → delegate → verify → review → finish.
+description: Structured on-ramp for coding tasks — KB check → research → plan → delegate.
 user_invocable: true
 allowed-tools:
   - Bash

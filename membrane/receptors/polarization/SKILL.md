@@ -1,6 +1,6 @@
 ---
 name: polarization
-description: Leverage agent teams to advance north star goals. Use when user says "polarization", "burn tokens", "stellae", "expand north stars", "going to sleep", "overnight", "vigilia", or any variant of "burn tokens while I sleep" or "keep working while I'm away". Two modes — interactive (default) and overnight (unattended flywheel).
+description: Agent teams for north star goals. "burn tokens", "overnight", "vigilia"
 user_invocable: true
 epistemics: [delegate, plan]
 ---

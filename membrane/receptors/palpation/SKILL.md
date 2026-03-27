@@ -1,6 +1,6 @@
 ---
 name: palpation
-description: Manual deep-probe of a specific component. Deeper than integrin, more targeted. "palpation", "deep probe", "manual inspection", "component investigation", "hands-on diagnosis".
+description: Manual deep-probe of a specific component — deeper than integrin.
 user_invocable: true
 model: sonnet
 context: fork

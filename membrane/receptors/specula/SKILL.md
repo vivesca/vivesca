@@ -1,6 +1,6 @@
 ---
 name: specula
-description: Peer pattern scanning — systematically scan what peers, competitors, and adjacent practitioners are doing, extract transferable patterns, route to domains (personal stack, consulting, governance). Use monthly as part of /monthly, or ad-hoc when entering a new domain or feeling behind. "What are others doing?", "steal from peers", "landscape scan", "specula".
+description: Peer pattern scanning — extract transferable patterns from competitors/peers.
 user_invocable: true
 ---
 

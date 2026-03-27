@@ -1,6 +1,7 @@
 """Tests for signal collection and JSONL persistence."""
 
 from datetime import UTC
+from typing import Any
 
 from metabolon.metabolism.signals import Outcome, SensorySystem, Stimulus
 
@@ -26,11 +27,11 @@ def test_signal_outcome_validation():
     with pytest.raises(ValueError):
         Stimulus(
             tool="x",
-            outcome="invalid",
+            outcome=cast(Any, "invalid"),
             substrate_consumed=0,
             product_released=0,
             response_latency=0,
-        )  # type: ignore[arg-type]
+        )
 
 
 def test_collector_append_and_read(tmp_path):

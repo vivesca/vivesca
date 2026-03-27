@@ -1,6 +1,6 @@
 ---
 name: adhesion
-description: Evaluate LinkedIn job postings for fit. Triggers on job URLs or "evaluate this role".
+description: Evaluate LinkedIn job postings for fit — job URL or "evaluate this role".
 requires: browser-automation
 user_invocable: true
 ---

@@ -1,10 +1,6 @@
 ---
 name: replication
-description: >
-  Agent research org — run a hierarchical team of AI agents on open-ended research or
-  exploration tasks. Chief orchestrator + parallel junior agents on git worktrees.
-  Use when the task is investigative/exploratory rather than well-specified implementation.
-  Inspired by Karpathy's nanochat agent research org pattern (Mar 2026).
+description: Hierarchical agent research org for open-ended exploration on git worktrees.
 triggers:
   - "research agents"
   - "agent org"

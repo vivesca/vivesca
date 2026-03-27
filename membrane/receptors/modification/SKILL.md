@@ -1,6 +1,6 @@
 ---
 name: modification
-description: Multi-model iterative refinement of artifacts using CC native teams + external models (Gemini/Codex/OpenCode). Use when an artifact (CV, doc, spec, code) needs polishing beyond what a single model can catch. Triggers on "refine", "polish", "multi-model review", "modification", or when quality matters enough to justify cross-model iteration.
+description: Multi-model iterative refinement of artifacts. "refine", "polish", "review"
 aliases: [refine, polish]
 user_invocable: true
 runtime: skill

@@ -1,6 +1,6 @@
 ---
 name: proofreading
-description: Stress-test an idea, plan, or claim by finding the strongest counterarguments and failure modes
+description: Stress-test an idea or claim — find strongest counterarguments and failure modes
 user-invocable: true
 context: fork
 epistemics: [evaluate, decide]

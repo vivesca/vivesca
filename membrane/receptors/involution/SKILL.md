@@ -1,6 +1,6 @@
 ---
 name: involution
-description: Evening wind-down ritual — brain dump, overnight queue, screens-off gate. Use between end-of-work and bedtime, when Terry needs to mentally close. Sequence is eow → involution → daily. NOT for work closure (use eow) or full daily reflection (use daily).
+description: Evening wind-down ritual — brain dump, overnight queue, screens-off gate.
 user_invocable: true
 disable-model-invocation: true
 ---
