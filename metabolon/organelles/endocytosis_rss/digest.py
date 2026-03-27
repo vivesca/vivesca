@@ -4,7 +4,7 @@ import configparser
 import json
 import os
 import re
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -19,6 +19,7 @@ OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 # ---------------------------------------------------------------------------
 
 _ENDOCYTOSIS_CONF = Path.home() / "germline" / "endocytosis.conf"
+
 
 def _load_thresholds() -> tuple[int, int, int]:
     """Read thresholds from endocytosis.conf; return hardcoded defaults if absent."""
@@ -35,6 +36,7 @@ def _load_thresholds() -> tuple[int, int, int]:
     theme_count = cp.getint(sec, "default_theme_count", fallback=theme_count_default)
     return transcytose, store, theme_count
 
+
 WEEKLY_TRANSCYTOSE_THRESHOLD, WEEKLY_STORE_THRESHOLD, DEFAULT_THEME_COUNT = _load_thresholds()
 
 
@@ -45,7 +47,9 @@ def _resolve_month(month: str | None) -> str:
 
 
 def _get_api_key() -> str | None:
-    return os.environ.get("ENDOCYTOSIS_API_KEY") or os.environ.get("OPENROUTER_API_KEY")  # ENDOCYTOSIS_API_KEY kept for backward compat
+    return os.environ.get("ENDOCYTOSIS_API_KEY") or os.environ.get(
+        "OPENROUTER_API_KEY"
+    )  # ENDOCYTOSIS_API_KEY kept for backward compat
 
 
 def create_openai_client(api_key: str):
@@ -290,8 +294,7 @@ def _filter_by_tags(
 ) -> list[dict[str, Any]]:
     tag_set = set(tags)
     return [
-        item for item in items
-        if tag_set & set(source_tags.get(item.get(source_key, ""), ["ai"]))
+        item for item in items if tag_set & set(source_tags.get(item.get(source_key, ""), ["ai"]))
     ]
 
 
@@ -308,7 +311,7 @@ def _resolve_week_label(week_date: datetime | None = None) -> tuple[str, str, st
     week_label format: YYYY-WNN (ISO year + zero-padded ISO week number).
     """
     if week_date is None:
-        week_date = datetime.now(timezone.utc)
+        week_date = datetime.now(UTC)
     end_date = week_date
     start_date = end_date - timedelta(days=7)
     # ISO week label — use the end date's ISO calendar to label the digest
@@ -386,14 +389,14 @@ def recall_affinity_entries(since_date: str) -> list[dict[str, Any]]:
     """
     from metabolon.organelles.endocytosis_rss.relevance import AFFINITY_LOG, _read_jsonl
 
-    cutoff = datetime.strptime(since_date, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+    cutoff = datetime.strptime(since_date, "%Y-%m-%d").replace(tzinfo=UTC)
     items: list[dict[str, Any]] = []
     for entry in _read_jsonl(AFFINITY_LOG):
         raw_ts = entry.get("timestamp", "")
         try:
             ts = datetime.fromisoformat(str(raw_ts))
             if ts.tzinfo is None:
-                ts = ts.replace(tzinfo=timezone.utc)
+                ts = ts.replace(tzinfo=UTC)
         except (ValueError, TypeError):
             continue
         if ts >= cutoff:
@@ -466,18 +469,14 @@ def secrete_weekly_digest(
     if transcytose_entries:
         lines.append("## Transcytose — High Signal (score >= 7)")
         lines.append("")
-        lines.append(
-            "_Items that crossed the membrane: ready for client conversation._"
-        )
+        lines.append("_Items that crossed the membrane: ready for client conversation._")
         lines.append("")
         for entry in transcytose_entries:
             title = entry["title"]
             link = entry.get("link", "")
             source = entry.get("source", "")
             affinity = affinity_index.get(title, {})
-            banking_angle = entry.get("banking_angle") or str(
-                affinity.get("banking_angle", "")
-            )
+            banking_angle = entry.get("banking_angle") or str(affinity.get("banking_angle", ""))
             talking_point = str(affinity.get("talking_point", ""))
             title_md = f"[{title}]({link})" if link else title
             lines.append(f"- **{title_md}** — _{source}_")
@@ -511,13 +510,15 @@ def secrete_weekly_digest(
         lines.append("")
 
     # Scheduling note: wire for Sunday night so Monday brief has fresh signal
-    lines.extend([
-        "---",
-        "",
-        "<!-- Schedule: run Sunday ~22:00 HKT so Monday morning brief has fresh signal -->",
-        "<!-- Command: vivesca endocytosis digest --weekly -->",
-        "",
-    ])
+    lines.extend(
+        [
+            "---",
+            "",
+            "<!-- Schedule: run Sunday ~22:00 HKT so Monday morning brief has fresh signal -->",
+            "<!-- Command: vivesca endocytosis digest --weekly -->",
+            "",
+        ]
+    )
 
     output_path.write_text("\n".join(lines), encoding="utf-8")
     return output_path
@@ -541,8 +542,7 @@ def metabolize_weekly(
     if tags:
         source_tags = _build_source_tags_map(cfg)
         entries = [
-            e for e in entries
-            if set(tags) & set(source_tags.get(e.get("source", ""), ["ai"]))
+            e for e in entries if set(tags) & set(source_tags.get(e.get("source", ""), ["ai"]))
         ]
 
     # Enrich with affinity log for score + talking_point data
@@ -551,6 +551,7 @@ def metabolize_weekly(
 
     # Secrete to ~/epigenome/chromatin/euchromatin/weekly-ai-digest-YYYY-WNN.md
     from metabolon.locus import chemosensory
+
     output_dir = chemosensory
     output_path = output_dir / f"weekly-ai-digest-{week_label}.md"
 
@@ -565,7 +566,8 @@ def metabolize_weekly(
 
     # Count items that made it through the score threshold
     item_count = sum(
-        1 for e in entries
+        1
+        for e in entries
         if (
             int(affinity_index.get(e["title"], {}).get("score", 0)) >= WEEKLY_STORE_THRESHOLD
             or e.get("_transcytose") == "1"
@@ -594,7 +596,9 @@ def metabolize_digest(
         articles = _filter_by_tags(articles, tags, source_tags)
         log_entries = _filter_by_tags(log_entries, tags, source_tags)
     if not articles and not log_entries:
-        raise RuntimeError(f"No data found for {target_month}. Run `vivesca endocytosis fetch` first.")
+        raise RuntimeError(
+            f"No data found for {target_month}. Run `vivesca endocytosis fetch` first."
+        )
 
     api_key = _get_api_key()
     if not api_key:

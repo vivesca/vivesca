@@ -7,13 +7,12 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from metabolon.membrane import SensoryMiddleware
-from metabolon.metabolism.infection import recall_infections
 from metabolon.metabolism.signals import SensorySystem
-
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _middleware(tmp_path):
     log = tmp_path / "signals.jsonl"
@@ -24,10 +23,11 @@ def _middleware(tmp_path):
 # Infection logging
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
 async def test_infection_logged_when_repair_skipped(tmp_path):
     """Errors on tools not in the Genome still get an infection record."""
-    inf_log = tmp_path / "infections.jsonl"
+    tmp_path / "infections.jsonl"
     mw = _middleware(tmp_path)
 
     with (
@@ -81,7 +81,9 @@ async def test_infection_marked_healed_when_repair_succeeds(tmp_path):
     mock_log.assert_called_once()
     # healed=True should be passed
     call_kwargs = mock_log.call_args
-    healed = call_kwargs.kwargs.get("healed") or (len(call_kwargs.args) > 2 and call_kwargs.args[2])
+    healed = call_kwargs.kwargs.get("healed") or (
+        len(call_kwargs.args) > 2 and call_kwargs.args[2]
+    )
     assert healed is True
 
 
@@ -107,5 +109,7 @@ async def test_infection_logged_even_when_repair_fails(tmp_path):
 
     mock_log.assert_called_once()
     call_kwargs = mock_log.call_args
-    healed = call_kwargs.kwargs.get("healed") or (len(call_kwargs.args) > 2 and call_kwargs.args[2])
+    healed = call_kwargs.kwargs.get("healed") or (
+        len(call_kwargs.args) > 2 and call_kwargs.args[2]
+    )
     assert healed is False

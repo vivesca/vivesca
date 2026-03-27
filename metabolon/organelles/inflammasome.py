@@ -18,13 +18,13 @@ Adaptive immune layer (adaptive_response):
 
 from __future__ import annotations
 
+import contextlib
 import json
 import os
 import subprocess
 import time
 from pathlib import Path
 from typing import Any
-
 
 # ---------------------------------------------------------------------------
 # Individual probe functions
@@ -90,7 +90,6 @@ def probe_chemotaxis() -> tuple[bool, str]:
 def probe_vasomotor_conf() -> tuple[bool, str]:
     """Verify respiration.conf exists, loads as JSON, and has expected keys."""
     try:
-        from metabolon.cytosol import VIVESCA_ROOT
         from metabolon.vasomotor import CONF_PATH
 
         if not CONF_PATH.exists():
@@ -164,7 +163,7 @@ def probe_infection() -> tuple[bool, str]:
             recall_infections,
         )
 
-        summary = infection_summary()
+        infection_summary()
         # Verify chronic count is consistent: chronic infections should all be unhealed
         events = recall_infections()
         chronics = chronic_infections()
@@ -178,8 +177,7 @@ def probe_infection() -> tuple[bool, str]:
                     f"but is listed as chronic — logic error"
                 )
         return True, (
-            f"infection module ok — {len(events)} event(s), "
-            f"{len(chronics)} chronic pattern(s)"
+            f"infection module ok — {len(events)} event(s), {len(chronics)} chronic pattern(s)"
         )
     except Exception as exc:
         return False, f"exception: {exc}"
@@ -358,9 +356,7 @@ def _repair_rss_stale() -> tuple[bool, str]:
 def _repair_mcp_not_loaded() -> tuple[bool, str]:
     """Load the com.vivesca.mcp LaunchAgent via launchctl."""
     try:
-        plist = str(
-            Path.home() / "Library" / "LaunchAgents" / "com.vivesca.mcp.plist"
-        )
+        plist = str(Path.home() / "Library" / "LaunchAgents" / "com.vivesca.mcp.plist")
         result = subprocess.run(
             ["launchctl", "load", plist],
             capture_output=True,
@@ -368,7 +364,10 @@ def _repair_mcp_not_loaded() -> tuple[bool, str]:
             timeout=10,
         )
         if result.returncode != 0:
-            return False, f"launchctl load exited {result.returncode}: {result.stderr.strip()[:200]}"
+            return (
+                False,
+                f"launchctl load exited {result.returncode}: {result.stderr.strip()[:200]}",
+            )
         return True, f"launchctl load {plist} ok"
     except subprocess.TimeoutExpired:
         return False, "launchctl load timed out (10s)"
@@ -386,9 +385,7 @@ def _repair_chemotaxis_key() -> tuple[bool, str]:
 
         importin_path = str(VIVESCA_ROOT / "effectors" / "importin")
         loader = importlib.machinery.SourceFileLoader("keychain_env", importin_path)
-        spec = importlib.util.spec_from_file_location(
-            "keychain_env", importin_path, loader=loader
-        )
+        spec = importlib.util.spec_from_file_location("keychain_env", importin_path, loader=loader)
         if spec is None:
             return False, "could not build importlib spec for importin"
         mod = importlib.util.module_from_spec(spec)
@@ -493,10 +490,8 @@ def adaptive_response(results: list[dict]) -> list[dict]:
       - Never raises.
     """
     record_infection = None
-    try:
+    with contextlib.suppress(Exception):
         from metabolon.metabolism.infection import record_infection
-    except Exception:
-        pass
 
     def _log(probe_name: str, error: str, healed: bool = False) -> None:
         if record_infection is not None:
@@ -530,7 +525,10 @@ def adaptive_response(results: list[dict]) -> list[dict]:
 
         # Pyroptosis: if this probe has failed too many times, escalate.
         if check_pyroptosis(probe_name, priming):
-            _log(probe_name, f"PYROPTOSIS — {priming[probe_name]} consecutive failures, human attention needed | {message}")
+            _log(
+                probe_name,
+                f"PYROPTOSIS — {priming[probe_name]} consecutive failures, human attention needed | {message}",
+            )
             result["repair_attempted"] = f"pyroptosis:{priming[probe_name]}"
             continue
 
@@ -595,7 +593,9 @@ def adaptive_response(results: list[dict]) -> list[dict]:
                             priming.pop(result["name"], None)
                         else:
                             result["verified"] = False
-                            _log(result["name"], f"repair claimed ok but verification failed: {msg}")
+                            _log(
+                                result["name"], f"repair claimed ok but verification failed: {msg}"
+                            )
                     except Exception:
                         result["verified"] = False
                     break

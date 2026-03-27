@@ -3,9 +3,10 @@
 Source hierarchy: UniProt (protein mechanism) → Reactome (pathway context) → Wikipedia (general).
 """
 
-import httpx
-from dataclasses import dataclass, field
 import re
+from dataclasses import dataclass, field
+
+import httpx
 
 USER_AGENT = "lysin/0.2.0 (https://github.com/terry-li-hm; vivesca biology fetcher)"
 
@@ -34,7 +35,9 @@ def _strip_pubmed_refs(text: str) -> str:
 # ---------------------------------------------------------------------------
 
 _UNIPROT_SEARCH = "https://rest.uniprot.org/uniprotkb/search"
-_UNIPROT_FIELDS = "accession,protein_name,cc_function,cc_catalytic_activity,cc_domain,cc_subunit,cc_pathway"
+_UNIPROT_FIELDS = (
+    "accession,protein_name,cc_function,cc_catalytic_activity,cc_domain,cc_subunit,cc_pathway"
+)
 
 
 def _fetch_uniprot(term: str) -> BioArticle | None:
@@ -72,7 +75,11 @@ def _fetch_uniprot(term: str) -> BioArticle | None:
             for c in r.get("comments", []):
                 ct = c.get("commentType", "")
                 if ct == "FUNCTION":
-                    texts = [_strip_pubmed_refs(t["value"]) for t in c.get("texts", []) if t.get("value")]
+                    texts = [
+                        _strip_pubmed_refs(t["value"])
+                        for t in c.get("texts", [])
+                        if t.get("value")
+                    ]
                     if texts:
                         definition = texts[0].split(". ")[0] + "."
                         sections.append({"title": "Function", "text": " ".join(texts)})
@@ -84,11 +91,19 @@ def _fetch_uniprot(term: str) -> BioArticle | None:
                         label = f"Catalytic activity (EC {ec})" if ec else "Catalytic activity"
                         sections.append({"title": label, "text": rxn_name})
                 elif ct == "DOMAIN":
-                    texts = [_strip_pubmed_refs(t["value"]) for t in c.get("texts", []) if t.get("value")]
+                    texts = [
+                        _strip_pubmed_refs(t["value"])
+                        for t in c.get("texts", [])
+                        if t.get("value")
+                    ]
                     for t in texts:
                         sections.append({"title": "Domain", "text": t})
                 elif ct == "SUBUNIT":
-                    texts = [_strip_pubmed_refs(t["value"]) for t in c.get("texts", []) if t.get("value")]
+                    texts = [
+                        _strip_pubmed_refs(t["value"])
+                        for t in c.get("texts", [])
+                        if t.get("value")
+                    ]
                     if texts:
                         sections.append({"title": "Subunit interactions", "text": " ".join(texts)})
 
@@ -192,7 +207,9 @@ def _search_wikipedia(term: str, limit: int = 5) -> list[str]:
 
 
 def _fetch_wikipedia(term: str) -> BioArticle | None:
-    with httpx.Client(headers={"User-Agent": USER_AGENT}, timeout=10.0, follow_redirects=True) as client:
+    with httpx.Client(
+        headers={"User-Agent": USER_AGENT}, timeout=10.0, follow_redirects=True
+    ) as client:
         url = _WIKI_SUMMARY.format(title=term)
         resp = client.get(url)
 
@@ -242,6 +259,7 @@ def _fetch_wikipedia(term: str) -> BioArticle | None:
 # Public API
 # ---------------------------------------------------------------------------
 
+
 def _looks_like_gene(term: str) -> bool:
     """Heuristic: gene/protein names are typically short, uppercase, or have digits."""
     t = term.strip()
@@ -252,9 +270,7 @@ def _looks_like_gene(term: str) -> bool:
     if re.match(r"^[a-z]+\d+[a-z]?$", t, re.IGNORECASE):
         return True
     # Single word, no spaces — might be a gene
-    if " " not in t and len(t) <= 15:
-        return True
-    return False
+    return bool(" " not in t and len(t) <= 15)
 
 
 def fetch_summary(term: str) -> BioArticle:
@@ -282,7 +298,9 @@ def fetch_summary(term: str) -> BioArticle:
 
 def fetch_sections(title: str) -> list[dict]:
     """Fetch Wikipedia sections (legacy --full support)."""
-    with httpx.Client(headers={"User-Agent": USER_AGENT}, timeout=10.0, follow_redirects=True) as client:
+    with httpx.Client(
+        headers={"User-Agent": USER_AGENT}, timeout=10.0, follow_redirects=True
+    ) as client:
         url = _WIKI_SECTIONS.format(title=title)
         resp = client.get(url)
         if resp.status_code != 200:

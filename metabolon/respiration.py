@@ -31,8 +31,7 @@ def _count_ejected() -> int:
     """Count total items pulse has routed to Terry (agent:terry in Praxis)."""
     if not PRAXIS_FILE.exists():
         return 0
-    return sum(1 for line in PRAXIS_FILE.read_text().splitlines()
-               if "agent:terry" in line.lower())
+    return sum(1 for line in PRAXIS_FILE.read_text().splitlines() if "agent:terry" in line.lower())
 
 
 def _count_converted() -> int:
@@ -63,6 +62,7 @@ def _count_stale(days: int = 7) -> int:
             continue
         # Check for date in the line
         import re
+
         match = re.search(r"(\d{4}-\d{2}-\d{2})", line)
         if match:
             try:
@@ -77,6 +77,7 @@ def _count_stale(days: int = 7) -> int:
 def _count_waste() -> dict[str, int]:
     """Count waste signals from today's pulse events."""
     from metabolon.vasomotor import EVENT_LOG
+
     if not EVENT_LOG.exists():
         return {"saturated": 0, "churn_killed": 0, "failed": 0}
 
@@ -159,6 +160,7 @@ def breathing_rate() -> str:
 def metabolic_waste_ratio() -> float:
     """Fraction of today's systoles that produced waste (saturated/churn/failed)."""
     from metabolon.vasomotor import EVENT_LOG
+
     if not EVENT_LOG.exists():
         return 0.0
 
@@ -206,10 +208,26 @@ _AUTO_RESOLVE_SIGNALS = [
 
 # Items with these verbs need Terry's body/presence — never auto-resolve
 _PHYSICAL_ACTION_VERBS = [
-    "submit", "book", "call", "reach out", "schedule", "sign",
-    "drop off", "pick up", "pay", "transfer", "send", "email",
-    "meet", "attend", "visit", "go to", "promote to", "publish",
-    "post to", "push to",
+    "submit",
+    "book",
+    "call",
+    "reach out",
+    "schedule",
+    "sign",
+    "drop off",
+    "pick up",
+    "pay",
+    "transfer",
+    "send",
+    "email",
+    "meet",
+    "attend",
+    "visit",
+    "go to",
+    "promote to",
+    "publish",
+    "post to",
+    "push to",
 ]
 
 
@@ -234,7 +252,9 @@ def phantom_sweep() -> dict:
 
     phantoms = sweep_praxis_for_phantoms(PRAXIS_FILE.read_text())
     if phantoms:
-        record_event("phantom_sweep", count=len(phantoms), items=[p["line"][:80] for p in phantoms])
+        record_event(
+            "phantom_sweep", count=len(phantoms), items=[p["line"][:80] for p in phantoms]
+        )
         log(f"Phantom sweep: {len(phantoms)} suspect agent:terry items found")
 
     return {"phantom_count": len(phantoms), "phantoms": phantoms}

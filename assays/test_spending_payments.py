@@ -5,14 +5,14 @@ from datetime import datetime, timedelta, timezone
 import yaml
 
 from metabolon.respirometry.payments import (
-    queue_payment,
     assess_missing_statements,
+    dequeue_payment,
     flag_overdue_payments,
     is_autopay,
+    persist_payments,
+    queue_payment,
     restore_card_config,
     restore_payments,
-    dequeue_payment,
-    persist_payments,
 )
 
 HKT = timezone(timedelta(hours=8))

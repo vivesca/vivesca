@@ -20,8 +20,9 @@ Tools:
 
 from __future__ import annotations
 
+import contextlib
 import json
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -70,19 +71,15 @@ def _compute_stats() -> dict[str, Any]:
     for entry in scored_rows:
         title = str(entry.get("title", ""))
         if title:
-            try:
+            with contextlib.suppress(TypeError, ValueError):
                 scored[title] = int(entry.get("score", 0))
-            except (TypeError, ValueError):
-                pass
 
     engaged: set[str] = {str(e.get("title", "")) for e in engaged_rows if e.get("title")}
 
     false_negatives = sorted(t for t in engaged if scored.get(t, 5) < 5)
     false_positives = sorted(t for t, s in scored.items() if s >= 7 and t not in engaged)
 
-    avg_engaged = (
-        sum(scored.get(t, 0) for t in engaged) / len(engaged) if engaged else 0.0
-    )
+    avg_engaged = sum(scored.get(t, 0) for t in engaged) / len(engaged) if engaged else 0.0
 
     # Signal ratio: fraction scoring >= 5 across all scored items
     signal_count = sum(1 for s in scored.values() if s >= 5)
@@ -101,7 +98,7 @@ def _compute_stats() -> dict[str, Any]:
 
 def _get_top_items(limit: int = 10, days: int = 7) -> list[dict[str, Any]]:
     """Return highest-scored items from the affinity log within the window."""
-    cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+    cutoff = datetime.now(UTC) - timedelta(days=days)
     items: list[dict[str, Any]] = []
     for entry in _read_jsonl(_AFFINITY_LOG):
         raw_ts = entry.get("timestamp")
@@ -110,7 +107,7 @@ def _get_top_items(limit: int = 10, days: int = 7) -> list[dict[str, Any]]:
         except (ValueError, TypeError):
             continue
         if ts.tzinfo is None:
-            ts = ts.replace(tzinfo=timezone.utc)
+            ts = ts.replace(tzinfo=UTC)
         if ts < cutoff:
             continue
         items.append(entry)
@@ -189,7 +186,7 @@ def endocytosis_rss_status() -> EndocytosisStatusResult:
         except (ValueError, TypeError):
             return None
         if dt.tzinfo is None:
-            dt = dt.replace(tzinfo=timezone.utc)
+            dt = dt.replace(tzinfo=UTC)
         return dt
 
     cfg = restore_config()
@@ -206,7 +203,13 @@ def endocytosis_rss_status() -> EndocytosisStatusResult:
     if state:
         lines.append(f"Sources:       {len(state)} tracked")
         latest = max(
-            (dt for ts in state.values() if isinstance(ts, str) for dt in [_parse_aware(ts)] if dt),
+            (
+                dt
+                for ts in state.values()
+                if isinstance(ts, str)
+                for dt in [_parse_aware(ts)]
+                if dt
+            ),
             default=None,
         )
         if latest is not None:
@@ -238,7 +241,9 @@ def endocytosis_rss_fetch(no_archive: bool = False) -> EffectorResult:
     cfg = restore_config()
     with lockfile(cfg.state_path):
         _fetch_locked(cfg, no_archive)
-    return EffectorResult(success=True, message="Fetch cycle complete.", data={"no_archive": no_archive})
+    return EffectorResult(
+        success=True, message="Fetch cycle complete.", data={"no_archive": no_archive}
+    )
 
 
 @tool(

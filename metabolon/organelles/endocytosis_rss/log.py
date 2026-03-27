@@ -4,7 +4,7 @@ import os
 import re
 import sys
 import tempfile
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 
@@ -97,7 +97,11 @@ def serialize_markdown(results: dict[str, list[dict[str, str]]], date_str: str) 
             title_part = f"[{title}]({article['link']})" if article.get("link") else title
             marker = "[★] " if int(article.get("score", 0) or 0) >= 7 else ""
             banking_angle = _sanitize_text(article.get("banking_angle", ""))
-            banking_part = f" (banking_angle: {banking_angle})" if marker and banking_angle and banking_angle != "N/A" else ""
+            banking_part = (
+                f" (banking_angle: {banking_angle})"
+                if marker and banking_angle and banking_angle != "N/A"
+                else ""
+            )
             lines.append(f"- {marker}**{title_part}**{banking_part}{date_part}{summary_part}")
         lines.append("")
     return "\n".join(lines)
@@ -134,7 +138,7 @@ def cycle_log(
     now: datetime | None = None,
 ) -> None:
     if now is None:
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
     if not log_path.exists():
         return

@@ -148,9 +148,7 @@ class SensoryMiddleware(Middleware):
                     if judge_result.passed:
                         vid = store.express_variant(tool_name, repair_result.candidate)
                         store.promote(tool_name, vid)
-                        logger.info(
-                            "Acute immune response: promoted v%d for %s", vid, tool_name
-                        )
+                        logger.info("Acute immune response: promoted v%d for %s", vid, tool_name)
                         healed = True
         except Exception:
             logger.debug("Acute immune response failed for %s", tool_name, exc_info=True)

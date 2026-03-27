@@ -45,9 +45,7 @@ def test_add_tool_read_only_flag(tmp_path):
     from metabolon.gastrulation.add import graft_tool
 
     project = _make_project(tmp_path)
-    graft_tool(
-        project, domain="weather", verb="fetch", description="Test", read_only=True
-    )
+    graft_tool(project, domain="weather", verb="fetch", description="Test", read_only=True)
 
     content = (project / "src" / "myserver" / "tools" / "weather.py").read_text()
     assert "readOnlyHint=True" in content

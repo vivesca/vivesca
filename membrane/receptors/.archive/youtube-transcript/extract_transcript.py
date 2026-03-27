@@ -109,10 +109,10 @@ def parse_vtt_to_text(vtt_content: str, include_timestamps: bool = False) -> str
 
 def get_transcript_ytdlp(
     video_id: str,
-    languages: list[str] = None,
+    languages: list[str] | None = None,
     include_timestamps: bool = False,
-    browser: str = None,
-    cookies_file: str = None,
+    browser: str | None = None,
+    cookies_file: str | None = None,
 ) -> tuple[str, dict]:
     """Fetch transcript using yt-dlp."""
     if languages is None:
@@ -188,7 +188,7 @@ def get_transcript_ytdlp(
 
 
 def get_transcript_api(
-    video_id: str, languages: list[str] = None, include_timestamps: bool = False
+    video_id: str, languages: list[str] | None = None, include_timestamps: bool = False
 ) -> tuple[str, dict]:
     """Fetch transcript using youtube-transcript-api (fallback)."""
     try:

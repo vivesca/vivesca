@@ -283,9 +283,7 @@ def sleep_detail(target_date: str | None = None) -> dict[str, Any]:
     # Remove Oura internal ID, keep everything else
     result.pop("id", None)
     if others:
-        result["extra_periods"] = [
-            {k: v for k, v in r.items() if k != "id"} for r in others
-        ]
+        result["extra_periods"] = [{k: v for k, v in r.items() if k != "id"} for r in others]
     return result
 
 

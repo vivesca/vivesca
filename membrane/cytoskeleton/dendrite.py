@@ -5,6 +5,7 @@ Replaces 17 hooks (7 JS + 10 Python) with a single process.
 Routes by tool name and file path internally.
 """
 
+import contextlib
 import json
 import os
 import re
@@ -35,12 +36,10 @@ def chaperone_py(data):
 
     # ruff format + check
     for subcmd in ["format", "check --fix"]:
-        try:
+        with contextlib.suppress(Exception):
             subprocess.run(
                 f'ruff {subcmd} "{fp}"', shell=True, cwd=d, capture_output=True, timeout=10
             )
-        except Exception:
-            pass
 
     # py_compile
     try:
@@ -104,7 +103,12 @@ def chaperone_py(data):
 
 def chaperone_js(data):
     fp = data.get("tool_input", {}).get("file_path", "")
-    if not fp or not re.search(r"\.(js|jsx|ts|tsx)$", fp) or "/notes/" in fp or "/chromatin/" in fp:
+    if (
+        not fp
+        or not re.search(r"\.(js|jsx|ts|tsx)$", fp)
+        or "/notes/" in fp
+        or "/chromatin/" in fp
+    ):
         return
     if not os.path.exists(fp):
         return
@@ -224,10 +228,8 @@ def mod_perseveration(data):
                 PERSEV_LOG.write_text("")
                 lines = []
             for l in lines[-PERSEV_WINDOW:]:
-                try:
+                with contextlib.suppress(json.JSONDecodeError):
                     recent.append(json.loads(l))
-                except json.JSONDecodeError:
-                    pass
         except Exception:
             pass
 
@@ -241,7 +243,7 @@ def mod_perseveration(data):
     def hash_call(e):
         return f"{e.get('tool')}::{json.dumps(e.get('args', {}))}"
 
-    all_entries = recent + [entry]
+    all_entries = [*recent, entry]
     cur_hash = hash_call(entry)
 
     # Same call repeated
@@ -287,7 +289,9 @@ def mod_perseveration(data):
 
 # ── chromatin: MEMORY.md budget check ──────────────────────
 
-_PROJECT_SLUG = "-" + str(HOME).lstrip("/").replace("/", "-")  # /Users/terry -> -Users-terry, /home/terry -> -home-terry
+_PROJECT_SLUG = "-" + str(HOME).lstrip("/").replace(
+    "/", "-"
+)  # /Users/terry -> -Users-terry, /home/terry -> -home-terry
 CHROMATIN_PATH = HOME / ".claude" / "projects" / _PROJECT_SLUG / "memory" / "MEMORY.md"
 CHROMATIN_BUDGET = 150
 
@@ -319,7 +323,7 @@ def mod_recurrence(data):
     p = Path(fp)
     if not str(p).startswith(str(MEMORY_DIR)) or p.name == "MEMORY.md":
         return
-    if not p.exists() or not p.suffix == ".md":
+    if not p.exists() or p.suffix != ".md":
         return
 
     today = datetime.now().strftime("%Y-%m-%d")
@@ -349,10 +353,8 @@ def mod_recurrence(data):
     else:
         fm = fm.rstrip("\n") + f"\nlast-seen: {today}\n"
 
-    try:
+    with contextlib.suppress(Exception):
         p.write_text("---" + fm + body)
-    except Exception:
-        pass
 
 
 # ── euchromatin_titer: track access to reference knowledge for remodeling ──
@@ -380,10 +382,8 @@ def mod_euchromatin_titer(data):
     if not content.startswith("---"):
         # No frontmatter — add one with titer
         content = f"---\ntiter-hits: 1\ntiter-last-seen: {today}\n---\n\n{content}"
-        try:
+        with contextlib.suppress(Exception):
             p.write_text(content, encoding="utf-8")
-        except Exception:
-            pass
         return
 
     end = content.find("---", 3)
@@ -396,19 +396,25 @@ def mod_euchromatin_titer(data):
     hits_match = re.search(r"^titer-hits:\s*(\d+)", fm, re.MULTILINE)
     if hits_match:
         new_hits = int(hits_match.group(1)) + 1
-        fm = re.sub(r"^titer-hits:\s*\d+", f"titer-hits: {new_hits}", fm, count=1, flags=re.MULTILINE)
+        fm = re.sub(
+            r"^titer-hits:\s*\d+", f"titer-hits: {new_hits}", fm, count=1, flags=re.MULTILINE
+        )
     else:
         fm = fm.rstrip("\n") + "\ntiter-hits: 1\n"
 
     if re.search(r"^titer-last-seen:", fm, re.MULTILINE):
-        fm = re.sub(r"^titer-last-seen:\s*\S+", f"titer-last-seen: {today}", fm, count=1, flags=re.MULTILINE)
+        fm = re.sub(
+            r"^titer-last-seen:\s*\S+",
+            f"titer-last-seen: {today}",
+            fm,
+            count=1,
+            flags=re.MULTILINE,
+        )
     else:
         fm = fm.rstrip("\n") + f"\ntiter-last-seen: {today}\n"
 
-    try:
+    with contextlib.suppress(Exception):
         p.write_text("---" + fm + body, encoding="utf-8")
-    except Exception:
-        pass
 
 
 # ── bash_post: push reminder, dep pollution, merge checklist, friction log ──
@@ -532,7 +538,8 @@ def mod_ligation_skill(data):
         return
 
     subprocess.run(
-        ["git", "-C", str(GERMLINE_DIR), "commit", "-m", f"Auto-update: {rel}"], capture_output=True
+        ["git", "-C", str(GERMLINE_DIR), "commit", "-m", f"Auto-update: {rel}"],
+        capture_output=True,
     )
 
     gen = HOOKS_DIR / "skill-trigger-gen.py"
@@ -665,10 +672,8 @@ def mod_ligation(data):
     message = _glycolytic_commit(repo_root, rel)
 
     subprocess.run(["git", "-C", repo_root, "commit", "-m", message], capture_output=True)
-    try:
+    with contextlib.suppress(OSError):
         deb_file.write_text(str(time.time()))
-    except OSError:
-        pass
 
     if LIGATION_REPOS.get(repo_root):
         subprocess.run(["git", "-C", repo_root, "push"], capture_output=True)
@@ -893,10 +898,8 @@ PROPRIO_INTERVAL = 20
 
 def mod_proprioception(_data):
     state = {"count": 0, "start": time.time()}
-    try:
+    with contextlib.suppress(Exception):
         state = json.loads(PROPRIO_STATE.read_text())
-    except Exception:
-        pass
 
     state["count"] = state.get("count", 0) + 1
     session_start = state.get("start", time.time())
@@ -1013,7 +1016,7 @@ def _retrograde_append(direction: str, signal_type: str, detail: str) -> None:
     try:
         _RETROGRADE_LOG.parent.mkdir(parents=True, exist_ok=True)
         entry = {
-            "ts": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+            "ts": datetime.datetime.now(datetime.UTC).isoformat(),
             "direction": direction,
             "type": signal_type,
             "detail": detail,
@@ -1208,7 +1211,7 @@ def _antisera_format(entry: dict) -> str:
     if content.startswith("---"):
         end = content.find("---", 3)
         if end != -1:
-            content = content[end + 3:].strip()
+            content = content[end + 3 :].strip()
     return f"[antiserum:{slug}]\n{content}"
 
 
@@ -1231,18 +1234,20 @@ def _antisera_update_titer(entry: dict) -> None:
     hits_match = re.search(r"^titer-hits:\s*(\d+)", fm, re.MULTILINE)
     if hits_match:
         old_hits = int(hits_match.group(1))
-        fm = re.sub(r"^titer-hits:\s*\d+", f"titer-hits: {old_hits + 1}", fm, count=1, flags=re.MULTILINE)
+        fm = re.sub(
+            r"^titer-hits:\s*\d+", f"titer-hits: {old_hits + 1}", fm, count=1, flags=re.MULTILINE
+        )
     else:
-        fm = fm.rstrip("\n") + f"\ntiter-hits: 1\n"
+        fm = fm.rstrip("\n") + "\ntiter-hits: 1\n"
     seen_match = re.search(r"^titer-last-seen:", fm, re.MULTILINE)
     if seen_match:
-        fm = re.sub(r"^titer-last-seen:.*", f"titer-last-seen: {today}", fm, count=1, flags=re.MULTILINE)
+        fm = re.sub(
+            r"^titer-last-seen:.*", f"titer-last-seen: {today}", fm, count=1, flags=re.MULTILINE
+        )
     else:
         fm = fm.rstrip("\n") + f"\ntiter-last-seen: {today}\n"
-    try:
+    with contextlib.suppress(Exception):
         fp.write_text(f"---{fm}{body}", encoding="utf-8")
-    except Exception:
-        pass
 
 
 def mod_antisera_discovery(data):
@@ -1291,8 +1296,6 @@ def mod_antisera_discovery(data):
     for entry in surfaced:
         print(_antisera_format(entry))
         _antisera_update_titer(entry)
-
-
 
 
 # Obfuscated to avoid self-triggering nociceptor-write
@@ -1384,10 +1387,8 @@ def main():
     modules.append(mod_antisera_discovery)
 
     for mod in modules:
-        try:
+        with contextlib.suppress(Exception):
             mod(data)
-        except Exception:
-            pass
 
 
 if __name__ == "__main__":

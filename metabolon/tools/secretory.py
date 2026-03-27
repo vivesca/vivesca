@@ -1,4 +1,5 @@
 from metabolon.locus import chromatin
+
 """secretory -- efferent (outward) actions from skills.
 
 Biology: efferent nerves carry signals outward from the CNS to
@@ -208,11 +209,14 @@ def emit_publish(subcommand: str, slug: str = "") -> EffectorResult:
     from metabolon.organelles import golgi
 
     if subcommand == "new":
-        s, path = golgi.new(slug)
+        _s, path = golgi.new(slug)
         return EffectorResult(success=True, message=f"Created {path} (draft)")
     elif subcommand == "list":
         posts = golgi.list_posts()
-        lines = [f"{p['slug']:30s} {p['title'][:40]:40s} {'(draft)' if p['draft'] else ''}" for p in posts]
+        lines = [
+            f"{p['slug']:30s} {p['title'][:40]:40s} {'(draft)' if p['draft'] else ''}"
+            for p in posts
+        ]
         return EffectorResult(success=True, message="\n".join(lines) or "No posts")
     elif subcommand == "publish":
         title = golgi.publish(slug, force=True)

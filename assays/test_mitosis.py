@@ -6,10 +6,8 @@ Unit tests that don't require network access. Integration tests
 
 from __future__ import annotations
 
-import json
 import os
 import subprocess
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -26,7 +24,6 @@ from metabolon.organelles.mitosis import (
     status,
     sync,
 )
-
 
 # ── Unit tests (no network) ──────────────────────────────────
 
@@ -120,16 +117,12 @@ class TestGitPush:
 class TestReachability:
     @patch("metabolon.organelles.mitosis.subprocess.run")
     def test_reachable(self, mock_run):
-        mock_run.return_value = MagicMock(
-            returncode=0, stdout="started"
-        )
+        mock_run.return_value = MagicMock(returncode=0, stdout="started")
         assert _is_gemmule_reachable()
 
     @patch("metabolon.organelles.mitosis.subprocess.run")
     def test_unreachable(self, mock_run):
-        mock_run.return_value = MagicMock(
-            returncode=1, stdout=""
-        )
+        mock_run.return_value = MagicMock(returncode=1, stdout="")
         assert not _is_gemmule_reachable()
 
     @patch("metabolon.organelles.mitosis.subprocess.run")

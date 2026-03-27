@@ -23,6 +23,7 @@ def zeitgebers() -> dict[str, Any]:
     readiness: int | None = None
     try:
         from metabolon.organelles.chemoreceptor import sense as _s
+
         d = _s()
         if "error" not in d:
             readiness = d.get("readiness_score")
@@ -32,6 +33,7 @@ def zeitgebers() -> dict[str, Any]:
     budget = "unknown"
     try:
         from metabolon.vasomotor import vasomotor_status
+
         budget = vasomotor_status()
     except Exception as e:
         logger.debug("Budget unavailable: %s", e)
@@ -40,20 +42,32 @@ def zeitgebers() -> dict[str, Any]:
     try:
         from metabolon.organelles.endocytosis_rss.config import restore_config
         from metabolon.organelles.endocytosis_rss.state import restore_state
+
         cfg = restore_config()
         state = restore_state(cfg.state_path) or {}
-        utc = datetime.timezone.utc
+        utc = datetime.UTC
         dts = []
         for v in state.values():
             if isinstance(v, str):
-                try: dt = datetime.datetime.fromisoformat(v); dts.append(dt if dt.tzinfo else dt.replace(tzinfo=utc))
-                except ValueError: pass
-        if dts: rss_stale = (datetime.datetime.now(tz=utc) - max(dts)).total_seconds() / 3600 > 4
+                try:
+                    dt = datetime.datetime.fromisoformat(v)
+                    dts.append(dt if dt.tzinfo else dt.replace(tzinfo=utc))
+                except ValueError:
+                    pass
+        if dts:
+            rss_stale = (datetime.datetime.now(tz=utc) - max(dts)).total_seconds() / 3600 > 4
     except Exception as e:
         logger.debug("RSS state unavailable: %s", e)
 
-    return {"hkt_hour": hour, "weekday": now.strftime("%A"), "is_night": is_night, "asleep": is_night,
-            "readiness": readiness, "budget_status": budget, "rss_stale": rss_stale}
+    return {
+        "hkt_hour": hour,
+        "weekday": now.strftime("%A"),
+        "is_night": is_night,
+        "asleep": is_night,
+        "readiness": readiness,
+        "budget_status": budget,
+        "rss_stale": rss_stale,
+    }
 
 
 def optimal_schedule(signals: dict[str, Any] | None = None) -> dict[str, Any]:
@@ -90,7 +104,11 @@ def optimal_schedule(signals: dict[str, Any] | None = None) -> dict[str, Any]:
     else:
         recs["endocytosis"] = {"action": "normal", "reason": "nominal"}
 
-    recs["transduction"] = {"action": "suppress" if night else "normal", "reason": "night_hours" if night else "nominal"}; notes.append("transduction: night suppressed") if night else None
+    recs["transduction"] = {
+        "action": "suppress" if night else "normal",
+        "reason": "night_hours" if night else "nominal",
+    }
+    notes.append("transduction: night suppressed") if night else None
     return {"recommendations": recs, "summary": "; ".join(notes) or "all agents nominal"}
 
 
@@ -108,7 +126,11 @@ def entrain(dry_run: bool = True) -> dict[str, Any]:
     taken, deferred = [], []
 
     if suppress:
-        payload = {"ts": datetime.datetime.now(tz=HKT).isoformat(), "suppress": suppress, "reasons": {lbl: recs[lbl]["reason"] for lbl in suppress}}
+        payload = {
+            "ts": datetime.datetime.now(tz=HKT).isoformat(),
+            "suppress": suppress,
+            "reasons": {lbl: recs[lbl]["reason"] for lbl in suppress},
+        }
         if dry_run:
             deferred.append(f"WOULD suppress {suppress}")
         else:
@@ -120,6 +142,7 @@ def entrain(dry_run: bool = True) -> dict[str, Any]:
             if "pulse" in suppress:
                 try:
                     from metabolon.vasomotor import SKIP_UNTIL_FILE
+
                     pulse_reason = recs["pulse"].get("reason", "")
                     now = datetime.datetime.now(tz=HKT)
                     if pulse_reason == "night_hours":
@@ -133,13 +156,33 @@ def entrain(dry_run: bool = True) -> dict[str, Any]:
                     taken.append(f"vasomotor skip-until set: {wake.isoformat()}")
                 except Exception as e:
                     logger.warning("Could not write vasomotor skip-until: %s", e)
-    if trigger: (deferred if dry_run else taken).append(f"{'WOULD trigger' if dry_run else 'trigger'}: {trigger}")
+    if trigger:
+        (deferred if dry_run else taken).append(
+            f"{'WOULD trigger' if dry_run else 'trigger'}: {trigger}"
+        )
 
     try:
         with open(_LOG, "a") as fh:
-            fh.write(json.dumps({"ts": datetime.datetime.now(tz=HKT).isoformat(), "event": "entrainment",
-                                  "dry_run": dry_run, "summary": sched["summary"], "suppress": suppress, "trigger": trigger}) + "\n")
-    except Exception: pass
+            fh.write(
+                json.dumps(
+                    {
+                        "ts": datetime.datetime.now(tz=HKT).isoformat(),
+                        "event": "entrainment",
+                        "dry_run": dry_run,
+                        "summary": sched["summary"],
+                        "suppress": suppress,
+                        "trigger": trigger,
+                    }
+                )
+                + "\n"
+            )
+    except Exception:
+        pass
 
-    return {"dry_run": dry_run, "signals": signals, "schedule": sched,
-            "actions_taken": taken, "actions_deferred": deferred}
+    return {
+        "dry_run": dry_run,
+        "signals": signals,
+        "schedule": sched,
+        "actions_taken": taken,
+        "actions_deferred": deferred,
+    }

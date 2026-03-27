@@ -1,4 +1,5 @@
 from metabolon.locus import chromatin, praxis
+
 """interoception — sensing internal state (health, system, financial).
 
 Tools:
@@ -46,6 +47,7 @@ class CircadianResult(Secretion):
 
 class HeartRateResult(Secretion):
     """Heart rate time-series from Oura."""
+
     summary: str
 
 
@@ -87,9 +89,7 @@ def inflammasome_probe() -> InflammasomeResult:
     passed_count = sum(1 for r in results if r["passed"])
     total = len(results)
     lines.append(f"\nSummary: {passed_count}/{total} passed")
-    return InflammasomeResult(
-        report="\n".join(lines), passed=passed_count, total=total
-    )
+    return InflammasomeResult(report="\n".join(lines), passed=passed_count, total=total)
 
 
 @tool(
@@ -136,28 +136,37 @@ def circadian_sleep(period: str = "today") -> CircadianResult:
     lines.append(f"Sleep: {ss}  Readiness: {rs}")
     lines.append(f"Sleep contributors: {data.get('sleep_contributors', {})}")
     lines.append(f"Readiness contributors: {data.get('contributors', {})}")
-    lines.append(f"Temp deviation: {data.get('temperature_deviation')}°C  "
-                 f"Trend: {data.get('temperature_trend_deviation')}°C")
+    lines.append(
+        f"Temp deviation: {data.get('temperature_deviation')}°C  "
+        f"Trend: {data.get('temperature_trend_deviation')}°C"
+    )
     lines.append("")
 
     # --- Sleep detail ---
     lines.append("--- Sleep detail ---")
-    lines.append(f"Deep:  {_fmt_dur(data.get('deep_sleep_duration'))}  "
-                 f"Light: {_fmt_dur(data.get('light_sleep_duration'))}  "
-                 f"REM:   {_fmt_dur(data.get('rem_sleep_duration'))}")
-    lines.append(f"Awake: {_fmt_dur(data.get('awake_time'))}  "
-                 f"Total: {_fmt_dur(data.get('total_sleep_duration'))}  "
-                 f"In bed: {_fmt_dur(data.get('time_in_bed'))}")
+    lines.append(
+        f"Deep:  {_fmt_dur(data.get('deep_sleep_duration'))}  "
+        f"Light: {_fmt_dur(data.get('light_sleep_duration'))}  "
+        f"REM:   {_fmt_dur(data.get('rem_sleep_duration'))}"
+    )
+    lines.append(
+        f"Awake: {_fmt_dur(data.get('awake_time'))}  "
+        f"Total: {_fmt_dur(data.get('total_sleep_duration'))}  "
+        f"In bed: {_fmt_dur(data.get('time_in_bed'))}"
+    )
     if data.get("bedtime_start") and data.get("bedtime_end"):
         lines.append(f"Bed:   {data['bedtime_start'][:16]} → {data['bedtime_end'][:16]}")
-    lines.append(f"Latency: {_fmt_dur(data.get('latency'))}  "
-                 f"Efficiency: {data.get('efficiency')}%  "
-                 f"Restless periods: {data.get('restless_periods')}")
-    lines.append(f"Avg HR: {data.get('average_heart_rate')} bpm  "
-                 f"Lowest HR: {data.get('lowest_heart_rate')} bpm  "
-                 f"Avg HRV: {data.get('average_hrv')} ms")
-    lines.append(f"Avg breath: {data.get('average_breath')} br/s  "
-                 f"Type: {data.get('type')}")
+    lines.append(
+        f"Latency: {_fmt_dur(data.get('latency'))}  "
+        f"Efficiency: {data.get('efficiency')}%  "
+        f"Restless periods: {data.get('restless_periods')}"
+    )
+    lines.append(
+        f"Avg HR: {data.get('average_heart_rate')} bpm  "
+        f"Lowest HR: {data.get('lowest_heart_rate')} bpm  "
+        f"Avg HRV: {data.get('average_hrv')} ms"
+    )
+    lines.append(f"Avg breath: {data.get('average_breath')} br/s  Type: {data.get('type')}")
     lines.append("")
 
     # --- Hypnogram ---
@@ -184,12 +193,16 @@ def circadian_sleep(period: str = "today") -> CircadianResult:
     act = data.get("activity")
     if act:
         lines.append("--- Activity (yesterday) ---")
-        lines.append(f"Score: {act.get('score')}  Steps: {act.get('steps')}  "
-                     f"Calories: {act.get('active_calories')} active / {act.get('total_calories')} total")
-        lines.append(f"High: {_fmt_dur(act.get('high_activity_time'))}  "
-                     f"Med: {_fmt_dur(act.get('medium_activity_time'))}  "
-                     f"Low: {_fmt_dur(act.get('low_activity_time'))}  "
-                     f"Sedentary: {_fmt_dur(act.get('sedentary_time'))}")
+        lines.append(
+            f"Score: {act.get('score')}  Steps: {act.get('steps')}  "
+            f"Calories: {act.get('active_calories')} active / {act.get('total_calories')} total"
+        )
+        lines.append(
+            f"High: {_fmt_dur(act.get('high_activity_time'))}  "
+            f"Med: {_fmt_dur(act.get('medium_activity_time'))}  "
+            f"Low: {_fmt_dur(act.get('low_activity_time'))}  "
+            f"Sedentary: {_fmt_dur(act.get('sedentary_time'))}"
+        )
         lines.append(f"Walking equiv: {act.get('equivalent_walking_distance')}m")
         lines.append("")
 
@@ -197,33 +210,35 @@ def circadian_sleep(period: str = "today") -> CircadianResult:
     st = data.get("stress")
     if st:
         lines.append("--- Stress ---")
-        lines.append(f"Summary: {st.get('day_summary')}  "
-                     f"Stress high: {_fmt_dur(st.get('stress_high'))}  "
-                     f"Recovery high: {_fmt_dur(st.get('recovery_high'))}")
+        lines.append(
+            f"Summary: {st.get('day_summary')}  "
+            f"Stress high: {_fmt_dur(st.get('stress_high'))}  "
+            f"Recovery high: {_fmt_dur(st.get('recovery_high'))}"
+        )
         lines.append("")
 
     # --- SpO2 ---
     sp = data.get("spo2")
     if sp:
         lines.append("--- SpO2 ---")
-        lines.append(f"Average: {sp.get('average')}%  "
-                     f"Breathing disturbance index: {sp.get('breathing_disturbance_index')}")
+        lines.append(
+            f"Average: {sp.get('average')}%  "
+            f"Breathing disturbance index: {sp.get('breathing_disturbance_index')}"
+        )
         lines.append("")
 
     # --- Resilience ---
     res = data.get("resilience")
     if res:
         lines.append("--- Resilience ---")
-        lines.append(f"Level: {res.get('level')}  "
-                     f"Contributors: {res.get('contributors', {})}")
+        lines.append(f"Level: {res.get('level')}  Contributors: {res.get('contributors', {})}")
         lines.append("")
 
     # --- Sleep time recommendation ---
     stm = data.get("sleep_time")
     if stm:
         lines.append("--- Bedtime recommendation ---")
-        lines.append(f"Recommendation: {stm.get('recommendation')}  "
-                     f"Status: {stm.get('status')}")
+        lines.append(f"Recommendation: {stm.get('recommendation')}  Status: {stm.get('status')}")
         opt = stm.get("optimal_bedtime") or {}
         if opt:
             lines.append(f"Optimal window: {opt}")
@@ -248,9 +263,11 @@ def circadian_sleep(period: str = "today") -> CircadianResult:
         for w in wk:
             start = (w.get("start") or "")[:16]
             cal = w.get("calories")
-            lines.append(f"{w.get('activity')} ({w.get('intensity')}) "
-                         f"{start}  {f'{cal:.0f} kcal' if cal else ''} "
-                         f"[{w.get('source')}]")
+            lines.append(
+                f"{w.get('activity')} ({w.get('intensity')}) "
+                f"{start}  {f'{cal:.0f} kcal' if cal else ''} "
+                f"[{w.get('source')}]"
+            )
         lines.append("")
 
     return CircadianResult(summary="\n".join(lines))
@@ -261,9 +278,7 @@ def circadian_sleep(period: str = "today") -> CircadianResult:
     description="Oura HR time-series. Defaults to last night's sleep window.",
     annotations=ToolAnnotations(readOnlyHint=True, destructiveHint=False),
 )
-def circadian_heartrate(
-    start_datetime: str = "", end_datetime: str = ""
-) -> HeartRateResult:
+def circadian_heartrate(start_datetime: str = "", end_datetime: str = "") -> HeartRateResult:
     """Heart rate time-series from Oura, bucketed into 10-min intervals."""
     from metabolon.organelles.chemoreceptor import heartrate
 
@@ -273,6 +288,7 @@ def circadian_heartrate(
 
     # Bucket into 10-min intervals for readability
     from collections import defaultdict
+
     buckets: dict[str, list[int]] = defaultdict(list)
     for r in records:
         ts = r.get("timestamp", "")[:15]  # "2026-03-27T01:2" → 10-min bucket
@@ -293,9 +309,11 @@ def circadian_heartrate(
     all_bpm = [r["bpm"] for r in records if r.get("bpm") is not None]
     if all_bpm:
         lines.append("")
-        lines.append(f"Overall: avg {sum(all_bpm)//len(all_bpm)} bpm, "
-                     f"min {min(all_bpm)} bpm, max {max(all_bpm)} bpm, "
-                     f"{len(all_bpm)} readings")
+        lines.append(
+            f"Overall: avg {sum(all_bpm) // len(all_bpm)} bpm, "
+            f"min {min(all_bpm)} bpm, max {max(all_bpm)} bpm, "
+            f"{len(all_bpm)} readings"
+        )
 
     return HeartRateResult(summary="\n".join(lines))
 
@@ -837,7 +855,7 @@ class GlycolysisResult(Secretion):
 )
 def glycolysis_rate(trend_days: int = 30) -> GlycolysisResult:
     """Measure and return the organism's glycolysis rate with optional trend."""
-    from metabolon.organelles.glycolysis_rate import measure_rate, snapshot, trend
+    from metabolon.organelles.glycolysis_rate import snapshot, trend
 
     rate = snapshot()
     trend_data = trend(days=trend_days)
@@ -906,10 +924,10 @@ class CrisprResult(Secretion):
 )
 def crispr_status(recent_n: int = 5) -> CrisprResult:
     """Return adaptive immune memory state: spacers acquired, compiled guides, recent entries."""
-    from metabolon.organelles.crispr import compile_guides, spacer_count
-
     import json
     from pathlib import Path
+
+    from metabolon.organelles.crispr import compile_guides, spacer_count
 
     spacers_path = Path.home() / ".cache" / "crispr" / "spacers.jsonl"
     count = spacer_count()
@@ -925,11 +943,13 @@ def crispr_status(recent_n: int = 5) -> CrisprResult:
                     continue
                 try:
                     entry = json.loads(line)
-                    recent.append({
-                        "ts": entry.get("ts", "")[:10],
-                        "tool": entry.get("tool", ""),
-                        "pattern": entry.get("pattern", "")[:80],
-                    })
+                    recent.append(
+                        {
+                            "ts": entry.get("ts", "")[:10],
+                            "tool": entry.get("tool", ""),
+                            "pattern": entry.get("pattern", "")[:80],
+                        }
+                    )
                     if len(recent) >= recent_n:
                         break
                 except Exception:
@@ -982,7 +1002,9 @@ def retrograde_balance(days: int = 7) -> RetrogradeResult:
     from metabolon.organelles.retrograde import signal_balance
 
     b = signal_balance(days=days)
-    ratio_str = f"{b['ratio']:.1f}:1" if b["retrograde_count"] > 0 else f"{b['anterograde_count']}:0"
+    ratio_str = (
+        f"{b['ratio']:.1f}:1" if b["retrograde_count"] > 0 else f"{b['anterograde_count']}:0"
+    )
     summary = (
         f"Retrograde balance ({days}d): {b['assessment'].upper()}\n"
         f"  Anterograde (organism→symbiont): {b['anterograde_count']}\n"

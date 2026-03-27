@@ -53,11 +53,13 @@ def rheotaxis_multi(
     """
     query_list = [q.strip() for q in queries.split("|")]
     backend_list = [b.strip() for b in backends.split(",")]
-    all_results = rheotaxis_engine.multi_query_search(query_list, backends=backend_list, timeout=timeout)
+    all_results = rheotaxis_engine.multi_query_search(
+        query_list, backends=backend_list, timeout=timeout
+    )
     lines = []
     for q, results in all_results.items():
-        lines.append(f"{'='*60}")
+        lines.append(f"{'=' * 60}")
         lines.append(f"QUERY: {q}")
-        lines.append(f"{'='*60}")
+        lines.append(f"{'=' * 60}")
         lines.append(rheotaxis_engine.format_results(results))
     return "\n".join(lines)

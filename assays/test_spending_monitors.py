@@ -2,9 +2,9 @@
 
 from metabolon.respirometry.monitors import (
     assess_budget,
-    flag_duplicates,
     assess_subscriptions,
     flag_anomalies,
+    flag_duplicates,
 )
 from metabolon.respirometry.schema import Transaction
 

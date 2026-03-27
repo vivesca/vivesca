@@ -4,6 +4,7 @@
 Replaces: consolidation.js, consolidation-log.py
 """
 
+import contextlib
 import json
 import subprocess
 import sys
@@ -41,10 +42,8 @@ def mod_auto_flush():
                 capture_output=True,
                 timeout=10,
             )
-            try:
+            with contextlib.suppress(Exception):
                 subprocess.run(["git", "-C", str(path), "push"], capture_output=True, timeout=15)
-            except Exception:
-                pass
             msgs.append(f"auto-committed+pushed {name} ({count} file{'s' if count > 1 else ''})")
         except Exception:
             pass
@@ -64,19 +63,13 @@ def mod_log_compaction(data):
 
 def main():
     data = {}
-    try:
+    with contextlib.suppress(Exception):
         data = json.load(sys.stdin)
-    except Exception:
-        pass
 
-    try:
+    with contextlib.suppress(Exception):
         mod_auto_flush()
-    except Exception:
-        pass
-    try:
+    with contextlib.suppress(Exception):
         mod_log_compaction(data)
-    except Exception:
-        pass
 
 
 if __name__ == "__main__":

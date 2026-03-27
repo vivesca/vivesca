@@ -81,6 +81,7 @@ def _format_messages(messages: list[dict], name: str) -> str:
 
 # --- Contact resolution ---
 
+
 def contact_type(name: str) -> str:
     """Classify: gap_junction (close) or receptor (formal)."""
     return "gap_junction" if name.lower() in GAP_JUNCTION_CONTACTS else "receptor"
@@ -94,6 +95,7 @@ def resolve_jids(name: str) -> list[str]:
 
 # --- Message operations ---
 
+
 def receive_signals(name: str, limit: int = 20) -> str:
     """Read messages from a conversation. Merges phone + LID JID threads."""
     jids = resolve_jids(name)
@@ -101,9 +103,7 @@ def receive_signals(name: str, limit: int = 20) -> str:
         return f"No contact found for '{name}'"
     all_messages: list[dict] = []
     for jid in jids:
-        raw = _wacli_json(
-            ["messages", "list", "--chat", jid, "--limit", str(limit), "--json"]
-        )
+        raw = _wacli_json(["messages", "list", "--chat", jid, "--limit", str(limit), "--json"])
         all_messages.extend(_extract_messages(raw))
     return _format_messages(_dedup_sort(all_messages, limit), name)
 
@@ -117,7 +117,7 @@ def search_signals(query: str, name: str = "", limit: int = 20) -> str:
             return f"No contact found for '{name}'"
         all_messages: list[dict] = []
         for jid in jids:
-            raw = _wacli_json(args + ["--chat", jid])
+            raw = _wacli_json([*args, "--chat", jid])
             all_messages.extend(_extract_messages(raw))
         return _format_messages(_dedup_sort(all_messages, limit), name)
     raw = _wacli_json(args)
@@ -126,6 +126,7 @@ def search_signals(query: str, name: str = "", limit: int = 20) -> str:
 
 
 # --- Draft (never sends) ---
+
 
 def compose_signal(name: str, message: str) -> str:
     """Draft a message. NEVER sends — returns shell command for manual execution."""
@@ -138,6 +139,7 @@ def compose_signal(name: str, message: str) -> str:
 
 
 # --- Chat list & sync ---
+
 
 def active_junctions(limit: int = 20) -> str:
     """List recent conversations."""
@@ -155,6 +157,7 @@ def sync_catchup() -> str:
 
 
 # --- CLI entry point ---
+
 
 def _cli() -> None:
     """CLI: gap_junction sync catchup → wacli sync --once."""

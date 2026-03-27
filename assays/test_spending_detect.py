@@ -1,6 +1,6 @@
 """Tests for bank detection from PDF filename and page-1 text."""
 
-from metabolon.respirometry.detect import identify_bank, filename_matches
+from metabolon.respirometry.detect import filename_matches, identify_bank
 
 
 def test_filename_mox():

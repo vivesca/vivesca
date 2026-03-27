@@ -148,6 +148,6 @@ try:
 
     if label:
         target = ["-t", window_id] if window_id else []
-        subprocess.run(["tmux", "rename-window"] + target + [label], timeout=2)
+        subprocess.run(["tmux", "rename-window", *target, label], timeout=2)
 except Exception:
     pass

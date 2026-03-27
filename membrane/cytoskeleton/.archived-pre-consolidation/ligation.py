@@ -18,6 +18,8 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "lib"))
+import contextlib
+
 from llm import load_models
 
 # repo_root -> should_push
@@ -178,10 +180,8 @@ def main():
         capture_output=True,
     )
 
-    try:
+    with contextlib.suppress(OSError):
         debounce_file.write_text(str(time.time()))
-    except OSError:
-        pass
 
     if should_push:
         subprocess.run(

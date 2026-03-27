@@ -13,7 +13,9 @@ def intake(as_json: bool = True) -> str:
 def main() -> None:
     import argparse
 
-    parser = argparse.ArgumentParser(description="Gather context for /ultradian situational snapshot.")
+    parser = argparse.ArgumentParser(
+        description="Gather context for /ultradian situational snapshot."
+    )
     parser.add_argument("--json", action="store_true")
     args = parser.parse_args()
     print(intake(as_json=args.json))

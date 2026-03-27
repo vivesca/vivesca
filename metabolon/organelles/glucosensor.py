@@ -38,7 +38,9 @@ def _read_api_key() -> str:
         return key
     result = subprocess.run(
         ["security", "find-generic-password", "-s", KEYCHAIN_SERVICE, "-w"],
-        capture_output=True, text=True, timeout=10,
+        capture_output=True,
+        text=True,
+        timeout=10,
     )
     if result.returncode != 0 or not result.stdout.strip():
         raise RuntimeError("API key not found. Run: stips key save <key>")
@@ -47,11 +49,14 @@ def _read_api_key() -> str:
 
 def _request_json(url: str, api_key: str, timeout: int = 15) -> dict:
     """Authenticated GET, returns parsed JSON."""
-    req = urllib.request.Request(url, headers={
-        "Authorization": f"Bearer {api_key}",
-        "Accept": "application/json",
-        "User-Agent": "glucosensor/1.0",
-    })
+    req = urllib.request.Request(
+        url,
+        headers={
+            "Authorization": f"Bearer {api_key}",
+            "Accept": "application/json",
+            "User-Agent": "glucosensor/1.0",
+        },
+    )
     try:
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             return json.loads(resp.read())
@@ -90,7 +95,9 @@ def _cli() -> None:
         if "error" in credits:
             print(credits["error"], file=sys.stderr)
             sys.exit(1)
-        print(f"${credits['remaining']:.2f} remaining  (${credits['used']:.2f} used of ${credits['total']:.2f})")
+        print(
+            f"${credits['remaining']:.2f} remaining  (${credits['used']:.2f} used of ${credits['total']:.2f})"
+        )
         if credits.get("low"):
             print("Warning: low credits", file=sys.stderr)
         return
@@ -101,10 +108,22 @@ def _cli() -> None:
         if len(args) < 3:
             print("Usage: stips key save <key>", file=sys.stderr)
             sys.exit(1)
-        subprocess.run([
-            "security", "add-generic-password",
-            "-s", KEYCHAIN_SERVICE, "-a", KEYCHAIN_ACCOUNT, "-w", args[2], "-U",
-        ], capture_output=True, timeout=10, check=True)
+        subprocess.run(
+            [
+                "security",
+                "add-generic-password",
+                "-s",
+                KEYCHAIN_SERVICE,
+                "-a",
+                KEYCHAIN_ACCOUNT,
+                "-w",
+                args[2],
+                "-U",
+            ],
+            capture_output=True,
+            timeout=10,
+            check=True,
+        )
         print("API key saved to keychain")
     else:
         print("Usage: stips [--json] | stips key save <key>", file=sys.stderr)

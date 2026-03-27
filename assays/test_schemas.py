@@ -13,7 +13,7 @@ def test_secretion_allows_extra_fields():
     from metabolon.morphology import Secretion
 
     obj = Secretion.model_validate({"unexpected": "value"})
-    assert getattr(obj, "unexpected") == "value"
+    assert obj.unexpected == "value"
 
 
 def test_secretion_json_schema():

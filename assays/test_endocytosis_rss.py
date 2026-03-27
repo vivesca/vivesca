@@ -8,8 +8,7 @@ The fetch/status tools are CLI-delegating and tested via integration only.
 from __future__ import annotations
 
 import json
-import tempfile
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from unittest.mock import patch
 
@@ -20,7 +19,6 @@ from metabolon.tools.endocytosis_rss import (
     _get_top_items,
     _read_jsonl,
 )
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -35,7 +33,7 @@ def _write_jsonl(path: Path, rows: list[dict]) -> None:
 
 
 def _ts(days_ago: int = 0) -> str:
-    dt = datetime.now(timezone.utc) - timedelta(days=days_ago)
+    dt = datetime.now(UTC) - timedelta(days=days_ago)
     return dt.isoformat()
 
 
@@ -199,7 +197,9 @@ class TestGetTopItems:
 
     def test_respects_limit(self, tmp_path):
         aff = tmp_path / "relevance.jsonl"
-        _write_jsonl(aff, [{"title": f"Item {i}", "score": i, "timestamp": _ts(1)} for i in range(10)])
+        _write_jsonl(
+            aff, [{"title": f"Item {i}", "score": i, "timestamp": _ts(1)} for i in range(10)]
+        )
 
         with patch("metabolon.tools.endocytosis_rss._AFFINITY_LOG", aff):
             items = _get_top_items(limit=3, days=7)

@@ -66,14 +66,22 @@ def _load_outcomes(since_ts: float = 0.0) -> list[dict[str, Any]]:
 def record_outcome(model: str, task_type: str, success: bool, duration_ms: int = 0) -> None:
     """Append one outcome. Auto-triggers blacklist check after write."""
     _ensure_cache()
-    row = {"ts": time.time(), "model": model, "task_type": task_type,
-           "success": success, "duration_ms": duration_ms}
+    row = {
+        "ts": time.time(),
+        "model": model,
+        "task_type": task_type,
+        "success": success,
+        "duration_ms": duration_ms,
+    }
     with _OUTCOMES_PATH.open("a") as f:
         f.write(json.dumps(row) + "\n")
     # Auto-blacklist check
     since = time.time() - 7 * 86400
-    relevant = [r for r in _load_outcomes(since_ts=since)
-                if r.get("model") == model and r.get("task_type") == task_type]
+    relevant = [
+        r
+        for r in _load_outcomes(since_ts=since)
+        if r.get("model") == model and r.get("task_type") == task_type
+    ]
     if len(relevant) >= _BLACKLIST_MIN_ATTEMPTS:
         rate = sum(1 for r in relevant if r.get("success")) / len(relevant)
         if rate < _BLACKLIST_MAX_RATE and not is_blacklisted(model, task_type):
@@ -99,11 +107,16 @@ def model_fitness(model: str = "", task_type: str = "", days: int = 7) -> list[d
     for (m, t), sl in sorted(counts.items()):
         attempts = len(sl)
         successes = sum(sl)
-        results.append({
-            "model": m, "task_type": t, "attempts": attempts,
-            "successes": successes, "rate": round(successes / attempts, 3),
-            "blacklisted": t in bl.get(m, []),
-        })
+        results.append(
+            {
+                "model": m,
+                "task_type": t,
+                "attempts": attempts,
+                "successes": successes,
+                "rate": round(successes / attempts, 3),
+                "blacklisted": t in bl.get(m, []),
+            }
+        )
     return results
 
 
@@ -116,6 +129,7 @@ def blacklist(model: str, task_type: str) -> None:
     _save_blacklist(bl)
     try:
         from metabolon.metabolism.infection import record_infection
+
         record_infection(
             tool=f"mitophagy:blacklist:{model}",
             error=f"auto-blacklisted for task_type={task_type} (<50% over >=5 attempts)",
@@ -143,6 +157,7 @@ def recommend_model(task_type: str) -> str:
         counts.setdefault(m, []).append(bool(row.get("success")))
     if not counts:
         return _FALLBACK_MODEL
-    best = max(counts.items(),
-               key=lambda kv: (sum(kv[1]) / len(kv[1]) if kv[1] else 0, len(kv[1])))
+    best = max(
+        counts.items(), key=lambda kv: (sum(kv[1]) / len(kv[1]) if kv[1] else 0, len(kv[1]))
+    )
     return best[0]

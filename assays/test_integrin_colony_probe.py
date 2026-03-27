@@ -4,13 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
-
 from metabolon.tools.integrin import (
-    ColonyProbeResult,
-    _collect_bud_names,
-    _collect_receptor_names,
-    _collect_registered_tool_names,
     _extract_bud_cli_refs,
     _extract_bud_mcp_tool_refs,
     _extract_bud_skill_refs,
@@ -22,7 +16,6 @@ from metabolon.tools.integrin import (
     _parse_frontmatter,
     integrin_colony_probe,
 )
-
 
 # -- Fixtures ----------------------------------------------------------------
 
@@ -47,12 +40,12 @@ def _make_skill(skills_dir: Path, name: str, content: str = "") -> Path:
     return f
 
 
-def _make_tool_module(tools_dir: Path, name: str, tool_names: list[str], imports: str = "") -> Path:
+def _make_tool_module(
+    tools_dir: Path, name: str, tool_names: list[str], imports: str = ""
+) -> Path:
     tools_dir.mkdir(parents=True, exist_ok=True)
-    tool_defs = "\n".join(
-        f'@tool(name="{t}")\ndef {t}(): pass\n' for t in tool_names
-    )
-    content = f'from fastmcp.tools import tool\n{imports}\n{tool_defs}'
+    tool_defs = "\n".join(f'@tool(name="{t}")\ndef {t}(): pass\n' for t in tool_names)
+    content = f"from fastmcp.tools import tool\n{imports}\n{tool_defs}"
     f = tools_dir / f"{name}.py"
     f.write_text(content)
     return f
@@ -121,7 +114,9 @@ class TestExtractColonyBudRefs:
         assert refs == []
 
     def test_ignores_frontmatter_name(self):
-        text = "---\nname: monthly-review\n---\n- **financial-audit**: invoke financial-audit bud\n"
+        text = (
+            "---\nname: monthly-review\n---\n- **financial-audit**: invoke financial-audit bud\n"
+        )
         refs = _extract_colony_bud_refs(text)
         assert refs == ["financial-audit"]
         assert "monthly-review" not in refs
@@ -179,9 +174,7 @@ class TestExtractBudMcpToolRefs:
         assert "histone_search" in refs
 
     def test_multiple_mcp_tools(self):
-        text = (
-            "Call mcp__vivesca__histone_search and mcp__vivesca__chemotaxis_search.\n"
-        )
+        text = "Call mcp__vivesca__histone_search and mcp__vivesca__chemotaxis_search.\n"
         refs = _extract_bud_mcp_tool_refs(text)
         assert "histone_search" in refs
         assert "chemotaxis_search" in refs
@@ -253,9 +246,7 @@ class TestExtractToolCrossImports:
         tools = tmp_path / "tools"
         tools.mkdir()
         # alpha.py imports from beta.py
-        (tools / "alpha.py").write_text(
-            "from metabolon.tools.beta import beta_func\n"
-        )
+        (tools / "alpha.py").write_text("from metabolon.tools.beta import beta_func\n")
         (tools / "beta.py").write_text("def beta_func(): pass\n")
         edges = _extract_tool_cross_imports(tools)
         assert len(edges) == 1
@@ -266,9 +257,7 @@ class TestExtractToolCrossImports:
     def test_ignores_self_import(self, tmp_path):
         tools = tmp_path / "tools"
         tools.mkdir()
-        (tools / "alpha.py").write_text(
-            "from metabolon.tools.alpha import something\n"
-        )
+        (tools / "alpha.py").write_text("from metabolon.tools.alpha import something\n")
         edges = _extract_tool_cross_imports(tools)
         assert edges == []
 
@@ -284,16 +273,12 @@ class TestExtractToolCrossImports:
 class TestIntegrinColonyProbe:
     def test_returns_colony_probe_result(self, tmp_path):
         c, b, s, t = _scaffold(tmp_path)
-        result = integrin_colony_probe(
-            colonies_dir=c, buds_dir=b, skills_dir=s, tools_dir=t
-        )
+        result = integrin_colony_probe(colonies_dir=c, buds_dir=b, skills_dir=s, tools_dir=t)
         assert type(result).__name__ == "ColonyProbeResult"
 
     def test_empty_dirs_all_zeros(self, tmp_path):
         c, b, s, t = _scaffold(tmp_path)
-        result = integrin_colony_probe(
-            colonies_dir=c, buds_dir=b, skills_dir=s, tools_dir=t
-        )
+        result = integrin_colony_probe(colonies_dir=c, buds_dir=b, skills_dir=s, tools_dir=t)
         assert result.colony_count == 0
         assert result.bud_count == 0
         assert result.skill_count == 0
@@ -304,17 +289,13 @@ class TestIntegrinColonyProbe:
         c, b, s, t = _scaffold(tmp_path)
         _make_colony(c, "review", "- **audit**: invoke audit bud — run check\n")
         _make_bud(b, "audit", "---\nname: audit\n---\nContent.\n")
-        result = integrin_colony_probe(
-            colonies_dir=c, buds_dir=b, skills_dir=s, tools_dir=t
-        )
+        result = integrin_colony_probe(colonies_dir=c, buds_dir=b, skills_dir=s, tools_dir=t)
         assert result.detached_colony_bud_refs == []
 
     def test_colony_references_missing_bud(self, tmp_path):
         c, b, s, t = _scaffold(tmp_path)
         _make_colony(c, "review", "- **ghost**: invoke ghost bud — run check\n")
-        result = integrin_colony_probe(
-            colonies_dir=c, buds_dir=b, skills_dir=s, tools_dir=t
-        )
+        result = integrin_colony_probe(colonies_dir=c, buds_dir=b, skills_dir=s, tools_dir=t)
         assert len(result.detached_colony_bud_refs) == 1
         assert result.detached_colony_bud_refs[0]["missing_bud"] == "ghost"
         assert result.detached_colony_bud_refs[0]["colony"] == "review"
@@ -324,17 +305,13 @@ class TestIntegrinColonyProbe:
         c, b, s, t = _scaffold(tmp_path)
         _make_skill(s, "histology")
         _make_bud(b, "biopsy", '---\nname: biopsy\nskills: ["histology"]\n---\nBody.\n')
-        result = integrin_colony_probe(
-            colonies_dir=c, buds_dir=b, skills_dir=s, tools_dir=t
-        )
+        result = integrin_colony_probe(colonies_dir=c, buds_dir=b, skills_dir=s, tools_dir=t)
         assert result.detached_bud_skill_refs == []
 
     def test_bud_references_missing_skill(self, tmp_path):
         c, b, s, t = _scaffold(tmp_path)
         _make_bud(b, "biopsy", '---\nname: biopsy\nskills: ["phantom-skill"]\n---\nBody.\n')
-        result = integrin_colony_probe(
-            colonies_dir=c, buds_dir=b, skills_dir=s, tools_dir=t
-        )
+        result = integrin_colony_probe(colonies_dir=c, buds_dir=b, skills_dir=s, tools_dir=t)
         assert len(result.detached_bud_skill_refs) == 1
         assert result.detached_bud_skill_refs[0]["bud"] == "biopsy"
         assert result.detached_bud_skill_refs[0]["missing_skill"] == "phantom-skill"
@@ -343,111 +320,75 @@ class TestIntegrinColonyProbe:
         c, b, s, t = _scaffold(tmp_path)
         _make_tool_module(t, "oghma", ["histone_search", "histone_mark"])
         _make_bud(b, "memory", "---\nname: memory\n---\nCall `histone_search` to find.\n")
-        result = integrin_colony_probe(
-            colonies_dir=c, buds_dir=b, skills_dir=s, tools_dir=t
-        )
+        result = integrin_colony_probe(colonies_dir=c, buds_dir=b, skills_dir=s, tools_dir=t)
         assert result.detached_bud_tool_refs == []
 
     def test_bud_references_missing_mcp_tool(self, tmp_path):
         c, b, s, t = _scaffold(tmp_path)
         _make_bud(b, "memory", "---\nname: memory\n---\nCall mcp__vivesca__ghost_tool here.\n")
-        result = integrin_colony_probe(
-            colonies_dir=c, buds_dir=b, skills_dir=s, tools_dir=t
-        )
-        assert any(
-            r["missing_tool"] == "ghost_tool"
-            for r in result.detached_bud_tool_refs
-        )
+        result = integrin_colony_probe(colonies_dir=c, buds_dir=b, skills_dir=s, tools_dir=t)
+        assert any(r["missing_tool"] == "ghost_tool" for r in result.detached_bud_tool_refs)
 
     def test_skill_cross_references_present_skill(self, tmp_path):
         c, b, s, t = _scaffold(tmp_path)
         _make_skill(s, "histology", "---\nname: histology\n---\nBody.\n")
         _make_skill(s, "biopsy", "---\nname: biopsy\n---\nFollow /histology precisely.\n")
-        result = integrin_colony_probe(
-            colonies_dir=c, buds_dir=b, skills_dir=s, tools_dir=t
-        )
+        result = integrin_colony_probe(colonies_dir=c, buds_dir=b, skills_dir=s, tools_dir=t)
         assert result.detached_skill_skill_refs == []
 
     def test_skill_cross_references_missing_skill(self, tmp_path):
         c, b, s, t = _scaffold(tmp_path)
         _make_skill(s, "biopsy", "---\nname: biopsy\n---\nFollow /phantom precisely.\n")
-        result = integrin_colony_probe(
-            colonies_dir=c, buds_dir=b, skills_dir=s, tools_dir=t
-        )
-        assert any(
-            r["missing_skill"] == "phantom"
-            for r in result.detached_skill_skill_refs
-        )
+        result = integrin_colony_probe(colonies_dir=c, buds_dir=b, skills_dir=s, tools_dir=t)
+        assert any(r["missing_skill"] == "phantom" for r in result.detached_skill_skill_refs)
 
     def test_skill_references_registered_tool(self, tmp_path):
         c, b, s, t = _scaffold(tmp_path)
         _make_tool_module(t, "integrin", ["integrin_probe"])
         _make_skill(
-            s, "receptor-health",
+            s,
+            "receptor-health",
             "---\nname: receptor-health\n---\nRun integrin_probe to check.\n"
-            "More detail: `integrin_probe` daily.\n"
+            "More detail: `integrin_probe` daily.\n",
         )
-        result = integrin_colony_probe(
-            colonies_dir=c, buds_dir=b, skills_dir=s, tools_dir=t
-        )
+        result = integrin_colony_probe(colonies_dir=c, buds_dir=b, skills_dir=s, tools_dir=t)
         assert result.detached_skill_tool_refs == []
 
     def test_skill_references_missing_tool(self, tmp_path):
         c, b, s, t = _scaffold(tmp_path)
         _make_skill(
-            s, "receptor-health",
-            "---\nname: receptor-health\n---\nRun `ghost_probe` to check.\n"
+            s, "receptor-health", "---\nname: receptor-health\n---\nRun `ghost_probe` to check.\n"
         )
-        result = integrin_colony_probe(
-            colonies_dir=c, buds_dir=b, skills_dir=s, tools_dir=t
-        )
-        assert any(
-            r["missing_tool"] == "ghost_probe"
-            for r in result.detached_skill_tool_refs
-        )
+        result = integrin_colony_probe(colonies_dir=c, buds_dir=b, skills_dir=s, tools_dir=t)
+        assert any(r["missing_tool"] == "ghost_probe" for r in result.detached_skill_tool_refs)
 
     def test_tool_cross_import_detected(self, tmp_path):
         c, b, s, t = _scaffold(tmp_path)
         _make_tool_module(t, "probe", ["integrin_probe"])
         # apoptosis.py imports from integrin.py -- and integrin.py exists
-        (t / "apoptosis.py").write_text(
-            "from metabolon.tools.probe import integrin_probe\n"
-        )
-        result = integrin_colony_probe(
-            colonies_dir=c, buds_dir=b, skills_dir=s, tools_dir=t
-        )
+        (t / "apoptosis.py").write_text("from metabolon.tools.probe import integrin_probe\n")
+        result = integrin_colony_probe(colonies_dir=c, buds_dir=b, skills_dir=s, tools_dir=t)
         # Import is valid -- target module exists
         assert result.detached_tool_tool_refs == []
 
     def test_tool_cross_import_broken(self, tmp_path):
         c, b, s, t = _scaffold(tmp_path)
         # alpha.py imports from nonexistent.py
-        (t / "alpha.py").write_text(
-            "from metabolon.tools.nonexistent import something\n"
-        )
-        result = integrin_colony_probe(
-            colonies_dir=c, buds_dir=b, skills_dir=s, tools_dir=t
-        )
-        assert any(
-            e["target_tool"] == "nonexistent"
-            for e in result.detached_tool_tool_refs
-        )
+        (t / "alpha.py").write_text("from metabolon.tools.nonexistent import something\n")
+        result = integrin_colony_probe(colonies_dir=c, buds_dir=b, skills_dir=s, tools_dir=t)
+        assert any(e["target_tool"] == "nonexistent" for e in result.detached_tool_tool_refs)
 
     def test_orphan_buds_when_no_colony_refs(self, tmp_path):
         c, b, s, t = _scaffold(tmp_path)
         _make_bud(b, "lone-wolf", "---\nname: lone-wolf\n---\nBody.\n")
-        result = integrin_colony_probe(
-            colonies_dir=c, buds_dir=b, skills_dir=s, tools_dir=t
-        )
+        result = integrin_colony_probe(colonies_dir=c, buds_dir=b, skills_dir=s, tools_dir=t)
         assert "lone-wolf" in result.orphan_buds
 
     def test_referenced_bud_not_orphan(self, tmp_path):
         c, b, s, t = _scaffold(tmp_path)
         _make_colony(c, "review", "- **audit**: invoke audit bud — run check\n")
         _make_bud(b, "audit", "---\nname: audit\n---\nBody.\n")
-        result = integrin_colony_probe(
-            colonies_dir=c, buds_dir=b, skills_dir=s, tools_dir=t
-        )
+        result = integrin_colony_probe(colonies_dir=c, buds_dir=b, skills_dir=s, tools_dir=t)
         assert "audit" not in result.orphan_buds
 
     def test_total_detached_is_sum(self, tmp_path):
@@ -456,9 +397,7 @@ class TestIntegrinColonyProbe:
         _make_colony(c, "review", "- **missing-bud**: invoke missing-bud bud\n")
         # 1 broken bud→skill ref
         _make_bud(b, "scout", '---\nskills: ["no-such-skill"]\n---\nBody.\n')
-        result = integrin_colony_probe(
-            colonies_dir=c, buds_dir=b, skills_dir=s, tools_dir=t
-        )
+        result = integrin_colony_probe(colonies_dir=c, buds_dir=b, skills_dir=s, tools_dir=t)
         assert result.total_detached == 2
 
     def test_counts_are_accurate(self, tmp_path):
@@ -468,9 +407,7 @@ class TestIntegrinColonyProbe:
         _make_bud(b, "bud-a", "---\nname: bud-a\n---\nBody.\n")
         _make_skill(s, "skill-a")
         _make_tool_module(t, "tool-a", ["tool_alpha", "tool_beta"])
-        result = integrin_colony_probe(
-            colonies_dir=c, buds_dir=b, skills_dir=s, tools_dir=t
-        )
+        result = integrin_colony_probe(colonies_dir=c, buds_dir=b, skills_dir=s, tools_dir=t)
         assert result.colony_count == 2
         assert result.bud_count == 1
         assert result.skill_count == 1

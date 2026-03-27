@@ -3,16 +3,15 @@
 # GARP RAI spaced repetition: FSRS scheduling, tracker markdown, session planning.
 # Translated from Rust (~/code/melete/src/main.rs).
 
+import itertools
 import json
 import math
-import os
 import re
 import sys
 import time
 from collections import defaultdict
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime, timedelta, timezone
 from pathlib import Path
-from typing import Optional
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -28,18 +27,43 @@ MODE_THRESHOLDS = [(0.60, "drill"), (0.70, "free-recall"), (1.01, "MCQ")]
 EXAM_DATE = datetime(2026, 4, 4, 10, 45, 0, tzinfo=timezone(timedelta(hours=8)))
 
 GARP_RAI_SYLLABUS = [
-    "M1-ai-risks", "M1-classical-ai", "M1-ml-types",
-    "M2-clustering", "M2-data-prep", "M2-econometric", "M2-intro-tools",
-    "M2-model-estimation", "M2-model-eval", "M2-neural-networks",
-    "M2-nlp-genai", "M2-nlp-traditional", "M2-regression-classification",
-    "M2-semi-rl", "M2-semi-supervised",
-    "M3-autonomy-safety", "M3-bias-unfairness", "M3-fairness-measures",
-    "M3-genai-risks", "M3-global-challenges", "M3-reputational-existential", "M3-xai",
-    "M4-bias-discrimination", "M4-ethical-frameworks", "M4-ethics-principles",
-    "M4-governance-challenges", "M4-privacy-cybersecurity", "M4-regulatory",
-    "M5-data-governance", "M5-genai-governance", "M5-governance-recommendations",
-    "M5-implementation", "M5-model-changes-review", "M5-model-dev-testing",
-    "M5-model-governance", "M5-model-risk-roles", "M5-model-validation",
+    "M1-ai-risks",
+    "M1-classical-ai",
+    "M1-ml-types",
+    "M2-clustering",
+    "M2-data-prep",
+    "M2-econometric",
+    "M2-intro-tools",
+    "M2-model-estimation",
+    "M2-model-eval",
+    "M2-neural-networks",
+    "M2-nlp-genai",
+    "M2-nlp-traditional",
+    "M2-regression-classification",
+    "M2-semi-rl",
+    "M2-semi-supervised",
+    "M3-autonomy-safety",
+    "M3-bias-unfairness",
+    "M3-fairness-measures",
+    "M3-genai-risks",
+    "M3-global-challenges",
+    "M3-reputational-existential",
+    "M3-xai",
+    "M4-bias-discrimination",
+    "M4-ethical-frameworks",
+    "M4-ethics-principles",
+    "M4-governance-challenges",
+    "M4-privacy-cybersecurity",
+    "M4-regulatory",
+    "M5-data-governance",
+    "M5-genai-governance",
+    "M5-governance-recommendations",
+    "M5-implementation",
+    "M5-model-changes-review",
+    "M5-model-dev-testing",
+    "M5-model-governance",
+    "M5-model-risk-roles",
+    "M5-model-validation",
 ]
 
 # ---------------------------------------------------------------------------
@@ -49,11 +73,25 @@ GARP_RAI_SYLLABUS = [
 # Default parameters from the fsrs-rs crate DEFAULT_PARAMETERS.
 
 _FSRS_PARAMS = [
-    0.4072, 1.1829, 3.1262, 15.4722,
-    7.2102, 0.5316, 1.0651, 0.0589,
-    1.5330, 0.1544, 1.0071, 1.9395,
-    0.1100, 0.2900, 2.2700, 0.2500,
-    2.9898, 0.5100, 0.3400,
+    0.4072,
+    1.1829,
+    3.1262,
+    15.4722,
+    7.2102,
+    0.5316,
+    1.0651,
+    0.0589,
+    1.5330,
+    0.1544,
+    1.0071,
+    1.9395,
+    0.1100,
+    0.2900,
+    2.2700,
+    0.2500,
+    2.9898,
+    0.5100,
+    0.3400,
 ]
 
 # Rating indices: 1=Again, 2=Hard, 3=Good, 4=Easy
@@ -148,7 +186,7 @@ class _CardState:
 
 
 def fsrs_next_states(
-    prev: Optional[_MemoryState],
+    prev: _MemoryState | None,
     desired_retention: float,
     elapsed_days: int,
 ) -> _NextStates:
@@ -191,7 +229,7 @@ def _days_until_exam() -> int:
     return int((EXAM_DATE - _now_hkt()).total_seconds() // 86400)
 
 
-def _parse_datetime(s: str) -> Optional[datetime]:
+def _parse_datetime(s: str) -> datetime | None:
     """Parse RFC3339 / ISO8601 string to aware datetime."""
     if not s:
         return None
@@ -209,14 +247,14 @@ def _parse_datetime(s: str) -> Optional[datetime]:
     return None
 
 
-def _card_due_hkt(card: dict) -> Optional[datetime]:
+def _card_due_hkt(card: dict) -> datetime | None:
     dt = _parse_datetime(card.get("due", ""))
     if dt is None:
         return None
     return dt.astimezone(HKT)
 
 
-def _card_last_review(card: dict) -> Optional[datetime]:
+def _card_last_review(card: dict) -> datetime | None:
     lr = card.get("last_review")
     if not lr:
         return None
@@ -227,6 +265,7 @@ def _card_last_review(card: dict) -> Optional[datetime]:
 # ---------------------------------------------------------------------------
 # Paths
 # ---------------------------------------------------------------------------
+
 
 def _notes_dir() -> Path:
     return Path.home() / "notes"
@@ -252,6 +291,7 @@ def _module_path(module_char: str) -> Path:
 # Atomic write
 # ---------------------------------------------------------------------------
 
+
 def _atomic_write(path: Path, content: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.parent / f".{path.name}.{time.time_ns()}.tmp"
@@ -263,9 +303,11 @@ def _atomic_write(path: Path, content: str) -> None:
 # Phase / quota
 # ---------------------------------------------------------------------------
 
+
 def _get_phase() -> tuple[int, str]:
     d = _today_hkt()
     from datetime import date
+
     cruise_end = date(2026, 3, 13)
     ramp_end = date(2026, 3, 28)
     if d <= cruise_end:
@@ -304,10 +346,14 @@ def _state_name(state: int) -> str:
 RATING_AGAIN, RATING_HARD, RATING_GOOD, RATING_EASY = "again", "hard", "good", "easy"
 
 _RATING_ALIASES = {
-    "again": RATING_AGAIN, "miss": RATING_AGAIN,
-    "hard": RATING_HARD, "guess": RATING_HARD,
-    "good": RATING_GOOD, "ok": RATING_GOOD,
-    "easy": RATING_EASY, "confident": RATING_EASY,
+    "again": RATING_AGAIN,
+    "miss": RATING_AGAIN,
+    "hard": RATING_HARD,
+    "guess": RATING_HARD,
+    "good": RATING_GOOD,
+    "ok": RATING_GOOD,
+    "easy": RATING_EASY,
+    "confident": RATING_EASY,
 }
 
 _RATING_FSRS_INDEX = {
@@ -332,13 +378,14 @@ _RATING_DISPLAY_STR = {
 }
 
 
-def _rating_from_str(s: str) -> Optional[str]:
+def _rating_from_str(s: str) -> str | None:
     return _RATING_ALIASES.get(s.lower())
 
 
 # ---------------------------------------------------------------------------
 # Card helpers
 # ---------------------------------------------------------------------------
+
 
 def _new_card(now: datetime) -> dict:
     return {
@@ -347,8 +394,8 @@ def _new_card(now: datetime) -> dict:
         "step": 0,
         "stability": 0.0,
         "difficulty": 0.0,
-        "due": now.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S+00:00"),
-        "last_review": now.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S+00:00"),
+        "due": now.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%S+00:00"),
+        "last_review": now.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%S+00:00"),
     }
 
 
@@ -358,10 +405,7 @@ def _schedule_card(card: dict, rating: str, now: datetime) -> dict:
     prev = _MemoryState(s, d) if s > 0.0 and d > 0.0 else None
 
     last_review_dt = _card_last_review(card)
-    if last_review_dt is not None:
-        elapsed = max(0, (now - last_review_dt).days)
-    else:
-        elapsed = 0
+    elapsed = max(0, (now - last_review_dt).days) if last_review_dt is not None else 0
 
     next_states = fsrs_next_states(prev, DESIRED_RETENTION, elapsed)
     fsrs_idx = _RATING_FSRS_INDEX[rating]
@@ -391,8 +435,8 @@ def _schedule_card(card: dict, rating: str, now: datetime) -> dict:
     card["step"] = step
     card["stability"] = item.memory.stability
     card["difficulty"] = item.memory.difficulty
-    card["last_review"] = now.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S+00:00")
-    card["due"] = due.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S+00:00")
+    card["last_review"] = now.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%S+00:00")
+    card["due"] = due.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%S+00:00")
     if not card.get("card_id"):
         card["card_id"] = int(time.time() * 1000)
 
@@ -402,6 +446,7 @@ def _schedule_card(card: dict, rating: str, now: datetime) -> dict:
 # ---------------------------------------------------------------------------
 # State I/O
 # ---------------------------------------------------------------------------
+
 
 def _load_state() -> dict:
     path = _state_path()
@@ -473,10 +518,7 @@ def _parse_tracker() -> dict:
         attempts = int(m.group(2))
         correct = int(m.group(3))
         rate_str = m.group(4).strip()
-        if rate_str in ("\u2014", "-", ""):
-            rate = 0.0
-        else:
-            rate = float(rate_str.rstrip("%")) / 100.0
+        rate = 0.0 if rate_str in ("—", "-", "") else float(rate_str.rstrip("%")) / 100.0
         topics[topic] = {"attempts": attempts, "correct": correct, "rate": rate}
 
     summary = {}
@@ -500,11 +542,13 @@ def _parse_tracker() -> dict:
         if in_misses:
             m2 = _MISS_ROW_RE.match(line)
             if m2 and m2.group(1) != "Date":
-                recent_misses.append({
-                    "date": m2.group(1),
-                    "topic": m2.group(2),
-                    "concept": m2.group(3).strip(),
-                })
+                recent_misses.append(
+                    {
+                        "date": m2.group(1),
+                        "topic": m2.group(2),
+                        "concept": m2.group(3).strip(),
+                    }
+                )
 
     if not topics:
         print(
@@ -519,7 +563,8 @@ def _parse_tracker() -> dict:
 # Tracker update
 # ---------------------------------------------------------------------------
 
-def _update_tracker_record(topic: str, rating: str, note: Optional[str]) -> None:
+
+def _update_tracker_record(topic: str, rating: str, note: str | None) -> None:
     path = _tracker_path()
     if not path.exists():
         return
@@ -530,26 +575,28 @@ def _update_tracker_record(topic: str, rating: str, note: Optional[str]) -> None
     def replace_summary(t: str) -> str:
         m_total = re.search(r"(\|\s*Total Questions\s*\|\s*)(\d+)(\s*\|)", t)
         m_correct = re.search(r"(\|\s*Correct\s*\|\s*)(\d+)(\s*\|)", t)
-        m_rate = re.search(r"(\|\s*Rate\s*\|\s*)(\d+)(%\s*\|)", t)
+        re.search(r"(\|\s*Rate\s*\|\s*)(\d+)(%\s*\|)", t)
         if m_total and m_correct:
             new_total = int(m_total.group(2)) + 1
             new_correct = int(m_correct.group(2)) + (1 if is_correct else 0)
             new_rate = round(new_correct / new_total * 100) if new_total else 0
-            t = t[: m_total.start(2)] + str(new_total) + t[m_total.end(2):]
+            t = t[: m_total.start(2)] + str(new_total) + t[m_total.end(2) :]
             # Recompute positions after replacement
             m_correct2 = re.search(r"(\|\s*Correct\s*\|\s*)(\d+)(\s*\|)", t)
             if m_correct2:
-                t = t[: m_correct2.start(2)] + str(new_correct) + t[m_correct2.end(2):]
+                t = t[: m_correct2.start(2)] + str(new_correct) + t[m_correct2.end(2) :]
             m_rate2 = re.search(r"(\|\s*Rate\s*\|\s*)(\d+)(%\s*\|)", t)
             if m_rate2:
-                t = t[: m_rate2.start(2)] + str(new_rate) + t[m_rate2.end(2):]
+                t = t[: m_rate2.start(2)] + str(new_rate) + t[m_rate2.end(2) :]
         return t
 
     text = replace_summary(text)
 
     # Update topic row
     topic_pat = re.compile(
-        r"(\|\s*" + re.escape(topic) + r"\s*\|\s*)(\d+)(\s*\|\s*)(\d+)(\s*\|\s*)([\d\u2014-]+%?)(\s*\|)"
+        r"(\|\s*"
+        + re.escape(topic)
+        + r"\s*\|\s*)(\d+)(\s*\|\s*)(\d+)(\s*\|\s*)([\d\u2014-]+%?)(\s*\|)"
     )
     m = topic_pat.search(text)
     if m:
@@ -559,17 +606,15 @@ def _update_tracker_record(topic: str, rating: str, note: Optional[str]) -> None
         text = (
             text[: m.start(2)]
             + str(na)
-            + text[m.end(2): m.start(4)]
+            + text[m.end(2) : m.start(4)]
             + str(nc)
-            + text[m.end(4): m.start(6)]
+            + text[m.end(4) : m.start(6)]
             + f"{nr}%"
-            + text[m.end(6):]
+            + text[m.end(6) :]
         )
 
     note_cell = f"(recorded via rai) \u2014 {note}" if note else "(recorded via rai)"
-    history_line = (
-        f"| {_now_hkt().strftime('%Y-%m-%d')} | {topic} | {_RATING_RESULT_STR[rating]} | {note_cell} |"
-    )
+    history_line = f"| {_now_hkt().strftime('%Y-%m-%d')} | {topic} | {_RATING_RESULT_STR[rating]} | {note_cell} |"
 
     lines = text.splitlines()
     last_idx = None
@@ -596,6 +641,7 @@ def _update_tracker_record(topic: str, rating: str, note: Optional[str]) -> None
 # ---------------------------------------------------------------------------
 # Drills
 # ---------------------------------------------------------------------------
+
 
 def _topics_with_drills() -> set:
     path = _drills_path()
@@ -630,7 +676,12 @@ _SEARCH_TERMS: dict[str, list[str]] = {
     "M2-nlp-pipeline": ["Data Pre Processing", "Tokenization", "Stemming", "Lemmatization"],
     "M2-clustering": ["K-means", "Hierarchical Clustering", "DBSCAN"],
     "M2-econometric": ["Econometric", "Stepwise", "Variable Selection"],
-    "M2-regression-classification": ["Decision Tree", "Random Forest", "SVM", "Logistic Regression"],
+    "M2-regression-classification": [
+        "Decision Tree",
+        "Random Forest",
+        "SVM",
+        "Logistic Regression",
+    ],
     "M2-semi-supervised": ["Semi-supervised Learning Assumptions", "Self-Training", "Co-Training"],
     "M2-neural-networks": ["Neural Net", "Deep Learning", "Overfitting", "Dropout"],
     "M2-semi-rl": ["Reinforcement Learning", "Q-learning", "TD Learning", "Monte Carlo"],
@@ -639,12 +690,22 @@ _SEARCH_TERMS: dict[str, list[str]] = {
     "M2-nlp-traditional": ["Tokenization", "Stemming", "Lemmatization", "TF-IDF"],
     "M2-nlp-genai": ["Transformer", "BERT", "GPT", "Attention Mechanism"],
     "M3-bias-unfairness": ["Sources of Unfairness", "Algorithmic Bias", "Historical Bias"],
-    "M3-fairness-measures": ["Group Fairness", "Demographic Parity", "Equal Opportunity", "Equalized Odds"],
+    "M3-fairness-measures": [
+        "Group Fairness",
+        "Demographic Parity",
+        "Equal Opportunity",
+        "Equalized Odds",
+    ],
     "M3-xai": ["Explainability", "Interpretability", "LIME", "SHAP", "LUCID"],
     "M3-autonomy-safety": ["Autonomy", "Manipulation", "Automation Bias", "Well-Being"],
     "M3-reputational-existential": ["Reputational Risk", "Existential Risk"],
     "M3-genai-risks": ["GenAI", "Generative AI", "Hallucination", "Deepfake"],
-    "M4-ethical-frameworks": ["Ethical Framework", "Consequentialism", "Deontology", "Virtue Ethics"],
+    "M4-ethical-frameworks": [
+        "Ethical Framework",
+        "Consequentialism",
+        "Deontology",
+        "Virtue Ethics",
+    ],
     "M4-ethics-principles": ["Ethics Principles", "Beneficence", "Justice", "Non-maleficence"],
     "M4-bias-discrimination": ["Bias, Discrimination", "Problematic Biases", "When Does Bias"],
     "M4-privacy-cybersecurity": ["Privacy", "Cybersecurity", "Data Minimization"],
@@ -664,7 +725,7 @@ def _normalize(s: str) -> str:
     return "".join(c.lower() for c in s if c.isalnum())
 
 
-def _find_source_location(topic: str) -> Optional[str]:
+def _find_source_location(topic: str) -> str | None:
     if len(topic) < 2:
         return None
     module_char = topic[1]
@@ -719,7 +780,7 @@ def _find_source_location(topic: str) -> Optional[str]:
     return f"{module_file}:{start + 1}-{end}"
 
 
-def _resolve_topic(input_str: str, tracker: dict) -> Optional[str]:
+def _resolve_topic(input_str: str, tracker: dict) -> str | None:
     topics = tracker["topics"]
     if input_str in topics:
         return input_str
@@ -779,6 +840,7 @@ def _resolve_topic(input_str: str, tracker: dict) -> Optional[str]:
 # TTY / display helpers
 # ---------------------------------------------------------------------------
 
+
 def _is_tty() -> bool:
     return sys.stdout.isatty()
 
@@ -836,6 +898,7 @@ def _bright_magenta(t: str) -> str:
 # Today's reviews helper
 # ---------------------------------------------------------------------------
 
+
 def _get_today_reviews(state: dict) -> list:
     today = str(_today_hkt())
     return [e for e in state["review_log"] if e.get("date", "").startswith(today)]
@@ -845,7 +908,8 @@ def _get_today_reviews(state: dict) -> list:
 # Commands
 # ---------------------------------------------------------------------------
 
-def cmd_session(count: Optional[int] = None) -> None:
+
+def cmd_session(count: int | None = None) -> None:
     state = _load_state()
     tracker = _parse_tracker()
     now = _now_hkt()
@@ -916,9 +980,7 @@ def cmd_session(count: Optional[int] = None) -> None:
             last_mod = interleaved[-1][0][:2]
             prev_mod = interleaved[-2][0][:2]
             if last_mod == prev_mod:
-                pos = next(
-                    (i for i, x in enumerate(remaining) if x[0][:2] != last_mod), None
-                )
+                pos = next((i for i, x in enumerate(remaining) if x[0][:2] != last_mod), None)
                 if pos is not None:
                     interleaved.append(remaining.pop(pos))
                 else:
@@ -927,9 +989,7 @@ def cmd_session(count: Optional[int] = None) -> None:
         interleaved.append(remaining.pop(0))
 
     summary = tracker.get("summary", {})
-    _print_panel(
-        f"Session Plan | Phase {phase_num} ({phase_name}) | {days_left} days to exam"
-    )
+    _print_panel(f"Session Plan | Phase {phase_num} ({phase_name}) | {days_left} days to exam")
     print(
         f"  Overall: {summary.get('correct', 0)}/{summary.get('total', 0)} "
         f"({summary.get('rate', 0)}%)  |  {summary.get('sessions', 0)} sessions"
@@ -955,8 +1015,10 @@ def cmd_session(count: Optional[int] = None) -> None:
         is_new = info.get("attempts", 0) == 0
         mode = "drill" if is_new else _get_mode(info.get("rate", 0.0))
         colored_topic = (
-            _red(_bold(topic)) if mode == "drill"
-            else _yellow(_bold(topic)) if mode == "free-recall"
+            _red(_bold(topic))
+            if mode == "drill"
+            else _yellow(_bold(topic))
+            if mode == "free-recall"
             else _green(_bold(topic))
         )
         drill_tag = f" {_cyan('[drill]')}" if topic in drilled else ""
@@ -975,9 +1037,9 @@ def cmd_session(count: Optional[int] = None) -> None:
 def cmd_record(
     topic_input: str,
     rating_str: str,
-    confidence: Optional[str] = None,
+    confidence: str | None = None,
     dry_run: bool = False,
-    note: Optional[str] = None,
+    note: str | None = None,
 ) -> None:
     conf = None
     if confidence:
@@ -1000,10 +1062,7 @@ def cmd_record(
     state = _load_state()
     tracker = _parse_tracker()
 
-    if topic_input in state["cards"]:
-        topic = topic_input
-    else:
-        topic = _resolve_topic(topic_input, tracker)
+    topic = topic_input if topic_input in state["cards"] else _resolve_topic(topic_input, tracker)
     if topic is None:
         return
 
@@ -1024,13 +1083,15 @@ def cmd_record(
 
     if not dry_run:
         state["cards"][topic] = card
-        state["review_log"].append({
-            "topic": topic,
-            "rating": rating,
-            "date": now.isoformat(),
-            "confidence": conf,
-            "card_snapshot": pre_review_card,
-        })
+        state["review_log"].append(
+            {
+                "topic": topic,
+                "rating": rating,
+                "date": now.isoformat(),
+                "confidence": conf,
+                "card_snapshot": pre_review_card,
+            }
+        )
         _save_state(state)
         _update_tracker_record(topic, intended_rating, note)
 
@@ -1065,9 +1126,7 @@ def cmd_record(
 def cmd_void(topic_input: str, dry_run: bool = False) -> None:
     state = _load_state()
 
-    indices = [
-        i for i, e in enumerate(state["review_log"]) if e["topic"] == topic_input
-    ]
+    indices = [i for i, e in enumerate(state["review_log"]) if e["topic"] == topic_input]
     if not indices:
         print(f"No review history found for {topic_input}", file=sys.stderr)
         sys.exit(1)
@@ -1093,7 +1152,9 @@ def cmd_void(topic_input: str, dry_run: bool = False) -> None:
         print(msg)
     else:
         prev_idx = indices[-2]
-        restored_card = last_entry.get("card_snapshot") or state["review_log"][prev_idx].get("card_snapshot")
+        restored_card = last_entry.get("card_snapshot") or state["review_log"][prev_idx].get(
+            "card_snapshot"
+        )
 
         if restored_card:
             due_dt = _card_due_hkt(restored_card)
@@ -1139,7 +1200,7 @@ def cmd_end() -> None:
 
     old = int(m.group(2))
     new = old + 1
-    text = text[: m.start(2)] + str(new) + text[m.end(2):]
+    text = text[: m.start(2)] + str(new) + text[m.end(2) :]
     _atomic_write(path, text)
 
     print()
@@ -1147,16 +1208,18 @@ def cmd_end() -> None:
 
     today_reviews = _get_today_reviews(state)
     confident_misses = [
-        r for r in today_reviews
-        if r.get("rating", "").lower() in ("again", "miss")
-        and r.get("confidence") == "C"
+        r
+        for r in today_reviews
+        if r.get("rating", "").lower() in ("again", "miss") and r.get("confidence") == "C"
     ]
     if confident_misses:
         print()
         print(_yellow(_bold("  Confident misses this session:")))
         topics_cm = sorted({r["topic"] for r in confident_misses})
         print(f"   Topics: {', '.join(topics_cm)}")
-        print("   -> These are high-priority for next session -- overconfidence is the most dangerous blind spot.")
+        print(
+            "   -> These are high-priority for next session -- overconfidence is the most dangerous blind spot."
+        )
     print()
 
 
@@ -1184,7 +1247,7 @@ def cmd_today() -> None:
     if today_reviews:
         sessions_today = 1
         sorted_reviews = sorted(today_reviews, key=lambda r: r.get("date", ""))
-        for a, b in zip(sorted_reviews, sorted_reviews[1:]):
+        for a, b in itertools.pairwise(sorted_reviews):
             dt_a = _parse_datetime(a.get("date", ""))
             dt_b = _parse_datetime(b.get("date", ""))
             if dt_a and dt_b and (dt_b - dt_a).total_seconds() > 1800:
@@ -1192,9 +1255,7 @@ def cmd_today() -> None:
 
     quota_met = total_today >= q_per_session
 
-    _print_panel(
-        f"Today | Phase {phase_num} ({phase_name}) | {_days_until_exam()} days to exam"
-    )
+    _print_panel(f"Today | Phase {phase_num} ({phase_name}) | {_days_until_exam()} days to exam")
 
     if total_today == 0:
         print(f"  {_dim('No reviews today.')}")
@@ -1233,7 +1294,9 @@ def cmd_stats() -> None:
     drilled = _topics_with_drills()
 
     _print_panel(f"Stats | Phase {phase_num} ({phase_name}) | {days_left} days to exam")
-    print(f"  Total: {summary.get('total', 0)} questions across {summary.get('sessions', 0)} sessions")
+    print(
+        f"  Total: {summary.get('total', 0)} questions across {summary.get('sessions', 0)} sessions"
+    )
     print(
         f"  Rate: {summary.get('rate', 0)}%  "
         f"({summary.get('correct', 0)}/{summary.get('total', 0)})"
@@ -1268,9 +1331,7 @@ def cmd_stats() -> None:
         top_offenders = sorted(confident_miss_counts.items(), key=lambda x: (-x[1], x[0]))
         print(_bold("Confident misses (all time):"))
         print(f"  Total: {total_c_misses}")
-        offenders_str = ", ".join(
-            f"{t} ({c} times)" for t, c in top_offenders[:5]
-        )
+        offenders_str = ", ".join(f"{t} ({c} times)" for t, c in top_offenders[:5])
         print(f"  Top offenders: {offenders_str}")
         print()
 
@@ -1348,7 +1409,13 @@ def cmd_coverage() -> None:
         mod_attempts[pfx] += info.get("attempts", 0)
 
     fragile = sorted(
-        [(t, i) for t, i in topics.items() if i.get("attempts", 0) > 0 and i.get("attempts", 0) <= 5 and i.get("rate", 0.0) >= 0.80],
+        [
+            (t, i)
+            for t, i in topics.items()
+            if i.get("attempts", 0) > 0
+            and i.get("attempts", 0) <= 5
+            and i.get("rate", 0.0) >= 0.80
+        ],
         key=lambda x: x[0],
     )
     low_sample = sorted(
@@ -1425,17 +1492,17 @@ def cmd_reconcile() -> None:
 
     text = path.read_text(encoding="utf-8")
     m_total = re.search(r"(\|\s*Total Questions\s*\|\s*)(\d+)(\s*\|)", text)
-    m_correct = re.search(r"(\|\s*Correct\s*\|\s*)(\d+)(\s*\|)", text)
-    m_rate = re.search(r"(\|\s*Rate\s*\|\s*)(\d+)(%\s*\|)", text)
+    re.search(r"(\|\s*Correct\s*\|\s*)(\d+)(\s*\|)", text)
+    re.search(r"(\|\s*Rate\s*\|\s*)(\d+)(%\s*\|)", text)
 
     if m_total:
-        text = text[: m_total.start(2)] + str(actual_total) + text[m_total.end(2):]
+        text = text[: m_total.start(2)] + str(actual_total) + text[m_total.end(2) :]
     m_correct2 = re.search(r"(\|\s*Correct\s*\|\s*)(\d+)(\s*\|)", text)
     if m_correct2:
-        text = text[: m_correct2.start(2)] + str(actual_correct) + text[m_correct2.end(2):]
+        text = text[: m_correct2.start(2)] + str(actual_correct) + text[m_correct2.end(2) :]
     m_rate2 = re.search(r"(\|\s*Rate\s*\|\s*)(\d+)(%\s*\|)", text)
     if m_rate2:
-        text = text[: m_rate2.start(2)] + str(actual_rate) + text[m_rate2.end(2):]
+        text = text[: m_rate2.start(2)] + str(actual_rate) + text[m_rate2.end(2) :]
 
     _atomic_write(path, text)
 
@@ -1450,6 +1517,7 @@ def cmd_reconcile() -> None:
 # ---------------------------------------------------------------------------
 # CLI entry point
 # ---------------------------------------------------------------------------
+
 
 def _cli() -> None:
     args = sys.argv[1:]
@@ -1466,7 +1534,10 @@ def _cli() -> None:
 
     elif cmd == "record":
         if len(args) < 3:
-            print(_red("Usage: melete record TOPIC RATING [-c C|U|G] [-n] [-N NOTE]"), file=sys.stderr)
+            print(
+                _red("Usage: melete record TOPIC RATING [-c C|U|G] [-n] [-N NOTE]"),
+                file=sys.stderr,
+            )
             sys.exit(1)
         topic = args[1]
         rating = args[2]

@@ -6,7 +6,7 @@ Syncs to terryli.hm via ~/code/blog/sync-from-vault.sh.
 
 import re
 import subprocess
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import yaml
@@ -20,7 +20,7 @@ BASE_URL = "https://terryli.hm/posts"
 
 
 def _now_iso() -> str:
-    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.000Z")
+    return datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%S.000Z")
 
 
 def _to_slug(title: str) -> str:
@@ -28,9 +28,8 @@ def _to_slug(title: str) -> str:
     for c in title.lower():
         if c.isascii() and c.isalnum():
             slug += c
-        elif c in (" ", "-", "_"):
-            if not slug.endswith("-"):
-                slug += "-"
+        elif c in (" ", "-", "_") and not slug.endswith("-"):
+            slug += "-"
     return slug.rstrip("-")
 
 
@@ -42,7 +41,7 @@ def _parse_frontmatter(content: str) -> tuple[dict, str] | None:
     if end == -1:
         return None
     fm_str = content[4:end]
-    body = content[end + 5:]
+    body = content[end + 5 :]
     fm = yaml.safe_load(fm_str)
     return fm, body
 
@@ -62,18 +61,21 @@ def scan_content(content: str) -> list[str]:
         (r"HKD\s*[0-9]", "exact HKD figure"),
         (r"[0-9]+\s*million\b", "exact million figure"),
         (r"[0-9]+\s*billion\b", "exact billion figure"),
-        (r"[0-9]+%\s+(margin|profit|revenue|salary|budget)", "exact percentage with financial context"),
+        (
+            r"[0-9]+%\s+(margin|profit|revenue|salary|budget)",
+            "exact percentage with financial context",
+        ),
     ]
     for pat, label in financial_patterns:
         m = re.search(pat, content, re.IGNORECASE)
         if m:
-            snippet = content[m.start():min(m.end() + 30, len(content))].strip()
-            warnings.append(f"[sensitive] {label} -- \"{snippet}...\"")
+            snippet = content[m.start() : min(m.end() + 30, len(content))].strip()
+            warnings.append(f'[sensitive] {label} -- "{snippet}..."')
 
     name_re = re.compile(r"(?:Mr|Ms|Mrs|Dr|Prof)\.?\s+[A-Z][a-z]+")
     m = name_re.search(content)
     if m:
-        snippet = content[m.start():min(m.end() + 20, len(content))].strip()
+        snippet = content[m.start() : min(m.end() + 20, len(content))].strip()
         warnings.append(f'[sensitive] named individual -- "{snippet}"')
 
     cred_re = re.compile(
@@ -128,9 +130,7 @@ def publish(slug: str, force: bool = False) -> str:
 
     warnings = scan_content(content)
     if warnings and not force:
-        raise ValueError(
-            "Content scan warnings:\n" + "\n".join(f"  - {w}" for w in warnings)
-        )
+        raise ValueError("Content scan warnings:\n" + "\n".join(f"  - {w}" for w in warnings))
 
     fm["draft"] = False
     path.write_text(_write_frontmatter(fm, body))
@@ -167,14 +167,16 @@ def list_posts() -> list[dict]:
         if not parsed:
             continue
         fm, body = parsed
-        posts.append({
-            "slug": path.stem,
-            "title": fm.get("title", path.stem),
-            "pubDatetime": str(fm.get("pubDatetime", "")),
-            "draft": fm.get("draft", False),
-            "tags": fm.get("tags") or [],
-            "words": len(body.split()),
-        })
+        posts.append(
+            {
+                "slug": path.stem,
+                "title": fm.get("title", path.stem),
+                "pubDatetime": str(fm.get("pubDatetime", "")),
+                "draft": fm.get("draft", False),
+                "tags": fm.get("tags") or [],
+                "words": len(body.split()),
+            }
+        )
 
     posts.sort(key=lambda p: p["pubDatetime"], reverse=True)
     return posts
@@ -208,12 +210,14 @@ def index() -> int:
             fm, _ = parsed
             if fm.get("draft", False):
                 continue
-            posts.append({
-                "slug": path.stem,
-                "title": fm.get("title", path.stem),
-                "pubDatetime": str(fm.get("pubDatetime", "")),
-                "tags": fm.get("tags", []),
-            })
+            posts.append(
+                {
+                    "slug": path.stem,
+                    "title": fm.get("title", path.stem),
+                    "pubDatetime": str(fm.get("pubDatetime", "")),
+                    "tags": fm.get("tags", []),
+                }
+            )
 
     posts.sort(key=lambda p: p["pubDatetime"], reverse=True)
     now_str = datetime.now().strftime("%Y-%m-%d %H:%M")

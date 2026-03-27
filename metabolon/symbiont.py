@@ -44,7 +44,7 @@ def _query_cmd(cmd: list[str], prompt: str, timeout: int) -> str:
     """Run a CLI command with prompt. Kills the entire process group on timeout."""
     env = {k: v for k, v in os.environ.items() if k != "CLAUDECODE"}
     proc = subprocess.Popen(
-        cmd + [prompt],
+        [*cmd, prompt],
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True,
@@ -69,7 +69,7 @@ def _query_codex(cmd: list[str], prompt: str, timeout: int) -> str:
     with tempfile.NamedTemporaryFile(mode="w", suffix=".md", delete=False) as tmp:
         tmp_path = tmp.name
     try:
-        full_cmd = cmd + ["-o", tmp_path, prompt]
+        full_cmd = [*cmd, "-o", tmp_path, prompt]
         proc = subprocess.Popen(
             full_cmd,
             stdout=subprocess.PIPE,
@@ -119,7 +119,9 @@ def _query_openrouter(model: str, prompt: str, timeout: int) -> str:
         return res_json["choices"][0]["message"]["content"].strip()
 
 
-def transduce(model_name: str, prompt: str, timeout: int = 180, config_path: str | None = None) -> str:
+def transduce(
+    model_name: str, prompt: str, timeout: int = 180, config_path: str | None = None
+) -> str:
     """Query a single model. Returns response text. Raises on error."""
     models = restore_symbionts(config_path)
     if model_name not in models:

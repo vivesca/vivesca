@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import atexit
+import contextlib
 import hashlib
 import ipaddress
 import json
@@ -12,9 +13,10 @@ import socket
 import subprocess
 import sys
 import time
-from datetime import datetime, timezone
+from collections.abc import Mapping
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any
 from urllib.parse import urljoin, urlparse
 
 import feedparser
@@ -36,14 +38,12 @@ _browser_pids: set[int] = set()
 def _kill_browser_pid(pid: int) -> None:
     """Kill a Chrome parent process and all its children, best-effort."""
     # Kill children first (macOS/Linux: pkill -P <pid>)
-    try:
+    with contextlib.suppress(Exception):
         subprocess.run(
             ["pkill", "-9", "-P", str(pid)],
             capture_output=True,
             timeout=5,
         )
-    except Exception:
-        pass
     # Then kill the parent
     try:
         os.kill(pid, signal.SIGKILL)
@@ -128,7 +128,7 @@ def _parse_feed_datetime(entry: Any) -> str:
             try:
                 # calendar.timegm interprets struct_time as UTC
                 ts = calendar.timegm(parsed)
-                dt = datetime.fromtimestamp(ts, tz=timezone.utc)
+                dt = datetime.fromtimestamp(ts, tz=UTC)
                 return dt.isoformat()
             except (TypeError, OverflowError, OSError):
                 continue
@@ -147,8 +147,8 @@ def _parse_feed_datetime(entry: Any) -> str:
             try:
                 dt = datetime.strptime(str(raw).strip(), fmt)
                 if dt.tzinfo is None:
-                    dt = dt.replace(tzinfo=timezone.utc)
-                return dt.astimezone(timezone.utc).isoformat()
+                    dt = dt.replace(tzinfo=UTC)
+                return dt.astimezone(UTC).isoformat()
             except ValueError:
                 continue
 
@@ -507,7 +507,9 @@ def internalize_web(
                     articles.append({"title": title, "date": "", "summary": "", "link": str(link)})
             return articles
 
-        for tag in soup.select("article h2 a, article h3 a, h2 a, h3 a, .post-title a")[:max_items]:
+        for tag in soup.select("article h2 a, article h3 a, h2 a, h3 a, .post-title a")[
+            :max_items
+        ]:
             title = tag.get_text().strip()
             if title and len(title) > 10:
                 link = tag.get("href", "")
@@ -663,7 +665,7 @@ def archive_cargo(
     if not link:
         return
     if now is None:
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
     date_str = article.get("date") or now.strftime("%Y-%m-%d")
     slug = _slug(source_name)
@@ -734,7 +736,7 @@ def probe_receptors(
     x_bookmarks: list[dict[str, Any]] | None = None,
 ) -> None:
     if now is None:
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
     print(f"\n{'Source':<36} {'T':>1} {'HTTP':>5} {'Last Scan':>12}", file=sys.stderr)
     print("-" * 58, file=sys.stderr)

@@ -5,7 +5,7 @@ import re
 import shutil
 import subprocess
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from metabolon.organelles.endocytosis_rss.config import EndocytosisConfig
@@ -71,14 +71,18 @@ def _append_discovery_log(
     record_cargo(cfg.log_path, "\n".join(lines) + "\n")
 
 
-def scout_sources(cfg: EndocytosisConfig, count: int | None = None, bird_path: str | None = None) -> int:
+def scout_sources(
+    cfg: EndocytosisConfig, count: int | None = None, bird_path: str | None = None
+) -> int:
     discovery_cfg = cfg.sources_data.get("x_discovery", {})
     if not isinstance(discovery_cfg, dict):
         discovery_cfg = {}
     keywords = discovery_cfg.get("keywords", [])
     if not isinstance(keywords, list):
         keywords = []
-    compiled = _compile_keywords([str(pattern) for pattern in keywords if isinstance(pattern, str)])
+    compiled = _compile_keywords(
+        [str(pattern) for pattern in keywords if isinstance(pattern, str)]
+    )
 
     default_count = int(discovery_cfg.get("count", 50))
     tweet_count = int(count) if count is not None else default_count
@@ -160,6 +164,6 @@ def scout_sources(cfg: EndocytosisConfig, count: int | None = None, bird_path: s
     else:
         print("New handles (not tracked): none", file=sys.stderr)
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     _append_discovery_log(cfg, now, len(payload), matched_count, new_handles)
     return 0

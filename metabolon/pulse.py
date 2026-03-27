@@ -28,23 +28,23 @@ from pathlib import Path
 from metabolon.vasomotor import (
     EVENT_LOG,
     MAX_DAILY_SYSTOLES,
+    _fetch_telemetry,
+    _hours_to_reset,
+    adapt,
     assess_vital_capacity,
-    vasomotor_status,
     breathe,
+    emit_distress_signal,
     is_apneic,
     log,
-    record_event,
     measure_vasomotor_tone,
+    measured_cost_per_systole,
+    oxygen_debt,
+    record_event,
+    resume_breathing,
+    set_recovery_interval,
     vasomotor_genome,
     vasomotor_snapshot,
-    resume_breathing,
-    emit_distress_signal,
-    _hours_to_reset,
-    oxygen_debt,
-    _fetch_telemetry,
-    set_recovery_interval,
-    measured_cost_per_systole,
-    adapt,
+    vasomotor_status,
 )
 
 # ---------------------------------------------------------------------------
@@ -217,6 +217,7 @@ def atrial_systole() -> dict:
 
     # Perfusion check: which north stars are ischaemic?
     from metabolon.perfusion import perfusion_report
+
     perf = perfusion_report()
     context["focus_star"] = perf.get("focus_star")
     context["coverage"] = perf.get("coverage", {})
@@ -232,6 +233,7 @@ def atrial_systole() -> dict:
                 try:
                     if fmt == "%Y-%m-%d":
                         import re
+
                         match = re.search(r"\d{4}-\d{2}-\d{2}", line)
                         if match:
                             d = datetime.datetime.strptime(match.group(), fmt).date()
@@ -278,13 +280,18 @@ def isovolumic_contraction(genome: dict, focus: str | None, context: dict) -> st
     # Coverage map so the LLM doesn't need to compute it
     coverage = context.get("coverage")
     if coverage:
-        lines = [f"- {star}: {count} mentions" for star, count in sorted(coverage.items(), key=lambda x: x[1])]
-        injections.append(f"## NORTH STAR COVERAGE (this run)\n" + "\n".join(lines))
+        lines = [
+            f"- {star}: {count} mentions"
+            for star, count in sorted(coverage.items(), key=lambda x: x[1])
+        ]
+        injections.append("## NORTH STAR COVERAGE (this run)\n" + "\n".join(lines))
 
     # Completed topics (dedup)
     done = read_topics_done()
     if done:
-        injections.append(f"## COMPLETED TOPICS (DO NOT REDO)\n{done}\nSkip these entirely. Work on NEW topics only.")
+        injections.append(
+            f"## COMPLETED TOPICS (DO NOT REDO)\n{done}\nSkip these entirely. Work on NEW topics only."
+        )
 
     if injections:
         prompt += "\n\n" + "\n\n".join(injections)
@@ -323,6 +330,7 @@ def diastole(systole_num: int):
 
     # 3. Auto-convert confirmation items (raise ejection fraction)
     from metabolon.respiration import auto_convert, phantom_sweep
+
     result = auto_convert()
     if result["converted"] > 0:
         record_event("diastole_auto_convert", count=result["converted"], systole=systole_num)
@@ -438,7 +446,9 @@ def _build_systole_prompt(genome: dict, focus: str | None = None) -> str:
     return prompt
 
 
-def fire_systole(systole_num: int, model: str, focus: str | None = None, prompt: str | None = None) -> tuple[bool, str]:
+def fire_systole(
+    systole_num: int, model: str, focus: str | None = None, prompt: str | None = None
+) -> tuple[bool, str]:
     """Run a single systole (one heartbeat). Returns (success, output_tail).
 
     If prompt is provided (from isovolumic_contraction), uses it directly.
@@ -579,14 +589,19 @@ def fire_systole(systole_num: int, model: str, focus: str | None = None, prompt:
                 if churn_duration > churn_seconds * 2:
                     proc.terminate()
                     proc.wait(timeout=30)
-                    log_fh.write(f"\n--- REDUCED EJECTION after {elapsed_so_far}s (churn {churn_duration}s) ---\n")
+                    log_fh.write(
+                        f"\n--- REDUCED EJECTION after {elapsed_so_far}s (churn {churn_duration}s) ---\n"
+                    )
                     record_event(
                         "reduced_ejection",
                         systole=systole_num,
                         elapsed_s=elapsed_so_far,
                         churn_s=churn_duration,
                     )
-                    print(f"  ~ Reduced ejection: systole {systole_num} soft-stopped at {elapsed_so_far}s (no output for {churn_duration}s)", flush=True)
+                    print(
+                        f"  ~ Reduced ejection: systole {systole_num} soft-stopped at {elapsed_so_far}s (no output for {churn_duration}s)",
+                        flush=True,
+                    )
                     return True, ""
             else:
                 if churn_warned:
@@ -716,17 +731,29 @@ def _auto_commit_germline():
     try:
         status = subprocess.run(
             ["git", "status", "--porcelain", "loci/pulse/"],
-            capture_output=True, text=True, cwd=germline, timeout=10,
+            capture_output=True,
+            text=True,
+            cwd=germline,
+            timeout=10,
         )
         if not status.stdout.strip():
             return
         subprocess.run(
             ["git", "add", "loci/pulse/"],
-            cwd=germline, capture_output=True, timeout=10,
+            cwd=germline,
+            capture_output=True,
+            timeout=10,
         )
         subprocess.run(
-            ["git", "commit", "-m", f"pulse: auto-commit {datetime.datetime.now():%Y-%m-%d %H:%M}"],
-            cwd=germline, capture_output=True, timeout=10,
+            [
+                "git",
+                "commit",
+                "-m",
+                f"pulse: auto-commit {datetime.datetime.now():%Y-%m-%d %H:%M}",
+            ],
+            cwd=germline,
+            capture_output=True,
+            timeout=10,
         )
         log("Auto-committed pulse output to germline")
     except Exception as e:
@@ -800,6 +827,7 @@ def _check_entrainment() -> tuple[bool, str]:
             # Write skip-until so is_apneic() gates the next invocation too.
             # Duration: night → skip to 06:00; budget_red → 1-hour recheck.
             import datetime as _dt
+
             HKT = _dt.timezone(_dt.timedelta(hours=8))
             now = _dt.datetime.now(tz=HKT)
             if reason == "night_hours":
@@ -851,10 +879,12 @@ def main(systoles=None, model=None, retry=1, focus=None, stop_after=None, dry_ru
         # Consult tissue routing as an advisory override (advisory — falls back to conf on failure).
         try:
             import sys as _sys
+
             _germline = str(Path.home() / "germline")
             if _germline not in _sys.path:
                 _sys.path.insert(0, _germline)
             from metabolon.organelles.tissue_routing import route as _tr_route
+
             routed_model = _tr_route("poiesis_dispatch")
             if routed_model != conf_model:
                 log(f"tissue routing: poiesis_dispatch -> {routed_model} (conf had {conf_model})")
@@ -887,11 +917,19 @@ def main(systoles=None, model=None, retry=1, focus=None, stop_after=None, dry_ru
             max_systoles = min(budget_systoles, MAX_DAILY_SYSTOLES)
         else:
             # Scale by debt: low debt = conservative, high debt = burn what's left
-            scaled = max(DAYTIME_SYSTOLES, round(DAYTIME_SYSTOLES + debt * (budget_systoles - DAYTIME_SYSTOLES)))
+            scaled = max(
+                DAYTIME_SYSTOLES,
+                round(DAYTIME_SYSTOLES + debt * (budget_systoles - DAYTIME_SYSTOLES)),
+            )
             max_systoles = min(scaled, MAX_SYSTOLES, MAX_DAILY_SYSTOLES)
         if debt > 0 or budget_systoles != DAYTIME_SYSTOLES:
-            record_event("adaptive_cadence", debt=round(debt, 2), max_systoles=max_systoles,
-                         budget_systoles=budget_systoles, remaining_pct=round(remaining_pct, 1))
+            record_event(
+                "adaptive_cadence",
+                debt=round(debt, 2),
+                max_systoles=max_systoles,
+                budget_systoles=budget_systoles,
+                remaining_pct=round(remaining_pct, 1),
+            )
     stop_after_str = stop_after or (CIRCADIAN_DEADLINE if is_overnight else None)
 
     LOG_DIR.mkdir(parents=True, exist_ok=True)
@@ -1015,6 +1053,7 @@ def main(systoles=None, model=None, retry=1, focus=None, stop_after=None, dry_ru
                     # Set max recovery interval so the organism rests but
                     # the pacemaker keeps ticking on the LaunchAgent schedule.
                     from metabolon.vasomotor import SKIP_UNTIL_FILE
+
                     idle_until = datetime.datetime.now() + datetime.timedelta(hours=3)
                     SKIP_UNTIL_FILE.write_text(idle_until.isoformat())
                     stop_reason = f"saturation_idle_{consecutive_saturation}_systoles"
@@ -1094,7 +1133,12 @@ def main(systoles=None, model=None, retry=1, focus=None, stop_after=None, dry_ru
         log(f"Final budget: weekly={weekly}%, sonnet={sonnet}%")
 
     # LLM adaptation: review outcomes and adjust parameters for next cycle
-    adapt(systoles_run=systole_num, saturated=total_saturated, failed=total_failed, stop_reason=stop_reason)
+    adapt(
+        systoles_run=systole_num,
+        saturated=total_saturated,
+        failed=total_failed,
+        stop_reason=stop_reason,
+    )
 
     # Set adaptive recovery: short interval under debt, long when relaxed
     set_recovery_interval()

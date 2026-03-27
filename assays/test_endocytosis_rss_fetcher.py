@@ -1,10 +1,17 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from types import SimpleNamespace
 
-from metabolon.organelles.endocytosis_rss.fetcher import archive_cargo, internalize_rss, internalize_web, internalize_x_account, internalize_x_bookmarks, release_bookmarks
+from metabolon.organelles.endocytosis_rss.fetcher import (
+    archive_cargo,
+    internalize_rss,
+    internalize_web,
+    internalize_x_account,
+    internalize_x_bookmarks,
+    release_bookmarks,
+)
 
 
 class Entry(dict):
@@ -66,7 +73,10 @@ def test_fetch_web(monkeypatch):
         def raise_for_status(self):
             return None
 
-    monkeypatch.setattr("metabolon.organelles.endocytosis_rss.fetcher.requests.get", lambda *args, **kwargs: FakeResp())
+    monkeypatch.setattr(
+        "metabolon.organelles.endocytosis_rss.fetcher.requests.get",
+        lambda *args, **kwargs: FakeResp(),
+    )
 
     articles = internalize_web("https://example.com")
 
@@ -80,8 +90,13 @@ def test_archive_cargo(monkeypatch, tmp_path):
         "This is the full text body of a substantial article about recent advances "
         "in artificial intelligence research and its implications for the industry."
     )
-    monkeypatch.setattr("metabolon.organelles.endocytosis_rss.fetcher.trafilatura.fetch_url", lambda _url: "raw-page")
-    monkeypatch.setattr("metabolon.organelles.endocytosis_rss.fetcher.trafilatura.extract", lambda _raw: full_text)
+    monkeypatch.setattr(
+        "metabolon.organelles.endocytosis_rss.fetcher.trafilatura.fetch_url",
+        lambda _url: "raw-page",
+    )
+    monkeypatch.setattr(
+        "metabolon.organelles.endocytosis_rss.fetcher.trafilatura.extract", lambda _raw: full_text
+    )
 
     article = {
         "title": "A New Discovery in AI",
@@ -89,7 +104,7 @@ def test_archive_cargo(monkeypatch, tmp_path):
         "summary": "A summary",
         "link": "https://example.com/article",
     }
-    now = datetime(2026, 2, 24, 12, 30, tzinfo=timezone.utc)
+    now = datetime(2026, 2, 24, 12, 30, tzinfo=UTC)
 
     archive_cargo(article, "Example Source", 1, tmp_path, now)
 
@@ -102,7 +117,10 @@ def test_archive_cargo(monkeypatch, tmp_path):
 
 
 def test_fetch_x_account(monkeypatch):
-    monkeypatch.setattr("metabolon.organelles.endocytosis_rss.fetcher.shutil.which", lambda _name: "/usr/local/bin/bird")
+    monkeypatch.setattr(
+        "metabolon.organelles.endocytosis_rss.fetcher.shutil.which",
+        lambda _name: "/usr/local/bin/bird",
+    )
 
     tweets = [
         {
@@ -132,7 +150,10 @@ def test_fetch_x_account(monkeypatch):
 
 
 def test_fetch_x_bookmarks(monkeypatch):
-    monkeypatch.setattr("metabolon.organelles.endocytosis_rss.fetcher.shutil.which", lambda _name: "/usr/local/bin/bird")
+    monkeypatch.setattr(
+        "metabolon.organelles.endocytosis_rss.fetcher.shutil.which",
+        lambda _name: "/usr/local/bin/bird",
+    )
 
     tweets = [
         {
@@ -163,7 +184,10 @@ def test_fetch_x_bookmarks(monkeypatch):
 
 
 def test_release_bookmarks(monkeypatch):
-    monkeypatch.setattr("metabolon.organelles.endocytosis_rss.fetcher.shutil.which", lambda _name: "/usr/local/bin/bird")
+    monkeypatch.setattr(
+        "metabolon.organelles.endocytosis_rss.fetcher.shutil.which",
+        lambda _name: "/usr/local/bin/bird",
+    )
 
     calls = []
 
@@ -184,7 +208,7 @@ def test_check_sources_zeros(monkeypatch, capsys):
 
     sources = [{"name": "ZeroSource", "tier": 1, "url": "https://example.com"}]
     state = {"_zeros:ZeroSource": "3"}
-    now = datetime(2026, 2, 24, 12, 0, tzinfo=timezone.utc)
+    now = datetime(2026, 2, 24, 12, 0, tzinfo=UTC)
 
     class FakeResp:
         status_code = 200
@@ -192,7 +216,10 @@ def test_check_sources_zeros(monkeypatch, capsys):
         def close(self):
             pass
 
-    monkeypatch.setattr("metabolon.organelles.endocytosis_rss.fetcher.requests.get", lambda *args, **kwargs: FakeResp())
+    monkeypatch.setattr(
+        "metabolon.organelles.endocytosis_rss.fetcher.requests.get",
+        lambda *args, **kwargs: FakeResp(),
+    )
 
     probe_receptors(sources, [], state, now=now)
     stderr = capsys.readouterr().err

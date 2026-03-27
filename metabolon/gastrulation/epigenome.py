@@ -33,9 +33,7 @@ def scaffold_epigenome(target: Path) -> Path:
     """
     # Guard: refuse to overwrite non-empty directories — protect existing chromatin.
     if target.exists() and any(target.iterdir()):
-        raise click.ClickException(
-            f"Directory {target} already exists and is not empty"
-        )
+        raise click.ClickException(f"Directory {target} already exists and is not empty")
 
     # Lay down the organelle compartments.
     for subdir in ["credentials", "config", "launchd"]:

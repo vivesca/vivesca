@@ -13,11 +13,11 @@ _SELF_PREFIXES = ("inflammasome:", "autoimmunity:")
 
 # (match_re, placeholder_token, regex_fragment)
 _SUBS: list[tuple[re.Pattern[str], str, str]] = [
-    (re.compile(r"/[^\s'\"]+"),                   "{path}", r"/[^\s'\"]+"),
-    (re.compile(r'"[^"]*"'),                       '"{str}"', r'"[^"]*"'),
-    (re.compile(r"'[^']*'"),                       "'{str}'", r"'[^']*'"),
+    (re.compile(r"/[^\s'\"]+"), "{path}", r"/[^\s'\"]+"),
+    (re.compile(r'"[^"]*"'), '"{str}"', r'"[^"]*"'),
+    (re.compile(r"'[^']*'"), "'{str}'", r"'[^']*'"),
     (re.compile(r"\b([A-Z_][A-Z0-9_]{2,}|_[a-zA-Z_]+)\b"), "{name}", r"[A-Z_][A-Z0-9_]*"),
-    (re.compile(r"\b\d+\b"),                       "{n}",    r"\d+"),
+    (re.compile(r"\b\d+\b"), "{n}", r"\d+"),
 ]
 
 
@@ -76,13 +76,15 @@ def compile_guides() -> list[dict]:
         try:
             s = json.loads(line)
             compiled = re.compile(s["regex"], re.IGNORECASE)
-            guides.append({
-                "tool": s.get("tool", ""),
-                "pattern": s.get("pattern", ""),
-                "regex_compiled": compiled,
-                "acquired_ts": s.get("ts", ""),
-                "raw_error": s.get("raw_error", ""),
-            })
+            guides.append(
+                {
+                    "tool": s.get("tool", ""),
+                    "pattern": s.get("pattern", ""),
+                    "regex_compiled": compiled,
+                    "acquired_ts": s.get("ts", ""),
+                    "raw_error": s.get("raw_error", ""),
+                }
+            )
         except Exception:
             continue
     return guides

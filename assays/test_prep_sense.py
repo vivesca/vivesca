@@ -141,7 +141,11 @@ def test_synthesize_signal_summary(tmp_path):
             {"name": "delivery"},
         ],
         "materials": [
-            {"path": "~/epigenome/chromatin/deck.md", "type": "flashcards", "categories": ["D1", "D2", "D3"]},
+            {
+                "path": "~/epigenome/chromatin/deck.md",
+                "type": "flashcards",
+                "categories": ["D1", "D2", "D3"],
+            },
         ],
     }
 

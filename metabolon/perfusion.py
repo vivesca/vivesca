@@ -13,7 +13,7 @@ The organism equivalent: pulse can run all day, but if Career gets
 import datetime
 from pathlib import Path
 
-from metabolon.vasomotor import log, record_event
+from metabolon.vasomotor import record_event
 
 NORTH_STAR_FILE = Path.home() / "epigenome" / "chromatin" / "North Star.md"
 CARDIAC_LOG = Path.home() / "tmp" / "pulse-manifest.md"

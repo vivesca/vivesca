@@ -7,7 +7,6 @@ Runs autonomously. Human reviews products, not process.
 import json
 import os
 import subprocess
-import sys
 import time
 from datetime import UTC, datetime
 from pathlib import Path
@@ -37,7 +36,6 @@ tags: [ai, agents, design, vivesca]
 
 def _acquire_catalyst():
     """Import and return the shared llm module — the reaction catalyst."""
-    from metabolon.cytosol import VIVESCA_ROOT
 
     from metabolon import symbiont as llm
 
@@ -113,7 +111,9 @@ def publish(slug: str) -> bool:
         return False
 
 
-def metabolize_pipeline(seeds: list[dict], expander: str = "gemini", pusher: str = "claude") -> dict:
+def metabolize_pipeline(
+    seeds: list[dict], expander: str = "gemini", pusher: str = "claude"
+) -> dict:
     """Run the full pipeline on a list of seeds.
 
     Each seed is a dict with 'seed', 'slug', 'title'.

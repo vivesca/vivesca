@@ -23,7 +23,7 @@ __all__ = [
     "SensorySystem",
     "Stimulus",
     "Substrate",
-    "sense_affect",
     "immune_response",
     "reflex_check",
+    "sense_affect",
 ]

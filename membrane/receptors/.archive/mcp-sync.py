@@ -161,7 +161,7 @@ def sync_opencode(servers: dict, dry_run: bool = True) -> None:
             s["args"] = server["args"]
         # Keep env keys but OpenCode reads from actual env at runtime
         if "env" in server:
-            s["env"] = {k: os.environ.get(k, "") for k in server["env"].keys()}
+            s["env"] = {k: os.environ.get(k, "") for k in server["env"]}
         opencode_servers[name] = s
 
     result = {"mcpServers": opencode_servers}

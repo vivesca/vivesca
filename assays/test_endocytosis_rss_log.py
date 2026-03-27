@@ -1,13 +1,13 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from metabolon.organelles.endocytosis_rss.log import (
     _title_prefix,
+    cycle_log,
+    is_noise,
     record_cargo,
     serialize_markdown,
-    is_noise,
-    cycle_log,
 )
 
 
@@ -100,7 +100,7 @@ def test_cycle_log(tmp_path):
     )
     log_path.write_text(content + "\n", encoding="utf-8")
 
-    now = datetime(2026, 2, 24, 12, 0, tzinfo=timezone.utc)
+    now = datetime(2026, 2, 24, 12, 0, tzinfo=UTC)
     cycle_log(log_path, archive_dir, max_lines=4, now=now)
 
     rotated = log_path.read_text(encoding="utf-8")

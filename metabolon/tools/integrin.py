@@ -1,4 +1,5 @@
 from metabolon.locus import chromatin
+
 """integrin -- attachment integrity probe.
 
 Biology: integrins are transmembrane receptors that connect a cell's
@@ -32,9 +33,8 @@ from typing import Any
 from fastmcp.tools import tool
 from mcp.types import ToolAnnotations
 
-from metabolon.morphology import Secretion
-
 from metabolon.cytosol import VIVESCA_ROOT
+from metabolon.morphology import Secretion
 
 SKILLS_DIR = VIVESCA_ROOT / "receptors"
 SKILL_USAGE_LOG = Path.home() / ".claude" / "skill-usage.tsv"
@@ -608,9 +608,7 @@ _MCP_FULL_RE = re.compile(r"mcp__vivesca__([a-z][a-z0-9_]+)")
 _MCP_BARE_RE = re.compile(r"`([a-z][a-z0-9]+(?:_[a-z0-9]+)+)`")
 
 # Pattern: tool function imports across metabolon.tools modules
-_TOOL_IMPORT_RE = re.compile(
-    r"from\s+metabolon\.tools\.(\w+)\s+import\s+([^\n]+)"
-)
+_TOOL_IMPORT_RE = re.compile(r"from\s+metabolon\.tools\.(\w+)\s+import\s+([^\n]+)")
 
 
 def _parse_frontmatter(text: str) -> dict[str, Any]:
@@ -657,8 +655,7 @@ def _collect_receptor_names(skills_dir: Path) -> frozenset[str]:
     if not skills_dir.is_dir():
         return frozenset()
     return frozenset(
-        d.name for d in skills_dir.iterdir()
-        if d.is_dir() and (d / "SKILL.md").is_file()
+        d.name for d in skills_dir.iterdir() if d.is_dir() and (d / "SKILL.md").is_file()
     )
 
 
@@ -789,11 +786,13 @@ def _extract_tool_cross_imports(tools_dir: Path) -> list[dict]:
                 continue
             symbols = [s.strip() for s in m.group(2).split(",") if s.strip()]
             for sym in symbols:
-                edges.append({
-                    "source_tool": py_file.stem,
-                    "target_tool": target_module,
-                    "symbol": sym,
-                })
+                edges.append(
+                    {
+                        "source_tool": py_file.stem,
+                        "target_tool": target_module,
+                        "symbol": sym,
+                    }
+                )
     return edges
 
 
@@ -891,9 +890,7 @@ def integrin_colony_probe(
             for bud_ref in _extract_colony_bud_refs(text):
                 colony_referenced_buds.add(bud_ref)
                 if bud_ref not in bud_names:
-                    detached_colony_bud.append(
-                        {"colony": colony_name, "missing_bud": bud_ref}
-                    )
+                    detached_colony_bud.append({"colony": colony_name, "missing_bud": bud_ref})
 
             for skill_ref in _extract_colony_skill_refs(text):
                 if skill_ref not in receptor_names:
@@ -919,23 +916,17 @@ def integrin_colony_probe(
             # Layer 3: Bud → Skill
             for skill_ref in _extract_bud_skill_refs(text):
                 if skill_ref not in receptor_names:
-                    detached_bud_skill.append(
-                        {"bud": bud_name, "missing_skill": skill_ref}
-                    )
+                    detached_bud_skill.append({"bud": bud_name, "missing_skill": skill_ref})
 
             # Layer 4: Bud → MCP Tool
             for tool_ref in _extract_bud_mcp_tool_refs(text):
                 if tool_ref not in registered_tools:
-                    detached_bud_tool.append(
-                        {"bud": bud_name, "missing_tool": tool_ref}
-                    )
+                    detached_bud_tool.append({"bud": bud_name, "missing_tool": tool_ref})
 
             # Layer 5: Bud → CLI binary
             for cmd in _extract_bud_cli_refs(text):
                 if shutil.which(cmd) is None:
-                    detached_bud_cli.append(
-                        {"bud": bud_name, "missing_binary": cmd}
-                    )
+                    detached_bud_cli.append({"bud": bud_name, "missing_binary": cmd})
 
     # -- Layer 6 & 7: Skill → Skill, Skill → MCP Tool --------------------
     detached_skill_skill: list[dict] = []
@@ -955,16 +946,12 @@ def integrin_colony_probe(
             # Layer 6: Skill → Skill
             for skill_ref in _extract_skill_skill_refs(text):
                 if skill_ref not in receptor_names:
-                    detached_skill_skill.append(
-                        {"skill": skill_name, "missing_skill": skill_ref}
-                    )
+                    detached_skill_skill.append({"skill": skill_name, "missing_skill": skill_ref})
 
             # Layer 7: Skill → MCP Tool
             for tool_ref in _extract_skill_mcp_tool_refs(text):
                 if tool_ref not in registered_tools:
-                    detached_skill_tool.append(
-                        {"skill": skill_name, "missing_tool": tool_ref}
-                    )
+                    detached_skill_tool.append({"skill": skill_name, "missing_tool": tool_ref})
 
     # -- Layer 8: MCP Tool → MCP Tool (cross-module imports) --------------
     cross_import_edges = _extract_tool_cross_imports(tools_dir)
@@ -974,8 +961,7 @@ def integrin_colony_probe(
         else frozenset()
     )
     detached_tool_tool = [
-        edge for edge in cross_import_edges
-        if edge["target_tool"] not in tool_module_names
+        edge for edge in cross_import_edges if edge["target_tool"] not in tool_module_names
     ]
 
     # -- Orphan buds: exist on disk but never referenced by any colony ----
@@ -994,9 +980,9 @@ def integrin_colony_probe(
     )
 
     return ColonyProbeResult(
-        colony_count=sum(
-            1 for f in colonies_dir.iterdir() if f.suffix == ".md"
-        ) if colonies_dir.is_dir() else 0,
+        colony_count=sum(1 for f in colonies_dir.iterdir() if f.suffix == ".md")
+        if colonies_dir.is_dir()
+        else 0,
         bud_count=len(bud_names),
         skill_count=len(receptor_names),
         registered_tool_count=len(registered_tools),

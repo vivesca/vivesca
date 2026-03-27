@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from types import SimpleNamespace
 
 import pytest
@@ -11,9 +11,9 @@ from metabolon.organelles.endocytosis_rss.config import restore_config
 from metabolon.organelles.endocytosis_rss.digest import (
     _resolve_week_label,
     create_openai_client,
-    recall_log_entries,
     metabolize_digest,
     metabolize_weekly,
+    recall_log_entries,
     secrete_weekly_digest,
 )
 
@@ -116,7 +116,10 @@ def test_metabolize_digest_dry_run_with_mock_llm(xdg_env, monkeypatch):
             )
         ]
     )
-    monkeypatch.setattr("metabolon.organelles.endocytosis_rss.digest.create_openai_client", lambda _key: fake_client)
+    monkeypatch.setattr(
+        "metabolon.organelles.endocytosis_rss.digest.create_openai_client",
+        lambda _key: fake_client,
+    )
 
     themes, output_path = metabolize_digest(
         cfg,
@@ -152,9 +155,12 @@ def test_cmd_digest_writes_output_file(xdg_env, monkeypatch):
             "### Summary\nTighter controls are becoming mandatory.",
         ]
     )
-    monkeypatch.setattr("metabolon.organelles.endocytosis_rss.digest.create_openai_client", lambda _key: fake_client)
+    monkeypatch.setattr(
+        "metabolon.organelles.endocytosis_rss.digest.create_openai_client",
+        lambda _key: fake_client,
+    )
 
-    themes_result, output_path = metabolize_digest(
+    _themes_result, output_path = metabolize_digest(
         cfg=cfg,
         month="2026-02",
         dry_run=False,
@@ -180,30 +186,33 @@ def _write_weekly_log(cfg, log_date: str) -> None:
     cfg.data_dir.mkdir(parents=True, exist_ok=True)
     cfg.log_path.parent.mkdir(parents=True, exist_ok=True)
     cfg.log_path.write_text(
-        "\n".join([
-            f"## {log_date} (Automated Daily Scan)",
-            "",
-            "### Anthropic Blog",
-            "- [★] **[Claude 3.7 Sonnet released](https://anthropic.com/news/claude-3-7)**"
-            " (banking_angle: Major model upgrade for enterprise deployments)"
-            f" ({log_date}) — New extended thinking capability",
-            "",
-            "### The Batch",
-            f"- **[Weekly AI roundup](https://deeplearning.ai/batch)** ({log_date})"
-            " — Summary of this week in AI",
-            "",
-            "### Simon Willison",
-            "- [★] **[LLM tool use patterns](https://simonwillison.net/llm-tool-use)**"
-            f" (banking_angle: Agentic workflows for operations automation) ({log_date})"
-            " — Practical patterns for tool-calling agents",
-        ]) + "\n",
+        "\n".join(
+            [
+                f"## {log_date} (Automated Daily Scan)",
+                "",
+                "### Anthropic Blog",
+                "- [★] **[Claude 3.7 Sonnet released](https://anthropic.com/news/claude-3-7)**"
+                " (banking_angle: Major model upgrade for enterprise deployments)"
+                f" ({log_date}) — New extended thinking capability",
+                "",
+                "### The Batch",
+                f"- **[Weekly AI roundup](https://deeplearning.ai/batch)** ({log_date})"
+                " — Summary of this week in AI",
+                "",
+                "### Simon Willison",
+                "- [★] **[LLM tool use patterns](https://simonwillison.net/llm-tool-use)**"
+                f" (banking_angle: Agentic workflows for operations automation) ({log_date})"
+                " — Practical patterns for tool-calling agents",
+            ]
+        )
+        + "\n",
         encoding="utf-8",
     )
 
 
 def test_resolve_week_label_returns_correct_format():
     """_resolve_week_label returns YYYY-WNN label and 7-day window."""
-    anchor = datetime(2026, 3, 25, 12, 0, 0, tzinfo=timezone.utc)  # Wednesday W13
+    anchor = datetime(2026, 3, 25, 12, 0, 0, tzinfo=UTC)  # Wednesday W13
     since, until, label = _resolve_week_label(anchor)
     assert label == "2026-W13"
     assert until == "2026-03-25"
@@ -233,15 +242,18 @@ def test_recall_log_entries_filters_by_date(xdg_env):
     cfg = restore_config()
     cfg.log_path.parent.mkdir(parents=True, exist_ok=True)
     cfg.log_path.write_text(
-        "\n".join([
-            "## 2026-03-10 (Automated Daily Scan)",
-            "### Old Source",
-            "- **[Old article](https://example.com/old)** (2026-03-10) — Old news",
-            "",
-            "## 2026-03-22 (Automated Daily Scan)",
-            "### New Source",
-            "- [★] **[New article](https://example.com/new)** (2026-03-22) — Fresh signal",
-        ]) + "\n",
+        "\n".join(
+            [
+                "## 2026-03-10 (Automated Daily Scan)",
+                "### Old Source",
+                "- **[Old article](https://example.com/old)** (2026-03-10) — Old news",
+                "",
+                "## 2026-03-22 (Automated Daily Scan)",
+                "### New Source",
+                "- [★] **[New article](https://example.com/new)** (2026-03-22) — Fresh signal",
+            ]
+        )
+        + "\n",
         encoding="utf-8",
     )
     # Only entries on or after 2026-03-20 should be returned
@@ -361,7 +373,9 @@ def test_metabolize_weekly_returns_count_and_path(xdg_env, monkeypatch, tmp_path
     monkeypatch.setattr("metabolon.organelles.endocytosis_rss.digest.Path.home", lambda: tmp_path)
 
     # Stub out affinity log loading so no external files needed
-    monkeypatch.setattr("metabolon.organelles.endocytosis_rss.digest.recall_affinity_entries", lambda _since: [])
+    monkeypatch.setattr(
+        "metabolon.organelles.endocytosis_rss.digest.recall_affinity_entries", lambda _since: []
+    )
 
     item_count, output_path = metabolize_weekly(cfg=cfg)
 

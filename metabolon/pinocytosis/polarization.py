@@ -77,9 +77,7 @@ def _praxis_agent_claude() -> list[str]:
     if not PRAXIS_FILE.exists():
         return []
     return [
-        line.strip()
-        for line in PRAXIS_FILE.read_text().splitlines()
-        if "agent:claude" in line
+        line.strip() for line in PRAXIS_FILE.read_text().splitlines() if "agent:claude" in line
     ]
 
 
@@ -89,6 +87,7 @@ def _praxis_phantom_count() -> int:
         return 0
     try:
         from metabolon.dispatch_gate import sweep_praxis_for_phantoms
+
         phantoms = sweep_praxis_for_phantoms(PRAXIS_FILE.read_text())
         return len(phantoms)
     except Exception:
@@ -189,8 +188,12 @@ def intake(as_json: bool = False) -> str:
 
     # Dispatch gate: phantom obligation check
     if phantom_count > 0:
-        lines.append(f"DISPATCH GATE  {phantom_count} suspect phantom agent:terry item(s) in Praxis")
-        lines.append("  Run `phantom_sweep()` in respiration to review. These may be un-sourced obligations.")
+        lines.append(
+            f"DISPATCH GATE  {phantom_count} suspect phantom agent:terry item(s) in Praxis"
+        )
+        lines.append(
+            "  Run `phantom_sweep()` in respiration to review. These may be un-sourced obligations."
+        )
     else:
         lines.append("DISPATCH GATE  no phantom agent:terry items detected")
     lines.append("")
@@ -282,6 +285,7 @@ def budget(as_json: bool = False) -> str:
     """Fetch fresh budget data and return a clean summary."""
     try:
         from metabolon.respirometry import get_usage
+
         usage = get_usage()
     except Exception:
         # Fallback: shell out to respirometry --json

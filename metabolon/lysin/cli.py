@@ -1,7 +1,10 @@
-import click
 import sys
-from metabolon.lysin.fetch import fetch_summary, fetch_sections, BioArticle
-from metabolon.lysin.format import format_text, format_json
+
+import click
+
+from metabolon.lysin.fetch import fetch_sections, fetch_summary
+from metabolon.lysin.format import format_json, format_text
+
 
 @click.command()
 @click.argument("term")
@@ -24,5 +27,6 @@ def main(term: str, full: bool, as_json: bool):
         click.echo(f"Error: {e}", err=True)
         sys.exit(1)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     main()

@@ -27,55 +27,53 @@ from pathlib import Path
 
 _REGISTRY: dict[str, str] = {
     # --- Deterministic (cytosol) ---
-    "inflammasome_probes": "deterministic",       # _PROBES list — pure Python health checks
-    "infection_logging": "deterministic",          # record_infection() → SQLite
-    "chromatin_recall": "deterministic",           # vector DB recall, no LLM
-    "rss_fetch": "deterministic",                  # endocytosis RSS — HTTP + parse
-    "rss_sorting": "deterministic",                # sorting.py — tag rules
-    "respirometry_parse": "deterministic",         # bank statement parsers
-    "circadian_read": "deterministic",             # Oura API read — pure HTTP
-    "membrane_potential": "deterministic",         # readiness threshold logic
-    "fasti_calendar": "deterministic",             # calendar read via applescript
-    "disk_lysosome": "deterministic",              # cargo-sweep + rm — pure subprocess
-    "nociception_log": "deterministic",            # file append
-    "infection_summary": "deterministic",          # DB query + aggregate
-    "anabolism_signals": "deterministic",          # git log + file reads
-    "angiogenesis_detect": "deterministic",        # infection log scan — pattern match
-    "sporulation": "deterministic",                # checkpoint save/load — file I/O
-    "histone_store": "deterministic",              # SQLite insert/query
-    "exocytosis_telegram": "deterministic",        # Telegram API call
-    "exocytosis_tweet": "deterministic",           # Twitter API call
-    "gap_junction_read": "deterministic",          # WhatsApp read — pure HTTP
-    "endosomal_gmail": "deterministic",            # Gmail API — pure HTTP
-    "pinocytosis_fetch": "deterministic",          # HTTP fetch, no LLM
-    "chemotaxis_perplexity": "deterministic",      # Perplexity API — routes query, no internal LLM
-    "setpoint_acclimatise": "deterministic",       # threshold drift — pure math
-    "circadian_clock": "deterministic",            # cron scheduling
-    "perfusion_routing": "deterministic",          # star routing table lookup
-    "glycolysis_rate": "deterministic",            # this module — self-referential
-
+    "inflammasome_probes": "deterministic",  # _PROBES list — pure Python health checks
+    "infection_logging": "deterministic",  # record_infection() → SQLite
+    "chromatin_recall": "deterministic",  # vector DB recall, no LLM
+    "rss_fetch": "deterministic",  # endocytosis RSS — HTTP + parse
+    "rss_sorting": "deterministic",  # sorting.py — tag rules
+    "respirometry_parse": "deterministic",  # bank statement parsers
+    "circadian_read": "deterministic",  # Oura API read — pure HTTP
+    "membrane_potential": "deterministic",  # readiness threshold logic
+    "fasti_calendar": "deterministic",  # calendar read via applescript
+    "disk_lysosome": "deterministic",  # cargo-sweep + rm — pure subprocess
+    "nociception_log": "deterministic",  # file append
+    "infection_summary": "deterministic",  # DB query + aggregate
+    "anabolism_signals": "deterministic",  # git log + file reads
+    "angiogenesis_detect": "deterministic",  # infection log scan — pattern match
+    "sporulation": "deterministic",  # checkpoint save/load — file I/O
+    "histone_store": "deterministic",  # SQLite insert/query
+    "exocytosis_telegram": "deterministic",  # Telegram API call
+    "exocytosis_tweet": "deterministic",  # Twitter API call
+    "gap_junction_read": "deterministic",  # WhatsApp read — pure HTTP
+    "endosomal_gmail": "deterministic",  # Gmail API — pure HTTP
+    "pinocytosis_fetch": "deterministic",  # HTTP fetch, no LLM
+    "chemotaxis_perplexity": "deterministic",  # Perplexity API — routes query, no internal LLM
+    "setpoint_acclimatise": "deterministic",  # threshold drift — pure math
+    "circadian_clock": "deterministic",  # cron scheduling
+    "perfusion_routing": "deterministic",  # star routing table lookup
+    "glycolysis_rate": "deterministic",  # this module — self-referential
     # --- Symbiont-dependent (mitochondrial) ---
-    "homeostasis_financial": "symbiont",           # synthesize() LLM call over vault notes
-    "repair_diagnosis": "symbiont",                # immune_response() → LLM metaprompt
-    "methylation_crystallise": "symbiont",         # LLM judgment → permanent rule
-    "taste_judge": "symbiont",                     # constitutional gate — LLM scoring
-    "transduction_digest": "symbiont",             # content synthesis via LLM
-    "potentiation": "symbiont",                    # LLM drill generation
-    "engram_anam": "symbiont",                     # semantic search → LLM synthesis
-    "ligand_draft": "symbiont",                    # email drafting via LLM
-    "rheotaxis_synthesis": "symbiont",             # multi-source synthesis via LLM
-    "proprioception_gradient": "symbiont",         # skill gap analysis via LLM
-    "germination_brief": "symbiont",               # project brief synthesis via LLM
-    "entrainment_brief": "symbiont",               # circadian brief via LLM
-    "emit_spark": "symbiont",                      # idea generation via LLM
-    "emit_praxis": "symbiont",                     # praxis update via LLM
-    "poiesis_wave": "symbiont",                    # creative synthesis via LLM
-
+    "homeostasis_financial": "symbiont",  # synthesize() LLM call over vault notes
+    "repair_diagnosis": "symbiont",  # immune_response() → LLM metaprompt
+    "methylation_crystallise": "symbiont",  # LLM judgment → permanent rule
+    "taste_judge": "symbiont",  # constitutional gate — LLM scoring
+    "transduction_digest": "symbiont",  # content synthesis via LLM
+    "potentiation": "symbiont",  # LLM drill generation
+    "engram_anam": "symbiont",  # semantic search → LLM synthesis
+    "ligand_draft": "symbiont",  # email drafting via LLM
+    "rheotaxis_synthesis": "symbiont",  # multi-source synthesis via LLM
+    "proprioception_gradient": "symbiont",  # skill gap analysis via LLM
+    "germination_brief": "symbiont",  # project brief synthesis via LLM
+    "entrainment_brief": "symbiont",  # circadian brief via LLM
+    "emit_spark": "symbiont",  # idea generation via LLM
+    "emit_praxis": "symbiont",  # praxis update via LLM
+    "poiesis_wave": "symbiont",  # creative synthesis via LLM
     # --- Hybrid (deterministic match + symbiont fallback) ---
-    "adaptive_repair": "hybrid",                   # inflammasome: deterministic patterns first, LLM fallback
-    "angiogenesis_propose": "hybrid",              # detect = deterministic, propose = LLM
-    "endocytosis_relevance": "hybrid",             # scoring heuristic + LLM rerank
-    "rss_breaking": "hybrid",                      # rule filter + LLM significance check
+    "adaptive_repair": "hybrid",  # inflammasome: deterministic patterns first, LLM fallback
+    "angiogenesis_propose": "hybrid",  # detect = deterministic, propose = LLM
+    "endocytosis_relevance": "hybrid",  # scoring heuristic + LLM rerank
+    "rss_breaking": "hybrid",  # rule filter + LLM significance check
 }
 
 _SNAPSHOT_PATH = Path.home() / ".cache" / "glycolysis" / "snapshots.jsonl"
@@ -136,13 +134,15 @@ def trend(days: int = 30) -> list[dict]:
         if entry_date < cutoff:
             continue
         seen_dates.add(date_str)
-        results.append({
-            "date": date_str,
-            "glycolysis_pct": entry.get("glycolysis_pct"),
-            "deterministic_count": entry.get("deterministic_count"),
-            "symbiont_count": entry.get("symbiont_count"),
-            "hybrid_count": entry.get("hybrid_count"),
-        })
+        results.append(
+            {
+                "date": date_str,
+                "glycolysis_pct": entry.get("glycolysis_pct"),
+                "deterministic_count": entry.get("deterministic_count"),
+                "symbiont_count": entry.get("symbiont_count"),
+                "hybrid_count": entry.get("hybrid_count"),
+            }
+        )
 
     return list(reversed(results))
 
@@ -151,7 +151,7 @@ def snapshot() -> dict:
     """Run measure_rate() and append to snapshots.jsonl with ISO timestamp."""
     rate = measure_rate()
     entry = {
-        "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        "timestamp": datetime.datetime.now(datetime.UTC).isoformat(),
         **rate,
     }
     _SNAPSHOT_PATH.parent.mkdir(parents=True, exist_ok=True)

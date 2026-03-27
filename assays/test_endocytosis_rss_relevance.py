@@ -10,7 +10,9 @@ from metabolon.organelles.endocytosis_rss import relevance
 @pytest.fixture(autouse=True)
 def force_keyword_fallback(monkeypatch):
     """Block all LLM calls — force deterministic keyword fallback."""
-    monkeypatch.setattr(relevance, "_symbiont_transduce", lambda *a, **kw: (_ for _ in ()).throw(FileNotFoundError))
+    monkeypatch.setattr(
+        relevance, "_symbiont_transduce", lambda *a, **kw: (_ for _ in ()).throw(FileNotFoundError)
+    )
 
 
 def test_keyword_scoring():
@@ -77,9 +79,30 @@ def test_get_stats(tmp_path, monkeypatch):
     relevance_log.write_text(
         "\n".join(
             [
-                json.dumps({"timestamp": "2026-03-10T10:00:00+00:00", "title": "Low but engaged", "source": "A", "score": 4}),
-                json.dumps({"timestamp": "2026-03-10T11:00:00+00:00", "title": "High ignored", "source": "B", "score": 8}),
-                json.dumps({"timestamp": "2026-03-10T12:00:00+00:00", "title": "High engaged", "source": "C", "score": 9}),
+                json.dumps(
+                    {
+                        "timestamp": "2026-03-10T10:00:00+00:00",
+                        "title": "Low but engaged",
+                        "source": "A",
+                        "score": 4,
+                    }
+                ),
+                json.dumps(
+                    {
+                        "timestamp": "2026-03-10T11:00:00+00:00",
+                        "title": "High ignored",
+                        "source": "B",
+                        "score": 8,
+                    }
+                ),
+                json.dumps(
+                    {
+                        "timestamp": "2026-03-10T12:00:00+00:00",
+                        "title": "High engaged",
+                        "source": "C",
+                        "score": 9,
+                    }
+                ),
             ]
         )
         + "\n",
@@ -88,8 +111,20 @@ def test_get_stats(tmp_path, monkeypatch):
     engagement_log.write_text(
         "\n".join(
             [
-                json.dumps({"timestamp": "2026-03-10T13:00:00+00:00", "title": "Low but engaged", "action": "deepened"}),
-                json.dumps({"timestamp": "2026-03-10T14:00:00+00:00", "title": "High engaged", "action": "deepened"}),
+                json.dumps(
+                    {
+                        "timestamp": "2026-03-10T13:00:00+00:00",
+                        "title": "Low but engaged",
+                        "action": "deepened",
+                    }
+                ),
+                json.dumps(
+                    {
+                        "timestamp": "2026-03-10T14:00:00+00:00",
+                        "title": "High engaged",
+                        "action": "deepened",
+                    }
+                ),
             ]
         )
         + "\n",
@@ -154,10 +189,13 @@ def test_engagement_boost_false_positive_penalty(tmp_path, monkeypatch):
     monkeypatch.setattr(relevance, "RECYCLING_LOG", engagement_log)
 
     relevance_log.write_text(
-        "\n".join([
-            json.dumps({"title": "Hype piece one", "source": "HypeSource", "score": 8}),
-            json.dumps({"title": "Hype piece two", "source": "HypeSource", "score": 9}),
-        ]) + "\n",
+        "\n".join(
+            [
+                json.dumps({"title": "Hype piece one", "source": "HypeSource", "score": 8}),
+                json.dumps({"title": "Hype piece two", "source": "HypeSource", "score": 9}),
+            ]
+        )
+        + "\n",
         encoding="utf-8",
     )
     # No engagement entries — empty log
@@ -284,12 +322,11 @@ def test_get_source_signal_ratio_ignores_outside_window(tmp_path, monkeypatch):
     monkeypatch.setattr(relevance, "AFFINITY_LOG", log_path)
 
     # 5 old (outside 30-day window) + 5 recent noise items
-    old_str = "2025-01-01T10:00:00+00:00"   # well outside window
+    old_str = "2025-01-01T10:00:00+00:00"  # well outside window
     recent_str = "2026-03-25T10:00:00+00:00"
-    lines = (
-        [json.dumps({"timestamp": old_str, "source": "MixedFeed", "score": 9})] * 5
-        + [json.dumps({"timestamp": recent_str, "source": "MixedFeed", "score": 1})] * 5
-    )
+    lines = [json.dumps({"timestamp": old_str, "source": "MixedFeed", "score": 9})] * 5 + [
+        json.dumps({"timestamp": recent_str, "source": "MixedFeed", "score": 1})
+    ] * 5
     log_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
     ratio = relevance.receptor_signal_ratio("MixedFeed", window_days=30)

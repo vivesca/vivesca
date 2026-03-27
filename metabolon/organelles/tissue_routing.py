@@ -7,16 +7,16 @@ not just cost tiers. Reads FROM mitophagy outcomes; never duplicates tracking.
 from __future__ import annotations
 
 _DEFAULTS: dict[str, str] = {
-    "probe": "haiku",             # mechanical checks, cheap
-    "repair_known": "haiku",      # pattern matching, deterministic-adjacent
-    "repair_novel": "sonnet",     # diagnosis needs reasoning
-    "methylation": "sonnet",      # pattern crystallization
-    "hybridization": "opus",      # creative design, highest judgment
-    "research": "sonnet",         # web search + synthesis
-    "coding": "codex",            # formulaic code, free
-    "synthesis": "opus",          # content requiring taste
-    "poiesis_dispatch": "sonnet", # wave orchestration
-    "quality_gate": "sonnet",     # verification
+    "probe": "haiku",  # mechanical checks, cheap
+    "repair_known": "haiku",  # pattern matching, deterministic-adjacent
+    "repair_novel": "sonnet",  # diagnosis needs reasoning
+    "methylation": "sonnet",  # pattern crystallization
+    "hybridization": "opus",  # creative design, highest judgment
+    "research": "sonnet",  # web search + synthesis
+    "coding": "codex",  # formulaic code, free
+    "synthesis": "opus",  # content requiring taste
+    "poiesis_dispatch": "sonnet",  # wave orchestration
+    "quality_gate": "sonnet",  # verification
 }
 
 
@@ -38,7 +38,10 @@ def observed_routes() -> dict[str, str]:
         for row in model_fitness(days=7):
             task, model = row.get("task_type", ""), row.get("model", "")
             if task and model:
-                by_task.setdefault(task, {})[model] = (row.get("rate", 0.0), row.get("attempts", 0))
+                by_task.setdefault(task, {})[model] = (
+                    row.get("rate", 0.0),
+                    row.get("attempts", 0),
+                )
 
         for task, candidates in by_task.items():
             eligible = {m: v for m, v in candidates.items() if not is_blacklisted(m, task)}
@@ -97,6 +100,8 @@ def route_report() -> str:
         lines.append(f"  {task:<20} -> {active_m}  {annotation}{flag}")
 
     if blacklisted_pairs:
-        lines += ["", "Blacklisted pairs:"] + [f"  {m} x {t}" for m, t in sorted(blacklisted_pairs)]
+        lines += ["", "Blacklisted pairs:"] + [
+            f"  {m} x {t}" for m, t in sorted(blacklisted_pairs)
+        ]
 
     return "\n".join(lines)

@@ -7,7 +7,7 @@ Credentials: PERPLEXITY_API_KEY env var.
 import json
 import os
 import urllib.request
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 _API_URL = "https://api.perplexity.ai/chat/completions"
@@ -68,11 +68,16 @@ def _query(model: str, query: str, timeout: int = 300) -> str:
     try:
         _LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
         with open(_LOG_PATH, "a") as f:
-            f.write(json.dumps({
-                "ts": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-                "model": model,
-                "query": query,
-            }) + "\n")
+            f.write(
+                json.dumps(
+                    {
+                        "ts": datetime.now(UTC).isoformat(timespec="seconds"),
+                        "model": model,
+                        "query": query,
+                    }
+                )
+                + "\n"
+            )
     except OSError:
         pass
 

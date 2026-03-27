@@ -20,7 +20,9 @@ from typing import Any
 # HKT = UTC+8
 HKT = timezone(timedelta(hours=8))
 
-from metabolon.locus import praxis as _PRAXIS_PATH, tonus as _TONUS_PATH
+from metabolon.locus import praxis as _PRAXIS_PATH
+from metabolon.locus import tonus as _TONUS_PATH
+
 PRAXIS_PATH = str(_PRAXIS_PATH)
 TONUS_PATH = str(_TONUS_PATH)
 
@@ -166,9 +168,8 @@ def recall_todo(
             if not any(s.lower() in section_lower for s in sections):
                 continue
 
-        if tags:
-            if not all(item["tags"].get(k) == v for k, v in tags.items()):
-                continue
+        if tags and not all(item["tags"].get(k) == v for k, v in tags.items()):
+            continue
 
         items.append(item)
 
@@ -230,11 +231,10 @@ def recall_todo_today(date_iso: str | None = None) -> dict[str, Any]:
             elif r == "3x-week":
                 if day_of_week in (0, 2, 4):
                     qualifying.append(item)
-            elif r == "biweekly":
-                if due_str:
-                    d = _parse_date(due_str)
-                    if d and d <= today:
-                        qualifying.append(item)
+            elif r == "biweekly" and due_str:
+                d = _parse_date(due_str)
+                if d and d <= today:
+                    qualifying.append(item)
 
     def _sort_key(item: dict[str, Any]) -> tuple:
         d = _parse_date(item.get("due") or "9999-12-31")
@@ -262,8 +262,13 @@ def sense_tonus(path: str = TONUS_PATH) -> dict[str, Any]:
 
     if raw is None:
         return {
-            "available": False, "path": expanded, "facts": [], "progress": [],
-            "raw": None, "last_wrap": None, "error": "file not found",
+            "available": False,
+            "path": expanded,
+            "facts": [],
+            "progress": [],
+            "raw": None,
+            "last_wrap": None,
+            "error": "file not found",
         }
 
     facts: list[str] = []
@@ -295,15 +300,22 @@ def sense_tonus(path: str = TONUS_PATH) -> dict[str, Any]:
             if pm:
                 detail = pm.group("rest").strip()
                 detail = re.sub(r"^[.\s]+", "", detail)
-                progress.append({
-                    "state": pm.group("state").strip(),
-                    "title": pm.group("title").strip(),
-                    "detail": detail,
-                })
+                progress.append(
+                    {
+                        "state": pm.group("state").strip(),
+                        "title": pm.group("title").strip(),
+                        "detail": detail,
+                    }
+                )
 
     return {
-        "available": True, "path": expanded, "facts": facts, "progress": progress,
-        "raw": raw, "last_wrap": last_wrap, "error": None,
+        "available": True,
+        "path": expanded,
+        "facts": facts,
+        "progress": progress,
+        "raw": raw,
+        "last_wrap": last_wrap,
+        "error": None,
     }
 
 
@@ -320,8 +332,22 @@ def sense_calendar(date: str = "today", days: int = 1) -> dict[str, Any]:
         try:
             stdout = scheduled_events(date)
         except Exception as e:
-            return {"available": False, "date": date, "days": days, "raw": None, "events": [], "error": str(e)}
-        return {"available": True, "date": date, "days": days, "raw": stdout, "events": _parse_calendar_output(stdout), "error": None}
+            return {
+                "available": False,
+                "date": date,
+                "days": days,
+                "raw": None,
+                "events": [],
+                "error": str(e),
+            }
+        return {
+            "available": True,
+            "date": date,
+            "days": days,
+            "raw": stdout,
+            "events": _parse_calendar_output(stdout),
+            "error": None,
+        }
 
     if date in ("today", "tomorrow"):
         now = datetime.now(HKT)
@@ -348,8 +374,11 @@ def sense_calendar(date: str = "today", days: int = 1) -> dict[str, Any]:
 
     return {
         "available": bool(all_events or not errors),
-        "date": date, "days": days, "raw": "\n".join(all_raw),
-        "events": all_events, "error": "; ".join(errors) if errors else None,
+        "date": date,
+        "days": days,
+        "raw": "\n".join(all_raw),
+        "events": all_events,
+        "error": "; ".join(errors) if errors else None,
     }
 
 
@@ -373,16 +402,34 @@ def _parse_calendar_output(text: str) -> list[dict[str, str]]:
 
         m = time_range_re.match(line)
         if m:
-            events.append({"raw_line": line, "time": m.group("time"), "end_time": m.group("end_time") or "", "title": m.group("title").strip(), "all_day": False})
+            events.append(
+                {
+                    "raw_line": line,
+                    "time": m.group("time"),
+                    "end_time": m.group("end_time") or "",
+                    "title": m.group("title").strip(),
+                    "all_day": False,
+                }
+            )
             continue
 
         m = allday_re.match(line)
         if m:
-            events.append({"raw_line": line, "time": "", "end_time": "", "title": m.group("title").strip(), "all_day": True})
+            events.append(
+                {
+                    "raw_line": line,
+                    "time": "",
+                    "end_time": "",
+                    "title": m.group("title").strip(),
+                    "all_day": True,
+                }
+            )
             continue
 
         if not line.startswith("#") and len(line) > 2:
-            events.append({"raw_line": line, "time": "", "end_time": "", "title": line, "all_day": False})
+            events.append(
+                {"raw_line": line, "time": "", "end_time": "", "title": line, "all_day": False}
+            )
 
     return events
 
@@ -398,7 +445,13 @@ def sense_budget() -> dict[str, Any]:
     if not stdout and stderr:
         return {"available": False, "raw": None, "summary": None, "lines": [], "error": stderr}
     lines = [l for l in stdout.splitlines() if l.strip()]
-    return {"available": True, "raw": stdout, "summary": lines[0] if lines else None, "lines": lines, "error": None}
+    return {
+        "available": True,
+        "raw": stdout,
+        "summary": lines[0] if lines else None,
+        "lines": lines,
+        "error": None,
+    }
 
 
 # ---------------------------------------------------------------------------

@@ -176,7 +176,9 @@ class VasomotorSubstrate:
                 estimated_burn = latest_pc.get("estimated_burn")
                 # Fall back: systoles_today as burn proxy
                 if estimated_burn is None:
-                    estimated_burn = latest_pc.get("systoles_today") or latest_pc.get("waves_today")
+                    estimated_burn = latest_pc.get("systoles_today") or latest_pc.get(
+                        "waves_today"
+                    )
 
             # Compute avg systole duration
             avg_duration = (
@@ -387,7 +389,9 @@ class VasomotorSubstrate:
         if len(all_durations) >= 3 and recent:
             overall_avg = statistics.mean(all_durations)
             recent_durations = [
-                d["avg_systole_duration"] for d in recent if d.get("avg_systole_duration") is not None
+                d["avg_systole_duration"]
+                for d in recent
+                if d.get("avg_systole_duration") is not None
             ]
             if recent_durations and overall_avg > 0:
                 recent_avg = statistics.mean(recent_durations)

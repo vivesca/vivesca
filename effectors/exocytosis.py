@@ -7,8 +7,6 @@
 
 import configparser
 import json
-import re
-import subprocess
 from pathlib import Path
 
 import anthropic
@@ -105,7 +103,8 @@ def judge(post: str) -> tuple[bool, str]:
 
 
 def publish(title: str, body: str) -> str:
-    from metabolon.organelles.golgi import new, publish as garden_publish
+    from metabolon.organelles.golgi import new
+    from metabolon.organelles.golgi import publish as garden_publish
 
     slug, post_path = new(title)
     content = post_path.read_text()

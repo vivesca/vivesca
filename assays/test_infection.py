@@ -2,25 +2,19 @@
 
 from __future__ import annotations
 
-import json
-
-import pytest
-
 from metabolon.metabolism.infection import (
-    ChronicPattern,
-    InfectionEvent,
+    CHRONIC_THRESHOLD,
+    _fingerprint,
     chronic_infections,
     infection_summary,
-    record_infection,
     recall_infections,
-    _fingerprint,
-    CHRONIC_THRESHOLD,
+    record_infection,
 )
-
 
 # ---------------------------------------------------------------------------
 # _fingerprint
 # ---------------------------------------------------------------------------
+
 
 def test_fingerprint_is_deterministic():
     fp1 = _fingerprint("my_tool", "connection refused")
@@ -48,6 +42,7 @@ def test_fingerprint_length():
 # ---------------------------------------------------------------------------
 # record_infection / recall_infections
 # ---------------------------------------------------------------------------
+
 
 def test_record_infection_creates_file(tmp_path):
     log = tmp_path / "infections.jsonl"
@@ -104,6 +99,7 @@ def test_infection_event_has_fingerprint(tmp_path):
 # ---------------------------------------------------------------------------
 # chronic_infections
 # ---------------------------------------------------------------------------
+
 
 def test_no_chronics_below_threshold(tmp_path):
     log = tmp_path / "infections.jsonl"
@@ -165,6 +161,7 @@ def test_chronic_empty_when_no_log(tmp_path):
 # ---------------------------------------------------------------------------
 # infection_summary
 # ---------------------------------------------------------------------------
+
 
 def test_infection_summary_empty_when_no_events(tmp_path):
     log = tmp_path / "infections.jsonl"

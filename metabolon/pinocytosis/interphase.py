@@ -6,7 +6,6 @@ Praxis, Tonus, budget, reminders, email threads tracker, prospective memory.
 
 import concurrent.futures
 import datetime
-import json
 from pathlib import Path
 
 from metabolon.pinocytosis import (
@@ -34,7 +33,13 @@ def intake_emails() -> dict:
 def intake_emails_archived() -> dict:
     """Catch emails Cora archived today that skipped the inbox."""
     ok, out = run_cmd(
-        ["gog", "gmail", "search", "newer_than:1d -in:inbox -from:briefs@cora.computer", "--plain"],
+        [
+            "gog",
+            "gmail",
+            "search",
+            "newer_than:1d -in:inbox -from:briefs@cora.computer",
+            "--plain",
+        ],
         timeout=30,
     )
     return {"label": "Today's Archived (Cora safety net)", "ok": ok, "content": out or "(none)"}
@@ -42,11 +47,17 @@ def intake_emails_archived() -> dict:
 
 def intake_whatsapp() -> dict:
     yesterday = (datetime.date.today() - datetime.timedelta(days=1)).isoformat()
-    ok, out = run_cmd(["wacli", "messages", "list", "--after", yesterday, "--limit", "40"], timeout=15)
+    ok, out = run_cmd(
+        ["wacli", "messages", "list", "--after", yesterday, "--limit", "40"], timeout=15
+    )
     if not ok:
         ok2, out2 = run_cmd(["wacli", "chats", "list", "--limit", "20"], timeout=10)
         if ok2:
-            return {"label": "WhatsApp (recent chats - messages unavailable)", "ok": True, "content": out2}
+            return {
+                "label": "WhatsApp (recent chats - messages unavailable)",
+                "ok": True,
+                "content": out2,
+            }
         return {"label": "WhatsApp Messages", "ok": False, "content": out}
     return {"label": "WhatsApp Messages (last 24h)", "ok": True, "content": out}
 
@@ -118,7 +129,10 @@ def intake(as_json: bool = True) -> str:
 
     results = transduce(
         ctx,
-        calendar_keys={"calendar_today": "Today's Calendar", "calendar_tomorrow": "Tomorrow's Calendar"},
+        calendar_keys={
+            "calendar_today": "Today's Calendar",
+            "calendar_tomorrow": "Tomorrow's Calendar",
+        },
     )
 
     # Interphase-specific gatherers in parallel

@@ -152,6 +152,7 @@ def test_epigenome_initialises_git_repo(tmp_path):
 def test_epigenome_refuses_non_empty_directory(tmp_path):
     """Scaffold refuses to overwrite a non-empty directory."""
     import click
+
     from metabolon.gastrulation.epigenome import scaffold_epigenome
 
     target = tmp_path / "epigenome"
@@ -174,6 +175,7 @@ def test_epigenome_returns_path(tmp_path):
 def test_epigenome_default_name_via_cli(tmp_path):
     """CLI command defaults to 'epigenome' when no name given."""
     from click.testing import CliRunner
+
     from metabolon.pore import cli
 
     runner = CliRunner()
@@ -187,6 +189,7 @@ def test_epigenome_default_name_via_cli(tmp_path):
 def test_epigenome_custom_name_via_cli(tmp_path):
     """CLI command accepts a custom name argument."""
     from click.testing import CliRunner
+
     from metabolon.pore import cli
 
     runner = CliRunner()

@@ -28,7 +28,12 @@ def mitosis_sync(targets: list[str] | None = None) -> EffectorResult:
 
     report = sync(targets)
     results_summary = [
-        {"target": r.target, "ok": r.success, "elapsed_s": round(r.elapsed_s, 1), "error": r.message}
+        {
+            "target": r.target,
+            "ok": r.success,
+            "elapsed_s": round(r.elapsed_s, 1),
+            "error": r.message,
+        }
         for r in report.results
     ]
     return EffectorResult(
@@ -56,7 +61,8 @@ def mitosis_status() -> Vital:
         )
 
     stale = [
-        name for name, t in info.get("targets", {}).items()
+        name
+        for name, t in info.get("targets", {}).items()
         if t.get("state") in ("stale", "missing")
     ]
     if stale:

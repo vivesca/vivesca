@@ -14,6 +14,7 @@ import sys
 from datetime import datetime
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import contextlib
 from pathlib import Path
 
 TRIGGERS_FILE = Path.home() / ".claude" / "skill-triggers.json"
@@ -65,10 +66,8 @@ def main():
                 break  # One match per skill is enough
 
     # Always cache the prompt for the learn hook to read
-    try:
+    with contextlib.suppress(OSError):
         PROMPT_CACHE.write_text(prompt[:500])
-    except OSError:
-        pass
 
     if matches:
         ts = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")

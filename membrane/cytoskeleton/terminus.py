@@ -73,7 +73,6 @@ ANAB_LOCK = HOME / "tmp" / ".anabolism-guard-active"
 
 
 def mod_anabolism():
-    data = {}
     # stdin already consumed by main, pass through
     if not ANAB_LOCK.exists():
         return

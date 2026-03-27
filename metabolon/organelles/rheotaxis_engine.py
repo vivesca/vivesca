@@ -14,7 +14,6 @@ import os
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
-from typing import Optional
 
 # Reuse Perplexity backend
 from . import chemotaxis_engine
@@ -54,10 +53,12 @@ def search_exa(query: str, timeout: int = 15) -> SearchResult:
     """Exa — neural search, good for finding specific entities/locations."""
     try:
         key = _get_key("EXA_API_KEY")
-        body = json.dumps({
-            "query": query,
-            "numResults": 5,
-        }).encode()
+        body = json.dumps(
+            {
+                "query": query,
+                "numResults": 5,
+            }
+        ).encode()
         req = urllib.request.Request(
             "https://api.exa.ai/search",
             data=body,
@@ -72,11 +73,13 @@ def search_exa(query: str, timeout: int = 15) -> SearchResult:
             data = json.loads(resp.read())
         results = []
         for r in data.get("results", []):
-            results.append({
-                "title": r.get("title", ""),
-                "url": r.get("url", ""),
-                "snippet": (r.get("text", "") or "")[:300],
-            })
+            results.append(
+                {
+                    "title": r.get("title", ""),
+                    "url": r.get("url", ""),
+                    "snippet": (r.get("text", "") or "")[:300],
+                }
+            )
         return SearchResult(backend="exa", query=query, results=results)
     except Exception as e:
         return SearchResult(backend="exa", query=query, results=[], error=str(e))
@@ -86,12 +89,14 @@ def search_tavily(query: str, timeout: int = 15) -> SearchResult:
     """Tavily — search API built for AI agents, returns answer + results."""
     try:
         key = _get_key("TAVILY_API_KEY")
-        body = json.dumps({
-            "query": query,
-            "search_depth": "basic",
-            "include_answer": True,
-            "max_results": 5,
-        }).encode()
+        body = json.dumps(
+            {
+                "query": query,
+                "search_depth": "basic",
+                "include_answer": True,
+                "max_results": 5,
+            }
+        ).encode()
         req = urllib.request.Request(
             "https://api.tavily.com/search",
             data=body,
@@ -104,11 +109,13 @@ def search_tavily(query: str, timeout: int = 15) -> SearchResult:
             data = json.loads(resp.read())
         results = []
         for r in data.get("results", []):
-            results.append({
-                "title": r.get("title", ""),
-                "url": r.get("url", ""),
-                "snippet": r.get("content", "")[:300],
-            })
+            results.append(
+                {
+                    "title": r.get("title", ""),
+                    "url": r.get("url", ""),
+                    "snippet": r.get("content", "")[:300],
+                }
+            )
         return SearchResult(
             backend="tavily",
             query=query,
@@ -123,10 +130,12 @@ def search_serper(query: str, timeout: int = 15) -> SearchResult:
     """Serper — Google SERP results, good for local/maps queries."""
     try:
         key = _get_key("SERPER_API_KEY")
-        body = json.dumps({
-            "q": query,
-            "num": 5,
-        }).encode()
+        body = json.dumps(
+            {
+                "q": query,
+                "num": 5,
+            }
+        ).encode()
         req = urllib.request.Request(
             "https://google.serper.dev/search",
             data=body,
@@ -139,11 +148,13 @@ def search_serper(query: str, timeout: int = 15) -> SearchResult:
             data = json.loads(resp.read())
         results = []
         for r in data.get("organic", []):
-            results.append({
-                "title": r.get("title", ""),
-                "url": r.get("link", ""),
-                "snippet": r.get("snippet", "")[:300],
-            })
+            results.append(
+                {
+                    "title": r.get("title", ""),
+                    "url": r.get("link", ""),
+                    "snippet": r.get("snippet", "")[:300],
+                }
+            )
         # Include knowledge graph if present
         kg = data.get("knowledgeGraph", {})
         answer = ""
@@ -169,7 +180,7 @@ _BACKENDS = {
 
 def parallel_search(
     query: str,
-    backends: Optional[list[str]] = None,
+    backends: list[str] | None = None,
     timeout: int = 20,
 ) -> list[SearchResult]:
     """Search all backends in parallel. Returns list of SearchResults."""
@@ -178,9 +189,7 @@ def parallel_search(
 
     with ThreadPoolExecutor(max_workers=len(backends)) as pool:
         futures = {
-            pool.submit(_BACKENDS[b], query, timeout): b
-            for b in backends
-            if b in _BACKENDS
+            pool.submit(_BACKENDS[b], query, timeout): b for b in backends if b in _BACKENDS
         }
         results = []
         for future in as_completed(futures):
@@ -190,7 +199,7 @@ def parallel_search(
 
 def multi_query_search(
     queries: list[str],
-    backends: Optional[list[str]] = None,
+    backends: list[str] | None = None,
     timeout: int = 20,
 ) -> dict[str, list[SearchResult]]:
     """Run multiple query framings across all backends.
@@ -229,7 +238,7 @@ def format_results(results: list[SearchResult]) -> str:
         for hit in r.results:
             lines.append(f"  - {hit['title']}")
             lines.append(f"    {hit['url']}")
-            if hit['snippet']:
+            if hit["snippet"]:
                 lines.append(f"    {hit['snippet'][:150]}")
         if not r.answer and not r.results:
             lines.append("  (no results)")

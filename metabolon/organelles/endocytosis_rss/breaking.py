@@ -8,7 +8,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -74,7 +74,7 @@ def _article_is_fresh(
     except (ValueError, TypeError):
         return True  # malformed date → don't suppress
     if pub.tzinfo is None:
-        pub = pub.replace(tzinfo=timezone.utc)
+        pub = pub.replace(tzinfo=UTC)
     age = (now - pub).total_seconds()
     return age <= max_hours * 3600
 
@@ -84,9 +84,7 @@ def is_breaking(title: str) -> bool:
         return False
     if not ACTIONS.search(title):
         return False
-    if NEGATIVE.search(title):
-        return False
-    return True
+    return not NEGATIVE.search(title)
 
 
 def article_hash(title: str, link: str, source: str) -> str:
@@ -156,7 +154,7 @@ def can_alert(state: dict[str, Any], now: datetime) -> bool:
     except ValueError:
         return True
     if last_dt.tzinfo is None:
-        last_dt = last_dt.replace(tzinfo=timezone.utc)
+        last_dt = last_dt.replace(tzinfo=UTC)
     return (now - last_dt).total_seconds() >= COOLDOWN_MINUTES * 60
 
 
@@ -179,7 +177,7 @@ def _age_minutes(published_at: str, now: datetime) -> float | None:
     except (ValueError, TypeError):
         return None
     if pub.tzinfo is None:
-        pub = pub.replace(tzinfo=timezone.utc)
+        pub = pub.replace(tzinfo=UTC)
     return round((now - pub).total_seconds() / 60, 1)
 
 
@@ -271,7 +269,9 @@ def _send_alert(
         print(f"Telegram error: {exc}", file=sys.stderr)
 
 
-def _append_breaking_log(cfg: EndocytosisConfig, matches: list[dict[str, str]], now: datetime) -> None:
+def _append_breaking_log(
+    cfg: EndocytosisConfig, matches: list[dict[str, str]], now: datetime
+) -> None:
     if not matches:
         return
     lines = [f"## {now.strftime('%Y-%m-%d')} (Breaking Alerts)\n", "### Breaking AI News\n"]
@@ -291,7 +291,7 @@ def scan_breaking(
     state_path: Path | None = None,
 ) -> int:
     if now is None:
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
     if state_path is None:
         state_path = cfg.cache_dir / "breaking-state.json"
 

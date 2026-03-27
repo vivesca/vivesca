@@ -67,12 +67,21 @@ def _build_cmd(task: dict, out_dir: Path) -> list[str]:
 
     if backend == "claude":
         import shutil
+
         claude = shutil.which("claude") or str(home / ".local/bin/claude")
         return [claude, "--dangerously-skip-permissions", "-p", prompt]
     elif backend == "gemini":
         return ["gemini", "-p", prompt, "--yolo"]
     elif backend == "codex":
-        return ["codex", "exec", "--skip-git-repo-check", "--sandbox", "danger-full-access", "--full-auto", prompt]
+        return [
+            "codex",
+            "exec",
+            "--skip-git-repo-check",
+            "--sandbox",
+            "danger-full-access",
+            "--full-auto",
+            prompt,
+        ]
     elif backend == "opencode":
         title = task.get("title") or task["name"]
         return ["opencode", "run", "-m", "opencode/glm-5", "--title", title, prompt]
@@ -99,7 +108,9 @@ def list_tasks(queue_path: Path | None = None) -> str:
         status = "hot" if t.get("run_now") else ("+ on" if t.get("enabled", True) else "- off")
         timeout = f"{t['timeout']}s" if t.get("timeout") else "-"
         schedule = t.get("schedule", "-") or "-"
-        lines.append(f"{t['name']:<25} {t.get('backend', 'opencode'):<10} {status:<10} {timeout:<8} {schedule}")
+        lines.append(
+            f"{t['name']:<25} {t.get('backend', 'opencode'):<10} {status:<10} {timeout:<8} {schedule}"
+        )
     return "\n".join(lines)
 
 

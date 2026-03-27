@@ -44,7 +44,6 @@ class ImmuneResult:
 
 async def _mutate(request: ImmuneRequest) -> str:
     """Single LLM call to generate a revised description."""
-    import sys
 
     from metabolon.symbiont import transduce
 

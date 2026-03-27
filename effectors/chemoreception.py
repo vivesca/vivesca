@@ -211,7 +211,7 @@ def score_documents(query_tokens: list[str], docs: dict[str, str]) -> list[tuple
 def format_suggestions(scored: list[tuple[str, float]]) -> str:
     """Format top matches as context injection."""
     lines = []
-    for path, score in scored:
+    for path, _score in scored:
         full_path = REFERENCE_DIR / path
         # Extract first heading and first ~200 chars of content
         try:

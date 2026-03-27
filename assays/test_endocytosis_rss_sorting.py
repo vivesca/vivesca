@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
-
 from metabolon.organelles.endocytosis_rss.sorting import (
     FATE_DEGRADE,
     FATE_STORE,
@@ -12,10 +10,10 @@ from metabolon.organelles.endocytosis_rss.sorting import (
     sort_by_fate,
 )
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _cargo(score) -> dict:
     """Build a minimal article dict with the given score (int or str)."""
@@ -25,6 +23,7 @@ def _cargo(score) -> dict:
 # ---------------------------------------------------------------------------
 # sort_by_fate
 # ---------------------------------------------------------------------------
+
 
 class TestSortByFate:
     def test_transcytose_fate_at_threshold_high(self):
@@ -119,6 +118,7 @@ class TestSortByFate:
 # select_for_log
 # ---------------------------------------------------------------------------
 
+
 class TestFilterForLog:
     def test_drops_degrade_cargo(self):
         items = [_cargo(8), _cargo(5), _cargo(2)]
@@ -150,6 +150,7 @@ class TestFilterForLog:
 # ---------------------------------------------------------------------------
 # Integration: [★] marker still appears in log output for transcytose cargo
 # ---------------------------------------------------------------------------
+
 
 class TestTranscytoseMarkerInLog:
     def test_star_marker_for_transcytose_score(self):

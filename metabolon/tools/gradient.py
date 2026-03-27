@@ -23,7 +23,6 @@ Output: ranked polarity vectors with signal strength and sensor coverage.
 from __future__ import annotations
 
 import json
-import os
 import re
 import subprocess
 from collections import Counter, defaultdict
@@ -56,7 +55,7 @@ ADJACENT: set[frozenset[str]] = {
 # sensors on opposite sides of the membrane.
 INDEPENDENT: set[frozenset[str]] = {
     frozenset({"endocytosis_signal", "tool_signals"}),  # what you read vs what you do
-    frozenset({"noesis_queries", "tool_signals"}),    # what you search vs what you do
+    frozenset({"noesis_queries", "tool_signals"}),  # what you search vs what you do
 }
 
 # Coverage weights per confirmation pattern
@@ -492,6 +491,7 @@ def proprioception_gradient(days: int = 7) -> GradientReport:
     # Normalise signal strength: topology-weighted coverage × total hits
     # Independent sensor pairs count more than adjacent pairs.
     if gradients:
+
         def _topo_weighted(g: GradientVector) -> float:
             w, _ = _topology_weight(set(g.sensors.keys()))
             return w * sum(g.sensors.values())

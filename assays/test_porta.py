@@ -8,9 +8,6 @@ from __future__ import annotations
 
 from unittest.mock import patch
 
-import pytest
-
-
 # ---------------------------------------------------------------------------
 # Organelle unit tests (metabolon.organelles.porta)
 # ---------------------------------------------------------------------------
@@ -18,8 +15,9 @@ import pytest
 
 def test_inject_no_cookies_returns_failure():
     """Empty cookie dict → failure with localStorage hint."""
-    with patch("metabolon.organelles.porta._ab", return_value=(True, "")), patch(
-        "pycookiecheat.chrome_cookies", return_value={}
+    with (
+        patch("metabolon.organelles.porta._ab", return_value=(True, "")),
+        patch("pycookiecheat.chrome_cookies", return_value={}),
     ):
         from metabolon.organelles.porta import inject
 
@@ -38,8 +36,9 @@ def test_inject_happy_path():
         # open and eval both succeed
         return (True, "")
 
-    with patch("metabolon.organelles.porta._ab", side_effect=fake_ab), patch(
-        "pycookiecheat.chrome_cookies", return_value=cookies
+    with (
+        patch("metabolon.organelles.porta._ab", side_effect=fake_ab),
+        patch("pycookiecheat.chrome_cookies", return_value=cookies),
     ):
         from metabolon.organelles.porta import inject
 
@@ -59,8 +58,9 @@ def test_inject_navigation_failure_both_methods():
             return next(nav_results, (False, "failed"))
         return next(nav_results, (False, "failed"))
 
-    with patch("metabolon.organelles.porta._ab", side_effect=fake_ab), patch(
-        "pycookiecheat.chrome_cookies", return_value={"session": "abc"}
+    with (
+        patch("metabolon.organelles.porta._ab", side_effect=fake_ab),
+        patch("pycookiecheat.chrome_cookies", return_value={"session": "abc"}),
     ):
         from metabolon.organelles.porta import inject
 
@@ -80,8 +80,9 @@ def test_inject_strips_protocol():
             captured_urls.append(args[1])
         return (True, "")
 
-    with patch("metabolon.organelles.porta._ab", side_effect=fake_ab), patch(
-        "pycookiecheat.chrome_cookies", return_value={"tok": "v"}
+    with (
+        patch("metabolon.organelles.porta._ab", side_effect=fake_ab),
+        patch("pycookiecheat.chrome_cookies", return_value={"tok": "v"}),
     ):
         from metabolon.organelles.porta import inject
 
@@ -99,6 +100,7 @@ def test_inject_pycookiecheat_missing():
     sys.modules.pop("pycookiecheat", None)
 
     import builtins
+
     real_import = builtins.__import__
 
     def mock_import(name, *args, **kwargs):
@@ -109,7 +111,9 @@ def test_inject_pycookiecheat_missing():
     with patch("builtins.__import__", side_effect=mock_import):
         # Re-import inject so it sees the patched builtins
         import importlib
+
         import metabolon.organelles.porta as porta_mod
+
         importlib.reload(porta_mod)
         result = porta_mod.inject("example.com")
 
@@ -132,8 +136,9 @@ def test_inject_partial_failure():
         call_count["n"] += 1
         return (call_count["n"] % 2 != 0, "")
 
-    with patch("metabolon.organelles.porta._ab", side_effect=fake_ab), patch(
-        "pycookiecheat.chrome_cookies", return_value=cookies
+    with (
+        patch("metabolon.organelles.porta._ab", side_effect=fake_ab),
+        patch("pycookiecheat.chrome_cookies", return_value=cookies),
     ):
         from metabolon.organelles.porta import inject
 
@@ -146,9 +151,7 @@ def test_inject_partial_failure():
 
 def test_inject_chrome_exception():
     """Exception from pycookiecheat → structured failure, not a crash."""
-    with patch(
-        "pycookiecheat.chrome_cookies", side_effect=Exception("Keychain locked")
-    ):
+    with patch("pycookiecheat.chrome_cookies", side_effect=Exception("Keychain locked")):
         from metabolon.organelles.porta import inject
 
         result = inject("example.com")

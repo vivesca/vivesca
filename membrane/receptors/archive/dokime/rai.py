@@ -16,18 +16,19 @@ GARP RAI Spaced Repetition CLI
     rai reconcile        Fix summary counter drift from actual data
 """
 
+import contextlib
 import json
 import os
-import sys
 import re
+import sys
 import tempfile
-from datetime import datetime, timezone, timedelta, date
+from datetime import UTC, date, datetime, timedelta, timezone
 from pathlib import Path
 
-from fsrs import Scheduler, Card, Rating
+from fsrs import Card, Rating, Scheduler
+from rich import box
 from rich.console import Console
 from rich.panel import Panel
-from rich import box
 
 # --- Config ---
 TRACKER_PATH = Path.home() / "notes" / "GARP RAI Quiz Tracker.md"
@@ -36,15 +37,18 @@ EXAM_DATE = datetime(2026, 4, 4, tzinfo=timezone(timedelta(hours=8)))
 HKT = timezone(timedelta(hours=8))
 
 MODULE_FILES = {
-    str(i): Path.home() / "notes" / f"GARP RAI Module {i} - Raw Content.md"
-    for i in range(1, 6)
+    str(i): Path.home() / "notes" / f"GARP RAI Module {i} - Raw Content.md" for i in range(1, 6)
 }
 
 RATING_MAP = {
-    "again": Rating.Again, "miss": Rating.Again,
-    "hard": Rating.Hard, "guess": Rating.Hard,
-    "good": Rating.Good, "ok": Rating.Good,
-    "easy": Rating.Easy, "confident": Rating.Easy,
+    "again": Rating.Again,
+    "miss": Rating.Again,
+    "hard": Rating.Hard,
+    "guess": Rating.Hard,
+    "good": Rating.Good,
+    "ok": Rating.Good,
+    "easy": Rating.Easy,
+    "confident": Rating.Easy,
 }
 
 MODE_THRESHOLDS = [(0.60, "drill"), (0.70, "free-recall"), (1.01, "MCQ")]
@@ -58,7 +62,12 @@ SEARCH_TERMS = {
     "M2-data-prep": ["Data Scaling", "normalization", "standardization"],
     "M2-clustering": ["K-means", "Hierarchical Clustering", "DBSCAN"],
     "M2-econometric": ["Econometric", "Stepwise", "Variable Selection"],
-    "M2-regression-classification": ["Decision Tree", "Random Forest", "SVM", "Logistic Regression"],
+    "M2-regression-classification": [
+        "Decision Tree",
+        "Random Forest",
+        "SVM",
+        "Logistic Regression",
+    ],
     "M2-semi-supervised": ["Semi-supervised Learning Assumptions", "Self-Training", "Co-Training"],
     "M2-neural-networks": ["Neural Net", "Deep Learning", "Overfitting", "Dropout"],
     "M2-semi-rl": ["Reinforcement Learning", "Q-learning", "TD Learning", "Monte Carlo"],
@@ -67,12 +76,22 @@ SEARCH_TERMS = {
     "M2-nlp-traditional": ["Tokenization", "Stemming", "Lemmatization", "TF-IDF"],
     "M2-nlp-genai": ["Transformer", "BERT", "GPT", "Attention Mechanism"],
     "M3-bias-unfairness": ["Sources of Unfairness", "Algorithmic Bias", "Historical Bias"],
-    "M3-fairness-measures": ["Group Fairness", "Demographic Parity", "Equal Opportunity", "Equalized Odds"],
+    "M3-fairness-measures": [
+        "Group Fairness",
+        "Demographic Parity",
+        "Equal Opportunity",
+        "Equalized Odds",
+    ],
     "M3-xai": ["Explainability", "Interpretability", "LIME", "SHAP", "LUCID"],
     "M3-autonomy-safety": ["Autonomy", "Manipulation", "Automation Bias", "Well-Being"],
     "M3-reputational-existential": ["Reputational Risk", "Existential Risk"],
     "M3-genai-risks": ["GenAI", "Generative AI", "Hallucination", "Deepfake"],
-    "M4-ethical-frameworks": ["Ethical Framework", "Consequentialism", "Deontology", "Virtue Ethics"],
+    "M4-ethical-frameworks": [
+        "Ethical Framework",
+        "Consequentialism",
+        "Deontology",
+        "Virtue Ethics",
+    ],
     "M4-ethics-principles": ["Ethics Principles", "Beneficence", "Justice", "Non-maleficence"],
     "M4-bias-discrimination": ["Bias, Discrimination", "Problematic Biases", "When Does Bias"],
     "M4-privacy-cybersecurity": ["Privacy", "Cybersecurity", "Data Minimization"],
@@ -87,20 +106,47 @@ SEARCH_TERMS = {
     "M5-genai-governance": ["GenAI Governance", "Stochasticity", "Third-Party", "Provider"],
 }
 
-GARP_RAI_SYLLABUS = sorted([
-    "M1-ai-risks", "M1-classical-ai", "M1-ml-types",
-    "M2-clustering", "M2-data-prep", "M2-econometric", "M2-intro-tools",
-    "M2-model-estimation", "M2-model-eval", "M2-neural-networks",
-    "M2-nlp-genai", "M2-nlp-traditional", "M2-regression-classification",
-    "M2-semi-rl", "M2-semi-supervised",
-    "M3-autonomy-safety", "M3-bias-unfairness", "M3-fairness-measures",
-    "M3-genai-risks", "M3-global-challenges", "M3-reputational-existential", "M3-xai",
-    "M4-bias-discrimination", "M4-ethical-frameworks", "M4-ethics-principles",
-    "M4-governance-challenges", "M4-privacy-cybersecurity", "M4-regulatory",
-    "M5-data-governance", "M5-genai-governance", "M5-governance-recommendations",
-    "M5-implementation", "M5-model-changes-review", "M5-model-dev-testing",
-    "M5-model-governance", "M5-model-risk-roles", "M5-model-validation",
-])
+GARP_RAI_SYLLABUS = sorted(
+    [
+        "M1-ai-risks",
+        "M1-classical-ai",
+        "M1-ml-types",
+        "M2-clustering",
+        "M2-data-prep",
+        "M2-econometric",
+        "M2-intro-tools",
+        "M2-model-estimation",
+        "M2-model-eval",
+        "M2-neural-networks",
+        "M2-nlp-genai",
+        "M2-nlp-traditional",
+        "M2-regression-classification",
+        "M2-semi-rl",
+        "M2-semi-supervised",
+        "M3-autonomy-safety",
+        "M3-bias-unfairness",
+        "M3-fairness-measures",
+        "M3-genai-risks",
+        "M3-global-challenges",
+        "M3-reputational-existential",
+        "M3-xai",
+        "M4-bias-discrimination",
+        "M4-ethical-frameworks",
+        "M4-ethics-principles",
+        "M4-governance-challenges",
+        "M4-privacy-cybersecurity",
+        "M4-regulatory",
+        "M5-data-governance",
+        "M5-genai-governance",
+        "M5-governance-recommendations",
+        "M5-implementation",
+        "M5-model-changes-review",
+        "M5-model-dev-testing",
+        "M5-model-governance",
+        "M5-model-risk-roles",
+        "M5-model-validation",
+    ]
+)
 
 console = Console()
 scheduler = Scheduler()
@@ -114,10 +160,8 @@ def atomic_write(path: Path, content: str):
             f.write(content)
         os.replace(tmp, path)
     except Exception:
-        try:
+        with contextlib.suppress(OSError):
             os.unlink(tmp)
-        except OSError:
-            pass
         raise
 
 
@@ -199,7 +243,8 @@ def parse_tracker() -> dict:
     topics = {}
     for m in re.finditer(
         r"^\|\s*(M\d-[\w-]+)\s*\|\s*(\d+)\s*\|\s*(\d+)\s*\|\s*([\d—-]+%?)\s*\|",
-        text, re.MULTILINE,
+        text,
+        re.MULTILINE,
     ):
         rate_str = m.group(4)
         topics[m.group(1)] = {
@@ -215,12 +260,15 @@ def parse_tracker() -> dict:
         r"^\|\s*Correct\s*\|\s*(\d+)\s*\|.*?"
         r"^\|\s*Rate\s*\|\s*(\d+)%\s*\|.*?"
         r"^\|\s*Sessions\s*\|\s*(\d+)\s*\|",
-        text, re.MULTILINE | re.DOTALL,
+        text,
+        re.MULTILINE | re.DOTALL,
     )
     if sm:
         summary = {
-            "total": int(sm.group(1)), "correct": int(sm.group(2)),
-            "rate": int(sm.group(3)), "sessions": int(sm.group(4)),
+            "total": int(sm.group(1)),
+            "correct": int(sm.group(2)),
+            "rate": int(sm.group(3)),
+            "sessions": int(sm.group(4)),
         }
 
     # Recent misses
@@ -235,13 +283,18 @@ def parse_tracker() -> dict:
         if in_misses:
             m = re.match(r"^\|\s*([\d-]+)\s*\|\s*(M\d-[\w-]+)\s*\|\s*(.+?)\s*\|", line)
             if m and "Date" not in m.group(1):
-                recent_misses.append({
-                    "date": m.group(1), "topic": m.group(2),
-                    "concept": m.group(3).strip(),
-                })
+                recent_misses.append(
+                    {
+                        "date": m.group(1),
+                        "topic": m.group(2),
+                        "concept": m.group(3).strip(),
+                    }
+                )
 
     if not topics and TRACKER_PATH.exists():
-        console.print("[yellow]Warning: No topics parsed from tracker. Check markdown format.[/yellow]")
+        console.print(
+            "[yellow]Warning: No topics parsed from tracker. Check markdown format.[/yellow]"
+        )
 
     return {"summary": summary, "topics": topics, "recent_misses": recent_misses}
 
@@ -272,11 +325,18 @@ def update_tracker_record(topic: str, rating: Rating):
     if m_topic:
         na = int(m_topic.group(2)) + 1
         nc = int(m_topic.group(4)) + (1 if is_correct else 0)
-        text = topic_row.sub(rf"\g<1>{na}\g<3>{nc}\g<5>{round(nc/na*100)}%\g<7>", text)
+        text = topic_row.sub(rf"\g<1>{na}\g<3>{nc}\g<5>{round(nc / na * 100)}%\g<7>", text)
 
     # History append
-    result_str = {Rating.Again: "MISS", Rating.Hard: "OK-GUESS", Rating.Good: "OK", Rating.Easy: "OK"}[rating]
-    history_line = f"| {now_hkt().strftime('%Y-%m-%d')} | {topic} | {result_str} | (recorded via rai) |"
+    result_str = {
+        Rating.Again: "MISS",
+        Rating.Hard: "OK-GUESS",
+        Rating.Good: "OK",
+        Rating.Easy: "OK",
+    }[rating]
+    history_line = (
+        f"| {now_hkt().strftime('%Y-%m-%d')} | {topic} | {result_str} | (recorded via rai) |"
+    )
 
     lines = text.split("\n")
     last_idx = None
@@ -303,6 +363,7 @@ def update_tracker_record(topic: str, rating: Rating):
 # --- Drill Coverage ---
 
 DRILLS_PATH = Path.home() / "notes" / "GARP RAI Definition Drills.md"
+
 
 def topics_with_drills() -> set[str]:
     """Scan Definition Drills headers for topic tags like (M2-data-prep, ...)."""
@@ -349,7 +410,9 @@ def find_source_location(topic: str) -> str | None:
         for i, line in enumerate(file_lines):
             for term in terms:
                 if term.lower() in line.lower():
-                    if any(len(file_lines[j]) > 80 for j in range(i + 1, min(i + 6, len(file_lines)))):
+                    if any(
+                        len(file_lines[j]) > 80 for j in range(i + 1, min(i + 6, len(file_lines)))
+                    ):
                         hits.append(max(0, i - 2))
                     break
             if len(hits) >= 2:
@@ -397,15 +460,19 @@ def cmd_session(count: int | None = None):
 
     # Same-day cooldown
     today_str = today_hkt().isoformat()
-    today_reviews = [e for e in state.get("review_log", []) if e.get("date", "").startswith(today_str)]
+    today_reviews = [
+        e for e in state.get("review_log", []) if e.get("date", "").startswith(today_str)
+    ]
     tested_today = {e["topic"] for e in today_reviews}
 
     # Quota banner
     q_per_session = get_daily_quota()
     if len(today_reviews) >= q_per_session:
         console.print()
-        console.print(f"  [green]✓ Already done {len(today_reviews)} questions today ({len(tested_today)} topics). Quota met.[/green]")
-        console.print(f"  [dim]Continuing with unreviewed topics...[/dim]")
+        console.print(
+            f"  [green]✓ Already done {len(today_reviews)} questions today ({len(tested_today)} topics). Quota met.[/green]"
+        )
+        console.print("  [dim]Continuing with unreviewed topics...[/dim]")
         console.print()
 
     # Due topics (excluding tested today)
@@ -417,7 +484,7 @@ def cmd_session(count: int | None = None):
         if card is None:
             due.append((topic, info, 999))
             continue
-        due_dt = card.due if card.due.tzinfo else card.due.replace(tzinfo=timezone.utc)
+        due_dt = card.due if card.due.tzinfo else card.due.replace(tzinfo=UTC)
         if due_dt.astimezone(HKT) <= now:
             due.append((topic, info, (now - due_dt.astimezone(HKT)).days))
 
@@ -427,10 +494,10 @@ def cmd_session(count: int | None = None):
     weak = [(t, i, o) for t, i, o in due if i["rate"] < 0.60]
     strong = [(t, i, o) for t, i, o in due if i["rate"] >= 0.60]
     max_weak = min(len(weak), max(1, int(n * 0.6)))
-    selected = weak[:max_weak] + strong[:n - max_weak]
+    selected = weak[:max_weak] + strong[: n - max_weak]
     if len(selected) < n:
         used = {s[0] for s in selected}
-        selected += [x for x in due if x[0] not in used][:n - len(selected)]
+        selected += [x for x in due if x[0] not in used][: n - len(selected)]
     selected = selected[:n]
 
     # Interleave: no more than 2 consecutive topics from the same module
@@ -455,11 +522,15 @@ def cmd_session(count: int | None = None):
     # Output
     summary = tracker.get("summary", {})
     console.print()
-    console.print(Panel(
-        f"[bold]Session Plan[/bold]  |  Phase {phase_num} ({phase_name})  |  {days_left} days to exam",
-        box=box.ROUNDED,
-    ))
-    console.print(f"  Overall: {summary.get('correct', 0)}/{summary.get('total', 0)} ({summary.get('rate', 0)}%)  |  {summary.get('sessions', 0)} sessions")
+    console.print(
+        Panel(
+            f"[bold]Session Plan[/bold]  |  Phase {phase_num} ({phase_name})  |  {days_left} days to exam",
+            box=box.ROUNDED,
+        )
+    )
+    console.print(
+        f"  Overall: {summary.get('correct', 0)}/{summary.get('total', 0)} ({summary.get('rate', 0)}%)  |  {summary.get('sessions', 0)} sessions"
+    )
 
     m12 = sum(1 for t, _, _ in selected if t.startswith(("M1-", "M2-")))
     if selected and m12 / len(selected) < 0.30:
@@ -482,7 +553,9 @@ def cmd_session(count: int | None = None):
         source = find_source_location(topic) or "not found"
         c = colors.get(mode, "white")
         drill_tag = " [cyan][drill][/cyan]" if topic in drilled else ""
-        console.print(f"  Q{i}: [{c} bold]{topic}[/{c} bold]  |  {mode} ({info['rate']:.0%})  |  overdue {overdue}d{drill_tag}")
+        console.print(
+            f"  Q{i}: [{c} bold]{topic}[/{c} bold]  |  {mode} ({info['rate']:.0%})  |  overdue {overdue}d{drill_tag}"
+        )
         console.print(f"      [dim]{source}[/dim]")
     console.print()
 
@@ -505,7 +578,9 @@ def cmd_record(topic: str, rating_str: str):
     topic_info = tracker["topics"].get(topic, {})
     topic_rate = topic_info.get("rate", 0.0)
     if topic_rate < 0.60 and rating in (Rating.Good, Rating.Easy):
-        console.print(f"  [yellow]Acquisition cap: {topic} at {topic_rate:.0%} — capping {rating_str} → hard[/yellow]")
+        console.print(
+            f"  [yellow]Acquisition cap: {topic} at {topic_rate:.0%} — capping {rating_str} → hard[/yellow]"
+        )
         rating = Rating.Hard
         rating_str = "hard"
 
@@ -513,22 +588,30 @@ def cmd_record(topic: str, rating_str: str):
     card, _ = scheduler.review_card(card, rating)
 
     state["cards"][topic] = card
-    state.setdefault("review_log", []).append({
-        "topic": topic, "rating": rating_str.lower(), "date": now_hkt().isoformat(),
-    })
+    state.setdefault("review_log", []).append(
+        {
+            "topic": topic,
+            "rating": rating_str.lower(),
+            "date": now_hkt().isoformat(),
+        }
+    )
     save_state(state)
     update_tracker_record(topic, rating)
 
-    due_raw = card.due if card.due.tzinfo else card.due.replace(tzinfo=timezone.utc)
+    due_raw = card.due if card.due.tzinfo else card.due.replace(tzinfo=UTC)
     due_date = due_raw.astimezone(HKT)
     display = {
-        Rating.Again: "[red]Again (miss)[/red]", Rating.Hard: "[yellow]Hard (guess)[/yellow]",
-        Rating.Good: "[green]Good[/green]", Rating.Easy: "[bright_green]Easy[/bright_green]",
+        Rating.Again: "[red]Again (miss)[/red]",
+        Rating.Hard: "[yellow]Hard (guess)[/yellow]",
+        Rating.Good: "[green]Good[/green]",
+        Rating.Easy: "[bright_green]Easy[/bright_green]",
     }[rating]
 
     console.print()
     console.print(f"  {display}  [bold]{topic}[/bold]")
-    console.print(f"  Next: [cyan]{due_date.strftime('%b %d')}[/cyan] ({(due_date - now_hkt()).days}d)  |  {card.state.name}")
+    console.print(
+        f"  Next: [cyan]{due_date.strftime('%b %d')}[/cyan] ({(due_date - now_hkt()).days}d)  |  {card.state.name}"
+    )
     console.print()
 
 
@@ -540,12 +623,18 @@ def cmd_stats():
     drilled = topics_with_drills()
 
     console.print()
-    console.print(Panel(
-        f"[bold]Stats[/bold]  |  Phase {phase_num} ({phase_name})  |  {days_left} days to exam",
-        box=box.ROUNDED,
-    ))
-    console.print(f"  Total: {summary.get('total', 0)} questions across {summary.get('sessions', 0)} sessions")
-    console.print(f"  Rate: {summary.get('rate', 0)}%  ({summary.get('correct', 0)}/{summary.get('total', 0)})")
+    console.print(
+        Panel(
+            f"[bold]Stats[/bold]  |  Phase {phase_num} ({phase_name})  |  {days_left} days to exam",
+            box=box.ROUNDED,
+        )
+    )
+    console.print(
+        f"  Total: {summary.get('total', 0)} questions across {summary.get('sessions', 0)} sessions"
+    )
+    console.print(
+        f"  Rate: {summary.get('rate', 0)}%  ({summary.get('correct', 0)}/{summary.get('total', 0)})"
+    )
     console.print(f"  Drill coverage: {len(drilled)} topics have Definition Drills entries")
     console.print()
 
@@ -587,7 +676,7 @@ def cmd_due():
         if card is None:
             due_topics.append((topic, 999, "new"))
         else:
-            due_dt = card.due if card.due.tzinfo else card.due.replace(tzinfo=timezone.utc)
+            due_dt = card.due if card.due.tzinfo else card.due.replace(tzinfo=UTC)
             if due_dt.astimezone(HKT) > now:
                 continue
             days = (now - due_dt.astimezone(HKT)).days
@@ -618,7 +707,7 @@ def get_daily_quota() -> int:
 def cmd_today():
     """Show today's quiz activity and whether daily quota is met."""
     state = load_state()
-    tracker = parse_tracker()
+    parse_tracker()
     phase_num, phase_name = get_phase()
     today_reviews = get_today_reviews(state)
     q_per_session = get_daily_quota()
@@ -654,23 +743,29 @@ def cmd_today():
     quota_met = total_today >= q_per_session
 
     console.print()
-    console.print(Panel(
-        f"[bold]Today[/bold]  |  Phase {phase_num} ({phase_name})  |  {days_until_exam()} days to exam",
-        box=box.ROUNDED,
-    ))
+    console.print(
+        Panel(
+            f"[bold]Today[/bold]  |  Phase {phase_num} ({phase_name})  |  {days_until_exam()} days to exam",
+            box=box.ROUNDED,
+        )
+    )
 
     if total_today == 0:
         console.print("  [dim]No reviews today.[/dim]")
     else:
         rate = round(correct_today / total_today * 100) if total_today else 0
-        console.print(f"  Questions: {total_today}  |  Correct: {correct_today}  |  Missed: {miss_today}  |  Rate: {rate}%")
+        console.print(
+            f"  Questions: {total_today}  |  Correct: {correct_today}  |  Missed: {miss_today}  |  Rate: {rate}%"
+        )
         console.print(f"  Sessions: ~{sessions_today}  |  Topics: {len(topics_today)}")
 
         if quota_met:
             console.print(f"  [green]✓ Daily quota met ({q_per_session}+ questions)[/green]")
         else:
             remaining = q_per_session - total_today
-            console.print(f"  [yellow]◯ {remaining} more questions to meet daily quota ({q_per_session})[/yellow]")
+            console.print(
+                f"  [yellow]◯ {remaining} more questions to meet daily quota ({q_per_session})[/yellow]"
+            )
 
     # Show today's topic breakdown
     if today_reviews:
@@ -718,7 +813,9 @@ def cmd_reconcile():
     topics = tracker["topics"]
 
     if len(topics) < 10:
-        console.print(f"  [red]Abort: only {len(topics)} topics parsed (expected ~34). Check tracker format.[/red]")
+        console.print(
+            f"  [red]Abort: only {len(topics)} topics parsed (expected ~34). Check tracker format.[/red]"
+        )
         return
 
     # Recompute from topic rows
@@ -743,7 +840,7 @@ def cmd_reconcile():
     atomic_write(TRACKER_PATH, text)
 
     console.print()
-    console.print(f"  [yellow]Reconciled:[/yellow]")
+    console.print("  [yellow]Reconciled:[/yellow]")
     console.print(f"    Total: {old_total} → {actual_total}")
     console.print(f"    Correct: {old_correct} → {actual_correct}")
     console.print(f"    Rate: {summary.get('rate', 0)}% → {actual_rate}%")
@@ -760,33 +857,48 @@ def cmd_coverage():
 
     missing = sorted(syllabus_set - tracked_set)
     never_attempted = sorted(t for t, i in tracked.items() if i["attempts"] == 0)
-    low_coverage = sorted((t for t, i in tracked.items() if i["attempts"] > 0 and i["attempts"] < 3), key=lambda x: tracked[x]["attempts"])
+    low_coverage = sorted(
+        (t for t, i in tracked.items() if i["attempts"] > 0 and i["attempts"] < 3),
+        key=lambda x: tracked[x]["attempts"],
+    )
 
     tracked_in_syllabus = tracked_set & syllabus_set
-    coverage_pct = len(tracked_in_syllabus) / len(GARP_RAI_SYLLABUS) * 100 if GARP_RAI_SYLLABUS else 0
+    coverage_pct = (
+        len(tracked_in_syllabus) / len(GARP_RAI_SYLLABUS) * 100 if GARP_RAI_SYLLABUS else 0
+    )
 
     console.print()
-    console.print(Panel(
-        f"[bold]Coverage Report[/bold]  |  {len(GARP_RAI_SYLLABUS)} syllabus topics",
-        box=box.ROUNDED,
-    ))
-    console.print(f"  Tracked: {len(tracked_in_syllabus)}/{len(GARP_RAI_SYLLABUS)} ({coverage_pct:.0f}%)")
+    console.print(
+        Panel(
+            f"[bold]Coverage Report[/bold]  |  {len(GARP_RAI_SYLLABUS)} syllabus topics",
+            box=box.ROUNDED,
+        )
+    )
+    console.print(
+        f"  Tracked: {len(tracked_in_syllabus)}/{len(GARP_RAI_SYLLABUS)} ({coverage_pct:.0f}%)"
+    )
 
     if missing:
         console.print()
-        console.print(f"[bold red]MISSING ({len(missing)}):[/bold red] [dim]in syllabus but not in tracker[/dim]")
+        console.print(
+            f"[bold red]MISSING ({len(missing)}):[/bold red] [dim]in syllabus but not in tracker[/dim]"
+        )
         for t in missing:
             console.print(f"  {t}")
 
     if never_attempted:
         console.print()
-        console.print(f"[bold yellow]NEVER ATTEMPTED ({len(never_attempted)}):[/bold yellow] [dim]in tracker but 0 attempts[/dim]")
+        console.print(
+            f"[bold yellow]NEVER ATTEMPTED ({len(never_attempted)}):[/bold yellow] [dim]in tracker but 0 attempts[/dim]"
+        )
         for t in never_attempted:
             console.print(f"  {t}")
 
     if low_coverage:
         console.print()
-        console.print(f"[bold cyan]LOW COVERAGE ({len(low_coverage)}):[/bold cyan] [dim]<3 attempts[/dim]")
+        console.print(
+            f"[bold cyan]LOW COVERAGE ({len(low_coverage)}):[/bold cyan] [dim]<3 attempts[/dim]"
+        )
         for t in low_coverage:
             console.print(f"  {t}: {tracked[t]['attempts']} attempts ({tracked[t]['rate']:.0%})")
 

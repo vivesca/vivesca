@@ -56,9 +56,7 @@ def add(
     duplicate = _m.find_duplicate(title, due_ts, data)
     if duplicate:
         existing_ts = _m.reminder_due_ts(duplicate) or due_ts
-        raise _m.MoneoError(
-            f"Duplicate: '{title}' already exists at {_m.fmt_ts(existing_ts)}."
-        )
+        raise _m.MoneoError(f"Duplicate: '{title}' already exists at {_m.fmt_ts(existing_ts)}.")
 
     _m.add_direct(title, due_ts, recur, autosnooze, data)
     _m.write_db(data)
@@ -77,18 +75,20 @@ def ls() -> list[dict[str, Any]]:
     for i, reminder in enumerate(reminders, start=1):
         uid = _m.reminder_uuid(reminder)
         due_ts = _m.reminder_due_ts(reminder)
-        result.append({
-            "index": i,
-            "uuid": uid,
-            "short_uuid": _m.short_uuid(uid),
-            "title": _m.reminder_title(reminder),
-            "due": _m.fmt_ts(due_ts) if due_ts else None,
-            "due_ts": due_ts,
-            "overdue": bool(due_ts and due_ts < now),
-            "recur": _m.recur_label(
-                reminder.get("rf") if isinstance(reminder.get("rf"), str) else None
-            ),
-        })
+        result.append(
+            {
+                "index": i,
+                "uuid": uid,
+                "short_uuid": _m.short_uuid(uid),
+                "title": _m.reminder_title(reminder),
+                "due": _m.fmt_ts(due_ts) if due_ts else None,
+                "due_ts": due_ts,
+                "overdue": bool(due_ts and due_ts < now),
+                "recur": _m.recur_label(
+                    reminder.get("rf") if isinstance(reminder.get("rf"), str) else None
+                ),
+            }
+        )
     return result
 
 
@@ -130,7 +130,9 @@ def edit(
     data = _m.read_db()
     matches, _ = _m.resolve_target(data, target, allow_pattern=True)
     if len(matches) > 1:
-        titles = [f"[{_m.short_uuid(_m.reminder_uuid(r))}] '{_m.reminder_title(r)}'" for _, r in matches]
+        titles = [
+            f"[{_m.short_uuid(_m.reminder_uuid(r))}] '{_m.reminder_title(r)}'" for _, r in matches
+        ]
         raise _m.MoneoError(f"Multiple matches: {'; '.join(titles)}. Use a UUID prefix.")
 
     raw_idx, reminder = matches[0]
@@ -139,8 +141,12 @@ def edit(
         raise _m.MoneoError("Reminder is missing UUID")
 
     ns = argparse.Namespace(
-        title=title, rel=rel, at=at, date=date,
-        autosnooze=autosnooze, timezone=timezone,
+        title=title,
+        rel=rel,
+        at=at,
+        date=date,
+        autosnooze=autosnooze,
+        timezone=timezone,
     )
     changes = _m.build_change_set(ns, reminder)
     _m.ensure_no_duplicates(changes.title, [changes.due_ts], data)
@@ -164,7 +170,9 @@ def log(n: int = 20, filter_str: str | None = None) -> list[dict[str, Any]]:
     entries = entries[:n]
     return [
         {
-            "completed_hkt": _m.hkt_from_ts(ts).strftime("%Y-%m-%d %H:%M") if (ts := int(e.get("m", 0))) else None,
+            "completed_hkt": _m.hkt_from_ts(ts).strftime("%Y-%m-%d %H:%M")
+            if (ts := int(e.get("m", 0)))
+            else None,
             "completed_ts": ts,
             "title": str(e.get("n", "")),
         }

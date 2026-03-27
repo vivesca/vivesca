@@ -45,9 +45,7 @@ async def taste(
 
     Uses metabolon.symbiont for the LLM call.
     """
-    import sys
 
-    from metabolon.cytosol import VIVESCA_ROOT
 
     from metabolon.symbiont import transduce
 

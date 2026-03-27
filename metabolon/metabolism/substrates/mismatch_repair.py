@@ -11,7 +11,6 @@ Architecture: ~/germline/loci/pulse/transcript-scan-architecture-2026-03-24.md
 
 from __future__ import annotations
 
-import json
 import subprocess
 import sys
 from pathlib import Path
@@ -79,11 +78,13 @@ class AnamScanSubstrate:
                 try:
                     total = int(parts[0].split(":")[1].strip())
                     sessions = int(parts[1].strip().split()[0]) if len(parts) > 1 else 0
-                    signals.append({
-                        "kind": "corrections",
-                        "total": total,
-                        "sessions": sessions,
-                    })
+                    signals.append(
+                        {
+                            "kind": "corrections",
+                            "total": total,
+                            "sessions": sessions,
+                        }
+                    )
                 except (ValueError, IndexError):
                     pass
             elif line.startswith("Session prompts:"):
@@ -107,26 +108,33 @@ class AnamScanSubstrate:
         sessions = next((s for s in sensed if s.get("kind") == "sessions"), None)
 
         if corrections and corrections.get("sessions", 0) >= 5:
-            actionable.append({
-                "action": "daily_scan",
-                "reason": f"{corrections['sessions']} sessions with corrections",
-                "priority": "high" if corrections["sessions"] >= 10 else "normal",
-            })
+            actionable.append(
+                {
+                    "action": "daily_scan",
+                    "reason": f"{corrections['sessions']} sessions with corrections",
+                    "priority": "high" if corrections["sessions"] >= 10 else "normal",
+                }
+            )
         elif sessions and sessions.get("count", 0) >= 10:
-            actionable.append({
-                "action": "daily_scan",
-                "reason": f"{sessions['count']} sessions to scan for topics",
-                "priority": "normal",
-            })
+            actionable.append(
+                {
+                    "action": "daily_scan",
+                    "reason": f"{sessions['count']} sessions to scan for topics",
+                    "priority": "normal",
+                }
+            )
 
         # Check if it's Sunday for weekly synthesis
         from datetime import date as date_cls
+
         if date_cls.today().weekday() == 6:  # Sunday
-            actionable.append({
-                "action": "weekly_synthesis",
-                "reason": "Sunday weekly synthesis window",
-                "priority": "normal",
-            })
+            actionable.append(
+                {
+                    "action": "weekly_synthesis",
+                    "reason": "Sunday weekly synthesis window",
+                    "priority": "normal",
+                }
+            )
 
         return actionable
 

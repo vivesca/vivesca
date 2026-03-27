@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import pytest
 import yaml
@@ -22,7 +22,7 @@ def xdg_env(monkeypatch: pytest.MonkeyPatch, tmp_path):
 
 @pytest.fixture
 def sample_state():
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     return {
         "Source A": (now - timedelta(days=2)).isoformat(),
         "Source B": (now - timedelta(hours=12)).isoformat(),

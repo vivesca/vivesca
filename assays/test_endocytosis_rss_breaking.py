@@ -1,11 +1,17 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import yaml
 
-from metabolon.organelles.endocytosis_rss.breaking import can_alert, is_breaking, refractory_daily_counter, scan_breaking, title_fingerprint
+from metabolon.organelles.endocytosis_rss.breaking import (
+    can_alert,
+    is_breaking,
+    refractory_daily_counter,
+    scan_breaking,
+    title_fingerprint,
+)
 from metabolon.organelles.endocytosis_rss.config import restore_config
 
 
@@ -99,8 +105,13 @@ def test_cross_source_dedup_in_run(monkeypatch, xdg_env, capsys):
             }
         ]
 
-    monkeypatch.setattr("metabolon.organelles.endocytosis_rss.breaking.internalize_rss", mock_fetch_rss)
-    monkeypatch.setattr("metabolon.organelles.endocytosis_rss.breaking.internalize_web", lambda *_args, **_kwargs: [])
+    monkeypatch.setattr(
+        "metabolon.organelles.endocytosis_rss.breaking.internalize_rss", mock_fetch_rss
+    )
+    monkeypatch.setattr(
+        "metabolon.organelles.endocytosis_rss.breaking.internalize_web",
+        lambda *_args, **_kwargs: [],
+    )
 
     cfg = restore_config()
     exit_code = scan_breaking(cfg=cfg, dry_run=True)
@@ -113,7 +124,7 @@ def test_cross_source_dedup_in_run(monkeypatch, xdg_env, capsys):
 
 
 def test_state_counter_reset_and_cooldown():
-    now = datetime(2026, 2, 24, 10, 0, tzinfo=timezone.utc)
+    now = datetime(2026, 2, 24, 10, 0, tzinfo=UTC)
     state = {
         "alerts_today": 2,
         "today_date": "2026-02-23",
@@ -169,7 +180,10 @@ def test_cmd_breaking_dry_run(monkeypatch, xdg_env, capsys):
             },
         ],
     )
-    monkeypatch.setattr("metabolon.organelles.endocytosis_rss.breaking.internalize_web", lambda *_args, **_kwargs: [])
+    monkeypatch.setattr(
+        "metabolon.organelles.endocytosis_rss.breaking.internalize_web",
+        lambda *_args, **_kwargs: [],
+    )
 
     cfg = restore_config()
     exit_code = scan_breaking(cfg=cfg, dry_run=True)

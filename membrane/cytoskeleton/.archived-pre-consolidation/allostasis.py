@@ -125,10 +125,7 @@ def main():
     prev_session = state.get("session_id", "")
 
     # Track session depth (prompt count)
-    if session_id != prev_session:
-        depth = 1
-    else:
-        depth = state.get("depth", 0) + 1
+    depth = 1 if session_id != prev_session else state.get("depth", 0) + 1
 
     budget = get_budget_tier()
     phase = get_circadian_phase()

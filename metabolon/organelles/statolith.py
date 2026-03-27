@@ -11,6 +11,7 @@
 from __future__ import annotations
 
 import argparse
+import contextlib
 import dataclasses
 import json
 import math
@@ -20,13 +21,12 @@ import subprocess
 import sys
 import tomllib
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 import httpx
 import yaml
-
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -88,6 +88,7 @@ class PondusOutput:
 # Cache
 # ---------------------------------------------------------------------------
 
+
 class Cache:
     def __init__(self, ttl_hours: int = CACHE_TTL_HOURS):
         self.dir = CACHE_DIR
@@ -100,7 +101,7 @@ class Cache:
         try:
             entry = json.loads(path.read_text())
             fetched_at = datetime.fromisoformat(entry["fetched_at"])
-            age_hours = (datetime.now(timezone.utc) - fetched_at).total_seconds() / 3600
+            age_hours = (datetime.now(UTC) - fetched_at).total_seconds() / 3600
             if age_hours < entry.get("ttl_hours", self.ttl_hours):
                 return fetched_at, entry["data"]
         except Exception:
@@ -110,7 +111,7 @@ class Cache:
     def set(self, source: str, data: Any) -> None:
         self.dir.mkdir(parents=True, exist_ok=True)
         entry = {
-            "fetched_at": datetime.now(timezone.utc).isoformat(),
+            "fetched_at": datetime.now(UTC).isoformat(),
             "ttl_hours": self.ttl_hours,
             "data": data,
         }
@@ -128,6 +129,7 @@ class Cache:
 # ---------------------------------------------------------------------------
 # Alias map
 # ---------------------------------------------------------------------------
+
 
 def _load_alias_toml(toml_str: str, to_canonical: dict[str, str]) -> None:
     try:
@@ -165,7 +167,7 @@ class AliasMap:
     _map: dict[str, str]
 
     @classmethod
-    def load(cls, override_path: str | None = None) -> "AliasMap":
+    def load(cls, override_path: str | None = None) -> AliasMap:
         return cls(_map=_build_alias_map(override_path))
 
     def resolve(self, name: str) -> str:
@@ -187,11 +189,10 @@ class AliasMap:
                 if next_char in ("(", " "):
                     allowed = True
                 elif next_char == "-":
-                    after = lower_name[len(alias) + 1:len(alias) + 2]
+                    after = lower_name[len(alias) + 1 : len(alias) + 2]
                     allowed = after.isdigit() or after == "("
-                if allowed:
-                    if best is None or len(alias) > best[0]:
-                        best = (len(alias), canonical)
+                if allowed and (best is None or len(alias) > best[0]):
+                    best = (len(alias), canonical)
         return best[1] if best is not None else None
 
 
@@ -199,11 +200,12 @@ class AliasMap:
 # Agent-browser helper (arena scrape only)
 # ---------------------------------------------------------------------------
 
+
 def _run_agent_browser(agent_browser_path: str, args: list[str]) -> str:
     binary = shutil.which(agent_browser_path) or agent_browser_path
     try:
         result = subprocess.run(
-            [binary] + args,
+            [binary, *args],
             capture_output=True,
             text=True,
         )
@@ -239,6 +241,7 @@ def _extract_cell_value(line: str) -> str | None:
 # AA effort classification
 # ---------------------------------------------------------------------------
 
+
 def classify_effort_level(model_name: str) -> str:
     """Returns 'max', 'low', or 'standard'."""
     n = model_name.lower()
@@ -256,7 +259,8 @@ def apply_aa_effort_filter(results: list[SourceResult], effort: str) -> None:
         if result.source != "artificial-analysis":
             continue
         result.scores = [
-            s for s in result.scores
+            s
+            for s in result.scores
             if (effort == "all" or effort == classify_effort_level(s.source_model_name))
         ]
 
@@ -264,6 +268,7 @@ def apply_aa_effort_filter(results: list[SourceResult], effort: str) -> None:
 # ---------------------------------------------------------------------------
 # Generic cached-score parser
 # ---------------------------------------------------------------------------
+
 
 def _parse_scored_cached(
     source: str,
@@ -273,24 +278,24 @@ def _parse_scored_cached(
     status: str,
 ) -> SourceResult:
     rows: list[tuple[str, float]] = []
-    for entry in (data.get("scores") or []):
+    for entry in data.get("scores") or []:
         name = entry.get("source_model_name")
         score = entry.get(metric_key) or entry.get("score")
         if name and score is not None:
-            try:
+            with contextlib.suppress(ValueError, TypeError):
                 rows.append((name, float(score)))
-            except (ValueError, TypeError):
-                pass
     rows.sort(key=lambda x: x[1], reverse=True)
     scores = []
     for idx, (source_model_name, score) in enumerate(rows):
         rank = idx + 1
-        scores.append(ModelScore(
-            model=source_model_name.lower().replace(" ", "-").replace("_", "-"),
-            source_model_name=source_model_name,
-            metrics={metric_key: score, "rank": rank},
-            rank=rank,
-        ))
+        scores.append(
+            ModelScore(
+                model=source_model_name.lower().replace(" ", "-").replace("_", "-"),
+                source_model_name=source_model_name,
+                metrics={metric_key: score, "rank": rank},
+                rank=rank,
+            )
+        )
     return SourceResult(source=source, fetched_at=fetched_at, status=status, scores=scores)
 
 
@@ -324,10 +329,8 @@ def _fetch_arena_scrape(cache: Cache) -> SourceResult:
     except Exception as exc:
         return _map_command_error("arena", "open", exc)
 
-    try:
+    with contextlib.suppress(Exception):
         _run_agent_browser(agent_browser, ["wait", "4000"])
-    except Exception:
-        pass
 
     try:
         page_text = _run_agent_browser(agent_browser, ["snapshot"])
@@ -338,14 +341,16 @@ def _fetch_arena_scrape(cache: Cache) -> SourceResult:
     if not parsed:
         return SourceResult(
             source="arena",
-            fetched_at=datetime.now(timezone.utc),
+            fetched_at=datetime.now(UTC),
             status="error:Failed to parse any scores from Arena leaderboard",
         )
 
     cached_rows = [{"source_model_name": n, "elo_score": e} for n, e in parsed]
     cache_value = {"scores": cached_rows}
     cache.set("arena", cache_value)
-    return _parse_scored_cached("arena", "elo_score", cache_value, datetime.now(timezone.utc), "ok")
+    return _parse_scored_cached(
+        "arena", "elo_score", cache_value, datetime.now(UTC), "ok"
+    )
 
 
 def _fetch_arena_json(cache: Cache, client: httpx.Client) -> SourceResult:
@@ -363,19 +368,31 @@ def _fetch_arena_json(cache: Cache, client: httpx.Client) -> SourceResult:
     if not scores:
         return SourceResult(
             source="arena",
-            fetched_at=datetime.now(timezone.utc),
+            fetched_at=datetime.now(UTC),
             status="error:Failed to parse Arena JSON",
         )
 
     cached_rows = [{"source_model_name": n, "elo_score": e} for n, e in scores]
     cache_value = {"scores": cached_rows}
     cache.set("arena", cache_value)
-    return _parse_scored_cached("arena", "elo_score", cache_value, datetime.now(timezone.utc), "ok")
+    return _parse_scored_cached(
+        "arena", "elo_score", cache_value, datetime.now(UTC), "ok"
+    )
 
 
 def _is_image_or_video_model(name: str) -> bool:
     lower = name.lower()
-    keywords = ["flux-", "image", "imagine", "dall-e", "midjourney", "stable-diff", "ideogram", "recraft", "video"]
+    keywords = [
+        "flux-",
+        "image",
+        "imagine",
+        "dall-e",
+        "midjourney",
+        "stable-diff",
+        "ideogram",
+        "recraft",
+        "video",
+    ]
     return any(kw in lower for kw in keywords)
 
 
@@ -388,7 +405,9 @@ def _parse_arena_from_snapshot(text: str) -> list[tuple[str, float]]:
     while i < len(lines):
         trimmed = lines[i].strip()
 
-        if (trimmed.startswith('- row "') and "1503" in trimmed) or trimmed.startswith('- row "1 '):
+        if (trimmed.startswith('- row "') and "1503" in trimmed) or trimmed.startswith(
+            '- row "1 '
+        ):
             found_first_table = True
 
         if found_first_table and trimmed.startswith('- row "'):
@@ -415,10 +434,15 @@ def _parse_arena_from_snapshot(text: str) -> list[tuple[str, float]]:
                 model_name = model_link_name
                 if model_name is None:
                     tokens = cells[2].split()
-                    model_name = " ".join(
-                        t for t in tokens
-                        if not (t[0].isupper() and "-" not in t and "." not in t)
-                    ) if tokens else cells[2]
+                    model_name = (
+                        " ".join(
+                            t
+                            for t in tokens
+                            if not (t[0].isupper() and "-" not in t and "." not in t)
+                        )
+                        if tokens
+                        else cells[2]
+                    )
 
                 try:
                     elo = float(elo_str)
@@ -443,8 +467,10 @@ def _parse_arena_json_response(data: Any) -> list[tuple[str, float]]:
     text_data = data[latest_key].get("text") if isinstance(data[latest_key], dict) else None
     if not text_data or not isinstance(text_data, dict):
         return []
-    category = "overall" if "overall" in text_data else (
-        "full_old" if "full_old" in text_data else (next(iter(text_data), None))
+    category = (
+        "overall"
+        if "overall" in text_data
+        else ("full_old" if "full_old" in text_data else (next(iter(text_data), None)))
     )
     if not category:
         return []
@@ -461,6 +487,7 @@ def _parse_arena_json_response(data: Any) -> list[tuple[str, float]]:
 # ---------------------------------------------------------------------------
 # Source: SWE-bench
 # ---------------------------------------------------------------------------
+
 
 def _fetch_swebench(cache: Cache, client: httpx.Client) -> SourceResult:
     cached = cache.get("swebench")
@@ -490,7 +517,7 @@ def _fetch_swebench(cache: Cache, client: httpx.Client) -> SourceResult:
     cache.set("swebench", data)
     return SourceResult(
         source="swebench",
-        fetched_at=datetime.now(timezone.utc),
+        fetched_at=datetime.now(UTC),
         status="ok",
         scores=_parse_swebench_scores(data),
     )
@@ -499,8 +526,9 @@ def _fetch_swebench(cache: Cache, client: httpx.Client) -> SourceResult:
 def _parse_swebench_scores(data: Any) -> list[ModelScore]:
     scores: list[ModelScore] = []
     entries = (
-        data.get("leaderboards") or data.get("results") or
-        (data if isinstance(data, list) else None)
+        data.get("leaderboards")
+        or data.get("results")
+        or (data if isinstance(data, list) else None)
     )
     if entries is None:
         return scores
@@ -526,7 +554,9 @@ def _parse_swebench_scores(data: Any) -> list[ModelScore]:
         if existing is None or new_rate > _get_float(existing.metrics, "resolved_rate"):
             best[key] = score
 
-    deduped = sorted(best.values(), key=lambda s: _get_float(s.metrics, "resolved_rate"), reverse=True)
+    deduped = sorted(
+        best.values(), key=lambda s: _get_float(s.metrics, "resolved_rate"), reverse=True
+    )
     for i, score in enumerate(deduped):
         score.rank = i + 1
     return deduped
@@ -540,15 +570,11 @@ def _extract_swebench_model_score(result: Any) -> ModelScore | None:
         return None
     metrics: dict[str, MetricValue] = {}
     if (rate := result.get("resolved")) is not None:
-        try:
+        with contextlib.suppress(ValueError, TypeError):
             metrics["resolved_rate"] = float(rate)
-        except (ValueError, TypeError):
-            pass
     if (count := result.get("resolved_count")) is not None:
-        try:
+        with contextlib.suppress(ValueError, TypeError):
             metrics["resolved_count"] = int(count)
-        except (ValueError, TypeError):
-            pass
     if (date := result.get("date")) is not None:
         metrics["date"] = str(date)
     return ModelScore(
@@ -592,7 +618,7 @@ def _fetch_aider(cache: Cache, client: httpx.Client) -> SourceResult:
     cache.set("aider", entries)
     return SourceResult(
         source="aider",
-        fetched_at=datetime.now(timezone.utc),
+        fetched_at=datetime.now(UTC),
         status="ok",
         scores=_parse_aider_scores(entries),
     )
@@ -610,25 +636,21 @@ def _parse_aider_scores(data: Any) -> list[ModelScore]:
             continue
         metrics: dict[str, MetricValue] = {}
         if (rate := entry.get("pass_rate_1")) is not None:
-            try:
+            with contextlib.suppress(ValueError, TypeError):
                 metrics["pass_rate_1"] = float(rate)
-            except (ValueError, TypeError):
-                pass
         if (cost := entry.get("total_cost")) is not None:
-            try:
+            with contextlib.suppress(ValueError, TypeError):
                 metrics["cost"] = float(cost)
-            except (ValueError, TypeError):
-                pass
         if (wf := entry.get("percent_cases_well_formed")) is not None:
-            try:
+            with contextlib.suppress(ValueError, TypeError):
                 metrics["percent_cases_well_formed"] = float(wf)
-            except (ValueError, TypeError):
-                pass
-        scores.append(ModelScore(
-            model=model_name.lower().replace(" ", "-").replace("_", "-"),
-            source_model_name=model_name,
-            metrics=metrics,
-        ))
+        scores.append(
+            ModelScore(
+                model=model_name.lower().replace(" ", "-").replace("_", "-"),
+                source_model_name=model_name,
+                metrics=metrics,
+            )
+        )
 
     scores.sort(key=lambda s: _get_float(s.metrics, "pass_rate_1"), reverse=True)
     for i, s in enumerate(scores):
@@ -673,10 +695,8 @@ def _fetch_livebench(cache: Cache, client: httpx.Client) -> SourceResult:
                 model = row.get("model")
                 score = row.get("score")
                 if model and score is not None:
-                    try:
+                    with contextlib.suppress(ValueError, TypeError):
                         all_scores.setdefault(model, []).append(float(score))
-                    except (ValueError, TypeError):
-                        pass
 
             total = int(data.get("num_rows_total") or 0)
             offset += LIVEBENCH_BATCH
@@ -688,20 +708,21 @@ def _fetch_livebench(cache: Cache, client: httpx.Client) -> SourceResult:
     if not all_scores:
         return SourceResult(
             source="livebench",
-            fetched_at=datetime.now(timezone.utc),
+            fetched_at=datetime.now(UTC),
             status="error:Failed to fetch LiveBench data from HuggingFace datasets API",
         )
 
     model_avgs = [
-        (model, sum(scores) / len(scores) * 100.0)
-        for model, scores in all_scores.items()
+        (model, sum(scores) / len(scores) * 100.0) for model, scores in all_scores.items()
     ]
     model_avgs.sort(key=lambda x: x[1], reverse=True)
 
     cached_rows = [{"source_model_name": m, "global_average": s} for m, s in model_avgs]
     cache_value = {"scores": cached_rows}
     cache.set("livebench", cache_value)
-    return _parse_scored_cached("livebench", "global_average", cache_value, datetime.now(timezone.utc), "ok")
+    return _parse_scored_cached(
+        "livebench", "global_average", cache_value, datetime.now(UTC), "ok"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -742,7 +763,7 @@ def _fetch_tbench(cache: Cache, client: httpx.Client) -> SourceResult:
     cache.set("terminal-bench", data)
     return SourceResult(
         source="terminal-bench",
-        fetched_at=datetime.now(timezone.utc),
+        fetched_at=datetime.now(UTC),
         status="ok",
         scores=scores,
     )
@@ -768,11 +789,13 @@ def _extract_tbench_from_siblings(data: Any) -> list[ModelScore]:
         display_name = agent_model.replace("__", " / ")
         model_part = agent_model.split("__")[1] if "__" in agent_model else agent_model
         canonical = model_part.lower()
-        scores.append(ModelScore(
-            model=canonical,
-            source_model_name=display_name,
-            metrics={"tasks_completed": count},
-        ))
+        scores.append(
+            ModelScore(
+                model=canonical,
+                source_model_name=display_name,
+                metrics={"tasks_completed": count},
+            )
+        )
 
     scores.sort(key=lambda s: _get_int(s.metrics, "tasks_completed"), reverse=True)
     for i, s in enumerate(scores):
@@ -783,6 +806,7 @@ def _extract_tbench_from_siblings(data: Any) -> list[ModelScore]:
 # ---------------------------------------------------------------------------
 # Source: OpenRouter
 # ---------------------------------------------------------------------------
+
 
 def _fetch_openrouter(cache: Cache, client: httpx.Client) -> SourceResult:
     cached = cache.get("openrouter")
@@ -820,27 +844,29 @@ def _fetch_openrouter(cache: Cache, client: httpx.Client) -> SourceResult:
             continue
         if prompt_per_token == 0.0 and completion_per_token == 0.0:
             continue
-        cached_rows.append({
-            "source_model_name": model["id"],
-            "prompt_per_1m": prompt_per_token * 1_000_000,
-            "completion_per_1m": completion_per_token * 1_000_000,
-        })
+        cached_rows.append(
+            {
+                "source_model_name": model["id"],
+                "prompt_per_1m": prompt_per_token * 1_000_000,
+                "completion_per_1m": completion_per_token * 1_000_000,
+            }
+        )
 
     if not cached_rows:
         return SourceResult(
             source="openrouter",
-            fetched_at=datetime.now(timezone.utc),
+            fetched_at=datetime.now(UTC),
             status="error:OpenRouter API returned no models with pricing data",
         )
 
     cache_value = {"scores": cached_rows}
     cache.set("openrouter", cache_value)
-    return _parse_openrouter_cached(cache_value, datetime.now(timezone.utc), "ok")
+    return _parse_openrouter_cached(cache_value, datetime.now(UTC), "ok")
 
 
 def _parse_openrouter_cached(data: Any, fetched_at: datetime | None, status: str) -> SourceResult:
     scores: list[ModelScore] = []
-    for entry in (data.get("scores") or []):
+    for entry in data.get("scores") or []:
         name = entry.get("source_model_name")
         prompt = entry.get("prompt_per_1m")
         completion = entry.get("completion_per_1m")
@@ -848,11 +874,16 @@ def _parse_openrouter_cached(data: Any, fetched_at: datetime | None, status: str
             continue
         try:
             model = name.lower().replace(" ", "-").replace("_", "-")
-            scores.append(ModelScore(
-                model=model,
-                source_model_name=name,
-                metrics={"prompt_per_1m": float(prompt), "completion_per_1m": float(completion)},
-            ))
+            scores.append(
+                ModelScore(
+                    model=model,
+                    source_model_name=name,
+                    metrics={
+                        "prompt_per_1m": float(prompt),
+                        "completion_per_1m": float(completion),
+                    },
+                )
+            )
         except (ValueError, TypeError):
             pass
     return SourceResult(source="openrouter", fetched_at=fetched_at, status=status, scores=scores)
@@ -881,8 +912,12 @@ SOURCE_FETCHERS = {
 }
 
 SOURCE_ORDER = [
-    "arena", "swebench", "aider",
-    "livebench", "terminal-bench", "openrouter",
+    "arena",
+    "swebench",
+    "aider",
+    "livebench",
+    "terminal-bench",
+    "openrouter",
 ]
 
 
@@ -909,6 +944,7 @@ def _source_tags_for_output(source_tag_overrides: dict[str, list[str]]) -> dict[
 # ---------------------------------------------------------------------------
 # Math helpers
 # ---------------------------------------------------------------------------
+
 
 def _get_float(metrics: dict, key: str) -> float:
     v = metrics.get(key)
@@ -940,6 +976,7 @@ def _std_dev(values: list[float]) -> float:
 # ---------------------------------------------------------------------------
 # Aggregate
 # ---------------------------------------------------------------------------
+
 
 def aggregate_results(
     results: list[SourceResult],
@@ -974,16 +1011,18 @@ def aggregate_results(
 
     scores: list[ModelScore] = []
     for i, (model, avg_percentile, spread, sources_count) in enumerate(rows):
-        scores.append(ModelScore(
-            model=model,
-            source_model_name=model,
-            metrics={
-                "avg_percentile": avg_percentile,
-                "spread": spread,
-                "sources_count": sources_count,
-            },
-            rank=i + 1,
-        ))
+        scores.append(
+            ModelScore(
+                model=model,
+                source_model_name=model,
+                metrics={
+                    "avg_percentile": avg_percentile,
+                    "spread": spread,
+                    "sources_count": sources_count,
+                },
+                rank=i + 1,
+            )
+        )
 
     agg_result = SourceResult(source="aggregate", status="ok", scores=scores)
     return agg_result, excluded if show_excluded else []
@@ -997,15 +1036,30 @@ TASK_SPECS = {
     "coding": {
         "description": "Use coding benchmarks with SWE-bench as the primary signal.",
         "sources": [
-            {"source": "swebench", "label": "SWE-bench", "metric": "resolved_rate", "sort": "desc"},
-            {"source": "terminal-bench", "label": "Terminal-Bench", "metric": "tasks_completed", "sort": "desc"},
+            {
+                "source": "swebench",
+                "label": "SWE-bench",
+                "metric": "resolved_rate",
+                "sort": "desc",
+            },
+            {
+                "source": "terminal-bench",
+                "label": "Terminal-Bench",
+                "metric": "tasks_completed",
+                "sort": "desc",
+            },
             {"source": "aider", "label": "Aider", "metric": "pass_rate_1", "sort": "desc"},
         ],
     },
     "agentic": {
         "description": "Use agentic execution benchmarks with Terminal-Bench weighted first.",
         "sources": [
-            {"source": "terminal-bench", "label": "Terminal-Bench", "metric": "tasks_completed", "sort": "desc"},
+            {
+                "source": "terminal-bench",
+                "label": "Terminal-Bench",
+                "metric": "tasks_completed",
+                "sort": "desc",
+            },
         ],
     },
     "general": {
@@ -1070,7 +1124,9 @@ def _rank_models(
             if existing is None:
                 best_for_source[model] = metric
             else:
-                is_better = (metric > existing) if source_spec["sort"] == "desc" else (metric < existing)
+                is_better = (
+                    (metric > existing) if source_spec["sort"] == "desc" else (metric < existing)
+                )
                 if is_better:
                     best_for_source[model] = metric
 
@@ -1115,7 +1171,9 @@ def cmd_recommend(
         return
 
     if task not in TASK_SPECS:
-        print(f"[error] Unknown task '{task}'. Use one of: {', '.join(VALID_TASKS)}", file=sys.stderr)
+        print(
+            f"[error] Unknown task '{task}'. Use one of: {', '.join(VALID_TASKS)}", file=sys.stderr
+        )
         sys.exit(1)
 
     spec = TASK_SPECS[task]
@@ -1138,7 +1196,7 @@ def cmd_recommend(
     rows = _rank_models(spec, results, aliases, top)
 
     output = {
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": datetime.now(UTC).isoformat(),
         "task": task,
         "description": spec["description"],
         "effort": effort,
@@ -1146,7 +1204,9 @@ def cmd_recommend(
         "sources": [
             {
                 "source": r.source,
-                "label": next((s["label"] for s in spec["sources"] if s["source"] == r.source), r.source),
+                "label": next(
+                    (s["label"] for s in spec["sources"] if s["source"] == r.source), r.source
+                ),
                 "status": _status_label(r.status),
                 "fetched_at": r.fetched_at.isoformat() if r.fetched_at else None,
             }
@@ -1158,15 +1218,26 @@ def cmd_recommend(
     if output_format == "json":
         print(json.dumps(output, indent=2))
     elif output_format in ("table", "markdown"):
-        print(_render_recommend_table(spec, output) if output_format == "table" else _render_recommend_markdown(spec, output))
+        print(
+            _render_recommend_table(spec, output)
+            if output_format == "table"
+            else _render_recommend_markdown(spec, output)
+        )
 
 
 def render_recommend_task_list(output_format: str) -> str:
     if output_format == "json":
-        return json.dumps([
-            {"task": task, "description": spec["description"], "sources": [s["source"] for s in spec["sources"]]}
-            for task, spec in TASK_SPECS.items()
-        ], indent=2)
+        return json.dumps(
+            [
+                {
+                    "task": task,
+                    "description": spec["description"],
+                    "sources": [s["source"] for s in spec["sources"]],
+                }
+                for task, spec in TASK_SPECS.items()
+            ],
+            indent=2,
+        )
     lines = [
         "Task          Description",
         "------------  --------------------------------------------------------------",
@@ -1177,7 +1248,11 @@ def render_recommend_task_list(output_format: str) -> str:
 
 
 def _render_recommend_table(spec: dict, output: dict) -> str:
-    lines = ["", f"Task: {output['task']}  (sources: {', '.join(s['source'] for s in spec['sources'])})", ""]
+    lines = [
+        "",
+        f"Task: {output['task']}  (sources: {', '.join(s['source'] for s in spec['sources'])})",
+        "",
+    ]
     headers = ["Rank", "Model"] + [s["label"] for s in spec["sources"]]
     widths = [len(h) for h in headers]
     rows_data: list[list[str]] = []
@@ -1234,6 +1309,7 @@ def _format_recommend_metric(metric_name: str, value: float | None) -> str:
 # Monitor
 # ---------------------------------------------------------------------------
 
+
 def _load_monitor_state() -> dict:
     if MONITOR_STATE_PATH.exists():
         try:
@@ -1254,11 +1330,13 @@ def cmd_monitor_add(model: str, aliases: AliasMap) -> None:
     if any(w["model"] == canonical for w in state["watched"]):
         print(f"Already watching {canonical}.")
         return
-    state["watched"].append({
-        "model": canonical,
-        "added_at": datetime.now().strftime("%Y-%m-%d"),
-        "last_seen": {},
-    })
+    state["watched"].append(
+        {
+            "model": canonical,
+            "added_at": datetime.now().strftime("%Y-%m-%d"),
+            "last_seen": {},
+        }
+    )
     _save_monitor_state(state)
     print(f"Watching {canonical}. Run 'pondus monitor check' to poll now.")
 
@@ -1302,8 +1380,12 @@ def cmd_monitor_check(cache: Cache, aliases: AliasMap) -> None:
 
         for r in results:
             match = next(
-                (s for s in r.scores
-                 if s.model.lower() == canonical or aliases.matches(s.source_model_name, canonical)),
+                (
+                    s
+                    for s in r.scores
+                    if s.model.lower() == canonical
+                    or aliases.matches(s.source_model_name, canonical)
+                ),
                 None,
             )
             if match and r.source not in w.get("last_seen", {}):
@@ -1313,7 +1395,11 @@ def cmd_monitor_check(cache: Cache, aliases: AliasMap) -> None:
                     info = f"rank {match.rank}/{len(r.scores)}"
                 else:
                     first_metric = next(iter(match.metrics.items()), None)
-                    info = f"{first_metric[0]} = {_format_metric_value(first_metric[1])}" if first_metric else "no metrics"
+                    info = (
+                        f"{first_metric[0]} = {_format_metric_value(first_metric[1])}"
+                        if first_metric
+                        else "no metrics"
+                    )
                 new_data.append((r.source, info))
 
         if not new_data:
@@ -1327,13 +1413,12 @@ def cmd_monitor_check(cache: Cache, aliases: AliasMap) -> None:
                 chat_id_str = os.environ.get("TELEGRAM_CHAT_ID", "").strip()
                 if not chat_id_str:
                     import subprocess as _sp
-                    try:
+
+                    with contextlib.suppress(Exception):
                         chat_id_str = _sp.check_output(
                             ["security", "find-generic-password", "-a", "TELEGRAM_CHAT_ID", "-w"],
                             text=True,
                         ).strip()
-                    except Exception:
-                        pass
                 notified = False
                 if token and chat_id_str:
                     try:
@@ -1363,6 +1448,7 @@ def cmd_monitor_check(cache: Cache, aliases: AliasMap) -> None:
 # ---------------------------------------------------------------------------
 # Output rendering
 # ---------------------------------------------------------------------------
+
 
 def _status_label(status: str) -> str:
     if status == "ok":
@@ -1410,7 +1496,11 @@ def render_output(output: PondusOutput, output_format: str) -> str:
         return _render_json(output)
     elif output_format in ("table", "markdown"):
         if output.query.query_type == "sources":
-            return _render_sources_table(output) if output_format == "table" else _render_sources_markdown(output)
+            return (
+                _render_sources_table(output)
+                if output_format == "table"
+                else _render_sources_markdown(output)
+            )
         return _render_table(output) if output_format == "table" else _render_markdown(output)
     raise ValueError(f"Unknown format: {output_format}")
 
@@ -1441,7 +1531,7 @@ def _render_table(output: PondusOutput) -> str:
             continue
 
         all_metrics = sorted({k for s in source.scores for k in s.metrics})
-        columns = ["Rank", "Model"] + all_metrics
+        columns = ["Rank", "Model", *all_metrics]
         widths = [len(c) for c in columns]
 
         rows_data: list[list[str]] = []
@@ -1462,7 +1552,9 @@ def _render_table(output: PondusOutput) -> str:
 
         if source.source == "artificial-analysis" and _aa_has_mixed_effort_variants(source):
             parts.append("")
-            parts.append("  AA effort: (max) = Adaptive Reasoning Max Effort · standard = Non-reasoning High Effort · (low) = Non-reasoning Low Effort")
+            parts.append(
+                "  AA effort: (max) = Adaptive Reasoning Max Effort · standard = Non-reasoning High Effort · (low) = Non-reasoning Low Effort"
+            )
 
         parts.append("")
 
@@ -1470,7 +1562,7 @@ def _render_table(output: PondusOutput) -> str:
 
 
 def _render_sources_table(output: PondusOutput) -> str:
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     columns = ["Source", "Status", "Age", "Tags"]
     widths = [len(c) for c in columns]
     rows_data: list[list[str]] = []
@@ -1502,7 +1594,7 @@ def _render_markdown(output: PondusOutput) -> str:
             parts.append("No results.\n")
             continue
         all_metrics = sorted({k for s in source.scores for k in s.metrics})
-        columns = ["Rank", "Model"] + all_metrics
+        columns = ["Rank", "Model", *all_metrics]
         parts.append("| " + " | ".join(columns) + " |")
         parts.append("| " + " | ".join("---" for _ in columns) + " |")
         for score in source.scores:
@@ -1529,6 +1621,7 @@ def _render_sources_markdown(output: PondusOutput) -> str:
 # ---------------------------------------------------------------------------
 # Command implementations
 # ---------------------------------------------------------------------------
+
 
 def _load_source_tag_overrides() -> dict[str, list[str]]:
     sources_path = CONFIG_DIR / "sources.toml"
@@ -1558,17 +1651,23 @@ def cmd_rank(
     effort: str,
 ) -> None:
     results = fetch_all(cache)
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     if max_age is not None:
         filtered_results = []
         for result in results:
             if result.fetched_at is None:
-                print(f"[{result.source}] excluded: data is unknown days old (--max-age {max_age})", file=sys.stderr)
+                print(
+                    f"[{result.source}] excluded: data is unknown days old (--max-age {max_age})",
+                    file=sys.stderr,
+                )
                 continue
             age_days = (now - result.fetched_at).total_seconds() / 86400
             if age_days > max_age:
-                print(f"[{result.source}] excluded: data is {int(age_days)} days old (--max-age {max_age})", file=sys.stderr)
+                print(
+                    f"[{result.source}] excluded: data is {int(age_days)} days old (--max-age {max_age})",
+                    file=sys.stderr,
+                )
                 continue
             filtered_results.append(result)
         results = filtered_results
@@ -1576,7 +1675,10 @@ def cmd_rank(
     if tag is not None:
         tag_lower = tag.strip().lower()
         if tag_lower not in ("reasoning", "coding", "agentic", "general"):
-            print(f"[error] Unknown tag: '{tag}'. Expected one of: reasoning, coding, agentic, general", file=sys.stderr)
+            print(
+                f"[error] Unknown tag: '{tag}'. Expected one of: reasoning, coding, agentic, general",
+                file=sys.stderr,
+            )
             sys.exit(1)
         tags_by_source = _source_tags_for_output(source_tag_overrides)
         results = [r for r in results if tag_lower in tags_by_source.get(r.source.lower(), [])]
@@ -1590,7 +1692,10 @@ def cmd_rank(
         filtered = [r for r in results if r.source.lower() in requested]
         if not filtered:
             available = ", ".join(SOURCE_ORDER)
-            print(f"[error] No matching sources in '{merged_sources}'. Available sources: {available}", file=sys.stderr)
+            print(
+                f"[error] No matching sources in '{merged_sources}'. Available sources: {available}",
+                file=sys.stderr,
+            )
             sys.exit(1)
         results = filtered
 
@@ -1601,10 +1706,25 @@ def cmd_rank(
             print(f"  {result.source:<20} {freshness}", file=sys.stderr)
 
     if any(r.source == "livebench" and r.scores for r in results):
-        month_names = ["January", "February", "March", "April", "May", "June",
-                       "July", "August", "September", "October", "November", "December"]
+        month_names = [
+            "January",
+            "February",
+            "March",
+            "April",
+            "May",
+            "June",
+            "July",
+            "August",
+            "September",
+            "October",
+            "November",
+            "December",
+        ]
         month_name = month_names[LIVEBENCH_FROZEN_SINCE[1] - 1]
-        print(f"[livebench] dataset frozen since {month_name} {LIVEBENCH_FROZEN_SINCE[0]} — scores are stale", file=sys.stderr)
+        print(
+            f"[livebench] dataset frozen since {month_name} {LIVEBENCH_FROZEN_SINCE[0]} — scores are stale",
+            file=sys.stderr,
+        )
 
     apply_aa_effort_filter(results, effort)
 
@@ -1656,29 +1776,40 @@ def cmd_check(
     filtered: list[SourceResult] = []
     for r in results:
         matching_scores = [
-            s for s in r.scores
+            s
+            for s in r.scores
             if s.model.lower() == canonical or aliases.matches(s.source_model_name, canonical)
         ]
         if show_matches:
             for s in matching_scores:
                 resolved = aliases.resolve(s.source_model_name)
-                kind = "exact" if s.source_model_name.lower() == canonical else (
-                    "alias" if resolved == canonical else "prefix"
+                kind = (
+                    "exact"
+                    if s.source_model_name.lower() == canonical
+                    else ("alias" if resolved == canonical else "prefix")
                 )
-                print(f"[{r.source}]   {s.source_model_name!r}  ->  {canonical!r}  ({kind})", file=sys.stderr)
-        filtered.append(SourceResult(
-            source=r.source,
-            fetched_at=r.fetched_at,
-            status=r.status,
-            scores=matching_scores,
-        ))
+                print(
+                    f"[{r.source}]   {s.source_model_name!r}  ->  {canonical!r}  ({kind})",
+                    file=sys.stderr,
+                )
+        filtered.append(
+            SourceResult(
+                source=r.source,
+                fetched_at=r.fetched_at,
+                status=r.status,
+                scores=matching_scores,
+            )
+        )
 
     total_matches = sum(len(r.scores) for r in filtered)
     if total_matches == 0 and not show_matches:
-        print(f"[warn] '{model}' not found in any source. Try: pondus check {model} --show-matches", file=sys.stderr)
+        print(
+            f"[warn] '{model}' not found in any source. Try: pondus check {model} --show-matches",
+            file=sys.stderr,
+        )
 
     output = PondusOutput(
-        timestamp=datetime.now(timezone.utc),
+        timestamp=datetime.now(UTC),
         query=QueryInfo(query_type="check", model=canonical),
         sources=filtered,
     )
@@ -1700,30 +1831,31 @@ def cmd_compare(
 
     filtered = []
     for r in results:
-        matching = [
-            s for s in r.scores
-            if aliases.resolve(s.source_model_name) in (c1, c2)
-        ]
-        filtered.append(SourceResult(
-            source=r.source,
-            fetched_at=r.fetched_at,
-            status=r.status,
-            scores=matching,
-        ))
+        matching = [s for s in r.scores if aliases.resolve(s.source_model_name) in (c1, c2)]
+        filtered.append(
+            SourceResult(
+                source=r.source,
+                fetched_at=r.fetched_at,
+                status=r.status,
+                scores=matching,
+            )
+        )
 
     output = PondusOutput(
-        timestamp=datetime.now(timezone.utc),
+        timestamp=datetime.now(UTC),
         query=QueryInfo(query_type="compare", models=[c1, c2]),
         sources=filtered,
     )
     print(render_output(output, output_format))
 
 
-def cmd_sources(cache: Cache, source_tag_overrides: dict[str, list[str]], output_format: str) -> None:
+def cmd_sources(
+    cache: Cache, source_tag_overrides: dict[str, list[str]], output_format: str
+) -> None:
     results = fetch_all(cache)
     source_tags = _source_tags_for_output(source_tag_overrides)
     output = PondusOutput(
-        timestamp=datetime.now(timezone.utc),
+        timestamp=datetime.now(UTC),
         query=QueryInfo(query_type="sources"),
         sources=results,
         source_tags={k: v for k, v in source_tags.items()},
@@ -1735,33 +1867,62 @@ def cmd_sources(cache: Cache, source_tag_overrides: dict[str, list[str]], output
 # CLI entry point
 # ---------------------------------------------------------------------------
 
+
 def _cli() -> None:
     parser = argparse.ArgumentParser(
         prog="pondus",
         description="Opinionated AI model benchmark aggregator",
     )
-    parser.add_argument("--format", default="json", choices=["json", "table", "markdown", "md"],
-                        help="Output format (default: json)")
-    parser.add_argument("--refresh", action="store_true",
-                        help="Bypass cache and re-fetch all sources")
+    parser.add_argument(
+        "--format",
+        default="json",
+        choices=["json", "table", "markdown", "md"],
+        help="Output format (default: json)",
+    )
+    parser.add_argument(
+        "--refresh", action="store_true", help="Bypass cache and re-fetch all sources"
+    )
 
     subparsers = parser.add_subparsers(dest="command")
 
     # rank
     rank_p = subparsers.add_parser("rank", help="Rank all models across sources")
     rank_p.add_argument("--top", type=int, default=None, help="Show top N models")
-    rank_p.add_argument("--source", default=None, help="Filter to a single source name (case-insensitive)")
-    rank_p.add_argument("--sources", default=None, help="Comma-separated source names (case-insensitive)")
-    rank_p.add_argument("--tag", default=None, help="Filter to source tags: reasoning, coding, agentic, general")
-    rank_p.add_argument("--aggregate", action="store_true", help="Produce a combined leaderboard across sources")
-    rank_p.add_argument("--min-sources", type=int, default=None,
-                        help="Minimum number of sources a model must appear in (default: 2 when --aggregate is set)")
-    rank_p.add_argument("--show-excluded", action="store_true",
-                        help="Show models excluded by --min-sources threshold when aggregating")
-    rank_p.add_argument("--max-age", type=int, default=None, help="Exclude sources with data older than N days")
-    rank_p.add_argument("--show-freshness", action="store_true", help="Show data age for each source")
-    rank_p.add_argument("--effort", default="all", choices=["all", "max", "standard", "low"],
-                        help="Filter AA results by reasoning effort level")
+    rank_p.add_argument(
+        "--source", default=None, help="Filter to a single source name (case-insensitive)"
+    )
+    rank_p.add_argument(
+        "--sources", default=None, help="Comma-separated source names (case-insensitive)"
+    )
+    rank_p.add_argument(
+        "--tag", default=None, help="Filter to source tags: reasoning, coding, agentic, general"
+    )
+    rank_p.add_argument(
+        "--aggregate", action="store_true", help="Produce a combined leaderboard across sources"
+    )
+    rank_p.add_argument(
+        "--min-sources",
+        type=int,
+        default=None,
+        help="Minimum number of sources a model must appear in (default: 2 when --aggregate is set)",
+    )
+    rank_p.add_argument(
+        "--show-excluded",
+        action="store_true",
+        help="Show models excluded by --min-sources threshold when aggregating",
+    )
+    rank_p.add_argument(
+        "--max-age", type=int, default=None, help="Exclude sources with data older than N days"
+    )
+    rank_p.add_argument(
+        "--show-freshness", action="store_true", help="Show data age for each source"
+    )
+    rank_p.add_argument(
+        "--effort",
+        default="all",
+        choices=["all", "max", "standard", "low"],
+        help="Filter AA results by reasoning effort level",
+    )
 
     # check
     check_p = subparsers.add_parser("check", help="Check a single model across all sources")
@@ -1792,9 +1953,12 @@ def _cli() -> None:
 
     # recommend
     recommend_p = subparsers.add_parser("recommend", help="Recommend models for a task type")
-    recommend_p.add_argument("task", nargs="?", choices=VALID_TASKS, default=None,
-                             help="Task type to recommend for")
-    recommend_p.add_argument("--list-tasks", action="store_true", help="Print available task types with descriptions")
+    recommend_p.add_argument(
+        "task", nargs="?", choices=VALID_TASKS, default=None, help="Task type to recommend for"
+    )
+    recommend_p.add_argument(
+        "--list-tasks", action="store_true", help="Print available task types with descriptions"
+    )
     recommend_p.add_argument("--top", type=int, default=5, help="Show top N models")
     recommend_p.add_argument("--effort", default="all", choices=["all", "max", "standard", "low"])
 
@@ -1812,7 +1976,10 @@ def _cli() -> None:
 
     if command == "rank":
         cmd_rank(
-            cache, aliases, source_tag_overrides, output_format,
+            cache,
+            aliases,
+            source_tag_overrides,
+            output_format,
             top=args.top,
             source_filter=args.source,
             tag=args.tag,
@@ -1833,13 +2000,27 @@ def _cli() -> None:
     elif command == "refresh":
         cache.clear()
         print("Cache cleared. Re-fetching all sources...", file=sys.stderr)
-        cmd_rank(cache, aliases, source_tag_overrides, output_format,
-                 top=None, source_filter=None, tag=None, sources_filter=None,
-                 aggregate=False, min_sources=None, show_excluded=False,
-                 max_age=None, show_freshness=False, effort="all")
+        cmd_rank(
+            cache,
+            aliases,
+            source_tag_overrides,
+            output_format,
+            top=None,
+            source_filter=None,
+            tag=None,
+            sources_filter=None,
+            aggregate=False,
+            min_sources=None,
+            show_excluded=False,
+            max_age=None,
+            show_freshness=False,
+            effort="all",
+        )
     elif command == "recommend":
         cmd_recommend(
-            cache, aliases, source_tag_overrides,
+            cache,
+            aliases,
+            source_tag_overrides,
             task=args.task or "",
             top=args.top,
             effort=args.effort,

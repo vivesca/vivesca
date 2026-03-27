@@ -1,6 +1,7 @@
 # src/vivesca/cli.py
 """vivesca CLI — scaffold and validate MCP tool ecosystems."""
 
+import contextlib
 import os
 import sys
 from datetime import UTC
@@ -165,15 +166,11 @@ def receptor_health(output: str | None):
             lines.append(f"- {entry['receptor']}: `{entry['binary']}`")
         lines.append("")
 
-    verdict = (
-        "NEEDS_ATTENTION"
-        if (apoptosis.anoikis_candidates or probe.detached)
-        else "HEALTHY"
-    )
+    verdict = "NEEDS_ATTENTION" if (apoptosis.anoikis_candidates or probe.detached) else "HEALTHY"
     lines.append(f"## Verdict: {verdict}")
     if apoptosis.retirement_log_updated:
         lines.append(
-            f"\nAnoikis candidates logged to ~/epigenome/chromatin/receptor-retirement.md"
+            "\nAnoikis candidates logged to ~/epigenome/chromatin/receptor-retirement.md"
         )
 
     report = "\n".join(lines) + "\n"
@@ -246,9 +243,7 @@ def add_resource(name: str, description: str, uri_path: str):
     """Add a resource to the current project."""
     from metabolon.gastrulation.add import graft_resource
 
-    path = graft_resource(
-        Path.cwd(), name=name, description=description, uri_path=uri_path
-    )
+    path = graft_resource(Path.cwd(), name=name, description=description, uri_path=uri_path)
     click.echo(f"Created {path.relative_to(Path.cwd())}")
 
 
@@ -287,7 +282,9 @@ def _hooks_status():
     for name, target in expected.items():
         link = claude / name
         if not link.is_symlink():
-            issues.append(f"{name}: not a symlink (is {'dir' if link.is_dir() else 'file' if link.exists() else 'missing'})")
+            issues.append(
+                f"{name}: not a symlink (is {'dir' if link.is_dir() else 'file' if link.exists() else 'missing'})"
+            )
         elif link.resolve() != target.resolve():
             issues.append(f"{name}: points to {os.readlink(link)!r}, expected {target}")
 
@@ -332,6 +329,7 @@ def hooks_repair():
         if link.exists() or link.is_symlink():
             if link.is_dir() and not link.is_symlink():
                 import shutil
+
                 shutil.rmtree(link)
             else:
                 link.unlink()
@@ -435,7 +433,9 @@ def autopoiesis_hybridize():
         capture_output=True,
         text=True,
     )
-    if result.returncode == 2 and ("no such option" in result.stderr.lower() or "unrecognized" in result.stderr.lower()):
+    if result.returncode == 2 and (
+        "no such option" in result.stderr.lower() or "unrecognized" in result.stderr.lower()
+    ):
         click.echo("methylation --hybridize not yet supported — hybridize stub only")
     else:
         if result.stdout:
@@ -469,10 +469,8 @@ def autopoiesis_status():
         # Priming state
         priming: dict = {}
         if _PRIMING_PATH.exists():
-            try:
+            with contextlib.suppress(Exception):
                 priming = json.loads(_PRIMING_PATH.read_text())
-            except Exception:
-                pass
         if priming:
             click.echo("\n=== Priming State ===")
             for name, count in priming.items():
@@ -486,7 +484,9 @@ def autopoiesis_status():
         if pyroptosis:
             click.echo("\n=== PYROPTOSIS ALERTS ===")
             for name in pyroptosis:
-                click.echo(f"  !! {name} — {priming[name]} consecutive failures, human attention needed")
+                click.echo(
+                    f"  !! {name} — {priming[name]} consecutive failures, human attention needed"
+                )
 
     except ImportError as exc:
         click.echo(f"inflammasome not available: {exc}", err=True)
@@ -762,7 +762,6 @@ tags: [ai, agents, design, vivesca]
 
 def _acquire_catalyst():
     """Import and return the shared llm module."""
-    from metabolon.cytosol import VIVESCA_ROOT
 
     from metabolon import symbiont as llm
 
@@ -1352,7 +1351,9 @@ def _keyword_overlap(text_a: str, text_b: str, min_word_len: int = 4) -> set[str
     default=None,
     help="Stop dispatching after HH:MM (e.g. '07:00').",
 )
-@click.option("--overnight", is_flag=True, help="Force overnight mode (3 systoles, 07:00 deadline).")
+@click.option(
+    "--overnight", is_flag=True, help="Force overnight mode (3 systoles, 07:00 deadline)."
+)
 @click.option("--max-waves", type=int, default=None, help="Alias for --waves.")
 @click.option("--dry-run", is_flag=True, help="Show plan without executing.")
 def pulse(waves, model, retry, focus, stop_after, overnight, max_waves, dry_run):
@@ -1662,7 +1663,7 @@ def endocytosis_breaking(dry_run: bool):
 @endocytosis.command("status")
 def endocytosis_status():
     """Show receptor status: last fetch times, source count, cache size."""
-    from datetime import datetime, timedelta, timezone
+    from datetime import datetime
 
     from metabolon.organelles.endocytosis_rss.config import restore_config
     from metabolon.organelles.endocytosis_rss.state import restore_state
@@ -1686,7 +1687,7 @@ def endocytosis_status():
         except (ValueError, TypeError):
             return None
         if dt.tzinfo is None:
-            dt = dt.replace(tzinfo=timezone.utc)
+            dt = dt.replace(tzinfo=UTC)
         return dt
 
     cfg = restore_config()
@@ -1702,7 +1703,13 @@ def endocytosis_status():
     if state:
         click.echo(f"Sources:       {len(state)} tracked")
         latest = max(
-            (dt for ts in state.values() if isinstance(ts, str) for dt in [_parse_aware(ts)] if dt),
+            (
+                dt
+                for ts in state.values()
+                if isinstance(ts, str)
+                for dt in [_parse_aware(ts)]
+                if dt
+            ),
             default=None,
         )
         if latest is not None:
@@ -1732,7 +1739,14 @@ def endocytosis_sources(tier: int | None):
         if tier is not None and source_tier != tier:
             continue
         source_type = "rss" if source.get("rss") else "web"
-        rows.append((str(source.get("name", "")), source_type, source_tier, str(source.get("cadence", "-"))))
+        rows.append(
+            (
+                str(source.get("name", "")),
+                source_type,
+                source_tier,
+                str(source.get("cadence", "-")),
+            )
+        )
 
     for account in cfg.sources_data.get("x_accounts", []):
         if not isinstance(account, dict):
@@ -1740,7 +1754,14 @@ def endocytosis_sources(tier: int | None):
         account_tier = int(account.get("tier", 2))
         if tier is not None and account_tier != tier:
             continue
-        rows.append((str(account.get("name") or account.get("handle", "")), "x", account_tier, str(account.get("cadence", "-"))))
+        rows.append(
+            (
+                str(account.get("name") or account.get("handle", "")),
+                "x",
+                account_tier,
+                str(account.get("cadence", "-")),
+            )
+        )
 
     for bm in cfg.sources_data.get("x_bookmarks", []):
         if not isinstance(bm, dict):
@@ -1748,7 +1769,9 @@ def endocytosis_sources(tier: int | None):
         bm_tier = int(bm.get("tier", 2))
         if tier is not None and bm_tier != tier:
             continue
-        rows.append((str(bm.get("name", "X Bookmarks")), "bkmk", bm_tier, str(bm.get("cadence", "-"))))
+        rows.append(
+            (str(bm.get("name", "X Bookmarks")), "bkmk", bm_tier, str(bm.get("cadence", "-")))
+        )
 
     if not rows:
         click.echo("No sources configured.")
@@ -1762,7 +1785,9 @@ def endocytosis_sources(tier: int | None):
 
 
 @endocytosis.command("relevance")
-@click.option("--top", type=int, default=None, help="Show top N highest-scored items (last 7 days).")
+@click.option(
+    "--top", type=int, default=None, help="Show top N highest-scored items (last 7 days)."
+)
 def endocytosis_relevance(top: int | None):
     """Show relevance scoring stats or top-scored items."""
     from metabolon.organelles.endocytosis_rss.relevance import (
@@ -1826,7 +1851,7 @@ def auscultate():
 
     # 1. MCP server imports
     try:
-        from metabolon.membrane import main as _  # import check only
+
         checks.append(("MCP server import", True, ""))
     except Exception as e:
         checks.append(("MCP server import", False, str(e)))
@@ -1854,7 +1879,10 @@ def auscultate():
 
     # 4. Key paths exist
     from pathlib import Path
-    from metabolon.locus import chromatin as _chromatin, engrams as _engrams
+
+    from metabolon.locus import chromatin as _chromatin
+    from metabolon.locus import engrams as _engrams
+
     paths = {
         "genome.md": VIVESCA_ROOT / "genome.md",
         "anatomy.md": VIVESCA_ROOT / "anatomy.md",
@@ -1886,11 +1914,18 @@ def auscultate():
     try:
         r = subprocess.run(
             [sys.executable, "-m", "pyright", str(VIVESCA_ROOT / "metabolon"), "--outputjson"],
-            capture_output=True, text=True, timeout=60,
+            capture_output=True,
+            text=True,
+            timeout=60,
         )
         import json
+
         data = json.loads(r.stdout)
-        undefs = [d for d in data.get("generalDiagnostics", []) if d.get("rule") == "reportUndefinedVariable"]
+        undefs = [
+            d
+            for d in data.get("generalDiagnostics", [])
+            if d.get("rule") == "reportUndefinedVariable"
+        ]
         checks.append(("pyright undefined", len(undefs) == 0, f"{len(undefs)} undefined"))
     except Exception as e:
         checks.append(("pyright undefined", None, f"skipped: {e}"))
@@ -1898,8 +1933,19 @@ def auscultate():
     # 8. Tests
     try:
         r = subprocess.run(
-            ["uv", "run", "pytest", str(VIVESCA_ROOT / "assays"), "-q", "--ignore", str(VIVESCA_ROOT / "assays" / "test_cli.py")],
-            capture_output=True, text=True, timeout=120, cwd=str(VIVESCA_ROOT),
+            [
+                "uv",
+                "run",
+                "pytest",
+                str(VIVESCA_ROOT / "assays"),
+                "-q",
+                "--ignore",
+                str(VIVESCA_ROOT / "assays" / "test_cli.py"),
+            ],
+            capture_output=True,
+            text=True,
+            timeout=120,
+            cwd=str(VIVESCA_ROOT),
         )
         last_line = r.stdout.strip().splitlines()[-1] if r.stdout.strip() else ""
         passed = "passed" in last_line and "failed" not in last_line
@@ -1934,6 +1980,7 @@ def auscultate():
 # ---------------------------------------------------------------------------
 # mitosis — DR sync to gemmule hot standby
 # ---------------------------------------------------------------------------
+
 
 @cli.group()
 def mitosis():
@@ -1974,7 +2021,9 @@ def mitosis_status():
         click.echo(click.style("gemmule: UNREACHABLE", fg="red"))
         raise SystemExit(1)
 
-    click.echo(f"gemmule: {click.style('REACHABLE', fg='green')}  machine={info.get('machine_state', '?')}")
+    click.echo(
+        f"gemmule: {click.style('REACHABLE', fg='green')}  machine={info.get('machine_state', '?')}"
+    )
 
     for name, t in info.get("targets", {}).items():
         state = t.get("state", "unknown")
@@ -2004,7 +2053,11 @@ def mitosis_test():
     result = smoketest()
 
     if result["success"]:
-        auth = click.style("OK", fg="green") if result.get("claude_auth") else click.style("EXPIRED", fg="yellow")
+        auth = (
+            click.style("OK", fg="green")
+            if result.get("claude_auth")
+            else click.style("EXPIRED", fg="yellow")
+        )
         click.echo(click.style(f"\nPASS — gemmule read back: {result['passcode']}", fg="green"))
         click.echo(f"  claude auth: {auth}")
     else:
@@ -2024,11 +2077,15 @@ def mitosis_setup():
     result = setup()
 
     for step in result.get("steps", []):
-        symbol = click.style("OK", fg="green") if step["success"] else click.style("FAIL", fg="red")
+        symbol = (
+            click.style("OK", fg="green") if step["success"] else click.style("FAIL", fg="red")
+        )
         click.echo(f"  {symbol}  {step['name']}  {step.get('message', '')}")
 
     if result["success"]:
-        click.echo(click.style("\nGemmule ready. Run `vivesca mitosis sync` to push state.", fg="green"))
+        click.echo(
+            click.style("\nGemmule ready. Run `vivesca mitosis sync` to push state.", fg="green")
+        )
     else:
         click.echo(click.style("\nSetup incomplete — check failures above.", fg="red"))
         raise SystemExit(1)

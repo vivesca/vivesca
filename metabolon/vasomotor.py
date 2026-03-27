@@ -13,6 +13,7 @@ Five-layer self-regulation:
 5. Pacing gate — combines all layers into a single go/no-go decision
 """
 
+import contextlib
 import datetime
 import json
 import subprocess
@@ -75,7 +76,7 @@ def _ensure_migrated():
     _migrate_path(PACING_ALERT_FILE, _LEGACY_ALERT)
     # Conf rename chain: lucerna.conf → vasomotor.conf → respiration.conf
     _migrate_path(_LEGACY_CONF, _LEGACY_CONF_LUCERNA)  # lucerna → vasomotor
-    _migrate_path(CONF_PATH, _LEGACY_CONF)             # vasomotor → respiration
+    _migrate_path(CONF_PATH, _LEGACY_CONF)  # vasomotor → respiration
     _migrate_path(EVENT_LOG, _LEGACY_EVENT_LOG)
 
 
@@ -684,10 +685,8 @@ def _snapshot_conf(path: Path):
     ROLLBACK_DIR.mkdir(parents=True, exist_ok=True)
     ts = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
     snapshot = ROLLBACK_DIR / f"{path.name}.{ts}"
-    try:
+    with contextlib.suppress(Exception):
         snapshot.write_text(path.read_text())
-    except Exception:
-        pass
 
 
 def _write_genome(genome: dict):
@@ -736,9 +735,18 @@ def measure_yield(since_hours: float = 24) -> dict:
             continue
         try:
             result = subprocess.run(
-                ["git", "-C", str(repo), "log", f"--since={since_iso}",
-                 "--author=Claude", "--oneline"],
-                capture_output=True, text=True, timeout=5,
+                [
+                    "git",
+                    "-C",
+                    str(repo),
+                    "log",
+                    f"--since={since_iso}",
+                    "--author=Claude",
+                    "--oneline",
+                ],
+                capture_output=True,
+                text=True,
+                timeout=5,
             )
             git_commits += len(result.stdout.strip().splitlines()) if result.stdout.strip() else 0
         except Exception:
@@ -899,13 +907,19 @@ def _select_review_tier() -> str:
     sonnet_last = state.get("sonnet_last", "")
 
     try:
-        if not opus_last or (now - datetime.datetime.fromisoformat(opus_last)).total_seconds() > 604800:
+        if (
+            not opus_last
+            or (now - datetime.datetime.fromisoformat(opus_last)).total_seconds() > 604800
+        ):
             return "opus"
     except ValueError:
         return "opus"
 
     try:
-        if not sonnet_last or (now - datetime.datetime.fromisoformat(sonnet_last)).total_seconds() > 86400:
+        if (
+            not sonnet_last
+            or (now - datetime.datetime.fromisoformat(sonnet_last)).total_seconds() > 86400
+        ):
             return "sonnet"
     except ValueError:
         return "sonnet"
@@ -919,7 +933,9 @@ def _mark_review(tier: str):
     _save_review_state(state)
 
 
-def _gather_adapt_context(systoles_run: int, saturated: int, failed: int, stop_reason: str) -> dict:
+def _gather_adapt_context(
+    systoles_run: int, saturated: int, failed: int, stop_reason: str
+) -> dict:
     """Gather raw data for all review tiers — each tier sees the same ground truth."""
     genome = vasomotor_genome()
     telemetry = _fetch_telemetry()
@@ -936,17 +952,17 @@ def _gather_adapt_context(systoles_run: int, saturated: int, failed: int, stop_r
     adapt_history = ""
     try:
         all_lines = EVENT_LOG.read_text().strip().splitlines()
-        adapt_events = [l for l in all_lines[-200:] if '"adapt_applied"' in l or '"adapt_noop"' in l]
+        adapt_events = [
+            l for l in all_lines[-200:] if '"adapt_applied"' in l or '"adapt_noop"' in l
+        ]
         adapt_history = "\n".join(adapt_events[-20:]) or "(no history)"
     except Exception:
         adapt_history = "(no history)"
 
     crystal_log = "(empty)"
     crystal_file = METHYLATION_FILE
-    try:
+    with contextlib.suppress(FileNotFoundError):
         crystal_log = crystal_file.read_text().strip() or "(empty)"
-    except FileNotFoundError:
-        pass
 
     # Sonnet structural observations
     sonnet_obs = ""
@@ -978,7 +994,9 @@ def _gather_adapt_context(systoles_run: int, saturated: int, failed: int, stop_r
         "telemetry": telemetry,
         "hours": hours,
         "weekly": telemetry.get("seven_day", {}).get("utilization", 0) if telemetry else 0,
-        "sonnet_util": telemetry.get("seven_day_sonnet", {}).get("utilization", 0) if telemetry else 0,
+        "sonnet_util": telemetry.get("seven_day_sonnet", {}).get("utilization", 0)
+        if telemetry
+        else 0,
         "yield_data": measure_yield(),
         "recent_events": recent_lines,
         "adapt_history": adapt_history,
@@ -1006,7 +1024,9 @@ def adapt(systoles_run: int, saturated: int, failed: int, stop_reason: str):
 
     # Base prompt — same raw data for all tiers
     prompt = ADAPT_PROMPT.format(
-        conf_json=json.dumps({k: v for k, v in genome.items() if not k.startswith("_") and k != "bounds"}, indent=2),
+        conf_json=json.dumps(
+            {k: v for k, v in genome.items() if not k.startswith("_") and k != "bounds"}, indent=2
+        ),
         weekly=ctx["weekly"],
         sonnet=ctx["sonnet_util"],
         hours_to_reset=ctx["hours"] or 0,
@@ -1044,12 +1064,13 @@ def adapt(systoles_run: int, saturated: int, failed: int, stop_reason: str):
 
     try:
         import shutil
+
         # Resolve first element to full path
         binary = shutil.which(cmd_template[0])
         if not binary:
             log(f"adapt: {cmd_template[0]} not found")
             return
-        cmd = [binary] + cmd_template[1:] + [prompt]
+        cmd = [binary, *cmd_template[1:], prompt]
         result = subprocess.run(
             cmd,
             capture_output=True,
@@ -1154,6 +1175,7 @@ def adapt(systoles_run: int, saturated: int, failed: int, stop_reason: str):
         org_adjustments = adjustments.get("organism_confs", {})
         if org_adjustments and isinstance(org_adjustments, dict):
             import configparser
+
             for conf_name, changes in org_adjustments.items():
                 if not isinstance(changes, dict):
                     continue

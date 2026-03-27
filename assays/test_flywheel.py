@@ -34,7 +34,9 @@ def mock_all(monkeypatch, mock_health_log):
         return MockCompletedProcess("")
 
     monkeypatch.setattr("metabolon.organelles.chemoreceptor.today", _mock_chemoreceptor_today)
-    monkeypatch.setattr("metabolon.organelles.circadian_clock.scheduled_events", _mock_scheduled_events)
+    monkeypatch.setattr(
+        "metabolon.organelles.circadian_clock.scheduled_events", _mock_scheduled_events
+    )
     monkeypatch.setattr("metabolon.tools.interoception.subprocess.run", _mock_subprocess_run)
     return mock_health_log
 

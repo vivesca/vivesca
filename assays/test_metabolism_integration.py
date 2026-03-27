@@ -29,7 +29,7 @@ def _make_signal(tool: str, outcome: Outcome = Outcome.success, tokens: int = 10
 def mock_symbiont():
     """Inject a mock symbiont module so lazy imports find it."""
     mock_mod = ModuleType("metabolon.symbiont")
-    setattr(mock_mod, "query", AsyncMock(return_value="An improved tool description for better results"))
+    mock_mod.query = AsyncMock(return_value="An improved tool description for better results")
     sys.modules["metabolon.symbiont"] = mock_mod
     yield mock_mod
     del sys.modules["metabolon.symbiont"]
@@ -137,7 +137,9 @@ class TestHotPathRepair:
         # Should not raise
         asyncio.run(middleware._acute_immune_response("unknown_tool", "error"))
 
-    def test_acute_immune_response_does_not_block_on_failure(self, redirect_defaults, mock_symbiont):
+    def test_acute_immune_response_does_not_block_on_failure(
+        self, redirect_defaults, mock_symbiont
+    ):
         """Repair failure doesn't propagate."""
         store = Genome()
         store.seed_tool("tool", "A tool for doing some important work for users")

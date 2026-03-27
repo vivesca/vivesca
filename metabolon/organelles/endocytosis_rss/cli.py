@@ -2,14 +2,17 @@ from __future__ import annotations
 
 import importlib.metadata
 import sys
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Optional
 
 import typer
 
-from metabolon.organelles.endocytosis_rss.config import EndocytosisConfig, default_sources_text, restore_config
-from metabolon.organelles.endocytosis_rss.state import restore_state, lockfile, refractory_elapsed
+from metabolon.organelles.endocytosis_rss.config import (
+    EndocytosisConfig,
+    default_sources_text,
+    restore_config,
+)
+from metabolon.organelles.endocytosis_rss.state import lockfile, refractory_elapsed, restore_state
 
 app = typer.Typer(help="endocytosis_rss — receptor-mediated endocytosis (RSS ingestion)")
 
@@ -54,7 +57,7 @@ def _parse_aware(value: str) -> datetime | None:
     except (ValueError, TypeError):
         return None
     if dt.tzinfo is None:
-        dt = dt.replace(tzinfo=timezone.utc)
+        dt = dt.replace(tzinfo=UTC)
     return dt
 
 
@@ -68,7 +71,7 @@ def _get_last_scan_date(state: dict[str, str]) -> str:
         # Subtract one day so articles published on the same calendar day as the
         # last scan are not filtered out (date comparison is <=, not <).
         return (max(dates) - timedelta(days=1)).strftime("%Y-%m-%d")
-    return (datetime.now(timezone.utc) - timedelta(days=1)).strftime("%Y-%m-%d")
+    return (datetime.now(UTC) - timedelta(days=1)).strftime("%Y-%m-%d")
 
 
 _CADENCE_LOOKBACK: dict[str, int] = {
@@ -98,7 +101,7 @@ def _source_since_date(
     # (global date is "today" when other sources ran today, causing new sources to find nothing)
     lookback_days = _CADENCE_LOOKBACK.get(cadence, 2)
     if now is None:
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
     lookback = (now - timedelta(days=lookback_days)).strftime("%Y-%m-%d")
     # Use whichever gives more history
     return min(fallback, lookback)
@@ -106,7 +109,9 @@ def _source_since_date(
 
 @app.command()
 def internalize(
-    no_archive: bool = typer.Option(False, "--no-archive", help="Skip archiving full article text"),
+    no_archive: bool = typer.Option(
+        False, "--no-archive", help="Skip archiving full article text"
+    ),
 ) -> None:
     cfg = restore_config()
     with lockfile(cfg.state_path):
@@ -127,16 +132,20 @@ def _fetch_locked(cfg: EndocytosisConfig, no_archive: bool) -> None:
     )
     from metabolon.organelles.endocytosis_rss.log import (
         _title_prefix,
-        record_cargo,
-        serialize_markdown,
+        cycle_log,
         is_noise,
         recall_title_prefixes,
-        cycle_log,
+        record_cargo,
+        serialize_markdown,
     )
-    from metabolon.organelles.endocytosis_rss.relevance import receptor_signal_ratio, record_affinity, assess_cargo
+    from metabolon.organelles.endocytosis_rss.relevance import (
+        assess_cargo,
+        receptor_signal_ratio,
+        record_affinity,
+    )
     from metabolon.organelles.endocytosis_rss.state import persist_state
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     cycle_log(cfg.log_path, cfg.data_dir, cfg.config_data.get("max_log_lines", 500), now)
 
     global_since_date = _get_last_scan_date(state)
@@ -204,7 +213,9 @@ def _fetch_locked(cfg: EndocytosisConfig, no_archive: bool) -> None:
                     failed_sources.append(f"{name} (RSS dead)")
             articles = articles or []
         elif "handle" in source:
-            articles = internalize_x_account(source["handle"], since_date, bird_path=cfg.resolve_bird())
+            articles = internalize_x_account(
+                source["handle"], since_date, bird_path=cfg.resolve_bird()
+            )
         elif "linkedin" in source:
             articles = internalize_linkedin(
                 source["linkedin"],
@@ -347,11 +358,13 @@ def probe_receptors() -> None:
 
 @app.command()
 def digest(
-    month: Optional[str] = typer.Option(None, "--month", help="Target month YYYY-MM"),
+    month: str | None = typer.Option(None, "--month", help="Target month YYYY-MM"),
     dry_run: bool = typer.Option(False, "--dry-run", help="Show themes only"),
-    themes: Optional[int] = typer.Option(None, "--themes", help="Max themes"),
-    model: Optional[str] = typer.Option(None, "--model", help="Model ID"),
-    tag: Optional[list[str]] = typer.Option(None, "--tag", "-t", help="Filter by tag (repeatable)"),
+    themes: int | None = typer.Option(None, "--themes", help="Max themes"),
+    model: str | None = typer.Option(None, "--model", help="Model ID"),
+    tag: list[str] | None = typer.Option(
+        None, "--tag", "-t", help="Filter by tag (repeatable)"
+    ),
     weekly: bool = typer.Option(
         False,
         "--weekly",
@@ -443,7 +456,7 @@ def breaking(
 
 @app.command()
 def scout(
-    count: Optional[int] = typer.Option(None, "--count", help="Number of tweets to scan"),
+    count: int | None = typer.Option(None, "--count", help="Number of tweets to scan"),
 ) -> None:
     cfg = restore_config()
     from metabolon.organelles.endocytosis_rss.discover import scout_sources
@@ -454,7 +467,7 @@ def scout(
 
 @app.command()
 def sources(
-    tier: Optional[int] = typer.Option(None, "--tier", help="Filter sources by tier"),
+    tier: int | None = typer.Option(None, "--tier", help="Filter sources by tier"),
 ) -> None:
     cfg = restore_config()
     rows: list[tuple[str, str, int, str]] = []
@@ -525,7 +538,7 @@ def sources(
 
 @app.command()
 def relevance(
-    top: Optional[int] = typer.Option(
+    top: int | None = typer.Option(
         None, "--top", help="Show top N highest-scored items from the last 7 days"
     ),
 ) -> None:
@@ -580,7 +593,13 @@ def status() -> None:
     if state:
         typer.echo(f"Sources:       {len(state)} tracked")
         latest = max(
-            (dt for ts in state.values() if isinstance(ts, str) for dt in [_parse_aware(ts)] if dt),
+            (
+                dt
+                for ts in state.values()
+                if isinstance(ts, str)
+                for dt in [_parse_aware(ts)]
+                if dt
+            ),
             default=None,
         )
         if latest is not None:

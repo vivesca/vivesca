@@ -28,7 +28,7 @@ def _load_conf() -> configparser.ConfigParser:
     return cfg
 
 
-def _default_sweep_config() -> "SweepConfig":
+def _default_sweep_config() -> SweepConfig:
     cfg = _load_conf()
     return SweepConfig(
         min_phenotypes=cfg.getint("selection", "min_phenotypes"),
@@ -48,7 +48,7 @@ class SweepConfig:
     offspring_per_generation: int = 2  # new candidates generated per sweep
 
     @classmethod
-    def from_conf(cls) -> "SweepConfig":
+    def from_conf(cls) -> SweepConfig:
         """Load a SweepConfig from sweep.conf (falls back to dataclass defaults)."""
         return _default_sweep_config()
 
@@ -84,7 +84,6 @@ async def recombine(
 
     Returns a new candidate description.
     """
-    import sys
 
     from metabolon.symbiont import transduce
 
@@ -102,7 +101,6 @@ async def recombine(
 
 async def mutate(tool: str, description: str, selection_pressure: str) -> str:
     """Derive a mutation instruction from the selection pressure, then apply it."""
-    import sys
 
     from metabolon.symbiont import transduce
 

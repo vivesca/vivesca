@@ -8,6 +8,7 @@ Each module runs in try/except for fault isolation.
 """
 
 import configparser
+import contextlib
 import json
 import math
 import os
@@ -257,10 +258,8 @@ def _allo_effective(budget, phase, depth):
 def mod_allostasis(data):
     session_id = data.get("session_id", "")
     state = {}
-    try:
+    with contextlib.suppress(Exception):
         state = json.loads(ALLO_STATE.read_text())
-    except Exception:
-        pass
 
     prev_tier = state.get("tier", "")
     prev_session = state.get("session_id", "")
@@ -301,14 +300,12 @@ def mod_allostasis(data):
     if parts:
         heb = get_hebbian()
         if heb:
-            try:
+            with contextlib.suppress(Exception):
                 heb.log_nudge(
                     "allostasis",
                     f"tier:{tier}",
                     metadata={"budget": budget, "phase": phase, "depth": depth},
                 )
-            except Exception:
-                pass
         return [" — ".join(parts)]
     return []
 
@@ -395,10 +392,8 @@ def mod_priming(data):
                 matches.append((skill, phrase))
                 break
 
-    try:
+    with contextlib.suppress(OSError):
         PRIM_CACHE.write_text(prompt[:500])
-    except OSError:
-        pass
 
     if matches:
         ts = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
@@ -460,16 +455,12 @@ def mod_mitogen(data):
 
     heb = get_hebbian()
     if heb:
-        try:
+        with contextlib.suppress(Exception):
             heb.log_nudge("mitogen", "delegate", prompt_snippet=prompt[:200])
-        except Exception:
-            pass
 
     state = {"fires": 0}
-    try:
+    with contextlib.suppress(Exception):
         state = json.loads(sf.read_text())
-    except Exception:
-        pass
 
     fires = state.get("fires", 0)
     if fires >= MIT_THRESHOLD:
@@ -561,9 +552,8 @@ def mod_circaseptan(data):
     week = now.strftime("%G-W%V")
     if CIRC_WEEKLY.exists() and any(week in f.name for f in CIRC_WEEKLY.glob("*.md")):
         return []
-    if CIRC_MARKER.exists():
-        if now.timestamp() - CIRC_MARKER.stat().st_mtime < 7200:
-            return []
+    if CIRC_MARKER.exists() and now.timestamp() - CIRC_MARKER.stat().st_mtime < 7200:
+        return []
     CIRC_MARKER.touch()
     return [f"Weekly review for {week} not yet done. Run `/ecdysis` when ready."]
 
@@ -578,10 +568,8 @@ def mod_calorimetry(data):
     now = time.time()
     state = {}
     if CAL_STATE.exists():
-        try:
+        with contextlib.suppress(Exception):
             state = json.loads(CAL_STATE.read_text())
-        except Exception:
-            pass
 
     is_new = not state.get("session_id")
     if not is_new and now - state.get("last_log", 0) < CAL_INTERVAL:
@@ -639,14 +627,12 @@ def mod_phenotype(data):
 
     # Fork Gemini call as background
     worker = HOOKS_DIR / "phenotype_rename.py"
-    try:
+    with contextlib.suppress(Exception):
         subprocess.Popen(
             [sys.executable, str(worker), prompt[:300], window_id],
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
         )
-    except Exception:
-        pass
     return []
 
 

@@ -13,7 +13,6 @@ Runs as a LaunchAgent: com.terry.circadian-probe
 
 import configparser
 import re
-import shutil
 import subprocess
 import sys
 import time
@@ -142,7 +141,7 @@ def scan_prospective_memory() -> list[str]:
             continue
 
         # Check for date-based triggers
-        date_pattern = re.compile(
+        re.compile(
             r"(?:~?\s*)?((?:Mon|Tue|Wed|Thu|Fri|Sat|Sun)\s+)?(\w{3}\s+\d{1,2})"
         )
         # Also check for "any session" or "next session" triggers

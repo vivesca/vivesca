@@ -2,10 +2,10 @@
 
 from metabolon.respirometry.schema import StatementMeta, Transaction
 from metabolon.respirometry.vault import (
-    serialize_markdown,
     is_processed,
-    stamp_processed,
     secrete_monthly_summary,
+    serialize_markdown,
+    stamp_processed,
 )
 
 

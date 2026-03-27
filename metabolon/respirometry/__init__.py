@@ -7,15 +7,15 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from metabolon.respirometry.categories import categorise, restore_categories
-from metabolon.respirometry.detect import identify_bank, filename_matches
+from metabolon.respirometry.detect import filename_matches, identify_bank
 from metabolon.respirometry.monitors import activate_monitors
 from metabolon.respirometry.parsers import get_parser
 from metabolon.respirometry.vault import (
     archive_pdf,
     file_hash,
     is_processed,
-    stamp_processed,
     secrete_statement,
+    stamp_processed,
 )
 
 SPENDING_DIR = Path.home() / "notes" / "Spending"
@@ -43,9 +43,9 @@ def metabolize_statement(
     from pypdf import PdfReader
 
     from metabolon.respirometry.payments import (
+        is_autopay,
         queue_payment,
         schedule_payment_reminder,
-        is_autopay,
     )
 
     if config_file is None:

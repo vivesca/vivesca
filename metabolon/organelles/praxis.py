@@ -10,12 +10,8 @@ Core functions: today, upcoming, overdue, someday, all_items, spare, clean, stat
 """
 
 import re
-import sys
 from datetime import datetime, timedelta
 from pathlib import Path
-
-from metabolon.cytosol import VIVESCA_ROOT as _VIVESCA_ROOT
-
 
 HOME = Path.home()
 NOTES = HOME / "notes"

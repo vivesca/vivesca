@@ -32,11 +32,11 @@ CHRONIC_THRESHOLD = _conf.getint("detection", "chronic_threshold", fallback=3)
 
 
 class InfectionEvent(TypedDict):
-    ts: str          # ISO-8601 UTC
+    ts: str  # ISO-8601 UTC
     tool: str
-    error: str       # truncated error message
-    fingerprint: str # sha256[:12] of tool+error for pattern matching
-    healed: bool     # whether LLM repair was attempted and accepted
+    error: str  # truncated error message
+    fingerprint: str  # sha256[:12] of tool+error for pattern matching
+    healed: bool  # whether LLM repair was attempted and accepted
 
 
 def _fingerprint(tool: str, error: str) -> str:

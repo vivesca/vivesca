@@ -40,12 +40,18 @@ _PHANTOM_PATTERNS: list[re.Pattern] = [
     re.compile(r"\b(conference|abstract|submission|application|proposal|nomination)\b", re.I),
     re.compile(r"\b(submit|apply|register|enroll|enrol)\b.*\b(terry|you)\b", re.I),
     # Writing in Terry's voice
-    re.compile(r"\b(linkedin|twitter|tweet|blog post|about page|bio|biography)\b.*\b(draft|write|post|publish)\b", re.I),
+    re.compile(
+        r"\b(linkedin|twitter|tweet|blog post|about page|bio|biography)\b.*\b(draft|write|post|publish)\b",
+        re.I,
+    ),
     re.compile(r"\b(draft|write|compose)\b.*\b(linkedin|bio|about|profile)\b", re.I),
     re.compile(r"\bin terry[''s]* voice\b", re.I),
     re.compile(r"\bpersonal statement\b", re.I),
     # Self-referential system audits filed as review items
-    re.compile(r"\b(audit|review|inspect)\b.*\b(yourself|itself|this system|vivesca|poiesis|pulse)\b", re.I),
+    re.compile(
+        r"\b(audit|review|inspect)\b.*\b(yourself|itself|this system|vivesca|poiesis|pulse)\b",
+        re.I,
+    ),
     re.compile(r"\bself.?audit\b", re.I),
     # Reports for self-caused problems
     re.compile(r"\b(rescue report|path audit|routing error|merge plan)\b", re.I),
@@ -69,7 +75,10 @@ _NON_AUTOMATED_PATTERNS: list[re.Pattern] = [
 # These signal the task is Automated (research, synthesis, code, monitoring).
 # Used to fast-path approval when task is clearly in scope.
 _AUTOMATED_SIGNALS: list[re.Pattern] = [
-    re.compile(r"\b(research|synthesize|synthesis|summarize|analyse|analyze|monitor|fetch|compile|draft for review)\b", re.I),
+    re.compile(
+        r"\b(research|synthesize|synthesis|summarize|analyse|analyze|monitor|fetch|compile|draft for review)\b",
+        re.I,
+    ),
     re.compile(r"\b(code|script|tool|automate|generate|extract)\b", re.I),
 ]
 
@@ -117,7 +126,10 @@ def dispatch_gate(task: dict) -> tuple[bool, str]:
     if not category or category not in ("automated",):
         for pat in _NON_AUTOMATED_PATTERNS:
             if pat.search(description):
-                return False, f"non-Automated category detected: '{pat.pattern}' matched — skip or reclassify"
+                return (
+                    False,
+                    f"non-Automated category detected: '{pat.pattern}' matched — skip or reclassify",
+                )
 
     # --- Q3: Obligation detection --------------------------------------------
     if creates_obligation is None:
@@ -127,7 +139,10 @@ def dispatch_gate(task: dict) -> tuple[bool, str]:
     # --- Q1 + Q3: The gate ---------------------------------------------------
     if not sourced and creates_obligation:
         reason = _phantom_reason(description)
-        return False, f"phantom obligation blocked: task not sourced from Terry and creates obligation requiring his name/voice/presence. {reason}"
+        return (
+            False,
+            f"phantom obligation blocked: task not sourced from Terry and creates obligation requiring his name/voice/presence. {reason}",
+        )
 
     return True, "approved"
 
@@ -159,11 +174,13 @@ def is_terry_tag_approved(
             "agent:terry items already queued — route to archive instead"
         )
 
-    approved, reason = dispatch_gate({
-        "description": task_description,
-        "sourced": sourced,
-        "creates_obligation": creates_obligation,
-    })
+    approved, reason = dispatch_gate(
+        {
+            "description": task_description,
+            "sourced": sourced,
+            "creates_obligation": creates_obligation,
+        }
+    )
     if not approved:
         return False, reason
 
@@ -193,11 +210,13 @@ def sweep_praxis_for_phantoms(praxis_text: str) -> list[dict]:
             continue  # already resolved
 
         # Run heuristic gate (sourced=False conservative assumption)
-        approved, reason = dispatch_gate({
-            "description": line,
-            "sourced": False,
-            "creates_obligation": None,
-        })
+        approved, reason = dispatch_gate(
+            {
+                "description": line,
+                "sourced": False,
+                "creates_obligation": None,
+            }
+        )
         if not approved:
             results.append({"line_number": i, "line": line.strip(), "reason": reason})
 
@@ -211,10 +230,7 @@ def sweep_praxis_for_phantoms(praxis_text: str) -> list[dict]:
 
 def _is_phantom(description: str) -> bool:
     """Return True if description matches any phantom obligation pattern."""
-    for pat in _PHANTOM_PATTERNS:
-        if pat.search(description):
-            return True
-    return False
+    return any(pat.search(description) for pat in _PHANTOM_PATTERNS)
 
 
 def _phantom_reason(description: str) -> str:
@@ -232,7 +248,4 @@ def _is_study_or_action(description: str) -> bool:
         re.compile(r"\b(go to|call|visit|pick up|drop off|sign|attend)\b", re.I),
         re.compile(r"\b(verify|check|confirm|validate)\b.*\b(complete|done|ready|pass)\b", re.I),
     ]
-    for pat in _study_or_action:
-        if pat.search(description):
-            return True
-    return False
+    return any(pat.search(description) for pat in _study_or_action)

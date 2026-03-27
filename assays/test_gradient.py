@@ -4,20 +4,14 @@ from __future__ import annotations
 
 import json
 from datetime import UTC, datetime, timedelta
-from pathlib import Path
-
-import pytest
 
 from metabolon.tools.gradient import (
-    GradientReport,
-    GradientVector,
     _score_text,
     _sense_endocytosis,
     _sense_signals,
     _topology_weight,
     proprioception_gradient,
 )
-
 
 # ---------------------------------------------------------------------------
 # Unit tests: _score_text
@@ -102,7 +96,7 @@ def test_sense_endocytosis_includes_high_score(tmp_path, monkeypatch):
         + "\n"
     )
     monkeypatch.setattr(grad, "_RELEVANCE_LOG", log)
-    hits, titles = _sense_endocytosis(7)
+    hits, _titles = _sense_endocytosis(7)
     assert "ai_governance" in hits or "banking_fintech" in hits
 
 
@@ -280,8 +274,7 @@ def test_gradient_multi_sensor_coverage(tmp_path, monkeypatch):
     signals_log = tmp_path / "signals.jsonl"
     for _ in range(5):
         signals_log.open("a").write(
-            json.dumps({"ts": now.isoformat(), "tool": "ligand_bind", "outcome": "success"})
-            + "\n"
+            json.dumps({"ts": now.isoformat(), "tool": "ligand_bind", "outcome": "success"}) + "\n"
         )
 
     monkeypatch.setattr(grad, "_RELEVANCE_LOG", lustro_log)
@@ -316,10 +309,7 @@ def test_gradient_normalised_strength(tmp_path, monkeypatch):
     signals_log = tmp_path / "signals.jsonl"
     for _ in range(10):
         signals_log.open("a").write(
-            json.dumps(
-                {"ts": now.isoformat(), "tool": "emit_tweet", "outcome": "success"}
-            )
-            + "\n"
+            json.dumps({"ts": now.isoformat(), "tool": "emit_tweet", "outcome": "success"}) + "\n"
         )
 
     monkeypatch.setattr(grad, "_RELEVANCE_LOG", lustro_log)
@@ -398,7 +388,7 @@ def test_topology_all_three():
 
 def test_topology_empty():
     """Empty sensor set → weight 0.0."""
-    w, bonus = _topology_weight(set())
+    w, _bonus = _topology_weight(set())
     assert w == 0.0
 
 
@@ -479,8 +469,7 @@ def test_gradient_adjacent_pair_lower_weight_than_independent(tmp_path, monkeypa
     signals_log = tmp_path / "signals.jsonl"
     for _ in range(3):
         signals_log.open("a").write(
-            json.dumps({"ts": now.isoformat(), "tool": "emit_tweet", "outcome": "success"})
-            + "\n"
+            json.dumps({"ts": now.isoformat(), "tool": "emit_tweet", "outcome": "success"}) + "\n"
         )
 
     monkeypatch.setattr(grad, "_RELEVANCE_LOG", lustro_log)

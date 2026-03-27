@@ -6,10 +6,9 @@ import json
 import os
 import sys
 import tempfile
-from collections.abc import Generator
-from datetime import datetime, timedelta, timezone
+from collections.abc import Generator, Mapping
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Mapping
 
 
 @contextlib.contextmanager
@@ -106,7 +105,7 @@ def refractory_elapsed(
     except ValueError:
         return True
     if now is None:
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
     if last_seen.tzinfo is None:
-        last_seen = last_seen.replace(tzinfo=timezone.utc)
+        last_seen = last_seen.replace(tzinfo=UTC)
     return now - last_seen >= timedelta(days=cadence_days)

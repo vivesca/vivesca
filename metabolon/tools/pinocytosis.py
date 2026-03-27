@@ -14,7 +14,7 @@ from fastmcp.tools import tool
 from mcp.types import ToolAnnotations
 
 from metabolon.morphology import Secretion
-from metabolon.pinocytosis import interphase, photoreception, polarization, ultradian, ecdysis
+from metabolon.pinocytosis import ecdysis, interphase, photoreception, polarization, ultradian
 
 
 class PinocytosisResult(Secretion):

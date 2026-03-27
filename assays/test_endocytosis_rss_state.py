@@ -1,8 +1,12 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
-from metabolon.organelles.endocytosis_rss.state import restore_state, refractory_elapsed, persist_state
+from metabolon.organelles.endocytosis_rss.state import (
+    persist_state,
+    refractory_elapsed,
+    restore_state,
+)
 
 
 def test_load_save_roundtrip(tmp_path, sample_state):
@@ -28,7 +32,7 @@ def test_persist_state_atomic_write(tmp_path, monkeypatch, sample_state):
 
 
 def test_should_fetch_by_cadence():
-    now = datetime(2026, 2, 24, 12, 0, tzinfo=timezone.utc)
+    now = datetime(2026, 2, 24, 12, 0, tzinfo=UTC)
     old = (now - timedelta(days=8)).isoformat()
     recent = (now - timedelta(hours=12)).isoformat()
     state = {"weekly-source": old, "twice-weekly-source": recent}
@@ -41,7 +45,7 @@ def test_should_fetch_by_cadence():
 
 def test_should_fetch_downregulation_moderate_noise():
     """Moderate noise (signal_ratio 0.2-0.5) extends refractory period by 2 days."""
-    now = datetime(2026, 2, 24, 12, 0, tzinfo=timezone.utc)
+    now = datetime(2026, 2, 24, 12, 0, tzinfo=UTC)
     # 6 days ago — would normally qualify for weekly (5 days), but 2-day
     # downregulation extension makes effective threshold 7 days
     last = (now - timedelta(days=6)).isoformat()
@@ -59,7 +63,7 @@ def test_should_fetch_downregulation_moderate_noise():
 
 def test_should_fetch_downregulation_high_noise():
     """High noise (signal_ratio < 0.2) extends refractory period by 7 days."""
-    now = datetime(2026, 2, 24, 12, 0, tzinfo=timezone.utc)
+    now = datetime(2026, 2, 24, 12, 0, tzinfo=UTC)
     # 9 days ago — weekly (5d) would normally trigger, but +7 = 12-day threshold
     last = (now - timedelta(days=9)).isoformat()
     state = {"very-noisy": last}
@@ -76,5 +80,5 @@ def test_should_fetch_downregulation_high_noise():
 
 def test_should_fetch_new_source_always_fetches_regardless_of_signal_ratio():
     """New sources (not in state) always fetch — no prior stimulus to judge."""
-    now = datetime(2026, 2, 24, 12, 0, tzinfo=timezone.utc)
+    now = datetime(2026, 2, 24, 12, 0, tzinfo=UTC)
     assert refractory_elapsed({}, "brand-new", "weekly", now=now, signal_ratio=0.0) is True

@@ -1,5 +1,6 @@
-import textwrap
 import json
+import textwrap
+
 from metabolon.lysin.fetch import BioArticle
 
 

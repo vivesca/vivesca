@@ -5,8 +5,7 @@ from __future__ import annotations
 import json
 import os
 import subprocess
-import sys
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -112,7 +111,9 @@ def _engagement_boost(title: str, source: str) -> int:
 
     # False-positive signal: source has >=2 high-scored items (score>=7) with zero engagement
     source_high_scored = [
-        r for r in scored_rows if str(r.get("source", "")) == source and int(r.get("score", 0)) >= 7
+        r
+        for r in scored_rows
+        if str(r.get("source", "")) == source and int(r.get("score", 0)) >= 7
     ]
     source_high_engaged_count = sum(
         1 for r in source_high_scored if str(r.get("title", "")) in engaged_titles
@@ -210,7 +211,7 @@ def record_recycling(title: str, action: str = "deepened") -> None:
     """Log when the user engages with cargo (endosomal recycling signal)."""
     RECYCLING_LOG.parent.mkdir(parents=True, exist_ok=True)
     entry = {
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": datetime.now(UTC).isoformat(),
         "title": title,
         "action": action,
     }
@@ -245,7 +246,7 @@ def receptor_signal_ratio(source: str, window_days: int = 30) -> float:
     window.  Returns 1.0 (assume high signal) when fewer than 5 items have been
     scored — insufficient stimulus history to trigger downregulation.
     """
-    cutoff = datetime.now(timezone.utc) - timedelta(days=window_days)
+    cutoff = datetime.now(UTC) - timedelta(days=window_days)
     total = 0
     signal = 0
     for entry in _read_jsonl(AFFINITY_LOG):
@@ -257,7 +258,7 @@ def receptor_signal_ratio(source: str, window_days: int = 30) -> float:
         except (ValueError, TypeError):
             continue
         if timestamp.tzinfo is None:
-            timestamp = timestamp.replace(tzinfo=timezone.utc)
+            timestamp = timestamp.replace(tzinfo=UTC)
         if timestamp < cutoff:
             continue
         total += 1
@@ -304,7 +305,7 @@ def affinity_stats() -> dict[str, Any]:
 
 def top_cargo(limit: int = 10, days: int = 7) -> list[dict[str, Any]]:
     """Return the highest-scored cargo in the recent window."""
-    cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+    cutoff = datetime.now(UTC) - timedelta(days=days)
     items: list[dict[str, Any]] = []
     for entry in _read_jsonl(AFFINITY_LOG):
         raw_timestamp = entry.get("timestamp")
@@ -313,7 +314,7 @@ def top_cargo(limit: int = 10, days: int = 7) -> list[dict[str, Any]]:
         except ValueError:
             continue
         if timestamp.tzinfo is None:
-            timestamp = timestamp.replace(tzinfo=timezone.utc)
+            timestamp = timestamp.replace(tzinfo=UTC)
         if timestamp < cutoff:
             continue
         items.append(entry)

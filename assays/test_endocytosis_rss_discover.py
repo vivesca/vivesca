@@ -6,7 +6,11 @@ from types import SimpleNamespace
 import yaml
 
 from metabolon.organelles.endocytosis_rss.config import restore_config
-from metabolon.organelles.endocytosis_rss.discover import _compile_keywords, has_affinity, scout_sources
+from metabolon.organelles.endocytosis_rss.discover import (
+    _compile_keywords,
+    has_affinity,
+    scout_sources,
+)
 
 
 def _write_sources_with_discovery(config_home):
@@ -62,7 +66,10 @@ def test_scout_sources_filters_tracked_handles_and_formats_output(monkeypatch, x
         },
     ]
 
-    monkeypatch.setattr("metabolon.organelles.endocytosis_rss.discover.shutil.which", lambda _name: "/usr/local/bin/bird")
+    monkeypatch.setattr(
+        "metabolon.organelles.endocytosis_rss.discover.shutil.which",
+        lambda _name: "/usr/local/bin/bird",
+    )
     monkeypatch.setattr(
         "metabolon.organelles.endocytosis_rss.discover.subprocess.run",
         lambda *_args, **_kwargs: SimpleNamespace(
@@ -91,7 +98,10 @@ def test_cmd_discover_uses_count_override(monkeypatch, xdg_env):
     called = {}
     cfg = restore_config()
 
-    monkeypatch.setattr("metabolon.organelles.endocytosis_rss.discover.shutil.which", lambda _name: "/usr/local/bin/bird")
+    monkeypatch.setattr(
+        "metabolon.organelles.endocytosis_rss.discover.shutil.which",
+        lambda _name: "/usr/local/bin/bird",
+    )
 
     def fake_run(cmd, **_kwargs):
         called["cmd"] = cmd

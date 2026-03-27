@@ -13,6 +13,7 @@ Core functions: sense_usage, budget_status, append_history, serialize_status.
 """
 
 import configparser
+import contextlib
 import json
 import subprocess
 import urllib.request
@@ -58,7 +59,9 @@ def get_oauth_token() -> str:
             if oauth.get("accessToken") and oauth.get("expiresAt", 0) >= now_ms:
                 return oauth["accessToken"]
             if oauth.get("accessToken") and oauth.get("expiresAt", 0) < now_ms:
-                raise RuntimeError("Token in ~/.claude/.credentials.json is expired. Start a new CC session to refresh.")
+                raise RuntimeError(
+                    "Token in ~/.claude/.credentials.json is expired. Start a new CC session to refresh."
+                )
         except (json.JSONDecodeError, OSError) as e:
             raise RuntimeError(f"Failed to read ~/.claude/.credentials.json: {e}") from e
 
@@ -74,7 +77,9 @@ def get_oauth_token() -> str:
             data = json.loads(result.stdout.strip())
             oauth = data["claudeAiOauth"]
             if oauth["expiresAt"] < now_ms:
-                raise RuntimeError("Keychain token expired. Start a Claude Code session to refresh.")
+                raise RuntimeError(
+                    "Keychain token expired. Start a Claude Code session to refresh."
+                )
             return oauth["accessToken"]
         except (json.JSONDecodeError, KeyError) as e:
             raise RuntimeError(f"Keychain entry malformed: {e}") from e
@@ -147,10 +152,8 @@ def sense_usage() -> tuple[dict, int | None]:
         token = get_oauth_token()
         usage = internalize_usage(token)
         # Persist live snapshot so cache stays fresh for sandbox callers
-        try:
+        with contextlib.suppress(Exception):
             record_breath(usage)
-        except Exception:
-            pass
         return usage, None
     except Exception as live_err:
         entry, age = _read_fallback()

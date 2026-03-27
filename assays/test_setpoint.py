@@ -135,7 +135,7 @@ def test_hysteresis_prevents_oscillation_at_boundary(tmp_path, monkeypatch):
 
     # Rapid oscillation at activation boundary — must not flip
     for _ in range(5):
-        assert sp.is_activated(9.8) is True   # inside dead-band, stays open
+        assert sp.is_activated(9.8) is True  # inside dead-band, stays open
         assert sp.is_activated(10.2) is True  # above activation, stays open
 
 
@@ -153,12 +153,12 @@ def test_hysteresis_example_from_spec(tmp_path, monkeypatch):
     assert sp.deactivation_threshold == pytest.approx(0.5, abs=1e-9)
 
     # Gate closed; value at 0.65 (inside dead-band) — should stay closed
-    sp.is_activated(0.4)          # below deactivation — start closed
+    sp.is_activated(0.4)  # below deactivation — start closed
     assert sp.is_activated(0.65) is False  # dead-band, closed state preserved
 
     # Now open the gate and verify 0.65 keeps it open
-    sp.is_activated(0.75)         # above activation — open
-    assert sp.is_activated(0.65) is True   # dead-band, open state preserved
+    sp.is_activated(0.75)  # above activation — open
+    assert sp.is_activated(0.65) is True  # dead-band, open state preserved
 
 
 def test_refractory_gate_clears_latch(tmp_path, monkeypatch):

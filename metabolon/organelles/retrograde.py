@@ -51,7 +51,7 @@ def log_signal(direction: str, signal_type: str, detail: str = "") -> None:
     """Append one signal to ~/.cache/retrograde/signals.jsonl."""
     SIGNALS_LOG.parent.mkdir(parents=True, exist_ok=True)
     entry = {
-        "ts": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        "ts": datetime.datetime.now(datetime.UTC).isoformat(),
         "direction": direction,
         "type": signal_type,
         "detail": detail,
@@ -66,13 +66,13 @@ def log_signal(direction: str, signal_type: str, detail: str = "") -> None:
 
 
 def _cutoff_iso(days: int) -> str:
-    dt = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=days)
+    dt = datetime.datetime.now(datetime.UTC) - datetime.timedelta(days=days)
     return dt.isoformat()
 
 
 def _count_anterograde(days: int) -> int:
     """Count organism→symbiont signals: pulse systoles + channel calls logged in event log."""
-    cutoff = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=days)
+    cutoff = datetime.datetime.now(datetime.UTC) - datetime.timedelta(days=days)
     count = 0
     for path in [EVENT_LOG]:
         if not path.exists():
@@ -85,7 +85,7 @@ def _count_anterograde(days: int) -> int:
                 try:
                     ts = datetime.datetime.fromisoformat(ts_str)
                     if ts.tzinfo is None:
-                        ts = ts.replace(tzinfo=datetime.timezone.utc)
+                        ts = ts.replace(tzinfo=datetime.UTC)
                 except ValueError:
                     continue
                 if ts < cutoff:
@@ -113,9 +113,18 @@ def _count_retrograde(days: int) -> int:
             continue
         try:
             result = subprocess.run(
-                ["git", "-C", str(repo), "log", f"--since={cutoff_iso}",
-                 "--author=Claude", "--oneline"],
-                capture_output=True, text=True, timeout=5,
+                [
+                    "git",
+                    "-C",
+                    str(repo),
+                    "log",
+                    f"--since={cutoff_iso}",
+                    "--author=Claude",
+                    "--oneline",
+                ],
+                capture_output=True,
+                text=True,
+                timeout=5,
             )
             count += len(result.stdout.strip().splitlines()) if result.stdout.strip() else 0
         except Exception:
@@ -133,9 +142,9 @@ def _count_retrograde(days: int) -> int:
                 try:
                     ts = datetime.datetime.fromisoformat(ts_str)
                     if ts.tzinfo is None:
-                        ts = ts.replace(tzinfo=datetime.timezone.utc)
+                        ts = ts.replace(tzinfo=datetime.UTC)
                     if cutoff_dt.tzinfo is None:
-                        _cutoff = cutoff_dt.replace(tzinfo=datetime.timezone.utc)
+                        _cutoff = cutoff_dt.replace(tzinfo=datetime.UTC)
                     else:
                         _cutoff = cutoff_dt
                     if ts >= _cutoff:
@@ -159,9 +168,9 @@ def _count_retrograde(days: int) -> int:
                 try:
                     ts = datetime.datetime.fromisoformat(ts_str)
                     if ts.tzinfo is None:
-                        ts = ts.replace(tzinfo=datetime.timezone.utc)
+                        ts = ts.replace(tzinfo=datetime.UTC)
                     if cutoff_dt.tzinfo is None:
-                        _cutoff = cutoff_dt.replace(tzinfo=datetime.timezone.utc)
+                        _cutoff = cutoff_dt.replace(tzinfo=datetime.UTC)
                     else:
                         _cutoff = cutoff_dt
                     if ts >= _cutoff and entry.get("healed"):
@@ -180,7 +189,7 @@ def _count_logged(days: int, direction: str) -> int:
     """Count entries in signals.jsonl matching direction within window."""
     if not SIGNALS_LOG.exists():
         return 0
-    cutoff = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=days)
+    cutoff = datetime.datetime.now(datetime.UTC) - datetime.timedelta(days=days)
     count = 0
     try:
         for line in SIGNALS_LOG.read_text().splitlines():
@@ -190,7 +199,7 @@ def _count_logged(days: int, direction: str) -> int:
             try:
                 ts = datetime.datetime.fromisoformat(entry["ts"])
                 if ts.tzinfo is None:
-                    ts = ts.replace(tzinfo=datetime.timezone.utc)
+                    ts = ts.replace(tzinfo=datetime.UTC)
                 if ts >= cutoff:
                     count += 1
             except (ValueError, KeyError):
@@ -215,10 +224,7 @@ def signal_balance(days: int = 7) -> dict:
     ante = _count_anterograde(days)
     retro = _count_retrograde(days)
 
-    if retro == 0:
-        ratio = float(ante) if ante > 0 else 1.0
-    else:
-        ratio = ante / retro
+    ratio = (float(ante) if ante > 0 else 1.0) if retro == 0 else ante / retro
 
     if ratio >= 3.0:
         assessment = "sovereign"

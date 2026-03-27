@@ -5,6 +5,7 @@ Replaces 9 command hooks (8 JS + 1 Python) with a single process.
 Routes by tool name internally. deny() exits immediately.
 """
 
+import contextlib
 import json
 import os
 import re
@@ -254,7 +255,9 @@ def guard_bash(data):
     # 18. rm on ~/epigenome/chromatin/*.md
     if (
         re.search(r"\brm\b", cmd)
-        and re.search(rf"(~/epigenome/chromatin/|{re.escape(str(HOME))}/epigenome/chromatin/)", cmd)
+        and re.search(
+            rf"(~/epigenome/chromatin/|{re.escape(str(HOME))}/epigenome/chromatin/)", cmd
+        )
         and re.search(r"\.md\b", cmd)
     ):
         deny("Never delete vault notes. Archive instead.", "bash-guard")
@@ -356,23 +359,17 @@ def guard_long_running(data):
 
     # pip install / uv pip install
     if re.search(r"\b(uv\s+)?pip\s+install\b", cmd):
-        allow_msg(
-            "pip install may take a while. Consider setting run_in_background: true."
-        )
+        allow_msg("pip install may take a while. Consider setting run_in_background: true.")
         return
 
     # npm install
     if re.search(r"\bnpm\s+(install|i|ci)\b", cmd):
-        allow_msg(
-            "npm install can be slow. Consider setting run_in_background: true."
-        )
+        allow_msg("npm install can be slow. Consider setting run_in_background: true.")
         return
 
     # brew install / brew upgrade
     if re.search(r"\bbrew\s+(install|upgrade)\b", cmd):
-        allow_msg(
-            "brew install can take a while. Consider setting run_in_background: true."
-        )
+        allow_msg("brew install can take a while. Consider setting run_in_background: true.")
         return
 
     # --timeout > 30000
@@ -483,12 +480,16 @@ def guard_write(data):
 
     # Effector naming gate: new files in effectors/ must be cell biology names
     effectors_dir = str(HOME / "germline" / "effectors") + "/"
-    if fp.startswith(effectors_dir) and "/" not in fp[len(effectors_dir):]:
-        name = fp[len(effectors_dir):].rstrip("/")
+    if fp.startswith(effectors_dir) and "/" not in fp[len(effectors_dir) :]:
+        name = fp[len(effectors_dir) :].rstrip("/")
         if name and not name.startswith("."):
             whitelist_path = _VIVESCA_ROOT / "germline" / "effector-names.txt"
             if whitelist_path.exists():
-                approved = {n.strip() for n in whitelist_path.read_text().splitlines() if n.strip() and not n.startswith("#")}
+                approved = {
+                    n.strip()
+                    for n in whitelist_path.read_text().splitlines()
+                    if n.strip() and not n.startswith("#")
+                }
                 if name not in approved:
                     deny(
                         f"New effector '{name}' not in approved names (effector-names.txt). "
@@ -660,10 +661,8 @@ def guard_bifurcation(data):
     project = cd_match.group(1).replace("~", str(HOME)) if cd_match else "unknown"
 
     state = {"launches": []}
-    try:
+    with contextlib.suppress(Exception):
         state = json.loads(BIFURC_STATE.read_text())
-    except Exception:
-        pass
 
     now = time.time() * 1000
     state["launches"] = [
@@ -683,10 +682,8 @@ def guard_bifurcation(data):
         print(f"[parallel-nudge] 3rd consecutive {tool} delegate. Route by signal.")
 
     state["launches"].append({"tool": tool, "project": project, "ts": now})
-    try:
+    with contextlib.suppress(Exception):
         BIFURC_STATE.write_text(json.dumps(state, indent=2))
-    except Exception:
-        pass
 
 
 # ── guard_autoimmune: from autoimmune.py ───────────────────
@@ -705,19 +702,15 @@ def guard_autoimmune(data):
         return
 
     state = {}
-    try:
+    with contextlib.suppress(Exception):
         state = json.loads(AUTOIMMUNE_STATE.read_text())
-    except Exception:
-        pass
 
     if state.get("session_id") != session_id:
         state = {"session_id": session_id, "sarcio_count": 0}
 
     state["sarcio_count"] = state.get("sarcio_count", 0) + 1
-    try:
+    with contextlib.suppress(Exception):
         AUTOIMMUNE_STATE.write_text(json.dumps(state))
-    except Exception:
-        pass
 
     if state["sarcio_count"] < 3:
         return
