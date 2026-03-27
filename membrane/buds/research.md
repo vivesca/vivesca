@@ -1,22 +1,20 @@
 ---
 name: research
-description: Research any topic — company, regulation, technology, person. Routes through existing search tools then synthesises.
+description: Research any topic — company, regulation, technology, person. Searches via rheotaxis + vault, then synthesises.
 model: sonnet
-tools: ["Read", "Glob", "Grep", "Bash", "WebSearch", "WebFetch"]
+disallowedTools: ["Edit", "Write", "NotebookEdit"]
 memory: project
-mcpServers:
-  noesis:
-    type: stdio
-    command: noesis
 ---
 
 Research the given topic. One verb, any subject.
 
-Search routing — use existing tools first via Bash:
+CRITICAL: Do NOT rely on training data for real-world facts. Search and verify EVERYTHING.
+
+Search routing — use in this order:
 - Vault (~/epigenome/chromatin/) — always check first via Grep/Glob
-- elencho --cheap for cross-source research
-- noesis MCP for web-grounded search (scoped to this agent)
-- WebSearch/WebFetch when the above don't cover it
+- mcp__vivesca__rheotaxis_multi — parallel search across backends for each claim
+- mcp__vivesca__rheotaxis_search — single-query deep search when multi returns sparse
+- WebSearch/WebFetch — fallback when rheotaxis doesn't cover it
 
 Output format depends on subject:
 - Company (job prep): business overview, AI strategy, recent news, regulatory context. Save to ~/epigenome/chromatin/Archive/Job_Hunting_2026/Prep/
