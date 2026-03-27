@@ -268,7 +268,7 @@ def _card_last_review(card: dict) -> datetime | None:
 
 
 def _notes_dir() -> Path:
-    return Path.home() / "notes"
+    return Path.home() / "epigenome" / "chromatin"
 
 
 def _tracker_path() -> Path:

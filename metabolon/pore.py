@@ -745,7 +745,7 @@ tags: [ai, agents, design, vivesca]
 
     try:
         content = symbiont.transduce(draft_model, prompt, timeout=120)
-        post_path = Path.home() / "notes" / "Writing" / "Blog" / "Published" / f"{slug}.md"
+        post_path = Path.home() / "epigenome" / "chromatin" / "Writing" / "Blog" / "Published" / f"{slug}.md"
         post_path.write_text(content)
         click.echo(f"Drafted: {post_path}")
 

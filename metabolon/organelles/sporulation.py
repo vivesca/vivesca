@@ -16,8 +16,8 @@ import subprocess
 from datetime import UTC, datetime
 from pathlib import Path
 
-VAULT_DIR = Path.home() / "notes" / "Writing" / "Blog" / "Published"
-INDEX_PATH = Path.home() / "notes" / "terryli.hm.md"
+VAULT_DIR = Path.home() / "epigenome" / "chromatin" / "Writing" / "Blog" / "Published"
+INDEX_PATH = Path.home() / "epigenome" / "chromatin" / "terryli.hm.md"
 SYNC_SCRIPT = Path.home() / "code" / "blog" / "sync-from-vault.sh"
 
 

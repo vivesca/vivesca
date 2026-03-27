@@ -19,7 +19,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 STATE_FILE = Path.home() / ".claude" / "meta-spiral-state.json"
-PRAXIS_FILE = Path.home() / "notes" / "Praxis.md"
+PRAXIS_FILE = Path.home() / "epigenome" / "chromatin" / "Praxis.md"
 LOG_FILE = Path.home() / "logs" / "hook-fire-log.jsonl"
 THRESHOLD = 3
 

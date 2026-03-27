@@ -9,7 +9,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-SPENDING_DIR = Path.home() / "notes" / "Spending"
+SPENDING_DIR = Path.home() / "epigenome" / "chromatin" / "Spending"
 
 
 class SpendingSubstrate:

@@ -700,7 +700,7 @@ def _write_genome(genome: dict):
 # ---------------------------------------------------------------------------
 
 YIELD_DIRS = [
-    Path.home() / "notes" / "Pulse Reports",
+    Path.home() / "epigenome" / "chromatin" / "Pulse Reports",
     Path.home() / "tmp",  # pulse-manifest, briefs
 ]
 

@@ -54,7 +54,7 @@ CARDIAC_LOG = Path.home() / "tmp" / "pulse-manifest.md"
 CARDIAC_LOCK = Path.home() / "tmp" / "pulse.lock"
 TOPIC_LOCK = Path.home() / "tmp" / "pulse-topics-done.txt"
 LOG_DIR = Path.home() / "logs"
-REPORT_DIR = Path.home() / "notes" / "Pulse Reports"
+REPORT_DIR = Path.home() / "epigenome" / "chromatin" / "Pulse Reports"
 VITAL_SIGNS_FILE = Path.home() / "tmp" / "pulse-status.json"
 
 # ---------------------------------------------------------------------------

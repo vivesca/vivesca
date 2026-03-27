@@ -15,7 +15,7 @@ from pydantic import Field
 
 from metabolon.morphology import EffectorResult, Secretion
 
-SPENDING_DIR = Path.home() / "notes" / "Spending"
+SPENDING_DIR = Path.home() / "epigenome" / "chromatin" / "Spending"
 PAYMENTS_FILE = SPENDING_DIR / "payments.yaml"
 
 

@@ -18,12 +18,12 @@ from metabolon.respirometry.vault import (
     stamp_processed,
 )
 
-SPENDING_DIR = Path.home() / "notes" / "Spending"
+SPENDING_DIR = Path.home() / "epigenome" / "chromatin" / "Spending"
 CATEGORIES_FILE = SPENDING_DIR / "categories.yaml"
 CONFIG_FILE = SPENDING_DIR / "config.yaml"
 PAYMENTS_FILE = SPENDING_DIR / "payments.yaml"
 DEDUP_LEDGER = SPENDING_DIR / ".processed"
-EFFERENS_DIR = Path.home() / "notes" / "Efferens"
+EFFERENS_DIR = Path.home() / "epigenome" / "chromatin" / "Efferens"
 HKT = timezone(timedelta(hours=8))
 
 

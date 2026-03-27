@@ -11,7 +11,7 @@ import time
 from datetime import UTC, datetime
 from pathlib import Path
 
-PUBLISHED = Path.home() / "notes" / "Writing" / "Blog" / "Published"
+PUBLISHED = Path.home() / "epigenome" / "chromatin" / "Writing" / "Blog" / "Published"
 LOGDIR = Path.home() / "tmp"
 VIVESCA = Path.home() / "code" / "vivesca"
 
