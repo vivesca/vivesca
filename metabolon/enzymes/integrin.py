@@ -151,7 +151,6 @@ def _check_phenotype_symlinks() -> tuple[list[dict], list[str]]:
 
 
 _LAUNCHAGENTS_DIR = Path.home() / "Library" / "LaunchAgents"
-_PATH_RE = re.compile(r"(?:/Users/\w+|~)[^\s<\"']+")
 
 
 def _check_launchagent_paths() -> list[dict]:
@@ -185,12 +184,14 @@ def _check_launchagent_paths() -> list[dict]:
         for arg in prog_args:
             if not isinstance(arg, str):
                 continue
-            # Only check absolute paths and ~/paths
+            # Only check clean absolute paths and ~/paths
             expanded = arg.replace("~", str(Path.home())) if arg.startswith("~") else arg
             if not expanded.startswith("/"):
                 continue
-            # Skip system paths and flags
+            # Skip system paths, flags, and compound commands
             if expanded.startswith(("/usr/", "/bin/", "/opt/homebrew/", "/Applications/")):
+                continue
+            if " && " in expanded or " || " in expanded or " " in arg.split("/")[-1]:
                 continue
             if not Path(expanded).exists():
                 broken.append({
@@ -202,18 +203,23 @@ def _check_launchagent_paths() -> list[dict]:
     return broken
 
 
-_SKILL_PATH_RE = re.compile(r"(?:`|^|\s)((?:/Users/\w+|~/)[a-zA-Z][^\s`\"'>]*)")
+# Match paths inside backticks (preserves spaces) or bare paths
+_SKILL_PATH_BACKTICK_RE = re.compile(r"`((?:/Users/\w+|~/)[^`]+)`")
+_SKILL_PATH_BARE_RE = re.compile(r"(?:^|\s)((?:/Users/\w+|~/)[a-zA-Z][^\s`\"'>]*)")
+_SKIP_FRAGMENTS = frozenset(("YYYY", "*", "/tmp/", "{", "$(", "example", "<"))
 
 
 def _check_skill_paths() -> list[dict]:
     """Verify hardcoded ~/paths in SKILL.md files resolve.
 
     Returns list of {skill, path, problem} for broken references.
-    Skips template paths (YYYY), globs (*), and ephemeral dirs (tmp/).
+    Skips template paths, globs, placeholders, and ephemeral dirs.
     """
     broken: list[dict] = []
     if not SKILLS_DIR.is_dir():
         return broken
+
+    home_str = str(Path.home())
 
     for skill_dir in sorted(SKILLS_DIR.iterdir()):
         skill_file = skill_dir / "SKILL.md"
@@ -221,19 +227,27 @@ def _check_skill_paths() -> list[dict]:
             continue
 
         content = skill_file.read_text()
-        paths_found = _SKILL_PATH_RE.findall(content)
+        # Prefer backtick-wrapped paths (preserve spaces), fall back to bare
+        paths_found = _SKILL_PATH_BACKTICK_RE.findall(content)
+        paths_found += _SKILL_PATH_BARE_RE.findall(content)
         seen: set[str] = set()
         for raw_path in paths_found:
-            # Clean trailing punctuation
-            cleaned = raw_path.rstrip(".,;:)>|`\"'*")
-            if cleaned in seen or len(cleaned) < 5:
+            cleaned = raw_path.rstrip(".,;:)>|`\"'")
+            if cleaned in seen or len(cleaned) < 8:
                 continue
             seen.add(cleaned)
-            # Skip templates, globs, examples, ephemeral
-            if any(skip in cleaned for skip in ("YYYY", "*", "/tmp/", "{", "$(", "example")):
+            if any(skip in cleaned for skip in _SKIP_FRAGMENTS):
                 continue
-            expanded = cleaned.replace("~", str(Path.home())) if cleaned.startswith("~") else cleaned
+            expanded = cleaned.replace("~", home_str, 1) if cleaned.startswith("~") else cleaned
             if not Path(expanded).exists():
+                # Check if it's a space-truncated path (parent exists, sibling starts with basename)
+                exp_path = Path(expanded)
+                parent = exp_path.parent
+                basename = exp_path.name
+                if parent.is_dir() and any(
+                    child.name.startswith(basename) for child in parent.iterdir()
+                ):
+                    continue  # Truncation artifact, not a real break
                 broken.append({
                     "skill": skill_dir.name,
                     "path": cleaned,
