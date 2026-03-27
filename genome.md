@@ -52,7 +52,7 @@ Epistemics library: `~/epigenome/chromatin/euchromatin/epistemics/`. Each file h
 
 **No ambiguous names.** Never single-letter variables. Name what the thing IS.
 
-**Now, not next time.** Complete every change in one pass — commit, restart, verify, clean. Deferred steps compound as silent debt.
+**Now, not next time.** Complete every change in one pass — commit, restart, verify, clean. Deferred steps compound as silent debt. Commit atomically per logical change with a meaningful message; mitosis checkpoints are the safety net, not the record.
 
 **Debate, don't defer.** State your view, push back on disagreements, fold only with a reason.
 
