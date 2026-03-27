@@ -1,0 +1,138 @@
+#!/usr/bin/env python3
+"""twin — CC+model collaborative dialogue on a shared scratchpad.
+
+Two models work the same task via turn-based markdown dialogue.
+Claude (via CC) writes first, the twin responds, back and forth.
+
+Usage:
+  twin "task description"                    # interactive — CC prompts, twin responds
+  twin --auto "task" --rounds 3              # autonomous — runs N rounds without human
+  twin --model gemini "task"                 # pick the twin model (default: haiku)
+  twin --scratchpad path.md "task"           # resume from existing scratchpad
+"""
+
+import argparse
+import subprocess
+import sys
+import tempfile
+from datetime import datetime
+from pathlib import Path
+
+HOME = Path.home()
+DEFAULT_MODEL = "haiku"
+
+
+def query_twin(model: str, prompt: str, timeout: int = 120) -> str:
+    """Query the twin model via channel CLI."""
+    try:
+        r = subprocess.run(
+            ["channel", model, "-p", prompt],
+            capture_output=True, text=True, timeout=timeout,
+            env={**__import__("os").environ, "CLAUDECODE": ""},
+        )
+        if r.returncode == 0 and r.stdout.strip():
+            return r.stdout.strip()
+        return f"[twin error: {r.stderr.strip() or 'empty response'}]"
+    except subprocess.TimeoutExpired:
+        return "[twin error: timeout]"
+    except Exception as e:
+        return f"[twin error: {e}]"
+
+
+def init_scratchpad(path: Path, task: str, model: str) -> None:
+    """Create a new scratchpad with task header."""
+    header = f"""# Twin Session — {datetime.now().strftime('%Y-%m-%d %H:%M')}
+
+**Task:** {task}
+**Models:** Claude (CC) ↔ {model}
+
+---
+
+"""
+    path.write_text(header, encoding="utf-8")
+
+
+def append_turn(path: Path, role: str, content: str) -> None:
+    """Append a turn to the scratchpad."""
+    with open(path, "a", encoding="utf-8") as f:
+        f.write(f"\n### {role}\n\n{content}\n")
+
+
+def read_scratchpad(path: Path) -> str:
+    """Read full scratchpad content."""
+    return path.read_text(encoding="utf-8") if path.exists() else ""
+
+
+def twin_prompt(scratchpad_content: str, task: str) -> str:
+    """Build the prompt for the twin model."""
+    return f"""You are one half of a twin collaboration. You and another AI are working together on a task.
+Read the conversation so far and add your contribution — code, analysis, disagreement, or refinement.
+Be direct. If you disagree, say why. If you see a better approach, propose it.
+Don't repeat what's already been said. Advance the work.
+
+{scratchpad_content}
+
+Continue the conversation. Your turn."""
+
+
+def run_interactive(args):
+    """Interactive mode — CC writes, twin responds, human mediates."""
+    scratchpad = Path(args.scratchpad) if args.scratchpad else HOME / "tmp" / f"twin-{datetime.now().strftime('%H%M%S')}.md"
+    scratchpad.parent.mkdir(parents=True, exist_ok=True)
+
+    task = args.task
+    model = args.model
+
+    if not scratchpad.exists() or not read_scratchpad(scratchpad):
+        init_scratchpad(scratchpad, task, model)
+        # CC's opening move
+        append_turn(scratchpad, "Claude (CC)", f"**Task received:** {task}\n\nLet me start by framing the problem...")
+
+    print(f"Scratchpad: {scratchpad}")
+    print(f"Twin model: {model}")
+    print(f"Task: {task}")
+    print()
+
+    for round_num in range(1, args.rounds + 1):
+        print(f"--- Round {round_num}/{args.rounds} ---")
+
+        # Twin's turn
+        content = read_scratchpad(scratchpad)
+        prompt = twin_prompt(content, task)
+        print(f"  Querying {model}...", end=" ", flush=True)
+        response = query_twin(model, prompt, timeout=args.timeout)
+        append_turn(scratchpad, f"{model} (twin)", response)
+        print("done")
+
+        # CC's turn (via channel)
+        content = read_scratchpad(scratchpad)
+        cc_prompt = f"""You are Claude, collaborating with {model} on a task. Read the scratchpad and add your next contribution.
+Review what the twin said. Agree, disagree, refine, or build on it. Advance the work.
+
+{content}
+
+Your turn as Claude. Be specific and constructive."""
+
+        print(f"  Querying CC (sonnet)...", end=" ", flush=True)
+        cc_response = query_twin("sonnet", cc_prompt, timeout=args.timeout)
+        append_turn(scratchpad, "Claude (CC)", cc_response)
+        print("done")
+
+    print(f"\nScratchpad: {scratchpad}")
+    print("Review with: Read tool or cat")
+
+
+def main():
+    parser = argparse.ArgumentParser(prog="twin", description="CC+model collaborative dialogue")
+    parser.add_argument("task", help="Task description")
+    parser.add_argument("--model", default=DEFAULT_MODEL, help=f"Twin model (default: {DEFAULT_MODEL})")
+    parser.add_argument("--rounds", type=int, default=2, help="Number of back-and-forth rounds (default: 2)")
+    parser.add_argument("--scratchpad", type=str, help="Path to existing scratchpad (resume)")
+    parser.add_argument("--timeout", type=int, default=120, help="Per-query timeout in seconds (default: 120)")
+
+    args = parser.parse_args()
+    run_interactive(args)
+
+
+if __name__ == "__main__":
+    main()
