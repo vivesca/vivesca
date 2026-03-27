@@ -23,18 +23,24 @@
 
 Match situation to operation. Depth in `~/epigenome/chromatin/Reference/epistemics/`.
 
-| I need to... | Do this |
-|-------------|---------|
-| **Debug** | Observe first, hypothesize second. Binary search the chain. See [[debugging-theory]] |
-| **Get unstuck** | Change the frame before the approach. See [[representation-shifting]] |
-| **Decide under uncertainty** | Heuristics first → mental models if complex. Check assumptions, check certainty, check sources. See [[heuristics-decision]], [[premise-audit]] |
-| **Design a system** | Find an analogy from a mature domain. Map explicitly, build only what gaps justify. See [[analogical-transfer]] |
-| **Map is dark** | What's unknown that a cheap experiment could clarify? Clear the fog before committing. See [[experimentation-theory]] |
-| **Delegate or automate** | Spec quality > spec length. Gates not queues. Match freedom to where judgment matters. See [[delegation-theory]], [[automation-spectrum]] |
-| **Plan or start** | Goal → simulate → commit. Match depth to volatility. See [[planning-theory]] |
-| **Build on a platform** | Design the abstraction first. Platform categories are targets, not primitives. |
-| **Tune a control loop** | Formulas execute, LLM reflects. Post-cycle review adjusts setpoints within bounds. Recurring adjustments get methylated into deterministic rules. See signal transduction principle. |
-| **Work generates work** | When doing X reveals that Y needs fixing, and Y serves X — follow it. That's not distraction, it's the work telling you what matters. Note the origin (recoverable), pursue the spark (perishable). |
+| I need to... | Do this | Epistemics tag |
+|-------------|---------|---------------|
+| **Debug** | Observe first, hypothesize second. Binary search the chain. | `debug` |
+| **Get unstuck** | Change the frame before the approach. | `unstuck` |
+| **Decide under uncertainty** | Heuristics first → mental models if complex. Check assumptions, certainty, sources. | `decide` |
+| **Design a system** | Find an analogy from a mature domain. Map explicitly, build only what gaps justify. | `design` |
+| **Map is dark** | What's unknown that a cheap experiment could clarify? Clear the fog before committing. | `research` |
+| **Delegate or automate** | Spec quality > spec length. Gates not queues. Match freedom to where judgment matters. | `delegate` |
+| **Plan or start** | Goal → simulate → commit. Match depth to volatility. | `plan` |
+| **Generate options** | Constraint, combination, analogy, inversion. Force a bad option — it reveals the frame. | `brainstorm` |
+| **Build on a platform** | Design the abstraction first. Platform categories are targets, not primitives. | `build` |
+| **Communicate a finding** | Translate for the audience. Same info, different frame per stakeholder. | `communicate` |
+| **Evaluate quality** | Metric selection, Goodhart traps, vanity vs diagnostic. Calibrate before judging. | `evaluate` |
+| **Monitor a running system** | What signal means trouble? What silence is healthy? Set thresholds, not alerts. | `monitor` |
+| **Tune a control loop** | Formulas execute, LLM reflects. Recurring adjustments get methylated into deterministic rules. | `monitor` |
+| **Work generates work** | When doing X reveals Y needs fixing and Y serves X — follow it. Origin is recoverable, spark is perishable. | |
+
+Epistemics library: `~/epigenome/chromatin/Reference/epistemics/`. Each file has `situations:` frontmatter. Query: `grep -l "situations:.*TAG" ~/epigenome/chromatin/Reference/epistemics/*.md`.
 
 **Meta-rules:** Evidence > opinions. One correction = full sweep. Simple rules beat complex analysis under uncertainty. The model isn't reality. Scaffolding load test before building infrastructure. Bet, review, bet — validate before deepening. When in doubt, test it — experiments are cheap, opinions are expensive. Every principle has a domain of validity — knowing the boundary matters more than knowing the principle.
 
