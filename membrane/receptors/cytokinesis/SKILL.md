@@ -99,28 +99,33 @@ This is not a punishment — it's proprioception. The number trends toward zero 
 
 Append the session log to today's daily note using the **Edit tool** (not MCP `emit_daily_note` or CLI). The Edit diff is the final output — visible, persistent, and verifiable. If the Edit happened, cytokinesis is done. If it didn't, it's not.
 
-Use these sections as a forcing function — each must be present even if empty:
+Run `cytokinesis daily "title"` first — it pre-fills the deterministic sections (Filed, Published, Mechanised, Residual) from git diffs and session logs. Then Edit the daily note to fill the judgment sections (Outcomes, Parked, Arc).
+
+All sections must be present even if empty — forcing function:
 
 ```markdown
 ## Session: [title]
 
 ### Outcomes
-- [what was done — outcomes, not process]
+- [what was done — outcomes, not process] ← LLM
 
 ### Filed
-- [exact memory/skill file paths, or "none"]
+- [memory/skill file paths] ← CLI: git diff on memory/ + receptors/
 
 ### Published
-- [tweets/garden posts, or "none"]
+- [tweets/garden posts] ← CLI: grep session log for emit_tweet/emit_spark
+
+### Mechanised
+- [judgments → rules/hooks/skills] ← CLI: git diff on SKILL.md, hooks, genome.md
 
 ### Parked
-- [unfinished items with enough context to resume, or "none"]
+- [unfinished items with context to resume] ← LLM
 
 ### Residual
-filed=N, skipped=M. [If filed > 0: what blocked mid-session capture?]
+filed=N, skipped=M ← CLI: count of Filed items
 
 ### Arc
-[1-2 sentence session narrative]
+[1-2 sentence session narrative] ← LLM
 ```
 
 ## CLI: `cytokinesis` (on PATH)
