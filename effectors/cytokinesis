@@ -752,7 +752,7 @@ SKILLS:
 
 def run_methylation_audit():
     """Scan genome for rules now enforced by hooks/skills. Returns candidates."""
-    genome_path = _VIVESCA_ROOT / "genome.md"
+    genome_path = germline / "genome.md"
     if not genome_path.exists():
         return []
 
@@ -761,7 +761,7 @@ def run_methylation_audit():
     # Gather hook function names
     hook_funcs = []
     for hook_file in ["synapse.py", "axon.py", "dendrite.py"]:
-        hook_path = _VIVESCA_ROOT / "membrane" / "cytoskeleton" / hook_file
+        hook_path = germline / "membrane" / "cytoskeleton" / hook_file
         if hook_path.exists():
             for line in hook_path.read_text().splitlines():
                 if line.startswith("def mod_") or line.startswith("def check_") or line.startswith("def guard_"):
@@ -769,7 +769,7 @@ def run_methylation_audit():
 
     # Gather skill names
     skill_names = []
-    skill_dir = _VIVESCA_ROOT / "membrane" / "receptors"
+    skill_dir = germline / "membrane" / "receptors"
     if skill_dir.exists():
         for d in sorted(skill_dir.iterdir()):
             if d.is_dir() and (d / "SKILL.md").exists():
