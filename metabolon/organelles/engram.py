@@ -702,18 +702,17 @@ def _cli() -> None:
         prog="engram",
         description="Search AI coding chat history",
     )
-    parser.add_argument(
-        "date",
-        nargs="?",
-        default="today",
-        help="Date to scan (YYYY-MM-DD, 'today', 'yesterday')",
-    )
-    parser.add_argument("--full", action="store_true", help="Show all prompts (not just last 50)")
-    parser.add_argument("--json", action="store_true", help="Output as JSON")
-    parser.add_argument("--tool", help="Filter by tool (Claude, Codex, OpenCode)")
+    sub = parser.add_subparsers(dest="subcommand")
 
-    subparsers = parser.add_subparsers(dest="subcommand")
-    search_parser = subparsers.add_parser("search", help="Search prompts or transcripts")
+    # engram scan [date] — list prompts for a day
+    scan_parser = sub.add_parser("scan", help="List prompts for a date (default: today)")
+    scan_parser.add_argument("date", nargs="?", default="today", help="YYYY-MM-DD, 'today', 'yesterday'")
+    scan_parser.add_argument("--full", action="store_true", help="Show all prompts (not just last 50)")
+    scan_parser.add_argument("--json", action="store_true", help="Output as JSON")
+    scan_parser.add_argument("--tool", help="Filter by tool (Claude, Codex, OpenCode)")
+
+    # engram search <pattern> — search transcripts
+    search_parser = sub.add_parser("search", help="Search prompts or transcripts")
     search_parser.add_argument("pattern", help="Search pattern (regex)")
     search_parser.add_argument("--days", type=int, default=7, help="Number of days to search (default: 7)")
     search_parser.add_argument(
@@ -727,6 +726,11 @@ def _cli() -> None:
     search_parser.add_argument("--json", action="store_true", help="Output as JSON")
 
     args = parser.parse_args()
+
+    # Default to scan if no subcommand
+    if args.subcommand is None:
+        args = scan_parser.parse_args([])
+        args.subcommand = "scan"
 
     try:
         if args.subcommand == "search":

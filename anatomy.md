@@ -117,7 +117,7 @@ Hook dispatch infrastructure — routes signals before and after tool use.
 | `interoceptor.py` | **Interoceptor** | Internal state sensing |
 | `morphogen.py` | **Morphogen** | Pattern-based transformation |
 | `hebbian_nudge.py` | **Hebbian plasticity** | Advisory hook accuracy tracking (shared library) |
-| `engram-signal.py` | **Engram encoding** | Memory write signal |
+| `operon-signal.py` | **Operon signalling** | Skill invocation signal |
 | `phenotype_rename.py` | **Phenotype shift** | Rename / reidentity operations |
 | `skill-trigger-gen.py` | **Skill trigger synthesis** | Generates skill activation patterns |
 

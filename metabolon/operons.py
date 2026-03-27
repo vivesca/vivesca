@@ -1,7 +1,7 @@
 """Behavioural repertoire — the organism's enzyme catalogue.
 
-Each engram is packaged expertise for catalysing one reaction,
-named as verb+object. An engram doesn't guarantee its product —
+Each operon is packaged expertise for catalysing one reaction,
+named as verb+object. An operon doesn't guarantee its product —
 it increases the probability of the desired reaction.
 
 Operons can be authored (spliced in by the human) or crystallised
@@ -190,6 +190,6 @@ def co_regulated(operon: Operon) -> list[Operon]:
 
 
 def unclaimed_enzymes(known_enzymes: list[str]) -> list[Operon]:
-    """Enzymes that exist but no engram claims them."""
-    claimed = {e for eng in OPERONS for e in eng.enzymes}
+    """Enzymes that exist but no operon claims them."""
+    claimed = {e for op in OPERONS for e in op.enzymes}
     return [e for e in known_enzymes if e not in claimed]

@@ -59,7 +59,7 @@ The audit against Andrews' 21 minimal cell patterns (25 Mar 2026):
 | Mitochondria | `allostasis` (4-tier energy response) | mapped |
 | Apoptosis / dormancy | `integrin_probe` (bent/extended/open skill states) | mapped |
 | Golgi apparatus | `emit_*` tools (route packaged content to destination) | mapped |
-| Signal cascades | ordered engram sequences | partial |
+| Signal cascades | ordered operon sequences | partial |
 | Endocrine (slow signals) | daily/weekly gather cycles | partial |
 | DNA repair | constitution scanning | partial |
 | Cytoskeleton (load) | structural integrity under load | partial |

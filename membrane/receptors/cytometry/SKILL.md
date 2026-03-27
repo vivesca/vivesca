@@ -46,7 +46,7 @@ Compare to prior audit if available (check `~/epigenome/chromatin/` for previous
 ### 4. DIAGNOSE — Find the actionable gaps
 
 For each "needs a mayor" subsystem, ask:
-- **Could a heartbeat fix this?** (periodic check for staleness → the engram substrate pattern)
+- **Could a heartbeat fix this?** (periodic check for staleness → the mismatch-repair substrate pattern)
 - **Could a hook fix this?** (deterministic trigger on an observable event)
 - **Does it genuinely need taste?** (if yes, move to "intentionally gated")
 
@@ -54,7 +54,7 @@ The interesting finding is always in the middle column. Self-governing is done. 
 
 ### 5. ACT — Pick one gap and close it
 
-Don't audit and file. Audit and fix the highest-leverage gap in one pass. The engram heartbeat substrate was born from the first cytometry audit — the pattern should repeat.
+Don't audit and file. Audit and fix the highest-leverage gap in one pass. The mismatch-repair heartbeat substrate was born from the first cytometry audit — the pattern should repeat.
 
 ## Output Format
 
@@ -79,4 +79,4 @@ Don't audit and file. Audit and fix the highest-leverage gap in one pass. The en
 
 ## Provenance
 
-Born from a late-night thought experiment: "what if vivesca is a city?" The city metaphor asked whether the organism genuinely self-regulates or just has a mayor (Terry) who thinks he's a cell. The audit found the organism was ~30% self-governing, ~50% waiting for the mayor. The engram heartbeat substrate was the first fix. This skill makes the audit repeatable.
+Born from a late-night thought experiment: "what if vivesca is a city?" The city metaphor asked whether the organism genuinely self-regulates or just has a mayor (Terry) who thinks he's a cell. The audit found the organism was ~30% self-governing, ~50% waiting for the mayor. The mismatch-repair heartbeat substrate was the first fix. This skill makes the audit repeatable.

@@ -2,8 +2,8 @@
 """
 PostToolUse hook (Skill) — emit vivesca signals for skill invocations.
 
-Skills are enzymes in the engram system but they invoke via Claude Code's
-Skill tool, not vivesca's MCP server. Without this hook, the engram
+Skills are enzymes in the operon system but they invoke via Claude Code's
+Skill tool, not vivesca's MCP server. Without this hook, the operon
 heartbeat substrate is blind to skill activity — it only sees MCP tools.
 
 This hook bridges the gap: Skill invocation → signal in signals.jsonl.
