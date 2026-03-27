@@ -997,7 +997,7 @@ def retrograde_balance(days: int = 7) -> RetrogradeResult:
     Anterograde (organism→symbiont): pulse systoles, channel calls, agent dispatches.
     Retrograde (symbiont→organism): agent git commits, methylation proposals, repairs.
 
-    Assessment: sovereign (>3:1), balanced (1–3:1), dependent (<1:1).
+    Assessment: sovereign (>3:1), balanced (1-3:1), dependent (<1:1).
     """
     from metabolon.organelles.retrograde import signal_balance
 

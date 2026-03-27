@@ -873,10 +873,10 @@ def _detect_ligand() -> str | None:
     except Exception:
         return None
 
-    recent = [l for l in lines]
-    circuit_breakers = sum(1 for l in recent if '"circuit_breaker"' in l)
-    saturations = sum(1 for l in recent if '"saturation_idle"' in l)
-    rejections = sum(1 for l in recent if '"adapt_rejected"' in l)
+    recent = list(lines)
+    circuit_breakers = sum(1 for line in recent if '"circuit_breaker"' in line)
+    saturations = sum(1 for line in recent if '"saturation_idle"' in line)
+    rejections = sum(1 for line in recent if '"adapt_rejected"' in line)
 
     # Opus ligand: circuit breaker or repeated rejections (haiku trying to touch what it can't)
     if circuit_breakers >= 1 or rejections >= 3:
@@ -953,7 +953,7 @@ def _gather_adapt_context(
     try:
         all_lines = EVENT_LOG.read_text().strip().splitlines()
         adapt_events = [
-            l for l in all_lines[-200:] if '"adapt_applied"' in l or '"adapt_noop"' in l
+            line for line in all_lines[-200:] if '"adapt_applied"' in line or '"adapt_noop"' in line
         ]
         adapt_history = "\n".join(adapt_events[-20:]) or "(no history)"
     except Exception:
@@ -968,7 +968,7 @@ def _gather_adapt_context(
     sonnet_obs = ""
     try:
         all_lines = EVENT_LOG.read_text().strip().splitlines()
-        structural = [l for l in all_lines[-500:] if '"structural_observation"' in l]
+        structural = [line for line in all_lines[-500:] if '"structural_observation"' in line]
         sonnet_obs = "\n".join(structural[-10:]) or "(none)"
     except Exception:
         sonnet_obs = "(none)"
@@ -1152,9 +1152,8 @@ def adapt(systoles_run: int, saturated: int, failed: int, stop_reason: str):
                 b = bounds[key]
                 if isinstance(b, list) and isinstance(b[0], (int, float)):
                     new_val = max(b[0], min(b[1], new_val))
-                elif isinstance(b, list) and isinstance(b[0], str):
-                    if new_val not in b:
-                        continue
+                elif isinstance(b, list) and isinstance(b[0], str) and new_val not in b:
+                    continue
             old_val = genome.get(key)
             if old_val != new_val:
                 genome[key] = new_val

@@ -20,9 +20,9 @@ def lockfile(path: Path) -> Generator[None, None, None]:
     try:
         try:
             fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        except OSError:
+        except OSError as err:
             print(f"Another lustro process is running (lock: {lock_path})", file=sys.stderr)
-            raise SystemExit(1)
+            raise SystemExit(1) from err
         yield
     finally:
         fcntl.flock(fd, fcntl.LOCK_UN)

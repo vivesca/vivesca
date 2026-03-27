@@ -163,9 +163,9 @@ def _git_pull_remote(remote_path: str) -> tuple[bool, str]:
         stdout = result.stdout.strip()
         # fly ssh console mixes warnings into output
         lines = [
-            l
-            for l in stdout.splitlines()
-            if not l.startswith("Connecting to") and not l.startswith("Warning:")
+            line
+            for line in stdout.splitlines()
+            if not line.startswith("Connecting to") and not line.startswith("Warning:")
         ]
         clean = "\n".join(lines).strip()
 

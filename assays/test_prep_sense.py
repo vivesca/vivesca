@@ -1,6 +1,6 @@
 def test_restore_goals(tmp_path):
     """Load goal configs from YAML directory."""
-    from metabolon.tools.receptor import restore_goals
+    from metabolon.enzymes.receptor import restore_goals
 
     goals_dir = tmp_path / "goals"
     goals_dir.mkdir()
@@ -31,7 +31,7 @@ def test_current_phase_pre_joining():
     """Detects current phase based on date markers."""
     import datetime
 
-    from metabolon.tools.receptor import current_phase
+    from metabolon.enzymes.receptor import current_phase
 
     phases = [
         {"name": "pre-joining", "until": "2026-04-08"},
@@ -54,7 +54,7 @@ def test_current_phase_pre_joining():
 
 def test_signal_store_append_and_read(tmp_path):
     """Signal store appends JSONL and reads back."""
-    from metabolon.tools.receptor import ProprioceptiveStore
+    from metabolon.enzymes.receptor import ProprioceptiveStore
 
     store = ProprioceptiveStore(tmp_path / "signals.jsonl")
     store.append(
@@ -83,7 +83,7 @@ def test_signal_store_read_since(tmp_path):
     """Read signals since a given datetime."""
     import datetime
 
-    from metabolon.tools.receptor import ProprioceptiveStore
+    from metabolon.enzymes.receptor import ProprioceptiveStore
 
     store = ProprioceptiveStore(tmp_path / "signals.jsonl")
     store.append(goal="capco", material="deck", category="D1", score=1, drill_type="flashcard")
@@ -96,7 +96,7 @@ def test_signal_store_read_since(tmp_path):
 
 def test_decode_flashcard_deck(tmp_path):
     """Parses flashcard markdown into structured cards."""
-    from metabolon.tools.receptor import decode_flashcard_deck
+    from metabolon.enzymes.receptor import decode_flashcard_deck
 
     deck = tmp_path / "deck.md"
     deck.write_text(
@@ -126,7 +126,7 @@ def test_synthesize_signal_summary(tmp_path):
     """Builds a structured summary from goal config + signals."""
     import datetime
 
-    from metabolon.tools.receptor import ProprioceptiveStore, synthesize_signal_summary
+    from metabolon.enzymes.receptor import ProprioceptiveStore, synthesize_signal_summary
 
     store = ProprioceptiveStore(tmp_path / "signals.jsonl")
     store.append(goal="capco", material="deck", category="D1", score=3, drill_type="flashcard")
@@ -162,9 +162,9 @@ def test_synthesize_signal_summary(tmp_path):
 
 def test_proprioception_sense_no_goals(tmp_path, monkeypatch):
     """When no goals are configured, returns helpful message."""
-    from metabolon.tools.receptor import proprioception_sense
+    from metabolon.enzymes.receptor import proprioception_sense
 
-    monkeypatch.setattr("metabolon.tools.receptor.GOALS_DIR", tmp_path / "empty")
+    monkeypatch.setattr("metabolon.enzymes.receptor.GOALS_DIR", tmp_path / "empty")
 
     result = proprioception_sense()
     assert result.has_goal is False
@@ -173,7 +173,7 @@ def test_proprioception_sense_no_goals(tmp_path, monkeypatch):
 
 def test_proprioception_sense_with_goal(tmp_path, monkeypatch):
     """With a configured goal, returns readiness summary."""
-    from metabolon.tools.receptor import proprioception_sense
+    from metabolon.enzymes.receptor import proprioception_sense
 
     goals_dir = tmp_path / "goals"
     goals_dir.mkdir()
@@ -190,8 +190,8 @@ def test_proprioception_sense_with_goal(tmp_path, monkeypatch):
     )
 
     signals_dir = tmp_path / "signals"
-    monkeypatch.setattr("metabolon.tools.receptor.GOALS_DIR", goals_dir)
-    monkeypatch.setattr("metabolon.tools.receptor.SIGNALS_DIR", signals_dir)
+    monkeypatch.setattr("metabolon.enzymes.receptor.GOALS_DIR", goals_dir)
+    monkeypatch.setattr("metabolon.enzymes.receptor.SIGNALS_DIR", signals_dir)
 
     result = proprioception_sense()
     assert result.has_goal is True
@@ -201,10 +201,10 @@ def test_proprioception_sense_with_goal(tmp_path, monkeypatch):
 
 def test_proprioception_drill(tmp_path, monkeypatch):
     """Records a drill signal and persists it."""
-    from metabolon.tools.receptor import ProprioceptiveStore, proprioception_drill
+    from metabolon.enzymes.receptor import ProprioceptiveStore, proprioception_drill
 
     signals_dir = tmp_path / "signals"
-    monkeypatch.setattr("metabolon.tools.receptor.SIGNALS_DIR", signals_dir)
+    monkeypatch.setattr("metabolon.enzymes.receptor.SIGNALS_DIR", signals_dir)
 
     result = proprioception_drill(
         goal="do-well-at-capco",
@@ -224,7 +224,7 @@ def test_proprioception_drill(tmp_path, monkeypatch):
 
 def test_prep_sense_integration(tmp_path, monkeypatch):
     """Full flow: goal config -> record signals -> sense readiness."""
-    from metabolon.tools.receptor import (
+    from metabolon.enzymes.receptor import (
         proprioception_drill,
         proprioception_sense,
     )
@@ -244,8 +244,8 @@ def test_prep_sense_integration(tmp_path, monkeypatch):
     )
 
     signals_dir = tmp_path / "signals"
-    monkeypatch.setattr("metabolon.tools.receptor.GOALS_DIR", goals_dir)
-    monkeypatch.setattr("metabolon.tools.receptor.SIGNALS_DIR", signals_dir)
+    monkeypatch.setattr("metabolon.enzymes.receptor.GOALS_DIR", goals_dir)
+    monkeypatch.setattr("metabolon.enzymes.receptor.SIGNALS_DIR", signals_dir)
 
     # Record some drills
     proprioception_drill(goal="do-well-at-capco", category="D1", score=3, material="deck")

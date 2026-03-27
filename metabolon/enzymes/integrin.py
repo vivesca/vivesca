@@ -607,8 +607,8 @@ _MCP_FULL_RE = re.compile(r"mcp__vivesca__([a-z][a-z0-9_]+)")
 # Matches `toolname` where toolname ends in _something (snake_case MCP convention)
 _MCP_BARE_RE = re.compile(r"`([a-z][a-z0-9]+(?:_[a-z0-9]+)+)`")
 
-# Pattern: tool function imports across metabolon.tools modules
-_TOOL_IMPORT_RE = re.compile(r"from\s+metabolon\.tools\.(\w+)\s+import\s+([^\n]+)")
+# Pattern: tool function imports across metabolon.enzymes modules
+_TOOL_IMPORT_RE = re.compile(r"from\s+metabolon\.enzymes\.(\w+)\s+import\s+([^\n]+)")
 
 
 def _parse_frontmatter(text: str) -> dict[str, Any]:
@@ -667,7 +667,7 @@ def _collect_bud_names(buds_dir: Path) -> frozenset[str]:
 
 
 def _collect_registered_tool_names(tools_dir: Path) -> frozenset[str]:
-    """Scan metabolon/tools/*.py for @tool(name=...) registrations.
+    """Scan metabolon/enzymes/*.py for @tool(name=...) registrations.
 
     Returns the set of registered MCP tool names.
     """
@@ -762,7 +762,7 @@ def _extract_skill_mcp_tool_refs(skill_text: str) -> list[str]:
 
 
 def _extract_tool_cross_imports(tools_dir: Path) -> list[dict]:
-    """Scan metabolon/tools/*.py for cross-tool function imports.
+    """Scan metabolon/enzymes/*.py for cross-tool function imports.
 
     Returns list of {source_tool, target_tool, symbol} for ALL imports where
     one tool module references another tool module by name. Broken imports
@@ -832,7 +832,7 @@ class ColonyProbeResult(Secretion):
     # Layer 7: Skill → MCP Tool (mcp__ or bare in SKILL.md)
     detached_skill_tool_refs: list[dict]  # [{skill, missing_tool}]
 
-    # Layer 8: MCP Tool → MCP Tool (cross-tool imports in src/metabolon/tools/)
+    # Layer 8: MCP Tool → MCP Tool (cross-tool imports in src/metabolon/enzymes/)
     detached_tool_tool_refs: list[dict]  # [{source_tool, target_tool, symbol}]
 
     # Orphan buds: exist on disk but no colony references them

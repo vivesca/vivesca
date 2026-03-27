@@ -48,7 +48,7 @@ vivesca = Terry + Claude + germline + epigenome
     metabolism/           Self-improvement loop
     pathways/             Multi-step processes
       overnight.py        Overnight batch pathway
-    tools/                MCP tool definitions
+    enzymes/              MCP tool definitions
     resources/            MCP computed resources
     codons/               Templates
     gastrulation/         Project scaffolding

@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 
 from metabolon.metabolism.signals import SensorySystem
-from metabolon.tools.signaling import metabolism_knowledge_signal
+from metabolon.enzymes.signaling import metabolism_knowledge_signal
 
 
 @pytest.fixture

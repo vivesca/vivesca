@@ -15,7 +15,7 @@ influence between organism and symbiont.
 
   signal_balance(days) → ratio + assessment:
     > 3:1 anterograde = "sovereign"
-    1:1 – 3:1 = "balanced"
+    1:1 - 3:1 = "balanced"
     < 1:1 = "dependent"
 """
 

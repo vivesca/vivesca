@@ -7,7 +7,7 @@ classifies correctly and short-circuits as early as possible.
 
 import pytest
 
-from metabolon.tools.endosomal import (
+from metabolon.enzymes.endosomal import (
     _classify,
     _classify_subject,
     _extract_sender,

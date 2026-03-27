@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from metabolon.tools.integrin import (
+from metabolon.enzymes.integrin import (
     _extract_bud_cli_refs,
     _extract_bud_mcp_tool_refs,
     _extract_bud_skill_refs,
@@ -246,7 +246,7 @@ class TestExtractToolCrossImports:
         tools = tmp_path / "tools"
         tools.mkdir()
         # alpha.py imports from beta.py
-        (tools / "alpha.py").write_text("from metabolon.tools.beta import beta_func\n")
+        (tools / "alpha.py").write_text("from metabolon.enzymes.beta import beta_func\n")
         (tools / "beta.py").write_text("def beta_func(): pass\n")
         edges = _extract_tool_cross_imports(tools)
         assert len(edges) == 1
@@ -257,7 +257,7 @@ class TestExtractToolCrossImports:
     def test_ignores_self_import(self, tmp_path):
         tools = tmp_path / "tools"
         tools.mkdir()
-        (tools / "alpha.py").write_text("from metabolon.tools.alpha import something\n")
+        (tools / "alpha.py").write_text("from metabolon.enzymes.alpha import something\n")
         edges = _extract_tool_cross_imports(tools)
         assert edges == []
 
@@ -366,7 +366,7 @@ class TestIntegrinColonyProbe:
         c, b, s, t = _scaffold(tmp_path)
         _make_tool_module(t, "probe", ["integrin_probe"])
         # apoptosis.py imports from integrin.py -- and integrin.py exists
-        (t / "apoptosis.py").write_text("from metabolon.tools.probe import integrin_probe\n")
+        (t / "apoptosis.py").write_text("from metabolon.enzymes.probe import integrin_probe\n")
         result = integrin_colony_probe(colonies_dir=c, buds_dir=b, skills_dir=s, tools_dir=t)
         # Import is valid -- target module exists
         assert result.detached_tool_tool_refs == []
@@ -374,7 +374,7 @@ class TestIntegrinColonyProbe:
     def test_tool_cross_import_broken(self, tmp_path):
         c, b, s, t = _scaffold(tmp_path)
         # alpha.py imports from nonexistent.py
-        (t / "alpha.py").write_text("from metabolon.tools.nonexistent import something\n")
+        (t / "alpha.py").write_text("from metabolon.enzymes.nonexistent import something\n")
         result = integrin_colony_probe(colonies_dir=c, buds_dir=b, skills_dir=s, tools_dir=t)
         assert any(e["target_tool"] == "nonexistent" for e in result.detached_tool_tool_refs)
 

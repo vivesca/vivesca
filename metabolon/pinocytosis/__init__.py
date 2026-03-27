@@ -444,7 +444,7 @@ def sense_budget() -> dict[str, Any]:
     stdout, stderr = run_cmd(["respirometry"], timeout=20)
     if not stdout and stderr:
         return {"available": False, "raw": None, "summary": None, "lines": [], "error": stderr}
-    lines = [l for l in stdout.splitlines() if l.strip()]
+    lines = [line for line in stdout.splitlines() if line.strip()]
     return {
         "available": True,
         "raw": stdout,

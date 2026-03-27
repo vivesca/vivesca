@@ -495,14 +495,12 @@ def adaptive_response(results: list[dict]) -> list[dict]:
 
     def _log(probe_name: str, error: str, healed: bool = False) -> None:
         if record_infection is not None:
-            try:
+            with contextlib.suppress(Exception):
                 record_infection(
                     tool=f"self_test_failure:{probe_name}",
                     error=error,
                     healed=healed,
                 )
-            except Exception:
-                pass  # infection log must never block repair loop
 
     # Two-signal model: load priming state
     priming = _load_priming()

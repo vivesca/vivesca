@@ -221,7 +221,7 @@ class GradientVector(Secretion):
     """A directional signal — one domain trending across sensors."""
 
     domain: str
-    signal_strength: float  # 0.0–1.0 normalised across detected domains
+    signal_strength: float  # 0.0-1.0 normalised across detected domains
     sensor_coverage: int  # how many of 3 sensors detected this domain
     topology_bonus: str  # "independent", "adjacent", "single", or "full"
     sensors: dict[str, int]  # sensor name → raw hit count
@@ -488,7 +488,7 @@ def proprioception_gradient(days: int = 7) -> GradientReport:
             )
         )
 
-    # Normalise signal strength: topology-weighted coverage × total hits
+    # Normalise signal strength: topology-weighted coverage x total hits
     # Independent sensor pairs count more than adjacent pairs.
     if gradients:
 

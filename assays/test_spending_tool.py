@@ -1,6 +1,6 @@
 """Tests for the spending MCP tool."""
 
-from metabolon.tools.catabolism import CatabolismResult
+from metabolon.enzymes.catabolism import CatabolismResult
 
 
 def test_catabolism_result_is_secretion():

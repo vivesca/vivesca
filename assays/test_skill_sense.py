@@ -1,6 +1,6 @@
 def test_restore_fork_registry(tmp_path):
     """Registry YAML maps suite names to local and cache paths."""
-    from metabolon.tools.mutation_sense import restore_fork_registry
+    from metabolon.enzymes.mutation_sense import restore_fork_registry
 
     registry_file = tmp_path / "skill-forks.yaml"
     registry_file.write_text(
@@ -19,7 +19,7 @@ def test_restore_fork_registry(tmp_path):
 
 def test_find_latest_cache_version(tmp_path):
     """Finds the latest semver directory in cache."""
-    from metabolon.tools.mutation_sense import find_latest_cache_version
+    from metabolon.enzymes.mutation_sense import find_latest_cache_version
 
     cache_dir = tmp_path / "superpowers"
     (cache_dir / "5.0.2" / "skills").mkdir(parents=True)
@@ -35,7 +35,7 @@ def test_find_latest_cache_version(tmp_path):
 
 def test_diff_fork(tmp_path):
     """Diffs local fork against cache, reports changed files."""
-    from metabolon.tools.mutation_sense import diff_fork
+    from metabolon.enzymes.mutation_sense import diff_fork
 
     local = tmp_path / "local"
     cache = tmp_path / "cache"
@@ -64,7 +64,7 @@ def test_diff_fork(tmp_path):
 
 def test_proprioception_skills_no_changes(tmp_path, monkeypatch):
     """When forks match cache, returns silent result."""
-    from metabolon.tools.mutation_sense import proprioception_skills
+    from metabolon.enzymes.mutation_sense import proprioception_skills
 
     local = tmp_path / "local"
     cache_base = tmp_path / "cache" / "superpowers"
@@ -82,7 +82,7 @@ def test_proprioception_skills_no_changes(tmp_path, monkeypatch):
         }
     }
     monkeypatch.setattr(
-        "metabolon.tools.mutation_sense.restore_fork_registry", lambda path=None: registry
+        "metabolon.enzymes.mutation_sense.restore_fork_registry", lambda path=None: registry
     )
 
     result = proprioception_skills()
@@ -92,7 +92,7 @@ def test_proprioception_skills_no_changes(tmp_path, monkeypatch):
 
 def test_proprioception_skills_with_changes(tmp_path, monkeypatch):
     """When upstream has changes, surfaces them."""
-    from metabolon.tools.mutation_sense import proprioception_skills
+    from metabolon.enzymes.mutation_sense import proprioception_skills
 
     local = tmp_path / "local"
     cache_base = tmp_path / "cache" / "superpowers"
@@ -110,7 +110,7 @@ def test_proprioception_skills_with_changes(tmp_path, monkeypatch):
         }
     }
     monkeypatch.setattr(
-        "metabolon.tools.mutation_sense.restore_fork_registry", lambda path=None: registry
+        "metabolon.enzymes.mutation_sense.restore_fork_registry", lambda path=None: registry
     )
 
     result = proprioception_skills()

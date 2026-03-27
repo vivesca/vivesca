@@ -54,8 +54,8 @@ def _resolve_date(s: str) -> str:
     # Validate YYYY-MM-DD
     try:
         datetime.strptime(s, "%Y-%m-%d")
-    except ValueError:
-        raise ValueError(f"Invalid date format: {s}. Use YYYY-MM-DD.")
+    except ValueError as err:
+        raise ValueError(f"Invalid date format: {s}. Use YYYY-MM-DD.") from err
     return s
 
 

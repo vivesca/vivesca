@@ -29,6 +29,7 @@ from typing import Any
 from fastmcp.tools import tool
 from mcp.types import ToolAnnotations
 
+from pydantic import Field
 from metabolon.morphology import EffectorResult, Secretion
 
 # Affinity/engagement JSONL logs written during fetch cycles (path unchanged for data compat)
@@ -139,7 +140,7 @@ class EndocytosisStatsResult(Secretion):
     signal_ratio: float = 0.0
     avg_engaged_score: float = 0.0
     false_positives_count: int = 0
-    false_negatives: list[str] = []
+    false_negatives: list[str] = Field(default_factory=list)
     summary: str = ""
 
 

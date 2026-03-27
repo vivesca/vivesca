@@ -9,12 +9,12 @@ Run the receptor health check for the vivesca organism.
 
 1. Call `integrin_probe` via the MCP server or directly via Python:
    ```bash
-   cd ~/code/vivesca && uv run python -c "from metabolon.tools.integrin import integrin_probe; print(integrin_probe())"
+   cd ~/code/vivesca && uv run python -c "from metabolon.enzymes.integrin import integrin_probe; print(integrin_probe())"
    ```
 
 2. Call `integrin_apoptosis_check`:
    ```bash
-   cd ~/code/vivesca && uv run python -c "from metabolon.tools.integrin import integrin_apoptosis_check; print(integrin_apoptosis_check())"
+   cd ~/code/vivesca && uv run python -c "from metabolon.enzymes.integrin import integrin_apoptosis_check; print(integrin_apoptosis_check())"
    ```
 
 3. Report:

@@ -127,7 +127,7 @@ def receptor_health(output: str | None):
     """
     from datetime import datetime
 
-    from metabolon.tools.integrin import integrin_apoptosis_check, integrin_probe
+    from metabolon.enzymes.integrin import integrin_apoptosis_check, integrin_probe
 
     probe = integrin_probe()
     apoptosis = integrin_apoptosis_check()
@@ -372,7 +372,7 @@ def autopoiesis_probe():
         click.echo(probe_report())
     except ImportError as exc:
         click.echo(f"inflammasome not available: {exc}", err=True)
-        raise SystemExit(1)
+        raise SystemExit(1) from exc
 
 
 @autopoiesis.command("repair")
@@ -392,7 +392,7 @@ def autopoiesis_repair():
         click.echo(f"\nSummary: {passed}/{len(results)} passed")
     except ImportError as exc:
         click.echo(f"inflammasome not available: {exc}", err=True)
-        raise SystemExit(1)
+        raise SystemExit(1) from exc
 
 
 @autopoiesis.command("methylate")
@@ -1615,7 +1615,7 @@ def endocytosis_digest(month, dry_run, themes, model, tag, weekly):
             item_count, output_path = metabolize_weekly(cfg=cfg, tags=list(tag))
         except Exception as exc:
             click.echo(f"Error: {exc}", err=True)
-            raise SystemExit(1)
+            raise SystemExit(1) from exc
         click.echo(f"Weekly digest: {item_count} items above threshold.", err=True)
         if output_path is not None:
             click.echo(f"Written: {output_path}", err=True)
@@ -1632,7 +1632,7 @@ def endocytosis_digest(month, dry_run, themes, model, tag, weekly):
         )
     except RuntimeError as exc:
         click.echo(f"Error: {exc}", err=True)
-        raise SystemExit(1)
+        raise SystemExit(1) from exc
 
     click.echo(f"Found {len(themes_result)} themes.", err=True)
     for i, theme in enumerate(themes_result, 1):

@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from datetime import UTC, datetime, timedelta
 
-from metabolon.tools.gradient import (
+from metabolon.enzymes.gradient import (
     _score_text,
     _sense_endocytosis,
     _sense_signals,
@@ -48,7 +48,7 @@ def test_score_text_multi_domain():
 
 def test_sense_endocytosis_empty(tmp_path, monkeypatch):
     """Empty log returns empty dicts."""
-    import metabolon.tools.gradient as grad
+    import metabolon.enzymes.gradient as grad
 
     monkeypatch.setattr(grad, "_RELEVANCE_LOG", tmp_path / "empty.jsonl")
     hits, titles = _sense_endocytosis(7)
@@ -58,7 +58,7 @@ def test_sense_endocytosis_empty(tmp_path, monkeypatch):
 
 def test_sense_endocytosis_filters_low_score(tmp_path, monkeypatch):
     """Items with score < 6 are excluded."""
-    import metabolon.tools.gradient as grad
+    import metabolon.enzymes.gradient as grad
 
     log = tmp_path / "relevance.jsonl"
     now = datetime.now(UTC)
@@ -80,7 +80,7 @@ def test_sense_endocytosis_filters_low_score(tmp_path, monkeypatch):
 
 def test_sense_endocytosis_includes_high_score(tmp_path, monkeypatch):
     """Items with score >= 6 within window are included."""
-    import metabolon.tools.gradient as grad
+    import metabolon.enzymes.gradient as grad
 
     log = tmp_path / "relevance.jsonl"
     now = datetime.now(UTC)
@@ -102,7 +102,7 @@ def test_sense_endocytosis_includes_high_score(tmp_path, monkeypatch):
 
 def test_sense_endocytosis_filters_old_items(tmp_path, monkeypatch):
     """Items outside the time window are excluded."""
-    import metabolon.tools.gradient as grad
+    import metabolon.enzymes.gradient as grad
 
     log = tmp_path / "relevance.jsonl"
     old_ts = datetime.now(UTC) - timedelta(days=30)
@@ -129,7 +129,7 @@ def test_sense_endocytosis_filters_old_items(tmp_path, monkeypatch):
 
 def test_sense_signals_empty(tmp_path, monkeypatch):
     """Empty signals log returns empty dict."""
-    import metabolon.tools.gradient as grad
+    import metabolon.enzymes.gradient as grad
 
     monkeypatch.setattr(grad, "_SIGNALS_LOG", tmp_path / "empty.jsonl")
     hits = _sense_signals(7)
@@ -138,7 +138,7 @@ def test_sense_signals_empty(tmp_path, monkeypatch):
 
 def test_sense_signals_known_tool(tmp_path, monkeypatch):
     """Known tool in TOOL_DOMAINS is classified correctly."""
-    import metabolon.tools.gradient as grad
+    import metabolon.enzymes.gradient as grad
 
     log = tmp_path / "signals.jsonl"
     now = datetime.now(UTC)
@@ -160,7 +160,7 @@ def test_sense_signals_known_tool(tmp_path, monkeypatch):
 
 def test_sense_signals_unknown_tool(tmp_path, monkeypatch):
     """Unknown tools are silently ignored."""
-    import metabolon.tools.gradient as grad
+    import metabolon.enzymes.gradient as grad
 
     log = tmp_path / "signals.jsonl"
     now = datetime.now(UTC)
@@ -181,7 +181,7 @@ def test_sense_signals_unknown_tool(tmp_path, monkeypatch):
 
 def test_sense_signals_filters_old(tmp_path, monkeypatch):
     """Old signals outside window are excluded."""
-    import metabolon.tools.gradient as grad
+    import metabolon.enzymes.gradient as grad
 
     log = tmp_path / "signals.jsonl"
     old_ts = datetime.now(UTC) - timedelta(days=30)
@@ -207,7 +207,7 @@ def test_sense_signals_filters_old(tmp_path, monkeypatch):
 
 def test_gradient_returns_report_type(tmp_path, monkeypatch):
     """Tool returns a GradientReport regardless of empty inputs."""
-    import metabolon.tools.gradient as grad
+    import metabolon.enzymes.gradient as grad
 
     monkeypatch.setattr(grad, "_RELEVANCE_LOG", tmp_path / "empty_relevance.jsonl")
     monkeypatch.setattr(grad, "_SIGNALS_LOG", tmp_path / "empty_signals.jsonl")
@@ -225,7 +225,7 @@ def test_gradient_returns_report_type(tmp_path, monkeypatch):
 
 def test_gradient_single_sensor(tmp_path, monkeypatch):
     """Single sensor signal yields single-sensor polarity annotation."""
-    import metabolon.tools.gradient as grad
+    import metabolon.enzymes.gradient as grad
 
     log = tmp_path / "relevance.jsonl"
     now = datetime.now(UTC)
@@ -251,7 +251,7 @@ def test_gradient_single_sensor(tmp_path, monkeypatch):
 
 def test_gradient_multi_sensor_coverage(tmp_path, monkeypatch):
     """Two sensors confirming same domain yields coverage=2."""
-    import metabolon.tools.gradient as grad
+    import metabolon.enzymes.gradient as grad
 
     now = datetime.now(UTC)
 
@@ -289,7 +289,7 @@ def test_gradient_multi_sensor_coverage(tmp_path, monkeypatch):
 
 def test_gradient_normalised_strength(tmp_path, monkeypatch):
     """Top domain always has signal_strength=1.0 after normalisation."""
-    import metabolon.tools.gradient as grad
+    import metabolon.enzymes.gradient as grad
 
     now = datetime.now(UTC)
     lustro_log = tmp_path / "relevance.jsonl"
@@ -323,7 +323,7 @@ def test_gradient_normalised_strength(tmp_path, monkeypatch):
 
 def test_gradient_respects_window(tmp_path, monkeypatch):
     """Items outside the requested window do not affect gradient."""
-    import metabolon.tools.gradient as grad
+    import metabolon.enzymes.gradient as grad
 
     lustro_log = tmp_path / "relevance.jsonl"
     old_ts = datetime.now(UTC) - timedelta(days=30)
@@ -399,7 +399,7 @@ def test_topology_empty():
 
 def test_gradient_topology_bonus_field_present(tmp_path, monkeypatch):
     """GradientVector has topology_bonus field."""
-    import metabolon.tools.gradient as grad
+    import metabolon.enzymes.gradient as grad
 
     now = datetime.now(UTC)
     lustro_log = tmp_path / "relevance.jsonl"
@@ -429,7 +429,7 @@ def test_gradient_adjacent_pair_lower_weight_than_independent(tmp_path, monkeypa
     """Adjacent confirmation (lustro+noesis) ranks below independent confirmation
     (lustro+tools) when raw hit counts are equal.
     """
-    import metabolon.tools.gradient as grad
+    import metabolon.enzymes.gradient as grad
 
     now = datetime.now(UTC)
 

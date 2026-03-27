@@ -53,13 +53,13 @@ def _query_cmd(cmd: list[str], prompt: str, timeout: int) -> str:
     )
     try:
         stdout, stderr = proc.communicate(timeout=timeout)
-    except subprocess.TimeoutExpired:
+    except subprocess.TimeoutExpired as err:
         try:
             os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
         except (ProcessLookupError, OSError):
             proc.kill()
         proc.wait()
-        raise subprocess.TimeoutExpired(cmd, timeout)
+        raise subprocess.TimeoutExpired(cmd, timeout) from err
     return _strip_ansi(stdout.strip() or stderr.strip())
 
 
@@ -80,13 +80,13 @@ def _query_codex(cmd: list[str], prompt: str, timeout: int) -> str:
         )
         try:
             stdout, stderr = proc.communicate(timeout=timeout)
-        except subprocess.TimeoutExpired:
+        except subprocess.TimeoutExpired as err:
             try:
                 os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
             except (ProcessLookupError, OSError):
                 proc.kill()
             proc.wait()
-            raise subprocess.TimeoutExpired(full_cmd, timeout)
+            raise subprocess.TimeoutExpired(full_cmd, timeout) from err
         output = ""
         if os.path.exists(tmp_path):
             with open(tmp_path, encoding="utf-8") as f:

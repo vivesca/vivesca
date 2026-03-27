@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from unittest.mock import patch
 
-from metabolon.tools.integrin import (
+from metabolon.enzymes.integrin import (
     ApoptosisResult,
     _log_anoikis_candidates,
     integrin_apoptosis_check,
@@ -84,7 +84,7 @@ class TestIntegrinApoptosisCheck:
 
     def _patch_dirs(self, receptors_dir: Path, usage_tsv: str, retirement_log: Path):
         """Return a context manager that patches all three module constants."""
-        import metabolon.tools.integrin as integrin_mod
+        import metabolon.enzymes.integrin as integrin_mod
 
         return [
             patch.object(integrin_mod, "SKILLS_DIR", receptors_dir),
@@ -111,7 +111,7 @@ class TestIntegrinApoptosisCheck:
         if usage:
             usage_file.write_text(_usage_tsv(usage))
 
-        import metabolon.tools.integrin as integrin_mod
+        import metabolon.enzymes.integrin as integrin_mod
 
         with (
             patch.object(integrin_mod, "SKILLS_DIR", receptors_dir),
@@ -230,7 +230,7 @@ class TestIntegrinApoptosisCheck:
         retirement_log = tmp_path / "retirement.md"
         usage_file = receptors_dir / "usage.tsv"
 
-        import metabolon.tools.integrin as integrin_mod
+        import metabolon.enzymes.integrin as integrin_mod
 
         with (
             patch.object(integrin_mod, "SKILLS_DIR", receptors_dir),
@@ -264,7 +264,7 @@ class TestIntegrinApoptosisCheck:
         )
         # delta has no binary -- we need to simulate it differently
         # Re-run with a selective mock
-        import metabolon.tools.integrin as integrin_mod
+        import metabolon.enzymes.integrin as integrin_mod
 
         receptors_dir = tmp_path / "receptors2"
         retirement_log = tmp_path / "retirement2.md"

@@ -126,7 +126,7 @@ def test_hysteresis_prevents_oscillation_at_boundary(tmp_path, monkeypatch):
     """Rapid toggling near a single threshold is silenced by the dead-band."""
     monkeypatch.setattr("metabolon.metabolism.setpoint.SETPOINTS_DIR", tmp_path)
     # Without hysteresis a value hovering at 10 would flip with every call.
-    # With hysteresis=0.3 (dead-band 7–10) it stays in its current state.
+    # With hysteresis=0.3 (dead-band 7-10) it stays in its current state.
     sp = Threshold(name="test", default=10.0, hysteresis=0.3)
 
     # Open the gate first

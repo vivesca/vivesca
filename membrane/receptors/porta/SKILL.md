@@ -51,7 +51,7 @@ Returns `EffectorResult`:
 ## Implementation
 
 - Organelle: `~/germline/metabolon/organelles/porta.py`
-- Tool: `~/germline/metabolon/tools/porta.py`
+- Tool: `~/germline/metabolon/enzymes/porta.py`
 - Uses `_ab()` pattern from pseudopod for all agent-browser calls
 
 ## Known limitations
