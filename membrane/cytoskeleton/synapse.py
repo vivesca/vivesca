@@ -950,7 +950,6 @@ def main():
         mod_calorimetry,
         mod_phenotype,
         mod_association,
-        mod_context,
     ]
 
     output = []
