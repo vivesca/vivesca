@@ -24,6 +24,7 @@ from pathlib import Path
 # Paths
 # ---------------------------------------------------------------------------
 from metabolon.cytosol import VIVESCA_ROOT
+from metabolon.locus import pulse_reports
 
 LOG_DIR = Path.home() / "logs"
 EVENT_LOG = LOG_DIR / "vivesca-events.jsonl"
@@ -700,7 +701,7 @@ def _write_genome(genome: dict):
 # ---------------------------------------------------------------------------
 
 YIELD_DIRS = [
-    Path.home() / "epigenome" / "chromatin" / "Pulse Reports",
+    pulse_reports,
     Path.home() / "tmp",  # pulse-manifest, briefs
 ]
 

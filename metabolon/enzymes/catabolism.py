@@ -13,9 +13,10 @@ from fastmcp.tools import tool
 from mcp.types import ToolAnnotations
 from pydantic import Field
 
+from metabolon.locus import spending
 from metabolon.morphology import EffectorResult, Secretion
 
-SPENDING_DIR = Path.home() / "epigenome" / "chromatin" / "Spending"
+SPENDING_DIR = spending
 PAYMENTS_FILE = SPENDING_DIR / "payments.yaml"
 
 

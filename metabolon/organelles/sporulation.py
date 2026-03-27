@@ -16,8 +16,10 @@ import subprocess
 from datetime import UTC, datetime
 from pathlib import Path
 
-VAULT_DIR = Path.home() / "epigenome" / "chromatin" / "Writing" / "Blog" / "Published"
-INDEX_PATH = Path.home() / "epigenome" / "chromatin" / "terryli.hm.md"
+from metabolon.locus import blog_published, terryli_hm
+
+VAULT_DIR = blog_published
+INDEX_PATH = terryli_hm
 SYNC_SCRIPT = Path.home() / "code" / "blog" / "sync-from-vault.sh"
 
 

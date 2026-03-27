@@ -691,6 +691,78 @@ def guard_bifurcation(data):
 AUTOIMMUNE_STATE = HOME / ".claude" / "meta-spiral-state.json"
 AUTOIMMUNE_PRAXIS = HOME / "epigenome" / "chromatin" / "Praxis.md"
 
+RECEPTORS_DIR = HOME / "germline" / "membrane" / "receptors"
+EPISTEMICS_DIR = HOME / "epigenome" / "chromatin" / "euchromatin" / "epistemics"
+
+
+def surface_epistemics(data):
+    """When a skill is invoked, surface matching epistemics heuristics.
+
+    Reads the skill's SKILL.md for `epistemics:` frontmatter tags,
+    greps the epistemics library for matching `situations:` tags,
+    and prints the top 3 file titles as advisory context.
+    """
+    skill_name = data.get("tool_input", {}).get("skill", "")
+    if not skill_name:
+        return
+
+    # Find skill directory
+    skill_dir = RECEPTORS_DIR / skill_name
+    skill_md = skill_dir / "SKILL.md"
+    if not skill_md.exists():
+        return
+
+    # Extract epistemics tags from frontmatter
+    try:
+        content = skill_md.read_text(encoding="utf-8")
+    except Exception:
+        return
+    if not content.startswith("---"):
+        return
+    end = content.find("---", 3)
+    if end == -1:
+        return
+    frontmatter = content[3:end]
+
+    tags_match = re.search(r"^epistemics:\s*\[(.+)\]", frontmatter, re.MULTILINE)
+    if not tags_match:
+        return
+    tags = [tag.strip() for tag in tags_match.group(1).split(",")]
+    if not tags:
+        return
+
+    # Find matching epistemics files
+    if not EPISTEMICS_DIR.exists():
+        return
+
+    matches = []
+    for ep_file in sorted(EPISTEMICS_DIR.iterdir()):
+        if ep_file.suffix != ".md":
+            continue
+        try:
+            first_lines = ep_file.read_text(encoding="utf-8")[:500]
+        except Exception:
+            continue
+        for tag in tags:
+            if f"situations:" in first_lines and tag in first_lines:
+                # Extract title from first heading
+                for file_line in first_lines.split("\n"):
+                    if file_line.startswith("# "):
+                        matches.append(file_line[2:].strip())
+                        break
+                break
+
+    if not matches:
+        return
+
+    # Advisory output — top 3
+    top = matches[:3]
+    remaining = len(matches) - 3
+    hint = f"[epistemics:{','.join(tags)}] {' | '.join(top)}"
+    if remaining > 0:
+        hint += f" (+{remaining} more)"
+    print(hint, file=sys.stderr)
+
 
 def guard_autoimmune(data):
     skill = data.get("tool_input", {}).get("skill", "")
@@ -780,6 +852,7 @@ def main():
             guard_agent(data)
         elif tool == "Skill":
             guard_autoimmune(data)
+            surface_epistemics(data)
         elif tool == "WebSearch":
             guard_rheotaxis(data)
     except SystemExit:

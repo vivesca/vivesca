@@ -1,4 +1,4 @@
-from metabolon.locus import chromatin
+from metabolon.locus import chromatin, receptors
 
 """integrin -- attachment integrity probe.
 
@@ -36,7 +36,7 @@ from mcp.types import ToolAnnotations
 from metabolon.cytosol import VIVESCA_ROOT
 from metabolon.morphology import Secretion
 
-SKILLS_DIR = VIVESCA_ROOT / "membrane" / "receptors"
+SKILLS_DIR = receptors
 SKILL_USAGE_LOG = Path.home() / ".claude" / "skill-usage.tsv"
 RECEPTOR_RETIREMENT_LOG = chromatin / "receptor-retirement.md"
 

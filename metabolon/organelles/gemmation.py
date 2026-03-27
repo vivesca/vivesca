@@ -12,7 +12,9 @@ from pathlib import Path
 
 import yaml
 
-QUEUE_PATH = Path.home() / "epigenome" / "chromatin" / "agent-queue.yaml"
+from metabolon.locus import agent_queue
+
+QUEUE_PATH = agent_queue
 RUNS_DIR = Path.home() / ".cache" / "legatus-runs"
 BACKENDS = ("claude", "gemini", "codex", "opencode")
 

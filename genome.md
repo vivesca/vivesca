@@ -79,6 +79,8 @@ Skills are bounded pipelines: invoke → agentic loop → done. `model:` and `al
 
 **No ambiguous names.** Never single-letter variables (`l`, `v`, `d`, `s`). Name what the thing IS: `line`, `value`, `data`, `session`. Everywhere — loops, comprehensions, lambdas. Ambiguous names hide intent and trigger linter warnings that tempt bypasses.
 
+**Insulate knowledge domains.** Directory structure = CTCF boundaries. Operations on one domain (archiving, silencing, bulk moves) must not spread into adjacent domains. Loose files at a directory root have no insulators — organise into subdirectories before operating. The boundary IS the protection.
+
 **Dispatch earns its cost.** The unit of dispatch is the actus — one verb, one reasoning point. One actus = inline, regardless of tool-call count. Multiple independent actus = parallel dispatch. Don't split a single actus across subagents; don't inline independent actus when parallelism helps.
 
 **One call, one action.** Don't give one LLM call a checklist — quality degrades by position. Orchestrator decomposes, workers execute one task each. Workers recurse if compound — depth is emergent, not prescribed. Cap total agents (budget), not depth.

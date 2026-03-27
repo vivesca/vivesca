@@ -9,7 +9,9 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-SPENDING_DIR = Path.home() / "epigenome" / "chromatin" / "Spending"
+from metabolon.locus import spending
+
+SPENDING_DIR = spending
 
 
 class SpendingSubstrate:

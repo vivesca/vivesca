@@ -9,6 +9,8 @@ from pathlib import Path
 
 import click
 
+from metabolon.locus import blog_published
+
 
 @click.group()
 @click.version_option(package_name="metabolon")
@@ -745,7 +747,7 @@ tags: [ai, agents, design, vivesca]
 
     try:
         content = symbiont.transduce(draft_model, prompt, timeout=120)
-        post_path = Path.home() / "epigenome" / "chromatin" / "Writing" / "Blog" / "Published" / f"{slug}.md"
+        post_path = blog_published / f"{slug}.md"
         post_path.write_text(content)
         click.echo(f"Drafted: {post_path}")
 

@@ -25,6 +25,7 @@ import sys
 import time
 from pathlib import Path
 
+from metabolon.locus import pulse_reports
 from metabolon.vasomotor import (
     EVENT_LOG,
     MAX_DAILY_SYSTOLES,
@@ -54,7 +55,7 @@ CARDIAC_LOG = Path.home() / "tmp" / "pulse-manifest.md"
 CARDIAC_LOCK = Path.home() / "tmp" / "pulse.lock"
 TOPIC_LOCK = Path.home() / "tmp" / "pulse-topics-done.txt"
 LOG_DIR = Path.home() / "logs"
-REPORT_DIR = Path.home() / "epigenome" / "chromatin" / "Pulse Reports"
+REPORT_DIR = pulse_reports
 VITAL_SIGNS_FILE = Path.home() / "tmp" / "pulse-status.json"
 
 # ---------------------------------------------------------------------------

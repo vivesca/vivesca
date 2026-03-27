@@ -13,6 +13,8 @@ from collections import defaultdict
 from datetime import UTC, datetime, timedelta, timezone
 from pathlib import Path
 
+from metabolon.locus import chromatin as _chromatin
+
 # ---------------------------------------------------------------------------
 # Constants
 # ---------------------------------------------------------------------------
@@ -268,7 +270,7 @@ def _card_last_review(card: dict) -> datetime | None:
 
 
 def _notes_dir() -> Path:
-    return Path.home() / "epigenome" / "chromatin"
+    return _chromatin
 
 
 def _tracker_path() -> Path:

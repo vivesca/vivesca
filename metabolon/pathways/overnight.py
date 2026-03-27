@@ -11,7 +11,9 @@ import time
 from datetime import UTC, datetime
 from pathlib import Path
 
-PUBLISHED = Path.home() / "epigenome" / "chromatin" / "Writing" / "Blog" / "Published"
+from metabolon.locus import blog_published
+
+PUBLISHED = blog_published
 LOGDIR = Path.home() / "tmp"
 VIVESCA = Path.home() / "code" / "vivesca"
 

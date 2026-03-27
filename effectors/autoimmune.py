@@ -18,8 +18,10 @@ import sys
 from datetime import datetime, timedelta
 from pathlib import Path
 
+from metabolon.locus import praxis
+
 STATE_FILE = Path.home() / ".claude" / "meta-spiral-state.json"
-PRAXIS_FILE = Path.home() / "epigenome" / "chromatin" / "Praxis.md"
+PRAXIS_FILE = praxis
 LOG_FILE = Path.home() / "logs" / "hook-fire-log.jsonl"
 THRESHOLD = 3
 

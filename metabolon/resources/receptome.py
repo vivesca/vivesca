@@ -11,7 +11,9 @@ from pathlib import Path
 
 import yaml
 
-_SKILLS_ROOT = Path.home() / ".claude" / "skills"
+from metabolon.locus import claude_skills
+
+_SKILLS_ROOT = claude_skills
 _SUBDIRS: list[str] = []
 
 

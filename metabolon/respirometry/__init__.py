@@ -6,6 +6,7 @@ import re
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
+from metabolon.locus import efferens, spending
 from metabolon.respirometry.categories import categorise, restore_categories
 from metabolon.respirometry.detect import filename_matches, identify_bank
 from metabolon.respirometry.monitors import activate_monitors
@@ -18,12 +19,12 @@ from metabolon.respirometry.vault import (
     stamp_processed,
 )
 
-SPENDING_DIR = Path.home() / "epigenome" / "chromatin" / "Spending"
+SPENDING_DIR = spending
 CATEGORIES_FILE = SPENDING_DIR / "categories.yaml"
 CONFIG_FILE = SPENDING_DIR / "config.yaml"
 PAYMENTS_FILE = SPENDING_DIR / "payments.yaml"
 DEDUP_LEDGER = SPENDING_DIR / ".processed"
-EFFERENS_DIR = Path.home() / "epigenome" / "chromatin" / "Efferens"
+EFFERENS_DIR = efferens
 HKT = timezone(timedelta(hours=8))
 
 
