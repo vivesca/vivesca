@@ -2,6 +2,8 @@
 title: bird CLI — writes blocked by X anti-automation
 date: 2026-03-26
 tags: [bird, twitter, x, cli]
+titer-hits: 1
+titer-last-seen: 2026-03-27
 ---
 
 # bird CLI: reads work, writes return error 226
