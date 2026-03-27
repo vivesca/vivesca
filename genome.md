@@ -75,6 +75,8 @@ Skills are bounded pipelines: invoke → agentic loop → done. `model:` and `al
 
 **Assays ship with code.** New organelles and tools ship with a corresponding `assays/test_*.py`. Unit tests (mocked, fast) are mandatory. Integration tests (live infra, gated by env var) are encouraged. No test = not done.
 
+**No inline bypasses.** Never `# noqa`, `# type: ignore`, `# pragma: no cover`, `# pyright: ignore`. Fix the code or fix the config. Inline suppression rots — it survives refactors, hides real issues, and teaches the habit of silencing over fixing. Existing bypasses: clean up on contact.
+
 **Dispatch earns its cost.** The unit of dispatch is the actus — one verb, one reasoning point. One actus = inline, regardless of tool-call count. Multiple independent actus = parallel dispatch. Don't split a single actus across subagents; don't inline independent actus when parallelism helps.
 
 **One call, one action.** Don't give one LLM call a checklist — quality degrades by position. Orchestrator decomposes, workers execute one task each. Workers recurse if compound — depth is emergent, not prescribed. Cap total agents (budget), not depth.

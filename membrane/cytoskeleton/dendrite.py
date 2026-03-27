@@ -819,7 +819,7 @@ ATTN_INTERVAL = 25
 ATTN_NOW = str(HOME / "epigenome/chromatin/Tonus.md")
 
 
-def mod_attention(_data):  # noqa: ARG001
+def mod_attention(_data):
     count = 0
     try:
         with open(ATTN_MARKER) as f:
@@ -891,7 +891,7 @@ PROPRIO_STATE = Path(os.environ.get("TMPDIR", "/tmp")) / "proprioception-state.j
 PROPRIO_INTERVAL = 20
 
 
-def mod_proprioception(_data):  # noqa: ARG001
+def mod_proprioception(_data):
     state = {"count": 0, "start": time.time()}
     try:
         state = json.loads(PROPRIO_STATE.read_text())

@@ -1,6 +1,6 @@
 ---
 name: quorum
-description: Multi-model deliberation for judgment calls — auto-routes by difficulty. Full council (~$0.50), quick parallel (~$0.10), red team (~$0.20). Use for decisions, trade-offs, naming, strategy. NOT for factual research (use rheotaxis or WebSearch).
+description: Multi-model deliberation for judgment calls — auto-routes by difficulty.
 aliases: [ask-llms, council, ask llms]
 github_url: https://github.com/terry-li-hm/quorum
 user_invocable: true

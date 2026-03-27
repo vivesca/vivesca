@@ -1,6 +1,6 @@
 ---
 name: endocytosis
-description: LLM knowledge mining — extract implicit model knowledge into permanent reference skills as actionable heuristics. Three tiers: single-model interview (quick), quorum adversarial refinement (deep), field validation. Specimen-based mining uses people (Einstein, Munger), traditions (Stoicism, kaizen), and failures (LTCM, Challenger) as concrete entry points — heuristics sort into existing skills, not new containers. Post-mining skill-map review reveals architectural gaps. Use when a topic would benefit from stable, always-loaded heuristics that the model knows but surfaces inconsistently.
+description: Mine implicit LLM knowledge into permanent, always-loaded reference skills.
 user_invocable: true
 tags: [meta, knowledge, skills]
 context: fork
