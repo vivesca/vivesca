@@ -64,17 +64,21 @@ If continuous capture handled most of it → quick verification pass for all thr
 
 **MEMORY.md ≥145 lines →** downregulate by recurrence signal, not by position. Check `hits:` and `last-seen:` in memory file frontmatter (updated automatically by dendrite.py on every Read). Lowest hits + oldest last-seen = downregulate candidate. Move to `~/germline/loci/antisera/memory-overflow.md` (reversible — re-promote if topic resurfaces).
 
-### 1b. Mechanisation check
+### 1b. Methylation scan
 
-Ask: **should anything from this session become a mechanism?**
+Proactively scan the session for **vivesca improvement opportunities** — not just "did I learn something?" but "could the organism get stronger from what happened?"
 
-| Signal | Route to |
-|---|---|
-| Repeated manual step | Hook (synapse/axon/dendrite) |
-| New principle or meta-rule | Genome edit |
-| Recurring judgment pattern | Skill update or new skill |
-| Config that should be enforced | Pre-commit or ruff rule |
-| Knowledge that compounds | Epistemics file with `situations:` tags |
+| Signal | Question | Route to |
+|---|---|---|
+| Same manual step done 2+ times | "Why isn't this a hook?" | Hook (synapse/axon/dendrite) |
+| LLM judgment that a rule could have decided | "Why isn't this deterministic?" | Pre-commit, ruff rule, or hook |
+| Correction from Terry | "What rule would have prevented this?" | Genome edit or skill update |
+| New capability built | "Does it have all three layers?" | MCP tool + skill + CLI check |
+| Skill that didn't trigger when it should have | "Is the description wrong?" | Skill description edit |
+| Prompt pattern that worked well | "Should this be a skill?" | New skill candidate |
+| Tool/API gotcha discovered | "Will a future session hit this?" | `~/germline/loci/antisera/` |
+
+**The test:** if this session replayed tomorrow with a fresh context, would the organism handle it better? If not, something wasn't methylated.
 
 If nothing → good. If something → build now while context is hot, or Praxis.md with full context.
 
