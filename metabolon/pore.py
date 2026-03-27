@@ -2132,4 +2132,40 @@ def replicate_gemini(hooks_only: bool, mcp_only: bool, dry_run: bool):
     if dry_run or diff_text != "(no changes)":
         click.echo(diff_text)
 
-    click.echo(result.summary)
+
+# ── rename ───────────────────────────────────────────────────────────
+
+
+@cli.command()
+@click.argument("old_name")
+@click.argument("new_name")
+@click.option(
+    "--scope",
+    multiple=True,
+    default=(),
+    help="Directory to search (repeatable). Default: ~/germline ~/epigenome",
+)
+@click.option(
+    "--dry-run",
+    is_flag=True,
+    help="Report what would change without modifying anything.",
+)
+def rename(old_name: str, new_name: str, scope: tuple[str, ...], dry_run: bool):
+    """Rename a concept across the organism.
+
+    Scans and renames OLD_NAME → NEW_NAME in directories, filenames,
+    and file contents across ~/germline and ~/epigenome (default scope).
+    Also updates locus.py, fixes broken symlinks, and commits each
+    affected git repo unless --dry-run is set.
+
+    Examples:
+
+      vivesca rename engrams marks
+
+      vivesca rename engrams marks --dry-run
+
+      vivesca rename engrams marks --scope ~/germline
+    """
+    from metabolon.organelles.rename import _cli
+
+    _cli(old_name, new_name, list(scope), dry_run)

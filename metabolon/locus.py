@@ -4,7 +4,7 @@ Single source of truth. Effectors, tools, and scripts import from here
 instead of hardcoding paths. When the organism moves, update this file only.
 
 Usage:
-    from metabolon.locus import germline, chromatin, praxis, engrams
+    from metabolon.locus import germline, chromatin, praxis, marks
 """
 
 from pathlib import Path
@@ -23,14 +23,14 @@ tonus = chromatin / "Tonus.md"
 daily = chromatin / "Daily"
 
 # Engrams (memory)
-engrams = epigenome / "engrams"
-memory_index = engrams / "MEMORY.md"
+marks = epigenome / "marks"
+memory_index = marks / "MEMORY.md"
 
 # Epigenome structure
 phenotype = epigenome / "phenotype"
 cofactors = epigenome / "cofactors"
 pacemakers = epigenome / "pacemakers"
-bud_engrams = epigenome / "bud-engrams"
+bud_marks = epigenome / "bud-marks"
 
 # Chromatin subdirs
 immunity = chromatin / "immunity"
