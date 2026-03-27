@@ -36,7 +36,7 @@ polarization-gather guard on
 polarization-gather manifest init
 ```
 
-The guard is a Stop hook (`~/.claude/hooks/polarization-guard.py`). While active, the model cannot stop while budget is green. Deactivate with `polarization-gather guard off` (done automatically in Wrap, or manually by Terry).
+The guard is a flag file (`~/tmp/.polarization-guard-active`) managed by `polarization-gather`. While active, the model cannot stop while budget is green. Deactivate with `polarization-gather guard off` (done automatically in Wrap, or manually by Terry).
 
 ### Step 1: Load Context (parallel)
 
