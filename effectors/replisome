@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""twin — multi-model collaborative dialogue via LangGraph.
+"""replisome — multi-model collaborative dialogue via LangGraph.
 
 Models work a shared scratchpad with human-in-the-loop interrupt.
 LangGraph provides: state machine, conditional routing, checkpointing.
@@ -166,7 +166,7 @@ def _append(a: list, b: list) -> list:
     return a + b
 
 
-class TwinState(TypedDict):
+class ReplisomeState(TypedDict):
     task: str
     models: list[str]
     turns: Annotated[list[dict], _append]
@@ -182,7 +182,7 @@ class TwinState(TypedDict):
 
 # ── Graph nodes ───────────────────────────────────────────────────────
 
-def node_model_turn(state: TwinState) -> dict:
+def node_model_turn(state: ReplisomeState) -> dict:
     """One model speaks."""
     idx = state["current_model_idx"]
     model = state["models"][idx]
@@ -210,7 +210,7 @@ def node_model_turn(state: TwinState) -> dict:
     }
 
 
-def node_human(state: TwinState) -> dict:
+def node_human(state: ReplisomeState) -> dict:
     """Pause for human input."""
     question = state.get("human_question", "")
     print(f"\n  ? {question}")
@@ -232,7 +232,7 @@ def node_human(state: TwinState) -> dict:
     }
 
 
-def node_synthesise(state: TwinState) -> dict:
+def node_synthesise(state: ReplisomeState) -> dict:
     """CC synthesises after all models have spoken."""
     model_label = " + ".join(state["models"])
     scratchpad = scratchpad_text(state["turns"])
@@ -263,7 +263,7 @@ Your turn as Claude."""
 
 # ── Routing ───────────────────────────────────────────────────────────
 
-def route_after_model(state: TwinState) -> str:
+def route_after_model(state: ReplisomeState) -> str:
     """After a model speaks: human interrupt, next model, or synthesise."""
     if state.get("needs_human"):
         return "human"
@@ -272,14 +272,14 @@ def route_after_model(state: TwinState) -> str:
     return "synthesise"
 
 
-def route_after_human(state: TwinState) -> str:
+def route_after_human(state: ReplisomeState) -> str:
     """After human answers: continue with next model or synthesise."""
     if state["current_model_idx"] < len(state["models"]):
         return "model_turn"
     return "synthesise"
 
 
-def route_after_synth(state: TwinState) -> str:
+def route_after_synth(state: ReplisomeState) -> str:
     """After synthesis: next round or done."""
     if state.get("done"):
         return END
@@ -289,7 +289,7 @@ def route_after_synth(state: TwinState) -> str:
 # ── Build graph ───────────────────────────────────────────────────────
 
 def build_graph():
-    g = StateGraph(TwinState)
+    g = StateGraph(ReplisomeState)
 
     g.add_node("model_turn", node_model_turn)
     g.add_node("human", node_human)
@@ -319,7 +319,7 @@ def build_graph():
 
 def main():
     parser = argparse.ArgumentParser(
-        prog="twin",
+        prog="replisome",
         description="Multi-model council with human-in-the-loop (LangGraph)",
     )
     parser.add_argument("task", help="Task description")
@@ -338,7 +338,7 @@ def main():
     scratchpad.parent.mkdir(parents=True, exist_ok=True)
 
     # Init scratchpad
-    header = f"""# Twin Session — {datetime.now().strftime('%Y-%m-%d %H:%M')}
+    header = f"""# Replisome Session — {datetime.now().strftime('%Y-%m-%d %H:%M')}
 
 **Task:** {task}
 **Models:** CC ↔ {model_label}
