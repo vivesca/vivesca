@@ -128,7 +128,7 @@ def ecphory_logs(
         ("symptom_log", locus.symptom_log),
     ]
     if locus.experiments.is_dir():
-        for exp_path in sorted(locus.experiments.glob("peira-*.md")):
+        for exp_path in sorted(locus.experiments.glob("assay-*.md")):
             targets.append((f"experiments/{exp_path.name}", exp_path))
 
     matches: list[str] = []

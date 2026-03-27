@@ -23,7 +23,7 @@ def _cross_link_experiment(entry: str, dish: str) -> str | None:
         return None
 
     dish_lower = dish.lower()
-    for exp_file in EXPERIMENTS_DIR.glob("peira-*.md"):
+    for exp_file in EXPERIMENTS_DIR.glob("assay-*.md"):
         text = exp_file.read_text()
         if "status: active" not in text:
             continue

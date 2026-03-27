@@ -36,3 +36,21 @@
 {"ts": "2026-03-27T09:51:17+00:00", "model": "sonar", "query": "Gemini 3.1 Pro model name API identifier March 2026,Gemini CLI supported models gemini-3.1-pro 2026"}
 {"ts": "2026-03-27T12:17:21+00:00", "model": "sonar", "query": "Gemini CLI hooks system BeforeTool AfterTool lifecycle events 2026,Gemini CLI custom commands extensions skills equivalent,Gemini CLI GEMINI.md customization agents subagents"}
 {"ts": "2026-03-27T12:28:55+00:00", "model": "sonar", "query": "Gemini CLI subagents support 2026 tool isolation PR 21935,Gemini CLI agent dispatch spawn subprocess equivalent Claude Code Agent tool"}
+{"ts": "2026-03-27T23:29:24+00:00", "model": "sonar", "query": "Goose CLI block square LLM providers GOOSE_PROVIDER supported backends 2025 2026"}
+{"ts": "2026-03-27T23:29:25+00:00", "model": "sonar", "query": "Goose CLI claude-cli anthropic provider claude code subscription backend"}
+{"ts": "2026-03-27T23:37:46+00:00", "model": "sonar", "query": "Anthropic Claude Code Max subscription terms of service third party tools ACP"}
+{"ts": "2026-03-27T23:37:46+00:00", "model": "sonar", "query": "Goose Block AI Anthropic partnership ACP Agent Control Protocol official endorsement"}
+{"ts": "2026-03-27T23:37:47+00:00", "model": "sonar", "query": "Goose CLI Block fallback provider config yaml schema GOOSE_FALLBACK_PROVIDER\nGoose CLI Block provider failover fallback if primary fails site:github.com\nGoose CLI config.yaml schema provider fallback redundancy 2025 2026"}
+{"ts": "2026-03-27T23:37:55+00:00", "model": "sonar", "query": "Anthropic ACP claude-acp Goose exemption ToS ban clarification 2026"}
+{"ts": "2026-03-27T23:38:02+00:00", "model": "sonar", "query": "Reddit Hacker News \"claude-acp\" Goose ToS ban account suspended 2026"}
+{"ts": "2026-03-27T23:38:14+00:00", "model": "sonar", "query": "Goose CLI \"fallback provider\" OR \"GOOSE_FALLBACK\" OR \"provider failover\" site:github.com/block/goose"}
+{"ts": "2026-03-27T23:38:50+00:00", "model": "sonar", "query": "Goose CLI Block provider failover workaround openrouter wrapper script 2025 2026"}
+{"ts": "2026-03-27T23:39:17+00:00", "model": "sonar", "query": "Tetrate Agent Router Goose CLI automatic failover provider how it works configuration"}
+{"ts": "2026-03-27T23:47:16+00:00", "model": "sonar", "query": "Goose CLI Block MCP Model Context Protocol support maturity 2026\nGoose CLI Block recipes automation features changelog 2026"}
+{"ts": "2026-03-27T23:47:18+00:00", "model": "sonar", "query": "Goose CLI Block hooks system pre post tool execution lifecycle 2026\nGoose CLI Block skills prompt modules system extensions 2026\nGoose CLI Block memory system chat recall context persistence 2026"}
+{"ts": "2026-03-27T23:47:24+00:00", "model": "sonar", "query": "Windsurf Codeium MCP support hooks memory system 2026"}
+{"ts": "2026-03-27T23:47:25+00:00", "model": "sonar", "query": "Cursor IDE hooks system MCP support memory 2026"}
+{"ts": "2026-03-27T23:47:25+00:00", "model": "sonar", "query": "Cline VS Code extension hooks MCP memory CLI mode 2026"}
+{"ts": "2026-03-27T23:47:35+00:00", "model": "sonar", "query": "Aider hooks MCP server support memory system 2026"}
+{"ts": "2026-03-27T23:47:35+00:00", "model": "sonar", "query": "OpenAI Codex CLI hooks MCP memory persistent 2026"}
+{"ts": "2026-03-27T23:47:37+00:00", "model": "sonar", "query": "Cursor CLI mode command line interface terminal 2026"}

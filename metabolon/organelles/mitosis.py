@@ -49,13 +49,9 @@ SYNC_TARGETS: list[dict] = [
         "repo": "terry-li-hm/scripts",
         "critical": False,
     },
-    {
-        "name": "claude-config",
-        "local": "~/.claude",
-        "remote": f"{LUCERNA_HOME}/.claude",
-        "repo": "terry-li-hm/claude-config",
-        "critical": False,
-    },
+    # .claude critical files DR'd via symlinks into germline/epigenome:
+    # hooks → germline/synaptic/, MEMORY.md → epigenome/engrams/ltp.md,
+    # settings.json → germline/membrane/expression.json
 ]
 
 

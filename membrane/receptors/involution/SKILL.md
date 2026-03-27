@@ -9,7 +9,7 @@ disable-model-invocation: true
 
 Personal close-of-day ritual for sleep hygiene. Closes the *day*, not the workday.
 
-**Boundary:** involution = sleep hygiene at home. `/interphase` = work closure on commute. If Terry is still in transit, use interphase instead.
+**Boundary:** involution = sleep hygiene at home. `/circadian` (dusk phase) = work closure on commute. If Terry is still in transit, use circadian instead.
 
 ## Context
 

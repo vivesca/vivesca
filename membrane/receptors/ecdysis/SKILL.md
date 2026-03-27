@@ -103,8 +103,8 @@ Create `~/epigenome/chromatin/Weekly/YYYY-Www.md`:
 - Lead with forward, not backward. The plan is the point.
 
 ## See also
-- `/interphase` — the daily routine (evening)
+- `/circadian` (dusk phase) — the daily routine (evening)
 - `/mitosis` — first Sunday of the month, maintenance
 - `/meiosis` — direction and finances (4x/year)
-- `/ultradian` — ad-hoc "what now?"
+- `/circadian` (day phase) — ad-hoc "what now?"
 - [[cadence-design]] — principles behind this cadence stack

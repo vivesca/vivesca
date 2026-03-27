@@ -190,7 +190,7 @@ Two subsections:
 
 | Component | Forced name | Break | Gap found | Built |
 |---|---|---|---|---|
-| Overnight results check | germination | Spores germinate on conditions, not timers | Batch processing should be conditions-triggered | `check_germination()` with flag file |
+| Overnight results check | germination (now `/circadian`, dawn phase) | Spores germinate on conditions, not timers | Batch processing should be conditions-triggered | `check_germination()` with flag file |
 | Internal state sensing | proprioception | Cells sense gradients, not static state | Status dumps should show trends over time | JSONL gradient logging |
 | Output module | secretory | Secretory pathway has chaperones | No quality control before export | PII/special char/length checks |
 | LLM role | symbiont | Enzyme/prosthetic/primer/brain all broke | LLM is external organism, not native organ | Endosymbiosis lifecycle in DESIGN.md |

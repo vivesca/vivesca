@@ -209,9 +209,9 @@ Mined skills are only valuable if they get consulted. Track in `memory/decay-tra
 | Communication | `[[communication-cognition]]` | 1 | [[career-communication]], storyteller (deleted), agoras CLI, quorum, mandatum, opsonization | — |
 | Learning | `[[learning-theory]]` | 1 | dokime, rector, endocytosis, [[parens]] (Reference), eow, daily, phronesis | — |
 | Self-awareness | `[[self-awareness]]` | 1 | phronesis, enkrateia, praecepta, all operations | — |
-| Self-regulation | `[[self-regulation]]` | 1 | [[self-awareness]], phronesis, sopor, ultradian, mora (deleted), [[parens]] (Reference) | — |
+| Self-regulation | `[[self-regulation]]` | 1 | [[self-awareness]], phronesis, sopor, circadian, mora (deleted), [[parens]] (Reference) | — |
 | Empathy | `[[empathy]]` | 1 | [[communication-cognition]], mandatum, opsonization, [[career-communication]], phronesis, [[parens]] (Reference) | — |
-| Task management | negotium (unbuilt) | 1 | sched, ultradian, cytokinesis, todo | — |
+| Task management | negotium (unbuilt) | 1 | sched, circadian, cytokinesis, todo | — |
 | AI governance consulting | `[[gubernatio]] (Reference)` | 1 | rector, opsonization, capco-prep, quorum | "Governance Is a Tax" |
 | Regulatory comparison | `[[regulatio]]` | 1 | opsonization, capco-prep, [[gubernatio]] (Reference) | — |
 | Technical credibility | [[auctoritas]] (Reference) | 1 | opsonization, capco-prep, [[career-communication]], [[gubernatio]] (Reference) | — |

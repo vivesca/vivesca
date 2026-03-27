@@ -3,16 +3,16 @@
 # requires-python = ">=3.11"
 # dependencies = ["httpx"]
 # ///
-"""peira — life experiment tracker. Named after Greek πεῖρα (trial, experiment).
+"""assay — life experiment tracker. Named after Greek πεῖρα (trial, experiment).
 
 Deterministic CLI for N=1 self-experiments with Oura Ring as the primary sensor.
 Creates vault notes, pulls baseline/check-in data, computes deltas at close.
 
 Usage:
-    peira new "caffeine cut" --hypothesis "..." --days 14
-    peira check [name]
-    peira close [name]
-    peira list
+    assay new "caffeine cut" --hypothesis "..." --days 14
+    assay check [name]
+    assay close [name]
+    assay list
 """
 
 from __future__ import annotations
@@ -32,6 +32,59 @@ from metabolon.locus import meal_plan as MEAL_PLAN
 
 VAULT = Path.home() / "epigenome" / "chromatin"
 EXPERIMENT_DIR = VAULT / "experiments"
+
+# ---------------------------------------------------------------------------
+# Keyword extraction helpers
+# ---------------------------------------------------------------------------
+
+_STOP_WORDS = {
+    "the", "and", "with", "from", "that", "this", "will", "days", "within",
+    "improves", "does", "have", "been", "more", "less", "over", "into",
+    "for", "not", "but", "are", "was", "were", "its", "via", "per",
+    "after", "before", "during", "each", "when", "than", "then", "also",
+}
+
+_DOMAIN_SYNONYMS: dict[str, list[str]] = {
+    "caffeine": ["coffee", "cappuccino", "espresso", "latte", "matcha", "cola", "energy drink"],
+    "alcohol": ["beer", "wine", "whiskey", "spirits", "cocktail", "drinking"],
+    "sleep": ["bedtime", "wake", "nap", "insomnia", "sopor"],
+    "exercise": ["workout", "training", "gym", "cardio", "lifting", "cycling"],
+    "meditation": ["mindfulness", "breathwork", "yoga", "contemplation"],
+    "fasting": ["intermittent", "omad", "eating window", "hunger"],
+    "protein": ["whey", "casein", "leucine", "chicken", "beef", "eggs"],
+    "carbs": ["glucose", "rice", "bread", "pasta", "sugar", "glycogen"],
+    "fat": ["keto", "lipid", "omega", "butter", "oil"],
+    "cold": ["ice bath", "cold shower", "cryotherapy", "plunge"],
+    "heat": ["sauna", "steam", "hot bath", "infrared"],
+    "stress": ["cortisol", "anxiety", "workload", "deadline", "tension"],
+    "reading": ["books", "kindle", "articles", "screen"],
+    "sunlight": ["light therapy", "morning light", "vitamin d", "outdoor"],
+    "supplements": ["vitamins", "minerals", "nootropics", "capsules"],
+    "magnesium": ["glycinate", "citrate", "threonate", "malate"],
+    "creatine": ["monohydrate", "phosphocreatine", "pcr"],
+}
+
+
+def _extract_keywords(name: str, hypothesis: str) -> list[str]:
+    """Extract meaningful keywords from experiment name and hypothesis, with synonym expansion."""
+    combined = f"{name} {hypothesis}".lower()
+    # Tokenise on non-alphanumeric boundaries
+    tokens = re.findall(r"[a-z][a-z0-9]*", combined)
+    base_keywords: list[str] = []
+    for tok in tokens:
+        if len(tok) >= 4 and tok not in _STOP_WORDS:
+            if tok not in base_keywords:
+                base_keywords.append(tok)
+
+    # Synonym expansion
+    extras: list[str] = []
+    for key, synonyms in _DOMAIN_SYNONYMS.items():
+        if key in combined:
+            for syn in synonyms:
+                if syn not in base_keywords and syn not in extras:
+                    extras.append(syn)
+
+    return base_keywords + extras
 
 # ---------------------------------------------------------------------------
 # Oura helpers
@@ -133,7 +186,7 @@ def slugify(name: str) -> str:
 
 def find_experiment(name: str | None) -> Path | None:
     """Find an active experiment by name (fuzzy) or return the only active one."""
-    active = list(EXPERIMENT_DIR.glob("peira-*.md"))
+    active = list(EXPERIMENT_DIR.glob("assay-*.md"))
     if not active:
         return None
     if name:
@@ -155,7 +208,7 @@ def _is_active(path: Path) -> bool:
 
 
 def list_experiments() -> list[Path]:
-    return sorted(EXPERIMENT_DIR.glob("peira-*.md"))
+    return sorted(EXPERIMENT_DIR.glob("assay-*.md"))
 
 
 # ---------------------------------------------------------------------------
@@ -178,10 +231,13 @@ def cmd_new(args: argparse.Namespace) -> None:
     baseline_data = pull_oura(str(baseline_start), str(baseline_end))
     baseline_summary = summarise_period(baseline_data)
 
-    filename = f"peira-{start}-{slug}.md"
+    filename = f"assay-{start}-{slug}.md"
     path = EXPERIMENT_DIR / filename
 
     hypothesis = args.hypothesis or "TBD"
+
+    watch_keywords = _extract_keywords(name, hypothesis)
+    watch_keywords_yaml = "[" + ", ".join(watch_keywords) + "]"
 
     content = f"""---
 type: experiment
@@ -191,6 +247,7 @@ end_date: {end}
 name: "{name}"
 hypothesis: "{hypothesis}"
 baseline_days: {days}
+watch_keywords: {watch_keywords_yaml}
 ---
 
 # {name}
@@ -216,6 +273,7 @@ baseline_days: {days}
     print(f"Created: {path}")
     print(f"Baseline: sleep {baseline_summary['sleep_avg']}, readiness {baseline_summary['readiness_avg']}, HRV balance {baseline_summary['hrv_balance_avg']}")
     print(f"Experiment runs {start} to {end} ({days} days)")
+    print(f"Watch keywords: {', '.join(watch_keywords)}")
 
 
 def cmd_check(args: argparse.Namespace) -> None:
@@ -306,6 +364,19 @@ def cmd_close(args: argparse.Namespace) -> None:
     baseline_readiness = _extract_float(text, r"Readiness: avg ([\d.]+)")
     baseline_hrv = _extract_float(text, r"HRV balance: avg ([\d.]+)")
 
+    # Collect cross-linked events from experiment file
+    cross_linked: list[str] = []
+    for line in text.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("> **Intake logged:**") or stripped.startswith("> **Symptom logged:**"):
+            cross_linked.append(stripped)
+
+    cross_linked_section = ""
+    if cross_linked:
+        cross_linked_section = "\n## Cross-linked Events\n"
+        for event in cross_linked:
+            cross_linked_section += f"{event}\n"
+
     verdict = "\n## Results\n"
     verdict += f"- Sleep: {baseline_sleep} -> {final['sleep_avg']}"
     if final["sleep_avg"] and baseline_sleep:
@@ -325,8 +396,10 @@ def cmd_close(args: argparse.Namespace) -> None:
     verdict += f"- Days with data: {final['days']}\n"
     verdict += "\n## Verdict\n_TBD — interpret with symbiont_\n"
 
-    # Append results and flip status
+    # Append cross-linked events (if any), results, and flip status
     with open(path, "a") as f:
+        if cross_linked_section:
+            f.write(cross_linked_section)
         f.write(verdict)
 
     text = path.read_text()
@@ -370,7 +443,7 @@ def _extract_float(text: str, pattern: str) -> float | None:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="peira — life experiment tracker")
+    parser = argparse.ArgumentParser(description="assay — life experiment tracker")
     sub = parser.add_subparsers(dest="command")
 
     p_new = sub.add_parser("new", help="Start a new experiment")

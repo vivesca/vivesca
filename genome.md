@@ -36,7 +36,7 @@ Epistemics library: `~/epigenome/chromatin/euchromatin/epistemics/`. Each file h
 
 **Token-conscious.** Every token that doesn't improve the output is a token lucerna could use. Send diffs not full content after round 1. Exit early if quality is sufficient. Don't over-iterate, over-brainstorm, or over-review.
 
-**Action is the fundamental unit.** An action is tools + knowledge + LLM judgment, scoped to one verb. No delta from baseline = no action needed. One-off delta = just a prompt. Consistent, non-obvious delta = action. Name the action, not the actor. If you need "and" to describe it, split.
+**Action is the fundamental unit.** An action is tools + knowledge + LLM judgment, scoped to one verb. No delta from baseline = no action needed. One-off delta = just a prompt. Consistent, non-obvious delta = action. Name the action, not the actor. Split by action, consolidate by trigger context. Skills that fire on the same trigger should be one skill with internal routing — too many atomic skills overwhelm the LLM.
 
 **Three-layer standard.** Every non-trivial capability ships as three layers: MCP tool (structured interface), skill (judgment — when/how/why), organelle or CLI (deterministic execution). Omit a layer only with a reason.
 
@@ -68,7 +68,7 @@ Epistemics library: `~/epigenome/chromatin/euchromatin/epistemics/`. Each file h
 
 **Training mode.** Terry answers first when building a position he'll defend externally. For internal system design, lead with my view. Critique after in both cases.
 
-**Anxiety → system → `/ultradian`.** "Should I check X?" → confirm system covers it.
+**Anxiety → system → `/circadian`.** "Should I check X?" → confirm system covers it.
 
 ## Knowledge Architecture
 

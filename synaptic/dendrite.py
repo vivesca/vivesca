@@ -1089,6 +1089,33 @@ def mod_assay_nudge(data):
         )
 
 
+# ── chaperone propagation: nudge when tool code changes but skill may be stale ──
+
+
+_CHAPERONE_DIRS = ("enzymes/", "organelles/", "effectors/")
+def mod_chaperone_propagation(data):
+    """After editing tool/enzyme/organelle/effector code, remind to update skills + memories."""
+    fp = data.get("tool_input", {}).get("file_path", "")
+    if not fp.endswith(".py") and "/effectors/" not in fp:
+        return
+    if not any(d in fp for d in _CHAPERONE_DIRS):
+        return
+
+    # Fire at most once per session to avoid noise
+    session_file = Path(f"/tmp/chaperone-{os.getpid()}.flag")
+    if session_file.exists():
+        return
+    session_file.touch()
+
+    component = Path(fp).stem
+    print(
+        f"[chaperone] You modified {component}. Before wrapping up: "
+        f"check if skills/memories/routing need updating. "
+        f"See receptors/chaperone/SKILL.md for the checklist.",
+        file=sys.stderr,
+    )
+
+
 # ── antisera: progressive discovery of known gotcha/fix pairs ──────────
 #
 # Two triggers (both deterministic, no LLM):
@@ -1376,6 +1403,10 @@ def main():
     # Assay nudge (Edit/Write on organelles/ or tools/)
     if tool in ("Edit", "Write") and any(d in fp for d in _ASSAY_DIRS):
         modules.append(mod_assay_nudge)
+
+    # Chaperone propagation (Edit/Write on enzymes/organelles/effectors)
+    if tool in ("Edit", "Write") and any(d in fp for d in _CHAPERONE_DIRS):
+        modules.append(mod_chaperone_propagation)
 
     # Retrograde signal logging (Edit/Write on memory files)
     if tool in ("Edit", "Write") and "memory/" in fp:

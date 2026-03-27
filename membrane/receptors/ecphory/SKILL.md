@@ -12,8 +12,15 @@ triggers:
   - "I mentioned this before"
   - "prior session"
   - "ecphory"
+  - "we logged"
+  - "I logged"
+  - "where did I log"
+  - "intake"
+  - "symptom"
+  - "experiment"
 allowed-tools:
   - Bash
+  - mcp__vivesca__ecphory_logs
   - mcp__vivesca__histone_search
   - mcp__vivesca__chemotaxis_search
 ---
@@ -24,10 +31,11 @@ allowed-tools:
 
 ## Routing Table
 
-The organism has four stores with distinct memory profiles:
+The organism has five stores with distinct memory profiles:
 
 | Store | Memory type | Access | Best for |
 |-------|-------------|--------|----------|
+| `ecphory_logs` | Structured log files | MCP tool | "we logged X", "I logged X", "intake", "symptom", "experiment", tracked/recorded data |
 | `engram search` | Episodic (raw session transcripts) | `engram search "<pattern>" --days N` | "we talked about X", "I entered Y", unpersisted session data |
 | `histone_search` | Episodic + semantic hybrid | MCP tool | Named facts from sessions that were explicitly saved to oghma |
 | `receptor-scan` / vault | Semantic | `receptor-scan "<query>"` | Stable reference knowledge, vault notes, research |
@@ -37,7 +45,14 @@ The organism has four stores with distinct memory profiles:
 
 ### Step 1 — Parse the cue
 
-Classify the query along two axes:
+Classify the query along three axes:
+
+**Logged-data signal (check this first):**
+- "we logged", "I logged", "where did I log", "did I record", "what did I log" → logs (ecphory_logs first)
+- "intake", "meal", "calories", "macros" → nutrition logs (ecphory_logs first)
+- "symptom", "headache", "pain", "felt", "tired", "energy" → symptom logs (ecphory_logs first)
+- "experiment", "trial", "I tested", "dose", "protocol" → experiment logs (ecphory_logs first)
+- If this axis fires, skip recency classification and go straight to ecphory_logs
 
 **Recency signal:**
 - "yesterday", "this morning", "we just", "last session" → recent (engram first)
@@ -55,6 +70,9 @@ Classify the query along two axes:
 Fire the most specific cue against the primary store first. Be generous with synonyms — the original encoding may have used different words.
 
 ```
+# Logged-data primary (meals, symptoms, experiments)
+ecphory_logs query="<keyword variants>" days=30
+
 # Episodic primary (recent)
 engram search "<keyword variants>" --days 7
 
@@ -72,15 +90,17 @@ oghma search "<query>" --mode hybrid
 If primary store returns nothing or only weak matches, hit the next tier:
 
 ```
+Logs miss → try engram (recent), then histone_search
 Episodic miss → try histone_search, then vault/oghma
 Semantic miss → try histone_search, then engram (last 14 days)
 ```
 
 Explicit fan-out order:
-1. engram (episodic, unpersisted)
-2. histone_search (persisted session memory)
-3. receptor-scan / vault grep (semantic, stable)
-4. oghma (structured semantic)
+1. ecphory_logs (structured vault logs — meals, symptoms, experiments)
+2. engram (episodic, unpersisted session transcripts)
+3. histone_search (persisted session memory)
+4. receptor-scan / vault grep (semantic, stable)
+5. oghma (structured semantic)
 
 ### Step 4 — Synthesise
 

@@ -274,7 +274,7 @@ def circadian_sleep(period: str = "today") -> CircadianResult:
     try:
         exp_lines: list[str] = []
         today = datetime.date.today()
-        for exp_file in sorted(EXPERIMENTS_DIR.glob("peira-*.md")):
+        for exp_file in sorted(EXPERIMENTS_DIR.glob("assay-*.md")):
             text = exp_file.read_text()
             # Extract front matter
             fm_match = re.match(r"^---\n(.*?)\n---", text, re.DOTALL)
@@ -734,7 +734,7 @@ def _cross_link_experiment_symptom(symptom: str, severity: str, notes: str) -> s
         return None
 
     combined = f"{symptom} {notes}".lower()
-    for exp_file in EXPERIMENTS_DIR.glob("peira-*.md"):
+    for exp_file in EXPERIMENTS_DIR.glob("assay-*.md"):
         text = exp_file.read_text()
         if "status: active" not in text:
             continue
