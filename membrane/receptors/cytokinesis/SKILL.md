@@ -95,17 +95,33 @@ This is not a punishment — it's proprioception. The number trends toward zero 
 3. **Session log:** `cytokinesis daily "title"` — outcomes + session arc prose.
 4. **Tonus.md** — update deltas. Max 15 lines, dual-ledger.
 
-### 3. Daily note (last step)
+### 3. Daily note (last step — the output)
 
-Append the session log to today's daily note using the **Edit tool** (not MCP `emit_daily_note` or CLI). The Edit tool renders as an inline diff in CC — Terry can read the full summary without expanding a collapsed tool call. Include:
-- What was done (outcomes, not process)
-- What's parked (with enough context to resume)
-- Cytokinesis residual count
-- Session arc in 1-2 sentences
+Append the session log to today's daily note using the **Edit tool** (not MCP `emit_daily_note` or CLI). The Edit diff is the final output — visible, persistent, and verifiable. If the Edit happened, cytokinesis is done. If it didn't, it's not.
 
-## Output
+Use these sections as a forcing function — each must be present even if empty:
 
-No text summary block. The daily note Edit **is** the output — Terry reads it in the Update diff. If the Edit happened, cytokinesis is done. If it didn't, it's not.
+```markdown
+## Session: [title]
+
+### Outcomes
+- [what was done — outcomes, not process]
+
+### Filed
+- [exact memory/skill file paths, or "none"]
+
+### Published
+- [tweets/garden posts, or "none"]
+
+### Parked
+- [unfinished items with enough context to resume, or "none"]
+
+### Residual
+filed=N, skipped=M. [If filed > 0: what blocked mid-session capture?]
+
+### Arc
+[1-2 sentence session narrative]
+```
 
 ## CLI: `cytokinesis` (on PATH)
 
