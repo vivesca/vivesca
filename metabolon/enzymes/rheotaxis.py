@@ -58,8 +58,6 @@ def rheotaxis_multi(
     )
     lines = []
     for q, results in all_results.items():
-        lines.append(f"{'=' * 60}")
-        lines.append(f"QUERY: {q}")
-        lines.append(f"{'=' * 60}")
+        lines.append(f"# {q}")
         lines.append(rheotaxis_engine.format_results(results))
     return "\n".join(lines)
