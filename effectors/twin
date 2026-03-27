@@ -185,44 +185,45 @@ Continue the conversation. Your turn."""
 
 
 def run_interactive(args):
-    """Interactive mode — CC writes, twin responds, human mediates."""
+    """Multi-model collaboration on a shared scratchpad."""
+    models = args.model if isinstance(args.model, list) else [args.model]
     scratchpad = Path(args.scratchpad) if args.scratchpad else HOME / "tmp" / f"twin-{datetime.now().strftime('%H%M%S')}.md"
     scratchpad.parent.mkdir(parents=True, exist_ok=True)
 
     task = args.task
-    model = args.model
+    model_label = " + ".join(models)
 
     if not scratchpad.exists() or not read_scratchpad(scratchpad):
-        init_scratchpad(scratchpad, task, model)
-        # CC's opening move
+        init_scratchpad(scratchpad, task, model_label)
         append_turn(scratchpad, "Claude (CC)", f"**Task received:** {task}\n\nLet me start by framing the problem...")
 
     print(f"Scratchpad: {scratchpad}")
-    print(f"Twin model: {model}")
+    print(f"Models: CC ↔ {model_label}")
     print(f"Task: {task}")
     print()
 
     for round_num in range(1, args.rounds + 1):
         print(f"--- Round {round_num}/{args.rounds} ---")
 
-        # Twin's turn
-        content = read_scratchpad(scratchpad)
-        prompt = twin_prompt(content, task)
-        print(f"  Querying {model}...", end=" ", flush=True)
-        response = query_twin(model, prompt, timeout=args.timeout)
-        append_turn(scratchpad, f"{model} (twin)", response)
-        print("done")
+        # Each twin model gets a turn
+        for model in models:
+            content = read_scratchpad(scratchpad)
+            prompt = twin_prompt(content, task)
+            print(f"  {model}...", end=" ", flush=True)
+            response = query_twin(model, prompt, timeout=args.timeout)
+            append_turn(scratchpad, f"{model}", response)
+            print("done")
 
-        # CC's turn (via channel)
+        # CC synthesises after all twins have spoken
         content = read_scratchpad(scratchpad)
-        cc_prompt = f"""You are Claude, collaborating with {model} on a task. Read the scratchpad and add your next contribution.
-Review what the twin said. Agree, disagree, refine, or build on it. Advance the work.
+        cc_prompt = f"""You are Claude, collaborating with {model_label} on a task. Read the full scratchpad.
+Review what everyone said this round. Synthesise, disagree, or advance. Don't repeat — build on the strongest point.
 
 {content}
 
 Your turn as Claude. Be specific and constructive."""
 
-        print(f"  Querying CC (sonnet)...", end=" ", flush=True)
+        print(f"  CC (sonnet)...", end=" ", flush=True)
         cc_response = query_twin("sonnet", cc_prompt, timeout=args.timeout)
         append_turn(scratchpad, "Claude (CC)", cc_response)
         print("done")
@@ -234,8 +235,8 @@ Your turn as Claude. Be specific and constructive."""
 def main():
     parser = argparse.ArgumentParser(prog="twin", description="CC+model collaborative dialogue")
     parser.add_argument("task", help="Task description")
-    parser.add_argument("--model", default=DEFAULT_MODEL, help=f"Twin model (default: {DEFAULT_MODEL})")
-    parser.add_argument("--rounds", type=int, default=2, help="Number of back-and-forth rounds (default: 2)")
+    parser.add_argument("--model", default=DEFAULT_MODEL, nargs="+", help=f"Twin model(s), space-separated (default: {DEFAULT_MODEL})")
+    parser.add_argument("--rounds", type=int, default=2, help="Number of rounds (default: 2)")
     parser.add_argument("--scratchpad", type=str, help="Path to existing scratchpad (resume)")
     parser.add_argument("--timeout", type=int, default=120, help="Per-query timeout in seconds (default: 120)")
 
