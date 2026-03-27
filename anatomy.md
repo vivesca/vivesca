@@ -133,7 +133,8 @@ Hook dispatch infrastructure — routes signals before and after tool use.
     heterochromatin/      Inactive preserved records
       morphogenesis/      Old brainstorms
       differentiation/    Completed plans
-  engrams/                CC auto-memory (MEMORY.md + ~200 memory files)
+  methylome.md →          CC auto-memory index (symlink)
+  methylation/ →          CC memory files (symlink)
   bud-engrams/            Agent memory traces
   phenotype/              Instance configuration
   cofactors/              API keys / access tokens
@@ -148,7 +149,8 @@ Hook dispatch infrastructure — routes signals before and after tool use.
 | `chromatin/interoception/` | **Interoceptive log** | Internal state audit trail |
 | `chromatin/transcripts/` | **Transcripts** | Autonomous work products |
 | `chromatin/heterochromatin/` | **Heterochromatin** | Silenced, condensed — preserved but inactive |
-| `engrams/` | **Engrams** | Encoded memory traces (MEMORY.md + files) |
+| `methylome.md` | **Methylome** | DNA methylation index — persistent learned marks |
+| `methylation/` | **Methylation marks** | Individual memory files (~200 marks) |
 | `bud-engrams/` | **Bud engrams** | Agent-specific memory traces |
 | `phenotype/` | **Phenotype** | Instance-level expression configuration |
 | `cofactors/` | **Cofactors** | Molecules required for enzyme function (credentials) |
