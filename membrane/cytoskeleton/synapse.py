@@ -23,7 +23,8 @@ from pathlib import Path
 
 HOME = Path.home()
 HOOKS_DIR = HOME / ".claude" / "hooks"
-NOTES_DIR = HOME / "notes"
+CHROMATIN_DIR = HOME / "epigenome" / "chromatin"
+EPIGENOME_DIR = HOME / "epigenome"
 TMP_DIR = Path(tempfile.gettempdir())
 HKT = timezone(timedelta(hours=8))
 
@@ -69,7 +70,7 @@ def get_hebbian():
 
 # ── anamnesis: session-start context loading ───────────────
 
-ANAM_NOW = NOTES_DIR / "Tonus.md"
+ANAM_NOW = CHROMATIN_DIR / "Tonus.md"
 ANAM_CONST = _VIVESCA_ROOT / "genome.md"
 ANAM_DOMAINS = {
     "anatomy": {
@@ -160,7 +161,7 @@ def mod_anamnesis(data):
 
     try:
         subprocess.run(
-            ["git", "-C", str(NOTES_DIR), "pull", "--no-rebase", "-X", "ours", "-q"],
+            ["git", "-C", str(EPIGENOME_DIR), "pull", "--no-rebase", "-X", "ours", "-q"],
             capture_output=True,
             timeout=15,
         )
@@ -549,7 +550,7 @@ def mod_senescence(data):
 
 # ── circaseptan: weekly note nudge ─────────────────────────
 
-CIRC_WEEKLY = NOTES_DIR / "Weekly"
+CIRC_WEEKLY = CHROMATIN_DIR / "Weekly"
 CIRC_MARKER = HOME / ".claude" / ".weekly-reminded"
 
 
@@ -651,7 +652,7 @@ def mod_phenotype(data):
 
 # ── association: keyword retrieval from Reference/ ─────────
 
-ASSOC_REF = NOTES_DIR / "Reference"
+ASSOC_REF = CHROMATIN_DIR / "Reference"
 ASSOC_DEB = HOME / ".claude" / "retrieval-hook-state.json"
 ASSOC_DEB_SEC = _sconf_int("association", "debounce_seconds", 300)
 ASSOC_TOP_K = _sconf_int("association", "top_k", 3)

@@ -28,7 +28,7 @@ sys.path.insert(0, str(HOOKS_DIR))
 
 def chaperone_py(data):
     fp = data.get("tool_input", {}).get("file_path", "")
-    if not fp or not fp.endswith(".py") or "/notes/" in fp:
+    if not fp or not fp.endswith(".py") or "/notes/" in fp or "/chromatin/" in fp:
         return
 
     d = os.path.dirname(fp)
@@ -104,7 +104,7 @@ def chaperone_py(data):
 
 def chaperone_js(data):
     fp = data.get("tool_input", {}).get("file_path", "")
-    if not fp or not re.search(r"\.(js|jsx|ts|tsx)$", fp) or "/notes/" in fp:
+    if not fp or not re.search(r"\.(js|jsx|ts|tsx)$", fp) or "/notes/" in fp or "/chromatin/" in fp:
         return
     if not os.path.exists(fp):
         return
@@ -448,7 +448,8 @@ def mod_bash_post(data):
 
 # ── ligation_skill: auto-commit skill files ────────────────
 
-SKILLS_DIR = HOME / "skills"
+SKILLS_DIR = HOME / "germline" / "membrane" / "receptors"
+GERMLINE_DIR = HOME / "germline"
 
 
 def mod_ligation_skill(data):
@@ -467,15 +468,15 @@ def mod_ligation_skill(data):
     except ValueError:
         rel = real.name
 
-    subprocess.run(["git", "-C", str(SKILLS_DIR), "add", "-A"], capture_output=True)
+    subprocess.run(["git", "-C", str(GERMLINE_DIR), "add", "-A"], capture_output=True)
     status = subprocess.run(
-        ["git", "-C", str(SKILLS_DIR), "status", "--porcelain"], capture_output=True, text=True
+        ["git", "-C", str(GERMLINE_DIR), "status", "--porcelain"], capture_output=True, text=True
     )
     if not status.stdout.strip():
         return
 
     subprocess.run(
-        ["git", "-C", str(SKILLS_DIR), "commit", "-m", f"Auto-update: {rel}"], capture_output=True
+        ["git", "-C", str(GERMLINE_DIR), "commit", "-m", f"Auto-update: {rel}"], capture_output=True
     )
 
     gen = HOOKS_DIR / "skill-trigger-gen.py"
@@ -784,7 +785,7 @@ def mod_attention(_data):
 
 # ── apoptosis: log tool failures ───────────────────────────
 
-APOPT_FILE = HOME / "notes" / "failures.md"
+APOPT_FILE = HOME / "epigenome" / "chromatin" / "failures.md"
 APOPT_EXPECTED = {"grep", "diff", "rg", "test", "[ "}
 
 
@@ -908,7 +909,7 @@ def mod_proprioception(_data):
 
 # ── apoptosis_praxis: dismissed item guard ─────────────────
 
-PRAXIS_DISMISSED = HOME / "notes" / "Praxis Dismissed.md"
+PRAXIS_DISMISSED = HOME / "epigenome" / "chromatin" / "Praxis Dismissed.md"
 
 
 def mod_apoptosis_praxis(data):

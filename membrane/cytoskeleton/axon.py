@@ -404,7 +404,7 @@ def guard_glob(data):
 
 def guard_grep(data):
     path = data.get("tool_input", {}).get("path", "")
-    if "/notes" in path or "notes/" in path:
+    if "/notes" in path or "notes/" in path or "/chromatin" in path or "chromatin/" in path:
         allow_msg(
             'Vault search detected. Consider: `receptor-scan "<query>"` for semantic lookups. '
             "Grep is fine for exact strings, wikilinks, or file paths."
@@ -692,7 +692,7 @@ def guard_bifurcation(data):
 # ── guard_autoimmune: from autoimmune.py ───────────────────
 
 AUTOIMMUNE_STATE = HOME / ".claude" / "meta-spiral-state.json"
-AUTOIMMUNE_PRAXIS = HOME / "notes" / "Praxis.md"
+AUTOIMMUNE_PRAXIS = HOME / "epigenome" / "chromatin" / "Praxis.md"
 
 
 def guard_autoimmune(data):
