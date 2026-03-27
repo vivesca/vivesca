@@ -492,10 +492,11 @@ def adaptive_response(results: list[dict]) -> list[dict]:
       - All repair attempts and unknown failures are written to the infection log.
       - Never raises.
     """
+    record_infection = None
     try:
         from metabolon.metabolism.infection import record_infection
     except Exception:
-        record_infection = None  # type: ignore[assignment]
+        pass
 
     def _log(probe_name: str, error: str, healed: bool = False) -> None:
         if record_infection is not None:
