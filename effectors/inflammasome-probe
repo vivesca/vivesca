@@ -192,7 +192,7 @@ def novel_failure_repair(results: list[dict], ts: str) -> None:
     try:
         from metabolon.metabolism.infection import record_infection
     except Exception:
-        record_infection = None  # type: ignore[assignment]
+        record_infection = None
 
     def _log_infection(probe_name: str, error: str, healed: bool = False) -> None:
         if record_infection is not None:

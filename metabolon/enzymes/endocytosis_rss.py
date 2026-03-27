@@ -28,8 +28,8 @@ from typing import Any
 
 from fastmcp.tools import tool
 from mcp.types import ToolAnnotations
-
 from pydantic import Field
+
 from metabolon.morphology import EffectorResult, Secretion
 
 # Affinity/engagement JSONL logs written during fetch cycles (path unchanged for data compat)

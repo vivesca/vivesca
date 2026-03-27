@@ -20,7 +20,7 @@ from pathlib import Path
 
 # Shared dispatch module
 sys.path.insert(0, os.path.expanduser("~/code/vivesca/lib"))
-from llm import parallel_query  # noqa: E402
+from llm import parallel_query
 
 MODELS = ["gemini-3.1-pro", "codex"]
 TIMEOUT = 120

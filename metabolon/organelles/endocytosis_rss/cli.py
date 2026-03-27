@@ -362,7 +362,7 @@ def digest(
     dry_run: bool = typer.Option(False, "--dry-run", help="Show themes only"),
     themes: int | None = typer.Option(None, "--themes", help="Max themes"),
     model: str | None = typer.Option(None, "--model", help="Model ID"),
-    tag: list[str] | None = typer.Option(  # noqa: B008
+    tag: list[str] | None = typer.Option(
         None, "--tag", "-t", help="Filter by tag (repeatable)"
     ),
     weekly: bool = typer.Option(

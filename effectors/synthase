@@ -26,7 +26,7 @@ OPENROUTER_MODEL_MAP = {
 
 def _load_config() -> dict:
     try:
-        import yaml  # type: ignore
+        import yaml
 
         with open(CONFIG_PATH) as f:
             data = yaml.safe_load(f) or {}
@@ -81,7 +81,7 @@ def _backend_openrouter(prompt: str, model: str, api_key_env: str, timeout: int)
 
 def _backend_anthropic(prompt: str, model: str, timeout: int) -> str:
     try:
-        import anthropic  # type: ignore
+        import anthropic
     except ImportError:
         raise RuntimeError("anthropic package not installed")
     or_model = OPENROUTER_MODEL_MAP.get(model, model)

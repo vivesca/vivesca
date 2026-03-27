@@ -82,6 +82,7 @@ ignore = ["E501", "SIM115"]  # E501: line-length enforced by formatter; SIM115: 
 "metabolon/enzymes/integrin.py" = ["E402"]
 "metabolon/enzymes/interoception.py" = ["E402"]
 "metabolon/enzymes/secretory.py" = ["E402"]
+"metabolon/organelles/endocytosis_rss/cli.py" = ["B008"]  # typer.Option() in signatures is idiomatic
 
 [tool.ruff.lint.isort]
 known-first-party = ["metabolon"]

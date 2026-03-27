@@ -280,7 +280,7 @@ class TestConfirmPaymentTool:
 
 class TestCatabolismConfirmResultType:
     def test_result_is_effector_result(self):
-        from metabolon.morphology import EffectorResult
         from metabolon.enzymes.catabolism import CatabolismConfirmResult
+        from metabolon.morphology import EffectorResult
 
         assert issubclass(CatabolismConfirmResult, EffectorResult)
