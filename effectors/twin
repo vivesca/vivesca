@@ -42,7 +42,7 @@ MODEL_TIMEOUT_FLOOR = {
 
 _ANSI_RE = re.compile(r'\x1b\[[^a-zA-Z]*[a-zA-Z]|\x1b\][^\x07]*\x07|\x1b[()][^a-zA-Z]*[a-zA-Z]?')
 _CTRL_RE = re.compile(r'[\x00-\x09\x0b-\x1f\x7f]')
-_BOX_CHARS = set('█▀▄▐░▌▍▎▏╹╸╺╻┃■⬝')
+_TUI_CHROME_RE = re.compile(r'[█▀▄▐░▌▍▎▏╹╸╺╻┃■⬝]+')  # TUI progress/box chars
 
 
 def _pty_query(cmd: list[str], timeout: int) -> str:
@@ -90,21 +90,32 @@ def _pty_query(cmd: list[str], timeout: int) -> str:
     # Clean ANSI + control chars + TUI chrome
     clean = _ANSI_RE.sub('', output.decode('utf-8', errors='replace'))
     clean = _CTRL_RE.sub('', clean)
-    lines = []
-    for line in clean.splitlines():
-        s = line.strip()
-        if s and len(s) > 2 and not any(c in _BOX_CHARS for c in s):
-            lines.append(s)
-    # Heuristic: the actual response is after "Thinking:" or the last substantial block
-    response_lines = []
-    capture = False
-    for line in lines:
-        if "Thinking:" in line:
-            capture = True
-            continue
-        if capture:
-            response_lines.append(line)
-    return "\n".join(response_lines).strip() if response_lines else "\n".join(lines[-10:]).strip()
+    clean = _TUI_CHROME_RE.sub(' ', clean)  # replace TUI chrome with spaces
+
+    # OpenCode/Codex: streaming "Thinking:" lines repeat and accumulate.
+    # Find the LAST "Thinking:" block — that has the final thought + response.
+    thinking_parts = clean.split('Thinking:')
+    if len(thinking_parts) > 1:
+        # Take the last thinking block — it has the final accumulated content
+        last = thinking_parts[-1]
+        # Strip metadata: token counts, timing, model labels
+        last = re.sub(r'\d+,\d+\s+\d+%\s+\(\$[\d.]+\)', '', last)
+        last = re.sub(r'·\s*[\d.]+s', '', last)
+        last = re.sub(r'Build\s+·\s+\S+', '', last)
+        last = re.sub(r'~\s*(Reading file|Finding files)\.\.\.', '', last)
+        last = re.sub(r'[→✱]\s*\w+\s+"[^"]*"[^)]*\)', '', last)  # tool calls
+        last = re.sub(r'[→✱]\s*\w+\s+\S+', '', last)  # simpler tool calls
+        last = re.sub(r'\s+', ' ', last).strip()
+        # The response is typically after the last period of thinking
+        # Find substantial text (>20 chars) that isn't thinking prefix
+        sentences = [s.strip() for s in last.split('.') if len(s.strip()) > 15]
+        if sentences:
+            return '. '.join(sentences[-3:]).strip()
+        return last[:500] if last else "[twin: thinking but no response extracted]"
+
+    # Fallback: last substantial text block
+    lines = [s.strip() for s in clean.splitlines() if s.strip() and len(s.strip()) > 3]
+    return "\n".join(lines[-10:]).strip() if lines else ""
 
 
 def query_twin(model: str, prompt: str, timeout: int = 120) -> str:
