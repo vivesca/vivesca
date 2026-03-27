@@ -554,15 +554,132 @@ def cmd_archive(args):
 
 
 # ── Daily ────────────────────────────────────────────────────────────────────
+def _since_flag() -> str:
+    """Return git --since flag for 'today' (covers the session window)."""
+    return datetime.now().strftime("%Y-%m-%dT00:00:00")
+
+
+def _gather_filed() -> list[str]:
+    """List memory files created/modified today (covers full session)."""
+    mem_dir = home / ".claude" / "projects" / "-Users-terry" / "memory"
+    since = _since_flag()
+    try:
+        # Committed today
+        r = subprocess.run(
+            ["git", "log", "--since", since, "--diff-filter=AM", "--name-only", "--pretty=format:"],
+            capture_output=True, text=True, timeout=10, cwd=mem_dir,
+        )
+        files = {f for f in r.stdout.strip().splitlines() if f and not f.startswith("MEMORY")}
+        # Also uncommitted
+        r2 = subprocess.run(
+            ["git", "diff", "--name-only", "HEAD"],
+            capture_output=True, text=True, timeout=10, cwd=mem_dir,
+        )
+        files |= {f for f in r2.stdout.strip().splitlines() if f and not f.startswith("MEMORY")}
+        r3 = subprocess.run(
+            ["git", "ls-files", "--others", "--exclude-standard"],
+            capture_output=True, text=True, timeout=10, cwd=mem_dir,
+        )
+        files |= {f for f in r3.stdout.strip().splitlines() if f and not f.startswith("MEMORY")}
+        return sorted(f"memory/{f}" for f in files) if files else []
+    except Exception:
+        return []
+
+
+def _gather_mechanised() -> list[str]:
+    """List skills, hooks, and genome modified today."""
+    since = _since_flag()
+    hits = set()
+    for repo_path in [germline]:
+        try:
+            # Committed today
+            r = subprocess.run(
+                ["git", "log", "--since", since, "--diff-filter=AM", "--name-only", "--pretty=format:"],
+                capture_output=True, text=True, timeout=10, cwd=repo_path,
+            )
+            for f in r.stdout.strip().splitlines():
+                if any(k in f for k in ["SKILL.md", "genome.md", "synapse.py", "axon.py", "dendrite.py"]):
+                    hits.add(f)
+            # Uncommitted
+            r2 = subprocess.run(
+                ["git", "diff", "--name-only", "HEAD"],
+                capture_output=True, text=True, timeout=10, cwd=repo_path,
+            )
+            for f in r2.stdout.strip().splitlines():
+                if any(k in f for k in ["SKILL.md", "genome.md", "synapse.py", "axon.py", "dendrite.py"]):
+                    hits.add(f)
+        except Exception:
+            pass
+    return sorted(hits)
+
+
+def _gather_published() -> list[str]:
+    """Check session log for published artifacts (best-effort)."""
+    # Look for recent emit_tweet/emit_spark in logs
+    log_dir = home / "logs"
+    published = []
+    try:
+        for log_name in ["cron-exocytosis.log"]:
+            log_path = log_dir / log_name
+            if log_path.exists():
+                lines = log_path.read_text().splitlines()[-20:]
+                today = datetime.now().strftime("%Y-%m-%d")
+                for line in lines:
+                    if today in line and ("tweet" in line.lower() or "published" in line.lower()):
+                        published.append(line.strip()[:120])
+    except Exception:
+        pass
+    return published
+
+
 def cmd_daily(args):
-    """Append session log template to today's daily note."""
+    """Append pre-filled session log to today's daily note.
+
+    Deterministic sections (Filed, Published, Mechanised, Residual) are
+    gathered automatically. Judgment sections (Outcomes, Parked, Arc) are
+    left as placeholders for the LLM to fill via Edit tool.
+    """
     today = datetime.now().strftime("%Y-%m-%d")
     weekday = datetime.now().strftime("%A")
     now_time = datetime.now().strftime("%H:%M")
     daily_path = DAILY_DIR / f"{today}.md"
 
     title = args.title if args.title else "Session"
-    template = f"\n### {now_time}–??:?? — {title}\n\n- \n"
+
+    # Gather deterministic sections
+    filed = _gather_filed()
+    mechanised = _gather_mechanised()
+    published = _gather_published()
+    residual_n = len(filed)
+
+    filed_str = "\n".join(f"- `{f}`" for f in filed) if filed else "- none"
+    mech_str = "\n".join(f"- `{f}`" for f in mechanised) if mechanised else "- none"
+    pub_str = "\n".join(f"- {p}" for p in published) if published else "- none"
+
+    template = f"""
+## Session: {title}
+
+### Outcomes
+- [LLM: what was done — outcomes, not process]
+
+### Filed
+{filed_str}
+
+### Published
+{pub_str}
+
+### Mechanised
+{mech_str}
+
+### Parked
+- [LLM: unfinished items with context to resume, or "none"]
+
+### Residual
+filed={residual_n}, skipped=?
+
+### Arc
+[LLM: 1-2 sentence session narrative]
+"""
 
     if daily_path.exists():
         content = daily_path.read_text(encoding="utf-8")
@@ -573,7 +690,8 @@ def cmd_daily(args):
 
     daily_path.write_text(content, encoding="utf-8")
     print(f"  {OK}  Daily note: {daily_path}")
-    print(f"       Template appended — fill in outcomes")
+    print(f"       Pre-filled: Filed={len(filed)}, Mechanised={len(mechanised)}, Published={len(published)}")
+    print(f"       LLM fills: Outcomes, Parked, Arc")
 
 
 # ── Reflect ─────────────────────────────────────────────────────────────────
