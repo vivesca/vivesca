@@ -7,8 +7,6 @@ Tools:
 
 from __future__ import annotations
 
-from pathlib import Path
-
 from fastmcp.tools import tool
 from mcp.types import ToolAnnotations
 from pydantic import Field
