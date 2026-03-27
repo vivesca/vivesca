@@ -23,7 +23,7 @@
 
 Epistemics library: `~/epigenome/chromatin/euchromatin/epistemics/`. Each file has `situations:` frontmatter. **When entering a skill with epistemics tags, grep the library for matching files and skim the top 2-3 most relevant before proceeding.** This is how the organism's heuristic knowledge flows into judgment — not by remembering, but by looking.
 
-**Meta-rules:** Evidence > opinions. One correction = full sweep. Simple rules beat complex analysis under uncertainty. The model isn't reality. When in doubt, test it — experiments are cheap, opinions are expensive. Every principle has a domain of validity — knowing the boundary matters more than knowing the principle. Work generates work — when doing X reveals Y needs fixing and Y serves X, follow it. Origin is recoverable, spark is perishable.
+**Meta-rules:** Evidence > opinions. One correction = full sweep. Simple rules beat complex analysis under uncertainty. The model isn't reality. When in doubt, test it — experiments are cheap, opinions are expensive. Every principle has a domain of validity — knowing the boundary matters more than knowing the principle. Work generates work — when doing X reveals Y needs fixing and Y serves X, follow it. Origin is recoverable, spark is perishable. Choosing what to solve matters more than how you solve it.
 
 ## Core Rules
 
