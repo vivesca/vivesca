@@ -7,15 +7,36 @@ Deterministic actions for the ingestion meal-suggestion skill:
 
 from __future__ import annotations
 
+import re
 from datetime import date
-from pathlib import Path
 
 from fastmcp.tools import tool
 from mcp.types import ToolAnnotations
 
-MEAL_PLAN = (
-    Path.home() / "epigenome" / "chromatin" / "Health" / "Weekly Meal Plan - Taikoo Place.md"
-)
+from metabolon.locus import experiments as EXPERIMENTS_DIR
+from metabolon.locus import meal_plan as MEAL_PLAN
+
+
+def _cross_link_experiment(entry: str, dish: str) -> str | None:
+    """If an active experiment watches keywords matching this dish, append a note."""
+    if not EXPERIMENTS_DIR.exists():
+        return None
+
+    dish_lower = dish.lower()
+    for exp_file in EXPERIMENTS_DIR.glob("peira-*.md"):
+        text = exp_file.read_text()
+        if "status: active" not in text:
+            continue
+        # Extract watch_keywords from frontmatter
+        match = re.search(r"watch_keywords:\s*\[(.+?)\]", text)
+        if not match:
+            continue
+        keywords = [kw.strip().lower() for kw in match.group(1).split(",")]
+        if any(kw in dish_lower for kw in keywords):
+            intake_note = f"\n> **Intake logged:** {entry}\n"
+            exp_file.write_text(text.rstrip() + "\n" + intake_note + "\n")
+            return f"Cross-linked to experiment: {exp_file.name}"
+    return None
 
 
 @tool(
@@ -82,4 +103,10 @@ def ingestion_log_meal(
         new_text = before + "\n" + entry + after
 
     MEAL_PLAN.write_text(new_text)
-    return f"Logged: {entry}"
+    result = f"Logged: {entry}"
+
+    xlink = _cross_link_experiment(entry, dish)
+    if xlink:
+        result += f"\n{xlink}"
+
+    return result
