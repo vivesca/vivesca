@@ -696,6 +696,101 @@ filed={residual_n}, skipped=?
     print(f"       LLM fills: Outcomes, Parked, Arc")
 
 
+# ── Methylation: genome audit ────────────────────────────────────────────────
+
+METHYLATION_PROMPT = """You are auditing a system's constitution (genome.md) to find rules that are now REDUNDANT because they're enforced elsewhere.
+
+For each rule in the genome, check if it's already enforced by:
+- A hook (synapse.py, axon.py, dendrite.py)
+- A skill (SKILL.md files)
+- A lint rule or pre-commit check
+- A CLI tool
+
+Only flag rules that are CLEARLY redundant — fully enforced elsewhere with no judgment gap.
+Do NOT flag rules that require LLM judgment (design principles, meta-rules, behavioral guidance).
+
+For each candidate, output:
+---
+RULE: <the rule, first 80 chars>
+ENFORCED_BY: <what enforces it now>
+VERDICT: DEMOTE (move to reference) | TRIM (remove, fully redundant) | KEEP (still needs to be in prompt)
+---
+
+Be conservative. When in doubt, KEEP.
+
+GENOME:
+{genome}
+
+HOOKS (function names):
+{hooks}
+
+SKILLS:
+{skills}
+"""
+
+
+def run_methylation_audit():
+    """Scan genome for rules now enforced by hooks/skills. Returns candidates."""
+    genome_path = _VIVESCA_ROOT / "genome.md"
+    if not genome_path.exists():
+        return []
+
+    genome_text = genome_path.read_text(encoding="utf-8")
+
+    # Gather hook function names
+    hook_funcs = []
+    for hook_file in ["synapse.py", "axon.py", "dendrite.py"]:
+        hook_path = _VIVESCA_ROOT / "membrane" / "cytoskeleton" / hook_file
+        if hook_path.exists():
+            for line in hook_path.read_text().splitlines():
+                if line.startswith("def mod_") or line.startswith("def check_") or line.startswith("def guard_"):
+                    hook_funcs.append(f"{hook_file}:{line.strip()}")
+
+    # Gather skill names
+    skill_names = []
+    skill_dir = _VIVESCA_ROOT / "membrane" / "receptors"
+    if skill_dir.exists():
+        for d in sorted(skill_dir.iterdir()):
+            if d.is_dir() and (d / "SKILL.md").exists():
+                skill_names.append(d.name)
+
+    prompt = METHYLATION_PROMPT.format(
+        genome=genome_text[:8000],  # cap to keep haiku cost low
+        hooks="\n".join(hook_funcs[:30]),
+        skills=", ".join(skill_names[:40]),
+    )
+
+    try:
+        result = subprocess.run(
+            ["channel", "haiku", "-p", prompt],
+            capture_output=True, text=True, timeout=60,
+            env={k: v for k, v in os.environ.items() if k != "CLAUDECODE"},
+        )
+        if result.returncode != 0:
+            return []
+
+        # Parse candidates
+        candidates = []
+        current = {}
+        for line in result.stdout.splitlines():
+            line = line.strip()
+            if line == "---":
+                if current and current.get("verdict") in ("DEMOTE", "TRIM"):
+                    candidates.append(current)
+                current = {}
+            elif line.startswith("RULE:"):
+                current["rule"] = line[5:].strip()
+            elif line.startswith("ENFORCED_BY:"):
+                current["enforced_by"] = line[12:].strip()
+            elif line.startswith("VERDICT:"):
+                current["verdict"] = line[8:].strip().split()[0]
+        if current and current.get("verdict") in ("DEMOTE", "TRIM"):
+            candidates.append(current)
+        return candidates
+    except Exception:
+        return []
+
+
 # ── Reflect ─────────────────────────────────────────────────────────────────
 REFLECT_PROMPT = """You are scanning a conversation transcript for learning opportunities.
 The transcript is between Terry (user) and Claude (assistant).
