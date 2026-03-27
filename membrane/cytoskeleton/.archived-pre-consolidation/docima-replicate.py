@@ -6,6 +6,7 @@ docima backends silently. Closes the loop between memory capture and
 the benchmark experiment.
 """
 
+import contextlib
 import json
 import os
 import subprocess
@@ -41,7 +42,7 @@ def main():
 
     # Silently add to docima backends
     for fact in facts:
-        try:
+        with contextlib.suppress(subprocess.TimeoutExpired, FileNotFoundError):
             subprocess.run(
                 ["uv", "run", "docima", "add", fact, "-b", "all", "--silent"],
                 cwd=os.path.expanduser("~/code/docima"),
@@ -49,8 +50,6 @@ def main():
                 timeout=30,
                 env={k: v for k, v in os.environ.items() if k != "CLAUDECODE"},
             )
-        except (subprocess.TimeoutExpired, FileNotFoundError):
-            pass  # silent — don't interrupt the session
 
 
 if __name__ == "__main__":

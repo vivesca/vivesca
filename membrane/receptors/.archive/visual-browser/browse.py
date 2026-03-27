@@ -119,10 +119,10 @@ async def main():
                         await page.get_by_role("button", name=target, exact=False).click(
                             timeout=3000
                         )
-                    except:
+                    except Exception:
                         try:
                             await page.get_by_text(target, exact=False).first.click(timeout=3000)
-                        except:
+                        except Exception:
                             print(
                                 f"⚠️ Could not click '{target}', trying to find by text coordinates..."
                             )

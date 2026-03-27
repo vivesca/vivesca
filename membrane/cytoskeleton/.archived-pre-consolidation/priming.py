@@ -81,7 +81,7 @@ def main():
         try:
             from hebbian_nudge import log_nudge
 
-            for name, phrase in matches:
+            for name, _phrase in matches:
                 log_nudge("priming", f"use-skill:{name}", prompt_snippet=prompt[:200])
         except Exception:
             pass

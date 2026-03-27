@@ -198,16 +198,16 @@ def emit_alert_signal(
     """Append one record to the alert-signals JSONL log (atomic line append).
 
     Schema:
-      timestamp       – ISO 8601 UTC — when lustro breaking ran
-      title           – article title
-      source          – source name from sources.yaml
-      url             – article link
-      published_at    – article's own publication timestamp (ISO 8601) or ""
-      age_minutes     – float minutes old at detection time, or null
-      was_breaking    – passed is_breaking() title filter
-      alert_sent      – Telegram alert was dispatched
-      throttled       – matched breaking but held back by daily cap / cooldown
-      suppressed_stale – matched breaking but failed freshness gate
+      timestamp       - ISO 8601 UTC - when lustro breaking ran
+      title           - article title
+      source          - source name from sources.yaml
+      url             - article link
+      published_at    - article's own publication timestamp (ISO 8601) or ""
+      age_minutes     - float minutes old at detection time, or null
+      was_breaking    - passed is_breaking() title filter
+      alert_sent      - Telegram alert was dispatched
+      throttled       - matched breaking but held back by daily cap / cooldown
+      suppressed_stale - matched breaking but failed freshness gate
     """
     record = {
         "timestamp": timestamp,

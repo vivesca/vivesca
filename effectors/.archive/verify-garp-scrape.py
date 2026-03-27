@@ -140,7 +140,7 @@ for n, filename in MODULES.items():
         content = f.read()
 
     lines = content.split("\n")
-    headings = [l for l in lines if l.startswith("##")]
+    headings = [line for line in lines if line.startswith("##")]
     words = len(content.split())
 
     print(f"  Lines:    {len(lines):,}")
@@ -222,10 +222,10 @@ else:
 
         # Count lines removed vs added
         removed = sum(
-            1 for l in result.stdout.split("\n") if l.startswith("-") and not l.startswith("---")
+            1 for line in result.stdout.split("\n") if line.startswith("-") and not line.startswith("---")
         )
         added = sum(
-            1 for l in result.stdout.split("\n") if l.startswith("+") and not l.startswith("+++")
+            1 for line in result.stdout.split("\n") if line.startswith("+") and not line.startswith("+++")
         )
 
         if removed == 0 and added == 0:
@@ -234,9 +234,9 @@ else:
             print(f"  M{n}: ❌ REGRESSION — lost {removed} lines, gained {added} lines")
             # Show first few removed chunks
             chunks = [
-                l
-                for l in result.stdout.split("\n")
-                if l.startswith("-") and not l.startswith("---")
+                line
+                for line in result.stdout.split("\n")
+                if line.startswith("-") and not line.startswith("---")
             ]
             for chunk in chunks[:5]:
                 print(f"       {chunk[:120]}")

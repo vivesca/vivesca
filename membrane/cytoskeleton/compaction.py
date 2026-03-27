@@ -35,7 +35,7 @@ def mod_auto_flush():
             )
             if not r.stdout.strip():
                 continue
-            count = len([l for l in r.stdout.strip().split("\n") if l.strip()])
+            count = len([line for line in r.stdout.strip().split("\n") if line.strip()])
             subprocess.run(
                 f'git -C "{path}" add -A && git -C "{path}" commit -m "chore: pre-compact auto-flush"',
                 shell=True,

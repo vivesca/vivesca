@@ -819,7 +819,7 @@ def mod_association(data):
             c = fp.read_text(errors="replace")
         except OSError:
             continue
-        heading = next((l.lstrip("#").strip() for l in c.splitlines() if l.startswith("#")), "")
+        heading = next((line.lstrip("#").strip() for line in c.splitlines() if line.startswith("#")), "")
         body = c
         if body.startswith("---"):
             end = body.find("---", 3)

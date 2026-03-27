@@ -72,8 +72,16 @@ select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
 ignore = ["E501", "SIM115"]  # E501: line-length enforced by formatter; SIM115: false positive for Popen log handles
 
 [tool.ruff.lint.per-file-ignores]
-# sys.path manipulation before import is required for endosymbiosed moneo-py
+# E402: lazy/conditional imports — intentional for optional deps or sys.path manipulation
 "metabolon/organelles/pacemaker.py" = ["E402"]
+"metabolon/organelles/baroreceptor.py" = ["E402", "RUF001"]
+"metabolon/organelles/endocytosis_rss/relevance.py" = ["E402"]
+"metabolon/organelles/endocytosis_rss/fetcher.py" = ["RUF001"]  # CJK content
+"metabolon/organelles/potentiation.py" = ["E402", "RUF001"]
+"metabolon/pinocytosis/__init__.py" = ["E402"]
+"metabolon/tools/integrin.py" = ["E402"]
+"metabolon/tools/interoception.py" = ["E402"]
+"metabolon/tools/secretory.py" = ["E402"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["metabolon"]

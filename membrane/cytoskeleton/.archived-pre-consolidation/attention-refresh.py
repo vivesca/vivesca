@@ -26,6 +26,6 @@ if count % INTERVAL == 0 and os.path.exists(NOW_PATH):
     with open(NOW_PATH) as f:
         content = f.read()
     # Strip HTML comments for cleaner output
-    lines = [l for l in content.splitlines() if not l.strip().startswith("<!--")]
+    lines = [line for line in content.splitlines() if not line.strip().startswith("<!--")]
     print(f"[attention-refresh] Re-grounding after {count} tool calls:")
     print("\n".join(lines))

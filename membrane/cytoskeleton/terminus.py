@@ -36,7 +36,7 @@ def mod_dirty_repos():
                 text=True,
                 timeout=5,
             )
-            lines = [l for l in r.stdout.strip().split("\n") if l.strip()]
+            lines = [line for line in r.stdout.strip().split("\n") if line.strip()]
             if lines:
                 dirty.append(f"{name} ({len(lines)} file{'s' if len(lines) > 1 else ''})")
         except Exception:

@@ -87,7 +87,7 @@ def chaperone_py(data):
         )
         if "FAILED" in r.stdout or "ERROR" in r.stdout:
             lines = [
-                l for l in r.stdout.split("\n") if "FAILED" in l or "ERROR" in l or "assert" in l
+                line for line in r.stdout.split("\n") if "FAILED" in line or "ERROR" in line or "assert" in line
             ][:5]
             print(
                 f"[chaperone-py] Test regression in {os.path.basename(test_file)}:\n"
@@ -164,7 +164,7 @@ def chaperone_ts(data):
         return
 
     if r.returncode != 0:
-        errors = [l for l in (r.stdout or "").split("\n") if fp in l or os.path.basename(fp) in l][
+        errors = [line for line in (r.stdout or "").split("\n") if fp in line or os.path.basename(fp) in line][
             :5
         ]
         if errors:
@@ -223,13 +223,13 @@ def mod_perseveration(data):
     recent = []
     if PERSEV_LOG.exists():
         try:
-            lines = [l for l in PERSEV_LOG.read_text().split("\n") if l.strip()]
+            lines = [line for line in PERSEV_LOG.read_text().split("\n") if line.strip()]
             if len(lines) >= PERSEV_MAX:
                 PERSEV_LOG.write_text("")
                 lines = []
-            for l in lines[-PERSEV_WINDOW:]:
+            for line in lines[-PERSEV_WINDOW:]:
                 with contextlib.suppress(json.JSONDecodeError):
-                    recent.append(json.loads(l))
+                    recent.append(json.loads(line))
         except Exception:
             pass
 
@@ -839,7 +839,7 @@ def mod_attention(_data):
     if count % ATTN_INTERVAL == 0 and os.path.exists(ATTN_NOW):
         with open(ATTN_NOW) as f:
             content = f.read()
-        lines = [l for l in content.splitlines() if not l.strip().startswith("<!--")]
+        lines = [line for line in content.splitlines() if not line.strip().startswith("<!--")]
         print(f"[attention-refresh] Re-grounding after {count} tool calls:")
         print("\n".join(lines))
 

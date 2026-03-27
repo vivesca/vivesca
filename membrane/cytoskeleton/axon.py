@@ -666,18 +666,18 @@ def guard_bifurcation(data):
 
     now = time.time() * 1000
     state["launches"] = [
-        l for l in state.get("launches", []) if now - l.get("ts", 0) < 30 * 60 * 1000
+        launch for launch in state.get("launches", []) if now - launch.get("ts", 0) < 30 * 60 * 1000
     ]
 
     same = [
-        l
-        for l in state["launches"]
-        if l.get("project") == project and now - l.get("ts", 0) < 10 * 60 * 1000
+        launch
+        for launch in state["launches"]
+        if launch.get("project") == project and now - launch.get("ts", 0) < 10 * 60 * 1000
     ]
     if same and "." not in project:
         print("[parallel-nudge] Sequential delegate to same project. Consider lucus worktrees.")
 
-    recent_tools = [l.get("tool") for l in state["launches"][-2:]]
+    recent_tools = [launch.get("tool") for launch in state["launches"][-2:]]
     if len(recent_tools) >= 2 and all(t == tool for t in recent_tools):
         print(f"[parallel-nudge] 3rd consecutive {tool} delegate. Route by signal.")
 

@@ -385,7 +385,7 @@ def digest(
             )
         except Exception as exc:
             typer.echo(f"Error: {exc}", err=True)
-            raise typer.Exit(code=1)
+            raise typer.Exit(code=1) from exc
 
         typer.echo(f"Weekly digest: {item_count} items above threshold.", err=True)
         if output_path is not None:
@@ -406,7 +406,7 @@ def digest(
         )
     except RuntimeError as exc:
         typer.echo(f"Error: {exc}", err=True)
-        raise typer.Exit(code=1)
+        raise typer.Exit(code=1) from exc
 
     typer.echo(f"Found {len(themes_result)} themes.", err=True)
     for i, theme in enumerate(themes_result, 1):

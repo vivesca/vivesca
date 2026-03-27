@@ -148,10 +148,10 @@ def get_transcript_ytdlp(
 
         try:
             result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
-        except FileNotFoundError:
-            raise RuntimeError("yt-dlp not found. Install with: pip install yt-dlp")
-        except subprocess.TimeoutExpired:
-            raise RuntimeError("yt-dlp timed out")
+        except FileNotFoundError as err:
+            raise RuntimeError("yt-dlp not found. Install with: pip install yt-dlp") from err
+        except subprocess.TimeoutExpired as err:
+            raise RuntimeError("yt-dlp timed out") from err
 
         # Find subtitle file
         subtitle_file = None
@@ -193,8 +193,8 @@ def get_transcript_api(
     """Fetch transcript using youtube-transcript-api (fallback)."""
     try:
         from youtube_transcript_api import YouTubeTranscriptApi
-    except ImportError:
-        raise RuntimeError("youtube-transcript-api not installed")
+    except ImportError as err:
+        raise RuntimeError("youtube-transcript-api not installed") from err
 
     if languages is None:
         languages = ["en"]
