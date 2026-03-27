@@ -123,7 +123,7 @@ Skills are bounded pipelines: invoke → agentic loop → done. `model:` and `al
 
 ## Write-Through Learning
 
-- `receptor-scan "<topic>"` before starting non-trivial work. `anam search` for chat history.
+- `receptor-scan "<topic>"` before starting non-trivial work. `engram search` for chat history.
 - Check vault before asking personal questions — never ask Terry to re-state stored facts.
 - Vault-first for persistent data. Never `~/.cache/`, `/tmp/` for data worth keeping.
 - Act immediately with 1M context. Don't defer to "next session."

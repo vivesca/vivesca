@@ -1,6 +1,6 @@
-"""AnamScanSubstrate -- cross-session transcript pattern recognition.
+"""EngramScanSubstrate -- cross-session transcript pattern recognition.
 
-The forgetting/synthesis layer. Senses anam transcripts for repeated
+The forgetting/synthesis layer. Senses engram transcripts for repeated
 corrections, recurring topics, and unused memories. Complements
 within-session capture (nociception, hebbian nudge, telophase) with
 cross-session pattern detection.
@@ -52,7 +52,7 @@ class AnamScanSubstrate:
     name: str = "mismatch_repair"
 
     def sense(self, days: int = 7) -> list[dict]:
-        """Pull transcript signals by running anam-scan --dry-run.
+        """Pull transcript signals by running engram-scan --dry-run.
 
         Uses dry-run mode to get session/correction counts without
         invoking LLM calls (those happen in act()).

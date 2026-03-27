@@ -27,7 +27,7 @@ The organism has four stores with distinct memory profiles:
 
 | Store | Memory type | Access | Best for |
 |-------|-------------|--------|----------|
-| `anam search` | Episodic (raw session transcripts) | `anam search "<pattern>" --days N` | "we talked about X", "I entered Y", unpersisted session data |
+| `engram search` | Episodic (raw session transcripts) | `engram search "<pattern>" --days N` | "we talked about X", "I entered Y", unpersisted session data |
 | `histone_search` | Episodic + semantic hybrid | MCP tool | Named facts from sessions that were explicitly saved to oghma |
 | `receptor-scan` / vault | Semantic | `receptor-scan "<query>"` | Stable reference knowledge, vault notes, research |
 | `oghma` | Semantic structured | `oghma search "<query>"` | Categorised memory objects with metadata |
@@ -39,13 +39,13 @@ The organism has four stores with distinct memory profiles:
 Classify the query along two axes:
 
 **Recency signal:**
-- "yesterday", "this morning", "we just", "last session" → recent (anam first)
+- "yesterday", "this morning", "we just", "last session" → recent (engram first)
 - "last week", "a while ago", "I think we" → medium (histone first)
 - "I established", "the rule is", "the pattern is" → old/stable (vault/oghma first)
-- No signal → assume episodic (anam first)
+- No signal → assume episodic (engram first)
 
 **Memory type signal:**
-- Event-based ("what did we decide", "when did we", "what happened with") → episodic → anam + histone
+- Event-based ("what did we decide", "when did we", "what happened with") → episodic → engram + histone
 - Fact-based ("what is the rule", "what's the approach", "the framework for") → semantic → vault + oghma
 - Mixed or ambiguous → episodic first, semantic second
 
@@ -55,10 +55,10 @@ Fire the most specific cue against the primary store first. Be generous with syn
 
 ```
 # Episodic primary (recent)
-anam search "<keyword variants>" --days 7
+engram search "<keyword variants>" --days 7
 
 # Episodic primary (older)
-anam search "<keyword variants>" --days 30
+engram search "<keyword variants>" --days 30
 
 # Semantic primary
 receptor-scan "<query>"
@@ -72,11 +72,11 @@ If primary store returns nothing or only weak matches, hit the next tier:
 
 ```
 Episodic miss → try histone_search, then vault/oghma
-Semantic miss → try histone_search, then anam (last 14 days)
+Semantic miss → try histone_search, then engram (last 14 days)
 ```
 
 Explicit fan-out order:
-1. anam (episodic, unpersisted)
+1. engram (episodic, unpersisted)
 2. histone_search (persisted session memory)
 3. receptor-scan / vault grep (semantic, stable)
 4. oghma (structured semantic)
@@ -86,14 +86,14 @@ Explicit fan-out order:
 Do not dump raw hits. Reconstruct from partial matches:
 
 - If single strong match: confirm the match, present it, note the source
-- If multiple partial matches: synthesise across them — "In anam on Mar 20 you entered X; in vault there's a related note Y; the combined picture is Z"
+- If multiple partial matches: synthesise across them — "In engram on Mar 20 you entered X; in vault there's a related note Y; the combined picture is Z"
 - If weak or contradictory: surface the contradiction explicitly, ask for confirmation before acting on it
 - If nothing found: say so clearly, do not confabulate
 
 ## Anti-patterns
 
 - **Uniform sweep**: running all stores in parallel before classifying the cue. Wastes tool calls, adds noise.
-- **Stopping at anam**: anam has the richest episodic data but misses anything explicitly persisted to oghma or vault.
+- **Stopping at engram**: engram has the richest episodic data but misses anything explicitly persisted to oghma or vault.
 - **Exact-match only**: encode at one vocabulary, retrieve at another. Use synonyms, related terms, and topic expansions in the cue.
 - **Confabulation**: if no clear match is found, do not synthesise a plausible-sounding answer. Return empty with path taken.
 

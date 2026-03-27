@@ -3,7 +3,4 @@
 
 from metabolon.organelles.engram import _cli
 
-if __name__ == "__main__":
-    _cli()
-else:
-    _cli()
+_cli()

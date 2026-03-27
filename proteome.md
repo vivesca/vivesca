@@ -37,7 +37,7 @@ When triggers match, run the tool directly. Reference docs in `~/epigenome/chrom
 ### Vault & Knowledge
 | Trigger | Tool |
 |---------|------|
-| Chat history | `anam search "query"` |
+| Chat history | `engram search "query"` |
 | Memory search | `oghma` |
 | Vault semantic search | `obsidian search` / QMD |
 | Vault link graph | `hypha` |

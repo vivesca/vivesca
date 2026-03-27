@@ -99,7 +99,7 @@ One short paragraph. No headers, no bullets unless there are 3+ overdue items. L
 
 ## Notes
 
-- Do NOT scan anam/session history. Kairos is forward-looking.
+- Do NOT scan engram/session history. Kairos is forward-looking.
 - Do NOT reflect on what was shipped this session. Pure situational read.
 - If keychain is locked and gog fails, note it and skip calendar gracefully.
 - Keep it under 5 sentences. The point is to decide and move, not to read a report.
