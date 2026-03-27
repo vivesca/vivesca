@@ -9,7 +9,7 @@ Experiment: audit recent bio-renames for cosplay.
 
 1. Find recent bio-naming changes:
    ```bash
-   cd ~/code/vivesca && git log --oneline --since="30 days ago" | grep -i "rename\|bio\|hybridiz"
+   cd ~/germline && git log --oneline --since="30 days ago" | grep -i "rename\|bio\|hybridiz"
    ```
 
 2. For each rename commit, check the diff:

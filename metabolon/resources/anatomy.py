@@ -371,7 +371,7 @@ def _metabolism_modules(src: Path) -> list[str]:
 def _organism_theory(project_root: Path) -> list[str]:
     """Extract key concepts from DESIGN.md — concise summary."""
     lines: list[str] = []
-    design_path = project_root / "genome" / "DESIGN.md"
+    design_path = project_root / "design.md"
     if not design_path.exists():
         lines.append("_(DESIGN.md not found)_")
         return lines
@@ -440,7 +440,7 @@ def _organism_theory(project_root: Path) -> list[str]:
 def _known_lesions(project_root: Path) -> list[str]:
     """Scan genome/plans/ for active plans + optionally count failing tests."""
     lines: list[str] = []
-    plans_dir = project_root / "genome" / "plans"
+    plans_dir = project_root / "plans"
 
     # Active plans
     if plans_dir.exists():

@@ -144,7 +144,7 @@ Create `~/germline/membrane/receptors/<name>/SKILL.md` in the same session — g
 ```bash
 mkdir -p ~/germline/membrane/receptors/<name>
 # write SKILL.md, then:
-cd ~/code/vivesca && git add receptors/<name>/SKILL.md && git commit -m "feat: add <name> skill" && git push
+cd ~/germline && git add membrane/receptors/<name>/SKILL.md && git commit -m "feat: add <name> skill" && git push
 ```
 
 GitHub backup every session: `cd ~/code/<name> && git push` (or `gh repo create terry-li-hm/<name> --private --source . --push`).

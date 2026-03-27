@@ -8,7 +8,7 @@ from pathlib import Path
 
 from pypdf import PdfReader
 
-from metabolon.respirometry.schema import RespirogramMeta, ConsumptionEvent
+from metabolon.respirometry.schema import ConsumptionEvent, RespirogramMeta
 
 
 def extract_scb(pdf_path: Path) -> tuple[RespirogramMeta, list[ConsumptionEvent]]:

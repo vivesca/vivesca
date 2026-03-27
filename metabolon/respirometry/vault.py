@@ -8,7 +8,7 @@ import shutil
 from datetime import datetime
 from pathlib import Path
 
-from metabolon.respirometry.schema import RespirogramMeta, ConsumptionEvent
+from metabolon.respirometry.schema import ConsumptionEvent, RespirogramMeta
 
 
 def serialize_markdown(meta: RespirogramMeta, transactions: list[ConsumptionEvent]) -> str:

@@ -12,7 +12,7 @@ Audit dependencies across all package managers. Surface outdated, vulnerable, or
    - Flag: anything > 2 major versions behind, security-critical tools (openssl, curl, git)
 
 2. Python (pip/uv):
-   - Check ~/germline/requirements.txt and ~/germline/requirements.txt
+   - Check ~/germline/pyproject.toml
    - `pip list --outdated` in each active venv if accessible
    - Flag: packages with known CVEs or > 6 months since last update
 

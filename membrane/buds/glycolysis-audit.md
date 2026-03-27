@@ -9,7 +9,7 @@ Audit the organism for glycolysis opportunities -- reactions currently requiring
 
 1. Scan for LLM call patterns across the codebase:
    ```bash
-   cd ~/code/vivesca && grep -rn "synthesize\|_acquire_catalyst\|llm\.query\|channel\|anthropic\|_llm_query\|llm_call" cytoplasm/ membrane/cytoskeleton/ --include="*.py" | grep -v __pycache__
+   cd ~/germline && grep -rn "synthesize\|_acquire_catalyst\|llm\.query\|channel\|anthropic\|_llm_query\|llm_call" cytoplasm/ membrane/cytoskeleton/ --include="*.py" | grep -v __pycache__
    ```
 
 2. For each call site, classify:

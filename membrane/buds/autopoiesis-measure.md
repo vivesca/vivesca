@@ -14,7 +14,7 @@ Experiment: measure the autopoiesis trajectory.
    - How many glycolysis conversions exist? (deterministic where LLM was)
 
 2. Count manual maintenance points:
-   - Check git log for manual fixes in the last 7 days: `cd ~/code/vivesca && git log --oneline --since="7 days ago" --author=terry`
+   - Check git log for manual fixes in the last 7 days: `cd ~/germline && git log --oneline --since="7 days ago" --author=terry`
    - Check receptor-retirement.md for anoikis candidates (broken things not auto-fixed)
    - Check ~/epigenome/chromatin/Praxis.md for system/tool maintenance items
 

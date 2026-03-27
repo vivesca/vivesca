@@ -3,7 +3,7 @@ name: health-audit
 description: Structural health audit — Oura data, exercise, sleep, capacity. Senses load, flags remodeling needs.
 model: sonnet
 tools: ["Read", "Glob", "Grep", "Bash"]
-skills: ["restriction-point"]
+skills: []
 ---
 
 Assess Terry's current health and capacity. Check these sources:

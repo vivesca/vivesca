@@ -1,6 +1,6 @@
 ---
 paths:
-  - "notes/**/*.md"
+  - "epigenome/chromatin/**/*.md"
 ---
 
 ## Vault Note Conventions

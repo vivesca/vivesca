@@ -9,7 +9,7 @@ Audit recent commits across vivesca repos.
 
 1. Read recent commits:
    ```bash
-   cd ~/code/vivesca && git log --oneline -20
+   cd ~/germline && git log --oneline -20
    ```
 
 2. For each commit, check:

@@ -36,7 +36,7 @@ from mcp.types import ToolAnnotations
 from metabolon.cytosol import VIVESCA_ROOT
 from metabolon.morphology import Secretion
 
-SKILLS_DIR = VIVESCA_ROOT / "receptors"
+SKILLS_DIR = VIVESCA_ROOT / "membrane" / "receptors"
 SKILL_USAGE_LOG = Path.home() / ".claude" / "skill-usage.tsv"
 RECEPTOR_RETIREMENT_LOG = chromatin / "receptor-retirement.md"
 
@@ -545,7 +545,7 @@ def integrin_apoptosis_check() -> ApoptosisResult:
 
 COLONIES_DIR = VIVESCA_ROOT / "membrane" / "colonies"
 BUDS_DIR = VIVESCA_ROOT / "membrane" / "buds"
-TOOLS_DIR = VIVESCA_ROOT / "cytoplasm" / "metabolon" / "tools"
+TOOLS_DIR = VIVESCA_ROOT / "metabolon" / "enzymes"
 
 # YAML frontmatter parser (minimal -- no external deps)
 _FRONTMATTER_RE = re.compile(r"^---\s*\n(.*?)\n---\s*\n", re.DOTALL)

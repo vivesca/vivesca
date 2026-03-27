@@ -5,7 +5,7 @@ import shutil
 import subprocess
 from pathlib import Path
 
-# Repo root: metabolon → src → vivesca
+# Repo root: metabolon → germline
 VIVESCA_ROOT = Path(__file__).resolve().parent.parent
 
 

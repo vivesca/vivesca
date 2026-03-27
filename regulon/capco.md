@@ -1,7 +1,7 @@
 ---
 paths:
-  - "notes/Capco/**/*"
-  - "notes/**/Capco*"
+  - "epigenome/chromatin/Capco/**/*"
+  - "epigenome/chromatin/**/Capco*"
 ---
 
 ## Capco Context

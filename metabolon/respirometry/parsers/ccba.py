@@ -8,7 +8,7 @@ from pathlib import Path
 
 from pypdf import PdfReader
 
-from metabolon.respirometry.schema import RespirogramMeta, ConsumptionEvent
+from metabolon.respirometry.schema import ConsumptionEvent, RespirogramMeta
 
 # Transaction line: description HKD amount [CR] Mon DD,YYYY Mon DD,YYYY
 # Dates are adjacent to the amount/CR flag with no separating whitespace in

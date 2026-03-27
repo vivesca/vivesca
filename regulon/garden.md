@@ -1,6 +1,6 @@
 ---
 paths:
-  - "notes/Writing/Blog/**/*"
+  - "epigenome/chromatin/Writing/Blog/**/*"
   - "code/sarcio/**/*"
   - "code/blog/**/*"
 ---
