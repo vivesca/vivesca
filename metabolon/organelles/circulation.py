@@ -21,7 +21,6 @@ from __future__ import annotations
 import json
 import operator
 import time
-from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Annotated, Any, TypedDict
 
@@ -198,9 +197,7 @@ Be thorough but concise. Output the deliverable content directly."""
 def evaluate(state: CirculationState) -> dict:
     """Classify outputs: self-sufficient vs needs-review. Quality gate."""
     work = state.get("dispatched_work", [])
-    current_systole = state.get("systole_num", 1)
-
-    # Only evaluate work from this systole (last N items)
+    # Only evaluate recent successful work
     recent = [w for w in work if w.get("success", False)]
     if not recent:
         return {
