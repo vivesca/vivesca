@@ -24,7 +24,7 @@ Accept any of:
 - A verbal feature description
 - A GitHub issue or bug report
 
-If a requirements doc exists in `~/germline/loci/brainstorms/` matching the topic, read it and use it as the origin. Reference it with `origin:` in frontmatter. Don't re-ask questions the transcription already answered.
+If a requirements doc exists in `~/epigenome/chromatin/brainstorms/` matching the topic, read it and use it as the origin. Reference it with `origin:` in frontmatter. Don't re-ask questions the transcription already answered.
 
 If inputs are too vague to plan, say so. Either ask targeted questions (one at a time) or suggest `/transcription` first.
 
@@ -72,7 +72,7 @@ When detected, name the disorder type explicitly. Don't silently interpret vague
 Mine prior builds to surface constraints the spec omits:
 
 1. **Search `~/germline/loci/antisera/`** for entries matching the domain — prior learnings encode constraints that were discovered the hard way
-2. **Search `~/germline/loci/plans/`** for similar past plans — what did they require that this spec doesn't mention?
+2. **Search `~/epigenome/chromatin/plans/`** for similar past plans — what did they require that this spec doesn't mention?
 3. **Check patterns in target codebase** — if modifying existing code, what conventions/middleware/callbacks/observers will fire? What breaks if this fails halfway?
 
 Present inferred constraints as a list: "Not stated, but implied by prior work: [constraint]". The user confirms or rejects before planning proceeds.
@@ -109,7 +109,7 @@ Scale the plan to the work. A 3-step task gets a compact plan. A cross-cutting f
 ---
 date: YYYY-MM-DD
 topic: <kebab-case>
-origin: ~/germline/loci/brainstorms/YYYY-MM-DD-<topic>.md  # if one exists
+origin: ~/epigenome/chromatin/brainstorms/YYYY-MM-DD-<topic>.md  # if one exists
 ---
 
 # <Feature Name>
@@ -193,7 +193,7 @@ If a step takes more than 5 minutes to describe or execute, it's multiple steps.
 
 ## Save
 
-Write the plan to `~/germline/loci/plans/YYYY-MM-DD-<topic>-plan.md`. Confirm the path.
+Write the plan to `~/epigenome/chromatin/plans/YYYY-MM-DD-<topic>-plan.md`. Confirm the path.
 
 ## Handoff
 
