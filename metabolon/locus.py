@@ -70,3 +70,16 @@ pulse = loci / "pulse"
 claude_dir = home / ".claude"
 claude_hooks = claude_dir / "hooks"
 claude_skills = claude_dir / "skills"
+
+# Phenotype — single source of truth for all platform entry points
+phenotype_md = membrane / "phenotype.md"
+
+# Platform phenotype symlinks: each should point to phenotype_md
+# When a new CLI platform appears, add its entry here.
+PLATFORM_SYMLINKS: list[Path] = [
+    home / "CLAUDE.md",              # Claude Code reads ~/CLAUDE.md
+    home / ".gemini" / "GEMINI.md",  # Gemini CLI reads ~/.gemini/GEMINI.md
+]
+
+# Detection markers: if a ~/.<dir>/ contains any of these, it's likely a CLI platform
+PLATFORM_MARKERS = frozenset({"settings.json", "config.json", "config.yaml", "state.json"})
