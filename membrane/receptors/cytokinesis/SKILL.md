@@ -62,7 +62,7 @@ Merge all three. Terry fills gaps the LLM missed. LLM catches things Terry forgo
 
 If continuous capture handled most of it → quick verification pass for all three.
 
-**MEMORY.md ≥145 lines →** downregulate by recurrence signal, not by position. Check `hits:` and `last-seen:` in memory file frontmatter (updated automatically by dendrite.py on every Read). Lowest hits + oldest last-seen = downregulate candidate. Move to `~/germline/loci/antisera/memory-overflow.md` (reversible — re-promote if topic resurfaces).
+**MEMORY.md ≥145 lines →** downregulate by recurrence signal, not by position. Check `hits:` and `last-seen:` in memory file frontmatter (updated automatically by dendrite.py on every Read). Lowest hits + oldest last-seen = downregulate candidate. Move to `~/epigenome/chromatin/immunity/memory-overflow.md` (reversible — re-promote if topic resurfaces).
 
 ### 1b. Methylation scan
 
