@@ -1,7 +1,7 @@
 """dispatcher — background AI agent job queue (formerly legatus).
 
 Endosymbiosis: Rust binary -> Python organelle.
-Manages YAML queue at ~/notes/agent-queue.yaml.
+Manages YAML queue at ~/epigenome/chromatin/agent-queue.yaml.
 Dispatches detached processes (claude, gemini, codex, opencode).
 """
 
@@ -12,7 +12,7 @@ from pathlib import Path
 
 import yaml
 
-QUEUE_PATH = Path.home() / "notes" / "agent-queue.yaml"
+QUEUE_PATH = Path.home() / "epigenome" / "chromatin" / "agent-queue.yaml"
 RUNS_DIR = Path.home() / ".cache" / "legatus-runs"
 BACKENDS = ("claude", "gemini", "codex", "opencode")
 

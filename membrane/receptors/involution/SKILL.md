@@ -7,7 +7,7 @@ disable-model-invocation: true
 
 # Involution — Evening Wind-Down
 
-Personal close-of-day ritual for sleep hygiene. Distinct from `/eow` (work closure) — this closes the *day*, not the workday.
+Personal close-of-day ritual for sleep hygiene. Closes the *day*, not the workday.
 
 **Boundary:** involution = sleep hygiene at home. `/interphase` = work closure on commute. If Terry is still in transit, use interphase instead.
 
@@ -102,7 +102,7 @@ Offer to check tomorrow morning. Don't run now — data isn't in yet.
 
 ## Boundaries
 
-- Do NOT review Praxis.md or task lists — that's `/eow` territory
+- Do NOT review Praxis.md or task lists — wind-down direction only
 - Do NOT surface new work items — wind-down direction only
 - Do NOT run `sopor` during involution — data for tonight isn't captured yet
 - Stop after Step 6 (or 7 if relevant). Do not loop back.

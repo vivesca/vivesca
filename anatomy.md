@@ -55,6 +55,10 @@ vivesca = Terry + Claude + germline + epigenome
     morphology/           Data models
     lysin/                (fetch/format utilities)
   membrane/               Boundary layer
+    phenotype.md          CC system prompt (→ ~/.claude/CLAUDE.md)
+    claude.json           CC system state
+    expression.json       CC settings (→ ~/.claude/settings.json)
+    .zshenv.tpl           Shell env template (op-inject source)
     cytoskeleton/         Hooks
     receptors/            Skills (50+ bio-named)
     buds/                 Agent definitions (phenotype-named)
@@ -74,16 +78,34 @@ vivesca = Terry + Claude + germline + epigenome
 
 | Module | Identity | Mechanism |
 |--------|----------|-----------|
+| `angiogenesis.py` | **Angiogenesis** | New pathway formation |
+| `baroreceptor.py` | **Baroreceptor** | Pressure/load sensing |
+| `chemoreceptor.py` | **Chemoreceptor** | Signal detection and binding |
+| `chemotaxis_engine.py` | **Chemotaxis motor** | Directional movement toward signal |
 | `chromatin.py` | **Chromatin remodeling** | Memory marking and modification |
 | `circadian_clock.py` | **Circadian oscillator** | Time-awareness, rhythm entrainment |
-| `praxis.py` | **Motor cortex** | Task execution state |
-| `reminder.py` | **Alarm signal** | Timed alerting |
+| `crispr.py` | **CRISPR** | Targeted genome editing |
 | `endocytosis_rss/` | **Receptor-mediated endocytosis** | Content intake (RSS via lustro) |
+| `engram.py` | **Engram** | Memory trace retrieval |
+| `entrainment.py` | **Entrainment** | External rhythm synchronization |
 | `gap_junction.py` | **Gap junction** | Direct cell-to-cell signaling |
+| `gemmation.py` | **Gemmation** | Bud formation and dispatch |
+| `glucosensor.py` | **Glucosensor** | Energy substrate detection |
+| `glycolysis_rate.py` | **Glycolysis rate** | Energy expenditure measurement |
+| `golgi.py` | **Golgi apparatus** | Sort, package, route output |
+| `inflammasome.py` | **Inflammasome** | System health probe and alarm |
+| `mitophagy.py` | **Mitophagy** | Degradation of damaged components |
+| `mitosis.py` | **Mitosis** | System replication and sync |
+| `pacemaker.py` | **Pacemaker** | Autonomous rhythm generation |
+| `porta.py` | **Porta** | Browser session bridging |
+| `potentiation.py` | **Long-term potentiation** | Strengthening of useful pathways |
+| `praxis.py` | **Motor cortex** | Task execution state |
+| `retrograde.py` | **Retrograde transport** | Feedback from periphery to nucleus |
+| `rheotaxis_engine.py` | **Rheotaxis engine** | Flow-directed search |
 | `secretory_vesicle.py` | **Secretory vesicle** | Packaged output ready to release |
 | `sporulation.py` | **Sporulation** | Dormancy and dispersal packaging |
-| `chemotaxis_engine.py` | **Chemotaxis motor** | Directional movement toward signal |
-| `chemoreceptor.py` | **Chemoreceptor** | Signal detection and binding |
+| `statolith.py` | **Statolith** | Gravity/orientation sensing |
+| `tissue_routing.py` | **Tissue routing** | Signal dispatch to correct tissue |
 | `vasomotor_sensor.py` | **Metabolic sensor** | Budget / energy state sensing |
 
 ### Metabolism (`metabolon/metabolism/`)

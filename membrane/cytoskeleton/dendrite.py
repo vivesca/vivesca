@@ -150,7 +150,9 @@ def chaperone_ts(data):
         return
 
     local_tsc = os.path.join(d, "node_modules", ".bin", "tsc")
-    tsc_bin = f'"{local_tsc}"' if os.path.exists(local_tsc) else f"{_NPX} tsc"
+    if not os.path.exists(local_tsc):
+        return
+    tsc_bin = f'"{local_tsc}"'
     try:
         r = subprocess.run(
             f"{tsc_bin} --noEmit --incremental --pretty false 2>&1",
