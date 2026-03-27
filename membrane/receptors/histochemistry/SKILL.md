@@ -2,6 +2,7 @@
 name: histochemistry
 description: Evidence before completion claims — run verification, read output, then claim. Use before committing, PRs, or any success assertion.
 model: sonnet
+epistemics: [build, debug]
 ---
 
 # Histochemistry — Stain Before Declaring

@@ -4,6 +4,7 @@ description: Audit system autonomy — classify each subsystem as self-governing
 user_invocable: true
 model: sonnet
 context: fork
+epistemics: [monitor, evaluate]
 ---
 
 # Cytometry — Autonomy Classification

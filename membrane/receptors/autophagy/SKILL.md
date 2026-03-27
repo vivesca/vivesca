@@ -1,6 +1,7 @@
 ---
 name: autophagy
 description: Growth-mode sessions — ask Terry's view before offering mine, across any domain. Use when Terry explicitly wants to stay sharp rather than be helped. Invoke with /autophagy. NOT for factual lookups, logistics, or mechanical tasks.
+epistemics: [learn, reflect]
 ---
 
 # Askesis — Growth Mode

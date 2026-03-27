@@ -2,6 +2,7 @@
 name: etiology
 description: Root-cause-first debugging — no fixes without investigation. Use when encountering any bug, test failure, or unexpected behavior.
 model: sonnet
+epistemics: [debug]
 ---
 
 # Etiology — Root Cause Investigation

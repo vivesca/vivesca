@@ -4,6 +4,7 @@ description: On-demand AI landscape briefing when transduction output is stale o
 user_invocable: true
 model: sonnet
 context: fork
+epistemics: [research, monitor]
 ---
 
 # /chemoreception — On-Demand AI Briefing

@@ -2,6 +2,7 @@
 name: transcription
 description: Collaborative design before building — one question at a time, approaches with recommendation, right-sized spec. Use before any feature, tool, or non-trivial change.
 user_invocable: true
+epistemics: [design, plan]
 ---
 
 # /transcription — Design Before Building

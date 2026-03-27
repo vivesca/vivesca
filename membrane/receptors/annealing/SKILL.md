@@ -4,6 +4,7 @@ description: Iterative artifact refinement — start hot (wild), cool to converg
 user_invocable: true
 model: sonnet
 context: fork
+epistemics: [evaluate, communicate]
 ---
 
 # Annealing — Simulated Cooling for Artifact Refinement

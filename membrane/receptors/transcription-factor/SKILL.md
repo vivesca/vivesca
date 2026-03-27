@@ -2,6 +2,7 @@
 name: transcription-factor
 description: Capture structured decisions with past-decision surfacing (bouncer pattern). Use when user says "transcription-factor", "/transcription-factor", "I need to decide", or is weighing options with trade-offs.
 user_invocable: true
+epistemics: [decide]
 ---
 
 # Gnome

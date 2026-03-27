@@ -40,7 +40,7 @@ Match situation to operation. Depth in `~/epigenome/chromatin/Reference/epistemi
 | **Tune a control loop** | Formulas execute, LLM reflects. Recurring adjustments get methylated into deterministic rules. | `monitor` |
 | **Work generates work** | When doing X reveals Y needs fixing and Y serves X — follow it. Origin is recoverable, spark is perishable. | |
 
-Epistemics library: `~/epigenome/chromatin/Reference/epistemics/`. Each file has `situations:` frontmatter. Query: `grep -l "situations:.*TAG" ~/epigenome/chromatin/Reference/epistemics/*.md`.
+Epistemics library: `~/epigenome/chromatin/Reference/epistemics/`. Each file has `situations:` frontmatter. Skills have `epistemics:` frontmatter listing their tags. **When entering a skill with epistemics tags, grep the library for matching files and skim the top 2-3 most relevant before proceeding.** This is how the organism's heuristic knowledge flows into judgment — not by remembering, but by looking.
 
 **Meta-rules:** Evidence > opinions. One correction = full sweep. Simple rules beat complex analysis under uncertainty. The model isn't reality. Scaffolding load test before building infrastructure. Bet, review, bet — validate before deepening. When in doubt, test it — experiments are cheap, opinions are expensive. Every principle has a domain of validity — knowing the boundary matters more than knowing the principle.
 

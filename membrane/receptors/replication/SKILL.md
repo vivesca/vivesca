@@ -12,6 +12,7 @@ triggers:
   - "heuretes"
   - "explore this with agents"
 context: fork
+epistemics: [research, delegate]
 ---
 
 # heuretes — Agent Research Org

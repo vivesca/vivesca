@@ -12,6 +12,7 @@ allowed-tools:
   - Glob
   - Agent
 context: fork
+epistemics: [build, delegate]
 ---
 
 # /folding — Execute the Plan

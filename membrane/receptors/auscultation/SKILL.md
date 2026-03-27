@@ -4,6 +4,7 @@ description: Listen to system internals — log patterns, error frequencies, tim
 user_invocable: true
 model: sonnet
 context: fork
+epistemics: [monitor, debug]
 ---
 
 # Auscultation — Diagnostic Listening

@@ -5,6 +5,7 @@ aliases: [refine, polish]
 user_invocable: true
 runtime: skill
 context: fork
+epistemics: [evaluate, build]
 ---
 
 # Litura

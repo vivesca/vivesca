@@ -10,6 +10,7 @@ triggers:
   - what do I do
   - priority check
 context: fork
+epistemics: [plan, monitor]
 ---
 
 # Kairos — The Opportune Moment

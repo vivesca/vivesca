@@ -3,6 +3,7 @@ name: ecphory
 description: Cue-routed retrieval across all memory stores — routes by query intent (episodic vs semantic), age, and store type before fanning out. Use when searching for prior-session data, past decisions, or anything entered in a previous session. "find what we decided", "I entered this before", "we talked about X", "ecphory", "what did we say about".
 user_invocable: true
 model: sonnet
+epistemics: [research, learn]
 triggers:
   - "I entered this before"
   - "we talked about"

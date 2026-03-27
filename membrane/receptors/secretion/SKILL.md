@@ -4,6 +4,7 @@ description: Package and release a consulting deliverable — quality-check, for
 user_invocable: true
 model: sonnet
 context: fork
+epistemics: [communicate, evaluate]
 ---
 
 # Secretion — Packaging and Releasing the Deliverable

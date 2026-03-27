@@ -11,6 +11,7 @@ allowed-tools:
   - Glob
   - Agent
 context: fork
+epistemics: [build, delegate]
 ---
 
 # /nucleation — Delegate-First Dev Workflow

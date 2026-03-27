@@ -2,6 +2,7 @@
 name: differentiation
 description: Coach a live gym session — prescribe, track sets, log to vault
 user_invocable: true
+epistemics: [monitor, learn]
 ---
 
 # gym-coach — live session coaching
