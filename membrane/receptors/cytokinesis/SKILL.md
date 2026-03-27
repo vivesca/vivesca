@@ -81,12 +81,21 @@ This is not a punishment — it's proprioception. The number trends toward zero 
 3. **Session log:** `cytokinesis daily "title"` — outcomes + session arc prose.
 4. **Tonus.md** — update deltas. Max 15 lines, dual-ledger.
 
+### 3. Daily note (last step)
+
+Write the session summary to today's daily note via `emit_daily_note`. This is the **final visible output** — Terry sees it in Obsidian. Include:
+- What was done (outcomes, not process)
+- What's parked (with enough context to resume)
+- Cytokinesis residual count
+- Session arc in 1-2 sentences
+
 ## Output
 
 ```
 ─── Cytokinesis ──────────────────────────────────
 Filed: [exact file paths]
 Published: [tweets/garden posts or "none"]
+Daily: [daily note title]
 Done.
 ─────────────────────────────────────────────────
 ```
