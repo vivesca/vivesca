@@ -41,6 +41,15 @@ allowed-tools:
 
 ## Workflow
 
+### 0. Unfinished work check (before consolidating)
+
+Before capturing memories, check: **is there unfinished actionable work from this session?** Scan for:
+- Open threads that were started but not completed (pending responses, half-done fixes)
+- Items deferred to "later" or "next session" that could be finished now
+- `cytokinesis gather` dirty repos that were touched this session
+
+If unfinished work exists: **finish it or park it with context — don't consolidate over live work.** Context is hottest right now; wrapping up while actionable items remain wastes that heat. Only ask Terry for input if you've exhausted what you can do autonomously. Consolidation is for what's *done*, not a reason to stop early.
+
 ### 1. Consolidation (the point)
 
 Three things in parallel:
