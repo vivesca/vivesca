@@ -554,15 +554,16 @@ def cmd_archive(args):
 
 
 # ── Daily ────────────────────────────────────────────────────────────────────
-def _since_flag() -> str:
-    """Return git --since flag for 'today' (covers the session window)."""
-    return datetime.now().strftime("%Y-%m-%dT00:00:00")
+def _since_flag(hours: int = 2) -> str:
+    """Return ISO timestamp for N hours ago (session window approximation)."""
+    from datetime import timedelta
+    return (datetime.now() - timedelta(hours=hours)).strftime("%Y-%m-%dT%H:%M:%S")
 
 
-def _gather_filed() -> list[str]:
-    """List memory files created/modified today (covers full session)."""
+def _gather_filed(hours: int = 2) -> list[str]:
+    """List memory files created/modified in the last N hours."""
     mem_dir = home / ".claude" / "projects" / "-Users-terry" / "memory"
-    since = _since_flag()
+    since = _since_flag(hours)
     try:
         # Committed today
         r = subprocess.run(
@@ -586,9 +587,9 @@ def _gather_filed() -> list[str]:
         return []
 
 
-def _gather_mechanised() -> list[str]:
-    """List skills, hooks, and genome modified today."""
-    since = _since_flag()
+def _gather_mechanised(hours: int = 2) -> list[str]:
+    """List skills, hooks, and genome modified in the last N hours."""
+    since = _since_flag(hours)
     hits = set()
     for repo_path in [germline]:
         try:
@@ -647,8 +648,9 @@ def cmd_daily(args):
     title = args.title if args.title else "Session"
 
     # Gather deterministic sections
-    filed = _gather_filed()
-    mechanised = _gather_mechanised()
+    hours = getattr(args, "hours", 2)
+    filed = _gather_filed(hours=hours)
+    mechanised = _gather_mechanised(hours=hours)
     published = _gather_published()
     residual_n = len(filed)
 
@@ -866,6 +868,7 @@ def main():
     # daily
     d = sub.add_parser("daily", help="Append session log template")
     d.add_argument("title", nargs="?", default=None, help="Session title")
+    d.add_argument("--hours", type=int, default=2, help="Look-back window in hours (default: 2)")
 
     # reflect
     rf = sub.add_parser("reflect", help="Scan transcript for reflection candidates")
