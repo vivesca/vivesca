@@ -871,6 +871,54 @@ def mod_rheotaxis(data):
     return []
 
 
+# ── context: parked item injection ───────────────────────
+
+DAILY_DIR = CHROMATIN_DIR / "Daily"
+
+
+def _read_parked():
+    """Extract ### Parked sections from today's daily note."""
+    today = datetime.now(HKT).strftime("%Y-%m-%d")
+    daily = DAILY_DIR / f"{today}.md"
+    if not daily.exists():
+        return []
+    try:
+        content = daily.read_text(encoding="utf-8")
+    except Exception:
+        return []
+    items = []
+    in_parked = False
+    for line in content.splitlines():
+        if line.strip().startswith("### Parked"):
+            in_parked = True
+            continue
+        if in_parked:
+            if line.startswith("###") or line.startswith("## "):
+                in_parked = False
+                continue
+            stripped = line.strip().lstrip("- ").strip()
+            if stripped and stripped != "none" and not stripped.startswith("[LLM"):
+                items.append(stripped)
+    return items
+
+
+def mod_context(data):
+    """Inject parked items from today's daily note on session start."""
+    session_id = data.get("session_id", "")
+    if not session_id:
+        return []
+    marker = TMP_DIR / f"context-inject-{session_id}.done"
+    if marker.exists():
+        return []
+    marker.touch()
+
+    parked = _read_parked()
+    if not parked:
+        return []
+    items = "\n".join(f"  - {p}" for p in parked[:5])
+    return [f"Parked from earlier today (may be relevant):\n{items}"]
+
+
 # ── main ───────────────────────────────────────────────────
 
 
@@ -892,6 +940,7 @@ def main():
         mod_calorimetry,
         mod_phenotype,
         mod_association,
+        mod_context,
     ]
 
     output = []
