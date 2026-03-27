@@ -1,14 +1,13 @@
 #!/usr/bin/env python3
-"""replisome — multi-model collaborative dialogue via LangGraph.
+"""replisome — multi-model deliberation with codebase awareness (LangGraph).
 
-Models work a shared scratchpad with human-in-the-loop interrupt.
-LangGraph provides: state machine, conditional routing, checkpointing.
+Consilium for CLI agents. Models read files and discuss — they don't write.
+When the council converges, CC Teams or a single agent executes.
 
 Usage:
-  twin "task description"
-  twin --model haiku gemini opencode "task"
-  twin --rounds 3 "task"
-  twin --scratchpad path.md "task"              # resume
+  replisome "design question"
+  replisome --model haiku gemini "should we refactor X?"
+  replisome --model haiku opencode --rounds 3 "review this approach"
 """
 
 import argparse
