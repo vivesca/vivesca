@@ -1,0 +1,16 @@
+#!/usr/bin/env python3
+"""quorum — multi-model deliberation via consilium.
+
+Bio wrapper: quorum sensing is bacterial collective decision-making.
+Delegates to the consilium Rust binary with all arguments passed through.
+"""
+
+import os
+import sys
+
+def main():
+    args = sys.argv[1:]
+    os.execvp("consilium", ["consilium", *args])
+
+if __name__ == "__main__":
+    main()
