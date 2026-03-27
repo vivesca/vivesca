@@ -21,7 +21,7 @@ Research a company before a client meeting. Input: company name + meeting contex
    - What's the one question that would unlock the conversation?
 
 5. Save research to ~/epigenome/chromatin/Archive/Job_Hunting_2026/Prep/[CompanyName].md
-   OR ~/epigenome/chromatin/Reference/consulting/clients/[CompanyName].md
+   OR ~/epigenome/chromatin/euchromatin/consulting/clients/[CompanyName].md
 
 Output: 1-page brief. Business overview → AI posture → risks → conversation opener.
 Time-box web research to the most recent credible sources.

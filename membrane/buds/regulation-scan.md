@@ -26,4 +26,4 @@ Filter for relevance:
 - Data localisation or cross-border transfer rules
 
 Output per item: regulator | date | title | 2-sentence implication for banks | action trigger (Y/N)
-Save to ~/epigenome/chromatin/Reference/consulting/regulation-scan-YYYY-WNN.md
+Save to ~/epigenome/chromatin/euchromatin/consulting/regulation-scan-YYYY-WNN.md

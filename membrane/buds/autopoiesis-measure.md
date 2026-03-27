@@ -20,7 +20,7 @@ Experiment: measure the autopoiesis trajectory.
 
 3. Compute the ratio: automated / (automated + manual)
 
-4. Compare to previous measurements (check ~/epigenome/chromatin/Reference/ for prior autopoiesis-measure results)
+4. Compare to previous measurements (check ~/epigenome/chromatin/euchromatin/ for prior autopoiesis-measure results)
 
 5. Report:
    - Automation ratio: X%
@@ -29,4 +29,4 @@ Experiment: measure the autopoiesis trajectory.
    - Top 3 automated reactions that are MOST valuable
    - The test: does Terry need the organism less this month for plumbing?
 
-Save results to ~/epigenome/chromatin/Reference/autopoiesis-measure-YYYY-MM-DD.md
+Save results to ~/epigenome/chromatin/euchromatin/autopoiesis-measure-YYYY-MM-DD.md

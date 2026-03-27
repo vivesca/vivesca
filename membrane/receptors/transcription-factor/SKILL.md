@@ -33,7 +33,7 @@ Free-text capture. User provides topic and reasoning in natural language; Claude
 
 0. **ROUTE FIRST:**
    > quorum = outcome is uncertain, needs perspectives.
-   - Can you run both options and compare with a measurable criterion? → `[[evaluation-theory]]` (see `~/epigenome/chromatin/Reference/epistemics/evaluation-theory.md`)
+   - Can you run both options and compare with a measurable criterion? → `[[evaluation-theory]]` (see `~/epigenome/chromatin/euchromatin/epistemics/evaluation-theory.md`)
    - Does it involve genuine trade-offs, values, or domain judgment? → `quorum`
    - Is it a committed choice that just needs capturing? → proceed below
 

@@ -27,4 +27,4 @@ Angle: [What does this mean for a bank risk/compliance/strategy leader?]
 Source: [where this came from]
 ```
 
-Output: exactly 5 talking points. Save to ~/epigenome/chromatin/Reference/consulting/talking-points-YYYY-WNN.md.
+Output: exactly 5 talking points. Save to ~/epigenome/chromatin/euchromatin/consulting/talking-points-YYYY-WNN.md.

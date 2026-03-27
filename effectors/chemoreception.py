@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-UserPromptSubmit hook: keyword-based retrieval over ~/epigenome/chromatin/Reference/.
+UserPromptSubmit hook: keyword-based retrieval over ~/epigenome/chromatin/euchromatin/.
 Scans markdown files for relevance to the user prompt, injects top matches
 as context. Lightweight — no embeddings, just TF-IDF-style scoring.
 """
@@ -14,7 +14,7 @@ import time
 from collections import Counter
 from pathlib import Path
 
-REFERENCE_DIR = Path.home() / "code" / "epigenome" / "chromatin" / "Reference"
+REFERENCE_DIR = Path.home() / "code" / "epigenome" / "chromatin" / "euchromatin"
 DEBOUNCE_FILE = Path.home() / ".claude" / "retrieval-hook-state.json"
 
 # Signal transduction: read from synapse.conf, fallback to hardcoded defaults

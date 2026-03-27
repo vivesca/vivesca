@@ -40,7 +40,7 @@ The guard is a Stop hook (`~/.claude/hooks/polarization-guard.py`). While active
 
 ### Step 1: Load Context (parallel)
 
-`~/epigenome/chromatin/North Star.md`, `~/epigenome/chromatin/Reference/epistemics/north-star-shapes.md`, `~/epigenome/chromatin/Reference/epistemics/division-of-labour.md`, `~/epigenome/chromatin/NOW.md`, `~/epigenome/chromatin/Praxis.md` (head 80), `date`.
+`~/epigenome/chromatin/North Star.md`, `~/epigenome/chromatin/euchromatin/epistemics/north-star-shapes.md`, `~/epigenome/chromatin/euchromatin/epistemics/division-of-labour.md`, `~/epigenome/chromatin/NOW.md`, `~/epigenome/chromatin/Praxis.md` (head 80), `date`.
 
 ### Step 2: Shape-to-Leverage Filter
 

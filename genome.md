@@ -21,7 +21,7 @@
 
 ## How to Think
 
-Match situation to operation. Depth in `~/epigenome/chromatin/Reference/epistemics/`.
+Match situation to operation. Depth in `~/epigenome/chromatin/euchromatin/epistemics/`.
 
 | I need to... | Do this | Epistemics tag |
 |-------------|---------|---------------|
@@ -40,7 +40,7 @@ Match situation to operation. Depth in `~/epigenome/chromatin/Reference/epistemi
 | **Tune a control loop** | Formulas execute, LLM reflects. Recurring adjustments get methylated into deterministic rules. | `monitor` |
 | **Work generates work** | When doing X reveals Y needs fixing and Y serves X — follow it. Origin is recoverable, spark is perishable. | |
 
-Epistemics library: `~/epigenome/chromatin/Reference/epistemics/`. Each file has `situations:` frontmatter. Skills have `epistemics:` frontmatter listing their tags. **When entering a skill with epistemics tags, grep the library for matching files and skim the top 2-3 most relevant before proceeding.** This is how the organism's heuristic knowledge flows into judgment — not by remembering, but by looking.
+Epistemics library: `~/epigenome/chromatin/euchromatin/epistemics/`. Each file has `situations:` frontmatter. Skills have `epistemics:` frontmatter listing their tags. **When entering a skill with epistemics tags, grep the library for matching files and skim the top 2-3 most relevant before proceeding.** This is how the organism's heuristic knowledge flows into judgment — not by remembering, but by looking.
 
 **Meta-rules:** Evidence > opinions. One correction = full sweep. Simple rules beat complex analysis under uncertainty. The model isn't reality. Scaffolding load test before building infrastructure. Bet, review, bet — validate before deepening. When in doubt, test it — experiments are cheap, opinions are expensive. Every principle has a domain of validity — knowing the boundary matters more than knowing the principle.
 
@@ -151,7 +151,7 @@ Capture is continuous, not terminal. Route findings the moment they surface — 
 | Publishable insight | Garden post via `sarcio new` or tweet draft | `exocytosis_text` |
 | Tool gotcha / how-to | `~/epigenome/chromatin/immunity/solutions/` | Write |
 | State change | Tonus.md | Edit |
-| Reference knowledge (atomic) | `~/epigenome/chromatin/Reference/<category>/` + `engrams/finding_*.md` | Write |
+| Reference knowledge (atomic) | `~/epigenome/chromatin/euchromatin/<category>/` + `engrams/finding_*.md` | Write |
 
 **Dual-audience rule.** Human-facing artifacts (vault notes, garden posts) always get a companion `engrams/finding_*.md` so a fresh session can recall the finding without searching. Two audiences, two files.
 
@@ -202,15 +202,15 @@ Cytokinesis is the error signal. When `/cytokinesis` consistently finds uncaptur
 
 ## Knowledge Architecture
 
-`interoception(genome)` = rules + meta + tool routing. `MEMORY.md` = gotchas. `~/epigenome/chromatin/Reference/` = atomic docs. Solutions KB = how-tos.
+`interoception(genome)` = rules + meta + tool routing. `MEMORY.md` = gotchas. `~/epigenome/chromatin/euchromatin/` = atomic docs. Solutions KB = how-tos.
 
-**Match form to access pattern.** Always-loaded → constitution. On-demand → atomic + wikilinked (Reference/). Path-scoped → `.claude/rules/`.
+**Match form to access pattern.** Always-loaded → constitution. On-demand → atomic + wikilinked (euchromatin/). Path-scoped → `.claude/rules/`.
 
 **Constitution first.** When a new rule emerges, put it here — always-loaded means it governs from day one. Demote to memory/reference later if it proves low-frequency.
 
 **Constitutional hygiene.** Promotion has a demotion twin: monthly review asks "which rules haven't fired?" Demote to Reference or kill. If the constitution grows 20% beyond its current size, pruning is mandatory before adding. Metabolism signals inform this — zero-signal rules are candidates. The constitution metabolises itself. Memory is crystallised experience; it dissolves into three knowledge artifacts (constitution, reference/skill, program) and ultimately into unnecessary.
 
-**Reference docs:** `~/epigenome/chromatin/Reference/` — browse `ls <subdir>`, search `grep`, traverse `[[wikilinks]]`. Categories: search, epistemics, vault, development, browser-automation, consulting, personal, automation, comms.
+**Reference docs:** `~/epigenome/chromatin/euchromatin/` — browse `ls <subdir>`, search `grep`, traverse `[[wikilinks]]`. Categories: search, epistemics, vault, development, browser-automation, consulting, personal, automation, comms.
 
 ## Autonomy
 

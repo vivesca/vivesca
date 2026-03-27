@@ -126,6 +126,7 @@ Hook dispatch infrastructure — routes signals before and after tool use.
 ```
 ~/epigenome/
   chromatin/              Long-term information (14K+ vault notes)
+    euchromatin/          Active reference knowledge — atomically accessible docs
     immunity/             Solved problems — institutional memory
     chemosensory/         External intelligence — research
     interoception/        Operational audit logs
@@ -144,6 +145,7 @@ Hook dispatch infrastructure — routes signals before and after tool use.
 | Directory | Identity | Mechanism |
 |-----------|----------|-----------|
 | `chromatin/` | **Chromatin** | Long-term information in accessible form; the vault |
+| `chromatin/euchromatin/` | **Euchromatin** | Active, accessible reference knowledge — atomic docs by category |
 | `chromatin/immunity/` | **Immune memory** | Solved problems, won't be re-fought |
 | `chromatin/chemosensory/` | **Chemosensory cortex** | External signal intelligence |
 | `chromatin/interoception/` | **Interoceptive log** | Internal state audit trail |

@@ -9,7 +9,7 @@ Harvest consulting sparks from the week's metabolism.
 
 1. Read this week's daily notes: ~/epigenome/chromatin/Daily/YYYY-MM-DD*.md
 2. Read this week's vault additions: `cd ~/epigenome/chromatin && git log --oneline --since="7 days ago" --name-only`
-3. Read recent session context: check ~/epigenome/chromatin/Reference/ modified in last 7 days
+3. Read recent session context: check ~/epigenome/chromatin/euchromatin/ modified in last 7 days
 
 4. For each note/artifact, ask: is there a consulting-relevant insight here?
    - Banking/fintech application?

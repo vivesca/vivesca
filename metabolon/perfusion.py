@@ -20,7 +20,7 @@ CARDIAC_LOG = Path.home() / "tmp" / "pulse-manifest.md"
 TOPIC_LOCK = Path.home() / "tmp" / "pulse-topics-done.txt"
 
 # Shapes where agent leverage is near-zero. Perfusion focus skips these.
-# Source: epigenome/chromatin/Reference/epistemics/north-star-shapes.md
+# Source: epigenome/chromatin/euchromatin/epistemics/north-star-shapes.md
 # Habit: value is in the doing, not the planning.
 # Attention: cannot be delegated or automated — be present.
 _LOW_LEVERAGE_SHAPES: dict[str, str] = {

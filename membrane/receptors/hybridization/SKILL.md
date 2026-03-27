@@ -61,7 +61,7 @@ Map the system against the canonical cell organelle set. Score each: **mapped / 
 Output: completed table + top 3 gaps ranked by operational impact.
 
 ### 3. Andrews 21 Patterns
-Hybridize against the 21 design patterns. Reference: `~/epigenome/chromatin/Reference/andrews-21-patterns-titration.md`.
+Hybridize against the 21 design patterns. Reference: `~/epigenome/chromatin/euchromatin/andrews-21-patterns-titration.md`.
 Score each pattern: **implemented / partial / absent**. Surface the highest-leverage absences.
 
 ## Grounding Step

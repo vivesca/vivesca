@@ -19,7 +19,7 @@ The operon pattern: signal → regulatory check → bud expression.
 | Sun PM | spark-harvest | /expression or manual | Weekly consulting sparks |
 | Sun PM | praxis-sweep | /ecdysis or manual | Overdue/stale item list |
 | Sun PM | commit-hygiene | /ecdysis or manual | Git quality audit |
-| Sun PM | lustro weekly digest | LaunchAgent | ~/epigenome/chromatin/Reference/weekly-ai-digest |
+| Sun PM | lustro weekly digest | LaunchAgent | ~/epigenome/chromatin/euchromatin/weekly-ai-digest |
 
 ## Monthly Cadence
 

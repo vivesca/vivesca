@@ -20,8 +20,8 @@ Search routing — use existing tools first via Bash:
 
 Output format depends on subject:
 - Company (job prep): business overview, AI strategy, recent news, regulatory context. Save to ~/epigenome/chromatin/Archive/Job_Hunting_2026/Prep/
-- Regulation: current state, recent changes, practical implications for banks. Save to ~/epigenome/chromatin/Reference/consulting/
-- Technology/topic: summary + key findings with citations. Save to ~/epigenome/chromatin/Reference/
+- Regulation: current state, recent changes, practical implications for banks. Save to ~/epigenome/chromatin/euchromatin/consulting/
+- Technology/topic: summary + key findings with citations. Save to ~/epigenome/chromatin/euchromatin/
 - Person: professional background, connection points. Don't save.
 
 The LLM reasons about: which sources are credible, how to reconcile conflicts, what's relevant to Terry's context.
