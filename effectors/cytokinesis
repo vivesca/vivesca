@@ -368,6 +368,10 @@ def cmd_gather(args):
         results["reflect_session"] = sid
         results["reflect_usage"] = reflect_usage
 
+    # Methylation audit (genome rules → hooks/skills check)
+    methylation = run_methylation_audit()
+    results["methylation"] = methylation
+
     # Output
     if args.syntactic:
         print(json.dumps(results, indent=2))
@@ -406,6 +410,11 @@ def cmd_gather(args):
         print(f"reflect:{len(reflect)} candidates{cost_est}")
         for i, f in enumerate(reflect, 1):
             print(f"  {i}. [{f.get('category','')}] {f.get('lesson','')}")
+    meth = results.get("methylation", [])
+    if meth:
+        print(f"methylation:{len(meth)} demote candidates")
+        for m in meth:
+            print(f"  [{m.get('verdict','')}] {m.get('rule','')} → {m.get('enforced_by','')}")
     return
 
 
@@ -476,6 +485,18 @@ def _print_human(results, sid):
             print(f"  {CYAN}{i}.{RESET} [{cat}] {lesson[:120]}")
     elif sid:
         print(f"  {OK}  Reflection: nothing surfaced")
+
+    # Methylation audit
+    meth = results.get("methylation", [])
+    if meth:
+        print(f"\n{BOLD}─── Methylation ({len(meth)} candidates) ──────────{RESET}")
+        for m in meth:
+            verdict = m.get("verdict", "?")
+            color = RED if verdict == "TRIM" else YELLOW
+            print(f"  {color}[{verdict}]{RESET} {m.get('rule', '?')}")
+            print(f"       {DIM}enforced by: {m.get('enforced_by', '?')}{RESET}")
+    else:
+        print(f"  {OK}  Methylation: genome is lean")
 
     print(f"{BOLD}──────────────────────────────────────────────{RESET}")
 
@@ -817,6 +838,15 @@ Find instances of these six categories:
    "I thought we already implemented X", "I assumed Y existed". Gaps between
    mental model and reality.
 
+7. **ORGANISM IMPROVEMENT** — Something that happened in this session that reveals
+   how vivesca (the system itself) could be stronger. Examples:
+   - A manual step that should be a hook or skill
+   - A rule in genome.md that Claude didn't follow (needs enforcement, not just instruction)
+   - A skill that didn't trigger when it should have (bad description)
+   - A tool that's missing (had to work around its absence)
+   - A pattern that recurred across the session (candidate for methylation)
+   The test: "if this session replayed tomorrow, what would make it go better?"
+
 Selection criteria (from memory consolidation biology):
 - **Novelty** — first time this came up. New information worth encoding.
 - **Prediction error** — something believed true turned out false, or Claude was corrected.
@@ -830,7 +860,7 @@ Selection criteria (from memory consolidation biology):
 For each finding, output EXACTLY this format (one per finding):
 
 ---
-CATEGORY: <one of: taste_calibration, positive_feedback, discovery, architecture_decision, process_gap, assumption_violation>
+CATEGORY: <one of: taste_calibration, positive_feedback, discovery, architecture_decision, process_gap, assumption_violation, organism_improvement>
 QUOTE: <the key user message or exchange, verbatim, max 2 lines>
 LESSON: <1-2 sentences: what should be remembered and why>
 MEMORY_TYPE: <feedback, finding, or project>
