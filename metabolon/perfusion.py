@@ -82,7 +82,7 @@ def least_perfused() -> str | None:
     routable = {s: c for s, c in cov.items() if s in _ROUTABLE_STARS}
     if not routable:
         return None
-    return min(routable, key=routable.get)  # type: ignore[arg-type]
+    return min(routable, key=lambda k: routable[k])
 
 
 def ischaemic_stars(threshold: int = 2) -> list[str]:
@@ -100,7 +100,7 @@ def perfusion_report() -> dict:
     cov = coverage_map()
     ischaemic = [s for s, c in cov.items() if c < 2]
     routable = {s: c for s, c in cov.items() if s in _ROUTABLE_STARS}
-    least = min(routable, key=routable.get) if routable else None  # type: ignore[arg-type]
+    least = min(routable, key=lambda k: routable[k]) if routable else None
     record_event("perfusion_check", coverage=cov, ischaemic=ischaemic, focus=least)
     return {
         "coverage": cov,

@@ -29,7 +29,7 @@ def _make_signal(tool: str, outcome: Outcome = Outcome.success, tokens: int = 10
 def mock_symbiont():
     """Inject a mock symbiont module so lazy imports find it."""
     mock_mod = ModuleType("metabolon.symbiont")
-    mock_mod.query = AsyncMock(return_value="An improved tool description for better results")  # type: ignore[attr-defined]
+    setattr(mock_mod, "query", AsyncMock(return_value="An improved tool description for better results"))
     sys.modules["metabolon.symbiont"] = mock_mod
     yield mock_mod
     del sys.modules["metabolon.symbiont"]

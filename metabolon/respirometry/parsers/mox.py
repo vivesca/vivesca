@@ -137,7 +137,7 @@ def _parse_transactions(full_text: str, year: str) -> list[Transaction]:
         merchant_raw = re.sub(r"\s+-?[\d,]+\.\d{2}\s*$", "", merchant_raw)
         merchant = re.sub(r"\s*\+\d[\d\s]*\w{2,3}\s*$", "", merchant_raw).strip()
         merchant = re.sub(
-            r"\s+(USA|GBR|IRL|CAN|HKG|AUS|SGP|JPN|NEW|TWN|KOR)\s*$",  # noqa: codespell
+            r"\s+(USA|GBR|IRL|CAN|HKG|AUS|SGP|JPN|NEW|TWN|KOR)\s*$",
             "",
             merchant,
         ).strip()

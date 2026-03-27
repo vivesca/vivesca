@@ -1,5 +1,5 @@
 from metabolon.locus import chromatin, praxis
-"""checkpoint — homeostatic monitoring + system health.
+"""interoception — sensing internal state (health, system, financial).
 
 Tools:
   circadian_sleep      — circadian rhythm data from Oura

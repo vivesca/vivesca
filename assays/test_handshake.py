@@ -97,7 +97,8 @@ async def test_handshake():
         tools_with_output = [t for t in tools if t.outputSchema]
         print(f"\nTools with outputSchema: {len(tools_with_output)}/{len(tools)}")
         for t in sorted(tools_with_output, key=lambda x: x.name):
-            print(f"  {t.name}: {list(t.outputSchema.get('properties', {}).keys())}")  # type: ignore[union-attr]
+            schema = t.outputSchema or {}
+            print(f"  {t.name}: {list(schema.get('properties', {}).keys())}")
 
         assert len(tools_with_output) == len(tools), (
             f"All tools should have outputSchema, missing: {[t.name for t in tools if not t.outputSchema]}"

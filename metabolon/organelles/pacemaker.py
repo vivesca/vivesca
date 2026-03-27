@@ -13,7 +13,7 @@ if str(_MONEO_PY_DIR) not in sys.path:
     sys.path.insert(0, str(_MONEO_PY_DIR))
 
 try:
-    import moneo as _m  # noqa: E402
+    import moneo as _m
 except ImportError:
     _m = None
 

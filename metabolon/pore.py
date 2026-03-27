@@ -895,6 +895,7 @@ def metabolise(seed, expander, pusher, rounds, output, no_publish, title, no_cha
 
     previous_compression = None
     final_compression = None
+    push_text = ""
 
     for round_num in range(1, rounds + 1):
         # ── Expand or Deepen ─────────────────────────────────────────
@@ -904,7 +905,7 @@ def metabolise(seed, expander, pusher, rounds, output, no_publish, title, no_cha
             expand_prompt = ADAPTATION_TEMPLATE.format(
                 seed=seed,
                 previous_compression=previous_compression,
-                push=push_text,  # noqa: F821 — set in prior iteration
+                push=push_text,
             )
 
         try:
@@ -1825,7 +1826,7 @@ def auscultate():
 
     # 1. MCP server imports
     try:
-        from metabolon.membrane import main  # noqa: F401
+        from metabolon.membrane import main as _  # import check only
         checks.append(("MCP server import", True, ""))
     except Exception as e:
         checks.append(("MCP server import", False, str(e)))

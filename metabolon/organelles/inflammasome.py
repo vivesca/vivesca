@@ -389,10 +389,10 @@ def _repair_chemotaxis_key() -> tuple[bool, str]:
         spec = importlib.util.spec_from_file_location(
             "keychain_env", importin_path, loader=loader
         )
-        if spec is None or spec.loader is None:
+        if spec is None:
             return False, "could not build importlib spec for importin"
         mod = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(mod)  # type: ignore[union-attr]
+        loader.exec_module(mod)
         mod.load_keychain_env()
         # Verify the key is now present
         key = os.environ.get("PERPLEXITY_API_KEY")

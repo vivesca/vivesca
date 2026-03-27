@@ -130,7 +130,6 @@ def _parse_transactions(full_text: str, year_str: str) -> list[Transaction]:
         if not m:
             continue
 
-        post_date_raw = m.group(1)  # noqa: F841 — reserved for future use
         trans_date_raw = m.group(2)
         desc_amount = m.group(3)
 

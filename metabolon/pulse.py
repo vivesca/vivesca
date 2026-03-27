@@ -380,7 +380,7 @@ def sense_disk_pressure() -> bool:
     record_event("disk_pressure", free_gb=round(free_gb, 1), action="lysosome")
 
     try:
-        from metabolon.tools.checkpoint import lysosome_digest
+        from metabolon.tools.interoception import lysosome_digest
 
         result = lysosome_digest()
         log(f"Lysosome: freed {result.freed_gb}GB ({result.before_gb}→{result.after_gb}GB)")

@@ -36,7 +36,7 @@ def _get_key(env_var: str) -> str:
     return key
 
 
-def search_perplexity(query: str, timeout: int = 30) -> SearchResult:  # noqa: ARG001
+def search_perplexity(query: str, _timeout: int = 30) -> SearchResult:
     """Perplexity sonar — fast, synthesised answer with citations."""
     try:
         answer = chemotaxis_engine.recall(query)

@@ -1,13 +1,13 @@
 import pytest
 
-from metabolon.tools.checkpoint import anabolism_flywheel
+from metabolon.tools.interoception import anabolism_flywheel
 
 
 @pytest.fixture
 def mock_health_log(tmp_path, monkeypatch):
     """Mock the health log path to a temp file."""
     log_path = tmp_path / "Symptom Log.md"
-    monkeypatch.setattr("metabolon.tools.checkpoint.HEALTH_LOG", str(log_path))
+    monkeypatch.setattr("metabolon.tools.interoception.HEALTH_LOG", str(log_path))
     return log_path
 
 
@@ -35,7 +35,7 @@ def mock_all(monkeypatch, mock_health_log):
 
     monkeypatch.setattr("metabolon.organelles.chemoreceptor.today", _mock_chemoreceptor_today)
     monkeypatch.setattr("metabolon.organelles.circadian_clock.scheduled_events", _mock_scheduled_events)
-    monkeypatch.setattr("metabolon.tools.checkpoint.subprocess.run", _mock_subprocess_run)
+    monkeypatch.setattr("metabolon.tools.interoception.subprocess.run", _mock_subprocess_run)
     return mock_health_log
 
 
@@ -80,7 +80,7 @@ def test_flywheel_creative_slowing(monkeypatch, mock_all):
             return MockCompletedProcess("commit1\n" * 5)
         return MockCompletedProcess("")
 
-    monkeypatch.setattr("metabolon.tools.checkpoint.subprocess.run", _mock_subprocess_run)
+    monkeypatch.setattr("metabolon.tools.interoception.subprocess.run", _mock_subprocess_run)
 
     result = anabolism_flywheel()
     creative_link = next(lk for lk in result.links if lk["name"] == "creative")
@@ -124,7 +124,7 @@ def test_flywheel_break_point_priority(monkeypatch, mock_all):
             return MockCompletedProcess("commit1\n" * 5)
         return MockCompletedProcess("")
 
-    monkeypatch.setattr("metabolon.tools.checkpoint.subprocess.run", _mock_subprocess_run)
+    monkeypatch.setattr("metabolon.tools.interoception.subprocess.run", _mock_subprocess_run)
 
     result = anabolism_flywheel()
     # LLM now interprets — verify raw data is present for both low-scoring links
