@@ -917,7 +917,15 @@ def mod_context(data):
     parked = _read_parked()
     if not parked:
         return []
-    items = "\n".join(f"  - {p}" for p in parked[:5])
+    # Deduplicate and truncate — keep token cost under ~200
+    seen = set()
+    unique = []
+    for p in parked:
+        key = p[:50].lower()
+        if key not in seen:
+            seen.add(key)
+            unique.append(p[:150])
+    items = "\n".join(f"  - {p}" for p in unique[:5])
     return [f"Parked from earlier today (may be relevant):\n{items}"]
 
 
