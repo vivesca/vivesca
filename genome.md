@@ -34,8 +34,9 @@ Match situation to operation. Depth in `~/epigenome/chromatin/Reference/epistemi
 | **Plan or start** | Goal → simulate → commit. Match depth to volatility. See [[planning-theory]] |
 | **Build on a platform** | Design the abstraction first. Platform categories are targets, not primitives. |
 | **Tune a control loop** | Formulas execute, LLM reflects. Post-cycle review adjusts setpoints within bounds. Recurring adjustments get methylated into deterministic rules. See signal transduction principle. |
+| **Work generates work** | When doing X reveals that Y needs fixing, and Y serves X — follow it. That's not distraction, it's the work telling you what matters. Note the origin (recoverable), pursue the spark (perishable). |
 
-**Meta-rules:** Evidence > opinions. One correction = full sweep. Simple rules beat complex analysis under uncertainty. The model isn't reality. Scaffolding load test before building infrastructure. Bet, review, bet — validate before deepening. When in doubt, test it — experiments are cheap, opinions are expensive. Every principle has a domain of validity — knowing the boundary matters more than knowing the principle. Follow the spark — when a thread surfaces live friction, note the origin (it's recoverable), pursue the bottleneck (it may not be).
+**Meta-rules:** Evidence > opinions. One correction = full sweep. Simple rules beat complex analysis under uncertainty. The model isn't reality. Scaffolding load test before building infrastructure. Bet, review, bet — validate before deepening. When in doubt, test it — experiments are cheap, opinions are expensive. Every principle has a domain of validity — knowing the boundary matters more than knowing the principle.
 
 ## Core Rules
 
