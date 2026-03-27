@@ -1,4 +1,4 @@
-from metabolon.locus import chromatin, praxis
+from metabolon.locus import chromatin, experiments as EXPERIMENTS_DIR, praxis
 
 """interoception — sensing internal state (health, system, financial).
 
@@ -269,6 +269,74 @@ def circadian_sleep(period: str = "today") -> CircadianResult:
                 f"[{w.get('source')}]"
             )
         lines.append("")
+
+    # --- Active Experiments ---
+    try:
+        exp_lines: list[str] = []
+        today = datetime.date.today()
+        for exp_file in sorted(EXPERIMENTS_DIR.glob("peira-*.md")):
+            text = exp_file.read_text()
+            # Extract front matter
+            fm_match = re.match(r"^---\n(.*?)\n---", text, re.DOTALL)
+            if not fm_match:
+                continue
+            fm = fm_match.group(1)
+            status_m = re.search(r"^status:\s*(\S+)", fm, re.MULTILINE)
+            if not status_m or status_m.group(1).strip('"') != "active":
+                continue
+            name_m = re.search(r'^name:\s*"?([^"\n]+)"?', fm, re.MULTILINE)
+            start_m = re.search(r"^start_date:\s*(\S+)", fm, re.MULTILINE)
+            hyp_m = re.search(r"^hypothesis:\s*\"?([^\"\n]+)\"?", fm, re.MULTILINE)
+            name = name_m.group(1).strip() if name_m else exp_file.stem
+            hypothesis = hyp_m.group(1).strip() if hyp_m else ""
+            day_num = ""
+            if start_m:
+                try:
+                    start_date = datetime.date.fromisoformat(start_m.group(1))
+                    day_num = (today - start_date).days + 1
+                except ValueError:
+                    pass
+            # Duration from end_date
+            end_m = re.search(r"^end_date:\s*(\S+)", fm, re.MULTILINE)
+            total_days = ""
+            if end_m and start_m:
+                try:
+                    end_date = datetime.date.fromisoformat(end_m.group(1))
+                    total_days = (end_date - start_date).days + 1
+                except ValueError:
+                    pass
+            # Most recent check-in: last ### Day N line + following metrics
+            checkin_blocks = re.findall(
+                r"(### Day \d+[^\n]*\n(?:[^\n#][^\n]*\n)*)", text
+            )
+            checkin_summary = ""
+            if checkin_blocks:
+                last = checkin_blocks[-1]
+                readiness_m = re.search(r"Readiness:\s*avg\s*([\d.]+)", last)
+                sleep_m = re.search(r"Sleep:\s*avg\s*([\d.]+)", last)
+                parts = []
+                if sleep_m:
+                    parts.append(f"sleep {sleep_m.group(1)}")
+                if readiness_m:
+                    parts.append(f"readiness {readiness_m.group(1)}")
+                if parts:
+                    checkin_summary = f" Last check-in: {', '.join(parts)}."
+            # Baseline readiness
+            baseline_m = re.search(r"Readiness:\s*avg\s*([\d.]+)", text)
+            baseline_val = baseline_m.group(1) if baseline_m else None
+            day_label = f"Day {day_num} of {total_days}" if day_num and total_days else (f"Day {day_num}" if day_num else "")
+            label = f"{name} ({day_label})" if day_label else name
+            hyp_short = hypothesis.split(",")[0] if hypothesis else ""
+            line = f"{label}: {hyp_short}."
+            if baseline_val:
+                line += f" Baseline readiness: {baseline_val}."
+            line += checkin_summary
+            exp_lines.append(line)
+        if exp_lines:
+            lines.append("--- Active Experiments ---")
+            lines.extend(exp_lines)
+    except Exception:
+        pass  # Never let experiment parsing break the main output
 
     return CircadianResult(summary="\n".join(lines))
 
@@ -660,6 +728,28 @@ def lysosome_digest() -> LysosomeResult:
     )
 
 
+def _cross_link_experiment_symptom(symptom: str, severity: str, notes: str) -> str | None:
+    """If an active experiment watches keywords matching this symptom or notes, append a note."""
+    if not EXPERIMENTS_DIR.exists():
+        return None
+
+    combined = f"{symptom} {notes}".lower()
+    for exp_file in EXPERIMENTS_DIR.glob("peira-*.md"):
+        text = exp_file.read_text()
+        if "status: active" not in text:
+            continue
+        # Extract watch_keywords from frontmatter
+        match = re.search(r"watch_keywords:\s*\[(.+?)\]", text)
+        if not match:
+            continue
+        keywords = [kw.strip().lower() for kw in match.group(1).split(",")]
+        if any(kw in combined for kw in keywords):
+            intake_note = f"\n> **Symptom logged:** {symptom} (severity: {severity}) — {notes}\n"
+            exp_file.write_text(text.rstrip() + "\n" + intake_note + "\n")
+            return f"Cross-linked to experiment: {exp_file.name}"
+    return None
+
+
 @tool(
     name="nociception_log",
     description="Log a symptom to vault health log.",
@@ -676,7 +766,13 @@ def nociception_log(symptom: str, severity: str = "mild", notes: str = "") -> Ef
     with open(HEALTH_LOG, "a") as f:
         f.write(entry)
 
-    return EffectorResult(success=True, message=f"Logged: {symptom} ({severity}) on {today}")
+    message = f"Logged: {symptom} ({severity}) on {today}"
+
+    xlink = _cross_link_experiment_symptom(symptom, severity, notes)
+    if xlink:
+        message += f"\n{xlink}"
+
+    return EffectorResult(success=True, message=message)
 
 
 class AnabolismLink(Secretion):

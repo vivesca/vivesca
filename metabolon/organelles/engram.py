@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import difflib
 import json
 import re
 import sys
@@ -692,6 +693,196 @@ def _print_json_search(matches: list[TraceFragment]) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Fuzzy fallback helpers
+# ---------------------------------------------------------------------------
+
+_PLAIN_WORD_RE = re.compile(r"^[A-Za-z0-9_\-]+$")
+_WORD_SPLIT_RE = re.compile(r"[A-Za-z0-9_\-]+")
+
+
+def _is_plain_word(query: str) -> bool:
+    """Return True if the query contains no regex metacharacters."""
+    return bool(_PLAIN_WORD_RE.match(query))
+
+
+def _collect_words_from_transcripts(
+    start_ms: int,
+    end_ms: int,
+    tool_filter: str | None,
+    role_filter: str | None,
+    session_filter: str | None,
+) -> set[str]:
+    """Harvest all unique words from the same transcript corpus that search() would scan."""
+    storage = _opencode_storage()
+    words: set[str] = set()
+
+    def _add_text(text: str) -> None:
+        for w in _WORD_SPLIT_RE.findall(text):
+            if len(w) >= 3:
+                words.add(w.lower())
+
+    # Claude transcripts
+    if not tool_filter or tool_filter.lower() == "claude":
+        proj_dir = _projects_dir()
+        if proj_dir.exists():
+            start_epoch = (start_ms // 1000) - 86400
+            end_epoch = (end_ms // 1000) + 86400
+            for proj in proj_dir.iterdir():
+                if not proj.is_dir():
+                    continue
+                for path in proj.iterdir():
+                    if path.suffix != ".jsonl":
+                        continue
+                    try:
+                        if not (start_epoch <= path.stat().st_mtime <= end_epoch):
+                            continue
+                    except OSError:
+                        continue
+                    try:
+                        with path.open() as f:
+                            for line in f:
+                                line = line.strip()
+                                if not line:
+                                    continue
+                                try:
+                                    entry = json.loads(line)
+                                except Exception:
+                                    continue
+                                entry_type = entry.get("type")
+                                if entry_type not in ("user", "assistant"):
+                                    continue
+                                role = "you" if entry_type == "user" else "claude"
+                                if role_filter and not _matches_role(role, role_filter):
+                                    continue
+                                ts_str = entry.get("timestamp")
+                                if not ts_str:
+                                    continue
+                                ts_dt = _parse_rfc3339(ts_str)
+                                if ts_dt is None:
+                                    continue
+                                ts_ms = int(ts_dt.timestamp() * 1000)
+                                if ts_ms < start_ms or ts_ms >= end_ms:
+                                    continue
+                                sid = entry.get("sessionId") or path.stem
+                                if session_filter and not sid.startswith(session_filter):
+                                    continue
+                                msg = entry.get("message") or {}
+                                content = msg.get("content")
+                                if content is not None:
+                                    _add_text(_extract_text(content))
+                    except Exception:
+                        continue
+
+    # OpenCode transcripts
+    if not tool_filter or tool_filter.lower() == "opencode":
+        for sess_id, msg, ts_ms in _iter_opencode_messages(start_ms, end_ms, session_filter):
+            role_str = msg.get("role") or ""
+            if role_str not in ("user", "assistant"):
+                continue
+            role = "you" if role_str == "user" else "opencode"
+            if role_filter and not _matches_role(role, role_filter):
+                continue
+            msg_id = msg.get("id")
+            if not msg_id:
+                continue
+            _add_text(_read_opencode_text(storage, msg_id))
+
+    # Prompt history files (always "you" role)
+    if not role_filter or _matches_role("you", role_filter):
+        for label, path in _history_files():
+            if tool_filter and label.lower() != tool_filter.lower():
+                continue
+            if not path.exists():
+                continue
+            try:
+                with path.open() as f:
+                    for line in f:
+                        line = line.strip()
+                        if not line:
+                            continue
+                        try:
+                            entry = json.loads(line)
+                        except Exception:
+                            continue
+                        ts = entry.get("timestamp")
+                        if not isinstance(ts, (int, float)):
+                            continue
+                        ts = int(ts)
+                        if ts < start_ms or ts >= end_ms:
+                            continue
+                        session = entry.get("sessionId") or "unknown"
+                        if session_filter and not (
+                            session.startswith(session_filter)
+                            or session[:8].startswith(session_filter)
+                        ):
+                            continue
+                        _add_text(entry.get("display") or entry.get("prompt") or "")
+            except Exception:
+                continue
+
+    return words
+
+
+def _fuzzy_search(
+    original_query: str,
+    start_ms: int,
+    end_ms: int,
+    tool_filter: str | None,
+    role_filter: str | None,
+    session_filter: str | None,
+    deep: bool,
+) -> list[TraceFragment]:
+    """Attempt fuzzy fallback when exact search returned nothing."""
+    candidates = _collect_words_from_transcripts(
+        start_ms, end_ms, tool_filter, role_filter, session_filter
+    )
+    if not candidates:
+        return []
+
+    close = difflib.get_close_matches(
+        original_query.lower(), candidates, n=5, cutoff=0.6
+    )
+    if not close:
+        return []
+
+    alternation = "|".join(re.escape(w) for w in close)
+    try:
+        fuzzy_regex = re.compile(alternation, re.IGNORECASE)
+    except re.error:
+        return []
+
+    if deep:
+        matches = _search_transcripts(
+            fuzzy_regex, start_ms, end_ms, tool_filter, role_filter, session_filter
+        )
+    else:
+        matches = _search_prompts(
+            fuzzy_regex, start_ms, end_ms, tool_filter, role_filter, session_filter
+        )
+
+    if not matches:
+        return []
+
+    # Prepend a sentinel note fragment with timestamp 0 so it sorts last
+    # (caller receives results sorted newest-first; we want the note at top
+    # so we use a timestamp just above the real matches).
+    note_ts = matches[0].timestamp_ms + 1
+    note = TraceFragment(
+        date=datetime.fromtimestamp(note_ts / 1000, tz=_HKT).strftime("%Y-%m-%d"),
+        time_str="--:--",
+        timestamp_ms=note_ts,
+        session="fuzzy",
+        role="note",
+        snippet=(
+            f"Fuzzy match (no exact results for '{original_query}', "
+            f"searching: {', '.join(close)})"
+        ),
+        tool="engram",
+    )
+    return [note, *matches]
+
+
+# ---------------------------------------------------------------------------
 # Public API (for organelle callers)
 # ---------------------------------------------------------------------------
 
@@ -722,9 +913,14 @@ def search(
     start_ms = end_ms - days * 86400 * 1000
 
     if deep:
-        return _search_transcripts(regex, start_ms, end_ms, tool, role, session)
+        results = _search_transcripts(regex, start_ms, end_ms, tool, role, session)
     else:
-        return _search_prompts(regex, start_ms, end_ms, tool, role, session)
+        results = _search_prompts(regex, start_ms, end_ms, tool, role, session)
+
+    if not results and _is_plain_word(pattern):
+        results = _fuzzy_search(pattern, start_ms, end_ms, tool, role, session, deep)
+
+    return results
 
 
 # ---------------------------------------------------------------------------

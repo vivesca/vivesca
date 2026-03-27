@@ -49,7 +49,18 @@ def format_age(seconds: float) -> str:
 
 
 def _get_oauth_token() -> str:
-    """Read OAuth token from macOS Keychain. Raises RuntimeError on failure."""
+    """Read OAuth token from CC credentials file or macOS Keychain. Raises RuntimeError on failure."""
+    # Try credentials file first (works from any context)
+    creds_file = Path.home() / ".claude" / ".credentials.json"
+    if creds_file.exists():
+        data = json.loads(creds_file.read_text())
+        oauth = data["claudeAiOauth"]
+        now_ms = int(datetime.now(UTC).timestamp() * 1000)
+        if oauth["expiresAt"] < now_ms:
+            raise RuntimeError("OAuth token expired")
+        return oauth["accessToken"]
+
+    # Fallback to Keychain
     result = subprocess.run(
         ["security", "find-generic-password", "-s", "Claude Code-credentials", "-w"],
         capture_output=True,
@@ -57,7 +68,7 @@ def _get_oauth_token() -> str:
         timeout=10,
     )
     if result.returncode != 0:
-        raise RuntimeError("No Keychain entry for 'Claude Code-credentials'")
+        raise RuntimeError("No credentials file or Keychain entry found")
 
     data = json.loads(result.stdout.strip())
     oauth = data["claudeAiOauth"]

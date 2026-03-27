@@ -28,6 +28,7 @@ from typing import Any
 # Oura data via chemoreceptor organelle
 sys.path.insert(0, str(Path.home() / "germline" / "metabolon"))
 from organelles.chemoreceptor import _fetch, _get_token
+from metabolon.locus import meal_plan as MEAL_PLAN
 
 VAULT = Path.home() / "epigenome" / "chromatin"
 EXPERIMENT_DIR = VAULT / "experiments"
@@ -75,6 +76,50 @@ def summarise_period(data: dict[str, dict]) -> dict[str, Any]:
         "hrv_balance_avg": round(sum(hrv_vals) / len(hrv_vals), 1) if hrv_vals else None,
         "hrv_balance_range": f"{min(hrv_vals)}-{max(hrv_vals)}" if hrv_vals else None,
     }
+
+
+# ---------------------------------------------------------------------------
+# Meal plan helpers
+# ---------------------------------------------------------------------------
+
+
+def pull_intake(start: str, keywords: list[str]) -> list[str]:
+    """Return Order log entries from meal plan since start_date matching any keyword."""
+    if not MEAL_PLAN.exists():
+        return []
+
+    text = MEAL_PLAN.read_text()
+    log_marker = "## Order log"
+    if log_marker not in text:
+        return []
+
+    log_start = text.index(log_marker) + len(log_marker)
+    next_section = text.find("\n## ", log_start)
+    log_section = text[log_start:next_section] if next_section != -1 else text[log_start:]
+
+    start_date = date.fromisoformat(start)
+    kws = [k.lower() for k in keywords]
+    matches: list[str] = []
+
+    for line in log_section.splitlines():
+        line = line.strip()
+        if not line.startswith("- "):
+            continue
+        # Extract date from entries like: - YYYY-MM-DD (Day): ...
+        m = re.match(r"- (\d{4}-\d{2}-\d{2})", line)
+        if not m:
+            continue
+        try:
+            entry_date = date.fromisoformat(m.group(1))
+        except ValueError:
+            continue
+        if entry_date < start_date:
+            continue
+        line_lower = line.lower()
+        if any(kw in line_lower for kw in kws):
+            matches.append(line[2:])  # strip leading "- "
+
+    return matches
 
 
 # ---------------------------------------------------------------------------
@@ -199,6 +244,15 @@ def cmd_check(args: argparse.Namespace) -> None:
     baseline_readiness = _extract_float(text, r"Readiness: avg ([\d.]+)")
     baseline_hrv = _extract_float(text, r"HRV balance: avg ([\d.]+)")
 
+    # Parse watch_keywords from frontmatter
+    kw_match = re.search(r"watch_keywords:\s*\[(.+?)\]", text)
+    watch_keywords: list[str] = []
+    if kw_match:
+        watch_keywords = [k.strip() for k in kw_match.group(1).split(",")]
+
+    # Pull matching intake entries from meal plan
+    intake_entries = pull_intake(start, watch_keywords) if watch_keywords else []
+
     # Format check-in entry
     entry = f"\n### Day {day_num} — {today}\n"
     entry += f"- Sleep: avg {summary['sleep_avg']} (baseline {baseline_sleep})"
@@ -216,6 +270,8 @@ def cmd_check(args: argparse.Namespace) -> None:
         delta = round(summary["hrv_balance_avg"] - baseline_hrv, 1)
         entry += f" [{'+' if delta > 0 else ''}{delta}]"
     entry += "\n"
+    if intake_entries:
+        entry += f"- Intake: {'; '.join(intake_entries)}\n"
 
     # Append to file
     with open(path, "a") as f:

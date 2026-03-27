@@ -3,6 +3,7 @@
 Exposes the two searchable stores that ecphory routes between:
   ecphory_engram  — search session transcripts (episodic memory)
   ecphory_chromatin — search oghma semantic memory store
+  ecphory_logs — search structured vault log files (meals, symptoms, experiments)
 
 The skill layer (SKILL.md) handles cue classification and fan-out routing.
 These tools are the deterministic search primitives it dispatches to.
@@ -10,9 +11,13 @@ These tools are the deterministic search primitives it dispatches to.
 
 from __future__ import annotations
 
+import re
+from typing import Any
+
 from fastmcp.tools import tool
 from mcp.types import ToolAnnotations
 
+from metabolon import locus
 from metabolon.organelles import chromatin as _chromatin
 from metabolon.organelles import engram as _engram
 
@@ -96,4 +101,50 @@ def ecphory_chromatin(
         content = r.get("content", "")
         if content and content[:60] != title:
             lines.append(f"    {content[:120].strip()}")
+    return "\n".join(lines)
+
+
+@tool(
+    name="ecphory_logs",
+    description="Search vault log files (meals, symptoms, experiments). Use for 'we logged X'.",
+    annotations=ToolAnnotations(readOnlyHint=True, destructiveHint=False),
+)
+def ecphory_logs(
+    query: str,
+    days: int = 30,
+) -> str:
+    """Search structured vault log files for a pattern.
+
+    Args:
+        query: Search term or regex (case-insensitive).
+        days: Not used for filtering (logs have no date index); reserved for
+              future windowing. Passed through for API consistency.
+    """
+    pattern = re.compile(query, re.IGNORECASE)
+
+    # Collect (label, path) pairs for all target files
+    targets: list[tuple[str, Any]] = [
+        ("meal_plan", locus.meal_plan),
+        ("symptom_log", locus.symptom_log),
+    ]
+    if locus.experiments.is_dir():
+        for exp_path in sorted(locus.experiments.glob("peira-*.md")):
+            targets.append((f"experiments/{exp_path.name}", exp_path))
+
+    matches: list[str] = []
+    for label, file_path in targets:
+        if not file_path.exists():
+            continue
+        try:
+            for lineno, line in enumerate(file_path.read_text(encoding="utf-8").splitlines(), 1):
+                if pattern.search(line):
+                    matches.append(f"  [{label}:{lineno}] {line.strip()}")
+        except OSError:
+            continue
+
+    if not matches:
+        return f"No matches for '{query}' in log files."
+
+    lines = [f"{len(matches)} match(es) for '{query}' in log files:"]
+    lines.extend(matches)
     return "\n".join(lines)
