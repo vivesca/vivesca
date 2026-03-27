@@ -14,7 +14,7 @@ Five shared emit clusters cover ~20 skills:
 
 Plus individual effectors:
   emit_tweet       -- post to X (wraps bird CLI)
-  emit_reminder    -- set Due alarm (wraps checkpoint CLI)
+  emit_reminder    -- set Due alarm (wraps pacemaker organelle)
   emit_vault_note  -- write/append a vault note
 
 Content secretion tools (formerly skills):
@@ -246,11 +246,11 @@ def emit_tweet(text: str) -> EffectorResult:
 
 @tool(
     name="emit_reminder",
-    description="Set a Due app reminder via checkpoint.",
+    description="Set a Due app reminder via pacemaker.",
     annotations=ToolAnnotations(readOnlyHint=False, destructiveHint=False),
 )
 def emit_reminder(title: str, date: str = "") -> EffectorResult:
-    """Add a reminder to Due via checkpoint organelle (Python direct, no subprocess)."""
+    """Add a reminder to Due via pacemaker organelle (Python direct, no subprocess)."""
     try:
         result = _pacemaker.add(title, date=date or None)
         return EffectorResult(success=True, message=result)

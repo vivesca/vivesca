@@ -137,14 +137,14 @@ OPERONS: list[Operon] = [
         reaction="plan",
         product="Family activity organised considering everyone's needs",
         substrates=["weekend approaching", "holiday", "explicit request"],
-        enzymes=["checkpoint_list", "cibus", "histone_search"],
+        enzymes=["circadian_list", "cibus", "histone_search"],
         expressed=False,
     ),
     Operon(
         reaction="gift",
         product="Gift chosen that delights this specific person",
         substrates=["birthday approaching", "holiday", "milestone"],
-        enzymes=["histone_search", "checkpoint_list", "chemotaxis_search"],
+        enzymes=["histone_search", "circadian_list", "chemotaxis_search"],
         expressed=False,
     ),
 ]

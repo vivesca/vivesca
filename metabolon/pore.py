@@ -1214,7 +1214,7 @@ def metabolism_audit(days: int):
     signal_tools: set[str] = set()
     for s in signals:
         signal_tools.add(s.tool)
-        # Also add domain prefix (e.g., "checkpoint" from "checkpoint_list")
+        # Also add domain prefix (e.g., "circadian" from "circadian_list")
         if "_" in s.tool:
             signal_tools.add(s.tool.split("_")[0])
 

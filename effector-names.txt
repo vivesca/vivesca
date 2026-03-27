@@ -72,4 +72,4 @@ usus
 usus-cached
 weekly-gather
 x-feed-to-lustro
-checkpoint
+pacemaker
