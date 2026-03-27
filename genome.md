@@ -21,28 +21,9 @@
 
 ## How to Think
 
-Match situation to operation. Depth in `~/epigenome/chromatin/euchromatin/epistemics/`.
+Epistemics library: `~/epigenome/chromatin/euchromatin/epistemics/`. Each file has `situations:` frontmatter. **When entering a skill with epistemics tags, grep the library for matching files and skim the top 2-3 most relevant before proceeding.** This is how the organism's heuristic knowledge flows into judgment — not by remembering, but by looking.
 
-| I need to... | Do this | Epistemics tag |
-|-------------|---------|---------------|
-| **Debug** | Observe first, hypothesize second. Binary search the chain. | `debug` |
-| **Get unstuck** | Change the frame before the approach. | `unstuck` |
-| **Decide under uncertainty** | Heuristics first → mental models if complex. Check assumptions, certainty, sources. | `decide` |
-| **Design a system** | Find an analogy from a mature domain. Map explicitly, build only what gaps justify. | `design` |
-| **Map is dark** | What's unknown that a cheap experiment could clarify? Clear the fog before committing. | `research` |
-| **Delegate or automate** | Spec quality > spec length. Gates not queues. Match freedom to where judgment matters. | `delegate` |
-| **Plan or start** | Goal → simulate → commit. Match depth to volatility. | `plan` |
-| **Generate options** | Constraint, combination, analogy, inversion. Force a bad option — it reveals the frame. | `brainstorm` |
-| **Build on a platform** | Design the abstraction first. Platform categories are targets, not primitives. | `build` |
-| **Communicate a finding** | Translate for the audience. Same info, different frame per stakeholder. | `communicate` |
-| **Evaluate quality** | Metric selection, Goodhart traps, vanity vs diagnostic. Calibrate before judging. | `evaluate` |
-| **Monitor a running system** | What signal means trouble? What silence is healthy? Set thresholds, not alerts. | `monitor` |
-| **Tune a control loop** | Formulas execute, LLM reflects. Recurring adjustments get methylated into deterministic rules. | `monitor` |
-| **Work generates work** | When doing X reveals Y needs fixing and Y serves X — follow it. Origin is recoverable, spark is perishable. | |
-
-Epistemics library: `~/epigenome/chromatin/euchromatin/epistemics/`. Each file has `situations:` frontmatter. Skills have `epistemics:` frontmatter listing their tags. **When entering a skill with epistemics tags, grep the library for matching files and skim the top 2-3 most relevant before proceeding.** This is how the organism's heuristic knowledge flows into judgment — not by remembering, but by looking.
-
-**Meta-rules:** Evidence > opinions. One correction = full sweep. Simple rules beat complex analysis under uncertainty. The model isn't reality. Scaffolding load test before building infrastructure. Bet, review, bet — validate before deepening. When in doubt, test it — experiments are cheap, opinions are expensive. Every principle has a domain of validity — knowing the boundary matters more than knowing the principle.
+**Meta-rules:** Evidence > opinions. One correction = full sweep. Simple rules beat complex analysis under uncertainty. The model isn't reality. When in doubt, test it — experiments are cheap, opinions are expensive. Every principle has a domain of validity — knowing the boundary matters more than knowing the principle. Work generates work — when doing X reveals Y needs fixing and Y serves X, follow it. Origin is recoverable, spark is perishable.
 
 ## Core Rules
 
@@ -126,85 +107,13 @@ Skills are bounded pipelines: invoke → agentic loop → done. `model:` and `al
 
 **Symlink safety.** When renaming a directory that is a symlink target: update the symlink FIRST, then rename the source. Never rename the source before the symlink points to the new location. Run `express` after any structural changes to verify all membrane links are intact.
 
-## Context Hygiene
-
-- Checkpoint at gear shifts — `/telophase checkpoint` when switching domains.
-- `/clear` between unrelated tasks. After 2 failed corrections, `/clear` and rewrite.
-- Subagents: haiku for lookups, sonnet for analysis, opus for judgment.
-- Parallelize independent tasks. Background only >5 min tasks.
-- Before `/clear`: flush status changes to vault files.
-
-## Write-Through Learning
-
-- `receptor-scan "<topic>"` before starting non-trivial work. `engram search` for chat history.
-- Check vault before asking personal questions — never ask Terry to re-state stored facts.
-- Vault-first for persistent data. Never `~/.cache/`, `/tmp/` for data worth keeping.
-- Act immediately with 1M context. Don't defer to "next session."
-- After corrections: daily note first. Promote if it generalises → see [[knowledge-routing]].
-- **Learning flywheel.** Every session compounds: transcript → haiku reflection scan → candidate learnings → opus judgment → memory files → future sessions load better context → fewer corrections → sharper behavior. The flywheel only turns if every session closes with reflection (`telophase`). Skipping reflection breaks the loop. The transcript is raw material, haiku is the extractor, memory is the store, future context-loading is the consumer.
-
 ## Continuous Capture
 
-Capture is continuous, not terminal. Route findings the moment they surface — don't accumulate for end-of-session.
-
-### Routing Table
-
-| Signal | Destination | Verb |
-|--------|-------------|------|
-| Correction / wrong assumption | `memory/` file + MEMORY.md index | `histone_mark` or file write |
-| Workflow improvement | Skill update (edit the skill now) | Edit |
-| Commitment / action item | Praxis.md (full context — hot todos, not stubs) | Edit |
-| Publishable insight | Garden post via `sarcio new` or tweet draft | `exocytosis_text` |
-| Tool gotcha / how-to | `~/epigenome/chromatin/immunity/solutions/` | Write |
-| State change | Tonus.md | Edit |
-| Reference knowledge (atomic) | `~/epigenome/chromatin/euchromatin/<category>/` + `engrams/finding_*.md` | Write |
-
-**Dual-audience rule.** Human-facing artifacts (vault notes, garden posts) always get a companion `engrams/finding_*.md` so a fresh session can recall the finding without searching. Two audiences, two files.
-
-### Selection Priority
-
-When triaging what to capture:
-
-1. **Prediction errors** — corrections, wrong assumptions, things that surprised. Highest signal.
-2. **Novelty** — first time this came up in the system.
-3. **Emotional weight** — strong pushback, repeated insistence, frustration.
-4. **Pattern completion** — reinforces or refines an existing memory. Update, don't duplicate.
-5. **Routine / expected** — skip only if obviously already stored verbatim.
-
-**Default is FILE.** The LLM's instinct is to over-filter ("nothing non-obvious"). Fight that. A separate process handles forgetting. Capture generously.
-
-### Integration
-
-- **Cytokinesis** (`/cytokinesis`) is the verification pass. If continuous capture worked, cytokinesis has nothing left to do. That's the ideal.
-- **Consolidation** (`interoception(consolidation)`) is the cross-session layer — promote, prune, migrate. It assumes in-session capture already happened.
-- **Compaction** (PreCompact hook) auto-commits dirty repos. It does not capture learnings — that's this protocol's job before compaction fires.
-
-### Feedback Loop
-
-Cytokinesis is the error signal. When `/cytokinesis` consistently finds uncaptured material:
-
-1. **Single miss** — capture now, no action needed. Normal.
-2. **Pattern of misses** (same category, 3+ sessions) — the routing table has a gap or the trigger is unclear. Fix the table, not the habit.
-3. **Systemic miss** (uncaptured material across categories) — continuous capture is not firing. Root cause: either context is too long (capture deferred and forgotten) or the selection filter is too aggressive. Response: add a mid-session `/cytokinesis` checkpoint at natural breakpoints (domain switch, long tool run).
-
-**The metric:** cytokinesis residual — count of findings cytokinesis captures that should have been captured inline. Trending to zero = protocol is working. Flat or rising = protocol needs a mechanism change, not a reminder.
-
-**Escalation:** If cytokinesis residual stays > 3 per session across a week, promote the issue to Praxis as a system design problem, not a discipline problem.
+Capture findings the moment they surface — don't accumulate for end-of-session. Default is FILE. Routing table and selection priority live in the cytokinesis skill. `/cytokinesis` is the verification pass — if continuous capture worked, it has nothing left to do.
 
 ## Session Start
 
-1. Read `~/epigenome/chromatin/Tonus.md`
-2. Call `interoception(glycogen)` for token budget
-3. Call `interoception(circadian)` for today's calendar
-4. Call `interoception(vitals)` for health/activity context
-5. Call `interoception(anatomy)` for current organism structure
-6. Call `interoception(effectors)` for CLI and MCP tool routing
-7. Check `[[Capco Transition]]` as needed
-8. Run `date`
-
-**Morning:** `/entrainment` (optional, weather + Tara) · **Leaving office:** `/interphase` (the one daily routine) · **Session end:** suggest `/cytokinesis`.
-
-**Lucerna monitor:** Check `tail -20 ~/epigenome/chromatin/interoception/polarization-events.jsonl` and `respirometry --json` periodically. Flag if: systoles failing consecutively, budget climbing faster than expected, or lucerna not running (`launchctl list | grep lucerna`).
+Handled by `synapse.py` (UserPromptSubmit hook) — loads tonus, constitution, calendar, vitals, anatomy, effectors automatically. No manual steps needed.
 
 ## Knowledge Architecture
 
