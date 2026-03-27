@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""delegate — route a coding task to opencode (GLM-5, free).
+"""commensal — route a coding task to opencode (GLM-5, free).
 
 Usage:
   delegate "add a pre-commit hook that scans for API keys"
@@ -91,7 +91,7 @@ def run_direct(cmd: list[str], cwd: str, timeout: int) -> tuple[str, int]:
 
 
 def main():
-    parser = argparse.ArgumentParser(prog="delegate", description="Route coding task to a free model")
+    parser = argparse.ArgumentParser(prog="commensal", description="Route coding task to a free model")
     parser.add_argument("task", help="Task description")
     parser.add_argument("-b", "--backend", default="opencode",
                         choices=list(BACKENDS.keys()), help="Backend (default: opencode)")
@@ -104,7 +104,7 @@ def main():
     timeout = max(args.timeout, TIMEOUT_FLOOR.get(backend, 0))
     cwd = args.cwd
 
-    print(f"Delegating to {backend} (CWD: {cwd})")
+    print(f"Routing to {backend} (CWD: {cwd})")
     print(f"Task: {args.task}")
     print()
 
@@ -130,7 +130,7 @@ def main():
     print(f"\nDone (exit {code})")
     if output and len(output) > 50:
         # Save output for review
-        out_path = HOME / "tmp" / f"delegate-{backend}-{int(time.time())}.txt"
+        out_path = HOME / "tmp" / f"commensal-{backend}-{int(time.time())}.txt"
         out_path.write_text(output, encoding="utf-8")
         print(f"Output: {out_path}")
 
