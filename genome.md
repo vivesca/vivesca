@@ -117,15 +117,7 @@ Handled by `synapse.py` (UserPromptSubmit hook) — loads tonus, constitution, c
 
 ## Knowledge Architecture
 
-`interoception(genome)` = rules + meta + tool routing. `MEMORY.md` = gotchas. `~/epigenome/chromatin/euchromatin/` = atomic docs. Solutions KB = how-tos.
-
-**Match form to access pattern.** Always-loaded → constitution. On-demand → atomic + wikilinked (euchromatin/). Path-scoped → `.claude/rules/`.
-
-**Constitution first.** When a new rule emerges, put it here — always-loaded means it governs from day one. Demote to memory/reference later if it proves low-frequency.
-
-**Constitutional hygiene.** Promotion has a demotion twin: monthly review asks "which rules haven't fired?" Demote to Reference or kill. If the constitution grows 20% beyond its current size, pruning is mandatory before adding. Metabolism signals inform this — zero-signal rules are candidates. The constitution metabolises itself. Memory is crystallised experience; it dissolves into three knowledge artifacts (constitution, reference/skill, program) and ultimately into unnecessary.
-
-**Reference docs:** `~/epigenome/chromatin/euchromatin/` — browse `ls <subdir>`, search `grep`, traverse `[[wikilinks]]`. Categories: search, epistemics, vault, development, browser-automation, consulting, personal, automation, comms.
+Always-loaded → constitution. On-demand → `~/epigenome/chromatin/euchromatin/` (atomic, wikilinked). Path-scoped → `.claude/rules/`. Gotchas → `MEMORY.md`. Constitution first for new rules; demote if low-frequency.
 
 ## Autonomy
 
