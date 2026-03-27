@@ -97,7 +97,7 @@ This is not a punishment — it's proprioception. The number trends toward zero 
 
 ### 3. Daily note (last step)
 
-Write the session summary to today's daily note via `emit_daily_note`. This is the **final visible output** — Terry sees it in Obsidian. Include:
+Run `cytokinesis daily "title"` to append the session log. Write the summary as **text output** in the conversation (not hidden inside an MCP tool call) so Terry can read it before it's filed. Include:
 - What was done (outcomes, not process)
 - What's parked (with enough context to resume)
 - Cytokinesis residual count
