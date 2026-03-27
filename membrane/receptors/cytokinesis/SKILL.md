@@ -64,7 +64,21 @@ If continuous capture handled most of it → quick verification pass for all thr
 
 **MEMORY.md ≥145 lines →** downregulate by recurrence signal, not by position. Check `hits:` and `last-seen:` in memory file frontmatter (updated automatically by dendrite.py on every Read). Lowest hits + oldest last-seen = downregulate candidate. Move to `~/germline/loci/antisera/memory-overflow.md` (reversible — re-promote if topic resurfaces).
 
-### 1b. Audit Signal
+### 1b. Mechanisation check
+
+Ask: **should anything from this session become a mechanism?**
+
+| Signal | Route to |
+|---|---|
+| Repeated manual step | Hook (synapse/axon/dendrite) |
+| New principle or meta-rule | Genome edit |
+| Recurring judgment pattern | Skill update or new skill |
+| Config that should be enforced | Pre-commit or ruff rule |
+| Knowledge that compounds | Epistemics file with `situations:` tags |
+
+If nothing → good. If something → build now while context is hot, or Praxis.md with full context.
+
+### 1c. Audit Signal
 
 After consolidation, count findings routed in this pass. This is the "cytokinesis residual" — findings that should have been captured mid-session but were not.
 
