@@ -105,14 +105,7 @@ Append the session log to today's daily note using the **Edit tool** (not MCP `e
 
 ## Output
 
-```
-─── Cytokinesis ──────────────────────────────────
-Filed: [exact file paths]
-Published: [tweets/garden posts or "none"]
-Daily: [daily note title]
-Done.
-─────────────────────────────────────────────────
-```
+No text summary block. The daily note Edit **is** the output — Terry reads it in the Update diff. If the Edit happened, cytokinesis is done. If it didn't, it's not.
 
 ## CLI: `cytokinesis` (on PATH)
 
