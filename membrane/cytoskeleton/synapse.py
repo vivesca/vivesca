@@ -333,6 +333,8 @@ CHEMO_KEYWORDS = [
     (r"\brun exp(eriment)?\b", "Experiment -> invoke `peira` skill first"),
     (r"\bcompare .{3,40} vs\b", "Comparison -> invoke `peira` skill first"),
     (r"\bbenchmark\b", "Benchmark -> invoke `peira` skill first"),
+    (r"\b(worked before|used to work|stopped working|broke[n]?|not found|command not found|regression|troubleshoot)\b",
+     "Diagnosis -> invoke /etiology skill. Frame the problem (regression? new issue?) before attempting fixes"),
 ]
 
 
