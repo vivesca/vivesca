@@ -54,7 +54,7 @@ If unfinished work exists: **finish it or park it with context — don't consoli
 
 Three things in parallel:
 
-1. **Ask Terry: "What's worth keeping?"** — the nucleus knows what mattered.
+1. **Ask Terry: "What's worth keeping?"** — the nucleus knows what mattered. **Wait for the answer.** Don't pre-empt with your own list. Terry's signal is higher-value than LLM extraction — things that felt important, surprising, or painful to the human are the highest-fidelity captures. Present your candidates *after* Terry's, as a "did I miss anything?" check.
 2. **Run `cytokinesis gather`** — LLM extracts what it thinks is valuable.
 3. **Source data check:** Were any factual data points (metrics, thresholds, figures, dates, decisions) entered by the user that fed deliverables (emails, gists, slides) but were not persisted to vault or histone? Route hits to `~/epigenome/chromatin/euchromatin/work/` vault notes via `emit_vault_note`.
 
