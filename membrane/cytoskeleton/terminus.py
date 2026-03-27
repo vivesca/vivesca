@@ -78,7 +78,7 @@ def mod_anabolism():
         return
     try:
         r = subprocess.run(
-            ["respirometry-cached", "--budget"], capture_output=True, text=True, timeout=2
+            ["respirometry", "--budget"], capture_output=True, text=True, timeout=2
         )
         budget = r.stdout.strip().lower() or "unknown"
     except Exception:

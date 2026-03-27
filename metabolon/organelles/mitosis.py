@@ -49,6 +49,13 @@ SYNC_TARGETS: list[dict] = [
         "repo": "terry-li-hm/scripts",
         "critical": False,
     },
+    {
+        "name": "claude-config",
+        "local": "~/.claude",
+        "remote": f"{LUCERNA_HOME}/.claude",
+        "repo": "terry-li-hm/claude-config",
+        "critical": False,
+    },
 ]
 
 

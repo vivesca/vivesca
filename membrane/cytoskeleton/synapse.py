@@ -222,7 +222,7 @@ ALLO_CIRCADIAN = {
 def _allo_budget():
     try:
         r = subprocess.run(
-            ["respirometry-cached", "--budget"], capture_output=True, text=True, timeout=2
+            ["respirometry", "--budget"], capture_output=True, text=True, timeout=2
         )
         return r.stdout.strip() or "unknown"
     except Exception:

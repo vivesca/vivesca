@@ -22,7 +22,6 @@ paracrine
 quorum
 receptor-scan
 respirometry
-respirometry-cached
 search-guard
 synthase
 synaxis
@@ -69,8 +68,6 @@ taste-score
 tm
 transduction-daily-run
 update-compound-engineering
-usus
-usus-cached
 weekly-gather
 x-feed-to-lustro
 pacemaker

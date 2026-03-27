@@ -2091,3 +2091,45 @@ def mitosis_setup():
     else:
         click.echo(click.style("\nSetup incomplete — check failures above.", fg="red"))
         raise SystemExit(1)
+
+
+# ── conjugation ──────────────────────────────────────────────────────────────
+
+
+@cli.group()
+def conjugation():
+    """Cross-pollinate configuration between Claude Code and Gemini CLI."""
+    pass
+
+
+@conjugation.group()
+def replicate():
+    """Replicate CC config to a target CLI."""
+    pass
+
+
+@replicate.command("gemini")
+@click.option("--hooks-only", is_flag=True, help="Replicate hooks only, skip MCP servers.")
+@click.option("--mcp-only", is_flag=True, help="Replicate MCP servers only, skip hooks.")
+@click.option("--dry-run", is_flag=True, help="Show diff without writing to disk.")
+def replicate_gemini(hooks_only: bool, mcp_only: bool, dry_run: bool):
+    """Replicate Claude Code config → ~/.gemini/settings.json.
+
+    Merges hooks and MCP server definitions from ~/.claude/settings.json into
+    ~/.gemini/settings.json, preserving all other Gemini CLI fields.
+
+    Event mapping: UserPromptSubmit→BeforeModel, PreToolUse→BeforeTool,
+    PostToolUse→AfterTool, Stop→AfterModel.
+    """
+    from metabolon.organelles.conjugation_engine import replicate_to_gemini
+
+    result, diff_text = replicate_to_gemini(
+        hooks_only=hooks_only,
+        mcp_only=mcp_only,
+        dry_run=dry_run,
+    )
+
+    if dry_run or diff_text != "(no changes)":
+        click.echo(diff_text)
+
+    click.echo(result.summary)

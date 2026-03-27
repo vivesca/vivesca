@@ -34,3 +34,5 @@
 {"ts": "2026-03-27T09:25:40+00:00", "model": "sonar", "query": "Terminal-Bench benchmark methodology criticism limitations,Terminal-Bench leaderboard top rankings 2026 CLI agents,Terminal-Bench vs SWE-bench coding agent benchmarks comparison"}
 {"ts": "2026-03-27T09:29:35+00:00", "model": "sonar", "query": "Goose CLI gemini-acp provider setup configuration 2026"}
 {"ts": "2026-03-27T09:51:17+00:00", "model": "sonar", "query": "Gemini 3.1 Pro model name API identifier March 2026,Gemini CLI supported models gemini-3.1-pro 2026"}
+{"ts": "2026-03-27T12:17:21+00:00", "model": "sonar", "query": "Gemini CLI hooks system BeforeTool AfterTool lifecycle events 2026,Gemini CLI custom commands extensions skills equivalent,Gemini CLI GEMINI.md customization agents subagents"}
+{"ts": "2026-03-27T12:28:55+00:00", "model": "sonar", "query": "Gemini CLI subagents support 2026 tool isolation PR 21935,Gemini CLI agent dispatch spawn subprocess equivalent Claude Code Agent tool"}

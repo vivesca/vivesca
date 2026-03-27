@@ -300,7 +300,7 @@ def vasomotor_status() -> str:
     # Fall back to cached
     try:
         result = subprocess.run(
-            ["respirometry-cached", "--budget", "--overnight"],
+            ["respirometry", "--budget", "--overnight"],
             capture_output=True,
             text=True,
             timeout=5,
