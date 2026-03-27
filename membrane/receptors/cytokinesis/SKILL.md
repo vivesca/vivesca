@@ -97,7 +97,7 @@ This is not a punishment — it's proprioception. The number trends toward zero 
 
 ### 3. Daily note (last step)
 
-Run `cytokinesis daily "title"` to append the session log. Write the summary as **text output** in the conversation (not hidden inside an MCP tool call) so Terry can read it before it's filed. Include:
+Append the session log to today's daily note using the **Edit tool** (not MCP `emit_daily_note` or CLI). The Edit tool renders as an inline diff in CC — Terry can read the full summary without expanding a collapsed tool call. Include:
 - What was done (outcomes, not process)
 - What's parked (with enough context to resume)
 - Cytokinesis residual count
