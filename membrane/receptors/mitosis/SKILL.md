@@ -36,7 +36,7 @@ If either fails, mark as skipped and continue.
 ```bash
 lustro check 2>&1 | grep "<-\|(stale)\|x0)"
 ```
-Fix URL-rotted sources in `~/.config/lustro/sources.yaml`. Remove dead sources.
+Fix URL-rotted sources in `~/.config/endocytosis/sources.yaml`. Remove dead sources.
 
 ### Vault hygiene
 - `python3 ~/scripts/generate-solutions-index.py` — regenerate solutions KB index
