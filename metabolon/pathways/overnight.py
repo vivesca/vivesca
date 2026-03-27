@@ -35,11 +35,11 @@ tags: [ai, agents, design, vivesca]
 
 
 def _acquire_catalyst():
-    """Import and return the shared llm module — the reaction catalyst."""
+    """Import and return the shared symbiont module — the reaction catalyst."""
 
-    from metabolon import symbiont as llm
+    from metabolon import symbiont
 
-    return llm
+    return symbiont
 
 
 def _sterile_env() -> dict:

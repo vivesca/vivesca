@@ -16,8 +16,8 @@ from metabolon.organelles.mitosis import (
     LUCERNA_APP,
     LUCERNA_HOME,
     SYNC_TARGETS,
-    SyncReport,
-    SyncResult,
+    FidelityReport,
+    ReplicationResult,
     _git_push,
     _is_gemmule_reachable,
     setup,
@@ -28,24 +28,24 @@ from metabolon.organelles.mitosis import (
 # ── Unit tests (no network) ──────────────────────────────────
 
 
-class TestSyncResult:
+class TestReplicationResult:
     def test_basic(self):
-        r = SyncResult("test", True, 1.5, "ok")
+        r = ReplicationResult("test", True, 1.5, "ok")
         assert r.success
         assert r.elapsed_s == 1.5
 
     def test_failure(self):
-        r = SyncResult("test", False, 0.5, "boom")
+        r = ReplicationResult("test", False, 0.5, "boom")
         assert not r.success
         assert r.message == "boom"
 
 
-class TestSyncReport:
+class TestFidelityReport:
     def test_summary(self):
-        report = SyncReport(
+        report = FidelityReport(
             results=[
-                SyncResult("a", True, 1.0),
-                SyncResult("b", False, 2.0, "fail"),
+                ReplicationResult("a", True, 1.0),
+                ReplicationResult("b", False, 2.0, "fail"),
             ],
             started=0,
             finished=5.0,
@@ -56,21 +56,21 @@ class TestSyncReport:
     def test_ok_ignores_non_critical(self):
         """Non-critical failures don't make the report fail."""
         # scripts is not critical
-        report = SyncReport(
+        report = FidelityReport(
             results=[
-                SyncResult("germline", True, 1.0),
-                SyncResult("epigenome", True, 1.0),
-                SyncResult("scripts", False, 1.0, "fail"),
+                ReplicationResult("germline", True, 1.0),
+                ReplicationResult("epigenome", True, 1.0),
+                ReplicationResult("scripts", False, 1.0, "fail"),
             ],
         )
         assert report.ok
 
     def test_ok_fails_on_critical(self):
         """Critical target failure makes report fail."""
-        report = SyncReport(
+        report = FidelityReport(
             results=[
-                SyncResult("germline", False, 1.0, "fail"),
-                SyncResult("epigenome", True, 1.0),
+                ReplicationResult("germline", False, 1.0, "fail"),
+                ReplicationResult("epigenome", True, 1.0),
             ],
         )
         assert not report.ok

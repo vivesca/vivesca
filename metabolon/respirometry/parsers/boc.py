@@ -8,7 +8,7 @@ from pathlib import Path
 
 from pypdf import PdfReader
 
-from metabolon.respirometry.schema import StatementMeta, Transaction
+from metabolon.respirometry.schema import RespirogramMeta, ConsumptionEvent
 
 # Transaction line: DD-MON DD-MON description  location  HKG  amount [CR]
 _TXN_PAT = re.compile(
@@ -22,7 +22,7 @@ _BALANCE_BF_PAT = re.compile(r"BALANCE B/F\s+([\d,]+\.\d{2})")
 _ODD_CENTS_PAT = re.compile(r"ODD CENTS TO NEXT BILL\s+([\d,]+\.\d{2})\s*(CR)?")
 
 
-def extract_boc(pdf_path: Path) -> tuple[StatementMeta, list[Transaction]]:
+def extract_boc(pdf_path: Path) -> tuple[RespirogramMeta, list[ConsumptionEvent]]:
     """Parse a BOC Credit Card statement PDF.
 
     Returns (metadata, transactions). Raises ValueError if balance validation
@@ -65,7 +65,7 @@ def extract_boc(pdf_path: Path) -> tuple[StatementMeta, list[Transaction]]:
     return meta, txns
 
 
-def _extract_metadata(text: str) -> StatementMeta:
+def _extract_metadata(text: str) -> RespirogramMeta:
     """Extract statement-level metadata from PDF text.
 
     BOC Payment Slip is a table where labels and values are on separate lines.
@@ -119,7 +119,7 @@ def _extract_metadata(text: str) -> StatementMeta:
     if statement_date:
         period_end = datetime.strptime(statement_date, "%Y-%m-%d").strftime("%d %b %Y")
 
-    return StatementMeta(
+    return RespirogramMeta(
         bank="boc",
         card=card,
         period_start=period_start,
@@ -132,7 +132,7 @@ def _extract_metadata(text: str) -> StatementMeta:
     )
 
 
-def _parse_transactions(full_text: str, statement_date: str) -> list[Transaction]:
+def _parse_transactions(full_text: str, statement_date: str) -> list[ConsumptionEvent]:
     """Parse transaction lines from BOC statement text."""
     lines = full_text.split("\n")
     raw_txns: list[dict] = []
@@ -185,7 +185,7 @@ def _parse_transactions(full_text: str, statement_date: str) -> list[Transaction
         )
 
     return [
-        Transaction(
+        ConsumptionEvent(
             date=t["date"],
             merchant=t["merchant"],
             category="",

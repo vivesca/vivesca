@@ -142,7 +142,7 @@ def _matches_role(role: str, filt: str) -> bool:
 
 
 @dataclass(slots=True)
-class Prompt:
+class EngramRecord:
     time_str: str
     timestamp_ms: int
     session: str
@@ -152,7 +152,7 @@ class Prompt:
 
 
 @dataclass(slots=True)
-class SearchMatch:
+class TraceFragment:
     date: str
     time_str: str
     timestamp_ms: int
@@ -251,9 +251,9 @@ def _read_opencode_text(storage: Path, msg_id: str) -> str:
 # ---------------------------------------------------------------------------
 
 
-def _scan_opencode(start_ms: int, end_ms: int) -> list[Prompt]:
+def _scan_opencode(start_ms: int, end_ms: int) -> list[EngramRecord]:
     storage = _opencode_storage()
-    prompts: list[Prompt] = []
+    prompts: list[EngramRecord] = []
 
     for sess_id, msg, ts_ms in _iter_opencode_messages(start_ms, end_ms, session_filter=None):
         if msg.get("role") != "user":
@@ -267,7 +267,7 @@ def _scan_opencode(start_ms: int, end_ms: int) -> list[Prompt]:
         if prompt_text:
             dt = _ms_to_hkt(ts_ms)
             prompts.append(
-                Prompt(
+                EngramRecord(
                     time_str=dt.strftime("%H:%M"),
                     timestamp_ms=ts_ms,
                     session=sess_id[:8],
@@ -285,9 +285,9 @@ def _scan_opencode(start_ms: int, end_ms: int) -> list[Prompt]:
 # ---------------------------------------------------------------------------
 
 
-def _scan_history(date_str: str, tool_filter: str | None = None) -> list[Prompt]:
+def _scan_history(date_str: str, tool_filter: str | None = None) -> list[EngramRecord]:
     start_ms, end_ms = _date_to_range_ms(date_str)
-    prompts: list[Prompt] = []
+    prompts: list[EngramRecord] = []
 
     for label, path in _history_files():
         if tool_filter and label.lower() != tool_filter.lower():
@@ -314,7 +314,7 @@ def _scan_history(date_str: str, tool_filter: str | None = None) -> list[Prompt]
                     session = entry.get("sessionId") or "unknown"
                     dt = _ms_to_hkt(ts)
                     prompts.append(
-                        Prompt(
+                        EngramRecord(
                             time_str=dt.strftime("%H:%M"),
                             timestamp_ms=ts,
                             session=session[:8],
@@ -345,13 +345,13 @@ def _search_prompts(
     tool_filter: str | None,
     role_filter: str | None,
     session_filter: str | None,
-) -> list[SearchMatch]:
+) -> list[TraceFragment]:
     # Prompts are always role "you" — if filtering for other roles, skip
     if role_filter and not _matches_role("you", role_filter):
         return []
 
     storage = _opencode_storage()
-    matches: list[SearchMatch] = []
+    matches: list[TraceFragment] = []
 
     for label, path in _history_files():
         if tool_filter and label.lower() != tool_filter.lower():
@@ -385,7 +385,7 @@ def _search_prompts(
                     if m:
                         dt = _ms_to_hkt(ts)
                         matches.append(
-                            SearchMatch(
+                            TraceFragment(
                                 date=dt.strftime("%Y-%m-%d"),
                                 time_str=dt.strftime("%H:%M"),
                                 timestamp_ms=ts,
@@ -413,7 +413,7 @@ def _search_prompts(
             if mo:
                 dt = _ms_to_hkt(ts_ms)
                 matches.append(
-                    SearchMatch(
+                    TraceFragment(
                         date=dt.strftime("%Y-%m-%d"),
                         time_str=dt.strftime("%H:%M"),
                         timestamp_ms=ts_ms,
@@ -440,9 +440,9 @@ def _search_transcripts(
     tool_filter: str | None,
     role_filter: str | None,
     session_filter: str | None,
-) -> list[SearchMatch]:
+) -> list[TraceFragment]:
     storage = _opencode_storage()
-    matches: list[SearchMatch] = []
+    matches: list[TraceFragment] = []
 
     # Claude transcripts
     if not tool_filter or tool_filter.lower() == "claude":
@@ -514,7 +514,7 @@ def _search_transcripts(
                                 hkt_dt = ts_dt.astimezone(_HKT)
                                 session = entry.get("sessionId") or path.stem
                                 matches.append(
-                                    SearchMatch(
+                                    TraceFragment(
                                         date=hkt_dt.strftime("%Y-%m-%d"),
                                         time_str=hkt_dt.strftime("%H:%M"),
                                         timestamp_ms=ts_ms,
@@ -551,7 +551,7 @@ def _search_transcripts(
             if m:
                 dt = _ms_to_hkt(ts_ms)
                 matches.append(
-                    SearchMatch(
+                    TraceFragment(
                         date=dt.strftime("%Y-%m-%d"),
                         time_str=dt.strftime("%H:%M"),
                         timestamp_ms=ts_ms,
@@ -571,7 +571,7 @@ def _search_transcripts(
 # ---------------------------------------------------------------------------
 
 
-def _print_scan(prompts: list[Prompt], date_str: str, full: bool) -> None:
+def _print_scan(prompts: list[EngramRecord], date_str: str, full: bool) -> None:
     # Build session index
     sessions: dict[str, dict] = {}
     for p in prompts:
@@ -628,7 +628,7 @@ def _print_scan(prompts: list[Prompt], date_str: str, full: bool) -> None:
 
 
 def _print_search(
-    matches: list[SearchMatch],
+    matches: list[TraceFragment],
     pattern: str,
     days: int,
     deep: bool,
@@ -648,7 +648,7 @@ def _print_search(
         print("No matches found.")
         return
 
-    by_date: dict[str, list[SearchMatch]] = {}
+    by_date: dict[str, list[TraceFragment]] = {}
     for m in matches:
         by_date.setdefault(m.date, []).append(m)
 
@@ -664,7 +664,7 @@ def _print_search(
         print()
 
 
-def _print_json_scan(prompts: list[Prompt], date_str: str) -> None:
+def _print_json_scan(prompts: list[EngramRecord], date_str: str) -> None:
     sessions: dict[str, int] = {}
     for p in prompts:
         sessions[p.session_full] = sessions.get(p.session_full, 0) + 1
@@ -687,7 +687,7 @@ def _print_json_scan(prompts: list[Prompt], date_str: str) -> None:
     print(json.dumps(output, indent=2))
 
 
-def _print_json_search(matches: list[SearchMatch]) -> None:
+def _print_json_search(matches: list[TraceFragment]) -> None:
     print(json.dumps([asdict(m) for m in matches], indent=2))
 
 
@@ -696,7 +696,7 @@ def _print_json_search(matches: list[SearchMatch]) -> None:
 # ---------------------------------------------------------------------------
 
 
-def scan(date: str = "today", tool: str | None = None) -> list[Prompt]:
+def scan(date: str = "today", tool: str | None = None) -> list[EngramRecord]:
     """Return prompts for a given date. date = 'today', 'yesterday', or YYYY-MM-DD."""
     date_str = _resolve_date(date)
     return _scan_history(date_str, tool)
@@ -709,7 +709,7 @@ def search(
     tool: str | None = None,
     role: str | None = None,
     session: str | None = None,
-) -> list[SearchMatch]:
+) -> list[TraceFragment]:
     """Search chat history. deep=True searches full transcripts; False = prompts only."""
     try:
         regex = re.compile(pattern, re.IGNORECASE)

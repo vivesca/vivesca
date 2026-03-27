@@ -7,9 +7,9 @@ from pathlib import Path
 from typing import TYPE_CHECKING, TypeAlias
 
 if TYPE_CHECKING:
-    from metabolon.respirometry.schema import StatementMeta, Transaction
+    from metabolon.respirometry.schema import RespirogramMeta, ConsumptionEvent
 
-Parser: TypeAlias = Callable[[Path], "tuple[StatementMeta, list[Transaction]]"]
+Parser: TypeAlias = Callable[[Path], "tuple[RespirogramMeta, list[ConsumptionEvent]]"]
 
 _REGISTRY: dict[str, Parser] = {}
 

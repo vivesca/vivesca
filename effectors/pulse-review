@@ -14,13 +14,10 @@ Saves combined results to ~/tmp/copia-review-YYYY-MM-DD.md.
 """
 
 import sys
-import os
 from datetime import datetime
 from pathlib import Path
 
-# Shared dispatch module
-sys.path.insert(0, os.path.expanduser("~/code/vivesca/lib"))
-from llm import parallel_query
+from metabolon.symbiont import parallel_transduce as parallel_query
 
 MODELS = ["gemini-3.1-pro", "codex"]
 TIMEOUT = 120

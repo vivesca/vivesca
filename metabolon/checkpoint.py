@@ -1,4 +1,4 @@
-"""dispatch_gate — poiesis phantom obligation filter.
+"""checkpoint — immune checkpoint filter for task dispatch.
 
 Deterministic gate that runs before any task is dispatched or before an
 agent:terry item is written to Praxis.  No LLM calls.  No side effects.
@@ -91,7 +91,7 @@ MAX_TERRY_PER_SYSTOLE = 3
 # ---------------------------------------------------------------------------
 
 
-def dispatch_gate(task: dict) -> tuple[bool, str]:
+def should_suppress(task: dict) -> tuple[bool, str]:
     """Check if a task should be dispatched.
 
     Args:
@@ -174,7 +174,7 @@ def is_terry_tag_approved(
             "agent:terry items already queued — route to archive instead"
         )
 
-    approved, reason = dispatch_gate(
+    approved, reason = should_suppress(
         {
             "description": task_description,
             "sourced": sourced,
@@ -210,7 +210,7 @@ def sweep_praxis_for_phantoms(praxis_text: str) -> list[dict]:
             continue  # already resolved
 
         # Run heuristic gate (sourced=False conservative assumption)
-        approved, reason = dispatch_gate(
+        approved, reason = should_suppress(
             {
                 "description": line,
                 "sourced": False,

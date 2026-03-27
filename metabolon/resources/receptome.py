@@ -11,8 +11,8 @@ from pathlib import Path
 
 import yaml
 
-_SKILLS_ROOT = Path.home() / "skills"
-_SUBDIRS = ["compound-engineering", "superpowers"]
+_SKILLS_ROOT = Path.home() / ".claude" / "skills"
+_SUBDIRS: list[str] = []
 
 
 def _parse_frontmatter(path: Path) -> dict | None:

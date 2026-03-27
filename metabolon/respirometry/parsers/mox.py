@@ -8,10 +8,10 @@ from pathlib import Path
 
 from pypdf import PdfReader
 
-from metabolon.respirometry.schema import StatementMeta, Transaction
+from metabolon.respirometry.schema import RespirogramMeta, ConsumptionEvent
 
 
-def extract_mox(pdf_path: Path) -> tuple[StatementMeta, list[Transaction]]:
+def extract_mox(pdf_path: Path) -> tuple[RespirogramMeta, list[ConsumptionEvent]]:
     """Parse a Mox Credit statement PDF.
 
     Returns (metadata, transactions). Raises ValueError if balance validation
@@ -39,7 +39,7 @@ def extract_mox(pdf_path: Path) -> tuple[StatementMeta, list[Transaction]]:
     return meta, txns
 
 
-def _extract_metadata(text: str) -> StatementMeta:
+def _extract_metadata(text: str) -> RespirogramMeta:
     """Extract statement-level metadata from page 1."""
     period_match = re.search(r"(\d{1,2} \w+ \d{4})\s*-\s*(\d{1,2} \w+ \d{4})", text)
     period_start = period_match.group(1) if period_match else ""
@@ -60,7 +60,7 @@ def _extract_metadata(text: str) -> StatementMeta:
         dt = datetime.strptime(due_date_match.group(1), "%d %b %Y")
         due_date = dt.strftime("%Y-%m-%d")
 
-    return StatementMeta(
+    return RespirogramMeta(
         bank="mox",
         card="Mox Credit",
         period_start=period_start,
@@ -78,7 +78,7 @@ def _extract_float(pattern: str, text: str) -> float:
     return float(m.group(1).replace(",", "")) if m else 0.0
 
 
-def _parse_transactions(full_text: str, year: str) -> list[Transaction]:
+def _parse_transactions(full_text: str, year: str) -> list[ConsumptionEvent]:
     """Parse transaction blocks from extracted PDF text."""
     # Remove page headers
     text = re.sub(r"Page \d+ of \d+", "", full_text)
@@ -92,7 +92,7 @@ def _parse_transactions(full_text: str, year: str) -> list[Transaction]:
     date_pat = r"(\d{2} \w{3}) (\d{2} \w{3})"
     parts = re.split(f"(?={date_pat})", text)
 
-    transactions: list[Transaction] = []
+    transactions: list[ConsumptionEvent] = []
     for part in parts:
         part = part.strip()
         if not part:
@@ -148,7 +148,7 @@ def _parse_transactions(full_text: str, year: str) -> list[Transaction]:
         iso_date = dt.strftime("%Y-%m-%d")
 
         transactions.append(
-            Transaction(
+            ConsumptionEvent(
                 date=iso_date,
                 merchant=merchant,
                 category="",  # categorised later by pipeline

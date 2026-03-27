@@ -64,6 +64,12 @@ vivesca = Terry + Claude + germline + epigenome
     buds/                 Agent definitions (phenotype-named)
     colonies/             Agent team workflows
   effectors/              Standalone output scripts (bio-named)
+  loci/                   Output directories (named positions)
+    antisera/             Solved problems, gotcha files
+    copia/                Agent-generated deliverables
+    poiesis/              Human-triggered deliverables
+    pulse/                Periodic health/audit reports
+    signals/              Signal logs and event streams
   regulon/                Context-specific rules
   operons/                Tool grouping definitions
   symbionts/              LLM provider configs

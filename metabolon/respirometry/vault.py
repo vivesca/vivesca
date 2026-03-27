@@ -8,10 +8,10 @@ import shutil
 from datetime import datetime
 from pathlib import Path
 
-from metabolon.respirometry.schema import StatementMeta, Transaction
+from metabolon.respirometry.schema import RespirogramMeta, ConsumptionEvent
 
 
-def serialize_markdown(meta: StatementMeta, transactions: list[Transaction]) -> str:
+def serialize_markdown(meta: RespirogramMeta, transactions: list[ConsumptionEvent]) -> str:
     """Generate vault markdown from parsed statement data."""
     lines: list[str] = []
 
@@ -28,8 +28,8 @@ def serialize_markdown(meta: StatementMeta, transactions: list[Transaction]) -> 
     lines.append("---")
     lines.append("")
 
-    # Transactions
-    lines.append("## Transactions")
+    # ConsumptionEvents
+    lines.append("## ConsumptionEvents")
     lines.append("")
     lines.append("| Date | Merchant | Category | Currency | Foreign | HKD |")
     lines.append("|------|----------|----------|----------|---------|-----|")
@@ -96,8 +96,8 @@ def stamp_processed(sha: str, ledger: Path) -> None:
 
 
 def secrete_statement(
-    meta: StatementMeta,
-    transactions: list[Transaction],
+    meta: RespirogramMeta,
+    transactions: list[ConsumptionEvent],
     spending_dir: Path,
 ) -> Path:
     """Write parsed statement to vault and return the file path."""
@@ -107,7 +107,7 @@ def secrete_statement(
     return md_path
 
 
-def archive_pdf(pdf_path: Path, meta: StatementMeta, spending_dir: Path) -> Path:
+def archive_pdf(pdf_path: Path, meta: RespirogramMeta, spending_dir: Path) -> Path:
     """Move original PDF to vault archive."""
     archive_dir = spending_dir / "statements"
     archive_dir.mkdir(parents=True, exist_ok=True)
@@ -203,7 +203,7 @@ def secrete_monthly_summary(month: str, spending_dir: Path) -> Path:
             "",
             "## By Card",
             "",
-            "| Card | Transactions | Total (HKD) |",
+            "| Card | ConsumptionEvents | Total (HKD) |",
             "|------|-------------|-------------|",
         ]
     )

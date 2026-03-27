@@ -1,4 +1,4 @@
-"""Transaction and statement metadata schema."""
+"""ConsumptionEvent and statement metadata schema."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ from dataclasses import dataclass
 
 
 @dataclass
-class Transaction:
+class ConsumptionEvent:
     """A single credit card transaction."""
 
     date: str  # ISO format YYYY-MM-DD
@@ -26,7 +26,7 @@ class Transaction:
 
 
 @dataclass
-class StatementMeta:
+class RespirogramMeta:
     """Statement-level metadata extracted from PDF."""
 
     bank: str  # mox, hsbc, ccba

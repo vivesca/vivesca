@@ -1,7 +1,7 @@
 """Tests for weekly DE sweep."""
 
 from metabolon.metabolism.fitness import Emotion
-from metabolon.metabolism.sweep import SweepConfig, select
+from metabolon.metabolism.sweep import SelectionParameters, select
 
 
 def test_select_below_median():
@@ -35,7 +35,7 @@ def test_select_skips_insufficient_data():
 
 
 def test_sweep_config_defaults():
-    cfg = SweepConfig()
+    cfg = SelectionParameters()
     assert cfg.min_phenotypes == 3
     assert cfg.max_retries == 3
     assert cfg.fitness_plateau == 0.8

@@ -8,7 +8,7 @@ from pathlib import Path
 
 from pypdf import PdfReader
 
-from metabolon.respirometry.schema import StatementMeta, Transaction
+from metabolon.respirometry.schema import RespirogramMeta, ConsumptionEvent
 
 # Lines that are continuation descriptors, not transactions
 _SKIP_LINES = re.compile(
@@ -24,7 +24,7 @@ _TXN_PAT = re.compile(r"^(\d{2}[A-Z]{3})(\d{2}[A-Z]{3})(.+)")
 _FX_PAT = re.compile(r"(USD|GBP|EUR|JPY|AUD|CAD|SGD|CNY)\s*([\d,]+\.\d{2})\s*([\d,]+\.\d{2})$")
 
 
-def extract_hsbc(pdf_path: Path) -> tuple[StatementMeta, list[Transaction]]:
+def extract_hsbc(pdf_path: Path) -> tuple[RespirogramMeta, list[ConsumptionEvent]]:
     """Parse an HSBC Visa Signature statement PDF.
 
     Returns (metadata, transactions). Raises ValueError if balance validation
@@ -49,7 +49,7 @@ def extract_hsbc(pdf_path: Path) -> tuple[StatementMeta, list[Transaction]]:
     return meta, txns
 
 
-def _extract_metadata(text: str) -> StatementMeta:
+def _extract_metadata(text: str) -> RespirogramMeta:
     """Extract statement-level metadata from PDF text."""
     # Statement date + balance: "07MAR2025HKD26,119.50"
     m = re.search(
@@ -96,7 +96,7 @@ def _extract_metadata(text: str) -> StatementMeta:
             pass
         period_end = datetime.strptime(statement_date, "%Y-%m-%d").strftime("%d %b %Y")
 
-    return StatementMeta(
+    return RespirogramMeta(
         bank="hsbc",
         card="HSBC Visa Signature",
         period_start=period_start,
@@ -114,7 +114,7 @@ def _extract_hsbc_date(ddmon: str, year: int) -> datetime:
     return datetime.strptime(f"{ddmon}{year}", "%d%b%Y")
 
 
-def _parse_transactions(full_text: str, year_str: str) -> list[Transaction]:
+def _parse_transactions(full_text: str, year_str: str) -> list[ConsumptionEvent]:
     """Parse transaction lines from HSBC statement text."""
     year = int(year_str)
     lines = full_text.split("\n")
@@ -202,7 +202,7 @@ def _parse_transactions(full_text: str, year_str: str) -> list[Transaction]:
         )
 
     return [
-        Transaction(
+        ConsumptionEvent(
             date=t["date"],
             merchant=t["merchant"],
             category="",  # categorised later by pipeline

@@ -245,7 +245,7 @@ def phantom_sweep() -> dict:
     Returns:
         {"phantom_count": N, "phantoms": [{"line_number", "line", "reason"}]}
     """
-    from metabolon.dispatch_gate import sweep_praxis_for_phantoms
+    from metabolon.checkpoint import sweep_praxis_for_phantoms
 
     if not PRAXIS_FILE.exists():
         return {"phantom_count": 0, "phantoms": []}

@@ -8,10 +8,10 @@ from pathlib import Path
 
 from pypdf import PdfReader
 
-from metabolon.respirometry.schema import StatementMeta, Transaction
+from metabolon.respirometry.schema import RespirogramMeta, ConsumptionEvent
 
 
-def extract_scb(pdf_path: Path) -> tuple[StatementMeta, list[Transaction]]:
+def extract_scb(pdf_path: Path) -> tuple[RespirogramMeta, list[ConsumptionEvent]]:
     """Parse a Standard Chartered Smart Credit Card statement PDF.
 
     Returns (metadata, transactions). Raises ValueError if balance validation
@@ -40,7 +40,7 @@ def extract_scb(pdf_path: Path) -> tuple[StatementMeta, list[Transaction]]:
     return meta, txns
 
 
-def _extract_metadata(text: str) -> StatementMeta:
+def _extract_metadata(text: str) -> RespirogramMeta:
     """Extract statement-level metadata from PDF text."""
     # Statement date: DD/MM/YYYY or DD Mon YYYY
     statement_date = ""
@@ -90,7 +90,7 @@ def _extract_metadata(text: str) -> StatementMeta:
             first_dt = datetime.strptime(f"{all_dates[0]}/{year}", "%m/%d/%Y")
             period_start = first_dt.strftime("%d %b %Y")
 
-    return StatementMeta(
+    return RespirogramMeta(
         bank="scb",
         card="SCB Smart Credit Card",
         period_start=period_start,
@@ -118,7 +118,7 @@ def _extract_purchases_total(text: str) -> float:
     return 0.0
 
 
-def _parse_transactions(full_text: str, year_str: str) -> list[Transaction]:
+def _parse_transactions(full_text: str, year_str: str) -> list[ConsumptionEvent]:
     """Parse transactions from SCB statement text.
 
     SCB has a split layout: merchant descriptions in 'Transaction Ref' blocks
@@ -165,7 +165,7 @@ def _parse_transactions(full_text: str, year_str: str) -> list[Transaction]:
         )
 
     # Pair charge descriptions with charge amounts (1:1)
-    transactions: list[Transaction] = []
+    transactions: list[ConsumptionEvent] = []
     for i in range(min(len(charge_descs), len(charge_amounts))):
         desc_info = charge_descs[i]
         amt_info = charge_amounts[i]
@@ -188,7 +188,7 @@ def _parse_transactions(full_text: str, year_str: str) -> list[Transaction]:
         merchant = _clean_merchant(merchant_raw)
 
         transactions.append(
-            Transaction(
+            ConsumptionEvent(
                 date=iso_date,
                 merchant=merchant,
                 category="",

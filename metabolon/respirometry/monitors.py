@@ -4,10 +4,10 @@ from __future__ import annotations
 
 from collections import Counter
 
-from metabolon.respirometry.schema import Transaction
+from metabolon.respirometry.schema import ConsumptionEvent
 
 
-def flag_anomalies(transactions: list[Transaction], threshold: float = 500.0) -> list[str]:
+def flag_anomalies(transactions: list[ConsumptionEvent], threshold: float = 500.0) -> list[str]:
     """Flag uncategorised transactions above threshold."""
     alerts = []
     for t in transactions:
@@ -16,7 +16,7 @@ def flag_anomalies(transactions: list[Transaction], threshold: float = 500.0) ->
     return alerts
 
 
-def flag_duplicates(transactions: list[Transaction]) -> list[str]:
+def flag_duplicates(transactions: list[ConsumptionEvent]) -> list[str]:
     """Flag potential duplicate charges (same merchant, amount, date)."""
     keys = Counter((t.date, t.merchant, t.hkd) for t in transactions if t.is_charge)
     alerts = []
@@ -27,7 +27,7 @@ def flag_duplicates(transactions: list[Transaction]) -> list[str]:
 
 
 def assess_budget(
-    transactions: list[Transaction],
+    transactions: list[ConsumptionEvent],
     monthly_budget: float,
     category_budgets: dict[str, float] | None = None,
 ) -> list[str]:
@@ -58,7 +58,7 @@ def assess_budget(
 
 
 def assess_subscriptions(
-    transactions: list[Transaction],
+    transactions: list[ConsumptionEvent],
     expected: list[dict],
 ) -> list[str]:
     """Check for missing or price-changed subscriptions.
@@ -86,7 +86,7 @@ def assess_subscriptions(
 
 
 def activate_monitors(
-    transactions: list[Transaction],
+    transactions: list[ConsumptionEvent],
     monthly_budget: float = 15000.0,
     category_budgets: dict[str, float] | None = None,
     expected_subscriptions: list[dict] | None = None,

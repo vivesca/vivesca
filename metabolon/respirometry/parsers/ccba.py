@@ -8,7 +8,7 @@ from pathlib import Path
 
 from pypdf import PdfReader
 
-from metabolon.respirometry.schema import StatementMeta, Transaction
+from metabolon.respirometry.schema import RespirogramMeta, ConsumptionEvent
 
 # Transaction line: description HKD amount [CR] Mon DD,YYYY Mon DD,YYYY
 # Dates are adjacent to the amount/CR flag with no separating whitespace in
@@ -19,7 +19,7 @@ _TXN_PAT = re.compile(
 )
 
 
-def extract_ccba(pdf_path: Path) -> tuple[StatementMeta, list[Transaction]]:
+def extract_ccba(pdf_path: Path) -> tuple[RespirogramMeta, list[ConsumptionEvent]]:
     """Parse a CCBA eye Credit Card statement PDF.
 
     Returns (metadata, transactions). Raises ValueError if balance validation
@@ -44,7 +44,7 @@ def extract_ccba(pdf_path: Path) -> tuple[StatementMeta, list[Transaction]]:
     return meta, txns
 
 
-def _extract_metadata(text: str) -> StatementMeta:
+def _extract_metadata(text: str) -> RespirogramMeta:
     """Extract statement-level metadata from PDF text."""
     # Statement date (fullwidth colon \uff1a in Chinese label)
     stmt_match = re.search(
@@ -102,7 +102,7 @@ def _extract_metadata(text: str) -> StatementMeta:
         if txn_dates:
             period_start = min(txn_dates).strftime("%d %b %Y")
 
-    return StatementMeta(
+    return RespirogramMeta(
         bank="ccba",
         card="CCBA eye Credit Card",
         period_start=period_start,
@@ -115,7 +115,7 @@ def _extract_metadata(text: str) -> StatementMeta:
     )
 
 
-def _parse_transactions(full_text: str) -> list[Transaction]:
+def _parse_transactions(full_text: str) -> list[ConsumptionEvent]:
     """Parse transaction lines from CCBA statement text."""
     lines = full_text.split("\n")
     raw_txns: list[dict] = []
@@ -185,7 +185,7 @@ def _parse_transactions(full_text: str) -> list[Transaction]:
         i += 1
 
     return [
-        Transaction(
+        ConsumptionEvent(
             date=t["date"],
             merchant=t["merchant"],
             category="",  # categorised later by pipeline

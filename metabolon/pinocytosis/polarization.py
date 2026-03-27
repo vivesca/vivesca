@@ -86,7 +86,7 @@ def _praxis_phantom_count() -> int:
     if not PRAXIS_FILE.exists():
         return 0
     try:
-        from metabolon.dispatch_gate import sweep_praxis_for_phantoms
+        from metabolon.checkpoint import sweep_praxis_for_phantoms
 
         phantoms = sweep_praxis_for_phantoms(PRAXIS_FILE.read_text())
         return len(phantoms)

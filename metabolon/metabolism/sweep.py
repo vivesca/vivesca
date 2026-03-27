@@ -28,9 +28,9 @@ def _load_conf() -> configparser.ConfigParser:
     return cfg
 
 
-def _default_sweep_config() -> SweepConfig:
+def _default_sweep_config() -> SelectionParameters:
     cfg = _load_conf()
-    return SweepConfig(
+    return SelectionParameters(
         min_phenotypes=cfg.getint("selection", "min_phenotypes"),
         max_retries=cfg.getint("selection", "max_retries"),
         fitness_plateau=cfg.getfloat("selection", "fitness_plateau"),
@@ -39,7 +39,7 @@ def _default_sweep_config() -> SweepConfig:
 
 
 @dataclass
-class SweepConfig:
+class SelectionParameters:
     """Configuration for the weekly sweep. Defaults loaded from sweep.conf."""
 
     min_phenotypes: int = 3  # minimum observed phenotypes to evaluate
@@ -48,8 +48,8 @@ class SweepConfig:
     offspring_per_generation: int = 2  # new candidates generated per sweep
 
     @classmethod
-    def from_conf(cls) -> SweepConfig:
-        """Load a SweepConfig from sweep.conf (falls back to dataclass defaults)."""
+    def from_conf(cls) -> SelectionParameters:
+        """Load a SelectionParameters from sweep.conf (falls back to dataclass defaults)."""
         return _default_sweep_config()
 
 

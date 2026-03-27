@@ -20,7 +20,7 @@ from . import chemotaxis_engine
 
 
 @dataclass
-class SearchResult:
+class RheotaxisResult:
     backend: str
     query: str
     results: list[dict]  # [{title, url, snippet}]
@@ -35,21 +35,21 @@ def _get_key(env_var: str) -> str:
     return key
 
 
-def search_perplexity(query: str, _timeout: int = 30) -> SearchResult:
+def search_perplexity(query: str, _timeout: int = 30) -> RheotaxisResult:
     """Perplexity sonar — fast, synthesised answer with citations."""
     try:
         answer = chemotaxis_engine.recall(query)
-        return SearchResult(
+        return RheotaxisResult(
             backend="perplexity",
             query=query,
             results=[],
             answer=answer,
         )
     except Exception as e:
-        return SearchResult(backend="perplexity", query=query, results=[], error=str(e))
+        return RheotaxisResult(backend="perplexity", query=query, results=[], error=str(e))
 
 
-def search_exa(query: str, timeout: int = 15) -> SearchResult:
+def search_exa(query: str, timeout: int = 15) -> RheotaxisResult:
     """Exa — neural search, good for finding specific entities/locations."""
     try:
         key = _get_key("EXA_API_KEY")
@@ -80,12 +80,12 @@ def search_exa(query: str, timeout: int = 15) -> SearchResult:
                     "snippet": (r.get("text", "") or "")[:300],
                 }
             )
-        return SearchResult(backend="exa", query=query, results=results)
+        return RheotaxisResult(backend="exa", query=query, results=results)
     except Exception as e:
-        return SearchResult(backend="exa", query=query, results=[], error=str(e))
+        return RheotaxisResult(backend="exa", query=query, results=[], error=str(e))
 
 
-def search_tavily(query: str, timeout: int = 15) -> SearchResult:
+def search_tavily(query: str, timeout: int = 15) -> RheotaxisResult:
     """Tavily — search API built for AI agents, returns answer + results."""
     try:
         key = _get_key("TAVILY_API_KEY")
@@ -116,17 +116,17 @@ def search_tavily(query: str, timeout: int = 15) -> SearchResult:
                     "snippet": r.get("content", "")[:300],
                 }
             )
-        return SearchResult(
+        return RheotaxisResult(
             backend="tavily",
             query=query,
             results=results,
             answer=data.get("answer", ""),
         )
     except Exception as e:
-        return SearchResult(backend="tavily", query=query, results=[], error=str(e))
+        return RheotaxisResult(backend="tavily", query=query, results=[], error=str(e))
 
 
-def search_serper(query: str, timeout: int = 15) -> SearchResult:
+def search_serper(query: str, timeout: int = 15) -> RheotaxisResult:
     """Serper — Google SERP results, good for local/maps queries."""
     try:
         key = _get_key("SERPER_API_KEY")
@@ -160,14 +160,14 @@ def search_serper(query: str, timeout: int = 15) -> SearchResult:
         answer = ""
         if kg:
             answer = f"{kg.get('title', '')}: {kg.get('description', '')}"
-        return SearchResult(
+        return RheotaxisResult(
             backend="serper",
             query=query,
             results=results,
             answer=answer,
         )
     except Exception as e:
-        return SearchResult(backend="serper", query=query, results=[], error=str(e))
+        return RheotaxisResult(backend="serper", query=query, results=[], error=str(e))
 
 
 _BACKENDS = {
@@ -182,8 +182,8 @@ def parallel_search(
     query: str,
     backends: list[str] | None = None,
     timeout: int = 20,
-) -> list[SearchResult]:
-    """Search all backends in parallel. Returns list of SearchResults."""
+) -> list[RheotaxisResult]:
+    """Search all backends in parallel. Returns list of RheotaxisResults."""
     if backends is None:
         backends = list(_BACKENDS.keys())
 
@@ -201,15 +201,15 @@ def multi_query_search(
     queries: list[str],
     backends: list[str] | None = None,
     timeout: int = 20,
-) -> dict[str, list[SearchResult]]:
+) -> dict[str, list[RheotaxisResult]]:
     """Run multiple query framings across all backends.
 
-    Returns {query: [SearchResult, ...]} for each query.
+    Returns {query: [RheotaxisResult, ...]} for each query.
     """
     if backends is None:
         backends = list(_BACKENDS.keys())
 
-    all_results: dict[str, list[SearchResult]] = {}
+    all_results: dict[str, list[RheotaxisResult]] = {}
     with ThreadPoolExecutor(max_workers=len(queries) * len(backends)) as pool:
         futures = {}
         for q in queries:
@@ -225,8 +225,8 @@ def multi_query_search(
     return all_results
 
 
-def format_results(results: list[SearchResult]) -> str:
-    """Format SearchResults into readable text."""
+def format_results(results: list[RheotaxisResult]) -> str:
+    """Format RheotaxisResults into readable text."""
     lines = []
     for r in results:
         lines.append(f"## {r.backend} ({r.query})")

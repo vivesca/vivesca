@@ -761,11 +761,11 @@ tags: [ai, agents, design, vivesca]
 
 
 def _acquire_catalyst():
-    """Import and return the shared llm module."""
+    """Import and return the shared symbiont module."""
 
-    from metabolon import symbiont as llm
+    from metabolon import symbiont
 
-    return llm
+    return symbiont
 
 
 @cli.command()

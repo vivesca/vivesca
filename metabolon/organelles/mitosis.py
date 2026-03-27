@@ -53,7 +53,7 @@ SYNC_TARGETS: list[dict] = [
 
 
 @dataclass
-class SyncResult:
+class ReplicationResult:
     target: str
     success: bool
     elapsed_s: float
@@ -61,8 +61,8 @@ class SyncResult:
 
 
 @dataclass
-class SyncReport:
-    results: list[SyncResult] = field(default_factory=list)
+class FidelityReport:
+    results: list[ReplicationResult] = field(default_factory=list)
     started: float = 0
     finished: float = 0
 
@@ -178,7 +178,7 @@ def _git_pull_remote(remote_path: str) -> tuple[bool, str]:
         return False, str(e)[:200]
 
 
-def _sync_target(target: dict) -> SyncResult:
+def _sync_target(target: dict) -> ReplicationResult:
     """Sync one target: commit+push local, pull remote."""
     t0 = time.monotonic()
 
@@ -191,18 +191,18 @@ def _sync_target(target: dict) -> SyncResult:
 
     if not pull_ok:
         if not push_ok:
-            return SyncResult(
+            return ReplicationResult(
                 target["name"], False, elapsed, f"push: {push_msg}; pull: {pull_msg}"
             )
-        return SyncResult(target["name"], False, elapsed, f"pull failed: {pull_msg}")
+        return ReplicationResult(target["name"], False, elapsed, f"pull failed: {pull_msg}")
 
     if not push_ok:
-        return SyncResult(target["name"], True, elapsed, f"pull ok (push skipped: {push_msg})")
+        return ReplicationResult(target["name"], True, elapsed, f"pull ok (push skipped: {push_msg})")
 
-    return SyncResult(target["name"], True, elapsed, pull_msg)
+    return ReplicationResult(target["name"], True, elapsed, pull_msg)
 
 
-def sync(targets: list[str] | None = None) -> SyncReport:
+def sync(targets: list[str] | None = None) -> FidelityReport:
     """Push current state to gemmule.
 
     Workflow per target: git add+commit+push locally, git pull on gemmule.
@@ -210,11 +210,11 @@ def sync(targets: list[str] | None = None) -> SyncReport:
     Args:
         targets: Specific target names to sync. None = all.
     """
-    report = SyncReport(started=time.monotonic())
+    report = FidelityReport(started=time.monotonic())
 
     if not _is_gemmule_reachable():
         report.finished = time.monotonic()
-        report.results.append(SyncResult("connectivity", False, 0, "gemmule not running"))
+        report.results.append(ReplicationResult("connectivity", False, 0, "gemmule not running"))
         return report
 
     manifest = SYNC_TARGETS
@@ -234,10 +234,10 @@ def sync(targets: list[str] | None = None) -> SyncReport:
             b64 = base64.b64encode(creds_path.read_bytes()).decode()
             result = _fly_cmd(f"echo {b64} | base64 -d > {LUCERNA_HOME}/.claude/.credentials.json")
             ok = result.returncode == 0
-            report.results.append(SyncResult("cc-auth", ok, time.monotonic() - t0))
+            report.results.append(ReplicationResult("cc-auth", ok, time.monotonic() - t0))
         except Exception as e:
             report.results.append(
-                SyncResult("cc-auth", False, time.monotonic() - t0, str(e)[:100])
+                ReplicationResult("cc-auth", False, time.monotonic() - t0, str(e)[:100])
             )
 
     report.finished = time.monotonic()

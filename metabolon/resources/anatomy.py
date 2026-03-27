@@ -16,7 +16,7 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
-_SRC = Path(__file__).resolve().parent.parent  # src/vivesca/
+_SRC = Path(__file__).resolve().parent.parent  # metabolon/
 
 
 def _extract_decorated_names(module_path: Path, decorator_name: str) -> list[dict]:
@@ -584,7 +584,7 @@ def express_anatomy(src_root: Path | None = None) -> str:
     Accepts an optional *src_root* override for testing.
     """
     src = src_root or _SRC
-    project_root = src.parent.parent  # project root (above src/vivesca/)
+    project_root = src.parent  # project root (germline/)
 
     sections: list[str] = []
     sections.append("# vivesca — Anatomy\n")
