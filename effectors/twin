@@ -21,14 +21,21 @@ from pathlib import Path
 HOME = Path.home()
 DEFAULT_MODEL = "haiku"
 
+# Models that need direct CLI invocation (not via channel)
+DIRECT_MODELS = {
+    "gemini": ["gemini", "-p"],
+}
+
 
 def query_twin(model: str, prompt: str, timeout: int = 120) -> str:
-    """Query the twin model via channel CLI."""
+    """Query the twin model. Direct CLI for some, channel for others."""
+    env = {**__import__("os").environ, "CLAUDECODE": ""}
+    cmd = DIRECT_MODELS.get(model, ["channel", model, "-p"])
     try:
         r = subprocess.run(
-            ["channel", model, "-p", prompt],
+            [*cmd, prompt],
             capture_output=True, text=True, timeout=timeout,
-            env={**__import__("os").environ, "CLAUDECODE": ""},
+            env=env,
         )
         if r.returncode == 0 and r.stdout.strip():
             return r.stdout.strip()

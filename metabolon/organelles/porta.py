@@ -90,15 +90,24 @@ def inject(domain: str) -> dict:
                 "count": 0,
             }
 
-    # Set each cookie via document.cookie
+    # Set each cookie via agent-browser cookies set (supports HttpOnly)
     injected = 0
     failures: list[str] = []
     for name, value in cookies.items():
-        # Sanitise: remove newlines that would break cookie syntax
         safe_value = str(value).replace("\n", "").replace("\r", "")
         safe_name = str(name).replace("\n", "").replace("\r", "")
-        js = f"document.cookie = '{safe_name}={safe_value}; path=/; domain=.{domain}';"
-        ok, _ = _ab(["eval", js], timeout=5)
+        # Use agent-browser cookies set with --httpOnly --secure --url
+        # This uses Playwright's context.add_cookies() under the hood,
+        # which can set HttpOnly cookies (document.cookie cannot).
+        cmd = [
+            "cookies", "set", safe_name, safe_value,
+            "--url", url,
+            "--domain", f".{domain}",
+            "--path", "/",
+            "--httpOnly",
+            "--secure",
+        ]
+        ok, _ = _ab(cmd, timeout=5)
         if ok:
             injected += 1
         else:
