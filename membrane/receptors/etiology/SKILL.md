@@ -2,7 +2,7 @@
 name: etiology
 description: Systematic diagnosis — broken, stopped working, not found, regression, error, bug, debugging.
 model: sonnet
-epistemics: [debug]
+epistemics: [debug, incident, postmortem, fix]
 ---
 
 # Etiology — Systematic Diagnosis
@@ -56,13 +56,14 @@ BEFORE attempting ANY fix:
 3. Verify: test passes, no regressions
 4. If 3+ fixes failed: STOP — question the architecture, not the symptoms
 
-### Phase 6: Sweep, Risk, Prevent
+### Phase 6: Sweep, Risk, Immunise
 
 Do NOT skip. These phases are where value compounds.
 
 1. **Same-class sweep** — the bug you found is one instance. Grep for the same pattern everywhere. One correction = full sweep.
 2. **Risk check** — could the fix break something? Validate (syntax check, smoke test, verify the user can still get in).
-3. **Prevention** — what structural change stops this class of bug from recurring? Comment guards, linter rules, hook enforcement. If nothing structural works, at minimum document why.
+3. **Probe** — what deterministic check would detect this class of failure? integrin layer, test assertion, hook, health check. The probe is more valuable than the fix — it's amortised across all future changes.
+4. **Generalise** — does the root cause reveal a principle? If the same "why?" keeps appearing across incidents, crystallise it: epistemics file for the thinking pattern, genome rule if it's universal enough. Silent failure → loud probe → permanent principle.
 
 ## Red Flags — Return to Phase 1
 
