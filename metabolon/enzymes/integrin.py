@@ -150,6 +150,99 @@ def _check_phenotype_symlinks() -> tuple[list[dict], list[str]]:
     return issues, unknown
 
 
+_LAUNCHAGENTS_DIR = Path.home() / "Library" / "LaunchAgents"
+_PATH_RE = re.compile(r"(?:/Users/\w+|~)[^\s<\"']+")
+
+
+def _check_launchagent_paths() -> list[dict]:
+    """Verify ProgramArguments paths in LaunchAgent plists resolve.
+
+    Returns list of {plist, path, problem} for broken references.
+    """
+    import plistlib
+
+    broken: list[dict] = []
+    if not _LAUNCHAGENTS_DIR.is_dir():
+        return broken
+
+    for plist_file in sorted(_LAUNCHAGENTS_DIR.iterdir()):
+        if plist_file.suffix != ".plist":
+            continue
+        # Resolve symlinks to read actual content
+        real_path = plist_file.resolve() if plist_file.is_symlink() else plist_file
+        try:
+            with open(real_path, "rb") as fh:
+                plist = plistlib.load(fh)
+        except Exception:
+            broken.append({
+                "plist": plist_file.name,
+                "path": str(real_path),
+                "problem": "unreadable",
+            })
+            continue
+
+        prog_args = plist.get("ProgramArguments", [])
+        for arg in prog_args:
+            if not isinstance(arg, str):
+                continue
+            # Only check absolute paths and ~/paths
+            expanded = arg.replace("~", str(Path.home())) if arg.startswith("~") else arg
+            if not expanded.startswith("/"):
+                continue
+            # Skip system paths and flags
+            if expanded.startswith(("/usr/", "/bin/", "/opt/homebrew/", "/Applications/")):
+                continue
+            if not Path(expanded).exists():
+                broken.append({
+                    "plist": plist_file.name,
+                    "path": arg,
+                    "problem": "missing",
+                })
+
+    return broken
+
+
+_SKILL_PATH_RE = re.compile(r"(?:`|^|\s)((?:/Users/\w+|~/)[a-zA-Z][^\s`\"'>]*)")
+
+
+def _check_skill_paths() -> list[dict]:
+    """Verify hardcoded ~/paths in SKILL.md files resolve.
+
+    Returns list of {skill, path, problem} for broken references.
+    Skips template paths (YYYY), globs (*), and ephemeral dirs (tmp/).
+    """
+    broken: list[dict] = []
+    if not SKILLS_DIR.is_dir():
+        return broken
+
+    for skill_dir in sorted(SKILLS_DIR.iterdir()):
+        skill_file = skill_dir / "SKILL.md"
+        if not skill_file.is_file():
+            continue
+
+        content = skill_file.read_text()
+        paths_found = _SKILL_PATH_RE.findall(content)
+        seen: set[str] = set()
+        for raw_path in paths_found:
+            # Clean trailing punctuation
+            cleaned = raw_path.rstrip(".,;:)>|`\"'*")
+            if cleaned in seen or len(cleaned) < 5:
+                continue
+            seen.add(cleaned)
+            # Skip templates, globs, examples, ephemeral
+            if any(skip in cleaned for skip in ("YYYY", "*", "/tmp/", "{", "$(", "example")):
+                continue
+            expanded = cleaned.replace("~", str(Path.home())) if cleaned.startswith("~") else cleaned
+            if not Path(expanded).exists():
+                broken.append({
+                    "skill": skill_dir.name,
+                    "path": cleaned,
+                    "problem": "missing",
+                })
+
+    return broken
+
+
 # -- Result schema --------------------------------------------------------
 
 
@@ -188,6 +281,12 @@ class IntegrinResult(Secretion):
     # Phenotype: platform entry point symlinks
     phenotype_issues: list[dict]
     unknown_platforms: list[str]
+
+    # LaunchAgent: broken paths in plist ProgramArguments
+    launchagent_broken: list[dict]
+
+    # Skill paths: hardcoded paths in SKILL.md that don't resolve
+    skill_path_broken: list[dict]
 
 
 class ApoptosisResult(Secretion):
@@ -339,8 +438,10 @@ def integrin_probe() -> IntegrinResult:
     5. Fragility: which receptors have the most dependencies?
     6. Activation state: bent (dormant), extended (recent), open (active)
     """
-    # Layer 0 -- Phenotype: are platform entry points wired?
+    # Layer 0 -- Phenotype, LaunchAgents, skill paths
     phenotype_issues, unknown_platforms = _check_phenotype_symlinks()
+    launchagent_broken = _check_launchagent_paths()
+    skill_path_broken = _check_skill_paths()
 
     if not SKILLS_DIR.is_dir():
         return IntegrinResult(
@@ -355,6 +456,8 @@ def integrin_probe() -> IntegrinResult:
             adhesion_dependence=[],
             phenotype_issues=phenotype_issues,
             unknown_platforms=unknown_platforms,
+            launchagent_broken=launchagent_broken,
+            skill_path_broken=skill_path_broken,
         )
 
     all_refs: list[dict] = []
@@ -469,6 +572,8 @@ def integrin_probe() -> IntegrinResult:
         adhesion_dependence=adhesion_dependence[:10],
         phenotype_issues=phenotype_issues,
         unknown_platforms=unknown_platforms,
+        launchagent_broken=launchagent_broken,
+        skill_path_broken=skill_path_broken,
     )
 
 
