@@ -847,6 +847,11 @@ Find instances of these six categories:
    - A pattern that recurred across the session (candidate for methylation)
    The test: "if this session replayed tomorrow, what would make it go better?"
 
+8. **EMERGING NEED** — A capability that doesn't exist yet but the session revealed
+   it's needed. Not "this broke" (process_gap) or "this should be a hook" (organism_improvement),
+   but "we needed something that doesn't exist." The organism grows toward what's
+   actually needed, not what looks architecturally clean.
+
 Selection criteria (from memory consolidation biology):
 - **Novelty** — first time this came up. New information worth encoding.
 - **Prediction error** — something believed true turned out false, or Claude was corrected.
@@ -860,7 +865,7 @@ Selection criteria (from memory consolidation biology):
 For each finding, output EXACTLY this format (one per finding):
 
 ---
-CATEGORY: <one of: taste_calibration, positive_feedback, discovery, architecture_decision, process_gap, assumption_violation, organism_improvement>
+CATEGORY: <one of: taste_calibration, positive_feedback, discovery, architecture_decision, process_gap, assumption_violation, organism_improvement, emerging_need>
 QUOTE: <the key user message or exchange, verbatim, max 2 lines>
 LESSON: <1-2 sentences: what should be remembered and why>
 MEMORY_TYPE: <feedback, finding, or project>
