@@ -57,7 +57,7 @@ async def _mutate(request: ImmuneRequest) -> str:
         f"Change as little as possible. Output ONLY the new description, nothing else."
     )
 
-    return (await transduce(prompt, model="haiku")).strip()
+    return transduce("haiku", prompt).strip()
 
 
 async def immune_response(
