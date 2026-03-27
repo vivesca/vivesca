@@ -148,15 +148,21 @@ def scratchpad_text(turns: list[dict]) -> str:
     return "\n".join(lines)
 
 
-def model_prompt(scratchpad: str) -> str:
+def model_prompt(scratchpad: str, repo: str) -> str:
     """Build the prompt any model sees."""
-    return f"""You are part of a multi-model collaboration. Read the conversation and contribute.
-Be direct. Disagree if you see a better approach. Don't repeat what's been said.
-If you need input from the human operator, start with QUESTION: followed by what you need.
+    return f"""You are part of a multi-model deliberation council. Your job is to THINK, not act.
+
+Before forming your opinion, READ the relevant files in {repo}. Ground your argument in actual code, not assumptions. Cite file paths and line numbers.
+
+Rules:
+- Read before speaking. Check the actual implementation, don't guess.
+- Be direct. Disagree if you see a better approach.
+- Don't repeat what's been said. Advance the discussion.
+- If you need input from the human operator, start with QUESTION:
 
 {scratchpad}
 
-Your turn."""
+Your turn. Read the code first, then contribute."""
 
 
 # ── LangGraph state ───────────────────────────────────────────────────
@@ -173,137 +179,21 @@ class ReplisomeState(TypedDict):
     current_round: int
     max_rounds: int
     timeout: int
+    repo: str
     scratchpad_path: str
     needs_human: bool
     human_question: str
     done: bool
-    # Work mode: models code on worktrees
-    phase: str  # "discuss" | "code" | "review"
-    worktrees: dict  # model -> worktree path
-    diffs: dict  # model -> git diff output
-
-
-# ── Worktree management ───────────────────────────────────────────────
-
-def create_worktrees(models: list[str], repo: Path) -> dict:
-    """Create a git worktree for each model."""
-    worktrees = {}
-    for model in models:
-        wt_path = HOME / "tmp" / f"replisome-{model}-{int(time.time())}"
-        branch = f"replisome/{model}-{int(time.time())}"
-        try:
-            subprocess.run(
-                ["git", "worktree", "add", "-b", branch, str(wt_path), "HEAD"],
-                capture_output=True, text=True, timeout=15, cwd=repo,
-            )
-            worktrees[model] = str(wt_path)
-            print(f"  worktree: {model} → {wt_path}")
-        except Exception as e:
-            print(f"  worktree failed for {model}: {e}")
-    return worktrees
-
-
-def get_worktree_diff(wt_path: str) -> str:
-    """Get git diff from a worktree."""
-    try:
-        r = subprocess.run(
-            ["git", "diff", "HEAD"],
-            capture_output=True, text=True, timeout=10, cwd=wt_path,
-        )
-        return r.stdout.strip() if r.stdout.strip() else "(no changes)"
-    except Exception:
-        return "(diff failed)"
-
-
-def cleanup_worktrees(worktrees: dict, repo: Path):
-    """Remove worktrees after merge."""
-    for model, wt_path in worktrees.items():
-        try:
-            subprocess.run(
-                ["git", "worktree", "remove", "--force", wt_path],
-                capture_output=True, timeout=10, cwd=repo,
-            )
-        except Exception:
-            pass
-
-
-def run_model_in_worktree(model: str, task: str, context: str, wt_path: str, timeout: int) -> str:
-    """Run a model CLI in its worktree to do actual coding work."""
-    coding_prompt = f"""You are working on a coding task in a git repository at {wt_path}.
-
-Task: {task}
-
-Context from the discussion so far:
-{context[-2000:]}
-
-Read the relevant files, make the changes, and describe what you did.
-Do NOT just discuss — actually modify files to implement the solution."""
-
-    effective_timeout = max(timeout, MODEL_TIMEOUT_FLOOR.get(model, 0))
-
-    if model in PTY_MODELS:
-        cmd = [*DIRECT_MODELS.get(model, [model]), coding_prompt]
-        # Override CWD to worktree
-        master, slave = pty.openpty()
-        env = {k: v for k, v in os.environ.items() if k != "CLAUDECODE"}
-        proc = subprocess.Popen(
-            cmd, stdin=slave, stdout=slave, stderr=slave,
-            close_fds=True, env=env, cwd=wt_path,
-        )
-        os.close(slave)
-        output = b''
-        deadline = time.time() + effective_timeout
-        while time.time() < deadline:
-            r, _, _ = select.select([master], [], [], 1)
-            if r:
-                try:
-                    chunk = os.read(master, 4096)
-                    if not chunk:
-                        break
-                    output += chunk
-                except OSError:
-                    break
-            if proc.poll() is not None:
-                while True:
-                    r, _, _ = select.select([master], [], [], 0.5)
-                    if not r:
-                        break
-                    try:
-                        chunk = os.read(master, 4096)
-                        if not chunk:
-                            break
-                        output += chunk
-                    except OSError:
-                        break
-                break
-        try:
-            os.close(master)
-        except OSError:
-            pass
-        if proc.poll() is None:
-            proc.kill()
-        return f"[{model} ran in worktree — check diff for changes]"
-    else:
-        env = {k: v for k, v in os.environ.items() if k != "CLAUDECODE"}
-        cmd = DIRECT_MODELS.get(model, ["channel", model, "-p"])
-        try:
-            r = subprocess.run(
-                [*cmd, coding_prompt], capture_output=True, text=True,
-                timeout=effective_timeout, env=env, cwd=wt_path,
-            )
-            return r.stdout.strip() if r.returncode == 0 else f"[{model} error]"
-        except Exception as e:
-            return f"[{model} error: {e}]"
 
 
 # ── Graph nodes ───────────────────────────────────────────────────────
 
 def node_model_turn(state: ReplisomeState) -> dict:
-    """One model speaks."""
+    """One model speaks — after reading the code."""
     idx = state["current_model_idx"]
     model = state["models"][idx]
     scratchpad = scratchpad_text(state["turns"])
-    prompt = model_prompt(scratchpad)
+    prompt = model_prompt(scratchpad, state.get("repo", "~/germline"))
 
     print(f"  {model}...", end=" ", flush=True)
     response = query_model(model, prompt, timeout=state["timeout"])
@@ -348,111 +238,15 @@ def node_human(state: ReplisomeState) -> dict:
     }
 
 
-def node_code(state: ReplisomeState) -> dict:
-    """Each model codes in its worktree."""
-    idx = state["current_model_idx"]
-    model = state["models"][idx]
-    wt_path = state.get("worktrees", {}).get(model)
-
-    if not wt_path:
-        return {
-            "turns": [{"role": model, "content": "[no worktree — skipping code phase]"}],
-            "current_model_idx": idx + 1,
-        }
-
-    scratchpad = scratchpad_text(state["turns"])
-    print(f"  {model} coding...", end=" ", flush=True)
-    summary = run_model_in_worktree(model, state["task"], scratchpad, wt_path, state["timeout"])
-    diff = get_worktree_diff(wt_path)
-    print("done")
-
-    path = Path(state["scratchpad_path"])
-    diff_preview = diff[:1500] if len(diff) > 1500 else diff
-    with open(path, "a", encoding="utf-8") as f:
-        f.write(f"\n### {model} (code)\n\n{summary}\n\n```diff\n{diff_preview}\n```\n")
-
-    diffs = dict(state.get("diffs", {}))
-    diffs[model] = diff
-
-    return {
-        "turns": [{"role": f"{model} (code)", "content": f"{summary}\n\n```diff\n{diff_preview}\n```"}],
-        "current_model_idx": idx + 1,
-        "diffs": diffs,
-    }
-
-
-def node_review(state: ReplisomeState) -> dict:
-    """CC reviews all diffs and decides: merge, iterate, or discard."""
-    diffs = state.get("diffs", {})
-    model_label = " + ".join(state["models"])
-
-    diff_summary = ""
-    for model, diff in diffs.items():
-        diff_summary += f"\n--- {model} ---\n{diff[:2000]}\n"
-
-    prompt = f"""You are Claude reviewing code from {model_label}. Each model worked on the same task in separate worktrees.
-
-Task: {state['task']}
-
-Diffs:
-{diff_summary}
-
-Review each diff. For each:
-1. Does it solve the task correctly?
-2. Any bugs, security issues, or style problems?
-3. Which approach is best? Can they be combined?
-
-End with a VERDICT: one of
-- MERGE <model> — accept this model's changes
-- COMBINE — manually combine the best parts (describe how)
-- ITERATE — need another round of discussion + coding
-- DISCARD — none of the approaches work, restart discussion"""
-
-    print(f"  CC reviewing diffs...", end=" ", flush=True)
-    response = query_model("sonnet", prompt, timeout=state["timeout"])
-    print("done")
-
-    path = Path(state["scratchpad_path"])
-    with open(path, "a", encoding="utf-8") as f:
-        f.write(f"\n### Claude (CC) — Review\n\n{response}\n")
-
-    # Parse verdict
-    verdict_line = ""
-    for line in response.splitlines():
-        if line.strip().upper().startswith("VERDICT:"):
-            verdict_line = line.strip()
-            break
-
-    needs_iterate = "ITERATE" in verdict_line.upper() if verdict_line else False
-
-    rnd = state["current_round"] + 1
-    return {
-        "turns": [{"role": "Claude (CC) — Review", "content": response}],
-        "current_round": rnd,
-        "current_model_idx": 0,
-        "phase": "discuss" if needs_iterate else "done",
-        "done": not needs_iterate or rnd > state["max_rounds"],
-    }
-
-
 def node_synthesise(state: ReplisomeState) -> dict:
-    """CC synthesises discussion. Decides: keep discussing or start coding."""
+    """CC synthesises the round."""
     model_label = " + ".join(state["models"])
     scratchpad = scratchpad_text(state["turns"])
-    has_worktrees = bool(state.get("worktrees"))
-
-    code_instruction = ""
-    if has_worktrees:
-        code_instruction = """
-
-If the group has converged on an approach and is ready to implement, end with:
-READY TO CODE
-
-If more discussion is needed, do NOT include that line."""
 
     prompt = f"""You are Claude, collaborating with {model_label}. Read the full scratchpad.
 Synthesise this round. Agree, disagree, or advance. Build on the strongest point.
-If the group is converging, state the conclusion. If not, sharpen the disagreement.{code_instruction}
+If the group is converging, state the conclusion clearly.
+If not, sharpen the disagreement so the next round is productive.
 
 {scratchpad}
 
@@ -466,15 +260,12 @@ Your turn as Claude."""
     with open(path, "a", encoding="utf-8") as f:
         f.write(f"\n### Claude (CC)\n\n{response}\n")
 
-    ready_to_code = "READY TO CODE" in response.upper() and has_worktrees
     rnd = state["current_round"] + 1
-
     return {
         "turns": [{"role": "Claude (CC)", "content": response}],
         "current_round": rnd,
         "current_model_idx": 0,
-        "phase": "code" if ready_to_code else "discuss",
-        "done": (not ready_to_code) and rnd > state["max_rounds"],
+        "done": rnd > state["max_rounds"],
     }
 
 
@@ -497,21 +288,7 @@ def route_after_human(state: ReplisomeState) -> str:
 def route_after_synth(state: ReplisomeState) -> str:
     if state.get("done"):
         return END
-    if state.get("phase") == "code":
-        return "code"
     return "model_turn"
-
-
-def route_after_code(state: ReplisomeState) -> str:
-    if state["current_model_idx"] < len(state["models"]):
-        return "code"
-    return "review"
-
-
-def route_after_review(state: ReplisomeState) -> str:
-    if state.get("done"):
-        return END
-    return "model_turn"  # back to discussion if ITERATE
 
 
 # ── Build graph ───────────────────────────────────────────────────────
@@ -522,8 +299,6 @@ def build_graph():
     g.add_node("model_turn", node_model_turn)
     g.add_node("human", node_human)
     g.add_node("synthesise", node_synthesise)
-    g.add_node("code", node_code)
-    g.add_node("review", node_review)
 
     g.set_entry_point("model_turn")
 
@@ -537,15 +312,6 @@ def build_graph():
         "synthesise": "synthesise",
     })
     g.add_conditional_edges("synthesise", route_after_synth, {
-        "model_turn": "model_turn",
-        "code": "code",
-        END: END,
-    })
-    g.add_conditional_edges("code", route_after_code, {
-        "code": "code",
-        "review": "review",
-    })
-    g.add_conditional_edges("review", route_after_review, {
         "model_turn": "model_turn",
         END: END,
     })
@@ -567,42 +333,31 @@ def main():
     parser.add_argument("--rounds", type=int, default=2, help="Rounds (default: 2)")
     parser.add_argument("--scratchpad", type=str, help="Scratchpad path (resume)")
     parser.add_argument("--timeout", type=int, default=120, help="Per-query timeout (default: 120s)")
-    parser.add_argument("--work", action="store_true",
-                        help="Enable work mode: models code in git worktrees, CC reviews diffs")
     parser.add_argument("--repo", type=str, default=str(HOME / "germline"),
-                        help="Repo for worktrees (default: ~/germline)")
+                        help="Repo models should read (default: ~/germline)")
 
     args = parser.parse_args()
     models = args.model
     task = args.task
+    repo = args.repo
     model_label = " + ".join(models)
-    work_mode = args.work
 
     scratchpad = Path(args.scratchpad) if args.scratchpad else HOME / "tmp" / f"replisome-{datetime.now().strftime('%H%M%S')}.md"
     scratchpad.parent.mkdir(parents=True, exist_ok=True)
 
-    mode_label = "discuss + code" if work_mode else "discuss"
     header = f"""# Replisome Session — {datetime.now().strftime('%Y-%m-%d %H:%M')}
 
 **Task:** {task}
 **Models:** CC ↔ {model_label}
-**Mode:** {mode_label}
+**Repo:** {repo}
 **Engine:** LangGraph
 
 ---
 """
     scratchpad.write_text(header, encoding="utf-8")
 
-    # Create worktrees if work mode
-    worktrees = {}
-    if work_mode:
-        repo = Path(args.repo)
-        print(f"Work mode: creating worktrees in ~/tmp/")
-        worktrees = create_worktrees(models, repo)
-
     print(f"Scratchpad: {scratchpad}")
     print(f"Models: CC ↔ {model_label}")
-    print(f"Mode: {mode_label}")
     print(f"Rounds: {args.rounds}")
     print(f"Task: {task}")
     print()
@@ -617,13 +372,11 @@ def main():
         "current_round": 1,
         "max_rounds": args.rounds,
         "timeout": args.timeout,
+        "repo": repo,
         "scratchpad_path": str(scratchpad),
         "needs_human": False,
         "human_question": "",
         "done": False,
-        "phase": "discuss",
-        "worktrees": worktrees,
-        "diffs": {},
     }
 
     with open(scratchpad, "a", encoding="utf-8") as f:
@@ -631,15 +384,8 @@ def main():
 
     config = {"configurable": {"thread_id": scratchpad.stem}}
 
-    try:
-        for event in graph.stream(initial_state, config=config):
-            pass
-    finally:
-        if worktrees:
-            print("\nWorktree diffs saved in scratchpad.")
-            print("To merge: git -C <worktree> diff HEAD | git apply")
-            for model, wt in worktrees.items():
-                print(f"  {model}: {wt}")
+    for event in graph.stream(initial_state, config=config):
+        pass
 
     print(f"\nScratchpad: {scratchpad}")
 
