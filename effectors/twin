@@ -23,7 +23,15 @@ DEFAULT_MODEL = "haiku"
 
 # Models that need direct CLI invocation (not via channel)
 DIRECT_MODELS = {
-    "gemini": ["gemini", "-p"],
+    "gemini": ["gemini", "-p"],         # slow startup (~30s), loads repo context
+    "opencode": ["opencode", "-p"],     # GLM-5, free — needs TTY workaround
+    "codex": ["codex", "--dangerously-bypass-approvals-and-sandbox", "-q", "--skip-git-repo-check"],
+}
+# Per-model timeout overrides
+MODEL_TIMEOUT_FLOOR = {
+    "gemini": 120,    # loads full repo context
+    "opencode": 120,  # GLM-5 can be slow
+    "codex": 120,     # reasoning model
 }
 
 
@@ -31,10 +39,11 @@ def query_twin(model: str, prompt: str, timeout: int = 120) -> str:
     """Query the twin model. Direct CLI for some, channel for others."""
     env = {**__import__("os").environ, "CLAUDECODE": ""}
     cmd = DIRECT_MODELS.get(model, ["channel", model, "-p"])
+    effective_timeout = max(timeout, MODEL_TIMEOUT_FLOOR.get(model, 0))
     try:
         r = subprocess.run(
             [*cmd, prompt],
-            capture_output=True, text=True, timeout=timeout,
+            capture_output=True, text=True, timeout=effective_timeout,
             env=env,
         )
         if r.returncode == 0 and r.stdout.strip():
