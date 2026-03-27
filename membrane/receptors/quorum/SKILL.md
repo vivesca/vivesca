@@ -2,11 +2,9 @@
 name: quorum
 description: Multi-model deliberation for judgment calls — auto-routes by difficulty.
 aliases: [ask-llms, council, ask llms]
-github_url: https://github.com/terry-li-hm/consilium
 user_invocable: true
-cli_version: 0.5.3
-cli_verified: 2026-03-27
-runtime: rust
+runtime: python
+organelle: metabolon.organelles.quorum
 ---
 
 # Consilium
