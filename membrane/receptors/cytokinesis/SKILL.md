@@ -80,7 +80,7 @@ Proactively scan the session for **vivesca improvement opportunities** — not j
 
 **The test:** if this session replayed tomorrow with a fresh context, would the organism handle it better? If not, something wasn't methylated.
 
-If nothing → good. If something → build now while context is hot, or Praxis.md with full context.
+If nothing → good. If something → **build it now.** Context is hottest during the session that revealed the gap. Praxis.md is for things that genuinely can't be done now (external dependency, needs Terry's input, >30min build). Everything else ships before cytokinesis closes.
 
 ### 1c. Audit Signal
 
