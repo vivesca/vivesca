@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
-"""twin — CC+model collaborative dialogue on a shared scratchpad.
+"""twin — multi-model collaborative dialogue via LangGraph.
 
-Two models work the same task via turn-based markdown dialogue.
-Claude (via CC) writes first, the twin responds, back and forth.
+Models work a shared scratchpad with human-in-the-loop interrupt.
+LangGraph provides: state machine, conditional routing, checkpointing.
 
 Usage:
-  twin "task description"                    # interactive — CC prompts, twin responds
-  twin --auto "task" --rounds 3              # autonomous — runs N rounds without human
-  twin --model gemini "task"                 # pick the twin model (default: haiku)
-  twin --scratchpad path.md "task"           # resume from existing scratchpad
+  twin "task description"
+  twin --model haiku gemini opencode "task"
+  twin --rounds 3 "task"
+  twin --scratchpad path.md "task"              # resume
 """
 
 import argparse
@@ -21,29 +21,30 @@ import sys
 import time
 from datetime import datetime
 from pathlib import Path
+from typing import Annotated, TypedDict
+
+from langgraph.graph import StateGraph, END
+from langgraph.checkpoint.memory import InMemorySaver
 
 HOME = Path.home()
 DEFAULT_MODEL = "haiku"
 
-# Models that need direct CLI invocation (not via channel)
+# ── Model dispatch config ──────────────────────────────────────────────
+
 DIRECT_MODELS = {
     "gemini": ["gemini", "-p"],
     "opencode": ["opencode", "--prompt"],
     "codex": ["codex", "--dangerously-bypass-approvals-and-sandbox", "-q", "--skip-git-repo-check"],
 }
-# Models needing PTY wrapper (TUI-based CLIs)
 PTY_MODELS = {"opencode", "codex"}
-# Per-model timeout overrides
-MODEL_TIMEOUT_FLOOR = {
-    "gemini": 120,
-    "opencode": 120,
-    "codex": 120,
-}
+MODEL_TIMEOUT_FLOOR = {"gemini": 120, "opencode": 120, "codex": 120}
 
 _ANSI_RE = re.compile(r'\x1b\[[^a-zA-Z]*[a-zA-Z]|\x1b\][^\x07]*\x07|\x1b[()][^a-zA-Z]*[a-zA-Z]?')
 _CTRL_RE = re.compile(r'[\x00-\x09\x0b-\x1f\x7f]')
-_TUI_CHROME_RE = re.compile(r'[█▀▄▐░▌▍▎▏╹╸╺╻┃■⬝]+')  # TUI progress/box chars
+_TUI_CHROME_RE = re.compile(r'[█▀▄▐░▌▍▎▏╹╸╺╻┃■⬝]+')
 
+
+# ── PTY wrapper for TUI models ────────────────────────────────────────
 
 def _pty_query(cmd: list[str], timeout: int) -> str:
     """Run a TUI command with a pseudo-TTY and extract clean text."""
@@ -67,7 +68,6 @@ def _pty_query(cmd: list[str], timeout: int) -> str:
             except OSError:
                 break
         if proc.poll() is not None:
-            # drain
             while True:
                 r, _, _ = select.select([master], [], [], 0.5)
                 if not r:
@@ -87,184 +87,299 @@ def _pty_query(cmd: list[str], timeout: int) -> str:
     if proc.poll() is None:
         proc.kill()
 
-    # Clean ANSI + control chars + TUI chrome
     clean = _ANSI_RE.sub('', output.decode('utf-8', errors='replace'))
     clean = _CTRL_RE.sub('', clean)
-    clean = _TUI_CHROME_RE.sub(' ', clean)  # replace TUI chrome with spaces
+    clean = _TUI_CHROME_RE.sub(' ', clean)
 
-    # OpenCode/Codex: streaming "Thinking:" lines repeat and accumulate.
-    # Find the LAST "Thinking:" block — that has the final thought + response.
+    # Extract from streaming "Thinking:" blocks
     thinking_parts = clean.split('Thinking:')
     if len(thinking_parts) > 1:
-        # Take the last thinking block — it has the final accumulated content
         last = thinking_parts[-1]
-        # Strip metadata: token counts, timing, model labels
         last = re.sub(r'\d+,\d+\s+\d+%\s+\(\$[\d.]+\)', '', last)
         last = re.sub(r'·\s*[\d.]+s', '', last)
         last = re.sub(r'Build\s+·\s+\S+', '', last)
         last = re.sub(r'~\s*(Reading file|Finding files)\.\.\.', '', last)
-        last = re.sub(r'[→✱]\s*\w+\s+"[^"]*"[^)]*\)', '', last)  # tool calls
-        last = re.sub(r'[→✱]\s*\w+\s+\S+', '', last)  # simpler tool calls
+        last = re.sub(r'[→✱]\s*\w+\s+"[^"]*"[^)]*\)', '', last)
+        last = re.sub(r'[→✱]\s*\w+\s+\S+', '', last)
         last = re.sub(r'\s+', ' ', last).strip()
-        # The response is typically after the last period of thinking
-        # Find substantial text (>20 chars) that isn't thinking prefix
         sentences = [s.strip() for s in last.split('.') if len(s.strip()) > 15]
         if sentences:
             return '. '.join(sentences[-3:]).strip()
-        return last[:500] if last else "[twin: thinking but no response extracted]"
+        return last[:500] if last else ""
 
-    # Fallback: last substantial text block
     lines = [s.strip() for s in clean.splitlines() if s.strip() and len(s.strip()) > 3]
     return "\n".join(lines[-10:]).strip() if lines else ""
 
 
-def query_twin(model: str, prompt: str, timeout: int = 120) -> str:
-    """Query the twin model. PTY for TUI apps, direct for others, channel as default."""
+def query_model(model: str, prompt: str, timeout: int = 120) -> str:
+    """Query any model. PTY for TUI apps, direct CLI for some, channel for others."""
     effective_timeout = max(timeout, MODEL_TIMEOUT_FLOOR.get(model, 0))
 
     if model in PTY_MODELS:
-        cmd_base = DIRECT_MODELS.get(model, [model])
-        cmd = [*cmd_base, prompt]
+        cmd = [*DIRECT_MODELS.get(model, [model]), prompt]
         try:
             result = _pty_query(cmd, effective_timeout)
-            return result if result else "[twin error: empty response after PTY extraction]"
+            return result if result else f"[{model}: empty response]"
         except Exception as e:
-            return f"[twin error: {e}]"
+            return f"[{model} error: {e}]"
 
     env = {k: v for k, v in os.environ.items() if k != "CLAUDECODE"}
     cmd = DIRECT_MODELS.get(model, ["channel", model, "-p"])
     try:
         r = subprocess.run(
-            [*cmd, prompt],
-            capture_output=True, text=True, timeout=effective_timeout,
-            env=env,
+            [*cmd, prompt], capture_output=True, text=True,
+            timeout=effective_timeout, env=env,
         )
         if r.returncode == 0 and r.stdout.strip():
             return r.stdout.strip()
-        return f"[twin error: {r.stderr.strip() or 'empty response'}]"
+        return f"[{model} error: {r.stderr.strip() or 'empty'}]"
     except subprocess.TimeoutExpired:
-        return "[twin error: timeout]"
+        return f"[{model}: timeout after {effective_timeout}s]"
     except Exception as e:
-        return f"[twin error: {e}]"
+        return f"[{model} error: {e}]"
 
 
-def init_scratchpad(path: Path, task: str, model: str) -> None:
-    """Create a new scratchpad with task header."""
-    header = f"""# Twin Session — {datetime.now().strftime('%Y-%m-%d %H:%M')}
+# ── Scratchpad ─────────────────────────────────────────────────────────
 
-**Task:** {task}
-**Models:** Claude (CC) ↔ {model}
-
----
-
-"""
-    path.write_text(header, encoding="utf-8")
+def scratchpad_text(turns: list[dict]) -> str:
+    """Render turns as markdown."""
+    lines = []
+    for t in turns:
+        lines.append(f"\n### {t['role']}\n\n{t['content']}\n")
+    return "\n".join(lines)
 
 
-def append_turn(path: Path, role: str, content: str) -> None:
-    """Append a turn to the scratchpad."""
+def model_prompt(scratchpad: str) -> str:
+    """Build the prompt any model sees."""
+    return f"""You are part of a multi-model collaboration. Read the conversation and contribute.
+Be direct. Disagree if you see a better approach. Don't repeat what's been said.
+If you need input from the human operator, start with QUESTION: followed by what you need.
+
+{scratchpad}
+
+Your turn."""
+
+
+# ── LangGraph state ───────────────────────────────────────────────────
+
+def _append(a: list, b: list) -> list:
+    return a + b
+
+
+class TwinState(TypedDict):
+    task: str
+    models: list[str]
+    turns: Annotated[list[dict], _append]
+    current_model_idx: int
+    current_round: int
+    max_rounds: int
+    timeout: int
+    scratchpad_path: str
+    needs_human: bool
+    human_question: str
+    done: bool
+
+
+# ── Graph nodes ───────────────────────────────────────────────────────
+
+def node_model_turn(state: TwinState) -> dict:
+    """One model speaks."""
+    idx = state["current_model_idx"]
+    model = state["models"][idx]
+    scratchpad = scratchpad_text(state["turns"])
+    prompt = model_prompt(scratchpad)
+
+    print(f"  {model}...", end=" ", flush=True)
+    response = query_model(model, prompt, timeout=state["timeout"])
+    print("done")
+
+    # Save to scratchpad file
+    path = Path(state["scratchpad_path"])
     with open(path, "a", encoding="utf-8") as f:
-        f.write(f"\n### {role}\n\n{content}\n")
+        f.write(f"\n### {model}\n\n{response}\n")
 
-
-def read_scratchpad(path: Path) -> str:
-    """Read full scratchpad content."""
-    return path.read_text(encoding="utf-8") if path.exists() else ""
-
-
-def twin_prompt(scratchpad_content: str, task: str) -> str:
-    """Build the prompt for the twin model."""
-    return f"""You are one half of a multi-model collaboration. You and other AIs are working together on a task.
-Read the conversation so far and add your contribution — code, analysis, disagreement, or refinement.
-Be direct. If you disagree, say why. If you see a better approach, propose it.
-Don't repeat what's already been said. Advance the work.
-
-If you need input from the human operator to proceed, start your response with QUESTION: followed by what you need to know.
-
-{scratchpad_content}
-
-Continue the conversation. Your turn."""
-
-
-def _needs_human(response: str) -> bool:
-    """Check if a model's response requests human input."""
+    # Check for human interrupt
     first_line = response.strip().split('\n')[0] if response.strip() else ""
-    return first_line.startswith("QUESTION:") or first_line.startswith("**QUESTION:**")
+    wants_human = first_line.startswith("QUESTION:") or first_line.startswith("**QUESTION:**")
+
+    return {
+        "turns": [{"role": model, "content": response}],
+        "current_model_idx": idx + 1,
+        "needs_human": wants_human,
+        "human_question": first_line if wants_human else "",
+    }
 
 
-def _ask_human(model: str, response: str) -> str:
-    """Prompt the human for input and return their answer."""
-    print(f"\n  💬 {model} asks: {response.strip().split(chr(10))[0]}")
+def node_human(state: TwinState) -> dict:
+    """Pause for human input."""
+    question = state.get("human_question", "")
+    print(f"\n  ? {question}")
     try:
-        answer = input("  → Your answer (Enter to skip): ").strip()
+        answer = input("  > ").strip()
     except (EOFError, KeyboardInterrupt):
-        answer = ""
-    return answer if answer else "[no answer — continue without]"
+        answer = "[skipped]"
+    if not answer:
+        answer = "[skipped]"
+
+    path = Path(state["scratchpad_path"])
+    with open(path, "a", encoding="utf-8") as f:
+        f.write(f"\n### Human (Terry)\n\n{answer}\n")
+
+    return {
+        "turns": [{"role": "Human (Terry)", "content": answer}],
+        "needs_human": False,
+        "human_question": "",
+    }
 
 
-def run_interactive(args):
-    """Multi-model collaboration on a shared scratchpad."""
-    models = args.model if isinstance(args.model, list) else [args.model]
-    scratchpad = Path(args.scratchpad) if args.scratchpad else HOME / "tmp" / f"twin-{datetime.now().strftime('%H%M%S')}.md"
-    scratchpad.parent.mkdir(parents=True, exist_ok=True)
+def node_synthesise(state: TwinState) -> dict:
+    """CC synthesises after all models have spoken."""
+    model_label = " + ".join(state["models"])
+    scratchpad = scratchpad_text(state["turns"])
+    prompt = f"""You are Claude, collaborating with {model_label}. Read the full scratchpad.
+Synthesise this round. Agree, disagree, or advance. Build on the strongest point.
+If the group is converging, state the conclusion. If not, sharpen the disagreement.
 
+{scratchpad}
+
+Your turn as Claude."""
+
+    print(f"  CC (sonnet)...", end=" ", flush=True)
+    response = query_model("sonnet", prompt, timeout=state["timeout"])
+    print("done")
+
+    path = Path(state["scratchpad_path"])
+    with open(path, "a", encoding="utf-8") as f:
+        f.write(f"\n### Claude (CC)\n\n{response}\n")
+
+    rnd = state["current_round"] + 1
+    return {
+        "turns": [{"role": "Claude (CC)", "content": response}],
+        "current_round": rnd,
+        "current_model_idx": 0,
+        "done": rnd > state["max_rounds"],
+    }
+
+
+# ── Routing ───────────────────────────────────────────────────────────
+
+def route_after_model(state: TwinState) -> str:
+    """After a model speaks: human interrupt, next model, or synthesise."""
+    if state.get("needs_human"):
+        return "human"
+    if state["current_model_idx"] < len(state["models"]):
+        return "model_turn"
+    return "synthesise"
+
+
+def route_after_human(state: TwinState) -> str:
+    """After human answers: continue with next model or synthesise."""
+    if state["current_model_idx"] < len(state["models"]):
+        return "model_turn"
+    return "synthesise"
+
+
+def route_after_synth(state: TwinState) -> str:
+    """After synthesis: next round or done."""
+    if state.get("done"):
+        return END
+    return "model_turn"
+
+
+# ── Build graph ───────────────────────────────────────────────────────
+
+def build_graph():
+    g = StateGraph(TwinState)
+
+    g.add_node("model_turn", node_model_turn)
+    g.add_node("human", node_human)
+    g.add_node("synthesise", node_synthesise)
+
+    g.set_entry_point("model_turn")
+
+    g.add_conditional_edges("model_turn", route_after_model, {
+        "human": "human",
+        "model_turn": "model_turn",
+        "synthesise": "synthesise",
+    })
+    g.add_conditional_edges("human", route_after_human, {
+        "model_turn": "model_turn",
+        "synthesise": "synthesise",
+    })
+    g.add_conditional_edges("synthesise", route_after_synth, {
+        "model_turn": "model_turn",
+        END: END,
+    })
+
+    checkpointer = InMemorySaver()
+    return g.compile(checkpointer=checkpointer)
+
+
+# ── Main ──────────────────────────────────────────────────────────────
+
+def main():
+    parser = argparse.ArgumentParser(
+        prog="twin",
+        description="Multi-model council with human-in-the-loop (LangGraph)",
+    )
+    parser.add_argument("task", help="Task description")
+    parser.add_argument("--model", default=[DEFAULT_MODEL], nargs="+",
+                        help=f"Model(s) to collaborate (default: {DEFAULT_MODEL})")
+    parser.add_argument("--rounds", type=int, default=2, help="Rounds (default: 2)")
+    parser.add_argument("--scratchpad", type=str, help="Scratchpad path (resume)")
+    parser.add_argument("--timeout", type=int, default=120, help="Per-query timeout (default: 120s)")
+
+    args = parser.parse_args()
+    models = args.model
     task = args.task
     model_label = " + ".join(models)
 
-    if not scratchpad.exists() or not read_scratchpad(scratchpad):
-        init_scratchpad(scratchpad, task, model_label)
-        append_turn(scratchpad, "Claude (CC)", f"**Task received:** {task}\n\nLet me start by framing the problem...")
+    scratchpad = Path(args.scratchpad) if args.scratchpad else HOME / "tmp" / f"twin-{datetime.now().strftime('%H%M%S')}.md"
+    scratchpad.parent.mkdir(parents=True, exist_ok=True)
+
+    # Init scratchpad
+    header = f"""# Twin Session — {datetime.now().strftime('%Y-%m-%d %H:%M')}
+
+**Task:** {task}
+**Models:** CC ↔ {model_label}
+**Engine:** LangGraph
+
+---
+"""
+    scratchpad.write_text(header, encoding="utf-8")
 
     print(f"Scratchpad: {scratchpad}")
     print(f"Models: CC ↔ {model_label}")
+    print(f"Rounds: {args.rounds}")
     print(f"Task: {task}")
     print()
 
-    for round_num in range(1, args.rounds + 1):
-        print(f"--- Round {round_num}/{args.rounds} ---")
+    graph = build_graph()
 
-        # Each twin model gets a turn
-        for model in models:
-            content = read_scratchpad(scratchpad)
-            prompt = twin_prompt(content, task)
-            print(f"  {model}...", end=" ", flush=True)
-            response = query_twin(model, prompt, timeout=args.timeout)
-            append_turn(scratchpad, f"{model}", response)
-            print("done")
+    initial_state = {
+        "task": task,
+        "models": models,
+        "turns": [{"role": "Claude (CC)", "content": f"**Task:** {task}"}],
+        "current_model_idx": 0,
+        "current_round": 1,
+        "max_rounds": args.rounds,
+        "timeout": args.timeout,
+        "scratchpad_path": str(scratchpad),
+        "needs_human": False,
+        "human_question": "",
+        "done": False,
+    }
 
-            # Human interrupt: if any model asks a question, pause for input
-            if _needs_human(response):
-                answer = _ask_human(model, response)
-                append_turn(scratchpad, "Human (Terry)", answer)
+    # Append opening turn to scratchpad
+    with open(scratchpad, "a", encoding="utf-8") as f:
+        f.write(f"\n### Claude (CC)\n\n**Task:** {task}\n")
 
-        # CC synthesises after all twins have spoken
-        content = read_scratchpad(scratchpad)
-        cc_prompt = f"""You are Claude, collaborating with {model_label} on a task. Read the full scratchpad.
-Review what everyone said this round. Synthesise, disagree, or advance. Don't repeat — build on the strongest point.
+    config = {"configurable": {"thread_id": scratchpad.stem}}
 
-{content}
-
-Your turn as Claude. Be specific and constructive."""
-
-        print(f"  CC (sonnet)...", end=" ", flush=True)
-        cc_response = query_twin("sonnet", cc_prompt, timeout=args.timeout)
-        append_turn(scratchpad, "Claude (CC)", cc_response)
-        print("done")
+    for event in graph.stream(initial_state, config=config):
+        pass  # nodes print progress, scratchpad accumulates
 
     print(f"\nScratchpad: {scratchpad}")
-    print("Review with: Read tool or cat")
-
-
-def main():
-    parser = argparse.ArgumentParser(prog="twin", description="CC+model collaborative dialogue")
-    parser.add_argument("task", help="Task description")
-    parser.add_argument("--model", default=DEFAULT_MODEL, nargs="+", help=f"Twin model(s), space-separated (default: {DEFAULT_MODEL})")
-    parser.add_argument("--rounds", type=int, default=2, help="Number of rounds (default: 2)")
-    parser.add_argument("--scratchpad", type=str, help="Path to existing scratchpad (resume)")
-    parser.add_argument("--timeout", type=int, default=120, help="Per-query timeout in seconds (default: 120)")
-
-    args = parser.parse_args()
-    run_interactive(args)
 
 
 if __name__ == "__main__":
