@@ -26,7 +26,7 @@ Multiple LLM models independently review an artifact, cross-judge each other, sy
 ## When NOT to Use
 
 - Simple edits with clear requirements — just do them
-- Factual research — use elencho or web search
+- Factual research — use rheotaxis or web search
 - Decisions/trade-offs — use quorum
 - Time-critical with no room for iteration
 

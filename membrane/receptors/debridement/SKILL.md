@@ -1,6 +1,6 @@
 ---
 name: debridement
-description: Sweep vivesca for naming violations and stale references. Cell concepts get bio names; runtime mechanics keep Python names. "debridement", "naming sweep", "bio names", "stale references", "naming violations".
+description: Sweep vivesca for naming violations and stale references. "naming sweep"
 user_invocable: true
 model: sonnet
 context: fork

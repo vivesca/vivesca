@@ -1,6 +1,6 @@
 ---
 name: electroreception
-description: Use when reading iPhone messages (iMessage/SMS) from local macOS database. "check messages", "read iMessage", "iPhone messages", "SMS"
+description: Read iPhone messages (iMessage/SMS) from local macOS database.
 user_invocable: false
 ---
 

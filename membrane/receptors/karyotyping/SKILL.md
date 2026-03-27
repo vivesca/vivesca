@@ -1,6 +1,6 @@
 ---
 name: karyotyping
-description: Arrange system components visually to find structural anomalies. "karyotyping", "system audit", "architecture review", "component map", "what's in the organism".
+description: Arrange components visually to find structural anomalies. "system audit".
 user_invocable: true
 model: sonnet
 context: fork

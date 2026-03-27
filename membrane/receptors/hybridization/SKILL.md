@@ -1,6 +1,6 @@
 ---
 name: hybridization
-description: Forced-naming-as-design-constraint method — hybridize a concept, a system, or architecture against biology or design patterns to surface gaps. Also covers single-concept naming (formerly /morphogenesis). "Hybridize this", "cell completeness audit", "what are we missing", "run hybridization", "mine the name", "rename and inspire".
+description: Forced bio naming as design constraint — mine gaps from where analogy breaks.
 user_invocable: true
 model: sonnet
 context: fork

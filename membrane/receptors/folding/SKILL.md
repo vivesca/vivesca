@@ -117,7 +117,7 @@ Triage depth before running anything:
 
 ### Companion skill
 
-If you just built a new CLI or tool, create `~/germline/receptors/<name>/SKILL.md` in this session — gotchas are freshest now.
+If you just built a new CLI or tool, create `~/germline/membrane/receptors/<name>/SKILL.md` in this session — gotchas are freshest now.
 
 ### Compound
 

@@ -1,6 +1,6 @@
 ---
 name: germination
-description: Overnight results — surface NEEDS_ATTENTION flags from async agents before proceeding with morning work.
+description: Overnight results — surface NEEDS_ATTENTION flags before morning work begins.
 model: sonnet
 ---
 

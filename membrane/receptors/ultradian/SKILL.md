@@ -1,6 +1,6 @@
 ---
 name: ultradian
-description: "Any-time situational snapshot — what's actionable right now. Use when user says 'ultradian', 'what now', 'what should I do', 'what's next', or needs a mid-session priority check."
+description: Situational snapshot — what's actionable right now. "what now", "what's next"
 user_invocable: true
 triggers:
   - ultradian

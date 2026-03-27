@@ -1,6 +1,6 @@
 ---
 name: receptor
-description: Goal readiness sensing — check proprioceptive state and record drill results against active goals before planning prep sessions.
+description: Goal readiness — check weakest categories and record drill results.
 model: sonnet
 ---
 

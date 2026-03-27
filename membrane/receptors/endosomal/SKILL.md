@@ -1,6 +1,6 @@
 ---
 name: endosomal
-description: Email triage pipeline — search, classify, and batch-archive Gmail noise without touching action items.
+description: Email triage — search, classify, batch-archive noise; preserve action items.
 model: sonnet
 ---
 

@@ -1,6 +1,6 @@
 ---
 name: interphase
-description: Use when heading home from work — single evening routine covering full inbox triage, messages, work summary, brain dump, and tomorrow prep. "leaving office", "on the bus", "going home", "end of day", "check emails", "review inbox", "interphase"
+description: Evening commute routine — inbox triage, messages, work summary, tomorrow prep.
 user_invocable: true
 ---
 

@@ -1,6 +1,6 @@
 ---
 name: chemoreception
-description: On-demand AI landscape briefing when transduction output is stale or a meeting needs fresh signal. Governance translation + meeting routing.
+description: On-demand AI briefing; stale transduction or meeting needs fresh signal.
 user_invocable: true
 model: sonnet
 context: fork

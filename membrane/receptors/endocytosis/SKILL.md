@@ -202,7 +202,7 @@ Mined skills are only valuable if they get consulted. Track in `memory/decay-tra
 | Heuristics | `[[heuristics-decision]]` | 1 | [[mental-models]], transcription-factor, mandatum, quorum | "Delegation Is Delegation", "The Heuristic Library" |
 | Wrap-ups | conclusio (inlined into cytokinesis) | 1 | cytokinesis (inlined), eow, daily | — |
 | Toddler school refusal | `[[parens]] (Reference)` | 1 | — (vault: Theo - Development & Parenting Notes) | — |
-| Truth-seeking | `[[truth-seeking-method]]` | 1 | endocytosis, elencho, quorum, peira, rector | — |
+| Truth-seeking | `[[truth-seeking-method]]` | 1 | endocytosis, rheotaxis, quorum, peira, rector | — |
 | Judgment | `[[practical-judgment]]` | 1 | quorum, transcription-factor, [[premise-audit]], [[truth-seeking-method]], rector, praecepta | — |
 | Creativity | `[[creativity]]` | 1 | brainstorming (CE skill), rector, quorum, diagnosis | — |
 | Systems thinking | `[[systems-thinking]]` | 1 | rector, diagnosis, phronesis, [[creativity]], [[truth-seeking-method]] | — |

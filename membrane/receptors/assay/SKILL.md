@@ -1,6 +1,6 @@
 ---
 name: assay
-description: Detect active life experiments and probe during sessions. "how's the experiment", "assay", or auto-detect at session start.
+description: Detect active experiments and probe during sessions. "assay"
 user_invocable: false
 ---
 

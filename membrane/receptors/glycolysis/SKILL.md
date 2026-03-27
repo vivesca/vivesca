@@ -1,6 +1,6 @@
 ---
 name: glycolysis
-description: Audit LLM dependencies and identify candidates for deterministic conversion. Use when the organism feels expensive, slow, or fragile. "What can run without the symbiont?" "glycolysis", "audit llm", "deterministic conversion", "reduce symbiont", "what uses LLM".
+description: Audit LLM deps, find deterministic conversion candidates. "glycolysis"
 user_invocable: true
 model: sonnet
 context: fork

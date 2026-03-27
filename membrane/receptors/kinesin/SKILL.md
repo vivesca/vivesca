@@ -1,6 +1,6 @@
 ---
 name: kinesin
-description: Session-independent task dispatch — run, monitor, or cancel async agents that must survive session end.
+description: Dispatch and monitor async agents that must survive session end.
 model: sonnet
 ---
 

@@ -1,6 +1,6 @@
 ---
 name: porta
-description: Bridge Chrome session cookies into agent-browser when a login wall appears for a site you're authenticated in Chrome.
+description: Bridge Chrome cookies into agent-browser when a login wall appears.
 user_invocable: false
 tags: [browser, auth, cookies]
 context: inline

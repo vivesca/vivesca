@@ -139,10 +139,10 @@ Full-tier steps (Sonnet subagents, routed by file type):
 
 ### 5. Companion skill + GitHub repo
 
-Create `~/germline/receptors/<name>/SKILL.md` in the same session — gotchas are freshest now.
+Create `~/germline/membrane/receptors/<name>/SKILL.md` in the same session — gotchas are freshest now.
 
 ```bash
-mkdir -p ~/germline/receptors/<name>
+mkdir -p ~/germline/membrane/receptors/<name>
 # write SKILL.md, then:
 cd ~/code/vivesca && git add receptors/<name>/SKILL.md && git commit -m "feat: add <name> skill" && git push
 ```

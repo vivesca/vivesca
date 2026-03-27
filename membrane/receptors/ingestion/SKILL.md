@@ -1,6 +1,6 @@
 ---
 name: ingestion
-description: Suggest lunch from meal plan + log what was eaten. "lunch", "what to eat", "log lunch"
+description: Suggest lunch from meal plan + log what was eaten. "lunch", "log lunch"
 user_invocable: false
 ---
 

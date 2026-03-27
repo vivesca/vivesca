@@ -1,6 +1,6 @@
 ---
 name: entrainment
-description: Morning brief — call at session start to surface sleep scores and overnight system alerts before any work begins.
+description: Morning brief — surface sleep scores and overnight alerts before work begins.
 model: sonnet
 ---
 

@@ -1,6 +1,6 @@
 ---
 name: gradient
-description: Polarity sensing — detect which domains are co-trending across RSS, tool usage, and search before making focus decisions.
+description: Polarity sensing — detect co-trending domains before committing focus.
 model: sonnet
 ---
 

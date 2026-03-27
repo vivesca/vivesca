@@ -1,6 +1,6 @@
 ---
 name: proliferation
-description: Rapidly define buds, skills, and colonies for a domain. Overproduce variants, let selection sort. Adaptive radiation.
+description: Overproduce buds/skills/colonies for a domain; let selection sort variants.
 user_invocable: true
 context: fork
 ---

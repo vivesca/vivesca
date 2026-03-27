@@ -1,6 +1,6 @@
 ---
 name: polymerization
-description: Praxis.md task management — query and clean the canonical todo file, not a substitute for editing it.
+description: Praxis.md task management — query and clean the todo file.
 model: sonnet
 ---
 

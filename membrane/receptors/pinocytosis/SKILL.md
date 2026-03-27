@@ -1,6 +1,6 @@
 ---
 name: pinocytosis
-description: Fetch web content reliably — route by cargo type, fallback chain, session hygiene. "browse", "check this URL", "fetch page"
+description: Fetch web content — route by cargo type, fallback chain. "browse"
 user_invocable: false
 ---
 

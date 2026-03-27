@@ -1,6 +1,6 @@
 ---
 name: rheotaxis
-description: Search discipline for real-world facts. Use before asserting locations, hours, specs, availability, or any claim the model might confabulate.
+description: Search before asserting locations, hours, specs, or any real-world fact.
 model: sonnet
 ---
 

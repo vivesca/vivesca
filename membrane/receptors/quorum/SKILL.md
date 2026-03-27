@@ -1,6 +1,6 @@
 ---
 name: quorum
-description: Multi-model deliberation for judgment calls — auto-routes by difficulty. Full council (~$0.50), quick parallel (~$0.10), red team (~$0.20). Use for decisions, trade-offs, naming, strategy. NOT for factual research (use elencho or WebSearch).
+description: Multi-model deliberation for judgment calls — auto-routes by difficulty. Full council (~$0.50), quick parallel (~$0.10), red team (~$0.20). Use for decisions, trade-offs, naming, strategy. NOT for factual research (use rheotaxis or WebSearch).
 aliases: [ask-llms, council, ask llms]
 github_url: https://github.com/terry-li-hm/quorum
 user_invocable: true
@@ -13,7 +13,7 @@ runtime: rust
 
 5 frontier models deliberate on a question, then Gemini judges and Claude critiques. Auto-routes by difficulty.
 
-> Source: `~/code/quorum/`. Extended reference: `~/germline/receptors/quorum/REFERENCE.md`.
+> Source: `~/code/quorum/`. Extended reference: `~/germline/membrane/receptors/quorum/REFERENCE.md`.
 
 ---
 
@@ -148,4 +148,4 @@ quorum --doctor      # Check API keys and connectivity
 
 ## Reference
 
-Extended docs in `~/germline/receptors/quorum/REFERENCE.md`: prompting tips, model tendencies, flag compatibility matrix, follow-up workflow, cost & ROI, research foundations.
+Extended docs in `~/germline/membrane/receptors/quorum/REFERENCE.md`: prompting tips, model tendencies, flag compatibility matrix, follow-up workflow, cost & ROI, research foundations.

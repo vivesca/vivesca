@@ -1,6 +1,6 @@
 ---
 name: autophagy
-description: Growth-mode sessions — ask Terry's view before offering mine, across any domain. Use when Terry explicitly wants to stay sharp rather than be helped. Invoke with /autophagy. NOT for factual lookups, logistics, or mechanical tasks.
+description: Growth-mode: Terry forms view first, then I challenge. "/autophagy", "coach me"
 epistemics: [learn, reflect]
 ---
 
