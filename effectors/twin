@@ -174,14 +174,32 @@ def read_scratchpad(path: Path) -> str:
 
 def twin_prompt(scratchpad_content: str, task: str) -> str:
     """Build the prompt for the twin model."""
-    return f"""You are one half of a twin collaboration. You and another AI are working together on a task.
+    return f"""You are one half of a multi-model collaboration. You and other AIs are working together on a task.
 Read the conversation so far and add your contribution — code, analysis, disagreement, or refinement.
 Be direct. If you disagree, say why. If you see a better approach, propose it.
 Don't repeat what's already been said. Advance the work.
 
+If you need input from the human operator to proceed, start your response with QUESTION: followed by what you need to know.
+
 {scratchpad_content}
 
 Continue the conversation. Your turn."""
+
+
+def _needs_human(response: str) -> bool:
+    """Check if a model's response requests human input."""
+    first_line = response.strip().split('\n')[0] if response.strip() else ""
+    return first_line.startswith("QUESTION:") or first_line.startswith("**QUESTION:**")
+
+
+def _ask_human(model: str, response: str) -> str:
+    """Prompt the human for input and return their answer."""
+    print(f"\n  💬 {model} asks: {response.strip().split(chr(10))[0]}")
+    try:
+        answer = input("  → Your answer (Enter to skip): ").strip()
+    except (EOFError, KeyboardInterrupt):
+        answer = ""
+    return answer if answer else "[no answer — continue without]"
 
 
 def run_interactive(args):
@@ -213,6 +231,11 @@ def run_interactive(args):
             response = query_twin(model, prompt, timeout=args.timeout)
             append_turn(scratchpad, f"{model}", response)
             print("done")
+
+            # Human interrupt: if any model asks a question, pause for input
+            if _needs_human(response):
+                answer = _ask_human(model, response)
+                append_turn(scratchpad, "Human (Terry)", answer)
 
         # CC synthesises after all twins have spoken
         content = read_scratchpad(scratchpad)
