@@ -1,4 +1,11 @@
-from metabolon.locus import chromatin, receptors, phenotype_md, PLATFORM_SYMLINKS, PLATFORM_MARKERS
+from metabolon.locus import (
+    chromatin,
+    receptors,
+    phenotype_md,
+    PLATFORM_SYMLINKS,
+    PLATFORM_MARKERS_CONFIRM,
+    PLATFORM_MARKERS_REQUIRED,
+)
 
 """integrin -- attachment integrity probe.
 
@@ -104,6 +111,44 @@ BUILTINS = frozenset(
 
 CMD_RE = re.compile(r"^[a-z][a-z0-9_-]*$")
 
+# Known platform config dirs to ignore in new-platform detection
+_KNOWN_PLATFORM_DIRS = {p.parent.name for p in PLATFORM_SYMLINKS if p.parent != Path.home()}
+_KNOWN_PLATFORM_DIRS.add(".claude")  # ~/.claude is known but symlink lives at ~/CLAUDE.md
+
+
+def _check_phenotype_symlinks() -> tuple[list[dict], list[str]]:
+    """Check platform phenotype symlinks and detect unknown CLI platforms.
+
+    Returns (issues, unknown_platforms).
+    issues: list of {path, problem} for known symlinks.
+    unknown_platforms: list of dir names that look like CLI platforms but aren't registered.
+    """
+    issues: list[dict] = []
+    for symlink_path in PLATFORM_SYMLINKS:
+        if not symlink_path.exists():
+            issues.append({"path": str(symlink_path), "problem": "missing"})
+        elif not symlink_path.is_symlink():
+            issues.append({"path": str(symlink_path), "problem": "not_symlink"})
+        elif symlink_path.resolve() != phenotype_md.resolve():
+            issues.append({
+                "path": str(symlink_path),
+                "problem": f"wrong_target:{symlink_path.resolve()}",
+            })
+
+    # Detect unknown CLI platform dirs
+    unknown: list[str] = []
+    for entry in sorted(Path.home().iterdir()):
+        if not entry.name.startswith(".") or not entry.is_dir():
+            continue
+        if entry.name in _KNOWN_PLATFORM_DIRS:
+            continue
+        if not (entry / PLATFORM_MARKERS_REQUIRED).exists():
+            continue
+        if any((entry / m).exists() for m in PLATFORM_MARKERS_CONFIRM):
+            unknown.append(entry.name)
+
+    return issues, unknown
+
 
 # -- Result schema --------------------------------------------------------
 
@@ -139,6 +184,10 @@ class IntegrinResult(Secretion):
 
     # Adhesion dependence: receptors sorted by ligand count
     adhesion_dependence: list[dict]
+
+    # Phenotype: platform entry point symlinks
+    phenotype_issues: list[dict]
+    unknown_platforms: list[str]
 
 
 class ApoptosisResult(Secretion):
@@ -290,6 +339,9 @@ def integrin_probe() -> IntegrinResult:
     5. Fragility: which receptors have the most dependencies?
     6. Activation state: bent (dormant), extended (recent), open (active)
     """
+    # Layer 0 -- Phenotype: are platform entry points wired?
+    phenotype_issues, unknown_platforms = _check_phenotype_symlinks()
+
     if not SKILLS_DIR.is_dir():
         return IntegrinResult(
             total_receptors=0,
@@ -301,6 +353,8 @@ def integrin_probe() -> IntegrinResult:
             anoikis=[],
             activation_state=[],
             adhesion_dependence=[],
+            phenotype_issues=phenotype_issues,
+            unknown_platforms=unknown_platforms,
         )
 
     all_refs: list[dict] = []
@@ -413,6 +467,8 @@ def integrin_probe() -> IntegrinResult:
         anoikis=anoikis,
         activation_state=activation_state,
         adhesion_dependence=adhesion_dependence[:10],
+        phenotype_issues=phenotype_issues,
+        unknown_platforms=unknown_platforms,
     )
 
 

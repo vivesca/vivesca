@@ -81,5 +81,7 @@ PLATFORM_SYMLINKS: list[Path] = [
     home / ".gemini" / "GEMINI.md",  # Gemini CLI reads ~/.gemini/GEMINI.md
 ]
 
-# Detection markers: if a ~/.<dir>/ contains any of these, it's likely a CLI platform
-PLATFORM_MARKERS = frozenset({"settings.json", "config.json", "config.yaml", "state.json"})
+# LLM CLI fingerprint: dirs with settings.json + (state.json or projects/)
+# This filters out generic CLI tools (docker, railway, etc.)
+PLATFORM_MARKERS_REQUIRED = "settings.json"
+PLATFORM_MARKERS_CONFIRM = frozenset({"state.json", "projects", "history.jsonl"})
