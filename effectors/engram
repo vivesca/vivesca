@@ -1,0 +1,9 @@
+#!/usr/bin/env python3
+"""engram — search AI coding chat history."""
+
+from metabolon.organelles.engram import _cli
+
+if __name__ == "__main__":
+    _cli()
+else:
+    _cli()
