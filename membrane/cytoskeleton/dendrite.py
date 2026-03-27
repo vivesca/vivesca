@@ -355,6 +355,62 @@ def mod_recurrence(data):
         pass
 
 
+# ── euchromatin_titer: track access to reference knowledge for remodeling ──
+
+EUCHROMATIN_DIR = HOME / "epigenome" / "chromatin" / "euchromatin"
+
+
+def mod_euchromatin_titer(data):
+    """Track reads on euchromatin files — the sensor for chromatin remodeling."""
+    fp = data.get("tool_input", {}).get("file_path", "")
+    if not fp:
+        return
+    p = Path(fp)
+    if not str(p).startswith(str(EUCHROMATIN_DIR)):
+        return
+    if not p.exists() or p.suffix != ".md":
+        return
+
+    today = datetime.now().strftime("%Y-%m-%d")
+    try:
+        content = p.read_text(encoding="utf-8")
+    except Exception:
+        return
+
+    if not content.startswith("---"):
+        # No frontmatter — add one with titer
+        content = f"---\ntiter-hits: 1\ntiter-last-seen: {today}\n---\n\n{content}"
+        try:
+            p.write_text(content, encoding="utf-8")
+        except Exception:
+            pass
+        return
+
+    end = content.find("---", 3)
+    if end == -1:
+        return
+
+    fm = content[3:end]
+    body = content[end:]
+
+    hits_match = re.search(r"^titer-hits:\s*(\d+)", fm, re.MULTILINE)
+    if hits_match:
+        new_hits = int(hits_match.group(1)) + 1
+        fm = re.sub(r"^titer-hits:\s*\d+", f"titer-hits: {new_hits}", fm, count=1, flags=re.MULTILINE)
+    else:
+        fm = fm.rstrip("\n") + "\ntiter-hits: 1\n"
+
+    if re.search(r"^titer-last-seen:", fm, re.MULTILINE):
+        fm = re.sub(r"^titer-last-seen:\s*\S+", f"titer-last-seen: {today}", fm, count=1, flags=re.MULTILINE)
+    else:
+        fm = fm.rstrip("\n") + f"\ntiter-last-seen: {today}\n"
+
+    try:
+        p.write_text("---" + fm + body, encoding="utf-8")
+    except Exception:
+        pass
+
+
 # ── bash_post: push reminder, dep pollution, merge checklist, friction log ──
 
 FRICTION_LOG = HOME / ".claude" / "cli-friction.jsonl"
@@ -763,7 +819,7 @@ ATTN_INTERVAL = 25
 ATTN_NOW = str(HOME / "epigenome/chromatin/Tonus.md")
 
 
-def mod_attention(_data):
+def mod_attention(_data):  # noqa: ARG001
     count = 0
     try:
         with open(ATTN_MARKER) as f:
@@ -835,7 +891,7 @@ PROPRIO_STATE = Path(os.environ.get("TMPDIR", "/tmp")) / "proprioception-state.j
 PROPRIO_INTERVAL = 20
 
 
-def mod_proprioception(_data):
+def mod_proprioception(_data):  # noqa: ARG001
     state = {"count": 0, "start": time.time()}
     try:
         state = json.loads(PROPRIO_STATE.read_text())
@@ -1303,6 +1359,10 @@ def main():
     # Recurrence tracking (Read on memory files)
     if tool == "Read" and "memory/" in fp:
         modules.append(mod_recurrence)
+
+    # Euchromatin titer (Read on reference knowledge)
+    if tool == "Read" and "euchromatin/" in fp:
+        modules.append(mod_euchromatin_titer)
 
     # Always-fire modules
     modules.append(mod_apoptosis)

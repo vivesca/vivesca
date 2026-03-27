@@ -355,7 +355,7 @@ def test_metabolize_weekly_returns_count_and_path(xdg_env, monkeypatch, tmp_path
     cfg = restore_config()
     _write_weekly_log(cfg, "2026-03-24")
 
-    # Point output to tmp_path (metabolize_weekly uses ~/epigenome/chromatin/Reference)
+    # Point output to tmp_path (metabolize_weekly uses ~/epigenome/chromatin/euchromatin)
     notes_ref = tmp_path / "code" / "epigenome" / "chromatin" / "Reference"
     notes_ref.mkdir(parents=True, exist_ok=True)
     monkeypatch.setattr("metabolon.organelles.endocytosis_rss.digest.Path.home", lambda: tmp_path)
