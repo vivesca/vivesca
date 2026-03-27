@@ -40,8 +40,9 @@ _UNIPROT_FIELDS = "accession,protein_name,cc_function,cc_catalytic_activity,cc_d
 def _fetch_uniprot(term: str) -> BioArticle | None:
     """Search UniProt for a human protein by gene name or keyword."""
     queries = [
-        f"gene_exact:{term} AND organism_id:9606",
-        f"gene:{term} AND organism_id:9606",
+        f"gene_exact:{term} AND organism_id:9606 AND reviewed:true",
+        f"gene:{term} AND organism_id:9606 AND reviewed:true",
+        f"{term} AND organism_id:9606 AND reviewed:true",
         f"{term} AND organism_id:9606",
     ]
     with httpx.Client(headers={"User-Agent": USER_AGENT}, timeout=15.0) as client:
@@ -132,10 +133,16 @@ def _fetch_reactome(term: str) -> BioArticle | None:
         if not entries:
             return None
 
-        # Take best match
+        # Take best match, but verify relevance
         entry = entries[0]
         st_id = entry.get("stId", "")
         name = _strip_html(entry.get("name", term))
+
+        # Skip if the pathway name doesn't contain any word from the search term
+        term_words = {w.lower() for w in term.split() if len(w) > 2}
+        name_lower = name.lower()
+        if term_words and not any(w in name_lower for w in term_words):
+            return None
 
         # Fetch pathway detail
         detail_resp = client.get(_REACTOME_QUERY.format(stId=st_id))
@@ -235,14 +242,32 @@ def _fetch_wikipedia(term: str) -> BioArticle | None:
 # Public API
 # ---------------------------------------------------------------------------
 
-def fetch_summary(term: str) -> BioArticle:
-    """Fetch biology grounding for a term. Tries UniProt → Reactome → Wikipedia."""
-    # Try UniProt first (best for proteins/enzymes)
-    article = _fetch_uniprot(term)
-    if article:
-        return article
+def _looks_like_gene(term: str) -> bool:
+    """Heuristic: gene/protein names are typically short, uppercase, or have digits."""
+    t = term.strip()
+    # All-caps or mostly caps with digits (DNMT1, TP53, BRCA2)
+    if re.match(r"^[A-Z][A-Z0-9]{1,10}$", t):
+        return True
+    # Known protein name patterns (lowercase with digits)
+    if re.match(r"^[a-z]+\d+[a-z]?$", t, re.IGNORECASE):
+        return True
+    # Single word, no spaces — might be a gene
+    if " " not in t and len(t) <= 15:
+        return True
+    return False
 
-    # Try Reactome (best for biological processes/pathways)
+
+def fetch_summary(term: str) -> BioArticle:
+    """Fetch biology grounding for a term. Routes by term type."""
+    is_gene = _looks_like_gene(term)
+
+    if is_gene:
+        # Gene/protein → UniProt first
+        article = _fetch_uniprot(term)
+        if article:
+            return article
+
+    # Process/pathway terms → Reactome first
     article = _fetch_reactome(term)
     if article:
         return article
