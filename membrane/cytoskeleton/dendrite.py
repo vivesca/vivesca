@@ -1300,10 +1300,6 @@ def mod_antisera_discovery(data):
         _antisera_update_titer(entry)
 
 
-# Obfuscated to avoid self-triggering nociceptor-write
-_NPX = "np" + "x"
-
-
 def main():
     try:
         data = json.load(sys.stdin)
