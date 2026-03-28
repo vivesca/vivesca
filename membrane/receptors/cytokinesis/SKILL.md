@@ -82,6 +82,13 @@ Scan the session for every moment Terry **redirected, corrected, or pushed back*
 
 This is separate from the LLM extraction because corrections are easy to under-file. The LLM's instinct is to file facts and architecture but skip behavioral lessons — "I suggested X, user said Y instead" feels like ephemeral conversation, but the *why* behind the redirect is often the most durable insight.
 
+For each correction, also classify the **taste calibration signal:**
+- "I held back / asked permission, Terry said just do it" → recalibrate toward auto-apply. File as feedback memory.
+- "I proposed X, Terry proposed better Y after discussion" → genuine ambiguity, no calibration needed. File the principle.
+- "I auto-applied X, Terry rejected it" → recalibrate toward holding. File as feedback memory.
+
+See `memory/feedback_poiesis_taste_calibration.md` for the threshold: auto-fix freely, hold only when judgment is genuinely ambiguous.
+
 ### 1b. Methylation scan
 
 Proactively scan the session for **vivesca improvement opportunities** — not just "did I learn something?" but "could the organism get stronger from what happened?"
