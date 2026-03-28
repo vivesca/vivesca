@@ -88,6 +88,14 @@ Then six broader questions about the session:
 - **"What patterns recurred?"** — if the same lesson appeared 2+ times in different guises, there's a deeper principle underneath. Extract that instead of filing N separate memories.
 - **"What did we learn about external systems?"** — tool behavior, platform conventions, third-party architecture. Cross-ecosystem intelligence compounds, especially for consulting. Route to antisera or memory.
 
+Finally, one integration question (not extraction — this is about updated judgment, not filed facts):
+- **"What do I believe differently now than when this session started?"** — changed confidence levels matter more than changed facts. "I'm less confident in my assumptions about CLI behavior" applies to 100 future situations; "CC doesn't read .agents/" applies to 1. File the calibration shift, not just the fact.
+
+**Guard rails:**
+- **Time budget: 5 minutes max** for the full 1a review. If it takes longer, you're over-reflecting.
+- **Scan the whole session, not just the end.** Recency bias makes the last event dominate. The most important correction often happened in the middle.
+- **Resistance to filing IS signal.** If something feels too obvious or embarrassing to file, examine that — the most durable lessons often feel trivially simple.
+
 This is separate from the LLM extraction because corrections are easy to under-file. The LLM's instinct is to file facts and architecture but skip behavioral lessons — "I suggested X, user said Y instead" feels like ephemeral conversation, but the *why* behind the redirect is often the most durable insight.
 
 For each correction, also classify the **taste calibration signal:**
@@ -124,6 +132,8 @@ After consolidation, count findings routed in this pass. This is the "cytokinesi
 - If `filed > 0`, note: "Continuous capture missed N items. What blocked mid-session routing?"
 
 This is not a punishment — it's proprioception. The number trends toward zero as the protocol embeds. `filed=0` is the ideal session.
+
+**Capture displacement check:** "If I deleted all memories filed this session, would my behavior change next session?" If yes, the memories are load-bearing. If no, they're theater — the real learning happened in the code/skill edits, and the memories are redundant narration.
 
 ### 2. Housekeeping (full mode only)
 
