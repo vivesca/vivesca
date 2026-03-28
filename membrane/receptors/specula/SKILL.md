@@ -106,11 +106,22 @@ In `/mitosis`, specula runs as one of the review steps:
 
 A good specula scan produces **at least 3 actionable patterns** with concrete "how to steal" steps. If a scan returns only product descriptions or marketing — the researcher prompts need tightening.
 
+## Three-Level Mining
+
+When encountering an external system's artifacts (skills, plugins, configs), mine at three levels in sequence — each level is only visible after completing the previous:
+
+1. **Content** — read what they built. Identify overlaps, gaps, things to delete or adopt directly.
+2. **Structure** — extract *how* they built it. Design patterns, workflow shapes, structural ideas. This is specula's core (steps 2-3 above).
+3. **Implicit knowledge** — use the *domain* as an endocytosis probe. The LLM weights that informed the system contain heuristics the system doesn't implement. Run `~/epigenome/chromatin/Fodina Mining Prompt.md` on Gemini + Codex with the same topic.
+
+Level 1 is what anyone does. Level 2 is what specula does. Level 3 is what endocytosis does. The compound value comes from doing all three. Don't stop at level 2.
+
 ## Anti-Patterns
 
 - **Product tourism** — cataloguing tools without extracting patterns. The tool is irrelevant; the technique is the prize.
 - **Breadth without depth** — scanning 20 targets shallowly vs 5 deeply. Go deep on fewer.
 - **Collecting without acting** — patterns rot if not routed to action. Every high-priority pattern needs a next step.
+- **Stopping at level 2** — extracting design patterns but not mining the LLM weights on the same topic. The implicit knowledge is often richer than the explicit implementation.
 
 ## Relationship to Other Skills
 

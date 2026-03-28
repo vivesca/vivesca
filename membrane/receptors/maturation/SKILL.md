@@ -105,6 +105,15 @@ When a skill misfires (wrong trigger, bad instructions, stale content):
 
 Common misfires: description too broad (fires on unrelated prompts), description too narrow (doesn't fire when it should), body contradicts description, stale paths/commands.
 
+## When a Skill Fails
+
+If the operator skipped a step, ask "system or operator?" before filing a correction memory.
+
+- **System fault:** The skill's structure made the step easy to skip (separate section, optional-sounding language, buried in prose). Fix the skill — fold the step into the numbered flow, make it impossible to miss.
+- **Operator fault:** The skill was clear; the operator didn't follow it. File a feedback memory.
+
+Default assumption: **system fault.** A "try harder" memory is almost always weaker than a structural fix. If the same step gets skipped twice, it's definitely the skill.
+
 ## Anti-Patterns
 
 | Pattern | Fix |
