@@ -73,41 +73,34 @@ If continuous capture handled most of it → quick verification pass, report fil
 
 **MEMORY.md ≥145 lines →** downregulate by recurrence signal, not by position. Check `hits:` and `last-seen:` in memory file frontmatter (updated automatically by dendrite.py on every Read). Lowest hits + oldest last-seen = downregulate candidate. Move to `~/epigenome/chromatin/immunity/memory-overflow.md` (reversible — re-promote if topic resurfaces).
 
-### 1a. Correction review (highest signal — do this explicitly)
+### 1a. Correction review (5 min max — checklist, not essay)
 
-Scan the session for every moment Terry **redirected, corrected, or pushed back**. Each one is a candidate lesson. Three questions per correction:
-- What did I get wrong or miss?
-- What's the generalizable principle?
-- Would a future session benefit from knowing this?
+**Per correction** (scan for every redirect, correction, or pushback):
 
-Then six broader questions about the session:
-- **"What assumptions were proven wrong?"** — not just user corrections, but factual discoveries (tools that don't work as expected, paths that don't exist, conventions that differ from assumed). These are easy to absorb silently without filing.
-- **"What did we delete or remove?"** — every deletion is a potential lesson or future regret. Was value extracted first? Is the removal reversible? Does anything still reference the deleted thing?
-- **"Where did I initially resist the user's direction?"** — resistance points signal miscalibrated defaults. If the user's alternative turned out better, the resistance was a bias worth examining.
-- **"What took longer than it should have?"** — inefficiency is a signal. Repeated attempts, backtracking, or rework point to a missing check or wrong assumption that a rule could prevent.
-- **"What patterns recurred?"** — if the same lesson appeared 2+ times in different guises, there's a deeper principle underneath. Extract that instead of filing N separate memories.
-- **"What did we learn about external systems?"** — tool behavior, platform conventions, third-party architecture. Cross-ecosystem intelligence compounds, especially for consulting. Route to antisera or memory.
+| Question | Routes to |
+|---|---|
+| What did I get wrong? | Principle extraction |
+| What generalizes? | Memory or skill edit |
+| Taste signal: too cautious, too aggressive, or genuine ambiguity? | Feedback memory (see `feedback_poiesis_taste_calibration.md`) |
 
-Finally, one integration question (not extraction — this is about updated judgment, not filed facts):
-- **"What do I believe differently now than when this session started?"** — changed confidence levels matter more than changed facts. "I'm less confident in my assumptions about CLI behavior" applies to 100 future situations; "CC doesn't read .agents/" applies to 1. File the calibration shift, not just the fact.
+**Session-wide** (scan beginning and middle, not just end):
 
-**Guard rails:**
-- **Time budget: 5 minutes max** for the full 1a review. If it takes longer, you're over-reflecting.
-- **Scan the whole session, not just the end.** Recency bias makes the last event dominate. The most important correction often happened in the middle.
-- **Resistance to filing IS signal.** If something feels too obvious or embarrassing to file, examine that — the most durable lessons often feel trivially simple.
-- **Silent success scan.** Pain gets filed; quiet wins don't. Ask: "What worked unusually well that should be made repeatable?"
-- **Near-miss review.** "What almost went wrong, and why didn't it?" Accidental prevention isn't reliable.
-- **fact / hypothesis / policy.** Tag each capture. Escalation: etiology's occurrence table (1st=hypothesis, 2nd=structural cause, 3rd=mandatory system change — no more notes).
-- **IF X, THEN Y format.** Rewrite actionable lessons as implementation intentions, not prose principles. "When I'm about to delete managed state, check for automation first" beats "fix automation before deleting."
+| Question | What it catches |
+|---|---|
+| Wrong assumptions? | Silent factual discoveries — easy to absorb without filing |
+| What was deleted/removed? | Lessons, regrets, dangling references |
+| Where did I resist? | Miscalibrated defaults |
+| What was inefficient? | Missing checks, wrong assumptions a rule could prevent |
+| Recurring patterns? | Deeper principle underneath N separate incidents |
+| External system learnings? | Cross-ecosystem intelligence — route to antisera/memory |
+| What do I believe differently now? | Calibration shifts > facts (100 future situations vs 1) |
+| What worked unusually well? | Silent successes that should be repeatable |
+| What almost went wrong? | Near-misses — accidental prevention isn't reliable |
 
-This is separate from the LLM extraction because corrections are easy to under-file. The LLM's instinct is to file facts and architecture but skip behavioral lessons — "I suggested X, user said Y instead" feels like ephemeral conversation, but the *why* behind the redirect is often the most durable insight.
-
-For each correction, also classify the **taste calibration signal:**
-- "I held back / asked permission, Terry said just do it" → recalibrate toward auto-apply. File as feedback memory.
-- "I proposed X, Terry proposed better Y after discussion" → genuine ambiguity, no calibration needed. File the principle.
-- "I auto-applied X, Terry rejected it" → recalibrate toward holding. File as feedback memory.
-
-See `memory/feedback_poiesis_taste_calibration.md` for the threshold: auto-fix freely, hold only when judgment is genuinely ambiguous.
+**Filing discipline:**
+- Tag: `fact` / `hypothesis` / `policy`. Escalation: etiology's occurrence table.
+- Format: `IF X, THEN Y` — not prose principles.
+- Resistance to filing IS signal — the obvious/embarrassing lessons are often the most durable.
 
 ### 1b. Methylation scan
 
