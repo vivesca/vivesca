@@ -163,7 +163,7 @@ Hook dispatch infrastructure — routes signals before and after tool use.
       differentiation/    Completed plans
   methylome.md →          CC auto-memory index (symlink)
   methylation/ →          CC memory files (symlink)
-  bud-engrams/            Agent memory traces
+  bud-marks/            Agent memory traces
   phenotype/              Instance configuration
   cofactors/              API keys / access tokens
   pacemakers/             LaunchAgent plists (scheduled autonomous processes)
@@ -180,7 +180,7 @@ Hook dispatch infrastructure — routes signals before and after tool use.
 | `chromatin/heterochromatin/` | **Heterochromatin** | Silenced, condensed — preserved but inactive |
 | `methylome.md` | **Methylome** | DNA methylation index — persistent learned marks |
 | `methylation/` | **Methylation marks** | Individual memory files (~200 marks) |
-| `bud-engrams/` | **Bud engrams** | Agent-specific memory traces |
+| `bud-marks/` | **Bud marks** | Agent-specific memory traces |
 | `phenotype/` | **Phenotype** | Instance-level expression configuration |
 | `cofactors/` | **Cofactors** | Molecules required for enzyme function (credentials) |
 | `pacemakers/` | **Pacemaker cells** | Set the rhythm — LaunchAgent scheduled processes |

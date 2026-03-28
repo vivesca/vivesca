@@ -12,7 +12,7 @@ See `anatomy.md` for the structural map.
 At the start of each session, read the memory index for project context and behavioral guidance:
 
 ```
-~/epigenome/engrams/MEMORY.md
+~/epigenome/marks/MEMORY.md
 ```
 
 (Also accessible at `~/.claude/projects/-Users-terry/memory/MEMORY.md` — same files via symlink.)

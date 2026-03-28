@@ -35,37 +35,13 @@ from mcp.types import ToolAnnotations
 from metabolon.cytosol import invoke_organelle, synthesize
 from metabolon.metabolism.signals import Outcome, SensorySystem, Stimulus
 from metabolon.morphology import EffectorResult, Secretion
+from metabolon.organelles import golgi as _golgi
 from metabolon.organelles import pacemaker as _pacemaker
 from metabolon.organelles import praxis as _praxis
 from metabolon.organelles import secretory_vesicle as _secretory_vesicle
 
 HKT = timezone(timedelta(hours=8))
 NOTES = str(chromatin)
-
-# -- Chaperones: quality control before export --------------------------------
-# Cell biology: chaperones verify protein folding before secretion.
-# Misfolded proteins → ER-associated degradation (ERAD), not export.
-
-_SPECIAL_CHARS = re.compile(
-    r"[\u2014\u2013\u2018\u2019\u201c\u201d\u2192\u2190\u2026]"
-)  # em/en dash, smart quotes, arrows, ellipsis
-_PII_PATTERNS = re.compile(
-    r"\b(?:\d{4}[\s-]?\d{4}[\s-]?\d{4}[\s-]?\d{4})\b"  # card numbers
-    r"|\b[A-Z]\d{6}\(?[0-9A]\)?\b"  # HKID
-    r"|\b\d{3}-\d{2}-\d{4}\b",  # SSN
-    re.IGNORECASE,
-)
-
-
-def _chaperone_check(text: str, channel: str) -> str | None:
-    """Pre-export quality control. Returns error message if misfolded, None if OK."""
-    if _PII_PATTERNS.search(text):
-        return "ERAD: PII detected — blocked export"
-    if channel in ("tweet", "telegram") and _SPECIAL_CHARS.search(text):
-        return f"ERAD: special characters in {channel} output (Blink constraint)"
-    if channel == "tweet" and len(text) > 280:
-        return f"ERAD: tweet too long ({len(text)} chars, max 280)"
-    return None
 
 
 def _today_iso() -> str:
@@ -288,7 +264,7 @@ def emit_publish(subcommand: str, slug: str = "") -> EffectorResult:
 )
 def emit_tweet(text: str) -> EffectorResult:
     """Post a tweet via bird CLI."""
-    rejection = _chaperone_check(text, "tweet")
+    rejection = _golgi.chaperone_check(text, "tweet")
     if rejection:
         return EffectorResult(success=False, message=rejection)
     result = invoke_organelle("bird", ["tweet", text], timeout=30)
@@ -389,7 +365,7 @@ def exocytosis_tweet(insight: str, topic: str = "") -> EffectorResult:
     # Strip accidental wrapping quotes
     text = text.strip().strip('"').strip("'").strip()
 
-    rejection = _chaperone_check(text, "tweet")
+    rejection = _golgi.chaperone_check(text, "tweet")
     if rejection:
         return EffectorResult(success=False, message=f"{rejection}. Text: {text}")
 

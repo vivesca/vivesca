@@ -44,7 +44,7 @@ SYNC_TARGETS: list[dict] = [
     # officina is not a git repo locally — synced via its own mechanism
     # scripts repo absorbed into germline/epigenome (Mar 2026)
     # .claude critical files DR'd via symlinks into germline/epigenome:
-    # hooks → germline/synaptic/, MEMORY.md → epigenome/engrams/ltp.md,
+    # hooks → germline/synaptic/, MEMORY.md → epigenome/marks/methylome.md,
     # settings.json → germline/membrane/expression.json
 ]
 
@@ -400,7 +400,7 @@ def setup() -> dict:
         (f"{LUCERNA_HOME}/germline/membrane/receptors", f"{LUCERNA_HOME}/.claude/skills"),
         # CC memory -> epigenome engrams (on Mac these are hardlinked; on Linux, symlink)
         (
-            f"{LUCERNA_HOME}/epigenome/engrams",
+            f"{LUCERNA_HOME}/epigenome/marks",
             f"{LUCERNA_HOME}/.claude/projects/{_project_slug}/memory",
         ),
     ]
@@ -453,7 +453,7 @@ def smoketest() -> dict:
     # Generate random passcode
     passcode = "mitosis-" + "".join(random.choices(string.ascii_lowercase + string.digits, k=8))
 
-    # Write passcode to a memory file locally (in epigenome/engrams, which is hardlinked to CC memory)
+    # Write passcode to a memory file locally (in epigenome/marks, which is hardlinked to CC memory)
     probe_file = Path.home() / "epigenome" / "engrams" / "mitosis_probe.md"
     probe_file.write_text(
         f"---\nname: mitosis probe\ndescription: DR smoke test probe — ephemeral\ntype: project\n---\n\n"

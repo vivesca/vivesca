@@ -21,7 +21,7 @@ def mitosis_sync(targets: list[str] | None = None) -> EffectorResult:
     """Sync organism state to gemmule hot standby.
 
     Args:
-        targets: Specific targets to sync (e.g. ["chromatin", "engrams"]).
+        targets: Specific targets to sync (e.g. ["chromatin", "marks"]).
                  None syncs all targets.
     """
     from metabolon.organelles.mitosis import sync

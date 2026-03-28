@@ -52,6 +52,32 @@ def _write_frontmatter(fm: dict, body: str) -> str:
     return f"---\n{fm_str}---\n{body}"
 
 
+# -- Chaperones: quality control before export --------------------------------
+# Cell biology: chaperones verify protein folding before secretion.
+# Misfolded proteins → ER-associated degradation (ERAD), not export.
+
+_SPECIAL_CHARS = re.compile(
+    r"[\u2014\u2013\u2018\u2019\u201c\u201d\u2192\u2190\u2026]"
+)  # em/en dash, smart quotes, arrows, ellipsis
+_PII_PATTERNS = re.compile(
+    r"\b(?:\d{4}[\s-]?\d{4}[\s-]?\d{4}[\s-]?\d{4})\b"  # card numbers
+    r"|\b[A-Z]\d{6}\(?[0-9A]\)?\b"  # HKID
+    r"|\b\d{3}-\d{2}-\d{4}\b",  # SSN
+    re.IGNORECASE,
+)
+
+
+def chaperone_check(text: str, channel: str) -> str | None:
+    """Pre-export quality control. Returns error message if misfolded, None if OK."""
+    if _PII_PATTERNS.search(text):
+        return "ERAD: PII detected — blocked export"
+    if channel in ("tweet", "telegram") and _SPECIAL_CHARS.search(text):
+        return f"ERAD: special characters in {channel} output (Blink constraint)"
+    if channel == "tweet" and len(text) > 280:
+        return f"ERAD: tweet too long ({len(text)} chars, max 280)"
+    return None
+
+
 def scan_content(content: str) -> list[str]:
     """Content guardrails — scan for sensitive data before publishing."""
     warnings = []

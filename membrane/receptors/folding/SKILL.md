@@ -68,7 +68,7 @@ sortase exec <plan-path> -p <project-dir> -b <backend> --test-command "<test>"
 - `-b codex` — Rust, hard bugs, complex logic
 - `-b goose` — bulk operations, GLM-5.1 via Zhipu Coding Plan
 
-**One task per delegation.** 3 tasks in the plan = 3 separate delegations. Don't bundle.
+**One task per delegation.** 3 tasks in the plan = 3 separate delegations. Don't bundle. Independent tasks run in parallel via worktree isolation (`sortase exec` handles this automatically).
 
 **Fallback:** If sortase fails (infra, not task), fall back to raw CLI (`gemini -p "$(cat plan.md)"`) — but note the logging gap.
 
