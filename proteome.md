@@ -91,3 +91,4 @@ When triggers match, run the tool directly. Reference docs in `~/epigenome/chrom
 | Insurance claims | `salus` |
 | Config sync | `synaxis --full` |
 | Git worktrees | `lucus` |
+| Plan execution + agent routing | `sortase exec <plan> -p <dir> -b <backend>` |

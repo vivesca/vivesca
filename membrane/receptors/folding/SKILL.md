@@ -48,7 +48,7 @@ Not everything needs the full pipeline.
 | Size | Action |
 |------|--------|
 | **Trivial** (≤20 lines, single file, no architecture) | Build directly in-session |
-| **Standard** (multi-file, existing codebase) | Delegate via opifex |
+| **Standard** (multi-file, existing codebase) | Delegate via sortase |
 | **Needs live decisions** | In-session with plan mode |
 
 Default: **delegate.** The point of writing a detailed plan is so a context-free agent can execute it. Don't burn session tokens on work external tools do for free.
@@ -57,20 +57,20 @@ Default: **delegate.** The point of writing a detailed plan is so a context-free
 
 ### Delegate (default path)
 
-Route through opifex for logging and feedback:
+Route through sortase for logging and feedback:
 
 ```bash
-opifex exec <plan-path> -p <project-dir> -b <backend> --test-command "<test>"
+sortase exec <plan-path> -p <project-dir> -b <backend> --test-command "<test>"
 ```
 
 **Backend selection:**
 - `-b gemini` — default, boilerplate, most tasks
 - `-b codex` — Rust, hard bugs, complex logic
-- `-b opencode` — bulk operations, large file counts
+- `-b goose` — bulk operations, GLM-5.1 via Zhipu Coding Plan
 
 **One task per delegation.** 3 tasks in the plan = 3 separate delegations. Don't bundle.
 
-**Fallback:** If opifex fails (infra, not task), fall back to raw CLI (`gemini -p "$(cat plan.md)"`) — but note the logging gap.
+**Fallback:** If sortase fails (infra, not task), fall back to raw CLI (`gemini -p "$(cat plan.md)"`) — but note the logging gap.
 
 ### In-session (exception path)
 
@@ -148,4 +148,4 @@ If unsure, read the surrounding code first. Follow what you find.
 
 - **Challenge the premise.** "What can this do that the existing approach can't?"
 - **30-min scope check.** If exploring >30 min with no code or delegation → flag it.
-- **Gemini default backend.** Override for Rust (Codex) or bulk ops (OpenCode).
+- **Gemini default backend.** Override for Rust (Codex) or bulk ops (Goose).
