@@ -73,6 +73,15 @@ If continuous capture handled most of it → quick verification pass, report fil
 
 **MEMORY.md ≥145 lines →** downregulate by recurrence signal, not by position. Check `hits:` and `last-seen:` in memory file frontmatter (updated automatically by dendrite.py on every Read). Lowest hits + oldest last-seen = downregulate candidate. Move to `~/epigenome/chromatin/immunity/memory-overflow.md` (reversible — re-promote if topic resurfaces).
 
+### 1a. Correction review (highest signal — do this explicitly)
+
+Scan the session for every moment Terry **redirected, corrected, or pushed back**. Each one is a candidate lesson. Ask for each:
+- What did I get wrong or miss?
+- What's the generalizable principle?
+- Would a future session benefit from knowing this?
+
+This is separate from the LLM extraction because corrections are easy to under-file. The LLM's instinct is to file facts and architecture but skip behavioral lessons — "I suggested X, user said Y instead" feels like ephemeral conversation, but the *why* behind the redirect is often the most durable insight.
+
 ### 1b. Methylation scan
 
 Proactively scan the session for **vivesca improvement opportunities** — not just "did I learn something?" but "could the organism get stronger from what happened?"
