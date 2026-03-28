@@ -1,0 +1,195 @@
+#!/usr/bin/env python3
+"""
+backfill-marks: Add missing frontmatter fields to epigenome/marks/*.md files.
+
+Fields added (only where missing):
+  source:     inferred from git blame author email, else defaults to 'cc'
+  durability: 'acetyl' for checkpoint_* or resolved_* files, else 'methyl'
+  protected:  true (only for a fixed list of core behavioral corrections)
+
+Usage:
+  backfill-marks           # dry run (default)
+  backfill-marks --dry-run # dry run explicitly
+  backfill-marks --execute # write changes
+"""
+
+import argparse
+import subprocess
+import sys
+from pathlib import Path
+
+MARKS_DIR = Path.home() / "epigenome" / "marks"
+
+SKIP_FILES = {"MEMORY.md", "methylome.md", "decay-tracker.md"}
+
+PROTECTED_STEMS = {
+    "feedback_keep_digging",
+    "feedback_hold_position",
+    "feedback_pull_the_thread",
+    "feedback_more_autonomous",
+    "feedback_stop_asking_obvious",
+    "feedback_discuss_then_act",
+    "feedback_dont_inflate_difficulty",
+    "feedback_single_thorough_sweep",
+}
+
+# Email → source mapping for git blame inference
+EMAIL_TO_SOURCE = {
+    "opencode@local": "opencode",
+    "codex@local": "codex",
+}
+# terry@terryli.dev and others default to 'cc' (most marks were created by Claude Code)
+
+
+def get_git_blame_source(filepath: Path) -> str:
+    """Infer source from the first non-trivial git blame author email."""
+    try:
+        result = subprocess.run(
+            ["git", "-C", str(MARKS_DIR), "log", "--format=%ae", "--follow", "--", str(filepath)],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        emails = [line.strip() for line in result.stdout.splitlines() if line.strip()]
+        if emails:
+            email = emails[0]
+            return EMAIL_TO_SOURCE.get(email, "cc")
+    except (subprocess.SubprocessError, FileNotFoundError):
+        pass
+    return "cc"
+
+
+def parse_frontmatter(content: str):
+    """
+    Split content into (frontmatter_lines, body_text).
+    frontmatter_lines: list of strings inside the --- delimiters (no newlines).
+    body_text: everything after the closing ---.
+    Returns None for frontmatter_lines if no valid frontmatter found.
+    """
+    lines = content.split("\n")
+    if not lines or lines[0].rstrip() != "---":
+        return None, content
+
+    close_idx = None
+    for i, line in enumerate(lines[1:], start=1):
+        if line.rstrip() == "---":
+            close_idx = i
+            break
+
+    if close_idx is None:
+        return None, content
+
+    fm_lines = lines[1:close_idx]
+    body = "\n".join(lines[close_idx + 1:])
+    return fm_lines, body
+
+
+def has_field(fm_lines: list, field: str) -> bool:
+    prefix = f"{field}:"
+    return any(line.startswith(prefix) for line in fm_lines)
+
+
+def rebuild_file(fm_lines: list, body: str) -> str:
+    fm_block = "\n".join(["---"] + fm_lines + ["---"])
+    if body and not body.startswith("\n"):
+        body = "\n" + body
+    return fm_block + body
+
+
+def process_file(filepath: Path, execute: bool) -> bool:
+    """
+    Process a single file. Returns True if the file was (or would be) modified.
+    """
+    content = filepath.read_text(encoding="utf-8")
+    fm_lines, body = parse_frontmatter(content)
+
+    if fm_lines is None:
+        print(f"  SKIP (no frontmatter): {filepath.name}")
+        return False
+
+    stem = filepath.stem
+    needs_source = not has_field(fm_lines, "source")
+    needs_durability = not has_field(fm_lines, "durability")
+    needs_protected = not has_field(fm_lines, "protected") and stem in PROTECTED_STEMS
+
+    if not (needs_source or needs_durability or needs_protected):
+        return False
+
+    # Compute values
+    source_val = get_git_blame_source(filepath) if needs_source else None
+    durability_val = (
+        "acetyl" if (stem.startswith("checkpoint_") or stem.startswith("resolved_")) else "methyl"
+    ) if needs_durability else None
+
+    # Insert fields after the last existing field in frontmatter
+    new_fm = list(fm_lines)
+    if needs_source:
+        new_fm.append(f"source: {source_val}")
+    if needs_durability:
+        new_fm.append(f"durability: {durability_val}")
+    if needs_protected:
+        new_fm.append("protected: true")
+
+    additions = []
+    if needs_source:
+        additions.append(f"source={source_val}")
+    if needs_durability:
+        additions.append(f"durability={durability_val}")
+    if needs_protected:
+        additions.append("protected=true")
+
+    tag = "WRITE" if execute else "DRY-RUN"
+    print(f"  [{tag}] {filepath.name}: +{', '.join(additions)}")
+
+    if execute:
+        new_content = rebuild_file(new_fm, body)
+        filepath.write_text(new_content, encoding="utf-8")
+
+    return True
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Backfill frontmatter fields on epigenome marks.")
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument("--dry-run", action="store_true", default=True, help="Preview changes (default)")
+    mode.add_argument("--execute", action="store_true", help="Write changes to disk")
+    args = parser.parse_args()
+
+    execute = args.execute
+
+    if execute:
+        print(f"Mode: EXECUTE — writing changes to {MARKS_DIR}")
+    else:
+        print(f"Mode: DRY-RUN — no files will be modified (pass --execute to apply)")
+
+    print()
+
+    files = sorted(MARKS_DIR.glob("*.md"))
+    updated = 0
+    skipped_index = 0
+    skipped_complete = 0
+
+    for filepath in files:
+        # Skip symlinks (MEMORY.md → methylome.md) to avoid double-processing
+        if filepath.is_symlink():
+            skipped_index += 1
+            continue
+        if filepath.name in SKIP_FILES:
+            skipped_index += 1
+            continue
+        modified = process_file(filepath, execute=execute)
+        if modified:
+            updated += 1
+        else:
+            skipped_complete += 1
+
+    print()
+    print(f"Results:")
+    print(f"  {'Updated' if execute else 'Would update'}: {updated} files")
+    print(f"  Already complete (skipped): {skipped_complete} files")
+    print(f"  Index files (skipped): {skipped_index} files")
+    print(f"  Total scanned: {len(files)} files")
+
+
+if __name__ == "__main__":
+    main()

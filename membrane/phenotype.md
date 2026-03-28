@@ -25,3 +25,20 @@ This is the memory index — an always-loaded context of gotchas, user facts, an
 - Behavioral corrections (hard-earned — follow them)
 
 Each line in MEMORY.md links to a detailed memory file. Read relevant ones when the task matches their description.
+
+### Mark frontmatter (enhanced histone code)
+
+When saving memory files, use this frontmatter:
+
+```yaml
+---
+name: {{name}}
+description: {{one-line description}}
+type: {{user, feedback, project, reference, finding}}
+source: {{cc, gemini, codex, goose, user}}  # imprinting: who wrote this mark
+durability: {{methyl, acetyl}}               # methyl=durable (default), acetyl=volatile (checkpoints, resolved)
+protected: {{true}}                          # CpG island — omit if not protected
+---
+```
+
+`source` and `durability` are optional — defaults are `unknown` and `methyl`. Set `protected: true` only for core behavioral corrections that must never be erased.
