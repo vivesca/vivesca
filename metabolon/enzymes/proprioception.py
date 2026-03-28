@@ -165,10 +165,10 @@ def _operons() -> str:
 
 
 def _sensorium() -> str:
-    """Recent search queries. Reads chemotaxis signal log if available."""
+    """Recent search queries. Reads rheotaxis signal log if available."""
     import json
 
-    log_path = Path.home() / "germline" / "loci" / "signals" / "chemotaxis.jsonl"
+    log_path = Path.home() / "germline" / "loci" / "signals" / "rheotaxis.jsonl"
     if not log_path.exists():
         return "(no search log available)"
     lines = log_path.read_text().strip().splitlines()

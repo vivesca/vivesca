@@ -9,7 +9,7 @@ Parallel buds are the default — colonies justify their coordination cost.
 | Cadence | Colony | Trigger | Product | Cost |
 |---------|--------|---------|---------|------|
 | Monthly | monthly-review | /ecdysis monthly or month end | Monthly review doc with trends | ~$4 |
-| Quarterly | landscape-survey | Manual or /chemotaxis deep | Domain survey reference doc | ~$5 |
+| Quarterly | landscape-survey | Manual or /specula deep | Domain survey reference doc | ~$5 |
 
 ## Event-Triggered Colonies
 

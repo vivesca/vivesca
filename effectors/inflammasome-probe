@@ -180,7 +180,7 @@ def novel_failure_repair(results: list[dict], ts: str) -> None:
     Runs after adaptive_response(). For each still-failed probe where
     repair_attempted is None (adaptive layer did not handle it):
 
-      - Skip chemotaxis/"not set" — known LaunchAgent env issue, importin handles it
+      - Skip rheotaxis/"not set" — known LaunchAgent env issue, importin handles it
       - Skip if seen >= _NOVEL_CYCLE_LOOKBACK times unhealed (not novel)
       - Skip if on 24-hour cooldown
       - Otherwise dispatch channel sonnet for diagnosis/fix
@@ -226,7 +226,7 @@ def novel_failure_repair(results: list[dict], ts: str) -> None:
         message: str = result.get("message", "")
 
         # Skip known LaunchAgent env issue — importin handles at MCP startup.
-        if probe_name == "chemotaxis" and "not set" in message:
+        if probe_name == "rheotaxis" and "not set" in message:
             print(f"[{ts}] [DIAGNOSIS] skip {probe_name}: known LaunchAgent env issue")
             continue
 

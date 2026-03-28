@@ -35,7 +35,7 @@ Launch parallel Sonnet researcher subagents (one per scan cluster). Each researc
 - Structures output as: Pattern name → What problem it solves → How it works → Evidence → How to steal
 
 ```
-Agent(subagent_type="researcher", model="sonnet", name="chemotaxis-<domain>",
+Agent(subagent_type="researcher", model="sonnet", name="scan-<domain>",
   prompt="Research [targets] for transferable patterns. For each pattern: name, problem solved, how it works, evidence, how to adopt. Structured markdown.")
 ```
 

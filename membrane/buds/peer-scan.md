@@ -3,7 +3,7 @@ name: peer-scan
 description: Boundary patrol — scan peers, competitors, adjacent practitioners. Capture patterns, present findings.
 model: sonnet
 tools: ["Read", "Glob", "Grep", "Bash", "WebSearch", "WebFetch"]
-skills: ["chemotaxis"]
+skills: ["rheotaxis"]
 ---
 
 Scan what peers, competitors, and adjacent practitioners are doing. Focus on:

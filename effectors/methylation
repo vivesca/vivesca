@@ -442,7 +442,7 @@ You are the organism's hybridization layer. You observe a functional gap and mus
 
 ## Current subsystems (for reference)
 inflammasome (self-test probes), angiogenesis (connection detection), entrainment (schedule sync), \
-poiesis (agent production), endocytosis (content intake), chemotaxis (search), perfusion (routing)
+poiesis (agent production), endocytosis (content intake), rheotaxis (search), perfusion (routing)
 
 ## Task
 1. Name a cell biology mechanism that handles this exact function
@@ -461,7 +461,7 @@ PROPOSAL: <module name, function, purpose>
 
 KNOWN_SUBSYSTEMS = {
     "inflammasome", "angiogenesis", "entrainment", "poiesis",
-    "endocytosis", "chemotaxis", "perfusion",
+    "endocytosis", "rheotaxis", "perfusion",
 }
 
 

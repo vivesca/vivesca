@@ -41,7 +41,7 @@ SUPPRESSIONS = {
     "failing_tool": "Test sentinel (safe to ignore)",
     "unknown_tool": "Test sentinel (safe to ignore)",
     "tool": "Generic placeholder (safe to ignore)",
-    "chemotaxis": "Test sentinel (self-test path)",
+    "rheotaxis": "Test sentinel (self-test path)",
     "endocytosis": "Test sentinel (self-test path)",
     "respirometry": "Test sentinel (self-test path)",
     "chromatin": "Test sentinel (self-test path)",

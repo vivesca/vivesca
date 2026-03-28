@@ -38,7 +38,7 @@ from metabolon.morphology import Secretion
 
 _RELEVANCE_LOG = Path.home() / ".cache" / "lustro" / "relevance.jsonl"
 _SIGNALS_LOG = Path.home() / ".local" / "share" / "vivesca" / "signals.jsonl"
-_RHEOTAXIS_LOG = Path.home() / "germline" / "loci" / "signals" / "chemotaxis.jsonl"
+_RHEOTAXIS_LOG = Path.home() / "germline" / "loci" / "signals" / "rheotaxis.jsonl"
 
 # ---------------------------------------------------------------------------
 # Sensor topology: which sensor pairs are adjacent vs independent

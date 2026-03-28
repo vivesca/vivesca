@@ -22,7 +22,7 @@ from pathlib import Path
 # ---------------------------------------------------------------------------
 
 _PERPLEXITY_API_URL = "https://api.perplexity.ai/chat/completions"
-_PERPLEXITY_LOG = Path.home() / "germline" / "loci" / "signals" / "chemotaxis.jsonl"
+_PERPLEXITY_LOG = Path.home() / "germline" / "loci" / "signals" / "rheotaxis.jsonl"
 _PERPLEXITY_MODELS = {
     "quick": "sonar",
     "thorough": "sonar-pro",
@@ -94,7 +94,7 @@ def _perplexity_query(model: str, query: str, timeout: int = 300) -> str:
     return content
 
 
-# Public Perplexity tier functions (used by enzymes/chemotaxis.py scan tool)
+# Public Perplexity tier functions
 def perplexity_quick(query: str) -> str:
     """Quick search (~$0.006)."""
     return _perplexity_query(_PERPLEXITY_MODELS["quick"], query, timeout=30)

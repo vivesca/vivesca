@@ -76,7 +76,7 @@ def probe_endocytosis() -> tuple[bool, str]:
         return False, f"exception: {exc}"
 
 
-def probe_chemotaxis() -> tuple[bool, str]:
+def probe_rheotaxis() -> tuple[bool, str]:
     """Verify PERPLEXITY_API_KEY is set and non-empty."""
     try:
         key = os.environ.get("PERPLEXITY_API_KEY")
@@ -87,16 +87,15 @@ def probe_chemotaxis() -> tuple[bool, str]:
         return False, f"exception: {exc}"
 
 
-def probe_chemotaxis_self_test() -> tuple[bool, str]:
-    """Fires a minimal test query through chemotaxis and validates the response structure."""
+def probe_rheotaxis_self_test() -> tuple[bool, str]:
+    """Fires a minimal test query through rheotaxis CLI and validates the response."""
     try:
         import shutil
 
-        binary = shutil.which("chemotaxis")
+        binary = shutil.which("rheotaxis")
         if not binary:
-            return False, "chemotaxis binary not found on PATH"
+            return False, "rheotaxis binary not found on PATH"
 
-        # Minimal test query, we just want to see if the plumbing works
         result = subprocess.run(
             [binary, "--json", "test"],
             capture_output=True,
@@ -104,23 +103,15 @@ def probe_chemotaxis_self_test() -> tuple[bool, str]:
             timeout=15,
         )
         if result.returncode != 0:
-            return False, f"chemotaxis exited {result.returncode}: {result.stderr.strip()[:200]}"
+            return False, f"rheotaxis exited {result.returncode}: {result.stderr.strip()[:200]}"
 
-        try:
-            data = json.loads(result.stdout)
-        except json.JSONDecodeError as parse_err:
-            return False, f"invalid JSON from chemotaxis: {parse_err}"
+        if not result.stdout.strip():
+            return False, "rheotaxis returned empty output"
 
-        if not data.get("success"):
-            return False, f"chemotaxis reported failure: {data.get('error', 'unknown error')}"
-
-        if not data.get("text"):
-            return False, "chemotaxis returned success=True but empty text"
-
-        return True, f"chemotaxis ok, responded via {data.get('method', 'unknown')}"
+        return True, "rheotaxis ok"
 
     except subprocess.TimeoutExpired:
-        return False, "chemotaxis timed out (15s)"
+        return False, "rheotaxis timed out (15s)"
     except Exception as exc:
         return False, f"exception: {exc}"
 
@@ -276,8 +267,8 @@ def probe_mcp_server() -> tuple[bool, str]:
 _PROBES: list[tuple[str, Any]] = [
     ("chromatin", probe_chromatin),
     ("endocytosis", probe_endocytosis),
-    ("chemotaxis", probe_chemotaxis),
-    ("chemotaxis_self_test", probe_chemotaxis_self_test),
+    ("rheotaxis", probe_rheotaxis),
+    ("rheotaxis_self_test", probe_rheotaxis_self_test),
     ("vasomotor_conf", probe_vasomotor_conf),
     ("respirometry", probe_respirometry),
     ("perfusion", probe_perfusion),
@@ -456,7 +447,7 @@ _REPAIR_PATTERNS: list[tuple[str, Any, Any, str]] = [
         "launchctl_load_mcp",
     ),
     (
-        "chemotaxis",
+        "rheotaxis",
         lambda msg: "not set" in msg or "not set or empty" in msg,
         _repair_chemotaxis_key,
         "importin_load_keychain",

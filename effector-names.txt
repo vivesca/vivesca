@@ -6,7 +6,7 @@
 assay
 centrosome
 channel
-chemotaxis-local
+rheotaxis-local
 complement
 poiesis
 cytokinesis

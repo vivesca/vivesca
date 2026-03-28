@@ -111,7 +111,7 @@ def emit_telemetry(
 
 
 # -- Cluster 2: Sparks ---------------------------------------------------
-# Used by: chemoreception, chemotaxis, phagocytosis, interphase, expression
+# Used by: chemoreception, rheotaxis, phagocytosis, interphase, expression
 # Consulting sparks: ideas worth capturing for the forge.
 
 SPARKS_FILE = os.path.join(NOTES, "Consulting", "_sparks.md")
