@@ -161,7 +161,7 @@ def test_inject_chrome_exception():
 
 
 # ---------------------------------------------------------------------------
-# MCP tool layer (metabolon.enzymes.porta)
+# MCP tool layer (metabolon.enzymes.pseudopod)
 # ---------------------------------------------------------------------------
 
 
@@ -171,7 +171,7 @@ def test_mcp_tool_wraps_organelle():
         "metabolon.organelles.porta.inject",
         return_value={"success": True, "message": "Injected 3 cookies for test.com", "count": 3},
     ):
-        from metabolon.enzymes.porta import porta_inject
+        from metabolon.enzymes.pseudopod import porta_inject
 
         result = porta_inject("test.com")
 
@@ -186,7 +186,7 @@ def test_mcp_tool_failure_propagates():
         "metabolon.organelles.porta.inject",
         return_value={"success": False, "message": "No cookies found", "count": 0},
     ):
-        from metabolon.enzymes.porta import porta_inject
+        from metabolon.enzymes.pseudopod import porta_inject
 
         result = porta_inject("nowhere.com")
 
