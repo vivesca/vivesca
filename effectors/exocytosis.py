@@ -31,7 +31,7 @@ def _model_id(key: str) -> str:
         return key
 
 
-QUEUE = Path.home() / "notes/Writing/Blog/Queue.md"
+QUEUE = Path.home() / "epigenome/chromatin/Writing/Blog/Queue.md"
 STYLE_GUIDE = Path.home() / "code/blog/CLAUDE.md"
 
 JUDGE_PROMPT = """Evaluate this garden post against these criteria:
