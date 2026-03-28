@@ -95,6 +95,11 @@ Finally, one integration question (not extraction — this is about updated judg
 - **Time budget: 5 minutes max** for the full 1a review. If it takes longer, you're over-reflecting.
 - **Scan the whole session, not just the end.** Recency bias makes the last event dominate. The most important correction often happened in the middle.
 - **Resistance to filing IS signal.** If something feels too obvious or embarrassing to file, examine that — the most durable lessons often feel trivially simple.
+- **Silent success scan.** Pain gets filed; quiet wins don't. Ask: "What worked unusually well that should be made repeatable?"
+- **Near-miss review.** "What almost went wrong, and why didn't it?" Accidental prevention isn't reliable.
+- **fact / hypothesis / policy.** Tag each capture. Most lessons start as `hypothesis` — only promote to `policy` (changes defaults) after recurrence or strong evidence. Over-ruling from one incident creates brittle systems.
+- **Same insight 3 times → stop filing, change the system.** If a lesson keeps appearing, reflection has failed. Next step must be environmental: hook, automation, constraint — not another memory.
+- **IF X, THEN Y format.** Rewrite actionable lessons as implementation intentions, not prose principles. "When I'm about to delete managed state, check for automation first" beats "fix automation before deleting."
 
 This is separate from the LLM extraction because corrections are easy to under-file. The LLM's instinct is to file facts and architecture but skip behavioral lessons — "I suggested X, user said Y instead" feels like ephemeral conversation, but the *why* behind the redirect is often the most durable insight.
 

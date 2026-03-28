@@ -200,7 +200,7 @@ Mined skills are only valuable if they get consulted. Track in `memory/decay-tra
 | Delegation | `[[delegation-theory]]` | 1 | rector | — |
 | Evaluation | `[[evaluation-theory]]` | 1 | judex, peira | — |
 | Heuristics | `[[heuristics-decision]]` | 1 | [[mental-models]], transcription-factor, mandatum, quorum | "Delegation Is Delegation", "The Heuristic Library" |
-| Wrap-ups | conclusio (inlined into cytokinesis) | 1 | cytokinesis (inlined), eow, daily | — |
+| Wrap-ups | conclusio (inlined into cytokinesis) | 2 (re-mined 28 Mar w/ GPT-5.4 + Gemini 3.1 Pro) | cytokinesis (inlined), eow, daily | — |
 | Toddler school refusal | `[[parens]] (Reference)` | 1 | — (vault: Theo - Development & Parenting Notes) | — |
 | Truth-seeking | `[[truth-seeking-method]]` | 1 | endocytosis, rheotaxis, quorum, peira, rector | — |
 | Judgment | `[[practical-judgment]]` | 1 | quorum, transcription-factor, [[premise-audit]], [[truth-seeking-method]], rector, praecepta | — |
