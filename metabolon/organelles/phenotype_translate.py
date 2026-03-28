@@ -1,0 +1,326 @@
+"""phenotype_translate — generate Gemini CLI hook config from Claude Code hook config.
+
+Reads ~/.claude/settings.json (or a given path), extracts the hooks section,
+translates event names and command wrappers, and outputs a valid Gemini CLI
+hooks section. Optionally merges into ~/.gemini/settings.json.
+
+Event name mapping (CC → Gemini CLI):
+    UserPromptSubmit → BeforeAgent
+    PreToolUse       → BeforeTool
+    PostToolUse      → AfterTool
+    Stop             → AfterAgent
+    Notification     → Notification   (same)
+    PreCompact       → PreCompress
+
+For each hook command that points to a synaptic/*.py script the command is
+wrapped with gemini_adapter.py so the existing hook script receives CC-format
+stdin and its CC-format stdout is translated back to Gemini CLI format at
+runtime — without modifying the hook scripts themselves.
+
+This is deliberately separate from conjugation_engine (which does a simpler
+pass-through). phenotype_translate adds the runtime adapter layer.
+"""
+
+from __future__ import annotations
+
+import json
+import warnings
+from pathlib import Path
+from typing import Any
+
+# ── paths ────────────────────────────────────────────────────────────────────
+
+CC_SETTINGS_PATH = Path.home() / ".claude" / "settings.json"
+GEMINI_SETTINGS_PATH = Path.home() / ".gemini" / "settings.json"
+
+# gemini_adapter.py lives next to the synaptic hook scripts
+_SYNAPTIC_DIR = Path(__file__).resolve().parent.parent.parent / "synaptic"
+GEMINI_ADAPTER_PATH = _SYNAPTIC_DIR / "gemini_adapter.py"
+
+# ── event name mapping ───────────────────────────────────────────────────────
+
+CC_TO_GEMINI_EVENT: dict[str, str] = {
+    "UserPromptSubmit": "BeforeAgent",
+    "PreToolUse": "BeforeTool",
+    "PostToolUse": "AfterTool",
+    "Stop": "AfterAgent",
+    "Notification": "Notification",
+    "PreCompact": "PreCompress",
+}
+
+# CC events silently dropped (no Gemini equivalent, not worth warning about)
+_CC_SILENTLY_DROPPED: frozenset[str] = frozenset({"InstructionsLoaded"})
+
+
+# ── command wrapping ─────────────────────────────────────────────────────────
+
+
+def _is_synaptic_script(command: str) -> bool:
+    """Return True if the command invokes a synaptic/*.py hook script.
+
+    Matches patterns like:
+        python3 ~/.claude/hooks/synapse.py
+        python3 /Users/terry/germline/synaptic/axon.py
+        /usr/bin/python3 ~/.claude/hooks/dendrite.py
+    """
+    parts = command.strip().split()
+    if not parts:
+        return False
+    # Find the script argument (first .py arg)
+    for part in parts:
+        if part.endswith(".py"):
+            p = Path(part.replace("~", str(Path.home())))
+            name = p.name
+            parent = p.parent.name
+            # Match if it's in hooks/ or synaptic/ directory
+            if parent in ("hooks", "synaptic"):
+                return True
+    return False
+
+
+def _wrap_command(command: str, adapter_path: Path) -> str:
+    """Wrap a hook command to run through gemini_adapter.py.
+
+    Before wrapping:
+        python3 ~/.claude/hooks/synapse.py
+
+    After wrapping:
+        python3 /path/to/gemini_adapter.py ~/.claude/hooks/synapse.py
+    """
+    parts = command.strip().split(None, 1)  # split into interpreter + rest
+    if not parts:
+        return command
+
+    # Find python3 / python interpreter prefix
+    interpreter = ""
+    script_and_args = command.strip()
+
+    # Detect interpreter (python3, python, /usr/bin/python3, etc.)
+    first = parts[0]
+    if "python" in first.lower() or first in ("/usr/bin/env",):
+        interpreter = first
+        rest = parts[1] if len(parts) > 1 else ""
+        script_and_args = rest
+    else:
+        # Non-python command — wrap anyway; adapter accepts any script via python3
+        interpreter = "python3"
+        script_and_args = command.strip()
+
+    adapter_str = str(adapter_path)
+    return f"{interpreter} {adapter_str} {script_and_args}".strip()
+
+
+# ── hook transform ───────────────────────────────────────────────────────────
+
+
+class TranslationResult:
+    """Summary of a phenotype translation operation."""
+
+    def __init__(
+        self,
+        hooks_translated: int,
+        hooks_wrapped: int,
+        prompt_hooks_skipped: int,
+        events_dropped: list[str],
+        dry_run: bool,
+    ) -> None:
+        self.hooks_translated = hooks_translated
+        self.hooks_wrapped = hooks_wrapped
+        self.prompt_hooks_skipped = prompt_hooks_skipped
+        self.events_dropped = events_dropped
+        self.dry_run = dry_run
+
+    @property
+    def summary(self) -> str:
+        mode = " (dry-run)" if self.dry_run else ""
+        parts = [
+            f"Translated {self.hooks_translated} hook(s){mode}.",
+            f"Wrapped {self.hooks_wrapped} synaptic script(s) with gemini_adapter.",
+        ]
+        if self.prompt_hooks_skipped:
+            parts.append(f"Skipped {self.prompt_hooks_skipped} prompt-type hook(s) (unsupported).")
+        if self.events_dropped:
+            parts.append(f"Dropped unknown CC events: {', '.join(self.events_dropped)}.")
+        return "  ".join(parts)
+
+
+def translate_hooks(
+    cc_hooks: dict[str, list[dict[str, Any]]],
+    adapter_path: Path = GEMINI_ADAPTER_PATH,
+    wrap: bool = True,
+) -> tuple[dict[str, list[dict[str, Any]]], TranslationResult]:
+    """Translate CC hooks section to Gemini CLI hooks section.
+
+    Args:
+        cc_hooks: The ``hooks`` dict from ~/.claude/settings.json.
+        adapter_path: Path to gemini_adapter.py for command wrapping.
+        wrap: If True, wrap synaptic/*.py commands with gemini_adapter.
+
+    Returns:
+        (gemini_hooks, result) — the translated hooks dict and a summary.
+    """
+    gemini_hooks: dict[str, list[dict[str, Any]]] = {}
+    hooks_translated = 0
+    hooks_wrapped = 0
+    prompt_hooks_skipped = 0
+    events_dropped: list[str] = []
+
+    for cc_event, definitions in cc_hooks.items():
+        gemini_event = CC_TO_GEMINI_EVENT.get(cc_event)
+
+        if gemini_event is None:
+            if cc_event not in _CC_SILENTLY_DROPPED:
+                events_dropped.append(cc_event)
+            continue
+
+        translated_definitions: list[dict[str, Any]] = []
+
+        for definition in definitions:
+            translated_hooks_list: list[dict[str, Any]] = []
+
+            for hook_entry in definition.get("hooks", []):
+                hook_type = hook_entry.get("type", "")
+
+                if hook_type == "prompt":
+                    # Gemini CLI has no prompt-type hooks
+                    warnings.warn(
+                        f"[phenotype_translate] Skipping prompt-type hook in {cc_event} "
+                        f"— Gemini CLI does not support prompt-type hooks.",
+                        UserWarning,
+                        stacklevel=2,
+                    )
+                    prompt_hooks_skipped += 1
+                    continue
+
+                if hook_type != "command":
+                    # Unknown hook type — skip
+                    continue
+
+                command = hook_entry.get("command", "")
+                new_entry: dict[str, Any] = dict(hook_entry)
+
+                if wrap and _is_synaptic_script(command):
+                    new_entry["command"] = _wrap_command(command, adapter_path)
+                    hooks_wrapped += 1
+
+                translated_hooks_list.append(new_entry)
+                hooks_translated += 1
+
+            if not translated_hooks_list:
+                continue
+
+            mapped_def: dict[str, Any] = {"hooks": translated_hooks_list}
+            # Preserve matcher if present
+            matcher = definition.get("matcher")
+            if matcher is not None:
+                mapped_def["matcher"] = matcher
+
+            translated_definitions.append(mapped_def)
+
+        if translated_definitions:
+            gemini_hooks[gemini_event] = translated_definitions
+
+    result = TranslationResult(
+        hooks_translated=hooks_translated,
+        hooks_wrapped=hooks_wrapped,
+        prompt_hooks_skipped=prompt_hooks_skipped,
+        events_dropped=events_dropped,
+        dry_run=False,  # updated by caller
+    )
+    return gemini_hooks, result
+
+
+# ── settings I/O ─────────────────────────────────────────────────────────────
+
+
+def read_cc_settings(path: Path = CC_SETTINGS_PATH) -> dict[str, Any]:
+    """Read and parse Claude Code settings.json."""
+    if not path.exists():
+        return {}
+    with path.open(encoding="utf-8") as fh:
+        return json.load(fh)
+
+
+def read_gemini_settings(path: Path = GEMINI_SETTINGS_PATH) -> dict[str, Any]:
+    """Read existing Gemini CLI settings.json. Returns empty dict if absent."""
+    if not path.exists():
+        return {}
+    with path.open(encoding="utf-8") as fh:
+        return json.load(fh)
+
+
+def merge_hooks_into_gemini(
+    current: dict[str, Any],
+    gemini_hooks: dict[str, list[dict[str, Any]]],
+) -> dict[str, Any]:
+    """Merge translated hooks into existing Gemini settings dict.
+
+    Replaces only the 'hooks' key; all other fields are preserved.
+    """
+    merged = dict(current)
+    if gemini_hooks:
+        merged["hooks"] = gemini_hooks
+    return merged
+
+
+def diff_settings(current: dict[str, Any], proposed: dict[str, Any]) -> str:
+    """Return a human-readable unified diff of two settings dicts."""
+    import difflib
+
+    current_text = json.dumps(current, indent=2, sort_keys=True)
+    proposed_text = json.dumps(proposed, indent=2, sort_keys=True)
+
+    if current_text == proposed_text:
+        return "(no changes)"
+
+    lines = list(
+        difflib.unified_diff(
+            current_text.splitlines(keepends=True),
+            proposed_text.splitlines(keepends=True),
+            fromfile="current ~/.gemini/settings.json",
+            tofile="proposed ~/.gemini/settings.json",
+        )
+    )
+    return "".join(lines)
+
+
+# ── main entry point ─────────────────────────────────────────────────────────
+
+
+def translate_to_gemini(
+    *,
+    cc_settings_path: Path = CC_SETTINGS_PATH,
+    gemini_settings_path: Path = GEMINI_SETTINGS_PATH,
+    adapter_path: Path = GEMINI_ADAPTER_PATH,
+    wrap: bool = True,
+    dry_run: bool = False,
+) -> tuple[TranslationResult, str]:
+    """Translate CC hooks to Gemini CLI format and optionally merge to disk.
+
+    Args:
+        cc_settings_path: Source CC settings file.
+        gemini_settings_path: Destination Gemini CLI settings file.
+        adapter_path: Path to gemini_adapter.py for command wrapping.
+        wrap: Wrap synaptic/*.py commands with gemini_adapter (default True).
+        dry_run: Compute diff without writing to disk.
+
+    Returns:
+        (result, diff_text) where diff_text is the unified diff string.
+    """
+    cc_settings = read_cc_settings(cc_settings_path)
+    current_gemini = read_gemini_settings(gemini_settings_path)
+
+    cc_hooks = cc_settings.get("hooks", {})
+    gemini_hooks, result = translate_hooks(cc_hooks, adapter_path=adapter_path, wrap=wrap)
+    result.dry_run = dry_run
+
+    proposed = merge_hooks_into_gemini(current_gemini, gemini_hooks)
+    diff_text = diff_settings(current_gemini, proposed)
+
+    if not dry_run:
+        gemini_settings_path.parent.mkdir(parents=True, exist_ok=True)
+        with gemini_settings_path.open("w", encoding="utf-8") as fh:
+            json.dump(proposed, fh, indent=2)
+            fh.write("\n")
+
+    return result, diff_text

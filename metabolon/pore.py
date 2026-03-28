@@ -2133,6 +2133,77 @@ def replicate_gemini(hooks_only: bool, mcp_only: bool, dry_run: bool):
         click.echo(diff_text)
 
 
+# ── phenotype ────────────────────────────────────────────────────────
+
+
+@cli.group()
+def phenotype():
+    """Phenotype: hook config translation between CLI runtimes."""
+    pass
+
+
+@phenotype.command("translate")
+@click.option(
+    "--source",
+    default=None,
+    help="Source CC settings.json path (default: ~/.claude/settings.json).",
+)
+@click.option(
+    "--dest",
+    default=None,
+    help="Destination Gemini CLI settings.json path (default: ~/.gemini/settings.json).",
+)
+@click.option(
+    "--no-wrap",
+    is_flag=True,
+    help="Skip wrapping synaptic/*.py commands with gemini_adapter.",
+)
+@click.option("--dry-run", is_flag=True, help="Show diff without writing to disk.")
+def phenotype_translate(source: str | None, dest: str | None, no_wrap: bool, dry_run: bool):
+    """Translate CC hook config → Gemini CLI hook config.
+
+    Reads hooks from ~/.claude/settings.json, maps event names to Gemini CLI
+    equivalents, wraps synaptic/*.py commands with gemini_adapter.py so existing
+    hook scripts work unchanged under Gemini CLI, and merges the result into
+    ~/.gemini/settings.json.
+
+    Event mapping: UserPromptSubmit→BeforeAgent, PreToolUse→BeforeTool,
+    PostToolUse→AfterTool, Stop→AfterAgent, Notification→Notification,
+    PreCompact→PreCompress.
+
+    Prompt-type hooks are skipped with a warning (Gemini CLI does not support them).
+    """
+    import warnings
+    from pathlib import Path
+
+    from metabolon.organelles.phenotype_translate import (
+        CC_SETTINGS_PATH,
+        GEMINI_ADAPTER_PATH,
+        GEMINI_SETTINGS_PATH,
+        translate_to_gemini,
+    )
+
+    cc_path = Path(source).expanduser() if source else CC_SETTINGS_PATH
+    gemini_path = Path(dest).expanduser() if dest else GEMINI_SETTINGS_PATH
+
+    with warnings.catch_warnings(record=True) as caught_warnings:
+        warnings.simplefilter("always")
+        result, diff_text = translate_to_gemini(
+            cc_settings_path=cc_path,
+            gemini_settings_path=gemini_path,
+            adapter_path=GEMINI_ADAPTER_PATH,
+            wrap=not no_wrap,
+            dry_run=dry_run,
+        )
+
+    for w in caught_warnings:
+        click.echo(str(w.message), err=True)
+
+    click.echo(result.summary)
+    if dry_run or diff_text != "(no changes)":
+        click.echo(diff_text)
+
+
 # ── rename ───────────────────────────────────────────────────────────
 
 
