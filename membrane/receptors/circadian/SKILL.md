@@ -103,7 +103,7 @@ One short paragraph. No headers, no bullets unless 3+ overdue items. Lead with t
 4. **What shipped today** — read daily note cytokinesis logs. Write 2-3 line summary. If consulting-relevant, append spark to `_sparks.md`.
 5. **Tomorrow prep** — calendar, checkpoint, Praxis, Schedule.md in parallel. One-line prep per meeting. Thursday: check token reset.
 6. **Nudge** — blocked items needing follow-up. One-line per item.
-7. **Daily note close** — append Interphase section (shipped, tomorrow, open threads, nudges, day score 1-5).
+7. **Daily note close** — call `interphase_close_daily_note` with shipped, tomorrow, open_threads, nudges, day_score (1-5). This is the canonical tool; do not write the daily note manually.
 8. **Flush prospective** — check `WHEN: next session` triggers.
 9. **Praxis sync** — update resolved, add new, mark blocked.
 
