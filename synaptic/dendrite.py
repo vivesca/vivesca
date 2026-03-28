@@ -560,6 +560,13 @@ def mod_ligation_skill(data):
     if gen.exists():
         subprocess.run(["python3", str(gen)], capture_output=True)
 
+    # Advisory: maturation compression pass
+    print(
+        f"MATURATION: skill edited ({rel}). Compression pass before moving on: "
+        f"dedup? format? budget (<500 lines)? Ideal?",
+        file=sys.stderr,
+    )
+
 
 # ── glycolytic commit message (deterministic, no symbiont) ──
 

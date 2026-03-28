@@ -109,6 +109,16 @@ Common misfires: description too broad (fires on unrelated prompts), description
 
 Apply etiology's systemic failure protocol: system or operator? → trace the chain → escalate by occurrence count. See `etiology` for the full diagnostic. Default assumption: **system fault.**
 
+## Compression Pass (before committing any skill edit)
+
+After editing a skill, before committing, run one self-challenge pass:
+- **Dedup:** Does this restate something another skill already owns? → reference, don't repeat.
+- **Format:** Is this prose that should be a table? A paragraph that should be a line?
+- **Budget:** Body < 500 lines? If over, what moves to `references/`?
+- **Ideal?** Read the full skill fresh. Would you write it this way from scratch? If not, fix it now — not "next pass."
+
+This is not optional. The LLM's default is "add, commit, move on." This step catches the bloat before it ships.
+
 ## Anti-Patterns
 
 | Pattern | Fix |
