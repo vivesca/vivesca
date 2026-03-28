@@ -75,10 +75,15 @@ If continuous capture handled most of it → quick verification pass, report fil
 
 ### 1a. Correction review (highest signal — do this explicitly)
 
-Scan the session for every moment Terry **redirected, corrected, or pushed back**. Each one is a candidate lesson. Ask for each:
+Scan the session for every moment Terry **redirected, corrected, or pushed back**. Each one is a candidate lesson. Three questions per correction:
 - What did I get wrong or miss?
 - What's the generalizable principle?
 - Would a future session benefit from knowing this?
+
+Then three broader questions about the session:
+- **"What assumptions were proven wrong?"** — not just user corrections, but factual discoveries (tools that don't work as expected, paths that don't exist, conventions that differ from assumed). These are easy to absorb silently without filing.
+- **"What did we delete or remove?"** — every deletion is a potential lesson or future regret. Was value extracted first? Is the removal reversible? Does anything still reference the deleted thing?
+- **"Where did I initially resist the user's direction?"** — resistance points signal miscalibrated defaults. If the user's alternative turned out better, the resistance was a bias worth examining.
 
 This is separate from the LLM extraction because corrections are easy to under-file. The LLM's instinct is to file facts and architecture but skip behavioral lessons — "I suggested X, user said Y instead" feels like ephemeral conversation, but the *why* behind the redirect is often the most durable insight.
 
