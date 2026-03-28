@@ -12,8 +12,10 @@ See `anatomy.md` for the structural map.
 At the start of each session, read the memory index for project context and behavioral guidance:
 
 ```
-~/.claude/projects/-Users-terry/memory/MEMORY.md
+~/epigenome/engrams/MEMORY.md
 ```
+
+(Also accessible at `~/.claude/projects/-Users-terry/memory/MEMORY.md` — same files via symlink.)
 
 This is the memory index — an always-loaded context of gotchas, user facts, and behavioral corrections. It contains:
 - Recurring error patterns to avoid (date/time, post-cutoff facts, product specs)
