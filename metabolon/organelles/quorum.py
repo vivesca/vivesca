@@ -30,9 +30,9 @@ from metabolon.symbiont import parallel_transduce, transduce
 COUNCIL_DIR = chromatin / "Councils"
 
 # Default panelists — broad coverage of training data and reasoning styles
-PANEL_QUICK = ["gemini", "deepseek", "claude"]
-PANEL_COUNCIL = ["gemini", "deepseek", "claude", "codex", "glm-5"]
-PANEL_REDTEAM = ["gemini", "deepseek", "claude"]
+PANEL_QUICK = ["gemini", "claude"]
+PANEL_COUNCIL = ["gemini", "claude", "codex"]
+PANEL_REDTEAM = ["gemini", "claude"]
 
 JUDGE_MODEL = "gemini"
 CRITIC_MODEL = "claude"

@@ -96,7 +96,6 @@ vivesca = Terry + Claude + germline + epigenome
 | `entrainment.py` | **Entrainment** | External rhythm synchronization |
 | `gap_junction.py` | **Gap junction** | Direct cell-to-cell signaling |
 | `gemmation.py` | **Gemmation** | Bud formation and dispatch |
-| `glucosensor.py` | **Glucosensor** | Energy substrate detection |
 | `glycolysis_rate.py` | **Glycolysis rate** | Energy expenditure measurement |
 | `golgi.py` | **Golgi apparatus** | Sort, package, route output |
 | `inflammasome.py` | **Inflammasome** | System health probe and alarm |

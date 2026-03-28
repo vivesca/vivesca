@@ -3,16 +3,11 @@ from __future__ import annotations
 """Score news items for consulting relevance."""
 
 import json
-import os
 import subprocess
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
-_VIVESCA_LIB = os.environ.get(
-    "VIVESCA_ROOT",
-    os.path.join(os.path.expanduser("~"), "code", "vivesca"),
-)
 from metabolon.symbiont import transduce as _symbiont_transduce
 
 AFFINITY_LOG = Path.home() / ".cache" / "lustro" / "relevance.jsonl"
@@ -45,7 +40,7 @@ def assess_cargo(title: str, source: str, summary: str) -> dict[str, Any]:
     prompt = SCORING_PROMPT.format(title=title, source=source, summary=summary)
 
     try:
-        text = _symbiont_transduce("gemini-flash", prompt, timeout=90)
+        text = _symbiont_transduce("haiku", prompt, timeout=90)
         start = text.find("{")
         end = text.rfind("}") + 1
         if start >= 0 and end > start:

@@ -41,7 +41,7 @@ REPORT_DIR = chromatin / "Poiesis Reports"
 
 # ── models ───────────────────────────────────────────────────
 
-PLANNER_MODEL = "gemini"
+PLANNER_MODEL = "haiku"
 WORKER_MODEL = "sonnet"
 EVALUATOR_MODEL = "claude"
 

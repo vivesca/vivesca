@@ -1,34 +1,20 @@
 #!/usr/bin/env -S uv run --script
 # /// script
 # requires-python = ">=3.13"
-# dependencies = ["anthropic"]
+# dependencies = []
 # ///
 """Headless garden post pipeline. Reads queue, generates, judges, publishes."""
 
 import configparser
-import json
 from pathlib import Path
 
-import anthropic
-
-_LLM_MODELS_PATH = Path.home() / ".config" / "llm-models.json"
+from metabolon.symbiont import transduce
 
 _CONF_PATH = Path(__file__).parent / "exocytosis.conf"
 _conf = configparser.ConfigParser()
 _conf.read(_CONF_PATH)
 
-_MAX_TOKENS_GENERATE = _conf.getint("generate", "max_tokens_generate", fallback=1000)
-_MAX_TOKENS_JUDGE = _conf.getint("judge", "max_tokens_judge", fallback=100)
 _JUDGE_RETRY_COUNT = _conf.getint("judge", "judge_retry_count", fallback=1)
-
-
-def _model_id(key: str) -> str:
-    """Resolve a registry key to its model ID string, falling back to the key itself."""
-    try:
-        registry = json.loads(_LLM_MODELS_PATH.read_text())
-        return registry[key]["model"]
-    except Exception:
-        return key
 
 
 QUEUE = Path.home() / "epigenome/chromatin/Writing/Blog/Queue.md"
@@ -81,24 +67,12 @@ def mark_done(line_num: int) -> None:
 
 
 def generate(topic: str, style_excerpt: str, extra: str = "") -> str:
-    client = anthropic.Anthropic()
     prompt = GENERATE_PROMPT.format(topic=topic + extra, style_excerpt=style_excerpt)
-    msg = client.messages.create(
-        model=_model_id("sonnet"),
-        max_tokens=_MAX_TOKENS_GENERATE,
-        messages=[{"role": "user", "content": prompt}],
-    )
-    return msg.content[0].text.strip()
+    return transduce("sonnet", prompt, timeout=120)
 
 
 def judge(post: str) -> tuple[bool, str]:
-    client = anthropic.Anthropic()
-    msg = client.messages.create(
-        model=_model_id("haiku"),
-        max_tokens=_MAX_TOKENS_JUDGE,
-        messages=[{"role": "user", "content": f"{JUDGE_PROMPT}\n\nPost:\n{post}"}],
-    )
-    verdict = msg.content[0].text.strip()
+    verdict = transduce("haiku", f"{JUDGE_PROMPT}\n\nPost:\n{post}", timeout=60)
     return verdict.upper().startswith("PASS"), verdict
 
 

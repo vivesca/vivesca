@@ -6,8 +6,8 @@ No judgment here — just transport.
 Config: ~/.config/llm-models.json
 Usage:
     from metabolon.symbiont import transduce, parallel_query, list_models
-    result = transduce("deepseek", "What is 2+2?")
-    results = parallel_query(["gemini", "deepseek"], "What is 2+2?")
+    result = transduce("gemini", "What is 2+2?")
+    results = parallel_query(["gemini", "claude"], "What is 2+2?")
 """
 
 import concurrent.futures
@@ -17,8 +17,6 @@ import re
 import signal
 import subprocess
 import tempfile
-import urllib.error
-import urllib.request
 
 CONFIG_PATH = os.path.expanduser("~/.config/llm-models.json")
 
@@ -99,34 +97,12 @@ def _query_codex(cmd: list[str], prompt: str, timeout: int) -> str:
             os.unlink(tmp_path)
 
 
-def _query_openrouter(model: str, prompt: str, timeout: int) -> str:
-    api_key = os.environ.get("OPENROUTER_API_KEY")
-    if not api_key:
-        raise RuntimeError("OPENROUTER_API_KEY not set")
-    url = "https://openrouter.ai/api/v1/chat/completions"
-    headers = {
-        "Authorization": f"Bearer {api_key}",
-        "Content-Type": "application/json",
-        "HTTP-Referer": "https://github.com/terryli/llm-dispatch",
-        "X-Title": "llm-dispatch",
-    }
-    data = {"model": model, "messages": [{"role": "user", "content": prompt}]}
-    req = urllib.request.Request(
-        url, data=json.dumps(data).encode("utf-8"), headers=headers, method="POST"
-    )
-    with urllib.request.urlopen(req, timeout=timeout) as response:
-        res_json = json.loads(response.read().decode("utf-8"))
-        return res_json["choices"][0]["message"]["content"].strip()
-
-
 def transduce(
     model_name: str, prompt: str, timeout: int = 180, config_path: str | None = None
 ) -> str:
     """Query a single model. Returns response text. Raises on error."""
     models = restore_symbionts(config_path)
     if model_name not in models:
-        if model_name.startswith("openrouter/"):
-            return _query_openrouter(model_name.split("/", 1)[1], prompt, timeout)
         raise ValueError(f"Unknown model: {model_name}. Available: {', '.join(models.keys())}")
 
     cfg = models[model_name]
@@ -136,8 +112,6 @@ def transduce(
         return _query_cmd(cfg["cmd"], prompt, timeout)
     elif backend == "codex":
         return _query_codex(cfg["cmd"], prompt, timeout)
-    elif backend == "openrouter":
-        return _query_openrouter(cfg["model"], prompt, timeout)
     else:
         raise ValueError(f"Unknown backend: {backend}")
 

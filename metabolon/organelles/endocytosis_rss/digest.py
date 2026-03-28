@@ -2,15 +2,13 @@ from __future__ import annotations
 
 import configparser
 import json
-import os
 import re
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
 from metabolon.organelles.endocytosis_rss.config import EndocytosisConfig
-
-OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
+from metabolon.symbiont import transduce
 
 # ---------------------------------------------------------------------------
 # Signal transduction: load thresholds from conf, fall back to hardcoded defaults.
@@ -46,32 +44,10 @@ def _resolve_month(month: str | None) -> str:
     return datetime.now().astimezone().strftime("%Y-%m")
 
 
-def _get_api_key() -> str | None:
-    return os.environ.get("ENDOCYTOSIS_API_KEY") or os.environ.get(
-        "OPENROUTER_API_KEY"
-    )  # ENDOCYTOSIS_API_KEY kept for backward compat
-
-
-def create_openai_client(api_key: str):
-    try:
-        from openai import OpenAI
-    except ImportError as exc:
-        raise RuntimeError(
-            "digest dependencies missing: install with `uv pip install 'metabolon[digest]'`."
-        ) from exc
-    return OpenAI(base_url=OPENROUTER_BASE_URL, api_key=api_key)
-
-
-def _llm_call(client: Any, model: str, system: str, user: str, max_tokens: int) -> str:
-    response = client.chat.completions.create(
-        model=model,
-        messages=[
-            {"role": "system", "content": system},
-            {"role": "user", "content": user},
-        ],
-        max_tokens=max_tokens,
-    )
-    return response.choices[0].message.content or ""
+def _llm_call(model: str, system: str, user: str) -> str:
+    """Route through symbiont/channel. No API key needed."""
+    prompt = f"System: {system}\n\nUser: {user}"
+    return transduce(model, prompt, timeout=120)
 
 
 def recall_archived_articles(article_cache_dir: Path, month: str) -> list[dict[str, Any]]:
@@ -143,7 +119,6 @@ def _parse_theme_json(raw: str) -> list[dict[str, Any]]:
 
 
 def sense_themes(
-    client: Any,
     model: str,
     articles: list[dict[str, Any]],
     log_entries: list[dict[str, str]],
@@ -194,12 +169,11 @@ def sense_themes(
         "]\n\n"
         "Articles:\n" + "\n\n".join(items)
     )
-    raw = _llm_call(client, model, system, user, max_tokens=4000)
+    raw = _llm_call(model, system, user)
     return _parse_theme_json(raw)
 
 
 def synthesize_theme(
-    client: Any,
     model: str,
     theme: dict[str, Any],
     articles: list[dict[str, Any]],
@@ -240,7 +214,7 @@ def synthesize_theme(
         "### Banking & Fintech Implications\n### Key Quotes\n\n"
         "Source articles:\n\n" + "\n\n---\n\n".join(context_parts)
     )
-    return _llm_call(client, model, system, user, max_tokens=6000)
+    return _llm_call(model, system, user)
 
 
 def secrete_digest(
@@ -600,13 +574,7 @@ def metabolize_digest(
             f"No data found for {target_month}. Run `vivesca endocytosis fetch` first."
         )
 
-    api_key = _get_api_key()
-    if not api_key:
-        raise RuntimeError("Missing API key. Set ENDOCYTOSIS_API_KEY or OPENROUTER_API_KEY.")
-    client = create_openai_client(api_key)
-
     identified_themes = sense_themes(
-        client=client,
         model=model_id,
         articles=articles,
         log_entries=log_entries,
@@ -616,7 +584,7 @@ def metabolize_digest(
         return identified_themes, None
 
     briefs = [
-        synthesize_theme(client, model_id, theme, articles, log_entries)
+        synthesize_theme(model_id, theme, articles, log_entries)
         for theme in identified_themes
     ]
     output_path = secrete_digest(

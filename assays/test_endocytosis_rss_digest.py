@@ -1,16 +1,13 @@
 from __future__ import annotations
 
 import json
-import sys
 from datetime import UTC, datetime
-from types import SimpleNamespace
 
 import pytest
 
 from metabolon.organelles.endocytosis_rss.config import restore_config
 from metabolon.organelles.endocytosis_rss.digest import (
     _resolve_week_label,
-    create_openai_client,
     metabolize_digest,
     metabolize_weekly,
     recall_log_entries,
@@ -47,78 +44,29 @@ def _write_month_data(cfg, month: str):
     )
 
 
-class _FakeOpenAIClient:
-    def __init__(self, outputs: list[str]):
-        self._outputs = outputs
-        self.chat = SimpleNamespace(
-            completions=SimpleNamespace(create=self._create),
-        )
-
-    def _create(self, **_kwargs):
-        content = self._outputs.pop(0)
-        return SimpleNamespace(choices=[SimpleNamespace(message=SimpleNamespace(content=content))])
-
-
-def test_create_openai_client_missing_dependency(monkeypatch):
-    original_import = __import__
-
-    def fake_import(name, *args, **kwargs):
-        if name == "openai":
-            raise ImportError("missing openai")
-        return original_import(name, *args, **kwargs)
-
-    monkeypatch.setattr("builtins.__import__", fake_import)
-    with pytest.raises(RuntimeError, match="digest dependencies missing"):
-        create_openai_client("test-key")
-
-
-def test_create_openai_client_sets_openrouter_base_url(monkeypatch):
-    calls: dict[str, str] = {}
-
-    class FakeOpenAI:
-        def __init__(self, *, base_url: str, api_key: str):
-            calls["base_url"] = base_url
-            calls["api_key"] = api_key
-
-    monkeypatch.setitem(sys.modules, "openai", SimpleNamespace(OpenAI=FakeOpenAI))
-    create_openai_client("key-123")
-
-    assert calls["base_url"] == "https://openrouter.ai/api/v1"
-    assert calls["api_key"] == "key-123"
-
-
-def test_metabolize_digest_requires_api_key(xdg_env, monkeypatch):
-    cfg = restore_config()
-    _write_month_data(cfg, "2026-02")
-    monkeypatch.delenv("ENDOCYTOSIS_API_KEY", raising=False)
-    monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
-
-    with pytest.raises(RuntimeError, match="Missing API key"):
-        metabolize_digest(cfg, month="2026-02", dry_run=True, themes=4, model=None)
+def _fake_llm_call_factory(outputs: list[str]):
+    """Return a fake _llm_call that pops from outputs sequentially."""
+    def _fake(model, system, user):
+        return outputs.pop(0)
+    return _fake
 
 
 def test_metabolize_digest_dry_run_with_mock_llm(xdg_env, monkeypatch):
     cfg = restore_config()
     _write_month_data(cfg, "2026-02")
-    monkeypatch.setenv("ENDOCYTOSIS_API_KEY", "test-key")
 
-    fake_client = _FakeOpenAIClient(
-        outputs=[
-            json.dumps(
-                [
-                    {
-                        "theme": "Agentic orchestration for enterprise ops",
-                        "description": "Teams are moving from simple chat to workflow agents.",
-                        "article_indices": [0, 1],
-                        "banking_relevance": "Impacts ops and compliance design.",
-                    }
-                ]
-            )
-        ]
-    )
+    fake = _fake_llm_call_factory([
+        json.dumps([
+            {
+                "theme": "Agentic orchestration for enterprise ops",
+                "description": "Teams are moving from simple chat to workflow agents.",
+                "article_indices": [0, 1],
+                "banking_relevance": "Impacts ops and compliance design.",
+            }
+        ])
+    ])
     monkeypatch.setattr(
-        "metabolon.organelles.endocytosis_rss.digest.create_openai_client",
-        lambda _key: fake_client,
+        "metabolon.organelles.endocytosis_rss.digest._llm_call", fake,
     )
 
     themes, output_path = metabolize_digest(
@@ -126,7 +74,7 @@ def test_metabolize_digest_dry_run_with_mock_llm(xdg_env, monkeypatch):
         month="2026-02",
         dry_run=True,
         themes=5,
-        model="google/gemini-3-flash-preview",
+        model="gemini-3.1-flash",
     )
 
     assert output_path is None
@@ -137,27 +85,21 @@ def test_metabolize_digest_dry_run_with_mock_llm(xdg_env, monkeypatch):
 def test_cmd_digest_writes_output_file(xdg_env, monkeypatch):
     cfg = restore_config()
     _write_month_data(cfg, "2026-02")
-    monkeypatch.setenv("OPENROUTER_API_KEY", "router-key")
 
-    fake_client = _FakeOpenAIClient(
-        outputs=[
-            json.dumps(
-                [
-                    {
-                        "theme": "Regulatory pressure on model governance",
-                        "description": "Banks need stronger controls and evidence trails.",
-                        "article_indices": [0, 1],
-                        "banking_relevance": "Model risk and governance requirements increase.",
-                    }
-                ]
-            ),
-            "## Regulatory pressure on model governance\n\n"
-            "### Summary\nTighter controls are becoming mandatory.",
-        ]
-    )
+    fake = _fake_llm_call_factory([
+        json.dumps([
+            {
+                "theme": "Regulatory pressure on model governance",
+                "description": "Banks need stronger controls and evidence trails.",
+                "article_indices": [0, 1],
+                "banking_relevance": "Model risk and governance requirements increase.",
+            }
+        ]),
+        "## Regulatory pressure on model governance\n\n"
+        "### Summary\nTighter controls are becoming mandatory.",
+    ])
     monkeypatch.setattr(
-        "metabolon.organelles.endocytosis_rss.digest.create_openai_client",
-        lambda _key: fake_client,
+        "metabolon.organelles.endocytosis_rss.digest._llm_call", fake,
     )
 
     _themes_result, output_path = metabolize_digest(
@@ -165,7 +107,7 @@ def test_cmd_digest_writes_output_file(xdg_env, monkeypatch):
         month="2026-02",
         dry_run=False,
         themes=8,
-        model="google/gemini-3-flash-preview",
+        model="gemini-3.1-flash",
     )
 
     assert output_path is not None

@@ -35,6 +35,8 @@ from pathlib import Path
 # ── Paths ─────────────────────────────────────────────────────────────────────
 HOME = Path.home()
 TRANSCRIPT_DIRS = sorted(HOME.glob(".claude/projects/*/"))
+CODEX_SESSIONS_DIR = HOME / ".codex" / "sessions"
+OPENCODE_STORAGE = HOME / ".local" / "share" / "opencode" / "storage"
 SCAN_DIR = HOME / "germline" / "loci" / "copia"
 WEEKLY_DIR = HOME / "epigenome" / "chromatin" / "Weekly"
 LOG_DIR = HOME / "logs"
@@ -145,8 +147,8 @@ def emit_signal(kind: str, data: dict) -> None:
 
 
 # ── Transcript reading ────────────────────────────────────────────────────────
-def read_sessions(days: int = 1) -> list[dict]:
-    """Read JSONL session transcripts from the last N days.
+def _read_cc_sessions(days: int = 1) -> list[dict]:
+    """Read Claude Code JSONL session transcripts from the last N days.
 
     Returns list of dicts: {session_id, messages: [{role, content, timestamp}]}
     """
@@ -220,6 +222,208 @@ def read_sessions(days: int = 1) -> list[dict]:
                 sessions[session_id] = messages
 
     return [{"session_id": sid, "messages": msgs} for sid, msgs in sessions.items()]
+
+
+def read_sessions(days: int = 1) -> list[dict]:
+    """Read session transcripts from all LLM CLIs for the last N days.
+
+    Merges sessions from Claude Code, Codex, and OpenCode.
+    Returns list of dicts: {session_id, messages: [{role, content, timestamp}]}
+    """
+    all_sessions = _read_cc_sessions(days)
+    all_sessions.extend(_read_codex_sessions(days))
+    all_sessions.extend(_read_opencode_sessions(days))
+    return all_sessions
+
+
+def _read_codex_sessions(days: int = 1) -> list[dict]:
+    """Read Codex rollout JSONL files from the last N days.
+
+    Codex stores full session transcripts as rollout-*.jsonl under
+    ~/.codex/sessions/YYYY/MM/DD/. Each file contains event_msg entries
+    with type user_message or agent_message carrying the conversation.
+
+    Returns list of dicts matching read_sessions format:
+    {session_id, messages: [{role, content, timestamp}]}
+    """
+    if not CODEX_SESSIONS_DIR.exists():
+        return []
+
+    cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+    sessions: dict[str, list[dict]] = {}
+
+    for rollout_file in CODEX_SESSIONS_DIR.glob("**/rollout-*.jsonl"):
+        # Quick mtime check before parsing
+        try:
+            mtime = datetime.fromtimestamp(rollout_file.stat().st_mtime, tz=timezone.utc)
+            if mtime < cutoff:
+                continue
+        except OSError:
+            continue
+
+        # Extract session ID from filename: rollout-YYYY-MM-DDThh-mm-ss-UUID.jsonl
+        session_id = rollout_file.stem.replace("rollout-", "")
+        messages: list[dict] = []
+
+        try:
+            with open(rollout_file) as f:
+                for line in f:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        entry = json.loads(line)
+                    except json.JSONDecodeError:
+                        continue
+
+                    if entry.get("type") != "event_msg":
+                        continue
+
+                    payload = entry.get("payload", {})
+                    event_type = payload.get("type", "")
+
+                    if event_type == "user_message":
+                        role = "user"
+                    elif event_type == "agent_message":
+                        role = "assistant"
+                    else:
+                        continue
+
+                    content = payload.get("message", "")
+                    if not content or len(content) < 3:
+                        continue
+
+                    ts_str = entry.get("timestamp", "")
+                    try:
+                        ts = datetime.fromisoformat(ts_str.replace("Z", "+00:00"))
+                        if ts < cutoff:
+                            continue
+                    except (ValueError, AttributeError):
+                        continue
+
+                    messages.append({
+                        "role": role,
+                        "content": content,
+                        "timestamp": ts_str,
+                    })
+        except (OSError, UnicodeDecodeError):
+            continue
+
+        if messages:
+            sessions[f"codex-{session_id}"] = messages
+
+    return [{"session_id": sid, "messages": msgs} for sid, msgs in sessions.items()]
+
+
+def _read_opencode_text(msg_id: str) -> str:
+    """Concatenate all part texts for an OpenCode message.
+
+    Mirrors engram.py's _read_opencode_text but uses the module-level
+    OPENCODE_STORAGE path instead of taking storage as a parameter.
+    """
+    part_dir = OPENCODE_STORAGE / "part" / msg_id
+    if not part_dir.exists():
+        return ""
+    parts: list[str] = []
+    for pf in sorted(part_dir.iterdir(), key=lambda f: f.name):
+        try:
+            part = json.loads(pf.read_text())
+            t = part.get("text", "")
+            if t:
+                parts.append(t)
+        except Exception:
+            continue
+    return "".join(parts)
+
+
+def _read_opencode_sessions(days: int = 1) -> list[dict]:
+    """Read OpenCode session transcripts from the last N days.
+
+    OpenCode stores data across three directories under
+    ~/.local/share/opencode/storage/:
+      session/<hash>/ses_*.json  -- session metadata with timestamps
+      message/ses_*/msg_*.json   -- individual messages with role + time
+      part/msg_*/prt_*.json      -- message text content
+
+    Returns list of dicts matching read_sessions format:
+    {session_id, messages: [{role, content, timestamp}]}
+    """
+    session_dir = OPENCODE_STORAGE / "session"
+    if not session_dir.exists():
+        return []
+
+    cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+    cutoff_ms = int(cutoff.timestamp() * 1000)
+    sessions: list[dict] = []
+
+    for project_dir in session_dir.iterdir():
+        if not project_dir.is_dir():
+            continue
+        for sess_file in project_dir.glob("ses_*.json"):
+            try:
+                sess = json.loads(sess_file.read_text())
+            except Exception:
+                continue
+
+            t = sess.get("time") or {}
+            created = t.get("created") or 0
+            updated = t.get("updated") or 0
+            if not (created >= cutoff_ms or updated >= cutoff_ms):
+                continue
+
+            sess_id = sess.get("id")
+            if not sess_id:
+                continue
+
+            msg_dir = OPENCODE_STORAGE / "message" / sess_id
+            if not msg_dir.exists():
+                continue
+
+            msg_files = sorted(
+                (f for f in msg_dir.iterdir()
+                 if f.name.startswith("msg_") and f.name.endswith(".json")),
+                key=lambda f: f.name,
+            )
+
+            messages: list[dict] = []
+            for mf in msg_files:
+                try:
+                    msg = json.loads(mf.read_text())
+                except Exception:
+                    continue
+
+                role = msg.get("role", "")
+                if role not in ("user", "assistant"):
+                    continue
+
+                mt = msg.get("time") or {}
+                ts_ms = mt.get("created") or 0
+                if ts_ms < cutoff_ms:
+                    continue
+
+                msg_id = msg.get("id")
+                if not msg_id:
+                    continue
+
+                content = _read_opencode_text(msg_id)
+                if not content or len(content) < 3:
+                    continue
+
+                # Convert ms timestamp to ISO string for consistency
+                ts_dt = datetime.fromtimestamp(ts_ms / 1000, tz=timezone.utc)
+                messages.append({
+                    "role": role,
+                    "content": content,
+                    "timestamp": ts_dt.isoformat(),
+                })
+
+            if messages:
+                sessions.append({
+                    "session_id": f"opencode-{sess_id}",
+                    "messages": messages,
+                })
+
+    return sessions
 
 
 # ── Correction detection ──────────────────────────────────────────────────────
