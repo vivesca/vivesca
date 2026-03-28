@@ -203,6 +203,34 @@ def _check_launchagent_paths() -> list[dict]:
     return broken
 
 
+_ORGANELLES_DIR = VIVESCA_ROOT / "metabolon" / "organelles"
+_ENZYMES_DIR = VIVESCA_ROOT / "metabolon" / "enzymes"
+_ASSAYS_DIR = VIVESCA_ROOT / "assays"
+
+
+def _check_untested_code() -> list[dict]:
+    """Find organelles and enzymes without corresponding test files.
+
+    Returns list of {module, expected_test, problem} for untested code.
+    """
+    untested: list[dict] = []
+    for code_dir in (_ORGANELLES_DIR, _ENZYMES_DIR):
+        if not code_dir.is_dir():
+            continue
+        for py_file in sorted(code_dir.glob("*.py")):
+            if py_file.name.startswith(("_", "test_", ".")):
+                continue
+            module_name = py_file.stem
+            expected_test = _ASSAYS_DIR / f"test_{module_name}.py"
+            if not expected_test.exists():
+                untested.append({
+                    "module": f"{code_dir.name}/{py_file.name}",
+                    "expected_test": f"assays/test_{module_name}.py",
+                    "problem": "missing",
+                })
+    return untested
+
+
 # Match paths inside backticks (preserves spaces) or bare paths
 _SKILL_PATH_BACKTICK_RE = re.compile(r"`((?:/Users/\w+|~/)[^`]+)`")
 _SKILL_PATH_BARE_RE = re.compile(r"(?:^|\s)((?:/Users/\w+|~/)[a-zA-Z][^\s`\"'>]*)")
@@ -301,6 +329,9 @@ class IntegrinResult(Secretion):
 
     # Skill paths: hardcoded paths in SKILL.md that don't resolve
     skill_path_broken: list[dict]
+
+    # Untested code: organelles/enzymes without assay files
+    untested_code: list[dict]
 
 
 class ApoptosisResult(Secretion):
@@ -456,6 +487,7 @@ def integrin_probe() -> IntegrinResult:
     phenotype_issues, unknown_platforms = _check_phenotype_symlinks()
     launchagent_broken = _check_launchagent_paths()
     skill_path_broken = _check_skill_paths()
+    untested_code = _check_untested_code()
 
     if not SKILLS_DIR.is_dir():
         return IntegrinResult(
@@ -472,6 +504,7 @@ def integrin_probe() -> IntegrinResult:
             unknown_platforms=unknown_platforms,
             launchagent_broken=launchagent_broken,
             skill_path_broken=skill_path_broken,
+            untested_code=untested_code,
         )
 
     all_refs: list[dict] = []
@@ -588,6 +621,7 @@ def integrin_probe() -> IntegrinResult:
         unknown_platforms=unknown_platforms,
         launchagent_broken=launchagent_broken,
         skill_path_broken=skill_path_broken,
+        untested_code=untested_code,
     )
 
 

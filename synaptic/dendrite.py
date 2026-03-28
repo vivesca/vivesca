@@ -56,13 +56,25 @@ def chaperone_py(data):
     if basename.startswith("test_") or basename.startswith(".") or "/hooks/" in fp:
         return
 
+    # Also check assays/ relative to germline root
+    germline_assays = os.path.join(str(_VIVESCA_ROOT), "assays")
     candidates = [
         os.path.join(d, f"test_{basename}.py"),
         os.path.join(d, "tests", f"test_{basename}.py"),
         os.path.join(d, "..", "tests", f"test_{basename}.py"),
+        os.path.join(germline_assays, f"test_{basename}.py"),
     ]
     test_file = next((f for f in candidates if os.path.exists(f)), None)
     if not test_file:
+        # Nudge for organelles and enzymes — these MUST have tests
+        if "/organelles/" in fp or "/enzymes/" in fp:
+            print(
+                json.dumps({
+                    "output": f"[assay-missing] No test file for `{basename}.py`. "
+                    f"Genome rule: assays ship with code. "
+                    f"Expected: `assays/test_{basename}.py`"
+                })
+            )
         return
 
     # Find project root
