@@ -51,7 +51,7 @@ If unfinished work exists: **finish it or park it with context — don't consoli
 
 In parallel:
 
-1. **`cytokinesis gather --syntactic`** — deterministic pre-checks (JSON)
+1. **`cytokinesis_gather`** (MCP tool) — deterministic pre-checks, returns structured Vital
 2. **LLM extraction** — scan session for candidates, classify by priority
 3. **Source data check** — user-provided facts that fed deliverables but weren't persisted to chromatin? Write directly using the Write tool
 

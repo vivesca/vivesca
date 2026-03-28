@@ -547,17 +547,35 @@ def secrete_weekly_digest(
     return output_path
 
 
+def _synthesize_weekly_brief(model: str, scored_content: str, week_label: str) -> str:
+    """LLM synthesis of the scored weekly items into a concise brief."""
+    system = (
+        "You write concise weekly AI briefings for a consultant advising banks on AI strategy. "
+        "Be specific — names, dates, numbers. No filler."
+    )
+    user = (
+        f"Below is the scored weekly AI digest for {week_label}.\n\n"
+        "Write a brief with:\n"
+        "1. **Top 3 signals** — the most actionable developments this week (2-3 sentences each)\n"
+        "2. **Themes** — 3-5 recurring patterns across sources\n"
+        "3. **Watch list** — 2-3 things to track next week\n\n"
+        "Keep it under 500 words. Banking/fintech lens.\n\n"
+        f"{scored_content}"
+    )
+    return _llm_call(model, system, user)
+
+
 def metabolize_weekly(
     cfg: EndocytosisConfig,
     week_date: datetime | None = None,
     tags: list[str] | None = None,
 ) -> tuple[int, Path | None]:
-    """Secrete the weekly digest — lightweight endosome sorting, no LLM call.
+    """Secrete the weekly digest — scored list + LLM synthesis brief.
 
-    Returns (item_count, output_path). No LLM is used: scoring was already
-    performed during fetch. This is pure membrane secretion from cached signal.
+    Returns (item_count, output_path).
     """
     since_date, until_date, week_label = _resolve_week_label(week_date)
+    model_id = cfg.digest_model
 
     # Internalize log entries for the window
     entries = recall_log_entries(cfg.log_path, since_date)
@@ -572,7 +590,7 @@ def metabolize_weekly(
     affinity_entries = recall_affinity_entries(since_date)
     affinity_index = _build_affinity_index(affinity_entries)
 
-    # Secrete to ~/epigenome/chromatin/euchromatin/weekly-ai-digest-YYYY-WNN.md
+    # Secrete to ~/epigenome/chromatin/chemosensory/weekly-ai-digest-YYYY-WNN.md
     from metabolon.locus import chemosensory
 
     output_dir = chemosensory
@@ -596,7 +614,46 @@ def metabolize_weekly(
             or e.get("_transcytose") == "1"
         )
     )
+
+    # LLM synthesis: append brief to the scored digest
+    if item_count > 0 and written_path is not None:
+        try:
+            scored_content = written_path.read_text(encoding="utf-8")
+            brief = _synthesize_weekly_brief(model_id, scored_content, week_label)
+            # Prepend the synthesis brief before the scored list
+            with written_path.open("w", encoding="utf-8") as f:
+                f.write(brief)
+                f.write("\n\n---\n\n")
+                f.write(scored_content)
+        except Exception as exc:
+            import sys
+            print(f"endocytosis: weekly synthesis failed: {exc}", file=sys.stderr)
+            # Scored digest still exists, just without synthesis
+
     return item_count, written_path
+
+
+def _recall_weekly_digests(month: str) -> list[tuple[str, str]]:
+    """Read weekly digest files for a given month. Returns [(filename, content)]."""
+    from metabolon.locus import chemosensory
+
+    year, month_num = month.split("-")
+    # Find weekly digests whose ISO week falls in this month
+    results: list[tuple[str, str]] = []
+    for path in sorted(chemosensory.glob(f"weekly-ai-digest-{year}-W*.md")):
+        # Parse week number, check if it overlaps the target month
+        week_str = path.stem.split("-W")[-1]
+        try:
+            week_num = int(week_str)
+        except ValueError:
+            continue
+        # Approximate: week N maps to month via ISO calendar
+        week_date = datetime.strptime(f"{year}-W{week_num:02d}-1", "%Y-W%W-%w").date()
+        if week_date.strftime("%Y-%m") == month or (
+            week_date.month == int(month_num)
+        ):
+            results.append((path.name, path.read_text(encoding="utf-8")))
+    return results
 
 
 def metabolize_digest(
@@ -611,6 +668,19 @@ def metabolize_digest(
     max_themes = themes if themes is not None else DEFAULT_THEME_COUNT
     model_id = model or cfg.digest_model
 
+    # Try weekly digests first — much smaller input, already curated
+    weekly_digests = _recall_weekly_digests(target_month)
+    if weekly_digests:
+        return _metabolize_from_weeklies(
+            weekly_digests=weekly_digests,
+            model_id=model_id,
+            max_themes=max_themes,
+            dry_run=dry_run,
+            output_dir=cfg.digest_output_dir,
+            target_month=target_month,
+        )
+
+    # Fallback: raw articles (for months without weekly digests)
     articles = recall_archived_articles(cfg.article_cache_dir, target_month)
     log_entries = recall_news_entries(cfg.log_path, target_month)
 
@@ -638,6 +708,72 @@ def metabolize_digest(
     ]
     output_path = secrete_digest(
         output_dir=cfg.digest_output_dir,
+        month=target_month,
+        themes=identified_themes,
+        theme_briefs=briefs,
+    )
+    return identified_themes, output_path
+
+
+def _metabolize_from_weeklies(
+    weekly_digests: list[tuple[str, str]],
+    model_id: str,
+    max_themes: int,
+    dry_run: bool,
+    output_dir: Path,
+    target_month: str,
+) -> tuple[list[dict[str, Any]], Path | None]:
+    """Synthesize monthly themes from weekly digest files."""
+    combined = "\n\n---\n\n".join(
+        f"# {name}\n\n{content}" for name, content in weekly_digests
+    )
+
+    system = (
+        "You identify thematic clusters across weekly AI news digests for a consultant"
+        " advising banks on AI strategy.\n\n"
+        f"Rules:\n- Identify {max_themes} themes most relevant"
+        " to AI in banking/financial services\n"
+        "- Each theme should appear across multiple weeks\n"
+        '- Themes should be specific (not "AI progress")\n'
+        "- Include cross-cutting themes (regulation, open-source vs proprietary, infrastructure)\n"
+        "- Return valid JSON only, no markdown fences"
+    )
+    user = (
+        f"Below are {len(weekly_digests)} weekly AI digests from {target_month}.\n\n"
+        f"Identify up to {max_themes} thematic clusters. Return JSON:\n"
+        "[\n"
+        "  {\n"
+        '    "theme": "Theme title",\n'
+        '    "description": "2-3 sentence description of the month-long trend",\n'
+        '    "weeks_present": ["W10", "W12"],\n'
+        '    "banking_relevance": "Why this matters for banks/fintech"\n'
+        "  }\n"
+        "]\n\n"
+        "Weekly digests:\n" + combined
+    )
+    raw = _llm_call(model_id, system, user)
+    identified_themes = _parse_theme_json(raw)
+
+    if dry_run:
+        return identified_themes, None
+
+    # Synthesize briefs from the weekly content (no raw articles needed)
+    briefs: list[str] = []
+    for theme in identified_themes:
+        brief = _llm_call(
+            model_id,
+            "You write concise monthly theme briefs for a banking AI consultant.",
+            f"Theme: {theme.get('theme', '')}\n"
+            f"Description: {theme.get('description', '')}\n"
+            f"Banking relevance: {theme.get('banking_relevance', '')}\n\n"
+            f"Source material (weekly digests):\n{combined}\n\n"
+            "Write a 3-5 paragraph brief covering: what happened, why it matters "
+            "for banks, and what to watch next month. Be specific with names and dates.",
+        )
+        briefs.append(brief)
+
+    output_path = secrete_digest(
+        output_dir=output_dir,
         month=target_month,
         themes=identified_themes,
         theme_briefs=briefs,
