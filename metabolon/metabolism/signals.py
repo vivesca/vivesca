@@ -36,19 +36,19 @@ DEFAULT_LOG = Path.home() / ".local" / "share" / "vivesca" / "signals.jsonl"
 class SensorySystem:
     """Append-only JSONL signal log."""
 
-    def __init__(self, receptor_cortex_path: Path = DEFAULT_LOG):
-        self.receptor_cortex_path = receptor_cortex_path
+    def __init__(self, sensory_surface_path: Path = DEFAULT_LOG):
+        self.sensory_surface_path = sensory_surface_path
 
     def append(self, signal: Stimulus) -> None:
-        self.receptor_cortex_path.parent.mkdir(parents=True, exist_ok=True)
-        with self.receptor_cortex_path.open("a") as f:
+        self.sensory_surface_path.parent.mkdir(parents=True, exist_ok=True)
+        with self.sensory_surface_path.open("a") as f:
             f.write(signal.model_dump_json() + "\n")
 
     def recall_all(self) -> list[Stimulus]:
-        if not self.receptor_cortex_path.exists():
+        if not self.sensory_surface_path.exists():
             return []
         signals = []
-        for line in self.receptor_cortex_path.read_text().splitlines():
+        for line in self.sensory_surface_path.read_text().splitlines():
             if line.strip():
                 signals.append(Stimulus.model_validate_json(line))
         return signals

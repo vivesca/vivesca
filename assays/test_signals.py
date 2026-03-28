@@ -36,7 +36,7 @@ def test_signal_outcome_validation():
 
 def test_collector_append_and_read(tmp_path):
     log = tmp_path / "signals.jsonl"
-    collector = SensorySystem(receptor_cortex_path=log)
+    collector = SensorySystem(sensory_surface_path=log)
 
     s = Stimulus(
         tool="fasti_list_events",
@@ -54,7 +54,7 @@ def test_collector_append_and_read(tmp_path):
 
 def test_collector_append_multiple(tmp_path):
     log = tmp_path / "signals.jsonl"
-    collector = SensorySystem(receptor_cortex_path=log)
+    collector = SensorySystem(sensory_surface_path=log)
 
     for i in range(5):
         collector.append(
@@ -74,7 +74,7 @@ def test_collector_read_since(tmp_path):
     from datetime import datetime, timedelta
 
     log = tmp_path / "signals.jsonl"
-    collector = SensorySystem(receptor_cortex_path=log)
+    collector = SensorySystem(sensory_surface_path=log)
 
     old = Stimulus(
         tool="old",
@@ -104,7 +104,7 @@ def test_collector_read_since(tmp_path):
 
 def test_collector_creates_parent_dirs(tmp_path):
     log = tmp_path / "deep" / "nested" / "signals.jsonl"
-    collector = SensorySystem(receptor_cortex_path=log)
+    collector = SensorySystem(sensory_surface_path=log)
     collector.append(
         Stimulus(
             tool="x",

@@ -8,7 +8,7 @@ Read first: ~/.claude/projects/-Users-terry/memory/project_cell_bio_naming_audit
 ## Decisions
 
 - `histone_store` → `histone_store` (memory database = where marks are stored)
-- `cortex` in metabolon/metabolism/signals.py only → `receptor_cortex`
+- `cortex` in metabolon/metabolism/signals.py only → `sensory_surface`
 - synapse.py / axon.py / dendrite.py → **KEEP** (hooks ARE signal transduction)
 
 ## Process per rename
