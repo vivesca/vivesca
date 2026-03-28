@@ -157,10 +157,14 @@ def _git_push(local_path: str) -> tuple[bool, str]:
 
 
 def _git_pull_remote(remote_path: str) -> tuple[bool, str]:
-    """Pull latest on gemmule. Returns (success, message)."""
+    """Pull latest on gemmule. Returns (success, message).
+
+    On success, writes epoch to .last-sync so status() can distinguish
+    "no new commits" from "sync broken".
+    """
     try:
         result = _fly_cmd(
-            f"cd {remote_path} && git pull --ff-only 2>&1",
+            f"cd {remote_path} && git pull --ff-only 2>&1 && date +%s > .last-sync",
             timeout=120,
         )
         stdout = result.stdout.strip()
@@ -261,13 +265,15 @@ def status() -> dict:
 
     info["machine_state"] = "started"
 
-    # Check each repo's last commit time on gemmule in one SSH call
+    # Check each repo's last sync time on gemmule in one SSH call.
+    # Prefer .last-sync (written by _git_pull_remote) over git log timestamp,
+    # because commit age grows stale even when the repo is fully synced.
     stat_parts = []
     for target in SYNC_TARGETS:
-        # Get epoch of last commit
         stat_parts.append(
             f"cd {target['remote']} 2>/dev/null "
-            f"&& git log -1 --format=%ct 2>/dev/null "
+            f"&& cat .last-sync 2>/dev/null "
+            f"|| git log -1 --format=%ct 2>/dev/null "
             f"|| echo MISSING"
         )
     stat_script = " ; echo '---' ; ".join(stat_parts)
