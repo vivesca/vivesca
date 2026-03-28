@@ -67,3 +67,9 @@
 {"ts": "2026-03-28T01:37:35+00:00", "model": "sonar", "query": "Kelvin Chan BOCHK \"Head of Customer Intelligence\" Bank of China Hong Kong"}
 {"ts": "2026-03-28T03:36:16+00:00", "model": "sonar", "query": "openai/skills GitHub repository exists maintainer official"}
 {"ts": "2026-03-28T03:36:18+00:00", "model": "sonar", "query": "Codex CLI openai-curated plugin official OpenAI community contributed"}
+{"ts": "2026-03-28T03:56:56+00:00", "model": "sonar", "query": "Codex CLI openai/skills github .system directory built-in system skills"}
+{"ts": "2026-03-28T03:56:56+00:00", "model": "sonar", "query": "openai codex CLI skill creation template SKILL.md structure format 2025 2026"}
+{"ts": "2026-03-28T03:58:02+00:00", "model": "sonar", "query": "Gemini CLI skills marketplace plugin system \"gemini skills\" site:github.com/google-gemini"}
+{"ts": "2026-03-28T03:58:02+00:00", "model": "sonar", "query": "Gemini CLI built-in skills bundled skills agentskills.io geminicli.com extensions gallery"}
+{"ts": "2026-03-28T03:58:11+00:00", "model": "sonar", "query": "geminicli.com extensions browse gallery list 2026 site:geminicli.com"}
+{"ts": "2026-03-28T03:58:28+00:00", "model": "sonar", "query": "agentskills.io open standard specification SKILL.md format"}
