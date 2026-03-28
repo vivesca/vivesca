@@ -195,6 +195,51 @@ def emit_praxis(subcommand: str = "today", json_output: bool = True) -> PraxisRe
     return PraxisResult(output=result)
 
 
+# -- Polymerization: standalone praxis tool --------------------------------
+# Originally from polymerization.py — consolidated here.
+# Wraps praxis organelle with strict subcommand validation.
+
+_POLY_SUBCOMMANDS = ("today", "upcoming", "overdue", "someday", "all", "spare", "stats", "clean")
+
+
+class PolymerizationResult(Secretion):
+    """Output from praxis organelle."""
+
+    subcommand: str
+    output: str
+
+
+@tool(
+    name="polymerization",
+    description="Run todo commands on Praxis.md. Subcommands: today/upcoming/overdue/all/stats/clean.",
+    annotations=ToolAnnotations(readOnlyHint=False, destructiveHint=False),
+)
+def polymerization(subcommand: str = "today") -> PolymerizationResult:
+    """Invoke praxis organelle against Praxis.md and return formatted output.
+
+    Valid subcommands: today, upcoming, overdue, someday, all, spare, stats, clean.
+    """
+    if subcommand not in _POLY_SUBCOMMANDS:
+        raise ValueError(f"Unknown subcommand '{subcommand}'. Valid: {', '.join(_POLY_SUBCOMMANDS)}")
+
+    import json as _json
+
+    fn_map = {
+        "today": _praxis.today,
+        "upcoming": _praxis.upcoming,
+        "overdue": _praxis.overdue,
+        "someday": _praxis.someday,
+        "all": _praxis.all_items,
+        "spare": _praxis.spare,
+        "stats": _praxis.stats,
+        "clean": _praxis.clean,
+    }
+
+    result = fn_map[subcommand]()
+    output = _json.dumps(result, indent=2, default=str)
+    return PolymerizationResult(subcommand=subcommand, output=output)
+
+
 # -- Cluster 5: Garden publish --------------------------------------------
 # Used by: budding, expression
 # Wraps the publish CLI for terryli.hm garden operations.
