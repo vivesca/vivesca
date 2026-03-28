@@ -5,60 +5,60 @@ from __future__ import annotations
 import json
 from datetime import UTC, datetime, timedelta
 
-from metabolon.enzymes.gradient import (
-    _score_text,
-    _sense_endocytosis,
-    _sense_signals,
-    _topology_weight,
-    proprioception_gradient,
+from metabolon.organelles.gradient_sense import (
+    score_text,
+    sense_endocytosis,
+    sense_signals,
+    topology_weight,
 )
+from metabolon.enzymes.gradient import proprioception_gradient
 
 # ---------------------------------------------------------------------------
-# Unit tests: _score_text
+# Unit tests: score_text
 # ---------------------------------------------------------------------------
 
 
 def test_score_text_ai_governance():
-    hits = _score_text("HKMA issues new regulatory guidance on AI compliance")
+    hits = score_text("HKMA issues new regulatory guidance on AI compliance")
     assert "ai_governance" in hits
     assert hits["ai_governance"] >= 2  # "regulatory", "compliance", "hkma"
 
 
 def test_score_text_ai_agents():
-    hits = _score_text("New multi-agent orchestration framework for autonomous workflows")
+    hits = score_text("New multi-agent orchestration framework for autonomous workflows")
     assert "ai_agents" in hits
 
 
 def test_score_text_no_match():
-    hits = _score_text("weather is nice today in the park")
+    hits = score_text("weather is nice today in the park")
     assert hits == {}
 
 
 def test_score_text_multi_domain():
-    hits = _score_text("Bank deploys AI agent for regulatory compliance checks")
+    hits = score_text("Bank deploys AI agent for regulatory compliance checks")
     # Should hit multiple domains
     assert "ai_governance" in hits or "banking_fintech" in hits
     assert len(hits) >= 2
 
 
 # ---------------------------------------------------------------------------
-# Unit tests: _sense_endocytosis
+# Unit tests: sense_endocytosis
 # ---------------------------------------------------------------------------
 
 
 def test_sense_endocytosis_empty(tmp_path, monkeypatch):
     """Empty log returns empty dicts."""
-    import metabolon.enzymes.gradient as grad
+    import metabolon.organelles.gradient_sense as gs
 
-    monkeypatch.setattr(grad, "_RELEVANCE_LOG", tmp_path / "empty.jsonl")
-    hits, titles = _sense_endocytosis(7)
+    monkeypatch.setattr(gs, "_RELEVANCE_LOG", tmp_path / "empty.jsonl")
+    hits, titles = sense_endocytosis(7)
     assert hits == {}
     assert titles == {}
 
 
 def test_sense_endocytosis_filters_low_score(tmp_path, monkeypatch):
     """Items with score < 6 are excluded."""
-    import metabolon.enzymes.gradient as grad
+    import metabolon.organelles.gradient_sense as gs
 
     log = tmp_path / "relevance.jsonl"
     now = datetime.now(UTC)
@@ -73,14 +73,14 @@ def test_sense_endocytosis_filters_low_score(tmp_path, monkeypatch):
         )
         + "\n"
     )
-    monkeypatch.setattr(grad, "_RELEVANCE_LOG", log)
-    hits, _ = _sense_endocytosis(7)
+    monkeypatch.setattr(gs, "_RELEVANCE_LOG", log)
+    hits, _ = sense_endocytosis(7)
     assert hits == {}
 
 
 def test_sense_endocytosis_includes_high_score(tmp_path, monkeypatch):
     """Items with score >= 6 within window are included."""
-    import metabolon.enzymes.gradient as grad
+    import metabolon.organelles.gradient_sense as gs
 
     log = tmp_path / "relevance.jsonl"
     now = datetime.now(UTC)
@@ -95,14 +95,14 @@ def test_sense_endocytosis_includes_high_score(tmp_path, monkeypatch):
         )
         + "\n"
     )
-    monkeypatch.setattr(grad, "_RELEVANCE_LOG", log)
-    hits, _titles = _sense_endocytosis(7)
+    monkeypatch.setattr(gs, "_RELEVANCE_LOG", log)
+    hits, _titles = sense_endocytosis(7)
     assert "ai_governance" in hits or "banking_fintech" in hits
 
 
 def test_sense_endocytosis_filters_old_items(tmp_path, monkeypatch):
     """Items outside the time window are excluded."""
-    import metabolon.enzymes.gradient as grad
+    import metabolon.organelles.gradient_sense as gs
 
     log = tmp_path / "relevance.jsonl"
     old_ts = datetime.now(UTC) - timedelta(days=30)
@@ -117,28 +117,28 @@ def test_sense_endocytosis_filters_old_items(tmp_path, monkeypatch):
         )
         + "\n"
     )
-    monkeypatch.setattr(grad, "_RELEVANCE_LOG", log)
-    hits, _ = _sense_endocytosis(7)
+    monkeypatch.setattr(gs, "_RELEVANCE_LOG", log)
+    hits, _ = sense_endocytosis(7)
     assert hits == {}
 
 
 # ---------------------------------------------------------------------------
-# Unit tests: _sense_signals
+# Unit tests: sense_signals
 # ---------------------------------------------------------------------------
 
 
 def test_sense_signals_empty(tmp_path, monkeypatch):
     """Empty signals log returns empty dict."""
-    import metabolon.enzymes.gradient as grad
+    import metabolon.organelles.gradient_sense as gs
 
-    monkeypatch.setattr(grad, "_SIGNALS_LOG", tmp_path / "empty.jsonl")
-    hits = _sense_signals(7)
+    monkeypatch.setattr(gs, "_SIGNALS_LOG", tmp_path / "empty.jsonl")
+    hits = sense_signals(7)
     assert hits == {}
 
 
 def test_sense_signals_known_tool(tmp_path, monkeypatch):
     """Known tool in TOOL_DOMAINS is classified correctly."""
-    import metabolon.enzymes.gradient as grad
+    import metabolon.organelles.gradient_sense as gs
 
     log = tmp_path / "signals.jsonl"
     now = datetime.now(UTC)
@@ -152,15 +152,15 @@ def test_sense_signals_known_tool(tmp_path, monkeypatch):
         )
         + "\n"
     )
-    monkeypatch.setattr(grad, "_SIGNALS_LOG", log)
-    hits = _sense_signals(7)
+    monkeypatch.setattr(gs, "_SIGNALS_LOG", log)
+    hits = sense_signals(7)
     assert "career_consulting" in hits
     assert hits["career_consulting"] == 1
 
 
 def test_sense_signals_unknown_tool(tmp_path, monkeypatch):
     """Unknown tools are silently ignored."""
-    import metabolon.enzymes.gradient as grad
+    import metabolon.organelles.gradient_sense as gs
 
     log = tmp_path / "signals.jsonl"
     now = datetime.now(UTC)
@@ -174,14 +174,14 @@ def test_sense_signals_unknown_tool(tmp_path, monkeypatch):
         )
         + "\n"
     )
-    monkeypatch.setattr(grad, "_SIGNALS_LOG", log)
-    hits = _sense_signals(7)
+    monkeypatch.setattr(gs, "_SIGNALS_LOG", log)
+    hits = sense_signals(7)
     assert hits == {}
 
 
 def test_sense_signals_filters_old(tmp_path, monkeypatch):
     """Old signals outside window are excluded."""
-    import metabolon.enzymes.gradient as grad
+    import metabolon.organelles.gradient_sense as gs
 
     log = tmp_path / "signals.jsonl"
     old_ts = datetime.now(UTC) - timedelta(days=30)
@@ -195,8 +195,8 @@ def test_sense_signals_filters_old(tmp_path, monkeypatch):
         )
         + "\n"
     )
-    monkeypatch.setattr(grad, "_SIGNALS_LOG", log)
-    hits = _sense_signals(7)
+    monkeypatch.setattr(gs, "_SIGNALS_LOG", log)
+    hits = sense_signals(7)
     assert hits == {}
 
 
@@ -207,11 +207,11 @@ def test_sense_signals_filters_old(tmp_path, monkeypatch):
 
 def test_gradient_returns_report_type(tmp_path, monkeypatch):
     """Tool returns a GradientReport regardless of empty inputs."""
-    import metabolon.enzymes.gradient as grad
+    import metabolon.organelles.gradient_sense as gs
 
-    monkeypatch.setattr(grad, "_RELEVANCE_LOG", tmp_path / "empty_relevance.jsonl")
-    monkeypatch.setattr(grad, "_SIGNALS_LOG", tmp_path / "empty_signals.jsonl")
-    monkeypatch.setattr(grad, "_RHEOTAXIS_LOG", tmp_path / "no_rheotaxis")
+    monkeypatch.setattr(gs, "_RELEVANCE_LOG", tmp_path / "empty_relevance.jsonl")
+    monkeypatch.setattr(gs, "_SIGNALS_LOG", tmp_path / "empty_signals.jsonl")
+    monkeypatch.setattr(gs, "_RHEOTAXIS_LOG", tmp_path / "no_rheotaxis")
 
     result = proprioception_gradient(days=7)
     # Check shape rather than isinstance to avoid class identity issues in test isolation
@@ -225,7 +225,7 @@ def test_gradient_returns_report_type(tmp_path, monkeypatch):
 
 def test_gradient_single_sensor(tmp_path, monkeypatch):
     """Single sensor signal yields single-sensor polarity annotation."""
-    import metabolon.enzymes.gradient as grad
+    import metabolon.organelles.gradient_sense as gs
 
     log = tmp_path / "relevance.jsonl"
     now = datetime.now(UTC)
@@ -241,9 +241,9 @@ def test_gradient_single_sensor(tmp_path, monkeypatch):
             )
             + "\n"
         )
-    monkeypatch.setattr(grad, "_RELEVANCE_LOG", log)
-    monkeypatch.setattr(grad, "_SIGNALS_LOG", tmp_path / "empty_signals.jsonl")
-    monkeypatch.setattr(grad, "_RHEOTAXIS_LOG", tmp_path / "no_rheotaxis")
+    monkeypatch.setattr(gs, "_RELEVANCE_LOG", log)
+    monkeypatch.setattr(gs, "_SIGNALS_LOG", tmp_path / "empty_signals.jsonl")
+    monkeypatch.setattr(gs, "_RHEOTAXIS_LOG", tmp_path / "no_rheotaxis")
 
     result = proprioception_gradient(days=7)
     assert "single-sensor" in result.polarity_vector or result.gradients[0].sensor_coverage == 1
@@ -251,7 +251,7 @@ def test_gradient_single_sensor(tmp_path, monkeypatch):
 
 def test_gradient_multi_sensor_coverage(tmp_path, monkeypatch):
     """Two sensors confirming same domain yields coverage=2."""
-    import metabolon.enzymes.gradient as grad
+    import metabolon.organelles.gradient_sense as gs
 
     now = datetime.now(UTC)
 
@@ -277,9 +277,9 @@ def test_gradient_multi_sensor_coverage(tmp_path, monkeypatch):
             json.dumps({"ts": now.isoformat(), "tool": "ligand_bind", "outcome": "success"}) + "\n"
         )
 
-    monkeypatch.setattr(grad, "_RELEVANCE_LOG", lustro_log)
-    monkeypatch.setattr(grad, "_SIGNALS_LOG", signals_log)
-    monkeypatch.setattr(grad, "_RHEOTAXIS_LOG", tmp_path / "no_rheotaxis")
+    monkeypatch.setattr(gs, "_RELEVANCE_LOG", lustro_log)
+    monkeypatch.setattr(gs, "_SIGNALS_LOG", signals_log)
+    monkeypatch.setattr(gs, "_RHEOTAXIS_LOG", tmp_path / "no_rheotaxis")
 
     result = proprioception_gradient(days=7)
     career_vectors = [g for g in result.gradients if g.domain == "career_consulting"]
@@ -289,7 +289,7 @@ def test_gradient_multi_sensor_coverage(tmp_path, monkeypatch):
 
 def test_gradient_normalised_strength(tmp_path, monkeypatch):
     """Top domain always has signal_strength=1.0 after normalisation."""
-    import metabolon.enzymes.gradient as grad
+    import metabolon.organelles.gradient_sense as gs
 
     now = datetime.now(UTC)
     lustro_log = tmp_path / "relevance.jsonl"
@@ -312,9 +312,9 @@ def test_gradient_normalised_strength(tmp_path, monkeypatch):
             json.dumps({"ts": now.isoformat(), "tool": "emit_tweet", "outcome": "success"}) + "\n"
         )
 
-    monkeypatch.setattr(grad, "_RELEVANCE_LOG", lustro_log)
-    monkeypatch.setattr(grad, "_SIGNALS_LOG", signals_log)
-    monkeypatch.setattr(grad, "_RHEOTAXIS_LOG", tmp_path / "no_rheotaxis")
+    monkeypatch.setattr(gs, "_RELEVANCE_LOG", lustro_log)
+    monkeypatch.setattr(gs, "_SIGNALS_LOG", signals_log)
+    monkeypatch.setattr(gs, "_RHEOTAXIS_LOG", tmp_path / "no_rheotaxis")
 
     result = proprioception_gradient(days=7)
     if result.gradients:
@@ -323,7 +323,7 @@ def test_gradient_normalised_strength(tmp_path, monkeypatch):
 
 def test_gradient_respects_window(tmp_path, monkeypatch):
     """Items outside the requested window do not affect gradient."""
-    import metabolon.enzymes.gradient as grad
+    import metabolon.organelles.gradient_sense as gs
 
     lustro_log = tmp_path / "relevance.jsonl"
     old_ts = datetime.now(UTC) - timedelta(days=30)
@@ -338,57 +338,57 @@ def test_gradient_respects_window(tmp_path, monkeypatch):
         )
         + "\n"
     )
-    monkeypatch.setattr(grad, "_RELEVANCE_LOG", lustro_log)
-    monkeypatch.setattr(grad, "_SIGNALS_LOG", tmp_path / "empty_signals.jsonl")
-    monkeypatch.setattr(grad, "_RHEOTAXIS_LOG", tmp_path / "no_rheotaxis")
+    monkeypatch.setattr(gs, "_RELEVANCE_LOG", lustro_log)
+    monkeypatch.setattr(gs, "_SIGNALS_LOG", tmp_path / "empty_signals.jsonl")
+    monkeypatch.setattr(gs, "_RHEOTAXIS_LOG", tmp_path / "no_rheotaxis")
 
     result = proprioception_gradient(days=7)
     assert result.polarity_vector == "diffuse"
 
 
 # ---------------------------------------------------------------------------
-# Unit tests: _topology_weight
+# Unit tests: topology_weight
 # ---------------------------------------------------------------------------
 
 
 def test_topology_single_sensor():
     """One sensor → weight 1.0, bonus 'single'."""
-    w, bonus = _topology_weight({"endocytosis_signal"})
+    w, bonus = topology_weight({"endocytosis_signal"})
     assert w == 1.0
     assert bonus == "single"
 
 
 def test_topology_adjacent_pair():
     """lustro + rheotaxis are adjacent — weight 1.5."""
-    w, bonus = _topology_weight({"endocytosis_signal", "rheotaxis_queries"})
+    w, bonus = topology_weight({"endocytosis_signal", "rheotaxis_queries"})
     assert w == 1.5
     assert bonus == "adjacent"
 
 
 def test_topology_independent_pair_lustro_tools():
     """lustro + tool_signals are independent — weight 2.0."""
-    w, bonus = _topology_weight({"endocytosis_signal", "tool_signals"})
+    w, bonus = topology_weight({"endocytosis_signal", "tool_signals"})
     assert w == 2.0
     assert bonus == "independent"
 
 
 def test_topology_independent_pair_rheotaxis_tools():
     """rheotaxis + tool_signals are independent — weight 2.0."""
-    w, bonus = _topology_weight({"rheotaxis_queries", "tool_signals"})
+    w, bonus = topology_weight({"rheotaxis_queries", "tool_signals"})
     assert w == 2.0
     assert bonus == "independent"
 
 
 def test_topology_all_three():
     """All three sensors → weight 3.0, bonus 'full'."""
-    w, bonus = _topology_weight({"endocytosis_signal", "rheotaxis_queries", "tool_signals"})
+    w, bonus = topology_weight({"endocytosis_signal", "rheotaxis_queries", "tool_signals"})
     assert w == 3.0
     assert bonus == "full"
 
 
 def test_topology_empty():
     """Empty sensor set → weight 0.0."""
-    w, _bonus = _topology_weight(set())
+    w, _bonus = topology_weight(set())
     assert w == 0.0
 
 
@@ -399,7 +399,7 @@ def test_topology_empty():
 
 def test_gradient_topology_bonus_field_present(tmp_path, monkeypatch):
     """GradientVector has topology_bonus field."""
-    import metabolon.enzymes.gradient as grad
+    import metabolon.organelles.gradient_sense as gs
 
     now = datetime.now(UTC)
     lustro_log = tmp_path / "relevance.jsonl"
@@ -414,9 +414,9 @@ def test_gradient_topology_bonus_field_present(tmp_path, monkeypatch):
         )
         + "\n"
     )
-    monkeypatch.setattr(grad, "_RELEVANCE_LOG", lustro_log)
-    monkeypatch.setattr(grad, "_SIGNALS_LOG", tmp_path / "empty_signals.jsonl")
-    monkeypatch.setattr(grad, "_RHEOTAXIS_LOG", tmp_path / "no_rheotaxis")
+    monkeypatch.setattr(gs, "_RELEVANCE_LOG", lustro_log)
+    monkeypatch.setattr(gs, "_SIGNALS_LOG", tmp_path / "empty_signals.jsonl")
+    monkeypatch.setattr(gs, "_RHEOTAXIS_LOG", tmp_path / "no_rheotaxis")
 
     result = proprioception_gradient(days=7)
     assert result.gradients
@@ -429,7 +429,7 @@ def test_gradient_adjacent_pair_lower_weight_than_independent(tmp_path, monkeypa
     """Adjacent confirmation (lustro+rheotaxis) ranks below independent confirmation
     (lustro+tools) when raw hit counts are equal.
     """
-    import metabolon.enzymes.gradient as grad
+    import metabolon.organelles.gradient_sense as gs
 
     now = datetime.now(UTC)
 
@@ -472,9 +472,9 @@ def test_gradient_adjacent_pair_lower_weight_than_independent(tmp_path, monkeypa
             json.dumps({"ts": now.isoformat(), "tool": "emit_tweet", "outcome": "success"}) + "\n"
         )
 
-    monkeypatch.setattr(grad, "_RELEVANCE_LOG", lustro_log)
-    monkeypatch.setattr(grad, "_SIGNALS_LOG", signals_log)
-    monkeypatch.setattr(grad, "_RHEOTAXIS_LOG", tmp_path / "no_rheotaxis")
+    monkeypatch.setattr(gs, "_RELEVANCE_LOG", lustro_log)
+    monkeypatch.setattr(gs, "_SIGNALS_LOG", signals_log)
+    monkeypatch.setattr(gs, "_RHEOTAXIS_LOG", tmp_path / "no_rheotaxis")
 
     result = proprioception_gradient(days=7)
     gov = next((g for g in result.gradients if g.domain == "ai_governance"), None)
