@@ -105,29 +105,21 @@ Mining abstract topics ("what is judgment?") works but plateaus. **Specimens** a
 - [x] Management theory (Grove, Drucker, Deming, Weinberg) → TRM, orchestrator leverage, 94% system rule, management by exception, PDCA, fear-free prompting, cross-verification, contribution framing. All sorted into cohors + delegation-theory (enrichment, no new skill)
 - [ ] Kaizen → (tradition specimen — queued)
 
-## Cross-Model Mining
-
-Run the same probe prompt on multiple models (Gemini CLI, Codex, OpenCode). Compare extractions. Each model's weights are a different lossy compression of human knowledge — the delta between extractions reveals what each model noticed that the others didn't.
-
-**Validated:** Einstein — Gemini found 3 moves Claude missed, Claude found 2 Gemini missed. Musashi — Gemini found 3 additional moves (Mountain-Sea Pivot, Holding the Pillow, Rat's Head/Ox's Neck).
-
-**Prompt:** `~/epigenome/chromatin/Fodina Mining Prompt.md` (vault, versioned). CLI tool queued.
-
-## Tier 1: Single-Model Interview
-
-Fast, good for well-understood domains where the model has clear depth.
+## Tier 1: Mine
 
 **Process:**
-1. **Probe** — ask the model an open question about the domain ("what is planning?")
+1. **Probe** — ask an open question about the domain ("what is planning?")
 2. **Push past first answer** — the second and third layers are where structure lives. Ask "what distinguishes this from X?" or "where does this break down?"
 3. **Find the bones** — look for: taxonomy (types/categories), failure modes, axes of improvement, key distinctions
-4. **Distill** — capture as a reference skill with `disable-model-invocation: true`
-5. **Wire** — add cross-references to skills that would benefit (this is not optional — unwired skills get forgotten)
-6. **Publish** — if the insight is non-obvious, `sarcio new` for a garden post
+4. **Cross-model probe** — run the same prompt on Gemini CLI + Codex (+ OpenCode if available). Each model's weights are a different lossy compression — the delta reveals what each noticed that the others didn't. This is NOT optional. Validated: Einstein — Gemini found 3 moves Claude missed; Musashi — Gemini found 3 additional moves. Prompt template: `~/epigenome/chromatin/Fodina Mining Prompt.md`.
+5. **Synthesize delta** — merge cross-model extractions. Flag what only one model surfaced (highest novelty signal).
+6. **Distill** — capture as a reference skill with `disable-model-invocation: true`
+7. **Wire** — add cross-references to skills that would benefit (this is not optional — unwired skills get forgotten)
+8. **Publish** — if the insight is non-obvious, `sarcio new` for a garden post
 
-**Step 4.5: Quality gate** — after distilling, ask: "which of these heuristics would actually change behavior?" Most mines produce 80% theory, 20% behavior-changing insight. Flag the 20%. The skill keeps everything (reference is cheap); the garden post carries only the sharp part.
+**Step 6.5: Quality gate** — after distilling, ask: "which of these heuristics would actually change behavior?" Most mines produce 80% theory, 20% behavior-changing insight. Flag the 20%. The skill keeps everything (reference is cheap); the garden post carries only the sharp part.
 
-**Step 6 detail: Mine → garden conversion.** Never publish the framework. Publish one distinction, grounded in a specific moment. The skill is the map; the post is the story of discovering one landmark.
+**Step 8 detail: Mine → garden conversion.** Never publish the framework. Publish one distinction, grounded in a specific moment. The skill is the map; the post is the story of discovering one landmark.
 
 **Output:** One reference skill file. ~50-100 lines. Stable knowledge, not procedures.
 
