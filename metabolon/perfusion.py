@@ -93,7 +93,7 @@ def ischaemic_stars(threshold: int = 2) -> list[str]:
 def perfusion_report() -> dict:
     """Full perfusion status for injection into systole context.
 
-    focus_star only considers routable stars (Flywheel / Checklist / Decision).
+    tropism only considers routable stars (Flywheel / Checklist / Decision).
     Habit and Attention stars appear in coverage/ischaemic for visibility but
     are excluded from focus selection — agents cannot help them.
     """
@@ -105,5 +105,5 @@ def perfusion_report() -> dict:
     return {
         "coverage": cov,
         "ischaemic": ischaemic,
-        "focus_star": least,
+        "tropism": least,
     }

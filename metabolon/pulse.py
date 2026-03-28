@@ -82,7 +82,7 @@ You already have ~/CLAUDE.md (How to Think, meta-rules) and MEMORY.md loaded. Us
 ## Steps
 
 1. **Load session state.** Read ~/tmp/pulse-manifest.md (memory of prior systoles), ~/epigenome/chromatin/North Star.md (includes meta goal), ~/epigenome/chromatin/Praxis.md (head 80), ~/epigenome/chromatin/Tonus.md. Run `date`.
-2. **Scout.** What do the north stars need? What did prior systoles reveal? Any `agent:claude` items in TODO? Any deadlines within 14 days? Pick the north star with least coverage. Allocate ~{infra_pct}% of agents to the meta goal (system improvement) while the system is young.{focus_line}
+2. **Scout.** What do the north stars need? What did prior systoles reveal? Any `agent:claude` items in TODO? Any deadlines within 14 days? Pick the north star with least coverage. Allocate ~{stroma_pct}% of agents to the meta goal (system improvement) while the system is young.{focus_line}
 3. **Dispatch 15-20 agents** with `run_in_background: true`, `mode: bypassPermissions`. Model routing: research/collection -> sonnet, synthesis/judgment -> opus. Each prompt starts: "Read ~/tmp/pulse-manifest.md. Do not duplicate completed work." When outputs naturally chain (research -> synthesis -> brief), dispatch as a pipeline.
 4. **Wait** for all agents. Process results.
 5. **Update** ~/tmp/pulse-manifest.md manifest. Route results by ejection gate:
@@ -875,6 +875,12 @@ def main(systoles=None, model=None, retry=1, focus=None, stop_after=None, dry_ru
 
     # Read model from conf if not explicitly passed
     genome = vasomotor_genome()
+
+    # Startup invariants
+    basal_rate = genome.get("basal_rate", 0.15)
+    min_basal_rate = genome.get("min_basal_rate", 0.15)
+    assert basal_rate >= min_basal_rate, f"basal_rate ({basal_rate}) < min_basal_rate ({min_basal_rate})"
+
     if model is None:
         conf_model = genome.get("systole_model", "sonnet")
         # Consult tissue routing as an advisory override (advisory — falls back to conf on failure).

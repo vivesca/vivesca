@@ -87,6 +87,44 @@ def probe_chemotaxis() -> tuple[bool, str]:
         return False, f"exception: {exc}"
 
 
+def probe_chemotaxis_self_test() -> tuple[bool, str]:
+    """Fires a minimal test query through chemotaxis and validates the response structure."""
+    try:
+        import shutil
+
+        binary = shutil.which("chemotaxis")
+        if not binary:
+            return False, "chemotaxis binary not found on PATH"
+
+        # Minimal test query, we just want to see if the plumbing works
+        result = subprocess.run(
+            [binary, "--json", "test"],
+            capture_output=True,
+            text=True,
+            timeout=15,
+        )
+        if result.returncode != 0:
+            return False, f"chemotaxis exited {result.returncode}: {result.stderr.strip()[:200]}"
+
+        try:
+            data = json.loads(result.stdout)
+        except json.JSONDecodeError as parse_err:
+            return False, f"invalid JSON from chemotaxis: {parse_err}"
+
+        if not data.get("success"):
+            return False, f"chemotaxis reported failure: {data.get('error', 'unknown error')}"
+
+        if not data.get("text"):
+            return False, "chemotaxis returned success=True but empty text"
+
+        return True, f"chemotaxis ok, responded via {data.get('method', 'unknown')}"
+
+    except subprocess.TimeoutExpired:
+        return False, "chemotaxis timed out (15s)"
+    except Exception as exc:
+        return False, f"exception: {exc}"
+
+
 def probe_vasomotor_conf() -> tuple[bool, str]:
     """Verify respiration.conf exists, loads as JSON, and has expected keys."""
     try:
@@ -239,6 +277,7 @@ _PROBES: list[tuple[str, Any]] = [
     ("chromatin", probe_chromatin),
     ("endocytosis", probe_endocytosis),
     ("chemotaxis", probe_chemotaxis),
+    ("chemotaxis_self_test", probe_chemotaxis_self_test),
     ("vasomotor_conf", probe_vasomotor_conf),
     ("respirometry", probe_respirometry),
     ("perfusion", probe_perfusion),

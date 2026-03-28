@@ -6,7 +6,7 @@ import configparser
 from dataclasses import dataclass
 from pathlib import Path
 
-_CONF_PATH = Path(__file__).parent / "gates.conf"
+_CONF_PATH = Path(__file__).parent / "gating.conf"
 _conf = configparser.ConfigParser()
 _conf.read(_CONF_PATH)
 

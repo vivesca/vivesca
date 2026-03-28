@@ -784,14 +784,14 @@ Stop reason: {stop_reason}
 
 ## Rules
 - Output ONLY a JSON object with keys you want to change. Omit unchanged keys.
-- Adjustable keys (haiku): infra_pct, focus_star, default_cost_per_systole, saturation_penalty
+- Adjustable keys (haiku): stroma_pct, tropism, default_cost_per_systole, saturation_penalty
 - Adjustable keys (sonnet adds): systole_model, saturation_patience, basal_rate, min_basal_rate, tachycardia_threshold
 - Adjustable keys (opus adds): aerobic_ceiling, sonnet_ceiling, sympathetic_reserve, max_daily_systoles, bounds
-- Bounds: infra_pct [0,50], basal_rate [0.05,0.5], min_basal_rate [0.05,0.4], saturation_patience [1,5], systole_model [haiku,sonnet,opus], tachycardia_threshold [40,80], aerobic_ceiling [60,95], sonnet_ceiling [70,98], sympathetic_reserve [5,30], max_daily_systoles [5,30], default_cost_per_systole [0.1,5.0], saturation_penalty [1.0,3.0]
-- focus_star: null (balanced) or a specific north star name to prioritize
+- Bounds: stroma_pct [0,50], basal_rate [0.05,0.5], min_basal_rate [0.05,0.4], saturation_patience [1,5], systole_model [haiku,sonnet,opus], tachycardia_threshold [40,80], aerobic_ceiling [60,95], sonnet_ceiling [70,98], sympathetic_reserve [5,30], max_daily_systoles [5,30], default_cost_per_systole [0.1,5.0], saturation_penalty [1.0,3.0]
+- tropism: null (balanced) or a specific north star name to prioritize
 - Think about: Is budget being wasted? Is the organism producing useful output? Should it shift focus?
 - If things look fine, output {{}}
-- CRYSTALLIZATION: If you notice a pattern in the recent events (e.g. "budget always wastes >15% near reset", "infra_pct gets lowered every cycle"), add a "crystallize" key with a one-line description of the formula that should replace this recurring judgment. Example: {{"infra_pct": 15, "crystallize": "lower infra_pct when yield >20 files/day"}}
+- CRYSTALLIZATION: If you notice a pattern in the recent events (e.g. "budget always wastes >15% near reset", "stroma_pct gets lowered every cycle"), add a "crystallize" key with a one-line description of the formula that should replace this recurring judgment. Example: {{"stroma_pct": 15, "crystallize": "lower stroma_pct when yield >20 files/day"}}
 """
 
 
