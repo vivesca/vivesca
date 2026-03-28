@@ -117,12 +117,51 @@ def ejection_fraction() -> float:
     return round(converted / ejected, 3)
 
 
+def _calculate_yield_efficiency() -> float:
+    """Calculate yield efficiency for today: total secretions / total budget delta.
+
+    Returns files_per_pct. Higher = more efficient.
+    Returns 0.0 if no data or no yield.
+    """
+    from metabolon.vasomotor import EVENT_LOG
+
+    if not EVENT_LOG.exists():
+        return 0.0
+
+    today = datetime.date.today().isoformat()
+    total_yield = 0
+    total_delta = 0.0
+
+    for line in EVENT_LOG.read_text().splitlines():
+        if today not in line:
+            continue
+        try:
+            evt = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+
+        event = evt.get("event")
+        if event == "systole_yield":
+            total_yield += evt.get("secretion_count", 0)
+        elif event == "systole_usage":
+            total_delta += evt.get("weekly_delta", 0.0)
+
+    if total_yield == 0:
+        return 0.0
+
+    # If delta is 0 (coarse measurement), use minimum granularity to avoid div-by-zero
+    # and provide a representative high efficiency value.
+    effective_delta = max(total_delta, 0.01)
+    return round(total_yield / effective_delta, 2)
+
+
 def tidal_volume() -> dict:
     """Full respiration snapshot — all metabolic metrics."""
     ejected = _count_ejected()
     converted = _count_converted()
     stale = _count_stale()
     waste = _count_waste()
+    yield_eff = _calculate_yield_efficiency()
     ef = round(converted / ejected, 3) if ejected > 0 else -1.0
 
     metrics = {
@@ -131,6 +170,7 @@ def tidal_volume() -> dict:
         "converted": converted,
         "stale": stale,
         "ejection_fraction": ef,
+        "yield_efficiency": yield_eff,
         "waste": waste,
         "pending": ejected - converted,
     }

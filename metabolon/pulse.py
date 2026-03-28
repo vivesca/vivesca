@@ -62,8 +62,8 @@ VITAL_SIGNS_FILE = Path.home() / "tmp" / "pulse-status.json"
 # Systole defaults
 # ---------------------------------------------------------------------------
 CIRCADIAN_DEADLINE = "07:00"
-MAX_SYSTOLES = 5  # overnight systoles per cycle
-DAYTIME_SYSTOLES = 1  # daytime systoles per cycle
+MAX_DAILY_SYSTOLES = 15  # hard daily safety limit
+SYSTOLES_PER_RUN = 5  # default max systoles per invocation
 
 SATURATION_PHRASES = [
     "no new work",
@@ -919,22 +919,31 @@ def main(systoles=None, model=None, retry=1, focus=None, stop_after=None, dry_ru
         weekly_util = (telemetry or {}).get("seven_day", {}).get("utilization", 50)
         remaining_pct = max(0, 100 - weekly_util - 5)  # 5% sympathetic floor
         cost = measured_cost_per_systole()
-        budget_systoles = max(1, int(remaining_pct / cost)) if cost > 0 else DAYTIME_SYSTOLES
+        
+        # Load run cap from genome
+        per_run_cap = genome.get("systoles_per_run", SYSTOLES_PER_RUN)
+        
+        budget_systoles = max(1, int(remaining_pct / cost)) if cost > 0 else per_run_cap
+        
         if is_overnight:
-            max_systoles = min(budget_systoles, MAX_DAILY_SYSTOLES)
+            # Overnight: run until budget limit or run cap or daily safety limit
+            max_systoles = min(budget_systoles, per_run_cap, MAX_DAILY_SYSTOLES)
         else:
-            # Scale by debt: low debt = conservative, high debt = burn what's left
+            # Daytime: scale by debt. low debt = 1, high debt = up to per_run_cap
+            # Formula: min_systoles (1) + debt * (per_run_cap - 1)
             scaled = max(
-                DAYTIME_SYSTOLES,
-                round(DAYTIME_SYSTOLES + debt * (budget_systoles - DAYTIME_SYSTOLES)),
+                1,
+                round(1 + debt * (per_run_cap - 1)),
             )
-            max_systoles = min(scaled, MAX_SYSTOLES, MAX_DAILY_SYSTOLES)
-        if debt > 0 or budget_systoles != DAYTIME_SYSTOLES:
+            max_systoles = min(scaled, budget_systoles, MAX_DAILY_SYSTOLES)
+            
+        if debt > 0 or max_systoles != 1:
             record_event(
                 "adaptive_cadence",
                 debt=round(debt, 2),
                 max_systoles=max_systoles,
                 budget_systoles=budget_systoles,
+                per_run_cap=per_run_cap,
                 remaining_pct=round(remaining_pct, 1),
             )
     stop_after_str = stop_after or (CIRCADIAN_DEADLINE if is_overnight else None)
