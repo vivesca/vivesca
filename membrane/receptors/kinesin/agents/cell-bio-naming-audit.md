@@ -7,7 +7,7 @@ Read first: ~/.claude/projects/-Users-terry/memory/project_cell_bio_naming_audit
 
 ## Decisions
 
-- `hippocampus` → `histone_store` (memory database = where marks are stored)
+- `histone_store` → `histone_store` (memory database = where marks are stored)
 - `cortex` in metabolon/metabolism/signals.py only → `receptor_cortex`
 - synapse.py / axon.py / dendrite.py → **KEEP** (hooks ARE signal transduction)
 
@@ -21,7 +21,7 @@ Read first: ~/.claude/projects/-Users-terry/memory/project_cell_bio_naming_audit
 
 ## Order
 
-1. `hippocampus` → `histone_store`
+1. `histone_store` → `histone_store`
 2. `cortex` (signals.py scope only — use --scope metabolon/metabolism/)
 
 ## Hard rules

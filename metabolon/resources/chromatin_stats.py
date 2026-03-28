@@ -1,7 +1,7 @@
 """Hippocampus — the organism's memory performance.
 
 Resources:
-  vivesca://hippocampus — memory database statistics
+  vivesca://histone_store — memory database statistics
 """
 
 BINARY = "oghma"

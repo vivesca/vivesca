@@ -29,7 +29,7 @@ Target = Literal[
     "consolidation",  # memory consolidation candidates (sense only)
     "operons",  # capability map — skills, expressed/dormant/crystallised
     "sensorium",  # recent search queries
-    "hippocampus",  # memory database statistics
+    "histone_store",  # memory database statistics
     "effectors",  # unified tool index — MCP and CLI tools
     "pacemakers",  # LaunchAgent state — schedule, status, exit code, type
 ]
@@ -37,7 +37,7 @@ Target = Literal[
 
 @tool()
 def proprioception(target: Target) -> str:
-    """Sense organism internal state with gradient detection. Targets: genome, anatomy, circadian, vitals, glycogen, reflexes, consolidation, operons, sensorium, hippocampus, effectors, pacemakers."""
+    """Sense organism internal state with gradient detection. Targets: genome, anatomy, circadian, vitals, glycogen, reflexes, consolidation, operons, sensorium, histone_store, effectors, pacemakers."""
     reading = _DISPATCH[target]()
     gradient = _log_and_gradient(target, reading)
     if gradient:
@@ -183,7 +183,7 @@ def _sensorium() -> str:
     return "\n".join(entries) if entries else "(no search log available)"
 
 
-def _hippocampus() -> str:
+def _histone_store() -> str:
     """Memory database statistics via Python oghma package (migrated from Rust binary)."""
     from io import StringIO
 
@@ -195,7 +195,7 @@ def _hippocampus() -> str:
     memories = storage.get_all_memories(status="active")
 
     if not memories:
-        return "hippocampus: 0 active memories"
+        return "histone_store: 0 active memories"
 
     category_counts: dict[str, int] = {}
     source_counts: dict[str, int] = {}
@@ -236,7 +236,7 @@ _DISPATCH: dict[str, callable] = {
     "consolidation": _consolidation,
     "operons": _operons,
     "sensorium": _sensorium,
-    "hippocampus": _hippocampus,
+    "histone_store": _histone_store,
     "effectors": _effectors,
     "pacemakers": _pacemakers,
 }
