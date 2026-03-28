@@ -7,12 +7,12 @@ classifies correctly and short-circuits as early as possible.
 
 import pytest
 
-from metabolon.enzymes.endosomal import (
-    _classify,
-    _classify_subject,
-    _extract_sender,
-    _extract_subject,
-    _sender_is_automated,
+from metabolon.organelles.endosomal import (
+    classify as _classify,
+    classify_subject as _classify_subject,
+    extract_sender as _extract_sender,
+    extract_subject as _extract_subject,
+    sender_is_automated as _sender_is_automated,
 )
 
 # ---------------------------------------------------------------------------
