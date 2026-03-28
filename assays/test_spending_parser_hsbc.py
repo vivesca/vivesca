@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 
 from metabolon.respirometry.parsers.hsbc import extract_hsbc
-from metabolon.respirometry.schema import StatementMeta
+from metabolon.respirometry.schema import RespirogramMeta
 
 FIXTURE = Path(__file__).parent / "fixtures" / "hsbc_mar2025.pdf"
 FIXTURE_FEB = Path(__file__).parent / "fixtures" / "hsbc_feb2025.pdf"
@@ -17,7 +17,7 @@ class TestHsbcParser:
         self.meta, self.txns = extract_hsbc(FIXTURE)
 
     def test_returns_metadata(self):
-        assert isinstance(self.meta, StatementMeta)
+        assert isinstance(self.meta, RespirogramMeta)
         assert self.meta.bank == "hsbc"
         assert self.meta.card == "HSBC Visa Signature"
 

@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 
 from metabolon.respirometry.parsers.ccba import extract_ccba
-from metabolon.respirometry.schema import StatementMeta
+from metabolon.respirometry.schema import RespirogramMeta
 
 FIXTURE = Path(__file__).parent / "fixtures" / "ccba_sep2025.pdf"
 FIXTURE_MAR = Path(__file__).parent / "fixtures" / "ccba_mar2026.pdf"
@@ -17,7 +17,7 @@ class TestCcbaParser:
         self.meta, self.txns = extract_ccba(FIXTURE)
 
     def test_returns_metadata(self):
-        assert isinstance(self.meta, StatementMeta)
+        assert isinstance(self.meta, RespirogramMeta)
         assert self.meta.bank == "ccba"
         assert self.meta.card == "CCBA eye Credit Card"
 

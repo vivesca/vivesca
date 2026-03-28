@@ -24,7 +24,7 @@ def test_format_text_summary(sample_article):
     assert "Endocytosis is a cellular process." in text
     assert "MECHANISM" in text
     assert "Endocytosis is a cellular process. It is cool." in text
-    assert "SOURCE\nhttp://example.com/Endocytosis" in text
+    assert "URL\nhttp://example.com/Endocytosis" in text
     assert "SECTIONS" not in text
 
 

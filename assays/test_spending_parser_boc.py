@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 
 from metabolon.respirometry.parsers.boc import extract_boc
-from metabolon.respirometry.schema import StatementMeta
+from metabolon.respirometry.schema import RespirogramMeta
 
 FIXTURE = Path(__file__).parent / "fixtures" / "boc_feb2026.pdf"
 
@@ -16,7 +16,7 @@ class TestBocParser:
         self.meta, self.txns = extract_boc(FIXTURE)
 
     def test_returns_metadata(self):
-        assert isinstance(self.meta, StatementMeta)
+        assert isinstance(self.meta, RespirogramMeta)
         assert self.meta.bank == "boc"
         assert self.meta.card == "BOC Taobao World Mastercard"
 

@@ -3,10 +3,10 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from metabolon.lysin.fetch import (
+    _search_wikipedia,
     _strip_html,
     fetch_sections,
     fetch_summary,
-    search_term,
 )
 
 
@@ -16,7 +16,7 @@ def test_strip_html():
 
 
 @patch("httpx.Client.get")
-def test_search_term(mock_get):
+def test_search_wikipedia(mock_get):
     mock_response = MagicMock()
     mock_response.status_code = 200
     mock_response.json.return_value = [
@@ -27,20 +27,22 @@ def test_search_term(mock_get):
     ]
     mock_get.return_value = mock_response
 
-    results = search_term("endocytosis")
+    results = _search_wikipedia("endocytosis")
     assert results == ["Endocytosis", "Endocytosis (virus)"]
 
 
-@patch("httpx.Client.get")
-def test_fetch_summary_exact_match(mock_get):
-    mock_response = MagicMock()
-    mock_response.status_code = 200
-    mock_response.json.return_value = {
-        "title": "Endocytosis",
-        "extract": "Endocytosis is a cellular process. It involves cells taking in substances.",
-        "content_urls": {"desktop": {"page": "https://en.wikipedia.org/wiki/Endocytosis"}},
-    }
-    mock_get.return_value = mock_response
+@patch("metabolon.lysin.fetch._fetch_wikipedia")
+@patch("metabolon.lysin.fetch._fetch_reactome", return_value=None)
+@patch("metabolon.lysin.fetch._fetch_uniprot", return_value=None)
+def test_fetch_summary_exact_match(_mock_uni, _mock_react, mock_wiki):
+    from metabolon.lysin.fetch import BioArticle
+
+    mock_wiki.return_value = BioArticle(
+        title="Endocytosis",
+        definition="Endocytosis is a cellular process.",
+        mechanism="Endocytosis is a cellular process. It involves cells taking in substances.",
+        url="https://en.wikipedia.org/wiki/Endocytosis",
+    )
 
     article = fetch_summary("Endocytosis")
     assert article.title == "Endocytosis"
@@ -52,53 +54,37 @@ def test_fetch_summary_exact_match(mock_get):
     assert article.url == "https://en.wikipedia.org/wiki/Endocytosis"
 
 
-@patch("metabolon.lysin.fetch.search_term")
-@patch("httpx.Client.get")
-def test_fetch_summary_fallback_search(mock_get, mock_search):
-    mock_404 = MagicMock()
-    mock_404.status_code = 404
+@patch("metabolon.lysin.fetch._fetch_wikipedia")
+@patch("metabolon.lysin.fetch._fetch_reactome", return_value=None)
+@patch("metabolon.lysin.fetch._fetch_uniprot", return_value=None)
+def test_fetch_summary_fallback_search(_mock_uni, _mock_react, mock_wiki):
+    from metabolon.lysin.fetch import BioArticle
 
-    mock_200 = MagicMock()
-    mock_200.status_code = 200
-    mock_200.json.return_value = {
-        "title": "Endocytosis",
-        "extract": "Endocytosis is a cellular process.",
-        "content_urls": {"desktop": {"page": "https://en.wikipedia.org/wiki/Endocytosis"}},
-    }
-
-    # First call is exact match (404), second call is summary for searched term (200)
-    mock_get.side_effect = [mock_404, mock_200]
-    mock_search.return_value = ["Endocytosis"]
+    mock_wiki.return_value = BioArticle(
+        title="Endocytosis",
+        definition="Endocytosis is a cellular process.",
+        mechanism="Endocytosis is a cellular process.",
+        url="https://en.wikipedia.org/wiki/Endocytosis",
+    )
 
     article = fetch_summary("endocytosi")
     assert article.title == "Endocytosis"
-    mock_search.assert_called_once_with("endocytosi")
+    mock_wiki.assert_called_once_with("endocytosi")
 
 
-@patch("metabolon.lysin.fetch.search_term")
-@patch("httpx.Client.get")
-def test_fetch_summary_not_found(mock_get, mock_search):
-    mock_404 = MagicMock()
-    mock_404.status_code = 404
-    mock_get.return_value = mock_404
-    mock_search.return_value = []
-
+@patch("metabolon.lysin.fetch._fetch_wikipedia", return_value=None)
+@patch("metabolon.lysin.fetch._fetch_reactome", return_value=None)
+@patch("metabolon.lysin.fetch._fetch_uniprot", return_value=None)
+def test_fetch_summary_not_found(_mock_uni, _mock_react, _mock_wiki):
     with pytest.raises(LookupError, match="not found"):
         fetch_summary("nonexistent_term_xyz")
 
 
-@patch("httpx.Client.get")
-def test_fetch_summary_disambiguation(mock_get):
-    mock_response = MagicMock()
-    mock_response.status_code = 200
-    mock_response.json.return_value = {
-        "title": "ATP",
-        "extract": "ATP may refer to: Adenosine triphosphate, etc.",
-        "content_urls": {"desktop": {"page": "https://en.wikipedia.org/wiki/ATP"}},
-    }
-    mock_get.return_value = mock_response
-
-    with pytest.raises(LookupError, match="disambiguation"):
+@patch("metabolon.lysin.fetch._fetch_wikipedia", return_value=None)
+@patch("metabolon.lysin.fetch._fetch_reactome", return_value=None)
+@patch("metabolon.lysin.fetch._fetch_uniprot", return_value=None)
+def test_fetch_summary_all_sources_exhausted(_mock_uni, _mock_react, _mock_wiki):
+    with pytest.raises(LookupError, match="not found"):
         fetch_summary("ATP")
 
 

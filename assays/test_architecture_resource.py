@@ -26,12 +26,15 @@ def _write_tool_module(directory: Path, filename: str, content: str) -> Path:
 
 
 def _build_fake_project(tmp_path: Path) -> Path:
-    """Create a minimal project tree with src/vivesca, genome/DESIGN.md, genome/plans/.
+    """Create a minimal project tree mirroring the production layout.
 
-    Returns the src/vivesca path (the src_root).
+    Production layout: germline/metabolon/ (src_root), germline/design.md, germline/plans/.
+    Here: project/vivesca/ (src_root), project/design.md, project/plans/.
+
+    Returns the vivesca path (the src_root).
     """
     project = tmp_path / "project"
-    src = project / "src" / "vivesca"
+    src = project / "vivesca"
 
     # Tools with module docstrings and tool functions with docstrings + params
     tools = src / "tools"
@@ -173,10 +176,8 @@ def _build_fake_project(tmp_path: Path) -> Path:
         "    pass\n",
     )
 
-    # DESIGN.md
-    docs = project / "genome"
-    docs.mkdir(parents=True, exist_ok=True)
-    (docs / "DESIGN.md").write_text(
+    # design.md — at project root (mirrors germline/design.md)
+    (project / "design.md").write_text(
         "# Vivesca -- Design Philosophy\n\n"
         "## The Theory\n\n"
         "The organism is the unit. Not the human. Not the AI.\n\n"
@@ -196,8 +197,8 @@ def _build_fake_project(tmp_path: Path) -> Path:
         "| Artifact | Access |\n|---|---|\n| DNA | Always |\n"
     )
 
-    # Plans
-    plans = docs / "plans"
+    # Plans — at project root (mirrors germline/plans/)
+    plans = project / "plans"
     plans.mkdir(parents=True, exist_ok=True)
     (plans / "plan-001.md").write_text(
         "---\n"
@@ -423,7 +424,7 @@ class TestGenerateAnatomy:
 class TestOrganismTheory:
     def test_extracts_key_sections(self, tmp_path):
         src = _build_fake_project(tmp_path)
-        project_root = src.parent.parent
+        project_root = src.parent
         lines = _organism_theory(project_root)
         combined = "\n".join(lines)
 
@@ -442,7 +443,7 @@ class TestOrganismTheory:
 
     def test_extracts_first_paragraph_content(self, tmp_path):
         src = _build_fake_project(tmp_path)
-        project_root = src.parent.parent
+        project_root = src.parent
         lines = _organism_theory(project_root)
         combined = "\n".join(lines)
 
@@ -566,7 +567,7 @@ class TestMetabolismModules:
 class TestKnownLesions:
     def test_lists_active_plans(self, tmp_path):
         src = _build_fake_project(tmp_path)
-        project_root = src.parent.parent
+        project_root = src.parent
         lines = _known_lesions(project_root)
         combined = "\n".join(lines)
 
@@ -574,7 +575,7 @@ class TestKnownLesions:
 
     def test_excludes_completed_plans(self, tmp_path):
         src = _build_fake_project(tmp_path)
-        project_root = src.parent.parent
+        project_root = src.parent
         lines = _known_lesions(project_root)
         combined = "\n".join(lines)
 

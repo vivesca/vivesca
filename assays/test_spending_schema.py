@@ -1,10 +1,10 @@
 """Tests for spending transaction schema."""
 
-from metabolon.respirometry.schema import StatementMeta, Transaction
+from metabolon.respirometry.schema import ConsumptionEvent, RespirogramMeta
 
 
 def test_transaction_charge():
-    t = Transaction(
+    t = ConsumptionEvent(
         date="2025-01-02",
         merchant="SMOL AI COMPANY",
         category="Tech/AI",
@@ -17,7 +17,7 @@ def test_transaction_charge():
 
 
 def test_transaction_credit():
-    t = Transaction(
+    t = ConsumptionEvent(
         date="2025-01-12",
         merchant="LI HO MING TERRY",
         category="Transfer",
@@ -30,7 +30,7 @@ def test_transaction_credit():
 
 
 def test_transaction_hkd_only():
-    t = Transaction(
+    t = ConsumptionEvent(
         date="2025-01-08",
         merchant="SMARTONE",
         category="Telecom",
@@ -43,7 +43,7 @@ def test_transaction_hkd_only():
 
 
 def test_statement_meta():
-    m = StatementMeta(
+    m = RespirogramMeta(
         bank="mox",
         card="Mox Credit",
         period_start="31 Dec 2024",
@@ -59,7 +59,7 @@ def test_statement_meta():
 
 
 def test_statement_meta_filename_from_date():
-    m = StatementMeta(
+    m = RespirogramMeta(
         bank="hsbc",
         card="HSBC Visa Signature",
         period_start="07 Jan 2025",

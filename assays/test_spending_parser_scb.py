@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 
 from metabolon.respirometry.parsers.scb import extract_scb
-from metabolon.respirometry.schema import StatementMeta
+from metabolon.respirometry.schema import RespirogramMeta
 
 FIXTURE = Path(__file__).parent / "fixtures" / "scb_mar2026.pdf"
 
@@ -16,7 +16,7 @@ class TestScbParser:
         self.meta, self.txns = extract_scb(FIXTURE)
 
     def test_returns_metadata(self):
-        assert isinstance(self.meta, StatementMeta)
+        assert isinstance(self.meta, RespirogramMeta)
         assert self.meta.bank == "scb"
         assert self.meta.card == "SCB Smart Credit Card"
 

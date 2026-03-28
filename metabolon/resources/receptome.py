@@ -14,7 +14,6 @@ import yaml
 from metabolon.locus import claude_skills
 
 _SKILLS_ROOT = claude_skills
-_SUBDIRS: list[str] = []
 
 
 def _parse_frontmatter(path: Path) -> dict | None:
@@ -67,27 +66,23 @@ def express_operon_index(skills_root: Path | None = None) -> str:
     if not root.exists():
         return "No receptor directory found."
 
-    # Top-level receptors
+    # Top-level receptors + namespace subdirectories
     for d in sorted(root.iterdir()):
-        if not d.is_dir() or d.name.startswith(".") or d.name in _SUBDIRS:
+        if not d.is_dir() or d.name.startswith("."):
             continue
         if d.name == "archive":
             continue
         entry = _operon_entry(d)
         if entry:
             entries.append(entry)
-
-    # Subdirectory receptors (compound-engineering, superpowers)
-    for subdir in _SUBDIRS:
-        sub = root / subdir
-        if not sub.is_dir():
-            continue
-        for d in sorted(sub.iterdir()):
-            if not d.is_dir() or d.name.startswith("."):
-                continue
-            entry = _operon_entry(d, prefix=subdir)
-            if entry:
-                entries.append(entry)
+        else:
+            # Check if this is a namespace directory containing sub-skills
+            for sub_d in sorted(d.iterdir()):
+                if not sub_d.is_dir() or sub_d.name.startswith("."):
+                    continue
+                sub_entry = _operon_entry(sub_d, prefix=d.name)
+                if sub_entry:
+                    entries.append(sub_entry)
 
     # Format output
     lines: list[str] = []

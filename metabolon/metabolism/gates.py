@@ -59,7 +59,7 @@ async def taste(
         f"Reply with exactly 'PASS' or 'FAIL: <reason>'."
     )
 
-    response = await transduce(prompt, model="haiku")
+    response = transduce("haiku", prompt)
     text = response.strip()
 
     if text.startswith("PASS"):

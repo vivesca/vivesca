@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 
 from metabolon.respirometry.parsers.mox import extract_mox
-from metabolon.respirometry.schema import StatementMeta
+from metabolon.respirometry.schema import RespirogramMeta
 
 FIXTURE = Path(__file__).parent / "fixtures" / "mox_jan2025.pdf"
 
@@ -16,7 +16,7 @@ class TestMoxParser:
         self.meta, self.txns = extract_mox(FIXTURE)
 
     def test_returns_metadata(self):
-        assert isinstance(self.meta, StatementMeta)
+        assert isinstance(self.meta, RespirogramMeta)
         assert self.meta.bank == "mox"
         assert self.meta.card == "Mox Credit"
 

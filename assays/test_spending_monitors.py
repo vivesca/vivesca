@@ -6,11 +6,11 @@ from metabolon.respirometry.monitors import (
     flag_anomalies,
     flag_duplicates,
 )
-from metabolon.respirometry.schema import Transaction
+from metabolon.respirometry.schema import ConsumptionEvent
 
 
-def _txn(merchant: str, hkd: float, category: str = "Dining") -> Transaction:
-    return Transaction(
+def _txn(merchant: str, hkd: float, category: str = "Dining") -> ConsumptionEvent:
+    return ConsumptionEvent(
         date="2025-01-15",
         merchant=merchant,
         category=category,

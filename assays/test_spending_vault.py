@@ -1,6 +1,6 @@
 """Tests for vault writing, PDF archival, and deduplication."""
 
-from metabolon.respirometry.schema import StatementMeta, Transaction
+from metabolon.respirometry.schema import ConsumptionEvent, RespirogramMeta
 from metabolon.respirometry.vault import (
     is_processed,
     secrete_monthly_summary,
@@ -9,8 +9,8 @@ from metabolon.respirometry.vault import (
 )
 
 
-def _sample_meta() -> StatementMeta:
-    return StatementMeta(
+def _sample_meta() -> RespirogramMeta:
+    return RespirogramMeta(
         bank="mox",
         card="Mox Credit",
         period_start="31 Dec 2024",
@@ -23,9 +23,9 @@ def _sample_meta() -> StatementMeta:
     )
 
 
-def _sample_txns() -> list[Transaction]:
+def _sample_txns() -> list[ConsumptionEvent]:
     return [
-        Transaction(
+        ConsumptionEvent(
             date="2025-01-02",
             merchant="GOOGLE",
             category="Tech/Subscriptions",
@@ -33,7 +33,7 @@ def _sample_txns() -> list[Transaction]:
             foreign_amount=None,
             hkd=-16.00,
         ),
-        Transaction(
+        ConsumptionEvent(
             date="2025-01-02",
             merchant="SMOL AI",
             category="Tech/AI",
@@ -41,7 +41,7 @@ def _sample_txns() -> list[Transaction]:
             foreign_amount=-20.00,
             hkd=-158.40,
         ),
-        Transaction(
+        ConsumptionEvent(
             date="2025-01-07",
             merchant="SMARTONE",
             category="Telecom",

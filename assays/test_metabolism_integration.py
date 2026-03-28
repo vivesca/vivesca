@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import sys
 from types import ModuleType
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from click.testing import CliRunner
@@ -29,7 +29,7 @@ def _make_signal(tool: str, outcome: Outcome = Outcome.success, tokens: int = 10
 def mock_symbiont():
     """Inject a mock symbiont module so lazy imports find it."""
     mock_mod = ModuleType("metabolon.symbiont")
-    mock_mod.query = AsyncMock(return_value="An improved tool description for better results")
+    mock_mod.transduce = MagicMock(return_value="An improved tool description for better results")
     sys.modules["metabolon.symbiont"] = mock_mod
     yield mock_mod
     del sys.modules["metabolon.symbiont"]
@@ -88,12 +88,12 @@ class TestSweepCLI:
             collector.append(_make_signal("bad_tool", Outcome.error))
             collector.append(_make_signal("good_tool", Outcome.success))
 
-        async def smart_query(prompt, model="haiku"):
+        def smart_transduce(model_name, prompt, **kw):
             if "accurately" in prompt:
                 return "PASS"
             return "Improved description that fixes the issues with this tool"
 
-        mock_symbiont.transduce = AsyncMock(side_effect=smart_query)
+        mock_symbiont.transduce = MagicMock(side_effect=smart_transduce)
 
         runner = CliRunner()
         result = runner.invoke(cli, ["metabolism", "sweep"])
@@ -111,12 +111,12 @@ class TestHotPathRepair:
 
         repaired = "An improved description that prevents tool failures here"
 
-        async def smart_query(prompt, model="haiku"):
+        def smart_transduce(model_name, prompt, **kw):
             if "accurately" in prompt:
                 return "PASS"
             return repaired
 
-        mock_symbiont.transduce = AsyncMock(side_effect=smart_query)
+        mock_symbiont.transduce = MagicMock(side_effect=smart_transduce)
 
         from metabolon.membrane import SensoryMiddleware
 
@@ -144,7 +144,7 @@ class TestHotPathRepair:
         store = Genome()
         store.seed_tool("tool", "A tool for doing some important work for users")
 
-        mock_symbiont.transduce = AsyncMock(side_effect=RuntimeError("LLM down"))
+        mock_symbiont.transduce = MagicMock(side_effect=RuntimeError("LLM down"))
 
         from metabolon.membrane import SensoryMiddleware
 
@@ -160,12 +160,12 @@ class TestHotPathRepair:
         store = Genome()
         store.seed_tool("tool", "Original description that should remain active here")
 
-        async def reject_query(prompt, model="haiku"):
+        def reject_transduce(model_name, prompt, **kw):
             if "accurately" in prompt:
                 return "FAIL: misleading"
             return "A changed description that differs from original content"
 
-        mock_symbiont.transduce = AsyncMock(side_effect=reject_query)
+        mock_symbiont.transduce = MagicMock(side_effect=reject_transduce)
 
         from metabolon.membrane import SensoryMiddleware
 
