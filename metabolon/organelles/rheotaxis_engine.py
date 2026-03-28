@@ -14,10 +14,117 @@ import os
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
+from datetime import UTC, datetime
+from pathlib import Path
 
-# Reuse Perplexity backend
-from . import chemotaxis_engine
+# ---------------------------------------------------------------------------
+# Perplexity backend (inlined from former chemotaxis_engine)
+# ---------------------------------------------------------------------------
 
+_PERPLEXITY_API_URL = "https://api.perplexity.ai/chat/completions"
+_PERPLEXITY_LOG = Path.home() / "germline" / "loci" / "signals" / "chemotaxis.jsonl"
+_PERPLEXITY_MODELS = {
+    "quick": "sonar",
+    "thorough": "sonar-pro",
+    "deep": "sonar-deep-research",
+}
+
+
+def _perplexity_key() -> str:
+    key = os.environ.get("PERPLEXITY_API_KEY", "")
+    if not key:
+        raise ValueError("PERPLEXITY_API_KEY not set")
+    return key
+
+
+def _perplexity_query(model: str, query: str, timeout: int = 300) -> str:
+    """Query Perplexity API and return synthesised text."""
+    body = json.dumps(
+        {
+            "model": model,
+            "messages": [
+                {
+                    "role": "system",
+                    "content": (
+                        "Answer accurately based on what you can find. "
+                        "If you cannot confirm specific facts, say explicitly "
+                        "that you could not confirm it. Distinguish between "
+                        "'not found in results' and 'does not exist'."
+                    ),
+                },
+                {"role": "user", "content": query},
+            ],
+        }
+    ).encode()
+
+    req = urllib.request.Request(
+        _PERPLEXITY_API_URL,
+        data=body,
+        headers={
+            "Authorization": f"Bearer {_perplexity_key()}",
+            "Content-Type": "application/json",
+        },
+    )
+    with urllib.request.urlopen(req, timeout=timeout) as resp:
+        result = json.loads(resp.read())
+
+    content = result["choices"][0]["message"]["content"]
+
+    citations = result.get("citations", [])
+    if citations:
+        content += "\n\nSources:\n" + "\n".join(f"- {c}" for c in citations)
+
+    # Log for sensorium / gradient sensing
+    try:
+        _PERPLEXITY_LOG.parent.mkdir(parents=True, exist_ok=True)
+        with open(_PERPLEXITY_LOG, "a") as f:
+            f.write(
+                json.dumps(
+                    {
+                        "ts": datetime.now(UTC).isoformat(timespec="seconds"),
+                        "model": model,
+                        "query": query,
+                    }
+                )
+                + "\n"
+            )
+    except OSError:
+        pass
+
+    return content
+
+
+# Public Perplexity tier functions (used by enzymes/chemotaxis.py scan tool)
+def perplexity_quick(query: str) -> str:
+    """Quick search (~$0.006)."""
+    return _perplexity_query(_PERPLEXITY_MODELS["quick"], query, timeout=30)
+
+
+def perplexity_thorough(query: str) -> str:
+    """Thorough search (~$0.01)."""
+    return _perplexity_query(_PERPLEXITY_MODELS["thorough"], query, timeout=60)
+
+
+def perplexity_deep(query: str, save_path: str = "") -> str:
+    """Deep research (~$0.40). EXPENSIVE."""
+    result = _perplexity_query(_PERPLEXITY_MODELS["deep"], query, timeout=300)
+    if save_path:
+        os.makedirs(os.path.dirname(save_path), exist_ok=True)
+        with open(save_path, "w") as f:
+            f.write(result)
+    return result
+
+
+_DEPTH_FN = {
+    "quick": perplexity_quick,
+    "thorough": perplexity_thorough,
+    "deep": perplexity_deep,
+}
+
+
+# ---------------------------------------------------------------------------
+# Multi-backend types and helpers
+# ---------------------------------------------------------------------------
 
 @dataclass
 class RheotaxisResult:
@@ -35,17 +142,14 @@ def _get_key(env_var: str) -> str:
     return key
 
 
-_DEPTH_FN = {
-    "quick": chemotaxis_engine.recall,      # sonar, ~$0.006
-    "thorough": chemotaxis_engine.ask,      # sonar-pro, ~$0.01
-    "deep": chemotaxis_engine.research,     # sonar-deep-research, ~$0.40
-}
-
+# ---------------------------------------------------------------------------
+# Backend implementations
+# ---------------------------------------------------------------------------
 
 def search_perplexity(query: str, _timeout: int = 30, depth: str = "quick") -> RheotaxisResult:
     """Perplexity — depth selects model tier (quick/thorough/deep)."""
     try:
-        fn = _DEPTH_FN.get(depth, chemotaxis_engine.recall)
+        fn = _DEPTH_FN.get(depth, perplexity_quick)
         answer = fn(query)
         return RheotaxisResult(
             backend="perplexity",
@@ -163,7 +267,6 @@ def search_serper(query: str, timeout: int = 15) -> RheotaxisResult:
                     "snippet": r.get("snippet", "")[:300],
                 }
             )
-        # Include knowledge graph if present
         kg = data.get("knowledgeGraph", {})
         answer = ""
         if kg:
@@ -185,6 +288,10 @@ _BACKENDS = {
     "serper": search_serper,
 }
 
+
+# ---------------------------------------------------------------------------
+# Orchestration
+# ---------------------------------------------------------------------------
 
 def parallel_search(
     query: str,

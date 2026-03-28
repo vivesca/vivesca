@@ -37,8 +37,8 @@ def chemotaxis_scan(
         targets: Pipe-separated scan targets (e.g. "AutoGen|LangGraph|CrewAI"). Optional.
         depth: Search depth — "search" (quick, ~$0.006), "ask" (thorough, ~$0.01).
     """
-    from metabolon.organelles.chemotaxis_engine import ask as _ask
-    from metabolon.organelles.chemotaxis_engine import recall as _search
+    from metabolon.organelles.rheotaxis_engine import perplexity_quick as _search
+    from metabolon.organelles.rheotaxis_engine import perplexity_thorough as _ask
 
     _search_fn = _search if depth == "search" else _ask
 

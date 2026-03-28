@@ -87,7 +87,7 @@ vivesca = Terry + Claude + germline + epigenome
 | `angiogenesis.py` | **Angiogenesis** | New pathway formation |
 | `baroreceptor.py` | **Baroreceptor** | Pressure/load sensing |
 | `chemoreceptor.py` | **Chemoreceptor** | Signal detection and binding |
-| `chemotaxis_engine.py` | **Chemotaxis motor** | Directional movement toward signal |
+| `rheotaxis_engine.py` | **Rheotaxis motor** | Multi-backend web search (Perplexity, Exa, Tavily, Serper) |
 | `chromatin.py` | **Chromatin remodeling** | Memory marking and modification |
 | `circadian_clock.py` | **Circadian oscillator** | Time-awareness, rhythm entrainment |
 | `crispr.py` | **CRISPR** | Targeted genome editing |
@@ -279,7 +279,7 @@ cost produce 80% of the value, use buds.
 | `histone_*` | **Chromatin remodeling** | Memory marking and modification |
 | `infection.py` | **Immune response** | Acute + chronic pattern detection |
 | `setpoint.py` | **Homeostatic setpoints** | Thresholds with hysteresis |
-| `chemotaxis_engine` | **Chemotaxis motor** | Gradient-directed movement |
+| `rheotaxis_engine` | **Rheotaxis motor** | Multi-backend gradient-directed search |
 
 ## CC Platform Concepts
 
