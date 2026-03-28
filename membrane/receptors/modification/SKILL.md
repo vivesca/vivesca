@@ -32,6 +32,13 @@ Multiple LLM models independently review an artifact, cross-judge each other, sy
 
 ---
 
+## Pre-flight
+
+Before spawning reviewers:
+- **Artifact exists and is readable?** Check path. Common failure: stale path from earlier session.
+- **External models available?** Quick check: `gemini --version` and `codex --version`. If a backend is down, adjust team composition rather than failing mid-review.
+- **Rubric specified?** If not, ask. "Refine this" without criteria produces generic feedback. Even "make it better for [audience]" is enough to anchor review.
+
 ## Inputs
 
 1. **Artifact** — file path to the thing being refined
@@ -146,9 +153,19 @@ Research agents SendMessage findings to the synthesizer for incorporation. Shut 
 
 ---
 
-## Gotchas
+## Authority Hierarchy
 
-- **Gemini sandbox:** Only accesses its workspace dir. Reference files within workspace, never ~/tmp/.
+When rubric criteria conflict with the artifact's existing style or context:
+
+1. **Existing design system / voice / conventions** — match what's established
+2. **User's explicit rubric** — override defaults, not existing identity
+3. **Reviewer defaults** — apply only in the absence of context
+
+Don't "improve" a casual blog post into formal prose, or impose Anthropic style on a personal essay. The artifact's identity takes precedence over generic quality heuristics.
+
+## Gotchas (sharp edges first)
+
+- **Gemini sandbox:** Only accesses its workspace dir. Reference files within workspace, never ~/tmp/. This is the #1 cause of "reviewer returned empty" — check paths.
 - **Codex read-only:** Can't write files. Review output is inline — capture from task output.
 - **Don't role-assign Claude agents.** "Strategist", "red team", "hiring manager" — overkill. Different models provide diversity, not different prompts.
 - **Deliverables never in ~/tmp/.** Tell agents to write to vault or ~/germline/loci/.

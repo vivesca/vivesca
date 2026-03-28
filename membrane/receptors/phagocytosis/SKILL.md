@@ -93,6 +93,14 @@ Tags: `#policy-gap`, `#architecture`, `#use-case`, `#experiment-idea`, `#garden-
 
 Read `~/epigenome/chromatin/Praxis.md`. If any open question or TODO item is directly addressed or advanced by the digested content, append a brief note (one sentence + wikilink to the new note) to that item. If no match, skip.
 
+## Post-Capture Routing
+
+After saving, offer next steps when natural:
+- "Add to an existing skill?" — if content contains a pattern relevant to a receptor
+- "Draft a tweet/garden post?" — if insight is share-worthy
+- "Drill deeper?" — if the content warrants `/autophagy` discussion
+- Don't present a menu every time — only when the content clearly connects. Most notes just land in vault and that's fine.
+
 ## Boundaries
 
 - Analysis only — do not execute actions implied by content

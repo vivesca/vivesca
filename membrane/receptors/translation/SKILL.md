@@ -197,9 +197,9 @@ Write the plan to `~/epigenome/chromatin/plans/YYYY-MM-DD-<topic>-plan.md`. Conf
 
 ## Handoff
 
-State the plan path and recommend `/folding` for execution. Don't start implementing — the user decides when.
-
-If the plan is small enough that full delegation is overkill (2-3 tasks, all straightforward), say so: "This is small enough to just execute directly."
+- **Completeness check:** "Could `/folding` execute this plan without asking a single question?" If not, the plan is incomplete — fill the gaps before handing off.
+- State the plan path and recommend `/folding` for execution. Don't start implementing — the user decides when.
+- If the plan is small enough that full delegation is overkill (2-3 tasks, all straightforward), say so: "This is small enough to just execute directly."
 
 ## Principles
 

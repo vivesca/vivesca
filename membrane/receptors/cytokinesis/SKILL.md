@@ -16,6 +16,16 @@ allowed-tools:
 
 > Cytokinesis is continuous, not terminal. Capture anything useful to vivesca the moment it surfaces — don't wait for the session to die. The end-of-session invocation is a verification pass, not the main event. The ideal cytokinesis has nothing left to do.
 
+## Auto-trigger Signals
+
+Capture mid-session when you detect:
+- **Resolution phrases** — "that worked", "it's fixed", "working now", "that's it" → capture the solve if non-trivial
+- **Correction** — Terry corrects an assumption or approach → memory candidate
+- **Surprise** — unexpected behavior, tool gotcha, undocumented constraint → antisera candidate
+- **Repeated manual step** — same action done 2+ times → methylation candidate (hook/rule)
+
+**Non-trivial gate:** Only capture solves that required multiple investigation steps, tricky debugging, or non-obvious reasoning. Skip: typo fixes, config changes, single-step obvious fixes. The test: "Would a fresh session benefit from knowing this?"
+
 **One test:** is this useful to vivesca? If yes, route it:
 
 | What | Where |

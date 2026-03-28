@@ -347,7 +347,7 @@ class SyncResult:
             lines.append(f"Hooks{mode}: skipped (no CC settings found).")
 
         # Skills
-        lines.append(f"Skills{mode}: {self.skills_synced} synced to ~/.gemini/skills/.")
+        lines.append(f"Skills{mode}: {self.skills_synced} synced to ~/.agents/skills/ + ~/.claude/skills/.")
 
         # GEMINI.md
         status = "ok" if self.gemini_md_ok else "MISSING or wrong target"
@@ -462,25 +462,31 @@ def sync_phenotype(
                 fh.write("\n")
 
     # ── step 2.5: skill symlinking ────────────────────────────────────
+    # Sync receptors → ~/.agents/skills/ (Gemini + Codex) and ~/.claude/skills/ (CC).
+    # Gemini/Codex auto-discover ~/.agents/skills/; CC only reads ~/.claude/skills/.
     from metabolon.locus import receptors
 
-    gemini_skills_dir = Path.home() / ".gemini" / "skills"
+    skill_targets = [
+        Path.home() / ".agents" / "skills",
+        Path.home() / ".claude" / "skills",
+    ]
     skills_synced = 0
     if receptors.is_dir():
-        if not dry_run:
-            gemini_skills_dir.mkdir(parents=True, exist_ok=True)
-        for skill_dir in sorted(receptors.iterdir()):
-            skill_file = skill_dir / "SKILL.md"
-            if not skill_file.is_file():
-                continue
-            target_link = gemini_skills_dir / skill_dir.name
-            if target_link.is_symlink() and target_link.resolve() == skill_dir.resolve():
-                skills_synced += 1
-                continue
+        for skills_dir in skill_targets:
             if not dry_run:
-                target_link.unlink(missing_ok=True)
-                target_link.symlink_to(skill_dir)
-            skills_synced += 1
+                skills_dir.mkdir(parents=True, exist_ok=True)
+            for skill_dir in sorted(receptors.iterdir()):
+                skill_file = skill_dir / "SKILL.md"
+                if not skill_file.is_file():
+                    continue
+                target_link = skills_dir / skill_dir.name
+                if target_link.is_symlink() and target_link.resolve() == skill_dir.resolve():
+                    skills_synced += 1
+                    continue
+                if not dry_run:
+                    target_link.unlink(missing_ok=True)
+                    target_link.symlink_to(skill_dir)
+                skills_synced += 1
 
     # ── step 3: GEMINI.md check ────────────────────────────────────────
     gemini_md_path = Path.home() / ".gemini" / "GEMINI.md"

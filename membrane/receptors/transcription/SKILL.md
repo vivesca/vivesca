@@ -108,6 +108,7 @@ Omit empty sections. A 10-line doc that says the right things beats a 100-line d
 ## Handoff
 
 When the design is approved:
+- **Completeness check:** "What would `/translation` still have to invent if this design phase ended now?" If the answer is anything structural, the design isn't done.
 - If a requirements doc was written, state the path
 - Recommend next step: `/translation` to break it into steps, or `/folding` directly if the plan is obvious
 - **Do not start implementing.** The user decides when to cross that line.

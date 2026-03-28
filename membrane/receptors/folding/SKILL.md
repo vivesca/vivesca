@@ -127,11 +127,25 @@ If the solve was non-obvious, capture it: `~/germline/loci/antisera/<topic>.md`.
 
 **Default: Python.** Rust only when: CPU-bound hot path, startup speed matters, extending existing Rust tool. Client/consulting work = always Python.
 
-## Hard Rules
+## Authority Hierarchy
+
+When the plan conflicts with existing patterns in the codebase:
+
+1. **Existing codebase conventions** — match what's there, don't impose new style
+2. **User's explicit instructions** — override defaults, not conventions
+3. **Skill defaults** — apply only when no existing pattern or user preference exists
+
+If unsure, read the surrounding code first. Follow what you find.
+
+## Hard Rules (quality floor — never override)
 
 - **Prior discussion ≠ plan.** A transcription conversation is not an execution spec.
-- **Don't inline full files in delegation prompts.** Give paths, let delegates read.
 - **One task per delegation.** No bundling.
 - **Evidence before assertions.** "It works" is not verification.
+- **Don't inline full files in delegation prompts.** Give paths, let delegates read.
+
+## Default Against (overridable with reason)
+
 - **Challenge the premise.** "What can this do that the existing approach can't?"
 - **30-min scope check.** If exploring >30 min with no code or delegation → flag it.
+- **Gemini default backend.** Override for Rust (Codex) or bulk ops (OpenCode).
