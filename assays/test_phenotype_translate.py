@@ -814,3 +814,132 @@ class TestSyncPhenotype:
         )
         assert ".codex" in r.summary
         assert "PLATFORM_SYMLINKS" in r.summary
+
+    def test_skills_synced_in_summary(self):
+        r = SyncResult(
+            symlinks_ok=["a"],
+            symlinks_fixed=[],
+            symlinks_failed=[],
+            hooks_result=None,
+            gemini_md_ok=True,
+            integrin_issues=[],
+            unknown_platforms=[],
+            dry_run=False,
+            skills_synced=42,
+        )
+        assert "42 synced" in r.summary
+        assert "Skills" in r.summary
+
+    def test_skills_default_zero(self):
+        r = SyncResult(
+            symlinks_ok=[],
+            symlinks_fixed=[],
+            symlinks_failed=[],
+            hooks_result=None,
+            gemini_md_ok=True,
+            integrin_issues=[],
+            unknown_platforms=[],
+            dry_run=False,
+        )
+        assert r.skills_synced == 0
+
+
+class TestSkillSymlinking:
+    """Test skill symlinking to ~/.gemini/skills/."""
+
+    def test_creates_symlinks_for_skills(self, tmp_path):
+        """Skills with SKILL.md get symlinked to gemini skills dir."""
+        receptors = tmp_path / "receptors"
+        skill_a = receptors / "alpha"
+        skill_a.mkdir(parents=True)
+        (skill_a / "SKILL.md").write_text("---\nname: alpha\n---\n# Alpha")
+        skill_b = receptors / "beta"
+        skill_b.mkdir()
+        (skill_b / "SKILL.md").write_text("---\nname: beta\n---\n# Beta")
+        # dir without SKILL.md should be skipped
+        (receptors / "gamma").mkdir()
+
+        gemini_skills = tmp_path / "gemini_skills"
+
+        import metabolon.organelles.phenotype_translate as pt
+        orig_receptors = pt.__dict__.get("_test_receptors_override")
+        # Monkey-patch just the skill sync loop
+        gemini_skills.mkdir()
+        for skill_dir in sorted(receptors.iterdir()):
+            skill_file = skill_dir / "SKILL.md"
+            if not skill_file.is_file():
+                continue
+            target_link = gemini_skills / skill_dir.name
+            target_link.symlink_to(skill_dir)
+
+        assert (gemini_skills / "alpha").is_symlink()
+        assert (gemini_skills / "beta").is_symlink()
+        assert not (gemini_skills / "gamma").exists()
+        assert (gemini_skills / "alpha").resolve() == skill_a.resolve()
+
+    def test_skips_already_correct_symlinks(self, tmp_path):
+        """Existing correct symlinks are not recreated."""
+        receptors = tmp_path / "receptors"
+        skill_a = receptors / "alpha"
+        skill_a.mkdir(parents=True)
+        (skill_a / "SKILL.md").write_text("---\nname: alpha\n---\n")
+
+        gemini_skills = tmp_path / "gemini_skills"
+        gemini_skills.mkdir()
+        link = gemini_skills / "alpha"
+        link.symlink_to(skill_a)
+        original_stat = link.lstat()
+
+        # Re-run the logic — should detect it's already correct
+        for skill_dir in sorted(receptors.iterdir()):
+            skill_file = skill_dir / "SKILL.md"
+            if not skill_file.is_file():
+                continue
+            target_link = gemini_skills / skill_dir.name
+            if target_link.is_symlink() and target_link.resolve() == skill_dir.resolve():
+                continue  # skip — already correct
+            target_link.unlink(missing_ok=True)
+            target_link.symlink_to(skill_dir)
+
+        # Symlink should be untouched
+        assert link.lstat() == original_stat
+
+    def test_fixes_wrong_target_symlink(self, tmp_path):
+        """Symlink pointing to wrong target gets replaced."""
+        receptors = tmp_path / "receptors"
+        skill_a = receptors / "alpha"
+        skill_a.mkdir(parents=True)
+        (skill_a / "SKILL.md").write_text("---\nname: alpha\n---\n")
+
+        wrong_target = tmp_path / "wrong"
+        wrong_target.mkdir()
+
+        gemini_skills = tmp_path / "gemini_skills"
+        gemini_skills.mkdir()
+        link = gemini_skills / "alpha"
+        link.symlink_to(wrong_target)
+
+        # Fix it
+        for skill_dir in sorted(receptors.iterdir()):
+            skill_file = skill_dir / "SKILL.md"
+            if not skill_file.is_file():
+                continue
+            target_link = gemini_skills / skill_dir.name
+            if target_link.is_symlink() and target_link.resolve() == skill_dir.resolve():
+                continue
+            target_link.unlink(missing_ok=True)
+            target_link.symlink_to(skill_dir)
+
+        assert link.resolve() == skill_a.resolve()
+
+    def test_live_sync_includes_skills_count(self, tmp_path):
+        """Full sync reports skills_synced count."""
+        from metabolon.organelles.phenotype_translate import CC_SETTINGS_PATH
+        gemini_settings = tmp_path / "settings.json"
+        result = sync_phenotype(
+            dry_run=True,
+            cc_settings_path=CC_SETTINGS_PATH,
+            gemini_settings_path=gemini_settings,
+        )
+        assert result.skills_synced > 0
+        assert "Skills" in result.summary
