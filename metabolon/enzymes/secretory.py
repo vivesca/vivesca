@@ -33,6 +33,7 @@ from fastmcp.tools import tool
 from mcp.types import ToolAnnotations
 
 from metabolon.cytosol import invoke_organelle, synthesize
+from metabolon.metabolism.signals import Outcome, SensorySystem, Stimulus
 from metabolon.morphology import EffectorResult, Secretion
 from metabolon.organelles import pacemaker as _pacemaker
 from metabolon.organelles import praxis as _praxis
@@ -513,3 +514,59 @@ def interphase_close_daily_note(
 
     note_path.write_text(new_text)
     return f"Interphase block written to {note_path}"
+
+
+# -- Metabolic signal reporting -------------------------------------------
+# Originally from signaling.py — consolidated here.
+# Records whether loaded knowledge artifacts were useful this session.
+
+
+class MetabolicSignalResult(EffectorResult):
+    """Result of recording a metabolic knowledge signal."""
+
+    artifact: str
+    recorded_outcome: str
+
+
+@tool(
+    name="metabolism_knowledge_signal",
+    description="Report whether a loaded knowledge artifact was useful this session.",
+    annotations=ToolAnnotations(readOnlyHint=False),
+)
+def metabolism_knowledge_signal(
+    artifact: str,
+    useful: bool,
+    context: str = "",
+) -> MetabolicSignalResult:
+    """Record whether a knowledge substrate contributed to session quality.
+
+    Call at session end for each memory file, reference doc, or skill
+    that was loaded. Outcome = success if useful, error if loaded but
+    not useful (wasted tokens).
+
+    Args:
+        artifact: Path or name of the knowledge artifact (e.g., "memory/user_health.md")
+        useful: Whether the artifact contributed to the session outcome
+        context: Optional note on how it was or wasn't useful
+    """
+    collector = SensorySystem()
+    outcome = Outcome.success if useful else Outcome.error
+
+    collector.append(
+        Stimulus(
+            tool=f"knowledge:{artifact}",
+            outcome=outcome,
+            substrate_consumed=0,
+            product_released=0,
+            response_latency=0,
+            context=context,
+        )
+    )
+
+    return MetabolicSignalResult(
+        success=True,
+        action="recorded",
+        artifact=artifact,
+        recorded_outcome=outcome.value,
+        message=f"Knowledge signal recorded: {artifact} = {'useful' if useful else 'not useful'}",
+    )
