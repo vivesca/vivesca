@@ -32,7 +32,7 @@ def _make_server(collector: SensorySystem) -> FastMCP:
 async def test_signal_emitted_on_success(tmp_path):
     """A successful tool call should produce a success signal."""
     log = tmp_path / "signals.jsonl"
-    collector = SensorySystem(cortex_path=log)
+    collector = SensorySystem(receptor_cortex_path=log)
     mcp = _make_server(collector)
 
     result = await mcp.call_tool("echo", {"text": "hello world"})
@@ -54,7 +54,7 @@ async def test_signal_emitted_on_success(tmp_path):
 async def test_signal_emitted_on_error(tmp_path):
     """A failed tool call should produce an error signal with the message."""
     log = tmp_path / "signals.jsonl"
-    collector = SensorySystem(cortex_path=log)
+    collector = SensorySystem(receptor_cortex_path=log)
     mcp = _make_server(collector)
 
     with pytest.raises(ToolError):
@@ -74,7 +74,7 @@ async def test_signal_emitted_on_error(tmp_path):
 async def test_multiple_calls_accumulate(tmp_path):
     """Consecutive tool calls should each append a signal."""
     log = tmp_path / "signals.jsonl"
-    collector = SensorySystem(cortex_path=log)
+    collector = SensorySystem(receptor_cortex_path=log)
     mcp = _make_server(collector)
 
     for i in range(5):
@@ -90,7 +90,7 @@ async def test_multiple_calls_accumulate(tmp_path):
 async def test_signal_collector_failure_does_not_break_tool(tmp_path, monkeypatch):
     """If signal collection itself fails, the tool call must still succeed."""
     log = tmp_path / "signals.jsonl"
-    collector = SensorySystem(cortex_path=log)
+    collector = SensorySystem(receptor_cortex_path=log)
     mcp = _make_server(collector)
 
     # Sabotage the collector — make append always raise.
@@ -110,7 +110,7 @@ async def test_create_server_includes_middleware(tmp_path):
     from metabolon.membrane import assemble_organism
 
     log = tmp_path / "signals.jsonl"
-    collector = SensorySystem(cortex_path=log)
+    collector = SensorySystem(receptor_cortex_path=log)
     mcp = assemble_organism(signal_collector=collector)
 
     # The middleware list should contain our SensoryMiddleware.

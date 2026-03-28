@@ -16,7 +16,7 @@ from metabolon.metabolism.signals import SensorySystem
 
 def _middleware(tmp_path):
     log = tmp_path / "signals.jsonl"
-    return SensoryMiddleware(collector=SensorySystem(cortex_path=log))
+    return SensoryMiddleware(collector=SensorySystem(receptor_cortex_path=log))
 
 
 # ---------------------------------------------------------------------------
