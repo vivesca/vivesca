@@ -27,7 +27,15 @@ Also enforce: max 3 agent:terry items per systole.
 
 from __future__ import annotations
 
+import datetime
+import json
 import re
+from pathlib import Path
+
+# ---------------------------------------------------------------------------
+# Paths
+# ---------------------------------------------------------------------------
+PHANTOM_TRACKER = Path.home() / ".local" / "share" / "vivesca" / "phantoms.json"
 
 # ---------------------------------------------------------------------------
 # Phantom obligation patterns
@@ -197,13 +205,27 @@ def is_terry_tag_approved(
 def sweep_praxis_for_phantoms(praxis_text: str) -> list[dict]:
     """Scan Praxis.md text for likely phantom agent:terry items.
 
-    Returns a list of dicts: {line_number, line, reason} for items that
-    fail the dispatch gate heuristic.  Caller decides what to do with them.
-    Does NOT modify the file — pure analysis.
+    Returns a list of dicts: {line_number, line, reason, created_at, age_days}
+    for items that fail the dispatch gate heuristic.  Caller decides what to
+    do with them.  Does NOT modify the file — pure analysis.
+
+    Uses a local JSON tracker to persist when a phantom was first seen,
+    providing the 'age' signal for urgency weighting.
     """
+    tracker = {}
+    if PHANTOM_TRACKER.exists():
+        try:
+            tracker = json.loads(PHANTOM_TRACKER.read_text())
+        except Exception:
+            pass
+
+    today = datetime.date.today()
     results = []
+    dirty = False
+
     for i, line in enumerate(praxis_text.splitlines(), start=1):
-        lower = line.lower()
+        content = line.strip()
+        lower = content.lower()
         if "agent:terry" not in lower:
             continue
         if any(sig in lower for sig in ["[x]", "done", "completed"]):
@@ -212,13 +234,40 @@ def sweep_praxis_for_phantoms(praxis_text: str) -> list[dict]:
         # Run heuristic gate (sourced=False conservative assumption)
         approved, reason = should_suppress(
             {
-                "description": line,
+                "description": content,
                 "sourced": False,
                 "creates_obligation": None,
             }
         )
         if not approved:
-            results.append({"line_number": i, "line": line.strip(), "reason": reason})
+            # Track when this phantom was first seen
+            # Use content as key (unique enough for Praxis)
+            if content not in tracker:
+                tracker[content] = today.isoformat()
+                dirty = True
+
+            created_at_str = tracker[content]
+            try:
+                created_at = datetime.date.fromisoformat(created_at_str)
+            except ValueError:
+                created_at = today
+            
+            age_days = (today - created_at).days
+
+            results.append({
+                "line_number": i,
+                "line": content,
+                "reason": reason,
+                "created_at": created_at_str,
+                "age_days": max(0, age_days)
+            })
+
+    if dirty:
+        try:
+            PHANTOM_TRACKER.parent.mkdir(parents=True, exist_ok=True)
+            PHANTOM_TRACKER.write_text(json.dumps(tracker, indent=2))
+        except Exception:
+            pass
 
     return results
 
