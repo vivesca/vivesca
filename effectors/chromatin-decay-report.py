@@ -4,7 +4,7 @@
 # dependencies = ["pyyaml"]
 # ///
 """
-Vault Decay Report - Find orphan and stale notes.
+Chromatin Decay Report - Find orphan and stale notes.
 
 Orphan: No incoming wikilinks from other notes.
 Stale: Not mentioned in daily notes for 30+ days (if tracking exists).
@@ -18,8 +18,8 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from collections import defaultdict
 
-VAULT_PATH = Path.home() / "notes"
-DAILY_NOTES_PATH = VAULT_PATH / "memory"
+CHROMATIN_PATH = Path.home() / "notes"
+DAILY_NOTES_PATH = CHROMATIN_PATH / "memory"
 EXCLUDE_PATTERNS = ["Archive/", "templates/", ".obsidian/"]
 
 def parse_frontmatter(content: str) -> dict:
@@ -44,18 +44,18 @@ def should_exclude(path: Path) -> bool:
     return any(ex in path_str for ex in EXCLUDE_PATTERNS)
 
 def main():
-    print("🔍 Vault Decay Report")
+    print("Chromatin Decay Report")
     print("=" * 50)
 
     # Collect all notes and their incoming links
     notes = {}  # path -> {frontmatter, incoming_links}
     all_links = defaultdict(set)  # target -> set of sources
 
-    for md_file in VAULT_PATH.rglob("*.md"):
+    for md_file in CHROMATIN_PATH.rglob("*.md"):
         if should_exclude(md_file):
             continue
 
-        rel_path = md_file.relative_to(VAULT_PATH)
+        rel_path = md_file.relative_to(CHROMATIN_PATH)
         note_name = md_file.stem
 
         try:

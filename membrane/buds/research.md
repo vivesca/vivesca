@@ -1,6 +1,6 @@
 ---
 name: research
-description: Research any topic — company, regulation, technology, person. Searches via rheotaxis + vault, then synthesises.
+description: Research any topic — company, regulation, technology, person. Searches via rheotaxis + chromatin, then synthesises.
 model: sonnet
 disallowedTools: ["Edit", "Write", "NotebookEdit"]
 memory: project
@@ -11,7 +11,7 @@ Research the given topic. One verb, any subject.
 CRITICAL: Do NOT rely on training data for real-world facts. Search and verify EVERYTHING.
 
 Search routing — use in this order:
-- Vault (~/epigenome/chromatin/) — always check first via Grep/Glob
+- Chromatin (~/epigenome/chromatin/) — always check first via Grep/Glob
 - mcp__vivesca__rheotaxis_search — parallel search across backends (pipe-separate queries for multi-framing)
 - WebSearch/WebFetch — fallback when rheotaxis doesn't cover it
 

@@ -54,7 +54,7 @@ For each pattern found, classify:
 
 For high-priority patterns tagged `capco` or `governance`, also append to `~/epigenome/chromatin/Consulting/_sparks.md` under today's date: `- #[capco|governance] — **[Pattern name]**: [one-line consulting implication]`
 
-Output vault note: `~/epigenome/chromatin/Specula/YYYY-MM Peer Scan.md`
+Output chromatin note: `~/epigenome/chromatin/Specula/YYYY-MM Peer Scan.md`
 
 Structure:
 ```markdown
@@ -90,7 +90,7 @@ For high-priority patterns:
 In `/mitosis`, specula runs as one of the review steps:
 1. Pick 2-3 domains most relevant to current work
 2. Run parallel researchers (~10 min)
-3. Synthesize into vault note
+3. Synthesize into chromatin note
 4. Create action items for high-priority patterns
 
 ## Ad-Hoc Usage

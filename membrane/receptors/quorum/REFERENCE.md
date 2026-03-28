@@ -105,7 +105,7 @@ After presenting the council's recommendation:
 
 **Options to offer:**
 1. **Create tasks** — Add action_items to task list via TaskCreate
-2. **Save to vault** — Already handled if `--vault` was used. Manual template:
+2. **Save to chromatin** — Auto-saved by default (use `--no-save` to suppress). Manual template:
 
 ```markdown
 ---

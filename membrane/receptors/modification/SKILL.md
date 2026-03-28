@@ -77,7 +77,7 @@ Spawn 3-4 reviewers in parallel. Mix of internal (Claude agents) and external (G
 **Key rules:**
 - Don't assign role personas (strategist, red-team, etc.) — diversity comes from different models, not different prompts
 - Each reviewer gets the same rubric and context
-- Each writes output to a vault or docs path — **never ~/tmp/**
+- Each writes output to a chromatin or docs path — **never ~/tmp/**
 - Each scores 1-10 on each rubric criterion
 
 ### Step 3: Synthesize consensus
@@ -86,7 +86,7 @@ Launch a synthesizer agent (Claude, on the team) that:
 1. Reads all review outputs
 2. Identifies: unanimous agreement (implement), majority agreement (likely), disagreements (flag)
 3. Ranks changes by how many reviewers flagged them
-4. Writes consensus doc to vault
+4. Writes consensus doc to chromatin
 
 **Tell research agents to SendMessage findings directly to the synthesizer** — fan-in pattern.
 
@@ -168,7 +168,7 @@ Don't "improve" a casual blog post into formal prose, or impose Anthropic style 
 - **Gemini sandbox:** Only accesses its workspace dir. Reference files within workspace, never ~/tmp/. This is the #1 cause of "reviewer returned empty" — check paths.
 - **Codex read-only:** Can't write files. Review output is inline — capture from task output.
 - **Don't role-assign Claude agents.** "Strategist", "red team", "hiring manager" — overkill. Different models provide diversity, not different prompts.
-- **Deliverables never in ~/tmp/.** Tell agents to write to vault or ~/germline/loci/.
+- **Deliverables never in ~/tmp/.** Tell agents to write to chromatin or ~/germline/loci/.
 - **Don't narrate play-by-play to the user.** Set up the team, let it run, present the final result.
 
 ---

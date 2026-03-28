@@ -134,7 +134,7 @@ Surface decisions with a review date that has passed.
 
 ## Notes
 
-- **Storage:** `~/epigenome/chromatin/decisions/YYYY-MM-DD-<slug>.md` — Obsidian vault, searched via Grep tool at query time.
+- **Storage:** `~/epigenome/chromatin/decisions/YYYY-MM-DD-<slug>.md` — chromatin, searched via Grep tool at query time.
 - **No manual outcome tracking.** The bouncer IS the outcome tracker: if you come back to the same topic, the previous decision either held (you never return) or failed (you're back). Recurrence = implicit failure signal.
 - **Consilium integration:** For complex decisions, use `/quorum` first to deliberate, then `/transcription-factor` to log the outcome. Council outputs in `~/epigenome/chromatin/Councils/` complement but don't replace decision notes.
 - **Keep it fast.** Capture should take <30 seconds. If you're spending 2 minutes filling in fields, the skill is failing. Free-text in, structured note out.

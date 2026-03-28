@@ -129,7 +129,7 @@ Deeper. Multiple models debate the extracted knowledge, find gaps, challenge ass
 
 **Process:**
 1. **Run Tier 1 first** — you need a draft to refine
-2. **Feed draft to quorum** — `quorum "Review this theory of <X>. What's missing? What's wrong? What failure modes aren't listed? What distinctions are false?" --vault`
+2. **Feed draft to quorum** — `quorum "Review this theory of <X>. What's missing? What's wrong? What failure modes aren't listed? What distinctions are false?" --mode council`
 3. **Synthesise** — the council will surface blind spots, edge cases, and counterarguments. Merge into the skill.
 4. **Adversarial pass** — ask specifically: "What would someone who disagrees with this framework say? What domains does it fail in?"
 5. **Update skill + re-wire** if the structure changed significantly

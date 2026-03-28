@@ -31,4 +31,4 @@ Assign one worker per distinct facet of the domain. Typical split:
 ~$3-6 depending on domain complexity and number of workers. Justified when: the domain will affect decisions across multiple projects, or prior knowledge is more than 6 months stale. Single-question domain checks = single bud with web search.
 
 ## Dissolution rule
-Dissolves after the reference doc is written to the vault. Open questions section is mandatory — a survey without unknowns is overconfident.
+Dissolves after the reference doc is written to chromatin. Open questions section is mandatory — a survey without unknowns is overconfident.

@@ -193,7 +193,7 @@ class TestCCHooks:
                                 "hooks": [
                                     {
                                         "type": "command",
-                                        "command": "python3 ~/.claude/hooks/vault-pull.py",
+                                        "command": "python3 ~/.claude/hooks/chromatin-pull.py",
                                     }
                                 ],
                             }
@@ -213,7 +213,7 @@ class TestCCHooks:
             )
         )
         result = express_reflex_inventory(settings_path=settings)
-        assert "vault-pull" in result
+        assert "chromatin-pull" in result
         assert "dirty-repos" in result
         assert "UserPromptSubmit" in result
         assert "Stop" in result

@@ -74,7 +74,7 @@ sortase exec <plan-path> -p <project-dir> -b <backend> --test-command "<test>"
 
 ### In-session (exception path)
 
-Only when: vault context needed mid-execution, live user decisions required, or delegation is blocked. Not a convenience shortcut.
+Only when: chromatin context needed mid-execution, live user decisions required, or delegation is blocked. Not a convenience shortcut.
 
 ## Verify (Hard Gate)
 

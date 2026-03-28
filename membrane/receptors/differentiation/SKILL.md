@@ -1,6 +1,6 @@
 ---
 name: differentiation
-description: Coach a live gym session — prescribe, track sets, log to vault
+description: Coach a live gym session — prescribe, track sets, log
 user_invocable: true
 epistemics: [monitor, learn]
 ---
@@ -11,7 +11,7 @@ epistemics: [monitor, learn]
 
 1. Run `check-exercise-readiness` skill. Honour thresholds (<70 light, 70-75 moderate, >75 full).
 2. Find the latest gym log: `~/epigenome/chromatin/Health/Gym Log - *.md`. Read it for working weights, notes for next session, and any form fixes flagged.
-3. Prescribe today's exercises with target weights and rep ranges based on the log. Don't hardcode a programme — read from vault each time.
+3. Prescribe today's exercises with target weights and rep ranges based on the log. Don't hardcode a programme — read from chromatin each time.
 
 ## During the session
 

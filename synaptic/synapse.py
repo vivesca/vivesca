@@ -152,7 +152,7 @@ def mod_anamnesis(data):
     session_id = data.get("session_id", "")
     if not session_id:
         return []
-    marker = TMP_DIR / f"vault-pull-{session_id}.done"
+    marker = TMP_DIR / f"chromatin-pull-{session_id}.done"
     if marker.exists():
         return []
 

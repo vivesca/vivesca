@@ -51,9 +51,9 @@ If unfinished work exists: **finish it or park it with context — don't consoli
 
 In parallel:
 
-1. **`cytokinesis gather`** — deterministic pre-checks
+1. **`cytokinesis gather --syntactic`** — deterministic pre-checks (JSON)
 2. **LLM extraction** — scan session for candidates, classify by priority
-3. **Source data check** — user-provided facts that fed deliverables but weren't persisted to vault? Route via `emit_vault_note`
+3. **Source data check** — user-provided facts that fed deliverables but weren't persisted to chromatin? Write directly using the Write tool
 
 Then: **present candidates and act** — show the full list with routing decisions, file immediately. Act-and-report, don't block on input.
 
@@ -97,8 +97,7 @@ This is not a punishment — it's proprioception. The number trends toward zero 
 | Subcommand | Purpose |
 |---|---|
 | `gather` | Deterministic pre-wrap checks: dirty repos, skill gaps, MEMORY.md line count, Tonus age, dep-check, reflection scan |
-| `gather --perceptual` | Human-readable terminal output |
-| `gather --syntactic` | JSON output (for piping to `extract`) |
+| `gather --syntactic` | JSON output (most token-efficient; use this in skill) |
 | `archive` | Move `[x]` items from Praxis.md → Praxis Archive.md |
 | `daily "title"` | Append session log template to today's daily note |
 | `reflect <session-id>` | Scan transcript for reflection candidates (haiku) |

@@ -7,7 +7,7 @@ tools: ["Bash", "Read", "Grep", "WebSearch", "WebFetch"]
 
 Research a company before a client meeting. Input: company name + meeting context.
 
-1. Vault first: `grep -r "[company name]" ~/epigenome/chromatin/` — what do we already know?
+1. Chromatin first: `grep -r "[company name]" ~/epigenome/chromatin/` — what do we already know?
 2. Web research:
    - Company overview: business model, size, HK/APAC presence
    - Recent news (last 90 days): M&A, leadership changes, regulatory issues, earnings

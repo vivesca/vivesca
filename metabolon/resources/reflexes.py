@@ -14,7 +14,7 @@ _SETTINGS = Path.home() / ".claude" / "settings.json"
 
 def _extract_reflex_name(command: str) -> str:
     """Extract a readable hook name from a command string."""
-    # e.g. "python3 ~/.claude/hooks/vault-pull.py" -> "vault-pull"
+    # e.g. "python3 ~/.claude/hooks/chromatin-pull.py" -> "chromatin-pull"
     # e.g. "node ~/.claude/hooks/bash-guard.js" -> "bash-guard"
     parts = command.rsplit("/", 1)
     if len(parts) == 2:

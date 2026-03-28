@@ -73,19 +73,19 @@ Everything else → --deep (default)
 
 **Step 1: Propose mode** — tell the user which mode and why (one line), then confirm. Don't run until confirmed.
 
-**Step 2: Run — always backgrounded, always `--vault` for deep/council runs**
+**Step 2: Run — always backgrounded**
 
 ```bash
-quorum "question" --deep --vault
+quorum "question" --mode council
 
 # With prompt file (avoids shell quoting issues)
-quorum --prompt-file /tmp/prompt.txt --deep --vault
+quorum --prompt-file /tmp/prompt.txt --mode council
 
 # Batch/agent-test runs (--quick --quiet)
 quorum --quick --quiet --domain banking -o ~/germline/loci/antisera/agent-tests/<name>.md "..."
 ```
 
-- `--vault` auto-saves to `~/epigenome/chromatin/Councils/` with Obsidian Sync. Never `--output /tmp/` — wiped on reboot.
+- Auto-saves to `~/epigenome/chromatin/Councils/`. Use `--no-save` to suppress. Never `--output /tmp/` — wiped on reboot.
 - **Always `run_in_background: true`** on the Bash tool.
 - Running 4+ parallel `--council` hits OpenRouter rate limits — use `--quick` for parallel batch runs.
 
@@ -97,7 +97,7 @@ quorum "..." --quick > ~/tmp/consi-<name>.txt 2>&1
 cat ~/tmp/consi-<name>.txt
 ```
 
-**Step 3: Parse and present** — read `[DECISION]` line, read vault file in `~/epigenome/chromatin/Councils/`, synthesize: decision + key reasoning + dissents + cost. Never dump raw transcript into context.
+**Step 3: Parse and present** — read `[DECISION]` line, read chromatin file in `~/epigenome/chromatin/Councils/`, synthesize: decision + key reasoning + dissents + cost. Never dump raw transcript into context.
 
 ---
 

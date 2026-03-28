@@ -46,8 +46,13 @@ def _resolve_month(month: str | None) -> str:
 
 def _llm_call(model: str, system: str, user: str) -> str:
     """Route through symbiont/channel. No API key needed."""
-    prompt = f"System: {system}\n\nUser: {user}"
-    return transduce(model, prompt, timeout=120)
+    # Combine as a single prompt — avoid "System:/User:" labels which
+    # trigger prompt-injection refusal at large input sizes.
+    prompt = f"{system}\n\n---\n\n{user}"
+    result = transduce(model, prompt, timeout=180)
+    if not result.strip():
+        raise RuntimeError(f"LLM returned empty response (model={model})")
+    return result
 
 
 def recall_archived_articles(article_cache_dir: Path, month: str) -> list[dict[str, Any]]:
@@ -114,10 +119,62 @@ def _parse_theme_json(raw: str) -> list[dict[str, Any]]:
     if text.startswith("```"):
         text = re.sub(r"^```(?:json)?\s*", "", text)
         text = re.sub(r"\s*```$", "", text)
-    parsed = json.loads(text)
+    # Extract JSON array even if surrounded by prose
+    bracket_start = text.find("[")
+    bracket_end = text.rfind("]")
+    if bracket_start >= 0 and bracket_end > bracket_start:
+        text = text[bracket_start : bracket_end + 1]
+    try:
+        parsed = json.loads(text)
+    except json.JSONDecodeError as exc:
+        raise ValueError(
+            f"LLM returned non-JSON (first 200 chars): {raw[:200]!r}"
+        ) from exc
     if not isinstance(parsed, list):
         raise ValueError("theme response is not a list")
     return [item for item in parsed if isinstance(item, dict)]
+
+
+_MAX_PROMPT_CHARS = 120_000  # ~30K tokens — comfortably fits haiku; newest items kept
+
+
+def _build_items(
+    articles: list[dict[str, Any]],
+    log_entries: list[dict[str, str]],
+) -> list[str]:
+    """Format articles + log entries as numbered items, newest first."""
+    # Sort articles by date descending so truncation drops oldest
+    dated_articles = sorted(
+        enumerate(articles),
+        key=lambda pair: pair[1].get("date", ""),
+        reverse=True,
+    )
+    items: list[str] = []
+    for orig_idx, article in dated_articles:
+        text_preview = ""
+        text = article.get("text")
+        if isinstance(text, str) and text:
+            text_preview = " ".join(text.split()[:200])[:500]
+        items.append(
+            f"[{orig_idx}] {article.get('date', '')} | {article.get('source', '')}"
+            f" | {article.get('title', '')}\n"
+            f"    Summary: {article.get('summary', '')}\n"
+            f"    Preview: {text_preview}"
+        )
+
+    offset = len(articles)
+    dated_entries = sorted(
+        enumerate(log_entries),
+        key=lambda pair: pair[1].get("date", ""),
+        reverse=True,
+    )
+    for orig_idx, entry in dated_entries:
+        items.append(
+            f"[{offset + orig_idx}] {entry.get('date', '')} | {entry.get('source', '')}"
+            f" | {entry.get('title', '')}\n"
+            f"    Summary: {entry.get('summary', '')}"
+        )
+    return items
 
 
 def sense_themes(
@@ -126,26 +183,16 @@ def sense_themes(
     log_entries: list[dict[str, str]],
     max_themes: int,
 ) -> list[dict[str, Any]]:
-    items: list[str] = []
-    for i, article in enumerate(articles):
-        text_preview = ""
-        text = article.get("text")
-        if isinstance(text, str) and text:
-            text_preview = " ".join(text.split()[:200])[:500]
-        items.append(
-            f"[{i}] {article.get('date', '')} | {article.get('source', '')}"
-            f" | {article.get('title', '')}\n"
-            f"    Summary: {article.get('summary', '')}\n"
-            f"    Preview: {text_preview}"
-        )
+    items = _build_items(articles, log_entries)
 
-    offset = len(articles)
-    for i, entry in enumerate(log_entries):
-        items.append(
-            f"[{offset + i}] {entry.get('date', '')} | {entry.get('source', '')}"
-            f" | {entry.get('title', '')}\n"
-            f"    Summary: {entry.get('summary', '')}"
-        )
+    # Truncate items to fit in context window (newest-first, so oldest dropped)
+    kept: list[str] = []
+    total_chars = 0
+    for item in items:
+        if total_chars + len(item) > _MAX_PROMPT_CHARS:
+            break
+        kept.append(item)
+        total_chars += len(item)
 
     system = (
         "You identify thematic clusters in AI news for a consultant"
@@ -158,8 +205,8 @@ def sense_themes(
         "- Return valid JSON only, no markdown fences"
     )
     user = (
-        f"Below are {len(articles)} archived articles (some with full text) and "
-        f"{len(log_entries)} news log headlines from this month.\n\n"
+        f"Below are {len(kept)} items (from {len(articles)} articles + "
+        f"{len(log_entries)} log entries, newest first, truncated to fit).\n\n"
         f"Identify up to {max_themes} thematic clusters. Return JSON:\n"
         "[\n"
         "  {\n"
@@ -169,7 +216,7 @@ def sense_themes(
         '    "banking_relevance": "Why this matters for banks/fintech"\n'
         "  }\n"
         "]\n\n"
-        "Articles:\n" + "\n\n".join(items)
+        "Articles:\n" + "\n\n".join(kept)
     )
     raw = _llm_call(model, system, user)
     return _parse_theme_json(raw)

@@ -1,6 +1,6 @@
 ---
 name: garden-ideas
-description: Extract publishable ideas from week's vault + conversations. Garden-ready.
+description: Extract publishable ideas from week's chromatin + conversations. Garden-ready.
 model: sonnet
 tools: ["Bash", "Read", "Grep", "Glob"]
 ---
@@ -8,7 +8,7 @@ tools: ["Bash", "Read", "Grep", "Glob"]
 Harvest ideas worth publishing to the digital garden from the week's thinking.
 
 1. Read this week's daily notes: ~/epigenome/chromatin/Daily/ (last 7 days)
-2. Check recent vault additions: `cd ~/epigenome/chromatin && git log --since="7 days ago" --name-only --format=''`
+2. Check recent chromatin additions: `cd ~/epigenome/chromatin && git log --since="7 days ago" --name-only --format=''`
 3. Read ~/epigenome/chromatin/Inbox/ for any unprocessed captures
 
 4. For each note/fragment, test against three filters:

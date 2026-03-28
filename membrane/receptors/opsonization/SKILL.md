@@ -16,7 +16,7 @@ Scenario-based drill for upcoming meetings. Generates likely questions, objectio
 
 ## Inputs
 
-- **meeting** (required first time): Meeting context — who, what, stakes. Can reference a vault note (e.g., "Simon/Tobin coffee") or be free text.
+- **meeting** (required first time): Meeting context — who, what, stakes. Can reference a chromatin note (e.g., "Simon/Tobin coffee") or be free text.
 - **count** (optional): Number of questions. Default 5.
 - **mode** (optional): `questions` (likely Qs you'll face), `objections` (pushback scenarios), `knowledge` (domain knowledge checks). Default: `questions`.
 
@@ -27,7 +27,7 @@ Scenario-based drill for upcoming meetings. Generates likely questions, objectio
 
 ### 1. Gather Context
 
-If the user provides a meeting description, use it directly. If they reference a note or person, read the relevant vault files:
+If the user provides a meeting description, use it directly. If they reference a note or person, read the relevant chromatin files:
 
 - `~/epigenome/chromatin/MOC - Capco & HSBC Engagement.md` — if Capco/HSBC-related
 - `~/epigenome/chromatin/Job Hunting.md` — CV narrative, comp, story framing
@@ -114,7 +114,7 @@ Ask if they want to save. If yes, save to `~/epigenome/chromatin/Meeting Prep - 
 - Questions presented via `AskUserQuestion` (interactive MCQ UI)
 - Coaching feedback in chat after each answer
 - Session summary with key talking points at end
-- Optional: prep notes saved to vault
+- Optional: prep notes saved to chromatin
 
 ## Notes
 

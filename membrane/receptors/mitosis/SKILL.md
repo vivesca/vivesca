@@ -38,9 +38,9 @@ lustro check 2>&1 | grep "<-\|(stale)\|x0)"
 ```
 Fix URL-rotted sources in `~/.config/endocytosis/sources.yaml`. Remove dead sources.
 
-### Vault hygiene
+### Chromatin hygiene
 - `python3 ~/scripts/generate-solutions-index.py` — regenerate solutions KB index
-- `uv run ~/scripts/vault-decay-report.py` — orphans/cold notes
+- `uv run ~/germline/effectors/chromatin-decay-report.py` — orphans/cold notes
 - Verify `[[wikilinks]]` in CLAUDE.md still resolve
 
 ### Oghma hygiene
@@ -90,7 +90,7 @@ Write to `~/epigenome/chromatin/Monthly Review - YYYY-MM.md`:
 |---------|--------|-------|
 | Content Digest | ... | ... |
 | Source Health | ... | ... |
-| Vault Hygiene | ... | ... |
+| Chromatin Hygiene | ... | ... |
 | Oghma | ... | ... |
 | Housekeeping | ... | ... |
 

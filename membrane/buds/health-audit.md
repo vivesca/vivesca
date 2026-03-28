@@ -20,6 +20,6 @@ Assess:
 - Sleep trend (improving/stable/declining)
 - Exercise adherence (sessions this month vs target)
 - Readiness trend (Oura scores)
-- Any active symptoms or concerns from vault
+- Any active symptoms or concerns from chromatin
 
 Output: capacity score (high/medium/low), trend direction, specific warnings, and recommendation for next month's workload.

@@ -1,11 +1,11 @@
 ---
-name: vault-hygiene
-description: Find orphan notes, duplicates, stale refs, broken links in ~/epigenome/chromatin vault.
+name: chromatin-hygiene
+description: Find orphan notes, duplicates, stale refs, broken links in ~/epigenome/chromatin.
 model: sonnet
 tools: ["Bash", "Read", "Grep", "Glob"]
 ---
 
-Audit ~/epigenome/chromatin vault health. Run once weekly.
+Audit ~/epigenome/chromatin health. Run once weekly.
 
 1. ORPHANS: find notes with no inbound links and no recent access
    - `cd ~/epigenome/chromatin && git log --diff-filter=A --since="90 days ago" --name-only --format='' | sort -u` — new files

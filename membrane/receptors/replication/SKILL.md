@@ -67,7 +67,7 @@ Before spinning up agents, define:
 - **Scope cap**: max time or token budget per agent
 
 Bad: "research AI agent frameworks"
-Good: "compare LangGraph vs raw Claude Tasks for parallel web research with vault writes — which produces cleaner output with less prompt overhead?"
+Good: "compare LangGraph vs raw Claude Tasks for parallel web research with chromatin writes — which produces cleaner output with less prompt overhead?"
 
 ### 2. Spin up worktrees (if code is involved)
 
@@ -117,7 +117,7 @@ tmux split-window -h "env CLAUDECODE= claude --dangerously-skip-permissions -p \
 
 ### 5. Monitor and synthesise
 
-Read `/tmp/research-{track}/findings.md` as results land. Chief synthesises: what each track found, where findings converge/conflict, final answer. Write synthesis to vault; clear winner → feed into `rector` for implementation. Ask: "did this agent org config produce results efficiently?" — that's the meta-benchmark.
+Read `/tmp/research-{track}/findings.md` as results land. Chief synthesises: what each track found, where findings converge/conflict, final answer. Write synthesis to chromatin; clear winner → feed into `rector` for implementation. Ask: "did this agent org config produce results efficiently?" — that's the meta-benchmark.
 
 No shared state between juniors. All comms via files: `brief.md` in, `findings.md` out.
 

@@ -38,7 +38,7 @@ The organism has five stores with distinct memory profiles:
 | `ecphory_logs` | Structured log files | MCP tool | "we logged X", "I logged X", "intake", "symptom", "experiment", tracked/recorded data |
 | `engram search` | Episodic (raw session transcripts) | `engram search "<pattern>" --days N` | "we talked about X", "I entered Y", unpersisted session data |
 | `histone_search` | Episodic + semantic hybrid | MCP tool | Named facts from sessions that were explicitly saved to oghma |
-| `receptor-scan` / vault | Semantic | `receptor-scan "<query>"` | Stable reference knowledge, vault notes, research |
+| `receptor-scan` / chromatin | Semantic | `receptor-scan "<query>"` | Stable reference knowledge, chromatin notes, research |
 | `oghma` | Semantic structured | `oghma search "<query>"` | Categorised memory objects with metadata |
 
 ## The Retrieval Protocol
@@ -57,12 +57,12 @@ Classify the query along three axes:
 **Recency signal:**
 - "yesterday", "this morning", "we just", "last session" → recent (engram first)
 - "last week", "a while ago", "I think we" → medium (histone first)
-- "I established", "the rule is", "the pattern is" → old/stable (vault/oghma first)
+- "I established", "the rule is", "the pattern is" → old/stable (chromatin/oghma first)
 - No signal → assume episodic (engram first)
 
 **Memory type signal:**
 - Event-based ("what did we decide", "when did we", "what happened with") → episodic → engram + histone
-- Fact-based ("what is the rule", "what's the approach", "the framework for") → semantic → vault + oghma
+- Fact-based ("what is the rule", "what's the approach", "the framework for") → semantic → chromatin + oghma
 - Mixed or ambiguous → episodic first, semantic second
 
 ### Step 2 — Route to primary store
@@ -91,15 +91,15 @@ If primary store returns nothing or only weak matches, hit the next tier:
 
 ```
 Logs miss → try engram (recent), then histone_search
-Episodic miss → try histone_search, then vault/oghma
+Episodic miss → try histone_search, then chromatin/oghma
 Semantic miss → try histone_search, then engram (last 14 days)
 ```
 
 Explicit fan-out order:
-1. ecphory_logs (structured vault logs — meals, symptoms, experiments)
+1. ecphory_logs (structured chromatin logs — meals, symptoms, experiments)
 2. engram (episodic, unpersisted session transcripts)
 3. histone_search (persisted session memory)
-4. receptor-scan / vault grep (semantic, stable)
+4. receptor-scan / chromatin grep (semantic, stable)
 5. oghma (structured semantic)
 
 ### Step 4 — Synthesise
@@ -107,14 +107,14 @@ Explicit fan-out order:
 Do not dump raw hits. Reconstruct from partial matches:
 
 - If single strong match: confirm the match, present it, note the source
-- If multiple partial matches: synthesise across them — "In engram on Mar 20 you entered X; in vault there's a related note Y; the combined picture is Z"
+- If multiple partial matches: synthesise across them — "In engram on Mar 20 you entered X; in chromatin there's a related note Y; the combined picture is Z"
 - If weak or contradictory: surface the contradiction explicitly, ask for confirmation before acting on it
 - If nothing found: say so clearly, do not confabulate
 
 ## Anti-patterns
 
 - **Uniform sweep**: running all stores in parallel before classifying the cue. Wastes tool calls, adds noise.
-- **Stopping at engram**: engram has the richest episodic data but misses anything explicitly persisted to oghma or vault.
+- **Stopping at engram**: engram has the richest episodic data but misses anything explicitly persisted to oghma or chromatin.
 - **Exact-match only**: encode at one vocabulary, retrieve at another. Use synonyms, related terms, and topic expansions in the cue.
 - **Confabulation**: if no clear match is found, do not synthesise a plausible-sounding answer. Return empty with path taken.
 

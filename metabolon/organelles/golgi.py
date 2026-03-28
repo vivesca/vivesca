@@ -1,7 +1,7 @@
 """golgi — blog publishing pipeline (packages, sorts, exports posts).
 
 Manages Markdown posts in chromatin/Garden Posts/.
-Syncs to terryli.hm via ~/code/blog/sync-from-vault.sh.
+Syncs to terryli.hm via ~/code/blog/sync-from-chromatin.sh.
 """
 
 import re
@@ -15,7 +15,7 @@ from metabolon.locus import chromatin
 
 GARDEN_DIR = chromatin / "Garden Posts"
 INDEX_PATH = chromatin / "terryli.hm.md"
-SYNC_SCRIPT = Path.home() / "code" / "blog" / "sync-from-vault.sh"  # outside organism
+SYNC_SCRIPT = Path.home() / "code" / "blog" / "sync-from-chromatin.sh"  # outside organism
 BASE_URL = "https://terryli.hm/posts"
 
 

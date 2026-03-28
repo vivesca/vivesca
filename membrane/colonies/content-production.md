@@ -10,7 +10,7 @@ Editorial judgment — frames the argument, sequences the narrative,
 ensures the voice is right. Produces the final artifact.
 
 ## Workers (sonnet, parallel)
-- **researcher**: gather evidence from vault, web, reference docs
+- **researcher**: gather evidence from chromatin, web, reference docs
 - **drafter**: write the first pass from the lead's outline
 - **verifier**: fact-check claims, verify citations, test code examples
 

@@ -28,13 +28,13 @@ Analyze LinkedIn job postings against user's background, current pipeline health
    - Notification onboarding loop: `agent-browser close` → `porta inject --browser chrome --domain linkedin.com` → `agent-browser open <url>` → `agent-browser wait 4000` → `agent-browser snapshot`
 
 2. **Check for duplicates and same-employer saturation** (before full analysis):
-   - Search vault for existing note matching company + role (e.g., `[[*Role* - *Company*]]`)
+   - Search chromatin for existing note matching company + role (e.g., `[[*Role* - *Company*]]`)
    - Check [[Job Hunting]] "Applied Jobs" and "Passed On" sections for the company name
    - If match found:
      - Show user what was found (existing note, application status, date)
      - Ask: "Already evaluated/applied to [match]. Proceed with analysis anyway?"
      - If user says no, stop early — no further analysis needed
-   - **Same-employer batch detection:** If 3+ roles at the same company have been evaluated (in vault or current session), flag it: "Multiple roles at [Company] — consider picking your strongest match rather than scatter-applying across the same division." This prevents diluted applications and signals desperation to recruiters who may see multiple apps.
+   - **Same-employer batch detection:** If 3+ roles at the same company have been evaluated (in chromatin or current session), flag it: "Multiple roles at [Company] — consider picking your strongest match rather than scatter-applying across the same division." This prevents diluted applications and signals desperation to recruiters who may see multiple apps.
 
 3. **Load context files** (can run in parallel with step 1) — Check user's CLAUDE.md for background, credentials, differentiators, current situation, and job hunting status
 
@@ -63,7 +63,7 @@ Analyze LinkedIn job postings against user's background, current pipeline health
    - If verdict is `needs_work`: revise analysis (max 2 iterations)
    - Ensures recommendation is specific and actionable, not vague
 
-9. **Create vault note — MANDATORY for ALL outcomes:**
+9. **Create chromatin note — MANDATORY for ALL outcomes:**
    - **Do this immediately after giving recommendation — don't wait for user to ask**
    - Filename: `[[Role Title - Company]]`
    - **MUST include full JD details:** Copy requirements, responsibilities, qualifications verbatim from the posting

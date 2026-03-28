@@ -1,7 +1,7 @@
 """sporulation — garden publishing for terryli.hm (formerly publish CLI).
 
 Endosymbiosis: Python script (vivesca/effectors/publish) → Python organelle.
-The original script was a standalone CLI wrapping Astro's vault sync workflow.
+The original script was a standalone CLI wrapping Astro's chromatin sync workflow.
 This organelle exposes the same operations as direct Python functions, eliminating
 the subprocess hop that emit_publish previously required.
 
@@ -20,7 +20,7 @@ from metabolon.locus import blog_published, terryli_hm
 
 PUBLISHED_DIR = blog_published
 INDEX_PATH = terryli_hm
-SYNC_SCRIPT = Path.home() / "code" / "blog" / "sync-from-vault.sh"
+SYNC_SCRIPT = Path.home() / "code" / "blog" / "sync-from-chromatin.sh"
 
 
 def _now_iso() -> str:
@@ -208,7 +208,7 @@ def mutate_post(slug: str, note: str) -> dict:
 
 
 def propagate_site() -> dict:
-    """Run sync-from-vault.sh to deploy the Astro blog.
+    """Run sync-from-chromatin.sh to deploy the Astro blog.
 
     Returns:
         {"pushed": True, "url": "https://terryli.hm"} or {"error": "message"}

@@ -27,7 +27,7 @@ Collect all meaningful structural units:
 - Receptors / skills (ls receptors/)
 - MCP tools (receptor_list or mcp config)
 - Scheduled processes (LaunchAgents, cron)
-- Data stores (vault paths, DBs, files)
+- Data stores (chromatin paths, DBs, files)
 - External dependencies (APIs, services)
 
 ### Step 2 — Lay out the karyotype

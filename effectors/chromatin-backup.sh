@@ -1,5 +1,5 @@
 #!/bin/bash
-# Vault git backup — auto-commit and push if there are changes
+# Chromatin git backup — auto-commit and push if there are changes
 # Replaces Obsidian Git plugin (which only runs when app is open)
 
 cd "$HOME/epigenome/chromatin" || exit 1
@@ -26,5 +26,5 @@ if git diff --quiet && git diff --cached --quiet && [ -z "$(git ls-files --other
 fi
 
 git add -A
-git commit -m "vault backup: $(date '+%Y-%m-%d %H:%M:%S')"
+git commit -m "chromatin backup: $(date '+%Y-%m-%d %H:%M:%S')"
 git push origin main

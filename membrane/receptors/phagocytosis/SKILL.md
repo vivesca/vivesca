@@ -1,6 +1,6 @@
 ---
 name: phagocytosis
-description: Classify content, extract insights, save a vault note — URL or pasted content.
+description: Classify content, extract insights, save a chromatin note — URL or pasted content.
 model: sonnet
 user_invocable: true
 context: fork
@@ -32,7 +32,7 @@ Universal entry point for anything user shares — URL or pasted content.
 Before creating a note, check:
 - Login wall with no content → skip
 - Pure marketing/announcement, no insight → skip
-- Already exists in vault (check by URL) → skip
+- Already exists in chromatin (check by URL) → skip
 
 On skip: `**Skip** — [reason] / Domain: [source]`
 
@@ -64,7 +64,7 @@ Before generating any note:
 1. Grep `~/epigenome/chromatin/` for `^tags:` (glob `*.md`, head\_limit 20) — build existing tag set
 2. Glob `~/epigenome/chromatin/*MOC*.md` and `~/epigenome/chromatin/Maps/*.md` — find relevant MOCs
 
-**Rule:** Only use tags that already exist in vault. Never invent tags. If nothing fits, leave tags empty.
+**Rule:** Only use tags that already exist in chromatin. Never invent tags. If nothing fits, leave tags empty.
 
 ## Telemetry
 
@@ -75,7 +75,7 @@ Append one row to `~/epigenome/chromatin/Meta/Analyze Telemetry.md`:
 
 ## Antigen Presentation
 
-After saving the vault note, route its signal outward.
+After saving the chromatin note, route its signal outward.
 
 **1. Find related notes (3–5)**
 
@@ -99,7 +99,7 @@ After saving, offer next steps when natural:
 - "Add to an existing skill?" — if content contains a pattern relevant to a receptor
 - "Draft a tweet/garden post?" — if insight is share-worthy
 - "Drill deeper?" — if the content warrants `/autophagy` discussion
-- Don't present a menu every time — only when the content clearly connects. Most notes just land in vault and that's fine.
+- Don't present a menu every time — only when the content clearly connects. Most notes just land in chromatin and that's fine.
 
 ## Boundaries
 

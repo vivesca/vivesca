@@ -1,13 +1,13 @@
 ---
 name: cross-pollinate
-description: Find a pattern from one domain in vault, apply it to another. Forced analogy engine.
+description: Find a pattern from one domain in chromatin, apply it to another. Forced analogy engine.
 model: sonnet
 tools: ["Bash", "Read", "Grep", "Glob"]
 ---
 
 Forced cross-domain pattern transfer. Take a pattern from one domain, apply it elsewhere.
 
-1. Read recent vault content (last 14 days): ~/epigenome/chromatin/Daily/ and ~/epigenome/chromatin/Inbox/
+1. Read recent chromatin content (last 14 days): ~/epigenome/chromatin/Daily/ and ~/epigenome/chromatin/Inbox/
 2. Identify distinct domains in the recent content:
    - System design (vivesca, automation)
    - Consulting / banking

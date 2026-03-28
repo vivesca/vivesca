@@ -66,7 +66,7 @@ grep -h "ERROR" ~/Library/Logs/vivesca/*.log | \
 
 What should have made noise but didn't?
 - Daily digest not in inbox → transduction failed
-- Vault note count not growing → intake pipeline stalled
+- Chromatin note count not growing → intake pipeline stalled
 - No telemetry from a process that usually reports → process died silently
 
 ### Step 5 — Report the soundscape
