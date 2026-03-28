@@ -80,10 +80,13 @@ Scan the session for every moment Terry **redirected, corrected, or pushed back*
 - What's the generalizable principle?
 - Would a future session benefit from knowing this?
 
-Then three broader questions about the session:
+Then six broader questions about the session:
 - **"What assumptions were proven wrong?"** — not just user corrections, but factual discoveries (tools that don't work as expected, paths that don't exist, conventions that differ from assumed). These are easy to absorb silently without filing.
 - **"What did we delete or remove?"** — every deletion is a potential lesson or future regret. Was value extracted first? Is the removal reversible? Does anything still reference the deleted thing?
 - **"Where did I initially resist the user's direction?"** — resistance points signal miscalibrated defaults. If the user's alternative turned out better, the resistance was a bias worth examining.
+- **"What took longer than it should have?"** — inefficiency is a signal. Repeated attempts, backtracking, or rework point to a missing check or wrong assumption that a rule could prevent.
+- **"What patterns recurred?"** — if the same lesson appeared 2+ times in different guises, there's a deeper principle underneath. Extract that instead of filing N separate memories.
+- **"What did we learn about external systems?"** — tool behavior, platform conventions, third-party architecture. Cross-ecosystem intelligence compounds, especially for consulting. Route to antisera or memory.
 
 This is separate from the LLM extraction because corrections are easy to under-file. The LLM's instinct is to file facts and architecture but skip behavioral lessons — "I suggested X, user said Y instead" feels like ephemeral conversation, but the *why* behind the redirect is often the most durable insight.
 
