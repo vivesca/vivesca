@@ -300,6 +300,7 @@ class SyncResult:
         integrin_issues: list[dict],
         unknown_platforms: list[str],
         dry_run: bool,
+        skills_synced: int = 0,
     ) -> None:
         self.symlinks_ok = symlinks_ok
         self.symlinks_fixed = symlinks_fixed
@@ -309,6 +310,7 @@ class SyncResult:
         self.integrin_issues = integrin_issues
         self.unknown_platforms = unknown_platforms
         self.dry_run = dry_run
+        self.skills_synced = skills_synced
 
     @property
     def ok(self) -> bool:
@@ -343,6 +345,9 @@ class SyncResult:
             lines.append(f"Hooks{mode}: {self.hooks_result.summary}")
         else:
             lines.append(f"Hooks{mode}: skipped (no CC settings found).")
+
+        # Skills
+        lines.append(f"Skills{mode}: {self.skills_synced} synced to ~/.gemini/skills/.")
 
         # GEMINI.md
         status = "ok" if self.gemini_md_ok else "MISSING or wrong target"
@@ -456,7 +461,28 @@ def sync_phenotype(
                 _json.dump(proposed, fh, indent=2)
                 fh.write("\n")
 
-    # ── step 3: GEMINI.md skill access check ─────────────────────────
+    # ── step 2.5: skill symlinking ────────────────────────────────────
+    from metabolon.locus import receptors
+
+    gemini_skills_dir = Path.home() / ".gemini" / "skills"
+    skills_synced = 0
+    if receptors.is_dir():
+        if not dry_run:
+            gemini_skills_dir.mkdir(parents=True, exist_ok=True)
+        for skill_dir in sorted(receptors.iterdir()):
+            skill_file = skill_dir / "SKILL.md"
+            if not skill_file.is_file():
+                continue
+            target_link = gemini_skills_dir / skill_dir.name
+            if target_link.is_symlink() and target_link.resolve() == skill_dir.resolve():
+                skills_synced += 1
+                continue
+            if not dry_run:
+                target_link.unlink(missing_ok=True)
+                target_link.symlink_to(skill_dir)
+            skills_synced += 1
+
+    # ── step 3: GEMINI.md check ────────────────────────────────────────
     gemini_md_path = Path.home() / ".gemini" / "GEMINI.md"
     gemini_md_ok = (
         gemini_md_path.is_symlink()
@@ -475,6 +501,7 @@ def sync_phenotype(
         integrin_issues=integrin_issues,
         unknown_platforms=unknown_platforms,
         dry_run=dry_run,
+        skills_synced=skills_synced,
     )
 
 
