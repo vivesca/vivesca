@@ -15,6 +15,7 @@
 - **WhatsApp**: NEVER send — draft for Terry.
 - **Gists**: ALWAYS secret.
 - **Post-cutoff facts**: Web-search first. `pondus rank` for models.
+- **Fast-moving domains**: Tool ecosystems, competitive landscapes, pricing, API specs — research before asserting. Training data decays in months. If you haven't verified it this session, you don't know it.
 - **Calculations**: Python only.
 - **No deliverables in `~/tmp/`.** Scratch/in-flight only. Agent outputs, research, reports → vault or `~/epigenome/chromatin/immunity/`. Tell subagents vault paths, not `~/tmp/`.
 
