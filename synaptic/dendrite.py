@@ -560,12 +560,17 @@ def mod_ligation_skill(data):
     if gen.exists():
         subprocess.run(["python3", str(gen)], capture_output=True)
 
-    # Advisory: maturation compression pass
-    print(
-        f"MATURATION: skill edited ({rel}). Compression pass before moving on: "
-        f"dedup? format? budget (<500 lines)? Ideal?",
-        file=sys.stderr,
-    )
+    print(f"IDEAL? skill ({rel}): dedup? format? budget?", file=sys.stderr)
+
+
+# ── ideal? nudge for code edits ──────────────────────────────
+
+
+def mod_ideal_code(data):
+    """Nudge after germline code edits: tests? simplify? naming?"""
+    fp = data.get("tool_input", {}).get("file_path", "")
+    basename = Path(fp).name
+    print(f"IDEAL? code ({basename}): tests? simplify? naming?", file=sys.stderr)
 
 
 # ── glycolytic commit message (deterministic, no symbiont) ──
@@ -1426,6 +1431,10 @@ def main():
     # Chaperone propagation (Edit/Write on enzymes/organelles/effectors)
     if tool in ("Edit", "Write") and any(d in fp for d in _CHAPERONE_DIRS):
         modules.append(mod_chaperone_propagation)
+
+    # Ideal? nudge (Edit/Write on germline code, non-skill — skills handled by ligation)
+    if tool in ("Edit", "Write") and "/germline/" in fp and "/skills/" not in fp and fp.endswith(".py"):
+        modules.append(mod_ideal_code)
 
     # Retrograde signal logging (Edit/Write on memory files)
     if tool in ("Edit", "Write") and "memory/" in fp:

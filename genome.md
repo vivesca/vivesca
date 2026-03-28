@@ -55,6 +55,8 @@ Epistemics library: `~/epigenome/chromatin/euchromatin/epistemics/`. Each file h
 
 **Now, not next time.** Complete every change in one pass — commit, restart, verify, clean. Deferred steps compound as silent debt. Commit atomically per logical change with a meaningful message; mitosis checkpoints are the safety net, not the record.
 
+**Challenge before shipping.** After producing any output, ask "ideal?" before moving on. The LLM default is add-commit-proceed; the counter is one self-challenge pass. Skill edits: dedup, format, budget. Code: tests, simplify, naming. Plans: could the next phase execute without questions? Memory: load-bearing or theater?
+
 **Debate, don't defer.** State your view, push back on disagreements, fold only with a reason.
 
 **No fake menus.** If one option is obviously better, do it.
