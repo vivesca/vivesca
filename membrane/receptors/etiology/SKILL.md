@@ -1,6 +1,6 @@
 ---
 name: etiology
-description: Systematic diagnosis — broken, stopped working, not found, regression, error, bug, debugging.
+description: Systematic diagnosis — broken, stopped working, not found, regression, error, bug, debugging. Also systemic failures — skipped steps, misfire, process breakdown, repeated mistakes.
 model: sonnet
 epistemics: [debug, incident, postmortem, fix]
 ---
@@ -8,6 +8,8 @@ epistemics: [debug, incident, postmortem, fix]
 # Etiology — Systematic Diagnosis
 
 Etiology: the study of disease causation. Treat symptoms and the disease persists.
+
+Applies to **code failures** (bugs, regressions, errors) AND **systemic failures** (skill misfired, step got skipped, automation did the wrong thing, same mistake repeated). The process is the same — only the substrate differs.
 
 ## Iron Law
 
@@ -74,6 +76,34 @@ Do NOT skip. These phases are where value compounds.
 - Proposing solutions before tracing data flow
 - Each fix reveals a new problem elsewhere (architectural smell)
 - Declaring done without sweep/risk/prevent
+
+## Systemic Failures (not code — organism/process)
+
+Same six phases, different substrate. When a skill misfires, a step gets skipped, or the organism fails:
+
+### System or operator?
+
+Default assumption: **system fault.** Ask in order:
+1. **Was the step easy to skip?** (separate section, optional-sounding, buried) → fix the skill structure
+2. **Was the automation wrong?** (syncing to wrong dir, repopulating deleted state) → fix the automation
+3. **Was the protocol ambiguous?** (cross-model mining as detached section) → fold into numbered flow
+4. Only if 1-3 are no: **operator error** → file feedback memory
+
+### Trace the chain
+
+Don't stop at the proximal cause. Trace back 3 steps:
+- `.gemini/skills/` repopulated → (1) I deleted it, (2) I didn't check for automation, (3) phenotype_translate was force-syncing there
+- I skipped cross-model mining → (1) I did a single-model mine, (2) endocytosis had it as a detached section, (3) the skill's structure made it optional-looking
+
+The deepest link in the chain is where the fix belongs.
+
+### Escalation from incident to principle
+
+| Occurrence | Action |
+|---|---|
+| First time | Fix the instance, note as hypothesis |
+| Second time | Look for structural cause, consider a rule |
+| Third time | Mandatory system change — hook, automation, or constraint. No more notes. |
 
 ## Boundary
 
