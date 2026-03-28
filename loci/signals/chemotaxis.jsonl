@@ -65,3 +65,5 @@
 {"ts": "2026-03-27T23:59:03+00:00", "model": "sonar", "query": "Codex CLI ChatGPT Pro Plus subscription usage limits weekly allowance 2026"}
 {"ts": "2026-03-27T23:59:12+00:00", "model": "sonar", "query": "site:developers.openai.com codex mcp"}
 {"ts": "2026-03-28T01:37:35+00:00", "model": "sonar", "query": "Kelvin Chan BOCHK \"Head of Customer Intelligence\" Bank of China Hong Kong"}
+{"ts": "2026-03-28T03:36:16+00:00", "model": "sonar", "query": "openai/skills GitHub repository exists maintainer official"}
+{"ts": "2026-03-28T03:36:18+00:00", "model": "sonar", "query": "Codex CLI openai-curated plugin official OpenAI community contributed"}
