@@ -99,6 +99,30 @@ def _query_codex(cmd: list[str], prompt: str, timeout: int) -> str:
             os.unlink(tmp_path)
 
 
+def _query_anthropic(model: str, prompt: str, timeout: int) -> str:
+    """Call Anthropic API directly. Free for Max subscribers."""
+    api_key = os.environ.get("ANTHROPIC_API_KEY")
+    if not api_key:
+        raise RuntimeError("ANTHROPIC_API_KEY not set")
+    url = "https://api.anthropic.com/v1/messages"
+    headers = {
+        "x-api-key": api_key,
+        "content-type": "application/json",
+        "anthropic-version": "2023-06-01",
+    }
+    data = {
+        "model": model,
+        "max_tokens": 4096,
+        "messages": [{"role": "user", "content": prompt}],
+    }
+    req = urllib.request.Request(
+        url, data=json.dumps(data).encode("utf-8"), headers=headers, method="POST"
+    )
+    with urllib.request.urlopen(req, timeout=timeout) as response:
+        res_json = json.loads(response.read().decode("utf-8"))
+        return res_json["content"][0]["text"].strip()
+
+
 def _query_openrouter(model: str, prompt: str, timeout: int) -> str:
     api_key = os.environ.get("OPENROUTER_API_KEY")
     if not api_key:
@@ -136,6 +160,8 @@ def transduce(
         return _query_cmd(cfg["cmd"], prompt, timeout)
     elif backend == "codex":
         return _query_codex(cfg["cmd"], prompt, timeout)
+    elif backend == "anthropic":
+        return _query_anthropic(cfg["model"], prompt, timeout)
     elif backend == "openrouter":
         return _query_openrouter(cfg["model"], prompt, timeout)
     else:

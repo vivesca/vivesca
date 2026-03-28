@@ -373,7 +373,7 @@ def endosomal_search(query: str) -> EndosomalSearchResult:
 )
 def endosomal_thread(thread_id: str) -> EndosomalThreadResult:
     """Retrieve the full content of a thread (--full flag)."""
-    result = invoke_organelle(GOG, ["gmail", "thread", "get", thread_id, "--full"], timeout=30)
+    result = invoke_organelle(GOG, ["gmail", "thread", "get", thread_id, "--full"], timeout=60)
     return EndosomalThreadResult(output=result)
 
 
