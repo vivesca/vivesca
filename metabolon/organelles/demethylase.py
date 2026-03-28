@@ -131,22 +131,39 @@ def analyze_mark(path: Path) -> MarkAnalysis:
     )
 
 
+def _effective_threshold(base_days: int, access_count: int) -> int:
+    """Spaced repetition: each access doubles the decay threshold.
+
+    Biology: Ebbinghaus forgetting curve. Each retrieval strengthens the memory
+    trace, extending its half-life exponentially. A mark accessed 5 times
+    lives 32x longer than one never accessed.
+    """
+    multiplier = 2 ** min(access_count, 8)  # cap at 256x to prevent infinity
+    return base_days * multiplier
+
+
 def _detect_staleness(mark: MarkAnalysis, threshold_days: int = 90) -> MarkAnalysis:
-    """Flag a mark as stale based on age and durability."""
+    """Flag a mark as stale based on age, durability, and access history."""
     if mark.protected:
         return mark  # CpG island — never stale
 
-    if mark.durability == "acetyl" and mark.age_days > 14:
-        mark.stale = True
-        mark.reason = f"acetyl mark older than 14 days ({mark.age_days}d)"
-    elif mark.durability == "methyl" and mark.age_days > threshold_days:
-        mark.stale = True
-        mark.reason = f"methyl mark older than {threshold_days} days ({mark.age_days}d)"
+    if mark.durability == "acetyl":
+        effective = _effective_threshold(14, mark.access_count)
+        if mark.age_days > effective:
+            mark.stale = True
+            mark.reason = f"acetyl mark older than {effective}d (base 14d × 2^{mark.access_count} accesses, actual {mark.age_days}d)"
+    elif mark.durability == "methyl":
+        effective = _effective_threshold(threshold_days, mark.access_count)
+        if mark.age_days > effective:
+            mark.stale = True
+            mark.reason = f"methyl mark older than {effective}d (base {threshold_days}d × 2^{mark.access_count}, actual {mark.age_days}d)"
 
     # Project memories decay faster — active work changes
-    if mark.mark_type == "project" and mark.age_days > 30:
-        mark.stale = True
-        mark.reason = f"project mark older than 30 days ({mark.age_days}d)"
+    if mark.mark_type == "project" and not mark.stale:
+        effective = _effective_threshold(30, mark.access_count)
+        if mark.age_days > effective:
+            mark.stale = True
+            mark.reason = f"project mark older than {effective}d (base 30d × 2^{mark.access_count}, actual {mark.age_days}d)"
 
     return mark
 
@@ -228,6 +245,94 @@ def sweep(
             m.path.unlink()
 
     return report
+
+
+def record_access(path: Path) -> None:
+    """Record that a mark was accessed — strengthens it against decay.
+
+    Biology: Each retrieval of a memory strengthens the synaptic trace.
+    Increments access_count in frontmatter.
+    """
+    text = path.read_text(encoding="utf-8")
+    if not text.startswith("---"):
+        return
+    end = text.find("---", 3)
+    if end == -1:
+        return
+
+    fm_text = text[3:end]
+    body = text[end:]
+
+    # Parse current access_count
+    lines = fm_text.strip().splitlines()
+    found = False
+    new_lines = []
+    for line in lines:
+        if line.startswith("access_count:"):
+            count = int(line.split(":", 1)[1].strip())
+            new_lines.append(f"access_count: {count + 1}")
+            found = True
+        else:
+            new_lines.append(line)
+    if not found:
+        new_lines.append("access_count: 1")
+
+    path.write_text("---\n" + "\n".join(new_lines) + "\n" + body, encoding="utf-8")
+
+
+# -- Ephemeral signal channel (octopus interbrachial commissure) ---------------
+
+def emit_signal(name: str, content: str, source: str = "unknown") -> Path:
+    """Write an ephemeral acetyl signal for inter-agent communication.
+
+    Biology: Octopus arms communicate via the interbrachial commissure —
+    a narrow nerve bundle for short-lived coordination signals. These signals
+    are not long-term memories; they decay quickly.
+
+    Signals are acetyl marks in ~/epigenome/signals/. The demethylase sweep
+    cleans them up after 14 days.
+    """
+    SIGNALS_DIR.mkdir(parents=True, exist_ok=True)
+    ts = datetime.now().strftime("%Y%m%d-%H%M%S")
+    signal_path = SIGNALS_DIR / f"signal_{name}_{ts}.md"
+    signal_path.write_text(
+        f"---\n"
+        f"name: {name}\n"
+        f"type: signal\n"
+        f"source: {source}\n"
+        f"durability: acetyl\n"
+        f"---\n\n"
+        f"{content}\n",
+        encoding="utf-8",
+    )
+    return signal_path
+
+
+def read_signals(name_filter: str | None = None) -> list[dict]:
+    """Read pending signals from the ephemeral channel.
+
+    Args:
+        name_filter: Optional prefix to filter signals by name.
+    """
+    if not SIGNALS_DIR.exists():
+        return []
+    signals = []
+    for path in sorted(SIGNALS_DIR.glob("signal_*.md")):
+        fm = _parse_frontmatter(path)
+        if name_filter and not fm.get("name", "").startswith(name_filter):
+            continue
+        body = path.read_text(encoding="utf-8")
+        # Extract body after second ---
+        parts = body.split("---", 2)
+        content = parts[2].strip() if len(parts) > 2 else ""
+        signals.append({
+            "name": fm.get("name", path.stem),
+            "source": fm.get("source", "unknown"),
+            "content": content,
+            "path": str(path),
+            "age_days": (datetime.now() - datetime.fromtimestamp(path.stat().st_mtime)).days,
+        })
+    return signals
 
 
 def format_report(report: DemethylaseReport) -> str:
