@@ -174,10 +174,10 @@ class TestExtractBudMcpToolRefs:
         assert "histone_search" in refs
 
     def test_multiple_mcp_tools(self):
-        text = "Call mcp__vivesca__histone_search and mcp__vivesca__chemotaxis_search.\n"
+        text = "Call mcp__vivesca__histone_search and mcp__vivesca__rheotaxis_search.\n"
         refs = _extract_bud_mcp_tool_refs(text)
         assert "histone_search" in refs
-        assert "chemotaxis_search" in refs
+        assert "rheotaxis_search" in refs
 
     def test_bare_backtick_tool(self):
         text = "Run `integrin_probe` to check health.\n"

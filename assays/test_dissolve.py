@@ -55,7 +55,7 @@ SAMPLE_CONSTITUTION = """\
 
 **Token-conscious.** Every token that doesn't improve the output is wasted.
 
-**Route by role, not cost.** Use fasti for calendar, noesis for search, oghma for memory.
+**Route by role, not cost.** Use fasti for calendar, rheotaxis for search, oghma for memory.
 
 **Lean toward doing.** Reversible + in scope = act and report.
 

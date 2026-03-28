@@ -22,7 +22,7 @@ allowed-tools:
   - Bash
   - mcp__vivesca__ecphory_logs
   - mcp__vivesca__histone_search
-  - mcp__vivesca__chemotaxis_search
+  - mcp__vivesca__rheotaxis_search
 ---
 
 # Ecphory — Cue-Routed Memory Retrieval

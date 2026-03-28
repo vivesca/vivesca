@@ -211,7 +211,7 @@ def test_gradient_returns_report_type(tmp_path, monkeypatch):
 
     monkeypatch.setattr(grad, "_RELEVANCE_LOG", tmp_path / "empty_relevance.jsonl")
     monkeypatch.setattr(grad, "_SIGNALS_LOG", tmp_path / "empty_signals.jsonl")
-    monkeypatch.setattr(grad, "_NOESIS_BIN", tmp_path / "no_noesis")
+    monkeypatch.setattr(grad, "_RHEOTAXIS_LOG", tmp_path / "no_rheotaxis")
 
     result = proprioception_gradient(days=7)
     # Check shape rather than isinstance to avoid class identity issues in test isolation
@@ -243,7 +243,7 @@ def test_gradient_single_sensor(tmp_path, monkeypatch):
         )
     monkeypatch.setattr(grad, "_RELEVANCE_LOG", log)
     monkeypatch.setattr(grad, "_SIGNALS_LOG", tmp_path / "empty_signals.jsonl")
-    monkeypatch.setattr(grad, "_NOESIS_BIN", tmp_path / "no_noesis")
+    monkeypatch.setattr(grad, "_RHEOTAXIS_LOG", tmp_path / "no_rheotaxis")
 
     result = proprioception_gradient(days=7)
     assert "single-sensor" in result.polarity_vector or result.gradients[0].sensor_coverage == 1
@@ -279,7 +279,7 @@ def test_gradient_multi_sensor_coverage(tmp_path, monkeypatch):
 
     monkeypatch.setattr(grad, "_RELEVANCE_LOG", lustro_log)
     monkeypatch.setattr(grad, "_SIGNALS_LOG", signals_log)
-    monkeypatch.setattr(grad, "_NOESIS_BIN", tmp_path / "no_noesis")
+    monkeypatch.setattr(grad, "_RHEOTAXIS_LOG", tmp_path / "no_rheotaxis")
 
     result = proprioception_gradient(days=7)
     career_vectors = [g for g in result.gradients if g.domain == "career_consulting"]
@@ -314,7 +314,7 @@ def test_gradient_normalised_strength(tmp_path, monkeypatch):
 
     monkeypatch.setattr(grad, "_RELEVANCE_LOG", lustro_log)
     monkeypatch.setattr(grad, "_SIGNALS_LOG", signals_log)
-    monkeypatch.setattr(grad, "_NOESIS_BIN", tmp_path / "no_noesis")
+    monkeypatch.setattr(grad, "_RHEOTAXIS_LOG", tmp_path / "no_rheotaxis")
 
     result = proprioception_gradient(days=7)
     if result.gradients:
@@ -340,7 +340,7 @@ def test_gradient_respects_window(tmp_path, monkeypatch):
     )
     monkeypatch.setattr(grad, "_RELEVANCE_LOG", lustro_log)
     monkeypatch.setattr(grad, "_SIGNALS_LOG", tmp_path / "empty_signals.jsonl")
-    monkeypatch.setattr(grad, "_NOESIS_BIN", tmp_path / "no_noesis")
+    monkeypatch.setattr(grad, "_RHEOTAXIS_LOG", tmp_path / "no_rheotaxis")
 
     result = proprioception_gradient(days=7)
     assert result.polarity_vector == "diffuse"
@@ -359,8 +359,8 @@ def test_topology_single_sensor():
 
 
 def test_topology_adjacent_pair():
-    """lustro + noesis are adjacent — weight 1.5."""
-    w, bonus = _topology_weight({"endocytosis_signal", "noesis_queries"})
+    """lustro + rheotaxis are adjacent — weight 1.5."""
+    w, bonus = _topology_weight({"endocytosis_signal", "rheotaxis_queries"})
     assert w == 1.5
     assert bonus == "adjacent"
 
@@ -372,16 +372,16 @@ def test_topology_independent_pair_lustro_tools():
     assert bonus == "independent"
 
 
-def test_topology_independent_pair_noesis_tools():
-    """noesis + tool_signals are independent — weight 2.0."""
-    w, bonus = _topology_weight({"noesis_queries", "tool_signals"})
+def test_topology_independent_pair_rheotaxis_tools():
+    """rheotaxis + tool_signals are independent — weight 2.0."""
+    w, bonus = _topology_weight({"rheotaxis_queries", "tool_signals"})
     assert w == 2.0
     assert bonus == "independent"
 
 
 def test_topology_all_three():
     """All three sensors → weight 3.0, bonus 'full'."""
-    w, bonus = _topology_weight({"endocytosis_signal", "noesis_queries", "tool_signals"})
+    w, bonus = _topology_weight({"endocytosis_signal", "rheotaxis_queries", "tool_signals"})
     assert w == 3.0
     assert bonus == "full"
 
@@ -416,7 +416,7 @@ def test_gradient_topology_bonus_field_present(tmp_path, monkeypatch):
     )
     monkeypatch.setattr(grad, "_RELEVANCE_LOG", lustro_log)
     monkeypatch.setattr(grad, "_SIGNALS_LOG", tmp_path / "empty_signals.jsonl")
-    monkeypatch.setattr(grad, "_NOESIS_BIN", tmp_path / "no_noesis")
+    monkeypatch.setattr(grad, "_RHEOTAXIS_LOG", tmp_path / "no_rheotaxis")
 
     result = proprioception_gradient(days=7)
     assert result.gradients
@@ -426,14 +426,14 @@ def test_gradient_topology_bonus_field_present(tmp_path, monkeypatch):
 
 
 def test_gradient_adjacent_pair_lower_weight_than_independent(tmp_path, monkeypatch):
-    """Adjacent confirmation (lustro+noesis) ranks below independent confirmation
+    """Adjacent confirmation (lustro+rheotaxis) ranks below independent confirmation
     (lustro+tools) when raw hit counts are equal.
     """
     import metabolon.enzymes.gradient as grad
 
     now = datetime.now(UTC)
 
-    # Adjacent domain: career_consulting via lustro + noesis
+    # Adjacent domain: career_consulting via lustro + rheotaxis
     # Independent domain: ai_governance via lustro + tool_signals
     # Both get same raw hits so topology is the differentiator.
 
@@ -474,7 +474,7 @@ def test_gradient_adjacent_pair_lower_weight_than_independent(tmp_path, monkeypa
 
     monkeypatch.setattr(grad, "_RELEVANCE_LOG", lustro_log)
     monkeypatch.setattr(grad, "_SIGNALS_LOG", signals_log)
-    monkeypatch.setattr(grad, "_NOESIS_BIN", tmp_path / "no_noesis")
+    monkeypatch.setattr(grad, "_RHEOTAXIS_LOG", tmp_path / "no_rheotaxis")
 
     result = proprioception_gradient(days=7)
     gov = next((g for g in result.gradients if g.domain == "ai_governance"), None)

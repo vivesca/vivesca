@@ -56,9 +56,7 @@ async def test_handshake():
             "checkpoint_list",
             "checkpoint_move",
             "checkpoint_set",
-            "chemotaxis_ask",
-            "chemotaxis_research",
-            "chemotaxis_search",
+            "rheotaxis_search",
             "circadian_sleep",
             "endocytosis_check_auth",
             "endocytosis_extract",
@@ -117,7 +115,7 @@ async def test_handshake():
             "vivesca://budget",
             "vivesca://calendar/today",
             "vivesca://constitution",
-            "vivesca://noesis/search-log",
+            "vivesca://rheotaxis/search-log",
             "vivesca://oghma/stats",
         ]
         for expected_uri in expected_resources:

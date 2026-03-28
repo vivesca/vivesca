@@ -61,7 +61,7 @@ SAMPLE_CONSTITUTION = """\
 
 **Token-conscious.** Every token that doesn't improve the output is wasted.
 
-**Route by role, not cost.** Use fasti for calendar, noesis for search, oghma for memory.
+**Route by role, not cost.** Use fasti for calendar, rheotaxis for search, oghma for memory.
 
 **Lean toward doing.** Reversible + in scope = act and report.
 
@@ -267,7 +267,7 @@ class TestConstitutionSubstrate:
 
         collector = SensorySystem(tmp_path / "signals.jsonl")
         collector.append(_make_signal("fasti_list_events"))
-        collector.append(_make_signal("noesis_search"))
+        collector.append(_make_signal("rheotaxis_search"))
 
         substrate = ExecutiveSubstrate(
             constitution_path=constitution_path,
@@ -275,7 +275,7 @@ class TestConstitutionSubstrate:
         )
         sensed = substrate.sense()
 
-        # "Route by role, not cost" mentions fasti and noesis
+        # "Route by role, not cost" mentions fasti and rheotaxis
         route_rule = next(r for r in sensed if r["title"] == "Route by role, not cost")
         assert route_rule["has_evidence"] is True
 

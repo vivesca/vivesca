@@ -868,7 +868,7 @@ def mod_rheotaxis(data):
             return [
                 "[rheotaxis] Factual real-world question detected. "
                 "Search before asserting — use rheotaxis skill or "
-                "rheotaxis_multi MCP tool. Never answer from model memory."
+                "rheotaxis_search MCP tool (pipe-separate queries for multi-framing). Never answer from model memory."
             ]
     return []
 

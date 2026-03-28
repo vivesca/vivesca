@@ -12,8 +12,7 @@ CRITICAL: Do NOT rely on training data for real-world facts. Search and verify E
 
 Search routing — use in this order:
 - Vault (~/epigenome/chromatin/) — always check first via Grep/Glob
-- mcp__vivesca__rheotaxis_multi — parallel search across backends for each claim
-- mcp__vivesca__rheotaxis_search — single-query deep search when multi returns sparse
+- mcp__vivesca__rheotaxis_search — parallel search across backends (pipe-separate queries for multi-framing)
 - WebSearch/WebFetch — fallback when rheotaxis doesn't cover it
 
 Output format depends on subject:

@@ -53,7 +53,7 @@ SAMPLE_CONSTITUTION = """\
 
 **Token-conscious.** Every token that doesn't improve the output is wasted.
 
-**Route by role, not cost.** Use fasti for calendar, noesis for search, oghma for memory.
+**Route by role, not cost.** Use fasti for calendar, rheotaxis for search, oghma for memory.
 
 **Lean toward doing.** Reversible + in scope = act and report.
 
@@ -98,7 +98,7 @@ class TestAuditCommand:
         collector = SensorySystem()
         collector.append(_make_signal("fasti_list_events"))
         collector.append(_make_signal("fasti_create_event"))
-        collector.append(_make_signal("noesis_search"))
+        collector.append(_make_signal("rheotaxis_search"))
         # No oghma signals — so rules mentioning only oghma will show differently
 
         import unittest.mock
@@ -113,7 +113,7 @@ class TestAuditCommand:
         assert "Rules with signal evidence" in result.output
         assert "Rules without signal evidence" in result.output
 
-        # "Route by role, not cost" mentions fasti and noesis — should have evidence
+        # "Route by role, not cost" mentions fasti and rheotaxis — should have evidence
         assert "Route by role, not cost" in result.output
 
     def test_audit_no_signals(self, tmp_path, redirect_defaults):

@@ -6,7 +6,7 @@ user_invocable: false
 
 # pinocytosis -- web content fetching
 
-Fetches content from a URL. For web search, use noesis.
+Fetches content from a URL. For web search, use rheotaxis.
 
 ## CLI
 

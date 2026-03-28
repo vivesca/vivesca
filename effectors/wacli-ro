@@ -1,0 +1,9 @@
+#!/bin/bash
+# Read-only wacli wrapper - blocks send command
+
+if [[ "$1" == "send" ]] || [[ "$*" == *"send"* ]]; then
+    echo "ERROR: wacli-ro is read-only. Send is disabled for safety."
+    exit 1
+fi
+
+exec wacli "$@"

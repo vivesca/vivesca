@@ -13,7 +13,7 @@ from fastmcp.prompts import prompt
     name="research",
     description=(
         "Generate a structured research brief. "
-        "Calls chemotaxis_ask or chemotaxis_research as appropriate and formats findings "
+        "Calls rheotaxis_search as appropriate and formats findings "
         "with executive summary, key points, sources, and recommended actions."
     ),
 )
@@ -25,10 +25,10 @@ def research(
     """Structured research brief prompt."""
     context_block = f"\nBackground context: {context}\n" if context else ""
     depth_instruction = {
-        "quick": "Use chemotaxis_search for a quick factual lookup.",
-        "standard": "Use chemotaxis_ask for a thorough survey.",
-        "deep": "Use chemotaxis_research for deep investigation (expensive — confirm before running).",
-    }.get(depth, "Use chemotaxis_ask for a thorough survey.")
+        "quick": "Use rheotaxis_search with depth=quick for a quick factual lookup.",
+        "standard": "Use rheotaxis_search with depth=thorough for a thorough survey.",
+        "deep": "Use rheotaxis_search with depth=deep for deep investigation (expensive — confirm before running).",
+    }.get(depth, "Use rheotaxis_search with depth=thorough for a thorough survey.")
 
     return (
         f"Research the following topic and produce a structured brief.\n\n"

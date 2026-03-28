@@ -35,10 +35,18 @@ def _get_key(env_var: str) -> str:
     return key
 
 
-def search_perplexity(query: str, _timeout: int = 30) -> RheotaxisResult:
-    """Perplexity sonar — fast, synthesised answer with citations."""
+_DEPTH_FN = {
+    "quick": chemotaxis_engine.recall,      # sonar, ~$0.006
+    "thorough": chemotaxis_engine.ask,      # sonar-pro, ~$0.01
+    "deep": chemotaxis_engine.research,     # sonar-deep-research, ~$0.40
+}
+
+
+def search_perplexity(query: str, _timeout: int = 30, depth: str = "quick") -> RheotaxisResult:
+    """Perplexity — depth selects model tier (quick/thorough/deep)."""
     try:
-        answer = chemotaxis_engine.recall(query)
+        fn = _DEPTH_FN.get(depth, chemotaxis_engine.recall)
+        answer = fn(query)
         return RheotaxisResult(
             backend="perplexity",
             query=query,
@@ -181,6 +189,7 @@ _BACKENDS = {
 def parallel_search(
     query: str,
     backends: list[str] | None = None,
+    depth: str = "quick",
     timeout: int = 20,
 ) -> list[RheotaxisResult]:
     """Search all backends in parallel. Returns list of RheotaxisResults."""
@@ -188,9 +197,14 @@ def parallel_search(
         backends = list(_BACKENDS.keys())
 
     with ThreadPoolExecutor(max_workers=len(backends)) as pool:
-        futures = {
-            pool.submit(_BACKENDS[b], query, timeout): b for b in backends if b in _BACKENDS
-        }
+        futures = {}
+        for b in backends:
+            if b not in _BACKENDS:
+                continue
+            if b == "perplexity":
+                futures[pool.submit(_BACKENDS[b], query, timeout, depth)] = b
+            else:
+                futures[pool.submit(_BACKENDS[b], query, timeout)] = b
         results = []
         for future in as_completed(futures):
             results.append(future.result())
@@ -200,6 +214,7 @@ def parallel_search(
 def multi_query_search(
     queries: list[str],
     backends: list[str] | None = None,
+    depth: str = "quick",
     timeout: int = 20,
 ) -> dict[str, list[RheotaxisResult]]:
     """Run multiple query framings across all backends.
@@ -214,9 +229,13 @@ def multi_query_search(
         futures = {}
         for q in queries:
             for b in backends:
-                if b in _BACKENDS:
+                if b not in _BACKENDS:
+                    continue
+                if b == "perplexity":
+                    future = pool.submit(_BACKENDS[b], q, timeout, depth)
+                else:
                     future = pool.submit(_BACKENDS[b], q, timeout)
-                    futures[future] = q
+                futures[future] = q
         for future in as_completed(futures):
             q = futures[future]
             if q not in all_results:

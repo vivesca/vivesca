@@ -15,7 +15,7 @@ The organism then decides whether to reinforce it into a stable orientation.
 Sensor arrays:
   - Lustro relevance log: RSS articles scored >=7 (high-signal news items)
   - Signals log: tool invocation frequency by domain over rolling window
-  - Noesis log: search queries (free-text, highest semantic richness)
+  - Rheotaxis log: search queries (free-text, highest semantic richness)
 
 Output: ranked polarity vectors with signal strength and sensor coverage.
 """
@@ -23,8 +23,6 @@ Output: ranked polarity vectors with signal strength and sensor coverage.
 from __future__ import annotations
 
 import json
-import re
-import subprocess
 from collections import Counter, defaultdict
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -40,7 +38,7 @@ from metabolon.morphology import Secretion
 
 _RELEVANCE_LOG = Path.home() / ".cache" / "lustro" / "relevance.jsonl"
 _SIGNALS_LOG = Path.home() / ".local" / "share" / "vivesca" / "signals.jsonl"
-_NOESIS_BIN = Path.home() / ".cargo" / "bin" / "noesis"
+_RHEOTAXIS_LOG = Path.home() / "germline" / "loci" / "signals" / "chemotaxis.jsonl"
 
 # ---------------------------------------------------------------------------
 # Sensor topology: which sensor pairs are adjacent vs independent
@@ -48,14 +46,14 @@ _NOESIS_BIN = Path.home() / ".cargo" / "bin" / "noesis"
 # Adjacent pairs: both sensors scan external content — confirmation is
 # redundant (same side of the membrane).
 ADJACENT: set[frozenset[str]] = {
-    frozenset({"endocytosis_signal", "noesis_queries"}),  # both are external content scanning
+    frozenset({"endocytosis_signal", "rheotaxis_queries"}),  # both are external content scanning
 }
 
 # Independent pairs: what you read vs what you do — structurally orthogonal
 # sensors on opposite sides of the membrane.
 INDEPENDENT: set[frozenset[str]] = {
     frozenset({"endocytosis_signal", "tool_signals"}),  # what you read vs what you do
-    frozenset({"noesis_queries", "tool_signals"}),  # what you search vs what you do
+    frozenset({"rheotaxis_queries", "tool_signals"}),  # what you search vs what you do
 }
 
 # Coverage weights per confirmation pattern
@@ -189,9 +187,7 @@ _TOPIC_CLUSTERS: dict[str, list[str]] = {
 
 # Tool names mapped to topic domain (for signal log classification)
 _TOOL_DOMAINS: dict[str, str] = {
-    "chemotaxis_search": "ai_models",
-    "chemotaxis_ask": "ai_models",
-    "chemotaxis_research": "ai_agents",
+    "rheotaxis_search": "ai_models",
     "histone_search": "career_consulting",
     "histone_mark": "career_consulting",
     "circadian_list": "career_consulting",
@@ -356,64 +352,44 @@ def _sense_signals(days: int) -> dict[str, int]:
     return dict(domain_hits)
 
 
-def _sense_noesis(days: int) -> tuple[dict[str, int], dict[str, list[str]]]:
-    """Read noesis search log. Returns (domain_hits, domain_queries)."""
-    if not _NOESIS_BIN.exists():
+def _sense_rheotaxis(days: int) -> tuple[dict[str, int], dict[str, list[str]]]:
+    """Read rheotaxis search log (JSONL). Returns (domain_hits, domain_queries)."""
+    if not _RHEOTAXIS_LOG.exists():
         return {}, {}
-
-    try:
-        # Use default (last 20) rather than --all: last 20 is the recent window.
-        # --all returns full history sorted oldest-first; last 20 sorted oldest-first
-        # within that tail is equivalent to the recent window for our purposes.
-        result = subprocess.run(
-            [str(_NOESIS_BIN), "log"],
-            capture_output=True,
-            text=True,
-            timeout=10,
-        )
-        raw = result.stdout
-    except (subprocess.TimeoutExpired, OSError):
-        return {}, {}
-
-    # Strip ANSI escape codes
-    ansi_escape = re.compile(r"\x1B\[[0-9;]*[mK]")
-    clean = ansi_escape.sub("", raw)
 
     cutoff = datetime.now(UTC) - timedelta(days=days)
     domain_hits: Counter = Counter()
     domain_queries: dict[str, list[str]] = defaultdict(list)
 
-    for line in clean.splitlines():
-        line = line.strip()
-        if not line:
-            continue
-        # Format: "  2026-03-23T03:41 search $0.006  4.1s  ESF Kornhill..."
-        # Extract timestamp (first token) and query text (after the 4th field)
-        parts = line.split()
-        if len(parts) < 5:
-            continue
-        ts_str = parts[0]
-        try:
-            # noesis log format: "2026-03-23T03:41" (no seconds, no tz)
-            # Parse as local naive datetime, treat as UTC for comparison
-            if len(ts_str) == 16:  # "YYYY-MM-DDTHH:MM"
-                ts = datetime.strptime(ts_str, "%Y-%m-%dT%H:%M").replace(tzinfo=UTC)
-            else:
-                ts = datetime.fromisoformat(ts_str)
-                if ts.tzinfo is None:
-                    ts = ts.replace(tzinfo=UTC)
-            if ts < cutoff:
-                continue
-        except ValueError:
-            continue
-
-        # Query text is everything from the 5th token onward
-        query_text = " ".join(parts[4:])
-        hits = _score_text(query_text)
-        for domain, count in hits.items():
-            domain_hits[domain] += count
-            if len(domain_queries[domain]) < 5:
-                domain_queries[domain].append(query_text)
+    try:
+        with open(_RHEOTAXIS_LOG) as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    entry = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                ts_str = entry.get("ts", "")
+                try:
+                    ts = datetime.fromisoformat(ts_str)
+                    if ts.tzinfo is None:
+                        ts = ts.replace(tzinfo=UTC)
+                    if ts < cutoff:
+                        continue
+                except ValueError:
+                    continue
+                query_text = entry.get("query", "")
+                if not query_text:
+                    continue
+                hits = _score_text(query_text)
+                for domain, count in hits.items():
+                    domain_hits[domain] += count
+                    if len(domain_queries[domain]) < 5:
+                        domain_queries[domain].append(query_text)
+    except OSError:
+        return {}, {}
 
     return dict(domain_hits), dict(domain_queries)
 
@@ -446,18 +422,18 @@ def proprioception_gradient(days: int = 7) -> GradientReport:
     # Sense each array
     lustro_hits, lustro_titles = _sense_endocytosis(days)
     signal_hits = _sense_signals(days)
-    noesis_hits, noesis_queries = _sense_noesis(days)
+    rheotaxis_hits, rheotaxis_queries = _sense_rheotaxis(days)
 
     sensors_read = []
     if lustro_hits:
         sensors_read.append("endocytosis_signal")
     if signal_hits:
         sensors_read.append("tool_signals")
-    if noesis_hits:
-        sensors_read.append("noesis_queries")
+    if rheotaxis_hits:
+        sensors_read.append("rheotaxis_queries")
 
     # Aggregate: per domain, count sensors that fired + total hits
-    all_domains = set(lustro_hits) | set(signal_hits) | set(noesis_hits)
+    all_domains = set(lustro_hits) | set(signal_hits) | set(rheotaxis_hits)
 
     gradients: list[GradientVector] = []
     for domain in all_domains:
@@ -469,9 +445,9 @@ def proprioception_gradient(days: int = 7) -> GradientReport:
         if domain in signal_hits:
             sensors["tool_signals"] = signal_hits[domain]
             total_hits += signal_hits[domain]
-        if domain in noesis_hits:
-            sensors["noesis_queries"] = noesis_hits[domain]
-            total_hits += noesis_hits[domain]
+        if domain in rheotaxis_hits:
+            sensors["rheotaxis_queries"] = rheotaxis_hits[domain]
+            total_hits += rheotaxis_hits[domain]
 
         coverage = len(sensors)
         _weighted_cov, topology_bonus = _topology_weight(set(sensors.keys()))
@@ -483,7 +459,7 @@ def proprioception_gradient(days: int = 7) -> GradientReport:
                 topology_bonus=topology_bonus,
                 sensors=sensors,
                 top_titles=lustro_titles.get(domain, [])[:3],
-                top_queries=noesis_queries.get(domain, [])[:3],
+                top_queries=rheotaxis_queries.get(domain, [])[:3],
                 window_days=days,
             )
         )

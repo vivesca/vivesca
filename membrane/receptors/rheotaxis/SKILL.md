@@ -15,7 +15,7 @@ Any factual claim about the physical world — store locations, opening hours, p
 ## Discipline
 
 1. **Frame 2-3 queries** from different angles. The framing that finds the answer is rarely the obvious one.
-2. **Use `rheotaxis_multi` MCP tool** (or `rheotaxis` CLI) — fires all backends in parallel.
+2. **Use `rheotaxis_search` MCP tool** (pipe-separate queries) or `rheotaxis` CLI — fires all backends in parallel. Use `depth=thorough` or `depth=deep` for Perplexity tier escalation.
 3. **Cross-check**: backends agree → state confidently. Disagree → state the conflict. None confirm → say "could not confirm."
 4. **Cite** at least one URL.
 

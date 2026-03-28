@@ -18,7 +18,7 @@ model: sonnet
 ## Discipline
 
 1. **Run `proprioception_gradient`** with default 7-day window; extend to 14 for slower-moving trends (career, health) or shorten to 3 for recent spike detection.
-2. **Read topology, not just rank** — `independent` 2-sensor confirmation beats `adjacent` 2-sensor. A domain confirmed by tool_signals + noesis_queries is stronger than RSS + noesis (both external scanning).
+2. **Read topology, not just rank** — `independent` 2-sensor confirmation beats `adjacent` 2-sensor. A domain confirmed by tool_signals + rheotaxis_queries is stronger than RSS + rheotaxis (both external scanning).
 3. **`diffuse` is a valid answer** — means no clear axis; don't force an interpretation. Report it as isotropic state.
 4. **Single-sensor results are hypotheses** — flag as "unconfirmed gradient" and prompt the user to verify against their own sense of what's been active.
 5. **Act on the gap** — if polarity vector diverges from stated goals (e.g., organism is orienting to health but user said career is priority), surface the divergence explicitly.

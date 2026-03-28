@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 
 PHENOTYPE_MANIFEST = (
     "vivesca — unified MCP server. Tools prefixed by domain: "
-    "deltos (Telegram), noesis (search), fasti (calendar, HKT), "
+    "deltos (Telegram), rheotaxis (search), fasti (calendar, HKT), "
     "gap_junction (WhatsApp, NEVER sends), histone (memory DB), "
     "navigator (browser), interoception (health/system)."
 )

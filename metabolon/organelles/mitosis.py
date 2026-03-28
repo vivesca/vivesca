@@ -42,13 +42,7 @@ SYNC_TARGETS: list[dict] = [
         "critical": True,
     },
     # officina is not a git repo locally — synced via its own mechanism
-    {
-        "name": "scripts",
-        "local": "~/scripts",
-        "remote": f"{LUCERNA_HOME}/scripts",
-        "repo": "terry-li-hm/scripts",
-        "critical": False,
-    },
+    # scripts repo absorbed into germline/epigenome (Mar 2026)
     # .claude critical files DR'd via symlinks into germline/epigenome:
     # hooks → germline/synaptic/, MEMORY.md → epigenome/engrams/ltp.md,
     # settings.json → germline/membrane/expression.json

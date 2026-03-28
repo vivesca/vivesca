@@ -68,11 +68,11 @@
         ]
       },
       {
-        "matcher": "tool matches 'chemotaxis_research|vivesca__chemotaxis_research'",
+        "matcher": "tool matches 'rheotaxis_search|vivesca__rheotaxis_search'",
         "hooks": [
           {
             "type": "prompt",
-            "prompt": "The user is about to call chemotaxis_research (~$0.40). Check '$ARGUMENTS': would chemotaxis_search (~$0.006) or chemotaxis_ask (~$0.01) answer this question? research is only justified for deep multi-source investigation that cheaper tiers can't handle. If search or ask would suffice, block with: 'Use chemotaxis_search ($0.006) or chemotaxis_ask ($0.01) instead — 60x cheaper. Reserve research for questions needing deep multi-source investigation.'"
+            "prompt": "Check '$ARGUMENTS' for depth parameter. If depth=deep (~$0.40): is this justified? Would depth=quick (~$0.006) or depth=thorough (~$0.01) answer this question? deep is only for multi-source investigation that cheaper tiers can't handle. If quick or thorough would suffice, block with: 'Use depth=quick ($0.006) or depth=thorough ($0.01) instead — 60x cheaper.' If depth is quick or thorough (or absent), allow without comment."
           }
         ]
       }

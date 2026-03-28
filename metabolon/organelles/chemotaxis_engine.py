@@ -1,4 +1,4 @@
-"""chemotaxis_engine — web search via Perplexity API (formerly noesis).
+"""chemotaxis_engine — web search via Perplexity API.
 
 Endosymbiosis: Rust binary → Python organelle.
 Credentials: PERPLEXITY_API_KEY env var.
