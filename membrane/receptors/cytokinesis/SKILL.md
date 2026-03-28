@@ -54,13 +54,12 @@ If unfinished work exists: **finish it or park it with context — don't consoli
 
 Three things in parallel:
 
-1. **Ask Terry: "What's worth keeping?"** — the nucleus knows what mattered. **Wait for the answer.** Don't pre-empt with your own list. Terry's signal is higher-value than LLM extraction — things that felt important, surprising, or painful to the human are the highest-fidelity captures. Present your candidates *after* Terry's, as a "did I miss anything?" check.
-2. **Run `cytokinesis gather`** — LLM extracts what it thinks is valuable.
-3. **Source data check:** Were any factual data points (metrics, thresholds, figures, dates, decisions) entered by the user that fed deliverables (emails, gists, slides) but were not persisted to vault or histone? Route hits to `~/epigenome/chromatin/euchromatin/work/` vault notes via `emit_vault_note`.
+1. **Run `cytokinesis gather`** — deterministic pre-checks.
+2. **LLM extraction** — scan session for candidates, classify each by selection priority.
+3. **Source data check** — factual data points entered by user that fed deliverables but weren't persisted to vault or histone? Route to `~/epigenome/chromatin/euchromatin/work/` via `emit_vault_note`.
+4. **Present candidates and act** — show the full list with routing decisions, file immediately, note anything Terry might want to review. Don't block on input — act-and-report. Terry corrects after if needed.
 
-Merge all three. Terry fills gaps the LLM missed. LLM catches things Terry forgot. Source data check catches what both missed. Route everything to the right places.
-
-If continuous capture handled most of it → quick verification pass for all three.
+If continuous capture handled most of it → quick verification pass, report filed=0.
 
 **MEMORY.md ≥145 lines →** downregulate by recurrence signal, not by position. Check `hits:` and `last-seen:` in memory file frontmatter (updated automatically by dendrite.py on every Read). Lowest hits + oldest last-seen = downregulate candidate. Move to `~/epigenome/chromatin/immunity/memory-overflow.md` (reversible — re-promote if topic resurfaces).
 
