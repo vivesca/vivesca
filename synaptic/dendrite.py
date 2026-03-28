@@ -560,7 +560,11 @@ def mod_ligation_skill(data):
     if gen.exists():
         subprocess.run(["python3", str(gen)], capture_output=True)
 
-    print(f"IDEAL? skill ({rel}): dedup? format? budget?", file=sys.stderr)
+    # Debounce: one nudge per session, not per file
+    flag = Path("/tmp/.cytokinesis-ideal-skill")
+    if not flag.exists():
+        print(f"IDEAL? skill ({rel}): dedup? format? budget?", file=sys.stderr)
+        flag.touch()
 
 
 # ── ideal? nudge for code edits ──────────────────────────────
@@ -568,9 +572,13 @@ def mod_ligation_skill(data):
 
 def mod_ideal_code(data):
     """Nudge after germline code edits: tests? simplify? naming?"""
+    flag = Path("/tmp/.cytokinesis-ideal-code")
+    if flag.exists():
+        return
     fp = data.get("tool_input", {}).get("file_path", "")
     basename = Path(fp).name
     print(f"IDEAL? code ({basename}): tests? simplify? naming?", file=sys.stderr)
+    flag.touch()
 
 
 # ── glycolytic commit message (deterministic, no symbiont) ──
