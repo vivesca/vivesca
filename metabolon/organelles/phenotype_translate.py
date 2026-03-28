@@ -284,6 +284,200 @@ def diff_settings(current: dict[str, Any], proposed: dict[str, Any]) -> str:
     return "".join(lines)
 
 
+# ── phenotype sync ───────────────────────────────────────────────────────────
+
+
+class SyncResult:
+    """Summary of a phenotype sync operation."""
+
+    def __init__(
+        self,
+        symlinks_ok: list[str],
+        symlinks_fixed: list[str],
+        symlinks_failed: list[str],
+        hooks_result: TranslationResult | None,
+        gemini_md_ok: bool,
+        integrin_issues: list[dict],
+        unknown_platforms: list[str],
+        dry_run: bool,
+    ) -> None:
+        self.symlinks_ok = symlinks_ok
+        self.symlinks_fixed = symlinks_fixed
+        self.symlinks_failed = symlinks_failed
+        self.hooks_result = hooks_result
+        self.gemini_md_ok = gemini_md_ok
+        self.integrin_issues = integrin_issues
+        self.unknown_platforms = unknown_platforms
+        self.dry_run = dry_run
+
+    @property
+    def ok(self) -> bool:
+        return (
+            not self.symlinks_failed
+            and not self.integrin_issues
+            and self.gemini_md_ok
+        )
+
+    @property
+    def summary(self) -> str:
+        mode = " (dry-run)" if self.dry_run else ""
+        lines: list[str] = []
+
+        # Symlinks
+        total = len(self.symlinks_ok) + len(self.symlinks_fixed) + len(self.symlinks_failed)
+        if self.symlinks_fixed:
+            lines.append(
+                f"Symlinks{mode}: {len(self.symlinks_ok)} ok, "
+                f"{len(self.symlinks_fixed)} fixed: {', '.join(self.symlinks_fixed)}"
+            )
+        elif self.symlinks_failed:
+            lines.append(
+                f"Symlinks{mode}: {len(self.symlinks_ok)}/{total} ok — "
+                f"FAILED: {', '.join(self.symlinks_failed)}"
+            )
+        else:
+            lines.append(f"Symlinks{mode}: {total} ok.")
+
+        # Hook translation
+        if self.hooks_result is not None:
+            lines.append(f"Hooks{mode}: {self.hooks_result.summary}")
+        else:
+            lines.append(f"Hooks{mode}: skipped (no CC settings found).")
+
+        # GEMINI.md
+        status = "ok" if self.gemini_md_ok else "MISSING or wrong target"
+        lines.append(f"GEMINI.md{mode}: {status}.")
+
+        # Integrin verification
+        if self.integrin_issues:
+            issues_desc = "; ".join(
+                f"{i['path']} ({i['problem']})" for i in self.integrin_issues
+            )
+            lines.append(f"Integrin{mode}: issues — {issues_desc}")
+        else:
+            lines.append(f"Integrin{mode}: all checks pass.")
+
+        # Unknown platforms
+        if self.unknown_platforms:
+            lines.append(
+                f"Unknown platforms detected: {', '.join(self.unknown_platforms)} "
+                f"(add to PLATFORM_SYMLINKS in locus.py)."
+            )
+
+        return "\n".join(lines)
+
+
+def _ensure_symlink(symlink_path: Path, target: Path, dry_run: bool) -> str:
+    """Ensure symlink_path → target exists and is correct.
+
+    Returns 'ok', 'fixed', or 'failed'.
+    """
+    try:
+        if symlink_path.is_symlink():
+            if symlink_path.resolve() == target.resolve():
+                return "ok"
+            # Wrong target — remove and recreate
+            if not dry_run:
+                symlink_path.unlink()
+                symlink_path.symlink_to(target)
+            return "fixed"
+        elif symlink_path.exists():
+            # Regular file in the way — cannot safely replace
+            return "failed"
+        else:
+            # Missing — create
+            if not dry_run:
+                symlink_path.parent.mkdir(parents=True, exist_ok=True)
+                symlink_path.symlink_to(target)
+            return "fixed"
+    except OSError:
+        return "failed"
+
+
+def sync_phenotype(
+    *,
+    dry_run: bool = False,
+    cc_settings_path: Path = CC_SETTINGS_PATH,
+    gemini_settings_path: Path = GEMINI_SETTINGS_PATH,
+    adapter_path: Path = GEMINI_ADAPTER_PATH,
+    wrap: bool = True,
+) -> SyncResult:
+    """Ensure all LLM CLI platforms express the organism's identity.
+
+    Steps (in order):
+    1. Symlinks  — verify/create PLATFORM_SYMLINKS → phenotype_md.
+    2. Hooks     — translate CC hooks → Gemini CLI hooks (unless dry_run).
+    3. GEMINI.md — verify ~/.gemini/GEMINI.md → phenotype_md.
+    4. Integrin  — call _check_phenotype_symlinks() for final verification.
+
+    Args:
+        dry_run: Report what would change without writing anything.
+        cc_settings_path: Source CC settings.json.
+        gemini_settings_path: Destination Gemini CLI settings.json.
+        adapter_path: Path to gemini_adapter.py.
+        wrap: Wrap synaptic/*.py commands with gemini_adapter.
+
+    Returns:
+        SyncResult with full status.
+    """
+    from metabolon.locus import PLATFORM_SYMLINKS, phenotype_md
+    from metabolon.enzymes.integrin import _check_phenotype_symlinks
+
+    # ── step 1: symlinks ─────────────────────────────────────────────
+    symlinks_ok: list[str] = []
+    symlinks_fixed: list[str] = []
+    symlinks_failed: list[str] = []
+
+    for symlink_path in PLATFORM_SYMLINKS:
+        outcome = _ensure_symlink(symlink_path, phenotype_md, dry_run=dry_run)
+        label = str(symlink_path)
+        if outcome == "ok":
+            symlinks_ok.append(label)
+        elif outcome == "fixed":
+            symlinks_fixed.append(label)
+        else:
+            symlinks_failed.append(label)
+
+    # ── step 2: hook translation ─────────────────────────────────────
+    hooks_result: TranslationResult | None = None
+    if cc_settings_path.exists():
+        cc_settings = read_cc_settings(cc_settings_path)
+        cc_hooks = cc_settings.get("hooks", {})
+        current_gemini = read_gemini_settings(gemini_settings_path)
+        gemini_hooks, hooks_result = translate_hooks(
+            cc_hooks, adapter_path=adapter_path, wrap=wrap
+        )
+        hooks_result.dry_run = dry_run
+        if not dry_run:
+            proposed = merge_hooks_into_gemini(current_gemini, gemini_hooks)
+            gemini_settings_path.parent.mkdir(parents=True, exist_ok=True)
+            with gemini_settings_path.open("w", encoding="utf-8") as fh:
+                import json as _json
+                _json.dump(proposed, fh, indent=2)
+                fh.write("\n")
+
+    # ── step 3: GEMINI.md skill access check ─────────────────────────
+    gemini_md_path = Path.home() / ".gemini" / "GEMINI.md"
+    gemini_md_ok = (
+        gemini_md_path.is_symlink()
+        and gemini_md_path.resolve() == phenotype_md.resolve()
+    )
+
+    # ── step 4: integrin verification ────────────────────────────────
+    integrin_issues, unknown_platforms = _check_phenotype_symlinks()
+
+    return SyncResult(
+        symlinks_ok=symlinks_ok,
+        symlinks_fixed=symlinks_fixed,
+        symlinks_failed=symlinks_failed,
+        hooks_result=hooks_result,
+        gemini_md_ok=gemini_md_ok,
+        integrin_issues=integrin_issues,
+        unknown_platforms=unknown_platforms,
+        dry_run=dry_run,
+    )
+
+
 # ── main entry point ─────────────────────────────────────────────────────────
 
 

@@ -23,11 +23,14 @@ import pytest
 from metabolon.organelles.phenotype_translate import (
     CC_TO_GEMINI_EVENT,
     GEMINI_ADAPTER_PATH,
+    SyncResult,
     TranslationResult,
+    _ensure_symlink,
     _is_synaptic_script,
     _wrap_command,
     diff_settings,
     merge_hooks_into_gemini,
+    sync_phenotype,
     translate_hooks,
     translate_to_gemini,
 )
@@ -642,3 +645,172 @@ class TestTranslationResult:
     def test_prompt_skipped_in_summary(self):
         r = TranslationResult(0, 0, prompt_hooks_skipped=2, events_dropped=[], dry_run=False)
         assert "2" in r.summary
+
+
+# ── phenotype sync ────────────────────────────────────────────────────────────
+
+
+class TestEnsureSymlink:
+    def test_creates_missing_symlink(self, tmp_path):
+        target = tmp_path / "phenotype.md"
+        target.write_text("# phenotype")
+        link = tmp_path / "CLAUDE.md"
+        assert not link.exists()
+        outcome = _ensure_symlink(link, target, dry_run=False)
+        assert outcome == "fixed"
+        assert link.is_symlink()
+        assert link.resolve() == target.resolve()
+
+    def test_dry_run_does_not_create_symlink(self, tmp_path):
+        target = tmp_path / "phenotype.md"
+        target.write_text("# phenotype")
+        link = tmp_path / "CLAUDE.md"
+        outcome = _ensure_symlink(link, target, dry_run=True)
+        assert outcome == "fixed"
+        assert not link.exists()
+
+    def test_correct_symlink_returns_ok(self, tmp_path):
+        target = tmp_path / "phenotype.md"
+        target.write_text("# phenotype")
+        link = tmp_path / "CLAUDE.md"
+        link.symlink_to(target)
+        outcome = _ensure_symlink(link, target, dry_run=False)
+        assert outcome == "ok"
+
+    def test_wrong_target_gets_fixed(self, tmp_path):
+        target = tmp_path / "phenotype.md"
+        target.write_text("# phenotype")
+        wrong = tmp_path / "other.md"
+        wrong.write_text("# other")
+        link = tmp_path / "CLAUDE.md"
+        link.symlink_to(wrong)
+        outcome = _ensure_symlink(link, target, dry_run=False)
+        assert outcome == "fixed"
+        assert link.resolve() == target.resolve()
+
+    def test_regular_file_returns_failed(self, tmp_path):
+        target = tmp_path / "phenotype.md"
+        target.write_text("# phenotype")
+        link = tmp_path / "CLAUDE.md"
+        link.write_text("# regular file, not a symlink")
+        outcome = _ensure_symlink(link, target, dry_run=False)
+        assert outcome == "failed"
+        # Must not have clobbered the regular file
+        assert link.read_text() == "# regular file, not a symlink"
+
+
+class TestSyncPhenotype:
+    def test_dry_run_does_not_write_gemini_settings(self, tmp_path):
+        gemini_settings = tmp_path / "settings.json"
+        from metabolon.organelles.phenotype_translate import CC_SETTINGS_PATH
+
+        result = sync_phenotype(
+            dry_run=True,
+            cc_settings_path=CC_SETTINGS_PATH,
+            gemini_settings_path=gemini_settings,
+        )
+        assert not gemini_settings.exists(), "dry_run must not write settings.json"
+        assert result.dry_run is True
+
+    def test_sync_result_has_summary(self, tmp_path):
+        gemini_settings = tmp_path / "settings.json"
+        from metabolon.organelles.phenotype_translate import CC_SETTINGS_PATH
+
+        result = sync_phenotype(
+            dry_run=True,
+            cc_settings_path=CC_SETTINGS_PATH,
+            gemini_settings_path=gemini_settings,
+        )
+        summary = result.summary
+        assert "Symlinks" in summary
+        assert "Hooks" in summary
+        assert "GEMINI.md" in summary
+        assert "Integrin" in summary
+
+    def test_sync_result_dry_run_label_in_summary(self, tmp_path):
+        gemini_settings = tmp_path / "settings.json"
+        from metabolon.organelles.phenotype_translate import CC_SETTINGS_PATH
+
+        result = sync_phenotype(
+            dry_run=True,
+            cc_settings_path=CC_SETTINGS_PATH,
+            gemini_settings_path=gemini_settings,
+        )
+        assert "dry-run" in result.summary
+
+    def test_no_cc_settings_hooks_skipped(self, tmp_path):
+        missing_cc = tmp_path / "nonexistent_settings.json"
+        gemini_settings = tmp_path / "settings.json"
+        result = sync_phenotype(
+            dry_run=True,
+            cc_settings_path=missing_cc,
+            gemini_settings_path=gemini_settings,
+        )
+        assert result.hooks_result is None
+        assert "skipped" in result.summary
+
+    def test_sync_result_ok_property(self):
+        r = SyncResult(
+            symlinks_ok=["a"],
+            symlinks_fixed=[],
+            symlinks_failed=[],
+            hooks_result=None,
+            gemini_md_ok=True,
+            integrin_issues=[],
+            unknown_platforms=[],
+            dry_run=False,
+        )
+        assert r.ok is True
+
+    def test_sync_result_not_ok_when_symlink_failed(self):
+        r = SyncResult(
+            symlinks_ok=[],
+            symlinks_fixed=[],
+            symlinks_failed=["~/CLAUDE.md"],
+            hooks_result=None,
+            gemini_md_ok=True,
+            integrin_issues=[],
+            unknown_platforms=[],
+            dry_run=False,
+        )
+        assert r.ok is False
+
+    def test_sync_result_not_ok_when_gemini_md_missing(self):
+        r = SyncResult(
+            symlinks_ok=["a"],
+            symlinks_fixed=[],
+            symlinks_failed=[],
+            hooks_result=None,
+            gemini_md_ok=False,
+            integrin_issues=[],
+            unknown_platforms=[],
+            dry_run=False,
+        )
+        assert r.ok is False
+
+    def test_sync_result_not_ok_when_integrin_issues(self):
+        r = SyncResult(
+            symlinks_ok=["a"],
+            symlinks_fixed=[],
+            symlinks_failed=[],
+            hooks_result=None,
+            gemini_md_ok=True,
+            integrin_issues=[{"path": "/some/path", "problem": "missing"}],
+            unknown_platforms=[],
+            dry_run=False,
+        )
+        assert r.ok is False
+
+    def test_unknown_platforms_in_summary(self):
+        r = SyncResult(
+            symlinks_ok=["a"],
+            symlinks_fixed=[],
+            symlinks_failed=[],
+            hooks_result=None,
+            gemini_md_ok=True,
+            integrin_issues=[],
+            unknown_platforms=[".codex"],
+            dry_run=False,
+        )
+        assert ".codex" in r.summary
+        assert "PLATFORM_SYMLINKS" in r.summary

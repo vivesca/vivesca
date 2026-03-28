@@ -2204,6 +2204,40 @@ def phenotype_translate(source: str | None, dest: str | None, no_wrap: bool, dry
         click.echo(diff_text)
 
 
+@phenotype.command("sync")
+@click.option("--dry-run", is_flag=True, help="Report what would change without writing to disk.")
+@click.option(
+    "--no-wrap",
+    is_flag=True,
+    help="Skip wrapping synaptic/*.py commands with gemini_adapter.",
+)
+def phenotype_sync(dry_run: bool, no_wrap: bool):
+    """Ensure all LLM CLI platforms express the organism's identity.
+
+    Runs four steps in order:
+
+    \b
+    1. Symlinks   — verify/create PLATFORM_SYMLINKS → phenotype.md.
+    2. Hooks      — translate CC hooks → Gemini CLI hook config.
+    3. GEMINI.md  — verify ~/.gemini/GEMINI.md → phenotype.md.
+    4. Integrin   — call _check_phenotype_symlinks() for final verification.
+    """
+    import warnings
+
+    from metabolon.organelles.phenotype_translate import sync_phenotype
+
+    with warnings.catch_warnings(record=True) as caught_warnings:
+        warnings.simplefilter("always")
+        result = sync_phenotype(dry_run=dry_run, wrap=not no_wrap)
+
+    for w in caught_warnings:
+        click.echo(str(w.message), err=True)
+
+    click.echo(result.summary)
+    if not result.ok:
+        raise SystemExit(1)
+
+
 # ── rename ───────────────────────────────────────────────────────────
 
 
