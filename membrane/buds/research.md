@@ -24,3 +24,15 @@ Output format depends on subject:
 The LLM reasons about: which sources are credible, how to reconcile conflicts, what's relevant to Terry's context.
 
 Persistent memory: remembers past research topics to avoid re-researching and to build on prior findings.
+
+## Inter-agent signaling (paracrine)
+
+If you discover something unexpected or noteworthy that other agents/sessions should know about, emit a signal:
+```bash
+python3 -c "
+import sys; sys.path.insert(0, '$HOME/germline')
+from metabolon.organelles.demethylase import emit_signal
+emit_signal('research-finding', 'Brief description of what you found', source='research-bud')
+"
+```
+Only for genuinely surprising findings — not routine results.

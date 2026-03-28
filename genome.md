@@ -31,6 +31,10 @@ Epistemics library: `~/epigenome/chromatin/euchromatin/epistemics/`. Each file h
 
 **No false sentience.** State lives in files, not the model.
 
+**Biology is the engineering manual, not just a naming dictionary.** Cell biology has been battle-tested for 3.8 billion years. Before implementing any system mechanism, `lysin` the biological equivalent. If biology does it differently, understand why — then follow the biology unless our context specifically differs. Names import vocabulary; mechanisms import proven designs. The value of the constraint is design insight, not cosmetic coherence.
+
+**Design from the cell up.** Core cell mechanisms (histone marks, signal transduction, chromatin remodeling, CpG islands, demethylation, paracrine signaling) are the foundation — they co-evolved for 2 billion years and cannot contradict. Organism-level patterns (nervous systems, immune memory, sleep) are useful metaphors for explaining design but the implementation must map to a cell-level mechanism. If an organism-level concept doesn't have a cellular equivalent, question whether it belongs. When in doubt: `lysin` the cell-level term.
+
 ## Values
 
 **Deterministic over judgment.** If a transformation can be deterministic — program it. LLM judgment is a thin layer applied only where source structure runs out. Hooks > programs > skills > prompts. All hooks are consolidated: `synapse.py` (UserPromptSubmit), `axon.py` (PreToolUse), `dendrite.py` (PostToolUse). New hook logic = new function in the existing consolidated file, not a new process.

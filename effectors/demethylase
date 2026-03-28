@@ -6,6 +6,7 @@ Usage:
     demethylase --execute          # actually delete stale marks
     demethylase --threshold 60     # custom staleness threshold (days)
     demethylase --json             # JSON output
+    demethylase --consolidate      # run consolidation only (no erasure)
 """
 
 from __future__ import annotations
@@ -17,7 +18,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path.home() / "germline"))
 
-from metabolon.organelles.demethylase import format_report, sweep
+from metabolon.organelles.demethylase import consolidate, format_report, sweep
 
 
 def main():
@@ -25,7 +26,25 @@ def main():
     parser.add_argument("--execute", action="store_true", help="Actually delete stale marks (default: dry-run)")
     parser.add_argument("--threshold", type=int, default=90, help="Days before methyl marks are stale (default: 90)")
     parser.add_argument("--json", action="store_true", help="Output as JSON")
+    parser.add_argument("--consolidate", action="store_true", help="Run chromatin remodeling only (no erasure)")
     args = parser.parse_args()
+
+    if args.consolidate:
+        report = consolidate()
+        if args.json:
+            print(json.dumps({
+                "today_marks": [m.path.name for m in report.today_marks],
+                "clusters_found": report.clusters_found[:10],
+                "strengthened": [m.path.name for m in report.strengthened],
+                "methylome_updated": report.methylome_updated,
+            }, indent=2))
+        else:
+            print(f"[CONSOLIDATE] Sleep consolidation complete.")
+            print(f"  Today's marks:  {len(report.today_marks)}")
+            print(f"  Clusters found: {len(report.clusters_found)}")
+            print(f"  Strengthened:   {len(report.strengthened)}")
+            print(f"  Methylome:      {'updated' if report.methylome_updated else 'unchanged'}")
+        return
 
     report = sweep(threshold_days=args.threshold, dry_run=not args.execute)
 

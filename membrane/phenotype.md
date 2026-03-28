@@ -5,6 +5,7 @@ A living system built on cell biology as a design constraint.
 All constitutional rules live in `~/germline/genome.md`. Follow them.
 
 The naming convention is cell biology. Every component has a biological identity.
+Biology is the engineering manual — before building any mechanism, `lysin "<term>"` to check what cells actually do. Follow the biology.
 See `anatomy.md` for the structural map.
 
 ## Memory

@@ -59,6 +59,15 @@ def zeitgebers() -> dict[str, Any]:
     except Exception as e:
         logger.debug("RSS state unavailable: %s", e)
 
+    # Interbrachial commissure — check for pending signals from other agents
+    pending_signals: list[dict] = []
+    try:
+        from metabolon.organelles.demethylase import read_signals
+
+        pending_signals = read_signals()
+    except Exception as e:
+        logger.debug("Signal channel unavailable: %s", e)
+
     return {
         "hkt_hour": hour,
         "weekday": now.strftime("%A"),
@@ -67,6 +76,7 @@ def zeitgebers() -> dict[str, Any]:
         "readiness": readiness,
         "budget_status": budget,
         "rss_stale": rss_stale,
+        "pending_signals": pending_signals,
     }
 
 
