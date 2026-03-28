@@ -11,7 +11,7 @@ from metabolon.respirometry.categories import categorise, restore_categories
 from metabolon.respirometry.detect import filename_matches, identify_bank
 from metabolon.respirometry.monitors import activate_monitors
 from metabolon.respirometry.parsers import get_parser
-from metabolon.respirometry.vault import (
+from metabolon.respirometry.chromatin import (
     archive_pdf,
     file_hash,
     is_processed,
@@ -74,11 +74,11 @@ def metabolize_statement(
         if not t.category:
             t.category = categorise(t.merchant, cats)
 
-    # Write to vault
+    # Write to chromatin
     md_path = secrete_statement(meta, txns, spending_dir)
 
     # Write monthly summary
-    from metabolon.respirometry.vault import secrete_monthly_summary
+    from metabolon.respirometry.chromatin import secrete_monthly_summary
 
     month = meta.statement_date[:7]  # YYYY-MM
     secrete_monthly_summary(month, spending_dir)

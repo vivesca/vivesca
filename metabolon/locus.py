@@ -15,7 +15,7 @@ home = Path.home()
 germline = home / "germline"
 epigenome = home / "epigenome"
 
-# Chromatin (vault)
+# Chromatin
 chromatin = epigenome / "chromatin"
 praxis = chromatin / "Praxis.md"
 praxis_archive = chromatin / "Praxis Archive.md"

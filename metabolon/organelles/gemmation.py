@@ -1,4 +1,4 @@
-"""dispatcher — background AI agent job queue (formerly legatus).
+"""gemmation — background AI agent job queue (vesicle budding and dispatch).
 
 Endosymbiosis: Rust binary -> Python organelle.
 Manages YAML queue at ~/epigenome/chromatin/agent-queue.yaml.
@@ -15,8 +15,8 @@ import yaml
 from metabolon.locus import agent_queue
 
 QUEUE_PATH = agent_queue
-RUNS_DIR = Path.home() / ".cache" / "legatus-runs"
-BACKENDS = ("claude", "gemini", "codex", "opencode")
+RUNS_DIR = Path.home() / ".cache" / "gemmation-runs"
+BACKENDS = ("claude", "gemini", "codex", "opencode", "goose")
 
 
 def _load_queue(path: Path | None = None) -> list[dict]:
@@ -87,6 +87,8 @@ def _build_cmd(task: dict, out_dir: Path) -> list[str]:
     elif backend == "opencode":
         title = task.get("title") or task["name"]
         return ["opencode", "run", "-m", "opencode/glm-5", "--title", title, prompt]
+    elif backend == "goose":
+        return ["goose", "run", "-t", prompt]
     else:
         raise ValueError(f"Unknown backend: {backend}")
 
@@ -151,7 +153,7 @@ def run_task(name: str, queue_path: Path | None = None) -> str:
         f"Dispatched '{name}' via {backend} (pid: {child.pid})\n"
         f"  Output: {out_dir}\n"
         f"  Log:    {log}\n"
-        f"  Check:  legatus results {name}"
+        f"  Check:  gemmation results {name}"
     )
 
 
@@ -204,10 +206,10 @@ def get_results(name: str | None = None) -> str:
 
 
 def _cli() -> None:
-    """CLI entry point (drop-in replacement for Rust legatus)."""
+    """CLI entry point (drop-in replacement for Rust gemmation)."""
     import argparse
 
-    parser = argparse.ArgumentParser(prog="legatus", description="Background AI agent job queue")
+    parser = argparse.ArgumentParser(prog="gemmation", description="Background AI agent job queue")
     parser.add_argument("--queue", type=Path, default=None)
     sub = parser.add_subparsers(dest="cmd")
 

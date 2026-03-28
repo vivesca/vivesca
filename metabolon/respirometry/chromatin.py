@@ -1,4 +1,4 @@
-"""Write parsed statements to the vault as markdown."""
+"""Write parsed statements to chromatin as markdown."""
 
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ from metabolon.respirometry.schema import ConsumptionEvent, RespirogramMeta
 
 
 def serialize_markdown(meta: RespirogramMeta, transactions: list[ConsumptionEvent]) -> str:
-    """Generate vault markdown from parsed statement data."""
+    """Generate chromatin markdown from parsed statement data."""
     lines: list[str] = []
 
     # Frontmatter
