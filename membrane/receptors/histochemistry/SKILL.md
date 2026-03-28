@@ -47,6 +47,17 @@ Skip any step = assertion without evidence.
 - Trusting agent success reports without checking
 - "Just this once"
 
+## Rationalization Prevention
+
+| Excuse | Reality |
+|--------|---------|
+| "Should work now" | RUN the verification |
+| "I'm confident" | Confidence != evidence |
+| "I just changed one line" | One line can break everything |
+| "Tests passed last time" | Last time != this time |
+| "The agent said it's done" | Agent reports are claims, not evidence |
+| "Just this once" | No exceptions — this IS the exception that burns you |
+
 ## Patterns
 
 ```

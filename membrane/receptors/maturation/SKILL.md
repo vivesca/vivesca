@@ -34,6 +34,14 @@ description: Use when reading Slack messages from local export. "check Slack", "
 - Under 500 characters
 - **Lean slightly pushy.** Claude undertriggers -- err toward including edge-case triggers rather than being conservative
 
+**TRIGGER / DO NOT TRIGGER** — for skills with ambiguous boundaries, add explicit clauses:
+```yaml
+description: >
+  Build apps with the Claude API.
+  TRIGGER when: code imports `anthropic`, user asks about Claude API.
+  DO NOT TRIGGER when: code imports `openai` or other AI SDK.
+```
+
 **Sanity check:** After writing, think of 3 prompts that SHOULD trigger and 2 that SHOULDN'T. If the description can't distinguish them, rewrite.
 
 ## Progressive Disclosure
@@ -58,6 +66,18 @@ Every skill loaded = tokens burned from context. Budget:
 
 **Techniques:** Route to CLI `--help` for flag docs. Cross-reference other skills by name, don't repeat. One example, not five. Compress: 20 words beats 42 for the same point. If agents keep reinventing the same helper script across invocations, bundle it in `scripts/`.
 
+## Freedom Calibration
+
+Match instruction style to the task's fragility:
+
+| Context | Freedom | Format |
+|---------|---------|--------|
+| **Narrow bridge** — one right way, failure is costly | Low | Deterministic scripts in `scripts/`, exact commands |
+| **Guided path** — few valid approaches, some judgment | Medium | Numbered steps with reasoning |
+| **Open field** — many valid approaches, creativity welcome | High | Principles and examples, let the model improvise |
+
+Wrong calibration in either direction hurts: too rigid on open fields produces brittle output; too free on narrow bridges produces errors.
+
 ## Structure
 
 1. **Route to deterministic first.** If a CLI/tool exists, the skill is a thin router. Don't duplicate what the tool already does.
@@ -66,12 +86,24 @@ Every skill loaded = tokens burned from context. Budget:
 4. **Flowcharts only for non-obvious decisions.** Reference material = tables. Linear steps = numbered list.
 5. **Gotchas table** for things agents get wrong without the skill.
 6. **Discipline skills** (TDD, verification) additionally need a rationalization table -- catalogue the excuses agents use and counter each explicitly.
+7. **No auxiliary docs.** No README.md, CHANGELOG.md, INSTALLATION_GUIDE.md, QUICK_REFERENCE.md. Only SKILL.md + scripts/ + references/. Everything the agent needs, nothing it doesn't.
 
 ## Naming
 
 - Verb-first or process noun: `condition-based-waiting` not `async-test-helpers`
 - Gerunds for processes: `creating-skills`, `debugging-with-logs`
 - Letters, numbers, hyphens only in frontmatter `name` field
+
+## Fixing a Broken Skill
+
+When a skill misfires (wrong trigger, bad instructions, stale content):
+
+1. **Detect** — what went wrong? Wrong trigger (description issue), wrong behavior (body issue), or stale reference?
+2. **Reflect** — what's the minimal change? Don't rewrite the whole skill for one misfire.
+3. **Fix** — edit the specific section. Show before/after if non-obvious.
+4. **Verify** — mentally replay the trigger scenario. Would it fire correctly now?
+
+Common misfires: description too broad (fires on unrelated prompts), description too narrow (doesn't fire when it should), body contradicts description, stale paths/commands.
 
 ## Anti-Patterns
 

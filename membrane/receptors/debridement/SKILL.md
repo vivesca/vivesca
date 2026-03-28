@@ -137,6 +137,23 @@ Do not report private/dunder names, framework conventions (Flask route names, py
 
 ---
 
+## Step 5 — Skill Format Validation
+
+For each SKILL.md in `receptors/`:
+
+| Check | Pass | Fail |
+|-------|------|------|
+| Description starts with verb/trigger phrase | "Use when...", "Fetch...", "Coach..." | "A tool that..." |
+| Description < 1024 chars | Short, trigger-focused | Long, summarizes workflow |
+| Body < 500 lines | Concise | Bloated — split into references/ |
+| No "When to Use" section duplicating description | Trigger logic in description only | Redundant trigger logic in body |
+| No auxiliary files | Only SKILL.md + scripts/ + references/ + agents/ | README.md, CHANGELOG.md, etc. |
+| Frontmatter has name + description | Both present | Missing field |
+
+Report violations alongside naming results. This catches skill rot before it accumulates.
+
+---
+
 ## Scope
 
 Default sweep covers:

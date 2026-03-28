@@ -23,6 +23,19 @@ model: sonnet
 4. **`translocation_cancel` is permanent for the run** — it cancels/disables the task, not just pauses it. Confirm intent before calling.
 5. **Don't poll** — kinesin tasks report through germination; check results at natural session boundaries, not on demand.
 
+## Bundled Agent Prompts
+
+For recurring async patterns, store pre-written agent prompts in `agents/` subdirectory of the relevant skill:
+```
+receptors/kinesin/
+  SKILL.md
+  agents/
+    overnight-research.md    # system prompt for research agents
+    batch-processor.md       # system prompt for data processing agents
+```
+
+These are system prompts, not skills. They carry the context a dispatched agent needs without loading it into the dispatching session's context window. Reference by path when dispatching: `translocation_run` with prompt pointing to the agent file.
+
 ## Anti-patterns
 
 | Don't | Do |
