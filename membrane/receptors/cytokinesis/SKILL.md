@@ -16,35 +16,22 @@ allowed-tools:
 
 > Cytokinesis is continuous, not terminal. Capture anything useful to vivesca the moment it surfaces — don't wait for the session to die. The end-of-session invocation is a verification pass, not the main event. The ideal cytokinesis has nothing left to do.
 
-## Auto-trigger Signals
+## Mid-Session Capture
 
-Capture mid-session when you detect:
-- **Resolution phrases** — "that worked", "it's fixed", "working now", "that's it" → capture the solve if non-trivial
-- **Correction** — Terry corrects an assumption or approach → memory candidate
-- **Surprise** — unexpected behavior, tool gotcha, undocumented constraint → antisera candidate
-- **Repeated manual step** — same action done 2+ times → methylation candidate (hook/rule)
+Capture continuously — don't wait for `/cytokinesis`. The end-of-session pass is verification, not the main event.
 
-**Non-trivial gate:** Only capture solves that required multiple investigation steps, tricky debugging, or non-obvious reasoning. Skip: typo fixes, config changes, single-step obvious fixes. The test: "Would a fresh session benefit from knowing this?"
+| Signal | Route to | Gate |
+|---|---|---|
+| Resolution ("that worked", "it's fixed") | Antisera if non-trivial | Would a fresh session benefit? |
+| Correction from Terry | Memory (feedback) | Always file |
+| Surprise / unexpected behavior | Antisera | Always file |
+| Repeated manual step (2+) | Hook candidate (methylation) | Always file |
+| Workflow improvement idea | Skill edit (now, not deferred) | Always file |
+| Publishable insight | Tweet / garden | Ship immediately |
+| State change | Tonus.md | Always update |
+| Commitment / action | Praxis.md (with context) | Always file |
 
-**One test:** is this useful to vivesca? If yes, route it:
-
-| What | Where |
-|---|---|
-| Learning / correction | Memory file + MEMORY.md index |
-| Workflow improvement | Skill update (edit now, don't defer) |
-| Commitment / action | Praxis.md (with full context — hot todos > cold stubs) |
-| Publishable insight | Tweet / garden / announce (draft and ship) |
-| Tool gotcha | `~/germline/loci/antisera/` |
-| State change | Tonus.md |
-
-**Capture generously — this means FILE MORE, not less.** Default is FILE. Only SKIP what is duplicated verbatim in an existing memory. If in doubt, file. The LLM's default is to over-filter; fight that instinct. A separate process handles forgetting.
-
-**Selection priority** (when triaging candidates):
-1. **Prediction errors** — corrections, wrong assumptions. Highest signal.
-2. **Novelty** — first time this came up.
-3. **Emotional weight** — strong pushback, repeated insistence.
-4. **Pattern completion** — reinforces existing memory. Update, don't duplicate.
-5. **Routine/expected** — only skip if obviously already known.
+**Default: FILE.** Over-filter is the LLM failure mode. A separate process handles forgetting. Priority: prediction errors > novelty > emotional weight > pattern completion > routine.
 
 **Full** (`/cytokinesis`) — consolidation + housekeeping.
 **Checkpoint** (`/cytokinesis checkpoint`, auto at gear shifts) — consolidation only.
@@ -62,12 +49,13 @@ If unfinished work exists: **finish it or park it with context — don't consoli
 
 ### 1. Consolidation (the point)
 
-Three things in parallel:
+In parallel:
 
-1. **Run `cytokinesis gather`** — deterministic pre-checks.
-2. **LLM extraction** — scan session for candidates, classify each by selection priority.
-3. **Source data check** — factual data points entered by user that fed deliverables but weren't persisted to vault or histone? Route to `~/epigenome/chromatin/euchromatin/work/` via `emit_vault_note`.
-4. **Present candidates and act** — show the full list with routing decisions, file immediately, note anything Terry might want to review. Don't block on input — act-and-report. Terry corrects after if needed.
+1. **`cytokinesis gather`** — deterministic pre-checks
+2. **LLM extraction** — scan session for candidates, classify by priority
+3. **Source data check** — user-provided facts that fed deliverables but weren't persisted to vault? Route via `emit_vault_note`
+
+Then: **present candidates and act** — show the full list with routing decisions, file immediately. Act-and-report, don't block on input.
 
 If continuous capture handled most of it → quick verification pass, report filed=0.
 
@@ -141,36 +129,9 @@ This is not a punishment — it's proprioception. The number trends toward zero 
 
 ### 3. Daily note (last step — the output)
 
-Append the session log to today's daily note using the **Edit tool** (not MCP `emit_daily_note` or CLI). The Edit diff is the final output — visible, persistent, and verifiable. If the Edit happened, cytokinesis is done. If it didn't, it's not.
-
-Run `cytokinesis daily "title"` first — it pre-fills the deterministic sections (Filed, Published, Mechanised, Residual) from git diffs and session logs. Then Edit the daily note to fill the judgment sections (Outcomes, Parked, Arc).
-
-All sections must be present even if empty — forcing function:
-
-```markdown
-## Session: [title]
-
-### Outcomes
-- [what was done — outcomes, not process] ← LLM
-
-### Filed
-- [memory/skill file paths] ← CLI: git diff on memory/ + receptors/
-
-### Published
-- [tweets/garden posts] ← CLI: grep session log for emit_tweet/emit_spark
-
-### Mechanised
-- [judgments → rules/hooks/skills] ← CLI: git diff on SKILL.md, hooks, genome.md
-
-### Parked
-- [unfinished items with context to resume] ← LLM
-
-### Residual
-filed=N, skipped=M ← CLI: count of Filed items
-
-### Arc
-[1-2 sentence session narrative] ← LLM
-```
+1. Run `cytokinesis daily "title"` — pre-fills deterministic sections (Filed, Published, Mechanised, Residual)
+2. **Edit** the daily note to fill LLM sections (Outcomes, Parked, Arc). All sections present even if empty.
+3. The Edit diff IS the completion signal. If it happened, cytokinesis is done.
 
 ## CLI: `cytokinesis` (on PATH)
 
