@@ -220,9 +220,9 @@ class TestCheckMissingStatements:
             {"ccba": {"active": True, "statement_day": 7}},
         )
         now = datetime.now(HKT)
-        # Create a vault file for current month
-        vault_file = tmp_path / f"{now.strftime('%Y-%m')}-ccba.md"
-        vault_file.write_text("---\nbank: ccba\n---\n")
+        # Create a statement file for current month
+        statement_file = tmp_path / f"{now.strftime('%Y-%m')}-ccba.md"
+        statement_file.write_text("---\nbank: ccba\n---\n")
         alerts = assess_missing_statements(tmp_path / "config.yaml", tmp_path)
         assert not any("CCBA" in a for a in alerts)
 

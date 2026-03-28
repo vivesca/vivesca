@@ -3,7 +3,7 @@
 Deterministic actions for the differentiation gym-coaching skill:
 - Read latest gym log (find + read most recent file)
 - Get exercise readiness from Oura (via chemoreceptor organelle)
-- Write completed gym session log to vault
+- Write completed gym session log
 """
 
 from __future__ import annotations
@@ -21,7 +21,7 @@ HEALTH_DIR = Path.home() / "epigenome" / "chromatin" / "Health"
 
 @tool(
     name="differentiation_latest_log",
-    description="Read the most recent gym log from vault.",
+    description="Read the most recent gym log.",
     annotations=ToolAnnotations(readOnlyHint=True, destructiveHint=False),
 )
 def differentiation_latest_log() -> str:
@@ -72,14 +72,14 @@ def differentiation_readiness() -> str:
 
 @tool(
     name="differentiation_write_log",
-    description="Write completed gym session log to vault.",
+    description="Write completed gym session log.",
     annotations=ToolAnnotations(readOnlyHint=False, destructiveHint=False),
 )
 def differentiation_write_log(
     session_date: str,
     content: str,
 ) -> str:
-    """Write a gym session log file to the Health vault directory.
+    """Write a gym session log file.
 
     Args:
         session_date: ISO date string (YYYY-MM-DD) for the session.

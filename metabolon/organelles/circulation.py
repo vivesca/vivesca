@@ -311,7 +311,7 @@ def checkpoint_node(state: CirculationState) -> dict:
 
 
 def write_report(state: CirculationState) -> dict:
-    """Write session report to vault."""
+    """Write session report."""
     REPORT_DIR.mkdir(parents=True, exist_ok=True)
     ts = time.strftime("%Y-%m-%d")
     report_path = REPORT_DIR / f"{ts}.md"

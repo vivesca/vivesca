@@ -5,8 +5,10 @@ Manages YAML queue at ~/epigenome/chromatin/agent-queue.yaml.
 Dispatches detached processes (claude, gemini, codex, opencode).
 """
 
+import json
 import os
 import subprocess
+import sys
 from datetime import datetime
 from pathlib import Path
 
@@ -139,21 +141,39 @@ def run_task(name: str, queue_path: Path | None = None) -> str:
     elif backend == "opencode":
         env["OPENCODE_HOME"] = str(Path.home() / ".opencode-lean")
 
-    log_file = open(log, "a")
+    # Wrap in a monitor that emits a paracrine signal on completion
+    monitor_script = f"""
+import subprocess, sys, json
+sys.path.insert(0, "{Path.home() / 'germline'}")
+child = subprocess.run({json.dumps(cmd)}, cwd="{cwd}", capture_output=True, text=True, timeout={task.get("timeout", 600)})
+output = (child.stdout or "")[-500:]
+status = "success" if child.returncode == 0 else "failed"
+# Emit paracrine signal
+try:
+    from metabolon.organelles.demethylase import emit_signal
+    emit_signal("gemmation-{name}", f"Task: {name}\\nBackend: {backend}\\nStatus: {{status}}\\n\\n{{output}}", source="{backend}")
+except Exception:
+    pass
+# Write output to log
+with open("{log}", "w") as f:
+    f.write(child.stdout or "")
+    f.write(child.stderr or "")
+sys.exit(child.returncode)
+"""
     child = subprocess.Popen(
-        cmd,
+        [sys.executable, "-c", monitor_script],
         cwd=cwd,
-        stdout=log_file,
-        stderr=log_file,
+        env=env,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
         start_new_session=True,
     )
-    log_file.close()  # child inherited the fd; parent can release
 
     return (
         f"Dispatched '{name}' via {backend} (pid: {child.pid})\n"
         f"  Output: {out_dir}\n"
         f"  Log:    {log}\n"
-        f"  Check:  gemmation results {name}"
+        f"  Signal: gemmation-{name} (paracrine, check with read_signals)"
     )
 
 

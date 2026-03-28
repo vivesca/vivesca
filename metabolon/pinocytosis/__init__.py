@@ -1,7 +1,7 @@
 """Pinocytosis — deterministic context gathering for skills.
 
 Non-specific fluid-phase uptake: the cell drinks from its environment without
-selecting what comes in. No LLM calls. Shell out to CLIs, parse vault files,
+selecting what comes in. No LLM calls. Shell out to CLIs, parse chromatin files,
 return structured dicts. Skills reason over the output.
 
 Shared helpers live here. Per-routine modules (interphase, ultradian, etc.)

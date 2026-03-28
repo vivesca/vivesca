@@ -1,7 +1,7 @@
-"""Pacemakers — live state of all vivesca LaunchAgent pacemakers.
+"""Pacemakers — live state of all vivesca LaunchAgent oscillators.
 
 Resources:
-  vivesca://pacemakers — schedule, status, exit code, and type for each pacemaker
+  vivesca://oscillators — schedule, status, exit code, and type for each pacemaker
 """
 
 from __future__ import annotations

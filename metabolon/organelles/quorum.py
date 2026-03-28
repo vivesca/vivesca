@@ -312,7 +312,7 @@ def deliberate(
         panel: Override default model panel
         persona: Context about the questioner
         timeout: Per-model timeout in seconds
-        save: Auto-save transcript to vault
+        save: Auto-save transcript to chromatin
     """
     default_panels = {
         "quick": PANEL_QUICK,

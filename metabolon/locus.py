@@ -29,7 +29,7 @@ memory_index = marks / "MEMORY.md"
 # Epigenome structure
 phenotype = epigenome / "phenotype"
 cofactors = epigenome / "cofactors"
-pacemakers = epigenome / "pacemakers"
+oscillators = epigenome / "oscillators"
 bud_marks = epigenome / "bud-marks"
 
 # Chromatin subdirs

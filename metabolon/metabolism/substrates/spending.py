@@ -1,6 +1,6 @@
 """Spending substrate -- periodic trend analysis over parsed statement data.
 
-Primarily a reporter: reads vault markdown files and surfaces insights about
+Primarily a reporter: reads statement markdown files and surfaces insights about
 spending trends, category drift, and subscription cost creep.
 """
 
@@ -23,7 +23,7 @@ class SpendingSubstrate:
         self.spending_dir = spending_dir
 
     def sense(self, days: int = 90) -> list[dict]:
-        """Read parsed statement files from vault."""
+        """Read parsed statement files."""
         results = []
         for md in sorted(self.spending_dir.glob("????-??-*.md")):
             if md.name.endswith("-summary.md"):
@@ -82,7 +82,7 @@ class SpendingSubstrate:
 
     def report(self, sensed: list[dict], acted: list[str]) -> str:
         """Format human-readable spending metabolism report."""
-        lines = [f"Spending substrate: {len(sensed)} statement(s) in vault"]
+        lines = [f"Spending substrate: {len(sensed)} statement(s) in chromatin"]
         if acted:
             lines.append("")
             lines.append("Proposals:")

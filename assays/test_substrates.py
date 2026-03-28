@@ -602,12 +602,12 @@ class TestMemorySubstrate:
                 "type": "project",
                 "action": "migrate",
                 "target": (
-                    "Vault note (~/epigenome/chromatin/)",
+                    "Chromatin note (~/epigenome/chromatin/)",
                     "Project state belongs in source of truth",
                 ),
             }
         )
-        assert "migrate to Vault note" in result
+        assert "migrate to Chromatin note" in result
 
     def test_full_cycle(self, tmp_path):
         """Full sense -> candidates -> act -> report cycle."""

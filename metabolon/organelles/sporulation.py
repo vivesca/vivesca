@@ -18,7 +18,7 @@ from pathlib import Path
 
 from metabolon.locus import blog_published, terryli_hm
 
-VAULT_DIR = blog_published
+PUBLISHED_DIR = blog_published
 INDEX_PATH = terryli_hm
 SYNC_SCRIPT = Path.home() / "code" / "blog" / "sync-from-vault.sh"
 
@@ -94,9 +94,9 @@ def germinate_post(title: str) -> dict:
         {"path": "/abs/path/to/slug.md", "slug": "slug", "created": True}
         or {"error": "message"}
     """
-    VAULT_DIR.mkdir(parents=True, exist_ok=True)
+    PUBLISHED_DIR.mkdir(parents=True, exist_ok=True)
     slug = _to_slug(title)
-    path = VAULT_DIR / f"{slug}.md"
+    path = PUBLISHED_DIR / f"{slug}.md"
     if path.exists():
         return {"error": f"File already exists: {path}"}
     content = (
@@ -108,15 +108,15 @@ def germinate_post(title: str) -> dict:
 
 
 def dormant_posts() -> list[dict]:
-    """List all posts in the vault directory.
+    """List all posts in the published directory.
 
     Returns:
         [{"slug": "...", "title": "...", "date": "YYYY-MM-DD", "draft": bool, "words": N}, ...]
     """
-    if not VAULT_DIR.exists():
+    if not PUBLISHED_DIR.exists():
         return []
     posts = []
-    for p in sorted(VAULT_DIR.glob("*.md")):
+    for p in sorted(PUBLISHED_DIR.glob("*.md")):
         content = p.read_text()
         fm = _parse_frontmatter(content)
         if not fm:
@@ -143,7 +143,7 @@ def publish(slug: str, push: bool = False) -> dict:
         {"published": True, "title": "...", "warnings": [...]}
         or {"error": "message"} or {"already_published": True}
     """
-    path = VAULT_DIR / f"{slug}.md"
+    path = PUBLISHED_DIR / f"{slug}.md"
     if not path.exists():
         return {"error": f"No post found: {slug}.md"}
     content = path.read_text()
@@ -177,7 +177,7 @@ def mutate_post(slug: str, note: str) -> dict:
     Returns:
         {"revised": True, "title": "...", "note": "..."} or {"error": "message"}
     """
-    path = VAULT_DIR / f"{slug}.md"
+    path = PUBLISHED_DIR / f"{slug}.md"
     if not path.exists():
         return {"error": f"No post found: {slug}.md"}
     content = path.read_text()
@@ -229,8 +229,8 @@ def catalog() -> dict:
         {"indexed": N, "path": "/abs/path/to/terryli.hm.md"}
     """
     posts = []
-    if VAULT_DIR.exists():
-        for p in sorted(VAULT_DIR.glob("*.md")):
+    if PUBLISHED_DIR.exists():
+        for p in sorted(PUBLISHED_DIR.glob("*.md")):
             content = p.read_text()
             fm = _parse_frontmatter(content)
             if not fm or fm.get("draft"):

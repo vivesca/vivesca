@@ -196,7 +196,7 @@ def hemostasis_handoff(
     known_gaps: str,
     next_steps: str,
 ) -> EffectorResult:
-    """Write a hemostasis handoff note to the vault.
+    """Write a hemostasis handoff note.
 
     Required before leaving hemostasis mode. The note prevents secondary
     hemorrhage when someone unknowingly restarts the stopped process.

@@ -1,7 +1,7 @@
 """expression — Weekly career forge pre-flight checks.
 
 Deterministic pre-flight for the expression/forge skill:
-- Verify vault source files exist and have content
+- Verify source files exist and have content
 - List existing consulting library assets by subdirectory
 - Report spark count for the current week
 
@@ -70,7 +70,7 @@ def _file_age_days(path: Path) -> float | None:
 
 @tool(
     name="expression_preflight",
-    description="Check forge prerequisites: sparks, vault files, ready to run.",
+    description="Check forge prerequisites: sparks, source files, ready to run.",
     annotations=ToolAnnotations(readOnlyHint=True, destructiveHint=False),
 )
 def expression_preflight() -> ForgePreflightResult:
@@ -79,7 +79,7 @@ def expression_preflight() -> ForgePreflightResult:
     Returns:
         ready: True if all required files present and sparks non-empty.
         spark_count: Lines in _sparks.md (proxy for available material).
-        missing_files: Vault files that don't exist.
+        missing_files: Source files that don't exist.
         warnings: Non-blocking issues (stale files, low spark count).
     """
     required = {

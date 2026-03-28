@@ -3,7 +3,7 @@
 Exposes the two searchable stores that ecphory routes between:
   ecphory_engram  — search session transcripts (episodic memory)
   ecphory_chromatin — search oghma semantic memory store
-  ecphory_logs — search structured vault log files (meals, symptoms, experiments)
+  ecphory_logs — search structured log files (meals, symptoms, experiments)
 
 The skill layer (SKILL.md) handles cue classification and fan-out routing.
 These tools are the deterministic search primitives it dispatches to.
@@ -106,14 +106,14 @@ def ecphory_chromatin(
 
 @tool(
     name="ecphory_logs",
-    description="Search vault log files (meals, symptoms, experiments). Use for 'we logged X'.",
+    description="Search log files (meals, symptoms, experiments). Use for 'we logged X'.",
     annotations=ToolAnnotations(readOnlyHint=True, destructiveHint=False),
 )
 def ecphory_logs(
     query: str,
     days: int = 30,
 ) -> str:
-    """Search structured vault log files for a pattern.
+    """Search structured log files for a pattern.
 
     Args:
         query: Search term or regex (case-insensitive).

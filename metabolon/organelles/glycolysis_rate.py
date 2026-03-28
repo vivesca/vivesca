@@ -54,7 +54,7 @@ _REGISTRY: dict[str, str] = {
     "perfusion_routing": "deterministic",  # star routing table lookup
     "glycolysis_rate": "deterministic",  # this module — self-referential
     # --- Symbiont-dependent (mitochondrial) ---
-    "homeostasis_financial": "symbiont",  # synthesize() LLM call over vault notes
+    "homeostasis_financial": "symbiont",  # synthesize() LLM call over financial notes
     "repair_diagnosis": "symbiont",  # immune_response() → LLM metaprompt
     "methylation_crystallise": "symbiont",  # LLM judgment → permanent rule
     "taste_judge": "symbiont",  # constitutional gate — LLM scoring

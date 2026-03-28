@@ -166,7 +166,7 @@ Hook dispatch infrastructure — routes signals before and after tool use.
   bud-marks/            Agent memory traces
   phenotype/              Instance configuration
   cofactors/              API keys / access tokens
-  pacemakers/             LaunchAgent plists (scheduled autonomous processes)
+  oscillators/             LaunchAgent plists (scheduled autonomous processes)
 ```
 
 | Directory | Identity | Mechanism |
@@ -183,7 +183,7 @@ Hook dispatch infrastructure — routes signals before and after tool use.
 | `bud-marks/` | **Bud marks** | Agent-specific memory traces |
 | `phenotype/` | **Phenotype** | Instance-level expression configuration |
 | `cofactors/` | **Cofactors** | Molecules required for enzyme function (credentials) |
-| `pacemakers/` | **Pacemaker cells** | Set the rhythm — LaunchAgent scheduled processes |
+| `oscillators/` | **Oscillators** | Circadian clock genes — LaunchAgent scheduled processes |
 
 ## Component Types
 

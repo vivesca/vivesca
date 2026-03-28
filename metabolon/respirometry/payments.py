@@ -133,7 +133,7 @@ def assess_missing_statements(
     """Check for expected statements that haven't been processed yet.
 
     For each active card with a statement_day, if today is past that day
-    and no vault file exists for the current month, flag it.
+    and no statement file exists for the current month, flag it.
     """
     cards = restore_card_config(config_file)
     now = datetime.now(HKT).date()
@@ -152,8 +152,8 @@ def assess_missing_statements(
         if now.day < expected_by:
             continue
 
-        vault_file = spending_dir / f"{current_month}-{bank}.md"
-        if not vault_file.exists():
+        statement_file = spending_dir / f"{current_month}-{bank}.md"
+        if not statement_file.exists():
             alerts.append(
                 f"Missing statement: {bank.upper()} "
                 f"(expected by day {statement_day}, not yet processed)"

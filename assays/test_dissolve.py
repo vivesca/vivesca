@@ -149,7 +149,7 @@ class TestDissolveCommand:
         assert "reference: 1" in result.output
         assert "Constitution" in result.output
         assert "Program (hook/guard/linter)" in result.output
-        assert "Vault note" in result.output
+        assert "Chromatin note" in result.output
         assert "tool-index.md" in result.output
 
     def test_feedback_already_in_constitution(self, tmp_path, redirect_defaults):

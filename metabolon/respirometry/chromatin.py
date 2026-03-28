@@ -100,7 +100,7 @@ def secrete_statement(
     transactions: list[ConsumptionEvent],
     spending_dir: Path,
 ) -> Path:
-    """Write parsed statement to vault and return the file path."""
+    """Write parsed statement and return the file path."""
     spending_dir.mkdir(parents=True, exist_ok=True)
     md_path = spending_dir / f"{meta.filename_stem}.md"
     md_path.write_text(serialize_markdown(meta, transactions))
@@ -108,7 +108,7 @@ def secrete_statement(
 
 
 def archive_pdf(pdf_path: Path, meta: RespirogramMeta, spending_dir: Path) -> Path:
-    """Move original PDF to vault archive."""
+    """Move original PDF to archive."""
     archive_dir = spending_dir / "statements"
     archive_dir.mkdir(parents=True, exist_ok=True)
     dest = archive_dir / f"{meta.filename_stem}.pdf"
@@ -121,7 +121,7 @@ def secrete_monthly_summary(month: str, spending_dir: Path) -> Path:
 
     Args:
         month: YYYY-MM string
-        spending_dir: vault spending directory
+        spending_dir: spending directory
     """
     # Find all per-statement files for this month
     statements = sorted(spending_dir.glob(f"{month}-*.md"))

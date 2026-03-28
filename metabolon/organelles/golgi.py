@@ -13,7 +13,7 @@ import yaml
 
 from metabolon.locus import chromatin
 
-VAULT_DIR = chromatin / "Garden Posts"
+GARDEN_DIR = chromatin / "Garden Posts"
 INDEX_PATH = chromatin / "terryli.hm.md"
 SYNC_SCRIPT = Path.home() / "code" / "blog" / "sync-from-vault.sh"  # outside organism
 BASE_URL = "https://terryli.hm/posts"
@@ -121,9 +121,9 @@ def scan_content(content: str) -> list[str]:
 
 def new(title: str) -> tuple[str, Path]:
     """Create a new draft post. Returns (slug, path)."""
-    VAULT_DIR.mkdir(parents=True, exist_ok=True)
+    GARDEN_DIR.mkdir(parents=True, exist_ok=True)
     slug = _to_slug(title)
-    path = VAULT_DIR / f"{slug}.md"
+    path = GARDEN_DIR / f"{slug}.md"
     if path.exists():
         raise ValueError(f"File already exists: {path}")
 
@@ -141,7 +141,7 @@ def new(title: str) -> tuple[str, Path]:
 
 def publish(slug: str, force: bool = False) -> str:
     """Publish a draft post. Returns the title. Raises on guardrail warnings unless force=True."""
-    path = VAULT_DIR / f"{slug}.md"
+    path = GARDEN_DIR / f"{slug}.md"
     if not path.exists():
         raise ValueError(f"No post found: {slug}.md")
 
@@ -165,7 +165,7 @@ def publish(slug: str, force: bool = False) -> str:
 
 def revise(slug: str, note: str) -> str:
     """Update modDatetime and revisionNote. Returns title."""
-    path = VAULT_DIR / f"{slug}.md"
+    path = GARDEN_DIR / f"{slug}.md"
     if not path.exists():
         raise ValueError(f"No post found: {slug}.md")
 
@@ -184,10 +184,10 @@ def revise(slug: str, note: str) -> str:
 def list_posts() -> list[dict]:
     """List all posts with metadata."""
     posts = []
-    if not VAULT_DIR.exists():
+    if not GARDEN_DIR.exists():
         return posts
 
-    for path in sorted(VAULT_DIR.glob("*.md")):
+    for path in sorted(GARDEN_DIR.glob("*.md")):
         content = path.read_text()
         parsed = _parse_frontmatter(content)
         if not parsed:
@@ -227,8 +227,8 @@ def push() -> str:
 def index() -> int:
     """Regenerate garden index. Returns post count."""
     posts = []
-    if VAULT_DIR.exists():
-        for path in VAULT_DIR.glob("*.md"):
+    if GARDEN_DIR.exists():
+        for path in GARDEN_DIR.glob("*.md"):
             content = path.read_text()
             parsed = _parse_frontmatter(content)
             if not parsed:

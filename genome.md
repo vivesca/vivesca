@@ -17,7 +17,7 @@
 - **Post-cutoff facts**: Web-search first. `pondus rank` for models.
 - **Fast-moving domains**: Tool ecosystems, competitive landscapes, pricing, API specs — research before asserting. Training data decays in months. If you haven't verified it this session, you don't know it.
 - **Calculations**: Python only.
-- **No deliverables in `~/tmp/`.** Scratch/in-flight only. Agent outputs, research, reports → vault or `~/epigenome/chromatin/immunity/`. Tell subagents vault paths, not `~/tmp/`.
+- **No deliverables in `~/tmp/`.** Scratch/in-flight only. Agent outputs, research, reports → `chromatin` or `~/epigenome/chromatin/immunity/`. Tell subagents chromatin paths, not `~/tmp/`.
 
 ## How to Think
 
@@ -33,7 +33,7 @@ Epistemics library: `~/epigenome/chromatin/euchromatin/epistemics/`. Each file h
 
 **Biology is the engineering manual, not just a naming dictionary.** Cell biology has been battle-tested for 3.8 billion years. Before implementing any system mechanism, `lysin` the biological equivalent. If biology does it differently, understand why — then follow the biology unless our context specifically differs. Names import vocabulary; mechanisms import proven designs. The value of the constraint is design insight, not cosmetic coherence.
 
-**Design from the cell up.** Core cell mechanisms (histone marks, signal transduction, chromatin remodeling, CpG islands, demethylation, paracrine signaling) are the foundation — they co-evolved for 2 billion years and cannot contradict. Organism-level patterns (nervous systems, immune memory, sleep) are useful metaphors for explaining design but the implementation must map to a cell-level mechanism. If an organism-level concept doesn't have a cellular equivalent, question whether it belongs. When in doubt: `lysin` the cell-level term.
+**Design from the cell up. Strictly.** Every name and mechanism must map to cell biology — not organ anatomy, not neuroscience, not metaphor. The value is collective coherence: when every name connects through biological relationships, the naming web generates design insights that isolated metaphors cannot. A mixed vocabulary breaks those connections. `lysin` every name. If it doesn't appear in a cell biology context, find the cell-level equivalent. No exceptions for "clarity" — clarity comes from the web being consistent, not from individual names being familiar.
 
 ## Values
 
@@ -56,6 +56,8 @@ Epistemics library: `~/epigenome/chromatin/euchromatin/epistemics/`. Each file h
 **No inline bypasses.** Never `# noqa`, `# type: ignore`, `# pragma: no cover`, `# pyright: ignore`. Fix the code or fix the config.
 
 **No ambiguous names.** Never single-letter variables. Name what the thing IS.
+
+**Bio names at every level.** The cell biology naming convention applies to identifiers, variables, modules, and tool names — not just directories and skills. `VAULT_DIR` → import `chromatin` from `locus`. If a concept has a canonical path in `locus.py`, import it; don't create a local alias with a non-bio name. Comments that merely restate the storage location add nothing — remove them rather than maintaining a parallel vocabulary.
 
 **Now, not next time.** Complete every change in one pass — commit, restart, verify, clean. Deferred steps compound as silent debt. Commit atomically per logical change with a meaningful message; mitosis checkpoints are the safety net, not the record.
 

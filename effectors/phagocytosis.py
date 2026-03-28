@@ -13,9 +13,9 @@ import json
 import time
 from pathlib import Path
 
-VAULT = Path.home() / "code" / "epigenome" / "chromatin"
-WORKSPACE = VAULT / ".obsidian" / "workspace.json"
-LOG_FILE = VAULT / ".consumption-log.jsonl"
+CHROMATIN = Path.home() / "code" / "epigenome" / "chromatin"
+WORKSPACE = CHROMATIN / ".obsidian" / "workspace.json"
+LOG_FILE = CHROMATIN / ".consumption-log.jsonl"
 
 
 def read_last_open_files() -> list[str]:

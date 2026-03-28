@@ -31,13 +31,13 @@ Target = Literal[
     "sensorium",  # recent search queries
     "histone_store",  # memory database statistics
     "effectors",  # unified tool index — MCP and CLI tools
-    "pacemakers",  # LaunchAgent state — schedule, status, exit code, type
+    "oscillators",  # LaunchAgent state — schedule, status, exit code, type
 ]
 
 
 @tool()
 def proprioception(target: Target) -> str:
-    """Sense organism internal state with gradient detection. Targets: genome, anatomy, circadian, vitals, glycogen, reflexes, consolidation, operons, sensorium, histone_store, effectors, pacemakers."""
+    """Sense organism internal state with gradient detection. Targets: genome, anatomy, circadian, vitals, glycogen, reflexes, consolidation, operons, sensorium, histone_store, effectors, oscillators."""
     reading = _DISPATCH[target]()
     gradient = _log_and_gradient(target, reading)
     if gradient:
@@ -220,8 +220,8 @@ def _effectors() -> str:
     return express_effector_index()
 
 
-def _pacemakers() -> str:
-    from metabolon.resources.pacemakers import express_pacemaker_status
+def _oscillators() -> str:
+    from metabolon.resources.oscillators import express_pacemaker_status
 
     return express_pacemaker_status()
 
@@ -238,5 +238,5 @@ _DISPATCH: dict[str, callable] = {
     "sensorium": _sensorium,
     "histone_store": _histone_store,
     "effectors": _effectors,
-    "pacemakers": _pacemakers,
+    "oscillators": _oscillators,
 }

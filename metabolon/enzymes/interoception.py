@@ -6,9 +6,9 @@ Tools:
   circadian_sleep      — circadian rhythm data from Oura
   membrane_potential   — readiness score + exercise recommendation
   homeostasis_system   — pulse status, budget, disk pressure, hook health
-  homeostasis_financial — vault financial health: deadlines, overdue items
+  homeostasis_financial — financial health: deadlines, overdue items
   lysosome_digest      — digest disk caches when pressure is high
-  nociception_log      — log a pain/symptom signal to vault
+  nociception_log      — log a pain/symptom signal
   anabolism_flywheel   — anabolic flywheel: are the links reinforcing?
   angiogenesis         — detect underserved subsystem connections, propose integrations
   mitophagy_status     — model performance tracking and fitness scores
@@ -522,14 +522,14 @@ FINANCIAL_NOTES = [
     "US Estate Tax for HK Residents.md",
 ]
 
-FINANCIAL_PROMPT_TEMPLATE = """Review the financial vault notes below and Praxis.md excerpt.
+FINANCIAL_PROMPT_TEMPLATE = """Review the financial notes below and Praxis.md excerpt.
 
 For each item: status (done/in-progress/overdue/upcoming), deadline, next step.
 Flag anything overdue or due within 14 days. Sort by urgency. Be concise.
 
 Today: {today}
 
---- VAULT NOTES ---
+--- FINANCIAL NOTES ---
 {notes}
 
 --- praxis (financial items) ---
@@ -538,7 +538,7 @@ Today: {today}
 
 
 class HomeostasisFinancialResult(Secretion):
-    """Financial health status from vault notes."""
+    """Financial health status from chromatin notes."""
 
     summary: str
     flagged_count: int
@@ -546,11 +546,11 @@ class HomeostasisFinancialResult(Secretion):
 
 @tool(
     name="homeostasis_financial",
-    description="Vault financial health: deadlines, overdue items, next steps.",
+    description="Financial health: deadlines, overdue items, next steps.",
     annotations=ToolAnnotations(readOnlyHint=True, destructiveHint=False),
 )
 def homeostasis_financial() -> HomeostasisFinancialResult:
-    """Read vault financial notes and flag overdue or upcoming items (within 14 days)."""
+    """Read financial notes and flag overdue or upcoming items (within 14 days)."""
     import datetime
 
     notes_dir = str(chromatin)
@@ -752,11 +752,11 @@ def _cross_link_experiment_symptom(symptom: str, severity: str, notes: str) -> s
 
 @tool(
     name="nociception_log",
-    description="Log a symptom to vault health log.",
+    description="Log a symptom to health log.",
     annotations=ToolAnnotations(readOnlyHint=False, destructiveHint=False),
 )
 def nociception_log(symptom: str, severity: str = "mild", notes: str = "") -> EffectorResult:
-    """Log a nociceptive signal to the vault."""
+    """Log a nociceptive signal."""
     today = datetime.date.today().isoformat()
     entry = f"\n## {today} — {symptom}\n- Severity: {severity}\n"
     if notes:
@@ -828,12 +828,12 @@ def anabolism_flywheel() -> AnabolismResult:
     try:
         notes_dir = str(chromatin)
 
-        vault_cmd = ["git", "log", "--since=7.days", "--oneline"]
-        vault_out = subprocess.run(
-            vault_cmd, cwd=notes_dir, capture_output=True, text=True, timeout=10
+        chromatin_cmd = ["git", "log", "--since=7.days", "--oneline"]
+        chromatin_out = subprocess.run(
+            chromatin_cmd, cwd=notes_dir, capture_output=True, text=True, timeout=10
         )
-        vault_commits = (
-            len(vault_out.stdout.strip().splitlines()) if vault_out.stdout.strip() else 0
+        chromatin_commits = (
+            len(chromatin_out.stdout.strip().splitlines()) if chromatin_out.stdout.strip() else 0
         )
 
         blog_cmd = ["git", "log", "--since=14.days", "--oneline", "--", "Writing/Blog/Published/"]
@@ -845,12 +845,12 @@ def anabolism_flywheel() -> AnabolismResult:
         links.append(
             {
                 "name": "creative",
-                "vault_commits_7d": vault_commits,
+                "chromatin_commits_7d": chromatin_commits,
                 "blog_commits_14d": blog_posts,
             }
         )
     except Exception:
-        links.append({"name": "creative", "vault_commits_7d": None, "blog_commits_14d": None})
+        links.append({"name": "creative", "chromatin_commits_7d": None, "blog_commits_14d": None})
 
     # 5. Symptoms
     try:

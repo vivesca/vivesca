@@ -2,7 +2,7 @@
 # /// script
 # requires-python = ">=3.11"
 # ///
-"""AKM Heartbeat — nightly vault health digest via Telegram.
+"""AKM Heartbeat — nightly chromatin health digest via Telegram.
 
 Scans ~/epigenome/chromatin/ for stale notes, orphan links, overdue TODOs, and
 prospective memory items due. Sends a consolidated morning digest
@@ -19,9 +19,9 @@ import time
 from datetime import date, datetime
 from pathlib import Path
 
-VAULT = Path.home() / "code" / "epigenome" / "chromatin"
+CHROMATIN = Path.home() / "code" / "epigenome" / "chromatin"
 MEMORY_DIR = Path.home() / ".claude" / "projects" / "-Users-terry" / "memory"
-PRAXIS_FILE = VAULT / "Praxis.md"
+PRAXIS_FILE = CHROMATIN / "Praxis.md"
 PROSPECTIVE_FILE = MEMORY_DIR / "prospective.md"
 
 _CONF_PATH = Path(__file__).parent / "circadian-probe.conf"
@@ -51,9 +51,9 @@ def scan_stale_notes() -> list[tuple[str, int]]:
     cutoff = time.time() - (STALE_DAYS * 86400)
     stale: list[tuple[str, int]] = []
 
-    for md in VAULT.rglob("*.md"):
+    for md in CHROMATIN.rglob("*.md"):
         # Skip excluded directories
-        if any(part in EXCLUDE_DIRS for part in md.relative_to(VAULT).parts):
+        if any(part in EXCLUDE_DIRS for part in md.relative_to(CHROMATIN).parts):
             continue
         # Skip hidden files
         if md.name.startswith("."):
@@ -239,7 +239,7 @@ def build_digest() -> str:
         sections.append("\n".join(lines))
 
     if len(sections) == 1:
-        sections.append("✅ Vault looks healthy — nothing flagged.")
+        sections.append("Chromatin looks healthy — nothing flagged.")
 
     return "\n\n".join(sections)
 

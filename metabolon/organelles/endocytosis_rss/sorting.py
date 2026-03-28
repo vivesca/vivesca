@@ -7,7 +7,7 @@ Items entering the endosome are sorted by receptor-ligand affinity (score):
   transcytose — high-affinity cargo crosses the cell (score >= threshold_high).
                 Forward to the surface; mark visually in the news log.
   store        — moderate-affinity cargo is retained in the lumen (score >= threshold_low).
-                Write to the news log; worth keeping in vault.
+                Write to the news log; worth keeping in chromatin.
   degrade      — low-affinity cargo is handed to the lysosome (score < threshold_low).
                 Silently dropped; not persisted.
 """
@@ -39,7 +39,7 @@ def sort_by_fate(
         items: List of scored article dicts. Each must have a ``score`` key
                (string or int) produced by the relevance-scoring pipeline.
         threshold_high: Minimum score for transcytosis (forward/notify). Default 7.
-        threshold_low:  Minimum score for storage (keep in vault). Default 4.
+        threshold_low:  Minimum score for storage (keep in chromatin). Default 4.
                         Items below this threshold are degraded (dropped).
 
     Returns:

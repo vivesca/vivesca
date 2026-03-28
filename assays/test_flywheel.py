@@ -86,7 +86,7 @@ def test_flywheel_creative_slowing(monkeypatch, mock_all):
 
     result = anabolism_flywheel()
     creative_link = next(lk for lk in result.links if lk["name"] == "creative")
-    assert creative_link["vault_commits_7d"] == 5
+    assert creative_link["chromatin_commits_7d"] == 5
     assert creative_link["blog_commits_14d"] == 0
 
 
@@ -134,5 +134,5 @@ def test_flywheel_break_point_priority(monkeypatch, mock_all):
     assert sleep_link["score"] == 45  # low score, LLM can classify as stalled
 
     creative_link = next(lk for lk in result.links if lk["name"] == "creative")
-    assert creative_link["vault_commits_7d"] == 5
+    assert creative_link["chromatin_commits_7d"] == 5
     assert creative_link["blog_commits_14d"] == 0  # low, LLM can classify as slowing

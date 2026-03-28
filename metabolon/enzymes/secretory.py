@@ -16,8 +16,6 @@ Five shared emit clusters cover ~20 skills:
 Plus individual effectors:
   emit_tweet       -- post to X (wraps bird CLI)
   emit_reminder    -- set Due alarm (wraps pacemaker organelle)
-  emit_vault_note  -- write/append a vault note
-
 Content secretion tools (formerly skills):
   exocytosis_tweet -- compress insight to <=280 chars and post to X
   secretion        -- expand tweet to LinkedIn post and publish
@@ -283,35 +281,6 @@ def emit_reminder(title: str, date: str = "") -> EffectorResult:
         return EffectorResult(success=True, message=result)
     except Exception as exc:
         return EffectorResult(success=False, message=str(exc))
-
-
-@tool(
-    name="emit_vault_note",
-    description="Write or append to a vault note.",
-    annotations=ToolAnnotations(readOnlyHint=False, destructiveHint=False),
-)
-def emit_vault_note(
-    path: str,
-    content: str,
-    mode: str = "append",
-) -> EffectorResult:
-    """Write to a vault note. Path relative to ~/epigenome/chromatin/.
-
-    mode: 'append' adds to end, 'write' overwrites.
-    """
-    full_path = os.path.join(NOTES, path)
-
-    if mode == "write":
-        os.makedirs(os.path.dirname(full_path), exist_ok=True)
-        with open(full_path, "w") as f:
-            f.write(content)
-    else:
-        _append_to_file(full_path, content)
-
-    return EffectorResult(
-        success=True,
-        message=f"Vault note {'written' if mode == 'write' else 'appended'}: {path}",
-    )
 
 
 # -- Content secretion tools ----------------------------------------------

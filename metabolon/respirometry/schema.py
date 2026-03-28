@@ -41,6 +41,6 @@ class RespirogramMeta:
 
     @property
     def filename_stem(self) -> str:
-        """YYYY-MM-bank for vault filenames."""
+        """YYYY-MM-bank for statement filenames."""
         # statement_date is YYYY-MM-DD
         return f"{self.statement_date[:7]}-{self.bank}"

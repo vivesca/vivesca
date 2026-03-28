@@ -1,7 +1,7 @@
-"""Tests for vault writing, PDF archival, and deduplication."""
+"""Tests for chromatin writing, PDF archival, and deduplication."""
 
 from metabolon.respirometry.schema import ConsumptionEvent, RespirogramMeta
-from metabolon.respirometry.vault import (
+from metabolon.respirometry.chromatin import (
     is_processed,
     secrete_monthly_summary,
     serialize_markdown,

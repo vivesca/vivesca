@@ -24,7 +24,7 @@ CONSOLIDATION_PATHWAYS: dict[str, tuple[str, str]] = {
         "Constitution user section or relevant skill",
         "Preferences that matter every session",
     ),
-    "project": ("Vault note (~/epigenome/chromatin/)", "Project state belongs in source of truth"),
+    "project": ("Chromatin note (~/epigenome/chromatin/)", "Project state belongs in source of truth"),
     "reference": ("tool-index.md or skill file", "Pointers belong where the action is"),
 }
 
