@@ -45,14 +45,14 @@ def graft_tool(
         "class_name": class_name,
         "read_only": read_only,
         "module": module,
-        "component_dir": "tools",
+        "component_dir": "enzymes",
         "file_stem": domain,
         "func_name": f"{domain}_{verb}",
         "name": f"{domain}_{verb}",
         "component_type": "tool",
     }
 
-    tool_file = project_dir / "src" / module / "tools" / f"{domain}.py"
+    tool_file = project_dir / "src" / module / "enzymes" / f"{domain}.py"
     tool_file.write_text(_env.get_template("tool.py.j2").render(**ctx))
 
     test_file = project_dir / "assays" / f"test_{domain}.py"

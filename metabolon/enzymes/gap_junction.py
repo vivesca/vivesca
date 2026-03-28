@@ -1,12 +1,20 @@
-"""gap_junction — ligand-receptor signalling via WhatsApp (wacli).
+"""gap_junction — ligand-receptor signalling via WhatsApp (wacli) + iMessage (chat.db).
 
 Tools:
-  ligand_bind   — read a conversation (merges phone + LID JIDs)
-  ligand_search — search messages by text, optionally scoped to contact
-  ligand_draft  — draft a message (NEVER sends)
-  receptor_list — list recent chats
-  receptor_sync — check sync daemon status
+  ligand_bind   — read a WhatsApp conversation (merges phone + LID JIDs)
+  ligand_search — search WhatsApp messages by text, optionally scoped to contact
+  ligand_draft  — draft a WhatsApp message (NEVER sends)
+  receptor_list — list recent WhatsApp chats
+  receptor_sync — check wacli sync daemon status
+  electroreception_read — read iMessages/SMS from macOS chat.db
 """
+
+from __future__ import annotations
+
+import os
+import re
+import sqlite3
+from datetime import datetime, timedelta
 
 from fastmcp.tools import tool
 from mcp.types import ToolAnnotations

@@ -13,7 +13,7 @@ from metabolon.cytosol import VIVESCA_ROOT
 from metabolon.resources.anatomy import _extract_tool_details
 
 _BIN_DIR = VIVESCA_ROOT / "effectors"
-_VIVESCA_TOOLS = Path(__file__).resolve().parent.parent / "tools"
+_VIVESCA_TOOLS = Path(__file__).resolve().parent.parent / "enzymes"
 _ROUTING_TABLE = VIVESCA_ROOT / "proteome.md"
 
 

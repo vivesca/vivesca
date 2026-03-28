@@ -27,7 +27,7 @@ def test_check_detects_missing_return_type(tmp_path):
 
     project = _make_project_with_tool(tmp_path)
     # Break the tool: remove return type annotation
-    tool_file = project / "src" / "myserver" / "tools" / "weather.py"
+    tool_file = project / "src" / "myserver" / "enzymes" / "weather.py"
     content = tool_file.read_text()
     content = content.replace("-> WeatherFetchResult:", ":")
     tool_file.write_text(content)
@@ -41,7 +41,7 @@ def test_check_detects_missing_annotations(tmp_path):
 
     project = _make_project_with_tool(tmp_path)
     # Break the tool: remove ToolAnnotations
-    tool_file = project / "src" / "myserver" / "tools" / "weather.py"
+    tool_file = project / "src" / "myserver" / "enzymes" / "weather.py"
     content = tool_file.read_text()
     content = content.replace("    annotations=ToolAnnotations(readOnlyHint=True),\n", "")
     tool_file.write_text(content)
@@ -55,7 +55,7 @@ def test_check_detects_missing_description(tmp_path):
 
     project = _make_project_with_tool(tmp_path)
     # Break the tool: remove description
-    tool_file = project / "src" / "myserver" / "tools" / "weather.py"
+    tool_file = project / "src" / "myserver" / "enzymes" / "weather.py"
     content = tool_file.read_text()
     content = content.replace('    description="Fetch weather",\n', "")
     tool_file.write_text(content)

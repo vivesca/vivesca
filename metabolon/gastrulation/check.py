@@ -19,7 +19,7 @@ def probe_gastrulation(project_dir: Path) -> list[str]:
     module = _detect_module(project_dir)
 
     # Check tools
-    tools_dir = project_dir / "src" / module / "tools"
+    tools_dir = project_dir / "src" / module / "enzymes"
     if tools_dir.exists():
         for py_file in sorted(tools_dir.glob("*.py")):
             if py_file.name == "__init__.py":

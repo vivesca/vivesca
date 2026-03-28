@@ -18,7 +18,7 @@ def test_add_tool_creates_file(tmp_path):
     project = _make_project(tmp_path)
     graft_tool(project, domain="weather", verb="fetch", description="Fetch weather data")
 
-    tool_file = project / "src" / "myserver" / "tools" / "weather.py"
+    tool_file = project / "src" / "myserver" / "enzymes" / "weather.py"
     assert tool_file.exists()
 
     content = tool_file.read_text()
@@ -47,7 +47,7 @@ def test_add_tool_read_only_flag(tmp_path):
     project = _make_project(tmp_path)
     graft_tool(project, domain="weather", verb="fetch", description="Test", read_only=True)
 
-    content = (project / "src" / "myserver" / "tools" / "weather.py").read_text()
+    content = (project / "src" / "myserver" / "enzymes" / "weather.py").read_text()
     assert "readOnlyHint=True" in content
 
 
@@ -63,7 +63,7 @@ def test_add_tool_destructive_flag(tmp_path):
         read_only=False,
     )
 
-    content = (project / "src" / "myserver" / "tools" / "cache.py").read_text()
+    content = (project / "src" / "myserver" / "enzymes" / "cache.py").read_text()
     assert "readOnlyHint=False" in content
 
 
@@ -104,5 +104,5 @@ def test_add_tool_detects_module_name(tmp_path):
 
     graft_tool(target, domain="weather", verb="fetch", description="Test")
 
-    tool_file = target / "src" / "my_server" / "tools" / "weather.py"
+    tool_file = target / "src" / "my_server" / "enzymes" / "weather.py"
     assert tool_file.exists()

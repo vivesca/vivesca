@@ -21,7 +21,7 @@ def test_init_creates_component_dirs(tmp_path):
     scaffold_project("myserver", target=tmp_path / "myserver", description="Test server")
     src = tmp_path / "myserver" / "src" / "myserver"
 
-    assert (src / "tools").is_dir()
+    assert (src / "enzymes").is_dir()
     assert (src / "codons").is_dir()
     assert (src / "resources").is_dir()
     assert (src / "morphology").is_dir()

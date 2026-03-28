@@ -1883,7 +1883,7 @@ def auscultate():
     from pathlib import Path
 
     from metabolon.locus import chromatin as _chromatin
-    from metabolon.locus import engrams as _engrams
+    from metabolon.locus import marks as _marks
 
     paths = {
         "genome.md": VIVESCA_ROOT / "genome.md",
@@ -1892,7 +1892,7 @@ def auscultate():
         "membrane/receptors": VIVESCA_ROOT / "membrane" / "receptors",
         "effectors": VIVESCA_ROOT / "effectors",
         "chromatin": _chromatin,
-        "engrams": _engrams,
+        "marks": _marks,
     }
     for name, path in paths.items():
         checks.append((f"path {name}", path.exists(), str(path)))

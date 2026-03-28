@@ -36,7 +36,7 @@ def scaffold_project(name: str, target: Path, description: str) -> Path:
     # Create directory structure
     src = target / "src" / module
     for d in [
-        src / "tools",
+        src / "enzymes",
         src / "codons",
         src / "resources",
         src / "morphology",
@@ -45,7 +45,7 @@ def scaffold_project(name: str, target: Path, description: str) -> Path:
         d.mkdir(parents=True, exist_ok=True)
 
     # Create __init__.py files for packages
-    for d in [src, src / "tools", src / "codons", src / "resources", src / "morphology"]:
+    for d in [src, src / "enzymes", src / "codons", src / "resources", src / "morphology"]:
         (d / "__init__.py").touch()
 
     # Render templates

@@ -37,7 +37,7 @@ def _build_fake_project(tmp_path: Path) -> Path:
     src = project / "vivesca"
 
     # Tools with module docstrings and tool functions with docstrings + params
-    tools = src / "tools"
+    tools = src / "enzymes"
     _write_tool_module(tools, "__init__.py", "")
     _write_tool_module(
         tools,
@@ -336,7 +336,7 @@ class TestGenerateAnatomy:
         src = tmp_path / "vivesca"
 
         # Tools
-        tools = src / "tools"
+        tools = src / "enzymes"
         _write_tool_module(tools, "__init__.py", "")
         _write_tool_module(
             tools,
@@ -483,7 +483,7 @@ class TestOrganDescriptions:
     def test_missing_tools_dir(self, tmp_path):
         lines = _organ_descriptions(tmp_path / "nonexistent")
         combined = "\n".join(lines)
-        assert "no tools directory" in combined
+        assert "no enzymes directory" in combined
 
 
 class TestSubstrateMap:

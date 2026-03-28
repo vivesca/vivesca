@@ -210,9 +210,9 @@ def _extract_tool_details(module_path: Path) -> list[dict]:
 def _organ_descriptions(src: Path) -> list[str]:
     """For each tool module, extract module docstring + per-tool details."""
     lines: list[str] = []
-    tools_dir = src / "tools"
+    tools_dir = src / "enzymes"
     if not tools_dir.exists():
-        lines.append("_(no tools directory)_")
+        lines.append("_(no enzymes directory)_")
         return lines
 
     modules = sorted(p for p in tools_dir.glob("*.py") if p.name != "__init__.py")
@@ -613,7 +613,7 @@ def express_anatomy(src_root: Path | None = None) -> str:
 
     # Tools (existing)
     sections.append("## Registered Tools\n")
-    sections.extend(_scan_directory(src / "tools", "tool", "tools"))
+    sections.extend(_scan_directory(src / "enzymes", "tool", "enzymes"))
     sections.append("")
 
     # Resources (existing)

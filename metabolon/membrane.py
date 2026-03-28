@@ -171,11 +171,19 @@ def assemble_organism(
         "vivesca",
         instructions=PHENOTYPE_MANIFEST,
         providers=[
-            FileSystemProvider(_src / "tools"),
+            FileSystemProvider(_src / "enzymes"),
             FileSystemProvider(_src / "codons"),
         ],
     )
     mcp.add_middleware(SensoryMiddleware(collector=signal_collector))
+
+    # Guard: provider dirs must exist and contain .py files (0-tool server burned us 2026-03-28)
+    for provider_dir in [_src / "enzymes", _src / "codons"]:
+        py_files = list(provider_dir.glob("*.py"))
+        non_init = [f for f in py_files if f.name != "__init__.py"]
+        assert non_init, f"No tool modules in {provider_dir} — check FileSystemProvider paths"
+    logger.info("vivesca assembled from %s", _src)
+
     return mcp
 
 

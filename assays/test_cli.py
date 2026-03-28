@@ -84,7 +84,7 @@ def test_cli_init_then_add_then_check_roundtrip(tmp_path):
         # Verify structure
         from pathlib import Path
 
-        assert (Path("src/myapp/tools/data.py")).exists()
+        assert (Path("src/myapp/enzymes/data.py")).exists()
         assert (Path("src/myapp/codons/analyze.py")).exists()
         assert (Path("src/myapp/resources/config.py")).exists()
 
