@@ -109,6 +109,8 @@ def recall_news_entries(log_path: Path, month: str) -> list[dict[str, str]]:
 
 def _parse_theme_json(raw: str) -> list[dict[str, Any]]:
     text = raw.strip()
+    if not text:
+        raise ValueError("LLM returned empty response for theme identification")
     if text.startswith("```"):
         text = re.sub(r"^```(?:json)?\s*", "", text)
         text = re.sub(r"\s*```$", "", text)

@@ -10,6 +10,7 @@ authors = [{name = "Terry Li"}]
 dependencies = [
     "acta",
     "beautifulsoup4>=4.12",
+    "oghma",
     "click>=8.0",
     "fastmcp>=3.0.0",
     "feedparser>=6.0",
@@ -26,6 +27,7 @@ dependencies = [
 
 [tool.uv.sources]
 acta = { path = "../code/acta", editable = true }
+oghma = { path = "../code/oghma", editable = true }
 
 [project.urls]
 Homepage = "https://vivesca.org"

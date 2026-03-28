@@ -6,7 +6,7 @@ import sys
 from pathlib import Path
 
 LAUNCH_DIR = Path.home() / "Library" / "LaunchAgents"
-SOURCE_DIR = Path.home() / "officina" / "launchd"
+SOURCE_DIR = Path.home() / "epigenome" / "oscillators"
 LOG = Path.home() / "logs" / "launchagent-health.log"
 
 
@@ -14,7 +14,7 @@ def check():
     issues = []
 
     # Check all com.terry.* plists in LaunchAgents
-    for plist in sorted(LAUNCH_DIR.glob("com.terry.*.plist")):
+    for plist in sorted([*LAUNCH_DIR.glob("com.terry.*.plist"), *LAUNCH_DIR.glob("com.vivesca.*.plist")]):
         # Skip symlinks (those are fine — they auto-update)
         if plist.is_symlink():
             continue
@@ -44,7 +44,7 @@ def check():
     secret_re = re.compile(
         r"(?:sk-[a-zA-Z0-9]{20,}|xoxb-[a-zA-Z0-9-]+|xoxp-[a-zA-Z0-9-]+|ghp_[a-zA-Z0-9]{36,})"
     )
-    bin_dir = Path.home() / "bin"
+    bin_dir = Path.home() / "germline" / "effectors"
     for script in bin_dir.iterdir():
         if not script.is_file():
             continue

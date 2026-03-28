@@ -1,17 +1,17 @@
-# Receptor Health — 2026-03-29 01:58
+# Receptor Health — 2026-03-29 02:44
 
 
 ## Attachment Integrity
 
 - Total receptors: 14
 - Total references: 23
-- Attached: 17
-- Detached: 6
+- Attached: 18
+- Detached: 5
 - Mechanically silent: 0
 - Focal adhesion risks: 1
 
 ## Activation State
-0 open | 0 extended | 60 bent (1 anoikis candidates)
+0 open | 0 extended | 61 bent (1 anoikis candidates)
 Anoikis candidates logged to /Users/terry/epigenome/chromatin/receptor-retirement.md
 
 ## Anoikis Candidates (retirement flagged)
@@ -47,6 +47,7 @@ Anoikis candidates logged to /Users/terry/epigenome/chromatin/receptor-retiremen
 - histochemistry
 - histology
 - hybridization
+- infradian
 - ingestion
 - integrin
 - involution
@@ -80,7 +81,6 @@ Anoikis candidates logged to /Users/terry/epigenome/chromatin/receptor-retiremen
 
 ## Detached References
 - involution: `fasti`
-- mitosis: `oghma`
 - palpation: `strace`
 - replication: `lucus`
 - sporulation: `adj`
