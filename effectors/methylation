@@ -1,4 +1,4 @@
-#!/Users/terry/.local/share/mise/installs/python/3.13.12/bin/python3.13
+#!/usr/bin/env python3
 """methylation — weekly crystallization effector for the vivesca organism.
 
 Reads the three signal sources from the past 7 days:

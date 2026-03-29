@@ -1,4 +1,4 @@
-#!/Users/terry/.local/share/mise/installs/python/3.13.12/bin/python3.13
+#!/usr/bin/env python3
 """inflammasome-probe — hourly runner for vivesca immune probes.
 
 Runs all inflammasome probes, logs failures to the infection log,

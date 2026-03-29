@@ -194,7 +194,7 @@ def add():
 @click.argument("name")
 @click.option("--domain", "-d", help="Tool domain prefix (default: derived from name).")
 @click.option("--verb", "-v", help="Tool verb (default: derived from name).")
-@click.option("--description", default="TODO: describe this tool.", help="Tool description.")
+@click.option("--description", default="No description provided.", help="Tool description.")
 @click.option("--read-only/--no-read-only", default=True, help="Whether tool is read-only.")
 def add_tool(name: str, domain: str | None, verb: str | None, description: str, read_only: bool):
     """Add a tool to the current project.
@@ -224,7 +224,7 @@ def add_tool(name: str, domain: str | None, verb: str | None, description: str, 
 
 @add.command("prompt")
 @click.argument("name")
-@click.option("--description", default="TODO: describe this prompt.", help="Prompt description.")
+@click.option("--description", default="No description provided.", help="Prompt description.")
 def add_prompt(name: str, description: str):
     """Add a prompt to the current project."""
     from metabolon.gastrulation.add import graft_prompt
@@ -237,7 +237,7 @@ def add_prompt(name: str, description: str):
 @click.argument("name")
 @click.option(
     "--description",
-    default="TODO: describe this resource.",
+    default="No description provided.",
     help="Resource description.",
 )
 @click.option("--uri-path", default="", help="Custom URI path (default: name).")

@@ -336,8 +336,8 @@ def _run_breaking_locked(
     # Cross-source dedup: tracks normalised title fingerprints within this run.
     # If two feeds carry the same story (same title, different source), only the
     # first occurrence fires an alert.
-    # TODO: persist title fingerprints across runs so that stories seen in a
-    # previous wave are also suppressed (currently dedup is intra-run only).
+    # NOTE: content_seen fingerprints are intra-run only; cross-run persistence
+    # would require a TTL/expiry strategy to avoid unbounded state growth.
     content_seen_this_run: set[str] = set()
     since_date = (now - timedelta(days=2)).strftime("%Y-%m-%d")
     matches: list[dict[str, str]] = []

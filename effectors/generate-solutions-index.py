@@ -63,7 +63,7 @@ def generate_index() -> str:
         "",
         f"Auto-generated. {sum(len(v) for v in categories.values())} files across {len(categories)} categories.",
         "",
-        "Re-generate: `python3 ~/scripts/generate-solutions-index.py`",
+        "Re-generate: `python3 ~/germline/effectors/generate-solutions-index.py`",
         "",
     ]
 
