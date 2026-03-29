@@ -6,14 +6,22 @@ survives session disconnects. The nodes are pluggable; circulation just moves
 blood through the system.
 
 State machine:
-  preflight → select_goals → dispatch → evaluate → compound → checkpoint
-       ↑                                                          |
-       └──────────── (budget green) ──────────────────────────────┘
+  preflight → select_goals → [INTERRUPT] → dispatch → evaluate → compound → checkpoint
+       ↑                                                                        |
+       └──────────── (budget green) ────────────────────────────────────────────┘
                      (budget yellow/red) → report → END
+
+The interrupt before dispatch is a LangGraph interrupt_before gate. In
+interactive mode, the graph pauses after goal selection so the operator can
+review before tokens are burned. In overnight mode, the gate is skipped.
+
+Checkpoints persist to SQLite at ~/.local/share/vivesca/checkpoints.db so
+overnight runs survive process crashes and can be resumed.
 
 Usage:
     from metabolon.organelles.circulation import circulate
-    circulate(mode="overnight")  # runs until budget exhausted
+    circulate(mode="overnight")   # runs unattended, persistent checkpoints
+    circulate(mode="interactive") # pauses before dispatch for review
 """
 
 from __future__ import annotations
@@ -25,12 +33,15 @@ from pathlib import Path
 from typing import Annotated, Any, TypedDict
 
 from langgraph.checkpoint.memory import InMemorySaver
+from langgraph.checkpoint.sqlite import SqliteSaver
 from langgraph.graph import END, StateGraph
 
 from metabolon.locus import chromatin, praxis
 from metabolon.symbiont import transduce, transduce_safe
 
 # ── paths ────────────────────────────────────────────────────
+
+CHECKPOINT_DB = Path.home() / ".local" / "share" / "vivesca" / "checkpoints.db"
 
 NORTH_STAR_PATH = chromatin / "North Star.md"
 SHAPES_PATH = chromatin / "euchromatin" / "epistemics" / "north-star-shapes.md"
@@ -391,23 +402,47 @@ def build_graph() -> StateGraph:
 # ── public API ───────────────────────────────────────────────
 
 
+def _open_checkpointer(persistent: bool = True):
+    """Open a checkpointer — SQLite for persistence, InMemory for tests."""
+    if not persistent:
+        return InMemorySaver()
+    import sqlite3
+
+    CHECKPOINT_DB.parent.mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(str(CHECKPOINT_DB), check_same_thread=False)
+    return SqliteSaver(conn)
+
+
 def circulate(
     mode: str = "overnight",
     thread_id: str = "default",
     resume: bool = True,
+    persistent: bool = True,
 ) -> dict:
     """Run the circulation loop.
 
     Args:
-        mode: "overnight" (unattended) or "interactive" (with gates)
+        mode: "overnight" (unattended) or "interactive" (pauses before dispatch)
         thread_id: Checkpoint thread ID for resume
-        resume: If True, resume from last checkpoint
+        resume: If True, resume from last checkpoint if one exists
+        persistent: If True, use SQLite checkpointer (survives crashes)
     """
-    checkpointer = InMemorySaver()
+    interactive = mode == "interactive"
+    checkpointer = _open_checkpointer(persistent)
     graph = build_graph()
-    app = graph.compile(checkpointer=checkpointer)
+
+    interrupt = ["dispatch"] if interactive else None
+    app = graph.compile(checkpointer=checkpointer, interrupt_before=interrupt)
 
     config = {"configurable": {"thread_id": thread_id}}
+
+    # Check for existing checkpoint to resume
+    if resume and persistent:
+        existing = checkpointer.get(config)
+        if existing is not None:
+            final_state = app.invoke(None, config)
+            return final_state
+
     initial_state: CirculationState = {
         "north_stars": "",
         "praxis_items": "",
@@ -428,6 +463,41 @@ def circulate(
 
     final_state = app.invoke(initial_state, config)
     return final_state
+
+
+def review_and_continue(
+    thread_id: str = "default",
+    approve: bool = True,
+    updated_goals: list[dict[str, str]] | None = None,
+) -> dict:
+    """Resume an interrupted circulation run after reviewing goals.
+
+    Called after circulate(mode="interactive") pauses at the dispatch gate.
+
+    Args:
+        thread_id: Must match the thread_id used in circulate()
+        approve: If True, continue with selected goals. If False, stop.
+        updated_goals: Optionally replace the selected_goals before continuing.
+    """
+    checkpointer = _open_checkpointer(persistent=True)
+    graph = build_graph()
+    app = graph.compile(checkpointer=checkpointer, interrupt_before=["dispatch"])
+
+    config = {"configurable": {"thread_id": thread_id}}
+
+    if not approve:
+        # Jump to checkpoint's output edge — should_continue routes to report → END
+        app.update_state(
+            config,
+            {"should_stop": True, "stop_reason": "Operator rejected goals."},
+            as_node="checkpoint",
+        )
+        return app.invoke(None, config)
+
+    if updated_goals is not None:
+        app.update_state(config, {"selected_goals": updated_goals})
+
+    return app.invoke(None, config)
 
 
 # ── CLI ──────────────────────────────────────────────────────

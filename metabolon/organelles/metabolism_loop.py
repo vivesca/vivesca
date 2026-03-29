@@ -25,6 +25,7 @@ from typing import Annotated, TypedDict
 import operator
 
 from langgraph.checkpoint.memory import InMemorySaver
+from langgraph.checkpoint.sqlite import SqliteSaver
 from langgraph.graph import END, StateGraph
 
 from metabolon.metabolism.fitness import sense_affect
@@ -471,17 +472,37 @@ def build_graph() -> StateGraph:
 # ── public API ────────────────────────────────────────────────
 
 
-def run_metabolism(thread_id: str = "default") -> dict:
+def _open_checkpointer(persistent: bool = True):
+    """Open a checkpointer — SQLite for persistence, InMemory for tests."""
+    if not persistent:
+        return InMemorySaver()
+    import sqlite3
+    from pathlib import Path
+
+    db_path = Path.home() / ".local" / "share" / "vivesca" / "checkpoints.db"
+    db_path.parent.mkdir(parents=True, exist_ok=True)
+    return SqliteSaver(sqlite3.connect(str(db_path), check_same_thread=False))
+
+
+def run_metabolism(
+    thread_id: str = "default",
+    persistent: bool = True,
+    interactive: bool = False,
+) -> dict:
     """Run one metabolism self-improvement cycle.
 
     Returns the final state dict including the report string.
 
     Args:
         thread_id: LangGraph checkpoint thread ID. Default "default".
+        persistent: If True, use SQLite checkpointer (survives crashes).
+        interactive: If True, interrupt before repair for operator review.
     """
-    checkpointer = InMemorySaver()
+    checkpointer = _open_checkpointer(persistent)
     graph = build_graph()
-    app = graph.compile(checkpointer=checkpointer)
+
+    interrupt = ["repair"] if interactive else None
+    app = graph.compile(checkpointer=checkpointer, interrupt_before=interrupt)
 
     config = {"configurable": {"thread_id": thread_id}}
 

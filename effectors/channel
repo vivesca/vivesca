@@ -9,6 +9,7 @@ Usage:
     channel sonnet -p "prompt"
     channel haiku -p "prompt"
     channel sonnet -p "prompt" --max-tokens 4096
+    channel sonnet --organism -p "prompt"   # full organism: MCP, skills, tools
     echo "prompt" | channel sonnet
 """
 
@@ -55,13 +56,13 @@ def _gate() -> bool:
         return False
 
 
-def _record(model: str, success: bool, duration_ms: int) -> None:
+def _record(model: str, success: bool, duration_ms: int, task_type: str = "general") -> None:
     """Record outcome to mitophagy. Silently skips on any error."""
     try:
         import sys as _sys
         _sys.path.insert(0, str(__import__("pathlib").Path.home() / "germline"))
         from metabolon.organelles.mitophagy import record_outcome
-        record_outcome(model=model, task_type="general", success=success, duration_ms=duration_ms)
+        record_outcome(model=model, task_type=task_type, success=success, duration_ms=duration_ms)
     except Exception:
         pass
 
@@ -71,7 +72,19 @@ def main():
         print(__doc__.strip())
         sys.exit(0)
 
-    raw_model = sys.argv[1]
+    # Parse --organism flag before model detection
+    argv = sys.argv[1:]
+    organism = "--organism" in argv
+    if organism:
+        argv = [a for a in argv if a != "--organism"]
+
+    if not argv:
+        print(__doc__.strip())
+        sys.exit(0)
+
+    raw_model = argv[0]
+    rest = argv[1:]
+
     if raw_model not in MODELS:
         # No explicit model — consult tissue routing for the default.
         routed = _tissue_default()
@@ -90,11 +103,16 @@ def main():
         print("channel: Max OAuth not available — channel closed", file=sys.stderr)
         sys.exit(2)
 
-    args = [CLAUDE, "--print", "--model", MODELS[model]] + sys.argv[2:]
+    args = [CLAUDE, "--print", "--model", MODELS[model]]
+    if organism:
+        args += ["--permission-mode", "bypassPermissions"]
+    args += rest
+
+    task_type = "organism" if organism else "general"
     t0 = time.monotonic()
     result = subprocess.run(args, env=env)
     duration_ms = int((time.monotonic() - t0) * 1000)
-    _record(model, result.returncode == 0, duration_ms)
+    _record(model, result.returncode == 0, duration_ms, task_type)
     sys.exit(result.returncode)
 
 
