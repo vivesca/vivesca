@@ -19,6 +19,20 @@ from metabolon.locus import agent_queue
 QUEUE_PATH = agent_queue
 RUNS_DIR = Path.home() / ".cache" / "gemmation-runs"
 BACKENDS = ("claude", "gemini", "codex", "opencode", "goose")
+_COACHING_NOTES = Path.home() / "epigenome" / "marks" / "feedback_glm_coaching.md"
+
+
+def _prepend_coaching(prompt: str) -> str:
+    """Prepend GLM coaching notes. TOM doesn't load in headless mode."""
+    if not _COACHING_NOTES.exists():
+        return prompt
+    try:
+        notes = _COACHING_NOTES.read_text(encoding="utf-8")
+        if notes.startswith("---"):
+            _, _, notes = notes.split("---", 2)
+        return f"{notes.strip()}\n\n---\n\n{prompt}"
+    except Exception:
+        return prompt
 
 
 def _load_queue(path: Path | None = None) -> list[dict]:
@@ -90,7 +104,7 @@ def _build_cmd(task: dict, out_dir: Path) -> list[str]:
         title = task.get("title") or task["name"]
         return ["opencode", "run", "-m", "opencode/glm-5", "--title", title, prompt]
     elif backend == "goose":
-        return ["goose", "run", "-t", prompt]
+        return ["goose", "run", "-t", _prepend_coaching(prompt)]
     else:
         raise ValueError(f"Unknown backend: {backend}")
 

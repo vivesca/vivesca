@@ -69,3 +69,7 @@ You have access to vivesca MCP tools — prefixed by domain:
 
 Terry: transitioning CNCBI → Capco (Principal Consultant, AI Solution Lead). Capco Day 1: Apr 8.
 Latin/Greek naming preference. Package manager: pnpm. Front-stage (client-facing): Terry's voice, not the LLM's.
+
+## Coding Discipline
+
+Follow all instructions in `~/epigenome/marks/feedback_glm_coaching.md` — these are corrections from prior review cycles. Violating them means your output gets rejected and re-done.

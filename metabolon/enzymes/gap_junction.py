@@ -1,20 +1,10 @@
-"""gap_junction — ligand-receptor signalling via WhatsApp (wacli) + iMessage (chat.db).
+"""gap_junction — WhatsApp messaging via wacli.
 
-Tools:
-  ligand_bind   — read a WhatsApp conversation (merges phone + LID JIDs)
-  ligand_search — search WhatsApp messages by text, optionally scoped to contact
-  ligand_draft  — draft a WhatsApp message (NEVER sends)
-  receptor_list — list recent WhatsApp chats
-  receptor_sync — check wacli sync daemon status
-  electroreception_read — read iMessages/SMS from macOS chat.db
+Actions: read|search|draft|list_chats|sync_status
+Absorbs: gap_junction (ligand_*), keryx (keryx_*), receptor (receptor_*).
 """
 
 from __future__ import annotations
-
-import os
-import re
-import sqlite3
-from datetime import datetime, timedelta
 
 from fastmcp.tools import tool
 from mcp.types import ToolAnnotations
@@ -24,76 +14,62 @@ from metabolon.morphology import Secretion, Vital
 GAP_JUNCTION_CONTACTS = {"tara", "mum", "dad", "brother", "sister", "yujie"}
 
 
-def _contact_type(name: str) -> str:
-    return "gap_junction" if name.lower() in GAP_JUNCTION_CONTACTS else "receptor"
+class GapJunctionResult(Secretion):
+    output: str
 
 
-class LigandResult(Secretion):
-    messages: str
-
-
-class LigandDraft(Secretion):
-    draft: str
-
-
-class ReceptorList(Secretion):
-    chats: str
+_ACTIONS = (
+    "read — read a conversation with a contact. Requires: name. Optional: limit. "
+    "search — search messages by text. Requires: query. Optional: name, limit. "
+    "draft — draft a message (NEVER sends). Requires: name, message. "
+    "list_chats — list recent chats. Optional: limit. "
+    "sync_status — check wacli sync daemon status."
+)
 
 
 @tool(
-    name="ligand_bind",
-    description="Read a WhatsApp conversation. Merges phone + LID JID threads.",
+    name="gap_junction",
+    description=f"WhatsApp messaging. Actions: {_ACTIONS}",
     annotations=ToolAnnotations(readOnlyHint=True, destructiveHint=False),
 )
-def ligand_bind(name: str, limit: int = 20) -> LigandResult:
-    from metabolon.organelles.gap_junction import receive_signals
+def gap_junction(
+    action: str,
+    name: str = "",
+    message: str = "",
+    query: str = "",
+    limit: int = 20,
+) -> GapJunctionResult:
+    """Unified WhatsApp tool."""
+    action = action.lower().strip()
 
-    contact = _contact_type(name)
-    result = receive_signals(name, limit)
-    prefix = f"[{contact}] " if contact == "gap_junction" else ""
-    return LigandResult(messages=f"{prefix}{result}")
+    if action == "read":
+        if not name:
+            return GapJunctionResult(output="read requires: name")
+        from metabolon.organelles.gap_junction import receive_signals
+        result = receive_signals(name, limit)
+        prefix = f"[gap_junction] " if name.lower() in GAP_JUNCTION_CONTACTS else ""
+        return GapJunctionResult(output=f"{prefix}{result}")
 
+    elif action == "search":
+        if not query:
+            return GapJunctionResult(output="search requires: query")
+        from metabolon.organelles.gap_junction import search_signals
+        result = search_signals(query, name, limit)
+        return GapJunctionResult(output=result)
 
-@tool(
-    name="ligand_search",
-    description="Search WhatsApp messages by text. Optionally scope to a contact.",
-    annotations=ToolAnnotations(readOnlyHint=True, destructiveHint=False),
-)
-def ligand_search(query: str, name: str = "", limit: int = 20) -> LigandResult:
-    from metabolon.organelles.gap_junction import search_signals
+    elif action == "draft":
+        if not name or not message:
+            return GapJunctionResult(output="draft requires: name, message")
+        from metabolon.organelles.gap_junction import compose_signal
+        return GapJunctionResult(output=compose_signal(name, message))
 
-    result = search_signals(query, name, limit)
-    return LigandResult(messages=result)
+    elif action == "list_chats":
+        from metabolon.organelles.gap_junction import active_junctions
+        return GapJunctionResult(output=active_junctions(limit))
 
+    elif action == "sync_status":
+        from metabolon.organelles.gap_junction import junction_status
+        return GapJunctionResult(output=junction_status())
 
-@tool(
-    name="ligand_draft",
-    description="Draft a WhatsApp message. NEVER sends -- returns shell command.",
-    annotations=ToolAnnotations(readOnlyHint=True, destructiveHint=False),
-)
-def ligand_draft(name: str, message: str) -> LigandDraft:
-    from metabolon.organelles.gap_junction import compose_signal
-
-    return LigandDraft(draft=compose_signal(name, message))
-
-
-@tool(
-    name="receptor_list",
-    description="List recent WhatsApp chats.",
-    annotations=ToolAnnotations(readOnlyHint=True, destructiveHint=False),
-)
-def receptor_list(limit: int = 20) -> ReceptorList:
-    from metabolon.organelles.gap_junction import active_junctions
-
-    return ReceptorList(chats=active_junctions(limit))
-
-
-@tool(
-    name="receptor_sync",
-    description="Check the wacli sync daemon status.",
-    annotations=ToolAnnotations(readOnlyHint=True, destructiveHint=False),
-)
-def receptor_sync() -> Vital:
-    from metabolon.organelles.gap_junction import junction_status
-
-    return Vital(status="ok", message=junction_status())
+    else:
+        return GapJunctionResult(output=f"Unknown action '{action}'. Valid: read, search, draft, list_chats, sync_status")

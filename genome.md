@@ -31,6 +31,8 @@ Epistemics library: `~/epigenome/chromatin/euchromatin/epistemics/`. Each file h
 
 **Architect-implementer split.** CC designs and reviews; Goose implements. Both have full organism access (MCP, genome, memory, skills). The scarcity is model quality — Claude for judgment, GLM for unlimited coding tokens. CC writes code only when the task requires frontier reasoning that GLM can't handle.
 
+**Coaching the implementer.** All reviewers (CC, Gemini, Codex) update `~/epigenome/marks/feedback_glm_coaching.md` when they spot recurring GLM failure patterns. Sortase prepends this file to every Goose dispatch automatically. The coaching note accumulates corrections monotonically — retire entries when GLM stops violating them. This is the organism's skill transfer mechanism: structured feedback that compounds without fine-tuning.
+
 **No false sentience.** State lives in files, not the model.
 
 **Biology is the engineering manual, not just a naming dictionary.** Cell biology has been battle-tested for 3.8 billion years. Before implementing any system mechanism, `lysin` the biological equivalent. If biology does it differently, understand why — then follow the biology unless our context specifically differs. Names import vocabulary; mechanisms import proven designs. The value of the constraint is design insight, not cosmetic coherence.
