@@ -615,31 +615,29 @@ def guard_agent(data):
 
 
 def guard_efferent(data):
+    """CC designs, droid implements. Block implementation code edits."""
     ti = data.get("tool_input", {})
     fp = ti.get("file_path", "")
-    if not re.search(re.escape(str(HOME / "code")) + r"/", fp):
-        return
-    if re.search(r"\.(md|toml|lock|gitignore|txt|json|yaml|yml)$", fp):
+
+    # Only gate implementation paths
+    impl_dirs = [str(HOME / "code") + "/", str(HOME / "germline") + "/"]
+    if not any(fp.startswith(d) for d in impl_dirs):
         return
 
-    tool = data.get("tool", "")
-    line_count = 0
-    if tool == "Write":
-        line_count = (ti.get("content", "") or "").count("\n") + 1
-    elif tool == "Edit":
-        new_s = ti.get("new_string", "") or ""
-        old_s = ti.get("old_string", "") or ""
-        line_count = max(new_s.count("\n") + 1, max(0, new_s.count("\n") - old_s.count("\n")) + 1)
+    # Judgment files: CC writes these directly
+    if re.search(r"\.(md|toml|lock|gitignore|txt|json|yaml|yml|plist)$", fp):
+        return
+    # Skills, memory, genome — always CC territory
+    if "/receptors/" in fp or "/marks/" in fp or "/epigenome/" in fp:
+        return
 
-    if line_count > 20:
-        print(
-            f"DELEGATE GATE: Writing {line_count} lines in ~/code/. "
-            "Delegate to Codex/Gemini/OpenCode instead.",
-            file=sys.stderr,
-        )
-        sys.exit(1)
-    else:
-        print(f"[delegate-note] Small edit ({line_count} lines) in ~/code/ — OK for tweaks.")
+    # Implementation code (.py, .sh, .rs, etc.) — delegate to droid
+    deny(
+        f"CC must not write implementation code. Delegate: "
+        f"`sortase exec <plan> -p <dir> -b droid`. "
+        f"Write a spec file instead, then dispatch.",
+        "delegate-gate",
+    )
 
 
 # ── guard_bifurcation: from bifurcation.js ─────────────────
