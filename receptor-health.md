@@ -1,4 +1,4 @@
-# Receptor Health — 2026-03-29 02:44
+# Receptor Health — 2026-03-29 15:19
 
 
 ## Attachment Integrity
@@ -11,7 +11,7 @@
 - Focal adhesion risks: 1
 
 ## Activation State
-0 open | 0 extended | 61 bent (1 anoikis candidates)
+0 open | 0 extended | 62 bent (1 anoikis candidates)
 Anoikis candidates logged to /Users/terry/epigenome/chromatin/receptor-retirement.md
 
 ## Anoikis Candidates (retirement flagged)
@@ -55,6 +55,7 @@ Anoikis candidates logged to /Users/terry/epigenome/chromatin/receptor-retiremen
 - kinesin
 - maturation
 - meiosis
+- metabolize
 - methylation
 - mitosis
 - modification

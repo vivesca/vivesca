@@ -4,10 +4,10 @@
 # dependencies = []
 # ///
 """
-proteostasis -- dependency auto-updater with rollback.
+proteostasis -- dependency auto-updater with diagnosis.
 
 Maintains the organism's external dependency pool:
-detect outdated → upgrade → smoke test → rollback on failure.
+detect outdated → upgrade → smoke test → diagnose → fix → emit signal if stuck.
 
 Usage:
     proteostasis                # auto-update (respects 20h frequency gate)
@@ -25,30 +25,27 @@ from pathlib import Path
 
 
 def _ver_tuple(v: str) -> tuple[int, ...]:
-    """Parse '3.1.2' into (3, 1, 2) for comparison."""
     return tuple(int(x) for x in v.split(".") if x.isdigit())
 
 
-STATE_PATH = Path.home() / ".config" / "dep-check" / "state.json"
+STATE_PATH = Path.home() / ".config" / "proteostasis" / "state.json"
+SIGNAL_PATH = Path.home() / "epigenome" / "chromatin" / "immunity" / "proteostasis-blocked.json"
 HKT = timezone(timedelta(hours=8))
 FREQUENCY_HOURS = 20
 DRY_RUN = "--dry-run" in sys.argv
 FORCE = "--force" in sys.argv
 
-# Keywords that flag a CC release as potentially breaking
 CC_BREAKING_KEYWORDS = [
     "breaking", "removed", "deprecated", "no longer",
     "hook", "plugin", "permissions", "api change", "renamed",
 ]
 
-# Git-pinned packages: skip normal auto-upgrade, only upgrade when
-# PyPI has >= min_version. (pip_name, min_version)
+# Git-pinned: skip normal upgrade, auto-install when PyPI has >= min_version.
 PY_GIT_PINNED = {
     "fastmcp": "3.1.2",
 }
 
-# Smoke test: imports that must succeed after any Python upgrade.
-# Each entry is a dotted import path.
+# Smoke test imports that must succeed after any upgrade.
 PY_SMOKE_IMPORTS = [
     "fastmcp.tools",
     "anthropic",
@@ -57,38 +54,58 @@ PY_SMOKE_IMPORTS = [
 ]
 
 
-# ── PATH helper ──────────────────────────────────────────────────────────────
+# ── Helpers ──────────────────────────────────────────────────────────────────
 
 def _path() -> str:
-    """Build a PATH that resolves gh, npm, pip regardless of invocation context."""
     extra = [
         "/opt/homebrew/bin",
-        str(Path.home() / "bin"),
-        str(Path.home() / "officina" / "bin"),
         str(Path.home() / ".cargo" / "bin"),
         str(Path.home() / ".local" / "bin"),
         str(Path.home() / ".bun" / "bin"),
+        str(Path.home() / "germline" / "effectors"),
     ]
     return ":".join(extra) + ":" + os.environ.get("PATH", "")
 
 
+def _uv() -> str:
+    for p in ["/opt/homebrew/bin/uv", str(Path.home() / ".cargo/bin/uv")]:
+        if Path(p).exists():
+            return p
+    return "uv"
+
+
+def _mise_python() -> str:
+    p = Path.home() / ".local/share/mise/shims/python3"
+    return str(p) if p.exists() else "python3"
+
+
+def run(cmd: list, timeout: int = 15) -> tuple[bool, str]:
+    try:
+        r = subprocess.run(
+            cmd, capture_output=True, text=True, timeout=timeout,
+            env={**os.environ, "PATH": _path()},
+        )
+        out = (r.stdout or "").strip()
+        err = (r.stderr or "").strip()
+        return r.returncode == 0, out if out else err
+    except subprocess.TimeoutExpired:
+        return False, f"[timed out after {timeout}s]"
+    except FileNotFoundError:
+        return False, f"[not found: {cmd[0]}]"
+    except Exception as e:
+        return False, str(e)
+
+
 # ── State ────────────────────────────────────────────────────────────────────
-
-def _migrate_known_version(v) -> dict:
-    """Upgrade a bare string value from the old schema to the new nested dict."""
-    if isinstance(v, dict):
-        return v
-    return {"installed": v, "latest_seen": v, "todo_created_for": None}
-
 
 def load_state() -> dict:
     try:
         raw = json.loads(STATE_PATH.read_text())
-        kv = raw.get("known_versions", {})
-        raw["known_versions"] = {k: _migrate_known_version(val) for k, val in kv.items()}
+        if "blocked" not in raw:
+            raw["blocked"] = {}
         return raw
     except Exception:
-        return {"known_versions": {}, "last_run": None, "last_notified": None}
+        return {"last_run": None, "blocked": {}}
 
 
 def save_state(state: dict) -> None:
@@ -105,40 +122,30 @@ def should_run(state: dict) -> bool:
     if not last:
         return True
     try:
-        dt = datetime.fromisoformat(last)
-        return (datetime.now(HKT) - dt).total_seconds() > FREQUENCY_HOURS * 3600
+        return (datetime.now(HKT) - datetime.fromisoformat(last)).total_seconds() > FREQUENCY_HOURS * 3600
     except Exception:
         return True
 
 
-# ── Subprocess helper ────────────────────────────────────────────────────────
+# ── Signal emission ──────────────────────────────────────────────────────────
 
-def run(cmd: list, timeout: int = 15) -> tuple[bool, str]:
-    """Run a command with enriched PATH. Returns (success, output). Never raises."""
-    try:
-        r = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            timeout=timeout,
-            env={**os.environ, "PATH": _path()},
-        )
-        out = (r.stdout or "").strip()
-        err = (r.stderr or "").strip()
-        combined = out if out else err
-        return r.returncode == 0, combined
-    except subprocess.TimeoutExpired:
-        return False, f"[timed out after {timeout}s]"
-    except FileNotFoundError:
-        return False, f"[command not found: {cmd[0]}]"
-    except Exception as e:
-        return False, str(e)
+def emit_signal(blocked: dict) -> None:
+    """Write blocked packages to a known location for circulation pickup."""
+    if DRY_RUN:
+        return
+    SIGNAL_PATH.parent.mkdir(parents=True, exist_ok=True)
+    if blocked:
+        SIGNAL_PATH.write_text(json.dumps({
+            "updated": datetime.now(HKT).isoformat(),
+            "blocked": blocked,
+        }, indent=2))
+    elif SIGNAL_PATH.exists():
+        SIGNAL_PATH.unlink()  # all clear — remove signal
 
 
-# ── Smoke test ───────────────────────────────────────────────────────────────
+# ── Smoke test & diagnosis ───────────────────────────────────────────────────
 
 def smoke_test() -> tuple[bool, str]:
-    """Quick import smoke test using the mise-managed Python."""
     imports = "; ".join(f"__import__('{m}')" for m in PY_SMOKE_IMPORTS)
     try:
         r = subprocess.run(
@@ -150,70 +157,77 @@ def smoke_test() -> tuple[bool, str]:
         return False, str(e)
 
 
-# ── Claude Code (alert only — it auto-updates itself) ───────────────────────
+def diagnose() -> dict:
+    """Run uv pip check. Returns {pkg: {required_by, constraint, installed}}."""
+    ok, out = run([_uv(), "pip", "check", "--python", _mise_python()], timeout=15)
+    if ok:
+        return {}
+    conflicts = {}
+    for line in out.splitlines():
+        m = re.match(
+            r"(.+?) [\d.]+ has requirement (.+?)(?:>=|<=|==|!=|~=|>|<)(.+?),"
+            r" but you have (.+?) ([\d.]+)", line,
+        )
+        if m:
+            source, _, _, dep_name, installed_ver = m.groups()
+            conflicts[dep_name.strip()] = {
+                "required_by": source.strip(),
+                "constraint": line.strip(),
+                "installed": installed_ver.strip(),
+            }
+    return conflicts
 
-def get_installed_cc_version() -> str | None:
-    link = Path.home() / ".local" / "bin" / "claude"
-    try:
-        target = link.resolve()
-        return target.name
-    except Exception:
-        return None
 
-
-def get_latest_cc_release() -> tuple[str | None, str]:
+def attempt_fix(conflicts: dict) -> tuple[bool, str]:
+    """Upgrade conflicting packages to resolve version mismatches."""
+    if not conflicts:
+        return False, "no conflicts detected"
     ok, out = run(
-        ["gh", "release", "view", "--repo", "anthropics/claude-code",
-         "--json", "tagName,body"],
-        timeout=20,
+        [_uv(), "pip", "install", "--upgrade", "--python", _mise_python()]
+        + list(conflicts.keys()),
+        timeout=120,
     )
     if not ok:
-        return None, out
-    try:
-        d = json.loads(out)
-        tag = d["tagName"].lstrip("v")
-        body = d.get("body", "")
-        return tag, body
-    except Exception as e:
-        return None, str(e)
+        return False, f"fix failed: {out[:200]}"
+    passed, detail = smoke_test()
+    return passed, detail if not passed else "fixed"
 
+
+# ── Claude Code ──────────────────────────────────────────────────────────────
 
 def check_claude_code(state: dict) -> list[str]:
-    """CC auto-updates itself. We only alert on breaking changes."""
-    alerts = []
-    installed = get_installed_cc_version()
-    if not installed:
+    installed = None
+    link = Path.home() / ".local" / "bin" / "claude"
+    try:
+        installed = link.resolve().name
+    except Exception:
         return []
 
-    latest, body = get_latest_cc_release()
-    if latest is None:
+    ok, out = run(
+        ["gh", "release", "view", "--repo", "anthropics/claude-code",
+         "--json", "tagName,body"], timeout=20,
+    )
+    if not ok:
+        return []
+    try:
+        d = json.loads(out)
+        latest = d["tagName"].lstrip("v")
+        body = d.get("body", "")
+    except Exception:
         return []
 
-    kv = state["known_versions"].get("claude-code")
-    if not isinstance(kv, dict):
-        kv = {"installed": installed, "latest_seen": installed, "todo_created_for": None}
-
-    if latest != installed and is_breaking(body):
+    if latest != installed and any(kw in body.lower() for kw in CC_BREAKING_KEYWORDS):
         url = f"https://github.com/anthropics/claude-code/releases/tag/v{latest}"
-        alerts.append(f"CC BREAKING: {installed} → {latest} — {url}")
-
-    kv["installed"] = installed
-    kv["latest_seen"] = latest
-    state["known_versions"]["claude-code"] = kv
-    return alerts
-
-
-def is_breaking(body: str) -> bool:
-    lower = body.lower()
-    return any(kw in lower for kw in CC_BREAKING_KEYWORDS)
+        return [f"CC BREAKING: {installed} → {latest} — {url}"]
+    return []
 
 
 # ── Python auto-update ───────────────────────────────────────────────────────
 
-def _pip_outdated() -> dict[str, dict]:
-    """Get all outdated pip packages. Returns {name: {version, latest_version}}."""
+def _uv_outdated() -> dict[str, dict]:
+    """All outdated pip packages via uv."""
     ok, out = run(
-        [_mise_python(), "-m", "pip", "list", "--outdated", "--format=json"],
+        [_uv(), "pip", "list", "--outdated", "--format=json", "--python", _mise_python()],
         timeout=30,
     )
     if not ok or not out:
@@ -224,9 +238,11 @@ def _pip_outdated() -> dict[str, dict]:
         return {}
 
 
-def _pip_snapshot() -> dict[str, str]:
-    """Snapshot all installed pip versions. Returns {name: version}."""
-    ok, out = run([_mise_python(), "-m", "pip", "list", "--format=json"], timeout=15)
+def _uv_snapshot() -> dict[str, str]:
+    ok, out = run(
+        [_uv(), "pip", "list", "--format=json", "--python", _mise_python()],
+        timeout=15,
+    )
     if not ok or not out:
         return {}
     try:
@@ -235,44 +251,68 @@ def _pip_snapshot() -> dict[str, str]:
         return {}
 
 
-def _mise_python() -> str:
-    """Resolve the mise-managed python3."""
-    p = Path.home() / ".local/share/mise/shims/python3"
-    return str(p) if p.exists() else "python3"
+def _uv_install(*args, timeout=60) -> tuple[bool, str]:
+    return run([_uv(), "pip", "install", "--python", _mise_python()] + list(args), timeout=timeout)
+
+
+def _bisect_upgrades(upgraded, blocked, alerts):
+    for pkg, (old, new) in sorted(upgraded.items()):
+        _uv_install(f"{pkg}=={new}")
+        ok, detail = smoke_test()
+        if ok:
+            alerts.append(f"pip upgraded: {pkg} {old} → {new}")
+        else:
+            conflicts = diagnose()
+            _uv_install(f"{pkg}=={old}")
+            blocked[pkg] = {
+                "version": new,
+                "since": datetime.now(HKT).isoformat(),
+                "error": detail[:300],
+                "conflicts": {k: v["constraint"] for k, v in conflicts.items()},
+            }
+            alerts.append(
+                f"pip blocked: {pkg} {new} — "
+                + (", ".join(c["constraint"] for c in conflicts.values())
+                   if conflicts else detail[:100])
+            )
 
 
 def auto_update_python(state: dict) -> list[str]:
-    """Upgrade all outdated pip packages. Smoke test + rollback."""
     alerts = []
-    outdated = _pip_outdated()
+    outdated = _uv_outdated()
     if not outdated:
         return []
 
-    # Exclude git-pinned packages from bulk upgrade
-    to_upgrade = {k: v for k, v in outdated.items() if k not in PY_GIT_PINNED}
+    blocked = state.get("blocked", {})
+    to_upgrade = {}
+    for k, v in outdated.items():
+        if k in PY_GIT_PINNED:
+            continue
+        blk = blocked.get(k)
+        if blk and blk["version"] == v["latest_version"]:
+            continue  # same broken version — skip
+        if blk and blk["version"] != v["latest_version"]:
+            del blocked[k]  # newer version available — unblock and try
+        to_upgrade[k] = v
 
     if DRY_RUN:
         for name, info in sorted(to_upgrade.items()):
             alerts.append(f"pip would upgrade: {name} {info['version']} → {info['latest_version']}")
+        for name, blk in sorted(blocked.items()):
+            alerts.append(f"pip blocked: {name} {blk['version']} (since {blk['since']})")
         for name, min_ver in PY_GIT_PINNED.items():
-            alerts.append(f"pip git-pinned: {name} (waiting for >={min_ver} on PyPI)")
+            alerts.append(f"pip git-pinned: {name} (waiting for >={min_ver})")
         return alerts
 
     if to_upgrade:
-        # Snapshot before upgrade
-        snapshot = _pip_snapshot()
+        snapshot = _uv_snapshot()
         pkg_names = list(to_upgrade.keys())
 
-        ok, out = run(
-            [_mise_python(), "-m", "pip", "install", "--upgrade", "--break-system-packages"]
-            + pkg_names,
-            timeout=300,
-        )
+        ok, out = _uv_install("--upgrade", *pkg_names, timeout=120)
         if not ok:
             alerts.append(f"pip upgrade failed: {out[:100]}")
         else:
-            # Detect what changed
-            new_versions = _pip_snapshot()
+            new_versions = _uv_snapshot()
             upgraded = {
                 k: (snapshot.get(k, "?"), new_versions.get(k, "?"))
                 for k in pkg_names
@@ -280,41 +320,51 @@ def auto_update_python(state: dict) -> list[str]:
             }
 
             if upgraded:
-                passed, detail = smoke_test()
+                passed, _ = smoke_test()
                 if passed:
                     for pkg, (old, new) in sorted(upgraded.items()):
                         alerts.append(f"pip upgraded: {pkg} {old} → {new}")
                 else:
-                    # Rollback all changed packages
-                    for pkg, (old, _) in upgraded.items():
-                        if old != "?":
-                            run(
-                                [_mise_python(), "-m", "pip", "install",
-                                 "--break-system-packages", f"{pkg}=={old}"],
-                                timeout=60,
-                            )
-                    alerts.append(
-                        f"pip ROLLBACK: smoke test failed after upgrading "
-                        f"{len(upgraded)} packages. Reverted. Detail: {detail[:200]}"
-                    )
+                    # Diagnose before reverting
+                    conflicts = diagnose()
+                    if conflicts:
+                        fixed, _ = attempt_fix(conflicts)
+                        if fixed:
+                            for pkg, (old, new) in sorted(upgraded.items()):
+                                alerts.append(f"pip upgraded: {pkg} {old} → {new}")
+                            alerts.append(f"pip healed: {', '.join(conflicts)}")
+                        else:
+                            for pkg, (old, _) in upgraded.items():
+                                if old != "?":
+                                    _uv_install(f"{pkg}=={old}")
+                            _bisect_upgrades(upgraded, blocked, alerts)
+                    else:
+                        for pkg, (old, _) in upgraded.items():
+                            if old != "?":
+                                _uv_install(f"{pkg}=={old}")
+                        _bisect_upgrades(upgraded, blocked, alerts)
+
+    state["blocked"] = blocked
+    emit_signal(blocked)
 
     # Git-pinned: check if target version is on PyPI
     for pip_name, min_ver in PY_GIT_PINNED.items():
-        ok, out = run([_mise_python(), "-m", "pip", "index", "versions", pip_name], timeout=15)
+        ok, out = run(
+            [_uv(), "pip", "index", "versions", pip_name, "--python", _mise_python()],
+            timeout=15,
+        )
+        if not ok:
+            # Fallback: try pip index
+            ok, out = run([_mise_python(), "-m", "pip", "index", "versions", pip_name], timeout=15)
         if not ok:
             continue
         first_line = out.split("\n")[0] if out else ""
         m = re.search(r"\(([^)]+)\)", first_line)
         if not m:
             continue
-        pypi_latest = m.group(1)
-        if _ver_tuple(pypi_latest) >= _ver_tuple(min_ver):
-            run(
-                [_mise_python(), "-m", "pip", "install",
-                 "--break-system-packages", f"{pip_name}>={min_ver}"],
-                timeout=60,
-            )
-            alerts.append(f"pip unpinned: {pip_name} → {pypi_latest} (git pin resolved)")
+        if _ver_tuple(m.group(1)) >= _ver_tuple(min_ver):
+            _uv_install(f"{pip_name}>={min_ver}")
+            alerts.append(f"pip unpinned: {pip_name} → {m.group(1)} (git pin resolved)")
 
     return alerts
 
@@ -322,9 +372,7 @@ def auto_update_python(state: dict) -> list[str]:
 # ── npm auto-update ──────────────────────────────────────────────────────────
 
 def auto_update_npm(state: dict) -> list[str]:
-    """Upgrade all outdated npm globals. Rollback individual failures."""
     alerts = []
-
     ok, out = run(["npm", "outdated", "-g", "--json"], timeout=30)
     if not out:
         return []
@@ -338,7 +386,6 @@ def auto_update_npm(state: dict) -> list[str]:
         latest = info.get("latest")
         if not latest or current == latest:
             continue
-
         if DRY_RUN:
             alerts.append(f"npm would upgrade: {pkg} {current or '?'} → {latest}")
             continue
@@ -348,7 +395,7 @@ def auto_update_npm(state: dict) -> list[str]:
             alerts.append(f"npm upgraded: {pkg} {current or '?'} → {latest}")
         elif current:
             run(["npm", "install", "-g", f"{pkg}@{current}"], timeout=60)
-            alerts.append(f"npm ROLLBACK: {pkg} failed, reverted to {current}")
+            alerts.append(f"npm failed: {pkg} (reverted to {current})")
 
     return alerts
 
@@ -357,7 +404,6 @@ def auto_update_npm(state: dict) -> list[str]:
 
 def main() -> None:
     state = load_state()
-
     if not should_run(state):
         return
 
@@ -366,11 +412,7 @@ def main() -> None:
     alerts += auto_update_python(state)
     alerts += auto_update_npm(state)
 
-    now_str = datetime.now(HKT).isoformat()
-    state["last_run"] = now_str
-    if alerts:
-        state["last_notified"] = now_str
-
+    state["last_run"] = datetime.now(HKT).isoformat()
     save_state(state)
 
     if alerts:

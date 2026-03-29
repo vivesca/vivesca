@@ -1,0 +1,147 @@
+title: "Execute Implementation Plan"
+name: "folding"
+description: "Execute an implementation plan — delegate, verify, review, ship."
+instructions: |
+  # /folding — Execute the Plan
+
+  Take a plan and turn it into working code. Delegate by default, verify with evidence, review proportionally, ship clean.
+
+  ## When to Use
+
+  - After `/translation` produces an implementation plan
+  - When a plan file already exists and the user says "build", "implement", "do it"
+  - When the user provides a clear spec that doesn't need `/transcription` or `/translation`
+  - **Not a shortcut past planning.** If the shape is unclear → `/transcription`. If the steps aren't broken down → `/translation`. Prior discussion is NOT a plan.
+
+  ## Inputs
+
+  Accept any of:
+  - A plan file path (from `/translation`)
+  - A spec file or clear task description (for trivial work only)
+
+  ## Pre-flight
+
+  Quick checks before any code:
+
+  - **Data governance:** Can this code leave the machine? No secrets, `.env`, proprietary data in commits.
+  - **Parallel sessions?** If other work is in flight → `lucus new <branch>` first.
+  - **Naming?** For new tools/CLIs: name before code. Check registry availability.
+  - **Solutions KB:** `receptor-scan "<topic>"` — catches gotchas the plan may have missed.
+
+  ## Weight Class
+
+  Not everything needs the full pipeline.
+
+  | Size | Action |
+  |------|--------|
+  | **Trivial** (≤20 lines, single file, no architecture) | Build directly in-session |
+  | **Standard** (multi-file, existing codebase) | Delegate via sortase |
+  | **Needs live decisions** | In-session with plan mode |
+
+  Default: **delegate.** The point of writing a detailed plan is so a context-free agent can execute it. Don't burn session tokens on work external tools do for free.
+
+  ## Execution
+
+  ### Delegate (default path)
+
+  Route through sortase for logging and feedback:
+
+  ```bash
+  sortase exec <plan-path> -p <project-dir> -b <backend> --test-command "<test>"
+  ```
+
+  **Backend selection:**
+  - `-b gemini` — default, boilerplate, most tasks
+  - `-b codex` — Rust, hard bugs, complex logic
+  - `-b goose` — bulk operations, GLM-5.1 via Zhipu Coding Plan
+
+  **One task per delegation.** 3 tasks in the plan = 3 separate delegations. Don't bundle. Independent tasks run in parallel via worktree isolation (`sortase exec` handles this automatically).
+
+  **Fallback:** If sortase fails (infra, not task), fall back to raw CLI (`gemini -p "$(cat plan.md)"`) — but note the logging gap.
+
+  ### In-session (exception path)
+
+  Only when: chromatin context needed mid-execution, live user decisions required, or delegation is blocked. Not a convenience shortcut.
+
+  ## Verify (Hard Gate)
+
+  Nothing ships without evidence in the conversation.
+
+  - [ ] **Tests pass** — paste actual output, not "it works"
+  - [ ] **Binary runs** — smoke test a real invocation
+  - [ ] **No regressions** — full test suite, not just new tests
+  - [ ] **Matches spec** — re-read the requirement, compare
+
+  If something fails, diagnose before retrying. Consult `~/germline/loci/antisera/` for known patterns. Don't shotgun fixes.
+
+  ## Review
+
+  Triage depth before running anything:
+
+  | Tier | When | Steps |
+  |------|------|-------|
+  | **Full** | Auth/creds/security, new architecture, new external API | File-type reviewers → adversarial pass → simplicity check |
+  | **Standard** | New logic, multi-file, unfamiliar domain | File-type reviewers → severity tags |
+  | **Quick** | Routine boilerplate, config, single-file | Read diff, flag blockers only |
+  | **Spot-check** | Tests pass + existing pattern + trivial change | Skim diff, done |
+
+  **Routing (first match wins):** path contains auth/cred/secret/token/key → Full. New module/data model/cross-service API → Full. New algorithm or >3 files → Standard. Tests pass + existing pattern + small → Spot-check. Default → Quick.
+
+  **Full-tier sub-steps** (Sonnet subagents, routed by file type):
+  - `.py` → kieran-python, `.rs` → kieran-rust, `*auth*` → security-sentinel always
+  - Then: pattern-recognition → code-simplicity (YAGNI last)
+  - **Adversarial pass:** "3 most likely production failures"
+  - **Simplicity check:** "Where did the complexity go?" Every simplification moves complexity somewhere. Name where it landed.
+  - **Severity tags:** Blocker (stops ship) / Major (accept-risk) / Minor (optional)
+
+  ## Ship
+
+  - Clean commits with descriptive messages
+  - `git diff --stat` review (especially after Gemini delegates — they touch extra files)
+  - PR if warranted (`gh pr create`), skip for personal tools on main
+  - If new CLI: add to `~/germline/proteome.md`
+  - If replacing old tool: run tool-replacement checklist
+
+  ### Companion skill
+
+  If you just built a new CLI or tool, create `~/germline/membrane/receptors/<name>/SKILL.md` in this session — gotchas are freshest now.
+
+  ### Compound
+
+  If the solve was non-obvious, capture it: `~/germline/loci/antisera/<topic>.md`. Future sessions benefit.
+
+  ## Language Selection
+
+  **Default: Python.** Rust only when: CPU-bound hot path, startup speed matters, extending existing Rust tool. Client/consulting work = always Python.
+
+  ## Authority Hierarchy
+
+  When the plan conflicts with existing patterns in the codebase:
+
+  1. **Existing codebase conventions** — match what's there, don't impose new style
+  2. **User's explicit instructions** — override defaults, not conventions
+  3. **Skill defaults** — apply only when no existing pattern or user preference exists
+
+  If unsure, read the surrounding code first. Follow what you find.
+
+  ## Hard Rules (quality floor — never override)
+
+  - **Prior discussion ≠ plan.** A transcription conversation is not an execution spec.
+  - **One task per delegation.** No bundling.
+  - **Evidence before assertions.** "It works" is not verification.
+  - **Don't inline full files in delegation prompts.** Give paths, let delegates read.
+
+  ## Default Against (overridable with reason)
+
+  - **Challenge the premise.** "What can this do that the existing approach can't?"
+  - **30-min scope check.** If exploring >30 min with no code or delegation → flag it.
+  - **Gemini default backend.** Override for Rust (Codex) or bulk ops (Goose).
+extensions:
+  - type: builtin
+    name: developer
+    timeout: 300
+    bundled: true
+  - type: streamable_http
+    name: vivesca
+    uri: "http://127.0.0.1:8741/mcp"
+prompt: "Execute the implementation plan and ship working code."
