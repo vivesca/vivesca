@@ -1,0 +1,166 @@
+#!/usr/bin/env python3
+"""Bypass Tailscale exit node for ZhiPu API traffic.
+
+Resolves ZhiPu hostnames and adds host routes via the LAN gateway,
+so traffic goes direct (HK → China) instead of via exit node (HK → JP → China).
+
+Usage:
+    zhipu-route          # add routes
+    zhipu-route remove   # remove routes
+    zhipu-route status   # show current routes
+"""
+
+import json
+import subprocess
+import sys
+
+ZHIPU_HOSTS = [
+    "open.bigmodel.cn",
+    "api.z.ai",
+]
+
+
+def _resolve(host: str) -> list[str]:
+    """Resolve hostname to IPs, skipping CNAMEs."""
+    result = subprocess.run(
+        ["dig", "+short", host], capture_output=True, text=True, timeout=5
+    )
+    return [
+        line.strip()
+        for line in result.stdout.splitlines()
+        if line.strip() and not line.strip().endswith(".")
+    ]
+
+
+def _lan_gateway() -> str | None:
+    """Find the non-Tailscale default gateway."""
+    result = subprocess.run(
+        ["netstat", "-rn"], capture_output=True, text=True, timeout=5
+    )
+    for line in result.stdout.splitlines():
+        parts = line.split()
+        if len(parts) >= 4 and parts[0] == "default" and parts[3].startswith("en"):
+            return parts[1]
+    return None
+
+
+def _current_zhipu_routes() -> dict[str, str]:
+    """Return {ip: interface} for IPs we manage."""
+    all_ips = set()
+    for host in ZHIPU_HOSTS:
+        all_ips.update(_resolve(host))
+
+    result = subprocess.run(
+        ["netstat", "-rn"], capture_output=True, text=True, timeout=5
+    )
+    routes = {}
+    for line in result.stdout.splitlines():
+        parts = line.split()
+        if len(parts) >= 4 and parts[0].split("/")[0] in all_ips:
+            routes[parts[0]] = parts[3]  # interface
+    return routes
+
+
+def _tailscale_exit_active() -> bool:
+    """Check if Tailscale exit node is in use."""
+    try:
+        result = subprocess.run(
+            ["tailscale", "status", "--json"],
+            capture_output=True, text=True, timeout=5,
+        )
+        status = json.loads(result.stdout)
+        for peer in status.get("Peer", {}).values():
+            if peer.get("ExitNode"):
+                return True
+    except Exception:
+        pass
+    return False
+
+
+def add_routes() -> None:
+    gateway = _lan_gateway()
+    if not gateway:
+        print("No LAN gateway found")
+        sys.exit(1)
+
+    if not _tailscale_exit_active():
+        print("No Tailscale exit node active — routes not needed")
+        return
+
+    all_ips = set()
+    for host in ZHIPU_HOSTS:
+        ips = _resolve(host)
+        all_ips.update(ips)
+
+    if not all_ips:
+        print("Could not resolve any ZhiPu IPs")
+        sys.exit(1)
+
+    added = 0
+    for ip in sorted(all_ips):
+        result = subprocess.run(
+            ["sudo", "route", "-n", "add", f"{ip}/32", gateway],
+            capture_output=True, text=True,
+        )
+        if result.returncode == 0:
+            print(f"  + {ip} via {gateway}")
+            added += 1
+        elif "already in table" in result.stderr:
+            print(f"  = {ip} (already routed)")
+        else:
+            print(f"  ! {ip} failed: {result.stderr.strip()}")
+
+    print(f"\n{added} route(s) added. ZhiPu traffic bypasses Tailscale exit node.")
+
+
+def remove_routes() -> None:
+    all_ips = set()
+    for host in ZHIPU_HOSTS:
+        all_ips.update(_resolve(host))
+
+    for ip in sorted(all_ips):
+        subprocess.run(
+            ["sudo", "route", "-n", "delete", f"{ip}/32"],
+            capture_output=True, text=True,
+        )
+        print(f"  - {ip}")
+    print("Routes removed.")
+
+
+def show_status() -> None:
+    routes = _current_zhipu_routes()
+    exit_active = _tailscale_exit_active()
+    gateway = _lan_gateway()
+
+    print(f"Tailscale exit node: {'active' if exit_active else 'inactive'}")
+    print(f"LAN gateway: {gateway or 'not found'}")
+    print()
+
+    all_ips = set()
+    for host in ZHIPU_HOSTS:
+        ips = _resolve(host)
+        print(f"  {host}: {', '.join(ips) or 'unresolvable'}")
+        all_ips.update(ips)
+
+    print()
+    if not routes:
+        if exit_active:
+            print("No bypass routes set — ZhiPu traffic goes through exit node!")
+        else:
+            print("No bypass routes needed — no exit node active.")
+    else:
+        for ip, iface in sorted(routes.items()):
+            bypassed = not iface.startswith("utun")
+            print(f"  {ip} → {iface} ({'direct' if bypassed else 'TUNNELED'})")
+
+
+if __name__ == "__main__":
+    cmd = sys.argv[1] if len(sys.argv) > 1 else "add"
+    if cmd == "remove":
+        remove_routes()
+    elif cmd == "status":
+        show_status()
+    elif cmd in ("add", ""):
+        add_routes()
+    else:
+        print(__doc__)
