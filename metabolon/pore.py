@@ -1840,6 +1840,25 @@ def endocytosis_discover(count: int | None):
     raise SystemExit(result)
 
 
+@endocytosis.command("metabolize")
+def endocytosis_metabolize():
+    """Run the full LangGraph pipeline: fetch → extract → score → store.
+
+    Hourly via LaunchAgent. Conditionally synthesizes weekly brief (Saturday)
+    and monthly digest (1st of month).
+    """
+    from metabolon.organelles.endocytosis_rss.graph import run
+
+    result = run()
+    stored = result.get("stored_count", 0)
+    new = len(result.get("new_articles", []))
+    click.echo(f"Metabolized: {new} fetched, {stored} cards stored.", err=True)
+    if result.get("weekly_brief"):
+        click.echo("Weekly brief synthesized.", err=True)
+    if result.get("monthly_digest"):
+        click.echo("Monthly digest synthesized.", err=True)
+
+
 @cli.command("auscultate")
 def auscultate():
     """Listen to the organism's internals — smoke test everything."""
