@@ -1,0 +1,85 @@
+#!/usr/bin/env python3
+"""goose-worker — Maildir-style task queue for sortase/goose execution.
+
+Picks oldest .md from pending/, runs via sortase exec, moves to done/ or failed/.
+One task per cycle. LaunchAgent calls this every 15 minutes.
+"""
+
+from __future__ import annotations
+
+import shutil
+import subprocess
+import sys
+from datetime import datetime, timezone
+from pathlib import Path
+
+QUEUE = Path.home() / "epigenome/chromatin/task-queue"
+PENDING = QUEUE / "pending"
+RUNNING = QUEUE / "running"
+DONE = QUEUE / "done"
+FAILED = QUEUE / "failed"
+TIMEOUT = 900  # 15 minutes
+
+
+def log(msg: str) -> None:
+    ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+    print(f"[{ts}] {msg}")
+
+
+def emit_signal(name: str, content: str) -> None:
+    """Fire a demethylase signal for inter-agent notification."""
+    try:
+        from metabolon.organelles.demethylase import emit_signal as _emit
+        _emit(name, content, source="goose-worker")
+    except Exception as exc:
+        log(f"WARN: signal emit failed: {exc}")
+
+
+def main() -> int:
+    tasks = sorted(PENDING.glob("*.md"), key=lambda p: p.stat().st_mtime)
+    if not tasks:
+        return 0
+
+    task = tasks[0]
+    task_name = task.stem
+    log(f"Picked: {task_name}")
+
+    running_path = RUNNING / task.name
+    shutil.move(str(task), str(running_path))
+
+    sortase_bin = shutil.which("sortase")
+    if not sortase_bin:
+        log("ERROR: sortase not found in PATH")
+        shutil.move(str(running_path), str(FAILED / task.name))
+        return 1
+
+    cmd = [
+        sortase_bin, "exec",
+        str(running_path),
+        "-p", str(Path.home() / "germline"),
+        "-b", "goose",
+        "--serial",
+        "--timeout", str(TIMEOUT),
+    ]
+
+    log(f"Running: {' '.join(cmd)}")
+    result = subprocess.run(cmd, capture_output=True, text=True, timeout=TIMEOUT + 60)
+
+    # Append result section
+    header = f"\n\n## Result\n\n**Completed:** {datetime.now(timezone.utc).isoformat()}\n**Exit code:** {result.returncode}\n"
+    running_path.write_text(running_path.read_text() + header + "### stdout\n```\n" + result.stdout[-8000:] + "\n```\n### stderr\n```\n" + result.stderr[-4000:] + "\n```\n")
+
+    if result.returncode == 0:
+        shutil.move(str(running_path), str(DONE / task.name))
+        log(f"DONE: {task_name}")
+        emit_signal(f"goose-task-complete-{task_name}", f"Task {task_name} completed successfully.")
+    else:
+        shutil.move(str(running_path), str(FAILED / task.name))
+        log(f"FAILED: {task_name} (exit {result.returncode})")
+        emit_signal(f"goose-task-failed-{task_name}", f"Task {task_name} failed with exit code {result.returncode}.")
+
+    return result.returncode
+
+
+if __name__ == "__main__":
+    sys.exit(main())

@@ -34,185 +34,155 @@ class ProcessListResult(Secretion):
     summary: str
 
 
-@tool(
-    name="hemostasis_ps",
-    description="List running processes matching a pattern. Tourniquet candidates.",
-    annotations=ToolAnnotations(readOnlyHint=True, destructiveHint=False),
-)
-def hemostasis_ps(pattern: str) -> ProcessListResult:
-    """List processes whose command line matches pattern.
-
-    Uses pgrep -l -a to show PID + full command. Use this to confirm
-    the target before pkill — overtightening the tourniquet is an anti-pattern.
-
-    Args:
-        pattern: Process name or partial command to match (passed to pgrep -f).
-    """
-    try:
-        result = subprocess.run(
-            ["pgrep", "-l", "-a", "-f", pattern],
-            capture_output=True,
-            text=True,
-            timeout=5,
-        )
-        lines = [ln.strip() for ln in result.stdout.splitlines() if ln.strip()]
-    except subprocess.TimeoutExpired:
-        lines = []
-
-    summary = f"Processes matching '{pattern}': {len(lines)} found"
-    if lines:
-        summary += "\n" + "\n".join(lines)
-    else:
-        summary += "\n  (none)"
-
-    return ProcessListResult(
-        pattern=pattern,
-        matches=lines,
-        count=len(lines),
-        summary=summary,
-    )
+_ACTIONS = "ps|kill|launchagent|handoff — emergency process stabilization"
 
 
 @tool(
-    name="hemostasis_kill",
-    description="Kill processes matching name. Tourniquet — stop the bleeding.",
+    name="hemostasis",
+    description="Emergency stabilization. Actions: ps|kill|launchagent|handoff",
     annotations=ToolAnnotations(readOnlyHint=False, destructiveHint=True),
 )
-def hemostasis_kill(pattern: str, signal: str = "TERM") -> EffectorResult:
-    """Kill processes whose command line matches pattern (pkill -f).
+def hemostasis(
+    action: str,
+    pattern: str = "",
+    signal: str = "TERM",
+    plist_path: str = "",
+    launchagent_action: str = "unload",
+    what_stopped: str = "",
+    known_gaps: str = "",
+    next_steps: str = "",
+) -> ProcessListResult | EffectorResult:
+    """Emergency process stabilization.
 
-    Prefer TERM (graceful) over KILL (force). Use KILL only if TERM doesn't stop it.
-
-    Args:
-        pattern: Process name or partial command to match (passed to pkill -f).
-        signal: Signal name without SIG prefix: TERM (default), KILL, HUP, INT.
+    Actions:
+      ps          List running processes matching a pattern (tourniquet candidates).
+      kill        Kill processes matching a name (pkill -f).
+      launchagent Load or unload a LaunchAgent plist.
+      handoff     Write a hemostasis handoff note.
     """
-    valid_signals = {"TERM", "KILL", "HUP", "INT", "QUIT", "USR1", "USR2"}
-    sig = signal.upper()
-    if sig not in valid_signals:
-        return EffectorResult(
-            success=False,
-            message=f"Invalid signal '{signal}'. Use one of: {', '.join(sorted(valid_signals))}",
-        )
+    action = action.lower().strip()
 
-    try:
-        result = subprocess.run(
-            ["pkill", f"-{sig}", "-f", pattern],
-            capture_output=True,
-            text=True,
-            timeout=10,
-        )
-        # pkill exit codes: 0 = matched and killed, 1 = no match, other = error
-        if result.returncode == 0:
-            return EffectorResult(
-                success=True,
-                message=f"Sent {sig} to processes matching '{pattern}'.",
-                data={"pattern": pattern, "signal": sig},
+    # --- ps ---------------------------------------------------------------
+    if action == "ps":
+        try:
+            result = subprocess.run(
+                ["pgrep", "-l", "-a", "-f", pattern],
+                capture_output=True,
+                text=True,
+                timeout=5,
             )
-        elif result.returncode == 1:
-            return EffectorResult(
-                success=False,
-                message=f"No processes found matching '{pattern}'.",
-                data={"pattern": pattern, "signal": sig},
-            )
+            lines = [ln.strip() for ln in result.stdout.splitlines() if ln.strip()]
+        except subprocess.TimeoutExpired:
+            lines = []
+
+        summary = f"Processes matching '{pattern}': {len(lines)} found"
+        if lines:
+            summary += "\n" + "\n".join(lines)
         else:
-            stderr = result.stderr.strip()
+            summary += "\n  (none)"
+
+        return ProcessListResult(
+            pattern=pattern,
+            matches=lines,
+            count=len(lines),
+            summary=summary,
+        )
+
+    # --- kill -------------------------------------------------------------
+    if action == "kill":
+        valid_signals = {"TERM", "KILL", "HUP", "INT", "QUIT", "USR1", "USR2"}
+        sig = signal.upper()
+        if sig not in valid_signals:
             return EffectorResult(
                 success=False,
-                message=f"pkill error (exit {result.returncode}): {stderr}",
-                data={"pattern": pattern, "signal": sig, "stderr": stderr},
+                message=f"Invalid signal '{signal}'. Use one of: {', '.join(sorted(valid_signals))}",
             )
-    except subprocess.TimeoutExpired:
-        return EffectorResult(
-            success=False,
-            message=f"pkill timed out for pattern '{pattern}'.",
-        )
 
-
-@tool(
-    name="hemostasis_launchagent",
-    description="Load or unload a LaunchAgent plist. Pauses a scheduled job.",
-    annotations=ToolAnnotations(readOnlyHint=False, destructiveHint=True),
-)
-def hemostasis_launchagent(plist_path: str, action: str = "unload") -> EffectorResult:
-    """Load or unload a LaunchAgent via launchctl.
-
-    Unload disables the agent (stops the bleeding). Load re-enables it.
-    Pass the full path to the .plist file.
-
-    Args:
-        plist_path: Absolute path to the .plist file (e.g. ~/Library/LaunchAgents/com.foo.plist).
-        action: 'unload' (default — disable) or 'load' (re-enable).
-    """
-    action = action.lower()
-    if action not in ("load", "unload"):
-        return EffectorResult(
-            success=False,
-            message=f"Invalid action '{action}'. Use 'load' or 'unload'.",
-        )
-
-    path = Path(plist_path).expanduser()
-    if not path.exists():
-        return EffectorResult(
-            success=False,
-            message=f"Plist not found: {path}",
-        )
-
-    try:
-        result = subprocess.run(
-            ["launchctl", action, str(path)],
-            capture_output=True,
-            text=True,
-            timeout=15,
-        )
-        if result.returncode == 0:
-            verb = "Unloaded" if action == "unload" else "Loaded"
-            return EffectorResult(
-                success=True,
-                message=f"{verb} {path.name}.",
-                data={"path": str(path), "action": action},
+        try:
+            result = subprocess.run(
+                ["pkill", f"-{sig}", "-f", pattern],
+                capture_output=True,
+                text=True,
+                timeout=10,
             )
-        else:
-            stderr = result.stderr.strip()
+            # pkill exit codes: 0 = matched and killed, 1 = no match, other = error
+            if result.returncode == 0:
+                return EffectorResult(
+                    success=True,
+                    message=f"Sent {sig} to processes matching '{pattern}'.",
+                    data={"pattern": pattern, "signal": sig},
+                )
+            elif result.returncode == 1:
+                return EffectorResult(
+                    success=False,
+                    message=f"No processes found matching '{pattern}'.",
+                    data={"pattern": pattern, "signal": sig},
+                )
+            else:
+                stderr = result.stderr.strip()
+                return EffectorResult(
+                    success=False,
+                    message=f"pkill error (exit {result.returncode}): {stderr}",
+                    data={"pattern": pattern, "signal": sig, "stderr": stderr},
+                )
+        except subprocess.TimeoutExpired:
             return EffectorResult(
                 success=False,
-                message=f"launchctl {action} failed (exit {result.returncode}): {stderr}",
-                data={"path": str(path), "action": action, "stderr": stderr},
+                message=f"pkill timed out for pattern '{pattern}'.",
             )
-    except subprocess.TimeoutExpired:
-        return EffectorResult(
-            success=False,
-            message=f"launchctl {action} timed out for {path.name}.",
-        )
 
+    # --- launchagent ------------------------------------------------------
+    if action == "launchagent":
+        la = launchagent_action.lower()
+        if la not in ("load", "unload"):
+            return EffectorResult(
+                success=False,
+                message=f"Invalid action '{launchagent_action}'. Use 'load' or 'unload'.",
+            )
 
-@tool(
-    name="hemostasis_handoff",
-    description="Write hemostasis handoff note: what stopped, gaps, next steps.",
-    annotations=ToolAnnotations(readOnlyHint=False, destructiveHint=False),
-)
-def hemostasis_handoff(
-    what_stopped: str,
-    known_gaps: str,
-    next_steps: str,
-) -> EffectorResult:
-    """Write a hemostasis handoff note.
+        path = Path(plist_path).expanduser()
+        if not path.exists():
+            return EffectorResult(
+                success=False,
+                message=f"Plist not found: {path}",
+            )
 
-    Required before leaving hemostasis mode. The note prevents secondary
-    hemorrhage when someone unknowingly restarts the stopped process.
+        try:
+            result = subprocess.run(
+                ["launchctl", la, str(path)],
+                capture_output=True,
+                text=True,
+                timeout=15,
+            )
+            if result.returncode == 0:
+                verb = "Unloaded" if la == "unload" else "Loaded"
+                return EffectorResult(
+                    success=True,
+                    message=f"{verb} {path.name}.",
+                    data={"path": str(path), "action": la},
+                )
+            else:
+                stderr = result.stderr.strip()
+                return EffectorResult(
+                    success=False,
+                    message=f"launchctl {la} failed (exit {result.returncode}): {stderr}",
+                    data={"path": str(path), "action": la, "stderr": stderr},
+                )
+        except subprocess.TimeoutExpired:
+            return EffectorResult(
+                success=False,
+                message=f"launchctl {la} timed out for {path.name}.",
+            )
 
-    Args:
-        what_stopped: What was stopped and why (1-3 sentences).
-        known_gaps: What is currently broken as a result of stopping.
-        next_steps: What the next person / session needs to do to resume.
-    """
-    _HANDOFF_DIR.mkdir(parents=True, exist_ok=True)
+    # --- handoff ----------------------------------------------------------
+    if action == "handoff":
+        _HANDOFF_DIR.mkdir(parents=True, exist_ok=True)
 
-    now = datetime.datetime.now()
-    filename = now.strftime("hemostasis-%Y-%m-%d-%H%M.md")
-    path = _HANDOFF_DIR / filename
+        now = datetime.datetime.now()
+        filename = now.strftime("hemostasis-%Y-%m-%d-%H%M.md")
+        path = _HANDOFF_DIR / filename
 
-    content = f"""---
+        content = f"""---
 created: {now.strftime("%Y-%m-%d %H:%M")}
 type: hemostasis-handoff
 ---
@@ -229,10 +199,16 @@ type: hemostasis-handoff
 {next_steps}
 """
 
-    path.write_text(content, encoding="utf-8")
+        path.write_text(content, encoding="utf-8")
 
+        return EffectorResult(
+            success=True,
+            message=f"Handoff note written to {path}.",
+            data={"path": str(path)},
+        )
+
+    # --- unknown action ---------------------------------------------------
     return EffectorResult(
-        success=True,
-        message=f"Handoff note written to {path}.",
-        data={"path": str(path)},
+        success=False,
+        message=f"Unknown action '{action}'. Use one of: ps, kill, launchagent, handoff.",
     )

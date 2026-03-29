@@ -1,22 +1,6 @@
-from metabolon.locus import chromatin, experiments as EXPERIMENTS_DIR, praxis
+from __future__ import annotations
 
-"""interoception — sensing internal state (health, system, financial).
-
-Tools:
-  circadian_sleep      — circadian rhythm data from Oura
-  membrane_potential   — readiness score + exercise recommendation
-  homeostasis_system   — pulse status, budget, disk pressure, hook health
-  homeostasis_financial — financial health: deadlines, overdue items
-  lysosome_digest      — digest disk caches when pressure is high
-  nociception_log      — log a pain/symptom signal
-  anabolism_flywheel   — anabolic flywheel: are the links reinforcing?
-  angiogenesis         — detect underserved subsystem connections, propose integrations
-  mitophagy_status     — model performance tracking and fitness scores
-  glycolysis_rate      — symbiont dependency ratio: % of organism that is deterministic
-  tissue_routing       — model routing by task type: which symbiont strain for which subsystem
-  retrograde_balance   — symbiont influence ratio: is the organism sovereign or dependent?
-  crispr_status        — adaptive memory: spacer count, recent acquisitions, guide coverage
-"""
+"""interoception — sensing internal state (health, system, financial)."""
 
 import contextlib
 import datetime
@@ -25,491 +9,19 @@ import os
 import re
 import shutil
 import subprocess
+from collections import defaultdict
 
 from fastmcp.tools import tool
 from mcp.types import ToolAnnotations
 
 from metabolon.cytosol import synthesize
+from metabolon.locus import chromatin, experiments as EXPERIMENTS_DIR, praxis
 from metabolon.metabolism.mismatch_repair import summary as precision_summary
 from metabolon.metabolism.setpoint import Threshold
 from metabolon.morphology import EffectorResult, Secretion
 
 HEALTH_LOG = str(chromatin / "Health" / "Symptom Log.md")
-
 disk_threshold = Threshold(name="disk", default=15, clamp=(5, 50))
-
-
-class CircadianResult(Secretion):
-    """Circadian rhythm data from Oura."""
-
-    summary: str
-
-
-class HeartRateResult(Secretion):
-    """Heart rate time-series from Oura."""
-
-    summary: str
-
-
-class MembranePotentialResult(Secretion):
-    """Membrane potential — readiness with exercise guidance."""
-
-    summary: str
-    guidance: str
-
-
-class HomeostasisResult(Secretion):
-    """Homeostatic system check results."""
-
-    sections: list[str]
-
-
-class InflammasomeResult(Secretion):
-    """Self-test probe results."""
-
-    report: str
-    passed: int
-    total: int
-
-
-@tool(
-    name="inflammasome_probe",
-    description="Self-test: verify all subsystems work end-to-end.",
-    annotations=ToolAnnotations(readOnlyHint=True, destructiveHint=False),
-)
-def inflammasome_probe() -> InflammasomeResult:
-    """Run innate immune probes on all organism subsystems."""
-    from metabolon.organelles.inflammasome import run_all_probes
-
-    results = run_all_probes()
-    lines = []
-    for r in results:
-        tag = "PASS" if r["passed"] else "FAIL"
-        lines.append(f"[{tag}] {r['name']} — {r['message']} ({r['duration_ms']}ms)")
-    passed_count = sum(1 for r in results if r["passed"])
-    total = len(results)
-    lines.append(f"\nSummary: {passed_count}/{total} passed")
-    return InflammasomeResult(report="\n".join(lines), passed=passed_count, total=total)
-
-
-@tool(
-    name="circadian_sleep",
-    description="Oura sleep data. 'today' for last night, 'week' for trend.",
-    annotations=ToolAnnotations(readOnlyHint=True, destructiveHint=False),
-)
-def circadian_sleep(period: str = "today") -> CircadianResult:
-    """Read circadian rhythm data with chemoreceptor-style threshold alerts."""
-    from metabolon.organelles.chemoreceptor import sense, week
-
-    if period == "week":
-        return CircadianResult(summary=str(week()))
-
-    data = sense()
-    if "error" in data:
-        return CircadianResult(summary=f"Error: {data['error']}")
-
-    def _fmt_dur(secs):
-        if secs is None:
-            return "n/a"
-        h, m = divmod(int(secs) // 60, 60)
-        return f"{h}h{m:02d}m" if h else f"{m}m"
-
-    lines: list[str] = []
-
-    # --- Alerts ---
-    alerts = []
-    ss, rs = data.get("sleep_score"), data.get("readiness_score")
-    av_hrv = data.get("average_hrv")
-    if ss is not None and ss < 70:
-        alerts.append(f"SLEEP LOW ({ss}): below 70 threshold")
-    if rs is not None and rs < 70:
-        alerts.append(f"READINESS LOW ({rs}): light activity only")
-    if av_hrv is not None and av_hrv < 20:
-        alerts.append(f"HRV LOW ({av_hrv}): recovery priority")
-    if alerts:
-        lines.append("--- Alerts ---")
-        lines.extend(alerts)
-        lines.append("")
-
-    # --- Scores ---
-    lines.append("--- Scores ---")
-    lines.append(f"Sleep: {ss}  Readiness: {rs}")
-    lines.append(f"Sleep contributors: {data.get('sleep_contributors', {})}")
-    lines.append(f"Readiness contributors: {data.get('contributors', {})}")
-    lines.append(
-        f"Temp deviation: {data.get('temperature_deviation')}°C  "
-        f"Trend: {data.get('temperature_trend_deviation')}°C"
-    )
-    lines.append("")
-
-    # --- Sleep detail ---
-    lines.append("--- Sleep detail ---")
-    lines.append(
-        f"Deep:  {_fmt_dur(data.get('deep_sleep_duration'))}  "
-        f"Light: {_fmt_dur(data.get('light_sleep_duration'))}  "
-        f"REM:   {_fmt_dur(data.get('rem_sleep_duration'))}"
-    )
-    lines.append(
-        f"Awake: {_fmt_dur(data.get('awake_time'))}  "
-        f"Total: {_fmt_dur(data.get('total_sleep_duration'))}  "
-        f"In bed: {_fmt_dur(data.get('time_in_bed'))}"
-    )
-    if data.get("bedtime_start") and data.get("bedtime_end"):
-        lines.append(f"Bed:   {data['bedtime_start'][:16]} → {data['bedtime_end'][:16]}")
-    lines.append(
-        f"Latency: {_fmt_dur(data.get('latency'))}  "
-        f"Efficiency: {data.get('efficiency')}%  "
-        f"Restless periods: {data.get('restless_periods')}"
-    )
-    lines.append(
-        f"Avg HR: {data.get('average_heart_rate')} bpm  "
-        f"Lowest HR: {data.get('lowest_heart_rate')} bpm  "
-        f"Avg HRV: {data.get('average_hrv')} ms"
-    )
-    lines.append(f"Avg breath: {data.get('average_breath')} br/s  Type: {data.get('type')}")
-    lines.append("")
-
-    # --- Hypnogram ---
-    hyp = data.get("sleep_phase_5_min")
-    if hyp:
-        legend = {"1": "█", "2": "▓", "3": "░", "4": " "}
-        bar = "".join(legend.get(c, "?") for c in hyp)
-        lines.append("--- Hypnogram (5-min) ---")
-        lines.append("█=deep ▓=light ░=REM (space)=awake")
-        lines.append(bar)
-        lines.append("")
-
-    # --- Movement (30-sec) ---
-    mov = data.get("movement_30_sec")
-    if mov:
-        legend_m = {"1": "·", "2": "~", "3": "≈", "4": "▲"}
-        bar_m = "".join(legend_m.get(c, "?") for c in mov)
-        lines.append("--- Movement (30-sec) ---")
-        lines.append("·=still ~=restless ≈=tossing ▲=active")
-        lines.append(bar_m)
-        lines.append("")
-
-    # --- Activity ---
-    act = data.get("activity")
-    if act:
-        lines.append("--- Activity (yesterday) ---")
-        lines.append(
-            f"Score: {act.get('score')}  Steps: {act.get('steps')}  "
-            f"Calories: {act.get('active_calories')} active / {act.get('total_calories')} total"
-        )
-        lines.append(
-            f"High: {_fmt_dur(act.get('high_activity_time'))}  "
-            f"Med: {_fmt_dur(act.get('medium_activity_time'))}  "
-            f"Low: {_fmt_dur(act.get('low_activity_time'))}  "
-            f"Sedentary: {_fmt_dur(act.get('sedentary_time'))}"
-        )
-        lines.append(f"Walking equiv: {act.get('equivalent_walking_distance')}m")
-        lines.append("")
-
-    # --- Stress ---
-    st = data.get("stress")
-    if st:
-        lines.append("--- Stress ---")
-        lines.append(
-            f"Summary: {st.get('day_summary')}  "
-            f"Stress high: {_fmt_dur(st.get('stress_high'))}  "
-            f"Recovery high: {_fmt_dur(st.get('recovery_high'))}"
-        )
-        lines.append("")
-
-    # --- SpO2 ---
-    sp = data.get("spo2")
-    if sp:
-        lines.append("--- SpO2 ---")
-        lines.append(
-            f"Average: {sp.get('average')}%  "
-            f"Breathing disturbance index: {sp.get('breathing_disturbance_index')}"
-        )
-        lines.append("")
-
-    # --- Resilience ---
-    res = data.get("resilience")
-    if res:
-        lines.append("--- Resilience ---")
-        lines.append(f"Level: {res.get('level')}  Contributors: {res.get('contributors', {})}")
-        lines.append("")
-
-    # --- Sleep time recommendation ---
-    stm = data.get("sleep_time")
-    if stm:
-        lines.append("--- Bedtime recommendation ---")
-        lines.append(f"Recommendation: {stm.get('recommendation')}  Status: {stm.get('status')}")
-        opt = stm.get("optimal_bedtime") or {}
-        if opt:
-            lines.append(f"Optimal window: {opt}")
-        lines.append("")
-
-    # --- Cardiovascular / VO2 ---
-    va, vo = data.get("vascular_age"), data.get("vo2_max")
-    if va is not None or vo is not None:
-        lines.append("--- Cardiovascular ---")
-        parts = []
-        if va is not None:
-            parts.append(f"Vascular age: {va}")
-        if vo is not None:
-            parts.append(f"VO2 max: {vo}")
-        lines.append("  ".join(parts))
-        lines.append("")
-
-    # --- Workouts ---
-    wk = data.get("workouts")
-    if wk:
-        lines.append("--- Workouts ---")
-        for w in wk:
-            start = (w.get("start") or "")[:16]
-            cal = w.get("calories")
-            lines.append(
-                f"{w.get('activity')} ({w.get('intensity')}) "
-                f"{start}  {f'{cal:.0f} kcal' if cal else ''} "
-                f"[{w.get('source')}]"
-            )
-        lines.append("")
-
-    # --- Active Experiments ---
-    try:
-        exp_lines: list[str] = []
-        today = datetime.date.today()
-        for exp_file in sorted(EXPERIMENTS_DIR.glob("assay-*.md")):
-            text = exp_file.read_text()
-            # Extract front matter
-            fm_match = re.match(r"^---\n(.*?)\n---", text, re.DOTALL)
-            if not fm_match:
-                continue
-            fm = fm_match.group(1)
-            status_m = re.search(r"^status:\s*(\S+)", fm, re.MULTILINE)
-            if not status_m or status_m.group(1).strip('"') != "active":
-                continue
-            name_m = re.search(r'^name:\s*"?([^"\n]+)"?', fm, re.MULTILINE)
-            start_m = re.search(r"^start_date:\s*(\S+)", fm, re.MULTILINE)
-            hyp_m = re.search(r"^hypothesis:\s*\"?([^\"\n]+)\"?", fm, re.MULTILINE)
-            name = name_m.group(1).strip() if name_m else exp_file.stem
-            hypothesis = hyp_m.group(1).strip() if hyp_m else ""
-            day_num = ""
-            if start_m:
-                try:
-                    start_date = datetime.date.fromisoformat(start_m.group(1))
-                    day_num = (today - start_date).days + 1
-                except ValueError:
-                    pass
-            # Duration from end_date
-            end_m = re.search(r"^end_date:\s*(\S+)", fm, re.MULTILINE)
-            total_days = ""
-            if end_m and start_m:
-                try:
-                    end_date = datetime.date.fromisoformat(end_m.group(1))
-                    total_days = (end_date - start_date).days + 1
-                except ValueError:
-                    pass
-            # Most recent check-in: last ### Day N line + following metrics
-            checkin_blocks = re.findall(
-                r"(### Day \d+[^\n]*\n(?:[^\n#][^\n]*\n)*)", text
-            )
-            checkin_summary = ""
-            if checkin_blocks:
-                last = checkin_blocks[-1]
-                readiness_m = re.search(r"Readiness:\s*avg\s*([\d.]+)", last)
-                sleep_m = re.search(r"Sleep:\s*avg\s*([\d.]+)", last)
-                parts = []
-                if sleep_m:
-                    parts.append(f"sleep {sleep_m.group(1)}")
-                if readiness_m:
-                    parts.append(f"readiness {readiness_m.group(1)}")
-                if parts:
-                    checkin_summary = f" Last check-in: {', '.join(parts)}."
-            # Baseline readiness
-            baseline_m = re.search(r"Readiness:\s*avg\s*([\d.]+)", text)
-            baseline_val = baseline_m.group(1) if baseline_m else None
-            day_label = f"Day {day_num} of {total_days}" if day_num and total_days else (f"Day {day_num}" if day_num else "")
-            label = f"{name} ({day_label})" if day_label else name
-            hyp_short = hypothesis.split(",")[0] if hypothesis else ""
-            line = f"{label}: {hyp_short}."
-            if baseline_val:
-                line += f" Baseline readiness: {baseline_val}."
-            line += checkin_summary
-            exp_lines.append(line)
-        if exp_lines:
-            lines.append("--- Active Experiments ---")
-            lines.extend(exp_lines)
-    except Exception:
-        pass  # Never let experiment parsing break the main output
-
-    return CircadianResult(summary="\n".join(lines))
-
-
-@tool(
-    name="circadian_heartrate",
-    description="Oura HR time-series. Defaults to last night's sleep window.",
-    annotations=ToolAnnotations(readOnlyHint=True, destructiveHint=False),
-)
-def circadian_heartrate(start_datetime: str = "", end_datetime: str = "") -> HeartRateResult:
-    """Heart rate time-series from Oura, bucketed into 10-min intervals."""
-    from metabolon.organelles.chemoreceptor import heartrate
-
-    records = heartrate(start_datetime or None, end_datetime or None)
-    if not records:
-        return HeartRateResult(summary="No heart rate data available.")
-
-    # Bucket into 10-min intervals for readability
-    from collections import defaultdict
-
-    buckets: dict[str, list[int]] = defaultdict(list)
-    for r in records:
-        ts = r.get("timestamp", "")[:15]  # "2026-03-27T01:2" → 10-min bucket
-        bpm = r.get("bpm")
-        if ts and bpm is not None:
-            bucket_key = ts + "0"  # round to 10-min
-            buckets[bucket_key].append(bpm)
-
-    lines = [f"HR time-series ({len(records)} readings, {len(buckets)} buckets)"]
-    lines.append("Time           Avg  Min  Max  Source-mix")
-    for key in sorted(buckets):
-        vals = buckets[key]
-        avg_bpm = sum(vals) // len(vals)
-        mn, mx = min(vals), max(vals)
-        lines.append(f"{key}  {avg_bpm:>3}  {mn:>3}  {mx:>3}")
-
-    # Summary stats
-    all_bpm = [r["bpm"] for r in records if r.get("bpm") is not None]
-    if all_bpm:
-        lines.append("")
-        lines.append(
-            f"Overall: avg {sum(all_bpm) // len(all_bpm)} bpm, "
-            f"min {min(all_bpm)} bpm, max {max(all_bpm)} bpm, "
-            f"{len(all_bpm)} readings"
-        )
-
-    return HeartRateResult(summary="\n".join(lines))
-
-
-@tool(
-    name="membrane_potential",
-    description="Oura readiness + exercise recommendation.",
-    annotations=ToolAnnotations(readOnlyHint=True, destructiveHint=False),
-)
-def membrane_potential() -> MembranePotentialResult:
-    """Measure membrane potential — readiness and exercise capacity."""
-    from metabolon.organelles.chemoreceptor import today as _oura_today
-
-    raw = _oura_today().get("formatted", "")
-    guidance = (
-        "Exercise guidance: check readiness score above.\n"
-        "- <70: light only (walk, gentle stretch)\n"
-        "- 70-75: moderate OK (yoga, light weights)\n"
-        "- >75: full intensity cleared"
-    )
-    return MembranePotentialResult(summary=raw, guidance=guidance)
-
-
-@tool(
-    name="homeostasis_system",
-    description="System health: pulse, budget, disk pressure, recent events.",
-    annotations=ToolAnnotations(readOnlyHint=True, destructiveHint=False),
-)
-def homeostasis_system() -> HomeostasisResult:
-    """Check organism homeostasis — pulse + system health."""
-    parts = []
-
-    try:
-        result = subprocess.run(
-            ["launchctl", "list"],
-            capture_output=True,
-            text=True,
-            timeout=5,
-        )
-        pulse_lines = [ln for ln in result.stdout.splitlines() if "vivesca" in ln]
-        parts.append("Pulse: " + ("; ".join(pulse_lines) or "NOT FOUND"))
-    except Exception as e:
-        parts.append(f"Pulse: check failed ({e})")
-
-    try:
-        from metabolon.organelles.vasomotor_sensor import sense
-
-        budget = sense()
-        parts.append(f"Budget: {budget.get('formatted', str(budget))}")
-    except Exception:
-        parts.append("Budget: respirometry unavailable")
-
-    log = os.path.expanduser("~/logs/vivesca-events.jsonl")
-    try:
-        with open(log) as f:
-            lines = f.readlines()
-        tail = lines[-5:] if len(lines) >= 5 else lines
-        parts.append("Recent events:\n" + "".join(tail))
-    except Exception:
-        parts.append("Events: log not found")
-
-    # Tool update health
-    health_file = os.path.expanduser("~/.coding-tools-health.json")
-    try:
-        with open(health_file) as f:
-            health = json.load(f)
-        if health.get("failures"):
-            parts.append(
-                f"Updates: DEGRADED — missing: {', '.join(health['failures'])} "
-                f"(checked {health['checked']})"
-            )
-        else:
-            parts.append(f"Updates: ok (checked {health['checked']})")
-    except FileNotFoundError:
-        parts.append("Updates: no health data yet (awaiting first hourly run)")
-    except Exception as e:
-        parts.append(f"Updates: check failed ({e})")
-
-    # Disk pressure (setpoint acclimatises)
-    try:
-        usage = shutil.disk_usage("/")
-        free_gb = usage.free / (1024**3)
-        total_gb = usage.total / (1024**3)
-        pct_free = (usage.free / usage.total) * 100
-        threshold = disk_threshold.read()
-        disk_msg = f"Disk: {free_gb:.1f}GB free / {total_gb:.0f}GB ({pct_free:.0f}% free)"
-        if free_gb < threshold:
-            disk_msg += f" ⚠ LOW (threshold {threshold}GB) — recommend `mo clean`"
-        parts.append(disk_msg)
-    except Exception as e:
-        parts.append(f"Disk: check failed ({e})")
-
-    # Metaphor precision gaps (backward compat aliases = sensors)
-    with contextlib.suppress(Exception):
-        parts.append(precision_summary())
-
-    # Immune infection log — chronic tool errors needing human review
-    with contextlib.suppress(Exception):
-        from metabolon.metabolism.infection import infection_summary
-
-        summary = infection_summary()
-        if summary:
-            parts.append(summary)
-
-    # Checkpoint gate: BLOCK if critical conditions unmet
-    gate = "PASS"
-    arrest_signals = []
-    full_report = "\n".join(parts)
-    if "NOT FOUND" in full_report:
-        gate = "BLOCK"
-        arrest_signals.append("pulse not running")
-    if "LOW" in full_report and "Disk" in full_report:
-        gate = "BLOCK"
-        arrest_signals.append("disk pressure")
-    if "DEGRADED" in full_report:
-        gate = "WARN"
-        arrest_signals.append("tool updates degraded")
-    if "CHRONIC" in full_report:
-        if gate != "BLOCK":
-            gate = "WARN"
-        arrest_signals.append("chronic tool infections")
-
-    gate_line = f"Gate: {gate}" + (f" ({', '.join(arrest_signals)})" if arrest_signals else "")
-    parts.insert(0, gate_line)
-
-    return HomeostasisResult(sections=parts)
-
-
 FINANCIAL_NOTES = [
     "Investing.md",
     "Investing Strategy.md",
@@ -521,7 +33,6 @@ FINANCIAL_NOTES = [
     "Salaries Tax Summary 2024-25.md",
     "US Estate Tax for HK Residents.md",
 ]
-
 FINANCIAL_PROMPT_TEMPLATE = """Review the financial notes below and Praxis.md excerpt.
 
 For each item: status (done/in-progress/overdue/upcoming), deadline, next step.
@@ -535,47 +46,478 @@ Today: {today}
 --- praxis (financial items) ---
 {praxis}
 """
+CODE_DIR = os.path.expanduser("~/code")
+NODE_MODULES_STALE_DAYS = 7
+CARGO_SWEEP_DAYS = 14
+
+
+class CircadianResult(Secretion):
+    summary: str
+
+
+class HeartRateResult(Secretion):
+    summary: str
+
+
+class MembranePotentialResult(Secretion):
+    summary: str
+    guidance: str
+
+
+class HomeostasisResult(Secretion):
+    sections: list[str]
+
+
+class InflammasomeResult(Secretion):
+    report: str
+    passed: int
+    total: int
 
 
 class HomeostasisFinancialResult(Secretion):
-    """Financial health status from chromatin notes."""
-
     summary: str
     flagged_count: int
 
 
-@tool(
-    name="homeostasis_financial",
-    description="Financial health: deadlines, overdue items, next steps.",
-    annotations=ToolAnnotations(readOnlyHint=True, destructiveHint=False),
-)
-def homeostasis_financial() -> HomeostasisFinancialResult:
-    """Read financial notes and flag overdue or upcoming items (within 14 days)."""
-    import datetime
+class LysosomeResult(Secretion):
+    before_gb: float
+    after_gb: float
+    freed_gb: float
+    output: str
 
+
+class AnabolismResult(Secretion):
+    links: list[dict]
+    blind_spots: list[str]
+
+
+class AngiogenesisResult(Secretion):
+    hypoxic_pairs: list[dict]
+    proposals: list[dict]
+    existing_vessels: list[dict]
+
+
+class MitophagyResult(Secretion):
+    fitness: list[dict]
+    blacklist: dict
+
+
+class GlycolysisResult(Secretion):
+    deterministic_count: int
+    symbiont_count: int
+    hybrid_count: int
+    total: int
+    glycolysis_pct: float
+    trend: list[dict]
+    summary: str
+
+
+class TissueRoutingResult(Secretion):
+    routes: dict[str, str]
+    report: str
+
+
+class CrisprResult(Secretion):
+    spacer_count: int
+    recent: list[dict]
+    guide_count: int
+    summary: str
+
+
+class RetrogradeResult(Secretion):
+    anterograde_count: int
+    retrograde_count: int
+    ratio: float
+    assessment: str
+    window_days: int
+    summary: str
+
+
+def _format_duration(seconds: int | float | None) -> str:
+    if seconds is None:
+        return "n/a"
+    hours, minutes = divmod(int(seconds) // 60, 60)
+    return f"{hours}h{minutes:02d}m" if hours else f"{minutes}m"
+
+
+def _sleep_result(period: str) -> CircadianResult:
+    from metabolon.organelles.chemoreceptor import sense, week
+
+    if period == "week":
+        return CircadianResult(summary=str(week()))
+
+    data = sense()
+    if "error" in data:
+        return CircadianResult(summary=f"Error: {data['error']}")
+
+    lines: list[str] = []
+    alerts = []
+    sleep_score = data.get("sleep_score")
+    readiness_score = data.get("readiness_score")
+    average_hrv = data.get("average_hrv")
+    if sleep_score is not None and sleep_score < 70:
+        alerts.append(f"SLEEP LOW ({sleep_score}): below 70 threshold")
+    if readiness_score is not None and readiness_score < 70:
+        alerts.append(f"READINESS LOW ({readiness_score}): light activity only")
+    if average_hrv is not None and average_hrv < 20:
+        alerts.append(f"HRV LOW ({average_hrv}): recovery priority")
+    if alerts:
+        lines.append("--- Alerts ---")
+        lines.extend(alerts)
+        lines.append("")
+
+    lines.append("--- Scores ---")
+    lines.append(f"Sleep: {sleep_score}  Readiness: {readiness_score}")
+    lines.append(f"Sleep contributors: {data.get('sleep_contributors', {})}")
+    lines.append(f"Readiness contributors: {data.get('contributors', {})}")
+    lines.append(
+        f"Temp deviation: {data.get('temperature_deviation')}°C  "
+        f"Trend: {data.get('temperature_trend_deviation')}°C"
+    )
+    lines.append("")
+
+    lines.append("--- Sleep detail ---")
+    lines.append(
+        f"Deep:  {_format_duration(data.get('deep_sleep_duration'))}  "
+        f"Light: {_format_duration(data.get('light_sleep_duration'))}  "
+        f"REM:   {_format_duration(data.get('rem_sleep_duration'))}"
+    )
+    lines.append(
+        f"Awake: {_format_duration(data.get('awake_time'))}  "
+        f"Total: {_format_duration(data.get('total_sleep_duration'))}  "
+        f"In bed: {_format_duration(data.get('time_in_bed'))}"
+    )
+    if data.get("bedtime_start") and data.get("bedtime_end"):
+        lines.append(f"Bed:   {data['bedtime_start'][:16]} → {data['bedtime_end'][:16]}")
+    lines.append(
+        f"Latency: {_format_duration(data.get('latency'))}  "
+        f"Efficiency: {data.get('efficiency')}%  "
+        f"Restless periods: {data.get('restless_periods')}"
+    )
+    lines.append(
+        f"Avg HR: {data.get('average_heart_rate')} bpm  "
+        f"Lowest HR: {data.get('lowest_heart_rate')} bpm  "
+        f"Avg HRV: {data.get('average_hrv')} ms"
+    )
+    lines.append(f"Avg breath: {data.get('average_breath')} br/s  Type: {data.get('type')}")
+    lines.append("")
+
+    hypnogram = data.get("sleep_phase_5_min")
+    if hypnogram:
+        legend = {"1": "█", "2": "▓", "3": "░", "4": " "}
+        lines.append("--- Hypnogram (5-min) ---")
+        lines.append("█=deep ▓=light ░=REM (space)=awake")
+        lines.append("".join(legend.get(char, "?") for char in hypnogram))
+        lines.append("")
+
+    movement = data.get("movement_30_sec")
+    if movement:
+        legend = {"1": "·", "2": "~", "3": "≈", "4": "▲"}
+        lines.append("--- Movement (30-sec) ---")
+        lines.append("·=still ~=restless ≈=tossing ▲=active")
+        lines.append("".join(legend.get(char, "?") for char in movement))
+        lines.append("")
+
+    activity = data.get("activity")
+    if activity:
+        lines.append("--- Activity (yesterday) ---")
+        lines.append(
+            f"Score: {activity.get('score')}  Steps: {activity.get('steps')}  "
+            f"Calories: {activity.get('active_calories')} active / {activity.get('total_calories')} total"
+        )
+        lines.append(
+            f"High: {_format_duration(activity.get('high_activity_time'))}  "
+            f"Med: {_format_duration(activity.get('medium_activity_time'))}  "
+            f"Low: {_format_duration(activity.get('low_activity_time'))}  "
+            f"Sedentary: {_format_duration(activity.get('sedentary_time'))}"
+        )
+        lines.append(f"Walking equiv: {activity.get('equivalent_walking_distance')}m")
+        lines.append("")
+
+    stress = data.get("stress")
+    if stress:
+        lines.append("--- Stress ---")
+        lines.append(
+            f"Summary: {stress.get('day_summary')}  "
+            f"Stress high: {_format_duration(stress.get('stress_high'))}  "
+            f"Recovery high: {_format_duration(stress.get('recovery_high'))}"
+        )
+        lines.append("")
+
+    spo2 = data.get("spo2")
+    if spo2:
+        lines.append("--- SpO2 ---")
+        lines.append(
+            f"Average: {spo2.get('average')}%  "
+            f"Breathing disturbance index: {spo2.get('breathing_disturbance_index')}"
+        )
+        lines.append("")
+
+    resilience = data.get("resilience")
+    if resilience:
+        lines.append("--- Resilience ---")
+        lines.append(f"Level: {resilience.get('level')}  Contributors: {resilience.get('contributors', {})}")
+        lines.append("")
+
+    sleep_time = data.get("sleep_time")
+    if sleep_time:
+        lines.append("--- Bedtime recommendation ---")
+        lines.append(f"Recommendation: {sleep_time.get('recommendation')}  Status: {sleep_time.get('status')}")
+        optimal = sleep_time.get("optimal_bedtime") or {}
+        if optimal:
+            lines.append(f"Optimal window: {optimal}")
+        lines.append("")
+
+    vascular_age = data.get("vascular_age")
+    vo2_max = data.get("vo2_max")
+    if vascular_age is not None or vo2_max is not None:
+        lines.append("--- Cardiovascular ---")
+        parts = []
+        if vascular_age is not None:
+            parts.append(f"Vascular age: {vascular_age}")
+        if vo2_max is not None:
+            parts.append(f"VO2 max: {vo2_max}")
+        lines.append("  ".join(parts))
+        lines.append("")
+
+    workouts = data.get("workouts")
+    if workouts:
+        lines.append("--- Workouts ---")
+        for workout in workouts:
+            start = (workout.get("start") or "")[:16]
+            calories = workout.get("calories")
+            lines.append(
+                f"{workout.get('activity')} ({workout.get('intensity')}) "
+                f"{start}  {f'{calories:.0f} kcal' if calories else ''} "
+                f"[{workout.get('source')}]"
+            )
+        lines.append("")
+
+    try:
+        experiment_lines: list[str] = []
+        today = datetime.date.today()
+        for experiment_file in sorted(EXPERIMENTS_DIR.glob("assay-*.md")):
+            text = experiment_file.read_text()
+            frontmatter_match = re.match(r"^---\n(.*?)\n---", text, re.DOTALL)
+            if not frontmatter_match:
+                continue
+            frontmatter = frontmatter_match.group(1)
+            status_match = re.search(r"^status:\s*(\S+)", frontmatter, re.MULTILINE)
+            if not status_match or status_match.group(1).strip('"') != "active":
+                continue
+            name_match = re.search(r'^name:\s*"?([^"\n]+)"?', frontmatter, re.MULTILINE)
+            start_match = re.search(r"^start_date:\s*(\S+)", frontmatter, re.MULTILINE)
+            hypothesis_match = re.search(r'^hypothesis:\s*"?([^"\n]+)"?', frontmatter, re.MULTILINE)
+            name = name_match.group(1).strip() if name_match else experiment_file.stem
+            hypothesis = hypothesis_match.group(1).strip() if hypothesis_match else ""
+            start_date = None
+            day_number = ""
+            if start_match:
+                try:
+                    start_date = datetime.date.fromisoformat(start_match.group(1))
+                    day_number = (today - start_date).days + 1
+                except ValueError:
+                    start_date = None
+            total_days = ""
+            end_match = re.search(r"^end_date:\s*(\S+)", frontmatter, re.MULTILINE)
+            if end_match and start_date is not None:
+                try:
+                    end_date = datetime.date.fromisoformat(end_match.group(1))
+                    total_days = (end_date - start_date).days + 1
+                except ValueError:
+                    total_days = ""
+            checkin_blocks = re.findall(r"(### Day \d+[^\n]*\n(?:[^\n#][^\n]*\n)*)", text)
+            checkin_summary = ""
+            if checkin_blocks:
+                last_block = checkin_blocks[-1]
+                readiness_match = re.search(r"Readiness:\s*avg\s*([\d.]+)", last_block)
+                sleep_match = re.search(r"Sleep:\s*avg\s*([\d.]+)", last_block)
+                parts = []
+                if sleep_match:
+                    parts.append(f"sleep {sleep_match.group(1)}")
+                if readiness_match:
+                    parts.append(f"readiness {readiness_match.group(1)}")
+                if parts:
+                    checkin_summary = f" Last check-in: {', '.join(parts)}."
+            baseline_match = re.search(r"Readiness:\s*avg\s*([\d.]+)", text)
+            baseline_value = baseline_match.group(1) if baseline_match else None
+            if day_number and total_days:
+                day_label = f"Day {day_number} of {total_days}"
+            elif day_number:
+                day_label = f"Day {day_number}"
+            else:
+                day_label = ""
+            label = f"{name} ({day_label})" if day_label else name
+            hypothesis_short = hypothesis.split(",")[0] if hypothesis else ""
+            line = f"{label}: {hypothesis_short}."
+            if baseline_value:
+                line += f" Baseline readiness: {baseline_value}."
+            line += checkin_summary
+            experiment_lines.append(line)
+        if experiment_lines:
+            lines.append("--- Active Experiments ---")
+            lines.extend(experiment_lines)
+    except Exception:
+        pass
+
+    return CircadianResult(summary="\n".join(lines))
+
+
+def _heartrate_result(start_datetime: str, end_datetime: str) -> HeartRateResult:
+    from metabolon.organelles.chemoreceptor import heartrate
+
+    records = heartrate(start_datetime or None, end_datetime or None)
+    if not records:
+        return HeartRateResult(summary="No heart rate data available.")
+
+    buckets: dict[str, list[int]] = defaultdict(list)
+    for record in records:
+        timestamp = record.get("timestamp", "")[:15]
+        bpm = record.get("bpm")
+        if timestamp and bpm is not None:
+            buckets[timestamp + "0"].append(bpm)
+
+    lines = [f"HR time-series ({len(records)} readings, {len(buckets)} buckets)"]
+    lines.append("Time           Avg  Min  Max  Source-mix")
+    for key in sorted(buckets):
+        values = buckets[key]
+        average_bpm = sum(values) // len(values)
+        lines.append(f"{key}  {average_bpm:>3}  {min(values):>3}  {max(values):>3}")
+
+    all_bpm = [record["bpm"] for record in records if record.get("bpm") is not None]
+    if all_bpm:
+        lines.append("")
+        lines.append(
+            f"Overall: avg {sum(all_bpm) // len(all_bpm)} bpm, "
+            f"min {min(all_bpm)} bpm, max {max(all_bpm)} bpm, "
+            f"{len(all_bpm)} readings"
+        )
+    return HeartRateResult(summary="\n".join(lines))
+
+
+def _membrane_result() -> MembranePotentialResult:
+    from metabolon.organelles.chemoreceptor import today as oura_today
+
+    raw = oura_today().get("formatted", "")
+    guidance = (
+        "Exercise guidance: check readiness score above.\n"
+        "- <70: light only (walk, gentle stretch)\n"
+        "- 70-75: moderate OK (yoga, light weights)\n"
+        "- >75: full intensity cleared"
+    )
+    return MembranePotentialResult(summary=raw, guidance=guidance)
+
+
+def _system_result() -> HomeostasisResult:
+    parts: list[str] = []
+    try:
+        result = subprocess.run(
+            ["launchctl", "list"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        pulse_lines = [line for line in result.stdout.splitlines() if "vivesca" in line]
+        parts.append("Pulse: " + ("; ".join(pulse_lines) or "NOT FOUND"))
+    except Exception as exc:
+        parts.append(f"Pulse: check failed ({exc})")
+
+    try:
+        from metabolon.organelles.vasomotor_sensor import sense
+
+        budget = sense()
+        parts.append(f"Budget: {budget.get('formatted', str(budget))}")
+    except Exception:
+        parts.append("Budget: respirometry unavailable")
+
+    log_path = os.path.expanduser("~/logs/vivesca-events.jsonl")
+    try:
+        with open(log_path) as handle:
+            lines = handle.readlines()
+        tail = lines[-5:] if len(lines) >= 5 else lines
+        parts.append("Recent events:\n" + "".join(tail))
+    except Exception:
+        parts.append("Events: log not found")
+
+    health_path = os.path.expanduser("~/.coding-tools-health.json")
+    try:
+        with open(health_path) as handle:
+            health = json.load(handle)
+        if health.get("failures"):
+            parts.append(
+                f"Updates: DEGRADED — missing: {', '.join(health['failures'])} "
+                f"(checked {health['checked']})"
+            )
+        else:
+            parts.append(f"Updates: ok (checked {health['checked']})")
+    except FileNotFoundError:
+        parts.append("Updates: no health data yet (awaiting first hourly run)")
+    except Exception as exc:
+        parts.append(f"Updates: check failed ({exc})")
+
+    try:
+        usage = shutil.disk_usage("/")
+        free_gb = usage.free / (1024**3)
+        total_gb = usage.total / (1024**3)
+        pct_free = (usage.free / usage.total) * 100
+        threshold = disk_threshold.read()
+        disk_message = f"Disk: {free_gb:.1f}GB free / {total_gb:.0f}GB ({pct_free:.0f}% free)"
+        if free_gb < threshold:
+            disk_message += f" ⚠ LOW (threshold {threshold}GB) — recommend `mo clean`"
+        parts.append(disk_message)
+    except Exception as exc:
+        parts.append(f"Disk: check failed ({exc})")
+
+    with contextlib.suppress(Exception):
+        parts.append(precision_summary())
+
+    with contextlib.suppress(Exception):
+        from metabolon.metabolism.infection import infection_summary
+
+        summary = infection_summary()
+        if summary:
+            parts.append(summary)
+
+    gate = "PASS"
+    arrest_signals: list[str] = []
+    report_text = "\n".join(parts)
+    if "NOT FOUND" in report_text:
+        gate = "BLOCK"
+        arrest_signals.append("pulse not running")
+    if "LOW" in report_text and "Disk" in report_text:
+        gate = "BLOCK"
+        arrest_signals.append("disk pressure")
+    if "DEGRADED" in report_text:
+        gate = "WARN"
+        arrest_signals.append("tool updates degraded")
+    if "CHRONIC" in report_text:
+        if gate != "BLOCK":
+            gate = "WARN"
+        arrest_signals.append("chronic tool infections")
+    gate_line = f"Gate: {gate}" + (f" ({', '.join(arrest_signals)})" if arrest_signals else "")
+    parts.insert(0, gate_line)
+    return HomeostasisResult(sections=parts)
+
+
+def _financial_result() -> HomeostasisFinancialResult:
     notes_dir = str(chromatin)
     today = datetime.date.today().isoformat()
-
-    # Read each financial note
     note_parts = []
-    for fname in FINANCIAL_NOTES:
-        fpath = os.path.join(notes_dir, fname)
+    for filename in FINANCIAL_NOTES:
+        file_path = os.path.join(notes_dir, filename)
         try:
-            with open(fpath) as f:
-                content = f.read(3000)  # cap per-file to avoid overflow
-            note_parts.append(f"## {fname}\n{content}")
+            with open(file_path) as handle:
+                content = handle.read(3000)
+            note_parts.append(f"## {filename}\n{content}")
         except FileNotFoundError:
-            note_parts.append(f"## {fname}\n(not found)")
-        except Exception as e:
-            note_parts.append(f"## {fname}\n(read error: {e})")
+            note_parts.append(f"## {filename}\n(not found)")
+        except Exception as exc:
+            note_parts.append(f"## {filename}\n(read error: {exc})")
 
-    # Read Praxis.md for financial-tagged items
-    praxis_path = str(praxis)
     praxis_excerpt = ""
     try:
-        with open(praxis_path) as f:
-            lines = f.readlines()
-        # Include lines with finance-adjacent keywords
+        with open(str(praxis)) as handle:
+            lines = handle.readlines()
         keywords = (
             "invest",
             "insur",
@@ -588,61 +530,36 @@ def homeostasis_financial() -> HomeostasisFinancialResult:
             "due:",
             "deadline",
         )
-        financial_lines = [ln.rstrip() for ln in lines if any(kw in ln.lower() for kw in keywords)]
+        financial_lines = [line.rstrip() for line in lines if any(keyword in line.lower() for keyword in keywords)]
         praxis_excerpt = "\n".join(financial_lines) if financial_lines else "(no financial items)"
     except FileNotFoundError:
         praxis_excerpt = "(Praxis.md not found)"
-    except Exception as e:
-        praxis_excerpt = f"(read error: {e})"
+    except Exception as exc:
+        praxis_excerpt = f"(read error: {exc})"
 
-    notes_text = "\n\n".join(note_parts)
     prompt = FINANCIAL_PROMPT_TEMPLATE.format(
         today=today,
-        notes=notes_text,
+        notes="\n\n".join(note_parts),
         praxis=praxis_excerpt,
     )
-
     try:
         summary = synthesize(prompt, timeout=60)
-    except Exception as e:
-        summary = (
-            f"LLM synthesis failed: {e}\n\nRaw notes loaded for {len(FINANCIAL_NOTES)} files."
-        )
+    except Exception as exc:
+        summary = f"LLM synthesis failed: {exc}\n\nRaw notes loaded for {len(FINANCIAL_NOTES)} files."
 
-    # Count flagged items (lines containing "OVERDUE" or "due within")
     flagged = sum(
         1
-        for ln in summary.splitlines()
-        if any(kw in ln.upper() for kw in ("OVERDUE", "DUE WITHIN", "FLAGGED", "URGENT"))
+        for line in summary.splitlines()
+        if any(keyword in line.upper() for keyword in ("OVERDUE", "DUE WITHIN", "FLAGGED", "URGENT"))
     )
-
     return HomeostasisFinancialResult(summary=summary, flagged_count=flagged)
 
 
-class LysosomeResult(Secretion):
-    """Product of lysosomal digestion — disk cleanup."""
-
-    before_gb: float
-    after_gb: float
-    freed_gb: float
-    output: str
-
-
-CODE_DIR = os.path.expanduser("~/code")
-# Only rm -rf node_modules older than this many days
-NODE_MODULES_STALE_DAYS = 7
-# cargo sweep removes artifacts older than this many days (within target/)
-CARGO_SWEEP_DAYS = 14
-
-
 def _clean_build_artifacts() -> tuple[float, list[str]]:
-    """Clean build artifacts. Cargo sweep for Rust, rm for stale node_modules."""
     import time
 
-    freed_before = shutil.disk_usage("/").free
-    log_lines = []
-
-    # Phase A: cargo sweep (surgical — removes old artifacts, keeps recent builds)
+    before_free = shutil.disk_usage("/").free
+    log_lines: list[str] = []
     if os.path.isdir(CODE_DIR):
         try:
             result = subprocess.run(
@@ -652,49 +569,37 @@ def _clean_build_artifacts() -> tuple[float, list[str]]:
                 cwd=CODE_DIR,
                 timeout=120,
             )
-            # cargo sweep reports what it cleaned
             swept = result.stderr.strip() or result.stdout.strip()
             if swept:
                 log_lines.append(f"  cargo sweep ({CARGO_SWEEP_DAYS}d): {swept[-200:]}")
         except FileNotFoundError:
             log_lines.append("  cargo-sweep not installed (brew install cargo-sweep)")
-        except Exception as e:
-            log_lines.append(f"  cargo sweep FAILED: {e}")
+        except Exception as exc:
+            log_lines.append(f"  cargo sweep FAILED: {exc}")
 
-    # Phase B: stale node_modules (no surgical tool — rm -rf)
     stale_cutoff = time.time() - (NODE_MODULES_STALE_DAYS * 86400)
     if os.path.isdir(CODE_DIR):
         for entry in os.scandir(CODE_DIR):
             if not entry.is_dir():
                 continue
-            nm_path = os.path.join(entry.path, "node_modules")
-            if not os.path.isdir(nm_path):
+            node_modules_path = os.path.join(entry.path, "node_modules")
+            if not os.path.isdir(node_modules_path):
                 continue
             try:
-                mtime = os.path.getmtime(nm_path)
-                if mtime > stale_cutoff:
+                if os.path.getmtime(node_modules_path) > stale_cutoff:
                     continue
-                shutil.rmtree(nm_path, ignore_errors=True)
+                shutil.rmtree(node_modules_path, ignore_errors=True)
                 log_lines.append(f"  Node: {entry.name}/node_modules (stale)")
-            except Exception as e:
-                log_lines.append(f"  Node: {entry.name}/node_modules FAILED ({e})")
+            except Exception as exc:
+                log_lines.append(f"  Node: {entry.name}/node_modules FAILED ({exc})")
 
-    freed_after = shutil.disk_usage("/").free
-    freed_gb = (freed_after - freed_before) / (1024**3)
-    return max(0, freed_gb), log_lines
+    after_free = shutil.disk_usage("/").free
+    return max(0.0, (after_free - before_free) / (1024**3)), log_lines
 
 
-@tool(
-    name="lysosome_digest",
-    description="Clean disk: caches + stale build artifacts. Records before/after.",
-    annotations=ToolAnnotations(readOnlyHint=False, destructiveHint=False),
-)
-def lysosome_digest() -> LysosomeResult:
-    """Lysosomal digestion — caches + build artifacts. Records free space before/after."""
+def _disk_clean_result() -> LysosomeResult:
     before = shutil.disk_usage("/").free / (1024**3)
-    output_parts = []
-
-    # Phase 1: mo clean (system caches)
+    output_parts: list[str] = []
     try:
         result = subprocess.run(
             ["mo", "clean"],
@@ -705,143 +610,101 @@ def lysosome_digest() -> LysosomeResult:
         output_parts.append(result.stdout + result.stderr)
     except subprocess.TimeoutExpired:
         output_parts.append("mo clean timed out after 5 minutes")
-    except Exception as e:
-        output_parts.append(f"mo clean failed: {e}")
+    except Exception as exc:
+        output_parts.append(f"mo clean failed: {exc}")
 
-    # Phase 2: stale build artifacts (target/, node_modules/)
     artifact_gb, artifact_log = _clean_build_artifacts()
     if artifact_log:
         output_parts.append(f"Build artifacts ({artifact_gb:.1f}GB):\n" + "\n".join(artifact_log))
 
     after = shutil.disk_usage("/").free / (1024**3)
     freed = after - before
-
-    # Record + acclimatise
     disk_threshold.record(prior_load=before, post_response=after, freed_gb=round(freed, 1))
-
-    output = "\n---\n".join(output_parts)
     return LysosomeResult(
         before_gb=round(before, 1),
         after_gb=round(after, 1),
         freed_gb=round(freed, 1),
-        output=output[-500:],  # tail to avoid huge tool output
+        output="\n---\n".join(output_parts)[-500:],
     )
 
 
 def _cross_link_experiment_symptom(symptom: str, severity: str, notes: str) -> str | None:
-    """If an active experiment watches keywords matching this symptom or notes, append a note."""
     if not EXPERIMENTS_DIR.exists():
         return None
-
     combined = f"{symptom} {notes}".lower()
-    for exp_file in EXPERIMENTS_DIR.glob("assay-*.md"):
-        text = exp_file.read_text()
+    for experiment_file in EXPERIMENTS_DIR.glob("assay-*.md"):
+        text = experiment_file.read_text()
         if "status: active" not in text:
             continue
-        # Extract watch_keywords from frontmatter
         match = re.search(r"watch_keywords:\s*\[(.+?)\]", text)
         if not match:
             continue
-        keywords = [kw.strip().lower() for kw in match.group(1).split(",")]
-        if any(kw in combined for kw in keywords):
+        keywords = [keyword.strip().lower() for keyword in match.group(1).split(",")]
+        if any(keyword in combined for keyword in keywords):
             intake_note = f"\n> **Symptom logged:** {symptom} (severity: {severity}) — {notes}\n"
-            exp_file.write_text(text.rstrip() + "\n" + intake_note + "\n")
-            return f"Cross-linked to experiment: {exp_file.name}"
+            experiment_file.write_text(text.rstrip() + "\n" + intake_note + "\n")
+            return f"Cross-linked to experiment: {experiment_file.name}"
     return None
 
 
-@tool(
-    name="nociception_log",
-    description="Log a symptom to health log.",
-    annotations=ToolAnnotations(readOnlyHint=False, destructiveHint=False),
-)
-def nociception_log(symptom: str, severity: str = "mild", notes: str = "") -> EffectorResult:
-    """Log a nociceptive signal."""
+def _log_symptom_result(symptom: str, severity: str, notes: str) -> EffectorResult:
     today = datetime.date.today().isoformat()
     entry = f"\n## {today} — {symptom}\n- Severity: {severity}\n"
     if notes:
         entry += f"- Notes: {notes}\n"
-
     os.makedirs(os.path.dirname(HEALTH_LOG), exist_ok=True)
-    with open(HEALTH_LOG, "a") as f:
-        f.write(entry)
-
+    with open(HEALTH_LOG, "a") as handle:
+        handle.write(entry)
     message = f"Logged: {symptom} ({severity}) on {today}"
-
-    xlink = _cross_link_experiment_symptom(symptom, severity, notes)
-    if xlink:
-        message += f"\n{xlink}"
-
+    cross_link = _cross_link_experiment_symptom(symptom, severity, notes)
+    if cross_link:
+        message += f"\n{cross_link}"
     return EffectorResult(success=True, message=message)
 
 
-class AnabolismLink(Secretion):
-    """One link in the anabolic flywheel."""
-
-    name: str
-    signal: str
-
-
-class AnabolismResult(Secretion):
-    """Anabolic flywheel raw data — links with numeric signals for LLM interpretation."""
-
-    links: list[dict]
-    blind_spots: list[str]
-
-
-@tool(
-    name="anabolism_flywheel",
-    description="Life flywheel: sleep, energy, creative output, calendar. Finds the break.",
-    annotations=ToolAnnotations(readOnlyHint=True, destructiveHint=False),
-)
-def anabolism_flywheel() -> AnabolismResult:
-    """Check the anabolic flywheel."""
-    links = []
-
-    # 1. Sleep & Energy
+def _flywheel_result() -> AnabolismResult:
+    links: list[dict] = []
     try:
-        from metabolon.organelles.chemoreceptor import today as _chemoreceptor_today
+        from metabolon.organelles.chemoreceptor import today as chemoreceptor_today
 
-        health = _chemoreceptor_today()
+        health = chemoreceptor_today()
         links.append({"name": "sleep", "score": health.get("sleep_score")})
         links.append({"name": "energy", "score": health.get("readiness_score")})
     except Exception:
         links.append({"name": "sleep", "score": None})
         links.append({"name": "energy", "score": None})
 
-    # 3. Calendar load
     try:
         from metabolon.organelles.circadian_clock import scheduled_events
 
-        fasti_out = scheduled_events()
+        scheduled = scheduled_events()
         events = 0
-        for line in fasti_out.splitlines():
-            line = line.strip()
-            # simple heuristic: non-empty line with a time pattern
-            if line and re.search(r"\d{1,2}:\d{2}|\d{1,2}\s*[ap]m", line.lower()):
+        for line in scheduled.splitlines():
+            stripped = line.strip()
+            if stripped and re.search(r"\d{1,2}:\d{2}|\d{1,2}\s*[ap]m", stripped.lower()):
                 events += 1
         links.append({"name": "calendar", "events": events})
     except Exception:
         links.append({"name": "calendar", "events": None})
 
-    # 4. Creative output
     try:
         notes_dir = str(chromatin)
-
-        chromatin_cmd = ["git", "log", "--since=7.days", "--oneline"]
-        chromatin_out = subprocess.run(
-            chromatin_cmd, cwd=notes_dir, capture_output=True, text=True, timeout=10
+        chromatin_log = subprocess.run(
+            ["git", "log", "--since=7.days", "--oneline"],
+            cwd=notes_dir,
+            capture_output=True,
+            text=True,
+            timeout=10,
         )
-        chromatin_commits = (
-            len(chromatin_out.stdout.strip().splitlines()) if chromatin_out.stdout.strip() else 0
+        chromatin_commits = len(chromatin_log.stdout.strip().splitlines()) if chromatin_log.stdout.strip() else 0
+        blog_log = subprocess.run(
+            ["git", "log", "--since=14.days", "--oneline", "--", "Writing/Blog/Published/"],
+            cwd=notes_dir,
+            capture_output=True,
+            text=True,
+            timeout=10,
         )
-
-        blog_cmd = ["git", "log", "--since=14.days", "--oneline", "--", "Writing/Blog/Published/"]
-        blog_out = subprocess.run(
-            blog_cmd, cwd=notes_dir, capture_output=True, text=True, timeout=10
-        )
-        blog_posts = len(blog_out.stdout.strip().splitlines()) if blog_out.stdout.strip() else 0
-
+        blog_posts = len(blog_log.stdout.strip().splitlines()) if blog_log.stdout.strip() else 0
         links.append(
             {
                 "name": "creative",
@@ -852,110 +715,52 @@ def anabolism_flywheel() -> AnabolismResult:
     except Exception:
         links.append({"name": "creative", "chromatin_commits_7d": None, "blog_commits_14d": None})
 
-    # 5. Symptoms
     try:
         if os.path.exists(HEALTH_LOG):
-            with open(HEALTH_LOG) as f:
-                lines = f.readlines()
-
+            with open(HEALTH_LOG) as handle:
+                lines = handle.readlines()
             recent_entries = 0
             seven_days_ago = datetime.date.today() - datetime.timedelta(days=7)
-
             for line in reversed(lines[-50:]):
-                m = re.match(r"^##\s+(\d{4}-\d{2}-\d{2})", line)
-                if m:
-                    entry_date = datetime.date.fromisoformat(m.group(1))
+                match = re.match(r"^##\s+(\d{4}-\d{2}-\d{2})", line)
+                if match:
+                    entry_date = datetime.date.fromisoformat(match.group(1))
                     if entry_date >= seven_days_ago:
                         recent_entries += 1
-
             links.append({"name": "symptoms", "recent_entries_7d": recent_entries})
         else:
             links.append({"name": "symptoms", "recent_entries_7d": 0})
     except Exception:
         links.append({"name": "symptoms", "recent_entries_7d": None})
 
-    # 6. Blind spots
-    blind_spots = ["exercise (no sensor)", "mood/joy (ask)", "anxiety (ask)"]
-
-    return AnabolismResult(links=links, blind_spots=blind_spots)
-
-
-class AngiogenesisResult(Secretion):
-    """Angiogenesis scan: hypoxic pairs and proposed vessels."""
-
-    hypoxic_pairs: list[dict]
-    proposals: list[dict]
-    existing_vessels: list[dict]
+    return AnabolismResult(
+        links=links,
+        blind_spots=["exercise (no sensor)", "mood/joy (ask)", "anxiety (ask)"],
+    )
 
 
-class MitophagyResult(Secretion):
-    """Model performance fitness scores and blacklist status."""
-
-    fitness: list[dict]
-    blacklist: dict
-
-
-@tool(
-    name="mitophagy_status",
-    description="Model performance tracking and fitness scores.",
-    annotations=ToolAnnotations(readOnlyHint=True, destructiveHint=False),
-)
-def mitophagy_status(task_type: str = "", days: int = 7) -> MitophagyResult:
-    """Return model fitness scores and current blacklist for the last N days."""
+def _mitophagy_result(task_type: str, days: int) -> MitophagyResult:
     from metabolon.organelles.mitophagy import _load_blacklist, model_fitness
 
-    fitness = model_fitness(task_type=task_type, days=days)
-    bl = _load_blacklist()
-    return MitophagyResult(fitness=fitness, blacklist=bl)
+    return MitophagyResult(fitness=model_fitness(task_type=task_type, days=days), blacklist=_load_blacklist())
 
 
-@tool(
-    name="angiogenesis",
-    description="Detect underserved subsystem connections and propose new integrations.",
-    annotations=ToolAnnotations(readOnlyHint=False, destructiveHint=False),
-)
-def angiogenesis() -> AngiogenesisResult:
-    """Scan infection log for sequential failures, propose integrations between hypoxic pairs."""
-    from metabolon.organelles.angiogenesis import (
-        detect_hypoxia,
-        propose_vessel,
-        vessel_registry,
-    )
+def _angiogenesis_result() -> AngiogenesisResult:
+    from metabolon.organelles.angiogenesis import detect_hypoxia, propose_vessel, vessel_registry
 
     pairs = detect_hypoxia()
-    proposals = [propose_vessel(p["source"], p["target"]) for p in pairs]
-    existing = vessel_registry()
     return AngiogenesisResult(
         hypoxic_pairs=pairs,
-        proposals=proposals,
-        existing_vessels=existing,
+        proposals=[propose_vessel(pair["source"], pair["target"]) for pair in pairs],
+        existing_vessels=vessel_registry(),
     )
 
 
-class GlycolysisResult(Secretion):
-    """Glycolysis rate — symbiont dependency ratio."""
-
-    deterministic_count: int
-    symbiont_count: int
-    hybrid_count: int
-    total: int
-    glycolysis_pct: float
-    trend: list[dict]
-    summary: str
-
-
-@tool(
-    name="glycolysis_rate",
-    description="Symbiont dependency ratio — what % of the organism is deterministic.",
-    annotations=ToolAnnotations(readOnlyHint=True, destructiveHint=False),
-)
-def glycolysis_rate(trend_days: int = 30) -> GlycolysisResult:
-    """Measure and return the organism's glycolysis rate with optional trend."""
+def _glycolysis_result(trend_days: int) -> GlycolysisResult:
     from metabolon.organelles.glycolysis_rate import snapshot, trend
 
     rate = snapshot()
     trend_data = trend(days=trend_days)
-
     summary_parts = [
         f"Glycolysis: {rate['glycolysis_pct']}% deterministic",
         f"  Deterministic: {rate['deterministic_count']}",
@@ -971,7 +776,6 @@ def glycolysis_rate(trend_days: int = 30) -> GlycolysisResult:
         summary_parts.append(
             f"  Trend ({trend_days}d): {direction}{delta}% ({trend_data[0]['date']} → {trend_data[-1]['date']})"
         )
-
     return GlycolysisResult(
         deterministic_count=rate["deterministic_count"],
         symbiont_count=rate["symbiont_count"],
@@ -983,44 +787,13 @@ def glycolysis_rate(trend_days: int = 30) -> GlycolysisResult:
     )
 
 
-class TissueRoutingResult(Secretion):
-    """Tissue routing — current model allocation by task type."""
-
-    routes: dict[str, str]
-    report: str
-
-
-@tool(
-    name="tissue_routing",
-    description="Model routing by task type — which symbiont strain for which subsystem.",
-    annotations=ToolAnnotations(readOnlyHint=True, destructiveHint=False),
-)
-def tissue_routing_tool() -> TissueRoutingResult:
-    """Return current tissue routing table with performance data from mitophagy."""
+def _tissue_routing_result() -> TissueRoutingResult:
     from metabolon.organelles.tissue_routing import observed_routes, route_report
 
-    routes = observed_routes()
-    report = route_report()
-    return TissueRoutingResult(routes=routes, report=report)
+    return TissueRoutingResult(routes=observed_routes(), report=route_report())
 
 
-class CrisprResult(Secretion):
-    """CRISPR adaptive immunity status."""
-
-    spacer_count: int
-    recent: list[dict]
-    guide_count: int
-    summary: str
-
-
-@tool(
-    name="crispr_status",
-    description="Adaptive memory: spacer count, recent acquisitions, guide coverage.",
-    annotations=ToolAnnotations(readOnlyHint=True, destructiveHint=False),
-)
-def crispr_status(recent_n: int = 5) -> CrisprResult:
-    """Return adaptive immune memory state: spacers acquired, compiled guides, recent entries."""
-    import json
+def _crispr_result(recent_n: int) -> CrisprResult:
     from pathlib import Path
 
     from metabolon.organelles.crispr import compile_guides, spacer_count
@@ -1028,41 +801,36 @@ def crispr_status(recent_n: int = 5) -> CrisprResult:
     spacers_path = Path.home() / ".cache" / "crispr" / "spacers.jsonl"
     count = spacer_count()
     guides = compile_guides()
-
     recent: list[dict] = []
     if spacers_path.exists():
         try:
-            lines = spacers_path.read_text().splitlines()
-            for line in reversed(lines):
-                line = line.strip()
-                if not line:
+            for line in reversed(spacers_path.read_text().splitlines()):
+                stripped = line.strip()
+                if not stripped:
                     continue
                 try:
-                    entry = json.loads(line)
-                    recent.append(
-                        {
-                            "ts": entry.get("ts", "")[:10],
-                            "tool": entry.get("tool", ""),
-                            "pattern": entry.get("pattern", "")[:80],
-                        }
-                    )
-                    if len(recent) >= recent_n:
-                        break
+                    entry = json.loads(stripped)
                 except Exception:
                     continue
+                recent.append(
+                    {
+                        "ts": entry.get("ts", "")[:10],
+                        "tool": entry.get("tool", ""),
+                        "pattern": entry.get("pattern", "")[:80],
+                    }
+                )
+                if len(recent) >= recent_n:
+                    break
         except Exception:
             pass
 
-    summary_lines = [
-        f"CRISPR spacers: {count} acquired, {len(guides)} guides compiled",
-    ]
+    summary_lines = [f"CRISPR spacers: {count} acquired, {len(guides)} guides compiled"]
     if recent:
         summary_lines.append("Recent acquisitions:")
-        for r in recent:
-            summary_lines.append(f"  [{r['ts']}] {r['tool']}: {r['pattern']}")
+        for item in recent:
+            summary_lines.append(f"  [{item['ts']}] {item['tool']}: {item['pattern']}")
     else:
         summary_lines.append("No spacers acquired yet.")
-
     return CrisprResult(
         spacer_count=count,
         recent=recent,
@@ -1071,48 +839,119 @@ def crispr_status(recent_n: int = 5) -> CrisprResult:
     )
 
 
-class RetrogradeResult(Secretion):
-    """Retrograde signal balance — symbiont influence ratio."""
+def _retrograde_result(days: int) -> RetrogradeResult:
+    from metabolon.organelles.retrograde import signal_balance
 
-    anterograde_count: int
-    retrograde_count: int
-    ratio: float
-    assessment: str
-    window_days: int
-    summary: str
+    balance = signal_balance(days=days)
+    if balance["retrograde_count"] > 0:
+        ratio_string = f"{balance['ratio']:.1f}:1"
+    else:
+        ratio_string = f"{balance['anterograde_count']}:0"
+    summary = (
+        f"Retrograde balance ({days}d): {balance['assessment'].upper()}\n"
+        f"  Anterograde (organism→symbiont): {balance['anterograde_count']}\n"
+        f"  Retrograde  (symbiont→organism): {balance['retrograde_count']}\n"
+        f"  Ratio: {ratio_string}\n"
+        f"  Assessment: {balance['assessment']}"
+    )
+    return RetrogradeResult(
+        anterograde_count=balance["anterograde_count"],
+        retrograde_count=balance["retrograde_count"],
+        ratio=balance["ratio"],
+        assessment=balance["assessment"],
+        window_days=days,
+        summary=summary,
+    )
+
+
+def _probe_result() -> InflammasomeResult:
+    from metabolon.organelles.inflammasome import run_all_probes
+
+    results = run_all_probes()
+    lines = []
+    for result in results:
+        tag = "PASS" if result["passed"] else "FAIL"
+        lines.append(f"[{tag}] {result['name']} — {result['message']} ({result['duration_ms']}ms)")
+    passed_count = sum(1 for result in results if result["passed"])
+    lines.append(f"\nSummary: {passed_count}/{len(results)} passed")
+    return InflammasomeResult(report="\n".join(lines), passed=passed_count, total=len(results))
 
 
 @tool(
-    name="retrograde_balance",
-    description="Symbiont influence ratio — is the organism sovereign or dependent?",
-    annotations=ToolAnnotations(readOnlyHint=True, destructiveHint=False),
+    name="interoception",
+    description="Body. Actions: system|fin|sleep|ready|hr|symptom|fly|disk|glyco|route|crispr|retro|mito|angio|mem|probe",
+    annotations=ToolAnnotations(readOnlyHint=False, destructiveHint=False),
 )
-def retrograde_balance(days: int = 7) -> RetrogradeResult:
-    """Measure anterograde vs retrograde signal balance over last N days.
+def interoception(
+    action: str,
+    period: str = "today",
+    start_datetime: str = "",
+    end_datetime: str = "",
+    symptom: str = "",
+    severity: str = "mild",
+    notes: str = "",
+    trend_days: int = 30,
+    recent_n: int = 5,
+    task_type: str = "",
+    days: int = 7,
+) -> (
+    CircadianResult
+    | HeartRateResult
+    | MembranePotentialResult
+    | HomeostasisResult
+    | HomeostasisFinancialResult
+    | LysosomeResult
+    | AnabolismResult
+    | AngiogenesisResult
+    | MitophagyResult
+    | GlycolysisResult
+    | TissueRoutingResult
+    | CrisprResult
+    | RetrogradeResult
+    | InflammasomeResult
+    | EffectorResult
+):
+    action = action.lower().strip()
 
-    Anterograde (organism→symbiont): pulse systoles, channel calls, agent dispatches.
-    Retrograde (symbiont→organism): agent git commits, methylation proposals, repairs.
-
-    Assessment: sovereign (>3:1), balanced (1-3:1), dependent (<1:1).
-    """
-    from metabolon.organelles.retrograde import signal_balance
-
-    b = signal_balance(days=days)
-    ratio_str = (
-        f"{b['ratio']:.1f}:1" if b["retrograde_count"] > 0 else f"{b['anterograde_count']}:0"
-    )
-    summary = (
-        f"Retrograde balance ({days}d): {b['assessment'].upper()}\n"
-        f"  Anterograde (organism→symbiont): {b['anterograde_count']}\n"
-        f"  Retrograde  (symbiont→organism): {b['retrograde_count']}\n"
-        f"  Ratio: {ratio_str}\n"
-        f"  Assessment: {b['assessment']}"
-    )
-    return RetrogradeResult(
-        anterograde_count=b["anterograde_count"],
-        retrograde_count=b["retrograde_count"],
-        ratio=b["ratio"],
-        assessment=b["assessment"],
-        window_days=days,
-        summary=summary,
+    if action == "system":
+        return _system_result()
+    if action == "financial":
+        return _financial_result()
+    if action == "sleep":
+        return _sleep_result(period)
+    if action == "readiness":
+        return _membrane_result()
+    if action == "heartrate":
+        return _heartrate_result(start_datetime, end_datetime)
+    if action == "log_symptom":
+        if not symptom:
+            return EffectorResult(success=False, message="log_symptom requires: symptom")
+        return _log_symptom_result(symptom, severity, notes)
+    if action == "flywheel":
+        return _flywheel_result()
+    if action == "disk_clean":
+        return _disk_clean_result()
+    if action == "glycolysis":
+        return _glycolysis_result(trend_days)
+    if action == "tissue_routing":
+        return _tissue_routing_result()
+    if action == "crispr":
+        return _crispr_result(recent_n)
+    if action == "retrograde":
+        return _retrograde_result(days)
+    if action == "mitophagy":
+        return _mitophagy_result(task_type, days)
+    if action == "angiogenesis":
+        return _angiogenesis_result()
+    if action == "membrane":
+        return _membrane_result()
+    if action == "probe":
+        return _probe_result()
+    return EffectorResult(
+        success=False,
+        message=(
+            "Unknown action. Valid: system, financial, sleep, readiness, heartrate, "
+            "log_symptom, flywheel, disk_clean, glycolysis, tissue_routing, crispr, "
+            "retrograde, mitophagy, angiogenesis, membrane, probe"
+        ),
     )

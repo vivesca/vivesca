@@ -162,12 +162,16 @@ def emit(
 
     # -- tweet (direct post) --------------------------------------------
     elif action == "tweet":
-        if not text:
-            return EffectorResult(success=False, message="tweet requires: text")
-        rejection = _golgi.chaperone_check(text, "tweet")
+        tweet_text = text.strip()
+        if not tweet_text and insight.strip():
+            prompt = _COMPRESS_PROMPT.format(insight=insight.strip())
+            tweet_text = synthesize(prompt, timeout=60).strip()
+        if not tweet_text:
+            return EffectorResult(success=False, message="tweet requires: text or insight")
+        rejection = _golgi.chaperone_check(tweet_text, "tweet")
         if rejection:
             return EffectorResult(success=False, message=rejection)
-        result = invoke_organelle("bird", ["tweet", text], timeout=30)
+        result = invoke_organelle("bird", ["tweet", tweet_text], timeout=30)
         return EffectorResult(success=True, message=result)
 
     # -- daily_note ------------------------------------------------------
@@ -229,15 +233,14 @@ def emit(
 
     # -- telemetry -------------------------------------------------------
     elif action == "telemetry":
-        if not channel or not text or not source_skill:
-            _title = text or "untitled"
-        else:
-            _title = text
+        telemetry_title = title or text
+        if not channel or not telemetry_title or not source_skill:
+            return EffectorResult(success=False, message="telemetry requires: channel, title, source_skill")
         if not os.path.exists(TELEMETRY_FILE):
             _append_to_file(TELEMETRY_FILE, TELEMETRY_HEADER)
-        row = f"| {_today_iso()} | {channel} | {slug or '-'} | {text} | {source_skill} | {tags or '-'} |\n"
+        row = f"| {_today_iso()} | {channel} | {slug or '-'} | {telemetry_title} | {source_skill} | {tags or '-'} |\n"
         _append_to_file(TELEMETRY_FILE, row)
-        return EffectorResult(success=True, message=f"Telemetry logged: {channel} - {text}")
+        return EffectorResult(success=True, message=f"Telemetry logged: {channel} - {telemetry_title}")
 
     # -- telegram_text ---------------------------------------------------
     elif action == "telegram_text":

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from metabolon.enzymes.secretory import metabolism_knowledge_signal
+from metabolon.enzymes.emit import emit
 from metabolon.metabolism.signals import SensorySystem
 
 
@@ -18,13 +18,14 @@ def redirect_collector(tmp_path):
 
 
 def test_knowledge_signal_useful(redirect_collector):
-    result = metabolism_knowledge_signal(
+    result = emit(
+        action="knowledge_signal",
         artifact="memory/user_health.md",
         useful=True,
         context="helped with sleep advice",
     )
-    assert result.recorded_outcome == "success"
-    assert result.artifact == "memory/user_health.md"
+    assert result.success is True
+    assert "memory/user_health.md" in result.message
 
     collector = SensorySystem()
     signals = collector.recall_all()
@@ -35,11 +36,12 @@ def test_knowledge_signal_useful(redirect_collector):
 
 
 def test_knowledge_signal_not_useful(redirect_collector):
-    result = metabolism_knowledge_signal(
+    result = emit(
+        action="knowledge_signal",
         artifact="memory/stale_project.md",
         useful=False,
     )
-    assert result.recorded_outcome == "error"
+    assert result.success is True
 
     collector = SensorySystem()
     signals = collector.recall_all()
@@ -48,9 +50,9 @@ def test_knowledge_signal_not_useful(redirect_collector):
 
 
 def test_knowledge_signal_multiple(redirect_collector):
-    metabolism_knowledge_signal(artifact="ref/epistemics/creativity.md", useful=True)
-    metabolism_knowledge_signal(artifact="memory/old_thing.md", useful=False)
-    metabolism_knowledge_signal(artifact="skill/rector", useful=True)
+    emit(action="knowledge_signal", artifact="ref/epistemics/creativity.md", useful=True)
+    emit(action="knowledge_signal", artifact="memory/old_thing.md", useful=False)
+    emit(action="knowledge_signal", artifact="skill/rector", useful=True)
 
     collector = SensorySystem()
     signals = collector.recall_all()

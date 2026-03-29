@@ -1,10 +1,6 @@
-"""histone — memory database (FTS5 + vector embeddings).
-
-Actions: search|mark|stats|status
-Absorbs: oghma (same DB, different CLI frontend).
-"""
-
 from __future__ import annotations
+
+"""histone — memory database (FTS5 + vector embeddings)."""
 
 from fastmcp.tools import tool
 from mcp.types import ToolAnnotations
@@ -16,17 +12,25 @@ class HistoneResult(Secretion):
     results: str
 
 
-_ACTIONS = (
-    "search — search memories (keyword/vector/hybrid). Requires: query. Optional: category, source, limit, mode, chromatin. "
-    "mark — add a memory manually. Requires: content. Optional: category, confidence. "
-    "stats — database statistics. "
-    "status — DB path, count, daemon state."
-)
+def _format_search_results(results: list[dict]) -> str:
+    if not results:
+        return "No results"
+    lines = []
+    for result in results:
+        name = result.get("name", result.get("file", "unknown"))
+        path = result.get("path", "")
+        content = str(result.get("content", "")).strip().replace("\n", " ")
+        if len(content) > 160:
+            content = content[:157] + "..."
+        lines.append(f"- {name}")
+        lines.append(f"  path: {path}")
+        lines.append(f"  content: {content}")
+    return "\n".join(lines)
 
 
 @tool(
     name="histone",
-    description=f"Memory database. Actions: {_ACTIONS}",
+    description="Histone. Actions: search|mark|stats|status",
     annotations=ToolAnnotations(readOnlyHint=False, destructiveHint=False),
 )
 def histone(
@@ -40,14 +44,14 @@ def histone(
     chromatin: str = "open",
     confidence: float = 0.8,
 ) -> HistoneResult | Vital | EffectorResult:
-    """Unified memory tool."""
     action = action.lower().strip()
 
     if action == "search":
         if not query:
             return EffectorResult(success=False, message="search requires: query")
-        from metabolon.organelles.chromatin import search as _search
-        results = _search(
+        from metabolon.organelles.chromatin import search
+
+        results = search(
             query,
             category=category,
             source_enzyme=source,
@@ -55,23 +59,34 @@ def histone(
             mode=mode,
             chromatin=chromatin,
         )
-        formatted = "\n".join(str(r) for r in results) if results else "No results"
-        return HistoneResult(results=formatted)
+        return HistoneResult(results=_format_search_results(results))
 
-    elif action == "mark":
+    if action == "mark":
         if not content:
             return EffectorResult(success=False, message="mark requires: content")
-        from metabolon.organelles.chromatin import add as _add
-        _add(content, category=category or "gotcha", confidence=confidence)
-        return EffectorResult(success=True, message="Memory added")
+        from metabolon.organelles.chromatin import add
 
-    elif action == "stats":
-        from metabolon.organelles.chromatin import status as _status
-        return HistoneResult(results=_status())
+        saved = add(content, category=category or "gotcha", confidence=confidence)
+        return EffectorResult(success=True, message=f"Memory added: {saved['file']}", data=saved)
 
-    elif action == "status":
-        from metabolon.organelles.chromatin import status as _status
-        return Vital(status="ok", message=_status())
+    if action == "stats":
+        from metabolon.organelles.chromatin import stats
 
-    else:
-        return EffectorResult(success=False, message=f"Unknown action '{action}'. Valid: search, mark, stats, status")
+        data = stats()
+        return HistoneResult(
+            results=(
+                f"Marks: {data['count']} files\n"
+                f"Size: {data['size_kb']}KB\n"
+                f"Path: {data['path']}"
+            )
+        )
+
+    if action == "status":
+        from metabolon.organelles.chromatin import status
+
+        return Vital(status="ok", message=status())
+
+    return EffectorResult(
+        success=False,
+        message="Unknown action. Valid: search, mark, stats, status",
+    )

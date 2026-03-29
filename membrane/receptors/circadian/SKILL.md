@@ -68,6 +68,7 @@ If the user explicitly says "morning brief" after 10am or "evening routine" befo
 3. **Active decisions and gates** — from NOW.md, pull open decisions
 4. **LinkedIn job alerts** (post-noon only) — if unchecked flags exist, surface briefly
 5. **Overdue and today's TODO** — from Praxis.md, max 5 items, most time-sensitive first
+6. **Goose task queue** — surface count of done/ tasks needing review. If any exist, prompt CC to read `done/*.md`, check the `## Result` section, and approve or redispatch.
 
 ### Time-aware synthesis
 
