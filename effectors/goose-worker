@@ -7,13 +7,18 @@ One task per cycle. LaunchAgent calls this every 15 minutes.
 
 from __future__ import annotations
 
+import re
 import shutil
 import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-QUEUE = Path.home() / "epigenome/chromatin/task-queue"
+sys.path.insert(0, str(Path.home() / "germline"))
+
+from metabolon.locus import chromatin, germline
+
+QUEUE = chromatin / "task-queue"
 PENDING = QUEUE / "pending"
 RUNNING = QUEUE / "running"
 DONE = QUEUE / "done"
@@ -26,6 +31,16 @@ def log(msg: str) -> None:
     print(f"[{ts}] {msg}")
 
 
+def ensure_queue_dirs() -> None:
+    for queue_dir in (PENDING, RUNNING, DONE, FAILED):
+        queue_dir.mkdir(parents=True, exist_ok=True)
+
+
+def signal_name(prefix: str, task_name: str) -> str:
+    normalized = re.sub(r"[^a-z0-9]+", "-", task_name.lower()).strip("-")
+    return f"{prefix}-{normalized or 'task'}"
+
+
 def emit_signal(name: str, content: str) -> None:
     """Fire a demethylase signal for inter-agent notification."""
     try:
@@ -35,7 +50,39 @@ def emit_signal(name: str, content: str) -> None:
         log(f"WARN: signal emit failed: {exc}")
 
 
+def append_result(task_path: Path, *, exit_code: int, stdout: str, stderr: str) -> None:
+    completed = datetime.now(timezone.utc).isoformat()
+    original = task_path.read_text(encoding="utf-8")
+    section = (
+        "\n\n## Result\n\n"
+        f"**Completed:** {completed}\n"
+        f"**Exit code:** {exit_code}\n"
+        "### stdout\n"
+        "```\n"
+        f"{stdout[-8000:]}\n"
+        "```\n"
+        "### stderr\n"
+        "```\n"
+        f"{stderr[-4000:]}\n"
+        "```\n"
+    )
+    task_path.write_text(original + section, encoding="utf-8")
+
+
+def finalize_task(
+    running_path: Path,
+    destination_dir: Path,
+    *,
+    exit_code: int,
+    stdout: str,
+    stderr: str,
+) -> None:
+    append_result(running_path, exit_code=exit_code, stdout=stdout, stderr=stderr)
+    shutil.move(str(running_path), str(destination_dir / running_path.name))
+
+
 def main() -> int:
+    ensure_queue_dirs()
     tasks = sorted(PENDING.glob("*.md"), key=lambda p: p.stat().st_mtime)
     if not tasks:
         return 0
@@ -49,34 +96,68 @@ def main() -> int:
 
     sortase_bin = shutil.which("sortase")
     if not sortase_bin:
-        log("ERROR: sortase not found in PATH")
-        shutil.move(str(running_path), str(FAILED / task.name))
+        stderr = "sortase not found in PATH"
+        log(f"ERROR: {stderr}")
+        finalize_task(running_path, FAILED, exit_code=1, stdout="", stderr=stderr)
+        emit_signal(
+            signal_name("goose-task-failed", task_name),
+            f"Task {task_name} failed before execution: {stderr}.",
+        )
         return 1
 
     cmd = [
         sortase_bin, "exec",
         str(running_path),
-        "-p", str(Path.home() / "germline"),
+        "-p", str(germline),
         "-b", "goose",
         "--serial",
         "--timeout", str(TIMEOUT),
     ]
 
     log(f"Running: {' '.join(cmd)}")
-    result = subprocess.run(cmd, capture_output=True, text=True, timeout=TIMEOUT + 60)
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=TIMEOUT + 60)
+    except subprocess.TimeoutExpired as exc:
+        stdout = exc.stdout or ""
+        stderr = (exc.stderr or "") + f"\nWorker timeout after {TIMEOUT + 60}s."
+        finalize_task(running_path, FAILED, exit_code=124, stdout=stdout, stderr=stderr)
+        log(f"FAILED: {task_name} (worker timeout)")
+        emit_signal(
+            signal_name("goose-task-failed", task_name),
+            f"Task {task_name} timed out after {TIMEOUT + 60}s.",
+        )
+        return 124
+    except Exception as exc:
+        stderr = f"Worker exception: {exc}"
+        finalize_task(running_path, FAILED, exit_code=1, stdout="", stderr=stderr)
+        log(f"FAILED: {task_name} (worker exception)")
+        emit_signal(
+            signal_name("goose-task-failed", task_name),
+            f"Task {task_name} failed with worker exception: {exc}.",
+        )
+        return 1
 
-    # Append result section
-    header = f"\n\n## Result\n\n**Completed:** {datetime.now(timezone.utc).isoformat()}\n**Exit code:** {result.returncode}\n"
-    running_path.write_text(running_path.read_text() + header + "### stdout\n```\n" + result.stdout[-8000:] + "\n```\n### stderr\n```\n" + result.stderr[-4000:] + "\n```\n")
+    destination = DONE if result.returncode == 0 else FAILED
+    finalize_task(
+        running_path,
+        destination,
+        exit_code=result.returncode,
+        stdout=result.stdout,
+        stderr=result.stderr,
+    )
 
     if result.returncode == 0:
-        shutil.move(str(running_path), str(DONE / task.name))
         log(f"DONE: {task_name}")
-        emit_signal(f"goose-task-complete-{task_name}", f"Task {task_name} completed successfully.")
+        emit_signal(
+            signal_name("goose-task-complete", task_name),
+            f"Task {task_name} completed successfully.",
+        )
     else:
-        shutil.move(str(running_path), str(FAILED / task.name))
         log(f"FAILED: {task_name} (exit {result.returncode})")
-        emit_signal(f"goose-task-failed-{task_name}", f"Task {task_name} failed with exit code {result.returncode}.")
+        emit_signal(
+            signal_name("goose-task-failed", task_name),
+            f"Task {task_name} failed with exit code {result.returncode}.",
+        )
 
     return result.returncode
 
