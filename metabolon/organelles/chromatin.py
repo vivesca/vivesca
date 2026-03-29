@@ -1,23 +1,16 @@
-"""chromatin — memory database (formerly oghma).
+"""chromatin — file-based memory store.
 
-Endosymbiosis: external Python package → organelle import.
-Oghma's Storage class is imported directly instead of subprocess.
-Supports chromatin accessibility states (open/closed).
+Oghma retired (Mar 2026). This organelle now reads/writes markdown files
+in ~/epigenome/marks/ — the canonical memory location.
 """
 
-_storage = None
+from __future__ import annotations
 
+import re
+from datetime import datetime, timezone
+from pathlib import Path
 
-def _get_storage():
-    """Lazy-init Storage to avoid import overhead."""
-    global _storage
-    if _storage is None:
-        from oghma.config import load_config
-        from oghma.storage import Storage
-
-        config = load_config()
-        _storage = Storage(config=config)
-    return _storage
+MARKS_DIR = Path.home() / "epigenome" / "marks"
 
 
 def recall(
@@ -28,46 +21,41 @@ def recall(
     mode: str = "hybrid",
     chromatin: str = "open",
 ) -> list[dict]:
-    """Search memories with chromatin accessibility control.
-
-    chromatin: 'open' (active), 'closed' (archived), 'all'
-    """
-    s = _get_storage()
-    status = None
-    if chromatin == "open":
-        status = "active"
-    elif chromatin == "closed":
-        status = "archived"
-
-    if mode == "hybrid":
-        results = s.search_memories_hybrid(
-            query,
-            limit=limit,
-            category=category or None,
-            source_tool=source_enzyme or None,
-            status=status,
-        )
-    else:
-        results = s.search_memories(
-            query,
-            limit=limit,
-            category=category or None,
-            source_tool=source_enzyme or None,
-            status=status,
-        )
+    """Search marks by regex match on content."""
+    results = []
+    for f in sorted(MARKS_DIR.glob("*.md"), key=lambda p: p.stat().st_mtime, reverse=True):
+        text = f.read_text(errors="replace")
+        if not re.search(query, text, re.IGNORECASE):
+            continue
+        if category and f"category: {category}" not in text:
+            continue
+        # Extract name from frontmatter
+        name_match = re.search(r"^name:\s*(.+)$", text, re.MULTILINE)
+        name = name_match.group(1).strip() if name_match else f.stem
+        results.append({"file": f.name, "name": name, "content": text[:500], "path": str(f)})
+        if len(results) >= limit:
+            break
     return results
 
 
 def inscribe(content: str, category: str = "gotcha", confidence: float = 0.8) -> dict:
-    """Add a memory (histone mark)."""
-    s = _get_storage()
-    return s.add_memory(
-        content=content,
-        category=category,
-        confidence=confidence,
-        source_tool="metabolon",
-        source_file="direct",
+    """Add a memory as a markdown file in marks/."""
+    slug = re.sub(r"[^a-z0-9-]", "", content[:50].lower().replace(" ", "-"))[:40]
+    ts = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M")
+    filename = f"auto_{slug}_{ts}.md"
+    path = MARKS_DIR / filename
+    path.write_text(
+        f"---\n"
+        f"name: {slug}\n"
+        f"description: {content[:80]}\n"
+        f"type: finding\n"
+        f"source: mcp\n"
+        f"category: {category}\n"
+        f"confidence: {confidence}\n"
+        f"---\n\n"
+        f"{content}\n"
     )
+    return {"status": "saved", "path": str(path), "file": filename}
 
 
 def search(
@@ -79,14 +67,7 @@ def search(
     chromatin: str = "open",
 ) -> list[dict]:
     """Alias for recall() — histone_search tool calls this name."""
-    return recall(
-        query,
-        category=category,
-        source_enzyme=source_enzyme,
-        limit=limit,
-        mode=mode,
-        chromatin=chromatin,
-    )
+    return recall(query, category=category, source_enzyme=source_enzyme, limit=limit, mode=mode, chromatin=chromatin)
 
 
 def add(content: str, category: str = "gotcha", confidence: float = 0.8) -> dict:
@@ -95,18 +76,14 @@ def add(content: str, category: str = "gotcha", confidence: float = 0.8) -> dict
 
 
 def stats() -> dict:
-    """Memory database statistics."""
-    s = _get_storage()
-    return s.get_stats() if hasattr(s, "get_stats") else {"status": "ok"}
+    """Memory file statistics."""
+    files = list(MARKS_DIR.glob("*.md"))
+    total_size = sum(f.stat().st_size for f in files)
+    return {"count": len(files), "size_kb": round(total_size / 1024), "path": str(MARKS_DIR)}
 
 
 def status() -> str:
-    """Database status: path, exists, size."""
-    from pathlib import Path
-
-    from oghma.config import load_config
-
-    db_path = Path(load_config()["storage"]["db_path"])
-    exists = db_path.exists()
-    size = db_path.stat().st_size if exists else 0
-    return f"DB: {db_path} ({'exists' if exists else 'missing'}, {size / 1024:.0f}KB)"
+    """Marks directory status."""
+    files = list(MARKS_DIR.glob("*.md"))
+    total_size = sum(f.stat().st_size for f in files)
+    return f"Marks: {MARKS_DIR} ({len(files)} files, {total_size / 1024:.0f}KB)"

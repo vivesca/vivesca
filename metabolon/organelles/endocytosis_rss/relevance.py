@@ -36,11 +36,11 @@ Respond in JSON only:
 
 
 def assess_cargo(title: str, source: str, summary: str) -> dict[str, Any]:
-    """Score a single cargo item using Gemini, with keyword fallback."""
+    """Score a single cargo item using Opus via Max, with keyword fallback."""
     prompt = SCORING_PROMPT.format(title=title, source=source, summary=summary)
 
     try:
-        text = _symbiont_transduce("haiku", prompt, timeout=90)
+        text = _symbiont_transduce("opus", prompt, timeout=120)
         start = text.find("{")
         end = text.rfind("}") + 1
         if start >= 0 and end > start:
