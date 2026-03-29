@@ -5,9 +5,12 @@ Actions: engram|chromatin|logs
 
 from __future__ import annotations
 
+import re
+
 from fastmcp.tools import tool
 from mcp.types import ToolAnnotations
 
+from metabolon import locus
 from metabolon.morphology import Secretion
 
 
@@ -46,9 +49,14 @@ def ecphory(
     if action == "engram":
         if not query:
             return EcphoryResult(results="engram requires: query")
-        from metabolon.organelles.engram import search as _engram_search
-        results = _engram_search(query, days=days, deep=deep, role=role or None)
-        return EcphoryResult(results=results)
+        from metabolon.organelles.engram import TraceFragment, search as _engram_search
+        fragments: list[TraceFragment] = _engram_search(query, days=days, deep=deep, role=role or None)
+        if not fragments:
+            return EcphoryResult(results=f"No matches for '{query}' in last {days} days.")
+        lines = [f"{len(fragments)} match(es) for '{query}':"]
+        for m in fragments:
+            lines.append(f"  [{m.date} {m.time_str}] [{m.role}] {m.snippet}")
+        return EcphoryResult(results="\n".join(lines))
 
     elif action == "chromatin":
         if not query:
@@ -61,15 +69,39 @@ def ecphory(
             mode=mode,
             chromatin=accessibility,
         )
-        formatted = "\n".join(str(r) for r in results) if results else "No results"
-        return EcphoryResult(results=formatted)
+        if not results:
+            return EcphoryResult(results=f"No memories found for '{query}'.")
+        lines = [f"{len(results)} memory result(s) for '{query}':"]
+        for r in results:
+            lines.append(f"  [{r['name']}] {r['file']}")
+            snippet = r.get("content", "")[:120].strip()
+            if snippet:
+                lines.append(f"    {snippet}")
+        return EcphoryResult(results="\n".join(lines))
 
     elif action == "logs":
         if not query:
             return EcphoryResult(results="logs requires: query")
-        from metabolon.organelles.engram import search_logs
-        results = search_logs(query, days=days)
-        return EcphoryResult(results=results)
+        pattern = re.compile(query, re.IGNORECASE)
+        targets = [("meal_plan", locus.meal_plan), ("symptom_log", locus.symptom_log)]
+        if locus.experiments.is_dir():
+            for exp_path in sorted(locus.experiments.glob("assay-*.md")):
+                targets.append((f"experiments/{exp_path.name}", exp_path))
+        matches: list[str] = []
+        for label, file_path in targets:
+            if not file_path.exists():
+                continue
+            try:
+                for lineno, line in enumerate(file_path.read_text(encoding="utf-8").splitlines(), 1):
+                    if pattern.search(line):
+                        matches.append(f"  [{label}:{lineno}] {line.strip()}")
+            except OSError:
+                continue
+        if not matches:
+            return EcphoryResult(results=f"No matches for '{query}' in log files.")
+        lines = [f"{len(matches)} match(es) for '{query}' in log files:"]
+        lines.extend(matches)
+        return EcphoryResult(results="\n".join(lines))
 
     else:
         return EcphoryResult(results=f"Unknown action '{action}'. Valid: engram, chromatin, logs")
