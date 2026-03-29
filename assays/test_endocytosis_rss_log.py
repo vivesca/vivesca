@@ -5,6 +5,7 @@ from datetime import UTC, datetime
 from metabolon.organelles.endocytosis_rss.log import (
     _title_prefix,
     cycle_log,
+    generate_daily_markdown,
     is_noise,
     record_cargo,
     serialize_markdown,
@@ -82,6 +83,32 @@ def test_record_cargo_without_marker(tmp_path):
 
     content = log_path.read_text(encoding="utf-8")
     assert content.endswith("\n\n## 2026-02-24 (Automated Daily Scan)")
+
+
+def test_generate_daily_markdown(tmp_path):
+    from metabolon.organelles.endocytosis_rss.cargo import append_cargo
+
+    cargo_path = tmp_path / "cargo.jsonl"
+    append_cargo(cargo_path, [
+        {
+            "timestamp": "2026-03-29T14:00:00+00:00",
+            "date": "2026-03-29",
+            "title": "Banking AI Update",
+            "source": "FT",
+            "link": "https://ft.com/article",
+            "summary": "Banks adopt AI",
+            "score": 8,
+            "banking_angle": "Direct impact",
+            "talking_point": "Meeting line",
+            "fate": "transcytose",
+        },
+    ])
+
+    md = generate_daily_markdown(cargo_path, "2026-03-29")
+    assert "## 2026-03-29" in md
+    assert "### FT" in md
+    assert "[Banking AI Update](https://ft.com/article)" in md
+    assert "[★]" in md  # transcytose marker
 
 
 def test_cycle_log(tmp_path):

@@ -130,12 +130,15 @@ def _fetch_locked(cfg: EndocytosisConfig, no_archive: bool) -> None:
         internalize_x_bookmarks,
         release_bookmarks,
     )
+    from metabolon.organelles.endocytosis_rss.cargo import (
+        append_cargo,
+        recall_title_prefixes as recall_cargo_prefixes,
+        rotate_cargo,
+    )
     from metabolon.organelles.endocytosis_rss.log import (
         _title_prefix,
-        cycle_log,
         is_noise,
         recall_title_prefixes,
-        record_cargo,
         serialize_markdown,
     )
     from metabolon.organelles.endocytosis_rss.relevance import (
@@ -146,10 +149,10 @@ def _fetch_locked(cfg: EndocytosisConfig, no_archive: bool) -> None:
     from metabolon.organelles.endocytosis_rss.state import persist_state
 
     now = datetime.now(UTC)
-    cycle_log(cfg.log_path, cfg.data_dir, cfg.config_data.get("max_log_lines", 500), now)
 
     global_since_date = _get_last_scan_date(state)
-    title_prefixes = recall_title_prefixes(cfg.log_path)
+    title_prefixes = recall_cargo_prefixes(cfg.cargo_path)
+    title_prefixes |= recall_title_prefixes(cfg.log_path)
     results: dict[str, list[dict[str, str]]] = {}
     failed_sources: list[str] = []
     archived_count = 0
@@ -339,8 +342,16 @@ def _fetch_locked(cfg: EndocytosisConfig, no_archive: bool) -> None:
         raise typer.Exit(code=0)
 
     today = now.strftime("%Y-%m-%d")
-    md = serialize_markdown(sorted_results, today)
-    record_cargo(cfg.log_path, md)
+
+    # Write JSONL canonical cargo store
+    flat_cargo = []
+    for source_name, source_articles in sorted_results.items():
+        for article in source_articles:
+            article["fate"] = "transcytose" if int(article.get("score", 0)) >= 7 else "store"
+            flat_cargo.append(article)
+    append_cargo(cfg.cargo_path, flat_cargo)
+    rotate_cargo(cfg.cargo_path, cfg.data_dir / "archive", retain_days=14, now=now)
+
     total = sum(len(v) for v in sorted_results.values())
     typer.echo(f"Logged {total} new articles.", err=True)
     if bookmark_ids_to_clear:
@@ -643,6 +654,48 @@ def init() -> None:
     typer.echo(f"Sources file: {cfg.sources_path} ({created})")
     typer.echo(f"Cache directory: {cfg.cache_dir}")
     typer.echo(f"Data directory: {cfg.data_dir}")
+    raise typer.Exit(code=0)
+
+
+@app.command()
+def summary(
+    date: str | None = typer.Option(None, "--date", help="Date YYYY-MM-DD (default: today)"),
+    output: str | None = typer.Option(None, "--output", "-o", help="Write to file instead of stdout"),
+) -> None:
+    """Generate a daily markdown summary from the JSONL cargo store."""
+    cfg = restore_config()
+    from metabolon.organelles.endocytosis_rss.log import generate_daily_markdown
+
+    target_date = date or datetime.now(UTC).strftime("%Y-%m-%d")
+    md = generate_daily_markdown(cfg.cargo_path, target_date)
+
+    if not md.strip():
+        typer.echo(f"No cargo for {target_date}.", err=True)
+        raise typer.Exit(code=0)
+
+    if output:
+        Path(output).write_text(md, encoding="utf-8")
+        typer.echo(f"Written: {output}", err=True)
+    else:
+        typer.echo(md)
+    raise typer.Exit(code=0)
+
+
+@app.command()
+def migrate() -> None:
+    """One-time migration: convert markdown news log to JSONL cargo store."""
+    cfg = restore_config()
+    from metabolon.organelles.endocytosis_rss.migration import migrate_markdown_to_jsonl
+
+    if cfg.cargo_path.exists():
+        from metabolon.organelles.endocytosis_rss.cargo import recall_cargo
+        existing = len(recall_cargo(cfg.cargo_path))
+        if existing > 0:
+            typer.echo(f"Cargo store already has {existing} entries. Aborting.", err=True)
+            raise typer.Exit(code=1)
+
+    count = migrate_markdown_to_jsonl(cfg.log_path, cfg.cargo_path)
+    typer.echo(f"Migrated {count} entries from {cfg.log_path} to {cfg.cargo_path}", err=True)
     raise typer.Exit(code=0)
 
 

@@ -70,6 +70,27 @@ def _append_discovery_log(
         lines.append("- No new handles found.")
     record_cargo(cfg.log_path, "\n".join(lines) + "\n")
 
+    # Also write to JSONL canonical cargo store
+    from metabolon.organelles.endocytosis_rss.cargo import append_cargo
+
+    discovery_articles = [
+        {
+            "timestamp": now.isoformat(),
+            "date": now.strftime("%Y-%m-%d"),
+            "title": f"X Discovery: @{handle}",
+            "source": "X Discovery",
+            "link": "",
+            "summary": f"{count} matches - {sample}",
+            "score": 0,
+            "banking_angle": "N/A",
+            "talking_point": "N/A",
+            "fate": "store",
+        }
+        for handle, count, sample in new_handles
+    ]
+    if discovery_articles:
+        append_cargo(cfg.cargo_path, discovery_articles)
+
 
 def scout_sources(
     cfg: EndocytosisConfig, count: int | None = None, bird_path: str | None = None

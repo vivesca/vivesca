@@ -10,7 +10,7 @@ Scan what peers, competitors, and adjacent practitioners are doing. Focus on:
 
 1. Check `~/epigenome/chromatin/Specula/` for recent scans — don't repeat work
 2. Web search for: AI governance consulting trends, agent/AI tool patterns, banking AI developments
-3. Check `~/epigenome/chromatin/AI News Log.md` for recent items worth deeper analysis
+3. Check `~/.cache/endocytosis/cargo.jsonl` for recent items worth deeper analysis (or `vivesca endocytosis summary` for a markdown view)
 4. Check `~/epigenome/chromatin/Market Radar.md` and `~/epigenome/chromatin/Market Signals.md`
 
 Extract transferable patterns (not products):

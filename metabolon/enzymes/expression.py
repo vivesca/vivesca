@@ -17,12 +17,12 @@ from pathlib import Path
 from fastmcp.tools import tool
 from mcp.types import ToolAnnotations
 
-from metabolon.locus import chromatin
+from metabolon.locus import chromatin, endocytosis_cargo
 from metabolon.morphology import Secretion
 
 _SPARKS = chromatin / "Consulting" / "_sparks.md"
 _THALAMUS = chromatin / "Thalamus.md"
-_NEWS_LOG = chromatin / "AI News Log.md"
+_NEWS_LOG = endocytosis_cargo  # JSONL canonical; markdown view is generated
 _NORTH_STAR = chromatin / "North Star.md"
 _CONSULTING = chromatin / "Consulting"
 
@@ -85,7 +85,7 @@ def expression_preflight() -> ForgePreflightResult:
     required = {
         "_sparks.md": _SPARKS,
         "Thalamus.md": _THALAMUS,
-        "AI News Log.md": _NEWS_LOG,
+        "cargo.jsonl": _NEWS_LOG,
         "North Star.md": _NORTH_STAR,
     }
 

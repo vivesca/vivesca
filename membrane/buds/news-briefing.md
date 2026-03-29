@@ -1,13 +1,13 @@
 ---
 name: news-briefing
-description: Top lustro items from last 24h with banking/AI angles. Consulting-ready signal.
+description: Top endocytosis items from last 24h with banking/AI angles. Consulting-ready signal.
 model: sonnet
 tools: ["Bash", "Read", "Grep"]
 ---
 
-Pull the day's top signal from the lustro content pipeline.
+Pull the day's top signal from the endocytosis content pipeline.
 
-1. Read ~/.cache/lustro/relevance.jsonl — items from last 24h
+1. Read ~/.cache/endocytosis/relevance.jsonl — items from last 24h
 2. Filter: score >= 7 OR tagged banking/fintech/AI/regulation/HK
 3. For each qualifying item:
    - Title + source
@@ -26,4 +26,4 @@ AI-STRATEGY (N)
 ```
 
 Each item: 3 lines max. Total output: under 40 lines.
-If lustro cache is empty or stale (>25h), say so — don't hallucinate headlines.
+If endocytosis cache is empty or stale (>25h), say so — don't hallucinate headlines.

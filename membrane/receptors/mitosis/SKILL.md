@@ -28,13 +28,13 @@ Run these sequentially — they're fast, deterministic, and don't need agents:
 ### Content & AI digests
 ```bash
 digest --dry-run && digest
-~/.local/bin/lustro digest --dry-run && ~/.local/bin/lustro digest
+vivesca endocytosis digest --dry-run && vivesca endocytosis digest
 ```
 If either fails, mark as skipped and continue.
 
 ### Source health
 ```bash
-lustro check 2>&1 | grep "<-\|(stale)\|x0)"
+vivesca endocytosis status 2>&1 | grep "<-\|(stale)\|x0)"
 ```
 Fix URL-rotted sources in `~/.config/endocytosis/sources.yaml`. Remove dead sources.
 

@@ -34,3 +34,9 @@ def test_sources_loaded_from_user_file(write_sources_file):
     cfg = restore_config()
     assert len(cfg.sources) == 1
     assert cfg.sources[0]["name"] == "Test Feed"
+
+
+def test_config_has_cargo_path(xdg_env):
+    cfg = restore_config()
+    assert hasattr(cfg, "cargo_path")
+    assert str(cfg.cargo_path).endswith("cargo.jsonl")

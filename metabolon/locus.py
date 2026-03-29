@@ -70,6 +70,13 @@ loci = germline / "loci"
 poiesis = loci / "poiesis"
 pulse = loci / "pulse"
 
+# Endocytosis (RSS content intake)
+endocytosis_cache = home / ".cache" / "endocytosis"
+endocytosis_cargo = endocytosis_cache / "cargo.jsonl"
+endocytosis_affinity = endocytosis_cache / "relevance.jsonl"
+endocytosis_recycling = endocytosis_cache / "engagement.jsonl"
+endocytosis_alerts = endocytosis_cache / "alert-signals.jsonl"
+
 # CC integration
 claude_dir = home / ".claude"
 claude_hooks = claude_dir / "hooks"

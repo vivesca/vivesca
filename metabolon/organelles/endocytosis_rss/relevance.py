@@ -10,8 +10,10 @@ from typing import Any
 
 from metabolon.symbiont import transduce as _symbiont_transduce
 
-AFFINITY_LOG = Path.home() / ".cache" / "lustro" / "relevance.jsonl"
-RECYCLING_LOG = Path.home() / ".cache" / "lustro" / "engagement.jsonl"
+from metabolon.locus import endocytosis_affinity, endocytosis_recycling
+
+AFFINITY_LOG = endocytosis_affinity
+RECYCLING_LOG = endocytosis_recycling
 
 SCORING_PROMPT = """Rate this AI news item for relevance to a Principal Consultant / AI Solution Lead
 advising bank clients. Score 1-10:

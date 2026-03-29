@@ -20,7 +20,7 @@ Produces consulting intellectual capital from the week's accumulated sparks, AI 
 
 Before running, verify:
 - `~/epigenome/chromatin/Consulting/_sparks.md` has content (daily spark agent has been running)
-- `~/epigenome/chromatin/AI News Log.md` exists (raw news)
+- `~/.cache/endocytosis/cargo.jsonl` exists (JSONL canonical news store)
 
 If sparks are empty, warn Terry and offer to run a one-off spark generation first.
 
@@ -33,7 +33,7 @@ Read all inputs and produce a work plan:
 **Inputs to read:**
 1. `~/epigenome/chromatin/Consulting/_sparks.md` — this week's pre-triaged sparks
 2. `~/epigenome/chromatin/North Star.md` — taste filter
-3. `~/epigenome/chromatin/AI News Log.md` — last 7 days (for context the sparks may have missed)
+3. `~/.cache/endocytosis/cargo.jsonl` — last 7 days (JSONL canonical news store; use `vivesca endocytosis summary --date YYYY-MM-DD` to generate markdown view)
 4. Existing library: `ls ~/epigenome/chromatin/Consulting/{Policies,Architectures,"Use Cases",Experiments}/` — for dedup and enrichment
 5. Recent client work: `git log --oneline --since="7 days ago" -- ~/epigenome/chromatin/Capco/ ~/epigenome/chromatin/HSBC/ 2>/dev/null` (if any)
 

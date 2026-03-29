@@ -42,6 +42,7 @@ def mock_cfg(tmp_path):
         sources_path=config_dir / "sources.yaml",
         state_path=data_dir / "state.json",
         log_path=data_dir / "news.md",
+        cargo_path=cache_dir / "cargo.jsonl",
         article_cache_dir=cache_dir / "articles",
         digest_output_dir=data_dir / "digests",
         digest_model="test-model",

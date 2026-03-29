@@ -13,7 +13,7 @@ from metabolon.symbiont import transduce
 # ---------------------------------------------------------------------------
 # Signal transduction: load thresholds from conf, fall back to hardcoded defaults.
 # Conf file: ~/germline/endocytosis.conf
-# Signal source for LLM review: ~/.cache/lustro/engagement.jsonl
+# Signal source for LLM review: ~/.cache/endocytosis/engagement.jsonl
 # ---------------------------------------------------------------------------
 
 _ENDOCYTOSIS_CONF = Path.home() / "germline" / "endocytosis.conf"
@@ -71,44 +71,19 @@ def recall_archived_articles(article_cache_dir: Path, month: str) -> list[dict[s
     return articles
 
 
-def recall_news_entries(log_path: Path, month: str) -> list[dict[str, str]]:
-    if not log_path.exists():
-        return []
+def recall_news_entries(cargo_path: Path, month: str) -> list[dict[str, str]]:
+    """Recall cargo entries for a given month from the JSONL store."""
+    from metabolon.organelles.endocytosis_rss.cargo import recall_cargo
 
     entries: list[dict[str, str]] = []
-    current_date = ""
-    current_source = ""
-    for line in log_path.read_text(encoding="utf-8").splitlines():
-        date_match = re.match(r"^## (\d{4}-\d{2}-\d{2})", line)
-        if date_match:
-            current_date = date_match.group(1)
-            continue
-
-        source_match = re.match(r"^### (.+)", line)
-        if source_match:
-            current_source = source_match.group(1).strip()
-            continue
-
-        article_match = re.match(
-            r"^- (?:\[★\] )?\*\*(?:\[([^\]]+)\]\(([^)]+)\)|([^*]+))\*\*"
-            r"(?:\s*\(banking_angle: ([^)]+)\))?"
-            r"(?:\s*\(([^)]*)\))?"
-            r"(?:\s*—\s*(.+))?",
-            line,
-        )
-        if article_match and current_date.startswith(month):
-            title = (article_match.group(1) or article_match.group(3) or "").strip()
-            if not title:
-                continue
-            entries.append(
-                {
-                    "title": title,
-                    "source": current_source,
-                    "date": article_match.group(5) or current_date,
-                    "link": article_match.group(2) or "",
-                    "summary": article_match.group(6) or "",
-                }
-            )
+    for item in recall_cargo(cargo_path, month=month):
+        entries.append({
+            "title": str(item.get("title", "")),
+            "source": str(item.get("source", "")),
+            "date": str(item.get("date", "")),
+            "link": str(item.get("link", "")),
+            "summary": str(item.get("summary", "")),
+        })
     return entries
 
 
@@ -347,60 +322,27 @@ def _resolve_week_label(week_date: datetime | None = None) -> tuple[str, str, st
     )
 
 
-def recall_log_entries(log_path: Path, since_date: str) -> list[dict[str, str]]:
-    """Internalize log entries from since_date (inclusive) to present.
+def recall_log_entries(cargo_path: Path, since_date: str) -> list[dict[str, str]]:
+    """Recall cargo entries from the JSONL store since a given date.
 
-    Parses the markdown log format written by lustro.log.serialize_markdown.
     Returns a list of dicts with: title, source, date, link, banking_angle,
-    summary, _transcytose ('1' if item was marked with [★], else '0').
+    summary, _transcytose ('1' if score >= transcytose threshold or fate == 'transcytose').
     """
-    if not log_path.exists():
-        return []
+    from metabolon.organelles.endocytosis_rss.cargo import recall_cargo
 
     entries: list[dict[str, str]] = []
-    current_date = ""
-    current_source = ""
-
-    for line in log_path.read_text(encoding="utf-8").splitlines():
-        date_match = re.match(r"^## (\d{4}-\d{2}-\d{2})", line)
-        if date_match:
-            current_date = date_match.group(1)
-            continue
-
-        source_match = re.match(r"^### (.+)", line)
-        if source_match:
-            current_source = source_match.group(1).strip()
-            continue
-
-        if current_date < since_date:
-            continue
-
-        # Parse article line: - [★] **[title](link)** (banking_angle: ...) (date) — summary
-        article_match = re.match(
-            r"^- (?:\[★\] )?\*\*(?:\[([^\]]+)\]\(([^)]+)\)|([^*]+))\*\*"
-            r"(?:\s*\(banking_angle: ([^)]+)\))?"
-            r"(?:\s*\(([^)]*)\))?"
-            r"(?:\s*—\s*(.+))?",
-            line,
-        )
-        if article_match:
-            title = (article_match.group(1) or article_match.group(3) or "").strip()
-            if not title:
-                continue
-            transcytose = "[★]" in line
-            entries.append(
-                {
-                    "title": title,
-                    "source": current_source,
-                    "date": article_match.group(5) or current_date,
-                    "link": article_match.group(2) or "",
-                    "banking_angle": article_match.group(4) or "",
-                    "summary": article_match.group(6) or "",
-                    # Reconstruct approximate score from transcytose marker:
-                    # ★ items were logged at score >= WEEKLY_TRANSCYTOSE_THRESHOLD
-                    "_transcytose": "1" if transcytose else "0",
-                }
-            )
+    for item in recall_cargo(cargo_path, since=since_date):
+        score = int(item.get("score", 0))
+        transcytose = score >= WEEKLY_TRANSCYTOSE_THRESHOLD or item.get("fate") == "transcytose"
+        entries.append({
+            "title": str(item.get("title", "")),
+            "source": str(item.get("source", "")),
+            "date": str(item.get("date", "")),
+            "link": str(item.get("link", "")),
+            "banking_angle": str(item.get("banking_angle", "")),
+            "summary": str(item.get("summary", "")),
+            "_transcytose": "1" if transcytose else "0",
+        })
     return entries
 
 
@@ -578,7 +520,7 @@ def metabolize_weekly(
     model_id = cfg.digest_model
 
     # Internalize log entries for the window
-    entries = recall_log_entries(cfg.log_path, since_date)
+    entries = recall_log_entries(cfg.cargo_path, since_date)
 
     if tags:
         source_tags = _build_source_tags_map(cfg)
@@ -682,7 +624,7 @@ def metabolize_digest(
 
     # Fallback: raw articles (for months without weekly digests)
     articles = recall_archived_articles(cfg.article_cache_dir, target_month)
-    log_entries = recall_news_entries(cfg.log_path, target_month)
+    log_entries = recall_news_entries(cfg.cargo_path, target_month)
 
     if tags:
         source_tags = _build_source_tags_map(cfg)

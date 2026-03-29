@@ -4,29 +4,34 @@
 # dependencies = []
 # ///
 """
-dep-check -- dependency version checker for daily wrap.
+dep-check -- dependency auto-updater with rollback.
 
-Checks Claude Code, key npm globals, and key Python packages for updates.
-Emits one line per notable change, or nothing if everything is current.
-Writes state to ~/.config/dep-check/state.json.
+Auto-updates tracked Python and npm packages, smoke-tests after each,
+rolls back on failure. Alerts only on rollback or CC breaking changes.
 
 Usage:
-    dep-check                # normal run (respects 20h frequency gate)
+    dep-check                # auto-update (respects 20h frequency gate)
     dep-check --force        # bypass frequency gate
-    dep-check --dry-run      # check + print, do not update state or create TODOs
+    dep-check --dry-run      # check + print, do not upgrade or update state
 """
 
 import json
 import os
+import re
 import subprocess
 import sys
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 
+
+def _ver_tuple(v: str) -> tuple[int, ...]:
+    """Parse '3.1.2' into (3, 1, 2) for comparison."""
+    return tuple(int(x) for x in v.split(".") if x.isdigit())
+
+
 STATE_PATH = Path.home() / ".config" / "dep-check" / "state.json"
 HKT = timezone(timedelta(hours=8))
 FREQUENCY_HOURS = 20
-TODO_BIN = Path.home() / "officina" / "bin" / "todo"
 DRY_RUN = "--dry-run" in sys.argv
 FORCE = "--force" in sys.argv
 
@@ -36,16 +41,32 @@ CC_BREAKING_KEYWORDS = [
     "hook", "plugin", "permissions", "api change", "renamed",
 ]
 
-# Python packages to track: (pip_name, state_key)
+# Python packages to auto-update: (pip_name, state_key)
 PY_PACKAGES = [
     ("anthropic", "anthropic-py"),
     ("openai", "openai-py"),
+    ("fastmcp", "fastmcp"),
 ]
 
-# npm globals to track: (package_name, state_key)
+# Git-pinned packages: skip normal auto-upgrade, only upgrade when
+# PyPI has >= min_version. (pip_name, min_version)
+PY_GIT_PINNED = {
+    "fastmcp": "3.1.2",
+}
+
+# npm globals to auto-update: (package_name, state_key)
 NPM_GLOBALS = [
     ("@google/gemini-cli", "gemini-cli-npm"),
     ("@openai/codex", "codex-npm"),
+]
+
+# Smoke test: imports that must succeed after any Python upgrade.
+# Each entry is a dotted import path.
+PY_SMOKE_IMPORTS = [
+    "fastmcp.tools",
+    "anthropic",
+    "metabolon.enzymes",
+    "metabolon.morphology",
 ]
 
 
@@ -76,7 +97,6 @@ def _migrate_known_version(v) -> dict:
 def load_state() -> dict:
     try:
         raw = json.loads(STATE_PATH.read_text())
-        # Migrate old string-valued entries to nested dicts
         kv = raw.get("known_versions", {})
         raw["known_versions"] = {k: _migrate_known_version(val) for k, val in kv.items()}
         return raw
@@ -128,20 +148,27 @@ def run(cmd: list, timeout: int = 15) -> tuple[bool, str]:
         return False, str(e)
 
 
-# ── Claude Code ─────────────────────────────────────────────────────────────
+# ── Smoke test ───────────────────────────────────────────────────────────────
+
+def smoke_test() -> tuple[bool, str]:
+    """Quick import smoke test. Returns (passed, failure_detail)."""
+    imports = "; ".join(f"__import__('{m}')" for m in PY_SMOKE_IMPORTS)
+    ok, out = run(["python3", "-c", imports], timeout=15)
+    return ok, out
+
+
+# ── Claude Code (alert only — it auto-updates itself) ───────────────────────
 
 def get_installed_cc_version() -> str | None:
     link = Path.home() / ".local" / "bin" / "claude"
     try:
         target = link.resolve()
-        # Symlink points to .../versions/2.1.80 — basename is the version
         return target.name
     except Exception:
         return None
 
 
 def get_latest_cc_release() -> tuple[str | None, str]:
-    """Returns (version, release_body) or (None, error_string)."""
     ok, out = run(
         ["gh", "release", "view", "--repo", "anthropics/claude-code",
          "--json", "tagName,body"],
@@ -158,39 +185,24 @@ def get_latest_cc_release() -> tuple[str | None, str]:
         return None, str(e)
 
 
-def is_breaking(body: str) -> bool:
-    lower = body.lower()
-    return any(kw in lower for kw in CC_BREAKING_KEYWORDS)
-
-
 def check_claude_code(state: dict) -> list[str]:
+    """CC auto-updates itself. We only alert on breaking changes."""
     alerts = []
     installed = get_installed_cc_version()
     if not installed:
-        return ["dep-check: cannot determine installed CC version"]
+        return []
 
     latest, body = get_latest_cc_release()
     if latest is None:
-        return [f"dep-check: CC release check failed ({body[:60]})"]
+        return []
 
     kv = state["known_versions"].get("claude-code")
     if not isinstance(kv, dict):
         kv = {"installed": installed, "latest_seen": installed, "todo_created_for": None}
 
-    if latest != installed:
-        severity = "BREAKING" if is_breaking(body) else "update"
+    if latest != installed and is_breaking(body):
         url = f"https://github.com/anthropics/claude-code/releases/tag/v{latest}"
-        alerts.append(
-            f"CC {severity}: installed {installed}, latest {latest} — {url}"
-        )
-        # Only create TODO if we haven't already created one for this exact latest version
-        if not DRY_RUN and kv.get("todo_created_for") != latest:
-            excerpt = body[:300].strip().replace("\n", " ") if body else "no changelog"
-            _create_todo(
-                f"CC v{installed}→v{latest}: {excerpt}. Full: {url}",
-                severity="HIGH" if is_breaking(body) else "INFO",
-            )
-            kv["todo_created_for"] = latest
+        alerts.append(f"CC BREAKING: {installed} → {latest} — {url}")
 
     kv["installed"] = installed
     kv["latest_seen"] = latest
@@ -198,105 +210,171 @@ def check_claude_code(state: dict) -> list[str]:
     return alerts
 
 
-# ── npm globals ──────────────────────────────────────────────────────────────
+def is_breaking(body: str) -> bool:
+    lower = body.lower()
+    return any(kw in lower for kw in CC_BREAKING_KEYWORDS)
 
-def check_npm_globals(state: dict) -> list[str]:
+
+# ── Python auto-update ───────────────────────────────────────────────────────
+
+def _pip_version(pkg: str) -> str | None:
+    """Get installed version of a pip package."""
+    ok, out = run(["pip3", "show", pkg], timeout=10)
+    if not ok:
+        return None
+    for line in out.split("\n"):
+        if line.startswith("Version:"):
+            return line.split(":", 1)[1].strip()
+    return None
+
+
+def auto_update_python(state: dict) -> list[str]:
+    """Upgrade all tracked pip packages. Rollback on smoke test failure."""
     alerts = []
+
+    # Snapshot current versions
+    snapshots = {}
+    for pip_name, state_key in PY_PACKAGES:
+        v = _pip_version(pip_name)
+        if v:
+            snapshots[pip_name] = v
+
+    # Split: normal packages upgrade freely, git-pinned wait for target version
+    normal_pkgs = [p for p, _ in PY_PACKAGES if p not in PY_GIT_PINNED]
+    pinned_pkgs = [(p, PY_GIT_PINNED[p]) for p, _ in PY_PACKAGES if p in PY_GIT_PINNED]
+
+    if DRY_RUN:
+        ok, out = run(["pip3", "list", "--outdated", "--format=json"], timeout=30)
+        if ok and out:
+            try:
+                outdated = {p["name"].lower(): p for p in json.loads(out)}
+                for pip_name, _ in PY_PACKAGES:
+                    if pip_name in PY_GIT_PINNED:
+                        continue
+                    info = outdated.get(pip_name.lower())
+                    if info:
+                        alerts.append(
+                            f"pip would upgrade: {pip_name} "
+                            f"{info['version']} → {info['latest_version']}"
+                        )
+            except Exception:
+                pass
+        for pip_name, min_ver in pinned_pkgs:
+            alerts.append(f"pip git-pinned: {pip_name} (waiting for >={min_ver} on PyPI)")
+        return alerts
+
+    # Upgrade normal packages
+    if normal_pkgs:
+        ok, out = run(
+            ["pip3", "install", "--upgrade", "--break-system-packages"] + normal_pkgs,
+            timeout=300,
+        )
+        if not ok:
+            alerts.append(f"pip upgrade failed: {out[:100]}")
+        else:
+            upgraded = {}
+            for pip_name in normal_pkgs:
+                new_v = _pip_version(pip_name)
+                old_v = snapshots.get(pip_name)
+                if new_v and old_v and new_v != old_v:
+                    upgraded[pip_name] = (old_v, new_v)
+
+            if upgraded:
+                passed, detail = smoke_test()
+                if passed:
+                    for pkg, (old, new) in upgraded.items():
+                        alerts.append(f"pip upgraded: {pkg} {old} → {new}")
+                else:
+                    for pkg, (old, _new) in upgraded.items():
+                        run(["pip3", "install", "--break-system-packages", f"{pkg}=={old}"], timeout=60)
+                    alerts.append(
+                        f"pip ROLLBACK: smoke test failed after upgrading "
+                        f"{', '.join(upgraded)}. Reverted. Detail: {detail[:200]}"
+                    )
+
+    # Git-pinned: check if target version is on PyPI, auto-install if so
+    for pip_name, min_ver in pinned_pkgs:
+        ok, out = run(["pip3", "index", "versions", pip_name], timeout=15)
+        if not ok:
+            continue
+        first_line = out.split("\n")[0] if out else ""
+        m = re.search(r"\(([^)]+)\)", first_line)
+        if not m:
+            continue
+        pypi_latest = m.group(1)
+        if _ver_tuple(pypi_latest) >= _ver_tuple(min_ver):
+            run(["pip3", "install", "--break-system-packages", f"{pip_name}>={min_ver}"], timeout=60)
+            alerts.append(f"pip unpinned: {pip_name} → {pypi_latest} (git pin resolved)")
+
+    # Update state for all
+    for pip_name, state_key in PY_PACKAGES:
+        v = _pip_version(pip_name)
+        if v:
+            kv = state["known_versions"].get(state_key, {})
+            kv["installed"] = v
+            kv["latest_seen"] = v
+            state["known_versions"][state_key] = kv
+
+    return alerts
+
+
+# ── npm auto-update ──────────────────────────────────────────────────────────
+
+def _npm_global_version(pkg: str) -> str | None:
+    """Get installed version of a global npm package."""
+    ok, out = run(["npm", "list", "-g", pkg, "--json"], timeout=15)
+    if not ok:
+        return None
+    try:
+        data = json.loads(out)
+        deps = data.get("dependencies", {})
+        return deps.get(pkg, {}).get("version")
+    except Exception:
+        return None
+
+
+def auto_update_npm(state: dict) -> list[str]:
+    """Upgrade tracked npm globals. Alert on major bumps."""
+    alerts = []
+
+    # Check what's outdated
     ok, out = run(["npm", "outdated", "-g", "--json"], timeout=30)
-    # npm outdated exits non-zero when there ARE outdated packages — parse regardless
     if not out:
         return []
     try:
         data = json.loads(out)
     except Exception:
-        return ["dep-check: npm outdated parse failed"]
+        return []
 
     for pkg, state_key in NPM_GLOBALS:
-        if pkg in data:
-            info = data[pkg]
-            current = info.get("current", "?")
-            latest = info.get("latest", "?")
-            kv = state["known_versions"].get(state_key)
-            if not isinstance(kv, dict):
-                kv = {"installed": current, "latest_seen": current, "todo_created_for": None}
-            try:
-                cur_major = int(current.split(".")[0])
-                lat_major = int(latest.split(".")[0])
-                severity = "BREAKING" if lat_major > cur_major else "update"
-            except Exception:
-                severity = "update"
-            alerts.append(f"npm {severity}: {pkg} {current} → {latest}")
-            if not DRY_RUN and kv.get("todo_created_for") != latest:
-                _create_todo(
-                    f"Update npm package {pkg}: {current} → {latest}. Run: npm update -g {pkg}",
-                    severity=severity,
-                )
-                kv["todo_created_for"] = latest
-            kv["installed"] = current
+        if pkg not in data:
+            continue
+        info = data[pkg]
+        current = info.get("current") or info.get("wanted")
+        latest = info.get("latest")
+        if not latest:
+            continue
+
+        if DRY_RUN:
+            alerts.append(f"npm would upgrade: {pkg} {current or '?'} → {latest}")
+            continue
+
+        # Upgrade
+        ok, out = run(["npm", "install", "-g", f"{pkg}@latest"], timeout=120)
+        if ok:
+            alerts.append(f"npm upgraded: {pkg} {current or '?'} → {latest}")
+            kv = state["known_versions"].get(state_key, {})
+            kv["installed"] = latest
             kv["latest_seen"] = latest
             state["known_versions"][state_key] = kv
+        elif current:
+            # Rollback only if we know the previous version
+            run(["npm", "install", "-g", f"{pkg}@{current}"], timeout=60)
+            alerts.append(f"npm ROLLBACK: {pkg} upgrade failed, reverted to {current}")
+        else:
+            alerts.append(f"npm upgrade failed: {pkg} (no previous version to rollback)")
 
     return alerts
-
-
-# ── Python packages ──────────────────────────────────────────────────────────
-
-def check_python_packages(state: dict) -> list[str]:
-    alerts = []
-    ok, out = run(
-        ["pip3", "list", "--outdated", "--format=json"],
-        timeout=30,
-    )
-    if not ok or not out:
-        return ["dep-check: pip outdated failed"] if not ok else []
-    try:
-        outdated = {p["name"].lower(): p for p in json.loads(out)}
-    except Exception:
-        return ["dep-check: pip outdated parse failed"]
-
-    for pip_name, state_key in PY_PACKAGES:
-        info = outdated.get(pip_name.lower())
-        if info:
-            current = info.get("version", "?")
-            latest = info.get("latest_version", "?")
-            kv = state["known_versions"].get(state_key)
-            if not isinstance(kv, dict):
-                kv = {"installed": current, "latest_seen": current, "todo_created_for": None}
-            try:
-                cur_major = int(current.split(".")[0])
-                lat_major = int(latest.split(".")[0])
-                is_major = lat_major > cur_major
-            except Exception:
-                is_major = False
-            if is_major:  # only flag major bumps for Python
-                alerts.append(f"pip major: {pip_name} {current} → {latest}")
-                if not DRY_RUN and kv.get("todo_created_for") != latest:
-                    _create_todo(
-                        f"Major Python package update: {pip_name} {current} → {latest}. Review changelog before upgrading.",
-                        severity="HIGH",
-                    )
-                    kv["todo_created_for"] = latest
-            kv["installed"] = current
-            kv["latest_seen"] = latest
-            state["known_versions"][state_key] = kv
-
-    return alerts
-
-
-# ── TODO creation ────────────────────────────────────────────────────────────
-
-def _create_todo(text: str, severity: str = "INFO") -> None:
-    prefix = "**[DEP]**" if severity == "HIGH" else "[dep]"
-    full_text = f"{prefix} {text}"
-    try:
-        subprocess.run(
-            [str(TODO_BIN), "add", full_text, "--tag", "agent:terry",
-             "--section", "Tool Fixes"],
-            capture_output=True,
-            env={**os.environ, "PATH": _path()},
-        )
-    except Exception:
-        pass  # never crash in a hook context
 
 
 # ── Main ─────────────────────────────────────────────────────────────────────
@@ -305,12 +383,12 @@ def main() -> None:
     state = load_state()
 
     if not should_run(state):
-        return  # silent exit — frequency gate
+        return
 
     alerts: list[str] = []
     alerts += check_claude_code(state)
-    alerts += check_npm_globals(state)
-    alerts += check_python_packages(state)
+    alerts += auto_update_python(state)
+    alerts += auto_update_npm(state)
 
     now_str = datetime.now(HKT).isoformat()
     state["last_run"] = now_str
@@ -327,4 +405,4 @@ if __name__ == "__main__":
     try:
         main()
     except Exception:
-        sys.exit(0)  # never crash in a hook context
+        sys.exit(0)

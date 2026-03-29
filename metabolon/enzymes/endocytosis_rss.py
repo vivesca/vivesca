@@ -30,11 +30,11 @@ from fastmcp.tools import tool
 from mcp.types import ToolAnnotations
 from pydantic import Field
 
+from metabolon.locus import endocytosis_affinity, endocytosis_recycling
 from metabolon.morphology import EffectorResult, Secretion
 
-# Affinity/engagement JSONL logs written during fetch cycles (path unchanged for data compat)
-_AFFINITY_LOG = Path.home() / ".cache" / "lustro" / "relevance.jsonl"
-_ENGAGEMENT_LOG = Path.home() / ".cache" / "lustro" / "engagement.jsonl"
+_AFFINITY_LOG = endocytosis_affinity
+_ENGAGEMENT_LOG = endocytosis_recycling
 
 
 # ---------------------------------------------------------------------------

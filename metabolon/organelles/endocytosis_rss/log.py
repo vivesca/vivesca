@@ -107,7 +107,25 @@ def serialize_markdown(results: dict[str, list[dict[str, str]]], date_str: str) 
     return "\n".join(lines)
 
 
+def generate_daily_markdown(cargo_path: Path, date_str: str) -> str:
+    """Generate a daily markdown summary from the JSONL cargo store."""
+    from metabolon.organelles.endocytosis_rss.cargo import recall_cargo
+
+    entries = recall_cargo(cargo_path, since=date_str)
+    # Filter to exact date
+    day_entries = [e for e in entries if str(e.get("date", "")) == date_str]
+
+    # Group by source
+    by_source: dict[str, list[dict]] = {}
+    for entry in day_entries:
+        source = str(entry.get("source", "Unknown"))
+        by_source.setdefault(source, []).append(entry)
+
+    return serialize_markdown(by_source, date_str)
+
+
 def record_cargo(log_path: Path, markdown: str) -> None:
+    """Deprecated: write markdown to the news log. Use cargo.py for canonical writes."""
     markers = [
         "<!-- News entries below, added by /lustro -->",
         "<!-- News entries below -->",

@@ -8,7 +8,7 @@ tools: ["Bash", "Read", "Grep", "WebSearch"]
 Generate 5 fresh AI talking points for the current week. For client conversations, networking, content.
 
 Sources to pull from (use all):
-1. This week's lustro signal: ~/.cache/lustro/relevance.jsonl (last 7 days, score >= 7)
+1. This week's endocytosis signal: ~/.cache/endocytosis/relevance.jsonl (last 7 days, score >= 7)
 2. Recent chromatin sparks: ~/epigenome/chromatin/Daily/ last 7 days
 3. Recent regulation-scan output if it exists
 4. Web: search "AI banking news [current week]" for 2-3 breaking items

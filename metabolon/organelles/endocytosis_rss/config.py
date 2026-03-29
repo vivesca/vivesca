@@ -55,6 +55,7 @@ class EndocytosisConfig:
     sources_path: Path
     state_path: Path
     log_path: Path
+    cargo_path: Path
     article_cache_dir: Path
     digest_output_dir: Path
     digest_model: str
@@ -109,6 +110,7 @@ def restore_config() -> EndocytosisConfig:
 
     log_path_raw = config_data.get("log_path", str(data_dir / "news.md"))
     log_path = _expand_path(str(log_path_raw))
+    cargo_path = cache_dir / "cargo.jsonl"
     digest_output_raw = config_data.get("digest_output_dir", str(data_dir / "digests"))
     digest_output_dir = _expand_path(str(digest_output_raw))
     digest_model = str(config_data.get("digest_model", "haiku"))
@@ -123,6 +125,7 @@ def restore_config() -> EndocytosisConfig:
         sources_path=sources_path,
         state_path=state_path,
         log_path=log_path,
+        cargo_path=cargo_path,
         article_cache_dir=article_cache_dir,
         digest_output_dir=digest_output_dir,
         digest_model=digest_model,

@@ -1700,6 +1700,7 @@ def endocytosis_status():
     click.echo(f"Sources file:  {_file_age(cfg.sources_path, now)}")
     click.echo(f"State file:    {_file_age(cfg.state_path, now)}")
     click.echo(f"News log:      {_file_age(cfg.log_path, now)}")
+    click.echo(f"Cargo JSONL:   {_file_age(cfg.cargo_path, now)}")
 
     state = restore_state(cfg.state_path)
     if state:
@@ -1826,6 +1827,49 @@ def endocytosis_relevance(top: int | None):
     click.echo("False negatives:")
     for title in stats["false_negatives"]:
         click.echo(f"- {title}")
+
+
+@endocytosis.command("summary")
+@click.option("--date", default=None, help="Date YYYY-MM-DD (default: today)")
+@click.option("--output", "-o", default=None, help="Write to file instead of stdout")
+def endocytosis_summary(date: str | None, output: str | None):
+    """Generate a daily markdown summary from the JSONL cargo store."""
+    from datetime import UTC, datetime
+
+    from metabolon.organelles.endocytosis_rss.config import restore_config
+    from metabolon.organelles.endocytosis_rss.log import generate_daily_markdown
+
+    cfg = restore_config()
+    target_date = date or datetime.now(UTC).strftime("%Y-%m-%d")
+    md = generate_daily_markdown(cfg.cargo_path, target_date)
+
+    if not md.strip():
+        click.echo(f"No cargo for {target_date}.", err=True)
+        return
+
+    if output:
+        Path(output).write_text(md, encoding="utf-8")
+        click.echo(f"Written: {output}", err=True)
+    else:
+        click.echo(md)
+
+
+@endocytosis.command("migrate")
+def endocytosis_migrate():
+    """One-time migration: convert markdown news log to JSONL cargo store."""
+    from metabolon.organelles.endocytosis_rss.cargo import recall_cargo
+    from metabolon.organelles.endocytosis_rss.config import restore_config
+    from metabolon.organelles.endocytosis_rss.migration import migrate_markdown_to_jsonl
+
+    cfg = restore_config()
+    if cfg.cargo_path.exists():
+        existing = len(recall_cargo(cfg.cargo_path))
+        if existing > 0:
+            click.echo(f"Cargo store already has {existing} entries. Aborting.", err=True)
+            return
+
+    count = migrate_markdown_to_jsonl(cfg.log_path, cfg.cargo_path)
+    click.echo(f"Migrated {count} entries from {cfg.log_path} to {cfg.cargo_path}", err=True)
 
 
 @endocytosis.command("discover")

@@ -17,7 +17,9 @@ from metabolon.organelles.endocytosis_rss.fetcher import internalize_rss, intern
 from metabolon.organelles.endocytosis_rss.log import record_cargo
 from metabolon.organelles.endocytosis_rss.state import lockfile
 
-ALERT_SIGNAL_LOG = Path.home() / ".cache" / "lustro" / "alert-signals.jsonl"
+from metabolon.locus import endocytosis_alerts
+
+ALERT_SIGNAL_LOG = endocytosis_alerts
 
 MAX_ALERTS_PER_DAY = 3
 COOLDOWN_MINUTES = 60
@@ -282,6 +284,27 @@ def _append_breaking_log(
         title_part = f"[{title}]({link})" if link else title
         lines.append(f"- 🚨 **{title_part}** ({source})")
     record_cargo(cfg.log_path, "\n".join(lines) + "\n")
+
+    # Also write to JSONL canonical cargo store
+    from metabolon.organelles.endocytosis_rss.cargo import append_cargo
+
+    breaking_articles = [
+        {
+            "timestamp": now.isoformat(),
+            "date": now.strftime("%Y-%m-%d"),
+            "title": match["title"],
+            "source": match.get("source", "Breaking"),
+            "link": match.get("link", ""),
+            "summary": match.get("summary", ""),
+            "score": 9,
+            "banking_angle": "Breaking news",
+            "talking_point": "N/A",
+            "fate": "transcytose",
+        }
+        for match in matches
+    ]
+    if breaking_articles:
+        append_cargo(cfg.cargo_path, breaking_articles)
 
 
 def scan_breaking(

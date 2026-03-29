@@ -124,32 +124,49 @@ def test_cmd_digest_writes_output_file(xdg_env, monkeypatch):
 
 
 def _write_weekly_log(cfg, log_date: str) -> None:
-    """Seed the news log with a mix of transcytose (★) and plain items."""
+    """Seed the JSONL cargo store with a mix of transcytose and plain items."""
+    from metabolon.organelles.endocytosis_rss.cargo import append_cargo
+
     cfg.data_dir.mkdir(parents=True, exist_ok=True)
-    cfg.log_path.parent.mkdir(parents=True, exist_ok=True)
-    cfg.log_path.write_text(
-        "\n".join(
-            [
-                f"## {log_date} (Automated Daily Scan)",
-                "",
-                "### Anthropic Blog",
-                "- [★] **[Claude 3.7 Sonnet released](https://anthropic.com/news/claude-3-7)**"
-                " (banking_angle: Major model upgrade for enterprise deployments)"
-                f" ({log_date}) — New extended thinking capability",
-                "",
-                "### The Batch",
-                f"- **[Weekly AI roundup](https://deeplearning.ai/batch)** ({log_date})"
-                " — Summary of this week in AI",
-                "",
-                "### Simon Willison",
-                "- [★] **[LLM tool use patterns](https://simonwillison.net/llm-tool-use)**"
-                f" (banking_angle: Agentic workflows for operations automation) ({log_date})"
-                " — Practical patterns for tool-calling agents",
-            ]
-        )
-        + "\n",
-        encoding="utf-8",
-    )
+    cfg.cargo_path.parent.mkdir(parents=True, exist_ok=True)
+    append_cargo(cfg.cargo_path, [
+        {
+            "timestamp": f"{log_date}T12:00:00+00:00",
+            "date": log_date,
+            "title": "Claude 3.7 Sonnet released",
+            "source": "Anthropic Blog",
+            "link": "https://anthropic.com/news/claude-3-7",
+            "summary": "New extended thinking capability",
+            "score": 8,
+            "banking_angle": "Major model upgrade for enterprise deployments",
+            "talking_point": "N/A",
+            "fate": "transcytose",
+        },
+        {
+            "timestamp": f"{log_date}T12:00:00+00:00",
+            "date": log_date,
+            "title": "Weekly AI roundup",
+            "source": "The Batch",
+            "link": "https://deeplearning.ai/batch",
+            "summary": "Summary of this week in AI",
+            "score": 5,
+            "banking_angle": "N/A",
+            "talking_point": "N/A",
+            "fate": "store",
+        },
+        {
+            "timestamp": f"{log_date}T12:00:00+00:00",
+            "date": log_date,
+            "title": "LLM tool use patterns",
+            "source": "Simon Willison",
+            "link": "https://simonwillison.net/llm-tool-use",
+            "summary": "Practical patterns for tool-calling agents",
+            "score": 8,
+            "banking_angle": "Agentic workflows for operations automation",
+            "talking_point": "N/A",
+            "fate": "transcytose",
+        },
+    ])
 
 
 def test_resolve_week_label_returns_correct_format():
@@ -162,11 +179,11 @@ def test_resolve_week_label_returns_correct_format():
 
 
 def test_recall_log_entries_parses_transcytose_and_plain(xdg_env):
-    """recall_log_entries distinguishes ★ (transcytose) from plain entries."""
+    """recall_log_entries distinguishes transcytose from plain entries."""
     cfg = restore_config()
     _write_weekly_log(cfg, "2026-03-24")
 
-    entries = recall_log_entries(cfg.log_path, "2026-03-20")
+    entries = recall_log_entries(cfg.cargo_path, "2026-03-20")
     assert len(entries) == 3
 
     transcytose = [e for e in entries if e["_transcytose"] == "1"]
@@ -181,25 +198,38 @@ def test_recall_log_entries_parses_transcytose_and_plain(xdg_env):
 
 def test_recall_log_entries_filters_by_date(xdg_env):
     """recall_log_entries excludes entries before since_date."""
+    from metabolon.organelles.endocytosis_rss.cargo import append_cargo
+
     cfg = restore_config()
-    cfg.log_path.parent.mkdir(parents=True, exist_ok=True)
-    cfg.log_path.write_text(
-        "\n".join(
-            [
-                "## 2026-03-10 (Automated Daily Scan)",
-                "### Old Source",
-                "- **[Old article](https://example.com/old)** (2026-03-10) — Old news",
-                "",
-                "## 2026-03-22 (Automated Daily Scan)",
-                "### New Source",
-                "- [★] **[New article](https://example.com/new)** (2026-03-22) — Fresh signal",
-            ]
-        )
-        + "\n",
-        encoding="utf-8",
-    )
+    cfg.cargo_path.parent.mkdir(parents=True, exist_ok=True)
+    append_cargo(cfg.cargo_path, [
+        {
+            "timestamp": "2026-03-10T12:00:00+00:00",
+            "date": "2026-03-10",
+            "title": "Old article",
+            "source": "Old Source",
+            "link": "https://example.com/old",
+            "summary": "Old news",
+            "score": 5,
+            "banking_angle": "N/A",
+            "talking_point": "N/A",
+            "fate": "store",
+        },
+        {
+            "timestamp": "2026-03-22T12:00:00+00:00",
+            "date": "2026-03-22",
+            "title": "New article",
+            "source": "New Source",
+            "link": "https://example.com/new",
+            "summary": "Fresh signal",
+            "score": 8,
+            "banking_angle": "N/A",
+            "talking_point": "N/A",
+            "fate": "transcytose",
+        },
+    ])
     # Only entries on or after 2026-03-20 should be returned
-    entries = recall_log_entries(cfg.log_path, "2026-03-20")
+    entries = recall_log_entries(cfg.cargo_path, "2026-03-20")
     assert len(entries) == 1
     assert entries[0]["title"] == "New article"
 
