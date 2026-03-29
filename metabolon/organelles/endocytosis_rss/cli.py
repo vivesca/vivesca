@@ -252,24 +252,25 @@ def _fetch_locked(cfg: EndocytosisConfig, no_archive: bool) -> None:
             new_articles.append(article)
             title_prefixes.add(prefix)
 
+        scored_articles = []
         for article in new_articles:
             scores = assess_cargo(
                 article.get("title", ""),
                 name,
                 article.get("summary", ""),
             )
+            if scores.get("unscored"):
+                # Opus unavailable — drop article, it will be re-fetched next cycle
+                print(f"  UNSCORED (Opus down): {article.get('title', '')[:60]}", file=sys.stderr)
+                continue
             article["source"] = name
             article["timestamp"] = now.isoformat()
-            raw_score = scores.get("score")
-            if raw_score is None or scores.get("unscored"):
-                # Opus unavailable — hold article at threshold so it's stored, not degraded
-                article["score"] = "5"
-                article["unscored"] = "true"
-            else:
-                article["score"] = str(raw_score)
+            article["score"] = str(scores.get("score", 0))
             article["banking_angle"] = str(scores.get("banking_angle", ""))
             article["talking_point"] = str(scores.get("talking_point", ""))
             record_affinity(article, scores)
+            scored_articles.append(article)
+        new_articles = scored_articles
 
         if not no_archive:
             for article in new_articles:
