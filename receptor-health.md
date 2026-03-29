@@ -1,20 +1,22 @@
-# Receptor Health — 2026-03-29 15:19
+# Receptor Health — 2026-03-30 02:30
 
 
 ## Attachment Integrity
 
 - Total receptors: 14
 - Total references: 23
-- Attached: 18
-- Detached: 5
+- Attached: 15
+- Detached: 8
 - Mechanically silent: 0
 - Focal adhesion risks: 1
 
 ## Activation State
-0 open | 0 extended | 62 bent (1 anoikis candidates)
+0 open | 0 extended | 62 bent (3 anoikis candidates)
 Anoikis candidates logged to /Users/terry/epigenome/chromatin/receptor-retirement.md
 
 ## Anoikis Candidates (retirement flagged)
+- folding
+- involution
 - palpation
 
 ## Quiescent (bent but ligands healthy)
@@ -40,7 +42,6 @@ Anoikis candidates logged to /Users/terry/epigenome/chromatin/receptor-retiremen
 - endosymbiosis
 - etiology
 - expression
-- folding
 - glycolysis
 - gradient
 - hemostasis
@@ -50,7 +51,6 @@ Anoikis candidates logged to /Users/terry/epigenome/chromatin/receptor-retiremen
 - infradian
 - ingestion
 - integrin
-- involution
 - karyotyping
 - kinesin
 - maturation
@@ -81,7 +81,10 @@ Anoikis candidates logged to /Users/terry/epigenome/chromatin/receptor-retiremen
 - translation
 
 ## Detached References
+- folding: `sortase`
 - involution: `fasti`
+- involution: `sopor`
+- nucleation: `sortase`
 - palpation: `strace`
 - replication: `lucus`
 - sporulation: `adj`
