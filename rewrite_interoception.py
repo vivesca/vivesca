@@ -1,6 +1,8 @@
-from __future__ import annotations
+import re
 
-"""interoception - sensing internal state."""
+content = '''from __future__ import annotations
+
+"""interoception — sensing internal state (health, system, financial)."""
 
 import contextlib
 import datetime
@@ -14,8 +16,14 @@ from collections import defaultdict
 from fastmcp.tools import tool
 from mcp.types import ToolAnnotations
 
+from metabolon.cytosol import synthesize
+from metabolon.locus import chromatin, experiments as EXPERIMENTS_DIR, praxis
+from metabolon.metabolism.mismatch_repair import summary as precision_summary
+from metabolon.metabolism.setpoint import Threshold
 from metabolon.morphology import EffectorResult, Secretion
 
+HEALTH_LOG = str(chromatin / "Health" / "Symptom Log.md")
+disk_threshold = Threshold(name="disk", default=15, clamp=(5, 50))
 FINANCIAL_NOTES = [
     "Investing.md",
     "Investing Strategy.md",
@@ -41,38 +49,30 @@ Today: {today}
 {praxis}
 """
 CODE_DIR = os.path.expanduser("~/code")
-HEALTH_LOG_RELATIVE = ("Health", "Symptom Log.md")
 NODE_MODULES_STALE_DAYS = 7
 CARGO_SWEEP_DAYS = 14
-
 
 class CircadianResult(Secretion):
     summary: str
 
-
 class HeartRateResult(Secretion):
     summary: str
-
 
 class MembranePotentialResult(Secretion):
     summary: str
     guidance: str
 
-
 class HomeostasisResult(Secretion):
     sections: list[str]
-
 
 class InflammasomeResult(Secretion):
     report: str
     passed: int
     total: int
 
-
 class HomeostasisFinancialResult(Secretion):
     summary: str
     flagged_count: int
-
 
 class LysosomeResult(Secretion):
     before_gb: float
@@ -80,22 +80,18 @@ class LysosomeResult(Secretion):
     freed_gb: float
     output: str
 
-
 class AnabolismResult(Secretion):
     links: list[dict]
     blind_spots: list[str]
-
 
 class AngiogenesisResult(Secretion):
     hypoxic_pairs: list[dict]
     proposals: list[dict]
     existing_vessels: list[dict]
 
-
 class MitophagyResult(Secretion):
     fitness: list[dict]
     blacklist: dict
-
 
 class GlycolysisResult(Secretion):
     deterministic_count: int
@@ -106,18 +102,15 @@ class GlycolysisResult(Secretion):
     trend: list[dict]
     summary: str
 
-
 class TissueRoutingResult(Secretion):
     routes: dict[str, str]
     report: str
-
 
 class CrisprResult(Secretion):
     spacer_count: int
     recent: list[dict]
     guide_count: int
     summary: str
-
 
 class RetrogradeResult(Secretion):
     anterograde_count: int
@@ -127,23 +120,14 @@ class RetrogradeResult(Secretion):
     window_days: int
     summary: str
 
-
-def _health_log_path() -> str:
-    from metabolon import locus
-
-    return str(locus.chromatin.joinpath(*HEALTH_LOG_RELATIVE))
-
-
 def _format_duration(seconds: int | float | None) -> str:
     if seconds is None:
         return "n/a"
     hours, minutes = divmod(int(seconds) // 60, 60)
     return f"{hours}h{minutes:02d}m" if hours else f"{minutes}m"
 
-
 def _clean_build_artifacts() -> tuple[float, list[str]]:
     import time
-
     before_free = shutil.disk_usage("/").free
     log_lines: list[str] = []
     if os.path.isdir(CODE_DIR):
@@ -182,14 +166,11 @@ def _clean_build_artifacts() -> tuple[float, list[str]]:
     after_free = shutil.disk_usage("/").free
     return max(0.0, (after_free - before_free) / (1024**3)), log_lines
 
-
 def _cross_link_experiment_symptom(symptom: str, severity: str, notes: str) -> str | None:
-    from metabolon import locus
-
-    if not locus.experiments.exists():
+    if not EXPERIMENTS_DIR.exists():
         return None
     combined = f"{symptom} {notes}".lower()
-    for experiment_file in locus.experiments.glob("assay-*.md"):
+    for experiment_file in EXPERIMENTS_DIR.glob("assay-*.md"):
         text = experiment_file.read_text()
         if "status: active" not in text:
             continue
@@ -198,26 +179,24 @@ def _cross_link_experiment_symptom(symptom: str, severity: str, notes: str) -> s
             continue
         keywords = [keyword.strip().lower() for keyword in match.group(1).split(",")]
         if any(keyword in combined for keyword in keywords):
-            intake_note = f"\n> **Symptom logged:** {symptom} (severity: {severity}) - {notes}\n"
-            experiment_file.write_text(text.rstrip() + "\n" + intake_note + "\n")
+            intake_note = f"\\n> **Symptom logged:** {symptom} (severity: {severity}) — {notes}\\n"
+            experiment_file.write_text(text.rstrip() + "\\n" + intake_note + "\\n")
             return f"Cross-linked to experiment: {experiment_file.name}"
     return None
 
-
-_ACTIONS = (
-    "system|financial|sleep|readiness|heartrate|log_symptom|flywheel|disk_clean|"
-    "glycolysis|tissue_routing|crispr|retrograde|mitophagy|angiogenesis|membrane|probe"
+_VALID_ACTIONS = (
+    "system, financial, sleep, readiness, heartrate, log_symptom, flywheel, "
+    "disk_clean, glycolysis, tissue_routing, crispr, retrograde, mitophagy, "
+    "angiogenesis, membrane, probe"
 )
-
 
 @tool(
     name="interoception",
-    description="Internal sensing by action.",
+    description="Internal state sensing. Actions: sys|fin|sleep|ready|hr|symptom|fly|disk|glyco|route|crispr|retro|mito|angio|mem|probe",
     annotations=ToolAnnotations(readOnlyHint=False, destructiveHint=False),
 )
 def interoception(
     action: str,
-    query: str = "",
     period: str = "today",
     start_datetime: str = "",
     end_datetime: str = "",
@@ -246,13 +225,9 @@ def interoception(
     | EffectorResult
 ):
     """Unified internal state sensor."""
-    del query
     action = action.lower().strip()
 
-    if action == "system":
-        from metabolon.metabolism.mismatch_repair import summary as precision_summary
-        from metabolon.metabolism.setpoint import Threshold
-
+    if action in ("system", "sys"):
         parts: list[str] = []
         try:
             result = subprocess.run(["launchctl", "list"], capture_output=True, text=True, timeout=5)
@@ -263,7 +238,6 @@ def interoception(
 
         try:
             from metabolon.organelles.vasomotor_sensor import sense
-
             budget = sense()
             parts.append(f"Budget: {budget.get('formatted', str(budget))}")
         except Exception:
@@ -271,20 +245,20 @@ def interoception(
 
         log_path = os.path.expanduser("~/logs/vivesca-events.jsonl")
         try:
-            with open(log_path, encoding="utf-8") as handle:
+            with open(log_path) as handle:
                 lines = handle.readlines()
             tail = lines[-5:] if len(lines) >= 5 else lines
-            parts.append("Recent events:\n" + "".join(tail))
+            parts.append("Recent events:\\n" + "".join(tail))
         except Exception:
             parts.append("Events: log not found")
 
         health_path = os.path.expanduser("~/.coding-tools-health.json")
         try:
-            with open(health_path, encoding="utf-8") as handle:
+            with open(health_path) as handle:
                 health = json.load(handle)
             if health.get("failures"):
                 parts.append(
-                    f"Updates: DEGRADED - missing: {', '.join(health['failures'])} "
+                    f"Updates: DEGRADED — missing: {', '.join(health['failures'])} "
                     f"(checked {health['checked']})"
                 )
             else:
@@ -299,11 +273,10 @@ def interoception(
             free_gb = usage.free / (1024**3)
             total_gb = usage.total / (1024**3)
             pct_free = (usage.free / usage.total) * 100
-            disk_threshold = Threshold(name="disk", default=15, clamp=(5, 50))
             threshold = disk_threshold.read()
             disk_message = f"Disk: {free_gb:.1f}GB free / {total_gb:.0f}GB ({pct_free:.0f}% free)"
             if free_gb < threshold:
-                disk_message += f" LOW (threshold {threshold}GB) - recommend `mo clean`"
+                disk_message += f" ⚠ LOW (threshold {threshold}GB) — recommend `mo clean`"
             parts.append(disk_message)
         except Exception as exc:
             parts.append(f"Disk: check failed ({exc})")
@@ -313,14 +286,13 @@ def interoception(
 
         with contextlib.suppress(Exception):
             from metabolon.metabolism.infection import infection_summary
-
             summary = infection_summary()
             if summary:
                 parts.append(summary)
 
         gate = "PASS"
         arrest_signals: list[str] = []
-        report_text = "\n".join(parts)
+        report_text = "\\n".join(parts)
         if "NOT FOUND" in report_text:
             gate = "BLOCK"
             arrest_signals.append("pulse not running")
@@ -338,51 +310,43 @@ def interoception(
         parts.insert(0, gate_line)
         return HomeostasisResult(sections=parts)
 
-    if action == "financial":
-        from metabolon import locus
-        from metabolon.cytosol import synthesize
-
-        notes_dir = str(locus.chromatin)
+    elif action in ("financial", "fin"):
+        notes_dir = str(chromatin)
         today = datetime.date.today().isoformat()
         note_parts = []
         for filename in FINANCIAL_NOTES:
             file_path = os.path.join(notes_dir, filename)
             try:
-                with open(file_path, encoding="utf-8") as handle:
+                with open(file_path) as handle:
                     file_content = handle.read(3000)
-                note_parts.append(f"## {filename}\n{file_content}")
+                note_parts.append(f"## {filename}\\n{file_content}")
             except FileNotFoundError:
-                note_parts.append(f"## {filename}\n(not found)")
+                note_parts.append(f"## {filename}\\n(not found)")
             except Exception as exc:
-                note_parts.append(f"## {filename}\n(read error: {exc})")
+                note_parts.append(f"## {filename}\\n(read error: {exc})")
 
         praxis_excerpt = ""
         try:
-            with open(str(locus.praxis), encoding="utf-8") as handle:
+            with open(str(praxis)) as handle:
                 lines = handle.readlines()
             keywords = ("invest", "insur", "ibkr", "mox", "mpf", "bowtie", "tax", "mortgage", "due:", "deadline")
             financial_lines = [line.rstrip() for line in lines if any(keyword in line.lower() for keyword in keywords)]
-            praxis_excerpt = "\n".join(financial_lines) if financial_lines else "(no financial items)"
+            praxis_excerpt = "\\n".join(financial_lines) if financial_lines else "(no financial items)"
         except FileNotFoundError:
             praxis_excerpt = "(Praxis.md not found)"
         except Exception as exc:
             praxis_excerpt = f"(read error: {exc})"
 
-        prompt = FINANCIAL_PROMPT_TEMPLATE.format(today=today, notes="\n\n".join(note_parts), praxis=praxis_excerpt)
+        prompt = FINANCIAL_PROMPT_TEMPLATE.format(today=today, notes="\\n\\n".join(note_parts), praxis=praxis_excerpt)
         try:
             summary = synthesize(prompt, timeout=60)
         except Exception as exc:
-            summary = f"LLM synthesis failed: {exc}\n\nRaw notes loaded for {len(FINANCIAL_NOTES)} files."
+            summary = f"LLM synthesis failed: {exc}\\n\\nRaw notes loaded for {len(FINANCIAL_NOTES)} files."
 
-        flagged = sum(
-            1
-            for line in summary.splitlines()
-            if any(keyword in line.upper() for keyword in ("OVERDUE", "DUE WITHIN", "FLAGGED", "URGENT"))
-        )
+        flagged = sum(1 for line in summary.splitlines() if any(keyword in line.upper() for keyword in ("OVERDUE", "DUE WITHIN", "FLAGGED", "URGENT")))
         return HomeostasisFinancialResult(summary=summary, flagged_count=flagged)
 
-    if action == "sleep":
-        from metabolon import locus
+    elif action == "sleep":
         from metabolon.organelles.chemoreceptor import sense, week
 
         if period == "week":
@@ -427,7 +391,7 @@ def interoception(
             f"In bed: {_format_duration(data.get('time_in_bed'))}"
         )
         if data.get("bedtime_start") and data.get("bedtime_end"):
-            lines.append(f"Bed:   {data['bedtime_start'][:16]} -> {data['bedtime_end'][:16]}")
+            lines.append(f"Bed:   {data['bedtime_start'][:16]} → {data['bedtime_end'][:16]}")
         lines.append(
             f"Latency: {_format_duration(data.get('latency'))}  "
             f"Efficiency: {data.get('efficiency')}%  "
@@ -535,18 +499,18 @@ def interoception(
         try:
             experiment_lines: list[str] = []
             today_date = datetime.date.today()
-            for experiment_file in sorted(locus.experiments.glob("assay-*.md")):
+            for experiment_file in sorted(EXPERIMENTS_DIR.glob("assay-*.md")):
                 text = experiment_file.read_text()
-                frontmatter_match = re.match(r"^---\n(.*?)\n---", text, re.DOTALL)
+                frontmatter_match = re.match(r"^---\\n(.*?)\\n---", text, re.DOTALL)
                 if not frontmatter_match:
                     continue
                 frontmatter = frontmatter_match.group(1)
                 status_match = re.search(r"^status:\s*(\S+)", frontmatter, re.MULTILINE)
                 if not status_match or status_match.group(1).strip('"') != "active":
                     continue
-                name_match = re.search(r'^name:\s*"?([^"\n]+)"?', frontmatter, re.MULTILINE)
+                name_match = re.search(r'^name:\s*"?([^"\\n]+)"?', frontmatter, re.MULTILINE)
                 start_match = re.search(r"^start_date:\s*(\S+)", frontmatter, re.MULTILINE)
-                hypothesis_match = re.search(r'^hypothesis:\s*"?([^"\n]+)"?', frontmatter, re.MULTILINE)
+                hypothesis_match = re.search(r'^hypothesis:\s*"?([^"\\n]+)"?', frontmatter, re.MULTILINE)
                 name = name_match.group(1).strip() if name_match else experiment_file.stem
                 hypothesis = hypothesis_match.group(1).strip() if hypothesis_match else ""
                 start_date = None
@@ -565,7 +529,7 @@ def interoception(
                         total_days = (end_date - start_date).days + 1
                     except ValueError:
                         total_days = ""
-                checkin_blocks = re.findall(r"(### Day \d+[^\n]*\n(?:[^\n#][^\n]*\n)*)", text)
+                checkin_blocks = re.findall(r"(### Day \d+[^\\n]*\\n(?:[^\\n#][^\\n]*\\n)*)", text)
                 checkin_summary = ""
                 if checkin_blocks:
                     last_block = checkin_blocks[-1]
@@ -599,21 +563,21 @@ def interoception(
         except Exception:
             pass
 
-        return CircadianResult(summary="\n".join(lines))
+        return CircadianResult(summary="\\n".join(lines))
 
-    if action in {"readiness", "membrane"}:
+    elif action in ("readiness", "ready", "membrane", "mem"):
         from metabolon.organelles.chemoreceptor import today as oura_today
 
         raw = oura_today().get("formatted", "")
         guidance = (
-            "Exercise guidance: check readiness score above.\n"
-            "- <70: light only (walk, gentle stretch)\n"
-            "- 70-75: moderate OK (yoga, light weights)\n"
+            "Exercise guidance: check readiness score above.\\n"
+            "- <70: light only (walk, gentle stretch)\\n"
+            "- 70-75: moderate OK (yoga, light weights)\\n"
             "- >75: full intensity cleared"
         )
         return MembranePotentialResult(summary=raw, guidance=guidance)
 
-    if action == "heartrate":
+    elif action in ("heartrate", "hr"):
         from metabolon.organelles.chemoreceptor import heartrate
 
         records = heartrate(start_datetime or None, end_datetime or None)
@@ -642,32 +606,28 @@ def interoception(
                 f"min {min(all_bpm)} bpm, max {max(all_bpm)} bpm, "
                 f"{len(all_bpm)} readings"
             )
-        return HeartRateResult(summary="\n".join(lines))
+        return HeartRateResult(summary="\\n".join(lines))
 
-    if action == "log_symptom":
+    elif action in ("log_symptom", "symptom"):
         if not symptom:
             return EffectorResult(success=False, message="log_symptom requires: symptom")
         today_iso = datetime.date.today().isoformat()
-        entry = f"\n## {today_iso} - {symptom}\n- Severity: {severity}\n"
+        entry = f"\\n## {today_iso} — {symptom}\\n- Severity: {severity}\\n"
         if notes:
-            entry += f"- Notes: {notes}\n"
-        health_log = _health_log_path()
-        os.makedirs(os.path.dirname(health_log), exist_ok=True)
-        with open(health_log, "a", encoding="utf-8") as handle:
+            entry += f"- Notes: {notes}\\n"
+        os.makedirs(os.path.dirname(HEALTH_LOG), exist_ok=True)
+        with open(HEALTH_LOG, "a") as handle:
             handle.write(entry)
         message = f"Logged: {symptom} ({severity}) on {today_iso}"
         cross_link = _cross_link_experiment_symptom(symptom, severity, notes)
         if cross_link:
-            message += f"\n{cross_link}"
+            message += f"\\n{cross_link}"
         return EffectorResult(success=True, message=message)
 
-    if action == "flywheel":
-        from metabolon import locus
-
+    elif action in ("flywheel", "fly"):
         links: list[dict] = []
         try:
             from metabolon.organelles.chemoreceptor import today as chemoreceptor_today
-
             health = chemoreceptor_today()
             links.append({"name": "sleep", "score": health.get("sleep_score")})
             links.append({"name": "energy", "score": health.get("readiness_score")})
@@ -677,7 +637,6 @@ def interoception(
 
         try:
             from metabolon.organelles.circadian_clock import scheduled_events
-
             scheduled = scheduled_events()
             events = 0
             for line in scheduled.splitlines():
@@ -689,7 +648,7 @@ def interoception(
             links.append({"name": "calendar", "events": None})
 
         try:
-            notes_dir = str(locus.chromatin)
+            notes_dir = str(chromatin)
             chromatin_log = subprocess.run(
                 ["git", "log", "--since=7.days", "--oneline"],
                 cwd=notes_dir,
@@ -717,9 +676,8 @@ def interoception(
             links.append({"name": "creative", "chromatin_commits_7d": None, "blog_commits_14d": None})
 
         try:
-            health_log = _health_log_path()
-            if os.path.exists(health_log):
-                with open(health_log, encoding="utf-8") as handle:
+            if os.path.exists(HEALTH_LOG):
+                with open(HEALTH_LOG) as handle:
                     lines_log = handle.readlines()
                 recent_entries = 0
                 seven_days_ago = datetime.date.today() - datetime.timedelta(days=7)
@@ -740,9 +698,7 @@ def interoception(
             blind_spots=["exercise (no sensor)", "mood/joy (ask)", "anxiety (ask)"],
         )
 
-    if action == "disk_clean":
-        from metabolon.metabolism.setpoint import Threshold
-
+    elif action in ("disk_clean", "disk"):
         before = shutil.disk_usage("/").free / (1024**3)
         output_parts: list[str] = []
         try:
@@ -755,20 +711,19 @@ def interoception(
 
         artifact_gb, artifact_log = _clean_build_artifacts()
         if artifact_log:
-            output_parts.append(f"Build artifacts ({artifact_gb:.1f}GB):\n" + "\n".join(artifact_log))
+            output_parts.append(f"Build artifacts ({artifact_gb:.1f}GB):\\n" + "\\n".join(artifact_log))
 
         after = shutil.disk_usage("/").free / (1024**3)
         freed = after - before
-        disk_threshold = Threshold(name="disk", default=15, clamp=(5, 50))
         disk_threshold.record(prior_load=before, post_response=after, freed_gb=round(freed, 1))
         return LysosomeResult(
             before_gb=round(before, 1),
             after_gb=round(after, 1),
             freed_gb=round(freed, 1),
-            output="\n---\n".join(output_parts)[-500:],
+            output="\\n---\\n".join(output_parts)[-500:],
         )
 
-    if action == "glycolysis":
+    elif action in ("glycolysis", "glyco"):
         from metabolon.organelles.glycolysis_rate import snapshot, trend
 
         rate = snapshot()
@@ -786,7 +741,7 @@ def interoception(
             delta = round(last - first, 1)
             direction = "+" if delta >= 0 else ""
             summary_parts.append(
-                f"  Trend ({trend_days}d): {direction}{delta}% ({trend_data[0]['date']} -> {trend_data[-1]['date']})"
+                f"  Trend ({trend_days}d): {direction}{delta}% ({trend_data[0]['date']} → {trend_data[-1]['date']})"
             )
         return GlycolysisResult(
             deterministic_count=rate["deterministic_count"],
@@ -795,17 +750,15 @@ def interoception(
             total=rate["total"],
             glycolysis_pct=rate["glycolysis_pct"],
             trend=trend_data,
-            summary="\n".join(summary_parts),
+            summary="\\n".join(summary_parts),
         )
 
-    if action == "tissue_routing":
+    elif action in ("tissue_routing", "route"):
         from metabolon.organelles.tissue_routing import observed_routes, route_report
-
         return TissueRoutingResult(routes=observed_routes(), report=route_report())
 
-    if action == "crispr":
+    elif action == "crispr":
         from pathlib import Path
-
         from metabolon.organelles.crispr import compile_guides, spacer_count
 
         spacers_path = Path.home() / ".cache" / "crispr" / "spacers.jsonl"
@@ -845,10 +798,10 @@ def interoception(
             spacer_count=count,
             recent=recent,
             guide_count=len(guides),
-            summary="\n".join(summary_lines),
+            summary="\\n".join(summary_lines),
         )
 
-    if action == "retrograde":
+    elif action in ("retrograde", "retro"):
         from metabolon.organelles.retrograde import signal_balance
 
         balance = signal_balance(days=days)
@@ -857,10 +810,10 @@ def interoception(
         else:
             ratio_string = f"{balance['anterograde_count']}:0"
         summary_val = (
-            f"Retrograde balance ({days}d): {balance['assessment'].upper()}\n"
-            f"  Anterograde (organism→symbiont): {balance['anterograde_count']}\n"
-            f"  Retrograde  (symbiont→organism): {balance['retrograde_count']}\n"
-            f"  Ratio: {ratio_string}\n"
+            f"Retrograde balance ({days}d): {balance['assessment'].upper()}\\n"
+            f"  Anterograde (organism→symbiont): {balance['anterograde_count']}\\n"
+            f"  Retrograde  (symbiont→organism): {balance['retrograde_count']}\\n"
+            f"  Ratio: {ratio_string}\\n"
             f"  Assessment: {balance['assessment']}"
         )
         return RetrogradeResult(
@@ -872,18 +825,12 @@ def interoception(
             summary=summary_val,
         )
 
-    if action == "mitophagy":
+    elif action in ("mitophagy", "mito"):
         from metabolon.organelles.mitophagy import _load_blacklist, model_fitness
-
         return MitophagyResult(fitness=model_fitness(task_type=task_type, days=days), blacklist=_load_blacklist())
 
-    if action == "angiogenesis":
-        from metabolon.organelles.angiogenesis import (
-            detect_hypoxia,
-            propose_vessel,
-            vessel_registry,
-        )
-
+    elif action in ("angiogenesis", "angio"):
+        from metabolon.organelles.angiogenesis import detect_hypoxia, propose_vessel, vessel_registry
         pairs = detect_hypoxia()
         return AngiogenesisResult(
             hypoxic_pairs=pairs,
@@ -891,19 +838,22 @@ def interoception(
             existing_vessels=vessel_registry(),
         )
 
-    if action == "probe":
+    elif action == "probe":
         from metabolon.organelles.inflammasome import run_all_probes
 
         results = run_all_probes()
         lines_probe = []
         for result in results:
             tag = "PASS" if result["passed"] else "FAIL"
-            lines_probe.append(f"[{tag}] {result['name']} - {result['message']} ({result['duration_ms']}ms)")
+            lines_probe.append(f"[{tag}] {result['name']} — {result['message']} ({result['duration_ms']}ms)")
         passed_count = sum(1 for result in results if result["passed"])
-        lines_probe.append(f"\nSummary: {passed_count}/{len(results)} passed")
-        return InflammasomeResult(report="\n".join(lines_probe), passed=passed_count, total=len(results))
+        lines_probe.append(f"\\nSummary: {passed_count}/{len(results)} passed")
+        return InflammasomeResult(report="\\n".join(lines_probe), passed=passed_count, total=len(results))
 
     return EffectorResult(
         success=False,
-        message=f"Unknown action '{action}'. Valid: {_ACTIONS}",
+        message=f"Unknown action '{action}'. Valid: {_VALID_ACTIONS}",
     )
+'''
+with open("metabolon/enzymes/interoception.py", "w") as f:
+    f.write(content)
