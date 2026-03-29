@@ -143,3 +143,11 @@
 {"ts": "2026-03-29T09:11:35+00:00", "model": "sonar", "query": "test"}
 {"ts": "2026-03-29T10:11:43+00:00", "model": "sonar", "query": "test"}
 {"ts": "2026-03-29T11:11:52+00:00", "model": "sonar", "query": "test"}
+{"ts": "2026-03-29T12:12:01+00:00", "model": "sonar", "query": "test"}
+{"ts": "2026-03-29T12:27:41+00:00", "model": "sonar-pro", "query": "OpenClaw CLI headless run GLM-5.1 coding agent"}
+{"ts": "2026-03-29T12:27:42+00:00", "model": "sonar-pro", "query": "\u667a\u8c31 OpenClaw \u7f16\u7801\u4ee3\u7406 \u547d\u4ee4\u884c"}
+{"ts": "2026-03-29T12:28:51+00:00", "model": "sonar", "query": "\u667a\u8c31 GLM-5 GLM-5.1 \u63a8\u8350 coding CLI agent \u5de5\u5177"}
+{"ts": "2026-03-29T12:31:22+00:00", "model": "sonar", "query": "Hagicode meta-framework coding CLI headless dispatch multiple coding agents"}
+{"ts": "2026-03-29T12:31:23+00:00", "model": "sonar", "query": "hagicode github docs.hagicode.com install"}
+{"ts": "2026-03-29T12:31:23+00:00", "model": "sonar", "query": "claude code headless print mode GLM-5.1 ZhiPu ANTHROPIC_DEFAULT_OPUS_MODEL"}
+{"ts": "2026-03-29T12:31:24+00:00", "model": "sonar", "query": "claude --print headless GLM-5.1 ANTHROPIC_BASE_URL bigmodel coding"}
