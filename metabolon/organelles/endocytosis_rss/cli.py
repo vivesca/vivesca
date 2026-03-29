@@ -260,7 +260,13 @@ def _fetch_locked(cfg: EndocytosisConfig, no_archive: bool) -> None:
             )
             article["source"] = name
             article["timestamp"] = now.isoformat()
-            article["score"] = str(scores.get("score", 0))
+            raw_score = scores.get("score")
+            if raw_score is None or scores.get("unscored"):
+                # Opus unavailable — hold article at threshold so it's stored, not degraded
+                article["score"] = "5"
+                article["unscored"] = "true"
+            else:
+                article["score"] = str(raw_score)
             article["banking_angle"] = str(scores.get("banking_angle", ""))
             article["talking_point"] = str(scores.get("talking_point", ""))
             record_affinity(article, scores)

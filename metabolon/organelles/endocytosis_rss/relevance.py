@@ -36,7 +36,7 @@ Respond in JSON only:
 
 
 def assess_cargo(title: str, source: str, summary: str) -> dict[str, Any]:
-    """Score a single cargo item using Opus via Max, with keyword fallback."""
+    """Score a single cargo item using Opus via Max. Returns None on failure — caller retries next cycle."""
     prompt = SCORING_PROMPT.format(title=title, source=source, summary=summary)
 
     try:
@@ -47,14 +47,14 @@ def assess_cargo(title: str, source: str, summary: str) -> dict[str, Any]:
             payload = json.loads(text[start:end])
             if isinstance(payload, dict):
                 result = _normalize_score_payload(payload)
-                # Receptor recycling: post-adjust LLM score with engagement affinity signal
                 boost = _engagement_boost(title, source)
                 result["score"] = max(1, min(result["score"] + boost, 10))
                 return result
     except (subprocess.TimeoutExpired, FileNotFoundError, json.JSONDecodeError, Exception):
         pass
 
-    return _keyword_score(title, summary, source=source)
+    # No fallback — return unscored so caller can retry next cycle
+    return {"score": None, "banking_angle": "N/A", "talking_point": "N/A", "unscored": True}
 
 
 def _normalize_score_payload(payload: dict[str, Any]) -> dict[str, Any]:
