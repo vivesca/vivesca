@@ -562,7 +562,7 @@ def internalize_x_account(
             tweet_id = tweet.get("id", "")
             username = tweet.get("author", {}).get("username", clean)
             link = f"https://x.com/{username}/status/{tweet_id}" if tweet_id else ""
-            articles.append({"title": title, "date": date_str, "summary": "", "link": link})
+            articles.append({"title": title, "date": date_str, "summary": text, "text": text, "link": link})
             if len(articles) >= max_items:
                 break
         return articles
@@ -610,7 +610,8 @@ def internalize_x_bookmarks(
                 {
                     "title": title,
                     "date": date_str,
-                    "summary": "",
+                    "summary": text,
+                    "text": text,
                     "link": link,
                     "_tweet_id": tweet_id,
                 }

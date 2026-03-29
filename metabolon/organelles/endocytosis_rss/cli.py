@@ -195,7 +195,7 @@ def _fetch_locked(cfg: EndocytosisConfig, no_archive: bool) -> None:
             articles = internalize_rss(
                 source["rss"],
                 since_date,
-                full_fetch=bool(source.get("full_fetch", False)),
+                full_fetch=bool(source.get("full_fetch", True)),
                 stealth_fetch=bool(source.get("stealth_fetch", False)),
                 profile_dir=_nodriver_profile,
             )
@@ -267,7 +267,7 @@ def _fetch_locked(cfg: EndocytosisConfig, no_archive: bool) -> None:
 
         if not no_archive:
             for article in new_articles:
-                if article.get("link") and tier == 1:
+                if article.get("link"):
                     archive_cargo(article, name, tier, cfg.article_cache_dir, now)
                     archived_count += 1
 
