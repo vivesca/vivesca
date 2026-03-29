@@ -123,3 +123,5 @@
 {"ts": "2026-03-29T02:45:03+00:00", "model": "sonar-pro", "query": "HKMA AIRDI AI Research Development Institute 2026"}
 {"ts": "2026-03-29T02:45:14+00:00", "model": "sonar", "query": "HKMA GenAI report April 2025 financial services adoption"}
 {"ts": "2026-03-29T02:45:16+00:00", "model": "sonar", "query": "HKMA news March 2026 AI circular announcement latest week"}
+{"ts": "2026-03-29T03:10:42+00:00", "model": "sonar", "query": "test"}
+{"ts": "2026-03-29T03:12:52+00:00", "model": "sonar", "query": "HKMA official circulars page AI artificial intelligence 2026 site:hkma.gov.hk"}
