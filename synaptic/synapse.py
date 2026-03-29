@@ -205,8 +205,8 @@ def mod_anamnesis(data):
 ALLO_STATE = HOME / ".local/share/respirometry/budget-tier.json"
 ALLO_GUIDANCE = {
     "anabolic": "",
-    "homeostatic": "Prefer Sonnet subagents for heavy work. Keep effort default.",
-    "catabolic": "Switch to Sonnet. Single focused approach per problem. Minimize tool calls — verify critical facts only. No exploratory research or brainstorming.",
+    "homeostatic": "Delegate implementation to Goose (`sortase exec -b goose` or spec the task). CC designs and reviews only. Prefer Sonnet subagents for heavy CC work.",
+    "catabolic": "STOP CODING. CC is architect only — spec tasks for Goose, review results. No direct implementation. Minimize tool calls — verify critical facts only.",
     "autophagic": "WRAP UP. Deliver what you have now. /sporulation immediately. No new work — checkpoint and stop.",
 }
 # Map respirometry budget tiers to metabolic states
