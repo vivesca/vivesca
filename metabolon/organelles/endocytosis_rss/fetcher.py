@@ -474,6 +474,7 @@ def internalize_web(
     selector: str | None = None,
     stealth: bool = False,
     profile_dir: Path | None = None,
+    link_template: str | None = None,
 ) -> list[dict[str, str]]:
     try:
         if stealth and _is_safe_url(url):
@@ -504,6 +505,12 @@ def internalize_web(
                         link = a.get("href", "") if a else ""
                     if link and not link.startswith("http"):
                         link = urljoin(url, link)
+                    # Rewrite javascript: or other non-HTTP links via template
+                    if link_template and (not link or link.startswith("javascript:")):
+                        # Extract argument from javascript:fn('arg') pattern
+                        m = re.search(r"'([^']+)'", link) if link else None
+                        arg = m.group(1) if m else ""
+                        link = link_template.replace("{id}", arg) if arg else ""
                     articles.append({"title": title, "date": "", "summary": "", "link": str(link)})
             return articles
 

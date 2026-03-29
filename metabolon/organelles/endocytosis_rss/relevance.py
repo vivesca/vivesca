@@ -15,6 +15,8 @@ from metabolon.locus import endocytosis_affinity, endocytosis_recycling
 AFFINITY_LOG = endocytosis_affinity
 RECYCLING_LOG = endocytosis_recycling
 
+BATCH_SIZE = 8
+
 SCORING_PROMPT = """Rate this AI news item for relevance to a Principal Consultant / AI Solution Lead
 advising bank clients. Score 1-10:
 
@@ -36,27 +38,76 @@ Respond in JSON only:
 {{"score": N, "banking_angle": "...", "talking_point": "..."}}
 """
 
+BATCH_SCORING_PROMPT = """Rate these AI news items for relevance to a Principal Consultant / AI Solution Lead advising bank clients. Score each 1-10.
 
-def assess_cargo(title: str, source: str, summary: str) -> dict[str, Any]:
-    """Score a single cargo item using Opus via Max. Returns None on failure — caller retries next cycle."""
-    prompt = SCORING_PROMPT.format(title=title, source=source, summary=summary)
+10 = Must-know for client meetings (regulatory change, major vendor announcement affecting banks)
+7-9 = High relevance (new AI capability with clear banking/fintech application)
+4-6 = Moderate (general AI development, might come up in conversation)
+1-3 = Low (academic, consumer-focused, or not applicable to financial services)
+
+For each item provide:
+- score: 1-10
+- banking_angle: one sentence on why a bank client would care (or "N/A")
+- talking_point: one sentence for a client meeting (or "N/A")
+
+Items:
+{items}
+
+Respond in JSON only — an array of objects:
+[{{"item": 1, "score": N, "banking_angle": "...", "talking_point": "..."}}, ...]
+"""
+
+
+def assess_cargo_batch(
+    items: list[tuple[str, str, str]],
+) -> list[dict[str, Any]]:
+    """Score a batch of cargo items in a single Opus call.
+
+    Args:
+        items: list of (title, source, summary) tuples.
+
+    Returns:
+        List of score dicts in the same order as input. Each dict contains
+        score, banking_angle, talking_point. On LLM failure, all items are
+        returned with ``{"unscored": True}``.
+    """
+    unscored = {"score": None, "banking_angle": "N/A", "talking_point": "N/A", "unscored": True}
+
+    if not items:
+        return []
+
+    # Build numbered item list for the prompt
+    lines = []
+    for i, (title, source, summary) in enumerate(items, 1):
+        lines.append(f"{i}. [{title}] (Source: {source}) — {summary}")
+    prompt = BATCH_SCORING_PROMPT.format(items="\n".join(lines))
 
     try:
-        text = _symbiont_transduce("opus", prompt, timeout=120)
-        start = text.find("{")
-        end = text.rfind("}") + 1
+        text = _symbiont_transduce("opus", prompt, timeout=180)
+        # Extract JSON array from response
+        start = text.find("[")
+        end = text.rfind("]") + 1
         if start >= 0 and end > start:
             payload = json.loads(text[start:end])
-            if isinstance(payload, dict):
-                result = _normalize_score_payload(payload)
-                boost = _engagement_boost(title, source)
-                result["score"] = max(1, min(result["score"] + boost, 10))
-                return result
+            if isinstance(payload, list) and len(payload) == len(items):
+                results: list[dict[str, Any]] = []
+                for idx, (title, source, _summary) in enumerate(items):
+                    raw = payload[idx] if isinstance(payload[idx], dict) else {}
+                    result = _normalize_score_payload(raw)
+                    boost = _engagement_boost(title, source)
+                    result["score"] = max(1, min(result["score"] + boost, 10))
+                    results.append(result)
+                return results
     except (subprocess.TimeoutExpired, FileNotFoundError, json.JSONDecodeError, Exception):
         pass
 
-    # No fallback — return unscored so caller can retry next cycle
-    return {"score": None, "banking_angle": "N/A", "talking_point": "N/A", "unscored": True}
+    # Batch failed — return all items as unscored (no individual fallback)
+    return [dict(unscored) for _ in items]
+
+
+def assess_cargo(title: str, source: str, summary: str) -> dict[str, Any]:
+    """Score a single cargo item using Opus via Max. Thin wrapper around batch scoring."""
+    return assess_cargo_batch([(title, source, summary)])[0]
 
 
 def _normalize_score_payload(payload: dict[str, Any]) -> dict[str, Any]:

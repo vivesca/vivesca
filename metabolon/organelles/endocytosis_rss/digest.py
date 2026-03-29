@@ -511,8 +511,12 @@ def metabolize_weekly(
     cfg: EndocytosisConfig,
     week_date: datetime | None = None,
     tags: list[str] | None = None,
+    dry_run: bool = False,
 ) -> tuple[int, Path | None]:
     """Secrete the weekly digest — scored list + LLM synthesis brief.
+
+    When dry_run is True, counts items and returns (item_count, None) without
+    writing any files or calling the LLM.
 
     Returns (item_count, output_path).
     """
@@ -532,6 +536,19 @@ def metabolize_weekly(
     affinity_entries = recall_affinity_entries(since_date)
     affinity_index = _build_affinity_index(affinity_entries)
 
+    # Count items that made it through the score threshold
+    item_count = sum(
+        1
+        for e in entries
+        if (
+            int(affinity_index.get(e["title"], {}).get("score", 0)) >= WEEKLY_STORE_THRESHOLD
+            or e.get("_transcytose") == "1"
+        )
+    )
+
+    if dry_run:
+        return item_count, None
+
     # Secrete to ~/epigenome/chromatin/chemosensory/weekly-ai-digest-YYYY-WNN.md
     from metabolon.locus import chemosensory
 
@@ -545,16 +562,6 @@ def metabolize_weekly(
         until_date=until_date,
         entries=entries,
         affinity_index=affinity_index,
-    )
-
-    # Count items that made it through the score threshold
-    item_count = sum(
-        1
-        for e in entries
-        if (
-            int(affinity_index.get(e["title"], {}).get("score", 0)) >= WEEKLY_STORE_THRESHOLD
-            or e.get("_transcytose") == "1"
-        )
     )
 
     # LLM synthesis: append brief to the scored digest
@@ -721,3 +728,81 @@ def _metabolize_from_weeklies(
         theme_briefs=briefs,
     )
     return identified_themes, output_path
+
+
+def generate_weekly_markdown(
+    cfg: EndocytosisConfig,
+    week_date: datetime | None = None,
+    tags: list[str] | None = None,
+) -> str:
+    """Generate a scored weekly summary from JSONL cargo, grouped by day.
+
+    Pure data retrieval — no LLM, no file writes. Returns markdown string.
+    Similar to daily summary but covering 7 days.
+    """
+    since_date, until_date, week_label = _resolve_week_label(week_date)
+
+    entries = recall_log_entries(cfg.cargo_path, since_date)
+
+    if tags:
+        source_tags = _build_source_tags_map(cfg)
+        entries = [
+            e for e in entries if set(tags) & set(source_tags.get(e.get("source", ""), ["ai"]))
+        ]
+
+    affinity_entries = recall_affinity_entries(since_date)
+    affinity_index = _build_affinity_index(affinity_entries)
+
+    # Filter by score threshold and enrich with affinity score
+    scored: list[dict[str, str]] = []
+    for entry in entries:
+        title = entry["title"]
+        affinity = affinity_index.get(title, {})
+        score = int(affinity.get("score", 0))
+        if score == 0 and entry.get("_transcytose") == "1":
+            score = WEEKLY_TRANSCYTOSE_THRESHOLD
+        if score < WEEKLY_STORE_THRESHOLD:
+            continue
+        scored.append({**entry, "_score": str(score)})
+
+    # Group by date
+    by_date: dict[str, list[dict[str, str]]] = {}
+    for entry in scored:
+        day = entry.get("date", "unknown")
+        by_date.setdefault(day, []).append(entry)
+
+    # Sort each day's entries by score descending
+    for day in by_date:
+        by_date[day].sort(key=lambda e: int(e.get("_score", "0")), reverse=True)
+
+    lines: list[str] = [
+        f"# Weekly Summary — {week_label}",
+        "",
+        f"Period: {since_date} to {until_date}",
+        f"Items: {len(scored)} (score >= {WEEKLY_STORE_THRESHOLD})",
+        "",
+        "---",
+        "",
+    ]
+
+    for day in sorted(by_date.keys(), reverse=True):
+        day_entries = by_date[day]
+        lines.append(f"## {day}")
+        lines.append("")
+        for entry in day_entries:
+            title = entry["title"]
+            link = entry.get("link", "")
+            source = entry.get("source", "")
+            score = entry.get("_score", "0")
+            marker = "★ " if entry.get("_transcytose") == "1" else ""
+            title_md = f"[{title}]({link})" if link else title
+            summary = entry.get("summary", "")
+            summary_part = f" — {summary}" if summary else ""
+            lines.append(f"- {marker}**{title_md}** [{score}/10] _{source}_{summary_part}")
+        lines.append("")
+
+    if not scored:
+        lines.append("_No items met the score threshold this week._")
+        lines.append("")
+
+    return "\n".join(lines)

@@ -111,10 +111,10 @@ def skill_gaps() -> list[str]:
 
 
 def dep_check() -> list[str]:
-    """Run dep-check, return warnings."""
+    """Run proteostasis, return warnings."""
     try:
         r = subprocess.run(
-            [str(HOME / "bin" / "dep-check")],
+            ["proteostasis"],
             capture_output=True, text=True, timeout=30,
         )
         if r.returncode == 0 and r.stdout.strip():

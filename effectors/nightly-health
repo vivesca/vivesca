@@ -61,8 +61,8 @@ def check_git() -> dict:
 
 
 def check_deps() -> dict:
-    code, output = _run(["dep-check", "--force"])
-    return {"name": "dep-check", "ok": code == 0, "output": output[:500] if output else "clean"}
+    code, output = _run(["proteostasis", "--force"])
+    return {"name": "proteostasis", "ok": code == 0, "output": output[:500] if output else "clean"}
 
 
 def check_docima() -> dict:

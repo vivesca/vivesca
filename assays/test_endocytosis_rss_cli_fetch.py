@@ -76,8 +76,10 @@ def test_fetch_fallback_and_zeros(monkeypatch, mock_cfg, capsys):
         lambda *args, **kwargs: 1.0,
     )
     monkeypatch.setattr(
-        "metabolon.organelles.endocytosis_rss.relevance.assess_cargo",
-        lambda *a, **kw: {"score": 5, "banking_angle": "N/A", "talking_point": "N/A"},
+        "metabolon.organelles.endocytosis_rss.relevance.assess_cargo_batch",
+        lambda items, **kw: [
+            {"score": 5, "banking_angle": "N/A", "talking_point": "N/A"} for _ in items
+        ],
     )
     monkeypatch.setattr("metabolon.organelles.endocytosis_rss.log.cycle_log", lambda *args: None)
     monkeypatch.setattr(

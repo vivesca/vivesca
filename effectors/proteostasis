@@ -4,15 +4,15 @@
 # dependencies = []
 # ///
 """
-dep-check -- dependency auto-updater with rollback.
+proteostasis -- dependency auto-updater with rollback.
 
-Auto-updates tracked Python and npm packages, smoke-tests after each,
-rolls back on failure. Alerts only on rollback or CC breaking changes.
+Maintains the organism's external dependency pool:
+detect outdated → upgrade → smoke test → rollback on failure.
 
 Usage:
-    dep-check                # auto-update (respects 20h frequency gate)
-    dep-check --force        # bypass frequency gate
-    dep-check --dry-run      # check + print, do not upgrade or update state
+    proteostasis                # auto-update (respects 20h frequency gate)
+    proteostasis --force        # bypass frequency gate
+    proteostasis --dry-run      # check + print, do not upgrade or update state
 """
 
 import json
@@ -41,24 +41,11 @@ CC_BREAKING_KEYWORDS = [
     "hook", "plugin", "permissions", "api change", "renamed",
 ]
 
-# Python packages to auto-update: (pip_name, state_key)
-PY_PACKAGES = [
-    ("anthropic", "anthropic-py"),
-    ("openai", "openai-py"),
-    ("fastmcp", "fastmcp"),
-]
-
 # Git-pinned packages: skip normal auto-upgrade, only upgrade when
 # PyPI has >= min_version. (pip_name, min_version)
 PY_GIT_PINNED = {
     "fastmcp": "3.1.2",
 }
-
-# npm globals to auto-update: (package_name, state_key)
-NPM_GLOBALS = [
-    ("@google/gemini-cli", "gemini-cli-npm"),
-    ("@openai/codex", "codex-npm"),
-]
 
 # Smoke test: imports that must succeed after any Python upgrade.
 # Each entry is a dotted import path.
@@ -151,16 +138,11 @@ def run(cmd: list, timeout: int = 15) -> tuple[bool, str]:
 # ── Smoke test ───────────────────────────────────────────────────────────────
 
 def smoke_test() -> tuple[bool, str]:
-    """Quick import smoke test using the same Python pip installs into."""
+    """Quick import smoke test using the mise-managed Python."""
     imports = "; ".join(f"__import__('{m}')" for m in PY_SMOKE_IMPORTS)
-    # Resolve the real python3 from mise, not the overridden PATH
-    ok, out = run(["pip3", "show", "fastmcp"], timeout=10)
-    python = str(Path.home() / ".local/share/mise/shims/python3")
-    if not Path(python).exists():
-        python = "python3"
     try:
         r = subprocess.run(
-            [python, "-c", imports],
+            [_mise_python(), "-c", imports],
             capture_output=True, text=True, timeout=15,
         )
         return r.returncode == 0, (r.stdout or r.stderr or "").strip()
@@ -228,84 +210,97 @@ def is_breaking(body: str) -> bool:
 
 # ── Python auto-update ───────────────────────────────────────────────────────
 
-def _pip_version(pkg: str) -> str | None:
-    """Get installed version of a pip package."""
-    ok, out = run(["pip3", "show", pkg], timeout=10)
-    if not ok:
-        return None
-    for line in out.split("\n"):
-        if line.startswith("Version:"):
-            return line.split(":", 1)[1].strip()
-    return None
+def _pip_outdated() -> dict[str, dict]:
+    """Get all outdated pip packages. Returns {name: {version, latest_version}}."""
+    ok, out = run(
+        [_mise_python(), "-m", "pip", "list", "--outdated", "--format=json"],
+        timeout=30,
+    )
+    if not ok or not out:
+        return {}
+    try:
+        return {p["name"].lower(): p for p in json.loads(out)}
+    except Exception:
+        return {}
+
+
+def _pip_snapshot() -> dict[str, str]:
+    """Snapshot all installed pip versions. Returns {name: version}."""
+    ok, out = run([_mise_python(), "-m", "pip", "list", "--format=json"], timeout=15)
+    if not ok or not out:
+        return {}
+    try:
+        return {p["name"].lower(): p["version"] for p in json.loads(out)}
+    except Exception:
+        return {}
+
+
+def _mise_python() -> str:
+    """Resolve the mise-managed python3."""
+    p = Path.home() / ".local/share/mise/shims/python3"
+    return str(p) if p.exists() else "python3"
 
 
 def auto_update_python(state: dict) -> list[str]:
-    """Upgrade all tracked pip packages. Rollback on smoke test failure."""
+    """Upgrade all outdated pip packages. Smoke test + rollback."""
     alerts = []
+    outdated = _pip_outdated()
+    if not outdated:
+        return []
 
-    # Snapshot current versions
-    snapshots = {}
-    for pip_name, state_key in PY_PACKAGES:
-        v = _pip_version(pip_name)
-        if v:
-            snapshots[pip_name] = v
-
-    # Split: normal packages upgrade freely, git-pinned wait for target version
-    normal_pkgs = [p for p, _ in PY_PACKAGES if p not in PY_GIT_PINNED]
-    pinned_pkgs = [(p, PY_GIT_PINNED[p]) for p, _ in PY_PACKAGES if p in PY_GIT_PINNED]
+    # Exclude git-pinned packages from bulk upgrade
+    to_upgrade = {k: v for k, v in outdated.items() if k not in PY_GIT_PINNED}
 
     if DRY_RUN:
-        ok, out = run(["pip3", "list", "--outdated", "--format=json"], timeout=30)
-        if ok and out:
-            try:
-                outdated = {p["name"].lower(): p for p in json.loads(out)}
-                for pip_name, _ in PY_PACKAGES:
-                    if pip_name in PY_GIT_PINNED:
-                        continue
-                    info = outdated.get(pip_name.lower())
-                    if info:
-                        alerts.append(
-                            f"pip would upgrade: {pip_name} "
-                            f"{info['version']} → {info['latest_version']}"
-                        )
-            except Exception:
-                pass
-        for pip_name, min_ver in pinned_pkgs:
-            alerts.append(f"pip git-pinned: {pip_name} (waiting for >={min_ver} on PyPI)")
+        for name, info in sorted(to_upgrade.items()):
+            alerts.append(f"pip would upgrade: {name} {info['version']} → {info['latest_version']}")
+        for name, min_ver in PY_GIT_PINNED.items():
+            alerts.append(f"pip git-pinned: {name} (waiting for >={min_ver} on PyPI)")
         return alerts
 
-    # Upgrade normal packages
-    if normal_pkgs:
+    if to_upgrade:
+        # Snapshot before upgrade
+        snapshot = _pip_snapshot()
+        pkg_names = list(to_upgrade.keys())
+
         ok, out = run(
-            ["pip3", "install", "--upgrade", "--break-system-packages"] + normal_pkgs,
+            [_mise_python(), "-m", "pip", "install", "--upgrade", "--break-system-packages"]
+            + pkg_names,
             timeout=300,
         )
         if not ok:
             alerts.append(f"pip upgrade failed: {out[:100]}")
         else:
-            upgraded = {}
-            for pip_name in normal_pkgs:
-                new_v = _pip_version(pip_name)
-                old_v = snapshots.get(pip_name)
-                if new_v and old_v and new_v != old_v:
-                    upgraded[pip_name] = (old_v, new_v)
+            # Detect what changed
+            new_versions = _pip_snapshot()
+            upgraded = {
+                k: (snapshot.get(k, "?"), new_versions.get(k, "?"))
+                for k in pkg_names
+                if snapshot.get(k) != new_versions.get(k)
+            }
 
             if upgraded:
                 passed, detail = smoke_test()
                 if passed:
-                    for pkg, (old, new) in upgraded.items():
+                    for pkg, (old, new) in sorted(upgraded.items()):
                         alerts.append(f"pip upgraded: {pkg} {old} → {new}")
                 else:
-                    for pkg, (old, _new) in upgraded.items():
-                        run(["pip3", "install", "--break-system-packages", f"{pkg}=={old}"], timeout=60)
+                    # Rollback all changed packages
+                    for pkg, (old, _) in upgraded.items():
+                        if old != "?":
+                            run(
+                                [_mise_python(), "-m", "pip", "install",
+                                 "--break-system-packages", f"{pkg}=={old}"],
+                                timeout=60,
+                            )
                     alerts.append(
                         f"pip ROLLBACK: smoke test failed after upgrading "
-                        f"{', '.join(upgraded)}. Reverted. Detail: {detail[:200]}"
+                        f"{len(upgraded)} packages. Reverted. Detail: {detail[:200]}"
                     )
 
-    # Git-pinned: check if target version is on PyPI, auto-install if so
-    for pip_name, min_ver in pinned_pkgs:
-        ok, out = run(["pip3", "index", "versions", pip_name], timeout=15)
+    # Git-pinned: check if target version is on PyPI
+    for pip_name, min_ver in PY_GIT_PINNED.items():
+        ok, out = run([_mise_python(), "-m", "pip", "index", "versions", pip_name], timeout=15)
         if not ok:
             continue
         first_line = out.split("\n")[0] if out else ""
@@ -314,41 +309,22 @@ def auto_update_python(state: dict) -> list[str]:
             continue
         pypi_latest = m.group(1)
         if _ver_tuple(pypi_latest) >= _ver_tuple(min_ver):
-            run(["pip3", "install", "--break-system-packages", f"{pip_name}>={min_ver}"], timeout=60)
+            run(
+                [_mise_python(), "-m", "pip", "install",
+                 "--break-system-packages", f"{pip_name}>={min_ver}"],
+                timeout=60,
+            )
             alerts.append(f"pip unpinned: {pip_name} → {pypi_latest} (git pin resolved)")
-
-    # Update state for all
-    for pip_name, state_key in PY_PACKAGES:
-        v = _pip_version(pip_name)
-        if v:
-            kv = state["known_versions"].get(state_key, {})
-            kv["installed"] = v
-            kv["latest_seen"] = v
-            state["known_versions"][state_key] = kv
 
     return alerts
 
 
 # ── npm auto-update ──────────────────────────────────────────────────────────
 
-def _npm_global_version(pkg: str) -> str | None:
-    """Get installed version of a global npm package."""
-    ok, out = run(["npm", "list", "-g", pkg, "--json"], timeout=15)
-    if not ok:
-        return None
-    try:
-        data = json.loads(out)
-        deps = data.get("dependencies", {})
-        return deps.get(pkg, {}).get("version")
-    except Exception:
-        return None
-
-
 def auto_update_npm(state: dict) -> list[str]:
-    """Upgrade tracked npm globals. Alert on major bumps."""
+    """Upgrade all outdated npm globals. Rollback individual failures."""
     alerts = []
 
-    # Check what's outdated
     ok, out = run(["npm", "outdated", "-g", "--json"], timeout=30)
     if not out:
         return []
@@ -357,33 +333,22 @@ def auto_update_npm(state: dict) -> list[str]:
     except Exception:
         return []
 
-    for pkg, state_key in NPM_GLOBALS:
-        if pkg not in data:
-            continue
-        info = data[pkg]
+    for pkg, info in sorted(data.items()):
         current = info.get("current") or info.get("wanted")
         latest = info.get("latest")
-        if not latest:
+        if not latest or current == latest:
             continue
 
         if DRY_RUN:
             alerts.append(f"npm would upgrade: {pkg} {current or '?'} → {latest}")
             continue
 
-        # Upgrade
         ok, out = run(["npm", "install", "-g", f"{pkg}@latest"], timeout=120)
         if ok:
             alerts.append(f"npm upgraded: {pkg} {current or '?'} → {latest}")
-            kv = state["known_versions"].get(state_key, {})
-            kv["installed"] = latest
-            kv["latest_seen"] = latest
-            state["known_versions"][state_key] = kv
         elif current:
-            # Rollback only if we know the previous version
             run(["npm", "install", "-g", f"{pkg}@{current}"], timeout=60)
-            alerts.append(f"npm ROLLBACK: {pkg} upgrade failed, reverted to {current}")
-        else:
-            alerts.append(f"npm upgrade failed: {pkg} (no previous version to rollback)")
+            alerts.append(f"npm ROLLBACK: {pkg} failed, reverted to {current}")
 
     return alerts
 

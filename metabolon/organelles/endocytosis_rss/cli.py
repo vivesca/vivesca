@@ -142,7 +142,8 @@ def _fetch_locked(cfg: EndocytosisConfig, no_archive: bool) -> None:
         serialize_markdown,
     )
     from metabolon.organelles.endocytosis_rss.relevance import (
-        assess_cargo,
+        BATCH_SIZE,
+        assess_cargo_batch,
         receptor_signal_ratio,
         record_affinity,
     )
@@ -210,6 +211,7 @@ def _fetch_locked(cfg: EndocytosisConfig, no_archive: bool) -> None:
                         selector=source.get("selector"),
                         stealth=bool(source.get("stealth_web", False)),
                         profile_dir=_nodriver_profile,
+                        link_template=source.get("link_template"),
                     )
                 if articles is None:
                     fetch_failed = True
@@ -235,6 +237,7 @@ def _fetch_locked(cfg: EndocytosisConfig, no_archive: bool) -> None:
                 selector=source.get("selector"),
                 stealth=bool(source.get("stealth_web", False)),
                 profile_dir=_nodriver_profile,
+                link_template=source.get("link_template"),
             )
             if articles is None:
                 fetch_failed = True
@@ -255,24 +258,28 @@ def _fetch_locked(cfg: EndocytosisConfig, no_archive: bool) -> None:
             new_articles.append(article)
             title_prefixes.add(prefix)
 
+        # Batch scoring: collect articles into batches and score in bulk
         scored_articles = []
-        for article in new_articles:
-            scores = assess_cargo(
-                article.get("title", ""),
-                name,
-                article.get("summary", ""),
-            )
-            if scores.get("unscored"):
-                # Opus unavailable — drop article, it will be re-fetched next cycle
-                print(f"  UNSCORED (Opus down): {article.get('title', '')[:60]}", file=sys.stderr)
-                continue
-            article["source"] = name
-            article["timestamp"] = now.isoformat()
-            article["score"] = str(scores.get("score", 0))
-            article["banking_angle"] = str(scores.get("banking_angle", ""))
-            article["talking_point"] = str(scores.get("talking_point", ""))
-            record_affinity(article, scores)
-            scored_articles.append(article)
+        for batch_start in range(0, len(new_articles), BATCH_SIZE):
+            batch = new_articles[batch_start : batch_start + BATCH_SIZE]
+            batch_tuples = [
+                (a.get("title", ""), name, a.get("summary", "")) for a in batch
+            ]
+            batch_scores = assess_cargo_batch(batch_tuples)
+            for article, scores in zip(batch, batch_scores):
+                if scores.get("unscored"):
+                    print(
+                        f"  UNSCORED (Opus down): {article.get('title', '')[:60]}",
+                        file=sys.stderr,
+                    )
+                    continue
+                article["source"] = name
+                article["timestamp"] = now.isoformat()
+                article["score"] = str(scores.get("score", 0))
+                article["banking_angle"] = str(scores.get("banking_angle", ""))
+                article["talking_point"] = str(scores.get("talking_point", ""))
+                record_affinity(article, scores)
+                scored_articles.append(article)
         new_articles = scored_articles
 
         if not no_archive:
@@ -386,13 +393,13 @@ def digest(
     weekly: bool = typer.Option(
         False,
         "--weekly",
-        help="Secrete weekly digest (past 7 days, no LLM — pure score-based endosome sorting)",
+        help="Secrete weekly digest (past 7 days, scored list + LLM synthesis)",
     ),
 ) -> None:
     cfg = restore_config()
 
-    # Weekly secretion pathway: lightweight, no LLM, matches Sunday-night schedule.
-    # Substrate was already scored during fetch; this is pure membrane secretion.
+    # Weekly secretion pathway: scored list + LLM synthesis, matches Sunday-night schedule.
+    # Substrate was already scored during fetch; dry_run skips file write + LLM.
     if weekly:
         from metabolon.organelles.endocytosis_rss.digest import metabolize_weekly
 
@@ -400,6 +407,7 @@ def digest(
             item_count, output_path = metabolize_weekly(
                 cfg=cfg,
                 tags=tag or [],
+                dry_run=dry_run,
             )
         except Exception as exc:
             typer.echo(f"Error: {exc}", err=True)
@@ -490,55 +498,35 @@ def sources(
     cfg = restore_config()
     rows: list[tuple[str, str, int, str]] = []
 
-    web_sources = cfg.sources_data.get("web_sources", [])
-    if isinstance(web_sources, list):
-        for source in web_sources:
+    for section_name, section in cfg.sources_data.items():
+        if not isinstance(section, list):
+            continue
+        for source in section:
             if not isinstance(source, dict):
                 continue
             source_tier = int(source.get("tier", 2))
             if tier is not None and source_tier != tier:
                 continue
-            source_type = "rss" if source.get("rss") else "web"
+            # Determine display type
+            if source.get("bookmarks"):
+                source_type = "bkmk"
+            elif source.get("handle"):
+                source_type = "x"
+            elif source.get("api"):
+                source_type = "api"
+            elif source.get("rss"):
+                source_type = "rss"
+            elif source.get("linkedin"):
+                source_type = "lnkd"
+            else:
+                source_type = "web"
+            name = str(source.get("name") or source.get("handle", ""))
             rows.append(
                 (
-                    str(source.get("name", "")),
+                    name,
                     source_type,
                     source_tier,
                     str(source.get("cadence", "-")),
-                )
-            )
-
-    x_accounts = cfg.sources_data.get("x_accounts", [])
-    if isinstance(x_accounts, list):
-        for account in x_accounts:
-            if not isinstance(account, dict):
-                continue
-            account_tier = int(account.get("tier", 2))
-            if tier is not None and account_tier != tier:
-                continue
-            rows.append(
-                (
-                    str(account.get("name") or account.get("handle", "")),
-                    "x",
-                    account_tier,
-                    str(account.get("cadence", "-")),
-                )
-            )
-
-    x_bookmarks = cfg.sources_data.get("x_bookmarks", [])
-    if isinstance(x_bookmarks, list):
-        for bm in x_bookmarks:
-            if not isinstance(bm, dict):
-                continue
-            bm_tier = int(bm.get("tier", 2))
-            if tier is not None and bm_tier != tier:
-                continue
-            rows.append(
-                (
-                    str(bm.get("name", "X Bookmarks")),
-                    "bkmk",
-                    bm_tier,
-                    str(bm.get("cadence", "-")),
                 )
             )
 
@@ -671,6 +659,29 @@ def summary(
 
     if not md.strip():
         typer.echo(f"No cargo for {target_date}.", err=True)
+        raise typer.Exit(code=0)
+
+    if output:
+        Path(output).write_text(md, encoding="utf-8")
+        typer.echo(f"Written: {output}", err=True)
+    else:
+        typer.echo(md)
+    raise typer.Exit(code=0)
+
+
+@app.command(name="weekly-summary")
+def weekly_summary(
+    output: str | None = typer.Option(None, "--output", "-o", help="Write to file instead of stdout"),
+    tag: list[str] | None = typer.Option(None, "--tag", "-t", help="Filter by tag (repeatable)"),
+) -> None:
+    """Scored weekly summary from JSONL cargo — grouped by day, no LLM."""
+    cfg = restore_config()
+    from metabolon.organelles.endocytosis_rss.digest import generate_weekly_markdown
+
+    md = generate_weekly_markdown(cfg=cfg, tags=tag or [])
+
+    if not md.strip():
+        typer.echo("No cargo for the past 7 days.", err=True)
         raise typer.Exit(code=0)
 
     if output:
