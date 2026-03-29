@@ -136,7 +136,7 @@ def _dispatch_diagnosis(probe_name: str, message: str) -> str:
     t0 = time.monotonic()
     try:
         result = subprocess.run(
-            [_CHANNEL, model, "-p", prompt],
+            [_CHANNEL, model, "--organism", "-p", prompt],
             capture_output=True,
             text=True,
             timeout=_REPAIR_TIMEOUT_S,

@@ -59,7 +59,7 @@ When triggers match, run the tool directly. Reference docs in `~/epigenome/chrom
 ### Browser & Auth
 | Trigger | Tool |
 |---------|------|
-| Extract page content (structured) | `navigator` (praeses MCP — fallbacks baked in) |
+| Extract page content (structured) | `navigator` (vivesca MCP — fallbacks baked in) |
 | Screenshot a page | `navigator` |
 | Check browser auth | `navigator` |
 | Raw browser commands | `agent-browser` → see `~/epigenome/chromatin/euchromatin/browser-automation/` |

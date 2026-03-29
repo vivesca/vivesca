@@ -1,0 +1,1 @@
+- [ ] Context7 auth: `npx ctx7 login` then add CONTEXT7_API_KEY to ~/.zshenv.local
