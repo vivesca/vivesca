@@ -109,7 +109,7 @@ def main() -> int:
         sortase_bin, "exec",
         str(running_path),
         "-p", str(germline),
-        "-b", "goose",
+        "-b", "opencode",
         "--serial",
         "--timeout", str(TIMEOUT),
     ]
