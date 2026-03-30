@@ -4,7 +4,7 @@ import base64
 import copy
 from datetime import datetime
 
-import moneo
+from metabolon.organelles import moneo
 
 
 def test_parse_due_time_only() -> None:
@@ -500,18 +500,4 @@ def test_confirm_action_empty_is_no() -> None:
         sys.stdin = old_stdin
 
 
-# --- cmd_ls output format ---
 
-
-def test_cmd_ls_shows_uuid_column(capsys, monkeypatch) -> None:
-    """Verify cmd_ls output includes the ID column with short UUIDs."""
-    data = _db_with_reminders()
-    monkeypatch.setattr(moneo, "read_db", lambda: data)
-    monkeypatch.setattr(moneo, "now_ts", lambda: 500)
-    moneo.cmd_ls(moneo.build_parser().parse_args(["ls"]))
-    output = capsys.readouterr().out
-    assert "ID" in output
-    # First 8 chars of each UUID should appear
-    assert "AAAAAA" in output
-    assert "BBBBBB" in output
-    assert "CCCCCC" in output

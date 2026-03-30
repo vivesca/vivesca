@@ -97,6 +97,28 @@ Present inferred constraints as a list: "Not stated, but implied by prior work: 
 
 If all sections score 4+, state "Fully foldable" and proceed to planning. If disordered regions exist, resolve them before writing the plan. Don't plan around ambiguity — surface it.
 
+## Deepen (optional — for complex plans)
+
+After the initial plan is written, deepen it with parallel research. Skip for simple tasks.
+
+**When to deepen:** Cross-cutting features, unfamiliar domains, high-risk changes (security, payments, external APIs).
+
+**Method:** For each major plan section, dispatch a parallel scout call to research best practices:
+
+```bash
+# Parallel research per section
+scout --build ~/germline "Research best practices for: [section topic]. Find: industry patterns, performance considerations, common pitfalls, concrete code examples."
+```
+
+Also check:
+- `~/germline/loci/antisera/` for prior learnings matching the domain
+- Relevant organism skills that might apply (e.g., `/security-sentinel` patterns for auth sections)
+- Web search for recent (2024-2026) patterns via `scout --mcp "search [topic] best practices"`
+
+**Fold research back into the plan:** Add a `### Research Insights` subsection under each deepened section with: best practices, performance considerations, edge cases, references. Preserve the original plan structure — deepen, don't rewrite.
+
+**Absorbed from:** CE `deepen-plan` — parallel research agents per plan section with skill discovery and learnings lookup.
+
 ## The Plan
 
 ### Structure

@@ -239,13 +239,23 @@ def test_read_dir_context_skips_large(tmp_path):
 # ── --skill flag tests ────────────────────────────────────────────
 
 
+def _make_recipe(tmp_path, skill="etiology", content="title: test\nprompt: default"):
+    """Create a fake recipe.yaml under tmp_path for skill testing.
+
+    scout builds Path.home() / "germline/membrane/receptors/{skill}/recipe.yaml",
+    so we need the germline/ prefix.
+    """
+    recipe_dir = tmp_path / "germline" / "membrane" / "receptors" / skill
+    recipe_dir.mkdir(parents=True)
+    (recipe_dir / "recipe.yaml").write_text(content)
+    return recipe_dir
+
+
 def test_skill_uses_recipe(tmp_path):
     """--skill loads recipe.yaml and passes to goose."""
-    recipe_dir = tmp_path / "membrane" / "receptors" / "etiology"
-    recipe_dir.mkdir(parents=True)
-    (recipe_dir / "recipe.yaml").write_text("title: test\nprompt: default prompt")
+    recipe_dir = _make_recipe(tmp_path)
 
-    with patch.dict(os.environ, {"HOME": str(tmp_path)}):
+    with patch.object(Path, "home", return_value=tmp_path):
         with patch.dict(_mod, {"_direct_api": MagicMock(return_value=1)}):
             with patch("subprocess.run", return_value=_mock_run()) as mock_run:
                 rc = main(["--skill", "etiology", str(tmp_path), "debug this crash"])
@@ -259,7 +269,7 @@ def test_skill_uses_recipe(tmp_path):
 
 def test_skill_not_found(tmp_path, capsys):
     """--skill with nonexistent skill errors with hint."""
-    with patch.dict(os.environ, {"HOME": str(tmp_path)}):
+    with patch.object(Path, "home", return_value=tmp_path):
         rc = main(["--skill", "nonexistent_skill", str(tmp_path), "do thing"])
 
     assert rc == 1
@@ -270,11 +280,9 @@ def test_skill_not_found(tmp_path, capsys):
 
 def test_skill_with_build_uses_glm51(tmp_path):
     """--skill --build upgrades model to GLM-5.1."""
-    recipe_dir = tmp_path / "membrane" / "receptors" / "etiology"
-    recipe_dir.mkdir(parents=True)
-    (recipe_dir / "recipe.yaml").write_text("title: test\nprompt: default")
+    _make_recipe(tmp_path)
 
-    with patch.dict(os.environ, {"HOME": str(tmp_path)}):
+    with patch.object(Path, "home", return_value=tmp_path):
         with patch.dict(_mod, {"_direct_api": MagicMock(return_value=1)}):
             with patch("subprocess.run", return_value=_mock_run()) as mock_run:
                 rc = main(["--skill", "etiology", "--build", str(tmp_path), "fix bug"])
@@ -286,11 +294,9 @@ def test_skill_with_build_uses_glm51(tmp_path):
 
 def test_skill_with_mcp_uses_droid(tmp_path):
     """--skill --mcp routes to droid with skill prefix in prompt."""
-    recipe_dir = tmp_path / "membrane" / "receptors" / "etiology"
-    recipe_dir.mkdir(parents=True)
-    (recipe_dir / "recipe.yaml").write_text("title: test\nprompt: default")
+    _make_recipe(tmp_path)
 
-    with patch.dict(os.environ, {"HOME": str(tmp_path)}):
+    with patch.object(Path, "home", return_value=tmp_path):
         with patch("subprocess.run", return_value=_mock_run()) as mock_run:
             rc = main(["--skill", "etiology", "--mcp", str(tmp_path), "debug"])
 
@@ -305,13 +311,9 @@ def test_skill_with_mcp_uses_droid(tmp_path):
 
 def test_skill_no_prompt_uses_default(tmp_path):
     """--skill without prompt uses recipe's default prompt."""
-    recipe_dir = tmp_path / "membrane" / "receptors" / "etiology"
-    recipe_dir.mkdir(parents=True)
-    (recipe_dir / "recipe.yaml").write_text(
-        "title: test\nprompt: Execute the etiology skill."
-    )
+    _make_recipe(tmp_path, content="title: test\nprompt: Execute the etiology skill.")
 
-    with patch.dict(os.environ, {"HOME": str(tmp_path)}):
+    with patch.object(Path, "home", return_value=tmp_path):
         with patch.dict(_mod, {"_direct_api": MagicMock(return_value=1)}):
             with patch("subprocess.run", return_value=_mock_run()) as mock_run:
                 # No prompt provided — should use recipe default
@@ -325,12 +327,10 @@ def test_skill_no_prompt_uses_default(tmp_path):
 
 def test_skill_skips_direct_api(tmp_path):
     """--skill always goes to goose, never direct API."""
-    recipe_dir = tmp_path / "membrane" / "receptors" / "etiology"
-    recipe_dir.mkdir(parents=True)
-    (recipe_dir / "recipe.yaml").write_text("title: test\nprompt: default")
+    _make_recipe(tmp_path)
 
     fake_api = MagicMock(return_value=0)
-    with patch.dict(os.environ, {"HOME": str(tmp_path)}):
+    with patch.object(Path, "home", return_value=tmp_path):
         with patch.dict(_mod, {"_direct_api": fake_api}):
             with patch("subprocess.run", return_value=_mock_run()):
                 rc = main(["--skill", "etiology", str(tmp_path), "test"])

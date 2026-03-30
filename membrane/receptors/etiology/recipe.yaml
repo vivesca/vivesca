@@ -26,6 +26,13 @@ instructions: |
   2. **Regression? → diff what changed.** Never suggest reinstalling or workarounds. Check git history, config changes, recent migrations, env changes.
   3. **"Command not found"? → check it exists** before suggesting install. Verify PATH, shell context (interactive vs non-interactive), aliases.
   4. **Reproduce consistently** — exact steps, every time? If not reproducible, gather more data.
+  5. **Visual reproduction (UI bugs):** If the bug involves UI or user flows, use agent-browser to reproduce visually:
+     ```bash
+     agent-browser open "<url>" && agent-browser snapshot  # see current state
+     agent-browser click "@ref" && agent-browser screenshot /tmp/bug-step1.png  # capture each step
+     agent-browser eval "document.querySelectorAll('.error')"  # check for console errors
+     ```
+     Capture screenshots at each step. The screenshots are evidence — attach to findings. Absorbed from CE `reproduce-bug`.
 
   ### Phase 2: Root Cause Investigation
 

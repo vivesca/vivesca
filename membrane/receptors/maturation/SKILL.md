@@ -98,12 +98,27 @@ Wrong calibration in either direction hurts: too rigid on open fields produces b
 
 When a skill misfires (wrong trigger, bad instructions, stale content):
 
-1. **Detect** — what went wrong? Wrong trigger (description issue), wrong behavior (body issue), or stale reference?
-2. **Reflect** — what's the minimal change? Don't rewrite the whole skill for one misfire.
-3. **Fix** — edit the specific section. Show before/after if non-obvious.
-4. **Verify** — mentally replay the trigger scenario. Would it fire correctly now?
+1. **Detect from context** — scan the conversation for which skill was invoked, what went wrong, and how the fix was discovered. Don't ask if you can infer.
+2. **Reflect** — what's the minimal change? Root cause: outdated API, incorrect parameters, wrong endpoint, missing context? Scope: single section or multiple files?
+3. **Present structured diff** before editing:
+   ```
+   Skill being healed: [name]
+   Issue: [1-2 sentence summary]
+   Root cause: [brief explanation]
+
+   ### Change 1: SKILL.md - [Section]
+   Current (incorrect):
+   > [exact text]
+   Corrected:
+   > [new text]
+   Reason: [why]
+   ```
+4. **Apply** — edit the specific section after presenting the diff. Don't rewrite the whole skill for one misfire.
+5. **Verify** — mentally replay the trigger scenario. Would it fire correctly now?
 
 Common misfires: description too broad (fires on unrelated prompts), description too narrow (doesn't fire when it should), body contradicts description, stale paths/commands.
+
+Absorbed from CE `heal-skill` — structured detect → reflect → present diff → apply pattern.
 
 ## When a Skill Fails
 
