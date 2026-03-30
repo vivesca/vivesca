@@ -7,8 +7,8 @@ not just cost tiers. Reads FROM mitophagy outcomes; never duplicates tracking.
 from __future__ import annotations
 
 _DEFAULTS: dict[str, str] = {
-    "probe": "haiku",  # mechanical checks, cheap
-    "repair_known": "haiku",  # pattern matching, deterministic-adjacent
+    "probe": "glm",  # mechanical checks, cheap
+    "repair_known": "glm",  # pattern matching, deterministic-adjacent
     "repair_novel": "sonnet",  # diagnosis needs reasoning
     "methylation": "sonnet",  # pattern crystallization
     "hybridization": "opus",  # creative design, highest judgment

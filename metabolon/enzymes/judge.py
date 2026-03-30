@@ -26,7 +26,7 @@ def judge_evaluate(
     rubric: str,
     content: str,
     context: Optional[str] = None,
-    model: str = "haiku",
+    model: str = "glm",
 ) -> str:
     """Evaluate content against a named rubric.
 
@@ -34,7 +34,7 @@ def judge_evaluate(
         rubric: One of 'article', 'job-eval', or 'outreach'.
         content: The text to evaluate (piped via stdin).
         context: Optional additional context passed to the rubric.
-        model: LLM model to use (default 'haiku').
+        model: LLM model to use (default 'glm').
     """
     valid_rubrics = {"article", "job-eval", "outreach"}
     if rubric not in valid_rubrics:

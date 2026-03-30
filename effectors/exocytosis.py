@@ -72,7 +72,7 @@ def generate(topic: str, style_excerpt: str, extra: str = "") -> str:
 
 
 def judge(post: str) -> tuple[bool, str]:
-    verdict = transduce("haiku", f"{JUDGE_PROMPT}\n\nPost:\n{post}", timeout=60)
+    verdict = transduce("glm", f"{JUDGE_PROMPT}\n\nPost:\n{post}", timeout=60)
     return verdict.upper().startswith("PASS"), verdict
 
 

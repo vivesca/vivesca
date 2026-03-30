@@ -53,8 +53,8 @@ def _model_id(key: str) -> str:
         return key
 
 
-# Default to haiku for cost efficiency (judge is high-volume, low-stakes per call)
-DEFAULT_MODEL = "haiku"
+# Default to glm for cost efficiency (judge is high-volume, low-stakes per call)
+DEFAULT_MODEL = "glm"
 
 # ---------------------------------------------------------------------------
 # Rubric definitions

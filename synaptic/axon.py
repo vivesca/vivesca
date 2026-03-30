@@ -578,9 +578,19 @@ def guard_agent(data):
         )
         sys.exit(2)
 
-    if subtype in ("general-purpose", "scout", "Explore") and model != "haiku":
+    if subtype in ("general-purpose", "scout", "Explore") and model not in ("haiku", ""):
         print(f"HAIKU GUARD: Agent('{subtype}') must use model: \"haiku\".", file=sys.stderr)
         sys.exit(2)
+
+    # Advisory: suggest droid for non-tool-dependent tasks
+    prompt = ti.get("prompt", "")
+    tool_indicators = any(kw in prompt.lower() for kw in ["read file", "grep", "search code", "find file", "glob"])
+    if subtype in ("general-purpose", "scout") and not tool_indicators:
+        print(
+            "[bud-nudge] This agent task may not need CC tools. "
+            "Consider: Bash(command='bud \"<prompt>\"') for free GLM-5.1 dispatch.",
+            file=sys.stderr,
+        )
 
     # Genome inheritance: inject Core Rules into every bud's prompt
     genome = _load_genome()

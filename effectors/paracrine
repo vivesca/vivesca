@@ -224,7 +224,7 @@ Format: TYPE: explanation"""
     }
     try:
         result = subprocess.run(
-            ["channel", "haiku", "-p", prompt],
+            ["channel", "glm", "-p", prompt],
             capture_output=True, text=True, timeout=60, env=env_clean,
         )
         return result.stdout.strip() or result.stderr.strip()

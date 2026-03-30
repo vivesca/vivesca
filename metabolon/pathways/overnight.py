@@ -83,7 +83,7 @@ def metabolise(
         return None
 
 
-def compose_post(result: str, title: str, slug: str, model: str = "haiku") -> Path | None:
+def compose_post(result: str, title: str, slug: str, model: str = "glm") -> Path | None:
     """Reaction 2: crystallised insight → spore."""
     symbiont = _acquire_catalyst()
     timestamp = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%S.000Z")

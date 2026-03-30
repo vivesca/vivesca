@@ -96,7 +96,7 @@ async def recombine(
         f"Identify what differs between A and B. Apply that difference to the current best "
         f"to produce a new variant. Output ONLY the new description."
     )
-    return transduce("haiku", prompt).strip()
+    return transduce("glm", prompt).strip()
 
 
 async def mutate(tool: str, description: str, selection_pressure: str) -> str:
@@ -110,4 +110,4 @@ async def mutate(tool: str, description: str, selection_pressure: str) -> str:
         f"First, derive a specific mutation instruction (what to change and why). "
         f"Then apply it. Output ONLY the revised description."
     )
-    return transduce("haiku", prompt).strip()
+    return transduce("glm", prompt).strip()

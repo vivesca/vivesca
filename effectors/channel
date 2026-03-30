@@ -20,10 +20,14 @@ import time
 
 CLAUDE = "/Users/terry/.local/bin/claude"
 MODELS = {
+    "glm": "glm-5.1",
     "sonnet": "sonnet",
     "haiku": "haiku",
     "opus": "opus",
 }
+# Models routed through ZhiPu's Anthropic-compatible endpoint
+_ZHIPU_MODELS = {"glm"}
+_ZHIPU_BASE_URL = "https://open.bigmodel.cn/api/anthropic"
 
 _TISSUE_TASK = "poiesis_dispatch"
 
@@ -91,17 +95,33 @@ def main():
         if routed and routed in MODELS:
             print(f"[channel] tissue routing: {_TISSUE_TASK} -> {routed}", file=sys.stderr)
             model = routed
+            rest = argv  # raw_model wasn't a model name — it's part of the args
         else:
-            print(f"Unknown model: {raw_model}. Choose from: {', '.join(MODELS)}", file=sys.stderr)
-            sys.exit(1)
+            # Fallback default is glm
+            model = "glm"
+            rest = argv  # raw_model wasn't a model name — it's part of the args
     else:
         model = raw_model
 
-    env = {k: v for k, v in os.environ.items() if k not in ("CLAUDECODE", "ANTHROPIC_API_KEY")}
+    if model in _ZHIPU_MODELS:
+        # Route through ZhiPu's Anthropic-compatible endpoint
+        zhipu_key = os.environ.get("ZHIPU_API_KEY")
+        if not zhipu_key:
+            print("channel: ZHIPU_API_KEY not set — check 1Password injection in ~/.zshenv", file=sys.stderr)
+            sys.exit(2)
+        env = {
+            k: v for k, v in os.environ.items()
+            if k not in ("CLAUDECODE", "ANTHROPIC_API_KEY", "ANTHROPIC_BASE_URL", "ANTHROPIC_AUTH_TOKEN")
+        }
+        env["ANTHROPIC_API_KEY"] = zhipu_key
+        env["ANTHROPIC_BASE_URL"] = _ZHIPU_BASE_URL
+    else:
+        # Standard Anthropic / Max OAuth path
+        env = {k: v for k, v in os.environ.items() if k not in ("CLAUDECODE", "ANTHROPIC_API_KEY")}
 
-    if not _gate():
-        print("channel: Max OAuth not available — channel closed", file=sys.stderr)
-        sys.exit(2)
+        if not _gate():
+            print("channel: Max OAuth not available — channel closed", file=sys.stderr)
+            sys.exit(2)
 
     args = [CLAUDE, "--print", "--model", MODELS[model]]
     if organism:

@@ -11,10 +11,10 @@ Scans Claude Code session transcripts for cross-session patterns:
 - Recurring topics (needs that keep surfacing across sessions)
 - Emergent clusters (topics that co-occur, suggesting deeper structure)
 
-Daily: extract correction patterns, recurring topics via haiku.
+Daily: extract correction patterns, recurring topics via glm.
 Weekly (--weekly): synthesise the week's daily scans via sonnet.
 
-Uses haiku for extraction (cost efficiency via Max subscription).
+Uses glm for extraction (cost efficiency via Max subscription).
 Only escalates to sonnet for weekly synthesis.
 
 Design doc: ~/germline/loci/copia/cross-session-scanner-design-2026-03-23.md
@@ -488,7 +488,7 @@ def extract_user_prompts(sessions: list[dict], max_per_session: int | None = Non
 
 
 # ── LLM queries via channel ────────────────────────────────────────────────────
-def llm_query(prompt: str, model: str = "haiku") -> str:
+def llm_query(prompt: str, model: str = "glm") -> str:
     """Query LLM via channel (Claude Code Max subscription, zero API cost)."""
     try:
         result = subprocess.run(
@@ -513,7 +513,7 @@ def llm_query(prompt: str, model: str = "haiku") -> str:
 
 
 def classify_corrections(corrections: list[dict]) -> str:
-    """Use haiku to cluster correction snippets by error category."""
+    """Use glm to cluster correction snippets by error category."""
     if not corrections:
         return "No corrections found in scanned sessions."
 
@@ -541,16 +541,16 @@ If all snippets are redirections (not corrections), return [{{"cluster": "no_gen
 Correction snippets:
 {json.dumps(sample, indent=2)}"""
 
-    result = llm_query(prompt, "haiku")
+    result = llm_query(prompt, "glm")
     return result if result else "Classification failed (LLM unavailable)."
 
 
 def extract_topics(session_prompts: list[dict]) -> str:
-    """Use haiku to identify recurring topics across sessions."""
+    """Use glm to identify recurring topics across sessions."""
     if not session_prompts:
         return "No session prompts to analyse."
 
-    # Cap for haiku context window
+    # Cap for glm context window
     sample = session_prompts[:_CONF["session_sample_cap"]]
 
     prompt = f"""You are analysing user prompts from {len(sample)} Claude Code sessions
@@ -565,7 +565,7 @@ Return ONLY a JSON array: [{{"topic": "specific_name", "session_count": N, "sign
 Sessions and their opening prompts:
 {json.dumps(sample, indent=2)}"""
 
-    result = llm_query(prompt, "haiku")
+    result = llm_query(prompt, "glm")
     return result if result else "Topic extraction failed (LLM unavailable)."
 
 
@@ -611,12 +611,12 @@ def daily_scan(days: int = 1, dry_run: bool = False) -> None:
         print(f"Sessions: {len(sessions)}")
         print(f"Corrections: {correction_count} across {len(corrections)} sessions")
         print(f"Session prompts: {len(session_prompts)}")
-        print(f"Would classify corrections via haiku: {'yes' if corrections else 'no'}")
-        print(f"Would extract topics via haiku: {'yes' if session_prompts else 'no'}")
+        print(f"Would classify corrections via glm: {'yes' if corrections else 'no'}")
+        print(f"Would extract topics via glm: {'yes' if session_prompts else 'no'}")
         print(f"Output path: {SCAN_DIR / f'anam-scan-{today}.md'}")
         return
 
-    # Phase 4: LLM classification (haiku)
+    # Phase 4: LLM classification (glm)
     correction_clusters = classify_corrections(corrections)
     topics = extract_topics(session_prompts)
 

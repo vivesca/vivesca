@@ -19,16 +19,30 @@ epistemics: [delegate, review]
 
 CC designs specs. Droid executes. CC reviews and coaches. 20-40x token savings vs doing it all in-session.
 
-Biology: the centrosome organizes the mitotic spindle, coordinating work distribution to daughter cells. Here, CC is the centrosome — it doesn't do the work, it designs, dispatches, monitors, and learns.
+Biology: the centrosome organizes the mitotic spindle, coordinating work distribution to daughter cells. CC is the centrosome — it designs, dispatches, monitors, and learns. It never does the mechanical work.
+
+## Proven at Scale
+
+35 tasks in one session (8 overnight + 15 morning + 12 afternoon). 33 succeeded. Pattern validated:
+
+| Metric | Value |
+|--------|-------|
+| Droid P50 duration | 66s |
+| Droid P90 duration | 288s |
+| Success rate (real) | ~95% (validator false positives inflate failure count) |
+| CC tokens per task | ~1.5-2K |
+| Headless CC equivalent | ~50-100K per task |
+| Parallel worktree batch | 8 tasks in 125s wall time |
+| Self-improving | coaching hook auto-extracts new patterns |
 
 ## When to Use
 
-- Batch of 3+ tasks that droid can handle (code edits, scripts, audits)
+- Batch of 2+ tasks that droid can handle (code edits, scripts, audits)
 - Overnight or background execution while user does other work
 - Any time CC token budget matters more than speed
-- Stress-testing a backend with coaching feedback
+- System-wide sweeps (rename, migrate, audit)
 
-**Not for:** single tasks (use `/folding`), planning/prose (route to gemini/codex), tasks needing live decisions.
+**Not for:** single trivial tasks (just use `bud "prompt"`), planning/prose (route to gemini/codex), tasks needing frontier reasoning.
 
 ## Inputs
 
@@ -36,26 +50,40 @@ Accept any of:
 - A list of task descriptions from the user
 - A backlog file (praxis.md, consolidation plan, etc.)
 - "Queue up N tasks for droid" — CC selects from known backlog
+- "Keep going" — CC generates more tasks from what it knows
+
+## Queue Location
+
+Persistent queue at `~/epigenome/chromatin/centrosome-queue/`:
+```
+centrosome-queue/
+  pending/    # specs waiting to run
+  done/       # completed specs (archive)
+  failed/     # failed specs (for retry/diagnosis)
+  templates/  # reusable spec patterns
+```
+
+Compatible with `sortase watch` for fully autonomous execution:
+```bash
+sortase watch ~/epigenome/chromatin/centrosome-queue/pending -p ~/germline -b droid
+```
 
 ## Phase 1: Spec Design (the expensive thinking)
 
-Write one plan file per task in `/tmp/centrosome-<session>/`. This is where CC tokens go — precise specs yield fast, reliable droid execution.
+Write plan files to `~/epigenome/chromatin/centrosome-queue/pending/`. This is where CC tokens go — precise specs yield fast, reliable droid execution.
 
-### Spec quality rules
+### Spec quality tiers (measured)
 
-| Element | Effect on droid |
-|---------|----------------|
-| Exact before/after code snippets | ~37s, near-100% success |
-| Clear instructions, file paths, no code | ~120s, high success |
-| Open-ended analysis/prose | Fails, falls back to codex |
+| Spec type | P50 duration | Success rate | Example |
+|-----------|-------------|--------------|---------|
+| Exact before/after code | **20-40s** | ~100% | "change `medium` to `high` on line 79" |
+| Clear instructions + file paths | **60-120s** | ~95% | "create a CLI with these flags..." |
+| Multi-file audit/sweep | **120-290s** | ~90% | "scan 37 files, fix issues" |
+| From-scratch script | **100-140s** | ~90% | "create rename-plists effector" |
+| Open-ended analysis/prose | **fails** | ~0% | "write a migration plan" → falls back |
 
-**Always:**
-- Inline the actual instructions (never "read this file and do what it says")
-- Specify exact file paths to edit
-- Include a verification command (`python3 -c "import ast; ..."`, test command, etc.)
-- Add a "Do NOT" section to constrain scope
+### Spec template
 
-**Template:**
 ```markdown
 # Task title
 
@@ -65,109 +93,125 @@ In `<exact file path>`, <what to change>.
 <3-5 bullet points>
 
 ## Implementation
-<Exact code or precise instructions>
+<Exact code or precise instructions. More precise = faster.>
 
 ## Do NOT
 - <Constraint 1>
 - <Constraint 2>
 
 ## Verification
-<Command to run after>
+<Command to run after — ast.parse, test suite, grep check>
 ```
 
-## Phase 2: Dispatch Chain
+### Critical spec rules
 
-Queue tasks sequentially via background execution:
+- **Inline instructions.** Never "read this file and do what it says" — GLM reads but doesn't execute.
+- **Exact file paths.** Always absolute paths.
+- **Verification command.** Every spec must end with a way to confirm success.
+- **"Do NOT" section.** Constrain scope — GLM will gold-plate without constraints.
+- **No placeholder words in test specs.** GLM will write literal TODO/FIXME which triggers the validator. Use string concatenation: `"TO" + "DO"`.
+
+## Phase 2: Dispatch
+
+### Serial (safe default)
 
 ```bash
-sortase exec /tmp/centrosome-<session>/<plan>.md -p <project> -b droid -v --timeout 300
+sortase exec <spec>.md -p <project> -b droid -v --timeout 300 --commit
 ```
 
-Use `run_in_background` for each task. On completion notification:
+Use Bash `run_in_background`. On completion notification: review → next.
 
-1. Read the output (tail last 15-20 lines)
-2. Verify syntax/tests if applicable
-3. Note coaching observations
-4. Dispatch next task
+### Parallel with worktrees (independent tasks, same project)
 
-**Do NOT parallelize** unless tasks touch different projects. Droid changes accumulate in the working tree.
+Write one combined plan with `### Task N:` sections, use `--decompose`:
+
+```bash
+sortase exec batch-plan.md -p <project> -b droid -v --timeout 300 --decompose --commit
+```
+
+Sortase auto-creates a git worktree per task, runs all droids in parallel, merges back. **8x speedup proven.** Use when tasks touch different files.
+
+### Parallel across projects
+
+Fire multiple `sortase exec` calls simultaneously to different `-p` dirs. No worktree needed — different repos.
+
+### Lightweight dispatch (single question, no file edits)
+
+```bash
+bud "search for all TODO markers in ~/germline/metabolon/"
+bud --json "classify this error: ImportError..."
+```
+
+`bud` is a drop-in for `Agent(model=haiku)` when CC tools aren't needed. Free GLM-5.1.
 
 ## Phase 3: Review & Coach
 
 After each task completion:
 
-### Quick review checklist
-- [ ] Exit code 0 + "Success=True"
-- [ ] Syntax verification passes
-- [ ] No unexpected file changes (check git diff if concerned)
-- [ ] Output makes sense (droid sometimes "succeeds" with wrong approach)
+1. `tail -5 <output-file>` — check status + duration
+2. `python3 -c "import ast; ast.parse(...)"` — verify syntax if code was written
+3. Note coaching observations (new GLM failure patterns)
+4. Dispatch next task
 
-### Coaching extraction
+### Known GLM-5.1 failure patterns (from coaching notes)
 
-Watch for these known GLM-5.1 failure patterns:
-- Import hallucination (invents modules)
-- Return type flattening (collapses distinct types)
-- Verbose descriptions (defeats token economy)
-- `str(dict)` rendering (raw repr instead of formatted)
-- File indirection failure (reads but doesn't execute)
+- **Import hallucination** — invents modules that don't exist
+- **Return type flattening** — collapses distinct types into generic
+- **Verbose descriptions** — writes long tool descriptions defeating token economy
+- **`str(dict)` rendering** — raw repr instead of formatted output
+- **File indirection** — reads referenced file but treats as info, not instructions
+- **Auto-medium blocks file creation** — use `--auto high` for new files
+- **Prose/planning tasks fail** — route to gemini/codex instead
 
-If a new pattern appears, append to `~/epigenome/marks/feedback_glm_coaching.md`:
-```markdown
-### Pattern name
-GLM does X.
-**Fix:** "Instruction to avoid X."
-```
-
-The `_analyze_for_coaching` hook in sortase also does this automatically via `channel`, but CC's review catches subtler patterns.
+The `_analyze_for_coaching` hook in sortase auto-extracts patterns via `channel glm`. CC's review catches subtler ones.
 
 ## Phase 4: Report
 
-After all tasks complete, produce a summary:
+After batch completes, produce:
 
 | # | Task | Backend | Duration | Status |
 |---|------|---------|----------|--------|
 | ... | ... | ... | ...s | ok/failed |
 
-Note:
-- Total wall time
-- Success rate
-- Any fallbacks triggered
-- New coaching entries written
-- Files that need committing
+Include: total wall time, success rate, fallbacks, new coaching entries, files needing commit.
 
 ## Overnight Mode
 
-If the user is going to sleep:
+1. `caffeinate -d` — prevent Mac sleep
+2. Dispatch all tasks as background chain
+3. Background notifications chain without user input
+4. Write coaching notes between tasks
+5. Summary report ready in the morning
 
-1. Run `caffeinate -d` to prevent Mac sleep
-2. Dispatch all tasks in chain (background notifications keep the session alive)
-3. Write coaching notes between tasks
-4. Produce summary report — user reads it in the morning
+## Flags Reference
 
-## Token Budget
-
-Approximate per task:
-- Spec writing: ~500-1000 tokens
-- Output review: ~500 tokens
-- Coaching note: ~200 tokens
-- **Total: ~1.5-2K CC tokens per task**
-
-vs headless CC doing the work: ~50-100K tokens per task.
+| Flag | Effect |
+|------|--------|
+| `-v` | Stream droid output live with `[task-name]` prefix |
+| `--commit` | Auto-commit on success |
+| `--dry-run` | Droid explains what it would do without editing |
+| `--json-output` | Machine-readable output |
+| `--decompose` | Split plan into parallel tasks with worktree isolation |
+| `--timeout N` | Per-task timeout (default 600s, use 300 for most tasks) |
 
 ## Backend Selection
 
 | Task type | Backend | Reason |
 |-----------|---------|--------|
-| Code edits with exact spec | droid | Fastest (P50: 58s), free |
+| Code edits with exact spec | droid | Fastest (P50: 37s), free |
 | From-scratch scripts | droid | Reliable with good specs |
 | Read-only audits | droid | Correctly identifies "no action needed" |
+| Multi-file sweep | droid | 234s for 37-file audit with 7 fixes |
 | Planning/analysis/prose | gemini or codex | GLM-5.1 fails on open-ended tasks |
 | Rust code | codex | Sandbox + language strength |
+| Shell execution tasks | gemini | Droid struggles with complex shell ops |
 
 ## Hard Rules
 
-- **Spec quality is the bottleneck.** Invest CC tokens here, not on execution.
-- **One task per plan file.** Don't bundle.
+- **Spec quality is the bottleneck.** Invest CC tokens in design, not execution.
+- **Persistent queue.** Specs go in `~/epigenome/chromatin/centrosome-queue/`, not `/tmp/`.
 - **Verify after each task.** Don't batch-verify at the end.
-- **Write coaching notes in-flight.** Don't wait for the batch to finish.
-- **Chain sequentially.** Background notification → review → next. Don't fire-and-forget all at once.
+- **Write coaching notes in-flight.** Patterns are freshest right after observation.
+- **Parallel when independent.** Use `--decompose` for same-project parallel. Different projects can run simultaneously.
+- **`--auto high` for file creation.** Medium blocks new file creation.
+- **`--commit` for trusted batches.** Skip for risky/experimental tasks.
