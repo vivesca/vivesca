@@ -28,65 +28,13 @@ allowed-tools:
 
 ## Sporulate (save)
 
-### 1. Generate codename
-
-Random `adjective-noun` pair. Must be memorable and distinct from existing checkpoints.
-
-```bash
-# Check existing checkpoints to avoid collision
-ls ~/.claude/projects/-Users-terry/memory/checkpoint_*.md 2>/dev/null
-```
-
-Generate with Python:
-
-```bash
-python3 -c "
-import random
-adj = ['happy', 'calm', 'bold', 'warm', 'keen', 'swift', 'bright', 'quiet', 'wild', 'crisp',
-       'pale', 'dark', 'soft', 'sharp', 'cool', 'odd', 'rare', 'slim', 'tall', 'deep',
-       'gold', 'iron', 'blue', 'red', 'green', 'silver', 'amber', 'coral', 'jade', 'onyx']
-noun = ['cat', 'fox', 'owl', 'elk', 'bee', 'ant', 'bat', 'cod', 'eel', 'yak',
-        'oak', 'elm', 'fig', 'ash', 'bay', 'gem', 'orb', 'arc', 'key', 'bell',
-        'star', 'moon', 'rain', 'leaf', 'wave', 'fern', 'moss', 'pine', 'crow', 'hawk']
-print(f'{random.choice(adj)}-{random.choice(noun)}')
-"
-```
-
-### 2. Write checkpoint
-
-Write to `~/.claude/projects/-Users-terry/memory/checkpoint_<codename>.md`:
-
-```markdown
----
-name: <codename> checkpoint
-description: Resume point for <one-line summary> (<date> ~<time> HKT)
-type: project
----
-
-## Context
-<What we were doing — 2-3 sentences max>
-
-## Where we left off
-<Bullet list: last actions taken, last messages exchanged, pending items>
-
-## Action needed
-<Numbered list: exact steps to resume, including tool calls if relevant>
-
-## Passcode: <codename>
-```
-
-Rules:
-- **Compress.** Only what's needed to resume. Not a transcript.
-- **Be specific.** Include tool names, file paths, message content — not "we were chatting."
-- **Pending items first.** The whole point is unfinished business.
-
-### 3. Report
-
-Tell the user the codename. That's it.
-
-```
-Passcode: **<codename>**
-```
+1. Run **full cytokinesis inline** first (see pre-sporulation section below)
+2. Call `sporulation(action="save")` MCP tool with:
+   - `context`: what we were doing (2-3 sentences)
+   - `where_we_left_off`: last actions, pending items
+   - `action_needed`: numbered steps to resume (include tool names, file paths)
+   - `summary`: one-line summary
+3. Report the codename to the user
 
 ## Germinate (resume)
 
