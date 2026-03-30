@@ -653,3 +653,15 @@ def test_chain_fallback(tmp_path):
     assert rc == 0
     assert calls[0] == "goose"
     assert calls[1].endswith("droid")
+
+
+# ── v5: Batch retry flag ──────────────────────────────────────────
+
+
+def test_batch_retry_flag_parsed():
+    """--retries is parsed correctly with and without explicit value."""
+    _parse_args = _mod["_parse_args"]
+    args = _parse_args(["--batch", "*.md", "--retries", "2", "."])
+    assert args.retries == 2
+    args_default = _parse_args(["--batch", "*.md", "."])
+    assert args_default.retries == 0

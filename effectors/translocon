@@ -493,11 +493,20 @@ def _batch_dispatch(args: argparse.Namespace) -> int:
         child_args.batch = None  # prevent recursion
         plan_name = plan_path.name
         print(f"translocon: dispatching {plan_name}...", file=sys.stderr)
-        try:
-            rc = main_impl(child_args)
-        except Exception as exc:
-            print(f"  {plan_name}: ERROR {exc}", file=sys.stderr)
-            rc = 1
+        max_retries = args.retries
+        for attempt in range(max_retries + 1):
+            try:
+                rc = main_impl(child_args)
+            except Exception as exc:
+                print(f"  {plan_name}: ERROR {exc}", file=sys.stderr)
+                rc = 1
+            if rc == 0:
+                break
+            if attempt < max_retries:
+                import time
+                backoff = 15 * (attempt + 1)
+                print(f"  {plan_name}: retrying in {backoff}s (attempt {attempt + 2}/{max_retries + 1})", file=sys.stderr)
+                time.sleep(backoff)
         ok = rc == 0
         if ok:
             success_count += 1
