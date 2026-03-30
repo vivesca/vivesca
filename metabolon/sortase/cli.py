@@ -4,7 +4,7 @@ import asyncio
 import json
 import shutil
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
 import click
@@ -963,8 +963,69 @@ def compare(date_a: str, date_b: str, log_path: Path | None) -> None:
     console.print(report)
 
 
+def _percentile(sorted_values: list[float], p: float) -> float:
+    """Compute the p-th percentile from a pre-sorted list of values."""
+    if not sorted_values:
+        return 0.0
+    k = (len(sorted_values) - 1) * p / 100
+    f = int(k)
+    c = min(f + 1, len(sorted_values) - 1)
+    return sorted_values[f] + (k - f) * (sorted_values[c] - sorted_values[f])
+
+
+def _print_backend_percentiles(days: int) -> None:
+    """Print p50/p75/p95 duration percentiles grouped by backend tool."""
+    from collections import defaultdict as _dd
+
+    from metabolon.sortase.logger import read_logs
+
+    entries = read_logs()
+    if not entries:
+        console.print("[dim]No log entries found.[/dim]")
+        return
+
+    cutoff = datetime.now() - timedelta(days=days)
+    by_backend: dict[str, list[float]] = _dd(list)
+
+    for entry in entries:
+        ts = entry.get("timestamp")
+        if not isinstance(ts, str) or not ts:
+            continue
+        try:
+            parsed_ts = datetime.fromisoformat(ts)
+        except ValueError:
+            continue
+        if parsed_ts < cutoff:
+            continue
+        dur = entry.get("duration_s")
+        if dur is None:
+            continue
+        backend = entry.get("tool", "unknown")
+        by_backend[backend].append(float(dur))
+
+    if not by_backend:
+        console.print(f"[dim]No entries in the last {days} days.[/dim]")
+        return
+
+    total = sum(len(v) for v in by_backend.values())
+    console.print(
+        f"\n[bold]Backend Percentiles[/bold] (last {days} days, N={total}):"
+    )
+    for backend in sorted(by_backend):
+        durations = sorted(by_backend[backend])
+        count = len(durations)
+        p50 = _percentile(durations, 50)
+        p75 = _percentile(durations, 75)
+        p95 = _percentile(durations, 95)
+        console.print(
+            f"  {backend:10s} p50={p50:6.0f}s  p75={p75:6.0f}s  p95={p95:6.0f}s  (N={count})"
+        )
+
+
 @main.command()
-def speed() -> None:
+@click.option("--days", default=7, type=int, help="Days of history to analyze")
+@click.option("--percentiles", is_flag=True, help="Show p50/p75/p95 percentiles per backend")
+def speed(days: int, percentiles: bool) -> None:
     """Show sortase dispatch throughput metrics."""
 
     from metabolon.organelles.tachometer import (
@@ -1004,6 +1065,9 @@ def speed() -> None:
         f"({coaching['improvement_pct']:+.1f}pp, "
         f"{coaching['notes_analyzed']} notes over {coaching['total_entries']} entries)"
     )
+
+    if percentiles:
+        _print_backend_percentiles(days)
 
 
 # ── clean: remove stale sortase worktrees ───────────────────
