@@ -138,15 +138,17 @@ def exec_command(
                     "success": r.success,
                     "duration_s": sum(a.duration_s for a in r.attempts),
                     "fallbacks": r.fallbacks,
+                    "cost_estimate": r.cost_estimate or "N/A",
                 }
                 for r in results
             ],
             "files_changed": changed_file_list,
             "validation_issues": [
-                {"severity": i.severity, "message": i.message}
+                {"severity": i.severity, "check": i.check, "message": i.message}
                 for i in validation_issues
             ],
             "duration_s": entry["duration_s"],
+            "total_duration_s": entry["duration_s"],
         }
         console.print(_json.dumps(output, indent=2))
     elif not quiet:

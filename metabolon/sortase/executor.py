@@ -164,6 +164,20 @@ def estimate_cost(tool: str, prompt: str, output: str) -> str:
 
 
 @dataclass(frozen=True)
+class FallbackStep:
+    """One step in a fallback chain — tried backend, outcome, and reason."""
+    tool: str
+    succeeded: bool
+    failure_reason: str | None = None
+
+    def to_dict(self) -> dict[str, object]:
+        entry: dict[str, object] = {"tool": self.tool, "succeeded": self.succeeded}
+        if self.failure_reason is not None:
+            entry["failure_reason"] = self.failure_reason
+        return entry
+
+
+@dataclass(frozen=True)
 class TaskExecutionResult:
     task_name: str
     tool: str
@@ -172,6 +186,7 @@ class TaskExecutionResult:
     attempts: list[ExecutionAttempt] = field(default_factory=list)
     output: str = ""
     fallbacks: list[str] = field(default_factory=list)
+    fallback_chain: list[FallbackStep] = field(default_factory=list)
     cost_estimate: str = ""
 
 
