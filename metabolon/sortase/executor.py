@@ -41,8 +41,15 @@ COACHING_NOTES = Path.home() / "epigenome" / "marks" / "feedback_glm_coaching.md
 
 
 def _prepend_coaching(prompt: str, tool: str) -> str:
-    """Prepend coaching notes for weaker models. Deterministic — no LLM needed."""
-    if tool not in ("goose", "opencode", "cc-glm", "droid", "crush") or not COACHING_NOTES.exists():
+    """Prepend coaching notes for weaker models. Deterministic — no LLM needed.
+
+    Tools routed through translocon (goose, droid) are excluded because
+    translocon injects its own coaching via ``_inject_coaching``. Adding it
+    here would double-inject, bloating the prompt and confusing the model.
+    """
+    if tool in ("goose", "droid"):
+        return prompt
+    if tool not in ("opencode", "cc-glm", "crush") or not COACHING_NOTES.exists():
         return prompt
     try:
         notes = COACHING_NOTES.read_text(encoding="utf-8")
