@@ -127,3 +127,81 @@ def test_task_execution_result_dataclass():
     )
     assert r.fallbacks == []
     assert r.output == ""
+
+
+# ── cost estimation ──────────────────────────────────────────
+
+
+def test_estimate_cost_flat_rate_goose():
+    assert estimate_cost("goose", "some prompt", "some output") == "$0.00 (flat-rate)"
+
+
+def test_estimate_cost_flat_rate_droid():
+    assert estimate_cost("droid", "prompt" * 100, "output" * 100) == "$0.00 (flat-rate)"
+
+
+def test_estimate_cost_flat_rate_cc_glm():
+    assert estimate_cost("cc-glm", "prompt", "output") == "$0.00 (flat-rate)"
+
+
+def test_estimate_cost_flat_rate_crush():
+    assert estimate_cost("crush", "prompt", "output") == "$0.00 (flat-rate)"
+
+
+def test_estimate_cost_gemini():
+    """Gemini pricing: input $1.25/M, output $10.00/M tokens."""
+    prompt = "a" * 4000   # ~1000 input tokens
+    output = "b" * 4000   # ~1000 output tokens
+    cost = estimate_cost("gemini", prompt, output)
+    # input: 1000 * 1.25 / 1e6 = $0.00125
+    # output: 1000 * 10.0 / 1e6 = $0.01000
+    # total: $0.01125 → rounds to $0.0112 (banker's rounding)
+    assert cost == "$0.0112"
+
+
+def test_estimate_cost_gemini_small():
+    """Very short prompt and output still produce a numeric estimate."""
+    cost = estimate_cost("gemini", "hi", "ok")
+    assert cost.startswith("$")
+    assert "(flat-rate)" not in cost
+    assert "(unknown" not in cost
+
+
+def test_estimate_cost_codex():
+    """Codex free tier — zero cost."""
+    cost = estimate_cost("codex", "prompt" * 500, "output" * 500)
+    assert cost == "$0.0000"
+
+
+def test_estimate_cost_unknown_tool():
+    """Unknown tool gets unknown-pricing marker."""
+    cost = estimate_cost("nonexistent-tool", "prompt", "output")
+    assert cost == "$0.00 (unknown pricing)"
+
+
+def test_execution_attempt_has_cost_estimate():
+    a = ExecutionAttempt(tool="goose", exit_code=0, duration_s=1.0, output="ok")
+    assert a.cost_estimate == ""
+
+
+def test_execution_attempt_custom_cost_estimate():
+    a = ExecutionAttempt(
+        tool="gemini", exit_code=0, duration_s=2.0, output="ok",
+        cost_estimate="$0.0113",
+    )
+    assert a.cost_estimate == "$0.0113"
+
+
+def test_task_execution_result_has_cost_estimate():
+    r = TaskExecutionResult(
+        task_name="test", tool="droid", prompt_file=None, success=True,
+        cost_estimate="$0.00 (flat-rate)",
+    )
+    assert r.cost_estimate == "$0.00 (flat-rate)"
+
+
+def test_task_execution_result_default_cost_estimate():
+    r = TaskExecutionResult(
+        task_name="test", tool="droid", prompt_file=None, success=True,
+    )
+    assert r.cost_estimate == ""
