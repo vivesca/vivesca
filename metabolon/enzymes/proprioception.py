@@ -8,12 +8,17 @@ Gradient sensing: each reading logs key metrics. On query, current
 reading is compared to recent history to surface trends.
 """
 
+from __future__ import annotations
+
+import filecmp
 import json
 import os
+import re
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Literal
 
+import yaml
 from fastmcp.tools import tool
 
 HKT = timezone(timedelta(hours=8))
@@ -32,13 +37,29 @@ Target = Literal[
     "histone_store",  # memory database statistics
     "effectors",  # unified tool index — MCP and CLI tools
     "oscillators",  # LaunchAgent state — schedule, status, exit code, type
+    "sense",  # goal readiness sensing
+    "drill",  # record drill results
+    "gradient",  # polarity gradient detection
+    "skills",  # skill/enzyme directory scan
 ]
 
 
 @tool()
-def proprioception(target: Target) -> str:
-    """Sense organism internal state with gradient detection. Targets: genome, anatomy, circadian, vitals, glycogen, reflexes, consolidation, operons, sensorium, histone_store, effectors, oscillators."""
-    reading = _DISPATCH[target]()
+def proprioception(
+    target: Target,
+    # drill params (only used when target="drill")
+    goal: str = "",
+    category: str = "",
+    score: int = 0,
+    drill_type: str = "flashcard",
+    material: str = "",
+    notes: str = "",
+) -> str:
+    """Sense organism internal state with gradient detection. Targets: genome, anatomy, circadian, vitals, glycogen, reflexes, consolidation, operons, sensorium, histone_store, effectors, oscillators, sense, drill, gradient, skills."""
+    if target == "drill":
+        reading = _drill(goal, category, score, drill_type, material, notes)
+    else:
+        reading = _DISPATCH[target]()
     gradient = _log_and_gradient(target, reading)
     if gradient:
         reading = f"{reading}\n\n--- Gradient ---\n{gradient}"
@@ -208,6 +229,227 @@ def _oscillators() -> str:
     return express_pacemaker_status()
 
 
+# -- sense: proprioceptive readiness sensing (from receptor.py) ------------
+
+
+def _sense() -> str:
+    """Proprioceptive readiness check against active goals."""
+    from metabolon.organelles.receptor_sense import (
+        GOALS_DIR as _ORGANELLE_GOALS_DIR,
+        SIGNALS_DIR as _ORGANELLE_SIGNALS_DIR,
+        ProprioceptiveStore,
+        restore_goals,
+        synthesize_signal_summary,
+    )
+
+    _goals_dir = _ORGANELLE_GOALS_DIR
+    _signals_dir = _ORGANELLE_SIGNALS_DIR
+
+    goals = restore_goals(_goals_dir)
+    if not goals:
+        return "No goals configured. Add a YAML file to ~/.local/share/vivesca/goals/"
+
+    parts = []
+    for goal in goals:
+        goal_slug = goal["name"].lower().replace(" ", "-")
+        store = ProprioceptiveStore(_signals_dir / f"{goal_slug}-signals.jsonl")
+        summary = synthesize_signal_summary(goal, store)
+
+        phase_info = f"Phase: {summary['phase']}"
+        if summary["days_to_next_phase"] is not None:
+            phase_info += f" ({summary['days_to_next_phase']} days to next phase)"
+
+        weakest_info = ""
+        if summary["weakest"]:
+            weak_details = []
+            for cat in summary["weakest"]:
+                cat_data = summary["categories"][cat]
+                if cat_data["drill_count"] == 0:
+                    weak_details.append(f"{cat}: never drilled")
+                else:
+                    weak_details.append(f"{cat}: avg {cat_data['avg_score']:.1f}/3")
+            weakest_info = "Weakest: " + ", ".join(weak_details)
+
+        parts.append(
+            f"**{summary['goal']}** — {phase_info}. "
+            f"Total drills: {summary['total_drills']}. "
+            f"{weakest_info}"
+        )
+
+    return "\n\n".join(parts)
+
+
+# -- drill: record proprioceptive drill results (from receptor.py) ---------
+
+
+def _drill(
+    goal: str,
+    category: str,
+    score: int,
+    drill_type: str = "flashcard",
+    material: str = "",
+    notes: str = "",
+) -> str:
+    """Record a proprioceptive drill signal."""
+    from metabolon.morphology import EffectorResult
+    from metabolon.organelles.receptor_sense import (
+        SIGNALS_DIR as _ORGANELLE_SIGNALS_DIR,
+        ProprioceptiveStore,
+    )
+
+    if score < 1 or score > 3:
+        return f"Failed: score must be 1-3, got {score}"
+
+    _signals_dir = _ORGANELLE_SIGNALS_DIR
+    store = ProprioceptiveStore(_signals_dir / f"{goal}-signals.jsonl")
+    store.append(
+        goal=goal,
+        material=material,
+        category=category,
+        score=score,
+        drill_type=drill_type,
+        notes=notes,
+    )
+
+    return f"Recorded {drill_type} drill: {category} = {score}/3 (goal: {goal})"
+
+
+# -- gradient_detect: polarity gradient detection (from gradient.py) --------
+
+
+def _gradient_detect() -> str:
+    """Sense directional gradients across the organism's sensor arrays."""
+    from metabolon.organelles.gradient_sense import build_gradient_report
+
+    report = build_gradient_report(7)
+
+    lines = [f"Polarity: {report.polarity_vector}"]
+    if report.interpretation:
+        lines.append(report.interpretation)
+    for g in report.gradients:
+        lines.append(
+            f"  {g.domain}: strength={g.signal_strength:.2f}, "
+            f"coverage={g.sensor_coverage}/3, topology={g.topology_bonus}"
+        )
+        if g.top_titles:
+            for t in g.top_titles[:3]:
+                lines.append(f"    title: {t}")
+        if g.top_queries:
+            for q in g.top_queries[:3]:
+                lines.append(f"    query: {q}")
+
+    return "\n".join(lines)
+
+
+# -- skills: upstream receptor fork change detection (from integrin.py) -----
+
+
+_SKILLS_REGISTRY_PATH = Path(os.path.expanduser("~/.local/share/vivesca/skill-forks.yaml"))
+
+_SKILLS_DEFAULT_REGISTRY = {
+    "superpowers": {
+        "local": os.path.expanduser("~/germline/receptors/superpowers"),
+        "cache_pattern": os.path.expanduser(
+            "~/.claude/plugins/cache/claude-plugins-official/superpowers"
+        ),
+    },
+    "compound-engineering": {
+        "local": os.path.expanduser("~/germline/receptors/compound-engineering"),
+        "cache_pattern": os.path.expanduser(
+            "~/.claude/plugins/cache/every-marketplace/compound-engineering"
+        ),
+    },
+}
+
+_VERSION_RE = re.compile(r"^\d+\.\d+\.\d+$")
+
+
+def _restore_fork_registry(path: Path = _SKILLS_REGISTRY_PATH) -> dict:
+    """Load fork registry from YAML, or return defaults."""
+    if path.exists():
+        with open(path) as f:
+            return yaml.safe_load(f) or {}
+    return _SKILLS_DEFAULT_REGISTRY
+
+
+def _find_latest_cache_version(cache_dir: Path) -> Path | None:
+    """Find the latest versioned directory in a cache path."""
+    if not cache_dir.exists():
+        return None
+
+    versions: list[tuple[tuple[int, ...], Path]] = []
+    for entry in cache_dir.iterdir():
+        if entry.is_dir() and _VERSION_RE.match(entry.name):
+            parts = tuple(int(x) for x in entry.name.split("."))
+            skills_dir = entry / "skills"
+            if skills_dir.exists():
+                versions.append((parts, skills_dir))
+
+    if not versions:
+        return None
+    versions.sort(key=lambda x: x[0])
+    return versions[-1][1]
+
+
+def _diff_fork(local_dir: Path, cache_dir: Path) -> dict:
+    """Compare local fork against upstream cache."""
+    modified: list[str] = []
+    added_upstream: list[str] = []
+
+    local_files: set[str] = set()
+    cache_files: set[str] = set()
+
+    for f in local_dir.rglob("*"):
+        if f.is_file() and not any(p.name == ".git" for p in f.parents):
+            local_files.add(str(f.relative_to(local_dir)))
+
+    for f in cache_dir.rglob("*"):
+        if f.is_file() and not any(p.name == ".git" for p in f.parents):
+            cache_files.add(str(f.relative_to(cache_dir)))
+
+    for rel in sorted(local_files & cache_files):
+        if not filecmp.cmp(local_dir / rel, cache_dir / rel, shallow=False):
+            modified.append(rel)
+
+    added_upstream = sorted(cache_files - local_files)
+
+    return {
+        "modified": modified,
+        "added_upstream": added_upstream,
+        "total_changes": len(modified) + len(added_upstream),
+    }
+
+
+def _skills() -> str:
+    """Proprioceptive check for upstream enzyme (skill) changes."""
+    registry = _restore_fork_registry()
+    parts: list[str] = []
+
+    for suite_name, paths in registry.items():
+        local_dir = Path(paths["local"])
+        cache_base = Path(paths["cache_pattern"])
+
+        if not local_dir.exists():
+            continue
+
+        cache_skills = _find_latest_cache_version(cache_base)
+        if cache_skills is None:
+            continue
+
+        diff = _diff_fork(local_dir, cache_skills)
+        if diff["total_changes"] == 0:
+            continue
+
+        lines = [f"**{suite_name}** — {diff['total_changes']} change(s):"]
+        for f in diff["modified"]:
+            lines.append(f"  modified: {f}")
+        for f in diff["added_upstream"]:
+            lines.append(f"  new upstream: {f}")
+        parts.append("\n".join(lines))
+
+    return "\n\n".join(parts) if parts else "No upstream skill changes detected."
+
+
 _DISPATCH: dict[str, callable] = {
     "genome": _genome,
     "anatomy": _anatomy,
@@ -221,4 +463,7 @@ _DISPATCH: dict[str, callable] = {
     "histone_store": _histone_store,
     "effectors": _effectors,
     "oscillators": _oscillators,
+    "sense": _sense,
+    "gradient": _gradient_detect,
+    "skills": _skills,
 }

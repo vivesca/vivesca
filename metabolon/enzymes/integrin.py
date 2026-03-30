@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from metabolon.locus import (
     chromatin,
     receptors,
@@ -471,12 +473,7 @@ def _read_skill_usage() -> dict[str, datetime]:
 # -- Main probe -----------------------------------------------------------
 
 
-@tool(
-    name="integrin_probe",
-    description="Scan receptors for broken CLI references. Nightly health check.",
-    annotations=ToolAnnotations(readOnlyHint=True, destructiveHint=False),
-)
-def integrin_probe() -> IntegrinResult:
+def _run_probe() -> IntegrinResult:
     """Probe all receptor attachment points for integrity.
 
     Six layers of checking, each inspired by integrin biology:
@@ -666,12 +663,7 @@ def _log_anoikis_candidates(
         return False
 
 
-@tool(
-    name="integrin_apoptosis_check",
-    description="Nightly stay-alive signal: classify dormant receptors, log anoikis candidates.",
-    annotations=ToolAnnotations(readOnlyHint=False, destructiveHint=False),
-)
-def integrin_apoptosis_check() -> ApoptosisResult:
+def _run_apoptosis_check() -> ApoptosisResult:
     """Emit stay-alive signal for all receptors; log retirement candidates.
 
     Reads activation_state from integrin_probe, then cross-references
@@ -685,7 +677,7 @@ def integrin_apoptosis_check() -> ApoptosisResult:
     Anoikis candidates are appended to ~/epigenome/chromatin/receptor-retirement.md
     with a datestamp so the organism maintains a longitudinal record.
     """
-    probe = integrin_probe()
+    probe = _run_probe()
 
     # Index activation states by receptor name
     state_by_receptor: dict[str, str] = {
@@ -1055,12 +1047,7 @@ class ColonyProbeResult(Secretion):
     total_detached: int
 
 
-@tool(
-    name="integrin_colony_probe",
-    description="Scan colony-bud-skill-tool reference graph for broken junctions.",
-    annotations=ToolAnnotations(readOnlyHint=True, destructiveHint=False),
-)
-def integrin_colony_probe(
+def _run_colony_probe(
     colonies_dir: Path = COLONIES_DIR,
     buds_dir: Path = BUDS_DIR,
     skills_dir: Path = SKILLS_DIR,
@@ -1309,60 +1296,61 @@ def diff_fork(local_dir: Path, cache_dir: Path) -> dict:
     }
 
 
-class EnzymeSenseResult(Secretion):
-    """Enzyme-level sensing — upstream receptor fork changes."""
-
-    has_changes: bool
-    summary: str
-    suites: list[dict] = Field(default_factory=list)
+# -- Consolidated integrin tool -----------------------------------------------
 
 
 @tool(
-    name="proprioception_skills",
-    description="Diff local receptor forks against CC plugin cache. Silent if no changes.",
+    name="integrin",
+    description="Attachment integrity. Actions: probe|apoptosis|colony_probe",
     annotations=ToolAnnotations(readOnlyHint=True, destructiveHint=False),
 )
-def proprioception_skills() -> EnzymeSenseResult:
-    """Proprioceptive check for upstream enzyme (skill) changes."""
-    registry = restore_fork_registry()
-    suites: list[dict] = []
-    parts: list[str] = []
+def integrin(
+    action: str,
+    colonies_dir: Path = COLONIES_DIR,
+    buds_dir: Path = BUDS_DIR,
+    skills_dir: Path = SKILLS_DIR,
+    tools_dir: Path = TOOLS_DIR,
+) -> IntegrinResult | ApoptosisResult | ColonyProbeResult:
+    """Attachment integrity probe. Dispatch by action.
 
-    for suite_name, paths in registry.items():
-        local_dir = Path(paths["local"])
-        cache_base = Path(paths["cache_pattern"])
+    Actions:
+        probe        -- full receptor attachment integrity scan
+        apoptosis    -- nightly stay-alive signal for dormant receptors
+        colony_probe -- reference integrity across colonies, buds, skills, tools
 
-        if not local_dir.exists():
-            continue
-
-        cache_skills = find_latest_cache_version(cache_base)
-        if cache_skills is None:
-            continue
-
-        diff = diff_fork(local_dir, cache_skills)
-        if diff["total_changes"] == 0:
-            continue
-
-        suite_summary = {
-            "suite": suite_name,
-            "modified": diff["modified"],
-            "added_upstream": diff["added_upstream"],
-            "total": diff["total_changes"],
-        }
-        suites.append(suite_summary)
-
-        lines = [f"**{suite_name}** — {diff['total_changes']} change(s):"]
-        for f in diff["modified"]:
-            lines.append(f"  modified: {f}")
-        for f in diff["added_upstream"]:
-            lines.append(f"  new upstream: {f}")
-        parts.append("\n".join(lines))
-
-    has_changes = len(suites) > 0
-    summary = "\n\n".join(parts) if parts else ""
-
-    return EnzymeSenseResult(
-        has_changes=has_changes,
-        summary=summary,
-        suites=suites,
-    )
+    Parameters:
+        action: One of probe|apoptosis|colony_probe
+        colonies_dir: Path to colonies directory (colony_probe only)
+        buds_dir: Path to buds directory (colony_probe only)
+        skills_dir: Path to skills/receptors directory
+        tools_dir: Path to metabolon/enzymes directory (colony_probe only)
+    """
+    action = action.lower().strip()
+    if action == "probe":
+        return _run_probe()
+    elif action == "apoptosis":
+        return _run_apoptosis_check()
+    elif action == "colony_probe":
+        return _run_colony_probe(
+            colonies_dir=colonies_dir,
+            buds_dir=buds_dir,
+            skills_dir=skills_dir,
+            tools_dir=tools_dir,
+        )
+    else:
+        return IntegrinResult(
+            total_receptors=0,
+            total_references=0,
+            attached=0,
+            detached=[],
+            mechanically_silent=[],
+            focal_adhesions=[],
+            anoikis=[],
+            activation_state=[],
+            adhesion_dependence=[],
+            phenotype_issues=[{"path": "", "problem": f"unknown_action:{action}"}],
+            unknown_platforms=[],
+            launchagent_broken=[],
+            skill_path_broken=[],
+            untested_code=[],
+        )
