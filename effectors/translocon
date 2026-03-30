@@ -89,6 +89,18 @@ def _record_result(backend: str, success: bool) -> None:
             entry["cooldown_until"] = (datetime.now() + timedelta(seconds=COOLDOWN)).isoformat()
     HEALTH_PATH.write_text(json.dumps(state, indent=2))
 
+def _record_rate_limit(backend: str) -> None:
+    """Record a rate limit hit — shorter cooldown than general failures."""
+    HEALTH_PATH.parent.mkdir(parents=True, exist_ok=True)
+    state: dict = {}
+    if HEALTH_PATH.exists():
+        state = json.loads(HEALTH_PATH.read_text())
+    entry = state.setdefault(backend, {"consecutive_failures": 0, "cooldown_until": None})
+    # Rate limits get a 60-second cooldown (much shorter than the 5-min general cooldown)
+    entry["cooldown_until"] = (datetime.now() + timedelta(seconds=60)).isoformat()
+    entry["last_rate_limit"] = datetime.now().isoformat()
+    HEALTH_PATH.write_text(json.dumps(state, indent=2))
+
 def _log_call(entry: dict) -> None:
     """Append a call record to the per-call log."""
     LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
@@ -648,6 +660,13 @@ def main_impl(args: argparse.Namespace) -> int:
         if args.verbose:
             print(f"translocon: {b} failed, trying next...", file=sys.stderr)
         _record_result(b, False)
+        # Check if failure was a rate limit (429)
+        if rc == 1 and tee_log and tee_log.exists():
+            tail = tee_log.read_text()[-500:]
+            if "429" in tail or "Too Many Requests" in tail or "余额不足" in tail:
+                _record_rate_limit(b)
+                if args.verbose:
+                    print(f"translocon: {b} hit rate limit, 60s cooldown set", file=sys.stderr)
 
     _log_call(_entry(healthy_chain[-1], False))
     return 1

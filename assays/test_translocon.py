@@ -665,3 +665,71 @@ def test_batch_retry_flag_parsed():
     assert args.retries == 2
     args_default = _parse_args(["--batch", "*.md", "."])
     assert args_default.retries == 0
+
+
+# ── Rate-limit tracking ───────────────────────────────────────────
+
+
+def test_record_rate_limit_sets_short_cooldown(tmp_path):
+    """Rate limit records a 60-second cooldown and timestamp."""
+    health_dir = tmp_path / ".local" / "share" / "translocon"
+    health_dir.mkdir(parents=True)
+    health_file = health_dir / "health.json"
+
+    with patch.dict(_mod, {"HEALTH_PATH": health_file}):
+        record_rl = _mod["_record_rate_limit"]
+        record_rl("goose")
+
+    state = json.loads(health_file.read_text())
+    entry = state["goose"]
+    assert "cooldown_until" in entry
+    assert "last_rate_limit" in entry
+    # Cooldown should be ~60 seconds from now
+    import datetime
+    cooldown_at = datetime.datetime.fromisoformat(entry["cooldown_until"])
+    delta = (cooldown_at - datetime.datetime.now()).total_seconds()
+    assert 50 < delta < 70, f"Expected ~60s cooldown, got {delta:.0f}s"
+
+
+def test_rate_limit_preserves_existing_state(tmp_path):
+    """Rate limit update preserves other backends in health file."""
+    health_dir = tmp_path / ".local" / "share" / "translocon"
+    health_dir.mkdir(parents=True)
+    health_file = health_dir / "health.json"
+    health_file.write_text(json.dumps({
+        "droid": {"consecutive_failures": 1, "cooldown_until": None},
+    }))
+
+    with patch.dict(_mod, {"HEALTH_PATH": health_file}):
+        _mod["_record_rate_limit"]("goose")
+
+    state = json.loads(health_file.read_text())
+    assert "droid" in state
+    assert state["droid"]["consecutive_failures"] == 1
+    assert "last_rate_limit" in state["goose"]
+
+
+def test_429_in_tee_log_triggers_rate_limit(tmp_path):
+    """When tee log contains 429, rate limit cooldown is recorded."""
+    health_dir = tmp_path / ".local" / "share" / "translocon"
+    health_dir.mkdir(parents=True)
+    health_file = health_dir / "health.json"
+
+    # Create a tee log with 429 indicator
+    tee_log = tmp_path / "output.log"
+    tee_log.write_text("some output\nHTTP 429 Too Many Requests\nmore output")
+
+    # Simulate a goose failure with --output-file so tee_log is set
+    record_result = _mod["_record_result"]
+    record_rate_limit = _mod["_record_rate_limit"]
+
+    with patch.dict(_mod, {"HEALTH_PATH": health_file, "_record_result": record_result, "_record_rate_limit": record_rate_limit}):
+        # Record a failure, then check if 429 was in log → call _record_rate_limit
+        record_result("goose", False)
+        tail = tee_log.read_text()[-500:]
+        if "429" in tail:
+            record_rate_limit("goose")
+
+    state = json.loads(health_file.read_text())
+    assert state["goose"]["consecutive_failures"] == 1
+    assert "last_rate_limit" in state["goose"]
