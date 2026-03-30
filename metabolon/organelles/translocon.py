@@ -178,6 +178,14 @@ def dispatch(
 
     # Skill mode: validate recipe exists
     recipe_path: str | None = None
+    if mode == "skill" and not skill:
+        elapsed = time.perf_counter() - start
+        return {
+            "success": False,
+            "output": "skill mode requires a 'skill' name (pass skill='...')",
+            "backend": resolved_backend,
+            "duration_s": round(elapsed, 2),
+        }
     if skill:
         rp = Path.home() / f"germline/membrane/receptors/{skill}/recipe.yaml"
         if not rp.exists():

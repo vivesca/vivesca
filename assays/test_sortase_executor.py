@@ -7,6 +7,7 @@ from metabolon.sortase.executor import (
     ExecutionAttempt,
     TaskExecutionResult,
     _clean_env,
+    _compute_adaptive_timeout,
     _prepend_coaching,
     _tool_chain,
     classify_failure,
@@ -205,3 +206,48 @@ def test_task_execution_result_default_cost_estimate():
         task_name="test", tool="droid", prompt_file=None, success=True,
     )
     assert r.cost_estimate == ""
+
+
+# ── adaptive timeout ──────────────────────────────────────────
+
+
+def test_adaptive_timeout_read_heavy_doubles():
+    """Spec mentioning 'read' should double the timeout."""
+    assert _compute_adaptive_timeout("Read the file config.yaml and summarize it", 600) == 1200
+
+
+def test_adaptive_timeout_source_reference_doubles():
+    """Spec referencing source files should double the timeout."""
+    assert _compute_adaptive_timeout("Analyze src/main.py for bugs", 600) == 1200
+
+
+def test_adaptive_timeout_file_path_doubles():
+    """Spec containing a file path reference should double the timeout."""
+    assert _compute_adaptive_timeout("Look at the code in lib/parser.py and fix the bug", 600) == 1200
+
+
+def test_adaptive_timeout_exact_one_halves():
+    """Spec saying 'EXACTLY 1 tool call' should halve the timeout."""
+    assert _compute_adaptive_timeout("Run this bash command EXACTLY 1 tool call", 600) == 300
+
+
+def test_adaptive_timeout_exactly_one_case_insensitive():
+    """'exactly 1 tool call' is case-insensitive."""
+    assert _compute_adaptive_timeout("Do X exactly 1 tool call", 600) == 300
+
+
+def test_adaptive_timeout_no_adjustment():
+    """Spec with no read/file/exactly-1 signals returns base timeout unchanged."""
+    assert _compute_adaptive_timeout("Refactor the authentication module", 600) == 600
+
+
+def test_adaptive_timeout_read_takes_priority_over_exact_one():
+    """Both read-heavy and exactly-1 present: read doubles (takes precedence)."""
+    spec = "Read config.yaml and respond with EXACTLY 1 tool call"
+    assert _compute_adaptive_timeout(spec, 600) == 1200
+
+
+def test_adaptive_timeout_custom_base():
+    """Works with non-default base timeouts."""
+    assert _compute_adaptive_timeout("Read foo.py", 300) == 600
+    assert _compute_adaptive_timeout("EXACTLY 1 tool call to do X", 400) == 200

@@ -17,6 +17,7 @@ Zero API key cost for free-tier CLIs.
 from __future__ import annotations
 
 import asyncio
+import logging
 import operator
 import sqlite3
 import subprocess
@@ -24,6 +25,8 @@ from dataclasses import asdict
 from datetime import datetime
 from pathlib import Path
 from typing import Annotated, TypedDict
+
+logger = logging.getLogger(__name__)
 
 from langgraph.checkpoint.sqlite import SqliteSaver
 from langgraph.graph import END, StateGraph
@@ -262,9 +265,16 @@ def build_graph() -> StateGraph:
 # ── public API ───────────────────────────────────────────────
 
 
-def _open_checkpointer():
+def _open_checkpointer() -> SqliteSaver:
+    """Open (or create) the SQLite checkpoint store.
+
+    Returns the checkpointer.  Logs the resolved path so operators know
+    exactly where crash-recovery state is persisted.
+    """
     CHECKPOINT_DB.parent.mkdir(parents=True, exist_ok=True)
-    return SqliteSaver(sqlite3.connect(str(CHECKPOINT_DB), check_same_thread=False))
+    logger.info("Checkpoint store: %s", CHECKPOINT_DB)
+    conn = sqlite3.connect(str(CHECKPOINT_DB), check_same_thread=False)
+    return SqliteSaver(conn)
 
 
 def run(

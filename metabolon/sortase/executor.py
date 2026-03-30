@@ -537,6 +537,33 @@ def _remove_worktree(project_dir: Path, worktree_path: Path, branch: str) -> Non
     )
 
 
+def _reset_git_state(project_dir: Path, task_name: str, verbose: bool = False) -> None:
+    """Reset git working tree to clean state between retries.
+
+    Discards all uncommitted changes and removes untracked files/directories
+    so the next retry starts from a pristine checkout. Skipped on the first
+    attempt (retry_index == 0).
+    """
+    if not _is_git_repo(project_dir):
+        return
+    checkout = subprocess.run(
+        ["git", "checkout", "--", "."],
+        cwd=project_dir,
+        capture_output=True,
+        text=True,
+    )
+    if verbose and checkout.returncode != 0:
+        sys.stderr.write(f"[{task_name}] git checkout -- . failed: {checkout.stderr}\n")
+    clean = subprocess.run(
+        ["git", "clean", "-fd"],
+        cwd=project_dir,
+        capture_output=True,
+        text=True,
+    )
+    if verbose and clean.returncode != 0:
+        sys.stderr.write(f"[{task_name}] git clean -fd failed: {clean.stderr}\n")
+
+
 async def execute_tasks(
     tasks: list[TaskSpec],
     project_dir: Path,
