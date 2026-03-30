@@ -265,6 +265,19 @@ def _run_eval(count: int = 20, failures_only: bool = False) -> int:
     return 0
 
 
+def _atomic_commit(directory: str, backend: str, prompt: str) -> None:
+    """Auto-commit after successful build. Mitosis is the safety net; this is the primary."""
+    diff = subprocess.run(["git", "diff", "--stat"], cwd=directory, capture_output=True, text=True)
+    untracked = subprocess.run(["git", "ls-files", "--others", "--exclude-standard"],
+                               cwd=directory, capture_output=True, text=True)
+    if not diff.stdout.strip() and not untracked.stdout.strip():
+        return  # nothing to commit
+    subprocess.run(["git", "add", "-A"], cwd=directory, capture_output=True)
+    summary = prompt[:72].replace("\n", " ")
+    msg = f"translocon({backend}): {summary}"
+    subprocess.run(["git", "commit", "-m", msg], cwd=directory, capture_output=True)
+
+
 def main(argv: list[str] | None = None) -> int:
     args = _parse_args(argv)
     if args.eval:
@@ -348,6 +361,8 @@ def main(argv: list[str] | None = None) -> int:
         if rc == 0:
             _record_result(b, True)
             _log_call(_entry(b, True))
+            if mode == "build":
+                _atomic_commit(directory, b, prompt)
             return 0
         if args.verbose:
             print(f"translocon: {b} failed, trying next...", file=sys.stderr)
