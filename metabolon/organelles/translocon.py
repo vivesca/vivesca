@@ -338,12 +338,7 @@ def dispatch(
     if resolved_backend == "goose":
         cmd = _build_goose_cmd(resolved_model, prompt, recipe=recipe_path)
         try:
-            prev = os.getcwd()
-            os.chdir(directory)
-            try:
-                rc, stdout_text = _run_captured(cmd, env=env)
-            finally:
-                os.chdir(prev)
+            rc, stdout_text = _run_captured(cmd, env=env, cwd=directory)
         except Exception as e:
             elapsed = time.perf_counter() - start
             return {

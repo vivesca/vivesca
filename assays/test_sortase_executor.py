@@ -14,6 +14,7 @@ from metabolon.sortase.executor import (
     _compute_adaptive_timeout,
     _prepend_coaching,
     _tool_chain,
+    _validate_backend,
     classify_failure,
     estimate_cost,
     summarize_cost_estimates,
@@ -409,3 +410,51 @@ async def test_execute_task_fallback_chain_all_fail():
     assert result.fallback_chain[0].failure_reason == "quota"
     assert result.fallback_chain[2].tool == "gemini"
     assert result.fallback_chain[2].failure_reason == "auth"
+
+
+# ── backend binary validation ──────────────────────────────────
+
+
+def test_validate_backend_raises_on_missing_binary():
+    """Missing binary should raise FileNotFoundError with actionable message."""
+    with patch("metabolon.sortase.executor.shutil.which", return_value=None):
+        with pytest.raises(FileNotFoundError, match="Backend binary 'translocon' not found"):
+            _validate_backend("goose", Path("/tmp/test"), "do work")
+
+
+def test_validate_backend_passes_on_existing_binary():
+    """Present binary should not raise."""
+    with patch("metabolon.sortase.executor.shutil.which", return_value="/usr/local/bin/goose"):
+        _validate_backend("goose", Path("/tmp/test"), "do work")
+
+
+def test_validate_backend_error_mentions_tool_name():
+    """Error message should name the tool for debugging."""
+    with patch("metabolon.sortase.executor.shutil.which", return_value=None):
+        with pytest.raises(FileNotFoundError, match="tool 'codex'"):
+            _validate_backend("codex", Path("/tmp/test"), "do work")
+
+
+def test_validate_backend_translocon_resolves_translocon_binary():
+    """goose and droid use 'translocon' as the binary — should validate that name."""
+    with patch("metabolon.sortase.executor.shutil.which", return_value="/usr/local/bin/translocon"):
+        _validate_backend("droid", Path("/tmp/test"), "do work")
+
+
+def test_validate_backend_raises_for_translocon_missing():
+    """If translocon binary is missing, goose tool should fail clearly."""
+    with patch("metabolon.sortase.executor.shutil.which", return_value=None):
+        with pytest.raises(FileNotFoundError, match="translocon"):
+            _validate_backend("goose", Path("/tmp/test"), "do work")
+
+
+@pytest.mark.asyncio
+async def test_run_command_raises_on_missing_backend():
+    """_run_command should raise FileNotFoundError before spawning subprocess."""
+    from metabolon.sortase.executor import _run_command
+
+    with patch("metabolon.sortase.executor.shutil.which", return_value=None):
+        with pytest.raises(FileNotFoundError, match="Backend binary"):
+            await _run_command(
+                "gemini", Path("/tmp/test"), "do work", 60,
+            )

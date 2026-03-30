@@ -4,6 +4,7 @@ import asyncio
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import uuid
@@ -284,6 +285,23 @@ def _tool_chain(initial_tool: str) -> list[str]:
     return ordered
 
 
+def _validate_backend(tool: str, project_dir: Path, prompt: str) -> None:
+    """Check that the backend binary exists before dispatching.
+
+    Extracts the executable name from the tool command and resolves it
+    via ``shutil.which``.  Raises ``FileNotFoundError`` with a clear
+    message so the caller gets an actionable error instead of a cryptic
+    subprocess ``ENOENT``.
+    """
+    command = TOOL_COMMANDS[tool](project_dir, prompt)
+    binary = command[0]
+    if not shutil.which(binary):
+        raise FileNotFoundError(
+            f"Backend binary '{binary}' not found on PATH for tool '{tool}'. "
+            f"Install it or check your PATH."
+        )
+
+
 def _status_path() -> Path:
     override = os.environ.get("OPIFEX_STATUS_PATH")
     return Path(override) if override else STATUS_PATH
@@ -391,6 +409,7 @@ async def _run_command(
             "but do NOT actually edit, create, or delete any files. "
             "Format as a numbered list of changes.\n\n" + prompt
         )
+    _validate_backend(tool, project_dir, prompt)
     command = TOOL_COMMANDS[tool](project_dir, prompt)
 
     started = asyncio.get_running_loop().time()
