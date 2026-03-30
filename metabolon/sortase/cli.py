@@ -119,6 +119,7 @@ def exec_command(
         "tasks": len(tasks),
         "tool": backend or (results[0].tool if results else "unknown"),
         "fallbacks": [tool for result in results for tool in result.fallbacks],
+        "fallback_chain": [step.to_dict() for result in results for step in result.fallback_chain],
         "duration_s": duration_s,
         "success": all(result.success for result in results) and not any(issue.severity == "error" for issue in validation_issues),
         "failure_reason": next((issue.check for issue in validation_issues if issue.severity == "error"), None),
