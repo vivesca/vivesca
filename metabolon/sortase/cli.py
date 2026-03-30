@@ -12,7 +12,8 @@ from rich.console import Console
 from rich.table import Table
 
 from metabolon.sortase.coaching_cli import coaching as coaching_group
-from metabolon.sortase.decompose import decompose_plan, lint_plan
+from metabolon.sortase.decompose import decompose_plan
+from metabolon.sortase.linter import lint_plan as structured_lint, format_lint_report
 from metabolon.sortase.executor import execute_tasks, list_running, summarize_cost_estimates
 from metabolon.sortase.logger import aggregate_stats, analyze_logs, append_log, read_logs, resolve_log_path
 from metabolon.sortase.overnight import compute_overnight_stats, format_overnight_report, load_overnight_entries
@@ -616,15 +617,14 @@ def lint(plan_file: Path) -> None:
     """Lint a plan file for common issues."""
 
     plan_text = plan_file.read_text(encoding="utf-8")
-    warnings = lint_plan(plan_text)
+    issues = structured_lint(plan_text)
 
-    if not warnings:
-        console.print("[green]No issues found.[/green]")
-        return
+    has_errors = any(issue.severity == "error" for issue in issues)
+    report = format_lint_report(issues)
+    console.print(report)
 
-    console.print(f"[bold yellow]{len(warnings)} warning(s):[/bold yellow]")
-    for warning in warnings:
-        console.print(f"  - {warning}")
+    if has_errors:
+        raise SystemExit(1)
 
 
 @main.command()
