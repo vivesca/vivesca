@@ -144,14 +144,18 @@ bud --json "classify this error: ImportError..."
 
 `bud` is a drop-in for `Agent(model=haiku)` when CC tools aren't needed. Free GLM-5.1.
 
-## Phase 3: Review & Coach
+## Phase 3: Review & Coach (the compounding step)
 
-After each task completion:
+Droid is part of the organism. Review quality determines whether it improves or stays mediocre. Every batch is a coaching opportunity.
 
-1. `tail -5 <output-file>` — check status + duration
-2. `python3 -c "import ast; ast.parse(...)"` — verify syntax if code was written
-3. Note coaching observations (new GLM failure patterns)
-4. Dispatch next task
+After each task or batch:
+
+1. **Read the actual output.** Not just status/duration. Read 3-4 representative files in full — pick the largest, the most complex spec, and one random. For English output (descriptions, reports), parse the YAML and check for contamination/overlap.
+2. **Verify mechanically where possible.** `ast.parse` for Python, `pytest` for tests, `grep` for expected patterns.
+3. **Coach.** Note new failure patterns → append to `~/epigenome/marks/feedback_glm_coaching.md`. This file is prepended to every future droid dispatch. Each coaching entry directly improves future output.
+4. **Score the batch.** First-pass success rate, failure categories, coaching entries added. Track this across sessions — the rate should trend upward.
+
+**Coaching compounds.** Session 1: 80% success. Session 2: 94%. Session 3 (with tests): 37% first-pass → 100% after fix round. The coaching notes are the mechanism.
 
 ### Known GLM-5.1 failure patterns (from coaching notes)
 

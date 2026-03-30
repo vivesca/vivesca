@@ -1,6 +1,6 @@
 ---
 name: histology
-description: Map organism components and find structural gaps. "architecture review"
+description: Map organism structure, find gaps and anomalies. "architecture review", "system audit"
 user_invocable: true
 model: opus
 context: fork

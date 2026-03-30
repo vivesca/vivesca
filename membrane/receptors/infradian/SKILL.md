@@ -1,12 +1,14 @@
 ---
 name: infradian
-description: Saturday weekly review — reflect, plan next week. Not daily or monthly.
+description: Weekend review + plan — reflect on the week, plan the next. "weekly", "weekly review"
 user_invocable: true
 triggers:
   - infradian
   - weekly review
   - how was the week
   - plan the week
+  - weekly
+  - sunday planning
 context: fork
 epistemics: [review, plan]
 model: sonnet
@@ -14,9 +16,17 @@ model: sonnet
 
 # Infradian — weekly rhythm
 
-Two halves: reflect (what happened), then plan (what matters next). Keep it under 15 minutes.
+Forward-first: plan next week, then quick backward glance. 20-30 minutes.
 
-Design input: [[weekly-review-frameworks]] — Newport (calendar-based planning, week's character), GTD (list hygiene), Forte (intention-setting). We took Newport's structure, replaced his lists with tonus/prospective, and cut scope to 15 minutes.
+Design input: Newport (calendar-based planning, week's character), GTD (list hygiene), Forte (intention-setting). Lead with forward — the plan is the point, not the retro.
+
+## 0. Context gather
+
+```bash
+weekly-gather
+```
+
+Runs all deterministic gathering in parallel (calendar, TODOs, Oura trends, daily notes, job alerts). Use `--json` for structured output.
 
 ## Phase 1: Reflect
 
