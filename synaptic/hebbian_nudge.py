@@ -11,7 +11,7 @@ Accuracy = acted_on / total fires. Low accuracy = the hook is wrong or noisy.
 Bio: Hebbian learning = "neurons that fire together wire together."
 Hooks that fire but don't predict user behavior should weaken (suppress/fix).
 
-Accuracy reviewed at /ecdysis. Usage from other hooks:
+Accuracy reviewed at /rhythm. Usage from other hooks:
     from hebbian_nudge import log_nudge
     log_nudge("mitogen", "delegate", prompt_snippet="build a cli tool")
 """

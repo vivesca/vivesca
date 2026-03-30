@@ -494,17 +494,17 @@ def mod_bash_post(data):
                     pass
 
     # Post-merge checklist
-    if re.search(r"\b(lucus merge|git merge)\b", cmd):
-        branch_match = re.search(r"(?:lucus merge|git merge)\s+([^\s;&#]+)", cmd)
+    if re.search(r"\b(git merge)\b", cmd):
+        branch_match = re.search(r"(?:git merge)\s+([^\s;&#]+)", cmd)
         branch = branch_match.group(1) if branch_match else "delegate branch"
         print(
-            f'[cytokinesis] "{branch}" merged. Verify: git diff --stat, pyproject.toml deps, pytest, lucus clean'
+            f'[cytokinesis] "{branch}" merged. Verify: git diff --stat, pyproject.toml deps, pytest, git branch -d'
         )
 
     # CLI friction log
     if isinstance(result, str) and ("Exit code" in result or "error:" in result):
         personal = re.search(
-            r"~/bin/|/Users/\w+/bin/|\.cargo/bin/|moneo|fasti|poros|keryx|deltos|caelum|cerno|stips|adytum|sopor|sarcio|amicus|speculor|gemmation|consilium|auceps|qianli|iter|lucus|deleo",
+            r"~/bin/|/Users/\w+/bin/|\.cargo/bin/|moneo|fasti|poros|keryx|deltos|caelum|cerno|stips|adytum|sopor|amicus|speculor|gemmation|consilium|qianli|iter|deleo",
             cmd,
         )
         if personal:
@@ -804,7 +804,7 @@ def mod_cofactor(data):
     skill = data.get("tool_input", {}).get("skill", "") or data.get("tool_input", {}).get(
         "name", ""
     )
-    if skill not in ("quorum", "transcription-factor"):
+    if skill not in ("quorum", "design"):
         return
     result_text = str(data.get("tool_result", "")).lower()
     if not any(m in result_text for m in COFACTOR_MODELS):

@@ -403,7 +403,7 @@ def guard_grep(data):
     path = data.get("tool_input", {}).get("path", "")
     if "/notes" in path or "notes/" in path or "/chromatin" in path or "chromatin/" in path:
         allow_msg(
-            'Vault search detected. Consider: `receptor-scan "<query>"` for semantic lookups. '
+            'Vault search detected. Consider: `ecphory "<query>"` for memory lookups. '
             "Grep is fine for exact strings, wikilinks, or file paths."
         )
 
@@ -683,7 +683,7 @@ def guard_bifurcation(data):
         if launch.get("project") == project and now - launch.get("ts", 0) < 10 * 60 * 1000
     ]
     if same and "." not in project:
-        print("[parallel-nudge] Sequential delegate to same project. Consider lucus worktrees.")
+        print("[parallel-nudge] Sequential delegate to same project. Consider git worktrees.")
 
     recent_tools = [launch.get("tool") for launch in state["launches"][-2:]]
     if len(recent_tools) >= 2 and all(t == tool for t in recent_tools):
@@ -693,11 +693,6 @@ def guard_bifurcation(data):
     with contextlib.suppress(Exception):
         BIFURC_STATE.write_text(json.dumps(state, indent=2))
 
-
-# ── guard_autoimmune: from autoimmune.py ───────────────────
-
-AUTOIMMUNE_STATE = HOME / ".claude" / "meta-spiral-state.json"
-AUTOIMMUNE_PRAXIS = HOME / "epigenome" / "chromatin" / "Praxis.md"
 
 RECEPTORS_DIR = HOME / "germline" / "membrane" / "receptors"
 EPISTEMICS_DIR = HOME / "epigenome" / "chromatin" / "euchromatin" / "epistemics"
@@ -772,50 +767,6 @@ def surface_epistemics(data):
     print(hint, file=sys.stderr)
 
 
-def guard_autoimmune(data):
-    skill = data.get("tool_input", {}).get("skill", "")
-    if not skill.startswith("sarcio"):
-        return
-
-    session_id = data.get("session_id", "")
-    if not session_id:
-        return
-
-    state = {}
-    with contextlib.suppress(Exception):
-        state = json.loads(AUTOIMMUNE_STATE.read_text())
-
-    if state.get("session_id") != session_id:
-        state = {"session_id": session_id, "sarcio_count": 0}
-
-    state["sarcio_count"] = state.get("sarcio_count", 0) + 1
-    with contextlib.suppress(Exception):
-        AUTOIMMUNE_STATE.write_text(json.dumps(state))
-
-    if state["sarcio_count"] < 3:
-        return
-
-    if AUTOIMMUNE_PRAXIS.exists():
-        today = datetime.now().date()
-        horizon = today + timedelta(days=7)
-        for line in AUTOIMMUNE_PRAXIS.read_text(encoding="utf-8").splitlines():
-            s = line.strip()
-            if not s.startswith("- [ ]"):
-                continue
-            m = re.search(r"`due:(\d{4}-\d{2}-\d{2})`", s)
-            if m:
-                try:
-                    due = datetime.strptime(m.group(1), "%Y-%m-%d").date()
-                    if due <= horizon:
-                        deny(
-                            f"[meta-spiral] {state['sarcio_count']} garden posts with deadline items due. "
-                            "Finish a deadline item first.",
-                            "meta-spiral-guard",
-                        )
-                except ValueError:
-                    pass
-
-
 # ── main ───────────────────────────────────────────────────
 
 
@@ -859,7 +810,6 @@ def main():
         elif tool == "Agent":
             guard_agent(data)
         elif tool == "Skill":
-            guard_autoimmune(data)
             surface_epistemics(data)
         elif tool == "WebSearch":
             guard_rheotaxis(data)

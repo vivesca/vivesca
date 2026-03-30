@@ -313,28 +313,28 @@ def mod_allostasis(data):
 # ── chemoreceptor: URL/keyword skill routing ───────────────
 
 CHEMO_DOMAINS = {
-    "linkedin.com/posts": "LinkedIn post -> use `/agoras` skill (agent-browser fetch, author research, voice rules)",
-    "linkedin.com/feed/update": "LinkedIn post -> use `/agoras` skill (agent-browser fetch, author research, voice rules)",
+    "linkedin.com/posts": "LinkedIn post -> use `/produce` skill (stage=forge)",
+    "linkedin.com/feed/update": "LinkedIn post -> use `/produce` skill (stage=forge)",
     "linkedin.com/in/terrylihm": "Own LinkedIn profile -> use `linkedin-profile` skill (Featured, About, Headline, announcements)",
     "linkedin.com/in/": "LinkedIn profile -> use `linkedin-research` skill (agent-browser extraction)",
-    "linkedin.com/jobs": "LinkedIn job -> use `/adhesion` skill",
+    "linkedin.com/jobs": "LinkedIn job -> use `/ops` skill (domain=jobs)",
     "youtube.com/watch": "YouTube URL -> use `video-digest` skill (transcript + structured digest)",
     "youtu.be/": "YouTube URL -> use `video-digest` skill (transcript + structured digest)",
     "bilibili.com/video": "Bilibili URL -> use `video-digest` skill (transcript + structured digest)",
     "xiaoyuzhou.fm": "Xiaoyuzhou URL -> use `video-digest` skill (podcast transcript + digest)",
-    "x.com/": "X URL -> use `auceps <url>` (smart bird wrapper)",
-    "twitter.com/": "Twitter URL -> use `auceps <url>` (smart bird wrapper)",
+    "x.com/": "X/Twitter URL -> use `/absorb` skill (source=web)",
+    "twitter.com/": "X/Twitter URL -> use `/absorb` skill (source=web)",
     "e.tb.cn": "Taobao link -> use `agent-browser --profile` (WebFetch blocked, login required)",
     "taobao.com": "Taobao -> use `agent-browser --profile` (WebFetch blocked, login required)",
     "tmall.com": "Tmall -> use `agent-browser --profile` (WebFetch blocked, login required)",
 }
 CHEMO_KEYWORDS = [
-    (r"\blaunch exp\b", "Experiment -> invoke `peira` skill first"),
-    (r"\brun exp(eriment)?\b", "Experiment -> invoke `peira` skill first"),
-    (r"\bcompare .{3,40} vs\b", "Comparison -> invoke `peira` skill first"),
-    (r"\bbenchmark\b", "Benchmark -> invoke `peira` skill first"),
+    (r"\blaunch exp\b", "Experiment -> use `/build` skill (phase=experiment)"),
+    (r"\brun exp(eriment)?\b", "Experiment -> use `/build` skill (phase=experiment)"),
+    (r"\bcompare .{3,40} vs\b", "Comparison -> use `/build` skill (phase=experiment)"),
+    (r"\bbenchmark\b", "Benchmark -> use `/build` skill (phase=experiment)"),
     (r"\b(worked before|used to work|stopped working|broke[n]?|not found|command not found|regression|troubleshoot)\b",
-     "Diagnosis -> invoke /etiology skill. Frame the problem (regression? new issue?) before attempting fixes"),
+     "Diagnosis -> use `/diagnose` skill. Frame the problem (regression? new issue?) before attempting fixes"),
 ]
 
 
@@ -449,7 +449,7 @@ def mod_mitogen(data):
         return []
 
     sf = TMP_DIR / f"mitogen-{sid}.json"
-    if "/nucleation" in prompt.lower():
+    if "/build" in prompt.lower():
         sf.write_text(json.dumps({"fires": 0}))
         return []
     if not _mit_is_coding(prompt):
@@ -472,10 +472,10 @@ def mod_mitogen(data):
 
     if fires == MIT_THRESHOLD:
         return [
-            "[mitogen] Coding task detected — /nucleation available. (Suppressing further nudges this session.)"
+            "[mitogen] Coding task detected — /build available. (Suppressing further nudges this session.)"
         ]
     return [
-        "[mitogen] Coding task detected — use /nucleation as the on-ramp. Don't implement in-session unless trivial (<50 lines, single file)."
+        "[mitogen] Coding task detected — use /build as the on-ramp. Don't implement in-session unless trivial (<50 lines, single file)."
     ]
 
 
@@ -557,7 +557,7 @@ def mod_circaseptan(data):
     if CIRC_MARKER.exists() and now.timestamp() - CIRC_MARKER.stat().st_mtime < 7200:
         return []
     CIRC_MARKER.touch()
-    return [f"Weekly review for {week} not yet done. Run `/ecdysis` when ready."]
+    return [f"Weekly review for {week} not yet done. Run `/rhythm` when ready."]
 
 
 # ── calorimetry: respirometry autolog ──────────────────────
