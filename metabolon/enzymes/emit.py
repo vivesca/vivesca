@@ -9,7 +9,7 @@ from __future__ import annotations
 import contextlib
 import os
 import re
-from datetime import date, datetime, timedelta, timezone
+from datetime import date as _date, datetime, timedelta, timezone
 from pathlib import Path
 
 from fastmcp.tools import tool
@@ -299,11 +299,11 @@ def emit(
             return EffectorResult(success=False, message="interphase_close requires: shipped, tomorrow, open_threads, nudges, day_score")
         if note_date:
             try:
-                d = date.fromisoformat(note_date)
+                d = _date.fromisoformat(note_date)
             except ValueError:
                 return EffectorResult(success=False, message=f"Invalid date: {note_date}")
         else:
-            d = date.today()
+            d = _date.today()
         if not 1 <= day_score <= 5:
             return EffectorResult(success=False, message=f"day_score must be 1-5, got {day_score}")
         note_path = INTERPHASE_DAILY_DIR / f"{d.isoformat()}.md"

@@ -20,11 +20,10 @@ sys.path.insert(0, str(Path.home() / "germline"))
 
 REPORTS_DIR = Path.home() / "epigenome" / "chromatin" / "immunity"
 
-# Active repos to check (pruned 2026-03-29)
+# Active repos to check (pruned 2026-03-30)
 GIT_REPOS = [
     Path.home() / "germline",
     Path.home() / "epigenome",
-    Path.home() / "code" / "sortase",
     Path.home() / "code" / "docima",
 ]
 

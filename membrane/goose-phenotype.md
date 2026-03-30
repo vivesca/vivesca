@@ -34,7 +34,7 @@ For quick headless runs, the essentials are below.
 - `~/epigenome/marks/` — memory files (MEMORY.md index)
 - `~/epigenome/chromatin/` — knowledge base, notes, research
 - `~/epigenome/chromatin/euchromatin/epistemics/` — frameworks, methodology (grep by situation)
-- `~/code/sortase/` — plan execution + agent routing
+- `sortase` CLI — plan execution + agent routing (absorbed into `metabolon.sortase`)
 
 ## Skills
 
