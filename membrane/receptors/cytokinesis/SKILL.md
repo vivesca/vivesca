@@ -64,18 +64,21 @@ If continuous capture handled most of it → quick verification pass, report fil
 
 ### 1a. Correction capture + taste calibration (5 min max)
 
-Scan the session for every instance where Terry:
-- **Stopped or corrected CC** ("no", "wait", "should we?", "is this right?", rejected a tool call)
-- **Questioned an assumption** ("is it the best design?", "why not X?")
-- **Confirmed a non-obvious approach** ("yes exactly", "good call", accepted without pushback)
+Two scans:
 
-For each correction: what was CC's wrong assumption? What's the generalizable principle? File as feedback memory with `protected: true` if it's architectural.
+**Corrections** — every instance where Terry stopped, corrected, or questioned CC:
+- Rejected a tool call or approach ("no", "wait", "should we?")
+- Questioned an assumption ("is this the best design?", "why not X?")
+- Pointed out missed work ("did you actually read the files?")
+For each: wrong assumption → generalizable principle → file as feedback (`protected: true` if architectural).
 
-For each confirmation: what non-obvious choice was validated? File as feedback with "reinforce" framing.
+**Taste calibration** — the preference surface between Terry and CC:
+- What did Terry prefer that wasn't obvious? (design choices, tool preferences, pacing)
+- What approach did Terry confirm or accept without pushback?
+- What tone/autonomy level worked this session?
+For each: file as feedback with the preference and why, so future sessions match taste without re-learning.
 
-**The test:** if this session replayed tomorrow with a fresh context, would CC make the same mistakes? If yes, something wasn't methylated. File it now — context is hottest during the session that revealed the gap.
-
-Also read `references/review-checklist.md` if it exists.
+**The test:** if this session replayed tomorrow with a fresh context, would CC make the same mistakes AND misjudge the same preferences? If yes, something wasn't methylated.
 
 ### 1c. Audit Signal
 
