@@ -1,6 +1,6 @@
-title: "Design Before Building"
+title: "/transcription — Design Before Building"
 name: "transcription"
-description: "Collaborative design before building — one question at a time, right-sized spec."
+description: "Collaborative design before building — one question at a time. \"let's build\""
 instructions: |
   # /transcription — Design Before Building
 
@@ -125,4 +125,4 @@ extensions:
   - type: streamable_http
     name: vivesca
     uri: "http://127.0.0.1:8741/mcp"
-prompt: "Help me design this feature through collaborative dialogue before building."
+prompt: "Execute the transcription skill."

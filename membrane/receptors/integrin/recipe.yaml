@@ -1,6 +1,6 @@
-title: "Integrin"
+title: "Integrin — probe before trusting"
 name: "integrin"
-description: "Scan CLI binaries and skills for breakage or dormancy. "health check"
+description: "Scan CLI binaries and skills for breakage or dormancy. \"health check\""
 instructions: |
   # Integrin — probe before trusting
 

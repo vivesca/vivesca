@@ -1,6 +1,6 @@
-title: "Receptor"
+title: "Receptor — sense before drilling"
 name: "receptor"
-description: "Check goal readiness — find weakest categories, run drills. "drill", "readiness"
+description: "Check goal readiness — find weakest categories, run drills. \"drill\", \"readiness\""
 instructions: |
   # Receptor — sense before drilling
 

@@ -1,6 +1,6 @@
-title: "Cytometry"
+title: "Cytometry — Autonomy Classification"
 name: "cytometry"
-description: "Classify subsystems as self-governing vs human-gated. "autonomy audit"
+description: "Classify subsystems as self-governing vs human-gated. \"autonomy audit\""
 instructions: |
   # Cytometry — Autonomy Classification
 

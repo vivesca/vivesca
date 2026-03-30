@@ -1,6 +1,6 @@
-title: "gym-coach"
+title: "gym-coach — live session coaching"
 name: "differentiation"
-description: "Coach a live gym session — prescribe sets, track reps, log workout. "gym"
+description: "Coach a live gym session — prescribe sets, track reps, log workout. \"gym\""
 instructions: |
   # gym-coach — live session coaching
 

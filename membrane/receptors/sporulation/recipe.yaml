@@ -1,6 +1,6 @@
-title: "Sporulation"
+title: "Sporulation — Cross-Session Resume"
 name: "sporulation"
-description: "Save session checkpoint with codename for instant resume later. "checkpoint"
+description: "Save session checkpoint with codename for instant resume later. \"checkpoint\""
 instructions: |
   # Sporulation — Cross-Session Resume
 

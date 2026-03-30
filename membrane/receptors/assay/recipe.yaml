@@ -1,6 +1,6 @@
 title: "assay -- experiment awareness"
 name: "assay"
-description: "Check for running experiments and probe their state. "assay"
+description: "Check for running experiments and probe their state. \"assay\""
 instructions: |
   # assay -- experiment awareness
 

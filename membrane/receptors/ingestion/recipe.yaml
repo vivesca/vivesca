@@ -1,6 +1,6 @@
 title: "ingestion -- meal suggestion + logging"
 name: "ingestion"
-description: "Suggest lunch from meal plan and log what was eaten. "lunch", "log lunch"
+description: "Suggest lunch from meal plan and log what was eaten. \"lunch\", \"log lunch\""
 instructions: |
   # ingestion -- meal suggestion + logging
 

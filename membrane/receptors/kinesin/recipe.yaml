@@ -1,4 +1,4 @@
-title: "Kinesin"
+title: "Kinesin — transport beyond the session"
 name: "kinesin"
 description: "Dispatch async agents that survive session end and monitor their results."
 instructions: |

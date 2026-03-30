@@ -1,6 +1,6 @@
-title: "Annealing"
+title: "Annealing — Simulated Cooling for Artifact Refinement"
 name: "annealing"
-description: "Hot→cool convergence — start wild, narrow to final form. "anneal", "start wild"
+description: "Hot→cool convergence — start wild, narrow to final form. \"anneal\", \"start wild\""
 instructions: |
   # Annealing — Simulated Cooling for Artifact Refinement
 

@@ -1,6 +1,6 @@
-title: "Debridement"
+title: "Debridement — Naming Sweep"
 name: "debridement"
-description: "Sweep skill names for violations and stale references. "naming sweep"
+description: "Sweep skill names for violations and stale references. \"naming sweep\""
 instructions: |
   # Debridement — Naming Sweep
 

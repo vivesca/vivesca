@@ -1,6 +1,6 @@
-title: "Delegate-First Dev Workflow"
+title: "/nucleation — Delegate-First Dev Workflow"
 name: "nucleation"
-description: "Structured on-ramp for coding tasks — KB check, research, plan, delegate."
+description: "On-ramp for coding tasks — KB check, research, plan, delegate. Not quick edits."
 instructions: |
   # /nucleation — Delegate-First Dev Workflow
 
@@ -15,7 +15,7 @@ instructions: |
 
   ## Steps
 
-  ### -1. Should we build at all?
+  ### −1. Should we build at all?
 
   **Default: yes.** Bias toward building, not scripting. If a task will recur even twice, build a proper tool (CLI, skill). Build cost is low (delegated), purge cost is near-zero (`deleo`). The question isn't "is this worth a CLI?" — it's "would I write this script again?"
 
@@ -48,7 +48,7 @@ instructions: |
 
   | Task size | Use |
   |-----------|-----|
-  | **Trivial** (<=20 lines, no existing code touched) | Build directly in-session |
+  | **Trivial** (≤20 lines, no existing code touched) | Build directly in-session |
   | Single-file, live user decisions needed | `EnterPlanMode` → delegate |
   | **New project** (blank repo) | `superpowers:brainstorming` → `superpowers:writing-plans` → delegate |
   | **Spec already written** | Skip to delegation with spec as prompt |
@@ -68,8 +68,10 @@ instructions: |
   RESEARCH → SPEC ANALYSIS → PLAN → EXECUTE → VERIFY → REVIEW → FINISH
   ```
 
-  **1. Research** (cheap, parallel subagents):
+  **1. Research** (cheap, parallel — prefer droid explore for codebase recon):
+  - `droid exec -m "custom:glm-4.7" --cwd <project> "<recon prompt>"` — free codebase understanding
   - `learnings-researcher` + `repo-research-analyst` — surfaces KB gotchas + codebase patterns
+  - Use droid for "read and summarize the code"; CC subagents only when judgment is needed mid-research
 
   **2. Spec analysis** (one Opus pass):
   - Gaps, assumptions, acceptance criteria. Skip for trivial/clear specs.
@@ -144,7 +146,7 @@ instructions: |
   ## Hard Rules
 
   - **Prior discussion ≠ plan.** Always run receptor-scan + research first.
-  - **No freestyle specs.** Non-trivial delegation requires a plan (`superpowers:writing-plans` or `EnterPlanMode`), not an ad-hoc prompt in `/tmp/`. The trivial exception (<=20 lines, single file) still applies. Burned: transduction daily cadence spec had rollup format gaps that a structured planning pass would have caught.
+  - **No freestyle specs.** Non-trivial delegation requires a plan (`superpowers:writing-plans` or `EnterPlanMode`), not an ad-hoc prompt in `/tmp/`. The trivial exception (≤20 lines, single file) still applies. Burned: transduction daily cadence spec had rollup format gaps that a structured planning pass would have caught.
   - **Never write non-trivial code in-session** without proposing delegation first.
   - **One task per delegation.** 3 tasks = 3 delegates.
   - **Don't inline full files.** Give paths, let delegates read.
@@ -176,4 +178,4 @@ extensions:
   - type: streamable_http
     name: vivesca
     uri: "http://127.0.0.1:8741/mcp"
-prompt: "Start a coding task with the full nucleation pipeline — KB check, research, plan, delegate."
+prompt: "Execute the nucleation skill."

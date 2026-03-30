@@ -1,6 +1,6 @@
-title: "Implementation Plan"
+title: "/translation — Implementation Plan"
 name: "translation"
-description: "Turn a design into an implementation plan with TDD steps, exact paths, code."
+description: "Turn approved design into TDD plan with exact paths and code snippets."
 instructions: |
   # /translation — Implementation Plan
 
@@ -212,4 +212,4 @@ extensions:
   - type: streamable_http
     name: vivesca
     uri: "http://127.0.0.1:8741/mcp"
-prompt: "Turn the design into a detailed implementation plan with TDD steps."
+prompt: "Execute the translation skill."

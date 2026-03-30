@@ -1,6 +1,6 @@
-title: "Endosomal"
+title: "Endosomal — sort before surfacing"
 name: "endosomal"
-description: "Triage email — classify, archive noise, extract action items. "email", "inbox"
+description: "Triage email — classify, archive noise, extract action items. \"email\", \"inbox\""
 instructions: |
   # Endosomal — sort before surfacing
 

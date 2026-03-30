@@ -1,6 +1,6 @@
-title: "centrosome"
+title: "/centrosome — Batch Dispatch & Monitor"
 name: "centrosome"
-description: "Batch-dispatch tasks to worker droids, monitor, review. "batch", "dispatch"
+description: "Batch-dispatch tasks to worker droids, monitor, review. \"batch\", \"dispatch\""
 instructions: |
   # /centrosome — Batch Dispatch & Monitor
 

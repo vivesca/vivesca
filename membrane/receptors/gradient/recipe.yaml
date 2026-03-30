@@ -1,6 +1,6 @@
-title: "Gradient"
+title: "Gradient — detect direction before committing"
 name: "gradient"
-description: "Detect co-trending domains before committing focus. "polarity", "co-trending"
+description: "Detect co-trending domains before committing focus. \"polarity\", \"co-trending\""
 instructions: |
   # Gradient — detect direction before committing
 

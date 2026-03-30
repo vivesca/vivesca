@@ -1,6 +1,6 @@
 title: "Evaluate Job"
 name: "adhesion"
-description: "Evaluate LinkedIn job postings for fit — job URL or "evaluate this role"."
+description: "Evaluate LinkedIn job postings for fit — job URL or \"evaluate this role\"."
 instructions: |
   # Evaluate Job
 

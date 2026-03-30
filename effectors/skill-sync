@@ -62,29 +62,41 @@ def extract_title(body: str) -> str:
 # Recipe generation
 # ---------------------------------------------------------------------------
 
+def _indent(text: str, spaces: int = 2) -> str:
+    """Indent every line of text by the given number of spaces."""
+    prefix = " " * spaces
+    return "\n".join(prefix + line if line else line for line in text.splitlines())
+
+
 def build_recipe(name: str, description: str, title: str, body: str) -> str:
-    """Build recipe.yaml content as a string."""
-    recipe = {
-        "title": title or name.capitalize(),
-        "name": name,
-        "description": description,
-        "instructions": body.rstrip("\n") + "\n",
-        "extensions": [
-            {
-                "type": "builtin",
-                "name": "developer",
-                "timeout": 300,
-                "bundled": True,
-            },
-            {
-                "type": "streamable_http",
-                "name": "vivesca",
-                "uri": "http://127.0.0.1:8741/mcp",
-            },
-        ],
-        "prompt": f"Execute the {name} skill.",
-    }
-    return yaml.dump(recipe, default_flow_style=False, sort_keys=False, width=1000)
+    """Build recipe.yaml content as a string.
+
+    Uses manual YAML formatting to produce a literal block scalar (|)
+    for instructions, matching the established recipe format.
+    """
+    t = title or name.capitalize()
+    # Escape double quotes in description/title for YAML double-quoted scalar
+    desc_escaped = description.replace('"', '\\"')
+    title_escaped = t.replace('"', '\\"')
+
+    indented_body = _indent(body.rstrip("\n"))
+
+    return (
+        f'title: "{title_escaped}"\n'
+        f'name: "{name}"\n'
+        f'description: "{desc_escaped}"\n'
+        f"instructions: |\n"
+        f"{indented_body}\n"
+        f"extensions:\n"
+        f"  - type: builtin\n"
+        f"    name: developer\n"
+        f"    timeout: 300\n"
+        f"    bundled: true\n"
+        f"  - type: streamable_http\n"
+        f"    name: vivesca\n"
+        f'    uri: "http://127.0.0.1:8741/mcp"\n'
+        f'prompt: "Execute the {name} skill."\n'
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -141,12 +153,9 @@ def sync(
 ) -> None:
     """Main sync logic. Prints summary to stdout."""
     skills = find_skills(receptors_dir, single_name)
-    if not skills:
-        if single_name:
-            print(f"skill-sync: skill '{single_name}' not found in {receptors_dir}")
-            sys.exit(1)
-        print(f"skill-sync: no skills found in {receptors_dir}")
-        return
+    if not skills and single_name:
+        print(f"skill-sync: skill '{single_name}' not found in {receptors_dir}")
+        sys.exit(1)
 
     # --- Phase 1: Generate / update recipe.yaml files ---
     generated = 0
@@ -201,7 +210,8 @@ def sync(
     existing_commands = {c.get("command", ""): c for c in slash_commands}
     stale_commands = [
         cmd for cmd, entry in existing_commands.items()
-        if cmd not in valid_recipes and not Path(entry.get("recipe_path", "")).is_file()
+        if cmd not in valid_recipes
+        and not Path(entry.get("recipe_path", "")).expanduser().is_file()
     ]
 
     # Track adds

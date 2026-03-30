@@ -9,12 +9,18 @@ import pytest
 import yaml
 
 # Import the module by exec-ing it (it has no .py extension)
-import importlib.util
+import types
 
 _SCRIPT = Path.home() / "germline" / "effectors" / "skill-sync"
-spec = importlib.util.spec_from_file_location("skill_sync", _SCRIPT)
-skill_sync = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(skill_sync)
+skill_sync = types.ModuleType("skill_sync")
+skill_sync.__file__ = str(_SCRIPT)
+
+# Read the source, skip the uv shebang + header block
+_source = _SCRIPT.read_text()
+# Strip everything up to and including the closing # /// marker
+import re
+_source = re.sub(r"\A.*?# ///\s*\n", "", _source, count=1, flags=re.DOTALL)
+exec(compile(_source, str(_SCRIPT), "exec"), skill_sync.__dict__)
 
 
 # ---------------------------------------------------------------------------

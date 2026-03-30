@@ -1,6 +1,6 @@
-title: "Palpation"
+title: "Palpation — Manual Deep Probing"
 name: "palpation"
-description: "Deep-probe a single component by hand — deeper than integrin scan. "deep probe"
+description: "Deep-probe a single component by hand — deeper than integrin scan. \"deep probe\""
 instructions: |
   # Palpation — Manual Deep Probing
 

@@ -1,6 +1,6 @@
 title: "pinocytosis -- web content fetching"
 name: "pinocytosis"
-description: "Fetch web content with smart routing and fallback chain. "browse", "fetch URL"
+description: "Fetch web content with smart routing and fallback chain. \"browse\", \"fetch URL\""
 instructions: |
   # pinocytosis -- web content fetching
 

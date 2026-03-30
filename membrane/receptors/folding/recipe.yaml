@@ -1,6 +1,6 @@
-title: "Execute Implementation Plan"
+title: "/folding — Execute the Plan"
 name: "folding"
-description: "Execute an implementation plan — delegate, verify, review, ship."
+description: "Execute an implementation plan end-to-end — delegate, verify, ship."
 instructions: |
   # /folding — Execute the Plan
 
@@ -144,4 +144,4 @@ extensions:
   - type: streamable_http
     name: vivesca
     uri: "http://127.0.0.1:8741/mcp"
-prompt: "Execute the implementation plan and ship working code."
+prompt: "Execute the folding skill."

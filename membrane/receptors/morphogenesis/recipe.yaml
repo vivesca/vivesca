@@ -1,6 +1,6 @@
 title: "morphogenesis -- image generation via Gemini"
 name: "morphogenesis"
-description: "Generate images via Gemini models. "generate image", "draw", "create image"
+description: "Generate images via Gemini models. \"generate image\", \"draw\", \"create image\""
 instructions: |
   # morphogenesis -- image generation via Gemini
 

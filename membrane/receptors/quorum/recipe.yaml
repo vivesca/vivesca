@@ -1,6 +1,6 @@
 title: "Consilium"
 name: "quorum"
-description: "Multi-model deliberation for judgment calls. "council", "ask llms"
+description: "Multi-model deliberation for judgment calls. \"council\", \"ask llms\""
 instructions: |
   # Consilium
 
