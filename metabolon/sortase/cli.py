@@ -569,6 +569,23 @@ def watch(
 
 
 @main.command()
+@click.argument("plan_file", type=click.Path(exists=True, path_type=Path))
+def lint(plan_file: Path) -> None:
+    """Lint a plan file for common issues."""
+
+    plan_text = plan_file.read_text(encoding="utf-8")
+    warnings = lint_plan(plan_text)
+
+    if not warnings:
+        console.print("[green]No issues found.[/green]")
+        return
+
+    console.print(f"[bold yellow]{len(warnings)} warning(s):[/bold yellow]")
+    for warning in warnings:
+        console.print(f"  - {warning}")
+
+
+@main.command()
 def version() -> None:
     """Show sortase version."""
     from importlib.metadata import version as pkg_version
