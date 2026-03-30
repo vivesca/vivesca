@@ -406,7 +406,14 @@ def _atomic_commit(directory: str, backend: str, prompt: str) -> None:
                                cwd=directory, capture_output=True, text=True)
     if not diff.stdout.strip() and not untracked.stdout.strip():
         return  # nothing to commit
-    subprocess.run(["git", "add", "-A"], cwd=directory, capture_output=True)
+    # Stage only modified/new files — NOT unrelated plan files
+    # Modified tracked files
+    subprocess.run(["git", "add", "-u"], cwd=directory, capture_output=True)
+    # New files created by goose (exclude loci/plans/ to avoid archiving race)
+    for f in untracked.stdout.strip().splitlines():
+        f = f.strip()
+        if f and not f.startswith("loci/plans/"):
+            subprocess.run(["git", "add", "--", f], cwd=directory, capture_output=True)
     summary = _extract_task_summary(prompt).replace("\n", " ")
     msg = f"translocon({backend}): {summary}"
     subprocess.run(["git", "commit", "-m", msg], cwd=directory, capture_output=True)
