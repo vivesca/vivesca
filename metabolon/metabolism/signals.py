@@ -49,8 +49,12 @@ class SensorySystem:
             return []
         signals = []
         for line in self.sensory_surface_path.read_text().splitlines():
-            if line.strip():
+            if not line.strip():
+                continue
+            try:
                 signals.append(Stimulus.model_validate_json(line))
+            except Exception:
+                continue  # skip non-Stimulus entries (e.g. anam-scan)
         return signals
 
     def recall_since(self, since: datetime) -> list[Stimulus]:
