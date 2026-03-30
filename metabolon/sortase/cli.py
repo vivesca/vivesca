@@ -13,7 +13,8 @@ from rich.table import Table
 
 from metabolon.sortase.decompose import decompose_plan, lint_plan
 from metabolon.sortase.executor import execute_tasks, list_running, summarize_cost_estimates
-from metabolon.sortase.logger import aggregate_stats, analyze_logs, append_log, read_logs
+from metabolon.sortase.logger import aggregate_stats, analyze_logs, append_log, read_logs, resolve_log_path
+from metabolon.sortase.overnight import compute_overnight_stats, format_overnight_report, load_overnight_entries
 from metabolon.sortase.router import route_description
 from metabolon.sortase.validator import validate_execution
 
@@ -847,6 +848,26 @@ def dashboard(output_path: Path, log_path: Path | None) -> None:
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(html, encoding="utf-8")
     console.print(f"Dashboard written to {output_path} ({total} entries)")
+
+
+@main.command()
+@click.option("--log", "log_path", default=None, type=click.Path(path_type=Path), help="Path to log.jsonl (default: sortase default).")
+@click.option("--hours", default=8, show_default=True, type=int, help="Look-back window in hours.")
+@click.option("--output", "output_path", default=None, type=click.Path(path_type=Path), help="Write report to file instead of stdout.")
+def overnight(log_path: Path | None, hours: int, output_path: Path | None) -> None:
+    """Generate an overnight session report from execution logs."""
+
+    resolved = resolve_log_path(log_path)
+    entries = load_overnight_entries(resolved, since_hours=hours)
+    stats = compute_overnight_stats(entries)
+    report = format_overnight_report(stats, entries)
+
+    if output_path:
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_text(report, encoding="utf-8")
+        console.print(f"Report written to {output_path}")
+    else:
+        console.print(report)
 
 
 if __name__ == "__main__":
