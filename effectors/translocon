@@ -194,6 +194,7 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--eval", action="store_true", help="Analyze sortase traces")
     parser.add_argument("--count", type=int, default=20, help="Traces to analyze (with --eval)")
     parser.add_argument("--failures-only", action="store_true", help="Show only failures (with --eval)")
+    parser.add_argument("--stats", action="store_true", help="Print dispatch statistics")
     parser.add_argument("--dry-run", action="store_true", help="Print command only")
     parser.add_argument("--verbose", action="store_true", help="Verbose output")
 
