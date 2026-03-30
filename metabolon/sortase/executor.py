@@ -708,6 +708,27 @@ def _reset_git_state(project_dir: Path, task_name: str, verbose: bool = False) -
     """
     if not _is_git_repo(project_dir):
         return
+
+    # Log which files will be discarded before destroying them
+    dirty = subprocess.run(
+        ["git", "diff", "--name-only"],
+        cwd=project_dir,
+        capture_output=True,
+        text=True,
+    )
+    untracked = subprocess.run(
+        ["git", "clean", "-nd"],
+        cwd=project_dir,
+        capture_output=True,
+        text=True,
+    )
+    dirty_files = dirty.stdout.strip()
+    untracked_files = untracked.stdout.strip()
+    if dirty_files:
+        sys.stderr.write(f"[{task_name}] Discarding modified files:\n{dirty_files}\n")
+    if untracked_files:
+        sys.stderr.write(f"[{task_name}] Removing untracked files:\n{untracked_files}\n")
+
     checkout = subprocess.run(
         ["git", "checkout", "--", "."],
         cwd=project_dir,
