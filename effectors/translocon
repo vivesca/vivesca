@@ -224,6 +224,70 @@ def _route_output(text: str, dest: str) -> int:
     return 0
 
 
+def _run_stats(days: int = 7) -> int:
+    """Print dispatch statistics from sortase log for the last N days."""
+    from collections import Counter
+
+    log_path = Path.home() / ".local/share/sortase/log.jsonl"
+    if not log_path.exists():
+        print("translocon: no sortase log found", file=sys.stderr)
+        return 1
+
+    cutoff = datetime.now() - timedelta(days=days)
+    traces: list[dict] = []
+    with open(log_path) as fh:
+        for line in fh:
+            line = line.strip()
+            if not line:
+                continue
+            entry = json.loads(line)
+            ts = entry.get("timestamp", "")
+            if ts:
+                try:
+                    entry_dt = datetime.fromisoformat(ts)
+                    if entry_dt >= cutoff:
+                        traces.append(entry)
+                except (ValueError, TypeError):
+                    traces.append(entry)  # include unparseable entries
+            else:
+                traces.append(entry)
+
+    total = len(traces)
+    if total == 0:
+        print(f"Translocon Stats (last {days} days)")
+        print("  No dispatches recorded.")
+        return 0
+
+    success_count = sum(1 for t in traces if t.get("success"))
+    fail_count = total - success_count
+    success_pct = success_count / total * 100
+    fail_pct = fail_count / total * 100
+
+    durations = [t.get("duration_s", 0) for t in traces if t.get("duration_s") is not None]
+    avg_duration = sum(durations) / len(durations) if durations else 0
+
+    failure_reasons = Counter(
+        t.get("failure_reason") or "unknown"
+        for t in traces
+        if not t.get("success")
+    )
+    top_failure = failure_reasons.most_common(1)
+    top_failure_str = f"{top_failure[0][0]} ({top_failure[0][1]})" if top_failure else "none"
+
+    backend_counts = Counter(t.get("tool", "unknown") for t in traces)
+    top_backend = backend_counts.most_common(1)
+    top_backend_str = f"{top_backend[0][0]} ({top_backend[0][1]})" if top_backend else "none"
+
+    print(f"Translocon Stats (last {days} days)")
+    print(f"  Dispatches: {total}")
+    print(f"  Success: {success_count} ({success_pct:.0f}%)")
+    print(f"  Failures: {fail_count} ({fail_pct:.0f}%)")
+    print(f"  Avg duration: {avg_duration:.0f}s")
+    print(f"  Top failure: {top_failure_str}")
+    print(f"  Top backend: {top_backend_str}")
+    return 0
+
+
 def _run_eval(count: int = 20, failures_only: bool = False) -> int:
     from collections import Counter
     log_path = Path.home() / ".local/share/sortase/log.jsonl"
@@ -269,11 +333,11 @@ def _run_eval(count: int = 20, failures_only: bool = False) -> int:
 def _extract_task_summary(prompt: str) -> str:
     """Extract the task description from a coaching-injected prompt.
 
-    Coaching notes are prepended before '---\\n\\nTask:\\n'.
+    Coaching notes are prepended before '\\n\\n---\\n\\nTask:\\n'.
     If that separator exists, take the text after it.
     Otherwise use the full prompt (no coaching was injected).
     """
-    marker = "\n---\n\nTask:\n"
+    marker = "\n\n---\n\nTask:\n"
     idx = prompt.find(marker)
     task = prompt[idx + len(marker):] if idx >= 0 else prompt
     # Take first meaningful line
@@ -299,6 +363,8 @@ def _atomic_commit(directory: str, backend: str, prompt: str) -> None:
 
 def main(argv: list[str] | None = None) -> int:
     args = _parse_args(argv)
+    if args.stats:
+        return _run_stats()
     if args.eval:
         return _run_eval(args.count, args.failures_only)
     prompt = args.prompt
