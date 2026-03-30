@@ -56,7 +56,7 @@ def proprioception(
     material: str = "",
     notes: str = "",
 ) -> str:
-    """Sense organism internal state with gradient detection. Targets: genome, anatomy, circadian, vitals, glycogen, reflexes, consolidation, operons, sensorium, histone_store, effectors, oscillators, sense, drill, gradient, skills."""
+    """Sense organism internal state with gradient detection. Targets: genome, anatomy, circadian, vitals, glycogen, reflexes, consolidation, operons, sensorium, histone_store, effectors, oscillators, sense, drill, gradient, skills, timing."""
     if target == "drill":
         reading = _drill(goal, category, score, drill_type, material, notes)
     else:

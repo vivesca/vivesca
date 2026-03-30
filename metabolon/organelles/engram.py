@@ -5,9 +5,10 @@ from __future__ import annotations
 import argparse
 import difflib
 import json
+import os
 import re
 import sys
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -121,6 +122,37 @@ def _make_snippet(text: str, match_start: int, match_end: int) -> str:
     return snippet
 
 
+def _make_line_context(
+    text: str,
+    match_start: int,
+    context_lines: int,
+) -> tuple[str, list[str], list[str]]:
+    if not text:
+        return "", [], []
+
+    text_lines = text.splitlines() or [text]
+    current_offset = 0
+    match_line_index = 0
+
+    for line_index, line in enumerate(text_lines):
+        line_end = current_offset + len(line)
+        if match_start <= line_end or line_index == len(text_lines) - 1:
+            match_line_index = line_index
+            break
+        current_offset = line_end + 1
+
+    if context_lines <= 0:
+        return text_lines[match_line_index], [], []
+
+    start_index = max(0, match_line_index - context_lines)
+    end_index = min(len(text_lines), match_line_index + context_lines + 1)
+    return (
+        text_lines[match_line_index],
+        text_lines[start_index:match_line_index],
+        text_lines[match_line_index + 1 : end_index],
+    )
+
+
 # ---------------------------------------------------------------------------
 # Role matching
 # ---------------------------------------------------------------------------
@@ -161,6 +193,9 @@ class TraceFragment:
     role: str
     snippet: str
     tool: str
+    match_line: str = ""
+    context_before: list[str] = field(default_factory=list)
+    context_after: list[str] = field(default_factory=list)
 
 
 # ---------------------------------------------------------------------------
@@ -346,6 +381,7 @@ def _search_prompts(
     tool_filter: str | None,
     role_filter: str | None,
     session_filter: str | None,
+    context_lines: int = 0,
 ) -> list[TraceFragment]:
     # Prompts are always role "you" — if filtering for other roles, skip
     if role_filter and not _matches_role("you", role_filter):
@@ -385,6 +421,9 @@ def _search_prompts(
                     m = regex.search(prompt_text)
                     if m:
                         dt = _ms_to_hkt(ts)
+                        match_line, before_lines, after_lines = _make_line_context(
+                            prompt_text, m.start(), context_lines
+                        )
                         matches.append(
                             TraceFragment(
                                 date=dt.strftime("%Y-%m-%d"),
@@ -394,6 +433,9 @@ def _search_prompts(
                                 role="you",
                                 snippet=_make_snippet(prompt_text, m.start(), m.end()),
                                 tool=label,
+                                match_line=match_line,
+                                context_before=before_lines,
+                                context_after=after_lines,
                             )
                         )
         except Exception:
@@ -413,6 +455,9 @@ def _search_prompts(
             mo = regex.search(prompt_text)
             if mo:
                 dt = _ms_to_hkt(ts_ms)
+                match_line, before_lines, after_lines = _make_line_context(
+                    prompt_text, mo.start(), context_lines
+                )
                 matches.append(
                     TraceFragment(
                         date=dt.strftime("%Y-%m-%d"),
@@ -422,6 +467,9 @@ def _search_prompts(
                         role="you",
                         snippet=_make_snippet(prompt_text, mo.start(), mo.end()),
                         tool="OpenCode",
+                        match_line=match_line,
+                        context_before=before_lines,
+                        context_after=after_lines,
                     )
                 )
 
@@ -441,6 +489,7 @@ def _search_transcripts(
     tool_filter: str | None,
     role_filter: str | None,
     session_filter: str | None,
+    context_lines: int = 0,
 ) -> list[TraceFragment]:
     storage = _opencode_storage()
     matches: list[TraceFragment] = []
@@ -514,6 +563,9 @@ def _search_transcripts(
                             if m:
                                 hkt_dt = ts_dt.astimezone(_HKT)
                                 session = entry.get("sessionId") or path.stem
+                                match_line, before_lines, after_lines = _make_line_context(
+                                    text, m.start(), context_lines
+                                )
                                 matches.append(
                                     TraceFragment(
                                         date=hkt_dt.strftime("%Y-%m-%d"),
@@ -523,6 +575,9 @@ def _search_transcripts(
                                         role=role,
                                         snippet=_make_snippet(text, m.start(), m.end()),
                                         tool="Claude",
+                                        match_line=match_line,
+                                        context_before=before_lines,
+                                        context_after=after_lines,
                                     )
                                 )
                 except Exception:
@@ -551,6 +606,9 @@ def _search_transcripts(
             m = regex.search(text)
             if m:
                 dt = _ms_to_hkt(ts_ms)
+                match_line, before_lines, after_lines = _make_line_context(
+                    text, m.start(), context_lines
+                )
                 matches.append(
                     TraceFragment(
                         date=dt.strftime("%Y-%m-%d"),
@@ -560,6 +618,9 @@ def _search_transcripts(
                         role=role,
                         snippet=_make_snippet(text, m.start(), m.end()),
                         tool="OpenCode",
+                        match_line=match_line,
+                        context_before=before_lines,
+                        context_after=after_lines,
                     )
                 )
 

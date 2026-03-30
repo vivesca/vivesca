@@ -31,6 +31,10 @@ def _write_mark(path: Path, name: str, mtype: str = "feedback", **extra_fm):
     path.write_text(f"---\n" + "\n".join(fm_lines) + "\n---\n\nContent here.\n")
 
 
+def _patch_home(monkeypatch, home_path: Path) -> None:
+    monkeypatch.setattr(Path, "home", staticmethod(lambda: home_path))
+
+
 @pytest.fixture
 def marks_dir(tmp_path: Path) -> Path:
     d = tmp_path / "marks"
@@ -74,13 +78,15 @@ def test_source_from_frontmatter(marks_dir: Path):
     assert mark.source == "cc"
 
 
-def test_sweep_counts(marks_dir: Path):
+def test_sweep_counts(marks_dir: Path, tmp_path: Path, monkeypatch):
+    _patch_home(monkeypatch, tmp_path)
     report = sweep(marks_dir, threshold_days=90, dry_run=True)
     assert report.total_marks == 7
     assert report.protected_marks >= 2  # keep_digging + explicit protected
 
 
-def test_sweep_finds_clusters(marks_dir: Path):
+def test_sweep_finds_clusters(marks_dir: Path, tmp_path: Path, monkeypatch):
+    _patch_home(monkeypatch, tmp_path)
     # Add more marks to create a cluster
     _write_mark(marks_dir / "feedback_tone_formal.md", "Tone formal", "feedback")
     _write_mark(marks_dir / "feedback_tone_casual.md", "Tone casual", "feedback")
@@ -89,7 +95,8 @@ def test_sweep_finds_clusters(marks_dir: Path):
     assert any("tone" in t for t in topic_names)
 
 
-def test_sweep_dry_run_preserves_files(marks_dir: Path):
+def test_sweep_dry_run_preserves_files(marks_dir: Path, tmp_path: Path, monkeypatch):
+    _patch_home(monkeypatch, tmp_path)
     # Make a mark old enough to be stale by using acetyl + any age > 14d
     # Can't easily fake mtime in test, so just verify dry_run doesn't delete
     count_before = len(list(marks_dir.glob("*.md")))
@@ -98,7 +105,8 @@ def test_sweep_dry_run_preserves_files(marks_dir: Path):
     assert count_before == count_after
 
 
-def test_type_distribution(marks_dir: Path):
+def test_type_distribution(marks_dir: Path, tmp_path: Path, monkeypatch):
+    _patch_home(monkeypatch, tmp_path)
     report = sweep(marks_dir, threshold_days=90, dry_run=True)
     assert "feedback" in report.type_distribution
     assert "finding" in report.type_distribution
@@ -234,19 +242,10 @@ def test_signal_history_filters_by_name(tmp_path: Path, monkeypatch):
 def test_consolidation_finds_recent_marks(marks_dir: Path, tmp_path: Path, monkeypatch):
     """Marks modified today (last_modified_days == 0) appear in today_marks."""
     # All marks in the fixture were just written, so last_modified_days == 0
-    daily_dir = tmp_path / "Daily"
     monkeypatch.setattr(
         "metabolon.organelles.demethylase.MARKS_DIR", marks_dir
     )
-    # Patch the daily dir by monkeypatching Path.home to point somewhere writable
-    # Instead, pass marks_dir directly and patch the daily write path via tmp_path
-    import metabolon.organelles.demethylase as dm_mod
-    original_home = Path.home
-
-    def fake_home():
-        return tmp_path
-
-    monkeypatch.setattr(Path, "home", staticmethod(fake_home))
+    _patch_home(monkeypatch, tmp_path)
 
     report = consolidate(marks_dir)
     assert isinstance(report, ConsolidationReport)
@@ -260,13 +259,7 @@ def test_consolidation_clusters_new_with_existing(marks_dir: Path, tmp_path: Pat
     # Add a second feedback_tone mark so the cluster forms
     _write_mark(marks_dir / "feedback_tone_formal.md", "Tone formal", "feedback")
     _write_mark(marks_dir / "feedback_tone_casual.md", "Tone casual", "feedback")
-
-    import metabolon.organelles.demethylase as dm_mod
-
-    def fake_home():
-        return tmp_path
-
-    monkeypatch.setattr(Path, "home", staticmethod(fake_home))
+    _patch_home(monkeypatch, tmp_path)
 
     report = consolidate(marks_dir)
     topic_names = [c["topic"] for c in report.clusters_found]
@@ -377,10 +370,7 @@ def test_resensitize_resets_signal(tmp_path: Path, monkeypatch):
 
 def test_consolidation_report_structure(marks_dir: Path, tmp_path: Path, monkeypatch):
     """ConsolidationReport has all required fields and daily summary is written."""
-    def fake_home():
-        return tmp_path
-
-    monkeypatch.setattr(Path, "home", staticmethod(fake_home))
+    _patch_home(monkeypatch, tmp_path)
 
     report = consolidate(marks_dir)
 

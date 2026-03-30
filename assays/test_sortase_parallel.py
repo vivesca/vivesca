@@ -3,11 +3,8 @@
 from __future__ import annotations
 
 import json
-import os
-import tempfile
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
-from threading import Barrier
 
 import pytest
 
@@ -32,16 +29,10 @@ def _read_status() -> list:
 
 def test_parallel_register_creates_exact_entries():
     """Three concurrent register_running() calls must produce exactly 3 entries."""
-    barrier = Barrier(3, timeout=10)
     task_ids = ["alpha", "beta", "gamma"]
 
-    def register_barriered(task_id: str) -> str:
-        barrier.wait()
-        register_running(task_id)
-        return task_id
-
     with ThreadPoolExecutor(max_workers=3) as pool:
-        futures = [pool.submit(register_barriered, tid) for tid in task_ids]
+        futures = {pool.submit(register_running, tid): tid for tid in task_ids}
         results = [f.result() for f in as_completed(futures)]
 
     assert sorted(results) == sorted(task_ids)
@@ -66,15 +57,8 @@ def test_parallel_unregister_empties_status():
 
     assert len(_read_status()) == 3, "precondition: 3 entries before unregister"
 
-    barrier = Barrier(3, timeout=10)
-
-    def unregister_barriered(task_id: str) -> str:
-        barrier.wait()
-        unregister_running(task_id)
-        return task_id
-
     with ThreadPoolExecutor(max_workers=3) as pool:
-        futures = [pool.submit(unregister_barriered, tid) for tid in task_ids]
+        futures = {pool.submit(unregister_running, tid): tid for tid in task_ids}
         results = [f.result() for f in as_completed(futures)]
 
     assert sorted(results) == sorted(task_ids)
@@ -90,18 +74,6 @@ def test_parallel_unregister_empties_status():
 
 def test_mixed_register_unregister_no_corruption():
     """Interleaved register and unregister must not corrupt status.json."""
-    barrier = Barrier(4, timeout=10)
-
-    def register(tid: str) -> str:
-        barrier.wait()
-        register_running(tid)
-        return f"reg:{tid}"
-
-    def unregister(tid: str) -> str:
-        barrier.wait()
-        unregister_running(tid)
-        return f"unreg:{tid}"
-
     # Register 3, then unregister 1 — all launched simultaneously
     work = [
         ("register", "kappa"),
@@ -114,9 +86,9 @@ def test_mixed_register_unregister_no_corruption():
         futures = []
         for action, tid in work:
             if action == "register":
-                futures.append(pool.submit(register, tid))
+                futures.append(pool.submit(register_running, tid))
             else:
-                futures.append(pool.submit(unregister, tid))
+                futures.append(pool.submit(unregister_running, tid))
         results = [f.result() for f in as_completed(futures)]
 
     assert len(results) == 4

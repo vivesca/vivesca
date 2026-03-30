@@ -9,11 +9,13 @@ from __future__ import annotations
 import json
 import logging
 import time
+import traceback
 from collections import deque
 from pathlib import Path
 from typing import Any
 
 from fastmcp import FastMCP
+from fastmcp.exceptions import ToolError
 from fastmcp.server.middleware import CallNext, Middleware, MiddlewareContext
 from fastmcp.server.providers import FileSystemProvider
 from fastmcp.tools.tool import ToolResult
@@ -49,6 +51,46 @@ def _extract_substrate(result: ToolResult) -> str:
         if text is not None:
             parts.append(text)
     return "\n".join(parts)
+
+
+def _summarize_traceback(exc: Exception, max_frames: int = 4) -> list[str]:
+    """Return the most relevant traceback frames in a compact format."""
+    if exc.__traceback__ is None:
+        return []
+    extracted_frames = traceback.extract_tb(exc.__traceback__)[-max_frames:]
+    return [
+        f"{Path(frame.filename).name}:{frame.lineno} in {frame.name}"
+        for frame in extracted_frames
+    ]
+
+
+def _suggest_fix(tool_name: str, exc: Exception) -> str:
+    """Return a concrete next step based on the failure mode."""
+    error_text = str(exc).lower()
+
+    if isinstance(exc, TimeoutError) or "timed out" in error_text:
+        return "Retry the tool call or increase the upstream timeout if the dependency is slow."
+    if isinstance(exc, FileNotFoundError) or "binary not found" in error_text:
+        return "Verify the referenced binary or file exists and is on PATH, then rerun the tool."
+    if isinstance(exc, PermissionError) or "permission denied" in error_text:
+        return "Check filesystem permissions and any OS-level access grants required by this tool."
+    if "api key" in error_text or "not set" in error_text or "credential" in error_text:
+        return "Confirm the required environment variable or keychain credential is loaded before calling the tool."
+    if isinstance(exc, ValueError):
+        return f"Check the arguments passed to '{tool_name}' and validate required formats or enum values."
+    return "Inspect the traceback summary and the underlying organelle dependency, then rerun after fixing the root cause."
+
+
+def _format_tool_error(tool_name: str, exc: Exception) -> str:
+    """Serialize tool-call failures into a structured debug payload."""
+    payload = {
+        "tool_name": tool_name,
+        "error_type": type(exc).__name__,
+        "error_message": str(exc),
+        "traceback_summary": _summarize_traceback(exc),
+        "suggested_fix": _suggest_fix(tool_name, exc),
+    }
+    return json.dumps(payload, indent=2)
 
 
 class ToolTiming:
@@ -109,8 +151,8 @@ class SensoryMiddleware(Middleware):
             return result
         except Exception as exc:
             outcome = Outcome.error
-            error_msg = str(exc)[:500]
-            raise
+            error_msg = _format_tool_error(tool_name, exc)
+            raise ToolError(error_msg) from exc
         finally:
             latency_ms = int((time.perf_counter() - start) * 1000)
 
