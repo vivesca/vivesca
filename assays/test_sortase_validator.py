@@ -427,6 +427,17 @@ class TestValidateExecution:
         )
         placeholder_issues = [i for i in issues if i.check == "placeholder-scan"]
         assert len(placeholder_issues) == 1
+        assert placeholder_issues[0].severity == "warning"
+
+    def test_stub_in_new_file_is_error(self, tmp_path):
+        (tmp_path / "stubby.py").write_text(f"# {_MARKER_STUB} impl\n", encoding="utf-8")
+        issues = validate_execution(
+            project_dir=tmp_path,
+            new_files=["stubby.py"],
+        )
+        placeholder_issues = [i for i in issues if i.check == "placeholder-scan"]
+        assert len(placeholder_issues) == 1
+        assert placeholder_issues[0].severity == "error"
 
     def test_failing_test_command(self, tmp_path):
         (tmp_path / "clean.py").write_text('print("ok")\n', encoding="utf-8")
