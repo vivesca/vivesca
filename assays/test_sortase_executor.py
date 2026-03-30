@@ -92,7 +92,7 @@ def test_clean_env_cc_glm_sets_zhipu():
     with patch.dict(os.environ, {"ZHIPU_API_KEY": "test-key"}):
         env = _clean_env("cc-glm")
     assert env["ANTHROPIC_API_KEY"] == "test-key"
-    assert "z.ai" in env["ANTHROPIC_BASE_URL"]
+    assert "bigmodel.cn" in env["ANTHROPIC_BASE_URL"]
 
 
 def test_execution_attempt_dataclass():

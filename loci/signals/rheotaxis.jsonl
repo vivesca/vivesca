@@ -186,3 +186,5 @@
 {"ts": "2026-03-30T08:39:55+00:00", "model": "sonar", "query": "Factory AI droid pricing 2026"}
 {"ts": "2026-03-30T08:46:29+00:00", "model": "sonar", "query": "test"}
 {"ts": "2026-03-30T09:46:37+00:00", "model": "sonar", "query": "test"}
+{"ts": "2026-03-30T10:10:17+00:00", "model": "sonar-pro", "query": "unified CLI dispatch wrapper for multiple AI coding agents goose droid codex 2026"}
+{"ts": "2026-03-30T10:10:18+00:00", "model": "sonar-pro", "query": "LLM agent router CLI tool switching between coding agents"}

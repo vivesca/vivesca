@@ -18,6 +18,12 @@
 - **Fast-moving domains**: Tool ecosystems, competitive landscapes, pricing, API specs — research before asserting. Training data decays in months. If you haven't verified it this session, you don't know it.
 - **Calculations**: Python only.
 - **No deliverables in `~/tmp/`.** Scratch/in-flight only. Agent outputs, research, reports → `chromatin` or `~/epigenome/chromatin/immunity/`. Tell subagents chromatin paths, not `~/tmp/`.
+- **Protected paths — trust tiers for delegated agents (scout/sortase MCP):**
+  - `genome.md`, `epigenome/marks/` (memory) → **CC only.** Never delegated.
+  - `membrane/receptors/` (skills) → **Sortase with validator + CC reviews diff.** Never raw scout --build.
+  - `metabolon/`, `effectors/`, `assays/` (code/tests) → Sortase or scout --build. Validator checks.
+  - Read access → unrestricted for all agents.
+- **Specs go to `~/germline/loci/plans/`** with status frontmatter. Never `/tmp/`.
 
 ## How to Think
 

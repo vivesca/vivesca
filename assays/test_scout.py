@@ -388,3 +388,260 @@ def test_output_default_is_stdout(tmp_path, capsys):
             with patch.dict(_mod, {"_direct_api": MagicMock(return_value=0)}):
                 rc = main([str(tmp_path), "test"])
     assert rc == 0
+
+
+# ── --eval flag tests ─────────────────────────────────────────────
+
+
+def _make_sortase_log(tmp_path, traces: list[dict]) -> Path:
+    """Create a fake sortase log.jsonl in tmp_path."""
+    log_dir = tmp_path / ".local" / "share" / "sortase"
+    log_dir.mkdir(parents=True)
+    log_path = log_dir / "log.jsonl"
+    lines = [json.dumps(t) for t in traces]
+    log_path.write_text("\n".join(lines) + "\n")
+    return log_path
+
+
+_SORTASE_TRACES = [
+    {"duration_s": 75.2, "failure_reason": None, "plan": "noesis.md",
+     "success": True, "tool": "droid", "timestamp": "2026-03-30T09:37:39"},
+    {"duration_s": 85.4, "failure_reason": None, "plan": "ingestion.md",
+     "success": True, "tool": "droid", "timestamp": "2026-03-30T09:37:40"},
+    {"duration_s": 460.3, "failure_reason": "tests", "plan": "scout-spec.md",
+     "success": False, "tool": "goose", "timestamp": "2026-03-30T16:59:06"},
+    {"duration_s": 665.7, "failure_reason": "placeholder-scan", "plan": "skill-sync-spec.md",
+     "success": False, "tool": "goose", "timestamp": "2026-03-30T17:01:32"},
+    {"duration_s": 109.6, "failure_reason": None, "plan": "expression.md",
+     "success": True, "tool": "droid", "timestamp": "2026-03-30T09:38:05"},
+]
+
+
+def test_eval_reads_log_and_prints_summary(tmp_path, capsys):
+    """--eval reads sortase log and prints success rate + tool breakdown."""
+    _make_sortase_log(tmp_path, _SORTASE_TRACES)
+    with patch.object(Path, "home", return_value=tmp_path):
+        rc = main(["--eval"])
+    assert rc == 0
+    out = capsys.readouterr().out
+    # 5 traces, 3 success = 60%
+    assert "Sortase traces: 5" in out
+    assert "Success: 3 (60%)" in out
+    assert "Fail: 2" in out
+    # Tool breakdown
+    assert "droid" in out
+    assert "goose" in out
+    # Failure reasons
+    assert "tests" in out
+    assert "placeholder-scan" in out
+
+
+def test_eval_no_log(tmp_path, capsys):
+    """--eval with no log file returns error."""
+    with patch.object(Path, "home", return_value=tmp_path):
+        rc = main(["--eval"])
+    assert rc == 1
+    assert "no sortase log" in capsys.readouterr().err
+
+
+def test_eval_failures_only(tmp_path, capsys):
+    """--failures-only shows only failed traces with details."""
+    _make_sortase_log(tmp_path, _SORTASE_TRACES)
+    with patch.object(Path, "home", return_value=tmp_path):
+        rc = main(["--eval", "--failures-only"])
+    assert rc == 0
+    out = capsys.readouterr().out
+    # Should still have the summary line
+    assert "Fail: 2" in out
+    # Should list specific failed traces with details
+    assert "scout-spec.md" in out
+    assert "skill-sync-spec.md" in out
+    assert "tests" in out
+    assert "placeholder-scan" in out
+
+
+def test_eval_count_limits_traces(tmp_path, capsys):
+    """--count N analyzes only last N traces."""
+    _make_sortase_log(tmp_path, _SORTASE_TRACES)
+    with patch.object(Path, "home", return_value=tmp_path):
+        rc = main(["--eval", "--count", "2"])
+    assert rc == 0
+    out = capsys.readouterr().out
+    # Last 2 traces: expression (success) + skill-sync-spec (fail) = 50%
+    assert "Sortase traces: 2" in out
+    assert "Success: 1 (50%)" in out
+
+
+def test_eval_all_success(tmp_path, capsys):
+    """--eval with 100% success rate."""
+    traces = [
+        {"duration_s": 50, "failure_reason": None, "plan": "a.md",
+         "success": True, "tool": "droid", "timestamp": "2026-03-30T10:00:00"},
+        {"duration_s": 60, "failure_reason": None, "plan": "b.md",
+         "success": True, "tool": "goose", "timestamp": "2026-03-30T10:01:00"},
+    ]
+    _make_sortase_log(tmp_path, traces)
+    with patch.object(Path, "home", return_value=tmp_path):
+        rc = main(["--eval"])
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "Success: 2 (100%)" in out
+    assert "Fail: 0" in out
+    # No failure reasons section
+    assert "Failure reasons" not in out
+
+
+def test_eval_skips_other_routing(tmp_path, capsys):
+    """--eval ignores dir/prompt and other flags — pure analysis."""
+    _make_sortase_log(tmp_path, _SORTASE_TRACES)
+    with patch.object(Path, "home", return_value=tmp_path):
+        # Should NOT try direct API or subprocess despite extra args
+        with patch.dict(_mod, {"_direct_api": MagicMock(return_value=99)}):
+            rc = main(["--eval", "--model", "GLM-5.1", "ignored-dir", "ignored prompt"])
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "Sortase traces: 5" in out
+
+
+# ── v4: Pattern 1 — Route chains via YAML config ─────────────────
+
+
+def test_load_routes_default(tmp_path):
+    """No config file → hardcoded defaults returned."""
+    with patch.object(Path, "home", return_value=tmp_path):
+        routes = _mod["_load_routes"]()
+    assert "explore" in routes
+    assert routes["explore"]["chain"] == ["goose", "droid"]
+    assert routes["build"]["model"] == "GLM-5.1"
+    assert routes["mcp"]["auto"] == "high"
+    assert routes["safe"]["chain"] == ["droid"]
+    assert "skill" in routes
+
+
+def test_load_routes_from_yaml(tmp_path):
+    """Config file overrides defaults."""
+    cfg_dir = tmp_path / ".config" / "scout"
+    cfg_dir.mkdir(parents=True)
+    import yaml
+    custom = {
+        "explore": {"model": "GLM-5.1", "chain": ["droid", "goose"]},
+        "custom_mode": {"model": "GLM-4.7", "chain": ["goose"]},
+    }
+    routes_file = cfg_dir / "routes.yaml"
+    routes_file.write_text(yaml.dump(custom))
+
+    with patch.dict(_mod, {"ROUTES_PATH": routes_file}):
+        routes = _mod["_load_routes"]()
+    assert routes["explore"]["model"] == "GLM-5.1"
+    assert routes["explore"]["chain"] == ["droid", "goose"]
+    assert routes["custom_mode"]["chain"] == ["goose"]
+
+
+# ── v4: Pattern 2 — Auto-downtime with cooldown ──────────────────
+
+
+def test_auto_downtime_after_3_failures(tmp_path):
+    """3 consecutive failures → backend enters cooldown (not healthy)."""
+    health_dir = tmp_path / ".local" / "share" / "scout"
+    health_dir.mkdir(parents=True)
+    health_file = health_dir / "health.json"
+
+    with patch.dict(_mod, {"HEALTH_PATH": health_file}):
+        record = _mod["_record_result"]
+        healthy = _mod["_is_healthy"]
+        # Record 3 failures
+        record("goose", False)
+        record("goose", False)
+        assert healthy("goose") is True  # 2 failures, not yet
+        record("goose", False)
+        # 3 consecutive → cooldown
+        assert healthy("goose") is False
+        # droid was never touched → healthy
+        assert healthy("droid") is True
+
+
+def test_cooldown_expires(tmp_path):
+    """After cooldown period, backend becomes healthy again."""
+    health_dir = tmp_path / ".local" / "share" / "scout"
+    health_dir.mkdir(parents=True)
+    import datetime
+    # Write a health file with cooldown that expired 1 second ago
+    past = (datetime.datetime.now() - datetime.timedelta(seconds=1)).isoformat()
+    health_data = {
+        "goose": {"consecutive_failures": 3, "cooldown_until": past},
+        "droid": {"consecutive_failures": 0, "cooldown_until": None},
+    }
+    health_file = health_dir / "health.json"
+    health_file.write_text(json.dumps(health_data))
+
+    with patch.dict(_mod, {"HEALTH_PATH": health_file}):
+        assert _mod["_is_healthy"]("goose") is True  # cooldown expired
+
+
+def test_success_resets_failures(tmp_path):
+    """A successful call resets consecutive failures."""
+    health_dir = tmp_path / ".local" / "share" / "scout"
+    health_dir.mkdir(parents=True)
+    health_file = health_dir / "health.json"
+
+    with patch.dict(_mod, {"HEALTH_PATH": health_file}):
+        record = _mod["_record_result"]
+        healthy = _mod["_is_healthy"]
+        record("goose", False)
+        record("goose", False)
+        record("goose", False)
+        assert healthy("goose") is False  # in cooldown
+        record("goose", True)  # success resets
+        assert healthy("goose") is True
+
+
+# ── v4: Pattern 3 — Per-call logging ──────────────────────────────
+
+
+def test_per_call_logging(tmp_path):
+    """Every call writes an entry to log.jsonl."""
+    log_dir = tmp_path / ".local" / "share" / "scout"
+    log_dir.mkdir(parents=True)
+    log_file = log_dir / "log.jsonl"
+
+    with patch.dict(_mod, {"LOG_PATH": log_file}):
+        log_fn = _mod["_log_call"]
+        log_fn({"mode": "explore", "backend": "goose", "model": "GLM-4.7",
+                "success": True, "duration_s": 5.2})
+        log_fn({"mode": "build", "backend": "droid", "model": "GLM-5.1",
+                "success": False, "duration_s": 12.0})
+
+    assert log_file.exists()
+    lines = log_file.read_text().strip().split("\n")
+    assert len(lines) == 2
+    entry1 = json.loads(lines[0])
+    assert entry1["mode"] == "explore"
+    assert entry1["success"] is True
+    assert "timestamp" in entry1
+    entry2 = json.loads(lines[1])
+    assert entry2["mode"] == "build"
+    assert entry2["success"] is False
+
+
+# ── v4: Chain fallback integration test ───────────────────────────
+
+
+def test_chain_fallback(tmp_path):
+    """First backend in chain fails → tries next backend in chain."""
+    calls: list[str] = []
+
+    def fake_run(cmd, **kwargs):
+        calls.append(cmd[0])
+        m = MagicMock()
+        m.returncode = 1 if len(calls) == 1 else 0  # first fails, second succeeds
+        m.stdout = "ok\n"
+        return m
+
+    # Use --build mode which has chain: [goose, droid]
+    # Also disable direct API
+    with patch.dict(_mod, {"_direct_api": MagicMock(return_value=1)}):
+        with patch("subprocess.run", side_effect=fake_run):
+            rc = main(["--build", str(tmp_path), "implement X"])
+    assert rc == 0
+    assert calls[0] == "goose"
+    assert calls[1] == "droid"

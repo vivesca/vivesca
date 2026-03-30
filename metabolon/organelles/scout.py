@@ -1,0 +1,367 @@
+"""scout — dispatch cheap LLM tasks via goose/droid on ZhiPu plan.
+
+Organelle: pure functions returning structured dicts.
+CLI effector and MCP enzyme both delegate here.
+
+Modes:
+  explore — cheap read-only queries (direct API, fallback goose)
+  build   — implementation tasks (goose, GLM-5.1)
+  mcp     — MCP tool building (droid, --auto high)
+  safe    — read-only audit (droid)
+  skill   — execute an organism skill (goose + recipe, or droid for --mcp)
+"""
+
+from __future__ import annotations
+
+import json
+import os
+import subprocess
+import time
+from collections import Counter
+from pathlib import Path
+from typing import Any
+
+# ---------------------------------------------------------------------------
+# Constants
+# ---------------------------------------------------------------------------
+
+COACHING_NOTES = Path.home() / "epigenome/marks/feedback_glm_coaching.md"
+SORTASE_LOG = Path.home() / ".local/share/sortase/log.jsonl"
+
+
+# ---------------------------------------------------------------------------
+# Helpers (pure, testable)
+# ---------------------------------------------------------------------------
+
+
+def _inject_coaching(prompt: str) -> str:
+    """Prepend GLM coaching notes if the file exists."""
+    if COACHING_NOTES.exists():
+        notes = COACHING_NOTES.read_text().strip()
+        # Strip YAML frontmatter
+        if notes.startswith("---"):
+            end = notes.find("---", 3)
+            if end > 0:
+                notes = notes[end + 3:].strip()
+        return f"{notes}\n\n---\n\nTask:\n{prompt}"
+    return prompt
+
+
+def _read_dir_context(directory: str, glob_pattern: str = "*.py") -> str:
+    """Read small source files from directory as context."""
+    parts: list[str] = []
+    for f in sorted(Path(directory).glob(glob_pattern)):
+        if f.is_file() and f.stat().st_size < 50000:
+            parts.append(f"### {f.name}\n```\n{f.read_text()}\n```")
+    return "\n\n".join(parts)
+
+
+def _direct_api(prompt: str, model: str = "glm-4.7") -> dict:
+    """Call ZhiPu API directly (no goose/droid). Returns structured dict."""
+    import urllib.request
+
+    key = os.environ.get("ZHIPU_API_KEY", "")
+    if not key:
+        return {"success": False, "output": "ZHIPU_API_KEY not set", "returncode": 1}
+
+    body = json.dumps({
+        "model": model,
+        "max_tokens": 8192,
+        "messages": [{"role": "user", "content": prompt}],
+    }).encode()
+    req = urllib.request.Request(
+        "https://open.bigmodel.cn/api/anthropic/v1/messages", body
+    )
+    req.add_header("x-api-key", key)
+    req.add_header("anthropic-version", "2023-06-01")
+    req.add_header("content-type", "application/json")
+    try:
+        data = json.loads(urllib.request.urlopen(req, timeout=120).read())
+        return {"success": True, "output": data["content"][0]["text"], "returncode": 0}
+    except Exception as e:
+        return {"success": False, "output": f"direct API failed: {e}", "returncode": 1}
+
+
+def _run_captured(cmd: list[str], **kwargs: Any) -> tuple[int, str]:
+    """Run command, capture stdout. Returns (returncode, stdout)."""
+    r = subprocess.run(cmd, capture_output=True, text=True, **kwargs)
+    return r.returncode, (r.stdout or "")
+
+
+def _build_goose_cmd(model: str, prompt: str, recipe: str | None = None) -> list[str]:
+    """Build goose CLI command."""
+    cmd = ["goose", "run", "-q", "--no-session",
+           "--provider", "glm-coding", "--model", model]
+    if recipe:
+        cmd += ["--recipe", recipe]
+    cmd += ["-t", prompt]
+    return cmd
+
+
+def _build_droid_cmd(
+    model: str, directory: str, prompt: str, auto: str | None = None
+) -> list[str]:
+    """Build droid CLI command."""
+    model_flag = model if model.startswith("custom:") else f"custom:{model}"
+    cmd = ["droid", "exec", "-m", model_flag, "--cwd", directory, prompt]
+    if auto:
+        cmd.insert(2, "--auto")
+        cmd.insert(3, auto)
+    return cmd
+
+
+def _resolve_mode(
+    *,
+    mode: str,
+    skill: str | None = None,
+    model: str | None = None,
+    backend: str | None = None,
+) -> tuple[str, str, str | None]:
+    """Resolve (backend, model, auto) from mode/overrides.
+
+    Returns:
+        (backend, model, auto_level)
+    """
+    auto: str | None = None
+
+    if mode == "skill":
+        # skill mode: backend decided by caller (goose by default, droid if mcp)
+        backend_resolved = backend or "goose"
+        model_resolved = model or "GLM-5.1"
+    elif mode == "build":
+        backend_resolved = backend or "goose"
+        model_resolved = model or "GLM-5.1"
+    elif mode == "mcp":
+        backend_resolved = backend or "droid"
+        model_resolved = model or "GLM-4.7"
+        auto = "high"
+    elif mode == "safe":
+        backend_resolved = backend or "droid"
+        model_resolved = model or "GLM-4.7"
+    else:  # explore
+        backend_resolved = backend or "goose"
+        model_resolved = model or "GLM-4.7"
+
+    # User overrides
+    if backend:
+        backend_resolved = backend
+    if model:
+        model_resolved = model
+
+    return backend_resolved, model_resolved, auto
+
+
+# ---------------------------------------------------------------------------
+# Core dispatch
+# ---------------------------------------------------------------------------
+
+
+def dispatch(
+    prompt: str,
+    *,
+    mode: str = "explore",
+    skill: str | None = None,
+    model: str | None = None,
+    backend: str | None = None,
+    directory: str = ".",
+) -> dict:
+    """Dispatch a task to the appropriate backend.
+
+    Returns:
+        dict with keys: success (bool), output (str), backend (str), duration_s (float).
+    """
+    start = time.perf_counter()
+
+    resolved_backend, resolved_model, auto = _resolve_mode(
+        mode=mode, skill=skill, model=model, backend=backend,
+    )
+
+    # Skill mode: validate recipe exists
+    recipe_path: str | None = None
+    if skill:
+        rp = Path.home() / f"germline/membrane/receptors/{skill}/recipe.yaml"
+        if not rp.exists():
+            elapsed = time.perf_counter() - start
+            return {
+                "success": False,
+                "output": f"skill '{skill}' not found (no recipe.yaml at {rp})",
+                "backend": resolved_backend,
+                "duration_s": round(elapsed, 2),
+            }
+        recipe_path = str(rp)
+        if not prompt:
+            prompt = f"Execute the {skill} skill."
+
+    # Inject coaching notes
+    prompt = _inject_coaching(prompt)
+
+    # Safe mode: prepend read-only guard
+    if mode == "safe":
+        prompt = "READ ONLY. Do not create, modify, or delete any files. " + prompt
+
+    # Explore mode: try direct API first (cheapest path)
+    use_direct = mode == "explore" and not backend
+    if use_direct:
+        ctx = _read_dir_context(directory)
+        full_prompt = (ctx + "\n\n" + prompt) if ctx else prompt
+        api_result = _direct_api(full_prompt, resolved_model.lower())
+        if api_result["success"]:
+            elapsed = time.perf_counter() - start
+            return {
+                "success": True,
+                "output": api_result["output"],
+                "backend": "direct",
+                "duration_s": round(elapsed, 2),
+            }
+
+    # Execute via goose or droid
+    env = {**os.environ, "GOOGLE_API_KEY": "", "GEMINI_API_KEY": ""}
+
+    if resolved_backend == "goose":
+        cmd = _build_goose_cmd(resolved_model, prompt, recipe=recipe_path)
+        try:
+            prev = os.getcwd()
+            os.chdir(directory)
+            try:
+                rc, stdout_text = _run_captured(cmd, env=env)
+            finally:
+                os.chdir(prev)
+        except Exception as e:
+            elapsed = time.perf_counter() - start
+            return {
+                "success": False,
+                "output": f"goose execution failed: {e}",
+                "backend": "goose",
+                "duration_s": round(elapsed, 2),
+            }
+
+        if rc == 0:
+            elapsed = time.perf_counter() - start
+            return {
+                "success": True,
+                "output": stdout_text,
+                "backend": "goose",
+                "duration_s": round(elapsed, 2),
+            }
+
+        # Fallback to droid on goose failure (unless user forced backend)
+        if not backend:
+            droid_cmd = _build_droid_cmd(resolved_model, directory, prompt, auto)
+            rc2, stdout_text = _run_captured(droid_cmd)
+            elapsed = time.perf_counter() - start
+            return {
+                "success": rc2 == 0,
+                "output": stdout_text,
+                "backend": "droid",
+                "duration_s": round(elapsed, 2),
+            }
+
+        elapsed = time.perf_counter() - start
+        return {
+            "success": False,
+            "output": stdout_text,
+            "backend": "goose",
+            "duration_s": round(elapsed, 2),
+        }
+
+    else:  # droid
+        cmd = _build_droid_cmd(resolved_model, directory, prompt, auto)
+        try:
+            rc, stdout_text = _run_captured(cmd)
+        except Exception as e:
+            elapsed = time.perf_counter() - start
+            return {
+                "success": False,
+                "output": f"droid execution failed: {e}",
+                "backend": "droid",
+                "duration_s": round(elapsed, 2),
+            }
+
+        elapsed = time.perf_counter() - start
+        return {
+            "success": rc == 0,
+            "output": stdout_text,
+            "backend": "droid",
+            "duration_s": round(elapsed, 2),
+        }
+
+
+# ---------------------------------------------------------------------------
+# Eval — sortase trace analysis
+# ---------------------------------------------------------------------------
+
+
+def run_eval(count: int = 20, failures_only: bool = False) -> dict:
+    """Analyze sortase traces. Returns structured summary.
+
+    Returns:
+        dict with keys: success (bool), output (str), duration_s (float).
+    """
+    start = time.perf_counter()
+
+    if not SORTASE_LOG.exists():
+        return {
+            "success": False,
+            "output": "no sortase log found",
+            "duration_s": round(time.perf_counter() - start, 2),
+        }
+
+    traces: list[dict] = []
+    with open(SORTASE_LOG) as f:
+        for line in f:
+            line = line.strip()
+            if line:
+                try:
+                    traces.append(json.loads(line))
+                except json.JSONDecodeError:
+                    continue
+
+    traces = traces[-count:]
+    total = len(traces)
+    if total == 0:
+        elapsed = time.perf_counter() - start
+        return {
+            "success": True,
+            "output": "no traces found in log",
+            "duration_s": round(elapsed, 2),
+        }
+
+    success = sum(1 for t in traces if t.get("success"))
+    fail = total - success
+
+    lines: list[str] = [
+        f"Sortase traces: {total} | Success: {success} ({success/total*100:.0f}%) | Fail: {fail}",
+        "",
+    ]
+
+    tools = Counter(t.get("tool", "?") for t in traces)
+    for tool_name, n in tools.most_common():
+        ts = sum(1 for t in traces if t.get("tool") == tool_name and t.get("success"))
+        lines.append(f"  {tool_name}: {ts}/{n} ({ts/n*100:.0f}%)")
+    lines.append("")
+
+    reasons = Counter(
+        t.get("failure_reason", "unknown") for t in traces if not t.get("success")
+    )
+    if reasons:
+        lines.append("Failure reasons:")
+        for reason, n in reasons.most_common():
+            lines.append(f"  {reason}: {n}")
+        lines.append("")
+
+    if failures_only or fail > 0:
+        failed = [t for t in traces if not t.get("success")]
+        if failed:
+            lines.append("Failed traces:")
+            for t in failed:
+                lines.append(
+                    f"  [{t.get('tool', '?')}] {t.get('plan', '?')} — "
+                    f"{t.get('failure_reason', '?')} ({t.get('duration_s', 0):.0f}s)"
+                )
+
+    elapsed = time.perf_counter() - start
+    return {
+        "success": True,
+        "output": "\n".join(lines),
+        "duration_s": round(elapsed, 2),
+    }

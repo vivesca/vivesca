@@ -55,6 +55,8 @@ TOOL_COMMANDS: dict[str, Callable[[Path, str], list[str]]] = {
         "run",
         "--no-session",
         "-q",
+        "--provider", "glm-coding",
+        "--model", "GLM-5.1",
         "-t",
         prompt,
     ],
@@ -77,7 +79,8 @@ TOOL_COMMANDS: dict[str, Callable[[Path, str], list[str]]] = {
         "droid",
         "exec",
         "--auto", "high",
-        "-m", "glm-5.1",
+        "-m", "custom:glm-5.1",
+        "--cwd", str(project),
         prompt,
     ],
     "crush": lambda project, prompt: [
@@ -124,7 +127,7 @@ def _clean_env(tool: str) -> dict[str, str]:
     if tool == "cc-glm":
         # Headless CC with GLM-5.1 via ZhiPu Coding Plan Anthropic-compat endpoint
         env["ANTHROPIC_API_KEY"] = env.get("ZHIPU_API_KEY", "")
-        env["ANTHROPIC_BASE_URL"] = "https://api.z.ai/api/anthropic"
+        env["ANTHROPIC_BASE_URL"] = "https://open.bigmodel.cn/api/anthropic"
         env["ANTHROPIC_DEFAULT_OPUS_MODEL"] = "glm-5.1"
         env["ANTHROPIC_DEFAULT_SONNET_MODEL"] = "glm-5.1"
     return env

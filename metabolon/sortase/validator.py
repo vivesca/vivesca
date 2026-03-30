@@ -71,7 +71,8 @@ def run_test_command(project_dir: Path, test_command: str | None) -> tuple[bool,
         return True, "No test command provided"
 
     completed = subprocess.run(
-        shlex.split(test_command),
+        test_command,
+        shell=True,
         cwd=project_dir,
         capture_output=True,
         check=False,

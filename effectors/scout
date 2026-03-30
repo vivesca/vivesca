@@ -1,52 +1,89 @@
 #!/usr/bin/env -S uv run --script
 # /// script
 # requires-python = ">=3.13"
-# dependencies = []
+# dependencies = ["pyyaml"]
 # ///
-"""Unified dispatch CLI for cheap LLM tasks via ZhiPu.
-
-Routes tasks to direct API, goose, or droid based on mode.
-    scout <dir> "<prompt>"                 # explore (direct API → goose)
-    scout --build <dir> "<prompt>"         # implement (goose + GLM-5.1)
-    scout --mcp "<prompt>"                 # MCP task (droid --auto high)
-    scout --safe <dir> "<prompt>"          # read-only audit (direct API → droid)
-    scout --model GLM-5.1 <dir> "<prompt>" # override model
-    scout --backend droid <dir> "<prompt>" # force backend (skip direct API)
-    scout --skill etiology <dir> "debug"   # run organism skill via recipe
-    scout --skill debridement --mcp <dir>  # skill via droid
-    scout --output <file> ...              # route output to file/telegram/stdout
-"""
+"""Unified dispatch CLI for cheap LLM tasks via ZhiPu."""
 
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import subprocess
 import sys
+from datetime import datetime, timedelta
 from pathlib import Path
 
+ROUTES_PATH = Path.home() / ".config/scout/routes.yaml"
+HEALTH_PATH = Path.home() / ".local/share/scout/health.json"
+LOG_PATH = Path.home() / ".local/share/scout/log.jsonl"
+MAX_FAILURES = 3
+COOLDOWN = 300
+
+_DEFAULT_ROUTES: dict = {
+    "explore": {"model": "GLM-4.7", "chain": ["goose", "droid"]},
+    "build": {"model": "GLM-5.1", "chain": ["goose", "droid"]},
+    "mcp": {"model": "GLM-4.7", "chain": ["droid", "goose"], "auto": "high"},
+    "safe": {"model": "GLM-4.7", "chain": ["droid"]},
+    "skill": {"model": "GLM-4.7", "chain": ["goose", "droid"]},
+}
+
+def _load_routes() -> dict:
+    """Load routing config. Falls back to hardcoded defaults if no file."""
+    if ROUTES_PATH.exists():
+        import yaml
+        return yaml.safe_load(ROUTES_PATH.read_text())
+    return dict(_DEFAULT_ROUTES)
+
+def _is_healthy(backend: str) -> bool:
+    """Check if backend is healthy (not in cooldown)."""
+    if not HEALTH_PATH.exists():
+        return True
+    state = json.loads(HEALTH_PATH.read_text())
+    entry = state.get(backend, {})
+    cooldown = entry.get("cooldown_until")
+    if cooldown and datetime.fromisoformat(cooldown) > datetime.now():
+        return False
+    return True
+
+def _record_result(backend: str, success: bool) -> None:
+    """Update health state after a backend call."""
+    HEALTH_PATH.parent.mkdir(parents=True, exist_ok=True)
+    state: dict = {}
+    if HEALTH_PATH.exists():
+        state = json.loads(HEALTH_PATH.read_text())
+    entry = state.setdefault(backend, {"consecutive_failures": 0, "cooldown_until": None})
+    if success:
+        entry["consecutive_failures"] = 0
+        entry["cooldown_until"] = None
+    else:
+        entry["consecutive_failures"] = entry.get("consecutive_failures", 0) + 1
+        if entry["consecutive_failures"] >= MAX_FAILURES:
+            entry["cooldown_until"] = (datetime.now() + timedelta(seconds=COOLDOWN)).isoformat()
+    HEALTH_PATH.write_text(json.dumps(state, indent=2))
+
+def _log_call(entry: dict) -> None:
+    """Append a call record to the per-call log."""
+    LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
+    entry.setdefault("timestamp", datetime.now().isoformat(timespec="seconds"))
+    with open(LOG_PATH, "a") as f:
+        f.write(json.dumps(entry) + "\n")
 
 def _direct_api(prompt: str, model: str = "glm-4.7") -> int:
-    """Single-turn API call to api.z.ai. No agent loop."""
-    import json as _json
     import urllib.request
-    url = "https://api.z.ai/api/anthropic/v1/messages"
     key = os.environ.get("ZHIPU_API_KEY", "")
     if not key:
         print("scout: ZHIPU_API_KEY not set", file=sys.stderr)
         return 1
-    body = _json.dumps({
-        "model": model,
-        "max_tokens": 8192,
-        "messages": [{"role": "user", "content": prompt}],
-    }).encode()
-    req = urllib.request.Request(url, body)
+    body = json.dumps({"model": model, "max_tokens": 8192,
+                       "messages": [{"role": "user", "content": prompt}]}).encode()
+    req = urllib.request.Request("https://api.z.ai/api/anthropic/v1/messages", body)
     req.add_header("x-api-key", key)
     req.add_header("anthropic-version", "2023-06-01")
     req.add_header("content-type", "application/json")
     try:
-        resp = urllib.request.urlopen(req, timeout=120)
-        data = _json.loads(resp.read())
+        data = json.loads(urllib.request.urlopen(req, timeout=120).read())
         print(data["content"][0]["text"])
         return 0
     except Exception as e:
@@ -55,8 +92,6 @@ def _direct_api(prompt: str, model: str = "glm-4.7") -> int:
 
 
 def _read_dir_context(directory: str, glob_pattern: str = "*.py") -> str:
-    """Read files matching pattern and format as context."""
-    from pathlib import Path
     parts: list[str] = []
     for f in sorted(Path(directory).glob(glob_pattern)):
         if f.is_file() and f.stat().st_size < 50000:
@@ -68,10 +103,8 @@ COACHING_NOTES = Path.home() / "epigenome/marks/feedback_glm_coaching.md"
 
 
 def _inject_coaching(prompt: str) -> str:
-    """Prepend GLM coaching notes to prompt if available."""
     if COACHING_NOTES.exists():
         notes = COACHING_NOTES.read_text().strip()
-        # Strip frontmatter
         if notes.startswith("---"):
             end = notes.find("---", 3)
             if end > 0:
@@ -99,58 +132,42 @@ def _build_droid_cmd(model: str, directory: str, prompt: str,
     return cmd
 
 
-def _exec(cmd: list[str], directory: str | None = None,
-          capture: bool = False) -> tuple[int, str]:
-    """Run cmd, optionally in directory. Returns (rc, stdout)."""
-    env = {**os.environ, "GOOGLE_API_KEY": "", "GEMINI_API_KEY": ""}
-    prev = os.getcwd()
-    if directory:
-        os.chdir(directory)
-    try:
-        if capture:
-            r = subprocess.run(cmd, capture_output=True, text=True, env=env)
-            return r.returncode, r.stdout or ""
-        return subprocess.run(cmd, env=env).returncode, ""
-    finally:
-        if directory:
-            os.chdir(prev)
-
-def _resolve_mode(args: argparse.Namespace) -> tuple[str, str, str, str | None, str]:
-    """Return (backend, model, directory, auto_level, mode)."""
-    mode = "explore"
-    auto: str | None = None
-    if args.skill:
-        mode = "skill"
-        if args.mcp:
-            backend = "droid"
-            model = "GLM-4.7"
-            auto = "high"
-        else:
-            backend = "goose"
-            model = "GLM-5.1" if args.build else "GLM-4.7"
-    elif args.build:
+def _resolve_mode(args: argparse.Namespace) -> tuple[list[str], str, str, str | None, str]:
+    """Return (chain, model, directory, auto, mode) from flags + route config."""
+    if args.build:
         mode = "build"
-        backend, model = "goose", "GLM-5.1"
     elif args.mcp:
         mode = "mcp"
-        backend, model = "droid", "GLM-4.7"
-        auto = "high"
     elif args.safe:
         mode = "safe"
-        backend, model = "droid", "GLM-4.7"
+    elif args.skill:
+        mode = "skill"
     else:
-        backend, model = "goose", "GLM-4.7"
+        mode = "explore"
+
+    routes = _load_routes()
+    route = routes.get(mode, routes.get("explore", _DEFAULT_ROUTES["explore"]))
+    chain: list[str] = list(route.get("chain", ["goose"]))
+    model: str = route.get("model", "GLM-4.7")
+    auto: str | None = route.get("auto")
+
+    # Skill+mcp: first backend is droid (from mcp route)
+    if args.skill and args.mcp:
+        chain = ["droid", "goose"]
+        auto = "high"
+    # Skill+build: use build model
+    if args.skill and args.build:
+        model = "GLM-5.1"
 
     if args.backend:
-        backend = args.backend
+        chain = [args.backend]
     if args.model:
         model = args.model
     directory = args.dir or os.path.expanduser("~")
-    return backend, model, directory, auto, mode
+    return chain, model, directory, auto, mode
 
 
 def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
-    """Parse args, handling MCP mode's dir-optional semantics."""
     parser = argparse.ArgumentParser(description="Unified dispatch CLI for LLM tasks.")
     parser.add_argument("dir", nargs="?", default=".", help="Working directory")
     parser.add_argument("prompt", nargs="*", default=[], help="Task prompt")
@@ -162,70 +179,102 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("-f", "--file", help="Read prompt from file")
     parser.add_argument("--skill", help="Run an organism skill by name")
     parser.add_argument("--output", help="Route output: file path, 'telegram', or omit for stdout")
+    parser.add_argument("--eval", action="store_true", help="Analyze sortase traces")
+    parser.add_argument("--count", type=int, default=20, help="Traces to analyze (with --eval)")
+    parser.add_argument("--failures-only", action="store_true", help="Show only failures (with --eval)")
     parser.add_argument("--dry-run", action="store_true", help="Print command only")
     parser.add_argument("--verbose", action="store_true", help="Verbose output")
 
     args = parser.parse_args(argv)
-    # Flatten prompt tokens into a single string
     args.prompt = " ".join(args.prompt) if isinstance(args.prompt, list) else args.prompt
-    # In MCP mode with a single positional, treat it as the prompt (not dir).
     if args.mcp and args.prompt == "" and args.dir != ".":
         args.prompt = args.dir
         args.dir = "."
-
     return args
 
 
 def _run_captured(cmd: list[str], **kwargs) -> tuple[int, str]:
-    """Run subprocess capturing stdout. Returns (returncode, stdout_text)."""
     r = subprocess.run(cmd, capture_output=True, text=True, **kwargs)
     return r.returncode, (r.stdout or "")
 
 
 def _route_output(text: str, dest: str) -> int:
-    """Route captured output to file, telegram, or leave for caller."""
-    from pathlib import Path
-    # Defensive: ensure text is str (mocks may return bytes)
     if isinstance(text, bytes):
         text = text.decode()
     if dest == "-":
         print(text, end="")
         return 0
     if dest == "telegram":
-        return subprocess.run(
-            ["efferens", "telegram", text.rstrip()]).returncode
-    # File path
+        return subprocess.run(["efferens", "telegram", text.rstrip()]).returncode
     Path(dest).parent.mkdir(parents=True, exist_ok=True)
     Path(dest).write_text(text)
     return 0
 
 
+def _run_eval(count: int = 20, failures_only: bool = False) -> int:
+    from collections import Counter
+    log_path = Path.home() / ".local/share/sortase/log.jsonl"
+    if not log_path.exists():
+        print("scout: no sortase log found", file=sys.stderr)
+        return 1
+    traces: list[dict] = []
+    with open(log_path) as f:
+        for line in f:
+            line = line.strip()
+            if line:
+                traces.append(json.loads(line))
+    traces = traces[-count:]
+    total = len(traces)
+    if total == 0:
+        print("scout: no traces found in log")
+        return 0
+    success = sum(1 for t in traces if t.get("success"))
+    fail = total - success
+    print(f"Sortase traces: {total} | Success: {success} ({success/total*100:.0f}%) | Fail: {fail}")
+    print()
+    tools = Counter(t.get("tool", "?") for t in traces)
+    for tool, n in tools.most_common():
+        ts = sum(1 for t in traces if t.get("tool") == tool and t.get("success"))
+        print(f"  {tool}: {ts}/{n} ({ts/n*100:.0f}%)")
+    print()
+    reasons = Counter(t.get("failure_reason", "unknown") for t in traces if not t.get("success"))
+    if reasons:
+        print("Failure reasons:")
+        for reason, n in reasons.most_common():
+            print(f"  {reason}: {n}")
+        print()
+    if failures_only or fail > 0:
+        failed = [t for t in traces if not t.get("success")]
+        if failed:
+            print("Failed traces:")
+            for t in failed:
+                print(f"  [{t.get('tool','?')}] {t.get('plan','?')} — "
+                      f"{t.get('failure_reason','?')} ({t.get('duration_s',0):.0f}s)")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
-    from pathlib import Path
     args = _parse_args(argv)
-    # Resolve prompt from arg or file
+    if args.eval:
+        return _run_eval(args.count, args.failures_only)
     prompt = args.prompt
     if args.file:
         with open(args.file) as fh:
             prompt = fh.read().strip()
 
-    backend, model, directory, auto, mode = _resolve_mode(args)
+    chain, model, directory, auto, mode = _resolve_mode(args)
+    backend = chain[0]  # primary backend for compat
 
-    # --skill: resolve recipe and adjust prompt/backend
     recipe_path: str | None = None
     if args.skill:
         rp = Path.home() / f"germline/membrane/receptors/{args.skill}/recipe.yaml"
         if not rp.exists():
-            print(f"scout: skill '{args.skill}' not found (no recipe.yaml)",
-                  file=sys.stderr)
-            print(f"  hint: run 'skill-sync {args.skill}' to generate",
-                  file=sys.stderr)
+            print(f"scout: skill '{args.skill}' not found (no recipe.yaml)", file=sys.stderr)
+            print(f"  hint: run 'skill-sync {args.skill}' to generate", file=sys.stderr)
             return 1
         recipe_path = str(rp)
-        # If no prompt provided, use a minimal default
         if not prompt:
             prompt = f"Execute the {args.skill} skill."
-        # Droid path: prepend skill invocation prefix
         if backend == "droid":
             prompt = f"Use the /{args.skill} skill. " + prompt
 
@@ -233,89 +282,67 @@ def main(argv: list[str] | None = None) -> int:
         print("Error: provide a prompt via argument or -f <file>", file=sys.stderr)
         return 1
 
-    # Inject coaching notes
     prompt = _inject_coaching(prompt)
-
-    # Prepend safe-mode guard
     if args.safe:
         prompt = "READ ONLY. Do not create, modify, or delete any files. " + prompt
 
-    # Build command based on backend
-    if mode == "skill" and backend == "goose":
-        cmd = ["goose", "run", "-q", "--no-session",
-               "--provider", "glm-coding", "--model", model,
-               "--recipe", recipe_path, "-t", prompt]
-    elif backend == "goose":
-        cmd = _build_goose_cmd(model, prompt)
-    else:
-        cmd = _build_droid_cmd(model, directory, prompt, auto)
-
     if args.dry_run:
+        cmd = _build_goose_cmd(model, prompt, recipe_path) if backend == "goose" else \
+              _build_droid_cmd(model, directory, prompt, auto)
         print(" ".join(cmd))
         return 0
-
     if args.verbose:
-        print(f"scout: {backend} / {model} in {directory}", file=sys.stderr)
+        print(f"scout: {chain} / {model} in {directory}", file=sys.stderr)
 
-    # Determine if we need to capture output (--output set)
+    import time
+    t0 = time.monotonic()
     capture = args.output is not None
 
-    # Direct API fast path for explore/safe when no backend override
-    use_direct = mode in ("explore", "safe") and not args.backend
-    if use_direct and not capture:
-        full_prompt = prompt
+    def _entry(backend: str, success: bool) -> dict:
+        return {"mode": mode, "backend": backend, "model": model, "skill": args.skill,
+                "duration_s": round(time.monotonic() - t0, 2), "success": success,
+                "directory": directory, "prompt_length": len(prompt)}
+
+    # Direct API fast path for explore/safe
+    if mode in ("explore", "safe") and not args.backend and not capture:
         ctx = _read_dir_context(directory)
-        if ctx:
-            full_prompt = ctx + "\n\n" + prompt
-        api_model = model.lower()
+        full_prompt = (ctx + "\n\n" + prompt) if ctx else prompt
         if args.verbose:
-            print(f"scout: trying direct API ({api_model})", file=sys.stderr)
-        rc = _direct_api(full_prompt, api_model)
+            print(f"scout: trying direct API ({model.lower()})", file=sys.stderr)
+        rc = _direct_api(full_prompt, model.lower())
+        _log_call(_entry("direct", rc == 0))
         if rc == 0:
             return 0
 
-    # Execute via goose or droid
+    # Chain execution with health checks
     env = {**os.environ, "GOOGLE_API_KEY": "", "GEMINI_API_KEY": ""}
-    if backend == "goose":
-        if capture:
-            prev = os.getcwd()
-            os.chdir(directory)
-            try:
-                rc, stdout_text = _run_captured(cmd, env=env)
-            finally:
-                os.chdir(prev)
-            if rc == 0:
-                _route_output(stdout_text, args.output)
-            elif not args.backend:
-                print("scout: goose failed, retrying with droid...",
-                      file=sys.stderr)
-                droid_cmd = _build_droid_cmd(model, directory, prompt, auto)
-                rc2, stdout_text = _run_captured(droid_cmd)
-                if rc2 == 0:
+    healthy_chain = [b for b in chain if _is_healthy(b)] or [chain[0]]
+    for b in healthy_chain:
+        cmd = _build_goose_cmd(model, prompt, recipe_path) if b == "goose" else \
+              _build_droid_cmd(model, directory, prompt, auto)
+        benv = env if b == "goose" else {}
+        prev = os.getcwd()
+        try:
+            if b == "goose":
+                os.chdir(directory)
+            if capture:
+                rc, stdout_text = _run_captured(cmd, env=benv)
+                if rc == 0:
                     _route_output(stdout_text, args.output)
-                return rc2
-            return rc
-        else:
-            prev = os.getcwd()
-            os.chdir(directory)
-            try:
-                rc = subprocess.run(cmd, env=env).returncode
-            finally:
-                os.chdir(prev)
-            if rc != 0 and not args.backend:
-                print("scout: goose failed, retrying with droid...",
-                      file=sys.stderr)
-                droid_cmd = _build_droid_cmd(model, directory, prompt, auto)
-                rc = subprocess.run(droid_cmd, env=env).returncode
-            return rc
-    else:
-        if capture:
-            rc, stdout_text = _run_captured(cmd)
-            if rc == 0:
-                _route_output(stdout_text, args.output)
-            return rc
-        else:
-            return subprocess.run(cmd, env=env).returncode
+            else:
+                rc = subprocess.run(cmd, env=benv).returncode
+        finally:
+            os.chdir(prev) if b == "goose" else None
+        if rc == 0:
+            _record_result(b, True)
+            _log_call(_entry(b, True))
+            return 0
+        if args.verbose:
+            print(f"scout: {b} failed, trying next...", file=sys.stderr)
+        _record_result(b, False)
+
+    _log_call(_entry(healthy_chain[-1], False))
+    return 1
 
 
 if __name__ == "__main__":
