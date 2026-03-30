@@ -450,6 +450,7 @@ async def execute_task(
     register_running(task.name, initial_tool, project_dir)
     attempts: list[ExecutionAttempt] = []
     fallbacks: list[str] = []
+    fallback_chain: list[FallbackStep] = []
     effective_timeout = _compute_adaptive_timeout(task.spec, timeout_sec)
 
     try:
@@ -462,6 +463,7 @@ async def execute_task(
                 _reset_git_state(project_dir, task.name, verbose=verbose)
             attempts = []
             fallbacks = []
+            fallback_chain = []
             for index, tool in enumerate(_tool_chain(initial_tool)):
                 if index > 0:
                     fallbacks.append(tool)
@@ -471,7 +473,13 @@ async def execute_task(
                     coaching=coaching,
                 )
                 attempts.append(attempt)
-                if attempt.exit_code == 0 and not attempt.failure_reason:
+                succeeded = attempt.exit_code == 0 and not attempt.failure_reason
+                fallback_chain.append(FallbackStep(
+                    tool=tool,
+                    succeeded=succeeded,
+                    failure_reason=attempt.failure_reason,
+                ))
+                if succeeded:
                     result = TaskExecutionResult(
                         task_name=task.name,
                         tool=tool,
@@ -480,6 +488,7 @@ async def execute_task(
                         attempts=list(attempts),
                         output=attempt.output,
                         fallbacks=list(fallbacks),
+                        fallback_chain=list(fallback_chain),
                         cost_estimate=attempt.cost_estimate,
                     )
                     _emit_completion_signal(result)
@@ -501,6 +510,7 @@ async def execute_task(
             attempts=attempts,
             output=last.output,
             fallbacks=fallbacks,
+            fallback_chain=fallback_chain,
             cost_estimate=last.cost_estimate,
         )
         _emit_completion_signal(result)
