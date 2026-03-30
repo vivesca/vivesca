@@ -64,8 +64,8 @@ def test_trend_renders_table(tmp_history, capsys):
     output_lines = captured.out.strip().splitlines()
 
     assert output_lines[0] == "Week      | All Models | Sonnet | Sessions | Goose"
-    assert "Mar 24-30|      47% |  13% |        9 |    270" in output_lines[2]
-    assert "Mar 17-23|      62% |  25% |       12 |     45" in output_lines[3]
+    assert "Mar 24-30 |       47% |   13% |        9 |    270" == output_lines[2]
+    assert "Mar 17-23 |       62% |   25% |       12 |     45" == output_lines[3]
 
 
 def test_record_snapshot_creates_history_with_windowed_stats(tmp_history, monkeypatch):
@@ -75,26 +75,7 @@ def test_record_snapshot_creates_history_with_windowed_stats(tmp_history, monkey
         "seven_day_sonnet": {"utilization": 0.18},
     }
     reference_time = datetime(2026, 3, 31, 9, 0, 0)
-
-    monkeypatch.setattr(resp, "SORTASE_LOG", Path("/tmp/nonexistent-sortase-log.jsonl"))
-
-    with patch.object(resp, "get_usage", return_value=fake_usage):
-        resp.record_snapshot(reference_time=reference_time)
-
-    assert tmp_history.exists()
-    lines = tmp_history.read_text().strip().splitlines()
-    assert len(lines) == 1
-    row = json.loads(lines[0])
-    assert row["weekly_pct"] == 55.0
-    assert row["sonnet_pct"] == 18.0
-    assert row["session_count"] == 0
-    assert row["goose_dispatches"] == 0
-    assert row["date"] == "2026-03-24"
-
-
-def test_derive_session_stats_uses_current_snapshot_window(tmp_path, monkeypatch):
-    """Session counts and goose dispatches are derived from the trailing seven full days."""
-    sortase_log = tmp_path / "sortase.jsonl"
+    sortase_log = tmp_history.parent / "sortase.jsonl"
     rows = [
         {"timestamp": "2026-03-24T09:00:00", "tool": "goose"},
         {"timestamp": "2026-03-24T17:00:00", "tool": "droid"},
@@ -106,9 +87,15 @@ def test_derive_session_stats_uses_current_snapshot_window(tmp_path, monkeypatch
     sortase_log.write_text("".join(json.dumps(row) + "\n" for row in rows))
     monkeypatch.setattr(resp, "SORTASE_LOG", sortase_log)
 
-    session_count, goose_dispatches = resp._derive_session_stats(
-        reference_time=datetime(2026, 3, 31, 9, 0, 0)
-    )
+    with patch.object(resp, "get_usage", return_value=fake_usage):
+        resp.record_snapshot(reference_time=reference_time)
 
-    assert session_count == 3
-    assert goose_dispatches == 3
+    assert tmp_history.exists()
+    lines = tmp_history.read_text().strip().splitlines()
+    assert len(lines) == 1
+    row = json.loads(lines[0])
+    assert row["weekly_pct"] == 55.0
+    assert row["sonnet_pct"] == 18.0
+    assert row["session_count"] == 3
+    assert row["goose_dispatches"] == 3
+    assert row["date"] == "2026-03-24"

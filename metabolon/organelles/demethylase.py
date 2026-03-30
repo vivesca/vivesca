@@ -646,7 +646,11 @@ def read_signals(
         if execute_cascade and downstream:
             for cmd in downstream:
                 try:
-                    subprocess.run(shlex.split(cmd), shell=False, check=True)
+                    validated = _validate_downstream_command(cmd)
+                    if validated is None:
+                        cascades_fired.append(f"REJECTED: {cmd}")
+                        continue
+                    subprocess.run(validated, shell=False, check=True)
                     cascades_fired.append(cmd)
                 except subprocess.CalledProcessError:
                     cascades_fired.append(f"FAILED: {cmd}")
