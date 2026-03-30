@@ -80,8 +80,10 @@ If >30 min exploring with no code/delegation started → flag it. One sentence: 
 RESEARCH → SPEC ANALYSIS → PLAN → EXECUTE → VERIFY → REVIEW → FINISH
 ```
 
-**1. Research** (cheap, parallel subagents):
+**1. Research** (cheap, parallel — prefer droid explore for codebase recon):
+- `droid exec -m custom:glm-5.1 --cwd <project> "<recon prompt>"` — free codebase understanding
 - `learnings-researcher` + `repo-research-analyst` — surfaces KB gotchas + codebase patterns
+- Use droid for "read and summarize the code"; CC subagents only when judgment is needed mid-research
 
 **2. Spec analysis** (one Opus pass):
 - Gaps, assumptions, acceptance criteria. Skip for trivial/clear specs.

@@ -14,6 +14,16 @@ Debridement removes necrotic tissue before it harbors infection. In vivesca, the
 
 ---
 
+## Step 0 — Droid Recon (free)
+
+Before CC runs the sweep, use droid explore to gather the raw inventory:
+```bash
+droid exec -m custom:glm-5.1 --cwd ~/germline \
+  "List all module names, class names, and public function names under metabolon/, membrane/, and effectors/. Flag any that are generic English words (helper, utils, manager, handler, etc.) vs biological names. Also list any sys.path hacks or references to deleted paths (cofactors/, ~/bin/, reticulum/)."
+```
+
+CC then reviews the droid output for false positives and applies the homology test (Step 3). Droid scans, CC judges.
+
 ## Step 1 — Non-Bio Name Detection
 
 ### Module names under metabolon/ that aren't biological

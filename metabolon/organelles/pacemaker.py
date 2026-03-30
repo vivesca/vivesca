@@ -2,25 +2,10 @@
 
 from __future__ import annotations
 
-import argparse
-import sys
-from pathlib import Path
 from typing import Any
 
-# Endosymbiosis: import moneo-py directly (no subprocess).
-_MONEO_PY_DIR = Path.home() / "code" / "moneo-py"
-if str(_MONEO_PY_DIR) not in sys.path:
-    sys.path.insert(0, str(_MONEO_PY_DIR))
-
-try:
-    import moneo as _m
-except ImportError:
-    _m = None
-
-
-def _require_moneo():
-    if _m is None:
-        raise RuntimeError(f"moneo-py not found at {_MONEO_PY_DIR}")
+# Endosymbiosis complete: moneo is a local organelle module.
+from . import moneo as _m
 
 
 def add(
@@ -35,7 +20,6 @@ def add(
     timezone: str = "Asia/Hong_Kong",
 ) -> str:
     """Add a Due reminder. Returns confirmation string."""
-    _require_moneo()
     if due is not None:
         if at is not None or date is not None:
             raise _m.MoneoError("--due cannot be combined with --at or --date.")
@@ -67,7 +51,6 @@ def add(
 
 def ls() -> list[dict[str, Any]]:
     """Return all active reminders sorted by due date."""
-    _require_moneo()
     data = _m.read_db()
     reminders = _m.sorted_reminders(data)
     now = _m.now_ts()
@@ -94,7 +77,6 @@ def ls() -> list[dict[str, Any]]:
 
 def rm(target: str) -> str:
     """Delete a reminder by UUID prefix, pattern, or numeric index."""
-    _require_moneo()
     data = _m.read_db()
     matches, _ = _m.resolve_target(data, target, allow_pattern=True)
     current_ts = _m.now_ts()
@@ -126,7 +108,6 @@ def edit(
     timezone: str = "Asia/Hong_Kong",
 ) -> str:
     """Edit a reminder's title and/or time."""
-    _require_moneo()
     data = _m.read_db()
     matches, _ = _m.resolve_target(data, target, allow_pattern=True)
     if len(matches) > 1:
@@ -140,15 +121,14 @@ def edit(
     if not old_uuid:
         raise _m.MoneoError("Reminder is missing UUID")
 
-    ns = argparse.Namespace(
+    changes = _m.build_change_set(
         title=title,
         rel=rel,
         at=at,
         date=date,
-        autosnooze=autosnooze,
         timezone=timezone,
+        reminder=reminder,
     )
-    changes = _m.build_change_set(ns, reminder)
     _m.ensure_no_duplicates(changes.title, [changes.due_ts], data)
 
     _m.reminders_mut(data).pop(raw_idx)
@@ -160,7 +140,6 @@ def edit(
 
 def log(n: int = 20, filter_str: str | None = None) -> list[dict[str, Any]]:
     """Return completion history from the Due DB logbook."""
-    _require_moneo()
     data = _m.read_db()
     entries: list[dict] = data.get("lb", [])
     entries = sorted(entries, key=lambda e: e.get("m", 0), reverse=True)
@@ -182,7 +161,6 @@ def log(n: int = 20, filter_str: str | None = None) -> list[dict[str, Any]]:
 
 def snapshot() -> str:
     """Commit a git snapshot of current reminders."""
-    _require_moneo()
     data = _m.read_db()
     if not isinstance(data, dict) or not data:
         raise _m.MoneoError("Could not read Due DB.")
@@ -193,5 +171,4 @@ def snapshot() -> str:
 
 def _cli(argv: list[str] | None = None) -> int:
     """CLI passthrough to moneo-py."""
-    _require_moneo()
     return _m.main(argv)

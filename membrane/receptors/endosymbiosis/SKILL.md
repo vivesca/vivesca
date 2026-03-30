@@ -23,7 +23,15 @@ This is the lustro pattern generalized. Lustro absorbed 161 RSS feeds. The organ
 
 ### Step 1 — Pre-absorption audit
 
-Answer four questions:
+**Use droid explore for recon** — don't burn CC tokens reading the external codebase:
+```bash
+droid exec -m custom:glm-5.1 --cwd <external-repo> \
+  "Read the source files and summarize: (1) what it does and key functions, \
+  (2) external dependencies, (3) path assumptions, (4) how the organism \
+  currently wraps it. Output a concise summary for spec writing."
+```
+
+From the droid summary, answer four questions:
 1. What does the external organism produce? (output type)
 2. How does the organism currently invoke it? (command, API, file)
 3. What would break if it disappeared? (blast radius)

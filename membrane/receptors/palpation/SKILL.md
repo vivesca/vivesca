@@ -28,17 +28,13 @@ Be precise: not "the intake pipeline" but "the transduction job's extraction ste
 
 ### Step 2 — Read the component fully
 
-Before touching anything:
+**Use droid explore for initial read** — free recon before CC applies judgment:
 ```bash
-# Read the source
-cat path/to/component.py
-
-# Read its config
-cat path/to/config.yaml
-
-# Read its recent output
-tail -200 ~/Library/Logs/vivesca/component.log
+droid exec -m custom:glm-5.1 --cwd <project> \
+  "Read <component files>, config, and recent logs. Summarize: architecture, dependencies, hardcoded paths, error handling, recent output patterns."
 ```
+
+Then CC reads the droid summary and probes deeper only where needed. Don't burn CC tokens reading 500 lines when droid can summarize for free.
 
 No probing without reading. Palpating without reading is guessing.
 
