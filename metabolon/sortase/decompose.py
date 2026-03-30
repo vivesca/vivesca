@@ -292,6 +292,66 @@ def score_spec_quality(spec_text: str) -> dict[str, int]:
     }
 
 
+def lint_plan(plan_text: str) -> list[str]:
+    """Check a plan file for common issues.
+
+    Returns a list of warning strings. An empty list means no issues found.
+
+    Checks:
+        - Missing output path
+        - Missing constraints section
+        - No verification command
+        - References to /tmp/ (should be ~/germline/loci/plans/)
+        - Contains placeholder markers
+    """
+    warnings: list[str] = []
+    text = plan_text.strip()
+
+    if not text:
+        return [
+            "No output path specified",
+            "No constraints section found",
+            "No verification command found",
+        ]
+
+    text_lower = text.lower()
+
+    # Missing output path
+    output_indicators = [
+        r"(?i)output\s+path",
+        r"(?i)write\s+(?:the\s+result\s+)?to\b",
+        r"(?i)save\s+to\b",
+        r"(?i)deliverable\b",
+        r"(?:^|\n)\s*##\s*Output\b",
+    ]
+    has_output = any(re.search(p, text) for p in output_indicators)
+    if not has_output:
+        warnings.append("No output path specified")
+
+    # Missing constraints section
+    has_constraints = bool(re.search(r"(?i)^#{1,3}\s*constraints?\b", text, flags=re.MULTILINE))
+    if not has_constraints:
+        warnings.append("No constraints section found")
+
+    # No verification command
+    has_verification = bool(re.search(r"(?i)^#{1,3}\s*verification\b", text, flags=re.MULTILINE))
+    if not has_verification:
+        warnings.append("No verification command found")
+
+    # References to /tmp/
+    tmp_matches = re.findall(r"/tmp/[\w/.-]+", text)
+    for match in tmp_matches:
+        warnings.append(f"References /tmp/ path: {match} — use ~/germline/loci/plans/ instead")
+
+    # Placeholder markers
+    for marker in ("TODO", "FIXME"):
+        marker_matches = re.findall(rf"\b{marker}\b", text)
+        for _ in marker_matches:
+            warnings.append(f"Contains placeholder marker: {marker}")
+
+    return warnings
+
+
 def decompose_plan(plan_file: str | Path, smart: bool = False, timeout_sec: int = 180) -> list[TaskSpec]:
     path = Path(plan_file)
     plan_text = _read_plan(path)

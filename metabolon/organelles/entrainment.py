@@ -92,6 +92,14 @@ def optimal_schedule(signals: dict[str, Any] | None = None) -> dict[str, Any]:
     stale = signals.get("rss_stale")
     hour = signals.get("hkt_hour", 12)
     weekend = signals.get("is_weekend", False)
+    holiday = False
+    try:
+        from metabolon.organelles.circadian_clock import is_holiday as _is_holiday
+
+        holiday = _is_holiday()
+    except Exception:
+        pass
+    off_day = weekend or holiday
 
     recs: dict[str, dict[str, str]] = {}
     notes: list[str] = []
@@ -102,7 +110,7 @@ def optimal_schedule(signals: dict[str, Any] | None = None) -> dict[str, Any]:
     elif night:
         recs["pulse"] = {"action": "suppress", "reason": "night_hours"}
         notes.append("pulse: night suppressed")
-    elif budget == "green" and 9 <= hour < 19 and not weekend:
+    elif budget == "green" and 9 <= hour < 19 and not off_day:
         recs["pulse"] = {"action": "accelerate", "reason": "green_daytime"}
         notes.append("pulse: accelerate green+daytime")
     else:
