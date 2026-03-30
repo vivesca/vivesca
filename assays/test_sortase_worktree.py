@@ -354,3 +354,107 @@ async def test_execute_tasks_worktree_failure_cleans_up(tmp_path: Path):
     # Should only have the main worktree
     lines = [l for l in wt_list.stdout.splitlines() if l.strip()]
     assert len(lines) == 1
+
+
+# ── clean command ───────────────────────────────────────────
+
+
+from metabolon.sortase.cli import clean_command
+
+
+def test_clean_no_stale(tmp_path: Path) -> None:
+    """Fresh repo with no sortase worktrees → reports 0 stale."""
+    repo = _init_git_repo(tmp_path)
+    runner = CliRunner()
+    result = runner.invoke(main, ["clean", "-p", str(repo)])
+    assert result.exit_code == 0
+    assert "0 stale" in result.output
+
+
+def test_clean_dry_run_shows_but_preserves(tmp_path: Path) -> None:
+    """Dry run should report stale branches but not delete them."""
+    repo = _init_git_repo(tmp_path)
+
+    # Create a sortase/* branch (without a real worktree — just the branch)
+    subprocess.run(
+        ["git", "branch", "sortase/test-task-abc123"],
+        cwd=repo, capture_output=True, check=True,
+    )
+
+    # Create a worktree for it via _create_worktree so git knows about it
+    worktree_path = _create_worktree(repo, "test-task-xyz789")
+
+    runner = CliRunner()
+    result = runner.invoke(main, ["clean", "-p", str(repo), "--dry-run"])
+    assert result.exit_code == 0
+    assert "would remove" in result.output
+
+    # Verify branches still exist (dry-run must not delete)
+    branches = subprocess.run(
+        ["git", "branch", "--list", "sortase/*"],
+        cwd=repo, capture_output=True, text=True,
+    )
+    branch_lines = [l.strip() for l in branches.stdout.splitlines() if l.strip()]
+    assert len(branch_lines) >= 1, f"Branches should still exist after dry-run, got: {branch_lines}"
+
+    # Verify worktree still exists
+    assert worktree_path.exists(), "Worktree directory should still exist after dry-run"
+
+    # Cleanup
+    subprocess.run(
+        ["git", "worktree", "remove", "--force", str(worktree_path)],
+        cwd=repo, capture_output=True,
+    )
+
+
+def test_clean_removes_stale_worktree(tmp_path: Path) -> None:
+    """Clean should remove a sortase worktree, directory, and branch."""
+    repo = _init_git_repo(tmp_path)
+    worktree_path = _create_worktree(repo, "test-task-cleanup")
+
+    # Confirm the branch exists
+    branches_before = subprocess.run(
+        ["git", "branch", "--list", "sortase/*"],
+        cwd=repo, capture_output=True, text=True,
+    )
+    assert "sortase/test-task-cleanup" in branches_before.stdout
+
+    runner = CliRunner()
+    result = runner.invoke(main, ["clean", "-p", str(repo)])
+    assert result.exit_code == 0
+    assert "removed" in result.output
+    assert "sortase/test-task-cleanup" in result.output
+
+    # Worktree directory should be gone
+    assert not worktree_path.exists()
+
+    # Branch should be gone
+    branches_after = subprocess.run(
+        ["git", "branch", "--list", "sortase/*"],
+        cwd=repo, capture_output=True, text=True,
+    )
+    assert branches_after.stdout.strip() == ""
+
+
+def test_clean_prunes_missing_worktree_directory(tmp_path: Path) -> None:
+    """If worktree directory is deleted but git still tracks it, clean should prune."""
+    repo = _init_git_repo(tmp_path)
+    worktree_path = _create_worktree(repo, "test-task-missing")
+
+    # Manually delete the worktree directory (simulating external removal)
+    import shutil
+    shutil.rmtree(worktree_path, ignore_errors=True)
+    assert not worktree_path.exists()
+
+    runner = CliRunner()
+    result = runner.invoke(main, ["clean", "-p", str(repo)])
+    assert result.exit_code == 0
+    assert "pruned" in result.output
+    assert "sortase/test-task-missing" in result.output
+
+    # Branch should be gone
+    branches_after = subprocess.run(
+        ["git", "branch", "--list", "sortase/*"],
+        cwd=repo, capture_output=True, text=True,
+    )
+    assert branches_after.stdout.strip() == ""

@@ -1006,5 +1006,96 @@ def speed() -> None:
     )
 
 
+# ── clean: remove stale sortase worktrees ───────────────────
+
+
+@main.command("clean")
+@click.option("-p", "--project-dir", required=True, type=click.Path(exists=True, file_okay=False, path_type=Path))
+@click.option("--dry-run", is_flag=True, help="Show what would be cleaned without doing it.")
+def clean_command(project_dir: Path, dry_run: bool) -> None:
+    """Clean stale sortase worktree branches and /tmp directories."""
+    import subprocess as _sp_clean
+
+    # 1. List current worktrees
+    result = _sp_clean.run(
+        ["git", "worktree", "list", "--porcelain"],
+        cwd=project_dir, capture_output=True, text=True, check=True,
+    )
+
+    # Parse porcelain output: blocks separated by blank lines
+    worktrees: list[dict[str, str]] = []
+    current: dict[str, str] = {}
+    for line in result.stdout.splitlines():
+        if line == "":
+            if current:
+                worktrees.append(current)
+                current = {}
+        else:
+            parts = line.split(" ", 1)
+            if len(parts) == 2:
+                current[parts[0]] = parts[1]
+    if current:
+        worktrees.append(current)
+
+    # 2. Find sortase/* worktrees
+    stale_entries: list[tuple[str, str]] = []  # (branch_name, worktree_path)
+    for wt in worktrees:
+        branch = wt.get("branch", "")
+        if branch.startswith("refs/heads/sortase/"):
+            short_branch = branch[len("refs/heads/"):]
+            wt_path = wt.get("worktree", "")
+            stale_entries.append((short_branch, wt_path))
+
+    # 3. Also scan /tmp/sortase-* for orphaned directories
+    import glob as _glob
+    orphan_tmp_dirs: list[str] = []
+    known_wt_paths = {Path(e[1]).resolve() for e in stale_entries if e[1]}
+    for tmp_dir in sorted(_glob.glob("/tmp/sortase-*")):
+        if Path(tmp_dir).resolve() not in known_wt_paths and Path(tmp_dir).is_dir():
+            orphan_tmp_dirs.append(tmp_dir)
+
+    total = len(stale_entries) + len(orphan_tmp_dirs)
+    verb = "would remove" if dry_run else "removed"
+
+    if total == 0:
+        console.print("sortase clean: found 0 stale worktree(s)")
+        return
+
+    console.print(f"sortase clean: found {total} stale worktree(s)" if not dry_run else f"sortase clean: would remove {total} stale worktree(s)")
+
+    # 4. Process stale worktrees
+    for branch_name, wt_path in stale_entries:
+        dir_exists = wt_path and Path(wt_path).is_dir()
+        if dry_run:
+            console.print(f"  would remove: {branch_name}")
+        else:
+            if dir_exists:
+                _sp_clean.run(
+                    ["git", "worktree", "remove", "--force", wt_path],
+                    cwd=project_dir, capture_output=True, text=True,
+                )
+                console.print(f"  {verb}: {branch_name} ({wt_path})")
+            else:
+                _sp_clean.run(
+                    ["git", "worktree", "prune"],
+                    cwd=project_dir, capture_output=True, text=True,
+                )
+                console.print(f"  {verb}: {branch_name} (directory missing, pruned)")
+            # Delete the branch
+            _sp_clean.run(
+                ["git", "branch", "-D", branch_name],
+                cwd=project_dir, capture_output=True, text=True,
+            )
+
+    # 5. Remove orphaned /tmp directories
+    for tmp_dir in orphan_tmp_dirs:
+        if dry_run:
+            console.print(f"  would remove: {tmp_dir}")
+        else:
+            import shutil as _shutil_clean
+            _shutil_clean.rmtree(tmp_dir, ignore_errors=True)
+            console.print(f"  {verb}: {tmp_dir}")
+
+
 if __name__ == "__main__":
     main()
