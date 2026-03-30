@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/Users/terry/germline/.venv/bin/python3
 """sortase CLI — absorbed into germline."""
 from metabolon.sortase.cli import main
 

@@ -51,6 +51,33 @@ def _extract_substrate(result: ToolResult) -> str:
     return "\n".join(parts)
 
 
+class ToolTiming:
+    """Single tool-call timing record."""
+
+    __slots__ = ("tool", "latency_ms", "outcome")
+
+    def __init__(self, tool: str, latency_ms: int, outcome: str) -> None:
+        self.tool = tool
+        self.latency_ms = latency_ms
+        self.outcome = outcome
+
+
+class TimingBuffer:
+    """Rotating buffer of the last N tool-call timings (in-process, O(1) append)."""
+
+    def __init__(self, maxlen: int = 100) -> None:
+        self._buf: deque[ToolTiming] = deque(maxlen=maxlen)
+
+    def record(self, timing: ToolTiming) -> None:
+        self._buf.append(timing)
+
+    def snapshot(self) -> list[ToolTiming]:
+        return list(self._buf)
+
+
+timing_buffer = TimingBuffer(maxlen=100)
+
+
 class SensoryMiddleware(Middleware):
     """Emit a Stimulus for every tool call and resource read."""
 
@@ -86,6 +113,18 @@ class SensoryMiddleware(Middleware):
             raise
         finally:
             latency_ms = int((time.perf_counter() - start) * 1000)
+
+            # Record to in-memory rotating buffer for timing stats.
+            try:
+                timing_buffer.record(
+                    ToolTiming(
+                        tool=tool_name,
+                        latency_ms=latency_ms,
+                        outcome=outcome.value,
+                    )
+                )
+            except Exception:
+                logger.debug("Timing buffer record failed", exc_info=True)
 
             # Estimate output tokens.
             tokens_out = 0

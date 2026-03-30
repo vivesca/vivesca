@@ -189,6 +189,29 @@ def _resolve_mode(
 # ---------------------------------------------------------------------------
 
 
+def _approx_tokens(text: str) -> int:
+    """Rough token count: ~4 chars per token for English/mixed content."""
+    return max(1, len(text) // 4)
+
+
+def _explore_structured(
+    output: str,
+    prompt: str,
+    model: str,
+    duration_s: float,
+    cached: bool = False,
+) -> dict:
+    """Wrap explore result in structured JSON envelope."""
+    return {
+        "query": prompt,
+        "response": output,
+        "model": model,
+        "tokens_approx": _approx_tokens(output),
+        "cached": cached,
+        "duration_ms": round(duration_s * 1000),
+    }
+
+
 def dispatch(
     prompt: str,
     *,
@@ -197,6 +220,7 @@ def dispatch(
     model: str | None = None,
     backend: str | None = None,
     directory: str = ".",
+    json_output: bool = False,
 ) -> dict:
     """Dispatch a task to the appropriate backend.
 
@@ -251,6 +275,15 @@ def dispatch(
         cached = _cache_get(cache_key)
         if cached is not None:
             elapsed = time.perf_counter() - start
+            if json_output:
+                return {
+                    "success": True,
+                    "output": json.dumps(_explore_structured(
+                        cached["output"], prompt, resolved_model, elapsed, cached=True,
+                    )),
+                    "backend": "direct (cached)",
+                    "duration_s": round(elapsed, 2),
+                }
             return {
                 "success": True,
                 "output": cached["output"],
@@ -262,6 +295,15 @@ def dispatch(
         if api_result["success"]:
             _cache_put(cache_key, {"output": api_result["output"]})
             elapsed = time.perf_counter() - start
+            if json_output:
+                return {
+                    "success": True,
+                    "output": json.dumps(_explore_structured(
+                        api_result["output"], prompt, resolved_model, elapsed,
+                    )),
+                    "backend": "direct",
+                    "duration_s": round(elapsed, 2),
+                }
             return {
                 "success": True,
                 "output": api_result["output"],

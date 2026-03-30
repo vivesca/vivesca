@@ -36,6 +36,7 @@ def translocon_dispatch(
     model: str = "",
     backend: str = "",
     directory: str = ".",
+    json_output: bool = False,
 ) -> EffectorResult:
     from metabolon.organelles.translocon import dispatch
 
@@ -46,6 +47,7 @@ def translocon_dispatch(
         model=model or None,
         backend=backend or None,
         directory=directory,
+        json_output=json_output,
     )
     return EffectorResult(
         success=result["success"],

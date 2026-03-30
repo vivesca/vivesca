@@ -282,6 +282,10 @@ def _status_path() -> Path:
     return Path(override) if override else STATUS_PATH
 
 
+def _legacy_tombstone(task_name: str) -> str:
+    return f"__removed__:{task_name}"
+
+
 def _read_status_entries() -> list[dict]:
     path = _status_path()
     if not path.exists():
@@ -318,6 +322,10 @@ def _locked_status_update(fn: "Callable[[list[dict]], list[dict]]") -> None:
 def register_running(task_name: str, tool: str | None = None, project_dir: Path | None = None) -> None:
     def _add(entries: list[dict]) -> list[dict]:
         if tool is None or project_dir is None:
+            tombstone = _legacy_tombstone(task_name)
+            if tombstone in entries:
+                entries.remove(tombstone)
+                return entries
             entries.append(task_name)
             return entries
 
@@ -337,7 +345,10 @@ def register_running(task_name: str, tool: str | None = None, project_dir: Path 
 def unregister_running(task_name: str, project_dir: Path | None = None) -> None:
     def _remove(entries: list[dict]) -> list[dict]:
         if project_dir is None:
-            return [entry for entry in entries if entry != task_name]
+            remaining = [entry for entry in entries if entry != task_name]
+            if len(remaining) == len(entries):
+                remaining.append(_legacy_tombstone(task_name))
+            return remaining
 
         return [
             entry

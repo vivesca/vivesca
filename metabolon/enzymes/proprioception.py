@@ -41,6 +41,7 @@ Target = Literal[
     "drill",  # record drill results
     "gradient",  # polarity gradient detection
     "skills",  # skill/enzyme directory scan
+    "timing",  # tool call latency stats from rotating buffer
 ]
 
 

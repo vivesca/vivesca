@@ -14,6 +14,14 @@ instructions: |
   | 10:00–17:00 | **Day** | ultradian | `ultradian-gather` |
   | 17:00–21:00 | **Dusk** | interphase | `gather_interphase` |
   | On-demand | **Day** | ultradian | `ultradian-gather` (regardless of time) |
+  | **Weekend** | **Day** (relaxed) | ultradian | Same phases, skip work-specific tasks (job alerts, heavy Praxis) |
+  | **Holiday** | **Day** (relaxed) | ultradian | Treat as weekend. Calendar all-day event with holiday keyword. |
+
+  **Day-type detection:** Before routing, call `detect_phase` via circadian_clock organelle (returns `is_weekend`, `is_holiday`, `is_workday`). On weekends and holidays:
+  - Skip job alerts, LinkedIn scanning, and work-heavy Praxis items
+  - Dusk phase is optional — no inbox triage unless explicitly requested
+  - Dawn phase still runs (sleep + readiness always relevant)
+  - Day phase becomes "personal backlog" — creative projects, reading, gym planning
 
   If the user explicitly says "morning brief" after 10am or "evening routine" before 5pm, honour the explicit request over the time router.
 

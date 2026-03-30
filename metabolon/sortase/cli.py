@@ -11,7 +11,7 @@ import click
 from rich.console import Console
 from rich.table import Table
 
-from metabolon.sortase.decompose import decompose_plan
+from metabolon.sortase.decompose import decompose_plan, lint_plan
 from metabolon.sortase.executor import execute_tasks, list_running, summarize_cost_estimates
 from metabolon.sortase.logger import aggregate_stats, analyze_logs, append_log, read_logs
 from metabolon.sortase.router import route_description
