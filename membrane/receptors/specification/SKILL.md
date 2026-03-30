@@ -173,6 +173,35 @@ Always include:
 7. **Constraints include coaching** -- TDD red/green, no /tmp, Python not bash
 8. **No ambiguity** -- if the agent could interpret it two ways, it will pick wrong
 
+## Proven Spec Patterns (from overnight dispatch data)
+
+### Ambitious specs work — use them
+GLM-5.1 reliably delivers multi-file features when the spec names every file and test. Pattern:
+```
+1. New module: metabolon/sortase/<name>.py — list functions
+2. CLI: add command in cli.py — describe behavior
+3. Tests: assays/test_<name>.py — list test names
+Verification: pytest command
+```
+Success rate: 5/5 on this pattern (overnight, coaching, lint, diff, worktree).
+
+### Spec signals that predict success
+- "YOUR ONLY JOB: write one file" — highest success for content tasks
+- "EXACTLY 1 tool call: write_file" — prevents turn exhaustion
+- "Do NOT read any files" — for generative tasks, goose knows enough
+- Explicit output path with absolute path
+- `--timeout 600` for ambitious tasks (default 300 is too short)
+- `--worktree` for parallel code tasks in same repo
+
+### Spec signals that predict failure
+- "Read these 3 source files then produce X" — goose exhausts turns reading
+- Specs for unfamiliar repos (~/code/*) as project dir — goose exits in 1.5s
+- Append to large existing file (>200 lines) — unreliable past ~56 items
+- No explicit output path — goose doesn't know where to write
+
+### Route everything through germline
+Always use `-p ~/germline` even for tasks touching other repos. Use absolute paths in the spec to read/write elsewhere. Goose has coaching + context in germline, nowhere else.
+
 ## Anti-patterns
 
 | Don't | Do |

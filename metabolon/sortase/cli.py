@@ -936,5 +936,48 @@ def diff(task_name: str, project_dir: Path, show_summary: bool) -> None:
         console.print(full_diff)
 
 
+@main.command()
+def speed() -> None:
+    """Show sortase dispatch throughput metrics."""
+
+    from metabolon.organelles.tachometer import (
+        coaching_effectiveness,
+        current_rate,
+        estimate_completion,
+        slowest_recent,
+        success_trend,
+    )
+
+    rate = current_rate()
+    trend = success_trend()
+    slowest = slowest_recent(hours=1)
+    coaching = coaching_effectiveness()
+
+    console.print(f"[bold]Dispatch Rate:[/bold] {rate:.1f} tasks/hour (last 60 min)")
+
+    console.print(
+        f"[bold]Success Trend:[/bold] "
+        f"recent ({trend['recent_count']}) {trend['recent_rate']:.1%} vs "
+        f"historical ({trend['historical_count']}) {trend['historical_rate']:.1%} "
+        f"— {trend['direction']}"
+    )
+
+    if slowest:
+        console.print(
+            f"[bold]Slowest (1h):[/bold] {slowest['plan']} "
+            f"({slowest['duration_s']:.1f}s, {slowest['tool']})"
+        )
+    else:
+        console.print("[bold]Slowest (1h):[/bold] no tasks in window")
+
+    console.print(
+        f"[bold]Coaching Effectiveness:[/bold] "
+        f"failure rate {coaching['before_failure_rate']:.1%} → "
+        f"{coaching['after_failure_rate']:.1%} "
+        f"({coaching['improvement_pct']:+.1f}pp, "
+        f"{coaching['notes_analyzed']} notes over {coaching['total_entries']} entries)"
+    )
+
+
 if __name__ == "__main__":
     main()
