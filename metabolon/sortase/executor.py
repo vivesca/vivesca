@@ -51,7 +51,7 @@ TOOL_COMMANDS: dict[str, Callable[[Path, str], list[str]]] = {
         prompt,
     ],
     "goose": lambda project, prompt: [
-        "scout",
+        "translocon",
         "--backend", "goose",
         "--build",
         str(project),
@@ -73,7 +73,7 @@ TOOL_COMMANDS: dict[str, Callable[[Path, str], list[str]]] = {
         "-p", prompt,
     ],
     "droid": lambda project, prompt: [
-        "scout",
+        "translocon",
         "--backend", "droid",
         "--build",
         str(project),
@@ -116,7 +116,7 @@ def _clean_env(tool: str) -> dict[str, str]:
     env = os.environ.copy()
     env.pop("CLAUDECODE", None)
     if tool in ("goose", "droid"):
-        # scout handles env vars internally
+        # translocon handles env vars internally
         pass
     if tool == "cc-glm":
         # Headless CC with GLM-5.1 via ZhiPu Coding Plan Anthropic-compat endpoint

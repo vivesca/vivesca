@@ -1,4 +1,4 @@
-"""scout — dispatch cheap LLM tasks via goose/droid on ZhiPu plan.
+"""translocon — dispatch cheap LLM tasks via goose/droid on ZhiPu plan.
 
 Organelle: pure functions returning structured dicts.
 CLI effector and MCP enzyme both delegate here.

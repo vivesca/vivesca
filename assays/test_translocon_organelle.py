@@ -1,7 +1,7 @@
-"""Tests for scout organelle + MCP enzyme.
+"""Tests for translocon organelle + MCP enzyme.
 
 TDD red→green cycle:
-  1. These tests import from metabolon.organelles.scout.
+  1. These tests import from metabolon.organelles.translocon.
   2. All backend calls are mocked — no real goose/droid/API calls.
   3. Tests verify structured dict returns and routing logic.
 """
@@ -23,11 +23,11 @@ import pytest
 class TestDispatchExploreReturnsStructured:
     """dispatch() returns {success, output, backend, duration_s}."""
 
-    @patch("metabolon.organelles.scout._direct_api")
-    @patch("metabolon.organelles.scout._inject_coaching", side_effect=lambda p: p)
-    @patch("metabolon.organelles.scout._read_dir_context", return_value="")
+    @patch("metabolon.organelles.translocon._direct_api")
+    @patch("metabolon.organelles.translocon._inject_coaching", side_effect=lambda p: p)
+    @patch("metabolon.organelles.translocon._read_dir_context", return_value="")
     def test_explore_mode_direct_api_success(self, mock_ctx, mock_coach, mock_api):
-        from metabolon.organelles.scout import dispatch
+        from metabolon.organelles.translocon import dispatch
 
         mock_api.return_value = {"success": True, "output": "hello world", "returncode": 0}
         result = dispatch("say hello", mode="explore")
@@ -39,12 +39,12 @@ class TestDispatchExploreReturnsStructured:
         assert result["success"] is True
         assert result["backend"] == "direct"
 
-    @patch("metabolon.organelles.scout._run_captured")
-    @patch("metabolon.organelles.scout._inject_coaching", side_effect=lambda p: p)
-    @patch("metabolon.organelles.scout._read_dir_context", return_value="")
-    @patch("metabolon.organelles.scout._direct_api")
+    @patch("metabolon.organelles.translocon._run_captured")
+    @patch("metabolon.organelles.translocon._inject_coaching", side_effect=lambda p: p)
+    @patch("metabolon.organelles.translocon._read_dir_context", return_value="")
+    @patch("metabolon.organelles.translocon._direct_api")
     def test_explore_falls_back_to_goose(self, mock_api, mock_ctx, mock_coach, mock_run):
-        from metabolon.organelles.scout import dispatch
+        from metabolon.organelles.translocon import dispatch
 
         mock_api.return_value = {"success": False, "output": "", "returncode": 1}
         mock_run.return_value = (0, "goose output")
@@ -57,9 +57,9 @@ class TestDispatchExploreReturnsStructured:
 class TestDispatchSkillLoadsRecipe:
     """dispatch(skill='etiology') loads recipe and passes to goose."""
 
-    @patch("metabolon.organelles.scout._inject_coaching", side_effect=lambda p: p)
+    @patch("metabolon.organelles.translocon._inject_coaching", side_effect=lambda p: p)
     def test_skill_not_found_returns_error(self, mock_coach):
-        from metabolon.organelles.scout import dispatch
+        from metabolon.organelles.translocon import dispatch
 
         # Patch Path.home to return a fake home where no recipe exists
         fake_home = Path("/tmp/nonexistent_home_for_test")
@@ -68,10 +68,10 @@ class TestDispatchSkillLoadsRecipe:
         assert result["success"] is False
         assert "not found" in result["output"].lower()
 
-    @patch("metabolon.organelles.scout._run_captured")
-    @patch("metabolon.organelles.scout._inject_coaching", side_effect=lambda p: p)
+    @patch("metabolon.organelles.translocon._run_captured")
+    @patch("metabolon.organelles.translocon._inject_coaching", side_effect=lambda p: p)
     def test_skill_routes_to_goose(self, mock_coach, mock_run):
-        from metabolon.organelles.scout import dispatch
+        from metabolon.organelles.translocon import dispatch
 
         # Create a fake recipe file so the skill validation passes
         import tempfile
@@ -96,10 +96,10 @@ class TestDispatchSkillLoadsRecipe:
 class TestDispatchMcpUsesDroid:
     """dispatch(mode='mcp') routes to droid with --auto high."""
 
-    @patch("metabolon.organelles.scout._run_captured")
-    @patch("metabolon.organelles.scout._inject_coaching", side_effect=lambda p: p)
+    @patch("metabolon.organelles.translocon._run_captured")
+    @patch("metabolon.organelles.translocon._inject_coaching", side_effect=lambda p: p)
     def test_mcp_routes_to_droid(self, mock_coach, mock_run):
-        from metabolon.organelles.scout import dispatch
+        from metabolon.organelles.translocon import dispatch
 
         mock_run.return_value = (0, "mcp output")
         result = dispatch("build a tool", mode="mcp")
@@ -111,10 +111,10 @@ class TestDispatchMcpUsesDroid:
         assert "--auto" in cmd
         assert "high" in cmd
 
-    @patch("metabolon.organelles.scout._run_captured")
-    @patch("metabolon.organelles.scout._inject_coaching", side_effect=lambda p: p)
+    @patch("metabolon.organelles.translocon._run_captured")
+    @patch("metabolon.organelles.translocon._inject_coaching", side_effect=lambda p: p)
     def test_safe_mode_routes_to_droid(self, mock_coach, mock_run):
-        from metabolon.organelles.scout import dispatch
+        from metabolon.organelles.translocon import dispatch
 
         mock_run.return_value = (0, "audit done")
         result = dispatch("audit this", mode="safe")
@@ -125,10 +125,10 @@ class TestDispatchMcpUsesDroid:
 class TestDispatchBuildMode:
     """dispatch(mode='build') routes to goose with GLM-5.1."""
 
-    @patch("metabolon.organelles.scout._run_captured")
-    @patch("metabolon.organelles.scout._inject_coaching", side_effect=lambda p: p)
+    @patch("metabolon.organelles.translocon._run_captured")
+    @patch("metabolon.organelles.translocon._inject_coaching", side_effect=lambda p: p)
     def test_build_uses_goose(self, mock_coach, mock_run):
-        from metabolon.organelles.scout import dispatch
+        from metabolon.organelles.translocon import dispatch
 
         mock_run.return_value = (0, "built it")
         result = dispatch("implement feature X", mode="build")
@@ -141,16 +141,16 @@ class TestDispatchBuildMode:
 
 
 # ---------------------------------------------------------------------------
-# MCP enzyme test — scout_dispatch wraps organelle
+# MCP enzyme test — translocon_dispatch wraps organelle
 # ---------------------------------------------------------------------------
 
 
 class TestMcpToolWrapsOrganelle:
-    """scout_dispatch MCP tool delegates to organelle and returns EffectorResult."""
+    """translocon_dispatch MCP tool delegates to organelle and returns EffectorResult."""
 
-    @patch("metabolon.organelles.scout.dispatch")
+    @patch("metabolon.organelles.translocon.dispatch")
     def test_returns_effector_result(self, mock_dispatch):
-        from metabolon.enzymes.pseudopod import scout_dispatch
+        from metabolon.enzymes.pseudopod import translocon_dispatch
         from metabolon.morphology.base import EffectorResult
 
         mock_dispatch.return_value = {
@@ -159,15 +159,15 @@ class TestMcpToolWrapsOrganelle:
             "backend": "direct",
             "duration_s": 1.2,
         }
-        result = scout_dispatch(prompt="hello")
+        result = translocon_dispatch(prompt="hello")
         assert isinstance(result, EffectorResult)
         assert result.success is True
         assert result.data["backend"] == "direct"
         assert result.data["duration_s"] == 1.2
 
-    @patch("metabolon.organelles.scout.dispatch")
+    @patch("metabolon.organelles.translocon.dispatch")
     def test_failure_propagates(self, mock_dispatch):
-        from metabolon.enzymes.pseudopod import scout_dispatch
+        from metabolon.enzymes.pseudopod import translocon_dispatch
         from metabolon.morphology.base import EffectorResult
 
         mock_dispatch.return_value = {
@@ -176,7 +176,7 @@ class TestMcpToolWrapsOrganelle:
             "backend": "goose",
             "duration_s": 0.5,
         }
-        result = scout_dispatch(prompt="bad skill", mode="skill", skill="nope")
+        result = translocon_dispatch(prompt="bad skill", mode="skill", skill="nope")
         assert isinstance(result, EffectorResult)
         assert result.success is False
 
@@ -190,17 +190,17 @@ class TestInjectCoaching:
     """Coaching notes prepended when file exists."""
 
     def test_no_coaching_file(self):
-        from metabolon.organelles.scout import _inject_coaching
+        from metabolon.organelles.translocon import _inject_coaching
 
-        with patch("metabolon.organelles.scout.COACHING_NOTES") as mock_path:
+        with patch("metabolon.organelles.translocon.COACHING_NOTES") as mock_path:
             mock_path.exists.return_value = False
             result = _inject_coaching("do stuff")
         assert result == "do stuff"
 
     def test_coaching_prepended(self):
-        from metabolon.organelles.scout import _inject_coaching
+        from metabolon.organelles.translocon import _inject_coaching
 
-        with patch("metabolon.organelles.scout.COACHING_NOTES") as mock_path:
+        with patch("metabolon.organelles.translocon.COACHING_NOTES") as mock_path:
             mock_path.exists.return_value = True
             mock_path.read_text.return_value = "---\nfrontmatter\n---\nCoaching notes here"
             result = _inject_coaching("do stuff")
@@ -212,19 +212,19 @@ class TestRunEval:
     """run_eval reads sortase traces and returns structured summary."""
 
     def test_no_log_returns_error(self):
-        import metabolon.organelles.scout as scout_mod
-        from metabolon.organelles.scout import run_eval
+        import metabolon.organelles.translocon as translocon_mod
+        from metabolon.organelles.translocon import run_eval
 
         # Patch the module-level SORTASE_LOG to a non-existent path
         fake_log = Path("/tmp/nonexistent_sortase_log_for_test.jsonl")
-        with patch.object(scout_mod, "SORTASE_LOG", fake_log):
+        with patch.object(translocon_mod, "SORTASE_LOG", fake_log):
             result = run_eval()
         assert result["success"] is False
         assert "no sortase log" in result["output"].lower()
 
     def test_eval_returns_summary(self):
-        import metabolon.organelles.scout as scout_mod
-        from metabolon.organelles.scout import run_eval
+        import metabolon.organelles.translocon as translocon_mod
+        from metabolon.organelles.translocon import run_eval
 
         traces = [
             json.dumps({"tool": "scout", "success": True, "duration_s": 5.0}),
@@ -241,7 +241,7 @@ class TestRunEval:
             fake_log_path = Path(f.name)
 
         try:
-            with patch.object(scout_mod, "SORTASE_LOG", fake_log_path):
+            with patch.object(translocon_mod, "SORTASE_LOG", fake_log_path):
                 result = run_eval(count=20, failures_only=False)
         finally:
             fake_log_path.unlink(missing_ok=True)

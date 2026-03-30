@@ -3,7 +3,7 @@
 # requires-python = ">=3.13"
 # dependencies = ["pyyaml"]
 # ///
-"""Unified dispatch CLI for cheap LLM tasks via ZhiPu."""
+"""Unified dispatch CLI for cheap LLM tasks via ZhiPu (translocon)."""
 
 from __future__ import annotations
 
@@ -16,9 +16,9 @@ import sys
 from datetime import datetime, timedelta
 from pathlib import Path
 
-ROUTES_PATH = Path.home() / ".config/scout/routes.yaml"
-HEALTH_PATH = Path.home() / ".local/share/scout/health.json"
-LOG_PATH = Path.home() / ".local/share/scout/log.jsonl"
+ROUTES_PATH = Path.home() / ".config/translocon/routes.yaml"
+HEALTH_PATH = Path.home() / ".local/share/translocon/health.json"
+LOG_PATH = Path.home() / ".local/share/translocon/log.jsonl"
 MAX_FAILURES = 3
 COOLDOWN = 300
 
@@ -75,7 +75,7 @@ def _direct_api(prompt: str, model: str = "glm-4.7") -> int:
     import urllib.request
     key = os.environ.get("ZHIPU_API_KEY", "")
     if not key:
-        print("scout: ZHIPU_API_KEY not set", file=sys.stderr)
+        print("translocon: ZHIPU_API_KEY not set", file=sys.stderr)
         return 1
     body = json.dumps({"model": model, "max_tokens": 8192,
                        "messages": [{"role": "user", "content": prompt}]}).encode()
@@ -88,7 +88,7 @@ def _direct_api(prompt: str, model: str = "glm-4.7") -> int:
         print(data["content"][0]["text"])
         return 0
     except Exception as e:
-        print(f"scout: direct API failed: {e}", file=sys.stderr)
+        print(f"translocon: direct API failed: {e}", file=sys.stderr)
         return 1
 
 
@@ -180,7 +180,7 @@ def _resolve_mode(args: argparse.Namespace) -> tuple[list[str], str, str, str | 
 
 
 def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Unified dispatch CLI for LLM tasks.")
+    parser = argparse.ArgumentParser(description="Unified dispatch CLI for LLM tasks (translocon).")
     parser.add_argument("dir", nargs="?", default=".", help="Working directory")
     parser.add_argument("prompt", nargs="*", default=[], help="Task prompt")
     parser.add_argument("--build", action="store_true", help="Implementation mode")
@@ -227,7 +227,7 @@ def _run_eval(count: int = 20, failures_only: bool = False) -> int:
     from collections import Counter
     log_path = Path.home() / ".local/share/sortase/log.jsonl"
     if not log_path.exists():
-        print("scout: no sortase log found", file=sys.stderr)
+        print("translocon: no sortase log found", file=sys.stderr)
         return 1
     traces: list[dict] = []
     with open(log_path) as f:
@@ -238,7 +238,7 @@ def _run_eval(count: int = 20, failures_only: bool = False) -> int:
     traces = traces[-count:]
     total = len(traces)
     if total == 0:
-        print("scout: no traces found in log")
+        print("translocon: no traces found in log")
         return 0
     success = sum(1 for t in traces if t.get("success"))
     fail = total - success
@@ -281,7 +281,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.skill:
         rp = Path.home() / f"germline/membrane/receptors/{args.skill}/recipe.yaml"
         if not rp.exists():
-            print(f"scout: skill '{args.skill}' not found (no recipe.yaml)", file=sys.stderr)
+            print(f"translocon: skill '{args.skill}' not found (no recipe.yaml)", file=sys.stderr)
             print(f"  hint: run 'skill-sync {args.skill}' to generate", file=sys.stderr)
             return 1
         recipe_path = str(rp)
@@ -304,7 +304,7 @@ def main(argv: list[str] | None = None) -> int:
         print(" ".join(cmd))
         return 0
     if args.verbose:
-        print(f"scout: {chain} / {model} in {directory}", file=sys.stderr)
+        print(f"translocon: {chain} / {model} in {directory}", file=sys.stderr)
 
     import time
     t0 = time.monotonic()
@@ -320,7 +320,7 @@ def main(argv: list[str] | None = None) -> int:
         ctx = _read_dir_context(directory)
         full_prompt = (ctx + "\n\n" + prompt) if ctx else prompt
         if args.verbose:
-            print(f"scout: trying direct API ({model.lower()})", file=sys.stderr)
+            print(f"translocon: trying direct API ({model.lower()})", file=sys.stderr)
         rc = _direct_api(full_prompt, model.lower())
         _log_call(_entry("direct", rc == 0))
         if rc == 0:
@@ -332,7 +332,7 @@ def main(argv: list[str] | None = None) -> int:
     for b in healthy_chain:
         cmd = _build_goose_cmd(model, prompt, recipe_path) if b == "goose" else \
               _build_droid_cmd(model, directory, prompt, auto)
-        benv = env if b == "goose" else {}
+        benv = env
         prev = os.getcwd()
         try:
             if b == "goose":
@@ -350,7 +350,7 @@ def main(argv: list[str] | None = None) -> int:
             _log_call(_entry(b, True))
             return 0
         if args.verbose:
-            print(f"scout: {b} failed, trying next...", file=sys.stderr)
+            print(f"translocon: {b} failed, trying next...", file=sys.stderr)
         _record_result(b, False)
 
     _log_call(_entry(healthy_chain[-1], False))

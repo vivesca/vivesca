@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-"""pseudopod — browser cookie bridge + scout dispatch for LLM tasks."""
+"""pseudopod — browser cookie bridge + translocon dispatch for LLM tasks."""
 
 from fastmcp.tools import tool
 from mcp.types import ToolAnnotations
@@ -25,11 +25,11 @@ def porta_inject(domain: str) -> EffectorResult:
 
 
 @tool(
-    name="scout_dispatch",
+    name="translocon_dispatch",
     description="Dispatch cheap LLM task via goose/droid on ZhiPu coding plan.",
     annotations=ToolAnnotations(readOnlyHint=True, destructiveHint=False),
 )
-def scout_dispatch(
+def translocon_dispatch(
     prompt: str,
     mode: str = "explore",
     skill: str = "",
@@ -37,7 +37,7 @@ def scout_dispatch(
     backend: str = "",
     directory: str = ".",
 ) -> EffectorResult:
-    from metabolon.organelles.scout import dispatch
+    from metabolon.organelles.translocon import dispatch
 
     result = dispatch(
         prompt=prompt,

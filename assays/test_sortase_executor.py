@@ -91,7 +91,7 @@ def test_goose_tool_command_uses_scout():
     from pathlib import Path
     from metabolon.sortase.executor import TOOL_COMMANDS
     cmd = TOOL_COMMANDS["goose"](Path("/tmp/test"), "do something")
-    assert cmd[0] == "scout"
+    assert cmd[0] == "translocon"
     assert "--backend" in cmd
     assert "goose" in cmd
     assert "--build" in cmd
@@ -101,7 +101,7 @@ def test_droid_tool_command_uses_scout():
     from pathlib import Path
     from metabolon.sortase.executor import TOOL_COMMANDS
     cmd = TOOL_COMMANDS["droid"](Path("/tmp/test"), "do something")
-    assert cmd[0] == "scout"
+    assert cmd[0] == "translocon"
     assert "--backend" in cmd
     assert "droid" in cmd
 

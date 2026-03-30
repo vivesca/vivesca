@@ -18,14 +18,14 @@
 - **Fast-moving domains**: Tool ecosystems, competitive landscapes, pricing, API specs — research before asserting. Training data decays in months. If you haven't verified it this session, you don't know it.
 - **Calculations**: Python only.
 - **No deliverables in `~/tmp/`.** Scratch/in-flight only. Agent outputs, research, reports → `chromatin` or `~/epigenome/chromatin/immunity/`. Tell subagents chromatin paths, not `~/tmp/`.
-- **Protected paths — trust tiers for delegated agents (scout/sortase MCP):**
+- **Protected paths — trust tiers for delegated agents (translocon/sortase MCP):**
   - `genome.md`, `epigenome/marks/` (memory) → **CC only.** Never delegated.
-  - `membrane/receptors/` (skills) → **Sortase with validator + CC reviews diff.** Never raw scout --build.
-  - `metabolon/`, `effectors/`, `assays/` (code/tests) → Sortase or scout --build. Validator checks.
+  - `membrane/receptors/` (skills) → **Sortase with validator + CC reviews diff.** Never raw translocon --build.
+  - `metabolon/`, `effectors/`, `assays/` (code/tests) → Sortase or translocon --build. Validator checks.
   - Read access → unrestricted for all agents.
 - **Specs go to `~/germline/loci/plans/`** with status frontmatter. Never `/tmp/`.
 - **Steal pattern:** When encountering any external tool, repo, or solution — before building, ask: "What patterns can we steal?" Extract transferable design patterns, not implementations. Log findings in memory.
-- **PII boundary:** Memory files with `pii: true` in frontmatter (user_salary, user_insurance, user_health_*, user_financial) are CC-only. Never send to external LLM APIs. Non-PII marks (feedback, finding, reference) are safe for goose/droid via scout coaching injection.
+- **PII boundary:** Memory files with `pii: true` in frontmatter (user_salary, user_insurance, user_health_*, user_financial) are CC-only. Never send to external LLM APIs. Non-PII marks (feedback, finding, reference) are safe for goose/droid via translocon coaching injection.
 - **Atomic commits:** Every sortase dispatch uses `--commit`. Each build = one commit with clear message. Don't accumulate uncommitted changes across builds.
 
 ## How to Think

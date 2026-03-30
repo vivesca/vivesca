@@ -1,4 +1,4 @@
-"""Tests for scout — unified dispatch CLI."""
+"""Tests for translocon — unified dispatch CLI."""
 from __future__ import annotations
 
 import json
@@ -10,12 +10,12 @@ from unittest.mock import MagicMock, call, patch
 
 import pytest
 
-_SCOUT_PATH = os.path.expanduser("~/germline/effectors/scout")
+_TRANSLOCON_PATH = os.path.expanduser("~/germline/effectors/translocon")
 
 
-def _load_scout():
-    """Load the scout module by exec-ing its Python body (after uv header)."""
-    source = open(_SCOUT_PATH).read()
+def _load_translocon():
+    """Load the translocon module by exec-ing its Python body (after uv header)."""
+    source = open(_TRANSLOCON_PATH).read()
     idx = source.index("# ///\n")
     idx = source.index("\n", idx + 1)
     body = source[idx + 1:]
@@ -24,7 +24,7 @@ def _load_scout():
     return ns
 
 
-_mod = _load_scout()
+_mod = _load_translocon()
 main = _mod["main"]
 _direct_api = _mod["_direct_api"]
 _read_dir_context = _mod["_read_dir_context"]
@@ -242,7 +242,7 @@ def test_read_dir_context_skips_large(tmp_path):
 def _make_recipe(tmp_path, skill="etiology", content="title: test\nprompt: default"):
     """Create a fake recipe.yaml under tmp_path for skill testing.
 
-    scout builds Path.home() / "germline/membrane/receptors/{skill}/recipe.yaml",
+    translocon builds Path.home() / "germline/membrane/receptors/{skill}/recipe.yaml",
     so we need the germline/ prefix.
     """
     recipe_dir = tmp_path / "germline" / "membrane" / "receptors" / skill
@@ -520,7 +520,7 @@ def test_load_routes_default(tmp_path):
 
 def test_load_routes_from_yaml(tmp_path):
     """Config file overrides defaults."""
-    cfg_dir = tmp_path / ".config" / "scout"
+    cfg_dir = tmp_path / ".config" / "translocon"
     cfg_dir.mkdir(parents=True)
     import yaml
     custom = {
@@ -542,7 +542,7 @@ def test_load_routes_from_yaml(tmp_path):
 
 def test_auto_downtime_after_3_failures(tmp_path):
     """3 consecutive failures → backend enters cooldown (not healthy)."""
-    health_dir = tmp_path / ".local" / "share" / "scout"
+    health_dir = tmp_path / ".local" / "share" / "translocon"
     health_dir.mkdir(parents=True)
     health_file = health_dir / "health.json"
 
@@ -562,7 +562,7 @@ def test_auto_downtime_after_3_failures(tmp_path):
 
 def test_cooldown_expires(tmp_path):
     """After cooldown period, backend becomes healthy again."""
-    health_dir = tmp_path / ".local" / "share" / "scout"
+    health_dir = tmp_path / ".local" / "share" / "translocon"
     health_dir.mkdir(parents=True)
     import datetime
     # Write a health file with cooldown that expired 1 second ago
@@ -580,7 +580,7 @@ def test_cooldown_expires(tmp_path):
 
 def test_success_resets_failures(tmp_path):
     """A successful call resets consecutive failures."""
-    health_dir = tmp_path / ".local" / "share" / "scout"
+    health_dir = tmp_path / ".local" / "share" / "translocon"
     health_dir.mkdir(parents=True)
     health_file = health_dir / "health.json"
 
@@ -600,7 +600,7 @@ def test_success_resets_failures(tmp_path):
 
 def test_per_call_logging(tmp_path):
     """Every call writes an entry to log.jsonl."""
-    log_dir = tmp_path / ".local" / "share" / "scout"
+    log_dir = tmp_path / ".local" / "share" / "translocon"
     log_dir.mkdir(parents=True)
     log_file = log_dir / "log.jsonl"
 
