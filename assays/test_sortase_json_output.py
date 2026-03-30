@@ -98,14 +98,14 @@ class TestJsonOutputFormat:
         assert data["tasks"][0]["cost_estimate"] == "$0.00 (flat-rate)"
 
     @patch("metabolon.sortase.cli.validate_execution")
-    @patch("metabolon.sortase.cli.execute_tasks", new_callable=lambda: lambda: None)
+    @patch("metabolon.sortase.cli.execute_tasks", new_callable=AsyncMock)
     @patch("metabolon.sortase.cli.decompose_plan")
     @patch("metabolon.sortase.cli.route_description")
     def test_json_output_has_validation_issues_with_check_and_severity(
         self,
         mock_route: MagicMock,
         mock_decompose: MagicMock,
-        mock_exec: MagicMock,
+        mock_exec: AsyncMock,
         mock_validate: MagicMock,
         plan_file: Path,
         project_dir: Path,
