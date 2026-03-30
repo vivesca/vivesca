@@ -81,7 +81,7 @@ This is not a punishment — it's proprioception. The number trends toward zero 
 
 ### 2. Housekeeping (full mode only)
 
-1. **Uncommitted?** Dirty repos touched this session → commit.
+1. **Uncommitted?** `cytokinesis flush` — commits dirty repos touched this session. PreCompact hook is the safety net if this is skipped.
 2. **TODO sweep:** `cytokinesis archive`
 3. **Session log:** `cytokinesis daily "title"` — outcomes + session arc prose.
 4. **Tonus.md** — update deltas. Max 15 lines, dual-ledger.
@@ -97,6 +97,7 @@ This is not a punishment — it's proprioception. The number trends toward zero 
 | Subcommand | Purpose |
 |---|---|
 | `gather` | Deterministic pre-wrap checks: dirty repos, skill gaps, MEMORY.md line count, Tonus age, dep-check, reflection scan |
+| `flush` | Commit dirty repos (git add -A + commit per repo) |
 | `gather --syntactic` | JSON output (most token-efficient; use this in skill) |
 | `archive` | Move `[x]` items from Praxis.md → Praxis Archive.md |
 | `daily "title"` | Append session log template to today's daily note |

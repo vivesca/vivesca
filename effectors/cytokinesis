@@ -980,6 +980,37 @@ def cmd_extract(args):
         sys.exit(1)
 
 
+# ── Flush ───────────────────────────────────────────────────────────────────
+def cmd_flush(args):
+    """Commit dirty repos touched this session."""
+    committed = []
+    for label, path in sorted(DEFAULT_REPOS.items()):
+        status = git_status(path)
+        if status is None:
+            print(f"  {DIM}  {label}: unavailable{RESET}")
+            continue
+        if not status:
+            print(f"  {DIM}  {label}: clean{RESET}")
+            continue
+        count = len([l for l in status.splitlines() if l.strip()])
+        try:
+            subprocess.run(
+                ["git", "-C", str(path), "add", "-A"],
+                capture_output=True, text=True, timeout=10,
+            )
+            subprocess.run(
+                ["git", "-C", str(path), "commit", "-m", "chore: cytokinesis flush"],
+                capture_output=True, text=True, timeout=10,
+            )
+            print(f"  {OK}  {label}: committed ({count} file{'s' if count != 1 else ''})")
+            committed.append(label)
+        except Exception as e:
+            print(f"  {ERR}  {label}: commit failed — {e}")
+    if not committed:
+        print(f"  {OK}  All repos clean")
+    return committed
+
+
 # ── Main ─────────────────────────────────────────────────────────────────────
 def main():
     parser = argparse.ArgumentParser(
@@ -996,6 +1027,9 @@ def main():
 
     # archive
     sub.add_parser("archive", help="Move completed items to archive")
+
+    # flush
+    sub.add_parser("flush", help="Commit dirty repos")
 
     # daily
     d = sub.add_parser("daily", help="Append session log template")
@@ -1017,6 +1051,8 @@ def main():
         cmd_gather(args)
     elif args.command == "archive":
         cmd_archive(args)
+    elif args.command == "flush":
+        cmd_flush(args)
     elif args.command == "daily":
         cmd_daily(args)
     elif args.command == "reflect":
