@@ -6,7 +6,9 @@ from metabolon.enzymes.interoception import interoception
 @pytest.fixture
 def mock_health_log(tmp_path, monkeypatch):
     log_path = tmp_path / "Symptom Log.md"
-    monkeypatch.setattr("metabolon.enzymes.interoception.HEALTH_LOG", str(log_path))
+    monkeypatch.setattr(
+        "metabolon.enzymes.interoception._health_log_path", lambda: str(log_path)
+    )
     return log_path
 
 

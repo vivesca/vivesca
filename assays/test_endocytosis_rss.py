@@ -14,11 +14,7 @@ from unittest.mock import patch
 
 import pytest
 
-from metabolon.enzymes.endocytosis import (
-    _compute_stats,
-    _get_top_items,
-    _read_jsonl,
-)
+from metabolon.organelles.endocytosis_rss.relevance import _read_jsonl
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -78,14 +74,19 @@ class TestReadJsonl:
 
 class TestComputeStats:
     def test_no_affinity_log_returns_insufficient(self, tmp_path):
+        from metabolon.enzymes.endocytosis import _stats_result
+
         with (
-            patch("metabolon.enzymes.endocytosis.AFFINITY_LOG", tmp_path / "missing.jsonl"),
-            patch("metabolon.enzymes.endocytosis.ENGAGEMENT_LOG", tmp_path / "eng.jsonl"),
+            patch("metabolon.enzymes.endocytosis.endocytosis_affinity", tmp_path / "missing.jsonl"),
+            patch("metabolon.organelles.endocytosis_rss.relevance.AFFINITY_LOG", tmp_path / "missing.jsonl"),
+            patch("metabolon.organelles.endocytosis_rss.relevance.RECYCLING_LOG", tmp_path / "eng.jsonl"),
         ):
-            result = _compute_stats()
-        assert result["status"] == "insufficient_data"
+            result = _stats_result()
+        assert result.status == "insufficient_data"
 
     def test_basic_stats(self, tmp_path):
+        from metabolon.enzymes.endocytosis import _stats_result
+
         aff = tmp_path / "relevance.jsonl"
         eng = tmp_path / "engagement.jsonl"
         _write_jsonl(
@@ -99,18 +100,21 @@ class TestComputeStats:
         _write_jsonl(eng, [{"title": "High signal", "action": "deepened"}])
 
         with (
-            patch("metabolon.enzymes.endocytosis.AFFINITY_LOG", aff),
-            patch("metabolon.enzymes.endocytosis.ENGAGEMENT_LOG", eng),
+            patch("metabolon.enzymes.endocytosis.endocytosis_affinity", aff),
+            patch("metabolon.organelles.endocytosis_rss.relevance.AFFINITY_LOG", aff),
+            patch("metabolon.organelles.endocytosis_rss.relevance.RECYCLING_LOG", eng),
         ):
-            result = _compute_stats()
+            result = _stats_result()
 
-        assert result["status"] == "ok"
-        assert result["total_scored"] == 3
-        assert result["total_engaged"] == 1
+        assert result.status == "ok"
+        assert result.total_scored == 3
+        assert result.total_engaged == 1
         # 2 of 3 items scored >= 5 → signal_ratio = 0.667
-        assert result["signal_ratio"] == pytest.approx(2 / 3, abs=0.01)
+        assert result.signal_ratio == pytest.approx(2 / 3, abs=0.01)
 
     def test_false_positive_counted(self, tmp_path):
+        from metabolon.enzymes.endocytosis import _stats_result
+
         aff = tmp_path / "relevance.jsonl"
         eng = tmp_path / "engagement.jsonl"
         _write_jsonl(
@@ -119,17 +123,21 @@ class TestComputeStats:
                 {"title": "Hyped but useless", "source": "src", "score": 9, "timestamp": _ts(1)},
             ],
         )
-        _write_jsonl(eng, [])  # never engaged
+        # Need at least one engagement entry so affinity_stats doesn't return insufficient_data
+        _write_jsonl(eng, [{"title": "Some other engaged item", "action": "deepened"}])
 
         with (
-            patch("metabolon.enzymes.endocytosis.AFFINITY_LOG", aff),
-            patch("metabolon.enzymes.endocytosis.ENGAGEMENT_LOG", eng),
+            patch("metabolon.enzymes.endocytosis.endocytosis_affinity", aff),
+            patch("metabolon.organelles.endocytosis_rss.relevance.AFFINITY_LOG", aff),
+            patch("metabolon.organelles.endocytosis_rss.relevance.RECYCLING_LOG", eng),
         ):
-            result = _compute_stats()
+            result = _stats_result()
 
-        assert result["false_positives_count"] == 1
+        assert result.false_positives_count == 1
 
     def test_false_negative_detected(self, tmp_path):
+        from metabolon.enzymes.endocytosis import _stats_result
+
         aff = tmp_path / "relevance.jsonl"
         eng = tmp_path / "engagement.jsonl"
         _write_jsonl(
@@ -141,12 +149,13 @@ class TestComputeStats:
         _write_jsonl(eng, [{"title": "Underrated gem", "action": "deepened"}])
 
         with (
-            patch("metabolon.enzymes.endocytosis.AFFINITY_LOG", aff),
-            patch("metabolon.enzymes.endocytosis.ENGAGEMENT_LOG", eng),
+            patch("metabolon.enzymes.endocytosis.endocytosis_affinity", aff),
+            patch("metabolon.organelles.endocytosis_rss.relevance.AFFINITY_LOG", aff),
+            patch("metabolon.organelles.endocytosis_rss.relevance.RECYCLING_LOG", eng),
         ):
-            result = _compute_stats()
+            result = _stats_result()
 
-        assert "Underrated gem" in result["false_negatives"]
+        assert "Underrated gem" in result.false_negatives
 
 
 # ---------------------------------------------------------------------------
@@ -156,11 +165,15 @@ class TestComputeStats:
 
 class TestGetTopItems:
     def test_returns_empty_when_no_data(self, tmp_path):
-        with patch("metabolon.enzymes.endocytosis.AFFINITY_LOG", tmp_path / "missing.jsonl"):
-            items = _get_top_items(limit=5, days=7)
-        assert items == []
+        from metabolon.enzymes.endocytosis import _top_result
+
+        with patch("metabolon.organelles.endocytosis_rss.relevance.AFFINITY_LOG", tmp_path / "missing.jsonl"):
+            result = _top_result(limit=5, days=7)
+        assert result.items == []
 
     def test_filters_by_window(self, tmp_path):
+        from metabolon.enzymes.endocytosis import _top_result
+
         aff = tmp_path / "relevance.jsonl"
         _write_jsonl(
             aff,
@@ -170,14 +183,16 @@ class TestGetTopItems:
             ],
         )
 
-        with patch("metabolon.enzymes.endocytosis.AFFINITY_LOG", aff):
-            items = _get_top_items(limit=10, days=7)
+        with patch("metabolon.organelles.endocytosis_rss.relevance.AFFINITY_LOG", aff):
+            result = _top_result(limit=10, days=7)
 
-        titles = [i["title"] for i in items]
+        titles = [i["title"] for i in result.items]
         assert "Recent" in titles
         assert "Old" not in titles
 
     def test_sorted_by_score_descending(self, tmp_path):
+        from metabolon.enzymes.endocytosis import _top_result
+
         aff = tmp_path / "relevance.jsonl"
         _write_jsonl(
             aff,
@@ -188,25 +203,29 @@ class TestGetTopItems:
             ],
         )
 
-        with patch("metabolon.enzymes.endocytosis.AFFINITY_LOG", aff):
-            items = _get_top_items(limit=10, days=7)
+        with patch("metabolon.organelles.endocytosis_rss.relevance.AFFINITY_LOG", aff):
+            result = _top_result(limit=10, days=7)
 
-        assert items[0]["title"] == "High"
-        assert items[1]["title"] == "Mid"
-        assert items[2]["title"] == "Low"
+        assert result.items[0]["title"] == "High"
+        assert result.items[1]["title"] == "Mid"
+        assert result.items[2]["title"] == "Low"
 
     def test_respects_limit(self, tmp_path):
+        from metabolon.enzymes.endocytosis import _top_result
+
         aff = tmp_path / "relevance.jsonl"
         _write_jsonl(
             aff, [{"title": f"Item {i}", "score": i, "timestamp": _ts(1)} for i in range(10)]
         )
 
-        with patch("metabolon.enzymes.endocytosis.AFFINITY_LOG", aff):
-            items = _get_top_items(limit=3, days=7)
+        with patch("metabolon.organelles.endocytosis_rss.relevance.AFFINITY_LOG", aff):
+            result = _top_result(limit=3, days=7)
 
-        assert len(items) == 3
+        assert len(result.items) == 3
 
     def test_skips_items_with_invalid_timestamp(self, tmp_path):
+        from metabolon.enzymes.endocytosis import _top_result
+
         aff = tmp_path / "relevance.jsonl"
         _write_jsonl(
             aff,
@@ -216,10 +235,10 @@ class TestGetTopItems:
             ],
         )
 
-        with patch("metabolon.enzymes.endocytosis.AFFINITY_LOG", aff):
-            items = _get_top_items(limit=10, days=7)
+        with patch("metabolon.organelles.endocytosis_rss.relevance.AFFINITY_LOG", aff):
+            result = _top_result(limit=10, days=7)
 
-        titles = [i["title"] for i in items]
+        titles = [i["title"] for i in result.items]
         assert "Valid" in titles
         assert "Broken ts" not in titles
 
@@ -234,11 +253,14 @@ class TestToolSchemas:
         from metabolon.enzymes.endocytosis import endocytosis
 
         aff = tmp_path / "relevance.jsonl"
+        eng = tmp_path / "engagement.jsonl"
         _write_jsonl(aff, [{"title": "T", "source": "s", "score": 6, "timestamp": _ts(1)}])
+        _write_jsonl(eng, [{"title": "T", "action": "deepened"}])
 
         with (
-            patch("metabolon.enzymes.endocytosis.AFFINITY_LOG", aff),
-            patch("metabolon.enzymes.endocytosis.ENGAGEMENT_LOG", tmp_path / "eng.jsonl"),
+            patch("metabolon.enzymes.endocytosis.endocytosis_affinity", aff),
+            patch("metabolon.organelles.endocytosis_rss.relevance.AFFINITY_LOG", aff),
+            patch("metabolon.organelles.endocytosis_rss.relevance.RECYCLING_LOG", eng),
         ):
             result = endocytosis(action="stats")
 
@@ -251,7 +273,7 @@ class TestToolSchemas:
         aff = tmp_path / "relevance.jsonl"
         _write_jsonl(aff, [{"title": "T", "source": "s", "score": 8, "timestamp": _ts(1)}])
 
-        with patch("metabolon.enzymes.endocytosis.AFFINITY_LOG", aff):
+        with patch("metabolon.organelles.endocytosis_rss.relevance.AFFINITY_LOG", aff):
             result = endocytosis(action="top", limit=5, days=7)
 
         assert result.count == 1
@@ -260,18 +282,19 @@ class TestToolSchemas:
     def test_top_tool_empty_returns_empty_result(self, tmp_path):
         from metabolon.enzymes.endocytosis import endocytosis
 
-        with patch("metabolon.enzymes.endocytosis.AFFINITY_LOG", tmp_path / "none.jsonl"):
+        with patch("metabolon.organelles.endocytosis_rss.relevance.AFFINITY_LOG", tmp_path / "none.jsonl"):
             result = endocytosis(action="top")
 
         assert result.count == 0
-        assert "No items" in result.summary
+        assert "No items" in result.output
 
     def test_stats_insufficient_data(self, tmp_path):
         from metabolon.enzymes.endocytosis import endocytosis
 
         with (
-            patch("metabolon.enzymes.endocytosis.AFFINITY_LOG", tmp_path / "none.jsonl"),
-            patch("metabolon.enzymes.endocytosis.ENGAGEMENT_LOG", tmp_path / "none2.jsonl"),
+            patch("metabolon.enzymes.endocytosis.endocytosis_affinity", tmp_path / "none.jsonl"),
+            patch("metabolon.organelles.endocytosis_rss.relevance.AFFINITY_LOG", tmp_path / "none.jsonl"),
+            patch("metabolon.organelles.endocytosis_rss.relevance.RECYCLING_LOG", tmp_path / "none2.jsonl"),
         ):
             result = endocytosis(action="stats")
 

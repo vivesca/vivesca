@@ -16,10 +16,10 @@ def force_keyword_fallback(monkeypatch):
 
 
 def test_keyword_scoring():
-    result = relevance.assess_cargo(
+    result = relevance._keyword_score(
         "Enterprise agent governance benchmark released",
-        "Example Source",
         "Production evaluation and governance patterns for enterprise AI teams.",
+        source="Example Source",
     )
 
     assert result["score"] >= 5
@@ -142,20 +142,20 @@ def test_get_stats(tmp_path, monkeypatch):
 
 
 def test_score_banking_item_high():
-    result = relevance.assess_cargo(
+    result = relevance._keyword_score(
         "HKMA issues new AML guidance for banks using AI",
-        "HKMA",
         "The update covers compliance, fraud detection, and model risk expectations for banks.",
+        source="HKMA",
     )
 
     assert result["score"] >= 7
 
 
 def test_score_consumer_item_low():
-    result = relevance.assess_cargo(
+    result = relevance._keyword_score(
         "Consumer photo app adds fun AI selfie filters",
-        "App Store Blog",
         "A new creator-focused entertainment feature for social media sharing.",
+        source="App Store Blog",
     )
 
     assert result["score"] <= 4

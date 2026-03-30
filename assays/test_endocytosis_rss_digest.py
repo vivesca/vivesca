@@ -370,7 +370,7 @@ def test_cli_digest_weekly_flag(xdg_env, monkeypatch, tmp_path):
 
     called: dict[str, bool] = {"weekly": False}
 
-    def fake_run_weekly(cfg, week_date=None, tags=None):
+    def fake_run_weekly(cfg, week_date=None, tags=None, dry_run=False):
         called["weekly"] = True
         out = tmp_path / "weekly-ai-digest-2026-W13.md"
         out.parent.mkdir(parents=True, exist_ok=True)
