@@ -39,6 +39,32 @@ def _format_files_changed(files_changed: Any) -> str:
     return str(count)
 
 
+def build_history_entries(entries: list[dict[str, Any]], limit: int = DEFAULT_LIMIT) -> list[dict[str, Any]]:
+    """Return history entries as a list of dicts for machine-readable output."""
+    recent = entries[-limit:] if len(entries) > limit else list(entries)
+    recent.reverse()
+
+    result: list[dict[str, Any]] = []
+    for entry in recent:
+        success = entry.get("success")
+        if success is True:
+            status_str = "ok"
+        elif success is False:
+            status_str = "fail"
+        else:
+            status_str = "unknown"
+
+        result.append({
+            "timestamp": _format_timestamp(entry.get("timestamp", "")),
+            "plan": entry.get("plan", "-"),
+            "backend": entry.get("tool", "-"),
+            "duration": _format_duration(entry.get("duration_s")),
+            "status": status_str,
+            "files": _format_files_changed(entry.get("files_changed")),
+        })
+    return result
+
+
 def build_history_table(entries: list[dict[str, Any]], limit: int = DEFAULT_LIMIT) -> Table:
     recent = entries[-limit:] if len(entries) > limit else list(entries)
     recent.reverse()

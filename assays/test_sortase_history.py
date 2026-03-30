@@ -11,6 +11,7 @@ from metabolon.sortase.history import (
     _format_duration,
     _format_files_changed,
     _format_timestamp,
+    build_history_entries,
     build_history_table,
     display_history,
 )
@@ -137,6 +138,84 @@ class TestDisplayHistory:
             display_history()
         output = capsys.readouterr().out
         assert "No dispatch history found" in output
+
+
+# ---------------------------------------------------------------------------
+# 6. build_history_entries returns raw dicts
+# ---------------------------------------------------------------------------
+
+class TestBuildHistoryEntries:
+    def test_returns_list_of_dicts(self):
+        rows = build_history_entries(SAMPLE_ENTRIES, limit=2)
+        assert len(rows) == 2
+        assert isinstance(rows[0], dict)
+
+    def test_entry_keys(self):
+        rows = build_history_entries(SAMPLE_ENTRIES, limit=1)
+        entry = rows[0]
+        for key in ("timestamp", "plan", "backend", "duration", "status", "files"):
+            assert key in entry, f"Missing key: {key}"
+
+    def test_status_mapping(self):
+        rows = build_history_entries(SAMPLE_ENTRIES)
+        statuses = [r["status"] for r in rows]
+        assert "ok" in statuses
+        assert "fail" in statuses
+
+    def test_reversed_order(self):
+        rows = build_history_entries(SAMPLE_ENTRIES)
+        # Most recent entry first (reversed from chronological)
+        assert rows[0]["plan"] == "refactor_api.md"
+
+    def test_respects_limit(self):
+        rows = build_history_entries(SAMPLE_ENTRIES, limit=1)
+        assert len(rows) == 1
+
+    def test_empty_entries(self):
+        rows = build_history_entries([], limit=10)
+        assert rows == []
+
+
+# ---------------------------------------------------------------------------
+# 7. CLI history --json-output flag
+# ---------------------------------------------------------------------------
+
+class TestHistoryJsonFlag:
+    def test_history_json_flag(self):
+        from click.testing import CliRunner
+        from metabolon.sortase.cli import main
+
+        runner = CliRunner()
+        with patch("metabolon.sortase.cli.read_logs", return_value=SAMPLE_ENTRIES):
+            result = runner.invoke(main, ["history", "--json-output", "--last", "2"])
+        assert result.exit_code == 0, result.output
+        data = json.loads(result.output)
+        assert isinstance(data, list)
+        assert len(data) == 2
+        assert data[0]["plan"] in ("fix_lint.md", "refactor_api.md")
+
+    def test_history_json_empty(self):
+        from click.testing import CliRunner
+        from metabolon.sortase.cli import main
+
+        runner = CliRunner()
+        with patch("metabolon.sortase.cli.read_logs", return_value=[]):
+            result = runner.invoke(main, ["history", "--json-output"])
+        assert result.exit_code == 0, result.output
+        data = json.loads(result.output)
+        assert data == []
+
+    def test_history_default_unchanged(self):
+        """Non-JSON output still renders a rich table."""
+        from click.testing import CliRunner
+        from metabolon.sortase.cli import main
+
+        runner = CliRunner()
+        with patch("metabolon.sortase.cli.read_logs", return_value=SAMPLE_ENTRIES):
+            result = runner.invoke(main, ["history", "--last", "2"])
+        assert result.exit_code == 0, result.output
+        # Rich table output contains the plan names as plain text
+        assert "add_auth.md" in result.output or "fix_lint.md" in result.output
 
 
 # ---------------------------------------------------------------------------

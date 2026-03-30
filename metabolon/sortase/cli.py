@@ -16,7 +16,7 @@ from metabolon.sortase.decompose import decompose_plan
 from metabolon.sortase.diff_viewer import find_task_commit, format_diff_summary, get_task_diff
 from metabolon.sortase.linter import lint_plan as structured_lint, format_lint_report
 from metabolon.sortase.executor import execute_tasks, list_running, summarize_cost_estimates
-from metabolon.sortase.history import build_history_table, display_history
+from metabolon.sortase.history import build_history_entries, build_history_table, display_history
 from metabolon.sortase.logger import aggregate_stats, analyze_logs, append_log, read_logs, resolve_log_path
 from metabolon.sortase.compare import compare_sessions, format_compare_report
 from metabolon.sortase.overnight import compute_overnight_stats, format_overnight_report, load_overnight_entries
@@ -634,12 +634,21 @@ def lint(plan_file: Path) -> None:
 
 @main.command()
 @click.option("--last", "last_n", default=20, show_default=True, type=int, help="Number of recent dispatches to show.")
-def history(last_n: int) -> None:
+@click.option("--json-output", "json_out", is_flag=True, help="Output as JSON array.")
+def history(last_n: int, json_out: bool) -> None:
     """Show recent dispatch history in a rich table."""
 
     entries = read_logs()
     if not entries:
-        console.print("[dim]No dispatch history found.[/dim]")
+        if json_out:
+            console.file.write("[]\n")
+        else:
+            console.print("[dim]No dispatch history found.[/dim]")
+        return
+    if json_out:
+        import json as _json
+        rows = build_history_entries(entries, limit=last_n)
+        console.file.write(f"{_json.dumps(rows, indent=2)}\n")
         return
     console.print(build_history_table(entries, limit=last_n))
 
