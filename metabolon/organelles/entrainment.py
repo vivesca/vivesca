@@ -91,7 +91,7 @@ def optimal_schedule(signals: dict[str, Any] | None = None) -> dict[str, Any]:
     budget = signals.get("budget_status", "unknown")
     stale = signals.get("rss_stale")
     hour = signals.get("hkt_hour", 12)
-    weekend = signals.get("weekday", "Mon") in ("Saturday", "Sunday")
+    weekend = signals.get("is_weekend", False)
 
     recs: dict[str, dict[str, str]] = {}
     notes: list[str] = []

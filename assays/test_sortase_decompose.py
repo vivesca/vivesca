@@ -592,3 +592,165 @@ class TestScoreSpecQuality:
             + result["verification"]
             + result["tool_budget"]
         )
+
+
+# ---------------------------------------------------------------------------
+# Tests: lint_plan
+# ---------------------------------------------------------------------------
+
+from metabolon.sortase.decompose import lint_plan
+
+LINT_CLEAN_PLAN = """\
+# Add feature X
+
+## Output
+Write to ~/germline/metabolon/sortase/feature_x.py.
+
+## Constraints
+- Do NOT modify existing tests.
+
+## Verification
+```bash
+cd ~/germline && .venv/bin/python -m pytest assays/test_feature_x.py -v
+```
+"""
+
+LINT_ALL_ISSUES_PLAN = """\
+# Do stuff
+
+Write output to /tmp/scratch.py.
+
+Some things still need work FIXME later.
+Also there is a TODO about handling edge cases.
+"""
+
+LINT_NO_OUTPUT_PLAN = """\
+# Fix the bug
+
+## Constraints
+- Do NOT break tests.
+
+## Verification
+```bash
+pytest
+```
+"""
+
+LINT_NO_CONSTRAINTS_PLAN = """\
+# Add feature
+
+Write to src/feature.py.
+
+## Verification
+```bash
+pytest
+```
+"""
+
+LINT_NO_VERIFICATION_PLAN = """\
+# Add feature
+
+Write to src/feature.py.
+
+## Constraints
+- Do NOT change other files.
+"""
+
+LINT_TMP_PLAN = """\
+# Task
+
+## Output
+Write to /tmp/plan_output.md.
+
+## Constraints
+- Do NOT break anything.
+
+## Verification
+```bash
+echo done
+```
+"""
+
+LINT_TODO_FIXME_PLAN = """\
+# Task
+
+## Output
+Write to ~/germline/loci/plans/output.md.
+
+## Constraints
+- Do NOT break anything.
+
+TODO: add more details.
+FIXME: this is wrong.
+"""
+
+LINT_EMPTY_PLAN = ""
+
+LINT_MULTIPLE_TMP_PLAN = """\
+# Task
+
+Write to /tmp/a.py first, then copy to /tmp/b.py.
+
+## Constraints
+- Do NOT break anything.
+
+## Verification
+```bash
+echo done
+```
+"""
+
+
+class TestLintPlan:
+    def test_clean_plan_no_warnings(self):
+        warnings = lint_plan(LINT_CLEAN_PLAN)
+        assert warnings == []
+
+    def test_all_issues_detected(self):
+        warnings = lint_plan(LINT_ALL_ISSUES_PLAN)
+        assert len(warnings) == 4
+        messages = " ".join(warnings)
+        assert "/tmp/" in messages
+        assert "FIXME" in messages
+        assert "TODO" in messages
+        assert "output path" in messages.lower() or "verification" in messages.lower() or "constraints" in messages.lower()
+
+    def test_no_output_path_warning(self):
+        warnings = lint_plan(LINT_NO_OUTPUT_PLAN)
+        messages = " ".join(warnings)
+        assert any("output path" in w.lower() for w in warnings)
+
+    def test_no_constraints_warning(self):
+        warnings = lint_plan(LINT_NO_CONSTRAINTS_PLAN)
+        assert any("constraints" in w.lower() for w in warnings)
+
+    def test_no_verification_warning(self):
+        warnings = lint_plan(LINT_NO_VERIFICATION_PLAN)
+        assert any("verification" in w.lower() for w in warnings)
+
+    def test_tmp_path_warning(self):
+        warnings = lint_plan(LINT_TMP_PLAN)
+        assert any("/tmp/" in w for w in warnings)
+
+    def test_todo_warning(self):
+        warnings = lint_plan(LINT_TODO_FIXME_PLAN)
+        assert any("TODO" in w for w in warnings)
+
+    def test_fixme_warning(self):
+        warnings = lint_plan(LINT_TODO_FIXME_PLAN)
+        assert any("FIXME" in w for w in warnings)
+
+    def test_empty_plan_warnings(self):
+        warnings = lint_plan(LINT_EMPTY_PLAN)
+        assert len(warnings) >= 3
+
+    def test_returns_list_of_strings(self):
+        warnings = lint_plan(LINT_ALL_ISSUES_PLAN)
+        assert isinstance(warnings, list)
+        for w in warnings:
+            assert isinstance(w, str)
+
+    def test_multiple_tmp_references_counted(self):
+        warnings = lint_plan(LINT_MULTIPLE_TMP_PLAN)
+        tmp_warnings = [w for w in warnings if "/tmp/" in w]
+        assert len(tmp_warnings) >= 1
