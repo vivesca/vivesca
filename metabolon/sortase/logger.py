@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 DEFAULT_LOG_PATH = Path.home() / ".local" / "share" / "sortase" / "log.jsonl"
+DEFAULT_COACHING_PATH = Path.home() / "epigenome" / "marks" / "feedback_glm_coaching.md"
 
 
 def resolve_log_path(path: str | os.PathLike[str] | None = None) -> Path:

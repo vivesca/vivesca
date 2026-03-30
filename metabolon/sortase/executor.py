@@ -452,9 +452,7 @@ async def execute_task(
             attempts=attempts,
             output=last.output,
             fallbacks=fallbacks,
-            cost_estimate=sum(
-                1 for a in attempts if a.cost_estimate and "(flat-rate)" in a.cost_estimate
-            ) and "$0.00 (flat-rate)" or last.cost_estimate,
+            cost_estimate=last.cost_estimate,
         )
         _emit_completion_signal(result)
         _analyze_for_coaching(result)
