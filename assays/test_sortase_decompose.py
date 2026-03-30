@@ -708,12 +708,15 @@ class TestLintPlan:
 
     def test_all_issues_detected(self):
         warnings = lint_plan(LINT_ALL_ISSUES_PLAN)
-        assert len(warnings) == 4
+        # no output, no constraints, no verification, /tmp/, TODO, FIXME = 6
+        assert len(warnings) == 6
         messages = " ".join(warnings)
         assert "/tmp/" in messages
         assert "FIXME" in messages
         assert "TODO" in messages
-        assert "output path" in messages.lower() or "verification" in messages.lower() or "constraints" in messages.lower()
+        assert "output path" in messages.lower()
+        assert "constraints" in messages.lower()
+        assert "verification" in messages.lower()
 
     def test_no_output_path_warning(self):
         warnings = lint_plan(LINT_NO_OUTPUT_PLAN)
