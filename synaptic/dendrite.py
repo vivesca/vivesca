@@ -1124,28 +1124,96 @@ def mod_assay_nudge(data):
 # ── chaperone propagation: nudge when tool code changes but skill may be stale ──
 
 
-_CHAPERONE_DIRS = ("enzymes/", "organelles/", "effectors/")
+_PROPAGATION_DIRS = ("enzymes/", "organelles/", "effectors/")
 def mod_chaperone_propagation(data):
     """After editing tool/enzyme/organelle/effector code, remind to update skills + memories."""
     fp = data.get("tool_input", {}).get("file_path", "")
     if not fp.endswith(".py") and "/effectors/" not in fp:
         return
-    if not any(d in fp for d in _CHAPERONE_DIRS):
+    if not any(d in fp for d in _PROPAGATION_DIRS):
         return
 
     # Fire at most once per session to avoid noise
-    session_file = Path(f"/tmp/chaperone-{os.getpid()}.flag")
+    session_file = Path(f"/tmp/propagation-{os.getpid()}.flag")
     if session_file.exists():
         return
     session_file.touch()
 
     component = Path(fp).stem
     print(
-        f"[chaperone] You modified {component}. Before wrapping up: "
+        f"[propagation] You modified {component}. Before wrapping up: "
         f"check if skills/memories/routing need updating. "
-        f"See receptors/chaperone/SKILL.md for the checklist.",
+        f"Sweep: grep -rl '{component}' ~/germline/membrane/receptors/",
         file=sys.stderr,
     )
+
+
+def mod_recipe_sync(data):
+    """Auto-sync recipe.yaml instructions when SKILL.md is modified."""
+    fp = data.get("tool_input", {}).get("file_path", "")
+    if not fp.endswith("/SKILL.md"):
+        return
+    if "/receptors/" not in fp:
+        return
+
+    skill_dir = Path(fp).parent
+    recipe_path = skill_dir / "recipe.yaml"
+    skill_path = skill_dir / "SKILL.md"
+
+    if not recipe_path.exists() or not skill_path.exists():
+        return
+
+    import re as _re
+    import yaml as _yaml
+
+    skill_text = skill_path.read_text(encoding="utf-8")
+    recipe_text = recipe_path.read_text(encoding="utf-8")
+
+    # Extract description from SKILL.md frontmatter
+    desc_match = _re.search(r"^description:\s*(.+)$", skill_text, _re.MULTILINE)
+    new_desc = desc_match.group(1).strip() if desc_match else None
+
+    # Extract instructions: everything after the closing --- of frontmatter
+    parts = skill_text.split("---", 2)
+    if len(parts) >= 3:
+        new_instructions = parts[2].strip()
+    else:
+        return
+
+    # Update recipe.yaml
+    recipe_data = _yaml.safe_load(recipe_text)
+    if not recipe_data:
+        return
+
+    changed = False
+    if new_desc and recipe_data.get("description") != new_desc:
+        recipe_data["description"] = new_desc
+        changed = True
+    if recipe_data.get("instructions", "").strip() != new_instructions:
+        recipe_data["instructions"] = new_instructions
+        changed = True
+
+    if changed:
+        # Preserve YAML formatting: dump with block style for instructions
+        output_lines = []
+        for key in ["title", "name", "description"]:
+            if key in recipe_data:
+                val = recipe_data[key]
+                output_lines.append(f'{key}: "{val}"')
+        output_lines.append(f"instructions: |")
+        for line in new_instructions.split("\n"):
+            output_lines.append(f"  {line}" if line.strip() else "")
+        # Preserve any extra keys (extensions, etc.)
+        skip_keys = {"title", "name", "description", "instructions"}
+        for key, val in recipe_data.items():
+            if key not in skip_keys:
+                output_lines.append(f"{key}: {_yaml.dump(val, default_flow_style=True).strip()}")
+
+        recipe_path.write_text("\n".join(output_lines) + "\n", encoding="utf-8")
+        print(
+            f"[recipe-sync] Synced {skill_dir.name}/recipe.yaml from SKILL.md",
+            file=sys.stderr,
+        )
 
 
 # ── antisera: progressive discovery of known gotcha/fix pairs ──────────
@@ -1437,8 +1505,12 @@ def main():
         modules.append(mod_assay_nudge)
 
     # Chaperone propagation (Edit/Write on enzymes/organelles/effectors)
-    if tool in ("Edit", "Write") and any(d in fp for d in _CHAPERONE_DIRS):
+    if tool in ("Edit", "Write") and any(d in fp for d in _PROPAGATION_DIRS):
         modules.append(mod_chaperone_propagation)
+
+    # Recipe sync (Write/Edit on receptor SKILL.md)
+    if tool in ("Edit", "Write") and "/receptors/" in fp and fp.endswith("/SKILL.md"):
+        modules.append(mod_recipe_sync)
 
     # Ideal? nudge (Edit/Write on germline code, non-skill — skills handled by ligation)
     if tool in ("Edit", "Write") and "/germline/" in fp and "/skills/" not in fp and fp.endswith(".py"):

@@ -1,6 +1,6 @@
 title: "Litura"
 name: "modification"
-description: "Refine an artifact via multi-model iteration. \"refine\", \"polish\", \"iteration\""
+description: "Refine artifact — multi-model or solo cooling. \"refine\", \"polish\", \"anneal\""
 instructions: |
   # Litura
 

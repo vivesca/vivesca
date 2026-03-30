@@ -138,6 +138,20 @@ Write `~/germline/assays/test_<name>.py`:
 
 List each test with one-line description. Tests use mocks -- no real API/CLI calls.
 
+## Passing Criteria
+
+Every spec must define what "done" looks like. Goose will accept its own failures if criteria are vague.
+
+\```markdown
+## Passing Criteria
+
+- [ ] All tests pass (0 failures) -- paste output
+- [ ] <specific verify command> shows expected output
+- [ ] Files X, Y, Z exist/modified as specified
+\```
+
+Be explicit. "Verify it works" is not a criterion. "Run `X` and output contains `Y`" is.
+
 ## Constraints
 
 Always include:
@@ -149,10 +163,11 @@ Always include:
 
 ## Checklist (verify before dispatching)
 
-1. **Foldability** -- all sections score 4+ (or disordered regions resolved)
-2. **Frontmatter** -- `status: ready`, `depends_on` if blocked
-3. **Context** -- what exists, not what we want (agent reads current state, not aspirational)
-4. **Tasks are atomic** -- one task = one change
+1. **Protected paths** -- genome.md and epigenome/marks/ are CC-only. NEVER dispatch goose to edit these. If the spec touches memory/genome, CC does it directly.
+2. **Foldability** -- all sections score 4+ (or disordered regions resolved)
+3. **Frontmatter** -- `status: ready`, `depends_on` if blocked
+4. **Context** -- what exists, not what we want (agent reads current state, not aspirational)
+5. **Tasks are atomic** -- one task = one change
 5. **Code snippets** -- for files >200 lines, provide exact before/after
 6. **Test file specified** -- exact path, exact test names, what each tests
 7. **Constraints include coaching** -- TDD red/green, no /tmp, Python not bash
@@ -180,6 +195,18 @@ sortase exec -b goose -p ~/germline ~/germline/loci/plans/<name>.md \
 ```
 
 Backend selection: `-b goose` (default, fastest, free), `-b gemini` (boilerplate), `-b codex` (Rust, hard bugs). One task per delegation. Independent tasks dispatch in parallel.
+
+### Parallel dispatches
+
+When dispatching multiple specs to the same repo, use worktrees to prevent conflicts:
+```bash
+sortase exec -b goose -p ~/germline <spec>.md --worktree --verbose
+```
+Each dispatch gets an isolated copy. Merge results after review.
+
+### Atomic commits
+
+Each dispatch should produce exactly one commit with a clear message. Use `--commit` flag or commit immediately after review. Don't accumulate uncommitted changes across multiple dispatches — they conflict and make review harder.
 
 ## Review (after goose returns)
 

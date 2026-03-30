@@ -1,6 +1,6 @@
 title: "specification — Write Dispatch-Ready Specs"
 name: "specification"
-description: "Write a dispatch-ready spec for sortase/goose/droid. \"spec this\", \"write a plan\", \"dispatch this\""
+description: "Write spec, dispatch to goose/sortase, review output. The dispatch lifecycle."
 instructions: |
   # specification — Write Dispatch-Ready Specs
 
