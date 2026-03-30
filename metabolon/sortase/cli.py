@@ -18,6 +18,7 @@ from metabolon.sortase.linter import lint_plan as structured_lint, format_lint_r
 from metabolon.sortase.executor import execute_tasks, list_running, summarize_cost_estimates
 from metabolon.sortase.history import build_history_table, display_history
 from metabolon.sortase.logger import aggregate_stats, analyze_logs, append_log, read_logs, resolve_log_path
+from metabolon.sortase.compare import compare_sessions, format_compare_report
 from metabolon.sortase.overnight import compute_overnight_stats, format_overnight_report, load_overnight_entries
 from metabolon.sortase.router import route_description
 from metabolon.sortase.validator import validate_execution
@@ -947,6 +948,19 @@ def diff(task_name: str, project_dir: Path, show_summary: bool) -> None:
         console.print(format_diff_summary(full_diff))
         console.print()
         console.print(full_diff)
+
+
+@main.command()
+@click.argument("date_a")
+@click.argument("date_b")
+@click.option("--log", "log_path", default=None, type=click.Path(path_type=Path), help="Path to log.jsonl (default: sortase default).")
+def compare(date_a: str, date_b: str, log_path: Path | None) -> None:
+    """Compare two overnight sessions (task count, success rate, duration deltas, new failures)."""
+
+    resolved = resolve_log_path(log_path)
+    delta = compare_sessions(resolved, date_a, date_b)
+    report = format_compare_report(delta)
+    console.print(report)
 
 
 @main.command()
