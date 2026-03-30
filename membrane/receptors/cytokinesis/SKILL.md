@@ -92,6 +92,12 @@ This is not a punishment — it's proprioception. The number trends toward zero 
 
 **Capture displacement check:** "If I deleted all memories filed this session, would my behavior change next session?" If yes, the memories are load-bearing. If no, they're theater — the real learning happened in the code/skill edits, and the memories are redundant narration.
 
+### 1d. Publish (don't defer)
+
+If the session produced a publishable insight — pattern, framework, lesson — write the garden post NOW. `sarcio new "title"`, write it, `sarcio publish`. The insight is hottest in the session that produced it. Deferring to "tomorrow" kills 80% of posts.
+
+Test: "Would I explain this to a peer over coffee?" If yes, it's a post. Write it in Terry's voice, consulting-grade, 400-600 words. Don't ask permission — ship immediately.
+
 ### 2. Housekeeping (full mode only)
 
 1. **Uncommitted?** `cytokinesis flush` — commits dirty repos touched this session. PreCompact hook is the safety net if this is skipped.

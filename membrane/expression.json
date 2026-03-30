@@ -57,24 +57,6 @@
             "command": "python3 ~/.claude/hooks/axon.py"
           }
         ]
-      },
-      {
-        "matcher": "tool == 'Agent'",
-        "hooks": [
-          {
-            "type": "prompt",
-            "prompt": "The user is about to spawn an agent. Check the agent description field: '$ARGUMENTS'. Before allowing, verify: does this agent's prompt clearly state what UNIQUE signal it will produce that existing agents haven't? If the prompt describes a role/persona on the same model as other active agents (e.g. 'strategist' and 'red team' both on Claude), flag it — persona diversity is theater, model diversity is real. Allow if: different model, different information source, or clearly unique task. Block with a one-line explanation if it looks like a duplicate perspective."
-          }
-        ]
-      },
-      {
-        "matcher": "tool matches 'rheotaxis_search|vivesca__rheotaxis_search'",
-        "hooks": [
-          {
-            "type": "prompt",
-            "prompt": "Check '$ARGUMENTS' for depth parameter. If depth=deep (~$0.40): is this justified? Would depth=quick (~$0.006) or depth=thorough (~$0.01) answer this question? deep is only for multi-source investigation that cheaper tiers can't handle. If quick or thorough would suffice, block with: 'Use depth=quick ($0.006) or depth=thorough ($0.01) instead — 60x cheaper.' If depth is quick or thorough (or absent), allow without comment."
-          }
-        ]
       }
     ],
     "PostToolUse": [

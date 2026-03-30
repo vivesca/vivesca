@@ -450,6 +450,16 @@ def guard_write(data):
         if re.search(r"\b" + _NPX + r"\b", content):
             deny(f"Never use {_NPX} in hooks. Use direct path.", "write-guard")
 
+    # No prompt-type hooks on PreToolUse — LLM self-judging its own calls is broken
+    if fp.endswith("settings.json") and "/.claude/" in fp:
+        content = ti.get("content", "") or ti.get("new_string", "")
+        if '"type": "prompt"' in content and "PreToolUse" in content:
+            deny(
+                "Prompt-type hooks on PreToolUse are self-policing (fox guards henhouse). "
+                "Use deterministic command hooks in axon.py instead.",
+                "write-guard",
+            )
+
     # Facts in CLAUDE.md
     is_main = fp in (str(HOME / "CLAUDE.md"), str(_VIVESCA_ROOT / "claude" / "CLAUDE.md"))
     if is_main:
@@ -843,6 +853,18 @@ def guard_rheotaxis(data):
     )
 
 
+def guard_rheotaxis_depth(data):
+    """Deny depth=deep on rheotaxis search. ~$0.40 per call vs $0.006 for quick."""
+    ti = data.get("tool_input", {})
+    depth = ti.get("depth", "quick")
+    if depth == "deep":
+        deny(
+            "rheotaxis depth=deep costs ~$0.40. Use depth=quick ($0.006) or "
+            "depth=thorough ($0.01). If deep is truly needed, ask the user.",
+            "metabolic-gate",
+        )
+
+
 def main():
     try:
         data = json.load(sys.stdin)
@@ -873,6 +895,8 @@ def main():
             reset_pipeline_counter(data)
         elif tool == "WebSearch":
             guard_rheotaxis(data)
+        elif "rheotaxis" in tool:
+            guard_rheotaxis_depth(data)
     except SystemExit:
         raise
     except Exception:
