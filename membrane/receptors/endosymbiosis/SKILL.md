@@ -25,7 +25,7 @@ This is the lustro pattern generalized. Lustro absorbed 161 RSS feeds. The organ
 
 **Use droid explore for recon** — don't burn CC tokens reading the external codebase:
 ```bash
-droid exec -m custom:glm-5.1 --cwd <external-repo> \
+droid exec -m glm-4.7 --cwd <external-repo> \
   "Read the source files and summarize: (1) what it does and key functions, \
   (2) external dependencies, (3) path assumptions, (4) how the organism \
   currently wraps it. Output a concise summary for spec writing."

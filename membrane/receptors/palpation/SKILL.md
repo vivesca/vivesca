@@ -30,7 +30,7 @@ Be precise: not "the intake pipeline" but "the transduction job's extraction ste
 
 **Use droid explore for initial read** — free recon before CC applies judgment:
 ```bash
-droid exec -m custom:glm-5.1 --cwd <project> \
+droid exec -m glm-4.7 --cwd <project> \
   "Read <component files>, config, and recent logs. Summarize: architecture, dependencies, hardcoded paths, error handling, recent output patterns."
 ```
 

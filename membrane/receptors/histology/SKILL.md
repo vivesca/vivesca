@@ -18,7 +18,7 @@ One morning session (25 Mar 2026) produced: 7 garden posts, 3 tool renames, 3 ne
 
 ```
 0. RECON      → Use droid explore to gather component inventory (free):
-               droid exec -m custom:glm-5.1 --cwd <project> "List all modules, tools, data stores, pipelines, APIs. For each: name, purpose, dependencies."
+               droid exec -m glm-4.7 --cwd <project> "List all modules, tools, data stores, pipelines, APIs. For each: name, purpose, dependencies."
 1. INVENTORY  → From droid summary, list every component of the system
 2. MAP        → Force a cell-level biological name onto each component
 3. BREAK      → Test each mapping at the edges. Where does the name not fit?
