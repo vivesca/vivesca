@@ -2,7 +2,6 @@
 name: expression
 description: Weekly career compound machine — produce consulting IP from accumulated sparks.
 user_invocable: true
-context: fork
 ---
 
 # The Forge — Weekly Career Compound Machine

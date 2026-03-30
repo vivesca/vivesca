@@ -3,7 +3,6 @@ name: endosymbiosis
 description: Absorb an external tool into the organism with full integration. lustro pattern.
 user_invocable: true
 model: sonnet
-context: fork
 ---
 
 # Endosymbiosis — Absorbing External Organisms into the Cell

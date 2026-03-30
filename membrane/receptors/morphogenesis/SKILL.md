@@ -9,7 +9,6 @@ triggers:
   - nano banana
   - imagen
   - coloring page
-context: fork
 epistemics: [create]
 model: sonnet
 ---

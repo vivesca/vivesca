@@ -7,7 +7,6 @@ triggers:
   - "parallel research"
   - "heuretes"
   - "explore this with agents"
-context: fork
 epistemics: [research, delegate]
 ---
 

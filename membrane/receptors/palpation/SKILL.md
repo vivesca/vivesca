@@ -3,7 +3,6 @@ name: palpation
 description: Manual deep-probe of a specific component — deeper than integrin.
 user_invocable: true
 model: sonnet
-context: fork
 ---
 
 # Palpation — Manual Deep Probing

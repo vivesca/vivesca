@@ -3,7 +3,6 @@ name: hybridization
 description: Forced bio naming as design constraint — mine gaps from where analogy breaks.
 user_invocable: true
 model: sonnet
-context: fork
 ---
 
 # Hybridization — Forced Naming as Design Constraint

@@ -3,7 +3,7 @@ name: cytokinesis
 description: Consolidate while context is hot — capture what dies with the session
 cli: cytokinesis
 user_invocable: true
-context: inline  # MUST NOT fork — needs full session history to know what to capture
+context: inline
 allowed-tools:
   - Bash
   - Read

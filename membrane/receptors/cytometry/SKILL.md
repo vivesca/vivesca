@@ -3,7 +3,6 @@ name: cytometry
 description: Audit system autonomy — classify subsystems as self-governing or gated.
 user_invocable: true
 model: sonnet
-context: fork
 epistemics: [monitor, evaluate]
 ---
 

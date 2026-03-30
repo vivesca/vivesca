@@ -3,7 +3,6 @@ name: conjugation
 description: Cross-pollinate working patterns between systems. "conjugation", "borrow design"
 user_invocable: true
 model: sonnet
-context: fork
 ---
 
 # Conjugation — Horizontal Gene Transfer Between Systems

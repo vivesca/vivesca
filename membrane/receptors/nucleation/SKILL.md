@@ -10,7 +10,6 @@ allowed-tools:
   - Grep
   - Glob
   - Agent
-context: fork
 epistemics: [build, delegate]
 ---
 

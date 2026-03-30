@@ -3,7 +3,6 @@ name: annealing
 description: Iterative artifact refinement — start hot (wild), cool to convergence.
 user_invocable: true
 model: sonnet
-context: fork
 epistemics: [evaluate, communicate]
 ---
 

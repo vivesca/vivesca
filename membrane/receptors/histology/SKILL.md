@@ -3,7 +3,6 @@ name: histology
 description: Architecture review via cell biology lens — map components, find gaps.
 user_invocable: true
 model: opus
-context: fork
 ---
 
 # Histology — Architecture Through the Cell Biology Lens

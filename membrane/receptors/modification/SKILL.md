@@ -4,7 +4,6 @@ description: Multi-model iterative refinement of artifacts. "refine", "polish", 
 aliases: [refine, polish]
 user_invocable: true
 runtime: skill
-context: fork
 epistemics: [evaluate, build]
 ---
 

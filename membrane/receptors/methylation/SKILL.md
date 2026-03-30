@@ -7,7 +7,6 @@ triggers:
   - methylation review
   - weekly crystallization
   - crystallize repairs
-context: fork
 epistemics: [execute, review]
 model: sonnet
 ---

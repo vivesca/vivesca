@@ -11,7 +11,6 @@ allowed-tools:
   - Grep
   - Glob
   - Agent
-context: fork
 epistemics: [delegate, review]
 ---
 

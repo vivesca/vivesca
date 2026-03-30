@@ -3,7 +3,6 @@ name: auscultation
 description: Listen to system internals — log patterns, error frequencies, timing signatures.
 user_invocable: true
 model: sonnet
-context: fork
 epistemics: [monitor, debug]
 ---
 

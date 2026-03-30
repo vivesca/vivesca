@@ -7,7 +7,6 @@ triggers:
   - weekly review
   - how was the week
   - plan the week
-context: fork
 epistemics: [review, plan]
 model: sonnet
 ---
