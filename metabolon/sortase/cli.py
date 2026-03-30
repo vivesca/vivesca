@@ -13,6 +13,7 @@ from rich.table import Table
 
 from metabolon.sortase.coaching_cli import coaching as coaching_group
 from metabolon.sortase.decompose import decompose_plan
+from metabolon.sortase.diff_viewer import find_task_commit, format_diff_summary, get_task_diff
 from metabolon.sortase.linter import lint_plan as structured_lint, format_lint_report
 from metabolon.sortase.executor import execute_tasks, list_running, summarize_cost_estimates
 from metabolon.sortase.logger import aggregate_stats, analyze_logs, append_log, read_logs, resolve_log_path
@@ -909,6 +910,28 @@ def overnight(log_path: Path | None, hours: int, output_path: Path | None) -> No
         console.print(f"Report written to {output_path}")
     else:
         console.print(report)
+
+
+@main.command()
+@click.argument("task_name")
+@click.option("-p", "--project-dir", default=Path("."), type=click.Path(exists=True, file_okay=False, path_type=Path), help="Project directory (default: cwd).")
+@click.option("--summary", "show_summary", is_flag=True, help="Show only the summary, not the full diff.")
+def diff(task_name: str, project_dir: Path, show_summary: bool) -> None:
+    """Show what a completed task changed."""
+
+    commit_hash = find_task_commit(task_name, project_dir)
+    if commit_hash is None:
+        console.print(f"[yellow]No commit found matching '{task_name}'[/yellow]")
+        raise SystemExit(1)
+
+    full_diff = get_task_diff(commit_hash, project_dir)
+
+    if show_summary:
+        console.print(format_diff_summary(full_diff))
+    else:
+        console.print(format_diff_summary(full_diff))
+        console.print()
+        console.print(full_diff)
 
 
 if __name__ == "__main__":
