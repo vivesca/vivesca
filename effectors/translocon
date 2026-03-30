@@ -546,12 +546,19 @@ def main_impl(args: argparse.Namespace) -> int:
         print(f"translocon: {chain} / {model} in {directory}", file=sys.stderr)
 
     import time
+    from metabolon.organelles.translocon_metrics import record as _record_metric
     t0 = time.monotonic()
     capture = args.output is not None
+    output_length = 0
 
-    def _entry(backend: str, success: bool) -> dict:
+    def _entry(backend: str, success: bool, out_len: int = 0) -> dict:
+        dur = round(time.monotonic() - t0, 2)
+        _record_metric(
+            backend=backend, model=model, prompt_length=len(prompt),
+            output_length=out_len, duration_s=dur, success=success, mode=mode,
+        )
         return {"mode": mode, "backend": backend, "model": model, "skill": args.skill,
-                "duration_s": round(time.monotonic() - t0, 2), "success": success,
+                "duration_s": dur, "success": success,
                 "directory": directory, "prompt_length": len(prompt)}
 
     # Direct API fast path for explore/safe
@@ -586,6 +593,7 @@ def main_impl(args: argparse.Namespace) -> int:
             try:
                 if capture:
                     rc, stdout_text = _run_captured(cmd, env=benv)
+                    out_len = len(stdout_text)
                     if tee_log:
                         tee_log.write_text(stdout_text)
                     if rc == 0:
@@ -601,7 +609,7 @@ def main_impl(args: argparse.Namespace) -> int:
             os.chdir(prev) if b == "goose" else None
         if rc == 0:
             _record_result(b, True)
-            _log_call(_entry(b, True))
+            _log_call(_entry(b, True, out_len))
             if mode == "build":
                 _atomic_commit(directory, b, prompt)
             return 0
