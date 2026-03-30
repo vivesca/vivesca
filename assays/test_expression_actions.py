@@ -8,20 +8,28 @@ def test_unknown_action():
     assert isinstance(result, str)
     assert "unknown" in result.lower() or "nonexistent" in result.lower()
 
+@patch("metabolon.enzymes.expression._file_age_days")
+@patch("metabolon.enzymes.expression._count_sparks")
 @patch("metabolon.enzymes.expression.Path.exists")
-@patch("metabolon.enzymes.expression.Path.glob")
-def test_preflight_action(mock_glob, mock_exists):
+def test_preflight_action(mock_exists, mock_count, mock_age):
     from metabolon.enzymes.expression import expression
     mock_exists.return_value = True
-    mock_glob.return_value = []
+    mock_count.return_value = 5
+    mock_age.return_value = 1.0
+    
     result = expression(action="preflight")
-    assert isinstance(result, str)
+    # Returns ForgePreflightResult
+    assert hasattr(result, "ready")
 
+@patch("metabolon.enzymes.expression._file_age_days")
 @patch("metabolon.enzymes.expression.Path.exists")
 @patch("metabolon.enzymes.expression.Path.iterdir")
-def test_library_action(mock_iterdir, mock_exists):
+def test_library_action(mock_iterdir, mock_exists, mock_age):
     from metabolon.enzymes.expression import expression
     mock_exists.return_value = True
     mock_iterdir.return_value = []
+    mock_age.return_value = 1.0
+    
     result = expression(action="library")
-    assert isinstance(result, str)
+    # Returns ForgeLibraryResult
+    assert hasattr(result, "totals")

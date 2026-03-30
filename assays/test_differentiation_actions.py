@@ -8,7 +8,7 @@ def test_unknown_action():
     assert isinstance(result, str)
     assert "unknown" in result.lower() or "nonexistent" in result.lower()
 
-@patch("metabolon.enzymes.differentiation.GYM_LOGS_DIR")
+@patch("metabolon.enzymes.differentiation.HEALTH_DIR")
 def test_latest_log_action(mock_logs_dir):
     from metabolon.enzymes.differentiation import differentiation
     mock_logs_dir.exists.return_value = True
@@ -21,11 +21,11 @@ def test_latest_log_action(mock_logs_dir):
 @patch("metabolon.enzymes.differentiation.chemoreceptor.readiness")
 def test_readiness_action(mock_readiness):
     from metabolon.enzymes.differentiation import differentiation
-    mock_readiness.return_value = "readiness content"
+    mock_readiness.return_value = {"score": 85}
     result = differentiation(action="readiness")
     assert isinstance(result, str)
 
-@patch("metabolon.enzymes.differentiation.GYM_LOGS_DIR")
+@patch("metabolon.enzymes.differentiation.HEALTH_DIR")
 def test_write_log_action(mock_logs_dir):
     from metabolon.enzymes.differentiation import differentiation
     mock_logs_dir.exists.return_value = True

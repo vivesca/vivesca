@@ -51,6 +51,7 @@ caelum = "metabolon.organelles.baroreceptor:_cli"
 melete = "metabolon.organelles.potentiation:_cli"
 moneo = "metabolon.organelles.pacemaker:_cli"
 keryx = "metabolon.organelles.gap_junction:_cli"
+sortase = "metabolon.sortase.cli:main"
 
 [dependency-groups]
 dev = ["pytest", "pytest-asyncio", "ruff", "pyright", "pre-commit", "codespell", "pytest-cov"]
