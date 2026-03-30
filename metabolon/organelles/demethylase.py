@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import json
 import math
+import shlex
 import subprocess
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -628,7 +629,7 @@ def read_signals(
         if execute_cascade and downstream:
             for cmd in downstream:
                 try:
-                    subprocess.run(cmd, shell=True, check=True)
+                    subprocess.run(shlex.split(cmd), shell=False, check=True)
                     cascades_fired.append(cmd)
                 except subprocess.CalledProcessError:
                     cascades_fired.append(f"FAILED: {cmd}")
