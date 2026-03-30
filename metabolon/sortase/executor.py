@@ -155,7 +155,10 @@ def _read_status_entries() -> list[dict]:
     path = _status_path()
     if not path.exists():
         return []
-    return json.loads(path.read_text(encoding="utf-8"))
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return []
 
 
 def _write_status_entries(entries: list[dict]) -> None:
@@ -164,27 +167,46 @@ def _write_status_entries(entries: list[dict]) -> None:
     path.write_text(json.dumps(entries, indent=2), encoding="utf-8")
 
 
+def _locked_status_update(fn: "Callable[[list[dict]], list[dict]]") -> None:
+    """Atomically read-modify-write status.json with file locking."""
+    import fcntl
+
+    path = _status_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    lock_path = path.parent / "status.lock"
+    with open(lock_path, "w") as lock_file:
+        fcntl.flock(lock_file, fcntl.LOCK_EX)
+        try:
+            entries = _read_status_entries()
+            entries = fn(entries)
+            _write_status_entries(entries)
+        finally:
+            fcntl.flock(lock_file, fcntl.LOCK_UN)
+
+
 def register_running(task_name: str, tool: str, project_dir: Path) -> None:
-    entries = _read_status_entries()
-    entries.append(
-        {
-            "task_name": task_name,
-            "tool": tool,
-            "project_dir": str(project_dir),
-            "started_at": datetime.now().isoformat(timespec="seconds"),
-            "pid": os.getpid(),
-        }
-    )
-    _write_status_entries(entries)
+    def _add(entries: list[dict]) -> list[dict]:
+        entries.append(
+            {
+                "task_name": task_name,
+                "tool": tool,
+                "project_dir": str(project_dir),
+                "started_at": datetime.now().isoformat(timespec="seconds"),
+                "pid": os.getpid(),
+            }
+        )
+        return entries
+    _locked_status_update(_add)
 
 
 def unregister_running(task_name: str, project_dir: Path) -> None:
-    entries = [
-        entry
-        for entry in _read_status_entries()
-        if not (entry.get("task_name") == task_name and entry.get("project_dir") == str(project_dir))
-    ]
-    _write_status_entries(entries)
+    def _remove(entries: list[dict]) -> list[dict]:
+        return [
+            entry
+            for entry in entries
+            if not (entry.get("task_name") == task_name and entry.get("project_dir") == str(project_dir))
+        ]
+    _locked_status_update(_remove)
 
 
 def list_running() -> list[dict]:
