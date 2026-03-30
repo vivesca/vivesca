@@ -1,70 +1,51 @@
-"""efferens — shared notice board for inter-process messages.
+"""efferens — shared notice board for inter-process messages."""
 
-Tools:
-  efferens_list  — list messages, optional recipient filter
-  efferens_post  — post a message to the notice board
-  efferens_count — count unread messages
-"""
+from __future__ import annotations
 
+from metabolon.organelles.effector import run_cli
 
-
-from metabolon.organelles.effector import run_cli  # noqa: E402
-
-from fastmcp.tools import tool  # noqa: E402
-from mcp.types import ToolAnnotations  # noqa: E402
+from fastmcp.tools import tool
+from mcp.types import ToolAnnotations
 
 BINARY = "/Users/terry/.local/bin/efferens"
 
 
 @tool(
-    name="efferens_list",
-    description="List messages on the notice board, optionally filtered by recipient.",
+    name="efferens",
+    description="Internal messaging. Actions: list|post|count",
     annotations=ToolAnnotations(destructiveHint=False, idempotentHint=True),
 )
-def efferens_list(to: str = "") -> str:
-    """List messages on the efferens notice board.
-
-    Args:
-        to: Optional recipient filter. Returns all messages if omitted.
-    """
-    args = ["list"]
-    if to:
-        args += ["--to", to]
-    return run_cli(BINARY, args)
-
-
-@tool(
-    name="efferens_post",
-    description="Post a message to the notice board.",
-    annotations=ToolAnnotations(destructiveHint=False, idempotentHint=False),
-)
-def efferens_post(
-    message: str,
-    sender: str,
+def efferens(
+    action: str,
+    message: str = "",
+    sender: str = "",
     to: str = "terry",
     severity: str = "info",
     subject: str = "",
 ) -> str:
-    """Post a message to the efferens notice board.
+    """Dispatch efferens notice-board actions.
 
     Args:
-        message: The message body.
-        sender: Who is sending the message (--from).
-        to: Recipient (default "terry").
-        severity: One of "action", "info", "warning" (default "info").
-        subject: Optional subject line.
+        action: One of "list", "post", "count".
+        message: Message body (used by "post").
+        sender: Who is sending the message, --from (used by "post").
+        to: Recipient filter (used by "list" and "post", default "terry").
+        severity: One of "action", "info", "warning" (used by "post", default "info").
+        subject: Optional subject line (used by "post").
     """
-    args = ["post", message, "--from", sender, "--to", to, "--severity", severity]
-    if subject:
-        args += ["--subject", subject]
-    return run_cli(BINARY, args)
+    if action == "list":
+        args = ["list"]
+        if to:
+            args += ["--to", to]
+        return run_cli(BINARY, args)
 
+    if action == "post":
+        args = ["post", message, "--from", sender, "--to", to, "--severity", severity]
+        if subject:
+            args += ["--subject", subject]
+        return run_cli(BINARY, args)
 
-@tool(
-    name="efferens_count",
-    description="Count unread messages on the notice board.",
-    annotations=ToolAnnotations(destructiveHint=False, idempotentHint=True),
-)
-def efferens_count() -> str:
-    """Count unread messages on the efferens notice board."""
-    return run_cli(BINARY, ["count"])
+    if action == "count":
+        return run_cli(BINARY, ["count"])
+
+    return f"Unknown action: {action}. Use list, post, or count."
