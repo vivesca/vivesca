@@ -7,10 +7,12 @@ import pytest
 import yaml
 
 from metabolon.sortase.decompose import (
+    ComplexityScore,
     TaskSpec,
     _parse_yaml_tasks,
     _write_temp_specs,
     decompose_plan,
+    estimate_complexity,
 )
 
 # ---------------------------------------------------------------------------
@@ -285,3 +287,138 @@ class TestDecomposePlan:
         assert len(tasks) == 1
         assert tasks[0].spec == "Some task text"
         Path(tasks[0].temp_file).unlink()
+
+
+# ---------------------------------------------------------------------------
+# Tests: estimate_complexity
+# ---------------------------------------------------------------------------
+
+SIMPLE_SPEC = "Fix the typo in README.md: change 'helo' to 'hello'."
+
+MEDIUM_SPEC = """\
+Modify two files to add logging:
+
+## Verification
+```bash
+cd ~/germline && .venv/bin/python -m pytest assays/test_foo.py -v
+```
+
+- src/main.py: add logger import and log call
+- src/utils.py: add logger import and log call
+"""
+
+COMPLEX_SPEC = """\
+Refactor the entire sortase pipeline:
+
+### Files to modify:
+- metabolon/sortase/decompose.py
+- metabolon/sortase/router.py
+- metabolon/sortase/executor.py
+- metabolon/sortase/validator.py
+- assays/test_sortase_decompose.py
+- assays/test_sortase_router.py
+- assays/test_sortase_executor.py
+- assays/test_sortase_validator.py
+
+### Steps
+1. Add a ComplexityScore dataclass to decompose.py
+2. Implement estimate_complexity() that counts files, code blocks, and verification commands
+3. Update router.py to use complexity for timeout decisions
+4. Update executor.py to retry based on complexity
+5. Add comprehensive tests
+
+## Verification
+```bash
+cd ~/germline && .venv/bin/python -m pytest assays/test_sortase_decompose.py -v --tb=short
+```
+```bash
+cd ~/germline && .venv/bin/python -m pytest assays/test_sortase_router.py -v --tb=short
+```
+```bash
+cd ~/germline && .venv/bin/python -m pytest assays/test_sortase_executor.py -v --tb=short
+```
+
+Lines of code to change: approximately 150-200 lines across all files.
+"""
+
+
+class TestComplexityScore:
+    def test_fields(self):
+        cs = ComplexityScore(
+            level="simple",
+            files_referenced=1,
+            code_blocks=0,
+            verification_commands=0,
+            estimated_lines=5,
+        )
+        assert cs.level == "simple"
+        assert cs.files_referenced == 1
+        assert cs.code_blocks == 0
+        assert cs.verification_commands == 0
+        assert cs.estimated_lines == 5
+
+    def test_frozen(self):
+        cs = ComplexityScore(
+            level="simple", files_referenced=1, code_blocks=0,
+            verification_commands=0, estimated_lines=5,
+        )
+        with pytest.raises(AttributeError):
+            cs.level = "complex"
+
+
+class TestEstimateComplexity:
+    def test_simple_spec(self):
+        result = estimate_complexity(SIMPLE_SPEC)
+        assert result.level == "simple"
+        assert result.files_referenced >= 1
+        assert result.code_blocks == 0
+        assert result.verification_commands == 0
+
+    def test_medium_spec(self):
+        result = estimate_complexity(MEDIUM_SPEC)
+        assert result.level in ("simple", "medium")
+        assert result.files_referenced >= 2
+        assert result.verification_commands >= 1
+
+    def test_complex_spec(self):
+        result = estimate_complexity(COMPLEX_SPEC)
+        assert result.level == "complex"
+        assert result.files_referenced >= 8
+        assert result.verification_commands >= 3
+
+    def test_empty_spec(self):
+        result = estimate_complexity("")
+        assert result.level == "simple"
+        assert result.files_referenced == 0
+        assert result.code_blocks == 0
+        assert result.verification_commands == 0
+        assert result.estimated_lines == 0
+
+    def test_code_blocks_counted(self):
+        spec = "Do this:\n```python\nx = 1\n```\nAnd this:\n```\ny = 2\n```"
+        result = estimate_complexity(spec)
+        assert result.code_blocks == 2
+
+    def test_verification_commands_counted(self):
+        spec = "## Verification\n```bash\ncd ~/foo && pytest bar.py\n```"
+        result = estimate_complexity(spec)
+        assert result.verification_commands == 1
+
+    def test_file_paths_in_markdown_list(self):
+        spec = "- src/a.py: change X\n- src/b.py: change Y\n- src/c.py: change Z"
+        result = estimate_complexity(spec)
+        assert result.files_referenced >= 3
+
+    def test_returns_complexity_score_type(self):
+        result = estimate_complexity("some text")
+        assert isinstance(result, ComplexityScore)
+
+    def test_estimated_lines_from_code_blocks(self):
+        spec = "```python\nline1\nline2\nline3\n```"
+        result = estimate_complexity(spec)
+        assert result.estimated_lines >= 3
+
+    def test_level_is_one_of_three(self):
+        for text in ["", "fix typo", COMPLEX_SPEC]:
+            result = estimate_complexity(text)
+            assert result.level in ("simple", "medium", "complex")

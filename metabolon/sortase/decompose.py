@@ -11,6 +11,15 @@ import yaml
 
 
 @dataclass(frozen=True)
+class ComplexityScore:
+    level: str
+    files_referenced: int
+    code_blocks: int
+    verification_commands: int
+    estimated_lines: int
+
+
+@dataclass(frozen=True)
 class TaskSpec:
     name: str
     description: str
@@ -102,6 +111,65 @@ def _run_gemini_decomposition(plan_text: str, timeout_sec: int) -> str:
     if completed.returncode != 0:
         raise RuntimeError(completed.stderr.strip() or completed.stdout.strip() or "Gemini decomposition failed")
     return completed.stdout
+
+
+def estimate_complexity(spec_text: str) -> ComplexityScore:
+    """Estimate task complexity from spec text.
+
+    Counts files referenced, fenced code blocks, verification commands,
+    and estimated lines of code. Returns a ComplexityScore with a level
+    of "simple", "medium", or "complex".
+    """
+    # Count fenced code blocks (``` ... ```)
+    code_blocks = re.findall(r"^```[\w]*\s*$", spec_text, flags=re.MULTILINE)
+    num_code_blocks = len(code_blocks) // 2  # opening + closing
+
+    # Extract code block contents for line counting
+    block_contents = re.findall(
+        r"```[\w]*\s*\n(.*?)```", spec_text, flags=re.DOTALL
+    )
+    estimated_lines = sum(len(b.strip().splitlines()) for b in block_contents)
+
+    # Count verification commands: code blocks under ## Verification or ### Verification
+    verification_commands = 0
+    ver_sections = re.split(r"^#{1,3}\s*Verification\b", spec_text, flags=re.MULTILINE | re.IGNORECASE)
+    for section in ver_sections[1:]:
+        ver_code_opens = re.findall(r"^```", section, flags=re.MULTILINE)
+        verification_commands += len(ver_code_opens) // 2
+
+    # Count files referenced: lines matching "- path/to/file.ext" or bare paths
+    file_pattern = re.compile(
+        r"(?:^[\s*-]+)"            # list item prefix
+        r"([\w./~-]+\.\w{1,12})"   # path with extension
+        r"(?::|\s|$)",             # followed by colon, space, or end
+        flags=re.MULTILINE,
+    )
+    file_matches = file_pattern.findall(spec_text)
+    # Deduplicate while preserving order
+    seen_files: set[str] = set()
+    unique_files: list[str] = []
+    for f in file_matches:
+        if f not in seen_files:
+            seen_files.add(f)
+            unique_files.append(f)
+    files_referenced = len(unique_files)
+
+    # Classify complexity
+    score = files_referenced * 2 + num_code_blocks + verification_commands * 2 + (estimated_lines // 20)
+    if score <= 2:
+        level = "simple"
+    elif score <= 6:
+        level = "medium"
+    else:
+        level = "complex"
+
+    return ComplexityScore(
+        level=level,
+        files_referenced=files_referenced,
+        code_blocks=num_code_blocks,
+        verification_commands=verification_commands,
+        estimated_lines=estimated_lines,
+    )
 
 
 def decompose_plan(plan_file: str | Path, smart: bool = False, timeout_sec: int = 180) -> list[TaskSpec]:

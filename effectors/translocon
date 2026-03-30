@@ -196,6 +196,7 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--failures-only", action="store_true", help="Show only failures (with --eval)")
     parser.add_argument("--stats", action="store_true", help="Print dispatch statistics")
     parser.add_argument("--dry-run", action="store_true", help="Print command only")
+    parser.add_argument("--output-file", action="store_true", help="Tee full stdout+stderr to ~/logs/translocon-<task>-<ts>.log")
     parser.add_argument("--verbose", action="store_true", help="Verbose output")
 
     args = parser.parse_args(argv)
@@ -206,9 +207,32 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     return args
 
 
+def _output_log_path(task_name: str) -> Path:
+    stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+    safe = "".join(c if c.isalnum() or c in "-_" else "_" for c in task_name)[:48]
+    path = Path.home() / "logs" / f"translocon-{safe}-{stamp}.log"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    return path
+
+
 def _run_captured(cmd: list[str], **kwargs) -> tuple[int, str]:
     r = subprocess.run(cmd, capture_output=True, text=True, **kwargs)
     return r.returncode, (r.stdout or "")
+
+
+def _run_tee(cmd: list[str], log_path: Path, **kwargs) -> int:
+    """Run command, streaming stdout+stderr to both terminal and log file."""
+    with open(log_path, "w") as log_fh:
+        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, **kwargs)
+        assert proc.stdout is not None
+        while True:
+            chunk = proc.stdout.read(4096)
+            if not chunk:
+                break
+            os.write(sys.stdout.fileno(), chunk)
+            log_fh.write(chunk.decode(errors="replace"))
+        proc.wait()
+        return proc.returncode
 
 
 def _route_output(text: str, dest: str) -> int:
@@ -427,6 +451,11 @@ def main(argv: list[str] | None = None) -> int:
     # Chain execution with health checks
     env = {**os.environ, "GOOGLE_API_KEY": "", "GEMINI_API_KEY": ""}
     healthy_chain = [b for b in chain if _is_healthy(b)] or [chain[0]]
+    tee_log = None
+    if args.output_file:
+        tee_log = _output_log_path(_extract_task_summary(prompt))
+        if args.verbose:
+            print(f"translocon: logging to {tee_log}", file=sys.stderr)
     for b in healthy_chain:
         cmd = _build_goose_cmd(model, prompt, recipe_path) if b == "goose" else \
               _build_droid_cmd(model, directory, prompt, auto)
@@ -437,8 +466,12 @@ def main(argv: list[str] | None = None) -> int:
                 os.chdir(directory)
             if capture:
                 rc, stdout_text = _run_captured(cmd, env=benv)
+                if tee_log:
+                    tee_log.write_text(stdout_text)
                 if rc == 0:
                     _route_output(stdout_text, args.output)
+            elif tee_log:
+                rc = _run_tee(cmd, tee_log, env=benv)
             else:
                 rc = subprocess.run(cmd, env=benv).returncode
         finally:
