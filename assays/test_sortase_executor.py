@@ -1,19 +1,15 @@
 """Tests for sortase executor."""
 from __future__ import annotations
 
-import asyncio
-from unittest.mock import AsyncMock, patch, MagicMock
-from pathlib import Path
-
-import pytest
+from unittest.mock import patch
 
 from metabolon.sortase.executor import (
+    ExecutionAttempt,
+    TaskExecutionResult,
+    _clean_env,
     _prepend_coaching,
     _tool_chain,
     classify_failure,
-    _clean_env,
-    ExecutionAttempt,
-    TaskExecutionResult,
 )
 
 

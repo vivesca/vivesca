@@ -439,7 +439,7 @@ def version() -> None:
     """Show sortase version."""
     from importlib.metadata import version as pkg_version
 
-    console.print(f"sortase {pkg_version('sortase')}")
+    console.print(f"sortase {pkg_version('metabolon')}")
 
 
 if __name__ == "__main__":

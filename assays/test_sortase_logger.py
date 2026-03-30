@@ -1,10 +1,9 @@
 """Tests for sortase logger."""
 from __future__ import annotations
 
-import json
-from datetime import datetime, timedelta
+from datetime import datetime
 
-from metabolon.sortase.logger import append_log, read_logs, aggregate_stats
+from metabolon.sortase.logger import aggregate_stats, append_log, read_logs
 
 
 def test_append_and_read(tmp_path):

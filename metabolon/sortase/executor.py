@@ -6,10 +6,10 @@ import os
 import subprocess
 import sys
 import uuid
-from dataclasses import asdict, dataclass, field
+from collections.abc import Callable
+from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Callable
 
 from metabolon.sortase.decompose import TaskSpec
 
@@ -253,7 +253,7 @@ async def _run_command(
         await process.wait()
         output = b"".join(chunks).decode("utf-8", errors="replace")
         exit_code = process.returncode
-    except (asyncio.TimeoutError, TimeoutError):
+    except TimeoutError:
         process.kill()
         await process.communicate()
         output = f"{tool} timed out after {timeout_sec} seconds"
@@ -354,7 +354,7 @@ async def execute_task(
     fallbacks: list[str] = []
 
     try:
-        for retry in range(max_retries + 1):
+        for _retry in range(max_retries + 1):
             attempts = []
             fallbacks = []
             for index, tool in enumerate(_tool_chain(initial_tool)):

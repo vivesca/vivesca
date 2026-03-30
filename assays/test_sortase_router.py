@@ -1,7 +1,7 @@
 """Tests for sortase router."""
 from __future__ import annotations
 
-from metabolon.sortase.router import route_description, RouteDecision, DEFAULT_TOOL
+from metabolon.sortase.router import DEFAULT_TOOL, RouteDecision, route_description
 
 
 def test_forced_backend_overrides():

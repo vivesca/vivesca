@@ -81,7 +81,6 @@ class SortaseState(TypedDict):
 def decompose(state: SortaseState) -> dict:
     """Parse plan file into independent tasks."""
     plan_path = Path(state["plan_file"])
-    smart = not plan_path.suffix.lower() in {".yaml", ".yml"}
 
     try:
         tasks = decompose_plan(plan_path, smart=False)

@@ -6,8 +6,12 @@ from pathlib import Path
 import pytest
 import yaml
 
-from metabolon.sortase.decompose import TaskSpec, _parse_yaml_tasks, _write_temp_specs, decompose_plan
-
+from metabolon.sortase.decompose import (
+    TaskSpec,
+    _parse_yaml_tasks,
+    _write_temp_specs,
+    decompose_plan,
+)
 
 # ---------------------------------------------------------------------------
 # Fixtures

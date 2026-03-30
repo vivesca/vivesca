@@ -316,7 +316,6 @@ class TestScanForPlaceholders:
 
     def test_brand_new_file_with_marker_flagged(self, tmp_path):
         """A brand-new file (not in HEAD) with a marker should be flagged."""
-        import subprocess
 
         self._init_git_repo(tmp_path)
         f = tmp_path / "new_file.py"
@@ -356,11 +355,11 @@ class TestRunTestCommand:
         assert "No test command" in msg
 
     def test_successful_command(self, tmp_path):
-        ok, output = run_test_command(tmp_path, "true")
+        ok, _output = run_test_command(tmp_path, "true")
         assert ok is True
 
     def test_failing_command(self, tmp_path):
-        ok, output = run_test_command(tmp_path, "false")
+        ok, _output = run_test_command(tmp_path, "false")
         assert ok is False
 
     def test_command_with_stderr_output(self, tmp_path):
