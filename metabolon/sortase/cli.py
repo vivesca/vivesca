@@ -139,6 +139,8 @@ def exec_command(
         console.print(_json.dumps(output, indent=2))
     elif not quiet:
         console.print(f"Logged execution to history. Success={entry['success']}")
+    if dry_run and not quiet:
+        console.print("[bold]Dry run complete — no files were changed.[/bold]")
     if commit and entry["success"] and changed_files > 0:
         import subprocess as _sp2
         plan_name = plan_file.stem
