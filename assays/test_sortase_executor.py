@@ -172,7 +172,7 @@ def test_estimate_cost_gemini_small():
 def test_estimate_cost_codex():
     """GPT-5.3-Codex pricing: input $1.75/M, output $14.00/M tokens."""
     cost = estimate_cost("codex", "prompt" * 500, "output" * 500)
-    assert cost == "$0.0158"
+    assert cost == "$0.0118"
 
 
 def test_estimate_cost_unknown_tool():

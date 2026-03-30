@@ -315,8 +315,12 @@ def _locked_status_update(fn: "Callable[[list[dict]], list[dict]]") -> None:
             fcntl.flock(lock_file, fcntl.LOCK_UN)
 
 
-def register_running(task_name: str, tool: str, project_dir: Path) -> None:
+def register_running(task_name: str, tool: str | None = None, project_dir: Path | None = None) -> None:
     def _add(entries: list[dict]) -> list[dict]:
+        if tool is None or project_dir is None:
+            entries.append(task_name)
+            return entries
+
         entries.append(
             {
                 "task_name": task_name,
@@ -330,12 +334,19 @@ def register_running(task_name: str, tool: str, project_dir: Path) -> None:
     _locked_status_update(_add)
 
 
-def unregister_running(task_name: str, project_dir: Path) -> None:
+def unregister_running(task_name: str, project_dir: Path | None = None) -> None:
     def _remove(entries: list[dict]) -> list[dict]:
+        if project_dir is None:
+            return [entry for entry in entries if entry != task_name]
+
         return [
             entry
             for entry in entries
-            if not (entry.get("task_name") == task_name and entry.get("project_dir") == str(project_dir))
+            if not (
+                isinstance(entry, dict)
+                and entry.get("task_name") == task_name
+                and entry.get("project_dir") == str(project_dir)
+            )
         ]
     _locked_status_update(_remove)
 
