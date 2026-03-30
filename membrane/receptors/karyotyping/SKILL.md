@@ -3,6 +3,7 @@ name: karyotyping
 description: Arrange components visually to find structural anomalies. "system audit".
 user_invocable: true
 model: sonnet
+context: fork
 ---
 
 # Karyotyping — Chromosomal Layout for System Anomaly Detection

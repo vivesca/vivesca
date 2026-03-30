@@ -3,6 +3,7 @@ name: hemostasis
 description: Emergency stabilization — stop the bleeding, not fix it. "stop the bleeding"
 user_invocable: true
 model: sonnet
+context: fork
 ---
 
 # Hemostasis — Clot First, Heal Later

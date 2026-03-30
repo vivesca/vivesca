@@ -3,6 +3,7 @@ name: endocytosis
 description: Mine implicit LLM knowledge into permanent, always-loaded reference skills.
 user_invocable: true
 tags: [meta, knowledge, skills]
+context: fork
 ---
 
 # /endocytosis — LLM Knowledge Mining

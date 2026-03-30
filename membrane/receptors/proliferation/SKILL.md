@@ -2,6 +2,7 @@
 name: proliferation
 description: Overproduce buds/skills/colonies for a domain; let selection sort variants.
 user_invocable: true
+context: fork
 ---
 
 # /proliferation -- Adaptive Radiation

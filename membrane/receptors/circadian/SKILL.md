@@ -14,6 +14,7 @@ triggers:
   - morning brief
   - evening routine
   - what ran overnight
+context: fork
 epistemics: [plan, monitor]
 model: sonnet
 ---

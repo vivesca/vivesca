@@ -3,6 +3,7 @@ name: secretion
 description: Package and release a consulting deliverable — quality-gate, format, deliver.
 user_invocable: true
 model: sonnet
+context: fork
 epistemics: [communicate, evaluate]
 ---
 

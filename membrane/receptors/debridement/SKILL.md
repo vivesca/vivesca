@@ -3,6 +3,7 @@ name: debridement
 description: Sweep vivesca for naming violations and stale references. "naming sweep"
 user_invocable: true
 model: sonnet
+context: fork
 ---
 
 # Debridement — Naming Sweep

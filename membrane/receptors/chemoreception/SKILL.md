@@ -3,6 +3,7 @@ name: chemoreception
 description: On-demand AI briefing; stale transduction or meeting needs fresh signal.
 user_invocable: true
 model: sonnet
+context: fork
 epistemics: [research, monitor]
 ---
 
