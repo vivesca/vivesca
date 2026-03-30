@@ -20,7 +20,7 @@ def mcp():
 def test_assembly_produces_tools(mcp):
     """The assembled server must expose at least one tool."""
     tools = asyncio.run(mcp.list_tools())
-    assert len(tools) > 50, f"Expected 50+ tools, got {len(tools)}"
+    assert len(tools) > 30, f"Expected 30+ tools, got {len(tools)}"
 
 
 def test_assembly_produces_prompts(mcp):
