@@ -234,6 +234,7 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--stats", action="store_true", help="Print dispatch statistics")
     parser.add_argument("--metrics", action="store_true", help="Print per-backend duration metrics (avg/p50/p95)")
     parser.add_argument("--batch", metavar="GLOB", help="Dispatch all plan files matching glob sequentially")
+    parser.add_argument("--retries", type=int, default=0, help="Retry failed plans N times (with --batch)")
     parser.add_argument("--dry-run", action="store_true", help="Print command only")
     parser.add_argument("--output-file", action="store_true", help="Tee full stdout+stderr to ~/logs/translocon-<task>-<ts>.log")
     parser.add_argument("--verbose", action="store_true", help="Verbose output")
@@ -464,6 +465,8 @@ def _batch_dispatch(args: argparse.Namespace) -> int:
         dispatch_argv += ["--output", args.output]
     if args.output_file:
         dispatch_argv.append("--output-file")
+    if args.retries:
+        dispatch_argv += ["--retries", str(args.retries)]
     if args.dry_run:
         dispatch_argv.append("--dry-run")
     dispatch_argv.append(args.dir or ".")

@@ -251,3 +251,62 @@ class TestRunEval:
         assert result["success"] is True
         assert "output" in result
         assert "2" in result["output"]  # total traces
+
+
+# ---------------------------------------------------------------------------
+# Organelle tests — _read_dir_context size cap
+# ---------------------------------------------------------------------------
+class TestReadDirContext:
+    """Tests for _read_dir_context file reading and cumulative size cap."""
+
+    def test_read_dir_context_returns_files(self):
+        import tempfile
+
+        from metabolon.organelles.translocon import _read_dir_context
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            for name in ("alpha.py", "beta.py", "gamma.py"):
+                (Path(tmpdir) / name).write_text("x" * 100)
+            result = _read_dir_context(tmpdir)
+            assert "alpha.py" in result
+            assert "beta.py" in result
+            assert "gamma.py" in result
+
+    def test_read_dir_context_skips_large_files(self):
+        import tempfile
+
+        from metabolon.organelles.translocon import _read_dir_context
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            (Path(tmpdir) / "small.py").write_text("x" * 100)
+            (Path(tmpdir) / "big.py").write_text("x" * 60000)
+            result = _read_dir_context(tmpdir)
+            assert "small.py" in result
+            assert "big.py" not in result
+
+    def test_read_dir_context_enforces_cumulative_cap(self):
+        import tempfile
+
+        import metabolon.organelles.translocon as translocon_mod
+        from metabolon.organelles.translocon import _read_dir_context
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            for idx in range(5):
+                (Path(tmpdir) / f"file_{idx}.py").write_text("y" * 200)
+            with patch.object(translocon_mod, "_TOTAL_SIZE_CAP", 500):
+                result = _read_dir_context(tmpdir)
+            all_names = [f"file_{idx}.py" for idx in range(5)]
+            included = [name for name in all_names if name in result]
+            assert 2 <= len(included) <= 3, (
+                f"Expected 2-3 files, got {len(included)}: {included}"
+            )
+            assert len(included) < 5, "Cumulative cap should exclude some files"
+
+    def test_read_dir_context_empty_dir(self):
+        import tempfile
+
+        from metabolon.organelles.translocon import _read_dir_context
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            result = _read_dir_context(tmpdir)
+            assert result == ""
