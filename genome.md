@@ -25,6 +25,7 @@
   - Read access → unrestricted for all agents.
 - **Specs go to `~/germline/loci/plans/`** with status frontmatter. Never `/tmp/`.
 - **Steal pattern:** When encountering any external tool, repo, or solution — before building, ask: "What patterns can we steal?" Extract transferable design patterns, not implementations. Log findings in memory.
+- **PII boundary:** Memory files with `pii: true` in frontmatter (user_salary, user_insurance, user_health_*, user_financial) are CC-only. Never send to external LLM APIs. Non-PII marks (feedback, finding, reference) are safe for goose/droid via scout coaching injection.
 - **Atomic commits:** Every sortase dispatch uses `--commit`. Each build = one commit with clear message. Don't accumulate uncommitted changes across builds.
 
 ## How to Think
