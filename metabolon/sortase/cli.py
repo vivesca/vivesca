@@ -12,7 +12,7 @@ from rich.console import Console
 from rich.table import Table
 
 from metabolon.sortase.decompose import decompose_plan
-from metabolon.sortase.executor import execute_tasks, list_running
+from metabolon.sortase.executor import execute_tasks, list_running, summarize_cost_estimates
 from metabolon.sortase.logger import aggregate_stats, analyze_logs, append_log, read_logs
 from metabolon.sortase.router import route_description
 from metabolon.sortase.validator import validate_execution
@@ -125,7 +125,7 @@ def exec_command(
         "failure_reason": next((issue.check for issue in validation_issues if issue.severity == "error"), None),
         "files_changed": changed_files,
         "tests_passed": 0 if any(issue.check == "tests" for issue in validation_issues) else 1,
-        "cost_estimate": ", ".join(dict.fromkeys(r.cost_estimate for r in results if r.cost_estimate)) or "N/A",
+        "cost_estimate": summarize_cost_estimates([r.cost_estimate for r in results if r.cost_estimate]),
     }
     append_log(entry)
     if json_out:

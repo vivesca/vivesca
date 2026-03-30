@@ -12,6 +12,7 @@ from metabolon.sortase.executor import (
     _tool_chain,
     classify_failure,
     estimate_cost,
+    summarize_cost_estimates,
 )
 
 
@@ -145,19 +146,19 @@ def test_estimate_cost_flat_rate_cc_glm():
     assert estimate_cost("cc-glm", "prompt", "output") == "$0.00 (flat-rate)"
 
 
-def test_estimate_cost_flat_rate_crush():
-    assert estimate_cost("crush", "prompt", "output") == "$0.00 (flat-rate)"
+def test_estimate_cost_crush_unknown_pricing():
+    assert estimate_cost("crush", "prompt", "output") == "$0.00 (unknown pricing)"
 
 
 def test_estimate_cost_gemini():
-    """Gemini pricing: input $1.25/M, output $10.00/M tokens."""
+    """Gemini 3 Pro pricing: input $2.00/M, output $12.00/M tokens."""
     prompt = "a" * 4000   # ~1000 input tokens
     output = "b" * 4000   # ~1000 output tokens
     cost = estimate_cost("gemini", prompt, output)
-    # input: 1000 * 1.25 / 1e6 = $0.00125
-    # output: 1000 * 10.0 / 1e6 = $0.01000
-    # total: $0.01125 → rounds to $0.0112 (banker's rounding)
-    assert cost == "$0.0112"
+    # input: 1000 * 2.0 / 1e6 = $0.00200
+    # output: 1000 * 12.0 / 1e6 = $0.01200
+    # total: $0.01400
+    assert cost == "$0.0140"
 
 
 def test_estimate_cost_gemini_small():
@@ -169,9 +170,9 @@ def test_estimate_cost_gemini_small():
 
 
 def test_estimate_cost_codex():
-    """Codex free tier — zero cost."""
+    """GPT-5.3-Codex pricing: input $1.75/M, output $14.00/M tokens."""
     cost = estimate_cost("codex", "prompt" * 500, "output" * 500)
-    assert cost == "$0.0000"
+    assert cost == "$0.0158"
 
 
 def test_estimate_cost_unknown_tool():
@@ -206,6 +207,26 @@ def test_task_execution_result_default_cost_estimate():
         task_name="test", tool="droid", prompt_file=None, success=True,
     )
     assert r.cost_estimate == ""
+
+
+def test_summarize_cost_estimates_flat_rate_only():
+    summary = summarize_cost_estimates(["$0.00 (flat-rate)", "$0.00 (flat-rate)"])
+    assert summary == "$0.00 (flat-rate)"
+
+
+def test_summarize_cost_estimates_billable_and_flat_rate():
+    summary = summarize_cost_estimates(["$0.0140", "$0.0158", "$0.00 (flat-rate)"])
+    assert summary == "$0.0298 (+ flat-rate backends)"
+
+
+def test_summarize_cost_estimates_unknown_only():
+    summary = summarize_cost_estimates(["$0.00 (unknown pricing)"])
+    assert summary == "N/A (unknown pricing)"
+
+
+def test_summarize_cost_estimates_billable_and_unknown():
+    summary = summarize_cost_estimates(["$0.0140", "$0.00 (unknown pricing)"])
+    assert summary == "$0.0140 (+ unknown-priced backends)"
 
 
 # ── adaptive timeout ──────────────────────────────────────────

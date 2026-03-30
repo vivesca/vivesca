@@ -32,7 +32,7 @@ from langgraph.checkpoint.sqlite import SqliteSaver
 from langgraph.graph import END, StateGraph
 
 from metabolon.sortase.decompose import TaskSpec, decompose_plan
-from metabolon.sortase.executor import execute_tasks
+from metabolon.sortase.executor import execute_tasks, summarize_cost_estimates
 from metabolon.sortase.logger import append_log
 from metabolon.sortase.router import route_description
 from metabolon.sortase.validator import validate_execution
@@ -161,6 +161,7 @@ def execute(state: SortaseState) -> dict:
                 "success": r.success,
                 "output": r.output[-1000:] if r.output else "",
                 "fallbacks": r.fallbacks,
+                "fallback_chain": r.fallback_chain,
                 "prompt_file": r.prompt_file,
                 "cost_estimate": r.cost_estimate,
             }
@@ -212,6 +213,7 @@ def log_results(state: SortaseState) -> dict:
 
     duration_s = 0.0  # Not tracked in graph state — could add if needed
     fallbacks = [tool for r in results for tool in r.get("fallbacks", [])]
+    fallback_chain = [step.to_dict() for r in results for step in r.get("fallback_chain", [])]
 
     entry = {
         "timestamp": datetime.now().isoformat(timespec="seconds"),
@@ -220,6 +222,7 @@ def log_results(state: SortaseState) -> dict:
         "tasks": state.get("task_count", 0),
         "tool": state.get("backend") or (results[0]["tool"] if results else "unknown"),
         "fallbacks": fallbacks,
+        "fallback_chain": fallback_chain,
         "duration_s": duration_s,
         "success": success,
         "failure_reason": next(
@@ -229,9 +232,9 @@ def log_results(state: SortaseState) -> dict:
         "files_changed": len(state.get("changed_files", [])),
         "tests_passed": 0 if any(i["check"] == "tests" for i in validation_issues) else 1,
         "executor": "langgraph",
-        "cost_estimate": ", ".join(
-            dict.fromkeys(r.get("cost_estimate", "") for r in results if r.get("cost_estimate"))
-        ) or "N/A",
+        "cost_estimate": summarize_cost_estimates(
+            [r.get("cost_estimate", "") for r in results if r.get("cost_estimate")]
+        ),
     }
 
     append_log(entry)

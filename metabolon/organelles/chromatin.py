@@ -2,15 +2,174 @@
 
 Oghma retired (Mar 2026). This organelle now reads/writes markdown files
 in ~/epigenome/marks/ — the canonical memory location.
+
+Performance: an in-memory index caches frontmatter fields and file content
+so that repeated queries hit RAM instead of disk. The index is lazy-loaded
+on first access and auto-refreshed on writes.
 """
 
 from __future__ import annotations
 
+import logging
 import re
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any
+
+logger = logging.getLogger(__name__)
 
 MARKS_DIR = Path.home() / "epigenome" / "marks"
+
+_FRONTMATTER_RE = re.compile(r"^---\s*\n(.*?)\n---", re.DOTALL)
+
+
+def _parse_frontmatter(text: str) -> dict[str, str]:
+    """Extract YAML frontmatter key-value pairs from mark text."""
+    match = _FRONTMATTER_RE.match(text)
+    if not match:
+        return {}
+    meta: dict[str, str] = {}
+    for line in match.group(1).splitlines():
+        if ":" in line:
+            key, _, value = line.partition(":")
+            meta[key.strip()] = value.strip()
+    return meta
+
+
+class _MarkIndex:
+    """In-memory index over mark files for fast filtering.
+
+    Stores per-file: name, type, source, category, mtime, and full content.
+    Supports lookup by frontmatter field and invalidation on writes.
+    """
+
+    def __init__(self, marks_dir: Path) -> None:
+        self._dir = marks_dir
+        self._entries: dict[str, dict[str, Any]] = {}  # filename -> metadata
+        self._by_field: dict[str, dict[str, set[str]]] = {}  # field -> value -> {filenames}
+        self._loaded = False
+
+    def _load_one(self, filepath: Path) -> None:
+        """Index a single mark file, skipping corrupt/unreadable ones."""
+        name_key = filepath.name
+        try:
+            text = filepath.read_text(errors="replace")
+            meta = _parse_frontmatter(text)
+            mtime = filepath.stat().st_mtime
+        except (OSError, ValueError) as exc:
+            logger.warning("Skipping unreadable mark %s: %s", filepath.name, exc)
+            return
+
+        entry = {
+            "name": meta.get("name", filepath.stem),
+            "type": meta.get("type", ""),
+            "source": meta.get("source", ""),
+            "category": meta.get("category", ""),
+            "mtime": mtime,
+            "content": text,
+            "path": str(filepath),
+            "file": filepath.name,
+        }
+        self._entries[name_key] = entry
+
+        # Update inverted index for filterable fields
+        for field in ("type", "source", "category", "name"):
+            value = entry.get(field, "")
+            if not value:
+                continue
+            field_idx = self._by_field.setdefault(field, {})
+            bucket = field_idx.setdefault(value, set())
+            bucket.add(name_key)
+
+    def ensure_loaded(self) -> None:
+        """Load all marks from disk on first call (lazy init)."""
+        if self._loaded:
+            return
+        self._loaded = True
+        self._entries.clear()
+        self._by_field.clear()
+        if not self._dir.is_dir():
+            logger.warning("Marks directory missing: %s", self._dir)
+            self._dir.mkdir(parents=True, exist_ok=True)
+            return
+        for filepath in self._dir.glob("*.md"):
+            self._load_one(filepath)
+        logger.info("Mark index loaded: %d files", len(self._entries))
+
+    def reload(self) -> None:
+        """Force a full reload on next access."""
+        self._loaded = False
+
+    def invalidate(self, filename: str) -> None:
+        """Remove a single file from the index (will be re-read on next query)."""
+        old_entry = self._entries.pop(filename, None)
+        if old_entry:
+            # Remove from inverted index
+            for field in ("type", "source", "category", "name"):
+                value = old_entry.get(field, "")
+                if value and field in self._by_field and value in self._by_field[field]:
+                    self._by_field[field][value].discard(filename)
+        self._load_one(self._dir / filename)
+
+    def query(
+        self,
+        regex: str,
+        category: str = "",
+        source_enzyme: str = "",
+        limit: int = 10,
+    ) -> list[dict]:
+        """Search indexed marks. Filters by category/source_enzyme first, then regex."""
+        self.ensure_loaded()
+
+        # Determine candidate set via index (or all if no field filter)
+        candidates: set[str] | None = None
+        if category:
+            cat_set = self._by_field.get("category", {}).get(category)
+            if cat_set is None:
+                return []  # category value doesn't exist at all
+            candidates = set(cat_set)
+        if source_enzyme:
+            src_set = self._by_field.get("source", {}).get(source_enzyme)
+            if src_set is None:
+                return []
+            candidates = candidates & src_set if candidates is not None else set(src_set)
+
+        # Build sorted list by mtime (newest first)
+        if candidates is not None:
+            pool = [self._entries[k] for k in candidates if k in self._entries]
+        else:
+            pool = list(self._entries.values())
+        pool.sort(key=lambda e: e["mtime"], reverse=True)
+
+        # Regex match on cached content
+        pattern = re.compile(regex, re.IGNORECASE)
+        results: list[dict] = []
+        for entry in pool:
+            if not pattern.search(entry["content"]):
+                continue
+            results.append({
+                "file": entry["file"],
+                "name": entry["name"],
+                "content": entry["content"][:500],
+                "path": entry["path"],
+            })
+            if len(results) >= limit:
+                break
+        return results
+
+    @property
+    def entry_count(self) -> int:
+        self.ensure_loaded()
+        return len(self._entries)
+
+    @property
+    def total_bytes(self) -> int:
+        self.ensure_loaded()
+        return sum(len(e["content"].encode()) for e in self._entries.values())
+
+
+# Module-level singleton index — shared across all calls in a process
+_index = _MarkIndex(MARKS_DIR)
 
 
 def recall(
@@ -21,25 +180,14 @@ def recall(
     mode: str = "hybrid",
     chromatin: str = "open",
 ) -> list[dict]:
-    """Search marks by regex match on content."""
-    results = []
-    for f in sorted(MARKS_DIR.glob("*.md"), key=lambda p: p.stat().st_mtime, reverse=True):
-        text = f.read_text(errors="replace")
-        if not re.search(query, text, re.IGNORECASE):
-            continue
-        if category and f"category: {category}" not in text:
-            continue
-        # Extract name from frontmatter
-        name_match = re.search(r"^name:\s*(.+)$", text, re.MULTILINE)
-        name = name_match.group(1).strip() if name_match else f.stem
-        results.append({"file": f.name, "name": name, "content": text[:500], "path": str(f)})
-        if len(results) >= limit:
-            break
-    return results
+    """Search marks by regex match on content, using in-memory index."""
+    return _index.query(query, category=category, source_enzyme=source_enzyme, limit=limit)
 
 
 def inscribe(content: str, category: str = "gotcha", confidence: float = 0.8) -> dict:
     """Add a memory as a markdown file in marks/."""
+    if not MARKS_DIR.is_dir():
+        MARKS_DIR.mkdir(parents=True, exist_ok=True)
     slug = re.sub(r"[^a-z0-9-]", "", content[:50].lower().replace(" ", "-"))[:40]
     ts = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M")
     filename = f"auto_{slug}_{ts}.md"
@@ -55,6 +203,8 @@ def inscribe(content: str, category: str = "gotcha", confidence: float = 0.8) ->
         f"---\n\n"
         f"{content}\n"
     )
+    # Invalidate just the new file in the index
+    _index.invalidate(filename)
     return {"status": "saved", "path": str(path), "file": filename}
 
 
@@ -77,13 +227,11 @@ def add(content: str, category: str = "gotcha", confidence: float = 0.8) -> dict
 
 def stats() -> dict:
     """Memory file statistics."""
-    files = list(MARKS_DIR.glob("*.md"))
-    total_size = sum(f.stat().st_size for f in files)
-    return {"count": len(files), "size_kb": round(total_size / 1024), "path": str(MARKS_DIR)}
+    return {"count": _index.entry_count, "size_kb": round(_index.total_bytes / 1024), "path": str(MARKS_DIR)}
 
 
 def status() -> str:
     """Marks directory status."""
-    files = list(MARKS_DIR.glob("*.md"))
-    total_size = sum(f.stat().st_size for f in files)
-    return f"Marks: {MARKS_DIR} ({len(files)} files, {total_size / 1024:.0f}KB)"
+    count = _index.entry_count
+    size_kb = _index.total_bytes / 1024
+    return f"Marks: {MARKS_DIR} ({count} files, {size_kb:.0f}KB)"

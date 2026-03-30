@@ -9,6 +9,7 @@ import sys
 import uuid
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from decimal import Decimal, InvalidOperation
 from datetime import datetime
 from pathlib import Path
 
@@ -125,21 +126,30 @@ class ExecutionAttempt:
 
 # ── cost estimation ──────────────────────────────────────────
 
-FLAT_RATE_TOOLS = {"goose", "droid", "cc-glm", "crush"}
+FLAT_RATE_TOOLS = {"goose", "droid", "cc-glm"}
+MODEL_BY_TOOL: dict[str, str | None] = {
+    "gemini": "gemini-3-pro-preview",
+    "codex": "gpt-5.3-codex",
+    "goose": "glm-5.1",
+    "opencode": None,
+    "cc-glm": "glm-5.1",
+    "droid": "glm-5.1",
+    "crush": "zhipu-coding/glm-5",
+}
 
-# Approximate per-token pricing (USD) for non-flat-rate backends.
-# Sourced from public pricing pages as of 2025-06.
+# Approximate per-token pricing (USD) for billable backends.
+# Gemini 3 Pro Preview pricing is from ai.google.dev/gemini-api/docs/pricing.
+# GPT-5.3-Codex pricing is from developers.openai.com/api/docs/models/gpt-5.3-codex.
 TOKEN_PRICING: dict[str, dict[str, float]] = {
-    "gemini": {"input_per_million": 1.25, "output_per_million": 10.00},
-    "codex": {"input_per_million": 0.00, "output_per_million": 0.00},  # free tier
-    "opencode": {"input_per_million": 0.00, "output_per_million": 0.00},  # varies by model
+    "gemini-3-pro-preview": {"input_per_million": 2.00, "output_per_million": 12.00},
+    "gpt-5.3-codex": {"input_per_million": 1.75, "output_per_million": 14.00},
 }
 
 
 def estimate_cost(tool: str, prompt: str, output: str) -> str:
     """Estimate API cost for a single execution attempt.
 
-    For ZhiPu coding-plan backends (goose, droid, cc-glm, crush) the cost
+    For ZhiPu coding-plan backends (goose, droid, cc-glm) the cost
     is covered by a flat-rate subscription so the estimate is "$0.00 (flat-rate)".
 
     For others, approximate input tokens as ``len(prompt) // 4`` and output
@@ -150,7 +160,8 @@ def estimate_cost(tool: str, prompt: str, output: str) -> str:
     if tool in FLAT_RATE_TOOLS:
         return "$0.00 (flat-rate)"
 
-    pricing = TOKEN_PRICING.get(tool)
+    model_name = MODEL_BY_TOOL.get(tool)
+    pricing = TOKEN_PRICING.get(model_name or "")
     if pricing is None:
         return "$0.00 (unknown pricing)"
 
@@ -161,6 +172,48 @@ def estimate_cost(tool: str, prompt: str, output: str) -> str:
     output_cost = approx_output_tokens * pricing["output_per_million"] / 1_000_000
     total = input_cost + output_cost
     return f"${total:.4f}"
+
+
+def summarize_cost_estimates(cost_estimates: list[str]) -> str:
+    """Aggregate per-task cost strings into one run-level log entry value."""
+    if not cost_estimates:
+        return "N/A"
+
+    total_cost = Decimal("0")
+    saw_flat_rate = False
+    saw_unknown_pricing = False
+
+    for cost_estimate in cost_estimates:
+        if "flat-rate" in cost_estimate:
+            saw_flat_rate = True
+            continue
+        if "unknown pricing" in cost_estimate:
+            saw_unknown_pricing = True
+            continue
+
+        matched_amount = re.match(r"^\$(\d+(?:\.\d+)?)$", cost_estimate.strip())
+        if not matched_amount:
+            saw_unknown_pricing = True
+            continue
+        try:
+            total_cost += Decimal(matched_amount.group(1))
+        except InvalidOperation:
+            saw_unknown_pricing = True
+
+    if total_cost == 0 and saw_flat_rate and not saw_unknown_pricing:
+        return "$0.00 (flat-rate)"
+    if total_cost == 0 and saw_unknown_pricing and not saw_flat_rate:
+        return "N/A (unknown pricing)"
+
+    summary = f"${total_cost:.4f}"
+    notes: list[str] = []
+    if saw_flat_rate:
+        notes.append("flat-rate backends")
+    if saw_unknown_pricing:
+        notes.append("unknown-priced backends")
+    if notes:
+        return f"{summary} (+ {', '.join(notes)})"
+    return summary
 
 
 @dataclass(frozen=True)
