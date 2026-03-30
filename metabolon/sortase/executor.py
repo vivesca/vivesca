@@ -677,6 +677,31 @@ def _merge_worktree(project_dir: Path, worktree_path: Path) -> tuple[bool, str]:
         _remove_worktree(project_dir, worktree_path, branch)
         return True, "no changes"
 
+    # Detect files modified on BOTH branches — silent overwrite risk.
+    worktree_changed = subprocess.run(
+        ["git", "diff", "--name-only", f"HEAD...{branch}"],
+        cwd=project_dir,
+        capture_output=True,
+        text=True,
+    )
+    main_changed = subprocess.run(
+        ["git", "diff", "--name-only", f"{branch}...HEAD"],
+        cwd=project_dir,
+        capture_output=True,
+        text=True,
+    )
+    worktree_files = set(worktree_changed.stdout.splitlines()) - {""}
+    main_files = set(main_changed.stdout.splitlines()) - {""}
+    conflicted = sorted(worktree_files & main_files)
+
+    if conflicted:
+        sys.stderr.write(
+            f"[sortase] CONFLICT: files modified in both branches, "
+            f"aborting merge: {', '.join(conflicted)}\n"
+        )
+        _remove_worktree(project_dir, worktree_path, branch)
+        return False, f"conflict: files modified in both branches: {', '.join(conflicted)}"
+
     merge = subprocess.run(
         ["git", "merge", "--no-ff", "-m", f"sortase: merge {branch}", branch],
         cwd=project_dir,
