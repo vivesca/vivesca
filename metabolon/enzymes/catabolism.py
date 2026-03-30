@@ -1,11 +1,12 @@
 """spending -- catabolic metabolism of credit card statements.
 
 Tools:
-  catabolism_spending -- parse new statements, summarise spending, flag issues
-  catabolism_confirm  -- mark a pending card payment as paid
+  catabolism -- parse statements, summarise spending, flag issues, confirm payments
 """
 
 from __future__ import annotations
+
+from typing import Union
 
 from fastmcp.tools import tool
 from mcp.types import ToolAnnotations
@@ -33,12 +34,7 @@ class CatabolismConfirmResult(EffectorResult):
     pass
 
 
-@tool(
-    name="catabolism_spending",
-    description="Parse new credit card statements, summarise spending, flag issues.",
-    annotations=ToolAnnotations(readOnlyHint=False, destructiveHint=False),
-)
-def catabolism_spending(days: int = 30) -> CatabolismResult:
+def _spending(days: int = 30) -> CatabolismResult:
     """Catabolic digestion of credit card statements.
 
     Args:
@@ -114,12 +110,7 @@ def catabolism_spending(days: int = 30) -> CatabolismResult:
     )
 
 
-@tool(
-    name="catabolism_confirm",
-    description="Mark a pending credit card payment as paid (mox, ccba, scb).",
-    annotations=ToolAnnotations(idempotentHint=True, destructiveHint=False),
-)
-def catabolism_confirm(bank: str) -> CatabolismConfirmResult:
+def _confirm(bank: str) -> CatabolismConfirmResult:
     """Confirm catabolic payment — remove pending entry.
 
     Args:
@@ -145,3 +136,31 @@ def catabolism_confirm(bank: str) -> CatabolismConfirmResult:
             f"(was due {due_date}). Removed from pending."
         ),
     )
+
+
+@tool(
+    name="catabolism",
+    description="Financial tracking. Actions: spending|confirm",
+    annotations=ToolAnnotations(readOnlyHint=False, destructiveHint=False),
+)
+def catabolism(
+    action: str,
+    days: int = 30,
+    bank: str = "",
+) -> Union[CatabolismResult, CatabolismConfirmResult]:
+    """Financial tracking — spending summaries and payment confirmation.
+
+    Args:
+        action: spending|confirm
+        days: budget monitoring window for spending action (default 30).
+        bank: bank identifier for confirm action (mox, ccba, scb, hsbc).
+    """
+    if action == "spending":
+        return _spending(days=days)
+    elif action == "confirm":
+        return _confirm(bank=bank)
+    else:
+        return CatabolismConfirmResult(
+            success=False,
+            message=f"Unknown action '{action}'. Use spending or confirm.",
+        )
