@@ -11,6 +11,7 @@ import click
 from rich.console import Console
 from rich.table import Table
 
+from metabolon.sortase.coaching_cli import coaching as coaching_group
 from metabolon.sortase.decompose import decompose_plan, lint_plan
 from metabolon.sortase.executor import execute_tasks, list_running, summarize_cost_estimates
 from metabolon.sortase.logger import aggregate_stats, analyze_logs, append_log, read_logs, resolve_log_path
@@ -24,6 +25,9 @@ console = Console()
 @click.group()
 def main() -> None:
     """sortase orchestrates free AI coding tools."""
+
+
+main.add_command(coaching_group, "coaching")
 
 
 @main.command("exec")
@@ -131,29 +135,66 @@ def exec_command(
     append_log(entry)
     if json_out:
         import json as _json
+        task_payload = [
+            {
+                "name": result.task_name,
+                "tool": result.tool,
+                "prompt_file": result.prompt_file,
+                "success": result.success,
+                "duration_s": sum(attempt.duration_s for attempt in result.attempts),
+                "attempt_count": len(result.attempts),
+                "fallbacks": result.fallbacks,
+                "fallback_count": len(result.fallbacks),
+                "fallback_chain": [step.to_dict() for step in result.fallback_chain],
+                "failure_reason": next(
+                    (
+                        attempt.failure_reason
+                        for attempt in reversed(result.attempts)
+                        if attempt.failure_reason is not None
+                    ),
+                    None,
+                ),
+                "cost_estimate": result.cost_estimate or "N/A",
+                "output": result.output,
+                "attempts": [
+                    {
+                        "tool": attempt.tool,
+                        "exit_code": attempt.exit_code,
+                        "duration_s": attempt.duration_s,
+                        "failure_reason": attempt.failure_reason,
+                        "cost_estimate": attempt.cost_estimate or "N/A",
+                        "output": attempt.output,
+                    }
+                    for attempt in result.attempts
+                ],
+            }
+            for result in results
+        ]
+        validation_payload = [
+            {"severity": issue.severity, "check": issue.check, "message": issue.message}
+            for issue in validation_issues
+        ]
         output = {
+            "schema_version": 2,
             "success": entry["success"],
-            "tasks": [
-                {
-                    "name": r.task_name,
-                    "tool": r.tool,
-                    "success": r.success,
-                    "duration_s": sum(a.duration_s for a in r.attempts),
-                    "fallbacks": r.fallbacks,
-                    "fallback_chain": [step.to_dict() for step in r.fallback_chain],
-                    "cost_estimate": r.cost_estimate or "N/A",
-                }
-                for r in results
-            ],
+            "timestamp": entry["timestamp"],
+            "plan": str(plan_file),
+            "project_dir": str(project_dir),
+            "requested_backend": backend,
+            "resolved_backend": entry["tool"],
+            "task_count": len(tasks),
+            "tasks": task_payload,
             "files_changed": changed_file_list,
-            "validation_issues": [
-                {"severity": i.severity, "check": i.check, "message": i.message}
-                for i in validation_issues
-            ],
+            "files_changed_count": changed_files,
+            "validation_issues": validation_payload,
+            "validation_issue_count": len(validation_payload),
+            "failure_reason": entry["failure_reason"],
+            "tests_passed": bool(entry["tests_passed"]),
+            "cost_estimate": entry["cost_estimate"],
             "duration_s": entry["duration_s"],
             "total_duration_s": entry["duration_s"],
         }
-        console.print(_json.dumps(output, indent=2))
+        console.file.write(f"{_json.dumps(output, indent=2)}\n")
     elif not quiet:
         console.print(f"Logged execution to history. Success={entry['success']}")
     if dry_run and not quiet:
