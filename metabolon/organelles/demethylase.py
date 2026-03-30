@@ -333,18 +333,37 @@ def sweep(
         mark = _detect_staleness(mark, threshold_days)
         analyses.append(mark)
 
-    report.total_marks = len(analyses)
+    # Collect stale signals before computing counts so everything is consistent
+    signal_stale: list[MarkAnalysis] = []
+    if SIGNALS_DIR.exists():
+        for path in SIGNALS_DIR.glob("signal_*.md"):
+            age = (datetime.now() - datetime.fromtimestamp(path.stat().st_mtime)).days
+            if age > 14:
+                if not dry_run:
+                    path.unlink()
+                signal_stale.append(MarkAnalysis(
+                    path=path, name=path.stem, mark_type="signal",
+                    durability="acetyl", protected=False, source="unknown",
+                    age_days=age, last_modified_days=age, stale=True,
+                    reason=f"signal older than 14 days ({age}d)",
+                ))
+
+    report.total_marks = len(analyses) + len(signal_stale)
     report.methyl_marks = sum(1 for m in analyses if m.durability == "methyl")
-    report.acetyl_marks = sum(1 for m in analyses if m.durability == "acetyl")
+    report.acetyl_marks = sum(1 for m in analyses if m.durability == "acetyl") + len(signal_stale)
     report.protected_marks = sum(1 for m in analyses if m.protected)
-    report.stale_candidates = [m for m in analyses if m.stale]
+    report.stale_candidates = [m for m in analyses if m.stale] + signal_stale
 
     # Source distribution (imprinting)
     for m in analyses:
         report.source_distribution[m.source] = report.source_distribution.get(m.source, 0) + 1
+    for m in signal_stale:
+        report.source_distribution[m.source] = report.source_distribution.get(m.source, 0) + 1
 
     # Type distribution
     for m in analyses:
+        report.type_distribution[m.mark_type] = report.type_distribution.get(m.mark_type, 0) + 1
+    for m in signal_stale:
         report.type_distribution[m.mark_type] = report.type_distribution.get(m.mark_type, 0) + 1
 
     # Histone code clusters
@@ -354,20 +373,6 @@ def sweep(
     if not dry_run:
         for m in report.stale_candidates:
             m.path.unlink()
-
-    # Also sweep ephemeral signals (acetyl, 14-day TTL)
-    if SIGNALS_DIR.exists():
-        for path in SIGNALS_DIR.glob("signal_*.md"):
-            age = (datetime.now() - datetime.fromtimestamp(path.stat().st_mtime)).days
-            if age > 14:
-                if not dry_run:
-                    path.unlink()
-                report.stale_candidates.append(MarkAnalysis(
-                    path=path, name=path.stem, mark_type="signal",
-                    durability="acetyl", protected=False, source="unknown",
-                    age_days=age, last_modified_days=age, stale=True,
-                    reason=f"signal older than 14 days ({age}d)",
-                ))
 
     # Sleep consolidation — replay and strengthen after erasure
     consolidate(marks_dir)
