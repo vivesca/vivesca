@@ -130,10 +130,15 @@ def _check_tmp_references(lines: list[str], issues: list[LintIssue]) -> None:
             )
 
 
+_NEGATION_BEFORE_MARKER = re.compile(
+    r"(?i)\b(?:do\s+not|don'?t|never)\b.*\b(?:TODO|FIXME)\b"
+)
+
+
 def _check_placeholder_markers(lines: list[str], issues: list[LintIssue]) -> None:
     for line_number, line in enumerate(lines, start=1):
         for marker in ("TODO", "FIXME"):
-            if re.search(rf"\b{marker}\b", line):
+            if re.search(rf"\b{marker}\b", line) and not _NEGATION_BEFORE_MARKER.search(line):
                 issues.append(
                     LintIssue(
                         "error",

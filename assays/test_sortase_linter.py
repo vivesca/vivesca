@@ -141,6 +141,60 @@ File: src/feature.py
             assert issue.severity == "error"
 
 
+class TestNegatedPlaceholderNoFalsePositive:
+    def test_do_not_todo_no_error(self) -> None:
+        plan = """\
+## Constraints
+- Do NOT add TODO or FIXME
+
+## Output
+Write to: ~/out.md
+
+## Verification
+pytest
+"""
+        issues = lint_plan(plan)
+        placeholder_issues = [i for i in issues if "placeholder marker" in i.message]
+        assert placeholder_issues == [], (
+            f"Expected no placeholder errors for negated instruction, got: {placeholder_issues}"
+        )
+
+    def test_never_fixme_no_error(self) -> None:
+        plan = """\
+## Constraints
+- Never use FIXME as a crutch
+
+## Output
+Write to: ~/out.md
+
+## Verification
+pytest
+"""
+        issues = lint_plan(plan)
+        placeholder_issues = [i for i in issues if "placeholder marker" in i.message]
+        assert placeholder_issues == [], (
+            f"Expected no placeholder errors for negated instruction, got: {placeholder_issues}"
+        )
+
+    def test_bare_todo_still_errors(self) -> None:
+        plan = """\
+## Task
+TODO: implement this later
+
+## Output
+Write to: ~/out.md
+
+## Constraints
+- Do not rush
+
+## Verification
+pytest
+"""
+        issues = lint_plan(plan)
+        todo_issues = [i for i in issues if "TODO" in i.message]
+        assert len(todo_issues) >= 1, f"Expected TODO error for bare TODO, got: {issues}"
+
+
 class TestNoConstraintsWarns:
     def test_no_constraints_warns(self) -> None:
         issues = lint_plan(_minimal_plan())
