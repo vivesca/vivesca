@@ -709,11 +709,26 @@ async def execute_tasks(
     dry_run: bool = False,
     max_retries: int = 0,
     coaching: bool = True,
+    worktree: bool = False,
 ) -> list[TaskExecutionResult]:
     if serial:
         results: list[TaskExecutionResult] = []
         for task in tasks:
-            results.append(await execute_task(task, project_dir, tool_by_task[task.name], timeout_sec=timeout_sec, verbose=verbose, dry_run=dry_run, max_retries=max_retries, coaching=coaching))
+            if worktree and _is_git_repo(project_dir):
+                wt_path = _create_worktree(project_dir, task.name)
+                try:
+                    result = await execute_task(task, wt_path, tool_by_task[task.name], timeout_sec=timeout_sec, verbose=verbose, dry_run=dry_run, max_retries=max_retries, coaching=coaching)
+                except Exception:
+                    # On unexpected error, still clean up the worktree
+                    _force_remove_worktree(project_dir, wt_path)
+                    raise
+                if result.success:
+                    _merge_worktree(project_dir, wt_path)
+                else:
+                    _force_remove_worktree(project_dir, wt_path)
+                results.append(result)
+            else:
+                results.append(await execute_task(task, project_dir, tool_by_task[task.name], timeout_sec=timeout_sec, verbose=verbose, dry_run=dry_run, max_retries=max_retries, coaching=coaching))
         return results
 
     use_worktrees = isolate and _is_git_repo(project_dir) and len(tasks) > 1

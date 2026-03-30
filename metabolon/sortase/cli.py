@@ -47,6 +47,7 @@ main.add_command(coaching_group, "coaching")
 @click.option("--retries", default=0, show_default=True, type=int, help="Retry failed tasks N times.")
 @click.option("-q", "--quiet", is_flag=True, help="Suppress all output except errors.")
 @click.option("--no-coaching", is_flag=True, help="Skip coaching note prepend.")
+@click.option("--worktree", is_flag=True, help="Execute each task in an isolated git worktree.")
 def exec_command(
     plan_file: Path,
     project_dir: Path,
@@ -62,6 +63,7 @@ def exec_command(
     retries: int,
     quiet: bool,
     no_coaching: bool,
+    worktree: bool,
 ) -> None:
     """Execute a plan file against a project directory."""
 
@@ -70,7 +72,7 @@ def exec_command(
 
     if not quiet:
         console.print(f"[bold]Executing[/bold] {len(tasks)} task(s) in {project_dir}")
-    results = asyncio.run(execute_tasks(tasks, project_dir, tool_by_task, serial=serial, timeout_sec=timeout, verbose=verbose, dry_run=dry_run, max_retries=retries, coaching=not no_coaching))
+    results = asyncio.run(execute_tasks(tasks, project_dir, tool_by_task, serial=serial, timeout_sec=timeout, verbose=verbose, dry_run=dry_run, max_retries=retries, coaching=not no_coaching, worktree=worktree))
 
     import subprocess as _sp
     _diff = _sp.run(
