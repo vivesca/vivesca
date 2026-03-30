@@ -426,7 +426,7 @@ def test_transduce_executes_commands(tmp_path: Path, monkeypatch):
         "enzyme-cascade",
         "Activate kinase chain",
         source="cc",
-        downstream=[f"echo fired > {sentinel}"],
+        downstream=[f"touch {sentinel}"],
     )
 
     results = transduce()

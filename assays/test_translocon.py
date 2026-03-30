@@ -376,7 +376,7 @@ def test_output_telegram(tmp_path):
     def fake_run(cmd, **kwargs):
         m = MagicMock()
         m.returncode = 0
-        m.stdout = b"summary text\n"
+        m.stdout = "summary text\n"
         return m
 
     with patch.dict(_mod, {"_direct_api": MagicMock(return_value=1)}):
