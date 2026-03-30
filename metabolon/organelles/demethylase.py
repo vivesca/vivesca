@@ -403,32 +403,41 @@ def record_access(path: Path) -> None:
 
     Biology: Each retrieval of a memory strengthens the synaptic trace.
     Increments access_count in frontmatter.
+    Uses fcntl file locking to prevent concurrent read-rewrite races.
     """
-    text = path.read_text(encoding="utf-8")
-    if not text.startswith("---"):
-        return
-    end = text.find("---", 3)
-    if end == -1:
-        return
+    import fcntl
 
-    fm_text = text[3:end]
-    body = text[end:]
+    lock_path = path.parent / f".{path.name}.lock"
+    with open(lock_path, "w") as lock_file:
+        fcntl.flock(lock_file, fcntl.LOCK_EX)
+        try:
+            text = path.read_text(encoding="utf-8")
+            if not text.startswith("---"):
+                return
+            end = text.find("---", 3)
+            if end == -1:
+                return
 
-    # Parse current access_count
-    lines = fm_text.strip().splitlines()
-    found = False
-    new_lines = []
-    for line in lines:
-        if line.startswith("access_count:"):
-            count = int(line.split(":", 1)[1].strip())
-            new_lines.append(f"access_count: {count + 1}")
-            found = True
-        else:
-            new_lines.append(line)
-    if not found:
-        new_lines.append("access_count: 1")
+            fm_text = text[3:end]
+            body = text[end:]
 
-    path.write_text("---\n" + "\n".join(new_lines) + "\n" + body, encoding="utf-8")
+            # Parse current access_count
+            lines = fm_text.strip().splitlines()
+            found = False
+            new_lines = []
+            for line in lines:
+                if line.startswith("access_count:"):
+                    count = int(line.split(":", 1)[1].strip())
+                    new_lines.append(f"access_count: {count + 1}")
+                    found = True
+                else:
+                    new_lines.append(line)
+            if not found:
+                new_lines.append("access_count: 1")
+
+            path.write_text("---\n" + "\n".join(new_lines) + "\n" + body, encoding="utf-8")
+        finally:
+            fcntl.flock(lock_file, fcntl.LOCK_UN)
 
 
 # -- Ephemeral signal channel (paracrine signaling) ----------------------------
