@@ -131,26 +131,29 @@ class TestScanForPlaceholders:
         issues = scan_for_placeholders(tmp_path, ["clean.py"])
         assert issues == []
 
-    def test_todo_marker_detected(self, tmp_path):
+    def test_todo_marker_detected_as_warning(self, tmp_path):
         f = tmp_path / "has_marker.py"
         f.write_text(f"# {_MARKER_TODO}: finish later\n", encoding="utf-8")
         issues = scan_for_placeholders(tmp_path, ["has_marker.py"])
         assert len(issues) == 1
         assert issues[0].check == "placeholder-scan"
+        assert issues[0].severity == "warning"
 
-    def test_fixme_marker_detected(self, tmp_path):
+    def test_fixme_marker_detected_as_warning(self, tmp_path):
         f = tmp_path / "has_marker2.py"
         f.write_text(f"# {_MARKER_FIXME}: broken logic\n", encoding="utf-8")
         issues = scan_for_placeholders(tmp_path, ["has_marker2.py"])
         assert len(issues) == 1
         assert issues[0].check == "placeholder-scan"
+        assert issues[0].severity == "warning"
 
-    def test_stub_marker_detected(self, tmp_path):
+    def test_stub_marker_detected_as_error(self, tmp_path):
         f = tmp_path / "has_stub.py"
         f.write_text(f"# This is a {_MARKER_STUB} implementation\n", encoding="utf-8")
         issues = scan_for_placeholders(tmp_path, ["has_stub.py"])
         assert len(issues) == 1
         assert issues[0].check == "placeholder-scan"
+        assert issues[0].severity == "error"
 
     def test_case_insensitive_markers(self, tmp_path):
         f = tmp_path / "upper.py"

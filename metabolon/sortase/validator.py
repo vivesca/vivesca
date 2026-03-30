@@ -96,44 +96,57 @@ def _get_head_content(project_dir: Path, relative_path: str) -> str | None:
     return completed.stdout
 
 
+def _has_new_markers(
+    pattern: re.Pattern[str],
+    contents: str,
+    head_content: str | None,
+) -> bool:
+    """Return True if the file contains genuinely new markers vs HEAD."""
+    if head_content is not None:
+        head_markers = list(pattern.finditer(head_content))
+        head_texts = {m.group() for m in head_markers}
+        head_positions = {m.start() for m in head_markers}
+        return any(
+            m.group() not in head_texts or m.start() not in head_positions
+            for m in pattern.finditer(contents)
+        )
+    return bool(pattern.search(contents))
+
+
+_HARD_FAIL_PATTERN = re.compile(r"\bstub\b", flags=re.IGNORECASE)
+_SOFT_WARN_PATTERN = re.compile(r"\b(TODO|FIXME)\b", flags=re.IGNORECASE)
+_SKIP_DIRS = frozenset({".git", "node_modules", "__pycache__", ".venv", "target"})
+
+
 def scan_for_placeholders(project_dir: Path, new_files: list[str]) -> list[ValidationIssue]:
     issues: list[ValidationIssue] = []
-    pattern = re.compile(r"\b(TODO|FIXME|stub)\b", flags=re.IGNORECASE)
-    skip_dirs = {".git", "node_modules", "__pycache__", ".venv", "target"}
     for relative_path in new_files:
         parts = Path(relative_path).parts
-        if any(part in skip_dirs for part in parts):
+        if any(part in _SKIP_DIRS for part in parts):
             continue
         path = project_dir / relative_path
         if not path.exists() or not path.is_file():
             continue
         contents = path.read_text(encoding="utf-8", errors="ignore")
-
-        # For files that existed at HEAD, only flag NEW markers.
         head_content = _get_head_content(project_dir, relative_path)
-        if head_content is not None:
-            head_markers = list(pattern.finditer(head_content))
-            head_texts = {m.group() for m in head_markers}
-            head_positions = {m.start() for m in head_markers}
-            # Only flag markers that are genuinely new: different text
-            # or different position from any marker in the HEAD version.
-            has_new = any(
-                m.group() not in head_texts or m.start() not in head_positions
-                for m in pattern.finditer(contents)
-            )
-            if not has_new:
-                continue
-        else:
-            # Brand-new file: flag if any markers present.
-            if not pattern.search(contents):
-                continue
 
-        issues.append(
-            ValidationIssue(
-                check="placeholder-scan",
-                message=f"Placeholder marker found in {relative_path}",
+        if _has_new_markers(_HARD_FAIL_PATTERN, contents, head_content):
+            issues.append(
+                ValidationIssue(
+                    check="placeholder-scan",
+                    message=f"Stub marker found in {relative_path}",
+                    severity="error",
+                )
             )
-        )
+
+        if _has_new_markers(_SOFT_WARN_PATTERN, contents, head_content):
+            issues.append(
+                ValidationIssue(
+                    check="placeholder-scan",
+                    message=f"TODO/FIXME marker found in {relative_path}",
+                    severity="warning",
+                )
+            )
     return issues
 
 
