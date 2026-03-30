@@ -377,7 +377,17 @@ def status() -> None:
 @click.option("-b", "--backend", type=click.Choice(["gemini", "codex", "goose", "opencode", "cc-glm", "droid", "crush"]))
 @click.option("--interval", default=30, show_default=True, type=int, help="Poll interval in seconds.")
 @click.option("--timeout", default=600, show_default=True, type=int)
-def watch(watch_dir: Path, project_dir: Path, backend: str | None, interval: int, timeout: int) -> None:
+@click.option("--max-concurrent", default=2, show_default=True, type=int, help="Max parallel executions.")
+@click.option("--log-file", default=None, type=click.Path(path_type=Path), help="Write results JSONL for morning review.")
+def watch(
+    watch_dir: Path,
+    project_dir: Path,
+    backend: str | None,
+    interval: int,
+    timeout: int,
+    max_concurrent: int,
+    log_file: Path | None,
+) -> None:
     """Watch a directory for new plan files and auto-execute them."""
 
     running_dir = watch_dir / "running"
@@ -400,8 +410,68 @@ def watch(watch_dir: Path, project_dir: Path, backend: str | None, interval: int
         ts = datetime.now().strftime("%H:%M:%S")
         return f"[{ts}] watching {watch_dir} ({pending} pending, {done_count} done, {failed_count} failed)"
 
+    def _append_watch_log(entry: dict) -> None:
+        if log_file is None:
+            return
+        log_file.parent.mkdir(parents=True, exist_ok=True)
+        with log_file.open("a", encoding="utf-8") as handle:
+            handle.write(json.dumps(entry, sort_keys=True) + "\n")
+
     console.print(f"Watching {watch_dir} for plan files (interval={interval}s, timeout={timeout}s)")
+    if max_concurrent != 1:
+        console.print(f"Max concurrent: {max_concurrent}")
     console.print("Press Ctrl+C to stop.\n")
+
+    semaphore = asyncio.Semaphore(max_concurrent)
+
+    async def _execute_plan(plan_name: str, plan_path: Path) -> None:
+        nonlocal done_count, failed_count
+        async with semaphore:
+            dest = running_dir / plan_name
+            shutil.move(str(plan_path), str(dest))
+            console.print(f"  [bold]Executing[/bold] {plan_name} ...")
+            start = time.monotonic()
+            duration_s = 0.0
+            success = False
+            error_msg: str | None = None
+
+            try:
+                tasks = decompose_plan(dest, smart=False)
+                tool_by_task = {
+                    task.name: route_description(task.description, forced_backend=backend).tool
+                    for task in tasks
+                }
+                results = await execute_tasks(
+                    tasks, project_dir, tool_by_task,
+                    serial=False, timeout_sec=timeout, verbose=False,
+                )
+                duration_s = round(sum(a.duration_s for r in results for a in r.attempts), 1)
+                success = all(r.success for r in results)
+                final_dest = done_dir / dest.name if success else failed_dir / dest.name
+                shutil.move(str(dest), str(final_dest))
+            except Exception as exc:
+                duration_s = round(time.monotonic() - start, 1)
+                error_msg = str(exc)
+                final_dest = failed_dir / dest.name
+                shutil.move(str(dest), str(final_dest))
+
+            result_label = "success" if success else "fail"
+            console.print(f"  TASK: {plan_name} | RESULT: {result_label} | DURATION: {duration_s}s")
+
+            if success:
+                done_count += 1
+            else:
+                failed_count += 1
+
+            log_entry: dict = {
+                "timestamp": datetime.now().isoformat(timespec="seconds"),
+                "plan": plan_name,
+                "success": success,
+                "duration_s": duration_s,
+            }
+            if error_msg is not None:
+                log_entry["error"] = error_msg
+            _append_watch_log(log_entry)
 
     try:
         while True:
@@ -409,38 +479,16 @@ def watch(watch_dir: Path, project_dir: Path, backend: str | None, interval: int
             pending = len(new_files)
             console.print(_status_line(pending))
 
-            for plan_file in new_files:
-                seen.add(plan_file.name)
-                dest = running_dir / plan_file.name
-                shutil.move(str(plan_file), str(dest))
-                console.print(f"  [bold]Executing[/bold] {plan_file.name} ...")
+            if new_files:
+                plan_coros = []
+                for plan_file in new_files:
+                    seen.add(plan_file.name)
+                    plan_coros.append(_execute_plan(plan_file.name, plan_file))
 
-                try:
-                    tasks = decompose_plan(dest, smart=False)
-                    tool_by_task = {
-                        task.name: route_description(task.description, forced_backend=backend).tool
-                        for task in tasks
-                    }
-                    results = asyncio.run(
-                        execute_tasks(tasks, project_dir, tool_by_task, serial=False, timeout_sec=timeout, verbose=False)
-                    )
-                    success = all(r.success for r in results)
-                    final_dest = done_dir / dest.name if success else failed_dir / dest.name
-                    shutil.move(str(dest), str(final_dest))
-                    if success:
-                        done_count += 1
-                        console.print(f"  [green]Done[/green] {plan_file.name} -> done/")
-                    else:
-                        failed_count += 1
-                        for r in results:
-                            if not r.success:
-                                console.print(f"    [red]Failed[/red] {r.task_name}: {r.tool}")
-                        console.print(f"  [red]Failed[/red] {plan_file.name} -> failed/")
-                except Exception as exc:
-                    final_dest = failed_dir / dest.name
-                    shutil.move(str(dest), str(final_dest))
-                    failed_count += 1
-                    console.print(f"  [red]Error[/red] {plan_file.name}: {exc} -> failed/")
+                async def _run_batch() -> None:
+                    await asyncio.gather(*plan_coros)
+
+                asyncio.run(_run_batch())
 
             time.sleep(interval)
     except KeyboardInterrupt:

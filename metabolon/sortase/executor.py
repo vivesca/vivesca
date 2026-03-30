@@ -99,6 +99,47 @@ class ExecutionAttempt:
     duration_s: float
     output: str
     failure_reason: str | None = None
+    cost_estimate: str = ""
+
+
+# ── cost estimation ──────────────────────────────────────────
+
+FLAT_RATE_TOOLS = {"goose", "droid", "cc-glm", "crush"}
+
+# Approximate per-token pricing (USD) for non-flat-rate backends.
+# Sourced from public pricing pages as of 2025-06.
+TOKEN_PRICING: dict[str, dict[str, float]] = {
+    "gemini": {"input_per_million": 1.25, "output_per_million": 10.00},
+    "codex": {"input_per_million": 0.00, "output_per_million": 0.00},  # free tier
+    "opencode": {"input_per_million": 0.00, "output_per_million": 0.00},  # varies by model
+}
+
+
+def estimate_cost(tool: str, prompt: str, output: str) -> str:
+    """Estimate API cost for a single execution attempt.
+
+    For ZhiPu coding-plan backends (goose, droid, cc-glm, crush) the cost
+    is covered by a flat-rate subscription so the estimate is "$0.00 (flat-rate)".
+
+    For others, approximate input tokens as ``len(prompt) // 4`` and output
+    tokens as ``len(output) // 4``, then apply per-million-token pricing.
+
+    Returns a human-readable string like "$0.0023" or "$0.00 (flat-rate)".
+    """
+    if tool in FLAT_RATE_TOOLS:
+        return "$0.00 (flat-rate)"
+
+    pricing = TOKEN_PRICING.get(tool)
+    if pricing is None:
+        return "$0.00 (unknown pricing)"
+
+    approx_input_tokens = max(1, len(prompt)) // 4
+    approx_output_tokens = max(1, len(output)) // 4
+
+    input_cost = approx_input_tokens * pricing["input_per_million"] / 1_000_000
+    output_cost = approx_output_tokens * pricing["output_per_million"] / 1_000_000
+    total = input_cost + output_cost
+    return f"${total:.4f}"
 
 
 @dataclass(frozen=True)
@@ -110,6 +151,7 @@ class TaskExecutionResult:
     attempts: list[ExecutionAttempt] = field(default_factory=list)
     output: str = ""
     fallbacks: list[str] = field(default_factory=list)
+    cost_estimate: str = ""
 
 
 def _clean_env(tool: str) -> dict[str, str]:
@@ -285,6 +327,7 @@ async def _run_command(
         duration_s=round(duration_s, 3),
         output=output,
         failure_reason=classify_failure(exit_code, output),
+        cost_estimate=estimate_cost(tool, prompt, output),
     )
 
 
