@@ -200,13 +200,13 @@ def _classify_cost_mode(row: dict[str, Any]) -> str:
     cost_estimate = str(row.get("cost_estimate", "")).strip()
     tool = str(row.get("tool", "")).strip()
 
+    if tool in FLAT_RATE_TOOLS:
+        # Older rows sometimes logged "$0.0000" instead of the flat-rate label.
+        return "flat-rate"
     if "flat-rate" in cost_estimate:
         return "flat-rate"
     if _parse_metered_cost(cost_estimate) is not None:
         return "metered"
-    if tool in FLAT_RATE_TOOLS:
-        # Older rows predate cost_estimate; infer ZhiPu coding-plan usage from tool.
-        return "flat-rate"
     if tool:
         return "metered"
     return "unknown"
