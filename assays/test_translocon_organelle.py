@@ -23,10 +23,11 @@ import pytest
 class TestDispatchExploreReturnsStructured:
     """dispatch() returns {success, output, backend, duration_s}."""
 
+    @patch("metabolon.organelles.translocon._cache_get", return_value=None)
     @patch("metabolon.organelles.translocon._direct_api")
     @patch("metabolon.organelles.translocon._inject_coaching", side_effect=lambda p: p)
     @patch("metabolon.organelles.translocon._read_dir_context", return_value="")
-    def test_explore_mode_direct_api_success(self, mock_ctx, mock_coach, mock_api):
+    def test_explore_mode_direct_api_success(self, mock_ctx, mock_coach, mock_api, mock_cache):
         from metabolon.organelles.translocon import dispatch
 
         mock_api.return_value = {"success": True, "output": "hello world", "returncode": 0}
@@ -39,11 +40,12 @@ class TestDispatchExploreReturnsStructured:
         assert result["success"] is True
         assert result["backend"] == "direct"
 
+    @patch("metabolon.organelles.translocon._cache_get", return_value=None)
     @patch("metabolon.organelles.translocon._run_captured")
     @patch("metabolon.organelles.translocon._inject_coaching", side_effect=lambda p: p)
     @patch("metabolon.organelles.translocon._read_dir_context", return_value="")
     @patch("metabolon.organelles.translocon._direct_api")
-    def test_explore_falls_back_to_goose(self, mock_api, mock_ctx, mock_coach, mock_run):
+    def test_explore_falls_back_to_goose(self, mock_api, mock_ctx, mock_coach, mock_run, mock_cache):
         from metabolon.organelles.translocon import dispatch
 
         mock_api.return_value = {"success": False, "output": "", "returncode": 1}

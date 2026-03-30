@@ -77,15 +77,16 @@ def test_safe_mode_uses_direct_api():
 def test_build_mode_skips_direct_api(tmp_path):
     """--build does NOT use direct API — goes straight to goose."""
     fake_api = MagicMock(return_value=0)
-    with patch.dict(_mod, {"_direct_api": fake_api}):
+    with patch.dict(_mod, {"_direct_api": fake_api, "_atomic_commit": MagicMock()}):
         with patch("subprocess.run", return_value=_mock_run()) as mock_run:
             rc = main(["--build", str(tmp_path), "implement X"])
     assert rc == 0
     # direct_api should NOT be called for build mode
     fake_api.assert_not_called()
-    cmd = mock_run.call_args[0][0]
-    assert cmd[0] == "goose"
-    assert "GLM-5.1" in cmd
+    # First subprocess.run call is the goose dispatch (auto-commit adds git calls after)
+    first_cmd = mock_run.call_args_list[0][0][0]
+    assert first_cmd[0] == "goose"
+    assert "GLM-5.1" in first_cmd
 
 
 def test_mcp_mode_skips_direct_api():
@@ -134,7 +135,8 @@ def test_dry_run_prints_command(tmp_path, capsys):
     assert rc == 0
     mock_run.assert_not_called()
     output = capsys.readouterr().out
-    assert "goose" in output
+    # dry-run prints the (coaching-injected) prompt to stdout, metadata to stderr
+    assert "test prompt" in output
 
 
 def test_file_prompt(tmp_path):
@@ -153,15 +155,20 @@ def test_goose_fallback_to_droid(tmp_path):
     def fake_run(cmd, **kwargs):
         calls.append(cmd)
         m = MagicMock()
-        m.returncode = 1 if cmd[0] == "goose" else 0
+        # goose fails, droid succeeds, git calls succeed
+        if cmd[0] == "goose":
+            m.returncode = 1
+        else:
+            m.returncode = 0
+        m.stdout = ""
         return m
 
     # direct API fails too, so we hit goose → droid chain
-    with patch.dict(_mod, {"_direct_api": MagicMock(return_value=1)}):
+    with patch.dict(_mod, {"_direct_api": MagicMock(return_value=1), "_atomic_commit": MagicMock()}):
         with patch("subprocess.run", side_effect=fake_run):
             rc = main(["--build", str(tmp_path), "failing task"])
     assert rc == 0
-    assert len(calls) == 2
+    # First two dispatch calls: goose then droid (auto-commit adds git calls after droid succeeds)
     assert calls[0][0] == "goose"
     assert calls[1][0].endswith("droid")
 
@@ -283,13 +290,14 @@ def test_skill_with_build_uses_glm51(tmp_path):
     _make_recipe(tmp_path)
 
     with patch.object(Path, "home", return_value=tmp_path):
-        with patch.dict(_mod, {"_direct_api": MagicMock(return_value=1)}):
+        with patch.dict(_mod, {"_direct_api": MagicMock(return_value=1), "_atomic_commit": MagicMock()}):
             with patch("subprocess.run", return_value=_mock_run()) as mock_run:
                 rc = main(["--skill", "etiology", "--build", str(tmp_path), "fix bug"])
 
     assert rc == 0
-    cmd = mock_run.call_args[0][0]
-    assert "GLM-5.1" in cmd
+    # First subprocess.run call is the goose dispatch (auto-commit adds git calls after)
+    first_cmd = mock_run.call_args_list[0][0][0]
+    assert "GLM-5.1" in first_cmd
 
 
 def test_skill_with_mcp_uses_droid(tmp_path):
