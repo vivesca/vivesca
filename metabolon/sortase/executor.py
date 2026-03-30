@@ -833,7 +833,25 @@ async def execute_tasks(
         )
         for task in tasks
     ]
-    results = list(await asyncio.gather(*coroutines))
+    raw_results = await asyncio.gather(*coroutines, return_exceptions=True)
+
+    # Convert exceptions into failed TaskExecutionResult so worktree cleanup runs
+    results: list[TaskExecutionResult] = []
+    for task, raw in zip(tasks, raw_results):
+        if isinstance(raw, Exception):
+            results.append(TaskExecutionResult(
+                task_name=task.name,
+                tool=tool_by_task[task.name],
+                prompt_file=task.temp_file,
+                success=False,
+                attempts=[],
+                output=f"Unhandled exception: {raw}",
+                fallbacks=[],
+                fallback_chain=[],
+                cost_estimate=None,
+            ))
+        else:
+            results.append(raw)
 
     if use_worktrees:
         for task in tasks:
