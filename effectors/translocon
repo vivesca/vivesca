@@ -220,6 +220,7 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--count", type=int, default=20, help="Traces to analyze (with --eval)")
     parser.add_argument("--failures-only", action="store_true", help="Show only failures (with --eval)")
     parser.add_argument("--stats", action="store_true", help="Print dispatch statistics")
+    parser.add_argument("--metrics", action="store_true", help="Print per-backend duration metrics (avg/p50/p95)")
     parser.add_argument("--batch", metavar="GLOB", help="Dispatch all plan files matching glob sequentially")
     parser.add_argument("--dry-run", action="store_true", help="Print command only")
     parser.add_argument("--output-file", action="store_true", help="Tee full stdout+stderr to ~/logs/translocon-<task>-<ts>.log")
@@ -497,6 +498,10 @@ def main_impl(args: argparse.Namespace) -> int:
     """Core dispatch logic — shared by main() and batch mode."""
     if args.stats:
         return _run_stats()
+    if args.metrics:
+        from metabolon.organelles.translocon_metrics import format_report
+        print(format_report(days=30))
+        return 0
     if args.eval:
         return _run_eval(args.count, args.failures_only)
     prompt = args.prompt
