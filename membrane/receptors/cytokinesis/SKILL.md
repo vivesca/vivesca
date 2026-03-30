@@ -62,11 +62,20 @@ If continuous capture handled most of it → quick verification pass, report fil
 
 **MEMORY.md ≥145 lines →** downregulate by recurrence signal, not by position. Check `hits:` and `last-seen:` in memory file frontmatter (updated automatically by dendrite.py on every Read). Lowest hits + oldest last-seen = downregulate candidate. Move to `~/epigenome/chromatin/immunity/memory-overflow.md` (reversible — re-promote if topic resurfaces).
 
-### 1a. Correction review + methylation (5 min max)
+### 1a. Correction capture + taste calibration (5 min max)
 
-Read `references/review-checklist.md` — covers per-correction questions, 9 session-wide questions, filing discipline, and methylation scan.
+Scan the session for every instance where Terry:
+- **Stopped or corrected CC** ("no", "wait", "should we?", "is this right?", rejected a tool call)
+- **Questioned an assumption** ("is it the best design?", "why not X?")
+- **Confirmed a non-obvious approach** ("yes exactly", "good call", accepted without pushback)
 
-**The test:** if this session replayed tomorrow with a fresh context, would the organism handle it better? If not, something wasn't methylated. Build it now — context is hottest during the session that revealed the gap.
+For each correction: what was CC's wrong assumption? What's the generalizable principle? File as feedback memory with `protected: true` if it's architectural.
+
+For each confirmation: what non-obvious choice was validated? File as feedback with "reinforce" framing.
+
+**The test:** if this session replayed tomorrow with a fresh context, would CC make the same mistakes? If yes, something wasn't methylated. File it now — context is hottest during the session that revealed the gap.
+
+Also read `references/review-checklist.md` if it exists.
 
 ### 1c. Audit Signal
 
