@@ -2,12 +2,9 @@
 
 Extends navigator with Firecrawl-backed scraping for sites that block
 headless browsers. Returns clean markdown.
-
-Tools:
-  lysis_scrape  — scrape a URL through Firecrawl
-  lysis_search  — web search + scrape via Firecrawl
 """
 
+from __future__ import annotations
 
 from metabolon.organelles.effector import run_cli  # noqa: E402
 
@@ -18,28 +15,21 @@ BINARY = "/Users/terry/germline/effectors/lysis"
 
 
 @tool(
-    name="lysis_scrape",
-    description="Scrape a URL via Firecrawl, bypassing bot protection. Returns markdown.",
+    name="lysis",
+    description="Web content extraction. Actions: scrape|search",
     annotations=ToolAnnotations(readOnlyHint=True, idempotentHint=True, destructiveHint=False),
 )
-def lysis_scrape(url: str) -> str:
-    """Scrape a URL through Firecrawl.
+def lysis(action: str, url: str = "", query: str = "") -> str:
+    """Scrape or search via Firecrawl.
 
     Args:
-        url: The URL to scrape.
+        action: "scrape" to scrape a URL, "search" for web search + scrape.
+        url: The URL to scrape (action="scrape").
+        query: The search query (action="search").
     """
-    return run_cli(BINARY, [url], timeout=60)
-
-
-@tool(
-    name="lysis_search",
-    description="Web search + scrape via Firecrawl. Returns markdown from top results.",
-    annotations=ToolAnnotations(readOnlyHint=True, idempotentHint=True, destructiveHint=False),
-)
-def lysis_search(query: str) -> str:
-    """Web search and scrape results via Firecrawl.
-
-    Args:
-        query: The search query.
-    """
-    return run_cli(BINARY, ["search", query], timeout=60)
+    if action == "scrape":
+        return run_cli(BINARY, [url], timeout=60)
+    elif action == "search":
+        return run_cli(BINARY, ["search", query], timeout=60)
+    else:
+        return f"Error: unknown action '{action}'. Use 'scrape' or 'search'."

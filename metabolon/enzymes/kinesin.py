@@ -1,11 +1,10 @@
 """kinesin — session-independent agent dispatcher.
 
-Tools:
-  translocation_list    — list all kinesin tasks + status
-  translocation_run     — dispatch a task immediately (detached)
-  translocation_cancel  — cancel/disable a task
-  translocation_results — view latest run output
+Tool:
+  translocation — async tasks. Actions: list|run|cancel|results
 """
+
+from __future__ import annotations
 
 from fastmcp.tools import tool
 from mcp.types import ToolAnnotations
@@ -20,50 +19,44 @@ class TranslocationResult(Secretion):
 
 
 @tool(
-    name="translocation_list",
-    description="List all kinesin tasks with schedule and status.",
-    annotations=ToolAnnotations(readOnlyHint=True, destructiveHint=False),
-)
-def translocation_list() -> TranslocationResult:
-    """List all configured kinesin tasks."""
-    from metabolon.organelles.gemmation import list_tasks
-
-    return TranslocationResult(output=list_tasks())
-
-
-@tool(
-    name="translocation_run",
-    description="Dispatch a kinesin task immediately (detached, survives session).",
+    name="translocation",
+    description="Async tasks. Actions: list|run|cancel|results",
     annotations=ToolAnnotations(readOnlyHint=False, destructiveHint=False),
 )
-def translocation_run(name: str) -> EffectorResult:
-    """Dispatch a kinesin task by name."""
-    from metabolon.organelles.gemmation import run_task
+def translocation(action: str, name: str = "") -> TranslocationResult | EffectorResult:
+    """Dispatch and manage async kinesin tasks.
 
-    result = run_task(name)
-    return EffectorResult(success=True, message=result)
+    Actions:
+      list    — list all kinesin tasks with schedule and status
+      run     — dispatch a task immediately (detached, survives session); requires name
+      cancel  — cancel/disable a task; requires name
+      results — view latest run output; optional name (omit for all tasks)
 
+    Args:
+        action: One of list|run|cancel|results.
+        name: Task name (required for run/cancel, optional for results, ignored for list).
+    """
+    if action == "list":
+        from metabolon.organelles.gemmation import list_tasks
 
-@tool(
-    name="translocation_cancel",
-    description="Cancel/disable a kinesin task.",
-    annotations=ToolAnnotations(readOnlyHint=False, destructiveHint=False),
-)
-def translocation_cancel(name: str) -> EffectorResult:
-    """Cancel a kinesin task."""
-    from metabolon.organelles.gemmation import cancel_task
+        return TranslocationResult(output=list_tasks())
 
-    result = cancel_task(name)
-    return EffectorResult(success=True, message=result)
+    elif action == "run":
+        from metabolon.organelles.gemmation import run_task
 
+        result = run_task(name)
+        return EffectorResult(success=True, message=result)
 
-@tool(
-    name="translocation_results",
-    description="View latest kinesin run output for a task (or all tasks).",
-    annotations=ToolAnnotations(readOnlyHint=True, destructiveHint=False),
-)
-def translocation_results(name: str = "") -> TranslocationResult:
-    """View results of a kinesin task run."""
-    from metabolon.organelles.gemmation import get_results
+    elif action == "cancel":
+        from metabolon.organelles.gemmation import cancel_task
 
-    return TranslocationResult(output=get_results(name or None))
+        result = cancel_task(name)
+        return EffectorResult(success=True, message=result)
+
+    elif action == "results":
+        from metabolon.organelles.gemmation import get_results
+
+        return TranslocationResult(output=get_results(name or None))
+
+    else:
+        return TranslocationResult(output=f"Unknown action: {action}. Use list|run|cancel|results.")

@@ -1,54 +1,44 @@
+from __future__ import annotations
+
 """assay — life experiment tracker (wraps peira).
 
-Tools:
-  assay_list  — list all experiments (read-only)
-  assay_check — check-in on an experiment (appends data)
-  assay_close — close an experiment with final comparison (destructive)
+Single tool with action dispatch:
+  list  — list all experiments (read-only)
+  check — check-in on an experiment (appends data)
+  close — close an experiment with final comparison (destructive)
 """
 
-
-
-from metabolon.organelles.effector import run_cli  # noqa: E402
-
-from fastmcp.tools import tool  # noqa: E402
-from mcp.types import ToolAnnotations  # noqa: E402
+from metabolon.organelles.effector import run_cli
+from fastmcp.tools import tool
+from mcp.types import ToolAnnotations
 
 BINARY = "/Users/terry/germline/effectors/assay"
 
 
 @tool(
-    name="assay_list",
-    description="List all life experiments and their current status.",
-    annotations=ToolAnnotations(readOnlyHint=True, idempotentHint=True, destructiveHint=False),
-)
-def assay_list() -> str:
-    """List all experiments."""
-    return run_cli(BINARY, ["list"], timeout=30)
-
-
-@tool(
-    name="assay_check",
-    description="Pull latest data and append a check-in to an experiment.",
-    annotations=ToolAnnotations(readOnlyHint=False, idempotentHint=False, destructiveHint=False),
-)
-def assay_check(name: str) -> str:
-    """Check in on an experiment.
-
-    Args:
-        name: Experiment name as shown by assay_list.
-    """
-    return run_cli(BINARY, ["check", name], timeout=60)
-
-
-@tool(
-    name="assay_close",
-    description="Close an experiment with a final comparison. Irreversible.",
+    name="assay",
+    description="Experiment tracking. Actions: list|check|close",
     annotations=ToolAnnotations(readOnlyHint=False, idempotentHint=False, destructiveHint=True),
 )
-def assay_close(name: str) -> str:
-    """Close an experiment.
+def assay(action: str, name: str = "") -> str:
+    """Run an assay action.
 
     Args:
-        name: Experiment name as shown by assay_list.
+        action: One of list|check|close.
+            list  — list all experiments and their status.
+            check — pull latest data and append a check-in.
+            close — close an experiment with final comparison (irreversible).
+        name: Experiment name (required for check and close).
     """
-    return run_cli(BINARY, ["close", name], timeout=60)
+    if action == "list":
+        return run_cli(BINARY, ["list"], timeout=30)
+    elif action == "check":
+        if not name:
+            return "Error: name is required for check action."
+        return run_cli(BINARY, ["check", name], timeout=60)
+    elif action == "close":
+        if not name:
+            return "Error: name is required for close action."
+        return run_cli(BINARY, ["close", name], timeout=60)
+    else:
+        return f"Error: unknown action '{action}'. Use list|check|close."
