@@ -80,12 +80,33 @@ def _inject_coaching(prompt: str) -> str:
     return prompt
 
 
+_TOTAL_SIZE_CAP = 100_000  # 100 KB cumulative cap for _read_dir_context
+
+
 def _read_dir_context(directory: str, glob_pattern: str = "*.py") -> str:
-    """Read small source files from directory as context."""
+    """Read small source files from directory as context.
+
+    Stops reading once cumulative content exceeds _TOTAL_SIZE_CAP and
+    logs the number of files skipped.
+    """
     parts: list[str] = []
+    cumulative = 0
+    skipped = 0
     for f in sorted(Path(directory).glob(glob_pattern)):
-        if f.is_file() and f.stat().st_size < 50000:
-            parts.append(f"### {f.name}\n```\n{f.read_text()}\n```")
+        if not f.is_file() or f.stat().st_size >= 50000:
+            continue
+        content = f.read_text()
+        cumulative += len(content)
+        if cumulative > _TOTAL_SIZE_CAP:
+            skipped += 1
+            continue
+        parts.append(f"### {f.name}\n```\ncontent\n```")
+    if skipped:
+        logger.info(
+            "_read_dir_context: skipped %d file(s) after reaching %d byte cap",
+            skipped,
+            _TOTAL_SIZE_CAP,
+        )
     return "\n\n".join(parts)
 
 
