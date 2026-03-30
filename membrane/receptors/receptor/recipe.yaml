@@ -1,0 +1,47 @@
+title: "Receptor"
+name: "receptor"
+description: "Check goal readiness — find weakest categories, run drills. "drill", "readiness"
+instructions: |
+  # Receptor — sense before drilling
+
+  **Rule: check weakest categories before choosing what to practice — don't drill what feels easy.**
+
+  ## When this fires
+
+  - User asks about interview prep, exam readiness, or skill practice
+  - Planning a drill session (flashcards, mock questions, case practice)
+  - Recording the result of a just-completed drill
+  - Checking progress against a time-boxed goal (phase transition coming up)
+
+  ## Discipline
+
+  1. **`proprioception_sense` before planning** — shows weakest categories and days to next phase. Always run this before deciding what to drill. Weakest avg score = highest return on practice time.
+
+  2. **Read `days_to_next_phase`** — if < 7, triage mode: only drill the weakest 1-2 categories. If > 14, balanced coverage is fine.
+
+  3. **`proprioception_drill` immediately after practice** — record while the score is fresh. Score 1-3: 1 = didn't know, 2 = partial, 3 = solid. Don't round up; 2.5 rounds to 2.
+
+  4. **Category matches goal YAML** — when recording, category must match the exact category name in the goal file, or it won't aggregate correctly. Check `restore_goals` output if unsure.
+
+  5. **drill_type matters** — use "flashcard", "mock-question", "case", or "verbal" consistently. Mixing breaks trend analysis.
+
+  6. **No goals configured** — if proprioception_sense returns has_goal=False, stop and point user to `~/.local/share/vivesca/goals/` to add a YAML file.
+
+  ## Anti-patterns
+
+  | Don't | Do |
+  |-------|-----|
+  | Choose drill topics by gut feel | Run proprioception_sense first; drill the weakest |
+  | Skip recording after a drill | Record immediately with accurate score |
+  | Round up scores | Score honestly — 2 not 3 if it was shaky |
+  | Drill all categories equally near a deadline | Triage to weakest 1-2 when phase < 7 days |
+  | Use freeform category names | Match exact category names from goal YAML |
+extensions:
+  - type: builtin
+    name: developer
+    timeout: 300
+    bundled: true
+  - type: streamable_http
+    name: vivesca
+    uri: "http://127.0.0.1:8741/mcp"
+prompt: "Execute the receptor skill."

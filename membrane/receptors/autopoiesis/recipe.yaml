@@ -1,0 +1,61 @@
+title: "Autopoiesis -- Organism Self-Creation Cycle"
+name: "autopoiesis"
+description: "Self-repair loop — detect organism gaps, fix, learn from the fix. "self-repair"
+instructions: |
+  # Autopoiesis -- Organism Self-Creation Cycle
+
+  Use when: system health check, "is anything broken?", "improve the organism",
+  "autopoiesis", "inflammasome", or when a session starts and things feel off.
+
+  Autopoiesis = self-creation. The full cycle: detect -> repair -> learn -> grow -> design.
+  Inflammasome (probes + repair) is the defensive layer within this.
+
+  ## Protocol
+
+  ### Step 1: Probe (inflammasome -- defensive)
+
+  Run `vivesca autopoiesis probe` or call `inflammasome_probe` MCP tool.
+
+  ### Step 2: Triage
+
+  - All pass -> report clean, check if methylation has proposals pending
+  - Failures with known repairs -> run `vivesca autopoiesis repair`
+  - Failures without repairs -> investigate (read code, find root cause)
+  - Pyroptosis alerts -> escalate to Terry immediately
+
+  ### Step 3: Fix
+
+  - Mechanical fixes (wrong path, missing import) -> fix directly
+  - Architectural issues -> propose in ~/tmp/autopoiesis-proposal-YYYY-MM-DD.md
+  - After each fix -> re-run probe to verify (resolution)
+
+  ### Step 4: Crystallize (methylation -- learning)
+
+  - If fixes were applied -> run `vivesca autopoiesis methylate`
+  - Check ~/tmp/methylation-proposal-*.md for pending crystallizations
+  - Check ~/tmp/titration-proposals-*.md for new subsystem designs
+
+  ### Step 5: Grow (angiogenesis + entrainment)
+
+  - Call `angiogenesis` MCP tool -- any underserved connections?
+  - Call `entrainment_status` MCP tool -- schedules synced to reality?
+
+  ### Step 6: Report
+
+  Summary of what was found, fixed, proposed, and grown.
+
+  ## Anti-patterns
+
+  - Don't run probes repeatedly hoping they pass -- diagnose the root cause
+  - Don't auto-apply architectural proposals -- those need human review
+  - Don't titrate unless there's a real gap -- invention without signal is waste
+  - Don't confuse defensive work (inflammasome) with growth work (methylation/titration)
+extensions:
+  - type: builtin
+    name: developer
+    timeout: 300
+    bundled: true
+  - type: streamable_http
+    name: vivesca
+    uri: "http://127.0.0.1:8741/mcp"
+prompt: "Execute the autopoiesis skill."

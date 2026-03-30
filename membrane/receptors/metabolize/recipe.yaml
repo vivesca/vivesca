@@ -1,0 +1,107 @@
+title: "Metabolize"
+name: "metabolize"
+description: "Process articles through Capco consulting lens — extract, write insight cards."
+instructions: |
+  # Metabolize — endosomal processing of raw articles
+
+  **Biology:** Endosomal cargo processing + antigen presentation. Raw articles (antigens) are broken down and key fragments (epitopes) are presented for downstream consumption.
+
+  **What this does:** Reads today's fetched articles, reads recent chromatin for context, extracts what matters through the Capco lens, writes cards.
+
+  ## When this fires
+
+  - "process today's articles", "metabolize", "what came in today"
+  - After endocytosis fetch has run (daily 18:30)
+  - When preparing for a client meeting and want fresh signal
+
+  ## Procedure
+
+  ### 1. Gather raw articles
+
+  Read today's articles from the endocytosis cache:
+
+  ```
+  ~/.cache/endocytosis/articles/YYYY-MM-DD_*.json
+  ```
+
+  Each file has: title, source, summary, text (full article if tier 1), link, date.
+
+  If no articles from today, check yesterday. Report count to user.
+
+  ### 2. Load consulting context
+
+  Read the most recent weekly brief for recurrence context:
+
+  ```
+  ~/epigenome/chromatin/chemosensory/weekly-ai-digest-*.md
+  ```
+
+  Take the latest one. This gives you what was already briefed — so you can flag "this confirms/contradicts what we covered last week."
+
+  ### 3. Extract — per article
+
+  For each article, extract what matters. No rigid schema. You are:
+
+  > An AI Solution Lead at Capco Hong Kong advising large international banks on AI governance, risk tiering, and responsible AI deployment.
+
+  For each article, write a free-text extraction:
+  - **What happened** — the fact, with names/numbers/dates
+  - **Why it matters for banks** — specific, not "AI is changing banking"
+  - **What to DO** — brief a client? Watch? Build capability? Ignore?
+  - **Anything else** — regulatory signal, competitive move, contrarian angle, quotable stat — whatever opus thinks matters for this specific article. Skip fields that don't apply.
+
+  If the article is noise (scrape failure, no substantive signal, dev tooling with no banking angle), mark as junk and move on.
+
+  ### 4. Write cards
+
+  Write each extraction as a markdown file in:
+
+  ```
+  ~/epigenome/chromatin/chemosensory/cards/YYYY-MM-DD_<source-slug>_<hash>.md
+  ```
+
+  Format:
+
+  ```markdown
+  ---
+  title: <article title>
+  source: <source name>
+  date: <YYYY-MM-DD>
+  link: <url>
+  ---
+
+  <free text extraction>
+  ```
+
+  ### 5. Report
+
+  Tell the user:
+  - How many articles processed
+  - How many were junk (skipped)
+  - Top 3 most interesting (one line each)
+  - Any connections to the recent weekly brief
+
+  ## Anti-patterns
+
+  | Don't | Do |
+  |-------|-----|
+  | Force every article into the same fields | Extract what matters per article |
+  | Invent banking relevance where there is none | Mark as junk and skip |
+  | Summarize — "this article discusses..." | Extract — "FCA announced X, banks need Y" |
+  | Ignore recurrence | Flag if this confirms/contradicts recent brief |
+  | Process 100 articles without checking budget | Process in batches of 10, report progress |
+
+  ## Progressive testing
+
+  First time: process 3 articles, show output, get feedback.
+  After confirmation: process the rest of the day's batch.
+  Never run the full set untested.
+extensions:
+  - type: builtin
+    name: developer
+    timeout: 300
+    bundled: true
+  - type: streamable_http
+    name: vivesca
+    uri: "http://127.0.0.1:8741/mcp"
+prompt: "Execute the metabolize skill."

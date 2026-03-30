@@ -1,0 +1,261 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.13"
+# dependencies = ["pyyaml"]
+# ///
+"""
+skill-sync — Sync CC SKILL.md files to Goose recipe.yaml and config.yaml.
+
+Reads all SKILL.md files from ~/germline/membrane/receptors/*/SKILL.md,
+generates recipe.yaml alongside each one (if missing or stale), and registers
+them as slash_commands in ~/.config/goose/config.yaml.
+
+Usage:
+    skill-sync              # sync all, report changes
+    skill-sync --dry-run    # show what would change
+    skill-sync --force      # regenerate all recipe.yaml even if they exist
+    skill-sync <name>       # sync a single skill by name
+"""
+
+from __future__ import annotations
+
+import argparse
+import re
+import sys
+from pathlib import Path
+
+import yaml
+
+RECEPTORS_DIR = Path.home() / "germline" / "membrane" / "receptors"
+GOOSE_CONFIG = Path.home() / ".config" / "goose" / "config.yaml"
+
+
+# ---------------------------------------------------------------------------
+# Parsing
+# ---------------------------------------------------------------------------
+
+def parse_frontmatter(content: str) -> tuple[dict[str, str], str]:
+    """Extract YAML frontmatter and body from SKILL.md content.
+
+    Returns (metadata_dict, body_text).
+    """
+    m = re.match(r"^---\s*\n(.*?)\n---\s*\n(.*)", content, re.DOTALL)
+    if not m:
+        return {}, content
+    meta = yaml.safe_load(m.group(1)) or {}
+    return meta, m.group(2)
+
+
+def extract_title(body: str) -> str:
+    """Return the first '# Heading' text (stripped of markdown formatting)."""
+    for line in body.splitlines():
+        line = line.strip()
+        if line.startswith("#"):
+            # Remove leading #'s and surrounding whitespace, then bold/italic
+            title = line.lstrip("#").strip()
+            title = re.sub(r"\*+", "", title)  # strip bold/italic markers
+            return title
+    return ""
+
+
+# ---------------------------------------------------------------------------
+# Recipe generation
+# ---------------------------------------------------------------------------
+
+def build_recipe(name: str, description: str, title: str, body: str) -> str:
+    """Build recipe.yaml content as a string."""
+    recipe = {
+        "title": title or name.capitalize(),
+        "name": name,
+        "description": description,
+        "instructions": body.rstrip("\n") + "\n",
+        "extensions": [
+            {
+                "type": "builtin",
+                "name": "developer",
+                "timeout": 300,
+                "bundled": True,
+            },
+            {
+                "type": "streamable_http",
+                "name": "vivesca",
+                "uri": "http://127.0.0.1:8741/mcp",
+            },
+        ],
+        "prompt": f"Execute the {name} skill.",
+    }
+    return yaml.dump(recipe, default_flow_style=False, sort_keys=False, width=1000)
+
+
+# ---------------------------------------------------------------------------
+# Skill discovery
+# ---------------------------------------------------------------------------
+
+def find_skills(receptors_dir: Path, single_name: str | None = None) -> list[Path]:
+    """Return sorted list of skill directories containing SKILL.md."""
+    if not receptors_dir.is_dir():
+        return []
+    skills: list[Path] = []
+    for d in sorted(receptors_dir.iterdir()):
+        if not d.is_dir():
+            continue
+        if d.name.startswith(".") or d.name == ".archive":
+            continue
+        if single_name is not None and d.name != single_name:
+            continue
+        if (d / "SKILL.md").is_file():
+            skills.append(d)
+    return skills
+
+
+# ---------------------------------------------------------------------------
+# Config management
+# ---------------------------------------------------------------------------
+
+def load_goose_config(path: Path) -> dict:
+    """Load goose config.yaml, returning empty dict if missing."""
+    if not path.is_file():
+        return {}
+    with open(path) as f:
+        return yaml.safe_load(f) or {}
+
+
+def save_goose_config(path: Path, config: dict) -> None:
+    """Write goose config.yaml back to disk."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with open(path, "w") as f:
+        yaml.dump(config, f, default_flow_style=False, sort_keys=False, width=1000)
+
+
+# ---------------------------------------------------------------------------
+# Sync logic
+# ---------------------------------------------------------------------------
+
+def sync(
+    receptors_dir: Path,
+    goose_config_path: Path,
+    *,
+    dry_run: bool = False,
+    force: bool = False,
+    single_name: str | None = None,
+) -> None:
+    """Main sync logic. Prints summary to stdout."""
+    skills = find_skills(receptors_dir, single_name)
+    if not skills:
+        if single_name:
+            print(f"skill-sync: skill '{single_name}' not found in {receptors_dir}")
+            sys.exit(1)
+        print(f"skill-sync: no skills found in {receptors_dir}")
+        return
+
+    # --- Phase 1: Generate / update recipe.yaml files ---
+    generated = 0
+    updated = 0
+    unchanged = 0
+
+    for skill_dir in skills:
+        skill_md = skill_dir / "SKILL.md"
+        recipe_path = skill_dir / "recipe.yaml"
+
+        content = skill_md.read_text()
+        meta, body = parse_frontmatter(content)
+
+        name = meta.get("name", skill_dir.name)
+        description = meta.get("description", "")
+        title = extract_title(body)
+
+        recipe_content = build_recipe(name, description, title, body)
+
+        if recipe_path.is_file() and not force:
+            skill_mtime = skill_md.stat().st_mtime
+            recipe_mtime = recipe_path.stat().st_mtime
+            if skill_mtime <= recipe_mtime:
+                unchanged += 1
+                continue
+            # SKILL.md is newer — update
+            if not dry_run:
+                recipe_path.write_text(recipe_content)
+            updated += 1
+        else:
+            if not dry_run:
+                recipe_path.write_text(recipe_content)
+            if recipe_path.is_file():
+                updated += 1
+            else:
+                generated += 1
+
+    # --- Phase 2: Register in goose config ---
+    config = load_goose_config(goose_config_path)
+    slash_commands = config.get("slash_commands", [])
+
+    # Build set of valid recipe paths
+    valid_recipes: dict[str, str] = {}  # command -> recipe_path
+    for skill_dir in skills:
+        recipe_path = skill_dir / "recipe.yaml"
+        if recipe_path.is_file() or not dry_run:
+            # Use absolute path
+            abs_recipe = str(recipe_path.resolve())
+            valid_recipes[skill_dir.name] = abs_recipe
+
+    # Remove stale entries (recipe.yaml no longer exists)
+    existing_commands = {c.get("command", ""): c for c in slash_commands}
+    stale_commands = [
+        cmd for cmd, entry in existing_commands.items()
+        if cmd not in valid_recipes and not Path(entry.get("recipe_path", "")).is_file()
+    ]
+
+    # Track adds
+    added_commands = [
+        cmd for cmd in valid_recipes
+        if cmd not in existing_commands
+    ]
+
+    if not dry_run:
+        # Remove stale
+        slash_commands = [
+            c for c in slash_commands
+            if c.get("command", "") not in stale_commands
+        ]
+        # Add new
+        for cmd in added_commands:
+            slash_commands.append({
+                "command": cmd,
+                "recipe_path": valid_recipes[cmd],
+            })
+        # Ensure all existing entries have correct paths
+        for entry in slash_commands:
+            cmd = entry.get("command", "")
+            if cmd in valid_recipes:
+                entry["recipe_path"] = valid_recipes[cmd]
+
+        config["slash_commands"] = slash_commands
+        save_goose_config(goose_config_path, config)
+
+    # --- Report ---
+    action_prefix = "[dry-run] " if dry_run else ""
+    print(f"skill-sync: {action_prefix}{generated} recipes generated, {updated} updated, {unchanged} unchanged")
+    print(f"goose config: {action_prefix}{len(added_commands)} commands added, {len(stale_commands)} removed, {len(slash_commands) - len(added_commands)} unchanged")
+
+
+# ---------------------------------------------------------------------------
+# CLI
+# ---------------------------------------------------------------------------
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description="Sync SKILL.md files to Goose recipe.yaml and config")
+    parser.add_argument("name", nargs="?", help="Sync a single skill by name")
+    parser.add_argument("--dry-run", action="store_true", help="Show what would change without writing")
+    parser.add_argument("--force", action="store_true", help="Regenerate all recipe.yaml even if they exist")
+    args = parser.parse_args()
+
+    sync(
+        RECEPTORS_DIR,
+        GOOSE_CONFIG,
+        dry_run=args.dry_run,
+        force=args.force,
+        single_name=args.name,
+    )
+
+
+if __name__ == "__main__":
+    main()

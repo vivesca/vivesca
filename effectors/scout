@@ -1,0 +1,144 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.13"
+# dependencies = []
+# ///
+"""Unified dispatch CLI for cheap LLM tasks via ZhiPu.
+
+Routes tasks to goose or droid based on mode, hiding verbose flags
+and environment variable workarounds.
+
+Usage:
+    scout <dir> "<prompt>"                     # explore (goose + GLM-4.7)
+    scout --build <dir> "<prompt>"             # implement (goose + GLM-5.1)
+    scout --mcp "<prompt>"                     # MCP task (droid --auto high)
+    scout --safe <dir> "<prompt>"              # read-only audit (droid)
+    scout --model GLM-5.1 <dir> "<prompt>"     # override model
+    scout --backend droid <dir> "<prompt>"     # force backend
+"""
+
+from __future__ import annotations
+
+import argparse
+import os
+import subprocess
+import sys
+
+
+def _build_goose_cmd(model: str, prompt: str) -> list[str]:
+    return ["goose", "run", "-q", "--no-session",
+            "--provider", "glm-coding",
+            "--model", model,
+            "-t", prompt]
+
+
+def _run_goose(cmd: list[str], directory: str) -> int:
+    env = {**os.environ, "GOOGLE_API_KEY": "", "GEMINI_API_KEY": ""}
+    prev = os.getcwd()
+    os.chdir(directory)
+    try:
+        return subprocess.run(cmd, env=env).returncode
+    finally:
+        os.chdir(prev)
+
+
+def _build_droid_cmd(model: str, directory: str, prompt: str,
+                     auto: str | None = None) -> list[str]:
+    model_flag = model if model.startswith("custom:") else f"custom:{model}"
+    cmd = ["droid", "exec", "-m", model_flag, "--cwd", directory, prompt]
+    if auto:
+        cmd.insert(2, "--auto")
+        cmd.insert(3, auto)
+    return cmd
+
+
+def _run_droid(cmd: list[str]) -> int:
+    return subprocess.run(cmd).returncode
+
+
+def _resolve_mode(args: argparse.Namespace) -> tuple[str, str, str, str | None]:
+    """Return (backend, model, directory, auto_level)."""
+    mode = "explore"
+    auto: str | None = None
+
+    if args.build:
+        mode = "build"
+    elif args.mcp:
+        mode = "mcp"
+        auto = "high"
+    elif args.safe:
+        mode = "safe"
+
+    defaults: dict[str, tuple[str, str]] = {
+        "explore": ("goose", "GLM-4.7"),
+        "build": ("goose", "GLM-5.1"),
+        "mcp": ("droid", "GLM-4.7"),
+        "safe": ("droid", "GLM-4.7"),
+    }
+
+    backend, model = defaults[mode]
+    if args.backend:
+        backend = args.backend
+    if args.model:
+        model = args.model
+
+    directory = args.dir or os.path.expanduser("~")
+    return backend, model, directory, auto
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description="Unified dispatch CLI for LLM tasks.")
+    parser.add_argument("dir", nargs="?", default=".", help="Working directory")
+    parser.add_argument("prompt", nargs="?", default="", help="Task prompt")
+    parser.add_argument("--build", action="store_true", help="Implementation mode")
+    parser.add_argument("--mcp", action="store_true", help="MCP task mode")
+    parser.add_argument("--safe", action="store_true", help="Read-only audit mode")
+    parser.add_argument("--model", help="Override model")
+    parser.add_argument("--backend", choices=["goose", "droid"], help="Force backend")
+    parser.add_argument("-f", "--file", help="Read prompt from file")
+    parser.add_argument("--dry-run", action="store_true", help="Print command only")
+    parser.add_argument("--verbose", action="store_true", help="Verbose output")
+
+    args = parser.parse_args(argv)
+
+    # Resolve prompt
+    prompt = args.prompt
+    if args.file:
+        with open(args.file) as fh:
+            prompt = fh.read().strip()
+
+    if not prompt:
+        print("Error: provide a prompt via argument or -f <file>", file=sys.stderr)
+        return 1
+
+    # Prepend safe-mode guard
+    if args.safe:
+        prompt = "READ ONLY. Do not create, modify, or delete any files. " + prompt
+
+    backend, model, directory, auto = _resolve_mode(args)
+
+    if backend == "goose":
+        cmd = _build_goose_cmd(model, prompt)
+    else:
+        cmd = _build_droid_cmd(model, directory, prompt, auto)
+
+    if args.dry_run:
+        print(" ".join(cmd))
+        return 0
+
+    if args.verbose:
+        print(f"scout: {backend} / {model} in {directory}", file=sys.stderr)
+
+    if backend == "goose":
+        rc = _run_goose(cmd, directory)
+        if rc != 0 and not args.backend:
+            print("scout: goose failed, retrying with droid...", file=sys.stderr)
+            droid_cmd = _build_droid_cmd(model, directory, prompt, auto)
+            rc = _run_droid(droid_cmd)
+        return rc
+    else:
+        return _run_droid(cmd)
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

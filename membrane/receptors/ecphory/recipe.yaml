@@ -1,0 +1,109 @@
+title: "Ecphory"
+name: "ecphory"
+description: "Recall prior-session data and decisions by cue. Not for new research."
+instructions: |
+  # Ecphory — Cue-Routed Memory Retrieval
+
+  > In neuroscience, ecphory is the process where a retrieval cue reactivates a stored memory trace (Tulving, 1983). Neither the cue alone nor the trace alone produces retrieval — they must interact. This skill implements that principle: route the cue to the store whose memory type matches the query, synthesise from partial hits.
+
+  ## Routing Table
+
+  The organism has five stores with distinct memory profiles:
+
+  | Store | Memory type | Access | Best for |
+  |-------|-------------|--------|----------|
+  | `ecphory_logs` | Structured log files | MCP tool | "we logged X", "I logged X", "intake", "symptom", "experiment", tracked/recorded data |
+  | `engram search` | Episodic (raw session transcripts) | `engram search "<pattern>" --days N` | "we talked about X", "I entered Y", unpersisted session data |
+  | `histone_search` | Episodic + semantic hybrid | MCP tool | Named facts from sessions that were explicitly saved to oghma |
+  | `receptor-scan` / chromatin | Semantic | `receptor-scan "<query>"` | Stable reference knowledge, chromatin notes, research |
+  | `oghma` | Semantic structured | `oghma search "<query>"` | Categorised memory objects with metadata |
+
+  ## The Retrieval Protocol
+
+  ### Step 1 — Parse the cue
+
+  Classify the query along three axes:
+
+  **Logged-data signal (check this first):**
+  - "we logged", "I logged", "where did I log", "did I record", "what did I log" → logs (ecphory_logs first)
+  - "intake", "meal", "calories", "macros" → nutrition logs (ecphory_logs first)
+  - "symptom", "headache", "pain", "felt", "tired", "energy" → symptom logs (ecphory_logs first)
+  - "experiment", "trial", "I tested", "dose", "protocol" → experiment logs (ecphory_logs first)
+  - If this axis fires, skip recency classification and go straight to ecphory_logs
+
+  **Recency signal:**
+  - "yesterday", "this morning", "we just", "last session" → recent (engram first)
+  - "last week", "a while ago", "I think we" → medium (histone first)
+  - "I established", "the rule is", "the pattern is" → old/stable (chromatin/oghma first)
+  - No signal → assume episodic (engram first)
+
+  **Memory type signal:**
+  - Event-based ("what did we decide", "when did we", "what happened with") → episodic → engram + histone
+  - Fact-based ("what is the rule", "what's the approach", "the framework for") → semantic → chromatin + oghma
+  - Mixed or ambiguous → episodic first, semantic second
+
+  ### Step 2 — Route to primary store
+
+  Fire the most specific cue against the primary store first. Be generous with synonyms — the original encoding may have used different words.
+
+  ```
+  # Logged-data primary (meals, symptoms, experiments)
+  ecphory_logs query="<keyword variants>" days=30
+
+  # Episodic primary (recent)
+  engram search "<keyword variants>" --days 7
+
+  # Episodic primary (older)
+  engram search "<keyword variants>" --days 30
+
+  # Semantic primary
+  receptor-scan "<query>"
+  # or
+  oghma search "<query>" --mode hybrid
+  ```
+
+  ### Step 3 — Fan out if not found
+
+  If primary store returns nothing or only weak matches, hit the next tier:
+
+  ```
+  Logs miss → try engram (recent), then histone_search
+  Episodic miss → try histone_search, then chromatin/oghma
+  Semantic miss → try histone_search, then engram (last 14 days)
+  ```
+
+  Explicit fan-out order:
+  1. ecphory_logs (structured chromatin logs — meals, symptoms, experiments)
+  2. engram (episodic, unpersisted session transcripts)
+  3. histone_search (persisted session memory)
+  4. receptor-scan / chromatin grep (semantic, stable)
+  5. oghma (structured semantic)
+
+  ### Step 4 — Synthesise
+
+  Do not dump raw hits. Reconstruct from partial matches:
+
+  - If single strong match: confirm the match, present it, note the source
+  - If multiple partial matches: synthesise across them — "In engram on Mar 20 you entered X; in chromatin there's a related note Y; the combined picture is Z"
+  - If weak or contradictory: surface the contradiction explicitly, ask for confirmation before acting on it
+  - If nothing found: say so clearly, do not confabulate
+
+  ## Anti-patterns
+
+  - **Uniform sweep**: running all stores in parallel before classifying the cue. Wastes tool calls, adds noise.
+  - **Stopping at engram**: engram has the richest episodic data but misses anything explicitly persisted to oghma or chromatin.
+  - **Exact-match only**: encode at one vocabulary, retrieve at another. Use synonyms, related terms, and topic expansions in the cue.
+  - **Confabulation**: if no clear match is found, do not synthesise a plausible-sounding answer. Return empty with path taken.
+
+  ## Biology note
+
+  Ecphory is reconstructive, not reproductive — what gets returned is built from cue + partial trace, not a faithful playback. This is both a warning (partial matches need synthesis, not literal reporting) and a feature (partial hits from different stores can be assembled into a complete picture).
+extensions:
+  - type: builtin
+    name: developer
+    timeout: 300
+    bundled: true
+  - type: streamable_http
+    name: vivesca
+    uri: "http://127.0.0.1:8741/mcp"
+prompt: "Execute the ecphory skill."
