@@ -51,13 +51,10 @@ TOOL_COMMANDS: dict[str, Callable[[Path, str], list[str]]] = {
         prompt,
     ],
     "goose": lambda project, prompt: [
-        "goose",
-        "run",
-        "--no-session",
-        "-q",
-        "--provider", "glm-coding",
-        "--model", "GLM-5.1",
-        "-t",
+        "scout",
+        "--backend", "goose",
+        "--build",
+        str(project),
         prompt,
     ],
     "opencode": lambda project, prompt: [
@@ -76,11 +73,10 @@ TOOL_COMMANDS: dict[str, Callable[[Path, str], list[str]]] = {
         "-p", prompt,
     ],
     "droid": lambda project, prompt: [
-        "droid",
-        "exec",
-        "--auto", "high",
-        "-m", "custom:glm-5.1",
-        "--cwd", str(project),
+        "scout",
+        "--backend", "droid",
+        "--build",
+        str(project),
         prompt,
     ],
     "crush": lambda project, prompt: [
@@ -119,11 +115,9 @@ class TaskExecutionResult:
 def _clean_env(tool: str) -> dict[str, str]:
     env = os.environ.copy()
     env.pop("CLAUDECODE", None)
-    if tool == "goose":
-        # Goose reads ZHIPU_API_KEY directly (GOOSE_PROVIDER: zhipu).
-        # Blank Google keys so Goose doesn't pick the wrong provider
-        env.pop("GOOGLE_API_KEY", None)
-        env.pop("GEMINI_API_KEY", None)
+    if tool in ("goose", "droid"):
+        # scout handles env vars internally
+        pass
     if tool == "cc-glm":
         # Headless CC with GLM-5.1 via ZhiPu Coding Plan Anthropic-compat endpoint
         env["ANTHROPIC_API_KEY"] = env.get("ZHIPU_API_KEY", "")

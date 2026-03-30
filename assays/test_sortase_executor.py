@@ -79,12 +79,31 @@ def test_clean_env_removes_claudecode():
     assert "CLAUDECODE" not in env
 
 
-def test_clean_env_goose_removes_google_keys():
+def test_clean_env_goose_passes_through():
+    """Scout handles env vars internally — sortase passes through for goose and droid."""
     import os
-    with patch.dict(os.environ, {"GOOGLE_API_KEY": "x", "GEMINI_API_KEY": "y"}):
+    with patch.dict(os.environ, {"GOOGLE_API_KEY": "gk", "GEMINI_API_KEY": "gem"}):
         env = _clean_env("goose")
-    assert "GOOGLE_API_KEY" not in env
-    assert "GEMINI_API_KEY" not in env
+    assert "GOOGLE_API_KEY" in env
+
+
+def test_goose_tool_command_uses_scout():
+    from pathlib import Path
+    from metabolon.sortase.executor import TOOL_COMMANDS
+    cmd = TOOL_COMMANDS["goose"](Path("/tmp/test"), "do something")
+    assert cmd[0] == "scout"
+    assert "--backend" in cmd
+    assert "goose" in cmd
+    assert "--build" in cmd
+
+
+def test_droid_tool_command_uses_scout():
+    from pathlib import Path
+    from metabolon.sortase.executor import TOOL_COMMANDS
+    cmd = TOOL_COMMANDS["droid"](Path("/tmp/test"), "do something")
+    assert cmd[0] == "scout"
+    assert "--backend" in cmd
+    assert "droid" in cmd
 
 
 def test_clean_env_cc_glm_sets_zhipu():

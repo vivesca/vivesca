@@ -188,3 +188,8 @@
 {"ts": "2026-03-30T09:46:37+00:00", "model": "sonar", "query": "test"}
 {"ts": "2026-03-30T10:10:17+00:00", "model": "sonar-pro", "query": "unified CLI dispatch wrapper for multiple AI coding agents goose droid codex 2026"}
 {"ts": "2026-03-30T10:10:18+00:00", "model": "sonar-pro", "query": "LLM agent router CLI tool switching between coding agents"}
+{"ts": "2026-03-30T10:38:59+00:00", "model": "sonar-deep-research", "query": "multi-agent CLI orchestrator route tasks between AI coding tools with skills coaching eval 2026"}
+{"ts": "2026-03-30T10:39:06+00:00", "model": "sonar-deep-research", "query": "\"agent router\" dispatch goose droid codex opencode unified wrapper"}
+{"ts": "2026-03-30T10:40:43+00:00", "model": "sonar", "query": "AgentRouter agentrouter.org open source AI coding router"}
+{"ts": "2026-03-30T10:40:58+00:00", "model": "sonar", "query": "site:agentrouter.org OR site:docs.agentrouter.org AI coding Claude Code Gemini Codex"}
+{"ts": "2026-03-30T10:46:44+00:00", "model": "sonar", "query": "test"}

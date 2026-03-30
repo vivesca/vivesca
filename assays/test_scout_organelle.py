@@ -1,13 +1,16 @@
 """Tests for scout organelle + MCP enzyme.
 
 TDD red→green cycle:
-  1. These tests import from metabolon.organelles.scout (does not exist yet).
-  2. First run = red (ImportError).
-  3. Implement organelle + enzyme, second run = green.
+  1. These tests import from metabolon.organelles.scout.
+  2. All backend calls are mocked — no real goose/droid/API calls.
+  3. Tests verify structured dict returns and routing logic.
 """
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch
+import json
+from io import StringIO
+from pathlib import Path
+from unittest.mock import MagicMock, mock_open, patch
 
 import pytest
 
@@ -54,50 +57,38 @@ class TestDispatchExploreReturnsStructured:
 class TestDispatchSkillLoadsRecipe:
     """dispatch(skill='etiology') loads recipe and passes to goose."""
 
-    @patch("metabolon.organelles.scout.Path")
     @patch("metabolon.organelles.scout._inject_coaching", side_effect=lambda p: p)
-    def test_skill_not_found_returns_error(self, mock_coach, mock_path_cls):
+    def test_skill_not_found_returns_error(self, mock_coach):
         from metabolon.organelles.scout import dispatch
 
-        # Make Path.home() / "germline/membrane/receptors/etiology/recipe.yaml"
-        # resolve to a non-existent file
-        mock_recipe = MagicMock()
-        mock_recipe.exists.return_value = False
-        mock_path_home = MagicMock()
-        mock_path_home.__truediv__ = lambda self, other: (
-            mock_recipe if other == "germline/membrane/receptors/etiology/recipe.yaml"
-            else MagicMock()
-        )
-        mock_path_cls.home.return_value = mock_path_home
-        # Fallback: patch via pathlib.Path directly
-        import pathlib
-        with patch.object(pathlib.Path, "home", return_value=mock_path_home):
+        # Patch Path.home to return a fake home where no recipe exists
+        fake_home = Path("/tmp/nonexistent_home_for_test")
+        with patch.object(Path, "home", return_value=fake_home):
             result = dispatch("do a thing", mode="skill", skill="nonexistent_skill")
         assert result["success"] is False
         assert "not found" in result["output"].lower()
 
-    @patch("metabolon.organelles.scout.subprocess")
+    @patch("metabolon.organelles.scout._run_captured")
     @patch("metabolon.organelles.scout._inject_coaching", side_effect=lambda p: p)
-    def test_skill_routes_to_goose(self, mock_coach, mock_subprocess):
+    def test_skill_routes_to_goose(self, mock_coach, mock_run):
         from metabolon.organelles.scout import dispatch
 
-        # Recipe file exists
-        import pathlib
-        mock_recipe = MagicMock()
-        mock_recipe.exists.return_value = True
-        mock_recipe.__str__ = lambda self: "/fake/recipe.yaml"
+        # Create a fake recipe file so the skill validation passes
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmpdir:
+            skill_dir = Path(tmpdir) / "germline" / "membrane" / "receptors" / "etiology"
+            skill_dir.mkdir(parents=True)
+            recipe = skill_dir / "recipe.yaml"
+            recipe.write_text("name: etiology\n")
 
-        original_home = pathlib.Path.home
-        def fake_home(self):
-            result = original_home()
-            # We need the / operator to produce our mock for the recipe path
-            return _FakePathHome(result, mock_recipe)
+            fake_home = Path(tmpdir)
+            mock_run.return_value = (0, "skill output")
 
-        with patch.object(pathlib.Path, "home", fake_home):
-            mock_subprocess.run.return_value = MagicMock(returncode=0, stdout="skill output\n")
-            result = dispatch(
-                "diagnose the bug", mode="skill", skill="etiology"
-            )
+            with patch.object(Path, "home", return_value=fake_home):
+                result = dispatch(
+                    "diagnose the bug", mode="skill", skill="etiology"
+                )
+
         assert result["success"] is True
         assert result["backend"] == "goose"
 
@@ -105,27 +96,27 @@ class TestDispatchSkillLoadsRecipe:
 class TestDispatchMcpUsesDroid:
     """dispatch(mode='mcp') routes to droid with --auto high."""
 
-    @patch("metabolon.organelles.scout.subprocess")
+    @patch("metabolon.organelles.scout._run_captured")
     @patch("metabolon.organelles.scout._inject_coaching", side_effect=lambda p: p)
-    def test_mcp_routes_to_droid(self, mock_coach, mock_subprocess):
+    def test_mcp_routes_to_droid(self, mock_coach, mock_run):
         from metabolon.organelles.scout import dispatch
 
-        mock_subprocess.run.return_value = MagicMock(returncode=0, stdout="mcp output\n")
+        mock_run.return_value = (0, "mcp output")
         result = dispatch("build a tool", mode="mcp")
         assert result["success"] is True
         assert result["backend"] == "droid"
         # Verify --auto high was in the command
-        call_args = mock_subprocess.run.call_args
+        call_args = mock_run.call_args
         cmd = call_args[0][0]
         assert "--auto" in cmd
         assert "high" in cmd
 
-    @patch("metabolon.organelles.scout.subprocess")
+    @patch("metabolon.organelles.scout._run_captured")
     @patch("metabolon.organelles.scout._inject_coaching", side_effect=lambda p: p)
-    def test_safe_mode_routes_to_droid(self, mock_coach, mock_subprocess):
+    def test_safe_mode_routes_to_droid(self, mock_coach, mock_run):
         from metabolon.organelles.scout import dispatch
 
-        mock_subprocess.run.return_value = MagicMock(returncode=0, stdout="audit done\n")
+        mock_run.return_value = (0, "audit done")
         result = dispatch("audit this", mode="safe")
         assert result["success"] is True
         assert result["backend"] == "droid"
@@ -134,16 +125,16 @@ class TestDispatchMcpUsesDroid:
 class TestDispatchBuildMode:
     """dispatch(mode='build') routes to goose with GLM-5.1."""
 
-    @patch("metabolon.organelles.scout.subprocess")
+    @patch("metabolon.organelles.scout._run_captured")
     @patch("metabolon.organelles.scout._inject_coaching", side_effect=lambda p: p)
-    def test_build_uses_goose(self, mock_coach, mock_subprocess):
+    def test_build_uses_goose(self, mock_coach, mock_run):
         from metabolon.organelles.scout import dispatch
 
-        mock_subprocess.run.return_value = MagicMock(returncode=0, stdout="built it\n")
+        mock_run.return_value = (0, "built it")
         result = dispatch("implement feature X", mode="build")
         assert result["success"] is True
         assert result["backend"] == "goose"
-        call_args = mock_subprocess.run.call_args
+        call_args = mock_run.call_args
         cmd = call_args[0][0]
         # GLM-5.1 for build mode
         assert "GLM-5.1" in cmd
@@ -159,8 +150,8 @@ class TestMcpToolWrapsOrganelle:
 
     @patch("metabolon.organelles.scout.dispatch")
     def test_returns_effector_result(self, mock_dispatch):
-        from metabolon.morphology.base import EffectorResult
         from metabolon.enzymes.pseudopod import scout_dispatch
+        from metabolon.morphology.base import EffectorResult
 
         mock_dispatch.return_value = {
             "success": True,
@@ -176,8 +167,8 @@ class TestMcpToolWrapsOrganelle:
 
     @patch("metabolon.organelles.scout.dispatch")
     def test_failure_propagates(self, mock_dispatch):
-        from metabolon.morphology.base import EffectorResult
         from metabolon.enzymes.pseudopod import scout_dispatch
+        from metabolon.morphology.base import EffectorResult
 
         mock_dispatch.return_value = {
             "success": False,
@@ -221,68 +212,40 @@ class TestRunEval:
     """run_eval reads sortase traces and returns structured summary."""
 
     def test_no_log_returns_error(self):
+        import metabolon.organelles.scout as scout_mod
         from metabolon.organelles.scout import run_eval
 
-        with patch("metabolon.organelles.scout.Path") as mock_path_cls:
-            mock_log = MagicMock()
-            mock_log.exists.return_value = False
-            mock_home = MagicMock()
-            mock_home.__truediv__ = lambda s, o: mock_log
-            mock_path_cls.home.return_value = mock_home
-            import pathlib
-            with patch.object(pathlib.Path, "home", return_value=mock_home):
-                result = run_eval()
+        # Patch the module-level SORTASE_LOG to a non-existent path
+        fake_log = Path("/tmp/nonexistent_sortase_log_for_test.jsonl")
+        with patch.object(scout_mod, "SORTASE_LOG", fake_log):
+            result = run_eval()
         assert result["success"] is False
         assert "no sortase log" in result["output"].lower()
 
     def test_eval_returns_summary(self):
+        import metabolon.organelles.scout as scout_mod
         from metabolon.organelles.scout import run_eval
 
-        import json
         traces = [
             json.dumps({"tool": "scout", "success": True, "duration_s": 5.0}),
-            json.dumps({"tool": "scout", "success": False, "duration_s": 10.0, "failure_reason": "timeout"}),
+            json.dumps({"tool": "scout", "success": False, "duration_s": 10.0,
+                        "failure_reason": "timeout"}),
         ]
         fake_file = "\n".join(traces)
-        mock_log = MagicMock()
-        mock_log.exists.return_value = True
 
-        mock_home = MagicMock()
-        # Need the / operator chain: home() / ".local/..." / "log.jsonl"
-        def home_div(other):
-            if "local" in other or "log" in other:
-                return mock_log
-            return MagicMock()
-        mock_home.__truediv__ = home_div
+        # Use a real temp file so open() works naturally
+        import tempfile
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".jsonl", delete=False) as f:
+            f.write(fake_file)
+            f.flush()
+            fake_log_path = Path(f.name)
 
-        import pathlib
-        with patch.object(pathlib.Path, "home", return_value=mock_home):
-            with patch("builtins.open", MagicMock(return_value=iter(fake_file.splitlines()))):
+        try:
+            with patch.object(scout_mod, "SORTASE_LOG", fake_log_path):
                 result = run_eval(count=20, failures_only=False)
+        finally:
+            fake_log_path.unlink(missing_ok=True)
 
         assert result["success"] is True
         assert "output" in result
         assert "2" in result["output"]  # total traces
-
-
-# ---------------------------------------------------------------------------
-# Helper for fake Path.home
-# ---------------------------------------------------------------------------
-
-
-class _FakePathHome:
-    """Fake Path that intercepts / operator for recipe path detection."""
-    def __init__(self, real_home, mock_recipe):
-        self._real = real_home
-        self._mock_recipe = mock_recipe
-
-    def __truediv__(self, other):
-        if "recipe.yaml" in str(other) or "receptors" in str(other):
-            # Chain: germline -> membrane -> receptors -> skill -> recipe.yaml
-            return _FakePathHome(self._real, self._mock_recipe)
-        if str(other).endswith("recipe.yaml"):
-            return self._mock_recipe
-        return self._real / other
-
-    def __str__(self):
-        return str(self._real)
