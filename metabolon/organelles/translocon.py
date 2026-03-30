@@ -100,7 +100,7 @@ def _read_dir_context(directory: str, glob_pattern: str = "*.py") -> str:
         if cumulative > _TOTAL_SIZE_CAP:
             skipped += 1
             continue
-        parts.append(f"### {f.name}\n```\ncontent\n```")
+        parts.append(f"### {f.name}\n```\n{content}\n```")
     if skipped:
         logger.info(
             "_read_dir_context: skipped %d file(s) after reaching %d byte cap",
