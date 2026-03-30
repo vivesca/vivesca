@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import json
-import time
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -54,8 +53,8 @@ def test_watch_moves_done_on_success(tmp_path: Path) -> None:
     assert not (watch_dir / "plan-a.md").exists()
 
 
-def test_watch_moves_failed_on_error(tmp_path: Path) -> None:
-    """Failed plans move to failed/ subdirectory."""
+def test_watch_moves_done_on_failure(tmp_path: Path) -> None:
+    """Failed plans still move to done/ for completed overnight review."""
     watch_dir = tmp_path / "watch"
     watch_dir.mkdir()
     project_dir = tmp_path / "project"
@@ -83,9 +82,9 @@ def test_watch_moves_failed_on_error(tmp_path: Path) -> None:
             catch_exceptions=False,
         )
 
-    failed_dir = watch_dir / "failed"
-    assert failed_dir.exists()
-    assert (failed_dir / "plan-b.md").exists()
+    done_dir = watch_dir / "done"
+    assert done_dir.exists()
+    assert (done_dir / "plan-b.md").exists()
     assert not (watch_dir / "plan-b.md").exists()
 
 
@@ -112,6 +111,7 @@ def test_watch_summary_line(tmp_path: Path) -> None:
         patch("metabolon.sortase.cli.decompose_plan", return_value=[MagicMock(name="plan-c", description="do stuff")]),
         patch("metabolon.sortase.cli.route_description", return_value=MagicMock(tool="droid")),
         patch("metabolon.sortase.cli.execute_tasks", return_value=[mock_result]),
+        patch("time.monotonic", side_effect=[100.0, 112.3]),
         patch("time.sleep", side_effect=KeyboardInterrupt),
     ):
         result = runner.invoke(
@@ -146,6 +146,7 @@ def test_watch_summary_line_failure(tmp_path: Path) -> None:
         patch("metabolon.sortase.cli.decompose_plan", return_value=[MagicMock(name="plan-d", description="do stuff")]),
         patch("metabolon.sortase.cli.route_description", return_value=MagicMock(tool="gemini")),
         patch("metabolon.sortase.cli.execute_tasks", return_value=[mock_result]),
+        patch("time.monotonic", side_effect=[200.0, 245.7]),
         patch("time.sleep", side_effect=KeyboardInterrupt),
     ):
         result = runner.invoke(
@@ -183,6 +184,7 @@ def test_watch_log_file(tmp_path: Path) -> None:
         patch("metabolon.sortase.cli.decompose_plan", return_value=[MagicMock(name="plan-e", description="do stuff")]),
         patch("metabolon.sortase.cli.route_description", return_value=MagicMock(tool="droid")),
         patch("metabolon.sortase.cli.execute_tasks", return_value=[mock_result]),
+        patch("time.monotonic", side_effect=[300.0, 308.1]),
         patch("time.sleep", side_effect=KeyboardInterrupt),
     ):
         result = runner.invoke(
@@ -202,7 +204,7 @@ def test_watch_log_file(tmp_path: Path) -> None:
 
 
 def test_watch_max_concurrent_flag(tmp_path: Path) -> None:
-    """Watch accepts --max-concurrent and respects it."""
+    """Watch accepts --max-concurrent and schedules all discovered plans."""
     watch_dir = tmp_path / "watch"
     watch_dir.mkdir()
     project_dir = tmp_path / "project"
@@ -211,12 +213,10 @@ def test_watch_max_concurrent_flag(tmp_path: Path) -> None:
     for i in range(4):
         _make_plan(watch_dir, f"plan-{i}.md")
 
-    results_sequence = []
     call_log = []
 
     def fake_execute_tasks(tasks, project_dir_arg, tool_by_task, **kwargs):
-        max_concurrent = kwargs.get("max_concurrent", 1)
-        call_log.append({"n_tasks": len(tasks), "max_concurrent": max_concurrent})
+        call_log.append({"n_tasks": len(tasks), "timeout_sec": kwargs.get("timeout_sec")})
         mock_result = MagicMock()
         mock_result.success = True
         mock_result.task_name = tasks[0].name
@@ -241,10 +241,11 @@ def test_watch_max_concurrent_flag(tmp_path: Path) -> None:
 
     # All 4 plans should have been discovered and executed
     assert len(call_log) == 4
+    assert all(entry["timeout_sec"] == 600 for entry in call_log)
 
 
-def test_watch_exception_moves_to_failed(tmp_path: Path) -> None:
-    """Plans that raise exceptions move to failed/ and get logged."""
+def test_watch_exception_moves_to_done(tmp_path: Path) -> None:
+    """Plans that raise exceptions move to done/ and get logged as failed."""
     watch_dir = tmp_path / "watch"
     watch_dir.mkdir()
     project_dir = tmp_path / "project"
@@ -257,6 +258,7 @@ def test_watch_exception_moves_to_failed(tmp_path: Path) -> None:
     runner = CliRunner()
     with (
         patch("metabolon.sortase.cli.decompose_plan", side_effect=RuntimeError("boom")),
+        patch("time.monotonic", side_effect=[400.0, 401.5]),
         patch("time.sleep", side_effect=KeyboardInterrupt),
     ):
         result = runner.invoke(
@@ -265,8 +267,8 @@ def test_watch_exception_moves_to_failed(tmp_path: Path) -> None:
             catch_exceptions=False,
         )
 
-    failed_dir = watch_dir / "failed"
-    assert (failed_dir / "plan-f.md").exists()
+    done_dir = watch_dir / "done"
+    assert (done_dir / "plan-f.md").exists()
     # Exception path should still write log entry
     entries = [json.loads(line) for line in log_file.read_text(encoding="utf-8").strip().splitlines()]
     assert len(entries) == 1
@@ -287,6 +289,7 @@ def test_watch_log_file_with_exception(tmp_path: Path) -> None:
     runner = CliRunner()
     with (
         patch("metabolon.sortase.cli.decompose_plan", side_effect=ValueError("parse error")),
+        patch("time.monotonic", side_effect=[500.0, 503.2]),
         patch("time.sleep", side_effect=KeyboardInterrupt),
     ):
         result = runner.invoke(

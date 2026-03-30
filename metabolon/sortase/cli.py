@@ -168,6 +168,14 @@ def exec_command(
         if not quiet:
             console.print(f"[bold green]Committed[/bold green] ({changed_files} files changed)")
 
+    if entry["success"] and not dry_run:
+        done_dir = plan_file.parent / "done"
+        done_dir.mkdir(exist_ok=True)
+        archive_dest = done_dir / plan_file.name
+        shutil.move(str(plan_file), str(archive_dest))
+        if not quiet:
+            console.print(f"[dim]Archived plan to {archive_dest}[/dim]")
+
 
 @main.command("graph-exec")
 @click.argument("plan_file", type=click.Path(exists=True, path_type=Path))
@@ -437,7 +445,7 @@ def status() -> None:
 @click.option("-b", "--backend", type=click.Choice(["gemini", "codex", "goose", "opencode", "cc-glm", "droid", "crush"]))
 @click.option("--interval", default=30, show_default=True, type=int, help="Poll interval in seconds.")
 @click.option("--timeout", default=600, show_default=True, type=int)
-@click.option("--max-concurrent", default=2, show_default=True, type=int, help="Max parallel executions.")
+@click.option("--max-concurrent", default=2, show_default=True, type=click.IntRange(min=1), help="Max parallel executions.")
 @click.option("--log-file", default=None, type=click.Path(path_type=Path), help="Write results JSONL for morning review.")
 def watch(
     watch_dir: Path,
@@ -452,8 +460,7 @@ def watch(
 
     running_dir = watch_dir / "running"
     done_dir = watch_dir / "done"
-    failed_dir = watch_dir / "failed"
-    for d in (running_dir, done_dir, failed_dir):
+    for d in (running_dir, done_dir):
         d.mkdir(exist_ok=True)
 
     seen: set[str] = set()
@@ -505,15 +512,12 @@ def watch(
                     tasks, project_dir, tool_by_task,
                     serial=False, timeout_sec=timeout, verbose=False,
                 )
-                duration_s = round(sum(a.duration_s for r in results for a in r.attempts), 1)
                 success = all(r.success for r in results)
-                final_dest = done_dir / dest.name if success else failed_dir / dest.name
-                shutil.move(str(dest), str(final_dest))
             except Exception as exc:
-                duration_s = round(time.monotonic() - start, 1)
                 error_msg = str(exc)
-                final_dest = failed_dir / dest.name
-                shutil.move(str(dest), str(final_dest))
+            finally:
+                duration_s = round(time.monotonic() - start, 1)
+                shutil.move(str(dest), str(done_dir / dest.name))
 
             result_label = "success" if success else "fail"
             console.print(f"  TASK: {plan_name} | RESULT: {result_label} | DURATION: {duration_s}s")

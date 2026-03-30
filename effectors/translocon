@@ -421,9 +421,13 @@ def main(argv: list[str] | None = None) -> int:
         prompt = "READ ONLY. Do not create, modify, or delete any files. " + prompt
 
     if args.dry_run:
-        cmd = _build_goose_cmd(model, prompt, recipe_path) if backend == "goose" else \
-              _build_droid_cmd(model, directory, prompt, auto)
-        print(" ".join(cmd))
+        header = f"# translocon dry-run: backend={backend} model={model} dir={directory}"
+        if recipe_path:
+            header += f" recipe={recipe_path}"
+        if auto:
+            header += f" auto={auto}"
+        print(header, file=sys.stderr)
+        print(prompt)
         return 0
     if args.verbose:
         print(f"translocon: {chain} / {model} in {directory}", file=sys.stderr)
