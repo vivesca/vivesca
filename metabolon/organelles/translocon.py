@@ -136,7 +136,7 @@ def _direct_api(prompt: str, model: str = "glm-4.7") -> dict:
             return {"success": True, "output": data["content"][0]["text"], "returncode": 0}
         except urllib.error.HTTPError as exc:
             if exc.code in (429, 500) and attempt < max_retries:
-                time.sleep(1)
+                time.sleep(2)
                 continue
             return {"success": False, "output": f"direct API failed: {exc}", "returncode": 1}
         except Exception as exc:
