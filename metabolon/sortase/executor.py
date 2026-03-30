@@ -671,6 +671,34 @@ def _remove_worktree(project_dir: Path, worktree_path: Path, branch: str) -> Non
     )
 
 
+def _force_remove_worktree(project_dir: Path, worktree_path: Path) -> None:
+    """Remove a worktree by looking up its branch name automatically."""
+    result = subprocess.run(
+        ["git", "worktree", "list", "--porcelain"],
+        cwd=project_dir,
+        capture_output=True,
+        text=True,
+    )
+    branch = None
+    found_path = False
+    resolved_wt = str(worktree_path.resolve())
+    for line in result.stdout.splitlines():
+        if line.startswith("worktree "):
+            found_path = Path(line[len("worktree "):]).resolve() == Path(resolved_wt)
+        if found_path and line.startswith("branch refs/heads/"):
+            branch = line[len("branch refs/heads/"):]
+            break
+    if branch:
+        _remove_worktree(project_dir, worktree_path, branch)
+    else:
+        # Fallback: just force-remove the directory
+        subprocess.run(
+            ["git", "worktree", "remove", "--force", str(worktree_path)],
+            cwd=project_dir,
+            capture_output=True,
+        )
+
+
 def _reset_git_state(project_dir: Path, task_name: str, verbose: bool = False) -> None:
     """Reset git working tree to clean state between retries.
 
