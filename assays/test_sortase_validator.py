@@ -328,6 +328,7 @@ class TestScanForPlaceholders:
         issues = scan_for_placeholders(tmp_path, ["code.py"])
         assert len(issues) == 1
         assert issues[0].check == "placeholder-scan"
+        assert issues[0].severity == "warning"
 
     def test_brand_new_file_with_marker_flagged(self, tmp_path):
         """A brand-new file (not in HEAD) with a marker should be flagged."""
@@ -337,6 +338,7 @@ class TestScanForPlaceholders:
         f.write_text(f"# {_MARKER_TODO}: new file marker\n", encoding="utf-8")
         issues = scan_for_placeholders(tmp_path, ["new_file.py"])
         assert len(issues) == 1
+        assert issues[0].severity == "warning"
 
     def test_preexisting_marker_plus_new_marker_flagged(self, tmp_path):
         """File with a pre-existing marker that also gets a NEW marker should be flagged."""
@@ -356,6 +358,7 @@ class TestScanForPlaceholders:
         f.write_text(f"# {_MARKER_TODO}: old\n# {_MARKER_FIXME}: new\nprint('x')\n", encoding="utf-8")
         issues = scan_for_placeholders(tmp_path, ["code.py"])
         assert len(issues) == 1
+        assert issues[0].severity == "warning"
 
 
 # ---------------------------------------------------------------------------
