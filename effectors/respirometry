@@ -25,7 +25,7 @@ import subprocess
 import sys
 import urllib.request
 from collections import Counter
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Optional, Tuple
 
@@ -352,11 +352,21 @@ def get_usage() -> dict[str, Any]:
 
 
 def _weekly_pct(usage: dict) -> float:
-    return float(usage.get("seven_day", {}).get("utilization", -1))
+    return _normalise_pct(usage.get("seven_day", {}).get("utilization", -1))
 
 
 def _sonnet_pct(usage: dict) -> float:
-    return float(usage.get("seven_day_sonnet", {}).get("utilization", -1))
+    return _normalise_pct(usage.get("seven_day_sonnet", {}).get("utilization", -1))
+
+
+def _normalise_pct(value: Any) -> float:
+    try:
+        percentage = float(value)
+    except (TypeError, ValueError):
+        return -1.0
+    if 0.0 <= percentage <= 1.0:
+        return percentage * 100.0
+    return percentage
 
 
 def get_budget(mode: str = "interactive") -> str:
@@ -391,27 +401,44 @@ def get_budget(mode: str = "interactive") -> str:
 # ---------------------------------------------------------------------------
 
 
-def _derive_session_stats() -> tuple[int, int]:
-    """Derive session_count and goose_dispatches from sortase log for current week.
+def _snapshot_window(reference_time: Optional[datetime] = None) -> tuple[date, date]:
+    snapshot_time = reference_time or datetime.now()
+    window_end = snapshot_time.date()
+    window_start = window_end - timedelta(days=7)
+    return window_start, window_end
 
-    session_count = number of distinct dates with sortase runs.
-    goose_dispatches = number of runs where tool == 'goose'.
-    """
+
+def _coerce_row_timestamp(row: dict[str, Any]) -> Optional[datetime]:
+    parsed_timestamp = row.get("_parsed_timestamp")
+    if isinstance(parsed_timestamp, datetime):
+        return parsed_timestamp
+
+    timestamp = row.get("timestamp")
+    if not isinstance(timestamp, str):
+        return None
+    try:
+        return datetime.fromisoformat(timestamp)
+    except ValueError:
+        return None
+
+
+def _derive_session_stats(reference_time: Optional[datetime] = None) -> tuple[int, int]:
+    """Derive session_count and goose_dispatches from sortase log for the snapshot window."""
     rows = _read_cost_rows(SORTASE_LOG)
     if not rows:
         return 0, 0
 
-    now = datetime.now()
-    week_start = now - timedelta(days=7)
-    current_rows = [
-        row for row in rows
-        if week_start <= row["_parsed_timestamp"] <= now
-    ]
+    window_start, window_end = _snapshot_window(reference_time)
 
     session_dates: set[str] = set()
     goose_dispatches = 0
-    for row in current_rows:
-        ts = row["_parsed_timestamp"]
+    for row in rows:
+        timestamp = _coerce_row_timestamp(row)
+        if timestamp is None:
+            continue
+        if not (window_start <= timestamp.date() < window_end):
+            continue
+        ts = timestamp
         session_dates.add(ts.strftime("%Y-%m-%d"))
         if str(row.get("tool", "")).strip() == "goose":
             goose_dispatches += 1
@@ -419,22 +446,20 @@ def _derive_session_stats() -> tuple[int, int]:
     return len(session_dates), goose_dispatches
 
 
-def record_snapshot() -> None:
+def record_snapshot(usage: Optional[dict[str, Any]] = None, reference_time: Optional[datetime] = None) -> None:
     """Append current week's usage stats to USAGE_HISTORY JSONL."""
-    usage = get_usage()
+    usage = usage or get_usage()
     if "error" in usage:
         return
 
     weekly = _weekly_pct(usage)
     sonnet = _sonnet_pct(usage)
-    session_count, goose_dispatches = _derive_session_stats()
+    session_count, goose_dispatches = _derive_session_stats(reference_time)
 
-    # Determine the Monday of the current week for the date label
-    now = datetime.now()
-    monday = now - timedelta(days=now.weekday())
+    window_start, _window_end = _snapshot_window(reference_time)
 
     row = {
-        "date": monday.strftime("%Y-%m-%d"),
+        "date": window_start.isoformat(),
         "weekly_pct": round(weekly, 1),
         "sonnet_pct": round(sonnet, 1),
         "session_count": session_count,
@@ -481,17 +506,15 @@ def cmd_trend() -> None:
     print(separator)
 
     for row in unique_rows:
-        # Parse Monday date to "Mon DD-DD" range
         try:
-            monday = datetime.strptime(row["date"], "%Y-%m-%d")
-            sunday = monday + timedelta(days=6)
-            month_day = monday.strftime("%b %d")
-            sunday_day = sunday.strftime("%d")
-            # If spanning months, show both months
-            if monday.month != sunday.month:
-                week_label = f"{monday.strftime('%b %d')}-{sunday.strftime('%b %d')}"
+            window_start = datetime.strptime(row["date"], "%Y-%m-%d")
+            window_end = window_start + timedelta(days=6)
+            if window_start.month != window_end.month:
+                week_label = (
+                    f"{window_start.strftime('%b %d')}-{window_end.strftime('%b %d')}"
+                )
             else:
-                week_label = f"{month_day}-{sunday_day}"
+                week_label = f"{window_start.strftime('%b %d')}-{window_end.strftime('%d')}"
         except (ValueError, KeyError):
             week_label = str(row.get("date", "?"))
 
@@ -561,7 +584,7 @@ def main() -> None:
         print(usage["error"], file=sys.stderr)
         sys.exit(1)
 
-    record_snapshot()
+    record_snapshot(usage=usage)
 
     if args.json:
         print(json.dumps(usage))

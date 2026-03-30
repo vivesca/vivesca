@@ -616,6 +616,13 @@ def _create_worktree(project_dir: Path, task_name: str) -> Path:
         capture_output=True,
         check=True,
     )
+    # Symlink .claude/ from the original project so cc-glm fallback can
+    # find project rules and memory.  The worktree is a clean checkout and
+    # won't carry untracked directories like .claude/.
+    source_claude = project_dir / ".claude"
+    target_claude = worktree_path / ".claude"
+    if source_claude.is_dir() and not target_claude.exists():
+        target_claude.symlink_to(source_claude)
     return worktree_path
 
 
@@ -818,11 +825,7 @@ async def execute_tasks(
             if task_result and task_result.success:
                 _merge_worktree(project_dir, wt)
             else:
-                subprocess.run(
-                    ["git", "worktree", "remove", "--force", str(wt)],
-                    cwd=project_dir,
-                    capture_output=True,
-                )
+                _force_remove_worktree(project_dir, wt)
 
     return results
 
