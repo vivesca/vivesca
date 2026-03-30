@@ -1,4 +1,4 @@
-"""sortase package — absorbed into metabolon."""
+"""sortase package."""
 
 __all__ = ["__version__"]
 
