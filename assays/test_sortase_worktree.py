@@ -150,6 +150,69 @@ def test_worktree_flag_exists_in_cli():
     assert "--worktree" in result.output
 
 
+# ── _merge_worktree conflict detection ─────────────────────
+
+
+def test_merge_worktree_conflict_both_sides_modified(tmp_path: Path):
+    """If main and worktree branch both modify the same file, abort with conflict warning."""
+    repo = _init_git_repo(tmp_path)
+    worktree_path = _create_worktree(repo, "task-conflict")
+
+    # Modify file in worktree branch
+    readme_wt = worktree_path / "README.md"
+    readme_wt.write_text("changed by worktree\n")
+    subprocess.run(["git", "add", "-A"], cwd=worktree_path, capture_output=True, check=True)
+    subprocess.run(
+        ["git", "commit", "-m", "worktree change"],
+        cwd=worktree_path, capture_output=True, check=True,
+    )
+
+    # Modify the same file on main branch
+    readme_main = repo / "README.md"
+    readme_main.write_text("changed by main\n")
+    subprocess.run(["git", "add", "-A"], cwd=repo, capture_output=True, check=True)
+    subprocess.run(
+        ["git", "commit", "-m", "main change"],
+        cwd=repo, capture_output=True, check=True,
+    )
+
+    success, detail = _merge_worktree(repo, worktree_path)
+    assert success is False
+    assert "conflict" in detail.lower()
+    assert "README.md" in detail
+    # Main branch content should be preserved (not overwritten)
+    assert readme_main.read_text() == "changed by main\n"
+
+
+def test_merge_worktree_different_files_no_conflict(tmp_path: Path):
+    """If worktree and main modified different files, merge should succeed."""
+    repo = _init_git_repo(tmp_path)
+    worktree_path = _create_worktree(repo, "task-noconflict")
+
+    # Modify README in worktree
+    readme_wt = worktree_path / "README.md"
+    readme_wt.write_text("changed by worktree\n")
+    subprocess.run(["git", "add", "-A"], cwd=worktree_path, capture_output=True, check=True)
+    subprocess.run(
+        ["git", "commit", "-m", "worktree change"],
+        cwd=worktree_path, capture_output=True, check=True,
+    )
+
+    # Add a NEW file on main (not modifying README)
+    new_file = repo / "main_only.txt"
+    new_file.write_text("main addition\n")
+    subprocess.run(["git", "add", "-A"], cwd=repo, capture_output=True, check=True)
+    subprocess.run(
+        ["git", "commit", "-m", "main new file"],
+        cwd=repo, capture_output=True, check=True,
+    )
+
+    success, detail = _merge_worktree(repo, worktree_path)
+    assert success is True
+    assert (repo / "README.md").read_text() == "changed by worktree\n"
+    assert (repo / "main_only.txt").read_text() == "main addition\n"
+
+
 # ── execute_tasks with worktree=True (serial path) ─────────
 
 
