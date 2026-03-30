@@ -227,8 +227,8 @@ class TestRunEval:
         from metabolon.organelles.translocon import run_eval
 
         traces = [
-            json.dumps({"tool": "scout", "success": True, "duration_s": 5.0}),
-            json.dumps({"tool": "scout", "success": False, "duration_s": 10.0,
+            json.dumps({"tool": "translocon", "success": True, "duration_s": 5.0}),
+            json.dumps({"tool": "translocon", "success": False, "duration_s": 10.0,
                         "failure_reason": "timeout"}),
         ]
         fake_file = "\n".join(traces)

@@ -97,7 +97,7 @@ def test_mcp_mode_skips_direct_api():
     assert rc == 0
     fake_api.assert_not_called()
     cmd = mock_run.call_args[0][0]
-    assert cmd[0] == "droid"
+    assert cmd[0].endswith("droid")
     assert "--auto" in cmd
     assert "high" in cmd
 
@@ -111,7 +111,7 @@ def test_backend_override_skips_direct():
     assert rc == 0
     fake_api.assert_not_called()
     cmd = mock_run.call_args[0][0]
-    assert cmd[0] == "droid"
+    assert cmd[0].endswith("droid")
 
 
 def test_model_override():
@@ -163,7 +163,7 @@ def test_goose_fallback_to_droid(tmp_path):
     assert rc == 0
     assert len(calls) == 2
     assert calls[0][0] == "goose"
-    assert calls[1][0] == "droid"
+    assert calls[1][0].endswith("droid")
 
 
 # ── _direct_api unit tests ────────────────────────────────────────
@@ -302,7 +302,7 @@ def test_skill_with_mcp_uses_droid(tmp_path):
 
     assert rc == 0
     cmd = mock_run.call_args[0][0]
-    assert cmd[0] == "droid"
+    assert cmd[0].endswith("droid")
     assert "--auto" in cmd
     # The prompt should contain the skill invocation prefix
     prompt_in_cmd = cmd[-1]
@@ -644,4 +644,4 @@ def test_chain_fallback(tmp_path):
             rc = main(["--build", str(tmp_path), "implement X"])
     assert rc == 0
     assert calls[0] == "goose"
-    assert calls[1] == "droid"
+    assert calls[1].endswith("droid")

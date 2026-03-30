@@ -80,14 +80,14 @@ def test_clean_env_removes_claudecode():
 
 
 def test_clean_env_goose_passes_through():
-    """Scout handles env vars internally — sortase passes through for goose and droid."""
+    """Translocon handles env vars internally — sortase passes through for goose and droid."""
     import os
     with patch.dict(os.environ, {"GOOGLE_API_KEY": "gk", "GEMINI_API_KEY": "gem"}):
         env = _clean_env("goose")
     assert "GOOGLE_API_KEY" in env
 
 
-def test_goose_tool_command_uses_scout():
+def test_goose_tool_command_uses_translocon():
     from pathlib import Path
     from metabolon.sortase.executor import TOOL_COMMANDS
     cmd = TOOL_COMMANDS["goose"](Path("/tmp/test"), "do something")
@@ -97,7 +97,7 @@ def test_goose_tool_command_uses_scout():
     assert "--build" in cmd
 
 
-def test_droid_tool_command_uses_scout():
+def test_droid_tool_command_uses_translocon():
     from pathlib import Path
     from metabolon.sortase.executor import TOOL_COMMANDS
     cmd = TOOL_COMMANDS["droid"](Path("/tmp/test"), "do something")
