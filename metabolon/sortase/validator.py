@@ -52,7 +52,7 @@ def check_scope(
 ) -> list[ValidationIssue]:
     if changed_files is None:
         completed = subprocess.run(
-            ["git", "diff", "--stat", "--name-only"],
+            ["git", "diff", "HEAD", "--stat", "--name-only"],
             cwd=project_dir,
             capture_output=True,
             check=False,
