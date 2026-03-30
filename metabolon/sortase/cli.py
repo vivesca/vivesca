@@ -93,6 +93,17 @@ def exec_command(
             for issue in validation_issues:
                 console.print(f"- {issue.severity}: {issue.message}")
 
+            warning_placeholder_files = {
+                issue.message.split(" in ", 1)[-1]
+                for issue in validation_issues
+                if issue.check == "placeholder-scan" and issue.severity == "warning"
+            }
+            if warning_placeholder_files:
+                console.print(
+                    f"[dim]Warning: {len(warning_placeholder_files)} placeholder marker file(s) "
+                    f"found (not blocking).[/dim]"
+                )
+
         if changed_file_list:
             console.print(f"\n[bold]Changed files[/bold] ({changed_files}):")
             for cf in changed_file_list[:10]:
