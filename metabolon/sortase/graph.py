@@ -159,6 +159,7 @@ def execute(state: SortaseState) -> dict:
                 "output": r.output[-1000:] if r.output else "",
                 "fallbacks": r.fallbacks,
                 "prompt_file": r.prompt_file,
+                "cost_estimate": r.cost_estimate,
             }
             for r in results
         ],
