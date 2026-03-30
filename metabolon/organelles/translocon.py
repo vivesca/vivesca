@@ -129,11 +129,19 @@ def _direct_api(prompt: str, model: str = "glm-4.7") -> dict:
     req.add_header("x-api-key", key)
     req.add_header("anthropic-version", "2023-06-01")
     req.add_header("content-type", "application/json")
-    try:
-        data = json.loads(urllib.request.urlopen(req, timeout=120).read())
-        return {"success": True, "output": data["content"][0]["text"], "returncode": 0}
-    except Exception as e:
-        return {"success": False, "output": f"direct API failed: {e}", "returncode": 1}
+    max_retries = 2
+    for attempt in range(max_retries + 1):
+        try:
+            data = json.loads(urllib.request.urlopen(req, timeout=120).read())
+            return {"success": True, "output": data["content"][0]["text"], "returncode": 0}
+        except urllib.error.HTTPError as exc:
+            if exc.code in (429, 500) and attempt < max_retries:
+                time.sleep(1)
+                continue
+            return {"success": False, "output": f"direct API failed: {exc}", "returncode": 1}
+        except Exception as exc:
+            return {"success": False, "output": f"direct API failed: {exc}", "returncode": 1}
+    return {"success": False, "output": "direct API failed: max retries exceeded", "returncode": 1}
 
 
 def _run_captured(cmd: list[str], **kwargs: Any) -> tuple[int, str]:
