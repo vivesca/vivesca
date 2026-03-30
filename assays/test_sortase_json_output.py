@@ -104,8 +104,7 @@ class TestJsonOutputFormat:
         )
         assert result.exit_code == 0, result.output
         # Find JSON in output (after any Rich formatting)
-        json_start = result.output.index("{")
-        data = json.loads(result.output[json_start:])
+        data = _extract_json(result.output)
 
         assert "tasks" in data
         assert len(data["tasks"]) == 1
@@ -140,8 +139,7 @@ class TestJsonOutputFormat:
             catch_exceptions=False,
         )
         assert result.exit_code == 0, result.output
-        json_start = result.output.index("{")
-        data = json.loads(result.output[json_start:])
+        data = _extract_json(result.output)
 
         assert "validation_issues" in data
         assert len(data["validation_issues"]) == 2
@@ -179,8 +177,7 @@ class TestJsonOutputFormat:
             catch_exceptions=False,
         )
         assert result.exit_code == 0, result.output
-        json_start = result.output.index("{")
-        data = json.loads(result.output[json_start:])
+        data = _extract_json(result.output)
 
         assert "total_duration_s" in data
         assert isinstance(data["total_duration_s"], (int, float))
@@ -214,8 +211,7 @@ class TestJsonOutputFormat:
             catch_exceptions=False,
         )
         assert result.exit_code == 0, result.output
-        json_start = result.output.index("{")
-        data = json.loads(result.output[json_start:])
+        data = _extract_json(result.output)
 
         # Top-level keys
         for key in ("success", "tasks", "files_changed", "validation_issues", "duration_s", "total_duration_s"):

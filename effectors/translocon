@@ -451,7 +451,6 @@ def _batch_dispatch(args: argparse.Namespace) -> int:
 
 def main_impl(args: argparse.Namespace) -> int:
     """Core dispatch logic — shared by main() and batch mode."""
-    args = _parse_args(argv)
     if args.stats:
         return _run_stats()
     if args.eval:
@@ -557,6 +556,14 @@ def main_impl(args: argparse.Namespace) -> int:
 
     _log_call(_entry(healthy_chain[-1], False))
     return 1
+
+
+def main(argv: list[str] | None = None) -> int:
+    """Entry point — parse args, route to batch or single dispatch."""
+    args = _parse_args(argv)
+    if args.batch:
+        return _batch_dispatch(args)
+    return main_impl(args)
 
 
 if __name__ == "__main__":

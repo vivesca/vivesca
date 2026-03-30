@@ -37,6 +37,36 @@ CACHE_TTL = 3600  # 1 hour in seconds
 # ---------------------------------------------------------------------------
 
 
+def _cache_key(prompt: str, model: str) -> str:
+    """Deterministic cache key from prompt + model."""
+    raw = f"{model}:{prompt}".encode()
+    return hashlib.sha256(raw).hexdigest()[:32]
+
+
+def _cache_get(key: str) -> dict | None:
+    """Return cached response if it exists and is < CACHE_TTL seconds old."""
+    path = CACHE_DIR / f"{key}.json"
+    if not path.exists():
+        return None
+    try:
+        entry = json.loads(path.read_text())
+        age = time.time() - entry.get("timestamp", 0)
+        if age < CACHE_TTL:
+            return entry["response"]
+        # Stale — remove
+        path.unlink(missing_ok=True)
+        return None
+    except (json.JSONDecodeError, KeyError):
+        return None
+
+
+def _cache_put(key: str, response: dict) -> None:
+    """Store response in cache."""
+    CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    path = CACHE_DIR / f"{key}.json"
+    path.write_text(json.dumps({"timestamp": time.time(), "response": response}))
+
+
 def _inject_coaching(prompt: str) -> str:
     """Prepend GLM coaching notes if the file exists."""
     if COACHING_NOTES.exists():
@@ -215,8 +245,22 @@ def dispatch(
     if use_direct:
         ctx = _read_dir_context(directory)
         full_prompt = (ctx + "\n\n" + prompt) if ctx else prompt
+        cache_key = _cache_key(full_prompt, resolved_model.lower())
+
+        # Check cache before API call
+        cached = _cache_get(cache_key)
+        if cached is not None:
+            elapsed = time.perf_counter() - start
+            return {
+                "success": True,
+                "output": cached["output"],
+                "backend": "direct (cached)",
+                "duration_s": round(elapsed, 2),
+            }
+
         api_result = _direct_api(full_prompt, resolved_model.lower())
         if api_result["success"]:
+            _cache_put(cache_key, {"output": api_result["output"]})
             elapsed = time.perf_counter() - start
             return {
                 "success": True,

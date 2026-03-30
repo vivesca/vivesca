@@ -92,17 +92,17 @@ class TestCheckDependencyPollution:
 
 class TestCheckScope:
     def test_under_limit_no_issues(self, tmp_path):
-        files = [f"file_{i}.py" for i in range(10)]
+        files = [f"src/file_{i}.py" for i in range(10)]
         issues = check_scope(tmp_path, max_files=20, changed_files=files)
         assert issues == []
 
     def test_exactly_at_limit_no_issues(self, tmp_path):
-        files = [f"file_{i}.py" for i in range(20)]
+        files = [f"src/file_{i}.py" for i in range(20)]
         issues = check_scope(tmp_path, max_files=20, changed_files=files)
         assert issues == []
 
     def test_over_limit_warns(self, tmp_path):
-        files = [f"file_{i}.py" for i in range(25)]
+        files = [f"src/file_{i}.py" for i in range(25)]
         issues = check_scope(tmp_path, max_files=20, changed_files=files)
         assert len(issues) == 1
         assert issues[0].check == "scope-check"
@@ -114,7 +114,7 @@ class TestCheckScope:
         assert issues == []
 
     def test_default_max_files(self, tmp_path):
-        files = [f"file_{i}.py" for i in range(21)]
+        files = [f"src/file_{i}.py" for i in range(21)]
         issues = check_scope(tmp_path, changed_files=files)
         assert len(issues) == 1
 
