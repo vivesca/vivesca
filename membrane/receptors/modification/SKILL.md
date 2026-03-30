@@ -1,6 +1,6 @@
 ---
 name: modification
-description: Refine an artifact via multi-model iteration. "refine", "polish", "iteration"
+description: Refine an artifact via multi-model iteration or solo cooling. "refine", "polish", "anneal"
 aliases: [refine, polish]
 user_invocable: true
 runtime: skill
@@ -29,6 +29,24 @@ Multiple LLM models independently review an artifact, cross-judge each other, sy
 - Factual research — use rheotaxis or web search
 - Decisions/trade-offs — use quorum
 - Time-critical with no room for iteration
+- Single-model cooling when multi-model is overkill — use solo mode (below)
+
+---
+
+## Solo Mode (single-model cooling)
+
+For artifacts that need refinement but don't warrant multi-model overhead. Absorbed from annealing.
+
+**When:** doc/spec exists but is bloated, a draft needs compression, or post-brainstorm convergence. One model, four passes.
+
+### Cooling schedule
+
+1. **HOT** — Rewrite from memory with zero fidelity constraint. Surface what the careful draft suppressed.
+2. **WARM** — Compare hot draft to original. Extract the best of each. Cut anything in neither.
+3. **COOL** — Every sentence must earn its place. Target 40-60% of warm draft word count.
+4. **COLD** — Read aloud (simulate). Flag anything that sounds wrong, any gap a reader stumbles on. Ship.
+
+**Anti-patterns:** Skipping HOT (loses the honest layer). Re-heating after COLD (return to WARM instead). One mega-pass (quenching, not annealing — produces brittle output).
 
 ---
 

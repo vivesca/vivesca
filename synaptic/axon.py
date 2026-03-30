@@ -568,6 +568,16 @@ def guard_agent(data):
     model = ti.get("model", "")
     bg = ti.get("run_in_background", False)
 
+    # Explore subagents burn Opus tokens on search/read work.
+    # translocon --build is free (flat-rate GLM).
+    if subtype == "Explore":
+        deny(
+            "Explore subagents waste Opus tokens on search/read. "
+            "Use: translocon --build <dir> \"<prompt>\" (free GLM). "
+            "Or Bash: bud \"<prompt>\" for quick exploration.",
+            "metabolic-gate",
+        )
+
     # Foreground block: buds run in background by default.
     # Foreground blocks conversation flow — the nucleus waits.
     if not bg:
@@ -802,9 +812,7 @@ def main():
             guard_grep(data)
         elif tool in ("Write", "Edit", "MultiEdit"):
             guard_write(data)
-            fp = data.get("tool_input", {}).get("file_path", "")
-            if "/code/" in fp:
-                guard_efferent(data)
+            guard_efferent(data)
         elif tool == "Read":
             guard_read(data)
         elif tool == "Agent":

@@ -1,6 +1,6 @@
 ---
 name: polarization
-description: Spawn agent teams for north-star goals overnight. "overnight", "vigilia"
+description: Spawn agent teams or single-task async dispatch. "overnight", "vigilia", "run tonight"
 user_invocable: true
 epistemics: [delegate, plan]
 ---
@@ -26,6 +26,29 @@ Runs all deterministic pre-flight checks (consumption count, budget, guard statu
 | **9+** | Overproduction. | Don't produce. Help Terry triage — which items are stale, agent-verifiable, or 5-minute fixes? |
 
 **Target:** ~75% self-sufficient outputs. If most outputs need review, the prompts are wrong — make them more specific.
+
+## Single-Task Dispatch (absorbed from kinesin)
+
+For work that must survive session end but doesn't need a full north-star team. One agent, one task.
+
+### Discipline
+
+1. **`translocation_list` first** — check what's running before dispatching. Don't duplicate.
+2. **`translocation_run`** — dispatches detached. Task name is case-sensitive.
+3. **`translocation_results`** — read output. Pair with Dawn phase (`/circadian`) rather than polling.
+4. **`translocation_cancel`** — permanent for the run. Confirm intent.
+5. **Don't poll** — check results at natural session boundaries (Dawn phase).
+
+### When to use single-task vs team
+
+| Signal | Mode |
+|--------|------|
+| One specific task, clear scope | Single-task dispatch |
+| Multiple north-star sub-goals, budget to burn | Full team protocol (below) |
+| "Run X tonight" / "schedule X for later" | Single-task |
+| "Burn tokens while I sleep" / "overnight" | Full team |
+
+---
 
 ## Core Protocol
 

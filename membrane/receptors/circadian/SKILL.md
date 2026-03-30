@@ -14,6 +14,10 @@ triggers:
   - morning brief
   - evening routine
   - what ran overnight
+  - polarity
+  - co-trending
+  - gradient
+  - focus
 context: fork
 epistemics: [plan, monitor]
 model: sonnet
@@ -69,6 +73,11 @@ If the user explicitly says "morning brief" after 10am or "evening routine" befo
 4. **LinkedIn job alerts** (post-noon only) — if unchecked flags exist, surface briefly
 5. **Overdue and today's TODO** — from Praxis.md, max 5 items, most time-sensitive first
 6. **Goose task queue** — surface count of done/ tasks needing review. If any exist, prompt CC to read `done/*.md`, check the `## Result` section, and approve or redispatch.
+7. **Focus sensing (gradient)** — when user asks "what should I focus on?" or priority planning:
+   - Run `proprioception_gradient` (default 7-day; 14 for career/health, 3 for recent spikes)
+   - Read topology: `independent` 2-sensor > `adjacent` 2-sensor. Coverage >= 2 is confirmed.
+   - `diffuse` = no clear axis — report as isotropic, don't force interpretation
+   - If polarity diverges from stated goals (North Star.md), surface the gap explicitly
 
 ### Time-aware synthesis
 
