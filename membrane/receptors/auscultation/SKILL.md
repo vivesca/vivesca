@@ -1,6 +1,6 @@
 ---
 name: auscultation
-description: Listen to system internals — log patterns, error frequencies, timing signatures.
+description: Passive log listening — spot error patterns and timing anomalies.
 user_invocable: true
 model: sonnet
 context: fork

@@ -1,6 +1,6 @@
 ---
 name: proliferation
-description: Overproduce buds/skills/colonies for a domain; let selection sort variants.
+description: Overproduce skill variants for a domain; let selection pick. "proliferate"
 user_invocable: true
 context: fork
 ---

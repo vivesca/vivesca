@@ -1,6 +1,6 @@
 ---
 name: transcription
-description: Collaborative design before building — one question at a time, right-sized spec.
+description: Collaborative design before building — one question at a time. "let's build"
 user_invocable: true
 epistemics: [design, plan]
 ---

@@ -1,6 +1,6 @@
 ---
 name: etiology
-description: Systematic diagnosis — broken, stopped working, not found, regression, error, bug, debugging. Also systemic failures — skipped steps, misfire, process breakdown, repeated mistakes.
+description: Root-cause diagnosis for bugs and process failures. "broken", "debug"
 model: sonnet
 epistemics: [debug, incident, postmortem, fix]
 ---

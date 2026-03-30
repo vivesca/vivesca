@@ -1,6 +1,6 @@
 ---
 name: autophagy
-description: Growth-mode: Terry forms view first, then I challenge. "/autophagy", "coach me"
+description: Coach mode — Terry states position, I push back. "/autophagy", "coach me"
 epistemics: [learn, reflect]
 ---
 

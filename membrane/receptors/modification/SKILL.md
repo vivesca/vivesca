@@ -1,6 +1,6 @@
 ---
 name: modification
-description: Multi-model iterative refinement of artifacts. "refine", "polish", "review"
+description: Refine an artifact via multi-model iteration. "refine", "polish", "iteration"
 aliases: [refine, polish]
 user_invocable: true
 runtime: skill

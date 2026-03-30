@@ -1,6 +1,6 @@
 ---
 name: histochemistry
-description: Evidence before completion claims — verify, read output, then assert.
+description: Verify output before claiming done — read evidence, then assert.
 model: sonnet
 epistemics: [build, debug]
 ---

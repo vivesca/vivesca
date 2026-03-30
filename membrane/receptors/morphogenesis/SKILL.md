@@ -1,6 +1,6 @@
 ---
 name: morphogenesis
-description: Generate images via Gemini image models (Nano Banana Pro, Imagen). "generate image", "draw"
+description: Generate images via Gemini models. "generate image", "draw", "create image"
 user_invocable: true
 triggers:
   - morphogenesis

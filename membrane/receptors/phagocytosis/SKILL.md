@@ -1,6 +1,6 @@
 ---
 name: phagocytosis
-description: Classify content, extract insights, save a chromatin note — URL or pasted content.
+description: Classify content, extract insights, save as chromatin note. URL or pasted text.
 model: sonnet
 user_invocable: true
 context: fork

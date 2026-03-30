@@ -1,6 +1,6 @@
 ---
 name: pinocytosis
-description: Fetch web content — route by cargo type, fallback chain. "browse"
+description: Fetch web content with smart routing and fallback chain. "browse", "fetch URL"
 user_invocable: false
 ---
 

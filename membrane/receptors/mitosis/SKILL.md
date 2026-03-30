@@ -1,6 +1,6 @@
 ---
 name: mitosis
-description: Monthly review — parallel auditors (financial, health, system, peer) + maintenance, then cross-domain synthesis into prioritized monthly plan. "monthly", "monthly review", "run monthly"
+description: Monthly review — parallel audits + cross-domain synthesis. "monthly"
 model: opus
 disable-model-invocation: true
 context: fork

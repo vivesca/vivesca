@@ -1,6 +1,6 @@
 ---
 name: kinesin
-description: Dispatch and monitor async agents that must survive session end.
+description: Dispatch async agents that survive session end and monitor their results.
 model: sonnet
 ---
 

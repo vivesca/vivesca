@@ -1,6 +1,6 @@
 ---
 name: assay
-description: Detect active experiments and probe during sessions. "assay"
+description: Check for running experiments and probe their state. "assay"
 user_invocable: false
 ---
 

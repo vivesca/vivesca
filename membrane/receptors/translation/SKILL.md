@@ -1,6 +1,6 @@
 ---
 name: translation
-description: Turn a design into an implementation plan with TDD steps, exact paths, code.
+description: Turn approved design into TDD plan with exact paths and code snippets.
 user_invocable: true
 context: fork
 epistemics: [plan, delegate]

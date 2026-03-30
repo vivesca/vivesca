@@ -1,6 +1,6 @@
 ---
 name: replication
-description: Hierarchical agent research org for open-ended exploration on git worktrees.
+description: Hierarchical agent research on git worktrees. "research", "explore"
 triggers:
   - "research agents"
   - "agent org"

@@ -1,6 +1,6 @@
 ---
 name: meiosis
-description: Quarterly review — direction, career trajectory, finances, investments, networking. March, June, September, December. "quarterly", "quarterly review", "q1 review", "q2 review", "q3 review", "q4 review"
+description: Quarterly review — direction, finances, career. Mar/Jun/Sep/Dec. "quarterly"
 user_invocable: true
 disable-model-invocation: true
 context: fork

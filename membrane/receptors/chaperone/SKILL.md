@@ -1,6 +1,6 @@
 ---
 name: chaperone
-description: Post-implementation propagation — ensure code changes reach skills, memories, routing.
+description: Propagate code changes to skills, memories, and routing after implementation.
 user_invocable: false
 ---
 

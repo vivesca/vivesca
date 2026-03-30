@@ -1,6 +1,6 @@
 ---
 name: methylation
-description: Weekly crystallization — turn repair experience into permanent probes and patterns.
+description: Crystallize repair lessons into permanent probes and patterns. "crystallize"
 user_invocable: true
 triggers:
   - methylation

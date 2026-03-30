@@ -1,6 +1,6 @@
 ---
 name: ecphory
-description: Cue-routed retrieval across memory stores for prior-session data and decisions.
+description: Recall prior-session data and decisions by cue. Not for new research.
 user_invocable: true
 model: sonnet
 epistemics: [research, learn]

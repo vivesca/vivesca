@@ -1,6 +1,6 @@
 ---
 name: endosymbiosis
-description: Absorb an external tool into the organism with full integration. lustro pattern.
+description: Integrate an external tool as a first-class organelle. "absorb"
 user_invocable: true
 model: sonnet
 context: fork

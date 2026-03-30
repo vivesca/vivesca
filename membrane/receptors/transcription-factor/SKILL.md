@@ -1,6 +1,6 @@
 ---
 name: transcription-factor
-description: Capture structured decisions with bouncer pattern — surfaces past similar ones.
+description: Log structured decisions with bouncer pattern — surfaces past similar ones.
 user_invocable: true
 epistemics: [decide]
 ---

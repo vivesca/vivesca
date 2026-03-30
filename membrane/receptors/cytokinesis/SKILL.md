@@ -1,6 +1,6 @@
 ---
 name: cytokinesis
-description: Consolidate while context is hot — capture what dies with the session
+description: Capture session learnings before context is lost. "wrap up", "end of session"
 cli: cytokinesis
 user_invocable: true
 context: inline

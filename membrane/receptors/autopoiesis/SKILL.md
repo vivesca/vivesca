@@ -1,6 +1,6 @@
 ---
 name: autopoiesis
-description: Organism self-creation cycle — detect, repair, learn, grow, design.
+description: Self-repair loop — detect organism gaps, fix, learn from the fix. "self-repair"
 user_invocable: false
 ---
 

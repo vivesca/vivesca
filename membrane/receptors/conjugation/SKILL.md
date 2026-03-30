@@ -1,6 +1,6 @@
 ---
 name: conjugation
-description: Cross-pollinate working patterns between systems. "conjugation", "borrow design"
+description: Borrow patterns from one system to improve another. "conjugation", "borrow"
 user_invocable: true
 model: sonnet
 context: fork

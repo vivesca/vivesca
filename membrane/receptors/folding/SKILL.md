@@ -1,6 +1,6 @@
 ---
 name: folding
-description: Execute an implementation plan — delegate, verify, review, ship.
+description: Execute an implementation plan end-to-end — delegate, verify, ship.
 model: sonnet
 user_invocable: true
 allowed-tools:

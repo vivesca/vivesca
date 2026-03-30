@@ -1,6 +1,6 @@
 ---
 name: cytometry
-description: Audit system autonomy — classify subsystems as self-governing or gated.
+description: Classify subsystems as self-governing vs human-gated. "autonomy audit"
 user_invocable: true
 model: sonnet
 context: fork

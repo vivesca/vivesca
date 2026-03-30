@@ -1,6 +1,6 @@
 ---
 name: endosomal
-description: Email triage — search, classify, batch-archive noise; preserve action items.
+description: Triage email — classify, archive noise, extract action items. "email", "inbox"
 model: sonnet
 ---
 

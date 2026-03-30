@@ -1,6 +1,6 @@
 ---
 name: endocytosis
-description: Mine implicit LLM knowledge into permanent, always-loaded reference skills.
+description: Extract tacit LLM knowledge into permanent reference skills. "mine knowledge"
 user_invocable: true
 tags: [meta, knowledge, skills]
 context: fork

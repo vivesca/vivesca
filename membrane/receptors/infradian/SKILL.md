@@ -1,6 +1,6 @@
 ---
 name: infradian
-description: Weekly review — reflect on the week, plan the next one. Saturday rhythm.
+description: Saturday weekly review — reflect, plan next week. Not daily or monthly.
 user_invocable: true
 triggers:
   - infradian

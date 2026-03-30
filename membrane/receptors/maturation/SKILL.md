@@ -1,6 +1,6 @@
 ---
 name: maturation
-description: Writing/editing a SKILL.md — quality heuristics for description and structure.
+description: Review and edit a SKILL.md for quality — description, structure, triggers.
 user_invocable: false
 ---
 

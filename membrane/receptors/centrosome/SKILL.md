@@ -1,6 +1,6 @@
 ---
 name: centrosome
-description: Batch-dispatch tasks to droid, monitor completions, review output, write coaching notes.
+description: Batch-dispatch tasks to worker droids, monitor, review. "batch", "dispatch"
 model: opus
 user_invocable: true
 allowed-tools:

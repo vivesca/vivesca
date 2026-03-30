@@ -1,6 +1,6 @@
 ---
 name: receptor
-description: Goal readiness — check weakest categories and record drill results.
+description: Check goal readiness — find weakest categories, run drills. "drill", "readiness"
 model: sonnet
 ---
 

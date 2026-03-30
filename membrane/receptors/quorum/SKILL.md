@@ -1,6 +1,6 @@
 ---
 name: quorum
-description: Multi-model deliberation for judgment calls — auto-routes by difficulty.
+description: Multi-model deliberation for judgment calls. "council", "ask llms"
 aliases: [ask-llms, council, ask llms]
 user_invocable: true
 runtime: python

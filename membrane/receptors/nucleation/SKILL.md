@@ -1,6 +1,6 @@
 ---
 name: nucleation
-description: Structured on-ramp for coding tasks — KB check → research → plan → delegate.
+description: On-ramp for coding tasks — KB check, research, plan, delegate. Not quick edits.
 user_invocable: true
 allowed-tools:
   - Bash

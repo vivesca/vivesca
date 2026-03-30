@@ -1,6 +1,6 @@
 ---
 name: ecdysis
-description: Sunday evening weekly planning — plan next week, quick backward glance, TODO prune. "weekly", "weekly review", "week in review", "sunday planning", "plan the week"
+description: Sunday weekly planning — next-week plan, backward glance, TODO prune. "weekly"
 user_invocable: true
 disable-model-invocation: true
 ---

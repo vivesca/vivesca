@@ -1,6 +1,6 @@
 ---
 name: polarization
-description: Agent teams for north star goals. "burn tokens", "overnight", "vigilia"
+description: Spawn agent teams for north-star goals overnight. "overnight", "vigilia"
 user_invocable: true
 epistemics: [delegate, plan]
 ---

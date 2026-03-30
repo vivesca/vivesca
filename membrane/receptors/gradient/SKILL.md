@@ -1,6 +1,6 @@
 ---
 name: gradient
-description: Polarity sensing — detect co-trending domains before committing focus.
+description: Detect co-trending domains before committing focus. "polarity", "co-trending"
 model: sonnet
 ---
 

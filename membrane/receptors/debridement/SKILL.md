@@ -1,6 +1,6 @@
 ---
 name: debridement
-description: Sweep vivesca for naming violations and stale references. "naming sweep"
+description: Sweep skill names for violations and stale references. "naming sweep"
 user_invocable: true
 model: sonnet
 context: fork

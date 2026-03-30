@@ -1,6 +1,6 @@
 ---
 name: involution
-description: Evening wind-down ritual — brain dump, overnight queue, screens-off gate.
+description: Evening wind-down — brain dump, queue overnight tasks, gate screens-off.
 user_invocable: true
 disable-model-invocation: true
 ---

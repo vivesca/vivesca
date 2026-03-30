@@ -1,6 +1,6 @@
 ---
 name: chemoreception
-description: On-demand AI briefing; stale transduction or meeting needs fresh signal.
+description: AI briefing on demand — refresh stale context before a meeting or decision.
 user_invocable: true
 model: sonnet
 context: fork

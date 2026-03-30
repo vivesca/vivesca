@@ -1,6 +1,6 @@
 ---
 name: hybridization
-description: Forced bio naming as design constraint — mine gaps from where analogy breaks.
+description: Stress-test bio naming — find gaps where the analogy breaks down. "naming audit"
 user_invocable: true
 model: sonnet
 context: fork
