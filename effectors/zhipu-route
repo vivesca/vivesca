@@ -24,6 +24,9 @@ def _route_cmd(*args: str) -> list[str]:
 ZHIPU_HOSTS = [
     "open.bigmodel.cn",
     "api.z.ai",
+    "bigmodel.cn",
+    "cdn.bigmodel.cn",
+    "zhipuaishengchan.datasink.sensorsdata.cn",
 ]
 
 
