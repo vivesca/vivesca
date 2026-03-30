@@ -416,7 +416,13 @@ async def execute_task(
     fallbacks: list[str] = []
 
     try:
-        for _retry in range(max_retries + 1):
+        for retry_index in range(max_retries + 1):
+            if retry_index > 0:
+                if verbose:
+                    retry_label = f"[{task.name}] retry {retry_index}/{max_retries}: resetting git state"
+                    sys.stderr.write(f"\033[33m{retry_label}\033[0m\n")
+                    sys.stderr.flush()
+                _reset_git_state(project_dir, task.name, verbose=verbose)
             attempts = []
             fallbacks = []
             for index, tool in enumerate(_tool_chain(initial_tool)):
@@ -434,15 +440,21 @@ async def execute_task(
                         tool=tool,
                         prompt_file=task.temp_file,
                         success=True,
-                        attempts=attempts,
+                        attempts=list(attempts),
                         output=attempt.output,
-                        fallbacks=fallbacks,
+                        fallbacks=list(fallbacks),
                         cost_estimate=attempt.cost_estimate,
                     )
                     _emit_completion_signal(result)
                     _analyze_for_coaching(result)
                     return result
             # All backends failed — retry if retries remain
+            if verbose and retry_index < max_retries:
+                sys.stderr.write(
+                    f"\033[33m[{task.name}] all backends failed on attempt "
+                    f"{retry_index + 1}/{max_retries + 1}, retrying...\033[0m\n"
+                )
+                sys.stderr.flush()
         last = attempts[-1]
         result = TaskExecutionResult(
             task_name=task.name,

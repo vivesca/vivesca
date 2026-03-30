@@ -361,35 +361,32 @@ def analyze(log_path: Path | None, coaching_path: Path | None, json_output: bool
         return
 
     if json_output:
-        console.print_json(json.dumps(result, indent=2))
+        console.print(json.dumps(result, indent=2, sort_keys=True))
         return
 
-    # Success rate by backend
     table = Table(title="Success Rate by Backend")
     table.add_column("Backend")
     table.add_column("Rate")
     table.add_column("Entries", justify="right")
     for tool, rate in sorted(result["success_rate_by_backend"].items()):
-        table.add_row(tool, f"{rate:.1%}", "")
+        table.add_row(tool, f"{rate:.1%}", str(result["entries_by_backend"].get(tool, 0)))
     console.print(table)
 
-    # Success rate by hour
     table = Table(title="Success Rate by Hour")
     table.add_column("Hour")
     table.add_column("Rate")
+    table.add_column("Entries", justify="right")
     for hour, rate in result["success_rate_by_hour"].items():
-        table.add_row(hour, f"{rate:.1%}")
+        table.add_row(hour, f"{rate:.1%}", str(result["entries_by_hour"].get(hour, 0)))
     console.print(table)
 
-    # Average duration by task count
-    table = Table(title="Avg Duration by Plan Complexity (task count)")
-    table.add_column("Tasks", justify="right")
+    table = Table(title="Avg Duration by Plan Complexity (file count)")
+    table.add_column("Files", justify="right")
     table.add_column("Avg Duration (s)", justify="right")
-    for task_count, avg_dur in result["avg_duration_by_task_count"].items():
-        table.add_row(str(task_count), f"{avg_dur:.1f}")
+    for file_count, avg_duration in result["avg_duration_by_plan_complexity"].items():
+        table.add_row(str(file_count), f"{avg_duration:.1f}")
     console.print(table)
 
-    # Common failure reasons
     if result["failure_reasons"]:
         table = Table(title="Failure Reasons")
         table.add_column("Reason")
@@ -398,10 +395,18 @@ def analyze(log_path: Path | None, coaching_path: Path | None, json_output: bool
             table.add_row(reason, str(count))
         console.print(table)
 
-    # Coaching coverage
-    coverage = result["coaching_coverage"]
-    if coverage is not None:
-        console.print(f"Coaching coverage: {coverage:.1%} of failures occurred after coaching file existed")
+    coaching_gap = result["coaching_gap"]
+    coaching_coverage = result["coaching_coverage"]
+    if coaching_gap is not None and coaching_coverage is not None:
+        console.print(
+            "Coaching coverage gap: "
+            f"{coaching_gap:.1%} of failures occurred before a relevant coaching note was added "
+            f"({result['coaching_failures_without_prior_note']}/{result['coaching_failures_without_prior_note'] + result['coaching_failures_with_prior_note']})."
+        )
+        console.print(
+            "Coaching coverage: "
+            f"{coaching_coverage:.1%} had a relevant coaching note in place first."
+        )
     else:
         console.print("Coaching coverage: N/A (no failures)")
 

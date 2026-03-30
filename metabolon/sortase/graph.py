@@ -308,6 +308,11 @@ def run(
     if thread_id is None:
         thread_id = f"sortase-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
 
+    logger.info(
+        "run  thread_id=%s  checkpoint_db=%s  interactive=%s",
+        thread_id, CHECKPOINT_DB, interactive,
+    )
+
     config = {"configurable": {"thread_id": thread_id}}
 
     initial_state: SortaseState = {
