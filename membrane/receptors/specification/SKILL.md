@@ -1,23 +1,52 @@
 ---
 name: specification
-description: Write a dispatch-ready spec before any goose/droid/sortase dispatch. Use BEFORE writing implementation specs -- not after.
+description: Write spec, dispatch to goose/sortase, review output. The dispatch lifecycle.
 user_invocable: true
 context: fork
-epistemics: [plan, delegate]
+epistemics: [plan, delegate, build]
 ---
 
-# specification -- Write Dispatch-Ready Specs
+# specification -- Dispatch Lifecycle
 
-Write specs that goose/droid can execute via sortase without CC hand-holding.
+The single entry point for all coding work that isn't a quick edit. Pre-flight → spec → dispatch → review → coaching.
 
 ## When to Use
 
-- Before `sortase exec` -- every dispatch needs a spec
-- When CC says "let me write the spec and dispatch"
-- When user says "spec this", "write a plan", "break this down", "dispatch this"
+- When user says "build", "implement", "spec this", "dispatch", "add a feature"
 - After `/transcription` when the design is approved
 - When requirements are clear and no design exploration is needed
-- **Not needed for:** single-file changes, obvious bug fixes, config tweaks
+- Proactively when user asks to build, port, fix, refactor, or add a feature
+- **Not needed for:** single-file changes, obvious bug fixes, config tweaks (do those directly)
+
+## Pre-flight (absorbed from nucleation)
+
+Before speccing, answer these:
+
+### Should we build at all?
+
+**Default: yes.** If a task will recur even twice, build a proper tool. Build cost is low (delegated), purge cost is near-zero.
+
+| Signal | Action |
+|--------|--------|
+| Will run this logic >1 time | Build a proper CLI or skill |
+| Ad-hoc data wrangling, truly once | Inline Python/bash is fine |
+| Unsure | Default to building |
+
+### Pre-flight checks
+
+- **Data governance:** can this code leave the machine? No `.env`, secrets, proprietary code.
+- **Parallel sessions?** → `lucus new <branch>` first.
+- **Naming?** → name before code. Check registry availability (PyPI/crates.io).
+- **Solutions KB:** `receptor-scan "<topic>"` — catches gotchas the spec may miss.
+
+### Weight class
+
+| Task size | Route |
+|-----------|-------|
+| **Trivial** (<=20 lines, single file) | Build directly in-session, skip spec |
+| **Unclear requirements** | `/transcription` first, then return here |
+| **Spec already exists** | Skip to Dispatch below |
+| **Everything else** | Full pipeline (below) |
 
 ## Inputs
 
@@ -26,13 +55,13 @@ Accept any of:
 - A verbal feature description
 - A GitHub issue or bug report
 
-If a requirements doc exists in `~/epigenome/chromatin/brainstorms/` matching the topic, read it and use it as the origin. Reference it with `origin:` in frontmatter. Don't re-ask questions the transcription already answered.
+If a requirements doc exists in `~/epigenome/chromatin/brainstorms/` matching the topic, read it and use it as the origin. Don't re-ask questions the transcription already answered.
 
 If inputs are too vague to spec, say so. Either ask targeted questions (one at a time) or suggest `/transcription` first.
 
 ## Pre-Spec Quality Gate
 
-Before writing the spec, score the input. Predict whether each requirement can fold into executable tasks before spending tokens on a full spec.
+Before writing the spec, score the input. Predict whether each requirement can fold into executable tasks.
 
 ### Foldability (per section)
 
@@ -44,16 +73,16 @@ Before writing the spec, score the input. Predict whether each requirement can f
 | **2** | Underspecified -- cannot produce executable tasks | Block this section, state what's missing |
 | **1** | Contradictory or incoherent | Reject, explain why |
 
-Present scores as a table before the spec. All 4-5: proceed. Mixed: spec the foldable sections, flag the rest. Any 2 or below: resolve before speccing that section.
+All 4-5: proceed. Mixed: spec the foldable sections, flag the rest. Any 2 or below: resolve before speccing.
 
 ### Disordered Region Detection
 
 Sections that can't fold have specific signatures:
-- **No verb** -- describes a state, not a behavior ("the system should be fast")
+- **No verb** -- describes a state, not a behavior
 - **Unbounded scope** -- "handle all edge cases", "support any format"
-- **Missing actor** -- who/what triggers this? If unstated, disordered
+- **Missing actor** -- who/what triggers this?
 - **Circular reference** -- requirement depends on another that depends on it
-- **Taste without criteria** -- "make it clean", "good UX" without measurable definition
+- **Taste without criteria** -- "make it clean" without measurable definition
 
 Name the disorder type explicitly. Don't silently interpret vague requirements.
 
@@ -123,8 +152,8 @@ Always include:
 1. **Foldability** -- all sections score 4+ (or disordered regions resolved)
 2. **Frontmatter** -- `status: ready`, `depends_on` if blocked
 3. **Context** -- what exists, not what we want (agent reads current state, not aspirational)
-4. **Tasks are atomic** -- one task = one change. Don't combine "add feature + write tests + update config"
-5. **Code snippets** -- for files >200 lines, provide exact before/after. Don't say "rewrite the file"
+4. **Tasks are atomic** -- one task = one change
+5. **Code snippets** -- for files >200 lines, provide exact before/after
 6. **Test file specified** -- exact path, exact test names, what each tests
 7. **Constraints include coaching** -- TDD red/green, no /tmp, Python not bash
 8. **No ambiguity** -- if the agent could interpret it two ways, it will pick wrong
@@ -141,11 +170,43 @@ Always include:
 | Skip frontmatter | Always: `status: ready` minimum |
 | Inline full files in spec | Give paths, let agent read. Inline only the diff. |
 | Skip foldability on complex specs | Always score when >2 tasks or cross-cutting |
+| Read implementation files ad-hoc | Route through this skill first |
 
-## Dispatch command
+## Dispatch
 
-After writing spec:
 ```bash
 sortase exec -b goose -p ~/germline ~/germline/loci/plans/<name>.md \
   --verbose --test-command "cd ~/germline && python -m pytest assays/test_<name>.py -v"
 ```
+
+Backend selection: `-b goose` (default, fastest, free), `-b gemini` (boilerplate), `-b codex` (Rust, hard bugs). One task per delegation. Independent tasks dispatch in parallel.
+
+## Review (after goose returns)
+
+Goose output is a claim, not evidence. CC must verify before approving.
+
+### Steps
+
+1. **Test results** -- grep output for PASS/FAIL/passed/failed. Check counts match expectations.
+2. **Read modified files** -- open the actual files goose changed. Read the sections to verify they match the spec. Grepping is sampling, not reviewing.
+3. **Smoke test** (code changes only) -- run the actual binary/hook/command with real input. Markdown-only changes skip this.
+4. **Approve or redispatch** -- if changes are correct, commit. If not, write a follow-up spec targeting the specific gap.
+
+### Coaching check
+
+After review, check: did goose exhibit a new failure pattern or repeat a known one?
+- New pattern → append to `~/epigenome/marks/feedback_glm_coaching.md` (format: pattern name → what GLM does wrong → fix instruction)
+- Known pattern that didn't fire → no action (need systematic eval to retire)
+- Clean pass → no entry needed
+
+This is how the organism's skill transfer compounds. Every review is a coaching opportunity.
+
+### Review anti-patterns
+
+| Don't | Do |
+|---|---|
+| Grep for keywords and call it reviewed | Read the modified sections |
+| Trust goose's summary of what it did | Read the files |
+| Approve based on test pass alone | Tests + file read + smoke test (if code) |
+| Fix goose mistakes in-session | Write a follow-up spec and redispatch |
+| Skip coaching check after review | Always ask: new pattern? |

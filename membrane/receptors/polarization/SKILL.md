@@ -1,6 +1,6 @@
 ---
 name: polarization
-description: Spawn agent teams or single-task async dispatch. "overnight", "vigilia", "run tonight"
+description: Agent teams or single-task async dispatch. "overnight", "run tonight"
 user_invocable: true
 epistemics: [delegate, plan]
 ---

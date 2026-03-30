@@ -26,6 +26,7 @@ organelle: metabolon.organelles.quorum
 | Deep + xpol | `--deep --xpol` | ~$1.05 | Deepest — cross-pollination pass after debate |
 
 **Other modes:** `--redteam` (~$0.20), `--premortem` (~$0.20), `--forecast` (~$0.25), `--oxford` (~$0.40), `--discuss` (~$0.30), `--socratic` (~$0.30), `--solo` (~$0.40)
+**Quick adversarial:** `--redteam` replaces the former `/proofreading` skill. Use for fast idea stress-testing without full council overhead.
 
 ---
 

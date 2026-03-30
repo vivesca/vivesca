@@ -780,6 +780,56 @@ def surface_epistemics(data):
 # ── main ───────────────────────────────────────────────────
 
 
+# File-based state for pipeline bypass detection
+_IMPL_READ_COUNT_FILE = Path("/tmp/.cc-impl-read-count")
+
+
+def guard_pipeline_bypass(data):
+    """Nudge when CC reads multiple implementation files without invoking specification.
+
+    Tracks reads of implementation files (.py, .rs, .ts, .sh) in germline/code.
+    Resets when specification skill is invoked.
+    """
+    ti = data.get("tool_input", {})
+    fp = ti.get("file_path", "") or ""
+
+    impl_dirs = [str(HOME / "code") + "/", str(HOME / "germline") + "/"]
+    if not any(fp.startswith(d) for d in impl_dirs):
+        return
+
+    # Only count implementation file reads, not markdown/config
+    if re.search(r"\.(md|toml|lock|gitignore|txt|json|yaml|yml|plist)$", fp):
+        return
+
+    # Increment counter
+    count = 0
+    try:
+        count = int(_IMPL_READ_COUNT_FILE.read_text().strip())
+    except (OSError, ValueError):
+        pass
+    count += 1
+    try:
+        _IMPL_READ_COUNT_FILE.write_text(str(count))
+    except OSError:
+        pass
+
+    if count >= 3:
+        allow_msg(
+            "PIPELINE BYPASS: You've read 3+ implementation files without invoking "
+            "/specification. Are you building? Route through the dispatch pipeline."
+        )
+
+
+def reset_pipeline_counter(data):
+    """Reset impl read counter when specification skill is invoked."""
+    skill_name = data.get("tool_input", {}).get("skill", "")
+    if skill_name == "specification":
+        try:
+            _IMPL_READ_COUNT_FILE.write_text("0")
+        except OSError:
+            pass
+
+
 def guard_rheotaxis(data):
     """Nudge: use rheotaxis multi-backend search instead of bare WebSearch.
 
@@ -815,10 +865,12 @@ def main():
             guard_efferent(data)
         elif tool == "Read":
             guard_read(data)
+            guard_pipeline_bypass(data)
         elif tool == "Agent":
             guard_agent(data)
         elif tool == "Skill":
             surface_epistemics(data)
+            reset_pipeline_counter(data)
         elif tool == "WebSearch":
             guard_rheotaxis(data)
     except SystemExit:

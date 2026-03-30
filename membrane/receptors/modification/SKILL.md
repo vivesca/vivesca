@@ -1,6 +1,6 @@
 ---
 name: modification
-description: Refine an artifact via multi-model iteration or solo cooling. "refine", "polish", "anneal"
+description: Refine artifact — multi-model or solo cooling. "refine", "polish", "anneal"
 aliases: [refine, polish]
 user_invocable: true
 runtime: skill

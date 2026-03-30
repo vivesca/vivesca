@@ -86,10 +86,6 @@ def test_guard_efferent_allows_md():
     axon.guard_efferent(data)  # Should not raise
 
 
-def test_classify_failure():
-    assert axon.classify_failure is not None or True  # axon doesn't have this
-
-
 def test_explore_subagent_denied():
     """Explore subagents should be denied by metabolic-gate."""
     from io import StringIO
@@ -163,6 +159,49 @@ def test_efferent_allows_germline_skill_md():
         },
     )
     axon.guard_efferent(data)  # Should not raise
+
+
+def test_pipeline_bypass_nudge_after_3_reads():
+    """Reading 3+ implementation files triggers pipeline bypass nudge."""
+    import tempfile
+    count_file = Path(tempfile.mktemp())
+    with patch.object(axon, '_IMPL_READ_COUNT_FILE', count_file):
+        # First 2 reads: no nudge
+        for i in range(2):
+            data = _make_data("Read", {"file_path": f"{Path.home()}/germline/metabolon/sortase/cli.py"})
+            axon.guard_pipeline_bypass(data)
+        # 3rd read: should print nudge (allow_msg prints JSON to stdout)
+        from io import StringIO
+        captured = StringIO()
+        with patch('sys.stdout', captured):
+            data = _make_data("Read", {"file_path": f"{Path.home()}/germline/metabolon/sortase/router.py"})
+            axon.guard_pipeline_bypass(data)
+        assert "PIPELINE BYPASS" in captured.getvalue()
+    count_file.unlink(missing_ok=True)
+
+
+def test_pipeline_bypass_ignores_markdown():
+    """Reading .md files should not increment the counter."""
+    import tempfile
+    count_file = Path(tempfile.mktemp())
+    with patch.object(axon, '_IMPL_READ_COUNT_FILE', count_file):
+        for i in range(5):
+            data = _make_data("Read", {"file_path": f"{Path.home()}/germline/membrane/receptors/foo/SKILL.md"})
+            axon.guard_pipeline_bypass(data)
+        assert not count_file.exists() or count_file.read_text().strip() == "0" or not count_file.exists()
+    count_file.unlink(missing_ok=True)
+
+
+def test_pipeline_counter_resets_on_specification():
+    """Invoking specification skill resets the counter."""
+    import tempfile
+    count_file = Path(tempfile.mktemp())
+    count_file.write_text("5")
+    with patch.object(axon, '_IMPL_READ_COUNT_FILE', count_file):
+        data = _make_data("Skill", {"skill": "specification"})
+        axon.reset_pipeline_counter(data)
+        assert count_file.read_text().strip() == "0"
+    count_file.unlink(missing_ok=True)
 
 
 if __name__ == "__main__":

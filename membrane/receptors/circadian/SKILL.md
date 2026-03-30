@@ -18,6 +18,9 @@ triggers:
   - co-trending
   - gradient
   - focus
+  - lunch
+  - what to eat
+  - log lunch
 context: fork
 epistemics: [plan, monitor]
 model: sonnet
@@ -78,6 +81,11 @@ If the user explicitly says "morning brief" after 10am or "evening routine" befo
    - Read topology: `independent` 2-sensor > `adjacent` 2-sensor. Coverage >= 2 is confirmed.
    - `diffuse` = no clear axis — report as isotropic, don't force interpretation
    - If polarity diverges from stated goals (North Star.md), surface the gap explicitly
+8. **Meal suggestion (noon only)** — if time is 11:30-13:30:
+   - Read `~/epigenome/chromatin/Health/Weekly Meal Plan - Taikoo Place.md`
+   - Check today's rotation slot + last 3 order log entries
+   - Suggest one dish. Gym day = favour protein + omega-3.
+   - After eating: log to `## Order log` section as `- YYYY-MM-DD (Day): Restaurant, dish.`
 
 ### Time-aware synthesis
 
