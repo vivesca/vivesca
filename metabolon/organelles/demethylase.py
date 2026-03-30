@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import json
 import math
+import re
 import shlex
 import subprocess
 from dataclasses import dataclass, field
@@ -86,6 +87,22 @@ def _parse_frontmatter(path: Path) -> dict[str, str]:
             key, _, value = line.partition(":")
             fm[key.strip()] = value.strip()
     return fm
+
+
+_SHELL_METACHARACTERS = re.compile(r'[|;&>`$\\!#\*\(\)\{\}\[\]]')
+
+
+def _validate_downstream_command(cmd: str) -> list[str] | None:
+    """Parse and validate a downstream command for safe execution.
+
+    Returns the split argument list if safe, or None if the command
+    contains shell metacharacters that could enable injection.
+    """
+    parts = shlex.split(cmd)
+    for part in parts:
+        if _SHELL_METACHARACTERS.search(part):
+            return None
+    return parts
 
 
 def _parse_downstream(path: Path) -> list[str]:

@@ -1,15 +1,14 @@
 """Tests for respirometry trend subcommand."""
 
+import importlib.machinery
+import importlib.util
 import json
-import textwrap
-from datetime import datetime, timedelta, timezone
+import types
+from datetime import datetime
 from pathlib import Path
 from unittest.mock import patch
 
 import pytest
-import importlib.util
-import importlib.machinery
-import types
 
 # Import the effector as a module (no .py extension, need SourceFileLoader)
 _loader = importlib.machinery.SourceFileLoader(
@@ -28,8 +27,13 @@ def tmp_history(tmp_path, monkeypatch):
     return history_file
 
 
-def _make_row(date_str: str, weekly_pct: float, sonnet_pct: float,
-              session_count: int, goose_dispatches: int) -> dict:
+def _make_row(
+    date_str: str,
+    weekly_pct: float,
+    sonnet_pct: float,
+    session_count: int,
+    goose_dispatches: int,
+) -> dict:
     return {
         "date": date_str,
         "weekly_pct": weekly_pct,
@@ -39,66 +43,43 @@ def _make_row(date_str: str, weekly_pct: float, sonnet_pct: float,
     }
 
 
-# ---------------------------------------------------------------------------
-# Test 1: trend on empty history shows "no data" message
-# ---------------------------------------------------------------------------
-
 def test_trend_empty_history(tmp_history, capsys):
-    """When no history file exists, trend reports no data."""
+    """Trend reports a clear message when no history exists."""
     resp.cmd_trend()
     captured = capsys.readouterr()
     assert "No usage history" in captured.out
 
 
-# ---------------------------------------------------------------------------
-# Test 2: trend renders table from existing history entries
-# ---------------------------------------------------------------------------
-
 def test_trend_renders_table(tmp_history, capsys):
-    """Multiple weeks of data render as a formatted table."""
+    """Trend renders latest weekly rows in reverse chronological order."""
     rows = [
         _make_row("2026-03-24", 45.0, 12.0, 8, 260),
         _make_row("2026-03-17", 62.0, 25.0, 12, 45),
-        _make_row("2026-03-10", 30.0, 8.0, 5, 100),
+        _make_row("2026-03-24", 47.0, 13.0, 9, 270),
     ]
-    for row in rows:
-        tmp_history.write_text(
-            tmp_history.read_text() + json.dumps(row) + "\n"
-        )
+    tmp_history.write_text("".join(json.dumps(row) + "\n" for row in rows))
 
     resp.cmd_trend()
     captured = capsys.readouterr()
-    out = captured.out
+    output_lines = captured.out.strip().splitlines()
 
-    # Header row
-    assert "Week" in out
-    assert "All Models" in out
-    assert "Sonnet" in out
-    assert "Sessions" in out
-    assert "Goose" in out
-
-    # Most recent week first
-    assert "45%" in out
-    assert "12%" in out
-    # Second week
-    assert "62%" in out
-    assert "25%" in out
+    assert output_lines[0] == "Week      | All Models | Sonnet | Sessions | Goose"
+    assert "Mar 24-30|      47% |  13% |        9 |    270" in output_lines[2]
+    assert "Mar 17-23|      62% |  25% |       12 |     45" in output_lines[3]
 
 
-# ---------------------------------------------------------------------------
-# Test 3: record_snapshot appends a row to history
-# ---------------------------------------------------------------------------
-
-def test_record_snapshot_appends(tmp_history):
-    """record_snapshot writes a valid JSONL entry."""
+def test_record_snapshot_creates_history_with_windowed_stats(tmp_history, monkeypatch):
+    """Snapshot creation seeds the history file with the current seven-day window."""
     fake_usage = {
         "seven_day": {"utilization": 0.55},
         "seven_day_sonnet": {"utilization": 0.18},
     }
+    reference_time = datetime(2026, 3, 31, 9, 0, 0)
+
+    monkeypatch.setattr(resp, "SORTASE_LOG", Path("/tmp/nonexistent-sortase-log.jsonl"))
 
     with patch.object(resp, "get_usage", return_value=fake_usage):
-        with patch.object(resp, "_derive_session_stats", return_value=(7, 42)):
-            resp.record_snapshot()
+        resp.record_snapshot(reference_time=reference_time)
 
     assert tmp_history.exists()
     lines = tmp_history.read_text().strip().splitlines()
@@ -106,6 +87,28 @@ def test_record_snapshot_appends(tmp_history):
     row = json.loads(lines[0])
     assert row["weekly_pct"] == 55.0
     assert row["sonnet_pct"] == 18.0
-    assert row["session_count"] == 7
-    assert row["goose_dispatches"] == 42
-    assert "date" in row
+    assert row["session_count"] == 0
+    assert row["goose_dispatches"] == 0
+    assert row["date"] == "2026-03-24"
+
+
+def test_derive_session_stats_uses_current_snapshot_window(tmp_path, monkeypatch):
+    """Session counts and goose dispatches are derived from the trailing seven full days."""
+    sortase_log = tmp_path / "sortase.jsonl"
+    rows = [
+        {"timestamp": "2026-03-24T09:00:00", "tool": "goose"},
+        {"timestamp": "2026-03-24T17:00:00", "tool": "droid"},
+        {"timestamp": "2026-03-28T12:00:00", "tool": "goose"},
+        {"timestamp": "2026-03-30T08:30:00", "tool": "goose"},
+        {"timestamp": "2026-03-31T10:00:00", "tool": "goose"},
+        {"timestamp": "2026-03-23T10:00:00", "tool": "goose"},
+    ]
+    sortase_log.write_text("".join(json.dumps(row) + "\n" for row in rows))
+    monkeypatch.setattr(resp, "SORTASE_LOG", sortase_log)
+
+    session_count, goose_dispatches = resp._derive_session_stats(
+        reference_time=datetime(2026, 3, 31, 9, 0, 0)
+    )
+
+    assert session_count == 3
+    assert goose_dispatches == 3

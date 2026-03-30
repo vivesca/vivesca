@@ -26,14 +26,23 @@ def test_prepend_coaching_skips_gemini():
     assert result == "do something"
 
 
-def test_prepend_coaching_applies_to_droid(tmp_path):
-    """Coaching notes should be prepended for droid."""
+def test_prepend_coaching_applies_to_crush(tmp_path):
+    """Coaching notes should be prepended for crush (direct tool, not translocon-routed)."""
     notes = tmp_path / "coaching.md"
     notes.write_text("---\nname: test\n---\n\n## Notes\nDon't hallucinate imports.")
     with patch("metabolon.sortase.executor.COACHING_NOTES", notes):
-        result = _prepend_coaching("do something", "droid")
+        result = _prepend_coaching("do something", "crush")
     assert "Don't hallucinate imports" in result
     assert "do something" in result
+
+
+def test_prepend_coaching_skips_translocon_tools(tmp_path):
+    """goose and droid are routed through translocon which has its own coaching injection."""
+    notes = tmp_path / "coaching.md"
+    notes.write_text("---\nname: test\n---\n\n## Notes\nDon't hallucinate imports.")
+    with patch("metabolon.sortase.executor.COACHING_NOTES", notes):
+        assert _prepend_coaching("do something", "goose") == "do something"
+        assert _prepend_coaching("do something", "droid") == "do something"
 
 
 def test_prepend_coaching_strips_frontmatter(tmp_path):
@@ -41,7 +50,7 @@ def test_prepend_coaching_strips_frontmatter(tmp_path):
     notes = tmp_path / "coaching.md"
     notes.write_text("---\nname: test\ntype: feedback\n---\n\nActual content here.")
     with patch("metabolon.sortase.executor.COACHING_NOTES", notes):
-        result = _prepend_coaching("task", "goose")
+        result = _prepend_coaching("task", "cc-glm")
     assert "name: test" not in result
     assert "Actual content here" in result
 

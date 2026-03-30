@@ -500,7 +500,7 @@ def cmd_trend() -> None:
     unique_rows = sorted(seen.values(), key=lambda r: r["date"], reverse=True)
 
     # Format table
-    header = f"{'Week':<10}| {'All Models':>10} | {'Sonnet':>6} | {'Sessions':>8} | {'Goose':>6}"
+    header = "Week      | All Models | Sonnet | Sessions | Goose"
     separator = "-" * len(header)
     print(header)
     print(separator)
