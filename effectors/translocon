@@ -195,6 +195,7 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--count", type=int, default=20, help="Traces to analyze (with --eval)")
     parser.add_argument("--failures-only", action="store_true", help="Show only failures (with --eval)")
     parser.add_argument("--stats", action="store_true", help="Print dispatch statistics")
+    parser.add_argument("--batch", metavar="GLOB", help="Dispatch all plan files matching glob sequentially")
     parser.add_argument("--dry-run", action="store_true", help="Print command only")
     parser.add_argument("--output-file", action="store_true", help="Tee full stdout+stderr to ~/logs/translocon-<task>-<ts>.log")
     parser.add_argument("--verbose", action="store_true", help="Verbose output")

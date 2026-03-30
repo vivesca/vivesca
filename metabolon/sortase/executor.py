@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+import re
 import subprocess
 import sys
 import uuid
@@ -14,6 +15,26 @@ from pathlib import Path
 from metabolon.sortase.decompose import TaskSpec
 
 DEFAULT_TIMEOUT_SEC = 600
+
+_READ_PATTERN = re.compile(r"\bread\b", re.IGNORECASE)
+_SOURCE_FILE_PATTERN = re.compile(r"\b[\w./-]+\.\w{1,4}\b")
+_EXACTLY_ONE_PATTERN = re.compile(r"\bexactly\s+1\s+tool\s+call\b", re.IGNORECASE)
+
+
+def _compute_adaptive_timeout(spec: str, base_timeout: int) -> int:
+    """Adjust timeout based on spec characteristics.
+
+    * If the spec is read-heavy (mentions "read" or references source files),
+      double the timeout — those tasks need more processing time.
+    * If the spec says "EXACTLY 1 tool call", halve the timeout — simple
+      tasks finish fast.
+    * Read-heavy takes priority over the exact-one heuristic.
+    """
+    if _READ_PATTERN.search(spec) or _SOURCE_FILE_PATTERN.search(spec):
+        return base_timeout * 2
+    if _EXACTLY_ONE_PATTERN.search(spec):
+        return base_timeout // 2
+    return base_timeout
 STATUS_PATH = Path.home() / ".local" / "share" / "sortase" / "status.json"
 COACHING_NOTES = Path.home() / "epigenome" / "marks" / "feedback_glm_coaching.md"
 

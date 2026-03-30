@@ -365,6 +365,11 @@ def review_and_continue(
     graph = build_graph()
     app = graph.compile(checkpointer=checkpointer, interrupt_before=["execute"])
 
+    logger.info(
+        "resume  thread_id=%s  approve=%s  checkpoint_db=%s",
+        thread_id, approve, CHECKPOINT_DB,
+    )
+
     config = {"configurable": {"thread_id": thread_id}}
 
     if not approve:

@@ -137,14 +137,14 @@ class TestJsonOutputFormat:
         assert issue["severity"] == "warning"
 
     @patch("metabolon.sortase.cli.validate_execution")
-    @patch("metabolon.sortase.cli.execute_tasks", new_callable=lambda: lambda: None)
+    @patch("metabolon.sortase.cli.execute_tasks", new_callable=AsyncMock)
     @patch("metabolon.sortase.cli.decompose_plan")
     @patch("metabolon.sortase.cli.route_description")
     def test_json_output_has_total_duration(
         self,
         mock_route: MagicMock,
         mock_decompose: MagicMock,
-        mock_exec: MagicMock,
+        mock_exec: AsyncMock,
         mock_validate: MagicMock,
         plan_file: Path,
         project_dir: Path,
@@ -172,14 +172,14 @@ class TestJsonOutputFormat:
         assert data["total_duration_s"] > 0
 
     @patch("metabolon.sortase.cli.validate_execution")
-    @patch("metabolon.sortase.cli.execute_tasks", new_callable=lambda: lambda: None)
+    @patch("metabolon.sortase.cli.execute_tasks", new_callable=AsyncMock)
     @patch("metabolon.sortase.cli.decompose_plan")
     @patch("metabolon.sortase.cli.route_description")
     def test_json_output_comprehensive_schema(
         self,
         mock_route: MagicMock,
         mock_decompose: MagicMock,
-        mock_exec: MagicMock,
+        mock_exec: AsyncMock,
         mock_validate: MagicMock,
         plan_file: Path,
         project_dir: Path,
