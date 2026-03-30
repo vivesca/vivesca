@@ -593,5 +593,261 @@ def version() -> None:
     console.print(f"sortase {pkg_version('metabolon')}")
 
 
+@main.command()
+@click.option("--output", "output_path", default=Path.home() / "tmp" / "sortase-dashboard.html", type=click.Path(path_type=Path), help="Output HTML path.")
+@click.option("--log", "log_path", default=None, type=click.Path(path_type=Path), help="Path to log.jsonl (default: sortase default).")
+def dashboard(output_path: Path, log_path: Path | None) -> None:
+    """Generate a static HTML dashboard from execution logs."""
+
+    entries = read_logs(log_path)
+    if not entries:
+        console.print("No log entries found.")
+        return
+
+    entries.sort(key=lambda e: e.get("timestamp", ""))
+
+    total = len(entries)
+    successes = sum(1 for e in entries if e.get("success"))
+    failures = total - successes
+    overall_rate = successes / total if total else 0
+
+    # --- Success rate by date (bar chart) ---
+    from collections import Counter, defaultdict
+
+    date_buckets: dict[str, dict[str, int]] = defaultdict(lambda: {"ok": 0, "fail": 0})
+    for entry in entries:
+        ts = entry.get("timestamp", "")
+        date_key = ts[:10] if ts else "unknown"
+        if entry.get("success"):
+            date_buckets[date_key]["ok"] += 1
+        else:
+            date_buckets[date_key]["fail"] += 1
+    sorted_dates = sorted(date_buckets.keys())
+    max_per_date = max((b["ok"] + b["fail"]) for b in date_buckets.values()) if date_buckets else 1
+
+    bar_chart_svg_parts: list[str] = []
+    bar_group_width = 50
+    bar_area_left = 40
+    bar_chart_width = bar_area_left + len(sorted_dates) * bar_group_width + 20
+    bar_chart_height = 200
+
+    for idx, date_key in enumerate(sorted_dates):
+        bucket = date_buckets[date_key]
+        x_base = bar_area_left + idx * bar_group_width
+        ok_height = int((bucket["ok"] / max_per_date) * (bar_chart_height - 30)) if max_per_date else 0
+        fail_height = int((bucket["fail"] / max_per_date) * (bar_chart_height - 30)) if max_per_date else 0
+        y_ok = bar_chart_height - 20 - ok_height
+        y_fail = y_ok - fail_height
+        if ok_height > 0:
+            bar_chart_svg_parts.append(f'<rect x="{x_base + 5}" y="{y_ok}" width="18" height="{ok_height}" fill="#4ade80" rx="2"><title>{date_key}: {bucket["ok"]} ok</title></rect>')
+        if fail_height > 0:
+            bar_chart_svg_parts.append(f'<rect x="{x_base + 25}" y="{y_fail}" width="18" height="{fail_height}" fill="#f87171" rx="2"><title>{date_key}: {bucket["fail"]} fail</title></rect>')
+        label = date_key[5:]  # MM-DD
+        bar_chart_svg_parts.append(f'<text x="{x_base + 24}" y="{bar_chart_height - 4}" text-anchor="middle" font-size="9" fill="#94a3b8">{label}</text>')
+
+    bar_chart_svg = (
+        f'<svg viewBox="0 0 {bar_chart_width} {bar_chart_height}" xmlns="http://www.w3.org/2000/svg">'
+        f'<rect width="100%" height="100%" fill="#1e293b" rx="8"/>'
+        f'<line x1="{bar_area_left}" y1="10" x2="{bar_area_left}" y2="{bar_chart_height - 20}" stroke="#475569" stroke-width="1"/>'
+        f'<line x1="{bar_area_left}" y1="{bar_chart_height - 20}" x2="{bar_chart_width - 10}" y2="{bar_chart_height - 20}" stroke="#475569" stroke-width="1"/>'
+        + "".join(bar_chart_svg_parts)
+        + "</svg>"
+    )
+
+    # --- Failure reasons (pie chart) ---
+    failure_reasons: dict[str, int] = Counter()
+    for entry in entries:
+        if not entry.get("success"):
+            reason = entry.get("failure_reason") or "unknown"
+            failure_reasons[reason] += 1
+
+    pie_colors = ["#f87171", "#fb923c", "#fbbf24", "#a78bfa", "#60a5fa", "#34d399", "#f472b6", "#e879f9"]
+    pie_center_x, pie_center_y, pie_radius = 120, 120, 100
+
+    if failure_reasons:
+        total_failures = sum(failure_reasons.values())
+        pie_parts: list[str] = []
+        legend_parts: list[str] = []
+        cumulative_angle = 0
+        for color_idx, (reason, count) in enumerate(failure_reasons.most_common()):
+            slice_angle = (count / total_failures) * 360
+            start_rad = cumulative_angle * 3.14159265 / 180
+            end_rad = (cumulative_angle + slice_angle) * 3.14159265 / 180
+            x1 = pie_center_x + pie_radius * __import__("math").cos(start_rad)
+            y1 = pie_center_y + pie_radius * __import__("math").sin(start_rad)
+            x2 = pie_center_x + pie_radius * __import__("math").cos(end_rad)
+            y2 = pie_center_y + pie_radius * __import__("math").sin(end_rad)
+            large_arc = 1 if slice_angle > 180 else 0
+            color = pie_colors[color_idx % len(pie_colors)]
+            if slice_angle >= 359.9:
+                pie_parts.append(f'<circle cx="{pie_center_x}" cy="{pie_center_y}" r="{pie_radius}" fill="{color}"/>')
+            else:
+                pie_parts.append(
+                    f'<path d="M{pie_center_x},{pie_center_y} L{x1:.1f},{y1:.1f} A{pie_radius},{pie_radius} 0 {large_arc},1 {x2:.1f},{y2:.1f} Z" fill="{color}"/>'
+                )
+            pct = count / total_failures * 100
+            legend_parts.append(f'<div style="display:flex;align-items:center;gap:8px;margin:4px 0;"><span style="display:inline-block;width:14px;height:14px;border-radius:3px;background:{color};"></span><span style="color:#cbd5e1;">{reason} ({count}, {pct:.0f}%)</span></div>')
+            cumulative_angle += slice_angle
+        pie_svg = f'<svg viewBox="0 0 240 240" xmlns="http://www.w3.org/2000/svg"><rect width="100%" height="100%" fill="#1e293b" rx="8"/>{"".join(pie_parts)}</svg>'
+        pie_legend = "".join(legend_parts)
+    else:
+        pie_svg = '<svg viewBox="0 0 240 240" xmlns="http://www.w3.org/2000/svg"><rect width="100%" height="100%" fill="#1e293b" rx="8"/><text x="120" y="125" text-anchor="middle" fill="#94a3b8" font-size="14">No failures</text></svg>'
+        pie_legend = '<div style="color:#94a3b8;">No failures recorded.</div>'
+
+    # --- Backend distribution (horizontal bar chart) ---
+    backend_counts: dict[str, int] = Counter(e.get("tool", "unknown") for e in entries)
+    max_backend = max(backend_counts.values()) if backend_counts else 1
+    backend_colors = ["#60a5fa", "#a78bfa", "#34d399", "#fbbf24", "#fb923c", "#f87171", "#e879f9", "#f472b6"]
+
+    backend_bar_parts: list[str] = []
+    backend_chart_height = max(len(backend_counts) * 36 + 20, 60)
+    for idx, (backend_name, count) in enumerate(backend_counts.most_common()):
+        y = 10 + idx * 36
+        bar_width = int((count / max_backend) * 250) if max_backend else 0
+        color = backend_colors[idx % len(backend_colors)]
+        backend_bar_parts.append(f'<text x="0" y="{y + 14}" font-size="12" fill="#cbd5e1">{backend_name}</text>')
+        backend_bar_parts.append(f'<rect x="80" y="{y}" width="{bar_width}" height="20" fill="{color}" rx="3"><title>{backend_name}: {count} runs</title></rect>')
+        backend_bar_parts.append(f'<text x="{85 + bar_width}" y="{y + 14}" font-size="11" fill="#94a3b8">{count}</text>')
+
+    backend_svg = (
+        f'<svg viewBox="0 0 380 {backend_chart_height}" xmlns="http://www.w3.org/2000/svg">'
+        f'<rect width="100%" height="100%" fill="#1e293b" rx="8"/>'
+        + "".join(backend_bar_parts)
+        + "</svg>"
+    )
+
+    # --- Average duration trend (line chart) ---
+    duration_by_date: dict[str, list[float]] = defaultdict(list)
+    for entry in entries:
+        ts = entry.get("timestamp", "")
+        date_key = ts[:10] if ts else "unknown"
+        dur = entry.get("duration_s", 0)
+        if dur is not None:
+            duration_by_date[date_key].append(dur)
+
+    avg_duration_by_date = {d: sum(v) / len(v) for d, v in sorted(duration_by_date.items())}
+    trend_dates = sorted(avg_duration_by_date.keys())
+    trend_chart_width = max(bar_area_left + len(trend_dates) * bar_group_width + 20, 300)
+    trend_chart_height = 180
+    trend_area_top = 10
+    trend_area_bottom = trend_chart_height - 25
+
+    if avg_duration_by_date:
+        max_dur = max(avg_duration_by_date.values())
+        min_dur = min(avg_duration_by_date.values())
+        dur_range = max_dur - min_dur if max_dur != min_dur else 1
+        line_points: list[str] = []
+        dot_parts: list[str] = []
+        for idx, date_key in enumerate(trend_dates):
+            avg = avg_duration_by_date[date_key]
+            x = bar_area_left + idx * bar_group_width + 24
+            y = trend_area_bottom - int(((avg - min_dur) / dur_range) * (trend_area_bottom - trend_area_top - 10))
+            line_points.append(f"{x},{y}")
+            dot_parts.append(f'<circle cx="{x}" cy="{y}" r="4" fill="#38bdf8"><title>{date_key}: {avg:.1f}s avg</title></circle>')
+            label = date_key[5:]
+            dot_parts.append(f'<text x="{x}" y="{trend_chart_height - 6}" text-anchor="middle" font-size="9" fill="#94a3b8">{label}</text>')
+
+        polyline = f'<polyline points="{" ".join(line_points)}" fill="none" stroke="#38bdf8" stroke-width="2"/>' if len(line_points) > 1 else ""
+        trend_svg = (
+            f'<svg viewBox="0 0 {trend_chart_width} {trend_chart_height}" xmlns="http://www.w3.org/2000/svg">'
+            f'<rect width="100%" height="100%" fill="#1e293b" rx="8"/>'
+            f'<line x1="{bar_area_left}" y1="{trend_area_top}" x2="{bar_area_left}" y2="{trend_area_bottom}" stroke="#475569" stroke-width="1"/>'
+            f'<line x1="{bar_area_left}" y1="{trend_area_bottom}" x2="{trend_chart_width - 10}" y2="{trend_area_bottom}" stroke="#475569" stroke-width="1"/>'
+            f'<text x="{bar_area_left - 5}" y="{trend_area_top + 5}" text-anchor="end" font-size="9" fill="#94a3b8">{max_dur:.0f}s</text>'
+            f'<text x="{bar_area_left - 5}" y="{trend_area_bottom}" text-anchor="end" font-size="9" fill="#94a3b8">{min_dur:.0f}s</text>'
+            + polyline
+            + "".join(dot_parts)
+            + "</svg>"
+        )
+    else:
+        trend_svg = '<svg viewBox="0 0 300 180" xmlns="http://www.w3.org/2000/svg"><rect width="100%" height="100%" fill="#1e293b" rx="8"/><text x="150" y="95" text-anchor="middle" fill="#94a3b8">No duration data</text></svg>'
+
+    # --- Compose HTML ---
+    html = f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>sortase dashboard</title>
+<style>
+  * {{ margin: 0; padding: 0; box-sizing: border-box; }}
+  body {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #0f172a; color: #e2e8f0; padding: 24px; }}
+  h1 {{ font-size: 24px; font-weight: 700; margin-bottom: 8px; }}
+  .subtitle {{ color: #94a3b8; font-size: 14px; margin-bottom: 24px; }}
+  .summary {{ display: flex; gap: 16px; margin-bottom: 28px; flex-wrap: wrap; }}
+  .card {{ background: #1e293b; border-radius: 12px; padding: 20px 24px; min-width: 160px; flex: 1; }}
+  .card .label {{ font-size: 12px; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px; }}
+  .card .value {{ font-size: 28px; font-weight: 700; }}
+  .card .value.green {{ color: #4ade80; }}
+  .card .value.red {{ color: #f87171; }}
+  .card .value.blue {{ color: #60a5fa; }}
+  .charts {{ display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; }}
+  .chart-box {{ background: #1e293b; border-radius: 12px; padding: 16px; overflow: hidden; }}
+  .chart-box h2 {{ font-size: 14px; color: #94a3b8; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.05em; }}
+  .chart-box svg {{ width: 100%; height: auto; }}
+  .full-width {{ grid-column: 1 / -1; }}
+  .pie-row {{ display: flex; align-items: center; gap: 20px; }}
+  .pie-row svg {{ flex-shrink: 0; width: 240px; height: 240px; }}
+  .legend {{ flex: 1; }}
+  .footer {{ margin-top: 24px; color: #475569; font-size: 12px; text-align: center; }}
+</style>
+</head>
+<body>
+<h1>sortase dashboard</h1>
+<p class="subtitle">{total} executions &middot; generated {datetime.now().strftime("%Y-%m-%d %H:%M")}</p>
+
+<div class="summary">
+  <div class="card">
+    <div class="label">Total Runs</div>
+    <div class="value blue">{total}</div>
+  </div>
+  <div class="card">
+    <div class="label">Successes</div>
+    <div class="value green">{successes}</div>
+  </div>
+  <div class="card">
+    <div class="label">Failures</div>
+    <div class="value red">{failures}</div>
+  </div>
+  <div class="card">
+    <div class="label">Success Rate</div>
+    <div class="value green">{overall_rate:.1%}</div>
+  </div>
+</div>
+
+<div class="charts">
+  <div class="chart-box full-width">
+    <h2>Success / Failure Over Time</h2>
+    {bar_chart_svg}
+  </div>
+
+  <div class="chart-box">
+    <h2>Failure Reasons</h2>
+    <div class="pie-row">
+      {pie_svg}
+      <div class="legend">{pie_legend}</div>
+    </div>
+  </div>
+
+  <div class="chart-box">
+    <h2>Backend Distribution</h2>
+    {backend_svg}
+  </div>
+
+  <div class="chart-box full-width">
+    <h2>Average Duration Trend</h2>
+    {trend_svg}
+  </div>
+</div>
+
+<div class="footer">sortase dashboard &middot; pure HTML+CSS &middot; no JS dependencies</div>
+</body>
+</html>"""
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(html, encoding="utf-8")
+    console.print(f"Dashboard written to {output_path} ({total} entries)")
+
+
 if __name__ == "__main__":
     main()

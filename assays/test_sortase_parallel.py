@@ -32,7 +32,7 @@ def test_parallel_register_creates_exact_entries():
     task_ids = ["alpha", "beta", "gamma"]
 
     with ThreadPoolExecutor(max_workers=3) as pool:
-        futures = {pool.submit(register_running, tid): tid for tid in task_ids}
+        futures = [pool.submit(lambda tid=tid: (register_running(tid), tid)[1]) for tid in task_ids]
         results = [f.result() for f in as_completed(futures)]
 
     assert sorted(results) == sorted(task_ids)
@@ -58,7 +58,7 @@ def test_parallel_unregister_empties_status():
     assert len(_read_status()) == 3, "precondition: 3 entries before unregister"
 
     with ThreadPoolExecutor(max_workers=3) as pool:
-        futures = {pool.submit(unregister_running, tid): tid for tid in task_ids}
+        futures = [pool.submit(lambda tid=tid: (unregister_running(tid), tid)[1]) for tid in task_ids]
         results = [f.result() for f in as_completed(futures)]
 
     assert sorted(results) == sorted(task_ids)

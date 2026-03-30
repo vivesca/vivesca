@@ -689,13 +689,41 @@ def _print_scan(prompts: list[EngramRecord], date_str: str, full: bool) -> None:
         print(f"  {p.time_str} [{p.session}] ({p.tool}) {preview}{ellipsis}")
 
 
+def _color_enabled() -> bool:
+    return sys.stdout.isatty() and "NO_COLOR" not in os.environ
+
+
+def _highlight_matches(text: str, regex: re.Pattern[str], *, color: bool) -> str:
+    if not color or not text:
+        return text
+
+    highlighted_parts: list[str] = []
+    last_end = 0
+    for match in regex.finditer(text):
+        if match.start() == match.end():
+            continue
+        highlighted_parts.append(text[last_end : match.start()])
+        highlighted_parts.append("\033[1;31m")
+        highlighted_parts.append(text[match.start() : match.end()])
+        highlighted_parts.append("\033[0m")
+        last_end = match.end()
+
+    if not highlighted_parts:
+        return text
+
+    highlighted_parts.append(text[last_end:])
+    return "".join(highlighted_parts)
+
+
 def _print_search(
     matches: list[TraceFragment],
+    regex: re.Pattern[str],
     pattern: str,
     days: int,
     deep: bool,
     role_filter: str | None,
     session_filter: str | None,
+    context_lines: int,
 ) -> None:
     mode = "full transcripts" if deep else "prompts only"
     filters_parts: list[str] = []
@@ -703,6 +731,8 @@ def _print_search(
         filters_parts.append(f"role={role_filter}")
     if session_filter:
         filters_parts.append(f"session={session_filter}")
+    if context_lines:
+        filters_parts.append(f"context={context_lines}")
     filters = (", " + ", ".join(filters_parts)) if filters_parts else ""
     print(f'Search: "{pattern}" (last {days} days, {mode}{filters})')
 
@@ -715,14 +745,23 @@ def _print_search(
         by_date.setdefault(m.date, []).append(m)
 
     print(f"Found {len(matches)} matches across {len(by_date)} days\n")
+    color = _color_enabled()
 
     for date in sorted(by_date.keys(), reverse=True):
         print(f"  {date}:")
         day_matches = sorted(by_date[date], key=lambda x: x.timestamp_ms)
         for m in day_matches:
             role_tag = f"({m.role})" if deep else ""
-            snippet = m.snippet[:100]
-            print(f"    {m.time_str} [{m.session}] {role_tag:9} {snippet}")
+            print(f"    {m.time_str} [{m.session}] {role_tag:9}")
+            if context_lines > 0:
+                for line in m.context_before:
+                    print(f"      {line}")
+                print(f"    > {_highlight_matches(m.match_line, regex, color=color)}")
+                for line in m.context_after:
+                    print(f"      {line}")
+            else:
+                snippet = m.snippet[:100]
+                print(f"      {_highlight_matches(snippet, regex, color=color)}")
         print()
 
 
@@ -892,6 +931,7 @@ def _fuzzy_search(
     role_filter: str | None,
     session_filter: str | None,
     deep: bool,
+    context_lines: int = 0,
 ) -> list[TraceFragment]:
     """Attempt fuzzy fallback when exact search returned nothing."""
     candidates = _collect_words_from_transcripts(
@@ -914,11 +954,11 @@ def _fuzzy_search(
 
     if deep:
         matches = _search_transcripts(
-            fuzzy_regex, start_ms, end_ms, tool_filter, role_filter, session_filter
+            fuzzy_regex, start_ms, end_ms, tool_filter, role_filter, session_filter, context_lines
         )
     else:
         matches = _search_prompts(
-            fuzzy_regex, start_ms, end_ms, tool_filter, role_filter, session_filter
+            fuzzy_regex, start_ms, end_ms, tool_filter, role_filter, session_filter, context_lines
         )
 
     if not matches:
@@ -961,6 +1001,7 @@ def search(
     tool: str | None = None,
     role: str | None = None,
     session: str | None = None,
+    context: int = 0,
 ) -> list[TraceFragment]:
     """Search chat history. deep=True searches full transcripts; False = prompts only."""
     try:
@@ -974,12 +1015,12 @@ def search(
     start_ms = end_ms - days * 86400 * 1000
 
     if deep:
-        results = _search_transcripts(regex, start_ms, end_ms, tool, role, session)
+        results = _search_transcripts(regex, start_ms, end_ms, tool, role, session, context)
     else:
-        results = _search_prompts(regex, start_ms, end_ms, tool, role, session)
+        results = _search_prompts(regex, start_ms, end_ms, tool, role, session, context)
 
     if not results and _is_plain_word(pattern):
-        results = _fuzzy_search(pattern, start_ms, end_ms, tool, role, session, deep)
+        results = _fuzzy_search(pattern, start_ms, end_ms, tool, role, session, deep, context)
 
     return results
 
@@ -1023,6 +1064,13 @@ def _cli() -> None:
     search_parser.add_argument("--tool", help="Filter by tool (Claude, Codex, OpenCode)")
     search_parser.add_argument("--role", help="Filter by role (you, claude, opencode, assistant)")
     search_parser.add_argument("--session", help="Filter by session ID (prefix match)")
+    search_parser.add_argument(
+        "--context",
+        type=int,
+        default=0,
+        metavar="N",
+        help="Show N lines of context before and after each match",
+    )
     search_parser.add_argument("--json", action="store_true", help="Output as JSON")
 
     args = parser.parse_args()
@@ -1034,6 +1082,8 @@ def _cli() -> None:
 
     try:
         if args.subcommand == "search":
+            if args.context < 0:
+                raise ValueError("--context must be >= 0")
             deep = not args.prompts_only
             now = _now_hkt()
             tomorrow = now.replace(hour=0, minute=0, second=0, microsecond=0) + timedelta(days=1)
@@ -1055,6 +1105,7 @@ def _cli() -> None:
                     args.tool,
                     args.role,
                     args.session,
+                    args.context,
                 )
             else:
                 results = _search_prompts(
@@ -1064,6 +1115,7 @@ def _cli() -> None:
                     args.tool,
                     args.role,
                     args.session,
+                    args.context,
                 )
 
             elapsed = _time.monotonic() - t0
@@ -1071,7 +1123,16 @@ def _cli() -> None:
             if args.json:
                 _print_json_search(results)
             else:
-                _print_search(results, args.pattern, args.days, deep, args.role, args.session)
+                _print_search(
+                    results,
+                    regex,
+                    args.pattern,
+                    args.days,
+                    deep,
+                    args.role,
+                    args.session,
+                    args.context,
+                )
                 print(f"({elapsed:.1f}s)")
 
         else:
