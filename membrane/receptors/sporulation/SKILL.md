@@ -2,6 +2,7 @@
 name: sporulation
 description: Save session checkpoint with codename for instant resume in a new session.
 user_invocable: true
+context: inline  # MUST NOT fork — runs full cytokinesis first, needs session history
 triggers:
   - sporulation
 model: sonnet
