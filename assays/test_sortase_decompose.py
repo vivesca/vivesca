@@ -13,6 +13,7 @@ from metabolon.sortase.decompose import (
     _write_temp_specs,
     decompose_plan,
     estimate_complexity,
+    score_spec_quality,
 )
 
 # ---------------------------------------------------------------------------
