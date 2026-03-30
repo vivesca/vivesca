@@ -16,6 +16,7 @@ ones, strengthens accessed ones, and protects critical corrections.
 
 from __future__ import annotations
 
+import json
 import math
 import subprocess
 from dataclasses import dataclass, field
@@ -26,6 +27,7 @@ from metabolon.locus import marks as MARKS_DIR
 
 # Ephemeral signal channel — paracrine signaling (cell-to-cell via secreted factors)
 SIGNALS_DIR = Path.home() / "epigenome" / "signals"
+SIGNAL_HISTORY_PATH = Path.home() / ".local" / "share" / "vivesca" / "signal-history.jsonl"
 
 
 @dataclass
@@ -443,6 +445,53 @@ def _update_frontmatter_field(path: Path, key: str, value: str) -> None:
     path.write_text("---\n" + "\n".join(new_lines) + "\n" + body, encoding="utf-8")
 
 
+def _append_signal_history(
+    *,
+    name: str,
+    content: str,
+    source: str,
+    downstream: list[str] | None,
+    signal_path: Path,
+    fire_count: int,
+    deduplicated: bool,
+) -> None:
+    """Persist every signal emission as an append-only JSONL event."""
+    SIGNAL_HISTORY_PATH.parent.mkdir(parents=True, exist_ok=True)
+    entry = {
+        "timestamp": datetime.now().isoformat(timespec="seconds"),
+        "name": name,
+        "source": source,
+        "content": content,
+        "path": str(signal_path),
+        "fire_count": fire_count,
+        "deduplicated": deduplicated,
+        "downstream": downstream or [],
+    }
+    with SIGNAL_HISTORY_PATH.open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps(entry) + "\n")
+
+
+def signal_history(limit: int = 20, name_filter: str | None = None) -> list[dict]:
+    """Return the most recent emitted signals from append-only history."""
+    if limit <= 0 or not SIGNAL_HISTORY_PATH.exists():
+        return []
+
+    entries: list[dict] = []
+    with SIGNAL_HISTORY_PATH.open(encoding="utf-8") as handle:
+        for line in handle:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                entry = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if name_filter and not str(entry.get("name", "")).startswith(name_filter):
+                continue
+            entries.append(entry)
+    return list(reversed(entries[-limit:]))
+
+
 def emit_signal(
     name: str,
     content: str,
@@ -479,6 +528,15 @@ def emit_signal(
         fm = _parse_frontmatter(existing)
         fire_count = int(fm.get("fire_count", "1")) + 1
         _update_frontmatter_field(existing, "fire_count", str(fire_count))
+        _append_signal_history(
+            name=name,
+            content=content,
+            source=source,
+            downstream=downstream,
+            signal_path=existing,
+            fire_count=fire_count,
+            deduplicated=True,
+        )
         return existing
 
     ts = datetime.now().strftime("%Y%m%d-%H%M%S")
@@ -501,6 +559,15 @@ def emit_signal(
         f"---\n\n"
         f"{content}\n",
         encoding="utf-8",
+    )
+    _append_signal_history(
+        name=name,
+        content=content,
+        source=source,
+        downstream=downstream,
+        signal_path=signal_path,
+        fire_count=1,
+        deduplicated=False,
     )
     return signal_path
 

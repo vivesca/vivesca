@@ -17,6 +17,7 @@ from metabolon.organelles.demethylase import (
     read_signals,
     record_access,
     resensitize,
+    signal_history,
     sweep,
     transduce,
 )
@@ -156,6 +157,10 @@ def test_analyze_reads_access_count(marks_dir: Path):
 
 def test_emit_signal(tmp_path: Path, monkeypatch):
     monkeypatch.setattr("metabolon.organelles.demethylase.SIGNALS_DIR", tmp_path / "signals")
+    monkeypatch.setattr(
+        "metabolon.organelles.demethylase.SIGNAL_HISTORY_PATH",
+        tmp_path / "state" / "signal-history.jsonl",
+    )
     path = emit_signal("test-finding", "Goose found a bug in fasti", source="goose")
     assert path.exists()
     content = path.read_text()
@@ -167,6 +172,10 @@ def test_emit_signal(tmp_path: Path, monkeypatch):
 def test_read_signals(tmp_path: Path, monkeypatch):
     sig_dir = tmp_path / "signals"
     monkeypatch.setattr("metabolon.organelles.demethylase.SIGNALS_DIR", sig_dir)
+    monkeypatch.setattr(
+        "metabolon.organelles.demethylase.SIGNAL_HISTORY_PATH",
+        tmp_path / "state" / "signal-history.jsonl",
+    )
     # Desensitization: duplicate signals merge into one file (fire_count incremented)
     emit_signal("refactor-done", "Task 3 complete", source="goose")
     emit_signal("refactor-done", "Task 5 complete", source="goose")  # deduplicates
@@ -185,6 +194,38 @@ def test_read_signals(tmp_path: Path, monkeypatch):
 def test_read_signals_empty(tmp_path: Path, monkeypatch):
     monkeypatch.setattr("metabolon.organelles.demethylase.SIGNALS_DIR", tmp_path / "nonexistent")
     assert read_signals() == []
+
+
+def test_signal_history_returns_last_n(tmp_path: Path, monkeypatch):
+    sig_dir = tmp_path / "signals"
+    history_path = tmp_path / "state" / "signal-history.jsonl"
+    monkeypatch.setattr("metabolon.organelles.demethylase.SIGNALS_DIR", sig_dir)
+    monkeypatch.setattr("metabolon.organelles.demethylase.SIGNAL_HISTORY_PATH", history_path)
+
+    emit_signal("first-signal", "First content", source="cc")
+    emit_signal("second-signal", "Second content", source="goose")
+    emit_signal("second-signal", "Second content again", source="goose")
+
+    history = signal_history(limit=2)
+    assert [entry["name"] for entry in history] == ["second-signal", "second-signal"]
+    assert history[0]["fire_count"] == 2
+    assert history[0]["deduplicated"] is True
+    assert "timestamp" in history[0]
+    assert history[1]["fire_count"] == 1
+
+
+def test_signal_history_filters_by_name(tmp_path: Path, monkeypatch):
+    sig_dir = tmp_path / "signals"
+    history_path = tmp_path / "state" / "signal-history.jsonl"
+    monkeypatch.setattr("metabolon.organelles.demethylase.SIGNALS_DIR", sig_dir)
+    monkeypatch.setattr("metabolon.organelles.demethylase.SIGNAL_HISTORY_PATH", history_path)
+
+    emit_signal("sleep-report", "Overnight summary", source="cc")
+    emit_signal("build-report", "Build completed", source="goose")
+
+    history = signal_history(limit=10, name_filter="sleep")
+    assert len(history) == 1
+    assert history[0]["name"] == "sleep-report"
 
 
 # -- Sleep consolidation tests --
@@ -242,6 +283,10 @@ def test_emit_signal_increments_fire_count(tmp_path: Path, monkeypatch):
     """Emitting the same signal name twice increments fire_count instead of creating a duplicate."""
     sig_dir = tmp_path / "signals"
     monkeypatch.setattr("metabolon.organelles.demethylase.SIGNALS_DIR", sig_dir)
+    monkeypatch.setattr(
+        "metabolon.organelles.demethylase.SIGNAL_HISTORY_PATH",
+        tmp_path / "state" / "signal-history.jsonl",
+    )
 
     path1 = emit_signal("repeat-signal", "First fire", source="cc")
     path2 = emit_signal("repeat-signal", "Second fire", source="cc")
@@ -262,6 +307,10 @@ def test_desensitized_signals_excluded(tmp_path: Path, monkeypatch):
     """Signals with fire_count >= desensitization_threshold are excluded from read_signals."""
     sig_dir = tmp_path / "signals"
     monkeypatch.setattr("metabolon.organelles.demethylase.SIGNALS_DIR", sig_dir)
+    monkeypatch.setattr(
+        "metabolon.organelles.demethylase.SIGNAL_HISTORY_PATH",
+        tmp_path / "state" / "signal-history.jsonl",
+    )
 
     # Emit the same signal 5 times — should reach the default threshold of 5
     for _ in range(5):
@@ -277,6 +326,10 @@ def test_desensitized_signals_included_with_flag(tmp_path: Path, monkeypatch):
     """include_desensitized=True returns desensitized signals with desensitized=True flag."""
     sig_dir = tmp_path / "signals"
     monkeypatch.setattr("metabolon.organelles.demethylase.SIGNALS_DIR", sig_dir)
+    monkeypatch.setattr(
+        "metabolon.organelles.demethylase.SIGNAL_HISTORY_PATH",
+        tmp_path / "state" / "signal-history.jsonl",
+    )
 
     for _ in range(5):
         emit_signal("noisy-signal", "Repeated content", source="cc")
@@ -294,6 +347,10 @@ def test_resensitize_resets_signal(tmp_path: Path, monkeypatch):
     """resensitize() resets a desensitized signal so it appears in read_signals again."""
     sig_dir = tmp_path / "signals"
     monkeypatch.setattr("metabolon.organelles.demethylase.SIGNALS_DIR", sig_dir)
+    monkeypatch.setattr(
+        "metabolon.organelles.demethylase.SIGNAL_HISTORY_PATH",
+        tmp_path / "state" / "signal-history.jsonl",
+    )
 
     # Drive signal to desensitization
     for _ in range(5):
@@ -351,6 +408,10 @@ def test_emit_signal_with_downstream(tmp_path: Path, monkeypatch):
     """emit_signal stores downstream commands in frontmatter as a YAML list."""
     sig_dir = tmp_path / "signals"
     monkeypatch.setattr("metabolon.organelles.demethylase.SIGNALS_DIR", sig_dir)
+    monkeypatch.setattr(
+        "metabolon.organelles.demethylase.SIGNAL_HISTORY_PATH",
+        tmp_path / "state" / "signal-history.jsonl",
+    )
 
     cmds = ["echo hello", "echo world"]
     path = emit_signal("cascade-test", "Trigger downstream", source="cc", downstream=cmds)
@@ -365,6 +426,10 @@ def test_transduce_executes_commands(tmp_path: Path, monkeypatch):
     """transduce() runs downstream shell commands and reports what fired."""
     sig_dir = tmp_path / "signals"
     monkeypatch.setattr("metabolon.organelles.demethylase.SIGNALS_DIR", sig_dir)
+    monkeypatch.setattr(
+        "metabolon.organelles.demethylase.SIGNAL_HISTORY_PATH",
+        tmp_path / "state" / "signal-history.jsonl",
+    )
 
     sentinel = tmp_path / "cascade_fired.txt"
     emit_signal(
@@ -385,6 +450,10 @@ def test_transduce_marks_as_transduced(tmp_path: Path, monkeypatch):
     """After transduce(), the signal file has transduced: true in frontmatter."""
     sig_dir = tmp_path / "signals"
     monkeypatch.setattr("metabolon.organelles.demethylase.SIGNALS_DIR", sig_dir)
+    monkeypatch.setattr(
+        "metabolon.organelles.demethylase.SIGNAL_HISTORY_PATH",
+        tmp_path / "state" / "signal-history.jsonl",
+    )
 
     path = emit_signal(
         "mark-test",
@@ -403,6 +472,10 @@ def test_transduce_skips_already_transduced(tmp_path: Path, monkeypatch):
     """A signal already marked transduced is not returned or re-executed by transduce()."""
     sig_dir = tmp_path / "signals"
     monkeypatch.setattr("metabolon.organelles.demethylase.SIGNALS_DIR", sig_dir)
+    monkeypatch.setattr(
+        "metabolon.organelles.demethylase.SIGNAL_HISTORY_PATH",
+        tmp_path / "state" / "signal-history.jsonl",
+    )
 
     counter = tmp_path / "count.txt"
     counter.write_text("0")

@@ -451,6 +451,55 @@ def _skills() -> str:
     return "\n\n".join(parts) if parts else "No upstream skill changes detected."
 
 
+def _timing() -> str:
+    """Tool call latency statistics from the in-memory rotating buffer."""
+    from statistics import mean, median
+
+    from metabolon.membrane import timing_buffer
+
+    entries = timing_buffer.snapshot()
+    if not entries:
+        return "No tool call timings recorded yet."
+
+    total = len(entries)
+    latencies = sorted(entry.latency_ms for entry in entries)
+
+    avg_ms = mean(latencies)
+    p50_ms = median(latencies)
+    p95_idx = max(0, int(len(latencies) * 0.95) - 1)
+    p95_ms = latencies[p95_idx]
+
+    # Per-tool aggregation
+    tool_latencies: dict[str, list[int]] = {}
+    for entry in entries:
+        tool_latencies.setdefault(entry.tool, []).append(entry.latency_ms)
+
+    slowest_tools = sorted(
+        ((name, max(times)) for name, times in tool_latencies.items()),
+        key=lambda pair: pair[1],
+        reverse=True,
+    )[:5]
+
+    lines = [
+        f"Tool Timing Stats (last {total} calls):",
+        f"  avg:   {avg_ms:.0f}ms",
+        f"  p50:   {p50_ms:.0f}ms",
+        f"  p95:   {p95_ms:.0f}ms",
+        "",
+        "Slowest tools (max latency):",
+    ]
+    for name, max_lat in slowest_tools:
+        lines.append(f"  {name}: {max_lat}ms")
+
+    # Outcome breakdown
+    success_count = sum(1 for entry in entries if entry.outcome == "success")
+    error_count = total - success_count
+    lines.append("")
+    lines.append(f"Outcomes: {success_count} success, {error_count} error")
+
+    return "\n".join(lines)
+
+
 _DISPATCH: dict[str, callable] = {
     "genome": _genome,
     "anatomy": _anatomy,
@@ -467,4 +516,5 @@ _DISPATCH: dict[str, callable] = {
     "sense": _sense,
     "gradient": _gradient_detect,
     "skills": _skills,
+    "timing": _timing,
 }

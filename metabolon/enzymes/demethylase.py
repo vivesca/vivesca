@@ -1,6 +1,6 @@
 """demethylase — signal + mark management (active memory erasure tools).
 
-Actions: emit|read|transduce|resensitize|sweep|record_access
+Actions: emit|read|history|transduce|resensitize|sweep|record_access
 """
 
 from __future__ import annotations
@@ -18,6 +18,7 @@ class DemethylaseResult(Secretion):
 _ACTIONS = (
     "emit — emit ephemeral paracrine signal. Requires: name, content. Optional: source, downstream. "
     "read — read pending inter-agent signals. Optional: name_filter, desensitization_threshold, include_desensitized, execute_cascade. "
+    "history — read the last N emitted signals from append-only history. Optional: limit, name_filter. "
     "transduce — execute downstream cascades for pending signals. Optional: name_filter. "
     "resensitize — re-sensitize a desensitized signal. Requires: name. "
     "sweep — scan histone marks for staleness. Optional: threshold_days, dry_run. "
@@ -40,6 +41,7 @@ def demethylase(
     desensitization_threshold: int = 5,
     include_desensitized: bool = False,
     execute_cascade: bool = False,
+    limit: int = 20,
     threshold_days: int = 90,
     dry_run: bool = True,
     mark_filename: str = "",
@@ -79,6 +81,21 @@ def demethylase(
             cf = s.get("cascades_fired", [])
             if cf:
                 lines.append(f"    Cascades fired: {', '.join(cf)}")
+        return DemethylaseResult(results="\n".join(lines))
+
+    elif action == "history":
+        from metabolon.organelles.demethylase import signal_history
+
+        signals = signal_history(limit=limit, name_filter=name_filter)
+        if not signals:
+            return DemethylaseResult(results="No signal history found.")
+        lines = [f"{len(signals)} signal(s) in history:"]
+        for signal in signals:
+            lines.append(f"  [{signal['timestamp']}] {signal['name']}")
+            lines.append(f"    Source: {signal['source']}")
+            lines.append(f"    Fire count: {signal['fire_count']}")
+            lines.append(f"    Deduplicated: {signal['deduplicated']}")
+            lines.append(f"    Content: {signal['content']}")
         return DemethylaseResult(results="\n".join(lines))
 
     elif action == "transduce":
@@ -150,5 +167,5 @@ def demethylase(
 
     else:
         return DemethylaseResult(
-            results=f"Unknown action '{action}'. Valid: emit, read, transduce, resensitize, sweep, record_access"
+            results=f"Unknown action '{action}'. Valid: emit, read, history, transduce, resensitize, sweep, record_access"
         )
