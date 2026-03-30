@@ -13,67 +13,68 @@ from metabolon.morphology import EffectorResult, Vital
 
 
 @tool(
-    name="mitosis_sync",
-    description="Push current state to gemmule DR site. One-way sync, Mac authoritative.",
+    name="mitosis",
+    description="Git sync. Actions: sync|status",
     annotations=ToolAnnotations(readOnlyHint=False, destructiveHint=False),
 )
-def mitosis_sync(targets: list[str] | None = None) -> EffectorResult:
-    """Sync organism state to gemmule hot standby.
+def mitosis(action: str, targets: list[str] | None = None) -> EffectorResult | Vital:
+    """Git sync and DR status for gemmule hot standby.
 
     Args:
+        action: "sync" to push state to gemmule, "status" to check health/freshness.
         targets: Specific targets to sync (e.g. ["chromatin", "marks"]).
-                 None syncs all targets.
+                 None syncs all targets. Only used with action="sync".
     """
-    from metabolon.organelles.mitosis import sync
+    if action == "sync":
+        from metabolon.organelles.mitosis import sync
 
-    report = sync(targets)
-    results_summary = [
-        {
-            "target": r.target,
-            "ok": r.success,
-            "elapsed_s": round(r.elapsed_s, 1),
-            "error": r.message,
-        }
-        for r in report.results
-    ]
+        report = sync(targets)
+        results_summary = [
+            {
+                "target": r.target,
+                "ok": r.success,
+                "elapsed_s": round(r.elapsed_s, 1),
+                "error": r.message,
+            }
+            for r in report.results
+        ]
+        return EffectorResult(
+            success=report.ok,
+            message=report.summary,
+            data={"results": results_summary, "elapsed_s": round(report.elapsed_s, 1)},
+        )
+
+    if action == "status":
+        from metabolon.organelles.mitosis import status
+
+        info = status()
+        if not info["reachable"]:
+            return Vital(
+                status="error",
+                message="gemmule unreachable via Tailscale",
+                details=info,
+            )
+
+        stale = [
+            name
+            for name, t in info.get("targets", {}).items()
+            if t.get("state") in ("stale", "missing")
+        ]
+        if stale:
+            return Vital(
+                status="warning",
+                message=f"gemmule reachable but {len(stale)} targets stale/missing: {', '.join(stale)}",
+                details=info,
+            )
+
+        return Vital(
+            status="ok",
+            message=f"gemmule healthy, machine {info.get('machine_state', 'unknown')}",
+            details=info,
+        )
+
     return EffectorResult(
-        success=report.ok,
-        message=report.summary,
-        data={"results": results_summary, "elapsed_s": round(report.elapsed_s, 1)},
-    )
-
-
-@tool(
-    name="mitosis_status",
-    description="Check gemmule DR site health and sync freshness.",
-    annotations=ToolAnnotations(readOnlyHint=True, destructiveHint=False),
-)
-def mitosis_status() -> Vital:
-    """Check reachability, machine state, and per-target sync age."""
-    from metabolon.organelles.mitosis import status
-
-    info = status()
-    if not info["reachable"]:
-        return Vital(
-            status="error",
-            message="gemmule unreachable via Tailscale",
-            details=info,
-        )
-
-    stale = [
-        name
-        for name, t in info.get("targets", {}).items()
-        if t.get("state") in ("stale", "missing")
-    ]
-    if stale:
-        return Vital(
-            status="warning",
-            message=f"gemmule reachable but {len(stale)} targets stale/missing: {', '.join(stale)}",
-            details=info,
-        )
-
-    return Vital(
-        status="ok",
-        message=f"gemmule healthy, machine {info.get('machine_state', 'unknown')}",
-        details=info,
+        success=False,
+        message=f"Unknown action: {action!r}. Use 'sync' or 'status'.",
+        data={},
     )

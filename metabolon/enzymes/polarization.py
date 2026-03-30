@@ -34,20 +34,8 @@ class PolarizationPreflightResult(Secretion):
     summary: str
 
 
-@tool(
-    name="polarization_preflight",
-    description="Consumption check, budget, guard status, north stars before dispatch.",
-    annotations=ToolAnnotations(readOnlyHint=True, destructiveHint=False),
-)
-def polarization_preflight() -> PolarizationPreflightResult:
-    """Run polarization-gather preflight checks.
-
-    Checks: review queue consumption, budget, guard status, manifest,
-    north stars, TODO agent:claude items, NOW.md.
-
-    Returns structured JSON data from the CLI plus a human-readable summary.
-    Use this before dispatching any agent teams to verify backlog state.
-    """
+def _preflight() -> PolarizationPreflightResult:
+    """Run polarization-gather preflight checks."""
     cli = _find_cli()
     if not cli:
         return PolarizationPreflightResult(
@@ -104,26 +92,13 @@ def polarization_preflight() -> PolarizationPreflightResult:
         )
 
 
-@tool(
-    name="polarization_guard",
-    description="Activate or deactivate the polarization stop guard.",
-    annotations=ToolAnnotations(readOnlyHint=False, destructiveHint=False),
-)
-def polarization_guard(action: str) -> EffectorResult:
-    """Toggle the polarization stop guard on or off.
-
-    The guard is a Stop hook that prevents the model from stopping while
-    budget is green. Activate at session start; deactivate at session end
-    (done automatically in Wrap, or manually here).
-
-    Args:
-        action: 'on' to activate the guard, 'off' to deactivate.
-    """
-    action = action.lower().strip()
-    if action not in ("on", "off"):
+def _guard(guard_action: str) -> EffectorResult:
+    """Toggle the polarization stop guard on or off."""
+    guard_action = guard_action.lower().strip()
+    if guard_action not in ("on", "off"):
         return EffectorResult(
             success=False,
-            message=f"Invalid action '{action}'. Use 'on' or 'off'.",
+            message=f"Invalid guard_action '{guard_action}'. Use 'on' or 'off'.",
         )
 
     cli = _find_cli()
@@ -135,28 +110,51 @@ def polarization_guard(action: str) -> EffectorResult:
 
     try:
         result = subprocess.run(
-            [cli, "guard", action],
+            [cli, "guard", guard_action],
             capture_output=True,
             text=True,
             timeout=10,
         )
         if result.returncode == 0:
-            state = "activated" if action == "on" else "deactivated"
+            state = "activated" if guard_action == "on" else "deactivated"
             return EffectorResult(
                 success=True,
                 message=f"Polarization guard {state}.",
-                data={"action": action, "guard_state": action},
+                data={"action": guard_action, "guard_state": guard_action},
             )
         else:
             stderr = result.stderr.strip()
             stdout = result.stdout.strip()
             return EffectorResult(
                 success=False,
-                message=f"guard {action} failed (exit {result.returncode}): {stderr or stdout}",
-                data={"action": action, "stderr": stderr},
+                message=f"guard {guard_action} failed (exit {result.returncode}): {stderr or stdout}",
+                data={"action": guard_action, "stderr": stderr},
             )
     except subprocess.TimeoutExpired:
         return EffectorResult(
             success=False,
-            message=f"guard {action} timed out.",
+            message=f"guard {guard_action} timed out.",
+        )
+
+
+@tool(
+    name="polarization",
+    description="Overnight teams. Actions: preflight|guard",
+    annotations=ToolAnnotations(readOnlyHint=False, destructiveHint=False),
+)
+def polarization(action: str, guard_action: str = "") -> PolarizationPreflightResult | EffectorResult:
+    """Polarization pre-flight checks and guard control.
+
+    Args:
+        action: 'preflight' for consumption/budget/guard check, 'guard' to toggle guard.
+        guard_action: When action='guard', 'on' to activate or 'off' to deactivate.
+    """
+    if action == "preflight":
+        return _preflight()
+    elif action == "guard":
+        return _guard(guard_action)
+    else:
+        return EffectorResult(
+            success=False,
+            message=f"Unknown action '{action}'. Use 'preflight' or 'guard'.",
         )

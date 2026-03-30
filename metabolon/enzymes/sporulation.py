@@ -3,11 +3,6 @@
 A bacterium sporulates when conditions turn hostile: it compresses its essential
 DNA into a compact, resistant spore. Same here — compress live context into a
 checkpoint, germinate in a fresh session.
-
-Tools:
-  sporulation_save   — write a session checkpoint with a codename
-  sporulation_load   — read an existing checkpoint by codename
-  sporulation_list   — list active checkpoints
 """
 
 from __future__ import annotations
@@ -150,27 +145,13 @@ class SporulationListResult(Secretion):
     checkpoints: list[dict]
 
 
-@tool(
-    name="sporulation_save",
-    description="Save a session checkpoint. Returns codename for resume in a new session.",
-    annotations=ToolAnnotations(readOnlyHint=False, destructiveHint=False),
-)
-def sporulation_save(
+def _save(
     context: str,
     where_we_left_off: str,
     action_needed: str,
     summary: str = "",
     codename: str = "",
 ) -> SporulationSaveResult:
-    """Compress live session context into a named checkpoint spore.
-
-    Args:
-        context: What we were doing (2-3 sentences).
-        where_we_left_off: Bullet list of last actions and pending items.
-        action_needed: Numbered steps to resume (include tool names, file paths).
-        summary: One-line summary for the description field.
-        codename: Custom codename (auto-generated if empty).
-    """
     _CHECKPOINT_DIR.mkdir(parents=True, exist_ok=True)
     purged = _purge_stale()
 
@@ -209,18 +190,7 @@ type: project
     return SporulationSaveResult(codename=codename, path=str(path), purged=purged)
 
 
-@tool(
-    name="sporulation_load",
-    description="Load a session checkpoint by codename. Consumes the spore on success.",
-    annotations=ToolAnnotations(readOnlyHint=False, destructiveHint=False),
-)
-def sporulation_load(codename: str, consume: bool = True) -> SporulationLoadResult:
-    """Germinate a checkpoint — read it and optionally delete after loading.
-
-    Args:
-        codename: The adjective-noun codename (e.g. "happy-cat").
-        consume: If True (default), delete the checkpoint after reading.
-    """
+def _load(codename: str, consume: bool = True) -> SporulationLoadResult:
     path = _checkpoint_path(codename)
     if not path.exists():
         return SporulationLoadResult(codename=codename, content="", found=False)
@@ -232,13 +202,7 @@ def sporulation_load(codename: str, consume: bool = True) -> SporulationLoadResu
     return SporulationLoadResult(codename=codename, content=content, found=True)
 
 
-@tool(
-    name="sporulation_list",
-    description="List active session checkpoints with codenames and descriptions.",
-    annotations=ToolAnnotations(readOnlyHint=True, destructiveHint=False),
-)
-def sporulation_list() -> SporulationListResult:
-    """List all active checkpoint spores."""
+def _list() -> SporulationListResult:
     if not _CHECKPOINT_DIR.exists():
         return SporulationListResult(checkpoints=[])
 
@@ -264,3 +228,49 @@ def sporulation_list() -> SporulationListResult:
         )
 
     return SporulationListResult(checkpoints=checkpoints)
+
+
+@tool(
+    name="sporulation",
+    description="Session checkpoints. Actions: save|load|list",
+    annotations=ToolAnnotations(readOnlyHint=False, destructiveHint=False),
+)
+def sporulation(
+    action: str,
+    context: str = "",
+    where_we_left_off: str = "",
+    action_needed: str = "",
+    summary: str = "",
+    codename: str = "",
+    consume: bool = True,
+) -> SporulationSaveResult | SporulationLoadResult | SporulationListResult | str:
+    """Manage cross-session checkpoint spores.
+
+    Actions:
+      save — compress live session context into a named checkpoint.
+        context: What we were doing (2-3 sentences).
+        where_we_left_off: Bullet list of last actions and pending items.
+        action_needed: Numbered steps to resume (include tool names, file paths).
+        summary: One-line summary for the description field.
+        codename: Custom codename (auto-generated if empty).
+
+      load — germinate a checkpoint by codename.
+        codename: The adjective-noun codename (e.g. "happy-cat").
+        consume: If True (default), delete the checkpoint after reading.
+
+      list — list all active checkpoint spores.
+    """
+    if action == "save":
+        return _save(
+            context=context,
+            where_we_left_off=where_we_left_off,
+            action_needed=action_needed,
+            summary=summary,
+            codename=codename,
+        )
+    elif action == "load":
+        return _load(codename=codename, consume=consume)
+    elif action == "list":
+        return _list()
+    else:
+        return f"Unknown action '{action}'. Use save, load, or list."
