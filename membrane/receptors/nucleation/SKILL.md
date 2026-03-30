@@ -81,7 +81,7 @@ RESEARCH → SPEC ANALYSIS → PLAN → EXECUTE → VERIFY → REVIEW → FINISH
 ```
 
 **1. Research** (cheap, parallel — prefer droid explore for codebase recon):
-- `droid exec -m glm-4.7 --cwd <project> "<recon prompt>"` — free codebase understanding
+- `droid exec -m "custom:glm-4.7" --cwd <project> "<recon prompt>"` — free codebase understanding
 - `learnings-researcher` + `repo-research-analyst` — surfaces KB gotchas + codebase patterns
 - Use droid for "read and summarize the code"; CC subagents only when judgment is needed mid-research
 
