@@ -225,6 +225,9 @@ def log_results(state: SortaseState) -> dict:
         "files_changed": len(state.get("changed_files", [])),
         "tests_passed": 0 if any(i["check"] == "tests" for i in validation_issues) else 1,
         "executor": "langgraph",
+        "cost_estimate": ", ".join(
+            dict.fromkeys(r.get("cost_estimate", "") for r in results if r.get("cost_estimate"))
+        ) or "N/A",
     }
 
     append_log(entry)
