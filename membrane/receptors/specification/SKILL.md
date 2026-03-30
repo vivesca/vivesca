@@ -1,6 +1,6 @@
 ---
 name: specification
-description: Write a dispatch-ready spec for sortase/goose/droid. "spec this", "write a plan", "dispatch this"
+description: Write a dispatch-ready spec before any goose/droid/sortase dispatch. Use BEFORE writing implementation specs — not after.
 user_invocable: true
 ---
 

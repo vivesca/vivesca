@@ -335,6 +335,8 @@ CHEMO_KEYWORDS = [
     (r"\bbenchmark\b", "Benchmark -> use `/build` skill (phase=experiment)"),
     (r"\b(worked before|used to work|stopped working|broke[n]?|not found|command not found|regression|troubleshoot)\b",
      "Diagnosis -> use `/diagnose` skill. Frame the problem (regression? new issue?) before attempting fixes"),
+    (r"\b(dispatch|build it|implement|sortase exec|translocon|write.{0,10}spec)\b",
+     "Dispatch -> use `/specification` skill to write spec to ~/germline/loci/plans/ BEFORE dispatching. Never /tmp/."),
 ]
 
 
