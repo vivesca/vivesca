@@ -166,6 +166,7 @@ def _capture_transduction(
     config_path: str | None = None,
 ) -> dict[str, Any]:
     """Capture per-model outcome without letting one failure abort the quorum."""
+    resolved_timeout = None
     try:
         _, model_config = _load_model_config(model_name, config_path)
         resolved_timeout = _resolve_model_timeout(model_name, model_config, timeout)
