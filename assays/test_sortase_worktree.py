@@ -359,14 +359,14 @@ async def test_execute_tasks_worktree_failure_cleans_up(tmp_path: Path):
 # ── clean command ───────────────────────────────────────────
 
 
-from metabolon.sortase.cli import clean_command
+from metabolon.sortase.cli import clean_command, main as sortase_main
 
 
 def test_clean_no_stale(tmp_path: Path) -> None:
     """Fresh repo with no sortase worktrees → reports 0 stale."""
     repo = _init_git_repo(tmp_path)
     runner = CliRunner()
-    result = runner.invoke(main, ["clean", "-p", str(repo)])
+    result = runner.invoke(sortase_main, ["clean", "-p", str(repo)])
     assert result.exit_code == 0
     assert "0 stale" in result.output
 
@@ -385,7 +385,7 @@ def test_clean_dry_run_shows_but_preserves(tmp_path: Path) -> None:
     worktree_path = _create_worktree(repo, "test-task-xyz789")
 
     runner = CliRunner()
-    result = runner.invoke(main, ["clean", "-p", str(repo), "--dry-run"])
+    result = runner.invoke(sortase_main, ["clean", "-p", str(repo), "--dry-run"])
     assert result.exit_code == 0
     assert "would remove" in result.output
 
@@ -420,7 +420,7 @@ def test_clean_removes_stale_worktree(tmp_path: Path) -> None:
     assert "sortase/test-task-cleanup" in branches_before.stdout
 
     runner = CliRunner()
-    result = runner.invoke(main, ["clean", "-p", str(repo)])
+    result = runner.invoke(sortase_main, ["clean", "-p", str(repo)])
     assert result.exit_code == 0
     assert "removed" in result.output
     assert "sortase/test-task-cleanup" in result.output
@@ -447,7 +447,7 @@ def test_clean_prunes_missing_worktree_directory(tmp_path: Path) -> None:
     assert not worktree_path.exists()
 
     runner = CliRunner()
-    result = runner.invoke(main, ["clean", "-p", str(repo)])
+    result = runner.invoke(sortase_main, ["clean", "-p", str(repo)])
     assert result.exit_code == 0
     assert "pruned" in result.output
     assert "sortase/test-task-missing" in result.output
