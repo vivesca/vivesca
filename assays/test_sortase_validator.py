@@ -118,6 +118,59 @@ class TestCheckScope:
         issues = check_scope(tmp_path, changed_files=files)
         assert len(issues) == 1
 
+    def test_single_directory_no_spread_issue(self, tmp_path):
+        files = ["metabolon/a.py", "metabolon/b.py", "metabolon/c.py"]
+        issues = check_scope(tmp_path, max_files=20, changed_files=files)
+        spread = [i for i in issues if i.check == "directory-spread"]
+        assert spread == []
+
+    def test_two_directories_under_limit(self, tmp_path):
+        files = ["metabolon/a.py", "membrane/b.py"]
+        issues = check_scope(tmp_path, max_files=20, changed_files=files)
+        spread = [i for i in issues if i.check == "directory-spread"]
+        assert spread == []
+
+    def test_three_directories_at_limit_no_issue(self, tmp_path):
+        files = ["metabolon/a.py", "membrane/b.py", "epigenome/c.py"]
+        issues = check_scope(tmp_path, max_files=20, max_dirs=3, changed_files=files)
+        spread = [i for i in issues if i.check == "directory-spread"]
+        assert spread == []
+
+    def test_four_directories_over_limit_warns(self, tmp_path):
+        files = ["metabolon/a.py", "membrane/b.py", "epigenome/c.py", "effectors/d.py"]
+        issues = check_scope(tmp_path, max_files=20, max_dirs=3, changed_files=files)
+        spread = [i for i in issues if i.check == "directory-spread"]
+        assert len(spread) == 1
+        assert "4 top-level directories" in spread[0].message
+        assert "limit 3" in spread[0].message
+        for name in ("metabolon", "membrane", "epigenome", "effectors"):
+            assert name in spread[0].message
+
+    def test_root_files_counted_as_own_dir(self, tmp_path):
+        files = ["root_file.py", "metabolon/a.py", "membrane/b.py", "epigenome/c.py"]
+        issues = check_scope(tmp_path, max_files=20, max_dirs=3, changed_files=files)
+        spread = [i for i in issues if i.check == "directory-spread"]
+        assert len(spread) == 1
+        assert "4 top-level directories" in spread[0].message
+
+    def test_file_count_and_spread_both_fire(self, tmp_path):
+        files = [f"dir{i}/f{j}.py" for i in range(5) for j in range(5)]
+        issues = check_scope(tmp_path, max_files=20, max_dirs=3, changed_files=files)
+        assert len(issues) == 2
+        checks = {i.check for i in issues}
+        assert checks == {"scope-check", "directory-spread"}
+
+    def test_default_max_dirs(self, tmp_path):
+        files = ["a/f.py", "b/f.py", "c/f.py", "d/f.py"]
+        issues = check_scope(tmp_path, changed_files=files)
+        spread = [i for i in issues if i.check == "directory-spread"]
+        assert len(spread) == 1
+
+    def test_empty_files_no_spread(self, tmp_path):
+        issues = check_scope(tmp_path, changed_files=[])
+        spread = [i for i in issues if i.check == "directory-spread"]
+        assert spread == []
+
 
 # ---------------------------------------------------------------------------
 # scan_for_placeholders

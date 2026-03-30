@@ -13,6 +13,21 @@ from metabolon.sortase.executor import ExecutionAttempt, TaskExecutionResult
 from metabolon.sortase.validator import ValidationIssue
 
 
+def _extract_json(output: str) -> dict:
+    """Extract the JSON object from CLI output that may contain Rich formatting."""
+    start = output.index("{")
+    # Find matching closing brace
+    depth = 0
+    for idx in range(start, len(output)):
+        if output[idx] == "{":
+            depth += 1
+        elif output[idx] == "}":
+            depth -= 1
+            if depth == 0:
+                return json.loads(output[start : idx + 1])
+    raise ValueError("No matching closing brace found")
+
+
 @pytest.fixture()
 def plan_file(tmp_path: Path) -> Path:
     plan = tmp_path / "plan.md"

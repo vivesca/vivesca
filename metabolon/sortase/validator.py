@@ -44,7 +44,12 @@ def check_dependency_pollution(pyproject_path: Path | None = None, cargo_path: P
     return issues
 
 
-def check_scope(project_dir: Path, max_files: int = 20, changed_files: list[str] | None = None) -> list[ValidationIssue]:
+def check_scope(
+    project_dir: Path,
+    max_files: int = 20,
+    max_dirs: int = 3,
+    changed_files: list[str] | None = None,
+) -> list[ValidationIssue]:
     if changed_files is None:
         completed = subprocess.run(
             ["git", "diff", "--stat", "--name-only"],
@@ -55,15 +60,32 @@ def check_scope(project_dir: Path, max_files: int = 20, changed_files: list[str]
         )
         changed_files = [line for line in completed.stdout.splitlines() if line.strip()]
 
+    issues: list[ValidationIssue] = []
+
     if len(changed_files) > max_files:
-        return [
+        issues.append(
             ValidationIssue(
                 check="scope-check",
                 message=f"Change scope is large: {len(changed_files)} files changed (limit {max_files})",
                 severity="warning",
             )
-        ]
-    return []
+        )
+
+    top_dirs = {Path(f).parts[0] if Path(f).is_absolute() else Path(f).parts[0] for f in changed_files if Path(f).parts}
+    if len(top_dirs) > max_dirs:
+        sorted_dirs = sorted(top_dirs)
+        issues.append(
+            ValidationIssue(
+                check="directory-spread",
+                message=(
+                    f"Changes span {len(top_dirs)} top-level directories (limit {max_dirs}): "
+                    f"{', '.join(sorted_dirs)}"
+                ),
+                severity="warning",
+            )
+        )
+
+    return issues
 
 
 def run_test_command(project_dir: Path, test_command: str | None) -> tuple[bool, str]:

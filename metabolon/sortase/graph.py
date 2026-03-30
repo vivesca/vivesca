@@ -342,6 +342,7 @@ def run(
         return {
             "status": "paused",
             "thread_id": thread_id,
+            "checkpoint_db": str(CHECKPOINT_DB),
             "route_decisions": result.get("route_decisions", []),
             "tasks": result.get("tasks", []),
         }

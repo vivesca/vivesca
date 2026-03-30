@@ -435,6 +435,7 @@ async def execute_task(
     register_running(task.name, initial_tool, project_dir)
     attempts: list[ExecutionAttempt] = []
     fallbacks: list[str] = []
+    effective_timeout = _compute_adaptive_timeout(task.spec, timeout_sec)
 
     try:
         for retry_index in range(max_retries + 1):
@@ -450,7 +451,7 @@ async def execute_task(
                 if index > 0:
                     fallbacks.append(tool)
                 attempt = await _run_command(
-                    tool, project_dir, task.spec, timeout_sec,
+                    tool, project_dir, task.spec, effective_timeout,
                     task_name=task.name, verbose=verbose, dry_run=dry_run,
                     coaching=coaching,
                 )

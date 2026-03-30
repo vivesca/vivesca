@@ -13,6 +13,7 @@ Modes:
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import subprocess
@@ -27,6 +28,8 @@ from typing import Any
 
 COACHING_NOTES = Path.home() / "epigenome/marks/feedback_glm_coaching.md"
 SORTASE_LOG = Path.home() / ".local/share/sortase/log.jsonl"
+CACHE_DIR = Path.home() / ".cache/translocon"
+CACHE_TTL = 3600  # 1 hour in seconds
 
 
 # ---------------------------------------------------------------------------
