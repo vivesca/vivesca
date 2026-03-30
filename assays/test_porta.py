@@ -6,7 +6,16 @@ agent-browser dependencies in CI.
 
 from __future__ import annotations
 
+import sys
+import types
 from unittest.mock import patch
+
+# Ensure pycookiecheat is importable even when not installed, so
+# patch("pycookiecheat.chrome_cookies", ...) can resolve the target.
+if "pycookiecheat" not in sys.modules:
+    _fake = types.ModuleType("pycookiecheat")
+    _fake.chrome_cookies = lambda url: {}  # type: ignore[attr-defined]
+    sys.modules["pycookiecheat"] = _fake
 
 # ---------------------------------------------------------------------------
 # Organelle unit tests (metabolon.organelles.porta)
@@ -117,7 +126,11 @@ def test_inject_pycookiecheat_missing():
         importlib.reload(porta_mod)
         result = porta_mod.inject("example.com")
 
-    # Restore for subsequent tests
+    # Restore fake module for subsequent tests
+    if "pycookiecheat" not in sys.modules:
+        _fake_restore = types.ModuleType("pycookiecheat")
+        _fake_restore.chrome_cookies = lambda url: {}  # type: ignore[attr-defined]
+        sys.modules["pycookiecheat"] = _fake_restore
     importlib.reload(porta_mod)
 
     assert result["success"] is False

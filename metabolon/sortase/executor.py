@@ -450,7 +450,7 @@ async def _run_command(
                 sys.stderr.flush()
         await process.wait()
         output = b"".join(chunks).decode("utf-8", errors="replace")
-        exit_code = process.returncode
+        exit_code = process.returncode or 0
     except TimeoutError:
         process.kill()
         await process.communicate()
@@ -573,6 +573,21 @@ async def execute_task(
                     task_name=task.name, verbose=verbose, dry_run=dry_run,
                     coaching=coaching,
                 )
+                # Rate-limit backoff: if 429, wait and retry same backend once
+                if attempt.failure_reason == "quota" and index == 0:
+                    backoff_sec = 30
+                    if verbose:
+                        sys.stderr.write(
+                            f"\033[33m[{task.name}] 429 rate limit on {tool}, "
+                            f"backing off {backoff_sec}s before retry\033[0m\n"
+                        )
+                        sys.stderr.flush()
+                    await asyncio.sleep(backoff_sec)
+                    attempt = await _run_command(
+                        tool, project_dir, task.spec, effective_timeout,
+                        task_name=task.name, verbose=verbose, dry_run=dry_run,
+                        coaching=coaching,
+                    )
                 attempts.append(attempt)
                 succeeded = attempt.exit_code == 0 and not attempt.failure_reason
                 fallback_chain.append(FallbackStep(
@@ -635,13 +650,13 @@ def _create_worktree(project_dir: Path, task_name: str) -> Path:
         capture_output=True,
         check=True,
     )
-    # Symlink .claude/ from the original project so cc-glm fallback can
-    # find project rules and memory.  The worktree is a clean checkout and
-    # won't carry untracked directories like .claude/.
-    source_claude = project_dir / ".claude"
-    target_claude = worktree_path / ".claude"
-    if source_claude.is_dir() and not target_claude.exists():
-        target_claude.symlink_to(source_claude)
+    # Symlink untracked directories from the original project so backends
+    # can find project rules, memory, and Python dependencies.
+    for dirname in (".claude", ".venv"):
+        source = project_dir / dirname
+        target = worktree_path / dirname
+        if source.is_dir() and not target.exists():
+            target.symlink_to(source)
     return worktree_path
 
 
@@ -698,9 +713,15 @@ def _merge_worktree(project_dir: Path, worktree_path: Path) -> tuple[bool, str]:
         sys.stderr.write(
             f"[sortase] CONFLICT: files modified in both branches, "
             f"aborting merge: {', '.join(conflicted)}\n"
+            f"[sortase] Branch '{branch}' preserved for manual recovery.\n"
         )
-        _remove_worktree(project_dir, worktree_path, branch)
-        return False, f"conflict: files modified in both branches: {', '.join(conflicted)}"
+        # Remove worktree directory but keep the branch so work isn't lost
+        subprocess.run(
+            ["git", "worktree", "remove", "--force", str(worktree_path)],
+            cwd=project_dir,
+            capture_output=True,
+        )
+        return False, f"conflict: files modified in both branches: {', '.join(conflicted)}. Branch '{branch}' preserved."
 
     merge = subprocess.run(
         ["git", "merge", "--no-ff", "-m", f"sortase: merge {branch}", branch],
@@ -838,7 +859,7 @@ async def execute_tasks(
                 results.append(await execute_task(task, project_dir, tool_by_task[task.name], timeout_sec=timeout_sec, verbose=verbose, dry_run=dry_run, max_retries=max_retries, coaching=coaching))
         return results
 
-    use_worktrees = isolate and _is_git_repo(project_dir) and len(tasks) > 1
+    use_worktrees = (worktree or (isolate and len(tasks) > 1)) and _is_git_repo(project_dir)
 
     worktree_map: dict[str, Path] = {}
     if use_worktrees:
@@ -863,7 +884,7 @@ async def execute_tasks(
     # Convert exceptions into failed TaskExecutionResult so worktree cleanup runs
     results: list[TaskExecutionResult] = []
     for task, raw in zip(tasks, raw_results):
-        if isinstance(raw, Exception):
+        if isinstance(raw, BaseException):
             results.append(TaskExecutionResult(
                 task_name=task.name,
                 tool=tool_by_task[task.name],
@@ -873,7 +894,7 @@ async def execute_tasks(
                 output=f"Unhandled exception: {raw}",
                 fallbacks=[],
                 fallback_chain=[],
-                cost_estimate=None,
+                cost_estimate="",
             ))
         else:
             results.append(raw)

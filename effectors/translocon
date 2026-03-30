@@ -104,7 +104,7 @@ def _direct_api(prompt: str, model: str = "glm-4.7") -> int:
         return 1
     body = json.dumps({"model": model, "max_tokens": 8192,
                        "messages": [{"role": "user", "content": prompt}]}).encode()
-    req = urllib.request.Request("https://api.z.ai/api/anthropic/v1/messages", body)
+    req = urllib.request.Request("https://open.bigmodel.cn/api/anthropic/v1/messages", body)
     req.add_header("x-api-key", key)
     req.add_header("anthropic-version", "2023-06-01")
     req.add_header("content-type", "application/json")
@@ -117,11 +117,23 @@ def _direct_api(prompt: str, model: str = "glm-4.7") -> int:
         return 1
 
 
+_TOTAL_SIZE_CAP = 100_000  # 100 KB cumulative cap to protect token budgets
+
 def _read_dir_context(directory: str, glob_pattern: str = "*.py") -> str:
     parts: list[str] = []
+    cumulative = 0
+    skipped = 0
     for f in sorted(Path(directory).glob(glob_pattern)):
-        if f.is_file() and f.stat().st_size < 50000:
-            parts.append(f"### {f.name}\n```\n{f.read_text()}\n```")
+        if not f.is_file() or f.stat().st_size >= 50000:
+            continue
+        content = f.read_text()
+        cumulative += len(content)
+        if cumulative > _TOTAL_SIZE_CAP:
+            skipped += 1
+            continue
+        parts.append(f"### {f.name}\n```\n{content}\n```")
+    if skipped:
+        print(f"translocon: skipped {skipped} file(s) after reaching {_TOTAL_SIZE_CAP} byte cap", file=sys.stderr)
     return "\n\n".join(parts)
 
 

@@ -15,12 +15,15 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import os
 import subprocess
 import time
 from collections import Counter
 from pathlib import Path
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -112,6 +115,7 @@ def _read_dir_context(directory: str, glob_pattern: str = "*.py") -> str:
 
 def _direct_api(prompt: str, model: str = "glm-4.7") -> dict:
     """Call ZhiPu API directly (no goose/droid). Returns structured dict."""
+    import urllib.error
     import urllib.request
 
     key = os.environ.get("ZHIPU_API_KEY", "")
@@ -175,7 +179,6 @@ def _build_droid_cmd(
 def _resolve_mode(
     *,
     mode: str,
-    skill: str | None = None,
     model: str | None = None,
     backend: str | None = None,
 ) -> tuple[str, str, str | None]:
@@ -259,7 +262,7 @@ def dispatch(
     start = time.perf_counter()
 
     resolved_backend, resolved_model, auto = _resolve_mode(
-        mode=mode, skill=skill, model=model, backend=backend,
+        mode=mode, model=model, backend=backend,
     )
 
     # Skill mode: validate recipe exists

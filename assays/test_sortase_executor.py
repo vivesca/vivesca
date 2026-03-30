@@ -362,12 +362,12 @@ async def test_execute_task_populates_fallback_chain_on_success():
 
 @pytest.mark.asyncio
 async def test_execute_task_populates_fallback_chain_on_fallback():
-    """When first backend fails and second succeeds, chain records both."""
+    """When first backend fails (non-quota) and second succeeds, chain records both."""
     from metabolon.sortase.decompose import TaskSpec
     from metabolon.sortase.executor import execute_task
 
     task = TaskSpec(name="t2", description="d", spec="do work", files=[], signal="default", prerequisite=None, temp_file=None)
-    fail_attempt = ExecutionAttempt(tool="goose", exit_code=1, duration_s=2.0, output="429 error", failure_reason="quota")
+    fail_attempt = ExecutionAttempt(tool="goose", exit_code=1, duration_s=2.0, output="process crashed", failure_reason="process-error")
     ok_attempt = ExecutionAttempt(tool="droid", exit_code=0, duration_s=3.0, output="done")
 
     with patch("metabolon.sortase.executor._run_command", new_callable=AsyncMock, side_effect=[fail_attempt, ok_attempt]), \
@@ -381,8 +381,31 @@ async def test_execute_task_populates_fallback_chain_on_fallback():
     assert result.tool == "droid"
     assert result.fallbacks == ["droid"]
     assert len(result.fallback_chain) == 2
-    assert result.fallback_chain[0] == FallbackStep(tool="goose", succeeded=False, failure_reason="quota")
+    assert result.fallback_chain[0] == FallbackStep(tool="goose", succeeded=False, failure_reason="process-error")
     assert result.fallback_chain[1] == FallbackStep(tool="droid", succeeded=True, failure_reason=None)
+
+
+@pytest.mark.asyncio
+async def test_execute_task_quota_backoff_retries_same_backend():
+    """When first backend hits 429, backoff and retry same backend before fallback."""
+    from metabolon.sortase.decompose import TaskSpec
+    from metabolon.sortase.executor import execute_task
+
+    task = TaskSpec(name="t3", description="d", spec="do work", files=[], signal="default", prerequisite=None, temp_file=None)
+    quota_attempt = ExecutionAttempt(tool="goose", exit_code=1, duration_s=1.0, output="429 rate limit", failure_reason="quota")
+    ok_attempt = ExecutionAttempt(tool="goose", exit_code=0, duration_s=2.0, output="done")
+
+    with patch("metabolon.sortase.executor._run_command", new_callable=AsyncMock, side_effect=[quota_attempt, ok_attempt]), \
+         patch("metabolon.sortase.executor.register_running"), \
+         patch("metabolon.sortase.executor.unregister_running"), \
+         patch("metabolon.sortase.executor._emit_completion_signal"), \
+         patch("metabolon.sortase.executor._analyze_for_coaching"), \
+         patch("asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
+        result = await execute_task(task, Path("/tmp/test"), "goose")
+
+    assert result.success is True
+    assert result.tool == "goose"
+    mock_sleep.assert_awaited_once_with(30)
 
 
 @pytest.mark.asyncio
@@ -391,17 +414,20 @@ async def test_execute_task_fallback_chain_all_fail():
     from metabolon.sortase.decompose import TaskSpec
     from metabolon.sortase.executor import execute_task, FALLBACK_ORDER
 
-    task = TaskSpec(name="t3", description="d", spec="do work", files=[], signal="default", prerequisite=None, temp_file=None)
+    task = TaskSpec(name="t4", description="d", spec="do work", files=[], signal="default", prerequisite=None, temp_file=None)
+    # First goose call hits 429, backoff retry also fails, then fallback chain
     fail1 = ExecutionAttempt(tool="goose", exit_code=1, duration_s=1.0, output="429", failure_reason="quota")
+    fail1_retry = ExecutionAttempt(tool="goose", exit_code=1, duration_s=1.0, output="429 again", failure_reason="quota")
     fail2 = ExecutionAttempt(tool="droid", exit_code=1, duration_s=1.0, output="segfault", failure_reason="process-error")
     fail3 = ExecutionAttempt(tool="gemini", exit_code=1, duration_s=1.0, output="auth fail", failure_reason="auth")
     fail4 = ExecutionAttempt(tool="codex", exit_code=1, duration_s=1.0, output="err", failure_reason="process-error")
 
-    with patch("metabolon.sortase.executor._run_command", new_callable=AsyncMock, side_effect=[fail1, fail2, fail3, fail4]), \
+    with patch("metabolon.sortase.executor._run_command", new_callable=AsyncMock, side_effect=[fail1, fail1_retry, fail2, fail3, fail4]), \
          patch("metabolon.sortase.executor.register_running"), \
          patch("metabolon.sortase.executor.unregister_running"), \
          patch("metabolon.sortase.executor._emit_completion_signal"), \
-         patch("metabolon.sortase.executor._analyze_for_coaching"):
+         patch("metabolon.sortase.executor._analyze_for_coaching"), \
+         patch("asyncio.sleep", new_callable=AsyncMock):
         result = await execute_task(task, Path("/tmp/test"), "goose")
 
     assert result.success is False
