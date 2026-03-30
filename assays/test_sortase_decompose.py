@@ -423,3 +423,172 @@ class TestEstimateComplexity:
         for text in ["", "fix typo", COMPLEX_SPEC]:
             result = estimate_complexity(text)
             assert result.level in ("simple", "medium", "complex")
+
+
+# ---------------------------------------------------------------------------
+# Tests: score_spec_quality
+# ---------------------------------------------------------------------------
+
+MINIMAL_SPEC = "Fix the typo in README.md."
+
+GOOD_SPEC = """\
+# Add feature X
+
+## Output
+Write to src/feature_x.py.
+
+## Scope
+Single deliverable: create the feature module.
+
+## Constraints
+- Do NOT modify existing tests.
+- Do NOT add new dependencies.
+
+## Verification
+```bash
+cd ~/germline && .venv/bin/python -m pytest assays/test_feature_x.py -v
+```
+
+## Tool budget
+Max 15 tool calls.
+"""
+
+MULTI_DELIVERABLE_SPEC = """\
+# Refactor and test
+
+## Output
+Write to src/refactor.py and tests/test_refactor.py.
+
+## Verification
+```bash
+pytest tests/test_refactor.py
+```
+"""
+
+NO_CONSTRAINTS_SPEC = """\
+# Add logging
+
+Write to src/logger.py.
+
+## Verification
+```bash
+pytest tests/test_logger.py
+```
+"""
+
+NO_VERIFICATION_SPEC = """\
+# Add feature Y
+
+Write to src/feature_y.py.
+
+## Constraints
+- Do NOT change src/other.py.
+"""
+
+NO_OUTPUT_PATH_SPEC = """\
+# Fix something
+
+## Constraints
+- Do NOT break existing tests.
+
+## Verification
+```bash
+pytest
+```
+
+## Tool budget
+Max 10 tool calls.
+"""
+
+PERFECT_SPEC = """\
+# Implement scoring
+
+## Output path
+Write the result to ~/germline/metabolon/sortase/scoring.py.
+
+## Scope
+Single deliverable: the scoring module.
+
+## Constraints
+- Do NOT import from private modules.
+- Do NOT modify existing tests.
+
+## Verification
+```bash
+cd ~/germline && .venv/bin/python -m pytest assays/test_sortase_scoring.py -v --tb=short
+```
+
+## Tool budget
+Max 20 tool calls.
+"""
+
+EMPTY_SPEC = ""
+
+
+class TestScoreSpecQuality:
+    def test_returns_dict_with_expected_keys(self):
+        result = score_spec_quality("Do something.")
+        for key in ("clarity", "scope", "constraints", "verification", "tool_budget", "total"):
+            assert key in result, f"missing key: {key}"
+
+    def test_minimal_spec_low_scores(self):
+        result = score_spec_quality(MINIMAL_SPEC)
+        assert result["clarity"] == 0
+        assert result["scope"] == 0
+        assert result["constraints"] == 0
+        assert result["verification"] == 0
+        assert result["tool_budget"] == 0
+        assert result["total"] == 0
+
+    def test_good_spec_high_scores(self):
+        result = score_spec_quality(GOOD_SPEC)
+        assert result["clarity"] >= 8
+        assert result["scope"] >= 7
+        assert result["constraints"] >= 7
+        assert result["verification"] >= 7
+        assert result["tool_budget"] >= 7
+        assert result["total"] >= 35
+
+    def test_perfect_spec_near_max(self):
+        result = score_spec_quality(PERFECT_SPEC)
+        assert result["clarity"] == 10
+        assert result["scope"] == 10
+        assert result["constraints"] == 10
+        assert result["verification"] == 10
+        assert result["tool_budget"] == 10
+        assert result["total"] == 50
+
+    def test_multi_deliverable_reduces_scope(self):
+        result = score_spec_quality(MULTI_DELIVERABLE_SPEC)
+        assert result["scope"] < 7
+
+    def test_no_constraints_zero_constraints(self):
+        result = score_spec_quality(NO_CONSTRAINTS_SPEC)
+        assert result["constraints"] == 0
+
+    def test_no_verification_zero_verification(self):
+        result = score_spec_quality(NO_VERIFICATION_SPEC)
+        assert result["verification"] == 0
+
+    def test_no_output_path_reduces_clarity(self):
+        result = score_spec_quality(NO_OUTPUT_PATH_SPEC)
+        assert result["clarity"] <= 5
+
+    def test_empty_spec_all_zeros(self):
+        result = score_spec_quality(EMPTY_SPEC)
+        assert result["total"] == 0
+
+    def test_scores_are_integers(self):
+        result = score_spec_quality(GOOD_SPEC)
+        for key in ("clarity", "scope", "constraints", "verification", "tool_budget", "total"):
+            assert isinstance(result[key], int), f"{key} should be int"
+
+    def test_total_is_sum(self):
+        result = score_spec_quality(GOOD_SPEC)
+        assert result["total"] == (
+            result["clarity"]
+            + result["scope"]
+            + result["constraints"]
+            + result["verification"]
+            + result["tool_budget"]
+        )
