@@ -172,6 +172,126 @@ def estimate_complexity(spec_text: str) -> ComplexityScore:
     )
 
 
+def score_spec_quality(spec_text: str) -> dict[str, int]:
+    """Score a plan spec on five axes before dispatch.
+
+    Each axis scores 0-10. Returns a dict with individual scores and total.
+
+    Axes:
+        clarity:      Does the spec name an explicit output path?
+        scope:        Single deliverable vs. multiple?
+        constraints:  Has "do not" / negative instructions?
+        verification: Has a test/verification command?
+        tool_budget:  Specifies max tool calls?
+    """
+    text = spec_text.strip()
+    if not text:
+        return {
+            "clarity": 0,
+            "scope": 0,
+            "constraints": 0,
+            "verification": 0,
+            "tool_budget": 0,
+            "total": 0,
+        }
+
+    # --- clarity: explicit output path? ---
+    clarity = 0
+    output_patterns = [
+        r"(?i)output\s+path",
+        r"(?i)write\s+(?:the\s+result\s+)?to\b",
+        r"(?i)save\s+to\b",
+        r"(?i)deliverable\b",
+        r"(?i)output\b.*[:=]",
+        r"(?:^|\n)\s*##\s*Output\b",
+    ]
+    if any(re.search(p, text) for p in output_patterns):
+        clarity += 7
+    # Check for actual file path (something.py, something.md, etc.)
+    if re.search(r"(?:~/|/|\./)[\w/.-]+\.\w{1,12}", text):
+        clarity += 3
+    clarity = min(clarity, 10)
+
+    # --- scope: single deliverable vs multiple ---
+    scope = 0
+    scope_lower = text.lower()
+    if re.search(r"single\s+deliverable", scope_lower):
+        scope = 10
+    elif re.search(r"(?i)^#{1,3}\s*scope\b", text, flags=re.MULTILINE):
+        scope = 8
+    elif re.search(r"\bscope\b", scope_lower):
+        scope = 5
+    # Penalise multiple deliverables
+    deliverable_mentions = len(re.findall(r"(?i)deliverable", text))
+    if deliverable_mentions > 1:
+        scope -= 3
+    # Check for multiple output files listed
+    file_list_pattern = re.findall(
+        r"(?:^[\s*-]+)" r"([\w./~-]+\.\w{1,12})" r"(?::|\s|$)",
+        text,
+        flags=re.MULTILINE,
+    )
+    unique_output_files = len(set(file_list_pattern))
+    if unique_output_files > 3:
+        scope -= 3
+    elif unique_output_files > 1:
+        scope -= 1
+    # Mention of "and" between file paths suggests multiple deliverables
+    if re.search(r"\.py\b.*\band\b.*\.py\b", text):
+        scope -= 2
+    scope = max(min(scope, 10), 0)
+
+    # --- constraints: has "do not" / negative instructions? ---
+    constraints = 0
+    do_not_count = len(re.findall(r"(?i)\bdo\s+not\b", text))
+    never_count = len(re.findall(r"(?i)\bnever\b", text))
+    must_not_count = len(re.findall(r"(?i)\bmust\s+not\b", text))
+    total_constraints = do_not_count + never_count + must_not_count
+    if total_constraints >= 3:
+        constraints = 10
+    elif total_constraints == 2:
+        constraints = 8
+    elif total_constraints == 1:
+        constraints = 5
+    # Bonus: explicit Constraints section
+    if re.search(r"(?i)^#{1,3}\s*constraints?\b", text, flags=re.MULTILINE):
+        constraints = min(constraints + 3, 10)
+
+    # --- verification: has test command? ---
+    verification = 0
+    if re.search(r"(?i)^#{1,3}\s*verification\b", text, flags=re.MULTILINE):
+        verification += 5
+    if re.search(r"pytest\b", text):
+        verification += 3
+    elif re.search(r"(?:test|check|verify)\b", text, flags=re.IGNORECASE):
+        verification += 2
+    if re.search(r"```(?:bash|sh)?\s*\n.*(?:pytest|test|run)", text, flags=re.DOTALL):
+        verification += 2
+    verification = min(verification, 10)
+
+    # --- tool_budget: specifies max tool calls? ---
+    tool_budget = 0
+    if re.search(r"(?i)tool\s+budget\b", text):
+        tool_budget += 7
+    if re.search(r"(?i)max\s+\d+\s+tool", text):
+        tool_budget += 3
+    elif re.search(r"(?i)max\s+\d+\s+call", text):
+        tool_budget += 3
+    if re.search(r"(?i)budget\b", text):
+        tool_budget += 2
+    tool_budget = min(tool_budget, 10)
+
+    total = clarity + scope + constraints + verification + tool_budget
+    return {
+        "clarity": clarity,
+        "scope": scope,
+        "constraints": constraints,
+        "verification": verification,
+        "tool_budget": tool_budget,
+        "total": total,
+    }
+
+
 def decompose_plan(plan_file: str | Path, smart: bool = False, timeout_sec: int = 180) -> list[TaskSpec]:
     path = Path(plan_file)
     plan_text = _read_plan(path)
