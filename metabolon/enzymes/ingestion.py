@@ -1,9 +1,4 @@
-"""ingestion — meal plan read and order log append.
-
-Deterministic actions for the ingestion meal-suggestion skill:
-- Read the weekly meal plan (rotation + order log)
-- Append a new entry to the order log section
-"""
+"""ingestion — meal planning. Actions: read_plan|log_meal"""
 
 from __future__ import annotations
 
@@ -40,73 +35,73 @@ def _cross_link_experiment(entry: str, dish: str) -> str | None:
 
 
 @tool(
-    name="ingestion_read_plan",
-    description="Read weekly meal plan rotation and order log.",
-    annotations=ToolAnnotations(readOnlyHint=True, destructiveHint=False),
-)
-def ingestion_read_plan() -> str:
-    """Return the full meal plan file content."""
-    if not MEAL_PLAN.exists():
-        return f"Meal plan not found at {MEAL_PLAN}"
-    return MEAL_PLAN.read_text()
-
-
-@tool(
-    name="ingestion_log_meal",
-    description="Append a meal entry to the order log in the meal plan.",
+    name="ingestion",
+    description="Meal planning. Actions: read_plan|log_meal",
     annotations=ToolAnnotations(readOnlyHint=False, destructiveHint=False),
 )
-def ingestion_log_meal(
-    meal_date: str,
-    restaurant: str,
-    dish: str,
+def ingestion(
+    action: str,
+    meal_date: str = "",
+    restaurant: str = "",
+    dish: str = "",
     meal_type: str = "Lunch",
 ) -> str:
-    """Append one entry to the ## Order log section of the meal plan.
+    """Meal plan actions.
 
-    Format: - YYYY-MM-DD (Day): Restaurant, dish. Lunch/Snack.
+    Actions:
+        read_plan — Return the full meal plan file content.
+        log_meal  — Append one entry to the ## Order log section.
 
     Args:
-        meal_date: ISO date string (YYYY-MM-DD).
-        restaurant: Restaurant name.
-        dish: Dish ordered.
-        meal_type: "Lunch" or "Snack" (default: Lunch).
+        action: "read_plan" or "log_meal".
+        meal_date: ISO date string (YYYY-MM-DD). Used by log_meal.
+        restaurant: Restaurant name. Used by log_meal.
+        dish: Dish ordered. Used by log_meal.
+        meal_type: "Lunch" or "Snack". Used by log_meal (default: Lunch).
     """
-    try:
-        d = date.fromisoformat(meal_date)
-    except ValueError:
-        return f"Invalid date format: {meal_date!r}. Use YYYY-MM-DD."
+    if action == "read_plan":
+        if not MEAL_PLAN.exists():
+            return f"Meal plan not found at {MEAL_PLAN}"
+        return MEAL_PLAN.read_text()
 
-    day_name = d.strftime("%a")
-    entry = f"- {meal_date} ({day_name}): {restaurant}, {dish}. {meal_type}."
+    if action == "log_meal":
+        try:
+            d = date.fromisoformat(meal_date)
+        except ValueError:
+            return f"Invalid date format: {meal_date!r}. Use YYYY-MM-DD."
 
-    if not MEAL_PLAN.exists():
-        return f"Meal plan not found at {MEAL_PLAN}"
+        day_name = d.strftime("%a")
+        entry = f"- {meal_date} ({day_name}): {restaurant}, {dish}. {meal_type}."
 
-    text = MEAL_PLAN.read_text()
+        if not MEAL_PLAN.exists():
+            return f"Meal plan not found at {MEAL_PLAN}"
 
-    # Find the ## Order log section and append before the next ## or EOF
-    log_marker = "## Order log"
-    if log_marker not in text:
-        return "'## Order log' section not found in meal plan."
+        text = MEAL_PLAN.read_text()
 
-    log_start = text.index(log_marker)
-    # Find end of section (next ## heading or EOF)
-    next_section = text.find("\n## ", log_start + len(log_marker))
-    if next_section == -1:
-        # Append at end
-        new_text = text.rstrip() + "\n" + entry + "\n"
-    else:
-        # Insert before next section
-        before = text[:next_section].rstrip()
-        after = text[next_section:]
-        new_text = before + "\n" + entry + after
+        # Find the ## Order log section and append before the next ## or EOF
+        log_marker = "## Order log"
+        if log_marker not in text:
+            return "'## Order log' section not found in meal plan."
 
-    MEAL_PLAN.write_text(new_text)
-    result = f"Logged: {entry}"
+        log_start = text.index(log_marker)
+        # Find end of section (next ## heading or EOF)
+        next_section = text.find("\n## ", log_start + len(log_marker))
+        if next_section == -1:
+            # Append at end
+            new_text = text.rstrip() + "\n" + entry + "\n"
+        else:
+            # Insert before next section
+            before = text[:next_section].rstrip()
+            after = text[next_section:]
+            new_text = before + "\n" + entry + after
 
-    xlink = _cross_link_experiment(entry, dish)
-    if xlink:
-        result += f"\n{xlink}"
+        MEAL_PLAN.write_text(new_text)
+        result = f"Logged: {entry}"
 
-    return result
+        xlink = _cross_link_experiment(entry, dish)
+        if xlink:
+            result += f"\n{xlink}"
+
+        return result
+
+    return f"Unknown action: {action!r}. Use 'read_plan' or 'log_meal'."

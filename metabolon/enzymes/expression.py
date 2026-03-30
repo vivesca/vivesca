@@ -69,102 +69,98 @@ def _file_age_days(path: Path) -> float | None:
 
 
 @tool(
-    name="expression_preflight",
-    description="Check forge prerequisites: sparks, source files, ready to run.",
+    name="expression",
+    description="Career forge. Actions: preflight|library",
     annotations=ToolAnnotations(readOnlyHint=True, destructiveHint=False),
 )
-def expression_preflight() -> ForgePreflightResult:
-    """Verify all source files the forge needs exist and have content.
+def expression(action: str) -> ForgePreflightResult | ForgeLibraryResult | str:
+    """Dispatch career forge actions.
+
+    Args:
+        action: Which action to run.
+            preflight — Check forge prerequisites: sparks, source files, ready to run.
+            library — List consulting library asset counts for dedup/enrichment.
 
     Returns:
-        ready: True if all required files present and sparks non-empty.
-        spark_count: Lines in _sparks.md (proxy for available material).
-        missing_files: Source files that don't exist.
-        warnings: Non-blocking issues (stale files, low spark count).
+        ForgePreflightResult for action="preflight".
+        ForgeLibraryResult for action="library".
+        Error string for unknown actions.
     """
-    required = {
-        "_sparks.md": _SPARKS,
-        "Thalamus.md": _THALAMUS,
-        "cargo.jsonl": _NEWS_LOG,
-        "North Star.md": _NORTH_STAR,
-    }
+    if action == "preflight":
+        required = {
+            "_sparks.md": _SPARKS,
+            "Thalamus.md": _THALAMUS,
+            "cargo.jsonl": _NEWS_LOG,
+            "North Star.md": _NORTH_STAR,
+        }
 
-    missing: list[str] = []
-    warnings: list[str] = []
+        missing: list[str] = []
+        warnings: list[str] = []
 
-    for name, path in required.items():
-        if not path.exists():
-            missing.append(name)
+        for name, path in required.items():
+            if not path.exists():
+                missing.append(name)
 
-    spark_count = _count_sparks(_SPARKS)
-    if spark_count == 0 and _SPARKS.exists():
-        warnings.append("_sparks.md exists but is empty — forge will have nothing to process.")
-    elif spark_count < 3:
-        warnings.append(f"Low spark count ({spark_count}) — consider running spark agent first.")
+        spark_count = _count_sparks(_SPARKS)
+        if spark_count == 0 and _SPARKS.exists():
+            warnings.append("_sparks.md exists but is empty — forge will have nothing to process.")
+        elif spark_count < 3:
+            warnings.append(f"Low spark count ({spark_count}) — consider running spark agent first.")
 
-    # Warn on stale thalamus (>7 days)
-    thal_age = _file_age_days(_THALAMUS)
-    if thal_age is not None and thal_age > 7:
-        warnings.append(
-            f"Thalamus.md is {thal_age:.0f} days old — landscape context may be stale."
+        # Warn on stale thalamus (>7 days)
+        thal_age = _file_age_days(_THALAMUS)
+        if thal_age is not None and thal_age > 7:
+            warnings.append(
+                f"Thalamus.md is {thal_age:.0f} days old — landscape context may be stale."
+            )
+
+        ready = not missing and spark_count > 0
+
+        parts = [f"Forge pre-flight: {'READY' if ready else 'NOT READY'}"]
+        parts.append(f"Sparks: {spark_count} items in _sparks.md")
+        for name in missing:
+            parts.append(f"MISSING: {name}")
+        for w in warnings:
+            parts.append(f"WARN: {w}")
+
+        return ForgePreflightResult(
+            ready=ready,
+            spark_count=spark_count,
+            missing_files=missing,
+            warnings=warnings,
+            summary="\n".join(parts),
         )
 
-    ready = not missing and spark_count > 0
+    elif action == "library":
+        cutoff = datetime.datetime.now() - datetime.timedelta(days=7)
+        totals: dict[str, int] = {}
+        recent: dict[str, int] = {}
 
-    parts = [f"Forge pre-flight: {'READY' if ready else 'NOT READY'}"]
-    parts.append(f"Sparks: {spark_count} items in _sparks.md")
-    for name in missing:
-        parts.append(f"MISSING: {name}")
-    for w in warnings:
-        parts.append(f"WARN: {w}")
+        for label, dirpath in _LIBRARY_DIRS.items():
+            if not dirpath.exists():
+                totals[label] = 0
+                recent[label] = 0
+                continue
+            files = [f for f in dirpath.glob("*.md") if f.is_file()]
+            totals[label] = len(files)
+            recent[label] = sum(
+                1 for f in files if datetime.datetime.fromtimestamp(f.stat().st_mtime) > cutoff
+            )
 
-    return ForgePreflightResult(
-        ready=ready,
-        spark_count=spark_count,
-        missing_files=missing,
-        warnings=warnings,
-        summary="\n".join(parts),
-    )
+        grand_total = sum(totals.values())
+        grand_recent = sum(recent.values())
 
+        lines = [f"Consulting library: {grand_total} assets ({grand_recent} in last 7d)"]
+        for label in _LIBRARY_DIRS:
+            t = totals.get(label, 0)
+            r = recent.get(label, 0)
+            lines.append(f"  {label}: {t} total, {r} recent")
 
-@tool(
-    name="expression_library",
-    description="List consulting library asset counts. Dedup/enrichment input for forge.",
-    annotations=ToolAnnotations(readOnlyHint=True, destructiveHint=False),
-)
-def expression_library() -> ForgeLibraryResult:
-    """Count existing consulting assets per subdirectory.
-
-    Returns total file counts and files created in the last 7 days.
-    The forge uses this to dedup (avoid recreating existing assets)
-    and to identify enrichment candidates.
-    """
-    cutoff = datetime.datetime.now() - datetime.timedelta(days=7)
-    totals: dict[str, int] = {}
-    recent: dict[str, int] = {}
-
-    for label, dirpath in _LIBRARY_DIRS.items():
-        if not dirpath.exists():
-            totals[label] = 0
-            recent[label] = 0
-            continue
-        files = [f for f in dirpath.glob("*.md") if f.is_file()]
-        totals[label] = len(files)
-        recent[label] = sum(
-            1 for f in files if datetime.datetime.fromtimestamp(f.stat().st_mtime) > cutoff
+        return ForgeLibraryResult(
+            totals=totals,
+            recent_7d=recent,
+            summary="\n".join(lines),
         )
 
-    grand_total = sum(totals.values())
-    grand_recent = sum(recent.values())
-
-    lines = [f"Consulting library: {grand_total} assets ({grand_recent} in last 7d)"]
-    for label in _LIBRARY_DIRS:
-        t = totals.get(label, 0)
-        r = recent.get(label, 0)
-        lines.append(f"  {label}: {t} total, {r} recent")
-
-    return ForgeLibraryResult(
-        totals=totals,
-        recent_7d=recent,
-        summary="\n".join(lines),
-    )
+    else:
+        return f"Unknown action '{action}'. Use: preflight|library"
