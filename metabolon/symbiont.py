@@ -147,3 +147,25 @@ def parallel_transduce(
         for future in concurrent.futures.as_completed(futures):
             results.append(future.result())
     return results
+
+
+def parallel_transduce_multi(
+    tasks: list[tuple[str, str]],
+    timeout: int = 180,
+    config_path: str | None = None,
+) -> list[tuple[str, str]]:
+    """Query multiple models with per-model prompts in parallel.
+
+    Args:
+        tasks: list of (model_name, prompt) tuples
+    Returns: [(model_name, result_or_error)]
+    """
+    results = []
+    with concurrent.futures.ThreadPoolExecutor(max_workers=len(tasks)) as pool:
+        futures = {
+            pool.submit(transduce_safe, name, prompt, timeout, config_path): name
+            for name, prompt in tasks
+        }
+        for future in concurrent.futures.as_completed(futures):
+            results.append(future.result())
+    return results

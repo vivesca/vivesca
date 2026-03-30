@@ -17,7 +17,7 @@ ROUTING_RULES = [
         "Boilerplate -> OpenCode (GLM-5.1 via Zhipu Coding Plan)",
     ),
 ]
-DEFAULT_TOOL = "droid"
+DEFAULT_TOOL = "goose"
 
 
 @dataclass(frozen=True)

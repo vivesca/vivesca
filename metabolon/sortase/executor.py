@@ -89,7 +89,7 @@ TOOL_COMMANDS: dict[str, Callable[[Path, str], list[str]]] = {
     ],
 }
 
-FALLBACK_ORDER = ["droid", "gemini", "goose", "codex"]
+FALLBACK_ORDER = ["goose", "droid", "gemini", "codex"]
 
 
 @dataclass(frozen=True)

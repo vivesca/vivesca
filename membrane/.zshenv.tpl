@@ -7,7 +7,7 @@ export OPENAI_API_KEY={{ op://Agents/sge746vsbefyi6pojwwodzu3o4/openai_api_key }
 export ANTHROPIC_API_KEY={{ op://Agents/sge746vsbefyi6pojwwodzu3o4/anthropic_api_key }}
 export GOOGLE_API_KEY={{ op://Agents/sge746vsbefyi6pojwwodzu3o4/google_api_key }}
 export PERPLEXITY_API_KEY={{ op://Agents/sge746vsbefyi6pojwwodzu3o4/perplexity_api_key }}
-export OPENROUTER_API_KEY={{ op://Agents/sge746vsbefyi6pojwwodzu3o4/openrouter_api_key }}
+# OPENROUTER_API_KEY removed 2026-03-30 — quorum uses flat-rate CLIs only
 export WECHAT2RSS_TOKEN={{ op://Agents/sge746vsbefyi6pojwwodzu3o4/wechat2rss_token }}
 export EXA_API_KEY={{ op://Agents/sge746vsbefyi6pojwwodzu3o4/exa_api_key }}
 export AUTH_TOKEN={{ op://Agents/sge746vsbefyi6pojwwodzu3o4/auth_token }}

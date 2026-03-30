@@ -4,10 +4,11 @@ Quorum sensing: bacteria coordinate behavior by accumulating signal molecules
 until a threshold triggers collective action. Here, frontier LLMs accumulate
 perspectives until a judge synthesizes a recommendation.
 
-Three modes:
-  quick    — parallel blind query + synthesis (~$0.10)
-  council  — blind → debate → judge (~$0.50)
-  redteam  — adversarial stress-test (~$0.20)
+Four modes:
+  quick    — parallel blind query + synthesis ($0, flat-rate CLIs)
+  council  — blind → debate×2 → judge → critic ($0, flat-rate CLIs)
+  redteam  — adversarial stress-test ($0, flat-rate CLIs)
+  deep     — blind → debate×2 → cross-examine → judge → critic ($0, flat-rate CLIs)
 
 Usage:
     from metabolon.organelles.quorum import deliberate
@@ -23,16 +24,17 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from metabolon.locus import chromatin
-from metabolon.symbiont import parallel_transduce, transduce
+from metabolon.symbiont import parallel_transduce, parallel_transduce_multi, transduce
 
 # ── panel configuration ──────────────────────────────────────
 
 COUNCIL_DIR = chromatin / "Councils"
 
-# Default panelists — broad coverage of training data and reasoning styles
-PANEL_QUICK = ["gemini", "claude"]
-PANEL_COUNCIL = ["gemini", "claude", "codex"]
-PANEL_REDTEAM = ["gemini", "claude"]
+# Default panelists — all flat-rate, zero marginal cost
+PANEL_QUICK = ["gemini", "claude", "goose"]
+PANEL_COUNCIL = ["gemini", "claude", "codex", "goose", "droid"]
+PANEL_REDTEAM = ["gemini", "claude", "goose", "droid", "goose-4.7"]
+PANEL_DEEP = ["gemini", "claude", "codex", "goose", "droid", "goose-4.7", "droid-4.7"]
 
 JUDGE_MODEL = "gemini"
 CRITIC_MODEL = "claude"
@@ -110,6 +112,20 @@ def _debate_prompt(question: str, prior_answers: list[Contribution], model: str)
         {others}""")
 
 
+def _debate_round2_prompt(question: str, round1_debates: list[Contribution], model: str) -> str:
+    others = "\n\n".join(
+        f"**{c.model}**: {c.content}" for c in round1_debates if c.model != model
+    )
+    return textwrap.dedent(f"""\
+        This is round 2. You've seen everyone's revised positions.
+        Converge where possible. Sharpen remaining disagreements. Be specific.
+
+        Question: {question}
+
+        Round 1 revised positions:
+        {others}""")
+
+
 def _judge_prompt(question: str, contributions: list[Contribution], persona: str = "") -> str:
     answers = "\n\n".join(f"**{c.model}** [{c.phase}]: {c.content}" for c in contributions)
     ctx = f"\nThe questioner's context: {persona}" if persona else ""
@@ -146,6 +162,21 @@ def _redteam_defend_prompt(_question: str, position: str, attacks: list[Contribu
 
         Attacks:
         {attacks_text}""")
+
+
+def _cross_examine_prompt(question: str, all_contributions: list[Contribution], model: str) -> str:
+    answers = "\n\n".join(
+        f"**{c.model}** [{c.phase}]: {c.content}"
+        for c in all_contributions if c.model != model
+    )
+    return textwrap.dedent(f"""\
+        Review all positions. Identify the single weakest argument.
+        Attack it specifically. One paragraph, ruthless.
+
+        Question: {question}
+
+        All positions:
+        {answers}""")
 
 
 # ── parsing ──────────────────────────────────────────────────
@@ -209,19 +240,28 @@ def _mode_council(
         delib.contributions.append(c)
         blind.append(c)
 
-    # Phase 2: Debate (each model sees others' blind answers, needs individual prompts)
-    for model in panel:
-        try:
-            debate_text = transduce(
-                model, _debate_prompt(question, blind, model), timeout=timeout
-            )
-            delib.contributions.append(
-                Contribution(model=model, content=debate_text, phase="debate")
-            )
-        except Exception as e:
-            delib.contributions.append(
-                Contribution(model=model, content=f"(error: {e})", phase="debate")
-            )
+    # Phase 2: Debate round 1 — parallel (each model sees others' blind answers)
+    debate_tasks = [
+        (model, _debate_prompt(question, blind, model))
+        for model in panel
+    ]
+    debate_results = parallel_transduce_multi(debate_tasks, timeout=timeout)
+    round1_debates = []
+    for model, content in debate_results:
+        c = Contribution(model=model, content=content, phase="debate")
+        delib.contributions.append(c)
+        round1_debates.append(c)
+
+    # Phase 2b: Debate round 2 — parallel (each model sees round 1 revised positions)
+    round2_tasks = [
+        (model, _debate_round2_prompt(question, round1_debates, model))
+        for model in panel
+    ]
+    round2_results = parallel_transduce_multi(round2_tasks, timeout=timeout)
+    for model, content in round2_results:
+        delib.contributions.append(
+            Contribution(model=model, content=content, phase="debate-2")
+        )
 
     # Phase 3: Judge
     judge_text = transduce(
@@ -293,6 +333,82 @@ def _mode_redteam(
     return delib
 
 
+def _mode_deep(
+    question: str, panel: list[str], persona: str, timeout: int
+) -> Deliberation:
+    """Deep deliberation: blind → debate×2 → cross-examine → judge → critic."""
+    delib = Deliberation(question=question, mode="deep", persona=persona)
+
+    # Phase 1: Blind (parallel)
+    prompt = _blind_prompt(question, persona)
+    results = parallel_transduce(panel, prompt, timeout=timeout)
+    blind = []
+    for model, content in results:
+        c = Contribution(model=model, content=content, phase="blind")
+        delib.contributions.append(c)
+        blind.append(c)
+
+    # Phase 2: Debate round 1 (parallel)
+    debate1_tasks = [
+        (model, _debate_prompt(question, blind, model))
+        for model in panel
+    ]
+    debate1_results = parallel_transduce_multi(debate1_tasks, timeout=timeout)
+    round1_debates = []
+    for model, content in debate1_results:
+        c = Contribution(model=model, content=content, phase="debate")
+        delib.contributions.append(c)
+        round1_debates.append(c)
+
+    # Phase 3: Debate round 2 (parallel)
+    debate2_tasks = [
+        (model, _debate_round2_prompt(question, round1_debates, model))
+        for model in panel
+    ]
+    debate2_results = parallel_transduce_multi(debate2_tasks, timeout=timeout)
+    for model, content in debate2_results:
+        delib.contributions.append(
+            Contribution(model=model, content=content, phase="debate-2")
+        )
+
+    # Phase 4: Cross-examination (parallel — each model attacks weakest position)
+    cross_tasks = [
+        (model, _cross_examine_prompt(question, delib.contributions, model))
+        for model in panel
+    ]
+    cross_results = parallel_transduce_multi(cross_tasks, timeout=timeout)
+    for model, content in cross_results:
+        delib.contributions.append(
+            Contribution(model=model, content=content, phase="cross-examine")
+        )
+
+    # Phase 5: Judge
+    judge_text = transduce(
+        JUDGE_MODEL, _judge_prompt(question, delib.contributions, persona), timeout=timeout
+    )
+    delib.contributions.append(Contribution(model=JUDGE_MODEL, content=judge_text, phase="judge"))
+
+    # Phase 6: Critic
+    critic_prompt = textwrap.dedent(f"""\
+        A judge has synthesized this decision from a deep multi-model deliberation
+        including two rounds of debate and cross-examination.
+        Challenge it: what did the judge miss? What's the strongest counterargument?
+        Be brief and specific.
+
+        Decision: {judge_text}
+        Original question: {question}""")
+    try:
+        critic_text = transduce(CRITIC_MODEL, critic_prompt, timeout=timeout)
+        delib.contributions.append(
+            Contribution(model=CRITIC_MODEL, content=critic_text, phase="critic")
+        )
+    except Exception:
+        pass
+
+    delib.decision, delib.dissents = _parse_judge(judge_text)
+    return delib
+
+
 # ── public API ───────────────────────────────────────────────
 
 
@@ -318,14 +434,15 @@ def deliberate(
         "quick": PANEL_QUICK,
         "council": PANEL_COUNCIL,
         "redteam": PANEL_REDTEAM,
+        "deep": PANEL_DEEP,
     }
     if mode not in default_panels:
-        raise ValueError(f"Unknown mode: {mode}. Use: quick, council, redteam")
+        raise ValueError(f"Unknown mode: {mode}. Use: quick, council, redteam, deep")
 
     active_panel = panel or default_panels[mode]
     t0 = time.time()
 
-    dispatch = {"quick": _mode_quick, "council": _mode_council, "redteam": _mode_redteam}
+    dispatch = {"quick": _mode_quick, "council": _mode_council, "redteam": _mode_redteam, "deep": _mode_deep}
     delib = dispatch[mode](question, active_panel, persona, timeout)
     delib.elapsed_s = time.time() - t0
 
@@ -343,7 +460,7 @@ def main():
 
     parser = argparse.ArgumentParser(description="Multi-model deliberation")
     parser.add_argument("question", help="Question to deliberate")
-    parser.add_argument("--mode", choices=["quick", "council", "redteam"], default="quick")
+    parser.add_argument("--mode", choices=["quick", "council", "redteam", "deep"], default="quick")
     parser.add_argument("--persona", default="")
     parser.add_argument("--timeout", type=int, default=180)
     parser.add_argument("--no-save", action="store_true")

@@ -330,7 +330,7 @@ RATIONALE: why this improvement prevents future failures
 """
 
 
-def _tissue_route(task_type: str, fallback: str = "sonnet") -> str:
+def _tissue_route(task_type: str, fallback: str = "glm") -> str:
     """Return tissue-routed model for task_type; falls back to fallback on any error."""
     try:
         import sys as _sys

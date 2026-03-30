@@ -87,7 +87,7 @@ quorum --quick --quiet --domain banking -o ~/germline/loci/antisera/agent-tests/
 
 - Auto-saves to `~/epigenome/chromatin/Councils/`. Use `--no-save` to suppress. Never `--output /tmp/` — wiped on reboot.
 - **Always `run_in_background: true`** on the Bash tool.
-- Running 4+ parallel `--council` hits OpenRouter rate limits — use `--quick` for parallel batch runs.
+- All panelists are flat-rate CLIs — no per-token cost, no rate limits from OpenRouter.
 
 **Output retrieval** — quorum detects pipes and uses SilentOutput; redirect to `~/tmp/` and read after:
 
@@ -135,12 +135,9 @@ quorum --doctor      # Check API keys and connectivity
 
 ## Gotchas
 
-- **402** = OpenRouter out of credits — tell Terry to top up at openrouter.ai/credits. Don't retry.
-- **403 on new model** = access restricted. Test before using: `quorum --quick --quiet "test" 2>&1 | grep -i "403\|error"`.
-- **Two spend streams:** OpenRouter (`stips`) + OpenAI direct (`platform.openai.com/usage`). Responses API models bypass OpenRouter and burn the direct OPENAI_API_KEY. Keep OpenAI direct budget cap at $20.
-- **Before adding any new model:** run speed test (`quorum --quick --quiet "name a color"`) — any model >60s doesn't belong. Run `pondus check "<model>"` to verify pricing; `-pro` reasoning variants can cost 10–12× more than base.
-- **Strip PII from personal/family prompts.** OpenRouter routes to 6+ third-party providers. Use roles ("my son", "my wife") not names.
-- **`--format json`**, `--challenger`, `--followup` are council/quick only. Binary can go stale after code changes: `cd ~/code/quorum && cargo build --release`.
+- All panelists are flat-rate CLIs (CC Max, Gemini, Codex, Goose/Droid via ZhiPu plan). Zero per-token cost.
+- **Before adding any new model:** run speed test (`quorum --quick "name a color"`) — any model >60s doesn't belong.
+- **`--format json`**, `--challenger`, `--followup` are council/quick only.
 
 ---
 

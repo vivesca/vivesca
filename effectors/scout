@@ -10,6 +10,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import shutil
 import subprocess
 import sys
 from datetime import datetime, timedelta
@@ -122,10 +123,21 @@ def _build_goose_cmd(model: str, prompt: str, recipe: str | None = None) -> list
     return cmd
 
 
+def _resolve_droid_model(short_name: str) -> str:
+    """Map short model name (e.g. GLM-5.1) to Factory custom model ID from settings."""
+    settings = Path.home() / ".factory" / "settings.json"
+    if settings.exists():
+        for m in json.loads(settings.read_text()).get("customModels", []):
+            mid = m.get("id", "")
+            if short_name in mid:
+                return mid
+    return f"custom:{short_name}"
+
+
 def _build_droid_cmd(model: str, directory: str, prompt: str,
                      auto: str | None = None) -> list[str]:
-    model_flag = model if model.startswith("custom:") else f"custom:{model}"
-    cmd = ["droid", "exec", "-m", model_flag, "--cwd", directory, prompt]
+    model_flag = _resolve_droid_model(model)
+    cmd = [shutil.which("droid") or "droid", "exec", "-m", model_flag, "--cwd", directory, prompt]
     if auto:
         cmd.insert(2, "--auto")
         cmd.insert(3, auto)

@@ -34,7 +34,6 @@ CREDENTIALS = {
     # From .secrets (.secrets was sourced after .zshenv, so these values win)
     "GEMINI_API_KEY": "gemini-api-key-secrets",
     "GOOGLE_API_KEY": "google-api-key-secrets",
-    "OPENROUTER_API_KEY": "openrouter-api-key",
     "ANTHROPIC_API_KEY": "anthropic-api-key",
     "OPENAI_API_KEY": "openai-api-key",
     "MOONSHOT_API_KEY": "moonshot-api-key",

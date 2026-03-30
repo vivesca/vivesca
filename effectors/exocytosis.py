@@ -68,7 +68,7 @@ def mark_done(line_num: int) -> None:
 
 def generate(topic: str, style_excerpt: str, extra: str = "") -> str:
     prompt = GENERATE_PROMPT.format(topic=topic + extra, style_excerpt=style_excerpt)
-    return transduce("sonnet", prompt, timeout=120)
+    return transduce("goose", prompt, timeout=120)
 
 
 def judge(post: str) -> tuple[bool, str]:
