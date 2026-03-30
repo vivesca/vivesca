@@ -3,13 +3,35 @@
 Endosymbiosis: Rust binary → Python organelle.
 Still wraps gog (Go CLI) for GCal API access. The Rust layer
 was just formatting — Python handles that directly now.
+
+Phase detection: dawn (06–10), day (10–17), dusk (17–21), night (21–06).
+Weekend and holiday awareness for schedule-sensitive routing.
 """
 
+from __future__ import annotations
+
 import json
+import logging
 import subprocess
-from datetime import timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 
 HKT = timezone(timedelta(hours=8))
+
+logger = logging.getLogger(__name__)
+
+# All-day event title keywords indicating a non-working day
+_HOLIDAY_KEYWORDS = (
+    "holiday",
+    "public holiday",
+    "day off",
+    "leave",
+    "annual leave",
+    "al",
+    "休假",
+    "假期",
+    "放假",
+    "替假",
+)
 
 
 def _gog(args: list[str], timeout: int = 15) -> str:

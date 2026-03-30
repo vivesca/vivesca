@@ -31,6 +31,30 @@ _DEFAULT_ROUTES: dict = {
     "skill": {"model": "GLM-4.7", "chain": ["goose", "droid"]},
 }
 
+class _ProgressTicker:
+    """Print a dot to stderr every N seconds while a subprocess runs."""
+
+    def __init__(self, interval: float = 10.0) -> None:
+        self._interval = interval
+        self._stop = threading.Event()
+        self._thread: threading.Thread | None = None
+
+    def start(self) -> None:
+        self._stop.clear()
+        self._thread = threading.Thread(target=self._tick, daemon=True)
+        self._thread.start()
+
+    def stop(self) -> None:
+        self._stop.set()
+        if self._thread is not None:
+            self._thread.join(timeout=self._interval + 1)
+            self._thread = None
+
+    def _tick(self) -> None:
+        while not self._stop.wait(timeout=self._interval):
+            print(".", end="", flush=True, file=sys.stderr)
+
+
 def _load_routes() -> dict:
     """Load routing config. Falls back to hardcoded defaults if no file."""
     if ROUTES_PATH.exists():
