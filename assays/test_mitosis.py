@@ -95,6 +95,54 @@ class TestSyncTargets:
             assert t["remote"].startswith(LUCERNA_HOME)
 
 
+class TestBuildCommitMessage:
+    def test_no_staged_files(self, tmp_path):
+        from metabolon.organelles.mitosis import _build_commit_message
+
+        subprocess.run(["git", "init", str(tmp_path)], capture_output=True)
+        subprocess.run(
+            ["git", "-C", str(tmp_path), "commit", "--allow-empty", "-m", "init"],
+            capture_output=True,
+        )
+        msg = _build_commit_message(str(tmp_path))
+        assert msg == "mitosis: sync checkpoint"
+
+    def test_single_file_root(self, tmp_path):
+        from metabolon.organelles.mitosis import _build_commit_message
+
+        subprocess.run(["git", "init", str(tmp_path)], capture_output=True)
+        (tmp_path / "README.md").write_text("hello")
+        subprocess.run(["git", "-C", str(tmp_path), "add", "-A"], capture_output=True)
+        msg = _build_commit_message(str(tmp_path))
+        assert "1 file in (root)/" in msg
+        assert msg.startswith("mitosis: sync checkpoint")
+
+    def test_multiple_dirs(self, tmp_path):
+        from metabolon.organelles.mitosis import _build_commit_message
+
+        subprocess.run(["git", "init", str(tmp_path)], capture_output=True)
+        (tmp_path / "metabolon").mkdir()
+        (tmp_path / "metabolon" / "a.py").write_text("a")
+        (tmp_path / "metabolon" / "b.py").write_text("b")
+        (tmp_path / "metabolon" / "c.py").write_text("c")
+        (tmp_path / "loci").mkdir()
+        (tmp_path / "loci" / "d.md").write_text("d")
+        subprocess.run(["git", "-C", str(tmp_path), "add", "-A"], capture_output=True)
+        msg = _build_commit_message(str(tmp_path))
+        assert "3 files in metabolon/" in msg
+        assert "1 file in loci/" in msg
+
+    def test_plural_singular(self, tmp_path):
+        from metabolon.organelles.mitosis import _build_commit_message
+
+        subprocess.run(["git", "init", str(tmp_path)], capture_output=True)
+        (tmp_path / "src").mkdir()
+        (tmp_path / "src" / "a.py").write_text("a")
+        subprocess.run(["git", "-C", str(tmp_path), "add", "-A"], capture_output=True)
+        msg = _build_commit_message(str(tmp_path))
+        assert "1 file in src/" in msg  # singular, no 's'
+
+
 class TestGitPush:
     def test_not_a_repo(self, tmp_path):
         ok, msg = _git_push(str(tmp_path))
@@ -112,6 +160,26 @@ class TestGitPush:
         ok, msg = _git_push(str(tmp_path))
         # Push fails because no remote configured — that's fine for this test
         assert not ok or "up-to-date" in msg
+
+    def test_commit_message_contains_diff_summary(self, tmp_path):
+        """Commit message should include directory summary when files change."""
+        subprocess.run(["git", "init", str(tmp_path)], capture_output=True)
+        subprocess.run(
+            ["git", "-C", str(tmp_path), "commit", "--allow-empty", "-m", "init"],
+            capture_output=True,
+        )
+        (tmp_path / "src").mkdir()
+        (tmp_path / "src" / "main.py").write_text("print('hi')")
+        subprocess.run(["git", "-C", str(tmp_path), "add", "-A"], capture_output=True)
+        # Call _git_push — commit will succeed, push will fail (no remote)
+        _git_push(str(tmp_path))
+        # Read the actual commit message
+        log = subprocess.run(
+            ["git", "-C", str(tmp_path), "log", "-1", "--format=%s"],
+            capture_output=True,
+            text=True,
+        )
+        assert "1 file in src/" in log.stdout
 
 
 class TestReachability:

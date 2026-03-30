@@ -1,10 +1,11 @@
 """Tests for sortase executor."""
 from __future__ import annotations
 
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 from metabolon.sortase.executor import (
     ExecutionAttempt,
+    FallbackStep,
     TaskExecutionResult,
     _clean_env,
     _compute_adaptive_timeout,
