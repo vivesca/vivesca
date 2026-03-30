@@ -106,8 +106,18 @@ Checkpoints older than 7 days are stale. On any sporulation, delete checkpoints 
 find ~/.claude/projects/-Users-terry/memory/ -name "checkpoint_*.md" -mtime +7 -delete
 ```
 
+## Pre-sporulation: full cytokinesis
+
+Before saving the spore, run **full cytokinesis** (consolidation + housekeeping + daily note):
+1. Scan session for unfiled corrections, findings, user facts — file them
+2. Commit dirty repos
+3. Update Tonus.md
+4. Write daily note arc
+5. Then sporulate
+
+If context is dying, everything should be captured — not just the checkpoint. Full cytokinesis is fast when there's nothing to capture (filed=0). Don't optimize for the rare mid-session park case.
+
 ## Boundaries
 
-- Not a replacement for cytokinesis (learnings, corrections, memory). Sporulation is tactical resume, not consolidation.
 - Not a replacement for Praxis (commitments). If there's a todo, it goes in Praxis, not a checkpoint.
 - Checkpoints are ephemeral. They exist to be consumed, not archived.
