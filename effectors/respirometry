@@ -30,6 +30,7 @@ from pathlib import Path
 from typing import Any, Optional, Tuple
 
 HISTORY = Path.home() / ".local/share/respirometry/history.jsonl"
+USAGE_HISTORY = Path.home() / ".local/share/vivesca/usage-history.jsonl"
 # Also check respirometry-watch log (different format, written by LaunchAgent)
 WATCH_LOG = Path.home() / "docs/respirometry-log.jsonl"
 SORTASE_LOG = Path.home() / ".local/share/sortase/log.jsonl"
@@ -386,6 +387,126 @@ def get_budget(mode: str = "interactive") -> str:
 
 
 # ---------------------------------------------------------------------------
+# Weekly trend tracking
+# ---------------------------------------------------------------------------
+
+
+def _derive_session_stats() -> tuple[int, int]:
+    """Derive session_count and goose_dispatches from sortase log for current week.
+
+    session_count = number of distinct dates with sortase runs.
+    goose_dispatches = number of runs where tool == 'goose'.
+    """
+    rows = _read_cost_rows(SORTASE_LOG)
+    if not rows:
+        return 0, 0
+
+    now = datetime.now()
+    week_start = now - timedelta(days=7)
+    current_rows = [
+        row for row in rows
+        if week_start <= row["_parsed_timestamp"] <= now
+    ]
+
+    session_dates: set[str] = set()
+    goose_dispatches = 0
+    for row in current_rows:
+        ts = row["_parsed_timestamp"]
+        session_dates.add(ts.strftime("%Y-%m-%d"))
+        if str(row.get("tool", "")).strip() == "goose":
+            goose_dispatches += 1
+
+    return len(session_dates), goose_dispatches
+
+
+def record_snapshot() -> None:
+    """Append current week's usage stats to USAGE_HISTORY JSONL."""
+    usage = get_usage()
+    if "error" in usage:
+        return
+
+    weekly = _weekly_pct(usage)
+    sonnet = _sonnet_pct(usage)
+    session_count, goose_dispatches = _derive_session_stats()
+
+    # Determine the Monday of the current week for the date label
+    now = datetime.now()
+    monday = now - timedelta(days=now.weekday())
+
+    row = {
+        "date": monday.strftime("%Y-%m-%d"),
+        "weekly_pct": round(weekly, 1),
+        "sonnet_pct": round(sonnet, 1),
+        "session_count": session_count,
+        "goose_dispatches": goose_dispatches,
+    }
+
+    USAGE_HISTORY.parent.mkdir(parents=True, exist_ok=True)
+    with open(USAGE_HISTORY, "a") as fh:
+        fh.write(json.dumps(row) + "\n")
+
+
+def cmd_trend() -> None:
+    """Read USAGE_HISTORY and render week-over-week trend table."""
+    if not USAGE_HISTORY.exists():
+        print("No usage history found. Run `respirometry` first to seed data.")
+        return
+
+    lines = USAGE_HISTORY.read_text().strip().splitlines()
+    if not lines:
+        print("No usage history found. Run `respirometry` first to seed data.")
+        return
+
+    rows: list[dict[str, Any]] = []
+    for line in lines:
+        try:
+            rows.append(json.loads(line))
+        except json.JSONDecodeError:
+            continue
+
+    if not rows:
+        print("No usage history found. Run `respirometry` first to seed data.")
+        return
+
+    # Deduplicate by date, keep last entry per week
+    seen: dict[str, dict[str, Any]] = {}
+    for row in rows:
+        seen[row["date"]] = row
+    unique_rows = sorted(seen.values(), key=lambda r: r["date"], reverse=True)
+
+    # Format table
+    header = f"{'Week':<10}| {'All Models':>10} | {'Sonnet':>6} | {'Sessions':>8} | {'Goose':>6}"
+    separator = "-" * len(header)
+    print(header)
+    print(separator)
+
+    for row in unique_rows:
+        # Parse Monday date to "Mon DD-DD" range
+        try:
+            monday = datetime.strptime(row["date"], "%Y-%m-%d")
+            sunday = monday + timedelta(days=6)
+            month_day = monday.strftime("%b %d")
+            sunday_day = sunday.strftime("%d")
+            # If spanning months, show both months
+            if monday.month != sunday.month:
+                week_label = f"{monday.strftime('%b %d')}-{sunday.strftime('%b %d')}"
+            else:
+                week_label = f"{month_day}-{sunday_day}"
+        except (ValueError, KeyError):
+            week_label = str(row.get("date", "?"))
+
+        weekly_pct = row.get("weekly_pct", 0)
+        sonnet_pct = row.get("sonnet_pct", 0)
+        sessions = row.get("session_count", 0)
+        goose = row.get("goose_dispatches", 0)
+
+        print(
+            f"{week_label:<10}| {weekly_pct:>8.0f}% | {sonnet_pct:>4.0f}% | "
+            f"{sessions:>8} | {goose:>6}"
+        )
+
+
+# ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
 
@@ -398,7 +519,7 @@ def _build_parser() -> argparse.ArgumentParser:
         "command",
         nargs="?",
         default="status",
-        choices=["status", "log"],
+        choices=["status", "log", "trend"],
         help="`log` is retained as a no-op compatibility command.",
     )
     parser.add_argument(
@@ -426,6 +547,10 @@ def main() -> None:
     if args.command == "log":
         return
 
+    if args.command == "trend":
+        cmd_trend()
+        return
+
     if args.budget:
         mode = "overnight" if args.overnight else "interactive"
         print(get_budget(mode))
@@ -435,6 +560,8 @@ def main() -> None:
     if "error" in usage:
         print(usage["error"], file=sys.stderr)
         sys.exit(1)
+
+    record_snapshot()
 
     if args.json:
         print(json.dumps(usage))

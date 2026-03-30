@@ -591,6 +591,7 @@ def main_impl(args: argparse.Namespace) -> int:
                 os.chdir(directory)
             ticker.start()
             try:
+                out_len = 0
                 if capture:
                     rc, stdout_text = _run_captured(cmd, env=benv)
                     out_len = len(stdout_text)

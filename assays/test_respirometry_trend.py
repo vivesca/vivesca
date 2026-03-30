@@ -7,15 +7,17 @@ from pathlib import Path
 from unittest.mock import patch
 
 import pytest
-
-# Import from the effector (runs as script, but we import the module)
 import importlib.util
+import importlib.machinery
+import types
 
-spec = importlib.util.spec_from_file_location(
+# Import the effector as a module (no .py extension, need SourceFileLoader)
+_loader = importlib.machinery.SourceFileLoader(
     "respirometry", "/Users/terry/germline/effectors/respirometry"
 )
-resp = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(resp)
+_spec = importlib.util.spec_from_loader("respirometry", _loader)
+resp = types.ModuleType("respirometry")
+_loader.exec_module(resp)
 
 
 @pytest.fixture
