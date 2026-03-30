@@ -160,6 +160,7 @@ class TestScanForPlaceholders:
         f.write_text(f"# {_MARKER_STUB.upper()} impl\n", encoding="utf-8")
         issues = scan_for_placeholders(tmp_path, ["upper.py"])
         assert len(issues) == 1
+        assert issues[0].severity == "error"
 
     def test_empty_new_files_list(self, tmp_path):
         issues = scan_for_placeholders(tmp_path, [])
@@ -227,6 +228,15 @@ class TestScanForPlaceholders:
         (tmp_path / "c.py").write_text('print("ok")\n', encoding="utf-8")
         issues = scan_for_placeholders(tmp_path, ["a.py", "b.py", "c.py"])
         assert len(issues) == 2
+        assert all(i.severity == "warning" for i in issues)
+
+    def test_mixed_stub_and_todo_in_one_file(self, tmp_path):
+        f = tmp_path / "mixed.py"
+        f.write_text(f"# {_MARKER_STUB}: impl\n# {_MARKER_TODO}: later\n", encoding="utf-8")
+        issues = scan_for_placeholders(tmp_path, ["mixed.py"])
+        assert len(issues) == 2
+        severities = {i.severity for i in issues}
+        assert severities == {"error", "warning"}
 
     def test_word_boundary_prevents_partial_match(self, tmp_path):
         f = tmp_path / "partial.py"
@@ -240,12 +250,14 @@ class TestScanForPlaceholders:
         f.write_text(f'raise NotImplementedError("{_MARKER_TODO}: implement me")\n', encoding="utf-8")
         issues = scan_for_placeholders(tmp_path, ["code.py"])
         assert len(issues) == 1
+        assert issues[0].severity == "warning"
 
     def test_message_includes_filename(self, tmp_path):
         f = tmp_path / "specific_name.py"
         f.write_text(f"# {_MARKER_TODO}\n", encoding="utf-8")
         issues = scan_for_placeholders(tmp_path, ["specific_name.py"])
         assert "specific_name.py" in issues[0].message
+        assert issues[0].severity == "warning"
 
     # --- HEAD-comparison tests (pre-existing vs new markers) ---
 
