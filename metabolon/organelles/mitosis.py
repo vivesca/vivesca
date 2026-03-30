@@ -113,6 +113,31 @@ def _is_gemmule_reachable() -> bool:
         return False
 
 
+def _build_commit_message(local: str) -> str:
+    """Build a descriptive commit message from staged changes.
+
+    Summarizes the number of changed files grouped by top-level directory,
+    e.g. "mitosis: sync checkpoint (3 files in metabolon/, 1 in loci/)"
+    """
+    result = subprocess.run(
+        ["git", "-C", local, "diff", "--cached", "--name-only"],
+        capture_output=True,
+        text=True,
+        timeout=15,
+    )
+    changed_files = [line for line in result.stdout.strip().splitlines() if line]
+    if not changed_files:
+        return "mitosis: sync checkpoint"
+
+    dir_counts: dict[str, int] = {}
+    for filepath in changed_files:
+        top_dir = filepath.split("/")[0] if "/" in filepath else "(root)"
+        dir_counts[top_dir] = dir_counts.get(top_dir, 0) + 1
+
+    parts = [f"{count} file{'s' if count != 1 else ''} in {dir_}/" for dir_, count in sorted(dir_counts.items())]
+    return f"mitosis: sync checkpoint ({', '.join(parts)})"
+
+
 def _git_push(local_path: str) -> tuple[bool, str]:
     """Stage, commit, and push local changes. Returns (success, message)."""
     local = _expand(local_path)
@@ -127,9 +152,12 @@ def _git_push(local_path: str) -> tuple[bool, str]:
         timeout=30,
     )
 
+    # Build descriptive commit message from staged diff
+    commit_msg = _build_commit_message(local)
+
     # Commit if there are changes (ignore exit code if nothing to commit)
     result = subprocess.run(
-        ["git", "-C", local, "commit", "-m", "mitosis: sync checkpoint"],
+        ["git", "-C", local, "commit", "-m", commit_msg],
         capture_output=True,
         text=True,
         timeout=30,

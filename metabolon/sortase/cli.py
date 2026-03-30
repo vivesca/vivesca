@@ -139,6 +139,7 @@ def exec_command(
                     "success": r.success,
                     "duration_s": sum(a.duration_s for a in r.attempts),
                     "fallbacks": r.fallbacks,
+                    "fallback_chain": [step.to_dict() for step in r.fallback_chain],
                     "cost_estimate": r.cost_estimate or "N/A",
                 }
                 for r in results
