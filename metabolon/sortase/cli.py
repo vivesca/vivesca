@@ -13,7 +13,7 @@ from rich.table import Table
 
 from metabolon.sortase.decompose import decompose_plan
 from metabolon.sortase.executor import execute_tasks, list_running
-from metabolon.sortase.logger import aggregate_stats, append_log, read_logs
+from metabolon.sortase.logger import aggregate_stats, analyze_logs, append_log, read_logs
 from metabolon.sortase.router import route_description
 from metabolon.sortase.validator import validate_execution
 
@@ -124,6 +124,7 @@ def exec_command(
         "failure_reason": next((issue.check for issue in validation_issues if issue.severity == "error"), None),
         "files_changed": changed_files,
         "tests_passed": 0 if any(issue.check == "tests" for issue in validation_issues) else 1,
+        "cost_estimate": ", ".join(dict.fromkeys(r.cost_estimate for r in results if r.cost_estimate)) or "N/A",
     }
     append_log(entry)
     if json_out:
@@ -336,6 +337,65 @@ def log(stats: bool, prune: int, export_path: Path | None, last_n: int) -> None:
             encoding="utf-8",
         )
         console.print(f"Pruned: kept {prune} of {len(entries)} entries")
+
+
+@main.command()
+@click.option("--log", "log_path", default=None, type=click.Path(path_type=Path), help="Path to log.jsonl (default: sortase default).")
+@click.option("--coaching", "coaching_path", default=None, type=click.Path(path_type=Path), help="Path to coaching notes file.")
+@click.option("--json", "json_output", is_flag=True, help="Output as JSON.")
+def analyze(log_path: Path | None, coaching_path: Path | None, json_output: bool) -> None:
+    """Analyze execution logs for patterns and coaching effectiveness."""
+
+    result = analyze_logs(log_path=log_path, coaching_path=coaching_path)
+
+    if result["total_entries"] == 0:
+        console.print("No log entries found.")
+        return
+
+    if json_output:
+        console.print_json(json.dumps(result, indent=2))
+        return
+
+    # Success rate by backend
+    table = Table(title="Success Rate by Backend")
+    table.add_column("Backend")
+    table.add_column("Rate")
+    table.add_column("Entries", justify="right")
+    for tool, rate in sorted(result["success_rate_by_backend"].items()):
+        table.add_row(tool, f"{rate:.1%}", "")
+    console.print(table)
+
+    # Success rate by hour
+    table = Table(title="Success Rate by Hour")
+    table.add_column("Hour")
+    table.add_column("Rate")
+    for hour, rate in result["success_rate_by_hour"].items():
+        table.add_row(hour, f"{rate:.1%}")
+    console.print(table)
+
+    # Average duration by task count
+    table = Table(title="Avg Duration by Plan Complexity (task count)")
+    table.add_column("Tasks", justify="right")
+    table.add_column("Avg Duration (s)", justify="right")
+    for task_count, avg_dur in result["avg_duration_by_task_count"].items():
+        table.add_row(str(task_count), f"{avg_dur:.1f}")
+    console.print(table)
+
+    # Common failure reasons
+    if result["failure_reasons"]:
+        table = Table(title="Failure Reasons")
+        table.add_column("Reason")
+        table.add_column("Count", justify="right")
+        for reason, count in result["failure_reasons"].items():
+            table.add_row(reason, str(count))
+        console.print(table)
+
+    # Coaching coverage
+    coverage = result["coaching_coverage"]
+    if coverage is not None:
+        console.print(f"Coaching coverage: {coverage:.1%} of failures occurred after coaching file existed")
+    else:
+        console.print("Coaching coverage: N/A (no failures)")
 
 
 @main.command()

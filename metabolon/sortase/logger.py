@@ -90,3 +90,109 @@ def aggregate_stats(entries: list[dict[str, Any]]) -> dict[str, Any]:
         "fallback_frequency": dict(fallback_frequency.most_common()),
         "total_runs": len(entries),
     }
+
+
+def analyze_logs(
+    log_path: str | os.PathLike[str] | None = None,
+    coaching_path: str | os.PathLike[str] | None = None,
+) -> dict[str, Any]:
+    """Analyze log.jsonl for patterns: success rates, durations, failures, coaching coverage.
+
+    Returns a dict with keys:
+      - success_rate_by_backend: {tool: float}
+      - success_rate_by_hour: {HH: float}
+      - avg_duration_by_task_count: {task_count: float}
+      - failure_reasons: {reason: count}
+      - coaching_coverage: float | None (None when no failures exist)
+      - total_entries: int
+    """
+    entries = read_logs(log_path)
+    if not entries:
+        return {
+            "success_rate_by_backend": {},
+            "success_rate_by_hour": {},
+            "avg_duration_by_task_count": {},
+            "failure_reasons": {},
+            "coaching_coverage": None,
+            "total_entries": 0,
+        }
+
+    # Success rate by backend
+    backend_runs: dict[str, dict[str, int]] = defaultdict(lambda: {"runs": 0, "successes": 0})
+    # Success rate by hour
+    hour_runs: dict[str, dict[str, int]] = defaultdict(lambda: {"runs": 0, "successes": 0})
+    # Duration by task count (complexity)
+    task_durations: dict[int, list[float]] = defaultdict(list)
+    # Failure reasons
+    failure_reasons: Counter[str] = Counter()
+    # Coaching coverage tracking
+    failure_timestamps: list[str] = []
+
+    for entry in entries:
+        tool = entry.get("tool", "unknown")
+        backend_runs[tool]["runs"] += 1
+        if entry.get("success"):
+            backend_runs[tool]["successes"] += 1
+
+        ts = entry.get("timestamp", "")
+        if ts:
+            try:
+                dt = datetime.fromisoformat(ts)
+                hour_key = dt.strftime("%H")
+                hour_runs[hour_key]["runs"] += 1
+                if entry.get("success"):
+                    hour_runs[hour_key]["successes"] += 1
+            except (ValueError, TypeError):
+                pass
+
+        task_count = entry.get("tasks", 1)
+        duration = entry.get("duration_s", 0)
+        if duration:
+            task_durations[int(task_count)].append(float(duration))
+
+        if not entry.get("success"):
+            reason = entry.get("failure_reason") or "unknown"
+            failure_reasons[reason] += 1
+            failure_timestamps.append(ts)
+
+    success_rate_by_backend: dict[str, float] = {}
+    for tool, counts in backend_runs.items():
+        runs = counts["runs"]
+        success_rate_by_backend[tool] = round(counts["successes"] / runs, 3) if runs else 0.0
+
+    success_rate_by_hour: dict[str, float] = {}
+    for hour, counts in sorted(hour_runs.items()):
+        runs = counts["runs"]
+        success_rate_by_hour[hour] = round(counts["successes"] / runs, 3) if runs else 0.0
+
+    avg_duration_by_task_count: dict[int, float] = {}
+    for task_count, durations in sorted(task_durations.items()):
+        n = len(durations)
+        avg_duration_by_task_count[task_count] = round(sum(durations) / n, 1) if n else 0.0
+
+    # Coaching coverage: fraction of failures that occurred after coaching file existed
+    coaching_coverage: float | None = None
+    if failure_timestamps:
+        resolved_coaching = Path(coaching_path) if coaching_path else DEFAULT_COACHING_PATH
+        if resolved_coaching.exists():
+            coaching_epoch = resolved_coaching.stat().st_mtime
+            covered = 0
+            for ts in failure_timestamps:
+                try:
+                    failure_dt = datetime.fromisoformat(ts)
+                    if failure_dt.timestamp() >= coaching_epoch:
+                        covered += 1
+                except (ValueError, TypeError):
+                    pass
+            coaching_coverage = round(covered / len(failure_timestamps), 3)
+        else:
+            coaching_coverage = 0.0
+
+    return {
+        "success_rate_by_backend": success_rate_by_backend,
+        "success_rate_by_hour": success_rate_by_hour,
+        "avg_duration_by_task_count": avg_duration_by_task_count,
+        "failure_reasons": dict(failure_reasons.most_common()),
+        "coaching_coverage": coaching_coverage,
+        "total_entries": len(entries),
+    }
