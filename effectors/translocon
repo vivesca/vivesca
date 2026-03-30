@@ -265,6 +265,24 @@ def _run_eval(count: int = 20, failures_only: bool = False) -> int:
     return 0
 
 
+def _extract_task_summary(prompt: str) -> str:
+    """Extract the task description from a coaching-injected prompt.
+
+    Coaching notes are prepended before '---\\n\\nTask:\\n'.
+    If that separator exists, take the text after it.
+    Otherwise use the full prompt (no coaching was injected).
+    """
+    marker = "\n---\n\nTask:\n"
+    idx = prompt.find(marker)
+    task = prompt[idx + len(marker):] if idx >= 0 else prompt
+    # Take first meaningful line
+    for line in task.strip().splitlines():
+        stripped = line.strip()
+        if stripped and not stripped.startswith("#"):
+            return stripped[:72]
+    return task.strip()[:72]
+
+
 def _atomic_commit(directory: str, backend: str, prompt: str) -> None:
     """Auto-commit after successful build. Mitosis is the safety net; this is the primary."""
     diff = subprocess.run(["git", "diff", "--stat"], cwd=directory, capture_output=True, text=True)
@@ -273,7 +291,7 @@ def _atomic_commit(directory: str, backend: str, prompt: str) -> None:
     if not diff.stdout.strip() and not untracked.stdout.strip():
         return  # nothing to commit
     subprocess.run(["git", "add", "-A"], cwd=directory, capture_output=True)
-    summary = prompt[:72].replace("\n", " ")
+    summary = _extract_task_summary(prompt).replace("\n", " ")
     msg = f"translocon({backend}): {summary}"
     subprocess.run(["git", "commit", "-m", msg], cwd=directory, capture_output=True)
 
