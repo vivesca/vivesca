@@ -1,6 +1,6 @@
 ---
 name: annealing
-description: Refine an artifact through wild→constrained passes. "refine", "polish", "anneal"
+description: Hot→cool convergence — start wild, narrow to final form. "anneal", "start wild"
 user_invocable: true
 model: sonnet
 context: fork
