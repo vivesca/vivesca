@@ -25,10 +25,10 @@ def test_boilerplate_routes_to_opencode():
     assert d.tool == "opencode"
 
 
-def test_default_routes_to_droid():
+def test_default_routes_to_goose():
     d = route_description("Update the config file")
     assert d.tool == DEFAULT_TOOL
-    assert d.tool == "droid"
+    assert d.tool == "goose"
 
 
 def test_case_insensitive():
