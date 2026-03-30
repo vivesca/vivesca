@@ -3,6 +3,8 @@ from __future__ import annotations
 
 from unittest.mock import AsyncMock, patch
 
+import pytest
+
 from metabolon.sortase.executor import (
     ExecutionAttempt,
     FallbackStep,
@@ -273,3 +275,127 @@ def test_adaptive_timeout_custom_base():
     """Works with non-default base timeouts."""
     assert _compute_adaptive_timeout("Read foo.py", 300) == 600
     assert _compute_adaptive_timeout("EXACTLY 1 tool call to do X", 400) == 200
+
+
+# ── fallback_chain ──────────────────────────────────────────
+
+
+def test_fallback_step_to_dict_succeeded():
+    """Successful step: no failure_reason key."""
+    step = FallbackStep(tool="goose", succeeded=True)
+    assert step.to_dict() == {"tool": "goose", "succeeded": True}
+
+
+def test_fallback_step_to_dict_failed():
+    """Failed step: includes failure_reason."""
+    step = FallbackStep(tool="goose", succeeded=False, failure_reason="quota")
+    d = step.to_dict()
+    assert d == {"tool": "goose", "succeeded": False, "failure_reason": "quota"}
+
+
+def test_fallback_step_to_dict_failed_no_reason():
+    """Failed step without explicit reason: failure_reason is None, so omitted."""
+    step = FallbackStep(tool="codex", succeeded=False, failure_reason=None)
+    assert step.to_dict() == {"tool": "codex", "succeeded": False}
+
+
+def test_task_execution_result_default_fallback_chain():
+    """Default fallback_chain is empty list."""
+    result = TaskExecutionResult(
+        task_name="test", tool="droid", prompt_file=None, success=True,
+    )
+    assert result.fallback_chain == []
+
+
+def test_task_execution_result_with_fallback_chain():
+    """fallback_chain populated with multiple steps."""
+    chain = [
+        FallbackStep(tool="goose", succeeded=False, failure_reason="quota"),
+        FallbackStep(tool="droid", succeeded=False, failure_reason="process-error"),
+        FallbackStep(tool="gemini", succeeded=True),
+    ]
+    result = TaskExecutionResult(
+        task_name="task-1", tool="gemini", prompt_file=None,
+        success=True, fallback_chain=chain,
+        fallbacks=["droid", "gemini"],
+    )
+    assert len(result.fallback_chain) == 3
+    assert result.fallback_chain[0].tool == "goose"
+    assert result.fallback_chain[0].succeeded is False
+    assert result.fallback_chain[1].failure_reason == "process-error"
+    assert result.fallback_chain[2].succeeded is True
+    assert result.fallback_chain[2].failure_reason is None
+
+
+@pytest.mark.asyncio
+async def test_execute_task_populates_fallback_chain_on_success():
+    """When first backend succeeds, chain has one successful step."""
+    from metabolon.sortase.decompose import TaskSpec
+    from metabolon.sortase.executor import execute_task
+
+    task = TaskSpec(name="t1", description="d", spec="do work", files=[], signal="default", prerequisite=None, temp_file=None)
+    attempt = ExecutionAttempt(tool="goose", exit_code=0, duration_s=1.0, output="ok")
+
+    with patch("metabolon.sortase.executor._run_command", new_callable=AsyncMock, return_value=attempt), \
+         patch("metabolon.sortase.executor.register_running"), \
+         patch("metabolon.sortase.executor.unregister_running"), \
+         patch("metabolon.sortase.executor._emit_completion_signal"), \
+         patch("metabolon.sortase.executor._analyze_for_coaching"):
+        result = await execute_task(task, Path("/tmp/test"), "goose")
+
+    assert result.success is True
+    assert len(result.fallback_chain) == 1
+    assert result.fallback_chain[0] == FallbackStep(tool="goose", succeeded=True, failure_reason=None)
+    assert result.fallbacks == []
+
+
+@pytest.mark.asyncio
+async def test_execute_task_populates_fallback_chain_on_fallback():
+    """When first backend fails and second succeeds, chain records both."""
+    from metabolon.sortase.decompose import TaskSpec
+    from metabolon.sortase.executor import execute_task
+
+    task = TaskSpec(name="t2", description="d", spec="do work", files=[], signal="default", prerequisite=None, temp_file=None)
+    fail_attempt = ExecutionAttempt(tool="goose", exit_code=1, duration_s=2.0, output="429 error", failure_reason="quota")
+    ok_attempt = ExecutionAttempt(tool="droid", exit_code=0, duration_s=3.0, output="done")
+
+    with patch("metabolon.sortase.executor._run_command", new_callable=AsyncMock, side_effect=[fail_attempt, ok_attempt]), \
+         patch("metabolon.sortase.executor.register_running"), \
+         patch("metabolon.sortase.executor.unregister_running"), \
+         patch("metabolon.sortase.executor._emit_completion_signal"), \
+         patch("metabolon.sortase.executor._analyze_for_coaching"):
+        result = await execute_task(task, Path("/tmp/test"), "goose")
+
+    assert result.success is True
+    assert result.tool == "droid"
+    assert result.fallbacks == ["droid"]
+    assert len(result.fallback_chain) == 2
+    assert result.fallback_chain[0] == FallbackStep(tool="goose", succeeded=False, failure_reason="quota")
+    assert result.fallback_chain[1] == FallbackStep(tool="droid", succeeded=True, failure_reason=None)
+
+
+@pytest.mark.asyncio
+async def test_execute_task_fallback_chain_all_fail():
+    """When all backends fail, chain records every attempt with reasons."""
+    from metabolon.sortase.decompose import TaskSpec
+    from metabolon.sortase.executor import execute_task, FALLBACK_ORDER
+
+    task = TaskSpec(name="t3", description="d", spec="do work", files=[], signal="default", prerequisite=None, temp_file=None)
+    fail1 = ExecutionAttempt(tool="goose", exit_code=1, duration_s=1.0, output="429", failure_reason="quota")
+    fail2 = ExecutionAttempt(tool="droid", exit_code=1, duration_s=1.0, output="segfault", failure_reason="process-error")
+    fail3 = ExecutionAttempt(tool="gemini", exit_code=1, duration_s=1.0, output="auth fail", failure_reason="auth")
+    fail4 = ExecutionAttempt(tool="codex", exit_code=1, duration_s=1.0, output="err", failure_reason="process-error")
+
+    with patch("metabolon.sortase.executor._run_command", new_callable=AsyncMock, side_effect=[fail1, fail2, fail3, fail4]), \
+         patch("metabolon.sortase.executor.register_running"), \
+         patch("metabolon.sortase.executor.unregister_running"), \
+         patch("metabolon.sortase.executor._emit_completion_signal"), \
+         patch("metabolon.sortase.executor._analyze_for_coaching"):
+        result = await execute_task(task, Path("/tmp/test"), "goose")
+
+    assert result.success is False
+    assert len(result.fallback_chain) == 4
+    assert result.fallback_chain[0].tool == "goose"
+    assert result.fallback_chain[0].failure_reason == "quota"
+    assert result.fallback_chain[2].tool == "gemini"
+    assert result.fallback_chain[2].failure_reason == "auth"

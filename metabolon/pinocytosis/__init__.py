@@ -77,8 +77,8 @@ def _read_file_raw(path: str) -> str | None:
 # ---------------------------------------------------------------------------
 
 
-def current_date() -> dict[str, str]:
-    """Return current HKT datetime as structured dict."""
+def current_date() -> dict[str, str | bool]:
+    """Return current HKT datetime as structured dict with weekend flag."""
     now = datetime.now(HKT)
     return {
         "iso": now.strftime("%Y-%m-%d"),
@@ -86,6 +86,7 @@ def current_date() -> dict[str, str]:
         "datetime": now.strftime("%Y-%m-%d %H:%M HKT"),
         "day_of_week": now.strftime("%A"),
         "day_abbr": now.strftime("%a"),
+        "is_weekend": now.weekday() >= 5,
         "timestamp": now.isoformat(),
     }
 

@@ -549,6 +549,7 @@ def main_impl(args: argparse.Namespace) -> int:
         tee_log = _output_log_path(_extract_task_summary(prompt))
         if args.verbose:
             print(f"translocon: logging to {tee_log}", file=sys.stderr)
+    ticker = _ProgressTicker(interval=10.0)
     for b in healthy_chain:
         cmd = _build_goose_cmd(model, prompt, recipe_path) if b == "goose" else \
               _build_droid_cmd(model, directory, prompt, auto)
@@ -557,16 +558,21 @@ def main_impl(args: argparse.Namespace) -> int:
         try:
             if b == "goose":
                 os.chdir(directory)
-            if capture:
-                rc, stdout_text = _run_captured(cmd, env=benv)
-                if tee_log:
-                    tee_log.write_text(stdout_text)
-                if rc == 0:
-                    _route_output(stdout_text, args.output)
-            elif tee_log:
-                rc = _run_tee(cmd, tee_log, env=benv)
-            else:
-                rc = subprocess.run(cmd, env=benv).returncode
+            ticker.start()
+            try:
+                if capture:
+                    rc, stdout_text = _run_captured(cmd, env=benv)
+                    if tee_log:
+                        tee_log.write_text(stdout_text)
+                    if rc == 0:
+                        _route_output(stdout_text, args.output)
+                elif tee_log:
+                    rc = _run_tee(cmd, tee_log, env=benv)
+                else:
+                    rc = subprocess.run(cmd, env=benv).returncode
+            finally:
+                ticker.stop()
+                print("", file=sys.stderr)  # newline after progress dots
         finally:
             os.chdir(prev) if b == "goose" else None
         if rc == 0:

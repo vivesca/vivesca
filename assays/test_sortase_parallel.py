@@ -90,7 +90,7 @@ def test_parallel_unregister_empties_status():
 
 def test_mixed_register_unregister_no_corruption():
     """Interleaved register and unregister must not corrupt status.json."""
-    barrier = Barrier(6, timeout=10)
+    barrier = Barrier(4, timeout=10)
 
     def register(tid: str) -> str:
         barrier.wait()

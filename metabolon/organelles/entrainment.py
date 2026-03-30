@@ -68,9 +68,12 @@ def zeitgebers() -> dict[str, Any]:
     except Exception as e:
         logger.debug("Signal channel unavailable: %s", e)
 
+    weekend = now.weekday() >= 5
+
     return {
         "hkt_hour": hour,
         "weekday": now.strftime("%A"),
+        "is_weekend": weekend,
         "is_night": is_night,
         "asleep": is_night,
         "readiness": readiness,

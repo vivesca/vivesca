@@ -137,9 +137,9 @@ def estimate_complexity(spec_text: str) -> ComplexityScore:
         ver_code_opens = re.findall(r"^```", section, flags=re.MULTILINE)
         verification_commands += len(ver_code_opens) // 2
 
-    # Count files referenced: lines matching "- path/to/file.ext" or bare paths
+    # Count files referenced: list items or inline file paths like README.md.
     file_pattern = re.compile(
-        r"(?:^[\s*-]+)"            # list item prefix
+        r"(?<![\w/.-])"            # avoid matching inside longer tokens
         r"([\w./~-]+\.\w{1,12})"   # path with extension
         r"(?::|\s|$)",             # followed by colon, space, or end
         flags=re.MULTILINE,
@@ -155,7 +155,7 @@ def estimate_complexity(spec_text: str) -> ComplexityScore:
     files_referenced = len(unique_files)
 
     # Classify complexity
-    score = files_referenced * 2 + num_code_blocks + verification_commands * 2 + (estimated_lines // 20)
+    score = files_referenced + num_code_blocks + verification_commands + (estimated_lines // 50)
     if score <= 2:
         level = "simple"
     elif score <= 6:
