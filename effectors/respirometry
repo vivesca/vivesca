@@ -3,7 +3,7 @@
 # requires-python = ">=3.11"
 # ///
 """
-respirometry — Claude Code Max plan token budget usage.
+respirometry — Claude Code plan usage plus coding cost split.
 
 Tries live Anthropic OAuth API first (requires Keychain access).
 Falls back to cached JSONL history when Keychain is unavailable
@@ -14,19 +14,29 @@ fresh for sandbox callers.
 
 Output for --json uses the canonical format:
   {seven_day: {utilization, resets_at}, seven_day_sonnet: {utilization, resets_at},
-   stale: bool, stale_age_seconds: int|null, source: "live"|"history"|"watch"}
+   stale: bool, stale_age_seconds: int|null, source: "live"|"history"|"watch",
+   cost_tracking: {...}}
 """
 
+import argparse
 import json
+import re
 import subprocess
 import sys
 import urllib.request
-from datetime import UTC, datetime
+from collections import Counter
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from typing import Any, Optional, Tuple
 
 HISTORY = Path.home() / ".local/share/respirometry/history.jsonl"
 # Also check respirometry-watch log (different format, written by LaunchAgent)
 WATCH_LOG = Path.home() / "docs/respirometry-log.jsonl"
+SORTASE_LOG = Path.home() / ".local/share/sortase/log.jsonl"
+UTC = timezone.utc
+FLAT_RATE_TOOLS = {"goose", "droid", "cc-glm"}
+COST_WINDOW_DAYS = 7
+METERED_COST_PATTERN = re.compile(r"^\$(\d+(?:\.\d+)?)$")
 
 # Data is considered fresh if less than this many seconds old
 FRESH_THRESHOLD = 300  # 5 minutes
@@ -115,7 +125,7 @@ def _write_history(usage: dict) -> None:
 # ---------------------------------------------------------------------------
 
 
-def _read_last_line(path: Path) -> dict | None:
+def _read_last_line(path: Path) -> Optional[dict[str, Any]]:
     if not path.exists():
         return None
     lines = path.read_text().strip().splitlines()
@@ -124,7 +134,7 @@ def _read_last_line(path: Path) -> dict | None:
     return json.loads(lines[-1])
 
 
-def _read_cache() -> tuple[dict | None, int | None]:
+def _read_cache() -> Tuple[Optional[dict[str, Any]], Optional[int]]:
     """Read most recent cached entry. Returns (entry, age_seconds) or (None, None)."""
     for path in [HISTORY, WATCH_LOG]:
         entry = _read_last_line(path)
@@ -140,7 +150,7 @@ def _read_cache() -> tuple[dict | None, int | None]:
     return None, None
 
 
-def _normalise_cached(entry: dict) -> dict:
+def _normalise_cached(entry: dict[str, Any]) -> dict[str, Any]:
     """Convert cached entry to canonical seven_day/seven_day_sonnet format."""
     if "metrics" in entry:
         return entry["metrics"]
@@ -156,7 +166,149 @@ def _normalise_cached(entry: dict) -> dict:
 # ---------------------------------------------------------------------------
 
 
-def get_usage() -> dict:
+def _parse_metered_cost(cost_estimate: str) -> Optional[float]:
+    matched_cost = METERED_COST_PATTERN.match(cost_estimate.strip())
+    if matched_cost is None:
+        return None
+    return float(matched_cost.group(1))
+
+
+def _read_cost_rows(path: Path) -> list[dict[str, Any]]:
+    if not path.exists():
+        return []
+
+    rows: list[dict[str, Any]] = []
+    for line in path.read_text().splitlines():
+        try:
+            row = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if not isinstance(row, dict):
+            continue
+        timestamp = row.get("timestamp")
+        if not isinstance(timestamp, str):
+            continue
+        try:
+            row["_parsed_timestamp"] = datetime.fromisoformat(timestamp)
+        except ValueError:
+            continue
+        rows.append(row)
+    return rows
+
+
+def _classify_cost_mode(row: dict[str, Any]) -> str:
+    cost_estimate = str(row.get("cost_estimate", "")).strip()
+    tool = str(row.get("tool", "")).strip()
+
+    if "flat-rate" in cost_estimate:
+        return "flat-rate"
+    if _parse_metered_cost(cost_estimate) is not None:
+        return "metered"
+    if tool in FLAT_RATE_TOOLS:
+        # Older rows predate cost_estimate; infer ZhiPu coding-plan usage from tool.
+        return "flat-rate"
+    if tool:
+        return "metered"
+    return "unknown"
+
+
+def _tool_mix(counter: Counter[str]) -> dict[str, int]:
+    return {tool: counter[tool] for tool in sorted(counter)}
+
+
+def _summarize_cost_rows(rows: list[dict[str, Any]]) -> dict[str, Any]:
+    flat_rate_tool_counts: Counter[str] = Counter()
+    metered_tool_counts: Counter[str] = Counter()
+    flat_rate_runs = 0
+    metered_runs = 0
+    unknown_runs = 0
+    metered_cost_usd = 0.0
+    total_duration_s = 0.0
+    total_tasks = 0
+    successful_runs = 0
+
+    for row in rows:
+        tool = str(row.get("tool", "")).strip() or "unknown"
+        total_duration_s += float(row.get("duration_s", 0.0) or 0.0)
+        total_tasks += int(row.get("tasks", 0) or 0)
+        successful_runs += 1 if row.get("success") else 0
+
+        mode = _classify_cost_mode(row)
+        if mode == "flat-rate":
+            flat_rate_runs += 1
+            flat_rate_tool_counts[tool] += 1
+            continue
+        if mode == "metered":
+            metered_runs += 1
+            metered_tool_counts[tool] += 1
+            cost_value = _parse_metered_cost(str(row.get("cost_estimate", "")))
+            if cost_value is not None:
+                metered_cost_usd += cost_value
+            continue
+        unknown_runs += 1
+
+    classified_runs = flat_rate_runs + metered_runs
+    flat_rate_pct = (flat_rate_runs / classified_runs * 100.0) if classified_runs else 0.0
+    metered_pct = (metered_runs / classified_runs * 100.0) if classified_runs else 0.0
+
+    return {
+        "runs": len(rows),
+        "successful_runs": successful_runs,
+        "tasks": total_tasks,
+        "duration_s": round(total_duration_s, 3),
+        "duration_hours": round(total_duration_s / 3600.0, 2),
+        "flat_rate_runs": flat_rate_runs,
+        "metered_runs": metered_runs,
+        "unknown_runs": unknown_runs,
+        "metered_cost_usd": round(metered_cost_usd, 4),
+        "flat_rate_pct": round(flat_rate_pct, 1),
+        "metered_pct": round(metered_pct, 1),
+        "flat_rate_tools": _tool_mix(flat_rate_tool_counts),
+        "metered_tools": _tool_mix(metered_tool_counts),
+    }
+
+
+def get_cost_tracking(now: Optional[datetime] = None) -> dict[str, Any]:
+    rows = _read_cost_rows(SORTASE_LOG)
+    if not rows:
+        return {"available": False, "source": "sortase", "lookback_days": COST_WINDOW_DAYS}
+
+    reference_time = now or datetime.now()
+    current_start = reference_time - timedelta(days=COST_WINDOW_DAYS)
+    previous_start = current_start - timedelta(days=COST_WINDOW_DAYS)
+
+    current_rows = [
+        row for row in rows if current_start <= row["_parsed_timestamp"] <= reference_time
+    ]
+    previous_rows = [
+        row for row in rows if previous_start <= row["_parsed_timestamp"] < current_start
+    ]
+
+    current_summary = _summarize_cost_rows(current_rows)
+    previous_summary = _summarize_cost_rows(previous_rows)
+    trend = {
+        "runs_delta": current_summary["runs"] - previous_summary["runs"],
+        "tasks_delta": current_summary["tasks"] - previous_summary["tasks"],
+        "duration_hours_delta": round(
+            current_summary["duration_hours"] - previous_summary["duration_hours"], 2
+        ),
+        "flat_rate_runs_delta": current_summary["flat_rate_runs"] - previous_summary["flat_rate_runs"],
+        "metered_runs_delta": current_summary["metered_runs"] - previous_summary["metered_runs"],
+        "metered_cost_usd_delta": round(
+            current_summary["metered_cost_usd"] - previous_summary["metered_cost_usd"], 4
+        ),
+    }
+    return {
+        "available": True,
+        "source": "sortase",
+        "lookback_days": COST_WINDOW_DAYS,
+        "current_7d": current_summary,
+        "previous_7d": previous_summary,
+        "trend": trend,
+    }
+
+
+def get_usage() -> dict[str, Any]:
     """Fetch usage, trying live API first. Returns canonical dict.
 
     Keys: seven_day, seven_day_sonnet, stale, stale_age_seconds, source.
@@ -171,6 +323,7 @@ def get_usage() -> dict:
             "stale": False,
             "stale_age_seconds": None,
             "source": "live",
+            "cost_tracking": get_cost_tracking(),
         }
     except Exception:
         pass
@@ -188,6 +341,7 @@ def get_usage() -> dict:
         "stale": stale,
         "stale_age_seconds": age,
         "source": "cache",
+        "cost_tracking": get_cost_tracking(),
     }
 
 
@@ -236,13 +390,44 @@ def get_budget(mode: str = "interactive") -> str:
 # ---------------------------------------------------------------------------
 
 
-def main():
+def _build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        description="Show Claude Code plan usage and coding cost split."
+    )
+    parser.add_argument(
+        "command",
+        nargs="?",
+        default="status",
+        choices=["status", "log"],
+        help="`log` is retained as a no-op compatibility command.",
+    )
+    parser.add_argument(
+        "--json",
+        action="store_true",
+        help="Print the canonical JSON payload with additive cost-tracking data.",
+    )
+    parser.add_argument(
+        "--budget",
+        action="store_true",
+        help="Print budget tier only: green, yellow, red, or unknown.",
+    )
+    parser.add_argument(
+        "--overnight",
+        action="store_true",
+        help="Use overnight thresholds with --budget.",
+    )
+    return parser
+
+
+def main() -> None:
+    args = _build_parser().parse_args()
+
     # `respirometry log` was previously a no-op stub; kept for compat.
-    if len(sys.argv) > 1 and sys.argv[1] == "log":
+    if args.command == "log":
         return
 
-    if "--budget" in sys.argv:
-        mode = "overnight" if "--overnight" in sys.argv else "interactive"
+    if args.budget:
+        mode = "overnight" if args.overnight else "interactive"
         print(get_budget(mode))
         return
 
@@ -251,7 +436,7 @@ def main():
         print(usage["error"], file=sys.stderr)
         sys.exit(1)
 
-    if "--json" in sys.argv:
+    if args.json:
         print(json.dumps(usage))
     else:
         weekly = _weekly_pct(usage)
@@ -281,6 +466,40 @@ def main():
         else:
             status = "DANGER"
         print(f"Status: {status}")
+
+        cost_tracking = usage.get("cost_tracking", {})
+        if cost_tracking.get("available"):
+            current = cost_tracking["current_7d"]
+            trend = cost_tracking["trend"]
+            flat_rate_tools = current.get("flat_rate_tools", {})
+            metered_tools = current.get("metered_tools", {})
+            flat_rate_tool_mix = (
+                ", ".join(f"{tool}:{count}" for tool, count in flat_rate_tools.items()) or "none"
+            )
+            metered_tool_mix = (
+                ", ".join(f"{tool}:{count}" for tool, count in metered_tools.items()) or "none"
+            )
+            print()
+            print(f"Coding Cost  [{cost_tracking['source']} / {cost_tracking['lookback_days']}d]")
+            print()
+            print(
+                "  ZhiPu plan       "
+                f"{current['flat_rate_runs']} runs / {current['duration_hours']:.2f}h / "
+                f"{current['tasks']} tasks"
+            )
+            print(f"  Metered          {current['metered_runs']} runs / ${current['metered_cost_usd']:.4f}")
+            print(
+                "  Split            "
+                f"{current['flat_rate_pct']:.0f}% flat-rate / {current['metered_pct']:.0f}% metered"
+            )
+            print(
+                "  Trend vs prior   "
+                f"{trend['runs_delta']:+d} runs / "
+                f"{trend['duration_hours_delta']:+.2f}h / "
+                f"${trend['metered_cost_usd_delta']:+.4f}"
+            )
+            print(f"  Flat-rate mix    {flat_rate_tool_mix}")
+            print(f"  Metered mix      {metered_tool_mix}")
 
 
 if __name__ == "__main__":
