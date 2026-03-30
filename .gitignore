@@ -76,3 +76,4 @@ effectors/synaxis
 # External CC plugin repos (their own git)
 membrane/receptors/compound-engineering/
 membrane/receptors/superpowers/
+.fastembed_cache/
