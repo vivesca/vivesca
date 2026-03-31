@@ -1,14 +1,11 @@
 from __future__ import annotations
 
-from pathlib import Path
-
 import click
 from rich.console import Console
 from rich.table import Table
 
 from metabolon.sortase.coaching import (
     add_coaching_note,
-    list_categories,
     load_coaching_notes,
     search_coaching,
 )
