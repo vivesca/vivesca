@@ -493,9 +493,9 @@ def guard_write(data):
             )
 
     # Effector naming gate: new files in effectors/ must be cell biology names
-    effectors_dir = str(HOME / "germline" / "effectors") + "/"
-    if fp.startswith(effectors_dir) and "/" not in fp[len(effectors_dir) :]:
-        name = fp[len(effectors_dir) :].rstrip("/")
+    effectors_dir = str(HOME / "germline" / "effectors") + os.sep
+    if fp.startswith(effectors_dir) and os.sep not in fp[len(effectors_dir) :]:
+        name = fp[len(effectors_dir) :].rstrip(os.sep)
         if name and not name.startswith("."):
             whitelist_path = _VIVESCA_ROOT / "germline" / "effector-names.txt"
             if whitelist_path.exists():
@@ -654,7 +654,7 @@ def guard_efferent(data):
     fp = ti.get("file_path", "")
 
     # Only gate implementation paths
-    impl_dirs = [str(HOME / "code") + "/", str(HOME / "germline") + "/"]
+    impl_dirs = [str(HOME / "code") + os.sep, str(HOME / "germline") + os.sep]
     if not any(fp.startswith(d) for d in impl_dirs):
         return
 
@@ -662,7 +662,7 @@ def guard_efferent(data):
     if re.search(r"\.(md|toml|lock|gitignore|txt|json|yaml|yml|plist)$", fp):
         return
     # Skills, memory, genome — always CC territory
-    if "/receptors/" in fp or "/marks/" in fp or "/epigenome/" in fp:
+    if f"{os.sep}receptors{os.sep}" in fp or f"{os.sep}marks{os.sep}" in fp or f"{os.sep}epigenome{os.sep}" in fp:
         return
 
     # Implementation code (.py, .sh, .rs, etc.) — delegate to droid
@@ -807,7 +807,7 @@ def guard_pipeline_bypass(data):
     ti = data.get("tool_input", {})
     fp = ti.get("file_path", "") or ""
 
-    impl_dirs = [str(HOME / "code") + "/", str(HOME / "germline") + "/"]
+    impl_dirs = [str(HOME / "code") + os.sep, str(HOME / "germline") + os.sep]
     if not any(fp.startswith(d) for d in impl_dirs):
         return
 

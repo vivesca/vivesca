@@ -243,7 +243,7 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 - [x] `golem --provider zhipu --max-turns 25 "Check ALL assays/test_*.py for deterministic tests (no time.time, random, network calls without mock). Report non-deterministic tests."`
 - [x] `golem --provider zhipu --max-turns 25 "Find ALL Python files missing from __future__ import annotations. Add where type hints are used. Commit."`
 - [x] `golem --provider zhipu --max-turns 25 "Check ALL test files use assays/ flat structure. Move any in subdirectories. Commit."`
-- [x] `golem --provider zhipu --max-turns 25 "Scan for ANY remaining /Users/terry hardcoded paths across entire repo. Fix ALL. Commit."`
+- [x] `golem --provider zhipu --max-turns 25 "Scan for ANY remaining ~/ hardcoded paths across entire repo. Fix ALL. Commit."`
 - [x] `golem --provider zhipu --max-turns 25 "Check ALL async functions for missing await calls. Fix. Commit."`
 - [x] `golem --provider zhipu --max-turns 25 "Verify ALL git hooks in .git/hooks/ still work. Remove broken ones. Commit."`
 - [x] `golem --provider zhipu --max-turns 25 "Check ALL test fixtures clean up after themselves (temp files, env vars). Fix leaks. Commit."`
@@ -263,7 +263,7 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 ### Lustro content analysis — process cached articles
 
 #### Build — lustro batch analyzer
-- [ ] `golem --provider zhipu --max-turns 40 "Create effectors/lustro-analyze as Python. Reads all articles from ~/.cache/lustro-articles/. For each .json or .md file: extract title, source, date, content snippet. Classify by topic: AI, banking, regulation, technology, other. Output: (1) summary table of all articles by topic, (2) top 20 most relevant to banking AI consulting, (3) key themes across all articles. Usage: lustro-analyze [--top N] [--topic banking]. Write to stdout or --output file. Write assays/test_lustro_analyze.py. Run uv run pytest."`
+- [!] `golem --provider zhipu --max-turns 40 "Create effectors/lustro-analyze as Python. Reads all articles from ~/.cache/lustro-articles/. For each .json or .md file: extract title, source, date, content snippet. Classify by topic: AI, banking, regulation, technology, other. Output: (1) summary table of all articles by topic, (2) top 20 most relevant to banking AI consulting, (3) key themes across all articles. Usage: lustro-analyze [--top N] [--topic banking]. Write to stdout or --output file. Write assays/test_lustro_analyze.py. Run uv run pytest." (retry)`
 
 #### Process — lustro articles → consulting signals
 
@@ -287,7 +287,7 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 #### Review cycle 2 (fires ~2h into batch)
 
 #### Review cycle 3 (fires ~3h into batch)
-- [ ] `golem --provider zhipu --max-turns 40 "Review golem output — third cycle. (1) Count consulting IP produced so far: cards, deep-dives, case-studies, prep, regulatory. (2) Quality check: read 5 random deep-dives, score each 1-5 on: structure, depth, actionability. Report scores. (3) Check lustro analysis output — did the lustro tasks produce signal files? (4) If consulting IP is thin in any category: generate 10 more tasks for that category. (5) Commit any uncommitted golem output: git add ~/epigenome/chromatin/ ~/germline/assays/ ~/germline/effectors/ && git commit -m 'golem: batch checkpoint'. (6) Write review to loci/copia/review-cycle-3.md."`
+- [!] `golem --provider zhipu --max-turns 40 "Review golem output — third cycle. (1) Count consulting IP produced so far: cards, deep-dives, case-studies, prep, regulatory. (2) Quality check: read 5 random deep-dives, score each 1-5 on: structure, depth, actionability. Report scores. (3) Check lustro analysis output — did the lustro tasks produce signal files? (4) If consulting IP is thin in any category: generate 10 more tasks for that category. (5) Commit any uncommitted golem output: git add ~/epigenome/chromatin/ ~/germline/assays/ ~/germline/effectors/ && git commit -m 'golem: batch checkpoint'. (6) Write review to loci/copia/review-cycle-3.md." (retry)`
 
 #### Review cycle 4 (fires ~4h into batch)
 
