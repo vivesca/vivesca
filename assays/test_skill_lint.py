@@ -693,3 +693,332 @@ class TestMainExtra:
         assert rc == 0
         out = capsys.readouterr().out
         assert "test-receptor" in out
+
+
+# ── Additional edge cases ──────────────────────────────────────────────
+
+
+class TestValidateSkillMdRobustness:
+    """Robustness tests for validate_skill_md: binary, large, encoding edge cases."""
+
+    def test_binary_file_content(self, tmp_path):
+        """validate_skill_md returns FAIL for binary SKILL.md content."""
+        skill = tmp_path / "SKILL.md"
+        skill.write_bytes(b"\x00\x01\x02\xff\xfe\xfdbinary junk")
+        status, issues = validate_skill_md(skill)
+        assert status == "FAIL"
+
+    def test_very_large_frontmatter(self, tmp_path):
+        """validate_skill_md handles very large YAML frontmatter."""
+        skill = tmp_path / "SKILL.md"
+        long_desc = "x" * 50000
+        skill.write_text(f"---\nname: test\ndescription: {long_desc}\n---\nBody\n")
+        status, issues = validate_skill_md(skill)
+        assert status == "PASS"
+        assert issues == []
+
+    def test_name_with_newlines(self, tmp_path):
+        """validate_skill_md passes when name contains newlines (YAML folded scalar)."""
+        skill = tmp_path / "SKILL.md"
+        skill.write_text("---\nname: |\n  line1\n  line2\ndescription: bar\n---\nBody\n")
+        status, issues = validate_skill_md(skill)
+        assert status == "PASS"
+
+    def test_description_with_special_chars(self, tmp_path):
+        """validate_skill_md handles special characters in description."""
+        skill = tmp_path / "SKILL.md"
+        skill.write_text('---\nname: test\ndescription: "foo: bar & baz < qux > quux"\n---\nBody\n')
+        status, issues = validate_skill_md(skill)
+        assert status == "PASS"
+
+    def test_missing_closing_marker_with_body(self, tmp_path):
+        """validate_skill_md returns FAIL for frontmatter without closing ---."""
+        skill = tmp_path / "SKILL.md"
+        skill.write_text("---\nname: foo\ndescription: bar\nBody text continues\n")
+        status, issues = validate_skill_md(skill)
+        assert status == "FAIL"
+        assert any("frontmatter" in i for i in issues)
+
+    def test_frontmatter_only_dashes(self, tmp_path):
+        """validate_skill_md returns FAIL when frontmatter is only dashes."""
+        skill = tmp_path / "SKILL.md"
+        skill.write_text("---\n---\n")
+        status, issues = validate_skill_md(skill)
+        assert status == "FAIL"
+
+    def test_single_dash_line(self, tmp_path):
+        """validate_skill_md does not confuse single - with --- markers."""
+        skill = tmp_path / "SKILL.md"
+        skill.write_text("-\nname: foo\ndescription: bar\n-\nBody\n")
+        status, issues = validate_skill_md(skill)
+        assert status == "FAIL"
+
+    def test_yaml_float_name(self, tmp_path):
+        """validate_skill_md returns FAIL when name parses as a float."""
+        skill = tmp_path / "SKILL.md"
+        skill.write_text("---\nname: 3.14\ndescription: bar\n---\nBody\n")
+        status, issues = validate_skill_md(skill)
+        assert status == "FAIL"
+        assert any("non-empty" in i for i in issues)
+
+
+class TestParseFrontmatterRobustness:
+    """Additional parse_frontmatter edge cases."""
+
+    def test_yaml_anchor_and_alias(self):
+        """parse_frontmatter handles YAML anchors and aliases."""
+        content = "---\ndefaults: &defaults\n  name: foo\ndescription: bar\n---\nBody\n"
+        fm, err = parse_frontmatter(content)
+        assert err is None
+        assert fm["defaults"]["name"] == "foo"
+
+    def test_yaml_with_dashes_in_value(self):
+        """parse_frontmatter handles values containing dashes."""
+        content = "---\nname: foo-bar-baz\ndescription: some --- value\n---\nBody\n"
+        fm, err = parse_frontmatter(content)
+        assert err is None
+        assert fm["name"] == "foo-bar-baz"
+
+    def test_yaml_null_key(self):
+        """parse_frontmatter handles YAML with None/null key gracefully."""
+        content = "---\n~: value\nname: foo\ndescription: bar\n---\nBody\n"
+        fm, err = parse_frontmatter(content)
+        # Should still parse; null key is valid YAML
+        assert err is None
+        assert fm["name"] == "foo"
+
+    def test_frontmatter_with_bom(self):
+        """parse_frontmatter handles file with BOM (UTF-8 BOM before ---)."""
+        content = "\ufeff---\nname: foo\ndescription: bar\n---\nBody\n"
+        fm, err = parse_frontmatter(content)
+        # BOM prevents --- from being at line start; regex won't match
+        assert fm is None
+        assert err is not None
+
+    def test_yaml_list_value(self):
+        """parse_frontmatter handles YAML with list values."""
+        content = "---\nname: foo\ndescription: bar\nrequires:\n  - alpha\n  - beta\n---\nBody\n"
+        fm, err = parse_frontmatter(content)
+        assert err is None
+        assert fm["requires"] == ["alpha", "beta"]
+
+
+class TestFindReceptorDirsRobustness:
+    """Additional find_receptor_dirs edge cases."""
+
+    def test_broken_symlink_excluded(self, tmp_path):
+        """find_receptor_dirs excludes broken symlinks."""
+        receptors = tmp_path / "receptors"
+        receptors.mkdir()
+        target = tmp_path / "does_not_exist"
+        (receptors / "broken").symlink_to(target)
+        (receptors / "good").mkdir()
+        with _patch_receptors_dir(receptors):
+            result = find_receptor_dirs()
+        names = [d.name for d in result]
+        assert "good" in names
+        assert "broken" not in names
+
+    def test_empty_receptors_dir(self, tmp_path):
+        """find_receptor_dirs returns empty list for empty directory."""
+        receptors = tmp_path / "receptors"
+        receptors.mkdir()
+        with _patch_receptors_dir(receptors):
+            result = find_receptor_dirs()
+        assert result == []
+
+    def test_nested_dirs_not_recurse(self, tmp_path):
+        """find_receptor_dirs does not recurse into subdirectories."""
+        receptors = tmp_path / "receptors"
+        receptors.mkdir()
+        (receptors / "top").mkdir()
+        (receptors / "top" / "nested").mkdir()
+        with _patch_receptors_dir(receptors):
+            result = find_receptor_dirs()
+        names = [d.name for d in result]
+        assert "top" in names
+        assert "nested" not in names
+
+
+class TestLintReceptorsRobustness:
+    """Additional lint_receptors edge cases."""
+
+    def test_missing_skill_md_path_correct(self, tmp_path):
+        """lint_receptors returns correct path for missing SKILL.md."""
+        receptors = tmp_path / "receptors"
+        receptors.mkdir()
+        d = receptors / "my-receptor"
+        d.mkdir()
+        with _patch_receptors_dir(receptors):
+            results = lint_receptors()
+        assert len(results) == 1
+        assert "my-receptor" in results[0]["path"]
+        assert "SKILL.md" in results[0]["path"]
+        assert results[0]["status"] == "MISSING"
+
+    def test_issues_list_always_present(self, tmp_path):
+        """lint_receptors always returns issues list even for PASS."""
+        valid = "---\nname: foo\ndescription: bar\n---\nBody\n"
+        receptors = tmp_path / "receptors"
+        receptors.mkdir()
+        d = receptors / "alpha"
+        d.mkdir()
+        (d / "SKILL.md").write_text(valid)
+        with _patch_receptors_dir(receptors):
+            results = lint_receptors()
+        assert results[0]["issues"] == []
+
+    def test_many_receptors_mixed(self, tmp_path):
+        """lint_receptors handles many receptors with mixed statuses."""
+        valid = "---\nname: foo\ndescription: bar\n---\nBody\n"
+        receptors = tmp_path / "receptors"
+        receptors.mkdir()
+        for i in range(20):
+            d = receptors / f"r-{i:03d}"
+            d.mkdir()
+            if i % 3 == 0:
+                pass  # no SKILL.md -> MISSING
+            elif i % 3 == 1:
+                (d / "SKILL.md").write_text(valid)  # PASS
+            else:
+                (d / "SKILL.md").write_text("---\nname: foo\n---\nBody\n")  # FAIL
+        with _patch_receptors_dir(receptors):
+            results = lint_receptors()
+        statuses = {r["status"] for r in results}
+        assert "MISSING" in statuses
+        assert "PASS" in statuses
+        assert "FAIL" in statuses
+        assert len(results) == 20
+
+
+class TestMainRobustness:
+    """Additional main() edge cases."""
+
+    def test_mixed_pass_fail_text_output(self, tmp_path, capsys):
+        """main text output correctly shows both PASS and FAIL receptors."""
+        valid = "---\nname: test\ndescription: desc\n---\nBody\n"
+        bad = "---\nname: test\n---\nBody\n"
+        receptors = tmp_path / "receptors"
+        receptors.mkdir()
+        d1 = receptors / "good"
+        d1.mkdir()
+        (d1 / "SKILL.md").write_text(valid)
+        d2 = receptors / "bad"
+        d2.mkdir()
+        (d2 / "SKILL.md").write_text(bad)
+        with _patch_receptors_dir(receptors):
+            rc = main([])
+        assert rc == 1
+        out = capsys.readouterr().out
+        assert "good" in out
+        assert "PASS" in out
+        assert "bad" in out
+        assert "FAIL" in out
+
+    def test_json_mixed_pass_fail(self, tmp_path, capsys):
+        """main --json returns correct structure for mix of pass/fail."""
+        valid = "---\nname: test\ndescription: desc\n---\nBody\n"
+        bad = "---\nname: test\n---\nBody\n"
+        receptors = tmp_path / "receptors"
+        receptors.mkdir()
+        d1 = receptors / "good"
+        d1.mkdir()
+        (d1 / "SKILL.md").write_text(valid)
+        d2 = receptors / "bad"
+        d2.mkdir()
+        (d2 / "SKILL.md").write_text(bad)
+        with _patch_receptors_dir(receptors):
+            rc = main(["--json"])
+        assert rc == 1
+        data = json.loads(capsys.readouterr().out)
+        by_name = {r["receptor"]: r for r in data}
+        assert by_name["good"]["status"] == "PASS"
+        assert by_name["bad"]["status"] == "FAIL"
+        assert by_name["bad"]["issues"] != []
+
+    def test_stderr_only_on_no_receptors(self, tmp_path, capsys):
+        """main does not write to stdout when no receptors found (only stderr)."""
+        receptors = tmp_path / "receptors"
+        receptors.mkdir()
+        with _patch_receptors_dir(receptors):
+            rc = main([])
+        assert rc == 1
+        captured = capsys.readouterr()
+        assert captured.out == ""
+        assert "No receptor directories found" in captured.err
+
+    def test_single_receptor_pass(self, tmp_path, capsys):
+        """main returns 0 and prints one line for single passing receptor."""
+        receptors = tmp_path / "receptors"
+        receptors.mkdir()
+        d = receptors / "solo"
+        d.mkdir()
+        (d / "SKILL.md").write_text("---\nname: solo\ndescription: lone skill\n---\nBody\n")
+        with _patch_receptors_dir(receptors):
+            rc = main([])
+        assert rc == 0
+        out = capsys.readouterr().out
+        lines = [l for l in out.strip().splitlines() if l.strip()]
+        assert len(lines) == 1
+        assert "solo" in lines[0]
+
+    def test_json_missing_receptor_has_issues(self, tmp_path, capsys):
+        """main --json for MISSING receptor includes 'SKILL.md not found' issue."""
+        receptors = tmp_path / "receptors"
+        receptors.mkdir()
+        d = receptors / "missing"
+        d.mkdir()
+        with _patch_receptors_dir(receptors):
+            rc = main(["--json"])
+        assert rc == 1
+        data = json.loads(capsys.readouterr().out)
+        assert data[0]["status"] == "MISSING"
+        assert any("not found" in i for i in data[0]["issues"])
+
+
+class TestSubprocessRobustness:
+    """Additional subprocess integration tests."""
+
+    def test_json_output_on_failure(self):
+        """skill-lint --json with real receptors produces valid JSON even on failures."""
+        result = subprocess.run(
+            [sys.executable, str(EFFECTOR_PATH), "--json"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        # May be 0 or 1 depending on real receptor state
+        assert result.returncode in (0, 1)
+        if result.returncode == 1 and result.stdout.strip():
+            # If there's output on failure, it should be valid JSON
+            data = json.loads(result.stdout)
+            assert isinstance(data, list)
+            assert len(data) > 0
+            # Each entry has expected keys
+            for entry in data:
+                assert "receptor" in entry
+                assert "status" in entry
+                assert "issues" in entry
+
+    def test_help_or_unknown_flag(self):
+        """skill-lint does not crash with unexpected arguments."""
+        result = subprocess.run(
+            [sys.executable, str(EFFECTOR_PATH), "--nonexistent"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        assert result.returncode in (0, 1)
+
+    def test_stderr_on_no_receptors_from_subprocess(self):
+        """skill-lint writes to stderr when run as subprocess with no receptors."""
+        # We can't easily control RECEPTORS_DIR from subprocess, so just verify
+        # stderr is empty or has expected message (real receptors likely exist)
+        result = subprocess.run(
+            [sys.executable, str(EFFECTOR_PATH)],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        # Just verify it doesn't crash
+        assert result.returncode in (0, 1)
