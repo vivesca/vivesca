@@ -107,7 +107,7 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 - [x] `golem --provider zhipu --max-turns 30 "Read effectors/efferens. Check if it works — run it with --help or --dry-run. If broken, fix. Write assays/test_efferens.py. Run pytest."`
 - [!] `golem --provider infini --max-turns 40 "Create effectors/skill-index as Python. Scans ~/.claude/skills/*/SKILL.md, extracts name+description+triggers, outputs a searchable index. Useful for skill discovery. Test it." (retry)`
 - [x] `golem --provider volcano --max-turns 30 "Read effectors/respirometry. Check if cost tracking works. Run with --help. If broken, fix. Write assays/test_respirometry_effector.py. Run pytest."`
-- [ ] `golem --provider zhipu --max-turns 30 "Read effectors/immunosurveillance. Verify LaunchAgent health checking works. Run --help. Fix if broken. Write assays/test_immunosurveillance.py."`
+- [x] `golem --provider zhipu --max-turns 30 "Read effectors/immunosurveillance. Verify LaunchAgent health checking works. Run --help. Fix if broken. Write assays/test_immunosurveillance.py."`
 - [!] `golem --provider infini --max-turns 30 "Read effectors/proteostasis. Verify session cleanup works. Run --help. Fix if broken. Write assays/test_proteostasis.py." (retry)`
 - [x] `golem --provider volcano --max-turns 30 "Read effectors/overnight-gather. Verify overnight content gathering works. Run --help. Fix if broken. Write assays/test_overnight_gather.py."`
 - [ ] `golem --provider zhipu --max-turns 30 "Read effectors/weekly-gather. Verify weekly summary works. Run --help. Fix if broken. Write assays/test_weekly_gather.py."`
@@ -115,13 +115,13 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 
 ### Effector tests with coaching (25 tasks)
 
-- [ ] `golem --provider zhipu --max-turns 50 "Write tests for effectors/cytokinesis (40K). Write assays/test_cytokinesis.py. NOTE: Effectors are scripts, not importable modules. Load via exec(open(path).read(), {'__name__': 'test_mod'}) or test via subprocess.run. NEVER use import <name>. Run pytest. Fix failures."`
+- [x] `golem --provider zhipu --max-turns 50 "Write tests for effectors/cytokinesis (40K). Write assays/test_cytokinesis.py. NOTE: Effectors are scripts, not importable modules. Load via exec(open(path).read(), {'__name__': 'test_mod'}) or test via subprocess.run. NEVER use import <name>. Run pytest. Fix failures."`
 - [!] `golem --provider volcano --max-turns 50 "Write tests for effectors/telophase (24K). Write assays/test_telophase.py. NOTE: Effectors are scripts, not importable modules. Load via exec(open(path).read(), {'__name__': 'test_mod'}) or test via subprocess.run. NEVER use import <name>. Run pytest. Fix failures."`
 - [x] `golem --provider volcano --max-turns 50 "Write tests for effectors/respirometry (21K). Write assays/test_respirometry.py. NOTE: Effectors are scripts, not importable modules. Load via exec(open(path).read(), {'__name__': 'test_mod'}) or test via subprocess.run. NEVER use import <name>. Run pytest. Fix failures."`
 - [ ] `golem --provider zhipu --max-turns 50 "Write tests for effectors/chat_history.py (20K). Write assays/test_chat_history.py. NOTE: Effectors are scripts, not importable modules. Load via exec(open(path).read(), {'__name__': 'test_mod'}) or test via subprocess.run. NEVER use import <name>. Run pytest. Fix failures."`
 - [x] `golem --provider infini --max-turns 50 "Write tests for effectors/replisome (13K). Write assays/test_replisome.py. NOTE: Effectors are scripts, not importable modules. Load via exec(open(path).read(), {'__name__': 'test_mod'}) or test via subprocess.run. NEVER use import <name>. Run pytest. Fix failures."`
 - [x] `golem --provider volcano --max-turns 50 "Write tests for effectors/inflammasome-probe (13K). Write assays/test_inflammasome_probe.py. NOTE: Effectors are scripts, not importable modules. Load via exec(open(path).read(), {'__name__': 'test_mod'}) or test via subprocess.run. NEVER use import <name>. Run pytest. Fix failures."`
-- [ ] `golem --provider zhipu --max-turns 50 "Write tests for effectors/photos.py (12K). Write assays/test_photos.py. NOTE: Effectors are scripts, not importable modules. Load via exec(open(path).read(), {'__name__': 'test_mod'}) or test via subprocess.run. NEVER use import <name>. Run pytest. Fix failures."`
+- [x] `golem --provider zhipu --max-turns 50 "Write tests for effectors/photos.py (12K). Write assays/test_photos.py. NOTE: Effectors are scripts, not importable modules. Load via exec(open(path).read(), {'__name__': 'test_mod'}) or test via subprocess.run. NEVER use import <name>. Run pytest. Fix failures."`
 - [x] `golem --provider infini --max-turns 40 "Write tests for effectors/linkedin-monitor (10K). Write assays/test_linkedin_monitor.py. NOTE: Effectors are scripts, not importable modules. Load via exec(open(path).read(), {'__name__': 'test_mod'}) or test via subprocess.run. NEVER use import <name>. Run pytest. Fix failures."`
 - [x] `golem --provider volcano --max-turns 40 "Write tests for effectors/paracrine (10K). Write assays/test_paracrine.py. NOTE: Effectors are scripts, not importable modules. Load via exec(open(path).read(), {'__name__': 'test_mod'}) or test via subprocess.run. NEVER use import <name>. Run pytest. Fix failures."`
 - [ ] `golem --provider zhipu --max-turns 40 "Write tests for effectors/publish (9K) and effectors/vesicle (9K). Write assays/test_publish.py, assays/test_vesicle.py. NOTE: Effectors are scripts, not importable modules. Load via exec or subprocess.run. NEVER import. Run pytest. Fix failures."`
@@ -156,36 +156,36 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 - [ ] `golem --provider zhipu --max-turns 30 "Read assays/test_pinocytosis.py (12 failures). Run uv run pytest assays/test_pinocytosis.py -q --tb=short. Read the source. Fix failures. Run pytest until green."`
 - [x] `golem --provider volcano --max-turns 30 "Read assays/test_golem_summary.py (11 failures). Run uv run pytest assays/test_golem_summary.py -q --tb=short. Read effectors/golem. Fix failures. Run pytest until green."`
 - [ ] `golem --provider zhipu --max-turns 30 "Read assays/test_generate_solutions_index.py (11 failures). Run uv run pytest assays/test_generate_solutions_index.py -q --tb=short. Read the source. Fix failures. Run pytest until green."`
-- [ ] `golem --provider infini --max-turns 30 "Read assays/test_chromatin_decay_report.py (7 failures). Run uv run pytest assays/test_chromatin_decay_report.py -q --tb=short. Read the source. Fix failures. Run pytest until green." (retry)`
+- [!] `golem --provider infini --max-turns 30 "Read assays/test_chromatin_decay_report.py (7 failures). Run uv run pytest assays/test_chromatin_decay_report.py -q --tb=short. Read the source. Fix failures. Run pytest until green." (retry)`
 
 #### Fix operon — remaining failures (batch smaller files)
 - [ ] `golem --provider zhipu --max-turns 30 "Fix test failures in: assays/test_search_guard.py (5), assays/test_scaffold_epigenome.py (4), assays/test_phagocytosis.py (4). For each: run pytest on the file, read source, fix, rerun. Use Path.home() for all paths."`
-- [ ] `golem --provider infini --max-turns 30 "Fix test failures in: assays/test_methylation.py (4), assays/test_circadian_probe.py (4), assays/test_safe_search.py (3), assays/test_wewe_rss_health.py (4). For each: run pytest, read source, fix, rerun."`
+- [!] `golem --provider infini --max-turns 30 "Fix test failures in: assays/test_methylation.py (4), assays/test_circadian_probe.py (4), assays/test_safe_search.py (3), assays/test_wewe_rss_health.py (4). For each: run pytest, read source, fix, rerun." (retry)`
 - [ ] `golem --provider zhipu --max-turns 30 "Fix test failures in: assays/test_respirometry_effector.py (2), assays/test_importin.py (2), assays/test_rg.py (1). For each: run pytest, read source, fix, rerun."`
 
 #### Fix — collection errors
 - [ ] `golem --provider zhipu --max-turns 20 "Run: uv run pytest --co -q 2>&1 | grep ERROR. For each collection error: read the test file, fix the import/path/syntax issue. Common fix: replace /Users/terry/ with Path.home(). Replace import <effector> with exec(open(path).read()). Run pytest --co again to verify 0 errors."`
 
 #### Build — golem-health effector (provider liveness check)
-- [ ] `golem --provider infini --max-turns 40 "Create effectors/golem-health as a Python script. For each provider (zhipu, infini, volcano): source ~/.env.fly, then run a minimal golem invocation (golem --provider X --max-turns 1 'Say hello'). Measure: exit code, output presence, latency. Print a table: provider | status | latency | model. Usage: golem-health [--provider X]. Write assays/test_golem_health.py with mocked subprocess tests. Run pytest. Fix failures." (retry)`
+- [!] `golem --provider infini --max-turns 40 "Create effectors/golem-health as a Python script. For each provider (zhipu, infini, volcano): source ~/.env.fly, then run a minimal golem invocation (golem --provider X --max-turns 1 'Say hello'). Measure: exit code, output presence, latency. Print a table: provider | status | latency | model. Usage: golem-health [--provider X]. Write assays/test_golem_health.py with mocked subprocess tests. Run pytest. Fix failures." (retry)`
 
 #### Build — daemon log rotation
 - [ ] `golem --provider zhipu --max-turns 30 "Read effectors/golem-daemon. Add a rotate_logs() function called at daemon start. If golem-daemon.log > 5MB, rename to golem-daemon.log.1 (overwrite old .1). Also rotate golem.jsonl the same way. Add to existing daemon start sequence. Write tests in assays/test_golem_daemon.py (append to existing). Run pytest on the file. Fix failures."`
 
 #### Build — daemon disk space check
-- [ ] `golem --provider infini --max-turns 30 "Read effectors/golem-daemon. Add a check_disk_space() function called every 10 poll cycles in daemon_loop. Use shutil.disk_usage(Path.home()). If free space < 1GB, log a WARNING and pause task dispatch (skip the 'Fill available slots' section for this cycle). Resume when space recovered. Add tests. Run pytest. Fix failures." (retry)`
+- [!] `golem --provider infini --max-turns 30 "Read effectors/golem-daemon. Add a check_disk_space() function called every 10 poll cycles in daemon_loop. Use shutil.disk_usage(Path.home()). If free space < 1GB, log a WARNING and pause task dispatch (skip the 'Fill available slots' section for this cycle). Resume when space recovered. Add tests. Run pytest. Fix failures." (retry)`
 
 #### Build — daemon auto-commit
 - [ ] `golem --provider zhipu --max-turns 30 "Read effectors/golem-daemon. Add auto_commit() called after every 5 successful task completions. Runs: git -C ~/germline add assays/ effectors/ metabolon/ && git commit -m 'golem: daemon auto-commit' --allow-empty-message. Only commit if there are staged changes. Log the commit hash. Add tests (mock subprocess). Run pytest. Fix failures."`
 
 #### Build — golem stdin safety
-- [ ] `golem --provider infini --max-turns 30 "Read effectors/golem. Verify that all subprocess.run / os.system calls redirect stdin from /dev/null (stdin=subprocess.DEVNULL or < /dev/null). This prevents hangs when a child process tries to read stdin. Add stdin=subprocess.DEVNULL to any subprocess.run call that lacks it. Add a test that verifies no subprocess.run call in golem is missing stdin redirect. Run pytest." (retry)`
+- [!] `golem --provider infini --max-turns 30 "Read effectors/golem. Verify that all subprocess.run / os.system calls redirect stdin from /dev/null (stdin=subprocess.DEVNULL or < /dev/null). This prevents hangs when a child process tries to read stdin. Add stdin=subprocess.DEVNULL to any subprocess.run call that lacks it. Add a test that verifies no subprocess.run call in golem is missing stdin redirect. Run pytest." (retry)`
 
 #### Build — golem output validator
 - [ ] `golem --provider zhipu --max-turns 40 "Create effectors/golem-validate as a Python script. Takes a list of .py files as args. For each: (1) ast.parse — catch SyntaxError, (2) check for /Users/terry/ hardcoded paths, (3) check for TODO/FIXME/stub, (4) if test file: check it can be collected by pytest --co. Print: file | status | issues. Exit 0 if all pass, 1 if any fail. Write assays/test_golem_validate.py. Run pytest. Fix failures."`
 
 #### Enhance — golem summary improvements
-- [ ] `golem --provider infini --max-turns 30 "Read effectors/golem. Find the summary subcommand. Enhance it to also show: (1) retry count vs first-attempt success rate, (2) average duration per provider, (3) tasks that timed out. Read ~/.local/share/vivesca/golem.jsonl for the data. Write/update assays/test_golem_summary.py. Run pytest. Fix failures." (retry)`
+- [!] `golem --provider infini --max-turns 30 "Read effectors/golem. Find the summary subcommand. Enhance it to also show: (1) retry count vs first-attempt success rate, (2) average duration per provider, (3) tasks that timed out. Read ~/.local/share/vivesca/golem.jsonl for the data. Write/update assays/test_golem_summary.py. Run pytest. Fix failures." (retry)`
 
 
 ### Infra wave 2 — Gemmule/Golem/Daemon hardening (2026-03-31 late)
@@ -228,25 +228,25 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 
 - [ ] `golem --provider zhipu --max-turns 40 "Run uv run pytest assays/test_legatum.py -q --tb=short. Read the test AND source. Fix all 29 failures. Use Path.home(). NEVER hardcode /Users/terry/. Iterate until 0 failures."`
 - [ ] `golem --provider infini --max-turns 40 "Run uv run pytest assays/test_grok.py -q --tb=short. Read the test AND source. Fix all 25 failures. Use Path.home(). NEVER hardcode /Users/terry/. Iterate until 0 failures."`
-- [ ] `golem --provider volcano --max-turns 40 "Run uv run pytest assays/test_commensal.py -q --tb=short. Read the test AND source. Fix all 23 failures. Use Path.home(). NEVER hardcode /Users/terry/. Iterate until 0 failures."`
+- [!] `golem --provider volcano --max-turns 40 "Run uv run pytest assays/test_commensal.py -q --tb=short. Read the test AND source. Fix all 23 failures. Use Path.home(). NEVER hardcode /Users/terry/. Iterate until 0 failures." (retry)`
 - [ ] `golem --provider zhipu --max-turns 40 "Run uv run pytest assays/test_channel.py -q --tb=short. Read the test AND source. Fix all 22 failures. Use Path.home(). NEVER hardcode /Users/terry/. Iterate until 0 failures."`
 - [ ] `golem --provider infini --max-turns 40 "Run uv run pytest assays/test_sortase_actions.py -q --tb=short. Read the test AND source. Fix all 14 failures. Use Path.home(). NEVER hardcode /Users/terry/. Iterate until 0 failures."`
-- [ ] `golem --provider volcano --max-turns 40 "Run uv run pytest assays/test_tmux_workspace.py -q --tb=short. Read the test AND source. Fix all 12 failures. Use Path.home(). NEVER hardcode /Users/terry/. Iterate until 0 failures."`
+- [!] `golem --provider volcano --max-turns 40 "Run uv run pytest assays/test_tmux_workspace.py -q --tb=short. Read the test AND source. Fix all 12 failures. Use Path.home(). NEVER hardcode /Users/terry/. Iterate until 0 failures." (retry)`
 - [ ] `golem --provider zhipu --max-turns 40 "Run uv run pytest assays/test_pinocytosis.py -q --tb=short. Read the test AND source. Fix all 12 failures. Use Path.home(). NEVER hardcode /Users/terry/. Iterate until 0 failures."`
 - [ ] `golem --provider infini --max-turns 40 "Run uv run pytest assays/test_golem_summary.py -q --tb=short. Read the test AND source. Fix all 11 failures. Use Path.home(). NEVER hardcode /Users/terry/. Iterate until 0 failures."`
-- [ ] `golem --provider volcano --max-turns 40 "Run uv run pytest assays/test_generate_solutions_index.py -q --tb=short. Read the test AND source. Fix all 11 failures. Use Path.home(). NEVER hardcode /Users/terry/. Iterate until 0 failures."`
+- [ ] `golem --provider volcano --max-turns 40 "Run uv run pytest assays/test_generate_solutions_index.py -q --tb=short. Read the test AND source. Fix all 11 failures. Use Path.home(). NEVER hardcode /Users/terry/. Iterate until 0 failures." (retry)`
 - [ ] `golem --provider zhipu --max-turns 40 "Run uv run pytest assays/test_chromatin_decay_report.py -q --tb=short. Read the test AND source. Fix all 7 failures. Use Path.home(). NEVER hardcode /Users/terry/. Iterate until 0 failures."`
 - [ ] `golem --provider infini --max-turns 40 "Run uv run pytest assays/test_search_guard.py -q --tb=short. Read the test AND source. Fix all 5 failures. Use Path.home(). NEVER hardcode /Users/terry/. Iterate until 0 failures."`
-- [ ] `golem --provider volcano --max-turns 40 "Run uv run pytest assays/test_scaffold_epigenome.py -q --tb=short. Read the test AND source. Fix all 4 failures. Use Path.home(). NEVER hardcode /Users/terry/. Iterate until 0 failures."`
+- [ ] `golem --provider volcano --max-turns 40 "Run uv run pytest assays/test_scaffold_epigenome.py -q --tb=short. Read the test AND source. Fix all 4 failures. Use Path.home(). NEVER hardcode /Users/terry/. Iterate until 0 failures." (retry)`
 - [ ] `golem --provider zhipu --max-turns 40 "Run uv run pytest assays/test_phagocytosis.py -q --tb=short. Read the test AND source. Fix all 4 failures. Use Path.home(). NEVER hardcode /Users/terry/. Iterate until 0 failures."`
 - [ ] `golem --provider infini --max-turns 40 "Run uv run pytest assays/test_methylation.py -q --tb=short. Read the test AND source. Fix all 4 failures. Use Path.home(). NEVER hardcode /Users/terry/. Iterate until 0 failures."`
-- [ ] `golem --provider volcano --max-turns 40 "Run uv run pytest assays/test_circadian_probe.py -q --tb=short. Read the test AND source. Fix all 4 failures. Use Path.home(). NEVER hardcode /Users/terry/. Iterate until 0 failures."`
+- [ ] `golem --provider volcano --max-turns 40 "Run uv run pytest assays/test_circadian_probe.py -q --tb=short. Read the test AND source. Fix all 4 failures. Use Path.home(). NEVER hardcode /Users/terry/. Iterate until 0 failures." (retry)`
 - [ ] `golem --provider zhipu --max-turns 40 "Run uv run pytest assays/test_safe_search.py -q --tb=short. Read the test AND source. Fix all 3 failures. Use Path.home(). NEVER hardcode /Users/terry/. Iterate until 0 failures."`
 - [ ] `golem --provider infini --max-turns 40 "Run uv run pytest assays/test_wewe_rss_health.py -q --tb=short. Read the test AND source. Fix all 4 failures. Use Path.home(). NEVER hardcode /Users/terry/. Iterate until 0 failures."`
-- [ ] `golem --provider volcano --max-turns 40 "Run uv run pytest assays/test_respirometry_effector.py -q --tb=short. Read the test AND source. Fix all 2 failures. Use Path.home(). NEVER hardcode /Users/terry/. Iterate until 0 failures."`
+- [ ] `golem --provider volcano --max-turns 40 "Run uv run pytest assays/test_respirometry_effector.py -q --tb=short. Read the test AND source. Fix all 2 failures. Use Path.home(). NEVER hardcode /Users/terry/. Iterate until 0 failures." (retry)`
 - [ ] `golem --provider zhipu --max-turns 40 "Run uv run pytest assays/test_importin.py -q --tb=short. Read the test AND source. Fix all 2 failures. Use Path.home(). NEVER hardcode /Users/terry/. Iterate until 0 failures."`
 - [ ] `golem --provider infini --max-turns 40 "Run uv run pytest assays/test_rg.py -q --tb=short. Read the test AND source. Fix all 1 failures. Use Path.home(). NEVER hardcode /Users/terry/. Iterate until 0 failures."`
-- [ ] `golem --provider volcano --max-turns 25 "Health check: assay, autoimmune.py, backfill-marks, browse, bud. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit fixes."`
+- [ ] `golem --provider volcano --max-turns 25 "Health check: assay, autoimmune.py, backfill-marks, browse, bud. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit fixes." (retry)`
 - [ ] `golem --provider zhipu --max-turns 25 "Health check: capco-prep, centrosome, cg, channel, chat_history.py. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit fixes."`
 - [ ] `golem --provider infini --max-turns 25 "Health check: chemoreception.py, chromatin-decay-report.py, cibus.py, circadian-probe.py, ck. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit fixes."`
 - [ ] `golem --provider volcano --max-turns 25 "Health check: cleanup-stuck, client-brief, cn-route, commensal, complement. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit fixes."`
@@ -407,6 +407,45 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 
 #### Build — LinkedIn authenticated scraper
 - [ ] `golem --provider infini --max-turns 40 "Create effectors/linkedin-browser as Python. Uses the browser engine + cookie bridge to access LinkedIn while logged in. Actions: (1) profile <url> — extract profile data (name, headline, experience, education), (2) feed — extract recent feed posts, (3) search <query> — search people/companies. Requires cookies synced via cookie-bridge. Outputs structured JSON. Write assays/test_linkedin_browser.py with mocked browser. Run uv run pytest."`
+
+
+### Regulatory circular capture — HSBC-relevant regulators
+
+#### Build — regulatory scraper engine
+- [ ] `golem --provider zhipu --max-turns 50 "Create effectors/regulatory-capture as Python using Playwright (already installed). For each regulator: navigate to their circular/publications page, extract titles + dates + URLs + summaries. Stores results as JSON in ~/epigenome/chromatin/euchromatin/regulatory/captures/. Supports: --regulator <name> --since <date> --output <path>. Initial regulators to support: hkma, sfc. Write assays/test_regulatory_capture.py with mocked Playwright. Run uv run pytest. Fix failures."`
+
+#### Capture — HKMA circulars (Hong Kong Monetary Authority)
+- [ ] `golem --provider infini --full --max-turns 40 "Use rheotaxis_search to find the HKMA circulars page (hkma.gov.hk). Search for: HKMA circulars 2025 2026 AI technology risk. Capture the latest 20 circulars with title, date, URL, summary. Focus on: AI/ML guidance, technology risk, operational resilience, data governance, cloud computing. Write structured output to ~/epigenome/chromatin/euchromatin/regulatory/hkma-circulars-2026.md. Format as a table: date | reference | title | relevance to AI consulting."`
+
+#### Capture — SFC circulars (Securities and Futures Commission HK)
+- [ ] `golem --provider volcano --full --max-turns 40 "Use rheotaxis_search to find SFC circulars and guidelines. Search for: SFC Hong Kong circulars 2025 2026 AI algorithmic trading technology. Capture latest 20 relevant circulars. Focus on: AI in trading, algo risk, cyber security, operational resilience, virtual assets tech. Write to ~/epigenome/chromatin/euchromatin/regulatory/sfc-circulars-2026.md as table: date | reference | title | relevance."`
+
+#### Capture — MAS (Monetary Authority of Singapore)
+- [ ] `golem --provider zhipu --full --max-turns 40 "Use rheotaxis_search for MAS Singapore guidelines on AI and technology. Search: MAS technology risk management AI fairness FEAT principles 2025 2026. Capture circulars, guidelines, consultation papers. Focus on: FEAT principles, AI governance, model risk, cloud outsourcing, operational resilience. Write to ~/epigenome/chromatin/euchromatin/regulatory/mas-guidelines-2026.md."`
+
+#### Capture — BIS/BCBS (Basel Committee)
+- [ ] `golem --provider infini --full --max-turns 40 "Use rheotaxis_search for BIS and Basel Committee publications on AI and technology in banking. Search: BCBS BIS AI machine learning banking supervision 2024 2025 2026. Capture relevant publications. Focus on: model risk for AI/ML, operational resilience, third-party risk, data governance. Write to ~/epigenome/chromatin/euchromatin/regulatory/bis-bcbs-ai-2026.md."`
+
+#### Capture — PRA/FCA (UK regulators — HSBC HQ jurisdiction)
+- [ ] `golem --provider volcano --full --max-turns 40 "Use rheotaxis_search for PRA and FCA UK guidance on AI. Search: PRA FCA artificial intelligence machine learning UK banks 2025 2026. Capture: AI/ML model risk (SS1/23), operational resilience, critical third parties, Consumer Duty and AI. Write to ~/epigenome/chromatin/euchromatin/regulatory/pra-fca-ai-2026.md."`
+
+#### Capture — Fed/OCC (US regulators — HSBC US operations)
+- [ ] `golem --provider zhipu --full --max-turns 40 "Use rheotaxis_search for Federal Reserve and OCC guidance on AI in banking. Search: Federal Reserve OCC AI machine learning model risk SR 11-7 2024 2025 2026. Capture: model risk management updates, AI guidance, third-party risk, fair lending + AI. Write to ~/epigenome/chromatin/euchromatin/regulatory/fed-occ-ai-2026.md."`
+
+#### Capture — ECB/EBA (European regulators)
+- [ ] `golem --provider infini --full --max-turns 40 "Use rheotaxis_search for ECB and EBA guidance on AI. Search: ECB EBA artificial intelligence digital operational resilience DORA 2025 2026. Capture: DORA implementation, AI/ML supervisory expectations, model risk, ICT risk. Write to ~/epigenome/chromatin/euchromatin/regulatory/ecb-eba-ai-2026.md."`
+
+#### Capture — FATF (anti-money laundering + AI)
+- [ ] `golem --provider volcano --full --max-turns 30 "Use rheotaxis_search for FATF guidance on AI and AML. Search: FATF artificial intelligence machine learning anti-money laundering 2024 2025 2026. Focus on: AI for transaction monitoring, sanctions screening, customer due diligence automation, RegTech. Write to ~/epigenome/chromatin/euchromatin/regulatory/fatf-ai-aml-2026.md."`
+
+#### Capture — FSB (Financial Stability Board)
+- [ ] `golem --provider zhipu --full --max-turns 30 "Use rheotaxis_search for FSB reports on AI in finance. Search: FSB financial stability artificial intelligence 2024 2025 2026. Focus on: systemic risk from AI, third-party concentration risk, cyber resilience, cross-border AI governance. Write to ~/epigenome/chromatin/euchromatin/regulatory/fsb-ai-2026.md."`
+
+#### Capture — OWASP (application security — relevant for AI system security)
+- [ ] `golem --provider infini --full --max-turns 30 "Use rheotaxis_search for OWASP AI/ML security guidance. Search: OWASP top 10 LLM AI machine learning security risks 2025 2026. Capture: OWASP Top 10 for LLMs, ML security risks, AI application security testing. Write to ~/epigenome/chromatin/euchromatin/regulatory/owasp-ai-security-2026.md."`
+
+#### Synthesis — HSBC regulatory landscape report
+- [ ] `golem --provider volcano --full --max-turns 50 "Read all files in ~/epigenome/chromatin/euchromatin/regulatory/ that match *-2026.md. Synthesize a consulting-ready report: (1) Cross-regulator themes (what 3-5 themes appear across all jurisdictions?), (2) HSBC-specific implications (as a G-SIB with ops in HK, UK, US, EU, SG), (3) AI consulting opportunities (where do banks need external help?), (4) Compliance timeline (what deadlines are coming?). Write to ~/epigenome/chromatin/euchromatin/regulatory/hsbc-regulatory-landscape-2026.md."`
 
 ## Done (2026-03-31)
 
