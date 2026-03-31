@@ -1047,11 +1047,12 @@ class TestParseFrontmatterGaps:
         assert err is not None
 
     def test_frontmatter_windows_line_endings(self):
-        """parse_frontmatter does not match with CRLF line endings (regex uses \\n)."""
+        """parse_frontmatter handles CRLF line endings (\\r\\n still matches via \\s)."""
         content = "---\r\nname: foo\r\ndescription: bar\r\n---\r\nBody\r\n"
         fm, err = parse_frontmatter(content)
-        # The regex uses \n, so \r\n won't match the --- markers properly
-        assert fm is None
+        # The regex \s* matches \r, and \n in pattern matches the \n in \r\n
+        assert err is None
+        assert fm["name"] == "foo"
 
     def test_frontmatter_with_indented_yaml(self):
         """parse_frontmatter handles indented YAML values."""
