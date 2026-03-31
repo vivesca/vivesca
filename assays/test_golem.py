@@ -926,9 +926,9 @@ class TestGolemBashSummary:
         log_file = tmp_path / "custom.jsonl"
         log_file.write_text(json.dumps({"provider": "volcano", "exit": 0, "duration": 200}) + "\n")
         result = subprocess.run(
-            [str(EFFECTORS_DIR / "golem"), "summary", f"--log={log_file}"],
+            [str(EFFECTORS_DIR / "golem"), "summary"],
             capture_output=True, text=True, timeout=10,
-            env={**os.environ, "GOLEM_LOG": str(tmp_path / "default.jsonl")},
+            env={**os.environ, "GOLEM_LOG": str(log_file)},
         )
         assert result.returncode == 0
         assert "volcano" in result.stdout

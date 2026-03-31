@@ -1,0 +1,249 @@
+#!/usr/bin/env python3
+"""git-activity — pulse check of git activity across germline + epigenome.
+
+Shows commits today, files changed, and top contributors (golem vs human).
+
+Usage:
+    git-activity              # full pulse report
+    git-activity --json       # machine-readable JSON output
+    git-activity --days 3     # last 3 days instead of today
+"""
+from __future__ import annotations
+
+import json
+import subprocess
+import sys
+from collections import Counter
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
+
+REPOS: dict[str, Path] = {
+    "germline": Path.home() / "germline",
+    "epigenome": Path.home() / "epigenome",
+}
+
+GOLEM_PREFIXES = ("golem", "golem-reviewer", "sortase", "auto-commit")
+
+
+def _git(repo: Path, *args: str) -> str:
+    """Run a git command in a repo and return stdout."""
+    result = subprocess.run(
+        ["git", "-C", str(repo), *args],
+        capture_output=True,
+        text=True,
+        timeout=10,
+    )
+    return result.stdout.strip()
+
+
+def classify_author(name: str, email: str) -> str:
+    """Classify a commit author as 'golem' or 'human'."""
+    combined = f"{name} {email}".lower()
+    if "golem" in combined or "sortase" in combined or "bot" in combined:
+        return "golem"
+    return "human"
+
+
+def classify_message(message: str) -> str:
+    """Classify a commit as golem or human based on its message prefix."""
+    lower = message.lower()
+    for prefix in GOLEM_PREFIXES:
+        if lower.startswith(prefix):
+            return "golem"
+    return "human"
+
+
+def gather_commits(repo: Path, since: str) -> list[dict]:
+    """Return list of commit dicts for a repo since the given date string.
+
+    Each dict: hash, author_name, author_email, date (iso), subject,
+               author_kind (golem|human), message_kind (golem|human)
+    """
+    log = _git(
+        repo,
+        "log",
+        f"--since={since}",
+        "--format=%H|%an|%ae|%aI|%s",
+    )
+    if not log:
+        return []
+
+    commits: list[dict] = []
+    for line in log.splitlines():
+        parts = line.split("|", 4)
+        if len(parts) != 5:
+            continue
+        hash_, name, email, date_iso, subject = parts
+        commits.append({
+            "hash": hash_[:12],
+            "author_name": name,
+            "author_email": email,
+            "date": date_iso,
+            "subject": subject,
+            "author_kind": classify_author(name, email),
+            "message_kind": classify_message(subject),
+        })
+    return commits
+
+
+def gather_file_stats(repo: Path, since: str) -> dict[str, int]:
+    """Return {filename: change_count} for files changed since date."""
+    log = _git(repo, "log", f"--since={since}", "--name-only", "--format=")
+    if not log:
+        return {}
+    counter: Counter[str] = Counter()
+    for line in log.splitlines():
+        line = line.strip()
+        if line:
+            counter[line] += 1
+    return dict(counter.most_common(20))
+
+
+def gather_diff_summary(repo: Path, since: str) -> dict:
+    """Return insertions/deletions/files-changed summary."""
+    stat = _git(repo, "log", f"--since={since}", "--oneline", "--shortstat")
+    if not stat:
+        return {"commits": 0, "files_changed": 0, "insertions": 0, "deletions": 0}
+
+    total_files = 0
+    total_ins = 0
+    total_del = 0
+    commit_count = 0
+
+    for line in stat.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        # shortstat lines look like: " 3 files changed, 45 insertions(+), 12 deletions(-)"
+        if "file" in line:
+            commit_count += 1
+            parts = line.split(",")
+            for part in parts:
+                part = part.strip()
+                if "file" in part:
+                    total_files += int(part.split()[0])
+                elif "insertion" in part:
+                    total_ins += int(part.split()[0])
+                elif "deletion" in part:
+                    total_del += int(part.split()[0])
+        elif line and not line.startswith(" "):
+            # This is a --oneline commit hash line
+            pass
+
+    return {
+        "commits": commit_count,
+        "files_changed": total_files,
+        "insertions": total_ins,
+        "deletions": total_del,
+    }
+
+
+def build_report(since: str, as_json: bool = False) -> str:
+    """Build the activity report across all repos.
+
+    Args:
+        since: ISO date string like '2026-03-31' or git --since format.
+        as_json: If True, return JSON instead of human-readable text.
+    """
+    report: dict = {"repos": {}, "summary": {}}
+    all_commits: list[dict] = []
+    total_kind = Counter()
+
+    for name, path in REPOS.items():
+        if not (path / ".git").exists():
+            continue
+
+        commits = gather_commits(path, since)
+        file_stats = gather_file_stats(path, since)
+        diff_summary = gather_diff_summary(path, since)
+
+        kind_counter = Counter()
+        for c in commits:
+            kind_counter[c["message_kind"]] += 1
+        total_kind.update(kind_counter)
+
+        recent = commits[:5]
+        all_commits.extend(commits)
+
+        report["repos"][name] = {
+            "path": str(path),
+            "commits": len(commits),
+            "diff": diff_summary,
+            "contributors": dict(kind_counter),
+            "top_files": file_stats,
+            "recent": recent,
+        }
+
+    total = len(all_commits)
+    report["summary"] = {
+        "since": since,
+        "total_commits": total,
+        "golem_commits": total_kind.get("golem", 0),
+        "human_commits": total_kind.get("human", 0),
+        "repos_active": len(report["repos"]),
+    }
+
+    if as_json:
+        return json.dumps(report, indent=2)
+
+    return _format_text(report)
+
+
+def _format_text(report: dict) -> str:
+    """Format the report dict into a human-readable string."""
+    lines: list[str] = []
+    lines.append("=" * 60)
+    lines.append("GIT ACTIVITY PULSE")
+    summary = report["summary"]
+    lines.append(f"Since: {summary['since']}  |  Repos: {summary['repos_active']}")
+    lines.append(f"Total commits: {summary['total_commits']}  "
+                 f"(golem: {summary['golem_commits']}, "
+                 f"human: {summary['human_commits']})")
+    lines.append("=" * 60)
+
+    for name, repo_data in report["repos"].items():
+        lines.append("")
+        lines.append(f"── {name} ──")
+        lines.append(f"  Commits: {repo_data['commits']}")
+        diff = repo_data["diff"]
+        if diff["commits"] > 0:
+            lines.append(f"  Files changed: {diff['files_changed']}  "
+                         f"+{diff['insertions']}/-{diff['deletions']}")
+        contribs = repo_data["contributors"]
+        if contribs:
+            parts = [f"{k}: {v}" for k, v in contribs.items()]
+            lines.append(f"  Contributors:  {', '.join(parts)}")
+        top_files = repo_data["top_files"]
+        if top_files:
+            lines.append("  Top files:")
+            for fname, count in list(top_files.items())[:5]:
+                display = fname if len(fname) <= 50 else "…" + fname[-49:]
+                lines.append(f"    {count:3d}x  {display}")
+        recent = repo_data["recent"]
+        if recent:
+            lines.append("  Recent commits:")
+            for c in recent[:5]:
+                kind_tag = "🤖" if c["message_kind"] == "golem" else "👤"
+                lines.append(f"    {kind_tag} {c['hash']}  {c['subject'][:60]}")
+
+    lines.append("")
+    lines.append("=" * 60)
+    return "\n".join(lines) + "\n"
+
+
+def main() -> int:
+    args = sys.argv[1:]
+    as_json = "--json" in args
+
+    days = 1
+    for i, arg in enumerate(args):
+        if arg == "--days" and i + 1 < len(args):
+            days = int(args[i + 1])
+
+    since = (datetime.now(timezone.utc) - timedelta(days=days)).strftime("%Y-%m-%d")
+    print(build_report(since, as_json=as_json))
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
