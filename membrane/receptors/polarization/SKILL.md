@@ -1,6 +1,7 @@
 ---
 name: polarization
 description: Agent teams or single-task async dispatch. "overnight", "run tonight"
+triggers: [polarization, "burn tokens", stellae, overnight, vigilia, "going to sleep"]
 user_invocable: true
 epistemics: [delegate, plan]
 ---
