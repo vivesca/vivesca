@@ -135,11 +135,57 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 - [!] `golem --provider volcano --max-turns 30 "Write tests for effectors/taste-score, effectors/importin, effectors/mitosis-checkpoint.py. Write assays/test_taste_score.py, test_importin.py, test_mitosis_checkpoint.py. NOTE: Effectors are scripts — load via exec or subprocess.run. NEVER import. Run pytest. Fix failures." (retry)`
 - [ ] `golem --provider zhipu --max-turns 30 "Write tests for effectors/lysis, effectors/pulse-review, effectors/x-feed-to-lustro, effectors/synthase. Write assays/test_lysis.py, test_pulse_review.py, test_x_feed_to_lustro.py, test_synthase.py. NOTE: Effectors are scripts — load via exec or subprocess.run. NEVER import. Run pytest. Fix failures."`
 - [ ] `golem --provider infini --max-turns 30 "Write tests for effectors/safe_search.py, effectors/rg, effectors/search-guard, effectors/grep. Write assays/test_safe_search.py, test_rg.py, test_search_guard.py, test_grep.py. NOTE: Effectors are scripts — load via exec or subprocess.run. NEVER import. Run pytest. Fix failures."`
-- [ ] `golem --provider volcano --max-turns 30 "Write tests for effectors/find, effectors/dr-sync, effectors/phagocytosis.py, effectors/bud. Write assays/test_find.py, test_dr_sync.py, test_phagocytosis.py, test_bud.py. NOTE: Effectors are scripts — load via exec or subprocess.run. NEVER import. Run pytest. Fix failures."`
+- [x] `golem --provider volcano --max-turns 30 "Write tests for effectors/find, effectors/dr-sync, effectors/phagocytosis.py, effectors/bud. Write assays/test_find.py, test_dr_sync.py, test_phagocytosis.py, test_bud.py. NOTE: Effectors are scripts — load via exec or subprocess.run. NEVER import. Run pytest. Fix failures."`
 - [ ] `golem --provider zhipu --max-turns 30 "Write tests for effectors/receptor-scan, effectors/browse, effectors/safe_rm.py, effectors/rename-kindle-asins.py. Write assays/test_receptor_scan.py, test_browse.py, test_safe_rm.py, test_rename_kindle_asins.py. NOTE: Effectors are scripts — load via exec or subprocess.run. NEVER import. Run pytest. Fix failures."`
 - [ ] `golem --provider infini --max-turns 30 "Write tests for effectors/hkicpa, effectors/rotate-logs.py, effectors/taobao, effectors/sarcio, effectors/sortase. Write assays/test_hkicpa.py, test_rotate_logs.py, test_taobao.py, test_sarcio.py, test_sortase.py. NOTE: Effectors are scripts — load via exec or subprocess.run. NEVER import. Run pytest. Fix failures."`
 - [ ] `golem --provider volcano --max-turns 30 "Write tests for effectors/rename-plists, effectors/cn-route, effectors/methylation-review, effectors/plan-exec.deprecated. Write assays/test_rename_plists.py, test_cn_route.py, test_methylation_review.py, test_plan_exec_deprecated.py. NOTE: Effectors are scripts — load via exec or subprocess.run. NEVER import. Run pytest. Fix failures."`
 - [ ] `golem --provider zhipu --max-turns 30 "Write tests for effectors/test-spec-gen, effectors/tmux-workspace.py, effectors/launchagent-health, effectors/wewe-rss-health.py. Write assays/test_test_spec_gen.py, test_tmux_workspace.py, test_launchagent_health.py, test_wewe_rss_health.py. NOTE: Effectors are scripts — load via exec or subprocess.run. NEVER import. Run pytest. Fix failures."`
+
+
+### Robustness wave — Fly/Vivesca/Golem (2026-03-31 evening)
+
+#### Fix operon — top 5 failing test files (201 failures → target <50)
+- [ ] `golem --provider zhipu --max-turns 40 "Read assays/test_legatum.py (29 failures). Run uv run pytest assays/test_legatum.py -q --tb=short. Read the source it tests (effectors/legatum). Fix all test failures — likely path issues (/Users/terry vs /home/terry) or mock mismatches. Use Path.home() everywhere. Run pytest until green. NEVER hardcode /Users/terry/."`
+- [ ] `golem --provider infini --max-turns 40 "Read assays/test_grok.py (25 failures). Run uv run pytest assays/test_grok.py -q --tb=short. Read the source it tests. Fix all failures. Use Path.home() for paths. Run pytest until green."`
+- [ ] `golem --provider zhipu --max-turns 40 "Read assays/test_commensal.py (23 failures). Run uv run pytest assays/test_commensal.py -q --tb=short. Read the source it tests. Fix all failures. Run pytest until green."`
+- [ ] `golem --provider infini --max-turns 40 "Read assays/test_channel.py (22 failures). Run uv run pytest assays/test_channel.py -q --tb=short. Read the source it tests. Fix all failures. Run pytest until green."`
+- [ ] `golem --provider zhipu --max-turns 40 "Read assays/test_sortase_actions.py (14 failures). Run uv run pytest assays/test_sortase_actions.py -q --tb=short. Read metabolon/sortase/actions.py. Fix all failures. Run pytest until green."`
+
+#### Fix operon — next 5 failing test files
+- [ ] `golem --provider infini --max-turns 30 "Read assays/test_tmux_workspace.py (12 failures). Run uv run pytest assays/test_tmux_workspace.py -q --tb=short. Read the source. Fix failures. Run pytest until green."`
+- [ ] `golem --provider zhipu --max-turns 30 "Read assays/test_pinocytosis.py (12 failures). Run uv run pytest assays/test_pinocytosis.py -q --tb=short. Read the source. Fix failures. Run pytest until green."`
+- [ ] `golem --provider infini --max-turns 30 "Read assays/test_golem_summary.py (11 failures). Run uv run pytest assays/test_golem_summary.py -q --tb=short. Read effectors/golem. Fix failures. Run pytest until green."`
+- [ ] `golem --provider zhipu --max-turns 30 "Read assays/test_generate_solutions_index.py (11 failures). Run uv run pytest assays/test_generate_solutions_index.py -q --tb=short. Read the source. Fix failures. Run pytest until green."`
+- [ ] `golem --provider infini --max-turns 30 "Read assays/test_chromatin_decay_report.py (7 failures). Run uv run pytest assays/test_chromatin_decay_report.py -q --tb=short. Read the source. Fix failures. Run pytest until green."`
+
+#### Fix operon — remaining failures (batch smaller files)
+- [ ] `golem --provider zhipu --max-turns 30 "Fix test failures in: assays/test_search_guard.py (5), assays/test_scaffold_epigenome.py (4), assays/test_phagocytosis.py (4). For each: run pytest on the file, read source, fix, rerun. Use Path.home() for all paths."`
+- [ ] `golem --provider infini --max-turns 30 "Fix test failures in: assays/test_methylation.py (4), assays/test_circadian_probe.py (4), assays/test_safe_search.py (3), assays/test_wewe_rss_health.py (4). For each: run pytest, read source, fix, rerun."`
+- [ ] `golem --provider zhipu --max-turns 30 "Fix test failures in: assays/test_respirometry_effector.py (2), assays/test_importin.py (2), assays/test_rg.py (1). For each: run pytest, read source, fix, rerun."`
+
+#### Fix — collection errors
+- [ ] `golem --provider zhipu --max-turns 20 "Run: uv run pytest --co -q 2>&1 | grep ERROR. For each collection error: read the test file, fix the import/path/syntax issue. Common fix: replace /Users/terry/ with Path.home(). Replace import <effector> with exec(open(path).read()). Run pytest --co again to verify 0 errors."`
+
+#### Build — golem-health effector (provider liveness check)
+- [ ] `golem --provider infini --max-turns 40 "Create effectors/golem-health as a Python script. For each provider (zhipu, infini, volcano): source ~/.env.fly, then run a minimal golem invocation (golem --provider X --max-turns 1 'Say hello'). Measure: exit code, output presence, latency. Print a table: provider | status | latency | model. Usage: golem-health [--provider X]. Write assays/test_golem_health.py with mocked subprocess tests. Run pytest. Fix failures."`
+
+#### Build — daemon log rotation
+- [ ] `golem --provider zhipu --max-turns 30 "Read effectors/golem-daemon. Add a rotate_logs() function called at daemon start. If golem-daemon.log > 5MB, rename to golem-daemon.log.1 (overwrite old .1). Also rotate golem.jsonl the same way. Add to existing daemon start sequence. Write tests in assays/test_golem_daemon.py (append to existing). Run pytest on the file. Fix failures."`
+
+#### Build — daemon disk space check
+- [ ] `golem --provider infini --max-turns 30 "Read effectors/golem-daemon. Add a check_disk_space() function called every 10 poll cycles in daemon_loop. Use shutil.disk_usage(Path.home()). If free space < 1GB, log a WARNING and pause task dispatch (skip the 'Fill available slots' section for this cycle). Resume when space recovered. Add tests. Run pytest. Fix failures."`
+
+#### Build — daemon auto-commit
+- [ ] `golem --provider zhipu --max-turns 30 "Read effectors/golem-daemon. Add auto_commit() called after every 5 successful task completions. Runs: git -C ~/germline add assays/ effectors/ metabolon/ && git commit -m 'golem: daemon auto-commit' --allow-empty-message. Only commit if there are staged changes. Log the commit hash. Add tests (mock subprocess). Run pytest. Fix failures."`
+
+#### Build — golem stdin safety
+- [ ] `golem --provider infini --max-turns 30 "Read effectors/golem. Verify that all subprocess.run / os.system calls redirect stdin from /dev/null (stdin=subprocess.DEVNULL or < /dev/null). This prevents hangs when a child process tries to read stdin. Add stdin=subprocess.DEVNULL to any subprocess.run call that lacks it. Add a test that verifies no subprocess.run call in golem is missing stdin redirect. Run pytest."`
+
+#### Build — golem output validator
+- [ ] `golem --provider zhipu --max-turns 40 "Create effectors/golem-validate as a Python script. Takes a list of .py files as args. For each: (1) ast.parse — catch SyntaxError, (2) check for /Users/terry/ hardcoded paths, (3) check for TODO/FIXME/stub, (4) if test file: check it can be collected by pytest --co. Print: file | status | issues. Exit 0 if all pass, 1 if any fail. Write assays/test_golem_validate.py. Run pytest. Fix failures."`
+
+#### Enhance — golem summary improvements
+- [ ] `golem --provider infini --max-turns 30 "Read effectors/golem. Find the summary subcommand. Enhance it to also show: (1) retry count vs first-attempt success rate, (2) average duration per provider, (3) tasks that timed out. Read ~/.local/share/vivesca/golem.jsonl for the data. Write/update assays/test_golem_summary.py. Run pytest. Fix failures."`
 
 ## Done (2026-03-31)
 
