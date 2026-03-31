@@ -139,6 +139,16 @@ case "$PROVIDER" in
   *) echo "Unknown provider: $PROVIDER (zhipu|volcano|infini)" >&2; exit 1 ;;
 esac
 
+# Fallback provider mapping: zhipu->infini, infini->zhipu, volcano->infini
+_fallback_provider() {
+  case "$1" in
+    zhipu) echo "infini" ;;
+    infini) echo "zhipu" ;;
+    volcano) echo "infini" ;;
+    *) echo "" ;;
+  esac
+}
+
 _run_golem() {
   local prompt="$1"
 
