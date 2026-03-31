@@ -780,6 +780,12 @@ class TestMeasureYield:
 
     def test_counts_git_commits(self, tmp_path):
         """Should count git commits by Claude."""
+        # Create .git directories so repos are detected
+        germline = tmp_path / "germline"
+        epigenome = tmp_path / "epigenome"
+        (germline / ".git").mkdir(parents=True)
+        (epigenome / ".git").mkdir(parents=True)
+
         mock_result = MagicMock()
         mock_result.returncode = 0
         mock_result.stdout = "abc123 First commit\ndef456 Second commit\n"
@@ -789,7 +795,8 @@ class TestMeasureYield:
                 with patch("metabolon.vasomotor.subprocess.run", return_value=mock_result):
                     result = vm.measure_yield()
 
-        assert result["git_commits"] == 2
+        # 2 commits per repo × 2 repos = 4
+        assert result["git_commits"] == 4
 
     def test_returns_summary(self):
         """Should return summary string."""

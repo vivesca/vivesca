@@ -104,21 +104,28 @@ class TestHelpFlag:
 class TestRunnerSelection:
     def test_no_runner_exits_1(self, tmp_path):
         """Script exits 1 when neither bunx nor npx is on PATH."""
-        # Need to include the location of bash so script can run
-        bash_path = subprocess.run(['which', 'bash'], capture_output=True, text=True).stdout.strip()
-        bash_dir = Path(bash_path).parent
+        # Create a mock bin that shadows but doesn't actually provide bunx/npx
+        # This blocks system PATH versions from being found
         empty_bin = tmp_path / "bin"
         empty_bin.mkdir()
-        r = _run_script(path_dirs=[empty_bin, bash_dir], tmp_path=tmp_path)
+        # Create dummy executables that exit with error code 127 (command not found)
+        # This shadows system bunx/npx so they won't be found by command -v
+        for name in ['bunx', 'npx']:
+            script = empty_bin / name
+            script.write_text("#!/bin/bash\nexit 127\n")
+            script.chmod(script.stat().st_mode | stat.S_IEXEC)
+        r = _run_script(path_dirs=[empty_bin], tmp_path=tmp_path)
         assert r.returncode == 1
 
     def test_no_runner_logs_error(self, tmp_path):
-        # Need to include the location of bash so subprocess can find it
-        bash_path = subprocess.run(['which', 'bash'], capture_output=True, text=True).stdout.strip()
-        bash_dir = Path(bash_path).parent
+        # Create a mock bin that shadows but doesn't actually provide bunx/npx
         empty_bin = tmp_path / "bin"
         empty_bin.mkdir()
-        _run_script(path_dirs=[empty_bin, bash_dir], tmp_path=tmp_path)
+        for name in ['bunx', 'npx']:
+            script = empty_bin / name
+            script.write_text("#!/bin/bash\nexit 127\n")
+            script.chmod(script.stat().st_mode | stat.S_IEXEC)
+        _run_script(path_dirs=[empty_bin], tmp_path=tmp_path)
         log = _log_file(tmp_path)
         assert log.exists()
         assert "neither bunx nor npx found" in log.read_text()
