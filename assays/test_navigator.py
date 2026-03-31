@@ -73,9 +73,10 @@ class TestRunAb:
         ):
             import subprocess
 
-            mock_run.side_effect = subprocess.CalledProcessError(
-                1, "agent-browser", stderr="", stdout=" some stdout error "
-            )
+            err = subprocess.CalledProcessError(1, "agent-browser")
+            err.stderr = ""
+            err.stdout = " some stdout error "
+            mock_run.side_effect = err
             mock_popen.return_value.read.return_value = "agent-browser\n"
             ok, out = _run_ab(["open", "https://bad.url"])
 
@@ -172,7 +173,10 @@ class TestScreenshot:
         assert "url" in result.error
 
     def test_navigation_failure(self):
-        with patch("metabolon.enzymes.navigator._run_ab", return_value=(False, "err")):
+        with (
+            patch("metabolon.enzymes.navigator._run_ab", return_value=(False, "err")),
+            patch("metabolon.enzymes.navigator.subprocess.run"),
+        ):
             result = _fn()(action="screenshot", url="https://fail.com")
         assert result.success is False
         assert "Navigation failed" in result.error
