@@ -408,28 +408,32 @@ def daemon_loop():
         remove_pid()
         log("Daemon stopped")
 
-def cmd_start():
-    """Start daemon in background."""
+def cmd_start(foreground: bool = False):
+    """Start daemon. Use --foreground/-f for supervisor compatibility."""
     pid = read_pid()
     if pid:
         print(f"Daemon already running (PID {pid})")
         return 1
-    
+
+    if foreground:
+        daemon_loop()
+        return 0
+
     # Double-fork to fully detach
     if os.fork() > 0:
         print("Daemon started")
         return 0
-    
+
     os.setsid()
-    
+
     if os.fork() > 0:
         os._exit(0)
-    
+
     # Redirect stdio
     sys.stdin.close()
     sys.stdout = open(os.devnull, "w")
     sys.stderr = open(os.devnull, "w")
-    
+
     daemon_loop()
     return 0
 
@@ -489,7 +493,8 @@ def main():
     cmd = sys.argv[1]
     
     if cmd == "start":
-        return cmd_start()
+        fg = "--foreground" in sys.argv or "-f" in sys.argv
+        return cmd_start(foreground=fg)
     elif cmd == "stop":
         return cmd_stop()
     elif cmd == "status":
