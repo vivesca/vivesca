@@ -2,6 +2,12 @@
 name: opsonization
 description: Drill for upcoming meetings or interviews with scenario practice. "meeting prep"
 user_invocable: true
+triggers:
+  - meeting prep
+  - prep for meeting
+  - prep for coffee
+  - prep for interview
+  - opsonization
 epistemics: [negotiate, communicate]
 ---
 
