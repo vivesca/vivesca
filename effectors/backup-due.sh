@@ -5,8 +5,8 @@
 
 set -euo pipefail
 
-DUE_DB="/Users/terry/Library/Group Containers/5JMF32H3VU.com.phocusllp.duemac.shared/Compact.duecdb"
-BACKUP_DIR="/Users/terry/epigenome/oscillators/backups"
+DUE_DB="$HOME/Library/Group Containers/5JMF32H3VU.com.phocusllp.duemac.shared/Compact.duecdb"
+BACKUP_DIR="$HOME/epigenome/oscillators/backups"
 TIMESTAMP=$(date '+%Y-%m-%d')
 DEST="$BACKUP_DIR/due-$TIMESTAMP.duecdb"
 

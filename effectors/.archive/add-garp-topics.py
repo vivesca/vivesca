@@ -7,7 +7,9 @@
 import json
 import time
 
-STATE_FILE = "/Users/terry/epigenome/chromatin/.garp-fsrs-state.json"
+from pathlib import Path
+
+STATE_FILE = str(Path.home() / "epigenome/chromatin/.garp-fsrs-state.json")
 
 NEW_TOPICS = [
     "M3-fairness-tradeoffs",  # Impossibility theorem, trade-off logic

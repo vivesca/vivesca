@@ -26,8 +26,8 @@ from pathlib import Path
 
 # ── Paths ────────────────────────────────────────────────────────────────────
 
-STATE_FILE = Path("/Users/terry/epigenome/chromatin/.garp-fsrs-state.json")
-BACKUP_DIR = Path("/Users/terry/tmp")
+STATE_FILE = Path.home() / "epigenome/chromatin/.garp-fsrs-state.json"
+BACKUP_DIR = Path.home() / "tmp"
 
 # ── Default FSRS state for a brand-new card ───────────────────────────────
 
@@ -66,7 +66,7 @@ def fresh_card(topic_id: str) -> dict:
 #
 #   NEW_TOPICS = list of brand-new topic IDs (no prior card)
 #
-# Source: /Users/terry/epigenome/chromatin/GARP RAI Topic Taxonomy.md (Summary section)
+# Source: ~/epigenome/chromatin/GARP RAI Topic Taxonomy.md (Summary section)
 
 SPLITS: dict[str, list[str]] = {
     "M1-classical-ai": [

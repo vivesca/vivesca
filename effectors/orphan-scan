@@ -1,179 +1,171 @@
 #!/usr/bin/env python3
-"""orphan-scan — find .py files in metabolon/ not imported anywhere.
+# /// script
+# requires-python = ">=3.11"
+# dependencies = []
+# ///
+"""orphan-scan — Find .py files in metabolon/ not imported anywhere.
 
-Scans every .py file under metabolon/ (excluding __init__.py) and checks
-whether its module path is referenced by any import statement anywhere in
-the germline tree. Reports orphan modules that are never imported.
+Scans every non-__init__.py module under metabolon/ and checks whether
+any .py file in the repository imports it.  Modules with zero references
+are reported as orphans.
 
 Usage:
-    orphan-scan              # print orphans to stdout
-    orphan-scan --json       # JSON output
-    orphan-scan --dir DIR    # scan a different root (default: ~/germline)
+    orphan-scan              # List orphans to stdout
+    orphan-scan --json       # Machine-readable JSON output
+    orphan-scan --path DIR   # Scan a different root (default: ~/germline)
 """
 from __future__ import annotations
 
-import ast
 import json
 import re
 import sys
 from pathlib import Path
 
+DEFAULT_ROOT = Path.home() / "germline"
 
-ROOT = Path.home() / "germline"
-METABOLON = ROOT / "metabolon"
-EXCLUDE_NAMES = {"__init__.py", "__pycache__"}
-# Files that are entry points (run via python -m or exec'd), not imported
-ENTRY_POINT_BASENAMES = {"__main__.py"}
+# Modules whose __main__.py is an entry-point, not imported normally.
+# They are never orphans.
+_ENTRY_POINT_NAMES = {"__main__"}
 
 
-def module_path(py_file: Path, root: Path) -> str:
-    """Convert a .py file path to its dotted module path."""
-    rel = py_file.relative_to(root)
+def collect_modules(metabolon_dir: Path) -> list[Path]:
+    """Return sorted list of .py files under metabolon_dir excluding __init__.py."""
+    return sorted(
+        p for p in metabolon_dir.rglob("*.py")
+        if p.name != "__init__.py"
+    )
+
+
+def file_to_module(path: Path, root: Path) -> str:
+    """Convert a file path to a dotted module string.
+
+    e.g. metabolon/organelles/crispr.py -> metabolon.organelles.crispr
+    """
+    rel = path.relative_to(root)
     parts = list(rel.with_suffix("").parts)
-    if parts[-1] == "__init__":
-        parts = parts[:-1]
     return ".".join(parts)
 
 
-def collect_metabolon_modules(metabolon_dir: Path) -> dict[str, Path]:
-    """Return {dotted_module_path: file_path} for all .py files in metabolon/."""
-    modules: dict[str, Path] = {}
-    for py_file in sorted(metabolon_dir.rglob("*.py")):
-        if py_file.name in EXCLUDE_NAMES:
-            continue
-        # Skip test files inside metabolon itself
-        if py_file.name.startswith("test_"):
-            continue
-        mod = module_path(py_file, metabolon_dir.parent)
-        modules[mod] = py_file
-    return modules
+def build_import_index(root: Path) -> set[str]:
+    """Scan all .py files under *root* and return the set of module tokens
+    that appear in import statements.
 
-
-def extract_imports_from_file(py_file: Path) -> set[str]:
-    """Parse a .py file and return the set of imported module names."""
-    imports: set[str] = set()
-    try:
-        source = py_file.read_text(encoding="utf-8", errors="replace")
-        tree = ast.parse(source, filename=str(py_file))
-    except (SyntaxError, OSError):
-        return imports
-
-    for node in ast.walk(tree):
-        if isinstance(node, ast.Import):
-            for alias in node.names:
-                imports.add(alias.name)
-        elif isinstance(node, ast.ImportFrom):
-            if node.module:
-                imports.add(node.module)
-                # Also add parent packages (e.g. from a.b.c import X => a, a.b, a.b.c)
-                parts = node.module.split(".")
-                for i in range(1, len(parts) + 1):
-                    imports.add(".".join(parts[:i]))
-    return imports
-
-
-def find_orphans(root: Path, metabolon_dir: Path | None = None) -> list[dict]:
-    """Find .py files in metabolon/ that are never imported.
-
-    Returns list of dicts: [{"module": str, "path": str, "is_entry_point": bool}]
+    We store both the full dotted path and the final component so that
+    ``from metabolon.organelles import crispr`` is also matched.
     """
-    if metabolon_dir is None:
-        metabolon_dir = root / "metabolon"
+    referenced: set[str] = set()
+    import_re = re.compile(r"^\s*(?:from|import)\s+([A-Za-z_][\w.]*)")
 
-    modules = collect_metabolon_modules(metabolon_dir)
-    if not modules:
+    for py_file in root.rglob("*.py"):
+        try:
+            text = py_file.read_text(errors="ignore")
+        except OSError:
+            continue
+        for line in text.splitlines():
+            m = import_re.match(line)
+            if not m:
+                continue
+            spec = m.group(1)
+            # Store the full spec and every trailing component
+            # e.g. "metabolon.organelles.crispr" ->
+            #   "metabolon.organelles.crispr"
+            #   "organelles.crispr"
+            #   "crispr"
+            # But we only need to match the metabolon-qualified path, so
+            # store full spec and also the leaf name.
+            referenced.add(spec)
+            # Also store the final component for `from pkg import name`
+            parts = spec.split(".")
+            if len(parts) >= 2:
+                referenced.add(parts[-1])
+
+    return referenced
+
+
+def find_orphans(root: Path) -> list[dict]:
+    """Return list of orphan module dicts with keys path, module."""
+    metabolon_dir = root / "metabolon"
+    if not metabolon_dir.is_dir():
         return []
 
-    # Collect all imports from every .py file in the tree
-    all_imports: set[str] = set()
-    for py_file in root.rglob("*.py"):
-        if py_file.name in EXCLUDE_NAMES:
-            continue
-        all_imports.update(extract_imports_from_file(py_file))
-
-    # Also scan non-.py files (effectors, configs) for string-based imports
-    for f in root.rglob("*"):
-        if f.is_dir() or f.suffix in {".pyc", ".pyo"}:
-            continue
-        if f.suffix == ".py":
-            continue  # already handled
-        if f.name.startswith("."):
-            continue
-        try:
-            text = f.read_text(encoding="utf-8", errors="replace")
-        except (OSError, UnicodeDecodeError):
-            continue
-        # Look for metabolon.xxx import patterns in non-Python files
-        for match in re.finditer(r"\bmetabolon(?:\.\w+)+", text):
-            all_imports.add(match.group())
-
+    modules = collect_modules(metabolon_dir)
+    referenced = build_import_index(root)
     orphans: list[dict] = []
-    for mod, path in sorted(modules.items()):
-        # Check if the module or any parent package import would reference it
-        imported = mod in all_imports
-        # Also check if a parent module is imported (which implies this sub-module exists)
-        if not imported:
-            parts = mod.split(".")
-            for i in range(len(parts), 0, -1):
-                parent = ".".join(parts[:i])
-                if parent in all_imports:
-                    imported = True
-                    break
 
-        if not imported:
+    for mod_path in modules:
+        # Skip __main__.py — it is an entry point, not an import target
+        if mod_path.name in _ENTRY_POINT_NAMES:
+            continue
+
+        dotted = file_to_module(mod_path, root)
+        leaf = mod_path.stem
+
+        # A module is referenced if its full dotted path OR its leaf name
+        # appears in any import statement.
+        if dotted not in referenced and leaf not in referenced:
             orphans.append({
-                "module": mod,
-                "path": str(path.relative_to(root)),
-                "is_entry_point": path.name in ENTRY_POINT_BASENAMES,
+                "path": str(mod_path.relative_to(root)),
+                "module": dotted,
             })
 
     return orphans
 
 
-def format_report(orphans: list[dict], use_json: bool = False) -> str:
-    """Format orphan list for output."""
-    if use_json:
-        return json.dumps(orphans, indent=2)
-
+def format_human(orphans: list[dict], root: Path) -> str:
+    """Format orphans as a human-readable report."""
     if not orphans:
-        return "No orphan modules found. All metabolon .py files are imported somewhere."
+        return "No orphan modules found in metabolon/."
 
-    lines = [f"Found {len(orphans)} orphan module(s) in metabolon/:\n"]
-    entry_points = [o for o in orphans if o["is_entry_point"]]
-    true_orphans = [o for o in orphans if not o["is_entry_point"]]
+    lines = [f"Orphan modules in metabolon/ ({len(orphans)} found):\n"]
+    for o in orphans:
+        lines.append(f"  {o['path']}")
 
-    if true_orphans:
-        lines.append("  Orphans (never imported):")
-        for o in true_orphans:
-            lines.append(f"    {o['module']}")
-            lines.append(f"      ({o['path']})")
-
-    if entry_points:
-        lines.append("\n  Entry points (not imported by design):")
-        for o in entry_points:
-            lines.append(f"    {o['module']}")
-            lines.append(f"      ({o['path']})")
-
-    lines.append(f"\n  Total: {len(true_orphans)} orphans, {len(entry_points)} entry points")
+    mod_count = _count_total_modules(root)
+    pct = len(orphans) / mod_count * 100 if mod_count else 0
+    lines.append(f"\n  {len(orphans)} of {mod_count} modules ({pct:.1f}%) are orphans.")
     return "\n".join(lines)
 
 
-def main() -> int:
-    use_json = "--json" in sys.argv
-    dir_override = None
-    for i, arg in enumerate(sys.argv[1:], 1):
-        if arg == "--dir" and i < len(sys.argv) - 1:
-            dir_override = Path(sys.argv[i + 1])
+def format_json(orphans: list[dict], root: Path) -> str:
+    """Format orphans as JSON."""
+    mod_count = _count_total_modules(root)
+    return json.dumps({
+        "root": str(root),
+        "total_modules": mod_count,
+        "orphan_count": len(orphans),
+        "orphan_pct": round(len(orphans) / mod_count * 100, 1) if mod_count else 0,
+        "orphans": orphans,
+    }, indent=2)
 
-    root = dir_override if dir_override else ROOT
+
+def _count_total_modules(root: Path) -> int:
+    """Count non-__init__.py, non-__main__.py modules in metabolon/."""
     metabolon_dir = root / "metabolon"
-
     if not metabolon_dir.is_dir():
-        print(f"Error: {metabolon_dir} not found", file=sys.stderr)
-        return 1
+        return 0
+    return sum(
+        1 for p in metabolon_dir.rglob("*.py")
+        if p.name not in {"__init__.py", "__main__.py"}
+    )
 
-    orphans = find_orphans(root, metabolon_dir)
-    print(format_report(orphans, use_json=use_json))
+
+def main(argv: list[str] | None = None) -> int:
+    args = argv if argv is not None else sys.argv[1:]
+    use_json = "--json" in args
+    root = DEFAULT_ROOT
+
+    # --path DIR
+    for i, a in enumerate(args):
+        if a == "--path" and i + 1 < len(args):
+            root = Path(args[i + 1])
+
+    orphans = find_orphans(root)
+
+    if use_json:
+        print(format_json(orphans, root))
+    else:
+        print(format_human(orphans, root))
+
     return 0
 
 
