@@ -43,13 +43,13 @@ main.add_command(coaching_group, "coaching")
 @click.option("--test-command", default=None, help="Optional test command to run after execution.")
 @click.option("--timeout", default=600, show_default=True, type=int)
 @click.option("-v", "--verbose", is_flag=True, help="Stream backend output live.")
-@click.option("--commit", is_flag=True, help="Auto-commit changes after successful execution.")
+@click.option("--commit/--no-commit", default=True, show_default=True, help="Auto-commit changes after successful execution.")
 @click.option("--dry-run", is_flag=True, help="Show what would change without editing files.")
 @click.option("--json-output", "json_out", is_flag=True, help="Output results as JSON.")
-@click.option("--retries", default=0, show_default=True, type=int, help="Retry failed tasks N times.")
+@click.option("--retries", default=1, show_default=True, type=int, help="Retry failed tasks N times.")
 @click.option("-q", "--quiet", is_flag=True, help="Suppress all output except errors.")
 @click.option("--no-coaching", is_flag=True, help="Skip coaching note prepend.")
-@click.option("--worktree", is_flag=True, help="Execute each task in an isolated git worktree.")
+@click.option("--worktree/--no-worktree", default=True, show_default=True, help="Execute each task in an isolated git worktree.")
 def exec_command(
     plan_file: Path,
     project_dir: Path,
