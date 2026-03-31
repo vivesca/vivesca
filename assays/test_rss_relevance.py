@@ -87,12 +87,14 @@ class TestReadJsonl:
             f.write("\n")  # empty line skipped
             f.write(json.dumps({"c": 3}) + "\n")
         path = Path(f.name)
-        result = _read_jsonl(path)
-        assert len(result) == 3
-        assert result[0]["a"] == 1
-        assert result[1]["b"] == 2
-        assert result[2]["c"] == 3
-        path.unlink()
+        try:
+            result = _read_jsonl(path)
+            assert len(result) == 3
+            assert result[0]["a"] == 1
+            assert result[1]["b"] == 2
+            assert result[2]["c"] == 3
+        finally:
+            path.unlink(missing_ok=True)
 
     def test_returns_empty_for_missing_file(self):
         """Missing file → empty list"""
