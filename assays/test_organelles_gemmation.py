@@ -353,40 +353,38 @@ class TestCancelTask:
 
 
 class TestRunTask:
+    """All tests patch subprocess.Popen and capture the class-level mock."""
+
     def test_dispatches_claude_task(self, tmp_queue, tmp_path):
-        mock_popen = MagicMock()
-        mock_popen.pid = 12345
         with (
-            patch("metabolon.organelles.gemmation.subprocess.Popen", return_value=mock_popen),
+            patch("metabolon.organelles.gemmation.subprocess.Popen") as popen_cls,
             patch("metabolon.organelles.gemmation.RUNS_DIR", tmp_path / "runs"),
             patch("metabolon.organelles.gemmation.datetime") as mock_dt,
         ):
+            popen_cls.return_value.pid = 12345
             mock_dt.now.return_value = datetime(2026, 4, 1, 12, 0)
             result = run_task("alpha", tmp_queue)
 
         assert "Dispatched 'alpha'" in result
         assert "claude" in result
         assert "12345" in result
-        mock_popen.assert_called_once()
-        # Verify start_new_session=True
-        _, kwargs = mock_popen.call_args
+        popen_cls.assert_called_once()
+        _, kwargs = popen_cls.call_args
         assert kwargs["start_new_session"] is True
 
     def test_dispatches_opencode_task(self, tmp_queue, tmp_path):
-        mock_popen = MagicMock()
-        mock_popen.pid = 99
         with (
-            patch("metabolon.organelles.gemmation.subprocess.Popen", return_value=mock_popen),
+            patch("metabolon.organelles.gemmation.subprocess.Popen") as popen_cls,
             patch("metabolon.organelles.gemmation.RUNS_DIR", tmp_path / "runs"),
             patch("metabolon.organelles.gemmation.datetime") as mock_dt,
         ):
+            popen_cls.return_value.pid = 99
             mock_dt.now.return_value = datetime(2026, 4, 1, 12, 0)
             result = run_task("beta", tmp_queue)
 
         assert "Dispatched 'beta'" in result
         assert "opencode" in result
-        # Check monitor script contains opencode command
-        args, _ = mock_popen.call_args
+        args, _ = popen_cls.call_args
         monitor_script = args[0][2]
         assert "opencode" in monitor_script
 
@@ -396,10 +394,8 @@ class TestRunTask:
 
     def test_creates_output_dirs(self, tmp_queue, tmp_path):
         runs = tmp_path / "runs"
-        mock_popen = MagicMock()
-        mock_popen.pid = 1
         with (
-            patch("metabolon.organelles.gemmation.subprocess.Popen", return_value=mock_popen),
+            patch("metabolon.organelles.gemmation.subprocess.Popen"),
             patch("metabolon.organelles.gemmation.RUNS_DIR", runs),
             patch("metabolon.organelles.gemmation.datetime") as mock_dt,
         ):
@@ -409,48 +405,42 @@ class TestRunTask:
         assert (runs / "2026-04-01-1200" / "alpha").exists()
 
     def test_monitor_script_contains_paracrine_signal(self, tmp_queue, tmp_path):
-        mock_popen = MagicMock()
-        mock_popen.pid = 1
         with (
-            patch("metabolon.organelles.gemmation.subprocess.Popen", return_value=mock_popen),
+            patch("metabolon.organelles.gemmation.subprocess.Popen") as popen_cls,
             patch("metabolon.organelles.gemmation.RUNS_DIR", tmp_path / "runs"),
             patch("metabolon.organelles.gemmation.datetime") as mock_dt,
         ):
             mock_dt.now.return_value = datetime(2026, 4, 1, 12, 0)
             run_task("alpha", tmp_queue)
 
-        args, _ = mock_popen.call_args
+        args, _ = popen_cls.call_args
         monitor_script = args[0][2]
         assert "emit_signal" in monitor_script
         assert "gemmation-alpha" in monitor_script
 
     def test_claude_env_sets_claudecode(self, tmp_queue, tmp_path):
-        mock_popen = MagicMock()
-        mock_popen.pid = 1
         with (
-            patch("metabolon.organelles.gemmation.subprocess.Popen", return_value=mock_popen),
+            patch("metabolon.organelles.gemmation.subprocess.Popen") as popen_cls,
             patch("metabolon.organelles.gemmation.RUNS_DIR", tmp_path / "runs"),
             patch("metabolon.organelles.gemmation.datetime") as mock_dt,
         ):
             mock_dt.now.return_value = datetime(2026, 4, 1, 12, 0)
             run_task("alpha", tmp_queue)
 
-        _, kwargs = mock_popen.call_args
+        _, kwargs = popen_cls.call_args
         env = kwargs["env"]
         assert "CLAUDECODE" in env
 
     def test_opencode_env_sets_opencode_home(self, tmp_queue, tmp_path):
-        mock_popen = MagicMock()
-        mock_popen.pid = 1
         with (
-            patch("metabolon.organelles.gemmation.subprocess.Popen", return_value=mock_popen),
+            patch("metabolon.organelles.gemmation.subprocess.Popen") as popen_cls,
             patch("metabolon.organelles.gemmation.RUNS_DIR", tmp_path / "runs"),
             patch("metabolon.organelles.gemmation.datetime") as mock_dt,
         ):
             mock_dt.now.return_value = datetime(2026, 4, 1, 12, 0)
             run_task("beta", tmp_queue)
 
-        _, kwargs = mock_popen.call_args
+        _, kwargs = popen_cls.call_args
         env = kwargs["env"]
         assert "OPENCODE_HOME" in env
         assert ".opencode-lean" in env["OPENCODE_HOME"]
