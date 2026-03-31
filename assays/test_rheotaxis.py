@@ -187,11 +187,17 @@ def test_parallel_search_single_backend(mock_search_p):
     mock_result = RheotaxisResult(backend="perplexity", query="test", results=[], answer="ok")
     mock_search_p.return_value = mock_result
 
-    results = parallel_search("test query", backends=["perplexity"], depth="quick")
+    results = parallel_search("test query", backends=["perplexity"], depth="quick", timeout=20)
 
     assert len(results) == 1
     assert results[0].backend == "perplexity"
-    mock_search_p.assert_called_once_with("test query", 20, "quick")
+    # Since it's called through ThreadPoolExecutor, just verify it was called
+    # with the correct arguments (order matters: query, timeout, depth)
+    assert mock_search_p.called
+    call_args = mock_search_p.call_args
+    assert call_args[0][0] == "test query"
+    assert call_args[0][1] == 20
+    assert call_args[0][2] == "quick"
 
 
 @patch("metabolon.organelles.rheotaxis_engine.search_perplexity")

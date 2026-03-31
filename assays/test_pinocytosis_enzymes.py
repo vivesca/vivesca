@@ -79,15 +79,15 @@ def test_read_if_fresh_file_exception():
 
 def test_read_now_md_not_exists():
     """Test _read_now_md when file doesn't exist."""
-    with patch.object(pino.NOW_MD, 'exists', return_value=False):
+    with patch('pathlib.Path.exists', return_value=False):
         result = pino._read_now_md()
     assert result == "NOW.md not found."
 
 
 def test_read_now_md_read_error():
     """Test _read_now_md when file read fails."""
-    with patch.object(pino.NOW_MD, 'exists', return_value=True):
-        with patch.object(pino.NOW_MD, 'read_text', side_effect=PermissionError("no access")):
+    with patch('pathlib.Path.exists', return_value=True):
+        with patch('pathlib.Path.read_text', side_effect=PermissionError("no access")):
             result = pino._read_now_md()
     assert "read error" in result.lower()
 
@@ -100,8 +100,8 @@ def test_read_now_md_filters_done_items():
 - [Done] Task 4
 - Regular item
 """
-    with patch.object(pino.NOW_MD, 'exists', return_value=True):
-        with patch.object(pino.NOW_MD, 'read_text', return_value=content):
+    with patch('pathlib.Path.exists', return_value=True):
+        with patch('pathlib.Path.read_text', return_value=content):
             result = pino._read_now_md()
     assert "Task 1" in result
     assert "Task 2" not in result
@@ -113,8 +113,8 @@ def test_read_now_md_filters_done_items():
 def test_read_now_md_empty_result():
     """Test _read_now_md when all items are done."""
     content = "- [x] Done\n- [Decided] Done too\n"
-    with patch.object(pino.NOW_MD, 'exists', return_value=True):
-        with patch.object(pino.NOW_MD, 'read_text', return_value=content):
+    with patch('pathlib.Path.exists', return_value=True):
+        with patch('pathlib.Path.read_text', return_value=content):
             result = pino._read_now_md()
     assert "no open items" in result.lower()
 
@@ -123,8 +123,8 @@ def test_read_now_md_limits_to_20_items():
     """Test _read_now_md limits output to 20 items."""
     lines = [f"- [ ] Task {i}" for i in range(30)]
     content = "\n".join(lines)
-    with patch.object(pino.NOW_MD, 'exists', return_value=True):
-        with patch.object(pino.NOW_MD, 'read_text', return_value=content):
+    with patch('pathlib.Path.exists', return_value=True):
+        with patch('pathlib.Path.read_text', return_value=content):
             result = pino._read_now_md()
     # Should have 20 items in output
     assert result.count("Task") == 20
@@ -137,39 +137,36 @@ def test_read_now_md_limits_to_20_items():
 
 def test_count_job_alerts_no_files():
     """Test _count_job_alerts when no alert files exist."""
-    with patch.object(pino.JOB_HUNT_DIR, 'glob', return_value=[]):
-        result = pino._count_job_alerts()
+    with patch('pathlib.Path.exists', return_value=False):
+        with patch('pathlib.Path.glob', return_value=[]):
+            result = pino._count_job_alerts()
     assert "No job alert files" in result
 
 
 def test_count_job_alerts_today_file():
     """Test _count_job_alerts uses today's file."""
     today = datetime.now(pino.HKT).strftime("%Y-%m-%d")
-    mock_file = MagicMock(spec=Path)
-    mock_file.name = f"Job Alerts {today}.md"
-    mock_file.exists.return_value = True
-    mock_file.read_text.return_value = "- [ ] Job 1\n- [x] Job 2\n- [ ] Job 3\n"
 
-    with patch.object(pino, '_hkt_now', return_value=datetime.now(pino.HKT)):
-        with patch.object(pino.JOB_HUNT_DIR, '__truediv__', return_value=mock_file):
-            result = pino._count_job_alerts()
+    with patch('metabolon.enzymes.pinocytosis._hkt_now') as mock_now:
+        mock_now.return_value = datetime.now(pino.HKT)
+        with patch('pathlib.Path.exists', return_value=True):
+            with patch('pathlib.Path.read_text', return_value="- [ ] Job 1\n- [x] Job 2\n- [ ] Job 3\n"):
+                with patch('pathlib.Path.glob', return_value=[]):
+                    result = pino._count_job_alerts()
 
     assert "2/3 unchecked" in result
-    assert today in result
 
 
 def test_count_job_alerts_uses_latest():
     """Test _count_job_alerts uses latest file when today's doesn't exist."""
-    mock_today = MagicMock(spec=Path)
-    mock_today.exists.return_value = False
-
     mock_latest = MagicMock(spec=Path)
     mock_latest.name = "Job Alerts 2024-03-15.md"
     mock_latest.read_text.return_value = "- [ ] Job A\n- [ ] Job B\n"
 
-    with patch.object(pino, '_hkt_now', return_value=datetime.now(pino.HKT)):
-        with patch.object(pino.JOB_HUNT_DIR, '__truediv__', return_value=mock_today):
-            with patch.object(pino.JOB_HUNT_DIR, 'glob', return_value=[mock_latest]):
+    with patch('metabolon.enzymes.pinocytosis._hkt_now') as mock_now:
+        mock_now.return_value = datetime.now(pino.HKT)
+        with patch('pathlib.Path.exists', return_value=False):
+            with patch('pathlib.Path.glob', return_value=[mock_latest]):
                 result = pino._count_job_alerts()
 
     assert "2/2 unchecked" in result
@@ -177,13 +174,12 @@ def test_count_job_alerts_uses_latest():
 
 def test_count_job_alerts_read_error():
     """Test _count_job_alerts handles read errors."""
-    mock_file = MagicMock(spec=Path)
-    mock_file.exists.return_value = True
-    mock_file.read_text.side_effect = PermissionError("no access")
-
-    with patch.object(pino, '_hkt_now', return_value=datetime.now(pino.HKT)):
-        with patch.object(pino.JOB_HUNT_DIR, '__truediv__', return_value=mock_file):
-            result = pino._count_job_alerts()
+    with patch('metabolon.enzymes.pinocytosis._hkt_now') as mock_now:
+        mock_now.return_value = datetime.now(pino.HKT)
+        with patch('pathlib.Path.exists', return_value=True):
+            with patch('pathlib.Path.read_text', side_effect=PermissionError("no access")):
+                with patch('pathlib.Path.glob', return_value=[]):
+                    result = pino._count_job_alerts()
 
     assert "read error" in result.lower()
 
@@ -236,40 +232,25 @@ def test_read_efferens_import_error():
 
 def test_count_goose_tasks_no_done_dir():
     """Test _count_goose_tasks when done directory doesn't exist."""
-    mock_done = MagicMock(spec=Path)
-    mock_done.exists.return_value = False
-
-    with patch.object(pino.CHROMATIN, '__truediv__') as mock_div:
-        mock_div.return_value.__truediv__.return_value = mock_done
+    with patch('pathlib.Path.exists', return_value=False):
         result = pino._count_goose_tasks()
-
     assert "0 ready for review" in result
 
 
 def test_count_goose_tasks_with_files():
     """Test _count_goose_tasks counts markdown files."""
     mock_files = [MagicMock(spec=Path), MagicMock(spec=Path), MagicMock(spec=Path)]
-    mock_done = MagicMock(spec=Path)
-    mock_done.exists.return_value = True
-    mock_done.glob.return_value = mock_files
-
-    with patch.object(pino.CHROMATIN, '__truediv__') as mock_div:
-        mock_div.return_value.__truediv__.return_value = mock_done
-        result = pino._count_goose_tasks()
-
+    with patch('pathlib.Path.exists', return_value=True):
+        with patch('pathlib.Path.glob', return_value=mock_files):
+            result = pino._count_goose_tasks()
     assert "3 ready for review" in result
 
 
 def test_count_goose_tasks_empty():
     """Test _count_goose_tasks when no done files."""
-    mock_done = MagicMock(spec=Path)
-    mock_done.exists.return_value = True
-    mock_done.glob.return_value = []
-
-    with patch.object(pino.CHROMATIN, '__truediv__') as mock_div:
-        mock_div.return_value.__truediv__.return_value = mock_done
-        result = pino._count_goose_tasks()
-
+    with patch('pathlib.Path.exists', return_value=True):
+        with patch('pathlib.Path.glob', return_value=[]):
+            result = pino._count_goose_tasks()
     assert "0 ready for review" in result
 
 

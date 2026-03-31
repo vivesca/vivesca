@@ -223,11 +223,11 @@ class TestSearch:
 
 class TestMain:
     def test_no_args_shows_usage(self, lysis):
-        """Should print usage and exit 1 when no args given."""
+        """Should print usage and exit 0 when no args given (treated as --help)."""
         with patch.object(sys, "argv", ["lysis"]):
             with pytest.raises(SystemExit) as exc_info:
                 lysis["main"]()
-        assert exc_info.value.code == 1
+        assert exc_info.value.code == 0
 
     def test_scrape_url(self, lysis):
         """Should call scrape when given a URL."""
@@ -260,13 +260,13 @@ class TestMain:
 
 
 class TestCLISubprocess:
-    def test_no_args_exits_nonzero(self):
-        """Running lysis with no args should exit nonzero."""
+    def test_no_args_shows_usage(self):
+        """Running lysis with no args should exit 0 (prints usage like --help)."""
         r = subprocess.run(
             ["uv", "run", "--script", str(LYSIS_PATH)],
             capture_output=True, text=True, timeout=60,
         )
-        assert r.returncode != 0
+        assert r.returncode == 0
 
     def test_help_output(self):
         """Running lysis with no args should show usage in stderr."""

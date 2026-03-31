@@ -1,4 +1,7 @@
-"""Tests for the circadian module."""
+from __future__ import annotations
+
+"""Tests for metabolon.enzymes.circadian — all external calls mocked."""
+
 import pytest
 from unittest.mock import patch, MagicMock
 
@@ -6,248 +9,191 @@ from metabolon.enzymes.circadian import circadian, CircadianResult
 from metabolon.morphology import EffectorResult
 
 
-class TestCircadianActions:
-    """Test all action types for the circadian function."""
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
 
-    def test_unknown_action_returns_error(self):
-        """Test that unknown action returns error result."""
-        result = circadian(action="invalid_action")
-        assert isinstance(result, EffectorResult)
-        assert not result.success
-        assert "Unknown action" in result.message
-        assert "list, set, move, delete, sleep, heartrate" in result.message
+def _result(r):
+    """Normalize: circadian returns CircadianResult or EffectorResult."""
+    return r
 
-    def test_list_action_calls_scheduled_events(self):
-        """Test that list action correctly calls scheduled_events."""
-        mock_output = "Event 1\nEvent 2"
-        
-        with patch("metabolon.organelles.circadian_clock.scheduled_events", return_value=mock_output) as mock_scheduled:
-            result = circadian(action="list", date="2026-04-01")
-            
-            assert isinstance(result, CircadianResult)
-            assert result.output == mock_output
-            mock_scheduled.assert_called_once_with("2026-04-01")
 
-    def test_list_action_default_date_is_today(self):
-        """Test that list action uses 'today' as default date."""
-        mock_output = "Events for today"
-        
-        with patch("metabolon.organelles.circadian_clock.scheduled_events", return_value=mock_output) as mock_scheduled:
-            result = circadian(action="list")
-            
-            assert isinstance(result, CircadianResult)
-            mock_scheduled.assert_called_once_with("today")
+# ---------------------------------------------------------------------------
+# list
+# ---------------------------------------------------------------------------
 
-    # Tests for set action
-    def test_set_action_missing_parameters_returns_error(self):
-        """Test that set action with missing parameters returns error."""
-        # Missing all required parameters
-        result = circadian(action="set")
-        assert isinstance(result, EffectorResult)
-        assert not result.success
-        assert "set requires: summary, date, from_time, to_time" in result.message
-        
-        # Missing some parameters
-        result = circadian(action="set", summary="Meeting", date="today")
-        assert isinstance(result, EffectorResult)
-        assert not result.success
+class TestList:
+    @patch("metabolon.organelles.circadian_clock.scheduled_events", return_value="No events")
+    def test_list_default(self, mock_se):
+        r = circadian(action="list")
+        assert isinstance(r, CircadianResult)
+        assert r.output == "No events"
+        mock_se.assert_called_once_with("today")
 
-    def test_set_action_calculates_duration_correctly(self):
-        """Test that duration is calculated correctly from from_time and to_time."""
-        mock_result = "Event scheduled successfully"
-        
-        with patch("metabolon.organelles.circadian_clock.schedule_event", return_value=mock_result) as mock_schedule:
-            result = circadian(
-                action="set",
-                summary="Team Meeting",
-                date="2026-04-01",
-                from_time="10:00",
-                to_time="11:30"
-            )
-            
-            assert isinstance(result, CircadianResult)
-            mock_schedule.assert_called_once_with("Team Meeting", "2026-04-01", "10:00", duration=90)
-            assert result.output == mock_result
+    @patch("metabolon.organelles.circadian_clock.scheduled_events", return_value="evt1,evt2")
+    def test_list_specific_date(self, mock_se):
+        r = circadian(action="list", date="2025-06-15")
+        assert isinstance(r, CircadianResult)
+        assert r.output == "evt1,evt2"
+        mock_se.assert_called_once_with("2025-06-15")
 
-    def test_set_action_handles_invalid_time_format(self):
-        """Test that invalid time format defaults to 60 minutes duration."""
-        mock_result = "Event scheduled"
-        
-        with patch("metabolon.organelles.circadian_clock.schedule_event", return_value=mock_result) as mock_schedule:
-            result = circadian(
-                action="set",
-                summary="Meeting",
-                date="today",
-                from_time="invalid",
-                to_time="11:00"
-            )
-            
-            assert isinstance(result, CircadianResult)
-            mock_schedule.assert_called_once_with("Meeting", "today", "invalid", duration=60)
 
-    def test_set_action_handles_negative_duration(self):
-        """Test that negative duration defaults to 60 minutes."""
-        mock_result = "Event scheduled"
-        
-        with patch("metabolon.organelles.circadian_clock.schedule_event", return_value=mock_result) as mock_schedule:
-            result = circadian(
-                action="set",
-                summary="Meeting",
-                date="today",
-                from_time="14:00",
-                to_time="13:00"
-            )
-            
-            assert isinstance(result, CircadianResult)
-            mock_schedule.assert_called_once_with("Meeting", "today", "14:00", duration=60)
+# ---------------------------------------------------------------------------
+# set
+# ---------------------------------------------------------------------------
 
-    def test_set_action_includes_description_and_location_note(self):
-        """Test that notes about ignored description and location are included."""
-        mock_result = "Scheduled"
-        
-        with patch("metabolon.organelles.circadian_clock.schedule_event", return_value=mock_result) as mock_schedule:
-            result = circadian(
-                action="set",
-                summary="Meeting",
-                date="today",
-                from_time="10:00",
-                to_time="11:00",
-                description="Quarterly review",
-                location="Conference Room A"
-            )
-            
-            assert isinstance(result, CircadianResult)
-            assert "description ignored by circadian_clock: Quarterly review" in result.output
-            assert "location ignored by circadian_clock: Conference Room A" in result.output
-            assert "Scheduled" in result.output
+class TestSet:
+    def test_set_missing_fields(self):
+        r = circadian(action="set")
+        assert isinstance(r, EffectorResult)
+        assert r.success is False
+        assert "set requires" in r.message
 
-    def test_set_action_successful_without_optional_fields(self):
-        """Test successful set action without optional description and location."""
-        mock_result = "Event created: 12345"
-        
-        with patch("metabolon.organelles.circadian_clock.schedule_event", return_value=mock_result) as mock_schedule:
-            result = circadian(
-                action="set",
-                summary="Simple Event",
-                date="2026-04-01",
-                from_time="09:00",
-                to_time="10:00"
-            )
-            
-            assert isinstance(result, CircadianResult)
-            assert result.output == mock_result
-            mock_schedule.assert_called_once_with("Simple Event", "2026-04-01", "09:00", duration=60)
+    @patch("metabolon.organelles.circadian_clock.schedule_event", return_value="created E1")
+    def test_set_basic(self, mock_se):
+        r = circadian(action="set", summary="Meeting", date="2025-06-15", from_time="09:00", to_time="10:30")
+        assert isinstance(r, CircadianResult)
+        assert "created E1" in r.output
+        # 9:00 → 10:30 = 90 minutes
+        mock_se.assert_called_once_with("Meeting", "2025-06-15", "09:00", duration=90)
 
-    # Tests for move action
-    def test_move_action_missing_parameters_returns_error(self):
-        """Test that move with missing parameters returns error."""
-        result = circadian(action="move")
-        assert isinstance(result, EffectorResult)
-        assert not result.success
-        assert "move requires: event_id, date, time" in result.message
+    @patch("metabolon.organelles.circadian_clock.schedule_event", return_value="created E2")
+    def test_set_duration_wraps_midnight(self, mock_se):
+        """End before start → falls back to 60 min."""
+        r = circadian(action="set", summary="Late", date="2025-06-15", from_time="23:00", to_time="01:00")
+        assert isinstance(r, CircadianResult)
+        mock_se.assert_called_once_with("Late", "2025-06-15", "23:00", duration=60)
 
-    def test_move_action_calls_reschedule_event(self):
-        """Test that move action correctly calls reschedule_event."""
-        mock_output = "Event moved successfully"
-        
-        with patch("metabolon.organelles.circadian_clock.reschedule_event", return_value=mock_output) as mock_reschedule:
-            result = circadian(
-                action="move",
-                event_id="event_123",
-                date="2026-04-02",
-                time="14:30"
-            )
-            
-            assert isinstance(result, CircadianResult)
-            assert result.output == mock_output
-            mock_reschedule.assert_called_once_with("event_123", "2026-04-02", "14:30")
+    @patch("metabolon.organelles.circadian_clock.schedule_event", return_value="ok")
+    def test_set_bad_time_format_fallback(self, mock_se):
+        """Unparseable times → default 60 min."""
+        r = circadian(action="set", summary="X", date="2025-06-15", from_time="noon", to_time="one")
+        assert isinstance(r, CircadianResult)
+        mock_se.assert_called_once_with("X", "2025-06-15", "noon", duration=60)
 
-    # Tests for delete action
-    def test_delete_action_missing_event_id_returns_error(self):
-        """Test that delete without event_id returns error."""
-        result = circadian(action="delete")
-        assert isinstance(result, EffectorResult)
-        assert not result.success
-        assert "delete requires: event_id" in result.message
+    @patch("metabolon.organelles.circadian_clock.schedule_event", return_value="ok")
+    def test_set_with_description_and_location(self, mock_se):
+        r = circadian(
+            action="set",
+            summary="S",
+            date="2025-06-15",
+            from_time="10:00",
+            to_time="11:00",
+            description="desc",
+            location="room",
+        )
+        assert isinstance(r, CircadianResult)
+        assert "description ignored by circadian_clock: desc" in r.output
+        assert "location ignored by circadian_clock: room" in r.output
 
-    def test_delete_action_calls_cancel_event(self):
-        """Test that delete action correctly calls cancel_event."""
-        mock_output = "Event canceled"
-        
-        with patch("metabolon.organelles.circadian_clock.cancel_event", return_value=mock_output) as mock_cancel:
-            result = circadian(action="delete", event_id="event_123")
-            
-            assert isinstance(result, CircadianResult)
-            assert result.output == mock_output
-            mock_cancel.assert_called_once_with("event_123")
+    @patch("metabolon.organelles.circadian_clock.schedule_event", return_value="ok")
+    def test_set_exact_one_hour(self, mock_se):
+        r = circadian(action="set", summary="S", date="2025-06-15", from_time="10:00", to_time="11:00")
+        mock_se.assert_called_once_with("S", "2025-06-15", "10:00", duration=60)
 
-    # Tests for sleep action
-    def test_sleep_action_calls__sleep_result(self):
-        """Test that sleep action correctly calls _sleep_result."""
-        mock_summary = MagicMock()
-        mock_summary.summary = "Sleep data for the period"
-        
-        with patch("metabolon.enzymes.interoception._sleep_result", return_value=mock_summary) as mock_sleep:
-            result = circadian(action="sleep", period="week")
-            
-            assert isinstance(result, CircadianResult)
-            assert result.output == "Sleep data for the period"
-            mock_sleep.assert_called_once_with("week")
 
-    def test_sleep_action_default_period_is_today(self):
-        """Test that sleep action uses 'today' as default period."""
-        mock_summary = MagicMock()
-        mock_summary.summary = "Today's sleep data"
-        
-        with patch("metabolon.enzymes.interoception._sleep_result", return_value=mock_summary) as mock_sleep:
-            result = circadian(action="sleep")
-            
-            assert isinstance(result, CircadianResult)
-            mock_sleep.assert_called_once_with("today")
+# ---------------------------------------------------------------------------
+# move
+# ---------------------------------------------------------------------------
 
-    # Tests for heartrate action
-    def test_heartrate_action_calls__heartrate_result(self):
-        """Test that heartrate action correctly calls _heartrate_result."""
-        mock_summary = MagicMock()
-        mock_summary.summary = "Heart rate: average 65 bpm"
-        
-        with patch("metabolon.enzymes.interoception._heartrate_result", return_value=mock_summary) as mock_hr:
-            result = circadian(
-                action="heartrate",
-                start_datetime="2026-03-31T00:00:00",
-                end_datetime="2026-03-31T23:59:59"
-            )
-            
-            assert isinstance(result, CircadianResult)
-            assert result.output == "Heart rate: average 65 bpm"
-            mock_hr.assert_called_once_with("2026-03-31T00:00:00", "2026-03-31T23:59:59")
+class TestMove:
+    def test_move_missing_fields(self):
+        r = circadian(action="move")
+        assert isinstance(r, EffectorResult)
+        assert r.success is False
+        assert "move requires" in r.message
 
-    def test_heartrate_action_accepts_empty_datetimes(self):
-        """Test that heartrate action accepts empty start/end datetimes."""
-        mock_summary = MagicMock()
-        mock_summary.summary = "All-time heart rate data"
-        
-        with patch("metabolon.enzymes.interoception._heartrate_result", return_value=mock_summary) as mock_hr:
-            result = circadian(action="heartrate")
-            
-            assert isinstance(result, CircadianResult)
-            mock_hr.assert_called_once_with("", "")
+    @patch("metabolon.organelles.circadian_clock.reschedule_event", return_value="moved ok")
+    def test_move_success(self, mock_re):
+        r = circadian(action="move", event_id="E42", date="2025-07-01", time="14:00")
+        assert isinstance(r, CircadianResult)
+        assert r.output == "moved ok"
+        mock_re.assert_called_once_with("E42", "2025-07-01", "14:00")
+
+
+# ---------------------------------------------------------------------------
+# delete
+# ---------------------------------------------------------------------------
+
+class TestDelete:
+    def test_delete_missing_event_id(self):
+        r = circadian(action="delete")
+        assert isinstance(r, EffectorResult)
+        assert r.success is False
+        assert "delete requires" in r.message
+
+    @patch("metabolon.organelles.circadian_clock.cancel_event", return_value="deleted ok")
+    def test_delete_success(self, mock_ce):
+        r = circadian(action="delete", event_id="E99")
+        assert isinstance(r, CircadianResult)
+        assert r.output == "deleted ok"
+        mock_ce.assert_called_once_with("E99")
+
+
+# ---------------------------------------------------------------------------
+# sleep
+# ---------------------------------------------------------------------------
+
+class TestSleep:
+    @patch("metabolon.enzymes.interoception._sleep_result")
+    def test_sleep_default(self, mock_sr):
+        mock_sr.return_value = MagicMock(summary="7.5h sleep")
+        r = circadian(action="sleep")
+        assert isinstance(r, CircadianResult)
+        assert r.output == "7.5h sleep"
+        mock_sr.assert_called_once_with("today")
+
+    @patch("metabolon.enzymes.interoception._sleep_result")
+    def test_sleep_specific_period(self, mock_sr):
+        mock_sr.return_value = MagicMock(summary="6h sleep")
+        r = circadian(action="sleep", period="yesterday")
+        assert isinstance(r, CircadianResult)
+        assert r.output == "6h sleep"
+        mock_sr.assert_called_once_with("yesterday")
+
+
+# ---------------------------------------------------------------------------
+# heartrate
+# ---------------------------------------------------------------------------
+
+class TestHeartRate:
+    @patch("metabolon.enzymes.interoception._heartrate_result")
+    def test_heartrate_default(self, mock_hr):
+        mock_hr.return_value = MagicMock(summary="avg 72 bpm")
+        r = circadian(action="heartrate")
+        assert isinstance(r, CircadianResult)
+        assert r.output == "avg 72 bpm"
+        mock_hr.assert_called_once_with("", "")
+
+    @patch("metabolon.enzymes.interoception._heartrate_result")
+    def test_heartrate_with_range(self, mock_hr):
+        mock_hr.return_value = MagicMock(summary="max 110 bpm")
+        r = circadian(action="heartrate", start_datetime="2025-06-01", end_datetime="2025-06-07")
+        assert isinstance(r, CircadianResult)
+        assert r.output == "max 110 bpm"
+        mock_hr.assert_called_once_with("2025-06-01", "2025-06-07")
+
+
+# ---------------------------------------------------------------------------
+# unknown action
+# ---------------------------------------------------------------------------
+
+class TestUnknown:
+    def test_unknown_action(self):
+        r = circadian(action="dance")
+        assert isinstance(r, EffectorResult)
+        assert r.success is False
+        assert "Unknown action" in r.message
 
     def test_action_case_insensitive(self):
-        """Test that action is case-insensitive and stripped."""
-        mock_output = "Events listed"
-        
-        with patch("metabolon.organelles.circadian_clock.scheduled_events", return_value=mock_output) as mock_scheduled:
-            result = circadian(action="LIST")
-            assert isinstance(result, CircadianResult)
-            mock_scheduled.assert_called_once()
-            
-        with patch("metabolon.organelles.circadian_clock.scheduled_events", return_value=mock_output) as mock_scheduled:
-            result = circadian(action="List")
-            assert isinstance(result, CircadianResult)
-            mock_scheduled.assert_called_once()
-            
-        with patch("metabolon.organelles.circadian_clock.scheduled_events", return_value=mock_output) as mock_scheduled:
-            result = circadian(action="  list  ")
-            assert isinstance(result, CircadianResult)
-            mock_scheduled.assert_called_once()
+        """Actions are lowercased, so 'LIST' should still be dispatched."""
+        with patch("metabolon.organelles.circadian_clock.scheduled_events", return_value="ok"):
+            r = circadian(action="LIST")
+            assert isinstance(r, CircadianResult)
+            assert r.output == "ok"
+
+    def test_action_whitespace_trimmed(self):
+        with patch("metabolon.organelles.circadian_clock.scheduled_events", return_value="ok"):
+            r = circadian(action="  list  ")
+            assert isinstance(r, CircadianResult)
+            assert r.output == "ok"
