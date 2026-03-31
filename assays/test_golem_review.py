@@ -124,7 +124,7 @@ class TestScanLog:
         finally:
             _mod["LOGFILE"] = orig
         assert len(result["completed"]) == 1
-        assert result["completed"][0][1] == "golem task1..."
+        assert result["completed"][0][1] == "golem task1"
         assert len(result["failed"]) == 0
 
     def test_failed_task_found(self, tmp_path):
