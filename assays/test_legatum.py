@@ -957,3 +957,60 @@ class TestMain:
             main()
         out = capsys.readouterr().out
         assert "no candidates" in out
+
+    def test_gather_format_json(self, capsys):
+        with patch("sys.argv", ["legatum", "gather", "--format", "json"]), \
+             _pdict(**self._gather_patches()):
+            main()
+        out = capsys.readouterr().out
+        data = json.loads(out)
+        assert "repos" in data
+        assert data["memory"]["lines"] == 5
+
+    def test_archive_format_json(self, tmp_path, capsys):
+        praxis = tmp_path / "Praxis.md"
+        praxis.write_text("- [ ] nothing\n")
+        with patch("sys.argv", ["legatum", "archive", "--format", "json"]), \
+             _pdict(PRAXIS=praxis, PRAXIS_ARCHIVE=tmp_path / "archive.md"):
+            main()
+        out = capsys.readouterr().out
+        data = json.loads(out)
+        assert data["archived"] == 0
+
+    def test_daily_format_json(self, tmp_path, capsys):
+        from datetime import datetime
+        daily_dir = tmp_path / "Daily"
+        daily_dir.mkdir()
+        fake_now = datetime(2026, 3, 31, 14, 30, 0)
+        with patch("sys.argv", ["legatum", "daily", "--format", "json", "Test"]), \
+             _pdict(DAILY_DIR=daily_dir, datetime=self._fake_datetime(fake_now)):
+            main()
+        out = capsys.readouterr().out
+        data = json.loads(out)
+        assert data["created"] is True
+        assert data["title"] == "Test"
+
+    def test_reflect_format_json(self, capsys):
+        with patch("sys.argv", ["legatum", "reflect", "--format", "json", "abc123"]), \
+             _pdict(run_reflect=MagicMock(return_value=([], {"input_tokens": 0, "output_tokens": 0}))):
+            main()
+        out = capsys.readouterr().out
+        assert json.loads(out) == []
+
+    def test_extract_format_json(self, capsys):
+        data = json.dumps({"reflect": []})
+        with patch("sys.argv", ["legatum", "extract", "--format", "json"]), \
+             patch("sys.stdin", StringIO(data)):
+            main()
+        out = capsys.readouterr().out
+        assert json.loads(out) == []
+
+    def test_format_text_is_default(self, capsys):
+        """Verify --format text (default) gives compact text, not JSON."""
+        with patch("sys.argv", ["legatum", "gather", "--format", "text"]), \
+             _pdict(**self._gather_patches()):
+            main()
+        out = capsys.readouterr().out
+        # Should be compact text, not JSON
+        with pytest.raises(json.JSONDecodeError):
+            json.loads(out)
