@@ -152,6 +152,27 @@ def mark_failed(line_num: int, result: str = "") -> dict:
         QUEUE_FILE.write_text("\n".join(lines) + "\n")
         return {"retried": False}
 
+def _golem_env() -> dict:
+    """Build environment for golem subprocesses.
+
+    Sources ~/.env.fly for API keys and adds effectors to PATH.
+    """
+    env = os.environ.copy()
+    env_file = Path.home() / ".env.fly"
+    if env_file.exists():
+        for line in env_file.read_text().splitlines():
+            line = line.strip()
+            if line.startswith("export "):
+                line = line[7:]
+            if "=" in line and not line.startswith("#"):
+                k, v = line.split("=", 1)
+                env[k.strip()] = v.strip().strip('"').strip("'")
+    effectors = str(Path.home() / "germline" / "effectors")
+    venv_bin = str(Path.home() / "germline" / ".venv" / "bin")
+    local_bin = str(Path.home() / ".local" / "bin")
+    env["PATH"] = f"{effectors}:{venv_bin}:{local_bin}:{env.get('PATH', '/usr/bin:/bin')}"
+    return env
+
 def run_golem(cmd: str) -> tuple[str, int, str]:
     """Run a golem command, return (cmd, exit_code, output_tail)."""
     log(f"Starting: {cmd[:80]}...")
@@ -163,7 +184,8 @@ def run_golem(cmd: str) -> tuple[str, int, str]:
             shell=True,
             capture_output=True,
             text=True,
-            cwd=str(Path.home() / "germline")
+            cwd=str(Path.home() / "germline"),
+            env=_golem_env(),
         )
         duration = int(time.time() - start)
         tail = (result.stdout + result.stderr)[-200:].replace("\n", " ")
