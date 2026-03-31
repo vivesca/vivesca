@@ -22,6 +22,8 @@ Search (full transcripts — slower, searches both user + assistant):
     python chat_history.py --search="DBS" --deep --days=30      # Last 30 days
 """
 
+from __future__ import annotations
+
 import json
 import os
 import re
@@ -29,7 +31,6 @@ import sys
 import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Optional, Dict, Any
 
 HKT = timezone(timedelta(hours=8))
 HISTORY_FILES = {
@@ -155,7 +156,7 @@ def search_transcripts(pattern: str, start_ms: int, end_ms: int, limit: int = 50
     return matches[:limit]
 
 
-def search_prompts(pattern: str, start_ms: int, end_ms: int, tool: Optional[str] = None, limit: int = 50) -> list:
+def search_prompts(pattern: str, start_ms: int, end_ms: int, tool: str | None = None, limit: int = 50) -> list:
     """Search prompt history for a pattern (fast, prompts only)."""
     matches = []
     regex = re.compile(pattern, re.IGNORECASE)
@@ -296,7 +297,7 @@ def scan_opencode(start_ms: int, end_ms: int) -> list:
     return prompts
 
 
-def scan_history(target_date_str: str, limit: int = 50, tool: Optional[str] = None) -> Dict[str, Any]:
+def scan_history(target_date_str: str, limit: int = 50, tool: str | None = None) -> dict[str, Any]:
     """Scan history files for a specific date in HKT."""
     target_date = datetime.strptime(target_date_str, "%Y-%m-%d").replace(tzinfo=HKT)
 

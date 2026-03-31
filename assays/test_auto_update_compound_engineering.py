@@ -59,7 +59,7 @@ def fake_home_no_runners(tmp_path):
 
 def _run_script(args=None, env=None):
     """Run the effector script and return CompletedProcess."""
-    cmd = ["bash", str(EFFECTOR)]
+    cmd = ["/usr/bin/env", "bash", str(EFFECTOR)]
     if args:
         cmd.extend(args)
     return subprocess.run(

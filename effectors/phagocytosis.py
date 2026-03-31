@@ -20,8 +20,11 @@ LOG_FILE = CHROMATIN / ".consumption-log.jsonl"
 
 
 def read_last_open_files() -> list[str]:
-    data = json.loads(WORKSPACE.read_text())
-    return data.get("lastOpenFiles", [])
+    try:
+        data = json.loads(WORKSPACE.read_text())
+        return data.get("lastOpenFiles", [])
+    except (json.JSONDecodeError, OSError):
+        return []
 
 
 def read_last_snapshot() -> list[str] | None:
@@ -45,7 +48,10 @@ def read_last_snapshot() -> list[str] | None:
         line = f.readline().decode().strip()
         if not line:
             return None
-        return json.loads(line).get("files")
+        try:
+            return json.loads(line).get("files")
+        except json.JSONDecodeError:
+            return None
 
 
 def main() -> None:

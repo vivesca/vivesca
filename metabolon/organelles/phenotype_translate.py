@@ -237,16 +237,22 @@ def read_cc_settings(path: Path = CC_SETTINGS_PATH) -> dict[str, Any]:
     """Read and parse Claude Code settings.json."""
     if not path.exists():
         return {}
-    with path.open(encoding="utf-8") as fh:
-        return json.load(fh)
+    try:
+        with path.open(encoding="utf-8") as fh:
+            return json.load(fh)
+    except (json.JSONDecodeError, OSError):
+        return {}
 
 
 def read_gemini_settings(path: Path = GEMINI_SETTINGS_PATH) -> dict[str, Any]:
     """Read existing Gemini CLI settings.json. Returns empty dict if absent."""
     if not path.exists():
         return {}
-    with path.open(encoding="utf-8") as fh:
-        return json.load(fh)
+    try:
+        with path.open(encoding="utf-8") as fh:
+            return json.load(fh)
+    except (json.JSONDecodeError, OSError):
+        return {}
 
 
 def merge_hooks_into_gemini(

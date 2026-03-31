@@ -152,7 +152,11 @@ def fetch(
         )
         sys.exit(1)
 
-    data = json.loads(body)
+    try:
+        data = json.loads(body)
+    except json.JSONDecodeError:
+        print("Error: API returned invalid JSON.", file=sys.stderr)
+        sys.exit(1)
     return data.get("paginationResult", {}).get("results", [])
 
 

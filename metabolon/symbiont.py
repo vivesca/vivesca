@@ -32,8 +32,11 @@ def _strip_ansi(text: str) -> str:
 def restore_symbionts(config_path: str | None = None) -> dict:
     """Load model registry from JSON config."""
     path = config_path or CONFIG_PATH
-    with open(path, encoding="utf-8") as f:
-        return json.load(f)
+    try:
+        with open(path, encoding="utf-8") as f:
+            return json.load(f)
+    except (json.JSONDecodeError, OSError):
+        return {}
 
 
 def available_symbionts(config_path: str | None = None) -> dict[str, str]:

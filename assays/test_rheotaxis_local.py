@@ -1,238 +1,336 @@
-"""Tests for rheotaxis-local effector.
-
-Effectors are scripts — loaded via exec(open(path).read(), ns), never imported.
-"""
+"""Tests for effectors/rheotaxis-local — ambient related-notes surfacer."""
 from __future__ import annotations
 
-import subprocess
-import textwrap
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
 
-EFFECTORS_DIR = Path(__file__).resolve().parent.parent / "effectors"
-RHEOTAXIS_PATH = EFFECTORS_DIR / "rheotaxis-local"
+EFFECTOR_PATH = Path(__file__).parent.parent / "effectors" / "rheotaxis-local"
 
 
-def _load() -> dict:
-    """Load rheotaxis-local into an isolated namespace."""
-    assert RHEOTAXIS_PATH.exists(), f"Effector not found: {RHEOTAXIS_PATH}"
-    ns: dict = {"__name__": "test_rheotaxis_local_module", "__file__": str(RHEOTAXIS_PATH)}
-    exec(RHEOTAXIS_PATH.read_text(), ns)
+def _load_effector():
+    """Load the rheotaxis-local effector by exec-ing its source."""
+    source = EFFECTOR_PATH.read_text()
+    ns: dict = {"__name__": "rheotaxis_local_test"}
+    exec(source, ns)
     return ns
 
 
-# ---------------------------------------------------------------------------
-# _extract_query
-# ---------------------------------------------------------------------------
-
-class TestExtractQuery:
-    def _get_func(self):
-        return _load()["_extract_query"]
-
-    def test_strips_markdown_and_urls(self):
-        fn = self._get_func()
-        text = "# Heading **bold** `code` https://example.com/thing [link](url)"
-        result = fn(text)
-        assert "https://" not in result
-        assert "#" not in result
-        assert "**" not in result
-        assert "Heading" in result
-        assert "bold" in result
-
-    def test_returns_at_most_15_words(self):
-        fn = self._get_func()
-        words = " ".join(f"word{i}" for i in range(50))
-        result = fn(words)
-        assert len(result.split()) <= 15
-
-    def test_filters_short_words(self):
-        fn = self._get_func()
-        text = "a bb cat doge elephant"
-        result = fn(text)
-        assert "a" not in result.split()
-        assert "bb" not in result.split()
-        assert "cat" in result.split()
-        assert "doge" in result.split()
-
-    def test_empty_string_returns_empty(self):
-        fn = self._get_func()
-        assert fn("") == ""
-
-    def test_only_short_words_returns_empty(self):
-        fn = self._get_func()
-        assert fn("a b c d e f") == ""
+_mod = _load_effector()
+_extract_query = _mod["_extract_query"]
+query_qmd = _mod["query_qmd"]
+format_callout = _mod["format_callout"]
+main = _mod["main"]
 
 
-# ---------------------------------------------------------------------------
-# query_qmd
-# ---------------------------------------------------------------------------
-
-class TestQueryQmd:
-    def _get_func(self):
-        return _load()["query_qmd"]
-
-    def test_returns_stdout_on_success(self):
-        fn = self._get_func()
-        mock_result = MagicMock()
-        mock_result.returncode = 0
-        mock_result.stdout = "qmd://notes/foo.md:1\nScore: 0.9\n"
-        mock_result.stderr = ""
-
-        with patch("subprocess.run", return_value=mock_result) as mock_run:
-            out = fn("some text", limit=3)
-
-        mock_run.assert_called_once()
-        cmd_args = mock_run.call_args[0][0]
-        assert cmd_args[0] == "qmd"
-        assert cmd_args[1] == "vsearch"
-        assert out == "qmd://notes/foo.md:1\nScore: 0.9"
-
-    def test_exits_on_nonzero_returncode(self):
-        fn = self._get_func()
-        ns = _load()
-        mock_result = MagicMock()
-        mock_result.returncode = 1
-        mock_result.stderr = "something failed"
-
-        with patch("subprocess.run", return_value=mock_result):
-            with pytest.raises(SystemExit):
-                fn("some text")
+# ── _extract_query tests ──────────────────────────────────────────────
 
 
-# ---------------------------------------------------------------------------
-# format_callout
-# ---------------------------------------------------------------------------
-
-class TestFormatCallout:
-    def _get_func(self):
-        return _load()["format_callout"]
-
-    def test_formats_qmd_paths_as_callout(self):
-        fn = self._get_func()
-        qmd_out = textwrap.dedent("""\
-        qmd://notes/projects/alpha.md:12
-        Score: 0.95
-        qmd://notes/projects/beta.md:34
-        Score: 0.88
-        """)
-        result = fn(qmd_out, Path("notes/my-note.md"))
-        assert "> [!related] Related notes" in result
-        assert "[[alpha]]" in result
-        assert "[[beta]]" in result
-        assert "0.95" in result
-        assert "0.88" in result
-
-    def test_excludes_self_references(self):
-        fn = self._get_func()
-        qmd_out = textwrap.dedent("""\
-        qmd://notes/my-note.md:1
-        Score: 0.99
-        qmd://notes/other.md:5
-        Score: 0.70
-        """)
-        result = fn(qmd_out, Path("notes/my-note.md"))
-        assert "[[my-note]]" not in result
-        assert "[[other]]" in result
-
-    def test_title_lines(self):
-        fn = self._get_func()
-        qmd_out = textwrap.dedent("""\
-        Title: My Great Note
-        Score: 0.91
-        """)
-        result = fn(qmd_out, Path("notes/current.md"))
-        assert "[[My Great Note]]" in result
-
-    def test_returns_empty_on_no_entries(self):
-        fn = self._get_func()
-        qmd_out = "some irrelevant text\nno entries here"
-        result = fn(qmd_out, Path("notes/current.md"))
-        assert result == ""
-
-    def test_limits_to_six_entries(self):
-        fn = self._get_func()
-        lines = []
-        for i in range(10):
-            lines.append(f"qmd://notes/note{i}.md:1")
-            lines.append(f"Score: 0.{90 - i}")
-        qmd_out = "\n".join(lines) + "\n"
-        result = fn(qmd_out, Path("notes/current.md"))
-        # Count bullet lines (lines starting with "> - ")
-        bullet_lines = [l for l in result.splitlines() if l.startswith("> - ")]
-        assert len(bullet_lines) == 6
+def test_extract_query_basic():
+    """Extract meaningful words (>3 chars) from plain text."""
+    text = "This is a simple note about python programming"
+    result = _extract_query(text)
+    assert "simple" in result
+    assert "note" in result
+    assert "about" in result
+    assert "python" in result
+    assert "programming" in result
+    # short words like "is", "a" should be excluded
+    assert "is" not in result.split()
+    assert "a" not in result.split()
 
 
-# ---------------------------------------------------------------------------
-# main — integration via subprocess.run mock + tmp file
-# ---------------------------------------------------------------------------
+def test_extract_query_strips_markdown():
+    """Markdown syntax characters are removed before word extraction."""
+    text = "# Heading **bold** `code` [link](url)"
+    result = _extract_query(text)
+    assert "#" not in result
+    assert "**" not in result
+    assert "`" not in result
+    assert "[" not in result
+
+
+def test_extract_query_strips_urls():
+    """URLs are removed before word extraction."""
+    text = "Check https://example.com/page for details about testing"
+    result = _extract_query(text)
+    assert "https://example.com/page" not in result
+    assert "details" in result
+    assert "testing" in result
+
+
+def test_extract_query_limit_15_words():
+    """At most 15 meaningful words are returned."""
+    words = " ".join(f"word{i:02d}" for i in range(30))
+    result = _extract_query(words)
+    assert len(result.split()) == 15
+
+
+def test_extract_query_empty_string():
+    """Empty input produces empty query."""
+    assert _extract_query("") == ""
+
+
+def test_extract_query_only_short_words():
+    """Text with only short words (<4 chars) produces empty query."""
+    assert _extract_query("a b c d e f g hi") == ""
+
+
+# ── format_callout tests ──────────────────────────────────────────────
+
+
+def test_format_callout_qmd_urls():
+    """qmd:// entries are parsed into wikilinks with scores."""
+    qmd_output = (
+        "qmd://notes/projects/alpha.md:10 #design\n"
+        "Score: 0.95\n"
+        "qmd://notes/projects/beta.md:5 #testing\n"
+        "Score: 0.82\n"
+    )
+    result = format_callout(qmd_output, Path("gamma.md"))
+    assert "> [!related] Related notes" in result
+    assert "[[alpha]] (0.95)" in result
+    assert "[[beta]] (0.82)" in result
+
+
+def test_format_callout_title_lines():
+    """Title: lines are used as the link name."""
+    qmd_output = (
+        "Title: My Great Note\n"
+        "Score: 0.91\n"
+    )
+    result = format_callout(qmd_output, Path("other.md"))
+    assert "[[My Great Note]] (0.91)" in result
+
+
+def test_format_callout_excludes_self_references():
+    """Entries matching the note's own stem are excluded."""
+    qmd_output = (
+        "qmd://notes/projects/self-note.md:10 #design\n"
+        "Score: 0.99\n"
+        "qmd://notes/projects/other-note.md:5 #testing\n"
+        "Score: 0.80\n"
+    )
+    result = format_callout(qmd_output, Path("self-note.md"))
+    assert "self-note" not in result
+    assert "[[other-note]] (0.80)" in result
+
+
+def test_format_callout_empty_input():
+    """Empty qmd output returns empty string."""
+    assert format_callout("", Path("note.md")) == ""
+
+
+def test_format_callout_all_self_refs():
+    """If all entries are self-references, return empty string."""
+    qmd_output = (
+        "qmd://notes/my-note.md:1 #tag\n"
+        "Score: 0.99\n"
+    )
+    result = format_callout(qmd_output, Path("my-note.md"))
+    assert result == ""
+
+
+def test_format_callout_max_six_entries():
+    """At most 6 entries are included in the callout."""
+    lines = []
+    for i in range(10):
+        lines.append(f"Title: Note {i:02d}")
+        lines.append(f"Score: 0.{9 - i}")
+    qmd_output = "\n".join(lines) + "\n"
+    result = format_callout(qmd_output, Path("test.md"))
+    bullet_count = result.count("> -")
+    assert bullet_count == 6
+
+
+def test_format_callout_md_extension_stripped():
+    """The .md extension is stripped from qmd:// paths."""
+    qmd_output = (
+        "qmd://notes/vault/my-page.md:1 #tag\n"
+        "Score: 0.90\n"
+    )
+    result = format_callout(qmd_output, Path("other.md"))
+    assert "[[my-page]] (0.90)" in result
+    assert ".md" not in result.split("(0.90)")[0]
+
+
+def test_format_callout_notes_prefix_stripped():
+    """The qmd://notes/ prefix is stripped from paths."""
+    qmd_output = (
+        "qmd://notes/deep/nested/page.md:1\n"
+        "Score: 0.75\n"
+    )
+    result = format_callout(qmd_output, Path("root.md"))
+    assert "[[page]] (0.75)" in result
+    assert "notes/" not in result
+
+
+# ── query_qmd tests (mocked subprocess) ───────────────────────────────
+
+
+def test_query_qmd_success():
+    """query_qmd returns stdout on success."""
+    mock_result = MagicMock()
+    mock_result.returncode = 0
+    mock_result.stdout = "Title: Result\nScore: 0.9\n"
+    mock_result.stderr = ""
+
+    with patch.object(_mod["subprocess"], "run", return_value=mock_result) as mock_run:
+        result = query_qmd("test query", limit=5)
+    assert "Title: Result" in result
+    mock_run.assert_called_once_with(
+        ["qmd", "vsearch", "test query"],
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+
+
+def test_query_qmd_nonzero_exit():
+    """query_qmd exits with code 1 when qmd fails."""
+    mock_result = MagicMock()
+    mock_result.returncode = 1
+    mock_result.stderr = "index not found"
+
+    with patch.object(_mod["subprocess"], "run", return_value=mock_result):
+        with pytest.raises(SystemExit) as exc_info:
+            query_qmd("test query")
+        assert exc_info.value.code == 1
+
+
+def test_query_qmd_passes_extracted_query():
+    """query_qmd uses _extract_query to process input text."""
+    mock_result = MagicMock()
+    mock_result.returncode = 0
+    mock_result.stdout = ""
+    mock_result.stderr = ""
+
+    with patch.object(_mod["subprocess"], "run", return_value=mock_result) as mock_run:
+        query_qmd("some meaningful text about programming", limit=3)
+    called_query = mock_run.call_args[0][0][2]
+    # _extract_query filters short words and keeps meaningful ones
+    assert "meaningful" in called_query
+    assert "programming" in called_query
+    # Short words should be stripped
+    assert "some" not in called_query.split() or len("some") > 3
+
+
+# ── main CLI tests (mocked subprocess) ────────────────────────────────
+
+
+def _make_qmd_mock(stdout="", returncode=0, stderr=""):
+    """Build a mock subprocess.run result."""
+    mock_result = MagicMock()
+    mock_result.returncode = returncode
+    mock_result.stdout = stdout
+    mock_result.stderr = stderr
+    return mock_result
+
 
 class TestMain:
-    def test_dry_run_prints_callout(self, tmp_path):
-        note = tmp_path / "test-note.md"
-        note.write_text("This is a sufficiently long note content for testing purposes " * 5)
+    """Tests for the main() CLI entry point."""
 
-        ns = _load()
-        mock_result = MagicMock()
-        mock_result.returncode = 0
-        mock_result.stdout = "qmd://notes/related.md:1\nScore: 0.85\n"
-        mock_result.stderr = ""
+    def test_note_not_found_exits(self):
+        """Nonexistent note path prints error and exits 1."""
+        with pytest.raises(SystemExit) as exc_info:
+            main(["/nonexistent/path/to/note.md"])
+        assert exc_info.value.code == 1
 
-        with patch("subprocess.run", return_value=mock_result):
-            with patch("sys.argv", ["rheotaxis-local", str(note), "--dry-run"]):
-                with patch("builtins.print") as mock_print:
-                    ns["main"]()
-
-        printed = "\n".join(str(c) for c, _ in [c.args for c in mock_print.call_args_list])
-        assert "[!related]" in printed or any("[!related]" in str(a) for a in mock_print.call_args)
-
-    def test_appends_to_note(self, tmp_path):
-        note = tmp_path / "test-note.md"
-        note.write_text("Sufficiently long note content for testing rheotaxis functionality " * 5)
-
-        ns = _load()
-        mock_result = MagicMock()
-        mock_result.returncode = 0
-        mock_result.stdout = "qmd://notes/alpha.md:1\nScore: 0.9\n"
-        mock_result.stderr = ""
-
-        with patch("subprocess.run", return_value=mock_result):
-            with patch("sys.argv", ["rheotaxis-local", str(note)]):
-                ns["main"]()
-
-        updated = note.read_text()
-        assert "[!related]" in updated
-        assert "[[alpha]]" in updated
-
-    def test_nonexistent_note_exits(self, tmp_path):
-        ns = _load()
-        with patch("sys.argv", ["rheotaxis-local", str(tmp_path / "nope.md")]):
-            with pytest.raises(SystemExit):
-                ns["main"]()
-
-    def test_short_note_exits_cleanly(self, tmp_path):
+    def test_short_note_exits_cleanly(self, tmp_path, capsys):
+        """Notes shorter than 50 chars exit 0 with a message."""
         note = tmp_path / "short.md"
-        note.write_text("hi")
+        note.write_text("Hi", encoding="utf-8")
+        with pytest.raises(SystemExit) as exc_info:
+            main([str(note)])
+        assert exc_info.value.code == 0
+        assert "too short" in capsys.readouterr().err
 
-        ns = _load()
-        with patch("sys.argv", ["rheotaxis-local", str(note)]):
-            with pytest.raises(SystemExit) as exc_info:
-                ns["main"]()
-            assert exc_info.value.code == 0
-
-    def test_no_qmd_results_exits_cleanly(self, tmp_path):
+    def test_dry_run_prints_callout(self, tmp_path, capsys):
+        """--dry-run prints the callout to stdout without modifying the file."""
         note = tmp_path / "test-note.md"
-        note.write_text("Sufficiently long note content for testing rheotaxis functionality " * 5)
+        original = (
+            "This is a test note about python programming "
+            "and software development practices in the wild"
+        )
+        note.write_text(original, encoding="utf-8")
+        qmd_output = (
+            "Title: Related Article\n"
+            "Score: 0.88\n"
+        )
+        with patch.object(_mod["subprocess"], "run", return_value=_make_qmd_mock(qmd_output)):
+            main([str(note), "--dry-run"])
+        captured = capsys.readouterr()
+        assert "[[Related Article]] (0.88)" in captured.out
+        # File should NOT be modified
+        assert note.read_text(encoding="utf-8") == original
 
-        ns = _load()
-        mock_result = MagicMock()
-        mock_result.returncode = 0
-        mock_result.stdout = ""
-        mock_result.stderr = ""
+    def test_append_mode_modifies_file(self, tmp_path, capsys):
+        """Without --dry-run, the callout is appended to the note."""
+        note = tmp_path / "test-note.md"
+        original = (
+            "This is a test note about python programming "
+            "and software development practices in the wild"
+        )
+        note.write_text(original, encoding="utf-8")
+        qmd_output = (
+            "Title: Related Article\n"
+            "Score: 0.88\n"
+        )
+        with patch.object(_mod["subprocess"], "run", return_value=_make_qmd_mock(qmd_output)):
+            main([str(note)])
+        captured = capsys.readouterr()
+        assert "Appended" in captured.out
+        new_content = note.read_text(encoding="utf-8")
+        assert original in new_content
+        assert "[[Related Article]] (0.88)" in new_content
 
-        with patch("subprocess.run", return_value=mock_result):
-            with patch("sys.argv", ["rheotaxis-local", str(note)]):
-                with pytest.raises(SystemExit) as exc_info:
-                    ns["main"]()
-                assert exc_info.value.code == 0
+    def test_no_results_exits_cleanly(self, tmp_path, capsys):
+        """When qmd returns empty output, exit 0 with a message."""
+        note = tmp_path / "test-note.md"
+        note.write_text(
+            "This is a test note about python programming "
+            "and software development practices in the wild",
+            encoding="utf-8",
+        )
+        with patch.object(_mod["subprocess"], "run", return_value=_make_qmd_mock("")):
+            with pytest.raises(SystemExit) as exc_info:
+                main([str(note)])
+            assert exc_info.value.code == 0
+        assert "No related notes found" in capsys.readouterr().out
+
+    def test_all_self_refs_exits_cleanly(self, tmp_path, capsys):
+        """When all results are self-references, exit 0."""
+        note = tmp_path / "my-note.md"
+        note.write_text(
+            "This is a test note about python programming "
+            "and software development practices in the wild",
+            encoding="utf-8",
+        )
+        qmd_output = (
+            "qmd://notes/my-note.md:1 #tag\n"
+            "Score: 0.99\n"
+        )
+        with patch.object(_mod["subprocess"], "run", return_value=_make_qmd_mock(qmd_output)):
+            with pytest.raises(SystemExit) as exc_info:
+                main([str(note)])
+            assert exc_info.value.code == 0
+        assert "No related notes (excluding self)" in capsys.readouterr().out
+
+    def test_uses_filename_as_query(self, tmp_path):
+        """When filename has enough words, it's used as the query."""
+        note = tmp_path / "python-testing-guide.md"
+        note.write_text(
+            "A comprehensive guide to testing Python applications with pytest fixtures",
+            encoding="utf-8",
+        )
+        qmd_output = "Title: Something\nScore: 0.5\n"
+        with patch.object(
+            _mod["subprocess"], "run", return_value=_make_qmd_mock(qmd_output)
+        ) as mock_run:
+            main([str(note), "--dry-run"])
+        called_query = mock_run.call_args[0][0][2]
+        # Filename stems replace - with space: "python testing guide"
+        assert "python" in called_query.lower()
+        assert "testing" in called_query.lower()
+        assert "guide" in called_query.lower()

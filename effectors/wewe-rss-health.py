@@ -20,7 +20,10 @@ TG_SCRIPT = Path.home() / "scripts" / "tg-notify.sh"
 
 def load_state() -> dict:
     if STATE_FILE.exists():
-        return json.loads(STATE_FILE.read_text())
+        try:
+            return json.loads(STATE_FILE.read_text())
+        except (json.JSONDecodeError, OSError):
+            pass
     return {"last_status": "ok"}
 
 
