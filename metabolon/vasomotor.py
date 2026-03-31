@@ -1207,8 +1207,10 @@ def adapt(systoles_run: int, saturated: int, failed: int, stop_reason: str):
                             break
                 if org_applied:
                     _snapshot_conf(conf_path)
-                    with open(conf_path, "w") as f:
+                    tmp = conf_path.with_suffix(".conf.tmp")
+                    with open(tmp, "w") as f:
                         cp.write(f)
+                    tmp.replace(conf_path)
                     record_event("adapt_organism_conf", conf=conf_name, adjustments=org_applied)
                     log(f"adapt: {conf_name} → {org_applied}")
 

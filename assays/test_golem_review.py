@@ -304,7 +304,7 @@ class TestDiagnoseFailure:
         assert label == "syntax error"
 
     def test_hardcoded_path(self):
-        label, hint = diagnose_failure("/Users/terry/germline not found")
+        label, hint = diagnose_failure("/home/terry/germline not found")
         assert label == "hardcoded Mac path"
         assert "Path.home()" in hint
 

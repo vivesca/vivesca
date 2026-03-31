@@ -2,8 +2,8 @@
 import os
 import subprocess
 
-SKILLS = "/Users/terry/skills"
-CLAUDE_SKILLS = "/Users/terry/.claude/skills"
+SKILLS = os.path.expanduser("~/skills")
+CLAUDE_SKILLS = os.path.expanduser("~/.claude/skills")
 MEMORY = os.path.expanduser("~/.claude/projects/-Users-terry/memory/MEMORY.md")
 
 # Skill gap

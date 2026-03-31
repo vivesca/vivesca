@@ -209,7 +209,9 @@ def _cross_link_experiment_symptom(symptom: str, severity: str, notes: str) -> s
         keywords = [keyword.strip().lower() for keyword in match.group(1).split(",")]
         if any(keyword in combined for keyword in keywords):
             intake_note = f"\n> **Symptom logged:** {symptom} (severity: {severity}) - {notes}\n"
-            experiment_file.write_text(text.rstrip() + "\n" + intake_note + "\n")
+            tmp = experiment_file.with_suffix(".md.tmp")
+            tmp.write_text(text.rstrip() + "\n" + intake_note + "\n")
+            tmp.replace(experiment_file)
             return f"Cross-linked to experiment: {experiment_file.name}"
     return None
 

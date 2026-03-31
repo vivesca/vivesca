@@ -344,19 +344,19 @@ def _gradient_detect() -> str:
 # -- skills: upstream receptor fork change detection (from integrin.py) -----
 
 
-_SKILLS_REGISTRY_PATH = Path(os.path.expanduser("~/.local/share/vivesca/skill-forks.yaml"))
+_SKILLS_REGISTRY_PATH = Path.home() / ".local" / "share" / "vivesca" / "skill-forks.yaml"
 
 _SKILLS_DEFAULT_REGISTRY = {
     "superpowers": {
-        "local": os.path.expanduser("~/germline/receptors/superpowers"),
-        "cache_pattern": os.path.expanduser(
-            "~/.claude/plugins/cache/claude-plugins-official/superpowers"
+        "local": str(Path.home() / "germline" / "receptors" / "superpowers"),
+        "cache_pattern": str(
+            Path.home() / ".claude" / "plugins" / "cache" / "claude-plugins-official" / "superpowers"
         ),
     },
     "compound-engineering": {
-        "local": os.path.expanduser("~/germline/receptors/compound-engineering"),
-        "cache_pattern": os.path.expanduser(
-            "~/.claude/plugins/cache/every-marketplace/compound-engineering"
+        "local": str(Path.home() / "germline" / "receptors" / "compound-engineering"),
+        "cache_pattern": str(
+            Path.home() / ".claude" / "plugins" / "cache" / "every-marketplace" / "compound-engineering"
         ),
     },
 }

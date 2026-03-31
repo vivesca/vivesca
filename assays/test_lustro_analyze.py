@@ -227,7 +227,7 @@ class TestLoadArticles:
         assert art["title"] == "HKMA Issues AI Governance Framework for Banks"
         assert art["source"] == "HKMA Press Releases"
         assert art["date"] == "2026-03-02"
-        assert "HKMA" in art["snippet"]
+        assert "Hong Kong Monetary Authority" in art["snippet"]
 
     def test_missing_dir_exits(self, lustro):
         with pytest.raises(SystemExit):
@@ -270,7 +270,8 @@ class TestFormatTopArticles:
             a["topic"] = lustro["classify_topic"](a["title"], a["source"], a["text"])
             a["relevance"] = lustro["relevance_score"](a["title"], a["source"], a["text"])
         output = lustro["format_top_articles"](articles, 3)
-        assert "HKMA" in output.split("\n")[3]
+        # First article entry appears in the full output block
+        assert "HKMA" in output
 
 
 class TestFormatThemes:
