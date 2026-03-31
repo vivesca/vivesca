@@ -64,6 +64,7 @@ If the user explicitly says "morning brief" after 10am or "evening routine" befo
 5. **Right-sided morning headache** → check `memory/user_health_sleep_headache_pattern.md`.
 6. **Overnight alerts** → any NEEDS_ATTENTION or CRITICAL lines surface immediately.
 7. **"No overnight data"** → note automation may not have run.
+8. **Golem queue** → check `loci/golem-queue.md`, dispatch up to 4 pending tasks. Golems start working immediately while Terry reviews the brief.
 
 ### Anti-patterns
 - Don't skip germination just because entrainment ran — they sense different systems
