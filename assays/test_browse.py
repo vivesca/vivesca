@@ -1,241 +1,370 @@
-#!/usr/bin/env python3
-"""Tests for effectors/browse — web content extractor with fallback chain.
+"""Tests for effectors/browse — web content extractor with fallback chain."""
 
-browse is a script (effectors/browse), not an importable module.
-It is loaded via exec() into isolated namespaces.
-"""
+from __future__ import annotations
 
 import subprocess
 import sys
+from io import StringIO
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
 
-BROWSE_PATH = Path(__file__).resolve().parents[1] / "effectors" / "browse"
+BROWSE_PATH = Path(__file__).resolve().parent.parent / "effectors" / "browse"
 
 
-# ── Fixture ─────────────────────────────────────────────────────────────────
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+def _load_browse_ns():
+    """Load the browse effector into an isolated namespace."""
+    ns = {
+        "__name__": "browse_test",
+        "__file__": str(BROWSE_PATH),
+    }
+    exec(open(BROWSE_PATH).read(), ns)  # noqa: S102
+    return ns
 
 
-@pytest.fixture()
-def ns():
-    """Load browse via exec into an isolated namespace dict."""
-    ns_dict: dict = {"__name__": "test_browse", "__file__": str(BROWSE_PATH)}
-    source = BROWSE_PATH.read_text(encoding="utf-8")
-    exec(source, ns_dict)
-    return ns_dict
+def _successful_run(stdout: str, returncode: int = 0):
+    """Build a mock subprocess.run result that succeeded."""
+    result = MagicMock()
+    result.stdout = stdout
+    result.stderr = ""
+    result.returncode = returncode
+    return result
 
 
-# ── File structure tests ───────────────────────────────────────────────────
+def _failed_run(side_effect=None):
+    """Build a mock subprocess.run that raises CalledProcessError."""
+    if side_effect:
+        return side_effect
+    return subprocess.CalledProcessError(1, "cmd")
 
 
-class TestBrowseBasics:
-    def test_file_exists(self):
-        """Test that browse effector file exists."""
-        assert BROWSE_PATH.exists()
-        assert BROWSE_PATH.is_file()
-
-    def test_is_python_script(self):
-        """Test that browse has Python shebang."""
-        first_line = BROWSE_PATH.read_text().split("\n")[0]
-        assert first_line.startswith("#!/")
-        assert "python" in first_line.lower()
-
-    def test_has_docstring(self):
-        """Test that browse has docstring."""
-        content = BROWSE_PATH.read_text()
-        assert '"""' in content
-
-    def test_docstring_mentions_fallback(self):
-        """Test docstring mentions fallback chain."""
-        content = BROWSE_PATH.read_text()
-        assert "fallback" in content.lower()
-
-    def test_docstring_mentions_needs_browser(self):
-        """Test docstring mentions NEEDS_BROWSER."""
-        content = BROWSE_PATH.read_text()
-        assert "NEEDS_BROWSER" in content
-
-
-# ── run_command() helper ───────────────────────────────────────────────────
-
+# ---------------------------------------------------------------------------
+# Tests: run_command helper
+# ---------------------------------------------------------------------------
 
 class TestRunCommand:
-    def test_returns_stdout_on_success(self, ns, monkeypatch):
-        """Should return stripped stdout on success."""
-        mock_result = MagicMock(stdout="  content  \n")
-        monkeypatch.setattr(subprocess, "run", lambda *a, **kw: mock_result)
-        assert ns["run_command"](["cmd"]) == "content"
+    """Unit tests for the run_command helper function."""
 
-    def test_returns_none_on_empty_output(self, ns, monkeypatch):
-        """Should return None when command output is empty."""
-        mock_result = MagicMock(stdout="   \n")
-        monkeypatch.setattr(subprocess, "run", lambda *a, **kw: mock_result)
-        assert ns["run_command"](["cmd"]) is None
+    def test_returns_stripped_stdout(self):
+        ns = _load_browse_ns()
+        run_cmd = ns["run_command"]
+        with patch("subprocess.run", return_value=_successful_run("  hello world  \n")):
+            assert run_cmd(["echo", "hi"]) == "hello world"
 
-    def test_returns_none_on_failure(self, ns, monkeypatch):
-        """Should return None on CalledProcessError."""
-        monkeypatch.setattr(
-            subprocess, "run",
-            MagicMock(side_effect=subprocess.CalledProcessError(1, "cmd")),
-        )
-        assert ns["run_command"](["cmd"]) is None
+    def test_returns_none_on_empty_stdout(self):
+        ns = _load_browse_ns()
+        run_cmd = ns["run_command"]
+        with patch("subprocess.run", return_value=_successful_run("   \n")):
+            assert run_cmd(["echo", ""]) is None
 
-    def test_returns_none_on_generic_exception(self, ns, monkeypatch):
-        """Should return None on any exception."""
-        monkeypatch.setattr(subprocess, "run", MagicMock(side_effect=OSError("fail")))
-        assert ns["run_command"](["cmd"]) is None
+    def test_returns_none_on_called_process_error(self):
+        ns = _load_browse_ns()
+        run_cmd = ns["run_command"]
+        with patch("subprocess.run", side_effect=subprocess.CalledProcessError(1, "cmd")):
+            assert run_cmd(["false"]) is None
 
-    def test_uses_check_true(self, ns, monkeypatch):
-        """Should call subprocess.run with check=True."""
-        calls = []
-        def mock_run(*a, **kw):
-            calls.append(kw)
-            return MagicMock(stdout="ok")
-        monkeypatch.setattr(subprocess, "run", mock_run)
-        ns["run_command"](["cmd"])
-        assert calls[0].get("check") is True
-
-    def test_captures_output_and_text(self, ns, monkeypatch):
-        """Should capture stdout/stderr and use text mode."""
-        calls = []
-        def mock_run(*a, **kw):
-            calls.append(kw)
-            return MagicMock(stdout="ok")
-        monkeypatch.setattr(subprocess, "run", mock_run)
-        ns["run_command"](["cmd"])
-        assert calls[0].get("capture_output") is True
-        assert calls[0].get("text") is True
+    def test_returns_none_on_generic_exception(self):
+        ns = _load_browse_ns()
+        run_cmd = ns["run_command"]
+        with patch("subprocess.run", side_effect=OSError("boom")):
+            assert run_cmd(["bad"]) is None
 
 
-# ── main() ─────────────────────────────────────────────────────────────────
+# ---------------------------------------------------------------------------
+# Tests: CLI argument handling
+# ---------------------------------------------------------------------------
 
+class TestCLIArgs:
+    """Tests for argument parsing and help output."""
 
-class TestMain:
-    def test_no_args_exits(self, ns, monkeypatch):
-        """Should exit 1 when no URL provided."""
-        monkeypatch.setattr(sys, "argv", ["browse"])
+    def test_no_args_prints_doc_and_exits_1(self, capsys):
+        ns = _load_browse_ns()
+        main = ns["main"]
         with pytest.raises(SystemExit) as exc_info:
-            ns["main"]()
+            main()
         assert exc_info.value.code == 1
+        captured = capsys.readouterr()
+        assert "Usage: browse URL" in captured.out
 
-    def test_too_many_args_exits(self, ns, monkeypatch):
-        """Should exit 1 when too many args provided."""
-        monkeypatch.setattr(sys, "argv", ["browse", "url1", "url2"])
+    def test_help_flag_exits_0(self, capsys):
+        ns = _load_browse_ns()
+        main = ns["main"]
+        # Patch sys.argv inside the namespace so main() sees --help
+        ns["sys"].argv = ["browse", "--help"]
         with pytest.raises(SystemExit) as exc_info:
-            ns["main"]()
-        assert exc_info.value.code == 1
-
-    def test_defuddle_success(self, ns, capsys, monkeypatch):
-        """Should print defuddle output and exit 0."""
-        monkeypatch.setattr(sys, "argv", ["browse", "https://example.com"])
-        ns["run_command"] = lambda cmd: "markdown content" if cmd[0] == "defuddle" else None
-        with pytest.raises(SystemExit) as exc_info:
-            ns["main"]()
+            main()
         assert exc_info.value.code == 0
-        out = capsys.readouterr().out
-        assert out.strip() == "markdown content"
+        captured = capsys.readouterr()
+        assert "Usage: browse URL" in captured.out
 
-    def test_curl_html2text_fallback(self, ns, capsys, monkeypatch):
-        """Should use curl+html2text when defuddle returns nothing."""
-        monkeypatch.setattr(sys, "argv", ["browse", "https://example.com"])
+    def test_h_flag_exits_0(self, capsys):
+        ns = _load_browse_ns()
+        ns["sys"].argv = ["browse", "-h"]
+        main = ns["main"]
+        with pytest.raises(SystemExit) as exc_info:
+            main()
+        assert exc_info.value.code == 0
 
-        def mock_run_command(cmd):
+    def test_too_many_args_exits_1(self, capsys):
+        ns = _load_browse_ns()
+        ns["sys"].argv = ["browse", "url1", "url2"]
+        main = ns["main"]
+        with pytest.raises(SystemExit) as exc_info:
+            main()
+        assert exc_info.value.code == 1
+
+
+# ---------------------------------------------------------------------------
+# Tests: fallback chain
+# ---------------------------------------------------------------------------
+
+class TestFallbackChain:
+    """Tests for the defuddle → curl+html2text → NEEDS_BROWSER chain."""
+
+    def _run_main_with_url(self, url: str = "https://example.com", capsys=None):
+        """Load browse, set argv, run main, return (stdout, exit_code)."""
+        ns = _load_browse_ns()
+        ns["sys"].argv = ["browse", url]
+        main = ns["main"]
+        with pytest.raises(SystemExit) as exc_info:
+            main()
+        captured = capsys.readouterr() if capsys else None
+        return captured, exc_info.value.code, ns
+
+    def test_defuddle_succeeds_prints_output(self, capsys):
+        """Step 1: defuddle returns content → printed, exit 0."""
+        ns = _load_browse_ns()
+        ns["sys"].argv = ["browse", "https://example.com"]
+        main = ns["main"]
+
+        def mock_run(cmd, **kwargs):
             if cmd[0] == "defuddle":
-                return None
+                return _successful_run("# My Page\nContent here")
+            # Should not reach curl, but just in case
+            return _successful_run("")
+
+        with patch("subprocess.run", side_effect=mock_run):
+            with pytest.raises(SystemExit) as exc_info:
+                main()
+
+        assert exc_info.value.code == 0
+        output = capsys.readouterr().out
+        assert "# My Page" in output
+
+    def test_defuddle_empty_curl_html2text_succeeds(self, capsys):
+        """Step 2: defuddle empty → curl + html2text returns content → exit 0."""
+        ns = _load_browse_ns()
+        ns["sys"].argv = ["browse", "https://example.com"]
+        main = ns["main"]
+
+        call_count = {"n": 0}
+
+        def mock_run(cmd, **kwargs):
+            call_count["n"] += 1
+            if cmd[0] == "defuddle":
+                return _successful_run("")  # empty output
             if cmd[0] == "curl":
-                return "<html><body>Hello</body></html>"
-            return None
+                return _successful_run("<html><body>Hello</body></html>")
+            if cmd[0] == "html2text":
+                return _successful_run("Hello from html2text")
+            return _successful_run("")
 
-        ns["run_command"] = mock_run_command
+        with patch("subprocess.run", side_effect=mock_run):
+            with pytest.raises(SystemExit) as exc_info:
+                main()
 
-        # Mock subprocess.run for the html2text call in main()
-        mock_h2t = MagicMock(stdout="Hello\n", returncode=0)
-        monkeypatch.setattr(subprocess, "run", lambda *a, **kw: mock_h2t)
-
-        with pytest.raises(SystemExit) as exc_info:
-            ns["main"]()
         assert exc_info.value.code == 0
-        out = capsys.readouterr().out
-        assert "Hello" in out
+        output = capsys.readouterr().out
+        assert "Hello from html2text" in output
+        # Ensure defuddle was tried first
+        assert call_count["n"] >= 2
 
-    def test_needs_browser_when_all_fail(self, ns, capsys, monkeypatch):
-        """Should print NEEDS_BROWSER and exit 1 when all methods fail."""
-        monkeypatch.setattr(sys, "argv", ["browse", "https://example.com"])
-        ns["run_command"] = lambda cmd: None
-        with pytest.raises(SystemExit) as exc_info:
-            ns["main"]()
+    def test_both_fail_prints_needs_browser(self, capsys):
+        """Step 3: defuddle + curl both fail → NEEDS_BROWSER, exit 1."""
+        ns = _load_browse_ns()
+        ns["sys"].argv = ["browse", "https://example.com"]
+        main = ns["main"]
+
+        with patch("subprocess.run", side_effect=subprocess.CalledProcessError(1, "cmd")):
+            with pytest.raises(SystemExit) as exc_info:
+                main()
+
         assert exc_info.value.code == 1
-        out = capsys.readouterr().out
-        assert "NEEDS_BROWSER" in out
+        output = capsys.readouterr().out
+        assert "NEEDS_BROWSER" in output
 
-    def test_curl_fails_html2text_not_called(self, ns, capsys, monkeypatch):
-        """Should skip html2text when curl returns nothing."""
-        monkeypatch.setattr(sys, "argv", ["browse", "https://example.com"])
-        run_cmd_calls = []
-        def mock_run_command(cmd):
-            run_cmd_calls.append(cmd)
-            return None
-        ns["run_command"] = mock_run_command
-        subproc_calls = []
-        monkeypatch.setattr(
-            subprocess, "run",
-            lambda *a, **kw: (subproc_calls.append(a), MagicMock())[1],
-        )
-        with pytest.raises(SystemExit):
-            ns["main"]()
-        # html2text should not be called via subprocess.run since curl returned None
-        assert not any("html2text" in str(c) for c in subproc_calls)
+    def test_defuddle_fails_curl_succeeds_html2text_empty(self, capsys):
+        """defuddle fails, curl works, html2text returns empty → NEEDS_BROWSER."""
+        ns = _load_browse_ns()
+        ns["sys"].argv = ["browse", "https://example.com"]
+        main = ns["main"]
 
-    def test_defuddle_has_priority(self, ns, capsys, monkeypatch):
-        """Defuddle output should be used when available (no curl fallback)."""
-        monkeypatch.setattr(sys, "argv", ["browse", "https://example.com"])
-        call_log = []
-        def mock_run_command(cmd):
-            call_log.append(cmd[0])
+        def mock_run(cmd, **kwargs):
             if cmd[0] == "defuddle":
-                return "defuddle content"
-            return None
-        ns["run_command"] = mock_run_command
-        with pytest.raises(SystemExit) as exc_info:
-            ns["main"]()
+                raise subprocess.CalledProcessError(1, "defuddle")
+            if cmd[0] == "curl":
+                return _successful_run("<html></html>")
+            if cmd[0] == "html2text":
+                return _successful_run("   ")  # whitespace-only
+            return _successful_run("")
+
+        with patch("subprocess.run", side_effect=mock_run):
+            with pytest.raises(SystemExit) as exc_info:
+                main()
+
+        assert exc_info.value.code == 1
+        output = capsys.readouterr().out
+        assert "NEEDS_BROWSER" in output
+
+    def test_defuddle_fails_curl_fails_html2text_unreachable(self, capsys):
+        """defuddle fails, curl returns empty → skip html2text → NEEDS_BROWSER."""
+        ns = _load_browse_ns()
+        ns["sys"].argv = ["browse", "https://example.com"]
+        main = ns["main"]
+
+        html2text_called = []
+
+        def mock_run(cmd, **kwargs):
+            if cmd[0] == "defuddle":
+                raise subprocess.CalledProcessError(1, "defuddle")
+            if cmd[0] == "curl":
+                return _successful_run("")  # empty html
+            if cmd[0] == "html2text":
+                html2text_called.append(True)
+                return _successful_run("")
+            return _successful_run("")
+
+        with patch("subprocess.run", side_effect=mock_run):
+            with pytest.raises(SystemExit) as exc_info:
+                main()
+
+        assert exc_info.value.code == 1
+        output = capsys.readouterr().out
+        assert "NEEDS_BROWSER" in output
+        # html2text should never be called if curl returned nothing
+        assert html2text_called == []
+
+    def test_defuddle_empty_curl_succeeds_html2text_raises(self, capsys):
+        """defuddle empty, curl works, html2text raises → NEEDS_BROWSER."""
+        ns = _load_browse_ns()
+        ns["sys"].argv = ["browse", "https://example.com"]
+        main = ns["main"]
+
+        def mock_run(cmd, **kwargs):
+            if cmd[0] == "defuddle":
+                return _successful_run("")
+            if cmd[0] == "curl":
+                return _successful_run("<html>stuff</html>")
+            if cmd[0] == "html2text":
+                raise subprocess.CalledProcessError(1, "html2text")
+            return _successful_run("")
+
+        with patch("subprocess.run", side_effect=mock_run):
+            with pytest.raises(SystemExit) as exc_info:
+                main()
+
+        assert exc_info.value.code == 1
+        output = capsys.readouterr().out
+        assert "NEEDS_BROWSER" in output
+
+
+# ---------------------------------------------------------------------------
+# Tests: subprocess invocation
+# ---------------------------------------------------------------------------
+
+class TestSubprocessCalls:
+    """Verify that subprocess.run is called with the right arguments."""
+
+    def test_defuddle_called_with_url(self):
+        ns = _load_browse_ns()
+        ns["sys"].argv = ["browse", "https://example.com/page"]
+        main = ns["main"]
+
+        with patch("subprocess.run", return_value=_successful_run("ok")) as mock_run:
+            with pytest.raises(SystemExit):
+                main()
+
+        first_call = mock_run.call_args_list[0]
+        assert first_call[0][0] == ["defuddle", "parse", "https://example.com/page", "--md"]
+
+    def test_curl_called_with_url(self):
+        ns = _load_browse_ns()
+        ns["sys"].argv = ["browse", "https://example.com/page"]
+        main = ns["main"]
+
+        def mock_run(cmd, **kwargs):
+            if cmd[0] == "defuddle":
+                return _successful_run("")
+            if cmd[0] == "curl":
+                return _successful_run("")
+            return _successful_run("")
+
+        with patch("subprocess.run", side_effect=mock_run) as mock_run_spy:
+            with pytest.raises(SystemExit):
+                main()
+
+        curl_calls = [c for c in mock_run_spy.call_args_list if c[0][0][0] == "curl"]
+        assert len(curl_calls) == 1
+        assert curl_calls[0][0][0] == ["curl", "-sL", "https://example.com/page"]
+
+    def test_html2text_receives_html_via_stdin(self):
+        ns = _load_browse_ns()
+        ns["sys"].argv = ["browse", "https://example.com"]
+        main = ns["main"]
+
+        def mock_run(cmd, **kwargs):
+            if cmd[0] == "defuddle":
+                return _successful_run("")
+            if cmd[0] == "curl":
+                return _successful_run("<html><body>Hi</body></html>")
+            if cmd[0] == "html2text":
+                # Verify html was passed via stdin
+                assert kwargs.get("input") == "<html><body>Hi</body></html>"
+                return _successful_run("Hi")
+            return _successful_run("")
+
+        with patch("subprocess.run", side_effect=mock_run):
+            with pytest.raises(SystemExit) as exc_info:
+                main()
+
         assert exc_info.value.code == 0
-        out = capsys.readouterr().out
-        assert "defuddle content" in out
-        # curl should not have been called
-        assert "curl" not in call_log
-
-    def test_exits_zero_on_success(self, ns, capsys, monkeypatch):
-        """Should exit 0 when content extracted successfully."""
-        monkeypatch.setattr(sys, "argv", ["browse", "https://example.com"])
-        ns["run_command"] = lambda cmd: "content" if cmd[0] == "defuddle" else None
-        with pytest.raises(SystemExit) as exc_info:
-            ns["main"]()
-        assert exc_info.value.code == 0
 
 
-# ── CLI subprocess ──────────────────────────────────────────────────────────
+# ---------------------------------------------------------------------------
+# Tests: subprocess.run parameters
+# ---------------------------------------------------------------------------
 
+class TestRunCommandParams:
+    """Verify subprocess.run is called with proper parameters."""
 
-class TestCLISubprocess:
-    def test_no_args_exits_nonzero(self):
-        """Running browse with no args should exit nonzero."""
-        r = subprocess.run(
-            [sys.executable, str(BROWSE_PATH)],
-            capture_output=True, text=True, timeout=30,
-        )
-        assert r.returncode != 0
+    def test_run_command_uses_timeout(self):
+        ns = _load_browse_ns()
+        run_cmd = ns["run_command"]
 
-    def test_no_args_shows_usage(self):
-        """Running browse with no args should show docstring/usage."""
-        r = subprocess.run(
-            [sys.executable, str(BROWSE_PATH)],
-            capture_output=True, text=True, timeout=30,
-        )
-        output = r.stdout + r.stderr
-        assert "browse" in output.lower() or "URL" in output
+        with patch("subprocess.run", return_value=_successful_run("ok")) as mock:
+            run_cmd(["echo", "hi"])
+            _, kwargs = mock.call_args
+            assert kwargs.get("timeout") == 60
 
-    def test_file_is_executable(self):
-        """Test browse file has execute permission."""
-        assert BROWSE_PATH.stat().st_mode & 0o111
+    def test_run_command_uses_text_mode(self):
+        ns = _load_browse_ns()
+        run_cmd = ns["run_command"]
+
+        with patch("subprocess.run", return_value=_successful_run("ok")) as mock:
+            run_cmd(["echo", "hi"])
+            _, kwargs = mock.call_args
+            assert kwargs.get("text") is True
+
+    def test_run_command_captures_output(self):
+        ns = _load_browse_ns()
+        run_cmd = ns["run_command"]
+
+        with patch("subprocess.run", return_value=_successful_run("ok")) as mock:
+            run_cmd(["echo", "hi"])
+            _, kwargs = mock.call_args
+            assert kwargs.get("capture_output") is True
