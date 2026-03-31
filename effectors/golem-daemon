@@ -8,6 +8,7 @@ Usage:
     golem-daemon start   # Start daemon (nohup, backgrounds itself)
     golem-daemon stop    # Stop daemon via pidfile
     golem-daemon status  # Check if running
+    golem-daemon clean   # Remove completed/failed entries from queue
 """
 from __future__ import annotations
 
@@ -596,13 +597,38 @@ def cmd_status():
         print("Daemon not running")
         return 1
 
+def cmd_clean() -> int:
+    """Remove completed ([x]) and failed ([!]) entries from the queue.
+
+    Preserves headers, blank lines, and pending ([ ]) tasks.
+    Rewrites the queue file and prints the count of removed entries.
+    """
+    if not QUEUE_FILE.exists():
+        print("Queue file not found")
+        return 1
+
+    with QueueLock():
+        lines = QUEUE_FILE.read_text().splitlines()
+        kept = []
+        removed = 0
+        for line in lines:
+            if re.match(r'^- \[[!x]\]', line):
+                removed += 1
+            else:
+                kept.append(line)
+        QUEUE_FILE.write_text("\n".join(kept) + "\n")
+
+    print(f"Removed {removed} entries from queue")
+    return 0
+
+
 def main():
     if len(sys.argv) < 2:
         print(__doc__)
         return 1
-    
+
     cmd = sys.argv[1]
-    
+
     if cmd == "start":
         fg = "--foreground" in sys.argv or "-f" in sys.argv
         return cmd_start(foreground=fg)
@@ -610,9 +636,11 @@ def main():
         return cmd_stop()
     elif cmd == "status":
         return cmd_status()
+    elif cmd == "clean":
+        return cmd_clean()
     else:
         print(f"Unknown command: {cmd}")
-        print("Commands: start, stop, status")
+        print("Commands: start, stop, status, clean")
         return 1
 
 if __name__ == "__main__":
