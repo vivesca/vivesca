@@ -36,7 +36,7 @@ const path = require('path');
 function logDeny(hookName, reason) {
   try {
     const entry = JSON.stringify({ ts: new Date().toISOString(), hook: hookName, rule: reason.slice(0, 80) }) + '\n';
-    fs.appendFileSync('/Users/terry/logs/hook-fire-log.jsonl', entry);
+    fs.appendFileSync('~//logs/hook-fire-log.jsonl', entry);
   } catch (_) {}
 }
 
@@ -82,8 +82,8 @@ process.stdin.on('end', () => {
       const homePatterns = [
         /\s~(\s|$)/,                    // ~
         /\s~\/(\s|$)/,                  // ~/
-        /\s\/Users\/terry(\s|$)/,       // /Users/terry
-        /\s\/Users\/terry\/(\s|$)/,     // /Users/terry/
+        /\s\/Users\/terry(\s|$)/,       // ~/
+        /\s\/Users\/terry\/(\s|$)/,     // ~//
         /\s\$HOME(\s|$)/,               // $HOME
         /\s\$HOME\/(\s|$)/,             // $HOME/
       ];

@@ -396,7 +396,7 @@ def guard_glob(data):
 
     if "**" in pattern:
         home_paths = [str(HOME), "$HOME"]
-        if any(search_path == h or search_path == h + "/" for h in home_paths):
+        if any(search_path == h or search_path == h + os.sep for h in home_paths):
             deny(f"Glob ** on {HOME} times out. Scope to a subdirectory.", "glob-guard")
 
 
@@ -405,7 +405,7 @@ def guard_glob(data):
 
 def guard_grep(data):
     path = data.get("tool_input", {}).get("path", "")
-    if "/notes" in path or "notes/" in path or "/chromatin" in path or "chromatin/" in path:
+    if f"{os.sep}notes" in path or f"notes{os.sep}" in path or f"{os.sep}chromatin" in path or f"chromatin{os.sep}" in path:
         allow_msg(
             'Vault search detected. Consider: `ecphory "<query>"` for memory lookups. '
             "Grep is fine for exact strings, wikilinks, or file paths."
@@ -449,13 +449,13 @@ def guard_write(data):
             )
 
     # Package runner in hooks (obfuscated to not self-trigger)
-    if "/.claude/hooks/" in fp:
+    if f"{os.sep}.claude{os.sep}hooks{os.sep}" in fp:
         content = ti.get("content", "") or ti.get("new_string", "")
         if re.search(r"\b" + _NPX + r"\b", content):
             deny(f"Never use {_NPX} in hooks. Use direct path.", "write-guard")
 
     # No prompt-type hooks on PreToolUse — LLM self-judging its own calls is broken
-    if fp.endswith("settings.json") and "/.claude/" in fp:
+    if fp.endswith("settings.json") and f"{os.sep}.claude{os.sep}" in fp:
         content = ti.get("content", "") or ti.get("new_string", "")
         if '"type": "prompt"' in content and "PreToolUse" in content:
             deny(
@@ -484,7 +484,7 @@ def guard_write(data):
             )
 
     # Checked items in Praxis.md
-    if fp.endswith("/chromatin/Praxis.md"):
+    if fp.endswith(f"{os.sep}chromatin{os.sep}Praxis.md"):
         content = ti.get("content", "") or ti.get("new_string", "")
         if re.search(r"^- \[x\]", content, re.MULTILINE):
             deny(
@@ -514,7 +514,7 @@ def guard_write(data):
     # Past daily notes immutable
     tool_name = data.get("tool", "")
     if tool_name in ("Write", "Edit", "MultiEdit"):
-        m = re.search(r"/chromatin/Daily/(\d{4}-\d{2}-\d{2})\.md$", fp)
+        m = re.search(re.escape(os.sep).join(["", "chromatin", "Daily", r"(\d{4}-\d{2}-\d{2})\.md$"]), fp)
         if m:
             note_date = m.group(1)
             from datetime import timezone

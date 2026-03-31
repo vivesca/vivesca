@@ -11,7 +11,7 @@ const fs = require('fs');
 function logDeny(hookName, reason) {
   try {
     const entry = JSON.stringify({ ts: new Date().toISOString(), hook: hookName, rule: reason.slice(0, 80) }) + '\n';
-    fs.appendFileSync('/Users/terry/logs/hook-fire-log.jsonl', entry);
+    fs.appendFileSync('~//logs/hook-fire-log.jsonl', entry);
   } catch (_) {}
 }
 
@@ -75,8 +75,8 @@ process.stdin.on('end', () => {
 
     // Block time-sensitive facts in ~/CLAUDE.md (rules file must use vault pointers, not facts)
     // Covers symlink path and real path
-    const isMainClaudeMd = filePath === '/Users/terry/CLAUDE.md'
-      || filePath === '/Users/terry/reticulum/claude/CLAUDE.md';
+    const isMainClaudeMd = filePath === '~//CLAUDE.md'
+      || filePath === '~//reticulum/claude/CLAUDE.md';
     if (isMainClaudeMd) {
       const newContent = data.tool_input?.new_string || data.tool_input?.content || '';
       const factPatterns = [

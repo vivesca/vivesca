@@ -12,7 +12,7 @@ const fs = require('fs');
 function logDeny(hookName, reason) {
   try {
     const entry = JSON.stringify({ ts: new Date().toISOString(), hook: hookName, rule: reason.slice(0, 80) }) + '\n';
-    fs.appendFileSync('/Users/terry/logs/hook-fire-log.jsonl', entry);
+    fs.appendFileSync('~//logs/hook-fire-log.jsonl', entry);
   } catch (_) {}
 }
 

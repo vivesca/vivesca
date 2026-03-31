@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import configparser
 from dataclasses import dataclass
 from pathlib import Path
@@ -59,7 +60,7 @@ async def taste(
         f"Reply with exactly 'PASS' or 'FAIL: <reason>'."
     )
 
-    response = transduce("haiku", prompt)
+    response = await asyncio.to_thread(transduce, "haiku", prompt)
     text = response.strip()
 
     if text.startswith("PASS"):

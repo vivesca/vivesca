@@ -11,7 +11,7 @@ const fs = require('fs');
 function logDeny(hookName, reason) {
   try {
     const entry = JSON.stringify({ ts: new Date().toISOString(), hook: hookName, rule: reason.slice(0, 80) }) + '\n';
-    fs.appendFileSync('/Users/terry/logs/hook-fire-log.jsonl', entry);
+    fs.appendFileSync('~//logs/hook-fire-log.jsonl', entry);
   } catch (_) {}
 }
 
@@ -38,7 +38,7 @@ process.stdin.on('end', () => {
     // Block recursive patterns on home directory
     if (pattern.includes('**')) {
       const homePaths = [
-        '/Users/terry',
+        '~/',
         '$HOME',
       ];
 
@@ -47,7 +47,7 @@ process.stdin.on('end', () => {
       const isUnscoped = searchPath === '' || searchPath === undefined;
 
       if (isHome) {
-        deny('Glob ** on /Users/terry times out. Scope to a subdirectory: ~/notes/, ~/code/, ~/docs/, etc.');
+        deny('Glob ** on ~/ times out. Scope to a subdirectory: ~/notes/, ~/code/, ~/docs/, etc.');
       }
 
       // If path not set, we can't be sure — allow but the CLAUDE.md rule still applies
