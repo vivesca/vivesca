@@ -110,5 +110,4 @@ Add/update items based on priority plan. Remove or defer items the review says t
 - One review that changes one priority beats four audits confirming status quo.
 
 ## See also
-- `/ecdysis` — Sunday planning (runs first)
 - `/meiosis` — direction, career, investments (quarterly)
