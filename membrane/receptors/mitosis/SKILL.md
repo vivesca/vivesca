@@ -5,6 +5,7 @@ model: opus
 disable-model-invocation: true
 context: fork
 triggers:
+  - mitosis
   - monthly
   - monthly review
   - monthly audit
