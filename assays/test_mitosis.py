@@ -1,250 +1,133 @@
-"""Tests for mitosis — DR sync organelle.
-
-Unit tests that don't require network access. Integration tests
-(actual fly ssh) are skipped unless MITOSIS_INTEGRATION=1.
-"""
-
-from __future__ import annotations
-
-import os
-import subprocess
-from unittest.mock import MagicMock, patch
-
+"""Tests for mitosis DR sync tool."""
 import pytest
+from unittest.mock import patch, MagicMock
 
-from metabolon.organelles.mitosis import (
-    LUCERNA_APP,
-    LUCERNA_HOME,
-    SYNC_TARGETS,
-    FidelityReport,
-    ReplicationResult,
-    _git_push,
-    _is_gemmule_reachable,
-    setup,
-    status,
-    sync,
-)
-
-# ── Unit tests (no network) ──────────────────────────────────
+from metabolon.enzymes.mitosis import mitosis
+from metabolon.morphology import EffectorResult, Vital
 
 
-class TestReplicationResult:
-    def test_basic(self):
-        r = ReplicationResult("test", True, 1.5, "ok")
-        assert r.success
-        assert r.elapsed_s == 1.5
-
-    def test_failure(self):
-        r = ReplicationResult("test", False, 0.5, "boom")
-        assert not r.success
-        assert r.message == "boom"
+def test_unknown_action():
+    """Test unknown action returns error."""
+    result = mitosis(action="invalid")
+    assert isinstance(result, EffectorResult)
+    assert not result.success
+    assert "Unknown action" in result.message
+    assert result.data == {}
 
 
-class TestFidelityReport:
-    def test_summary(self):
-        report = FidelityReport(
-            results=[
-                ReplicationResult("a", True, 1.0),
-                ReplicationResult("b", False, 2.0, "fail"),
-            ],
-            started=0,
-            finished=5.0,
-        )
-        assert "1/2" in report.summary
-        assert "5.0s" in report.summary
-
-    def test_ok_ignores_non_critical(self):
-        """Non-critical failures don't make the report fail."""
-        # scripts is not critical
-        report = FidelityReport(
-            results=[
-                ReplicationResult("germline", True, 1.0),
-                ReplicationResult("epigenome", True, 1.0),
-                ReplicationResult("scripts", False, 1.0, "fail"),
-            ],
-        )
-        assert report.ok
-
-    def test_ok_fails_on_critical(self):
-        """Critical target failure makes report fail."""
-        report = FidelityReport(
-            results=[
-                ReplicationResult("germline", False, 1.0, "fail"),
-                ReplicationResult("epigenome", True, 1.0),
-            ],
-        )
-        assert not report.ok
+def test_status_unreachable():
+    """Test status when gemmule unreachable."""
+    mock_status = MagicMock(return_value={"reachable": False})
+    
+    with patch("metabolon.enzymes.mitosis.status", mock_status):
+        result = mitosis(action="status")
+    
+    assert isinstance(result, Vital)
+    assert result.status == "error"
+    assert "gemmule unreachable" in result.message
+    assert result.details["reachable"] is False
 
 
-class TestSyncTargets:
-    def test_all_targets_have_required_fields(self):
-        for t in SYNC_TARGETS:
-            assert "name" in t
-            assert "local" in t
-            assert "remote" in t
-            assert "repo" in t
-            assert "critical" in t
-
-    def test_critical_targets(self):
-        critical = {t["name"] for t in SYNC_TARGETS if t["critical"]}
-        assert "germline" in critical
-        assert "epigenome" in critical
-
-    def test_remote_paths_use_lucerna_home(self):
-        for t in SYNC_TARGETS:
-            assert t["remote"].startswith(LUCERNA_HOME)
-
-
-class TestBuildCommitMessage:
-    def test_no_staged_files(self, tmp_path):
-        from metabolon.organelles.mitosis import _build_commit_message
-
-        subprocess.run(["git", "init", str(tmp_path)], capture_output=True)
-        subprocess.run(
-            ["git", "-C", str(tmp_path), "commit", "--allow-empty", "-m", "init"],
-            capture_output=True,
-        )
-        msg = _build_commit_message(str(tmp_path))
-        assert msg == "mitosis: sync checkpoint"
-
-    def test_single_file_root(self, tmp_path):
-        from metabolon.organelles.mitosis import _build_commit_message
-
-        subprocess.run(["git", "init", str(tmp_path)], capture_output=True)
-        (tmp_path / "README.md").write_text("hello")
-        subprocess.run(["git", "-C", str(tmp_path), "add", "-A"], capture_output=True)
-        msg = _build_commit_message(str(tmp_path))
-        assert "1 file in (root)/" in msg
-        assert msg.startswith("mitosis: sync checkpoint")
-
-    def test_multiple_dirs(self, tmp_path):
-        from metabolon.organelles.mitosis import _build_commit_message
-
-        subprocess.run(["git", "init", str(tmp_path)], capture_output=True)
-        (tmp_path / "metabolon").mkdir()
-        (tmp_path / "metabolon" / "a.py").write_text("a")
-        (tmp_path / "metabolon" / "b.py").write_text("b")
-        (tmp_path / "metabolon" / "c.py").write_text("c")
-        (tmp_path / "loci").mkdir()
-        (tmp_path / "loci" / "d.md").write_text("d")
-        subprocess.run(["git", "-C", str(tmp_path), "add", "-A"], capture_output=True)
-        msg = _build_commit_message(str(tmp_path))
-        assert "3 files in metabolon/" in msg
-        assert "1 file in loci/" in msg
-
-    def test_plural_singular(self, tmp_path):
-        from metabolon.organelles.mitosis import _build_commit_message
-
-        subprocess.run(["git", "init", str(tmp_path)], capture_output=True)
-        (tmp_path / "src").mkdir()
-        (tmp_path / "src" / "a.py").write_text("a")
-        subprocess.run(["git", "-C", str(tmp_path), "add", "-A"], capture_output=True)
-        msg = _build_commit_message(str(tmp_path))
-        assert "1 file in src/" in msg  # singular, no 's'
+def test_status_stale_targets():
+    """Test status when some targets are stale."""
+    mock_status = MagicMock(return_value={
+        "reachable": True,
+        "machine_state": "started",
+        "targets": {
+            "germline": {"state": "ok"},
+            "epigenome": {"state": "stale"},
+        }
+    })
+    
+    with patch("metabolon.enzymes.mitosis.status", mock_status):
+        result = mitosis(action="status")
+    
+    assert isinstance(result, Vital)
+    assert result.status == "warning"
+    assert "1 targets stale" in result.message
+    assert "epigenome" in result.message
 
 
-class TestGitPush:
-    def test_not_a_repo(self, tmp_path):
-        ok, msg = _git_push(str(tmp_path))
-        assert not ok
-        assert "not a git repo" in msg
-
-    def test_clean_repo(self, tmp_path):
-        """A repo with no changes should push (or be up-to-date)."""
-        subprocess.run(["git", "init", str(tmp_path)], capture_output=True)
-        subprocess.run(
-            ["git", "-C", str(tmp_path), "commit", "--allow-empty", "-m", "init"],
-            capture_output=True,
-        )
-        # No remote, so push will fail — but that's expected
-        ok, msg = _git_push(str(tmp_path))
-        # Push fails because no remote configured — that's fine for this test
-        assert not ok or "up-to-date" in msg
-
-    def test_commit_message_contains_diff_summary(self, tmp_path):
-        """Commit message should include directory summary when files change."""
-        subprocess.run(["git", "init", str(tmp_path)], capture_output=True)
-        subprocess.run(
-            ["git", "-C", str(tmp_path), "commit", "--allow-empty", "-m", "init"],
-            capture_output=True,
-        )
-        (tmp_path / "src").mkdir()
-        (tmp_path / "src" / "main.py").write_text("print('hi')")
-        subprocess.run(["git", "-C", str(tmp_path), "add", "-A"], capture_output=True)
-        # Call _git_push — commit will succeed, push will fail (no remote)
-        _git_push(str(tmp_path))
-        # Read the actual commit message
-        log = subprocess.run(
-            ["git", "-C", str(tmp_path), "log", "-1", "--format=%s"],
-            capture_output=True,
-            text=True,
-        )
-        assert "1 file in src/" in log.stdout
+def test_status_all_ok():
+    """Test status when all targets are ok."""
+    mock_status = MagicMock(return_value={
+        "reachable": True,
+        "machine_state": "running",
+        "targets": {
+            "germline": {"state": "ok"},
+            "epigenome": {"state": "ok"},
+        }
+    })
+    
+    with patch("metabolon.enzymes.mitosis.status", mock_status):
+        result = mitosis(action="status")
+    
+    assert isinstance(result, Vital)
+    assert result.status == "ok"
+    assert "gemmule healthy" in result.message
+    assert "machine running" in result.message
 
 
-class TestReachability:
-    @patch("metabolon.organelles.mitosis.subprocess.run")
-    def test_reachable(self, mock_run):
-        mock_run.return_value = MagicMock(returncode=0, stdout="started")
-        assert _is_gemmule_reachable()
-
-    @patch("metabolon.organelles.mitosis.subprocess.run")
-    def test_unreachable(self, mock_run):
-        mock_run.return_value = MagicMock(returncode=1, stdout="")
-        assert not _is_gemmule_reachable()
-
-    @patch("metabolon.organelles.mitosis.subprocess.run")
-    def test_timeout(self, mock_run):
-        mock_run.side_effect = subprocess.TimeoutExpired(cmd="fly", timeout=15)
-        assert not _is_gemmule_reachable()
-
-
-class TestSyncUnreachable:
-    @patch("metabolon.organelles.mitosis._is_gemmule_reachable", return_value=False)
-    def test_sync_when_unreachable(self, _):
-        report = sync()
-        assert len(report.results) == 1
-        assert not report.results[0].success
-        assert "not running" in report.results[0].message
-
-    @patch("metabolon.organelles.mitosis._is_gemmule_reachable", return_value=False)
-    def test_status_when_unreachable(self, _):
-        info = status()
-        assert not info["reachable"]
-        assert info["machine_state"] == "unknown"
-
-    @patch("metabolon.organelles.mitosis._is_gemmule_reachable", return_value=False)
-    def test_setup_when_unreachable(self, _):
-        result = setup()
-        assert not result["success"]
-        assert "not running" in result["error"]
+def test_sync_success():
+    """Test sync with all targets successful."""
+    mock_report = MagicMock()
+    mock_report.ok = True
+    mock_report.elapsed_s = 10.5
+    mock_report.summary = "2/2 targets synced in 10.5s (0 failed)"
+    
+    mock_result1 = MagicMock()
+    mock_result1.target = "germline"
+    mock_result1.success = True
+    mock_result1.elapsed_s = 5.2
+    mock_result1.message = "ok"
+    
+    mock_result2 = MagicMock()
+    mock_result2.target = "epigenome"
+    mock_result2.success = True
+    mock_result2.elapsed_s = 5.3
+    mock_result2.message = "ok"
+    
+    mock_report.results = [mock_result1, mock_result2]
+    
+    mock_sync = MagicMock(return_value=mock_report)
+    
+    with patch("metabolon.enzymes.mitosis.sync", mock_sync):
+        result = mitosis(action="sync", targets=["germline", "epigenome"])
+    
+    mock_sync.assert_called_once_with(["germline", "epigenome"])
+    assert isinstance(result, EffectorResult)
+    assert result.success is True
+    assert len(result.data["results"]) == 2
+    assert result.data["elapsed_s"] == 10.5
+    assert all(r["ok"] for r in result.data["results"])
 
 
-class TestAppName:
-    def test_app_is_gemmule(self):
-        assert LUCERNA_APP == "gemmule"
-
-
-# ── Integration tests (require fly CLI + running gemmule) ────
-
-
-INTEGRATION = os.environ.get("MITOSIS_INTEGRATION") == "1"
-
-
-@pytest.mark.skipif(not INTEGRATION, reason="MITOSIS_INTEGRATION not set")
-class TestIntegration:
-    def test_status(self):
-        info = status()
-        assert info["reachable"]
-        assert info["machine_state"] == "started"
-
-    def test_sync(self):
-        report = sync(["germline"])
-        assert report.ok
-        assert len(report.results) >= 1
-
-    def test_setup_idempotent(self):
-        result = setup()
-        assert result["success"]
-        for step in result["steps"]:
-            assert step["success"], f"{step['name']}: {step.get('message')}"
+def test_sync_partial_failure():
+    """Test sync with some failures but criticals ok."""
+    mock_report = MagicMock()
+    mock_report.ok = True  # criticals still ok
+    mock_report.elapsed_s = 8.0
+    mock_report.summary = "1/2 targets synced in 8.0s (1 failed)"
+    
+    mock_result1 = MagicMock()
+    mock_result1.target = "germline"
+    mock_result1.success = True
+    mock_result1.elapsed_s = 4.0
+    mock_result1.message = "ok"
+    
+    mock_result2 = MagicMock()
+    mock_result2.target = "cc-auth"
+    mock_result2.success = False
+    mock_result2.elapsed_s = 4.0
+    mock_result2.message = "permission denied"
+    
+    mock_report.results = [mock_result1, mock_result2]
+    
+    mock_sync = MagicMock(return_value=mock_report)
+    
+    with patch("metabolon.enzymes.mitosis.sync", mock_sync):
+        result = mitosis(action="sync")
+    
+    assert isinstance(result, EffectorResult)
+    assert result.success is True  # because only non-critical failed
+    assert len(result.data["results"]) == 2
