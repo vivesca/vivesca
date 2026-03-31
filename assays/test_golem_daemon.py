@@ -10,7 +10,7 @@ import pytest
 
 def _load_golem_daemon():
     """Load the golem-daemon module by exec-ing its Python body."""
-    source = open("/Users/terry/germline/effectors/golem-daemon").read()
+    source = open("/home/terry/germline/effectors/golem-daemon").read()
     # Skip the shebang and find the first import
     ns: dict = {"__name__": "golem_daemon"}
     exec(source, ns)

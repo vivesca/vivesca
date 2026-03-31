@@ -26,9 +26,9 @@ LINKS = [
 
 # Per-item symlinks (each subdirectory gets its own link)
 PER_ITEM = [
-    ("~/.claude/skills", "receptors"),
+    ("~/.claude/skills", "membrane/receptors"),
     ("~/.claude/agents", "membrane/buds"),
-    ("~/.claude/rules", "regulatory"),
+    ("~/.claude/rules", "membrane/regulatory"),
 ]
 
 

@@ -154,8 +154,8 @@ def test_extract_repair_pattern_labels():
     ]
     '''
 
-    with patch.object(type(namespace["INFLAMMASOME_PY"]), 'read_text', return_value=mock_src):
-        labels = namespace["extract_repair_pattern_labels"]()
+    with patch.object(type(methylation.INFLAMMASOME_PY), 'read_text', return_value=mock_src):
+        labels = methylation.extract_repair_pattern_labels()
         # The labels are on separate lines, so should extract both
         assert "fix_permissions" in labels
         assert "reset_socket" in labels
@@ -369,7 +369,7 @@ def test_dispatch_sonnet_success():
                 result = methylation.dispatch_sonnet("test prompt")
                 assert result is not None
                 assert "TYPE: probe" in result
-                assert mock_record.called_once()
+                mock_record.assert_called_once()
 
 def test_dispatch_sonnet_timeout():
     """Test dispatch_sonnet handles timeout gracefully and returns None."""

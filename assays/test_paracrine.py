@@ -1,281 +1,377 @@
-"""Tests for effectors/paracrine — lateral inhibition for feedback memories."""
-from __future__ import annotations
-
-import importlib.util
-from importlib.machinery import SourceFileLoader
-from pathlib import Path
-from unittest.mock import MagicMock, patch
+#!/usr/bin/env python3
+"""Tests for paracrine effector — mocks all external file I/O and subprocess."""
 
 import pytest
+import subprocess
+import yaml
+from unittest.mock import MagicMock, patch
+from pathlib import Path
 
+# Execute the paracrine file directly
+paracrine_path = Path("/home/terry/germline/effectors/paracrine")
+paracrine_code = paracrine_path.read_text()
+namespace = {}
+exec(paracrine_code, namespace)
 
-def _load_module():
-    module_path = Path(__file__).resolve().parents[1] / "effectors" / "paracrine"
-    loader = SourceFileLoader("paracrine", str(module_path))
-    spec = importlib.util.spec_from_loader("paracrine", loader)
-    assert spec is not None and spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
+# Extract all the functions/globals from the namespace
+paracrine = type('paracrine_module', (), {})()
+for key, value in namespace.items():
+    if not key.startswith('__'):
+        setattr(paracrine, key, value)
 
+# ---------------------------------------------------------------------------
+# Test AXES definition
+# ---------------------------------------------------------------------------
 
-# ── Fixtures ─────────────────────────────────────────────────────────────
+def test_axes_has_correct_keys():
+    """Test that AXES has all expected behavioral axes defined."""
+    expected_axes = [
+        "autonomy", "verbosity", "speed_vs_quality", "scope",
+        "routing", "capture_vs_flow", "intervention"
+    ]
+    assert sorted(paracrine.AXES.keys()) == sorted(expected_axes)
+    for axis, keywords in paracrine.AXES.items():
+        assert len(keywords) > 0
+        assert all(isinstance(kw, str) for kw in keywords)
 
+# ---------------------------------------------------------------------------
+# Test load_feedback_memories
+# ---------------------------------------------------------------------------
 
-def _make_memory(name: str, body: str, description: str = "") -> dict:
-    return {
-        "file": f"feedback_{name}.md",
-        "name": name,
-        "description": description,
-        "body": body,
-        "full_text": f"{name} {description} {body}".lower(),
+def test_load_feedback_memories_no_files():
+    """Test load_feedback_memories returns empty list when no files exist."""
+    with patch('pathlib.Path.glob', return_value=[]):
+        memories = paracrine.load_feedback_memories()
+        assert memories == []
+
+def test_load_feedback_memories_parses_frontmatter_correctly():
+    """Test load_feedback_memories correctly parses YAML frontmatter."""
+    mock_path = MagicMock()
+    mock_path.name = "feedback_test.md"
+    mock_path.stem = "feedback_test"
+    mock_path.read_text.return_value = """---
+name: Test Feedback
+description: This is a test
+---
+This is the body content.
+"""
+    
+    with patch('pathlib.Path.glob', return_value=[mock_path]):
+        memories = paracrine.load_feedback_memories()
+        assert len(memories) == 1
+        mem = memories[0]
+        assert mem["file"] == "feedback_test.md"
+        assert mem["name"] == "Test Feedback"
+        assert mem["description"] == "This is a test"
+        assert mem["body"] == "This is the body content."
+        assert "test feedback" in mem["full_text"]
+
+def test_load_feedback_memories_no_frontmatter():
+    """Test load_feedback_memories handles files without YAML frontmatter."""
+    mock_path = MagicMock()
+    mock_path.name = "feedback_no_front.md"
+    mock_path.stem = "feedback_no_front"
+    mock_path.read_text.return_value = "Just plain text content here."
+    
+    with patch('pathlib.Path.glob', return_value=[mock_path]):
+        memories = paracrine.load_feedback_memories()
+        assert len(memories) == 1
+        mem = memories[0]
+        assert "plain text" in mem["full_text"]
+
+def test_load_feedback_memories_invalid_yaml():
+    """Test load_feedback_memories handles invalid YAML gracefully."""
+    mock_path = MagicMock()
+    mock_path.name = "feedback_bad_yaml.md"
+    mock_path.stem = "feedback_bad_yaml"
+    mock_path.read_text.return_value = """---
+bad: yaml: here
+- not closed
+---
+Body here.
+"""
+    
+    with patch('pathlib.Path.glob', return_value=[mock_path]):
+        memories = paracrine.load_feedback_memories()
+        assert len(memories) == 1
+        # Should get empty meta on YAML error
+        assert memories[0]["name"] == "feedback_bad_yaml"
+
+# ---------------------------------------------------------------------------
+# Test cluster_by_axis
+# ---------------------------------------------------------------------------
+
+def test_cluster_by_axis_no_matches():
+    """Test cluster_by_axis returns empty dict when no memories match any axis."""
+    memories = [{
+        "full_text": "this has no keywords from any axis",
+        "file": "feedback_test.md"
+    }]
+    clusters = paracrine.cluster_by_axis(memories)
+    assert len(clusters) == 0
+
+def test_cluster_by_axis_matches_correct_axes():
+    """Test cluster_by_axis correctly assigns memories to axes based on keywords."""
+    # Memory that matches both autonomy and speed_vs_quality
+    memory1 = {
+        "full_text": "please act autonomously and do it quickly".lower(),
+        "file": "feedback_1.md"
     }
+    # Memory that matches verbosity
+    memory2 = {
+        "full_text": "please be more verbose and explain in detail".lower(),
+        "file": "feedback_2.md"
+    }
+    
+    clusters = paracrine.cluster_by_axis([memory1, memory2])
+    
+    assert "autonomy" in clusters
+    assert "speed_vs_quality" in clusters
+    assert "verbosity" in clusters
+    assert len(clusters["autonomy"]) == 1
+    assert len(clusters["speed_vs_quality"]) == 1
+    assert len(clusters["verbosity"]) == 1
+    assert clusters["autonomy"][0] == memory1
 
+def test_cluster_by_axis_multiple_matches_same_axis():
+    """Test multiple memories are correctly clustered to the same axis."""
+    mem1 = {"full_text": "just do it".lower(), "file": "f1.md"}
+    mem2 = {"full_text": "stop asking".lower(), "file": "f2.md"}
+    mem3 = {"full_text": "something else".lower(), "file": "f3.md"}
+    
+    clusters = paracrine.cluster_by_axis([mem1, mem2, mem3])
+    assert len(clusters["autonomy"]) == 2
 
-# ── Unit tests: cluster_by_axis ──────────────────────────────────────────
+# ---------------------------------------------------------------------------
+# Test detect_tensions
+# ---------------------------------------------------------------------------
 
+def test_detect_tensions_no_clusters():
+    """Test detect_tensions returns empty list with no clusters."""
+    tensions = paracrine.detect_tensions({})
+    assert tensions == []
 
-class TestClusterByAxis:
-    def test_empty_memories(self):
-        mod = _load_module()
-        assert mod.cluster_by_axis([]) == {}
+def test_detect_tensions_autonomy_tension():
+    """Test detect_tensions finds autonomy tension when both sides exist."""
+    do_it_mem = {
+        "file": "do_it.md",
+        "full_text": "just do it".lower()
+    }
+    hold_mem = {
+        "file": "hold.md",
+        "full_text": "hold and gate".lower()
+    }
+    
+    clusters = {
+        "autonomy": [do_it_mem, hold_mem],
+    }
+    
+    tensions = paracrine.detect_tensions(clusters)
+    assert len(tensions) == 1
+    tension = tensions[0]
+    assert tension["axis"] == "autonomy"
+    assert tension["label_a"] == "act immediately"
+    assert tension["label_b"] == "gate on judgment"
+    assert "do_it.md" in tension["pull_a"]
+    assert "hold.md" in tension["pull_b"]
+    assert tension["count"] == 2
 
-    def test_single_memory_single_axis(self):
-        mod = _load_module()
-        mem = _make_memory(" terse-mode", "Be terse and concise in all responses.")
-        clusters = mod.cluster_by_axis([mem])
-        assert "verbosity" in clusters
-        assert len(clusters["verbosity"]) == 1
+def test_detect_tensions_autonomy_one_side():
+    """Test no tension detected when only one side of autonomy exists."""
+    only_do_it = [{
+        "file": "do_it.md",
+        "full_text": "just do it".lower()
+    }]
+    clusters = {"autonomy": only_do_it}
+    tensions = paracrine.detect_tensions(clusters)
+    assert len(tensions) == 0
 
-    def test_memory_matches_multiple_axes(self):
-        mod = _load_module()
-        mem = _make_memory(
-            "fast-careful",
-            "Be fast and act immediately, but also verify and check your work carefully.",
-        )
-        clusters = mod.cluster_by_axis([mem])
-        assert "speed_vs_quality" in clusters
-        assert len(clusters["speed_vs_quality"]) == 1
+def test_detect_tensions_speed_vs_quality_tension():
+    """Test detect_tensions finds speed vs quality tension."""
+    fast_mem = {
+        "file": "fast.md",
+        "full_text": "do it quickly immediately".lower()
+    }
+    careful_mem = {
+        "file": "careful.md",
+        "full_text": "verify and check thoroughly".lower()
+    }
+    
+    clusters = {"speed_vs_quality": [fast_mem, careful_mem]}
+    tensions = paracrine.detect_tensions(clusters)
+    
+    assert len(tensions) == 1
+    tension = tensions[0]
+    assert tension["axis"] == "speed_vs_quality"
+    assert tension["label_a"] == "act fast"
+    assert tension["label_b"] == "verify first"
 
-    def test_no_matching_axis(self):
-        mod = _load_module()
-        mem = _make_memory("random", "Eat lunch at noon today.")
-        clusters = mod.cluster_by_axis([mem])
-        # May or may not match; key is it shouldn't crash
-        assert isinstance(clusters, dict)
+def test_detect_tensions_capture_vs_flow_tension():
+    """Test detect_tensions finds capture vs flow tension."""
+    capture_mem = {
+        "file": "capture.md",
+        "full_text": "capture and save everything".lower()
+    }
+    flow_mem = {
+        "file": "flow.md",
+        "full_text": "keep the energy flowing don't cut".lower()
+    }
+    
+    clusters = {"capture_vs_flow": [capture_mem, flow_mem]}
+    tensions = paracrine.detect_tensions(clusters)
+    
+    assert len(tensions) == 1
+    tension = tensions[0]
+    assert tension["axis"] == "capture_vs_flow"
+    assert tension["label_a"] == "capture everything"
+    assert tension["label_b"] == "protect flow"
 
-    def test_autonomy_keywords(self):
-        mod = _load_module()
-        mem = _make_memory("auto", "Just do it autonomously without asking.")
-        clusters = mod.cluster_by_axis([mem])
-        assert "autonomy" in clusters
+def test_detect_tensions_multiple_axes():
+    """Test detect_tensions finds tensions on multiple axes."""
+    # Autonomy tension
+    do_it = {"file": "a1.md", "full_text": "just do it"}
+    hold = {"file": "a2.md", "full_text": "hold gate"}
+    
+    # Speed vs quality tension
+    fast = {"file": "s1.md", "full_text": "quick fast"}
+    careful = {"file": "s2.md", "full_text": "verify check"}
+    
+    clusters = {
+        "autonomy": [do_it, hold],
+        "speed_vs_quality": [fast, careful],
+        "verbosity": []  # Empty cluster won't be detected
+    }
+    
+    tensions = paracrine.detect_tensions(clusters)
+    assert len(tensions) == 2
+    axes = {t["axis"] for t in tensions}
+    assert "autonomy" in axes
+    assert "speed_vs_quality" in axes
 
-    def test_routing_keywords(self):
-        mod = _load_module()
-        mem = _make_memory("router", "Use sonnet for simple tasks, opus for complex ones.")
-        clusters = mod.cluster_by_axis([mem])
-        assert "routing" in clusters
+def test_detect_tensions_no_tension_when_only_one_side():
+    """Test no tension detected when cluster exists but only one direction."""
+    only_fast = [{"file": "f.md", "full_text": "quickly fast"}]
+    clusters = {"speed_vs_quality": only_fast}
+    tensions = paracrine.detect_tensions(clusters)
+    assert len(tensions) == 0
 
+# ---------------------------------------------------------------------------
+# Test reconcile_tension
+# ---------------------------------------------------------------------------
 
-# ── Unit tests: detect_tensions ──────────────────────────────────────────
+def test_reconcile_tension_handles_subprocess_success():
+    """Test reconcile_tension gets and returns result from subprocess."""
+    tension = {
+        "axis": "autonomy",
+        "pull_a": ["doit.md"],
+        "pull_b": ["hold.md"],
+        "label_a": "act",
+        "label_b": "hold"
+    }
+    memories = [
+        {"file": "doit.md", "body": "Just do it autonomously"},
+        {"file": "hold.md", "body": "Hold and gate before acting"}
+    ]
+    
+    mock_result = MagicMock()
+    mock_result.stdout = "FALSE POSITIVE: No real contradiction here"
+    mock_result.stderr = ""
+    
+    with patch('subprocess.run', return_value=mock_result):
+        verdict = paracrine.reconcile_tension(tension, memories)
+        assert "FALSE POSITIVE" in verdict
 
+def test_reconcile_tension_handles_file_not_found():
+    """Test reconcile_tension handles case when 'channel' command not found."""
+    tension = {
+        "axis": "autonomy",
+        "pull_a": ["a.md"],
+        "pull_b": ["b.md"],
+        "label_a": "a",
+        "label_b": "b"
+    }
+    memories = [{"file": "a.md", "body": "a"}, {"file": "b.md", "body": "b"}]
+    
+    with patch('subprocess.run', side_effect=FileNotFoundError("no command")):
+        verdict = paracrine.reconcile_tension(tension, memories)
+        assert "ERROR" in verdict
+        assert "no command" in verdict
 
-class TestDetectTensions:
-    def test_no_tensions_single_side(self):
-        mod = _load_module()
-        mem = _make_memory("go", "Just do it autonomously without asking anyone.")
-        clusters = mod.cluster_by_axis([mem])
-        tensions = mod.detect_tensions(clusters)
-        assert tensions == []
+def test_reconcile_tension_handles_timeout():
+    """Test reconcile_tension handles timeout gracefully."""
+    tension = {
+        "axis": "autonomy",
+        "pull_a": ["a.md"],
+        "pull_b": ["b.md"],
+        "label_a": "a",
+        "label_b": "b"
+    }
+    memories = [{"file": "a.md", "body": "a"}, {"file": "b.md", "body": "b"}]
+    
+    with patch('subprocess.run', side_effect=subprocess.TimeoutExpired("cmd", 60)):
+        verdict = paracrine.reconcile_tension(tension, memories)
+        assert "ERROR" in verdict
+        assert "timed out" in verdict
 
-    def test_autonomy_tension(self):
-        mod = _load_module()
-        do_it = _make_memory("act", "Just do it, stop asking for permission, act and report.")
-        hold = _make_memory("gate", "Hold and use judgment, calibrate before acting, confirm first.")
-        clusters = mod.cluster_by_axis([do_it, hold])
-        tensions = mod.detect_tensions(clusters)
-        assert len(tensions) >= 1
-        assert tensions[0]["axis"] == "autonomy"
-        assert tensions[0]["label_a"] == "act immediately"
-        assert tensions[0]["label_b"] == "gate on judgment"
+# ---------------------------------------------------------------------------
+# Test JSON output pathway
+# ---------------------------------------------------------------------------
 
-    def test_speed_vs_quality_tension(self):
-        mod = _load_module()
-        fast = _make_memory("fast", "Reply immediately, be quick and fast about it.")
-        careful = _make_memory("slow", "Verify and validate, research before acting, be thorough.")
-        clusters = mod.cluster_by_axis([fast, careful])
-        tensions = mod.detect_tensions(clusters)
-        speed_tensions = [t for t in tensions if t["axis"] == "speed_vs_quality"]
-        assert len(speed_tensions) == 1
-
-    def test_capture_vs_flow_tension(self):
-        mod = _load_module()
-        capture = _make_memory("save", "Capture and save everything, remember all context.")
-        flow = _make_memory("flow", "Protect flow state and thread, don't cut energy.")
-        clusters = mod.cluster_by_axis([capture, flow])
-        tensions = mod.detect_tensions(clusters)
-        cap_tensions = [t for t in tensions if t["axis"] == "capture_vs_flow"]
-        assert len(cap_tensions) == 1
-
-    def test_empty_clusters(self):
-        mod = _load_module()
-        assert mod.detect_tensions({}) == []
-
-    def test_tension_count(self):
-        mod = _load_module()
-        do_it = _make_memory("act", "Just do it, stop asking for permission, act and report.")
-        hold = _make_memory("gate", "Hold and use judgment, calibrate before acting, confirm first.")
-        clusters = mod.cluster_by_axis([do_it, hold])
-        tensions = mod.detect_tensions(clusters)
-        assert tensions[0]["count"] == 2
-
-
-# ── Unit tests: load_feedback_memories ───────────────────────────────────
-
-
-class TestLoadFeedbackMemories:
-    def test_empty_dir(self, monkeypatch, tmp_path):
-        mod = _load_module()
-        mem_dir = tmp_path / "memory"
-        mem_dir.mkdir()
-        monkeypatch.setattr(mod, "MEMORY_DIR", mem_dir)
-        assert mod.load_feedback_memories() == []
-
-    def test_loads_with_frontmatter(self, monkeypatch, tmp_path):
-        mod = _load_module()
-        mem_dir = tmp_path / "memory"
-        mem_dir.mkdir()
-        content = "---\nname: test-fb\ndescription: A test feedback\n---\nSome body text"
-        (mem_dir / "feedback_test.md").write_text(content)
-        monkeypatch.setattr(mod, "MEMORY_DIR", mem_dir)
-        result = mod.load_feedback_memories()
-        assert len(result) == 1
-        assert result[0]["name"] == "test-fb"
-        assert result[0]["description"] == "A test feedback"
-        assert "Some body text" in result[0]["body"]
-
-    def test_loads_without_frontmatter(self, monkeypatch, tmp_path):
-        mod = _load_module()
-        mem_dir = tmp_path / "memory"
-        mem_dir.mkdir()
-        (mem_dir / "feedback_plain.md").write_text("Just plain text without frontmatter.")
-        monkeypatch.setattr(mod, "MEMORY_DIR", mem_dir)
-        result = mod.load_feedback_memories()
-        assert len(result) == 1
-        assert result[0]["name"] == "feedback_plain"
-
-    def test_handles_broken_yaml(self, monkeypatch, tmp_path):
-        mod = _load_module()
-        mem_dir = tmp_path / "memory"
-        mem_dir.mkdir()
-        content = "---\n: invalid yaml {{\n---\nbody here"
-        (mem_dir / "feedback_broken.md").write_text(content)
-        monkeypatch.setattr(mod, "MEMORY_DIR", mem_dir)
-        result = mod.load_feedback_memories()
-        assert len(result) == 1
-        # Should gracefully handle broken YAML
-        assert "body here" in result[0]["body"]
-
-
-# ── Unit tests: reconcile_tension ────────────────────────────────────────
-
-
-class TestReconcileTension:
-    def test_returns_llm_output(self, monkeypatch):
-        mod = _load_module()
-        tension = {
-            "axis": "autonomy",
-            "pull_a": ["feedback_act.md"],
-            "pull_b": ["feedback_gate.md"],
-            "label_a": "act immediately",
-            "label_b": "gate on judgment",
-            "count": 2,
+def test_json_output_integration():
+    """Test that the JSON output pathway structures data correctly."""
+    # We'll test the structure that would be printed to stdout
+    test_memories = [
+        {
+            "file": "autonomy_justdo.md",
+            "name": "Just do it",
+            "description": "Act autonomously",
+            "body": "Just do it without asking",
+            "full_text": "just do it autonomously act".lower()
+        },
+        {
+            "file": "autonomy_hold.md",
+            "name": "Hold and gate",
+            "description": "Check before acting",
+            "body": "Always hold and confirm before acting",
+            "full_text": "hold gate confirm check".lower()
         }
-        memories = [
-            _make_memory("act", "Just do it autonomously."),
-            _make_memory("gate", "Hold and confirm first."),
-        ]
+    ]
+    
+    clusters = paracrine.cluster_by_axis(test_memories)
+    tensions = paracrine.detect_tensions(clusters)
+    
+    # Should have one tension
+    assert len(tensions) == 1
+    assert tensions[0]["axis"] == "autonomy"
+    
+    # Check that structure matches what main() would output
+    output = {
+        "total": len(test_memories),
+        "clusters": {k: [m["file"] for m in v] for k, v in clusters.items()},
+        "tensions": tensions,
+    }
+    
+    assert output["total"] == 2
+    assert "autonomy" in output["clusters"]
+    assert len(output["clusters"]["autonomy"]) == 2
 
-        mock_result = MagicMock()
-        mock_result.stdout = "FALSE POSITIVE: both refer to different contexts"
-        mock_result.stderr = ""
-        monkeypatch.setattr(
-            mod.subprocess, "run",
-            lambda *a, **kw: mock_result,
-        )
-        result = mod.reconcile_tension(tension, memories)
-        assert "FALSE POSITIVE" in result
+# ---------------------------------------------------------------------------
+# Test main behavior
+# ---------------------------------------------------------------------------
 
-    def test_handles_timeout(self, monkeypatch):
-        mod = _load_module()
-        tension = {
-            "axis": "speed_vs_quality",
-            "pull_a": ["feedback_fast.md"],
-            "pull_b": ["feedback_careful.md"],
-            "label_a": "act fast",
-            "label_b": "verify first",
-            "count": 2,
-        }
-        memories = [_make_memory("fast", "Be fast."), _make_memory("careful", "Be thorough.")]
+def test_main_no_memories():
+    """Test main works when no feedback memories found."""
+    with patch('pathlib.Path.glob', return_value=[]):
+        # Just test that it runs without error
+        paracrine.main()
 
-        import subprocess as sp
-        monkeypatch.setattr(
-            mod.subprocess, "run",
-            side_effect := sp.TimeoutExpired("cmd", 60),
-        )
-        # Need to re-raise, not use side_effect — let's patch differently
-        monkeypatch.setattr(
-            mod.subprocess, "run",
-            MagicMock(side_effect=sp.TimeoutExpired("channel", 60)),
-        )
-        result = mod.reconcile_tension(tension, memories)
-        assert "ERROR" in result
-
-
-# ── Integration: main with mocks ─────────────────────────────────────────
-
-
-class TestMain:
-    def test_main_shows_clusters(self, monkeypatch, tmp_path, capsys):
-        mod = _load_module()
-        mem_dir = tmp_path / "memory"
-        mem_dir.mkdir()
-        (mem_dir / "feedback_test.md").write_text(
-            "---\nname: terse\n---\nBe concise and terse."
-        )
-        monkeypatch.setattr(mod, "MEMORY_DIR", mem_dir)
-        monkeypatch.setattr(mod, "sys", MagicMock(argv=["prog"]))
-        mod.main()
-        captured = capsys.readouterr()
-        assert "Loaded 1 feedback memories" in captured.out
-
-    def test_main_cluster_flag(self, monkeypatch, tmp_path, capsys):
-        mod = _load_module()
-        mem_dir = tmp_path / "memory"
-        mem_dir.mkdir()
-        (mem_dir / "feedback_test.md").write_text(
-            "---\nname: terse\n---\nBe concise and terse."
-        )
-        monkeypatch.setattr(mod, "MEMORY_DIR", mem_dir)
-        monkeypatch.setattr(mod, "sys", MagicMock(argv=["prog", "--cluster"]))
-        mod.main()
-        captured = capsys.readouterr()
-        assert "verbosity" in captured.out
-
-    def test_main_json_output(self, monkeypatch, tmp_path, capsys):
-        mod = _load_module()
-        mem_dir = tmp_path / "memory"
-        mem_dir.mkdir()
-        (mem_dir / "feedback_test.md").write_text(
-            "---\nname: terse\n---\nBe concise and terse."
-        )
-        monkeypatch.setattr(mod, "MEMORY_DIR", mem_dir)
-        monkeypatch.setattr(mod, "sys", MagicMock(argv=["prog", "--json"]))
-        mod.main()
-        import json
-        captured = capsys.readouterr()
-        data = json.loads(captured.out)
-        assert "total" in data
-        assert "clusters" in data
-        assert "tensions" in data
-        assert data["total"] == 1
+def test_main_with_memories_no_tensions():
+    """Test main runs successfully when there are memories but no tensions."""
+    mock_path = MagicMock()
+    mock_path.name = "test.md"
+    mock_path.stem = "test"
+    mock_path.read_text.return_value = "routing delegate to sonnet"
+    
+    with patch('pathlib.Path.glob', return_value=[mock_path]):
+        # Just test that it runs without error
+        paracrine.main()

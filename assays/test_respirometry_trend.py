@@ -12,7 +12,7 @@ import pytest
 
 # Import the effector as a module (no .py extension, need SourceFileLoader)
 _loader = importlib.machinery.SourceFileLoader(
-    "respirometry", "/Users/terry/germline/effectors/respirometry"
+    "respirometry", "/home/terry/germline/effectors/respirometry"
 )
 _spec = importlib.util.spec_from_loader("respirometry", _loader)
 resp = types.ModuleType("respirometry")
