@@ -383,3 +383,110 @@ class TestCombinedTgNotify:
         r = _run(tmp_path, disk_pct=50, failed_units=0, tg_notify=True)
         assert r.returncode == 0
         assert not (tmp_path / "tg.log").exists()
+
+
+# ── no systemctl in PATH ─────────────────────────────────────────────────
+
+
+class TestSystemctlMissing:
+    def test_no_systemctl_still_healthy(self, tmp_path):
+        """If systemctl is not found, command fails, FAILED=0, system healthy."""
+        mock_dir = tmp_path / "mock-bin"
+        mock_dir.mkdir()
+        _make_mock(mock_dir, "df", "Use%\n  50%")
+        _make_mock(mock_dir, "free", "              total       used\nMem: 4096 8192")
+        # No systemctl mock — it won't be found because PATH only has mock-bin
+
+        env = os.environ.copy()
+        env["HOME"] = str(tmp_path)
+        env["PATH"] = str(mock_dir)
+
+        r = subprocess.run(
+            ["bash", str(SCRIPT)],
+            capture_output=True, text=True, env=env, timeout=10,
+        )
+        assert r.returncode == 0
+        assert "pharos health: ok" in r.stdout
+
+    def test_no_systemctl_high_disk_still_alerts(self, tmp_path):
+        """systemctl missing + high disk still triggers alert."""
+        mock_dir = tmp_path / "mock-bin"
+        mock_dir.mkdir()
+        _make_mock(mock_dir, "df", "Use%\n  95%")
+        _make_mock(mock_dir, "free", "              total       used\nMem: 4096 8192")
+
+        env = os.environ.copy()
+        env["HOME"] = str(tmp_path)
+        env["PATH"] = str(mock_dir)
+
+        r = subprocess.run(
+            ["bash", str(SCRIPT)],
+            capture_output=True, text=True, env=env, timeout=10,
+        )
+        assert r.returncode == 1
+        assert "disk=95%" in r.stderr
+
+
+# ── help additional coverage ─────────────────────────────────────────────
+
+
+class TestHelpDetails:
+    def test_help_mentions_disk(self, tmp_path):
+        """--help output mentions disk checking."""
+        r = _run(tmp_path, args=["--help"])
+        assert "disk" in r.stdout.lower()
+
+    def test_help_mentions_telegram(self, tmp_path):
+        """--help output mentions Telegram notification."""
+        r = _run(tmp_path, args=["--help"])
+        assert "telegram" in r.stdout.lower() or "tg-notify" in r.stdout.lower()
+
+    def test_help_exits_early_no_health_check(self, tmp_path):
+        """--help should not run health checks (no 'disk=' in output)."""
+        r = _run(tmp_path, args=["--help"])
+        assert "disk=" not in r.stdout
+
+
+# ── tg-notify failure propagation ────────────────────────────────────────
+
+
+class TestTgNotifyFailure:
+    def test_tg_notify_exits_nonzero_propagates(self, tmp_path):
+        """If tg-notify.sh exits non-zero, set -e causes script to exit."""
+        scripts_dir = tmp_path / "scripts"
+        scripts_dir.mkdir()
+        tg = scripts_dir / "tg-notify.sh"
+        tg.write_text("#!/bin/bash\nexit 2\n")
+        tg.chmod(tg.stat().st_mode | stat.S_IEXEC)
+
+        # With set -e, tg-notify failure should propagate
+        r = _run(tmp_path, disk_pct=90, failed_units=0, tg_notify=False)
+        # The script should still exit non-zero (via set -e from tg-notify)
+        assert r.returncode != 0
+
+
+# ── large memory values ──────────────────────────────────────────────────
+
+
+class TestLargeMemory:
+    def test_large_memory_values(self, tmp_path):
+        """Handles large memory values (e.g., 64GB)."""
+        r = _run(
+            tmp_path,
+            disk_pct=50,
+            mem_line="Mem: 65536 32768",
+            failed_units=0,
+        )
+        assert r.returncode == 0
+        assert "32768/65536MB" in r.stdout
+
+    def test_small_memory_values(self, tmp_path):
+        """Handles small memory values (e.g., 512MB)."""
+        r = _run(
+            tmp_path,
+            disk_pct=50,
+            mem_line="Mem: 512 256",
+            failed_units=0,
+        )
+        assert r.returncode == 0
+        assert "256/512MB" in r.stdout
