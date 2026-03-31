@@ -334,7 +334,8 @@ def test_or_else_true_prevents_bailout():
     lines = text.splitlines()
     update_lines = [
         l for l in lines
-        if any(cmd in l for cmd in ["brew update", "brew upgrade", "brew cleanup",
+        if not l.strip().startswith("#")
+        and any(cmd in l for cmd in ["brew update", "brew upgrade", "brew cleanup",
                                      "npm update", "pnpm update", "uv tool",
                                      "cargo binstall", "mas upgrade"])
     ]

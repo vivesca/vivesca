@@ -84,6 +84,21 @@ class TestPortaInject:
         assert result.success is True
         assert result.data["count"] == 0
 
+    def test_exception_propagates(self):
+        """Underlying inject() exceptions are not swallowed."""
+        with patch(
+            "metabolon.organelles.porta.inject",
+            side_effect=RuntimeError("cookie store unavailable"),
+        ):
+            with pytest.raises(RuntimeError, match="cookie store unavailable"):
+                pseudopod.porta_inject("boom.com")
+
+    def test_tool_metadata(self):
+        """Verify @tool decorator metadata."""
+        assert pseudopod.porta_inject.name == "porta_inject"
+        assert pseudopod.porta_inject.annotations.readOnlyHint is False
+        assert pseudopod.porta_inject.annotations.destructiveHint is False
+
 
 # ---------------------------------------------------------------------------
 # translocon_dispatch
