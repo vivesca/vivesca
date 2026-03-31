@@ -34,7 +34,7 @@ OPENCODE_MCP = Path.home() / ".opencode" / "mcp.json"
 # Command path mappings for Codex (needs full paths)
 PATH_MAP = {
     "npx": "/opt/homebrew/bin/npx",
-    "uvx": "/Users/terry/.pyenv/shims/uvx",
+    "uvx": str(Path.home() / ".pyenv" / "shims" / "uvx"),
 }
 
 
