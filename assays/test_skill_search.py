@@ -81,7 +81,7 @@ Body."""
 
 class TestKeywordMatching:
     def _load_ns(self):
-        ns = {"__name__": "test_skill_search"}
+        ns = {"__name__": "test_skill_search", "__file__": str(SCRIPT)}
         exec(open(SCRIPT).read(), ns)
         return ns
 

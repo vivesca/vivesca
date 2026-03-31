@@ -118,45 +118,25 @@ class TestHumanDelay:
 
 
 class TestStealthContext:
-    def test_creates_context_from_browser(
-        self, mock_browser: MagicMock, mock_context: MagicMock
-    ) -> None:
-        ctx = stealth_context(mock_browser)
-        mock_browser.new_context.assert_called_once()
+    @pytest.mark.asyncio
+    async def test_returns_same_context(self, mock_context: MagicMock) -> None:
+        ctx = await stealth_context(mock_context)
         assert ctx is mock_context
 
-    def test_applies_all_patches(
-        self, mock_browser: MagicMock, mock_context: MagicMock
-    ) -> None:
-        stealth_context(mock_browser)
-        # patch_navigator calls add_init_script once
-        # _STEALTH_INIT_JS calls add_init_script once more
-        assert mock_context.add_init_script.call_count == 2
+    @pytest.mark.asyncio
+    async def test_applies_all_patches(self, mock_context: MagicMock) -> None:
+        await stealth_context(mock_context)
+        # 4 init scripts for patches: webdriver, chrome runtime, plugins, permissions
+        assert mock_context.add_init_script.call_count == 4
         # set_realistic_headers calls set_extra_http_headers once
         mock_context.set_extra_http_headers.assert_called_once()
 
-    def test_random_ua_when_not_supplied(
-        self, mock_browser: MagicMock, mock_context: MagicMock
-    ) -> None:
-        stealth_context(mock_browser)
-        kwargs = mock_browser.new_context.call_args[1]
-        assert kwargs["user_agent"] in CHROME_USER_AGENTS
-
-    def test_custom_ua_preserved(
-        self, mock_browser: MagicMock, mock_context: MagicMock
-    ) -> None:
-        custom_ua = "CustomBot/1.0"
-        stealth_context(mock_browser, user_agent=custom_ua)
-        kwargs = mock_browser.new_context.call_args[1]
-        assert kwargs["user_agent"] == custom_ua
-
-    def test_forwarded_kwargs(
-        self, mock_browser: MagicMock, mock_context: MagicMock
-    ) -> None:
-        stealth_context(mock_browser, viewport={"width": 1920, "height": 1080}, locale="en-US")
-        kwargs = mock_browser.new_context.call_args[1]
-        assert kwargs["viewport"] == {"width": 1920, "height": 1080}
-        assert kwargs["locale"] == "en-US"
+    @pytest.mark.asyncio
+    async def test_sets_random_ua(self, mock_context: MagicMock) -> None:
+        await stealth_context(mock_context)
+        call_args = mock_context.set_extra_http_headers.call_args[0][0]
+        assert "User-Agent" in call_args
+        assert call_args["User-Agent"] in CHROME_USER_AGENTS
 
 
 # ── UA pool integrity ────────────────────────────────────────────────────
@@ -172,7 +152,3 @@ class TestUAPool:
 
     def test_all_unique(self) -> None:
         assert len(CHROME_USER_AGENTS) == len(set(CHROME_USER_AGENTS))
-
-    def test_stealth_init_js_is_nonempty(self) -> None:
-        assert len(_STEALTH_INIT_JS.strip()) > 0
-        assert "navigator" in _STEALTH_INIT_JS
