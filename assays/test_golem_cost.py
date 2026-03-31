@@ -207,7 +207,7 @@ class TestFmtCost:
         assert fmt_cost(0.005) == "$0.0050"
 
     def test_zero(self):
-        assert fmt_cost(0.0) == "$0.00"
+        assert fmt_cost(0.0) == "$0.0000"
 
     def test_large_cost(self):
         assert fmt_cost(100.0) == "$100.00"

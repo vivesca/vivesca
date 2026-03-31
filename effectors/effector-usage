@@ -126,12 +126,13 @@ def scan_daemon_log(path: Path) -> tuple[Counter, dict[str, list[datetime]], Cou
         if not line:
             continue
 
-        # Extract timestamp
+        # Extract timestamp and message portion after "] "
         ts_match = RE_LOG_TS.match(line)
         ts = parse_log_timestamp(ts_match.group(1)) if ts_match else None
+        msg = line.split("] ", 1)[1] if "] " in line else ""
 
-        # Check for failure patterns
-        is_failure = bool(RE_FAILED.match(line) or RE_TIMEOUT.match(line))
+        # Check for failure patterns in message part (after timestamp)
+        is_failure = bool(RE_FAILED.match(msg) or RE_TIMEOUT.match(msg))
 
         # Find effector mentions
         for m in RE_EFFECTOR.finditer(line):
