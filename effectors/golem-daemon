@@ -208,7 +208,10 @@ def mark_done(line_num: int, result: str = ""):
             return
         if line_num < 0:
             return
-        lines = QUEUE_FILE.read_text().splitlines()
+        try:
+            lines = QUEUE_FILE.read_text().splitlines()
+        except (PermissionError, OSError):
+            return
         if line_num >= len(lines):
             return
         original = lines[line_num]
@@ -222,7 +225,10 @@ def mark_done(line_num: int, result: str = ""):
                 result_line = f"{done_line} \u2192 {result[:80]}" if result else done_line
                 lines.insert(i + 2, result_line)
                 break
-        QUEUE_FILE.write_text("\n".join(lines) + "\n")
+        try:
+            QUEUE_FILE.write_text("\n".join(lines) + "\n")
+        except (PermissionError, OSError):
+            return
 
 
 def mark_failed(line_num: int, result: str = "", exit_code: int = 1) -> dict:
