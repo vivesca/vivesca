@@ -89,6 +89,14 @@ def extract_imports_from_file(py_file: Path) -> set[str]:
                 parts = node.module.split(".")
                 for i in range(1, len(parts)):
                     imports.add(".".join(parts[:i]))
+            # Capture each imported name so that
+            # `from metabolon.organelles import nucleus` marks nucleus
+            # as referenced (leaf match in find_orphans).
+            for alias in node.names:
+                name = alias.name
+                imports.add(name)
+                if node.module:
+                    imports.add(f"{node.module}.{name}")
 
     return imports
 
