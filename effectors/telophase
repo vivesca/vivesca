@@ -441,9 +441,12 @@ def cmd_archive(args):
     PRAXIS.write_text("".join(remaining), encoding="utf-8")
     PRAXIS_ARCHIVE.write_text(archive_text, encoding="utf-8")
 
-    print(f"  {OK}  Archived {len(completed)} completed item(s)")
-    for c in completed:
-        print(f"       {DIM}{c[:80]}{RESET}")
+    if json_mode:
+        print(json.dumps({"archived": len(completed), "items": completed}))
+    else:
+        print(f"  {OK}  Archived {len(completed)} completed item(s)")
+        for c in completed:
+            print(f"       {DIM}{c[:80]}{RESET}")
 
 
 # ── Daily ────────────────────────────────────────────────────────────────────
