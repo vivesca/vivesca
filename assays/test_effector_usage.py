@@ -125,7 +125,7 @@ class TestScanDaemonLog:
             [2026-03-31 10:53:59] FAILED (exit=1): golem --provider infini --max-turns 50 "Read effectors/golem-top"
             [2026-03-31 10:54:29] Finished (30s, exit=0): golem --provider infini --max-turns 50 "Read effectors/log-summary"
         """))
-        usage, last_seen, failures = scan_daemon_log(lf)
+        usage, failures, last_seen = scan_daemon_log(lf)
         assert usage["golem-top"] == 2
         assert usage["log-summary"] == 1
         assert failures["golem-top"] == 1
@@ -136,19 +136,19 @@ class TestScanDaemonLog:
         lf.write_text(textwrap.dedent("""\
             [2026-03-31 10:53:29] TIMEOUT (300s): golem --provider infini "Fix effectors/chemoreception.py"
         """))
-        usage, last_seen, failures = scan_daemon_log(lf)
+        usage, failures, last_seen = scan_daemon_log(lf)
         assert usage["chemoreception.py"] == 1
         assert failures["chemoreception.py"] == 1
 
     def test_empty_file(self, tmp_path):
         lf = tmp_path / "golem-daemon.log"
         lf.write_text("")
-        usage, last_seen, failures = scan_daemon_log(lf)
+        usage, failures, last_seen = scan_daemon_log(lf)
         assert len(usage) == 0
 
     def test_nonexistent_file(self, tmp_path):
         lf = tmp_path / "nonexistent.log"
-        usage, last_seen, failures = scan_daemon_log(lf)
+        usage, failures, last_seen = scan_daemon_log(lf)
         assert len(usage) == 0
 
 
