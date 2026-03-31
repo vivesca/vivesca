@@ -355,7 +355,7 @@ class TestRecordAccessAction:
     """demethylase(action='record_access', ...) tests."""
 
     @patch(f"{_ORG}.record_access")
-    @patch(f"{_LOCUS}.marks", new_callable=lambda: lambda: MagicMock())
+    @patch(f"{_LOCUS}.marks")
     def test_record_access_success(self, mock_marks_dir, mock_record):
         mock_path = MagicMock()
         mock_path.exists.return_value = True
@@ -429,6 +429,7 @@ class TestReturnType:
     @patch(f"{_ORG}.sweep")
     def test_sweep_returns_demethylase_result(self, mock_sweep, mock_format):
         mock_sweep.return_value = _make_report()
+        mock_format.return_value = "REPORT"
         r = demethylase(action="sweep")
         assert isinstance(r, DemethylaseResult)
 
