@@ -69,18 +69,17 @@ class TestGolemSummary:
         ]
         log_file = create_test_log(entries, tmp_path)
         stdout, code = run_summary(log_file)
-        
+
         assert code == 0
         # zhipu: 4 runs, 2 pass (exit=0), 2 fail (exit!=0)
         lines = stdout.strip().split("\n")
         zhipu_line = [l for l in lines if "zhipu" in l][0]
-        # Check the line has correct values
-        assert "| 4 |" in zhipu_line
-        assert "| 2 |" in zhipu_line  # pass count
-        # There should be two "| 2 |" - one for pass, one for fail
+        # Check the line has correct values (accounting for padding)
+        # Format: "zhipu        |    4 |    2 |    2 |        100s |             0"
         parts = zhipu_line.split("|")
-        assert parts[3].strip() == "2"  # Pass column
-        assert parts[4].strip() == "2"  # Fail column
+        assert parts[1].strip() == "4"   # Runs
+        assert parts[2].strip() == "2"   # Pass
+        assert parts[3].strip() == "2"   # Fail
 
     def test_summary_average_duration(self, tmp_path):
         """Test that average duration is calculated correctly."""
@@ -121,18 +120,16 @@ class TestGolemSummary:
         ]
         log_file = create_test_log(entries, tmp_path)
         stdout, code = run_summary(log_file, recent=2)
-        
+
         assert code == 0
         # Only last 2 entries should be counted: volcano and infini
         assert "volcano" in stdout
         assert "infini" in stdout
-        # zhipu should show 0 runs since last 2 don't include it
+        # zhipu should not appear in the filtered results (only last 2 entries)
         lines = stdout.strip().split("\n")
-        # Check that zhipu line has 0 runs or is not present
         zhipu_lines = [l for l in lines if "zhipu" in l]
-        if zhipu_lines:
-            # If zhipu is shown, it should have 0 runs
-            assert "| 0 |" in zhipu_lines[0] or "zhipu" not in stdout
+        # zhipu should not be present at all when filtered to last 2 entries
+        assert len(zhipu_lines) == 0, f"zhipu should not appear in --recent 2 output: {zhipu_lines}"
 
     def test_summary_missing_log_file(self, tmp_path):
         """Test that missing log file returns non-zero exit."""
@@ -187,14 +184,16 @@ this is not valid json
         ]
         log_file = create_test_log(entries, tmp_path)
         stdout, code = run_summary(log_file)
-        
+
         assert code == 0
         assert "zhipu" in stdout
         # Missing duration should be treated as 0
         # Missing exit should be treated as non-zero (fail)
         lines = stdout.strip().split("\n")
         zhipu_line = [l for l in lines if "zhipu" in l][0]
-        assert "| 2 |" in zhipu_line  # 2 runs
+        # Check for 2 runs (accounting for padding)
+        parts = zhipu_line.split("|")
+        assert parts[1].strip() == "2"  # 2 runs
 
     def test_summary_unknown_provider(self, tmp_path):
         """Test that unknown providers are shown as 'unknown'."""

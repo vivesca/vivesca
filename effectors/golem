@@ -20,65 +20,13 @@ PROVIDER="${GOLEM_PROVIDER:-zhipu}"
 GOLEM_LOG="${GOLEM_LOG:-$HOME/.local/share/vivesca/golem.jsonl}"
 mkdir -p "$(dirname "$GOLEM_LOG")"
 
-# Handle subcommands first
-if [[ "${1:-}" == "summary" ]]; then
-  SUMMARY=true
-  shift
-  while [[ "${1:-}" == --* ]]; do
-    case "$1" in
-      --recent) RECENT="$2"; shift 2 ;;
-      *) echo "Unknown flag: $1" >&2; exit 1 ;;
-    esac
-  done
-else
-  while [[ "${1:-}" == --* ]]; do
-    case "$1" in
-      --batch) BATCH=true; shift ;;
-      --test) TEST=true; shift ;;
-      --max-turns) MAX_TURNS="$2"; shift 2 ;;
-      --full) BARE=false; shift ;;
-      --bare) BARE=true; shift ;;
-      --provider) PROVIDER="$2"; shift 2 ;;
-      *) echo "Unknown flag: $1" >&2; exit 1 ;;
-    esac
-  done
-fi
-
-# Provider config: KEY_VAR, BASE_URL, OPUS_MODEL, SONNET_MODEL, HAIKU_MODEL
-case "$PROVIDER" in
-  zhipu)
-    _KEY="${ZHIPU_API_KEY:?ZHIPU_API_KEY not set}"
-    _URL="https://open.bigmodel.cn/api/anthropic"
-    _OPUS="GLM-5.1"; _SONNET="GLM-5.1"; _HAIKU="GLM-4.5-air" ;;
-  volcano)
-    _KEY="${VOLCANO_API_KEY:?VOLCANO_API_KEY not set}"
-    _URL="https://ark.cn-beijing.volces.com/api/coding"
-    _AUTH_MODE="token"  # volcano needs AUTH_TOKEN, not API_KEY
-    _OPUS="ark-code-latest"; _SONNET="ark-code-latest"; _HAIKU="ark-code-latest" ;;
-  infini)
-    # WARNING: Infini API does NOT support CC tool-use. Models ask for permission
-    # instead of invoking tools. Only usable for text-only tasks, not golem.
-    _KEY="${INFINI_API_KEY:?INFINI_API_KEY not set}"
-    _URL="https://cloud.infini-ai.com/maas/coding"
-    _OPUS="glm-5"; _SONNET="glm-5"; _HAIKU="glm-4.5-air" ;;
-  *) echo "Unknown provider: $PROVIDER (zhipu|volcano|infini)" >&2; exit 1 ;;
-esac
-
-GOLEM_LOG="${GOLEM_LOG:-$HOME/.local/share/vivesca/golem.jsonl}"
-mkdir -p "$(dirname "$GOLEM_LOG")"
-
 # Summary subcommand - show provider stats from JSONL log
 _run_summary() {
-  local recent_filter=""
-  if [[ "$RECENT" -gt 0 ]]; then
-    recent_filter="tail -n $RECENT |"
-  fi
-
   python3 << 'PYTHON_SCRIPT'
 import json
 import sys
+import os
 from collections import defaultdict
-from datetime import datetime
 
 recent = 0
 log_file = None
@@ -97,7 +45,6 @@ while i < len(args):
         i += 1
 
 if not log_file:
-    import os
     log_file = os.environ.get('GOLEM_LOG', os.path.expanduser('~/.local/share/vivesca/golem.jsonl'))
 
 stats = defaultdict(lambda: {'runs': 0, 'pass': 0, 'fail': 0, 'total_duration': 0, 'tests_created': 0})
@@ -140,10 +87,102 @@ except FileNotFoundError:
 PYTHON_SCRIPT
 }
 
-if $SUMMARY; then
-  _run_summary
+# Handle subcommands first
+if [[ "${1:-}" == "summary" ]]; then
+  shift
+  while [[ "${1:-}" == --* ]]; do
+    case "$1" in
+      --recent) RECENT="$2"; shift 2 ;;
+      *) echo "Unknown flag: $1" >&2; exit 1 ;;
+    esac
+  done
+  # Pass RECENT to the python script
+  if [[ "$RECENT" -gt 0 ]]; then
+    python3 - "$RECENT" << 'PYTHON_SCRIPT'
+import json
+import sys
+import os
+from collections import defaultdict
+
+recent = int(sys.argv[1]) if len(sys.argv) > 1 else 0
+log_file = os.environ.get('GOLEM_LOG', os.path.expanduser('~/.local/share/vivesca/golem.jsonl'))
+
+stats = defaultdict(lambda: {'runs': 0, 'pass': 0, 'fail': 0, 'total_duration': 0, 'tests_created': 0})
+
+try:
+    with open(log_file, 'r') as f:
+        lines = f.readlines()
+
+    if recent > 0:
+        lines = lines[-recent:]
+
+    for line in lines:
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            data = json.loads(line)
+            provider = data.get('provider', 'unknown')
+            stats[provider]['runs'] += 1
+            exit_code = data.get('exit', -1)
+            if exit_code == 0:
+                stats[provider]['pass'] += 1
+            else:
+                stats[provider]['fail'] += 1
+            stats[provider]['total_duration'] += data.get('duration', 0)
+            stats[provider]['tests_created'] += data.get('tests_passed', 0) + data.get('tests_failed', 0)
+        except json.JSONDecodeError:
+            continue
+
+    # Print table
+    print(f"{'Provider':<12} | {'Runs':>4} | {'Pass':>4} | {'Fail':>4} | {'Avg Duration':>12} | {'Tests Created':>13}")
+    print('-' * 63)
+    for provider in sorted(stats.keys()):
+        s = stats[provider]
+        avg_dur = s['total_duration'] // s['runs'] if s['runs'] > 0 else 0
+        print(f"{provider:<12} | {s['runs']:>4} | {s['pass']:>4} | {s['fail']:>4} | {avg_dur:>10}s | {s['tests_created']:>13}")
+except FileNotFoundError:
+    print(f"No log file found: {log_file}", file=sys.stderr)
+    sys.exit(1)
+PYTHON_SCRIPT
+  else
+    _run_summary
+  fi
   exit 0
 fi
+
+# Parse regular flags
+while [[ "${1:-}" == --* ]]; do
+  case "$1" in
+    --batch) BATCH=true; shift ;;
+    --test) TEST=true; shift ;;
+    --max-turns) MAX_TURNS="$2"; shift 2 ;;
+    --full) BARE=false; shift ;;
+    --bare) BARE=true; shift ;;
+    --provider) PROVIDER="$2"; shift 2 ;;
+    *) echo "Unknown flag: $1" >&2; exit 1 ;;
+  esac
+done
+
+# Provider config: KEY_VAR, BASE_URL, OPUS_MODEL, SONNET_MODEL, HAIKU_MODEL
+case "$PROVIDER" in
+  zhipu)
+    _KEY="${ZHIPU_API_KEY:?ZHIPU_API_KEY not set}"
+    _URL="https://open.bigmodel.cn/api/anthropic"
+    _OPUS="GLM-5.1"; _SONNET="GLM-5.1"; _HAIKU="GLM-4.5-air" ;;
+  volcano)
+    _KEY="${VOLCANO_API_KEY:?VOLCANO_API_KEY not set}"
+    _URL="https://ark.cn-beijing.volces.com/api/coding"
+    _AUTH_MODE="token"  # volcano needs AUTH_TOKEN, not API_KEY
+    _OPUS="ark-code-latest"; _SONNET="ark-code-latest"; _HAIKU="ark-code-latest" ;;
+  infini)
+    # WARNING: Infini API does NOT support CC tool-use. Models ask for permission
+    # instead of invoking tools. Only usable for text-only tasks, not golem.
+    _KEY="${INFINI_API_KEY:?INFINI_API_KEY not set}"
+    _URL="https://cloud.infini-ai.com/maas/coding"
+    _OPUS="glm-5"; _SONNET="glm-5"; _HAIKU="glm-4.5-air" ;;
+  *) echo "Unknown provider: $PROVIDER (zhipu|volcano|infini)" >&2; exit 1 ;;
+esac
 
 _run_golem() {
   local prompt="$1"

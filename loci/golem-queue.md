@@ -7,7 +7,7 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 ### Compound infra (build the machine that builds)
 
 #### Golem enhancement — enriched logging + summary subcommand
-- [ ] `golem --provider infini --max-turns 50 "Read effectors/golem AND loci/plans/golem-compound-infra.md. Implement enhancements 1 and 3 from the spec: (1) After claude finishes in _run_golem, count new files via git diff, run pytest on any new assays/test_*.py files, parse pass/fail, add files_created/tests_passed/tests_failed/pytest_exit to the JSONL log line. (2) Add a 'summary' subcommand — golem summary reads GOLEM_LOG JSONL and prints a provider stats table (runs, pass, fail, avg duration, tests created). Support --recent N flag. Use python for the summary since jq may not be installed. Write tests in assays/test_golem_summary.py. Run pytest. Fix failures."`
+- [x] `golem --provider infini --max-turns 50 "Read effectors/golem AND loci/plans/golem-compound-infra.md. Implement enhancements 1 and 3 from the spec: (1) After claude finishes in _run_golem, count new files via git diff, run pytest on any new assays/test_*.py files, parse pass/fail, add files_created/tests_passed/tests_failed/pytest_exit to the JSONL log line. (2) Add a 'summary' subcommand — golem summary reads GOLEM_LOG JSONL and prints a provider stats table (runs, pass, fail, avg duration, tests created). Support --recent N flag. Use python for the summary since jq may not be installed. Write tests in assays/test_golem_summary.py. Run pytest. Fix failures."`
 
 #### Daemon enhancement — post-dispatch pytest gate
 - [x] `golem --provider volcano --max-turns 50 "Read effectors/golem-daemon AND loci/plans/golem-compound-infra.md. Implement enhancement 2: after a golem task completes with exit=0, check git diff for new assays/test_*.py files, run pytest on them, log result. If pytest fails mark task as [!] instead of [x]. The mark_failed function already exists in golem-daemon. Update assays/test_golem_daemon.py with tests for the new behavior (note: the test loads golem-daemon via exec with __name__='golem_daemon' to avoid sys.exit). Run pytest. Fix failures."`
@@ -26,13 +26,13 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 - [x] `golem --provider volcano --max-turns 50 "Write tests for these 4 modules. Read each, write assays/test_<name>.py. Run pytest on each. Fix failures. Modules: metabolon/organelles/endocytosis_rss/fetcher.py metabolon/organelles/endocytosis_rss/digest.py metabolon/organelles/endocytosis_rss/breaking.py metabolon/organelles/endocytosis_rss/relevance.py"`
 
 #### Substrates big operon (3 modules, ~45K)
-- [ ] `golem --provider infini --max-turns 50 "Write tests for these 3 modules. Read each, write assays/test_<name>.py (test_substrate_vasomotor.py, test_substrate_hygiene.py, test_substrate_memory.py). Run pytest. Fix failures. Modules: metabolon/metabolism/substrates/vasomotor.py metabolon/metabolism/substrates/hygiene.py metabolon/metabolism/substrates/memory.py"`
+- [x] `golem --provider infini --max-turns 50 "Write tests for these 3 modules. Read each, write assays/test_<name>.py (test_substrate_vasomotor.py, test_substrate_hygiene.py, test_substrate_memory.py). Run pytest. Fix failures. Modules: metabolon/metabolism/substrates/vasomotor.py metabolon/metabolism/substrates/hygiene.py metabolon/metabolism/substrates/memory.py"`
 
 #### Vasomotor standalone (45K)
 - [x] `golem --provider volcano --max-turns 50 "Write thorough tests for metabolon/vasomotor.py (45K lines). Read carefully, write assays/test_vasomotor_core.py. Focus on pure functions and data transformations. Mock external calls. Run pytest. Fix failures."`
 
 #### Resources batch
-- [ ] `golem --provider zhipu --batch metabolon/resources/constitution.py metabolon/resources/glycogen.py metabolon/resources/chromatin_stats.py metabolon/resources/consolidation.py`
+- [x] `golem --provider zhipu --batch metabolon/resources/constitution.py metabolon/resources/glycogen.py metabolon/resources/chromatin_stats.py metabolon/resources/consolidation.py`
 
 #### Small batch
 - [ ] `golem --provider zhipu --batch metabolon/morphology/base.py metabolon/pinocytosis/photoreception.py metabolon/pinocytosis/ultradian.py metabolon/pinocytosis/ecdysis.py metabolon/organelles/sporulation.py`

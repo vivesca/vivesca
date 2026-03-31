@@ -71,11 +71,13 @@ Content"""
 
 class TestKeywordOverlap:
     def test_finds_common_words(self):
-        text_a = "The quick brown fox jumps"
-        text_b = "The lazy brown dog sleeps"
+        text_a = "The quick brown fox jumps over lazy dogs"
+        text_b = "The lazy brown dog sleeps quietly"
         result = _keyword_overlap(text_a, text_b)
-        assert "the" in result  # case insensitive
-        assert "brown" in result
+        # Default min_word_len=4, so only words with 4+ chars are included
+        assert "brown" in result  # 5 chars
+        assert "lazy" in result  # 4 chars
+        assert "quick" not in result  # only in text_a
 
     def test_respects_min_word_len(self):
         text_a = "a big cat sat"

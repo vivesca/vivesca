@@ -115,7 +115,6 @@ class TestSenseHooks:
     def test_hooks_with_update(self, tmp_path: Path):
         config = tmp_path / ".pre-commit-config.yaml"
         original = "repos:\n  - repo: https://github.com/test\n    rev: v1.0\n"
-        updated = "repos:\n  - repo: https://github.com/test\n    rev: v1.1\n"
         config.write_text(original)
 
         sub = HygieneSubstrate(project_root=tmp_path)
@@ -126,13 +125,21 @@ class TestSenseHooks:
                 stdout="updating https://github.com/test -> v1.1",
                 stderr="",
             )
-            # Simulate the config being modified by autoupdate
-            with patch.object(config, "read_text", side_effect=[original, updated, original]):
-                # Need to also patch write_text to avoid modification
-                with patch.object(config, "write_text"):
-                    result = sub._sense_hooks()
-                    assert len(result) == 1
-                    assert result[0]["kind"] == "hook"
+            # Patch Path.read_text to simulate the config change then restore
+            original_read = Path.read_text
+            call_count = [0]
+            def side_effect_read_text(self, *args, **kwargs):
+                call_count[0] += 1
+                if call_count[0] == 1:
+                    return original  # First read (original)
+                elif call_count[0] == 2:
+                    return "repos:\n  - repo: https://github.com/test\n    rev: v1.1\n"  # After autoupdate
+                else:
+                    return original  # After restore
+            with patch.object(Path, "read_text", side_effect_read_text):
+                result = sub._sense_hooks()
+                assert len(result) == 1
+                assert result[0]["kind"] == "hook"
 
 
 class TestSenseTests:
@@ -228,9 +235,11 @@ class TestSense:
                 with patch.object(sub, "_sense_tests", return_value=[{"kind": "tests", "healthy": True}]):
                     with patch.object(sub, "_sense_python", return_value=[{"kind": "python"}]):
                         result = sub.sense()
-                        assert len(result) == 2  # deps + tests (hooks empty, python mocked)
+                        assert len(result) == 3  # deps + tests + python (hooks empty)
                         kinds = {r["kind"] for r in result}
                         assert "dep" in kinds
+                        assert "tests" in kinds
+                        assert "python" in kinds
 
 
 class TestCandidates:
