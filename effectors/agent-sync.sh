@@ -3,6 +3,21 @@
 # Runs every 15min via agent-sync systemd timer on Pharos.
 set -uo pipefail
 
+usage() {
+    cat <<'HELP'
+Usage: agent-sync.sh [OPTIONS]
+
+Pull agent config repos and sync MEMORY.md into Claude project dir.
+
+Options:
+  -h, --help    Show this help message
+HELP
+}
+
+case "${1:-}" in
+    -h|--help) usage; exit 0 ;;
+esac
+
 REPOS=("$HOME/agent-config" "$HOME/skills" "$HOME/code/epigenome/chromatin")
 
 for repo in "${REPOS[@]}"; do
