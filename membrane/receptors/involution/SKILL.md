@@ -1,6 +1,12 @@
 ---
 name: involution
 description: Evening wind-down — brain dump, queue overnight tasks, gate screens-off.
+triggers:
+  - involution
+  - wind-down
+  - bedtime
+  - brain dump
+  - shutdown
 user_invocable: true
 disable-model-invocation: true
 ---
