@@ -49,7 +49,7 @@ def main():
         sys.exit(1)
 
     # BLOCK: Massive directories
-    massive_dirs = [os.path.join(home, d) for d in ("Library", "Pictures", "Downloads")]
+    massive_dirs = [os.path.join(home, d) for d in ("Library", "Pictures", "Downloads", ".local", ".cache", "node_modules")]
     if search_path in [os.path.abspath(d) for d in massive_dirs]:
         print(f"\n❌ SEARCH BLOCKED: Directory '{search_path}' is too large.")
         sys.exit(1)
