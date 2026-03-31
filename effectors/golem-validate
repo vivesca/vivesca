@@ -1,0 +1,112 @@
+#!/usr/bin/env python3
+"""golem-validate — Validate Python files for common issues.
+
+Checks:
+    1. ast.parse for SyntaxError
+    2. Hardcoded /Users/terry/ paths (should use /home/terry/ or Path.home())
+    3. TODO / FIXME / stub markers
+    4. If test file (test_*.py): can be collected by pytest --co
+
+Usage:
+    golem-validate file1.py file2.py ...
+    golem-validate assays/test_foo.py effectors/bar
+"""
+from __future__ import annotations
+
+import ast
+import re
+import subprocess
+import sys
+from pathlib import Path
+
+FORBIDDEN_PATTERNS: list[tuple[str, re.Pattern[str]]] = [
+    ("/Users/terry/ hardcoded path", re.compile(r"/Users/terry/")),
+    ("TODO marker", re.compile(r"\bTODO\b")),
+    ("FIXME marker", re.compile(r"\bFIXME\b")),
+    ("stub marker", re.compile(r"\bstub\b", re.IGNORECASE)),
+]
+
+
+def check_syntax(filepath: Path) -> str | None:
+    """Return error string if file has syntax errors, else None."""
+    try:
+        ast.parse(filepath.read_text(encoding="utf-8"), filename=str(filepath))
+        return None
+    except SyntaxError as exc:
+        return f"SyntaxError: line {exc.lineno}: {exc.msg}"
+
+
+def check_patterns(filepath: Path) -> list[str]:
+    """Return list of pattern violations found in file."""
+    text = filepath.read_text(encoding="utf-8")
+    issues: list[str] = []
+    for label, pattern in FORBIDDEN_PATTERNS:
+        for match in pattern.finditer(text):
+            lineno = text[: match.start()].count("\n") + 1
+            issues.append(f"{label} at line {lineno}")
+    return issues
+
+
+def check_pytest_collect(filepath: Path) -> str | None:
+    """Return error string if pytest cannot collect the file, else None."""
+    result = subprocess.run(
+        ["pytest", "--co", "-q", str(filepath)],
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    if result.returncode != 0:
+        # Trim to first meaningful line
+        lines = (result.stderr + result.stdout).strip().splitlines()
+        summary = lines[-1] if lines else "unknown error"
+        return f"pytest collection failed: {summary}"
+    return None
+
+
+def validate_file(filepath: Path) -> tuple[str, list[str]]:
+    """Validate a single file. Return (status, issues)."""
+    issues: list[str] = []
+
+    # 1. Syntax check
+    if (err := check_syntax(filepath)) is not None:
+        return ("FAIL", [err])
+
+    # 2 & 3. Pattern checks
+    issues.extend(check_patterns(filepath))
+
+    # 4. Pytest collection (test files only)
+    if filepath.name.startswith("test_") and filepath.suffix == ".py":
+        if (err := check_pytest_collect(filepath)) is not None:
+            issues.append(err)
+
+    return ("PASS" if not issues else "FAIL", issues)
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = argv or sys.argv[1:]
+    if not args:
+        print("Usage: golem-validate <file.py> [file2.py ...]", file=sys.stderr)
+        return 1
+
+    all_pass = True
+    for path_str in args:
+        filepath = Path(path_str)
+        if not filepath.exists():
+            print(f"{filepath} | MISSING | file not found")
+            all_pass = False
+            continue
+        if not filepath.is_file():
+            print(f"{filepath} | SKIP | not a file")
+            continue
+
+        status, issues = validate_file(filepath)
+        issue_str = "; ".join(issues) if issues else "—"
+        print(f"{filepath} | {status} | {issue_str}")
+        if status == "FAIL":
+            all_pass = False
+
+    return 0 if all_pass else 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())
