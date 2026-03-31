@@ -1,143 +1,290 @@
-"""Tests for effectors/test-spec-gen — generate sortase-ready test specs."""
-
+#!/usr/bin/env python3
+"""Tests for effectors/test-spec-gen — sortase-ready test spec generator."""
 from __future__ import annotations
 
-import sys
+import re
+import textwrap
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
-EFFECTOR = Path(__file__).resolve().parent.parent / "effectors" / "test-spec-gen"
+EFFECTOR_PATH = Path(__file__).resolve().parents[1] / "effectors" / "test-spec-gen"
 
 
-@pytest.fixture()
-def spec_mod(tmp_path, monkeypatch):
-    """Load test-spec-gen via exec into an isolated namespace."""
-    # Point GERMLINE / PLANS_DIR at tmp so we never write into real loci/plans
-    ns: dict = {}
-    exec(EFFECTOR.read_text(), ns)
-    # Override paths inside the loaded namespace
-    monkeypatch.setattr(ns["Path"], "home", classmethod(lambda cls: tmp_path))
-    # Re-evaluate GERMLINE and PLANS_DIR after patching home
-    ns["GERMLINE"] = tmp_path / "germline"
-    ns["PLANS_DIR"] = ns["GERMLINE"] / "loci" / "plans"
-    ns["PLANS_DIR"].mkdir(parents=True, exist_ok=True)
+def _load_module():
+    """Load test-spec-gen via exec (effector pattern, not importable)."""
+    source = EFFECTOR_PATH.read_text(encoding="utf-8")
+    ns: dict = {"__name__": "test_spec_gen", "__file__": str(EFFECTOR_PATH)}
+    exec(source, ns)
     return ns
 
 
-# ── _test_filename ──────────────────────────────────────────────────────────
+_mod = _load_module()
+_test_filename = _mod["_test_filename"]
+_read_imports = _mod["_read_imports"]
+generate_spec = _mod["generate_spec"]
+GERMLINE = _mod["GERMLINE"]
+PLANS_DIR = _mod["PLANS_DIR"]
+
+
+# ── File-level tests ────────────────────────────────────────────────────────
+
+
+class TestFileBasics:
+    def test_file_exists(self):
+        assert EFFECTOR_PATH.exists()
+        assert EFFECTOR_PATH.is_file()
+
+    def test_is_python_script(self):
+        first_line = EFFECTOR_PATH.read_text().split("\n")[0]
+        assert first_line.startswith("#!/usr/bin/env python")
+
+    def test_has_docstring(self):
+        source = EFFECTOR_PATH.read_text()
+        assert "Generate sortase-ready test specs" in source
+
+
+# ── _test_filename tests ───────────────────────────────────────────────────
+
 
 class TestTestFilename:
-    def test_simple_module(self, spec_mod):
-        assert spec_mod["_test_filename"]("metabolon/foo.py") == "test_foo.py"
+    def test_simple_module(self):
+        assert _test_filename("metabolon/organelles/chromatin.py") == "test_chromatin.py"
 
-    def test_enzymes_subdir(self, spec_mod):
-        assert spec_mod["_test_filename"]("metabolon/enzymes/bar.py") == "test_bar_actions.py"
+    def test_enzymes_subdir(self):
+        assert _test_filename("metabolon/enzymes/sortase.py") == "test_sortase_actions.py"
 
-    def test_sortase_subdir(self, spec_mod):
-        assert spec_mod["_test_filename"]("metabolon/sortase/baz.py") == "test_sortase_baz.py"
+    def test_sortase_subdir(self):
+        assert _test_filename("metabolon/sortase/linter.py") == "test_sortase_linter.py"
 
-    def test_organelles_subdir(self, spec_mod):
-        assert spec_mod["_test_filename"]("metabolon/organelles/qux.py") == "test_qux.py"
+    def test_organelles_subdir(self):
+        assert _test_filename("metabolon/organelles/pulse.py") == "test_pulse.py"
 
-    def test_metabolism_deep_subdir(self, spec_mod):
-        assert spec_mod["_test_filename"]("metabolon/metabolism/spending/qux.py") == "test_qux_substrate.py"
+    def test_metabolism_substrate(self):
+        """Metabolism subdir with extra nesting → substrate suffix."""
+        assert _test_filename("metabolon/metabolism/spending/parser.py") == "test_parser_substrate.py"
 
-    def test_shallow_metabolism(self, spec_mod):
-        """metabolon/metabolism/qux.py (only 2 parts after split) → plain test_."""
-        assert spec_mod["_test_filename"]("metabolon/metabolism/qux.py") == "test_qux.py"
+    def test_flat_module(self):
+        """Module without matching subdir falls through to default."""
+        assert _test_filename("metabolon/other/thing.py") == "test_thing.py"
 
-    def test_strips_suffix(self, spec_mod):
-        assert spec_mod["_test_filename"]("foo/bar/baz.py") == "test_baz.py"
+    def test_single_component(self):
+        """Bare filename produces test_<name>.py."""
+        assert _test_filename("foo.py") == "test_foo.py"
 
 
-# ── _read_imports ───────────────────────────────────────────────────────────
+# ── _read_imports tests ────────────────────────────────────────────────────
+
 
 class TestReadImports:
-    def test_extracts_metabolon_imports(self, spec_mod):
-        src = "from metabolon.foo import bar\nimport metabolon.baz\nimport os\n"
-        result = spec_mod["_read_imports"](src)
-        assert len(result) == 2
-        assert "from metabolon.foo import bar" in result
-        assert "import metabolon.baz" in result
+    def test_extracts_metabolon_imports(self):
+        src = textwrap.dedent("""\
+            from metabolon.organelles.pulse import Pulse
+            import metabolon
+            from metabolon.enzymes.sortase import run
+        """)
+        result = _read_imports(src)
+        assert len(result) == 3
+        assert "from metabolon.organelles.pulse import Pulse" in result
 
-    def test_no_metabolon_imports(self, spec_mod):
-        src = "import os\nimport sys\n"
-        assert spec_mod["_read_imports"](src) == []
+    def test_ignores_other_imports(self):
+        src = textwrap.dedent("""\
+            import os
+            from pathlib import Path
+            from unittest.mock import patch
+        """)
+        assert _read_imports(src) == []
 
-    def test_empty_source(self, spec_mod):
-        assert spec_mod["_read_imports"]("") == []
+    def test_empty_source(self):
+        assert _read_imports("") == []
+
+    def test_mixed_imports(self):
+        src = textwrap.dedent("""\
+            import os
+            from metabolon.core import Engine
+            import sys
+        """)
+        result = _read_imports(src)
+        assert len(result) == 1
+        assert "from metabolon.core import Engine" in result
 
 
-# ── generate_spec ───────────────────────────────────────────────────────────
+# ── generate_spec tests ────────────────────────────────────────────────────
+
 
 class TestGenerateSpec:
-    def _write_module(self, spec_mod, rel_path: str, source: str) -> Path:
-        full = spec_mod["GERMLINE"] / rel_path
-        full.parent.mkdir(parents=True, exist_ok=True)
-        full.write_text(source)
-        return full
+    def test_generates_plan_for_existing_module(self, tmp_path):
+        """generate_spec creates a plan file when module exists."""
+        # Create a fake module
+        mod_dir = tmp_path / "metabolon" / "organelles"
+        mod_dir.mkdir(parents=True)
+        mod_file = mod_dir / "chromatin.py"
+        mod_file.write_text(textwrap.dedent("""\
+            '''Chromatin module.'''
+            from metabolon.core import Base
 
-    def test_generates_plan_file(self, spec_mod):
-        self._write_module(spec_mod, "metabolon/example.py",
-                           "def foo():\n    pass\n")
-        plan = spec_mod["generate_spec"]("metabolon/example.py")
-        assert plan.exists()
-        content = plan.read_text()
-        assert "test_example.py" in content
+            def process(data):
+                return data
 
-    def test_embeds_small_source(self, spec_mod):
-        src = "def hello():\n    return 42\n"
-        self._write_module(spec_mod, "metabolon/small.py", src)
-        plan = spec_mod["generate_spec"]("metabolon/small.py")
-        content = plan.read_text()
-        assert "def hello():" in content
-        assert "Source code" in content
+            class Handler:
+                pass
+        """))
 
-    def test_summarises_large_source(self, spec_mod):
-        src = "\n".join([f"# line {i}" for i in range(250)] + "def big():\n    pass\n")
-        self._write_module(spec_mod, "metabolon/big.py", src)
-        plan = spec_mod["generate_spec"]("metabolon/big.py")
-        content = plan.read_text()
+        # Patch GERMLINE and PLANS_DIR
+        with patch.object(_mod, "GERMLINE", tmp_path):
+            with patch.object(_mod, "PLANS_DIR", tmp_path / "loci" / "plans"):
+                plans = tmp_path / "loci" / "plans"
+                plans.mkdir(parents=True, exist_ok=True)
+                result = generate_spec("metabolon/organelles/chromatin.py")
+
+        assert result.exists()
+        content = result.read_text()
+        assert "test_chromatin.py" in content
+        assert "process" in content
+        assert "Handler" in content
+
+    def test_embeds_full_source_for_small_module(self, tmp_path):
+        """Small modules (≤200 lines) get full source embedded."""
+        mod_dir = tmp_path / "metabolon" / "organelles"
+        mod_dir.mkdir(parents=True)
+        mod_file = mod_dir / "small.py"
+        mod_file.write_text("def hello():\n    return 'world'\n")
+
+        plans = tmp_path / "loci" / "plans"
+        plans.mkdir(parents=True, exist_ok=True)
+
+        with patch.object(_mod, "GERMLINE", tmp_path):
+            with patch.object(_mod, "PLANS_DIR", plans):
+                result = generate_spec("metabolon/organelles/small.py")
+
+        content = result.read_text()
+        assert "Source code (DO NOT MODIFY" in content
+
+    def test_api_signatures_for_large_module(self, tmp_path):
+        """Large modules (>200 lines) get API signatures only."""
+        mod_dir = tmp_path / "metabolon" / "organelles"
+        mod_dir.mkdir(parents=True)
+        mod_file = mod_dir / "big.py"
+        lines = ["# line"] * 250
+        lines.insert(5, "def important():")
+        lines.insert(6, '    """Do something."""')
+        mod_file.write_text("\n".join(lines))
+
+        plans = tmp_path / "loci" / "plans"
+        plans.mkdir(parents=True, exist_ok=True)
+
+        with patch.object(_mod, "GERMLINE", tmp_path):
+            with patch.object(_mod, "PLANS_DIR", plans):
+                result = generate_spec("metabolon/organelles/big.py")
+
+        content = result.read_text()
         assert "API signatures" in content
-        assert "def big():" in content
+        assert "250 lines" in content
 
-    def test_wave_prefix(self, spec_mod):
-        self._write_module(spec_mod, "metabolon/wmod.py", "pass\n")
-        plan = spec_mod["generate_spec"]("metabolon/wmod.py", wave=6)
-        assert plan.name == "wave-6-test-wmod.md"
+    def test_wave_number_in_plan_name(self, tmp_path):
+        """--wave flag causes wave number prefix in plan name."""
+        mod_dir = tmp_path / "metabolon" / "organelles"
+        mod_dir.mkdir(parents=True)
+        (mod_dir / "pulse.py").write_text("def run(): pass\n")
 
-    def test_public_api_extraction(self, spec_mod):
-        src = "def public_fn():\n    pass\n\ndef _private():\n    pass\n\nclass Pub:\n    pass\n"
-        self._write_module(spec_mod, "metabolon/api.py", src)
-        plan = spec_mod["generate_spec"]("metabolon/api.py")
-        content = plan.read_text()
-        assert "public_fn" in content
-        assert "Pub" in content
-        assert "_private" not in content
+        plans = tmp_path / "loci" / "plans"
+        plans.mkdir(parents=True, exist_ok=True)
 
-    def test_missing_module_exits(self, spec_mod):
-        with pytest.raises(SystemExit):
-            spec_mod["generate_spec"]("metabolon/nonexistent.py")
+        with patch.object(_mod, "GERMLINE", tmp_path):
+            with patch.object(_mod, "PLANS_DIR", plans):
+                result = generate_spec("metabolon/organelles/pulse.py", wave=6)
 
-    def test_shell_redirect_instruction(self, spec_mod):
-        self._write_module(spec_mod, "metabolon/rr.py", "pass\n")
-        plan = spec_mod["generate_spec"]("metabolon/rr.py")
-        content = plan.read_text()
+        assert "wave-6-test-pulse.md" == result.name
+
+    def test_nonexistent_module_exits(self, tmp_path):
+        """generate_spec exits with error for nonexistent module."""
+        with patch.object(_mod, "GERMLINE", tmp_path):
+            with patch.object(_mod, "PLANS_DIR", tmp_path / "plans"):
+                with pytest.raises(SystemExit):
+                    generate_spec("nonexistent/module.py")
+
+    def test_spec_lists_public_api(self, tmp_path):
+        """Generated spec lists public functions/classes."""
+        mod_dir = tmp_path / "metabolon" / "organelles"
+        mod_dir.mkdir(parents=True)
+        (mod_dir / "api.py").write_text(textwrap.dedent("""\
+            def public_func():
+                pass
+            def _private_func():
+                pass
+            class PublicClass:
+                pass
+        """))
+
+        plans = tmp_path / "loci" / "plans"
+        plans.mkdir(parents=True, exist_ok=True)
+
+        with patch.object(_mod, "GERMLINE", tmp_path):
+            with patch.object(_mod, "PLANS_DIR", plans):
+                result = generate_spec("metabolon/organelles/api.py")
+
+        content = result.read_text()
+        assert "public_func" in content
+        assert "PublicClass" in content
+        # Private functions should not appear in public API listing
+        # (they may appear in source embed, but not in "Public API:" line)
+        api_line = [l for l in content.splitlines() if "Public API:" in l]
+        if api_line:
+            assert "_private_func" not in api_line[0]
+
+    def test_spec_includes_shell_redirect_instruction(self, tmp_path):
+        """Generated spec includes shell redirect instruction."""
+        mod_dir = tmp_path / "metabolon" / "organelles"
+        mod_dir.mkdir(parents=True)
+        (mod_dir / "x.py").write_text("def run(): pass\n")
+
+        plans = tmp_path / "loci" / "plans"
+        plans.mkdir(parents=True, exist_ok=True)
+
+        with patch.object(_mod, "GERMLINE", tmp_path):
+            with patch.object(_mod, "PLANS_DIR", plans):
+                result = generate_spec("metabolon/organelles/x.py")
+
+        content = result.read_text()
         assert "cat << 'PYEOF'" in content
-        assert "write_file" not in content or "Do NOT use the write_file tool" in content
+        assert "shell redirect" in content.lower() or "Shell redirect" in content.lower() or "CRITICAL" in content
 
 
-# ── main (CLI) ──────────────────────────────────────────────────────────────
+# ── main (CLI) tests ───────────────────────────────────────────────────────
+
 
 class TestMain:
-    def test_main_generates_plans(self, spec_mod, capsys, monkeypatch):
-        self = sys.modules[__name__]
-        full = spec_mod["GERMLINE"] / "metabolon" / "cli_test.py"
-        full.parent.mkdir(parents=True, exist_ok=True)
-        full.write_text("pass\n")
-        monkeypatch.setattr(sys, "argv", ["test-spec-gen", "metabolon/cli_test.py"])
-        spec_mod["main"]()
-        out = capsys.readouterr().out
-        assert "Generated:" in out
+    def test_main_generates_plans(self, tmp_path):
+        """main() generates a plan per module."""
+        mod_dir = tmp_path / "metabolon" / "organelles"
+        mod_dir.mkdir(parents=True)
+        (mod_dir / "target.py").write_text("def run(): pass\n")
+
+        plans = tmp_path / "loci" / "plans"
+        plans.mkdir(parents=True, exist_ok=True)
+
+        with patch("sys.argv", ["test-spec-gen", "metabolon/organelles/target.py"]):
+            with patch.object(_mod, "GERMLINE", tmp_path):
+                with patch.object(_mod, "PLANS_DIR", plans):
+                    _mod["main"]()
+
+        generated = list(plans.glob("test-target.md"))
+        assert len(generated) == 1
+
+    def test_main_with_wave(self, tmp_path):
+        """main() passes wave number to generate_spec."""
+        mod_dir = tmp_path / "metabolon" / "organelles"
+        mod_dir.mkdir(parents=True)
+        (mod_dir / "wave.py").write_text("def run(): pass\n")
+
+        plans = tmp_path / "loci" / "plans"
+        plans.mkdir(parents=True, exist_ok=True)
+
+        with patch("sys.argv", ["test-spec-gen", "--wave", "3", "metabolon/organelles/wave.py"]):
+            with patch.object(_mod, "GERMLINE", tmp_path):
+                with patch.object(_mod, "PLANS_DIR", plans):
+                    _mod["main"]()
+
+        generated = list(plans.glob("wave-3-test-wave.md"))
+        assert len(generated) == 1

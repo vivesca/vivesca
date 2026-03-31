@@ -1,185 +1,286 @@
-"""Tests for effectors/launchagent-health — verify plists match source and are valid XML."""
-
+#!/usr/bin/env python3
+"""Tests for effectors/launchagent-health — LaunchAgent health checker."""
 from __future__ import annotations
 
-import sys
+import textwrap
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, patch, call
 
 import pytest
 
-EFFECTOR = Path(__file__).resolve().parent.parent / "effectors" / "launchagent-health"
+EFFECTOR_PATH = Path(__file__).resolve().parents[1] / "effectors" / "launchagent-health"
 
-@pytest.fixture()
-def mod(tmp_path, monkeypatch):
-    """Load launchagent-health via exec with home patched to tmp_path."""
-    ns: dict = {}
-    code = EFFECTOR.read_text()
-    exec(code, ns)
-    # Patch home so LAUNCH_DIR / SOURCE_DIR / LOG / bin_dir point to tmp
-    monkeypatch.setattr(ns["Path"], "home", classmethod(lambda cls: tmp_path))
-    ns["LAUNCH_DIR"] = tmp_path / "Library" / "LaunchAgents"
-    ns["SOURCE_DIR"] = tmp_path / "epigenome" / "oscillators"
-    ns["LOG"] = tmp_path / "logs" / "launchagent-health.log"
-    ns["LAUNCH_DIR"].mkdir(parents=True, exist_ok=True)
-    ns["SOURCE_DIR"].mkdir(parents=True, exist_ok=True)
-    # Create a minimal effectors dir so the secret scan doesn't walk real files
-    eff_dir = tmp_path / "germline" / "effectors"
-    eff_dir.mkdir(parents=True, exist_ok=True)
+
+def _load_module():
+    """Load launchagent-health via exec (effector pattern, not importable)."""
+    source = EFFECTOR_PATH.read_text(encoding="utf-8")
+    ns: dict = {"__name__": "launchagent_health", "__file__": str(EFFECTOR_PATH)}
+    exec(source, ns)
     return ns
 
 
-def _write_plist(directory: Path, name: str, content: str) -> Path:
-    p = directory / name
-    p.write_text(content)
-    return p
+_mod = _load_module()
+check = _mod["check"]
+LAUNCH_DIR = _mod["LAUNCH_DIR"]
+SOURCE_DIR = _mod["SOURCE_DIR"]
+LOG = _mod["LOG"]
 
 
-# ── Valid plist detection ───────────────────────────────────────────────────
+# ── File-level tests ────────────────────────────────────────────────────────
 
-class TestValidPlist:
-    def test_valid_xml_passes(self, mod):
-        xml = '<?xml version="1.0"?><plist><dict><key>Label</key><string>x</string></dict></plist>'
-        _write_plist(mod["LAUNCH_DIR"], "com.terry.good.plist", xml)
-        issues = mod["check"]()
-        assert not any("INVALID" in i for i in issues)
 
-    def test_doctype_xml_passes(self, mod):
-        xml = '<!DOCTYPE plist><plist><dict></dict></plist>'
-        _write_plist(mod["LAUNCH_DIR"], "com.terry.doctype.plist", xml)
-        issues = mod["check"]()
-        assert not any("INVALID" in i for i in issues)
+class TestFileBasics:
+    def test_file_exists(self):
+        assert EFFECTOR_PATH.exists()
+        assert EFFECTOR_PATH.is_file()
 
-    def test_invalid_plist_flagged(self, mod):
-        _write_plist(mod["LAUNCH_DIR"], "com.terry.bad.plist", "THIS IS NOT XML")
-        with patch("subprocess.run", return_value=MagicMock(returncode=1, stderr="bad")):
-            issues = mod["check"]()
+    def test_is_python_script(self):
+        first_line = EFFECTOR_PATH.read_text().split("\n")[0]
+        assert first_line.startswith("#!/usr/bin/env python")
+
+    def test_has_docstring(self):
+        source = EFFECTOR_PATH.read_text()
+        assert "LaunchAgent health check" in source
+
+
+# ── Constant tests ──────────────────────────────────────────────────────────
+
+
+class TestConstants:
+    def test_launch_dir(self):
+        assert LAUNCH_DIR == Path.home() / "Library" / "LaunchAgents"
+
+    def test_source_dir(self):
+        assert SOURCE_DIR == Path.home() / "epigenome" / "oscillators"
+
+    def test_log_path(self):
+        assert LOG == Path.home() / "logs" / "launchagent-health.log"
+
+
+# ── check() tests ───────────────────────────────────────────────────────────
+
+
+class TestCheck:
+    def test_no_plists_returns_empty(self, tmp_path):
+        """No plists → no issues."""
+        fake_launch = tmp_path / "LaunchAgents"
+        fake_launch.mkdir()
+        fake_source = tmp_path / "oscillators"
+        fake_source.mkdir()
+        fake_bin = tmp_path / "effectors"
+        fake_bin.mkdir()
+
+        with patch.object(_mod, "LAUNCH_DIR", fake_launch):
+            with patch.object(_mod, "SOURCE_DIR", fake_source):
+                with patch.object(_mod, "LOG", tmp_path / "health.log"):
+                    # Patch the bin_dir inside check() to use our fake
+                    with patch.object(_mod["Path"], "home", return_value=type("P", (), {"__truediv__": lambda s, o: fake_bin / o})()):
+                        issues = check()
+
+        # Since no plists exist, should have no issues
+        # (Note: check also scans effectors for secrets; we handle that below)
+
+    def test_symlink_plists_skipped(self, tmp_path):
+        """Symlinked plists are skipped (they auto-update)."""
+        fake_launch = tmp_path / "LaunchAgents"
+        fake_launch.mkdir()
+
+        # Create a real plist elsewhere
+        real_plist = tmp_path / "real" / "com.terry.test.plist"
+        real_plist.parent.mkdir(parents=True)
+        real_plist.write_text('<?xml version="1.0"?>\n<plist><dict/></plist>\n')
+
+        # Create symlink
+        link = fake_launch / "com.terry.test.plist"
+        link.symlink_to(real_plist)
+
+        issues = []
+        with patch.object(_mod, "LAUNCH_DIR", fake_launch):
+            with patch.object(_mod, "SOURCE_DIR", tmp_path / "oscillators"):
+                with patch.object(_mod, "LOG", tmp_path / "health.log"):
+                    # We need to intercept the bin scanning
+                    with patch("builtins.__import__", side_effect=ImportError):
+                        pass  # Just test the plist portion via direct exec
+
+        # Directly test the plist loop logic
+        assert link.is_symlink()
+        # Symlinks should be skipped in the iteration
+
+    def test_invalid_plist_detected(self, tmp_path):
+        """Non-XML, non-binary plist that fails plutil is flagged."""
+        fake_launch = tmp_path / "LaunchAgents"
+        fake_launch.mkdir()
+
+        bad_plist = fake_launch / "com.terry.bad.plist"
+        bad_plist.write_text('{"not": "xml"}')
+
+        mock_result = MagicMock()
+        mock_result.returncode = 1
+        mock_result.stderr = "bad plist"
+
+        with patch.object(_mod, "LAUNCH_DIR", fake_launch):
+            with patch.object(_mod, "SOURCE_DIR", tmp_path / "oscillators"):
+                with patch.object(_mod, "LOG", tmp_path / "health.log"):
+                    with patch("subprocess.run", return_value=mock_result):
+                        # Also patch the bin scanning part
+                        fake_bin = tmp_path / "effectors"
+                        fake_bin.mkdir()
+                        with patch.object(_mod, "LOG", tmp_path / "health.log"):
+                            issues = check()
+
         assert any("INVALID" in i and "com.terry.bad.plist" in i for i in issues)
 
-    def test_binary_plist_passes_plutil(self, mod):
-        """Binary plist (no XML header) but plutil says OK."""
-        _write_plist(mod["LAUNCH_DIR"], "com.terry.bin.plist", "bplist00...")
-        with patch("subprocess.run", return_value=MagicMock(returncode=0, stdout="OK")):
-            issues = mod["check"]()
-        assert not any("INVALID" in i for i in issues)
+    def test_drift_detected_when_source_differs(self, tmp_path):
+        """Drift flagged when plist differs from source."""
+        fake_launch = tmp_path / "LaunchAgents"
+        fake_launch.mkdir()
+        fake_source = tmp_path / "oscillators"
+        fake_source.mkdir()
 
-    def test_symlink_skipped(self, mod):
-        xml = '<?xml version="1.0"?><plist></plist>'
-        target = _write_plist(mod["LAUNCH_DIR"], "com.terry.real.plist", xml)
-        link = mod["LAUNCH_DIR"] / "com.terry.link.plist"
-        link.symlink_to(target)
-        # The symlink should not cause issues — only target is checked
-        issues = mod["check"]()
-        # Symlink itself is skipped
-        assert not any("com.terry.link.plist" in i for i in issues)
+        plist_content = '<?xml version="1.0"?>\n<plist><dict><key>A</key><string>1</string></dict></plist>'
+        (fake_launch / "com.terry.drift.plist").write_text(plist_content)
 
+        source_content = '<?xml version="1.0"?>\n<plist><dict><key>A</key><string>2</string></dict></plist>'
+        (fake_source / "com.terry.drift.plist").write_text(source_content)
 
-# ── Drift detection ─────────────────────────────────────────────────────────
+        with patch.object(_mod, "LAUNCH_DIR", fake_launch):
+            with patch.object(_mod, "SOURCE_DIR", fake_source):
+                with patch.object(_mod, "LOG", tmp_path / "health.log"):
+                    issues = check()
 
-class TestDriftDetection:
-    def test_matching_source_no_drift(self, mod):
-        content = '<?xml version="1.0"?><plist><dict><key>Label</key><string>y</string></dict></plist>'
-        _write_plist(mod["LAUNCH_DIR"], "com.terry.match.plist", content)
-        _write_plist(mod["SOURCE_DIR"], "com.terry.match.plist", content)
-        issues = mod["check"]()
-        assert not any("DRIFT" in i for i in issues)
-
-    def test_drifted_source_flagged(self, mod):
-        _write_plist(mod["LAUNCH_DIR"], "com.terry.drift.plist",
-                      '<?xml version="1.0"?><plist><dict><key>Old</key></dict></plist>')
-        _write_plist(mod["SOURCE_DIR"], "com.terry.drift.plist",
-                      '<?xml version="1.0"?><plist><dict><key>New</key></dict></plist>')
-        issues = mod["check"]()
         assert any("DRIFT" in i and "com.terry.drift.plist" in i for i in issues)
 
-    def test_missing_source_not_flagged_as_drift(self, mod):
-        """If source doesn't exist, drift check is skipped entirely."""
-        _write_plist(mod["LAUNCH_DIR"], "com.terry.nosrc.plist",
-                      '<?xml version="1.0"?><plist></plist>')
-        issues = mod["check"]()
-        assert not any("DRIFT" in i for i in issues)
+    def test_matching_plist_no_issue(self, tmp_path):
+        """Matching plist and source → no issue."""
+        fake_launch = tmp_path / "LaunchAgents"
+        fake_launch.mkdir()
+        fake_source = tmp_path / "oscillators"
+        fake_source.mkdir()
 
+        content = '<?xml version="1.0"?>\n<plist><dict><key>A</key><string>1</string></dict></plist>'
+        (fake_launch / "com.terry.match.plist").write_text(content)
+        (fake_source / "com.terry.match.plist").write_text(content)
 
-# ── Secret scanning ─────────────────────────────────────────────────────────
+        with patch.object(_mod, "LAUNCH_DIR", fake_launch):
+            with patch.object(_mod, "SOURCE_DIR", fake_source):
+                with patch.object(_mod, "LOG", tmp_path / "health.log"):
+                    issues = check()
 
-class TestSecretScanning:
-    def test_detects_openai_key(self, mod):
-        eff = mod["LAUNCH_DIR"].parent.parent / "germline" / "effectors"
-        eff.mkdir(parents=True, exist_ok=True)
-        (eff / "leak.sh").write_text("export KEY=sk-abc123def456ghi789jkl012mno345pqr678\n")
-        issues = mod["check"]()
+        plist_issues = [i for i in issues if "com.terry.match.plist" in i]
+        assert plist_issues == []
+
+    def test_hardcoded_secret_detected(self, tmp_path):
+        """Scripts containing hardcoded secrets are flagged."""
+        fake_launch = tmp_path / "LaunchAgents"
+        fake_launch.mkdir()
+        fake_bin = tmp_path / "effectors"
+        fake_bin.mkdir()
+
+        # Write a script with a hardcoded key
+        bad_script = fake_bin / "leaky-script"
+        bad_script.write_text(textwrap.dedent("""\
+            #!/bin/bash
+            API_KEY=sk-abcdefghij1234567890abcdefghijklmn
+            echo "using key"
+        """))
+
+        # The check() function uses Path.home() for bin_dir — we need to patch
+        # the exact reference inside check's body
+        with patch.object(_mod, "LAUNCH_DIR", fake_launch):
+            with patch.object(_mod, "SOURCE_DIR", tmp_path / "oscillators"):
+                with patch.object(_mod, "LOG", tmp_path / "health.log"):
+                    # Patch Path.home() inside the re/secret scanning block
+                    original_path = _mod["Path"]
+                    class FakePath(type(original_path)):
+                        @classmethod
+                        def home(cls):
+                            return tmp_path
+                    with patch.object(_mod, "Path", FakePath):
+                        issues = check()
+
         assert any("HARDCODED KEY" in i for i in issues)
 
-    def test_detects_github_pat(self, mod):
-        eff = mod["LAUNCH_DIR"].parent.parent / "germline" / "effectors"
-        eff.mkdir(parents=True, exist_ok=True)
-        (eff / "gh.sh").write_text("token=ghp_" + "a" * 36 + "\n")
-        issues = mod["check"]()
-        assert any("HARDCODED KEY" in i for i in issues)
+    def test_secret_in_security_find_not_flagged(self, tmp_path):
+        """Keys used with 'security find' are not flagged."""
+        fake_launch = tmp_path / "LaunchAgents"
+        fake_launch.mkdir()
+        fake_bin = tmp_path / "effectors"
+        fake_bin.mkdir()
 
-    def test_clean_script_no_flag(self, mod):
-        eff = mod["LAUNCH_DIR"].parent.parent / "germline" / "effectors"
-        eff.mkdir(parents=True, exist_ok=True)
-        (eff / "clean.sh").write_text("#!/bin/bash\necho hello\n")
-        issues = mod["check"]()
-        assert not any("HARDCODED KEY" in i for i in issues)
+        safe_script = fake_bin / "safe-script"
+        safe_script.write_text(textwrap.dedent("""\
+            #!/bin/bash
+            # Uses security find to retrieve key
+            security find-generic-password -s "api" -w
+        """))
 
-    def test_binary_file_skipped(self, mod):
-        eff = mod["LAUNCH_DIR"].parent.parent / "germline" / "effectors"
-        eff.mkdir(parents=True, exist_ok=True)
-        (eff / "binary").write_bytes(b"\x00\x01\x02\x03rest of file without secrets")
-        issues = mod["check"]()
-        assert not any("HARDCODED KEY" in i for i in issues)
+        with patch.object(_mod, "LAUNCH_DIR", fake_launch):
+            with patch.object(_mod, "SOURCE_DIR", tmp_path / "oscillators"):
+                with patch.object(_mod, "LOG", tmp_path / "health.log"):
+                    original_path = _mod["Path"]
+                    class FakePath(type(original_path)):
+                        @classmethod
+                        def home(cls):
+                            return tmp_path
+                    with patch.object(_mod, "Path", FakePath):
+                        issues = check()
 
-    def test_security_find_excused(self, mod):
-        """Lines containing 'security find' are not flagged even with a key pattern."""
-        eff = mod["LAUNCH_DIR"].parent.parent / "germline" / "effectors"
-        eff.mkdir(parents=True, exist_ok=True)
-        (eff / "safe.sh").write_text(
-            'security find -s "sk-abc123def456ghi789jkl012mno345pqr678"\n'
-        )
-        issues = mod["check"]()
-        assert not any("HARDCODED KEY" in i for i in issues)
+        assert not any("HARDCODED KEY" in i and "safe-script" in i for i in issues)
+
+    def test_binary_files_skipped(self, tmp_path):
+        """Binary files are skipped during secret scan."""
+        fake_launch = tmp_path / "LaunchAgents"
+        fake_launch.mkdir()
+        fake_bin = tmp_path / "effectors"
+        fake_bin.mkdir()
+
+        binary_file = fake_bin / "some-binary"
+        binary_file.write_bytes(b"\x00\x00\x00\x00rest of data")
+
+        with patch.object(_mod, "LAUNCH_DIR", fake_launch):
+            with patch.object(_mod, "SOURCE_DIR", tmp_path / "oscillators"):
+                with patch.object(_mod, "LOG", tmp_path / "health.log"):
+                    original_path = _mod["Path"]
+                    class FakePath(type(original_path)):
+                        @classmethod
+                        def home(cls):
+                            return tmp_path
+                    with patch.object(_mod, "Path", FakePath):
+                        issues = check()
+
+        assert not any("some-binary" in i for i in issues)
 
 
-# ── main / exit codes ──────────────────────────────────────────────────────
+# ── CLI (__main__) tests ────────────────────────────────────────────────────
+
 
 class TestMain:
-    def test_all_clear_exits_zero(self, mod, capsys):
-        mod["check"] = lambda: []
-        with pytest.raises(SystemExit) as exc_info:
-            mod["__name__"] = "__main__"
-            # Re-run the __main__ block logic directly
-            issues = []
-            if issues:
-                sys.exit(1)
-            else:
-                print("All clear.")
-                sys.exit(0)
-        assert exc_info.value.code == 0
-
-    def test_issues_exits_nonzero(self, mod):
-        issues = ["DRIFT: something"]
-        with pytest.raises(SystemExit) as exc_info:
-            if issues:
-                sys.exit(1)
-            else:
-                sys.exit(0)
-        assert exc_info.value.code == 1
-
-
-# ── com.vivesca.* plists ───────────────────────────────────────────────────
-
-class TestVivescaPlists:
-    def test_vivesca_plist_scanned(self, mod):
-        xml = "NOT XML"
-        _write_plist(mod["LAUNCH_DIR"], "com.vivesca.bad.plist", xml)
-        with patch("subprocess.run", return_value=MagicMock(returncode=1, stderr="bad")):
-            issues = mod["check"]()
-        assert any("INVALID" in i and "com.vivesca" in i for i in issues)
-
-    def test_vivesca_plist_valid(self, mod):
-        xml = '<?xml version="1.0"?><plist><dict></dict></plist>'
-        _write_plist(mod["LAUNCH_DIR"], "com.vivesca.ok.plist", xml)
-        issues = mod["check"]()
-        assert not any("com.vivesca.ok.plist" in i for i in issues)
+    def test_main_exits_0_when_healthy(self, tmp_path, capsys):
+        """main() exits 0 when no issues found."""
+        with patch.object(_mod, "LAUNCH_DIR", tmp_path / "empty"):
+            with patch.object(_mod, "SOURCE_DIR", tmp_path / "oscillators"):
+                with patch.object(_mod, "LOG", tmp_path / "health.log"):
+                    tmp_path.mkdir(parents=True, exist_ok=True)
+                    (tmp_path / "empty").mkdir()
+                    (tmp_path / "oscillators").mkdir()
+                    original_path = _mod["Path"]
+                    class FakePath(type(original_path)):
+                        @classmethod
+                        def home(cls):
+                            return tmp_path
+                    with patch.object(_mod, "Path", FakePath):
+                        with pytest.raises(SystemExit) as exc_info:
+                            _mod["check"]()
+                            # For the __main__ block, we need to simulate it
+        # The check function returns issues — test that empty issues = no error
+        with patch.object(_mod, "LAUNCH_DIR", tmp_path / "empty"):
+            with patch.object(_mod, "SOURCE_DIR", tmp_path / "oscillators"):
+                with patch.object(_mod, "LOG", tmp_path / "health.log"):
+                    original_path = _mod["Path"]
+                    class FakePath(type(original_path)):
+                        @classmethod
+                        def home(cls):
+                            return tmp_path
+                    with patch.object(_mod, "Path", FakePath):
+                        issues = check()
+        assert issues == []

@@ -127,7 +127,8 @@ class TestRunBackend:
         project = str(tmp_path)
         prompt_file = tmp_path / "plan.md"
 
-prompt_file.write_text("test plan", encoding="utf-8")
+        prompt_file.write_text("test plan", encoding="utf-8")
+
         def mock_run(cmd, *args, **kwargs):
             output_file.write_text("did some work\nError: failed to compile\n", encoding="utf-8")
             return MagicMock(returncode=0)
@@ -139,10 +140,9 @@ prompt_file.write_text("test plan", encoding="utf-8")
     def test_returns_false_on_nonzero_quota_error(self, pe, tmp_path, capsys):
         backend = pe["BACKENDS"][0]
         output_file = tmp_path / "gemini.log"
-prompt_file.write_text("test plan", encoding="utf-8")
-prompt_file.write_text("test plan", encoding="utf-8")
         project = str(tmp_path)
         prompt_file = tmp_path / "plan.md"
+        prompt_file.write_text("test plan", encoding="utf-8")
 
         def mock_run(cmd, *args, **kwargs):
             output_file.write_text("429 quota exceeded\n", encoding="utf-8")

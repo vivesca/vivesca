@@ -70,7 +70,6 @@ class TestCodeStructure:
     def test_mapping_has_known_asins(self):
         """Test mapping contains specific known ASINs."""
         content = RENAME_PATH.read_text()
-        # These ASINs should be in the mapping
         assert "B00CNQ2NTK" in content  # Awakenings
         assert "B08FGV64B1" in content  # Four Thousand Weeks
         assert "B0CM8TRWK3" in content  # Co-Intelligence
@@ -90,51 +89,63 @@ class TestCodeStructure:
     def test_no_main_function(self):
         """Test that script runs logic at module level."""
         content = RENAME_PATH.read_text()
-        # Script should not have a def main() — it runs inline
         assert "def main" not in content
+
+    def test_has_rename_call(self):
+        """Test that script calls src.rename(dst)."""
+        content = RENAME_PATH.read_text()
+        assert ".rename(" in content
+
+    def test_checks_src_exists(self):
+        """Test that script checks if source file exists before renaming."""
+        content = RENAME_PATH.read_text()
+        assert ".exists()" in content
 
 
 # ── exec loading tests ─────────────────────────────────────────────────────
 
 
 class TestExecLoading:
-    def test_load_via_exec(self):
-        """Test script can be loaded via exec."""
+    def test_load_via_exec(self, capsys):
+        """Test script can be loaded via exec (runs loop harmlessly)."""
         ns: dict = {"__name__": "test_rename_kindle", "__file__": str(RENAME_PATH)}
         source = RENAME_PATH.read_text(encoding="utf-8")
-        # Script runs at module level but the loop checks src.exists()
-        # so it's safe to exec — no files will match in test env
         with patch("sys.argv", ["rename-kindle-asins.py"]):
             exec(source, ns)
-        # ASIN_TO_TITLE should be in namespace
         assert "ASIN_TO_TITLE" in ns
+        # Captures the "Renamed 0 files." print
+        captured = capsys.readouterr()
+        assert "Renamed 0 files" in captured.out or "Would rename 0 files" in captured.out
 
-    def test_asin_mapping_loaded(self):
+    def test_asin_mapping_loaded(self, capsys):
         """Test ASIN_TO_TITLE mapping is accessible after exec."""
         ns: dict = {"__name__": "test_rename_kindle", "__file__": str(RENAME_PATH)}
         source = RENAME_PATH.read_text(encoding="utf-8")
         with patch("sys.argv", ["rename-kindle-asins.py"]):
             exec(source, ns)
+        capsys.readouterr()  # consume output
         mapping = ns["ASIN_TO_TITLE"]
         assert isinstance(mapping, dict)
         assert len(mapping) > 0
 
-    def test_asin_mapping_keys_are_asin_format(self):
+    def test_asin_mapping_keys_are_asin_format(self, capsys):
         """Test all keys look like ASINs (10+ alphanumeric)."""
         ns: dict = {"__name__": "test_rename_kindle", "__file__": str(RENAME_PATH)}
         source = RENAME_PATH.read_text(encoding="utf-8")
         with patch("sys.argv", ["rename-kindle-asins.py"]):
             exec(source, ns)
+        capsys.readouterr()  # consume output
         for key in ns["ASIN_TO_TITLE"]:
             assert len(key) >= 10, f"ASIN key too short: {key}"
             assert key.isalnum(), f"ASIN key not alphanumeric: {key}"
 
-    def test_asin_mapping_values_are_nonempty(self):
+    def test_asin_mapping_values_are_nonempty(self, capsys):
         """Test all title values are non-empty strings."""
         ns: dict = {"__name__": "test_rename_kindle", "__file__": str(RENAME_PATH)}
         source = RENAME_PATH.read_text(encoding="utf-8")
         with patch("sys.argv", ["rename-kindle-asins.py"]):
             exec(source, ns)
+        capsys.readouterr()  # consume output
         for asin, title in ns["ASIN_TO_TITLE"].items():
             assert isinstance(title, str) and len(title) > 0, f"Empty title for {asin}"
 
@@ -144,6 +155,7 @@ class TestExecLoading:
         source = RENAME_PATH.read_text(encoding="utf-8")
         with patch("sys.argv", ["rename-kindle-asins.py", "--dry-run"]):
             exec(source, ns)
+        capsys.readouterr()  # consume output
         assert ns["dry_run"] is True
 
     def test_no_dry_run_flag_default(self, capsys):
@@ -152,6 +164,7 @@ class TestExecLoading:
         source = RENAME_PATH.read_text(encoding="utf-8")
         with patch("sys.argv", ["rename-kindle-asins.py"]):
             exec(source, ns)
+        capsys.readouterr()  # consume output
         assert ns["dry_run"] is False
 
 
@@ -162,23 +175,19 @@ class TestFunctionalRename:
     def test_rename_in_temp_dir(self):
         """Should rename ASIN files to title files."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            # Create source file with known ASIN
             src = Path(tmpdir) / "B00CNQ2NTK.md"
             src.write_text("# Awakenings notes")
 
-            # Run the script with a monkeypatched BOOKS_DIR
-            # We do this by creating a small wrapper that sets BOOKS_DIR
             wrapper = f"""
 import sys
 from pathlib import Path
-sys.path.insert(0, {str(RENAME_PATH.parent)!r})
-# Read the script source and patch BOOKS_DIR
 source = open({str(RENAME_PATH)!r}).read()
 source = source.replace(
     str(Path.home() / "notes" / "Books"),
     {tmpdir!r}
 )
-exec(source, {{"__name__": "__main__", "__file__": {str(RENAME_PATH)!r}}})
+sys.argv = ["rename-kindle-asins.py"]
+exec(source, {{"__name__": "__main__", "__file__": {str(RENAME_PATH)!r}, "sys": sys}})
 """
             r = subprocess.run(
                 [sys.executable, "-c", wrapper],
@@ -211,9 +220,7 @@ exec(source, ns)
                 capture_output=True, text=True, timeout=30,
             )
             assert r.returncode == 0
-            # Source file should still exist
             assert src.exists()
-            # Dest should NOT exist
             assert not (Path(tmpdir) / "Awakenings.md").exists()
             assert "dry-run" in r.stdout.lower() or "Would rename" in r.stdout
 
@@ -242,10 +249,8 @@ exec(source, ns)
                 capture_output=True, text=True, timeout=30,
             )
             assert r.returncode == 0
-            # Both files should still exist
             assert src.exists()
             assert dst.exists()
-            # Should mention SKIP
             assert "SKIP" in r.stdout
 
     def test_no_files_to_rename(self):
@@ -269,6 +274,33 @@ exec(source, ns)
             )
             assert r.returncode == 0
             assert "Renamed 0 files" in r.stdout
+
+    def test_multiple_renames(self):
+        """Should rename multiple ASIN files."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            (Path(tmpdir) / "B00CNQ2NTK.md").write_text("# Awakenings")
+            (Path(tmpdir) / "B08FGV64B1.md").write_text("# Four Thousand Weeks")
+
+            wrapper = f"""
+import sys
+from pathlib import Path
+source = open({str(RENAME_PATH)!r}).read()
+source = source.replace(
+    str(Path.home() / "notes" / "Books"),
+    {tmpdir!r}
+)
+sys.argv = ["rename-kindle-asins.py"]
+ns = {{"__name__": "__main__", "__file__": {str(RENAME_PATH)!r}, "sys": sys}}
+exec(source, ns)
+"""
+            r = subprocess.run(
+                [sys.executable, "-c", wrapper],
+                capture_output=True, text=True, timeout=30,
+            )
+            assert r.returncode == 0
+            assert (Path(tmpdir) / "Awakenings.md").exists()
+            assert (Path(tmpdir) / "Four Thousand Weeks.md").exists()
+            assert "Renamed 2 files" in r.stdout
 
 
 # ── CLI subprocess ──────────────────────────────────────────────────────────

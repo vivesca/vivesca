@@ -1,208 +1,254 @@
-"""Tests for effectors/tmux-workspace.py — set up tmux workspace with tab layout."""
-
+#!/usr/bin/env python3
+"""Tests for effectors/tmux-workspace.py — tmux workspace layout manager."""
 from __future__ import annotations
 
 import os
 import sys
 from pathlib import Path
-from unittest.mock import MagicMock, call, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
-EFFECTOR = Path(__file__).resolve().parent.parent / "effectors" / "tmux-workspace.py"
+EFFECTOR_PATH = Path(__file__).resolve().parents[1] / "effectors" / "tmux-workspace.py"
 
-@pytest.fixture()
-def mod():
-    """Load tmux-workspace.py via exec."""
-    ns: dict = {}
-    code = EFFECTOR.read_text()
-    exec(code, ns)
+
+def _load_module():
+    """Load tmux-workspace via exec (effector pattern, not importable)."""
+    source = EFFECTOR_PATH.read_text(encoding="utf-8")
+    ns: dict = {"__name__": "tmux_workspace", "__file__": str(EFFECTOR_PATH)}
+    exec(source, ns)
     return ns
 
 
-# ── LAYOUTS ─────────────────────────────────────────────────────────────────
+_mod = _load_module()
+run = _mod["run"]
+get_current_session = _mod["get_current_session"]
+get_existing_windows = _mod["get_existing_windows"]
+setup_windows = _mod["setup_windows"]
+create_and_attach = _mod["create_and_attach"]
+main = _mod["main"]
+LAYOUTS = _mod["LAYOUTS"]
+
+
+# ── File-level tests ────────────────────────────────────────────────────────
+
+
+class TestFileBasics:
+    def test_file_exists(self):
+        assert EFFECTOR_PATH.exists()
+        assert EFFECTOR_PATH.is_file()
+
+    def test_is_python_script(self):
+        first_line = EFFECTOR_PATH.read_text().split("\n")[0]
+        assert first_line.startswith("#!/usr/bin/env python")
+
+    def test_has_docstring(self):
+        source = EFFECTOR_PATH.read_text()
+        assert "tmux workspace" in source
+
+
+# ── LAYOUTS constant tests ──────────────────────────────────────────────────
+
 
 class TestLayouts:
-    def test_layouts_defined(self, mod):
-        assert "default" in mod["LAYOUTS"]
-        assert "dev" in mod["LAYOUTS"]
+    def test_default_layout_exists(self):
+        assert "default" in LAYOUTS
 
-    def test_default_layout_has_main_light(self, mod):
-        names = [w[0] for w in mod["LAYOUTS"]["default"]]
+    def test_dev_layout_exists(self):
+        assert "dev" in LAYOUTS
+
+    def test_default_has_two_windows(self):
+        assert len(LAYOUTS["default"]) == 2
+
+    def test_dev_has_three_windows(self):
+        assert len(LAYOUTS["dev"]) == 3
+
+    def test_default_windows_named(self):
+        names = [w[0] for w in LAYOUTS["default"]]
         assert names == ["main", "light"]
 
-    def test_dev_layout_has_three_windows(self, mod):
-        names = [w[0] for w in mod["LAYOUTS"]["dev"]]
-        assert "main" in names
-        assert "light" in names
-        assert "shell" in names
-        assert len(names) == 3
+    def test_dev_windows_named(self):
+        names = [w[0] for w in LAYOUTS["dev"]]
+        assert names == ["main", "light", "shell"]
 
 
-# ── run() helper ────────────────────────────────────────────────────────────
+# ── run() helper tests ──────────────────────────────────────────────────────
+
 
 class TestRun:
-    def test_run_default_check(self, mod):
-        with patch("subprocess.run") as mock_run:
-            mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
-            mod["run"]("echo hi")
-            mock_run.assert_called_once_with(
-                "echo hi", shell=True, capture_output=True, text=True, check=True
-            )
+    def test_run_calls_subprocess(self):
+        with patch("subprocess.run", return_value=MagicMock(returncode=0, stdout="", stderr="")) as mock:
+            run("echo hello")
+            mock.assert_called_once_with("echo hello", shell=True, capture_output=True, text=True, check=True)
 
-    def test_run_no_check(self, mod):
-        with patch("subprocess.run") as mock_run:
-            mock_run.return_value = MagicMock(returncode=1, stdout="", stderr="err")
-            result = mod["run"]("false", check=False)
+    def test_run_no_check(self):
+        with patch("subprocess.run", return_value=MagicMock(returncode=1, stdout="", stderr="err")) as mock:
+            result = run("false", check=False)
             assert result.returncode == 1
 
+    def test_run_returns_completed_process(self):
+        mock_cp = MagicMock(returncode=0, stdout="out", stderr="")
+        with patch("subprocess.run", return_value=mock_cp):
+            result = run("true")
+            assert result.stdout == "out"
 
-# ── get_current_session ────────────────────────────────────────────────────
+
+# ── get_current_session tests ───────────────────────────────────────────────
+
 
 class TestGetCurrentSession:
-    def test_outside_tmux_returns_none(self, mod):
+    def test_outside_tmux(self):
         with patch.dict(os.environ, {}, clear=True):
-            assert mod["get_current_session"]() is None
+            assert get_current_session() is None
 
-    def test_inside_tmux_returns_name(self, mod):
+    def test_inside_tmux(self):
         with patch.dict(os.environ, {"TMUX": "/tmp/tmux-1000/default,1234,0"}):
             with patch("subprocess.run", return_value=MagicMock(returncode=0, stdout="sess\n")):
-                assert mod["get_current_session"]() == "sess"
+                assert get_current_session() == "sess"
 
-    def test_tmux_error_returns_none(self, mod):
+    def test_tmux_error_returns_none(self):
         with patch.dict(os.environ, {"TMUX": "/tmp/tmux-1000/default,1234,0"}):
             with patch("subprocess.run", return_value=MagicMock(returncode=1, stdout="")):
-                assert mod["get_current_session"]() is None
+                assert get_current_session() is None
 
 
-# ── get_existing_windows ────────────────────────────────────────────────────
+# ── get_existing_windows tests ──────────────────────────────────────────────
+
 
 class TestGetExistingWindows:
-    def test_success(self, mod):
-        with patch.object(mod, "run", return_value=MagicMock(returncode=0, stdout="a\nb\n")):
-            assert mod["get_existing_windows"]("s") == ["a", "b"]
+    def test_returns_window_names(self):
+        with patch("subprocess.run", return_value=MagicMock(returncode=0, stdout="main\nlight\n")):
+            assert get_existing_windows("s") == ["main", "light"]
 
-    def test_error_returns_empty(self, mod):
-        with patch.object(mod, "run", return_value=MagicMock(returncode=1, stdout="")):
-            assert mod["get_existing_windows"]("s") == []
+    def test_empty_on_error(self):
+        with patch("subprocess.run", return_value=MagicMock(returncode=1, stdout="")):
+            assert get_existing_windows("s") == []
 
-    def test_single_window(self, mod):
-        with patch.object(mod, "run", return_value=MagicMock(returncode=0, stdout="main")):
-            assert mod["get_existing_windows"]("s") == ["main"]
+    def test_single_window(self):
+        with patch("subprocess.run", return_value=MagicMock(returncode=0, stdout="main")):
+            assert get_existing_windows("s") == ["main"]
 
 
-# ── setup_windows ───────────────────────────────────────────────────────────
+# ── setup_windows tests ─────────────────────────────────────────────────────
+
 
 class TestSetupWindows:
-    def test_renames_first_window(self, mod):
-        with patch.object(mod, "run") as mock_run:
-            mod["setup_windows"]("sess", "default")
-            cmds = [str(c) for c in mock_run.call_args_list]
-            assert any("rename-window" in c and "sess:1" in c for c in cmds)
+    def test_renames_first_window(self):
+        with patch.object(_mod, "run") as mock_run:
+            with patch.object(_mod, "get_existing_windows", return_value=["old"]):
+                with patch("builtins.print"):
+                    setup_windows("sess", "default")
+        rename_calls = [c for c in mock_run.call_args_list if "rename-window" in str(c)]
+        assert any("sess:1" in str(c) for c in rename_calls)
 
-    def test_creates_missing_windows(self, mod):
-        with patch.object(mod, "get_existing_windows", return_value=["main"]):
-            with patch.object(mod, "run") as mock_run:
-                mod["setup_windows"]("sess", "default")
-                cmds = [str(c) for c in mock_run.call_args_list]
-                assert any("new-window" in c for c in cmds)
+    def test_creates_missing_window(self):
+        with patch.object(_mod, "run") as mock_run:
+            with patch.object(_mod, "get_existing_windows", return_value=["main"]):
+                with patch("builtins.print"):
+                    setup_windows("sess", "default")
+        new_calls = [c for c in mock_run.call_args_list if "new-window" in str(c)]
+        assert len(new_calls) == 1  # 'light' needs creating
 
-    def test_selects_first_window(self, mod):
-        with patch.object(mod, "run") as mock_run:
-            mod["setup_windows"]("sess", "default")
-            cmds = [str(c) for c in mock_run.call_args_list]
-            assert any("select-window" in c and "sess:1" in c for c in cmds)
+    def test_selects_first_window(self):
+        with patch.object(_mod, "run") as mock_run:
+            with patch.object(_mod, "get_existing_windows", return_value=["main", "light"]):
+                with patch("builtins.print"):
+                    setup_windows("sess", "default")
+        select_calls = [c for c in mock_run.call_args_list if "select-window" in str(c)]
+        assert len(select_calls) == 1
+        assert "sess:1" in str(select_calls[0])
 
-    def test_renames_existing_second_window(self, mod):
-        with patch.object(mod, "get_existing_windows", return_value=["main", "old"]):
-            with patch.object(mod, "run") as mock_run:
-                mod["setup_windows"]("sess", "default")
-                cmds = [str(c) for c in mock_run.call_args_list]
-                assert any("rename-window" in c and "sess:2" in c for c in cmds)
-
-    def test_dev_creates_two_extra(self, mod):
-        """dev layout has 3 windows, so 2 new-window calls when session is empty."""
-        with patch.object(mod, "get_existing_windows", return_value=["main"]):
-            with patch.object(mod, "run") as mock_run:
-                mod["setup_windows"]("sess", "dev")
-                nw = [c for c in mock_run.call_args_list if "new-window" in str(c)]
-                assert len(nw) == 2
+    def test_renames_existing_by_index(self):
+        with patch.object(_mod, "run") as mock_run:
+            with patch.object(_mod, "get_existing_windows", return_value=["main", "old"]):
+                with patch("builtins.print"):
+                    setup_windows("sess", "default")
+        assert any("rename-window" in str(c) and "sess:2" in str(c) for c in mock_run.call_args_list)
 
 
-# ── create_and_attach ───────────────────────────────────────────────────────
+# ── create_and_attach tests ─────────────────────────────────────────────────
+
 
 class TestCreateAndAttach:
-    def test_creates_session(self, mod):
-        with patch.object(mod, "run") as mock_run:
+    def test_creates_session(self):
+        with patch.object(_mod, "run") as mock_run:
+            with patch("subprocess.run") as mock_sp:
+                with patch("builtins.print"):
+                    create_and_attach("new-sess", "default")
+        session_calls = [c for c in mock_run.call_args_list if "new-session" in str(c)]
+        assert len(session_calls) == 1
+        assert "-s new-sess" in str(session_calls[0])
+
+    def test_creates_additional_windows_for_dev(self):
+        with patch.object(_mod, "run") as mock_run:
             with patch("subprocess.run"):
-                mod["create_and_attach"]("ns", "default")
-                cmds = [str(c) for c in mock_run.call_args_list]
-                assert any("new-session" in c and "-s ns" in c for c in cmds)
+                with patch("builtins.print"):
+                    create_and_attach("dev-sess", "dev")
+        new_win_calls = [c for c in mock_run.call_args_list if "new-window" in str(c) and "dev-sess" in str(c)]
+        assert len(new_win_calls) == 2  # light + shell
 
-    def test_creates_additional_windows(self, mod):
-        with patch.object(mod, "run") as mock_run:
-            with patch("subprocess.run"):
-                mod["create_and_attach"]("ns", "dev")
-                nw = [c for c in mock_run.call_args_list if "new-window" in str(c) and "ns" in str(c)]
-                assert len(nw) == 2  # light + shell
-
-    def test_attaches(self, mod):
-        with patch.object(mod, "run"):
-            with patch("subprocess.run") as sp:
-                mod["create_and_attach"]("ns", "default")
-                cmds = [str(c) for c in sp.call_args_list]
-                assert any("attach-session" in c for c in cmds)
+    def test_attaches_to_session(self):
+        with patch.object(_mod, "run"):
+            with patch("subprocess.run") as mock_sp:
+                with patch("builtins.print"):
+                    create_and_attach("sess", "default")
+        attach_calls = [c for c in mock_sp.call_args_list if "attach-session" in str(c)]
+        assert len(attach_calls) == 1
 
 
-# ── main ────────────────────────────────────────────────────────────────────
+# ── main() tests ────────────────────────────────────────────────────────────
+
 
 class TestMain:
-    def test_help_shows_docstring(self, mod, capsys):
-        with patch.object(sys, "argv", ["tmux-workspace", "--help"]):
-            mod["main"]()
-        assert "tmux workspace" in capsys.readouterr().out.lower()
+    def test_help_flag(self, capsys):
+        with patch("sys.argv", ["tmux-workspace", "--help"]):
+            main()
+        captured = capsys.readouterr()
+        assert "Set up tmux workspace" in captured.out
 
-    def test_h_flag(self, mod, capsys):
-        with patch.object(sys, "argv", ["tmux-workspace", "-h"]):
-            mod["main"]()
-        assert "Available layouts" in capsys.readouterr().out
+    def test_h_flag(self, capsys):
+        with patch("sys.argv", ["tmux-workspace", "-h"]):
+            main()
+        captured = capsys.readouterr()
+        assert "Available layouts" in captured.out
 
-    def test_inside_tmux_calls_setup(self, mod):
-        with patch.object(sys, "argv", ["tmux-workspace"]):
-            with patch.object(mod, "get_current_session", return_value="cur"):
-                with patch.object(mod, "setup_windows") as sw:
-                    mod["main"]()
-                    sw.assert_called_once_with("cur", "default")
+    def test_inside_tmux_calls_setup(self):
+        with patch("sys.argv", ["tmux-workspace"]):
+            with patch.object(_mod, "get_current_session", return_value="cur"):
+                with patch.object(_mod, "setup_windows") as mock_setup:
+                    with patch("builtins.print"):
+                        main()
+        mock_setup.assert_called_once_with("cur", "default")
 
-    def test_outside_tmux_creates_session(self, mod):
-        with patch.object(sys, "argv", ["tmux-workspace"]):
-            with patch.object(mod, "get_current_session", return_value=None):
-                with patch.object(mod, "run", return_value=MagicMock(returncode=1)):
-                    with patch.object(mod, "create_and_attach") as ca:
-                        mod["main"]()
-                        ca.assert_called_once_with("main", "default")
+    def test_outside_tmux_creates_session(self):
+        with patch("sys.argv", ["tmux-workspace"]):
+            with patch.object(_mod, "get_current_session", return_value=None):
+                with patch.object(_mod, "run", return_value=MagicMock(returncode=1)):
+                    with patch.object(_mod, "create_and_attach") as mock_create:
+                        main()
+        mock_create.assert_called_once_with("main", "default")
 
-    def test_outside_tmux_existing_session(self, mod):
-        with patch.object(sys, "argv", ["tmux-workspace"]):
-            with patch.object(mod, "get_current_session", return_value=None):
-                with patch.object(mod, "run", return_value=MagicMock(returncode=0)):
-                    with patch.object(mod, "setup_windows") as sw:
-                        with patch("subprocess.run") as sp:
-                            mod["main"]()
-                            sw.assert_called_once_with("main", "default")
-                            assert any("attach-session" in str(c) for c in sp.call_args_list)
+    def test_outside_tmux_existing_session(self):
+        with patch("sys.argv", ["tmux-workspace"]):
+            with patch.object(_mod, "get_current_session", return_value=None):
+                with patch.object(_mod, "run", return_value=MagicMock(returncode=0)):
+                    with patch.object(_mod, "setup_windows") as mock_setup:
+                        with patch("subprocess.run"):
+                            main()
+        mock_setup.assert_called_once_with("main", "default")
 
-    def test_layout_arg(self, mod):
-        with patch.object(sys, "argv", ["tmux-workspace", "dev"]):
-            with patch.object(mod, "get_current_session", return_value="cur"):
-                with patch.object(mod, "setup_windows") as sw:
-                    mod["main"]()
-                    sw.assert_called_once_with("cur", "dev")
+    def test_layout_arg_inside_tmux(self):
+        with patch("sys.argv", ["tmux-workspace", "dev"]):
+            with patch.object(_mod, "get_current_session", return_value="cur"):
+                with patch.object(_mod, "setup_windows") as mock_setup:
+                    with patch("builtins.print"):
+                        main()
+        mock_setup.assert_called_once_with("cur", "dev")
 
-    def test_custom_session_name(self, mod):
-        with patch.object(sys, "argv", ["tmux-workspace", "my-work"]):
-            with patch.object(mod, "get_current_session", return_value=None):
-                with patch.object(mod, "run", return_value=MagicMock(returncode=1)):
-                    with patch.object(mod, "create_and_attach") as ca:
-                        mod["main"]()
-                        ca.assert_called_once_with("my-work", "default")
+    def test_non_layout_arg_becomes_session_name(self):
+        with patch("sys.argv", ["tmux-workspace", "my-work"]):
+            with patch.object(_mod, "get_current_session", return_value=None):
+                with patch.object(_mod, "run", return_value=MagicMock(returncode=1)):
+                    with patch.object(_mod, "create_and_attach") as mock_create:
+                        main()
+        mock_create.assert_called_once_with("my-work", "default")

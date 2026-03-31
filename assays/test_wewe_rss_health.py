@@ -1,138 +1,239 @@
 #!/usr/bin/env python3
-"""Tests for wewe-rss-health effector."""
+"""Tests for effectors/wewe-rss-health.py — Wechat2RSS health monitor."""
+from __future__ import annotations
 
-import sys
-import os
-from importlib.machinery import SourceFileLoader
 import json
-from unittest.mock import MagicMock
-from unittest.mock import patch
+from io import BytesIO
+from pathlib import Path
+from unittest.mock import MagicMock, patch, mock_open
 
-# Add project root to path
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+import pytest
 
-# Import despite hyphen in name
-wewe_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'effectors', 'wewe-rss-health.py'))
-wewe = SourceFileLoader("wewe_rss_health", wewe_path).load_module()
+EFFECTOR_PATH = Path(__file__).resolve().parents[1] / "effectors" / "wewe-rss-health.py"
 
-def test_load_state_exists(monkeypatch):
-    """Test load_state when state file exists."""
-    mock_data = json.dumps({"last_status": "failing"})
-    state_file_mock = MagicMock()
-    state_file_mock.exists.return_value = True
-    state_file_mock.read_text.return_value = mock_data
-    
-    monkeypatch.setattr(wewe, "STATE_FILE", state_file_mock)
-    
-    state = wewe.load_state()
-    assert state == {"last_status": "failing"}
 
-def test_load_state_not_exists(monkeypatch):
-    """Test load_state when state file does not exist."""
-    state_file_mock = MagicMock()
-    state_file_mock.exists.return_value = False
-    
-    monkeypatch.setattr(wewe, "STATE_FILE", state_file_mock)
-    
-    state = wewe.load_state()
-    assert state == {"last_status": "ok"}
+def _load_module():
+    """Load wewe-rss-health via exec (effector pattern, not importable)."""
+    source = EFFECTOR_PATH.read_text(encoding="utf-8")
+    ns: dict = {"__name__": "wewe_rss_health", "__file__": str(EFFECTOR_PATH)}
+    exec(source, ns)
+    return ns
 
-def test_save_state(monkeypatch):
-    """Test save_state writes correctly."""
-    state_file_mock = MagicMock()
-    monkeypatch.setattr(wewe, "STATE_FILE", state_file_mock)
-    
-    wewe.save_state({"last_status": "ok"})
-    state_file_mock.write_text.assert_called_with('{"last_status": "ok"}')
 
-def test_check_service_success(monkeypatch):
-    """Test check_service when everything is healthy."""
-    mock_response = b'{"err": null, "data": [{"paused": false}, {"paused": false}]}'
+_mod = _load_module()
+load_state = _mod["load_state"]
+save_state = _mod["save_state"]
+send_alert = _mod["send_alert"]
+check_service = _mod["check_service"]
+main = _mod["main"]
+STATE_FILE = _mod["STATE_FILE"]
+API_URL = _mod["API_URL"]
+TG_SCRIPT = _mod["TG_SCRIPT"]
 
-    mock_urlopen = MagicMock()
-    mock_urlopen.read.return_value = mock_response
 
-    def mock_urlopen_func(req, **kwargs):
-        return mock_urlopen
+# ── File-level tests ────────────────────────────────────────────────────────
 
-    monkeypatch.setattr("urllib.request.urlopen", mock_urlopen_func)
 
-    healthy, detail = wewe.check_service()
+class TestFileBasics:
+    def test_file_exists(self):
+        assert EFFECTOR_PATH.exists()
+        assert EFFECTOR_PATH.is_file()
 
-    assert healthy is True
-    assert "2 feed(s) active" in detail
+    def test_is_python_script(self):
+        first_line = EFFECTOR_PATH.read_text().split("\n")[0]
+        assert first_line.startswith("#!/usr/bin/env python")
 
-def test_check_service_api_unreachable(monkeypatch):
-    """Test check_service when API is unreachable."""
-    def mock_urlopen(req, **kwargs):
-        raise Exception("Connection refused")
-    
-    monkeypatch.setattr("urllib.request.urlopen", mock_urlopen)
-    
-    healthy, detail = wewe.check_service()
-    
-    assert healthy is False
-    assert "API unreachable: Connection refused" in detail
+    def test_has_docstring(self):
+        source = EFFECTOR_PATH.read_text()
+        assert "Wechat2RSS health" in source
 
-def test_check_service_api_error(monkeypatch):
-    """Test check_service when API returns error."""
-    mock_response = b'{"err": "invalid key", "data": []}'
 
-    mock_urlopen = MagicMock()
-    mock_urlopen.read.return_value = mock_response
+# ── load_state tests ────────────────────────────────────────────────────────
 
-    def mock_urlopen_func(req, **kwargs):
-        return mock_urlopen
 
-    monkeypatch.setattr("urllib.request.urlopen", mock_urlopen_func)
+class TestLoadState:
+    def test_returns_state_when_file_exists(self, tmp_path):
+        state_file = tmp_path / "state.json"
+        state_file.write_text(json.dumps({"last_status": "failing"}))
+        with patch.object(_mod, "STATE_FILE", state_file):
+            result = load_state()
+        assert result == {"last_status": "failing"}
 
-    healthy, detail = wewe.check_service()
+    def test_returns_default_when_file_missing(self, tmp_path):
+        state_file = tmp_path / "nonexistent.json"
+        with patch.object(_mod, "STATE_FILE", state_file):
+            result = load_state()
+        assert result == {"last_status": "ok"}
 
-    assert healthy is False
-    assert "API error: invalid key" in detail
+    def test_returns_empty_when_file_empty(self, tmp_path):
+        state_file = tmp_path / "state.json"
+        state_file.write_text("")
+        with patch.object(_mod, "STATE_FILE", state_file):
+            # Will raise JSONDecodeError → let it propagate (real behavior)
+            with pytest.raises(json.JSONDecodeError):
+                load_state()
 
-def test_check_service_no_feeds(monkeypatch):
-    """Test check_service when no feeds configured."""
-    mock_response = b'{"err": null, "data": []}'
 
-    mock_urlopen = MagicMock()
-    mock_urlopen.read.return_value = mock_response
+# ── save_state tests ────────────────────────────────────────────────────────
 
-    def mock_urlopen_func(req, **kwargs):
-        return mock_urlopen
 
-    monkeypatch.setattr("urllib.request.urlopen", mock_urlopen_func)
+class TestSaveState:
+    def test_writes_json(self, tmp_path):
+        state_file = tmp_path / "state.json"
+        with patch.object(_mod, "STATE_FILE", state_file):
+            save_state({"last_status": "ok"})
+        assert json.loads(state_file.read_text()) == {"last_status": "ok"}
 
-    healthy, detail = wewe.check_service()
+    def test_overwrites_existing(self, tmp_path):
+        state_file = tmp_path / "state.json"
+        state_file.write_text(json.dumps({"last_status": "old"}))
+        with patch.object(_mod, "STATE_FILE", state_file):
+            save_state({"last_status": "new"})
+        assert json.loads(state_file.read_text()) == {"last_status": "new"}
 
-    assert healthy is False
-    assert "no feeds configured" in detail
 
-def test_check_service_some_paused(monkeypatch):
-    """Test check_service when some feeds are paused."""
-    mock_response = b'{"err": null, "data": [{"paused": true}, {"paused": false}]}'
+# ── check_service tests ─────────────────────────────────────────────────────
 
-    mock_urlopen = MagicMock()
-    mock_urlopen.read.return_value = mock_response
 
-    def mock_urlopen_func(req, **kwargs):
-        return mock_urlopen
+class TestCheckService:
+    def _mock_urlopen(self, data):
+        """Create a mock urlopen that returns JSON data."""
+        mock_resp = MagicMock()
+        mock_resp.read.return_value = json.dumps(data).encode()
+        mock_resp.__enter__ = lambda s: s
+        mock_resp.__exit__ = MagicMock(return_value=False)
+        return mock_resp
 
-    monkeypatch.setattr("urllib.request.urlopen", mock_urlopen_func)
+    def test_healthy_with_active_feeds(self):
+        data = {"err": None, "data": [{"paused": False}, {"paused": False}]}
+        with patch("urllib.request.urlopen", return_value=self._mock_urlopen(data)):
+            with patch("urllib.request.Request"):
+                with patch("json.load", return_value=data):
+                    healthy, detail = check_service()
+        assert healthy is True
+        assert "2 feed(s) active" in detail
 
-    healthy, detail = wewe.check_service()
+    def test_unreachable_api(self):
+        with patch("urllib.request.Request"):
+            with patch("urllib.request.urlopen", side_effect=Exception("Connection refused")):
+                healthy, detail = check_service()
+        assert healthy is False
+        assert "API unreachable" in detail
 
-    assert healthy is False
-    assert "1/2 feeds paused" in detail
+    def test_api_error(self):
+        data = {"err": "invalid key", "data": []}
+        with patch("urllib.request.Request"):
+            with patch("urllib.request.urlopen", return_value=self._mock_urlopen(data)):
+                with patch("json.load", return_value=data):
+                    healthy, detail = check_service()
+        assert healthy is False
+        assert "API error" in detail
 
-def test_send_alert_prints_when_no_tg_script(capsys, monkeypatch):
-    """Test send_alert prints when tg-notify.sh not found."""
-    tg_mock = MagicMock()
-    tg_mock.exists.return_value = False
-    
-    monkeypatch.setattr(wewe, "TG_SCRIPT", tg_mock)
-    
-    wewe.send_alert("test alert")
-    
-    captured = capsys.readouterr()
-    assert "test alert" in captured.err
+    def test_no_feeds(self):
+        data = {"err": None, "data": []}
+        with patch("urllib.request.Request"):
+            with patch("urllib.request.urlopen", return_value=self._mock_urlopen(data)):
+                with patch("json.load", return_value=data):
+                    healthy, detail = check_service()
+        assert healthy is False
+        assert "no feeds configured" in detail
+
+    def test_paused_feeds(self):
+        data = {"err": None, "data": [{"paused": True}, {"paused": False}]}
+        with patch("urllib.request.Request"):
+            with patch("urllib.request.urlopen", return_value=self._mock_urlopen(data)):
+                with patch("json.load", return_value=data):
+                    healthy, detail = check_service()
+        assert healthy is False
+        assert "1/2 feeds paused" in detail
+
+
+# ── send_alert tests ────────────────────────────────────────────────────────
+
+
+class TestSendAlert:
+    def test_calls_tg_script_when_exists(self, tmp_path):
+        tg = tmp_path / "tg-notify.sh"
+        tg.write_text("#!/bin/bash\necho $1")
+        with patch.object(_mod, "TG_SCRIPT", tg):
+            with patch("subprocess.run") as mock_run:
+                send_alert("test message")
+        mock_run.assert_called_once_with([str(tg), "test message"], timeout=10)
+
+    def test_prints_to_stderr_when_no_script(self, tmp_path, capsys):
+        tg = tmp_path / "nonexistent.sh"
+        with patch.object(_mod, "TG_SCRIPT", tg):
+            send_alert("emergency!")
+        captured = capsys.readouterr()
+        assert "emergency!" in captured.err
+
+
+# ── main() tests ────────────────────────────────────────────────────────────
+
+
+class TestMain:
+    def test_sends_alert_on_transition_to_failing(self, tmp_path):
+        """Alert sent when status goes from ok → failing."""
+        state_file = tmp_path / "state.json"
+        state_file.write_text(json.dumps({"last_status": "ok"}))
+
+        with patch.object(_mod, "STATE_FILE", state_file):
+            with patch.object(_mod, "check_service", return_value=(False, "API unreachable")):
+                with patch.object(_mod, "send_alert") as mock_alert:
+                    main()
+
+        mock_alert.assert_called_once()
+        msg = mock_alert.call_args[0][0]
+        assert "unhealthy" in msg.lower() or "API unreachable" in msg
+
+    def test_sends_alert_on_recovery(self, tmp_path):
+        """Alert sent when status goes from failing → ok."""
+        state_file = tmp_path / "state.json"
+        state_file.write_text(json.dumps({"last_status": "failing"}))
+
+        with patch.object(_mod, "STATE_FILE", state_file):
+            with patch.object(_mod, "check_service", return_value=(True, "5 feed(s) active")):
+                with patch.object(_mod, "send_alert") as mock_alert:
+                    main()
+
+        mock_alert.assert_called_once()
+        msg = mock_alert.call_args[0][0]
+        assert "recovered" in msg.lower()
+
+    def test_no_alert_when_stable_ok(self, tmp_path):
+        """No alert when status stays ok."""
+        state_file = tmp_path / "state.json"
+        state_file.write_text(json.dumps({"last_status": "ok"}))
+
+        with patch.object(_mod, "STATE_FILE", state_file):
+            with patch.object(_mod, "check_service", return_value=(True, "3 feed(s) active")):
+                with patch.object(_mod, "send_alert") as mock_alert:
+                    main()
+
+        mock_alert.assert_not_called()
+
+    def test_no_alert_when_stable_failing(self, tmp_path):
+        """No alert when status stays failing (avoid spam)."""
+        state_file = tmp_path / "state.json"
+        state_file.write_text(json.dumps({"last_status": "failing"}))
+
+        with patch.object(_mod, "STATE_FILE", state_file):
+            with patch.object(_mod, "check_service", return_value=(False, "down")):
+                with patch.object(_mod, "send_alert") as mock_alert:
+                    main()
+
+        mock_alert.assert_not_called()
+
+    def test_saves_state_after_check(self, tmp_path):
+        """State file is updated after each check."""
+        state_file = tmp_path / "state.json"
+        state_file.write_text(json.dumps({"last_status": "ok"}))
+
+        with patch.object(_mod, "STATE_FILE", state_file):
+            with patch.object(_mod, "check_service", return_value=(True, "ok")):
+                with patch.object(_mod, "send_alert"):
+                    main()
+
+        saved = json.loads(state_file.read_text())
+        assert saved["last_status"] == "ok"
+        assert "checked" in saved

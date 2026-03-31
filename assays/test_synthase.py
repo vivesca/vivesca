@@ -102,8 +102,6 @@ class TestBackendChannel:
         """Should return stdout when channel succeeds."""
         mock_result = MagicMock(stdout="test output\n", stderr="")
         monkeypatch.setattr(subprocess, "run", lambda *a, **kw: mock_result)
-        monkeypatch.setattr(synth["_which"], "__code__", (lambda _: "/usr/bin/channel").__code__)
-        # Instead of replacing __code__, just set the namespace entry
         synth["_which"] = lambda _: "/usr/bin/channel"
         result = synth["_backend_channel"]("test prompt", "haiku", 60)
         assert result == "test output"

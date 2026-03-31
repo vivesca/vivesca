@@ -32,6 +32,8 @@ LOGFILE = Path.home() / ".local" / "share" / "vivesca" / "golem-daemon.log"
 POLL_INTERVAL = 30
 GOLEM_TIMEOUT = 1800  # 30 min max per golem run
 DISK_SPACE_MIN_BYTES = 1 * 1024 * 1024 * 1024  # 1GB minimum free space
+JSONLFILE = Path.home() / ".local" / "share" / "vivesca" / "golem.jsonl"
+ROTATE_MAX_BYTES = 5 * 1024 * 1024  # 5MB rotation threshold
 
 
 def check_disk_space() -> tuple[bool, int]:
@@ -73,6 +75,20 @@ DEFAULT_LIMIT = 4  # Fallback for unknown providers
 
 # Counter for successful mark_done calls (reset on auto-commit)
 _mark_done_count = 0
+
+def rotate_logs():
+    """Rotate log/jsonl files if they exceed 5MB.
+
+    Renames file to file.1 (overwriting old .1) if > ROTATE_MAX_BYTES.
+    """
+    for path in (LOGFILE, JSONLFILE):
+        try:
+            if path.exists() and path.stat().st_size > ROTATE_MAX_BYTES:
+                rotated = Path(str(path) + ".1")
+                path.replace(rotated)
+        except OSError:
+            pass  # Don't block daemon start on rotation failure
+
 
 def log(msg: str):
     """Append timestamped message to log file."""
@@ -400,6 +416,7 @@ def check_new_test_files_and_run_pytest() -> tuple[bool, str]:
 
 def daemon_loop():
     """Main daemon loop: poll queue, run tasks, mark done."""
+    rotate_logs()
     log("Daemon started")
     write_pid()
 
@@ -444,6 +461,13 @@ def daemon_loop():
                             if not test_passed:
                                 log(f"PYTEST WARN: {cmd[:50]}... → {test_result}")
                             mark_done(line_num, f"exit={exit_code}")
+                            # Auto-commit every 5 successful completions
+                            global _mark_done_count
+                            _mark_done_count += 1
+                            if _mark_done_count >= 5:
+                                commit_hash = auto_commit()
+                                log(f"auto-commit ({_mark_done_count} tasks): {commit_hash}")
+                                _mark_done_count = 0
                         else:
                             mark_failed(line_num, f"exit={exit_code} {tail[:60]}", exit_code=exit_code)
                             log(f"FAILED (exit={exit_code}): {cmd[:60]}...")
