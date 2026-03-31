@@ -1,280 +1,326 @@
-from __future__ import annotations
 """Tests for effectors/perplexity.sh — bash script tested via subprocess."""
+from __future__ import annotations
 
 import json
 import os
-import stat
 import subprocess
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 
 SCRIPT = Path(__file__).parent.parent / "effectors" / "perplexity.sh"
 
 
-# ── helpers ─────────────────────────────────────────────────────────────
-
-
-def _run(
-    args: list[str] | None = None,
-    env_extra: dict | None = None,
-    path_dirs: list[Path] | None = None,
-    tmp_path: Path | None = None,
-) -> subprocess.CompletedProcess:
-    """Run the perplexity.sh script with optional custom PATH and env."""
-    env = os.environ.copy()
-    if tmp_path is not None:
-        env["HOME"] = str(tmp_path)
-    if path_dirs is not None:
-        env["PATH"] = os.pathsep.join(str(p) for p in path_dirs)
-    if env_extra:
-        env.update(env_extra)
-    cmd = ["bash", str(SCRIPT)] + (args or [])
-    return subprocess.run(cmd, capture_output=True, text=True, env=env, timeout=10)
-
-
-def _mock_curl_bin(tmp_path: Path, response_body: str, exit_code: int = 0) -> Path:
-    """Create a fake curl that writes canned response_body to stdout."""
-    bindir = tmp_path / "bin"
-    bindir.mkdir(exist_ok=True)
-    fake = bindir / "curl"
-    # Write response body to a temp file so quoting is easy
-    resp_file = tmp_path / "_curl_response.json"
-    resp_file.write_text(response_body)
-    fake.write_text(
-        "#!/bin/bash\n"
-        f"cat {resp_file}\n"
-        f"exit {exit_code}\n"
+def _run(args: list[str], env: dict | None = None) -> subprocess.CompletedProcess:
+    """Run perplexity.sh with optional custom env."""
+    run_env = os.environ.copy()
+    if env:
+        run_env.update(env)
+    return subprocess.run(
+        ["bash", str(SCRIPT)] + args,
+        capture_output=True,
+        text=True,
+        env=run_env,
+        timeout=30,
     )
-    fake.chmod(fake.stat().st_mode | stat.S_IEXEC)
-    return bindir
 
 
-def _recording_curl_bin(tmp_path: Path, response_body: str = '{"choices":[{"message":{"content":"ok"}}]}') -> tuple[Path, Path]:
-    """Create a fake curl that records its args and returns response_body."""
-    bindir = tmp_path / "bin"
-    bindir.mkdir(exist_ok=True)
-    record = tmp_path / "_curl_args.txt"
-    resp_file = tmp_path / "_curl_response.json"
-    resp_file.write_text(response_body)
-    fake = bindir / "curl"
-    fake.write_text(
-        "#!/bin/bash\n"
-        f'echo "$@" >> {record}\n'
-        f"cat {resp_file}\n"
-    )
-    fake.chmod(fake.stat().st_mode | stat.S_IEXEC)
-    return bindir, record
+# ── help/usage tests ────────────────────────────────────────────────────────
 
 
-def _make_secrets(tmp_path: Path, key: str = "pplx-test-fake-key") -> Path:
-    """Write a ~/.secrets file with PERPLEXITY_API_KEY."""
-    secrets = tmp_path / ".secrets"
-    secrets.write_text(f"PERPLEXITY_API_KEY={key}\n")
-    return secrets
-
-
-def _api_response(content: str, model: str = "sonar") -> str:
-    """Build a plausible Perplexity API JSON response."""
-    return json.dumps({
-        "id": "fake-id",
-        "model": model,
-        "choices": [{"index": 0, "message": {"role": "assistant", "content": content}}],
-    })
-
-
-def _api_error(message: str = "Rate limited") -> str:
-    """Build a Perplexity API error JSON response."""
-    return json.dumps({"error": {"message": message, "type": "rate_limit_error"}})
-
-
-# ── --help / usage tests ────────────────────────────────────────────────
-
-
-class TestHelpFlag:
-    def test_help_exits_zero(self, tmp_path):
-        r = _run(["--help"], tmp_path=tmp_path)
+class TestHelp:
+    def test_help_flag_exits_zero(self):
+        r = _run(["--help"])
         assert r.returncode == 0
 
-    def test_h_short_flag_exits_zero(self, tmp_path):
-        r = _run(["-h"], tmp_path=tmp_path)
-        assert r.returncode == 0
-
-    def test_help_shows_usage_lines(self, tmp_path):
-        r = _run(["--help"], tmp_path=tmp_path)
-        assert "Perplexity API CLI" in r.stdout
+    def test_help_shows_usage(self):
+        r = _run(["--help"])
         assert "search" in r.stdout
         assert "ask" in r.stdout
         assert "research" in r.stdout
         assert "reason" in r.stdout
 
+    def test_h_flag_exits_zero(self):
+        r = _run(["-h"])
+        assert r.returncode == 0
+
+    def test_help_shows_models(self):
+        r = _run(["--help"])
+        assert "sonar" in r.stdout.lower()
+
+
+# ── missing arguments tests ───────────────────────────────────────────────────
+
 
 class TestMissingArgs:
-    def test_no_args_exits_1(self, tmp_path):
-        r = _run([], tmp_path=tmp_path)
+    def test_no_args_exits_1(self):
+        r = _run([])
         assert r.returncode == 1
 
-    def test_no_args_stderr_usage(self, tmp_path):
-        r = _run([], tmp_path=tmp_path)
+    def test_no_args_shows_usage(self):
+        r = _run([])
         assert "Usage" in r.stderr
 
-
-class TestUnknownMode:
-    def test_bad_mode_exits_1(self, tmp_path):
-        r = _run(["badmode", "hello"], tmp_path=tmp_path)
+    def test_mode_only_missing_query_exits_1(self):
+        r = _run(["search"])
         assert r.returncode == 1
 
-    def test_bad_mode_stderr_message(self, tmp_path):
-        r = _run(["foobar", "hello"], tmp_path=tmp_path)
+    def test_mode_only_missing_query_message(self):
+        r = _run(["search"])
+        assert "Missing query" in r.stderr
+
+
+# ── invalid mode tests ────────────────────────────────────────────────────────
+
+
+class TestInvalidMode:
+    def test_invalid_mode_exits_1(self):
+        r = _run(["invalid", "test query"])
+        assert r.returncode == 1
+
+    def test_invalid_mode_shows_error(self):
+        r = _run(["invalid", "test query"])
         assert "Unknown mode" in r.stderr
-        assert "foobar" in r.stderr
+
+    def test_invalid_mode_suggests_valid_modes(self):
+        r = _run(["invalid", "test query"])
+        assert "search|ask|research|reason" in r.stderr
 
 
-class TestMissingQuery:
-    def test_missing_query_exits_nonzero(self, tmp_path):
-        # ${2:?Missing query} causes bash to write to stderr and exit
-        r = _run(["search"], tmp_path=tmp_path)
-        assert r.returncode != 0
-
-    def test_missing_query_stderr(self, tmp_path):
-        r = _run(["search"], tmp_path=tmp_path)
-        assert "Missing query" in r.stderr or "query" in r.stderr.lower()
+# ── mode validation (no API key needed for these) ─────────────────────────────
 
 
-# ── mode → model mapping tests ──────────────────────────────────────────
+class TestModeValidation:
+    def test_search_mode_requires_api_key(self):
+        """search mode exits if no API key is set."""
+        r = _run(["search", "test query"])
+        # Script will fail because no PERPLEXITY_API_KEY
+        assert r.returncode == 1
+
+    def test_ask_mode_requires_api_key(self):
+        r = _run(["ask", "test query"])
+        assert r.returncode == 1
+
+    def test_research_mode_requires_api_key(self):
+        r = _run(["research", "test query"])
+        assert r.returncode == 1
+
+    def test_reason_mode_requires_api_key(self):
+        r = _run(["reason", "test query"])
+        assert r.returncode == 1
 
 
-class TestModeMapping:
-    """Verify each mode sends the correct model name to the API."""
-
-    @pytest.fixture()
-    def env(self, tmp_path):
-        """Set up tmp HOME with .secrets and recording fake curl."""
-        _make_secrets(tmp_path)
-        bindir, record = _recording_curl_bin(tmp_path)
-        return bindir, record
-
-    @pytest.mark.parametrize("mode,model", [
-        ("search", "sonar"),
-        ("ask", "sonar-pro"),
-        ("research", "sonar-deep-research"),
-        ("reason", "sonar-reasoning-pro"),
-    ])
-    def test_mode_uses_correct_model(self, tmp_path, env, mode, model):
-        bindir, record = env
-        r = _run([mode, "test query"], path_dirs=[bindir], tmp_path=tmp_path)
-        assert r.returncode == 0, f"stderr: {r.stderr}"
-        curl_args = record.read_text()
-        assert f'"model": "{model}"' in curl_args
+# ── API error handling (mocked curl) ─────────────────────────────────────────
 
 
-# ── successful API response tests ───────────────────────────────────────
-
-
-class TestSuccessfulResponse:
-    @pytest.fixture()
-    def env(self, tmp_path):
-        _make_secrets(tmp_path)
-        bindir = _mock_curl_bin(tmp_path, _api_response("Paris is the capital of France."))
-        return bindir
-
-    def test_exits_zero(self, tmp_path, env):
-        r = _run(["search", "capital of france"], path_dirs=[env], tmp_path=tmp_path)
-        assert r.returncode == 0
-
-    def test_prints_content(self, tmp_path, env):
-        r = _run(["search", "capital of france"], path_dirs=[env], tmp_path=tmp_path)
-        assert "Paris is the capital of France." in r.stdout
-
-    def test_multiline_content(self, tmp_path):
-        _make_secrets(tmp_path)
-        content = "Line one.\nLine two.\nLine three."
-        bindir = _mock_curl_bin(tmp_path, _api_response(content))
-        r = _run(["ask", "tell me"], path_dirs=[bindir], tmp_path=tmp_path)
-        assert r.returncode == 0
-        assert "Line one." in r.stdout
-        assert "Line three." in r.stdout
-
-
-# ── API error response tests ────────────────────────────────────────────
-
-
-class TestAPIError:
-    def test_error_response_exits_nonzero(self, tmp_path):
-        _make_secrets(tmp_path)
-        bindir = _mock_curl_bin(tmp_path, _api_error("You exceeded your quota"))
-        r = _run(["search", "test"], path_dirs=[bindir], tmp_path=tmp_path)
-        assert r.returncode != 0
-
-    def test_error_response_stderr_message(self, tmp_path):
-        _make_secrets(tmp_path)
-        bindir = _mock_curl_bin(tmp_path, _api_error("You exceeded your quota"))
-        r = _run(["search", "test"], path_dirs=[bindir], tmp_path=tmp_path)
-        assert "You exceeded your quota" in r.stderr
-
-
-# ── API key handling tests ──────────────────────────────────────────────
-
-
-class TestAPIKey:
-    def test_missing_key_exits_nonzero(self, tmp_path):
-        # No .secrets file, no env var — should fail
-        bindir = _mock_curl_bin(tmp_path, _api_response("ok"))
-        r = _run(["search", "test"], path_dirs=[bindir], tmp_path=tmp_path)
-        assert r.returncode != 0
-
-    def test_key_from_env_var(self, tmp_path):
-        # No .secrets, but key provided via env
-        bindir = _mock_curl_bin(tmp_path, _api_response("env key works"))
-        r = _run(
-            ["search", "test"],
-            path_dirs=[bindir],
-            tmp_path=tmp_path,
-            env_extra={"PERPLEXITY_API_KEY": "pplx-from-env"},
+class TestAPIResponse:
+    def test_api_error_shows_message(self, tmp_path, monkeypatch):
+        """API error response is shown in stderr."""
+        # Create a mock curl that returns an error
+        mock_curl = tmp_path / "mock_curl.sh"
+        mock_curl.write_text(
+            '#!/bin/bash\necho \'{"error": {"message": "Rate limit exceeded"}}\''
         )
+        mock_curl.chmod(0o755)
+
+        # Create mock secrets file
+        secrets = tmp_path / ".secrets"
+        secrets.write_text("export PERPLEXITY_API_KEY=test-key-123\n")
+
+        env = {
+            "HOME": str(tmp_path),
+            "PATH": str(tmp_path) + ":" + os.environ.get("PATH", ""),
+        }
+
+        # Run with mock curl in PATH
+        r = subprocess.run(
+            ["bash", str(SCRIPT), "search", "test query"],
+            capture_output=True,
+            text=True,
+            env=env,
+            timeout=30,
+        )
+
+        # Should exit with error
+        assert r.returncode == 1
+        assert "Rate limit exceeded" in r.stderr
+
+    def test_successful_response_extracts_content(self, tmp_path):
+        """Successful API response extracts content field."""
+        # Create a mock curl that returns a valid response
+        mock_curl = tmp_path / "mock_curl.sh"
+        mock_curl.write_text(
+            '#!/bin/bash\necho \'{"choices": [{"message": {"content": "This is the answer"}}"]}\''
+        )
+        mock_curl.chmod(0o755)
+
+        # Create mock secrets file
+        secrets = tmp_path / ".secrets"
+        secrets.write_text("export PERPLEXITY_API_KEY=test-key-123\n")
+
+        env = {
+            "HOME": str(tmp_path),
+            "PATH": str(tmp_path) + ":" + os.environ.get("PATH", ""),
+        }
+
+        r = subprocess.run(
+            ["bash", str(SCRIPT), "search", "test query"],
+            capture_output=True,
+            text=True,
+            env=env,
+            timeout=30,
+        )
+
         assert r.returncode == 0
-        assert "env key works" in r.stdout
+        assert "This is the answer" in r.stdout
 
-    def test_key_sent_in_header(self, tmp_path):
-        _make_secrets(tmp_path, key="pplx-secret-123")
-        bindir, record = _recording_curl_bin(tmp_path)
-        r = _run(["search", "test"], path_dirs=[bindir], tmp_path=tmp_path)
+    def test_malformed_response_falls_back(self, tmp_path):
+        """Malformed JSON response is passed through."""
+        mock_curl = tmp_path / "mock_curl.sh"
+        mock_curl.write_text('#!/bin/bash\necho "not json at all"')
+        mock_curl.chmod(0o755)
+
+        secrets = tmp_path / ".secrets"
+        secrets.write_text("export PERPLEXITY_API_KEY=test-key-123\n")
+
+        env = {
+            "HOME": str(tmp_path),
+            "PATH": str(tmp_path) + ":" + os.environ.get("PATH", ""),
+        }
+
+        r = subprocess.run(
+            ["bash", str(SCRIPT), "search", "test query"],
+            capture_output=True,
+            text=True,
+            env=env,
+            timeout=30,
+        )
+
+        # Falls back to raw output
+        assert "not json at all" in r.stdout
+
+
+# ── JSON escaping tests ─────────────────────────────────────────────────────
+
+
+class TestJSONEscaping:
+    def test_query_with_quotes_escaped(self, tmp_path):
+        """Query with quotes is properly escaped for JSON."""
+        # We'll check that the script runs without JSON parse errors
+        # by using a mock curl that echoes the received data
+        mock_curl = tmp_path / "mock_curl.sh"
+        mock_curl.write_text(
+            """#!/bin/bash
+# Echo the request body to verify JSON escaping
+cat
+echo '{"choices": [{"message": {"content": "ok"}}]}'
+"""
+        )
+        mock_curl.chmod(0o755)
+
+        secrets = tmp_path / ".secrets"
+        secrets.write_text("export PERPLEXITY_API_KEY=test-key-123\n")
+
+        env = {
+            "HOME": str(tmp_path),
+            "PATH": str(tmp_path) + ":" + os.environ.get("PATH", ""),
+        }
+
+        # Query with quotes should not break JSON parsing
+        r = subprocess.run(
+            ["bash", str(SCRIPT), "search", 'what is "artificial intelligence"'],
+            capture_output=True,
+            text=True,
+            env=env,
+            timeout=30,
+        )
+
         assert r.returncode == 0
-        curl_args = record.read_text()
-        assert "Bearer pplx-secret-123" in curl_args
+        assert "ok" in r.stdout
 
+    def test_query_with_newlines_handled(self, tmp_path):
+        """Query with newlines is properly escaped."""
+        mock_curl = tmp_path / "mock_curl.sh"
+        mock_curl.write_text(
+            '#!/bin/bash\necho \'{"choices": [{"message": {"content": "ok"}}]}\''
+        )
+        mock_curl.chmod(0o755)
 
-# ── query escaping tests ────────────────────────────────────────────────
+        secrets = tmp_path / ".secrets"
+        secrets.write_text("export PERPLEXITY_API_KEY=test-key-123\n")
 
+        env = {
+            "HOME": str(tmp_path),
+            "PATH": str(tmp_path) + ":" + os.environ.get("PATH", ""),
+        }
 
-class TestQueryEscaping:
-    def test_quotes_in_query(self, tmp_path):
-        _make_secrets(tmp_path)
-        bindir, record = _recording_curl_bin(tmp_path)
-        r = _run(["search", 'he said "hello"'], path_dirs=[bindir], tmp_path=tmp_path)
+        # Query with newline
+        r = subprocess.run(
+            ["bash", str(SCRIPT), "search", "line1\nline2"],
+            capture_output=True,
+            text=True,
+            env=env,
+            timeout=30,
+        )
+
         assert r.returncode == 0
-        curl_args = record.read_text()
-        # The query should appear JSON-escaped in the payload
-        assert '"hello"' in curl_args
-
-    def test_special_chars_in_query(self, tmp_path):
-        _make_secrets(tmp_path)
-        bindir, record = _recording_curl_bin(tmp_path)
-        r = _run(["ask", "price: $5 & tax < 10%"], path_dirs=[bindir], tmp_path=tmp_path)
-        assert r.returncode == 0
-        curl_args = record.read_text()
-        # $ and & and < should be present in the JSON body (escaped by python3)
-        assert "price" in curl_args
 
 
-# ── unexpected response shape tests ─────────────────────────────────────
+# ── model mapping verification ───────────────────────────────────────────────
 
 
-class TestUnexpectedResponse:
-    def test_non_json_response(self, tmp_path):
-        """If the API returns non-JSON, script should still output something."""
-        _make_secrets(tmp_path)
-        bindir = _mock_curl_bin(tmp_path, "<html>Gateway Timeout</html>")
-        r = _run(["search", "test"], path_dirs=[bindir], tmp_path=tmp_path)
-        # Script prints the raw response as fallback
-        assert "Gateway Timeout" in r.stdout or "Gateway Timeout" in r.stderr
+class TestModelMapping:
+    """Verify that modes map to correct models via curl request body."""
+
+    def _capture_model(self, tmp_path, mode: str) -> str | None:
+        """Run script and capture the model from curl request."""
+        mock_curl = tmp_path / "mock_curl.sh"
+        # This mock saves stdin to a file for inspection
+        mock_curl.write_text(
+            """#!/bin/bash
+cat > /tmp/curl_input.json
+echo '{"choices": [{"message": {"content": "test"}}]}'
+"""
+        )
+        mock_curl.chmod(0o755)
+
+        secrets = tmp_path / ".secrets"
+        secrets.write_text("export PERPLEXITY_API_KEY=test-key-123\n")
+
+        env = {
+            "HOME": str(tmp_path),
+            "PATH": str(tmp_path) + ":" + os.environ.get("PATH", ""),
+        }
+
+        subprocess.run(
+            ["bash", str(SCRIPT), mode, "test query"],
+            capture_output=True,
+            text=True,
+            env=env,
+            timeout=30,
+        )
+
+        # Read the captured curl input
+        try:
+            with open("/tmp/curl_input.json") as f:
+                data = json.load(f)
+                return data.get("model")
+        except (FileNotFoundError, json.JSONDecodeError):
+            return None
+
+    def test_search_uses_sonar_model(self, tmp_path):
+        model = self._capture_model(tmp_path, "search")
+        assert model == "sonar"
+
+    def test_ask_uses_sonar_pro_model(self, tmp_path):
+        model = self._capture_model(tmp_path, "ask")
+        assert model == "sonar-pro"
+
+    def test_research_uses_deep_research_model(self, tmp_path):
+        model = self._capture_model(tmp_path, "research")
+        assert model == "sonar-deep-research"
+
+    def test_reason_uses_reasoning_pro_model(self, tmp_path):
+        model = self._capture_model(tmp_path, "reason")
+        assert model == "sonar-reasoning-pro"

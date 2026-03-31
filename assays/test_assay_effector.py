@@ -794,7 +794,7 @@ def test_cmd_close_flips_status(capsys, tmp_path):
     assert "## Verdict" in content
 
 
-def test_cmd_close_appends_results(capsys, tmp_path, monkeypatch):
+def test_cmd_close_appends_results(capsys, tmp_path):
     """cmd_close appends results section with delta calculations."""
     exp_dir = tmp_path / "experiments"
     exp_dir.mkdir()
@@ -823,14 +823,23 @@ def test_cmd_close_appends_results(capsys, tmp_path, monkeypatch):
         def today():
             return original_date(2024, 1, 17)
 
-    monkeypatch.setattr(_mod, "EXPERIMENT_DIR", exp_dir)
-    monkeypatch.setattr(_mod, "pull_oura", mock_pull_oura)
-    monkeypatch.setattr(_mod, "date", MockDate)
+    original_dir = _mod["EXPERIMENT_DIR"]
+    original_pull = _mod["pull_oura"]
+    original_date_in_mod = _mod["date"]
 
-    args = MagicMock()
-    args.name = None
+    _mod["EXPERIMENT_DIR"] = exp_dir
+    _mod["pull_oura"] = mock_pull_oura
+    _mod["date"] = MockDate
 
-    cmd_close(args)
+    try:
+        args = MagicMock()
+        args.name = None
+
+        cmd_close(args)
+    finally:
+        _mod["EXPERIMENT_DIR"] = original_dir
+        _mod["pull_oura"] = original_pull
+        _mod["date"] = original_date_in_mod
 
     content = exp_file.read_text()
     # Check for delta in results (improvement from baseline)
@@ -843,7 +852,7 @@ def test_cmd_close_appends_results(capsys, tmp_path, monkeypatch):
 pull_oura = _mod["pull_oura"]
 
 
-def test_pull_oura_fetches_data(monkeypatch):
+def test_pull_oura_fetches_data():
     """pull_oura fetches and combines sleep and readiness data."""
     mock_sleep = [{"day": "2024-01-01", "score": 80, "contributors": {"deep_sleep": 20}}]
     mock_readiness = [{"day": "2024-01-01", "score": 70, "contributors": {"hrv_balance": 50}}]
@@ -855,10 +864,17 @@ def test_pull_oura_fetches_data(monkeypatch):
             return mock_readiness
         return []
 
-    monkeypatch.setattr(_mod, "_fetch", mock_fetch)
-    monkeypatch.setattr(_mod, "_get_token", lambda: "test-token")
+    original_fetch = _mod["_fetch"]
+    original_get_token = _mod["_get_token"]
 
-    result = pull_oura("2024-01-01", "2024-01-02")
+    _mod["_fetch"] = mock_fetch
+    _mod["_get_token"] = lambda: "test-token"
+
+    try:
+        result = pull_oura("2024-01-01", "2024-01-02")
+    finally:
+        _mod["_fetch"] = original_fetch
+        _mod["_get_token"] = original_get_token
 
     assert "2024-01-01" in result
     assert result["2024-01-01"]["sleep_score"] == 80
@@ -867,7 +883,7 @@ def test_pull_oura_fetches_data(monkeypatch):
     assert result["2024-01-01"]["readiness_contributors"]["hrv_balance"] == 50
 
 
-def test_pull_oura_sorts_by_date(monkeypatch):
+def test_pull_oura_sorts_by_date():
     """pull_oura returns data sorted by date."""
     mock_sleep = [
         {"day": "2024-01-03", "score": 85},
@@ -879,10 +895,17 @@ def test_pull_oura_sorts_by_date(monkeypatch):
     def mock_fetch(endpoint, start, end, token):
         return mock_sleep if endpoint == "daily_sleep" else []
 
-    monkeypatch.setattr(_mod, "_fetch", mock_fetch)
-    monkeypatch.setattr(_mod, "_get_token", lambda: "test-token")
+    original_fetch = _mod["_fetch"]
+    original_get_token = _mod["_get_token"]
 
-    result = pull_oura("2024-01-01", "2024-01-03")
+    _mod["_fetch"] = mock_fetch
+    _mod["_get_token"] = lambda: "test-token"
+
+    try:
+        result = pull_oura("2024-01-01", "2024-01-03")
+    finally:
+        _mod["_fetch"] = original_fetch
+        _mod["_get_token"] = original_get_token
 
     dates = list(result.keys())
     assert dates == ["2024-01-01", "2024-01-02", "2024-01-03"]

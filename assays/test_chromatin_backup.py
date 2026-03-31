@@ -11,8 +11,12 @@ SCRIPT_PATH = Path("/home/terry/germline/effectors/chromatin-backup.sh")
 
 
 def run_script(chromatin_dir: Path, env: dict | None = None) -> subprocess.CompletedProcess:
-    """Run chromatin-backup.sh with HOME pointing to chromatin_dir's parent."""
-    run_env = {"HOME": str(chromatin_dir.parent)}
+    """Run chromatin-backup.sh with HOME pointing to chromatin_dir's grandparent.
+
+    Script does: cd "$HOME/epigenome/chromatin"
+    So if chromatin_dir is /foo/epigenome/chromatin, HOME should be /foo.
+    """
+    run_env = {"HOME": str(chromatin_dir.parent.parent)}
     if env:
         run_env.update(env)
     return subprocess.run(
@@ -234,8 +238,9 @@ class TestChromatinBackupRebase:
         # Add a fake remote that exists (a bare repo)
         remote_repo = tmp_path / "remote.git"
         subprocess.run(["git", "init", "--bare", str(remote_repo)], capture_output=True, check=True)
+        # Add remote first (set-url requires existing remote)
         subprocess.run(
-            ["git", "remote", "set-url", "origin", str(remote_repo)],
+            ["git", "remote", "add", "origin", str(remote_repo)],
             cwd=chromatin,
             capture_output=True,
             check=True,

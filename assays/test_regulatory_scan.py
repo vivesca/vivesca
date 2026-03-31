@@ -134,16 +134,26 @@ def test_scan_returns_results_when_not_dry_run(tmp_path):
     import os
     os.utime(stale_file, (old_time, old_time))
 
-    # Mock rheotaxis_engine in the loaded module
-    from unittest.mock import patch
-    mock_result = MagicMock()
-    mock_result.error = False
-    mock_result.answer = "New update found"
-    mock_result.backend = "test"
+    # Save original to restore later
+    original_parallel = _mod['rheotaxis_engine'].parallel_search
+    original_format = _mod['rheotaxis_engine'].format_results
 
-    with patch.object(_mod, 'rheotaxis_engine') as mock_rheo:
-        mock_rheo.parallel_search.return_value = [mock_result]
-        mock_rheo.format_results.return_value = "Formatted result"
+    try:
+        # Create mock result
+        mock_result = MagicMock()
+        mock_result.error = False
+        mock_result.answer = "New update found"
+        mock_result.backend = "test"
+
+        # Replace directly in the loaded module's rheotaxis_engine
+        called_flag = False
+        def mock_parallel_search(*args, **kwargs):
+            nonlocal called_flag
+            called_flag = True
+            return [mock_result]
+
+        _mod['rheotaxis_engine'].parallel_search = mock_parallel_search
+        _mod['rheotaxis_engine'].format_results = lambda x: "Formatted result"
 
         stale_days = 90
         results = scan_regulatory_documents(tmp_path, stale_days, dry_run=False, timeout=1)
@@ -153,7 +163,11 @@ def test_scan_returns_results_when_not_dry_run(tmp_path):
         doc_info = results["hkma-capital-requirements.md"]["doc_info"]
         assert doc_info["days_old"] >= 90
         assert "HKMA" in results["hkma-capital-requirements.md"]["query"]
-        assert mock_rheo.parallel_search.called
+        assert called_flag
+    finally:
+        # Restore original
+        _mod['rheotaxis_engine'].parallel_search = original_parallel
+        _mod['rheotaxis_engine'].format_results = original_format
 
 
 # ── CLI tests ─────────────────────────────────────────────────────────────────
