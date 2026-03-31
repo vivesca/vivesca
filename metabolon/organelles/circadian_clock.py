@@ -117,7 +117,7 @@ def is_holiday(target_date: date | None = None) -> bool:
     return False
 
 
-def detect_phase(now: datetime | None = None) -> dict[str, str | bool]:
+def detect_phase(now: datetime | None = None) -> dict[str, str | bool | int]:
     """Return the current circadian phase and day-type flags.
 
     Returns dict with keys:
