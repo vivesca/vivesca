@@ -629,6 +629,10 @@ def main():
 
     cmd = sys.argv[1]
 
+    if cmd in ("-h", "--help"):
+        print(__doc__)
+        return 0
+
     if cmd == "start":
         fg = "--foreground" in sys.argv or "-f" in sys.argv
         return cmd_start(foreground=fg)

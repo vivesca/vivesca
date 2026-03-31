@@ -98,6 +98,7 @@ if [[ "${1:-}" == "summary" ]]; then
   while [[ "${1:-}" == --* ]]; do
     case "$1" in
       --recent) summary_args+=("--recent" "$2"); shift 2 ;;
+      -h|--help) head -9 "$0" | tail -8 | sed 's/^# */  /'; exit 0 ;;
       *) echo "Unknown flag: $1" >&2; exit 1 ;;
     esac
   done
@@ -115,6 +116,7 @@ while [[ "${1:-}" == --* ]]; do
     --bare) BARE=true; shift ;;
     --provider) PROVIDER="$2"; shift 2 ;;
     --fallback) FALLBACK=true; shift ;;
+    -h|--help) head -9 "$0" | tail -8 | sed 's/^# */  /'; exit 0 ;;
     *) echo "Unknown flag: $1" >&2; exit 1 ;;
   esac
 done
