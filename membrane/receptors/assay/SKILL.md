@@ -1,7 +1,12 @@
 ---
 name: assay
-description: Check for running experiments and probe their state. "assay"
+description: Check for running experiments and probe their state
 user_invocable: false
+triggers:
+  - assay
+  - experiment
+  - how am I doing
+  - what's next
 ---
 
 # assay -- experiment awareness
