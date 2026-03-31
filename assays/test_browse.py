@@ -368,3 +368,271 @@ class TestRunCommandParams:
             run_cmd(["echo", "hi"])
             _, kwargs = mock.call_args
             assert kwargs.get("capture_output") is True
+
+    def test_run_command_timeout_expired_returns_none(self):
+        """TimeoutExpired is a subclass of Exception and should return None."""
+        ns = _load_browse_ns()
+        run_cmd = ns["run_command"]
+
+        with patch("subprocess.run", side_effect=subprocess.TimeoutExpired("cmd", 60)):
+            assert run_cmd(["slow-cmd"]) is None
+
+    def test_run_command_returns_none_on_whitespace_only(self):
+        """Whitespace-only output should be treated as empty → None."""
+        ns = _load_browse_ns()
+        run_cmd = ns["run_command"]
+
+        with patch("subprocess.run", return_value=_successful_run("  \t\n  ")):
+            assert run_cmd(["cmd"]) is None
+
+
+# ---------------------------------------------------------------------------
+# Tests: defuddle whitespace-only falls through
+# ---------------------------------------------------------------------------
+
+
+class TestDefuddleWhitespaceFallback:
+    """Verify that defuddle returning whitespace-only triggers curl fallback."""
+
+    def test_defuddle_whitespace_falls_to_curl(self, capsys):
+        ns = _load_browse_ns()
+        ns["sys"].argv = ["browse", "https://example.com"]
+        main = ns["main"]
+
+        def mock_run(cmd, **kwargs):
+            if cmd[0] == "defuddle":
+                return _successful_run("   \n\t  ")  # whitespace-only
+            if cmd[0] == "curl":
+                return _successful_run("<html><body>From curl</body></html>")
+            if cmd[0] == "html2text":
+                return _successful_run("From curl")
+            return _successful_run("")
+
+        with patch("subprocess.run", side_effect=mock_run):
+            with pytest.raises(SystemExit) as exc_info:
+                main()
+
+        assert exc_info.value.code == 0
+        output = capsys.readouterr().out
+        assert "From curl" in output
+
+    def test_defuddle_whitespace_curl_empty_needs_browser(self, capsys):
+        """Whitespace from defuddle + empty curl → NEEDS_BROWSER."""
+        ns = _load_browse_ns()
+        ns["sys"].argv = ["browse", "https://example.com"]
+        main = ns["main"]
+
+        def mock_run(cmd, **kwargs):
+            if cmd[0] == "defuddle":
+                return _successful_run("   ")
+            if cmd[0] == "curl":
+                return _successful_run("")
+            return _successful_run("")
+
+        with patch("subprocess.run", side_effect=mock_run):
+            with pytest.raises(SystemExit) as exc_info:
+                main()
+
+        assert exc_info.value.code == 1
+        assert "NEEDS_BROWSER" in capsys.readouterr().out
+
+
+# ---------------------------------------------------------------------------
+# Tests: URL handling
+# ---------------------------------------------------------------------------
+
+
+class TestURLHandling:
+    """Verify URLs are passed correctly to external tools."""
+
+    def test_url_with_query_params(self):
+        ns = _load_browse_ns()
+        url = "https://example.com/search?q=hello&lang=en"
+        ns["sys"].argv = ["browse", url]
+        main = ns["main"]
+
+        with patch("subprocess.run", return_value=_successful_run("ok")) as mock:
+            with pytest.raises(SystemExit):
+                main()
+
+        first_call_cmd = mock.call_args_list[0][0][0]
+        assert first_call_cmd == ["defuddle", "parse", url, "--md"]
+
+    def test_url_with_fragment(self):
+        ns = _load_browse_ns()
+        url = "https://example.com/docs#section"
+        ns["sys"].argv = ["browse", url]
+        main = ns["main"]
+
+        with patch("subprocess.run", return_value=_successful_run("ok")) as mock:
+            with pytest.raises(SystemExit):
+                main()
+
+        first_call_cmd = mock.call_args_list[0][0][0]
+        assert first_call_cmd == ["defuddle", "parse", url, "--md"]
+
+    def test_url_with_unicode(self):
+        ns = _load_browse_ns()
+        url = "https://example.com/日本語"
+        ns["sys"].argv = ["browse", url]
+        main = ns["main"]
+
+        with patch("subprocess.run", return_value=_successful_run("ok")) as mock:
+            with pytest.raises(SystemExit):
+                main()
+
+        first_call_cmd = mock.call_args_list[0][0][0]
+        assert "日本語" in first_call_cmd[2]
+
+    def test_curl_receives_url_with_special_chars(self):
+        ns = _load_browse_ns()
+        url = "https://example.com/path?a=1&b=2#top"
+        ns["sys"].argv = ["browse", url]
+        main = ns["main"]
+
+        def mock_run(cmd, **kwargs):
+            if cmd[0] == "defuddle":
+                return _successful_run("")
+            if cmd[0] == "curl":
+                return _successful_run("")
+            return _successful_run("")
+
+        with patch("subprocess.run", side_effect=mock_run) as spy:
+            with pytest.raises(SystemExit):
+                main()
+
+        curl_calls = [c for c in spy.call_args_list if c[0][0][0] == "curl"]
+        assert len(curl_calls) == 1
+        assert curl_calls[0][0][0] == ["curl", "-sL", url]
+
+
+# ---------------------------------------------------------------------------
+# Tests: html2text subprocess.run params
+# ---------------------------------------------------------------------------
+
+
+class TestHtml2TextParams:
+    """Verify subprocess.run is called with correct params for html2text."""
+
+    def test_html2text_uses_check_true(self):
+        ns = _load_browse_ns()
+        ns["sys"].argv = ["browse", "https://example.com"]
+        main = ns["main"]
+
+        h2t_kwargs = {}
+
+        def mock_run(cmd, **kwargs):
+            if cmd[0] == "defuddle":
+                return _successful_run("")
+            if cmd[0] == "curl":
+                return _successful_run("<html>hi</html>")
+            if cmd[0] == "html2text":
+                h2t_kwargs.update(kwargs)
+                return _successful_run("hi")
+            return _successful_run("")
+
+        with patch("subprocess.run", side_effect=mock_run):
+            with pytest.raises(SystemExit):
+                main()
+
+        assert h2t_kwargs.get("check") is True
+
+    def test_html2text_uses_text_and_capture(self):
+        ns = _load_browse_ns()
+        ns["sys"].argv = ["browse", "https://example.com"]
+        main = ns["main"]
+
+        h2t_kwargs = {}
+
+        def mock_run(cmd, **kwargs):
+            if cmd[0] == "defuddle":
+                return _successful_run("")
+            if cmd[0] == "curl":
+                return _successful_run("<html>hi</html>")
+            if cmd[0] == "html2text":
+                h2t_kwargs.update(kwargs)
+                return _successful_run("hi")
+            return _successful_run("")
+
+        with patch("subprocess.run", side_effect=mock_run):
+            with pytest.raises(SystemExit):
+                main()
+
+        assert h2t_kwargs.get("text") is True
+        assert h2t_kwargs.get("capture_output") is True
+
+    def test_html2text_uses_timeout(self):
+        ns = _load_browse_ns()
+        ns["sys"].argv = ["browse", "https://example.com"]
+        main = ns["main"]
+
+        h2t_kwargs = {}
+
+        def mock_run(cmd, **kwargs):
+            if cmd[0] == "defuddle":
+                return _successful_run("")
+            if cmd[0] == "curl":
+                return _successful_run("<html>hi</html>")
+            if cmd[0] == "html2text":
+                h2t_kwargs.update(kwargs)
+                return _successful_run("hi")
+            return _successful_run("")
+
+        with patch("subprocess.run", side_effect=mock_run):
+            with pytest.raises(SystemExit):
+                main()
+
+        assert h2t_kwargs.get("timeout") == 60
+
+
+# ---------------------------------------------------------------------------
+# Tests: CLI subprocess execution
+# ---------------------------------------------------------------------------
+
+
+class TestCLISubprocess:
+    """Test running the browse script as an actual subprocess."""
+
+    def test_no_args_exits_nonzero(self):
+        r = subprocess.run(
+            [sys.executable, str(BROWSE_PATH)],
+            capture_output=True, text=True, timeout=30,
+        )
+        assert r.returncode != 0
+
+    def test_no_args_shows_usage(self):
+        r = subprocess.run(
+            [sys.executable, str(BROWSE_PATH)],
+            capture_output=True, text=True, timeout=30,
+        )
+        output = r.stdout + r.stderr
+        assert "Usage: browse URL" in output
+
+    def test_help_flag_exits_zero(self):
+        r = subprocess.run(
+            [sys.executable, str(BROWSE_PATH), "--help"],
+            capture_output=True, text=True, timeout=30,
+        )
+        assert r.returncode == 0
+        assert "Usage: browse URL" in r.stdout
+
+    def test_file_is_executable(self):
+        assert BROWSE_PATH.stat().st_mode & 0o111
+
+
+# ---------------------------------------------------------------------------
+# Tests: __name__ guard
+# ---------------------------------------------------------------------------
+
+
+class TestNameGuard:
+    """Verify the if __name__ == '__main__' guard exists."""
+
+    def test_main_guard_present(self):
+        source = BROWSE_PATH.read_text()
+        assert '__name__' in source
+        assert '"__main__"' in source or "'__main__'" in source
+
+    def test_main_called_from_guard(self):
+        source = BROWSE_PATH.read_text()
+        assert "main()" in source
