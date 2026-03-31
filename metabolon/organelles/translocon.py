@@ -284,7 +284,7 @@ def dispatch(
             "duration_s": round(elapsed, 2),
         }
     if skill:
-        rp = Path.home() / f"germline/membrane/receptors/{skill}/recipe.yaml"
+        rp = Path.home() / "germline" / "membrane" / "receptors" / skill / "recipe.yaml"
         if not rp.exists():
             elapsed = time.perf_counter() - start
             return {
