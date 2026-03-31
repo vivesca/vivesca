@@ -435,8 +435,9 @@ def main(argv: list[str] | None = None) -> int:
         print(__doc__.strip())
         return 0
     use_color = "--no-color" not in args
+    json_output = "--json" in args
 
-    return print_dashboard(use_color)
+    return print_dashboard(use_color, json_output)
 
 
 if __name__ == "__main__":

@@ -201,3 +201,148 @@ def test_unknown_action_suggests_valid():
 
     assert "sync" in result.message
     assert "status" in result.message
+
+
+# ── edge cases ──────────────────────────────────────────────────────────
+
+
+@patch("metabolon.organelles.mitosis.sync")
+def test_sync_empty_results(mock_sync):
+    """Sync returning zero results should still produce valid EffectorResult."""
+    mock_sync.return_value = _make_report([])
+
+    result = mitosis(action="sync")
+
+    assert isinstance(result, EffectorResult)
+    # 0/0 targets synced — ok is True because no critical failures
+    assert result.data["results"] == []
+
+
+@patch("metabolon.organelles.mitosis.sync")
+def test_sync_individual_result_elapsed_s_rounded(mock_sync):
+    """Each result's elapsed_s should be rounded to 1 decimal in output."""
+    mock_sync.return_value = _make_report([
+        ReplicationResult("germline", True, 3.14159, "ok"),
+        ReplicationResult("epigenome", True, 2.71828, "ok"),
+    ])
+
+    result = mitosis(action="sync")
+
+    assert result.data["results"][0]["elapsed_s"] == 3.1
+    assert result.data["results"][1]["elapsed_s"] == 2.7
+
+
+@patch("metabolon.organelles.mitosis.sync")
+def test_sync_with_empty_targets_list(mock_sync):
+    """Passing targets=[] should forward that list to sync (not None)."""
+    mock_sync.return_value = _make_report([])
+
+    mitosis(action="sync", targets=[])
+
+    mock_sync.assert_called_once_with([])
+
+
+@patch("metabolon.organelles.mitosis.sync")
+def test_sync_mixed_success_and_failure(mock_sync):
+    """Results with a mix of success/failure produce correct per-item data."""
+    mock_sync.return_value = _make_report([
+        ReplicationResult("germline", True, 1.0, "pushed"),
+        ReplicationResult("epigenome", False, 2.0, "timeout"),
+        ReplicationResult("chromatin", True, 0.5, "up-to-date"),
+    ])
+
+    result = mitosis(action="sync")
+
+    assert isinstance(result, EffectorResult)
+    assert len(result.data["results"]) == 3
+    assert result.data["results"][0]["ok"] is True
+    assert result.data["results"][1]["ok"] is False
+    assert result.data["results"][2]["ok"] is True
+    assert result.data["results"][1]["error"] == "timeout"
+
+
+@patch("metabolon.organelles.mitosis.status")
+def test_status_mixed_stale_and_missing(mock_status):
+    """Both stale and missing targets should appear in warning message."""
+    mock_status.return_value = {
+        "reachable": True,
+        "machine_state": "started",
+        "targets": {
+            "germline": {"state": "stale"},
+            "epigenome": {"state": "missing"},
+            "chromatin": {"state": "ok"},
+        },
+    }
+
+    result = mitosis(action="status")
+
+    assert isinstance(result, Vital)
+    assert result.status == "warning"
+    assert "2 targets stale" in result.message
+    assert "germline" in result.message
+    assert "epigenome" in result.message
+    assert "chromatin" not in result.message  # ok target not listed
+
+
+@patch("metabolon.organelles.mitosis.status")
+def test_status_no_targets_key(mock_status):
+    """Status dict without 'targets' key should return ok (no stale targets)."""
+    mock_status.return_value = {
+        "reachable": True,
+        "machine_state": "started",
+    }
+
+    result = mitosis(action="status")
+
+    assert isinstance(result, Vital)
+    assert result.status == "ok"
+
+
+@patch("metabolon.organelles.mitosis.status")
+def test_status_machine_state_absent(mock_status):
+    """When machine_state missing, message should say 'unknown'."""
+    mock_status.return_value = {
+        "reachable": True,
+        "targets": {},
+    }
+
+    result = mitosis(action="status")
+
+    assert isinstance(result, Vital)
+    assert result.status == "ok"
+    assert "unknown" in result.message
+
+
+@patch("metabolon.organelles.mitosis.status")
+def test_status_empty_targets_dict(mock_status):
+    """Reachable with empty targets dict = healthy, no warnings."""
+    mock_status.return_value = {
+        "reachable": True,
+        "machine_state": "started",
+        "targets": {},
+    }
+
+    result = mitosis(action="status")
+
+    assert isinstance(result, Vital)
+    assert result.status == "ok"
+    assert result.details["targets"] == {}
+
+
+@patch("metabolon.organelles.mitosis.status")
+def test_status_all_targets_stale_or_missing(mock_status):
+    """All targets stale/missing should still be warning, not error."""
+    mock_status.return_value = {
+        "reachable": True,
+        "machine_state": "started",
+        "targets": {
+            "germline": {"state": "stale"},
+            "epigenome": {"state": "missing"},
+        },
+    }
+
+    result = mitosis(action="status")
+
+    assert isinstance(result, Vital)
+    assert result.status == "warning"
+    assert "2 targets stale" in result.message
