@@ -145,11 +145,23 @@ class TestRunnerSelection:
         PATH must exclude /bin and /usr/bin entirely because npx lives
         in both locations on this host.  The early-exit path only uses
         bash builtins (echo, >>, command) so no external binaries are needed.
+
+        NOTE: Skip if npx is in the same directory as bash (e.g., both in /usr/bin),
+        since we can't exclude npx without also excluding bash (needed for shebang).
         """
+        import shutil
+
+        bash_path = shutil.which("bash")
+        npx_path = shutil.which("npx")
+        if bash_path and npx_path:
+            bash_dir = str(Path(bash_path).parent)
+            npx_dir = str(Path(npx_path).parent)
+            if bash_dir == npx_dir:
+                pytest.skip("bash and npx in same directory; can't test no-runner case")
+
         bin_dir = tmp_path / "bin"
         bin_dir.mkdir()
         # Include bash dir in PATH so /usr/bin/env can find it
-        bash_dir = "/usr/bin"
         env = {
             "HOME": str(tmp_path),
             "PATH": f"{bin_dir}:{bash_dir}",  # no date, no npx, but bash available

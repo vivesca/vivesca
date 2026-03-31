@@ -15,7 +15,7 @@ Subcommands:
   daily TITLE         Append session log template to today's daily note
 
 Options:
-  --json              Machine-readable output (gather only)
+  --format json|text  Machine-readable output (all subcommands)
   --repos R1,R2,...   Extra repo paths to check (gather only)
 """
 
@@ -275,7 +275,7 @@ def cmd_gather(args):
         results["reflect_usage"] = reflect_usage
 
     # Output
-    if args.syntactic:
+    if args.syntactic or getattr(args, "format", None) == "json":
         print(json.dumps(results, indent=2))
         return
 
@@ -368,8 +368,13 @@ def _print_human(results, sid):
 # ── Archive ──────────────────────────────────────────────────────────────────
 def cmd_archive(args):
     """Move completed [x] items from Praxis.md to Praxis Archive.md."""
+    json_mode = getattr(args, "format", None) == "json"
+
     if not PRAXIS.exists():
-        print("No Praxis.md found.", file=sys.stderr)
+        if json_mode:
+            print(json.dumps({"error": "No Praxis.md found"}))
+        else:
+            print("No Praxis.md found.", file=sys.stderr)
         sys.exit(1)
 
     lines = PRAXIS.read_text(encoding="utf-8").splitlines(keepends=True)
@@ -404,7 +409,10 @@ def cmd_archive(args):
         remaining.append(line)
 
     if not completed:
-        print(f"  {OK}  No completed items to archive")
+        if json_mode:
+            print(json.dumps({"archived": 0, "items": []}))
+        else:
+            print(f"  {OK}  No completed items to archive")
         return
 
     # Read archive
