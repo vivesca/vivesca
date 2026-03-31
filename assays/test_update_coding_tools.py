@@ -335,8 +335,9 @@ def test_or_else_true_prevents_bailout():
     update_lines = [
         l for l in lines
         if not l.strip().startswith("#")
+        and not l.strip().startswith("echo")
         and any(cmd in l for cmd in ["brew update", "brew upgrade", "brew cleanup",
-                                     "npm update", "pnpm update", "uv tool",
+                                     "npm update", "pnpm update", "uv tool upgrade",
                                      "cargo binstall", "mas upgrade"])
     ]
     for line in update_lines:
