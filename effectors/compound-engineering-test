@@ -6,15 +6,17 @@ echo ""
 echo "This will run the update script now (not waiting for Sunday 2 AM)"
 echo ""
 
-read -p "Continue? (y/N) " -n 1 -r
-echo
-if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-    echo "❌ Test cancelled"
-    exit 1
+if [ -t 0 ]; then
+    read -p "Continue? (y/N) " -n 1 -r
+    echo
+    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+        echo "❌ Test cancelled"
+        exit 1
+    fi
 fi
 
 echo ""
-/Users/terry/scripts/auto-update-compound-engineering.sh
+"$HOME/scripts/auto-update-compound-engineering.sh"
 
 echo ""
 echo "✅ Test complete! Check the output above for any errors."

@@ -5,12 +5,22 @@ echo "📊 Compound Engineering Auto-Update Status"
 echo "==========================================="
 echo ""
 
-# Check LaunchAgent status
-if launchctl list | grep -q "com.terry.compound-engineering-update"; then
-    echo "✅ LaunchAgent is loaded and active"
-    echo "   Schedule: Every Sunday at 2:00 AM HKT"
+# Check LaunchAgent status (macOS only)
+if command -v launchctl >/dev/null 2>&1; then
+    if launchctl list | grep -q "com.terry.compound-engineering-update"; then
+        echo "✅ LaunchAgent is loaded and active"
+        echo "   Schedule: Every Sunday at 2:00 AM HKT"
+    else
+        echo "❌ LaunchAgent is not loaded"
+    fi
 else
-    echo "❌ LaunchAgent is not loaded"
+    echo "ℹ️  launchctl not available (not macOS)"
+    # Check for systemd/cron equivalent
+    if crontab -l 2>/dev/null | grep -q "compound-engineering"; then
+        echo "✅ Cron job is configured"
+    else
+        echo "❌ No cron job configured"
+    fi
 fi
 
 echo ""
@@ -27,5 +37,6 @@ echo ""
 echo "🔧 Management Commands:"
 echo "   update-compound-engineering          - Run update now"
 echo "   compound-engineering-test            - Test the update script"
-echo "   launchctl unload ~/Library/LaunchAgents/com.terry.compound-engineering-update.plist - Disable auto-update"
-echo "   launchctl load ~/Library/LaunchAgents/com.terry.compound-engineering-update.plist   - Enable auto-update"
+echo "   launchctl unload ~/Library/LaunchAgents/com.terry.compound-engineering-update.plist - Disable auto-update (macOS)"
+echo "   launchctl load ~/Library/LaunchAgents/com.terry.compound-engineering-update.plist   - Enable auto-update (macOS)"
+echo "   crontab -e                                                          - Edit cron (Linux)"
