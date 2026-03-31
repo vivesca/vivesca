@@ -1,20 +1,17 @@
-"""Tests for metabolon.organelles.browser_stealth.
+"""Tests for metabolon/organelles/browser_stealth.py.
 
 All Playwright objects are mocked — no browser launch required.
 """
 
 from __future__ import annotations
 
-import asyncio
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
 from metabolon.organelles.browser_stealth import (
     CHROME_USER_AGENTS,
-    _CHROME_RUNTIME_PATCH_JS,
-    _PERMISSIONS_PATCH_JS,
-    _PLUGINS_PATCH_JS,
+    _STEALTH_INIT_JS,
     _WEBDRIVER_PATCH_JS,
     human_delay,
     patch_navigator,
@@ -23,166 +20,168 @@ from metabolon.organelles.browser_stealth import (
 )
 
 
-# ── Constants ────────────────────────────────────────────────────────────────
+# ── Fixtures ─────────────────────────────────────────────────────────────
 
 
-class TestConstants:
-    def test_user_agent_list_has_20_entries(self):
-        assert len(CHROME_USER_AGENTS) == 20
-
-    def test_all_user_agents_are_chrome(self):
-        for ua in CHROME_USER_AGENTS:
-            assert "Chrome/" in ua
-            assert "AppleWebKit" in ua
-
-    def test_user_agents_cover_multiple_platforms(self):
-        platforms = set()
-        for ua in CHROME_USER_AGENTS:
-            if "Windows NT" in ua:
-                platforms.add("windows")
-            elif "Macintosh" in ua:
-                platforms.add("mac")
-            elif "Linux" in ua:
-                platforms.add("linux")
-        assert platforms == {"windows", "mac", "linux"}
-
-    def test_webdriver_patch_contains_define_property(self):
-        assert "Object.defineProperty" in _WEBDRIVER_PATCH_JS
-        assert "navigator" in _WEBDRIVER_PATCH_JS
-        assert "webdriver" in _WEBDRIVER_PATCH_JS
-
-    def test_chrome_runtime_patch_contains_window_chrome(self):
-        assert "window.chrome" in _CHROME_RUNTIME_PATCH_JS
-
-    def test_plugins_patch_contains_plugins(self):
-        assert "navigator" in _PLUGINS_PATCH_JS
-        assert "plugins" in _PLUGINS_PATCH_JS
-
-    def test_permissions_patch_contains_permissions(self):
-        assert "permissions" in _PERMISSIONS_PATCH_JS
+@pytest.fixture
+def mock_context() -> MagicMock:
+    """Playwright BrowserContext mock."""
+    ctx = MagicMock()
+    ctx.add_init_script = MagicMock()
+    ctx.set_extra_http_headers = MagicMock()
+    return ctx
 
 
-# ── patch_navigator ─────────────────────────────────────────────────────────
+@pytest.fixture
+def mock_browser(mock_context: MagicMock) -> MagicMock:
+    """Playwright Browser mock that returns mock_context."""
+    browser = MagicMock()
+    browser.new_context = MagicMock(return_value=mock_context)
+    return browser
+
+
+# ── patch_navigator ──────────────────────────────────────────────────────
 
 
 class TestPatchNavigator:
-    @pytest.mark.asyncio
-    async def test_calls_add_init_script_four_times(self):
-        page = AsyncMock()
-        await patch_navigator(page)
-        assert page.add_init_script.call_count == 4
+    def test_adds_init_script_with_webdriver_patch(self, mock_context: MagicMock) -> None:
+        patch_navigator(mock_context)
+        mock_context.add_init_script.assert_called_once_with(_WEBDRIVER_PATCH_JS)
 
-    @pytest.mark.asyncio
-    async def test_passes_webdriver_js(self):
-        page = AsyncMock()
-        await patch_navigator(page)
-        calls = [c.args[0] for c in page.add_init_script.call_args_list]
-        assert _WEBDRIVER_PATCH_JS in calls
-        assert _CHROME_RUNTIME_PATCH_JS in calls
-        assert _PLUGINS_PATCH_JS in calls
-        assert _PERMISSIONS_PATCH_JS in calls
+    def test_script_sets_undefined(self) -> None:
+        """The injected JS must override navigator.webdriver."""
+        assert "navigator" in _WEBDRIVER_PATCH_JS
+        assert "webdriver" in _WEBDRIVER_PATCH_JS
+        assert "undefined" in _WEBDRIVER_PATCH_JS
 
 
-# ── set_realistic_headers ──────────────────────────────────────────────────
+# ── set_realistic_headers ────────────────────────────────────────────────
 
 
 class TestSetRealisticHeaders:
-    def test_returns_a_user_agent_string(self):
-        context = MagicMock()
-        ua = set_realistic_headers(context)
-        assert isinstance(ua, str)
-        assert "Chrome/" in ua
-
-    def test_calls_set_extra_http_headers(self):
-        context = MagicMock()
-        ua = set_realistic_headers(context)
-        context.set_extra_http_headers.assert_called_once()
-        headers = context.set_extra_http_headers.call_args[0][0]
-        assert "User-Agent" in headers
-        assert headers["User-Agent"] == ua
-
-    def test_selected_ua_from_known_list(self):
-        context = MagicMock()
-        ua = set_realistic_headers(context)
+    def test_returns_ua_from_pool(self, mock_context: MagicMock) -> None:
+        ua = set_realistic_headers(mock_context)
         assert ua in CHROME_USER_AGENTS
 
-    @patch("metabolon.organelles.browser_stealth.random.choice")
-    def test_uses_random_choice(self, mock_choice):
-        mock_choice.return_value = CHROME_USER_AGENTS[0]
-        context = MagicMock()
-        result = set_realistic_headers(context)
-        mock_choice.assert_called_once_with(CHROME_USER_AGENTS)
-        assert result == CHROME_USER_AGENTS[0]
+    def test_calls_set_extra_http_headers(self, mock_context: MagicMock) -> None:
+        set_realistic_headers(mock_context)
+        mock_context.set_extra_http_headers.assert_called_once()
+
+    def test_headers_include_required_fields(self, mock_context: MagicMock) -> None:
+        set_realistic_headers(mock_context)
+        call_args = mock_context.set_extra_http_headers.call_args[0][0]
+        required = [
+            "Accept",
+            "Accept-Encoding",
+            "Accept-Language",
+            "Sec-Ch-Ua",
+            "Sec-Ch-Ua-Mobile",
+            "Sec-Ch-Ua-Platform",
+            "Sec-Fetch-Dest",
+            "Sec-Fetch-Mode",
+            "Sec-Fetch-Site",
+            "Sec-Fetch-User",
+            "Upgrade-Insecure-Requests",
+        ]
+        for key in required:
+            assert key in call_args, f"Missing header: {key}"
+
+    def test_randomness_across_calls(self, mock_context: MagicMock) -> None:
+        """With 20 UAs, 50 calls should produce > 1 unique UA."""
+        uas = {set_realistic_headers(mock_context) for _ in range(50)}
+        assert len(uas) > 1
 
 
-# ── human_delay ─────────────────────────────────────────────────────────────
+# ── human_delay ──────────────────────────────────────────────────────────
 
 
 class TestHumanDelay:
-    @pytest.mark.asyncio
-    async def test_returns_float(self):
-        with patch("metabolon.organelles.browser_stealth.asyncio.sleep", new_callable=AsyncMock):
-            result = await human_delay()
-            assert isinstance(result, float)
+    @patch("metabolon.organelles.browser_stealth.time.sleep")
+    def test_returns_float_in_range(self, mock_sleep: MagicMock) -> None:
+        mock_sleep.return_value = None
+        delay = human_delay(0.5, 2.0)
+        assert isinstance(delay, float)
+        assert 0.5 <= delay <= 2.0
 
-    @pytest.mark.asyncio
-    async def test_delay_within_default_range(self):
-        with patch("metabolon.organelles.browser_stealth.asyncio.sleep", new_callable=AsyncMock):
-            result = await human_delay()
-            assert 0.5 <= result <= 2.0
+    @patch("metabolon.organelles.browser_stealth.time.sleep")
+    def test_calls_sleep_with_delay(self, mock_sleep: MagicMock) -> None:
+        mock_sleep.return_value = None
+        human_delay(1.0, 1.0)
+        # With min==max, sleep argument should be 1.0 (within float epsilon)
+        assert abs(mock_sleep.call_args[0][0] - 1.0) < 1e-6
 
-    @pytest.mark.asyncio
-    async def test_custom_range(self):
-        with patch("metabolon.organelles.browser_stealth.asyncio.sleep", new_callable=AsyncMock):
-            result = await human_delay(min_seconds=1.0, max_seconds=3.0)
-            assert 1.0 <= result <= 3.0
+    @patch("metabolon.organelles.browser_stealth.time.sleep")
+    def test_custom_range(self, mock_sleep: MagicMock) -> None:
+        mock_sleep.return_value = None
+        delay = human_delay(3.0, 5.0)
+        assert 3.0 <= delay <= 5.0
 
-    @pytest.mark.asyncio
-    async def test_actually_sleeps(self):
-        with patch("metabolon.organelles.browser_stealth.asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
-            result = await human_delay(0.5, 2.0)
-            mock_sleep.assert_awaited_once()
-            # The sleep argument should match the returned delay.
-            assert mock_sleep.call_args[0][0] == result
+    @patch("metabolon.organelles.browser_stealth.time.sleep")
+    def test_default_range(self, mock_sleep: MagicMock) -> None:
+        mock_sleep.return_value = None
+        delay = human_delay()
+        assert 0.5 <= delay <= 2.0
 
 
-# ── stealth_context ─────────────────────────────────────────────────────────
+# ── stealth_context ──────────────────────────────────────────────────────
 
 
 class TestStealthContext:
-    @pytest.mark.asyncio
-    async def test_returns_same_context(self):
-        context = AsyncMock()
-        result = await stealth_context(context)
-        assert result is context
+    def test_creates_context_from_browser(
+        self, mock_browser: MagicMock, mock_context: MagicMock
+    ) -> None:
+        ctx = stealth_context(mock_browser)
+        mock_browser.new_context.assert_called_once()
+        assert ctx is mock_context
 
-    @pytest.mark.asyncio
-    async def test_sets_headers(self):
-        context = AsyncMock()
-        await stealth_context(context)
-        context.set_extra_http_headers.assert_called_once()
+    def test_applies_all_patches(
+        self, mock_browser: MagicMock, mock_context: MagicMock
+    ) -> None:
+        stealth_context(mock_browser)
+        # patch_navigator calls add_init_script once
+        # _STEALTH_INIT_JS calls add_init_script once more
+        assert mock_context.add_init_script.call_count == 2
+        # set_realistic_headers calls set_extra_http_headers once
+        mock_context.set_extra_http_headers.assert_called_once()
 
-    @pytest.mark.asyncio
-    async def test_applies_init_scripts(self):
-        context = AsyncMock()
-        await stealth_context(context)
-        # 4 init scripts: webdriver, chrome runtime, plugins, permissions
-        assert context.add_init_script.call_count == 4
+    def test_random_ua_when_not_supplied(
+        self, mock_browser: MagicMock, mock_context: MagicMock
+    ) -> None:
+        stealth_context(mock_browser)
+        kwargs = mock_browser.new_context.call_args[1]
+        assert kwargs["user_agent"] in CHROME_USER_AGENTS
 
-    @pytest.mark.asyncio
-    async def test_init_scripts_include_webdriver_patch(self):
-        context = AsyncMock()
-        await stealth_context(context)
-        scripts = [c.args[0] for c in context.add_init_script.call_args_list]
-        assert _WEBDRIVER_PATCH_JS in scripts
-        assert _CHROME_RUNTIME_PATCH_JS in scripts
-        assert _PLUGINS_PATCH_JS in scripts
-        assert _PERMISSIONS_PATCH_JS in scripts
+    def test_custom_ua_preserved(
+        self, mock_browser: MagicMock, mock_context: MagicMock
+    ) -> None:
+        custom_ua = "CustomBot/1.0"
+        stealth_context(mock_browser, user_agent=custom_ua)
+        kwargs = mock_browser.new_context.call_args[1]
+        assert kwargs["user_agent"] == custom_ua
 
-    @pytest.mark.asyncio
-    async def test_chaining_works(self):
-        """Returned context should be usable directly."""
-        ctx = AsyncMock()
-        result = await stealth_context(ctx)
-        assert result is ctx
-        assert isinstance(result, AsyncMock)
+    def test_forwarded_kwargs(
+        self, mock_browser: MagicMock, mock_context: MagicMock
+    ) -> None:
+        stealth_context(mock_browser, viewport={"width": 1920, "height": 1080}, locale="en-US")
+        kwargs = mock_browser.new_context.call_args[1]
+        assert kwargs["viewport"] == {"width": 1920, "height": 1080}
+        assert kwargs["locale"] == "en-US"
+
+
+# ── UA pool integrity ────────────────────────────────────────────────────
+
+
+class TestUAPool:
+    def test_pool_has_20_agents(self) -> None:
+        assert len(CHROME_USER_AGENTS) == 20
+
+    def test_all_are_chrome(self) -> None:
+        for ua in CHROME_USER_AGENTS:
+            assert "Chrome" in ua, f"Non-Chrome UA: {ua}"
+
+    def test_all_unique(self) -> None:
+        assert len(CHROME_USER_AGENTS) == len(set(CHROME_USER_AGENTS))
+
+    def test_stealth_init_js_is_nonempty(self) -> None:
+        assert len(_STEALTH_INIT_JS.strip()) > 0
+        assert "navigator" in _STEALTH_INIT_JS
