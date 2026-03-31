@@ -35,7 +35,7 @@ Tasks waiting for dispatch. CC adds, golem consumes. Keep ~10 tasks ahead.
 
 ### Fixes (learned from failed golems 2026-03-31)
 - [ ] `golem --max-turns 30 "Add --provider flag to effectors/golem. Providers: zhipu (default, ZHIPU_API_KEY, https://open.bigmodel.cn/api/anthropic, GLM-5.1), volcano (VOLCANO_API_KEY, https://ark.cn-beijing.volces.com/api/coding, Doubao-Seed-2.0-Code), infini (INFINI_API_KEY, https://cloud.infini-ai.com/maas/coding, MiniMax-M2.7). Keep --batch, --max-turns, --full, --bare. Test: golem --provider volcano 'echo hello'"`
-- [ ] `golem --max-turns 20 "Read effectors/zhipu-route. Add hosts: ark.cn-beijing.volces.com, console.volcengine.com, www.volcengine.com, docs.infini-ai.com, platform.moonshot.cn, code.kimi.com. Keep existing hosts. No sudo needed for the edit."`
+- [ ] `golem --max-turns 20 "Read effectors/cn-route. Add hosts: ark.cn-beijing.volces.com, console.volcengine.com, www.volcengine.com, docs.infini-ai.com, platform.moonshot.cn, code.kimi.com. Keep existing hosts. No sudo needed for the edit."`
 - [ ] `golem --full --max-turns 30 "You have MCP tools including rheotaxis_search. Use them WITHOUT asking for permission. Research coding model benchmarks: GLM-5.1 vs Doubao-Seed-2.0-Code vs MiniMax-M2.7 vs DeepSeek-V3.2 vs Kimi-K2.5. Focus on SWE-Bench and HumanEval. Write to ~/epigenome/chromatin/Reference/golem-model-benchmark.md"`
 
 ## Running (max 4)

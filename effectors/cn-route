@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
-"""Bypass Tailscale exit node for ZhiPu API traffic.
+"""Bypass Tailscale exit node for Chinese AI API traffic.
 
-Resolves ZhiPu hostnames and adds host routes via the LAN gateway,
+Resolves provider hostnames and adds host routes via the LAN gateway,
 so traffic goes direct (HK → China) instead of via exit node (HK → JP → China).
 
 Usage:
-    zhipu-route          # add routes
-    zhipu-route remove   # remove routes
-    zhipu-route status   # show current routes
+    cn-route          # add routes
+    cn-route remove   # remove routes
+    cn-route status   # show current routes
 """
 
 import json
@@ -21,7 +21,7 @@ def _route_cmd(*args: str) -> list[str]:
     base = ["/sbin/route"] + list(args)
     return base if os.getuid() == 0 else ["sudo"] + base
 
-ZHIPU_HOSTS = [
+CN_API_HOSTS = [
     # ZhiPu
     "open.bigmodel.cn",
     "api.z.ai",
@@ -37,6 +37,10 @@ ZHIPU_HOSTS = [
     "platform.minimaxi.com",
     # Infini (无问芯穹)
     "cloud.infini-ai.com",
+    # Volcano (火山引擎)
+    "ark.cn-beijing.volces.com",
+    "console.volcengine.com",
+    "www.volcengine.com",
 ]
 
 
@@ -67,7 +71,7 @@ def _lan_gateway() -> str | None:
 def _current_zhipu_routes() -> dict[str, str]:
     """Return {ip: interface} for IPs we manage."""
     all_ips = set()
-    for host in ZHIPU_HOSTS:
+    for host in CN_API_HOSTS:
         all_ips.update(_resolve(host))
 
     result = subprocess.run(
@@ -104,7 +108,7 @@ def add_routes() -> None:
         sys.exit(1)
 
     all_ips = set()
-    for host in ZHIPU_HOSTS:
+    for host in CN_API_HOSTS:
         ips = _resolve(host)
         all_ips.update(ips)
 
@@ -131,7 +135,7 @@ def add_routes() -> None:
 
 def remove_routes() -> None:
     all_ips = set()
-    for host in ZHIPU_HOSTS:
+    for host in CN_API_HOSTS:
         all_ips.update(_resolve(host))
 
     for ip in sorted(all_ips):
@@ -153,7 +157,7 @@ def show_status() -> None:
     print()
 
     all_ips = set()
-    for host in ZHIPU_HOSTS:
+    for host in CN_API_HOSTS:
         ips = _resolve(host)
         print(f"  {host}: {', '.join(ips) or 'unresolvable'}")
         all_ips.update(ips)

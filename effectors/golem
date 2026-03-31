@@ -8,9 +8,10 @@
 #   golem --max-turns 30 "Complex task"
 set -euo pipefail
 
-MAX_TURNS="${GOLEM_MAX_TURNS:-20}"
+MAX_TURNS="${GOLEM_MAX_TURNS:-30}"
 BARE=true
 BATCH=false
+PROVIDER="${GOLEM_PROVIDER:-zhipu}"
 
 while [[ "${1:-}" == --* ]]; do
   case "$1" in
@@ -18,9 +19,28 @@ while [[ "${1:-}" == --* ]]; do
     --max-turns) MAX_TURNS="$2"; shift 2 ;;
     --full) BARE=false; shift ;;
     --bare) BARE=true; shift ;;
+    --provider) PROVIDER="$2"; shift 2 ;;
     *) echo "Unknown flag: $1" >&2; exit 1 ;;
   esac
 done
+
+# Provider config: KEY_VAR, BASE_URL, OPUS_MODEL, SONNET_MODEL, HAIKU_MODEL
+case "$PROVIDER" in
+  zhipu)
+    _KEY="${ZHIPU_API_KEY:?ZHIPU_API_KEY not set}"
+    _URL="https://open.bigmodel.cn/api/anthropic"
+    _OPUS="GLM-5.1"; _SONNET="GLM-5.1"; _HAIKU="GLM-4.5-air" ;;
+  volcano)
+    _KEY="${VOLCANO_API_KEY:?VOLCANO_API_KEY not set}"
+    _URL="https://ark.cn-beijing.volces.com/api/coding"
+    _MODEL="Doubao-Seed-2.0-Code"
+    _OPUS="$_MODEL"; _SONNET="$_MODEL"; _HAIKU="$_MODEL" ;;
+  infini)
+    _KEY="${INFINI_API_KEY:?INFINI_API_KEY not set}"
+    _URL="https://cloud.infini-ai.com/maas/coding"
+    _OPUS="glm-5"; _SONNET="glm-5"; _HAIKU="glm-4.5-air" ;;
+  *) echo "Unknown provider: $PROVIDER (zhipu|volcano|infini)" >&2; exit 1 ;;
+esac
 
 GOLEM_LOG="${GOLEM_LOG:-$HOME/.local/share/vivesca/golem.jsonl}"
 mkdir -p "$(dirname "$GOLEM_LOG")"
@@ -32,11 +52,12 @@ _run_golem() {
   local start_ts=$(date +%s)
   local output
   output=$(CLAUDECODE= \
-  ANTHROPIC_AUTH_TOKEN="${ZHIPU_API_KEY:?ZHIPU_API_KEY not set}" \
-  ANTHROPIC_BASE_URL="https://open.bigmodel.cn/api/anthropic" \
-  ANTHROPIC_DEFAULT_OPUS_MODEL="GLM-5.1" \
-  ANTHROPIC_DEFAULT_SONNET_MODEL="GLM-5.1" \
-  ANTHROPIC_DEFAULT_HAIKU_MODEL="GLM-4.5-air" \
+  ANTHROPIC_API_KEY="$_KEY" \
+  ANTHROPIC_AUTH_TOKEN="" \
+  ANTHROPIC_BASE_URL="$_URL" \
+  ANTHROPIC_DEFAULT_OPUS_MODEL="$_OPUS" \
+  ANTHROPIC_DEFAULT_SONNET_MODEL="$_SONNET" \
+  ANTHROPIC_DEFAULT_HAIKU_MODEL="$_HAIKU" \
   API_TIMEOUT_MS=3000000 \
   CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1 \
   claude "${args[@]}" -p "$prompt" 2>&1)
@@ -44,8 +65,8 @@ _run_golem() {
   local duration=$(( $(date +%s) - start_ts ))
   local short_prompt="${prompt:0:100}"
   # Log result
-  printf '{"ts":"%s","duration":%d,"exit":%d,"turns":%d,"prompt":"%s","tail":"%s"}\n' \
-    "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$duration" "$exit_code" "$MAX_TURNS" \
+  printf '{"ts":"%s","provider":"%s","duration":%d,"exit":%d,"turns":%d,"prompt":"%s","tail":"%s"}\n' \
+    "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$PROVIDER" "$duration" "$exit_code" "$MAX_TURNS" \
     "$(echo "$short_prompt" | tr '"' "'")" \
     "$(echo "${output: -200}" | tr '"' "'" | tr '\n' ' ')" >> "$GOLEM_LOG"
   echo "$output"
