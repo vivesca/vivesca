@@ -1,219 +1,170 @@
 #!/usr/bin/env python3
-"""Generate golem-queue.md entries for untested files.
+"""queue-gen — generate golem-queue.md entries for untested files.
 
-Usage: queue-gen <directory> [--output FILE] [--max-batch-size LINES]
+Scans a directory, finds files without corresponding tests in assays/,
+and generates formatted queue entries with smart batching by size.
 
-Finds all script files in the given directory, checks which lack tests,
-and generates queue entries with smart batching by file size.
+Usage:
+    queue-gen effectors/                    # generate entries for effectors
+    queue-gen metabolon/ --max-turns 40     # custom turn limit
+    queue-gen effectors/ --provider zhipu   # specific provider
+    queue-gen effectors/ --dry-run          # just print, don't write
+
+Smart batching:
+    - Large files (>500 lines): solo task with higher turn limit
+    - Medium files (200-500 lines): batch of 2-3
+    - Small files (<200 lines): batch of 3-5
 """
 
 import argparse
 import re
 import sys
 from pathlib import Path
+from collections import namedtuple
 
-# Size thresholds for batching
-TINY_THRESHOLD = 150      # <150 lines: batch up to 5
-SMALL_THRESHOLD = 300     # 150-300 lines: batch up to 3
-MEDIUM_THRESHOLD = 500    # 300-500 lines: batch up to 2
-# >500 lines: solo task
+FileEntry = namedtuple("FileEntry", ["path", "lines", "test_name"])
 
-BATCH_LIMITS = {
-    "tiny": 5,    # <150 lines
-    "small": 3,   # 150-300 lines
-    "medium": 2,  # 300-500 lines
-    "large": 1,   # >500 lines
-}
+GERMLINE = Path.home() / "germline"
+QUEUE_PATH = GERMLINE / "loci" / "golem-queue.md"
+ASSAYS_DIR = GERMLINE / "assays"
 
-TURNS_BY_SIZE = {
-    "tiny": 20,
-    "small": 30,
-    "medium": 40,
-    "large": 50,
-}
+# Size thresholds
+LARGE = 500
+MEDIUM = 200
 
 
-def get_size_category(lines: int) -> str:
-    """Categorize file by line count."""
-    if lines < TINY_THRESHOLD:
-        return "tiny"
-    elif lines < SMALL_THRESHOLD:
-        return "small"
-    elif lines < MEDIUM_THRESHOLD:
-        return "medium"
-    return "large"
-
-
-def normalize_test_name(effector_name: str) -> str:
-    """Convert effector name to test file name pattern.
-
-    Examples:
-        lacuna -> test_lacuna
-        safe_search.py -> test_safe_search
-        golem-daemon -> test_golem_daemon
-    """
-    # Remove .py extension if present
-    name = re.sub(r"\.py$", "", effector_name)
-    # Convert hyphens to underscores
-    name = name.replace("-", "_")
-    return f"test_{name}"
-
-
-def find_test_file(effector_name: str, assays_dir: Path) -> Path | None:
-    """Check if a test file exists for the effector."""
-    test_name = normalize_test_name(effector_name)
-    test_path = assays_dir / f"{test_name}.py"
-    if test_path.exists():
-        return test_path
-    return None
-
-
-def count_lines(filepath: Path) -> int:
+def get_file_lines(path: Path) -> int:
     """Count non-empty lines in a file."""
     try:
-        with open(filepath, "r") as f:
-            return sum(1 for line in f if line.strip())
+        return sum(1 for line in path.read_text().splitlines() if line.strip())
     except Exception:
         return 0
 
 
-def is_script_file(filepath: Path) -> bool:
-    """Check if file is a script (Python, shell, or executable without extension)."""
-    name = filepath.name
-    # Skip configs, cache, and hidden files
-    if name.startswith(".") or name.endswith(".conf"):
-        return False
-    # Python files
-    if name.endswith(".py"):
-        return True
-    # Shell scripts
-    if name.endswith(".sh"):
-        return True
-    # Check shebang for extensionless files
-    if "." not in name:
-        try:
-            with open(filepath, "r") as f:
-                first_line = f.readline()
-                if first_line.startswith("#!"):
-                    return True
-        except Exception:
-            pass
-    return False
+def file_to_test_name(path: Path) -> str:
+    """Convert a file path to its expected test name.
 
-
-def scan_directory(directory: Path, assays_dir: Path) -> list[tuple[str, int]]:
-    """Scan directory for untested script files.
-
-    Returns list of (name, line_count) tuples.
+    effectors/foo-bar -> test_foo_bar.py
+    effectors/foo_bar.py -> test_foo_bar.py
+    metabolon/organelles/baz.py -> test_baz.py
     """
-    untested = []
-    for filepath in sorted(directory.iterdir()):
-        if not filepath.is_file():
-            continue
-        if not is_script_file(filepath):
-            continue
-        # Check for test file
-        if find_test_file(filepath.name, assays_dir):
-            continue
-        lines = count_lines(filepath)
-        if lines > 0:  # Skip empty files
-            untested.append((filepath.name, lines))
-    return untested
+    stem = path.stem if path.suffix else path.name
+    # Normalize hyphens to underscores
+    normalized = stem.replace("-", "_")
+    return f"test_{normalized}.py"
 
 
-def batch_files(files: list[tuple[str, int]]) -> list[list[tuple[str, str, int]]]:
-    """Batch files by size category.
+def has_test(test_name: str) -> bool:
+    """Check if a test file exists in assays/."""
+    return (ASSAYS_DIR / test_name).exists()
 
-    Returns list of batches, each batch is list of (name, category, lines).
+
+def scan_directory(directory: Path, exclude_patterns: list[str] | None = None) -> list[FileEntry]:
+    """Scan directory for untested files.
+
+    Returns list of FileEntry for files without tests, sorted by size descending.
     """
-    # Categorize all files
-    categorized = [(name, get_size_category(lines), lines) for name, lines in files]
+    exclude_patterns = exclude_patterns or [
+        r"^__pycache__",
+        r"\.pyc$",
+        r"\.md$",
+        r"\.json$",
+        r"\.txt$",
+        r"\.sh$",  # Shell scripts typically don't need tests
+        r"^test_",
+        r"^conftest",
+    ]
+    exclude_re = re.compile("|".join(exclude_patterns))
 
-    # Group by category
-    by_category = {"tiny": [], "small": [], "medium": [], "large": []}
-    for name, cat, lines in categorized:
-        by_category[cat].append((name, cat, lines))
+    entries = []
+    for path in directory.rglob("*"):
+        if not path.is_file():
+            continue
+        rel = path.relative_to(directory)
+        if exclude_re.search(str(rel)):
+            continue
 
+        test_name = file_to_test_name(path)
+        if has_test(test_name):
+            continue
+
+        lines = get_file_lines(path)
+        if lines == 0:
+            continue
+
+        entries.append(FileEntry(path, lines, test_name))
+
+    # Sort by size descending for batching
+    return sorted(entries, key=lambda e: e.lines, reverse=True)
+
+
+def batch_entries(entries: list[FileEntry]) -> list[list[FileEntry]]:
+    """Group entries into batches by size."""
     batches = []
+    current_batch = []
 
-    # Create batches respecting limits
-    for cat in ["tiny", "small", "medium", "large"]:
-        items = by_category[cat]
-        limit = BATCH_LIMITS[cat]
-        for i in range(0, len(items), limit):
-            batches.append(items[i : i + limit])
+    for entry in entries:
+        if entry.lines >= LARGE:
+            # Large file gets its own batch
+            if current_batch:
+                batches.append(current_batch)
+                current_batch = []
+            batches.append([entry])
+        elif entry.lines >= MEDIUM:
+            # Medium files: batch of 2-3
+            current_batch.append(entry)
+            if len(current_batch) >= 2:
+                batches.append(current_batch)
+                current_batch = []
+        else:
+            # Small files: batch of 3-5
+            current_batch.append(entry)
+            if len(current_batch) >= 4:
+                batches.append(current_batch)
+                current_batch = []
 
-    return [b for b in batches if b]  # Remove empty batches
+    if current_batch:
+        batches.append(current_batch)
+
+    return batches
 
 
-def format_test_name(name: str) -> str:
-    """Format effector name for test file."""
-    base = re.sub(r"\.py$", "", name)
-    return f"test_{base.replace('-', '_')}"
-
-
-def generate_entry(batch: list[tuple[str, str, int]], provider: str = "volcano") -> str:
-    """Generate a queue entry for a batch of files."""
+def generate_entry(batch: list[FileEntry], provider: str, max_turns: int) -> str:
+    """Generate a golem-queue entry for a batch."""
     if len(batch) == 1:
-        name, cat, lines = batch[0]
-        test_name = format_test_name(name)
-        turns = TURNS_BY_SIZE[cat]
-        return (
-            f"- [ ] `golem --provider {provider} --max-turns {turns} "
-            f'"Write tests for effectors/{name} ({lines} lines). '
-            f"Write assays/{test_name}.py. "
-            f'Mock external calls, subprocess, file I/O. Run pytest. Fix failures."`'
-        )
-    else:
-        # Multiple files in batch
-        names = [name for name, _, _ in batch]
-        test_names = [format_test_name(n) for n in names]
-        total_lines = sum(lines for _, _, lines in batch)
-        # Use the largest category's turns
-        cat = batch[-1][1]  # Last item has largest category
-        turns = TURNS_BY_SIZE[cat]
+        entry = batch[0]
+        rel_path = entry.path.relative_to(GERMLINE)
+        lines_str = f"({entry.lines} lines)" if entry.lines >= MEDIUM else ""
 
-        modules_str = " ".join([f"effectors/{n}" for n in names])
-        tests_str = ", ".join([f"assays/{t}.py" for t in test_names])
+        # Determine turn limit based on size
+        turns = max_turns
+        if entry.lines >= LARGE:
+            turns = min(max_turns + 20, 60)
 
-        return (
-            f"- [ ] `golem --provider {provider} --max-turns {turns} "
-            f'Write tests for {len(batch)} effectors. Write {tests_str}. '
-            f"Mock external calls. Run pytest. Fix failures. Modules: {modules_str}"
-            f'`'
-        )
+        title = f"Write tests for {rel_path}"
+        test_file = f"assays/{entry.test_name}"
+        modules = str(rel_path)
 
+        return f"""#### {title} {lines_str}
+- [ ] `golem --provider {provider} --max-turns {turns} "Write tests for {modules}. Write {test_file}. Mock external calls, subprocess, file I/O. Run pytest. Fix failures."`"""
 
-def generate_queue_entries(
-    directory: Path, assays_dir: Path, provider: str = "volcano"
-) -> str:
-    """Generate full queue entries for untested files."""
-    untested = scan_directory(directory, assays_dir)
-    if not untested:
-        return "# No untested files found\n"
+    # Multiple files in batch
+    rel_paths = [str(e.path.relative_to(GERMLINE)) for e in batch]
+    test_files = [f"assays/{e.test_name}" for e in batch]
+    total_lines = sum(e.lines for e in batch)
 
-    batches = batch_files(untested)
+    title = f"Write tests for {len(batch)} modules ({total_lines} lines total)"
+    modules_str = " ".join(rel_paths)
+    tests_str = " ".join(test_files)
 
-    lines = [f"# Queue entries for {directory.name} ({len(untested)} untested files)\n"]
-
-    # Summary
-    lines.append("## Summary by size\n")
-    for cat in ["tiny", "small", "medium", "large"]:
-        count = sum(1 for _, c, _ in untested if c == cat)
-        if count:
-            lines.append(f"- {cat}: {count} files\n")
-
-    lines.append("\n## Entries\n")
-
-    for batch in batches:
-        lines.append(generate_entry(batch, provider) + "\n")
-
-    return "".join(lines)
+    return f"""#### {title}
+- [ ] `golem --provider {provider} --max-turns {max_turns} "Write tests: {tests_str}. Run pytest. Fix failures. Modules: {modules_str}"`"""
 
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Generate golem-queue.md entries for untested files"
+        description=__doc__,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument(
         "directory",
@@ -221,43 +172,65 @@ def main():
         help="Directory to scan for untested files",
     )
     parser.add_argument(
-        "--output",
-        "-o",
-        type=Path,
-        help="Output file (default: stdout)",
-    )
-    parser.add_argument(
-        "--assays-dir",
-        type=Path,
-        default=Path.home() / "germline" / "assays",
-        help="Assays directory (default: ~/germline/assays)",
-    )
-    parser.add_argument(
         "--provider",
-        "-p",
         default="volcano",
         choices=["zhipu", "infini", "volcano"],
         help="Golem provider to use (default: volcano)",
     )
     parser.add_argument(
-        "--max-batch-size",
+        "--max-turns",
         type=int,
-        help="Override maximum batch size",
+        default=30,
+        help="Maximum turns for golem tasks (default: 30)",
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Print entries without writing to queue",
+    )
+    parser.add_argument(
+        "--output",
+        type=Path,
+        help="Write to this file instead of golem-queue.md",
     )
 
     args = parser.parse_args()
 
     if not args.directory.exists():
-        print(f"Error: Directory not found: {args.directory}", file=sys.stderr)
+        print(f"Error: directory not found: {args.directory}", file=sys.stderr)
         sys.exit(1)
 
-    output = generate_queue_entries(args.directory, args.assays_dir, args.provider)
+    entries = scan_directory(args.directory)
+    if not entries:
+        print(f"No untested files found in {args.directory}", file=sys.stderr)
+        sys.exit(0)
 
-    if args.output:
-        args.output.write_text(output)
-        print(f"Wrote {len(output.splitlines())} lines to {args.output}")
+    batches = batch_entries(entries)
+
+    output_lines = [
+        f"### Generated by queue-gen ({len(entries)} untested files, {len(batches)} batches)\n",
+    ]
+
+    for batch in batches:
+        output_lines.append(generate_entry(batch, args.provider, args.max_turns))
+        output_lines.append("")
+
+    output_text = "\n".join(output_lines)
+
+    if args.dry_run:
+        print(output_text)
+        return
+
+    output_path = args.output or QUEUE_PATH
+    if output_path.exists():
+        # Append to existing file
+        with open(output_path, "a") as f:
+            f.write("\n" + output_text)
+        print(f"Appended {len(batches)} entries to {output_path}", file=sys.stderr)
     else:
-        print(output, end="")
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_text(output_text)
+        print(f"Wrote {len(batches)} entries to {output_path}", file=sys.stderr)
 
 
 if __name__ == "__main__":

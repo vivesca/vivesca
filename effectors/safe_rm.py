@@ -3,8 +3,9 @@
 Wrapper for rm -rf that blocks deletion of protected paths.
 Usage: safe_rm.py <path> [<path2> ...]
 """
-import sys
+import argparse
 import os
+import sys
 
 PROTECTED_PATHS = [
     # Critical - not backed up anywhere
@@ -13,8 +14,6 @@ PROTECTED_PATHS = [
     # Prevent nuking everything
     "~",
     "/",
-    "/Users",
-    "/Users/terry",
 ]
 
 def is_protected(path: str) -> bool:

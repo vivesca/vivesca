@@ -1,14 +1,28 @@
 #!/usr/bin/env python3
+"""rg / grep / find wrapper that blocks broad filesystem searches."""
 import os
+import shutil
 import subprocess
 import sys
 
-# Path to actual binaries (avoiding recursion)
-BINARIES = {
-    "grep": "/usr/bin/grep",
-    "rg": "/usr/local/bin/rg",  # Standard location, will verify
-    "find": "/usr/bin/find",
-}
+# Detect the real binary by searching PATH for one that isn't ourselves
+def _find_real_binary(name: str) -> str:
+    """Find the real binary, skipping our own wrapper."""
+    self_path = os.path.realpath(sys.argv[0])
+    for candidate in subprocess.check_output(
+        ["which", "-a", name], text=True
+    ).splitlines():
+        candidate = candidate.strip()
+        if not candidate:
+            continue
+        if os.path.realpath(candidate) != self_path:
+            return candidate
+    # Last resort: try standard locations
+    for d in ("/usr/bin", "/usr/local/bin", "/bin"):
+        p = os.path.join(d, name)
+        if os.path.isfile(p) and os.path.realpath(p) != self_path:
+            return p
+    return name  # give up, let execv report the error
 
 
 def main():
@@ -24,30 +38,25 @@ def main():
 
     # If no path specified, grep is reading from piped stdin — not a filesystem search, allow it
     if not search_path:
-        os.execv(
-            BINARIES.get(binary_name, binary_name), [BINARIES.get(binary_name, binary_name)] + args
-        )
+        real_bin = _find_real_binary(binary_name)
+        os.execv(real_bin, [real_bin] + args)
 
-    root_path = os.path.abspath(os.path.expanduser("~"))
+    home = os.path.abspath(os.path.expanduser("~"))
 
     # BLOCK: Root or Parents
-    if search_path in [root_path, "/Users/terry", "/"]:
+    if search_path in (home, "/"):
         print(f"\n❌ SEARCH BLOCKED: Broad search on '{search_path}' is prohibited.")
         print("Reason: Performance bottleneck. Use a sub-directory.")
         sys.exit(1)
 
     # BLOCK: Massive directories
-    massive_dirs = ["/Users/terry/Library", "/Users/terry/Pictures", "/Users/terry/Downloads"]
+    massive_dirs = [os.path.join(home, d) for d in ("Library", "Pictures", "Downloads")]
     if search_path in [os.path.abspath(d) for d in massive_dirs]:
         print(f"\n❌ SEARCH BLOCKED: Directory '{search_path}' is too large.")
         sys.exit(1)
 
     # EXECUTE: Call real binary
-    real_bin = BINARIES.get(binary_name, binary_name)
-
-    # Fallback for rg if not in standard /usr/local/bin
-    if binary_name == "rg" and not os.path.exists(real_bin):
-        real_bin = subprocess.check_output(["which", "-a", "rg"]).decode().split("\n")[1].strip()
+    real_bin = _find_real_binary(binary_name)
 
     try:
         os.execv(real_bin, [real_bin] + args)
