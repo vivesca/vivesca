@@ -103,12 +103,26 @@ class TestMove:
         assert r.success is False
         assert "move requires" in r.message
 
+    def test_move_missing_time(self):
+        """move without time should return error (time defaults to empty string)."""
+        r = circadian(action="move", event_id="E1", date="2025-07-01")
+        assert isinstance(r, EffectorResult)
+        assert r.success is False
+        assert "move requires" in r.message
+
     @patch("metabolon.organelles.circadian_clock.reschedule_event", return_value="moved ok")
     def test_move_success(self, mock_re):
         r = circadian(action="move", event_id="E42", date="2025-07-01", time="14:00")
         assert isinstance(r, CircadianResult)
         assert r.output == "moved ok"
         mock_re.assert_called_once_with("E42", "2025-07-01", "14:00")
+
+    @patch("metabolon.organelles.circadian_clock.reschedule_event", return_value="moved ok")
+    def test_move_uses_default_date(self, mock_re):
+        """date defaults to 'today' so move should work without explicit date."""
+        r = circadian(action="move", event_id="E7", time="09:00")
+        assert isinstance(r, CircadianResult)
+        mock_re.assert_called_once_with("E7", "today", "09:00")
 
 
 # ---------------------------------------------------------------------------
