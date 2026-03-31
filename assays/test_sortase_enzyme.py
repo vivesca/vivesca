@@ -87,14 +87,15 @@ def mock_subprocess_run():
 def mock_task_spec():
     """Mock TaskSpec class at the source module."""
     with patch("metabolon.sortase.decompose.TaskSpec") as mock:
-        mock.return_value = MagicMock(
-            name="mcp-dispatch",
-            description="test",
-            spec="test prompt",
-            files=[],
-            signal="default",
-            temp_file=None,
-        )
+        # Create a mock instance with all required attributes
+        mock_instance = MagicMock()
+        mock_instance.name = "mcp-dispatch"
+        mock_instance.description = "test prompt"
+        mock_instance.spec = "test prompt"
+        mock_instance.files = []
+        mock_instance.signal = "default"
+        mock_instance.temp_file = None
+        mock.return_value = mock_instance
         yield mock
 
 

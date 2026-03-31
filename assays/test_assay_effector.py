@@ -541,7 +541,7 @@ def test_cmd_list_shows_status(capsys, tmp_path):
 cmd_new = _mod["cmd_new"]
 
 
-def test_cmd_new_creates_experiment(capsys, tmp_path, monkeypatch):
+def test_cmd_new_creates_experiment(capsys, tmp_path):
     """cmd_new creates a new experiment file with correct frontmatter."""
     exp_dir = tmp_path / "experiments"
     exp_dir.mkdir()
@@ -556,17 +556,24 @@ def test_cmd_new_creates_experiment(capsys, tmp_path, monkeypatch):
             }
         }
 
-    monkeypatch.setattr(_mod, "EXPERIMENT_DIR", exp_dir)
-    monkeypatch.setattr(_mod, "pull_oura", mock_pull_oura)
-    monkeypatch.setattr(_mod["date"], "today", lambda: date(2024, 1, 15))
+    original_dir = _mod["EXPERIMENT_DIR"]
+    original_pull = _mod["pull_oura"]
+    original_today = _mod["date"].today
+    _mod["EXPERIMENT_DIR"] = exp_dir
+    _mod["pull_oura"] = mock_pull_oura
+    _mod["date"].today = lambda: date(2024, 1, 15)
+    try:
+        args = MagicMock()
+        args.name = "Test Experiment"
+        args.hypothesis = "Testing hypothesis"
+        args.intervention = "Test intervention"
+        args.days = 7
 
-    args = MagicMock()
-    args.name = "Test Experiment"
-    args.hypothesis = "Testing hypothesis"
-    args.intervention = "Test intervention"
-    args.days = 7
-
-    cmd_new(args)
+        cmd_new(args)
+    finally:
+        _mod["EXPERIMENT_DIR"] = original_dir
+        _mod["pull_oura"] = original_pull
+        _mod["date"].today = original_today
 
     # Check file was created
     files = list(exp_dir.glob("assay-*.md"))
@@ -579,7 +586,7 @@ def test_cmd_new_creates_experiment(capsys, tmp_path, monkeypatch):
     assert "Test intervention" in content
 
 
-def test_cmd_new_pulls_baseline(capsys, tmp_path, monkeypatch):
+def test_cmd_new_pulls_baseline(capsys, tmp_path):
     """cmd_new pulls baseline data for the correct period."""
     exp_dir = tmp_path / "experiments"
     exp_dir.mkdir()
@@ -590,17 +597,24 @@ def test_cmd_new_pulls_baseline(capsys, tmp_path, monkeypatch):
         pull_calls.append((start, end))
         return {"2024-01-01": {"sleep_score": 80, "readiness_score": 70, "readiness_contributors": {}}}
 
-    monkeypatch.setattr(_mod, "EXPERIMENT_DIR", exp_dir)
-    monkeypatch.setattr(_mod, "pull_oura", mock_pull_oura)
-    monkeypatch.setattr(_mod["date"], "today", lambda: date(2024, 1, 15))
+    original_dir = _mod["EXPERIMENT_DIR"]
+    original_pull = _mod["pull_oura"]
+    original_today = _mod["date"].today
+    _mod["EXPERIMENT_DIR"] = exp_dir
+    _mod["pull_oura"] = mock_pull_oura
+    _mod["date"].today = lambda: date(2024, 1, 15)
+    try:
+        args = MagicMock()
+        args.name = "Test"
+        args.hypothesis = None
+        args.intervention = None
+        args.days = 7
 
-    args = MagicMock()
-    args.name = "Test"
-    args.hypothesis = None
-    args.intervention = None
-    args.days = 7
-
-    cmd_new(args)
+        cmd_new(args)
+    finally:
+        _mod["EXPERIMENT_DIR"] = original_dir
+        _mod["pull_oura"] = original_pull
+        _mod["date"].today = original_today
 
     # Baseline should be 7 days before start
     assert len(pull_calls) == 1
