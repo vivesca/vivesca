@@ -391,13 +391,16 @@ class TestCombinedTgNotify:
 class TestSystemctlFallback:
     def test_systemctl_exit_127_healthy(self, tmp_path):
         """systemctl exits 127 (not found) → FAILED=0, system healthy."""
-        r = _run(tmp_path, disk_pct=50, failed_units=0)
-        # Override the systemctl mock to exit 127
         mock_dir = tmp_path / "mock-bin"
+        mock_dir.mkdir()
+        _make_mock(mock_dir, "df", "Use%\n  50%")
+        _make_mock(mock_dir, "free", "              total       used\nMem: 4096 8192")
         _make_mock(mock_dir, "systemctl", "", exit_code=127)
+
         env = os.environ.copy()
         env["HOME"] = str(tmp_path)
         env["PATH"] = str(mock_dir) + os.pathsep + os.environ.get("PATH", "")
+
         r = subprocess.run(
             ["bash", str(SCRIPT)],
             capture_output=True, text=True, env=env, timeout=10,
