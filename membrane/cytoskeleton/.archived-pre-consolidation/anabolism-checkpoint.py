@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+from __future__ import annotations
+
 """Anabolism stop guard — prevents the model from stopping during INTERACTIVE anabolism sessions.
 
 Safety net for when Terry says "anabolism" and walks away (supply-driven build).

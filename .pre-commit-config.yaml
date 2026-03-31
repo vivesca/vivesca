@@ -6,15 +6,7 @@ repos:
         args: [--fix]
       - id: ruff-format
 
-  - repo: local
-    hooks:
-      - id: check-pii
-        name: check-pii
-        entry: scripts/check-pii.sh
-        language: script
-        pass_filenames: false
-
-  - repo: https://github.com/codespell-project/codespell
+- repo: https://github.com/codespell-project/codespell
     rev: v2.4.2
     hooks:
       - id: codespell

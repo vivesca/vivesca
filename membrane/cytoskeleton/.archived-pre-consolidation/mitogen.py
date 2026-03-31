@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+from __future__ import annotations
+
 """UserPromptSubmit hook — mitogen: stimulates delegation of coding tasks.
 
 Habituates: after 3 fires without /rector being invoked in the same session,

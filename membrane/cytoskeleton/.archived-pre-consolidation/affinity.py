@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+from __future__ import annotations
+
 """
 PostToolUse hook — fires after every Skill invocation.
 

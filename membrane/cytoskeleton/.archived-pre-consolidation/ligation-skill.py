@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """PostToolUse hook: auto-commit skill file changes to ~/skills git repo."""
 
+from __future__ import annotations
+
 import json
 import subprocess
 import sys

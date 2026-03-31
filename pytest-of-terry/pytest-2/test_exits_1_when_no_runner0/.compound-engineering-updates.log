@@ -1,0 +1,16 @@
+========================================
+Update started: Tue Mar 31 18:00:46 UTC 2026
+Updating OpenCode...
+npm warn exec The following package was not found and will be installed: @every-env/compound-plugin@2.60.0
+/usr/bin/env: 'bun': No such file or directory
+npm notice
+npm notice New major version of npm available! 10.9.7 -> 11.12.1
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v11.12.1
+npm notice To update run: npm install -g npm@11.12.1
+npm notice
+❌ OpenCode update failed
+Updating Codex...
+/usr/bin/env: 'bun': No such file or directory
+❌ Codex update failed
+Update completed: Tue Mar 31 18:00:51 UTC 2026
+

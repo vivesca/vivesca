@@ -1,0 +1,12 @@
+[
+  {
+    "domain": ".other.com",
+    "name": "pref",
+    "path": "/",
+    "value": "",
+    "expires": 0.0,
+    "secure": false,
+    "httpOnly": false,
+    "sameSite": "Unspecified"
+  }
+]

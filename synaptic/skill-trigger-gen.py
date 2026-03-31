@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+from __future__ import annotations
+
 """
 Generate ~/.claude/skill-triggers.json from skill files.
 
@@ -8,6 +10,8 @@ Extracts trigger phrases from:
 
 Run after skill changes (e.g. from synaxis or skill-autocommit).
 """
+
+from __future__ import annotations
 
 import json
 import re

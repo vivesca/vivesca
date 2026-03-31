@@ -1,6 +1,15 @@
 ---
 name: etiology
 description: Root-cause diagnosis for bugs and process failures. "broken", "debug"
+user_invocable: true
+triggers:
+  - etiology
+  - broken
+  - debug
+  - root cause
+  - diagnosis
+  - incident
+  - postmortem
 model: sonnet
 epistemics: [debug, incident, postmortem, fix]
 ---

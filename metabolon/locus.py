@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 """Locus — canonical paths for the organism.
 
 Single source of truth. Effectors, tools, and scripts import from here

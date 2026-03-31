@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+from __future__ import annotations
+
 """PostToolUse hook — proprioception: the organism sensing its own state.
 
 Tracks per-session:

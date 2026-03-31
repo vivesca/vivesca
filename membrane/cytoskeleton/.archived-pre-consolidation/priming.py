@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+from __future__ import annotations
+
 """
 UserPromptSubmit hook — suggest skills that match the user's message.
 

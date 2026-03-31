@@ -1,0 +1,5 @@
+
+- name: task1
+  description: Task
+  spec: Do something
+  files: []

@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+from __future__ import annotations
+
 """UserPromptSubmit hook — selective anamnesis at session start.
 
 Fires once per session. Pulls ~/epigenome/chromatin, then injects all vivesca resources.

@@ -12,7 +12,7 @@
 
 ## Activation State
 0 open | 0 extended | 62 bent (3 anoikis candidates)
-Anoikis candidates logged to /Users/terry/epigenome/chromatin/receptor-retirement.md
+Anoikis candidates logged to ~/epigenome/chromatin/receptor-retirement.md
 
 ## Anoikis Candidates (retirement flagged)
 - folding

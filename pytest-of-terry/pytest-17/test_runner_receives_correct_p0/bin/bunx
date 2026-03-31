@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+echo "$@" >> /home/terry/germline/pytest-of-terry/pytest-17/test_runner_receives_correct_p0/args.log
+exit 0

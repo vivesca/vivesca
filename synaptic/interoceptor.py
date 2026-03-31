@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """interoceptor.py — Notification hook. Logs background task completions."""
 
+from __future__ import annotations
+
 import json
 import sys
 from datetime import datetime

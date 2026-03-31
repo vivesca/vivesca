@@ -7,6 +7,8 @@ Saves ~500ms per prompt by eliminating process startup overhead.
 Each module runs in try/except for fault isolation.
 """
 
+from __future__ import annotations
+
 import configparser
 import contextlib
 import json

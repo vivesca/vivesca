@@ -4,6 +4,8 @@
 Replaces: proofreading.js, checkpoint.js, anabolism-checkpoint.py, consolidation-stop.py
 """
 
+from __future__ import annotations
+
 import json
 import re
 import subprocess

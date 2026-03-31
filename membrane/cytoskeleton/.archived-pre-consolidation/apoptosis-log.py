@@ -5,6 +5,8 @@ Fires when: Bash exit non-zero, or is_error=true on any tool.
 Skipped: expected non-zero (grep/diff), hook-blocked calls.
 """
 
+from __future__ import annotations
+
 import json
 import sys
 from datetime import datetime

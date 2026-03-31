@@ -1,0 +1,3 @@
+{"ts":"2026-03-31T18:01:47.623224Z","tool":"fasti_list_events","outcome":"success","substrate_consumed":100,"product_released":50,"response_latency":200,"error":null,"correction":null,"context":null}
+{"ts":"2026-03-31T18:01:47.623428Z","tool":"fasti_create_event","outcome":"success","substrate_consumed":100,"product_released":50,"response_latency":200,"error":null,"correction":null,"context":null}
+{"ts":"2026-03-31T18:01:47.623510Z","tool":"rheotaxis_search","outcome":"success","substrate_consumed":100,"product_released":50,"response_latency":200,"error":null,"correction":null,"context":null}

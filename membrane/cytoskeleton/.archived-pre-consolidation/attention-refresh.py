@@ -2,6 +2,8 @@
 """PostToolUse hook: re-inject Tonus.md every N mutating tool calls.
 Combats 'lost in the middle' on long sessions. (Stolen from Manus todo.md pattern.)"""
 
+from __future__ import annotations
+
 import os
 
 MARKER = "/tmp/claude-attention-counter"

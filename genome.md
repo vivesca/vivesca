@@ -9,8 +9,8 @@
 
 ## Hard Constraints
 
-- **Grep**: Scoped `path`. `/Users/terry` → `head_limit: 20`. Bash grep on `~` blocked.
-- **Glob**: NEVER `**` on `/Users/terry`.
+- **Grep**: Scoped `path`. `/home/terry` → `head_limit: 20`. Bash grep on `~` blocked.
+- **Glob**: NEVER `**` on `/home/terry`.
 - **tccutil reset**: NEVER.
 - **WhatsApp**: NEVER send — draft for Terry.
 - **Gists**: ALWAYS secret.

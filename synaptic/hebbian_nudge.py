@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+from __future__ import annotations
+
 """Shared nudge logger — generalized Hebbian learning for all advisory hooks.
 
 Any hook that gives advice (not guards/denials) should call log_nudge() so
@@ -15,6 +17,8 @@ Accuracy reviewed at /rhythm. Usage from other hooks:
     from hebbian_nudge import log_nudge
     log_nudge("mitogen", "delegate", prompt_snippet="build a cli tool")
 """
+
+from __future__ import annotations
 
 import json
 import time

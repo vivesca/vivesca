@@ -10,6 +10,8 @@ freshest at session start). Uses a random session_id to detect new sessions.
 Hook context: runs inside CC session where Keychain token is valid.
 """
 
+from __future__ import annotations
+
 import json
 import subprocess
 import sys

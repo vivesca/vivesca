@@ -9,6 +9,8 @@ Debounced: skips if last run was <6 hours ago.
 Runs in background — never blocks session exit.
 """
 
+from __future__ import annotations
+
 import json
 import subprocess
 import sys

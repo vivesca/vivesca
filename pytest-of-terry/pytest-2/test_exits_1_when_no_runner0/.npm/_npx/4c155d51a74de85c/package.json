@@ -1,0 +1,5 @@
+{
+  "dependencies": {
+    "@every-env/compound-plugin": "^2.60.0"
+  }
+}

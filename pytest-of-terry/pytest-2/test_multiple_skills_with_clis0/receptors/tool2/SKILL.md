@@ -1,0 +1,1 @@
+cli: nonexist_bbb

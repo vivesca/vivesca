@@ -9,6 +9,8 @@ heartbeat substrate is blind to skill activity — it only sees MCP tools.
 This hook bridges the gap: Skill invocation → signal in signals.jsonl.
 """
 
+from __future__ import annotations
+
 import json
 import sys
 from datetime import UTC, datetime

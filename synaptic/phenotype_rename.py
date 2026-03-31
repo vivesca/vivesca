@@ -5,6 +5,8 @@ Extracts content words from the prompt, no LLM needed.
 Called by synapse.py as: python3 phenotype_rename.py <prompt> <window_id>
 """
 
+from __future__ import annotations
+
 import re
 import subprocess
 import sys

@@ -1,0 +1,1 @@
+def plain(): pass

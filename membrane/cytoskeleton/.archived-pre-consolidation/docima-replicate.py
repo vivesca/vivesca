@@ -6,6 +6,8 @@ docima backends silently. Closes the loop between memory capture and
 the benchmark experiment.
 """
 
+from __future__ import annotations
+
 import contextlib
 import json
 import os

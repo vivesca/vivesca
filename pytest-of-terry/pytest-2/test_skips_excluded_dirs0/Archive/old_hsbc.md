@@ -1,0 +1,1 @@
+HSBC archived content about banking.

@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+from __future__ import annotations
+
 """
 UserPromptSubmit hook — circaseptan rhythm (7-day cycle).
 Nudges if it's Saturday+ and no weekly note exists for this week.

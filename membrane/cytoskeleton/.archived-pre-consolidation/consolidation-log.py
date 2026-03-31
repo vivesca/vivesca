@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """PreCompact hook — log compaction to daily note for continuity."""
 
+from __future__ import annotations
+
 import json
 import sys
 from datetime import datetime

@@ -1,0 +1,80 @@
+0 verbose cli /usr/bin/node /usr/lib/node_modules/npm/bin/npm-cli.js
+1 info using npm@10.9.7
+2 info using node@v22.22.2
+3 silly config load:file:/usr/lib/node_modules/npm/npmrc
+4 silly config load:file:/home/terry/germline/.npmrc
+5 silly config load:file:/home/terry/germline/pytest-of-terry/pytest-2/test_exits_1_when_no_runner0/.npmrc
+6 silly config load:file:/usr/etc/npmrc
+7 verbose title npm exec @every-env/compound-plugin install compound-engineering --to opencode
+8 verbose argv "exec" "--" "@every-env/compound-plugin" "install" "compound-engineering" "--to" "opencode"
+9 verbose logfile logs-max:10 dir:/home/terry/germline/pytest-of-terry/pytest-2/test_exits_1_when_no_runner0/.npm/_logs/2026-03-31T18_00_46_374Z-
+10 verbose logfile /home/terry/germline/pytest-of-terry/pytest-2/test_exits_1_when_no_runner0/.npm/_logs/2026-03-31T18_00_46_374Z-debug-0.log
+11 silly logfile done cleaning log files
+12 silly packumentCache heap:4345298944 maxSize:1086324736 maxEntrySize:543162368
+13 http fetch GET 200 https://registry.npmjs.org/npm 121ms
+14 http fetch GET 200 https://registry.npmjs.org/@every-env%2fcompound-plugin 990ms (cache miss)
+15 silly packumentCache heap:4345298944 maxSize:1086324736 maxEntrySize:543162368
+16 silly packumentCache heap:4345298944 maxSize:1086324736 maxEntrySize:543162368
+17 warn exec The following package was not found and will be installed: @every-env/compound-plugin@2.60.0
+18 silly idealTree buildDeps
+19 silly fetch manifest @every-env/compound-plugin@2.60.0
+20 silly packumentCache full:https://registry.npmjs.org/@every-env%2fcompound-plugin cache-miss
+21 http fetch GET 200 https://registry.npmjs.org/@every-env%2fcompound-plugin 339ms (cache miss)
+22 silly packumentCache full:https://registry.npmjs.org/@every-env%2fcompound-plugin set size:undefined disposed:false
+23 silly placeDep ROOT @every-env/compound-plugin@2.60.0 OK for:  want: 2.60.0
+24 silly fetch manifest citty@^0.1.6
+25 silly packumentCache full:https://registry.npmjs.org/citty cache-miss
+26 silly fetch manifest js-yaml@^4.1.0
+27 silly packumentCache full:https://registry.npmjs.org/js-yaml cache-miss
+28 http fetch GET 200 https://registry.npmjs.org/citty 36ms (cache miss)
+29 silly packumentCache full:https://registry.npmjs.org/citty set size:undefined disposed:false
+30 http fetch GET 200 https://registry.npmjs.org/js-yaml 42ms (cache miss)
+31 silly packumentCache full:https://registry.npmjs.org/js-yaml set size:undefined disposed:false
+32 silly placeDep ROOT citty@0.1.6 OK for: @every-env/compound-plugin@2.60.0 want: ^0.1.6
+33 silly placeDep ROOT js-yaml@4.1.1 OK for: @every-env/compound-plugin@2.60.0 want: ^4.1.0
+34 silly fetch manifest consola@^3.2.3
+35 silly packumentCache full:https://registry.npmjs.org/consola cache-miss
+36 silly fetch manifest argparse@^2.0.1
+37 silly packumentCache full:https://registry.npmjs.org/argparse cache-miss
+38 http fetch GET 200 https://registry.npmjs.org/consola 138ms (cache miss)
+39 silly packumentCache full:https://registry.npmjs.org/consola set size:undefined disposed:false
+40 http fetch GET 200 https://registry.npmjs.org/argparse 529ms (cache miss)
+41 silly packumentCache full:https://registry.npmjs.org/argparse set size:undefined disposed:false
+42 silly placeDep ROOT consola@3.4.2 OK for: citty@0.1.6 want: ^3.2.3
+43 silly placeDep ROOT argparse@2.0.1 OK for: js-yaml@4.1.1 want: ^2.0.1
+44 silly reify moves {}
+45 silly audit bulk request {
+45 silly audit   '@every-env/compound-plugin': [ '2.60.0' ],
+45 silly audit   citty: [ '0.1.6' ],
+45 silly audit   'js-yaml': [ '4.1.1' ],
+45 silly audit   consola: [ '3.4.2' ],
+45 silly audit   argparse: [ '2.0.1' ]
+45 silly audit }
+46 http cache argparse@https://registry.npmjs.org/argparse/-/argparse-2.0.1.tgz 1ms (cache hit)
+47 http cache consola@https://registry.npmjs.org/consola/-/consola-3.4.2.tgz 0ms (cache hit)
+48 http cache js-yaml@https://registry.npmjs.org/js-yaml/-/js-yaml-4.1.1.tgz 0ms (cache hit)
+49 http cache citty@https://registry.npmjs.org/citty/-/citty-0.1.6.tgz 0ms (cache hit)
+50 http cache @every-env/compound-plugin@https://registry.npmjs.org/@every-env/compound-plugin/-/compound-plugin-2.60.0.tgz 0ms (cache hit)
+51 silly tarball no local data for argparse@https://registry.npmjs.org/argparse/-/argparse-2.0.1.tgz. Extracting by manifest.
+52 silly tarball no local data for consola@https://registry.npmjs.org/consola/-/consola-3.4.2.tgz. Extracting by manifest.
+53 silly tarball no local data for js-yaml@https://registry.npmjs.org/js-yaml/-/js-yaml-4.1.1.tgz. Extracting by manifest.
+54 silly tarball no local data for citty@https://registry.npmjs.org/citty/-/citty-0.1.6.tgz. Extracting by manifest.
+55 silly tarball no local data for @every-env/compound-plugin@https://registry.npmjs.org/@every-env/compound-plugin/-/compound-plugin-2.60.0.tgz. Extracting by manifest.
+56 http fetch GET 200 https://registry.npmjs.org/citty/-/citty-0.1.6.tgz 97ms (cache miss)
+57 http fetch GET 200 https://registry.npmjs.org/argparse/-/argparse-2.0.1.tgz 108ms (cache miss)
+58 http fetch POST 200 https://registry.npmjs.org/-/npm/v1/security/advisories/bulk 129ms
+59 silly audit report {}
+60 http fetch GET 200 https://registry.npmjs.org/consola/-/consola-3.4.2.tgz 166ms (cache miss)
+61 http fetch GET 200 https://registry.npmjs.org/js-yaml/-/js-yaml-4.1.1.tgz 167ms (cache miss)
+62 http fetch GET 200 https://registry.npmjs.org/@every-env/compound-plugin/-/compound-plugin-2.60.0.tgz 876ms (cache miss)
+63 verbose cwd /home/terry/germline
+64 verbose os Linux 6.12.47-fly
+65 verbose node v22.22.2
+66 verbose npm  v10.9.7
+67 notice
+67 notice New major version of npm available! 10.9.7 -> 11.12.1
+67 notice Changelog: https://github.com/npm/cli/releases/tag/v11.12.1
+67 notice To update run: npm install -g npm@11.12.1
+67 notice  { force: true, [Symbol(proc-log.meta)]: true }
+68 verbose exit 127
+69 verbose code 127

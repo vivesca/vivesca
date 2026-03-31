@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """InstructionsLoaded hook — log which context files load and when."""
 
+from __future__ import annotations
+
 import json
 import sys
 from datetime import datetime

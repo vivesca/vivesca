@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+from __future__ import annotations
+
 # /// script
 # requires-python = ">=3.10"
 # dependencies = [

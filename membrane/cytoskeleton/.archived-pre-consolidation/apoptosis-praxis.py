@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+from __future__ import annotations
+
 """PostToolUse hook: block dismissed items from being added to Praxis.md.
 
 Reads ~/epigenome/chromatin/Praxis Dismissed.md for suppressed patterns.

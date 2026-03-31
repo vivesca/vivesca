@@ -6,6 +6,8 @@ Prevents ad-hoc WebFetch when a skill exists for the domain.
 Prevents free-form experiments when peira should be used.
 """
 
+from __future__ import annotations
+
 import json
 import re
 import sys
