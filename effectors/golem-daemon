@@ -489,6 +489,86 @@ def check_new_test_files_and_run_pytest() -> tuple[bool, str]:
         # On error, proceed but log
         return (True, f"test check exception: {e}")
 
+
+def auto_requeue(min_pending: int = 50) -> int:
+    """Generate new tasks when queue runs low. Returns count of tasks added."""
+    import os
+    pending = parse_queue()
+    if len(pending) >= min_pending:
+        return 0
+
+    germline = Path.home() / "germline"
+    tasks = []
+    providers = ["zhipu", "infini", "volcano"]
+    pi = 0
+
+    def add(prompt, turns=25):
+        nonlocal pi
+        p = providers[pi % 3]
+        pi += 1
+        prompt = prompt.replace('"', '\\"')
+        tasks.append(f'- [ ] `golem --provider {p} --max-turns {turns} "{prompt}"`')
+
+    # 1. Find untested modules
+    existing_tests = set()
+    assays = germline / "assays"
+    if assays.exists():
+        for f in assays.glob("test_*.py"):
+            existing_tests.add(f.stem)
+
+    for root, dirs, files in os.walk(str(germline / "metabolon")):
+        dirs[:] = [d for d in dirs if d != "__pycache__"]
+        for f in files:
+            if f.endswith(".py") and not f.startswith("_"):
+                clean = f.replace(".py", "")
+                parent = Path(root).name
+                test_name = f"test_{parent}_{clean}" if parent != "metabolon" else f"test_{clean}"
+                if test_name not in existing_tests and len(tasks) < 30:
+                    add(f"Write tests for {os.path.join(root, f)}. Mock external calls. Run uv run pytest. Fix failures. Commit.", turns=30)
+
+    # 2. Find untested effectors
+    for f in sorted((germline / "effectors").iterdir()):
+        if f.is_file() and not f.name.startswith(".") and f.suffix not in (".conf", ".plist", ".json", ".md"):
+            clean = f.name.replace("-", "_").replace(".py", "")
+            if f"test_{clean}" not in existing_tests and len(tasks) < 60:
+                add(f"Write tests for effectors/{f.name}. Effectors are scripts — load via exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit.", turns=30)
+
+    # 3. Fix collection errors
+    if len(tasks) < 70:
+        add("Run uv run pytest --co -q 2>&1 | grep ERROR. Fix ALL collection errors. Common: hardcoded paths, bad imports, syntax. Run --co again until 0 errors.", turns=40)
+
+    # 4. System hardening
+    hardening = [
+        "Scan assays/ for hardcoded /Users/terry paths. Replace with Path.home(). Run pytest. Commit.",
+        "Find test files with SyntaxError (ast.parse fails). Fix syntax. Run pytest. Commit.",
+        "Run uv run pytest -q --tb=no --continue-on-collection-errors. Report pass/fail. Fix top 5 failures. Commit.",
+    ]
+    for h in hardening:
+        if len(tasks) < 80:
+            add(h, turns=30)
+
+    if not tasks:
+        return 0
+
+    # Append to queue file
+    with QueueLock():
+        lines = QUEUE_FILE.read_text().splitlines()
+        # Find insertion point (before Done section)
+        insert_idx = len(lines)
+        for i, line in enumerate(lines):
+            if line.strip().startswith("## Done"):
+                insert_idx = i
+                break
+        header = f"\n### Auto-requeue ({len(tasks)} tasks)"
+        lines.insert(insert_idx, header)
+        for t in tasks:
+            insert_idx += 1
+            lines.insert(insert_idx, t)
+        QUEUE_FILE.write_text("\n".join(lines) + "\n")
+
+    log(f"Auto-requeued {len(tasks)} tasks (queue was {len(pending)} pending)")
+    return len(tasks)
+
 def daemon_loop():
     """Main daemon loop: poll queue, run tasks, mark done."""
     rotate_logs()
@@ -549,6 +629,12 @@ def daemon_loop():
                     except Exception as e:
                         log(f"Future error: {e}")
                         mark_failed(line_num, str(e))
+
+                # Auto-requeue when queue runs low
+                if len(pending) < 50:
+                    added = auto_requeue()
+                    if added > 0:
+                        pending = parse_queue()  # Re-read after adding
 
                 # Fill available slots per provider (skip if disk space is low)
                 if disk_space_paused:
