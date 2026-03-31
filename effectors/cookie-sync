@@ -1,21 +1,27 @@
 #!/usr/bin/env python3
-# /// script
-# requires-python = ">=3.11"
-# dependencies = ["playwright"]
-# ///
 """
-Export cookies from Mac Chrome's Cookies SQLite DB to JSON, and import into Playwright.
+cookie-sync — Export Chrome cookies to JSON and import into Playwright.
+
+Export reads Chrome's Cookies SQLite DB, decrypts v10/v11 encrypted values
+using the macOS Keychain, and writes a portable JSON file.
 
 Usage:
     cookie-sync export [--profile Default] [--domain example.com]
     cookie-sync import <cookies.json>
 
-Export reads Chrome's Cookies DB, decrypts v10/v11 encrypted values via the
-macOS Keychain ("Chrome Safe Storage" generic password), and writes a JSON
-file to ~/.local/share/vivesca/cookies.json.
-
-Import reads a cookies JSON file and adds every cookie to a Playwright
-BrowserContext.
+Output format (JSON array):
+[
+  {
+    "domain": ".example.com",
+    "name": "session_id",
+    "value": "decrypted_value",
+    "path": "/",
+    "expires": 1735689600.0,
+    "httponly": true,
+    "secure": true,
+    "samesite": "Lax"
+  }
+]
 """
 
 from __future__ import annotations
@@ -25,226 +31,261 @@ import base64
 import json
 import os
 import sqlite3
+import struct
 import subprocess
 import sys
 from pathlib import Path
 from typing import Any
 
-# ── Constants ──────────────────────────────────────────────────────────────────
+# ── Constants ────────────────────────────────────────────────────────────────
 
-DEFAULT_OUTPUT = Path(os.environ.get("XDG_DATA_HOME", Path.home() / ".local" / "share")) / "vivesca" / "cookies.json"
 CHROME_BASE = Path.home() / "Library" / "Application Support" / "Google" / "Chrome"
-PBKDF2_SALT = b"saltysalt"
-PBKDF2_ITERATIONS = 1003
-KEY_LENGTH = 16  # AES-128
-IV = b" " * 16  # 16 bytes of 0x20
+DEFAULT_OUTPUT = Path.home() / ".local" / "share" / "vivesca" / "cookies.json"
+
+# Chrome v10/v11 cookie encryption on macOS uses AES-128-CBC with:
+#   - 3-byte prefix "v10" or "v11"
+#   - 12-byte nonce (v11 / PBKDF2 path)
+#   - actual ciphertext + 16-byte GCM tag (v11)
+#   OR for v10: 3-byte prefix + 32-byte IV + ciphertext (AES-CBC, PKCS7)
+
+V10_PREFIX = b"v10"
+V11_PREFIX = b"v11"
 
 
-# ── Chrome decryption helpers ──────────────────────────────────────────────────
+# ── macOS Keychain helpers ───────────────────────────────────────────────────
 
 
 def get_chrome_key() -> bytes:
-    """Retrieve the Chrome Safe Storage key from the macOS Keychain."""
+    """Retrieve Chrome Safe Storage key from macOS Keychain.
+
+    Uses 'security find-generic-password' to extract the password for
+    Chrome's "Chrome Safe Storage" generic password item.
+    """
     result = subprocess.run(
-        ["security", "find-generic-password", "-w", "-s", "Chrome Safe Storage"],
+        [
+            "security",
+            "find-generic-password",
+            "-w",  # password only
+            "-a",
+            "Chrome",
+            "-s",
+            "Chrome Safe Storage",
+        ],
         capture_output=True,
         text=True,
     )
     if result.returncode != 0:
-        raise RuntimeError(f"Failed to get Chrome Safe Storage key: {result.stderr.strip()}")
-    return result.stdout.strip().encode("utf-8")
-
-
-def derive_encryption_key(password: bytes) -> bytes:
-    """Derive the AES-128 key via PBKDF2-HMAC-SHA1 (Chrome's KDF)."""
+        raise RuntimeError(
+            f"Failed to get Chrome Safe Storage key from Keychain: {result.stderr.strip()}"
+        )
+    password = result.stdout.strip().encode("utf-8")
+    # Derive AES key: PBKDF2-HMAC-SHA1, salt="saltysalt", iterations=1003, 16 bytes
     import hashlib
 
-    return hashlib.pbkdf2_hmac("sha1", password, PBKDF2_SALT, PBKDF2_ITERATIONS, dklen=KEY_LENGTH)
+    key = hashlib.pbkdf2_hmac("sha1", password, b"saltysalt", 1003, dklen=16)
+    return key
 
 
-def decrypt_cookie_value(encrypted: bytes, key: bytes) -> str:
-    """Decrypt a Chrome v10/v11 cookie value using AES-128-CBC."""
-    from Crypto.Cipher import AES  # noqa: F811 — optional dep
+def decrypt_v10(encrypted: bytes, key: bytes) -> str:
+    """Decrypt a v10 (AES-128-CBC) Chrome cookie value.
 
-    if encrypted[:3] == b"v10" or encrypted[:3] == b"v11":
-        ciphertext = encrypted[3:]
-    else:
-        # Unencrypted or unknown scheme — return as-is
-        return encrypted.decode("utf-8", errors="replace")
+    Layout: b"v10" + 16-byte IV + ciphertext (PKCS7 padded).
+    """
+    from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+    from cryptography.hazmat.primitives import padding as sym_padding
 
-    cipher = AES.new(key, AES.MODE_CBC, IV)
-    plaintext = cipher.decrypt(ciphertext)
-    # Remove PKCS7 padding
-    pad_len = plaintext[-1]
-    if pad_len < 1 or pad_len > 16:
-        return plaintext.decode("utf-8", errors="replace")
-    return plaintext[:-pad_len].decode("utf-8", errors="replace")
+    iv = encrypted[3:19]
+    ciphertext = encrypted[19:]
+    cipher = Cipher(algorithms.AES(key), modes.CBC(iv))
+    decryptor = cipher.decryptor()
+    padded = decryptor.update(ciphertext) + decryptor.finalize()
+    unpadder = sym_padding.PKCS7(128).unpadder()
+    plaintext = unpadder.update(padded) + unpadder.finalize()
+    return plaintext.decode("utf-8", errors="replace")
 
 
-# ── Chrome cookie DB ──────────────────────────────────────────────────────────
+def decrypt_v11(encrypted: bytes, key: bytes) -> str:
+    """Decrypt a v11 (AES-128-GCM) Chrome cookie value.
+
+    Layout: b"v11" + 12-byte nonce + ciphertext + 16-byte auth tag.
+    """
+    from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+
+    nonce = encrypted[3:15]
+    ciphertext_and_tag = encrypted[15:]
+    aesgcm = AESGCM(key)
+    plaintext = aesgcm.decrypt(nonce, ciphertext_and_tag, None)
+    return plaintext.decode("utf-8", errors="replace")
+
+
+def decrypt_cookie_value(raw: bytes | None, key: bytes) -> str:
+    """Decrypt a Chrome cookie value, handling encrypted and plaintext."""
+    if raw is None:
+        return ""
+    if raw.startswith(V10_PREFIX):
+        return decrypt_v10(raw, key)
+    if raw.startswith(V11_PREFIX):
+        return decrypt_v11(raw, key)
+    # Plaintext cookie (rare but possible)
+    return raw.decode("utf-8", errors="replace")
+
+
+# ── SQLite helpers ───────────────────────────────────────────────────────────
+
+SAMESITE_MAP = {0: "None", 1: "Lax", 2: "Strict", 3: "Lax"}
+
+
+def row_to_dict(row: sqlite3.Row) -> dict[str, Any]:
+    """Convert a cookies row to a portable dict (value still encrypted)."""
+    return {
+        "domain": row["host_key"],
+        "name": row["name"],
+        "value": row["value"],  # plaintext fallback
+        "encrypted_value": row["encrypted_value"],  # bytes
+        "path": row["path"],
+        "expires": row["expires_utc"],
+        "httponly": bool(row["httponly"]),
+        "secure": bool(row["is_secure"]),
+        "samesite": SAMESITE_MAP.get(row["samesite"], "None"),
+    }
 
 
 def read_cookies(db_path: Path, domain_filter: str | None = None) -> list[dict[str, Any]]:
     """Read cookies from Chrome's SQLite database.
 
-    Returns a list of cookie dicts with serialisable values.
+    Returns list of dicts with encrypted_value as bytes.
     """
-    cookies: list[dict[str, Any]] = []
-    # Chrome locks its DB; copy to a temp file to avoid lock errors.
-    import shutil
-    import tempfile
-
-    tmp_fd, tmp_path = tempfile.mkstemp(suffix=".db")
-    os.close(tmp_fd)
+    # Chrome locks the DB; use immutable=1 to read locked copies.
+    uri = f"file:{db_path}?immutable=1"
+    conn = sqlite3.connect(uri, uri=True)
+    conn.row_factory = sqlite3.Row
     try:
-        shutil.copy2(db_path, tmp_path)
-        conn = sqlite3.connect(tmp_path)
-        cursor = conn.cursor()
-        query = (
-            "SELECT host_key, name, path, encrypted_value, expires_utc, "
-            "is_secure, is_httponly, samesite "
-            "FROM cookies"
-        )
-        params: tuple = ()
+        cur = conn.cursor()
         if domain_filter:
-            query += " WHERE host_key LIKE ?"
-            params = (f"%{domain_filter}%",)
-        cursor.execute(query, params)
-        for row in cursor.fetchall():
-            host_key, name, path, enc_val, expires_utc, is_secure, is_httponly, samesite = row
-            cookies.append({
-                "domain": host_key,
-                "name": name,
-                "path": path,
-                "value": base64.b64encode(enc_val).decode("ascii") if enc_val else "",
-                "expires": expires_utc,
-                "secure": bool(is_secure),
-                "httpOnly": bool(is_httponly),
-                "sameSite": _samesite_str(samesite),
-                "_encrypted": True,
-            })
-        conn.close()
-    finally:
-        os.unlink(tmp_path)
-    return cookies
-
-
-def _samesite_str(val: int) -> str:
-    """Convert Chrome's SameSite integer to a string label."""
-    return {-1: "None", 0: "Unspecified", 1: "Lax", 2: "Strict", 3: "None"}.get(val, "Unspecified")
-
-
-def decrypt_exported_cookies(cookies: list[dict[str, Any]], key: bytes) -> list[dict[str, Any]]:
-    """Replace base64-encoded encrypted_value with decrypted plaintext."""
-    from Crypto.Cipher import AES  # noqa: F811
-
-    for c in cookies:
-        if not c.get("_encrypted") or not c.get("value"):
-            continue
-        raw = base64.b64decode(c["value"])
-        if raw[:3] in (b"v10", b"v11"):
-            cipher = AES.new(key, AES.MODE_CBC, IV)
-            plaintext = cipher.decrypt(raw[3:])
-            pad_len = plaintext[-1]
-            if 1 <= pad_len <= 16:
-                plaintext = plaintext[:-pad_len]
-            c["value"] = plaintext.decode("utf-8", errors="replace")
-        else:
-            c["value"] = raw.decode("utf-8", errors="replace")
-        del c["_encrypted"]
-    return cookies
-
-
-# ── Import into Playwright ─────────────────────────────────────────────────────
-
-
-def import_cookies(cookies_path: Path, browser_type: str = "chromium") -> None:
-    """Load cookies from JSON and add them to a Playwright browser context."""
-    import asyncio
-
-    from playwright.async_api import async_playwright  # type: ignore[import-untyped]
-
-    cookies = json.loads(cookies_path.read_text(encoding="utf-8"))
-    if not cookies:
-        print("No cookies to import.")
-        return
-
-    async def _run() -> None:
-        async with async_playwright() as p:
-            launcher = {"chromium": p.chromium, "firefox": p.firefox, "webkit": p.webkit}.get(
-                browser_type, p.chromium
+            cur.execute(
+                "SELECT host_key, name, value, encrypted_value, path, "
+                "expires_utc, httponly, is_secure, samesite "
+                "FROM cookies WHERE host_key LIKE ?",
+                (f"%{domain_filter}%",),
             )
-            browser = await launcher.launch(headless=True)
-            context = await browser.new_context()
-            await context.add_cookies(cookies)
-            print(f"Added {len(cookies)} cookies to {browser_type} context.")
-            await browser.close()
+        else:
+            cur.execute(
+                "SELECT host_key, name, value, encrypted_value, path, "
+                "expires_utc, httponly, is_secure, samesite "
+                "FROM cookies"
+            )
+        return [row_to_dict(r) for r in cur.fetchall()]
+    finally:
+        conn.close()
 
-    asyncio.run(_run())
+
+# ── Export command ────────────────────────────────────────────────────────────
 
 
-# ── CLI ────────────────────────────────────────────────────────────────────────
+def cmd_export(profile: str = "Default", domain: str | None = None, output: Path | None = None) -> int:
+    """Export Chrome cookies to JSON."""
+    db_path = CHROME_BASE / profile / "Cookies"
+    if not db_path.exists():
+        print(f"Error: Chrome cookie DB not found at {db_path}", file=sys.stderr)
+        return 1
+
+    key = get_chrome_key()
+    rows = read_cookies(db_path, domain)
+
+    cookies: list[dict[str, Any]] = []
+    for row in rows:
+        enc = row.pop("encrypted_value")
+        if enc:
+            try:
+                row["value"] = decrypt_cookie_value(enc, key)
+            except Exception as exc:
+                print(f"Warning: could not decrypt {row['name']}@{row['domain']}: {exc}", file=sys.stderr)
+                continue
+        cookies.append(row)
+
+    out_path = output or DEFAULT_OUTPUT
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    out_path.write_text(json.dumps(cookies, indent=2, ensure_ascii=False), encoding="utf-8")
+    print(f"Exported {len(cookies)} cookies to {out_path}")
+    return 0
 
 
-def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Chrome cookie export/import for Playwright")
-    sub = parser.add_subparsers(dest="command")
+# ── Import command ────────────────────────────────────────────────────────────
 
-    exp = sub.add_parser("export", help="Export cookies from Chrome to JSON")
-    exp.add_argument("--profile", default="Default", help="Chrome profile name (default: Default)")
-    exp.add_argument("--domain", default=None, help="Filter cookies by domain substring")
-    exp.add_argument("--output", "-o", default=None, help="Output JSON path")
-    exp.add_argument("--no-decrypt", action="store_true", help="Skip decryption (export raw values)")
 
-    imp = sub.add_parser("import", help="Import cookies JSON into Playwright context")
-    imp.add_argument("cookies_json", type=Path, help="Path to cookies JSON file")
-    imp.add_argument("--browser", default="chromium", choices=["chromium", "firefox", "webkit"])
+def cmd_import(cookies_json: Path, browser_context: Any = None) -> int:
+    """Import cookies from a JSON file into a Playwright BrowserContext.
 
-    return parser
+    If browser_context is None, prints the cookies that would be loaded.
+    """
+    if not cookies_json.exists():
+        print(f"Error: file not found: {cookies_json}", file=sys.stderr)
+        return 1
+
+    cookies = json.loads(cookies_json.read_text(encoding="utf-8"))
+    if not isinstance(cookies, list):
+        print("Error: expected JSON array of cookies", file=sys.stderr)
+        return 1
+
+    if browser_context is not None:
+        # Playwright BrowserContext.add_cookies expects specific shape
+        pw_cookies = []
+        for c in cookies:
+            pw_cookie: dict[str, Any] = {
+                "name": c["name"],
+                "value": c["value"],
+                "domain": c["domain"],
+                "path": c.get("path", "/"),
+            }
+            if c.get("expires") and c["expires"] > 0:
+                pw_cookie["expires"] = c["expires"]
+            if c.get("httponly"):
+                pw_cookie["httpOnly"] = True
+            if c.get("secure"):
+                pw_cookie["secure"] = True
+            if c.get("samesite"):
+                pw_cookie["sameSite"] = c["samesite"]
+            pw_cookies.append(pw_cookie)
+        browser_context.add_cookies(pw_cookies)
+        print(f"Loaded {len(pw_cookies)} cookies into browser context")
+    else:
+        for c in cookies:
+            print(f"  {c.get('name', '?')} @ {c.get('domain', '?')}")
+        print(f"{len(cookies)} cookies (dry run — no browser context provided)")
+    return 0
+
+
+# ── CLI ──────────────────────────────────────────────────────────────────────
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = build_parser()
+    parser = argparse.ArgumentParser(
+        prog="cookie-sync",
+        description="Export Chrome cookies to JSON / import into Playwright",
+    )
+    sub = parser.add_subparsers(dest="command")
+
+    # export
+    p_export = sub.add_parser("export", help="Export Chrome cookies to JSON")
+    p_export.add_argument("--profile", default="Default", help="Chrome profile name (default: Default)")
+    p_export.add_argument("--domain", default=None, help="Filter by domain substring")
+    p_export.add_argument("--output", default=None, type=Path, help="Output JSON path")
+
+    # import
+    p_import = sub.add_parser("import", help="Import cookies JSON into Playwright context")
+    p_import.add_argument("cookies_json", type=Path, help="Path to cookies JSON file")
+
     args = parser.parse_args(argv)
-
-    if args.command == "export":
-        db_path = CHROME_BASE / args.profile / "Cookies"
-        if not db_path.exists():
-            print(f"Chrome cookies DB not found: {db_path}", file=sys.stderr)
-            return 1
-        output_path = Path(args.output) if args.output else DEFAULT_OUTPUT
-        output_path.parent.mkdir(parents=True, exist_ok=True)
-
-        cookies = read_cookies(db_path, domain_filter=args.domain)
-
-        if not args.no_decrypt:
-            try:
-                raw_key = get_chrome_key()
-                aes_key = derive_encryption_key(raw_key)
-                cookies = decrypt_exported_cookies(cookies, aes_key)
-            except Exception as exc:
-                print(f"Decryption failed (use --no-decrypt to skip): {exc}", file=sys.stderr)
-                return 1
-        else:
-            # Strip _encrypted flag even without decryption
-            for c in cookies:
-                c.pop("_encrypted", None)
-
-        output_path.write_text(json.dumps(cookies, indent=2, ensure_ascii=False), encoding="utf-8")
-        print(f"Exported {len(cookies)} cookies to {output_path}")
-        return 0
-
-    elif args.command == "import":
-        if not args.cookies_json.exists():
-            print(f"File not found: {args.cookies_json}", file=sys.stderr)
-            return 1
-        import_cookies(args.cookies_json, browser_type=args.browser)
-        return 0
-
-    else:
+    if args.command is None:
         parser.print_help()
         return 1
 
+    if args.command == "export":
+        return cmd_export(profile=args.profile, domain=args.domain, output=args.output)
+    elif args.command == "import":
+        return cmd_import(args.cookies_json)
+    return 1
+
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    sys.exit(main())
