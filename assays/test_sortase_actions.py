@@ -8,6 +8,7 @@ with edge cases for empty/missing input.
 from __future__ import annotations
 
 import json
+import subprocess
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -34,7 +35,7 @@ def _make_task_result(
     duration_s: float = 1.0,
     fallbacks: list[str] | None = None,
 ):
-    """Build a lightweight TaskExecutionResult-like object."""
+    """Build a lightweight TaskExecutionResult-like mock."""
     attempt = MagicMock()
     attempt.duration_s = duration_s
     result = MagicMock()
@@ -44,6 +45,18 @@ def _make_task_result(
     result.attempts = [attempt]
     result.fallbacks = fallbacks or []
     return result
+
+
+# Patch targets — all lazy imports in sortase.py are resolved from their
+# source modules, so we patch there (coaching: "mock where looked up").
+_PATCH_ROUTE = "metabolon.sortase.router.route_description"
+_PATCH_EXEC = "metabolon.sortase.executor.execute_tasks"
+_PATCH_VALIDATE = "metabolon.sortase.validator.validate_execution"
+_PATCH_APPEND_LOG = "metabolon.sortase.logger.append_log"
+_PATCH_LIST_RUNNING = "metabolon.sortase.executor.list_running"
+_PATCH_READ_LOGS = "metabolon.sortase.logger.read_logs"
+_PATCH_AGGREGATE = "metabolon.sortase.logger.aggregate_stats"
+_PATCH_SUBPROCESS = "subprocess.run"
 
 
 # ---------------------------------------------------------------------------
@@ -150,11 +163,11 @@ class TestDispatchAction:
         assert result.success is False
         assert "Not a directory" in result.message
 
-    @patch("metabolon.enzymes.sortase.append_log")
-    @patch("metabolon.sortase.validator.validate_execution", return_value=[])
-    @patch("metabolon.sortase.executor.execute_tasks")
-    @patch("metabolon.sortase.router.route_description")
-    @patch("subprocess.run")
+    @patch(_PATCH_APPEND_LOG)
+    @patch(_PATCH_VALIDATE, return_value=[])
+    @patch(_PATCH_EXEC)
+    @patch(_PATCH_ROUTE)
+    @patch(_PATCH_SUBPROCESS)
     def test_dispatch_success(
         self, mock_sp, mock_route, mock_exec, mock_validate, mock_log, tmp_path
     ):
@@ -180,11 +193,11 @@ class TestDispatchAction:
         log_entry = mock_log.call_args[0][0]
         assert log_entry["success"] is True
 
-    @patch("metabolon.enzymes.sortase.append_log")
-    @patch("metabolon.sortase.validator.validate_execution")
-    @patch("metabolon.sortase.executor.execute_tasks")
-    @patch("metabolon.sortase.router.route_description")
-    @patch("subprocess.run")
+    @patch(_PATCH_APPEND_LOG)
+    @patch(_PATCH_VALIDATE, return_value=[])
+    @patch(_PATCH_EXEC)
+    @patch(_PATCH_ROUTE)
+    @patch(_PATCH_SUBPROCESS)
     def test_dispatch_with_backend_override(
         self, mock_sp, mock_route, mock_exec, mock_validate, mock_log, tmp_path
     ):
@@ -194,7 +207,6 @@ class TestDispatchAction:
         task_result = _make_task_result(tool="codex", success=True)
         mock_exec.return_value = [task_result]
         mock_sp.return_value = MagicMock(stdout="", stderr="")
-        mock_validate.return_value = []
 
         result = sortase(
             action="dispatch",
@@ -207,22 +219,21 @@ class TestDispatchAction:
         # route_description should receive forced_backend="codex"
         mock_route.assert_called_with("refactor rust crate", forced_backend="codex")
 
-    @patch("metabolon.enzymes.sortase.append_log")
-    @patch("metabolon.sortase.validator.validate_execution")
-    @patch("metabolon.sortase.executor.execute_tasks")
-    @patch("metabolon.sortase.router.route_description")
-    @patch("subprocess.run")
+    @patch(_PATCH_APPEND_LOG)
+    @patch(_PATCH_VALIDATE)
+    @patch(_PATCH_EXEC)
+    @patch(_PATCH_ROUTE)
+    @patch(_PATCH_SUBPROCESS)
     def test_dispatch_failure_recorded(
         self, mock_sp, mock_route, mock_exec, mock_validate, mock_log, tmp_path
     ):
         from metabolon.sortase.router import RouteDecision
+        from metabolon.sortase.validator import ValidationIssue
 
         mock_route.return_value = RouteDecision(tool="gemini", reason="algo")
         task_result = _make_task_result(success=False)
         mock_exec.return_value = [task_result]
         mock_sp.return_value = MagicMock(stdout="", stderr="")
-
-        from metabolon.sortase.validator import ValidationIssue
         mock_validate.return_value = [
             ValidationIssue(check="tests", message="test failed", severity="error"),
         ]
@@ -240,11 +251,11 @@ class TestDispatchAction:
         assert log_entry["success"] is False
         assert log_entry["failure_reason"] == "test failed"
 
-    @patch("metabolon.enzymes.sortase.append_log")
-    @patch("metabolon.sortase.validator.validate_execution", return_value=[])
-    @patch("metabolon.sortase.executor.execute_tasks")
-    @patch("metabolon.sortase.router.route_description")
-    @patch("subprocess.run")
+    @patch(_PATCH_APPEND_LOG)
+    @patch(_PATCH_VALIDATE, return_value=[])
+    @patch(_PATCH_EXEC)
+    @patch(_PATCH_ROUTE)
+    @patch(_PATCH_SUBPROCESS)
     def test_dispatch_files_changed(
         self, mock_sp, mock_route, mock_exec, mock_validate, mock_log, tmp_path
     ):
@@ -253,7 +264,6 @@ class TestDispatchAction:
         mock_route.return_value = RouteDecision(tool="goose", reason="Default route")
         mock_exec.return_value = [_make_task_result()]
         mock_sp.return_value = MagicMock(stdout="main.py\nutils.py\n", stderr="")
-        mock_validate.return_value = []
 
         result = sortase(
             action="dispatch",
@@ -270,7 +280,7 @@ class TestDispatchAction:
 
 class TestRouteAction:
 
-    @patch("metabolon.sortase.router.route_description")
+    @patch(_PATCH_ROUTE)
     def test_route_with_description(self, mock_route):
         from metabolon.sortase.router import RouteDecision
 
@@ -282,7 +292,7 @@ class TestRouteAction:
         assert result.tool == "codex"
         assert "Rust" in result.reason
 
-    @patch("metabolon.sortase.router.route_description")
+    @patch(_PATCH_ROUTE)
     def test_route_falls_back_to_prompt(self, mock_route):
         from metabolon.sortase.router import RouteDecision
 
@@ -300,7 +310,7 @@ class TestRouteAction:
         assert result.tool == "unknown"
         assert "No description" in result.reason
 
-    @patch("metabolon.sortase.router.route_description")
+    @patch(_PATCH_ROUTE)
     def test_route_empty_strings(self, mock_route):
         result = sortase(action="route", description="", prompt="")
         assert isinstance(result, RouteResult)
@@ -314,7 +324,7 @@ class TestRouteAction:
 
 class TestStatusAction:
 
-    @patch("metabolon.sortase.executor.list_running", return_value=[])
+    @patch(_PATCH_LIST_RUNNING, return_value=[])
     def test_status_no_running(self, mock_list):
         result = sortase(action="status")
         assert isinstance(result, SortaseResult)
@@ -322,7 +332,7 @@ class TestStatusAction:
         assert "0 running" in result.message
         assert result.tasks == []
 
-    @patch("metabolon.sortase.executor.list_running")
+    @patch(_PATCH_LIST_RUNNING)
     def test_status_with_running_tasks(self, mock_list):
         mock_list.return_value = [
             {"task_name": "task-a", "tool": "goose", "project_dir": "/proj", "started_at": "2025-01-01T00:00"},
@@ -345,7 +355,7 @@ class TestStatusAction:
 
 class TestStatsAction:
 
-    @patch("metabolon.sortase.logger.read_logs", return_value=[])
+    @patch(_PATCH_READ_LOGS, return_value=[])
     def test_stats_empty(self, mock_read):
         result = sortase(action="stats")
         assert isinstance(result, StatsResult)
@@ -353,8 +363,8 @@ class TestStatsAction:
         assert result.per_tool == {}
         assert result.total_runs == 0
 
-    @patch("metabolon.sortase.logger.aggregate_stats")
-    @patch("metabolon.sortase.logger.read_logs")
+    @patch(_PATCH_AGGREGATE)
+    @patch(_PATCH_READ_LOGS)
     def test_stats_with_entries(self, mock_read, mock_agg):
         mock_read.return_value = [
             {"timestamp": "2025-01-01T10:00", "plan": "p1", "tool": "goose", "success": True},
@@ -373,8 +383,8 @@ class TestStatsAction:
         assert len(result.entries) == 3
         assert result.entries[-1]["tool"] == "gemini"
 
-    @patch("metabolon.sortase.logger.aggregate_stats")
-    @patch("metabolon.sortase.logger.read_logs")
+    @patch(_PATCH_AGGREGATE)
+    @patch(_PATCH_READ_LOGS)
     def test_stats_last_n_limits_output(self, mock_read, mock_agg):
         entries = [
             {"timestamp": f"2025-01-01T{i:02d}:00", "plan": f"p{i}", "tool": "goose", "success": True}
@@ -388,8 +398,8 @@ class TestStatsAction:
         assert len(result.entries) == 5
         assert result.total_runs == 20
 
-    @patch("metabolon.sortase.logger.aggregate_stats")
-    @patch("metabolon.sortase.logger.read_logs")
+    @patch(_PATCH_AGGREGATE)
+    @patch(_PATCH_READ_LOGS)
     def test_stats_missing_fields_get_defaults(self, mock_read, mock_agg):
         mock_read.return_value = [{"tool": "goose"}]
         mock_agg.return_value = {"per_tool": {"goose": {"runs": 1}}, "total_runs": 1}
