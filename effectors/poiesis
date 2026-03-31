@@ -7,11 +7,11 @@
 poiesis — search Capco vault notes by keyword.
 
 Usage:
-  copia <query>        fuzzy search across all 3 files
-  copia --cases        list use case titles from FS AI Use Case Library.md
-  copia --objections   list objection headers from AI Objection Handlers.md
-  copia --questions    list question sections from AI Engagement Qualifying Questions.md
-  copia --help         show this help
+  poiesis <query>        fuzzy search across all 3 files
+  poiesis --cases        list use case titles from FS AI Use Case Library.md
+  poiesis --objections   list objection headers from AI Objection Handlers.md
+  poiesis --questions    list question sections from AI Engagement Qualifying Questions.md
+  poiesis --help         show this help
 """
 
 import sys

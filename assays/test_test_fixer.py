@@ -26,7 +26,8 @@ def test_cli_requires_test_file_arg():
         text=True,
     )
     assert result.returncode != 0
-    assert "test file" in result.stdout.lower() or "usage" in result.stdout.lower()
+    output = result.stdout + result.stderr
+    assert "test_file" in output.lower() or "usage" in output.lower()
 
 
 def test_cli_reports_missing_file():

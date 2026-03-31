@@ -1,0 +1,186 @@
+#!/usr/bin/env python3
+"""Coverage map for metabolon modules.
+
+Scans metabolon/ for Python modules and checks if corresponding tests exist
+in assays/. Reports tested percentage and lists untested modules.
+"""
+from __future__ import annotations
+
+import argparse
+import subprocess
+import sys
+from pathlib import Path
+from collections import defaultdict
+
+
+def find_modules(metabolon_path: Path) -> list[str]:
+    """Find all Python modules in metabolon/, excluding __init__.py and __main__.py."""
+    modules = []
+    for py_file in metabolon_path.rglob("*.py"):
+        rel_path = py_file.relative_to(metabolon_path)
+        name = rel_path.with_suffix("").as_posix()
+        # Skip __init__ and __main__
+        if name.endswith("/__init__") or name.endswith("/__main__"):
+            continue
+        # Skip embedded test directories
+        if "/tests/" in name or name.startswith("tests/"):
+            continue
+        modules.append(name)
+    return sorted(modules)
+
+
+def module_to_test_name(module: str) -> str:
+    """Convert module path to expected test file name.
+
+    Examples:
+        enzymes/sortase -> test_sortase.py
+        organelles/endocytosis_rss/fetcher -> test_rss_fetcher.py
+        lysin/cli -> test_lysin_cli.py
+    """
+    parts = module.split("/")
+    # Handle subpackage modules with prefix
+    if len(parts) > 1:
+        # Check for nested paths - use last parts for uniqueness
+        if len(parts) >= 3:
+            # e.g., organelles/endocytosis_rss/fetcher -> test_rss_fetcher.py
+            parent = parts[-2]
+            name = parts[-1]
+            if "_" in parent:
+                # Use suffix of parent (e.g., endocytosis_rss -> rss)
+                prefix = parent.split("_")[-1]
+                return f"test_{prefix}_{name}.py"
+            return f"test_{parent}_{name}.py"
+        # Two-part path: enzymes/sortase -> test_sortase.py
+        return f"test_{parts[-1]}.py"
+    return f"test_{parts[0]}.py"
+
+
+def find_test_files(assays_path: Path) -> set[str]:
+    """Find all test files in assays/."""
+    if not assays_path.exists():
+        return set()
+    return {f.name for f in assays_path.glob("test_*.py")}
+
+
+def check_coverage(modules: list[str], test_files: set[str]) -> tuple[dict, list[str]]:
+    """Check which modules have tests and which don't."""
+    coverage = {}
+    untested = []
+    
+    for module in modules:
+        expected_test = module_to_test_name(module)
+        has_test = expected_test in test_files
+        coverage[module] = (expected_test, has_test)
+        if not has_test:
+            untested.append(module)
+    
+    return coverage, untested
+
+
+def print_report(modules: list[str], test_files: set[str], coverage: dict, untested: list[str]):
+    """Print coverage report."""
+    total = len(modules)
+    tested = total - len(untested)
+    pct = (tested / total * 100) if total > 0 else 0
+    
+    print("=" * 60)
+    print("METABOLON TEST COVERAGE REPORT")
+    print("=" * 60)
+    print(f"\nTotal modules: {total}")
+    print(f"Tested modules: {tested}")
+    print(f"Untested modules: {len(untested)}")
+    print(f"Coverage: {pct:.1f}%")
+    
+    if untested:
+        print(f"\n{'='*60}")
+        print("UNTESTED MODULES")
+        print("=" * 60)
+        # Group by top-level package
+        by_package = defaultdict(list)
+        for mod in untested:
+            pkg = mod.split("/")[0]
+            by_package[pkg].append(mod)
+        
+        for pkg in sorted(by_package.keys()):
+            print(f"\n[{pkg}]")
+            for mod in sorted(by_package[pkg]):
+                expected = coverage[mod][0]
+                print(f"  {mod} -> {expected}")
+    
+    # Show tested modules briefly
+    if tested > 0:
+        print(f"\n{'='*60}")
+        print("TESTED MODULES")
+        print("=" * 60)
+        for mod in modules:
+            if coverage[mod][1]:
+                print(f"  ✓ {mod}")
+    
+    print(f"\n{'='*60}")
+    print(f"SUMMARY: {tested}/{total} modules tested ({pct:.1f}%)")
+    print("=" * 60)
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="Check test coverage for metabolon modules"
+    )
+    parser.add_argument(
+        "--json", action="store_true",
+        help="Output as JSON"
+    )
+    parser.add_argument(
+        "--create-stubs", action="store_true",
+        help="Create stub test files for untested modules"
+    )
+    args = parser.parse_args()
+    
+    germline = Path(__file__).parent.parent
+    metabolon_path = germline / "metabolon"
+    assays_path = germline / "assays"
+    
+    modules = find_modules(metabolon_path)
+    test_files = find_test_files(assays_path)
+    coverage, untested = check_coverage(modules, test_files)
+    
+    if args.json:
+        import json
+        result = {
+            "total": len(modules),
+            "tested": len(modules) - len(untested),
+            "untested_count": len(untested),
+            "coverage_pct": round((len(modules) - len(untested)) / len(modules) * 100, 1) if modules else 0,
+            "untested": untested,
+            "modules": modules
+        }
+        print(json.dumps(result, indent=2))
+    else:
+        print_report(modules, test_files, coverage, untested)
+    
+    if args.create_stubs and untested:
+        assays_path.mkdir(exist_ok=True)
+        created = 0
+        for mod in untested:
+            expected_test = coverage[mod][0]
+            test_path = assays_path / expected_test
+            if not test_path.exists():
+                # Create minimal stub
+                module_import = f"metabolon.{mod.replace('/', '.')}"
+                stub = f'''"""Tests for {module_import}."""
+import pytest
+
+
+def test_placeholder():
+    """Placeholder test for {mod}."""
+    # TODO: Add real tests
+    assert True
+'''
+                test_path.write_text(stub)
+                created += 1
+        print(f"\nCreated {created} stub test files in assays/")
+    
+    return 0 if len(untested) == 0 else 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())
