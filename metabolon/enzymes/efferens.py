@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from metabolon.organelles.effector import run_cli
 
 from fastmcp.tools import tool
 from mcp.types import ToolAnnotations
 
-BINARY = "/Users/terry/.local/bin/efferens"
+BINARY = str(Path.home() / ".local/bin/efferens")
 
 
 @tool(

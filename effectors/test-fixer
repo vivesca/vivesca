@@ -1,0 +1,343 @@
+#!/usr/bin/env python
+# test-fixer — automated test file fixer for common issues
+#
+# Usage:
+#   test-fixer assays/test_foo.py
+#
+# Runs pytest, detects common issues, applies fixes, reruns, reports results.
+#
+# Common fixes:
+#   - Replace /Users/terry/ or /home/terry/ with Path.home()
+#   - Convert 'import <effector>' to exec-based loading
+#   - Fix mock placement issues
+from __future__ import annotations
+
+import argparse
+import re
+import subprocess
+import sys
+from pathlib import Path
+from typing import NamedTuple
+
+
+class PytestResult(NamedTuple):
+    passed: int
+    failed: int
+    errors: list[str]
+    output: str
+
+
+# ── Issue detection ────────────────────────────────────────────────────────
+
+
+def detect_issues(code: str) -> list[str]:
+    """Detect common issues in test code."""
+    issues = []
+    
+    # Hardcoded macOS path
+    if "/Users/terry/" in code:
+        issues.append("Hardcoded macOS path '/Users/terry/' - use Path.home()")
+    
+    # Hardcoded Linux path
+    if "/home/terry/" in code:
+        issues.append("Hardcoded Linux path '/home/terry/' - use Path.home()")
+    
+    # Import effector (effectors are scripts, not importable)
+    # Match patterns like: import lacuna, from lacuna import, from telophase import
+    effector_import_pattern = r'^\s*(?:import\s+(\w+)|from\s+(\w+)\s+import)'
+    for line in code.splitlines():
+        match = re.match(effector_import_pattern, line)
+        if match:
+            module = match.group(1) or match.group(2)
+            # Check if this looks like an effector (lowercase, not stdlib)
+            if module and module.islower() and module not in {
+                'os', 'sys', 're', 'json', 'subprocess', 'pathlib', 'typing',
+                'collections', 'itertools', 'functools', 'unittest', 'pytest',
+                'tempfile', 'contextlib', 'io', 'time', 'datetime', 'hashlib',
+                'threading', 'multiprocessing', 'concurrent', 'asyncio', 'logging',
+                'argparse', 'shutil', 'glob', 'copy', 'dataclasses', 'enum',
+            }:
+                issues.append(f"Direct import of '{module}' - effectors are scripts, use exec() or subprocess.run()")
+    
+    return issues
+
+
+# ── Fix application ─────────────────────────────────────────────────────────
+
+
+def apply_fixes(code: str) -> str:
+    """Apply automated fixes to test code."""
+    original = code
+    needs_path_import = False
+    
+    # Fix hardcoded macOS path
+    if "/Users/terry/" in code:
+        code = code.replace("/Users/terry/", 'str(Path.home()) + "/')
+        # Fix the str() wrapping - we want Path.home() /
+        code = re.sub(
+            r'str\(Path\.home\(\)\) \+ "/([^"]*)"',
+            r'str(Path.home() / "\1")',
+            code
+        )
+        # Simpler: just replace the path pattern directly
+        code = original.replace("/Users/terry/", "Path.home() / ")
+        needs_path_import = True
+    
+    # Fix hardcoded Linux path
+    if "/home/terry/" in code:
+        code = code.replace("/home/terry/", "Path.home() / ")
+        needs_path_import = True
+    
+    # Add Path import if needed and not present
+    if needs_path_import and "from pathlib import Path" not in code:
+        # Find where to insert - after docstring or at start
+        lines = code.splitlines()
+        insert_idx = 0
+        
+        # Skip shebang
+        if lines and lines[0].startswith("#!"):
+            insert_idx = 1
+        
+        # Skip module docstring
+        if insert_idx < len(lines) and lines[insert_idx].startswith('"""'):
+            for i in range(insert_idx + 1, len(lines)):
+                if '"""' in lines[i]:
+                    insert_idx = i + 1
+                    break
+        
+        # Find existing imports section
+        for i in range(insert_idx, len(lines)):
+            if lines[i].startswith("from __future__"):
+                insert_idx = i + 1
+            elif lines[i].startswith("import ") or lines[i].startswith("from "):
+                insert_idx = i + 1
+            elif lines[i].strip() == "" or lines[i].startswith("def ") or lines[i].startswith("class "):
+                break
+        
+        lines.insert(insert_idx, "from pathlib import Path")
+        code = "\n".join(lines)
+    
+    # Fix effector imports - replace with exec loading pattern
+    # Pattern: import <module> -> exec loading
+    import_pattern = r'^(\s*)import\s+(\w+)\s*$'
+    from_import_pattern = r'^(\s*)from\s+(\w+)\s+import\s+(.+)$'
+    
+    lines = code.splitlines()
+    new_lines = []
+    modules_to_load = set()
+    
+    for line in lines:
+        import_match = re.match(import_pattern, line)
+        from_match = re.match(from_import_pattern, line)
+        
+        if import_match:
+            module = import_match.group(2)
+            if module.islower() and module not in {
+                'os', 'sys', 're', 'json', 'subprocess', 'pathlib', 'typing',
+                'collections', 'itertools', 'functools', 'unittest', 'pytest',
+                'tempfile', 'contextlib', 'io', 'time', 'datetime', 'hashlib',
+                'argparse', 'shutil', 'glob', 'copy', 'dataclasses', 'enum',
+                'threading', 'multiprocessing', 'concurrent', 'asyncio', 'logging',
+            }:
+                modules_to_load.add(module)
+                # Add comment noting the replacement
+                new_lines.append(f"# NOTE: '{module}' loaded via exec (effector script)")
+                continue
+        
+        elif from_match:
+            module = from_match.group(2)
+            names = from_match.group(3)
+            if module.islower() and module not in {
+                'os', 'sys', 're', 'json', 'subprocess', 'pathlib', 'typing',
+                'collections', 'itertools', 'functools', 'unittest', 'pytest',
+                'tempfile', 'contextlib', 'io', 'time', 'datetime', 'hashlib',
+                'argparse', 'shutil', 'glob', 'copy', 'dataclasses', 'enum',
+                'threading', 'multiprocessing', 'concurrent', 'asyncio', 'logging',
+            }:
+                modules_to_load.add(module)
+                new_lines.append(f"# NOTE: '{module}' loaded via exec (effector script)")
+                continue
+        
+        new_lines.append(line)
+    
+    # Add loader functions for detected modules
+    if modules_to_load:
+        loader_code = []
+        for module in sorted(modules_to_load):
+            loader_code.append(f'''
+def _load_{module}():
+    """Load {module} effector via exec."""
+    source = open(Path.home() / "germline" / "effectors" / "{module}").read()
+    ns = {{"__name__": "{module}"}}
+    exec(source, ns)
+    return ns
+
+_{module}_mod = _load_{module}()
+''')
+        
+        # Insert loader code after imports
+        for i, line in enumerate(new_lines):
+            if line.strip() and not line.startswith("#") and not line.startswith("from ") and not line.startswith("import ") and not line.startswith('"""'):
+                new_lines[i:i] = loader_code
+                break
+    
+    code = "\n".join(new_lines)
+    return code
+
+
+# ── Pytest runner ───────────────────────────────────────────────────────────
+
+
+def run_pytest(test_file: Path) -> dict:
+    """Run pytest and parse results."""
+    result = subprocess.run(
+        ["uv", "run", "pytest", str(test_file), "-v", "--tb=short"],
+        capture_output=True,
+        text=True,
+        cwd=Path.home() / "germline",
+    )
+    
+    output = result.stdout + result.stderr
+    passed = 0
+    failed = 0
+    errors = []
+    
+    # Parse pytest summary line (e.g., "3 passed, 1 failed")
+    summary_match = re.search(r'(\d+) passed', output)
+    if summary_match:
+        passed = int(summary_match.group(1))
+    
+    failed_match = re.search(r'(\d+) failed', output)
+    if failed_match:
+        failed = int(failed_match.group(1))
+    
+    # Extract error lines
+    for line in output.splitlines():
+        if "FAILED" in line or "ERROR" in line or "AssertionError" in line:
+            errors.append(line.strip())
+    
+    return {
+        "passed": passed,
+        "failed": failed,
+        "errors": errors[:5],  # Limit to first 5
+        "output": output,
+        "returncode": result.returncode,
+    }
+
+
+# ── Report formatting ────────────────────────────────────────────────────────
+
+
+def format_report(
+    test_file: str,
+    initial: dict,
+    final: dict,
+    fixes_applied: list[str],
+) -> str:
+    """Format a summary report."""
+    lines = [
+        f"# test-fixer report: {test_file}",
+        "",
+    ]
+    
+    if not fixes_applied:
+        lines.append("No automated fixes needed.")
+    else:
+        lines.append("Fixes applied:")
+        for fix in fixes_applied:
+            lines.append(f"  - {fix}")
+    
+    lines.extend([
+        "",
+        f"Initial: {initial['passed']} passed, {initial['failed']} failed",
+        f"Final:   {final['passed']} passed, {final['failed']} failed",
+    ])
+    
+    if final["failed"] > 0:
+        lines.extend([
+            "",
+            "Remaining errors:",
+        ])
+        for err in final["errors"][:3]:
+            lines.append(f"  - {err}")
+    
+    return "\n".join(lines)
+
+
+# ── Main entry point ────────────────────────────────────────────────────────
+
+
+def main(args: list[str] | None = None) -> int:
+    """Main entry point."""
+    parser = argparse.ArgumentParser(
+        description="Automated test file fixer for common issues",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Common fixes applied:
+  - Replace /Users/terry/ or /home/terry/ with Path.home()
+  - Convert 'import <effector>' to exec-based loading
+""",
+    )
+    parser.add_argument("test_file", help="Test file to fix")
+    parser.add_argument("--dry-run", action="store_true", help="Show fixes without applying")
+    
+    parsed = parser.parse_args(args)
+    test_file = Path(parsed.test_file)
+    
+    if not test_file.exists():
+        print(f"Error: Test file not found: {test_file}")
+        return 1
+    
+    # Read test file
+    code = test_file.read_text()
+    
+    # Run initial pytest
+    print(f"Running pytest on {test_file}...")
+    initial_result = run_pytest(test_file)
+    print(f"Initial: {initial_result['passed']} passed, {initial_result['failed']} failed")
+    
+    if initial_result["returncode"] == 0:
+        print("All tests pass, no fixes needed.")
+        return 0
+    
+    # Detect issues
+    issues = detect_issues(code)
+    if not issues:
+        print("No common issues detected. Manual fix required.")
+        print(f"Errors: {initial_result['errors'][:3]}")
+        return 1
+    
+    print(f"\nDetected issues:")
+    for issue in issues:
+        print(f"  - {issue}")
+    
+    if parsed.dry_run:
+        print("\nDry run - showing fixes without applying:")
+        fixed = apply_fixes(code)
+        print(fixed[:500] + "..." if len(fixed) > 500 else fixed)
+        return 0
+    
+    # Apply fixes
+    fixed_code = apply_fixes(code)
+    test_file.write_text(fixed_code)
+    print(f"\nApplied fixes to {test_file}")
+    
+    # Rerun pytest
+    print("\nRerunning pytest...")
+    final_result = run_pytest(test_file)
+    print(f"Final: {final_result['passed']} passed, {final_result['failed']} failed")
+    
+    # Report
+    report = format_report(
+        test_file=str(test_file),
+        initial=initial_result,
+        final=final_result,
+        fixes_applied=issues,
+    )
+    print("\n" + report)
+    
+    return 0 if final_result["returncode"] == 0 else 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())

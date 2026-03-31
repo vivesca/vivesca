@@ -245,13 +245,19 @@ class TestDiskFree:
 
 
 class TestMain:
-    def test_main_no_color(self, tmp_path, monkeypatch, capsys):
-        # Point to empty temp files
-        monkeypatch.setattr(_mod, "JSONL_PATH", tmp_path / "golem.jsonl")
-        monkeypatch.setattr(_mod, "QUEUE_PATH", tmp_path / "queue.md")
-        (tmp_path / "golem.jsonl").write_text("")
-        (tmp_path / "queue.md").write_text("# Queue\n")
-        rc = main(["--no-color"])
+    def test_main_no_color(self, tmp_path, capsys):
+        # Point to empty temp files (mutate exec namespace directly)
+        orig_jsonl = _mod["JSONL_PATH"]
+        orig_queue = _mod["QUEUE_PATH"]
+        try:
+            _mod["JSONL_PATH"] = tmp_path / "golem.jsonl"
+            _mod["QUEUE_PATH"] = tmp_path / "queue.md"
+            (tmp_path / "golem.jsonl").write_text("")
+            (tmp_path / "queue.md").write_text("# Queue\n")
+            rc = main(["--no-color"])
+        finally:
+            _mod["JSONL_PATH"] = orig_jsonl
+            _mod["QUEUE_PATH"] = orig_queue
         assert rc == 0
         captured = capsys.readouterr()
         assert "Provider Stats" in captured.out
@@ -259,16 +265,22 @@ class TestMain:
         assert "Last Completed" in captured.out
         assert "Disk" in captured.out
 
-    def test_main_with_color(self, tmp_path, monkeypatch, capsys):
-        monkeypatch.setattr(_mod, "JSONL_PATH", tmp_path / "golem.jsonl")
-        monkeypatch.setattr(_mod, "QUEUE_PATH", tmp_path / "queue.md")
-        (tmp_path / "golem.jsonl").write_text(
-            '{"ts":"2026-01-01","provider":"zhipu","duration":10,"exit":0}\n'
-        )
-        (tmp_path / "queue.md").write_text(
-            '- [x] `golem --provider zhipu "hello"` → exit=0\n'
-        )
-        rc = main([])
+    def test_main_with_color(self, tmp_path, capsys):
+        orig_jsonl = _mod["JSONL_PATH"]
+        orig_queue = _mod["QUEUE_PATH"]
+        try:
+            _mod["JSONL_PATH"] = tmp_path / "golem.jsonl"
+            _mod["QUEUE_PATH"] = tmp_path / "queue.md"
+            (tmp_path / "golem.jsonl").write_text(
+                '{"ts":"2026-01-01","provider":"zhipu","duration":10,"exit":0}\n'
+            )
+            (tmp_path / "queue.md").write_text(
+                '- [x] `golem --provider zhipu "hello"` → exit=0\n'
+            )
+            rc = main([])
+        finally:
+            _mod["JSONL_PATH"] = orig_jsonl
+            _mod["QUEUE_PATH"] = orig_queue
         assert rc == 0
         captured = capsys.readouterr()
         assert "\033[" in captured.out

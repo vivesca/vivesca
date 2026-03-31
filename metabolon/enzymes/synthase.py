@@ -6,12 +6,14 @@ Tools:
   synthase — run a prompt through Claude Code with MCP, skills, memory
 """
 
+from pathlib import Path
+
 from fastmcp.tools import tool
 from mcp.types import ToolAnnotations
 
 from metabolon.organelles.effector import run_cli
 
-CHANNEL = "/Users/terry/germline/effectors/channel"
+CHANNEL = str(Path.home() / "germline" / "effectors" / "channel")
 
 _TIMEOUT = 300
 
