@@ -212,8 +212,9 @@ def test_osc52_escape_sequence_format():
         assert r.returncode == 0
 
         written = tty.read_bytes()
-        assert written[:6] == b"\033]52;c;"
+        prefix = b"\033]52;c;"
+        assert written[: len(prefix)] == prefix
         assert written[-1:] == b"\007"
         # Middle portion should be pure base64 chars
-        b64_part = written[6:-1].decode()
+        b64_part = written[len(prefix) : -1].decode()
         assert all(c in "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=" for c in b64_part)
