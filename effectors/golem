@@ -20,6 +20,8 @@ PROVIDER="${GOLEM_PROVIDER:-zhipu}"
 GOLEM_LOG="${GOLEM_LOG:-$HOME/.local/share/vivesca/golem.jsonl}"
 mkdir -p "$(dirname "$GOLEM_LOG")"
 
+COACHING_FILE="$HOME/epigenome/marks/feedback_glm_coaching.md"
+
 # Summary subcommand - show provider stats from JSONL log
 _run_summary() {
   python3 - "$@" << 'PYTHON_SCRIPT'
@@ -136,6 +138,17 @@ esac
 
 _run_golem() {
   local prompt="$1"
+
+  # Prepend coaching notes (same file all providers get)
+  if [[ -f "$COACHING_FILE" ]]; then
+    local coaching
+    coaching="$(cat "$COACHING_FILE")"
+    prompt="<coaching-notes>
+${coaching}
+</coaching-notes>
+
+${prompt}"
+  fi
   local args=(--print --dangerously-skip-permissions --max-turns "$MAX_TURNS")
   $BARE && args+=(--bare)
   local start_ts=$(date +%s)
