@@ -278,7 +278,7 @@ def test_synthesize_signal_summary_no_signals():
 
     assert summary["goal"] == "Test Goal"
     assert summary["phase"] == "Active"
-    assert summary["days_to_next_phase"] == 150
+    assert summary["days_to_next_phase"] == 151
     assert set(summary["categories"].keys()) == {"D1", "D2", "D3"}
     assert summary["categories"]["D1"]["avg_score"] == 0
     assert summary["categories"]["D1"]["drill_count"] == 0

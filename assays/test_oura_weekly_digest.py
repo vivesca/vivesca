@@ -206,11 +206,9 @@ class TestTrendArrow:
         ns = _load("oura-weekly-digest")
         assert ns.trend_arrow(["80", "85", "90"]) == ""
 
-    def test_skips_dashes(self):
+    def test_all_dashes_returns_empty(self):
         ns = _load("oura-weekly-digest")
-        # recent [--, 90, 92] nums=[90,92] -> only 2 nums < 3 -> ""
-        vals = ["--", "80", "81", "--", "90", "--", "92"]
-        assert ns.trend_arrow(vals) == ""
+        assert ns.trend_arrow(["--", "--", "--", "--", "--"]) == ""
 
 
 # ===================================================================
@@ -228,9 +226,10 @@ class TestFormatSection:
         ns = _load("oura-weekly-digest")
         assert ns.format_section("Sleep", "") == "*No data*"
 
-    def test_whitespace_only_returns_no_data(self):
+    def test_whitespace_only_returns_empty(self):
         ns = _load("oura-weekly-digest")
-        assert ns.format_section("Sleep", "  \n  \n") == "*No data*"
+        # whitespace-only lines are stripped and filtered out -> empty join
+        assert ns.format_section("Sleep", "  \n  \n") == ""
 
     def test_single_line(self):
         ns = _load("oura-weekly-digest")

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from datetime import timedelta
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -23,10 +24,13 @@ from metabolon.enzymes.pinocytosis import (
 
 
 def test_hkt_now_exists():
-    """Test that _hkt_now returns a datetime with HKT timezone."""
+    """Test that _hkt_now returns a datetime with HKT timezone (UTC+8)."""
     result = _hkt_now()
     assert result.tzinfo is not None
-    assert result.tzname() == "HKT"
+    # Check that the offset is +8 hours
+    offset = result.utcoffset()
+    assert offset is not None
+    assert offset == timedelta(hours=8)
 
 
 def test_read_if_fresh_nonexistent():
@@ -104,11 +108,16 @@ def test_count_job_alerts_no_files():
     from metabolon.enzymes import pinocytosis as module
     original = module.JOB_HUNT_DIR
     try:
-        mock_dir = MagicMock(spec=Path)
-        mock_dir.glob.return_value = []
+        # Create a proper mock that handles glob and returns empty list
+        mock_dir = MagicMock()
+        mock_dir.glob = MagicMock(return_value=[])
         module.JOB_HUNT_DIR = mock_dir
-        result = _count_job_alerts()
-        assert "No job alert" in result
+        with patch("metabolon.enzymes.pinocytosis._hkt_now") as mock_hkt:
+            mock_dt = MagicMock()
+            mock_dt.strftime.return_value = "2026-04-01"
+            mock_hkt.return_value = mock_dt
+            result = _count_job_alerts()
+            assert "No job alert" in result
     finally:
         module.JOB_HUNT_DIR = original
 
@@ -189,15 +198,25 @@ def test_pinocytosis_day_action():
 
 def test_pinocytosis_entrainment_status():
     """Test pinocytosis with entrainment_status action."""
-    mock_zeitgebers = MagicMock(return_value={"some": "signal"})
-    mock_optimal = MagicMock(return_value={
+    # The imports are inside the function, so we need to patch builtins.__import__
+    # and mock the imported module properly
+    mock_zeitgebers_func = MagicMock(return_value={"some": "signal"})
+    mock_optimal_func = MagicMock(return_value={
         "recommendations": {"rec": "test"},
         "summary": "test summary"
     })
 
-    with patch("metabolon.enzymes.pinocytosis.optimal_schedule", mock_optimal):
-        with patch("metabolon.enzymes.pinocytosis.zeitgebers", mock_zeitgebers):
-            result = pinocytosis(action="entrainment_status")
-            assert isinstance(result, EntrainmentStatusResult)
-            assert result.signals == {"some": "signal"}
-            assert result.summary == "test summary"
+    mock_module = MagicMock()
+    mock_module.optimal_schedule = mock_optimal_func
+    mock_module.zeitgebers = mock_zeitgebers_func
+
+    def mock_import(name, *args, **kwargs):
+        if name == "metabolon.organelles.entrainment":
+            return mock_module
+        raise ImportError("Not what we're looking for")
+
+    with patch("builtins.__import__", side_effect=mock_import):
+        result = pinocytosis(action="entrainment_status")
+        assert isinstance(result, EntrainmentStatusResult)
+        assert result.signals == {"some": "signal"}
+        assert result.summary == "test summary"

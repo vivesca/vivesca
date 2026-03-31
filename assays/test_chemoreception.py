@@ -357,6 +357,7 @@ class TestMain:
 
         with _patch_attr("REFERENCE_DIR", ref_dir), \
              _patch_attr("DEBOUNCE_FILE", debounce_file), \
+             patch.object(_mod["sys"], "argv", [str(_CHEMO_PATH)]), \
              patch.object(_mod["sys"], "stdin", StringIO(hook_input)), \
              patch("builtins.print") as mock_print:
             chemo.main()
@@ -367,14 +368,16 @@ class TestMain:
 
     def test_main_short_prompt_skipped(self):
         hook_input = json.dumps({"prompt": "hi"})
-        with patch.object(_mod["sys"], "stdin", StringIO(hook_input)), \
+        with patch.object(_mod["sys"], "argv", [str(_CHEMO_PATH)]), \
+             patch.object(_mod["sys"], "stdin", StringIO(hook_input)), \
              patch("builtins.print") as mock_print:
             chemo.main()
             mock_print.assert_not_called()
 
     def test_main_no_prompt_skipped(self):
         hook_input = json.dumps({})
-        with patch.object(_mod["sys"], "stdin", StringIO(hook_input)), \
+        with patch.object(_mod["sys"], "argv", [str(_CHEMO_PATH)]), \
+             patch.object(_mod["sys"], "stdin", StringIO(hook_input)), \
              patch("builtins.print") as mock_print:
             chemo.main()
             mock_print.assert_not_called()
@@ -387,13 +390,15 @@ class TestMain:
         )
 
         with _patch_attr("DEBOUNCE_FILE", debounce_file), \
+             patch.object(_mod["sys"], "argv", [str(_CHEMO_PATH)]), \
              patch.object(_mod["sys"], "stdin", StringIO(hook_input)), \
              patch("builtins.print") as mock_print:
             chemo.main()
             mock_print.assert_not_called()
 
     def test_main_invalid_json_skipped(self):
-        with patch.object(_mod["sys"], "stdin", StringIO("not json")), \
+        with patch.object(_mod["sys"], "argv", [str(_CHEMO_PATH)]), \
+             patch.object(_mod["sys"], "stdin", StringIO("not json")), \
              patch("builtins.print") as mock_print:
             chemo.main()
             mock_print.assert_not_called()
@@ -404,6 +409,7 @@ class TestMain:
         hook_input = json.dumps({"prompt": "the is a"})
 
         with _patch_attr("DEBOUNCE_FILE", debounce_file), \
+             patch.object(_mod["sys"], "argv", [str(_CHEMO_PATH)]), \
              patch.object(_mod["sys"], "stdin", StringIO(hook_input)), \
              patch("builtins.print") as mock_print:
             chemo.main()
@@ -420,6 +426,7 @@ class TestMain:
 
         with _patch_attr("REFERENCE_DIR", ref_dir), \
              _patch_attr("DEBOUNCE_FILE", debounce_file), \
+             patch.object(_mod["sys"], "argv", [str(_CHEMO_PATH)]), \
              patch.object(_mod["sys"], "stdin", StringIO(hook_input)), \
              patch("builtins.print") as mock_print:
             chemo.main()
@@ -440,6 +447,7 @@ class TestMain:
 
         with _patch_attr("REFERENCE_DIR", ref_dir), \
              _patch_attr("DEBOUNCE_FILE", debounce_file), \
+             patch.object(_mod["sys"], "argv", [str(_CHEMO_PATH)]), \
              patch.object(_mod["sys"], "stdin", StringIO(hook_input)), \
              patch("builtins.print") as mock_print:
             chemo.main()
