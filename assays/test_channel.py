@@ -48,7 +48,7 @@ def test_zhipu_models():
 
 def test_claude_path():
     """Test CLAUDE path is set."""
-    assert channel.CLAUDE == "/Users/terry/.local/bin/claude"
+    assert channel.CLAUDE == str(Path.home() / ".local" / "bin" / "claude")
 
 # ---------------------------------------------------------------------------
 # Test _gate function

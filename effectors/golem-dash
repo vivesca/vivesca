@@ -1,0 +1,225 @@
+#!/usr/bin/env python3
+# /// script
+# requires-python = ">=3.11"
+# dependencies = []
+# ///
+"""golem-dash — Dashboard for golem task queue.
+
+Reads golem.jsonl, golem-daemon.log, and golem-queue.md.
+Prints: (1) Provider stats, (2) Queue status, (3) Last 5 completed,
+(4) Disk free. Colorized output.
+
+Usage:
+    golem-dash          # Show dashboard
+    golem-dash --no-color  # No ANSI colors
+"""
+from __future__ import annotations
+
+import json
+import re
+import shutil
+import sys
+from collections import defaultdict
+from pathlib import Path
+
+# Paths
+VIVESCA_DIR = Path.home() / ".local" / "share" / "vivesca"
+JSONL_PATH = VIVESCA_DIR / "golem.jsonl"
+LOG_PATH = VIVESCA_DIR / "golem-daemon.log"
+QUEUE_PATH = Path.home() / "germline" / "loci" / "golem-queue.md"
+
+# ANSI colors
+GREEN = "\033[32m"
+RED = "\033[31m"
+YELLOW = "\033[33m"
+CYAN = "\033[36m"
+BOLD = "\033[1m"
+DIM = "\033[2m"
+RESET = "\033[0m"
+
+
+def fmt_bytes(n: int) -> str:
+    """Format bytes as human-readable string."""
+    for unit in ("B", "KB", "MB", "GB", "TB"):
+        if abs(n) < 1024:
+            return f"{n:.1f} {unit}"
+        n /= 1024
+    return f"{n:.1f} PB"
+
+
+def load_jsonl(path: Path) -> list[dict]:
+    """Parse golem.jsonl, return list of record dicts."""
+    if not path.exists():
+        return []
+    records = []
+    for line in path.read_text().splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            records.append(json.loads(line))
+        except json.JSONDecodeError:
+            continue
+    return records
+
+
+def provider_stats(records: list[dict], use_color: bool = True) -> str:
+    """Build provider stats table from JSONL records."""
+    stats: dict[str, dict] = defaultdict(lambda: {"pass": 0, "fail": 0, "durations": []})
+    for r in records:
+        provider = r.get("provider", "unknown")
+        if r.get("exit", 1) == 0:
+            stats[provider]["pass"] += 1
+        else:
+            stats[provider]["fail"] += 1
+        dur = r.get("duration")
+        if dur is not None:
+            stats[provider]["durations"].append(dur)
+
+    if not stats:
+        return "No task records found."
+
+    header = f"  {'Provider':<10} {'Pass':>6} {'Fail':>6} {'Rate':>7} {'AvgDur':>8}"
+    sep = "  " + "-" * 42
+    lines = [header, sep]
+
+    g = GREEN if use_color else ""
+    r_col = RED if use_color else ""
+    rst = RESET if use_color else ""
+    y = YELLOW if use_color else ""
+
+    for provider in sorted(stats):
+        s = stats[provider]
+        total = s["pass"] + s["fail"]
+        rate = (s["pass"] / total * 100) if total else 0
+        avg_dur = (sum(s["durations"]) / len(s["durations"])) if s["durations"] else 0
+        avg_str = f"{avg_dur:.0f}s" if avg_dur else "-"
+        rate_str = f"{rate:.0f}%"
+
+        pass_str = f"{g}{s['pass']}{rst}" if use_color else str(s["pass"])
+        fail_str = f"{r_col}{s['fail']}{rst}" if use_color else str(s["fail"])
+        rate_color = g if rate >= 80 else (y if rate >= 50 else r_col)
+        rate_str_color = f"{rate_color}{rate_str}{rst}" if use_color else rate_str
+
+        lines.append(f"  {provider:<10} {pass_str:>6} {fail_str:>6} {rate_str_color:>7} {avg_str:>8}")
+
+    return "\n".join(lines)
+
+
+def queue_status(queue_path: Path, use_color: bool = True) -> str:
+    """Parse queue file, return status summary."""
+    pending = done = failed = 0
+    last_done: list[str] = []
+
+    if not queue_path.exists():
+        return "Queue file not found."
+
+    lines = queue_path.read_text().splitlines()
+    for line in lines:
+        m = re.match(r'^- \[ \] `([^`]+)`', line)
+        if m:
+            pending += 1
+            continue
+        m = re.match(r'^- \[x\] `([^`]+)`', line)
+        if m:
+            done += 1
+            result_part = line.split("\u2192")[-1].strip() if "\u2192" in line else "ok"
+            last_done.append((m.group(1)[:60], result_part))
+            continue
+        m = re.match(r'^- \[!\] `([^`]+)`', line)
+        if m:
+            failed += 1
+
+    total = pending + done + failed
+
+    g = GREEN if use_color else ""
+    r_col = RED if use_color else ""
+    c = CYAN if use_color else ""
+    b = BOLD if use_color else ""
+    rst = RESET if use_color else ""
+
+    parts = [
+        f"  Pending: {c}{pending}{rst}",
+        f"Done: {g}{done}{rst}",
+        f"Failed: {r_col}{failed}{rst}",
+        f"Total: {b}{total}{rst}",
+    ]
+
+    return "  ".join(parts), last_done[-5:] if last_done else []
+
+
+def last_completed_table(last_done: list[tuple[str, str]], use_color: bool = True) -> str:
+    """Format last N completed tasks."""
+    if not last_done:
+        return "  No completed tasks."
+
+    g = GREEN if use_color else ""
+    dim = DIM if use_color else ""
+    rst = RESET if use_color else ""
+
+    lines = []
+    for cmd, result in reversed(last_done):
+        # Extract short prompt from command
+        prompt_match = re.search(r'"([^"]+)"', cmd)
+        prompt = prompt_match.group(1)[:50] if prompt_match else cmd[:50]
+        lines.append(f"  {g}\u2713{rst} {dim}{prompt}{rst}  \u2192 {result}")
+
+    return "\n".join(lines)
+
+
+def disk_free(use_color: bool = True) -> str:
+    """Report free disk space on home partition."""
+    try:
+        usage = shutil.disk_usage(Path.home())
+        free_str = fmt_bytes(usage.free)
+        total_str = fmt_bytes(usage.total)
+        pct = (usage.free / usage.total * 100) if usage.total else 0
+
+        y = YELLOW if use_color else ""
+        r_col = RED if use_color else ""
+        rst = RESET if use_color else ""
+
+        color = r_col if pct < 10 else (y if pct < 20 else "")
+        return f"  Free: {color}{free_str}{rst} / {total_str} ({pct:.0f}% free)"
+    except Exception as e:
+        return f"  Disk check failed: {e}"
+
+
+def print_dashboard(use_color: bool = True) -> int:
+    """Print the full golem dashboard."""
+    b = BOLD if use_color else ""
+    rst = RESET if use_color else ""
+
+    # 1. Provider stats
+    records = load_jsonl(JSONL_PATH)
+    print(f"\n{b}Provider Stats{rst}")
+    print(provider_stats(records, use_color))
+
+    # 2. Queue status
+    print(f"\n{b}Queue Status{rst}")
+    status_text, last_done = queue_status(QUEUE_PATH, use_color)
+    print(status_text)
+
+    # 3. Last 5 completed
+    print(f"\n{b}Last Completed{rst}")
+    print(last_completed_table(last_done, use_color))
+
+    # 4. Disk free
+    print(f"\n{b}Disk{rst}")
+    print(disk_free(use_color))
+    print()
+
+    return 0
+
+
+def main(argv: list[str] | None = None) -> int:
+    use_color = True
+    args = argv if argv is not None else sys.argv[1:]
+    if "--no-color" in args:
+        use_color = False
+
+    return print_dashboard(use_color)
+
+
+if __name__ == "__main__":
+    sys.exit(main())

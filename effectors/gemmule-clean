@@ -39,27 +39,24 @@ def _dir_size(path: Path) -> int:
     return total
 
 
-def _safe_path(path: Path) -> bool:
+def _safe_path(path: Path, germline: Path = GERMLINE, epigenome: Path = EPIGENOME) -> bool:
     """Return False if path is inside germline source or epigenome."""
     try:
         resolved = path.resolve()
-        if resolved.is_relative_to(GERMLINE):
-            # Only __pycache__ dirs are allowed under germline
+        if resolved.is_relative_to(germline):
             if resolved.name != "__pycache__":
                 return False
-            # Must not be under epigenome-equivalent within germline
-        if resolved.is_relative_to(EPIGENOME):
+        if resolved.is_relative_to(epigenome):
             return False
     except (OSError, ValueError):
         return False
     return True
 
 
-def clean_tmp_claude(now: float, dry_run: bool = False) -> int:
-    """Remove /tmp/claude-*/ entries older than 24 h. Return bytes freed."""
+def clean_tmp_claude(now: float, dry_run: bool = False, tmp_root: Path = Path("/tmp")) -> int:
+    """Remove tmp_root/claude-*/ entries older than 24 h. Return bytes freed."""
     freed = 0
-    tmp = Path("/tmp")
-    for entry in tmp.glob("claude-*"):
+    for entry in tmp_root.glob("claude-*"):
         try:
             mtime = entry.stat(follow_symlinks=False).st_mtime
         except (FileNotFoundError, PermissionError, OSError):
@@ -84,10 +81,10 @@ def clean_tmp_claude(now: float, dry_run: bool = False) -> int:
     return freed
 
 
-def clean_uv_archive(now: float, dry_run: bool = False) -> int:
-    """Remove ~/.cache/uv/archive-v0/ entries older than 7 days. Return bytes freed."""
+def clean_uv_archive(now: float, dry_run: bool = False, home: Path = HOME) -> int:
+    """Remove home/.cache/uv/archive-v0/ entries older than 7 days. Return bytes freed."""
     freed = 0
-    uv_dir = HOME / ".cache" / "uv" / "archive-v0"
+    uv_dir = home / ".cache" / "uv" / "archive-v0"
     if not uv_dir.is_dir():
         return 0
     for entry in uv_dir.iterdir():
@@ -115,15 +112,16 @@ def clean_uv_archive(now: float, dry_run: bool = False) -> int:
     return freed
 
 
-def clean_pycache(dry_run: bool = False) -> int:
-    """Remove __pycache__ dirs inside ~/germline/. Return bytes freed."""
+def clean_pycache(dry_run: bool = False, germline: Path = GERMLINE, epigenome: Path = EPIGENOME) -> int:
+    """Remove __pycache__ dirs inside germline/. Return bytes freed."""
     freed = 0
-    for pycache in GERMLINE.rglob("__pycache__"):
+    if not germline.is_dir():
+        return 0
+    for pycache in germline.rglob("__pycache__"):
         if not pycache.is_dir():
             continue
-        # Double-check we don't touch epigenome
         try:
-            if pycache.resolve().is_relative_to(EPIGENOME):
+            if pycache.resolve().is_relative_to(epigenome.resolve()):
                 continue
         except (OSError, ValueError):
             continue

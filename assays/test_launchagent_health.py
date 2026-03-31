@@ -175,7 +175,7 @@ class TestCheckSecrets:
         fake_launch.mkdir(parents=True)
         fake_source = tmp_path / "oscillators"
         fake_source.mkdir(parents=True)
-        fake_eff = tmp_path / "effectors"
+        fake_eff = tmp_path / "germline" / "effectors"
         fake_eff.mkdir(parents=True)
 
         monkeypatch.setitem(_mod, "LAUNCH_DIR", fake_launch)
@@ -231,7 +231,7 @@ class TestMainBlock:
         fake_launch.mkdir(parents=True)
         fake_source = tmp_path / "oscillators"
         fake_source.mkdir(parents=True)
-        fake_eff = tmp_path / "effectors"
+        fake_eff = tmp_path / "germline" / "effectors"
         fake_eff.mkdir(parents=True)
         monkeypatch.setitem(_mod, "LAUNCH_DIR", fake_launch)
         monkeypatch.setitem(_mod, "SOURCE_DIR", fake_source)
