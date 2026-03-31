@@ -25,16 +25,24 @@ User says any of: "go build", "work on everything", "blitz", "keep going while I
 
 ## Process
 
-### Phase 1: Audit (CC, not GLM)
+### Phase 1: Audit (GLM exploration specs)
 
-Use CC subagents (Explore type) to rapidly scan for gaps. Typical audit targets:
+Write exploration specs and dispatch to goose. GLM CAN explore — the key is spec design.
 
-1. **Test coverage** — find untested modules via cross-referencing `assays/` against `metabolon/`
+**Typical audit targets:**
+1. **Test coverage** — cross-reference `assays/` against `metabolon/`
 2. **Self-healing gaps** — missing health checks, monitors, recovery paths
 3. **Skill gaps** — consulting tools, automation, missing capabilities
 4. **Reliability debt** — hooks without tests, MCP tools without error handling
 
-Run audits in parallel. Collect into a prioritized gap list.
+**Exploration spec rules (learned 2026-03-31):**
+- **Bounded reads work natively.** Specs that name 4-10 specific files succeed without tricks.
+- **Cross-referencing → embed a script.** If the task matches set A to set B (e.g., modules vs tests), write a Python script in the spec that does the matching. GLM copies and runs it. Shell redirect (`> file.md`) for output.
+- **Large output → shell redirect, not write_file.** Goose's `write_file` tool chokes on payloads >100 lines (error -32602). Use `python3 -c "..." > file.md` or `cat << 'EOF' > file.md`.
+- **Batch commands over individual reads.** `grep -c "def test_" assays/*.py` replaces 100 file reads. `wc -l metabolon/**/*.py` replaces opening each file.
+- **Turn budgeting.** Tell GLM to reserve last 3 turns for writing. "Partial > nothing."
+
+Dispatch exploration specs in parallel via sortase. Collect reports into a prioritized gap list.
 
 ### Phase 2: Prioritize into waves
 
@@ -88,11 +96,12 @@ Follow centrosome spec conventions:
 - **Wave cross-contamination** — uncommitted files from earlier waves get absorbed into later wave commits. Not harmful, but confusing for attribution.
 - **Spec path** — always `~/germline/loci/plans/`, never centrosome-queue or /tmp.
 - **Single-task treatment** — sortase treats markdown plans as single tasks. For true parallelism, dispatch separate plan files.
-- **CC budget** — use CC for audit (fast, needs file access), GLM for generation (free, needs code writing). Don't use CC for code generation or GLM for exploration.
+- **GLM for everything.** Both exploration and generation go to GLM (free, unlimited ZhiPu plan). CC is for orchestration, verification, and coaching only.
 
 ## Anti-patterns
 
 - Don't dispatch all waves simultaneously — verify each before continuing
 - Don't re-dispatch if GLM already built the file in an earlier wave
-- Don't spend CC budget on exploration that GLM could do (but DO use CC for audits that need Glob/Grep/Read)
+- Don't use CC subagents for audits — write GLM exploration specs instead
 - Don't write specs without reading the target code first
+- Don't ask GLM to cross-reference in its head — embed a script
