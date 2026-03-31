@@ -1,6 +1,8 @@
 from __future__ import annotations
+
 """Tests for effectors/browser — CLI wrapper around metabolon.organelles.browser."""
 
+import asyncio
 import json
 from pathlib import Path
 from unittest.mock import AsyncMock

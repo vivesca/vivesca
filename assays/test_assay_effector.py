@@ -558,10 +558,22 @@ def test_cmd_new_creates_experiment(capsys, tmp_path):
 
     original_dir = _mod["EXPERIMENT_DIR"]
     original_pull = _mod["pull_oura"]
-    original_today = _mod["date"].today
+    original_date = _mod["date"]
     _mod["EXPERIMENT_DIR"] = exp_dir
     _mod["pull_oura"] = mock_pull_oura
-    _mod["date"].today = lambda: date(2024, 1, 15)
+
+    # Create a mock date class that returns fixed today
+    class MockDate:
+        @staticmethod
+        def today():
+            return date(2024, 1, 15)
+        @staticmethod
+        def fromisoformat(s):
+            return date.fromisoformat(s)
+        def __getattr__(self, name):
+            return getattr(date, name)
+
+    _mod["date"] = MockDate
     try:
         args = MagicMock()
         args.name = "Test Experiment"
@@ -573,7 +585,7 @@ def test_cmd_new_creates_experiment(capsys, tmp_path):
     finally:
         _mod["EXPERIMENT_DIR"] = original_dir
         _mod["pull_oura"] = original_pull
-        _mod["date"].today = original_today
+        _mod["date"] = original_date
 
     # Check file was created
     files = list(exp_dir.glob("assay-*.md"))
