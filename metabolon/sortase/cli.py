@@ -74,6 +74,19 @@ def exec_command(
 
     if not quiet:
         console.print(f"[bold]Executing[/bold] {len(tasks)} task(s) in {project_dir}")
+
+    # Best-effort pre-execution test count for summary delta
+    import subprocess as _sp_pre
+    pre_test_count: int | None = None
+    try:
+        _pre_test = _sp_pre.run(
+            ["uv", "run", "pytest", "-q", "--co", "-q"],
+            cwd=project_dir, capture_output=True, text=True, timeout=30,
+        )
+        pre_test_count = len([line for line in _pre_test.stdout.splitlines() if line.strip() and not line.startswith("no tests")])
+    except Exception:
+        pass
+
     results = asyncio.run(execute_tasks(tasks, project_dir, tool_by_task, serial=serial, timeout_sec=timeout, verbose=verbose, dry_run=dry_run, max_retries=retries, coaching=not no_coaching, worktree=worktree))
 
     import subprocess as _sp
@@ -203,6 +216,24 @@ def exec_command(
         console.file.write(f"{_json.dumps(output, indent=2)}\n")
     elif not quiet:
         console.print(f"Logged execution to history. Success={entry['success']}")
+
+    # Best-effort post-execution test count and delta summary
+    if pre_test_count is not None and not dry_run and not quiet:
+        try:
+            import subprocess as _sp_post
+            _post_test = _sp_post.run(
+                ["uv", "run", "pytest", "-q", "--co", "-q"],
+                cwd=project_dir, capture_output=True, text=True, timeout=30,
+            )
+            post_test_count = len([line for line in _post_test.stdout.splitlines() if line.strip() and not line.startswith("no tests")])
+            delta = post_test_count - pre_test_count
+            if delta > 0:
+                console.print(f"[green]Tests: {pre_test_count} → {post_test_count} (+{delta})[/green]")
+            elif delta < 0:
+                console.print(f"[red]Tests: {pre_test_count} → {post_test_count} ({delta})[/red]")
+        except Exception:
+            pass
+
     if dry_run and not quiet:
         console.print("[bold]Dry run complete — no files were changed.[/bold]")
     if commit and entry["success"] and changed_files > 0:

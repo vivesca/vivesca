@@ -114,3 +114,66 @@ class TestSpeedPercentiles:
         runner = CliRunner()
         result = runner.invoke(main, ["speed", "--percentiles", "--days", "1"])
         assert result.exit_code == 0, f"exit_code={result.exit_code}\noutput:\n{result.output}"
+
+
+# ---------------------------------------------------------------------------
+# exec argument acceptance
+# ---------------------------------------------------------------------------
+
+class TestExecAcceptance:
+    @patch("metabolon.sortase.cli.execute_tasks")
+    @patch("metabolon.sortase.cli.decompose_plan")
+    def test_exec_accepts_arguments(self, mock_decompose: object, mock_execute: object) -> None:
+        """exec command accepts its arguments without error (no actual dispatch)."""
+        from dataclasses import dataclass
+        from metabolon.sortase.decompose import TaskSpec
+        from metabolon.sortase.router import RouteDecision
+
+        mock_task = TaskSpec(name="t1", description="do something", spec="", files=[])
+        mock_decompose.return_value = [mock_task]
+
+        @dataclass
+        class FakeAttempt:
+            duration_s: float = 1.0
+            tool: str = "goose"
+            exit_code: int = 0
+            failure_reason: str | None = None
+            cost_estimate: str | None = None
+            output: str = ""
+
+        @dataclass
+        class FakeResult:
+            task_name: str = "t1"
+            tool: str = "goose"
+            prompt_file: str = ""
+            success: bool = True
+            attempts: list | None = None
+            fallbacks: list | None = None
+            fallback_chain: list | None = None
+            cost_estimate: str | None = None
+            output: str = ""
+
+            def __post_init__(self) -> None:
+                if self.attempts is None:
+                    self.attempts = [FakeAttempt()]
+                if self.fallbacks is None:
+                    self.fallbacks = []
+                if self.fallback_chain is None:
+                    self.fallback_chain = []
+
+        mock_execute.return_value = [FakeResult()]
+
+        with patch("metabolon.sortase.cli.route_description") as mock_route, \
+             patch("metabolon.sortase.cli.validate_execution") as mock_validate, \
+             patch("metabolon.sortase.cli.append_log"):
+            mock_route.return_value = RouteDecision(tool="goose", reason="test", pattern=None)
+            mock_validate.return_value = []
+
+            # Use the sortase plans dir as a dummy project dir (exists=True check)
+            project_dir = Path(__file__).resolve().parent.parent / "loci"
+            runner = CliRunner()
+            result = runner.invoke(main, [
+                "exec", str(project_dir / "plans"), "-p", str(project_dir),
+                "--dry-run",
+            ])
+            assert result.exit_code == 0, f"exit_code={result.exit_code}\noutput:\n{result.output}"
