@@ -62,13 +62,18 @@ SAMPLE_LOG_ENTRIES = [
 
 
 class TestSpeedPercentiles:
-    @patch("metabolon.sortase.cli.read_logs")
+    @patch("metabolon.sortase.logger.read_logs")
     @patch("metabolon.organelles.tachometer.read_logs")
-    def test_speed_percentiles_flag(self, mock_tach_read: object, mock_cli_read: object) -> None:
+    @patch("metabolon.sortase.cli.read_logs")
+    def test_speed_percentiles_flag(self, mock_cli_read: object, mock_tach_read: object, mock_logger_read: object) -> None:
         """The --percentiles flag is accepted by the speed command."""
-        # Both callers need sample data so tachometer metrics don't crash.
-        mock_tach_read.return_value = SAMPLE_LOG_ENTRIES
+        # All three callers need sample data so metrics don't crash.
+        # - mock_cli_read: currently unused by speed but patched for completeness
+        # - mock_tach_read: used by tachometer metrics (rate, trend, etc.)
+        # - mock_logger_read: used by _print_backend_percentiles (local import)
         mock_cli_read.return_value = SAMPLE_LOG_ENTRIES
+        mock_tach_read.return_value = SAMPLE_LOG_ENTRIES
+        mock_logger_read.return_value = SAMPLE_LOG_ENTRIES
 
         runner = CliRunner()
         result = runner.invoke(main, ["speed", "--percentiles", "--days", "1"])
