@@ -18,8 +18,6 @@ Accuracy reviewed at /rhythm. Usage from other hooks:
     log_nudge("mitogen", "delegate", prompt_snippet="build a cli tool")
 """
 
-from __future__ import annotations
-
 import json
 import time
 from pathlib import Path
