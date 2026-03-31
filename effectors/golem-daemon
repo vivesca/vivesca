@@ -228,10 +228,17 @@ def mark_done(line_num: int, result: str = ""):
 def mark_failed(line_num: int, result: str = "", exit_code: int = 1) -> dict:
     """Mark task as failed. Retry once unless exit_code=2 (command error)."""
     with QueueLock():
+        if not QUEUE_FILE.exists():
+            return {"retried": False}
+        if line_num < 0:
+            return {"retried": False}
         lines = QUEUE_FILE.read_text().splitlines()
         if line_num >= len(lines):
             return {"retried": False}
         original = lines[line_num]
+        # Verify the line is still a pending task
+        if not original.strip().startswith("- [ ] "):
+            return {"retried": False}
         cmd_match = re.search(r'`([^`]+)`', original)
 
         # Exit 2 = command not found / usage error — never retry
