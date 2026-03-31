@@ -69,91 +69,95 @@ def sortase(
         # Create a temp spec file (executor may need it)
         tmp = Path(tempfile.gettempdir()) / "sortase-mcp-dispatch.txt"
         tmp.write_text(prompt, encoding="utf-8")
-        task = TaskSpec(
-            name="mcp-dispatch",
-            description=prompt[:120],
-            spec=prompt,
-            files=[],
-            signal="default",
-            temp_file=str(tmp),
-        )
-
-        forced = backend if backend else None
-        tool_by_task = {task.name: route_description(task.description, forced_backend=forced).tool}
-
-        # Handle existing event loop (FastMCP is async)
-        def _run_dispatch() -> list:
-            return asyncio.run(
-                execute_tasks(
-                    [task], proj, tool_by_task,
-                    serial=False, timeout_sec=timeout, verbose=False,
-                )
-            )
 
         try:
-            loop = asyncio.get_running_loop()
-        except RuntimeError:
-            loop = None
+            task = TaskSpec(
+                name="mcp-dispatch",
+                description=prompt[:120],
+                spec=prompt,
+                files=[],
+                signal="default",
+                temp_file=str(tmp),
+            )
 
-        if loop and loop.is_running():
-            container: dict = {}
-            def _thread_target() -> None:
-                container["results"] = _run_dispatch()
-            worker = threading.Thread(target=_thread_target)
-            worker.start()
-            worker.join(timeout=timeout + 30)
-            results = container.get("results", [])
-        else:
-            results = _run_dispatch()
+            forced = backend if backend else None
+            tool_by_task = {task.name: route_description(task.description, forced_backend=forced).tool}
 
-        # Validation
-        import subprocess as _sp
-        diff = _sp.run(
-            ["git", "diff", "--name-only"], cwd=proj,
-            capture_output=True, check=False, text=True,
-        )
-        changed = [line for line in diff.stdout.splitlines() if line.strip()]
-        issues = validate_execution(
-            proj, new_files=changed, test_command=None,
-            pyproject_path=proj / "pyproject.toml", cargo_path=proj / "Cargo.toml",
-        )
+            # Handle existing event loop (FastMCP is async)
+            def _run_dispatch() -> list:
+                return asyncio.run(
+                    execute_tasks(
+                        [task], proj, tool_by_task,
+                        serial=False, timeout_sec=timeout, verbose=False,
+                    )
+                )
 
-        # Log
-        from metabolon.sortase.logger import append_log
-        from datetime import datetime
-        dur = round(sum(a.duration_s for r in results for a in r.attempts), 3)
-        entry = {
-            "timestamp": datetime.now().isoformat(timespec="seconds"),
-            "plan": "mcp-dispatch",
-            "project": proj.name,
-            "tasks": 1,
-            "tool": tool_by_task[task.name],
-            "fallbacks": [fallback for r in results for fallback in r.fallbacks],
-            "duration_s": dur,
-            "success": all(r.success for r in results),
-            "failure_reason": next((i.message for i in issues if i.severity == "error"), None),
-            "files_changed": len(changed),
-            "tests_passed": 0 if any(i.check == "tests" for i in issues) else 1,
-        }
-        append_log(entry)
+            try:
+                loop = asyncio.get_running_loop()
+            except RuntimeError:
+                loop = None
 
-        return SortaseResult(
-            success=all(r.success for r in results),
-            message=f"Dispatched to {tool_by_task[task.name]}",
-            tasks=[
-                {
-                    "name": r.task_name,
-                    "tool": r.tool,
-                    "success": r.success,
-                    "duration_s": sum(a.duration_s for a in r.attempts),
-                    "fallbacks": r.fallbacks,
-                }
-                for r in results
-            ],
-            files_changed=changed,
-            validation_issues=[{"severity": i.severity, "message": i.message} for i in issues],
-            duration_s=dur,
-        )
+            if loop and loop.is_running():
+                container: dict = {}
+                def _thread_target() -> None:
+                    container["results"] = _run_dispatch()
+                worker = threading.Thread(target=_thread_target)
+                worker.start()
+                worker.join(timeout=timeout + 30)
+                results = container.get("results", [])
+            else:
+                results = _run_dispatch()
+
+            # Validation
+            import subprocess as _sp
+            diff = _sp.run(
+                ["git", "diff", "--name-only"], cwd=proj,
+                capture_output=True, check=False, text=True,
+            )
+            changed = [line for line in diff.stdout.splitlines() if line.strip()]
+            issues = validate_execution(
+                proj, new_files=changed, test_command=None,
+                pyproject_path=proj / "pyproject.toml", cargo_path=proj / "Cargo.toml",
+            )
+
+            # Log
+            from metabolon.sortase.logger import append_log
+            from datetime import datetime
+            dur = round(sum(a.duration_s for r in results for a in r.attempts), 3)
+            entry = {
+                "timestamp": datetime.now().isoformat(timespec="seconds"),
+                "plan": "mcp-dispatch",
+                "project": proj.name,
+                "tasks": 1,
+                "tool": tool_by_task[task.name],
+                "fallbacks": [fallback for r in results for fallback in r.fallbacks],
+                "duration_s": dur,
+                "success": all(r.success for r in results),
+                "failure_reason": next((i.message for i in issues if i.severity == "error"), None),
+                "files_changed": len(changed),
+                "tests_passed": 0 if any(i.check == "tests" for i in issues) else 1,
+            }
+            append_log(entry)
+
+            return SortaseResult(
+                success=all(r.success for r in results),
+                message=f"Dispatched to {tool_by_task[task.name]}",
+                tasks=[
+                    {
+                        "name": r.task_name,
+                        "tool": r.tool,
+                        "success": r.success,
+                        "duration_s": sum(a.duration_s for a in r.attempts),
+                        "fallbacks": r.fallbacks,
+                    }
+                    for r in results
+                ],
+                files_changed=changed,
+                validation_issues=[{"severity": i.severity, "message": i.message} for i in issues],
+                duration_s=dur,
+            )
+        finally:
+            tmp.unlink(missing_ok=True)
 
     # -- route -----------------------------------------------------------
     elif action == "route":
