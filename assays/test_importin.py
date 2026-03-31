@@ -8,7 +8,7 @@ from unittest.mock import MagicMock, patch
 from pathlib import Path
 
 # Execute the importin file directly
-importin_path = Path("/home/terry/germline/effectors/importin")
+importin_path = Path.home() / "germline" / "effectors" / "importin"
 importin_code = importin_path.read_text()
 namespace = {}
 exec(importin_code, namespace)
