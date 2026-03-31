@@ -25,7 +25,7 @@ if [ "$FAILED" -gt 0 ]; then
 fi
 
 if $ALERT; then
-    ~/germline/effectors/tg-notify.sh "pharos health: disk=${DISK}% mem=${MEM} failed_units=${FAILED}"
+    ~/scripts/tg-notify.sh "pharos health: disk=${DISK}% mem=${MEM} failed_units=${FAILED}"
     exit 1
 fi
 
