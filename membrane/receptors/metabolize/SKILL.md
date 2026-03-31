@@ -2,6 +2,11 @@
 name: metabolize
 description: Process articles through Capco consulting lens — extract, write insight cards.
 model: opus
+triggers:
+  - metabolize
+  - process articles
+  - what came in today
+  - endocytosis
 ---
 
 # Metabolize — endosomal processing of raw articles
