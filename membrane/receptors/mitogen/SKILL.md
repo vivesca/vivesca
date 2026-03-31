@@ -28,6 +28,16 @@ User says: "build", "implement", "dispatch", "spec this", "batch", "go build", "
 
 ## Process
 
+### Phase 0: Check daemon (every session start)
+
+```bash
+golem-daemon status                       # running? how many pending?
+cd ~/germline && git status --short       # uncommitted golem output?
+uv run pytest --co -q | tail -3           # test count
+```
+
+If daemon produced work since last session: review, commit, report delta. Then write next batch.
+
 ### Phase 1: Identify work (CC judgment)
 
 CC decides what needs doing. Examples:
