@@ -1124,7 +1124,6 @@ def speed(days: int, percentiles: bool) -> None:
     from metabolon.organelles.tachometer import (
         coaching_effectiveness,
         current_rate,
-        estimate_completion,
         slowest_recent,
         success_trend,
     )

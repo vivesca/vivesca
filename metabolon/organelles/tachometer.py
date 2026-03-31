@@ -13,10 +13,8 @@ from typing import Any
 
 from metabolon.sortase.logger import (
     DEFAULT_COACHING_PATH,
-    DEFAULT_LOG_PATH,
     _extract_coaching_notes,
     read_logs,
-    resolve_log_path,
 )
 
 

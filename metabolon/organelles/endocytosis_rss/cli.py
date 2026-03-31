@@ -139,7 +139,6 @@ def _fetch_locked(cfg: EndocytosisConfig, no_archive: bool) -> None:
         _title_prefix,
         is_noise,
         recall_title_prefixes,
-        serialize_markdown,
     )
     from metabolon.organelles.endocytosis_rss.relevance import (
         BATCH_SIZE,

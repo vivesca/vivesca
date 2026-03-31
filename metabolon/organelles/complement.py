@@ -21,9 +21,7 @@ from pathlib import Path
 from typing import TypedDict
 
 from metabolon.metabolism.infection import (
-    ChronicPattern,
     InfectionEvent,
-    chronic_infections,
     recall_infections,
 )
 from metabolon.vasomotor import log, record_event
