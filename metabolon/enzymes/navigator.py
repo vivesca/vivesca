@@ -105,6 +105,7 @@ def navigator(
         if not output_path:
             import tempfile
             output_path = os.path.join(tempfile.gettempdir(), f"screenshot_{int(time.time())}.png")
+            _pending_screenshots.append(output_path)
 
         ok, out = _run_ab(["screenshot", output_path])
         if not ok:
