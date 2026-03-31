@@ -35,6 +35,20 @@ def cr(tmp_path):
     exec(source, ns)
     ns["CHROMATIN_PATH"] = notes
     ns["DAILY_NOTES_PATH"] = notes / "memory"
+
+    # Wrap main() so sys.argv is clean (argparse.parse_args reads sys.argv,
+    # which under pytest contains test-runner args that argparse rejects).
+    _real_main = ns["main"]
+
+    def _wrapped_main(*a, **kw):
+        prev = sys.argv
+        sys.argv = ["chromatin-decay-report"]
+        try:
+            return _real_main(*a, **kw)
+        finally:
+            sys.argv = prev
+
+    ns["main"] = _wrapped_main
     return ns
 
 
