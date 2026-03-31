@@ -38,7 +38,7 @@ DAILY_DIR = NOTES / "Daily"
 NOW_MD = NOTES / "Tonus.md"
 SKILLS = HOME / "code" / "vivesca" / "receptors"
 CLAUDE_SKILLS = HOME / ".claude" / "skills"
-_CLAUDE_PROJECT = f"-{str(HOME).replace('/', '-')}"
+_CLAUDE_PROJECT = str(HOME).replace("/", "-")
 MEMORY = HOME / ".claude" / "projects" / _CLAUDE_PROJECT / "memory" / "MEMORY.md"
 MEMORY_LIMIT = 150
 
