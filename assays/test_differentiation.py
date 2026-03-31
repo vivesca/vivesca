@@ -26,16 +26,13 @@ class TestLatestLog:
         """Return the most recent gym log file."""
         from metabolon.enzymes.differentiation import differentiation
 
-        log1 = MagicMock(spec=Path)
-        log1.name = "Gym Log - 2026-03-28.md"
-        log1.read_text.return_value = "# Leg Day\nSquats: 135x5"
-
-        log2 = MagicMock(spec=Path)
-        log2.name = "Gym Log - 2026-03-30.md"
-        log2.read_text.return_value = "# Push Day\nBench: 95x5"
+        # Use actual Path objects which are sortable by string comparison
+        log1 = Path("/fake/health/Gym Log - 2026-03-28.md")
+        log2 = Path("/fake/health/Gym Log - 2026-03-30.md")
 
         with patch.object(Path, "glob", return_value=[log1, log2]):
-            result = differentiation(action="latest_log")
+            with patch.object(Path, "read_text", return_value="# Push Day\nBench: 95x5"):
+                result = differentiation(action="latest_log")
 
         assert "Gym Log - 2026-03-30.md" in result
         assert "# Push Day" in result
