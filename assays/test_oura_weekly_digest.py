@@ -317,6 +317,7 @@ class TestMain:
         ns = _load("oura-weekly-digest")
         notes_dir = tmp_path / "notes" / "Daily"
         monkeypatch.setattr(Path, "home", lambda: tmp_path)
+        monkeypatch.setattr(sys, "argv", ["oura-weekly-digest"])
         today = date.today()
         expected_path = notes_dir / f"Oura Weekly - {today.strftime('%Y-%m-%d')}.md"
 
@@ -340,6 +341,7 @@ class TestMain:
     def test_main_prints_summary(self, tmp_path, monkeypatch, capsys):
         ns = _load("oura-weekly-digest")
         monkeypatch.setattr(Path, "home", lambda: tmp_path)
+        monkeypatch.setattr(sys, "argv", ["oura-weekly-digest"])
 
         with patch("subprocess.run", self._mock_run_outputs()):
             ns.main()
@@ -353,6 +355,7 @@ class TestMain:
     def test_main_table_rows(self, tmp_path, monkeypatch):
         ns = _load("oura-weekly-digest")
         monkeypatch.setattr(Path, "home", lambda: tmp_path)
+        monkeypatch.setattr(sys, "argv", ["oura-weekly-digest"])
 
         with patch("subprocess.run", self._mock_run_outputs()):
             ns.main()
@@ -368,6 +371,7 @@ class TestMain:
     def test_main_averages(self, tmp_path, monkeypatch):
         ns = _load("oura-weekly-digest")
         monkeypatch.setattr(Path, "home", lambda: tmp_path)
+        monkeypatch.setattr(sys, "argv", ["oura-weekly-digest"])
 
         with patch("subprocess.run", self._mock_run_outputs()):
             ns.main()
@@ -385,6 +389,7 @@ class TestMain:
     def test_main_empty_trend(self, tmp_path, monkeypatch, capsys):
         ns = _load("oura-weekly-digest")
         monkeypatch.setattr(Path, "home", lambda: tmp_path)
+        monkeypatch.setattr(sys, "argv", ["oura-weekly-digest"])
 
         with patch("subprocess.run", self._mock_run_outputs(trend_data="")):
             ns.main()
