@@ -55,6 +55,61 @@ def _today_stamp() -> str:
     return datetime.now().strftime("%Y-%m-%d")
 
 
+# ── help flag ───────────────────────────────────────────────────────────
+
+
+class TestHelp:
+    def _run_help(self, *args: str) -> subprocess.CompletedProcess:
+        return subprocess.run(
+            ["bash", str(SCRIPT), *args],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+
+    def test_help_exits_zero(self):
+        r = self._run_help("--help")
+        assert r.returncode == 0
+
+    def test_help_short_flag_exits_zero(self):
+        r = self._run_help("-h")
+        assert r.returncode == 0
+
+    def test_help_shows_usage(self):
+        r = self._run_help("--help")
+        assert "Usage:" in r.stdout
+
+    def test_help_mentions_due(self):
+        r = self._run_help("--help")
+        assert "Due" in r.stdout
+
+    def test_help_mentions_nightly(self):
+        r = self._run_help("--help")
+        assert "nightly" in r.stdout.lower() or "Nightly" in r.stdout
+
+    def test_help_shows_retention_policy(self):
+        r = self._run_help("--help")
+        assert "30" in r.stdout
+
+    def test_help_no_stderr(self):
+        r = self._run_help("--help")
+        assert r.stderr == ""
+
+    def test_help_no_backup_created(self, tmp_path):
+        """--help must not trigger any backup operations."""
+        env = os.environ.copy()
+        env["HOME"] = str(tmp_path)
+        r = subprocess.run(
+            ["bash", str(SCRIPT), "--help"],
+            capture_output=True,
+            text=True,
+            env=env,
+            timeout=10,
+        )
+        assert r.returncode == 0
+        assert not (tmp_path / BACKUP_RELATIVE).exists()
+
+
 # ── file basics ────────────────────────────────────────────────────────
 
 

@@ -3,6 +3,7 @@ from __future__ import annotations
 """Tests for effectors/auto-update-compound-engineering.sh — bash script tested via subprocess."""
 
 import os
+import shutil
 import stat
 import subprocess
 import textwrap
@@ -103,32 +104,44 @@ class TestHelpFlag:
 
 
 class TestRunnerSelection:
-    def test_no_runner_exits_1(self, tmp_path):
-        """Script exits 1 when neither bunx nor npx is on PATH."""
-        # Filter system PATH to remove any dirs that might contain bunx/npx
-        filtered_path_dirs = []
+    def _no_runner_path(self, tmp_path):
+        """Build a minimal PATH with bash but no bunx/npx."""
+        safe_bin = tmp_path / "safe-bin"
+        safe_bin.mkdir()
+        # Symlink bash so the script can still run
+        bash_path = shutil.which("bash")
+        os.symlink(bash_path, safe_bin / "bash")
+        # Include dirs needed for coreutils (date, echo, etc.)
+        for cmd in ("date", "echo", "command", "test", "cat"):
+            p = shutil.which(cmd)
+            if p:
+                d = os.path.dirname(p)
+                if d not in str(safe_bin):
+                    pass  # we'll just use PATH entries that don't have bunx/npx
+        # Build filtered system PATH excluding dirs with bunx/npx
+        filtered = []
         for dir_path in os.environ.get("PATH", "").split(os.pathsep):
             if not dir_path:
                 continue
-            # Check if this directory already has bunx or npx
             has_bunx = (Path(dir_path) / "bunx").exists()
             has_npx = (Path(dir_path) / "npx").exists()
             if not has_bunx and not has_npx:
-                filtered_path_dirs.append(Path(dir_path))
-        r = _run_script(path_dirs=filtered_path_dirs, tmp_path=tmp_path)
+                filtered.append(dir_path)
+        return str(safe_bin) + os.pathsep + os.pathsep.join(filtered)
+
+    def test_no_runner_exits_1(self, tmp_path):
+        """Script exits 1 when neither bunx nor npx is on PATH."""
+        r = _run_script(
+            env_extra={"PATH": self._no_runner_path(tmp_path)},
+            tmp_path=tmp_path,
+        )
         assert r.returncode == 1
 
     def test_no_runner_logs_error(self, tmp_path):
-        # Filter system PATH to remove any dirs that might contain bunx/npx
-        filtered_path_dirs = []
-        for dir_path in os.environ.get("PATH", "").split(os.pathsep):
-            if not dir_path:
-                continue
-            has_bunx = (Path(dir_path) / "bunx").exists()
-            has_npx = (Path(dir_path) / "npx").exists()
-            if not has_bunx and not has_npx:
-                filtered_path_dirs.append(Path(dir_path))
-        _run_script(path_dirs=filtered_path_dirs, tmp_path=tmp_path)
+        _run_script(
+            env_extra={"PATH": self._no_runner_path(tmp_path)},
+            tmp_path=tmp_path,
+        )
         log = _log_file(tmp_path)
         assert log.exists()
         assert "neither bunx nor npx found" in log.read_text()

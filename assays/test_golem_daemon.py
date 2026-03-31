@@ -358,7 +358,7 @@ def test_validate_syntax_error_detection(tmp_path, monkeypatch):
     bad_file.write_text("def broken(\n")  # Missing closing paren
 
     # Mock git diff to return our file
-    def mock_run(cmd, shell, capture_output, text, cwd=None):
+    def mock_run(cmd, shell, capture_output, text, cwd=None, **kwargs):
         result = MagicMock()
         if "diff --name-only" in cmd and "--diff-filter=AM" in cmd:
             result.returncode = 0
@@ -390,7 +390,7 @@ def test_validate_todo_fixme_detection(tmp_path, monkeypatch):
     todo_file.parent.mkdir(parents=True)
     todo_file.write_text('def foo():\n    # TODO: implement this\n    pass\n')
 
-    def mock_run(cmd, shell, capture_output, text, cwd=None):
+    def mock_run(cmd, shell, capture_output, text, cwd=None, **kwargs):
         result = MagicMock()
         if "diff --name-only" in cmd and "--diff-filter=AM" in cmd:
             result.returncode = 0
