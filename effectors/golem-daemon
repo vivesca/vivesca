@@ -630,18 +630,18 @@ def daemon_loop():
                         log(f"Future error: {e}")
                         mark_failed(line_num, str(e))
 
-                # Auto-requeue when queue runs low
-                if len(pending) < 50:
-                    added = auto_requeue()
-                    if added > 0:
-                        pending = parse_queue()  # Re-read after adding
-
                 # Fill available slots per provider (skip if disk space is low)
                 if disk_space_paused:
                     pending = parse_queue()
                     log(f"Disk space low, skipping dispatch ({len(pending)} pending)")
                 else:
                     pending = parse_queue()
+
+                # Auto-requeue when queue runs low
+                if len(pending) < 50:
+                    added = auto_requeue()
+                    if added > 0:
+                        pending = parse_queue()
 
                     for line_num, cmd in pending:
                         provider = parse_provider(cmd)
