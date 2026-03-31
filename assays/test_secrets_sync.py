@@ -3,8 +3,9 @@ from __future__ import annotations
 
 import subprocess
 import textwrap
+from contextlib import contextmanager
 from pathlib import Path
-from unittest.mock import MagicMock, call, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -25,9 +26,20 @@ sync_env = _mod["sync_env"]
 sync_ssh_keys = _mod["sync_ssh_keys"]
 sync_gitconfig = _mod["sync_gitconfig"]
 main = _mod["main"]
-ENV_FLY = _mod["ENV_FLY"]
-SSH_DIR = _mod["SSH_DIR"]
-GITCONFIG = _mod["GITCONFIG"]
+
+
+@contextmanager
+def _patch_ns(**kwargs):
+    """Patch module-level constants in the exec'd namespace dict.
+
+    ``patch.object`` fails on plain dicts, so we mutate and restore directly.
+    """
+    old = {k: _mod[k] for k in kwargs}
+    _mod.update(kwargs)
+    try:
+        yield
+    finally:
+        _mod.update(old)
 
 
 # ── parse_env_file tests ─────────────────────────────────────────────
