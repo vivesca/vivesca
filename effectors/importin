@@ -95,6 +95,11 @@ if __name__ == "__main__":
         print(__doc__)
         sys.exit(0)
 
+    # Guard: macOS Keychain not available on other platforms
+    if platform.system() != "Darwin" or not shutil.which("security"):
+        print("importin: requires macOS Keychain ('security' CLI not found)", file=sys.stderr)
+        sys.exit(1)
+
     # Shell mode: print export statements
     for env_var, service in CREDENTIALS.items():
         val = get_keychain_value(service)
