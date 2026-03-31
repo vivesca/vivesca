@@ -474,6 +474,42 @@ def test_validate_backend_raises_for_translocon_missing():
             _validate_backend("goose", Path("/tmp/test"), "do work")
 
 
+# ── stale PID detection ──────────────────────────────────────
+
+
+def test_list_running_detects_stale():
+    """Stale PID marked as not alive."""
+    from metabolon.sortase.executor import list_running
+    import tempfile
+    import json
+
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+        entries = [{"task_name": "ghost", "tool": "goose", "project_dir": "/tmp", "started_at": "2026-01-01", "pid": 99999999}]
+        f.write(json.dumps(entries))
+        f.flush()
+        with patch("metabolon.sortase.executor._status_path", return_value=Path(f.name)):
+            running = list_running()
+    assert len(running) == 1
+    assert running[0].get("alive") is False
+
+
+def test_list_running_alive_pid():
+    """Current process PID marked as alive."""
+    from metabolon.sortase.executor import list_running
+    import tempfile
+    import json
+    import os
+
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+        entries = [{"task_name": "live", "tool": "goose", "project_dir": "/tmp", "started_at": "2026-01-01", "pid": os.getpid()}]
+        f.write(json.dumps(entries))
+        f.flush()
+        with patch("metabolon.sortase.executor._status_path", return_value=Path(f.name)):
+            running = list_running()
+    assert len(running) == 1
+    assert running[0].get("alive") is True
+
+
 @pytest.mark.asyncio
 async def test_run_command_raises_on_missing_backend():
     """_run_command should raise FileNotFoundError before spawning subprocess."""

@@ -15,7 +15,7 @@ from metabolon.sortase.coaching_cli import coaching as coaching_group
 from metabolon.sortase.decompose import decompose_plan
 from metabolon.sortase.diff_viewer import find_task_commit, format_diff_summary, get_task_diff
 from metabolon.sortase.linter import lint_plan as structured_lint, format_lint_report
-from metabolon.sortase.executor import execute_tasks, list_running, summarize_cost_estimates
+from metabolon.sortase.executor import execute_tasks, list_running, summarize_cost_estimates, _write_status_entries, _read_status_entries
 from metabolon.sortase.history import build_history_entries, build_history_table, display_history
 from metabolon.sortase.logger import aggregate_stats, analyze_logs, append_log, read_logs, resolve_log_path
 from metabolon.sortase.compare import compare_sessions, format_compare_report
@@ -470,7 +470,8 @@ def analyze(log_path: Path | None, coaching_path: Path | None, json_output: bool
 
 
 @main.command()
-def status() -> None:
+@click.option("--clean", is_flag=True, help="Remove stale entries whose PID is dead.")
+def status(clean: bool) -> None:
     """Show currently running executions."""
 
     entries = list_running()
@@ -478,13 +479,28 @@ def status() -> None:
         console.print("No running executions.")
         return
 
+    stale_entries = [entry for entry in entries if isinstance(entry, dict) and entry.get("alive") is False]
+
+    if clean and stale_entries:
+        surviving = [entry for entry in entries if not (isinstance(entry, dict) and entry.get("alive") is False)]
+        _write_status_entries(surviving)
+        console.print(f"[green]Removed {len(stale_entries)} stale entry(ies).[/green]")
+        entries = list_running()
+        if not entries:
+            console.print("No running executions.")
+            return
+
     table = Table(title="sortase status")
+    table.add_column("Status")
     table.add_column("Task")
     table.add_column("Tool")
     table.add_column("Project")
     table.add_column("Started")
     table.add_column("Running for")
     for entry in entries:
+        if not isinstance(entry, dict):
+            continue
+        status_label = "[red]STALE[/red]" if entry.get("alive") is False else "[green]running[/green]"
         started_str = entry.get("started_at", "")
         if started_str:
             started = datetime.fromisoformat(started_str)
@@ -493,6 +509,7 @@ def status() -> None:
         else:
             elapsed_str = ""
         table.add_row(
+            status_label,
             entry.get("task_name", ""),
             entry.get("tool", ""),
             entry.get("project_dir", ""),
@@ -500,6 +517,8 @@ def status() -> None:
             elapsed_str,
         )
     console.print(table)
+    if stale_entries and not clean:
+        console.print(f"[yellow]Hint: run 'sortase status --clean' to remove {len(stale_entries)} stale entry(ies).[/yellow]")
 
 
 @main.command()

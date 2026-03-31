@@ -388,7 +388,15 @@ def unregister_running(task_name: str, project_dir: Path | None = None) -> None:
 
 
 def list_running() -> list[dict]:
-    return _read_status_entries()
+    entries = _read_status_entries()
+    for entry in entries:
+        if isinstance(entry, dict) and "pid" in entry:
+            try:
+                os.kill(entry["pid"], 0)  # signal 0 = check liveness
+                entry["alive"] = True
+            except (ProcessLookupError, PermissionError):
+                entry["alive"] = False
+    return entries
 
 
 async def _run_command(
