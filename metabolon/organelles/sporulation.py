@@ -11,6 +11,8 @@ publishing garden posts into the world.
 Core functions: new, list_posts, publish, revise, push, index.
 """
 
+from __future__ import annotations
+
 import re
 import subprocess
 from datetime import UTC, datetime
