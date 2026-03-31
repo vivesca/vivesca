@@ -742,7 +742,7 @@ def test_cmd_close_no_experiment_exits(capsys, tmp_path):
     assert "No active experiment" in err
 
 
-def test_cmd_close_flips_status(capsys, tmp_path, monkeypatch):
+def test_cmd_close_flips_status(capsys, tmp_path):
     """cmd_close changes status from active to closed."""
     exp_dir = tmp_path / "experiments"
     exp_dir.mkdir()
@@ -769,14 +769,23 @@ def test_cmd_close_flips_status(capsys, tmp_path, monkeypatch):
         def today():
             return original_date(2024, 1, 22)
 
-    monkeypatch.setattr(_mod, "EXPERIMENT_DIR", exp_dir)
-    monkeypatch.setattr(_mod, "pull_oura", mock_pull_oura)
-    monkeypatch.setattr(_mod, "date", MockDate)
+    original_dir = _mod["EXPERIMENT_DIR"]
+    original_pull = _mod["pull_oura"]
+    original_date_in_mod = _mod["date"]
 
-    args = MagicMock()
-    args.name = None
+    _mod["EXPERIMENT_DIR"] = exp_dir
+    _mod["pull_oura"] = mock_pull_oura
+    _mod["date"] = MockDate
 
-    cmd_close(args)
+    try:
+        args = MagicMock()
+        args.name = None
+
+        cmd_close(args)
+    finally:
+        _mod["EXPERIMENT_DIR"] = original_dir
+        _mod["pull_oura"] = original_pull
+        _mod["date"] = original_date_in_mod
 
     content = exp_file.read_text()
     assert "status: closed" in content

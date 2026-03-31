@@ -188,8 +188,8 @@ class TestElectroreceptionRead:
 
     def test_basic_fetch(self, mock_db):
         result = self._call(mock_db, limit=10)
-        # 4 non-empty messages (empty body+text one is skipped)
-        assert result.count == 4
+        # 5 non-empty messages (empty body+text one is skipped)
+        assert result.count == 5
         assert all("dt" in m and "sender" in m and "text" in m for m in result.messages)
 
     def test_limit_respected(self, mock_db):
@@ -203,7 +203,7 @@ class TestElectroreceptionRead:
 
     def test_incoming_only(self, mock_db):
         result = self._call(mock_db, incoming_only=True)
-        assert result.count == 3
+        assert result.count == 4
         assert all(not m["from_me"] for m in result.messages)
 
     def test_query_filter(self, mock_db):

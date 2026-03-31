@@ -1,6 +1,6 @@
-from __future__ import annotations
 """Tests for metabolon/enzymes/sortase.py — dispatch coding tasks to cheap LLM backends."""
 
+from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
@@ -95,12 +95,12 @@ class TestDispatchSuccess:
     def test_dispatch_returns_sortase_result(self, tmp_path):
         fn = _fn()
         with (
-            patch("metabolon.enzymes.sortase.TaskSpec") as mock_taskspec,
-            patch("metabolon.enzymes.sortase.execute_tasks") as mock_exec,
-            patch("metabolon.enzymes.sortase.route_description") as mock_route,
-            patch("metabolon.enzymes.sortase.validate_execution") as mock_validate,
-            patch("metabolon.enzymes.sortase.append_log") as mock_log,
-            patch("metabolon.enzymes.sortase._sp.run") as mock_run,
+            patch("metabolon.sortase.decompose.TaskSpec") as mock_taskspec,
+            patch("metabolon.sortase.executor.execute_tasks") as mock_exec,
+            patch("metabolon.sortase.router.route_description") as mock_route,
+            patch("metabolon.sortase.validator.validate_execution") as mock_validate,
+            patch("metabolon.sortase.logger.append_log") as mock_log,
+            patch("subprocess.run") as mock_run,
         ):
             mock_route.return_value = _make_route_decision(tool="goose")
             mock_exec.return_value = [_make_execution_result()]
@@ -121,12 +121,12 @@ class TestDispatchSuccess:
     def test_dispatch_with_backend_override(self, tmp_path):
         fn = _fn()
         with (
-            patch("metabolon.enzymes.sortase.TaskSpec") as mock_taskspec,
-            patch("metabolon.enzymes.sortase.execute_tasks") as mock_exec,
-            patch("metabolon.enzymes.sortase.route_description") as mock_route,
-            patch("metabolon.enzymes.sortase.validate_execution") as mock_validate,
-            patch("metabolon.enzymes.sortase.append_log") as mock_log,
-            patch("metabolon.enzymes.sortase._sp.run") as mock_run,
+            patch("metabolon.sortase.decompose.TaskSpec") as mock_taskspec,
+            patch("metabolon.sortase.executor.execute_tasks") as mock_exec,
+            patch("metabolon.sortase.router.route_description") as mock_route,
+            patch("metabolon.sortase.validator.validate_execution") as mock_validate,
+            patch("metabolon.sortase.logger.append_log") as mock_log,
+            patch("subprocess.run") as mock_run,
         ):
             mock_route.return_value = _make_route_decision(tool="codex", reason="Forced")
             mock_exec.return_value = [_make_execution_result(tool="codex")]
@@ -149,12 +149,12 @@ class TestDispatchSuccess:
     def test_dispatch_captures_files_changed(self, tmp_path):
         fn = _fn()
         with (
-            patch("metabolon.enzymes.sortase.TaskSpec") as mock_taskspec,
-            patch("metabolon.enzymes.sortase.execute_tasks") as mock_exec,
-            patch("metabolon.enzymes.sortase.route_description") as mock_route,
-            patch("metabolon.enzymes.sortase.validate_execution") as mock_validate,
-            patch("metabolon.enzymes.sortase.append_log") as mock_log,
-            patch("metabolon.enzymes.sortase._sp.run") as mock_run,
+            patch("metabolon.sortase.decompose.TaskSpec") as mock_taskspec,
+            patch("metabolon.sortase.executor.execute_tasks") as mock_exec,
+            patch("metabolon.sortase.router.route_description") as mock_route,
+            patch("metabolon.sortase.validator.validate_execution") as mock_validate,
+            patch("metabolon.sortase.logger.append_log") as mock_log,
+            patch("subprocess.run") as mock_run,
         ):
             mock_route.return_value = _make_route_decision()
             mock_exec.return_value = [_make_execution_result()]
@@ -172,12 +172,12 @@ class TestDispatchSuccess:
     def test_dispatch_captures_validation_issues(self, tmp_path):
         fn = _fn()
         with (
-            patch("metabolon.enzymes.sortase.TaskSpec") as mock_taskspec,
-            patch("metabolon.enzymes.sortase.execute_tasks") as mock_exec,
-            patch("metabolon.enzymes.sortase.route_description") as mock_route,
-            patch("metabolon.enzymes.sortase.validate_execution") as mock_validate,
-            patch("metabolon.enzymes.sortase.append_log") as mock_log,
-            patch("metabolon.enzymes.sortase._sp.run") as mock_run,
+            patch("metabolon.sortase.decompose.TaskSpec") as mock_taskspec,
+            patch("metabolon.sortase.executor.execute_tasks") as mock_exec,
+            patch("metabolon.sortase.router.route_description") as mock_route,
+            patch("metabolon.sortase.validator.validate_execution") as mock_validate,
+            patch("metabolon.sortase.logger.append_log") as mock_log,
+            patch("subprocess.run") as mock_run,
         ):
             mock_route.return_value = _make_route_decision()
             mock_exec.return_value = [_make_execution_result()]
@@ -198,12 +198,12 @@ class TestDispatchSuccess:
     def test_dispatch_logs_execution(self, tmp_path):
         fn = _fn()
         with (
-            patch("metabolon.enzymes.sortase.TaskSpec") as mock_taskspec,
-            patch("metabolon.enzymes.sortase.execute_tasks") as mock_exec,
-            patch("metabolon.enzymes.sortase.route_description") as mock_route,
-            patch("metabolon.enzymes.sortase.validate_execution") as mock_validate,
-            patch("metabolon.enzymes.sortase.append_log") as mock_log,
-            patch("metabolon.enzymes.sortase._sp.run") as mock_run,
+            patch("metabolon.sortase.decompose.TaskSpec") as mock_taskspec,
+            patch("metabolon.sortase.executor.execute_tasks") as mock_exec,
+            patch("metabolon.sortase.router.route_description") as mock_route,
+            patch("metabolon.sortase.validator.validate_execution") as mock_validate,
+            patch("metabolon.sortase.logger.append_log") as mock_log,
+            patch("subprocess.run") as mock_run,
         ):
             mock_route.return_value = _make_route_decision()
             mock_exec.return_value = [_make_execution_result()]
@@ -232,7 +232,7 @@ class TestRouteAction:
 
     def test_route_returns_route_result(self):
         fn = _fn()
-        with patch("metabolon.enzymes.sortase.route_description") as mock_route:
+        with patch("metabolon.sortase.router.route_description") as mock_route:
             mock_route.return_value = _make_route_decision(tool="gemini", reason="Algorithmic")
 
             result = fn(action="route", description="write an algorithm to sort numbers")
@@ -242,7 +242,7 @@ class TestRouteAction:
 
     def test_route_uses_prompt_if_no_description(self):
         fn = _fn()
-        with patch("metabolon.enzymes.sortase.route_description") as mock_route:
+        with patch("metabolon.sortase.router.route_description") as mock_route:
             mock_route.return_value = _make_route_decision(tool="codex", reason="Rust")
 
             result = fn(action="route", prompt="refactor cargo crate")
@@ -267,7 +267,7 @@ class TestStatusAction:
 
     def test_status_returns_running_tasks(self):
         fn = _fn()
-        with patch("metabolon.enzymes.sortase.list_running") as mock_list:
+        with patch("metabolon.sortase.executor.list_running") as mock_list:
             mock_list.return_value = [
                 {"task_name": "task-1", "tool": "goose", "project_dir": "/tmp/proj"},
                 {"task_name": "task-2", "tool": "codex", "project_dir": "/tmp/other"},
@@ -283,7 +283,7 @@ class TestStatusAction:
 
     def test_status_empty_returns_zero(self):
         fn = _fn()
-        with patch("metabolon.enzymes.sortase.list_running") as mock_list:
+        with patch("metabolon.sortase.executor.list_running") as mock_list:
             mock_list.return_value = []
 
             result = fn(action="status")
@@ -304,8 +304,8 @@ class TestStatsAction:
     def test_stats_returns_stats_result(self):
         fn = _fn()
         with (
-            patch("metabolon.enzymes.sortase.read_logs") as mock_read,
-            patch("metabolon.enzymes.sortase.aggregate_stats") as mock_agg,
+            patch("metabolon.sortase.logger.read_logs") as mock_read,
+            patch("metabolon.sortase.logger.aggregate_stats") as mock_agg,
         ):
             mock_read.return_value = [
                 {"timestamp": "2025-01-01T12:00:00", "plan": "p1", "tool": "goose", "success": True},
@@ -322,8 +322,8 @@ class TestStatsAction:
     def test_stats_respects_last_n(self):
         fn = _fn()
         with (
-            patch("metabolon.enzymes.sortase.read_logs") as mock_read,
-            patch("metabolon.enzymes.sortase.aggregate_stats") as mock_agg,
+            patch("metabolon.sortase.logger.read_logs") as mock_read,
+            patch("metabolon.sortase.logger.aggregate_stats") as mock_agg,
         ):
             mock_read.return_value = [
                 {"timestamp": f"2025-01-0{i}T12:00:00", "plan": f"p{i}", "tool": "goose", "success": True}
@@ -339,8 +339,8 @@ class TestStatsAction:
     def test_stats_empty_logs_returns_empty_result(self):
         fn = _fn()
         with (
-            patch("metabolon.enzymes.sortase.read_logs") as mock_read,
-            patch("metabolon.enzymes.sortase.aggregate_stats") as mock_agg,
+            patch("metabolon.sortase.logger.read_logs") as mock_read,
+            patch("metabolon.sortase.logger.aggregate_stats") as mock_agg,
         ):
             mock_read.return_value = []
 
@@ -380,12 +380,12 @@ class TestResultTypes:
 
         fn = _fn()
         with (
-            patch("metabolon.enzymes.sortase.TaskSpec"),
-            patch("metabolon.enzymes.sortase.execute_tasks") as mock_exec,
-            patch("metabolon.enzymes.sortase.route_description") as mock_route,
-            patch("metabolon.enzymes.sortase.validate_execution"),
-            patch("metabolon.enzymes.sortase.append_log"),
-            patch("metabolon.enzymes.sortase._sp.run") as mock_run,
+            patch("metabolon.sortase.decompose.TaskSpec"),
+            patch("metabolon.sortase.executor.execute_tasks") as mock_exec,
+            patch("metabolon.sortase.router.route_description") as mock_route,
+            patch("metabolon.sortase.validator.validate_execution"),
+            patch("metabolon.sortase.logger.append_log"),
+            patch("subprocess.run") as mock_run,
         ):
             mock_route.return_value = _make_route_decision()
             mock_exec.return_value = [_make_execution_result()]
@@ -398,7 +398,7 @@ class TestResultTypes:
         from metabolon.enzymes.sortase import RouteResult
 
         fn = _fn()
-        with patch("metabolon.enzymes.sortase.route_description") as mock_route:
+        with patch("metabolon.sortase.router.route_description") as mock_route:
             mock_route.return_value = _make_route_decision()
             result = fn(action="route", description="test")
             assert isinstance(result, RouteResult)
@@ -408,8 +408,8 @@ class TestResultTypes:
 
         fn = _fn()
         with (
-            patch("metabolon.enzymes.sortase.read_logs") as mock_read,
-            patch("metabolon.enzymes.sortase.aggregate_stats"),
+            patch("metabolon.sortase.logger.read_logs") as mock_read,
+            patch("metabolon.sortase.logger.aggregate_stats"),
         ):
             mock_read.return_value = []
             result = fn(action="stats")
