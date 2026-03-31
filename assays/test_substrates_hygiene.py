@@ -497,7 +497,7 @@ class TestReport:
         ]
         acted = ["upgraded: foo 1.0 -> 1.1"]
         report = sub.report(sensed, acted)
-        assert "2 artifact" in report  # Wait, 5 signals sensed
+        assert "5 artifact" in report
         assert "Hygiene substrate" in report
         assert "foo" in report
         assert "MAJOR" in report
