@@ -246,9 +246,10 @@ def _make_subprocess_mock(trend_output="Mon Mar 24  78  85  62\nTue Mar 25  82  
     def _mock_run(cmd, **kwargs):
         call_count["n"] += 1
         n = call_count["n"]
-        if "trend" in cmd:
+        cmd_str = " ".join(str(c) for c in cmd)
+        if "trend" in cmd_str:
             out = trend_output
-        elif "sleep" in cmd[0] if isinstance(cmd[0], str) else False:
+        elif "sleep" in cmd_str:
             out = "Total sleep: 7h 30m\nEfficiency: 92%"
         else:
             # 2=sleep, 3=readiness, 4=activity, 5=hrv

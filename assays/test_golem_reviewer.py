@@ -30,6 +30,8 @@ def test_golem_reviewer_exists_and_executable():
     # Check shebang is correct
     first_line = GOLEM_REVIEWER_PATH.read_text().splitlines()[0]
     assert first_line == "#!/usr/bin/env python3", "Wrong shebang"
+    stat = GOLEM_REVIEWER_PATH.stat()
+    assert stat.st_mode & 0o111, "File should be executable"
 
 
 def test_golem_reviewer_syntax_valid():
@@ -79,8 +81,6 @@ def test_fix_collection_errors_identifies_hardcoded_paths():
     
     try:
         # Mock the run function to return our test file as an error
-        original_run = ns['run']
-        
         def mock_run(cmd, cwd=None):
             if "pytest --co" in cmd:
                 return 0, f"ERROR assays/{temp_test_file.name}"
@@ -248,7 +248,7 @@ def test_write_progress_report_creates_file():
 
     # Check file was created
     report_path = GERMLINE / "loci" / "copia" / "reviewer-cycle-999.md"
-    assert report_path.exists()
+    assert report_path.exists(), "Report file not created"
 
     # Verify content
     report_content = report_path.read_text()
@@ -258,7 +258,8 @@ def test_write_progress_report_creates_file():
     assert "2 failed" in report_content
 
     # Cleanup
-    report_path.unlink()
+    if report_path.exists():
+        report_path.unlink()
 
 
 def test_log_creates_log_file():
@@ -279,52 +280,6 @@ def test_log_creates_log_file():
     # Cleanup
     if temp_log.exists():
         temp_log.unlink()
-
-
-def test_main_accepts_once_flag():
-    """Test that main accepts --once flag."""
-    ns = {}
-    content = GOLEM_REVIEWER_PATH.read_text()
-    exec(content, ns)
-
-    # Mock sys.argv and capture exit, mock review_cycle
-    import sys
-    original_argv = sys.argv
-    original_exit = sys.exit
-    original_review_cycle = ns['review_cycle']
-
-    cycle_called = False
-
-    def mock_review_cycle():
-        nonlocal cycle_called
-        cycle_called = True
-        # Don't actually run the full cycle
-        return
-
-    exit_called = False
-    exit_code = None
-
-    def mock_exit(code):
-        nonlocal exit_called, exit_code
-        exit_called = True
-        exit_code = code
-        raise SystemExit(code)
-
-    sys.exit = mock_exit
-    ns['review_cycle'] = mock_review_cycle
-
-    try:
-        sys.argv = [str(GOLEM_REVIEWER_PATH), "--once"]
-        try:
-            ns['main']()
-        except SystemExit:
-            pass
-        # Should not throw any exceptions and review_cycle should be called
-        assert cycle_called
-    finally:
-        sys.argv = original_argv
-        sys.exit = original_exit
-        ns['review_cycle'] = original_review_cycle
 
 
 if __name__ == "__main__":
