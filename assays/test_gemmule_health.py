@@ -376,11 +376,19 @@ class TestFixDisk:
         vdir = tmp_path / "vivesca"
         vdir.mkdir(parents=True, exist_ok=True)
         big = vdir / "events.jsonl"
-        # Threshold is 20MB inline; create file > 20MB with >5000 lines
-        big.write_text(("x" * 4000 + "\n") * 5500)  # ~22MB
+        big.write_text("line\n" * 10)  # small real file
+        # Mock stat so the file appears > 20MB (inline threshold)
+        original_stat = Path.stat
+
+        def fake_stat(self, *, follow_symlinks=True):
+            if "events.jsonl" in str(self):
+                return mock.Mock(st_size=21 * 1024 * 1024, st_mode=0o100644)
+            return original_stat(self, follow_symlinks=follow_symlinks)
+
         report = gh["HealthReport"]()
-        with mock.patch("subprocess.run"):
-            gh["fix_disk"](report)
+        with mock.patch.object(Path, "stat", fake_stat):
+            with mock.patch("subprocess.run"):
+                gh["fix_disk"](report)
         assert any("truncated" in f for f in report.fixes_applied)
 
 
