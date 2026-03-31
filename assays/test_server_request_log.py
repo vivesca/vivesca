@@ -218,3 +218,67 @@ def test_log_zero_duration(log_file):
 
     entries = _load_jsonl(log_file)
     assert entries[0]["duration_ms"] == 0
+
+
+def test_log_large_duration(log_file):
+    """Large duration values should round-trip without overflow."""
+    from metabolon.server import RequestLogger
+
+    logger = RequestLogger(log_file)
+    logger.log(tool="slow", duration_ms=999_999_999, success=False)
+
+    entries = _load_jsonl(log_file)
+    assert entries[0]["duration_ms"] == 999_999_999
+
+
+def test_log_empty_tool_name(log_file):
+    """Empty string is a valid (if unusual) tool name."""
+    from metabolon.server import RequestLogger
+
+    logger = RequestLogger(log_file)
+    logger.log(tool="", duration_ms=10, success=True)
+
+    entries = _load_jsonl(log_file)
+    assert entries[0]["tool"] == ""
+
+
+def test_log_entry_field_types(log_file):
+    """Each field should have the expected Python type."""
+    from metabolon.server import RequestLogger
+
+    logger = RequestLogger(log_file)
+    logger.log(tool="typecheck", duration_ms=42, success=True)
+
+    e = _load_jsonl(log_file)[0]
+    assert isinstance(e["ts"], str)
+    assert isinstance(e["tool"], str)
+    assert isinstance(e["duration_ms"], int)
+    assert isinstance(e["success"], bool)
+
+
+def test_timestamps_are_monotonic(log_file):
+    """Successive log calls should produce non-decreasing timestamps."""
+    import time
+
+    from metabolon.server import RequestLogger
+
+    logger = RequestLogger(log_file)
+    for i in range(5):
+        logger.log(tool=f"t{i}", duration_ms=i, success=True)
+        time.sleep(0.01)
+
+    timestamps = [datetime.fromisoformat(e["ts"]) for e in _load_jsonl(log_file)]
+    for earlier, later in zip(timestamps, timestamps[1:]):
+        assert later >= earlier
+
+
+def test_constructor_with_path_object(log_file):
+    """Passing a Path object (not string) should work identically."""
+    from metabolon.server import RequestLogger
+
+    logger = RequestLogger(log_file)  # already a Path from fixture
+    logger.log(tool="path_obj", duration_ms=3, success=True)
+
+    entries = _load_jsonl(log_file)
+    assert len(entries) == 1
+    assert entries[0]["tool"] == "path_obj"

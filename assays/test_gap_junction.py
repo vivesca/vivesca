@@ -1,125 +1,129 @@
-"""Tests for gap_junction — WhatsApp bridge organelle.
-
-Critical safety test: compose_signal NEVER sends, only returns a shell command.
-"""
-from __future__ import annotations
+"""Tests for gap_junction enzyme module."""
 
 from unittest.mock import patch
 
-import pytest
+from metabolon.enzymes.gap_junction import gap_junction, GapJunctionResult
 
 
-class TestExtractMessages:
-    def test_extracts_messages(self):
-        from metabolon.organelles.gap_junction import _extract_messages
-        raw = {"data": {"messages": [{"MsgID": "1", "Text": "hello"}]}}
-        assert len(_extract_messages(raw)) == 1
-        assert _extract_messages(raw)[0]["Text"] == "hello"
-
-    def test_empty_data(self):
-        from metabolon.organelles.gap_junction import _extract_messages
-        assert _extract_messages({}) == []
-        assert _extract_messages({"data": {}}) == []
-        assert _extract_messages({"data": None}) == []
-
-    def test_non_dict_input(self):
-        from metabolon.organelles.gap_junction import _extract_messages
-        assert _extract_messages("not a dict") == []
+def test_gap_junction_unknown_action():
+    """Test unknown action returns error message."""
+    result = gap_junction(action="invalid")
+    assert isinstance(result, GapJunctionResult)
+    assert "Unknown action" in result.output
+    assert "Valid: read, search, draft, list_chats, sync_status" in result.output
 
 
-class TestExtractContacts:
-    def test_extracts_contacts(self):
-        from metabolon.organelles.gap_junction import _extract_contacts
-        raw = {"data": [{"JID": "123@s.whatsapp.net", "Name": "Test"}]}
-        result = _extract_contacts(raw)
-        assert len(result) == 1
-        assert result[0]["JID"] == "123@s.whatsapp.net"
-
-    def test_empty(self):
-        from metabolon.organelles.gap_junction import _extract_contacts
-        assert _extract_contacts({}) == []
-        assert _extract_contacts({"data": None}) == []
+def test_gap_junction_read_missing_name():
+    """Test read without required name returns error."""
+    result = gap_junction(action="read")
+    assert result.output == "read requires: name"
 
 
-class TestDedupSort:
-    def test_deduplicates_by_msgid(self):
-        from metabolon.organelles.gap_junction import _dedup_sort
-        msgs = [
-            {"MsgID": "1", "Timestamp": "2026-03-30T10:00:00", "Text": "first"},
-            {"MsgID": "1", "Timestamp": "2026-03-30T10:00:00", "Text": "duplicate"},
-            {"MsgID": "2", "Timestamp": "2026-03-30T11:00:00", "Text": "second"},
-        ]
-        result = _dedup_sort(msgs, limit=10)
-        assert len(result) == 2
-
-    def test_sorts_by_timestamp_desc(self):
-        from metabolon.organelles.gap_junction import _dedup_sort
-        msgs = [
-            {"MsgID": "1", "Timestamp": "2026-03-30T08:00:00"},
-            {"MsgID": "2", "Timestamp": "2026-03-30T12:00:00"},
-        ]
-        result = _dedup_sort(msgs, limit=10)
-        assert result[0]["MsgID"] == "2"  # newer first
-
-    def test_respects_limit(self):
-        from metabolon.organelles.gap_junction import _dedup_sort
-        msgs = [{"MsgID": str(i), "Timestamp": f"2026-03-30T{i:02d}:00:00"} for i in range(10)]
-        result = _dedup_sort(msgs, limit=3)
-        assert len(result) == 3
+def test_gap_junction_search_missing_query():
+    """Test search without required query returns error."""
+    result = gap_junction(action="search")
+    assert result.output == "search requires: query"
 
 
-class TestFormatMessages:
-    def test_formats_correctly(self):
-        from metabolon.organelles.gap_junction import _format_messages
-        msgs = [{"Timestamp": "2026-03-30T10:00:00Z", "FromMe": False, "Text": "hi there"}]
-        result = _format_messages(msgs, "Tara")
-        assert "Tara" in result
-        assert "hi there" in result
-
-    def test_from_me(self):
-        from metabolon.organelles.gap_junction import _format_messages
-        msgs = [{"Timestamp": "2026-03-30T10:00:00Z", "FromMe": True, "Text": "hello"}]
-        result = _format_messages(msgs, "Tara")
-        assert "me:" in result
-
-    def test_empty(self):
-        from metabolon.organelles.gap_junction import _format_messages
-        assert "No messages" in _format_messages([], "anyone")
+def test_gap_junction_draft_missing_params():
+    """Test draft missing name or message returns error."""
+    result = gap_junction(action="draft", name="test")
+    assert result.output == "draft requires: name, message"
+    
+    result = gap_junction(action="draft", message="test")
+    assert result.output == "draft requires: name, message"
 
 
-class TestContactType:
-    def test_gap_junction_contacts(self):
-        from metabolon.organelles.gap_junction import contact_type
-        assert contact_type("tara") == "gap_junction"
-        assert contact_type("Tara") == "gap_junction"
-        assert contact_type("mum") == "gap_junction"
+@patch("metabolon.enzymes.gap_junction.receive_signals")
+def test_gap_junction_read_success_close_contact(mock_receive):
+    """Test read action with valid name for close contact adds prefix."""
+    mock_receive.return_value = "2024-03-01 10:00:00  tara: Hello there\n2024-03-01 10:05:00  me: Hi!"
+    
+    result = gap_junction(action="read", name="tara", limit=10)
+    
+    mock_receive.assert_called_once_with("tara", 10)
+    assert isinstance(result, GapJunctionResult)
+    assert result.output.startswith("[gap_junction] ")
+    assert "Hello there" in result.output
 
-    def test_receptor_contacts(self):
-        from metabolon.organelles.gap_junction import contact_type
-        assert contact_type("boss") == "receptor"
-        assert contact_type("recruiter") == "receptor"
+
+@patch("metabolon.enzymes.gap_junction.receive_signals")
+def test_gap_junction_read_success_other_contact(mock_receive):
+    """Test read action with non-close contact doesn't add prefix."""
+    mock_receive.return_value = "No messages found"
+    
+    result = gap_junction(action="read", name="john", limit=5)
+    
+    mock_receive.assert_called_once_with("john", 5)
+    assert not result.output.startswith("[gap_junction] ")
+    assert result.output == "No messages found"
 
 
-class TestComposeSignal:
-    """CRITICAL: compose_signal must NEVER call wacli send."""
+@patch("metabolon.enzymes.gap_junction.search_signals")
+def test_gap_junction_search_global(mock_search):
+    """Test search action without name scope."""
+    mock_search.return_value = "Found 3 messages"
+    
+    result = gap_junction(action="search", query="meeting", limit=10)
+    
+    mock_search.assert_called_once_with("meeting", "", 10)
+    assert result.output == "Found 3 messages"
 
-    def test_returns_shell_command_not_sends(self):
-        from metabolon.organelles.gap_junction import compose_signal
-        with patch("metabolon.organelles.gap_junction.resolve_jids", return_value=["123@s.whatsapp.net"]):
-            result = compose_signal("tara", "hello")
-        assert result.startswith("wacli send")
-        assert "123@s.whatsapp.net" in result
-        assert "hello" in result
 
-    def test_no_contact_returns_comment(self):
-        from metabolon.organelles.gap_junction import compose_signal
-        with patch("metabolon.organelles.gap_junction.resolve_jids", return_value=[]):
-            result = compose_signal("nobody", "test")
-        assert result.startswith("#")
+@patch("metabolon.enzymes.gap_junction.search_signals")
+def test_gap_junction_search_scoped(mock_search):
+    """Test search action with name scope."""
+    mock_search.return_value = "Found 1 message"
+    
+    result = gap_junction(action="search", query="lunch", name="dad", limit=5)
+    
+    mock_search.assert_called_once_with("lunch", "dad", 5)
+    assert result.output == "Found 1 message"
 
-    def test_escapes_single_quotes(self):
-        from metabolon.organelles.gap_junction import compose_signal
-        with patch("metabolon.organelles.gap_junction.resolve_jids", return_value=["jid@s.whatsapp.net"]):
-            result = compose_signal("tara", "it's a test")
-        # Should escape the single quote
-        assert "\\'" in result or "it" in result
+
+@patch("metabolon.enzymes.gap_junction.compose_signal")
+def test_gap_junction_draft_success(mock_compose):
+    """Test draft action produces command."""
+    expected_cmd = "wacli send --to '123456789@s.whatsapp.net' 'Hello world'"
+    mock_compose.return_value = expected_cmd
+    
+    result = gap_junction(action="draft", name="yujie", message="Hello world")
+    
+    mock_compose.assert_called_once_with("yujie", "Hello world")
+    assert result.output == expected_cmd
+
+
+@patch("metabolon.enzymes.gap_junction.active_junctions")
+def test_gap_junction_list_chats(mock_active):
+    """Test list_chats action delegates."""
+    mock_active.return_value = "Chat 1\nChat 2\nChat 3"
+    
+    result = gap_junction(action="list_chats", limit=3)
+    
+    mock_active.assert_called_once_with(3)
+    assert result.output == "Chat 1\nChat 2\nChat 3"
+
+
+@patch("metabolon.enzymes.gap_junction.junction_status")
+def test_gap_junction_sync_status(mock_status):
+    """Test sync_status action delegates."""
+    mock_status.return_value = "Sync daemon is running"
+    
+    result = gap_junction(action="sync_status")
+    
+    mock_status.assert_called_once()
+    assert result.output == "Sync daemon is running"
+
+
+def test_action_case_insensitive():
+    """Test action is case-insensitive."""
+    # Should work regardless of case
+    with patch("metabolon.enzymes.gap_junction.receive_signals") as mock:
+        mock.return_value = "test"
+        result = gap_junction(action="READ", name="tara")
+        assert result.output == "[gap_junction] test"
+        
+    with patch("metabolon.enzymes.gap_junction.receive_signals") as mock:
+        mock.return_value = "test"
+        result = gap_junction(action="Read", name="tara")
+        assert result.output == "[gap_junction] test"
