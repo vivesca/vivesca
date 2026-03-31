@@ -358,6 +358,7 @@ class TestSpecialCharacters:
         assert r.returncode == 0
 
     def test_unicode_in_query(self, tmp_path):
+        """Unicode characters are preserved (possibly as \\uXXXX JSON escapes)."""
         _write_secrets(tmp_path)
         record = tmp_path / "curl_args.log"
         bindir = _make_recording_curl(tmp_path, record)
@@ -365,4 +366,5 @@ class TestSpecialCharacters:
         assert r.returncode == 0
         args = record.read_bytes().split(b"\0")
         args_text = b" ".join(args).decode()
-        assert "日本語テスト" in args_text
+        # python3 json.dumps may emit \uXXXX escapes for non-ASCII
+        assert "日本語テスト" in args_text or "\\u65e5" in args_text
