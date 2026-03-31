@@ -1,768 +1,805 @@
-"""Tests for effectors/legatum (telophase) - Deterministic session-close gathering."""
+"""Tests for effectors/legatum — deterministic session-close gathering."""
 
-import os
+from __future__ import annotations
+
 import json
 import sys
-import subprocess
-import importlib.util
-from unittest.mock import patch, MagicMock, mock_open
-from datetime import datetime
+import time
+from io import StringIO
 from pathlib import Path
+from unittest.mock import MagicMock, call, patch
 
 import pytest
 
-# Load telophase as a module directly (it doesn't have .py extension)
-effectors_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'effectors')
-telophase_path = os.path.join(effectors_dir, 'telophase')
 
-spec = importlib.util.spec_from_file_location('telophase', telophase_path)
-legatum = importlib.util.module_from_spec(spec)
-sys.modules['telophase'] = legatum
-spec.loader.exec_module(legatum)
-
-# Re-export for pytest
-from telophase import (
-    git_status,
-    now_age,
-    memory_lines,
-    skill_gaps,
-    dep_check,
-    peira_status,
-    latest_session_id,
-    run_reflect,
-    cmd_gather,
-    cmd_archive,
-    cmd_daily,
-    cmd_extract,
-    main,
-    PRAXIS,
-    PRAXIS_ARCHIVE,
-    DAILY_DIR,
-)
+# ── Module loader ──────────────────────────────────────────────────────────────
+def _load_legatum():
+    """Load the legatum script via exec (no .py extension)."""
+    source = open("/Users/terry/germline/effectors/legatum").read()
+    ns: dict = {"__name__": "legatum"}
+    exec(source, ns)
+    return ns
 
 
-# ──────────────────────────────────────────────────────────────────────────────
-# git_status tests
-# ──────────────────────────────────────────────────────────────────────────────
+_mod = _load_legatum()
 
-def test_git_status_clean_repo():
-    """Test git_status returns empty string for clean repo."""
-    with patch('subprocess.run') as mock_run:
-        mock_run.return_value = MagicMock(
-            returncode=0,
-            stdout="",
-            stderr=""
-        )
-        result = git_status(Path("/fake/repo"))
-        assert result == ""
-        mock_run.assert_called_once()
+# Pull out the functions / constants under test
+git_status = _mod["git_status"]
+now_age = _mod["now_age"]
+memory_lines = _mod["memory_lines"]
+skill_gaps = _mod["skill_gaps"]
+dep_check = _mod["dep_check"]
+peira_status = _mod["peira_status"]
+latest_session_id = _mod["latest_session_id"]
+run_reflect = _mod["run_reflect"]
+cmd_gather = _mod["cmd_gather"]
+cmd_archive = _mod["cmd_archive"]
+cmd_daily = _mod["cmd_daily"]
+cmd_reflect = _mod["cmd_reflect"]
+cmd_extract = _mod["cmd_extract"]
+main = _mod["main"]
 
-
-def test_git_status_dirty_repo():
-    """Test git_status returns status for dirty repo."""
-    with patch('subprocess.run') as mock_run:
-        mock_run.return_value = MagicMock(
-            returncode=0,
-            stdout=" M file.py\n?? new.py",
-            stderr=""
-        )
-        result = git_status(Path("/fake/repo"))
-        assert result == " M file.py\n?? new.py"
-        mock_run.assert_called_once()
-
-
-def test_git_status_not_a_repo():
-    """Test git_status returns None when not a git repo."""
-    with patch('subprocess.run') as mock_run:
-        mock_run.return_value = MagicMock(
-            returncode=1,
-            stdout="",
-            stderr="fatal: not a git repository"
-        )
-        result = git_status(Path("/fake/repo"))
-        assert result is None
+NOW_MD = _mod["NOW_MD"]
+MEMORY = _mod["MEMORY"]
+MEMORY_LIMIT = _mod["MEMORY_LIMIT"]
+SKILLS = _mod["SKILLS"]
+CLAUDE_SKILLS = _mod["CLAUDE_SKILLS"]
+PRAXIS = _mod["PRAXIS"]
+PRAXIS_ARCHIVE = _mod["PRAXIS_ARCHIVE"]
+DAILY_DIR = _mod["DAILY_DIR"]
+DEFAULT_REPOS = _mod["DEFAULT_REPOS"]
 
 
-def test_git_status_exception():
-    """Test git_status returns None on exception."""
-    with patch('subprocess.run') as mock_run:
-        mock_run.side_effect = FileNotFoundError()
-        result = git_status(Path("/fake/repo"))
-        assert result is None
+# ══════════════════════════════════════════════════════════════════════════════
+# git_status
+# ══════════════════════════════════════════════════════════════════════════════
+
+class TestGitStatus:
+    def test_clean_repo_returns_empty_string(self):
+        mock = MagicMock(returncode=0, stdout="  \n")
+        with patch("subprocess.run", return_value=mock):
+            assert git_status(Path("/some/repo")) == ""
+
+    def test_dirty_repo_returns_status(self):
+        output = " M foo.py\n?? new.txt\n"
+        mock = MagicMock(returncode=0, stdout=output)
+        with patch("subprocess.run", return_value=mock):
+            result = git_status(Path("/repo"))
+            assert " M foo.py" in result
+            assert "?? new.txt" in result
+
+    def test_nonzero_returncode_returns_none(self):
+        mock = MagicMock(returncode=128, stdout="")
+        with patch("subprocess.run", return_value=mock):
+            assert git_status(Path("/nope")) is None
+
+    def test_timeout_returns_none(self):
+        import subprocess
+        with patch("subprocess.run", side_effect=subprocess.TimeoutExpired("git", 10)):
+            assert git_status(Path("/repo")) is None
+
+    def test_filenotfound_returns_none(self):
+        with patch("subprocess.run", side_effect=FileNotFoundError):
+            assert git_status(Path("/repo")) is None
 
 
-def test_git_status_timeout():
-    """Test git_status returns None on timeout."""
-    with patch('subprocess.run') as mock_run:
-        mock_run.side_effect = subprocess.TimeoutExpired(["git"], 10)
-        result = git_status(Path("/fake/repo"))
-        assert result is None
+# ══════════════════════════════════════════════════════════════════════════════
+# now_age
+# ══════════════════════════════════════════════════════════════════════════════
+
+class TestNowAge:
+    def test_fresh_under_15_min(self):
+        with patch("os.path.getmtime", return_value=time.time() - 500):
+            with patch("time.time", return_value=time.time()):
+                label, secs = now_age()
+                assert label == "fresh"
+                assert secs < 900
+
+    def test_recent_under_1_hour(self):
+        now = time.time()
+        with patch("os.path.getmtime", return_value=now - 1800):
+            with patch("time.time", return_value=now):
+                label, secs = now_age()
+                assert label == "recent"
+                assert 900 <= secs < 3600
+
+    def test_stale_under_1_day(self):
+        now = time.time()
+        with patch("os.path.getmtime", return_value=now - 10000):
+            with patch("time.time", return_value=now):
+                label, secs = now_age()
+                assert label == "stale"
+                assert 3600 <= secs < 86400
+
+    def test_very_stale_over_1_day(self):
+        now = time.time()
+        with patch("os.path.getmtime", return_value=now - 200000):
+            with patch("time.time", return_value=now):
+                label, secs = now_age()
+                assert label == "very stale"
+                assert secs >= 86400
+
+    def test_missing_file(self):
+        with patch("os.path.getmtime", side_effect=FileNotFoundError):
+            label, secs = now_age()
+            assert label == "missing"
+            assert secs == -1
 
 
-# ──────────────────────────────────────────────────────────────────────────────
-# now_age tests
-# ──────────────────────────────────────────────────────────────────────────────
+# ══════════════════════════════════════════════════════════════════════════════
+# memory_lines
+# ══════════════════════════════════════════════════════════════════════════════
 
-def test_now_age_fresh():
-    """Test now_age categorizes fresh (<15min)."""
-    current_time = 1000000
-    mtime = current_time - 500  # 8m20s ago
-
-    with patch('os.path.getmtime') as mock_mtime:
-        mock_mtime.return_value = mtime
-        with patch('time.time') as mock_time:
-            mock_time.return_value = current_time
-            label, age = now_age()
-            assert label == "fresh"
-            assert age == 500
-
-
-def test_now_age_recent():
-    """Test now_age categorizes recent (<1hr)."""
-    current_time = 1000000
-    mtime = current_time - 2000  # ~33min ago
-
-    with patch('os.path.getmtime') as mock_mtime:
-        mock_mtime.return_value = mtime
-        with patch('time.time') as mock_time:
-            mock_time.return_value = current_time
-            label, age = now_age()
-            assert label == "recent"
-            assert age == 2000
-
-
-def test_now_age_stale():
-    """Test now_age categorizes stale (<1day)."""
-    current_time = 1000000
-    mtime = current_time - 3600 * 6  # 6 hours ago
-
-    with patch('os.path.getmtime') as mock_mtime:
-        mock_mtime.return_value = mtime
-        with patch('time.time') as mock_time:
-            mock_time.return_value = current_time
-            label, age = now_age()
-            assert label == "stale"
-            assert age == 21600
-
-
-def test_now_age_very_stale():
-    """Test now_age categorizes very stale (>1day)."""
-    current_time = 1000000
-    mtime = current_time - 86400 * 2  # 2 days ago
-
-    with patch('os.path.getmtime') as mock_mtime:
-        mock_mtime.return_value = mtime
-        with patch('time.time') as mock_time:
-            mock_time.return_value = current_time
-            label, age = now_age()
-            assert label == "very stale"
-            assert age == 172800
-
-
-def test_now_age_missing():
-    """Test now_age returns missing when file not found."""
-    with patch('os.path.getmtime') as mock_mtime:
-        mock_mtime.side_effect = FileNotFoundError()
-        label, age = now_age()
-        assert label == "missing"
-        assert age == -1
-
-
-# ──────────────────────────────────────────────────────────────────────────────
-# memory_lines tests
-# ──────────────────────────────────────────────────────────────────────────────
-
-def test_memory_lines_counts_lines():
-    """Test memory_lines counts lines correctly."""
-    mock_data = "line1\nline2\nline3\n"
-    with patch('builtins.open', mock_open(read_data=mock_data)):
-        result = memory_lines()
+class TestMemoryLines:
+    def test_counts_lines(self, tmp_path):
+        mem = tmp_path / "MEMORY.md"
+        mem.write_text("line1\nline2\nline3\n")
+        with patch.object(_mod, "MEMORY", mem):
+            with patch("builtins.open", create=True):
+                # Need to re-bind since memory_lines references MEMORY at module level
+                # We use the function from the reloaded ns with patched global
+                pass
+        # Since memory_lines uses open(MEMORY) directly, we patch the path
+        fake_mem = tmp_path / "MEMORY.md"
+        fake_mem.write_text("a\nb\nc\n")
+        with patch.object(_mod, "MEMORY", fake_mem):
+            result = memory_lines()
         assert result == 3
 
-
-def test_memory_lines_missing():
-    """Test memory_lines returns 0 when file not found."""
-    with patch('builtins.open') as mock_open_obj:
-        mock_open_obj.side_effect = FileNotFoundError()
-        result = memory_lines()
-        assert result == 0
-
-
-# ──────────────────────────────────────────────────────────────────────────────
-# skill_gaps tests
-# ──────────────────────────────────────────────────────────────────────────────
-
-def test_skill_gaps_finds_unlinked_skills():
-    """Test skill_gaps returns skills in SKILLS not in CLAUDE_SKILLS."""
-    skills_dir = ["skill1", "skill2", ".hidden", "skill3"]
-    claude_dir = ["skill1", ".DS_Store", "skill4"]
-
-    with patch('os.listdir') as mock_listdir:
-        mock_listdir.side_effect = [skills_dir, claude_dir]
-        result = skill_gaps()
-        assert sorted(result) == ["skill2", "skill3"]
-
-
-def test_skill_gaps_empty_when_all_synced():
-    """Test skill_gaps returns empty when all skills are linked."""
-    skills_dir = ["skill1", "skill2"]
-    claude_dir = ["skill1", "skill2"]
-
-    with patch('os.listdir') as mock_listdir:
-        mock_listdir.side_effect = [skills_dir, claude_dir]
-        result = skill_gaps()
-        assert result == []
-
-
-def test_skill_gaps_handles_missing_directory():
-    """Test skill_gaps returns empty list when directory not found."""
-    with patch('os.listdir') as mock_listdir:
-        mock_listdir.side_effect = FileNotFoundError()
-        result = skill_gaps()
-        assert result == []
-
-
-# ──────────────────────────────────────────────────────────────────────────────
-# dep_check tests
-# ──────────────────────────────────────────────────────────────────────────────
-
-def test_dep_check_returns_warnings():
-    """Test dep_check returns warnings from proteostasis."""
-    with patch('subprocess.run') as mock_run:
-        mock_run.return_value = MagicMock(
-            returncode=0,
-            stdout="warning: dep1 out of date\nwarning: dep2 missing\n",
-            stderr=""
-        )
-        result = dep_check()
-        assert result == ["warning: dep1 out of date", "warning: dep2 missing"]
-
-
-def test_dep_check_empty_on_error():
-    """Test dep_check returns empty when proteostasis fails."""
-    with patch('subprocess.run') as mock_run:
-        mock_run.return_value = MagicMock(
-            returncode=1,
-            stdout="",
-            stderr="command not found"
-        )
-        result = dep_check()
-        assert result == []
-
-
-def test_dep_check_empty_on_exception():
-    """Test dep_check returns empty on exception."""
-    with patch('subprocess.run') as mock_run:
-        mock_run.side_effect = FileNotFoundError()
-        result = dep_check()
-        assert result == []
-
-
-# ──────────────────────────────────────────────────────────────────────────────
-# peira_status tests
-# ──────────────────────────────────────────────────────────────────────────────
-
-def test_peira_status_returns_active_info():
-    """Test peira_status returns active experiment info."""
-    with patch('subprocess.run') as mock_run:
-        mock_run.return_value = MagicMock(
-            returncode=0,
-            stdout="experiment: test-exp\nstage: running\n",
-            stderr=""
-        )
-        result = peira_status()
-        assert result == "experiment: test-exp\nstage: running"
-
-
-def test_peira_status_none_when_no_output():
-    """Test peira_status returns None when no output."""
-    with patch('subprocess.run') as mock_run:
-        mock_run.return_value = MagicMock(
-            returncode=0,
-            stdout="",
-            stderr=""
-        )
-        result = peira_status()
-        assert result is None
-
-
-def test_peira_status_none_on_error():
-    """Test peira_status returns None on error."""
-    with patch('subprocess.run') as mock_run:
-        mock_run.return_value = MagicMock(
-            returncode=1,
-            stdout="",
-            stderr="error"
-        )
-        result = peira_status()
-        assert result is None
-
-
-# ──────────────────────────────────────────────────────────────────────────────
-# latest_session_id tests
-# ──────────────────────────────────────────────────────────────────────────────
-
-def test_latest_session_id_extracts_from_today():
-    """Test latest_session_id extracts last session ID from anam today."""
-    output = """some line
-[abc123] 15 prompts (12:34) - Claude
-another line"""
-    with patch('subprocess.run') as mock_run:
-        mock_run.return_value = MagicMock(
-            returncode=0,
-            stdout=output,
-            stderr=""
-        )
-        result = latest_session_id()
-        assert result == "abc123"
-
-
-def test_latest_session_id_none_when_no_match():
-    """Test latest_session_id returns None when no session ID found."""
-    output = """no session here
-nothing matches"""
-    with patch('subprocess.run') as mock_run:
-        mock_run.return_value = MagicMock(
-            returncode=0,
-            stdout=output,
-            stderr=""
-        )
-        result = latest_session_id()
-        assert result is None
-
-
-def test_latest_session_id_none_on_error():
-    """Test latest_session_id returns None on error."""
-    with patch('subprocess.run') as mock_run:
-        mock_run.return_value = MagicMock(
-            returncode=1,
-            stdout="",
-            stderr="error"
-        )
-        result = latest_session_id()
-        assert result is None
-
-
-# ──────────────────────────────────────────────────────────────────────────────
-# cmd_archive tests
-# ──────────────────────────────────────────────────────────────────────────────
-
-def test_cmd_archive_no_praxis_file(capsys):
-    """Test cmd_archive exits when Praxis.md not found."""
-    with patch.object(legatum.PRAXIS, 'exists', return_value=False):
-        with pytest.raises(SystemExit):
-            args = MagicMock()
-            cmd_archive(args)
-        captured = capsys.readouterr()
-        assert "No Praxis.md found" in captured.err
-
-
-def test_cmd_archive_no_completed_items(capsys, tmp_path):
-    """Test cmd_archive reports no completed items to archive."""
-    praxis_content = """- [ ] item 1
-- [ ] item 2
-  - [ ] subitem
-"""
-    praxis_path = tmp_path / "Praxis.md"
-    praxis_path.write_text(praxis_content, encoding="utf-8")
-    archive_path = tmp_path / "Praxis Archive.md"
-
-    with patch.object(legatum, 'PRAXIS', praxis_path):
-        with patch.object(legatum, 'PRAXIS_ARCHIVE', archive_path):
-            args = MagicMock()
-            cmd_archive(args)
-            captured = capsys.readouterr()
-            assert "No completed items to archive" in captured.out
-            # Original content unchanged
-            assert praxis_path.read_text(encoding="utf-8") == praxis_content
-
-
-def test_cmd_archive_archives_completed_items(capsys, tmp_path):
-    """Test cmd_archive archives completed [x] items."""
-    praxis_content = """- [ ] item 1
-- [x] completed item A
-  - subitem 1
-  - subitem 2
-- [ ] item 2
-- [x] done:2026-03-01 already tagged
-- [ ] item 3
-"""
-    today = datetime.now().strftime("%Y-%m-%d")
-
-    praxis_path = tmp_path / "Praxis.md"
-    praxis_path.write_text(praxis_content, encoding="utf-8")
-    archive_path = tmp_path / "Praxis Archive.md"
-
-    with patch.object(legatum, 'PRAXIS', praxis_path):
-        with patch.object(legatum, 'PRAXIS_ARCHIVE', archive_path):
-            args = MagicMock()
-            cmd_archive(args)
-
-            # Check remaining content - completed items are gone
-            remaining = praxis_path.read_text(encoding="utf-8")
-            assert "- [ ] item 1" in remaining
-            assert "- [ ] item 2" in remaining
-            assert "- [ ] item 3" in remaining
-            assert "completed item A" not in remaining
-            assert "already tagged" not in remaining
-
-            # Check archive has the completed items
-            archive_content = archive_path.read_text(encoding="utf-8")
-            assert "completed item A" in archive_content
-            assert f"`done:{today}`" in archive_content
-            assert "already tagged" in archive_content
-            assert "done:2026-03-01" in archive_content
-
-            captured = capsys.readouterr()
-            assert "Archived 2 completed item(s)" in captured.out
-
-
-def test_cmd_archive_creates_new_month_section(tmp_path):
-    """Test cmd_archive creates new month section when none exists."""
-    praxis_content = "- [x] test item\n"
-    praxis_path = tmp_path / "Praxis.md"
-    praxis_path.write_text(praxis_content, encoding="utf-8")
-    archive_path = tmp_path / "Praxis Archive.md"
-    archive_path.write_text("Intro text\n\n", encoding="utf-8")
-
-    with patch.object(legatum, 'PRAXIS', praxis_path):
-        with patch.object(legatum, 'PRAXIS_ARCHIVE', archive_path):
-            args = MagicMock()
-            cmd_archive(args)
-
-            archive_content = archive_path.read_text(encoding="utf-8")
-            month_header = datetime.now().strftime("%B %Y")
-            assert month_header in archive_content
-            assert "test item" in archive_content
-
-
-# ──────────────────────────────────────────────────────────────────────────────
-# cmd_daily tests
-# ──────────────────────────────────────────────────────────────────────────────
-
-def test_cmd_daily_creates_new_file(capsys, tmp_path):
-    """Test cmd_daily creates new daily note with header."""
-    daily_dir = tmp_path / "Daily"
-    daily_dir.mkdir()
-
-    today = datetime.now().strftime("%Y-%m-%d")
-    weekday = datetime.now().strftime("%A")
-
-    with patch.object(legatum, 'DAILY_DIR', daily_dir):
-        args = MagicMock()
-        args.title = "Test Session"
-        cmd_daily(args)
-
-        daily_path = daily_dir / f"{today}.md"
-        assert daily_path.exists()
-        content = daily_path.read_text(encoding="utf-8")
-        assert f"# {today} — {weekday}" in content
-        assert "— Test Session" in content
-        captured = capsys.readouterr()
-        assert "Daily note" in captured.out
-
-
-def test_cmd_daily_appends_to_existing_file(capsys, tmp_path):
-    """Test cmd_daily appends to existing daily note."""
-    daily_dir = tmp_path / "Daily"
-    daily_dir.mkdir()
-    today = datetime.now().strftime("%Y-%m-%d")
-    daily_path = daily_dir / f"{today}.md"
-    daily_path.write_text("# Existing content\n\nPrevious entry\n", encoding="utf-8")
-
-    with patch.object(legatum, 'DAILY_DIR', daily_dir):
-        args = MagicMock()
-        args.title = None
-        cmd_daily(args)
-
-        content = daily_path.read_text(encoding="utf-8")
-        assert "# Existing content" in content
-        assert "Previous entry" in content
-        assert "— Session" in content  # default title
-
-
-# ──────────────────────────────────────────────────────────────────────────────
-# cmd_gather tests with integration
-# ──────────────────────────────────────────────────────────────────────────────
-
-def test_cmd_gather_json_output():
-    """Test cmd_gather produces JSON output."""
-    args = MagicMock()
-    args.syntactic = True
-    args.perceptual = False
-    args.repos = None
-
-    with patch('telophase.git_status') as mock_git:
-        mock_git.return_value = ""  # all clean
-        with patch('telophase.skill_gaps') as mock_skills:
-            mock_skills.return_value = []
-            with patch('telophase.memory_lines') as mock_mem:
-                mock_mem.return_value = 50
-                with patch('telophase.now_age') as mock_now:
-                    mock_now.return_value = ("fresh", 400)
-                    with patch('telophase.dep_check') as mock_deps:
-                        mock_deps.return_value = []
-                        with patch('telophase.peira_status') as mock_peira:
-                            mock_peira.return_value = None
-                            with patch('telophase.latest_session_id') as mock_sid:
-                                mock_sid.return_value = None
-
-                                import io
-                                from contextlib import redirect_stdout
-
-                                output = io.StringIO()
-                                with redirect_stdout(output):
-                                    cmd_gather(args)
-
-                                # Parse and verify JSON
-                                result = json.loads(output.getvalue())
-                                assert "repos" in result
-                                assert "skills" in result
-                                assert "memory" in result
-                                assert "now" in result
-                                assert "deps" in result
-                                assert "peira" in result
-
-                                assert result["memory"]["lines"] == 50
-                                assert result["now"]["age_label"] == "fresh"
-                                assert result["now"]["age_seconds"] == 400
-
-
-def test_cmd_gather_with_extra_repos():
-    """Test cmd_gather accepts extra repos."""
-    args = MagicMock()
-    args.syntactic = True
-    args.perceptual = False
-    args.repos = "/fake/path/repo1,/another/path/repo2"
-
-    called_labels = []
-
-    def mock_git_status(path):
-        called_labels.append(path.name)
-        return ""
-
-    with patch('telophase.git_status', side_effect=mock_git_status):
-        with patch('telophase.skill_gaps') as mock_skills:
-            mock_skills.return_value = []
-            with patch('telophase.memory_lines') as mock_mem:
-                mock_mem.return_value = 50
-                with patch('telophase.now_age') as mock_now:
-                    mock_now.return_value = ("fresh", 400)
-                    with patch('telophase.dep_check') as mock_deps:
-                        mock_deps.return_value = []
-                        with patch('telophase.peira_status') as mock_peira:
-                            mock_peira.return_value = None
-                            with patch('telophase.latest_session_id') as mock_sid:
-                                mock_sid.return_value = None
-
-                                import io
-                                from contextlib import redirect_stdout
-
-                                output = io.StringIO()
-                                with redirect_stdout(output):
-                                    cmd_gather(args)
-
-                                # Check that extra repos were processed
-                                assert "repo1" in called_labels
-                                assert "repo2" in called_labels
-
-
-# ──────────────────────────────────────────────────────────────────────────────
-# run_reflect tests
-# ──────────────────────────────────────────────────────────────────────────────
-
-def test_run_reflect_parses_findings():
-    """Test run_reflect correctly parses findings from LLM output."""
-    session_id = "abc123"
-
-    # Mock anam search output
-    anam_output = json.dumps([
-        {"role": "user", "snippet": "Test message", "time": "12:34"},
-        {"role": "you", "snippet": "Response", "time": "12:35"},
-    ])
-
-    # Mock channel glm output with proper formatted findings
-    llm_output = """---
-category: taste_calibration
-quote: User said this was wrong
-lesson: Always check this first
-memory_type: feedback
----
-category: discovery
-quote: Found something new
-lesson: System behaves differently than expected
-memory_type: finding
-"""
-
-    with patch('subprocess.run') as mock_run:
-        # First call: anam search
-        mock_run.side_effect = [
-            MagicMock(returncode=0, stdout=anam_output),
-            MagicMock(returncode=0, stdout=llm_output),
+    def test_missing_returns_zero(self):
+        with patch.object(_mod, "MEMORY", Path("/nonexistent/MEMORY.md")):
+            assert memory_lines() == 0
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# skill_gaps
+# ══════════════════════════════════════════════════════════════════════════════
+
+class TestSkillGaps:
+    def test_no_gaps(self):
+        with patch("os.listdir", side_effect=lambda p: ["skill_a", "skill_b"]):
+            result = skill_gaps()
+            assert result == []
+
+    def test_detects_gaps(self):
+        def fake_listdir(path):
+            path = str(path)
+            if "vivesca" in path or str(SKILLS) == path:
+                return ["alpha", "beta", "gamma"]
+            if ".claude/skills" in path or str(CLAUDE_SKILLS) == path:
+                return ["alpha", "gamma"]
+            return []
+        with patch("os.listdir", side_effect=fake_listdir):
+            result = skill_gaps()
+            assert result == ["beta"]
+
+    def test_skips_dotfiles(self):
+        def fake_listdir(path):
+            path = str(path)
+            if "vivesca" in path or str(SKILLS) == path:
+                return [".hidden", "visible"]
+            if ".claude/skills" in path or str(CLAUDE_SKILLS) == path:
+                return ["visible"]
+            return []
+        with patch("os.listdir", side_effect=fake_listdir):
+            result = skill_gaps()
+            assert result == []
+
+    def test_missing_dir_returns_empty(self):
+        with patch("os.listdir", side_effect=FileNotFoundError):
+            assert skill_gaps() == []
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# dep_check
+# ══════════════════════════════════════════════════════════════════════════════
+
+class TestDepCheck:
+    def test_returns_warnings(self):
+        mock = MagicMock(returncode=0, stdout="pkg-x outdated\npkg-y missing\n")
+        with patch("subprocess.run", return_value=mock):
+            result = dep_check()
+            assert len(result) == 2
+            assert "pkg-x outdated" in result
+
+    def test_empty_stdout_returns_empty(self):
+        mock = MagicMock(returncode=0, stdout="  \n")
+        with patch("subprocess.run", return_value=mock):
+            assert dep_check() == []
+
+    def test_timeout_returns_empty(self):
+        import subprocess
+        with patch("subprocess.run", side_effect=subprocess.TimeoutExpired("x", 30)):
+            assert dep_check() == []
+
+    def test_not_found_returns_empty(self):
+        with patch("subprocess.run", side_effect=FileNotFoundError):
+            assert dep_check() == []
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# peira_status
+# ══════════════════════════════════════════════════════════════════════════════
+
+class TestPeiraStatus:
+    def test_returns_status_text(self):
+        mock = MagicMock(returncode=0, stdout="exp-42 running\n")
+        with patch("subprocess.run", return_value=mock):
+            assert peira_status() == "exp-42 running"
+
+    def test_nonzero_returns_none(self):
+        mock = MagicMock(returncode=1, stdout="")
+        with patch("subprocess.run", return_value=mock):
+            assert peira_status() is None
+
+    def test_empty_stdout_returns_none(self):
+        mock = MagicMock(returncode=0, stdout="  ")
+        with patch("subprocess.run", return_value=mock):
+            assert peira_status() is None
+
+    def test_timeout_returns_none(self):
+        import subprocess
+        with patch("subprocess.run", side_effect=subprocess.TimeoutExpired("peira", 10)):
+            assert peira_status() is None
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# latest_session_id
+# ══════════════════════════════════════════════════════════════════════════════
+
+class TestLatestSessionId:
+    def test_extracts_hex_id(self):
+        output = "some line\n[abc123] 5 prompts (2m) - Opus\n"
+        mock = MagicMock(returncode=0, stdout=output)
+        with patch("subprocess.run", return_value=mock):
+            assert latest_session_id() == "abc123"
+
+    def test_no_match_returns_none(self):
+        mock = MagicMock(returncode=0, stdout="nothing here\n")
+        with patch("subprocess.run", return_value=mock):
+            assert latest_session_id() is None
+
+    def test_failure_returns_none(self):
+        mock = MagicMock(returncode=1, stdout="")
+        with patch("subprocess.run", return_value=mock):
+            assert latest_session_id() is None
+
+    def test_timeout_returns_none(self):
+        import subprocess
+        with patch("subprocess.run", side_effect=subprocess.TimeoutExpired("anam", 10)):
+            assert latest_session_id() is None
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# run_reflect
+# ══════════════════════════════════════════════════════════════════════════════
+
+class TestRunReflect:
+    def _mock_anam(self, messages_json):
+        """Return a mock subprocess.run that responds to anam search."""
+        def side_effect(cmd, **kwargs):
+            m = MagicMock()
+            if "anam" in cmd:
+                if "search" in cmd:
+                    m.returncode = 0
+                    m.stdout = json.dumps(messages_json)
+                else:
+                    m.returncode = 0
+                    m.stdout = "[deadbeef] 3 prompts (1m) - Opus\n"
+            elif "channel" in cmd:
+                m.returncode = 0
+                m.stdout = "---\ncategory: discovery\nquote: found it\nlesson: something new\nmemory_type: finding\n---"
+            else:
+                m.returncode = 1
+                m.stdout = ""
+            return m
+        return side_effect
+
+    def test_parses_findings(self):
+        msgs = [
+            {"role": "user", "snippet": "I discovered X", "time": "10:00"},
+            {"role": "assistant", "snippet": "Great!", "time": "10:01"},
         ]
+        with patch("subprocess.run", side_effect=self._mock_anam(msgs)):
+            findings, usage = run_reflect("abc123")
+        assert len(findings) >= 1
+        assert findings[0]["category"] == "discovery"
 
-        findings, usage = run_reflect(session_id)
+    def test_empty_messages_returns_empty(self):
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(returncode=0, stdout="[]")
+            findings, usage = run_reflect("abc123")
+        assert findings == []
 
-        assert len(findings) == 2
-        assert findings[0]["category"] == "taste_calibration"
-        assert findings[0]["quote"] == "User said this was wrong"
-        assert findings[0]["lesson"] == "Always check this first"
-        assert findings[0]["memory_type"] == "feedback"
-        assert findings[1]["category"] == "discovery"
+    def test_anam_failure_returns_empty(self):
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(returncode=1, stdout="")
+            findings, usage = run_reflect("abc123")
+        assert findings == []
+
+    def test_long_assistant_snippet_truncated(self):
+        msgs = [
+            {"role": "assistant", "snippet": "x" * 600, "time": "10:00"},
+        ]
+        with patch("subprocess.run", side_effect=self._mock_anam(msgs)):
+            findings, usage = run_reflect("abc123")
+        # Should not crash; usage should have input_tokens estimated
         assert usage["input_tokens"] > 0
-        assert usage["output_tokens"] > 0
 
-
-def test_run_reflect_empty_on_anam_error():
-    """Test run_reflect returns empty when anam fails."""
-    session_id = "abc123"
-    with patch('subprocess.run') as mock_run:
-        mock_run.return_value = MagicMock(returncode=1, stdout="")
-        findings, usage = run_reflect(session_id)
+    def test_channel_failure_returns_empty(self):
+        msgs = [{"role": "user", "snippet": "hello", "time": "10:00"}]
+        def side_effect(cmd, **kwargs):
+            m = MagicMock()
+            if "anam" in cmd and "search" in cmd:
+                m.returncode = 0
+                m.stdout = json.dumps(msgs)
+            elif "channel" in cmd:
+                m.returncode = 1
+                m.stdout = ""
+            else:
+                m.returncode = 0
+                m.stdout = ""
+            return m
+        with patch("subprocess.run", side_effect=side_effect):
+            findings, usage = run_reflect("abc123")
         assert findings == []
-        assert usage["input_tokens"] == 0
+        assert usage["input_tokens"] > 0
 
 
-def test_run_reflect_empty_on_channel_error():
-    """Test run_reflect returns empty when channel fails."""
-    session_id = "abc123"
-    anam_output = json.dumps([{"role": "user", "snippet": "test"}])
+# ══════════════════════════════════════════════════════════════════════════════
+# cmd_gather
+# ══════════════════════════════════════════════════════════════════════════════
 
-    with patch('subprocess.run') as mock_run:
-        mock_run.side_effect = [
-            MagicMock(returncode=0, stdout=anam_output),
-            MagicMock(returncode=1, stdout=""),
+class TestCmdGather:
+    def _make_args(self, **overrides):
+        defaults = {"syntactic": False, "perceptual": False, "repos": None}
+        defaults.update(overrides)
+        return MagicMock(**defaults)
+
+    def test_syntactic_output_is_valid_json(self, capsys):
+        args = self._make_args(syntactic=True)
+        with patch.object(_mod, "git_status", return_value=""), \
+             patch.object(_mod, "skill_gaps", return_value=[]), \
+             patch.object(_mod, "memory_lines", return_value=42), \
+             patch.object(_mod, "now_age", return_value=("fresh", 100)), \
+             patch.object(_mod, "dep_check", return_value=[]), \
+             patch.object(_mod, "peira_status", return_value=None), \
+             patch.object(_mod, "latest_session_id", return_value=None):
+            cmd_gather(args)
+        out = capsys.readouterr().out
+        data = json.loads(out)
+        assert data["memory"]["lines"] == 42
+        assert data["now"]["age_label"] == "fresh"
+        assert data["repos"] != {}
+
+    def test_default_compact_output(self, capsys):
+        args = self._make_args()
+        with patch.object(_mod, "git_status", return_value=""), \
+             patch.object(_mod, "skill_gaps", return_value=[]), \
+             patch.object(_mod, "memory_lines", return_value=10), \
+             patch.object(_mod, "now_age", return_value=("fresh", 100)), \
+             patch.object(_mod, "dep_check", return_value=[]), \
+             patch.object(_mod, "peira_status", return_value=None), \
+             patch.object(_mod, "latest_session_id", return_value=None):
+            cmd_gather(args)
+        out = capsys.readouterr().out
+        assert "memory:10/" in out
+        assert "now:fresh" in out
+
+    def test_dirty_repo_shown_in_compact(self, capsys):
+        args = self._make_args()
+        def fake_git_status(path):
+            if path.name == "skills":
+                return " M foo.py"
+            return ""
+        with patch.object(_mod, "git_status", side_effect=fake_git_status), \
+             patch.object(_mod, "skill_gaps", return_value=[]), \
+             patch.object(_mod, "memory_lines", return_value=5), \
+             patch.object(_mod, "now_age", return_value=("fresh", 50)), \
+             patch.object(_mod, "dep_check", return_value=[]), \
+             patch.object(_mod, "peira_status", return_value=None), \
+             patch.object(_mod, "latest_session_id", return_value=None):
+            cmd_gather(args)
+        out = capsys.readouterr().out
+        assert "repo:skills dirty" in out
+
+    def test_unlinked_skills_shown(self, capsys):
+        args = self._make_args()
+        with patch.object(_mod, "git_status", return_value=""), \
+             patch.object(_mod, "skill_gaps", return_value=["foo", "bar"]), \
+             patch.object(_mod, "memory_lines", return_value=5), \
+             patch.object(_mod, "now_age", return_value=("fresh", 50)), \
+             patch.object(_mod, "dep_check", return_value=[]), \
+             patch.object(_mod, "peira_status", return_value=None), \
+             patch.object(_mod, "latest_session_id", return_value=None):
+            cmd_gather(args)
+        out = capsys.readouterr().out
+        assert "skills:unlinked foo,bar" in out
+
+    def test_extra_repos(self, capsys):
+        args = self._make_args(syntactic=True, repos="/tmp/myrepo")
+        with patch.object(_mod, "git_status", return_value=""), \
+             patch.object(_mod, "skill_gaps", return_value=[]), \
+             patch.object(_mod, "memory_lines", return_value=5), \
+             patch.object(_mod, "now_age", return_value=("fresh", 50)), \
+             patch.object(_mod, "dep_check", return_value=[]), \
+             patch.object(_mod, "peira_status", return_value=None), \
+             patch.object(_mod, "latest_session_id", return_value=None):
+            cmd_gather(args)
+        out = capsys.readouterr().out
+        data = json.loads(out)
+        assert "myrepo" in data["repos"]
+
+    def test_perceptual_output(self, capsys):
+        args = self._make_args(perceptual=True)
+        with patch.object(_mod, "git_status", return_value=""), \
+             patch.object(_mod, "skill_gaps", return_value=[]), \
+             patch.object(_mod, "memory_lines", return_value=5), \
+             patch.object(_mod, "now_age", return_value=("fresh", 50)), \
+             patch.object(_mod, "dep_check", return_value=[]), \
+             patch.object(_mod, "peira_status", return_value=None), \
+             patch.object(_mod, "latest_session_id", return_value=None):
+            cmd_gather(args)
+        out = capsys.readouterr().out
+        assert "Legatum Gather" in out
+
+    def test_deps_shown_in_compact(self, capsys):
+        args = self._make_args()
+        with patch.object(_mod, "git_status", return_value=""), \
+             patch.object(_mod, "skill_gaps", return_value=[]), \
+             patch.object(_mod, "memory_lines", return_value=5), \
+             patch.object(_mod, "now_age", return_value=("fresh", 50)), \
+             patch.object(_mod, "dep_check", return_value=["pkg outdated"]), \
+             patch.object(_mod, "peira_status", return_value=None), \
+             patch.object(_mod, "latest_session_id", return_value=None):
+            cmd_gather(args)
+        out = capsys.readouterr().out
+        assert "deps:pkg outdated" in out
+
+    def test_peira_shown_in_compact(self, capsys):
+        args = self._make_args()
+        with patch.object(_mod, "git_status", return_value=""), \
+             patch.object(_mod, "skill_gaps", return_value=[]), \
+             patch.object(_mod, "memory_lines", return_value=5), \
+             patch.object(_mod, "now_age", return_value=("fresh", 50)), \
+             patch.object(_mod, "dep_check", return_value=[]), \
+             patch.object(_mod, "peira_status", return_value="exp-1 active"), \
+             patch.object(_mod, "latest_session_id", return_value=None):
+            cmd_gather(args)
+        out = capsys.readouterr().out
+        assert "peira:exp-1 active" in out
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# cmd_archive
+# ══════════════════════════════════════════════════════════════════════════════
+
+class TestCmdArchive:
+    def test_no_praxis_exits(self):
+        with patch.object(_mod, "PRAXIS", Path("/nonexistent/Praxis.md")):
+            with pytest.raises(SystemExit):
+                cmd_archive(MagicMock())
+
+    def test_no_completed_items(self, capsys, tmp_path):
+        praxis = tmp_path / "Praxis.md"
+        praxis.write_text("# Tasks\n\n- [ ] TODO item\n- [ ] Another\n")
+        with patch.object(_mod, "PRAXIS", praxis), \
+             patch.object(_mod, "PRAXIS_ARCHIVE", tmp_path / "archive.md"):
+            cmd_archive(MagicMock())
+        out = capsys.readouterr().out
+        assert "No completed items" in out
+
+    def test_archives_completed_items(self, tmp_path, capsys):
+        praxis = tmp_path / "Praxis.md"
+        praxis.write_text("# Tasks\n\n- [x] Done thing\n- [ ] Still todo\n")
+        archive = tmp_path / "Praxis Archive.md"
+        archive.write_text("# Archive\n\n## January 2026\n\nold item\n")
+
+        with patch.object(_mod, "PRAXIS", praxis), \
+             patch.object(_mod, "PRAXIS_ARCHIVE", archive):
+            # Patch datetime to control month header
+            from datetime import datetime
+            fake_now = datetime(2026, 1, 15, 12, 0, 0)
+            with patch.object(_mod, "datetime") as mock_dt:
+                mock_dt.now.return_value = fake_now
+                mock_dt.strftime = datetime.strftime
+                # Need strftime to work on the mock
+                mock_dt.now.return_value.strftime = lambda fmt: fake_now.strftime(fmt)
+                cmd_archive(MagicMock())
+
+        out = capsys.readouterr().out
+        assert "Archived 1 completed item" in out
+
+        # Check Praxis has remaining items only
+        remaining = praxis.read_text()
+        assert "- [ ] Still todo" in remaining
+        assert "- [x]" not in remaining
+
+        # Check archive has the completed item
+        archive_text = archive.read_text()
+        assert "Done thing" in archive_text
+
+    def test_adds_done_tag_if_missing(self, tmp_path, capsys):
+        praxis = tmp_path / "Praxis.md"
+        praxis.write_text("- [x] Task without done tag\n")
+        archive = tmp_path / "Praxis Archive.md"
+        archive.write_text("")
+
+        from datetime import datetime
+        fake_now = datetime(2026, 3, 31, 12, 0, 0)
+        with patch.object(_mod, "PRAXIS", praxis), \
+             patch.object(_mod, "PRAXIS_ARCHIVE", archive), \
+             patch.object(_mod, "datetime") as mock_dt:
+            mock_dt.now.return_value = fake_now
+            mock_dt.now.return_value.strftime = lambda fmt: fake_now.strftime(fmt)
+            cmd_archive(MagicMock())
+
+        archive_text = archive.read_text()
+        assert "done:2026-03-31" in archive_text
+
+    def test_preserves_existing_done_tag(self, tmp_path, capsys):
+        praxis = tmp_path / "Praxis.md"
+        praxis.write_text("- [x] Task `done:2026-01-01`\n")
+        archive = tmp_path / "Praxis Archive.md"
+        archive.write_text("")
+
+        from datetime import datetime
+        fake_now = datetime(2026, 3, 31, 12, 0, 0)
+        with patch.object(_mod, "PRAXIS", praxis), \
+             patch.object(_mod, "PRAXIS_ARCHIVE", archive), \
+             patch.object(_mod, "datetime") as mock_dt:
+            mock_dt.now.return_value = fake_now
+            mock_dt.now.return_value.strftime = lambda fmt: fake_now.strftime(fmt)
+            cmd_archive(MagicMock())
+
+        archive_text = archive.read_text()
+        # Should only have one done tag
+        assert archive_text.count("done:") == 1
+
+    def test_creates_new_month_section(self, tmp_path, capsys):
+        praxis = tmp_path / "Praxis.md"
+        praxis.write_text("- [x] New task\n")
+        archive = tmp_path / "Praxis Archive.md"
+        archive.write_text("# Archive\n\n## January 2026\n\nold\n")
+
+        from datetime import datetime
+        fake_now = datetime(2026, 3, 31, 12, 0, 0)
+        with patch.object(_mod, "PRAXIS", praxis), \
+             patch.object(_mod, "PRAXIS_ARCHIVE", archive), \
+             patch.object(_mod, "datetime") as mock_dt:
+            mock_dt.now.return_value = fake_now
+            mock_dt.now.return_value.strftime = lambda fmt: fake_now.strftime(fmt)
+            cmd_archive(MagicMock())
+
+        archive_text = archive.read_text()
+        assert "## March 2026" in archive_text
+        assert "New task" in archive_text
+
+    def test_skips_children_of_completed_items(self, tmp_path, capsys):
+        praxis = tmp_path / "Praxis.md"
+        praxis.write_text("- [x] Parent task\n  - child detail 1\n  - child detail 2\n- [ ] Remaining\n")
+        archive = tmp_path / "Praxis Archive.md"
+        archive.write_text("")
+
+        from datetime import datetime
+        fake_now = datetime(2026, 3, 31, 12, 0, 0)
+        with patch.object(_mod, "PRAXIS", praxis), \
+             patch.object(_mod, "PRAXIS_ARCHIVE", archive), \
+             patch.object(_mod, "datetime") as mock_dt:
+            mock_dt.now.return_value = fake_now
+            mock_dt.now.return_value.strftime = lambda fmt: fake_now.strftime(fmt)
+            cmd_archive(MagicMock())
+
+        remaining = praxis.read_text()
+        assert "child detail" not in remaining
+        assert "- [ ] Remaining" in remaining
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# cmd_daily
+# ══════════════════════════════════════════════════════════════════════════════
+
+class TestCmdDaily:
+    def test_creates_new_daily_note(self, tmp_path, capsys):
+        daily_dir = tmp_path / "Daily"
+        daily_dir.mkdir()
+
+        from datetime import datetime
+        fake_now = datetime(2026, 3, 31, 14, 30, 0)
+        with patch.object(_mod, "DAILY_DIR", daily_dir), \
+             patch.object(_mod, "datetime") as mock_dt:
+            mock_dt.now.return_value = fake_now
+            mock_dt.now.return_value.strftime = lambda fmt: fake_now.strftime(fmt)
+            args = MagicMock(title="Test Session")
+            cmd_daily(args)
+
+        daily_path = daily_dir / "2026-03-31.md"
+        assert daily_path.exists()
+        content = daily_path.read_text()
+        assert "# 2026-03-31 — Tuesday" in content
+        assert "Test Session" in content
+
+    def test_appends_to_existing(self, tmp_path, capsys):
+        daily_dir = tmp_path / "Daily"
+        daily_dir.mkdir()
+        daily_path = daily_dir / "2026-03-31.md"
+        daily_path.write_text("# 2026-03-31 — Tuesday\n\nexisting content\n")
+
+        from datetime import datetime
+        fake_now = datetime(2026, 3, 31, 14, 30, 0)
+        with patch.object(_mod, "DAILY_DIR", daily_dir), \
+             patch.object(_mod, "datetime") as mock_dt:
+            mock_dt.now.return_value = fake_now
+            mock_dt.now.return_value.strftime = lambda fmt: fake_now.strftime(fmt)
+            args = MagicMock(title="Second Session")
+            cmd_daily(args)
+
+        content = daily_path.read_text()
+        assert "existing content" in content
+        assert "Second Session" in content
+
+    def test_default_title_is_session(self, tmp_path, capsys):
+        daily_dir = tmp_path / "Daily"
+        daily_dir.mkdir()
+
+        from datetime import datetime
+        fake_now = datetime(2026, 3, 31, 14, 30, 0)
+        with patch.object(_mod, "DAILY_DIR", daily_dir), \
+             patch.object(_mod, "datetime") as mock_dt:
+            mock_dt.now.return_value = fake_now
+            mock_dt.now.return_value.strftime = lambda fmt: fake_now.strftime(fmt)
+            args = MagicMock(title=None)
+            cmd_daily(args)
+
+        content = (daily_dir / "2026-03-31.md").read_text()
+        assert "Session" in content
+
+    def test_template_has_fill_prompt(self, tmp_path, capsys):
+        daily_dir = tmp_path / "Daily"
+        daily_dir.mkdir()
+
+        from datetime import datetime
+        fake_now = datetime(2026, 3, 31, 14, 30, 0)
+        with patch.object(_mod, "DAILY_DIR", daily_dir), \
+             patch.object(_mod, "datetime") as mock_dt:
+            mock_dt.now.return_value = fake_now
+            mock_dt.now.return_value.strftime = lambda fmt: fake_now.strftime(fmt)
+            args = MagicMock(title="Test")
+            cmd_daily(args)
+
+        out = capsys.readouterr().out
+        assert "fill in outcomes" in out.lower()
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# cmd_reflect
+# ══════════════════════════════════════════════════════════════════════════════
+
+class TestCmdReflect:
+    def test_no_findings(self, capsys):
+        with patch.object(_mod, "run_reflect", return_value=([], {"input_tokens": 0, "output_tokens": 0})):
+            args = MagicMock(session="abc123", json=False)
+            cmd_reflect(args)
+        out = capsys.readouterr().out
+        assert "No messages found" in out
+
+    def test_json_output(self, capsys):
+        findings = [{"category": "discovery", "lesson": "something"}]
+        with patch.object(_mod, "run_reflect", return_value=(findings, {"input_tokens": 100, "output_tokens": 50})):
+            args = MagicMock(session="abc123", json=True)
+            cmd_reflect(args)
+        out = capsys.readouterr().out
+        data = json.loads(out)
+        assert len(data) == 1
+        assert data[0]["category"] == "discovery"
+
+    def test_text_output(self, capsys):
+        findings = [
+            {"category": "taste_calibration", "lesson": "prefer X over Y", "quote": "use X"},
         ]
-        findings, usage = run_reflect(session_id)
-        assert findings == []
+        with patch.object(_mod, "run_reflect", return_value=(findings, {"input_tokens": 100, "output_tokens": 50})):
+            args = MagicMock(session="abc123", json=False)
+            cmd_reflect(args)
+        out = capsys.readouterr().out
+        assert "Reflection Scan" in out
+        assert "Taste Calibration" in out
+        assert "prefer X over Y" in out
 
 
-# ──────────────────────────────────────────────────────────────────────────────
-# main/argparse tests
-# ──────────────────────────────────────────────────────────────────────────────
+# ══════════════════════════════════════════════════════════════════════════════
+# cmd_extract
+# ══════════════════════════════════════════════════════════════════════════════
 
-def test_main_help(capsys):
-    """Test main prints help when no command given."""
-    with patch.object(sys, 'argv', ['legatum']):
-        with pytest.raises(SystemExit):
-            main()
-        captured = capsys.readouterr()
-        assert "Deterministic session-close gathering" in captured.out
-        assert "gather" in captured.out
-        assert "archive" in captured.out
-        assert "daily" in captured.out
-        assert "reflect" in captured.out
-        assert "extract" in captured.out
+class TestCmdExtract:
+    def test_exits_on_bad_json(self):
+        args = MagicMock(input=None)
+        with patch("sys.stdin", StringIO("not json")):
+            with pytest.raises(SystemExit):
+                cmd_extract(args)
 
-
-def test_main_gather_command():
-    """Test main parses gather command."""
-    args_called = None
-
-    def mock_cmd_gather(args):
-        nonlocal args_called
-        args_called = args
-
-    with patch.object(sys, 'argv', ['legatum', 'gather', '--syntactic', '--repos', 'test/repo']):
-        with patch('telophase.cmd_gather', side_effect=mock_cmd_gather):
-            main()
-            assert args_called is not None
-            assert args_called.command == "gather"
-            assert args_called.syntactic is True
-            assert args_called.repos == "test/repo"
-
-
-def test_main_daily_command():
-    """Test main parses daily command."""
-    args_called = None
-
-    def mock_cmd_daily(args):
-        nonlocal args_called
-        args_called = args
-
-    with patch.object(sys, 'argv', ['legatum', 'daily', 'Planning Session']):
-        with patch('telophase.cmd_daily', side_effect=mock_cmd_daily):
-            main()
-            assert args_called is not None
-            assert args_called.command == "daily"
-            assert args_called.title == "Planning Session"
-
-
-def test_main_reflect_command():
-    """Test main parses reflect command."""
-    args_called = None
-
-    def mock_cmd_reflect(args):
-        nonlocal args_called
-        args_called = args
-
-    with patch.object(sys, 'argv', ['legatum', 'reflect', 'abc123', '--json']):
-        with patch('telophase.cmd_reflect', side_effect=mock_cmd_reflect):
-            main()
-            assert args_called is not None
-            assert args_called.command == "reflect"
-            assert args_called.session == "abc123"
-            assert args_called.json is True
-
-
-def test_main_extract_command():
-    """Test main parses extract command."""
-    args_called = None
-
-    def mock_cmd_extract(args):
-        nonlocal args_called
-        args_called = args
-
-    with patch.object(sys, 'argv', ['legatum', 'extract', '--input', 'gather.json']):
-        with patch('telophase.cmd_extract', side_effect=mock_cmd_extract):
-            main()
-            assert args_called is not None
-            assert args_called.command == "extract"
-            assert args_called.input == "gather.json"
-
-
-# ──────────────────────────────────────────────────────────────────────────────
-# cmd_extract tests
-# ──────────────────────────────────────────────────────────────────────────────
-
-def test_cmd_extract_requires_json(capsys, tmp_path):
-    """Test cmd_extract fails on non-JSON input."""
-    args = MagicMock()
-    args.input = str(tmp_path / "bad.txt")
-    (tmp_path / "bad.txt").write_text("not valid json", encoding="utf-8")
-
-    with patch.object(sys, 'stdin') as mock_stdin:
-        mock_stdin.read.return_value = "not valid json"
-        with pytest.raises(SystemExit):
+    def test_no_candidates(self, capsys):
+        data = json.dumps({"reflect": []})
+        args = MagicMock(input=None)
+        with patch("sys.stdin", StringIO(data)):
             cmd_extract(args)
-        captured = capsys.readouterr()
-        assert "extract requires gather --syntactic output (JSON)" in captured.err
+        out = capsys.readouterr().out
+        assert "no candidates" in out
 
+    def test_with_input_file(self, capsys, tmp_path):
+        gather = {"reflect": [{"category": "discovery", "lesson": "x", "quote": "y"}]}
+        infile = tmp_path / "gather.json"
+        infile.write_text(json.dumps(gather))
 
-def test_cmd_extract_works_with_valid_json(capsys, tmp_path):
-    """Test cmd_extract processes valid JSON input."""
-    test_data = {
-        "reflect": [
-            {"category": "taste_calibration", "lesson": "test lesson", "quote": "test quote"}
-        ]
-    }
-    input_path = tmp_path / "input.json"
-    input_path.write_text(json.dumps(test_data), encoding="utf-8")
-
-    args = MagicMock()
-    args.input = str(input_path)
-
-    with patch('subprocess.run') as mock_run:
-        mock_run.return_value = MagicMock(
-            returncode=0,
-            stdout="---\n1. FILE: feedback | lesson.md | Test lesson\n---",
-            stderr=""
-        )
-        import io
-        from contextlib import redirect_stdout
-        output = io.StringIO()
-        with redirect_stdout(output):
+        mock = MagicMock(returncode=0, stdout="1. FILE: finding | test.md | something learned\n")
+        with patch("subprocess.run", return_value=mock):
+            args = MagicMock(input=str(infile))
             cmd_extract(args)
+        out = capsys.readouterr().out
+        assert "FILE" in out
 
-        assert "FILE: feedback | lesson.md | Test lesson" in output.getvalue()
-        mock_run.assert_called_once()
+    def test_channel_failure_exits(self, tmp_path):
+        gather = {"reflect": [{"category": "discovery", "lesson": "x"}]}
+        infile = tmp_path / "gather.json"
+        infile.write_text(json.dumps(gather))
+
+        mock = MagicMock(returncode=1, stderr="error")
+        with patch("subprocess.run", return_value=mock):
+            args = MagicMock(input=str(infile))
+            with pytest.raises(SystemExit):
+                cmd_extract(args)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# main / argument parsing
+# ══════════════════════════════════════════════════════════════════════════════
+
+class TestMain:
+    def test_no_command_exits(self):
+        with patch("sys.argv", ["legatum"]):
+            with pytest.raises(SystemExit):
+                main()
+
+    def test_gather_command(self, capsys):
+        with patch("sys.argv", ["legatum", "gather", "--syntactic"]), \
+             patch.object(_mod, "git_status", return_value=""), \
+             patch.object(_mod, "skill_gaps", return_value=[]), \
+             patch.object(_mod, "memory_lines", return_value=5), \
+             patch.object(_mod, "now_age", return_value=("fresh", 50)), \
+             patch.object(_mod, "dep_check", return_value=[]), \
+             patch.object(_mod, "peira_status", return_value=None), \
+             patch.object(_mod, "latest_session_id", return_value=None):
+            main()
+        out = capsys.readouterr().out
+        data = json.loads(out)
+        assert "repos" in data
+
+    def test_archive_command(self, tmp_path, capsys):
+        praxis = tmp_path / "Praxis.md"
+        praxis.write_text("- [ ] nothing to archive\n")
+        with patch("sys.argv", ["legatum", "archive"]), \
+             patch.object(_mod, "PRAXIS", praxis), \
+             patch.object(_mod, "PRAXIS_ARCHIVE", tmp_path / "archive.md"):
+            main()
+        out = capsys.readouterr().out
+        assert "No completed items" in out
+
+    def test_daily_command(self, tmp_path, capsys):
+        daily_dir = tmp_path / "Daily"
+        daily_dir.mkdir()
+
+        from datetime import datetime
+        fake_now = datetime(2026, 3, 31, 14, 30, 0)
+        with patch("sys.argv", ["legatum", "daily", "Test"]), \
+             patch.object(_mod, "DAILY_DIR", daily_dir), \
+             patch.object(_mod, "datetime") as mock_dt:
+            mock_dt.now.return_value = fake_now
+            mock_dt.now.return_value.strftime = lambda fmt: fake_now.strftime(fmt)
+            main()
+        assert (daily_dir / "2026-03-31.md").exists()
+
+    def test_reflect_command(self, capsys):
+        with patch("sys.argv", ["legatum", "reflect", "abc123"]), \
+             patch.object(_mod, "run_reflect", return_value=([], {"input_tokens": 0, "output_tokens": 0})):
+            main()
+        out = capsys.readouterr().out
+        assert "No messages found" in out
