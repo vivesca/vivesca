@@ -111,8 +111,8 @@ def gather_diff_summary(repo: Path, since: str) -> dict:
     commit_count = 0
 
     for line in stat.splitlines():
-        line = line.strip()
-        if not line:
+        # shortstat lines are indented (start with space), oneline commits are not
+        if not line or not line[0:1].isspace():
             continue
         # shortstat lines look like: " 3 files changed, 45 insertions(+), 12 deletions(-)"
         if "file" in line:
@@ -126,9 +126,6 @@ def gather_diff_summary(repo: Path, since: str) -> dict:
                     total_ins += int(part.split()[0])
                 elif "deletion" in part:
                     total_del += int(part.split()[0])
-        elif line and not line.startswith(" "):
-            # This is a --oneline commit hash line
-            pass
 
     return {
         "commits": commit_count,
@@ -233,6 +230,10 @@ def _format_text(report: dict) -> str:
 
 def main() -> int:
     args = sys.argv[1:]
+    if "--help" in args or "-h" in args:
+        print(__doc__)
+        return 0
+
     as_json = "--json" in args
 
     days = 1
