@@ -1,95 +1,81 @@
+#!/usr/bin/env python3
 """Tests for effectors/cookie-sync — Chrome cookie export/import."""
 
-from __future__ import annotations
-
+import base64
 import hashlib
 import json
+import os
 import sqlite3
-import sys
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest import mock
 
 import pytest
 
-# Load the effector via sys.path (it's a script, not a package module)
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "effectors"))
-import cookie_sync
-from cookie_sync import (
-    SAMESITE_MAP,
-    cmd_export,
-    cmd_import,
-    decrypt_cookie_value,
-    decrypt_v10,
-    decrypt_v11,
-    get_chrome_key,
-    main,
-    read_cookies,
-    row_to_dict,
-)
+COOKIE_SYNC_PATH = Path(__file__).resolve().parents[1] / "effectors" / "cookie-sync"
 
-# ── Fixtures ──────────────────────────────────────────────────────────────────
+# ── Module loading (exec pattern for extensionless scripts) ───────────────────
 
-# Deterministic AES key for tests (16 bytes, same derivation Chrome uses)
-TEST_PASSWORD = b"test-chrome-safe-storage-key"
-TEST_KEY = hashlib.pbkdf2_hmac("sha1", TEST_PASSWORD, b"saltysalt", 1003, dklen=16)
+_MOD_NS: dict = {}
 
 
-def _encrypt_v10(plaintext: str, key: bytes = TEST_KEY) -> bytes:
-    """Encrypt a value using v10 (AES-128-CBC) like Chrome would."""
+def _load():
+    if _MOD_NS:
+        return _MOD_NS["mod"]
+    ns = {"__name__": "cookie_sync", "__file__": str(COOKIE_SYNC_PATH)}
+    with open(COOKIE_SYNC_PATH) as f:
+        code = compile(f.read(), str(COOKIE_SYNC_PATH), "exec")
+        exec(code, ns)
+    _MOD_NS["mod"] = type("Module", (), ns)()
+    # Also store ns directly for attribute access
+    _MOD_NS["_ns"] = ns
+    return _MOD_NS["mod"]
+
+
+def _ns():
+    """Return raw namespace dict for direct function access."""
+    _load()
+    return _MOD_NS["_ns"]
+
+
+# ── Helpers ───────────────────────────────────────────────────────────────────
+
+_TEST_PASSWORD = b"testpass"
+_TEST_KEY = hashlib.pbkdf2_hmac("sha1", _TEST_PASSWORD, b"saltysalt", 1003, dklen=16)
+_PLAINTEXT = b"cookie_value_here"
+
+
+def _aes_encrypt_v10(plaintext: bytes, key: bytes) -> bytes:
+    """Encrypt with AES-128-CBC, IV=16 spaces, PKCS7 padding. Returns v10-prefixed."""
+    from cryptography.hazmat.primitives import padding as sym_padding
     from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
-    from cryptography.hazmat.primitives.padding import PKCS7
 
-    iv = b"\x00" * 16  # deterministic for tests
-    padder = PKCS7(128).padder()
-    padded = padder.update(plaintext.encode("utf-8")) + padder.finalize()
-    cipher = Cipher(algorithms.AES(key), modes.CBC(iv))
+    padder = sym_padding.PKCS7(128).padder()
+    padded = padder.update(plaintext) + padder.finalize()
+    cipher = Cipher(algorithms.AES(key), modes.CBC(b" " * 16))
     encryptor = cipher.encryptor()
-    ct = encryptor.update(padded) + encryptor.finalize()
-    return b"v10" + iv + ct
+    return b"v10" + encryptor.update(padded) + encryptor.finalize()
 
 
-def _encrypt_v11(plaintext: str, key: bytes = TEST_KEY) -> bytes:
-    """Encrypt a value using v11 (AES-128-GCM) like Chrome would."""
-    from cryptography.hazmat.primitives.ciphers.aead import AESGCM
-
-    nonce = b"\x00" * 12  # deterministic for tests
-    aesgcm = AESGCM(key)
-    ct_and_tag = aesgcm.encrypt(nonce, plaintext.encode("utf-8"), None)
-    return b"v11" + nonce + ct_and_tag
-
-
-def _create_cookie_db(db_path: Path, cookies: list[dict]) -> None:
-    """Create a minimal Chrome Cookies SQLite DB at db_path."""
-    db_path.parent.mkdir(parents=True, exist_ok=True)
+def _make_chrome_db(db_path: Path, cookies: list[dict]) -> None:
+    """Create a minimal Chrome Cookies SQLite DB for testing."""
     conn = sqlite3.connect(str(db_path))
     conn.execute(
-        """
-        CREATE TABLE cookies (
-            host_key TEXT,
-            name TEXT,
-            value TEXT,
-            encrypted_value BLOB,
-            path TEXT,
-            expires_utc REAL,
-            httponly INTEGER,
-            is_secure INTEGER,
-            samesite INTEGER
-        )
-        """
+        "CREATE TABLE cookies ("
+        "host_key TEXT, name TEXT, path TEXT, encrypted_value BLOB, "
+        "expires_utc INTEGER, is_secure INTEGER, is_httponly INTEGER, samesite INTEGER)"
     )
     for c in cookies:
+        enc = c.get("encrypted_value", b"")
+        if isinstance(enc, str):
+            enc = enc.encode("utf-8")
         conn.execute(
-            "INSERT INTO cookies (host_key, name, value, encrypted_value, path, "
-            "expires_utc, httponly, is_secure, samesite) VALUES (?,?,?,?,?,?,?,?,?)",
+            "INSERT INTO cookies (host_key, name, path, encrypted_value, expires_utc, "
+            "is_secure, is_httponly, samesite) VALUES (?,?,?,?,?,?,?,?)",
             (
-                c["host_key"],
-                c["name"],
-                c.get("value", ""),
-                c.get("encrypted_value", b""),
-                c.get("path", "/"),
+                c["host_key"], c["name"], c["path"], enc,
                 c.get("expires_utc", 0),
-                int(c.get("httponly", False)),
                 int(c.get("is_secure", False)),
+                int(c.get("is_httponly", False)),
                 c.get("samesite", 0),
             ),
         )
@@ -97,295 +83,319 @@ def _create_cookie_db(db_path: Path, cookies: list[dict]) -> None:
     conn.close()
 
 
-@pytest.fixture
-def cookie_db(tmp_path):
-    """Create a temporary Chrome-style cookies DB with sample data."""
-    db_path = tmp_path / "Chrome" / "Default" / "Cookies"
-    cookies = [
-        {
-            "host_key": ".example.com",
-            "name": "session_id",
-            "value": "",
-            "encrypted_value": _encrypt_v10("abc123"),
-            "path": "/",
-            "expires_utc": 1735689600.0,
-            "httponly": True,
-            "is_secure": True,
-            "samesite": 1,
-        },
-        {
-            "host_key": ".other.com",
-            "name": "pref",
-            "value": "lang=en",
-            "encrypted_value": b"",
-            "path": "/",
-            "expires_utc": 0,
-            "httponly": False,
-            "is_secure": False,
-            "samesite": 0,
-        },
-        {
-            "host_key": ".secure.org",
-            "name": "token_v11",
-            "value": "",
-            "encrypted_value": _encrypt_v11("gcm-secret"),
-            "path": "/api",
-            "expires_utc": 9999999999.0,
-            "httponly": True,
-            "is_secure": True,
-            "samesite": 2,
-        },
-    ]
-    _create_cookie_db(db_path, cookies)
-    return tmp_path
+# ── Script structure tests ────────────────────────────────────────────────────
 
 
-# ── Unit tests ────────────────────────────────────────────────────────────────
+class TestCookieSyncScript:
+    def test_script_exists(self):
+        assert COOKIE_SYNC_PATH.exists()
+
+    def test_script_is_executable(self):
+        assert COOKIE_SYNC_PATH.stat().st_mode & 0o111
+
+    def test_script_has_shebang(self):
+        first_line = COOKIE_SYNC_PATH.read_text().splitlines()[0]
+        assert "python" in first_line.lower()
 
 
-class TestDecryptV10:
-    def test_decrypts_v10_cookie(self):
-        encrypted = _encrypt_v10("hello world")
-        result = decrypt_v10(encrypted, TEST_KEY)
-        assert result == "hello world"
-
-    def test_decrypts_empty_string(self):
-        encrypted = _encrypt_v10("")
-        result = decrypt_v10(encrypted, TEST_KEY)
-        assert result == ""
+# ── Unit tests: derive_key ────────────────────────────────────────────────────
 
 
-class TestDecryptV11:
-    def test_decrypts_v11_cookie(self):
-        encrypted = _encrypt_v11("gcm-value")
-        result = decrypt_v11(encrypted, TEST_KEY)
-        assert result == "gcm-value"
+class TestDeriveKey:
+    def test_derives_16_byte_key(self):
+        mod = _load()
+        key = mod.derive_key(b"somepassword")
+        assert len(key) == 16
 
-    def test_decrypts_empty_string(self):
-        encrypted = _encrypt_v11("")
-        result = decrypt_v11(encrypted, TEST_KEY)
-        assert result == ""
+    def test_deterministic(self):
+        mod = _load()
+        k1 = mod.derive_key(b"pass")
+        k2 = mod.derive_key(b"pass")
+        assert k1 == k2
+
+
+# ── Unit tests: decrypt_cookie_value ──────────────────────────────────────────
 
 
 class TestDecryptCookieValue:
     def test_none_returns_empty(self):
-        assert decrypt_cookie_value(None, TEST_KEY) == ""
+        mod = _load()
+        result = mod.decrypt_cookie_value(None, _TEST_KEY)
+        assert result == ""
 
-    def test_v10_dispatches(self):
-        encrypted = _encrypt_v10("dispatched")
-        assert decrypt_cookie_value(encrypted, TEST_KEY) == "dispatched"
+    def test_unencrypted_passthrough(self):
+        mod = _load()
+        result = mod.decrypt_cookie_value(b"plain_value", _TEST_KEY)
+        assert result == "plain_value"
 
-    def test_v11_dispatches(self):
-        encrypted = _encrypt_v11("dispatched-gcm")
-        assert decrypt_cookie_value(encrypted, TEST_KEY) == "dispatched-gcm"
-
-    def test_plaintext_passthrough(self):
-        assert decrypt_cookie_value(b"plain-text", TEST_KEY) == "plain-text"
-
-
-class TestSameSiteMap:
-    def test_known_values(self):
-        assert SAMESITE_MAP[0] == "None"
-        assert SAMESITE_MAP[1] == "Lax"
-        assert SAMESITE_MAP[2] == "Strict"
-
-    def test_unknown_defaults_none(self):
-        assert SAMESITE_MAP.get(99, "None") == "None"
+    def test_v10_roundtrip(self):
+        encrypted = _aes_encrypt_v10(_PLAINTEXT, _TEST_KEY)
+        assert encrypted[:3] == b"v10"
+        mod = _load()
+        result = mod.decrypt_cookie_value(encrypted, _TEST_KEY)
+        assert result == _PLAINTEXT.decode("utf-8")
 
 
-# ── Integration: read_cookies ────────────────────────────────────────────────
+# ── Unit tests: read_cookies ──────────────────────────────────────────────────
 
 
 class TestReadCookies:
-    def test_reads_all_cookies(self, cookie_db):
-        db_path = cookie_db / "Chrome" / "Default" / "Cookies"
-        rows = read_cookies(db_path)
-        assert len(rows) == 3
-        names = {r["name"] for r in rows}
-        assert names == {"session_id", "pref", "token_v11"}
+    def test_reads_all_cookies(self, tmp_path):
+        db = tmp_path / "Cookies"
+        _make_chrome_db(db, [
+            {"host_key": ".example.com", "name": "sid", "path": "/",
+             "encrypted_value": b"v10" + b"\x00" * 16},
+            {"host_key": ".other.com", "name": "lang", "path": "/",
+             "encrypted_value": b"plain"},
+        ])
+        mod = _load()
+        cookies = mod.read_cookies(db)
+        assert len(cookies) == 2
+        assert cookies[0]["name"] == "sid"
+        assert cookies[1]["domain"] == ".other.com"
 
-    def test_domain_filter(self, cookie_db):
-        db_path = cookie_db / "Chrome" / "Default" / "Cookies"
-        rows = read_cookies(db_path, domain_filter="example")
-        assert len(rows) == 1
-        assert rows[0]["name"] == "session_id"
-        assert rows[0]["domain"] == ".example.com"
-
-    def test_row_shape(self, cookie_db):
-        db_path = cookie_db / "Chrome" / "Default" / "Cookies"
-        rows = read_cookies(db_path)
-        row = rows[0]
-        assert "domain" in row
-        assert "name" in row
-        assert "value" in row
-        assert "encrypted_value" in row
-        assert "path" in row
-        assert "httponly" in row
-        assert "secure" in row
-        assert "samesite" in row
-
-
-# ── Integration: cmd_export ──────────────────────────────────────────────────
-
-
-class TestCmdExport:
-    @patch.object(cookie_sync, "get_chrome_key", return_value=TEST_KEY)
-    def test_exports_json(self, mock_key, cookie_db, tmp_path):
-        output = tmp_path / "out.json"
-        db_path = cookie_db / "Chrome" / "Default" / "Cookies"
-        # Patch CHROME_BASE to point at our temp dir
-        with patch.object(cookie_sync, "CHROME_BASE", cookie_db / "Chrome"):
-            rc = cmd_export(output=output)
-        assert rc == 0
-        cookies = json.loads(output.read_text())
-        assert len(cookies) == 3
-
-        # Check decrypted values
-        by_name = {c["name"]: c for c in cookies}
-        assert by_name["session_id"]["value"] == "abc123"
-        assert by_name["pref"]["value"] == "lang=en"
-        assert by_name["token_v11"]["value"] == "gcm-secret"
-
-    @patch.object(cookie_sync, "get_chrome_key", return_value=TEST_KEY)
-    def test_export_domain_filter(self, mock_key, cookie_db, tmp_path):
-        output = tmp_path / "filtered.json"
-        with patch.object(cookie_sync, "CHROME_BASE", cookie_db / "Chrome"):
-            rc = cmd_export(domain="other", output=output)
-        assert rc == 0
-        cookies = json.loads(output.read_text())
+    def test_domain_filter(self, tmp_path):
+        db = tmp_path / "Cookies"
+        _make_chrome_db(db, [
+            {"host_key": ".example.com", "name": "sid", "path": "/", "encrypted_value": b"x"},
+            {"host_key": ".other.com", "name": "lang", "path": "/", "encrypted_value": b"y"},
+        ])
+        mod = _load()
+        cookies = mod.read_cookies(db, domain_filter="example")
         assert len(cookies) == 1
-        assert cookies[0]["name"] == "pref"
+        assert cookies[0]["domain"] == ".example.com"
 
-    def test_export_missing_db(self, tmp_path):
-        output = tmp_path / "missing.json"
-        fake_base = tmp_path / "nochrome"
-        with patch.object(cookie_sync, "CHROME_BASE", fake_base):
-            rc = cmd_export(output=output)
-        assert rc == 1
+    def test_empty_db(self, tmp_path):
+        db = tmp_path / "Cookies"
+        conn = sqlite3.connect(str(db))
+        conn.execute(
+            "CREATE TABLE cookies (host_key TEXT, name TEXT, path TEXT, "
+            "encrypted_value BLOB, expires_utc INTEGER, is_secure INTEGER, "
+            "is_httponly INTEGER, samesite INTEGER)"
+        )
+        conn.commit()
+        conn.close()
+        mod = _load()
+        cookies = mod.read_cookies(db)
+        assert cookies == []
 
-    @patch.object(cookie_sync, "get_chrome_key", return_value=TEST_KEY)
-    def test_export_creates_parent_dirs(self, mock_key, cookie_db, tmp_path):
-        output = tmp_path / "deep" / "nested" / "cookies.json"
-        with patch.object(cookie_sync, "CHROME_BASE", cookie_db / "Chrome"):
-            rc = cmd_export(output=output)
-        assert rc == 0
-        assert output.exists()
+    def test_value_is_base64(self, tmp_path):
+        raw = b"\x01\x02\x03"
+        db = tmp_path / "Cookies"
+        _make_chrome_db(db, [
+            {"host_key": ".example.com", "name": "test", "path": "/",
+             "encrypted_value": raw},
+        ])
+        mod = _load()
+        cookies = mod.read_cookies(db)
+        assert cookies[0]["value"] == base64.b64encode(raw).decode("ascii")
 
-    @patch.object(cookie_sync, "get_chrome_key", return_value=TEST_KEY)
-    def test_export_json_has_no_encrypted_value_key(self, mock_key, cookie_db, tmp_path):
-        output = tmp_path / "clean.json"
-        with patch.object(cookie_sync, "CHROME_BASE", cookie_db / "Chrome"):
-            rc = cmd_export(output=output)
-        assert rc == 0
-        cookies = json.loads(output.read_text())
-        for c in cookies:
-            assert "encrypted_value" not in c
+    def test_empty_encrypted_value_gives_empty_string(self, tmp_path):
+        db = tmp_path / "Cookies"
+        _make_chrome_db(db, [
+            {"host_key": ".example.com", "name": "test", "path": "/",
+             "encrypted_value": b""},
+        ])
+        mod = _load()
+        cookies = mod.read_cookies(db)
+        assert cookies[0]["value"] == ""
+        assert cookies[0]["_encrypted"] is False
 
 
-# ── Integration: cmd_import ──────────────────────────────────────────────────
+# ── Unit tests: decrypt_exported_cookies ──────────────────────────────────────
 
 
-class TestCmdImport:
-    def test_import_dry_run(self, tmp_path, capsys):
-        cookies_file = tmp_path / "cookies.json"
-        cookies_file.write_text(json.dumps([
-            {"name": "sid", "value": "v1", "domain": ".x.com", "path": "/"},
-        ]))
-        rc = cmd_import(cookies_file)
-        assert rc == 0
-        captured = capsys.readouterr()
-        assert "sid" in captured.out
-        assert "1 cookies" in captured.out
+class TestDecryptExportedCookies:
+    def test_decrypts_v10_cookie(self):
+        encrypted_blob = _aes_encrypt_v10(b"secret", _TEST_KEY)
+        b64_val = base64.b64encode(encrypted_blob).decode("ascii")
+        cookies = [{"domain": ".example.com", "name": "c", "path": "/",
+                     "value": b64_val, "_encrypted": True}]
+        mod = _load()
+        result = mod.decrypt_exported_cookies(cookies, _TEST_KEY)
+        assert result[0]["value"] == "secret"
+        assert "_encrypted" not in result[0]
 
-    def test_import_with_browser_context(self, tmp_path):
-        cookies_file = tmp_path / "cookies.json"
-        cookies_file.write_text(json.dumps([
-            {
-                "name": "sid",
-                "value": "v1",
-                "domain": ".x.com",
-                "path": "/",
-                "expires": 1735689600.0,
-                "httponly": True,
-                "secure": True,
-                "samesite": "Lax",
-            },
-        ]))
-        mock_ctx = MagicMock()
-        rc = cmd_import(cookies_file, browser_context=mock_ctx)
-        assert rc == 0
-        mock_ctx.add_cookies.assert_called_once()
-        pw_cookies = mock_ctx.add_cookies.call_args[0][0]
-        assert len(pw_cookies) == 1
-        assert pw_cookies[0]["name"] == "sid"
-        assert pw_cookies[0]["httpOnly"] is True
-        assert pw_cookies[0]["secure"] is True
-        assert pw_cookies[0]["sameSite"] == "Lax"
+    def test_skips_unencrypted(self):
+        cookies = [{"domain": ".x.com", "name": "c", "path": "/",
+                     "value": "hello", "_encrypted": False}]
+        mod = _load()
+        result = mod.decrypt_exported_cookies(cookies, _TEST_KEY)
+        assert result[0]["value"] == "hello"
+        assert "_encrypted" not in result[0]
+
+
+# ── Unit tests: _samesite_str ─────────────────────────────────────────────────
+
+
+class TestSameSiteStr:
+    @pytest.mark.parametrize("val,expected", [
+        (-1, "None"), (0, "Unspecified"), (1, "Lax"), (2, "Strict"),
+        (3, "None"), (99, "Unspecified"),
+    ])
+    def test_mapping(self, val, expected):
+        mod = _load()
+        assert mod._samesite_str(val) == expected
+
+
+# ── Unit tests: CLI ────────────────────────────────────────────────────────────
+
+
+class TestCLI:
+    def test_no_command_returns_1(self, capsys):
+        mod = _load()
+        assert mod.main([]) == 1
+
+    def test_export_missing_db(self, tmp_path, monkeypatch):
+        mod = _load()
+        monkeypatch.setattr(mod, "CHROME_BASE", tmp_path / "nonexistent")
+        assert mod.main(["export"]) == 1
+
+    def test_export_success(self, tmp_path, monkeypatch):
+        db_dir = tmp_path / "Default"
+        db_dir.mkdir()
+        _make_chrome_db(db_dir / "Cookies", [
+            {"host_key": ".example.com", "name": "sid", "path": "/",
+             "encrypted_value": b"plain"},
+        ])
+        out = tmp_path / "out.json"
+
+        mod = _load()
+        monkeypatch.setattr(mod, "CHROME_BASE", tmp_path)
+        monkeypatch.setattr(mod, "DEFAULT_OUTPUT", out)
+        assert mod.main(["export", "--no-decrypt"]) == 0
+        data = json.loads(out.read_text())
+        assert len(data) == 1
+        assert data[0]["name"] == "sid"
+
+    def test_export_with_domain_filter(self, tmp_path, monkeypatch):
+        db_dir = tmp_path / "Default"
+        db_dir.mkdir()
+        _make_chrome_db(db_dir / "Cookies", [
+            {"host_key": ".example.com", "name": "sid", "path": "/", "encrypted_value": b"a"},
+            {"host_key": ".other.com", "name": "lang", "path": "/", "encrypted_value": b"b"},
+        ])
+        out = tmp_path / "out.json"
+
+        mod = _load()
+        monkeypatch.setattr(mod, "CHROME_BASE", tmp_path)
+        monkeypatch.setattr(mod, "DEFAULT_OUTPUT", out)
+        assert mod.main(["export", "--no-decrypt", "--domain", "example"]) == 0
+        data = json.loads(out.read_text())
+        assert len(data) == 1
+        assert data[0]["domain"] == ".example.com"
+
+    def test_export_with_decrypt(self, tmp_path, monkeypatch):
+        """Full export with mocked keychain returns decrypted cookie."""
+        db_dir = tmp_path / "Default"
+        db_dir.mkdir()
+        enc_blob = _aes_encrypt_v10(b"secret_value", _TEST_KEY)
+        _make_chrome_db(db_dir / "Cookies", [
+            {"host_key": ".example.com", "name": "sid", "path": "/",
+             "encrypted_value": enc_blob},
+        ])
+        out = tmp_path / "out.json"
+
+        mod = _load()
+        monkeypatch.setattr(mod, "CHROME_BASE", tmp_path)
+        monkeypatch.setattr(mod, "DEFAULT_OUTPUT", out)
+        monkeypatch.setattr(mod, "get_chrome_key", lambda: _TEST_KEY)
+        assert mod.main(["export"]) == 0
+        data = json.loads(out.read_text())
+        assert len(data) == 1
+        assert data[0]["value"] == "secret_value"
+
+    def test_export_output_dir_created(self, tmp_path, monkeypatch):
+        db_dir = tmp_path / "Default"
+        db_dir.mkdir()
+        _make_chrome_db(db_dir / "Cookies", [])
+        out = tmp_path / "deep" / "nested" / "cookies.json"
+
+        mod = _load()
+        monkeypatch.setattr(mod, "CHROME_BASE", tmp_path)
+        monkeypatch.setattr(mod, "DEFAULT_OUTPUT", out)
+        assert mod.main(["export", "--no-decrypt"]) == 0
+        assert out.exists()
 
     def test_import_missing_file(self, tmp_path):
-        rc = cmd_import(tmp_path / "nope.json")
-        assert rc == 1
+        mod = _load()
+        assert mod.main(["import", str(tmp_path / "nope.json")]) == 1
 
-    def test_import_invalid_json_structure(self, tmp_path):
-        bad = tmp_path / "bad.json"
-        bad.write_text(json.dumps({"not": "a list"}))
-        rc = cmd_import(bad)
-        assert rc == 1
+    def test_import_calls_playwright(self, tmp_path, monkeypatch):
+        cookies = [{"name": "c", "domain": ".x.com", "path": "/", "value": "v"}]
+        cj = tmp_path / "cookies.json"
+        cj.write_text(json.dumps(cookies))
 
-    def test_import_playwright_cookie_shape(self, tmp_path):
-        """Verify the Playwright cookie dict shape has the right keys."""
-        cookies_file = tmp_path / "cookies.json"
-        cookies_file.write_text(json.dumps([
-            {
-                "name": "a",
-                "value": "b",
-                "domain": ".c.com",
-                "path": "/",
-                "expires": 0,  # should be excluded (<=0)
-                "httponly": False,
-                "secure": False,
-                "samesite": "None",
-            },
-        ]))
-        mock_ctx = MagicMock()
-        rc = cmd_import(cookies_file, browser_context=mock_ctx)
-        assert rc == 0
-        pw_cookie = mock_ctx.add_cookies.call_args[0][0][0]
-        assert "name" in pw_cookie
-        assert "value" in pw_cookie
-        assert "domain" in pw_cookie
-        assert "path" in pw_cookie
-        # expires=0 should NOT be in the cookie
-        assert "expires" not in pw_cookie
+        called = {}
+
+        def fake_import_cookies(cookies_path, browser_type="chromium"):
+            called["path"] = cookies_path
+            called["browser"] = browser_type
+
+        mod = _load()
+        monkeypatch.setattr(mod, "import_cookies", fake_import_cookies)
+        assert mod.main(["import", str(cj)]) == 0
+        assert called["path"] == cj
+        assert called["browser"] == "chromium"
+
+    def test_import_with_browser_choice(self, tmp_path, monkeypatch):
+        cj = tmp_path / "cookies.json"
+        cj.write_text("[]")
+
+        called = {}
+
+        def fake_import_cookies(cookies_path, browser_type="chromium"):
+            called["browser"] = browser_type
+
+        mod = _load()
+        monkeypatch.setattr(mod, "import_cookies", fake_import_cookies)
+        assert mod.main(["import", str(cj), "--browser", "firefox"]) == 0
+        assert called["browser"] == "firefox"
+
+    def test_custom_profile(self, tmp_path, monkeypatch):
+        profile_dir = tmp_path / "Profile1"
+        profile_dir.mkdir()
+        _make_chrome_db(profile_dir / "Cookies", [
+            {"host_key": ".example.com", "name": "c", "path": "/", "encrypted_value": b"v"},
+        ])
+        out = tmp_path / "out.json"
+
+        mod = _load()
+        monkeypatch.setattr(mod, "CHROME_BASE", tmp_path)
+        monkeypatch.setattr(mod, "DEFAULT_OUTPUT", out)
+        assert mod.main(["export", "--no-decrypt", "--profile", "Profile1"]) == 0
+        data = json.loads(out.read_text())
+        assert len(data) == 1
 
 
-# ── CLI: main() ──────────────────────────────────────────────────────────────
+# ── Integration: roundtrip ────────────────────────────────────────────────────
 
 
-class TestMain:
-    def test_no_args_returns_1(self, capsys):
-        rc = main([])
-        assert rc == 1
+class TestRoundtrip:
+    def test_export_decrypt_roundtrip(self, tmp_path, monkeypatch):
+        """Encrypt a value via AES, store in mock DB, export, verify decrypted output."""
+        db_dir = tmp_path / "Default"
+        db_dir.mkdir()
+        enc_blob = _aes_encrypt_v10(b"my_secret_cookie", _TEST_KEY)
+        _make_chrome_db(db_dir / "Cookies", [
+            {"host_key": ".example.com", "name": "token", "path": "/",
+             "encrypted_value": enc_blob, "is_secure": 1, "is_httponly": 1, "samesite": 1},
+        ])
+        out = tmp_path / "cookies.json"
 
-    @patch.object(cookie_sync, "get_chrome_key", return_value=TEST_KEY)
-    def test_export_via_cli(self, mock_key, cookie_db, tmp_path):
-        output = tmp_path / "cli_out.json"
-        with patch.object(cookie_sync, "CHROME_BASE", cookie_db / "Chrome"):
-            rc = main(["export", "--output", str(output)])
-        assert rc == 0
-        assert output.exists()
+        mod = _load()
+        monkeypatch.setattr(mod, "CHROME_BASE", tmp_path)
+        monkeypatch.setattr(mod, "DEFAULT_OUTPUT", out)
+        monkeypatch.setattr(mod, "get_chrome_key", lambda: _TEST_KEY)
+        assert mod.main(["export"]) == 0
 
-    @patch.object(cookie_sync, "get_chrome_key", return_value=TEST_KEY)
-    def test_export_with_profile(self, mock_key, cookie_db, tmp_path):
-        output = tmp_path / "prof_out.json"
-        with patch.object(cookie_sync, "CHROME_BASE", cookie_db / "Chrome"):
-            rc = main(["export", "--profile", "Default", "--output", str(output)])
-        assert rc == 0
-
-    def test_import_via_cli(self, tmp_path):
-        cookies_file = tmp_path / "cli_cookies.json"
-        cookies_file.write_text(json.dumps([
-            {"name": "k", "value": "v", "domain": ".d.com", "path": "/"},
-        ]))
-        rc = main(["import", str(cookies_file)])
-        assert rc == 0
+        data = json.loads(out.read_text())
+        assert len(data) == 1
+        c = data[0]
+        assert c["value"] == "my_secret_cookie"
+        assert c["name"] == "token"
+        assert c["domain"] == ".example.com"
+        assert c["secure"] is True
+        assert c["httpOnly"] is True
+        assert c["sameSite"] == "Lax"
+        assert "_encrypted" not in c
