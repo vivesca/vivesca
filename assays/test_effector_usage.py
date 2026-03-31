@@ -70,7 +70,7 @@ class TestScanJsonl:
             {"ts":"2026-03-31T10:00:00Z","provider":"zhipu","duration":10,"exit":0,"turns":1,"prompt":"Read effectors/golem-top and effectors/log-summary","tail":"","files_created":0,"tests_passed":0,"tests_failed":0,"pytest_exit":0}
             {"ts":"2026-03-31T11:00:00Z","provider":"volcano","duration":20,"exit":1,"turns":2,"prompt":"Fix effectors/golem-top","tail":"","files_created":1,"tests_passed":0,"tests_failed":0,"pytest_exit":0}
         """))
-        usage, last_seen, failures = scan_jsonl(jf)
+        usage, failures, last_seen = scan_jsonl(jf)
         assert usage["golem-top"] == 2
         assert usage["log-summary"] == 1
         assert failures["golem-top"] == 1  # second entry has exit=1
@@ -79,12 +79,12 @@ class TestScanJsonl:
     def test_empty_file(self, tmp_path):
         jf = tmp_path / "golem.jsonl"
         jf.write_text("")
-        usage, last_seen, failures = scan_jsonl(jf)
+        usage, failures, last_seen = scan_jsonl(jf)
         assert len(usage) == 0
 
     def test_nonexistent_file(self, tmp_path):
         jf = tmp_path / "nonexistent.jsonl"
-        usage, last_seen, failures = scan_jsonl(jf)
+        usage, failures, last_seen = scan_jsonl(jf)
         assert len(usage) == 0
 
     def test_timestamps_parsed(self, tmp_path):
@@ -92,17 +92,15 @@ class TestScanJsonl:
         jf.write_text(
             '{"ts":"2026-03-30T09:15:00Z","provider":"zhipu","duration":5,"exit":0,"turns":1,"prompt":"effectors/circadian-probe.py","tail":"","files_created":0,"tests_passed":0,"tests_failed":0,"pytest_exit":0}\n'
         )
-        usage, last_seen, failures = scan_jsonl(jf)
+        usage, failures, last_seen = scan_jsonl(jf)
         assert "circadian-probe.py" in last_seen
-        ts = last_seen["circadian-probe.py"][0]
-        assert ts.year == 2026
-        assert ts.month == 3
-        assert ts.day == 30
+        ts_str = last_seen["circadian-probe.py"]
+        assert ts_str.startswith("2026-03-30")
 
     def test_malformed_line_skipped(self, tmp_path):
         jf = tmp_path / "golem.jsonl"
         jf.write_text("not json at all\n")
-        usage, last_seen, failures = scan_jsonl(jf)
+        usage, failures, last_seen = scan_jsonl(jf)
         # The line has no valid "ts" or "exit", but RE_EFFECTOR may still
         # match text. However there's no "effectors/" pattern, so empty.
         assert len(usage) == 0
