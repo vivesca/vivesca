@@ -10,13 +10,17 @@ if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
     echo "  - OpenCode (~/.config/opencode/)"
     echo "  - Codex    (~/.codex/)"
     echo ""
-    echo "Requires: bunx (via bun)"
+    echo "Requires: bunx or npx"
     exit 0
 fi
 
-# Check for bunx
-if ! command -v bunx &>/dev/null; then
-    echo "Error: bunx not found. Install bun: curl -fsSL https://bun.sh/install | bash" >&2
+# Use bunx if available, fall back to npx
+if command -v bunx &>/dev/null; then
+    RUNNER=bunx
+elif command -v npx &>/dev/null; then
+    RUNNER=npx
+else
+    echo "Error: neither bunx nor npx found. Install bun or node." >&2
     exit 1
 fi
 
@@ -24,11 +28,11 @@ echo "🔄 Updating compound-engineering plugin..."
 echo ""
 
 echo "📦 Updating OpenCode installation..."
-bunx @every-env/compound-plugin install compound-engineering --to opencode
+$RUNNER @every-env/compound-plugin install compound-engineering --to opencode
 
 echo ""
 echo "📦 Updating Codex installation..."
-bunx @every-env/compound-plugin install compound-engineering --to codex
+$RUNNER @every-env/compound-plugin install compound-engineering --to codex
 
 echo ""
 echo "✅ Update complete!"

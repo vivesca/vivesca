@@ -32,7 +32,7 @@ def main():
             lines = log.read_text().splitlines()
             if len(lines) > args.keep:
                 log.write_text("\n".join(lines[-args.keep:]) + "\n")
-        except Exception:
+        except OSError:
             pass
 
 

@@ -60,7 +60,7 @@ def main():
 
         try:
             content = md_file.read_text(encoding="utf-8")
-        except Exception:
+        except OSError:
             continue
 
         frontmatter = parse_frontmatter(content)

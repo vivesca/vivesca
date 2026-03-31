@@ -291,7 +291,7 @@ def scan_opencode(start_ms: int, end_ms: int) -> list:
                                 "prompt": prompt_text,
                                 "tool": "OpenCode",
                             })
-        except Exception:
+        except (OSError, json.JSONDecodeError):
             continue
     return prompts
 
