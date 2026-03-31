@@ -133,12 +133,13 @@ class PhotosDB:
                 d.ZLONGDESCRIPTION LIKE ? COLLATE NOCASE
                 OR aa.ZTITLE LIKE ? COLLATE NOCASE
                 OR aa.ZORIGINALFILENAME LIKE ? COLLATE NOCASE
-                OR a.ZUUID IN (
-                    SELECT df2.ZASSETFORFACE
+                OR EXISTS (
+                    SELECT 1
                     FROM ZDETECTEDFACE df2
                     JOIN ZPERSON p2 ON p2.Z_PK = df2.ZPERSONFORFACE
-                    WHERE p2.ZDISPLAYNAME LIKE ? COLLATE NOCASE
-                       OR p2.ZFULLNAME LIKE ? COLLATE NOCASE
+                    WHERE df2.ZASSETFORFACE = a.Z_PK
+                      AND (p2.ZDISPLAYNAME LIKE ? COLLATE NOCASE
+                       OR p2.ZFULLNAME LIKE ? COLLATE NOCASE)
                 )
               )
             ORDER BY a.ZDATECREATED DESC

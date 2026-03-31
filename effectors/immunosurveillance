@@ -54,6 +54,9 @@ def main():
         sys.exit(2)
 
     cmd = args[0].lower()
+    if cmd in ("--help", "-h", "help"):
+        print(__doc__.strip())
+        sys.exit(0)
     if cmd == "check":
         sys.exit(_cmd_check())
     elif cmd == "status":
@@ -63,6 +66,7 @@ def main():
     else:
         print(f"Unknown command: {cmd}", file=sys.stderr)
         print("Valid commands: check, status, diff", file=sys.stderr)
+        print("Use --help for usage information.", file=sys.stderr)
         sys.exit(2)
 
 
