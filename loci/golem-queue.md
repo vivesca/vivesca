@@ -262,7 +262,7 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 - [ ] `golem --provider zhipu --max-turns 25 "Health check: photos.py, pinocytosis, plan-exec, plan-exec.deprecated, poiesis. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit fixes."`
 - [!] `golem --provider infini --max-turns 25 "Health check: proteostasis, publish, pulse-review, quorum, receptor-scan. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit fixes." (retry)`
 - [!] `golem --provider volcano --max-turns 25 "Health check: regulatory-scan, rename-kindle-asins.py, rename-plists, replisome, respirometry. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit fixes." (retry)`
-- [ ] `golem --provider zhipu --max-turns 25 "Health check: rg, rheotaxis, rheotaxis-local, rotate-logs.py, safe_rm.py. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit fixes."`
+- [x] `golem --provider zhipu --max-turns 25 "Health check: rg, rheotaxis, rheotaxis-local, rotate-logs.py, safe_rm.py. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit fixes."`
 - [!] `golem --provider infini --max-turns 25 "Health check: safe_search.py, search-guard, skill-sync, sortase, switch-layer. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit fixes." (retry)`
 - [!] `golem --provider volcano --max-turns 25 "Health check: synthase, taste-score, telophase, test-dashboard, test-spec-gen. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit fixes." (retry)`
 - [ ] `golem --provider zhipu --max-turns 25 "Health check: tm, tmux-workspace.py, transduction-daily-run, translocon, update-compound-engineering. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit fixes."`
@@ -357,7 +357,7 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 - [x] `golem --provider infini --max-turns 15 "Fix metabolon/enzymes/synthase.py: replace hardcoded /Users/terry paths with Path.home(). ast.parse after. Run relevant tests. Commit."`
 - [!] `golem --provider volcano --max-turns 15 "Fix metabolon/enzymes/judge.py: replace hardcoded /Users/terry paths with Path.home(). ast.parse after. Run relevant tests. Commit." (retry)`
 - [ ] `golem --provider zhipu --max-turns 15 "Fix metabolon/enzymes/lysis.py: replace hardcoded /Users/terry paths with Path.home(). ast.parse after. Run relevant tests. Commit."`
-- [ ] `golem --provider infini --max-turns 15 "Fix metabolon/enzymes/efferens.py: replace hardcoded /Users/terry paths with Path.home(). ast.parse after. Run relevant tests. Commit."`
+- [x] `golem --provider infini --max-turns 15 "Fix metabolon/enzymes/efferens.py: replace hardcoded /Users/terry paths with Path.home(). ast.parse after. Run relevant tests. Commit."`
 - [!] `golem --provider volcano --max-turns 15 "Fix metabolon/enzymes/assay.py: replace hardcoded /Users/terry paths with Path.home(). ast.parse after. Run relevant tests. Commit." (retry)`
 - [ ] `golem --provider zhipu --max-turns 15 "Fix metabolon/organelles/phenotype_translate.py: replace hardcoded /Users/terry paths with Path.home(). ast.parse after. Run relevant tests. Commit."`
 - [ ] `golem --provider infini --max-turns 30 "Run uv run pytest --co -q 2>&1 | grep ERROR. Fix ALL collection errors. Common: hardcoded paths, bad imports, syntax. Run --co again until 0 errors."`
