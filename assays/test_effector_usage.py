@@ -182,12 +182,11 @@ class TestBuildReport:
             '{"ts":"2026-03-31T10:00:00Z","provider":"zhipu","duration":10,"exit":0,"turns":1,"prompt":"Read effectors/golem-top","tail":"","files_created":0,"tests_passed":0,"tests_failed":0,"pytest_exit":0}',
         ])
         lf = self._make_log(tmp_path, "")
-        report = build_report(jsonl_path=jf, log_path=lf, rotated_log_path=Path("/nonexistent"), as_json=True)
-        data = json.loads(report)
+        data = compute_report(jsonl_path=jf, log_path=lf, rotated_path=Path("/nonexistent"))
         assert "most_used" in data
         assert "never_used" in data
         assert "recently_broken" in data
-        assert "summary" in data
+        assert "total_effectors" in data
         assert any(e["name"] == "golem-top" for e in data["most_used"])
 
     def test_never_used_lists_unmentioned(self, tmp_path):
@@ -195,8 +194,7 @@ class TestBuildReport:
             '{"ts":"2026-03-31T10:00:00Z","provider":"zhipu","duration":10,"exit":0,"turns":1,"prompt":"Read effectors/golem-top","tail":"","files_created":0,"tests_passed":0,"tests_failed":0,"pytest_exit":0}',
         ])
         lf = self._make_log(tmp_path, "")
-        report = build_report(jsonl_path=jf, log_path=lf, rotated_log_path=Path("/nonexistent"), as_json=True)
-        data = json.loads(report)
+        data = compute_report(jsonl_path=jf, log_path=lf, rotated_path=Path("/nonexistent"))
         # golem-top was mentioned so should NOT be in never_used
         assert "golem-top" not in data["never_used"]
         # But most effectors won't have been mentioned
@@ -208,8 +206,7 @@ class TestBuildReport:
             '{"ts":"2026-03-31T10:01:00Z","provider":"zhipu","duration":10,"exit":0,"turns":1,"prompt":"Read effectors/log-summary","tail":"","files_created":0,"tests_passed":0,"tests_failed":0,"pytest_exit":0}',
         ])
         lf = self._make_log(tmp_path, "")
-        report = build_report(jsonl_path=jf, log_path=lf, rotated_log_path=Path("/nonexistent"), broken_only=True, as_json=True)
-        data = json.loads(report)
+        data = compute_report(jsonl_path=jf, log_path=lf, rotated_path=Path("/nonexistent"))
         broken_names = [b["name"] for b in data["recently_broken"]]
         assert "golem-top" in broken_names
         assert "log-summary" not in broken_names
@@ -219,8 +216,7 @@ class TestBuildReport:
             '{"ts":"2026-03-31T10:00:00Z","provider":"zhipu","duration":10,"exit":0,"turns":1,"prompt":"effectors/golem-top and effectors/log-summary and effectors/cytokinesis","tail":"","files_created":0,"tests_passed":0,"tests_failed":0,"pytest_exit":0}',
         ])
         lf = self._make_log(tmp_path, "")
-        report = build_report(jsonl_path=jf, log_path=lf, rotated_log_path=Path("/nonexistent"), top_n=2, as_json=True)
-        data = json.loads(report)
+        data = compute_report(top_n=2, jsonl_path=jf, log_path=lf, rotated_path=Path("/nonexistent"))
         assert len(data["most_used"]) == 2
 
     def test_merged_sources(self, tmp_path):
@@ -230,31 +226,30 @@ class TestBuildReport:
         lf = self._make_log(tmp_path, textwrap.dedent("""\
             [2026-03-31 11:00:00] Starting: golem --provider infini "Read effectors/golem-top"
         """))
-        report = build_report(jsonl_path=jf, log_path=lf, rotated_log_path=Path("/nonexistent"), as_json=True)
-        data = json.loads(report)
+        data = compute_report(jsonl_path=jf, log_path=lf, rotated_path=Path("/nonexistent"))
         entry = next(e for e in data["most_used"] if e["name"] == "golem-top")
         assert entry["mentions"] == 2  # once from jsonl, once from log
 
 
-# ── get_known_effectors tests ────────────────────────────────────────
+# ── list_effectors tests ────────────────────────────────────────
 
 
-class TestGetKnownEffectors:
-    def test_returns_list(self):
-        result = get_known_effectors()
-        assert isinstance(result, list)
+class TestListEffectors:
+    def test_returns_set(self):
+        result = list_effectors()
+        assert isinstance(result, set)
         assert len(result) > 0
 
     def test_no_pyc_files(self):
-        result = get_known_effectors()
+        result = list_effectors()
         assert not any(n.endswith(".pyc") for n in result)
 
     def test_no_hidden_files(self):
-        result = get_known_effectors()
+        result = list_effectors()
         assert not any(n.startswith(".") for n in result)
 
     def test_known_effector_present(self):
-        result = get_known_effectors()
+        result = list_effectors()
         assert "golem-top" in result
 
 
