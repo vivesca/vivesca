@@ -287,7 +287,7 @@ class TestCountJobAlerts:
             older_file.read_text.return_value = content
             older_file.name = "Job Alerts 2025-06-14.md"
 
-            def truediv(name):
+            def truediv(self, name):
                 if "2025-06-15" in name:
                     return today_file
                 return older_file
