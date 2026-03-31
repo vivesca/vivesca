@@ -1,6 +1,16 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
+    echo "Usage: update-compound-engineering-skills.sh"
+    echo ""
+    echo "Install/update compound-engineering skills from GitHub into ~/.codex/skills/."
+    echo "Backs up existing skills before installing; restores on failure."
+    echo ""
+    echo "Requires: python3, install-skill-from-github.py in ~/.codex/skills/.system/skill-installer/scripts/"
+    exit 0
+fi
+
 SCRIPT_DIR="${HOME}/.codex/skills/.system/skill-installer/scripts"
 INSTALLER="${SCRIPT_DIR}/install-skill-from-github.py"
 

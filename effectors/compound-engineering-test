@@ -41,7 +41,7 @@ echo "This will run the update script now (not waiting for Sunday 2 AM)"
 echo ""
 
 if [[ $dry_run -eq 1 ]]; then
-    echo "🔍 Dry run — would execute: $HOME/scripts/auto-update-compound-engineering.sh"
+    echo "🔍 Dry run — would execute: $HOME/germline/effectors/auto-update-compound-engineering.sh"
     echo ""
     echo "✅ Dry run complete."
     exit 0
@@ -54,10 +54,12 @@ if [ -t 0 ]; then
         echo "❌ Test cancelled"
         exit 1
     fi
+else
+    echo "⚠️  Running non-interactively — proceeding with update."
 fi
 
 echo ""
-"$HOME/scripts/auto-update-compound-engineering.sh"
+"$HOME/germline/effectors/auto-update-compound-engineering.sh"
 
 echo ""
 echo "✅ Test complete! Check the output above for any errors."

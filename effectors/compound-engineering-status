@@ -1,6 +1,14 @@
 #!/usr/bin/env bash
 # Check status of compound-engineering auto-update
 
+if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
+    echo "Usage: compound-engineering-status"
+    echo ""
+    echo "Show the current status of compound-engineering auto-update."
+    echo "Reports scheduler state, last update log, and management commands."
+    exit 0
+fi
+
 echo "📊 Compound Engineering Auto-Update Status"
 echo "==========================================="
 echo ""
