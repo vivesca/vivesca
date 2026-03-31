@@ -25,7 +25,10 @@ WARN_ICONS = {
 
 def _fetch_json(url: str) -> dict:
     with urllib.request.urlopen(url, timeout=10) as resp:
-        return json.loads(resp.read().decode())
+        try:
+            return json.loads(resp.read().decode())
+        except json.JSONDecodeError as e:
+            raise ValueError(f"Invalid JSON from {url}: {e}") from e
 
 
 def _to_int(value) -> int | None:

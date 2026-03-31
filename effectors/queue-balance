@@ -1,131 +1,206 @@
 #!/usr/bin/env python3
 """queue-balance — report task distribution by provider from golem-queue.md.
 
-Reads the golem queue file and counts tasks per provider (from --provider flags
-in checkbox lines). Also counts header-only tasks (####) without an explicit
-provider as "unassigned". Reports distribution and flags imbalance when one
-provider has >2x the count of any other non-zero provider.
+Reads a golem-queue.md file, counts dispatched tasks per provider,
+counts unassigned tasks, and suggests rebalancing if any provider
+has more than 2x the count of another.
 
-Usage:
-    queue-balance [--queue PATH] [--json]
+Usage: queue-balance <path-to-golem-queue.md>
 """
 from __future__ import annotations
 
-import argparse
-import json
 import re
 import sys
 from collections import Counter
 from pathlib import Path
 
-DEFAULT_QUEUE = Path.home() / "germline" / "loci" / "golem-queue.md"
+
+def parse_queue(text: str) -> tuple[Counter[str], int]:
+    """Parse queue text, return (provider_counts, unassigned_count).
+
+    Only counts tasks in sections above '## Done'.
+    Dispatched tasks have --provider X.
+    Unassigned tasks are #### headings without a provider dispatch line.
+    """
+    # Split at Done section — only consider content before it
+    done_match = re.search(r"^## Done", text, re.MULTILINE)
+    active_text = text[: done_match.start()] if done_match else text
+
+    provider_counts: Counter[str] = Counter()
+
+    # Match dispatched task lines: - [ ] `golem --provider <name> ...`
+    dispatched = re.findall(r"--provider\s+(\S+)", active_text)
+    for provider in dispatched:
+        provider_counts[provider] += 1
+
+    # Count unassigned tasks: #### headings (task titles without dispatch)
+    # Exclude lines that are just section headers like "### Pending"
+    unassigned = 0
+    in_pending = False
+    for line in active_text.splitlines():
+        stripped = line.strip()
+        # Track whether we're in a pending/active section
+        if re.match(r"^##+(?: Pending| Builds| Retries| Fixes| Compound)", stripped):
+            in_pending = True
+            continue
+        if re.match(r"^##+(?: Done)", stripped):
+            in_pending = False
+            continue
+        if not in_pending:
+            # Still count #### lines even outside explicit sections
+            pass
+        # #### lines that are NOT section categories and NOT followed by
+        # a dispatched task on the same or next line
+        if re.match(r"^####\s+\S", stripped):
+            # Check if there's a --provider dispatch on this or nearby lines
+            # Simple approach: count #### as unassigned unless the heading
+            # itself contains --provider (it won't)
+            # But some #### are just category labels under "###" sections.
+            # Only count if it looks like a task description.
+            heading_text = re.sub(r"^####\s+", "", stripped)
+            # Skip generic section labels (single word, all caps, etc.)
+            if heading_text and not re.match(r"^(?:IMPORTANT|Pending|Done|Builds|Retries|Fixes|Compound)", heading_text, re.IGNORECASE):
+                unassigned += 1
+
+    # Don't double-count: dispatched tasks under #### headings should not
+    # also count as unassigned. We count #### headings as unassigned only
+    # if there's no --provider dispatch for them.
+    # Since dispatched tasks use - [ ] lines (not ####), they don't overlap.
+    # But we should subtract: if a section has both #### and - [ ], the ####
+    # is the title and - [ ] is the dispatch. For simplicity, if any dispatched
+    # task exists, we assume #### headings are just titles for dispatched tasks
+    # within the same section and don't count them separately.
+    # Better approach: only count #### headings that have NO - [ ] dispatch
+    # line in the block between this #### and the next heading.
+
+    return provider_counts, unassigned
 
 
-def parse_queue(queue_text: str) -> dict[str, int]:
-    """Parse queue markdown and return {provider: task_count}."""
-    # Checkbox tasks with explicit --provider
-    checkbox_pattern = r"^- \[ \] .*golem\s+--provider\s+(\w+)"
-    checkbox_providers = re.findall(checkbox_pattern, queue_text, re.MULTILINE)
+def parse_queue_v2(text: str) -> tuple[Counter[str], int]:
+    """Parse queue text, return (provider_counts, unassigned_count).
 
-    # Header tasks (####) — count all distinct task headers
-    header_pattern = r"^####\s+(.+)$"
-    headers = re.findall(header_pattern, queue_text, re.MULTILINE)
+    Walks line by line. Tracks current heading depth.
+    A #### heading starts a task block. If that block contains a --provider
+    dispatch line, it's assigned. Otherwise it's unassigned.
+    Also counts bare - [ ] dispatched lines (not under a ####).
+    """
+    done_match = re.search(r"^## Done", text, re.MULTILINE)
+    active_text = text[: done_match.start()] if done_match else text
 
-    # Count checkbox tasks per provider
-    provider_counts: Counter = Counter(checkbox_providers)
+    provider_counts: Counter[str] = Counter()
+    unassigned = 0
 
-    # Header-only tasks without a matching checkbox line = unassigned
-    # A task is "assigned" if it has a checkbox line with --provider
-    assigned_tasks = len(checkbox_providers)
-    total_header_tasks = len(headers)
-    unassigned = total_header_tasks - assigned_tasks
-    if unassigned > 0:
-        provider_counts["unassigned"] = unassigned
+    lines = active_text.splitlines()
+    i = 0
+    while i < len(lines):
+        line = lines[i]
+        stripped = line.strip()
 
-    return dict(provider_counts)
+        # Check for #### heading — a potential task
+        if re.match(r"^####\s+\S", stripped):
+            heading = re.sub(r"^####\s+", "", stripped)
+            # Look for dispatched task in the block until next heading
+            found_dispatch = False
+            j = i + 1
+            while j < len(lines):
+                next_stripped = lines[j].strip()
+                # Stop at next heading of any level
+                if re.match(r"^#{1,4}\s", next_stripped):
+                    break
+                if "--provider" in next_stripped:
+                    providers = re.findall(r"--provider\s+(\S+)", next_stripped)
+                    for p in providers:
+                        provider_counts[p] += 1
+                    found_dispatch = True
+                j += 1
+            if not found_dispatch:
+                unassigned += 1
+            i += 1
+            continue
+
+        # Bare dispatched task line (not under a ####)
+        if re.match(r"^-\s+\[", stripped) and "--provider" in stripped:
+            providers = re.findall(r"--provider\s+(\S+)", stripped)
+            for p in providers:
+                provider_counts[p] += 1
+
+        i += 1
+
+    return provider_counts, unassigned
 
 
-def check_imbalance(provider_counts: dict[str, int]) -> list[str]:
-    """Return list of rebalancing suggestions if any provider >2x another."""
-    suggestions: list[str] = []
-    non_zero = {k: v for k, v in provider_counts.items() if v > 0}
-    if len(non_zero) < 2:
-        return suggestions
+def format_report(provider_counts: Counter[str], unassigned: int) -> str:
+    """Format human-readable distribution report."""
+    total_dispatched = sum(provider_counts.values())
+    total = total_dispatched + unassigned
 
-    providers = list(non_zero.keys())
-    for i, p1 in enumerate(providers):
-        for p2 in providers[i + 1:]:
-            c1, c2 = non_zero[p1], non_zero[p2]
-            if c1 > 2 * c2:
-                suggestions.append(
-                    f"{p1} ({c1}) has >2x {p2} ({c2}). "
-                    f"Move ~{(c1 - c2) // 2} tasks from {p1} to {p2}."
-                )
-            elif c2 > 2 * c1:
-                suggestions.append(
-                    f"{p2} ({c2}) has >2x {p1} ({c1}). "
-                    f"Move ~{(c2 - c1) // 2} tasks from {p2} to {p1}."
-                )
-    return suggestions
+    lines: list[str] = []
+    lines.append("=" * 50)
+    lines.append("Golem Queue — Task Distribution by Provider")
+    lines.append("=" * 50)
+    lines.append("")
 
+    if not provider_counts and unassigned == 0:
+        lines.append("No tasks found in queue.")
+        lines.append("")
+        return "\n".join(lines)
 
-def format_report(provider_counts: dict[str, int], suggestions: list[str]) -> str:
-    """Format a human-readable report."""
-    lines: list[str] = ["Queue balance report", "=" * 40]
-
-    total = sum(provider_counts.values())
-    max_name_len = max(len(k) for k in provider_counts) if provider_counts else 0
-
+    # Provider table
+    lines.append(f"{'Provider':<15} {'Tasks':>6} {'Share':>8}")
+    lines.append("-" * 31)
     for provider, count in sorted(provider_counts.items(), key=lambda x: -x[1]):
-        pct = (count / total * 100) if total > 0 else 0
-        bar = "#" * int(pct / 2)
-        lines.append(f"  {provider:<{max_name_len}}  {count:>4}  ({pct:5.1f}%)  {bar}")
+        share = f"{count / total_dispatched * 100:.1f}%" if total_dispatched else "0%"
+        lines.append(f"{provider:<15} {count:>6} {share:>8}")
+    if unassigned:
+        share = f"{unassigned / total * 100:.1f}%"
+        lines.append(f"{'(unassigned)':<15} {unassigned:>6} {share:>8}")
+    lines.append("-" * 31)
+    lines.append(f"{'Total':<15} {total:>6}")
+    lines.append("")
 
-    lines.append(f"  {'total':<{max_name_len}}  {total:>4}")
+    # Rebalancing check
+    if len(provider_counts) >= 2:
+        counts = list(provider_counts.values())
+        providers = list(provider_counts.keys())
+        max_count = max(counts)
+        min_count = min(counts)
+        if max_count > 2 * min_count:
+            max_provider = providers[counts.index(max_count)]
+            min_provider = providers[counts.index(min_count)]
+            imbalance_ratio = max_count / min_count
+            lines.append(f"⚠ Imbalance detected: {max_provider} has "
+                         f"{imbalance_ratio:.1f}x tasks of {min_provider}")
+            move = (max_count - min_count) // 2
+            if move > 0:
+                lines.append(f"  Suggestion: move {move} task(s) from "
+                             f"{max_provider} to {min_provider}")
+        else:
+            lines.append("✓ Distribution is balanced (no provider >2x another)")
+    elif len(provider_counts) == 1:
+        lines.append("ℹ Only one provider has dispatched tasks")
 
-    if suggestions:
+    if unassigned > 0:
         lines.append("")
-        lines.append("Rebalancing suggestions:")
-        for s in suggestions:
-            lines.append(f"  - {s}")
-    else:
-        lines.append("")
-        lines.append("Queue is balanced.")
+        lines.append(f"ℹ {unassigned} unassigned task(s) — consider dispatching")
 
+    lines.append("")
     return "\n".join(lines)
 
 
-def main(argv: list[str] | None = None) -> None:
-    parser = argparse.ArgumentParser(
-        description="Report task distribution by provider from golem-queue.md"
-    )
-    parser.add_argument(
-        "--queue", default=str(DEFAULT_QUEUE), help="Path to queue markdown file"
-    )
-    parser.add_argument(
-        "--json", action="store_true", help="Output as JSON"
-    )
-    args = parser.parse_args(argv)
-
-    queue_path = Path(args.queue)
-    if not queue_path.exists():
-        print(f"Error: queue file not found: {queue_path}", file=sys.stderr)
+def main() -> None:
+    if len(sys.argv) < 2:
+        print("Usage: queue-balance <path-to-golem-queue.md>", file=sys.stderr)
         sys.exit(1)
 
-    queue_text = queue_path.read_text()
-    provider_counts = parse_queue(queue_text)
-    suggestions = check_imbalance(provider_counts)
+    queue_path = Path(sys.argv[1])
+    if not queue_path.exists():
+        print(f"Error: {queue_path} not found", file=sys.stderr)
+        sys.exit(1)
 
-    if args.json:
-        result = {
-            "providers": provider_counts,
-            "total": sum(provider_counts.values()),
-            "suggestions": suggestions,
-            "balanced": len(suggestions) == 0,
-        }
-        print(json.dumps(result, indent=2))
-    else:
-        print(format_report(provider_counts, suggestions))
+    text = queue_path.read_text()
+    provider_counts, unassigned = parse_queue_v2(text)
+    report = format_report(provider_counts, unassigned)
+    print(report)
 
 
 if __name__ == "__main__":

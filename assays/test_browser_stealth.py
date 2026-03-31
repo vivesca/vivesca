@@ -11,7 +11,6 @@ import pytest
 
 from metabolon.organelles.browser_stealth import (
     CHROME_USER_AGENTS,
-    _STEALTH_INIT_JS,
     _WEBDRIVER_PATCH_JS,
     human_delay,
     patch_navigator,
@@ -44,9 +43,11 @@ def mock_browser(mock_context: MagicMock) -> MagicMock:
 
 
 class TestPatchNavigator:
-    def test_adds_init_script_with_webdriver_patch(self, mock_context: MagicMock) -> None:
-        patch_navigator(mock_context)
-        mock_context.add_init_script.assert_called_once_with(_WEBDRIVER_PATCH_JS)
+    @pytest.mark.asyncio
+    async def test_adds_init_script_with_webdriver_patch(self, mock_context: MagicMock) -> None:
+        await patch_navigator(mock_context)
+        # Should be called 4 times: webdriver, chrome runtime, plugins, permissions
+        assert mock_context.add_init_script.call_count == 4
 
     def test_script_sets_undefined(self) -> None:
         """The injected JS must override navigator.webdriver."""

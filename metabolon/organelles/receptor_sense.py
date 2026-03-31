@@ -118,7 +118,10 @@ class ProprioceptiveStore:
             for line in f:
                 line = line.strip()
                 if line:
-                    entries.append(json.loads(line))
+                    try:
+                        entries.append(json.loads(line))
+                    except json.JSONDecodeError:
+                        continue
         return entries
 
     def recall_since(self, since: datetime.datetime) -> list[dict]:

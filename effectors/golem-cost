@@ -1,0 +1,245 @@
+#!/usr/bin/env python3
+# /// script
+# requires-python = ">=3.11"
+# dependencies = []
+# ///
+"""golem-cost — Estimate cost of golem runs.
+
+Reads golem.jsonl. Calculates tokens estimated per run (turns * ~4K),
+total tokens, cost if metered. Per-provider breakdown.
+
+Usage:
+    golem-cost              # Show cost report
+    golem-cost --json       # Output as JSON
+    golem-cost --by-run     # Show per-run detail
+"""
+from __future__ import annotations
+
+import json
+import sys
+from collections import defaultdict
+from pathlib import Path
+
+# Paths
+VIVESCA_DIR = Path.home() / ".local" / "share" / "vivesca"
+JSONL_PATH = VIVESCA_DIR / "golem.jsonl"
+
+# Token estimation: ~4K tokens per turn (input + output combined)
+TOKENS_PER_TURN = 4000
+
+# Cost per 1M tokens (estimated, varies by provider/model)
+COST_PER_M_TOKENS = {
+    "zhipu": 0.50,       # GLM-5.1 — approximate
+    "infini": 0.30,      # glm-5 — approximate
+    "volcano": 0.20,     # ark-code-latest — approximate
+    "default": 0.40,
+}
+
+# ANSI colors
+GREEN = "\033[32m"
+YELLOW = "\033[33m"
+CYAN = "\033[36m"
+BOLD = "\033[1m"
+DIM = "\033[2m"
+RESET = "\033[0m"
+
+
+def load_jsonl(path: Path) -> list[dict]:
+    """Parse golem.jsonl, return list of record dicts."""
+    if not path.exists():
+        return []
+    records = []
+    for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            records.append(json.loads(line))
+        except json.JSONDecodeError:
+            continue
+    return records
+
+
+def estimate_tokens(turns: int) -> int:
+    """Estimate token count from number of turns."""
+    return turns * TOKENS_PER_TURN
+
+
+def get_cost_per_m(provider: str) -> float:
+    """Get cost per 1M tokens for a provider."""
+    return COST_PER_M_TOKENS.get(provider, COST_PER_M_TOKENS["default"])
+
+
+def compute_run_cost(record: dict) -> dict:
+    """Compute cost estimates for a single run record.
+
+    Returns dict with: provider, turns, tokens_est, cost_usd, exit, duration.
+    """
+    turns = record.get("turns", 0)
+    provider = record.get("provider", "unknown")
+    tokens_est = estimate_tokens(turns)
+    cost_usd = tokens_est / 1_000_000 * get_cost_per_m(provider)
+    return {
+        "provider": provider,
+        "turns": turns,
+        "tokens_est": tokens_est,
+        "cost_usd": cost_usd,
+        "exit": record.get("exit", -1),
+        "duration": record.get("duration", 0),
+        "ts": record.get("ts", ""),
+        "prompt": record.get("prompt", ""),
+    }
+
+
+def compute_summary(records: list[dict]) -> dict:
+    """Compute full cost summary from JSONL records.
+
+    Returns dict with: total_runs, total_tokens, total_cost,
+    by_provider, runs (list of per-run costs).
+    """
+    runs = [compute_run_cost(r) for r in records]
+
+    total_tokens = sum(r["tokens_est"] for r in runs)
+    total_cost = sum(r["cost_usd"] for r in runs)
+
+    by_provider: dict[str, dict] = defaultdict(lambda: {
+        "runs": 0, "tokens": 0, "cost": 0.0,
+        "pass": 0, "fail": 0, "total_turns": 0,
+    })
+    for run in runs:
+        p = run["provider"]
+        bp = by_provider[p]
+        bp["runs"] += 1
+        bp["tokens"] += run["tokens_est"]
+        bp["cost"] += run["cost_usd"]
+        bp["total_turns"] += run["turns"]
+        if run["exit"] == 0:
+            bp["pass"] += 1
+        else:
+            bp["fail"] += 1
+
+    return {
+        "total_runs": len(runs),
+        "total_tokens": total_tokens,
+        "total_cost": total_cost,
+        "by_provider": dict(by_provider),
+        "runs": runs,
+    }
+
+
+def fmt_tokens(n: int) -> str:
+    """Format token count with K/M suffix."""
+    if n >= 1_000_000:
+        return f"{n / 1_000_000:.1f}M"
+    if n >= 1_000:
+        return f"{n / 1_000:.0f}K"
+    return str(n)
+
+
+def fmt_cost(n: float) -> str:
+    """Format USD cost."""
+    if n < 0.01:
+        return f"${n:.4f}"
+    return f"${n:.2f}"
+
+
+def print_report(summary: dict, use_color: bool = True) -> None:
+    """Print human-readable cost report."""
+    b = BOLD if use_color else ""
+    c = CYAN if use_color else ""
+    g = GREEN if use_color else ""
+    y = YELLOW if use_color else ""
+    dim = DIM if use_color else ""
+    rst = RESET if use_color else ""
+
+    # Header
+    print(f"\n{b}Golem Cost Report{rst}")
+    print(f"  Runs: {c}{summary['total_runs']}{rst}  "
+          f"Tokens (est): {c}{fmt_tokens(summary['total_tokens'])}{rst}  "
+          f"Cost (est): {y}{fmt_cost(summary['total_cost'])}{rst}")
+
+    # Per-provider table
+    by_provider = summary["by_provider"]
+    if by_provider:
+        print(f"\n{b}By Provider{rst}")
+        header = f"  {'Provider':<10} {'Runs':>6} {'Pass':>5} {'Fail':>5} {'Tokens':>9} {'Cost':>9} {'Avg Turns':>10}"
+        sep = "  " + "-" * 58
+        print(header)
+        print(sep)
+
+        for provider in sorted(by_provider):
+            bp = by_provider[provider]
+            avg_turns = bp["total_turns"] / bp["runs"] if bp["runs"] else 0
+            print(f"  {provider:<10} {bp['runs']:>6} {bp['pass']:>5} {bp['fail']:>5} "
+                  f"{fmt_tokens(bp['tokens']):>9} {fmt_cost(bp['cost']):>9} {avg_turns:>9.1f}t")
+
+    print()
+
+
+def print_by_run(summary: dict, use_color: bool = True) -> None:
+    """Print per-run detail table."""
+    b = BOLD if use_color else ""
+    dim = DIM if use_color else ""
+    rst = RESET if use_color else ""
+
+    runs = summary["runs"]
+    if not runs:
+        print("No runs found.")
+        return
+
+    print(f"\n{b}Per-Run Detail{rst}")
+    header = f"  {'#':>4} {'Provider':<10} {'Turns':>6} {'Tokens':>9} {'Cost':>9} {'Dur':>6} {'Prompt':<40}"
+    sep = "  " + "-" * 90
+    print(header)
+    print(sep)
+
+    for i, run in enumerate(runs, 1):
+        prompt = run["prompt"][:40]
+        dur_str = f"{run['duration']}s"
+        print(f"  {i:>4} {run['provider']:<10} {run['turns']:>6} "
+              f"{fmt_tokens(run['tokens_est']):>9} {fmt_cost(run['cost_usd']):>9} "
+              f"{dur_str:>6} {dim}{prompt}{rst}")
+
+    print()
+
+
+def print_json_report(summary: dict) -> None:
+    """Print cost summary as JSON."""
+    # Remove runs list for compact output unless --by-run
+    output = {
+        "total_runs": summary["total_runs"],
+        "total_tokens": summary["total_tokens"],
+        "total_cost": summary["total_cost"],
+        "by_provider": {
+            p: {k: v for k, v in bp.items()}
+            for p, bp in summary["by_provider"].items()
+        },
+    }
+    print(json.dumps(output, indent=2))
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = argv if argv is not None else sys.argv[1:]
+    if "-h" in args or "--help" in args:
+        print(__doc__.strip())
+        return 0
+
+    use_color = "--no-color" not in args
+    as_json = "--json" in args
+    show_runs = "--by-run" in args
+
+    records = load_jsonl(JSONL_PATH)
+    summary = compute_summary(records)
+
+    if as_json:
+        print_json_report(summary)
+    else:
+        print_report(summary, use_color)
+        if show_runs:
+            print_by_run(summary, use_color)
+
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

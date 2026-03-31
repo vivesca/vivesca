@@ -125,7 +125,10 @@ def _read_fallback() -> tuple[dict | None, int | None]:
         lines = path.read_text().strip().splitlines()
         if not lines:
             continue
-        entry = json.loads(lines[-1])
+        try:
+            entry = json.loads(lines[-1])
+        except json.JSONDecodeError:
+            continue
         ts_str = entry.get("ts", "")
         try:
             ts = datetime.fromisoformat(ts_str)

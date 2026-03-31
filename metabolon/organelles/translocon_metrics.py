@@ -60,7 +60,10 @@ def _load_entries(days: int | None = None) -> list[dict[str, Any]]:
             line = line.strip()
             if not line:
                 continue
-            entry = json.loads(line)
+            try:
+                entry = json.loads(line)
+            except json.JSONDecodeError:
+                continue
             if cutoff is not None:
                 ts = entry.get("timestamp", "")
                 try:

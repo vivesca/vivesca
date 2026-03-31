@@ -61,7 +61,10 @@ def secrete_text(text: str, html: bool = True, label: str = "") -> str:
 
     req = urllib.request.Request(f"{_API_BASE}/bot{token}/sendMessage", data=data)
     with urllib.request.urlopen(req, timeout=15) as resp:
-        result = json.loads(resp.read())
+        try:
+            result = json.loads(resp.read())
+        except json.JSONDecodeError as e:
+            raise ValueError(f"Telegram API returned invalid JSON: {e}") from e
 
     _LOCK.touch()
 
@@ -86,7 +89,10 @@ def secrete_image(path: str, caption: str = "") -> str:
     args.append(f"{_API_BASE}/bot{token}/sendPhoto")
 
     r = subprocess.run(args, capture_output=True, text=True, timeout=30)
-    result = json.loads(r.stdout)
+    try:
+        result = json.loads(r.stdout)
+    except json.JSONDecodeError as e:
+        raise ValueError(f"Telegram API returned invalid JSON: {e}") from e
 
     _LOCK.touch()
 
