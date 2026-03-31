@@ -258,11 +258,15 @@ def _clean_env(tool: str) -> dict[str, str]:
         # translocon handles env vars internally
         pass
     if tool == "cc-glm":
-        # Headless CC with GLM-5.1 via ZhiPu Coding Plan Anthropic-compat endpoint
-        env["ANTHROPIC_API_KEY"] = env.get("ZHIPU_API_KEY", "")
+        # Headless CC with GLM via ZhiPu Coding Plan Anthropic-compat endpoint
+        # Docs: https://docs.bigmodel.cn/cn/coding-plan/tool/claude
+        env["ANTHROPIC_AUTH_TOKEN"] = env.get("ZHIPU_API_KEY", "")
         env["ANTHROPIC_BASE_URL"] = "https://open.bigmodel.cn/api/anthropic"
         env["ANTHROPIC_DEFAULT_OPUS_MODEL"] = "glm-5.1"
-        env["ANTHROPIC_DEFAULT_SONNET_MODEL"] = "glm-5.1"
+        env["ANTHROPIC_DEFAULT_SONNET_MODEL"] = "GLM-5.1"
+        env["ANTHROPIC_DEFAULT_HAIKU_MODEL"] = "GLM-4.5-air"
+        env["API_TIMEOUT_MS"] = "3000000"
+        env["CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC"] = "1"
     return env
 
 
