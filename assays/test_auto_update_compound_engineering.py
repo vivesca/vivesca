@@ -139,9 +139,19 @@ class TestRunnerSelection:
         log_file = tmp_path / ".compound-engineering-updates.log"
         assert log_file.exists()
 
-    def test_exits_1_when_no_runner(self, fake_home_no_runners):
-        """Script exits 1 when neither bunx nor npx is found."""
-        tmp_path, env = fake_home_no_runners
+    def test_exits_1_when_no_runner(self, tmp_path):
+        """Script exits 1 when neither bunx nor npx is found.
+
+        PATH must exclude /bin and /usr/bin entirely because npx lives
+        in both locations on this host.  The early-exit path only uses
+        bash builtins (echo, >>, command) so no external binaries are needed.
+        """
+        bin_dir = tmp_path / "bin"
+        bin_dir.mkdir()
+        env = {
+            "HOME": str(tmp_path),
+            "PATH": str(bin_dir),  # empty dir — no date, no npx
+        }
         result = _run_script(env=env)
         assert result.returncode == 1
 
