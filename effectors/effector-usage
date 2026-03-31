@@ -1,0 +1,303 @@
+#!/usr/bin/env python3
+"""effector-usage — Report effector usage from golem logs.
+
+Scans golem.jsonl and golem-daemon.log for effector mentions and reports:
+most-used, never-used, and recently-broken effectors.
+
+Usage:
+    effector-usage              # Full report
+    effector-usage --json       # Machine-readable JSON
+    effector-usage --top 10     # Show top N most-used
+    effector-usage --broken     # Show only broken effectors
+"""
+from __future__ import annotations
+
+import json
+import re
+import sys
+from collections import Counter, defaultdict
+from datetime import datetime, timedelta
+from pathlib import Path
+
+EFFECTORS_DIR = Path.home() / "germline" / "effectors"
+JSONL_FILE = Path.home() / ".local" / "share" / "vivesca" / "golem.jsonl"
+DAEMON_LOG = Path.home() / ".local" / "share" / "vivesca" / "golem-daemon.log"
+ROTATED_LOG = Path.home() / ".local" / "share" / "vivesca" / "golem-daemon.log.1"
+
+# Effector name pattern: after "effectors/" capture the name
+RE_EFFECTOR = re.compile(r"effectors/([a-zA-Z0-9][a-zA-Z0-9_.-]+)")
+# Timestamp in golem.jsonl: "ts":"2026-03-31T11:38:08Z"
+RE_JSONL_TS = re.compile(r'"ts"\s*:\s*"([^"]+)"')
+# Timestamp in daemon log: [2026-03-31 10:53:29]
+RE_LOG_TS = re.compile(r"^\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\]")
+# Failure patterns in daemon log
+RE_FAILED = re.compile(r"^FAILED \(exit=(\d+)\): (.+)")
+RE_TIMEOUT = re.compile(r"^TIMEOUT \((\d+)s\): (.+)")
+# Exit code in jsonl
+RE_EXIT = re.compile(r'"exit"\s*:\s*(\d+)')
+
+
+def get_known_effectors() -> list[str]:
+    """List all effector names from the effectors directory."""
+    if not EFFECTORS_DIR.exists():
+        return []
+    return sorted(
+        p.name
+        for p in EFFECTORS_DIR.iterdir()
+        if p.is_file()
+        and not p.name.startswith(".")
+        and not p.name.endswith(".pyc")
+    )
+
+
+def parse_jsonl_timestamp(ts_str: str) -> datetime:
+    """Parse JSONL timestamp like '2026-03-31T11:38:08Z' or '2026-03-31T11:38:08.123456'."""
+    ts_str = ts_str.rstrip("Z")
+    # Handle fractional seconds
+    if "." in ts_str:
+        return datetime.fromisoformat(ts_str)
+    return datetime.fromisoformat(ts_str)
+
+
+def parse_log_timestamp(ts_str: str) -> datetime:
+    """Parse daemon log timestamp like '2026-03-31 10:53:29'."""
+    return datetime.strptime(ts_str, "%Y-%m-%d %H:%M:%S")
+
+
+def scan_jsonl(path: Path) -> tuple[Counter, dict[str, list[datetime]], Counter]:
+    """Scan golem.jsonl for effector mentions.
+
+    Returns:
+        usage: Counter mapping effector name -> mention count
+        last_seen: dict mapping effector name -> list of timestamps
+        failures: Counter mapping effector name -> failure count (exit != 0)
+    """
+    usage: Counter = Counter()
+    last_seen: dict[str, list[datetime]] = defaultdict(list)
+    failures: Counter = Counter()
+
+    if not path.exists():
+        return usage, last_seen, failures
+
+    for line in path.read_text(errors="replace").splitlines():
+        line = line.strip()
+        if not line:
+            continue
+
+        # Extract timestamp
+        ts_match = RE_JSONL_TS.search(line)
+        ts = parse_jsonl_timestamp(ts_match.group(1)) if ts_match else None
+
+        # Extract exit code
+        exit_match = RE_EXIT.search(line)
+        exit_code = int(exit_match.group(1)) if exit_match else 0
+
+        # Find effector mentions in the prompt field
+        for m in RE_EFFECTOR.finditer(line):
+            name = m.group(1).rstrip(".,;:) ")
+            if len(name) <= 2:
+                continue
+            usage[name] += 1
+            if ts:
+                last_seen[name].append(ts)
+            if exit_code != 0:
+                failures[name] += 1
+
+    return usage, last_seen, failures
+
+
+def scan_daemon_log(path: Path) -> tuple[Counter, dict[str, list[datetime]], Counter]:
+    """Scan golem-daemon.log for effector mentions.
+
+    Returns:
+        usage: Counter mapping effector name -> mention count
+        last_seen: dict mapping effector name -> list of timestamps
+        failures: Counter mapping effector name -> failure count (FAILED/TIMEOUT lines)
+    """
+    usage: Counter = Counter()
+    last_seen: dict[str, list[datetime]] = defaultdict(list)
+    failures: Counter = Counter()
+
+    if not path.exists():
+        return usage, last_seen, failures
+
+    for line in path.read_text(errors="replace").splitlines():
+        line = line.rstrip()
+        if not line:
+            continue
+
+        # Extract timestamp
+        ts_match = RE_LOG_TS.match(line)
+        ts = parse_log_timestamp(ts_match.group(1)) if ts_match else None
+
+        # Check for failure patterns
+        is_failure = bool(RE_FAILED.match(line) or RE_TIMEOUT.match(line))
+
+        # Find effector mentions
+        for m in RE_EFFECTOR.finditer(line):
+            name = m.group(1).rstrip(".,;:) ")
+            if len(name) <= 2:
+                continue
+            usage[name] += 1
+            if ts:
+                last_seen[name].append(ts)
+            if is_failure:
+                failures[name] += 1
+
+    return usage, last_seen, failures
+
+
+def build_report(
+    jsonl_path: Path | None = None,
+    log_path: Path | None = None,
+    rotated_log_path: Path | None = None,
+    top_n: int = 0,
+    broken_only: bool = False,
+    as_json: bool = False,
+) -> str:
+    """Build usage report from all sources.
+
+    Args:
+        jsonl_path: Override golem.jsonl path (testing).
+        log_path: Override daemon log path (testing).
+        rotated_log_path: Override rotated log path (testing).
+        top_n: If > 0, only show top N most-used.
+        broken_only: Only show effectors with recent failures.
+        as_json: Return JSON instead of text.
+    """
+    jp = jsonl_path or JSONL_FILE
+    lp = log_path or DAEMON_LOG
+    rp = rotated_log_path or ROTATED_LOG
+
+    # Scan all sources
+    jsonl_usage, jsonl_last, jsonl_fails = scan_jsonl(jp)
+    log_usage, log_last, log_fails = scan_daemon_log(lp)
+    rot_usage, rot_last, rot_fails = scan_daemon_log(rp) if rp else (Counter(), defaultdict(list), Counter())
+
+    # Merge
+    total_usage = jsonl_usage + log_usage + rot_usage
+    total_failures = jsonl_fails + log_fails + rot_fails
+
+    all_timestamps: dict[str, list[datetime]] = defaultdict(list)
+    for d in (jsonl_last, log_last, rot_last):
+        for name, ts_list in d.items():
+            all_timestamps[name].extend(ts_list)
+
+    # Last seen per effector
+    last_seen: dict[str, datetime] = {}
+    for name, ts_list in all_timestamps.items():
+        if ts_list:
+            last_seen[name] = max(ts_list)
+
+    # Known effectors from directory
+    known = get_known_effectors()
+    mentioned = set(total_usage.keys())
+    never_used = sorted(set(known) - mentioned)
+
+    # Recently broken: mentioned in a FAILED/TIMEOUT line in the last 7 days
+    now = max(last_seen.values()) if last_seen else datetime.now()
+    seven_days_ago = now - timedelta(days=7)
+
+    recently_broken: list[dict] = []
+    for name, fail_count in total_failures.most_common():
+        if fail_count == 0:
+            continue
+        ts_list = all_timestamps.get(name, [])
+        recent_fails = sum(1 for t in ts_list if t >= seven_days_ago)
+        if recent_fails > 0 or broken_only:
+            recently_broken.append({
+                "name": name,
+                "failures": fail_count,
+                "recent_failures": recent_fails,
+                "total_mentions": total_usage.get(name, 0),
+                "last_seen": last_seen.get(name, "").isoformat() if name in last_seen else "",
+            })
+
+    if broken_only:
+        recently_broken = [b for b in recently_broken if b["recent_failures"] > 0]
+
+    # Most used
+    most_used = total_usage.most_common(top_n if top_n > 0 else None)
+
+    if as_json:
+        return json.dumps({
+            "most_used": [
+                {"name": name, "mentions": count, "failures": total_failures.get(name, 0),
+                 "last_seen": last_seen.get(name, "").isoformat() if name in last_seen else ""}
+                for name, count in most_used
+            ],
+            "never_used": never_used,
+            "recently_broken": recently_broken,
+            "summary": {
+                "known_effectors": len(known),
+                "mentioned_effectors": len(mentioned),
+                "never_used_count": len(never_used),
+                "total_failures": sum(total_failures.values()),
+            },
+        }, indent=2)
+
+    # Format text report
+    lines: list[str] = []
+    lines.append("=" * 60)
+    lines.append("EFFECTOR USAGE REPORT")
+    lines.append("=" * 60)
+    lines.append(f"  Known effectors:     {len(known)}")
+    lines.append(f"  Mentioned in logs:   {len(mentioned)}")
+    lines.append(f"  Never mentioned:     {len(never_used)}")
+    lines.append(f"  Total failure refs:  {sum(total_failures.values())}")
+    lines.append("")
+
+    # Most used
+    display_most = most_used[:top_n] if top_n > 0 else most_used
+    lines.append(f"── Most Used ({min(len(display_most), 20)} shown) ──")
+    for name, count in display_most[:20]:
+        fail_str = f", {total_failures[name]} fails" if total_failures[name] else ""
+        last_str = f"  (last: {last_seen[name].strftime('%m-%d %H:%M')})" if name in last_seen else ""
+        lines.append(f"  {count:4d}x  {name}{fail_str}{last_str}")
+    lines.append("")
+
+    # Never used
+    if not broken_only and never_used:
+        lines.append(f"── Never Used ({len(never_used)}) ──")
+        # Show in columns
+        col_w = max(len(n) for n in never_used) + 2
+        cols = max(1, 60 // col_w)
+        for i in range(0, len(never_used), cols):
+            row = never_used[i:i + cols]
+            lines.append("  " + "  ".join(n.ljust(col_w) for n in row).rstrip())
+        lines.append("")
+
+    # Recently broken
+    if recently_broken:
+        lines.append(f"── Recently Broken (failures in last 7 days) ──")
+        for b in recently_broken[:20]:
+            lines.append(
+                f"  {b['name']}: {b['failures']} total failures"
+                f" ({b['recent_failures']} recent)"
+                f" / {b['total_mentions']} mentions"
+            )
+        lines.append("")
+
+    lines.append("=" * 60)
+    return "\n".join(lines)
+
+
+def main():
+    args = sys.argv[1:]
+    as_json = "--json" in args
+    broken_only = "--broken" in args
+    top_n = 0
+
+    for i, arg in enumerate(args):
+        if arg == "--top" and i + 1 < len(args):
+            top_n = int(args[i + 1])
+        elif arg.startswith("--top="):
+            top_n = int(arg.split("=", 1)[1])
+
+    output = build_report(top_n=top_n, broken_only=broken_only, as_json=as_json)
+    print(output)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

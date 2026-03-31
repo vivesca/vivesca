@@ -29,8 +29,6 @@ def get_ps_output() -> str:
     )
     return result.stdout
 
-SELF_PATHS = ("golem-top", "grep")
-
 def parse_ps_lines(raw: str) -> list[dict]:
     """Parse ps -eo pid,etime,args into structured dicts.
 
@@ -55,13 +53,11 @@ def parse_ps_lines(raw: str) -> list[dict]:
         except ValueError:
             continue
         # Skip our own process and grep
-        if any(s in args for s in SELF_PATHS):
-            # But don't skip if "golem-top" is part of a *task description*
-            # e.g. "Create effectors/golem-top as Python"
-            # Only skip if the executable itself is golem-top
-            first_token = args.split()[0] if args else ""
-            if first_token.endswith("golem-top") or first_token.endswith("grep"):
-                continue
+        # Check if the *executable path* ends with golem-top or grep
+        first_token = args.split()[0] if args else ""
+        executable = first_token.rsplit("/", 1)[-1] if "/" in first_token else first_token
+        if executable in ("golem-top", "grep"):
+            continue
         entries.append({"pid": pid, "etime": etime, "args": args, "raw_line": line})
     return entries
 
