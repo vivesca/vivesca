@@ -6,21 +6,28 @@ Uses mocks — no real browser launch required.
 from __future__ import annotations
 
 import json
+import sys
+import types
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
 
-# Load effector via exec (no .py extension)
+# Load effector via exec (effectors are scripts, not importable packages)
 _effector_path = Path(__file__).parent.parent / "effectors" / "browser"
-_ns: dict = {"__name__": "browser_effector"}
-exec(open(_effector_path).read(), _ns)
+_ns: dict = {"__name__": "effectors.browser", "__file__": str(_effector_path)}
+exec(open(_effector_path).read(), _ns)  # noqa: S102
+
+# Register as a real module so @patch("effectors.browser.fetch") works
+_mod = types.ModuleType("effectors.browser")
+_mod.__dict__.update(_ns)
+sys.modules["effectors.browser"] = _mod
 
 main = _ns["main"]
 build_parser = _ns["build_parser"]
 
-# Patch target inside the exec'd namespace
-_FETCH_TARGET = "browser_effector.fetch"
+# Patch target for the effector's imported fetch
+_FETCH_TARGET = "effectors.browser.fetch"
 
 # ---------------------------------------------------------------------------
 # Parser tests
