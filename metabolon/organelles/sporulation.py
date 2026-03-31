@@ -21,6 +21,7 @@ from metabolon.locus import blog_published, terryli_hm
 PUBLISHED_DIR = blog_published
 INDEX_PATH = terryli_hm
 SYNC_SCRIPT = Path.home() / "code" / "blog" / "sync-from-chromatin.sh"
+CHECKPOINT_DIR = PUBLISHED_DIR / ".checkpoints"
 
 
 def _now_iso() -> str:
