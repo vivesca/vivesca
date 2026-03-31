@@ -743,6 +743,23 @@ class TestCmdReflect:
         assert "Taste Calibration" in out
         assert "prefer X over Y" in out
 
+    def test_format_json_output(self, capsys):
+        findings = [{"category": "discovery", "lesson": "something"}]
+        with _pdict(run_reflect=MagicMock(return_value=(findings, {"input_tokens": 100, "output_tokens": 50}))):
+            args = MagicMock(session="abc123", json=False, format="json")
+            cmd_reflect(args)
+        out = capsys.readouterr().out
+        data = json.loads(out)
+        assert len(data) == 1
+        assert data[0]["category"] == "discovery"
+
+    def test_format_json_no_findings(self, capsys):
+        with _pdict(run_reflect=MagicMock(return_value=([], {"input_tokens": 0, "output_tokens": 0}))):
+            args = MagicMock(session="abc123", json=False, format="json")
+            cmd_reflect(args)
+        out = capsys.readouterr().out
+        assert json.loads(out) == []
+
 
 # ══════════════════════════════════════════════════════════════════════════════
 # cmd_extract
