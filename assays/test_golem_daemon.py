@@ -732,3 +732,123 @@ def test_rotate_logs_no_files(tmp_path):
     assert not (tmp_path / "nonexistent.jsonl").exists()
     assert not (tmp_path / "nonexistent.log.1").exists()
     assert not (tmp_path / "nonexistent.jsonl.1").exists()
+
+
+# ── cmd_clean tests ────────────────────────────────────────────────────────
+
+
+cmd_clean = _mod["cmd_clean"]
+
+
+def _make_queue_for_clean(tmp_path: Path, content: str) -> Path:
+    """Create a queue file for clean tests and return its path."""
+    queue_dir = tmp_path / "germline" / "loci"
+    queue_dir.mkdir(parents=True)
+    queue_path = queue_dir / "golem-queue.md"
+    queue_path.write_text(content)
+    return queue_path
+
+
+_CLEAN_QUEUE = """\
+# Golem Task Queue
+
+## Pending
+
+- [ ] `golem --provider infini "task1"`
+- [ ] `golem --provider volcano "task2"`
+
+## Done
+
+- [x] `golem --provider infini "completed task"`
+- [!] `golem --provider volcano "failed task"`
+"""
+
+
+def test_cmd_clean_removes_done_and_failed(tmp_path, capsys):
+    """cmd_clean removes [x] and [!] lines from queue."""
+    queue_path = _make_queue_for_clean(tmp_path, _CLEAN_QUEUE)
+    original_queue = _mod["QUEUE_FILE"]
+    try:
+        _mod["QUEUE_FILE"] = queue_path
+        rc = cmd_clean()
+    finally:
+        _mod["QUEUE_FILE"] = original_queue
+
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "Removed 2 entries" in out
+
+    content = queue_path.read_text()
+    assert "- [x]" not in content
+    assert "- [!]" not in content
+    assert "- [ ]" in content
+
+
+def test_cmd_clean_preserves_headers_and_pending(tmp_path):
+    """cmd_clean keeps headers, blank lines, and pending ([ ]) tasks."""
+    queue_path = _make_queue_for_clean(tmp_path, _CLEAN_QUEUE)
+    original_queue = _mod["QUEUE_FILE"]
+    try:
+        _mod["QUEUE_FILE"] = queue_path
+        cmd_clean()
+    finally:
+        _mod["QUEUE_FILE"] = original_queue
+
+    content = queue_path.read_text()
+    assert "# Golem Task Queue" in content
+    assert "## Pending" in content
+    assert 'golem --provider infini "task1"' in content
+    assert 'golem --provider volcano "task2"' in content
+
+
+def test_cmd_clean_no_entries_to_remove(tmp_path, capsys):
+    """cmd_clean reports 0 when no [x] or [!] entries exist."""
+    all_pending = """\
+## Pending
+
+- [ ] `golem "only task"`
+"""
+    queue_path = _make_queue_for_clean(tmp_path, all_pending)
+    original_queue = _mod["QUEUE_FILE"]
+    try:
+        _mod["QUEUE_FILE"] = queue_path
+        rc = cmd_clean()
+    finally:
+        _mod["QUEUE_FILE"] = original_queue
+
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "Removed 0 entries" in out
+
+    content = queue_path.read_text()
+    assert "- [ ]" in content
+
+
+def test_cmd_clean_missing_queue_file(tmp_path, capsys):
+    """cmd_clean returns 1 when queue file does not exist."""
+    queue_path = tmp_path / "no_such_queue.md"
+    original_queue = _mod["QUEUE_FILE"]
+    try:
+        _mod["QUEUE_FILE"] = queue_path
+        rc = cmd_clean()
+    finally:
+        _mod["QUEUE_FILE"] = original_queue
+
+    assert rc == 1
+    out = capsys.readouterr().out
+    assert "Queue file not found" in out
+
+
+def test_cmd_clean_empty_queue(tmp_path, capsys):
+    """cmd_clean handles an empty queue file."""
+    queue_path = _make_queue_for_clean(tmp_path, "")
+    original_queue = _mod["QUEUE_FILE"]
+    try:
+        _mod["QUEUE_FILE"] = queue_path
+        rc = cmd_clean()
+    finally:
+        _mod["QUEUE_FILE"] = original_queue
+
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "Removed 0 entries" in out
