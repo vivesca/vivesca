@@ -12,6 +12,7 @@ Input: PreToolUse JSON on stdin (tool_input.skill, session_id)
 Output: JSON with hookSpecificOutput.permissionDecision = "deny" to block.
 """
 
+import argparse
 import json
 import re
 import sys
@@ -106,6 +107,9 @@ def has_open_items_due_within_days(days: int = 7) -> bool:
 
 
 def main():
+    parser = argparse.ArgumentParser(description="PreToolUse hook — meta-spiral guard. Blocks excessive sarcio calls when deadline work is pending.")
+    parser.parse_args()
+
     try:
         data = json.load(sys.stdin)
     except (json.JSONDecodeError, EOFError):

@@ -1,0 +1,288 @@
+#!/usr/bin/env python3
+# /// script
+# requires-python = ">=3.11"
+# dependencies = ["pyyaml"]
+# ///
+"""
+Validate membrane/receptors/*/SKILL.md files.
+
+Checks: YAML parse, required frontmatter fields, description length,
+        recipe.yaml validity, referenced files (references/, criteria/).
+
+Usage:
+    receptor-health              # Check all receptors
+    receptor-health --json       # Output as JSON
+    receptor-health debridement  # Check specific receptor(s)
+"""
+
+import argparse
+import json
+import re
+import sys
+from dataclasses import dataclass, field
+from pathlib import Path
+
+import yaml
+
+RECEPTORS_DIR = Path(__file__).resolve().parents[1] / "membrane" / "receptors"
+MAX_DESCRIPTION_LEN = 1024
+REQUIRED_FRONTMATTER = {"name", "description"}
+
+
+@dataclass
+class Issue:
+    receptor: str
+    severity: str  # "error", "warn"
+    check: str
+    detail: str
+
+
+@dataclass
+class ReceptorReport:
+    receptor: str
+    ok: bool = True
+    issues: list[Issue] = field(default_factory=list)
+
+
+def parse_frontmatter(text: str) -> tuple[dict | None, str]:
+    """Extract YAML frontmatter from markdown text.
+
+    Returns (parsed_dict, error_message). On success error_message is "".
+    """
+    match = re.match(r"^---\s*\n(.*?)\n---", text, re.DOTALL)
+    if not match:
+        return None, "no YAML frontmatter found"
+    raw = match.group(1)
+    try:
+        parsed = yaml.safe_load(raw)
+    except yaml.YAMLError as e:
+        return None, f"YAML parse error: {e}"
+    if not isinstance(parsed, dict):
+        return None, "frontmatter is not a mapping"
+    return parsed, ""
+
+
+def check_frontmatter(name: str, fm: dict | None, report: ReceptorReport) -> None:
+    """Validate required frontmatter fields."""
+    if fm is None:
+        report.issues.append(Issue(name, "error", "frontmatter", "missing frontmatter"))
+        report.ok = False
+        return
+    for key in REQUIRED_FRONTMATTER:
+        if key not in fm or not fm[key]:
+            report.issues.append(Issue(name, "error", "frontmatter", f"missing or empty '{key}'"))
+            report.ok = False
+
+
+def check_description_length(name: str, fm: dict | None, report: ReceptorReport) -> None:
+    """Check description is within length limits."""
+    if fm is None:
+        return
+    desc = fm.get("description", "")
+    if not desc:
+        return  # Already caught by frontmatter check
+    if len(desc) > MAX_DESCRIPTION_LEN:
+        report.issues.append(
+            Issue(name, "warn", "description_length",
+                  f"description is {len(desc)} chars (max {MAX_DESCRIPTION_LEN})")
+        )
+
+
+def check_recipe_yaml(name: str, receptor_dir: Path, report: ReceptorReport) -> None:
+    """Validate recipe.yaml if it exists."""
+    recipe_path = receptor_dir / "recipe.yaml"
+    if not recipe_path.exists():
+        return
+    try:
+        with open(recipe_path) as f:
+            data = yaml.safe_load(f)
+        if not isinstance(data, dict):
+            report.issues.append(
+                Issue(name, "error", "recipe_yaml", "recipe.yaml is not a mapping")
+            )
+            report.ok = False
+            return
+        for req_key in ("name", "description", "instructions"):
+            if req_key not in data or not data[req_key]:
+                report.issues.append(
+                    Issue(name, "warn", "recipe_yaml",
+                          f"recipe.yaml missing or empty '{req_key}'")
+                )
+    except yaml.YAMLError as e:
+        report.issues.append(
+            Issue(name, "error", "recipe_yaml", f"recipe.yaml parse error: {e}")
+        )
+        report.ok = False
+
+
+def check_referenced_files(name: str, receptor_dir: Path, report: ReceptorReport) -> None:
+    """Check that common referenced directories/files exist if mentioned in recipe/SKILL."""
+    skill_path = receptor_dir / "SKILL.md"
+    recipe_path = receptor_dir / "recipe.yaml"
+
+    # Collect all text to scan for references
+    texts = []
+    if skill_path.exists():
+        texts.append(skill_path.read_text())
+    if recipe_path.exists():
+        texts.append(recipe_path.read_text())
+    combined = "\n".join(texts)
+
+    # Check for references/ directory mentioned but missing
+    ref_patterns = [
+        (r"references/", "references directory"),
+    ]
+    for pattern, label in ref_patterns:
+        if re.search(pattern, combined):
+            ref_dir = receptor_dir / "references"
+            if not ref_dir.exists():
+                report.issues.append(
+                    Issue(name, "warn", "referenced_files",
+                          f"{label} referenced but {ref_dir} does not exist")
+                )
+
+    # Check if recipe.yaml references extensions with URIs
+    try:
+        with open(recipe_path) as f:
+            data = yaml.safe_load(f)
+        if isinstance(data, dict):
+            extensions = data.get("extensions", [])
+            if isinstance(extensions, list):
+                for ext in extensions:
+                    if isinstance(ext, dict) and "uri" in ext:
+                        # HTTP URIs are runtime — skip
+                        pass
+    except (yaml.YAMLError, FileNotFoundError):
+        pass
+
+    # Verify the SKILL.md file itself exists (not just lowercase)
+    lowercase_skill = receptor_dir / "skill.md"
+    if lowercase_skill.exists() and not skill_path.exists():
+        report.issues.append(
+            Issue(name, "error", "filename_case",
+                  "found skill.md (lowercase) — should be SKILL.md")
+        )
+        report.ok = False
+
+
+def check_receptor(receptor_dir: Path) -> ReceptorReport:
+    """Run all checks on a single receptor directory."""
+    name = receptor_dir.name
+    report = ReceptorReport(receptor=name)
+
+    skill_path = receptor_dir / "SKILL.md"
+
+    # Handle lowercase skill.md
+    lowercase = receptor_dir / "skill.md"
+    if not skill_path.exists() and lowercase.exists():
+        report.issues.append(
+            Issue(name, "error", "filename_case",
+                  "found skill.md (lowercase) — should be SKILL.md")
+        )
+        report.ok = False
+        # Still check the lowercase file
+        skill_path = lowercase
+
+    if not skill_path.exists():
+        report.issues.append(
+            Issue(name, "error", "skill_missing", "no SKILL.md found")
+        )
+        report.ok = False
+        # Still check recipe if present
+        check_recipe_yaml(name, receptor_dir, report)
+        return report
+
+    text = skill_path.read_text()
+    fm, fm_error = parse_frontmatter(text)
+    if fm_error:
+        report.issues.append(Issue(name, "error", "frontmatter", fm_error))
+        report.ok = False
+
+    check_frontmatter(name, fm, report)
+    check_description_length(name, fm, report)
+    check_recipe_yaml(name, receptor_dir, report)
+    check_referenced_files(name, receptor_dir, report)
+
+    return report
+
+
+def discover_receptors() -> list[Path]:
+    """Find all receptor directories under membrane/receptors/."""
+    if not RECEPTORS_DIR.exists():
+        return []
+    return sorted(p for p in RECEPTORS_DIR.iterdir() if p.is_dir())
+
+
+def format_table(reports: list[ReceptorReport]) -> str:
+    """Format reports as a human-readable table."""
+    lines = []
+    lines.append(f"{'Receptor':<24} {'Status':<8} {'Issues'}")
+    lines.append("-" * 60)
+    for r in reports:
+        status = "OK" if r.ok else "BROKEN"
+        issue_summary = "; ".join(f"{i.check}: {i.detail}" for i in r.issues) or "-"
+        lines.append(f"{r.receptor:<24} {status:<8} {issue_summary}")
+    broken = sum(1 for r in reports if not r.ok)
+    lines.append("-" * 60)
+    lines.append(f"Total: {len(reports)} receptors, {broken} broken")
+    return "\n".join(lines)
+
+
+def format_json(reports: list[ReceptorReport]) -> str:
+    """Format reports as JSON."""
+    data = []
+    for r in reports:
+        data.append({
+            "receptor": r.receptor,
+            "ok": r.ok,
+            "issues": [
+                {"severity": i.severity, "check": i.check, "detail": i.detail}
+                for i in r.issues
+            ],
+        })
+    return json.dumps(data, indent=2)
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(
+        description="Validate membrane/receptors/*/SKILL.md files."
+    )
+    parser.add_argument(
+        "receptors", nargs="*",
+        help="Specific receptor name(s) to check (default: all)",
+    )
+    parser.add_argument(
+        "--json", action="store_true",
+        help="Output as JSON",
+    )
+    args = parser.parse_args(argv)
+
+    all_dirs = discover_receptors()
+    if not all_dirs:
+        print("No receptor directories found.", file=sys.stderr)
+        return 1
+
+    if args.receptors:
+        name_map = {d.name: d for d in all_dirs}
+        dirs = []
+        for r in args.receptors:
+            if r in name_map:
+                dirs.append(name_map[r])
+            else:
+                print(f"Warning: receptor '{r}' not found", file=sys.stderr)
+    else:
+        dirs = all_dirs
+
+    reports = [check_receptor(d) for d in dirs]
+
+    if args.json:
+        print(format_json(reports))
+    else:
+        print(format_table(reports))
+
+    broken = sum(1 for r in reports if not r.ok)
+    return 1 if broken > 0 else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

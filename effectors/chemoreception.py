@@ -5,6 +5,7 @@ Scans markdown files for relevance to the user prompt, injects top matches
 as context. Lightweight — no embeddings, just TF-IDF-style scoring.
 """
 
+import argparse
 import configparser
 import json
 import math
@@ -243,6 +244,9 @@ def format_suggestions(scored: list[tuple[str, float]]) -> str:
 
 
 def main():
+    parser = argparse.ArgumentParser(description="UserPromptSubmit hook — keyword-based retrieval over reference docs. Scans markdown for relevance to user prompt via TF-IDF scoring.")
+    parser.parse_args()
+
     # Read hook input from stdin
     try:
         hook_input = json.loads(sys.stdin.read())
