@@ -30,7 +30,7 @@
 
 Epistemics library: `~/epigenome/chromatin/euchromatin/epistemics/`. Each file has `situations:` frontmatter. **When entering a skill with epistemics tags, grep the library for matching files and skim the top 2-3 most relevant before proceeding.** This is how the organism's heuristic knowledge flows into judgment — not by remembering, but by looking.
 
-**Meta-rules:** Evidence > opinions. One correction = full sweep. When in doubt, test it. Work generates work — follow it. Origin is recoverable, spark is perishable. Fix what breaks before testing what doesn't — triage by blast radius.
+**Meta-rules:** Evidence > opinions. One correction = full sweep. When in doubt, test it. Work generates work — follow it. Origin is recoverable, spark is perishable. Fix what breaks before testing what doesn't — triage by blast radius. All dispatch orients toward north star goals — read `North Star.md` before selecting work.
 
 ## Facts
 

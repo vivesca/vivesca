@@ -30,6 +30,10 @@ Biology: the centrosome organizes the mitotic spindle, coordinating work distrib
 
 ## Pre-flight
 
+### North star orientation
+
+Before selecting what to dispatch, read `~/epigenome/chromatin/North Star.md`. Ask: "which north star does this batch serve?" If the answer is only #6 (maintain the system), ask: "does this measurably improve throughput on #1-5?" Unlimited tokens doesn't mean spray everywhere — it means do the highest-value work thoroughly.
+
 ### Weight class
 
 | Task size | Route |
