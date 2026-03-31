@@ -12,7 +12,7 @@ def _load_golem_daemon():
     """Load the golem-daemon module by exec-ing its Python body."""
     source = open("/Users/terry/germline/effectors/golem-daemon").read()
     # Skip the shebang and find the first import
-    ns: dict = {"__name__": "__main__"}
+    ns: dict = {"__name__": "golem_daemon"}
     exec(source, ns)
     return ns
 
