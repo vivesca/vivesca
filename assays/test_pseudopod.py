@@ -94,10 +94,11 @@ class TestPortaInject:
                 pseudopod.porta_inject("boom.com")
 
     def test_tool_metadata(self):
-        """Verify @tool decorator metadata."""
-        assert pseudopod.porta_inject.name == "porta_inject"
-        assert pseudopod.porta_inject.annotations.readOnlyHint is False
-        assert pseudopod.porta_inject.annotations.destructiveHint is False
+        """Verify @tool decorator metadata lives in __fastmcp__."""
+        meta = pseudopod.porta_inject.__fastmcp__
+        assert meta.name == "porta_inject"
+        assert meta.annotations.readOnlyHint is False
+        assert meta.annotations.destructiveHint is False
 
 
 # ---------------------------------------------------------------------------
@@ -263,3 +264,28 @@ class TestTransloconDispatch:
                 pseudopod.translocon_dispatch("task", mode=mode)
 
             assert captured["mode"] == mode
+
+    def test_empty_output_string(self):
+        """Empty output string is handled without error."""
+        mock_result = {"success": True, "output": ""}
+        with patch("metabolon.organelles.translocon.dispatch", return_value=mock_result):
+            result = pseudopod.translocon_dispatch("t")
+
+        assert result.message == ""
+        assert result.success is True
+
+    def test_exception_propagates(self):
+        """Underlying dispatch() exceptions are not swallowed."""
+        with patch(
+            "metabolon.organelles.translocon.dispatch",
+            side_effect=ConnectionError("API unreachable"),
+        ):
+            with pytest.raises(ConnectionError, match="API unreachable"):
+                pseudopod.translocon_dispatch("t")
+
+    def test_tool_metadata(self):
+        """Verify @tool decorator metadata lives in __fastmcp__."""
+        meta = pseudopod.translocon_dispatch.__fastmcp__
+        assert meta.name == "translocon_dispatch"
+        assert meta.annotations.readOnlyHint is True
+        assert meta.annotations.destructiveHint is False
