@@ -206,7 +206,7 @@ class TestMain:
 
     def test_no_session_id_exits_cleanly(self, ai):
         data = json.dumps({"tool_input": {"skill": "sarcio-publish"}})
-        with patch("sys.stdin", io.StringIO(data)):
+        with patch("sys.argv", ["autoimmune"]), patch("sys.stdin", io.StringIO(data)):
             with pytest.raises(SystemExit) as exc_info:
                 ai["main"]()
         assert exc_info.value.code == 0

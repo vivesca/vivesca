@@ -1,0 +1,404 @@
+#!/usr/bin/env python3
+# /// script
+# requires-python = ">=3.11"
+# dependencies = []
+# ///
+"""coaching-stats — Analyze coaching rule effectiveness from golem.jsonl failure patterns.
+
+Reads feedback_golem_coaching.md for rules, scans golem.jsonl and the daemon log
+for failures, and reports which rules are most/least effective.
+
+Usage:
+    coaching-stats                   # Full report to stdout
+    coaching-stats --json             # Machine-readable JSON output
+    coaching-stats --coaching PATH    # Override coaching file path
+    coaching-stats --jsonl PATH       # Override golem.jsonl path
+    coaching-stats --daemon-log PATH  # Override daemon log path
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import re
+import sys
+from collections import Counter, defaultdict
+from dataclasses import dataclass, field
+from datetime import datetime
+from pathlib import Path
+from typing import Optional
+
+# Default paths
+COACHING_PATH = Path.home() / "epigenome" / "marks" / "feedback_golem_coaching.md"
+GOLEM_JSONL = Path.home() / ".local" / "share" / "vivesca" / "golem.jsonl"
+DAEMON_LOG = Path.home() / ".local" / "share" / "vivesca" / "golem-daemon.log"
+
+# Keywords that link golem output to specific coaching rules.
+# Each entry: (rule_id_suffix, list_of_keywords_to_match_against_tail_and_prompt)
+FAILURE_SIGNALS: list[tuple[str, list[str]]] = [
+    ("hallucinated-imports", ["ImportError", "ModuleNotFoundError", "no module named",
+                               "cannot import"]),
+    ("return-types", ["TypeError", "unexpected keyword", "missing required argument"]),
+    ("format-output", ["str(dict)", "repr(", "__repr__"]),
+    ("mock-where-looked-up", ["mock", "patch", "monkeypatch"]),
+    ("naming-collisions", ["collision", "duplicate name", "shadow"]),
+    ("ast-parse", ["SyntaxError", "syntax error", "ast.parse"]),
+    ("tdd", ["test_", "pytest", "def test"]),
+    ("verify-before-done", ["verify", "assert", "AssertionError"]),
+    ("commit-after-changes", ["commit", "git add", "uncommitted"]),
+    ("batch-commands", ["grep", "wc -l", "find ", "glob"]),
+    ("no-todo-fixme-stub", ["TODO", "FIXME", "stub"]),
+    ("hardcoded-path", ["/Users/terry", "hardcode", "hardcoded"]),
+    ("tests-in-assays-flat", ["assays/", "test file placement"]),
+    ("with-nesting", ["context manager", "with ", "SyntaxError"]),
+    ("effector-scripts", ["import lacuna", "from telophase", "exec(open"]),
+    ("api-errors", ["HTTP", "status code", "response error"]),
+    ("echo-secrets", ["secret", "api_key", "token"]),
+]
+
+
+@dataclass
+class CoachingRule:
+    """A single coaching rule parsed from the markdown file."""
+    category: str
+    text: str
+    keywords: list[str] = field(default_factory=list)
+    mentions_in_jsonl: int = 0
+    failure_correlations: int = 0
+
+
+@dataclass
+class GolemEntry:
+    """A single entry from golem.jsonl."""
+    ts: str
+    provider: str
+    duration: int
+    exit_code: int
+    turns: int
+    prompt: str
+    tail: str
+    files_created: int
+    tests_passed: int
+    tests_failed: int
+    pytest_exit: int
+
+
+def parse_coaching(path: Path) -> list[CoachingRule]:
+    """Parse coaching markdown into structured rules."""
+    if not path.exists():
+        return []
+    text = path.read_text(encoding="utf-8", errors="replace")
+    rules: list[CoachingRule] = []
+    current_category: Optional[str] = None
+
+    for line in text.splitlines():
+        heading = re.match(r"^###\s+(.+)$", line)
+        if heading:
+            current_category = heading.group(1).strip()
+            continue
+        bullet = re.match(r"^-\s+\*\*(.+?)\*\*\s*(.*)$", line)
+        if bullet and current_category:
+            bold_part = bullet.group(1).strip().rstrip(".")
+            rest = bullet.group(2).strip()
+            full_text = f"{bold_part}. {rest}" if rest else bold_part
+            # Extract keywords from the bold title
+            keywords = [w.lower() for w in re.findall(r"[a-zA-Z_]+", bold_part)]
+            rules.append(CoachingRule(
+                category=current_category,
+                text=full_text,
+                keywords=keywords,
+            ))
+
+    # Handle the "Correct patterns" section (single non-bullet line)
+    if_block = re.search(
+        r"### Correct patterns.*?\n(`.+?`)", text, re.DOTALL
+    )
+    if if_block:
+        rules.append(CoachingRule(
+            category="Correct patterns (reinforce)",
+            text=if_block.group(1).strip(),
+            keywords=["correct patterns"],
+        ))
+
+    return rules
+
+
+def load_golem_jsonl(path: Path) -> list[GolemEntry]:
+    """Load valid entries from golem.jsonl."""
+    if not path.exists():
+        return []
+    entries: list[GolemEntry] = []
+    with open(path, encoding="utf-8", errors="replace") as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                d = json.loads(line)
+                entries.append(GolemEntry(
+                    ts=d.get("ts", ""),
+                    provider=d.get("provider", "unknown"),
+                    duration=d.get("duration", 0),
+                    exit_code=d.get("exit", 0),
+                    turns=d.get("turns", 0),
+                    prompt=d.get("prompt", ""),
+                    tail=d.get("tail", ""),
+                    files_created=d.get("files_created", 0),
+                    tests_passed=d.get("tests_passed", 0),
+                    tests_failed=d.get("tests_failed", 0),
+                    pytest_exit=d.get("pytest_exit", 0),
+                ))
+            except (json.JSONDecodeError, KeyError):
+                continue
+    return entries
+
+
+def load_daemon_failures(path: Path) -> list[dict]:
+    """Extract failure entries from daemon log."""
+    if not path.exists():
+        return []
+    failures: list[dict] = []
+    with open(path, encoding="utf-8", errors="replace") as f:
+        for line in f:
+            line = line.strip()
+            m = re.match(
+                r"\[(.+?)\]\s+FAILED\s+\(exit=(\d+)\):\s+(.*)", line
+            )
+            if m:
+                failures.append({
+                    "ts": m.group(1),
+                    "exit_code": int(m.group(2)),
+                    "prompt": m.group(3),
+                })
+    return failures
+
+
+def analyze(
+    rules: list[CoachingRule],
+    entries: list[GolemEntry],
+    daemon_failures: list[dict],
+) -> dict:
+    """Run the analysis: correlate rules with golem output."""
+    total_entries = len(entries)
+    total_failures = len(daemon_failures)
+
+    # Count how many jsonl entries mention each rule's keywords
+    for rule in rules:
+        for entry in entries:
+            corpus = f"{entry.prompt} {entry.tail}".lower()
+            if any(kw in corpus for kw in rule.keywords if len(kw) > 3):
+                rule.mentions_in_jsonl += 1
+
+    # Count failure correlations: daemon failures whose prompts mention rule keywords
+    for rule in rules:
+        for fail in daemon_failures:
+            corpus = fail["prompt"].lower()
+            if any(kw in corpus for kw in rule.keywords if len(kw) > 3):
+                rule.failure_correlations += 1
+
+    # Build per-category stats
+    categories: dict[str, dict] = defaultdict(lambda: {
+        "rules": 0,
+        "total_mentions": 0,
+        "total_failure_correlations": 0,
+    })
+    for rule in rules:
+        cat = categories[rule.category]
+        cat["rules"] += 1
+        cat["total_mentions"] += rule.mentions_in_jsonl
+        cat["total_failure_correlations"] += rule.failure_correlations
+
+    # Compute per-signal stats from the predefined failure signals
+    signal_stats: list[dict] = []
+    for sig_name, keywords in FAILURE_SIGNALS:
+        mention_count = 0
+        failure_count = 0
+        for entry in entries:
+            corpus = f"{entry.prompt} {entry.tail}".lower()
+            if any(kw.lower() in corpus for kw in keywords):
+                mention_count += 1
+                if entry.exit_code != 0 or entry.tests_failed > 0:
+                    failure_count += 1
+        # Also check daemon failures
+        daemon_hits = 0
+        for fail in daemon_failures:
+            corpus = fail["prompt"].lower()
+            if any(kw.lower() in corpus for kw in keywords):
+                daemon_hits += 1
+        signal_stats.append({
+            "signal": sig_name,
+            "jsonl_mentions": mention_count,
+            "jsonl_failures": failure_count,
+            "daemon_failure_hits": daemon_hits,
+            "keywords": keywords[:3],  # Show first 3 for brevity
+        })
+
+    # Provider breakdown
+    provider_stats: dict[str, dict] = defaultdict(
+        lambda: {"runs": 0, "failures": 0, "total_turns": 0, "total_duration": 0}
+    )
+    for entry in entries:
+        ps = provider_stats[entry.provider]
+        ps["runs"] += 1
+        ps["total_turns"] += entry.turns
+        ps["total_duration"] += entry.duration
+        if entry.exit_code != 0 or entry.tests_failed > 0:
+            ps["failures"] += 1
+
+    return {
+        "total_rules": len(rules),
+        "total_jsonl_entries": total_entries,
+        "total_daemon_failures": total_failures,
+        "categories": dict(categories),
+        "signal_stats": signal_stats,
+        "provider_stats": dict(provider_stats),
+        "rules_detail": [
+            {
+                "category": r.category,
+                "text": r.text[:80],
+                "keywords": r.keywords[:5],
+                "mentions_in_jsonl": r.mentions_in_jsonl,
+                "failure_correlations": r.failure_correlations,
+            }
+            for r in rules
+        ],
+    }
+
+
+def format_report(data: dict) -> str:
+    """Format analysis results as a human-readable report."""
+    lines: list[str] = []
+    lines.append("=" * 72)
+    lines.append("COACHING EFFECTIVENESS REPORT")
+    lines.append("=" * 72)
+    lines.append("")
+
+    # Summary
+    lines.append("SUMMARY")
+    lines.append("-" * 40)
+    lines.append(f"  Coaching rules parsed:     {data['total_rules']}")
+    lines.append(f"  Golem JSONL entries:        {data['total_jsonl_entries']}")
+    lines.append(f"  Daemon failures logged:     {data['total_daemon_failures']}")
+    lines.append("")
+
+    # Category breakdown
+    lines.append("RULES BY CATEGORY")
+    lines.append("-" * 40)
+    cat_fmt = "{:<30} {:>5} {:>10} {:>10}"
+    lines.append(cat_fmt.format("Category", "Rules", "Mentions", "Failures"))
+    lines.append(cat_fmt.format("-" * 30, "-" * 5, "-" * 10, "-" * 10))
+    for cat_name, cat_data in sorted(
+        data["categories"].items(), key=lambda x: -x[1]["total_mentions"]
+    ):
+        lines.append(cat_fmt.format(
+            cat_name[:30],
+            cat_data["rules"],
+            cat_data["total_mentions"],
+            cat_data["total_failure_correlations"],
+        ))
+    lines.append("")
+
+    # Most effective signals (high mentions, low failure rate)
+    lines.append("FAILURE SIGNAL DETECTION")
+    lines.append("-" * 40)
+    sig_fmt = "{:<25} {:>10} {:>10} {:>10}"
+    lines.append(sig_fmt.format("Signal", "Mentions", "Failures", "Daemon"))
+    lines.append(sig_fmt.format("-" * 25, "-" * 10, "-" * 10, "-" * 10))
+    for sig in sorted(data["signal_stats"], key=lambda s: -s["jsonl_mentions"]):
+        lines.append(sig_fmt.format(
+            sig["signal"][:25],
+            sig["jsonl_mentions"],
+            sig["jsonl_failures"],
+            sig["daemon_failure_hits"],
+        ))
+    lines.append("")
+
+    # Provider stats
+    lines.append("PROVIDER BREAKDOWN")
+    lines.append("-" * 40)
+    prov_fmt = "{:<12} {:>6} {:>10} {:>10} {:>12}"
+    lines.append(prov_fmt.format("Provider", "Runs", "Failures", "Avg Turns", "Avg Duration"))
+    lines.append(prov_fmt.format("-" * 12, "-" * 6, "-" * 10, "-" * 10, "-" * 12))
+    for pname, pdata in sorted(data["provider_stats"].items()):
+        avg_turns = pdata["total_turns"] / max(pdata["runs"], 1)
+        avg_dur = pdata["total_duration"] / max(pdata["runs"], 1)
+        lines.append(prov_fmt.format(
+            pname[:12],
+            pdata["runs"],
+            pdata["failures"],
+            f"{avg_turns:.1f}",
+            f"{avg_dur:.0f}s",
+        ))
+    lines.append("")
+
+    # Effectiveness ranking
+    lines.append("EFFECTIVENESS RANKING")
+    lines.append("-" * 40)
+    # "Most effective" = high mentions but low failure rate
+    # "Least effective" = high mentions AND high failure rate (rule isn't preventing failures)
+    scored = []
+    for sig in data["signal_stats"]:
+        if sig["jsonl_mentions"] > 0:
+            fail_rate = (
+                (sig["jsonl_failures"] + sig["daemon_failure_hits"])
+                / sig["jsonl_mentions"]
+            )
+            scored.append((sig["signal"], fail_rate, sig["jsonl_mentions"]))
+
+    scored.sort(key=lambda x: x[1])
+    lines.append("  Most effective (low failure rate despite mentions):")
+    for name, rate, mentions in scored[:5]:
+        lines.append(f"    {name:<30} fail_rate={rate:.2f} mentions={mentions}")
+    lines.append("")
+    lines.append("  Least effective (high failure rate despite rule):")
+    for name, rate, mentions in scored[-5:]:
+        lines.append(f"    {name:<30} fail_rate={rate:.2f} mentions={mentions}")
+    lines.append("")
+
+    # Per-rule detail
+    lines.append("PER-RULE DETAIL")
+    lines.append("-" * 40)
+    for rd in data["rules_detail"]:
+        lines.append(f"  [{rd['category']}] {rd['text']}")
+        lines.append(f"    mentions={rd['mentions_in_jsonl']} failure_corr={rd['failure_correlations']}")
+    lines.append("")
+    lines.append("=" * 72)
+    return "\n".join(lines)
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(
+        description="Analyze coaching rule effectiveness"
+    )
+    parser.add_argument(
+        "--json", action="store_true", help="Output as JSON"
+    )
+    parser.add_argument(
+        "--coaching", type=Path, default=COACHING_PATH,
+        help="Path to coaching markdown file",
+    )
+    parser.add_argument(
+        "--jsonl", type=Path, default=GOLEM_JSONL,
+        help="Path to golem.jsonl",
+    )
+    parser.add_argument(
+        "--daemon-log", type=Path, default=DAEMON_LOG,
+        help="Path to golem-daemon.log",
+    )
+    args = parser.parse_args()
+
+    rules = parse_coaching(args.coaching)
+    entries = load_golem_jsonl(args.jsonl)
+    daemon_failures = load_daemon_failures(args.daemon_log)
+
+    data = analyze(rules, entries, daemon_failures)
+
+    if args.json:
+        print(json.dumps(data, indent=2))
+    else:
+        print(format_report(data))
+
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
