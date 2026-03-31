@@ -1,15 +1,14 @@
 #!/usr/bin/env python3
-"""golem-validate — Validate Python files for common issues.
+"""golem-validate — validate Python files for golem output quality.
 
-Checks:
-    1. ast.parse for SyntaxError
-    2. Hardcoded macOS home paths (should use Path.home() instead)
-    3. Work-in-progress markers (T-O-D-O, F-I-X-M-E, placeholder code)
-    4. If test file (test_*.py): can be collected by pytest --co
+Checks each .py file for:
+  1. Syntax validity (ast.parse)
+  2. Hardcoded /Users/terry/ paths
+  3. TODO / FIXME / stub markers
+  4. If test file (test_*.py): pytest --co collectability
 
 Usage:
     golem-validate file1.py file2.py ...
-    golem-validate assays/test_foo.py effectors/bar
 """
 from __future__ import annotations
 
@@ -19,92 +18,71 @@ import subprocess
 import sys
 from pathlib import Path
 
-_MAC_PATH = "/Users/" + "terry/"
-_TODO = "TO" + "DO"
-_FIXME = "FIX" + "ME"
-FORBIDDEN_PATTERNS: list[tuple[str, re.Pattern[str]]] = [
-    ("macOS hardcoded path", re.compile(re.escape(_MAC_PATH))),
-    ("work-in-progress marker", re.compile(r"\b" + _TODO + r"\b")),
-    ("work-in-progress marker", re.compile(r"\b" + _FIXME + r"\b")),
-    ("placeholder code", re.compile(r"\bstub\b", re.IGNORECASE)),
-]
+BAD_PATH_RE = re.compile(r'/Users/terry/')
+TODO_RE = re.compile(r'\b(TODO|FIXME|stub)\b', re.IGNORECASE)
 
 
-def check_syntax(filepath: Path) -> str | None:
-    """Return error string if file has syntax errors, else None."""
+def validate_file(path: Path) -> tuple[str, list[str]]:
+    """Return (status, [issues]) for a single file.
+
+    status is 'PASS' or 'FAIL'.
+    """
+    issues: list[str] = []
+
+    # --- 1. Syntax check ---
     try:
-        ast.parse(filepath.read_text(encoding="utf-8"), filename=str(filepath))
-        return None
+        source = path.read_text(encoding="utf-8")
+    except OSError as exc:
+        return "FAIL", [f"unreadable: {exc}"]
+
+    try:
+        ast.parse(source, filename=str(path))
     except SyntaxError as exc:
-        return f"SyntaxError: line {exc.lineno}: {exc.msg}"
+        issues.append(f"SyntaxError: line {exc.lineno}: {exc.msg}")
 
+    # --- 2. Hardcoded /Users/terry/ ---
+    for lineno, line in enumerate(source.splitlines(), start=1):
+        if BAD_PATH_RE.search(line):
+            issues.append(f"hardcoded /Users/terry/ at line {lineno}")
+            break  # one report is enough
 
-def check_patterns(filepath: Path) -> list[str]:
-    """Return list of pattern violations found in file."""
-    text = filepath.read_text(encoding="utf-8")
-    issues: list[str] = []
-    for label, pattern in FORBIDDEN_PATTERNS:
-        for match in pattern.finditer(text):
-            lineno = text[: match.start()].count("\n") + 1
-            issues.append(f"{label} at line {lineno}")
-    return issues
+    # --- 3. TODO / FIXME / stub ---
+    for lineno, line in enumerate(source.splitlines(), start=1):
+        if TODO_RE.search(line):
+            issues.append(f"marker '{TODO_RE.search(line).group(1)}' at line {lineno}")
+            break  # one report is enough
 
+    # --- 4. Test collectability ---
+    if path.name.startswith("test_") and path.suffix == ".py":
+        result = subprocess.run(
+            ["pytest", "--co", "-q", str(path)],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        if result.returncode != 0:
+            # Collect only first few lines of error to keep output tidy
+            err_lines = result.stderr.strip().splitlines()
+            summary = "; ".join(err_lines[:3]) if err_lines else "unknown collection error"
+            issues.append(f"pytest --co failed: {summary}")
 
-def check_pytest_collect(filepath: Path) -> str | None:
-    """Return error string if pytest cannot collect the file, else None."""
-    result = subprocess.run(
-        ["pytest", "--co", "-q", str(filepath)],
-        capture_output=True,
-        text=True,
-        timeout=30,
-    )
-    if result.returncode != 0:
-        # Trim to first meaningful line
-        lines = (result.stderr + result.stdout).strip().splitlines()
-        summary = lines[-1] if lines else "unknown error"
-        return f"pytest collection failed: {summary}"
-    return None
-
-
-def validate_file(filepath: Path) -> tuple[str, list[str]]:
-    """Validate a single file. Return (status, issues)."""
-    issues: list[str] = []
-
-    # 1. Syntax check
-    if (err := check_syntax(filepath)) is not None:
-        return ("FAIL", [err])
-
-    # 2 & 3. Pattern checks
-    issues.extend(check_patterns(filepath))
-
-    # 4. Pytest collection (test files only)
-    if filepath.name.startswith("test_") and filepath.suffix == ".py":
-        if (err := check_pytest_collect(filepath)) is not None:
-            issues.append(err)
-
-    return ("PASS" if not issues else "FAIL", issues)
+    status = "PASS" if not issues else "FAIL"
+    return status, issues
 
 
 def main(argv: list[str] | None = None) -> int:
-    args = argv or sys.argv[1:]
+    args = argv if argv is not None else sys.argv[1:]
+
     if not args:
-        print("Usage: golem-validate <file.py> [file2.py ...]", file=sys.stderr)
-        return 1
+        print("Usage: golem-validate <file.py> [...]", file=sys.stderr)
+        return 2
 
     all_pass = True
-    for path_str in args:
-        filepath = Path(path_str)
-        if not filepath.exists():
-            print(f"{filepath} | MISSING | file not found")
-            all_pass = False
-            continue
-        if not filepath.is_file():
-            print(f"{filepath} | SKIP | not a file")
-            continue
-
-        status, issues = validate_file(filepath)
-        issue_str = "; ".join(issues) if issues else "—"
-        print(f"{filepath} | {status} | {issue_str}")
+    for raw in args:
+        path = Path(raw).resolve()
+        status, issues = validate_file(path)
+        issue_str = "; ".join(issues) if issues else ""
+        print(f"{path} | {status} | {issue_str}")
         if status == "FAIL":
             all_pass = False
 
@@ -112,4 +90,4 @@ def main(argv: list[str] | None = None) -> int:
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    raise SystemExit(main())
