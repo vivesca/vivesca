@@ -10,7 +10,7 @@ from mcp.types import ToolAnnotations
 
 from metabolon.cytosol import invoke_organelle, synthesize
 from metabolon.morphology import EffectorResult, Secretion
-from metabolon.organelles import endosomal
+from metabolon.organelles import endosomal as endosomal_organelle
 
 GOG = "gog"
 
@@ -75,13 +75,13 @@ def endosomal(
     elif action == "categorize":
         if not email_text:
             return EffectorResult(success=False, message="categorize requires: email_text")
-        category = endosomal.classify(email_text)
+        category = endosomal_organelle.classify(email_text)
         if category:
             return EndosomalResult(output=category)
-        prompt = endosomal.CLASSIFY_PROMPT_TMPL.format(email_text=email_text)
+        prompt = endosomal_organelle.CLASSIFY_PROMPT_TMPL.format(email_text=email_text)
         raw = synthesize(prompt, timeout=60)
         category = raw.strip().lower().replace("-", "_")
-        if category in endosomal.CATEGORIES:
+        if category in endosomal_organelle.CATEGORIES:
             return EndosomalResult(output=category)
         return EndosomalResult(output=f"Unclassified: {category}")
 

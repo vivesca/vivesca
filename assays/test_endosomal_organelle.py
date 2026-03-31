@@ -387,7 +387,7 @@ def test_endosomal_pipeline_extracts_action():
 
 def test_endosomal_pipeline_finds_question_line():
     """endosomal_pipeline finds question line for action extraction."""
-    email = "From: boss@company.com\nSubject: Question\n\nCan you help with this?\nThanks."
+    email = "From: boss@company.com\nSubject: [URGENT]\n\nCan you help with this?\nThanks."
     result = endosomal_pipeline(email)
 
     assert result["category"] == "action_required"

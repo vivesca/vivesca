@@ -42,14 +42,22 @@ If daemon produced work since last session: review, commit, report delta. Then w
 
 **Delegate everything possible to golems** — including pytest runs, failure diagnosis, and verification. CC is the scheduler, not the executor.
 
-### Phase 1: Identify work (CC judgment)
+### Phase 1: What matters? (CC judgment — do this BEFORE queuing)
 
-CC decides what needs doing. Priority order:
-1. **Fixes** — broken tests, regressions, bugs. Heal first.
-2. **Features** — new capabilities, effectors, organism improvements. Build second.
-3. **Tests** — coverage for untested modules. Fill gaps last.
+**Stop and think:** what is the most impactful work right now? Check:
+- **Tonus.md** — what's active, what's perishable, what deadline is next?
+- **Calendar** — what's coming in 1-7 days that needs prep?
+- **Broken things** — what's failing that blocks real usage?
+- **User's last request** — did they ask for something specific?
 
-Ratio target: ~60% build/fix, ~40% test. Never dispatch a pure-test batch without also dispatching builds.
+Then prioritize:
+1. **Perishable** — deadlines, prep work, things that lose value if delayed. Queue first.
+2. **Fixes** — broken tests, regressions, bugs. Heal second.
+3. **Compound infra** — improvements to the dispatch system itself. Multiplies future output.
+4. **Features** — new capabilities, effectors. Build when slots are free.
+5. **Tests** — coverage for untested modules. Fill remaining slots.
+
+**Tests are filler, not the main course.** Never fill the entire queue with test generation. Always reserve slots for fixes and builds. Ask: "If I could only dispatch 5 tasks, which 5 would move the needle most?"
 
 CC writes fully-specified entries to `loci/golem-queue.md`. Each entry has provider, turns, and complete prompt baked in. CC does the thinking — golems do the labor.
 

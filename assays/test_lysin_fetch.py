@@ -341,9 +341,6 @@ def test_fetch_wikipedia_404_falls_back_to_search():
     mock_404_response = MagicMock()
     mock_404_response.status_code = 404
 
-    # The _search_wikipedia returns titles
-    mock_search_json = ["apoptosis", ["Apoptosis", "Programmed cell death"], [], []]
-
     mock_summary_response = MagicMock()
     mock_summary_response.status_code = 200
     mock_summary_response.json.return_value = {
@@ -356,18 +353,22 @@ def test_fetch_wikipedia_404_falls_back_to_search():
     mock_sections_response.status_code = 200
     mock_sections_response.json.return_value = {"remaining": {"sections": []}}
 
+    # Create a mock client instance that properly supports context manager
+    mock_client_instance = MagicMock()
+    mock_client_instance.get.side_effect = [
+        mock_404_response,  # Initial 404
+        mock_summary_response,  # Summary after search
+        mock_sections_response,  # Sections
+    ]
+    mock_client_instance.__enter__ = MagicMock(return_value=mock_client_instance)
+    mock_client_instance.__exit__ = MagicMock(return_value=False)
+
     with patch("metabolon.lysin.fetch._search_wikipedia", return_value=["Apoptosis"]):
-        with patch("httpx.Client") as mock_client:
-            client_mock = mock_client.return_value.__enter__.return_value
-            # First call is 404, then summary (after search fallback), then sections
-            client_mock.get.side_effect = [
-                mock_404_response,  # Initial 404
-                mock_summary_response,  # Summary after search
-                mock_sections_response,  # Sections
-            ]
+        with patch("httpx.Client", return_value=mock_client_instance):
             result = _fetch_wikipedia("nonexistentterm123")
 
     assert result is not None
+    assert result.title == "Apoptosis"
 
 
 def test_search_wikipedia_returns_results():

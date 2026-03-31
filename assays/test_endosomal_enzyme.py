@@ -7,7 +7,7 @@ import pytest
 from metabolon.morphology.base import EffectorResult
 
 
-# ── Load the module and patch dependencies ───────────────────────────────
+# ── Fixtures ───────────────────────────────────────────────────────────────
 
 
 @pytest.fixture
@@ -27,45 +27,56 @@ def mock_synthesize():
 
 
 @pytest.fixture
-def endosomal():
-    """Import and return the endosomal function with mocked dependencies."""
-    from metabolon.enzymes.endosomal import endosomal
-    return endosomal
+def mock_classify():
+    """Mock the classify function from organelles.endosomal module."""
+    # Patch the 'endosomal' module reference in the enzyme
+    with patch("metabolon.enzymes.endosomal.endosomal") as mock_module:
+        mock_module.classify.return_value = ""
+        mock_module.CLASSIFY_PROMPT_TMPL = "Classify: {email_text}"
+        mock_module.CATEGORIES = ("action_required", "borderline", "monitor", "archive_now")
+        yield mock_module
 
 
-# ── Action validation tests ──────────────────────────────────────────────
+@pytest.fixture
+def enzyme():
+    """Import and return the endosomal enzyme function."""
+    from metabolon.enzymes.endosomal import endosomal as endosomal_fn
+    return endosomal_fn
 
 
-def test_endosomal_unknown_action(endosomal):
+# ── Action validation tests ────────────────────────────────────────────────
+
+
+def test_endosomal_unknown_action(enzyme):
     """endosomal returns error for unknown action."""
-    result = endosomal(action="unknown")
+    result = enzyme(action="unknown")
     
     assert isinstance(result, EffectorResult)
     assert result.success is False
     assert "Unknown action" in result.message
 
 
-def test_endosomal_action_case_insensitive(endosomal, mock_invoke_organelle):
+def test_endosomal_action_case_insensitive(enzyme, mock_invoke_organelle):
     """endosomal handles action case-insensitively."""
-    result = endosomal(action="SEARCH", query="test")
-    assert result.success is True or hasattr(result, "output")
+    result = enzyme(action="SEARCH", query="test")
+    assert hasattr(result, "output") or result.success is True
 
 
-# ── Search action tests ───────────────────────────────────────────────────
+# ── Search action tests ────────────────────────────────────────────────────
 
 
-def test_endosomal_search_requires_query(endosomal):
+def test_endosomal_search_requires_query(enzyme):
     """endosomal search requires query parameter."""
-    result = endosomal(action="search", query="")
+    result = enzyme(action="search", query="")
     
     assert isinstance(result, EffectorResult)
     assert result.success is False
     assert "query" in result.message.lower()
 
 
-def test_endosomal_search_success(endosomal, mock_invoke_organelle):
+def test_endosomal_search_success(enzyme, mock_invoke_organelle):
     """endosomal search invokes Gmail search."""
-    result = endosomal(action="search", query="from:boss@company.com")
+    result = enzyme(action="search", query="from:boss@company.com")
     
     mock_invoke_organelle.assert_called_once()
     call_args = mock_invoke_organelle.call_args
@@ -75,21 +86,21 @@ def test_endosomal_search_success(endosomal, mock_invoke_organelle):
     assert hasattr(result, "output")
 
 
-# ── Thread action tests ───────────────────────────────────────────────────
+# ── Thread action tests ─────────────────────────────────────────────────────
 
 
-def test_endosomal_thread_requires_thread_id(endosomal):
+def test_endosomal_thread_requires_thread_id(enzyme):
     """endosomal thread requires thread_id parameter."""
-    result = endosomal(action="thread", thread_id="")
+    result = enzyme(action="thread", thread_id="")
     
     assert isinstance(result, EffectorResult)
     assert result.success is False
     assert "thread_id" in result.message.lower()
 
 
-def test_endosomal_thread_success(endosomal, mock_invoke_organelle):
+def test_endosomal_thread_success(enzyme, mock_invoke_organelle):
     """endosomal thread invokes Gmail thread get."""
-    result = endosomal(action="thread", thread_id="12345")
+    result = enzyme(action="thread", thread_id="12345")
     
     mock_invoke_organelle.assert_called_once()
     call_args = mock_invoke_organelle.call_args
@@ -97,72 +108,70 @@ def test_endosomal_thread_success(endosomal, mock_invoke_organelle):
     assert "12345" in call_args[0][1]
 
 
-# ── Categorize action tests ───────────────────────────────────────────────
+# ── Categorize action tests ─────────────────────────────────────────────────
 
 
-def test_endosomal_categorize_requires_email_text(endosomal):
+def test_endosomal_categorize_requires_email_text(enzyme):
     """endosomal categorize requires email_text parameter."""
-    result = endosomal(action="categorize", email_text="")
+    result = enzyme(action="categorize", email_text="")
     
     assert isinstance(result, EffectorResult)
     assert result.success is False
     assert "email_text" in result.message.lower()
 
 
-def test_endosomal_categorize_deterministic(endosomal):
+def test_endosomal_categorize_deterministic(enzyme):
     """endosomal categorize uses deterministic classification first."""
-    # Email that should be classified as archive_now (automated sender)
-    result = endosomal(
+    # Email with automated sender - should return archive_now without LLM call
+    result = enzyme(
         action="categorize",
         email_text="From: noreply@github.com\nSubject: PR merged\n\nYour PR was merged."
     )
-    
+
     assert hasattr(result, "output")
     assert "archive_now" in result.output
 
 
-def test_endosomal_categorize_falls_back_to_symbiont(endosomal, mock_synthesize):
+def test_endosomal_categorize_falls_back_to_symbiont(enzyme, mock_synthesize):
     """endosomal categorize falls back to LLM for ambiguous emails."""
-    # Clear classification cache
-    with patch("metabolon.organelles.endosomal.classify", return_value=""):
-        result = endosomal(
-            action="categorize",
-            email_text="Subject: Hello\n\nJust saying hi."
-        )
-        
-        # Should have called synthesize
-        mock_synthesize.assert_called_once()
+    # Email that doesn't match any deterministic patterns
+    result = enzyme(
+        action="categorize",
+        email_text="Subject: Hello\n\nJust saying hi."
+    )
+
+    # Should have called synthesize (symbiont fallback) since classify returns ""
+    mock_synthesize.assert_called_once()
 
 
-def test_endosomal_categorize_unclassified(endosomal, mock_synthesize):
+def test_endosomal_categorize_unclassified(enzyme, mock_synthesize):
     """endosomal categorize handles unclassified LLM output."""
     mock_synthesize.return_value = "unknown_category"
-    
-    with patch("metabolon.organelles.endosomal.classify", return_value=""):
-        result = endosomal(
-            action="categorize",
-            email_text="Subject: Test\n\nBody"
-        )
-        
-        assert hasattr(result, "output")
-        assert "Unclassified" in result.output
+
+    result = enzyme(
+        action="categorize",
+        email_text="Subject: Test\n\nBody"
+    )
+
+    assert hasattr(result, "output")
+    assert "Unclassified" in result.output
 
 
-# ── Archive action tests ──────────────────────────────────────────────────
+# ── Archive action tests ────────────────────────────────────────────────────
 
 
-def test_endosomal_archive_requires_message_ids(endosomal):
+def test_endosomal_archive_requires_message_ids(enzyme):
     """endosomal archive requires message_ids parameter."""
-    result = endosomal(action="archive", message_ids=[])
+    result = enzyme(action="archive", message_ids=[])
     
     assert isinstance(result, EffectorResult)
     assert result.success is False
     assert "message_ids" in result.message.lower()
 
 
-def test_endosomal_archive_success(endosomal, mock_invoke_organelle):
+def test_endosomal_archive_success(enzyme, mock_invoke_organelle):
     """endosomal archive invokes Gmail archive."""
-    result = endosomal(action="archive", message_ids=["msg1", "msg2"])
+    result = enzyme(action="archive", message_ids=["msg1", "msg2"])
     
     mock_invoke_organelle.assert_called_once()
     call_args = mock_invoke_organelle.call_args
@@ -172,21 +181,21 @@ def test_endosomal_archive_success(endosomal, mock_invoke_organelle):
     assert result.success is True
 
 
-# ── Mark read action tests ────────────────────────────────────────────────
+# ── Mark read action tests ──────────────────────────────────────────────────
 
 
-def test_endosomal_mark_read_requires_message_ids(endosomal):
+def test_endosomal_mark_read_requires_message_ids(enzyme):
     """endosomal mark_read requires message_ids parameter."""
-    result = endosomal(action="mark_read", message_ids=[])
+    result = enzyme(action="mark_read", message_ids=[])
     
     assert isinstance(result, EffectorResult)
     assert result.success is False
     assert "message_ids" in result.message.lower()
 
 
-def test_endosomal_mark_read_success(endosomal, mock_invoke_organelle):
+def test_endosomal_mark_read_success(enzyme, mock_invoke_organelle):
     """endosomal mark_read invokes Gmail mark-read."""
-    result = endosomal(action="mark_read", message_ids=["msg1"])
+    result = enzyme(action="mark_read", message_ids=["msg1"])
     
     mock_invoke_organelle.assert_called_once()
     call_args = mock_invoke_organelle.call_args
@@ -194,21 +203,21 @@ def test_endosomal_mark_read_success(endosomal, mock_invoke_organelle):
     assert result.success is True
 
 
-# ── Label action tests ────────────────────────────────────────────────────
+# ── Label action tests ──────────────────────────────────────────────────────
 
 
-def test_endosomal_label_requires_name(endosomal):
+def test_endosomal_label_requires_name(enzyme):
     """endosomal label requires name parameter."""
-    result = endosomal(action="label", name="")
+    result = enzyme(action="label", name="")
     
     assert isinstance(result, EffectorResult)
     assert result.success is False
     assert "name" in result.message.lower()
 
 
-def test_endosomal_label_success(endosomal, mock_invoke_organelle):
+def test_endosomal_label_success(enzyme, mock_invoke_organelle):
     """endosomal label invokes Gmail labels create."""
-    result = endosomal(action="label", name="Work")
+    result = enzyme(action="label", name="Work")
     
     mock_invoke_organelle.assert_called_once()
     call_args = mock_invoke_organelle.call_args
@@ -218,21 +227,21 @@ def test_endosomal_label_success(endosomal, mock_invoke_organelle):
     assert result.success is True
 
 
-# ── Send action tests ─────────────────────────────────────────────────────
+# ── Send action tests ───────────────────────────────────────────────────────
 
 
-def test_endosomal_send_new_email_requires_params(endosomal):
+def test_endosomal_send_new_email_requires_params(enzyme):
     """endosomal send requires to, subject, body for new emails."""
-    result = endosomal(action="send")
+    result = enzyme(action="send")
     
     assert isinstance(result, EffectorResult)
     assert result.success is False
     assert "to" in result.message.lower() or "subject" in result.message.lower()
 
 
-def test_endosomal_send_new_email_success(endosomal, mock_invoke_organelle):
+def test_endosomal_send_new_email_success(enzyme, mock_invoke_organelle):
     """endosomal send invokes Gmail send for new emails."""
-    result = endosomal(
+    result = enzyme(
         action="send",
         to="recipient@example.com",
         subject="Test Subject",
@@ -246,9 +255,9 @@ def test_endosomal_send_new_email_success(endosomal, mock_invoke_organelle):
     assert result.success is True
 
 
-def test_endosomal_send_reply(endosomal, mock_invoke_organelle):
+def test_endosomal_send_reply(enzyme, mock_invoke_organelle):
     """endosomal send handles reply with reply_to_message_id."""
-    result = endosomal(
+    result = enzyme(
         action="send",
         reply_to_message_id="msg123",
         body="Reply content"
@@ -261,9 +270,9 @@ def test_endosomal_send_reply(endosomal, mock_invoke_organelle):
     assert result.success is True
 
 
-def test_endosomal_send_with_cc(endosomal, mock_invoke_organelle):
+def test_endosomal_send_with_cc(enzyme, mock_invoke_organelle):
     """endosomal send handles cc parameter."""
-    result = endosomal(
+    result = enzyme(
         action="send",
         to="to@example.com",
         subject="Subject",
@@ -275,9 +284,9 @@ def test_endosomal_send_with_cc(endosomal, mock_invoke_organelle):
     assert "--cc" in call_args[0][1]
 
 
-def test_endosomal_send_with_attachment(endosomal, mock_invoke_organelle):
+def test_endosomal_send_with_attachment(enzyme, mock_invoke_organelle):
     """endosomal send handles attach parameter."""
-    result = endosomal(
+    result = enzyme(
         action="send",
         to="to@example.com",
         subject="Subject",
@@ -289,21 +298,21 @@ def test_endosomal_send_with_attachment(endosomal, mock_invoke_organelle):
     assert "--attach" in call_args[0][1]
 
 
-# ── Filter action tests ───────────────────────────────────────────────────
+# ── Filter action tests ─────────────────────────────────────────────────────
 
 
-def test_endosomal_filter_requires_criteria(endosomal):
+def test_endosomal_filter_requires_criteria(enzyme):
     """endosomal filter requires from_sender or subject_pattern."""
-    result = endosomal(action="filter")
+    result = enzyme(action="filter")
     
     assert isinstance(result, EffectorResult)
     assert result.success is False
     assert "from_sender" in result.message.lower() or "subject_pattern" in result.message.lower()
 
 
-def test_endosomal_filter_requires_action(endosomal):
+def test_endosomal_filter_requires_action(enzyme):
     """endosomal filter requires at least one action (add_label, archive, mark_read)."""
-    result = endosomal(
+    result = enzyme(
         action="filter",
         from_sender="spam@example.com"
     )
@@ -313,9 +322,9 @@ def test_endosomal_filter_requires_action(endosomal):
     assert "add_label" in result.message.lower() or "archive" in result.message.lower()
 
 
-def test_endosomal_filter_success_dry_run(endosomal, mock_invoke_organelle):
+def test_endosomal_filter_success_dry_run(enzyme, mock_invoke_organelle):
     """endosomal filter creates filter in dry-run mode by default."""
-    result = endosomal(
+    result = enzyme(
         action="filter",
         from_sender="newsletter@example.com",
         add_label="Newsletters",
@@ -331,9 +340,9 @@ def test_endosomal_filter_success_dry_run(endosomal, mock_invoke_organelle):
     assert "[DRY RUN]" in result.message
 
 
-def test_endosomal_filter_not_dry_run(endosomal, mock_invoke_organelle):
+def test_endosomal_filter_not_dry_run(enzyme, mock_invoke_organelle):
     """endosomal filter can disable dry-run mode."""
-    result = endosomal(
+    result = enzyme(
         action="filter",
         from_sender="newsletter@example.com",
         add_label="Newsletters",
@@ -345,9 +354,9 @@ def test_endosomal_filter_not_dry_run(endosomal, mock_invoke_organelle):
     assert "[DRY RUN]" not in result.message
 
 
-def test_endosomal_filter_subject_pattern(endosomal, mock_invoke_organelle):
+def test_endosomal_filter_subject_pattern(enzyme, mock_invoke_organelle):
     """endosomal filter handles subject_pattern parameter."""
-    result = endosomal(
+    result = enzyme(
         action="filter",
         subject_pattern="[Newsletter]",
         mark_read=True
@@ -357,9 +366,9 @@ def test_endosomal_filter_subject_pattern(endosomal, mock_invoke_organelle):
     assert "--subject" in call_args[0][1]
 
 
-def test_endosomal_filter_all_actions(endosomal, mock_invoke_organelle):
+def test_endosomal_filter_all_actions(enzyme, mock_invoke_organelle):
     """endosomal filter can combine add_label, archive, and mark_read."""
-    result = endosomal(
+    result = enzyme(
         action="filter",
         from_sender="promo@example.com",
         add_label="Promotions",
@@ -373,36 +382,38 @@ def test_endosomal_filter_all_actions(endosomal, mock_invoke_organelle):
     assert "--mark-read" in call_args[0][1]
 
 
-# ── Result type tests ─────────────────────────────────────────────────────
+# ── Result type tests ───────────────────────────────────────────────────────
 
 
-def test_endosomal_result_has_output_for_read_actions(endosomal, mock_invoke_organelle):
+def test_endosomal_result_has_output_for_read_actions(enzyme, mock_invoke_organelle, mock_classify):
     """Read actions (search, thread, categorize) return EndosomalResult with output."""
+    mock_classify.classify.return_value = "archive_now"
+    
     # Search
-    result = endosomal(action="search", query="test")
+    result = enzyme(action="search", query="test")
     assert hasattr(result, "output")
     
     # Thread
-    result = endosomal(action="thread", thread_id="123")
+    result = enzyme(action="thread", thread_id="123")
     assert hasattr(result, "output")
     
-    # Categorize (deterministic case)
-    result = endosomal(action="categorize", email_text="From: noreply@test.com\n\nBody")
+    # Categorize
+    result = enzyme(action="categorize", email_text="From: noreply@test.com\n\nBody")
     assert hasattr(result, "output")
 
 
-def test_endosomal_result_is_effector_for_mutations(endosomal, mock_invoke_organelle):
+def test_endosomal_result_is_effector_for_mutations(enzyme, mock_invoke_organelle):
     """Mutation actions return EffectorResult with success/message."""
     # Archive
-    result = endosomal(action="archive", message_ids=["msg1"])
+    result = enzyme(action="archive", message_ids=["msg1"])
     assert isinstance(result, EffectorResult)
     assert hasattr(result, "success")
     assert hasattr(result, "message")
     
     # Label
-    result = endosomal(action="label", name="Test")
+    result = enzyme(action="label", name="Test")
     assert isinstance(result, EffectorResult)
     
     # Send
-    result = endosomal(action="send", to="a@b.com", subject="S", body="B")
+    result = enzyme(action="send", to="a@b.com", subject="S", body="B")
     assert isinstance(result, EffectorResult)
