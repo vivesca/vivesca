@@ -81,10 +81,9 @@ class TestParseLogTimestamp:
     def test_invalid_returns_none(self):
         assert parse_log_timestamp("not a timestamp") is None
 
-    def test_none_raises(self):
-        """parse_log_timestamp raises on None (no guard in source)."""
-        with pytest.raises(AttributeError):
-            parse_log_timestamp(None)
+    def test_none_returns_none(self):
+        """parse_log_timestamp handles None input gracefully."""
+        assert parse_log_timestamp(None) is None
 
     def test_empty_returns_none(self):
         assert parse_log_timestamp("") is None
@@ -99,10 +98,16 @@ class TestScanLog:
         log_path.write_text("\n".join(lines) + "\n")
         return log_path
 
+    def _now_ts(self, minutes_ago: int = 0) -> str:
+        """Return a timestamp string N minutes ago from now."""
+        ts = datetime.now() - timedelta(minutes=minutes_ago)
+        return ts.strftime("%Y-%m-%d %H:%M:%S")
+
     def test_completed_task_found(self, tmp_path):
+        ts = self._now_ts(1)
         log_path = self._make_log(tmp_path, [
-            "[2026-03-31 14:00:00] Starting: golem task1",
-            "[2026-03-31 14:01:00] Finished (60s, exit=0): golem task1...",
+            f"[{ts}] Starting: golem task1",
+            f"[{ts}] Finished (60s, exit=0): golem task1...",
         ])
         orig = _mod["LOGFILE"]
         try:
@@ -116,8 +121,9 @@ class TestScanLog:
         assert len(result["failed"]) == 0
 
     def test_failed_task_found(self, tmp_path):
+        ts = self._now_ts(1)
         log_path = self._make_log(tmp_path, [
-            "[2026-03-31 14:00:00] FAILED (exit=1): golem task...",
+            f"[{ts}] FAILED (exit=1): golem task...",
         ])
         orig = _mod["LOGFILE"]
         try:
@@ -130,8 +136,9 @@ class TestScanLog:
         assert len(result["completed"]) == 0
 
     def test_timeout_detected(self, tmp_path):
+        ts = self._now_ts(1)
         log_path = self._make_log(tmp_path, [
-            "[2026-03-31 14:00:00] TIMEOUT (1800s): golem slow-task...",
+            f"[{ts}] TIMEOUT (1800s): golem slow-task...",
         ])
         orig = _mod["LOGFILE"]
         try:
