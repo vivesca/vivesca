@@ -1,177 +1,135 @@
 """browser_stealth — make Playwright browser contexts undetectable.
 
-Provides patches and utilities so automated browsing sessions look like
-real Chrome traffic: navigator.webdriver override, realistic header
-rotation, and human-like inter-action delays.
-
-Biology: stealth camouflage for the cell's exploratory pseudopods,
-allowing them to pass through membrane checkpoints undetected.
+Provides four public functions:
+  - patch_navigator:  override navigator.webdriver on a page
+  - set_realistic_headers: rotate User-Agent from a curated Chrome list
+  - human_delay: random pause between actions (simulates human cadence)
+  - stealth_context: create a Playwright context with all patches applied
 """
 
 from __future__ import annotations
 
+import asyncio
 import random
-import time
-from typing import TYPE_CHECKING
+from typing import Any
 
-if TYPE_CHECKING:
-    from playwright.sync_api import Browser, BrowserContext
+from playwright.async_api import BrowserContext, Page
 
-# ---------------------------------------------------------------------------
-# Realistic Chrome User-Agent pool (Chrome 120–131 on Windows/macOS/Linux)
-# ---------------------------------------------------------------------------
-
+# 20 real Chrome User-Agent strings (Chrome 120-131 across Win/Mac/Linux).
 CHROME_USER_AGENTS: list[str] = [
-    # Windows 10/11 — Chrome 131
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
-    # Windows 10 — Chrome 130
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36",
-    # macOS Sonoma — Chrome 131
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
-    # macOS Ventura — Chrome 129
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36",
-    # Linux (Ubuntu) — Chrome 131
     "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
-    # Linux — Chrome 128
-    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36",
-    # Windows 11 — Chrome 127
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36",
-    # macOS — Chrome 126
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
-    # Windows 10 — Chrome 125
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
-    # Linux — Chrome 124
-    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-    # Windows 10 — Chrome 123
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36",
-    # macOS — Chrome 122
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-    # Windows 11 — Chrome 121
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
-    # Linux — Chrome 120
-    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-    # macOS — Chrome 131 (ARM/M1+)
-    "Mozilla/5.0 (Macintosh; ARM Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
-    # Windows 10 — Chrome 130 (WOW64)
-    "Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36",
-    # Linux — Chrome 129
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36",
     "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36",
-    # Windows 11 — Chrome 128
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36",
-    # macOS — Chrome 125
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
-    # Windows 10 — Chrome 124
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
 ]
 
-# JS snippet that sets navigator.webdriver to false and deletes the getter.
+# JavaScript to override navigator.webdriver so it returns undefined.
 _WEBDRIVER_PATCH_JS = """
 Object.defineProperty(navigator, 'webdriver', {
     get: () => undefined,
-    configurable: true,
 });
-delete Object.getPrototypeOf(navigator).__proto__.webdriver;
 """
 
-# Extra stealth scripts: hide automation indicators.
-_STEALTH_INIT_JS = """
-// Override permissions query to avoid detection
+# Additional stealth: mask automation indicators in Chrome runtime.
+_CHROME_RUNTIME_PATCH_JS = """
+window.chrome = {
+    runtime: {},
+    loadTimes: function() {},
+    csi: function() {},
+    app: {},
+};
+"""
+
+# Mask plugins and mimeTypes to look like a real Chrome install.
+_PLUGINS_PATCH_JS = """
+Object.defineProperty(navigator, 'plugins', {
+    get: () => [1, 2, 3, 4, 5],
+});
+Object.defineProperty(navigator, 'mimeTypes', {
+    get: () => [1, 2],
+});
+"""
+
+# Permissions query override so navigator.permissions.query returns prompt.
+_PERMISSIONS_PATCH_JS = """
 const originalQuery = window.navigator.permissions.query;
 window.navigator.permissions.query = (parameters) => (
     parameters.name === 'notifications'
         ? Promise.resolve({ state: Notification.permission })
         : originalQuery(parameters)
 );
-
-// Override plugins length to look like a real browser
-Object.defineProperty(navigator, 'plugins', {
-    get: () => [1, 2, 3, 4, 5],
-    configurable: true,
-});
-
-// Override languages
-Object.defineProperty(navigator, 'languages', {
-    get: () => ['en-US', 'en'],
-    configurable: true,
-});
 """
 
 
-# ---------------------------------------------------------------------------
-# Public API
-# ---------------------------------------------------------------------------
+async def patch_navigator(page: Page) -> None:
+    """Override navigator.webdriver on *page* so it returns undefined.
 
-
-def patch_navigator(context: BrowserContext) -> None:
-    """Override navigator.webdriver on every new page in *context*.
-
-    Injects a JavaScript init script that sets navigator.webdriver to
-    ``undefined`` and removes the property descriptor, making the usual
-    ``navigator.webdriver === true`` detection fail.
+    Must be called after page.goto() or via add_init_script for new pages.
+    Applies webdriver, chrome.runtime, plugins, and permissions patches.
     """
-    context.add_init_script(_WEBDRIVER_PATCH_JS)
+    await page.add_init_script(_WEBDRIVER_PATCH_JS)
+    await page.add_init_script(_CHROME_RUNTIME_PATCH_JS)
+    await page.add_init_script(_PLUGINS_PATCH_JS)
+    await page.add_init_script(_PERMISSIONS_PATCH_JS)
 
 
 def set_realistic_headers(context: BrowserContext) -> str:
-    """Pick a random Chrome UA and apply it to *context*.
+    """Set a randomly chosen Chrome User-Agent on *context*.
 
-    Returns the chosen user-agent string so callers can log it.
+    Returns the selected UA string so callers can log or verify it.
     """
     ua = random.choice(CHROME_USER_AGENTS)
-    context.set_extra_http_headers(
-        {
-            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
-            "Accept-Encoding": "gzip, deflate, br",
-            "Accept-Language": "en-US,en;q=0.9",
-            "Sec-Ch-Ua": '"Chromium";v="131", "Not_A Brand";v="24", "Google Chrome";v="131"',
-            "Sec-Ch-Ua-Mobile": "?0",
-            "Sec-Ch-Ua-Platform": '"Windows"',
-            "Sec-Fetch-Dest": "document",
-            "Sec-Fetch-Mode": "navigate",
-            "Sec-Fetch-Site": "none",
-            "Sec-Fetch-User": "?1",
-            "Upgrade-Insecure-Requests": "1",
-        }
-    )
+    context.set_extra_http_headers({"User-Agent": ua})
     return ua
 
 
-def human_delay(min_seconds: float = 0.5, max_seconds: float = 2.0) -> float:
-    """Sleep for a random duration to mimic human interaction timing.
+async def human_delay(
+    min_seconds: float = 0.5,
+    max_seconds: float = 2.0,
+) -> float:
+    """Sleep for a random duration to simulate human interaction cadence.
 
-    Returns the actual delay in seconds so callers can log it.
+    Returns the actual delay chosen (in seconds).
     """
     delay = random.uniform(min_seconds, max_seconds)
-    time.sleep(delay)
+    await asyncio.sleep(delay)
     return delay
 
 
-def stealth_context(browser: Browser, **context_kwargs: object) -> BrowserContext:
-    """Create a new Playwright context with all stealth patches applied.
+async def stealth_context(context: BrowserContext) -> BrowserContext:
+    """Apply all stealth patches to a Playwright *context*.
 
-    Parameters
-    ----------
-    browser:
-        A Playwright ``Browser`` instance.
-    **context_kwargs:
-        Forwarded to ``browser.new_context()`` (e.g. ``viewport``,
-        ``proxy``, ``locale``).  If ``user_agent`` is not supplied one
-        is chosen randomly from :data:`CHROME_USER_AGENTS`.
+    Patches applied:
+      1. Random realistic User-Agent header rotation
+      2. init-script patches applied to every new page in this context
+         (webdriver override, chrome runtime, plugins, permissions)
+      3. Hides Playwright-specific indicators (e.g. webdriver flag)
 
-    Returns
-    -------
-    BrowserContext
-        A context with navigator patch, realistic headers, and extra
-        stealth init scripts already applied.
+    Returns the same context for chaining.
     """
-    if "user_agent" not in context_kwargs:
-        context_kwargs["user_agent"] = random.choice(CHROME_USER_AGENTS)
-
-    context = browser.new_context(**context_kwargs)  # type: ignore[arg-type]
-
-    # Apply patches
-    patch_navigator(context)
+    # Rotate User-Agent.
     set_realistic_headers(context)
-    context.add_init_script(_STEALTH_INIT_JS)
+
+    # Apply init scripts so every new page in the context gets patched.
+    await context.add_init_script(_WEBDRIVER_PATCH_JS)
+    await context.add_init_script(_CHROME_RUNTIME_PATCH_JS)
+    await context.add_init_script(_PLUGINS_PATCH_JS)
+    await context.add_init_script(_PERMISSIONS_PATCH_JS)
 
     return context

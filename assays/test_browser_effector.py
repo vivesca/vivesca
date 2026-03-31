@@ -1,260 +1,240 @@
-#!/usr/bin/env python3
-"""Tests for browser effector CLI wrapper and core browser module.
-
-Uses mocks — no real browser launch required.
-"""
+"""Tests for browser effector — CLI wrapper for headless page fetcher."""
 from __future__ import annotations
 
+import contextlib
 import json
-import sys
-import types
 from pathlib import Path
-from unittest.mock import MagicMock, patch
 
 import pytest
 
-# Load effector via exec (effectors are scripts, not importable packages)
-_effector_path = Path(__file__).parent.parent / "effectors" / "browser"
-_ns: dict = {"__name__": "effectors.browser", "__file__": str(_effector_path)}
-exec(open(_effector_path).read(), _ns)  # noqa: S102
 
-# Register as a real module so @patch("effectors.browser.fetch") works
-_mod = types.ModuleType("effectors.browser")
-_mod.__dict__.update(_ns)
-sys.modules["effectors.browser"] = _mod
-
-main = _ns["main"]
-build_parser = _ns["build_parser"]
-
-# Patch target for the effector's imported fetch
-_FETCH_TARGET = "effectors.browser.fetch"
-
-# ---------------------------------------------------------------------------
-# Parser tests
-# ---------------------------------------------------------------------------
+def _load_effector() -> dict:
+    """Load the browser effector by exec-ing its Python body."""
+    source = (Path.home() / "germline" / "effectors" / "browser").read_text()
+    ns: dict = {"__name__": "browser_effector"}
+    exec(source, ns)
+    return ns
 
 
-class TestParser:
-    def test_fetch_minimum(self):
-        args = build_parser().parse_args(["fetch", "https://example.com"])
-        assert args.command == "fetch"
-        assert args.url == "https://example.com"
-        assert args.cookies is None
-        assert args.selector is None
-        assert args.screenshot is None
-        assert args.pdf is None
-        assert args.wait == 0
-        assert args.json_output is False
-
-    def test_fetch_all_options(self):
-        args = build_parser().parse_args([
-            "fetch", "https://example.com",
-            "--cookies", "/tmp/cookies.json",
-            "--selector", "article",
-            "--screenshot", "/tmp/shot.png",
-            "--pdf", "/tmp/out.pdf",
-            "--wait", "2000",
-            "--json",
-        ])
-        assert args.url == "https://example.com"
-        assert args.cookies == "/tmp/cookies.json"
-        assert args.selector == "article"
-        assert args.screenshot == "/tmp/shot.png"
-        assert args.pdf == "/tmp/out.pdf"
-        assert args.wait == 2000
-        assert args.json_output is True
-
-    def test_no_command_exits(self):
-        with pytest.raises(SystemExit) as exc_info:
-            main([])
-        assert exc_info.value.code == 1
+_mod = _load_effector()
+build_parser = _mod["build_parser"]
+format_text = _mod["format_text"]
+format_json = _mod["format_json"]
+run_fetch = _mod["run_fetch"]
+main = _mod["main"]
 
 
-# ---------------------------------------------------------------------------
-# CLI fetch tests — mock browser.fetch inside the exec'd namespace
-# ---------------------------------------------------------------------------
+# ── helpers ──────────────────────────────────────────────────────────
 
-SAMPLE_RESULT = {
+_SAMPLE_RESULT = {
+    "text": "Hello world",
+    "title": "Example Page",
     "url": "https://example.com",
-    "title": "Example Domain",
-    "text": "This domain is for use in illustrative examples.",
     "status": 200,
-    "screenshot": None,
-    "pdf": None,
+    "cookies_loaded": 0,
+    "screenshot_saved": False,
+    "pdf_saved": False,
 }
 
 
-class TestFetchText:
-    @patch(_FETCH_TARGET, return_value=SAMPLE_RESULT)
-    def test_plain_text_output(self, mock_fetch, capsys):
+@contextlib.contextmanager
+def _patch_fetch(result: dict):
+    """Temporarily replace fetch in the effector namespace with an async mock."""
+    original = _mod["fetch"]
+
+    async def _mock(*args, **kwargs):
+        return result
+
+    _mod["fetch"] = _mock
+    try:
+        yield
+    finally:
+        _mod["fetch"] = original
+
+
+# ── build_parser tests ──────────────────────────────────────────────
+
+
+def test_parser_fetch_basic():
+    """Parser extracts URL from fetch subcommand."""
+    args = build_parser().parse_args(["fetch", "https://example.com"])
+    assert args.command == "fetch"
+    assert args.url == "https://example.com"
+
+
+def test_parser_fetch_all_options():
+    """Parser extracts every optional flag."""
+    args = build_parser().parse_args([
+        "fetch", "https://example.com",
+        "--cookies", "/tmp/ck.json",
+        "--selector", "article",
+        "--screenshot", "/tmp/shot.png",
+        "--pdf", "/tmp/page.pdf",
+        "--wait", "2000",
+        "--json",
+    ])
+    assert args.cookies == "/tmp/ck.json"
+    assert args.selector == "article"
+    assert args.screenshot == "/tmp/shot.png"
+    assert args.pdf == "/tmp/page.pdf"
+    assert args.wait == 2000
+    assert args.json_output is True
+
+
+def test_parser_no_command():
+    """Parser sets command=None when no subcommand given."""
+    args = build_parser().parse_args([])
+    assert args.command is None
+
+
+def test_parser_defaults():
+    """Parser defaults: no cookies, no selector, wait=0, json=False."""
+    args = build_parser().parse_args(["fetch", "https://x.com"])
+    assert args.cookies is None
+    assert args.selector is None
+    assert args.screenshot is None
+    assert args.pdf is None
+    assert args.wait == 0
+    assert args.json_output is False
+
+
+# ── format_text tests ───────────────────────────────────────────────
+
+
+def test_format_text_includes_body_and_meta():
+    """format_text outputs page text followed by a metadata block."""
+    out = format_text(_SAMPLE_RESULT)
+    assert "Hello world" in out
+    assert "title: Example Page" in out
+    assert "url: https://example.com" in out
+    assert "status: 200" in out
+    assert "---" in out
+
+
+def test_format_text_empty_fields():
+    """format_text handles empty strings without error."""
+    result = {"text": "", "title": "", "url": "", "status": 0}
+    out = format_text(result)
+    assert isinstance(out, str)
+
+
+def test_format_text_multiline_body():
+    """format_text preserves newlines in page text."""
+    result = dict(_SAMPLE_RESULT, text="Line 1\nLine 2\nLine 3")
+    out = format_text(result)
+    assert "Line 1\nLine 2\nLine 3" in out
+
+
+def test_format_text_no_title():
+    """format_text omits title line when title is empty."""
+    result = dict(_SAMPLE_RESULT, title="")
+    out = format_text(result)
+    assert "title:" not in out
+
+
+# ── format_json tests ───────────────────────────────────────────────
+
+
+def test_format_json_roundtrip():
+    """format_json produces valid JSON with every key."""
+    out = format_json(_SAMPLE_RESULT)
+    parsed = json.loads(out)
+    assert parsed["text"] == "Hello world"
+    assert parsed["status"] == 200
+    assert parsed["cookies_loaded"] == 0
+    assert parsed["screenshot_saved"] is False
+
+
+def test_format_json_unicode():
+    """format_json preserves non-ASCII characters."""
+    result = dict(_SAMPLE_RESULT, text="日本語テスト", title="テスト")
+    out = format_json(result)
+    assert "日本語テスト" in out
+    assert json.loads(out)["text"] == "日本語テスト"
+
+
+# ── main tests ──────────────────────────────────────────────────────
+
+
+def test_main_no_command_returns_1(capsys):
+    """main prints help to stderr and returns 1 with no subcommand."""
+    rc = main([])
+    assert rc == 1
+
+
+def test_main_fetch_text_output(capsys):
+    """main prints human-readable text for a fetch."""
+    with _patch_fetch(_SAMPLE_RESULT):
+        rc = main(["fetch", "https://example.com"])
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "Hello world" in out
+    assert "title: Example Page" in out
+
+
+def test_main_fetch_json_output(capsys):
+    """main prints JSON when --json flag is set."""
+    with _patch_fetch(_SAMPLE_RESULT):
+        rc = main(["fetch", "https://example.com", "--json"])
+    assert rc == 0
+    out = capsys.readouterr().out
+    parsed = json.loads(out)
+    assert parsed["text"] == "Hello world"
+    assert parsed["status"] == 200
+
+
+def test_main_fetch_passes_all_options(capsys):
+    """main forwards every CLI option to the fetch function."""
+    captured: dict = {}
+
+    async def _spy(url, *, cookies=None, selector=None,
+                   screenshot=None, pdf=None, wait=0):
+        captured.update(url=url, cookies=cookies, selector=selector,
+                        screenshot=screenshot, pdf=pdf, wait=wait)
+        return _SAMPLE_RESULT
+
+    original = _mod["fetch"]
+    _mod["fetch"] = _spy
+    try:
+        rc = main([
+            "fetch", "https://example.com",
+            "--cookies", "/tmp/ck.json",
+            "--selector", "main",
+            "--screenshot", "/tmp/s.png",
+            "--pdf", "/tmp/p.pdf",
+            "--wait", "1500",
+        ])
+    finally:
+        _mod["fetch"] = original
+
+    assert rc == 0
+    assert captured["url"] == "https://example.com"
+    assert captured["cookies"] == "/tmp/ck.json"
+    assert captured["selector"] == "main"
+    assert captured["screenshot"] == "/tmp/s.png"
+    assert captured["pdf"] == "/tmp/p.pdf"
+    assert captured["wait"] == 1500
+
+
+def test_main_fetch_default_wait(capsys):
+    """main passes wait=0 when --wait is not specified."""
+    captured: dict = {}
+
+    async def _spy(url, **kw):
+        captured.update(kw)
+        return _SAMPLE_RESULT
+
+    original = _mod["fetch"]
+    _mod["fetch"] = _spy
+    try:
         main(["fetch", "https://example.com"])
-        captured = capsys.readouterr()
-        assert "This domain is for use in illustrative examples." in captured.out
-        assert "title" not in captured.out
+    finally:
+        _mod["fetch"] = original
 
-    @patch(_FETCH_TARGET, return_value=SAMPLE_RESULT)
-    def test_json_output(self, mock_fetch, capsys):
-        main(["fetch", "https://example.com", "--json"])
-        captured = capsys.readouterr()
-        data = json.loads(captured.out)
-        assert data["title"] == "Example Domain"
-        assert data["status"] == 200
-        assert data["text"] == SAMPLE_RESULT["text"]
-
-    @patch(_FETCH_TARGET, return_value=SAMPLE_RESULT)
-    def test_passes_cookies(self, mock_fetch):
-        main(["fetch", "https://example.com", "--cookies", "/tmp/c.json"])
-        mock_fetch.assert_called_once_with(
-            "https://example.com",
-            cookies="/tmp/c.json",
-            selector=None,
-            screenshot=None,
-            pdf=None,
-            wait=0,
-        )
-
-    @patch(_FETCH_TARGET, return_value=SAMPLE_RESULT)
-    def test_passes_selector(self, mock_fetch):
-        main(["fetch", "https://example.com", "--selector", "main"])
-        assert mock_fetch.call_args.kwargs["selector"] == "main"
-
-    @patch(_FETCH_TARGET, return_value=SAMPLE_RESULT)
-    def test_passes_screenshot(self, mock_fetch):
-        main(["fetch", "https://example.com", "--screenshot", "/tmp/s.png"])
-        assert mock_fetch.call_args.kwargs["screenshot"] == "/tmp/s.png"
-
-    @patch(_FETCH_TARGET, return_value=SAMPLE_RESULT)
-    def test_passes_pdf(self, mock_fetch):
-        main(["fetch", "https://example.com", "--pdf", "/tmp/out.pdf"])
-        assert mock_fetch.call_args.kwargs["pdf"] == "/tmp/out.pdf"
-
-    @patch(_FETCH_TARGET, return_value=SAMPLE_RESULT)
-    def test_passes_wait(self, mock_fetch):
-        main(["fetch", "https://example.com", "--wait", "3000"])
-        assert mock_fetch.call_args.kwargs["wait"] == 3000
-
-    @patch(_FETCH_TARGET, side_effect=FileNotFoundError("Cookie file not found: /tmp/nope"))
-    def test_missing_cookies_exits_1(self, mock_fetch, capsys):
-        with pytest.raises(SystemExit) as exc_info:
-            main(["fetch", "https://example.com", "--cookies", "/tmp/nope"])
-        assert exc_info.value.code == 1
-        assert "Cookie file" in capsys.readouterr().err
-
-    @patch(_FETCH_TARGET, side_effect=RuntimeError("timeout"))
-    def test_generic_error_exits_1(self, mock_fetch, capsys):
-        with pytest.raises(SystemExit) as exc_info:
-            main(["fetch", "https://example.com"])
-        assert exc_info.value.code == 1
-        assert "timeout" in capsys.readouterr().err
-
-    @patch(_FETCH_TARGET)
-    def test_json_includes_screenshot_path(self, mock_fetch, capsys):
-        mock_fetch.return_value = {**SAMPLE_RESULT, "screenshot": "/tmp/shot.png"}
-        main(["fetch", "https://example.com", "--json"])
-        data = json.loads(capsys.readouterr().out)
-        assert data["screenshot"] == "/tmp/shot.png"
-
-    @patch(_FETCH_TARGET)
-    def test_json_includes_pdf_path(self, mock_fetch, capsys):
-        mock_fetch.return_value = {**SAMPLE_RESULT, "pdf": "/tmp/page.pdf"}
-        main(["fetch", "https://example.com", "--json"])
-        data = json.loads(capsys.readouterr().out)
-        assert data["pdf"] == "/tmp/page.pdf"
+    assert captured["wait"] == 0
 
 
-# ---------------------------------------------------------------------------
-# Core module unit tests — mock Playwright itself
-# ---------------------------------------------------------------------------
-
-
-def _mock_playwright_chain(mock_pw_factory, page_return_value=None):
-    """Wire up a mock Playwright chain for sync_playwright()."""
-    mock_pw = MagicMock()
-    mock_pw_factory.return_value.__enter__ = MagicMock(return_value=mock_pw)
-    mock_pw_factory.return_value.__exit__ = MagicMock(return_value=False)
-
-    mock_page = MagicMock()
-    mock_page.title.return_value = "Test Page"
-    mock_page.inner_text.return_value = page_return_value or "Hello world"
-    mock_response = MagicMock()
-    mock_response.status = 200
-    mock_page.goto.return_value = mock_response
-
-    mock_context = MagicMock()
-    mock_context.new_page.return_value = mock_page
-    mock_browser = MagicMock()
-    mock_browser.new_context.return_value = mock_context
-    mock_pw.chromium.launch.return_value = mock_browser
-
-    return mock_page, mock_context, mock_browser
-
-
-class TestCoreFetch:
-    @patch("metabolon.organelles.browser.sync_playwright")
-    def test_basic_fetch(self, mock_pw_factory):
-        mock_page, _, _ = _mock_playwright_chain(mock_pw_factory)
-
-        from metabolon.organelles.browser import fetch
-        result = fetch("https://example.com")
-
-        assert result["title"] == "Test Page"
-        assert result["text"] == "Hello world"
-        assert result["status"] == 200
-        assert result["screenshot"] is None
-        assert result["pdf"] is None
-        mock_page.screenshot.assert_not_called()
-        mock_page.pdf.assert_not_called()
-
-    @patch("metabolon.organelles.browser.sync_playwright")
-    def test_fetch_with_selector(self, mock_pw_factory):
-        mock_page, _, _ = _mock_playwright_chain(mock_pw_factory)
-        mock_element = MagicMock()
-        mock_element.inner_text.return_value = "Selected content"
-        mock_page.query_selector.return_value = mock_element
-
-        from metabolon.organelles.browser import fetch
-        result = fetch("https://example.com", selector="article")
-
-        mock_page.query_selector.assert_called_once_with("article")
-        assert result["text"] == "Selected content"
-
-    @patch("metabolon.organelles.browser.sync_playwright")
-    def test_fetch_screenshot(self, mock_pw_factory):
-        mock_page, _, _ = _mock_playwright_chain(mock_pw_factory)
-
-        from metabolon.organelles.browser import fetch
-        result = fetch("https://example.com", screenshot="/tmp/shot.png")
-
-        mock_page.screenshot.assert_called_once_with(path="/tmp/shot.png", full_page=True)
-        assert result["screenshot"] == "/tmp/shot.png"
-
-    @patch("metabolon.organelles.browser.sync_playwright")
-    def test_fetch_pdf(self, mock_pw_factory):
-        mock_page, _, _ = _mock_playwright_chain(mock_pw_factory)
-
-        from metabolon.organelles.browser import fetch
-        result = fetch("https://example.com", pdf="/tmp/out.pdf")
-
-        mock_page.pdf.assert_called_once_with(path="/tmp/out.pdf")
-        assert result["pdf"] == "/tmp/out.pdf"
-
-    @patch("metabolon.organelles.browser.sync_playwright")
-    def test_fetch_with_wait(self, mock_pw_factory):
-        mock_page, _, _ = _mock_playwright_chain(mock_pw_factory)
-
-        from metabolon.organelles.browser import fetch
-        fetch("https://example.com", wait=1500)
-
-        mock_page.wait_for_timeout.assert_called_once_with(1500)
-
-    def test_missing_cookie_file_raises(self):
-        from metabolon.organelles.browser import fetch
-        with pytest.raises(FileNotFoundError, match="Cookie file not found"):
-            fetch("https://example.com", cookies="/nonexistent/path/cookies.json")
-
-    @patch("metabolon.organelles.browser.sync_playwright")
-    def test_fetch_text_helper(self, mock_pw_factory):
-        _mock_playwright_chain(mock_pw_factory, page_return_value="just the text")
-
-        from metabolon.organelles.browser import fetch_text
-        assert fetch_text("https://example.com") == "just the text"
+def test_main_returns_0_on_success(capsys):
+    """main returns exit code 0 on a successful fetch."""
+    with _patch_fetch(_SAMPLE_RESULT):
+        assert main(["fetch", "https://example.com"]) == 0
