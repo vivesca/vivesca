@@ -570,27 +570,27 @@ class TestComposeSignal:
 
     def test_returns_wacli_command(self):
         mod = self._mod()
-        with patch.object(mod, "resolve_jids", return_value=["123@s.whatsapp.net"]):
-            result = mod["compose_signal"]("tara", "hello there")
+        mod["resolve_jids"] = MagicMock(return_value=["123@s.whatsapp.net"])
+        result = mod["compose_signal"]("tara", "hello there")
         assert "wacli send --to '123@s.whatsapp.net'" in result
         assert "hello there" in result
 
     def test_no_contact_returns_comment(self):
         mod = self._mod()
-        with patch.object(mod, "resolve_jids", return_value=[]):
-            result = mod["compose_signal"]("ghost", "hello")
+        mod["resolve_jids"] = MagicMock(return_value=[])
+        result = mod["compose_signal"]("ghost", "hello")
         assert result.startswith("# No contact found")
 
     def test_escapes_single_quotes(self):
         mod = self._mod()
-        with patch.object(mod, "resolve_jids", return_value=["123@s.whatsapp.net"]):
-            result = mod["compose_signal"]("tara", "it's fine")
+        mod["resolve_jids"] = MagicMock(return_value=["123@s.whatsapp.net"])
+        result = mod["compose_signal"]("tara", "it's fine")
         assert "'\\''" in result or "it'\\''s fine" in result
 
     def test_uses_first_jid_only(self):
         mod = self._mod()
-        with patch.object(mod, "resolve_jids", return_value=["a@s.whatsapp.net", "a@lid"]):
-            result = mod["compose_signal"]("tara", "hi")
+        mod["resolve_jids"] = MagicMock(return_value=["a@s.whatsapp.net", "a@lid"])
+        result = mod["compose_signal"]("tara", "hi")
         assert "a@s.whatsapp.net" in result
         assert "a@lid" not in result
 
@@ -604,9 +604,10 @@ class TestActiveJunctions:
 
     def test_calls_wacli_with_correct_args(self):
         mod = self._mod()
-        with patch.object(mod, "_wacli", return_value="chat list") as mock:
-            result = mod["active_junctions"](limit=5)
-        mock.assert_called_once_with(["chats", "list", "--limit", "5"])
+        mock_wacli = MagicMock(return_value="chat list")
+        mod["_wacli"] = mock_wacli
+        result = mod["active_junctions"](limit=5)
+        mock_wacli.assert_called_once_with(["chats", "list", "--limit", "5"])
         assert result == "chat list"
 
 
@@ -619,9 +620,10 @@ class TestJunctionStatus:
 
     def test_calls_wacli_sync_status(self):
         mod = self._mod()
-        with patch.object(mod, "_wacli", return_value="running") as mock:
-            result = mod["junction_status"]()
-        mock.assert_called_once_with(["sync", "status"])
+        mock_wacli = MagicMock(return_value="running")
+        mod["_wacli"] = mock_wacli
+        result = mod["junction_status"]()
+        mock_wacli.assert_called_once_with(["sync", "status"])
         assert result == "running"
 
 
@@ -634,7 +636,8 @@ class TestSyncCatchup:
 
     def test_calls_wacli_sync_once(self):
         mod = self._mod()
-        with patch.object(mod, "_wacli", return_value="synced") as mock:
-            result = mod["sync_catchup"]()
-        mock.assert_called_once_with(["sync", "--once"], timeout=120)
+        mock_wacli = MagicMock(return_value="synced")
+        mod["_wacli"] = mock_wacli
+        result = mod["sync_catchup"]()
+        mock_wacli.assert_called_once_with(["sync", "--once"], timeout=120)
         assert result == "synced"
