@@ -81,5 +81,14 @@ fi
     --user-data-dir="$USER_DATA_DIR" \
     &
 
-echo "Chrome started with remote debugging on port $DEBUG_PORT"
+CHROME_PID=$!
+sleep 1
+
+# Verify the background process didn't immediately die
+if ! kill -0 "$CHROME_PID" 2>/dev/null; then
+    echo "Error: Chrome failed to start (pid $CHROME_PID exited immediately)" >&2
+    exit 1
+fi
+
+echo "Chrome started with remote debugging on port $DEBUG_PORT (pid $CHROME_PID)"
 echo "Connect via: http://localhost:$DEBUG_PORT"
