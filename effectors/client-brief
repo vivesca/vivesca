@@ -1,0 +1,292 @@
+#!/usr/bin/env python3
+# /// script
+# requires-python = ">=3.11"
+# dependencies = ["pyyaml"]
+# ///
+"""
+Client Brief Generator — searches ~/epigenome/chromatin/ for company context
+and outputs a 1-page markdown brief covering industry, size, recent news,
+AI posture, and consulting opportunities.
+
+Usage:
+    client-brief "HSBC"
+    client-brief "Standard Chartered"
+    client-brief "Capco"
+"""
+
+from __future__ import annotations
+
+import re
+import sys
+from dataclasses import dataclass, field
+from pathlib import Path
+
+import yaml
+
+CHROMATIN_PATH = Path.home() / "epigenome" / "chromatin"
+
+EXCLUDE_DIRS = {".obsidian", ".git", "Archive", "templates", ".DS_Store"}
+
+# Canonical industry mapping for known sectors
+INDUSTRY_HINTS: dict[str, str] = {
+    "bank": "Financial Services / Banking",
+    "banking": "Financial Services / Banking",
+    "fintech": "Financial Services / FinTech",
+    "insurance": "Financial Services / Insurance",
+    "consulting": "Professional Services / Consulting",
+    "consultancy": "Professional Services / Consulting",
+    "technology": "Technology",
+    "ai ": "Technology / Artificial Intelligence",
+    "cybersecurity": "Technology / Cybersecurity",
+    "healthcare": "Healthcare",
+    "pharma": "Healthcare / Pharmaceuticals",
+    "retail": "Retail & Consumer",
+    "energy": "Energy & Utilities",
+    "telco": "Telecommunications",
+    "telecom": "Telecommunications",
+}
+
+SIZE_HINTS: dict[str, str] = {
+    "startup": "Startup (< 200 employees)",
+    "scale-up": "Scale-up (200–1,000 employees)",
+    "mid-cap": "Mid-cap (1,000–10,000 employees)",
+    "large": "Large enterprise (10,000+ employees)",
+    "global": "Global enterprise (50,000+ employees)",
+    "tier 1": "Tier-1 global institution",
+    "tier-1": "Tier-1 global institution",
+}
+
+
+@dataclass
+class ChromatinHit:
+    """A relevant chromatin file matched to the company query."""
+
+    path: Path
+    score: float
+    snippets: list[str] = field(default_factory=list)
+    frontmatter: dict = field(default_factory=dict)
+
+
+# ── helpers ──────────────────────────────────────────────────────────────────
+
+
+def _read_frontmatter(content: str) -> dict:
+    """Extract YAML frontmatter from markdown content."""
+    if not content.startswith("---"):
+        return {}
+    try:
+        end = content.index("---", 3)
+        return yaml.safe_load(content[3:end]) or {}
+    except (ValueError, yaml.YAMLError):
+        return {}
+
+
+def _should_skip(path: Path) -> bool:
+    """Return True for paths under excluded directories."""
+    parts = set(path.parts)
+    return bool(parts & EXCLUDE_DIRS)
+
+
+def _tokenize(text: str) -> list[str]:
+    """Lowercase, strip punctuation, remove short tokens."""
+    return [t for t in re.split(r"\W+", text.lower()) if len(t) > 2]
+
+
+def _company_tokens(company: str) -> list[str]:
+    """Split company name into searchable tokens."""
+    return [t for t in re.split(r"\W+", company.lower()) if t]
+
+
+def _extract_snippets(content: str, tokens: list[str], max_snippets: int = 5) -> list[str]:
+    """Return lines that contain at least one token, up to max_snippets."""
+    lines = content.splitlines()
+    hits: list[str] = []
+    for line in lines:
+        low = line.lower()
+        if any(t in low for t in tokens):
+            clean = line.strip()
+            if clean and not clean.startswith("---") and len(clean) > 20:
+                hits.append(clean)
+            if len(hits) >= max_snippets:
+                break
+    return hits
+
+
+# ── core search ──────────────────────────────────────────────────────────────
+
+
+def search_chromatin(company: str, top_k: int = 10) -> list[ChromatinHit]:
+    """Walk chromatin, score files by relevance to *company*, return top K."""
+    tokens = _company_tokens(company)
+    if not tokens:
+        return []
+
+    hits: list[ChromatinHit] = []
+
+    for md_file in CHROMATIN_PATH.rglob("*.md"):
+        if _should_skip(md_file):
+            continue
+        try:
+            content = md_file.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+
+        # Filename relevance
+        fname_low = md_file.stem.lower()
+        name_score = sum(2.0 for t in tokens if t in fname_low)
+
+        # Content relevance — count token occurrences
+        content_low = content.lower()
+        body_score = sum(content_low.count(f" {t} ") for t in tokens)
+
+        total = name_score + body_score
+        if total < 1:
+            continue
+
+        fm = _read_frontmatter(content)
+        snippets = _extract_snippets(content, tokens, max_snippets=5)
+        hits.append(
+            ChromatinHit(path=md_file, score=total, snippets=snippets, frontmatter=fm)
+        )
+
+    hits.sort(key=lambda h: h.score, reverse=True)
+    return hits[:top_k]
+
+
+# ── brief generation ─────────────────────────────────────────────────────────
+
+
+def _detect_industry(snippets: list[str]) -> str:
+    """Heuristic industry detection from collected snippets."""
+    corpus = " ".join(snippets).lower()
+    for hint, label in INDUSTRY_HINTS.items():
+        if hint in corpus:
+            return label
+    return "Not yet determined — review chromatin sources for clues."
+
+
+def _detect_size(snippets: list[str]) -> str:
+    """Heuristic company-size detection."""
+    corpus = " ".join(snippets).lower()
+    for hint, label in SIZE_HINTS.items():
+        if hint in corpus:
+            return label
+    return "Not yet determined — check annual reports or LinkedIn."
+
+
+def _summarise_ai_posture(snippets: list[str], company: str) -> str:
+    """Summarise AI maturity / posture from available evidence."""
+    corpus = " ".join(snippets).lower()
+    signals: list[str] = []
+    if "ai governance" in corpus or "responsible ai" in corpus:
+        signals.append(f"{company} has formal AI governance frameworks.")
+    if "genai" in corpus or "generative ai" in corpus:
+        signals.append("Active Generative AI exploration or deployment.")
+    if "sandbox" in corpus:
+        signals.append("Participates in regulatory sandboxes (e.g., HKMA).")
+    if "aml" in corpus and ("model" in corpus or "ai" in corpus):
+        signals.append("AI/ML applied to AML and fraud detection.")
+    if not signals:
+        signals.append("Limited evidence in current knowledge base — further research recommended.")
+    return " ".join(signals)
+
+
+def _find_consulting_opportunities(snippets: list[str], company: str) -> list[str]:
+    """Derive potential consulting engagement angles."""
+    corpus = " ".join(snippets).lower()
+    opps: list[str] = []
+    if "regulatory" in corpus or "compliance" in corpus:
+        opps.append("Regulatory compliance & AI governance advisory")
+    if "risk tiering" in corpus or "risk" in corpus:
+        opps.append("AI risk-tiering and model risk management")
+    if "sandbox" in corpus:
+        opps.append("Sandbox programme delivery and evaluation")
+    if "data governance" in corpus or "data management" in corpus:
+        opps.append("Data governance framework design")
+    if "aml" in corpus or "fraud" in corpus:
+        opps.append("AML / fraud analytics modernisation")
+    if "digital" in corpus and ("transform" in corpus or "bank" in corpus):
+        opps.append("Digital transformation strategy")
+    if not opps:
+        opps.append("General AI strategy & governance assessment")
+    return opps
+
+
+def generate_brief(company: str, hits: list[ChromatinHit]) -> str:
+    """Compose a 1-page markdown client brief."""
+    all_snippets: list[str] = []
+    for h in hits:
+        all_snippets.extend(h.snippets)
+
+    # Sources summary
+    sources_lines: list[str] = []
+    for h in hits:
+        rel = h.path.relative_to(CHROMATIN_PATH) if h.path.is_relative_to(CHROMATIN_PATH) else h.path
+        sources_lines.append(f"- [{rel.stem}]({rel}) (relevance: {h.score:.0f})")
+
+    industry = _detect_industry(all_snippets)
+    size = _detect_size(all_snippets)
+    ai_posture = _summarise_ai_posture(all_snippets, company)
+    opps = _find_consulting_opportunities(all_snippets, company)
+
+    # Recent news — top snippets from the highest-scored files
+    recent_lines: list[str] = []
+    seen = set()
+    for s in all_snippets[:6]:
+        short = s[:160] + ("…" if len(s) > 160 else "")
+        if short not in seen:
+            seen.add(short)
+            recent_lines.append(f"- {short}")
+
+    opps_lines = "\n".join(f"  {i+1}. {o}" for i, o in enumerate(opps))
+    sources_md = "\n".join(sources_lines[:8])
+    recent_md = "\n".join(recent_lines) if recent_lines else "- No recent news extracted from knowledge base."
+
+    return f"""# Client Brief: {company}
+
+## Overview
+
+| Field | Detail |
+|-------|--------|
+| **Industry** | {industry} |
+| **Size** | {size} |
+
+## Recent News & Context
+
+{recent_md}
+
+## AI Posture
+
+{ai_posture}
+
+## Consulting Opportunities
+
+{opps_lines}
+
+## Sources (chromatin)
+
+{sources_md}
+"""
+
+
+# ── CLI ──────────────────────────────────────────────────────────────────────
+
+
+def main() -> None:
+    if len(sys.argv) < 2:
+        print("Usage: client-brief <company-name>", file=sys.stderr)
+        sys.exit(1)
+
+    company = " ".join(sys.argv[1:])
+    hits = search_chromatin(company)
+
+    if not hits:
+        print(f"# Client Brief: {company}\n\nNo relevant files found in {CHROMATIN_PATH}.")
+        sys.exit(0)
+
+    brief = generate_brief(company, hits)
+    print(brief)
+
+
+if __name__ == "__main__":
+    main()
