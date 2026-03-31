@@ -39,6 +39,8 @@ def main() -> None:
         print(__doc__.strip())
         sys.exit(0)
 
+    from metabolon.symbiont import parallel_transduce as parallel_query
+
     manifest_path = Path(sys.argv[1]).expanduser().resolve()
     if not manifest_path.exists():
         print(f"Error: manifest not found — {manifest_path}", file=sys.stderr)
