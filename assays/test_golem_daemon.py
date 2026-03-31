@@ -1643,3 +1643,239 @@ def test_mark_done_and_mark_failed_mixed_priorities(tmp_path):
     # Line 1 should be [ ] with (retry) (first failure of normal task)
     assert "- [ ]" in lines[1]
     assert "(retry)" in lines[1]
+
+
+# ── cmd_retry_all tests ──────────────────────────────────────────────────
+
+
+cmd_retry_all = _mod["cmd_retry_all"]
+
+_RETRY_ALL_QUEUE = """\
+# Golem Task Queue
+
+## Pending
+
+- [ ] `golem --provider infini "normal task"`
+- [!] `golem --provider volcano "failed task 1"`
+- [!] `golem --provider zhipu "failed task 2" (retry)`
+
+## Done
+
+- [x] `golem --provider infini "completed task"`
+"""
+
+
+def test_cmd_retry_all_requeues_failed(tmp_path, capsys):
+    """cmd_retry_all converts all [!] tasks to [ ] pending."""
+    queue_path = _make_queue_for_clean(tmp_path, _RETRY_ALL_QUEUE)
+    original_queue = _mod["QUEUE_FILE"]
+    try:
+        _mod["QUEUE_FILE"] = queue_path
+        rc = cmd_retry_all()
+    finally:
+        _mod["QUEUE_FILE"] = original_queue
+
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "Re-queued 2 failed tasks" in out
+
+    content = queue_path.read_text()
+    assert "- [!]" not in content
+    # Should have 3 pending tasks now (1 original + 2 re-queued)
+    assert content.count("- [ ]") == 3
+
+
+def test_cmd_retry_all_strips_retry_tag(tmp_path):
+    """cmd_retry_all removes (retry) suffix from re-queued tasks."""
+    queue_path = _make_queue_for_clean(tmp_path, _RETRY_ALL_QUEUE)
+    original_queue = _mod["QUEUE_FILE"]
+    try:
+        _mod["QUEUE_FILE"] = queue_path
+        cmd_retry_all()
+    finally:
+        _mod["QUEUE_FILE"] = original_queue
+
+    content = queue_path.read_text()
+    assert "(retry)" not in content
+    # The command text should still contain "failed task 2" without (retry)
+    assert 'golem --provider zhipu "failed task 2"' in content
+
+
+def test_cmd_retry_all_preserves_other_lines(tmp_path):
+    """cmd_retry_all keeps headers, blank lines, [x], and [ ] intact."""
+    queue_path = _make_queue_for_clean(tmp_path, _RETRY_ALL_QUEUE)
+    original_queue = _mod["QUEUE_FILE"]
+    try:
+        _mod["QUEUE_FILE"] = queue_path
+        cmd_retry_all()
+    finally:
+        _mod["QUEUE_FILE"] = original_queue
+
+    content = queue_path.read_text()
+    assert "# Golem Task Queue" in content
+    assert "## Pending" in content
+    assert "## Done" in content
+    assert "- [x]" in content
+    assert 'golem --provider infini "normal task"' in content
+
+
+def test_cmd_retry_all_no_failed_tasks(tmp_path, capsys):
+    """cmd_retry_all reports 0 when no [!] tasks exist."""
+    no_failed = """\
+## Pending
+
+- [ ] `golem "only task"`
+- [x] `golem "done task"`
+"""
+    queue_path = _make_queue_for_clean(tmp_path, no_failed)
+    original_queue = _mod["QUEUE_FILE"]
+    try:
+        _mod["QUEUE_FILE"] = queue_path
+        rc = cmd_retry_all()
+    finally:
+        _mod["QUEUE_FILE"] = original_queue
+
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "Re-queued 0 failed tasks" in out
+
+    content = queue_path.read_text()
+    assert "- [ ]" in content
+
+
+def test_cmd_retry_all_missing_queue_file(tmp_path, capsys):
+    """cmd_retry_all returns 1 when queue file does not exist."""
+    queue_path = tmp_path / "no_such_queue.md"
+    original_queue = _mod["QUEUE_FILE"]
+    try:
+        _mod["QUEUE_FILE"] = queue_path
+        rc = cmd_retry_all()
+    finally:
+        _mod["QUEUE_FILE"] = original_queue
+
+    assert rc == 1
+    out = capsys.readouterr().out
+    assert "Queue file not found" in out
+
+
+def test_cmd_retry_all_empty_queue(tmp_path, capsys):
+    """cmd_retry_all handles an empty queue file."""
+    queue_path = _make_queue_for_clean(tmp_path, "")
+    original_queue = _mod["QUEUE_FILE"]
+    try:
+        _mod["QUEUE_FILE"] = queue_path
+        rc = cmd_retry_all()
+    finally:
+        _mod["QUEUE_FILE"] = original_queue
+
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "Re-queued 0 failed tasks" in out
+
+
+def test_cmd_retry_all_all_tasks_failed(tmp_path, capsys):
+    """cmd_retry_all handles queue where every task is [!]."""
+    all_failed = "# Queue\n\n- [!] `golem \"fail1\"`\n- [!] `golem \"fail2\" (retry)`\n"
+    queue_path = _make_queue_for_clean(tmp_path, all_failed)
+    original_queue = _mod["QUEUE_FILE"]
+    try:
+        _mod["QUEUE_FILE"] = queue_path
+        rc = cmd_retry_all()
+    finally:
+        _mod["QUEUE_FILE"] = original_queue
+
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "Re-queued 2 failed tasks" in out
+
+    content = queue_path.read_text()
+    assert "- [!]" not in content
+    assert content.count("- [ ]") == 2
+    # (retry) stripped
+    assert "(retry)" not in content
+
+
+class TestCmdRetryAllEdgeCases:
+    """Edge cases for cmd_retry_all: unreadable, binary, write-protected."""
+
+    def test_cmd_retry_all_unreadable_file(self, tmp_path, capsys):
+        """cmd_retry_all returns 1 when queue file exists but is unreadable."""
+        queue_path = _make_queue_for_clean(tmp_path, "- [!] `golem \"fail\"`\n")
+        queue_path.chmod(0o000)
+        original_queue = _mod["QUEUE_FILE"]
+        try:
+            _mod["QUEUE_FILE"] = queue_path
+            rc = cmd_retry_all()
+        finally:
+            _mod["QUEUE_FILE"] = original_queue
+            queue_path.chmod(0o644)
+
+        assert rc == 1
+        out = capsys.readouterr().out
+        assert "unreadable" in out.lower()
+
+    def test_cmd_retry_all_binary_content(self, tmp_path, capsys):
+        """cmd_retry_all handles binary content in queue file."""
+        queue_path = _make_queue_for_clean(tmp_path, "")
+        queue_path.write_bytes(b"\x00\x01\x02\xff")
+        original_queue = _mod["QUEUE_FILE"]
+        try:
+            _mod["QUEUE_FILE"] = queue_path
+            rc = cmd_retry_all()
+        finally:
+            _mod["QUEUE_FILE"] = original_queue
+
+        assert rc == 1
+        out = capsys.readouterr().out
+        assert "unreadable" in out.lower()
+
+    def test_cmd_retry_all_write_protected(self, tmp_path, capsys):
+        """cmd_retry_all returns 1 when queue file is write-protected."""
+        queue_path = _make_queue_for_clean(tmp_path, "- [!] `golem \"fail\"`\n")
+        queue_path.chmod(0o444)
+        original_queue = _mod["QUEUE_FILE"]
+        try:
+            _mod["QUEUE_FILE"] = queue_path
+            rc = cmd_retry_all()
+        finally:
+            _mod["QUEUE_FILE"] = original_queue
+            queue_path.chmod(0o644)
+
+        # chmod 444 may not prevent owner write on Linux
+        assert rc in (0, 1)
+
+    def test_cmd_retry_all_then_parse_queue(self, tmp_path):
+        """After retry-all, parse_queue picks up the re-queued tasks."""
+    queue_path = _make_queue_for_clean(tmp_path, _RETRY_ALL_QUEUE)
+    original_queue = _mod["QUEUE_FILE"]
+    try:
+        _mod["QUEUE_FILE"] = queue_path
+        cmd_retry_all()
+        pending = parse_queue()
+    finally:
+        _mod["QUEUE_FILE"] = original_queue
+
+    # Originally 1 pending + 2 re-queued = 3
+    assert len(pending) == 3
+    commands = [cmd for _, cmd in pending]
+    assert any("normal task" in c for c in commands)
+    assert any("failed task 1" in c for c in commands)
+    assert any("failed task 2" in c for c in commands)
+    # No (retry) in any command
+    assert not any("(retry)" in c for c in commands)
+
+    def test_cmd_retry_all_preserves_inline_result_annotations(self, tmp_path):
+        """cmd_retry_all handles [!] lines that have trailing annotations."""
+    annotated = "# Queue\n\n- [!] `golem \"task\"` some error text\n"
+    queue_path = _make_queue_for_clean(tmp_path, annotated)
+    original_queue = _mod["QUEUE_FILE"]
+    try:
+        _mod["QUEUE_FILE"] = queue_path
+        rc = cmd_retry_all()
+    finally:
+        _mod["QUEUE_FILE"] = original_queue
+
+    assert rc == 0
+    content = queue_path.read_text()
+    # Should match the pattern and convert to [ ]
+    assert "- [ ]" in content

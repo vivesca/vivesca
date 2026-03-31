@@ -173,7 +173,10 @@ def remove_pid():
     PIDFILE.unlink(missing_ok=True)
 
 def parse_queue() -> list[tuple[int, str]]:
-    """Parse queue file, return list of (line_number, command) for pending tasks."""
+    """Parse queue file, return list of (line_number, command) for pending tasks.
+
+    High-priority tasks ([!!]) are sorted before normal tasks ([ ]).
+    """
     if not QUEUE_FILE.exists():
         return []
 
@@ -185,14 +188,23 @@ def parse_queue() -> list[tuple[int, str]]:
     pending = []
 
     for i, line in enumerate(lines):
-        # Match: - [ ] `golem ...`
+        # Match: - [!!] `golem ...` (high priority, priority=0)
+        m = re.match(r'^- \[!!] `([^`]+)`', line)
+        if m:
+            cmd = m.group(1).strip()
+            if cmd.startswith("golem "):
+                pending.append((i, cmd, 0))
+            continue
+        # Match: - [ ] `golem ...` (normal priority, priority=1)
         m = re.match(r'^- \[ \] `([^`]+)`', line)
         if m:
             cmd = m.group(1).strip()
             if cmd.startswith("golem "):
-                pending.append((i, cmd))
+                pending.append((i, cmd, 1))
 
-    return pending
+    # Sort: high priority (0) first, then normal (1); stable sort preserves file order
+    pending.sort(key=lambda x: x[2])
+    return [(i, cmd) for i, cmd, _ in pending]
 
 
 def parse_provider(cmd: str) -> str:
@@ -219,10 +231,14 @@ def mark_done(line_num: int, result: str = ""):
         if line_num >= len(lines):
             return
         original = lines[line_num]
-        # Verify the line is still a pending task
-        if not original.strip().startswith("- [ ] "):
+        # Verify the line is still a pending task (normal or high-priority)
+        stripped = original.strip()
+        if stripped.startswith("- [!!] "):
+            done_line = original.replace("- [!!] ", "- [x] ", 1)
+        elif stripped.startswith("- [ ] "):
+            done_line = original.replace("- [ ] ", "- [x] ", 1)
+        else:
             return
-        done_line = original.replace("- [ ] ", "- [x] ", 1)
         lines[line_num] = done_line
         for i, line in enumerate(lines):
             if line.strip() == "## Done":

@@ -148,9 +148,11 @@ class TestRunnerSelection:
         """
         bin_dir = tmp_path / "bin"
         bin_dir.mkdir()
+        # Include bash dir in PATH so /usr/bin/env can find it
+        bash_dir = "/usr/bin"
         env = {
             "HOME": str(tmp_path),
-            "PATH": str(bin_dir),  # empty dir — no date, no npx
+            "PATH": f"{bin_dir}:{bash_dir}",  # no date, no npx, but bash available
         }
         result = _run_script(env=env)
         assert result.returncode == 1

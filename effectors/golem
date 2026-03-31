@@ -6,6 +6,7 @@
 #   golem --full "Task needing MCP/skills/context"   # full organism access
 #   golem --batch metabolon/bar.py metabolon/baz.py  # sequential test gen
 #   golem --max-turns 30 "Complex task"
+#   golem --quiet "Task"                            # suppress all output, exit code only
 #   golem summary [--recent N]                       # show provider stats
 set -euo pipefail
 
@@ -99,11 +100,16 @@ if [[ "${1:-}" == "summary" ]]; then
   while [[ "${1:-}" == --* ]]; do
     case "$1" in
       --recent) summary_args+=("--recent" "$2"); shift 2 ;;
-      -h|--help) head -9 "$0" | tail -8 | sed 's/^# */  /'; exit 0 ;;
+      --quiet) QUIET=true; shift ;;
+      -h|--help) head -10 "$0" | tail -9 | sed 's/^# */  /'; exit 0 ;;
       *) echo "Unknown flag: $1" >&2; exit 1 ;;
     esac
   done
-  _run_summary "${summary_args[@]+"${summary_args[@]}"}"
+  if $QUIET; then
+    _run_summary "${summary_args[@]+"${summary_args[@]}"}" >/dev/null
+  else
+    _run_summary "${summary_args[@]+"${summary_args[@]}"}"
+  fi
   exit 0
 fi
 
@@ -262,7 +268,7 @@ _run_with_fallback() {
   if $FALLBACK && [[ $primary_exit -ne 0 ]]; then
     FALLBACK_PROVIDER="$(_fallback_provider "$PROVIDER")"
     if [[ -n "$FALLBACK_PROVIDER" ]]; then
-      echo "[fallback] primary provider '$PROVIDER' failed (exit=$primary_exit), retrying on '$FALLBACK_PROVIDER'..." >&2
+      $QUIET || echo "[fallback] primary provider '$PROVIDER' failed (exit=$primary_exit), retrying on '$FALLBACK_PROVIDER'..." >&2
       PROVIDER="$FALLBACK_PROVIDER"
       _configure_provider "$PROVIDER"
       _run_golem "$prompt" || true
