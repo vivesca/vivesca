@@ -29,6 +29,7 @@ Before running, verify:
 - `~/.cache/endocytosis/cargo.jsonl` exists (JSONL canonical news store)
 
 If sparks are empty, warn Terry and offer to run a one-off spark generation first.
+If cargo.jsonl is missing, proceed without news data and note it in the weekly report.
 
 ## Orchestration
 
