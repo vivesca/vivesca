@@ -1,193 +1,235 @@
 #!/usr/bin/env python3
-"""skill-search — Search SKILL.md files by keyword.
+"""skill-search - Search SKILL.md files by keyword.
 
-Searches YAML frontmatter fields (name, description, triggers) and
-body text across all membrane/receptors/*/SKILL.md files. Returns
-matching skills ranked by relevance (name hit > trigger hit > body hit).
+Like grep, but skill-aware: understands YAML frontmatter fields
+(name, description, triggers) and searches them intelligently.
 
 Usage:
-    skill-search <keyword> [keyword ...]
-    skill-search --json <keyword> [keyword ...]
-    skill-search --triggers <keyword>     # search triggers only
-    skill-search --all                    # include .archive skills
+    skill-search <keyword>           # search all fields
+    skill-search --field name <kw>   # search only name
+    skill-search --field description <kw>  # search only description
+    skill-search --field triggers <kw>     # search only triggers
+    skill-search --field body <kw>         # search only body content
+    skill-search --all <keyword>     # include archived skills
+    skill-search --path <dir> <kw>   # search in a custom root directory
+    skill-search --json <keyword>    # output as JSON
+
+Searches are case-insensitive by default.
 """
+
 from __future__ import annotations
 
+import argparse
 import json
 import re
 import sys
 from pathlib import Path
 
-RECEPTORS_DIR = Path(__file__).parent.parent / "membrane" / "receptors"
-FRONTMATTER_RE = re.compile(r"^---\s*\n(.*?)\n---\s*\n", re.DOTALL)
+# Default search root: membrane/receptors/ under the germline
+DEFAULT_ROOT = Path(__file__).resolve().parent.parent / "membrane" / "receptors"
+
+# Directories to skip by default
+SKIP_DIRS = {".archive", "node_modules", "__pycache__", ".git", "pytest-of-terry"}
+
+# YAML frontmatter delimiter
+FM_PATTERN = re.compile(r"^---\s*$", re.MULTILINE)
 
 
-def find_skill_files(include_archive: bool = False) -> list[Path]:
-    """Return all SKILL.md paths, sorted alphabetically."""
-    if not RECEPTORS_DIR.exists():
-        return []
-    files = []
-    for d in RECEPTORS_DIR.iterdir():
-        if not d.is_dir():
+def parse_frontmatter(text: str) -> tuple[dict[str, object], str]:
+    """Parse YAML frontmatter from SKILL.md text. Returns (meta, body)."""
+    parts = FM_PATTERN.split(text, maxsplit=2)
+    if len(parts) < 3:
+        return {}, text
+    meta_raw = parts[1].strip()
+    body = parts[2].strip()
+    meta: dict[str, object] = {}
+    for line in meta_raw.splitlines():
+        line = line.strip()
+        if not line or line.startswith("#"):
             continue
-        if d.name.startswith(".") and not include_archive:
+        # Handle list items under a key (e.g. triggers, epistemics)
+        if line.startswith("- ") and meta:
+            last_key = list(meta.keys())[-1]
+            existing = meta[last_key]
+            if isinstance(existing, list):
+                existing.append(line.lstrip("- ").strip())
+            else:
+                meta[last_key] = [existing, line.lstrip("- ").strip()]
             continue
-        if d.name == ".archive" and not include_archive:
-            continue
-        if d.name == ".archive" and include_archive:
-            for sub in sorted(d.iterdir()):
-                if sub.is_dir() and not sub.name.startswith("."):
-                    skill = sub / "SKILL.md"
-                    if skill.exists():
-                        files.append(skill)
-            continue
-        skill = d / "SKILL.md"
-        if skill.exists():
-            files.append(skill)
-    return sorted(files)
+        if ":" in line:
+            key, _, val = line.partition(":")
+            val = val.strip()
+            # Remove surrounding quotes
+            if val and val[0] in ('"', "'") and val[-1] == val[0]:
+                val = val[1:-1]
+            if val:
+                meta[key.strip()] = val
+            else:
+                meta[key.strip()] = []
+    return meta, body
 
 
-def parse_frontmatter(content: str) -> dict:
-    """Parse YAML frontmatter, return dict (empty on failure)."""
-    match = FRONTMATTER_RE.match(content)
-    if not match:
-        return {}
-    try:
-        import yaml
-        data = yaml.safe_load(match.group(1))
-        return data if isinstance(data, dict) else {}
-    except Exception:
-        return {}
+def find_skills(root: Path, include_archived: bool = False) -> list[Path]:
+    """Find all SKILL.md files under root."""
+    skills = []
+    for p in root.rglob("SKILL.md"):
+        # Check if any parent directory is in SKIP_DIRS
+        skipped = False
+        for part in p.relative_to(root).parts:
+            if part in SKIP_DIRS and (part != ".archive" or not include_archived):
+                skipped = True
+                break
+        if not skipped:
+            skills.append(p)
+    return sorted(skills)
 
 
-def get_body(content: str) -> str:
-    """Return the body text (everything after frontmatter)."""
-    match = FRONTMATTER_RE.match(content)
-    if match:
-        return content[match.end():]
-    return content
+def load_skill(path: Path) -> dict[str, object]:
+    """Load and parse a SKILL.md file into a dict."""
+    text = path.read_text(encoding="utf-8")
+    meta, body = parse_frontmatter(text)
+    meta["_path"] = str(path)
+    meta["_body"] = body
+    return meta
+
+
+def keyword_matches(keyword: str, fields: dict[str, object]) -> bool:
+    """Check if keyword appears in any of the field values (case-insensitive)."""
+    kw_lower = keyword.lower()
+    for val in fields.values():
+        if isinstance(val, str) and kw_lower in val.lower():
+            return True
+        if isinstance(val, list):
+            for item in val:
+                if isinstance(item, str) and kw_lower in item.lower():
+                    return True
+    return False
 
 
 def search_skills(
-    keywords: list[str],
-    *,
-    triggers_only: bool = False,
-    include_archive: bool = False,
-) -> list[dict]:
-    """Search SKILL.md files and return ranked matches."""
-    results: list[dict] = []
-
-    for skill_path in find_skill_files(include_archive):
-        content = skill_path.read_text(encoding="utf-8")
-        fm = parse_frontmatter(content)
-        body = get_body(content) if not triggers_only else ""
-
-        name = fm.get("name", skill_path.parent.name)
-        description = fm.get("description", "")
-        triggers = fm.get("triggers", [])
-        if isinstance(triggers, str):
-            triggers = [triggers]
-
-        # Flatten triggers into a single searchable string
-        triggers_str = " ".join(str(t) for t in triggers)
-
-        # Build searchable text pools
-        # Scoring: name match = 3pts, trigger match = 2pts, description match = 1pt, body = 0.5pt
-        score = 0.0
-        matched_fields: list[str] = []
-
-        for kw in keywords:
-            kw_lower = kw.lower()
-
-            if kw_lower in name.lower():
-                score += 3
-                if "name" not in matched_fields:
-                    matched_fields.append("name")
-
-            if any(kw_lower in str(t).lower() for t in triggers):
-                score += 2
-                if "triggers" not in matched_fields:
-                    matched_fields.append("triggers")
-
-            if kw_lower in description.lower():
-                score += 1
-                if "description" not in matched_fields:
-                    matched_fields.append("description")
-
-            if not triggers_only and kw_lower in body.lower():
-                score += 0.5
-                if "body" not in matched_fields:
-                    matched_fields.append("body")
-
-        if score > 0:
-            results.append({
-                "name": name,
-                "description": description,
-                "triggers": triggers,
-                "path": str(skill_path),
-                "score": score,
-                "matched_fields": matched_fields,
-            })
-
-    results.sort(key=lambda r: r["score"], reverse=True)
+    keyword: str,
+    root: Path = DEFAULT_ROOT,
+    field: str | None = None,
+    include_archived: bool = False,
+) -> list[dict[str, object]]:
+    """Search skills by keyword. Returns list of matching skill dicts."""
+    paths = find_skills(root, include_archived)
+    results = []
+    for p in paths:
+        skill = load_skill(p)
+        if field:
+            if field == "body":
+                search_in = {"body": skill.get("_body", "")}
+            elif field == "triggers":
+                search_in = {"triggers": skill.get("triggers", [])}
+            else:
+                val = skill.get(field, "")
+                search_in = {field: val}
+        else:
+            # Search name, description, triggers, and body
+            search_in = {
+                "name": skill.get("name", ""),
+                "description": skill.get("description", ""),
+                "triggers": skill.get("triggers", []),
+                "body": skill.get("_body", ""),
+            }
+        if keyword_matches(keyword, search_in):
+            results.append(skill)
     return results
 
 
-def format_results(results: list[dict]) -> str:
-    """Format search results as human-readable output."""
-    if not results:
-        return "No matching skills found."
-
-    lines = []
-    for i, r in enumerate(results, 1):
-        fields = ", ".join(r["matched_fields"])
-        triggers = ", ".join(str(t) for t in r["triggers"]) if r["triggers"] else "—"
-        lines.append(f"{i}. {r['name']}  ({fields})")
-        lines.append(f"   {r['description']}")
-        lines.append(f"   triggers: {triggers}")
-        if len(results) > 1:
-            lines.append("")
-    return "\n".join(lines).rstrip()
+def format_result(skill: dict[str, object], verbose: bool = False) -> str:
+    """Format a single skill result for display."""
+    name = skill.get("name", "unknown")
+    desc = skill.get("description", "")
+    path = skill.get("_path", "")
+    triggers = skill.get("triggers", [])
+    rel_path = Path(path)
+    # Try to make path relative to germline root
+    try:
+        germline = Path(__file__).resolve().parent.parent
+        rel_path = rel_path.relative_to(germline)
+    except ValueError:
+        pass
+    lines = [f"  {name}  ({rel_path})"]
+    if desc:
+        lines.append(f"    {desc}")
+    if verbose and triggers:
+        trig_str = ", ".join(triggers) if isinstance(triggers, list) else str(triggers)
+        lines.append(f"    triggers: {trig_str}")
+    return "\n".join(lines)
 
 
 def main(argv: list[str] | None = None) -> int:
-    args = list(argv or sys.argv[1:])
+    parser = argparse.ArgumentParser(
+        prog="skill-search",
+        description="Search SKILL.md files by keyword (skill-aware grep).",
+    )
+    parser.add_argument("keyword", help="Keyword to search for (case-insensitive)")
+    parser.add_argument(
+        "--field",
+        choices=["name", "description", "triggers", "body"],
+        default=None,
+        help="Restrict search to a specific field (default: all fields)",
+    )
+    parser.add_argument(
+        "--all",
+        action="store_true",
+        dest="include_archived",
+        help="Include archived skills (.archive directory)",
+    )
+    parser.add_argument(
+        "--path",
+        type=Path,
+        default=DEFAULT_ROOT,
+        help="Root directory to search (default: membrane/receptors/)",
+    )
+    parser.add_argument(
+        "--json",
+        action="store_true",
+        dest="json_output",
+        help="Output results as JSON",
+    )
+    parser.add_argument(
+        "-v", "--verbose",
+        action="store_true",
+        help="Show triggers in output",
+    )
+    args = parser.parse_args(argv)
 
-    if not args or "-h" in args or "--help" in args:
-        print(__doc__)
-        return 0
-
-    use_json = False
-    triggers_only = False
-    include_archive = False
-
-    if "--json" in args:
-        use_json = True
-        args.remove("--json")
-    if "--triggers" in args:
-        triggers_only = True
-        args.remove("--triggers")
-    if "--all" in args:
-        include_archive = True
-        args.remove("--all")
-
-    if not args:
-        print("Error: no keywords provided", file=sys.stderr)
-        return 1
+    if not args.keyword:
+        parser.error("keyword is required")
 
     results = search_skills(
-        args,
-        triggers_only=triggers_only,
-        include_archive=include_archive,
+        args.keyword,
+        root=args.path,
+        field=args.field,
+        include_archived=args.include_archived,
     )
 
-    if use_json:
-        print(json.dumps(results, indent=2))
+    if args.json_output:
+        output = []
+        for skill in results:
+            entry = {
+                "name": skill.get("name", "unknown"),
+                "description": skill.get("description", ""),
+                "path": skill.get("_path", ""),
+            }
+            triggers = skill.get("triggers")
+            if triggers:
+                entry["triggers"] = triggers
+            output.append(entry)
+        print(json.dumps(output, indent=2, ensure_ascii=False))
     else:
-        print(format_results(results))
-
+        if not results:
+            print(f"No skills matching '{args.keyword}'")
+            return 1
+        print(f"Found {len(results)} skill(s) matching '{args.keyword}':\n")
+        for skill in results:
+            print(format_result(skill, verbose=args.verbose))
+            print()
     return 0
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    raise SystemExit(main())
