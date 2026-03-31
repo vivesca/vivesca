@@ -38,7 +38,8 @@ DAILY_DIR = NOTES / "Daily"
 NOW_MD = NOTES / "Tonus.md"
 SKILLS = HOME / "code" / "vivesca" / "receptors"
 CLAUDE_SKILLS = HOME / ".claude" / "skills"
-MEMORY = HOME / ".claude" / "projects" / "-Users-terry" / "memory" / "MEMORY.md"
+_CLAUDE_PROJECT = f"-{str(HOME).replace('/', '-')}"
+MEMORY = HOME / ".claude" / "projects" / _CLAUDE_PROJECT / "memory" / "MEMORY.md"
 MEMORY_LIMIT = 150
 
 # Always-checked repos

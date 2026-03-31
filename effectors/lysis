@@ -26,11 +26,11 @@ def get_api_key() -> str:
             capture_output=True, text=True, check=True, timeout=10,
         )
         return result.stdout.strip()
-    except subprocess.CalledProcessError:
+    except (subprocess.CalledProcessError, FileNotFoundError):
         key = os.environ.get("FIRECRAWL_API_KEY", "")
         if key:
             return key
-        print("No API key found. Store with:", file=sys.stderr)
+        print("No API key found. Set FIRECRAWL_API_KEY env var or on macOS:", file=sys.stderr)
         print("  security add-generic-password -s peruro -a $USER -w fc-...", file=sys.stderr)
         sys.exit(1)
 
@@ -75,9 +75,9 @@ def search(query: str, key: str) -> None:
 
 def main() -> None:
     args = sys.argv[1:]
-    if not args:
+    if not args or args[0] in ("--help", "-h"):
         print(__doc__, file=sys.stderr)
-        sys.exit(1)
+        sys.exit(0)
     key = get_api_key()
     if args[0] == "search":
         if len(args) < 2:

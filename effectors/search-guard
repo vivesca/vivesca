@@ -24,9 +24,17 @@ def _find_real_binary(name: str) -> str:
     return name  # give up, let execv report the error
 
 
+_KNOWN_WRAPPERS = {"grep", "rg", "find"}
+
+
 def main():
     binary_name = os.path.basename(sys.argv[0])
     args = sys.argv[1:]
+
+    # If invoked directly as search-guard (not via a symlink), bail out
+    if binary_name not in _KNOWN_WRAPPERS:
+        print(f"Usage: invoke via symlink (grep, rg, find) — not as '{binary_name}'")
+        sys.exit(1)
 
     # Identify the target path in arguments
     search_path = None
@@ -49,7 +57,7 @@ def main():
         sys.exit(1)
 
     # BLOCK: Massive directories
-    massive_dirs = [os.path.join(home, d) for d in ("Library", "Pictures", "Downloads", ".local", ".cache", "node_modules")]
+    massive_dirs = [os.path.join(home, d) for d in ("Pictures", "Downloads", ".local", ".cache", "node_modules")]
     if search_path in [os.path.abspath(d) for d in massive_dirs]:
         print(f"\n❌ SEARCH BLOCKED: Directory '{search_path}' is too large.")
         sys.exit(1)
