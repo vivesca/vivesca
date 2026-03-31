@@ -1,5 +1,7 @@
 """Tests for sporulation checkpoint module."""
 
+from __future__ import annotations
+
 import pytest
 from unittest.mock import patch, MagicMock
 from datetime import UTC, datetime, timedelta
@@ -7,6 +9,7 @@ from pathlib import Path
 
 from metabolon.enzymes.sporulation import (
     _gen_codename,
+    _checkpoint_path,
     _existing_codenames,
     _purge_stale,
     _save,
@@ -17,6 +20,7 @@ from metabolon.enzymes.sporulation import (
     SporulationLoadResult,
     SporulationListResult,
 )
+from metabolon.morphology import Secretion
 
 
 def test_gen_codename_generates_unique():
