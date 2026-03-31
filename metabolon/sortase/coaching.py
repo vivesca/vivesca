@@ -88,6 +88,20 @@ def add_coaching_note(
     target.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
+def _load_coaching_patterns(path: Path | None = None) -> list[str]:
+    """Load coaching note headings/patterns for gap detection."""
+    target = path or DEFAULT_COACHING_PATH
+    if not target.exists():
+        return []
+    text = target.read_text(encoding="utf-8")
+    # Extract pattern headings (### lines and **bold** items)
+    patterns: list[str] = []
+    for line in text.splitlines():
+        if line.startswith("###") or line.startswith("- **"):
+            patterns.append(line)
+    return patterns
+
+
 def search_coaching(path: Path | None = None, query: str = "") -> list[dict]:
     """Search coaching notes by keyword (case-insensitive).
 
