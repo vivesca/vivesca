@@ -646,7 +646,7 @@ def test_cmd_check_no_experiment_exits(capsys, tmp_path):
     assert "No active experiment" in err
 
 
-def test_cmd_check_appends_to_file(capsys, tmp_path, monkeypatch):
+def test_cmd_check_appends_to_file(capsys, tmp_path):
     """cmd_check appends check-in data to experiment file."""
     exp_dir = tmp_path / "experiments"
     exp_dir.mkdir()
@@ -673,15 +673,24 @@ def test_cmd_check_appends_to_file(capsys, tmp_path, monkeypatch):
             }
         }
 
-    monkeypatch.setattr(_mod, "EXPERIMENT_DIR", exp_dir)
-    monkeypatch.setattr(_mod, "pull_oura", mock_pull_oura)
-    monkeypatch.setattr(_mod, "pull_intake", lambda s, k: [])
-    monkeypatch.setattr(_mod["date"], "today", lambda: date(2024, 1, 15))
+    original_dir = _mod["EXPERIMENT_DIR"]
+    original_pull = _mod["pull_oura"]
+    original_intake = _mod["pull_intake"]
+    original_today = _mod["date"].today
+    _mod["EXPERIMENT_DIR"] = exp_dir
+    _mod["pull_oura"] = mock_pull_oura
+    _mod["pull_intake"] = lambda s, k: []
+    _mod["date"].today = lambda: date(2024, 1, 15)
+    try:
+        args = MagicMock()
+        args.name = None
 
-    args = MagicMock()
-    args.name = None
-
-    cmd_check(args)
+        cmd_check(args)
+    finally:
+        _mod["EXPERIMENT_DIR"] = original_dir
+        _mod["pull_oura"] = original_pull
+        _mod["pull_intake"] = original_intake
+        _mod["date"].today = original_today
 
     content = exp_file.read_text()
     assert "### Day 1" in content

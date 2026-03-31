@@ -85,7 +85,7 @@ class TestOptionParsing:
         assert r.returncode == 0
         assert "Dry run" in r.stdout
         assert "would execute" in r.stdout
-        assert str(AUTO_UPDATE_SCRIPT) in r.stdout
+        assert "auto-update-compound-engineering.sh" in r.stdout
         assert "Dry run complete" in r.stdout
 
     def test_dry_run_long_flag_works(self, tmp_path):
