@@ -458,20 +458,20 @@ class TestWacliJson:
 
     def test_parses_valid_json(self):
         mod = self._mod()
-        with patch.object(mod, "_wacli", return_value='{"success": true, "data": []}'):
-            result = mod["_wacli_json"](["contacts", "search", "tara", "--json"])
+        mod["_wacli"] = MagicMock(return_value='{"success": true, "data": []}')
+        result = mod["_wacli_json"](["contacts", "search", "tara", "--json"])
         assert result == {"success": True, "data": []}
 
     def test_invalid_json_returns_empty_dict(self):
         mod = self._mod()
-        with patch.object(mod, "_wacli", return_value="not json at all"):
-            result = mod["_wacli_json"](["test"])
+        mod["_wacli"] = MagicMock(return_value="not json at all")
+        result = mod["_wacli_json"](["test"])
         assert result == {}
 
     def test_empty_string_returns_empty_dict(self):
         mod = self._mod()
-        with patch.object(mod, "_wacli", return_value=""):
-            result = mod["_wacli_json"](["test"])
+        mod["_wacli"] = MagicMock(return_value="")
+        result = mod["_wacli_json"](["test"])
         assert result == {}
 
 
@@ -488,21 +488,21 @@ class TestResolveJids:
             {"JID": "123@s.whatsapp.net", "Name": "tara"},
             {"JID": "123@lid", "Name": "tara"},
         ]}
-        with patch.object(mod, "_wacli_json", return_value=contacts):
-            jids = mod["resolve_jids"]("tara")
+        mod["_wacli_json"] = MagicMock(return_value=contacts)
+        jids = mod["resolve_jids"]("tara")
         assert jids == ["123@s.whatsapp.net", "123@lid"]
 
     def test_no_contacts_returns_empty(self):
         mod = self._mod()
-        with patch.object(mod, "_wacli_json", return_value={"data": []}):
-            jids = mod["resolve_jids"]("nobody")
+        mod["_wacli_json"] = MagicMock(return_value={"data": []})
+        jids = mod["resolve_jids"]("nobody")
         assert jids == []
 
     def test_contacts_without_jid_skipped(self):
         mod = self._mod()
         contacts = {"data": [{"Name": "tara"}, {"JID": "123@s.whatsapp.net", "Name": "tara"}]}
-        with patch.object(mod, "_wacli_json", return_value=contacts):
-            jids = mod["resolve_jids"]("tara")
+        mod["_wacli_json"] = MagicMock(return_value=contacts)
+        jids = mod["resolve_jids"]("tara")
         assert jids == ["123@s.whatsapp.net"]
 
 
@@ -515,17 +515,17 @@ class TestReceiveSignals:
 
     def test_no_contact_found(self):
         mod = self._mod()
-        with patch.object(mod, "resolve_jids", return_value=[]):
-            result = mod["receive_signals"]("nobody")
+        mod["resolve_jids"] = MagicMock(return_value=[])
+        result = mod["receive_signals"]("nobody")
         assert "No contact found" in result
 
     def test_merges_multiple_jids(self):
         mod = self._mod()
-        with patch.object(mod, "resolve_jids", return_value=["a@s.whatsapp.net", "a@lid"]):
-            with patch.object(mod, "_wacli_json", return_value={"data": {"messages": [
-                {"MsgID": "1", "Timestamp": "2025-01-01T10:00:00Z", "FromMe": True, "Text": "hi"},
-            ]}}):
-                result = mod["receive_signals"]("tara", limit=5)
+        mod["resolve_jids"] = MagicMock(return_value=["a@s.whatsapp.net", "a@lid"])
+        mod["_wacli_json"] = MagicMock(return_value={"data": {"messages": [
+            {"MsgID": "1", "Timestamp": "2025-01-01T10:00:00Z", "FromMe": True, "Text": "hi"},
+        ]}})
+        result = mod["receive_signals"]("tara", limit=5)
         assert "me: hi" in result
 
 
@@ -541,23 +541,23 @@ class TestSearchSignals:
         msgs = {"data": {"messages": [
             {"MsgID": "1", "Timestamp": "2025-03-01T12:00:00Z", "FromMe": False, "Text": "lunch?"},
         ]}}
-        with patch.object(mod, "_wacli_json", return_value=msgs):
-            result = mod["search_signals"]("lunch")
+        mod["_wacli_json"] = MagicMock(return_value=msgs)
+        result = mod["search_signals"]("lunch")
         assert "them: lunch?" in result
 
     def test_scoped_search_no_contact(self):
         mod = self._mod()
-        with patch.object(mod, "resolve_jids", return_value=[]):
-            result = mod["search_signals"]("hello", name="ghost")
+        mod["resolve_jids"] = MagicMock(return_value=[])
+        result = mod["search_signals"]("hello", name="ghost")
         assert "No contact found" in result
 
     def test_scoped_search_with_jids(self):
         mod = self._mod()
-        with patch.object(mod, "resolve_jids", return_value=["a@s.whatsapp.net"]):
-            with patch.object(mod, "_wacli_json", return_value={"data": {"messages": [
-                {"MsgID": "2", "Timestamp": "2025-02-01T09:00:00Z", "FromMe": True, "Text": "yo"},
-            ]}}):
-                result = mod["search_signals"]("yo", name="tara")
+        mod["resolve_jids"] = MagicMock(return_value=["a@s.whatsapp.net"])
+        mod["_wacli_json"] = MagicMock(return_value={"data": {"messages": [
+            {"MsgID": "2", "Timestamp": "2025-02-01T09:00:00Z", "FromMe": True, "Text": "yo"},
+        ]}})
+        result = mod["search_signals"]("yo", name="tara")
         assert "me: yo" in result
 
 
