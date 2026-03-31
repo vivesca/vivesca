@@ -3,7 +3,6 @@
 
 import pytest
 import argparse
-import io
 from pathlib import Path
 from unittest.mock import MagicMock, patch, mock_open
 
@@ -127,18 +126,13 @@ def test_run_cmd_actual_run_failure():
 def test_rename_one_computes_paths_correctly():
     """Test rename_one computes correct new paths and labels."""
     old_plist = Path("/test/oscillators/com.terry.my-job.plist")
-    
-    # We need to mock file opening and plistlib
     mock_plist_data = {"Label": "com.terry.my-job"}
     
-    # Mock Path.exists to return False for symlink
-    original_exists = Path.exists
-    def mock_exists(self):
-        if self == rename_plists.LAUNCH_AGENTS_DIR / old_plist.name:
-            return False
-        return original_exists(self)
+    # Mock builtins.open for all opening
+    mocked_open = mock_open()
+    mocked_open.return_value.__enter__.return_value.read.return_value = b''
     
-    with patch('pathlib.Path.open', mock_open()):
+    with patch('builtins.open', mocked_open):
         with patch('plistlib.load', return_value=mock_plist_data):
             with patch('plistlib.dump'):
                 with patch('subprocess.run'):

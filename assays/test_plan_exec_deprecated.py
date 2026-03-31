@@ -3,6 +3,7 @@
 
 import pytest
 import argparse
+import subprocess
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -52,7 +53,8 @@ def test_build_prompt_includes_plan_content(tmp_path):
 def test_build_prompt_includes_rules():
     """Test _build_prompt includes the execution rules."""
     plan_file = Path("/tmp/test-plan.txt")
-    plan_file.write_text("Plan")
+    if not plan_file.exists():
+        plan_file.write_text("Plan")
     
     prompt = plan_exec._build_prompt(".", str(plan_file))
     
@@ -76,6 +78,9 @@ def test_run_backend_succeeded_success():
     mock_result.returncode = 0
     
     with patch('subprocess.run', return_value=mock_result):
+        # Create the file for _build_prompt
+        if not Path("/tmp/plan.txt").exists():
+            Path("/tmp/plan.txt").write_text("test plan")
         result = plan_exec.run_backend(backend, ".", "/tmp/plan.txt", output_file)
         assert result is True
 
@@ -84,7 +89,10 @@ def test_run_backend_handles_timeout():
     backend = plan_exec.BACKENDS[0]
     output_file = Path("/tmp/test-timeout.log")
     
-    with patch('subprocess.run', side_effect=TimeoutExpired("cmd", 600)):
+    if not Path("/tmp/plan.txt").exists():
+        Path("/tmp/plan.txt").write_text("test plan")
+    
+    with patch('subprocess.run', side_effect=subprocess.TimeoutExpired("cmd", 600)):
         result = plan_exec.run_backend(backend, ".", "/tmp/plan.txt", output_file)
         assert result is False
 
@@ -92,6 +100,9 @@ def test_run_backend_handles_not_found():
     """Test run_backend returns False when command not found."""
     backend = plan_exec.BACKENDS[0]
     output_file = Path("/tmp/test-notfound.log")
+    
+    if not Path("/tmp/plan.txt").exists():
+        Path("/tmp/plan.txt").write_text("test plan")
     
     with patch('subprocess.run', side_effect=FileNotFoundError()):
         result = plan_exec.run_backend(backend, ".", "/tmp/plan.txt", output_file)
@@ -133,12 +144,14 @@ def test_main_filters_backend_by_name():
         f.write("test")
     
     with patch('sys.argv', ['plan-exec', '/tmp/test-plan.txt', '--backend', 'codex']):
-        # It will try to run codex which isn't here, but we can check the filtering
-        with patch('plan_exec.run_backend', return_value=False):
-            with pytest.raises(SystemExit) as exc_info:
-                plan_exec.main()
-            # Since we mocked run_backend to return False, it exits 1 after all fail
-            assert exc_info.value.code == 1
+        # Mock run_backend at the module namespace level
+        original_run_backend = plan_exec.run_backend
+        plan_exec.run_backend = lambda *args, **kwargs: False
+        with pytest.raises(SystemExit) as exc_info:
+            plan_exec.main()
+        plan_exec.run_backend = original_run_backend
+        # Since run_backend mocked to return False, it exits 1 after all fail
+        assert exc_info.value.code == 1
 
 def test_main_unknown_backend_exits():
     """Test main exits with error when unknown backend requested."""

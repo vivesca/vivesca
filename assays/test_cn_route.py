@@ -2,6 +2,7 @@
 """Tests for cn-route effector — tests routing logic and host list."""
 
 import pytest
+import sys
 from pathlib import Path
 from unittest.mock import MagicMock, patch, call
 
@@ -227,7 +228,8 @@ def test_add_routes_exits_no_gateway():
     cn_route._lan_gateway = lambda: None
     
     with pytest.raises(SystemExit) as exc_info:
-        cn_route.add_routes()
+        with patch('builtins.print'):
+            cn_route.add_routes()
     
     cn_route._lan_gateway = original_lan_gateway
     assert exc_info.value.code == 1
@@ -241,7 +243,8 @@ def test_add_routes_exits_no_ips():
     cn_route._resolve = lambda host: []
     
     with pytest.raises(SystemExit) as exc_info:
-        cn_route.add_routes()
+        with patch('builtins.print'):
+            cn_route.add_routes()
     
     cn_route._lan_gateway = original_lan_gateway
     cn_route._resolve = original_resolve

@@ -70,17 +70,14 @@ def test_read_last_snapshot_returns_none_when_no_file():
 
 def test_read_last_snapshot_returns_none_when_empty():
     """Test returns None when log file is empty."""
-    # Create a BytesIO object that supports seek
-    class EmptySeekableBytesIO(io.BytesIO):
-        def seek(self, offset, whence=0):
-            return super().seek(offset, whence)
+    def mock_exists(self):
+        if self == phagocytosis.LOG_FILE:
+            return True
+        return False
     
-    mock_io = EmptySeekableBytesIO()
-    mock_file = mock_open()
-    mock_file.return_value = mock_io
-    
-    with patch('pathlib.Path.exists', return_value=True):
-        with patch('builtins.open', mock_file):
+    mock_file = io.BytesIO()
+    with patch('pathlib.Path.exists', mock_exists):
+        with patch('builtins.open', return_value=mock_file):
             result = phagocytosis.read_last_snapshot()
             assert result is None
 
@@ -90,15 +87,15 @@ def test_read_last_snapshot_reads_last_line():
     entry2 = json.dumps({"ts": 1234567891, "files": ["b.md", "c.md"]})
     content = f"{entry1}\n{entry2}\n".encode('utf-8')
     
-    # Create a proper seekable BytesIO
-    import io
     mock_io = io.BytesIO(content)
     
-    mock_file = mock_open()
-    mock_file.return_value = mock_io
+    def mock_exists(self):
+        if self == phagocytosis.LOG_FILE:
+            return True
+        return False
     
-    with patch('pathlib.Path.exists', return_value=True):
-        with patch('builtins.open', mock_file):
+    with patch('pathlib.Path.exists', mock_exists):
+        with patch('builtins.open', return_value=mock_io):
             result = phagocytosis.read_last_snapshot()
             assert result == ["b.md", "c.md"]
 
@@ -114,16 +111,23 @@ def test_main_exits_if_workspace_missing():
 
 def test_main_exits_if_no_current_files():
     """Test main returns early when empty file list."""
-    with patch('pathlib.Path.exists', return_value=True):
-        with patch.object(phagocytosis, 'read_last_open_files', return_value=[]):
+    def mock_exists(self):
+        return str(self) == str(phagocytosis.WORKSPACE)
+    
+    with patch('pathlib.Path.exists', mock_exists):
+        with patch('pathlib.Path.read_text', return_value='{"lastOpenFiles": []}'):
             # Should not throw
             phagocytosis.main()
 
 def test_main_skips_if_same_as_last():
     """Test skips writing when files haven't changed."""
     file_list = ["/a.md", "/b.md"]
-    with patch('pathlib.Path.exists', return_value=True):
-        with patch.object(phagocytosis, 'read_last_open_files', return_value=file_list):
+    
+    def mock_exists(self):
+        return str(self) == str(phagocytosis.WORKSPACE)
+    
+    with patch('pathlib.Path.exists', mock_exists):
+        with patch('pathlib.Path.read_text', return_value=json.dumps({"lastOpenFiles": file_list})):
             with patch.object(phagocytosis, 'read_last_snapshot', return_value=file_list):
                 with patch('builtins.open', mock_open()) as mock_file:
                     phagocytosis.main()
@@ -136,8 +140,11 @@ def test_main_writes_entry_when_changed():
     last_files = ["/a.md", "/b.md"]
     current_files = ["/b.md", "/c.md"]
     
-    with patch('pathlib.Path.exists', return_value=True):
-        with patch.object(phagocytosis, 'read_last_open_files', return_value=current_files):
+    def mock_exists(self):
+        return str(self) == str(phagocytosis.WORKSPACE)
+    
+    with patch('pathlib.Path.exists', mock_exists):
+        with patch('pathlib.Path.read_text', return_value=json.dumps({"lastOpenFiles": current_files})):
             with patch.object(phagocytosis, 'read_last_snapshot', return_value=last_files):
                 mock_file_handle = mock_open()
                 with patch('builtins.open', mock_file_handle):

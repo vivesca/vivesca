@@ -63,19 +63,15 @@ def test_run_cmd_exception():
 def test_gather_effector_proposals_runs_effector():
     """Test gather_effector_proposals runs the methylation effector."""
     # Save original run_cmd
-    original_run_cmd = methylation_review.run_cmd
-    
-    def mock_run_cmd(cmd):
-        return (0, "", "")
-    
-    methylation_review.run_cmd = mock_run_cmd
+    original_run_cmd = namespace['run_cmd']
+    namespace['run_cmd'] = lambda cmd, timeout=180: (0, "", "")
     
     with patch.object(Path, 'exists', return_value=False):
         content = methylation_review.gather_effector_proposals()
         # With no files, returns empty string with two newlines
         assert content.strip() == ""
     
-    methylation_review.run_cmd = original_run_cmd
+    namespace['run_cmd'] = original_run_cmd
 
 # ---------------------------------------------------------------------------
 # Test gather_jsonl_observations
@@ -107,9 +103,12 @@ def test_gather_jsonl_filters_recent_events():
 
 def test_gather_jsonl_handles_invalid_lines():
     """Test gather_jsonl_observations skips invalid JSON lines."""
-    jsonl_content = '''
+    now = datetime.now(timezone.utc)
+    recent_ts = (now - timedelta(days=2)).isoformat()
+    
+    jsonl_content = f'''
 not valid json
-{"ts": "2024-01-01T00:00:00Z", "type": "valid"}
+{{"ts": "{recent_ts}", "type": "valid"}}
 '''
     
     with patch.object(Path, 'exists', return_value=True):
@@ -124,28 +123,22 @@ not valid json
 
 def test_synthesize_review_calls_channel_opus():
     """Test synthesize_review calls channel effector with opus model."""
-    original_run_cmd = methylation_review.run_cmd
+    original_run_cmd = namespace['run_cmd']
+    namespace['run_cmd'] = lambda cmd, timeout=180: (0, "synthesized review content", "")
     
-    def mock_run_cmd(cmd):
-        return (0, "synthesized review content", "")
-    
-    methylation_review.run_cmd = mock_run_cmd
     result = methylation_review.synthesize_review("proposals", "observations")
     
-    methylation_review.run_cmd = original_run_cmd
+    namespace['run_cmd'] = original_run_cmd
     assert "synthesized review content" == result.strip()
 
 def test_synthesize_review_handles_failure():
     """Test synthesize_review returns error message on failure."""
-    original_run_cmd = methylation_review.run_cmd
+    original_run_cmd = namespace['run_cmd']
+    namespace['run_cmd'] = lambda cmd, timeout=180: (1, "", "channel failed")
     
-    def mock_run_cmd(cmd):
-        return (1, "", "channel failed")
-    
-    methylation_review.run_cmd = mock_run_cmd
     result = methylation_review.synthesize_review("proposals", "observations")
     
-    methylation_review.run_cmd = original_run_cmd
+    namespace['run_cmd'] = original_run_cmd
     assert "Error: Synthesis failed" in result
     assert "proposals" in result
 
@@ -155,13 +148,13 @@ def test_synthesize_review_handles_failure():
 
 def test_main_writes_review_to_tmp():
     """Test main writes the generated review to /tmp directory."""
-    original_gather = methylation_review.gather_effector_proposals
-    original_observations = methylation_review.gather_jsonl_observations
-    original_synthesize = methylation_review.synthesize_review
+    original_gather = namespace['gather_effector_proposals']
+    original_observations = namespace['gather_jsonl_observations']
+    original_synthesize = namespace['synthesize_review']
     
-    methylation_review.gather_effector_proposals = lambda: "proposals"
-    methylation_review.gather_jsonl_observations = lambda: "observations"
-    methylation_review.synthesize_review = lambda p, o: "# Review\n\n- item 1\n- item 2"
+    namespace['gather_effector_proposals'] = lambda: "proposals"
+    namespace['gather_jsonl_observations'] = lambda: "observations"
+    namespace['synthesize_review'] = lambda p, o: "# Review\n\n- item 1\n- item 2"
     
     mock_write = MagicMock()
     original_write = Path.write_text
@@ -171,9 +164,9 @@ def test_main_writes_review_to_tmp():
     
     # Restore
     Path.write_text = original_write
-    methylation_review.gather_effector_proposals = original_gather
-    methylation_review.gather_jsonl_observations = original_observations
-    methylation_review.synthesize_review = original_synthesize
+    namespace['gather_effector_proposals'] = original_gather
+    namespace['gather_jsonl_observations'] = original_observations
+    namespace['synthesize_review'] = original_synthesize
     
     # Should write to tmp
     assert mock_write.called
