@@ -91,10 +91,6 @@ def scan_log(since: timedelta) -> dict:
     failed = []
     timeouts = []
 
-    # Pattern: [2026-03-31 10:53:59] Finished (0s, exit=1): golem ...
-    # Pattern: [2026-03-31 10:53:59] FAILED (exit=1): golem ...
-    # Pattern: [2026-03-31 10:53:59] TIMEOUT (1800s): golem ...
-
     for line in lines:
         m = re.match(r'^\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\] (.+)$', line)
         if not m:
@@ -304,17 +300,17 @@ def count_pending_tasks() -> int:
 
 
 def find_untested_modules() -> list[str]:
-    """Find effectors and modules that lack corresponding test files.
+    """Find effectors that lack corresponding test files.
 
     Returns list of module basenames without tests.
     """
-    effectors = []
+    effectors: list[str] = []
     if EFFECTORS_DIR.exists():
         for p in EFFECTORS_DIR.iterdir():
             if p.is_file() and not p.name.startswith('.') and not p.name.endswith('.pyc'):
                 effectors.append(p.name)
 
-    tested = set()
+    tested: set[str] = set()
     if ASSAYS_DIR.exists():
         for p in ASSAYS_DIR.iterdir():
             if p.is_file() and p.name.startswith('test_') and p.name.endswith('.py'):
@@ -323,7 +319,7 @@ def find_untested_modules() -> list[str]:
                 tested.add(stem.replace('_', '-'))
                 tested.add(stem.replace('-', '_'))
 
-    untested = []
+    untested: list[str] = []
     for eff in sorted(effectors):
         stem = eff.replace('.py', '').replace('.sh', '')
         if stem not in tested and eff not in tested:
