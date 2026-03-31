@@ -24,41 +24,29 @@ User says: "go build", "work on everything", "blitz", "keep going while I'm away
 
 ## Process
 
-### Phase 1: Find gaps (CC, 1 minute)
+### Phase 1: Identify work (CC judgment)
 
-Run the cross-reference script directly — no subagents, no exploration specs:
+CC decides what needs doing. Examples:
+- **Test gaps**: cross-reference `metabolon/` vs `assays/` (use Glob/Grep or inline script)
+- **Refactoring**: read code, identify targets
+- **Reliability**: find modules missing error handling
+- **Consulting readiness**: assess what's missing for Capco
 
-```bash
-cd ~/germline && python3 -c "
-import os, re
-modules = []
-for root, dirs, files in os.walk('metabolon'):
-    for f in files:
-        if f.endswith('.py') and f not in ('__init__.py', '__main__.py'):
-            modules.append(os.path.join(root, f))
-tests = set(f for f in os.listdir('assays') if f.startswith('test_') and f.endswith('.py'))
-def has_test(mod):
-    name = mod.split('/')[-1].replace('.py', '')
-    candidates = [f'test_{name}.py', f'test_{name}_actions.py', f'test_{name}_substrate.py',
-                  f'test_{name}_organelle.py', f'test_sortase_{name}.py',
-                  f'test_spending_{name}.py', f'test_lysin_{name}.py',
-                  f'test_endocytosis_rss_{name}.py', f'test_scaffold_{name}.py',
-                  f'test_{name}_protocol.py', f'test_codons_{name}.py']
-    return any(c in tests for c in candidates)
-def lines(p):
-    with open(p) as f: return sum(1 for _ in f)
-for m, l in sorted([(m, lines(m)) for m in modules if not has_test(m) and lines(m) > 50], key=lambda x: -x[1]):
-    print(m)
-"
-```
+CC produces a task list. Each task = one golem prompt.
 
 ### Phase 2: Dispatch golem
 
 ```bash
-golem --batch module1.py module2.py module3.py ...
+# Tests
+golem --batch module1.py module2.py module3.py
+
+# Any task
+golem "Refactor X to extract Y into a separate module"
+golem "Add error handling to all MCP tools in metabolon/enzymes/"
+golem "Read chromatin/X and write a summary to loci/Y"
 ```
 
-That's it. Golem reads the source, writes tests, runs pytest, fixes failures. No spec files, no sortase, no worktrees.
+Golem reads, writes, runs, fixes. No spec files, no sortase, no worktrees.
 
 CC's role: decide what to build, verify results, fix anything golem can't.
 
