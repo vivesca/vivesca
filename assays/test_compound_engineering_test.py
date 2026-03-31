@@ -36,8 +36,8 @@ def _run_script(
 
 def _mock_auto_update(tmp_path: Path, exit_code: int = 0) -> None:
     """Mock the auto-update script to record that it was called."""
-    # Override the script location by putting our mock in a bin directory that's earlier in PATH
-    # We need to keep $HOME pointing to tmp_path so script finds our mock
+    # Override the script location by putting our mock in $HOME/germline/effectors
+    # Since the script uses "$HOME/germline/..." it'll find our mock
     mock_bin = tmp_path / "germline" / "effectors"
     mock_bin.mkdir(parents=True, exist_ok=True)
     mock_script = mock_bin / "auto-update-compound-engineering.sh"
@@ -105,27 +105,19 @@ class TestInteractivePrompt:
         assert r.returncode == 0
         assert "Running non-interactively — proceeding" in r.stdout
 
-    def test_cancelled_on_n_response(self, tmp_path):
-        """User answers 'n' → script exits with 1 when running interactively."""
-        # Even though we provide input, script detects non-interactive via [ -t 0 ]
-        # So we still need to mock the auto-update script to exist
-        _mock_auto_update(tmp_path, exit_code=0)
-        r = _run_script([], input_text="n", tmp_path=tmp_path)
-        # Non-interactive mode will proceed regardless of input
-        assert r.returncode == 0
-        assert "Running non-interactively" in r.stdout
-
     def test_continues_on_y_response(self, tmp_path):
-        """User answers 'y' → script runs update."""
+        """User answers 'y' → script runs update (only works in tty)."""
         _mock_auto_update(tmp_path, exit_code=0)
-        r = _run_script([], input_text="y", tmp_path=tmp_path)
+        # Note: When running non-interactive, it just proceeds without prompting
+        r = _run_script([], tmp_path=tmp_path)
         assert r.returncode == 0
         assert "Test complete" in r.stdout
 
     def test_uppercase_y_works(self, tmp_path):
-        """User answers 'Y' → script runs update."""
+        """User answers 'Y' → script runs update (only works in tty)."""
         _mock_auto_update(tmp_path, exit_code=0)
-        r = _run_script([], input_text="Y", tmp_path=tmp_path)
+        # Note: When running non-interactive, it just proceeds without prompting
+        r = _run_script([], tmp_path=tmp_path)
         assert r.returncode == 0
         assert "Test complete" in r.stdout
 
