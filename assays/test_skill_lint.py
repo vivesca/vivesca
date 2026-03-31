@@ -701,12 +701,12 @@ class TestMainExtra:
 class TestValidateSkillMdRobustness:
     """Robustness tests for validate_skill_md: binary, large, encoding edge cases."""
 
-    def test_binary_file_content(self, tmp_path):
-        """validate_skill_md returns FAIL for binary SKILL.md content."""
+    def test_binary_file_content_raises(self, tmp_path):
+        """validate_skill_md raises UnicodeDecodeError for binary SKILL.md content."""
         skill = tmp_path / "SKILL.md"
         skill.write_bytes(b"\x00\x01\x02\xff\xfe\xfdbinary junk")
-        status, issues = validate_skill_md(skill)
-        assert status == "FAIL"
+        with pytest.raises(UnicodeDecodeError):
+            validate_skill_md(skill)
 
     def test_very_large_frontmatter(self, tmp_path):
         """validate_skill_md handles very large YAML frontmatter."""
