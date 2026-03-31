@@ -25,7 +25,12 @@ if [ "$FAILED" -gt 0 ]; then
 fi
 
 if $ALERT; then
-    ~/scripts/tg-notify.sh "pharos health: disk=${DISK}% mem=${MEM} failed_units=${FAILED}"
+    MSG="pharos health: disk=${DISK}% mem=${MEM} failed_units=${FAILED}"
+    if [ -x ~/scripts/tg-notify.sh ]; then
+        ~/scripts/tg-notify.sh "$MSG"
+    else
+        echo "ALERT: $MSG" >&2
+    fi
     exit 1
 fi
 
