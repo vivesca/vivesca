@@ -16,6 +16,8 @@ TEST=false
 SUMMARY=false
 RECENT=0
 PROVIDER="${GOLEM_PROVIDER:-zhipu}"
+FALLBACK=false
+FALLBACK_PROVIDER=""
 
 GOLEM_LOG="${GOLEM_LOG:-$HOME/.local/share/vivesca/golem.jsonl}"
 mkdir -p "$(dirname "$GOLEM_LOG")"

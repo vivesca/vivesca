@@ -1,140 +1,186 @@
 #!/usr/bin/env python3
-"""conftest-gen — Scan for hardcoded home paths and rewrite to Path.home().
+"""conftest-gen — scan and fix hardcoded home paths in test files.
 
-Scans Python files in assays/ for hardcoded /Users/terry or /home/terry
-paths and optionally rewrites them to use Path.home().
+Scans assays/ for hardcoded /Users/terry or /home/terry paths and rewrites
+them to use Path.home() for cross-platform compatibility.
 
 Usage:
-    conftest-gen              # dry-run (default): show what would change
+    conftest-gen              # dry-run: show what would change
     conftest-gen --fix        # apply changes
     conftest-gen --help
 """
-from __future__ import annotations
 
 import argparse
 import re
 import sys
 from pathlib import Path
-
-# Patterns for hardcoded paths
-MAC_PATH_PAT = re.compile(r'"/Users/terry(/[^"]*)?"')
-LINUX_PATH_PAT = re.compile(r'"/home/terry(/[^"]*)?"')
+from typing import NamedTuple
 
 
-def find_hardcoded_paths(filepath: Path) -> list[tuple[int, str, str]]:
-    """Find hardcoded paths in a file.
-
-    Returns list of (line_number, original_text, suggested_fix).
-    """
-    text = filepath.read_text(encoding="utf-8")
-    lines = text.splitlines()
-    results: list[tuple[int, str, str]] = []
-
-    for i, line in enumerate(lines, 1):
-        # Check for macOS path
-        for match in MAC_PATH_PAT.finditer(line):
-            original = match.group(0)
-            suffix = match.group(1) or ""
-            # Keep as string with Path.home() interpolation
-            fixed = f'str(Path.home() / "{suffix.lstrip("/")}")' if suffix else 'str(Path.home())'
-            results.append((i, original, fixed))
-
-        # Check for Linux path
-        for match in LINUX_PATH_PAT.finditer(line):
-            original = match.group(0)
-            suffix = match.group(1) or ""
-            fixed = f'str(Path.home() / "{suffix.lstrip("/")}")' if suffix else 'str(Path.home())'
-            results.append((i, original, fixed))
-
-    return results
+class Finding(NamedTuple):
+    """A hardcoded path finding."""
+    file: Path
+    line: int
+    col: int
+    original: str
+    replacement: str
 
 
-def rewrite_file(filepath: Path, replacements: list[tuple[int, str, str]]) -> bool:
-    """Apply replacements to file. Returns True if any changes made."""
-    if not replacements:
-        return False
-
-    text = filepath.read_text(encoding="utf-8")
-    lines = text.splitlines()
-    changed = False
-
-    # Process in reverse order to preserve line numbers
-    for lineno, original, fixed in reversed(replacements):
-        line = lines[lineno - 1]
-        if original in line:
-            lines[lineno - 1] = line.replace(original, fixed, 1)
-            changed = True
-
-    if changed:
-        filepath.write_text("\n".join(lines) + "\n", encoding="utf-8")
-
-    return changed
+# Patterns for hardcoded home paths
+HOME_PATTERNS = [
+    # Pattern for Path("/home/terry/...") -> Path.home() / "..."
+    (re.compile(r'Path\(["\'](/home/terry)/([^"\']*)["\']\)'),
+     r'Path.home() / "\2"'),
+    (re.compile(r'Path\(["\'](/Users/terry)/([^"\']*)["\']\)'),
+     r'Path.home() / "\2"'),
+    # Pattern for open("/home/terry/...") -> open(Path.home() / "...")
+    (re.compile(r'open\(["\'](/home/terry)/([^"\']*)["\']\)'),
+     r'open(Path.home() / "\2")'),
+    (re.compile(r'open\(["\'](/Users/terry)/([^"\']*)["\']\)'),
+     r'open(Path.home() / "\2")'),
+    # Pattern for string literals "/home/terry/..." in context
+    (re.compile(r'["\'](/home/terry)/([^"\']*)["\']'),
+     r'str(Path.home() / "\2")'),
+    (re.compile(r'["\'](/Users/terry)/([^"\']*)["\']'),
+     r'str(Path.home() / "\2")'),
+]
 
 
-def scan_directory(directory: Path) -> list[tuple[Path, list[tuple[int, str, str]]]]:
-    """Scan directory for Python files with hardcoded paths.
+def scan_file(filepath: Path) -> list[Finding]:
+    """Scan a single file for hardcoded paths."""
+    findings = []
+    try:
+        content = filepath.read_text()
+    except Exception:
+        return findings
 
-    Returns list of (filepath, issues) tuples.
-    """
-    results: list[tuple[Path, list[tuple[int, str, str]]]] = []
+    lines = content.splitlines()
+    for line_no, line in enumerate(lines, start=1):
+        # Skip comment lines (but not inline comments)
+        stripped = line.lstrip()
+        if stripped.startswith('#'):
+            continue
 
-    for py_file in directory.glob("**/*.py"):
-        issues = find_hardcoded_paths(py_file)
-        if issues:
-            results.append((py_file, issues))
+        for pattern, replacement in HOME_PATTERNS:
+            for match in pattern.finditer(line):
+                original = match.group(0)
+                # Skip if this is inside a Path.home() already
+                if 'Path.home()' in line and 'Path.home()' in original:
+                    continue
+                # Compute replacement
+                try:
+                    replaced = match.expand(replacement)
+                except Exception:
+                    continue
+                # Skip if replacement would be same or invalid
+                if replaced == original:
+                    continue
+                findings.append(Finding(
+                    file=filepath,
+                    line=line_no,
+                    col=match.start() + 1,
+                    original=original,
+                    replacement=replaced,
+                ))
+    return findings
 
-    return results
 
-
-def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(
-        description="Scan for hardcoded home paths and rewrite to Path.home()"
-    )
-    parser.add_argument(
-        "--fix", action="store_true",
-        help="Apply changes (default is dry-run)"
-    )
-    parser.add_argument(
-        "directory", nargs="?", default="assays",
-        help="Directory to scan (default: assays)"
-    )
-    args = parser.parse_args(argv)
-
-    target = Path(args.directory)
-    if not target.is_dir():
-        print(f"Error: {target} is not a directory", file=sys.stderr)
-        return 1
-
-    findings = scan_directory(target)
-
+def apply_fix(filepath: Path, findings: list[Finding]) -> int:
+    """Apply fixes to a file. Returns number of changes made."""
     if not findings:
-        print(f"No hardcoded paths found in {target}/")
         return 0
 
-    total_issues = sum(len(issues) for _, issues in findings)
-    action = "Would fix" if not args.fix else "Fixed"
+    try:
+        content = filepath.read_text()
+    except Exception:
+        return 0
 
-    print(f"{'[DRY-RUN] ' if not args.fix else ''}Found {total_issues} hardcoded path(s) in {len(findings)} file(s):\n")
+    # Sort by position (reverse) to apply from end to start
+    sorted_findings = sorted(findings, key=lambda f: (f.line, f.col), reverse=True)
+    lines = content.splitlines(keepends=True)
 
-    for filepath, issues in findings:
-        rel_path = filepath.relative_to(Path.cwd()) if filepath.is_relative_to(Path.cwd()) else filepath
-        print(f"{rel_path}:")
-        for lineno, original, fixed in issues:
-            if args.fix:
-                print(f"  line {lineno}: {original} → {fixed}")
-            else:
-                print(f"  line {lineno}: {original}")
-                print(f"    → {fixed}")
-        print()
+    changes = 0
+    for f in sorted_findings:
+        line_idx = f.line - 1
+        if line_idx >= len(lines):
+            continue
+        line = lines[line_idx]
+        # Find and replace the original text
+        if f.original in line:
+            lines[line_idx] = line.replace(f.original, f.replacement, 1)
+            changes += 1
 
-    if args.fix:
-        for filepath, issues in findings:
-            if rewrite_file(filepath, issues):
-                rel_path = filepath.relative_to(Path.cwd()) if filepath.is_relative_to(Path.cwd()) else filepath
-                print(f"Fixed: {rel_path}")
+    if changes > 0:
+        filepath.write_text(''.join(lines))
 
-    return 0
+    return changes
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="Scan and fix hardcoded home paths in test files"
+    )
+    parser.add_argument(
+        "--fix",
+        action="store_true",
+        help="Apply fixes (default is dry-run)",
+    )
+    parser.add_argument(
+        "--assays-dir",
+        type=Path,
+        default=Path(__file__).parent.parent / "assays",
+        help="Path to assays directory",
+    )
+    args = parser.parse_args()
+
+    assays_dir = args.assays_dir
+    if not assays_dir.is_dir():
+        print(f"Error: assays directory not found: {assays_dir}", file=sys.stderr)
+        sys.exit(1)
+
+    # Find all Python test files
+    test_files = sorted(assays_dir.glob("test_*.py"))
+    if not test_files:
+        print("No test files found in assays/", file=sys.stderr)
+        sys.exit(1)
+
+    all_findings: list[Finding] = []
+    file_findings: dict[Path, list[Finding]] = {}
+
+    for test_file in test_files:
+        findings = scan_file(test_file)
+        if findings:
+            all_findings.extend(findings)
+            file_findings[test_file] = findings
+
+    if not all_findings:
+        print("No hardcoded paths found.")
+        sys.exit(0)
+
+    # Dry run: just report
+    if not args.fix:
+        print(f"Found {len(all_findings)} hardcoded path(s) in {len(file_findings)} file(s):\n")
+        for filepath, findings in sorted(file_findings.items()):
+            for f in findings:
+                rel_path = filepath.relative_to(assays_dir.parent)
+                print(f"{rel_path}:{f.line}:{f.col}:")
+                print(f"  - {f.original}")
+                print(f"  + {f.replacement}")
+        print(f"\nRun with --fix to apply changes.")
+        sys.exit(0)
+
+    # Apply fixes
+    total_changes = 0
+    for filepath, findings in file_findings.items():
+        changes = apply_fix(filepath, findings)
+        if changes > 0:
+            rel_path = filepath.relative_to(assays_dir.parent)
+            print(f"Fixed {changes} occurrence(s) in {rel_path}")
+            total_changes += changes
+
+    print(f"\nTotal: {total_changes} fix(es) applied.")
+    sys.exit(0)
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    main()

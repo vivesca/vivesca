@@ -1,0 +1,120 @@
+#!/usr/bin/env python3
+"""skill-lint — Validate SKILL.md files in membrane/receptors/.
+
+Checks:
+    1. SKILL.md exists in each receptor directory
+    2. Valid YAML frontmatter (between --- markers)
+    3. Required fields: name, description
+
+Usage:
+    skill-lint
+    skill-lint --json
+"""
+from __future__ import annotations
+
+import json
+import re
+import sys
+from pathlib import Path
+
+RECEPTORS_DIR = Path(__file__).parent.parent / "membrane" / "receptors"
+FRONTMATTER_RE = re.compile(r"^---\s*\n(.*?)\n---\s*\n", re.DOTALL)
+
+
+def find_receptor_dirs() -> list[Path]:
+    """Return all receptor directories (non-hidden subdirs)."""
+    if not RECEPTORS_DIR.exists():
+        return []
+    return sorted(
+        d for d in RECEPTORS_DIR.iterdir()
+        if d.is_dir() and not d.name.startswith(".")
+    )
+
+
+def parse_frontmatter(content: str) -> tuple[dict | None, str | None]:
+    """Parse YAML frontmatter from SKILL.md content.
+
+    Returns (frontmatter_dict, error_message).
+    """
+    import yaml
+
+    match = FRONTMATTER_RE.match(content)
+    if not match:
+        return None, "no YAML frontmatter found (missing --- markers)"
+
+    yaml_text = match.group(1)
+    try:
+        data = yaml.safe_load(yaml_text)
+        if not isinstance(data, dict):
+            return None, f"frontmatter is {type(data).__name__}, expected dict"
+        return data, None
+    except yaml.YAMLError as exc:
+        return None, f"YAML parse error: {exc}"
+
+
+def validate_skill_md(filepath: Path) -> tuple[str, list[str]]:
+    """Validate a single SKILL.md file. Return (status, issues)."""
+    issues: list[str] = []
+
+    if not filepath.exists():
+        return ("MISSING", ["SKILL.md not found"])
+
+    content = filepath.read_text(encoding="utf-8")
+
+    fm, err = parse_frontmatter(content)
+    if err:
+        return ("FAIL", [err])
+
+    # Check required fields
+    if "name" not in fm:
+        issues.append("missing required field: name")
+    elif not isinstance(fm["name"], str) or not fm["name"].strip():
+        issues.append("field 'name' must be a non-empty string")
+
+    if "description" not in fm:
+        issues.append("missing required field: description")
+    elif not isinstance(fm["description"], str) or not fm["description"].strip():
+        issues.append("field 'description' must be a non-empty string")
+
+    return ("PASS" if not issues else "FAIL", issues)
+
+
+def lint_receptors() -> list[dict]:
+    """Lint all receptors. Return list of result dicts."""
+    results = []
+    for receptor_dir in find_receptor_dirs():
+        skill_path = receptor_dir / "SKILL.md"
+        status, issues = validate_skill_md(skill_path)
+        results.append({
+            "receptor": receptor_dir.name,
+            "path": str(skill_path),
+            "status": status,
+            "issues": issues,
+        })
+    return results
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = argv or sys.argv[1:]
+    use_json = "--json" in args
+
+    results = lint_receptors()
+
+    if not results:
+        print("No receptor directories found", file=sys.stderr)
+        return 1
+
+    if use_json:
+        print(json.dumps(results, indent=2))
+    else:
+        for r in results:
+            issue_str = "; ".join(r["issues"]) if r["issues"] else "—"
+            print(f"{r['receptor']} | {r['status']} | {issue_str}")
+
+    # Exit 1 if any failures
+    failed = any(r["status"] != "PASS" for r in results)
+    return 1 if failed else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

@@ -182,7 +182,7 @@ class TestGenerateSpec:
 
         content = result.read_text()
         assert "API signatures" in content
-        assert "250 lines" in content
+        assert "252 lines" in content
 
     def test_wave_number_in_plan_name(self, tmp_path, monkeypatch):
         """--wave flag causes wave number prefix in plan name."""
