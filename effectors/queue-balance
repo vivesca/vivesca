@@ -1,0 +1,132 @@
+#!/usr/bin/env python3
+"""queue-balance — report task distribution by provider from golem-queue.md.
+
+Reads the golem queue file and counts tasks per provider (from --provider flags
+in checkbox lines). Also counts header-only tasks (####) without an explicit
+provider as "unassigned". Reports distribution and flags imbalance when one
+provider has >2x the count of any other non-zero provider.
+
+Usage:
+    queue-balance [--queue PATH] [--json]
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import re
+import sys
+from collections import Counter
+from pathlib import Path
+
+DEFAULT_QUEUE = Path.home() / "germline" / "loci" / "golem-queue.md"
+
+
+def parse_queue(queue_text: str) -> dict[str, int]:
+    """Parse queue markdown and return {provider: task_count}."""
+    # Checkbox tasks with explicit --provider
+    checkbox_pattern = r"^- \[ \] .*golem\s+--provider\s+(\w+)"
+    checkbox_providers = re.findall(checkbox_pattern, queue_text, re.MULTILINE)
+
+    # Header tasks (####) — count all distinct task headers
+    header_pattern = r"^####\s+(.+)$"
+    headers = re.findall(header_pattern, queue_text, re.MULTILINE)
+
+    # Count checkbox tasks per provider
+    provider_counts: Counter = Counter(checkbox_providers)
+
+    # Header-only tasks without a matching checkbox line = unassigned
+    # A task is "assigned" if it has a checkbox line with --provider
+    assigned_tasks = len(checkbox_providers)
+    total_header_tasks = len(headers)
+    unassigned = total_header_tasks - assigned_tasks
+    if unassigned > 0:
+        provider_counts["unassigned"] = unassigned
+
+    return dict(provider_counts)
+
+
+def check_imbalance(provider_counts: dict[str, int]) -> list[str]:
+    """Return list of rebalancing suggestions if any provider >2x another."""
+    suggestions: list[str] = []
+    non_zero = {k: v for k, v in provider_counts.items() if v > 0}
+    if len(non_zero) < 2:
+        return suggestions
+
+    providers = list(non_zero.keys())
+    for i, p1 in enumerate(providers):
+        for p2 in providers[i + 1:]:
+            c1, c2 = non_zero[p1], non_zero[p2]
+            if c1 > 2 * c2:
+                suggestions.append(
+                    f"{p1} ({c1}) has >2x {p2} ({c2}). "
+                    f"Move ~{(c1 - c2) // 2} tasks from {p1} to {p2}."
+                )
+            elif c2 > 2 * c1:
+                suggestions.append(
+                    f"{p2} ({c2}) has >2x {p1} ({c1}). "
+                    f"Move ~{(c2 - c1) // 2} tasks from {p2} to {p1}."
+                )
+    return suggestions
+
+
+def format_report(provider_counts: dict[str, int], suggestions: list[str]) -> str:
+    """Format a human-readable report."""
+    lines: list[str] = ["Queue balance report", "=" * 40]
+
+    total = sum(provider_counts.values())
+    max_name_len = max(len(k) for k in provider_counts) if provider_counts else 0
+
+    for provider, count in sorted(provider_counts.items(), key=lambda x: -x[1]):
+        pct = (count / total * 100) if total > 0 else 0
+        bar = "#" * int(pct / 2)
+        lines.append(f"  {provider:<{max_name_len}}  {count:>4}  ({pct:5.1f}%)  {bar}")
+
+    lines.append(f"  {'total':<{max_name_len}}  {total:>4}")
+
+    if suggestions:
+        lines.append("")
+        lines.append("Rebalancing suggestions:")
+        for s in suggestions:
+            lines.append(f"  - {s}")
+    else:
+        lines.append("")
+        lines.append("Queue is balanced.")
+
+    return "\n".join(lines)
+
+
+def main(argv: list[str] | None = None) -> None:
+    parser = argparse.ArgumentParser(
+        description="Report task distribution by provider from golem-queue.md"
+    )
+    parser.add_argument(
+        "--queue", default=str(DEFAULT_QUEUE), help="Path to queue markdown file"
+    )
+    parser.add_argument(
+        "--json", action="store_true", help="Output as JSON"
+    )
+    args = parser.parse_args(argv)
+
+    queue_path = Path(args.queue)
+    if not queue_path.exists():
+        print(f"Error: queue file not found: {queue_path}", file=sys.stderr)
+        sys.exit(1)
+
+    queue_text = queue_path.read_text()
+    provider_counts = parse_queue(queue_text)
+    suggestions = check_imbalance(provider_counts)
+
+    if args.json:
+        result = {
+            "providers": provider_counts,
+            "total": sum(provider_counts.values()),
+            "suggestions": suggestions,
+            "balanced": len(suggestions) == 0,
+        }
+        print(json.dumps(result, indent=2))
+    else:
+        print(format_report(provider_counts, suggestions))
+
+
+if __name__ == "__main__":
+    main()
