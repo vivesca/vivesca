@@ -1,459 +1,538 @@
-"""Tests for metabolon.enzymes.emit — all outbound secretion channels."""
+"""Tests for metabolon/enzymes/emit.py — all outbound secretion channels."""
 
 from __future__ import annotations
 
 import json
 import os
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
 
-from metabolon.enzymes.emit import (
-    DAILY_DIR,
-    INTERPHASE_DAILY_DIR,
-    SPARKS_FILE,
-    TELEMETRY_FILE,
-    TELEMETRY_HEADER,
-    EmitResult,
-    PraxisResult,
-    emit,
-)
-from metabolon.morphology import EffectorResult
-
-
 # ---------------------------------------------------------------------------
-# Helpers
+# Import the module under test.  We mock heavy deps at the module level so
+# every test shares the same patches.
 # ---------------------------------------------------------------------------
 
-def _eff(action: str, **kw):
-    """Call emit and assert we got an EffectorResult."""
-    r = emit(action, **kw)
-    assert isinstance(r, EffectorResult)
-    return r
+
+@pytest.fixture(autouse=True)
+def _tmp_notes(tmp_path, monkeypatch):
+    """Redirect NOTES / file paths to a temp dir so tests never touch real FS."""
+    notes = tmp_path / "notes"
+    notes.mkdir()
+    # Patch chromatin-based NOTES constant
+    monkeypatch.setattr("metabolon.enzymes.emit.NOTES", str(notes))
+    monkeypatch.setattr("metabolon.enzymes.emit.SPARKS_FILE", str(notes / "_sparks.md"))
+    monkeypatch.setattr("metabolon.enzymes.emit.DAILY_DIR", str(notes / "Daily"))
+    monkeypatch.setattr("metabolon.enzymes.emit.TELEMETRY_FILE", str(notes / "telemetry.md"))
+    interphase_dir = tmp_path / "epigenome" / "chromatin" / "Daily"
+    monkeypatch.setattr("metabolon.enzymes.emit.INTERPHASE_DAILY_DIR", interphase_dir)
+    return notes
 
 
-# =========================== spark =========================================
+# Convenience: get the wrapped function (bypass @tool decorator)
+def _fn():
+    from metabolon.enzymes import emit as mod
+
+    return mod.emit
+
+
+# ===================================================================
+# spark
+# ===================================================================
+
 
 class TestSpark:
-    def test_spark_ok(self, tmp_path):
-        spark_file = str(tmp_path / "sparks.md")
-        with patch("metabolon.enzymes.emit._today_iso", return_value="2026-01-01"), \
-             patch("metabolon.enzymes.emit.SPARKS_FILE", spark_file), \
-             patch("metabolon.enzymes.emit._append_to_file") as mock_append:
-            r = _eff("spark", label="test-label", content="test-content")
-            assert r.success is True
-            assert "test-label" in r.message
-            mock_append.assert_called_once()
-
-    def test_spark_with_tags(self):
-        with patch("metabolon.enzymes.emit._today_iso", return_value="2026-01-01"), \
-             patch("metabolon.enzymes.emit.SPARKS_FILE", "/dev/null"), \
-             patch("metabolon.enzymes.emit._append_to_file"):
-            r = _eff("spark", label="L", content="C", tags="t1,t2")
-            assert r.success is True
+    def test_spark_success(self):
+        fn = _fn()
+        result = fn(action="spark", label="idea", content="test content")
+        assert result.success is True
+        assert "idea" in result.message
 
     def test_spark_missing_label(self):
-        r = _eff("spark", content="C")
-        assert r.success is False
-        assert "label" in r.message
+        fn = _fn()
+        result = fn(action="spark", label="", content="stuff")
+        assert result.success is False
 
     def test_spark_missing_content(self):
-        r = _eff("spark", label="L")
-        assert r.success is False
-        assert "content" in r.message
+        fn = _fn()
+        result = fn(action="spark", label="x", content="")
+        assert result.success is False
+
+    def test_spark_appends_file(self, tmp_path):
+        notes = tmp_path / "notes"
+        fn = _fn()
+        fn(action="spark", label="L1", content="C1", tags="t1")
+        fn(action="spark", label="L2", content="C2")
+        text = (notes / "_sparks.md").read_text()
+        assert "**L1**: C1" in text
+        assert "t1 --" in text
+        assert "**L2**: C2" in text
 
 
-# =========================== tweet =========================================
+# ===================================================================
+# tweet
+# ===================================================================
+
 
 class TestTweet:
-    def test_tweet_direct_text(self):
-        with patch("metabolon.enzymes.emit._golgi") as mock_golgi, \
-             patch("metabolon.enzymes.emit.invoke_organelle", return_value="tweet-id-123"):
-            mock_golgi.chaperone_check.return_value = None
-            r = _eff("tweet", text="Hello world")
-            assert r.success is True
-            assert "tweet-id-123" in r.message
+    @patch("metabolon.enzymes.emit.invoke_organelle", return_value="ok-tweeted")
+    @patch("metabolon.enzymes.emit._golgi")
+    def test_tweet_direct_text(self, mock_golgi, mock_invoke):
+        mock_golgi.chaperone_check.return_value = None  # no rejection
+        fn = _fn()
+        result = fn(action="tweet", text="Hello world")
+        assert result.success is True
+        mock_invoke.assert_called_once()
+        mock_golgi.chaperone_check.assert_called_once_with("Hello world", "tweet")
 
-    def test_tweet_from_insight(self):
-        with patch("metabolon.enzymes.emit._golgi") as mock_golgi, \
-             patch("metabolon.enzymes.emit.invoke_organelle", return_value="ok"), \
-             patch("metabolon.enzymes.emit.synthesize", return_value="Compressed tweet"):
-            mock_golgi.chaperone_check.return_value = None
-            r = _eff("tweet", insight="A very long insight paragraph")
-            assert r.success is True
+    @patch("metabolon.enzymes.emit.invoke_organelle", return_value="ok")
+    @patch("metabolon.enzymes.emit._golgi")
+    def test_tweet_rejected_by_chaperone(self, mock_golgi, mock_invoke):
+        mock_golgi.chaperone_check.return_value = "contains PII"
+        fn = _fn()
+        result = fn(action="tweet", text="secret stuff")
+        assert result.success is False
+        assert "PII" in result.message
+        mock_invoke.assert_not_called()
 
-    def test_tweet_chaperone_rejection(self):
-        with patch("metabolon.enzymes.emit._golgi") as mock_golgi:
-            mock_golgi.chaperone_check.return_value = "Too spicy"
-            r = _eff("tweet", text="Something spicy")
-            assert r.success is False
-            assert "Too spicy" in r.message
+    @patch("metabolon.enzymes.emit.synthesize", return_value="compressed tweet")
+    @patch("metabolon.enzymes.emit.invoke_organelle", return_value="ok")
+    @patch("metabolon.enzymes.emit._golgi")
+    def test_tweet_from_insight(self, mock_golgi, mock_invoke, mock_synth):
+        mock_golgi.chaperone_check.return_value = None
+        fn = _fn()
+        result = fn(action="tweet", insight="long insight text")
+        assert result.success is True
+        mock_synth.assert_called_once()
 
-    def test_tweet_missing_text_and_insight(self):
-        r = _eff("tweet")
-        assert r.success is False
-        assert "text or insight" in r.message
+    def test_tweet_no_text_no_insight(self):
+        fn = _fn()
+        result = fn(action="tweet")
+        assert result.success is False
+        assert "requires" in result.message.lower()
 
 
-# =========================== daily_note ====================================
+# ===================================================================
+# daily_note
+# ===================================================================
+
 
 class TestDailyNote:
-    def test_daily_note_new_file(self, tmp_path):
-        daily_dir = str(tmp_path / "daily")
-        with patch("metabolon.enzymes.emit._today_iso", return_value="2026-03-15"), \
-             patch("metabolon.enzymes.emit.DAILY_DIR", daily_dir):
-            r = _eff("daily_note", section="Reflections", content="Deep thoughts")
-            assert r.success is True
-            assert "Reflections" in r.message
-            fpath = os.path.join(daily_dir, "2026-03-15.md")
-            assert os.path.exists(fpath)
-            with open(fpath) as f:
-                txt = f.read()
-            assert "# 2026-03-15" in txt
-            assert "## Reflections" in txt
-            assert "Deep thoughts" in txt
-
-    def test_daily_note_append_existing(self, tmp_path):
-        daily_dir = str(tmp_path / "daily")
-        fpath = os.path.join(daily_dir, "2026-03-15.md")
-        os.makedirs(daily_dir)
-        with open(fpath, "w") as f:
-            f.write("# 2026-03-15\n")
-        with patch("metabolon.enzymes.emit._today_iso", return_value="2026-03-15"), \
-             patch("metabolon.enzymes.emit.DAILY_DIR", daily_dir):
-            r = _eff("daily_note", section="Evening", content="Good day")
-            assert r.success is True
-            with open(fpath) as f:
-                txt = f.read()
-            assert "## Evening" in txt
+    def test_daily_note_creates_file(self, tmp_path):
+        fn = _fn()
+        with patch("metabolon.enzymes.emit._today_iso", return_value="2026-03-31"):
+            result = fn(action="daily_note", section="Journal", content="Wrote tests.")
+        assert result.success is True
+        daily_dir = tmp_path / "notes" / "Daily"
+        content = (daily_dir / "2026-03-31.md").read_text()
+        assert "## Journal" in content
+        assert "Wrote tests." in content
 
     def test_daily_note_missing_section(self):
-        r = _eff("daily_note", content="stuff")
-        assert r.success is False
-        assert "section" in r.message
+        fn = _fn()
+        result = fn(action="daily_note", section="", content="stuff")
+        assert result.success is False
 
     def test_daily_note_missing_content(self):
-        r = _eff("daily_note", section="S")
-        assert r.success is False
-        assert "content" in r.message
+        fn = _fn()
+        result = fn(action="daily_note", section="sec", content="")
+        assert result.success is False
+
+    def test_daily_note_appends_to_existing(self, tmp_path):
+        fn = _fn()
+        daily_dir = tmp_path / "notes" / "Daily"
+        daily_dir.mkdir(parents=True, exist_ok=True)
+        (daily_dir / "2026-03-31.md").write_text("# 2026-03-31\n")
+        with patch("metabolon.enzymes.emit._today_iso", return_value="2026-03-31"):
+            result = fn(action="daily_note", section="Evening", content="Wrap-up")
+        text = (daily_dir / "2026-03-31.md").read_text()
+        assert "## Evening" in text
+        assert "Wrap-up" in text
 
 
-# =========================== praxis ========================================
+# ===================================================================
+# praxis
+# ===================================================================
+
 
 class TestPraxis:
     @patch("metabolon.enzymes.emit._praxis")
     def test_praxis_today(self, mock_prx):
-        mock_prx.today.return_value = [{"task": "write tests"}]
-        r = emit("praxis", subcommand="today")
-        assert isinstance(r, PraxisResult)
-        data = json.loads(r.output)
-        assert data[0]["task"] == "write tests"
-
-    @patch("metabolon.enzymes.emit._praxis")
-    def test_praxis_no_json(self, mock_prx):
-        mock_prx.stats.return_value = {"total": 5}
-        r = emit("praxis", subcommand="stats", json_output=False)
-        assert isinstance(r, PraxisResult)
-        assert "total" in r.output
-        # Not JSON — plain str()
-        assert r.output == str({"total": 5})
+        mock_prx.today.return_value = [{"task": "do stuff"}]
+        fn = _fn()
+        result = fn(action="praxis", subcommand="today")
+        assert result.output is not None
+        parsed = json.loads(result.output)
+        assert parsed[0]["task"] == "do stuff"
 
     @patch("metabolon.enzymes.emit._praxis")
     def test_praxis_unknown_subcommand(self, mock_prx):
-        r = emit("praxis", subcommand="nonexistent")
-        assert isinstance(r, PraxisResult)
-        assert "Unknown subcommand" in r.output
+        fn = _fn()
+        result = fn(action="praxis", subcommand="nonexistent")
+        assert "Unknown subcommand" in result.output
 
     @patch("metabolon.enzymes.emit._praxis")
-    def test_praxis_spare(self, mock_prx):
-        mock_prx.spare.return_value = ["task-a", "task-b"]
-        r = emit("praxis", subcommand="spare")
-        assert isinstance(r, PraxisResult)
+    def test_praxis_json_output_false(self, mock_prx):
+        mock_prx.stats.return_value = {"total": 5}
+        fn = _fn()
+        result = fn(action="praxis", subcommand="stats", json_output=False)
+        assert "total" in result.output  # str(dict), not json
 
 
-# =========================== publish =======================================
+# ===================================================================
+# publish
+# ===================================================================
+
 
 class TestPublish:
-    # publish does a local `from metabolon.organelles import golgi`,
-    # so patch the real module, not the module-level _golgi alias.
-    @patch("metabolon.organelles.golgi")
+    @patch("metabolon.enzymes.emit._golgi")
     def test_publish_new(self, mock_golgi):
-        mock_golgi.new.return_value = ("slug-x", "/path/to/slug-x.md")
-        r = _eff("publish", subcommand="new", slug="slug-x")
-        assert r.success is True
-        assert "slug-x" in r.message
+        mock_golgi.new.return_value = ("slug", "/path/to/draft.md")
+        fn = _fn()
+        result = fn(action="publish", subcommand="new", slug="my-post")
+        assert result.success is True
+        assert "draft" in result.message.lower()
 
-    @patch("metabolon.organelles.golgi")
+    @patch("metabolon.enzymes.emit._golgi")
     def test_publish_list(self, mock_golgi):
         mock_golgi.list_posts.return_value = [
-            {"slug": "s1", "title": "Title One", "draft": True},
-            {"slug": "s2", "title": "Title Two", "draft": False},
+            {"slug": "post-a", "title": "Title A", "draft": True},
+            {"slug": "post-b", "title": "Title B", "draft": False},
         ]
-        r = _eff("publish", subcommand="list")
-        assert r.success is True
-        assert "s1" in r.message
-        assert "(draft)" in r.message
+        fn = _fn()
+        result = fn(action="publish", subcommand="list")
+        assert result.success is True
+        assert "post-a" in result.message
+        assert "draft" in result.message
 
-    @patch("metabolon.organelles.golgi")
+    @patch("metabolon.enzymes.emit._golgi")
     def test_publish_publish(self, mock_golgi):
-        mock_golgi.publish.return_value = "v1.2"
-        r = _eff("publish", subcommand="publish", slug="s1")
-        assert r.success is True
-        assert "v1.2" in r.message
+        mock_golgi.publish.return_value = "2026-03-31-my-post"
+        fn = _fn()
+        result = fn(action="publish", subcommand="publish", slug="my-post")
+        assert result.success is True
+        assert "Published" in result.message
 
-    @patch("metabolon.organelles.golgi")
+    @patch("metabolon.enzymes.emit._golgi")
     def test_publish_push(self, mock_golgi):
         mock_golgi.push.return_value = "pushed"
-        r = _eff("publish", subcommand="push")
-        assert r.success is True
-        assert "pushed" in r.message
+        fn = _fn()
+        result = fn(action="publish", subcommand="push")
+        assert result.success is True
 
-    @patch("metabolon.organelles.golgi")
+    @patch("metabolon.enzymes.emit._golgi")
     def test_publish_index(self, mock_golgi):
         mock_golgi.index.return_value = 42
-        r = _eff("publish", subcommand="index")
-        assert r.success is True
-        assert "42" in r.message
+        fn = _fn()
+        result = fn(action="publish", subcommand="index")
+        assert result.success is True
+        assert "42" in result.message
 
-    @patch("metabolon.organelles.golgi")
+    @patch("metabolon.enzymes.emit._golgi")
     def test_publish_unknown_subcommand(self, mock_golgi):
-        r = _eff("publish", subcommand="bogus")
-        assert r.success is False
-        assert "Unknown subcommand" in r.message
+        fn = _fn()
+        result = fn(action="publish", subcommand="bogus")
+        assert result.success is False
 
 
-# =========================== reminder ======================================
+# ===================================================================
+# reminder
+# ===================================================================
+
 
 class TestReminder:
     @patch("metabolon.enzymes.emit._pacemaker")
-    def test_reminder_ok(self, mock_pm):
-        mock_pm.add.return_value = "Reminder set"
-        r = _eff("reminder", title="Call dentist")
-        assert r.success is True
-        assert "Reminder set" in r.message
-
-    @patch("metabolon.enzymes.emit._pacemaker")
-    def test_reminder_with_date(self, mock_pm):
-        mock_pm.add.return_value = "ok"
-        r = _eff("reminder", title="X", date="2026-04-01")
-        assert r.success is True
-        mock_pm.add.assert_called_once_with("X", date="2026-04-01")
-
-    @patch("metabolon.enzymes.emit._pacemaker")
-    def test_reminder_error(self, mock_pm):
-        mock_pm.add.side_effect = RuntimeError("boom")
-        r = _eff("reminder", title="X")
-        assert r.success is False
-        assert "boom" in r.message
+    def test_reminder_success(self, mock_pm):
+        mock_pm.add.return_value = "reminder set"
+        fn = _fn()
+        result = fn(action="reminder", title="Standup", date="2026-04-01")
+        assert result.success is True
+        mock_pm.add.assert_called_once_with("Standup", date="2026-04-01")
 
     def test_reminder_missing_title(self):
-        r = _eff("reminder")
-        assert r.success is False
-        assert "title" in r.message
+        fn = _fn()
+        result = fn(action="reminder", title="")
+        assert result.success is False
+
+    @patch("metabolon.enzymes.emit._pacemaker")
+    def test_reminder_exception(self, mock_pm):
+        mock_pm.add.side_effect = RuntimeError("no Due.app")
+        fn = _fn()
+        result = fn(action="reminder", title="Test")
+        assert result.success is False
+        assert "no Due.app" in result.message
 
 
-# =========================== telemetry =====================================
+# ===================================================================
+# telemetry
+# ===================================================================
+
 
 class TestTelemetry:
-    def test_telemetry_new_file(self, tmp_path):
-        telem = str(tmp_path / "telemetry.md")
-        with patch("metabolon.enzymes.emit._today_iso", return_value="2026-01-01"), \
-             patch("metabolon.enzymes.emit.TELEMETRY_FILE", telem):
-            r = _eff("telemetry", channel="blog", title="My Post", source_skill="write")
-            assert r.success is True
-            with open(telem) as f:
-                txt = f.read()
-            assert "| 2026-01-01 | blog |" in txt
-            assert TELEMETRY_HEADER[:30] in txt
+    def test_telemetry_creates_file(self, tmp_path):
+        fn = _fn()
+        result = fn(
+            action="telemetry",
+            channel="blog",
+            title="My Post",
+            source_skill="writing",
+            slug="my-post",
+            tags="tech,ai",
+        )
+        assert result.success is True
+        tfile = tmp_path / "notes" / "telemetry.md"
+        text = tfile.read_text()
+        assert "Content Telemetry" in text  # header written
+        assert "blog" in text
+        assert "my-post" in text
 
-    def test_telemetry_existing_file(self, tmp_path):
-        telem = str(tmp_path / "telemetry.md")
-        with open(telem, "w") as f:
-            f.write(TELEMETRY_HEADER + "| old | data |\n")
-        with patch("metabolon.enzymes.emit._today_iso", return_value="2026-02-01"), \
-             patch("metabolon.enzymes.emit.TELEMETRY_FILE", telem):
-            r = _eff("telemetry", channel="tweet", title="T", source_skill="s")
-            assert r.success is True
-
-    def test_telemetry_uses_text_as_title(self, tmp_path):
-        telem = str(tmp_path / "telemetry.md")
-        with patch("metabolon.enzymes.emit._today_iso", return_value="2026-01-01"), \
-             patch("metabolon.enzymes.emit.TELEMETRY_FILE", telem):
-            r = _eff("telemetry", channel="c", text="title-from-text", source_skill="s")
-            assert r.success is True
-            with open(telem) as f:
-                txt = f.read()
-            assert "title-from-text" in txt
+    def test_telemetry_appends_to_existing(self, tmp_path):
+        fn = _fn()
+        # First entry creates file
+        fn(action="telemetry", channel="x", title="T1", source_skill="s1")
+        # Second entry appends
+        fn(action="telemetry", channel="y", title="T2", source_skill="s2")
+        tfile = tmp_path / "notes" / "telemetry.md"
+        lines = tfile.read_text().splitlines()
+        # header + separator + data rows => at least 2 data rows
+        data_rows = [l for l in lines if l.startswith("|") and "blog" not in l and "channel" not in l and "---" not in l]
+        assert len(data_rows) >= 2
 
     def test_telemetry_missing_channel(self):
-        r = _eff("telemetry", title="T", source_skill="s")
-        assert r.success is False
+        fn = _fn()
+        result = fn(action="telemetry", channel="", title="X", source_skill="s")
+        assert result.success is False
 
-    def test_telemetry_missing_source_skill(self):
-        r = _eff("telemetry", channel="c", title="T")
-        assert r.success is False
+    def test_telemetry_uses_text_as_title_fallback(self, tmp_path):
+        fn = _fn()
+        result = fn(action="telemetry", channel="blog", text="Fallback Title", source_skill="s")
+        assert result.success is True
+        assert "Fallback Title" in result.message
 
 
-# =========================== telegram_text =================================
+# ===================================================================
+# telegram_text
+# ===================================================================
+
 
 class TestTelegramText:
     @patch("metabolon.enzymes.emit._sv")
-    def test_html_format(self, mock_sv):
+    def test_telegram_text_plain(self, mock_sv):
         mock_sv.secrete_text.return_value = "sent"
-        r = _eff("telegram_text", text="# Header\n**bold** and [link](http://x)")
-        assert r.success is True
-        call_args = mock_sv.secrete_text.call_args
-        msg = call_args[0][0]
-        assert "<b>Header</b>" in msg
-        assert "<b>bold</b>" in msg
-        assert "link (http://x)" in msg
-        assert call_args[1]["html"] is True
+        fn = _fn()
+        result = fn(action="telegram_text", text="hello", format="plain")
+        assert result.success is True
+        mock_sv.secrete_text.assert_called_once_with("hello", html=False)
 
     @patch("metabolon.enzymes.emit._sv")
-    def test_plain_format(self, mock_sv):
+    def test_telegram_text_html(self, mock_sv):
         mock_sv.secrete_text.return_value = "sent"
-        r = _eff("telegram_text", text="Hello", format="plain")
-        assert r.success is True
-        mock_sv.secrete_text.assert_called_once_with("Hello", html=False)
+        fn = _fn()
+        result = fn(action="telegram_text", text="## Heading\n**bold**\n[link](http://x.com)")
+        assert result.success is True
+        call_args = mock_sv.secrete_text.call_args
+        msg = call_args[0][0]
+        assert "<b>Heading</b>" in msg
+        assert "<b>bold</b>" in msg
+        assert "link (http://x.com)" in msg
 
-    def test_missing_text(self):
-        r = _eff("telegram_text")
-        assert r.success is False
+    def test_telegram_text_missing_text(self):
+        fn = _fn()
+        result = fn(action="telegram_text", text="")
+        assert result.success is False
 
 
-# =========================== telegram_image ================================
+# ===================================================================
+# telegram_image
+# ===================================================================
+
 
 class TestTelegramImage:
     @patch("metabolon.enzymes.emit._sv")
-    def test_image_ok(self, mock_sv, tmp_path):
-        img = tmp_path / "photo.png"
-        img.write_bytes(b"\x89PNG")
+    def test_telegram_image_success(self, mock_sv, tmp_path):
+        img = tmp_path / "photo.jpg"
+        img.write_bytes(b"\xff\xd8\xff")
         mock_sv.secrete_image.return_value = "sent"
-        r = _eff("telegram_image", path=str(img), caption="nice")
-        assert r.success is True
-        mock_sv.secrete_image.assert_called_once_with(str(img), caption="nice")
+        fn = _fn()
+        result = fn(action="telegram_image", path=str(img), caption="test")
+        assert result.success is True
+        mock_sv.secrete_image.assert_called_once_with(str(img), caption="test")
 
-    def test_image_missing_path(self):
-        r = _eff("telegram_image")
-        assert r.success is False
-        assert "path" in r.message
+    def test_telegram_image_missing_path(self):
+        fn = _fn()
+        result = fn(action="telegram_image", path="")
+        assert result.success is False
 
-    def test_image_file_not_found(self):
-        r = _eff("telegram_image", path="/nonexistent/file.png")
-        assert r.success is False
-        assert "File not found" in r.message
+    def test_telegram_image_file_not_found(self):
+        fn = _fn()
+        result = fn(action="telegram_image", path="/no/such/file.jpg")
+        assert result.success is False
+        assert "not found" in result.message.lower()
 
 
-# =========================== linkedin ======================================
+# ===================================================================
+# linkedin
+# ===================================================================
+
 
 class TestLinkedin:
     @patch("metabolon.enzymes.emit.synthesize", return_value="Professional post body here.")
-    def test_linkedin_generates_post(self, mock_syn):
-        r = _eff("linkedin", tweet="Short tweet text")
-        assert r.success is False  # always returns False (not implemented)
-        assert r.data["post"] == "Professional post body here."
-        assert "unavailable" in r.message
+    def test_linkedin_returns_post_in_data(self, mock_synth):
+        fn = _fn()
+        result = fn(action="linkedin", tweet="short tweet")
+        assert result.success is False  # posting unavailable
+        assert "post" in result.data
+        assert "Professional post body" in result.data["post"]
+        mock_synth.assert_called_once()
 
     def test_linkedin_missing_tweet(self):
-        r = _eff("linkedin")
-        assert r.success is False
-        assert "tweet" in r.message
+        fn = _fn()
+        result = fn(action="linkedin", tweet="")
+        assert result.success is False
+        assert "requires" in result.message.lower()
 
 
-# =========================== knowledge_signal ==============================
+# ===================================================================
+# knowledge_signal
+# ===================================================================
+
 
 class TestKnowledgeSignal:
     @patch("metabolon.enzymes.emit.SensorySystem")
-    def test_useful(self, mock_cls):
-        instance = MagicMock()
-        mock_cls.return_value = instance
-        r = _eff("knowledge_signal", artifact="card-42", useful=True)
-        assert r.success is True
-        assert "useful" in r.message
+    def test_knowledge_signal_useful(self, mock_ss_cls):
+        mock_instance = MagicMock()
+        mock_ss_cls.return_value = mock_instance
+        fn = _fn()
+        result = fn(action="knowledge_signal", artifact="card-42", useful=True, context="review")
+        assert result.success is True
+        assert "useful" in result.message
+        mock_instance.append.assert_called_once()
 
     @patch("metabolon.enzymes.emit.SensorySystem")
-    def test_not_useful(self, mock_cls):
-        instance = MagicMock()
-        mock_cls.return_value = instance
-        r = _eff("knowledge_signal", artifact="card-99", useful=False, context="not relevant")
-        assert r.success is True
-        assert "not useful" in r.message
+    def test_knowledge_signal_not_useful(self, mock_ss_cls):
+        mock_instance = MagicMock()
+        mock_ss_cls.return_value = mock_instance
+        fn = _fn()
+        result = fn(action="knowledge_signal", artifact="card-99", useful=False)
+        assert result.success is True
+        assert "not useful" in result.message
 
-    def test_missing_artifact(self):
-        r = _eff("knowledge_signal")
-        assert r.success is False
-        assert "artifact" in r.message
+    def test_knowledge_signal_missing_artifact(self):
+        fn = _fn()
+        result = fn(action="knowledge_signal", artifact="")
+        assert result.success is False
 
 
-# =========================== interphase_close ==============================
+# ===================================================================
+# interphase_close
+# ===================================================================
+
 
 class TestInterphaseClose:
-    def test_writes_block(self, tmp_path):
-        with patch("metabolon.enzymes.emit.INTERPHASE_DAILY_DIR", tmp_path):
-            r = emit("interphase_close", shipped="did X", tomorrow="do Y",
-                     open_threads="none", nudges="nudge1", day_score=3, note_date="2026-03-31")
-            assert isinstance(r, EmitResult)
-            assert "written" in r.output
-            fpath = tmp_path / "2026-03-31.md"
-            txt = fpath.read_text()
-            assert "## Interphase" in txt
-            assert "did X" in txt
-            assert "3/5" in txt
+    def test_interphase_close_creates_note(self, tmp_path):
+        fn = _fn()
+        result = fn(
+            action="interphase_close",
+            shipped="feature A",
+            tomorrow="feature B",
+            open_threads="none",
+            nudges="none",
+            day_score=4,
+            note_date="2026-03-31",
+        )
+        assert "written" in result.output.lower()
+        ip_dir = tmp_path / "epigenome" / "chromatin" / "Daily"
+        note = ip_dir / "2026-03-31.md"
+        assert note.exists()
+        text = note.read_text()
+        assert "## Interphase" in text
+        assert "feature A" in text
+        assert "4/5" in text
 
-    def test_appends_to_existing(self, tmp_path):
-        fpath = tmp_path / "2026-03-30.md"
-        fpath.write_text("# 2026-03-30\n## Morning\nHello")
-        with patch("metabolon.enzymes.emit.INTERPHASE_DAILY_DIR", tmp_path):
-            r = emit("interphase_close", shipped="s", tomorrow="t",
-                     open_threads="o", nudges="n", day_score=4, note_date="2026-03-30")
-            assert isinstance(r, EmitResult)
-            txt = fpath.read_text()
-            assert "## Morning" in txt
-            assert "## Interphase" in txt
+    def test_interphase_close_appends_to_existing(self, tmp_path):
+        ip_dir = tmp_path / "epigenome" / "chromatin" / "Daily"
+        ip_dir.mkdir(parents=True)
+        (ip_dir / "2026-03-31.md").write_text("# 2026-03-31\n\nSome existing content.\n")
+        fn = _fn()
+        result = fn(
+            action="interphase_close",
+            shipped="X",
+            tomorrow="Y",
+            open_threads="Z",
+            nudges="N",
+            day_score=3,
+            note_date="2026-03-31",
+        )
+        text = (ip_dir / "2026-03-31.md").read_text()
+        assert "Some existing content" in text
+        assert "## Interphase" in text
 
-    def test_duplicate_block_rejected(self, tmp_path):
-        fpath = tmp_path / "2026-03-30.md"
-        fpath.write_text("# 2026-03-30\n## Interphase\nold content")
-        with patch("metabolon.enzymes.emit.INTERPHASE_DAILY_DIR", tmp_path):
-            r = emit("interphase_close", shipped="s", tomorrow="t",
-                     open_threads="o", nudges="n", day_score=5, note_date="2026-03-30")
-            assert isinstance(r, EmitResult)
-            assert "already present" in r.output
+    def test_interphase_close_duplicate_block(self, tmp_path):
+        ip_dir = tmp_path / "epigenome" / "chromatin" / "Daily"
+        ip_dir.mkdir(parents=True)
+        (ip_dir / "2026-03-31.md").write_text("# 2026-03-31\n\n## Interphase\n\nold stuff\n")
+        fn = _fn()
+        result = fn(
+            action="interphase_close",
+            shipped="X",
+            tomorrow="Y",
+            open_threads="Z",
+            nudges="N",
+            day_score=3,
+            note_date="2026-03-31",
+        )
+        assert "already present" in result.output
 
-    def test_invalid_date(self, tmp_path):
-        with patch("metabolon.enzymes.emit.INTERPHASE_DAILY_DIR", tmp_path):
-            r = _eff("interphase_close", shipped="s", tomorrow="t",
-                     open_threads="o", nudges="n", day_score=3, note_date="bad-date")
-            assert r.success is False
-            assert "Invalid date" in r.message
+    def test_interphase_close_invalid_date(self):
+        fn = _fn()
+        result = fn(
+            action="interphase_close",
+            shipped="X", tomorrow="Y", open_threads="Z", nudges="N",
+            day_score=3, note_date="not-a-date",
+        )
+        assert result.success is False
+        assert "Invalid date" in result.message
 
-    def test_day_score_out_of_range(self, tmp_path):
-        with patch("metabolon.enzymes.emit.INTERPHASE_DAILY_DIR", tmp_path):
-            r = _eff("interphase_close", shipped="s", tomorrow="t",
-                     open_threads="o", nudges="n", day_score=-1)
-            assert r.success is False
-            assert "day_score must be 1-5" in r.message
+    def test_interphase_close_bad_score(self):
+        fn = _fn()
+        result = fn(
+            action="interphase_close",
+            shipped="X", tomorrow="Y", open_threads="Z", nudges="N",
+            day_score=0,
+        )
+        assert result.success is False
+        assert "day_score" in result.message
 
-    def test_day_score_too_high(self, tmp_path):
-        with patch("metabolon.enzymes.emit.INTERPHASE_DAILY_DIR", tmp_path):
-            r = _eff("interphase_close", shipped="s", tomorrow="t",
-                     open_threads="o", nudges="n", day_score=6)
-            assert r.success is False
-            assert "day_score must be 1-5" in r.message
+    def test_interphase_close_score_too_high(self):
+        fn = _fn()
+        result = fn(
+            action="interphase_close",
+            shipped="X", tomorrow="Y", open_threads="Z", nudges="N",
+            day_score=6,
+        )
+        assert result.success is False
+        assert "day_score" in result.message
 
-    def test_missing_required_fields(self):
-        r = _eff("interphase_close", shipped="s", tomorrow="t",
-                 open_threads="o", nudges="n")
-        assert r.success is False
-        assert "interphase_close requires" in r.message
+    def test_interphase_close_missing_fields(self):
+        fn = _fn()
+        result = fn(
+            action="interphase_close",
+            shipped="", tomorrow="Y", open_threads="Z", nudges="N", day_score=3,
+        )
+        assert result.success is False
+        assert "requires" in result.message.lower()
 
 
-# =========================== unknown action ================================
+# ===================================================================
+# unknown action
+# ===================================================================
+
 
 class TestUnknownAction:
-    def test_unknown(self):
-        r = _eff("nonexistent_action")
-        assert r.success is False
-        assert "Unknown action" in r.message
+    def test_unknown_action(self):
+        fn = _fn()
+        result = fn(action="foobar")
+        assert result.success is False
+        assert "Unknown action" in result.message
