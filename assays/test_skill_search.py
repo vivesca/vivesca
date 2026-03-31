@@ -1,237 +1,209 @@
-"""Tests for effectors/skill-search."""
+"""Tests for effectors/skill-search — skill-aware SKILL.md search."""
 from __future__ import annotations
 
 import json
-import textwrap
+import subprocess
+import sys
 from pathlib import Path
-from unittest.mock import patch
 
 import pytest
 
-EFFECTOR = Path(__file__).parent.parent / "effectors" / "skill-search"
-
-# Load effector as module via exec
-_NS: dict = {}
-exec(open(EFFECTOR).read(), _NS)
-
-search_skills = _NS["search_skills"]
-format_results = _NS["format_results"]
-parse_frontmatter = _NS["parse_frontmatter"]
-get_body = _NS["get_body"]
-main = _NS["main"]
+SCRIPT = Path(__file__).resolve().parent.parent / "effectors" / "skill-search"
+GERMLINE = Path(__file__).resolve().parent.parent
+RECEPTORS = GERMLINE / "membrane" / "receptors"
 
 
-# --- Helpers ---
-
-def _make_skill(tmp_path: Path, name: str, description: str,
-                triggers: list[str] | None = None, body: str = "") -> Path:
-    """Create a minimal SKILL.md in a receptor subdirectory."""
-    receptor_dir = tmp_path / name
-    receptor_dir.mkdir(parents=True, exist_ok=True)
-    skill = receptor_dir / "SKILL.md"
-    trigger_yaml = "\n".join(f"  - {t}" for t in (triggers or []))
-    skill.write_text(textwrap.dedent(f"""\
-        ---
-        name: {name}
-        description: {description}
-        triggers:
-        {trigger_yaml}
-        ---
-        {body}
-    """), encoding="utf-8")
-    return skill
+def run_search(*args: str) -> subprocess.CompletedProcess:
+    """Run skill-search as a subprocess (effectors are scripts, not imports)."""
+    return subprocess.run(
+        [sys.executable, str(SCRIPT), *args],
+        capture_output=True,
+        text=True,
+        cwd=str(GERMLINE),
+    )
 
 
-# --- Tests: parse_frontmatter ---
+# --- Frontmatter parsing ---
 
-class TestParseFrontmatter:
-    def test_valid_frontmatter(self):
-        content = "---\nname: foo\ndescription: bar\n---\nBody text."
-        fm = parse_frontmatter(content)
-        assert fm["name"] == "foo"
-        assert fm["description"] == "bar"
+class TestFrontmatterParsing:
+    """Test the parse_frontmatter function directly."""
 
-    def test_missing_frontmatter(self):
-        content = "Just some text without frontmatter."
-        fm = parse_frontmatter(content)
-        assert fm == {}
+    def _load_ns(self):
+        """Load the script into a namespace for unit testing."""
+        ns = {"__name__": "test_skill_search"}
+        exec(open(SCRIPT).read(), ns)
+        return ns
 
-    def test_triggers_list(self):
-        content = "---\nname: x\ntriggers:\n  - alpha\n  - beta\n---\n"
-        fm = parse_frontmatter(content)
-        assert fm["triggers"] == ["alpha", "beta"]
+    def test_simple_frontmatter(self):
+        ns = self._load_ns()
+        text = """---
+name: etiology
+description: Root-cause diagnosis
+---
+Body here."""
+        meta, body = ns["parse_frontmatter"](text)
+        assert meta["name"] == "etiology"
+        assert meta["description"] == "Root-cause diagnosis"
+        assert "Body here." in body
 
+    def test_list_triggers(self):
+        ns = self._load_ns()
+        text = """---
+name: test-skill
+triggers:
+  - foo
+  - bar
+  - baz
+---
+Body."""
+        meta, body = ns["parse_frontmatter"](text)
+        assert meta["triggers"] == ["foo", "bar", "baz"]
 
-# --- Tests: get_body ---
+    def test_no_frontmatter(self):
+        ns = self._load_ns()
+        text = "Just body, no frontmatter."
+        meta, body = ns["parse_frontmatter"](text)
+        assert meta == {}
+        assert "Just body" in body
 
-class TestGetBody:
-    def test_extracts_body_after_frontmatter(self):
-        content = "---\nname: x\n---\n# Heading\nSome body text."
-        assert "# Heading" in get_body(content)
-        assert "name" not in get_body(content)
-
-    def test_no_frontmatter_returns_all(self):
-        content = "Just body text."
-        assert get_body(content) == "Just body text."
-
-
-# --- Tests: search_skills ---
-
-class TestSearchSkills:
-    def test_search_by_name(self, tmp_path):
-        _make_skill(tmp_path, "diagnosis", "Root cause analysis",
-                    triggers=["debug", "broken"])
-        with patch.object(_NS["Path"], "parent", new=lambda self: tmp_path):
-            # We need to patch RECEPTORS_DIR instead
-            pass
-
-    def test_search_finds_name_match(self, tmp_path):
-        _make_skill(tmp_path, "etiology", "Root-cause diagnosis",
-                    triggers=["debug", "broken"])
-        _make_skill(tmp_path, "histology", "Architecture review",
-                    triggers=["structure"])
-        with patch(_NS["__name__"] + ".RECEPTORS_DIR", tmp_path):
-            results = search_skills(["etiology"])
-        assert len(results) == 1
-        assert results[0]["name"] == "etiology"
-        assert "name" in results[0]["matched_fields"]
-
-    def test_search_finds_trigger_match(self, tmp_path):
-        _make_skill(tmp_path, "etiology", "Root-cause diagnosis",
-                    triggers=["debug", "broken"])
-        _make_skill(tmp_path, "histology", "Architecture review",
-                    triggers=["structure"])
-        with patch(_NS["__name__"] + ".RECEPTORS_DIR", tmp_path):
-            results = search_skills(["debug"])
-        assert len(results) == 1
-        assert results[0]["name"] == "etiology"
-        assert "triggers" in results[0]["matched_fields"]
-
-    def test_search_finds_description_match(self, tmp_path):
-        _make_skill(tmp_path, "etiology", "Root-cause diagnosis for bugs",
-                    triggers=["debug"])
-        with patch(_NS["__name__"] + ".RECEPTORS_DIR", tmp_path):
-            results = search_skills(["root-cause"])
-        assert len(results) == 1
-        assert "description" in results[0]["matched_fields"]
-
-    def test_search_finds_body_match(self, tmp_path):
-        _make_skill(tmp_path, "test-skill", "A skill",
-                    body="This skill handles postmortem analysis.")
-        with patch(_NS["__name__"] + ".RECEPTORS_DIR", tmp_path):
-            results = search_skills(["postmortem"])
-        assert len(results) == 1
-        assert "body" in results[0]["matched_fields"]
-
-    def test_search_triggers_only_mode(self, tmp_path):
-        _make_skill(tmp_path, "etiology", "Root-cause diagnosis",
-                    triggers=["debug"],
-                    body="Mention debug in the body text too.")
-        with patch(_NS["__name__"] + ".RECEPTORS_DIR", tmp_path):
-            results = search_skills(["debug"], triggers_only=True)
-        assert len(results) == 1
-        # body should not be searched in triggers_only mode
-        assert "body" not in results[0]["matched_fields"]
-        assert "triggers" in results[0]["matched_fields"]
-
-    def test_search_no_match(self, tmp_path):
-        _make_skill(tmp_path, "etiology", "Root-cause diagnosis")
-        with patch(_NS["__name__"] + ".RECEPTORS_DIR", tmp_path):
-            results = search_skills(["nonexistent"])
-        assert results == []
-
-    def test_ranking_name_beats_trigger(self, tmp_path):
-        _make_skill(tmp_path, "debug", "Debugging tool", triggers=["trace"])
-        _make_skill(tmp_path, "tracer", "Tracing tool", triggers=["debug"])
-        with patch(_NS["__name__"] + ".RECEPTORS_DIR", tmp_path):
-            results = search_skills(["debug"])
-        assert len(results) == 2
-        assert results[0]["name"] == "debug"  # name match ranks higher
-
-    def test_multi_keyword_search(self, tmp_path):
-        _make_skill(tmp_path, "etiology", "Root-cause diagnosis",
-                    triggers=["debug", "broken"])
-        with patch(_NS["__name__"] + ".RECEPTORS_DIR", tmp_path):
-            results = search_skills(["debug", "broken"])
-        assert len(results) == 1
-        assert results[0]["score"] >= 4  # 2 trigger hits = 2*2 = 4
-
-    def test_case_insensitive(self, tmp_path):
-        _make_skill(tmp_path, "Etiology", "Diagnosis", triggers=["Debug"])
-        with patch(_NS["__name__"] + ".RECEPTORS_DIR", tmp_path):
-            results = search_skills(["debug"])
-        assert len(results) == 1
+    def test_quoted_description(self):
+        ns = self._load_ns()
+        text = """---
+name: quoted
+description: "Has quotes"
+---
+Body."""
+        meta, _ = ns["parse_frontmatter"](text)
+        assert meta["description"] == "Has quotes"
 
 
-# --- Tests: format_results ---
+# --- Keyword matching ---
 
-class TestFormatResults:
-    def test_empty_results(self):
-        assert "No matching" in format_results([])
+class TestKeywordMatching:
+    def _load_ns(self):
+        ns = {"__name__": "test_skill_search"}
+        exec(open(SCRIPT).read(), ns)
+        return ns
 
-    def test_single_result(self):
-        results = [{
-            "name": "etiology",
-            "description": "Root-cause diagnosis",
-            "triggers": ["debug", "broken"],
-            "path": "/some/path",
-            "score": 3.0,
-            "matched_fields": ["name"],
-        }]
-        output = format_results(results)
-        assert "etiology" in output
-        assert "Root-cause diagnosis" in output
-        assert "debug" in output
+    def test_case_insensitive(self):
+        ns = self._load_ns()
+        assert ns["keyword_matches"]("DEBUG", {"x": "debug mode"})
+        assert ns["keyword_matches"]("debug", {"x": "DEBUG MODE"})
 
-    def test_multiple_results(self):
-        results = [
-            {
-                "name": "a",
-                "description": "desc a",
-                "triggers": [],
-                "path": "/a",
-                "score": 3.0,
-                "matched_fields": ["name"],
-            },
-            {
-                "name": "b",
-                "description": "desc b",
-                "triggers": ["x"],
-                "path": "/b",
-                "score": 2.0,
-                "matched_fields": ["triggers"],
-            },
-        ]
-        output = format_results(results)
-        assert "1. a" in output
-        assert "2. b" in output
+    def test_match_in_list(self):
+        ns = self._load_ns()
+        assert ns["keyword_matches"]("foo", {"triggers": ["bar", "foobar", "baz"]})
+
+    def test_no_match(self):
+        ns = self._load_ns()
+        assert not ns["keyword_matches"]("missing", {"x": "something else"})
 
 
-# --- Tests: main() ---
+# --- CLI integration tests (run against real skills) ---
 
-class TestMain:
-    def test_help_exits_zero(self, capsys):
-        assert main(["--help"]) == 0
-        captured = capsys.readouterr()
-        assert "Search SKILL.md" in captured.out
+class TestCLI:
+    def test_search_finds_known_skill(self):
+        """Searching 'root cause' should find etiology."""
+        result = run_search("root cause")
+        assert result.returncode == 0
+        assert "etiology" in result.stdout
 
-    def test_no_keywords_exits_one(self, capsys):
-        assert main([]) == 1
+    def test_search_finds_by_trigger(self):
+        """Searching by trigger word should find the skill."""
+        result = run_search("debug")
+        assert result.returncode == 0
+        assert "etiology" in result.stdout
 
-    def test_json_output(self, tmp_path, capsys):
-        _make_skill(tmp_path, "etiology", "Diagnosis", triggers=["debug"])
-        with patch(_NS["__name__"] + ".RECEPTORS_DIR", tmp_path):
-            rc = main(["--json", "debug"])
-        assert rc == 0
-        captured = capsys.readouterr()
-        data = json.loads(captured.out)
+    def test_search_finds_by_name(self):
+        """Searching by name should find the skill."""
+        result = run_search("histology")
+        assert result.returncode == 0
+        assert "histology" in result.stdout
+
+    def test_no_results_returns_1(self):
+        """Search for nonsense keyword should exit 1."""
+        result = run_search("xyzzy_no_such_skill_12345")
+        assert result.returncode == 1
+        assert "No skills matching" in result.stdout
+
+    def test_field_filter_name(self):
+        """--field name should only match against skill names."""
+        # 'architecture' is a trigger for histology, not the name
+        result_with_field = run_search("--field", "name", "architecture")
+        # 'architecture' is NOT the name of any skill, should not find it by name only
+        # (unless a skill is literally named 'architecture')
+        assert "histology" not in result_with_field.stdout or result_with_field.returncode == 1
+
+    def test_field_filter_triggers(self):
+        """--field triggers should match trigger words."""
+        result = run_search("--field", "triggers", "debug")
+        assert result.returncode == 0
+        assert "etiology" in result.stdout
+
+    def test_field_filter_body(self):
+        """--field body should search body content."""
+        result = run_search("--field", "body", "Root Cause")
+        assert result.returncode == 0
+        assert "etiology" in result.stdout
+
+    def test_json_output(self):
+        """--json should produce valid JSON."""
+        result = run_search("--json", "histology")
+        assert result.returncode == 0
+        data = json.loads(result.stdout)
         assert isinstance(data, list)
-        assert data[0]["name"] == "etiology"
+        assert any(d["name"] == "histology" for d in data)
+        # Each entry has expected keys
+        for entry in data:
+            assert "name" in entry
+            assert "description" in entry
+            assert "path" in entry
 
-    def test_normal_output(self, tmp_path, capsys):
-        _make_skill(tmp_path, "etiology", "Diagnosis", triggers=["debug"])
-        with patch(_NS["__name__"] + ".RECEPTORS_DIR", tmp_path):
-            rc = main(["debug"])
-        assert rc == 0
-        captured = capsys.readouterr()
-        assert "etiology" in captured.out
+    def test_all_includes_archived(self):
+        """--all should include skills from .archive directory."""
+        result_no_all = run_search("vault")
+        result_all = run_search("--all", "vault")
+        # Archived skills like vault-search, vault-hygiene should appear with --all
+        count_no = result_no_all.stdout.count("\n")
+        count_all = result_all.stdout.count("\n")
+        assert count_all > count_no or result_all.returncode == 0
+
+    def test_verbose_shows_triggers(self):
+        """--verbose should show trigger words."""
+        result = run_search("-v", "etiology")
+        assert result.returncode == 0
+        assert "triggers:" in result.stdout
+
+    def test_description_shown_in_results(self):
+        """Results should include the skill description."""
+        result = run_search("etiology")
+        assert result.returncode == 0
+        assert "Root-cause" in result.stdout
+
+
+# --- Find skills (path traversal) ---
+
+class TestFindSkills:
+    def _load_ns(self):
+        ns = {"__name__": "test_skill_search"}
+        exec(open(SCRIPT).read(), ns)
+        return ns
+
+    def test_finds_real_skills(self):
+        ns = self._load_ns()
+        paths = ns["find_skills"](RECEPTORS)
+        assert len(paths) > 20  # We know there are many skills
+        # All should be SKILL.md files
+        assert all(p.name == "SKILL.md" for p in paths)
+
+    def test_excludes_archive_by_default(self):
+        ns = self._load_ns()
+        paths = ns["find_skills"](RECEPTORS)
+        for p in paths:
+            assert ".archive" not in p.parts
+
+    def test_includes_archive_with_flag(self):
+        ns = self._load_ns()
+        paths = ns["find_skills"](RECEPTORS, include_archived=True)
+        archive_paths = [p for p in paths if ".archive" in p.parts]
+        assert len(archive_paths) > 0

@@ -27,25 +27,32 @@ ASSAYS_DIR = Path(__file__).resolve().parent
 # Helpers: load script namespaces
 # ---------------------------------------------------------------------------
 
-def _load_script(name: str) -> dict:
-    """Load a Python effector into an isolated namespace."""
+
+class _AttrDict(dict):
+    """Dict subclass that supports attribute access for exec'd namespaces.
+
+    exec() stores functions with the dict as __globals__, so we must keep
+    the *same* dict object.  Attribute access delegates to dict get/set
+    so that ``ns.QUEUE_FILE = path`` mutates the globals the functions read.
+    """
+
+    def __getattr__(self, key):
+        try:
+            return self[key]
+        except KeyError:
+            raise AttributeError(key)
+
+    def __setattr__(self, key, value):
+        self[key] = value
+
+
+def _load(name: str) -> _AttrDict:
+    """Load a Python effector into an attribute-accessible namespace."""
     path = EFFECTORS_DIR / name
     assert path.exists(), f"Effector not found: {path}"
-    ns: dict = {"__name__": "test_golem_module", "__file__": str(path)}
+    ns = _AttrDict({"__name__": "test_golem_module", "__file__": str(path)})
     exec(path.read_text(), ns)
     return ns
-
-
-def _as_module(ns: dict, name: str = "golem_test"):
-    """Wrap a dict namespace so attribute access works (ns.func())."""
-    mod = types.ModuleType(name)
-    mod.__dict__.update(ns)
-    return mod
-
-
-def _load(name: str):
-    """Load script and return a module-like namespace."""
-    return _as_module(_load_script(name), name=f"test_{name}")
 
 
 # ---------------------------------------------------------------------------
