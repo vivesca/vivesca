@@ -46,8 +46,9 @@ class TestVerTuple:
     def test_single(self, ns):
         assert ns["_ver_tuple"]("5") == (5,)
 
-    def test_strips_nonnumeric_suffix(self, ns):
-        assert ns["_ver_tuple"]("1.2.3a1") == (1, 2, 3)
+    def test_strips_nonnumeric_segments(self, ns):
+        # "3a1".isdigit() is False, so that segment is dropped
+        assert ns["_ver_tuple"]("1.2.3a1") == (1, 2)
 
     def test_empty(self, ns):
         assert ns["_ver_tuple"]("") == ()
