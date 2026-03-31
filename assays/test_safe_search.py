@@ -41,26 +41,26 @@ class TestSafeSearchBasics:
 
 class TestCLIArguments:
     def test_no_args_exits_with_usage(self):
-        """Test that no arguments prints usage and exits with code 1."""
+        """Test that no arguments prints usage and exits with code 2 (argparse error)."""
         result = subprocess.run(
             [sys.executable, str(SAFE_SEARCH_PATH)],
             capture_output=True,
             text=True,
             timeout=10,
         )
-        assert result.returncode == 1
-        assert "Usage" in result.stdout
+        assert result.returncode == 2
+        assert "usage" in result.stderr.lower()
 
     def test_one_arg_exits_with_usage(self):
-        """Test that one argument prints usage and exits with code 1."""
+        """Test that one argument prints usage and exits with code 2 (argparse error)."""
         result = subprocess.run(
             [sys.executable, str(SAFE_SEARCH_PATH), "pattern"],
             capture_output=True,
             text=True,
             timeout=10,
         )
-        assert result.returncode == 1
-        assert "Usage" in result.stdout
+        assert result.returncode == 2
+        assert "usage" in result.stderr.lower()
 
     def test_two_args_accepted(self):
         """Test that two arguments are accepted (pattern + path)."""
