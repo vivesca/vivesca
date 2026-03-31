@@ -5,6 +5,14 @@
 
 set -euo pipefail
 
+if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
+    echo "Usage: pharos-env.sh <command> [args...]"
+    echo ""
+    echo "Environment wrapper for systemd services on pharos (Ubuntu)."
+    echo "Sets up PATH and sources machine-local secrets before exec-ing the given command."
+    exit 0
+fi
+
 export HOME="/home/terry"
 export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$HOME/.bun/bin:$HOME/go/bin:$HOME/.nix-profile/bin:/nix/var/nix/profiles/default/bin:/usr/local/bin:/usr/bin:/bin"
 

@@ -5,6 +5,15 @@
 
 set -euo pipefail
 
+if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
+    echo "Usage: backup-due.sh"
+    echo ""
+    echo "Nightly backup of Due app database (macOS)."
+    echo "Copies Due's Compact.duecdb to ~/epigenome/oscillators/backups/ with a datestamp."
+    echo "Retains the last 30 backups. Run via com.terry.due-backup LaunchAgent."
+    exit 0
+fi
+
 DUE_DB="$HOME/Library/Group Containers/5JMF32H3VU.com.phocusllp.duemac.shared/Compact.duecdb"
 BACKUP_DIR="$HOME/epigenome/oscillators/backups"
 TIMESTAMP=$(date '+%Y-%m-%d')

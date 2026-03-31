@@ -5,6 +5,15 @@
 
 set -euo pipefail
 
+if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
+    echo "Usage: hetzner-bootstrap.sh"
+    echo ""
+    echo "Bootstrap a fresh Hetzner Ubuntu 22.04 VPS for Claude Code."
+    echo "Creates user 'terry', installs Node.js, Claude Code, Tailscale, pnpm, uv."
+    echo "Must be run as root: ssh root@<IP> 'bash -s' < hetzner-bootstrap.sh"
+    exit 0
+fi
+
 echo "=== Hetzner Claude Code Bootstrap ==="
 
 # 1. System updates
