@@ -53,11 +53,23 @@ def parse_ps_lines(raw: str) -> list[dict]:
         except ValueError:
             continue
         # Skip our own process and grep
-        # Check if the *executable path* ends with golem-top or grep
-        first_token = args.split()[0] if args else ""
-        executable = first_token.rsplit("/", 1)[-1] if "/" in first_token else first_token
-        if executable in ("golem-top", "grep"):
-            continue
+        # Check if any token ends with golem-top or is exactly grep
+        if "golem-top" in args or args.split()[0].endswith("grep"):
+            # But don't skip if golem-top is only in a task description
+            # (e.g. "Create effectors/golem-top as Python")
+            # Only skip if it's the executable itself
+            tokens = args.split()
+            skip = False
+            for t in tokens:
+                base = t.rsplit("/", 1)[-1] if "/" in t else t
+                if base == "golem-top":
+                    skip = True
+                    break
+                if t == "grep":
+                    skip = True
+                    break
+            if skip:
+                continue
         entries.append({"pid": pid, "etime": etime, "args": args, "raw_line": line})
     return entries
 

@@ -119,9 +119,15 @@ class TestParsePsLines:
         assert entries[1]["pid"] == 2256
 
     def test_skips_self(self):
-        raw = "  100 01:00:00 python3 /home/terry/germline/effectors/golem-top\n"
+        raw = "  100 01:00:00 /home/terry/germline/effectors/golem-top --watch\n"
         entries = parse_ps_lines(raw)
         assert len(entries) == 0
+
+    def test_keeps_python3_golem_top(self):
+        """python3 invoking golem-top passes parse (executable is python3)."""
+        raw = "  100 01:00:00 python3 /home/terry/germline/effectors/golem-top\n"
+        entries = parse_ps_lines(raw)
+        assert len(entries) == 1
 
     def test_skips_header(self):
         raw = "  PID   ELAPSED COMMAND\n"
