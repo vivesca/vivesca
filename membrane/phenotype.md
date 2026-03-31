@@ -49,7 +49,7 @@ protected: {{true}}                          # CpG island — omit if not protec
 When reviewing Goose/GLM-5.1 output (diffs, sortase results, code), watch for recurring failure patterns and append them to the coaching note:
 
 ```
-~/epigenome/marks/feedback_glm_coaching.md
+~/epigenome/marks/feedback_golem_coaching.md
 ```
 
 This file is deterministically prepended to every `sortase exec -b goose` dispatch. Your additions directly improve future Goose output. Format each entry as: pattern name → what GLM does wrong → the fix instruction. Set `source: gemini` in the frontmatter when you update it.

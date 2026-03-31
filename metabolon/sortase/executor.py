@@ -38,7 +38,7 @@ def _compute_adaptive_timeout(spec: str, base_timeout: int) -> int:
         return base_timeout // 2
     return base_timeout
 STATUS_PATH = Path.home() / ".local" / "share" / "sortase" / "status.json"
-COACHING_NOTES = Path.home() / "epigenome" / "marks" / "feedback_glm_coaching.md"
+COACHING_NOTES = Path.home() / "epigenome" / "marks" / "feedback_golem_coaching.md"
 
 
 def _prepend_coaching(prompt: str, tool: str) -> str:

@@ -19,7 +19,7 @@ from metabolon.locus import agent_queue
 QUEUE_PATH = agent_queue
 RUNS_DIR = Path.home() / ".cache" / "gemmation-runs"
 BACKENDS = ("claude", "gemini", "codex", "opencode", "goose")
-_COACHING_NOTES = Path.home() / "epigenome" / "marks" / "feedback_glm_coaching.md"
+_COACHING_NOTES = Path.home() / "epigenome" / "marks" / "feedback_golem_coaching.md"
 
 
 def _prepend_coaching(prompt: str) -> str:

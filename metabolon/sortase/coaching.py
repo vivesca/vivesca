@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-DEFAULT_COACHING_PATH = Path.home() / "epigenome" / "marks" / "feedback_glm_coaching.md"
+DEFAULT_COACHING_PATH = Path.home() / "epigenome" / "marks" / "feedback_golem_coaching.md"
 
 
 def load_coaching_notes(path: Path | None = None) -> list[dict]:

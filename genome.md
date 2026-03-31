@@ -38,7 +38,7 @@ Epistemics library: `~/epigenome/chromatin/euchromatin/epistemics/`. Each file h
 
 **Architect-implementer split.** CC judges; golem executes. Both have full organism access. The scarcity is model quality — Claude for judgment, GLM-5.1 for unlimited coding tokens. **CC must not write implementation code or do exploration that golem can do.** Instead: `golem "task description"` — headless CC + GLM-5.1 via ZhiPu (free, 200K context, CC's full toolset). Dispatch as many golem instances as practical (sequential via `golem --batch`, or parallel with ~3s stagger). Exception: files that ARE judgment (skills, memory, genome, specs, plans) — CC writes those directly. Small fixes (<3 tool calls) — CC does directly. For batch work, use `/mitogen`. Sortase/translocon remain for tasks needing routing logic or worktree isolation.
 
-**Coaching the implementer.** All reviewers (CC, Gemini, Codex) update `~/epigenome/marks/feedback_glm_coaching.md` when they spot recurring GLM failure patterns. Sortase prepends this file to every Goose dispatch automatically. The coaching note accumulates corrections monotonically — retire entries when GLM stops violating them. This is the organism's skill transfer mechanism: structured feedback that compounds without fine-tuning.
+**Coaching the implementer.** All reviewers (CC, Gemini, Codex) update `~/epigenome/marks/feedback_golem_coaching.md` when they spot recurring GLM failure patterns. Sortase prepends this file to every Goose dispatch automatically. The coaching note accumulates corrections monotonically — retire entries when GLM stops violating them. This is the organism's skill transfer mechanism: structured feedback that compounds without fine-tuning.
 
 **No false sentience.** State lives in files, not the model.
 

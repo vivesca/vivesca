@@ -392,7 +392,7 @@ def log(stats: bool, prune: int, export_path: Path | None, last_n: int, json_out
         console.print(f"Failure reasons: {payload['failure_reasons']}")
         console.print(f"Fallback frequency: {payload['fallback_frequency']}")
         # Show coaching notes count
-        coaching_path = Path.home() / "epigenome" / "marks" / "feedback_glm_coaching.md"
+        coaching_path = Path.home() / "epigenome" / "marks" / "feedback_golem_coaching.md"
         if coaching_path.exists():
             content = coaching_path.read_text(encoding="utf-8")
             pattern_count = content.count("### ")

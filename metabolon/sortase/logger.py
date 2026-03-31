@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any
 
 DEFAULT_LOG_PATH = Path.home() / ".local" / "share" / "sortase" / "log.jsonl"
-DEFAULT_COACHING_PATH = Path.home() / "epigenome" / "marks" / "feedback_glm_coaching.md"
+DEFAULT_COACHING_PATH = Path.home() / "epigenome" / "marks" / "feedback_golem_coaching.md"
 AUTO_DETECTED_COMMENT = re.compile(r"<!--\s*auto-detected\s+(\d{4}-\d{2}-\d{2} \d{2}:\d{2})\s*-->")
 COACHING_REASON_TERMS: dict[str, set[str]] = {
     "tests": {"test", "tests", "pytest", "verification"},

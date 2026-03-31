@@ -29,7 +29,7 @@ logger = logging.getLogger(__name__)
 # Constants
 # ---------------------------------------------------------------------------
 
-COACHING_NOTES = Path.home() / "epigenome/marks/feedback_glm_coaching.md"
+COACHING_NOTES = Path.home() / "epigenome/marks/feedback_golem_coaching.md"
 SORTASE_LOG = Path.home() / ".local/share/sortase/log.jsonl"
 GOLEM_LOG = Path.home() / ".local/share/vivesca/golem.jsonl"
 CACHE_DIR = Path.home() / ".cache/translocon"
