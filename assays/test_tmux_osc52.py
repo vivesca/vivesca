@@ -27,13 +27,44 @@ def _run(args: list[str], **kw) -> subprocess.CompletedProcess:
     )
 
 
-def _fake_tmux(output: str) -> str:
-    """Create a fake tmux script that prints the given output and return its path."""
-    fd, path = tempfile.mkstemp(suffix=".sh")
-    os.write(fd, f"#!/bin/bash\nif [[ \"$1\" == \"capture-pane\" ]]; then\necho -n '{output}'\nfi\n".encode())
-    os.close(fd)
-    os.chmod(path, os.stat(path).st_mode | stat.S_IEXEC)
-    return path
+def _make_fake_tmux_dir(pane_output: str) -> tuple[str, str]:
+    """Create a temp dir with a fake tmux script; return (tmpdir, tmux_path)."""
+    tmpdir = tempfile.mkdtemp(prefix="osc52_test_")
+    # Write pane output to a data file to avoid shell quoting issues
+    data_path = os.path.join(tmpdir, "pane_data")
+    with open(data_path, "wb") as f:
+        f.write(pane_output.encode())
+    tmux_path = os.path.join(tmpdir, "tmux")
+    with open(tmux_path, "w") as f:
+        f.write(f"#!/bin/bash\nif [[ \"$1\" == \"capture-pane\" ]]; then\ncat '{data_path}'\nfi\n")
+    os.chmod(tmux_path, os.stat(tmux_path).st_mode | stat.S_IEXEC)
+    return tmpdir, tmux_path
+
+
+def _run_with_fake_tmux(pane_content: str, pane_id: str = "test-pane") -> tuple[int, bytes, str, str]:
+    """Run the script with a fake tmux; return (returncode, tty_bytes, stdout, stderr)."""
+    tmpdir, _ = _make_fake_tmux_dir(pane_content)
+    try:
+        tty_fd, tty_path = tempfile.mkstemp(suffix=".tty", dir=tmpdir)
+        os.close(tty_fd)
+
+        env = os.environ.copy()
+        env["PATH"] = tmpdir + ":" + env.get("PATH", "")
+
+        r = subprocess.run(
+            ["bash", str(SCRIPT), pane_id, tty_path],
+            capture_output=True,
+            text=True,
+            env=env,
+        )
+
+        with open(tty_path, "rb") as f:
+            tty_bytes = f.read()
+
+        return r.returncode, tty_bytes, r.stdout, r.stderr
+    finally:
+        import shutil
+        shutil.rmtree(tmpdir, ignore_errors=True)
 
 
 # ── help flag tests ───────────────────────────────────────────────────
@@ -43,14 +74,14 @@ def test_help_flag_short():
     """-h prints usage from the script header."""
     r = _run(["-h"])
     assert r.returncode == 0
-    assert "Usage:" in r.stdout or "tmux-osc52.sh" in r.stdout
+    assert "Usage:" in r.stdout
 
 
 def test_help_flag_long():
     """--help prints usage from the script header."""
     r = _run(["--help"])
     assert r.returncode == 0
-    assert "Usage:" in r.stdout or "tmux-osc52.sh" in r.stdout
+    assert "Usage:" in r.stdout
 
 
 def test_help_prints_lines_2_and_3():
@@ -68,122 +99,45 @@ def test_help_prints_lines_2_and_3():
 def test_writes_osc52_to_tty():
     """Script writes OSC 52 escape sequence with base64'd pane content to TTY."""
     pane_content = "hello world"
-    fake_tmux = _fake_tmux(pane_content)
-    try:
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".tty", delete=False) as f:
-            tty_path = f.name
+    rc, written, _, stderr = _run_with_fake_tmux(pane_content)
+    assert rc == 0, f"stderr: {stderr}"
 
-        env = os.environ.copy()
-        # Put fake tmux first on PATH
-        fake_dir = os.path.dirname(fake_tmux)
-        fake_name = os.path.basename(fake_tmux)
-        # Create a symlink named 'tmux' pointing to our fake
-        tmux_link = os.path.join(fake_dir, "tmux")
-        if os.path.exists(tmux_link):
-            os.remove(tmux_link)
-        os.symlink(fake_tmux, tmux_link)
-        env["PATH"] = fake_dir + ":" + env.get("PATH", "")
-
-        r = subprocess.run(
-            ["bash", str(SCRIPT), "test-pane", tty_path],
-            capture_output=True,
-            text=True,
-            env=env,
-        )
-        assert r.returncode == 0, f"stderr: {r.stderr}"
-
-        with open(tty_path, "rb") as f:
-            written = f.read()
-
-        # Should be OSC 52: \033]52;c;<base64>\007
-        expected_b64 = base64.b64encode(pane_content.encode()).decode().replace("\n", "")
-        expected = f"\033]52;c;{expected_b64}\007".encode()
-        assert written == expected, f"got {written!r}, expected {expected!r}"
-    finally:
-        os.unlink(fake_tmux)
-        tmux_link = os.path.join(os.path.dirname(fake_tmux), "tmux")
-        if os.path.exists(tmux_link):
-            os.remove(tmux_link)
-        if os.path.exists(tty_path):
-            os.unlink(tty_path)
+    expected_b64 = base64.b64encode(pane_content.encode()).decode().replace("\n", "")
+    expected = f"\033]52;c;{expected_b64}\007".encode()
+    assert written == expected, f"got {written!r}, expected {expected!r}"
 
 
 def test_osc52_multiline_content():
     """Multi-line pane content is properly base64'd and written."""
     pane_content = "line1\nline2\nline3"
-    fake_tmux = _fake_tmux(pane_content)
-    try:
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".tty", delete=False) as f:
-            tty_path = f.name
+    rc, written, _, stderr = _run_with_fake_tmux(pane_content)
+    assert rc == 0, f"stderr: {stderr}"
 
-        env = os.environ.copy()
-        fake_dir = os.path.dirname(fake_tmux)
-        tmux_link = os.path.join(fake_dir, "tmux")
-        if os.path.exists(tmux_link):
-            os.remove(tmux_link)
-        os.symlink(fake_tmux, tmux_link)
-        env["PATH"] = fake_dir + ":" + env.get("PATH", "")
-
-        r = subprocess.run(
-            ["bash", str(SCRIPT), "my-pane", tty_path],
-            capture_output=True,
-            text=True,
-            env=env,
-        )
-        assert r.returncode == 0, f"stderr: {r.stderr}"
-
-        with open(tty_path, "rb") as f:
-            written = f.read()
-
-        expected_b64 = base64.b64encode(pane_content.encode()).decode().replace("\n", "")
-        expected = f"\033]52;c;{expected_b64}\007".encode()
-        assert written == expected
-    finally:
-        os.unlink(fake_tmux)
-        tmux_link = os.path.join(os.path.dirname(fake_tmux), "tmux")
-        if os.path.exists(tmux_link):
-            os.remove(tmux_link)
-        if os.path.exists(tty_path):
-            os.unlink(tty_path)
+    expected_b64 = base64.b64encode(pane_content.encode()).decode().replace("\n", "")
+    expected = f"\033]52;c;{expected_b64}\007".encode()
+    assert written == expected
 
 
 def test_osc52_empty_pane():
     """Empty pane content still produces a valid OSC 52 sequence."""
     pane_content = ""
-    fake_tmux = _fake_tmux(pane_content)
-    try:
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".tty", delete=False) as f:
-            tty_path = f.name
+    rc, written, _, stderr = _run_with_fake_tmux(pane_content)
+    assert rc == 0, f"stderr: {stderr}"
 
-        env = os.environ.copy()
-        fake_dir = os.path.dirname(fake_tmux)
-        tmux_link = os.path.join(fake_dir, "tmux")
-        if os.path.exists(tmux_link):
-            os.remove(tmux_link)
-        os.symlink(fake_tmux, tmux_link)
-        env["PATH"] = fake_dir + ":" + env.get("PATH", "")
+    expected_b64 = base64.b64encode(b"").decode().replace("\n", "")
+    expected = f"\033]52;c;{expected_b64}\007".encode()
+    assert written == expected
 
-        r = subprocess.run(
-            ["bash", str(SCRIPT), "pane0", tty_path],
-            capture_output=True,
-            text=True,
-            env=env,
-        )
-        assert r.returncode == 0, f"stderr: {r.stderr}"
 
-        with open(tty_path, "rb") as f:
-            written = f.read()
+def test_osc52_special_characters():
+    """Content with special shell characters is handled safely."""
+    pane_content = "tab\there and 'quotes' and \"dquotes\""
+    rc, written, _, stderr = _run_with_fake_tmux(pane_content)
+    assert rc == 0, f"stderr: {stderr}"
 
-        expected_b64 = base64.b64encode(b"").decode().replace("\n", "")
-        expected = f"\033]52;c;{expected_b64}\007".encode()
-        assert written == expected
-    finally:
-        os.unlink(fake_tmux)
-        tmux_link = os.path.join(os.path.dirname(fake_tmux), "tmux")
-        if os.path.exists(tmux_link):
-            os.remove(tmux_link)
-        if os.path.exists(tty_path):
-            os.unlink(tty_path)
+    expected_b64 = base64.b64encode(pane_content.encode()).decode().replace("\n", "")
+    expected = f"\033]52;c;{expected_b64}\007".encode()
+    assert written == expected
 
 
 # ── escape sequence structure tests ───────────────────────────────────
@@ -191,72 +145,51 @@ def test_osc52_empty_pane():
 
 def test_output_starts_with_osc52_escape():
     """Output always begins with ESC ]52;c;."""
-    fake_tmux = _fake_tmux("abc")
-    try:
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".tty", delete=False) as f:
-            tty_path = f.name
-
-        env = os.environ.copy()
-        fake_dir = os.path.dirname(fake_tmux)
-        tmux_link = os.path.join(fake_dir, "tmux")
-        if os.path.exists(tmux_link):
-            os.remove(tmux_link)
-        os.symlink(fake_tmux, tmux_link)
-        env["PATH"] = fake_dir + ":" + env.get("PATH", "")
-
-        subprocess.run(
-            ["bash", str(SCRIPT), "p", tty_path],
-            capture_output=True,
-            env=env,
-        )
-
-        with open(tty_path, "rb") as f:
-            written = f.read()
-
-        assert written[:7] == b"\033]52;c;"
-        assert written[-1:] == b"\007"
-    finally:
-        os.unlink(fake_tmux)
-        tmux_link = os.path.join(os.path.dirname(fake_tmux), "tmux")
-        if os.path.exists(tmux_link):
-            os.remove(tmux_link)
-        if os.path.exists(tty_path):
-            os.unlink(tty_path)
+    rc, written, _, _ = _run_with_fake_tmux("abc")
+    assert rc == 0
+    assert written[:7] == b"\033]52;c;"
+    assert written[-1:] == b"\007"
 
 
 def test_base64_has_no_newlines():
     """The base64 payload should contain no newlines (tr -d '\n')."""
-    # Use enough content that base64 would normally wrap
+    # Use enough content that base64 would normally wrap lines
     pane_content = "A" * 200
-    fake_tmux = _fake_tmux(pane_content)
+    rc, written, _, _ = _run_with_fake_tmux(pane_content)
+    assert rc == 0
+
+    payload = written[7:-1].decode()  # between \033]52;c; and \007
+    assert "\n" not in payload
+
+
+def test_pane_id_passed_to_tmux():
+    """The pane ID argument is passed through to tmux capture-pane."""
+    tmpdir, _ = _make_fake_tmux_dir("x")
     try:
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".tty", delete=False) as f:
-            tty_path = f.name
+        # Replace fake tmux with one that logs its args
+        tmux_path = os.path.join(tmpdir, "tmux")
+        log_path = os.path.join(tmpdir, "args.log")
+        with open(tmux_path, "w") as f:
+            f.write(f"#!/bin/bash\necho \"$@\" > {log_path}\necho -n 'x'\n")
+        os.chmod(tmux_path, os.stat(tmux_path).st_mode | stat.S_IEXEC)
+
+        tty_fd, tty_path = tempfile.mkstemp(suffix=".tty", dir=tmpdir)
+        os.close(tty_fd)
 
         env = os.environ.copy()
-        fake_dir = os.path.dirname(fake_tmux)
-        tmux_link = os.path.join(fake_dir, "tmux")
-        if os.path.exists(tmux_link):
-            os.remove(tmux_link)
-        os.symlink(fake_tmux, tmux_link)
-        env["PATH"] = fake_dir + ":" + env.get("PATH", "")
+        env["PATH"] = tmpdir + ":" + env.get("PATH", "")
 
         subprocess.run(
-            ["bash", str(SCRIPT), "p", tty_path],
+            ["bash", str(SCRIPT), "my-special-pane", tty_path],
             capture_output=True,
             env=env,
         )
 
-        with open(tty_path, "rb") as f:
-            written = f.read()
-
-        # Strip the OSC 52 framing to get just the base64 payload
-        payload = written[7:-1].decode()  # between \033]52;c; and \007
-        assert "\n" not in payload
+        with open(log_path) as f:
+            logged_args = f.read().strip()
+        assert "my-special-pane" in logged_args
+        assert "capture-pane" in logged_args
+        assert "-p" in logged_args
     finally:
-        os.unlink(fake_tmux)
-        tmux_link = os.path.join(os.path.dirname(fake_tmux), "tmux")
-        if os.path.exists(tmux_link):
-            os.remove(tmux_link)
-        if os.path.exists(tty_path):
-            os.unlink(tty_path)
+        import shutil
+        shutil.rmtree(tmpdir, ignore_errors=True)
