@@ -244,3 +244,15 @@ class TestNoStaleReferences:
     def test_valid_resource_uris_present(self, uri, fn):
         result = fn()
         assert uri in result
+
+
+class TestSyntax:
+    """Guard: templates.py must parse cleanly."""
+
+    def test_ast_parse(self):
+        import ast
+        from pathlib import Path
+
+        source = Path(
+            __file__).parent.parent / "metabolon" / "codons" / "templates.py"
+        ast.parse(source.read_text())
