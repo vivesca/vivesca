@@ -51,7 +51,7 @@ class TestScanFile:
 
     def test_detects_home_only(self, tmp_path: Path):
         p = tmp_path / "home.py"
-        p.write_text('HOME = "/Users/terry"\n')
+        p.write_text('HOME = "/Users/terry/project"\n')
         results = scan_file(p)
         assert len(results) == 1
         assert "Path.home()" in results[0].replacement
