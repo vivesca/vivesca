@@ -26,12 +26,24 @@ def _run(
     mock_dir = tmp_path / "mock-bin"
     mock_dir.mkdir(exist_ok=True)
 
-    # Create recording mocks for specified tools
+    # Create recording mocks for specified tools.
+    # Mocks fail (exit 1) when the source file doesn't exist,
+    # mirroring real scp/cp behaviour.
     for name, rec_file in (recordings or {}).items():
         script = mock_dir / name
         script.write_text(
             "#!/bin/bash\n"
             f'printf "%s\\n" "$@" >> {rec_file}\n'
+            '# Fail if source file (first non-flag arg) does not exist\n'
+            'src=""\n'
+            'for a in "$@"; do\n'
+            '  case "$a" in\n'
+            '    -*) continue ;;\n'
+            '    *)\n'
+            '      if [ -z "$src" ]; then src="$a"; fi ;;\n'
+            '  esac\n'
+            'done\n'
+            'if [ -n "$src" ] && [ ! -f "$src" ]; then exit 1; fi\n'
             "exit 0\n"
         )
         script.chmod(script.stat().st_mode | stat.S_IEXEC)
@@ -143,14 +155,13 @@ class TestCredentialsPush:
         assert "lucerna" in rec.read_text()
 
     def test_no_credentials_no_scp_to_macbooks(self, tmp_path):
-        """No .credentials.json -> scp not called for m2/m3."""
+        """No .credentials.json -> scp still called but fails, no 'updated' in stdout."""
         _setup(tmp_path)
-        rec = tmp_path / "scp.log"
-        _run(tmp_path, recordings={"scp": rec})
-        if rec.exists():
-            text = rec.read_text()
-            assert "m2" not in text
-            assert "m3" not in text
+        r = _run(tmp_path)
+        # Script calls scp for m2/m3 unconditionally, but the echo
+        # after && only fires if scp succeeds — with no source file it fails.
+        assert "updated: .credentials.json → m2" not in r.stdout
+        assert "updated: .credentials.json → m3" not in r.stdout
 
     def test_credentials_scp_to_macbooks(self, tmp_path):
         """.credentials.json exists -> scp called for m2 and m3."""
