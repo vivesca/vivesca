@@ -1,28 +1,31 @@
 #!/usr/bin/env python3
-"""Tests for browser effector CLI wrapper.
+"""Tests for browser effector CLI wrapper and core browser module.
 
 Uses mocks — no real browser launch required.
 """
 from __future__ import annotations
 
 import json
-import sys
-from io import StringIO
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
 
-# Load effector via exec (effectors are scripts, not importable packages)
-_EFFECTOR_PATH = Path(__file__).resolve().parent.parent / "effectors" / "browser"
-_ns: dict = {}
-exec(open(_EFFECTOR_PATH).read(), _ns)  # noqa: S102
+# Load effector via exec (no .py extension)
+_effector_path = Path(__file__).parent.parent / "effectors" / "browser"
+_ns: dict = {"__name__": "browser_effector"}
+exec(open(_effector_path).read(), _ns)
+
 main = _ns["main"]
 build_parser = _ns["build_parser"]
+
+# Patch target inside the exec'd namespace
+_FETCH_TARGET = "browser_effector.fetch"
 
 # ---------------------------------------------------------------------------
 # Parser tests
 # ---------------------------------------------------------------------------
+
 
 class TestParser:
     def test_fetch_minimum(self):
@@ -61,7 +64,7 @@ class TestParser:
 
 
 # ---------------------------------------------------------------------------
-# Fetch tests — mock the core browser.fetch function
+# CLI fetch tests — mock browser.fetch inside the exec'd namespace
 # ---------------------------------------------------------------------------
 
 SAMPLE_RESULT = {
@@ -75,14 +78,14 @@ SAMPLE_RESULT = {
 
 
 class TestFetchText:
-    @patch("effectors.browser.fetch", return_value=SAMPLE_RESULT)
+    @patch(_FETCH_TARGET, return_value=SAMPLE_RESULT)
     def test_plain_text_output(self, mock_fetch, capsys):
         main(["fetch", "https://example.com"])
         captured = capsys.readouterr()
         assert "This domain is for use in illustrative examples." in captured.out
-        assert "title" not in captured.out  # no JSON keys in plain mode
+        assert "title" not in captured.out
 
-    @patch("effectors.browser.fetch", return_value=SAMPLE_RESULT)
+    @patch(_FETCH_TARGET, return_value=SAMPLE_RESULT)
     def test_json_output(self, mock_fetch, capsys):
         main(["fetch", "https://example.com", "--json"])
         captured = capsys.readouterr()
@@ -91,7 +94,7 @@ class TestFetchText:
         assert data["status"] == 200
         assert data["text"] == SAMPLE_RESULT["text"]
 
-    @patch("effectors.browser.fetch", return_value=SAMPLE_RESULT)
+    @patch(_FETCH_TARGET, return_value=SAMPLE_RESULT)
     def test_passes_cookies(self, mock_fetch):
         main(["fetch", "https://example.com", "--cookies", "/tmp/c.json"])
         mock_fetch.assert_called_once_with(
@@ -103,53 +106,50 @@ class TestFetchText:
             wait=0,
         )
 
-    @patch("effectors.browser.fetch", return_value=SAMPLE_RESULT)
+    @patch(_FETCH_TARGET, return_value=SAMPLE_RESULT)
     def test_passes_selector(self, mock_fetch):
         main(["fetch", "https://example.com", "--selector", "main"])
-        mock_fetch.assert_called_once()
         assert mock_fetch.call_args.kwargs["selector"] == "main"
 
-    @patch("effectors.browser.fetch", return_value=SAMPLE_RESULT)
+    @patch(_FETCH_TARGET, return_value=SAMPLE_RESULT)
     def test_passes_screenshot(self, mock_fetch):
         main(["fetch", "https://example.com", "--screenshot", "/tmp/s.png"])
         assert mock_fetch.call_args.kwargs["screenshot"] == "/tmp/s.png"
 
-    @patch("effectors.browser.fetch", return_value=SAMPLE_RESULT)
+    @patch(_FETCH_TARGET, return_value=SAMPLE_RESULT)
     def test_passes_pdf(self, mock_fetch):
         main(["fetch", "https://example.com", "--pdf", "/tmp/out.pdf"])
         assert mock_fetch.call_args.kwargs["pdf"] == "/tmp/out.pdf"
 
-    @patch("effectors.browser.fetch", return_value=SAMPLE_RESULT)
+    @patch(_FETCH_TARGET, return_value=SAMPLE_RESULT)
     def test_passes_wait(self, mock_fetch):
         main(["fetch", "https://example.com", "--wait", "3000"])
         assert mock_fetch.call_args.kwargs["wait"] == 3000
 
-    @patch("effectors.browser.fetch", side_effect=FileNotFoundError("Cookie file not found: /tmp/nope"))
+    @patch(_FETCH_TARGET, side_effect=FileNotFoundError("Cookie file not found: /tmp/nope"))
     def test_missing_cookies_exits_1(self, mock_fetch, capsys):
         with pytest.raises(SystemExit) as exc_info:
             main(["fetch", "https://example.com", "--cookies", "/tmp/nope"])
         assert exc_info.value.code == 1
         assert "Cookie file" in capsys.readouterr().err
 
-    @patch("effectors.browser.fetch", side_effect=RuntimeError("timeout"))
+    @patch(_FETCH_TARGET, side_effect=RuntimeError("timeout"))
     def test_generic_error_exits_1(self, mock_fetch, capsys):
         with pytest.raises(SystemExit) as exc_info:
             main(["fetch", "https://example.com"])
         assert exc_info.value.code == 1
         assert "timeout" in capsys.readouterr().err
 
-    @patch("effectors.browser.fetch", return_value=SAMPLE_RESULT)
+    @patch(_FETCH_TARGET)
     def test_json_includes_screenshot_path(self, mock_fetch, capsys):
-        result = {**SAMPLE_RESULT, "screenshot": "/tmp/shot.png"}
-        mock_fetch.return_value = result
+        mock_fetch.return_value = {**SAMPLE_RESULT, "screenshot": "/tmp/shot.png"}
         main(["fetch", "https://example.com", "--json"])
         data = json.loads(capsys.readouterr().out)
         assert data["screenshot"] == "/tmp/shot.png"
 
-    @patch("effectors.browser.fetch", return_value=SAMPLE_RESULT)
+    @patch(_FETCH_TARGET)
     def test_json_includes_pdf_path(self, mock_fetch, capsys):
-        result = {**SAMPLE_RESULT, "pdf": "/tmp/page.pdf"}
-        mock_fetch.return_value = result
+        mock_fetch.return_value = {**SAMPLE_RESULT, "pdf": "/tmp/page.pdf"}
         main(["fetch", "https://example.com", "--json"])
         data = json.loads(capsys.readouterr().out)
         assert data["pdf"] == "/tmp/page.pdf"
@@ -159,29 +159,33 @@ class TestFetchText:
 # Core module unit tests — mock Playwright itself
 # ---------------------------------------------------------------------------
 
-class TestCoreFetch:
-    """Test metabolon.organelles.browser.fetch with mocked Playwright."""
 
+def _mock_playwright_chain(mock_pw_factory, page_return_value=None):
+    """Wire up a mock Playwright chain for sync_playwright()."""
+    mock_pw = MagicMock()
+    mock_pw_factory.return_value.__enter__ = MagicMock(return_value=mock_pw)
+    mock_pw_factory.return_value.__exit__ = MagicMock(return_value=False)
+
+    mock_page = MagicMock()
+    mock_page.title.return_value = "Test Page"
+    mock_page.inner_text.return_value = page_return_value or "Hello world"
+    mock_response = MagicMock()
+    mock_response.status = 200
+    mock_page.goto.return_value = mock_response
+
+    mock_context = MagicMock()
+    mock_context.new_page.return_value = mock_page
+    mock_browser = MagicMock()
+    mock_browser.new_context.return_value = mock_context
+    mock_pw.chromium.launch.return_value = mock_browser
+
+    return mock_page, mock_context, mock_browser
+
+
+class TestCoreFetch:
     @patch("metabolon.organelles.browser.sync_playwright")
     def test_basic_fetch(self, mock_pw_factory):
-        # Build mock chain: sync_playwright() -> __enter__ -> chromium.launch -> ...
-        mock_pw = MagicMock()
-        mock_pw_factory.return_value.__enter__ = MagicMock(return_value=mock_pw)
-        mock_pw_factory.return_value.__exit__ = MagicMock(return_value=False)
-
-        mock_browser = MagicMock()
-        mock_pw.chromium.launch.return_value = mock_browser
-
-        mock_page = MagicMock()
-        mock_page.title.return_value = "Test Page"
-        mock_page.inner_text.return_value = "Hello world"
-        mock_response = MagicMock()
-        mock_response.status = 200
-        mock_page.goto.return_value = mock_response
-
-        mock_context = MagicMock()
-        mock_context.new_page.return_value = mock_page
-        mock_browser.new_context.return_value = mock_context
+        mock_page, _, _ = _mock_playwright_chain(mock_pw_factory)
 
         from metabolon.organelles.browser import fetch
         result = fetch("https://example.com")
@@ -196,25 +200,10 @@ class TestCoreFetch:
 
     @patch("metabolon.organelles.browser.sync_playwright")
     def test_fetch_with_selector(self, mock_pw_factory):
-        mock_pw = MagicMock()
-        mock_pw_factory.return_value.__enter__ = MagicMock(return_value=mock_pw)
-        mock_pw_factory.return_value.__exit__ = MagicMock(return_value=False)
-
+        mock_page, _, _ = _mock_playwright_chain(mock_pw_factory)
         mock_element = MagicMock()
         mock_element.inner_text.return_value = "Selected content"
-
-        mock_page = MagicMock()
-        mock_page.title.return_value = "Page"
         mock_page.query_selector.return_value = mock_element
-        mock_response = MagicMock()
-        mock_response.status = 200
-        mock_page.goto.return_value = mock_response
-
-        mock_context = MagicMock()
-        mock_context.new_page.return_value = mock_page
-        mock_browser = MagicMock()
-        mock_browser.new_context.return_value = mock_context
-        mock_pw.chromium.launch.return_value = mock_browser
 
         from metabolon.organelles.browser import fetch
         result = fetch("https://example.com", selector="article")
@@ -224,22 +213,7 @@ class TestCoreFetch:
 
     @patch("metabolon.organelles.browser.sync_playwright")
     def test_fetch_screenshot(self, mock_pw_factory):
-        mock_pw = MagicMock()
-        mock_pw_factory.return_value.__enter__ = MagicMock(return_value=mock_pw)
-        mock_pw_factory.return_value.__exit__ = MagicMock(return_value=False)
-
-        mock_page = MagicMock()
-        mock_page.title.return_value = "Shot"
-        mock_page.inner_text.return_value = "body text"
-        mock_response = MagicMock()
-        mock_response.status = 200
-        mock_page.goto.return_value = mock_response
-
-        mock_context = MagicMock()
-        mock_context.new_page.return_value = mock_page
-        mock_browser = MagicMock()
-        mock_browser.new_context.return_value = mock_context
-        mock_pw.chromium.launch.return_value = mock_browser
+        mock_page, _, _ = _mock_playwright_chain(mock_pw_factory)
 
         from metabolon.organelles.browser import fetch
         result = fetch("https://example.com", screenshot="/tmp/shot.png")
@@ -249,22 +223,7 @@ class TestCoreFetch:
 
     @patch("metabolon.organelles.browser.sync_playwright")
     def test_fetch_pdf(self, mock_pw_factory):
-        mock_pw = MagicMock()
-        mock_pw_factory.return_value.__enter__ = MagicMock(return_value=mock_pw)
-        mock_pw_factory.return_value.__exit__ = MagicMock(return_value=False)
-
-        mock_page = MagicMock()
-        mock_page.title.return_value = "PDF"
-        mock_page.inner_text.return_value = "pdf body"
-        mock_response = MagicMock()
-        mock_response.status = 200
-        mock_page.goto.return_value = mock_response
-
-        mock_context = MagicMock()
-        mock_context.new_page.return_value = mock_page
-        mock_browser = MagicMock()
-        mock_browser.new_context.return_value = mock_context
-        mock_pw.chromium.launch.return_value = mock_browser
+        mock_page, _, _ = _mock_playwright_chain(mock_pw_factory)
 
         from metabolon.organelles.browser import fetch
         result = fetch("https://example.com", pdf="/tmp/out.pdf")
@@ -274,22 +233,7 @@ class TestCoreFetch:
 
     @patch("metabolon.organelles.browser.sync_playwright")
     def test_fetch_with_wait(self, mock_pw_factory):
-        mock_pw = MagicMock()
-        mock_pw_factory.return_value.__enter__ = MagicMock(return_value=mock_pw)
-        mock_pw_factory.return_value.__exit__ = MagicMock(return_value=False)
-
-        mock_page = MagicMock()
-        mock_page.title.return_value = "Wait"
-        mock_page.inner_text.return_value = "waited"
-        mock_response = MagicMock()
-        mock_response.status = 200
-        mock_page.goto.return_value = mock_response
-
-        mock_context = MagicMock()
-        mock_context.new_page.return_value = mock_page
-        mock_browser = MagicMock()
-        mock_browser.new_context.return_value = mock_context
-        mock_pw.chromium.launch.return_value = mock_browser
+        mock_page, _, _ = _mock_playwright_chain(mock_pw_factory)
 
         from metabolon.organelles.browser import fetch
         fetch("https://example.com", wait=1500)
@@ -303,22 +247,7 @@ class TestCoreFetch:
 
     @patch("metabolon.organelles.browser.sync_playwright")
     def test_fetch_text_helper(self, mock_pw_factory):
-        mock_pw = MagicMock()
-        mock_pw_factory.return_value.__enter__ = MagicMock(return_value=mock_pw)
-        mock_pw_factory.return_value.__exit__ = MagicMock(return_value=False)
-
-        mock_page = MagicMock()
-        mock_page.title.return_value = "Text"
-        mock_page.inner_text.return_value = "just the text"
-        mock_response = MagicMock()
-        mock_response.status = 200
-        mock_page.goto.return_value = mock_response
-
-        mock_context = MagicMock()
-        mock_context.new_page.return_value = mock_page
-        mock_browser = MagicMock()
-        mock_browser.new_context.return_value = mock_context
-        mock_pw.chromium.launch.return_value = mock_browser
+        _mock_playwright_chain(mock_pw_factory, page_return_value="just the text")
 
         from metabolon.organelles.browser import fetch_text
         assert fetch_text("https://example.com") == "just the text"
