@@ -871,3 +871,264 @@ def test_cmd_clean_all_tasks_removed(tmp_path, capsys):
     remaining = queue_path.read_text()
     assert "- [" not in remaining
     assert "# Queue" in remaining
+
+
+# ── Edge case tests: missing file, malformed lines, stale line_num ──────
+
+
+mark_done = _mod["mark_done"]
+
+
+def _make_queue_dir(tmp_path: Path) -> Path:
+    """Create the queue directory structure and return queue file path."""
+    queue_dir = tmp_path / "germline" / "loci"
+    queue_dir.mkdir(parents=True)
+    return queue_dir / "golem-queue.md"
+
+
+class TestMarkDoneEdgeCases:
+    """Edge cases for mark_done: missing file, stale index, bad line_num."""
+
+    def test_mark_done_missing_queue_file(self, tmp_path):
+        """mark_done does not crash when queue file is missing."""
+        queue_path = tmp_path / "nonexistent" / "golem-queue.md"
+        original_queue = _mod["QUEUE_FILE"]
+        try:
+            _mod["QUEUE_FILE"] = queue_path
+            # Should not raise — guard returns silently
+            mark_done(0, "exit=0")
+        finally:
+            _mod["QUEUE_FILE"] = original_queue
+
+    def test_mark_done_negative_line_num(self, tmp_path):
+        """mark_done with negative line_num does not corrupt the file."""
+        queue_path = _make_queue_dir(tmp_path)
+        queue_path.write_text("- [ ] `golem \"task1\"`\n")
+        original_queue = _mod["QUEUE_FILE"]
+        try:
+            _mod["QUEUE_FILE"] = queue_path
+            mark_done(-1, "exit=0")
+        finally:
+            _mod["QUEUE_FILE"] = original_queue
+
+        # File should be unchanged — negative index not allowed
+        content = queue_path.read_text()
+        assert "- [ ]" in content
+        assert "- [x]" not in content
+
+    def test_mark_done_stale_line_num_already_done(self, tmp_path):
+        """mark_done on a line already marked [x] is a no-op."""
+        queue_path = _make_queue_dir(tmp_path)
+        queue_path.write_text(
+            "- [ ] `golem \"task1\"`\n"
+            "- [x] `golem \"task2\"`\n"
+            "\n"
+            "## Done\n"
+        )
+        original_queue = _mod["QUEUE_FILE"]
+        try:
+            _mod["QUEUE_FILE"] = queue_path
+            mark_done(1, "exit=0")  # line 1 is already [x]
+        finally:
+            _mod["QUEUE_FILE"] = original_queue
+
+        content = queue_path.read_text()
+        lines = content.splitlines()
+        # Original [x] line should remain unchanged
+        assert "- [x]" in lines[1]
+
+    def test_mark_done_line_beyond_file(self, tmp_path):
+        """mark_done with line_num beyond file length is a no-op."""
+        queue_path = _make_queue_dir(tmp_path)
+        queue_path.write_text("- [ ] `golem \"task1\"`\n")
+        original_queue = _mod["QUEUE_FILE"]
+        try:
+            _mod["QUEUE_FILE"] = queue_path
+            mark_done(999, "exit=0")
+        finally:
+            _mod["QUEUE_FILE"] = original_queue
+
+        content = queue_path.read_text()
+        assert "- [ ]" in content
+        assert "- [x]" not in content
+
+    def test_mark_done_no_done_section(self, tmp_path):
+        """mark_done handles queue with no ## Done section."""
+        queue_path = _make_queue_dir(tmp_path)
+        queue_path.write_text(
+            "- [ ] `golem \"task1\"`\n"
+            "- [ ] `golem \"task2\"`\n"
+        )
+        original_queue = _mod["QUEUE_FILE"]
+        try:
+            _mod["QUEUE_FILE"] = queue_path
+            mark_done(0, "exit=0")
+        finally:
+            _mod["QUEUE_FILE"] = original_queue
+
+        content = queue_path.read_text()
+        # Line should be marked done even without ## Done section
+        assert "- [x]" in content
+
+
+class TestMarkFailedEdgeCases:
+    """Edge cases for mark_failed: missing file, stale index, bad line_num."""
+
+    def test_mark_failed_missing_queue_file(self, tmp_path):
+        """mark_failed does not crash when queue file is missing."""
+        queue_path = tmp_path / "nonexistent" / "golem-queue.md"
+        original_queue = _mod["QUEUE_FILE"]
+        try:
+            _mod["QUEUE_FILE"] = queue_path
+            result = mark_failed(0, "exit=1")
+        finally:
+            _mod["QUEUE_FILE"] = original_queue
+
+        assert result["retried"] is False
+
+    def test_mark_failed_negative_line_num(self, tmp_path):
+        """mark_failed with negative line_num does not corrupt the file."""
+        queue_path = _make_queue_dir(tmp_path)
+        queue_path.write_text("- [ ] `golem \"task1\"`\n")
+        original_queue = _mod["QUEUE_FILE"]
+        try:
+            _mod["QUEUE_FILE"] = queue_path
+            result = mark_failed(-1, "exit=1")
+        finally:
+            _mod["QUEUE_FILE"] = original_queue
+
+        assert result["retried"] is False
+        content = queue_path.read_text()
+        assert "- [ ]" in content
+        assert "- [!]" not in content
+
+    def test_mark_failed_stale_line_already_done(self, tmp_path):
+        """mark_failed on a line already marked [x] or [!] is a no-op."""
+        queue_path = _make_queue_dir(tmp_path)
+        queue_path.write_text(
+            "- [ ] `golem \"task1\"`\n"
+            "- [x] `golem \"task2\"`\n"
+        )
+        original_queue = _mod["QUEUE_FILE"]
+        try:
+            _mod["QUEUE_FILE"] = queue_path
+            result = mark_failed(1, "exit=1")
+        finally:
+            _mod["QUEUE_FILE"] = original_queue
+
+        assert result["retried"] is False
+        content = queue_path.read_text()
+        assert "- [x]" in content
+
+    def test_mark_failed_exit_code_2_no_retry(self, tmp_path):
+        """mark_failed with exit_code=2 (usage error) never retries."""
+        queue_path = _make_queue_dir(tmp_path)
+        queue_path.write_text("- [ ] `golem --provider infini \"task1\"`\n")
+        original_queue = _mod["QUEUE_FILE"]
+        try:
+            _mod["QUEUE_FILE"] = queue_path
+            result = mark_failed(0, "bad command", exit_code=2)
+        finally:
+            _mod["QUEUE_FILE"] = original_queue
+
+        assert result["retried"] is False
+        content = queue_path.read_text()
+        assert "- [!]" in content
+        assert "(retry)" not in content
+
+    def test_mark_failed_line_beyond_file(self, tmp_path):
+        """mark_failed with line_num beyond file length returns safely."""
+        queue_path = _make_queue_dir(tmp_path)
+        queue_path.write_text("- [ ] `golem \"task1\"`\n")
+        original_queue = _mod["QUEUE_FILE"]
+        try:
+            _mod["QUEUE_FILE"] = queue_path
+            result = mark_failed(999, "exit=1")
+        finally:
+            _mod["QUEUE_FILE"] = original_queue
+
+        assert result["retried"] is False
+        content = queue_path.read_text()
+        assert "- [ ]" in content
+        assert "- [!]" not in content
+
+
+class TestParseQueueEdgeCases:
+    """Edge cases for parse_queue: malformed lines, unreadable file."""
+
+    def test_parse_queue_malformed_lines(self, tmp_path):
+        """parse_queue skips lines that don't match the expected pattern."""
+        queue_path = _make_queue_dir(tmp_path)
+        queue_path.write_text(
+            "# Golem Task Queue\n"
+            "\n"
+            "garbage line\n"
+            "- [ ] not backtick wrapped\n"
+            "- [ ] `golem \"valid task\"`\n"
+            "- [ ] `non-golem-command`\n"
+            "- [x] `golem \"already done\"`\n"
+            "some random text with `backticks` but no list marker\n"
+            "- [ ] `golem \"another valid\"`\n"
+        )
+        original_queue = _mod["QUEUE_FILE"]
+        try:
+            _mod["QUEUE_FILE"] = queue_path
+            pending = parse_queue()
+        finally:
+            _mod["QUEUE_FILE"] = original_queue
+
+        # Only valid pending golem commands should be returned
+        assert len(pending) == 2
+        commands = [cmd for _, cmd in pending]
+        assert any("valid task" in c for c in commands)
+        assert any("another valid" in c for c in commands)
+
+    def test_parse_queue_whitespace_only_file(self, tmp_path):
+        """parse_queue returns empty for a file with only whitespace."""
+        queue_path = _make_queue_dir(tmp_path)
+        queue_path.write_text("   \n\n\t\n   \n")
+        original_queue = _mod["QUEUE_FILE"]
+        try:
+            _mod["QUEUE_FILE"] = queue_path
+            pending = parse_queue()
+        finally:
+            _mod["QUEUE_FILE"] = original_queue
+
+        assert pending == []
+
+    def test_parse_queue_unreadable_file(self, tmp_path):
+        """parse_queue returns empty when queue file exists but is unreadable."""
+        queue_path = _make_queue_dir(tmp_path)
+        queue_path.write_text("- [ ] `golem \"task\"`\n")
+        # Remove read permission
+        queue_path.chmod(0o000)
+        original_queue = _mod["QUEUE_FILE"]
+        try:
+            _mod["QUEUE_FILE"] = queue_path
+            pending = parse_queue()
+        finally:
+            _mod["QUEUE_FILE"] = original_queue
+            queue_path.chmod(0o644)  # Restore for cleanup
+
+        assert pending == []
+
+    def test_parse_queue_line_numbers_correct(self, tmp_path):
+        """parse_queue returns correct 0-based line numbers for tasks."""
+        queue_path = _make_queue_dir(tmp_path)
+        queue_path.write_text(
+            "line 0\n"       # 0
+            "line 1\n"       # 1
+            "- [ ] `golem \"first\"`\n"  # 2
+            "line 3\n"       # 3
+            "- [ ] `golem \"second\"`\n" # 4
+        )
+        original_queue = _mod["QUEUE_FILE"]
+        try:
+            _mod["QUEUE_FILE"] = queue_path
+            pending = parse_queue()
+        finally:
+            _mod["QUEUE_FILE"] = original_queue
+
+        assert len(pending) == 2
+        assert pending[0] == (2, 'golem "first"')
+        assert pending[1] == (4, 'golem "second"')

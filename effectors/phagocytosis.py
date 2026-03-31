@@ -9,6 +9,7 @@ and appends a timestamped entry to ~/epigenome/chromatin/.consumption-log.jsonl.
 Skips if the file list is identical to the last snapshot (deduplication).
 """
 
+import argparse
 import json
 import time
 from pathlib import Path
