@@ -261,7 +261,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description="AKM Heartbeat — nightly chromatin health digest via Telegram."
     )
-    parser.parse_args()
+    parser.parse_args([])
 
     digest = build_digest()
     print(digest)  # Log to stdout (captured by LaunchAgent)
