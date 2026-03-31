@@ -143,15 +143,19 @@ class TestSenseHooks:
         config = tmp_path / ".pre-commit-config.yaml"
         original = "repos:\n  - repo: https://github.com/pre-commit/pre-commit-hooks\n    rev: v4.0.0\n"
         config.write_text(original)
-        mock_run.return_value = subprocess.CompletedProcess(
-            args=["pre-commit"],
-            returncode=0,
-            stdout="updating https://github.com/pre-commit/pre-commit-hooks -> v4.5.0\n",
-            stderr="",
-        )
-        # After autoupdate, config changes (simulated by _sense_hooks reading it again)
-        # Since mock doesn't change the file, original==updated -> empty result
-        # So we also test the fallback path separately
+        updated_text = "repos:\n  - repo: https://github.com/pre-commit/pre-commit-hooks\n    rev: v4.5.0\n"
+
+        def side_effect(*a, **kw):
+            # Simulate autoupdate modifying the config file on disk
+            config.write_text(updated_text)
+            return subprocess.CompletedProcess(
+                args=["pre-commit"],
+                returncode=0,
+                stdout="updating https://github.com/pre-commit/pre-commit-hooks -> v4.5.0\n",
+                stderr="",
+            )
+
+        mock_run.side_effect = side_effect
         sub = HygieneSubstrate(project_root=tmp_path)
         signals = sub._sense_hooks()
         # Output parsed a hook update
