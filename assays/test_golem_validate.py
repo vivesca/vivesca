@@ -120,8 +120,9 @@ class TestCheckPytestCollect:
         assert check_pytest_collect(p) is None
 
     def test_broken_test_file_fails(self, tmp_path: Path):
+        """A test file with a module-level ImportError fails collection."""
         p = tmp_path / "test_broken.py"
-        p.write_text('def test_bad(): import nonexistent_module_xyz\n')
+        p.write_text('import nonexistent_module_xyz_12345\n\ndef test_bad(): pass\n')
         result = check_pytest_collect(p)
         assert result is not None
         assert "pytest collection" in result
@@ -172,9 +173,15 @@ class TestValidateFile:
 
 
 class TestMain:
-    def test_no_args_returns_1(self, capsys):
-        assert main([]) == 1
-        assert "Usage" in capsys.readouterr().err
+    def test_no_args_returns_1(self):
+        """No arguments should print usage to stderr and exit 1."""
+        script = "/home/terry/germline/effectors/golem-validate"
+        result = subprocess.run(
+            [script],
+            capture_output=True, text=True, timeout=30,
+        )
+        assert result.returncode == 1
+        assert "Usage" in result.stderr
 
     def test_missing_file_reports_missing(self, tmp_path: Path, capsys):
         assert main([str(tmp_path / "gone.py")]) == 1
