@@ -225,10 +225,10 @@ class TestPreflight:
         praxis_file.write_text("- task 1\n- task 2\n")
         monkeypatch.setattr("metabolon.organelles.circulation.praxis", praxis_file)
 
-        allo = tmp_path / "allostasis-state.json"
-        monkeypatch.setattr(
-            "metabolon.organelles.circulation.Path.home", lambda: tmp_path  # type: ignore[attr-defined]
-        )
+        # preflight constructs allo_state as Path.home() / ".claude" / ...
+        # so we mock Path.home to return tmp_path, then build the expected path
+        allo = tmp_path / ".claude" / "allostasis-state.json"
+        monkeypatch.setattr("pathlib.Path.home", lambda: tmp_path)
         yield (tmp_path, allo)
 
     def _make_state(self, **overrides) -> dict:
