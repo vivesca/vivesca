@@ -17,9 +17,10 @@ import re
 import signal
 import subprocess
 import tempfile
+from pathlib import Path
 from typing import Any
 
-CONFIG_PATH = os.path.expanduser("~/.config/llm-models.json")
+CONFIG_PATH = Path.home() / ".config" / "llm-models.json"
 DEFAULT_TIMEOUT = 180
 TimeoutSpec = int | dict[str, int] | None
 
@@ -118,15 +119,14 @@ def _query_codex(cmd: list[str], prompt: str, timeout: int) -> str:
             proc.wait()
             raise subprocess.TimeoutExpired(full_cmd, timeout) from err
         output = ""
-        if os.path.exists(tmp_path):
+        if tmp_path.exists():
             with open(tmp_path, encoding="utf-8") as f:
                 output = f.read().strip()
         if not output:
             output = stdout.strip() or stderr.strip()
         return _strip_ansi(output)
     finally:
-        if os.path.exists(tmp_path):
-            os.unlink(tmp_path)
+        tmp_path.unlink(missing_ok=True)
 
 
 def transduce(
