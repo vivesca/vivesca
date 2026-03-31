@@ -222,8 +222,8 @@ def test_scan_log_unreadable_file(tmp_path):
 
 
 def test_diagnose_path_issue():
-    """diagnose_failure detects hardcoded /Users/terry/ paths."""
-    result = diagnose_failure("golem /Users/terry/germline", "")
+    """diagnose_failure detects hardcoded /home/terry/ paths."""
+    result = diagnose_failure("golem /home/terry/germline", "")
     assert "path_issue" in result
 
 
