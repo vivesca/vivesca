@@ -66,11 +66,15 @@ def mark_done(line_num: int) -> None:
 
 
 def generate(topic: str, style_excerpt: str, extra: str = "") -> str:
+    from metabolon.symbiont import transduce
+
     prompt = GENERATE_PROMPT.format(topic=topic + extra, style_excerpt=style_excerpt)
     return transduce("goose", prompt, timeout=120)
 
 
 def judge(post: str) -> tuple[bool, str]:
+    from metabolon.symbiont import transduce
+
     verdict = transduce("glm", f"{JUDGE_PROMPT}\n\nPost:\n{post}", timeout=60)
     return verdict.upper().startswith("PASS"), verdict
 

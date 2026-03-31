@@ -432,7 +432,7 @@ class TestInterphaseClose:
     def test_day_score_out_of_range(self, tmp_path):
         with patch("metabolon.enzymes.emit.INTERPHASE_DAILY_DIR", tmp_path):
             r = _eff("interphase_close", shipped="s", tomorrow="t",
-                     open_threads="o", nudges="n", day_score=0)
+                     open_threads="o", nudges="n", day_score=-1)
             assert r.success is False
             assert "day_score must be 1-5" in r.message
 
