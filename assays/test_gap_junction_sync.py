@@ -76,35 +76,35 @@ class TestSubprocessInvocation:
 
     def test_invokes_python3_with_sync_catchup(self, tmp_path):
         """Script passes 'sync catchup' to python3 -m gap_junction."""
-        # Create a fake python3 that records args
+        # Create a fake python3 that records its arguments
         recorder = tmp_path / "python3"
         recorder.write_text(
-            '#!/bin/bash\necho "ARGC=$#" >> "$1"\nfor arg in "$@"; do echo "ARG=$arg" >> "$1"; done\n'
+            '#!/bin/bash\n'
+            'echo "$@" > "$0.rec"\n'
         )
         recorder.chmod(0o755)
-        record_file = tmp_path / "args.txt"
+        rec_file = tmp_path / "python3.rec"
 
-        # Run the script with PATH pointing to our fake python3
         env = os.environ.copy()
         env["PATH"] = str(tmp_path) + ":" + env.get("PATH", "")
         env["HOME"] = str(tmp_path)
-        # Create the germline dir so PYTHONPATH works
         (tmp_path / "germline").mkdir()
 
-        # Patch exec: run script but capture output
         result = subprocess.run(
-            ["bash", str(EFFECTOR)],
+            ["/usr/bin/bash", str(EFFECTOR)],
             env=env,
             capture_output=True,
             text=True,
             timeout=10,
         )
 
-        # The script should have invoked python3 with module + args
-        # But since there's no real python3 at our path AND no real module,
-        # it will fail. We just verify the script tried to exec python3.
-        # Let's check that it attempted the right invocation by reading
-        # the script content more directly instead.
+        # Our fake python3 should have been called
+        assert rec_file.exists(), "python3 was never invoked"
+        args = rec_file.read_text().strip()
+        assert "-m" in args
+        assert "metabolon.organelles.gap_junction" in args
+        assert "sync" in args
+        assert "catchup" in args
 
     def test_script_exits_on_missing_python3(self, tmp_path):
         """Script fails cleanly when python3 is unavailable."""
@@ -114,7 +114,7 @@ class TestSubprocessInvocation:
         (tmp_path / "germline").mkdir()
 
         result = subprocess.run(
-            ["bash", str(EFFECTOR)],
+            ["/usr/bin/bash", str(EFFECTOR)],
             env=env,
             capture_output=True,
             text=True,
@@ -127,65 +127,78 @@ class TestSubprocessInvocation:
 # ── Integration with underlying module ──────────────────────────────────
 
 
+def _load_module():
+    """Load gap_junction module via exec (effector pattern)."""
+    source = Path.home().joinpath(
+        "germline", "metabolon", "organelles", "gap_junction.py"
+    ).read_text()
+    ns = {"__name__": "gap_junction_test"}
+    exec(source, ns)
+    return ns
+
+
+_mod = _load_module()
+_cli = _mod["_cli"]
+sync_catchup = _mod["sync_catchup"]
+
+
 class TestModuleCliSyncCatchup:
     """Test the underlying _cli() handles 'sync catchup' correctly."""
 
-    def _load_cli(self):
-        """Load gap_junction module via exec (effector pattern)."""
-        source = Path.home().joinpath(
-            "germline", "metabolon", "organelles", "gap_junction.py"
-        ).read_text()
-        ns = {"__name__": "gap_junction_test"}
-        exec(source, ns)
-        return ns
-
-    def test_cli_sync_catchup_calls_sync_catchup(self, capsys):
+    def test_cli_sync_catchup_calls_sync_catchup(self, capsys, monkeypatch):
         """_cli dispatches 'sync catchup' to sync_catchup()."""
-        ns = self._load_cli()
-        with patch.object(ns, "sync_catchup", return_value="synced OK"):
-            ns["sys"].argv = ["gap_junction", "sync", "catchup"]
-            ns["_cli"]()
+        original = _mod["sync_catchup"]
+        _mod["sync_catchup"] = lambda: "synced OK"
+        monkeypatch.setattr("sys.argv", ["gap_junction", "sync", "catchup"])
+        try:
+            _cli()
+        finally:
+            _mod["sync_catchup"] = original
         out = capsys.readouterr().out
         assert "synced OK" in out
 
-    def test_cli_sync_catchup_locked_exits_zero(self, capsys):
+    def test_cli_sync_catchup_locked_exits_zero(self, capsys, monkeypatch):
         """_cli exits 0 when wacli store is locked (daemon already running)."""
-        ns = self._load_cli()
-        with patch.object(ns, "sync_catchup", side_effect=ValueError("store is locked")):
-            ns["sys"].argv = ["gap_junction", "sync", "catchup"]
+        original = _mod["sync_catchup"]
+        _mod["sync_catchup"] = lambda: (_ for _ in ()).throw(ValueError("store is locked"))
+        monkeypatch.setattr("sys.argv", ["gap_junction", "sync", "catchup"])
+        try:
             with pytest.raises(SystemExit) as exc_info:
-                ns["_cli"]()
+                _cli()
+        finally:
+            _mod["sync_catchup"] = original
         assert exc_info.value.code == 0
         err = capsys.readouterr().err
         assert "daemon is running" in err
 
-    def test_cli_sync_catchup_value_error_exits_1(self, capsys):
+    def test_cli_sync_catchup_value_error_exits_1(self, capsys, monkeypatch):
         """_cli exits 1 on generic ValueError from sync_catchup."""
-        ns = self._load_cli()
-        with patch.object(ns, "sync_catchup", side_effect=ValueError("something broke")):
-            ns["sys"].argv = ["gap_junction", "sync", "catchup"]
+        original = _mod["sync_catchup"]
+        _mod["sync_catchup"] = lambda: (_ for _ in ()).throw(ValueError("something broke"))
+        monkeypatch.setattr("sys.argv", ["gap_junction", "sync", "catchup"])
+        try:
             with pytest.raises(SystemExit) as exc_info:
-                ns["_cli"]()
+                _cli()
+        finally:
+            _mod["sync_catchup"] = original
         assert exc_info.value.code == 1
         err = capsys.readouterr().err
         assert "something broke" in err
 
-    def test_cli_wrong_args_exits_2(self, capsys):
+    def test_cli_wrong_args_exits_2(self, capsys, monkeypatch):
         """_cli exits 2 with usage message for wrong arguments."""
-        ns = self._load_cli()
-        ns["sys"].argv = ["gap_junction", "bad", "args"]
+        monkeypatch.setattr("sys.argv", ["gap_junction", "bad", "args"])
         with pytest.raises(SystemExit) as exc_info:
-            ns["_cli"]()
+            _cli()
         assert exc_info.value.code == 2
         err = capsys.readouterr().err
         assert "usage" in err
 
-    def test_cli_no_args_exits_2(self, capsys):
+    def test_cli_no_args_exits_2(self, capsys, monkeypatch):
         """_cli exits 2 when called with no arguments."""
-        ns = self._load_cli()
-        ns["sys"].argv = ["gap_junction"]
+        monkeypatch.setattr("sys.argv", ["gap_junction"])
         with pytest.raises(SystemExit) as exc_info:
-            ns["_cli"]()
+            _cli()
         assert exc_info.value.code == 2
         err = capsys.readouterr().err
         assert "usage" in err

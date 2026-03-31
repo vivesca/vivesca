@@ -254,8 +254,8 @@ def test_write_progress_report_creates_file():
     report_content = report_path.read_text()
     assert "Golem Reviewer — Cycle 999" in report_content
     assert "Queue: 3 pending" in report_content
-    assert "100 passed" in report_content
-    assert "2 failed" in report_content
+    assert "Passed: 100" in report_content
+    assert "Failed: 2" in report_content
 
     # Cleanup
     if report_path.exists():
