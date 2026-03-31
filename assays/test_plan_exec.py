@@ -1,58 +1,60 @@
 from __future__ import annotations
-"""Tests for plan-exec — deprecated plan execution effector.
-
-plan-exec now just outputs a deprecation message pointing to sortase exec.
-"""
+"""Tests for effectors/plan-exec — deprecated bash script tested via subprocess."""
 
 import subprocess
 from pathlib import Path
 
 import pytest
 
-SCRIPT = Path("/home/terry/germline/effectors/plan-exec")
+SCRIPT = Path(__file__).parent.parent / "effectors" / "plan-exec"
 
 
-def _run(*extra_args: str) -> subprocess.CompletedProcess:
+def run_plan_exec(args: list[str] | None = None) -> subprocess.CompletedProcess:
     """Run plan-exec with given arguments."""
+    cmd = ["bash", str(SCRIPT)] + (args or [])
     return subprocess.run(
-        ["sh", str(SCRIPT), *extra_args],
+        cmd,
         capture_output=True,
         text=True,
         timeout=5,
     )
 
 
-def test_help_long_flag():
-    """--help shows deprecation message and exits 0."""
-    r = _run("--help")
-    assert r.returncode == 0
-    assert "plan-exec is deprecated" in r.stdout
-    assert "sortase exec <plan> -p <project>" in r.stdout
-    assert not r.stderr
+class TestPlanExec:
+    """Tests for the deprecated plan-exec script.
 
+    The script should always output a deprecation message pointing to sortase
+    and exit with non-zero code, except for --help/-h which exits zero.
+    """
 
-def test_help_short_flag():
-    """-h shows deprecation message and exits 0."""
-    r = _run("-h")
-    assert r.returncode == 0
-    assert "plan-exec is deprecated" in r.stdout
-    assert "sortase exec <plan> -p <project>" in r.stdout
-    assert not r.stderr
+    def test_no_args_prints_deprecation_to_stderr(self):
+        """Without arguments, prints deprecation to stderr and exit 1."""
+        result = run_plan_exec()
+        assert result.returncode == 1
+        assert "deprecated" in result.stderr
+        assert "sortase exec <plan> -p <project>" in result.stderr
+        assert result.stdout == ""
 
+    def test_help_flag_exits_zero_with_message(self):
+        """With --help, prints message to stdout and exit 0."""
+        result = run_plan_exec(["--help"])
+        assert result.returncode == 0
+        assert "deprecated" in result.stdout
+        assert "sortase exec <plan> -p <project>" in result.stdout
+        assert result.stderr == ""
 
-def test_no_args():
-    """No arguments prints deprecation to stderr and exits 1."""
-    r = _run()
-    assert r.returncode == 1
-    assert "plan-exec is deprecated" in r.stderr
-    assert "sortase exec <plan> -p <project>" in r.stderr
-    assert not r.stdout
+    def test_h_flag_exits_zero_with_message(self):
+        """With -h, prints message to stdout and exit 0."""
+        result = run_plan_exec(["-h"])
+        assert result.returncode == 0
+        assert "deprecated" in result.stdout
+        assert "sortase exec <plan> -p <project>" in result.stdout
+        assert result.stderr == ""
 
-
-def test_with_arguments():
-    """Any arguments (other than help) prints to stderr and exits 1."""
-    r = _run("some", "args", "here")
-    assert r.returncode == 1
-    assert "plan-exec is deprecated" in r.stderr
-    assert "sortase exec <plan> -p <project>" in r.stderr
-    assert not r.stdout
+    def test_any_other_arg_still_deprecates_stderr_exit_one(self):
+        """Any other arguments still output deprecation to stderr and exit 1."""
+        result = run_plan_exec(["some", "args", "--whatever"])
+        assert result.returncode == 1
+        assert "deprecated" in result.stderr
+        assert "sortase exec <plan> -p <project>" in result.stderr
+        assert result.stdout == ""
