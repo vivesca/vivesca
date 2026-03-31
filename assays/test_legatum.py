@@ -816,6 +816,76 @@ class TestCmdExtract:
             with pytest.raises(SystemExit):
                 cmd_extract(args)
 
+    def test_format_json_with_input_file(self, capsys, tmp_path):
+        gather = {"reflect": [{"category": "discovery", "lesson": "x", "quote": "y"}]}
+        infile = tmp_path / "gather.json"
+        infile.write_text(json.dumps(gather))
+        mock = MagicMock(returncode=0, stdout="1. FILE: finding | test.md | something learned\n")
+        with patch("subprocess.run", return_value=mock):
+            args = MagicMock(input=str(infile), format="json")
+            cmd_extract(args)
+        out = capsys.readouterr().out
+        data = json.loads(out)
+        assert len(data) == 1
+        assert data[0]["action"] == "file"
+        assert "something learned" in data[0]["details"]
+
+    def test_format_json_no_candidates(self, capsys):
+        data = json.dumps({"reflect": []})
+        args = MagicMock(input=None, format="json")
+        with patch("sys.stdin", StringIO(data)):
+            cmd_extract(args)
+        out = capsys.readouterr().out
+        assert json.loads(out) == []
+
+    def test_format_json_bad_json_exits(self):
+        args = MagicMock(input=None, format="json")
+        with patch("sys.stdin", StringIO("not json")):
+            with pytest.raises(SystemExit):
+                cmd_extract(args)
+
+    def test_format_json_channel_failure_exits(self, tmp_path):
+        gather = {"reflect": [{"category": "discovery", "lesson": "x"}]}
+        infile = tmp_path / "gather.json"
+        infile.write_text(json.dumps(gather))
+        mock = MagicMock(returncode=1, stderr="error")
+        with patch("subprocess.run", return_value=mock):
+            args = MagicMock(input=str(infile), format="json")
+            with pytest.raises(SystemExit):
+                cmd_extract(args)
+
+    def test_format_json_exception_exits(self, tmp_path):
+        gather = {"reflect": [{"category": "discovery", "lesson": "x"}]}
+        infile = tmp_path / "gather.json"
+        infile.write_text(json.dumps(gather))
+        with patch("subprocess.run", side_effect=RuntimeError("boom")):
+            args = MagicMock(input=str(infile), format="json")
+            with pytest.raises(SystemExit):
+                cmd_extract(args)
+
+    def test_format_json_parses_mixed_output(self, capsys, tmp_path):
+        gather = {"reflect": [
+            {"category": "discovery", "lesson": "x"},
+            {"category": "process_gap", "lesson": "y"},
+        ]}
+        infile = tmp_path / "gather.json"
+        infile.write_text(json.dumps(gather))
+        channel_output = (
+            "1. FILE: finding | learn.md | discovered X\n"
+            "2. SKIP: already known\n"
+            "3. PRINCIPLE: always-test.md | test before deploy\n"
+        )
+        mock = MagicMock(returncode=0, stdout=channel_output)
+        with patch("subprocess.run", return_value=mock):
+            args = MagicMock(input=str(infile), format="json")
+            cmd_extract(args)
+        out = capsys.readouterr().out
+        data = json.loads(out)
+        assert len(data) == 3
+        assert data[0]["action"] == "file"
+        assert data[1]["action"] == "skip"
+        assert data[2]["action"] == "principle"
+
 
 # ══════════════════════════════════════════════════════════════════════════════
 # main / argument parsing
