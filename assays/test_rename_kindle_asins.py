@@ -154,69 +154,70 @@ class TestExecLoading:
 
 
 def _make_wrapper(tmpdir: str, extra_args: list[str] | None = None) -> str:
-    """Build a Python wrapper script that patches BOOKS_DIR to tmpdir."""
-    args = ["rename-kindle-asins.py"] + (extra_args or [])
-    args_repr = repr(args)
+    """Build a subprocess wrapper that overrides HOME so Path.home() → tmpdir.
+
+    The script computes BOOKS_DIR = Path.home() / "notes" / "Books",
+    so we set HOME and the caller must create tmpdir/notes/Books/.
+    """
+    args_str = ", ".join(repr(a) for a in (["rename-kindle-asins.py"] + (extra_args or [])))
     return f"""
-import sys
-from pathlib import Path
+import sys, os
+os.environ['HOME'] = {tmpdir!r}
 source = open({str(RENAME_PATH)!r}).read()
-# Replace the source-code expression, not the evaluated path
-source = source.replace(
-    'Path.home() / "notes" / "Books"',
-    {repr(f'Path({tmpdir!r})')}
-)
-ns = {{'__name__': '__main__', '__file__': {str(RENAME_PATH)!r}}}
-ns['sys'] = type(sys)('sys')
-ns['sys'].argv = {args_repr}
-# Carry over all needed builtins
-exec(source, ns)
+sys.argv = [{args_str}]
+exec(source, {{'__name__': '__main__', '__file__': {str(RENAME_PATH)!r}, 'sys': sys}})
 """
+
+
+def _books_dir(tmpdir: str) -> Path:
+    return Path(tmpdir) / "notes" / "Books"
 
 
 class TestFunctionalRename:
     def test_rename_in_temp_dir(self):
         """Should rename ASIN files to title files."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            src = Path(tmpdir) / "B00CNQ2NTK.md"
-            src.write_text("# Awakenings notes")
+            books = _books_dir(tmpdir)
+            books.mkdir(parents=True)
+            (books / "B00CNQ2NTK.md").write_text("# Awakenings notes")
 
-            wrapper = _make_wrapper(tmpdir)
             r = subprocess.run(
-                [sys.executable, "-c", wrapper],
+                [sys.executable, "-c", _make_wrapper(tmpdir)],
                 capture_output=True, text=True, timeout=30,
             )
             assert r.returncode == 0, f"stderr: {r.stderr}\nstdout: {r.stdout}"
-            assert (Path(tmpdir) / "Awakenings.md").exists()
-            assert not (Path(tmpdir) / "B00CNQ2NTK.md").exists()
+            assert (books / "Awakenings.md").exists()
+            assert not (books / "B00CNQ2NTK.md").exists()
 
     def test_dry_run_does_not_rename(self):
         """Should not actually rename files in dry-run mode."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            src = Path(tmpdir) / "B00CNQ2NTK.md"
+            books = _books_dir(tmpdir)
+            books.mkdir(parents=True)
+            src = books / "B00CNQ2NTK.md"
             src.write_text("# Awakenings notes")
 
-            wrapper = _make_wrapper(tmpdir, ["--dry-run"])
             r = subprocess.run(
-                [sys.executable, "-c", wrapper],
+                [sys.executable, "-c", _make_wrapper(tmpdir, ["--dry-run"])],
                 capture_output=True, text=True, timeout=30,
             )
             assert r.returncode == 0, f"stderr: {r.stderr}\nstdout: {r.stdout}"
             assert src.exists()
-            assert not (Path(tmpdir) / "Awakenings.md").exists()
+            assert not (books / "Awakenings.md").exists()
             assert "dry-run" in r.stdout.lower() or "Would rename" in r.stdout
 
     def test_skip_when_dest_exists(self):
         """Should skip rename when destination file already exists."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            src = Path(tmpdir) / "B00CNQ2NTK.md"
+            books = _books_dir(tmpdir)
+            books.mkdir(parents=True)
+            src = books / "B00CNQ2NTK.md"
             src.write_text("# Original")
-            dst = Path(tmpdir) / "Awakenings.md"
+            dst = books / "Awakenings.md"
             dst.write_text("# Existing")
 
-            wrapper = _make_wrapper(tmpdir)
             r = subprocess.run(
-                [sys.executable, "-c", wrapper],
+                [sys.executable, "-c", _make_wrapper(tmpdir)],
                 capture_output=True, text=True, timeout=30,
             )
             assert r.returncode == 0, f"stderr: {r.stderr}\nstdout: {r.stdout}"
@@ -227,13 +228,32 @@ class TestFunctionalRename:
     def test_no_files_to_rename(self):
         """Should report 0 renamed when no ASIN files exist."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            wrapper = _make_wrapper(tmpdir)
+            books = _books_dir(tmpdir)
+            books.mkdir(parents=True)
+
             r = subprocess.run(
-                [sys.executable, "-c", wrapper],
+                [sys.executable, "-c", _make_wrapper(tmpdir)],
                 capture_output=True, text=True, timeout=30,
             )
             assert r.returncode == 0, f"stderr: {r.stderr}\nstdout: {r.stdout}"
             assert "Renamed 0 files" in r.stdout
+
+    def test_multiple_renames(self):
+        """Should rename multiple ASIN files."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            books = _books_dir(tmpdir)
+            books.mkdir(parents=True)
+            (books / "B00CNQ2NTK.md").write_text("# Awakenings")
+            (books / "B08FGV64B1.md").write_text("# Four Thousand Weeks")
+
+            r = subprocess.run(
+                [sys.executable, "-c", _make_wrapper(tmpdir)],
+                capture_output=True, text=True, timeout=30,
+            )
+            assert r.returncode == 0, f"stderr: {r.stderr}\nstdout: {r.stdout}"
+            assert (books / "Awakenings.md").exists()
+            assert (books / "Four Thousand Weeks.md").exists()
+            assert "Renamed 2 files" in r.stdout
 
 
 # ── CLI subprocess ──────────────────────────────────────────────────────────

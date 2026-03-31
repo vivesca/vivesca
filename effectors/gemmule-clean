@@ -1,0 +1,150 @@
+#!/usr/bin/env python3
+"""gemmule-clean — Remove stale temp/cache dirs on gemmule.
+
+Cleans:
+    1. /tmp/claude-*/ dirs older than 24 hours
+    2. ~/.cache/uv/archive-v0/ entries older than 7 days
+    3. __pycache__ dirs anywhere under ~/germline/
+
+Reports total bytes freed. Never touches germline source or epigenome.
+"""
+from __future__ import annotations
+
+import os
+import shutil
+import sys
+import time
+from pathlib import Path
+
+HOME = Path.home()
+GERMLINE = HOME / "germline"
+EPIGENOME = HOME / "epigenome"
+
+# Safety: never delete inside these dirs
+PROTECTED_PREFIXES = [
+    str(GERMLINE),
+    str(EPIGENOME),
+]
+
+
+def _dir_size(p: Path) -> int:
+    """Total bytes under a directory tree."""
+    total = 0
+    try:
+        for entry in os.scandir(p):
+            if entry.is_dir(follow_symlinks=False):
+                total += _dir_size(entry.path)
+            elif entry.is_file(follow_symlinks=False):
+                total += entry.stat(follow_symlinks=False).st_size
+    except (PermissionError, FileNotFoundError, OSError):
+        pass
+    return total
+
+
+def _rmtree(p: Path) -> int:
+    """Remove a directory tree, return bytes freed."""
+    size = _dir_size(p)
+    try:
+        shutil.rmtree(p)
+    except (PermissionError, FileNotFoundError, OSError):
+        return 0
+    return size
+
+
+def _age_hours(mtime: float) -> float:
+    return (time.time() - mtime) / 3600
+
+
+def clean_tmp_claude(tmp_root: Path, max_age_hours: float = 24.0) -> int:
+    """Remove /tmp/claude-*/ dirs older than max_age_hours. Returns bytes freed."""
+    freed = 0
+    if not tmp_root.is_dir():
+        return 0
+    for entry in sorted(tmp_root.iterdir()):
+        if not entry.name.startswith("claude-") or not entry.is_dir():
+            continue
+        try:
+            mtime = entry.stat().st_mtime
+        except OSError:
+            continue
+        if _age_hours(mtime) > max_age_hours:
+            freed += _rmtree(entry)
+    return freed
+
+
+def clean_uv_cache(cache_root: Path, max_age_days: float = 7.0) -> int:
+    """Remove ~/.cache/uv/archive-v0/ entries older than max_age_days. Returns bytes freed."""
+    freed = 0
+    archive = cache_root / "uv" / "archive-v0"
+    if not archive.is_dir():
+        return 0
+    max_age_hours = max_age_days * 24.0
+    for entry in sorted(archive.iterdir()):
+        try:
+            mtime = entry.stat().st_mtime
+        except OSError:
+            continue
+        if _age_hours(mtime) > max_age_hours:
+            if entry.is_dir():
+                freed += _rmtree(entry)
+            elif entry.is_file():
+                size = entry.stat().st_size
+                try:
+                    entry.unlink()
+                    freed += size
+                except OSError:
+                    pass
+    return freed
+
+
+def clean_pycache(root: Path) -> int:
+    """Remove all __pycache__ dirs under root. Returns bytes freed."""
+    freed = 0
+    for dirpath, dirnames, _filenames in os.walk(root):
+        for d in dirnames:
+            if d == "__pycache__":
+                full = Path(dirpath) / d
+                # Safety: skip if somehow inside protected source
+                # (__pycache__ cleaning is fine — these are bytecode caches, not source)
+                freed += _rmtree(full)
+    return freed
+
+
+def _format_bytes(n: int) -> str:
+    if n >= 1_048_576:
+        return f"{n / 1_048_576:.1f} MB"
+    if n >= 1024:
+        return f"{n / 1024:.1f} KB"
+    return f"{n} B"
+
+
+def run(
+    tmp_root: Path | None = None,
+    cache_root: Path | None = None,
+    germline_root: Path | None = None,
+) -> dict[str, int]:
+    """Run all cleaners. Returns dict of {category: bytes_freed}."""
+    tmp_root = tmp_root or Path("/tmp")
+    cache_root = cache_root or (HOME / ".cache")
+    germline_root = germline_root or GERMLINE
+
+    results: dict[str, int] = {}
+    results["tmp_claude"] = clean_tmp_claude(tmp_root)
+    results["uv_cache"] = clean_uv_cache(cache_root)
+    results["pycache"] = clean_pycache(germline_root)
+
+    total = sum(results.values())
+    for cat, freed in results.items():
+        print(f"  {cat}: {_format_bytes(freed)} freed")
+    print(f"  total: {_format_bytes(total)} freed")
+    return results
+
+
+def main() -> None:
+    print("gemmule-clean: cleaning stale files...")
+    run()
+    print("done.")
+
+
+if __name__ == "__main__":
+    main()

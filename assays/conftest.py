@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 
 import pytest
 import yaml
@@ -51,3 +52,21 @@ def write_sources_file(xdg_env, sample_sources):
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(yaml.safe_dump(sample_sources), encoding="utf-8")
     return target
+
+
+@pytest.fixture
+def home_dir():
+    """Return the user's home directory as a Path (no hardcoded paths in tests)."""
+    return Path.home()
+
+
+@pytest.fixture
+def germline_dir(home_dir):
+    """Return the germline project root as a Path."""
+    return home_dir / "germline"
+
+
+@pytest.fixture
+def effectors_dir(germline_dir):
+    """Return the effectors directory as a Path."""
+    return germline_dir / "effectors"

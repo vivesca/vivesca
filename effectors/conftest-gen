@@ -1,0 +1,140 @@
+#!/usr/bin/env python3
+"""conftest-gen — Scan for hardcoded home paths and rewrite to Path.home().
+
+Scans Python files in assays/ for hardcoded /Users/terry or /home/terry
+paths and optionally rewrites them to use Path.home().
+
+Usage:
+    conftest-gen              # dry-run (default): show what would change
+    conftest-gen --fix        # apply changes
+    conftest-gen --help
+"""
+from __future__ import annotations
+
+import argparse
+import re
+import sys
+from pathlib import Path
+
+# Patterns for hardcoded paths
+MAC_PATH_PAT = re.compile(r'"/Users/terry(/[^"]*)?"')
+LINUX_PATH_PAT = re.compile(r'"/home/terry(/[^"]*)?"')
+
+
+def find_hardcoded_paths(filepath: Path) -> list[tuple[int, str, str]]:
+    """Find hardcoded paths in a file.
+
+    Returns list of (line_number, original_text, suggested_fix).
+    """
+    text = filepath.read_text(encoding="utf-8")
+    lines = text.splitlines()
+    results: list[tuple[int, str, str]] = []
+
+    for i, line in enumerate(lines, 1):
+        # Check for macOS path
+        for match in MAC_PATH_PAT.finditer(line):
+            original = match.group(0)
+            suffix = match.group(1) or ""
+            # Keep as string with Path.home() interpolation
+            fixed = f'str(Path.home() / "{suffix.lstrip("/")}")' if suffix else 'str(Path.home())'
+            results.append((i, original, fixed))
+
+        # Check for Linux path
+        for match in LINUX_PATH_PAT.finditer(line):
+            original = match.group(0)
+            suffix = match.group(1) or ""
+            fixed = f'str(Path.home() / "{suffix.lstrip("/")}")' if suffix else 'str(Path.home())'
+            results.append((i, original, fixed))
+
+    return results
+
+
+def rewrite_file(filepath: Path, replacements: list[tuple[int, str, str]]) -> bool:
+    """Apply replacements to file. Returns True if any changes made."""
+    if not replacements:
+        return False
+
+    text = filepath.read_text(encoding="utf-8")
+    lines = text.splitlines()
+    changed = False
+
+    # Process in reverse order to preserve line numbers
+    for lineno, original, fixed in reversed(replacements):
+        line = lines[lineno - 1]
+        if original in line:
+            lines[lineno - 1] = line.replace(original, fixed, 1)
+            changed = True
+
+    if changed:
+        filepath.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+    return changed
+
+
+def scan_directory(directory: Path) -> list[tuple[Path, list[tuple[int, str, str]]]]:
+    """Scan directory for Python files with hardcoded paths.
+
+    Returns list of (filepath, issues) tuples.
+    """
+    results: list[tuple[Path, list[tuple[int, str, str]]]] = []
+
+    for py_file in directory.glob("**/*.py"):
+        issues = find_hardcoded_paths(py_file)
+        if issues:
+            results.append((py_file, issues))
+
+    return results
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(
+        description="Scan for hardcoded home paths and rewrite to Path.home()"
+    )
+    parser.add_argument(
+        "--fix", action="store_true",
+        help="Apply changes (default is dry-run)"
+    )
+    parser.add_argument(
+        "directory", nargs="?", default="assays",
+        help="Directory to scan (default: assays)"
+    )
+    args = parser.parse_args(argv)
+
+    target = Path(args.directory)
+    if not target.is_dir():
+        print(f"Error: {target} is not a directory", file=sys.stderr)
+        return 1
+
+    findings = scan_directory(target)
+
+    if not findings:
+        print(f"No hardcoded paths found in {target}/")
+        return 0
+
+    total_issues = sum(len(issues) for _, issues in findings)
+    action = "Would fix" if not args.fix else "Fixed"
+
+    print(f"{'[DRY-RUN] ' if not args.fix else ''}Found {total_issues} hardcoded path(s) in {len(findings)} file(s):\n")
+
+    for filepath, issues in findings:
+        rel_path = filepath.relative_to(Path.cwd()) if filepath.is_relative_to(Path.cwd()) else filepath
+        print(f"{rel_path}:")
+        for lineno, original, fixed in issues:
+            if args.fix:
+                print(f"  line {lineno}: {original} → {fixed}")
+            else:
+                print(f"  line {lineno}: {original}")
+                print(f"    → {fixed}")
+        print()
+
+    if args.fix:
+        for filepath, issues in findings:
+            if rewrite_file(filepath, issues):
+                rel_path = filepath.relative_to(Path.cwd()) if filepath.is_relative_to(Path.cwd()) else filepath
+                print(f"Fixed: {rel_path}")
+
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

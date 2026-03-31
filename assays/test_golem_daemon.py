@@ -852,3 +852,22 @@ def test_cmd_clean_empty_queue(tmp_path, capsys):
     assert rc == 0
     out = capsys.readouterr().out
     assert "Removed 0 entries" in out
+
+
+def test_cmd_clean_all_tasks_removed(tmp_path, capsys):
+    """cmd_clean handles file where every task line is [x] or [!]."""
+    all_done = "# Queue\n\n- [x] `golem \"done\"`\n- [!] `golem \"fail\"`\n"
+    queue_path = _make_queue_for_clean(tmp_path, all_done)
+    original_queue = _mod["QUEUE_FILE"]
+    try:
+        _mod["QUEUE_FILE"] = queue_path
+        rc = cmd_clean()
+    finally:
+        _mod["QUEUE_FILE"] = original_queue
+
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "Removed 2 entries" in out
+    remaining = queue_path.read_text()
+    assert "- [" not in remaining
+    assert "# Queue" in remaining
