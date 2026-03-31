@@ -14,56 +14,74 @@ Usage:
 from __future__ import annotations
 
 import json
-import os
 import re
 import sys
 from collections import Counter, defaultdict
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 EFFECTORS_DIR = Path.home() / "germline" / "effectors"
 JSONL_FILE = Path.home() / ".local" / "share" / "vivesca" / "golem.jsonl"
 DAEMON_LOG = Path.home() / ".local" / "share" / "vivesca" / "golem-daemon.log"
+ROTATED_LOG = Path.home() / ".local" / "share" / "vivesca" / "golem-daemon.log.1"
 DEFAULT_TOP = 20
 RECENT_DAYS = 7
 
+# Match "effectors/<name>" where name ends at a word boundary
+# (whitespace, quote, parenthesis, comma, period, end-of-string)
+# This prevents matching truncated names like "gole..." or "tes..."
+RE_EFFECTOR = re.compile(
+    r"effectors/([a-zA-Z0-9][a-zA-Z0-9_.+-]+)"
+    r"(?=[\s\"'),;:!?\]}>]|$)"
+)
+# Daemon log timestamp: [2026-03-31 10:53:29]
+RE_LOG_TS = re.compile(r"^\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\] (.+)$")
+# Failure line patterns (applied to message after "] ")
+RE_FAILED = re.compile(r"^FAILED \(exit=(\d+)\)")
+RE_TIMEOUT = re.compile(r"^TIMEOUT \((\d+)s\)")
+# JSONL timestamp and exit code
+RE_JSONL_TS = re.compile(r'"ts"\s*:\s*"([^"]+)"')
+RE_EXIT = re.compile(r'"exit"\s*:\s*(\d+)')
+
 
 def list_effectors() -> set[str]:
-    """Return set of all effector names (files in effectors/ dir, excluding dirs)."""
+    """Return set of all effector file names in the effectors/ directory."""
     if not EFFECTORS_DIR.exists():
         return set()
     return {
         p.name
         for p in EFFECTORS_DIR.iterdir()
-        if p.is_file() and not p.name.startswith(".") and p.name != "__pycache__"
+        if p.is_file()
+        and not p.name.startswith(".")
+        and not p.name.endswith(".pyc")
+        and p.name != "__pycache__"
     }
 
 
-def parse_jsonl_mentions() -> tuple[Counter, Counter, dict[str, str]]:
-    """Parse golem.jsonl for effector mentions.
+def _clean_name(raw: str) -> str:
+    """Strip trailing punctuation from a captured effector name."""
+    return raw.rstrip(".,;:!?)\"' ")
+
+
+def scan_jsonl(path: Path) -> tuple[Counter, Counter, dict[str, str]]:
+    """Scan golem.jsonl for effector mentions.
 
     Returns:
-        (mention_counts, fail_counts, last_seen_ts)
-        - mention_counts: Counter mapping effector name -> number of mentions
-        - fail_counts: Counter mapping effector name -> number of failed invocations
-        - last_seen_ts: dict mapping effector name -> ISO timestamp of last mention
+        mention_counts: effector name -> mention count
+        fail_counts: effector name -> failure count (exit != 0)
+        last_seen: effector name -> ISO timestamp of last mention
     """
-    mention_counts: Counter = Counter()
-    fail_counts: Counter = Counter()
-    last_seen_ts: dict[str, str] = {}
+    mentions: Counter = Counter()
+    fails: Counter = Counter()
+    last_seen: dict[str, str] = {}
 
-    if not JSONL_FILE.exists():
-        return mention_counts, fail_counts, last_seen_ts
+    if not path.exists():
+        return mentions, fails, last_seen
 
+    content = path.read_text(errors="replace")
     decoder = json.JSONDecoder()
-    try:
-        content = JSONL_FILE.read_text(errors="replace")
-    except OSError:
-        return mention_counts, fail_counts, last_seen_ts
-
     pos = 0
     while pos < len(content):
-        # Skip whitespace/newlines
         while pos < len(content) and content[pos] in "\n\r\t ":
             pos += 1
         if pos >= len(content):
@@ -72,7 +90,6 @@ def parse_jsonl_mentions() -> tuple[Counter, Counter, dict[str, str]]:
             obj, end = decoder.raw_decode(content, pos)
             pos = end
         except json.JSONDecodeError:
-            # Skip to next line
             next_nl = content.find("\n", pos)
             if next_nl == -1:
                 break
@@ -83,129 +100,130 @@ def parse_jsonl_mentions() -> tuple[Counter, Counter, dict[str, str]]:
         ts = obj.get("ts", "")
         exit_code = obj.get("exit", 0)
 
-        # Find effector references: effectors/<name>
-        for m in re.finditer(r"effectors/([a-zA-Z0-9][a-zA-Z0-9_.-]*)", prompt):
-            name = m.group(1)
-            mention_counts[name] += 1
-            if ts > last_seen_ts.get(name, ""):
-                last_seen_ts[name] = ts
+        for m in RE_EFFECTOR.finditer(prompt):
+            name = _clean_name(m.group(1))
+            mentions[name] += 1
+            if ts > last_seen.get(name, ""):
+                last_seen[name] = ts
             if exit_code != 0:
-                fail_counts[name] += 1
+                fails[name] += 1
 
-    return mention_counts, fail_counts, last_seen_ts
+    return mentions, fails, last_seen
 
 
-def parse_daemon_log_mentions() -> tuple[Counter, Counter, dict[str, str]]:
-    """Parse golem-daemon.log for effector mentions.
-
-    Looks at Starting/Finished/FAILED lines and extracts effector names
-    from quoted task prompts.
+def scan_daemon_log(path: Path) -> tuple[Counter, Counter, dict[str, str]]:
+    """Scan golem-daemon.log for effector mentions.
 
     Returns:
-        (mention_counts, fail_counts, last_seen_ts)
+        mention_counts: effector name -> mention count
+        fail_counts: effector name -> failure count (FAILED/TIMEOUT lines)
+        last_seen: effector name -> ISO timestamp of last mention
     """
-    mention_counts: Counter = Counter()
-    fail_counts: Counter = Counter()
-    last_seen_ts: dict[str, str] = {}
+    mentions: Counter = Counter()
+    fails: Counter = Counter()
+    last_seen: dict[str, str] = {}
 
-    if not DAEMON_LOG.exists():
-        return mention_counts, fail_counts, last_seen_ts
-
-    # Pattern for Starting/Finished/FAILED lines
-    line_re = re.compile(
-        r"^\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\] "
-        r"(?:Starting|Finished|FAILED|TIMEOUT|ERROR)"
-    )
-    effector_re = re.compile(r"effectors/([a-zA-Z0-9][a-zA-Z0-9_.-]*)")
+    if not path.exists():
+        return mentions, fails, last_seen
 
     try:
-        with open(DAEMON_LOG, errors="replace") as f:
-            for line in f:
-                m = line_re.match(line)
-                if not m:
-                    continue
-                ts_raw = m.group(1)
-                # Convert to ISO format
-                try:
-                    dt = datetime.strptime(ts_raw, "%Y-%m-%d %H:%M:%S")
-                    ts = dt.strftime("%Y-%m-%dT%H:%M:%SZ")
-                except ValueError:
-                    ts = ""
-
-                is_fail = "FAILED" in line or "TIMEOUT" in line or "ERROR" in line
-
-                for em in effector_re.finditer(line):
-                    name = em.group(1)
-                    mention_counts[name] += 1
-                    if ts > last_seen_ts.get(name, ""):
-                        last_seen_ts[name] = ts
-                    if is_fail:
-                        fail_counts[name] += 1
+        lines = path.read_text(errors="replace").splitlines()
     except OSError:
-        pass
+        return mentions, fails, last_seen
 
-    return mention_counts, fail_counts, last_seen_ts
+    for line in lines:
+        m = RE_LOG_TS.match(line)
+        if not m:
+            continue
+        ts_raw = m.group(1)
+        msg = m.group(2)
+
+        try:
+            dt = datetime.strptime(ts_raw, "%Y-%m-%d %H:%M:%S")
+            ts = dt.strftime("%Y-%m-%dT%H:%M:%SZ")
+        except ValueError:
+            ts = ""
+
+        is_fail = bool(RE_FAILED.match(msg) or RE_TIMEOUT.match(msg))
+
+        for em in RE_EFFECTOR.finditer(line):
+            name = _clean_name(em.group(1))
+            mentions[name] += 1
+            if ts > last_seen.get(name, ""):
+                last_seen[name] = ts
+            if is_fail:
+                fails[name] += 1
+
+    return mentions, fails, last_seen
 
 
 def merge_results(
     *results: tuple[Counter, Counter, dict[str, str]],
 ) -> tuple[Counter, Counter, dict[str, str]]:
-    """Merge multiple parse results (jsonl + daemon log)."""
-    merged_mentions: Counter = Counter()
-    merged_fails: Counter = Counter()
-    merged_last: dict[str, str] = {}
+    """Merge multiple scan results."""
+    merged_m: Counter = Counter()
+    merged_f: Counter = Counter()
+    merged_l: dict[str, str] = {}
 
-    for mentions, fails, last_seen in results:
-        merged_mentions.update(mentions)
-        merged_fails.update(fails)
-        for name, ts in last_seen.items():
-            if ts > merged_last.get(name, ""):
-                merged_last[name] = ts
+    for ments, fls, ls in results:
+        merged_m.update(ments)
+        merged_f.update(fls)
+        for name, ts in ls.items():
+            if ts > merged_l.get(name, ""):
+                merged_l[name] = ts
 
-    return merged_mentions, merged_fails, merged_last
+    return merged_m, merged_f, merged_l
 
 
 def compute_report(
     top_n: int = DEFAULT_TOP,
     recent_days: int = RECENT_DAYS,
+    jsonl_path: Path | None = None,
+    log_path: Path | None = None,
+    rotated_path: Path | None = None,
 ) -> dict:
     """Compute full usage report.
 
     Returns dict with keys:
-        most_used: list of (name, count, last_seen, fail_count)
-        never_used: list of effector names not mentioned in any log
-        recently_broken: list of (name, fail_count, last_seen) for recent failures
+        most_used: list of dicts (name, mentions, failures, last_seen)
+        never_used: sorted list of effector names not mentioned in any log
+        recently_broken: list of dicts for effectors with recent failures
         total_effectors: int
         total_mentions: int
     """
-    all_effectors = list_effectors()
+    all_eff = list_effectors()
 
-    jsonl_result = parse_jsonl_mentions()
-    daemon_result = parse_daemon_log_mentions()
-    mentions, fails, last_seen = merge_results(jsonl_result, daemon_result)
+    jp = jsonl_path or JSONL_FILE
+    lp = log_path or DAEMON_LOG
+    rp = rotated_path or ROTATED_LOG
 
-    # Most used: sorted by mention count descending
+    results = [scan_jsonl(jp), scan_daemon_log(lp)]
+    if rp.exists():
+        results.append(scan_daemon_log(rp))
+
+    mentions, fails, last_seen = merge_results(*results)
+
     all_mentioned = set(mentions.keys())
-    most_used = sorted(
+    most_used_names = sorted(
         all_mentioned,
         key=lambda n: (mentions[n], last_seen.get(n, "")),
         reverse=True,
     )
-    most_used_data = [
+    most_used = [
         {
             "name": name,
             "mentions": mentions[name],
             "failures": fails.get(name, 0),
             "last_seen": last_seen.get(name, "never"),
         }
-        for name in most_used[:top_n]
+        for name in most_used_names[:top_n]
     ]
 
-    # Never used: effectors in dir but not in any log
-    never_used = sorted(all_effectors - all_mentioned)
+    never_used = sorted(all_eff - all_mentioned)
 
-    # Recently broken: mentioned effectors with failures in last N days
-    cutoff = (datetime.utcnow() - timedelta(days=recent_days)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    # Recently broken: failures seen within the recent window
+    cutoff_dt = datetime.now(timezone.utc) - timedelta(days=recent_days)
+    cutoff = cutoff_dt.strftime("%Y-%m-%dT%H:%M:%SZ")
     recently_broken = sorted(
         [
             {
@@ -214,17 +232,16 @@ def compute_report(
                 "last_seen": last_seen.get(name, "unknown"),
             }
             for name in all_mentioned
-            if fails.get(name, 0) > 0
-            and last_seen.get(name, "") >= cutoff
+            if fails.get(name, 0) > 0 and last_seen.get(name, "") >= cutoff
         ],
         key=lambda x: (-x["failures"], x["name"]),
     )
 
     return {
-        "most_used": most_used_data,
+        "most_used": most_used,
         "never_used": never_used,
         "recently_broken": recently_broken,
-        "total_effectors": len(all_effectors),
+        "total_effectors": len(all_eff),
         "total_mentions": sum(mentions.values()),
     }
 
@@ -233,53 +250,56 @@ def format_report(report: dict) -> str:
     """Format report as human-readable text."""
     lines: list[str] = []
 
-    lines.append("═══ Effector Usage Report ═══")
+    lines.append("=" * 60)
+    lines.append("EFFECTOR USAGE REPORT")
+    lines.append("=" * 60)
     lines.append(
-        f"Effectors: {report['total_effectors']} registered  "
-        f"Total mentions: {report['total_mentions']}"
+        f"  Effectors: {report['total_effectors']} registered  "
+        f"Mentions: {report['total_mentions']}"
     )
     lines.append("")
 
     # Most used
-    lines.append(f"── Most Used (top {len(report['most_used'])}) ──")
+    lines.append(f"-- Most Used (top {len(report['most_used'])}) --")
     if report["most_used"]:
         name_w = max(len(e["name"]) for e in report["most_used"])
         for entry in report["most_used"]:
-            fail_str = f" ({entry['failures']} fail)" if entry["failures"] else ""
+            fail_str = f"  ({entry['failures']} fail)" if entry["failures"] else ""
+            ls = entry["last_seen"][:10] if entry["last_seen"] != "never" else "never"
             lines.append(
-                f"  {entry['name']:<{name_w}}  {entry['mentions']:>4} mentions  "
-                f"last: {entry['last_seen'][:10]}{fail_str}"
+                f"  {entry['name']:<{name_w}}  {entry['mentions']:>4}x  "
+                f"last: {ls}{fail_str}"
             )
     else:
         lines.append("  (none found)")
-
     lines.append("")
 
     # Never used
-    lines.append(f"── Never Used ({len(report['never_used'])}) ──")
+    lines.append(f"-- Never Used ({len(report['never_used'])}) --")
     if report["never_used"]:
-        # Print in columns
-        col_w = 24
-        for i in range(0, len(report["never_used"]), 3):
-            row = report["never_used"][i : i + 3]
-            lines.append("  " + "  ".join(f"{n:<{col_w}}" for n in row).rstrip())
+        col_w = max(len(n) for n in report["never_used"]) + 2
+        cols = max(1, 60 // col_w)
+        for i in range(0, len(report["never_used"]), cols):
+            row = report["never_used"][i : i + cols]
+            lines.append("  " + "  ".join(n.ljust(col_w) for n in row).rstrip())
     else:
         lines.append("  (all effectors have been referenced)")
-
     lines.append("")
 
     # Recently broken
-    lines.append(f"── Recently Broken ({len(report['recently_broken'])}) ──")
+    lines.append(f"-- Recently Broken ({len(report['recently_broken'])}) --")
     if report["recently_broken"]:
         for entry in report["recently_broken"]:
+            ls = entry["last_seen"][:10] if entry["last_seen"] != "unknown" else "unknown"
             lines.append(
-                f"  {entry['name']:<24}  {entry['failures']:>3} failures  "
-                f"last: {entry['last_seen'][:10]}"
+                f"  {entry['name']:<24}  {entry['failures']:>3} failures  last: {ls}"
             )
     else:
         lines.append("  (none)")
+    lines.append("")
 
-    return "\n".join(lines) + "\n"
+    lines.append("=" * 60)
+    return "\n".join(lines)
 
 
 def main() -> int:
@@ -293,7 +313,6 @@ def main() -> int:
     show_broken = "--broken" in args
     show_unused = "--unused" in args
 
-    # Parse --top N
     top_n = DEFAULT_TOP
     for i, arg in enumerate(args):
         if arg == "--top" and i + 1 < len(args):
