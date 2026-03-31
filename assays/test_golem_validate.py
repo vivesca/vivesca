@@ -110,21 +110,21 @@ def test_hardcoded_mac_path_fails(hardcoded_path_file: Path):
     """A file with /Users/terry/ should FAIL."""
     r = _run([str(hardcoded_path_file)])
     assert r.returncode == 1
-    assert "/Users/terry/" in r.stdout
+    assert "macOS hardcoded path" in r.stdout
 
 
 def test_todo_fails(todo_file: Path):
     """A file with TODO should FAIL."""
     r = _run([str(todo_file)])
     assert r.returncode == 1
-    assert "TODO" in r.stdout
+    assert "work-in-progress marker" in r.stdout
 
 
 def test_fixme_fails(fixme_file: Path):
     """A file with FIXME should FAIL."""
     r = _run([str(fixme_file)])
     assert r.returncode == 1
-    assert "FIXME" in r.stdout
+    assert "work-in-progress marker" in r.stdout
 
 
 def test_stub_fails(stub_file: Path):
@@ -140,8 +140,8 @@ def test_multiple_issues_reported(tmp_path: Path):
     p.write_text('path = "/Users/terry/x"\n# TODO: fix\n')
     r = _run([str(p)])
     assert r.returncode == 1
-    assert "/Users/terry/" in r.stdout
-    assert "TODO" in r.stdout
+    assert "/Users/terry/" in r.stdout or "macOS hardcoded path" in r.stdout
+    assert "work-in-progress marker" in r.stdout
 
 
 # ── Multiple files ───────────────────────────────────────────────────

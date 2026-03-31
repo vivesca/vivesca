@@ -114,9 +114,8 @@ class TestReadImports:
 
 
 class TestGenerateSpec:
-    def test_generates_plan_for_existing_module(self, tmp_path):
+    def test_generates_plan_for_existing_module(self, tmp_path, monkeypatch):
         """generate_spec creates a plan file when module exists."""
-        # Create a fake module
         mod_dir = tmp_path / "metabolon" / "organelles"
         mod_dir.mkdir(parents=True)
         mod_file = mod_dir / "chromatin.py"
@@ -131,12 +130,13 @@ class TestGenerateSpec:
                 pass
         """))
 
-        # Patch GERMLINE and PLANS_DIR
-        with patch.object(_mod, "GERMLINE", tmp_path):
-            with patch.object(_mod, "PLANS_DIR", tmp_path / "loci" / "plans"):
-                plans = tmp_path / "loci" / "plans"
-                plans.mkdir(parents=True, exist_ok=True)
-                result = generate_spec("metabolon/organelles/chromatin.py")
+        plans = tmp_path / "loci" / "plans"
+        plans.mkdir(parents=True, exist_ok=True)
+
+        monkeypatch.setitem(_mod, "GERMLINE", tmp_path)
+        monkeypatch.setitem(_mod, "PLANS_DIR", plans)
+
+        result = generate_spec("metabolon/organelles/chromatin.py")
 
         assert result.exists()
         content = result.read_text()
@@ -144,7 +144,7 @@ class TestGenerateSpec:
         assert "process" in content
         assert "Handler" in content
 
-    def test_embeds_full_source_for_small_module(self, tmp_path):
+    def test_embeds_full_source_for_small_module(self, tmp_path, monkeypatch):
         """Small modules (≤200 lines) get full source embedded."""
         mod_dir = tmp_path / "metabolon" / "organelles"
         mod_dir.mkdir(parents=True)
@@ -154,14 +154,15 @@ class TestGenerateSpec:
         plans = tmp_path / "loci" / "plans"
         plans.mkdir(parents=True, exist_ok=True)
 
-        with patch.object(_mod, "GERMLINE", tmp_path):
-            with patch.object(_mod, "PLANS_DIR", plans):
-                result = generate_spec("metabolon/organelles/small.py")
+        monkeypatch.setitem(_mod, "GERMLINE", tmp_path)
+        monkeypatch.setitem(_mod, "PLANS_DIR", plans)
+
+        result = generate_spec("metabolon/organelles/small.py")
 
         content = result.read_text()
         assert "Source code (DO NOT MODIFY" in content
 
-    def test_api_signatures_for_large_module(self, tmp_path):
+    def test_api_signatures_for_large_module(self, tmp_path, monkeypatch):
         """Large modules (>200 lines) get API signatures only."""
         mod_dir = tmp_path / "metabolon" / "organelles"
         mod_dir.mkdir(parents=True)
@@ -174,15 +175,16 @@ class TestGenerateSpec:
         plans = tmp_path / "loci" / "plans"
         plans.mkdir(parents=True, exist_ok=True)
 
-        with patch.object(_mod, "GERMLINE", tmp_path):
-            with patch.object(_mod, "PLANS_DIR", plans):
-                result = generate_spec("metabolon/organelles/big.py")
+        monkeypatch.setitem(_mod, "GERMLINE", tmp_path)
+        monkeypatch.setitem(_mod, "PLANS_DIR", plans)
+
+        result = generate_spec("metabolon/organelles/big.py")
 
         content = result.read_text()
         assert "API signatures" in content
         assert "250 lines" in content
 
-    def test_wave_number_in_plan_name(self, tmp_path):
+    def test_wave_number_in_plan_name(self, tmp_path, monkeypatch):
         """--wave flag causes wave number prefix in plan name."""
         mod_dir = tmp_path / "metabolon" / "organelles"
         mod_dir.mkdir(parents=True)
@@ -191,20 +193,21 @@ class TestGenerateSpec:
         plans = tmp_path / "loci" / "plans"
         plans.mkdir(parents=True, exist_ok=True)
 
-        with patch.object(_mod, "GERMLINE", tmp_path):
-            with patch.object(_mod, "PLANS_DIR", plans):
-                result = generate_spec("metabolon/organelles/pulse.py", wave=6)
+        monkeypatch.setitem(_mod, "GERMLINE", tmp_path)
+        monkeypatch.setitem(_mod, "PLANS_DIR", plans)
 
-        assert "wave-6-test-pulse.md" == result.name
+        result = generate_spec("metabolon/organelles/pulse.py", wave=6)
+        assert result.name == "wave-6-test-pulse.md"
 
-    def test_nonexistent_module_exits(self, tmp_path):
+    def test_nonexistent_module_exits(self, tmp_path, monkeypatch):
         """generate_spec exits with error for nonexistent module."""
-        with patch.object(_mod, "GERMLINE", tmp_path):
-            with patch.object(_mod, "PLANS_DIR", tmp_path / "plans"):
-                with pytest.raises(SystemExit):
-                    generate_spec("nonexistent/module.py")
+        monkeypatch.setitem(_mod, "GERMLINE", tmp_path)
+        monkeypatch.setitem(_mod, "PLANS_DIR", tmp_path / "plans")
 
-    def test_spec_lists_public_api(self, tmp_path):
+        with pytest.raises(SystemExit):
+            generate_spec("nonexistent/module.py")
+
+    def test_spec_lists_public_api(self, tmp_path, monkeypatch):
         """Generated spec lists public functions/classes."""
         mod_dir = tmp_path / "metabolon" / "organelles"
         mod_dir.mkdir(parents=True)
@@ -220,20 +223,19 @@ class TestGenerateSpec:
         plans = tmp_path / "loci" / "plans"
         plans.mkdir(parents=True, exist_ok=True)
 
-        with patch.object(_mod, "GERMLINE", tmp_path):
-            with patch.object(_mod, "PLANS_DIR", plans):
-                result = generate_spec("metabolon/organelles/api.py")
+        monkeypatch.setitem(_mod, "GERMLINE", tmp_path)
+        monkeypatch.setitem(_mod, "PLANS_DIR", plans)
+
+        result = generate_spec("metabolon/organelles/api.py")
 
         content = result.read_text()
         assert "public_func" in content
         assert "PublicClass" in content
-        # Private functions should not appear in public API listing
-        # (they may appear in source embed, but not in "Public API:" line)
-        api_line = [l for l in content.splitlines() if "Public API:" in l]
-        if api_line:
-            assert "_private_func" not in api_line[0]
+        api_lines = [l for l in content.splitlines() if "Public API:" in l]
+        if api_lines:
+            assert "_private_func" not in api_lines[0]
 
-    def test_spec_includes_shell_redirect_instruction(self, tmp_path):
+    def test_spec_includes_shell_redirect_instruction(self, tmp_path, monkeypatch):
         """Generated spec includes shell redirect instruction."""
         mod_dir = tmp_path / "metabolon" / "organelles"
         mod_dir.mkdir(parents=True)
@@ -242,20 +244,21 @@ class TestGenerateSpec:
         plans = tmp_path / "loci" / "plans"
         plans.mkdir(parents=True, exist_ok=True)
 
-        with patch.object(_mod, "GERMLINE", tmp_path):
-            with patch.object(_mod, "PLANS_DIR", plans):
-                result = generate_spec("metabolon/organelles/x.py")
+        monkeypatch.setitem(_mod, "GERMLINE", tmp_path)
+        monkeypatch.setitem(_mod, "PLANS_DIR", plans)
+
+        result = generate_spec("metabolon/organelles/x.py")
 
         content = result.read_text()
         assert "cat << 'PYEOF'" in content
-        assert "shell redirect" in content.lower() or "Shell redirect" in content.lower() or "CRITICAL" in content
+        assert "CRITICAL" in content
 
 
 # ── main (CLI) tests ───────────────────────────────────────────────────────
 
 
 class TestMain:
-    def test_main_generates_plans(self, tmp_path):
+    def test_main_generates_plans(self, tmp_path, monkeypatch):
         """main() generates a plan per module."""
         mod_dir = tmp_path / "metabolon" / "organelles"
         mod_dir.mkdir(parents=True)
@@ -264,15 +267,16 @@ class TestMain:
         plans = tmp_path / "loci" / "plans"
         plans.mkdir(parents=True, exist_ok=True)
 
+        monkeypatch.setitem(_mod, "GERMLINE", tmp_path)
+        monkeypatch.setitem(_mod, "PLANS_DIR", plans)
+
         with patch("sys.argv", ["test-spec-gen", "metabolon/organelles/target.py"]):
-            with patch.object(_mod, "GERMLINE", tmp_path):
-                with patch.object(_mod, "PLANS_DIR", plans):
-                    _mod["main"]()
+            _mod["main"]()
 
         generated = list(plans.glob("test-target.md"))
         assert len(generated) == 1
 
-    def test_main_with_wave(self, tmp_path):
+    def test_main_with_wave(self, tmp_path, monkeypatch):
         """main() passes wave number to generate_spec."""
         mod_dir = tmp_path / "metabolon" / "organelles"
         mod_dir.mkdir(parents=True)
@@ -281,10 +285,11 @@ class TestMain:
         plans = tmp_path / "loci" / "plans"
         plans.mkdir(parents=True, exist_ok=True)
 
+        monkeypatch.setitem(_mod, "GERMLINE", tmp_path)
+        monkeypatch.setitem(_mod, "PLANS_DIR", plans)
+
         with patch("sys.argv", ["test-spec-gen", "--wave", "3", "metabolon/organelles/wave.py"]):
-            with patch.object(_mod, "GERMLINE", tmp_path):
-                with patch.object(_mod, "PLANS_DIR", plans):
-                    _mod["main"]()
+            _mod["main"]()
 
         generated = list(plans.glob("wave-3-test-wave.md"))
         assert len(generated) == 1

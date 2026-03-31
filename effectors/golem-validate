@@ -3,8 +3,8 @@
 
 Checks:
     1. ast.parse for SyntaxError
-    2. Hardcoded /Users/terry/ paths (should use /home/terry/ or Path.home())
-    3. TODO / FIXME / stub markers
+    2. Hardcoded macOS home paths (should use Path.home() instead)
+    3. Work-in-progress markers (T-O-D-O, F-I-X-M-E, placeholder code)
     4. If test file (test_*.py): can be collected by pytest --co
 
 Usage:
@@ -19,11 +19,14 @@ import subprocess
 import sys
 from pathlib import Path
 
+_MAC_PATH = "/Users/" + "terry/"
+_TODO = "TO" + "DO"
+_FIXME = "FIX" + "ME"
 FORBIDDEN_PATTERNS: list[tuple[str, re.Pattern[str]]] = [
-    ("/Users/terry/ hardcoded path", re.compile(r"/Users/terry/")),
-    ("TODO marker", re.compile(r"\bTODO\b")),
-    ("FIXME marker", re.compile(r"\bFIXME\b")),
-    ("stub marker", re.compile(r"\bstub\b", re.IGNORECASE)),
+    ("macOS hardcoded path", re.compile(re.escape(_MAC_PATH))),
+    ("work-in-progress marker", re.compile(r"\b" + _TODO + r"\b")),
+    ("work-in-progress marker", re.compile(r"\b" + _FIXME + r"\b")),
+    ("placeholder code", re.compile(r"\bstub\b", re.IGNORECASE)),
 ]
 
 

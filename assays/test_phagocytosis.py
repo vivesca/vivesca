@@ -89,8 +89,8 @@ class TestReadLastSnapshot:
         content = f"{entry1}\n{entry2}\n".encode()
         bio = io.BytesIO(content)
 
-        with patch.object(phago.LOG_FILE, "exists", return_value=True):
-            with patch.object(phago.LOG_FILE, "open", return_value=bio):
+        with patch("pathlib.Path.exists", return_value=True):
+            with patch("pathlib.Path.open", return_value=bio):
                 result = phago.read_last_snapshot()
         assert result == ["y.md", "z.md"]
 
@@ -99,8 +99,8 @@ class TestReadLastSnapshot:
         content = f"{entry}\n".encode()
         bio = io.BytesIO(content)
 
-        with patch.object(phago.LOG_FILE, "exists", return_value=True):
-            with patch.object(phago.LOG_FILE, "open", return_value=bio):
+        with patch("pathlib.Path.exists", return_value=True):
+            with patch("pathlib.Path.open", return_value=bio):
                 result = phago.read_last_snapshot()
         assert result == ["solo.md"]
 

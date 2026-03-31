@@ -67,9 +67,9 @@ def test_parse_provider_full_mode():
 
 def test_get_provider_limit_known_providers():
     """get_provider_limit returns correct limits for known providers."""
-    assert get_provider_limit("zhipu") == 4
-    assert get_provider_limit("infini") == 6
-    assert get_provider_limit("volcano") == 8
+    assert get_provider_limit("zhipu") == 8
+    assert get_provider_limit("infini") == 8
+    assert get_provider_limit("volcano") == 16
 
 
 def test_get_provider_limit_unknown_provider():
@@ -80,9 +80,9 @@ def test_get_provider_limit_unknown_provider():
 
 def test_provider_limits_constant():
     """PROVIDER_LIMITS contains expected values."""
-    assert PROVIDER_LIMITS["zhipu"] == 4
-    assert PROVIDER_LIMITS["infini"] == 6
-    assert PROVIDER_LIMITS["volcano"] == 8
+    assert PROVIDER_LIMITS["zhipu"] == 8
+    assert PROVIDER_LIMITS["infini"] == 8
+    assert PROVIDER_LIMITS["volcano"] == 16
 
 
 # ── parse_queue tests ─────────────────────────────────────────────────
@@ -192,7 +192,7 @@ def test_provider_extraction_from_queue(tmp_path):
 def test_concurrency_respects_provider_limits():
     """Verify that max workers would allow full provider concurrency."""
     max_workers = max(PROVIDER_LIMITS.values())
-    assert max_workers == 8  # volcano has highest limit
+    assert max_workers == 16  # volcano has highest limit
 
 
 # ── check_new_test_files_and_run_pytest tests ───────────────────────────
@@ -603,3 +603,50 @@ def test_validate_flat_test_file_passes(tmp_path, monkeypatch):
 
     assert passed
     assert errors == []
+
+
+# ── rotate_logs tests ────────────────────────────────────────────────────
+
+
+rotate_logs = _mod["rotate_logs"]
+ROTATE_MAX_BYTES = _mod["ROTATE_MAX_BYTES"]
+
+
+def test_rotate_logs_renames_large_file(tmp_path):
+    """rotate_logs renames file to .1 when it exceeds 5MB."""
+    big_file = tmp_path / "golem-daemon.log"
+    big_file.write_bytes(b"x" * (ROTATE_MAX_BYTES + 1))
+    rotated = tmp_path / "golem-daemon.log.1"
+
+    original_log = _mod["LOGFILE"]
+    original_jsonl = _mod["JSONLFILE"]
+    try:
+        _mod["LOGFILE"] = big_file
+        _mod["JSONLFILE"] = tmp_path / "nonexistent.jsonl"
+        rotate_logs()
+    finally:
+        _mod["LOGFILE"] = original_log
+        _mod["JSONLFILE"] = original_jsonl
+
+    assert rotated.exists()
+    assert not big_file.exists()
+    assert rotated.stat().st_size == ROTATE_MAX_BYTES + 1
+
+
+def test_rotate_logs_skips_small_file(tmp_path):
+    """rotate_logs does not rename file when it is under 5MB."""
+    small_file = tmp_path / "golem.jsonl"
+    small_file.write_bytes(b"x" * (ROTATE_MAX_BYTES - 1))
+
+    original_log = _mod["LOGFILE"]
+    original_jsonl = _mod["JSONLFILE"]
+    try:
+        _mod["LOGFILE"] = tmp_path / "nonexistent.log"
+        _mod["JSONLFILE"] = small_file
+        rotate_logs()
+    finally:
+        _mod["LOGFILE"] = original_log
+        _mod["JSONLFILE"] = original_jsonl
+
+    assert small_file.exists()
+    assert not (tmp_path / "golem.jsonl.1").exists()

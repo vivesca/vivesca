@@ -19,17 +19,12 @@ RECEPTOR_SCAN_PATH = Path(__file__).resolve().parents[1] / "effectors" / "recept
 
 
 @pytest.fixture()
-def rscan():
-    """Load receptor-scan via exec into an isolated namespace."""
-    ns: dict = {"__name__": "test_receptor_scan", "__file__": str(RECEPTOR_SCAN_PATH)}
+def ns():
+    """Load receptor-scan via exec into an isolated namespace dict."""
+    ns_dict: dict = {"__name__": "test_receptor_scan", "__file__": str(RECEPTOR_SCAN_PATH)}
     source = RECEPTOR_SCAN_PATH.read_text(encoding="utf-8")
-    exec(source, ns)
-    mod = type("receptor_scan", (), {})()
-    for k, v in ns.items():
-        if not k.startswith("__"):
-            setattr(mod, k, v)
-    mod._ns = ns  # keep reference to exec namespace for patching
-    return mod
+    exec(source, ns_dict)
+    return ns_dict
 
 
 # ── File structure tests ───────────────────────────────────────────────────
@@ -62,91 +57,88 @@ class TestReceptorScanBasics:
 
 
 class TestRunHelper:
-    def test_run_returns_stdout(self, rscan, monkeypatch):
+    def test_run_returns_stdout(self, ns, monkeypatch):
         """Should return stripped stdout on success."""
         mock_result = MagicMock(stdout="  hello world  \n", returncode=0)
         monkeypatch.setattr(subprocess, "run", lambda *a, **kw: mock_result)
-        assert rscan.run(["echo", "test"]) == "hello world"
+        assert ns["run"](["echo", "test"]) == "hello world"
 
-    def test_run_returns_empty_on_timeout(self, rscan, monkeypatch):
+    def test_run_returns_empty_on_timeout(self, ns, monkeypatch):
         """Should return empty string on TimeoutExpired."""
-        monkeypatch.setattr(subprocess, "run", side_effect=subprocess.TimeoutExpired("cmd", 15))
-        assert rscan.run(["slow-cmd"]) == ""
+        monkeypatch.setattr(
+            subprocess, "run",
+            MagicMock(side_effect=subprocess.TimeoutExpired("cmd", 15)),
+        )
+        assert ns["run"](["slow-cmd"]) == ""
 
-    def test_run_returns_empty_on_file_not_found(self, rscan, monkeypatch):
+    def test_run_returns_empty_on_file_not_found(self, ns, monkeypatch):
         """Should return empty string when command not found."""
-        monkeypatch.setattr(subprocess, "run", side_effect=FileNotFoundError)
-        assert rscan.run(["nonexistent-cmd"]) == ""
+        monkeypatch.setattr(
+            subprocess, "run",
+            MagicMock(side_effect=FileNotFoundError),
+        )
+        assert ns["run"](["nonexistent-cmd"]) == ""
 
-    def test_run_passes_timeout(self, rscan, monkeypatch):
+    def test_run_passes_timeout(self, ns, monkeypatch):
         """Should pass timeout parameter to subprocess.run."""
         calls = []
         def mock_run(*a, **kw):
             calls.append(kw)
             return MagicMock(stdout="ok")
         monkeypatch.setattr(subprocess, "run", mock_run)
-        rscan.run(["cmd"], timeout=30)
+        ns["run"](["cmd"], timeout=30)
         assert calls[0]["timeout"] == 30
 
-    def test_run_default_timeout_is_15(self, rscan, monkeypatch):
+    def test_run_default_timeout_is_15(self, ns, monkeypatch):
         """Should default to 15 second timeout."""
         calls = []
         def mock_run(*a, **kw):
             calls.append(kw)
             return MagicMock(stdout="ok")
         monkeypatch.setattr(subprocess, "run", mock_run)
-        rscan.run(["cmd"])
+        ns["run"](["cmd"])
         assert calls[0]["timeout"] == 15
-
-    def test_run_strips_whitespace(self, rscan, monkeypatch):
-        """Should strip leading/trailing whitespace from output."""
-        mock_result = MagicMock(stdout="\n  padded  \n")
-        monkeypatch.setattr(subprocess, "run", lambda *a, **kw: mock_result)
-        assert rscan.run(["cmd"]) == "padded"
 
 
 # ── main() ─────────────────────────────────────────────────────────────────
 
 
 class TestMain:
-    def test_no_args_exits(self, rscan, monkeypatch):
+    def test_no_args_exits(self, ns, monkeypatch):
         """Should exit 1 when no query provided."""
         monkeypatch.setattr(sys, "argv", ["receptor-scan"])
         with pytest.raises(SystemExit) as exc_info:
-            rscan.main()
+            ns["main"]()
         assert exc_info.value.code == 1
 
-    def test_no_args_prints_usage(self, rscan, monkeypatch, capsys):
+    def test_no_args_prints_usage(self, ns, capsys, monkeypatch):
         """Should print usage message to stderr when no args."""
         monkeypatch.setattr(sys, "argv", ["receptor-scan"])
         with pytest.raises(SystemExit):
-            rscan.main()
+            ns["main"]()
         err = capsys.readouterr().err
         assert "Usage" in err
 
-    def test_qmd_results_printed(self, rscan, monkeypatch, capsys):
+    def test_qmd_results_printed(self, ns, capsys, monkeypatch):
         """Should print vault results when qmd returns matches."""
-        def mock_run(cmd, timeout=15):
-            if cmd[0] == "qmd":
-                return "qmd://doc1\nqmd://doc2\nsome detail"
-            return ""
-        monkeypatch.setitem(rscan._ns, "run", mock_run)
         monkeypatch.setattr(sys, "argv", ["receptor-scan", "test query"])
-        rscan.main()
+        ns["run"] = lambda cmd, timeout=15: "qmd://doc1\nqmd://doc2\nsome detail" if cmd[0] == "qmd" else ""
+        ns["main"]()
         out = capsys.readouterr().out
         assert "Vault (authoritative) — 2 results" in out
         assert "qmd://doc1" in out
 
-    def test_no_qmd_results_prints_none(self, rscan, monkeypatch, capsys):
+    def test_no_qmd_results_prints_none(self, ns, capsys, monkeypatch):
         """Should print '(no results)' when vault returns nothing."""
-        monkeypatch.setitem(rscan._ns, "run", lambda cmd, timeout=15: "")
         monkeypatch.setattr(sys, "argv", ["receptor-scan", "obscure query"])
-        rscan.main()
+        ns["run"] = lambda cmd, timeout=15: ""
+        ns["main"]()
         out = capsys.readouterr().out
         assert "(no results)" in out
 
-    def test_oghma_fallback_when_few_results(self, rscan, monkeypatch, capsys):
+    def test_oghma_fallback_when_few_results(self, ns, capsys, monkeypatch):
         """Should query oghma when vault returns < 3 results."""
+        monkeypatch.setattr(sys, "argv", ["receptor-scan", "query"])
         call_log = []
         def mock_run(cmd, timeout=15):
             call_log.append(cmd)
@@ -155,55 +147,55 @@ class TestMain:
             if cmd[0] == "oghma":
                 return "oghma result"
             return ""
-        monkeypatch.setitem(rscan._ns, "run", mock_run)
-        monkeypatch.setattr(sys, "argv", ["receptor-scan", "query"])
-        rscan.main()
+        ns["run"] = mock_run
+        ns["main"]()
         out = capsys.readouterr().out
         assert "Oghma (conversation memory)" in out
         assert any(c[0] == "oghma" for c in call_log)
 
-    def test_no_oghma_when_three_or_more_results(self, rscan, monkeypatch, capsys):
+    def test_no_oghma_when_three_or_more_results(self, ns, capsys, monkeypatch):
         """Should NOT query oghma when vault returns >= 3 results."""
+        monkeypatch.setattr(sys, "argv", ["receptor-scan", "query"])
         call_log = []
         def mock_run(cmd, timeout=15):
             call_log.append(cmd)
             if cmd[0] == "qmd":
                 return "qmd://doc1\nqmd://doc2\nqmd://doc3\ndetail"
             return ""
-        monkeypatch.setitem(rscan._ns, "run", mock_run)
-        monkeypatch.setattr(sys, "argv", ["receptor-scan", "query"])
-        rscan.main()
+        ns["run"] = mock_run
+        ns["main"]()
         out = capsys.readouterr().out
         assert "Oghma" not in out
         assert not any(c[0] == "oghma" for c in call_log)
 
-    def test_oghma_unavailable(self, rscan, monkeypatch, capsys):
+    def test_oghma_unavailable(self, ns, capsys, monkeypatch):
         """Should print '(oghma unavailable)' when oghma returns empty."""
-        monkeypatch.setitem(rscan._ns, "run", lambda cmd, timeout=15: "")
         monkeypatch.setattr(sys, "argv", ["receptor-scan", "query"])
-        rscan.main()
+        ns["run"] = lambda cmd, timeout=15: ""
+        ns["main"]()
         out = capsys.readouterr().out
         assert "(oghma unavailable)" in out
 
-    def test_query_joins_multiple_args(self, rscan, monkeypatch, capsys):
+    def test_query_joins_multiple_args(self, ns, capsys, monkeypatch):
         """Should join multiple argv args into single query string."""
+        monkeypatch.setattr(sys, "argv", ["receptor-scan", "how", "to", "deploy"])
         call_log = []
         def mock_run(cmd, timeout=15):
             call_log.append(cmd)
             return "qmd://hit1\nqmd://hit2\nqmd://hit3\ndetail"
-        monkeypatch.setitem(rscan._ns, "run", mock_run)
-        monkeypatch.setattr(sys, "argv", ["receptor-scan", "how", "to", "deploy"])
-        rscan.main()
+        ns["run"] = mock_run
+        ns["main"]()
         qmd_calls = [c for c in call_log if c[0] == "qmd"]
         assert len(qmd_calls) == 1
         assert qmd_calls[0][2] == "how to deploy"
 
-    def test_sets_path_env(self, rscan, monkeypatch):
+    def test_sets_path_env(self, ns, monkeypatch):
         """Should extend PATH with .bun/bin and .local/bin."""
-        monkeypatch.setitem(rscan._ns, "run", lambda cmd, timeout=15: "qmd://a\nqmd://b\nqmd://c\nd")
         monkeypatch.setattr(sys, "argv", ["receptor-scan", "query"])
-        rscan.main()
-        path = rscan._ns["os"].environ["PATH"]
+        ns["run"] = lambda cmd, timeout=15: "qmd://a\nqmd://b\nqmd://c\nd"
+        monkeypatch.setenv("PATH", "/usr/bin")
+        ns["main"]()
+        path = ns["os"].environ["PATH"]
         assert ".bun/bin" in path
         assert ".local/bin" in path
 

@@ -3,9 +3,8 @@
 from __future__ import annotations
 
 import json
-from io import BytesIO
 from pathlib import Path
-from unittest.mock import MagicMock, patch, mock_open
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -52,43 +51,42 @@ class TestFileBasics:
 
 
 class TestLoadState:
-    def test_returns_state_when_file_exists(self, tmp_path):
+    def test_returns_state_when_file_exists(self, tmp_path, monkeypatch):
         state_file = tmp_path / "state.json"
         state_file.write_text(json.dumps({"last_status": "failing"}))
-        with patch.object(_mod, "STATE_FILE", state_file):
-            result = load_state()
+        monkeypatch.setitem(_mod, "STATE_FILE", state_file)
+        result = load_state()
         assert result == {"last_status": "failing"}
 
-    def test_returns_default_when_file_missing(self, tmp_path):
+    def test_returns_default_when_file_missing(self, tmp_path, monkeypatch):
         state_file = tmp_path / "nonexistent.json"
-        with patch.object(_mod, "STATE_FILE", state_file):
-            result = load_state()
+        monkeypatch.setitem(_mod, "STATE_FILE", state_file)
+        result = load_state()
         assert result == {"last_status": "ok"}
 
-    def test_returns_empty_when_file_empty(self, tmp_path):
+    def test_raises_on_invalid_json(self, tmp_path, monkeypatch):
         state_file = tmp_path / "state.json"
         state_file.write_text("")
-        with patch.object(_mod, "STATE_FILE", state_file):
-            # Will raise JSONDecodeError → let it propagate (real behavior)
-            with pytest.raises(json.JSONDecodeError):
-                load_state()
+        monkeypatch.setitem(_mod, "STATE_FILE", state_file)
+        with pytest.raises(json.JSONDecodeError):
+            load_state()
 
 
 # ── save_state tests ────────────────────────────────────────────────────────
 
 
 class TestSaveState:
-    def test_writes_json(self, tmp_path):
+    def test_writes_json(self, tmp_path, monkeypatch):
         state_file = tmp_path / "state.json"
-        with patch.object(_mod, "STATE_FILE", state_file):
-            save_state({"last_status": "ok"})
+        monkeypatch.setitem(_mod, "STATE_FILE", state_file)
+        save_state({"last_status": "ok"})
         assert json.loads(state_file.read_text()) == {"last_status": "ok"}
 
-    def test_overwrites_existing(self, tmp_path):
+    def test_overwrites_existing(self, tmp_path, monkeypatch):
         state_file = tmp_path / "state.json"
         state_file.write_text(json.dumps({"last_status": "old"}))
-        with patch.object(_mod, "STATE_FILE", state_file):
-            save_state({"last_status": "new"})
+        monkeypatch.setitem(_mod, "STATE_FILE", state_file)
+        save_state({"last_status": "new"})
         assert json.loads(state_file.read_text()) == {"last_status": "new"}
 
 
@@ -96,19 +94,13 @@ class TestSaveState:
 
 
 class TestCheckService:
-    def _mock_urlopen(self, data):
-        """Create a mock urlopen that returns JSON data."""
-        mock_resp = MagicMock()
-        mock_resp.read.return_value = json.dumps(data).encode()
-        mock_resp.__enter__ = lambda s: s
-        mock_resp.__exit__ = MagicMock(return_value=False)
-        return mock_resp
-
     def test_healthy_with_active_feeds(self):
         data = {"err": None, "data": [{"paused": False}, {"paused": False}]}
-        with patch("urllib.request.urlopen", return_value=self._mock_urlopen(data)):
-            with patch("urllib.request.Request"):
+        with patch("urllib.request.Request"):
+            with patch("urllib.request.urlopen") as mock_open:
+                mock_resp = MagicMock()
                 with patch("json.load", return_value=data):
+                    mock_open.return_value = mock_resp
                     healthy, detail = check_service()
         assert healthy is True
         assert "2 feed(s) active" in detail
@@ -123,8 +115,9 @@ class TestCheckService:
     def test_api_error(self):
         data = {"err": "invalid key", "data": []}
         with patch("urllib.request.Request"):
-            with patch("urllib.request.urlopen", return_value=self._mock_urlopen(data)):
+            with patch("urllib.request.urlopen") as mock_open:
                 with patch("json.load", return_value=data):
+                    mock_open.return_value = MagicMock()
                     healthy, detail = check_service()
         assert healthy is False
         assert "API error" in detail
@@ -132,8 +125,9 @@ class TestCheckService:
     def test_no_feeds(self):
         data = {"err": None, "data": []}
         with patch("urllib.request.Request"):
-            with patch("urllib.request.urlopen", return_value=self._mock_urlopen(data)):
+            with patch("urllib.request.urlopen") as mock_open:
                 with patch("json.load", return_value=data):
+                    mock_open.return_value = MagicMock()
                     healthy, detail = check_service()
         assert healthy is False
         assert "no feeds configured" in detail
@@ -141,8 +135,9 @@ class TestCheckService:
     def test_paused_feeds(self):
         data = {"err": None, "data": [{"paused": True}, {"paused": False}]}
         with patch("urllib.request.Request"):
-            with patch("urllib.request.urlopen", return_value=self._mock_urlopen(data)):
+            with patch("urllib.request.urlopen") as mock_open:
                 with patch("json.load", return_value=data):
+                    mock_open.return_value = MagicMock()
                     healthy, detail = check_service()
         assert healthy is False
         assert "1/2 feeds paused" in detail
@@ -152,18 +147,18 @@ class TestCheckService:
 
 
 class TestSendAlert:
-    def test_calls_tg_script_when_exists(self, tmp_path):
+    def test_calls_tg_script_when_exists(self, tmp_path, monkeypatch):
         tg = tmp_path / "tg-notify.sh"
         tg.write_text("#!/bin/bash\necho $1")
-        with patch.object(_mod, "TG_SCRIPT", tg):
-            with patch("subprocess.run") as mock_run:
-                send_alert("test message")
+        monkeypatch.setitem(_mod, "TG_SCRIPT", tg)
+        with patch("subprocess.run") as mock_run:
+            send_alert("test message")
         mock_run.assert_called_once_with([str(tg), "test message"], timeout=10)
 
-    def test_prints_to_stderr_when_no_script(self, tmp_path, capsys):
+    def test_prints_to_stderr_when_no_script(self, tmp_path, monkeypatch, capsys):
         tg = tmp_path / "nonexistent.sh"
-        with patch.object(_mod, "TG_SCRIPT", tg):
-            send_alert("emergency!")
+        monkeypatch.setitem(_mod, "TG_SCRIPT", tg)
+        send_alert("emergency!")
         captured = capsys.readouterr()
         assert "emergency!" in captured.err
 
@@ -172,67 +167,71 @@ class TestSendAlert:
 
 
 class TestMain:
-    def test_sends_alert_on_transition_to_failing(self, tmp_path):
+    def test_sends_alert_on_transition_to_failing(self, tmp_path, monkeypatch):
         """Alert sent when status goes from ok → failing."""
         state_file = tmp_path / "state.json"
         state_file.write_text(json.dumps({"last_status": "ok"}))
+        monkeypatch.setitem(_mod, "STATE_FILE", state_file)
+        monkeypatch.setitem(_mod, "check_service", MagicMock(return_value=(False, "API unreachable")))
+        mock_alert = MagicMock()
+        monkeypatch.setitem(_mod, "send_alert", mock_alert)
 
-        with patch.object(_mod, "STATE_FILE", state_file):
-            with patch.object(_mod, "check_service", return_value=(False, "API unreachable")):
-                with patch.object(_mod, "send_alert") as mock_alert:
-                    main()
+        main()
 
         mock_alert.assert_called_once()
         msg = mock_alert.call_args[0][0]
         assert "unhealthy" in msg.lower() or "API unreachable" in msg
 
-    def test_sends_alert_on_recovery(self, tmp_path):
+    def test_sends_alert_on_recovery(self, tmp_path, monkeypatch):
         """Alert sent when status goes from failing → ok."""
         state_file = tmp_path / "state.json"
         state_file.write_text(json.dumps({"last_status": "failing"}))
+        monkeypatch.setitem(_mod, "STATE_FILE", state_file)
+        monkeypatch.setitem(_mod, "check_service", MagicMock(return_value=(True, "5 feed(s) active")))
+        mock_alert = MagicMock()
+        monkeypatch.setitem(_mod, "send_alert", mock_alert)
 
-        with patch.object(_mod, "STATE_FILE", state_file):
-            with patch.object(_mod, "check_service", return_value=(True, "5 feed(s) active")):
-                with patch.object(_mod, "send_alert") as mock_alert:
-                    main()
+        main()
 
         mock_alert.assert_called_once()
         msg = mock_alert.call_args[0][0]
         assert "recovered" in msg.lower()
 
-    def test_no_alert_when_stable_ok(self, tmp_path):
+    def test_no_alert_when_stable_ok(self, tmp_path, monkeypatch):
         """No alert when status stays ok."""
         state_file = tmp_path / "state.json"
         state_file.write_text(json.dumps({"last_status": "ok"}))
+        monkeypatch.setitem(_mod, "STATE_FILE", state_file)
+        monkeypatch.setitem(_mod, "check_service", MagicMock(return_value=(True, "3 feed(s) active")))
+        mock_alert = MagicMock()
+        monkeypatch.setitem(_mod, "send_alert", mock_alert)
 
-        with patch.object(_mod, "STATE_FILE", state_file):
-            with patch.object(_mod, "check_service", return_value=(True, "3 feed(s) active")):
-                with patch.object(_mod, "send_alert") as mock_alert:
-                    main()
+        main()
 
         mock_alert.assert_not_called()
 
-    def test_no_alert_when_stable_failing(self, tmp_path):
+    def test_no_alert_when_stable_failing(self, tmp_path, monkeypatch):
         """No alert when status stays failing (avoid spam)."""
         state_file = tmp_path / "state.json"
         state_file.write_text(json.dumps({"last_status": "failing"}))
+        monkeypatch.setitem(_mod, "STATE_FILE", state_file)
+        monkeypatch.setitem(_mod, "check_service", MagicMock(return_value=(False, "down")))
+        mock_alert = MagicMock()
+        monkeypatch.setitem(_mod, "send_alert", mock_alert)
 
-        with patch.object(_mod, "STATE_FILE", state_file):
-            with patch.object(_mod, "check_service", return_value=(False, "down")):
-                with patch.object(_mod, "send_alert") as mock_alert:
-                    main()
+        main()
 
         mock_alert.assert_not_called()
 
-    def test_saves_state_after_check(self, tmp_path):
+    def test_saves_state_after_check(self, tmp_path, monkeypatch):
         """State file is updated after each check."""
         state_file = tmp_path / "state.json"
         state_file.write_text(json.dumps({"last_status": "ok"}))
+        monkeypatch.setitem(_mod, "STATE_FILE", state_file)
+        monkeypatch.setitem(_mod, "check_service", MagicMock(return_value=(True, "ok")))
+        monkeypatch.setitem(_mod, "send_alert", MagicMock())
 
-        with patch.object(_mod, "STATE_FILE", state_file):
-            with patch.object(_mod, "check_service", return_value=(True, "ok")):
-                with patch.object(_mod, "send_alert"):
-                    main()
+        main()
 
         saved = json.loads(state_file.read_text())
         assert saved["last_status"] == "ok"
