@@ -115,52 +115,37 @@ Score each requirement: 5=fully specified, 4=minor gaps, 3=ambiguous (ask), 2=un
 
 ## Phase 2: Dispatch
 
-### Batch (primary mode)
+**Primary: golem** (headless CC + GLM-5.1, free, no size limits)
 
 ```bash
-sortase exec --batch 'loci/plans/dispatch-*.md' -p ~/germline -b goose --timeout 300 --retries 1
+golem "Read X. Do Y. Write tests. Run pytest. Fix failures."           # single task
+golem --max-turns 30 "Complex feature task"                            # more turns for features
+golem --batch mod1.py mod2.py mod3.py                                  # sequential test gen
+golem --full "Task needing MCP/skills"                                 # full organism access
 ```
 
-### Single task
+Cap at 4-5 concurrent (ZhiPu 429 at ~10+). Use `run_in_background`.
+
+**Fallback: sortase** — only when you need routing logic, worktree isolation, or specific backends.
 
 ```bash
-sortase exec <spec>.md -p ~/germline -b goose -v --timeout 300
+sortase exec spec.md -p ~/germline -b golem --timeout 300
 ```
-
-Use `run_in_background`. Write next batch while goose runs.
-
-### Parallel with worktrees (independent tasks, same project)
-
-```bash
-sortase exec batch-plan.md -p ~/germline -b goose --decompose --timeout 300
-```
-
-Or fire 3 staggered `sortase exec` calls concurrently. Cap at 6-7 concurrent (ZhiPu rate limits).
-
-### Backend selection
-
-| Task type | Backend | Reason |
-|-----------|---------|--------|
-| Code edits, tests, scripts | goose | Fastest (P50: 42s), free |
-| Multi-file sweep | goose or droid | Both reliable with `--build` |
-| Planning/analysis/prose | gemini or codex | GLM fails on open-ended |
-| Shell execution tasks | gemini | Droid struggles with complex shell |
 
 ### Overnight mode
 
-1. `caffeinate -d` — prevent Mac sleep
-2. Batch-dispatch all tasks as background chain
-3. Summary report ready in the morning
+1. Fill `loci/golem-queue.md` with tasks
+2. `golem-daemon start` — drains queue, 4 concurrent, 24/7
+3. Review results in morning: `tail ~/.local/share/vivesca/golem.jsonl`
 
-## Phase 3: Review & Coach
+## Phase 3: Review
 
-Goose output is a claim, not evidence.
+`tail ~/.local/share/vivesca/golem.jsonl` — check exit codes and output tails.
 
-1. **Test results** — `uv run pytest -q` once per batch. Check counts match.
-2. **Read modified files** — open actual files, verify they match spec. Grep is sampling, not reviewing.
-3. **Smoke test** (code only) — run the binary/hook/command with real input.
-4. **Coach** — new failure pattern? → append to `~/epigenome/marks/feedback_glm_coaching.md` (format: pattern → what GLM does wrong → fix instruction). This file compounds.
-5. **Approve or redispatch** — correct → commit. Wrong → follow-up spec targeting the gap.
+1. **Test results** — `uv run pytest -q`. Check counts match.
+2. **New files** — `git status --short`. Verify golem created what was asked.
+3. **Smoke test** — run the binary/hook/command with real input.
+4. **Commit or discard** — good → `git add && commit`. Bad → redispatch with clearer prompt.
 
 ## Phase 4: Report
 

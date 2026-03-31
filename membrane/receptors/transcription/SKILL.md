@@ -110,7 +110,7 @@ Omit empty sections. A 10-line doc that says the right things beats a 100-line d
 When the design is approved:
 - **Completeness check:** "What would `/specification` still have to invent if this design phase ended now?" If the answer is anything structural, the design isn't done.
 - If a requirements doc was written, state the path
-- Recommend next step: `/specification` to write a dispatch-ready spec, then `sortase exec` to execute
+- Recommend next step: `golem "implement the design"` or `/centrosome` for complex multi-task dispatch
 - **Do not start implementing.** The user decides when to cross that line.
 
 ## Principles
