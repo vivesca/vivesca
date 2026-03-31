@@ -225,7 +225,7 @@ class TestCommandWrapping:
         assert _is_synaptic_script("python3 ~/.claude/hooks/synapse.py")
 
     def test_is_synaptic_script_synaptic_dir(self):
-        assert _is_synaptic_script("python3 /Users/terry/germline/synaptic/axon.py")
+        assert _is_synaptic_script(f"python3 {Path.home()}/germline/synaptic/axon.py")
 
     def test_is_synaptic_script_non_py(self):
         assert not _is_synaptic_script("echo hello")
