@@ -43,6 +43,7 @@ SESSION_KEEP = 200  # Keep only the N newest session files
 IDLE_STOP_MINUTES = 10  # Stop machine after N minutes idle
 FLY_APP_NAME = "gemmule"
 FLY_API_BASE = "https://api.machines.dev"
+HEALTH_CHECK_INTERVAL = 50  # Run health check every N poll cycles (~25 min)
 
 
 def disk_hygiene() -> int:
@@ -807,6 +808,21 @@ def daemon_loop():
                         freed = disk_hygiene()
                         if freed > 0:
                             log(f"Periodic hygiene freed ~{freed // (1024*1024)}MB")
+
+                # Periodic health check (every HEALTH_CHECK_INTERVAL cycles)
+                if poll_cycle % HEALTH_CHECK_INTERVAL == 0:
+                    try:
+                        r = subprocess.run(
+                            ["python3", str(Path.home() / "germline" / "effectors" / "gemmule-health"), "--daemon"],
+                            capture_output=True, text=True, timeout=120
+                        )
+                        if r.stdout.strip():
+                            log(f"HEALTH: {r.stdout.strip()}")
+                        if r.returncode == 2:  # critical
+                            log("HEALTH CRITICAL — pausing dispatch for safety")
+                            disk_space_paused = True
+                    except Exception as e:
+                        log(f"Health check error: {e}")
 
                 # Check for completed tasks
                 done_futures = [f for f in running if f.done()]
