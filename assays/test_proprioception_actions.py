@@ -86,14 +86,16 @@ class TestLogAndGradient:
         """When prior readings exist and size changed significantly, returns gradient string."""
         from metabolon.enzymes.proprioception import _log_and_gradient
 
-        # Build history: 4 small readings for "genome" target
+        # Build history: 4 small readings for "genome" target, plus the new
+        # entry that was just appended. The function writes then reads-back,
+        # so the read must include the appended entry too.
         old_entries = [
             json.dumps({"ts": f"2026-03-31T0{i}:00:00+08:00", "target": "genome", "size": 100})
             for i in range(4)
         ]
-        history_lines = "\n".join(old_entries) + "\n"
+        new_entry = json.dumps({"ts": "2026-03-31T09:00:00+08:00", "target": "genome", "size": 500})
+        history_lines = "\n".join(old_entries + [new_entry]) + "\n"
 
-        # open called twice: append, then read
         write_handle = MagicMock()
         write_handle.__enter__ = MagicMock(return_value=write_handle)
         write_handle.__exit__ = MagicMock(return_value=False)
