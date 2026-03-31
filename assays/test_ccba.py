@@ -35,7 +35,8 @@ class TestTxnPattern:
 
     def test_credit_transaction(self):
         """Match a credit (CR) transaction."""
-        line = "REFUND STORE HKD 50.00 CR Sep 10,2025 Sep 10,2025"
+        # CR must be adjacent to the first date (no space between)
+        line = "REFUND STORE HKD 50.00 CRSep 10,2025 Sep 10,2025"
         m = _TXN_PAT.match(line)
         assert m is not None
         assert m.group(3) == "CR"
@@ -131,16 +132,12 @@ class TestExtractMetadata:
 
     def test_extracts_all_fields(self):
         """Extract statement date, credit limit, balance, etc."""
-        text = """
-        Statement Date 月結單截數日：Sep 07,2025
-        
-        HKD 49,000.00
-        HKD 46,978.41
-        HKD 2,021.59
-        RMB
-        
-        4317-8420-0303-6220 HKD 2,021.59 2,021.59 220.00 0.00 Oct 02,2025
-        """
+        text = """Statement Date 月結單截數日：Sep 07,2025
+HKD 49,000.00
+HKD 46,978.41
+HKD 2,021.59
+RMB
+4317-8420-0303-6220 HKD 2,021.59 2,021.59 220.00 0.00 Oct 02,2025"""
         meta = _extract_metadata(text)
 
         assert meta.bank == "ccba"
@@ -209,7 +206,8 @@ class TestParseTransactions:
         txns = _parse_transactions(text)
 
         assert len(txns) == 1
-        assert txns[0].merchant == "AMAZON HK"
+        # Note: "HK" suffix is removed as country code by _clean_merchant
+        assert txns[0].merchant == "AMAZON"
         assert txns[0].hkd == -123.45
         assert txns[0].date == "2025-09-15"
         assert txns[0].currency == "HKD"
@@ -217,7 +215,8 @@ class TestParseTransactions:
 
     def test_credit_transaction(self):
         """Parse a credit (positive amount)."""
-        text = "REFUND STORE HKD 50.00 CR Sep 10,2025 Sep 10,2025"
+        # CR must be adjacent to the first date (no space between)
+        text = "REFUND STORE HKD 50.00 CRSep 10,2025 Sep 10,2025"
         txns = _parse_transactions(text)
 
         assert len(txns) == 1
@@ -226,7 +225,8 @@ class TestParseTransactions:
 
     def test_payment_excluded(self):
         """PPS PAYMENT credits are excluded."""
-        text = "PPS PAYMENT - THANK YOU HKD 2,021.59 CR Sep 01,2025 Sep 01,2025"
+        # CR must be adjacent to the first date
+        text = "PPS PAYMENT - THANK YOU HKD 2,021.59 CRSep 01,2025 Sep 01,2025"
         txns = _parse_transactions(text)
         assert len(txns) == 0
 
@@ -341,20 +341,15 @@ class TestExtractCcba:
     def test_returns_meta_and_transactions(self, mock_pdf_reader):
         """Returns tuple of (RespirogramMeta, list[ConsumptionEvent])."""
         mock_page = MagicMock()
-        mock_page.extract_text.return_value = """
-Statement Date 月結單截數日：Sep 07,2025
-
+        mock_page.extract_text.return_value = """Statement Date 月結單截數日：Sep 07,2025
 HKD 49,000.00
 HKD 46,978.41
 HKD 2,021.59
 RMB
-
 4317-8420-0303-6220 HKD 2,021.59 2,021.59 220.00 0.00 Oct 02,2025
-
 AMAZON HK HKD 1,021.59 Sep 15,2025 Sep 15,2025
 BOOKSTORE HK HKD 500.00 Sep 16,2025 Sep 16,2025
-COFFEE SHOP HKD 500.00 Sep 17,2025 Sep 17,2025
-"""
+COFFEE SHOP HKD 500.00 Sep 17,2025 Sep 17,2025"""
         mock_reader = MagicMock()
         mock_reader.pages = [mock_page]
         mock_pdf_reader.return_value = mock_reader
@@ -419,22 +414,15 @@ STORE HK HKD 100.00 Sep 15,2025 Sep 15,2025
     def test_multiple_pages_concatenated(self, mock_pdf_reader):
         """Text from multiple pages is concatenated."""
         mock_page1 = MagicMock()
-        mock_page1.extract_text.return_value = """
-Statement Date 月結單截數日：Sep 07,2025
-
+        mock_page1.extract_text.return_value = """Statement Date 月結單截數日：Sep 07,2025
 HKD 49,000.00
 HKD 46,978.41
 HKD 1,000.00
 RMB
-
 4317-8420-0303-6220 HKD 1,000.00 1,000.00 100.00 0.00 Oct 02,2025
-
-STORE HK HKD 500.00 Sep 15,2025 Sep 15,2025
-"""
+STORE HK HKD 500.00 Sep 15,2025 Sep 15,2025"""
         mock_page2 = MagicMock()
-        mock_page2.extract_text.return_value = """
-OTHER HK HKD 500.00 Sep 16,2025 Sep 16,2025
-"""
+        mock_page2.extract_text.return_value = "OTHER HK HKD 500.00 Sep 16,2025 Sep 16,2025"
         mock_reader = MagicMock()
         mock_reader.pages = [mock_page1, mock_page2]
         mock_pdf_reader.return_value = mock_reader
@@ -442,8 +430,9 @@ OTHER HK HKD 500.00 Sep 16,2025 Sep 16,2025
         meta, txns = extract_ccba(Path("/fake/path.pdf"))
 
         assert len(txns) == 2
-        assert txns[0].merchant == "STORE HK"
-        assert txns[1].merchant == "OTHER HK"
+        # Note: "HK" suffix is removed as country code by _clean_merchant
+        assert txns[0].merchant == "STORE"
+        assert txns[1].merchant == "OTHER"
 
     @patch("metabolon.respirometry.parsers.ccba.PdfReader")
     def test_empty_page_text_handled(self, mock_pdf_reader):
@@ -549,6 +538,7 @@ cross-border txn HKD 5.00 Sep 15,2025 Sep 15,2025
 
     def test_payment_case_insensitive(self):
         """PPS PAYMENT detection is case-insensitive."""
-        text = "pps payment - thank you HKD 100.00 CR Sep 01,2025 Sep 01,2025"
+        # CR must be adjacent to the first date
+        text = "pps payment - thank you HKD 100.00 CRSep 01,2025 Sep 01,2025"
         txns = _parse_transactions(text)
         assert len(txns) == 0

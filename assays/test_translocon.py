@@ -774,8 +774,8 @@ _GOLEM_ENTRIES = [
 
 def test_dispatch_stats_reads_log_and_returns_summary(tmp_path):
     """dispatch_stats reads golem.jsonl and returns success rate + provider breakdown."""
-    _make_golem_log(tmp_path, _GOLEM_ENTRIES)
-    with patch.object(Path, "home", return_value=tmp_path):
+    log_path = _make_golem_log(tmp_path, _GOLEM_ENTRIES)
+    with patch.dict(_translocon_mod, {"GOLEM_LOG": log_path}):
         result = dispatch_stats(count=50)
 
     assert result["success"] is True
@@ -795,7 +795,8 @@ def test_dispatch_stats_reads_log_and_returns_summary(tmp_path):
 
 def test_dispatch_stats_no_log(tmp_path):
     """dispatch_stats with no log file returns error."""
-    with patch.object(Path, "home", return_value=tmp_path):
+    nonexistent = tmp_path / ".local" / "share" / "vivesca" / "golem.jsonl"
+    with patch.dict(_translocon_mod, {"GOLEM_LOG": nonexistent}):
         result = dispatch_stats()
     assert result["success"] is False
     assert "no golem log" in result["output"]
@@ -803,8 +804,8 @@ def test_dispatch_stats_no_log(tmp_path):
 
 def test_dispatch_stats_count_limits_entries(tmp_path):
     """dispatch_stats --count N analyzes only last N entries."""
-    _make_golem_log(tmp_path, _GOLEM_ENTRIES)
-    with patch.object(Path, "home", return_value=tmp_path):
+    log_path = _make_golem_log(tmp_path, _GOLEM_ENTRIES)
+    with patch.dict(_translocon_mod, {"GOLEM_LOG": log_path}):
         result = dispatch_stats(count=2)
 
     assert result["success"] is True
@@ -815,8 +816,8 @@ def test_dispatch_stats_count_limits_entries(tmp_path):
 
 def test_dispatch_stats_provider_success_breakdown(tmp_path):
     """dispatch_stats correctly tracks success per provider."""
-    _make_golem_log(tmp_path, _GOLEM_ENTRIES)
-    with patch.object(Path, "home", return_value=tmp_path):
+    log_path = _make_golem_log(tmp_path, _GOLEM_ENTRIES)
+    with patch.dict(_translocon_mod, {"GOLEM_LOG": log_path}):
         result = dispatch_stats()
 
     # infini: 2 runs, 2 success (100%)
@@ -829,8 +830,8 @@ def test_dispatch_stats_provider_success_breakdown(tmp_path):
 
 def test_dispatch_stats_shows_recent_failures(tmp_path):
     """dispatch_stats includes recent failures in output."""
-    _make_golem_log(tmp_path, _GOLEM_ENTRIES)
-    with patch.object(Path, "home", return_value=tmp_path):
+    log_path = _make_golem_log(tmp_path, _GOLEM_ENTRIES)
+    with patch.dict(_translocon_mod, {"GOLEM_LOG": log_path}):
         result = dispatch_stats()
 
     assert "Recent failures:" in result["output"]
@@ -840,8 +841,8 @@ def test_dispatch_stats_shows_recent_failures(tmp_path):
 
 def test_dispatch_stats_empty_log(tmp_path):
     """dispatch_stats with empty log returns appropriate message."""
-    _make_golem_log(tmp_path, [])
-    with patch.object(Path, "home", return_value=tmp_path):
+    log_path = _make_golem_log(tmp_path, [])
+    with patch.dict(_translocon_mod, {"GOLEM_LOG": log_path}):
         result = dispatch_stats()
 
     assert result["success"] is True
@@ -854,8 +855,8 @@ def test_dispatch_stats_all_success(tmp_path):
         {"ts": "2026-03-31T10:00:00Z", "duration": 100, "exit": 0, "turns": 10, "provider": "infini", "prompt": "OK 1", "tail": " "},
         {"ts": "2026-03-31T10:01:00Z", "duration": 200, "exit": 0, "turns": 20, "provider": "volcano", "prompt": "OK 2", "tail": " "},
     ]
-    _make_golem_log(tmp_path, entries)
-    with patch.object(Path, "home", return_value=tmp_path):
+    log_path = _make_golem_log(tmp_path, entries)
+    with patch.dict(_translocon_mod, {"GOLEM_LOG": log_path}):
         result = dispatch_stats()
 
     assert result["stats"]["success_rate"] == 100.0
@@ -866,8 +867,8 @@ def test_dispatch_stats_all_success(tmp_path):
 
 def test_dispatch_stats_includes_provider_limits(tmp_path):
     """dispatch_stats shows provider limits in output."""
-    _make_golem_log(tmp_path, _GOLEM_ENTRIES)
-    with patch.object(Path, "home", return_value=tmp_path):
+    log_path = _make_golem_log(tmp_path, _GOLEM_ENTRIES)
+    with patch.dict(_translocon_mod, {"GOLEM_LOG": log_path}):
         result = dispatch_stats()
 
     # Check that provider limits are shown
