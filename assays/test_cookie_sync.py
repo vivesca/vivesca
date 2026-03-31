@@ -9,6 +9,7 @@ import base64
 import hashlib
 import json
 import sqlite3
+import types
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -18,23 +19,26 @@ import pytest
 
 _CS_PATH = Path(__file__).resolve().parents[1] / "effectors" / "cookie-sync"
 _CS_CODE = _CS_PATH.read_text()
-_ns: dict = {"__name__": "cookie_sync", "__file__": str(_CS_PATH)}
-exec(_CS_CODE, _ns)
 
-# Pull names into module-level convenience bindings
-CHROME_BASE = _ns["CHROME_BASE"]
-DEFAULT_OUTPUT = _ns["DEFAULT_OUTPUT"]
-SAMESITE_MAP = _ns["SAMESITE_MAP"]
-V10_PREFIX = _ns["V10_PREFIX"]
-V11_PREFIX = _ns["V11_PREFIX"]
-derive_key = _ns["derive_key"]
-decrypt_v10 = _ns["decrypt_v10"]
-decrypt_v11 = _ns["decrypt_v11"]
-decrypt_cookie_value = _ns["decrypt_cookie_value"]
-decrypt_exported_cookies = _ns["decrypt_exported_cookies"]
-read_cookies = _ns["read_cookies"]
-build_parser = _ns["build_parser"]
-main = _ns["main"]
+# Create a proper module-like namespace for patch.object to work
+_mod = types.ModuleType("cookie_sync")
+_mod.__file__ = str(_CS_PATH)
+exec(_CS_CODE, _mod.__dict__)
+
+# Pull names into test-level convenience bindings
+CHROME_BASE = _mod.CHROME_BASE
+DEFAULT_OUTPUT = _mod.DEFAULT_OUTPUT
+SAMESITE_MAP = _mod.SAMESITE_MAP
+V10_PREFIX = _mod.V10_PREFIX
+V11_PREFIX = _mod.V11_PREFIX
+derive_key = _mod.derive_key
+decrypt_v10 = _mod.decrypt_v10
+decrypt_v11 = _mod.decrypt_v11
+decrypt_cookie_value = _mod.decrypt_cookie_value
+decrypt_exported_cookies = _mod.decrypt_exported_cookies
+read_cookies = _mod.read_cookies
+build_parser = _mod.build_parser
+main = _mod.main
 
 # ── Deterministic test key ────────────────────────────────────────────────────
 
@@ -288,8 +292,8 @@ class TestDecryptExportedCookies:
 class TestExportCLI:
     def test_export_writes_json(self, cookie_db, tmp_path):
         output = tmp_path / "out.json"
-        with patch.object(_ns["cookie_sync"], "CHROME_BASE", cookie_db / "Chrome"), \
-             patch.object(_ns["cookie_sync"], "get_chrome_key", return_value=TEST_KEY):
+        with patch.object(_mod, "CHROME_BASE", cookie_db / "Chrome"), \
+             patch.object(_mod, "get_chrome_key", return_value=TEST_KEY):
             rc = main(["export", "--output", str(output)])
         assert rc == 0
         cookies = json.loads(output.read_text())
@@ -301,8 +305,8 @@ class TestExportCLI:
 
     def test_export_domain_filter(self, cookie_db, tmp_path):
         output = tmp_path / "filtered.json"
-        with patch.object(_ns["cookie_sync"], "CHROME_BASE", cookie_db / "Chrome"), \
-             patch.object(_ns["cookie_sync"], "get_chrome_key", return_value=TEST_KEY):
+        with patch.object(_mod, "CHROME_BASE", cookie_db / "Chrome"), \
+             patch.object(_mod, "get_chrome_key", return_value=TEST_KEY):
             rc = main(["export", "--domain", "other", "--output", str(output)])
         assert rc == 0
         cookies = json.loads(output.read_text())
@@ -312,21 +316,21 @@ class TestExportCLI:
     def test_export_missing_db(self, tmp_path):
         output = tmp_path / "missing.json"
         fake_base = tmp_path / "nochrome"
-        with patch.object(_ns["cookie_sync"], "CHROME_BASE", fake_base):
+        with patch.object(_mod, "CHROME_BASE", fake_base):
             rc = main(["export", "--output", str(output)])
         assert rc == 1
 
     def test_export_creates_parent_dirs(self, cookie_db, tmp_path):
         output = tmp_path / "deep" / "nested" / "cookies.json"
-        with patch.object(_ns["cookie_sync"], "CHROME_BASE", cookie_db / "Chrome"), \
-             patch.object(_ns["cookie_sync"], "get_chrome_key", return_value=TEST_KEY):
+        with patch.object(_mod, "CHROME_BASE", cookie_db / "Chrome"), \
+             patch.object(_mod, "get_chrome_key", return_value=TEST_KEY):
             rc = main(["export", "--output", str(output)])
         assert rc == 0
         assert output.exists()
 
     def test_export_no_decrypt(self, cookie_db, tmp_path):
         output = tmp_path / "raw.json"
-        with patch.object(_ns["cookie_sync"], "CHROME_BASE", cookie_db / "Chrome"):
+        with patch.object(_mod, "CHROME_BASE", cookie_db / "Chrome"):
             rc = main(["export", "--no-decrypt", "--output", str(output)])
         assert rc == 0
         cookies = json.loads(output.read_text())
@@ -340,8 +344,8 @@ class TestExportCLI:
 
     def test_export_no_encrypted_value_in_output(self, cookie_db, tmp_path):
         output = tmp_path / "clean.json"
-        with patch.object(_ns["cookie_sync"], "CHROME_BASE", cookie_db / "Chrome"), \
-             patch.object(_ns["cookie_sync"], "get_chrome_key", return_value=TEST_KEY):
+        with patch.object(_mod, "CHROME_BASE", cookie_db / "Chrome"), \
+             patch.object(_mod, "get_chrome_key", return_value=TEST_KEY):
             rc = main(["export", "--output", str(output)])
         assert rc == 0
         cookies = json.loads(output.read_text())
@@ -362,7 +366,7 @@ class TestImportCLI:
         cookies_file.write_text(json.dumps([
             {"name": "k", "value": "v", "domain": ".d.com", "path": "/"},
         ]))
-        with patch.object(_ns["cookie_sync"], "import_cookies") as mock_imp:
+        with patch.object(_mod, "import_cookies") as mock_imp:
             rc = main(["import", str(cookies_file)])
         assert rc == 0
         mock_imp.assert_called_once()
@@ -377,9 +381,10 @@ class TestMainCLI:
         rc = main([])
         assert rc == 1
 
-    def test_unknown_command_returns_1(self):
-        rc = main(["nonexistent"])
-        assert rc == 1
+    def test_unknown_command_exits(self):
+        with pytest.raises(SystemExit) as exc_info:
+            main(["nonexistent"])
+        assert exc_info.value.code == 2
 
     def test_build_parser_returns_parser(self):
         parser = build_parser()
