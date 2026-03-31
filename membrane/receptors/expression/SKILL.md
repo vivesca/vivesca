@@ -1,6 +1,12 @@
 ---
 name: expression
 description: Weekly consulting IP production — turn sparks into deliverable assets.
+triggers:
+  - expression
+  - forge
+  - weekly IP
+  - produce assets
+  - spark to asset
 user_invocable: true
 context: fork
 ---
