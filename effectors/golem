@@ -33,12 +33,12 @@ case "$PROVIDER" in
   volcano)
     _KEY="${VOLCANO_API_KEY:?VOLCANO_API_KEY not set}"
     _URL="https://ark.cn-beijing.volces.com/api/coding"
-    _MODEL="Doubao-Seed-2.0-Code"
-    _OPUS="$_MODEL"; _SONNET="$_MODEL"; _HAIKU="$_MODEL" ;;
+    _AUTH_MODE="token"  # volcano needs AUTH_TOKEN, not API_KEY
+    _OPUS="deepseek-v3.2"; _SONNET="deepseek-v3.2"; _HAIKU="doubao-seed-2.0-lite" ;;
   infini)
     _KEY="${INFINI_API_KEY:?INFINI_API_KEY not set}"
     _URL="https://cloud.infini-ai.com/maas/coding"
-    _OPUS="glm-5"; _SONNET="glm-5"; _HAIKU="glm-4.5-air" ;;
+    _OPUS="deepseek-v3.2"; _SONNET="deepseek-v3.2"; _HAIKU="glm-4.5-air" ;;
   *) echo "Unknown provider: $PROVIDER (zhipu|volcano|infini)" >&2; exit 1 ;;
 esac
 
@@ -51,9 +51,15 @@ _run_golem() {
   $BARE && args+=(--bare)
   local start_ts=$(date +%s)
   local output
+  # Volcano needs AUTH_TOKEN; others need API_KEY
+  local _api_key="$_KEY" _auth_token=""
+  if [[ "${_AUTH_MODE:-}" == "token" ]]; then
+    _api_key=""
+    _auth_token="$_KEY"
+  fi
   output=$(CLAUDECODE= \
-  ANTHROPIC_API_KEY="$_KEY" \
-  ANTHROPIC_AUTH_TOKEN="" \
+  ANTHROPIC_API_KEY="$_api_key" \
+  ANTHROPIC_AUTH_TOKEN="$_auth_token" \
   ANTHROPIC_BASE_URL="$_URL" \
   ANTHROPIC_DEFAULT_OPUS_MODEL="$_OPUS" \
   ANTHROPIC_DEFAULT_SONNET_MODEL="$_SONNET" \

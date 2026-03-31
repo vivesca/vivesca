@@ -221,3 +221,16 @@
 {"ts": "2026-03-31T06:04:03+00:00", "model": "sonar-pro", "query": "\u767e\u70bc coding plan \u4ef7\u683c Claude Code \u914d\u7f6e API endpoint 2026"}
 {"ts": "2026-03-31T06:04:03+00:00", "model": "sonar-pro", "query": "\u706b\u5c71\u5f15\u64ce \u8c46\u5305 coding plan \u4ef7\u683c Claude Code"}
 {"ts": "2026-03-31T06:49:34+00:00", "model": "sonar", "query": "test"}
+{"ts": "2026-03-31T07:49:43+00:00", "model": "sonar", "query": "test"}
+{"ts": "2026-03-31T07:58:07+00:00", "model": "sonar-pro", "query": "\u706b\u5c71\u5f15\u64ce ark coding plan \u63a5\u5165\u7aef\u70b9 endpoint \u5217\u8868 cn-guangzhou cn-hongkong"}
+{"ts": "2026-03-31T07:58:08+00:00", "model": "sonar-pro", "query": "ark.cn-beijing.volces.com Claude Code ANTHROPIC_BASE_URL configuration"}
+{"ts": "2026-03-31T07:58:08+00:00", "model": "sonar-pro", "query": "\u706b\u5c71\u5f15\u64ce coding plan API key format UUID 401 incorrect"}
+{"ts": "2026-03-31T07:58:10+00:00", "model": "sonar-pro", "query": "volcano engine ark API coding plan regions endpoints guangzhou hongkong"}
+{"ts": "2026-03-31T07:58:12+00:00", "model": "sonar-pro", "query": "\u706b\u5c71\u5f15\u64ce Claude Code \u914d\u7f6e coding plan setup \u63a5\u5165\u6559\u7a0b 2025 2026"}
+{"ts": "2026-03-31T07:58:57+00:00", "model": "sonar-pro", "query": "volcengine ark regional endpoints HK Guangzhou Singapore 2026"}
+{"ts": "2026-03-31T07:58:58+00:00", "model": "sonar-pro", "query": "\u706b\u5c71\u5f15\u64ce ark API endpoint \u5730\u533a \u9999\u6e2f \u5e7f\u5dde cn-guangzhou"}
+{"ts": "2026-03-31T07:58:58+00:00", "model": "sonar-pro", "query": "\u706b\u5c71\u65b9\u821f coding plan API key format UUID 401"}
+{"ts": "2026-03-31T08:00:09+00:00", "model": "sonar-pro", "query": "\u706b\u5c71\u65b9\u821f coding plan Claude Code \u63a5\u5165 API key \u683c\u5f0f UUID 401 \u89e3\u51b3"}
+{"ts": "2026-03-31T08:00:09+00:00", "model": "sonar-pro", "query": "\u706b\u5c71\u5f15\u64ce ark coding plan cn-guangzhou cn-hongkong endpoint \u5730\u533a"}
+{"ts": "2026-03-31T08:01:38+00:00", "model": "sonar-pro", "query": "volcengine ark coding plan cn-shanghai endpoint available 2026"}
+{"ts": "2026-03-31T08:01:39+00:00", "model": "sonar-pro", "query": "\u706b\u5c71\u65b9\u821f ark API key \u683c\u5f0f \"API key format is incorrect\" UUID \"d3f\" OR \"ark-\" OR \"sk-\""}
