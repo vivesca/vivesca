@@ -1,262 +1,417 @@
-"""Tests for metabolon.enzymes.demethylase — signal + mark management tool."""
+"""Tests for demethylase enzyme — signal + mark management dispatcher.
+
+Tests the @tool-decorated demethylase() function in metabolon.enzymes.demethylase
+by mocking all organelle-layer imports.
+"""
+
 from __future__ import annotations
 
+from dataclasses import dataclass, field
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 from metabolon.enzymes.demethylase import DemethylaseResult, demethylase
-from metabolon.organelles.demethylase import DemethylaseReport, MarkAnalysis
 
 
-# ── helpers ──────────────────────────────────────────────────────────
+# -- Helpers ------------------------------------------------------------------
 
-def _mark(**overrides) -> MarkAnalysis:
+
+def _make_report(**overrides) -> SimpleNamespace:
+    """Build a mock DemethylaseReport with sensible defaults."""
     defaults = dict(
-        path=Path("/tmp/fake.md"),
-        name="test-mark",
-        mark_type="feedback",
-        durability="methyl",
-        protected=False,
-        source="cc",
-        age_days=10,
-        last_modified_days=10,
-        access_count=0,
-        stale=False,
-        reason="",
-    )
-    defaults.update(overrides)
-    return MarkAnalysis(**defaults)
-
-
-def _report(**overrides) -> DemethylaseReport:
-    defaults = dict(
-        total_marks=5,
-        methyl_marks=3,
-        acetyl_marks=2,
-        protected_marks=1,
+        total_marks=10,
+        methyl_marks=6,
+        acetyl_marks=3,
+        protected_marks=2,
         stale_candidates=[],
-        source_distribution={"cc": 3, "gemini": 2},
-        type_distribution={"feedback": 4, "finding": 1},
-        mark_clusters=[{"topic": "digging", "marks": ["a", "b"], "count": 2}],
+        source_distribution={"cc": 7, "goose": 3},
+        type_distribution={"feedback": 5, "finding": 3, "project": 2},
+        mark_clusters=[{"topic": "tone", "count": 2}],
     )
     defaults.update(overrides)
-    return DemethylaseReport(**defaults)
+    return SimpleNamespace(**defaults)
 
 
-# ── action: emit ─────────────────────────────────────────────────────
+# -- emit action --------------------------------------------------------------
 
-class TestEmit:
-    @patch("metabolon.organelles.demethylase.emit_signal")
+
+class TestEmitAction:
+    """demethylase(action='emit', ...) tests."""
+
+    @patch("metabolon.enzymes.demethylase.emit_signal")
     def test_emit_success(self, mock_emit):
-        mock_emit.return_value = Path("/tmp/signal_alert.md")
-        res = demethylase(action="emit", name="alert", content="fire!")
-        assert isinstance(res, DemethylaseResult)
-        assert "signal_alert.md" in res.results
+        mock_path = MagicMock()
+        mock_path.name = "signal_alert.md"
+        mock_emit.return_value = mock_path
+
+        result = demethylase(action="emit", name="alert", content="something broke")
+        assert isinstance(result, DemethylaseResult)
+        assert "Signal emitted: signal_alert.md" in result.results
+        mock_emit.assert_called_once_with("alert", "something broke", "unknown", downstream=None)
+
+    @patch("metabolon.enzymes.demethylase.emit_signal")
+    def test_emit_with_source_and_downstream(self, mock_emit):
+        mock_path = MagicMock()
+        mock_path.name = "signal_go.md"
+        mock_emit.return_value = mock_path
+
+        result = demethylase(
+            action="emit",
+            name="go",
+            content="proceed",
+            source="goose",
+            downstream=["echo hello", "echo world"],
+        )
+        assert "2 downstream commands" in result.results
+        mock_emit.assert_called_once_with(
+            "go", "proceed", "goose", downstream=["echo hello", "echo world"]
+        )
 
     def test_emit_missing_name(self):
-        res = demethylase(action="emit", name="", content="body")
-        assert "requires" in res.results
+        result = demethylase(action="emit", name="", content="has content")
+        assert "emit requires: name, content" in result.results
 
     def test_emit_missing_content(self):
-        res = demethylase(action="emit", name="x", content="")
-        assert "requires" in res.results
+        result = demethylase(action="emit", name="has_name", content="")
+        assert "emit requires: name, content" in result.results
 
-    @patch("metabolon.organelles.demethylase.emit_signal")
-    def test_emit_with_downstream(self, mock_emit):
-        mock_emit.return_value = Path("/tmp/signal_x.md")
-        res = demethylase(action="emit", name="x", content="c", downstream=["cmd1"])
-        assert "1 downstream" in res.results
+    def test_emit_missing_both(self):
+        result = demethylase(action="emit", name="", content="")
+        assert "emit requires: name, content" in result.results
 
 
-# ── action: read ─────────────────────────────────────────────────────
+# -- read action --------------------------------------------------------------
 
-class TestRead:
-    @patch("metabolon.organelles.demethylase.read_signals")
-    def test_read_empty(self, mock_read):
-        mock_read.return_value = []
-        res = demethylase(action="read")
-        assert "No signals" in res.results
 
-    @patch("metabolon.organelles.demethylase.read_signals")
+class TestReadAction:
+    """demethylase(action='read', ...) tests."""
+
+    @patch("metabolon.enzymes.demethylase.read_signals")
     def test_read_with_signals(self, mock_read):
         mock_read.return_value = [
-            {"name": "sig1", "source": "cc", "age_days": 2, "content": "hello"},
             {
-                "name": "sig2",
-                "source": "gemini",
-                "age_days": 5,
-                "content": "world",
-                "downstream": ["cmd"],
-                "cascades_fired": ["cmd"],
+                "name": "bug-found",
+                "source": "goose",
+                "age_days": 2,
+                "content": "null pointer in parser",
+                "downstream": ["echo alert"],
+                "cascades_fired": [],
             },
         ]
-        res = demethylase(action="read")
-        assert "2 signal(s)" in res.results
-        assert "sig1" in res.results
-        assert "Downstream: cmd" in res.results
 
+        result = demethylase(action="read")
+        assert "1 signal(s) pending:" in result.results
+        assert "Signal: bug-found" in result.results
+        assert "Source: goose" in result.results
+        assert "Age: 2 days" in result.results
+        assert "Downstream: echo alert" in result.results
+        mock_read.assert_called_once_with(
+            name_filter=None,
+            desensitization_threshold=5,
+            include_desensitized=False,
+            execute_cascade=False,
+        )
 
-# ── action: history ──────────────────────────────────────────────────
-
-class TestHistory:
-    @patch("metabolon.organelles.demethylase.signal_history")
-    def test_history_empty(self, mock_hist):
-        mock_hist.return_value = []
-        res = demethylase(action="history")
-        assert "No signal history" in res.results
-
-    @patch("metabolon.organelles.demethylase.signal_history")
-    def test_history_with_entries(self, mock_hist):
-        mock_hist.return_value = [
+    @patch("metabolon.enzymes.demethylase.read_signals")
+    def test_read_with_cascades_fired(self, mock_read):
+        mock_read.return_value = [
             {
-                "timestamp": "2025-01-01",
-                "name": "s1",
+                "name": "chain",
                 "source": "cc",
-                "fire_count": 1,
-                "deduplicated": False,
-                "content": "hi",
+                "age_days": 1,
+                "content": "cascaded signal",
+                "cascades_fired": ["echo step1", "echo step2"],
             },
         ]
-        res = demethylase(action="history")
-        assert "1 signal(s)" in res.results
-        assert "s1" in res.results
+        result = demethylase(action="read")
+        assert "Cascades fired: echo step1, echo step2" in result.results
+
+    @patch("metabolon.enzymes.demethylase.read_signals")
+    def test_read_no_signals(self, mock_read):
+        mock_read.return_value = []
+        result = demethylase(action="read")
+        assert "No signals found." in result.results
+
+    @patch("metabolon.enzymes.demethylase.read_signals")
+    def test_read_passes_filters(self, mock_read):
+        mock_read.return_value = []
+        demethylase(
+            action="read",
+            name_filter="test",
+            desensitization_threshold=10,
+            include_desensitized=True,
+            execute_cascade=True,
+        )
+        mock_read.assert_called_once_with(
+            name_filter="test",
+            desensitization_threshold=10,
+            include_desensitized=True,
+            execute_cascade=True,
+        )
 
 
-# ── action: transduce ────────────────────────────────────────────────
+# -- history action -----------------------------------------------------------
 
-class TestTransduce:
-    @patch("metabolon.organelles.demethylase.transduce")
-    def test_transduce_empty(self, mock_tr):
-        mock_tr.return_value = []
-        res = demethylase(action="transduce")
-        assert "No signals transduced" in res.results
 
-    @patch("metabolon.organelles.demethylase.transduce")
-    def test_transduce_with_results(self, mock_tr):
-        mock_tr.return_value = [
-            {"name": "s1", "source": "cc", "cascades_fired": ["cmd1"]},
+class TestHistoryAction:
+    """demethylase(action='history', ...) tests."""
+
+    @patch("metabolon.enzymes.demethylase.signal_history")
+    def test_history_with_entries(self, mock_history):
+        mock_history.return_value = [
+            {
+                "timestamp": "2025-01-15T10:30:00",
+                "name": "deploy-done",
+                "source": "goose",
+                "fire_count": 2,
+                "deduplicated": True,
+                "content": "Deployed v1.2",
+            },
         ]
-        res = demethylase(action="transduce")
-        assert "1 signal(s) transduced" in res.results
-        assert "cmd1" in res.results
+        result = demethylase(action="history")
+        assert "1 signal(s) in history:" in result.results
+        assert "[2025-01-15T10:30:00] deploy-done" in result.results
+        assert "Fire count: 2" in result.results
+        assert "Deduplicated: True" in result.results
+        mock_history.assert_called_once_with(limit=20, name_filter=None)
+
+    @patch("metabolon.enzymes.demethylase.signal_history")
+    def test_history_no_entries(self, mock_history):
+        mock_history.return_value = []
+        result = demethylase(action="history")
+        assert "No signal history found." in result.results
+
+    @patch("metabolon.enzymes.demethylase.signal_history")
+    def test_history_passes_filters(self, mock_history):
+        mock_history.return_value = []
+        demethylase(action="history", limit=5, name_filter="deploy")
+        mock_history.assert_called_once_with(limit=5, name_filter="deploy")
 
 
-# ── action: resensitize ──────────────────────────────────────────────
+# -- transduce action ---------------------------------------------------------
 
-class TestResensitize:
-    @patch("metabolon.organelles.demethylase.resensitize")
-    def test_resensitize_found(self, mock_rs):
-        mock_rs.return_value = True
-        res = demethylase(action="resensitize", name="my-sig")
-        assert "resensitized" in res.results
 
-    @patch("metabolon.organelles.demethylase.resensitize")
-    def test_resensitize_not_found(self, mock_rs):
-        mock_rs.return_value = False
-        res = demethylase(action="resensitize", name="missing")
-        assert "No desensitized signal" in res.results
+class TestTransduceAction:
+    """demethylase(action='transduce', ...) tests."""
+
+    @patch("metabolon.enzymes.demethylase.transduce")
+    def test_transduce_with_results(self, mock_transduce):
+        mock_transduce.return_value = [
+            {"name": "cascade-a", "source": "cc", "cascades_fired": ["echo step1"]},
+        ]
+        result = demethylase(action="transduce")
+        assert "1 signal(s) transduced:" in result.results
+        assert "Signal: cascade-a" in result.results
+        assert "Cascades fired: echo step1" in result.results
+        mock_transduce.assert_called_once_with(name_filter=None)
+
+    @patch("metabolon.enzymes.demethylase.transduce")
+    def test_transduce_no_results(self, mock_transduce):
+        mock_transduce.return_value = []
+        result = demethylase(action="transduce")
+        assert "No signals transduced." in result.results
+
+    @patch("metabolon.enzymes.demethylase.transduce")
+    def test_transduce_with_filter(self, mock_transduce):
+        mock_transduce.return_value = []
+        demethylase(action="transduce", name_filter="deploy")
+        mock_transduce.assert_called_once_with(name_filter="deploy")
+
+    @patch("metabolon.enzymes.demethylase.transduce")
+    def test_transduce_no_cascades_fired(self, mock_transduce):
+        mock_transduce.return_value = [
+            {"name": "no-cascade", "source": "cc"},
+        ]
+        result = demethylase(action="transduce")
+        assert "Signal: no-cascade" in result.results
+        assert "Cascades fired" not in result.results
+
+
+# -- resensitize action -------------------------------------------------------
+
+
+class TestResensitizeAction:
+    """demethylase(action='resensitize', ...) tests."""
+
+    @patch("metabolon.enzymes.demethylase.resensitize")
+    def test_resensitize_success(self, mock_resensitize):
+        mock_resensitize.return_value = True
+        result = demethylase(action="resensitize", name="tired-receptor")
+        assert "resensitized" in result.results
+        assert "receptor recycled" in result.results
+        mock_resensitize.assert_called_once_with("tired-receptor")
+
+    @patch("metabolon.enzymes.demethylase.resensitize")
+    def test_resensitize_not_found(self, mock_resensitize):
+        mock_resensitize.return_value = False
+        result = demethylase(action="resensitize", name="nonexistent")
+        assert "No desensitized signal found" in result.results
+        assert "nonexistent" in result.results
 
     def test_resensitize_missing_name(self):
-        res = demethylase(action="resensitize", name="")
-        assert "requires" in res.results
+        result = demethylase(action="resensitize", name="")
+        assert "resensitize requires: name" in result.results
 
 
-# ── action: sweep ────────────────────────────────────────────────────
-
-class TestSweep:
-    @patch("metabolon.organelles.demethylase.format_report")
-    @patch("metabolon.organelles.demethylase.sweep")
-    def test_sweep_basic(self, mock_sweep, mock_fmt):
-        rpt = _report()
-        mock_sweep.return_value = rpt
-        mock_fmt.return_value = "FORMATTED REPORT"
-        res = demethylase(action="sweep")
-        assert "5 total" in res.results
-        assert "FORMATTED REPORT" in res.results
-        # sorted() by key alphabetically → cc=3 first, gemini=2 second
-        assert "cc=3, gemini=2" in res.results
-
-    @patch("metabolon.organelles.demethylase.format_report")
-    @patch("metabolon.organelles.demethylase.sweep")
-    def test_sweep_with_stale(self, mock_sweep, mock_fmt):
-        stale = _mark(stale=True, reason="old", path=Path("/tmp/old_mark.md"))
-        rpt = _report(stale_candidates=[stale])
-        mock_sweep.return_value = rpt
-        mock_fmt.return_value = "FMT"
-        res = demethylase(action="sweep")
-        assert "Stale marks:" in res.results
-        assert "old_mark.md" in res.results
-
-    @patch("metabolon.organelles.demethylase.format_report")
-    @patch("metabolon.organelles.demethylase.sweep")
-    def test_sweep_with_clusters(self, mock_sweep, mock_fmt):
-        rpt = _report()
-        mock_sweep.return_value = rpt
-        mock_fmt.return_value = "FMT"
-        res = demethylase(action="sweep")
-        assert "Top clusters:" in res.results
-
-    @patch("metabolon.organelles.demethylase.format_report")
-    @patch("metabolon.organelles.demethylase.sweep")
-    def test_sweep_empty_distributions(self, mock_sweep, mock_fmt):
-        rpt = _report(source_distribution={}, type_distribution={}, mark_clusters=[])
-        mock_sweep.return_value = rpt
-        mock_fmt.return_value = "FMT"
-        res = demethylase(action="sweep")
-        assert "Source distribution" not in res.results
-        assert "Type distribution" not in res.results
-        assert "Top clusters" not in res.results
+# -- sweep action -------------------------------------------------------------
 
 
-# ── action: record_access ────────────────────────────────────────────
+class TestSweepAction:
+    """demethylase(action='sweep', ...) tests."""
 
-class TestRecordAccess:
+    @patch("metabolon.enzymes.demethylase.format_report")
+    @patch("metabolon.enzymes.demethylase.sweep")
+    def test_sweep_basic(self, mock_sweep, mock_format):
+        report = _make_report()
+        mock_sweep.return_value = report
+        mock_format.return_value = "FORMATTED REPORT"
+
+        result = demethylase(action="sweep")
+        assert "Marks: 10 total (6 methyl, 3 acetyl, 2 protected)" in result.results
+        assert "Stale: 0." in result.results
+        assert "FORMATTED REPORT" in result.results
+        assert "Source distribution: cc=7, goose=3" in result.results
+        assert "Type distribution: feedback=5, finding=3, project=2" in result.results
+        assert "Top clusters: 1 shown of 1." in result.results
+        mock_sweep.assert_called_once_with(threshold_days=90, dry_run=True)
+
+    @patch("metabolon.enzymes.demethylase.format_report")
+    @patch("metabolon.enzymes.demethylase.sweep")
+    def test_sweep_with_stale(self, mock_sweep, mock_format):
+        stale = [SimpleNamespace(path=Path("stale1.md")), SimpleNamespace(path=Path("stale2.md"))]
+        report = _make_report(stale_candidates=stale)
+        mock_sweep.return_value = report
+        mock_format.return_value = "REPORT"
+
+        result = demethylase(action="sweep")
+        assert "Stale marks: stale1.md, stale2.md" in result.results
+
+    @patch("metabolon.enzymes.demethylase.format_report")
+    @patch("metabolon.enzymes.demethylase.sweep")
+    def test_sweep_custom_params(self, mock_sweep, mock_format):
+        report = _make_report()
+        mock_sweep.return_value = report
+        mock_format.return_value = "REPORT"
+
+        demethylase(action="sweep", threshold_days=30, dry_run=False)
+        mock_sweep.assert_called_once_with(threshold_days=30, dry_run=False)
+
+    @patch("metabolon.enzymes.demethylase.format_report")
+    @patch("metabolon.enzymes.demethylase.sweep")
+    def test_sweep_no_distributions(self, mock_sweep, mock_format):
+        report = _make_report(source_distribution={}, type_distribution={}, mark_clusters=[])
+        mock_sweep.return_value = report
+        mock_format.return_value = "REPORT"
+
+        result = demethylase(action="sweep")
+        assert "Source distribution" not in result.results
+        assert "Type distribution" not in result.results
+        assert "Top clusters" not in result.results
+        assert "Stale marks" not in result.results
+
+
+# -- record_access action -----------------------------------------------------
+
+
+class TestRecordAccessAction:
+    """demethylase(action='record_access', ...) tests."""
+
+    @patch("metabolon.enzymes.demethylase.record_access")
+    @patch("metabolon.enzymes.demethylase.MARKS_DIR")
+    def test_record_access_success(self, mock_marks_dir, mock_record):
+        mock_path = MagicMock()
+        mock_path.exists.return_value = True
+        mock_marks_dir.__truediv__ = MagicMock(return_value=mock_path)
+
+        result = demethylase(action="record_access", mark_filename="test.md")
+        assert "Access recorded for test.md" in result.results
+        mock_record.assert_called_once_with(mock_path)
+
+    @patch("metabolon.enzymes.demethylase.MARKS_DIR")
+    def test_record_access_mark_not_found(self, mock_marks_dir):
+        mock_path = MagicMock()
+        mock_path.exists.return_value = False
+        mock_marks_dir.__truediv__ = MagicMock(return_value=mock_path)
+
+        result = demethylase(action="record_access", mark_filename="missing.md")
+        assert "Mark not found: missing.md" in result.results
+
     def test_record_access_missing_filename(self):
-        res = demethylase(action="record_access", mark_filename="")
-        assert "requires" in res.results
-
-    def test_record_access_file_not_found(self):
-        with patch("metabolon.locus.marks", Path("/tmp/nonexistent_marks_xyz")):
-            res = demethylase(action="record_access", mark_filename="nope.md")
-            assert "not found" in res.results.lower()
-
-    def test_record_access_file_exists(self, tmp_path: Path):
-        marks = tmp_path / "marks"
-        marks.mkdir()
-        mark_file = marks / "test.md"
-        mark_file.write_text("---\nname: test\n---\nbody")
-        with patch("metabolon.locus.marks", marks):
-            with patch("metabolon.organelles.demethylase.record_access") as mock_ra:
-                res = demethylase(action="record_access", mark_filename="test.md")
-                assert "Access recorded" in res.results
-                mock_ra.assert_called_once()
+        result = demethylase(action="record_access", mark_filename="")
+        assert "record_access requires: mark_filename" in result.results
 
 
-# ── action: unknown / edge cases ─────────────────────────────────────
+# -- unknown action -----------------------------------------------------------
 
-class TestUnknown:
+
+class TestUnknownAction:
+    """demethylase(action='<invalid>') returns error message."""
+
     def test_unknown_action(self):
-        res = demethylase(action="foobar")
-        assert "Unknown action" in res.results
-        assert "emit" in res.results
+        result = demethylase(action="foobar")
+        assert "Unknown action 'foobar'" in result.results
+        assert "emit" in result.results  # lists valid actions
 
     def test_action_case_insensitive(self):
-        res = demethylase(action="EMIT", name="", content="")
-        assert "requires" in res.results
+        """Action is lowercased and stripped."""
+        with patch("metabolon.enzymes.demethylase.read_signals") as mock_read:
+            mock_read.return_value = []
+            result = demethylase(action="  READ  ")
+            assert "No signals found." in result.results
 
-    def test_action_whitespace_trimmed(self):
-        res = demethylase(action="  emit  ", name="", content="")
-        assert "requires" in res.results
 
+# -- return type consistency --------------------------------------------------
 
-# ── return type ──────────────────────────────────────────────────────
 
 class TestReturnType:
-    @patch("metabolon.organelles.demethylase.read_signals")
-    def test_returns_demethylase_result(self, mock_read):
-        mock_read.return_value = []
-        res = demethylase(action="read")
-        assert isinstance(res, DemethylaseResult)
-        assert isinstance(res.results, str)
+    """All branches return DemethylaseResult."""
+
+    def test_all_branches_return_demethylase_result(self):
+        """Every action branch must return a DemethylaseResult instance."""
+        with patch("metabolon.enzymes.demethylase.emit_signal") as m:
+            m.return_value = MagicMock(name="sig.md")
+            r = demethylase(action="emit", name="x", content="y")
+            assert isinstance(r, DemethylaseResult)
+
+        with patch("metabolon.enzymes.demethylase.read_signals") as m:
+            m.return_value = []
+            r = demethylase(action="read")
+            assert isinstance(r, DemethylaseResult)
+
+        with patch("metabolon.enzymes.demethylase.signal_history") as m:
+            m.return_value = []
+            r = demethylase(action="history")
+            assert isinstance(r, DemethylaseResult)
+
+        with patch("metabolon.enzymes.demethylase.transduce") as m:
+            m.return_value = []
+            r = demethylase(action="transduce")
+            assert isinstance(r, DemethylaseResult)
+
+        with patch("metabolon.enzymes.demethylase.resensitize") as m:
+            m.return_value = True
+            r = demethylase(action="resensitize", name="x")
+            assert isinstance(r, DemethylaseResult)
+
+        with patch("metabolon.enzymes.demethylase.format_report"), \
+             patch("metabolon.enzymes.demethylase.sweep") as m:
+            m.return_value = _make_report()
+            r = demethylase(action="sweep")
+            assert isinstance(r, DemethylaseResult)
+
+        with patch("metabolon.enzymes.demethylase.record_access"), \
+             patch("metabolon.enzymes.demethylase.MARKS_DIR"):
+            mock_path = MagicMock()
+            mock_path.exists.return_value = True
+            from unittest.mock import PropertyMock
+            # We need MARKS_DIR / "test.md" to return mock_path
+            with patch("metabolon.enzymes.demethylase.MARKS_DIR") as mock_md:
+                mock_md.__truediv__ = MagicMock(return_value=mock_path)
+                r = demethylase(action="record_access", mark_filename="test.md")
+                assert isinstance(r, DemethylaseResult)
+
+        r = demethylase(action="invalid")
+        assert isinstance(r, DemethylaseResult)

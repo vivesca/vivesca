@@ -146,7 +146,7 @@ class TestSleepAction:
             "average_hrv": 45,
         })
         with patch("metabolon.enzymes.interoception._health_log_path", return_value="/tmp/fake"):
-            with patch("metabolon.enzymes.interoception.locus"):
+            with patch("metabolon.enzymes.interoception.from metabolon import locus"):
                 with patch("metabolon.enzymes.interoception.organelles.chemoreceptor.sense", mock_sense):
                     result = _fn()(action="sleep")
 
@@ -267,7 +267,7 @@ class TestFlywheelAction:
 
     def test_flywheel_returns_anabolism_result(self):
         with (
-            patch("metabolon.enzymes.interoception.locus"),
+            patch("metabolon.enzymes.interoception.from metabolon import locus"),
             patch("metabolon.enzymes.interoception.subprocess.run") as mock_run,
             patch("builtins.open", MagicMock()),
             patch("metabolon.enzymes.interoception.os.path.exists", return_value=False),
@@ -530,7 +530,7 @@ class TestFinancialAction:
 
     def test_financial_returns_result(self):
         with (
-            patch("metabolon.enzymes.interoception.locus"),
+            patch("metabolon.enzymes.interoception.from metabolon import locus"),
             patch("builtins.open", MagicMock()),
             patch("metabolon.enzymes.interoception.synthesize", return_value="Summary with no urgent items"),
         ):

@@ -36,12 +36,12 @@ def extract_text(blob):
         )
         for r in runs:
             r = r.strip()
-            if len(r) < 2 or meta.search(r):
+            if len(r) < 3 or meta.search(r):
                 continue
             if r.startswith("+") and len(r) > 2:
                 r = r[2:]
             r = r.strip()
-            if len(r) >= 2:
+            if len(r) >= 3:
                 return r
         return None
     except Exception:

@@ -708,7 +708,7 @@ class TestTidalVolume:
             with patch("metabolon.vasomotor.vasomotor_genome", return_value={}):
                 result = vm.tidal_volume()
 
-        assert result == 0.15  # MIN_BASAL_RATE
+        assert result == pytest.approx(0.15)  # MIN_BASAL_RATE
 
     def test_custom_genome_values(self):
         """Should respect custom genome values."""

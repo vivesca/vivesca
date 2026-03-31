@@ -534,13 +534,13 @@ class TestAssessVitalCapacity:
         from metabolon.vasomotor import assess_vital_capacity
 
         telemetry = {
-            "seven_day": {"utilization": 98},  # Only 2% remaining, below 15% reserve
+            "seven_day": {"utilization": 90},  # 10% remaining, below 15% reserve
             "seven_day_sonnet": {"utilization": 50}
         }
 
         with patch('metabolon.vasomotor.measure_vasomotor_tone', return_value=telemetry):
             with patch('metabolon.vasomotor.vasomotor_genome', return_value={
-                'aerobic_ceiling': 95,
+                'aerobic_ceiling': 95,  # 90% < 95% ceiling, so passes ceiling check
                 'sonnet_ceiling': 95,
                 'sympathetic_reserve': 15,
                 'tachycardia_threshold': 60
