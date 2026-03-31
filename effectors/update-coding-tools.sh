@@ -2,10 +2,23 @@
 # Auto-update all tools hourly
 # Runs via LaunchAgent com.terry.update-coding-tools
 
+if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
+    echo "Usage: update-coding-tools.sh"
+    echo
+    echo "Auto-update brew, npm, pnpm, uv, cargo, and Mac App Store tools."
+    echo "macOS only — requires Homebrew. Logs to ~/.coding-tools-update.log."
+    exit 0
+fi
+
 set -e
 
 # Cron runs with minimal PATH — load Homebrew and user binaries
-eval "$(/opt/homebrew/bin/brew shellenv)"
+if command -v brew &>/dev/null; then
+    eval "$(brew shellenv)"
+else
+    echo "Error: Homebrew not found. This script requires macOS with Homebrew." >&2
+    exit 1
+fi
 export PATH="$HOME/.cargo/bin:$HOME/.npm-global/bin:$HOME/.local/bin:$HOME/Library/pnpm:$PATH"
 
 LOG_FILE="$HOME/.coding-tools-update.log"

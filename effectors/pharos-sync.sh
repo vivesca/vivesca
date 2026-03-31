@@ -1,6 +1,15 @@
 #!/usr/bin/env bash
 # Sync Claude config (MEMORY.md, settings.json) to officina repo.
 # Runs every 15min via com.terry.pharos-sync LaunchAgent.
+
+if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
+    echo "Usage: pharos-sync.sh"
+    echo
+    echo "Sync Claude config (MEMORY.md, settings.json, credentials) to officina repo"
+    echo "and remote machines (pharos, m2, m3). Auto-commits and pushes changes."
+    exit 0
+fi
+
 set -uo pipefail
 
 OFFICINA="$HOME/officina"

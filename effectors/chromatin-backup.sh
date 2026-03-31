@@ -2,6 +2,14 @@
 # Chromatin git backup — auto-commit and push if there are changes
 # Replaces Obsidian Git plugin (which only runs when app is open)
 
+if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
+    echo "Usage: chromatin-backup.sh"
+    echo
+    echo "Auto-commit and push chromatin changes to epigenome repo."
+    echo "Skips if no changes detected."
+    exit 0
+fi
+
 cd "$HOME/epigenome/chromatin" || exit 1
 
 # Pull remote changes first (Obsidian Git may have pushed)
