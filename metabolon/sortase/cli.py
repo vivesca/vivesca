@@ -325,10 +325,16 @@ def route(description: str, verbose: bool) -> None:
 @click.option("--prune", default=0, type=int, help="Keep only last N entries (0 = no pruning).")
 @click.option("--export", "export_path", default=None, type=click.Path(path_type=Path), help="Export log as CSV.")
 @click.option("--last", "last_n", default=10, show_default=True, type=int, help="Show last N entries.")
-def log(stats: bool, prune: int, export_path: Path | None, last_n: int) -> None:
+@click.option("--json-output", "json_out", is_flag=True, help="Output as JSON array.")
+def log(stats: bool, prune: int, export_path: Path | None, last_n: int, json_out: bool) -> None:
     """Show execution history."""
 
     entries = read_logs()
+    if json_out:
+        sliced = entries[-last_n:] if last_n else entries
+        print(json.dumps(sliced, indent=2))
+        return
+
     if stats:
         payload = aggregate_stats(entries)
         table = Table(title="sortase stats")

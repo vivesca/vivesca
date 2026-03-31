@@ -89,6 +89,19 @@ class TestSpeedPercentiles:
         assert result.exit_code == 0, f"exit_code={result.exit_code}\noutput:\n{result.output}"
         assert "Backend Percentiles" not in result.output
 
+    @patch("metabolon.sortase.cli.read_logs")
+    def test_log_json_flag(self, mock_read: object) -> None:
+        """--json-output returns valid JSON array."""
+        mock_read.return_value = SAMPLE_LOG_ENTRIES
+
+        runner = CliRunner()
+        result = runner.invoke(main, ["log", "--json-output", "--last", "1"])
+        assert result.exit_code == 0, f"exit_code={result.exit_code}\noutput:\n{result.output}"
+        parsed = json.loads(result.output)
+        assert isinstance(parsed, list)
+        assert len(parsed) == 1
+        assert parsed[0]["plan"] == "task_b.md"
+
     @patch("metabolon.sortase.logger.read_logs")
     @patch("metabolon.sortase.cli.read_logs")
     @patch("metabolon.organelles.tachometer.read_logs")
