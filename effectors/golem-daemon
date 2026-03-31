@@ -5,10 +5,11 @@ Reads ~/germline/loci/golem-queue.md for pending tasks, runs up to 4
 concurrent golem subprocesses. Marks completed tasks and starts next.
 
 Usage:
-    golem-daemon start   # Start daemon (nohup, backgrounds itself)
-    golem-daemon stop    # Stop daemon via pidfile
-    golem-daemon status  # Check if running
-    golem-daemon clean   # Remove completed/failed entries from queue
+    golem-daemon start      # Start daemon (nohup, backgrounds itself)
+    golem-daemon stop       # Stop daemon via pidfile
+    golem-daemon status     # Check if running
+    golem-daemon clean      # Remove completed/failed entries from queue
+    golem-daemon retry-all  # Re-queue all [!] failed tasks as [ ]
 """
 from __future__ import annotations
 
@@ -672,6 +673,46 @@ def cmd_clean() -> int:
             return 1
 
     print(f"Removed {removed} entries from queue")
+    return 0
+
+
+def cmd_retry_all() -> int:
+    """Re-queue all [!] failed tasks as [ ] pending for another attempt.
+
+    Strips any trailing (retry) tag so each task gets a fresh retry cycle.
+    Returns count of re-queued tasks.
+    """
+    if not QUEUE_FILE.exists():
+        print("Queue file not found")
+        return 1
+
+    with QueueLock():
+        try:
+            lines = QUEUE_FILE.read_text().splitlines()
+        except (PermissionError, OSError, UnicodeDecodeError):
+            print("Queue file unreadable")
+            return 1
+
+        requeued = 0
+        new_lines: list[str] = []
+        for line in lines:
+            m = re.match(r'^- \[!\] `([^`]+)`', line)
+            if m:
+                cmd = m.group(1).strip()
+                # Strip trailing (retry) to give a fresh cycle
+                cmd = re.sub(r'\s*\(retry\)\s*$', '', cmd)
+                new_lines.append(f"- [ ] `{cmd}`")
+                requeued += 1
+            else:
+                new_lines.append(line)
+
+        try:
+            QUEUE_FILE.write_text("\n".join(new_lines) + "\n")
+        except (PermissionError, OSError):
+            print("Queue file not writable")
+            return 1
+
+    print(f"Re-queued {requeued} failed tasks")
     return 0
 
 
