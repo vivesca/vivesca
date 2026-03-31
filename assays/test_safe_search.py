@@ -104,21 +104,15 @@ class TestPathBlocking:
 
     def test_blocks_library_directory(self):
         """Test that Library directory is blocked as too large."""
-        # The script has hardcoded macOS paths - test that the blocking logic works
-        # On non-macOS systems, the path may not exist but blocking should still work
-        # if the path matches the hardcoded list
-        home = os.path.expanduser("~")
-        # The script checks for /Users/terry/Library etc (macOS paths)
-        # On Linux, the home dir is different, so we test with the actual home
+        library_path = os.path.join(os.path.expanduser("~"), "Library")
         result = subprocess.run(
-            [sys.executable, str(SAFE_SEARCH_PATH), "pattern", home],
+            [sys.executable, str(SAFE_SEARCH_PATH), "pattern", library_path],
             capture_output=True,
             text=True,
             timeout=10,
         )
-        # Home directory should always be blocked
         assert result.returncode == 1
-        assert "PROHIBITED" in result.stdout or "ERROR" in result.stdout
+        assert "too large" in result.stdout.lower() or "ERROR" in result.stdout
 
     def test_blocks_downloads_directory(self):
         """Test that Downloads directory is blocked as too large."""
