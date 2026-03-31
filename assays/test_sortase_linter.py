@@ -23,7 +23,7 @@ Write the result to metabolon/sortase/linter.py
 - Must not modify existing tests without explicit instruction
 
 ## Verification
-Run: cd ~/germline && .venv/bin/python -m pytest assays/test_sortase_linter.py -v
+Run: cd ~/germline && uv run pytest assays/test_sortase_linter.py -v
 
 File paths: metabolon/sortase/linter.py, assays/test_sortase_linter.py
 """

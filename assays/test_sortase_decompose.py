@@ -301,7 +301,7 @@ Modify two files to add logging:
 
 ## Verification
 ```bash
-cd ~/germline && .venv/bin/python -m pytest assays/test_foo.py -v
+cd ~/germline && uv run pytest assays/test_foo.py -v
 ```
 
 - src/main.py: add logger import and log call
@@ -330,13 +330,13 @@ Refactor the entire sortase pipeline:
 
 ## Verification
 ```bash
-cd ~/germline && .venv/bin/python -m pytest assays/test_sortase_decompose.py -v --tb=short
+cd ~/germline && uv run pytest assays/test_sortase_decompose.py -v --tb=short
 ```
 ```bash
-cd ~/germline && .venv/bin/python -m pytest assays/test_sortase_router.py -v --tb=short
+cd ~/germline && uv run pytest assays/test_sortase_router.py -v --tb=short
 ```
 ```bash
-cd ~/germline && .venv/bin/python -m pytest assays/test_sortase_executor.py -v --tb=short
+cd ~/germline && uv run pytest assays/test_sortase_executor.py -v --tb=short
 ```
 
 Lines of code to change: approximately 150-200 lines across all files.
@@ -446,7 +446,7 @@ Single deliverable: create the feature module.
 
 ## Verification
 ```bash
-cd ~/germline && .venv/bin/python -m pytest assays/test_feature_x.py -v
+cd ~/germline && uv run pytest assays/test_feature_x.py -v
 ```
 
 ## Tool budget
@@ -515,7 +515,7 @@ Single deliverable: the scoring module.
 
 ## Verification
 ```bash
-cd ~/germline && .venv/bin/python -m pytest assays/test_sortase_scoring.py -v --tb=short
+cd ~/germline && uv run pytest assays/test_sortase_scoring.py -v --tb=short
 ```
 
 ## Tool budget
@@ -611,7 +611,7 @@ Write to ~/germline/metabolon/sortase/feature_x.py.
 
 ## Verification
 ```bash
-cd ~/germline && .venv/bin/python -m pytest assays/test_feature_x.py -v
+cd ~/germline && uv run pytest assays/test_feature_x.py -v
 ```
 """
 
