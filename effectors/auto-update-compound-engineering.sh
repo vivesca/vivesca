@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Auto-update compound-engineering plugin
-# Add to crontab: 0 2 * * 0 /Users/terry/scripts/auto-update-compound-engineering.sh
+# Add to crontab: 0 2 * * 0 ~/germline/effectors/auto-update-compound-engineering.sh
 
 LOG_FILE="$HOME/.compound-engineering-updates.log"
 
