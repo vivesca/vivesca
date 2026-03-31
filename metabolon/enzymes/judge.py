@@ -6,6 +6,7 @@ Tools:
   judge_evaluate — evaluate content against a rubric
 """
 
+from pathlib import Path
 from typing import Optional
 
 
@@ -14,7 +15,7 @@ from metabolon.organelles.effector import run_cli  # noqa: E402
 from fastmcp.tools import tool  # noqa: E402
 from mcp.types import ToolAnnotations  # noqa: E402
 
-BINARY = "/Users/terry/.local/bin/judge"
+BINARY = str(Path.home() / ".local/bin/judge")
 
 _TIMEOUT = 60
 

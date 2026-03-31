@@ -151,7 +151,7 @@ def compute_window_stats(
     error_counter: Counter[str] = Counter()
     for _, exit_code, cmd in failures:
         error_counter[f"exit={exit_code}: {cmd[:80]}"] += 1
-    for _, exit_code, cmd in finish_fails:
+    for _, _, exit_code, cmd in finish_fails:
         error_counter[f"exit={exit_code}: {cmd[:80]}"] += 1
     for _, duration, cmd in timeouts:
         error_counter[f"timeout ({duration}s): {cmd[:80]}"] += 1

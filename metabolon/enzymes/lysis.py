@@ -6,12 +6,14 @@ headless browsers. Returns clean markdown.
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from metabolon.organelles.effector import run_cli  # noqa: E402
 
 from fastmcp.tools import tool  # noqa: E402
 from mcp.types import ToolAnnotations  # noqa: E402
 
-BINARY = "/Users/terry/germline/effectors/lysis"
+BINARY = str(Path.home() / "germline/effectors/lysis")
 
 
 @tool(
