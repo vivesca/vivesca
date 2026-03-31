@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 """Tests for oura-weekly-digest — weekly health data markdown generator."""
 
 import subprocess
