@@ -118,7 +118,7 @@ class TestApplyFix:
 class TestSubprocessCLI:
     def test_dry_run_shows_findings(self, tmp_path: Path):
         """Verify subprocess works in dry-run mode."""
-        p = tmp_path / "sub.py"
+        p = tmp_path / "test_sub.py"
         p.write_text('X = "/home/terry/x"\n')
         script = "/home/terry/germline/effectors/conftest-gen"
         result = subprocess.run(
@@ -132,7 +132,7 @@ class TestSubprocessCLI:
 
     def test_fix_mode_applies_changes(self, tmp_path: Path):
         """Verify subprocess works with --fix."""
-        p = tmp_path / "sub.py"
+        p = tmp_path / "test_sub.py"
         p.write_text('X = "/home/terry/x"\n')
         script = "/home/terry/germline/effectors/conftest-gen"
         result = subprocess.run(
