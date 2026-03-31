@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 import sys
-import os
 import subprocess
+from pathlib import Path
 
 def main():
     if len(sys.argv) < 3:
@@ -9,35 +9,34 @@ def main():
         sys.exit(1)
 
     pattern = sys.argv[1]
-    search_path = os.path.abspath(os.path.expanduser(sys.argv[2]))
-    root_path = os.path.abspath(os.path.expanduser("~"))
+    search_path = Path(sys.argv[2]).expanduser().resolve()
+    home_path = Path.home().resolve()
 
-    # Hard block on searching the root directly or its parents
-    if search_path == root_path or search_path == "/":
+    # Hard block on searching the root directly or home directory
+    if search_path == home_path or str(search_path) == "/":
         print(f"ERROR: Searching the root directory '{search_path}' is PROHIBITED.")
         print("Reason: Performance bottleneck and context pollution.")
         print("Action: Specify a narrow sub-directory (e.g., 'bank-faq-chatbot', 'notes').")
         sys.exit(1)
 
     # Prevent searching directories known to be massive without further narrowing
-    # (Example: searching ~/Library recursive is almost always a mistake)
-    massive_dirs = [os.path.join(root_path, d) for d in ["Library", "Pictures", "Downloads"]]
-    if search_path in [os.path.abspath(d) for d in massive_dirs]:
+    massive_dirs = [home_path / d for d in ["Library", "Pictures", "Downloads"]]
+    if search_path in massive_dirs:
         print(f"ERROR: Directory '{search_path}' is too large for broad search.")
         print("Action: Narrow your search path (e.g., '~/Library/Application Support/app').")
         sys.exit(1)
 
     # Use ripgrep with smart exclusions and a 10s timeout
     cmd = [
-        "rg", 
+        "rg",
         "--max-columns", "500",
         "--max-results", "100",  # Don't drown the agent in matches
-        "--glob", "!.Library/*",
-        "--glob", "!.Trash/*",
+        "--glob", "!Library/**",
+        "--glob", "!.Trash/**",
         "--glob", "!*.log",
-        "--glob", "!node_modules/*",
-        pattern, 
-        search_path
+        "--glob", "!node_modules/**",
+        pattern,
+        str(search_path)
     ]
     try:
         subprocess.run(cmd, timeout=15)
