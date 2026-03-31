@@ -70,7 +70,7 @@ class TestReadLastOpenFiles:
 
 class TestReadLastSnapshot:
     def test_returns_none_when_no_file(self, phago):
-        with patch.object(phago.LOG_FILE, "exists", return_value=False):
+        with patch("pathlib.Path.exists", return_value=False):
             result = phago.read_last_snapshot()
         assert result is None
 
@@ -78,8 +78,8 @@ class TestReadLastSnapshot:
         content = b""
         bio = io.BytesIO(content)
 
-        with patch.object(phago.LOG_FILE, "exists", return_value=True):
-            with patch.object(phago.LOG_FILE, "open", return_value=bio):
+        with patch("pathlib.Path.exists", return_value=True):
+            with patch("pathlib.Path.open", return_value=bio):
                 result = phago.read_last_snapshot()
         assert result is None
 
