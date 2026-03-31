@@ -2,46 +2,30 @@
 # golem — headless CC + GLM-5.1 via ZhiPu. Faithful instruction executor.
 #
 # Usage:
-#   golem "Write tests for metabolon/foo.py"              # bare (default)
-#   golem --mcp "Search for HKMA circulars and summarize"  # with vivesca MCP
-#   golem --skills "Run /circadian morning brief"          # with skills
-#   golem --full "Complex task needing everything"          # MCP + skills
-#   golem --batch metabolon/bar.py metabolon/baz.py        # sequential tests
+#   golem "Write tests for metabolon/foo.py"        # bare (default, fast)
+#   golem --full "Task needing MCP/skills/context"   # full organism access
+#   golem --batch metabolon/bar.py metabolon/baz.py  # sequential test gen
 #   golem --max-turns 30 "Complex task"
 set -euo pipefail
 
 MAX_TURNS="${GOLEM_MAX_TURNS:-20}"
-MODE="bare"  # bare | mcp | skills | full
-
-# Parse flags
+BARE=true
 BATCH=false
+
 while [[ "${1:-}" == --* ]]; do
   case "$1" in
     --batch) BATCH=true; shift ;;
     --max-turns) MAX_TURNS="$2"; shift 2 ;;
-    --mcp) MODE="mcp"; shift ;;
-    --skills) MODE="skills"; shift ;;
-    --full) MODE="full"; shift ;;
-    --bare) MODE="bare"; shift ;;
+    --full) BARE=false; shift ;;
+    --bare) BARE=true; shift ;;
     *) echo "Unknown flag: $1" >&2; exit 1 ;;
   esac
 done
 
-_build_claude_args() {
-  local args=(--print --max-turns "$MAX_TURNS")
-  case "$MODE" in
-    bare)   args+=(--bare) ;;
-    mcp)    args+=(--bare --mcp-config ~/.claude/golem-mcp.json) ;;
-    skills) ;; # no --bare = loads CLAUDE.md + skills
-    full)   args+=(--mcp-config ~/.claude/golem-mcp.json) ;;
-  esac
-  echo "${args[@]}"
-}
-
 _run_golem() {
   local prompt="$1"
-  local claude_args
-  read -ra claude_args <<< "$(_build_claude_args)"
+  local args=(--print --max-turns "$MAX_TURNS")
+  $BARE && args+=(--bare)
   CLAUDECODE= \
   ANTHROPIC_AUTH_TOKEN="${ZHIPU_API_KEY:?ZHIPU_API_KEY not set}" \
   ANTHROPIC_BASE_URL="https://open.bigmodel.cn/api/anthropic" \
@@ -50,7 +34,7 @@ _run_golem() {
   ANTHROPIC_DEFAULT_HAIKU_MODEL="GLM-4.5-air" \
   API_TIMEOUT_MS=3000000 \
   CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1 \
-  claude "${claude_args[@]}" -p "$prompt"
+  claude "${args[@]}" -p "$prompt"
 }
 
 if $BATCH; then
