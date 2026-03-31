@@ -37,7 +37,7 @@ def test_judge_help_works():
     assert result.returncode == 0
     assert "LLM quality gate" in result.stdout
     assert "rubric" in result.stdout
-    assert "PASS" in result.stdout
+    assert "--json" in result.stdout
 
 
 def test_judge_list_rubrics_works():

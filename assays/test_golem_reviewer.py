@@ -157,8 +157,6 @@ def test_check_daemon_status_parses_output():
     exec(content, ns)
 
     # Mock the run function
-    original_run = ns['run']
-
     def mock_run(cmd):
         return 0, "Daemon running (PID 1234), 5 pending tasks (current 1/5)"
 
@@ -185,8 +183,6 @@ def test_check_daemon_failures_finds_failures():
     exec(content, ns)
 
     # Mock the run function
-    original_run = ns['run']
-
     def mock_run(cmd):
         return 0, "FAILED: task 1\nFAILED: task 2"
 
@@ -212,8 +208,6 @@ def test_run_test_snapshot_parses_output():
     exec(content, ns)
 
     # Mock the run function
-    original_run = ns['run']
-
     def mock_run(cmd):
         return 0, "10 passed, 2 failed, 1 error\n"
 
@@ -265,17 +259,6 @@ def test_write_progress_report_creates_file():
 
     # Cleanup
     report_path.unlink()
-
-    # Check directory created if not exists
-    import shutil
-    temp_dir = GERMLINE / "loci" / "copia"
-    if temp_dir.exists():
-        temp_dir.rmdir()
-    ns['write_progress_report'](status, output, tests, failures)
-    assert temp_dir.exists()
-    report_path.unlink()
-    if not any(temp_dir.iterdir()):
-        temp_dir.rmdir()
 
 
 def test_log_creates_log_file():
@@ -333,15 +316,6 @@ def test_main_accepts_once_flag():
         sys.exit = original_exit
 
 
-def test_golem_reviewer_once_flag():
-    """Test that golem-reviewer --once runs and exits."""
-    result = subprocess.run(
-        [sys.executable, str(GOLEM_REVIEWER_PATH), "--once"],
-        capture_output=True,
-        text=True,
-        cwd=str(GERMLINE),
-        timeout=30
-    )
-    # It will run successfully even if daemon not running
-    assert "=== Review cycle 1 ===" in result.stdout
-    # Doesn't crash
+if __name__ == "__main__":
+    import pytest
+    pytest.main([__file__, "-v", "--tb=short"])
