@@ -8,6 +8,7 @@ Usage:
     golem-daemon start      # Start daemon (nohup, backgrounds itself)
     golem-daemon stop       # Stop daemon via pidfile
     golem-daemon status     # Check if running
+    golem-daemon stats      # Show pass/fail/retry counts, avg duration by provider
     golem-daemon clean      # Remove completed/failed entries from queue
     golem-daemon retry-all  # Re-queue all [!] failed tasks as [ ]
 """
@@ -1084,6 +1085,79 @@ def cmd_retry_all() -> int:
     return 0
 
 
+def cmd_stats() -> int:
+    """Show pass/fail/retry counts, avg duration by provider, tasks completed today."""
+    records: list[dict] = []
+    for path in (JSONLFILE, Path(str(JSONLFILE) + ".1")):
+        if path.exists():
+            try:
+                for line in path.read_text().splitlines():
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        records.append(json.loads(line))
+                    except (json.JSONDecodeError, ValueError):
+                        pass
+            except (PermissionError, OSError):
+                pass
+
+    if not records:
+        print("No task history found")
+        return 0
+
+    today = datetime.now().strftime("%Y-%m-%d")
+
+    # Overall counts
+    total = len(records)
+    passed = sum(1 for r in records if r.get("exit") == 0)
+    failed = total - passed
+
+    # Retries exhausted (permanently failed in queue)
+    retries = 0
+    if QUEUE_FILE.exists():
+        try:
+            for line in QUEUE_FILE.read_text().splitlines():
+                if re.match(r'^- \[!\]', line):
+                    retries += 1
+        except (PermissionError, OSError, UnicodeDecodeError):
+            pass
+
+    # Today's tasks
+    today_records = [r for r in records if r.get("ts", "").startswith(today)]
+    today_total = len(today_records)
+    today_passed = sum(1 for r in today_records if r.get("exit") == 0)
+
+    # Avg duration by provider
+    provider_stats: dict[str, dict] = {}
+    for r in records:
+        p = r.get("provider", "unknown")
+        d = r.get("duration", 0)
+        if p not in provider_stats:
+            provider_stats[p] = {"count": 0, "total_dur": 0, "passed": 0, "failed": 0}
+        provider_stats[p]["count"] += 1
+        provider_stats[p]["total_dur"] += d
+        if r.get("exit") == 0:
+            provider_stats[p]["passed"] += 1
+        else:
+            provider_stats[p]["failed"] += 1
+
+    # Print stats
+    print(f"Total tasks: {total} (passed: {passed}, failed: {failed})")
+    print(f"Permanently failed (retries exhausted): {retries}")
+    print(f"Tasks today ({today}): {today_total} (passed: {today_passed}, failed: {today_total - today_passed})")
+    print()
+    print("By provider:")
+    for provider in sorted(provider_stats):
+        s = provider_stats[provider]
+        avg_dur = s["total_dur"] / s["count"] if s["count"] else 0
+        avg_min = int(avg_dur // 60)
+        avg_sec = int(avg_dur % 60)
+        print(f"  {provider:10s}  {s['count']:4d} tasks  {s['passed']:4d} passed  {s['failed']:4d} failed  avg {avg_min}m{avg_sec:02d}s")
+
+    return 0
+
+
 def main():
     if len(sys.argv) < 2:
         print(__doc__)
@@ -1102,6 +1176,8 @@ def main():
         return cmd_stop()
     elif cmd == "status":
         return cmd_status()
+    elif cmd == "stats":
+        return cmd_stats()
     elif cmd == "clean":
         return cmd_clean()
     elif cmd == "retry-all":
