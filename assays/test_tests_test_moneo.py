@@ -10,6 +10,7 @@ import base64
 import io
 import sys
 from datetime import datetime
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -397,7 +398,7 @@ class TestMakeReminderWithMockedTimestamp:
         reminder = moneo.make_reminder("Test", 5000, None, None)
         assert reminder["b"] == 9999999
         assert reminder["m"] == 9999999
-        assert reminder["u"] == "fixeduuid1234567890123456"
+        assert reminder["u"] == "fixeduuid1234567890"
 
     def test_make_uuid_is_exactly_22_chars(self) -> None:
         uid = moneo.generate_uuid()

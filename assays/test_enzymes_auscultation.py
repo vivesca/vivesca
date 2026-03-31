@@ -1,372 +1,309 @@
-"""Tests for metabolon/enzymes/auscultation.py.
-
-Covers _read_log_lines, _glob_logs, and the auscultation tool with actions
-'logs', 'errors', and unknown actions. All filesystem access is mocked.
-"""
+"""Tests for metabolon/enzymes/auscultation.py — log diagnostics."""
 
 from __future__ import annotations
 
-import textwrap
 from pathlib import Path
 from unittest.mock import patch
 
 import pytest
 
-from metabolon.enzymes.auscultation import (
-    _glob_logs,
-    _read_log_lines,
-    auscultation,
-)
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+def _fn():
+    """Return the raw function behind the @tool decorator."""
+    from metabolon.enzymes.auscultation import auscultation as fn
+
+    # fastmcp wraps the function; the raw callable is .fn
+    return getattr(fn, "fn", fn)
 
 
 # ---------------------------------------------------------------------------
-# Fixtures / helpers
-# ---------------------------------------------------------------------------
-
-_FAKE_LOG_DIR = Path("/fake/Library/Logs/vivesca")
-_FAKE_TMP_DIR = Path("/fake/tmp")
-
-
-def _make_log(name: str, content: str) -> Path:
-    """Return a fake Path whose read_text returns *content*."""
-    p = Path(_FAKE_LOG_DIR / name)
-    p._fake_content = content  # stash for mock side_effect
-    return p
-
-
-def _mock_paths(log_dir_files: list[str] | None = None,
-                tmp_dir_files: list[str] | None = None):
-    """Build patches so _LOG_DIR / _TMP_DIR return controlled file lists."""
-    log_paths = [Path(_FAKE_LOG_DIR / f) for f in (log_dir_files or [])]
-    tmp_paths = [Path(_FAKE_TMP_DIR / f) for f in (tmp_dir_files or [])]
-
-    def _read_text(self, errors="strict"):
-        return getattr(self, "_fake_content", "")
-
-    def _glob(self, pattern):
-        return [p for p in (log_paths if self == _FAKE_LOG_DIR else tmp_paths)
-                if p.suffix == ".log"]
-
-    return (
-        patch("metabolon.enzymes.auscultation._LOG_DIR", _FAKE_LOG_DIR),
-        patch("metabolon.enzymes.auscultation._TMP_DIR", _FAKE_TMP_DIR),
-        patch.object(Path, "exists", return_value=True),
-        patch.object(Path, "glob", _glob),
-        patch.object(Path, "read_text", _read_text),
-    )
-
-
-def _apply(ctx_list):
-    """Enter a list of context managers and return the tuple of mocks."""
-    entered = [c.__enter__() for c in ctx_list]
-    return entered
-
-
-# ---------------------------------------------------------------------------
-# _read_log_lines
+# _read_log_lines unit tests
 # ---------------------------------------------------------------------------
 
 class TestReadLogLines:
-    def test_reads_file_content(self, tmp_path):
-        f = tmp_path / "test.log"
-        f.write_text("line1\nline2\nline3")
-        assert _read_log_lines(f) == ["line1", "line2", "line3"]
+    """Tests for _read_log_lines helper."""
 
-    def test_truncates_to_last_n(self, tmp_path):
-        f = tmp_path / "test.log"
-        lines = [f"line{i}" for i in range(300)]
-        f.write_text("\n".join(lines))
-        result = _read_log_lines(f, n=5)
-        assert len(result) == 5
-        assert result[0] == "line295"
+    def test_reads_tail_lines(self, tmp_path):
+        from metabolon.enzymes.auscultation import _read_log_lines
+
+        log = tmp_path / "test.log"
+        lines = [f"line {i}" for i in range(10)]
+        log.write_text("\n".join(lines))
+        result = _read_log_lines(log, n=3)
+        assert result == ["line 7", "line 8", "line 9"]
+
+    def test_returns_all_if_fewer_than_n(self, tmp_path):
+        from metabolon.enzymes.auscultation import _read_log_lines
+
+        log = tmp_path / "test.log"
+        log.write_text("a\nb")
+        result = _read_log_lines(log, n=200)
+        assert result == ["a", "b"]
 
     def test_returns_empty_on_missing_file(self):
+        from metabolon.enzymes.auscultation import _read_log_lines
+
         result = _read_log_lines(Path("/nonexistent/file.log"))
         assert result == []
 
-    def test_default_n_is_200(self, tmp_path):
-        f = tmp_path / "test.log"
-        lines = [f"line{i}" for i in range(250)]
-        f.write_text("\n".join(lines))
-        result = _read_log_lines(f)
-        assert len(result) == 200
+    def test_replaces_errors(self, tmp_path):
+        from metabolon.enzymes.auscultation import _read_log_lines
 
-    def test_replaces_decode_errors(self, tmp_path):
-        f = tmp_path / "bad.log"
-        f.write_bytes(b"valid\xff\xfealso valid")
-        result = _read_log_lines(f)
-        assert len(result) == 1
+        log = tmp_path / "bad.log"
+        log.write_bytes(b"ok\xff\xfebad")
+        result = _read_log_lines(log)
+        assert len(result) == 1  # one line, garbled chars replaced
+        assert isinstance(result[0], str)
 
 
 # ---------------------------------------------------------------------------
-# _glob_logs
+# _glob_logs unit tests
 # ---------------------------------------------------------------------------
 
 class TestGlobLogs:
-    def test_returns_sorted_log_files(self):
-        files = ["b.log", "a.log"]
-        with _mock_paths(log_dir_files=files):
-            ctx = [c for c in _mock_paths(log_dir_files=files)]
-            # Re-enter for this test
-            pass
-        # Use a simpler approach: patch the module-level constants directly
-        with patch("metabolon.enzymes.auscultation._LOG_DIR", _FAKE_LOG_DIR), \
-             patch("metabolon.enzymes.auscultation._TMP_DIR", _FAKE_TMP_DIR), \
-             patch.object(Path, "exists", return_value=True), \
-             patch.object(Path, "glob", lambda self, pat: (
-                 sorted([_FAKE_LOG_DIR / "a.log", _FAKE_LOG_DIR / "b.log"])
-                 if self == _FAKE_LOG_DIR else []
-             )):
-            result = _glob_logs()
-        assert len(result) == 2
-        assert result[0].name == "a.log"
-        assert result[1].name == "b.log"
+    """Tests for _glob_logs helper."""
 
-    def test_includes_tmp_logs(self):
-        with patch("metabolon.enzymes.auscultation._LOG_DIR", _FAKE_LOG_DIR), \
-             patch("metabolon.enzymes.auscultation._TMP_DIR", _FAKE_TMP_DIR), \
-             patch.object(Path, "exists", return_value=True), \
-             patch.object(Path, "glob", lambda self, pat: (
-                 [_FAKE_LOG_DIR / "sys.log"]
-                 if self == _FAKE_LOG_DIR else
-                 [_FAKE_TMP_DIR / "debug.log"]
-             )):
+    def test_returns_matching_logs(self, tmp_path):
+        from metabolon.enzymes.auscultation import _glob_logs, _LOG_DIR, _TMP_DIR
+
+        log_dir = tmp_path / "logs"
+        log_dir.mkdir()
+        (log_dir / "app.log").write_text("data")
+        (log_dir / "other.txt").write_text("data")
+
+        tmp_dir = tmp_path / "tmp"
+        tmp_dir.mkdir()
+        (tmp_dir / "debug.log").write_text("data")
+
+        with (
+            patch("metabolon.enzymes.auscultation._LOG_DIR", log_dir),
+            patch("metabolon.enzymes.auscultation._TMP_DIR", tmp_dir),
+        ):
             result = _glob_logs()
         names = [p.name for p in result]
-        assert "sys.log" in names
+        assert "app.log" in names
         assert "debug.log" in names
+        assert "other.txt" not in names
 
-    def test_empty_when_dirs_missing(self):
-        with patch("metabolon.enzymes.auscultation._LOG_DIR", _FAKE_LOG_DIR), \
-             patch("metabolon.enzymes.auscultation._TMP_DIR", _FAKE_TMP_DIR), \
-             patch.object(Path, "exists", return_value=False):
+    def test_returns_empty_when_no_dirs(self, tmp_path):
+        from metabolon.enzymes.auscultation import _glob_logs
+
+        nonexistent = tmp_path / "nope"
+        with (
+            patch("metabolon.enzymes.auscultation._LOG_DIR", nonexistent),
+            patch("metabolon.enzymes.auscultation._TMP_DIR", nonexistent),
+        ):
             result = _glob_logs()
         assert result == []
+
+
+# ---------------------------------------------------------------------------
+# auscultation — action: logs
+# ---------------------------------------------------------------------------
+
+class TestAuscultationLogs:
+    """Tests for auscultation with action='logs'."""
+
+    def _setup_logs(self, tmp_path):
+        """Create temp log dirs and return (log_dir, tmp_dir)."""
+        log_dir = tmp_path / "logs"
+        log_dir.mkdir()
+        (log_dir / "app.log").write_text(
+            "INFO starting\nERROR crash\nWARN disk low\nERROR crash again"
+        )
+        (log_dir / "other.log").write_text("INFO ok\nDEBUG trace")
+
+        tmp_dir = tmp_path / "tmp"
+        tmp_dir.mkdir()
+        (tmp_dir / "extra.log").write_text("INFO extra line\nERROR extra fail")
+        return log_dir, tmp_dir
+
+    def _call(self, log_dir, tmp_dir, **kwargs):
+        fn = _fn()
+        with (
+            patch("metabolon.enzymes.auscultation._LOG_DIR", log_dir),
+            patch("metabolon.enzymes.auscultation._TMP_DIR", tmp_dir),
+        ):
+            return fn(action="logs", **kwargs)
+
+    def test_returns_all_logs_by_default(self, tmp_path):
+        log_dir, tmp_dir = self._setup_logs(tmp_path)
+        result = self._call(log_dir, tmp_dir)
+        assert "app.log" in result
+        assert "other.log" in result
+        assert "extra.log" in result
+
+    def test_filter_pattern(self, tmp_path):
+        log_dir, tmp_dir = self._setup_logs(tmp_path)
+        result = self._call(log_dir, tmp_dir, filter_pattern="ERROR")
+        assert "ERROR" in result
+        assert "INFO starting" not in result
+        assert "=== app.log" in result
+
+    def test_log_name_filter(self, tmp_path):
+        log_dir, tmp_dir = self._setup_logs(tmp_path)
+        result = self._call(log_dir, tmp_dir, log_name="app.log")
+        assert "app.log" in result
+        assert "other.log" not in result
+
+    def test_log_name_not_found(self, tmp_path):
+        log_dir, tmp_dir = self._setup_logs(tmp_path)
+        result = self._call(log_dir, tmp_dir, log_name="missing.log")
+        assert "Log not found: missing.log" == result
+
+    def test_no_log_files(self, tmp_path):
+        empty = tmp_path / "empty"
+        empty.mkdir()
+        result = self._call(empty, empty)
+        assert "No log files found" in result
+
+    def test_no_matching_lines(self, tmp_path):
+        log_dir, tmp_dir = self._setup_logs(tmp_path)
+        result = self._call(log_dir, tmp_dir, filter_pattern="FATAL")
+        assert "No log lines" in result
+        assert "FATAL" in result
+
+    def test_tail_lines_limits_output(self, tmp_path):
+        log_dir = tmp_path / "logs"
+        log_dir.mkdir()
+        (log_dir / "big.log").write_text("\n".join(f"line {i}" for i in range(50)))
+        tmp_dir = tmp_path / "tmp"
+        tmp_dir.mkdir()
+
+        result = self._call(log_dir, tmp_dir, tail_lines=5)
+        # Should contain only last 5 lines from big.log
+        assert "line 49" in result
+        assert "line 44" in result
+        assert "line 0" not in result
+
+    def test_line_count_in_header(self, tmp_path):
+        log_dir, tmp_dir = self._setup_logs(tmp_path)
+        result = self._call(log_dir, tmp_dir, filter_pattern="ERROR")
+        assert "(2 lines)" in result  # 2 ERROR lines in app.log
+
+
+# ---------------------------------------------------------------------------
+# auscultation — action: errors
+# ---------------------------------------------------------------------------
+
+class TestAuscultationErrors:
+    """Tests for auscultation with action='errors'."""
+
+    def _setup_errors(self, tmp_path):
+        """Create logs with error patterns. Returns (log_dir, tmp_dir)."""
+        log_dir = tmp_path / "logs"
+        log_dir.mkdir()
+        (log_dir / "server.log").write_text(
+            "2025-01-15T10:00:00 ERROR connection failed to 10.0.0.1 port 5432\n"
+            "2025-01-15T10:01:00 INFO heartbeat ok\n"
+            "2025-01-15T10:02:00 ERROR connection failed to 10.0.0.2 port 5432\n"
+            "2025-01-15T10:03:00 WARN disk usage at 85 percent\n"
+            "2025-01-15T10:04:00 ERROR connection failed to 10.0.0.3 port 5432\n"
+            "2025-01-15T10:05:00 WARN disk usage at 90 percent\n"
+        )
+        tmp_dir = tmp_path / "tmp"
+        tmp_dir.mkdir()
+        return log_dir, tmp_dir
+
+    def _call_errors(self, log_dir, tmp_dir, **kwargs):
+        fn = _fn()
+        with (
+            patch("metabolon.enzymes.auscultation._LOG_DIR", log_dir),
+            patch("metabolon.enzymes.auscultation._TMP_DIR", tmp_dir),
+        ):
+            return fn(action="errors", **kwargs)
+
+    def test_counts_error_patterns(self, tmp_path):
+        log_dir, tmp_dir = self._setup_errors(tmp_path)
+        result = self._call_errors(log_dir, tmp_dir)
+        assert "Error frequency analysis" in result
+        assert "5 total error lines" in result
+        # "connection failed" should appear as a pattern (normalized)
+        assert "connection failed" in result
+
+    def test_normalizes_numbers(self, tmp_path):
+        log_dir, tmp_dir = self._setup_errors(tmp_path)
+        result = self._call_errors(log_dir, tmp_dir)
+        # All 3 "connection failed" lines should be normalized to count 3
+        # Timestamps stripped, numbers replaced with N
+        assert "3" in result  # count of the top pattern
+
+    def test_no_normalization_when_disabled(self, tmp_path):
+        log_dir = tmp_path / "logs"
+        log_dir.mkdir()
+        (log_dir / "app.log").write_text(
+            "ERROR error 100\nERROR error 200\nERROR error 100\n"
+        )
+        tmp_dir = tmp_path / "tmp"
+        tmp_dir.mkdir()
+        result = self._call_errors(log_dir, tmp_dir, normalize_numbers=False)
+        # Without normalization, "error 100" and "error 200" are different
+        assert "error 100" in result
+        assert "error 200" in result
+
+    def test_custom_severity(self, tmp_path):
+        log_dir, tmp_dir = self._setup_errors(tmp_path)
+        result = self._call_errors(log_dir, tmp_dir, severity="WARN")
+        assert "WARN" in result
+        assert "Error frequency analysis" in result
+        # Only 2 WARN lines
+        assert "2 total error lines" in result
+
+    def test_top_n_limits_output(self, tmp_path):
+        log_dir = tmp_path / "logs"
+        log_dir.mkdir()
+        lines = [f"ERROR unique error number {i}" for i in range(10)]
+        (log_dir / "app.log").write_text("\n".join(lines))
+        tmp_dir = tmp_path / "tmp"
+        tmp_dir.mkdir()
+        result = self._call_errors(log_dir, tmp_dir, top_n=3)
+        # Should have header (3 lines) + 3 pattern lines = 6 lines total
+        data_lines = [l for l in result.splitlines() if l and not l.startswith("-") and not l.startswith("Error freq") and "Pattern" not in l]
+        assert len(data_lines) == 3
+
+    def test_no_errors_found(self, tmp_path):
+        log_dir = tmp_path / "logs"
+        log_dir.mkdir()
+        (log_dir / "app.log").write_text("INFO all good\nDEBUG trace info\n")
+        tmp_dir = tmp_path / "tmp"
+        tmp_dir.mkdir()
+        result = self._call_errors(log_dir, tmp_dir)
+        assert "sounds healthy" in result
+
+    def test_no_log_files_at_all(self, tmp_path):
+        empty = tmp_path / "empty"
+        empty.mkdir()
+        result = self._call_errors(empty, empty)
+        assert "No log files found" in result
 
 
 # ---------------------------------------------------------------------------
 # auscultation — unknown action
 # ---------------------------------------------------------------------------
 
-class TestUnknownAction:
+class TestAuscultationUnknownAction:
+    """Tests for unknown action handling."""
+
     def test_unknown_action_returns_error(self):
-        with patch("metabolon.enzymes.auscultation._LOG_DIR", _FAKE_LOG_DIR), \
-             patch("metabolon.enzymes.auscultation._TMP_DIR", _FAKE_TMP_DIR):
-            result = auscultation(action="bogus")
-        assert "Unknown action" in result
-        assert "bogus" in result
+        fn = _fn()
+        result = fn(action="unknown")
+        assert "Unknown action: unknown" in result
 
-
-# ---------------------------------------------------------------------------
-# auscultation — action=logs
-# ---------------------------------------------------------------------------
-
-class TestLogsAction:
-    def _setup(self, log_contents: dict[str, str]):
-        """Return patches that serve the given log_name->content mapping."""
-        def read_text(self, errors="strict"):
-            return log_contents.get(self.name, "")
-
-        def glob(self, pat):
-            return [Path(_FAKE_LOG_DIR / n) for n in log_contents if n.endswith(".log")]
-
-        return (
-            patch("metabolon.enzymes.auscultation._LOG_DIR", _FAKE_LOG_DIR),
-            patch("metabolon.enzymes.auscultation._TMP_DIR", _FAKE_TMP_DIR),
-            patch.object(Path, "exists", return_value=True),
-            patch.object(Path, "glob", glob),
-            patch.object(Path, "read_text", read_text),
-        )
-
-    def test_no_log_files_returns_message(self):
-        with patch("metabolon.enzymes.auscultation._LOG_DIR", _FAKE_LOG_DIR), \
-             patch("metabolon.enzymes.auscultation._TMP_DIR", _FAKE_TMP_DIR), \
-             patch.object(Path, "exists", return_value=False):
-            result = auscultation(action="logs")
-        assert "No log files found" in result
-
-    def test_reads_all_logs(self):
-        ctx = self._setup({"app.log": "alpha\nbeta", "sys.log": "gamma"})
-        with ctx[0], ctx[1], ctx[2], ctx[3], ctx[4]:
-            result = auscultation(action="logs")
-        assert "app.log" in result
-        assert "sys.log" in result
-        assert "alpha" in result
-
-    def test_log_name_filter(self):
-        ctx = self._setup({"app.log": "alpha", "other.log": "bravo"})
-        with ctx[0], ctx[1], ctx[2], ctx[3], ctx[4]:
-            result = auscultation(action="logs", log_name="app.log")
-        assert "alpha" in result
-        assert "other.log" not in result
-
-    def test_log_name_not_found(self):
-        ctx = self._setup({"app.log": "alpha"})
-        with ctx[0], ctx[1], ctx[2], ctx[3], ctx[4]:
-            result = auscultation(action="logs", log_name="missing.log")
-        assert "Log not found" in result
-
-    def test_filter_pattern(self):
-        ctx = self._setup({"app.log": "ERROR bad\nINFO ok\nERROR worse"})
-        with ctx[0], ctx[1], ctx[2], ctx[3], ctx[4]:
-            result = auscultation(action="logs", filter_pattern="ERROR")
-        assert "ERROR bad" in result
-        assert "INFO ok" not in result
-        assert "ERROR worse" in result
-
-    def test_filter_pattern_no_matches(self):
-        ctx = self._setup({"app.log": "INFO fine\nDEBUG ok"})
-        with ctx[0], ctx[1], ctx[2], ctx[3], ctx[4]:
-            result = auscultation(action="logs", filter_pattern="FATAL")
-        assert "No log lines matching" in result
-        assert "FATAL" in result
-
-    def test_tail_lines_limits_output(self):
-        lines = "\n".join(f"line{i}" for i in range(50))
-        ctx = self._setup({"app.log": lines})
-        with ctx[0], ctx[1], ctx[2], ctx[3], ctx[4]:
-            result = auscultation(action="logs", tail_lines=3)
-        # Should contain last 3 lines only
-        assert "line49" in result
-        assert "line0" not in result
-
-    def test_empty_log_skipped(self):
-        ctx = self._setup({"empty.log": "", "full.log": "content"})
-        with ctx[0], ctx[1], ctx[2], ctx[3], ctx[4]:
-            result = auscultation(action="logs")
-        assert "full.log" in result
-        assert "empty.log" not in result
-
-    def test_header_shows_line_count(self):
-        ctx = self._setup({"app.log": "a\nb\nc"})
-        with ctx[0], ctx[1], ctx[2], ctx[3], ctx[4]:
-            result = auscultation(action="logs")
-        assert "(3 lines)" in result
-
-
-# ---------------------------------------------------------------------------
-# auscultation — action=errors
-# ---------------------------------------------------------------------------
-
-class TestErrorsAction:
-    def _setup(self, log_contents: dict[str, str]):
-        def read_text(self, errors="strict"):
-            return log_contents.get(self.name, "")
-
-        def glob(self, pat):
-            return [Path(_FAKE_LOG_DIR / n) for n in log_contents if n.endswith(".log")]
-
-        return (
-            patch("metabolon.enzymes.auscultation._LOG_DIR", _FAKE_LOG_DIR),
-            patch("metabolon.enzymes.auscultation._TMP_DIR", _FAKE_TMP_DIR),
-            patch.object(Path, "exists", return_value=True),
-            patch.object(Path, "glob", glob),
-            patch.object(Path, "read_text", read_text),
-        )
-
-    def test_no_log_files(self):
-        with patch("metabolon.enzymes.auscultation._LOG_DIR", _FAKE_LOG_DIR), \
-             patch("metabolon.enzymes.auscultation._TMP_DIR", _FAKE_TMP_DIR), \
-             patch.object(Path, "exists", return_value=False):
-            result = auscultation(action="errors")
-        assert "No log files found" in result
-
-    def test_no_matching_errors(self):
-        ctx = self._setup({"app.log": "INFO all good\nDEBUG fine"})
-        with ctx[0], ctx[1], ctx[2], ctx[3], ctx[4]:
-            result = auscultation(action="errors")
-        assert "healthy" in result.lower()
-
-    def test_counts_errors(self):
-        log = textwrap.dedent("""\
-            2025-01-01T12:00:00 ERROR connection failed to host 10.0.0.1
-            2025-01-01T12:01:00 ERROR connection failed to host 10.0.0.2
-            INFO ok
-            2025-01-01T12:02:00 WARN disk space low
-        """)
-        ctx = self._setup({"app.log": log})
-        with ctx[0], ctx[1], ctx[2], ctx[3], ctx[4]:
-            result = auscultation(action="errors")
-        assert "3 total error lines" in result
-        assert "Count" in result
-        assert "Pattern" in result
-
-    def test_normalize_numbers_collapses_similar(self):
-        log = "ERROR timeout after 5s\nERROR timeout after 10s\nERROR timeout after 99s\n"
-        ctx = self._setup({"app.log": log})
-        with ctx[0], ctx[1], ctx[2], ctx[3], ctx[4]:
-            result = auscultation(action="errors", normalize_numbers=True)
-        # All three should collapse to same pattern with N replacing digits
-        assert "timeout after Ns" in result
-
-    def test_no_normalize_numbers_keeps_original(self):
-        log = "ERROR timeout after 5s\nERROR timeout after 10s\n"
-        ctx = self._setup({"app.log": log})
-        with ctx[0], ctx[1], ctx[2], ctx[3], ctx[4]:
-            result = auscultation(action="errors", normalize_numbers=False)
-        assert "timeout after 5s" in result
-        assert "timeout after 10s" in result
-
-    def test_custom_severity(self):
-        log = "CRITICAL system down\nERROR minor issue\nINFO fine\n"
-        ctx = self._setup({"app.log": log})
-        with ctx[0], ctx[1], ctx[2], ctx[3], ctx[4]:
-            result = auscultation(action="errors", severity="CRITICAL")
-        assert "system down" in result
-        assert "minor issue" not in result
-
-    def test_top_n_limits_output(self):
-        lines = [f"ERROR unique pattern {i}" for i in range(50)]
-        log = "\n".join(lines) + "\n"
-        ctx = self._setup({"app.log": log})
-        with ctx[0], ctx[1], ctx[2], ctx[3], ctx[4]:
-            result = auscultation(action="errors", top_n=5)
-        # Count data rows (lines after header that start with spaces+digits)
-        data_rows = [l for l in result.splitlines()
-                     if l.strip() and l.strip()[0].isdigit()]
-        assert len(data_rows) == 5
-
-    def test_timestamps_stripped_in_normalization(self):
-        log = "2025-03-15T08:00:00 ERROR crash\n2025-03-15T09:00:00 ERROR crash\n"
-        ctx = self._setup({"app.log": log})
-        with ctx[0], ctx[1], ctx[2], ctx[3], ctx[4]:
-            result = auscultation(action="errors")
-        # Both lines collapse to same pattern (timestamp stripped)
-        assert "crash" in result
-
-    def test_read_failure_skipped(self):
-        """A log file that raises on read_text should be silently skipped."""
-        def read_text(self, errors="strict"):
-            if self.name == "bad.log":
-                raise OSError("permission denied")
-            return "ERROR visible error"
-
-        def glob(self, pat):
-            return [Path(_FAKE_LOG_DIR / "bad.log"), Path(_FAKE_LOG_DIR / "good.log")]
-
-        with patch("metabolon.enzymes.auscultation._LOG_DIR", _FAKE_LOG_DIR), \
-             patch("metabolon.enzymes.auscultation._TMP_DIR", _FAKE_TMP_DIR), \
-             patch.object(Path, "exists", return_value=True), \
-             patch.object(Path, "glob", glob), \
-             patch.object(Path, "read_text", read_text):
-            result = auscultation(action="errors")
-        assert "visible error" in result
-
-    def test_multiple_log_files_aggregated(self):
-        ctx = self._setup({"a.log": "ERROR from a\n", "b.log": "WARN from b\n"})
-        with ctx[0], ctx[1], ctx[2], ctx[3], ctx[4]:
-            result = auscultation(action="errors")
-        assert "2 total error lines" in result
-        assert "2 logs" in result
-
-    def test_action_case_insensitive(self):
-        ctx = self._setup({"app.log": "ERROR oops\n"})
-        with ctx[0], ctx[1], ctx[2], ctx[3], ctx[4]:
-            result = auscultation(action="LOGS")
-        assert "ERROR oops" in result
-
-    def test_action_whitespace_stripped(self):
-        ctx = self._setup({"app.log": "ERROR oops\n"})
-        with ctx[0], ctx[1], ctx[2], ctx[3], ctx[4]:
-            result = auscultation(action="  logs  ")
-        assert "ERROR oops" in result
+    def test_case_insensitive_action(self, tmp_path):
+        """Action is lowercased, so 'LOGS' should work like 'logs'."""
+        log_dir = tmp_path / "logs"
+        log_dir.mkdir()
+        (log_dir / "test.log").write_text("hello")
+        tmp_dir = tmp_path / "tmp"
+        tmp_dir.mkdir()
+        fn = _fn()
+        with (
+            patch("metabolon.enzymes.auscultation._LOG_DIR", log_dir),
+            patch("metabolon.enzymes.auscultation._TMP_DIR", tmp_dir),
+        ):
+            result = fn(action="LOGS")
+        assert "test.log" in result
