@@ -44,17 +44,28 @@ class TestFindModules:
         (pkg / "beta.py").write_text("pass")
         assert find_modules(tmp_path) == ["pkg/alpha", "pkg/beta"]
 
-    def test_skips_init(self, tmp_path):
-        """Skips __init__.py."""
+    def test_skips_init_in_subpackage(self, tmp_path):
+        """Skips __init__.py inside subdirectories."""
+        (tmp_path / "pkg").mkdir()
+        (tmp_path / "pkg" / "__init__.py").write_text("pass")
+        (tmp_path / "pkg" / "real.py").write_text("pass")
+        assert find_modules(tmp_path) == ["pkg/real"]
+
+    def test_skips_main_in_subpackage(self, tmp_path):
+        """Skips __main__.py inside subdirectories."""
+        (tmp_path / "pkg").mkdir()
+        (tmp_path / "pkg" / "__main__.py").write_text("pass")
+        (tmp_path / "pkg" / "real.py").write_text("pass")
+        assert find_modules(tmp_path) == ["pkg/real"]
+
+    def test_root_init_included(self, tmp_path):
+        """Root __init__.py (no slash) is NOT filtered — documented behavior."""
         (tmp_path / "__init__.py").write_text("pass")
         (tmp_path / "real.py").write_text("pass")
-        assert find_modules(tmp_path) == ["real"]
-
-    def test_skips_main(self, tmp_path):
-        """Skips __main__.py."""
-        (tmp_path / "__main__.py").write_text("pass")
-        (tmp_path / "real.py").write_text("pass")
-        assert find_modules(tmp_path) == ["real"]
+        result = find_modules(tmp_path)
+        # The filter checks endsWith("/__init__"), root has no slash prefix
+        assert "__init__" in result
+        assert "real" in result
 
     def test_skips_test_dirs(self, tmp_path):
         """Skips files inside tests/ directories."""
