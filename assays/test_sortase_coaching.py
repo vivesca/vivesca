@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 import textwrap
+import unittest.mock
 from pathlib import Path
 
 import pytest
 
+import metabolon.sortase.coaching as coaching_mod
 from metabolon.sortase.coaching import (
+    _load_coaching_patterns,
     add_coaching_note,
     list_categories,
     load_coaching_notes,
@@ -103,3 +106,25 @@ class TestSearchCoaching:
         results = search_coaching(coaching_file, "nonexistent_query_xyz")
 
         assert results == []
+
+
+class TestLoadCoachingPatterns:
+    def test_load_coaching_patterns_extracts_headings_and_bullets(self, coaching_file: Path) -> None:
+        patterns = _load_coaching_patterns(coaching_file)
+        assert len(patterns) >= 4
+        assert any("Code patterns" in p for p in patterns)
+        assert any("Execution discipline" in p for p in patterns)
+        assert any(p.startswith("- **") for p in patterns)
+
+    def test_load_coaching_patterns_missing_file(self, tmp_path: Path) -> None:
+        missing = tmp_path / "nonexistent.md"
+        assert _load_coaching_patterns(missing) == []
+
+    def test_load_coaching_patterns_uses_default_path(self, tmp_path: Path) -> None:
+        notes = tmp_path / "coaching.md"
+        notes.write_text("### Import hallucination\n- **No mocking** at wrong level\n")
+        with unittest.mock.patch.object(coaching_mod, "DEFAULT_COACHING_PATH", notes):
+            patterns = _load_coaching_patterns()
+        assert len(patterns) >= 2
+        assert patterns[0] == "### Import hallucination"
+        assert patterns[1] == "- **No mocking** at wrong level"

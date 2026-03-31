@@ -468,6 +468,34 @@ def analyze(log_path: Path | None, coaching_path: Path | None, json_output: bool
     else:
         console.print("Coaching coverage: N/A (no failures)")
 
+    # Coaching gap detection: identify uncovered failure patterns
+    from metabolon.sortase.coaching import _load_coaching_patterns
+
+    patterns = _load_coaching_patterns()
+    raw_entries = read_logs(log_path)
+    failure_messages = [
+        entry.get("output", "")[-200:]
+        for entry in raw_entries
+        if not entry.get("success") and entry.get("output")
+    ]
+
+    known_keywords: set[str] = set()
+    for pattern in patterns:
+        for word in pattern.lower().split():
+            if len(word) > 4:
+                known_keywords.add(word)
+
+    uncovered: list[str] = []
+    for msg in failure_messages:
+        msg_lower = msg.lower()
+        if not any(kw in msg_lower for kw in known_keywords):
+            uncovered.append(msg[:100])
+
+    if uncovered:
+        console.print(f"\n[yellow]Coaching Gaps ({len(uncovered)} uncovered failures):[/yellow]")
+        for msg in uncovered[:5]:
+            console.print(f"  {msg}")
+
 
 @main.command()
 @click.option("--clean", is_flag=True, help="Remove stale entries whose PID is dead.")
