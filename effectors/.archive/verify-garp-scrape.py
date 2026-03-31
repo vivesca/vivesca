@@ -220,7 +220,7 @@ else:
             continue
 
         result = subprocess.run(
-            ["diff", "--unified=0", old_path, new_path], capture_output=True, text=True
+            ["diff", "--unified=0", old_path, new_path], capture_output=True, text=True, timeout=300
         )
 
         # Count lines removed vs added

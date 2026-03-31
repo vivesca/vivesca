@@ -164,6 +164,7 @@ result = subprocess.run(
     ["shortcuts", "sign", "--mode", "anyone", "--input", tmp_unsigned, "--output", tmp_signed],
     capture_output=True,
     text=True,
+    timeout=300,
 )
 os.unlink(tmp_unsigned)
 

@@ -25,6 +25,7 @@ def _git(*args: str, check: bool = True, capture: bool = True, env: dict | None 
         "capture_output": capture,
         "text": True,
         "check": check,
+        "timeout": 300,
     }
     if env is not None:
         run_kwargs["env"] = env
