@@ -253,41 +253,40 @@ class TestOutputMessages:
 class TestExtractedSnippets:
     """Test that individual snippet patterns are valid bash when extracted."""
 
-    def test_sed_password_auth_is_valid(self):
+    def test_sed_password_auth_is_valid(self, tmp_path):
         """The PasswordAuthentication sed command is valid bash."""
-        # Extract the sed line from the script
         content = _read_script()
         for line in content.splitlines():
             if "PasswordAuthentication no" in line and "sed" in line:
-                # Test that the sed pattern works on a temp file
+                # Write input to a temp file since sed -i needs a regular file
+                cfg = tmp_path / "sshd_config"
+                cfg.write_text("#PasswordAuthentication yes\n")
+                cmd = line.strip().replace("/etc/ssh/sshd_config", str(cfg))
                 result = subprocess.run(
-                    ["bash", "-c", line.strip().replace(
-                        "/etc/ssh/sshd_config", "/dev/stdin"
-                    )],
-                    input="#PasswordAuthentication yes\n",
+                    ["bash", "-c", cmd],
                     capture_output=True,
                     text=True,
                 )
                 assert result.returncode == 0
-                assert "PasswordAuthentication no" in result.stdout
+                assert "PasswordAuthentication no" in cfg.read_text()
                 return
         raise AssertionError("PasswordAuthentication sed line not found")
 
-    def test_sed_permit_root_login_is_valid(self):
+    def test_sed_permit_root_login_is_valid(self, tmp_path):
         """The PermitRootLogin sed command is valid bash."""
         content = _read_script()
         for line in content.splitlines():
             if "PermitRootLogin no" in line and "sed" in line:
+                cfg = tmp_path / "sshd_config"
+                cfg.write_text("PermitRootLogin yes\n")
+                cmd = line.strip().replace("/etc/ssh/sshd_config", str(cfg))
                 result = subprocess.run(
-                    ["bash", "-c", line.strip().replace(
-                        "/etc/ssh/sshd_config", "/dev/stdin"
-                    )],
-                    input="PermitRootLogin yes\n",
+                    ["bash", "-c", cmd],
                     capture_output=True,
                     text=True,
                 )
                 assert result.returncode == 0
-                assert "PermitRootLogin no" in result.stdout
+                assert "PermitRootLogin no" in cfg.read_text()
                 return
         raise AssertionError("PermitRootLogin sed line not found")
 
