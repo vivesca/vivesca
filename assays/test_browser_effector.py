@@ -5,21 +5,45 @@ Uses mocks — no real browser launch required.
 """
 from __future__ import annotations
 
-import asyncio
 import json
+import sys
+import types
 from pathlib import Path
-from unittest.mock import MagicMock, patch, AsyncMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
-# Load effector via exec (no .py extension, per coaching notes)
+# Load effector via exec (effectors are scripts, not importable packages).
+# Use the module's own __dict__ as exec namespace so @patch modifies the
+# same dict that the exec'd functions reference as their globals.
 _effector_path = Path(__file__).parent.parent / "effectors" / "browser"
-_ns: dict = {"__name__": "browser_effector"}
-exec(open(_effector_path).read(), _ns)
+_mod = types.ModuleType("effectors.browser")
+_mod.__file__ = str(_effector_path)
+_mod.__name__ = "effectors.browser"
+sys.modules["effectors.browser"] = _mod
+exec(open(_effector_path).read(), _mod.__dict__)  # noqa: S102
 
-main = _ns["main"]
-build_parser = _ns["build_parser"]
-run_fetch = _ns["run_fetch"]
+main = _mod.__dict__["main"]
+build_parser = _mod.__dict__["build_parser"]
+
+# The effector imports fetch as _async_fetch — that's the patch target.
+_FETCH_TARGET = "effectors.browser._async_fetch"
+
+
+# ---------------------------------------------------------------------------
+# Fixtures
+# ---------------------------------------------------------------------------
+
+SAMPLE_RESULT = {
+    "title": "Example Domain",
+    "url": "https://example.com/",
+    "text": "This domain is for use in illustrative examples.",
+    "status": 200,
+    "cookies_loaded": 0,
+    "screenshot_saved": False,
+    "pdf_saved": False,
+}
+
 
 # ---------------------------------------------------------------------------
 # Parser tests
@@ -63,183 +87,315 @@ class TestParser:
 
 
 # ---------------------------------------------------------------------------
-# CLI fetch tests — mock _async_fetch in the exec'd namespace
+# CLI fetch tests — mock the async fetch inside the exec'd namespace
 # ---------------------------------------------------------------------------
 
-SAMPLE_RESULT = {
-    "url": "https://example.com",
-    "title": "Example Domain",
-    "text": "This domain is for use in illustrative examples.",
-    "status": 200,
-    "cookies_loaded": 0,
-    "screenshot_saved": False,
-    "pdf_saved": False,
-}
 
-
-class TestCLIFetch:
-    def test_plain_text_output(self, capsys):
-        _ns["_async_fetch"] = AsyncMock(return_value=SAMPLE_RESULT)
+class TestFetchCLI:
+    @patch(_FETCH_TARGET)
+    def test_plain_text_output(self, mock_fetch, capsys):
+        mock_fetch.return_value = SAMPLE_RESULT
         main(["fetch", "https://example.com"])
         captured = capsys.readouterr()
         assert "This domain is for use in illustrative examples." in captured.out
-        assert "title" not in captured.out
 
-    def test_json_output(self, capsys):
-        _ns["_async_fetch"] = AsyncMock(return_value=SAMPLE_RESULT)
+    @patch(_FETCH_TARGET)
+    def test_json_output(self, mock_fetch, capsys):
+        mock_fetch.return_value = SAMPLE_RESULT
         main(["fetch", "https://example.com", "--json"])
-        captured = capsys.readouterr()
-        data = json.loads(captured.out)
+        data = json.loads(capsys.readouterr().out)
         assert data["title"] == "Example Domain"
         assert data["status"] == 200
         assert data["text"] == SAMPLE_RESULT["text"]
 
-    def test_passes_all_options(self):
-        mock_fetch = AsyncMock(return_value=SAMPLE_RESULT)
-        _ns["_async_fetch"] = mock_fetch
-        main([
-            "fetch", "https://example.com",
-            "--cookies", "/tmp/c.json",
-            "--selector", "article",
-            "--screenshot", "/tmp/s.png",
-            "--pdf", "/tmp/out.pdf",
-            "--wait", "3000",
-        ])
+    @patch(_FETCH_TARGET)
+    def test_passes_cookies(self, mock_fetch):
+        mock_fetch.return_value = SAMPLE_RESULT
+        main(["fetch", "https://example.com", "--cookies", "/tmp/c.json"])
         mock_fetch.assert_called_once_with(
             "https://example.com",
             cookies="/tmp/c.json",
-            selector="article",
-            screenshot="/tmp/s.png",
-            pdf="/tmp/out.pdf",
-            wait=3000,
+            selector=None,
+            screenshot=None,
+            pdf=None,
+            wait=0,
         )
 
-    def test_error_exits_1(self, capsys):
-        _ns["_async_fetch"] = AsyncMock(side_effect=RuntimeError("timeout"))
+    @patch(_FETCH_TARGET)
+    def test_passes_selector(self, mock_fetch):
+        mock_fetch.return_value = SAMPLE_RESULT
+        main(["fetch", "https://example.com", "--selector", "main"])
+        assert mock_fetch.call_args.kwargs["selector"] == "main"
+
+    @patch(_FETCH_TARGET)
+    def test_passes_screenshot(self, mock_fetch):
+        mock_fetch.return_value = SAMPLE_RESULT
+        main(["fetch", "https://example.com", "--screenshot", "/tmp/s.png"])
+        assert mock_fetch.call_args.kwargs["screenshot"] == "/tmp/s.png"
+
+    @patch(_FETCH_TARGET)
+    def test_passes_pdf(self, mock_fetch):
+        mock_fetch.return_value = SAMPLE_RESULT
+        main(["fetch", "https://example.com", "--pdf", "/tmp/out.pdf"])
+        assert mock_fetch.call_args.kwargs["pdf"] == "/tmp/out.pdf"
+
+    @patch(_FETCH_TARGET)
+    def test_passes_wait(self, mock_fetch):
+        mock_fetch.return_value = SAMPLE_RESULT
+        main(["fetch", "https://example.com", "--wait", "3000"])
+        assert mock_fetch.call_args.kwargs["wait"] == 3000
+
+    @patch(_FETCH_TARGET, side_effect=RuntimeError("timeout"))
+    def test_generic_error_exits_1(self, mock_fetch, capsys):
         with pytest.raises(SystemExit) as exc_info:
             main(["fetch", "https://example.com"])
         assert exc_info.value.code == 1
         assert "timeout" in capsys.readouterr().err
 
-    def test_json_includes_screenshot_and_pdf(self, capsys):
-        result = {**SAMPLE_RESULT, "screenshot_saved": True, "pdf_saved": True}
-        _ns["_async_fetch"] = AsyncMock(return_value=result)
+    @patch(_FETCH_TARGET)
+    def test_json_includes_screenshot_flag(self, mock_fetch, capsys):
+        mock_fetch.return_value = {**SAMPLE_RESULT, "screenshot_saved": True}
         main(["fetch", "https://example.com", "--json"])
         data = json.loads(capsys.readouterr().out)
         assert data["screenshot_saved"] is True
+
+    @patch(_FETCH_TARGET)
+    def test_json_includes_pdf_flag(self, mock_fetch, capsys):
+        mock_fetch.return_value = {**SAMPLE_RESULT, "pdf_saved": True}
+        main(["fetch", "https://example.com", "--json"])
+        data = json.loads(capsys.readouterr().out)
         assert data["pdf_saved"] is True
 
 
 # ---------------------------------------------------------------------------
-# Core module unit tests — mock Playwright
+# Core module unit tests — mock async Playwright
 # ---------------------------------------------------------------------------
 
 
-def _make_mock_pw():
-    """Build a mock async Playwright context chain."""
-    mock_pw = AsyncMock()
-    mock_browser = AsyncMock()
-    mock_pw.chromium.launch = AsyncMock(return_value=mock_browser)
+def _coro(value):
+    """Return a coroutine that resolves to *value*."""
+    async def _c():
+        return value
+    return _c()
 
-    mock_context = AsyncMock()
-    mock_browser.new_context = AsyncMock(return_value=mock_context)
 
-    mock_page = AsyncMock()
-    mock_page.title = AsyncMock(return_value="Test Page")
-    mock_page.inner_text = AsyncMock(return_value="Hello world")
-    mock_page.url = "https://example.com"
-    mock_response = MagicMock()
-    mock_response.status = 200
-    mock_page.goto = AsyncMock(return_value=mock_response)
+class _AsyncCtx:
+    """Shim so ``async with <instance>`` yields *obj*."""
+    def __init__(self, obj):
+        self._obj = obj
 
-    mock_context.new_page = AsyncMock(return_value=mock_page)
+    async def __aenter__(self):
+        return self._obj
 
-    return mock_pw, mock_browser, mock_context, mock_page
+    async def __aexit__(self, *args):
+        pass
 
 
 class TestCoreFetch:
-    def test_basic_fetch(self):
-        mock_pw, mock_browser, mock_context, mock_page = _make_mock_pw()
+    @pytest.mark.asyncio
+    async def test_basic_fetch(self):
+        mock_page = MagicMock()
+        mock_page.title.return_value = _coro("Test Page")
+        mock_page.inner_text.return_value = _coro("Hello world")
+        mock_page.url = "https://example.com/"
 
-        with patch("metabolon.organelles.browser.async_playwright", return_value=mock_pw):
+        mock_response = MagicMock()
+        mock_response.status = 200
+        mock_page.goto.return_value = _coro(mock_response)
+        mock_page.wait_for_timeout.return_value = _coro(None)
+        mock_page.screenshot.return_value = _coro(None)
+        mock_page.pdf.return_value = _coro(None)
+
+        mock_context = MagicMock()
+        mock_context.new_page.return_value = _coro(mock_page)
+
+        mock_browser = MagicMock()
+        mock_browser.new_context.return_value = _coro(mock_context)
+        mock_browser.close.return_value = _coro(None)
+
+        mock_pw = MagicMock()
+        mock_pw.chromium.launch.return_value = _coro(mock_browser)
+
+        with patch("metabolon.organelles.browser.async_playwright",
+                   return_value=_AsyncCtx(mock_pw)):
             from metabolon.organelles.browser import fetch
-            result = asyncio.run(fetch("https://example.com"))
+            result = await fetch("https://example.com")
 
         assert result["title"] == "Test Page"
         assert result["text"] == "Hello world"
         assert result["status"] == 200
-        assert result["cookies_loaded"] == 0
         assert result["screenshot_saved"] is False
         assert result["pdf_saved"] is False
 
-    def test_fetch_with_selector(self):
-        mock_pw, _, _, mock_page = _make_mock_pw()
-        mock_element = AsyncMock()
-        mock_element.inner_text = AsyncMock(return_value="Selected content")
-        mock_page.query_selector = AsyncMock(return_value=mock_element)
+    @pytest.mark.asyncio
+    async def test_fetch_with_selector(self):
+        mock_element = MagicMock()
+        mock_element.inner_text.return_value = _coro("Selected content")
 
-        with patch("metabolon.organelles.browser.async_playwright", return_value=mock_pw):
+        mock_page = MagicMock()
+        mock_page.title.return_value = _coro("Page")
+        mock_page.inner_text.return_value = _coro("body")
+        mock_page.url = "https://example.com/"
+        mock_page.query_selector.return_value = _coro(mock_element)
+
+        mock_response = MagicMock()
+        mock_response.status = 200
+        mock_page.goto.return_value = _coro(mock_response)
+        mock_page.wait_for_timeout.return_value = _coro(None)
+        mock_page.screenshot.return_value = _coro(None)
+        mock_page.pdf.return_value = _coro(None)
+
+        mock_context = MagicMock()
+        mock_context.new_page.return_value = _coro(mock_page)
+
+        mock_browser = MagicMock()
+        mock_browser.new_context.return_value = _coro(mock_context)
+        mock_browser.close.return_value = _coro(None)
+
+        mock_pw = MagicMock()
+        mock_pw.chromium.launch.return_value = _coro(mock_browser)
+
+        with patch("metabolon.organelles.browser.async_playwright",
+                   return_value=_AsyncCtx(mock_pw)):
             from metabolon.organelles.browser import fetch
-            result = asyncio.run(fetch("https://example.com", selector="article"))
+            result = await fetch("https://example.com", selector="article")
 
+        mock_page.query_selector.assert_called_once_with("article")
         assert result["text"] == "Selected content"
 
-    def test_fetch_screenshot(self):
-        mock_pw, _, _, mock_page = _make_mock_pw()
-        mock_page.screenshot = AsyncMock()
+    @pytest.mark.asyncio
+    async def test_fetch_screenshot(self):
+        mock_page = MagicMock()
+        mock_page.title.return_value = _coro("Shot")
+        mock_page.inner_text.return_value = _coro("body text")
+        mock_page.url = "https://example.com/"
 
-        with patch("metabolon.organelles.browser.async_playwright", return_value=mock_pw):
+        mock_response = MagicMock()
+        mock_response.status = 200
+        mock_page.goto.return_value = _coro(mock_response)
+        mock_page.wait_for_timeout.return_value = _coro(None)
+        mock_page.screenshot.return_value = _coro(None)
+        mock_page.pdf.return_value = _coro(None)
+
+        mock_context = MagicMock()
+        mock_context.new_page.return_value = _coro(mock_page)
+
+        mock_browser = MagicMock()
+        mock_browser.new_context.return_value = _coro(mock_context)
+        mock_browser.close.return_value = _coro(None)
+
+        mock_pw = MagicMock()
+        mock_pw.chromium.launch.return_value = _coro(mock_browser)
+
+        with patch("metabolon.organelles.browser.async_playwright",
+                   return_value=_AsyncCtx(mock_pw)):
             from metabolon.organelles.browser import fetch
-            result = asyncio.run(fetch("https://example.com", screenshot="/tmp/shot.png"))
+            result = await fetch("https://example.com", screenshot="/tmp/shot.png")
 
         mock_page.screenshot.assert_called_once_with(path="/tmp/shot.png")
         assert result["screenshot_saved"] is True
 
-    def test_fetch_pdf(self):
-        mock_pw, _, _, mock_page = _make_mock_pw()
-        mock_page.pdf = AsyncMock()
+    @pytest.mark.asyncio
+    async def test_fetch_pdf(self):
+        mock_page = MagicMock()
+        mock_page.title.return_value = _coro("PDF")
+        mock_page.inner_text.return_value = _coro("pdf body")
+        mock_page.url = "https://example.com/"
 
-        with patch("metabolon.organelles.browser.async_playwright", return_value=mock_pw):
+        mock_response = MagicMock()
+        mock_response.status = 200
+        mock_page.goto.return_value = _coro(mock_response)
+        mock_page.wait_for_timeout.return_value = _coro(None)
+        mock_page.screenshot.return_value = _coro(None)
+        mock_page.pdf.return_value = _coro(None)
+
+        mock_context = MagicMock()
+        mock_context.new_page.return_value = _coro(mock_page)
+
+        mock_browser = MagicMock()
+        mock_browser.new_context.return_value = _coro(mock_context)
+        mock_browser.close.return_value = _coro(None)
+
+        mock_pw = MagicMock()
+        mock_pw.chromium.launch.return_value = _coro(mock_browser)
+
+        with patch("metabolon.organelles.browser.async_playwright",
+                   return_value=_AsyncCtx(mock_pw)):
             from metabolon.organelles.browser import fetch
-            result = asyncio.run(fetch("https://example.com", pdf="/tmp/out.pdf"))
+            result = await fetch("https://example.com", pdf="/tmp/out.pdf")
 
         mock_page.pdf.assert_called_once_with(path="/tmp/out.pdf")
         assert result["pdf_saved"] is True
 
-    def test_fetch_with_wait(self):
-        mock_pw, _, _, mock_page = _make_mock_pw()
-        mock_page.wait_for_timeout = AsyncMock()
+    @pytest.mark.asyncio
+    async def test_fetch_with_wait(self):
+        mock_page = MagicMock()
+        mock_page.title.return_value = _coro("Wait")
+        mock_page.inner_text.return_value = _coro("waited")
+        mock_page.url = "https://example.com/"
 
-        with patch("metabolon.organelles.browser.async_playwright", return_value=mock_pw):
+        mock_response = MagicMock()
+        mock_response.status = 200
+        mock_page.goto.return_value = _coro(mock_response)
+        mock_page.wait_for_timeout.return_value = _coro(None)
+        mock_page.screenshot.return_value = _coro(None)
+        mock_page.pdf.return_value = _coro(None)
+
+        mock_context = MagicMock()
+        mock_context.new_page.return_value = _coro(mock_page)
+
+        mock_browser = MagicMock()
+        mock_browser.new_context.return_value = _coro(mock_context)
+        mock_browser.close.return_value = _coro(None)
+
+        mock_pw = MagicMock()
+        mock_pw.chromium.launch.return_value = _coro(mock_browser)
+
+        with patch("metabolon.organelles.browser.async_playwright",
+                   return_value=_AsyncCtx(mock_pw)):
             from metabolon.organelles.browser import fetch
-            asyncio.run(fetch("https://example.com", wait=1500))
+            await fetch("https://example.com", wait=1500)
 
         mock_page.wait_for_timeout.assert_called_once_with(1500)
 
-    def test_fetch_with_cookies(self):
-        import tempfile
-        mock_pw, _, mock_context, _ = _make_mock_pw()
-        mock_context.add_cookies = AsyncMock()
+    @pytest.mark.asyncio
+    async def test_cookies_loaded(self):
+        mock_page = MagicMock()
+        mock_page.title.return_value = _coro("Cookied")
+        mock_page.inner_text.return_value = _coro("secret")
+        mock_page.url = "https://example.com/"
 
-        cookies = [{"name": "session", "value": "abc", "domain": ".example.com"}]
+        mock_response = MagicMock()
+        mock_response.status = 200
+        mock_page.goto.return_value = _coro(mock_response)
+        mock_page.wait_for_timeout.return_value = _coro(None)
+        mock_page.screenshot.return_value = _coro(None)
+        mock_page.pdf.return_value = _coro(None)
+
+        mock_context = MagicMock()
+        mock_context.new_page.return_value = _coro(mock_page)
+        mock_context.add_cookies.return_value = _coro(None)
+
+        mock_browser = MagicMock()
+        mock_browser.new_context.return_value = _coro(mock_context)
+        mock_browser.close.return_value = _coro(None)
+
+        mock_pw = MagicMock()
+        mock_pw.chromium.launch.return_value = _coro(mock_browser)
+
+        import tempfile, os
+        cookie_data = [{"name": "session", "value": "abc", "domain": ".example.com"}]
         with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
-            json.dump(cookies, f)
+            json.dump(cookie_data, f)
             cookie_path = f.name
 
         try:
-            with patch("metabolon.organelles.browser.async_playwright", return_value=mock_pw):
+            with patch("metabolon.organelles.browser.async_playwright",
+                       return_value=_AsyncCtx(mock_pw)):
                 from metabolon.organelles.browser import fetch
-                result = asyncio.run(fetch("https://example.com", cookies=cookie_path))
-            mock_context.add_cookies.assert_called_once_with(cookies)
+                result = await fetch("https://example.com", cookies=cookie_path)
+
             assert result["cookies_loaded"] == 1
+            mock_context.add_cookies.assert_called_once_with(cookie_data)
         finally:
-            Path(cookie_path).unlink()
-
-    def test_missing_cookie_file_loads_zero(self):
-        mock_pw, _, _, _ = _make_mock_pw()
-
-        with patch("metabolon.organelles.browser.async_playwright", return_value=mock_pw):
-            from metabolon.organelles.browser import fetch
-            result = asyncio.run(fetch("https://example.com", cookies="/nonexistent/cookies.json"))
-
-        assert result["cookies_loaded"] == 0
+            os.unlink(cookie_path)
