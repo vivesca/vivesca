@@ -22,7 +22,7 @@ import yaml
 from fastmcp.tools import tool
 
 HKT = timezone(timedelta(hours=8))
-_GRADIENT_LOG = os.path.expanduser("~/logs/proprioception.jsonl")
+_GRADIENT_LOG = str(Path.home() / "logs" / "proprioception.jsonl")
 
 Target = Literal[
     "genome",  # system rules and behavioral constraints

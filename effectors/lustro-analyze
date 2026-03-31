@@ -71,6 +71,7 @@ def classify_topic(title: str, source: str, text: str) -> str:
     title + source + first 2000 chars of text.  Returns the highest
     scoring topic, or 'other' if no keywords match.
     """
+    text = text or ""
     blob = f"{title} {source} {text[:2000]}".lower()
     scores: dict[str, int] = {}
     for topic, keywords in TOPIC_KEYWORDS.items():
@@ -88,6 +89,7 @@ def relevance_score(title: str, source: str, text: str) -> float:
     Banking keywords count 2x, AI keywords count 1.5x, regulation 1x.
     Source bonus for known finance/AI outlets.
     """
+    text = text or ""
     blob = f"{title} {source} {text[:3000]}".lower()
 
     banking_kw = [
@@ -186,7 +188,7 @@ def load_articles(article_dir: Path) -> list[dict]:
             title = raw.get("title", path.stem)
             source = raw.get("source", "unknown")
             date = raw.get("date", "unknown")
-            text = raw.get("text", "")
+            text = raw.get("text") or ""
             snippet = text[:200].strip().replace("\n", " ") if text else ""
             articles.append({
                 "file": path.name,

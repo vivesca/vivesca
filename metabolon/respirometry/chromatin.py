@@ -104,6 +104,9 @@ def secrete_statement(
     spending_dir.mkdir(parents=True, exist_ok=True)
     md_path = spending_dir / f"{meta.filename_stem}.md"
     md_path.write_text(serialize_markdown(meta, transactions))
+    tmp = md_path.with_suffix(".md.tmp")
+    tmp.write_text(serialize_markdown(meta, transactions))
+    tmp.replace(md_path)
     return md_path
 
 
