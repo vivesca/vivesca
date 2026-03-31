@@ -1,7 +1,45 @@
 #!/bin/bash
-export HOME=~/kimi-home
-export ANTHROPIC_API_KEY="$(security find-generic-password -s 'moonshot-api-key' -w | tr -d '\n')"
+# Wrapper: launch Claude targeting Moonshot/Kimi API
+set -euo pipefail
+
+KIMI_HOME="$HOME/kimi-home"
+mkdir -p "$KIMI_HOME"
+export HOME="$KIMI_HOME"
+
+# Retrieve Moonshot API key — platform-aware
+if [[ "$(uname -s)" == "Darwin" ]]; then
+  _key="$(security find-generic-password -s 'moonshot-api-key' -w 2>/dev/null | tr -d '\n')"
+else
+  # Linux: try secret-tool (libsecret), then credential file, then env var
+  if command -v secret-tool &>/dev/null; then
+    _key="$(secret-tool lookup service moonshot-api-key 2>/dev/null)"
+  elif [[ -f "$HOME/.config/moonshot-api-key" ]]; then
+    _key="$(tr -d '\n' < "$HOME/.config/moonshot-api-key")"
+  else
+    _key="${MOONSHOT_API_KEY:-}"
+  fi
+fi
+
+if [[ -z "$_key" ]]; then
+  echo "error: no Moonshot API key found (tried secret-tool, ~/.config/moonshot-api-key, \$MOONSHOT_API_KEY)" >&2
+  exit 1
+fi
+
+export ANTHROPIC_API_KEY="$_key"
 export ANTHROPIC_BASE_URL="https://api.moonshot.cn/anthropic/"
 export ANTHROPIC_MODEL="kimi-k2.5"
 unset ANTHROPIC_AUTH_TOKEN
-exec "$HOME/.local/bin/claude" --dangerously-skip-permissions "$@"
+
+# Find claude binary — prefer PATH, fall back to known locations
+_claude="$(command -v claude 2>/dev/null || true)"
+if [[ -z "$_claude" ]]; then
+  for _p in /usr/bin/claude /usr/local/bin/claude; do
+    [[ -x "$_p" ]] && _claude="$_p" && break
+  done
+fi
+if [[ -z "$_claude" ]]; then
+  echo "error: claude binary not found" >&2
+  exit 1
+fi
+
+exec "$_claude" --dangerously-skip-permissions "$@"
