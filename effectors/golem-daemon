@@ -243,7 +243,7 @@ def mark_failed(line_num: int, result: str = "", exit_code: int = 1) -> dict:
             return {"retried": False}
         try:
             lines = QUEUE_FILE.read_text().splitlines()
-        except (PermissionError, OSError):
+        except (PermissionError, OSError, UnicodeDecodeError):
             return {"retried": False}
         if line_num >= len(lines):
             return {"retried": False}

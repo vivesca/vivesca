@@ -1,95 +1,94 @@
-"""browser — headless page fetcher built on Playwright.
+"""browser — headless page fetcher using Playwright.
 
-Public API:
-  fetch(url, **options) -> dict   — fetch a URL and return structured result
-  fetch_text(url, **options) -> str — fetch a URL and return clean text only
+Single public async function:
 
-Options:
-  cookies:   Path to JSON cookie file (Playwright storageState format)
-  selector:  CSS selector to extract a subtree instead of full page
-  screenshot: Path to write a PNG screenshot
-  pdf:       Path to write a PDF (requires headed chromium)
-  wait:      Milliseconds to wait after load before extracting (default 0)
+  fetch(url, *, cookies, selector, screenshot, pdf, wait) -> dict
+
+Returns dict with: text, title, url, status, cookies_loaded,
+                    screenshot_saved, pdf_saved.
 """
 from __future__ import annotations
 
-import asyncio
 import json
-import sys
 from pathlib import Path
-from typing import Any, Optional
 
-from playwright.sync_api import sync_playwright
+from playwright.async_api import async_playwright
 
 
-def fetch(
+async def fetch(
     url: str,
     *,
-    cookies: Optional[str] = None,
-    selector: Optional[str] = None,
-    screenshot: Optional[str] = None,
-    pdf: Optional[str] = None,
+    cookies: str | None = None,
+    selector: str | None = None,
+    screenshot: str | None = None,
+    pdf: str | None = None,
     wait: int = 0,
-) -> dict[str, Any]:
-    """Fetch *url* with a headless Chromium browser.
+) -> dict:
+    """Fetch *url* with headless Chromium and extract page content.
 
-    Returns a dict with keys: url, title, text, status, cookies, screenshot, pdf.
+    Args:
+        url: URL to navigate to.
+        cookies: Path to a JSON cookie file (array of cookie objects).
+        selector: CSS selector — when given, return inner_text of first match.
+        screenshot: File path to save a PNG screenshot.
+        pdf: File path to save a PDF rendering.
+        wait: Milliseconds to pause after domcontentloaded.
+
+    Returns:
+        dict with keys: title, url, text, status,
+        cookies_loaded, screenshot_saved, pdf_saved.
     """
-    with sync_playwright() as pw:
-        browser = pw.chromium.launch(headless=True)
-        context_opts: dict[str, Any] = {}
+    async with async_playwright() as pw:
+        browser = await pw.chromium.launch(headless=True)
+        context = await browser.new_context()
+
+        # Load cookies if provided
+        cookies_loaded = 0
         if cookies:
             cookie_path = Path(cookies)
-            if not cookie_path.exists():
-                raise FileNotFoundError(f"Cookie file not found: {cookie_path}")
-            context_opts["storage_state"] = str(cookie_path)
+            if cookie_path.exists():
+                raw = json.loads(cookie_path.read_text())
+                if isinstance(raw, list):
+                    await context.add_cookies(raw)
+                    cookies_loaded = len(raw)
 
-        context = browser.new_context(**context_opts)
-        page = context.new_page()
-
-        response = page.goto(url, wait_until="domcontentloaded", timeout=30_000)
-        status = response.status if response else None
+        page = await context.new_page()
+        response = await page.goto(url, wait_until="domcontentloaded")
+        status = response.status if response else 0
 
         if wait > 0:
-            page.wait_for_timeout(wait)
-
-        title = page.title()
+            await page.wait_for_timeout(wait)
 
         # Extract text
         if selector:
-            element = page.query_selector(selector)
-            if element:
-                text = element.inner_text()
-            else:
-                text = ""
+            element = await page.query_selector(selector)
+            text = await element.inner_text() if element else ""
         else:
-            text = page.inner_text("body")
+            text = await page.inner_text("body")
+
+        title = await page.title()
+        final_url = page.url
 
         # Screenshot
-        screenshot_path = None
+        screenshot_saved = False
         if screenshot:
-            page.screenshot(path=screenshot, full_page=True)
-            screenshot_path = screenshot
+            await page.screenshot(path=screenshot)
+            screenshot_saved = True
 
         # PDF
-        pdf_path = None
+        pdf_saved = False
         if pdf:
-            page.pdf(path=pdf)
-            pdf_path = pdf
+            await page.pdf(path=pdf)
+            pdf_saved = True
 
-        context.close()
-        browser.close()
+        await browser.close()
 
     return {
-        "url": url,
         "title": title,
+        "url": final_url,
         "text": text,
         "status": status,
-        "screenshot": screenshot_path,
-        "pdf": pdf_path,
+        "cookies_loaded": cookies_loaded,
+        "screenshot_saved": screenshot_saved,
+        "pdf_saved": pdf_saved,
     }
-
-
-def fetch_text(url: str, **kwargs: Any) -> str:
-    """Fetch *url* and return only the clean text content."""
-    return fetch(url, **kwargs)["text"]

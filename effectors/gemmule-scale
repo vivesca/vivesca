@@ -1,0 +1,158 @@
+#!/usr/bin/env python3
+"""gemmule-scale — resize the gemmule Fly.io machine.
+
+Usage:
+    gemmule-scale up       # 8 CPU, 32 GB RAM
+    gemmule-scale down     # 2 CPU, 8 GB RAM
+    gemmule-scale status   # print current machine config
+
+Requires FLY_API_TOKEN in the environment.
+"""
+
+from __future__ import annotations
+
+import json
+import os
+import sys
+from typing import Any
+
+import requests
+
+BASE = "https://api.machines.dev/v1"
+APP = "gemmule"
+
+PROFILES = {
+    "up": {"cpus": 8, "memory": 32768},
+    "down": {"cpus": 2, "memory": 8192},
+}
+
+
+def _headers() -> dict[str, str]:
+    token = os.environ.get("FLY_API_TOKEN")
+    if not token:
+        print("Error: FLY_API_TOKEN not set", file=sys.stderr)
+        sys.exit(1)
+    return {
+        "Authorization": f"Bearer {token}",
+        "Content-Type": "application/json",
+    }
+
+
+def _list_machines() -> list[dict[str, Any]]:
+    """GET /v1/apps/<app>/machines — return list of machine dicts."""
+    r = requests.get(f"{BASE}/apps/{APP}/machines", headers=_headers(), timeout=30)
+    r.raise_for_status()
+    return r.json()
+
+
+def _pick_machine(machines: list[dict[str, Any]]) -> dict[str, Any]:
+    """Pick the first non-leased machine (or the first one)."""
+    for m in machines:
+        if not m.get("lease"):
+            return m
+    return machines[0]
+
+
+def _machine_config(machine: dict[str, Any]) -> dict[str, int]:
+    """Extract cpus and memory_mb from a machine object."""
+    guest = machine.get("config", {}).get("guest", {})
+    return {"cpus": guest.get("cpus", 0), "memory": guest.get("memory_mb", 0)}
+
+
+def _stop(machine_id: str) -> None:
+    """POST /v1/apps/<app>/machines/<id>/stop."""
+    r = requests.post(
+        f"{BASE}/apps/{APP}/machines/{machine_id}/stop",
+        headers=_headers(),
+        timeout=60,
+    )
+    r.raise_for_status()
+
+
+def _update(machine_id: str, cpus: int, memory: int) -> None:
+    """PATCH machine config with new guest resources."""
+    payload = {
+        "config": {
+            "guest": {
+                "cpus": cpus,
+                "memory_mb": memory,
+            }
+        }
+    }
+    r = requests.patch(
+        f"{BASE}/apps/{APP}/machines/{machine_id}",
+        headers=_headers(),
+        json=payload,
+        timeout=60,
+    )
+    r.raise_for_status()
+
+
+def _start(machine_id: str) -> None:
+    """POST /v1/apps/<app>/machines/<id>/start."""
+    r = requests.post(
+        f"{BASE}/apps/{APP}/machines/{machine_id}/start",
+        headers=_headers(),
+        timeout=60,
+    )
+    r.raise_for_status()
+
+
+def cmd_status() -> None:
+    """Print current machine config."""
+    machines = _list_machines()
+    if not machines:
+        print(f"No machines found in app '{APP}'.")
+        return
+    m = _pick_machine(machines)
+    cfg = _machine_config(m)
+    state = m.get("state", "unknown")
+    print(f"machine {m['id']}  state={state}  cpus={cfg['cpus']}  memory={cfg['memory']}MB")
+
+
+def cmd_scale(direction: str) -> None:
+    """Stop, reconfigure, and restart the gemmule machine."""
+    target = PROFILES[direction]
+    machines = _list_machines()
+    if not machines:
+        print(f"No machines found in app '{APP}'.", file=sys.stderr)
+        sys.exit(1)
+
+    m = _pick_machine(machines)
+    mid = m["id"]
+    old_cfg = _machine_config(m)
+
+    print(f"machine {mid}: cpus={old_cfg['cpus']} memory={old_cfg['memory']}MB  ->  "
+          f"cpus={target['cpus']} memory={target['memory']}MB")
+
+    print(f"stopping {mid}...")
+    _stop(mid)
+
+    print(f"updating config...")
+    _update(mid, target["cpus"], target["memory"])
+
+    print(f"starting {mid}...")
+    _start(mid)
+
+    new_cfg = target
+    print(f"done: cpus {old_cfg['cpus']}->{new_cfg['cpus']}  "
+          f"memory {old_cfg['memory']}MB->{new_cfg['memory']}MB")
+
+
+def main() -> None:
+    if len(sys.argv) < 2:
+        print("Usage: gemmule-scale {up|down|status}", file=sys.stderr)
+        sys.exit(1)
+
+    cmd = sys.argv[1]
+    if cmd == "status":
+        cmd_status()
+    elif cmd in PROFILES:
+        cmd_scale(cmd)
+    else:
+        print(f"Unknown command: {cmd}. Use up, down, or status.", file=sys.stderr)
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()

@@ -13,8 +13,12 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-# Import the effector main + parser directly (it has a .py extension via shebang)
-from effectors.browser import main, build_parser
+# Load effector via exec (effectors are scripts, not importable packages)
+_EFFECTOR_PATH = Path(__file__).resolve().parent.parent / "effectors" / "browser"
+_ns: dict = {}
+exec(open(_EFFECTOR_PATH).read(), _ns)  # noqa: S102
+main = _ns["main"]
+build_parser = _ns["build_parser"]
 
 # ---------------------------------------------------------------------------
 # Parser tests

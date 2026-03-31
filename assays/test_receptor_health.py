@@ -20,7 +20,7 @@ import yaml
 # ---------------------------------------------------------------------------
 
 EFFECTOR = Path(__file__).resolve().parent.parent / "effectors" / "receptor-health"
-_ns: dict = {}
+_ns: dict = {"__name__": "receptor_health", "__file__": str(EFFECTOR)}
 exec(EFFECTOR.read_text(), _ns)
 
 Violation = _ns["Violation"]
@@ -148,7 +148,9 @@ class TestCheckSkillMd:
         assert any(vi.check == "body-size" for vi in v)
 
     def test_body_at_limit(self, tmp_receptor: Path) -> None:
-        body = "\n".join(["line"] * 500)
+        # Body has a leading newline from frontmatter delimiter, so 499 content
+        # lines + 1 leading newline = 500 lines total.
+        body = "\n".join(["line"] * 499)
         _write_skill(tmp_receptor, {"name": "test", "description": "ok"}, body=body)
         v = check_skill_md(tmp_receptor / "SKILL.md", "test-receptor")
         assert not any(vi.check == "body-size" for vi in v)

@@ -243,23 +243,14 @@ def test_scrape_hkma_writes_json(tmp_path):
     }]
     output = tmp_path / "hkma-test.json"
 
-    with patch(_mod.get("sync_playwright", "sync_playwright") or "regulatory_capture_test.sync_playwright") as mock_sp:
-        # Actually patch the module's sync_playwright reference
-        pass
-
-    # Patch sync_playwright in the module namespace
     mock_sp = MagicMock()
     mock_sp.return_value = _mock_playwright_context(pubs)
-
-    with patch.object(_mod.get("__builtins__", {}), "sync_playwright", None):
-        # Easier: patch the module-level name
-        _mod["sync_playwright"] = mock_sp
-        try:
-            results = scrape_regulator("hkma", output_path=output)
-        finally:
-            # Restore
-            from playwright.sync_api import sync_playwright as real_sp
-            _mod["sync_playwright"] = real_sp
+    _mod["sync_playwright"] = mock_sp
+    try:
+        results = scrape_regulator("hkma", output_path=output)
+    finally:
+        from playwright.sync_api import sync_playwright as real_sp
+        _mod["sync_playwright"] = real_sp
 
     assert len(results) == 1
     assert results[0]["title"] == "HKMA Test Circular"
