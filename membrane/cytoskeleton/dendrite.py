@@ -1,1 +1,1 @@
-/Users/terry/germline/synaptic/dendrite.py
+../../synaptic/dendrite.py

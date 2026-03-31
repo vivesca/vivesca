@@ -1,1 +1,1 @@
-/Users/terry/germline/synaptic/terminus.py
+../../synaptic/terminus.py

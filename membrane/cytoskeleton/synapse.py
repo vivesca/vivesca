@@ -1,1 +1,1 @@
-/Users/terry/germline/synaptic/synapse.py
+../../synaptic/synapse.py

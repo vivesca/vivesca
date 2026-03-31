@@ -1,1 +1,1 @@
-/Users/terry/germline/synaptic/hebbian_nudge.py
+../../synaptic/hebbian_nudge.py

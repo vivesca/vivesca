@@ -1,1 +1,1 @@
-/Users/terry/germline/synaptic/axon.py
+../../synaptic/axon.py

@@ -1,1 +1,1 @@
-/Users/terry/germline/synaptic/interoceptor.py
+../../synaptic/interoceptor.py

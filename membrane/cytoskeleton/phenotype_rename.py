@@ -1,1 +1,1 @@
-/Users/terry/germline/synaptic/phenotype_rename.py
+../../synaptic/phenotype_rename.py

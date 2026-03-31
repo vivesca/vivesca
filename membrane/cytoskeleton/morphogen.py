@@ -1,1 +1,1 @@
-/Users/terry/germline/synaptic/morphogen.py
+../../synaptic/morphogen.py

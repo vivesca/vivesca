@@ -1,1 +1,1 @@
-/Users/terry/germline/synaptic/skill-trigger-gen.py
+../../synaptic/skill-trigger-gen.py

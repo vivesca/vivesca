@@ -1,1 +1,1 @@
-/Users/terry/germline/synaptic/compaction.py
+../../synaptic/compaction.py

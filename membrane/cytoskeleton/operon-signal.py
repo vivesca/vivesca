@@ -1,1 +1,1 @@
-/Users/terry/germline/synaptic/operon-signal.py
+../../synaptic/operon-signal.py
