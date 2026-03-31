@@ -80,5 +80,7 @@ class TestModuleAttributes:
 
     def test_real_canonical_points_to_existing_file(self):
         """The real CANONICAL path should resolve to an actual file."""
-        from metabolon.resources.constitution import CANONICAL
-        assert CANONICAL.resolve().exists()
+        import importlib
+        import metabolon.resources.constitution as mod
+        importlib.reload(mod)
+        assert mod.CANONICAL.resolve().exists()
