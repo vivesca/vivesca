@@ -166,7 +166,7 @@ class TestResize:
 
         # The PATCH call (3rd call) should preserve image, env, services
         patch_call = mock.call_args_list[2]
-        body = patch_call[1]["body"]
+        body = patch_call[0][2]  # 3rd positional arg
         assert body["guest"]["cpus"] == 8
         assert body["guest"]["memory_mb"] == 32768
         assert body["image"] == "ghcr.io/example/gemmule:v2"
