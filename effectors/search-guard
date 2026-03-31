@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """rg / grep / find wrapper that blocks broad filesystem searches."""
 import os
-import shutil
 import subprocess
 import sys
 
