@@ -1,25 +1,27 @@
-#!/usr/bin/env -S uv run --script
-# /// script
-# requires-python = ">=3.11"
-# dependencies = []
-# ///
-"""gemmule-scale — resize the gemmule Fly.io machine (up/down/status)."""
+#!/usr/bin/env python3
+"""gemmule-scale — resize the gemmule Fly.io machine.
 
+Usage:
+    gemmule-scale up       # 8 CPUs, 32 GB RAM
+    gemmule-scale down     # 2 CPUs, 8 GB RAM
+    gemmule-scale status   # print current machine config
+
+Uses the Fly.io Machines API. Requires FLY_API_TOKEN in the environment.
+"""
 from __future__ import annotations
 
-import argparse
 import json
 import os
 import sys
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
-API_BASE = "https://api.machines.dev.ctl.v1.fly.io"
+API_BASE = "https://api.machines.dev"
 APP_NAME = "gemmule"
 
 PROFILES = {
-    "up": {"guest": {"cpus": 8, "cpu_kind": "shared", "memory_mb": 32768}},
-    "down": {"guest": {"cpus": 2, "cpu_kind": "shared", "memory_mb": 8192}},
+    "up": {"cpus": 8, "memory": 32 * 1024},
+    "down": {"cpus": 2, "memory": 8 * 1024},
 }
 
 
@@ -31,95 +33,133 @@ def _token() -> str:
     return tok
 
 
-def _headers() -> dict[str, str]:
-    return {"Authorization": f"Bearer {_token()}", "Content-Type": "application/json"}
+def _headers(token: str) -> dict[str, str]:
+    return {
+        "Authorization": f"Bearer {token}",
+        "Content-Type": "application/json",
+    }
 
 
-def _api(method: str, path: str, body: dict | None = None) -> dict | list:
+def _request(method: str, path: str, token: str, body: dict | None = None) -> dict:
     url = f"{API_BASE}{path}"
     data = json.dumps(body).encode() if body else None
-    req = Request(url, data=data, headers=_headers(), method=method)
+    req = Request(url, data=data, headers=_headers(token), method=method)
     try:
         with urlopen(req) as resp:
             raw = resp.read()
-            if not raw:
-                return {}
-            return json.loads(raw)
-    except HTTPError as e:
-        detail = e.read().decode(errors="replace")
-        print(f"error: {e.code} {e.reason}: {detail}", file=sys.stderr)
+            return json.loads(raw) if raw else {}
+    except HTTPError as exc:
+        body_text = exc.read().decode(errors="replace")
+        print(f"error: {method} {path} → {exc.code}: {body_text}", file=sys.stderr)
         sys.exit(1)
-    except URLError as e:
-        print(f"error: cannot reach Fly API: {e.reason}", file=sys.stderr)
+    except URLError as exc:
+        print(f"error: cannot reach Fly API: {exc.reason}", file=sys.stderr)
         sys.exit(1)
 
 
-def _list_machines() -> list[dict]:
-    return _api("GET", f"/v1/apps/{APP_NAME}/machines")  # type: ignore[return-value]
+def list_machines(token: str) -> list[dict]:
+    return _request("GET", f"/v1/apps/{APP_NAME}/machines", token)
 
 
-def _fmt_guest(guest: dict) -> str:
+def get_primary(machines: list[dict]) -> dict | None:
+    """Return the first non-autostopped machine, or the first machine."""
+    for m in machines:
+        if not m.get("autostop"):
+            return m
+    return machines[0] if machines else None
+
+
+def stop_machine(token: str, machine_id: str) -> None:
+    _request("POST", f"/v1/apps/{APP_NAME}/machines/{machine_id}/stop", token)
+
+
+def start_machine(token: str, machine_id: str) -> None:
+    _request("POST", f"/v1/apps/{APP_NAME}/machines/{machine_id}/start", token)
+
+
+def update_config(token: str, machine_id: str, cpus: int, memory: int) -> dict:
+    body = {
+        "config": {
+            "guest": {
+                "cpus": cpus,
+                "cpu_kind": "shared",
+                "memory_mb": memory,
+            }
+        }
+    }
+    return _request("PATCH", f"/v1/apps/{APP_NAME}/machines/{machine_id}", token, body)
+
+
+def fmt_config(cpus: int, mem_mb: int) -> str:
+    return f"{cpus} CPU, {mem_mb // 1024} GB RAM"
+
+
+def cmd_status(token: str) -> None:
+    machines = list_machines(token)
+    if not machines:
+        print(f"no machines found for app '{APP_NAME}'")
+        return
+    m = get_primary(machines)
+    if m is None:
+        print(f"no machines found for app '{APP_NAME}'")
+        return
+    guest = m.get("config", {}).get("guest", {})
     cpus = guest.get("cpus", "?")
     mem = guest.get("memory_mb", "?")
-    kind = guest.get("cpu_kind", "?")
-    return f"{cpus} CPU ({kind}), {mem} MB"
+    state = m.get("state", "unknown")
+    mid = m["id"]
+    print(f"machine {mid}  state={state}  {fmt_config(cpus, mem) if isinstance(cpus, int) and isinstance(mem, int) else f'{cpus} CPU, {mem} MB RAM'}")
 
 
-def cmd_status() -> None:
-    machines = _list_machines()
+def cmd_resize(token: str, direction: str) -> None:
+    profile = PROFILES[direction]
+    target_cpus = profile["cpus"]
+    target_mem = profile["memory"]
+
+    machines = list_machines(token)
     if not machines:
-        print(f"no machines found for app {APP_NAME!r}")
-        return
-    for m in machines:
-        mid = m.get("id", "?")
-        state = m.get("state", "?")
-        guest = m.get("config", {}).get("guest", {})
-        region = m.get("region", "?")
-        print(f"{mid}  state={state}  region={region}  {_fmt_guest(guest)}")
-
-
-def cmd_resize(direction: str) -> None:
-    new_guest = PROFILES[direction]["guest"]
-    machines = _list_machines()
-    if not machines:
-        print(f"no machines found for app {APP_NAME!r}")
+        print(f"no machines found for app '{APP_NAME}'")
         sys.exit(1)
-    for m in machines:
-        mid = m["id"]
-        old_config = m.get("config", {})
-        old_guest = old_config.get("guest", {})
-        old_summary = _fmt_guest(old_guest)
 
-        # Stop the machine
-        print(f"{mid}: stopping ...")
-        _api("POST", f"/v1/apps/{APP_NAME}/machines/{mid}/stop")
+    m = get_primary(machines)
+    if m is None:
+        print(f"no machines found for app '{APP_NAME}'")
+        sys.exit(1)
 
-        # Patch config with new guest
-        patched_config = {**old_config, "guest": new_guest}
-        print(f"{mid}: patching config ...")
-        _api("PATCH", f"/v1/apps/{APP_NAME}/machines/{mid}", body=patched_config)
+    mid = m["id"]
+    guest = m.get("config", {}).get("guest", {})
+    old_cpus = guest.get("cpus", 0)
+    old_mem = guest.get("memory_mb", 0)
 
-        # Start the machine
-        print(f"{mid}: starting ...")
-        _api("POST", f"/v1/apps/{APP_NAME}/machines/{mid}/start")
+    if old_cpus == target_cpus and old_mem == target_mem:
+        print(f"already at {fmt_config(target_cpus, target_mem)}, nothing to do")
+        return
 
-        new_summary = _fmt_guest(new_guest)
-        print(f"{mid}: {old_summary} -> {new_summary}")
+    old_desc = fmt_config(old_cpus, old_mem)
+    new_desc = fmt_config(target_cpus, target_mem)
 
-
-def build_parser() -> argparse.ArgumentParser:
-    p = argparse.ArgumentParser(prog="gemmule-scale", description="Resize the gemmule Fly.io machine")
-    p.add_argument("command", choices=["up", "down", "status"],
-                   help="up=8CPU/32GB, down=2CPU/8GB, status=show current config")
-    return p
+    print(f"stopping {mid} ...")
+    stop_machine(token, mid)
+    print(f"updating config: {old_desc} → {new_desc} ...")
+    update_config(token, mid, target_cpus, target_mem)
+    print(f"starting {mid} ...")
+    start_machine(token, mid)
+    print(f"done: {old_desc} → {new_desc}")
 
 
 def main(argv: list[str] | None = None) -> None:
-    args = build_parser().parse_args(argv)
-    if args.command == "status":
-        cmd_status()
+    args = argv or sys.argv[1:]
+    if not args or args[0] not in ("up", "down", "status"):
+        print("usage: gemmule-scale {up|down|status}", file=sys.stderr)
+        sys.exit(1)
+
+    token = _token()
+    action = args[0]
+
+    if action == "status":
+        cmd_status(token)
     else:
-        cmd_resize(args.command)
+        cmd_resize(token, action)
 
 
 if __name__ == "__main__":

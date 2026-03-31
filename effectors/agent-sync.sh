@@ -25,9 +25,11 @@ for repo in "${REPOS[@]}"; do
     git -C "$repo" pull --rebase 2>/dev/null || git -C "$repo" pull 2>/dev/null || true
 done
 
-# MEMORY.md — path differs by OS (macOS: -Users-terry, Linux: -home-terry)
+# MEMORY.md — derive Claude project dir from $HOME
+PROJECT_SLASH="$(echo "$HOME" | sed 's|^/||')"
+PROJECT_DASH="$(echo "$PROJECT_SLASH" | tr '/' '-')"
 SRC="$HOME/agent-config/claude/memory/MEMORY.md"
-DST="$HOME/.claude/projects/-home-terry/memory/MEMORY.md"
+DST="$HOME/.claude/projects/-${PROJECT_DASH}/memory/MEMORY.md"
 if [ -f "$SRC" ]; then
     mkdir -p "$(dirname "$DST")"
     cp "$SRC" "$DST"
