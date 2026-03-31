@@ -26,7 +26,7 @@ def run(cmd: list[str]) -> str:
     # Replace 'oura' with full path if not on PATH
     if cmd[0] == "oura":
         cmd = [str(OURA_BIN)] + cmd[1:]
-    result = subprocess.run(cmd, capture_output=True, text=True)
+    result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
     return strip_ansi(result.stdout).strip()
 
 

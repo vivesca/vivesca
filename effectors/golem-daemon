@@ -113,6 +113,7 @@ def auto_commit() -> str:
             shell=True,
             capture_output=True,
             text=True,
+            timeout=60,
         )
         # Check if there's anything staged
         check = subprocess.run(
@@ -120,6 +121,7 @@ def auto_commit() -> str:
             shell=True,
             capture_output=True,
             text=True,
+            timeout=30,
         )
         if check.returncode == 0:
             return "nothing to commit"
@@ -129,6 +131,7 @@ def auto_commit() -> str:
             shell=True,
             capture_output=True,
             text=True,
+            timeout=60,
         )
         if result.returncode == 0:
             # Extract commit hash from output
@@ -311,7 +314,8 @@ def validate_golem_output() -> tuple[bool, list[str]]:
             f"git -C {germline_dir} diff --name-only --diff-filter=AM HEAD 2>/dev/null",
             shell=True,
             capture_output=True,
-            text=True
+            text=True,
+            timeout=30,
         )
         if git_result.returncode != 0:
             return (True, [])  # git diff failed (e.g., no commits), pass silently
@@ -356,7 +360,8 @@ def validate_golem_output() -> tuple[bool, list[str]]:
             f"git -C {germline_dir} diff --name-only --diff-filter=AM HEAD 2>/dev/null | grep -E '(__pycache__|\\.pyc)' || true",
             shell=True,
             capture_output=True,
-            text=True
+            text=True,
+            timeout=30,
         )
         if pycache_result.stdout.strip():
             for f in pycache_result.stdout.strip().splitlines():
@@ -378,7 +383,8 @@ def check_new_test_files_and_run_pytest() -> tuple[bool, str]:
             "git -C {} diff --name-only --diff-filter=A HEAD~1 2>/dev/null".format(germline_dir),
             shell=True,
             capture_output=True,
-            text=True
+            text=True,
+            timeout=30,
         )
         if git_result.returncode != 0:
             # If diff fails (e.g., first commit), just pass
@@ -398,7 +404,8 @@ def check_new_test_files_and_run_pytest() -> tuple[bool, str]:
             shell=True,
             capture_output=True,
             text=True,
-            cwd=germline_dir
+            cwd=germline_dir,
+            timeout=300,
         )
 
         summary = pytest_result.stdout.strip().splitlines()[-3:] if pytest_result.stdout else []

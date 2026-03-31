@@ -21,12 +21,12 @@ LOGIN_URL = "https://lms.hkicpa.org.hk"
 
 
 def run(cmd: str) -> str:
-    result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+    result = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=30)
     return result.stdout.strip()
 
 
 def ab(*args: str) -> None:
-    subprocess.run(["agent-browser", *args])
+    subprocess.run(["agent-browser", *args], timeout=60)
 
 
 def get_password() -> str:

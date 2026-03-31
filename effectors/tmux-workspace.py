@@ -30,7 +30,7 @@ LAYOUTS = {
 
 
 def run(cmd: str, check: bool = True) -> subprocess.CompletedProcess:
-    return subprocess.run(cmd, shell=True, capture_output=True, text=True, check=check)
+    return subprocess.run(cmd, shell=True, capture_output=True, text=True, check=check, timeout=30)
 
 
 def get_current_session() -> str | None:
@@ -87,7 +87,7 @@ def create_and_attach(session_name: str, layout_name: str) -> None:
 
     run(f"tmux select-window -t {session_name}:1")
     print(f"Workspace '{session_name}' created: {' | '.join(w[0] for w in windows)}")
-    subprocess.run(f"tmux attach-session -t {session_name}", shell=True)
+    subprocess.run(f"tmux attach-session -t {session_name}", shell=True, timeout=300)
 
 
 def main() -> None:
@@ -111,7 +111,7 @@ def main() -> None:
         if result.returncode == 0:
             # Session exists — set up windows and attach
             setup_windows(session_name, layout)
-            subprocess.run(f"tmux attach-session -t {session_name}", shell=True)
+            subprocess.run(f"tmux attach-session -t {session_name}", shell=True, timeout=300)
         else:
             create_and_attach(session_name, layout)
 

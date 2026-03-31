@@ -183,7 +183,7 @@ def cmd_open(args):
         print(f"No post found: {args.slug}.md", file=sys.stderr)
         return 1
     editor = os.environ.get("EDITOR", "open" if sys.platform == "darwin" else "vi")
-    subprocess.run([editor, str(path)])
+    subprocess.run([editor, str(path)], timeout=60)
     return 0
 
 
@@ -249,7 +249,7 @@ def cmd_push(_args):
         print(f"Sync script not found: {SYNC_SCRIPT}", file=sys.stderr)
         return 1
     print("Syncing...")
-    result = subprocess.run(["bash", str(SYNC_SCRIPT)])
+    result = subprocess.run(["bash", str(SYNC_SCRIPT)], timeout=300)
     if result.returncode != 0:
         print(f"Sync failed (exit {result.returncode})", file=sys.stderr)
         return 1

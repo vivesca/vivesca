@@ -42,6 +42,7 @@ def run_audit(cwd: Path) -> tuple[bool, str]:
         cwd=cwd,
         capture_output=True,
         text=True,
+        timeout=120,
     )
     return result.returncode == 0, result.stdout + result.stderr
 

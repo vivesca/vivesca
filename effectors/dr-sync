@@ -40,6 +40,7 @@ def sync():
     subprocess.run(
         ["brew", "bundle", "dump", f"--file={HOME}/officina/Brewfile", "--force"],
         capture_output=True,
+        timeout=60,
     )
 
     # Auto-commit if changes
@@ -48,14 +49,16 @@ def sync():
         capture_output=True,
         text=True,
         cwd=HOME / "officina",
+        timeout=30,
     )
     if result.stdout.strip():
-        subprocess.run(["git", "add", "claude-backup/", "Brewfile"], cwd=HOME / "officina")
+        subprocess.run(["git", "add", "claude-backup/", "Brewfile"], cwd=HOME / "officina", timeout=30)
         subprocess.run(
             ["git", "commit", "-m", "DR sync: update backup"],
             cwd=HOME / "officina",
+            timeout=60,
         )
-        subprocess.run(["git", "push"], cwd=HOME / "officina")
+        subprocess.run(["git", "push"], cwd=HOME / "officina", timeout=120)
         print("DR sync: committed and pushed")
     else:
         print("DR sync: no changes")

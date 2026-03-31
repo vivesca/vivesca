@@ -120,7 +120,7 @@ def add_routes() -> None:
     for ip in sorted(all_ips):
         result = subprocess.run(
             _route_cmd("-n", "add", f"{ip}/32", gateway),
-            capture_output=True, text=True,
+            capture_output=True, text=True, timeout=30,
         )
         if result.returncode == 0:
             print(f"  + {ip} via {gateway}")
@@ -141,7 +141,7 @@ def remove_routes() -> None:
     for ip in sorted(all_ips):
         subprocess.run(
             _route_cmd("-n", "delete", f"{ip}/32"),
-            capture_output=True, text=True,
+            capture_output=True, text=True, timeout=30,
         )
         print(f"  - {ip}")
     print("Routes removed.")

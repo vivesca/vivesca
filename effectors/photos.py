@@ -259,7 +259,7 @@ def export_photos(db: PhotosDB, uuids: list[str]) -> None:
             result = subprocess.run(
                 ["sips", "-s", "format", "jpeg", "-s", "formatOptions", "92",
                  str(original), "--out", str(out_path)],
-                capture_output=True, text=True,
+                capture_output=True, text=True, timeout=60,
             )
             if result.returncode == 0:
                 size_kb = out_path.stat().st_size / 1024

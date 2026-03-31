@@ -268,7 +268,7 @@ def _output_log_path(task_name: str) -> Path:
 
 
 def _run_captured(cmd: list[str], **kwargs) -> tuple[int, str]:
-    r = subprocess.run(cmd, capture_output=True, text=True, **kwargs)
+    r = subprocess.run(cmd, capture_output=True, text=True, timeout=300, **kwargs)
     return r.returncode, (r.stdout or "")
 
 
@@ -294,7 +294,7 @@ def _route_output(text: str, dest: str) -> int:
         print(text, end="")
         return 0
     if dest == "telegram":
-        return subprocess.run(["efferens", "telegram", text.rstrip()]).returncode
+        return subprocess.run(["efferens", "telegram", text.rstrip()], timeout=60).returncode
     Path(dest).parent.mkdir(parents=True, exist_ok=True)
     Path(dest).write_text(text)
     return 0
@@ -426,22 +426,22 @@ def _extract_task_summary(prompt: str) -> str:
 
 def _atomic_commit(directory: str, backend: str, prompt: str) -> None:
     """Auto-commit after successful build. Mitosis is the safety net; this is the primary."""
-    diff = subprocess.run(["git", "diff", "--stat"], cwd=directory, capture_output=True, text=True)
+    diff = subprocess.run(["git", "diff", "--stat"], cwd=directory, capture_output=True, text=True, timeout=30)
     untracked = subprocess.run(["git", "ls-files", "--others", "--exclude-standard"],
-                               cwd=directory, capture_output=True, text=True)
+                               cwd=directory, capture_output=True, text=True, timeout=30)
     if not diff.stdout.strip() and not untracked.stdout.strip():
         return  # nothing to commit
     # Stage only modified/new files — NOT unrelated plan files
     # Modified tracked files
-    subprocess.run(["git", "add", "-u"], cwd=directory, capture_output=True)
+    subprocess.run(["git", "add", "-u"], cwd=directory, capture_output=True, timeout=30)
     # New files created by goose (exclude loci/plans/ to avoid archiving race)
     for f in untracked.stdout.strip().splitlines():
         f = f.strip()
         if f and not f.startswith("loci/plans/"):
-            subprocess.run(["git", "add", "--", f], cwd=directory, capture_output=True)
+            subprocess.run(["git", "add", "--", f], cwd=directory, capture_output=True, timeout=30)
     summary = _extract_task_summary(prompt).replace("\n", " ")
     msg = f"translocon({backend}): {summary}"
-    subprocess.run(["git", "commit", "-m", msg], cwd=directory, capture_output=True)
+    subprocess.run(["git", "commit", "-m", msg], cwd=directory, capture_output=True, timeout=60)
 
 
 def _batch_dispatch(args: argparse.Namespace) -> int:
@@ -645,7 +645,7 @@ def main_impl(args: argparse.Namespace) -> int:
                 elif tee_log:
                     rc = _run_tee(cmd, tee_log, env=benv)
                 else:
-                    rc = subprocess.run(cmd, env=benv).returncode
+                    rc = subprocess.run(cmd, env=benv, timeout=300).returncode
             finally:
                 ticker.stop()
                 print("", file=sys.stderr)  # newline after progress dots

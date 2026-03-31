@@ -131,7 +131,7 @@ def main():
 
     task_type = "organism" if organism else "general"
     t0 = time.monotonic()
-    result = subprocess.run(args, env=env)
+    result = subprocess.run(args, env=env, timeout=300)
     duration_ms = int((time.monotonic() - t0) * 1000)
     _record(model, result.returncode == 0, duration_ms, task_type)
     sys.exit(result.returncode)
