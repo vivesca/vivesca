@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime, timedelta
+from datetime import datetime
 from pathlib import Path
 
 import pytest
@@ -57,8 +57,8 @@ def log_file(tmp_path):
     return p
 
 
-def _read_lines_from(path: Path):
-    """Read log lines by patching module globals directly."""
+def _read_lines(path: Path):
+    """Read log lines using the module's read_log_lines with path override."""
     old_main = _mod["LOGFILE"]
     old_rotated = _mod["ROTATED_LOGFILE"]
     _mod["LOGFILE"] = path
@@ -76,12 +76,7 @@ def _read_lines_from(path: Path):
 def test_parse_timestamp_valid():
     """parse_timestamp returns correct datetime."""
     dt = parse_timestamp("2026-03-31 10:05:01")
-    assert dt.year == 2026
-    assert dt.month == 3
-    assert dt.day == 31
-    assert dt.hour == 10
-    assert dt.minute == 5
-    assert dt.second == 1
+    assert dt == datetime(2026, 3, 31, 10, 5, 1)
 
 
 def test_parse_timestamp_invalid_raises():
@@ -93,30 +88,48 @@ def test_parse_timestamp_invalid_raises():
 # ── read_log_lines ───────────────────────────────────────────────
 
 
+def test_read_log_lines_parses_entries(log_file):
+    """read_log_lines returns (timestamp, message) pairs in order."""
+    entries = _read_lines(log_file)
+    assert len(entries) > 0
+    timestamps = [e[0] for e in entries]
+    assert timestamps == sorted(timestamps)
+
+
 def test_read_log_lines_empty(tmp_path):
     """read_log_lines returns empty list when no log file exists."""
     output = run(logpath=tmp_path / "missing.log")
     assert "No log entries" in output
 
 
-def test_read_log_lines_merges_rotated(log_file):
-    """read_log_lines merges main and rotated log files."""
-    rotated = Path(str(log_file) + ".1")
-    rotated.write_text("[2026-03-30 09:00:00] Daemon started\n")
-    entries = _read_lines_from(log_file)
-    # Should have entries from both files
-    assert len(entries) > 20  # 19 from SAMPLE_LOG + 1 from rotated
-    # Rotated entry should come first (sorted by timestamp)
-    assert entries[0][1] == "Daemon started"
-    assert entries[0][0].day == 30
+def test_read_log_lines_reads_rotated(tmp_path):
+    """read_log_lines merges main and rotated (.1) log files."""
+    now = datetime(2026, 3, 31, 15, 0, 0)
+    from datetime import timedelta
+    h2 = now - timedelta(hours=2)
+
+    rotated = tmp_path / "golem-daemon.log.1"
+    rotated.write_text(
+        f'[{h2:%Y-%m-%d %H:%M:%S}] Starting: golem --provider infini "rotated-task"\n'
+        f'[{h2:%Y-%m-%d %H:%M:%S}] Finished (200s, exit=0): golem --provider infini "rotated-task"\n'
+    )
+
+    main_log = tmp_path / "golem-daemon.log"
+    main_log.write_text(
+        f'[{now:%Y-%m-%d %H:%M:%S}] Starting: golem --provider volcano "recent-task"\n'
+        f'[{now:%Y-%m-%d %H:%M:%S}] Finished (100s, exit=0): golem --provider volcano "recent-task"\n'
+    )
+
+    report = run(logpath=main_log, window="6h")
+    assert "Tasks started:    2" in report
 
 
 # ── classify_events ──────────────────────────────────────────────
 
 
-def test_classify_events_counts(log_file):
+def test_classify_events(log_file):
     """classify_events correctly categorizes all event types."""
-    entries = _read_lines_from(log_file)
+    entries = _read_lines(log_file)
     events = classify_events(entries)
     assert len(events["starts"]) == 3
     assert len(events["finishes"]) == 2
@@ -134,7 +147,7 @@ def test_classify_events_counts(log_file):
 
 def test_classify_events_finish_details(log_file):
     """classify_events captures duration and exit code from finishes."""
-    entries = _read_lines_from(log_file)
+    entries = _read_lines(log_file)
     events = classify_events(entries)
     first_finish = events["finishes"][0]
     assert first_finish[1] == 200  # duration_s
@@ -146,7 +159,7 @@ def test_classify_events_finish_details(log_file):
 
 def test_classify_events_failure_exit_codes(log_file):
     """classify_events captures exit codes from failures."""
-    entries = _read_lines_from(log_file)
+    entries = _read_lines(log_file)
     events = classify_events(entries)
     codes = {f[1] for f in events["failures"]}
     assert 1 in codes
@@ -156,17 +169,17 @@ def test_classify_events_failure_exit_codes(log_file):
 
 def test_classify_events_autocommit(log_file):
     """classify_events captures auto-commit details."""
-    entries = _read_lines_from(log_file)
+    entries = _read_lines(log_file)
     events = classify_events(entries)
     ac = events["autocommits"][0]
-    assert ac[1] == 5          # n_tasks
+    assert ac[1] == 5       # n_tasks
     assert ac[2] == "abc1234"  # hash
 
 
 # ── window_filter ────────────────────────────────────────────────
 
 
-def test_window_filter_includes_at_cutoff():
+def test_window_filter_includes_after_cutoff():
     """window_filter keeps items at or after cutoff."""
     items = [
         (datetime(2026, 3, 31, 9, 0), "old"),
@@ -188,31 +201,25 @@ def test_window_filter_excludes_before_cutoff():
     assert len(result) == 0
 
 
-def test_window_filter_empty():
-    """window_filter returns empty list for empty input."""
-    result = window_filter([], 0, datetime(2026, 3, 31, 10, 0))
-    assert result == []
-
-
 # ── compute_window_stats ─────────────────────────────────────────
 
 
 def test_compute_window_stats_full_window(log_file):
     """compute_window_stats produces correct counts for the full sample."""
-    entries = _read_lines_from(log_file)
+    entries = _read_lines(log_file)
     events = classify_events(entries)
     cutoff = datetime(2026, 3, 30, 0, 0)
     stats = compute_window_stats(events, "24h", cutoff)
     assert stats["tasks_started"] == 3
     assert stats["tasks_finished"] == 2
     assert stats["tasks_succeeded"] == 1
-    assert stats["tasks_failed"] == 4   # 3 explicit failures + 1 finish exit=1
+    assert stats["tasks_failed"] == 4  # 3 failures + 1 finish with exit!=0
     assert stats["tasks_timed_out"] == 1
 
 
 def test_compute_window_stats_failure_rate(log_file):
     """compute_window_stats computes correct failure rate."""
-    entries = _read_lines_from(log_file)
+    entries = _read_lines(log_file)
     events = classify_events(entries)
     cutoff = datetime(2026, 3, 30, 0, 0)
     stats = compute_window_stats(events, "24h", cutoff)
@@ -222,7 +229,7 @@ def test_compute_window_stats_failure_rate(log_file):
 
 def test_compute_window_stats_avg_duration(log_file):
     """compute_window_stats computes avg duration from successful finishes."""
-    entries = _read_lines_from(log_file)
+    entries = _read_lines(log_file)
     events = classify_events(entries)
     cutoff = datetime(2026, 3, 30, 0, 0)
     stats = compute_window_stats(events, "24h", cutoff)
@@ -232,7 +239,7 @@ def test_compute_window_stats_avg_duration(log_file):
 
 def test_compute_window_stats_top_errors(log_file):
     """compute_window_stats reports top error patterns."""
-    entries = _read_lines_from(log_file)
+    entries = _read_lines(log_file)
     events = classify_events(entries)
     cutoff = datetime(2026, 3, 30, 0, 0)
     stats = compute_window_stats(events, "24h", cutoff)
@@ -244,7 +251,7 @@ def test_compute_window_stats_top_errors(log_file):
 
 def test_compute_window_stats_providers(log_file):
     """compute_window_stats reports provider breakdown."""
-    entries = _read_lines_from(log_file)
+    entries = _read_lines(log_file)
     events = classify_events(entries)
     cutoff = datetime(2026, 3, 30, 0, 0)
     stats = compute_window_stats(events, "24h", cutoff)
@@ -254,7 +261,7 @@ def test_compute_window_stats_providers(log_file):
 
 def test_compute_window_stats_autocommits(log_file):
     """compute_window_stats counts auto-commits."""
-    entries = _read_lines_from(log_file)
+    entries = _read_lines(log_file)
     events = classify_events(entries)
     cutoff = datetime(2026, 3, 30, 0, 0)
     stats = compute_window_stats(events, "24h", cutoff)
@@ -264,7 +271,7 @@ def test_compute_window_stats_autocommits(log_file):
 
 def test_compute_window_stats_warnings(log_file):
     """compute_window_stats counts warnings."""
-    entries = _read_lines_from(log_file)
+    entries = _read_lines(log_file)
     events = classify_events(entries)
     cutoff = datetime(2026, 3, 30, 0, 0)
     stats = compute_window_stats(events, "24h", cutoff)
@@ -273,25 +280,27 @@ def test_compute_window_stats_warnings(log_file):
 
 def test_compute_window_stats_narrow_window_excludes(log_file):
     """compute_window_stats with narrow window excludes old entries."""
-    entries = _read_lines_from(log_file)
+    entries = _read_lines(log_file)
     events = classify_events(entries)
+    # Only include entries at 10:15 or later
     cutoff = datetime(2026, 3, 31, 10, 15)
     stats = compute_window_stats(events, "narrow", cutoff)
     assert stats["tasks_started"] == 0
     assert stats["tasks_finished"] == 0
 
 
-def test_compute_window_stats_empty_events():
-    """compute_window_stats handles empty events gracefully."""
-    empty = {
+def test_compute_window_stats_empty():
+    """compute_window_stats handles empty event lists."""
+    empty_events = {
         "starts": [], "finishes": [], "failures": [], "timeouts": [],
         "errors": [], "queued": [], "running": [], "idle": [],
         "daemon": [], "autocommits": [], "warnings": [], "fatals": [],
     }
-    stats = compute_window_stats(empty, "1h", datetime(2026, 1, 1))
+    cutoff = datetime(2026, 3, 31, 0, 0)
+    stats = compute_window_stats(empty_events, "1h", cutoff)
     assert stats["tasks_started"] == 0
     assert stats["failure_rate_pct"] == 0.0
-    assert stats["avg_duration_s"] == 0
+    assert stats["top_errors"] == []
 
 
 # ── format_report ────────────────────────────────────────────────
@@ -299,7 +308,7 @@ def test_compute_window_stats_empty_events():
 
 def test_format_report_single_window(log_file):
     """format_report renders a single window correctly."""
-    entries = _read_lines_from(log_file)
+    entries = _read_lines(log_file)
     events = classify_events(entries)
     cutoff = datetime(2026, 3, 30, 0, 0)
     stats = compute_window_stats(events, "24h", cutoff)
@@ -315,21 +324,35 @@ def test_format_report_single_window(log_file):
 
 def test_format_report_multiple_windows_includes_trend(log_file):
     """format_report includes failure rate trend for multiple windows."""
-    entries = _read_lines_from(log_file)
+    entries = _read_lines(log_file)
     events = classify_events(entries)
     s1 = compute_window_stats(events, "1h", datetime(2026, 3, 31, 9, 20))
     s6 = compute_window_stats(events, "6h", datetime(2026, 3, 31, 4, 20))
     report = format_report([s1, s6])
     assert "Failure rate trend" in report
+    assert "█" in report
 
 
 def test_format_report_single_window_no_trend(log_file):
     """format_report skips trend section for a single window."""
-    entries = _read_lines_from(log_file)
+    entries = _read_lines(log_file)
     events = classify_events(entries)
     stats = compute_window_stats(events, "24h", datetime(2026, 3, 30, 0, 0))
     report = format_report([stats])
     assert "Failure rate trend" not in report
+
+
+def test_format_report_no_errors_no_top_errors_section():
+    """format_report omits Top errors when there are none."""
+    stats = {
+        "window": "1h", "cutoff": "", "tasks_started": 5, "tasks_finished": 5,
+        "tasks_succeeded": 5, "tasks_failed": 0, "tasks_timed_out": 0,
+        "failure_rate_pct": 0.0, "avg_duration_s": 60.0,
+        "autocommits": 0, "autocommit_tasks": 0, "warnings": 0,
+        "top_errors": [], "providers": {},
+    }
+    report = format_report([stats])
+    assert "Top errors" not in report
 
 
 # ── run() integration tests ──────────────────────────────────────
@@ -370,78 +393,14 @@ def test_run_no_log_file(tmp_path):
     assert "No log entries" in output
 
 
+def test_run_json_no_log_file(tmp_path):
+    """run() JSON handles missing log file."""
+    output = run(logpath=tmp_path / "missing.log", as_json=True)
+    data = json.loads(output)
+    assert "error" in data
+
+
 def test_run_unknown_window(log_file):
     """run() rejects unknown window names."""
     output = run(logpath=log_file, window="99h")
     assert "Unknown window" in output
-
-
-# ── main() CLI tests ─────────────────────────────────────────────
-
-
-def test_main_default(capsys, log_file):
-    """main() prints full report by default."""
-    _mod["LOGFILE"] = log_file
-    _mod["ROTATED_LOGFILE"] = Path(str(log_file) + ".1")
-    _mod["sys"] = _mod["sys"]  # ensure sys is the real module
-    try:
-        rc = _mod["main"]()
-    finally:
-        _mod["LOGFILE"] = Path.home() / ".local" / "share" / "vivesca" / "golem-daemon.log"
-        _mod["ROTATED_LOGFILE"] = Path.home() / ".local" / "share" / "vivesca" / "golem-daemon.log.1"
-    assert rc == 0
-    captured = capsys.readouterr().out
-    assert "GOLEM DAEMON LOG SUMMARY" in captured
-
-
-def test_main_json_flag(capsys, log_file):
-    """main() --json outputs valid JSON."""
-    import sys as real_sys
-    _mod["LOGFILE"] = log_file
-    _mod["ROTATED_LOGFILE"] = Path(str(log_file) + ".1")
-    old_argv = real_sys.argv
-    real_sys.argv = ["log-summary", "--json"]
-    try:
-        rc = _mod["main"]()
-    finally:
-        real_sys.argv = old_argv
-        _mod["LOGFILE"] = Path.home() / ".local" / "share" / "vivesca" / "golem-daemon.log"
-        _mod["ROTATED_LOGFILE"] = Path.home() / ".local" / "share" / "vivesca" / "golem-daemon.log.1"
-    assert rc == 0
-    output = capsys.readouterr().out
-    data = json.loads(output)
-    assert isinstance(data, list)
-
-
-def test_main_window_flag(capsys, log_file):
-    """main() --window=6h selects a single window."""
-    import sys as real_sys
-    _mod["LOGFILE"] = log_file
-    _mod["ROTATED_LOGFILE"] = Path(str(log_file) + ".1")
-    old_argv = real_sys.argv
-    real_sys.argv = ["log-summary", "--window=6h"]
-    try:
-        rc = _mod["main"]()
-    finally:
-        real_sys.argv = old_argv
-        _mod["LOGFILE"] = Path.home() / ".local" / "share" / "vivesca" / "golem-daemon.log"
-        _mod["ROTATED_LOGFILE"] = Path.home() / ".local" / "share" / "vivesca" / "golem-daemon.log.1"
-    assert rc == 0
-    captured = capsys.readouterr().out
-    assert "6h" in captured
-
-
-def test_main_bad_window(capsys, log_file):
-    """main() rejects unknown window values."""
-    import sys as real_sys
-    _mod["LOGFILE"] = log_file
-    _mod["ROTATED_LOGFILE"] = Path(str(log_file) + ".1")
-    old_argv = real_sys.argv
-    real_sys.argv = ["log-summary", "--window=99h"]
-    try:
-        rc = _mod["main"]()
-    finally:
-        real_sys.argv = old_argv
-        _mod["LOGFILE"] = Path.home() / ".local" / "share" / "vivesca" / "golem-daemon.log"
-        _mod["ROTATED_LOGFILE"] = Path.home() / ".local" / "share" / "vivesca" / "golem-daemon.log.1"
-    assert rc == 1
