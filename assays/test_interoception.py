@@ -117,7 +117,7 @@ class TestSystemAction:
         with (
             patch("metabolon.enzymes.interoception.subprocess.run", return_value=mock_proc),
             patch("metabolon.enzymes.interoception.shutil.disk_usage") as mock_disk,
-            patch("metabolon.enzymes.interoception.open"),
+            patch("builtins.open"),
             patch("metabolon.enzymes.interoception.contextlib.suppress"),
         ):
             mock_usage = MagicMock()
@@ -145,10 +145,9 @@ class TestSleepAction:
             "readiness_score": 75,
             "average_hrv": 45,
         })
-        with patch("metabolon.enzymes.interoception._health_log_path", return_value="/tmp/fake"):
-            with patch("metabolon.enzymes.interoception.from metabolon import locus"):
-                with patch("metabolon.enzymes.interoception.organelles.chemoreceptor.sense", mock_sense):
-                    result = _fn()(action="sleep")
+        with patch("metabolon.organelles.chemoreceptor.sense", mock_sense):
+            with patch("metabolon.enzymes.interoception._health_log_path", return_value="/tmp/fake"):
+                result = _fn()(action="sleep")
 
         from metabolon.enzymes.interoception import CircadianResult
         assert isinstance(result, CircadianResult)
@@ -158,7 +157,7 @@ class TestSleepAction:
 
     def test_sleep_handles_error_data(self):
         mock_sense = MagicMock(return_value={"error": "API unavailable"})
-        with patch("metabolon.enzymes.interoception.organelles.chemoreceptor.sense", mock_sense):
+        with patch("metabolon.organelles.chemoreceptor.sense", mock_sense):
             result = _fn()(action="sleep")
 
         from metabolon.enzymes.interoception import CircadianResult
@@ -167,7 +166,7 @@ class TestSleepAction:
 
     def test_sleep_week_delegates_to_week(self):
         mock_week = MagicMock(return_value="Weekly summary")
-        with patch("metabolon.enzymes.interoception.organelles.chemoreceptor.week", mock_week):
+        with patch("metabolon.organelles.chemoreceptor.week", mock_week):
             result = _fn()(action="sleep", period="week")
 
         from metabolon.enzymes.interoception import CircadianResult
@@ -185,7 +184,7 @@ class TestMembraneAction:
 
     def test_membrane_returns_membrane_result(self):
         mock_oura_today = MagicMock(return_value={"formatted": "Readiness: 82"})
-        with patch("metabolon.enzymes.interoception.organelles.chemoreceptor.today", mock_oura_today):
+        with patch("metabolon.organelles.chemoreceptor.today", mock_oura_today):
             result = _fn()(action="membrane")
 
         from metabolon.enzymes.interoception import MembranePotentialResult
@@ -195,7 +194,7 @@ class TestMembraneAction:
 
     def test_readiness_is_same_as_membrane(self):
         mock_oura_today = MagicMock(return_value={"formatted": "Readiness: 68"})
-        with patch("metabolon.enzymes.interoception.organelles.chemoreceptor.today", mock_oura_today):
+        with patch("metabolon.organelles.chemoreceptor.today", mock_oura_today):
             result = _fn()(action="readiness")
 
         from metabolon.enzymes.interoception import MembranePotentialResult
@@ -211,7 +210,7 @@ class TestHeartRateAction:
 
     def test_no_data_returns_no_data_message(self):
         mock_heartrate = MagicMock(return_value=[])
-        with patch("metabolon.enzymes.interoception.organelles.chemoreceptor.heartrate", mock_heartrate):
+        with patch("metabolon.organelles.chemoreceptor.heartrate", mock_heartrate):
             result = _fn()(action="heartrate")
 
         from metabolon.enzymes.interoception import HeartRateResult
@@ -224,7 +223,7 @@ class TestHeartRateAction:
             {"timestamp": "2024-01-01T10:00", "bpm": 62},
             {"timestamp": "2024-01-01T10:30", "bpm": 65},
         ])
-        with patch("metabolon.enzymes.interoception.organelles.chemoreceptor.heartrate", mock_heartrate):
+        with patch("metabolon.organelles.chemoreceptor.heartrate", mock_heartrate):
             result = _fn()(action="heartrate")
 
         from metabolon.enzymes.interoception import HeartRateResult
@@ -267,12 +266,12 @@ class TestFlywheelAction:
 
     def test_flywheel_returns_anabolism_result(self):
         with (
-            patch("metabolon.enzymes.interoception.from metabolon import locus"),
+            patch("metabolon.locus"),
             patch("metabolon.enzymes.interoception.subprocess.run") as mock_run,
             patch("builtins.open", MagicMock()),
             patch("metabolon.enzymes.interoception.os.path.exists", return_value=False),
-            patch("metabolon.enzymes.interoception.organelles.chemoreceptor.today", side_effect=Exception("unavailable")),
-            patch("metabolon.enzymes.interoception.organelles.circadian_clock.scheduled_events", side_effect=Exception("unavailable")),
+            patch("metabolon.organelles.chemoreceptor.today", side_effect=Exception("unavailable")),
+            patch("metabolon.organelles.circadian_clock.scheduled_events", side_effect=Exception("unavailable")),
         ):
             mock_proc1 = MagicMock()
             mock_proc1.stdout = ""
@@ -364,8 +363,8 @@ class TestGlycolysisAction:
         })
         mock_trend = MagicMock(return_value=[])
         with (
-            patch("metabolon.enzymes.interoception.organelles.glycolysis_rate.snapshot", mock_snapshot),
-            patch("metabolon.enzymes.interoception.organelles.glycolysis_rate.trend", mock_trend),
+            patch("metabolon.organelles.glycolysis_rate.snapshot", mock_snapshot),
+            patch("metabolon.organelles.glycolysis_rate.trend", mock_trend),
         ):
             result = _fn()(action="glycolysis")
 
@@ -388,8 +387,8 @@ class TestTissueRoutingAction:
         mock_routes = MagicMock(return_value={"a": "path-a", "b": "path-b"})
         mock_report = MagicMock(return_value="Routing report here")
         with (
-            patch("metabolon.enzymes.interoception.organelles.tissue_routing.observed_routes", mock_routes),
-            patch("metabolon.enzymes.interoception.organelles.tissue_routing.route_report", mock_report),
+            patch("metabolon.organelles.tissue_routing.observed_routes", mock_routes),
+            patch("metabolon.organelles.tissue_routing.route_report", mock_report),
         ):
             result = _fn()(action="tissue_routing")
 
@@ -411,8 +410,8 @@ class TestCrisprAction:
         mock_compile_guides = MagicMock(return_value=[{"guide": "seq1"}, {"guide": "seq2"}])
         with (
             patch("pathlib.Path.exists", return_value=False),
-            patch("metabolon.enzymes.interoception.organelles.crispr.spacer_count", mock_spacer_count),
-            patch("metabolon.enzymes.interoception.organelles.crispr.compile_guides", mock_compile_guides),
+            patch("metabolon.organelles.crispr.spacer_count", mock_spacer_count),
+            patch("metabolon.organelles.crispr.compile_guides", mock_compile_guides),
         ):
             result = _fn()(action="crispr")
 
@@ -438,7 +437,7 @@ class TestRetrogradeAction:
             "assessment": "balanced",
         })
         with (
-            patch("metabolon.enzymes.interoception.organelles.retrograde.signal_balance", mock_balance),
+            patch("metabolon.organelles.retrograde.signal_balance", mock_balance),
         ):
             result = _fn()(action="retrograde", days=7)
 
@@ -461,8 +460,8 @@ class TestMitophagyAction:
         mock_fitness = MagicMock(return_value=[{"model": "model1", "score": 0.8}])
         mock_blacklist = MagicMock(return_value={"model1": "accuracy issues"})
         with (
-            patch("metabolon.enzymes.interoception.organelles.mitophagy.model_fitness", mock_fitness),
-            patch("metabolon.enzymes.interoception.organelles.mitophagy._load_blacklist", mock_blacklist),
+            patch("metabolon.organelles.mitophagy.model_fitness", mock_fitness),
+            patch("metabolon.organelles.mitophagy._load_blacklist", mock_blacklist),
         ):
             result = _fn()(action="mitophagy")
 
@@ -484,9 +483,9 @@ class TestAngiogenesisAction:
         mock_propose = MagicMock(return_value={"source": "a", "target": "b", "proposal": "build corridor"})
         mock_registry = MagicMock(return_value=[{"name": "existing-vessel-1"}])
         with (
-            patch("metabolon.enzymes.interoception.organelles.angiogenesis.detect_hypoxia", mock_detect),
-            patch("metabolon.enzymes.interoception.organelles.angiogenesis.propose_vessel", mock_propose),
-            patch("metabolon.enzymes.interoception.organelles.angiogenesis.vessel_registry", mock_registry),
+            patch("metabolon.organelles.angiogenesis.detect_hypoxia", mock_detect),
+            patch("metabolon.organelles.angiogenesis.propose_vessel", mock_propose),
+            patch("metabolon.organelles.angiogenesis.vessel_registry", mock_registry),
         ):
             result = _fn()(action="angiogenesis")
 
@@ -510,7 +509,7 @@ class TestProbeAction:
             {"name": "probe2", "passed": False, "message": "fail", "duration_ms": 20},
         ])
         with (
-            patch("metabolon.enzymes.interoception.organelles.inflammasome.run_all_probes", mock_run_all),
+            patch("metabolon.organelles.inflammasome.run_all_probes", mock_run_all),
         ):
             result = _fn()(action="probe")
 
@@ -530,9 +529,9 @@ class TestFinancialAction:
 
     def test_financial_returns_result(self):
         with (
-            patch("metabolon.enzymes.interoception.from metabolon import locus"),
+            patch("metabolon.locus"),
             patch("builtins.open", MagicMock()),
-            patch("metabolon.enzymes.interoception.synthesize", return_value="Summary with no urgent items"),
+            patch("metabolon.cytosol.synthesize", return_value="Summary with no urgent items"),
         ):
             result = _fn()(action="financial")
 

@@ -104,28 +104,30 @@ class TestHelpFlag:
 class TestRunnerSelection:
     def test_no_runner_exits_1(self, tmp_path):
         """Script exits 1 when neither bunx nor npx is on PATH."""
-        # Create a mock bin that shadows but doesn't actually provide bunx/npx
-        # This blocks system PATH versions from being found
-        empty_bin = tmp_path / "bin"
-        empty_bin.mkdir()
-        # Create dummy executables that exit with error code 127 (command not found)
-        # This shadows system bunx/npx so they won't be found by command -v
-        for name in ['bunx', 'npx']:
-            script = empty_bin / name
-            script.write_text("#!/bin/bash\nexit 127\n")
-            script.chmod(script.stat().st_mode | stat.S_IEXEC)
-        r = _run_script(path_dirs=[empty_bin], tmp_path=tmp_path)
+        # Filter system PATH to remove any dirs that might contain bunx/npx
+        filtered_path_dirs = []
+        for dir_path in os.environ.get("PATH", "").split(os.pathsep):
+            if not dir_path:
+                continue
+            # Check if this directory already has bunx or npx
+            has_bunx = (Path(dir_path) / "bunx").exists()
+            has_npx = (Path(dir_path) / "npx").exists()
+            if not has_bunx and not has_npx:
+                filtered_path_dirs.append(Path(dir_path))
+        r = _run_script(path_dirs=filtered_path_dirs, tmp_path=tmp_path)
         assert r.returncode == 1
 
     def test_no_runner_logs_error(self, tmp_path):
-        # Create a mock bin that shadows but doesn't actually provide bunx/npx
-        empty_bin = tmp_path / "bin"
-        empty_bin.mkdir()
-        for name in ['bunx', 'npx']:
-            script = empty_bin / name
-            script.write_text("#!/bin/bash\nexit 127\n")
-            script.chmod(script.stat().st_mode | stat.S_IEXEC)
-        _run_script(path_dirs=[empty_bin], tmp_path=tmp_path)
+        # Filter system PATH to remove any dirs that might contain bunx/npx
+        filtered_path_dirs = []
+        for dir_path in os.environ.get("PATH", "").split(os.pathsep):
+            if not dir_path:
+                continue
+            has_bunx = (Path(dir_path) / "bunx").exists()
+            has_npx = (Path(dir_path) / "npx").exists()
+            if not has_bunx and not has_npx:
+                filtered_path_dirs.append(Path(dir_path))
+        _run_script(path_dirs=filtered_path_dirs, tmp_path=tmp_path)
         log = _log_file(tmp_path)
         assert log.exists()
         assert "neither bunx nor npx found" in log.read_text()

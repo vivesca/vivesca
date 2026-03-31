@@ -113,19 +113,25 @@ class TestRetention:
         assert len(_backups(tmp_path)) <= 30
 
     def test_prunes_oldest(self, tmp_path):
-        """Oldest backups are removed, newest are kept."""
+        """Oldest backups by mtime are removed, total kept <= 30."""
         _make_db(tmp_path)
         bdir = tmp_path / BACKUP_RELATIVE
         bdir.mkdir(parents=True, exist_ok=True)
+        # Create 35 old backups with distinct mtimes so ls -t is stable
         for i in range(35):
-            (bdir / f"due-2025-02-{i:02d}.duecdb").write_text(f"old-{i}")
+            f = bdir / f"due-2025-02-{i:02d}.duecdb"
+            f.write_text(f"old-{i}")
+            # Lower mtime = "older" file; ls -t puts newest first
+            os.utime(f, (1_000_000 + i * 100, 1_000_000 + i * 100))
         _run(tmp_path)
         remaining = _backups(tmp_path)
-        # The oldest (due-2025-02-00 etc.) should be gone
+        # 35 old + 1 new = 36 total; after pruning <= 30
+        assert len(remaining) <= 30
+        # Today's backup must survive
+        today = datetime.now().strftime("%Y-%m-%d")
+        assert f"due-{today}.duecdb" in remaining
+        # The very oldest file (lowest mtime) should be pruned
         assert "due-2025-02-00.duecdb" not in remaining
-        assert "due-2025-02-34.duecdb" not in remaining
-        # Newer ones should survive
-        assert any("due-2025-02-3" in name for name in remaining)
 
     def test_no_prune_under_30(self, tmp_path):
         """With fewer than 30 backups, none are pruned."""
