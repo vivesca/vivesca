@@ -89,13 +89,13 @@ def sample_substrate_module() -> str:
     return '''
 """Sample substrate module for cortical processing."""
 
-class MySubstrate:
-    """A sample substrate."""
+class MyClass:
+    """A sample class."""
     pass
 
 class TestSubstrate:
     """Test substrate for cortical layer.
-    
+
     This handles cortical processing.
     """
     
@@ -784,11 +784,11 @@ class TestMetabolismSummary:
         mock_sensory.return_value = sensory_instance
 
         lines = _metabolism_summary()
-        print(f"DEBUG lines: {lines}")  # Debug output
 
-        assert any("2 tool(s)" in line for line in lines)
-        assert any("4 total variant(s)" in line for line in lines)
-        assert any("3" in line and "7 days" in line for line in lines)
+        # Output uses **N** markdown bold format
+        assert any("**2** tool(s)" in line for line in lines)
+        assert any("**4** total variant(s)" in line for line in lines)
+        assert any("**3**" in line and "7 days" in line for line in lines)
 
     @patch("metabolon.metabolism.variants.Genome", side_effect=ImportError)
     def test_summary_import_error(self, mock_genome: Mock):
@@ -996,8 +996,9 @@ class TestOperonHeartbeat:
 
         lines = _operon_heartbeat()
 
-        assert any("1 healthy" in line for line in lines)
-        assert any("1 stale" in line for line in lines)
+        # Output uses **N** markdown bold format
+        assert any("**1** healthy" in line for line in lines)
+        assert any("**1** stale" in line for line in lines)
         assert any("stale_op" in line for line in lines)
 
     @patch("metabolon.metabolism.substrates.operons.OperonSubstrate", side_effect=ImportError)
@@ -1034,8 +1035,7 @@ class TestOperonHeartbeat:
 class TestOperonSummary:
     """Tests for _operon_summary function."""
 
-    @patch("metabolon.operons.OPERONS")
-    def test_operon_summary(self, mock_operons: Mock):
+    def test_operon_summary(self):
         """Test operon summary generation."""
         op1 = MagicMock(
             reaction="op1",
@@ -1058,21 +1058,32 @@ class TestOperonSummary:
             product="Product 3",
             enzymes=["tool3"],
         )
-        mock_operons.__iter__ = lambda self: iter([op1, op2, op3])
+        operon_list = [op1, op2, op3]
 
-        lines = _operon_summary()
+        with patch("metabolon.operons.OPERONS", operon_list):
+            lines = _operon_summary()
 
         assert any("op1" in line for line in lines)
         assert any("op2" in line for line in lines)
-        assert any("3 operons" in line for line in lines)
+        # Output uses **N** markdown bold format
+        assert any("operons" in line and "3" in line for line in lines)
         assert any("2 active" in line for line in lines)
         assert any("1 dormant" in line for line in lines)
         assert any("1 crystallised" in line for line in lines)
 
-    @patch("metabolon.operons.OPERONS", side_effect=ImportError)
-    def test_operon_summary_import_error(self, mock_operons: Mock):
+    def test_operon_summary_import_error(self):
         """Test handling import error."""
-        lines = _operon_summary()
+        # Simulate ImportError by patching the module to raise on import
+        import builtins
+        original_import = builtins.__import__
+
+        def mock_import(name, *args, **kwargs):
+            if name == "metabolon.operons":
+                raise ImportError("mocked")
+            return original_import(name, *args, **kwargs)
+
+        with patch.object(builtins, "__import__", side_effect=mock_import):
+            lines = _operon_summary()
 
         assert any("not found" in line for line in lines)
 

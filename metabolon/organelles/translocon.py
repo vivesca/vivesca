@@ -31,8 +31,16 @@ logger = logging.getLogger(__name__)
 
 COACHING_NOTES = Path.home() / "epigenome/marks/feedback_glm_coaching.md"
 SORTASE_LOG = Path.home() / ".local/share/sortase/log.jsonl"
+GOLEM_LOG = Path.home() / ".local/share/vivesca/golem.jsonl"
 CACHE_DIR = Path.home() / ".cache/translocon"
 CACHE_TTL = 3600  # 1 hour in seconds
+
+# Provider concurrency limits for golem-daemon
+PROVIDER_LIMITS = {
+    "zhipu": 4,
+    "infini": 6,
+    "volcano": 8,
+}
 
 
 # ---------------------------------------------------------------------------
@@ -488,4 +496,109 @@ def run_eval(count: int = 20, failures_only: bool = False) -> dict:
         "success": True,
         "output": "\n".join(lines),
         "duration_s": round(elapsed, 2),
+    }
+
+
+# ---------------------------------------------------------------------------
+# Dispatch stats — golem run analysis
+# ---------------------------------------------------------------------------
+
+
+def dispatch_stats(count: int = 50) -> dict:
+    """Analyze golem runs from golem.jsonl. Returns structured summary.
+
+    Returns:
+        dict with keys: success (bool), output (str), duration_s (float).
+    """
+    start = time.perf_counter()
+
+    if not GOLEM_LOG.exists():
+        return {
+            "success": False,
+            "output": "no golem log found",
+            "duration_s": round(time.perf_counter() - start, 2),
+        }
+
+    entries: list[dict] = []
+    with open(GOLEM_LOG) as f:
+        for line in f:
+            line = line.strip()
+            if line:
+                try:
+                    entries.append(json.loads(line))
+                except json.JSONDecodeError:
+                    continue
+
+    entries = entries[-count:]
+    total = len(entries)
+    if total == 0:
+        elapsed = time.perf_counter() - start
+        return {
+            "success": True,
+            "output": "no entries found in log",
+            "duration_s": round(elapsed, 2),
+        }
+
+    # Overall stats
+    success_count = sum(1 for e in entries if e.get("exit") == 0)
+    fail_count = total - success_count
+    success_rate = (success_count / total * 100) if total > 0 else 0
+
+    # Provider breakdown
+    provider_counts: Counter = Counter(e.get("provider", "none") for e in entries)
+    provider_success: dict[str, int] = {}
+    for provider in provider_counts:
+        provider_success[provider] = sum(
+            1 for e in entries
+            if e.get("provider") == provider and e.get("exit") == 0
+        )
+
+    # Duration stats
+    durations = [e.get("duration", 0) for e in entries]
+    avg_duration = sum(durations) / len(durations) if durations else 0
+    total_duration = sum(durations)
+
+    # Turn stats
+    turns = [e.get("turns", 0) for e in entries]
+    avg_turns = sum(turns) / len(turns) if turns else 0
+
+    lines: list[str] = [
+        f"Golem runs: {total} | Success: {success_count} ({success_rate:.0f}%) | Fail: {fail_count}",
+        f"Duration: total={total_duration:.0f}s, avg={avg_duration:.0f}s | Turns: avg={avg_turns:.1f}",
+        "",
+        "By provider:",
+    ]
+
+    for provider, n in provider_counts.most_common():
+        s = provider_success.get(provider, 0)
+        rate = (s / n * 100) if n > 0 else 0
+        limit = PROVIDER_LIMITS.get(provider, "?")
+        lines.append(f"  {provider}: {s}/{n} ({rate:.0f}%) [limit={limit}]")
+
+    # Recent failures
+    recent_failures = [e for e in entries if e.get("exit") != 0]
+    if recent_failures:
+        lines.append("")
+        lines.append("Recent failures:")
+        for e in recent_failures[-5:]:  # Show last 5 failures
+            prompt_preview = e.get("prompt", "?")[:50]
+            lines.append(
+                f"  [{e.get('provider', '?')}] ({e.get('duration', 0)}s) {prompt_preview}..."
+            )
+
+    elapsed = time.perf_counter() - start
+    return {
+        "success": True,
+        "output": "\n".join(lines),
+        "duration_s": round(elapsed, 2),
+        "stats": {
+            "total": total,
+            "success": success_count,
+            "fail": fail_count,
+            "success_rate": success_rate,
+            "providers": dict(provider_counts),
+            "provider_success": provider_success,
+            "avg_duration": avg_duration,
+            "avg_turns": avg_turns,
+        },
     }

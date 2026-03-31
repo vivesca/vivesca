@@ -31,32 +31,50 @@ User says: "build", "implement", "dispatch", "spec this", "batch", "go build", "
 ### Phase 1: Identify work (CC judgment)
 
 CC decides what needs doing. Examples:
-- **Test gaps**: cross-reference `metabolon/` vs `assays/` (use Glob/Grep or inline script)
-- **Refactoring**: read code, identify targets
-- **Reliability**: find modules missing error handling
+- **Test gaps**: cross-reference `metabolon/` vs `assays/`
+- **Features**: read queue, identify gaps
 - **Consulting readiness**: assess what's missing for Capco
 
-CC produces a task list. Each task = one golem prompt.
+CC writes fully-specified entries to `loci/golem-queue.md`. Each entry has provider, turns, and complete prompt baked in. CC does the thinking — golems do the labor.
 
-### Phase 2: Dispatch golem
+### Phase 2: Write the queue
 
-```bash
-# Tests
-golem --batch module1.py module2.py module3.py
+**Group related tasks into operons** — tasks that share context run in one golem session:
 
-# Any task
-golem "Refactor X to extract Y into a separate module"
-golem "Add error handling to all MCP tools in metabolon/enzymes/"
-golem "Read chromatin/X and write a summary to loci/Y"
+```markdown
+#### Coverage operon — test coverage tooling
+- [ ] `golem --provider infini --max-turns 50 "Read validator.py AND complement.py. Add check_test_coverage to validator. Add coverage_summary to complement. Write tests for both. Run pytest. Fix failures."`
+
+#### Standalone
+- [ ] `golem --provider volcano --max-turns 50 "Create effectors/capco-prep..."`
 ```
 
-Golem reads, writes, runs, fixes. No spec files, no sortase, no worktrees.
+Operons save context-building time and produce coherent cross-module designs. Group when:
+- Two modules share concepts (both about coverage, both about dispatch)
+- One module consumes the other's output
+- Changes need to be consistent across files
 
-CC's role: decide what to build, verify results, fix anything golem can't.
+Keep standalone when tasks have no shared context.
 
-Excess tasks that can't run now → add to `loci/golem-queue.md`. The queue is drained by golem-daemon or by `/circadian` morning dispatch.
+### Phase 3: Dispatch
 
-### Phase 3: Verify + commit
+**Option A — CC dispatches directly** (interactive session):
+```bash
+golem --provider infini --max-turns 50 "task..."   # run_in_background: true
+```
+
+**Option B — golem-daemon drains the queue** (persistent, survives CC exit):
+```bash
+golem-daemon start   # reads queue, dispatches, marks done
+golem-daemon status  # check progress
+golem-daemon stop    # halt
+```
+
+**Use the daemon when:** CC is about to exit, overnight batch, "keep going while I'm away". The daemon's value is persistence, not intelligence — CC writes the judgment into the queue, daemon executes even when CC is offline.
+
+**Use CC dispatch when:** interactive session, need to verify and iterate quickly.
+
+### Phase 4: Verify + commit
 
 ```bash
 uv run pytest --co -q | tail -3          # count
@@ -64,7 +82,7 @@ uv run pytest assays/test_new*.py -q     # verify new files
 git add assays/test_*.py && git commit
 ```
 
-### Phase 4: Report
+### Phase 5: Report
 
 ```
 ## Mitogen Report
@@ -103,6 +121,7 @@ Priority: ZhiPu (fast) > Infini (good coder, decent speed) > Volcano (slow but h
 ## Gotchas
 
 - **Default turns: 50.** Test-only tasks need ~30. Feature tasks (read + implement + test + fix) need 50. 1000+ line modules may need more.
+- **`--dangerously-skip-permissions` is in the golem script.** Without it, models ask for permission instead of using tools. Never remove it.
 - **Golem may not commit.** Check `git status` after batch and commit new files.
 - **Don't over-orchestrate.** No spec files, no coaching injection, no worktrees. Just `golem "task"`.
 - **Volcano routes HK→Tokyo→SJC.** Structural, unfixable. Use for background/overflow only.
@@ -110,7 +129,8 @@ Priority: ZhiPu (fast) > Infini (good coder, decent speed) > Volcano (slow but h
 
 ## Anti-patterns
 
-- Don't write specs for golem — just give it a prompt
-- Don't use sortase/translocon for test generation — golem is simpler and better
-- Don't add guardrails — let golem be autonomous
+- Don't babysit golems — let them write+test+fix, check the final count
+- Don't dispatch related tasks separately — group into operons
 - Don't use CC for work golem can do — CC judges, golem writes
+- Don't use shell `&` for background — use Bash tool's `run_in_background: true`
+- Don't rely on shell aliases in scripts — they don't expand

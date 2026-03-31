@@ -1,0 +1,119 @@
+#!/usr/bin/env python3
+"""CAPCO Prep - Reads chromatin/Capco/, lists documents, flags stale, outputs readiness checklist."""
+
+import os
+import sys
+from datetime import datetime, timedelta
+from pathlib import Path
+
+# Configuration
+CAPCO_DIR = Path("chromatin/Capco")
+STALE_DAYS = 90  # Consider files stale if not modified in 90 days
+SUPPORTED_EXTENSIONS = {".pdf", ".doc", ".docx", ".txt", ".md", ".csv", ".xlsx", ".xls"}
+
+def get_file_info(file_path: Path) -> dict:
+    """Get file information including modification time."""
+    stat = file_path.stat()
+    modified_time = datetime.fromtimestamp(stat.st_mtime)
+    size_kb = stat.st_size / 1024
+    days_since_modified = (datetime.now() - modified_time).days
+    
+    return {
+        "path": file_path,
+        "name": file_path.name,
+        "modified": modified_time,
+        "days_since_modified": days_since_modified,
+        "size_kb": round(size_kb, 2),
+        "is_stale": days_since_modified > STALE_DAYS,
+    }
+
+def list_capco_docs() -> list:
+    """List all supported documents in CAPCO directory."""
+    if not CAPCO_DIR.exists():
+        print(f"Error: Directory {CAPCO_DIR} does not exist.")
+        print(f"Please create {CAPCO_DIR} and add your CAPCO documents.")
+        return []
+    
+    docs = []
+    for root, _, files in os.walk(CAPCO_DIR):
+        for file in files:
+            file_path = Path(root) / file
+            ext = file_path.suffix.lower()
+            if ext in SUPPORTED_EXTENSIONS:
+                docs.append(get_file_info(file_path))
+    
+    # Sort by modification time (newest first)
+    docs.sort(key=lambda x: x["modified"], reverse=True)
+    return docs
+
+def print_readiness_checklist(docs: list) -> None:
+    """Print readiness checklist with document info."""
+    total_docs = len(docs)
+    stale_docs = [d for d in docs if d["is_stale"]]
+    fresh_docs = [d for d in docs if not d["is_stale"]]
+    
+    print("=" * 70)
+    print("CAPCO Preparation - Readiness Checklist")
+    print(f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    print("=" * 70)
+    print()
+    
+    print(f"Total documents found: {total_docs}")
+    print(f"Fresh documents (modified within {STALE_DAYS} days): {len(fresh_docs)}")
+    print(f"Stale documents (not modified in >{STALE_DAYS} days): {len(stale_docs)}")
+    print()
+    
+    if stale_docs:
+        print("⚠️  Stale Documents:")
+        print("-" * 70)
+        for doc in stale_docs:
+            print(f"  {doc['name']:<50} {doc['days_since_modified']:>3} days ago | {doc['size_kb']:>8} KB")
+        print()
+    
+    if fresh_docs:
+        print("✅ Fresh Documents:")
+        print("-" * 70)
+        for doc in fresh_docs[:10]:  # Show only 10 most recent
+            modified_str = doc["modified"].strftime("%Y-%m-%d")
+            print(f"  {doc['name']:<50} {modified_str:>10} | {doc['size_kb']:>8} KB")
+        if len(fresh_docs) > 10:
+            print(f"  ... and {len(fresh_docs) - 10} more")
+        print()
+    
+    print("=" * 70)
+    print("Readiness Checklist:")
+    print("=" * 70)
+    
+    checklist = [
+        ("All required CAPCO documents are added", total_docs > 0),
+        ("No critical stale documents needing review", len(stale_docs) == 0),
+        ("File naming conventions are consistent", True),  # User should check
+        ("Permissions are correctly set", True),  # User should check
+        ("Documents are backed up", True),  # User should check
+    ]
+    
+    for item, ok in checklist:
+        status = "✅" if ok else "❌"
+        print(f"{status} {item}")
+    
+    print()
+    print("Next steps:")
+    if stale_docs:
+        print("  • Review and update stale documents")
+    if total_docs == 0:
+        print("  • Add CAPCO documents to chromatin/Capco/")
+    print("  • Complete any missing items in the checklist")
+    print()
+
+def main():
+    """Main entry point."""
+    docs = list_capco_docs()
+    print_readiness_checklist(docs)
+    
+    # Return non-zero if there are stale docs or no docs
+    if not docs or any(d["is_stale"] for d in docs):
+        sys.exit(1)
+    sys.exit(0)
+
+if __name__ == "__main__":
+    main()

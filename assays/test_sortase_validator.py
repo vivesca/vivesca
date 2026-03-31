@@ -582,3 +582,149 @@ class TestValidationIssue:
         b = ValidationIssue(check="c", message="m")
         assert hash(a) == hash(b)
         assert len({a, b}) == 1
+
+
+# ---------------------------------------------------------------------------
+# check_test_coverage
+# ---------------------------------------------------------------------------
+
+
+class TestCheckTestCoverage:
+    def test_coverage_above_threshold_no_issues(self, tmp_path):
+        """When coverage meets threshold, no issues are returned."""
+        from metabolon.sortase.validator import check_test_coverage
+
+        # Create metabolon/subdir/module.py
+        metabolon_sub = tmp_path / "metabolon" / "subdir"
+        metabolon_sub.mkdir(parents=True)
+        (metabolon_sub / "module.py").write_text("# module\n", encoding="utf-8")
+
+        # Create assays/test_module.py
+        assays_dir = tmp_path / "assays"
+        assays_dir.mkdir()
+        (assays_dir / "test_module.py").write_text("# test\n", encoding="utf-8")
+
+        issues = check_test_coverage(tmp_path, threshold=0.8)
+        assert issues == []
+
+    def test_coverage_below_threshold_returns_issue(self, tmp_path):
+        """When coverage is below threshold, an issue is returned."""
+        from metabolon.sortase.validator import check_test_coverage
+
+        # Create metabolon/subdir/module.py without corresponding test
+        metabolon_sub = tmp_path / "metabolon" / "subdir"
+        metabolon_sub.mkdir(parents=True)
+        (metabolon_sub / "module.py").write_text("# module\n", encoding="utf-8")
+
+        # No assays directory
+        issues = check_test_coverage(tmp_path, threshold=0.8)
+        assert len(issues) == 1
+        assert issues[0].check == "test-coverage"
+        assert issues[0].severity == "warning"
+        assert "below threshold" in issues[0].message
+
+    def test_no_modules_returns_warning(self, tmp_path):
+        """When no modules are found, a warning is returned."""
+        from metabolon.sortase.validator import check_test_coverage
+
+        # Empty project - no metabolon directory
+        issues = check_test_coverage(tmp_path, threshold=0.8)
+        assert len(issues) == 1
+        assert issues[0].check == "test-coverage"
+        assert issues[0].severity == "warning"
+        assert "No modules found" in issues[0].message
+
+    def test_partial_coverage_below_threshold(self, tmp_path):
+        """Test with partial coverage that's below threshold."""
+        from metabolon.sortase.validator import check_test_coverage
+
+        # Create 4 modules, only 1 has test (25% coverage)
+        metabolon_sub = tmp_path / "metabolon" / "subdir"
+        metabolon_sub.mkdir(parents=True)
+        for i in range(4):
+            (metabolon_sub / f"module{i}.py").write_text(f"# module {i}\n", encoding="utf-8")
+
+        assays_dir = tmp_path / "assays"
+        assays_dir.mkdir()
+        (assays_dir / "test_module0.py").write_text("# test\n", encoding="utf-8")
+
+        issues = check_test_coverage(tmp_path, threshold=0.8)
+        assert len(issues) == 1
+        assert "25.0%" in issues[0].message or "1/4" in issues[0].message
+
+    def test_exact_threshold_passes(self, tmp_path):
+        """Coverage exactly at threshold should pass."""
+        from metabolon.sortase.validator import check_test_coverage
+
+        # Create 5 modules, 4 have tests (80% coverage)
+        metabolon_sub = tmp_path / "metabolon" / "subdir"
+        metabolon_sub.mkdir(parents=True)
+        for i in range(5):
+            (metabolon_sub / f"module{i}.py").write_text(f"# module {i}\n", encoding="utf-8")
+
+        assays_dir = tmp_path / "assays"
+        assays_dir.mkdir()
+        for i in range(4):
+            (assays_dir / f"test_module{i}.py").write_text("# test\n", encoding="utf-8")
+
+        issues = check_test_coverage(tmp_path, threshold=0.8)
+        assert issues == []
+
+    def test_threshold_one_requires_full_coverage(self, tmp_path):
+        """Threshold of 1.0 requires all modules to have tests."""
+        from metabolon.sortase.validator import check_test_coverage
+
+        metabolon_sub = tmp_path / "metabolon" / "subdir"
+        metabolon_sub.mkdir(parents=True)
+        (metabolon_sub / "module.py").write_text("# module\n", encoding="utf-8")
+
+        assays_dir = tmp_path / "assays"
+        assays_dir.mkdir()
+        (assays_dir / "test_module.py").write_text("# test\n", encoding="utf-8")
+
+        issues = check_test_coverage(tmp_path, threshold=1.0)
+        assert issues == []
+
+    def test_threshold_one_fails_on_missing(self, tmp_path):
+        """Threshold of 1.0 fails if any module lacks a test."""
+        from metabolon.sortase.validator import check_test_coverage
+
+        metabolon_sub = tmp_path / "metabolon" / "subdir"
+        metabolon_sub.mkdir(parents=True)
+        (metabolon_sub / "module.py").write_text("# module\n", encoding="utf-8")
+        (metabolon_sub / "other.py").write_text("# other\n", encoding="utf-8")
+
+        assays_dir = tmp_path / "assays"
+        assays_dir.mkdir()
+        (assays_dir / "test_module.py").write_text("# test\n", encoding="utf-8")
+
+        issues = check_test_coverage(tmp_path, threshold=1.0)
+        assert len(issues) == 1
+
+    def test_missing_tests_listed_in_message(self, tmp_path):
+        """Missing test files are listed in the issue message."""
+        from metabolon.sortase.validator import check_test_coverage
+
+        metabolon_sub = tmp_path / "metabolon" / "subdir"
+        metabolon_sub.mkdir(parents=True)
+        (metabolon_sub / "alpha.py").write_text("# alpha\n", encoding="utf-8")
+        (metabolon_sub / "beta.py").write_text("# beta\n", encoding="utf-8")
+
+        issues = check_test_coverage(tmp_path, threshold=0.5)
+        assert "alpha.py" in issues[0].message or "subdir/alpha.py" in issues[0].message
+        assert "beta.py" in issues[0].message or "subdir/beta.py" in issues[0].message
+
+    def test_truncates_long_missing_list(self, tmp_path):
+        """When many modules lack tests, the list is truncated."""
+        from metabolon.sortase.validator import check_test_coverage
+
+        metabolon_sub = tmp_path / "metabolon" / "subdir"
+        metabolon_sub.mkdir(parents=True)
+        # Create 10 modules, none have tests
+        for i in range(10):
+            (metabolon_sub / f"module{i}.py").write_text(f"# module {i}\n", encoding="utf-8")
+
+        issues = check_test_coverage(tmp_path, threshold=0.5)
+        assert len(issues) == 1
+        # Should show first 5 and indicate more
+        assert "and 5 more" in issues[0].message

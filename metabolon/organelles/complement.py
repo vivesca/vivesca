@@ -185,3 +185,88 @@ if __name__ == "__main__":
     # Diagnostic output
     results = resolve()
     print(json.dumps(results, indent=2))
+
+
+# ---------------------------------------------------------------------------
+# Test Coverage Summary
+# ---------------------------------------------------------------------------
+
+def coverage_summary(project_root: Path | None = None) -> dict:
+    """Cross-reference metabolon/ modules with assays/ test coverage.
+
+    Returns a dict with:
+        - modules: list of module info (name, has_test, test_file)
+        - total_modules: count of modules found
+        - covered_modules: count with corresponding test files
+        - coverage_ratio: covered / total (0.0 to 1.0)
+    """
+    if project_root is None:
+        # Try to find project root from current file location
+        project_root = Path(__file__).resolve().parent.parent.parent
+
+    metabolon_dir = project_root / "metabolon"
+    assays_dir = project_root / "assays"
+
+    modules: list[dict] = []
+
+    if not metabolon_dir.exists():
+        return {
+            "modules": [],
+            "total_modules": 0,
+            "covered_modules": 0,
+            "coverage_ratio": 0.0,
+        }
+
+    # Scan metabolon/ subdirectories for Python modules
+    for subdir in sorted(metabolon_dir.iterdir()):
+        if not subdir.is_dir():
+            continue
+        if subdir.name.startswith("_") or subdir.name.startswith("."):
+            continue
+
+        # Find all .py files in this subdirectory (non-recursive for simplicity)
+        for py_file in sorted(subdir.glob("*.py")):
+            if py_file.name.startswith("_") and py_file.name != "__init__.py":
+                continue
+            if py_file.name == "__init__.py":
+                # Skip __init__.py files - they're typically just package markers
+                continue
+
+            module_name = py_file.stem
+            module_rel = f"{subdir.name}/{py_file.name}"
+
+            # Check for corresponding test file in assays/
+            # Pattern: test_{module}.py or test_{subdir}_{module}.py
+            test_file = None
+            has_test = False
+
+            if assays_dir.exists():
+                # Primary pattern: test_{module}.py
+                primary_test = assays_dir / f"test_{module_name}.py"
+                # Secondary pattern: test_{subdir}_{module}.py
+                secondary_test = assays_dir / f"test_{subdir.name}_{module_name}.py"
+
+                if primary_test.exists():
+                    test_file = f"test_{module_name}.py"
+                    has_test = True
+                elif secondary_test.exists():
+                    test_file = f"test_{subdir.name}_{module_name}.py"
+                    has_test = True
+
+            modules.append({
+                "module": module_rel,
+                "name": module_name,
+                "has_test": has_test,
+                "test_file": test_file,
+            })
+
+    total = len(modules)
+    covered = sum(1 for m in modules if m["has_test"])
+    ratio = covered / total if total > 0 else 0.0
+
+    return {
+        "modules": modules,
+        "total_modules": total,
+        "covered_modules": covered,
+        "coverage_ratio": round(ratio, 4),
+    }

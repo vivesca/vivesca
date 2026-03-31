@@ -187,3 +187,58 @@ def validate_execution(
     if not tests_ok:
         issues.append(ValidationIssue(check="tests", message=test_output or "Test command failed"))
     return issues
+
+
+def check_test_coverage(
+    project_dir: Path,
+    threshold: float = 0.8,
+) -> list[ValidationIssue]:
+    """Check that test coverage meets the minimum threshold.
+
+    Uses complement.coverage_summary to cross-reference metabolon/ modules
+    with assays/ test files.
+
+    Args:
+        project_dir: Root of the project (contains metabolon/ and assays/)
+        threshold: Minimum required coverage ratio (0.0 to 1.0), default 0.8
+
+    Returns:
+        List of ValidationIssues if coverage is below threshold.
+    """
+    from metabolon.organelles.complement import coverage_summary
+
+    summary = coverage_summary(project_root=project_dir)
+
+    total = summary["total_modules"]
+    covered = summary["covered_modules"]
+    ratio = summary["coverage_ratio"]
+
+    # Edge case: no modules found
+    if total == 0:
+        return [
+            ValidationIssue(
+                check="test-coverage",
+                message="No modules found to check coverage",
+                severity="warning",
+            )
+        ]
+
+    if ratio < threshold:
+        missing = [m["module"] for m in summary["modules"] if not m["has_test"]]
+        # Truncate list if too long
+        if len(missing) > 5:
+            missing_display = ", ".join(missing[:5]) + f" (and {len(missing) - 5} more)"
+        else:
+            missing_display = ", ".join(missing)
+        return [
+            ValidationIssue(
+                check="test-coverage",
+                message=(
+                    f"Test coverage {covered}/{total} ({ratio:.1%}) is below "
+                    f"threshold {threshold:.0%}. Missing tests for: {missing_display}"
+                ),
+                severity="warning",
+            )
+        ]
+
+    return []

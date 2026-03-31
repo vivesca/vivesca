@@ -158,3 +158,134 @@ def snapshot() -> dict:
     with _SNAPSHOT_PATH.open("a") as f:
         f.write(json.dumps(entry) + "\n")
     return entry
+
+
+# ---------------------------------------------------------------------------
+# Conversion suggestions
+# Heuristics for identifying symbiont capabilities that could become deterministic.
+# ---------------------------------------------------------------------------
+
+_CONVERSION_HEURISTICS = {
+    # If the capability only does structured data transformation, it can be deterministic
+    "structured_output_only": [
+        # Tasks that just format/structure existing data
+        "format_data",
+        "transform_output",
+        "parse_structured",
+    ],
+    # If the capability has clear rules, it can be rule-based
+    "rule_based_candidate": [
+        # Tasks with predictable patterns
+        "classify_by_keywords",
+        "extract_patterns",
+        "validate_structure",
+    ],
+}
+
+# Capabilities that are potentially convertible from symbiont to deterministic
+_CONVERTIBLE_CAPABILITIES = {
+    "taste_judge": {
+        "reason": "Scoring could be rule-based with explicit criteria",
+        "effort": "medium",
+        "dependencies": ["criteria_definition", "test_cases"],
+    },
+    "potentiation": {
+        "reason": "Drill generation could use templates with slot filling",
+        "effort": "high",
+        "dependencies": ["template_library", "content_database"],
+    },
+    "endocytosis_relevance": {
+        "reason": "Already hybrid; deterministic scoring could be improved",
+        "effort": "low",
+        "dependencies": ["scoring_weights_tuning"],
+    },
+    "rss_breaking": {
+        "reason": "Already hybrid; keyword-based detection could replace LLM check",
+        "effort": "low",
+        "dependencies": ["keyword_list_maintenance"],
+    },
+    "angiogenesis_propose": {
+        "reason": "Proposals could use templates based on infection type",
+        "effort": "medium",
+        "dependencies": ["proposal_templates", "infection_taxonomy"],
+    },
+}
+
+
+def suggest_conversions() -> list[dict]:
+    """Identify symbiont/hybrid capabilities that could become deterministic.
+
+    Returns a list of conversion suggestions, each with:
+    - capability: name of the capability
+    - current_type: "symbiont" or "hybrid"
+    - reason: why it might be convertible
+    - effort: "low", "medium", or "high"
+    - dependencies: what's needed to make it deterministic
+    - priority: computed score (higher = more valuable to convert)
+
+    Priority is based on:
+    - How often the capability is used (estimated)
+    - Effort required (lower effort = higher priority)
+    - Whether it's already hybrid (easier conversion path)
+    """
+    suggestions = []
+
+    for name, info in _CONVERTIBLE_CAPABILITIES.items():
+        current_type = _REGISTRY.get(name)
+        if current_type not in ("symbiont", "hybrid"):
+            continue
+
+        # Compute priority score
+        effort_score = {"low": 3, "medium": 2, "high": 1}.get(info.get("effort", "high"), 1)
+        hybrid_bonus = 2 if current_type == "hybrid" else 0
+        priority = effort_score + hybrid_bonus
+
+        suggestions.append({
+            "capability": name,
+            "current_type": current_type,
+            "reason": info.get("reason", ""),
+            "effort": info.get("effort", "unknown"),
+            "dependencies": info.get("dependencies", []),
+            "priority": priority,
+        })
+
+    # Sort by priority (highest first)
+    suggestions.sort(key=lambda x: x["priority"], reverse=True)
+    return suggestions
+
+
+def get_conversion_report() -> dict:
+    """Generate a summary report of conversion opportunities.
+
+    Returns:
+        - total_symbiont: count of symbiont capabilities
+        - total_hybrid: count of hybrid capabilities
+        - conversion_candidates: count of identified conversion candidates
+        - potential_glycolysis_gain: estimated glycolysis % increase if all converted
+        - suggestions: list of conversion suggestions
+    """
+    rate = measure_rate()
+    suggestions = suggest_conversions()
+
+    # Calculate potential gain
+    # Each conversion: symbiont -> deterministic adds 1, hybrid -> deterministic adds 0.5
+    potential_gain = 0.0
+    for s in suggestions:
+        if s["current_type"] == "symbiont":
+            potential_gain += 1.0
+        elif s["current_type"] == "hybrid":
+            potential_gain += 0.5
+
+    total = rate["total"]
+    current_deterministic_equivalent = rate["deterministic_count"] + rate["hybrid_count"] * 0.5
+    new_deterministic_equivalent = current_deterministic_equivalent + potential_gain
+    potential_glycolysis_pct = round((new_deterministic_equivalent / total * 100) if total else 0.0, 1)
+
+    return {
+        "total_symbiont": rate["symbiont_count"],
+        "total_hybrid": rate["hybrid_count"],
+        "conversion_candidates": len(suggestions),
+        "potential_glycolysis_gain": round(potential_glycolysis_pct - rate["glycolysis_pct"], 1),
+        "potential_glycolysis_pct": potential_glycolysis_pct,
+        "suggestions": suggestions,
+    }
