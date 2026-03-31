@@ -8,7 +8,7 @@ context: fork
 # /proliferation -- Adaptive Radiation
 
 Rapidly diversify the organism's capabilities for a domain. Overproduce
-variants. The selection machinery (integrin, apoptosis) kills what doesn't
+variants. The selection machinery (integrin) kills what doesn't
 earn its place. Design less, produce more, select harder.
 
 ## When to Use
@@ -54,13 +54,13 @@ Let integrin track activation state:
 
 ### 5. Cull
 
-Run integrin_apoptosis_check. Retire bent variants. Refine survivors.
+Run integrin (apoptosis check). Retire bent variants. Refine survivors.
 
 ## Anti-patterns
 
 - **Designing each variant carefully** -- defeats the purpose. Selection is smarter.
 - **Keeping everything** -- the point is retirement. If nothing dies, you over-curated.
-- **Proliferating without selection** -- useless without integrin + apoptosis.
+- **Proliferating without selection** -- useless without integrin.
 
 ## Cadence
 

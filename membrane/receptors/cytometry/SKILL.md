@@ -2,6 +2,11 @@
 name: cytometry
 description: Classify subsystems as self-governing vs human-gated. "autonomy audit"
 user_invocable: true
+triggers:
+  - cytometry
+  - autonomy audit
+  - classify autonomy
+  - self-governing
 model: sonnet
 context: fork
 epistemics: [monitor, evaluate]

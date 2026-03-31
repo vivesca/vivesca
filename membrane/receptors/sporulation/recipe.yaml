@@ -27,7 +27,7 @@ instructions: |
 
   When a user says an adjective-noun codename (e.g., "happy-cat") in a new session:
 
-  1. Search for `~/.claude/projects/-Users-terry/memory/checkpoint_<codename>.md`
+  1. Search for `~/.claude/projects/-home-terry-germline/memory/checkpoint_<codename>.md`
   2. Read it
   3. Execute the "Action needed" steps
   4. Delete the checkpoint file after successful resume (spore consumed)
@@ -39,7 +39,7 @@ instructions: |
   Checkpoints older than 7 days are stale. On any sporulation, delete checkpoints older than 7 days:
 
   ```bash
-  find ~/.claude/projects/-Users-terry/memory/ -name "checkpoint_*.md" -mtime +7 -delete
+  find ~/.claude/projects/-home-terry-germline/memory/ -name "checkpoint_*.md" -mtime +7 -delete
   ```
 
   ## Pre-sporulation: full cytokinesis
