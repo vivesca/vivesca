@@ -145,13 +145,10 @@ _run_golem() {
   if [[ -f "$COACHING_FILE" ]]; then
     local _coaching_tmp
     _coaching_tmp="$(mktemp)"
-    {
-      echo "<coaching-notes>"
-      cat "$COACHING_FILE"
-      echo "</coaching-notes>"
-      echo ""
-      echo "$prompt"
-    } > "$_coaching_tmp"
+    printf '%s\n' "<coaching-notes>" > "$_coaching_tmp"
+    cat "$COACHING_FILE" >> "$_coaching_tmp"
+    printf '\n%s\n\n' "</coaching-notes>" >> "$_coaching_tmp"
+    printf '%s' "$prompt" >> "$_coaching_tmp"
     prompt="$(cat "$_coaching_tmp")"
     rm -f "$_coaching_tmp"
   fi
