@@ -437,3 +437,167 @@ def test_fetch_url_includes_error_message():
     finally:
         namespace['_defuddle'] = original_defuddle
         namespace['_agent_browser_eval'] = original_agent_browser
+
+
+# ---------------------------------------------------------------------------
+# Additional edge case tests
+# ---------------------------------------------------------------------------
+
+
+def test_run_with_env_command():
+    """Test _run with a command that uses environment variables."""
+    import os
+    ok, output = pinocytosis._run(["sh", "-c", "echo $HOME"])
+    assert ok is True
+    assert output  # Should have some output
+
+
+def test_defuddle_exact_threshold():
+    """Test _defuddle at exactly 100 characters."""
+    # Exactly 100 characters should fail (needs > 100)
+    text_99 = "x" * 99
+    text_100 = "x" * 100
+    text_101 = "x" * 101
+
+    original_run = namespace['_run']
+
+    # 99 chars should fail
+    namespace['_run'] = MagicMock(return_value=(True, text_99))
+    try:
+        result = namespace['_defuddle']("https://example.com")
+        assert result == ""
+    finally:
+        pass
+
+    # 100 chars should fail (not > 100)
+    namespace['_run'] = MagicMock(return_value=(True, text_100))
+    try:
+        result = namespace['_defuddle']("https://example.com")
+        assert result == ""
+    finally:
+        pass
+
+    # 101 chars should succeed
+    namespace['_run'] = MagicMock(return_value=(True, text_101))
+    try:
+        result = namespace['_defuddle']("https://example.com")
+        assert result == text_101
+    finally:
+        namespace['_run'] = original_run
+
+
+def test_agent_browser_eval_short_text():
+    """Test _agent_browser_eval with text under 50 chars from eval."""
+    original_run = namespace['_run']
+    short_text = "x" * 49  # Under 50 chars
+
+    # eval returns short text (too short), get returns empty
+    namespace['_run'] = MagicMock(side_effect=[
+        (True, ""),  # close
+        (True, ""),  # open
+        (True, ""),  # wait
+        (True, short_text),  # eval - too short, doesn't return
+        (True, ""),  # get - empty, doesn't return
+    ])
+    try:
+        with patch('time.sleep'):
+            result = namespace['_agent_browser_eval']("https://example.com")
+        assert result == ""
+    finally:
+        namespace['_run'] = original_run
+
+
+def test_agent_browser_eval_exactly_50_chars():
+    """Test _agent_browser_eval with exactly 50 characters."""
+    original_run = namespace['_run']
+    text_50 = "x" * 50  # Exactly 50 chars (should fail, needs > 50)
+    text_51 = "x" * 51  # 51 chars should succeed
+
+    # 50 chars should fail
+    namespace['_run'] = MagicMock(side_effect=[
+        (True, ""),  # close
+        (True, ""),  # open
+        (True, ""),  # wait
+        (True, text_50),  # eval - exactly 50, too short
+        (True, ""),  # get - empty
+    ])
+    try:
+        with patch('time.sleep'):
+            result = namespace['_agent_browser_eval']("https://example.com")
+        assert result == ""
+    finally:
+        pass
+
+    # 51 chars should succeed
+    namespace['_run'] = MagicMock(side_effect=[
+        (True, ""),  # close
+        (True, ""),  # open
+        (True, ""),  # wait
+        (True, text_51),  # eval - 51 chars, success
+    ])
+    try:
+        with patch('time.sleep'):
+            result = namespace['_agent_browser_eval']("https://example.com")
+        assert result == text_51
+    finally:
+        namespace['_run'] = original_run
+
+
+def test_fetch_url_url_preserved():
+    """Test fetch_url preserves the URL in the result."""
+    original_defuddle = namespace['_defuddle']
+    namespace['_defuddle'] = MagicMock(return_value="x" * 200)
+    try:
+        result = namespace['fetch_url']("https://example.com/test")
+        assert result["url"] == "https://example.com/test"
+    finally:
+        namespace['_defuddle'] = original_defuddle
+
+
+# ---------------------------------------------------------------------------
+# Test main function argument parsing
+# ---------------------------------------------------------------------------
+
+
+def test_main_json_output():
+    """Test main function with --json flag."""
+    original_argv = sys.argv
+    original_defuddle = namespace['_defuddle']
+    namespace['_defuddle'] = MagicMock(return_value="x" * 200)
+
+    try:
+        sys.argv = ["pinocytosis", "--json", "https://example.com"]
+        # Capture stdout
+        import io
+        from contextlib import redirect_stdout
+        f = io.StringIO()
+        with redirect_stdout(f):
+            namespace['main']()
+        output = f.getvalue()
+        # Should be valid JSON
+        import json
+        data = json.loads(output)
+        assert data["success"] is True
+        assert data["method"] == "defuddle"
+    finally:
+        sys.argv = original_argv
+        namespace['_defuddle'] = original_defuddle
+
+
+def test_main_failure_exits_nonzero():
+    """Test main function exits with code 1 on failure."""
+    original_argv = sys.argv
+    original_defuddle = namespace['_defuddle']
+    original_agent_browser = namespace['_agent_browser_eval']
+    namespace['_defuddle'] = MagicMock(return_value="")
+    namespace['_agent_browser_eval'] = MagicMock(return_value="")
+
+    try:
+        sys.argv = ["pinocytosis", "https://example.com"]
+        with pytest.raises(SystemExit) as exc_info:
+            namespace['main']()
+        assert exc_info.value.code == 1
+    finally:
+        sys.argv = original_argv
+        namespace['_defuddle'] = original_defuddle
+        namespace['_agent_browser_eval'] = original_agent_browser

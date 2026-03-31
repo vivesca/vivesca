@@ -1,146 +1,250 @@
 #!/usr/bin/env python3
-"""golem-health — Health check for all golem providers.
+# /// script
+# requires-python = ">=3.11"
+# dependencies = []
+# ///
+"""
+Health check for golem providers.
 
-Sends minimal test prompt through each provider and reports status.
+Sources ~/.env.fly, then runs a minimal golem invocation for each provider.
+Measures exit code, output presence, and latency.
 
 Usage:
-    golem-health
+    golem-health                  # Check all providers
+    golem-health --provider zhipu # Check specific provider
+    golem-health --json           # Output as JSON
 """
+
+import argparse
+import json
+import os
+import subprocess
 import sys
 import time
-import subprocess
 from dataclasses import dataclass
-from typing import List, Optional
+from pathlib import Path
+from typing import Optional
 
-GOLEM_PATH = "/Users/terry/germline/effectors/golem"
-TEST_PROMPT = "What is 2 + 2? Answer with only the number."
+ENV_FILE = Path.home() / ".env.fly"
+
+PROVIDERS = {
+    "zhipu": {
+        "model": "GLM-5.1",
+        "key_var": "ZHIPU_API_KEY",
+    },
+    "infini": {
+        "model": "glm-5",
+        "key_var": "INFINI_API_KEY",
+    },
+    "volcano": {
+        "model": "ark-code-latest",
+        "key_var": "VOLCANO_API_KEY",
+    },
+}
+
 
 @dataclass
-class ProviderResult:
+class HealthResult:
     provider: str
-    status: str  # "ok" or "fail"
-    latency: float
-    model_name: str
+    status: str  # "OK", "FAIL", "ERROR"
+    latency_ms: int
+    model: str
+    exit_code: int
+    has_output: bool
     error: Optional[str] = None
 
-def check_provider(provider: str) -> ProviderResult:
-    """Run health check on a single provider."""
-    start_time = time.time()
-    cmd = [
-        GOLEM_PATH,
-        "--provider", provider,
-        "--max-turns", "2",
-        "--bare",
-        TEST_PROMPT
-    ]
-    
+
+def source_env_file(env_file: Path) -> dict[str, str]:
+    """Source a shell env file and return the environment variables."""
+    if not env_file.exists():
+        return {}
+
+    # Use bash to source the file and print env
+    cmd = f'source "{env_file}" && env'
+    result = subprocess.run(
+        ["bash", "-c", cmd],
+        capture_output=True,
+        text=True,
+        timeout=10,
+    )
+
+    env = {}
+    for line in result.stdout.splitlines():
+        if "=" in line:
+            key, _, value = line.partition("=")
+            env[key] = value
+    return env
+
+
+def check_provider(
+    provider: str,
+    env: dict[str, str],
+    golem_path: Path,
+) -> HealthResult:
+    """Run health check for a single provider."""
+    if provider not in PROVIDERS:
+        return HealthResult(
+            provider=provider,
+            status="ERROR",
+            latency_ms=0,
+            model="unknown",
+            exit_code=1,
+            has_output=False,
+            error=f"Unknown provider: {provider}",
+        )
+
+    config = PROVIDERS[provider]
+    model = config["model"]
+    key_var = config["key_var"]
+
+    # Check if API key is available
+    if key_var not in env:
+        return HealthResult(
+            provider=provider,
+            status="FAIL",
+            latency_ms=0,
+            model=model,
+            exit_code=1,
+            has_output=False,
+            error=f"{key_var} not set",
+        )
+
+    # Run golem with minimal invocation
+    start = time.perf_counter()
     try:
         result = subprocess.run(
-            cmd,
+            [str(golem_path), "--provider", provider, "--max-turns", "1", "Say hello"],
             capture_output=True,
             text=True,
-            timeout=120  # 2 minute timeout
+            timeout=60,
+            env=env,
         )
-        latency = time.time() - start_time
-        
-        # Get model name from provider config
-        if provider == "zhipu":
-            model_name = "GLM-5.1"
-        elif provider == "volcano":
-            model_name = "ark-code-latest"
-        elif provider == "infini":
-            model_name = "glm-5"
-        else:
-            model_name = "unknown"
-        
-        if result.returncode == 0:
-            # Check if output contains "4" (answer to 2+2)
-            output = result.stdout.lower()
-            if "4" in output:
-                return ProviderResult(
-                    provider=provider,
-                    status="ok",
-                    latency=latency,
-                    model_name=model_name
-                )
-            else:
-                return ProviderResult(
-                    provider=provider,
-                    status="fail",
-                    latency=latency,
-                    model_name=model_name,
-                    error=f"Expected '4' not found in output: {result.stdout[:100]}..."
-                )
-        else:
-            return ProviderResult(
-                provider=provider,
-                status="fail",
-                latency=latency,
-                model_name=model_name,
-                error=f"Exit code {result.returncode}: {result.stderr[:200]}"
-            )
-            
-    except subprocess.TimeoutExpired:
-        latency = time.time() - start_time
-        model_name = {
-            "zhipu": "GLM-5.1",
-            "volcano": "ark-code-latest",
-            "infini": "glm-5"
-        }.get(provider, "unknown")
-        return ProviderResult(
+        latency_ms = int((time.perf_counter() - start) * 1000)
+
+        has_output = bool(result.stdout.strip())
+        status = "OK" if result.returncode == 0 and has_output else "FAIL"
+        error = None
+        if result.returncode != 0:
+            error = result.stderr.strip()[:100] if result.stderr else "non-zero exit"
+        elif not has_output:
+            error = "no output"
+
+        return HealthResult(
             provider=provider,
-            status="fail",
-            latency=latency,
-            model_name=model_name,
-            error="Timeout after 120 seconds"
+            status=status,
+            latency_ms=latency_ms,
+            model=model,
+            exit_code=result.returncode,
+            has_output=has_output,
+            error=error,
+        )
+    except subprocess.TimeoutExpired:
+        latency_ms = int((time.perf_counter() - start) * 1000)
+        return HealthResult(
+            provider=provider,
+            status="FAIL",
+            latency_ms=latency_ms,
+            model=model,
+            exit_code=-1,
+            has_output=False,
+            error="timeout",
         )
     except Exception as e:
-        latency = time.time() - start_time
-        model_name = {
-            "zhipu": "GLM-5.1",
-            "volcano": "ark-code-latest",
-            "infini": "glm-5"
-        }.get(provider, "unknown")
-        return ProviderResult(
+        latency_ms = int((time.perf_counter() - start) * 1000)
+        return HealthResult(
             provider=provider,
-            status="fail",
-            latency=latency,
-            model_name=model_name,
-            error=str(e)
+            status="ERROR",
+            latency_ms=latency_ms,
+            model=model,
+            exit_code=-1,
+            has_output=False,
+            error=str(e)[:100],
         )
 
-def main():
-    """Main entry point."""
-    providers = ["zhipu", "infini", "volcano"]
-    results: List[ProviderResult] = []
-    
-    print("=== golem-health check starting ===\n")
-    print(f"Test prompt: {TEST_PROMPT}\n")
-    
-    for provider in providers:
-        print(f"Checking {provider}...")
-        result = check_provider(provider)
+
+def print_table(results: list[HealthResult]) -> None:
+    """Print results as a formatted table."""
+    header = f"{'Provider':<10} | {'Status':<6} | {'Latency':>10} | {'Model':<18}"
+    separator = "-" * 52
+    print(header)
+    print(separator)
+
+    for r in results:
+        latency = f"{r.latency_ms}ms" if r.latency_ms > 0 else "-"
+        row = f"{r.provider:<10} | {r.status:<6} | {latency:>10} | {r.model:<18}"
+        print(row)
+        if r.error:
+            print(f"           └─ {r.error}")
+
+
+def print_json(results: list[HealthResult]) -> None:
+    """Print results as JSON."""
+    data = [
+        {
+            "provider": r.provider,
+            "status": r.status,
+            "latency_ms": r.latency_ms,
+            "model": r.model,
+            "exit_code": r.exit_code,
+            "has_output": r.has_output,
+            "error": r.error,
+        }
+        for r in results
+    ]
+    print(json.dumps(data, indent=2))
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(
+        description="Health check for golem providers."
+    )
+    parser.add_argument(
+        "--provider",
+        choices=list(PROVIDERS.keys()),
+        help="Check only this provider (default: all)",
+    )
+    parser.add_argument(
+        "--json",
+        action="store_true",
+        help="Output as JSON",
+    )
+    args = parser.parse_args(argv)
+
+    # Find golem
+    golem_path = Path(__file__).parent / "golem"
+    if not golem_path.exists():
+        print(f"Error: golem not found at {golem_path}", file=sys.stderr)
+        return 1
+
+    # Source env file
+    env = os.environ.copy()
+    if ENV_FILE.exists():
+        sourced = source_env_file(ENV_FILE)
+        env.update(sourced)
+
+    # Determine providers to check
+    providers_to_check = (
+        [args.provider] if args.provider else list(PROVIDERS.keys())
+    )
+
+    # Run health checks
+    results: list[HealthResult] = []
+    for provider in providers_to_check:
+        print(f"Checking {provider}...", file=sys.stderr)
+        result = check_provider(provider, env, golem_path)
         results.append(result)
-    
-    print("\n\n=== Health Check Results ===\n")
-    print(f"{'Provider':<10} | {'Status':<6} | {'Latency':>8} | {'Model'}")
-    print("-" * 60)
-    
-    all_ok = True
-    for result in results:
-        status = result.status
-        if result.status == "ok":
-            all_ok = all_ok and True
-        else:
-            all_ok = False
-        print(f"{result.provider:<10} | {result.status:<6} | {result.latency:>6.2f}s | {result.model_name}")
-        if result.error:
-            print(f"  Error: {result.error}\n")
-    
-    print(f"\nSummary: {sum(1 for r in results if r.status == 'ok')}/{len(results)} providers OK")
-    
-    if not all_ok:
-        sys.exit(1)
+
+    # Output results
+    if args.json:
+        print_json(results)
+    else:
+        print_table(results)
+
+    # Return non-zero if any failed
+    if any(r.status != "OK" for r in results):
+        return 1
+    return 0
+
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

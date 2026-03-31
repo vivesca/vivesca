@@ -48,17 +48,17 @@ def test_save_state(monkeypatch):
 def test_check_service_success(monkeypatch):
     """Test check_service when everything is healthy."""
     mock_response = b'{"err": null, "data": [{"paused": false}, {"paused": false}]}'
-    
+
     mock_urlopen = MagicMock()
     mock_urlopen.read.return_value = mock_response
-    
-    def mock_urlopen_func(req):
+
+    def mock_urlopen_func(req, **kwargs):
         return mock_urlopen
-    
+
     monkeypatch.setattr("urllib.request.urlopen", mock_urlopen_func)
-    
+
     healthy, detail = wewe.check_service()
-    
+
     assert healthy is True
     assert "2 feed(s) active" in detail
 
@@ -77,51 +77,51 @@ def test_check_service_api_unreachable(monkeypatch):
 def test_check_service_api_error(monkeypatch):
     """Test check_service when API returns error."""
     mock_response = b'{"err": "invalid key", "data": []}'
-    
+
     mock_urlopen = MagicMock()
     mock_urlopen.read.return_value = mock_response
-    
-    def mock_urlopen_func(req):
+
+    def mock_urlopen_func(req, **kwargs):
         return mock_urlopen
-    
+
     monkeypatch.setattr("urllib.request.urlopen", mock_urlopen_func)
-    
+
     healthy, detail = wewe.check_service()
-    
+
     assert healthy is False
     assert "API error: invalid key" in detail
 
 def test_check_service_no_feeds(monkeypatch):
     """Test check_service when no feeds configured."""
     mock_response = b'{"err": null, "data": []}'
-    
+
     mock_urlopen = MagicMock()
     mock_urlopen.read.return_value = mock_response
-    
-    def mock_urlopen_func(req):
+
+    def mock_urlopen_func(req, **kwargs):
         return mock_urlopen
-    
+
     monkeypatch.setattr("urllib.request.urlopen", mock_urlopen_func)
-    
+
     healthy, detail = wewe.check_service()
-    
+
     assert healthy is False
     assert "no feeds configured" in detail
 
 def test_check_service_some_paused(monkeypatch):
     """Test check_service when some feeds are paused."""
     mock_response = b'{"err": null, "data": [{"paused": true}, {"paused": false}]}'
-    
+
     mock_urlopen = MagicMock()
     mock_urlopen.read.return_value = mock_response
-    
-    def mock_urlopen_func(req):
+
+    def mock_urlopen_func(req, **kwargs):
         return mock_urlopen
-    
+
     monkeypatch.setattr("urllib.request.urlopen", mock_urlopen_func)
-    
+
     healthy, detail = wewe.check_service()
-    
+
     assert healthy is False
     assert "1/2 feeds paused" in detail
 

@@ -1,191 +1,247 @@
 #!/usr/bin/env python3
-"""Tests for phagocytosis.py — Obsidian lastOpenFiles logging tests."""
+"""Tests for effectors/phagocytosis.py — Obsidian lastOpenFiles logging.
+
+All filesystem calls are mocked.
+"""
+
+import io
+import json
 
 import pytest
-import json
-import io
-from unittest.mock import patch, mock_open
 from pathlib import Path
+from unittest.mock import patch
 
-# Execute the phagocytosis file directly
-phago_path = Path("/home/terry/germline/effectors/phagocytosis.py")
-phago_code = phago_path.read_text()
-namespace = {}
-exec(phago_code, namespace)
+PHAGO_PATH = Path(__file__).resolve().parents[1] / "effectors" / "phagocytosis.py"
 
-# Extract all the functions/globals from the namespace
-phagocytosis = type('phago_module', (), {})()
-for key, value in namespace.items():
-    if not key.startswith('__'):
-        setattr(phagocytosis, key, value)
 
-# ---------------------------------------------------------------------------
-# Test constants
-# ---------------------------------------------------------------------------
+# ── Load module via exec ────────────────────────────────────────────────────
 
-def test_paths_resolved():
-    """Test all paths are correctly constructed."""
-    assert str(phagocytosis.CHROMATIN).endswith("epigenome/chromatin")
-    assert phagocytosis.WORKSPACE == phagocytosis.CHROMATIN / ".obsidian" / "workspace.json"
-    assert phagocytosis.LOG_FILE == phagocytosis.CHROMATIN / ".consumption-log.jsonl"
+@pytest.fixture()
+def phago():
+    """Load phagocytosis via exec into an isolated namespace."""
+    ns: dict = {"__name__": "__main__"}
+    source = PHAGO_PATH.read_text(encoding="utf-8")
+    exec(source, ns)
+    mod = type("phago", (), {})()
+    for k, v in ns.items():
+        if not k.startswith("__"):
+            setattr(mod, k, v)
+    return mod
 
-# ---------------------------------------------------------------------------
-# Test read_last_open_files
-# ---------------------------------------------------------------------------
 
-def test_read_last_open_files_extracts_correctly():
-    """Test reads and extracts lastOpenFiles from workspace."""
-    workspace_data = {
-        "lastOpenFiles": [
-            "/note1.md",
-            "/note2.md",
-            "/note3.md"
-        ]
-    }
-    mock_text = json.dumps(workspace_data)
-    
-    with patch('pathlib.Path.read_text', return_value=mock_text):
-        result = phagocytosis.read_last_open_files()
-        assert len(result) == 3
-        assert result[0] == "/note1.md"
+# ── Path constants ──────────────────────────────────────────────────────────
 
-def test_read_last_open_files_handles_empty():
-    """Test when no lastOpenFiles key, returns empty list."""
-    workspace_data = {}
-    mock_text = json.dumps(workspace_data)
-    
-    with patch('pathlib.Path.read_text', return_value=mock_text):
-        result = phagocytosis.read_last_open_files()
+
+class TestPhagoPaths:
+    def test_chromatin_path(self, phago):
+        assert str(phago.CHROMATIN).endswith("epigenome/chromatin")
+
+    def test_workspace_path(self, phago):
+        assert phago.WORKSPACE == phago.CHROMATIN / ".obsidian" / "workspace.json"
+
+    def test_log_file_path(self, phago):
+        assert phago.LOG_FILE == phago.CHROMATIN / ".consumption-log.jsonl"
+
+
+# ── read_last_open_files ───────────────────────────────────────────────────
+
+
+class TestReadLastOpenFiles:
+    def test_extracts_file_list(self, phago):
+        data = json.dumps({"lastOpenFiles": ["/a.md", "/b.md", "/c.md"]})
+        with patch("pathlib.Path.read_text", return_value=data):
+            result = phago.read_last_open_files()
+        assert result == ["/a.md", "/b.md", "/c.md"]
+
+    def test_missing_key_returns_empty(self, phago):
+        with patch("pathlib.Path.read_text", return_value="{}"):
+            result = phago.read_last_open_files()
         assert result == []
 
-# ---------------------------------------------------------------------------
-# Test read_last_snapshot
-# ---------------------------------------------------------------------------
+    def test_single_file(self, phago):
+        data = json.dumps({"lastOpenFiles": ["/only.md"]})
+        with patch("pathlib.Path.read_text", return_value=data):
+            result = phago.read_last_open_files()
+        assert result == ["/only.md"]
 
-def test_read_last_snapshot_returns_none_when_no_file():
-    """Test returns None when log file doesn't exist."""
-    with patch('pathlib.Path.exists', return_value=False):
-        result = phagocytosis.read_last_snapshot()
+
+# ── read_last_snapshot ─────────────────────────────────────────────────────
+
+
+class TestReadLastSnapshot:
+    def test_returns_none_when_no_file(self, phago):
+        with patch.object(phago.LOG_FILE, "exists", return_value=False):
+            result = phago.read_last_snapshot()
         assert result is None
 
-def test_read_last_snapshot_returns_none_when_empty():
-    """Test returns None when log file is empty."""
-    def mock_exists(self):
-        if self == phagocytosis.LOG_FILE:
-            return True
-        return False
+    def test_returns_none_when_empty_file(self, phago):
+        content = b""
+        bio = io.BytesIO(content)
 
-    mock_file = io.BytesIO()
+        with patch.object(phago.LOG_FILE, "exists", return_value=True):
+            with patch.object(phago.LOG_FILE, "open", return_value=bio):
+                result = phago.read_last_snapshot()
+        assert result is None
 
-    def mock_open(self, *args, **kwargs):
-        if self == phagocytosis.LOG_FILE:
-            return mock_file
-        raise FileNotFoundError(f"{self} not found")
+    def test_reads_last_line(self, phago):
+        entry1 = json.dumps({"ts": 100, "files": ["x.md"]})
+        entry2 = json.dumps({"ts": 200, "files": ["y.md", "z.md"]})
+        content = f"{entry1}\n{entry2}\n".encode()
+        bio = io.BytesIO(content)
 
-    with patch('pathlib.Path.exists', mock_exists):
-        with patch('pathlib.Path.open', mock_open):
-            result = phagocytosis.read_last_snapshot()
-            assert result is None
+        with patch.object(phago.LOG_FILE, "exists", return_value=True):
+            with patch.object(phago.LOG_FILE, "open", return_value=bio):
+                result = phago.read_last_snapshot()
+        assert result == ["y.md", "z.md"]
 
-def test_read_last_snapshot_reads_last_line():
-    """Test correctly reads the last line from log file."""
-    entry1 = json.dumps({"ts": 1234567890, "files": ["a.md", "b.md"]})
-    entry2 = json.dumps({"ts": 1234567891, "files": ["b.md", "c.md"]})
-    content = f"{entry1}\n{entry2}\n".encode('utf-8')
+    def test_single_entry_file(self, phago):
+        entry = json.dumps({"ts": 100, "files": ["solo.md"]})
+        content = f"{entry}\n".encode()
+        bio = io.BytesIO(content)
 
-    mock_io = io.BytesIO(content)
+        with patch.object(phago.LOG_FILE, "exists", return_value=True):
+            with patch.object(phago.LOG_FILE, "open", return_value=bio):
+                result = phago.read_last_snapshot()
+        assert result == ["solo.md"]
 
-    def mock_exists(self):
-        if self == phagocytosis.LOG_FILE:
-            return True
-        return False
 
-    def mock_open(self, *args, **kwargs):
-        if self == phagocytosis.LOG_FILE:
-            return mock_io
-        raise FileNotFoundError(f"{self} not found")
+# ── main() integration ─────────────────────────────────────────────────────
 
-    with patch('pathlib.Path.exists', mock_exists):
-        with patch('pathlib.Path.open', mock_open):
-            result = phagocytosis.read_last_snapshot()
-            assert result == ["b.md", "c.md"]
 
-# ---------------------------------------------------------------------------
-# Test main function
-# ---------------------------------------------------------------------------
+class TestPhagoMain:
+    def test_exits_when_workspace_missing(self, phago):
+        with patch.object(phago.WORKSPACE, "exists", return_value=False):
+            phago.main()  # should return silently, no error
 
-def test_main_exits_if_workspace_missing():
-    """Test main returns early when workspace file doesn't exist."""
-    with patch('pathlib.Path.exists', return_value=False):
-        # Should not throw
-        phagocytosis.main()
+    def test_exits_when_no_open_files(self, phago):
+        with patch.object(phago.WORKSPACE, "exists", return_value=True):
+            with patch("pathlib.Path.read_text", return_value='{"lastOpenFiles": []}'):
+                phago.main()  # should return silently
 
-def test_main_exits_if_no_current_files():
-    """Test main returns early when empty file list."""
-    def mock_exists(self):
-        return str(self) == str(phagocytosis.WORKSPACE)
-    
-    with patch('pathlib.Path.exists', mock_exists):
-        with patch('pathlib.Path.read_text', return_value='{"lastOpenFiles": []}'):
-            # Should not throw
-            phagocytosis.main()
+    def test_skips_write_when_no_change(self, phago):
+        files = ["/a.md", "/b.md"]
+        entry = json.dumps({"ts": 100, "files": files})
+        content = f"{entry}\n".encode()
+        log_bio = io.BytesIO(content)
 
-def test_main_skips_if_same_as_last():
-    """Test skips writing when files haven't changed."""
-    file_list = ["/a.md", "/b.md"]
+        written = []
 
-    # Track if open is called to ensure it isn't
-    open_called = False
+        class AppendFile:
+            def __enter__(self):
+                return self
 
-    def mock_open(self, *args, **kwargs):
-        nonlocal open_called
-        open_called = True
-        raise FileNotFoundError(f"Should not open when skipping")
+            def __exit__(self, *a):
+                pass
 
-    def mock_exists(self):
-        # Both workspace and log file exist
-        return str(self) in (str(phagocytosis.WORKSPACE), str(phagocytosis.LOG_FILE))
+            def write(self, data):
+                written.append(data)
 
-    with patch('pathlib.Path.exists', mock_exists):
-        with patch('pathlib.Path.read_text', return_value=json.dumps({"lastOpenFiles": file_list})):
-            with patch.object(phagocytosis, 'read_last_snapshot', return_value=file_list):
-                with patch('pathlib.Path.open', mock_open):
-                    # Should exit early without writing
-                    phagocytosis.main()
-                    assert open_called is False, "Should not open file when no change"
+        def mock_open(self, *args, **kwargs):
+            if self == phago.LOG_FILE:
+                if args and "rb" in args[0]:
+                    return log_bio
+                if args and "a" in args[0]:
+                    return AppendFile()
+            raise FileNotFoundError(self)
 
-def test_main_writes_entry_when_changed():
-    """Test writes new entry when files changed."""
-    last_files = ["/a.md", "/b.md"]
-    current_files = ["/b.md", "/c.md"]
+        def mock_exists(self_path):
+            return str(self_path) in (
+                str(phago.WORKSPACE),
+                str(phago.LOG_FILE),
+            )
 
-    written_content = []
+        with patch("pathlib.Path.exists", mock_exists):
+            with patch(
+                "pathlib.Path.read_text",
+                return_value=json.dumps({"lastOpenFiles": files}),
+            ):
+                with patch("pathlib.Path.open", mock_open):
+                    phago.main()
+        assert written == [], "Should not write when files unchanged"
 
-    class MockFile:
-        def __enter__(self): return self
-        def __exit__(self, *args): pass
-        def write(self, data): written_content.append(data)
+    def test_writes_entry_when_changed(self, phago):
+        last_files = ["/a.md"]
+        current_files = ["/b.md", "/c.md"]
+        entry = json.dumps({"ts": 100, "files": last_files})
+        content = f"{entry}\n".encode()
+        log_bio = io.BytesIO(content)
 
-    mock_file = MockFile()
+        written = []
 
-    def mock_open(self, *args, **kwargs):
-        if self == phagocytosis.LOG_FILE:
-            return mock_file
-        raise FileNotFoundError(f"{self} not found")
+        class AppendFile:
+            def __enter__(self):
+                return self
 
-    def mock_exists(self):
-        return str(self) in (str(phagocytosis.WORKSPACE), str(phagocytosis.LOG_FILE))
+            def __exit__(self, *a):
+                pass
 
-    with patch('pathlib.Path.exists', mock_exists):
-        with patch('pathlib.Path.read_text', return_value=json.dumps({"lastOpenFiles": current_files})):
-            with patch.object(phagocytosis, 'read_last_snapshot', return_value=last_files):
-                with patch('pathlib.Path.open', mock_open):
-                    with patch('time.time', return_value=1234567890.0):
-                        phagocytosis.main()
-                        # Should write new entry
-                        assert len(written_content) == 1
-                        written = written_content[0].strip()
-                        # Should be valid JSON
-                        data = json.loads(written.strip())
-                        assert data['ts'] == 1234567890
-                        assert data['files'] == current_files
+            def write(self, data):
+                written.append(data)
+
+        def mock_open(self, *args, **kwargs):
+            if self == phago.LOG_FILE:
+                if args and "rb" in args[0]:
+                    return log_bio
+                if args and "a" in args[0]:
+                    return AppendFile()
+            raise FileNotFoundError(self)
+
+        def mock_exists(self_path):
+            return str(self_path) in (
+                str(phago.WORKSPACE),
+                str(phago.LOG_FILE),
+            )
+
+        with patch("pathlib.Path.exists", mock_exists):
+            with patch(
+                "pathlib.Path.read_text",
+                return_value=json.dumps({"lastOpenFiles": current_files}),
+            ):
+                with patch("pathlib.Path.open", mock_open):
+                    with patch("time.time", return_value=99999.0):
+                        phago.main()
+
+        assert len(written) == 1
+        data = json.loads(written[0].strip())
+        assert data["ts"] == 99999
+        assert data["files"] == current_files
+
+    def test_writes_entry_when_no_previous_log(self, phago):
+        current_files = ["/new1.md", "/new2.md"]
+        written = []
+
+        class AppendFile:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *a):
+                pass
+
+            def write(self, data):
+                written.append(data)
+
+        def mock_open(self, *args, **kwargs):
+            if self == phago.LOG_FILE and args and "a" in args[0]:
+                return AppendFile()
+            raise FileNotFoundError(self)
+
+        def mock_exists(self_path):
+            s = str(self_path)
+            if s == str(phago.WORKSPACE):
+                return True
+            if s == str(phago.LOG_FILE):
+                return False  # no previous log
+            return False
+
+        with patch("pathlib.Path.exists", mock_exists):
+            with patch(
+                "pathlib.Path.read_text",
+                return_value=json.dumps({"lastOpenFiles": current_files}),
+            ):
+                with patch("pathlib.Path.open", mock_open):
+                    with patch("time.time", return_value=42.0):
+                        phago.main()
+
+        assert len(written) == 1
+        data = json.loads(written[0].strip())
+        assert data["files"] == current_files

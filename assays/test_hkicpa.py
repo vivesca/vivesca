@@ -1,131 +1,266 @@
 #!/usr/bin/env python3
-"""Tests for hkicpa effector — mocks all external subprocess calls."""
+"""Tests for effectors/hkicpa — HKICPA LMS auto-login script."""
 
-import pytest
 import subprocess
 import sys
-from unittest.mock import MagicMock, patch
 from pathlib import Path
+from unittest.mock import patch, MagicMock
+
+import pytest
+
+HKICPA_PATH = Path(__file__).resolve().parents[1] / "effectors" / "hkicpa"
 
 
-def test_run_captures_stdout():
-    """Test run function captures and returns stripped stdout."""
-    # Load into own namespace
-    namespace = {}
-    hkicpa_code = Path("/home/terry/germline/effectors/hkicpa").read_text()
-    with patch('subprocess.run') as mock_run:
-        mock_run.return_value = MagicMock(stdout='  test output  ', returncode=0)
-        exec(hkicpa_code, namespace)
-        result = namespace['run']("echo test")
-        assert result == "test output"
-        mock_run.assert_called_once()
+# ── File structure tests ──────────────────────────────────────────────────────
 
 
-def test_ab_calls_agent_browser():
-    """Test ab function calls agent-browser with correct arguments."""
-    namespace = {}
-    hkicpa_code = Path("/home/terry/germline/effectors/hkicpa").read_text()
-    with patch('subprocess.run') as mock_run:
-        exec(hkicpa_code, namespace)
-        namespace['ab']("open", "https://example.com")
-        mock_run.assert_called_once_with(["agent-browser", "open", "https://example.com"])
+class TestHkicpaBasics:
+    def test_file_exists(self):
+        """Test that hkicpa effector file exists."""
+        assert HKICPA_PATH.exists()
+        assert HKICPA_PATH.is_file()
+
+    def test_is_executable_script(self):
+        """Test that hkicpa has proper shebang."""
+        first_line = HKICPA_PATH.read_text().split("\n")[0]
+        assert first_line.startswith("#!/usr/bin/env")
+
+    def test_has_docstring(self):
+        """Test that hkicpa has docstring."""
+        content = HKICPA_PATH.read_text()
+        assert '"""' in content or "'''" in content
+
+    def test_has_main_function(self):
+        """Test that hkicpa defines main function."""
+        content = HKICPA_PATH.read_text()
+        assert "def main" in content
 
 
-def test_get_password_exists_in_keychain():
-    """Test get_password returns password from keychain when available."""
-    namespace = {}
-    hkicpa_code = Path("/home/terry/germline/effectors/hkicpa").read_text()
-    with patch('subprocess.run') as mock_run:
-        mock_run.return_value = MagicMock(stdout='test-password', returncode=0)
-        exec(hkicpa_code, namespace)
-        result = namespace['get_password']()
-        assert result == "test-password"
-        mock_run.assert_called_once()
+# ── Load script via exec ───────────────────────────────────────────────────────
 
 
-def test_get_password_exits_when_not_found():
-    """Test get_password exits with error when no password in keychain."""
-    namespace = {}
-    hkicpa_code = Path("/home/terry/germline/effectors/hkicpa").read_text()
-    with patch('subprocess.run') as mock_run:
-        mock_run.return_value = MagicMock(stdout='', returncode=1)
-        exec(hkicpa_code, namespace)
-        with pytest.raises(SystemExit):
-            namespace['get_password']()
+@pytest.fixture()
+def hkicpa_module():
+    """Load hkicpa via exec, returning namespace with functions."""
+    ns: dict = {"__name__": "test_hkicpa", "__file__": str(HKICPA_PATH)}
+    source = HKICPA_PATH.read_text(encoding="utf-8")
+    exec(source, ns)
+    return ns
 
 
-def test_main_flow_with_default_target():
-    """Test main execution flow mocks all external calls."""
-    mock_argv = ["hkicpa"]
-    namespace = {}
-    hkicpa_code = Path("/home/terry/germline/effectors/hkicpa").read_text()
-    
-    with patch('sys.argv', mock_argv):
-        with patch('subprocess.run') as mock_run:
-            # Every subprocess.run counts:
-            # 1: get_password -> security find-generic-password
-            # 2: run("agent-browser close")
-            # 3: ab("--headed", "open", LOGIN_URL) -> subprocess.run(["agent-browser", ...])
-            # 4: ab("fill", "Password", pw) -> another subprocess.run
-            # 5: ab("press", "Enter") -> another subprocess.run
-            # 6: run("agent-browser get url")
-            # 7: ab("open", target) -> final open
-            mock_run.side_effect = [
-                MagicMock(stdout='test-pw', returncode=0),      # 1
-                MagicMock(stdout='', returncode=0),              # 2
-                MagicMock(stdout='', returncode=0),              # 3
-                MagicMock(stdout='', returncode=0),              # 4
-                MagicMock(stdout='', returncode=0),              # 5
-                MagicMock(stdout='https://lms.hkicpa.org.hk/dashboard', returncode=0),  # 6
-                MagicMock(stdout='', returncode=0),              # 7
-            ]
-            with patch('time.sleep'):
-                exec(hkicpa_code, namespace)
-                # Check executed successfully, no exit
-                assert True
+# ── Constants tests ────────────────────────────────────────────────────────────
 
 
-@pytest.mark.xfail(reason="Hard to capture exit with exec in pytest, but logic is sound")
-def test_main_fails_login_when_still_on_login_page():
-    """Test main exits when login fails (still on login page)."""
-    mock_argv = ["hkicpa"]
-    namespace = {}
-    hkicpa_code = Path("/home/terry/germline/effectors/hkicpa").read_text()
-    
-    with patch('sys.argv', mock_argv):
-        with patch('subprocess.run') as mock_run:
-            mock_run.side_effect = [
-                MagicMock(stdout='test-pw', returncode=0),      # 1 get_password
-                MagicMock(stdout='', returncode=0),              # 2 close
-                MagicMock(stdout='', returncode=0),              # 3 open login
-                MagicMock(stdout='', returncode=0),              # 4 fill
-                MagicMock(stdout='', returncode=0),              # 5 press enter
-                MagicMock(stdout='https://lms.hkicpa.org.hk/login', returncode=0),  # 6 get url -> should trigger exit
-                MagicMock(stdout='', returncode=0),              # 7 should not get here
-            ]
-            with patch('time.sleep'):
+class TestConstants:
+    def test_home_url_defined(self, hkicpa_module):
+        """Test HOME_URL is defined."""
+        assert "HOME_URL" in hkicpa_module
+        assert hkicpa_module["HOME_URL"].startswith("https://")
+
+    def test_login_url_defined(self, hkicpa_module):
+        """Test LOGIN_URL is defined."""
+        assert "LOGIN_URL" in hkicpa_module
+        assert hkicpa_module["LOGIN_URL"].startswith("https://")
+
+    def test_urls_are_hkicpa_domain(self, hkicpa_module):
+        """Test URLs point to HKICPA domain."""
+        assert "hkicpa.org.hk" in hkicpa_module["HOME_URL"]
+        assert "hkicpa.org.hk" in hkicpa_module["LOGIN_URL"]
+
+
+# ── Helper function tests ──────────────────────────────────────────────────────
+
+
+class TestHelperFunctions:
+    def test_run_function_exists(self, hkicpa_module):
+        """Test run helper function exists."""
+        assert "run" in hkicpa_module
+        assert callable(hkicpa_module["run"])
+
+    def test_ab_function_exists(self, hkicpa_module):
+        """Test ab (agent-browser) helper function exists."""
+        assert "ab" in hkicpa_module
+        assert callable(hkicpa_module["ab"])
+
+    def test_get_password_function_exists(self, hkicpa_module):
+        """Test get_password function exists."""
+        assert "get_password" in hkicpa_module
+        assert callable(hkicpa_module["get_password"])
+
+
+# ── get_password tests ─────────────────────────────────────────────────────────
+
+
+class TestGetPassword:
+    def test_get_password_exits_on_missing(self, hkicpa_module):
+        """Test get_password exits when keychain has no password."""
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(stdout="", stderr="")
+            with patch.dict("os.environ", {"USER": "testuser"}):
                 with pytest.raises(SystemExit):
-                    exec(hkicpa_code, namespace)
+                    hkicpa_module["get_password"]()
+
+    def test_get_password_returns_password(self, hkicpa_module):
+        """Test get_password returns password from keychain."""
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(stdout="mysecretpassword\n", stderr="")
+            with patch.dict("os.environ", {"USER": "testuser"}):
+                result = hkicpa_module["get_password"]()
+                assert result == "mysecretpassword"
+
+    def test_get_password_uses_security_command(self, hkicpa_module):
+        """Test get_password uses macOS security command."""
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(stdout="password\n", stderr="")
+            with patch.dict("os.environ", {"USER": "testuser"}):
+                hkicpa_module["get_password"]()
+                # Check the command contains security find-generic-password
+                call_args = mock_run.call_args[0][0]
+                assert "security" in call_args
+                assert "find-generic-password" in call_args
+                assert "-s hkicpa" in call_args
 
 
-def test_main_accepts_custom_course_url():
-    """Test main uses provided course URL when given as argument."""
-    mock_argv = ["hkicpa", "https://lms.hkicpa.org.hk/course/123"]
-    namespace = {}
-    hkicpa_code = Path("/home/terry/germline/effectors/hkicpa").read_text()
-    
-    with patch('sys.argv', mock_argv):
-        with patch('subprocess.run') as mock_run:
+# ── run helper tests ───────────────────────────────────────────────────────────
+
+
+class TestRunHelper:
+    def test_run_uses_subprocess(self, hkicpa_module):
+        """Test run helper uses subprocess.run with shell=True."""
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(stdout="output\n", stderr="")
+            result = hkicpa_module["run"]("echo test")
+            mock_run.assert_called_once()
+            assert result == "output"
+
+    def test_run_strips_output(self, hkicpa_module):
+        """Test run strips whitespace from output."""
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(stdout="  output  \n", stderr="")
+            result = hkicpa_module["run"]("echo test")
+            assert result == "output"
+
+
+# ── ab helper tests ────────────────────────────────────────────────────────────
+
+
+class TestAbHelper:
+    def test_ab_calls_agent_browser(self, hkicpa_module):
+        """Test ab calls agent-browser with args."""
+        with patch("subprocess.run") as mock_run:
+            hkicpa_module["ab"]("open", "https://example.com")
+            mock_run.assert_called_once()
+            call_args = mock_run.call_args[0][0]
+            assert call_args[0] == "agent-browser"
+
+    def test_ab_passes_args_correctly(self, hkicpa_module):
+        """Test ab passes all args to agent-browser."""
+        with patch("subprocess.run") as mock_run:
+            hkicpa_module["ab"]("--headed", "open", "url")
+            call_args = mock_run.call_args[0][0]
+            assert "--headed" in call_args
+            assert "open" in call_args
+            assert "url" in call_args
+
+
+# ── main function tests ────────────────────────────────────────────────────────
+
+
+class TestMain:
+    def test_main_exits_on_missing_password(self, hkicpa_module):
+        """Test main exits when password not found."""
+        with patch("subprocess.run") as mock_run:
+            # First call for get_password returns empty
+            mock_run.return_value = MagicMock(stdout="", stderr="")
+            with patch.dict("os.environ", {"USER": "testuser"}):
+                with pytest.raises(SystemExit):
+                    hkicpa_module["main"]()
+
+    def test_main_uses_default_home_url(self, hkicpa_module):
+        """Test main uses HOME_URL when no argument."""
+        with patch("subprocess.run") as mock_run:
+            # Mock responses: security, close, open, fill, press, get url
             mock_run.side_effect = [
-                MagicMock(stdout='test-pw', returncode=0),      # 1 get_password
-                MagicMock(stdout='', returncode=0),              # 2 close
-                MagicMock(stdout='', returncode=0),              # 3 open login
-                MagicMock(stdout='', returncode=0),              # 4 fill
-                MagicMock(stdout='', returncode=0),              # 5 press enter
-                MagicMock(stdout='https://lms.hkicpa.org.hk/dashboard', returncode=0),  # 6 get url
-                MagicMock(stdout='', returncode=0),              # 7 open custom url
+                MagicMock(stdout="password\n", stderr=""),  # security
+                MagicMock(stdout="", stderr=""),  # close
+                MagicMock(stdout="", stderr=""),  # --headed open
+                MagicMock(stdout="", stderr=""),  # fill
+                MagicMock(stdout="", stderr=""),  # press
+                MagicMock(stdout="https://lms.hkicpa.org.hk/session/out", stderr=""),  # get url - login failed
             ]
-            with patch('time.sleep'):
-                exec(hkicpa_code, namespace)
-                # Successfully executed
-                assert True
+            with patch.dict("os.environ", {"USER": "testuser"}):
+                with patch("time.sleep"):
+                    with patch.object(hkicpa_module["sys"], "argv", ["hkicpa"]):
+                        with pytest.raises(SystemExit) as exc_info:
+                            hkicpa_module["main"]()
+                        assert exc_info.value.code == 1
+
+    def test_main_accepts_course_url_argument(self, hkicpa_module):
+        """Test main accepts course URL as argument."""
+        with patch("subprocess.run") as mock_run:
+            mock_run.side_effect = [
+                MagicMock(stdout="password\n", stderr=""),  # security
+                MagicMock(stdout="", stderr=""),  # close
+                MagicMock(stdout="", stderr=""),  # --headed open
+                MagicMock(stdout="", stderr=""),  # fill
+                MagicMock(stdout="", stderr=""),  # press
+                MagicMock(stdout="https://lms.hkicpa.org.hk/session/out", stderr=""),  # get url - login failed
+            ]
+            with patch.dict("os.environ", {"USER": "testuser"}):
+                with patch("time.sleep"):
+                    with patch.object(
+                        hkicpa_module["sys"], "argv", ["hkicpa", "https://course.url"]
+                    ):
+                        with pytest.raises(SystemExit) as exc_info:
+                            hkicpa_module["main"]()
+                        assert exc_info.value.code == 1
+
+
+# ── Login flow tests ───────────────────────────────────────────────────────────
+
+
+class TestLoginFlow:
+    def test_main_closes_browser_first(self, hkicpa_module):
+        """Test main closes browser before starting."""
+        calls = []
+
+        def track_run(*args, **kwargs):
+            cmd = args[0] if args else ""
+            calls.append(cmd)
+            if "security" in str(cmd):
+                return MagicMock(stdout="password\n", stderr="")
+            elif "get url" in str(cmd):
+                return MagicMock(stdout="https://lms.hkicpa.org.hk/dashboard", stderr="")
+            return MagicMock(stdout="", stderr="")
+
+        with patch("subprocess.run", side_effect=track_run):
+            with patch.dict("os.environ", {"USER": "testuser"}):
+                with patch("time.sleep"):
+                    with patch.object(hkicpa_module["sys"], "argv", ["hkicpa"]):
+                        # main should complete successfully with valid URL
+                        hkicpa_module["main"]()
+
+        # Verify that close was called
+        assert any("close" in str(c) for c in calls)
+
+    def test_main_detects_login_failure(self, hkicpa_module):
+        """Test main detects when login fails."""
+        with patch("subprocess.run") as mock_run:
+            # Password retrieval succeeds
+            # URL check shows login page
+            mock_run.side_effect = [
+                MagicMock(stdout="password\n", stderr=""),  # security
+                MagicMock(stdout="", stderr=""),  # close
+                MagicMock(stdout="", stderr=""),  # --headed open
+                MagicMock(stdout="", stderr=""),  # fill
+                MagicMock(stdout="", stderr=""),  # press
+                MagicMock(
+                    stdout="https://lms.hkicpa.org.hk/session/out", stderr=""
+                ),  # get url
+            ]
+            with patch.dict("os.environ", {"USER": "testuser"}):
+                with patch("time.sleep"):
+                    with patch.object(hkicpa_module["sys"], "argv", ["hkicpa"]):
+                        with pytest.raises(SystemExit) as exc_info:
+                            hkicpa_module["main"]()
+                        assert exc_info.value.code == 1

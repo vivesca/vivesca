@@ -21,13 +21,23 @@ import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-# Shared gather-lib on the path regardless of invocation context
-sys.path.insert(0, str(Path.home() / "code/vivesca/lib"))
-try:
-    from gather import get_calendar, read_todo, read_now, get_date
-except ImportError:
-    print("Error: Could not import gather library from ~/code/vivesca/lib/gather.py", file=sys.stderr)
-    sys.exit(1)
+# Lazy import for gather library — keeps --help working even when
+# ~/code/vivesca/lib/gather.py is absent.
+_gather = None
+
+def _load_gather():
+    global _gather
+    if _gather is not None:
+        return _gather
+    lib_dir = str(Path.home() / "code/vivesca/lib")
+    if lib_dir not in sys.path:
+        sys.path.insert(0, lib_dir)
+    try:
+        import gather as _mod
+        _gather = _mod
+    except ImportError:
+        _gather = False
+    return _gather
 
 HOME = Path.home()
 NOTES = HOME / "notes"
@@ -54,8 +64,12 @@ def gather_calendar():
     if days_ahead == 0:
         days_ahead = 7
     next_mon = today + timedelta(days=days_ahead)
-    
-    res = get_calendar(next_mon.strftime("%Y-%m-%d"), 7)
+
+    lib = _load_gather()
+    if not lib:
+        return {"raw": {}, "summary": "Calendar unavailable (gather lib missing)", "total": 0}
+
+    res = lib.get_calendar(next_mon.strftime("%Y-%m-%d"), 7)
     
     events_by_day = {}
     total_events = 0
@@ -84,7 +98,15 @@ def gather_calendar():
     return {"raw": res, "summary": summary, "total": total_events}
 
 def gather_todo():
-    todo_ctx = read_todo()
+    lib = _load_gather()
+    if not lib:
+        return {
+            "due_this_week": 0, "overdue": 0, "stale": 0,
+            "completed": 0, "someday": 0,
+            "summary": "Todo unavailable (gather lib missing)",
+        }
+
+    todo_ctx = lib.read_todo()
     
     today = datetime.now().date()
     days_ahead = 7 - today.weekday()
@@ -161,7 +183,11 @@ def gather_todo():
     }
 
 def gather_now():
-    now_ctx = read_now()
+    lib = _load_gather()
+    if not lib:
+        return {"open_items": 0, "summary": "Now unavailable (gather lib missing)"}
+
+    now_ctx = lib.read_now()
     open_items = len(now_ctx.get("progress", []))
     return {
         "open_items": open_items,

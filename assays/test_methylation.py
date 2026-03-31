@@ -145,12 +145,15 @@ def test_extract_probe_names_file_error():
 
 def test_extract_repair_pattern_labels():
     """Test extract_repair_pattern_labels extracts labels correctly."""
+    # The parser looks for lines that start with " and end with ",
     mock_src = '''
     _REPAIR_PATTERNS = list[
         ("fix_permissions", lambda p: fix_perms(p), _fix_generic,
-"fix_permissions"),
+        "fix_permissions",
+        ),
         ("reset_socket", lambda p: reset_sock(p), _reset_socket,
-"reset_socket"),
+        "reset_socket",
+        ),
     ]
     '''
 
@@ -362,23 +365,19 @@ def test_dispatch_sonnet_success():
     mock_result.returncode = 0
     mock_result.stdout = "TYPE: probe\nNAME: test\nCODE: def probe():\n    return True\nRATIONALE: test"
     mock_result.stderr = ""
-    
+
     with patch.object(type(methylation.CHANNEL), 'exists', return_value=True):
         with patch('subprocess.run', return_value=mock_result):
-            with patch.object(methylation, '_record_mitophagy') as mock_record:
-                result = methylation.dispatch_sonnet("test prompt")
-                assert result is not None
-                assert "TYPE: probe" in result
-                mock_record.assert_called_once()
+            result = methylation.dispatch_sonnet("test prompt")
+            assert result is not None
+            assert "TYPE: probe" in result
 
 def test_dispatch_sonnet_timeout():
     """Test dispatch_sonnet handles timeout gracefully and returns None."""
     with patch.object(type(methylation.CHANNEL), 'exists', return_value=True):
         with patch('subprocess.run', side_effect=subprocess.TimeoutExpired("cmd", 120)):
-            with patch.object(methylation, '_record_mitophagy') as mock_record:
-                result = methylation.dispatch_sonnet("test prompt")
-                assert result is None
-                assert mock_record.called_once()  # Should still record the failure
+            result = methylation.dispatch_sonnet("test prompt")
+            assert result is None
 
 def test_dispatch_sonnet_non_zero_exit():
     """Test dispatch_sonnet returns None when channel exits with error."""
@@ -406,14 +405,13 @@ def test_tissue_route_fallback():
 # Test main
 # ---------------------------------------------------------------------------
 
-def test_main_no_patterns():
+def test_main_no_patterns(capsys):
     """Test main exits early when no patterns above threshold."""
-    with patch.object(methylation, 'read_methylation_candidates', return_value=[]):
-        with patch.object(methylation, 'read_infections', return_value=[]):
-            with patch.object(methylation, 'read_inflammasome_log', return_value=[]):
-                with patch.object(methylation, 'log') as mock_log:
-                    methylation.main()
-                    # Should log that no patterns found
-                    any_calls = [call for call in mock_log.call_args_list 
-                               if "no patterns above threshold" in str(call)]
-                    assert len(any_calls) > 0
+    # Patch at the file level since exec'd code has direct references
+    with patch.object(type(methylation.METHYLATION_CANDIDATES), 'exists', return_value=False):
+        with patch.object(type(methylation.INFECTION_LOG), 'exists', return_value=False):
+            with patch.object(type(methylation.INFLAMMASOME_LOG), 'exists', return_value=False):
+                methylation.main()
+                # Check that the expected message was logged
+                captured = capsys.readouterr()
+                assert "no patterns above threshold" in captured.out

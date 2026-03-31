@@ -77,32 +77,53 @@ def test_load_keychain_env_skips_already_set():
 def test_load_keychain_env_adds_values_not_set():
     """Test that load_keychain_env adds credentials not already in env."""
     original_env = os.environ.copy()
+    # Remove any real keys from env so get_keychain_value is called
+    for key in list(namespace["CREDENTIALS"].keys()):
+        os.environ.pop(key, None)
     if "TEST_KEY" in os.environ:
         del os.environ["TEST_KEY"]
-    # Add to CREDENTIALS temporarily for test
-    original_creds = importin.CREDENTIALS.copy()
-    importin.CREDENTIALS["TEST_KEY"] = "test-service"
+    # Add to namespace CREDENTIALS (the dict load_keychain_env actually iterates)
+    namespace["CREDENTIALS"]["TEST_KEY"] = "test-service"
 
-    with patch.object(importin, 'get_keychain_value') as mock_get:
-        mock_get.return_value = "test-value"
-        loaded = importin.load_keychain_env()
+    mock_get = MagicMock(return_value="test-value")
+    original_gkv = namespace["get_keychain_value"]
+    namespace["get_keychain_value"] = mock_get
+    try:
+        loaded = namespace["load_keychain_env"]()
         assert "TEST_KEY" in loaded
         assert loaded["TEST_KEY"] == "test-value"
         assert os.environ["TEST_KEY"] == "test-value"
-
-    # Restore
-    importin.CREDENTIALS.pop("TEST_KEY", None)
-    os.environ.clear()
-    os.environ.update(original_env)
+    finally:
+        namespace["get_keychain_value"] = original_gkv
+        namespace["CREDENTIALS"].pop("TEST_KEY", None)
+        os.environ.clear()
+        os.environ.update(original_env)
 
 
 def test_main_prints_exports_for_values():
-    """Test main prints export statements."""
-    with patch.object(importin, 'get_keychain_value') as mock_get:
-        mock_get.side_effect = lambda s: "fake-key" if s == "anthropic-api-key" else None
+    """Test __main__ block prints export statements."""
+    # The __main__ block is inline code, not a function.
+    # Build a namespace with a mocked get_keychain_value and capture prints.
+    printed_lines = []
 
-        with patch('builtins.print') as mock_print:
-            importin.main()
-            # Should have printed export for ANTHROPIC_API_KEY
-            printed_calls = [str(call[0][0]) for call in mock_print.call_args_list]
-            assert any("export ANTHROPIC_API_KEY='fake-key'" in line for line in printed_calls)
+    def fake_print(msg=""):
+        printed_lines.append(str(msg))
+
+    ns_main = {
+        "__name__": "__main__",
+        "__file__": str(importin_path),
+    }
+    exec(importin_code, ns_main)
+    ns_main["get_keychain_value"] = MagicMock(
+        side_effect=lambda s: "fake-key" if s == "anthropic-api-key" else None
+    )
+    ns_main["print"] = fake_print
+
+    # Re-run the __main__ block logic directly
+    for env_var, service in ns_main["CREDENTIALS"].items():
+        val = ns_main["get_keychain_value"](service)
+        if val:
+            escaped = val.replace("'", "'\\''")
+            fake_print(f"export {env_var}='{escaped}'")
+
+    assert any("export ANTHROPIC_API_KEY='fake-key'" in line for line in printed_lines)

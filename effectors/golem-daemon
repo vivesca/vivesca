@@ -18,6 +18,7 @@ import sys
 import time
 import signal
 import subprocess
+import shutil
 from pathlib import Path
 from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -30,6 +31,22 @@ PIDFILE = Path.home() / ".local" / "share" / "vivesca" / "golem-daemon.pid"
 LOGFILE = Path.home() / ".local" / "share" / "vivesca" / "golem-daemon.log"
 POLL_INTERVAL = 30
 GOLEM_TIMEOUT = 1800  # 30 min max per golem run
+DISK_SPACE_MIN_BYTES = 1 * 1024 * 1024 * 1024  # 1GB minimum free space
+
+
+def check_disk_space() -> tuple[bool, int]:
+    """Check if there's enough disk space.
+
+    Returns:
+        (ok: bool, free_bytes: int)
+        ok is True if free space >= 1GB, False otherwise.
+    """
+    try:
+        usage = shutil.disk_usage(Path.home())
+        return (usage.free >= DISK_SPACE_MIN_BYTES, usage.free)
+    except Exception:
+        # On error, assume OK to avoid blocking unnecessarily
+        return (True, -1)
 
 
 class QueueLock:
@@ -54,12 +71,61 @@ PROVIDER_LIMITS = {
 }
 DEFAULT_LIMIT = 4  # Fallback for unknown providers
 
+# Counter for successful mark_done calls (reset on auto-commit)
+_mark_done_count = 0
+
 def log(msg: str):
     """Append timestamped message to log file."""
     LOGFILE.parent.mkdir(parents=True, exist_ok=True)
     ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     with open(LOGFILE, "a") as f:
         f.write(f"[{ts}] {msg}\n")
+
+
+def auto_commit() -> str:
+    """Auto-commit staged changes from assays/, effectors/, metabolon/.
+
+    Returns:
+        Commit hash if committed, or 'nothing to commit' if no changes.
+    """
+    germline_dir = Path.home() / "germline"
+    try:
+        # Stage the directories
+        subprocess.run(
+            f"git -C {germline_dir} add assays/ effectors/ metabolon/",
+            shell=True,
+            capture_output=True,
+            text=True,
+        )
+        # Check if there's anything staged
+        check = subprocess.run(
+            f"git -C {germline_dir} diff --cached --quiet",
+            shell=True,
+            capture_output=True,
+            text=True,
+        )
+        if check.returncode == 0:
+            return "nothing to commit"
+        # Commit
+        result = subprocess.run(
+            f"git -C {germline_dir} commit -m 'golem: daemon auto-commit'",
+            shell=True,
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode == 0:
+            # Extract commit hash from output
+            for line in result.stdout.splitlines():
+                if line.startswith("["):
+                    # Format: [main abc1234] ...
+                    parts = line.split()
+                    if len(parts) >= 2:
+                        return parts[1].rstrip("]")
+            return "committed"
+        return f"commit failed: {result.stderr[:60]}"
+    except Exception as e:
+        return f"auto_commit error: {e}"
+
 
 def read_pid() -> int | None:
     """Read PID from pidfile, return None if not running."""
@@ -337,14 +403,31 @@ def daemon_loop():
     log("Daemon started")
     write_pid()
 
-    # Max workers = max provider limit (volcano=8)
+    # Max workers = max provider limit (volcano=16)
     max_workers = max(PROVIDER_LIMITS.values())
     running = {}  # future -> (line_num, cmd, provider)
     provider_running: dict[str, int] = {}  # provider -> count of running tasks
+    poll_cycle = 0
+    disk_space_paused = False
 
     try:
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             while True:
+                poll_cycle += 1
+
+                # Check disk space every 10 poll cycles
+                if poll_cycle % 10 == 0:
+                    ok, free_bytes = check_disk_space()
+                    if not ok:
+                        free_gb = free_bytes / (1024 * 1024 * 1024)
+                        if not disk_space_paused:
+                            log(f"WARNING: Low disk space ({free_gb:.2f}GB free), pausing task dispatch")
+                            disk_space_paused = True
+                    elif disk_space_paused:
+                        free_gb = free_bytes / (1024 * 1024 * 1024)
+                        log(f"Disk space recovered ({free_gb:.2f}GB free), resuming task dispatch")
+                        disk_space_paused = False
+
                 # Check for completed tasks
                 done_futures = [f for f in running if f.done()]
                 for future in done_futures:
@@ -368,26 +451,30 @@ def daemon_loop():
                         log(f"Future error: {e}")
                         mark_failed(line_num, str(e))
 
-                # Fill available slots per provider
-                pending = parse_queue()
+                # Fill available slots per provider (skip if disk space is low)
+                if disk_space_paused:
+                    pending = parse_queue()
+                    log(f"Disk space low, skipping dispatch ({len(pending)} pending)")
+                else:
+                    pending = parse_queue()
 
-                for line_num, cmd in pending:
-                    provider = parse_provider(cmd)
-                    current = provider_running.get(provider, 0)
-                    limit = get_provider_limit(provider)
+                    for line_num, cmd in pending:
+                        provider = parse_provider(cmd)
+                        current = provider_running.get(provider, 0)
+                        limit = get_provider_limit(provider)
 
-                    if current < limit:
-                        # Check if already running (avoid duplicate dispatch)
-                        already_running = any(
-                            c == cmd for (_, c, _) in running.values()
-                        )
-                        if already_running:
-                            continue
+                        if current < limit:
+                            # Check if already running (avoid duplicate dispatch)
+                            already_running = any(
+                                c == cmd for (_, c, _) in running.values()
+                            )
+                            if already_running:
+                                continue
 
-                        future = executor.submit(run_golem, cmd)
-                        running[future] = (line_num, cmd, provider)
-                        provider_running[provider] = current + 1
-                        log(f"Queued [{provider}]: {cmd[:60]}...")
+                            future = executor.submit(run_golem, cmd)
+                            running[future] = (line_num, cmd, provider)
+                            provider_running[provider] = current + 1
+                            log(f"Queued [{provider}]: {cmd[:60]}...")
 
                 # Status check
                 if running:

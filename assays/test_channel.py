@@ -10,13 +10,24 @@ import sys
 # Execute the channel file directly into the namespace
 channel_path = Path("/home/terry/germline/effectors/channel")
 channel_code = channel_path.read_text()
-channel = {}
-exec(channel_code, channel)
+_channel_dict = {}
+exec(channel_code, _channel_dict)
 
 # Make attributes accessible via dot notation
 class ChannelModule:
+    _original_keys = set(_channel_dict.keys())  # Track what was originally in the module
     def __getattr__(self, name):
-        return channel[name]
+        return _channel_dict[name]
+    def __setattr__(self, name, value):
+        # Allow patch.object to work by writing to _channel_dict
+        _channel_dict[name] = value
+    def __delattr__(self, name):
+        # patch.object tries to delattr on exit - restore original or remove
+        if name in ChannelModule._original_keys:
+            # Can't delete original keys - they'll be restored by patch.object's setattr
+            pass
+        elif name in _channel_dict:
+            del _channel_dict[name]
 channel = ChannelModule()
 
 # ---------------------------------------------------------------------------

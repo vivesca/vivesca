@@ -31,7 +31,7 @@ def run_summary(log_file: Path, recent: int = 0) -> tuple[str, int]:
         capture_output=True,
         text=True,
         env=env,
-        cwd="/Users/terry/germline"
+        cwd=Path(__file__).parent.parent
     )
     return result.stdout, result.returncode
 

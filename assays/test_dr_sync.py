@@ -1,158 +1,239 @@
 #!/usr/bin/env python3
-"""Tests for dr-sync effector — disaster recovery sync backup tests."""
+"""Tests for effectors/dr-sync — disaster recovery sync backup tests.
+
+All filesystem and subprocess calls are mocked.
+"""
 
 import pytest
-from unittest.mock import patch, MagicMock, mock_open
+from unittest.mock import patch, MagicMock, call
 from pathlib import Path
 
-# Execute the dr-sync file directly
-dr_sync_path = Path("/home/terry/germline/effectors/dr-sync")
-dr_sync_code = dr_sync_path.read_text()
-namespace = {}
-exec(dr_sync_code, namespace)
+DR_SYNC_PATH = Path(__file__).resolve().parents[1] / "effectors" / "dr-sync"
 
-# Extract all the functions/globals from the namespace
-dr_sync = type('dr_sync_module', (), {})()
-for key, value in namespace.items():
-    if not key.startswith('__'):
-        setattr(dr_sync, key, value)
 
-# ---------------------------------------------------------------------------
-# Test constants
-# ---------------------------------------------------------------------------
+# ── Load module via exec ────────────────────────────────────────────────────
 
-def test_dest_path_correct():
-    """Test DEST is correct path under officina."""
-    expected = Path.home() / "officina" / "claude-backup"
-    assert dr_sync.DEST == expected
+@pytest.fixture()
+def dr():
+    """Load dr-sync via exec into an isolated namespace."""
+    ns: dict = {"__name__": "__main__"}
+    source = DR_SYNC_PATH.read_text(encoding="utf-8")
+    exec(source, ns)
+    mod = type("dr", (), {})()
+    for k, v in ns.items():
+        if not k.startswith("__"):
+            setattr(mod, k, v)
+    return mod
 
-# ---------------------------------------------------------------------------
-# Test sync function with mocks
-# ---------------------------------------------------------------------------
 
-def test_no_files_to_backup():
-    """Test when no source files exist, nothing is copied."""
-    with patch('pathlib.Path.exists', return_value=False):
-        with patch('subprocess.run') as mock_run:
-            dr_sync.sync()
-            # Still runs brew bundle dump
-            assert mock_run.call_count >= 1
+# ── Constants ───────────────────────────────────────────────────────────────
 
-def test_claude_settings_copied():
-    """Test Claude settings.json is copied when it exists."""
-    calls = []
-    def mock_copy2(src, dst):
-        calls.append((src, dst))
-    
-    # Patch exists to return True only for settings.json
-    exists_orig = Path.exists
-    def mock_exists(self):
-        if str(self).endswith("settings.json") or str(self).endswith("settings.local.json"):
-            return True
-        return False
-    
-    with patch('shutil.copy2', side_effect=mock_copy2):
-        with patch('shutil.copytree'):
-            with patch('pathlib.Path.exists', mock_exists):
-                with patch('subprocess.run') as mock_run:
-                    mock_run.return_value = MagicMock(stdout='')
-                    dr_sync.sync()
-                    # Should copy settings.json
-                    assert any('settings.json' in str(call[0]) for call in calls)
 
-def test_claude_memory_copied():
-    """Test Claude project memory is copied when exists."""
-    mock_copytree = MagicMock()
-    exists_calls = []
-    def mock_exists(self):
-        exists_calls.append(str(self))
-        if 'memory' in str(self) and 'src' not in str(self):  # mem_dst exists: we return True to trigger rm
-            return True
-        if 'mem_src' in str(self) or str(self).endswith("projects/-Users-terry/memory"):
-            return True
-        return False
-    
-    with patch('shutil.copy2'):
-        with patch('shutil.copytree', mock_copytree):
-            with patch('shutil.rmtree'):
-                with patch('pathlib.Path.exists', mock_exists):
-                    with patch('subprocess.run'):
-                        dr_sync.sync()
-                        mock_copytree.assert_called_once()
+class TestDRConstants:
+    def test_dest_path(self, dr):
+        expected = Path.home() / "officina" / "claude-backup"
+        assert dr.DEST == expected
 
-def test_zshenv_copied():
-    """Test .zshenv.local is copied when exists."""
-    calls = []
-    def mock_copy2(src, dst):
-        calls.append((src, dst))
-    
-    def mock_exists(self):
-        return str(self).endswith('.zshenv.local')
-    
-    with patch('shutil.copy2', side_effect=mock_copy2):
-        with patch('shutil.copytree'):
-            with patch('pathlib.Path.exists', mock_exists):
-                with patch('subprocess.run'):
-                    dr_sync.sync()
-                    assert any('zshenv.local' in str(call[1]) for call in calls)
+    def test_home_is_path(self, dr):
+        assert isinstance(dr.HOME, Path)
+        assert dr.HOME == Path.home()
 
-def test_synaxis_config_copied():
-    """Test Synaxis config is copied to correct destination."""
-    calls = []
-    def mock_copy2(src, dst):
-        calls.append((src, dst))
-    
-    def mock_exists(self):
-        return str(self).endswith('config.toml') and 'synaxis' in str(self)
-    
-    with patch('shutil.copy2', side_effect=mock_copy2):
-        with patch('shutil.copytree'):
-            with patch('pathlib.Path.exists', mock_exists):
-                with patch('pathlib.Path.mkdir'):
-                    with patch('subprocess.run'):
-                        dr_sync.sync()
-                        assert any('config.toml' in str(call[0]) for call in calls)
 
-def test_brewfile_dump_called():
-    """Test brew bundle dump is called to refresh Brewfile."""
-    with patch('shutil.copy2'):
-        with patch('shutil.copytree'):
-            with patch('pathlib.Path.exists', return_value=False):
-                with patch('subprocess.run') as mock_run:
-                    dr_sync.sync()
-                    # Check brew bundle dump was called
-                    brew_called = any("brew" in call[0][0] and "bundle" in call[0][0] and "dump" in call[0][0] 
-                                     for call in mock_run.call_args_list)
-                    assert brew_called
+# ── Claude settings sync ───────────────────────────────────────────────────
 
-def test_no_changes_no_commit(capsys):
-    """Test when no changes detected, doesn't commit/push."""
-    with patch('shutil.copy2'):
-        with patch('shutil.copytree'):
-            with patch('pathlib.Path.exists', return_value=False):
-                mock_result = MagicMock()
-                mock_result.stdout = ""  # No changes
-                with patch('subprocess.run', return_value=mock_result):
-                    dr_sync.sync()
-                    captured = capsys.readouterr()
-                    assert "no changes" in captured.out
 
-def test_changes_committed_and_pushed(capsys):
-    """Test when changes detected, commits and pushes."""
-    with patch('shutil.copy2'):
-        with patch('shutil.copytree'):
-            with patch('pathlib.Path.exists', return_value=False):
-                # First call: git status outputs something (changes exist)
-                mock_status_result = MagicMock()
-                mock_status_result.stdout = " M claude-backup/settings.json\n"
-                
-                # Subsequent calls are ok
-                def mock_run_side_effect(*args, **kwargs):
-                    if 'git' in args[0] and 'status' in args[0]:
-                        return mock_status_result
-                    return MagicMock(stdout='', returncode=0)
-                
-                with patch('subprocess.run', side_effect=mock_run_side_effect):
-                    dr_sync.sync()
-                    captured = capsys.readouterr()
-                    assert "committed and pushed" in captured.out
+class TestDRSettingsSync:
+    def test_settings_json_copied(self, dr):
+        copy_calls = []
+
+        def mock_exists(self_path):
+            s = str(self_path)
+            return s.endswith("settings.json") or s.endswith("settings.local.json")
+
+        with patch("shutil.copy2", side_effect=lambda s, d: copy_calls.append((s, d))):
+            with patch("shutil.copytree"):
+                with patch("pathlib.Path.exists", mock_exists):
+                    with patch("subprocess.run"):
+                        dr.sync()
+
+        assert any("settings.json" in str(s) for s, d in copy_calls)
+        assert any("settings.local.json" in str(s) for s, d in copy_calls)
+
+    def test_settings_not_copied_when_missing(self, dr):
+        copy_calls = []
+
+        def mock_exists(self_path):
+            s = str(self_path)
+            return s.endswith("settings.json") is False and s.endswith("settings.local.json") is False
+
+        with patch("shutil.copy2", side_effect=lambda s, d: copy_calls.append((s, d))):
+            with patch("shutil.copytree"):
+                with patch("pathlib.Path.exists", return_value=False):
+                    with patch("subprocess.run"):
+                        dr.sync()
+
+        assert not any("settings" in str(s) for s, d in copy_calls)
+
+
+# ── Claude memory sync ─────────────────────────────────────────────────────
+
+
+class TestDRMemorySync:
+    def test_memory_copied_when_exists(self, dr):
+        mock_copytree = MagicMock()
+
+        def mock_exists(self_path):
+            s = str(self_path)
+            return "memory" in s
+
+        with patch("shutil.copy2"):
+            with patch("shutil.copytree", mock_copytree):
+                with patch("shutil.rmtree"):
+                    with patch("pathlib.Path.exists", mock_exists):
+                        with patch("subprocess.run"):
+                            dr.sync()
+                            mock_copytree.assert_called_once()
+
+    def test_memory_dest_removed_first(self, dr):
+        rmtree_calls = []
+        copytree_calls = []
+
+        def mock_exists(self_path):
+            return "memory" in str(self_path)
+
+        with patch("shutil.copy2"):
+            with patch("shutil.copytree", side_effect=lambda s, d: copytree_calls.append((s, d))):
+                with patch("shutil.rmtree", side_effect=lambda p: rmtree_calls.append(p)):
+                    with patch("pathlib.Path.exists", mock_exists):
+                        with patch("subprocess.run"):
+                            dr.sync()
+
+        # rmtree should have been called for the old dest
+        assert len(rmtree_calls) >= 1
+        assert len(copytree_calls) >= 1
+
+
+# ── Shell env sync ─────────────────────────────────────────────────────────
+
+
+class TestDRZshEnv:
+    def test_zshenv_copied(self, dr):
+        copy_calls = []
+
+        def mock_exists(self_path):
+            return str(self_path).endswith(".zshenv.local")
+
+        with patch("shutil.copy2", side_effect=lambda s, d: copy_calls.append((s, d))):
+            with patch("shutil.copytree"):
+                with patch("pathlib.Path.exists", mock_exists):
+                    with patch("subprocess.run"):
+                        dr.sync()
+        assert any("zshenv.local" in str(d) for s, d in copy_calls)
+
+    def test_zshenv_skipped_when_missing(self, dr):
+        copy_calls = []
+
+        with patch("shutil.copy2", side_effect=lambda s, d: copy_calls.append((s, d))):
+            with patch("shutil.copytree"):
+                with patch("pathlib.Path.exists", return_value=False):
+                    with patch("subprocess.run"):
+                        dr.sync()
+        assert not any("zshenv" in str(s) for s, d in copy_calls)
+
+
+# ── Synaxis config sync ────────────────────────────────────────────────────
+
+
+class TestDRSynaxisConfig:
+    def test_synaxis_config_copied(self, dr):
+        copy_calls = []
+
+        def mock_exists(self_path):
+            s = str(self_path)
+            return s.endswith("config.toml") and "synaxis" in s
+
+        with patch("shutil.copy2", side_effect=lambda s, d: copy_calls.append((s, d))):
+            with patch("shutil.copytree"):
+                with patch("pathlib.Path.exists", mock_exists):
+                    with patch("pathlib.Path.mkdir"):
+                        with patch("subprocess.run"):
+                            dr.sync()
+        assert any("config.toml" in str(s) for s, d in copy_calls)
+
+    def test_synaxis_creates_parent_dirs(self, dr):
+        mkdir_calls = []
+
+        def mock_exists(self_path):
+            return str(self_path).endswith("config.toml") and "synaxis" in str(self_path)
+
+        with patch("shutil.copy2"):
+            with patch("shutil.copytree"):
+                with patch("pathlib.Path.exists", mock_exists):
+                    with patch("pathlib.Path.mkdir", side_effect=lambda **kw: mkdir_calls.append(kw)):
+                        with patch("subprocess.run"):
+                            dr.sync()
+        # mkdir should have parents=True
+        assert any(c.get("parents") is True for c in mkdir_calls)
+
+
+# ── Brewfile dump ──────────────────────────────────────────────────────────
+
+
+class TestDRBrewfile:
+    def test_brew_bundle_dump_called(self, dr):
+        with patch("shutil.copy2"):
+            with patch("shutil.copytree"):
+                with patch("pathlib.Path.exists", return_value=False):
+                    with patch("subprocess.run") as mock_run:
+                        dr.sync()
+                        # Check brew bundle dump is in the calls
+                        run_cmds = [c[0][0] for c in mock_run.call_args_list]
+                        brew_found = any(
+                            "brew" in cmd and "bundle" in cmd and "dump" in cmd
+                            for cmd in run_cmds
+                        )
+                        assert brew_found
+
+
+# ── Git commit / push logic ────────────────────────────────────────────────
+
+
+class TestDRGitLogic:
+    def test_no_changes_no_commit(self, dr, capsys):
+        with patch("shutil.copy2"):
+            with patch("shutil.copytree"):
+                with patch("pathlib.Path.exists", return_value=False):
+                    mock_result = MagicMock(stdout="")
+                    with patch("subprocess.run", return_value=mock_result):
+                        dr.sync()
+        assert "no changes" in capsys.readouterr().out
+
+    def test_changes_committed_and_pushed(self, dr, capsys):
+        with patch("shutil.copy2"):
+            with patch("shutil.copytree"):
+                with patch("pathlib.Path.exists", return_value=False):
+                    mock_status = MagicMock(stdout=" M claude-backup/settings.json\n")
+
+                    def side_effect(*args, **kwargs):
+                        cmd = args[0]
+                        if "git" in cmd and "status" in cmd:
+                            return mock_status
+                        return MagicMock(stdout="", returncode=0)
+
+                    with patch("subprocess.run", side_effect=side_effect):
+                        dr.sync()
+        assert "committed and pushed" in capsys.readouterr().out
+
+
+# ── No source files at all ─────────────────────────────────────────────────
+
+
+class TestDRNoSources:
+    def test_no_files_to_backup(self, dr):
+        with patch("shutil.copy2"):
+            with patch("shutil.copytree"):
+                with patch("pathlib.Path.exists", return_value=False):
+                    with patch("subprocess.run") as mock_run:
+                        dr.sync()
+                        # brew bundle dump should still be called
+                        assert mock_run.call_count >= 1

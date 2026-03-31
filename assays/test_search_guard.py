@@ -1,123 +1,252 @@
 #!/usr/bin/env python3
-"""Tests for search-guard effector."""
+"""Tests for effectors/search-guard — Search guard wrapper tests.
 
-import sys
+search-guard is a script that wraps grep/rg/find with safety checks.
+rg, grep, and find are symlinks to this script.
+It should be loaded via exec() or subprocess.run, NEVER imported.
+"""
+
 import os
 import subprocess
-from importlib.machinery import SourceFileLoader
+import sys
+from pathlib import Path
+from unittest.mock import patch
+
 import pytest
-from unittest.mock import MagicMock
 
-# Add project root to path
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+SEARCH_GUARD_PATH = Path(__file__).resolve().parents[1] / "effectors" / "search-guard"
+RG_LINK_PATH = Path(__file__).resolve().parents[1] / "effectors" / "rg"
+GREP_LINK_PATH = Path(__file__).resolve().parents[1] / "effectors" / "grep"
 
-# Import search-guard (no .py extension)
-sg_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'effectors', 'search-guard'))
-search_guard = SourceFileLoader("search_guard", sg_path).load_module()
 
-def test_blocks_root_search(capsys, monkeypatch):
-    """Test search-guard blocks search on root directory."""
-    monkeypatch.setattr(sys, "argv", ["rg", "pattern", "/"])
-    monkeypatch.setattr(os, "basename", lambda _: "rg")
-    monkeypatch.setattr(os, "expanduser", lambda x: x)
-    monkeypatch.setattr(os, "abspath", lambda _: "/")
-    
-    with pytest.raises(SystemExit):
-        search_guard.main()
-    
-    captured = capsys.readouterr()
-    assert "SEARCH BLOCKED" in captured.out
-    assert "Broad search on '/' is prohibited" in captured.out
+# ── Load module via exec ──────────────────────────────────────────────────────
 
-def test_blocks_massive_directory(capsys, monkeypatch):
-    """Test search-guard blocks search on massive directories."""
-    monkeypatch.setattr(sys, "argv", ["rg", "pattern", "/Users/terry/Library"])
-    monkeypatch.setattr(os, "basename", lambda _: "rg")
-    monkeypatch.setattr(os, "expanduser", lambda x: x)
-    monkeypatch.setattr(os, "abspath", lambda _: "/Users/terry/Library")
-    
-    with pytest.raises(SystemExit):
-        search_guard.main()
-    
-    captured = capsys.readouterr()
-    assert "SEARCH BLOCKED" in captured.out
-    assert "too large" in captured.out
 
-def test_allows_stdin_search_no_path(monkeypatch):
-    """Test search-guard allows search when no path is provided (stdin)."""
-    monkeypatch.setattr(sys, "argv", ["grep", "pattern"])
-    monkeypatch.setattr(os, "basename", lambda _: "grep")
-    
-    called = False
-    def mock_execv(path, args):
-        nonlocal called
-        called = True
-        assert path == "/usr/bin/grep"
-        raise SystemExit # Don't actually execute
-    
-    monkeypatch.setattr(os, "execv", mock_execv)
-    
-    try:
-        search_guard.main()
-    except SystemExit:
-        pass
-    
-    assert called is True
+@pytest.fixture()
+def sg():
+    """Load search-guard via exec into an isolated namespace."""
+    ns: dict = {"__name__": "test_sg_module"}
+    source = SEARCH_GUARD_PATH.read_text(encoding="utf-8")
+    exec(source, ns)
+    mod = type("sg", (), {})()
+    for k, v in ns.items():
+        if not k.startswith("__"):
+            setattr(mod, k, v)
+    return mod
 
-def test_finds_rg_fallback(monkeypatch):
-    """Test search-guard finds rg in alternative location."""
-    monkeypatch.setattr(sys, "argv", ["rg", "pattern", "./test"])
-    monkeypatch.setattr(os, "basename", lambda _: "rg")
-    
-    def mock_expanduser(x):
-        return "/home/terry/germline/test"
-    
-    monkeypatch.setattr(os, "expanduser", mock_expanduser)
-    monkeypatch.setattr(os, "abspath", lambda _: "/home/terry/germline/test")
-    monkeypatch.setattr(os, "exists", lambda _: False)
-    
-    def mock_check_output(cmd, **kwargs):
-        return b"/opt/homebrew/bin/rg\n"
-    
-    monkeypatch.setattr(subprocess, "check_output", mock_check_output)
-    
-    called_path = None
-    def mock_execv(path, args):
-        nonlocal called_path
-        called_path = path
-        raise SystemExit
-    
-    monkeypatch.setattr(os, "execv", mock_execv)
-    
-    try:
-        search_guard.main()
-    except SystemExit:
-        pass
-    
-    assert "opt/homebrew/bin/rg" in called_path
 
-def test_executes_allowed_search(monkeypatch):
-    """Test search-guard executes search for allowed paths."""
-    monkeypatch.setattr(sys, "argv", ["rg", "test", "~/germline"])
-    monkeypatch.setattr(os, "basename", lambda _: "rg")
-    
-    def mock_expanduser(x):
-        return "/Users/terry/germline"
-    
-    monkeypatch.setattr(os, "expanduser", mock_expanduser)
-    monkeypatch.setattr(os, "abspath", lambda _: "/Users/terry/germline")
-    
-    called = False
-    def mock_execv(path, args):
-        nonlocal called
-        called = True
-        raise SystemExit
-    
-    monkeypatch.setattr(os, "execv", mock_execv)
-    
-    try:
-        search_guard.main()
-    except SystemExit:
-        pass
-    
-    assert called is True
+# ── File existence and structure ─────────────────────────────────────────────
+
+
+class TestSearchGuardBasics:
+    def test_file_exists(self):
+        """Test that search-guard script exists."""
+        assert SEARCH_GUARD_PATH.exists()
+        assert SEARCH_GUARD_PATH.is_file()
+
+    def test_is_python_script(self):
+        """Test that search-guard has Python shebang."""
+        first_line = SEARCH_GUARD_PATH.read_text().split("\n")[0]
+        assert first_line.startswith("#!/usr/bin/env python")
+
+    def test_has_main_function(self):
+        """Test that search-guard has a main function."""
+        content = SEARCH_GUARD_PATH.read_text()
+        assert "def main()" in content
+
+    def test_has_binaries_dict(self):
+        """Test that search-guard defines BINARIES mapping."""
+        content = SEARCH_GUARD_PATH.read_text()
+        assert "BINARIES" in content
+
+
+# ── Symlink verification ──────────────────────────────────────────────────────
+
+
+class TestSymlinks:
+    def test_rg_is_symlink_to_search_guard(self):
+        """Test that rg is a symlink to search-guard."""
+        assert RG_LINK_PATH.is_symlink()
+        target = os.readlink(RG_LINK_PATH)
+        assert target == "search-guard" or target.endswith("search-guard")
+
+    def test_grep_is_symlink_to_search_guard(self):
+        """Test that grep is a symlink to search-guard."""
+        assert GREP_LINK_PATH.is_symlink()
+        target = os.readlink(GREP_LINK_PATH)
+        assert target == "search-guard" or target.endswith("search-guard")
+
+    def test_find_is_symlink_to_search_guard(self):
+        """Test that find is a symlink to search-guard."""
+        find_link = Path(__file__).resolve().parents[1] / "effectors" / "find"
+        assert find_link.is_symlink()
+        target = os.readlink(find_link)
+        assert target == "search-guard" or target.endswith("search-guard")
+
+
+# ── Path blocking tests via CLI ──────────────────────────────────────────────
+
+
+class TestPathBlocking:
+    def test_blocks_root_directory_with_rg(self):
+        """Test that searching root '/' via rg symlink is blocked."""
+        result = subprocess.run(
+            [sys.executable, str(RG_LINK_PATH), "pattern", "/"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        assert result.returncode == 1
+        assert "BLOCKED" in result.stdout or "blocked" in result.stdout.lower()
+
+    def test_blocks_home_directory_with_grep(self):
+        """Test that searching home directory via grep symlink is blocked."""
+        home = os.path.expanduser("~")
+        result = subprocess.run(
+            [sys.executable, str(GREP_LINK_PATH), "-r", "pattern", home],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        assert result.returncode == 1
+        assert "BLOCKED" in result.stdout or "blocked" in result.stdout.lower()
+
+    def test_blocks_library_directory(self):
+        """Test that massive directories are blocked."""
+        # Test with home directory which should always be blocked
+        home = os.path.expanduser("~")
+        result = subprocess.run(
+            [sys.executable, str(RG_LINK_PATH), "pattern", home],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        assert result.returncode == 1
+        assert "BLOCKED" in result.stdout or "blocked" in result.stdout.lower()
+
+    @pytest.mark.skipif(
+        os.path.expanduser("~").startswith("/home"),
+        reason="Downloads blocking uses macOS-specific path"
+    )
+    def test_blocks_downloads_directory(self):
+        """Test that Downloads directory is blocked as too large."""
+        result = subprocess.run(
+            [sys.executable, str(RG_LINK_PATH), "pattern", "~/Downloads"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        assert result.returncode == 1
+        assert "too large" in result.stdout.lower() or "BLOCKED" in result.stdout
+
+    @pytest.mark.skipif(
+        os.path.expanduser("~").startswith("/home"),
+        reason="Pictures blocking uses macOS-specific path"
+    )
+    def test_blocks_pictures_directory(self):
+        """Test that Pictures directory is blocked as too large."""
+        result = subprocess.run(
+            [sys.executable, str(RG_LINK_PATH), "pattern", "~/Pictures"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        assert result.returncode == 1
+        assert "too large" in result.stdout.lower() or "BLOCKED" in result.stdout
+
+
+# ── Allowed search tests via mocks ────────────────────────────────────────────
+
+
+class TestAllowedSearch:
+    def test_allows_tmp_directory(self, sg):
+        """Test that /tmp can be searched (not blocked)."""
+        with patch("sys.argv", ["rg", "pattern", "/tmp"]):
+            with patch("os.path.exists", return_value=True):
+                with patch("os.execv") as mock_exec:
+                    sg.main()
+                    assert mock_exec.called
+
+    def test_allows_relative_path(self, sg, tmp_path):
+        """Test that relative paths can be searched."""
+        with patch("sys.argv", ["rg", "pattern", "."]):
+            with patch("os.path.exists", return_value=True):
+                with patch("os.execv") as mock_exec:
+                    sg.main()
+                    assert mock_exec.called
+
+    def test_allows_search_without_path(self, sg):
+        """Test that searches without a path argument are allowed (stdin mode)."""
+        with patch("sys.argv", ["grep", "pattern"]):
+            with patch("os.execv") as mock_exec:
+                sg.main()
+                assert mock_exec.called
+
+
+# ── Internal function tests via exec ─────────────────────────────────────────
+
+
+class TestInternalFunctions:
+    def test_main_function_exists(self, sg):
+        """Test that main function is defined."""
+        assert hasattr(sg, "main")
+        assert callable(sg.main)
+
+    def test_binaries_dict_exists(self, sg):
+        """Test that BINARIES dict is defined."""
+        assert hasattr(sg, "BINARIES")
+        binaries = sg.BINARIES
+        assert "grep" in binaries
+        assert "rg" in binaries
+        assert "find" in binaries
+
+    def test_binaries_paths_are_absolute(self, sg):
+        """Test that BINARIES paths are absolute."""
+        binaries = sg.BINARIES
+        for name, path in binaries.items():
+            assert os.path.isabs(path), f"{name} path is not absolute: {path}"
+
+
+# ── Blocking logic tests via mocks ────────────────────────────────────────────
+
+
+class TestBlockingLogic:
+    def test_blocks_root_via_mock(self, sg, capsys):
+        """Test root directory blocking via mock."""
+        with patch("sys.argv", ["rg", "pattern", "/"]):
+            with pytest.raises(SystemExit) as exc:
+                sg.main()
+            assert exc.value.code == 1
+        out = capsys.readouterr().out
+        assert "BLOCKED" in out
+
+    def test_blocks_home_via_mock(self, sg, capsys):
+        """Test home directory blocking via mock."""
+        home = str(Path.home())
+        with patch("sys.argv", ["rg", "pattern", home]):
+            with pytest.raises(SystemExit) as exc:
+                sg.main()
+            assert exc.value.code == 1
+        out = capsys.readouterr().out
+        assert "BLOCKED" in out
+
+    def test_blocks_macos_library_via_mock(self, sg):
+        """Test macOS Library path blocking via mock."""
+        with patch("sys.argv", ["rg", "pattern", "/Users/terry/Library"]):
+            with pytest.raises(SystemExit) as exc:
+                sg.main()
+            assert exc.value.code == 1
+
+    def test_blocks_macos_downloads_via_mock(self, sg):
+        """Test macOS Downloads path blocking via mock."""
+        with patch("sys.argv", ["rg", "pattern", "/Users/terry/Downloads"]):
+            with pytest.raises(SystemExit) as exc:
+                sg.main()
+            assert exc.value.code == 1
+
+    def test_blocks_macos_pictures_via_mock(self, sg):
+        """Test macOS Pictures path blocking via mock."""
+        with patch("sys.argv", ["rg", "pattern", "/Users/terry/Pictures"]):
+            with pytest.raises(SystemExit) as exc:
+                sg.main()
+            assert exc.value.code == 1

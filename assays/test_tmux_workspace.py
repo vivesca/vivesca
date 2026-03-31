@@ -14,6 +14,7 @@ import importlib.util
 spec = importlib.util.spec_from_file_location("tmux_workspace", 
     os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'effectors', 'tmux-workspace.py')))
 tmux_workspace = importlib.util.module_from_spec(spec)
+sys.modules["tmux_workspace"] = tmux_workspace
 spec.loader.exec_module(tmux_workspace)
 
 
@@ -203,10 +204,10 @@ def test_create_and_attach_creates_session():
         with patch("subprocess.run") as mock_subprocess:
             with patch("builtins.print"):
                 tmux_workspace.create_and_attach("new-session", "default")
-                
+
                 # Should create session with first window
-                session_calls = [c for c in mock_run.call_args_list 
-                                if "new-session" in str(c)]
+                session_calls = [c for c in mock_run.call_args_list
+                                if "tmux new-session" in str(c)]
                 assert len(session_calls) == 1
                 assert "-s new-session" in str(session_calls[0])
 
