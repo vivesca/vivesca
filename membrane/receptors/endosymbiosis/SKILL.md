@@ -1,6 +1,13 @@
 ---
 name: endosymbiosis
 description: Integrate an external tool as a first-class organelle. "absorb"
+triggers:
+  - absorb
+  - endosymbiosis
+  - integrate
+  - organelle
+  - wrap
+  - ingest
 user_invocable: true
 model: sonnet
 context: fork
