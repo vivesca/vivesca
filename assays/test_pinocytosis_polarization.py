@@ -223,12 +223,14 @@ class TestPraxisPhantomCount:
             assert _praxis_phantom_count() == 0
 
     def test_import_error_returns_zero(self):
-        # The function does `from metabolon.checkpoint import ...` inside a try/except.
-        # If checkpoint doesn't have the function, the import fails and returns 0.
+        # The function does `from metabolon.checkpoint import sweep_praxis_for_phantoms`
+        # inside a try/except. Remove the module from sys.modules so the import fails.
         with patch.object(type(PRAXIS_FILE), "exists", return_value=True), \
              patch.object(type(PRAXIS_FILE), "read_text", return_value="data"), \
-             patch.dict("sys.modules", {"metabolon.checkpoint": MagicMock(
-                 spec=[], __getattr__=MagicMock(side_effect=AttributeError))}):
+             patch.dict("sys.modules", {}, clear=False):
+            # Ensure metabolon.checkpoint is not importable
+            import sys
+            sys.modules.pop("metabolon.checkpoint", None)
             assert _praxis_phantom_count() == 0
 
     def test_returns_count(self):
