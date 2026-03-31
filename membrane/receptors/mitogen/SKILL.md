@@ -82,12 +82,22 @@ When all waves complete (or user returns), report:
 
 ## Spec writing rules
 
-Follow centrosome spec conventions:
+For test specs, use `test-spec-gen`:
+```bash
+test-spec-gen --wave N module1.py module2.py  # generates specs with embedded source
+sortase exec loci/plans/wave-N-test-*.md -p ~/germline -b goose  # dispatch
+```
+
+CC's role is **judgment only**: which modules, verify results, coach failures.
+GLM's role is **everything else**: reading, writing, testing.
+
+For non-test specs, follow centrosome conventions:
 - Self-contained specs (no dependencies between tasks)
 - Name EVERY file to create/modify
 - Include exact pytest verification commands
 - Include exact code when possible (GLM copies, doesn't invent)
 - Keep specs under 500 lines per plan file
+- Embed source code for any file goose needs to understand
 
 ## Gotchas (learned 2026-03-31)
 
