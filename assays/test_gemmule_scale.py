@@ -1,327 +1,191 @@
-"""Tests for gemmule-scale — Fly.io machine resizer."""
+#!/usr/bin/env python3
+"""Tests for gemmule-scale effector — mocked HTTP, no real Fly API calls."""
 from __future__ import annotations
 
-import os
-import sys
-from io import StringIO
+import json
+import types
+from io import BytesIO
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
 
+# Load effector via exec (effectors are scripts, not importable packages)
+_effector_path = Path(__file__).parent.parent / "effectors" / "gemmule-scale"
+_ns: dict = {"__name__": "effectors.gemmule_scale", "__file__": str(_effector_path)}
+exec(open(_effector_path).read(), _ns)  # noqa: S102
 
-# ── Load effector via exec (scripts aren't importable modules) ───────
+# Register as a real module so @patch works
+_mod = types.ModuleType("effectors.gemmule_scale")
+_mod.__dict__.update(_ns)
+import sys
+sys.modules["effectors.gemmule_scale"] = _mod
 
-def _load_module():
-    """Load gemmule-scale by exec-ing, with requests mocked."""
-    mock_requests = MagicMock()
-    ns: dict = {"__name__": "gemmule_scale", "requests": mock_requests}
-    source = open("/home/terry/germline/effectors/gemmule-scale").read()
-    exec(source, ns)
-    ns["_requests"] = mock_requests
-    return ns
+main = _ns["main"]
+build_parser = _ns["build_parser"]
+cmd_status = _ns["cmd_status"]
+cmd_resize = _ns["cmd_resize"]
+_fmt_guest = _ns["_fmt_guest"]
+PROFILES = _ns["PROFILES"]
 
-
-_mod = _load_module()
-_requests = _mod["_requests"]
-_headers = _mod["_headers"]
-_list_machines = _mod["_list_machines"]
-_pick_machine = _mod["_pick_machine"]
-_machine_config = _mod["_machine_config"]
-_stop = _mod["_stop"]
-_update = _mod["_update"]
-_start = _mod["_start"]
-cmd_status = _mod["cmd_status"]
-cmd_scale = _mod["cmd_scale"]
-main = _mod["main"]
-PROFILES = _mod["PROFILES"]
+_API_TARGET = "effectors.gemmule_scale._api"
 
 
-# ── _headers ─────────────────────────────────────────────────────────
+def _mock_response(body: dict | list, status: int = 200) -> MagicMock:
+    resp = MagicMock()
+    resp.read.return_value = json.dumps(body).encode()
+    resp.__enter__ = lambda s: s
+    resp.__exit__ = MagicMock(return_value=False)
+    resp.status = status
+    return resp
 
 
-def test_headers_returns_auth_bearer():
-    """_headers includes Authorization: Bearer <token>."""
-    with patch.dict(os.environ, {"FLY_API_TOKEN": "tok123"}):
-        h = _headers()
-    assert h["Authorization"] == "Bearer tok123"
-    assert h["Content-Type"] == "application/json"
-
-
-def test_headers_missing_token_exits():
-    """_headers prints error and exits when FLY_API_TOKEN is unset."""
-    with patch.dict(os.environ, {}, clear=True):
-        # Remove FLY_API_TOKEN if present
-        os.environ.pop("FLY_API_TOKEN", None)
-        with pytest.raises(SystemExit):
-            _headers()
-
-
-# ── _list_machines ───────────────────────────────────────────────────
-
-
-def test_list_machines_calls_correct_url():
-    """_list_machines GETs /v1/apps/gemmule/machines."""
-    mock_resp = MagicMock()
-    mock_resp.json.return_value = [{"id": "m1"}]
-    mock_resp.raise_for_status = MagicMock()
-    _requests.get.reset_mock(return_value=True)
-    _requests.get.return_value = mock_resp
-
-    with patch.dict(os.environ, {"FLY_API_TOKEN": "tok"}):
-        result = _list_machines()
-
-    _requests.get.assert_called_once()
-    call_url = _requests.get.call_args[0][0]
-    assert "/v1/apps/gemmule/machines" in call_url
-    assert result == [{"id": "m1"}]
-
-
-# ── _pick_machine ────────────────────────────────────────────────────
-
-
-def test_pick_machine_prefers_non_leased():
-    """_pick_machine returns first machine without a lease."""
-    machines = [
-        {"id": "leased", "lease": {"foo": "bar"}},
-        {"id": "free"},
-        {"id": "also_free"},
-    ]
-    assert _pick_machine(machines) == {"id": "free"}
-
-
-def test_pick_machine_falls_back_to_first():
-    """If all machines are leased, return the first one."""
-    machines = [
-        {"id": "a", "lease": {"x": 1}},
-        {"id": "b", "lease": {"x": 2}},
-    ]
-    assert _pick_machine(machines) == machines[0]
-
-
-# ── _machine_config ──────────────────────────────────────────────────
-
-
-def test_machine_config_extracts_cpus_memory():
-    """_machine_config pulls cpus and memory_mb from guest dict."""
-    machine = {
-        "id": "m1",
-        "config": {"guest": {"cpus": 4, "memory_mb": 16384}},
+MOCK_MACHINES = [
+    {
+        "id": "m-abc123",
+        "state": "started",
+        "region": "sjc",
+        "config": {
+            "guest": {"cpus": 2, "cpu_kind": "shared", "memory_mb": 8192},
+            "image": "ghcr.io/example/gemmule:latest",
+        },
     }
-    cfg = _machine_config(machine)
-    assert cfg == {"cpus": 4, "memory": 16384}
+]
 
 
-def test_machine_config_missing_guest():
-    """_machine_config returns zeros when guest is absent."""
-    assert _machine_config({"id": "m1"}) == {"cpus": 0, "memory": 0}
+class TestFmtGuest:
+    def test_full_guest(self):
+        assert _fmt_guest({"cpus": 8, "cpu_kind": "shared", "memory_mb": 32768}) == "8 CPU (shared), 32768 MB"
+
+    def test_minimal_guest(self):
+        assert _fmt_guest({}) == "? CPU (?), ? MB"
 
 
-# ── _stop ────────────────────────────────────────────────────────────
+class TestParser:
+    def test_up(self):
+        args = build_parser().parse_args(["up"])
+        assert args.command == "up"
+
+    def test_down(self):
+        args = build_parser().parse_args(["down"])
+        assert args.command == "down"
+
+    def test_status(self):
+        args = build_parser().parse_args(["status"])
+        assert args.command == "status"
+
+    def test_invalid_exits(self):
+        with pytest.raises(SystemExit):
+            build_parser().parse_args(["explode"])
 
 
-def test_stop_posts_to_stop_endpoint():
-    """_stop POSTs to /machines/<id>/stop."""
-    mock_resp = MagicMock()
-    _requests.post.return_value = mock_resp
-
-    with patch.dict(os.environ, {"FLY_API_TOKEN": "tok"}):
-        _stop("abc123")
-
-    call_url = _requests.post.call_args[0][0]
-    assert "/machines/abc123/stop" in call_url
-    mock_resp.raise_for_status.assert_called_once()
-
-
-# ── _update ──────────────────────────────────────────────────────────
-
-
-def test_update_patches_machine_config():
-    """_update PATCHes guest cpus and memory_mb."""
-    mock_resp = MagicMock()
-    _requests.patch.return_value = mock_resp
-
-    with patch.dict(os.environ, {"FLY_API_TOKEN": "tok"}):
-        _update("abc123", 8, 32768)
-
-    call_url = _requests.patch.call_args[0][0]
-    assert "/machines/abc123" in call_url
-    payload = _requests.patch.call_args[1]["json"]
-    assert payload == {"config": {"guest": {"cpus": 8, "memory_mb": 32768}}}
-    mock_resp.raise_for_status.assert_called_once()
-
-
-# ── _start ───────────────────────────────────────────────────────────
-
-
-def test_start_posts_to_start_endpoint():
-    """_start POSTs to /machines/<id>/start."""
-    mock_resp = MagicMock()
-    _requests.post.return_value = mock_resp
-
-    with patch.dict(os.environ, {"FLY_API_TOKEN": "tok"}):
-        _start("abc123")
-
-    call_url = _requests.post.call_args[0][0]
-    assert "/machines/abc123/start" in call_url
-    mock_resp.raise_for_status.assert_called_once()
-
-
-# ── cmd_status ───────────────────────────────────────────────────────
-
-
-def test_cmd_status_prints_machine_info(capsys):
-    """cmd_status prints machine id, state, cpus, and memory."""
-    mock_resp = MagicMock()
-    mock_resp.json.return_value = [
-        {
-            "id": "m_abc",
-            "state": "started",
-            "config": {"guest": {"cpus": 2, "memory_mb": 8192}},
-        }
-    ]
-    mock_resp.raise_for_status = MagicMock()
-    _requests.get.return_value = mock_resp
-
-    with patch.dict(os.environ, {"FLY_API_TOKEN": "tok"}):
+class TestStatus:
+    @patch(_API_TARGET, return_value=MOCK_MACHINES)
+    def test_prints_machine_info(self, mock_api, capsys):
         cmd_status()
+        out = capsys.readouterr().out
+        assert "m-abc123" in out
+        assert "started" in out
+        assert "sjc" in out
+        assert "2 CPU (shared), 8192 MB" in out
+        mock_api.assert_called_once_with("GET", "/v1/apps/gemmule/machines")
 
-    out = capsys.readouterr().out
-    assert "m_abc" in out
-    assert "cpus=2" in out
-    assert "memory=8192" in out
-
-
-def test_cmd_status_no_machines(capsys):
-    """cmd_status handles empty machine list gracefully."""
-    mock_resp = MagicMock()
-    mock_resp.json.return_value = []
-    mock_resp.raise_for_status = MagicMock()
-    _requests.get.return_value = mock_resp
-
-    with patch.dict(os.environ, {"FLY_API_TOKEN": "tok"}):
+    @patch(_API_TARGET, return_value=[])
+    def test_no_machines(self, mock_api, capsys):
         cmd_status()
-
-    out = capsys.readouterr().out
-    assert "No machines" in out
-
-
-# ── cmd_scale ────────────────────────────────────────────────────────
+        out = capsys.readouterr().out
+        assert "no machines found" in out
 
 
-def test_cmd_scale_up_full_flow(capsys):
-    """cmd_scale up: stop → update(8,32768) → start, prints old→new."""
-    list_resp = MagicMock()
-    list_resp.json.return_value = [
-        {
-            "id": "m_scale",
-            "state": "started",
-            "config": {"guest": {"cpus": 2, "memory_mb": 8192}},
-        }
-    ]
-    list_resp.raise_for_status = MagicMock()
-    _requests.get.return_value = list_resp
+class TestResize:
+    @patch(_API_TARGET)
+    def test_scale_up(self, mock_api, capsys):
+        mock_api.return_value = MOCK_MACHINES
+        cmd_resize("up")
+        out = capsys.readouterr().out
 
-    stop_resp = MagicMock()
-    update_resp = MagicMock()
-    start_resp = MagicMock()
-    _requests.post.return_value = stop_resp  # first post = stop
-    _requests.patch.return_value = update_resp
-    # We need post to return stop_resp first, then start_resp
-    _requests.post.side_effect = [stop_resp, start_resp]
+        # Should print old -> new
+        assert "8192 MB" in out
+        assert "32768 MB" in out
+        assert "8 CPU" in out
 
-    with patch.dict(os.environ, {"FLY_API_TOKEN": "tok"}):
-        cmd_scale("up")
+        # Call sequence: list, stop, patch, start
+        assert mock_api.call_count == 4
+        calls = mock_api.call_args_list
+        assert calls[0] == (("GET", "/v1/apps/gemmule/machines"),)
+        assert calls[1] == (("POST", "/v1/apps/gemmule/machines/m-abc123/stop"),)
+        assert calls[2][0][0] == "PATCH"
+        assert calls[2][0][1] == "/v1/apps/gemmule/machines/m-abc123"
+        patch_body = calls[2][1].get("body", calls[2][0][2] if len(calls[2][0]) > 2 else None)
+        assert patch_body["guest"]["cpus"] == 8
+        assert patch_body["guest"]["memory_mb"] == 32768
+        assert calls[3] == (("POST", "/v1/apps/gemmule/machines/m-abc123/start"),)
 
-    out = capsys.readouterr().out
-    assert "cpus 2->8" in out
-    assert "memory 8192MB->32768" in out
-    # Verify PATCH was called with up profile
-    payload = _requests.patch.call_args[1]["json"]
-    assert payload["config"]["guest"]["cpus"] == 8
-    assert payload["config"]["guest"]["memory_mb"] == 32768
+    @patch(_API_TARGET)
+    def test_scale_down(self, mock_api, capsys):
+        up_machines = [
+            {
+                "id": "m-xyz789",
+                "state": "started",
+                "region": "sjc",
+                "config": {
+                    "guest": {"cpus": 8, "cpu_kind": "shared", "memory_mb": 32768},
+                    "image": "ghcr.io/example/gemmule:latest",
+                },
+            }
+        ]
+        mock_api.return_value = up_machines
+        cmd_resize("down")
+        out = capsys.readouterr().out
 
+        assert "32768 MB" in out
+        assert "8192 MB" in out
+        assert "2 CPU" in out
 
-def test_cmd_scale_down_full_flow(capsys):
-    """cmd_scale down: stop → update(2,8192) → start, prints old→new."""
-    list_resp = MagicMock()
-    list_resp.json.return_value = [
-        {
-            "id": "m_scale",
-            "state": "started",
-            "config": {"guest": {"cpus": 8, "memory_mb": 32768}},
-        }
-    ]
-    list_resp.raise_for_status = MagicMock()
-    _requests.get.return_value = list_resp
-    _requests.post.side_effect = [MagicMock(), MagicMock()]
-    _requests.patch.return_value = MagicMock()
-
-    with patch.dict(os.environ, {"FLY_API_TOKEN": "tok"}):
-        cmd_scale("down")
-
-    out = capsys.readouterr().out
-    assert "cpus 8->2" in out
-    assert "memory 32768MB->8192" in out
-    payload = _requests.patch.call_args[1]["json"]
-    assert payload["config"]["guest"]["cpus"] == 2
-    assert payload["config"]["guest"]["memory_mb"] == 8192
-
-
-def test_cmd_scale_no_machines_exits():
-    """cmd_scale exits when no machines found."""
-    list_resp = MagicMock()
-    list_resp.json.return_value = []
-    list_resp.raise_for_status = MagicMock()
-    _requests.get.return_value = list_resp
-
-    with patch.dict(os.environ, {"FLY_API_TOKEN": "tok"}):
+    @patch(_API_TARGET, return_value=[])
+    def test_no_machines_exits(self, mock_api):
         with pytest.raises(SystemExit):
-            cmd_scale("up")
+            cmd_resize("up")
+
+    @patch(_API_TARGET)
+    def test_preserves_other_config(self, mock_api, capsys):
+        machines = [
+            {
+                "id": "m-keep",
+                "state": "started",
+                "region": "sjc",
+                "config": {
+                    "guest": {"cpus": 2, "cpu_kind": "shared", "memory_mb": 8192},
+                    "image": "ghcr.io/example/gemmule:v2",
+                    "env": {"FOO": "bar"},
+                    "services": [{"port": 443}],
+                },
+            }
+        ]
+        mock_api.return_value = machines
+        cmd_resize("up")
+
+        # The PATCH call should preserve image, env, services
+        patch_call = mock_api.call_args_list[2]
+        body = patch_call[1]["body"]
+        assert body["image"] == "ghcr.io/example/gemmule:v2"
+        assert body["env"] == {"FOO": "bar"}
+        assert body["services"] == [{"port": 443}]
+        assert body["guest"]["cpus"] == 8
 
 
-# ── main (CLI dispatch) ─────────────────────────────────────────────
+class TestMain:
+    @patch("effectors.gemmule_scale.cmd_status")
+    def test_main_status(self, mock_status):
+        main(["status"])
+        mock_status.assert_called_once()
 
+    @patch("effectors.gemmule_scale.cmd_resize")
+    def test_main_up(self, mock_resize):
+        main(["up"])
+        mock_resize.assert_called_once_with("up")
 
-def test_main_no_args_exits():
-    """main exits with usage when no command given."""
-    with patch.object(sys, "argv", ["gemmule-scale"]):
-        with pytest.raises(SystemExit):
-            main()
-
-
-def test_main_unknown_command_exits():
-    """main exits for unknown commands."""
-    with patch.object(sys, "argv", ["gemmule-scale", "explode"]):
-        with pytest.raises(SystemExit):
-            main()
-
-
-def test_main_status_dispatches(capsys):
-    """main 'status' invokes cmd_status."""
-    mock_resp = MagicMock()
-    mock_resp.json.return_value = [
-        {
-            "id": "m1",
-            "state": "started",
-            "config": {"guest": {"cpus": 2, "memory_mb": 8192}},
-        }
-    ]
-    mock_resp.raise_for_status = MagicMock()
-    _requests.get.return_value = mock_resp
-    _requests.post.side_effect = None
-
-    with patch.dict(os.environ, {"FLY_API_TOKEN": "tok"}):
-        with patch.object(sys, "argv", ["gemmule-scale", "status"]):
-            main()
-
-    out = capsys.readouterr().out
-    assert "m1" in out
-
-
-# ── PROFILES constants ───────────────────────────────────────────────
-
-
-def test_profiles_values():
-    """PROFILES has correct up/down specs."""
-    assert PROFILES["up"] == {"cpus": 8, "memory": 32768}
-    assert PROFILES["down"] == {"cpus": 2, "memory": 8192}
+    @patch("effectors.gemmule_scale.cmd_resize")
+    def test_main_down(self, mock_resize):
+        main(["down"])
+        mock_resize.assert_called_once_with("down")
