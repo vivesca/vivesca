@@ -65,3 +65,44 @@ def test_stdin_text_is_content():
         mock.return_value = "ok"
         judge_evaluate(rubric="article", content="my content here")
         assert mock.call_args[1].get("stdin_text") == "my content here"
+
+
+def test_custom_model_parameter():
+    from metabolon.enzymes.judge import judge_evaluate
+
+    with patch("metabolon.enzymes.judge.run_cli") as mock:
+        mock.return_value = "ok"
+        judge_evaluate(rubric="article", content="text", model="claude")
+        args = mock.call_args[0][1]
+        idx = args.index("--model")
+        assert args[idx + 1] == "claude"
+
+
+def test_timeout_passed_to_run_cli():
+    from metabolon.enzymes.judge import judge_evaluate
+
+    with patch("metabolon.enzymes.judge.run_cli") as mock:
+        mock.return_value = "ok"
+        judge_evaluate(rubric="article", content="text")
+        assert mock.call_args[1].get("timeout") == 60
+
+
+def test_all_valid_rubrics():
+    from metabolon.enzymes.judge import judge_evaluate
+
+    for rubric in ["article", "job-eval", "outreach"]:
+        with patch("metabolon.enzymes.judge.run_cli") as mock:
+            mock.return_value = "ok"
+            result = judge_evaluate(rubric=rubric, content="text")
+            assert result == "ok"
+            args = mock.call_args[0][1]
+            assert rubric in args
+
+
+def test_run_cli_binary_path():
+    from metabolon.enzymes.judge import judge_evaluate, BINARY
+
+    with patch("metabolon.enzymes.judge.run_cli") as mock:
+        mock.return_value = "ok"
+        judge_evaluate(rubric="article", content="text")
+        assert mock.call_args[0][0] == BINARY
