@@ -5,6 +5,7 @@
 # ///
 """Headless garden post pipeline. Reads queue, generates, judges, publishes."""
 
+import argparse
 import configparser
 from pathlib import Path
 
@@ -88,6 +89,9 @@ def publish(title: str, body: str) -> str:
 
 
 def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.parse_args()
+
     entry = get_next_topic()
     if not entry:
         notify("Garden queue empty — nothing to generate")

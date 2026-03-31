@@ -173,7 +173,11 @@ def parse_queue() -> list[tuple[int, str]]:
     if not QUEUE_FILE.exists():
         return []
 
-    lines = QUEUE_FILE.read_text().splitlines()
+    try:
+        lines = QUEUE_FILE.read_text().splitlines()
+    except (PermissionError, OSError):
+        return []
+
     pending = []
 
     for i, line in enumerate(lines):
@@ -200,10 +204,17 @@ def get_provider_limit(provider: str) -> int:
 def mark_done(line_num: int, result: str = ""):
     """Mark task as done in queue file, move to Done section."""
     with QueueLock():
+        if not QUEUE_FILE.exists():
+            return
+        if line_num < 0:
+            return
         lines = QUEUE_FILE.read_text().splitlines()
         if line_num >= len(lines):
             return
         original = lines[line_num]
+        # Verify the line is still a pending task
+        if not original.strip().startswith("- [ ] "):
+            return
         done_line = original.replace("- [ ] ", "- [x] ", 1)
         lines[line_num] = done_line
         for i, line in enumerate(lines):

@@ -57,6 +57,9 @@ def check_service() -> tuple[bool, str]:
 
 
 def main():
+    parser = argparse.ArgumentParser(description="Wechat2RSS health check — alerts via Telegram when service is unhealthy.")
+    parser.parse_args()
+
     state = load_state()
     healthy, detail = check_service()
 
