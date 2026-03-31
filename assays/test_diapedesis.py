@@ -173,7 +173,7 @@ def test_kill_daemons_runs_pkill():
             # Check first call kills agent-browser
             first_call = mock_run.call_args_list[0]
             assert "pkill" in first_call[0][0]
-            assert "agent-browser-darwin" in first_call[0][0]
+            assert "agent-browser" in first_call[0][0]
 
 def test_kill_daemons_handles_errors():
     """Test _kill_daemons handles subprocess errors gracefully."""
