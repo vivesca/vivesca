@@ -10,6 +10,7 @@ sync_file() {
     local src="$1" dst="$2"
     [ -f "$src" ] || return 1
     if [ ! -f "$dst" ] || ! diff -q "$src" "$dst" &>/dev/null; then
+        mkdir -p "$(dirname "$dst")"
         cp "$src" "$dst"
         echo "updated: $(basename "$dst")"
         return 0
@@ -23,6 +24,7 @@ changed=false
 MEMORY_SRC="$CLAUDE_DIR/projects/-Users-terry/memory"
 MEMORY_DST="$OFFICINA/claude/memory"
 if [ -d "$MEMORY_SRC" ]; then
+    mkdir -p "$MEMORY_DST"
     rsync -a --delete "$MEMORY_SRC/" "$MEMORY_DST/" \
         && echo "synced: memory/" && changed=true || true
 fi

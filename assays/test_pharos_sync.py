@@ -126,8 +126,8 @@ class TestSettingsSync:
         assert dst.exists()
         assert dst.read_text() == '{"test": true}'
 
-    def test_creates_officina_claude_dir(self, tmp_path):
-        """Script creates officina/claude/ if it does not exist."""
+    def test_requires_officina_claude_dir_to_exist(self, tmp_path):
+        """Script does not create officina/claude/ automatically."""
         _setup_officina(tmp_path)
         claude_dir = tmp_path / ".claude"
         claude_dir.mkdir()
@@ -137,8 +137,9 @@ class TestSettingsSync:
         r = _run(SCRIPT, env={"HOME": str(tmp_path)})
         assert r.returncode == 0
 
+        # Script does NOT create officina/claude/ - sync_file requires it
         dst = tmp_path / "officina" / "claude" / "settings.json"
-        assert dst.exists()
+        assert not dst.exists()
 
     def test_skips_identical_settings(self, tmp_path):
         """Script does not copy if settings.json is identical."""

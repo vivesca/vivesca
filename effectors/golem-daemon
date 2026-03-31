@@ -37,6 +37,88 @@ DISK_SPACE_MIN_BYTES = 1 * 1024 * 1024 * 1024  # 1GB minimum free space
 JSONLFILE = Path.home() / ".local" / "share" / "vivesca" / "golem.jsonl"
 ROTATE_MAX_BYTES = 5 * 1024 * 1024  # 5MB rotation threshold
 
+# Disk hygiene
+SESSION_DIR = Path.home() / ".claude" / "projects" / "-home-terry-germline"
+SESSION_KEEP = 200  # Keep only the N newest session files
+IDLE_STOP_MINUTES = 10  # Stop machine after N minutes idle
+FLY_APP_NAME = "gemmule"
+FLY_API_BASE = "https://api.machines.dev"
+
+
+def disk_hygiene() -> int:
+    """Prune old Claude session files and caches. Returns bytes freed (approx)."""
+    freed = 0
+
+    # 1. Prune old golem session JSONL files (keep newest SESSION_KEEP)
+    if SESSION_DIR.is_dir():
+        sessions = sorted(SESSION_DIR.glob("*.jsonl"), key=lambda p: p.stat().st_mtime, reverse=True)
+        for old in sessions[SESSION_KEEP:]:
+            try:
+                freed += old.stat().st_size
+                old.unlink()
+            except OSError:
+                pass
+
+    # 2. Prune uv cache (non-blocking)
+    uv_cache = Path.home() / ".cache" / "uv"
+    if uv_cache.is_dir():
+        try:
+            subprocess.run(["uv", "cache", "prune", "--force"], capture_output=True, timeout=60)
+        except Exception:
+            pass
+
+    # 3. Prune go-build cache
+    go_cache = Path.home() / ".cache" / "go-build"
+    if go_cache.is_dir():
+        try:
+            shutil.rmtree(go_cache, ignore_errors=True)
+            freed += 400 * 1024 * 1024  # rough estimate
+        except Exception:
+            pass
+
+    # 4. Prune infections.jsonl if > 20MB
+    infections = Path.home() / ".local" / "share" / "vivesca" / "infections.jsonl"
+    if infections.exists():
+        try:
+            sz = infections.stat().st_size
+            if sz > 20 * 1024 * 1024:
+                # Keep last 5000 lines
+                lines = infections.read_text().splitlines()
+                infections.write_text("\n".join(lines[-5000:]) + "\n")
+                freed += sz - infections.stat().st_size
+        except Exception:
+            pass
+
+    return freed
+
+
+def fly_stop_self() -> bool:
+    """Stop this Fly machine via the Machines API. Returns True on success."""
+    token = os.environ.get("FLY_API_TOKEN", "")
+    if not token:
+        return False
+    try:
+        from urllib.request import Request, urlopen
+        # List machines to find our ID
+        url = f"{FLY_API_BASE}/v1/apps/{FLY_APP_NAME}/machines"
+        req = Request(url, method="GET")
+        req.add_header("Authorization", f"Bearer {token}")
+        req.add_header("Content-Type", "application/json")
+        with urlopen(req, timeout=10) as resp:
+            machines = json.loads(resp.read())
+        if not machines:
+            return False
+        mid = machines[0]["id"]
+        # Stop the machine
+        stop_url = f"{FLY_API_BASE}/v1/apps/{FLY_APP_NAME}/machines/{mid}/stop"
+        req = Request(stop_url, method="POST")
+        req.add_header("Authorization", f"Bearer {token}")
+        req.add_header("Content-Type", "application/json")
+        urlopen(req, timeout=10)
+        return True
+    except Exception:
+        return False
+
 
 def check_disk_space() -> tuple[bool, int]:
     """Check if there's enough disk space.
@@ -628,24 +710,37 @@ def daemon_loop():
     provider_running: dict[str, int] = {}  # provider -> count of running tasks
     poll_cycle = 0
     disk_space_paused = False
+    idle_since: float | None = None  # timestamp when we became idle
 
     try:
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             while True:
                 poll_cycle += 1
 
-                # Check disk space every 10 poll cycles
+                # Check disk space every 10 poll cycles + run hygiene
                 if poll_cycle % 10 == 0:
                     ok, free_bytes = check_disk_space()
                     if not ok:
                         free_gb = free_bytes / (1024 * 1024 * 1024)
                         if not disk_space_paused:
-                            log(f"WARNING: Low disk space ({free_gb:.2f}GB free), pausing task dispatch")
-                            disk_space_paused = True
+                            log(f"WARNING: Low disk space ({free_gb:.2f}GB free), running disk hygiene")
+                            freed = disk_hygiene()
+                            if freed > 0:
+                                log(f"Disk hygiene freed ~{freed // (1024*1024)}MB")
+                            # Re-check after hygiene
+                            ok, free_bytes = check_disk_space()
+                            if not ok:
+                                log(f"Still low after hygiene ({free_bytes // (1024*1024)}MB free), pausing dispatch")
+                                disk_space_paused = True
                     elif disk_space_paused:
                         free_gb = free_bytes / (1024 * 1024 * 1024)
                         log(f"Disk space recovered ({free_gb:.2f}GB free), resuming task dispatch")
                         disk_space_paused = False
+                    # Periodic hygiene even when not low (every 100 cycles = ~50 min)
+                    if poll_cycle % 100 == 0:
+                        freed = disk_hygiene()
+                        if freed > 0:
+                            log(f"Periodic hygiene freed ~{freed // (1024*1024)}MB")
 
                 # Check for completed tasks
                 done_futures = [f for f in running if f.done()]
@@ -708,14 +803,33 @@ def daemon_loop():
                             provider_running[provider] = current + 1
                             log(f"Queued [{provider}]: {cmd[:60]}...")
 
-                # Status check
+                # Status check + auto-stop
                 if running:
                     running_by_provider = ", ".join(
                         f"{p}:{n}" for p, n in sorted(provider_running.items()) if n > 0
                     )
                     log(f"Running: {len(running)} tasks ({running_by_provider}), {len(pending)} pending")
-                else:
+                    idle_since = None  # Reset idle timer
+                elif pending:
                     log(f"Idle: {len(pending)} pending")
+                    idle_since = None
+                else:
+                    # No running tasks AND no pending tasks → truly idle
+                    if idle_since is None:
+                        idle_since = time.time()
+                        log("Queue empty, no tasks running — idle timer started")
+                    else:
+                        idle_min = (time.time() - idle_since) / 60
+                        log(f"Idle for {idle_min:.1f} min (stop at {IDLE_STOP_MINUTES})")
+                        if idle_min >= IDLE_STOP_MINUTES:
+                            log(f"Idle for {IDLE_STOP_MINUTES}+ min — committing and stopping machine")
+                            auto_commit()
+                            if fly_stop_self():
+                                log("Fly machine stop requested — goodbye")
+                                break
+                            else:
+                                log("FLY_API_TOKEN not set or stop failed — staying alive")
+                                idle_since = None  # Reset to avoid spamming
 
                 time.sleep(POLL_INTERVAL)
 
