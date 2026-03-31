@@ -50,6 +50,8 @@ Golem reads, writes, runs, fixes. No spec files, no sortase, no worktrees.
 
 CC's role: decide what to build, verify results, fix anything golem can't.
 
+Excess tasks that can't run now → add to `loci/golem-queue.md`. The queue is drained by golem-daemon or by `/circadian` morning dispatch.
+
 ### Phase 3: Verify + commit
 
 ```bash
