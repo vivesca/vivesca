@@ -94,9 +94,9 @@ _REGULATORY_KEYWORDS = [
 ]
 
 _ENGAGEMENT_TYPE_SIGNALS = {
-    "advisory": ["advise", "advisory", "counsel", "recommend", "review", "assess"],
+    "advisory": ["advise", "advisory", "counsel", "recommend", "review"],
     "implementation": ["implement", "build", "develop", "deploy", "migrate", "integrate"],
-    "assessment": ["assess", "audit", "evaluate", "gap analysis", "maturity", "benchmark"],
+    "assessment": ["assess", "assessment", "audit", "evaluate", "gap analysis", "maturity", "benchmark"],
 }
 
 _SKILL_KEYWORDS = [
@@ -137,7 +137,7 @@ def extract_deliverables(text: str) -> list[str]:
     """Extract deliverable items from text."""
     deliverables = []
     # Look for numbered or bulleted lists after "deliverable" keywords
-    sections = re.split(r"(?i)deliverable|output|work\s*product|milestone", text)
+    sections = re.split(r"(?i)deliverable|deliver|output|work\s*product|milestone", text)
     if len(sections) > 1:
         for section in sections[1:]:
             # Extract bullet points
