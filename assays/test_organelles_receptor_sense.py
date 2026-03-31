@@ -1,13 +1,13 @@
-"""Tests for receptor_sense organelle.
+from __future__ import annotations
 
-All external filesystem operations are mocked.
-"""
+"""Tests for receptor_sense organelle."""
+
 
 import datetime
 import json
 import tempfile
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest import mock
 
 import pytest
 import yaml
@@ -19,324 +19,360 @@ from metabolon.organelles.receptor_sense import (
     decode_flashcard_deck,
     restore_goals,
     synthesize_signal_summary,
-    _goal_slugs,
 )
 
 
-def test_current_phase_returns_first_matching():
-    """Test current_phase selects correct phase based on date."""
+def test_current_phase_before_first_deadline():
+    """Test current_phase returns first phase when today is before its deadline."""
     phases = [
-        {"name": "early", "until": "2025-01-01"},
-        {"name": "mid", "until": "2025-06-01"},
-        {"name": "late"},
+        {"name": "phase1", "until": "2030-01-01"},
+        {"name": "phase2", "until": "2030-02-01"},
+        {"name": "phase3"},
     ]
-    
-    result = current_phase(phases, today=datetime.date(2024, 12, 31))
-    assert result["name"] == "early"
-    
-    result = current_phase(phases, today=datetime.date(2025, 1, 1))
-    assert result["name"] == "mid"
-    
-    result = current_phase(phases, today=datetime.date(2025, 6, 1))
-    assert result["name"] == "late"
-    
-    result = current_phase(phases, today=datetime.date(2025, 12, 31))
-    assert result["name"] == "late"
+    today = datetime.date(2025, 1, 1)
+    result = current_phase(phases, today)
+    assert result == phases[0]
 
 
-def test_restore_goals_returns_empty_when_directory_missing():
+def test_current_phase_between_deadlines():
+    """Test current_phase returns correct phase when between deadlines."""
+    phases = [
+        {"name": "phase1", "until": "2025-01-01"},
+        {"name": "phase2", "until": "2030-02-01"},
+        {"name": "phase3"},
+    ]
+    today = datetime.date(2025, 1, 15)
+    result = current_phase(phases, today)
+    assert result == phases[1]
+
+
+def test_current_phase_after_all_deadlines():
+    """Test current_phase returns last phase when all deadlines passed."""
+    phases = [
+        {"name": "phase1", "until": "2025-01-01"},
+        {"name": "phase2", "until": "2025-02-01"},
+        {"name": "phase3"},
+    ]
+    today = datetime.date(2030, 1, 1)
+    result = current_phase(phases, today)
+    assert result == phases[2]
+
+
+def test_current_phase_no_until_in_middle_phase():
+    """Test that a middle phase without until returns immediately."""
+    phases = [
+        {"name": "phase1", "until": "2025-01-01"},
+        {"name": "phase2"},
+        {"name": "phase3", "until": "2030-01-01"},
+    ]
+    today = datetime.date(2025, 1, 15)
+    result = current_phase(phases, today)
+    assert result == phases[1]
+
+
+def test_restore_goals_directory_not_exists():
     """Test restore_goals returns empty list when directory doesn't exist."""
-    fake_dir = Path("/nonexistent/path/that/never/exists")
-    result = restore_goals(goals_dir=fake_dir)
+    fake_dir = Path("/does/not/exist")
+    result = restore_goals(fake_dir)
     assert result == []
 
 
-def test_restore_goals_loads_yaml_files(tmp_path):
-    """Test restore_goals loads and parses all YAML files from directory."""
-    # Create test goal files
-    goal1 = tmp_path / "goal1.yaml"
-    goal1.write_text("name: Test Goal 1\nphases: []\n")
-    
-    goal2 = tmp_path / "goal2.yaml"
-    goal2.write_text("name: Test Goal 2\nphases: [{name: phase1}]\n")
-    
-    # Empty file should be skipped
-    empty = tmp_path / "empty.yaml"
-    empty.write_text("")
-    
-    result = restore_goals(goals_dir=tmp_path)
-    
+def test_restore_goals_empty_directory(tmp_path: Path):
+    """Test restore_goals returns empty list when directory is empty."""
+    result = restore_goals(tmp_path)
+    assert result == []
+
+
+def test_restore_goals_loads_multiple_files(tmp_path: Path):
+    """Test restore_goals loads and parses multiple YAML files."""
+    # Create two goal files
+    goal1 = {"name": "Goal 1", "description": "First goal"}
+    goal2 = {"name": "Goal 2", "description": "Second goal"}
+
+    (tmp_path / "goal1.yaml").write_text(yaml.dump(goal1))
+    (tmp_path / "goal2.yaml").write_text(yaml.dump(goal2))
+
+    result = restore_goals(tmp_path)
     assert len(result) == 2
-    assert any(g["name"] == "Test Goal 1" for g in result)
-    assert any(g["name"] == "Test Goal 2" for g in result)
-    assert all("_file" in g for g in result)
+    # Sorted by filename
+    assert result[0]["name"] == "Goal 1"
+    assert result[1]["name"] == "Goal 2"
+    # Check _file was added
+    assert "_file" in result[0]
+    assert str(tmp_path / "goal1.yaml") in result[0]["_file"]
+
+
+def test_restore_goals_skips_empty_files(tmp_path: Path):
+    """Test restore_goals skips empty YAML files."""
+    (tmp_path / "empty.yaml").write_text("")
+    result = restore_goals(tmp_path)
+    assert result == []
 
 
 class TestProprioceptiveStore:
-    """Tests for ProprioceptiveStore append-only JSONL store."""
+    """Tests for ProprioceptiveStore class."""
 
-    def test_store_creates_parent_dirs(self):
-        """Test store creates parent directories when appending."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            path = Path(tmpdir) / "subdir" / "signals.jsonl"
-            store = ProprioceptiveStore(path)
-            assert not path.exists()
-            
-            store.append(
-                goal="test-goal",
-                material="test",
-                category="D1",
-                score=3,
-                drill_type="flashcard",
-            )
-            
-            assert path.exists()
+    def test_append_creates_directory_and_writes_entry(self, tmp_path: Path):
+        """Test append creates parent directory and writes JSONL entry."""
+        store_path = tmp_path / "signals" / "signals.jsonl"
+        store = ProprioceptiveStore(store_path)
 
-    def test_append_and_recall_all(self):
-        """Test appending entries and recalling all."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            path = Path(tmpdir) / "signals.jsonl"
-            store = ProprioceptiveStore(path)
-            
-            store.append(
-                goal="goal1",
-                material="mat1",
-                category="D1",
-                score=4,
-                drill_type="flashcard",
-            )
-            store.append(
-                goal="goal2",
-                material="mat2",
-                category="D2",
-                score=2,
-                drill_type="multiple-choice",
-                extra_field="value",
-            )
-            
-            entries = store.recall_all()
-            assert len(entries) == 2
-            assert entries[0]["goal"] == "goal1"
-            assert entries[0]["score"] == 4
-            assert entries[1]["goal"] == "goal2"
-            assert entries[1]["extra_field"] == "value"
-            assert "ts" in entries[0]
+        store.append(
+            goal="test-goal",
+            material="test-material",
+            category="D1",
+            score=3,
+            drill_type="timed",
+        )
 
-    def test_recall_all_returns_empty_when_file_missing(self):
-        """Test recall_all returns empty when file doesn't exist."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            path = Path(tmpdir) / "nonexistent.jsonl"
-            store = ProprioceptiveStore(path)
-            assert store.recall_all() == []
+        assert store_path.exists()
+        lines = list(store_path.read_text().splitlines())
+        assert len(lines) == 1
 
-    def test_recall_all_skips_bad_json(self):
-        """Test recall_all skips invalid JSON lines."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            path = Path(tmpdir) / "signals.jsonl"
-            path.write_text('{"valid": true}\nnot valid json\n{"another": 42}\n')
-            
-            store = ProprioceptiveStore(path)
-            entries = store.recall_all()
-            
-            assert len(entries) == 2
-            assert entries[0]["valid"] is True
-            assert entries[1]["another"] == 42
+        entry = json.loads(lines[0])
+        assert entry["goal"] == "test-goal"
+        assert entry["material"] == "test-material"
+        assert entry["category"] == "D1"
+        assert entry["score"] == 3
+        assert entry["drill_type"] == "timed"
+        assert "ts" in entry
 
-    def test_recall_since_filters_by_timestamp(self):
-        """Test recall_since filters entries by timestamp."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            path = Path(tmpdir) / "signals.jsonl"
-            store = ProprioceptiveStore(path)
-            
-            # We'll manually create entries with known timestamps
-            # to avoid sleeping in tests
-            path.write_text(json.dumps({
+    def test_recall_all_no_file(self, tmp_path: Path):
+        """Test recall_all returns empty list when file doesn't exist."""
+        store_path = tmp_path / "nonexistent.jsonl"
+        store = ProprioceptiveStore(store_path)
+        assert store.recall_all() == []
+
+    def test_recall_all_with_entries(self, tmp_path: Path):
+        """Test recall_all correctly parses JSONL entries."""
+        store_path = tmp_path / "signals.jsonl"
+        entries = [
+            {
                 "ts": "2025-01-01T00:00:00+00:00",
-                "goal": "old",
-                "score": 1
-            }) + "\n")
-            path.write_text(json.dumps({
-                "ts": "2025-02-01T00:00:00+00:00",
-                "goal": "new",
-                "score": 2
-            }) + "\n")
-            
-            since = datetime.datetime(2025, 1, 15, tzinfo=datetime.UTC)
-            entries = store.recall_since(since)
-            
-            assert len(entries) == 1
-            assert entries[0]["goal"] == "new"
+                "goal": "goal1",
+                "category": "D1",
+                "score": 3,
+                "drill_type": "drill",
+            },
+            {
+                "ts": "2025-01-02T00:00:00+00:00",
+                "goal": "goal1",
+                "category": "D2",
+                "score": 4,
+                "drill_type": "drill",
+            },
+        ]
+
+        with open(store_path, "w") as f:
+            for entry in entries:
+                f.write(json.dumps(entry) + "\n")
+
+        store = ProprioceptiveStore(store_path)
+        recalled = store.recall_all()
+        assert len(recalled) == 2
+        assert recalled[0]["goal"] == "goal1"
+        assert recalled[1]["category"] == "D2"
+
+    def test_recall_all_skips_bad_json(self, tmp_path: Path):
+        """Test recall_all skips invalid JSON lines."""
+        store_path = tmp_path / "signals.jsonl"
+        with open(store_path, "w") as f:
+            f.write('{"valid": true}\n')
+            f.write("not valid json\n")
+            f.write('{"another_valid": 42}\n')
+
+        store = ProprioceptiveStore(store_path)
+        recalled = store.recall_all()
+        assert len(recalled) == 2
+
+    def test_recall_since_filters_by_timestamp(self, tmp_path: Path):
+        """Test recall_since returns only entries after given timestamp."""
+        store_path = tmp_path / "signals.jsonl"
+        entries = [
+            {"ts": "2025-01-01T00:00:00+00:00", "goal": "g1"},
+            {"ts": "2025-01-02T00:00:00+00:00", "goal": "g2"},
+            {"ts": "2025-01-03T00:00:00+00:00", "goal": "g3"},
+        ]
+        with open(store_path, "w") as f:
+            for e in entries:
+                f.write(json.dumps(e) + "\n")
+
+        store = ProprioceptiveStore(store_path)
+        since = datetime.datetime(2025, 1, 2, 0, 0, 0, tzinfo=datetime.UTC)
+        recalled = store.recall_since(since)
+        assert len(recalled) == 2
+        assert {e["goal"] for e in recalled} == {"g2", "g3"}
 
 
-def test_decode_flashcard_deck_parses_correctly(tmp_path):
-    """Test decode_flashcard_deck parses markdown deck into structured cards."""
+def test_decode_flashcard_deck_parses_correctly(tmp_path: Path):
+    """Test decode_flashcard_deck correctly parses markdown flashcard deck."""
     markdown_content = """## D1 — First Category
+### Card 1 — D1 — Multiple Choice
+**Q:** What is the answer to question 1?
+**A:** It's definitely answer A.
 
-### Card 1 — D1 — Basic Recall
-**Q:** What is the capital of France?
-**A:** Paris
-
-### Card 2 — D1 — Application
-**Q:** Explain why water boils at higher altitude.
-**A:** Lower atmospheric pressure reduces boiling point.
+### Card 2 — D1 — Free Response
+**Q:** Explain the concept.
+**A:** The concept has three main principles...
 
 ## D2 — Second Category
-
-### Card 3 — D2 — Terminology
-**Q:** Define photosynthesis.
-**A:** Process by which plants convert light to energy.
+### Card 3 — D2 — Term Definition
+**Q:** Define X.
+**A:** X is a Y that does Z.
 """
     deck_path = tmp_path / "deck.md"
     deck_path.write_text(markdown_content)
-    
+
     cards = decode_flashcard_deck(deck_path)
-    
     assert len(cards) == 3
-    
+
     # Check first card
     assert cards[0]["category"] == "D1"
-    assert cards[0]["card_type"] == "Basic Recall"
-    assert "capital of France" in cards[0]["question"]
-    assert cards[0]["answer"] == "Paris"
-    
-    # Check second card
-    assert cards[1]["category"] == "D1"
-    assert cards[1]["card_type"] == "Application"
-    
+    assert cards[0]["card_type"] == "Multiple Choice"
+    assert cards[0]["question"] == "What is the answer to question 1?"
+    assert cards[0]["answer"] == "It's definitely answer A."
+
     # Check third card
     assert cards[2]["category"] == "D2"
-    assert cards[2]["card_type"] == "Terminology"
+    assert cards[2]["card_type"] == "Term Definition"
+    assert cards[2]["question"] == "Define X."
 
 
-def test_decode_flashcard_deck_skips_non_card_content(tmp_path):
-    """Test decode_flashcard_deck skips content that doesn't match card pattern."""
-    markdown_content = """# My Deck
+def test_decode_flashcard_deck_skips_non_card_sections(tmp_path: Path):
+    """Test decode_flashcard_deck skips sections that aren't cards."""
+    markdown_content = """# This is a deck
 
-Some introductory text here that doesn't match.
+Some introduction text here.
 
-## D1
+## D1 — Category
+This is some intro text before any cards.
 
-Just a section with no cards.
+### Card 1 — D1 — Type
+**Q:** Question?
+**A:** Answer.
 """
     deck_path = tmp_path / "deck.md"
     deck_path.write_text(markdown_content)
-    
     cards = decode_flashcard_deck(deck_path)
-    assert len(cards) == 0
+    assert len(cards) == 1
+    assert cards[0]["question"] == "Question?"
 
 
-def test_goal_slugs_generates_correct_slugs():
-    """Test _goal_slugs generates all plausible slugs for matching."""
+def test_synthesize_signal_summary_no_signals():
+    """Test synthesize_signal_summary handles goal with no signals."""
+    today = datetime.date(2025, 1, 1)
     goal = {
         "name": "Test Goal",
-        "_file": "/path/to/test-goal.yaml",
-    }
-    
-    slugs = _goal_slugs(goal)
-    
-    assert slugs == {"Test Goal", "test-goal", "test-goal"}
-
-
-def test_goal_slugs_handles_missing_fields():
-    """Test _goal_slugs handles goals with missing name/_file fields."""
-    goal = {}
-    slugs = _goal_slugs(goal)
-    assert slugs == set()
-    
-    goal = {"name": "OnlyName"}
-    slugs = _goal_slugs(goal)
-    assert slugs == {"OnlyName", "onlyname"}
-
-
-def test_synthesize_signal_summary_aggregates_scores():
-    """Test synthesize_signal_summary aggregates scores by category."""
-    # Create a test goal
-    goal = {
-        "name": "Test Goal",
-        "phases": [
-            {"name": "Active", "until": "2026-12-31"},
-        ],
+        "phases": [{"name": "Active", "until": "2025-06-01"}],
         "materials": [
-            {"categories": ["D1", "D2"]},
-            {"categories": ["D3"]},
+            {"name": "Material 1", "categories": ["D1", "D2"]},
+            {"name": "Material 2", "categories": ["D3"]},
         ],
-        "_file": "/path/test-goal.yaml",
+        "_file": "/test/test-goal.yaml",
     }
-    
-    # Create mock store with some signals
+
     with tempfile.TemporaryDirectory() as tmpdir:
-        path = Path(tmpdir) / "test-signals.jsonl"
-        store = ProprioceptiveStore(path)
-        
-        # Add some signals matching this goal
-        store.append(goal="test-goal", material="a", category="D1", score=4, drill_type="drill")
-        store.append(goal="test-goal", material="b", category="D1", score=2, drill_type="drill")
-        store.append(goal="test-goal", material="c", category="D2", score=5, drill_type="drill")
-        # D3 has no drills → avg 0
-        
-        summary = synthesize_signal_summary(goal, store, today=datetime.date(2026, 1, 1))
-    
+        store_path = Path(tmpdir) / "store.jsonl"
+        store = ProprioceptiveStore(store_path)
+        summary = synthesize_signal_summary(goal, store, today)
+
     assert summary["goal"] == "Test Goal"
     assert summary["phase"] == "Active"
-    assert summary["days_to_next_phase"] == 364  # 2026 is leap year
-    assert summary["total_drills"] == 3
-    
-    # Check category aggregates
-    categories = summary["categories"]
-    assert "D1" in categories
-    assert "D2" in categories
-    assert "D3" in categories
-    
-    assert categories["D1"]["avg_score"] == 3.0  # (4+2)/2
-    assert categories["D1"]["drill_count"] == 2
-    assert categories["D2"]["avg_score"] == 5.0
-    assert categories["D2"]["drill_count"] == 1
-    assert categories["D3"]["avg_score"] == 0.0
-    assert categories["D3"]["drill_count"] == 0
-    assert categories["D3"]["last_drilled"] == "never"
-    
-    # Weakest should be D3 (0), D1 (3), D2 (5)
-    assert summary["weakest"] == ["D3", "D1", "D2"]
-
-
-def test_synthesize_signal_summary_handles_no_signals():
-    """Test synthesize_signal_summary works when no signals exist."""
-    goal = {
-        "name": "Empty Goal",
-        "phases": [{"name": "Start"}],
-        "materials": [{"categories": ["D1"]}],
-    }
-    
-    with tempfile.TemporaryDirectory() as tmpdir:
-        path = Path(tmpdir) / "empty.jsonl"
-        store = ProprioceptiveStore(path)
-        
-        summary = synthesize_signal_summary(goal, store, today=datetime.date.today())
-    
-    assert summary["total_drills"] == 0
+    assert summary["days_to_next_phase"] == 150
+    assert set(summary["categories"].keys()) == {"D1", "D2", "D3"}
     assert summary["categories"]["D1"]["avg_score"] == 0
-    assert summary["weakest"] == ["D1"]
+    assert summary["categories"]["D1"]["drill_count"] == 0
+    assert summary["weakest"] == ["D1", "D2", "D3"]
+    assert summary["total_drills"] == 0
 
 
-def test_synthesize_signal_summary_finds_weakest():
-    """Test synthesize_signal_summary correctly identifies weakest categories."""
+def test_synthesize_signal_summary_with_signals():
+    """Test synthesize_signal_summary aggregates scores correctly."""
+    today = datetime.date(2025, 1, 1)
     goal = {
-        "name": "Scoring Test",
-        "phases": [{"name": "P1"}],
-        "materials": [{"categories": ["A", "B", "C", "D"]}],
-        "_file": "scoring-test",
+        "name": "Test Goal",
+        "phases": [{"name": "Active"}],
+        "materials": [
+            {"name": "Material 1", "categories": ["D1", "D2"]},
+        ],
+        "_file": "/test/test-goal.yaml",
     }
-    
+
     with tempfile.TemporaryDirectory() as tmpdir:
-        path = Path(tmpdir) / "signals.jsonl"
-        store = ProprioceptiveStore(path)
-        
-        store.append(goal="scoring-test", category="A", score=5, drill_type="x", material="m")
-        store.append(goal="scoring-test", category="B", score=2, drill_type="x", material="m")
-        store.append(goal="scoring-test", category="C", score=4, drill_type="x", material="m")
-        store.append(goal="scoring-test", category="D", score=3, drill_type="x", material="m")
-        
-        summary = synthesize_signal_summary(goal, store, today=datetime.date.today())
-        
-        # Weakest order: B (2), D (3), C (4) → top 3 weakest
-        assert summary["weakest"] == ["B", "D", "C"]
+        store_path = Path(tmpdir) / "store.jsonl"
+        store = ProprioceptiveStore(store_path)
+
+        # Add some signals matching goal slugs (test-goal is stem from _file)
+        store.append(goal="test-goal", material="mat1", category="D1", score=2, drill_type="drill")
+        store.append(goal="test-goal", material="mat1", category="D1", score=4, drill_type="drill")
+        store.append(goal="test-goal", material="mat2", category="D2", score=5, drill_type="drill")
+        # Add a signal for another goal that should be ignored
+        store.append(goal="other-goal", material="mat1", category="D1", score=1, drill_type="drill")
+
+        summary = synthesize_signal_summary(goal, store, today)
+
+    assert summary["total_drills"] == 3
+    assert abs(summary["categories"]["D1"]["avg_score"] - 3.0) < 0.001
+    assert summary["categories"]["D1"]["drill_count"] == 2
+    assert summary["categories"]["D2"]["avg_score"] == 5.0
+    assert summary["categories"]["D2"]["drill_count"] == 1
+    # Weakest is D1 then D2
+    assert summary["weakest"] == ["D1", "D2"]
+
+
+def test_synthesize_signal_summary_deduplicates_by_timestamp():
+    """Test synthesize_signal_summary deduplicates signals with same timestamp."""
+    today = datetime.date(2025, 1, 1)
+    goal = {
+        "name": "Test Goal",
+        "phases": [{"name": "Active"}],
+        "materials": [{"name": "M1", "categories": ["D1"]}],
+        "_file": "/test/test-goal.yaml",
+    }
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        store_path = Path(tmpdir) / "store.jsonl"
+        store = ProprioceptiveStore(store_path)
+
+        # Write duplicate entries manually with same timestamp
+        entries = [
+            {
+                "ts": "2025-01-01T10:00:00+00:00",
+                "goal": "test-goal",
+                "category": "D1",
+                "score": 2,
+                "drill_type": "drill",
+            },
+            {
+                "ts": "2025-01-01T10:00:00+00:00",
+                "goal": "test-goal",
+                "category": "D1",
+                "score": 4,
+                "drill_type": "drill",
+            },
+        ]
+        with open(store_path, "w") as f:
+            for e in entries:
+                f.write(json.dumps(e) + "\n")
+
+        summary = synthesize_signal_summary(goal, store, today)
+        # Should only count one of them due to duplicate timestamp
+        assert summary["total_drills"] == 1
+
+
+def test_synthesize_signal_summary_terminal_phase_no_days():
+    """Test synthesize_signal_summary returns None for days_to_next in terminal phase."""
+    today = datetime.date(2025, 1, 1)
+    goal = {
+        "name": "Test Goal",
+        "phases": [{"name": "Maintenance"}],
+        "materials": [],
+        "_file": "/test/test-goal.yaml",
+    }
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        store_path = Path(tmpdir) / "store.jsonl"
+        store = ProprioceptiveStore(store_path)
+        summary = synthesize_signal_summary(goal, store, today)
+
+    assert summary["days_to_next_phase"] is None
