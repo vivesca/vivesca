@@ -1,55 +1,126 @@
-"""Tests for synthase enzyme."""
+"""Tests for metabolon.enzymes.synthase — headless CC enzyme."""
 
 from __future__ import annotations
 
+from pathlib import Path
 from unittest.mock import patch
+
 import pytest
 
-
-def test_invalid_model_raises():
-    from metabolon.enzymes.synthase import synthase
-
-    with pytest.raises(ValueError, match="Unknown model"):
-        synthase(prompt="hello", model="gpt4")
+import metabolon.enzymes.synthase as mod
 
 
-def test_valid_model_haiku():
-    from metabolon.enzymes.synthase import synthase
-
-    with patch("metabolon.enzymes.synthase.run_cli") as mock:
-        mock.return_value = "result"
-        result = synthase(prompt="test task", model="haiku")
-        assert result == "result"
-        mock.assert_called_once()
-        args = mock.call_args
-        assert "haiku" in args[0][1]
-        assert "-p" in args[0][1]
-        assert "test task" in args[0][1]
+# ── Module constants ────────────────────────────────────────────────────────
 
 
-def test_valid_model_opus():
-    from metabolon.enzymes.synthase import synthase
+class TestConstants:
+    def test_channel_path(self):
+        """CHANNEL should point to ~/germline/effectors/channel."""
+        assert mod.CHANNEL == str(Path.home() / "germline" / "effectors" / "channel")
 
-    with patch("metabolon.enzymes.synthase.run_cli") as mock:
-        mock.return_value = "opus result"
-        result = synthase(prompt="do thing", model="opus")
-        assert result == "opus result"
-
-
-def test_default_model_is_sonnet():
-    from metabolon.enzymes.synthase import synthase
-
-    with patch("metabolon.enzymes.synthase.run_cli") as mock:
-        mock.return_value = "sonnet result"
-        result = synthase(prompt="hello")
-        assert result == "sonnet result"
-        assert "sonnet" in mock.call_args[0][1]
+    def test_timeout_value(self):
+        """_TIMEOUT should be 300 seconds."""
+        assert mod._TIMEOUT == 300
 
 
-def test_timeout_is_300():
-    from metabolon.enzymes.synthase import synthase
+# ── Model validation ───────────────────────────────────────────────────────
 
-    with patch("metabolon.enzymes.synthase.run_cli") as mock:
-        mock.return_value = "ok"
-        synthase(prompt="x")
-        assert mock.call_args[1].get("timeout", mock.call_args[0][2] if len(mock.call_args[0]) > 2 else None) == 300
+
+class TestModelValidation:
+    @pytest.mark.parametrize("model", ["gpt4", "claude", "GPT", "", "haiku "])
+    def test_invalid_model_raises(self, model):
+        """Should reject unknown model names."""
+        with pytest.raises(ValueError, match="Unknown model"):
+            mod.synthase(prompt="hello", model=model)
+
+    @pytest.mark.parametrize("model", ["haiku", "sonnet", "opus"])
+    def test_valid_models_accepted(self, model):
+        """Should accept all three valid model names."""
+        with patch("metabolon.enzymes.synthase.run_cli", return_value="ok"):
+            result = mod.synthase(prompt="test", model=model)
+        assert result == "ok"
+
+
+# ── run_cli call structure ─────────────────────────────────────────────────
+
+
+class TestRunCliCall:
+    def test_args_include_model(self):
+        """Args list should start with the model name."""
+        with patch("metabolon.enzymes.synthase.run_cli", return_value="ok") as mock:
+            mod.synthase(prompt="do it", model="haiku")
+        args_list = mock.call_args[0][1]
+        assert args_list[0] == "haiku"
+
+    def test_args_include_organism_flag(self):
+        """Args list should contain --organism."""
+        with patch("metabolon.enzymes.synthase.run_cli", return_value="ok") as mock:
+            mod.synthase(prompt="do it")
+        args_list = mock.call_args[0][1]
+        assert "--organism" in args_list
+
+    def test_args_include_prompt_flag(self):
+        """Args list should contain -p followed by the prompt."""
+        with patch("metabolon.enzymes.synthase.run_cli", return_value="ok") as mock:
+            mod.synthase(prompt="my task")
+        args_list = mock.call_args[0][1]
+        assert "-p" in args_list
+        assert args_list[-1] == "my task"
+
+    def test_full_args_structure(self):
+        """Args should be [model, --organism, -p, prompt]."""
+        with patch("metabolon.enzymes.synthase.run_cli", return_value="ok") as mock:
+            mod.synthase(prompt="hello world", model="opus")
+        binary = mock.call_args[0][0]
+        args = mock.call_args[0][1]
+        assert binary == mod.CHANNEL
+        assert args == ["opus", "--organism", "-p", "hello world"]
+
+    def test_timeout_passed_as_keyword(self):
+        """timeout=300 should be passed as keyword argument to run_cli."""
+        with patch("metabolon.enzymes.synthase.run_cli", return_value="ok") as mock:
+            mod.synthase(prompt="x")
+        assert mock.call_args.kwargs["timeout"] == 300
+
+    def test_default_model_is_sonnet(self):
+        """When model is not specified, sonnet should be used."""
+        with patch("metabolon.enzymes.synthase.run_cli", return_value="ok") as mock:
+            mod.synthase(prompt="hi")
+        assert mock.call_args[0][1][0] == "sonnet"
+
+
+# ── Return value and error propagation ─────────────────────────────────────
+
+
+class TestReturnAndErrors:
+    def test_return_value_passthrough(self):
+        """Should return whatever run_cli returns."""
+        with patch("metabolon.enzymes.synthase.run_cli", return_value="Done."):
+            assert mod.synthase(prompt="x") == "Done."
+
+    def test_run_cli_valueerror_propagates(self):
+        """ValueError from run_cli should bubble up (binary not found, etc)."""
+        with patch(
+            "metabolon.enzymes.synthase.run_cli",
+            side_effect=ValueError("Binary not found"),
+        ):
+            with pytest.raises(ValueError, match="Binary not found"):
+                mod.synthase(prompt="x")
+
+    def test_run_cli_timeout_propagates(self):
+        """Timeout errors from run_cli should propagate as ValueError."""
+        with patch(
+            "metabolon.enzymes.synthase.run_cli",
+            side_effect=ValueError("channel timed out"),
+        ):
+            with pytest.raises(ValueError, match="timed out"):
+                mod.synthase(prompt="x")
+
+    def test_run_cli_error_propagates(self):
+        """CalledProcessError wrapping from run_cli should propagate."""
+        with patch(
+            "metabolon.enzymes.synthase.run_cli",
+            side_effect=ValueError("channel error: something failed"),
+        ):
+            with pytest.raises(ValueError, match="something failed"):
+                mod.synthase(prompt="x")
