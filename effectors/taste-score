@@ -56,6 +56,10 @@ def score_items(items: list[dict], manifest_mtime: float) -> list[dict]:
 
 
 def main():
+    if len(sys.argv) > 1 and sys.argv[1] in ("--help", "-h"):
+        print(__doc__)
+        sys.exit(0)
+
     # Find manifest
     if len(sys.argv) > 1:
         manifest = Path(sys.argv[1]).expanduser()
