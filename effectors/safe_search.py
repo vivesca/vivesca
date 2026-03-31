@@ -33,7 +33,7 @@ def main():
     cmd = [
         "rg",
         "--max-columns", "500",
-        "--max-results", "100",  # Don't drown the agent in matches
+        "--max-count", "100",  # Don't drown the agent in matches
         "--glob", "!Library/**",
         "--glob", "!.Trash/**",
         "--glob", "!*.log",

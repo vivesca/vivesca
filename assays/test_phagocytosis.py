@@ -109,6 +109,11 @@ class TestReadLastSnapshot:
 
 
 class TestPhagoMain:
+    @pytest.fixture(autouse=True)
+    def _isolate_argv(self):
+        with patch("sys.argv", ["phagocytosis"]):
+            yield
+
     def test_exits_when_workspace_missing(self, phago):
         with patch("pathlib.Path.exists", return_value=False):
             phago.main()  # should return silently, no error
