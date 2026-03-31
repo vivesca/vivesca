@@ -169,33 +169,40 @@ class TestGatherDiffSummary:
 
 
 class TestBuildReport:
+    def setup_method(self):
+        self._orig_repos = _mod["REPOS"].copy()
+
+    def teardown_method(self):
+        _mod["REPOS"].clear()
+        _mod["REPOS"].update(self._orig_repos)
+
     def test_json_output(self):
-        with patch.object(_mod["__builtins__"] if False else _mod, "REPOS", {}):
-            result = build_report("2026-03-31", as_json=True)
+        _mod["REPOS"].clear()
+        result = build_report("2026-03-31", as_json=True)
         data = json.loads(result)
         assert "repos" in data
         assert "summary" in data
         assert data["summary"]["since"] == "2026-03-31"
 
     def test_text_output(self):
-        with patch.object(_mod, "REPOS", {}):
-            result = build_report("2026-03-31", as_json=False)
+        _mod["REPOS"].clear()
+        result = build_report("2026-03-31", as_json=False)
         assert "GIT ACTIVITY PULSE" in result
         assert "Since: 2026-03-31" in result
 
     def test_with_mock_repo(self):
-        fake_repos = {"test-repo": Path("/fake")}
+        _mod["REPOS"].clear()
+        _mod["REPOS"]["test-repo"] = Path("/fake")
         log_output = "abc123456789|Terry Li|terry@terryli.dev|2026-03-31T10:00:00+00:00|feat: add X\n"
         file_output = "effectors/git-activity\n"
         stat_output = "abc1234 feat: add X\n 2 files changed, 30 insertions(+)\n"
 
-        with patch.object(_mod, "REPOS", fake_repos), \
-             patch("pathlib.Path.exists", return_value=True), \
+        with patch("pathlib.Path.exists", return_value=True), \
              patch("subprocess.run") as mock_run:
             mock_run.side_effect = [
-                MagicMock(stdout=log_output),   # gather_commits
-                MagicMock(stdout=file_output),   # gather_file_stats
-                MagicMock(stdout=stat_output),   # gather_diff_summary
+                MagicMock(stdout=log_output),
+                MagicMock(stdout=file_output),
+                MagicMock(stdout=stat_output),
             ]
             result = build_report("2026-03-31", as_json=False)
 
@@ -204,21 +211,19 @@ class TestBuildReport:
         assert "👤" in result
 
     def test_golem_vs_human_counts(self):
-        fake_repos = {"test-repo": Path("/fake")}
+        _mod["REPOS"].clear()
+        _mod["REPOS"]["test-repo"] = Path("/fake")
         log_output = (
             "abc123456789|Terry Li|t@t.dev|2026-03-31T10:00:00+00:00|golem: auto-commit\n"
             "def123456789|Terry Li|t@t.dev|2026-03-31T09:00:00+00:00|feat: real work\n"
         )
-        file_output = ""
-        stat_output = ""
 
-        with patch.object(_mod, "REPOS", fake_repos), \
-             patch("pathlib.Path.exists", return_value=True), \
+        with patch("pathlib.Path.exists", return_value=True), \
              patch("subprocess.run") as mock_run:
             mock_run.side_effect = [
                 MagicMock(stdout=log_output),
-                MagicMock(stdout=file_output),
-                MagicMock(stdout=stat_output),
+                MagicMock(stdout=""),
+                MagicMock(stdout=""),
             ]
             result = build_report("2026-03-31", as_json=True)
 
@@ -228,9 +233,9 @@ class TestBuildReport:
         assert data["summary"]["total_commits"] == 2
 
     def test_inactive_repo_skipped(self):
-        fake_repos = {"dead-repo": Path("/nonexistent")}
-        with patch.object(_mod, "REPOS", fake_repos), \
-             patch("pathlib.Path.exists", return_value=False):
+        _mod["REPOS"].clear()
+        _mod["REPOS"]["dead-repo"] = Path("/nonexistent")
+        with patch("pathlib.Path.exists", return_value=False):
             result = build_report("2026-03-31", as_json=True)
         data = json.loads(result)
         assert data["summary"]["repos_active"] == 0
