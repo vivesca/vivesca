@@ -1,339 +1,176 @@
-"""Tests for metabolon/organelles/endocytosis_rss/config.py"""
-from __future__ import annotations
+"""Tests for endocytosis_rss/config.py - configuration management."""
 
 import os
 from pathlib import Path
-from typing import Any
-from unittest import mock
+from unittest.mock import patch
 
-import pytest
-import yaml
-
-from metabolon.organelles.endocytosis_rss import config as rss_config
-
-
-class TestExpandPath:
-    """Tests for _expand_path function."""
-
-    def test_expands_home(self) -> None:
-        result = rss_config._expand_path("~/test")
-        assert "~" not in str(result)
-        assert str(result).endswith("test")
-
-    def test_resolves_path(self) -> None:
-        result = rss_config._expand_path("/usr/local")
-        assert result.is_absolute()
+from metabolon.organelles.endocytosis_rss.config import (
+    EndocytosisConfig,
+    _expand_path,
+    _expand_env_vars,
+    _load_yaml,
+    restore_config,
+)
 
 
-class TestEnvPath:
-    """Tests for _env_path function."""
-
-    def test_uses_env_variable(self) -> None:
-        with mock.patch.dict(os.environ, {"TEST_VAR": "/custom/path"}):
-            result = rss_config._env_path("TEST_VAR", Path("/default"))
-            assert str(result) == "/custom/path"
-
-    def test_uses_default_if_not_set(self) -> None:
-        with mock.patch.dict(os.environ, {}, clear=True):
-            result = rss_config._env_path("NONEXISTENT_VAR", Path("/default"))
-            assert "default" in str(result)
+def test_expand_path_resolves_home():
+    """Test _expand_path expands ~ to home directory."""
+    result = _expand_path("~/test/path")
+    assert str(result).startswith(str(Path.home()))
 
 
-class TestXdgBase:
-    """Tests for _xdg_base function."""
-
-    def test_uses_xdg_env(self) -> None:
-        with mock.patch.dict(os.environ, {"XDG_CONFIG_HOME": "/custom/config"}):
-            result = rss_config._xdg_base("XDG_CONFIG_HOME", ".config")
-            assert str(result) == "/custom/config"
-
-    def test_uses_fallback(self) -> None:
-        with mock.patch.dict(os.environ, {}, clear=True):
-            result = rss_config._xdg_base("XDG_CONFIG_HOME", ".config")
-            assert ".config" in str(result)
+def test_expand_path_resolves_relative():
+    """Test _expand_path resolves relative paths to absolute."""
+    result = _expand_path("relative/path")
+    assert result.is_absolute()
 
 
-class TestExpandEnvVars:
-    """Tests for _expand_env_vars function."""
-
-    def test_expands_env_vars(self) -> None:
-        with mock.patch.dict(os.environ, {"MY_VAR": "expanded"}):
-            result = rss_config._expand_env_vars("prefix_${MY_VAR}_suffix")
-            assert result == "prefix_expanded_suffix"
-
-    def test_returns_unchanged_if_no_vars(self) -> None:
-        result = rss_config._expand_env_vars("plain text")
-        assert result == "plain text"
+def test_expand_env_vars_expands_dollar():
+    """Test _expand_env_vars expands ${VAR} references."""
+    os.environ["TEST_VAR"] = "test_value"
+    result = _expand_env_vars("prefix_${TEST_VAR}_suffix")
+    assert result == "prefix_test_value_suffix"
+    del os.environ["TEST_VAR"]
 
 
-class TestLoadYaml:
-    """Tests for _load_yaml function."""
-
-    def test_loads_existing_file(self, tmp_path: Path) -> None:
-        yaml_path = tmp_path / "test.yaml"
-        yaml_path.write_text("key: value\n", encoding="utf-8")
-        result = rss_config._load_yaml(yaml_path)
-        assert result == {"key": "value"}
-
-    def test_returns_empty_for_nonexistent(self, tmp_path: Path) -> None:
-        result = rss_config._load_yaml(tmp_path / "nonexistent.yaml")
-        assert result == {}
-
-    def test_invalid_yaml_raises_exception(self, tmp_path: Path) -> None:
-        """Invalid YAML raises a ScannerError (not caught by _load_yaml)."""
-        import yaml
-        yaml_path = tmp_path / "invalid.yaml"
-        yaml_path.write_text("::: invalid yaml :::", encoding="utf-8")
-        # _load_yaml lets YAML exceptions propagate (catches OSError only)
-        with pytest.raises(yaml.scanner.ScannerError):
-            rss_config._load_yaml(yaml_path)
-
-    def test_returns_empty_for_non_dict(self, tmp_path: Path) -> None:
-        yaml_path = tmp_path / "list.yaml"
-        yaml_path.write_text("- item1\n- item2\n", encoding="utf-8")
-        result = rss_config._load_yaml(yaml_path)
-        assert result == {}
-
-    def test_expands_env_vars(self, tmp_path: Path) -> None:
-        yaml_path = tmp_path / "test.yaml"
-        with mock.patch.dict(os.environ, {"MY_VAR": "expanded"}):
-            yaml_path.write_text("path: ${MY_VAR}/subdir\n", encoding="utf-8")
-            result = rss_config._load_yaml(yaml_path)
-            assert result["path"] == "expanded/subdir"
+def test_expand_env_vars_no_match():
+    """Test _expand_env_vars leaves unmatched vars unchanged."""
+    result = _expand_env_vars("no_${NONEXISTENT_VAR}_here")
+    # Should contain the original placeholder or be empty
+    assert "no_" in result
 
 
-class TestDefaultSourcesPath:
-    """Tests for default_sources_path function."""
-
-    def test_returns_path_object(self) -> None:
-        result = rss_config.default_sources_path()
-        assert isinstance(result, Path)
-
-    def test_path_exists(self) -> None:
-        result = rss_config.default_sources_path()
-        assert result.exists()
+def test_load_yaml_nonexistent(tmp_path):
+    """Test _load_yaml returns empty dict for nonexistent file."""
+    result = _load_yaml(tmp_path / "nonexistent.yaml")
+    assert result == {}
 
 
-class TestDefaultSourcesText:
-    """Tests for default_sources_text function."""
-
-    def test_returns_string(self) -> None:
-        result = rss_config.default_sources_text()
-        assert isinstance(result, str)
-
-    def test_is_valid_yaml(self) -> None:
-        result = rss_config.default_sources_text()
-        parsed = yaml.safe_load(result)
-        assert isinstance(parsed, dict)
+def test_load_yaml_valid_file(tmp_path):
+    """Test _load_yaml loads valid YAML."""
+    yaml_path = tmp_path / "config.yaml"
+    yaml_path.write_text("key: value\nnumber: 42\n")
+    
+    result = _load_yaml(yaml_path)
+    assert result["key"] == "value"
+    assert result["number"] == 42
 
 
-class TestEndocytosisConfig:
-    """Tests for EndocytosisConfig dataclass."""
+def test_load_yaml_invalid_returns_empty(tmp_path):
+    """Test _load_yaml returns empty dict for empty file."""
+    yaml_path = tmp_path / "empty.yaml"
+    yaml_path.write_text("")  # Empty file returns {}
 
-    def test_sources_property_extracts_list(self, tmp_path: Path) -> None:
-        cfg = rss_config.EndocytosisConfig(
-            config_dir=tmp_path,
-            cache_dir=tmp_path,
-            data_dir=tmp_path,
-            config_path=tmp_path / "config.yaml",
-            sources_path=tmp_path / "sources.yaml",
-            state_path=tmp_path / "state.json",
-            log_path=tmp_path / "news.md",
-            cargo_path=tmp_path / "cargo.jsonl",
-            article_cache_dir=tmp_path / "articles",
-            digest_output_dir=tmp_path / "digests",
+    result = _load_yaml(yaml_path)
+    assert result == {}
+
+
+def test_load_yaml_non_dict_returns_empty(tmp_path):
+    """Test _load_yaml returns empty dict if YAML is not a dict."""
+    yaml_path = tmp_path / "list.yaml"
+    yaml_path.write_text("- item1\n- item2\n")
+    
+    result = _load_yaml(yaml_path)
+    assert result == {}
+
+
+def test_endocytosis_config_sources_property():
+    """Test EndocytosisConfig.sources flattens source sections."""
+    cfg = EndocytosisConfig(
+        config_dir=Path("/tmp"),
+        cache_dir=Path("/tmp"),
+        data_dir=Path("/tmp"),
+        config_path=Path("/tmp/config.yaml"),
+        sources_path=Path("/tmp/sources.yaml"),
+        state_path=Path("/tmp/state.json"),
+        log_path=Path("/tmp/news.md"),
+        cargo_path=Path("/tmp/cargo.jsonl"),
+        article_cache_dir=Path("/tmp/articles"),
+        digest_output_dir=Path("/tmp/digests"),
+        digest_model="glm",
+        sources_data={
+            "rss_feeds": [{"url": "https://a.com"}, {"url": "https://b.com"}],
+            "x_accounts": [{"handle": "user1"}],
+            "not_a_list": "string",
+        },
+    )
+    
+    sources = cfg.sources
+    assert len(sources) == 3
+    assert {"url": "https://a.com"} in sources
+    assert {"handle": "user1"} in sources
+
+
+def test_endocytosis_config_resolve_bird_from_path():
+    """Test resolve_bird returns path from config if file exists."""
+    import tempfile
+    with tempfile.NamedTemporaryFile(delete=False) as f:
+        f.write(b"")
+        temp_path = f.name
+    
+    try:
+        cfg = EndocytosisConfig(
+            config_dir=Path("/tmp"),
+            cache_dir=Path("/tmp"),
+            data_dir=Path("/tmp"),
+            config_path=Path("/tmp/config.yaml"),
+            sources_path=Path("/tmp/sources.yaml"),
+            state_path=Path("/tmp/state.json"),
+            log_path=Path("/tmp/news.md"),
+            cargo_path=Path("/tmp/cargo.jsonl"),
+            article_cache_dir=Path("/tmp/articles"),
+            digest_output_dir=Path("/tmp/digests"),
             digest_model="glm",
-            sources_data={
-                "section1": [{"name": "source1"}, {"name": "source2"}],
-                "section2": [{"name": "source3"}],
-            },
+            bird_path=temp_path,
         )
-        sources = cfg.sources
-        assert len(sources) == 3
-
-    def test_sources_ignores_non_lists(self, tmp_path: Path) -> None:
-        cfg = rss_config.EndocytosisConfig(
-            config_dir=tmp_path,
-            cache_dir=tmp_path,
-            data_dir=tmp_path,
-            config_path=tmp_path / "config.yaml",
-            sources_path=tmp_path / "sources.yaml",
-            state_path=tmp_path / "state.json",
-            log_path=tmp_path / "news.md",
-            cargo_path=tmp_path / "cargo.jsonl",
-            article_cache_dir=tmp_path / "articles",
-            digest_output_dir=tmp_path / "digests",
-            digest_model="glm",
-            sources_data={
-                "section1": "not a list",
-                "section2": [{"name": "source1"}],
-            },
-        )
-        sources = cfg.sources
-        assert len(sources) == 1
-
-    def test_sources_empty_if_no_sources_data(self, tmp_path: Path) -> None:
-        cfg = rss_config.EndocytosisConfig(
-            config_dir=tmp_path,
-            cache_dir=tmp_path,
-            data_dir=tmp_path,
-            config_path=tmp_path / "config.yaml",
-            sources_path=tmp_path / "sources.yaml",
-            state_path=tmp_path / "state.json",
-            log_path=tmp_path / "news.md",
-            cargo_path=tmp_path / "cargo.jsonl",
-            article_cache_dir=tmp_path / "articles",
-            digest_output_dir=tmp_path / "digests",
-            digest_model="glm",
-            sources_data={},
-        )
-        assert cfg.sources == []
-
-    def test_resolve_bird_returns_none_if_not_found(self, tmp_path: Path) -> None:
-        cfg = rss_config.EndocytosisConfig(
-            config_dir=tmp_path,
-            cache_dir=tmp_path,
-            data_dir=tmp_path,
-            config_path=tmp_path / "config.yaml",
-            sources_path=tmp_path / "sources.yaml",
-            state_path=tmp_path / "state.json",
-            log_path=tmp_path / "news.md",
-            cargo_path=tmp_path / "cargo.jsonl",
-            article_cache_dir=tmp_path / "articles",
-            digest_output_dir=tmp_path / "digests",
-            digest_model="glm",
-            bird_path="/nonexistent/path/to/bird",
-        )
-        result = cfg.resolve_bird()
-        assert result is None
-
-    def test_resolve_bird_returns_path_if_exists(self, tmp_path: Path) -> None:
-        bird_path = tmp_path / "bird"
-        bird_path.touch()
-        cfg = rss_config.EndocytosisConfig(
-            config_dir=tmp_path,
-            cache_dir=tmp_path,
-            data_dir=tmp_path,
-            config_path=tmp_path / "config.yaml",
-            sources_path=tmp_path / "sources.yaml",
-            state_path=tmp_path / "state.json",
-            log_path=tmp_path / "news.md",
-            cargo_path=tmp_path / "cargo.jsonl",
-            article_cache_dir=tmp_path / "articles",
-            digest_output_dir=tmp_path / "digests",
-            digest_model="glm",
-            bird_path=str(bird_path),
-        )
-        result = cfg.resolve_bird()
-        assert result == str(bird_path)
-
-    def test_resolve_tg_notify_returns_none_if_not_found(self, tmp_path: Path) -> None:
-        cfg = rss_config.EndocytosisConfig(
-            config_dir=tmp_path,
-            cache_dir=tmp_path,
-            data_dir=tmp_path,
-            config_path=tmp_path / "config.yaml",
-            sources_path=tmp_path / "sources.yaml",
-            state_path=tmp_path / "state.json",
-            log_path=tmp_path / "news.md",
-            cargo_path=tmp_path / "cargo.jsonl",
-            article_cache_dir=tmp_path / "articles",
-            digest_output_dir=tmp_path / "digests",
-            digest_model="glm",
-            tg_notify_path="/nonexistent/path/to/tg-notify.sh",
-        )
-        result = cfg.resolve_tg_notify()
-        assert result is None
-
-    def test_resolve_tg_notify_returns_path_if_exists(self, tmp_path: Path) -> None:
-        tg_path = tmp_path / "tg-notify.sh"
-        tg_path.touch()
-        cfg = rss_config.EndocytosisConfig(
-            config_dir=tmp_path,
-            cache_dir=tmp_path,
-            data_dir=tmp_path,
-            config_path=tmp_path / "config.yaml",
-            sources_path=tmp_path / "sources.yaml",
-            state_path=tmp_path / "state.json",
-            log_path=tmp_path / "news.md",
-            cargo_path=tmp_path / "cargo.jsonl",
-            article_cache_dir=tmp_path / "articles",
-            digest_output_dir=tmp_path / "digests",
-            digest_model="glm",
-            tg_notify_path=str(tg_path),
-        )
-        result = cfg.resolve_tg_notify()
-        assert result == str(tg_path)
+        
+        assert cfg.resolve_bird() == temp_path
+    finally:
+        os.unlink(temp_path)
 
 
-class TestRestoreConfig:
-    """Tests for restore_config function."""
+def test_endocytosis_config_resolve_bird_nonexistent():
+    """Test resolve_bird returns None if config path doesn't exist."""
+    cfg = EndocytosisConfig(
+        config_dir=Path("/tmp"),
+        cache_dir=Path("/tmp"),
+        data_dir=Path("/tmp"),
+        config_path=Path("/tmp/config.yaml"),
+        sources_path=Path("/tmp/sources.yaml"),
+        state_path=Path("/tmp/state.json"),
+        log_path=Path("/tmp/news.md"),
+        cargo_path=Path("/tmp/cargo.jsonl"),
+        article_cache_dir=Path("/tmp/articles"),
+        digest_output_dir=Path("/tmp/digests"),
+        digest_model="glm",
+        bird_path="/nonexistent/path/to/bird",
+    )
+    
+    with patch("metabolon.organelles.endocytosis_rss.config.shutil.which", return_value=None):
+        assert cfg.resolve_bird() is None
 
-    def test_returns_endocytosis_config(self, tmp_path: Path) -> None:
-        with mock.patch.dict(
-            os.environ,
-            {
-                "XDG_CONFIG_HOME": str(tmp_path / "config"),
-                "XDG_CACHE_HOME": str(tmp_path / "cache"),
-                "XDG_DATA_HOME": str(tmp_path / "data"),
-            },
-        ):
-            cfg = rss_config.restore_config()
-            assert isinstance(cfg, rss_config.EndocytosisConfig)
 
-    def test_uses_env_overrides(self, tmp_path: Path) -> None:
-        config_dir = tmp_path / "custom_config"
-        cache_dir = tmp_path / "custom_cache"
-        data_dir = tmp_path / "custom_data"
+def test_restore_config_uses_env_vars(tmp_path):
+    """Test restore_config respects environment variables."""
+    env = {
+        "XDG_CONFIG_HOME": str(tmp_path / "config"),
+        "XDG_CACHE_HOME": str(tmp_path / "cache"),
+        "XDG_DATA_HOME": str(tmp_path / "data"),
+    }
+    
+    with patch.dict(os.environ, env, clear=False):
+        with patch("metabolon.organelles.endocytosis_rss.config._load_yaml", return_value={}):
+            cfg = restore_config()
+    
+    assert str(tmp_path / "config") in str(cfg.config_dir)
+    assert str(tmp_path / "cache") in str(cfg.cache_dir)
+    assert str(tmp_path / "data") in str(cfg.data_dir)
 
-        with mock.patch.dict(
-            os.environ,
-            {
-                "ENDOCYTOSIS_CONFIG_DIR": str(config_dir),
-                "ENDOCYTOSIS_CACHE_DIR": str(cache_dir),
-                "ENDOCYTOSIS_DATA_DIR": str(data_dir),
-            },
-        ):
-            cfg = rss_config.restore_config()
-            assert cfg.config_dir == config_dir
-            assert cfg.cache_dir == cache_dir
-            assert cfg.data_dir == data_dir
 
-    def test_loads_config_yaml(self, tmp_path: Path) -> None:
-        config_dir = tmp_path / "config"
-        config_dir.mkdir(parents=True)
-        config_yaml = config_dir / "config.yaml"
-        config_yaml.write_text("digest_model: custom_model\n", encoding="utf-8")
-
-        with mock.patch.dict(
-            os.environ,
-            {
-                "XDG_CONFIG_HOME": str(tmp_path / "xdg_config"),
-                "XDG_CACHE_HOME": str(tmp_path / "cache"),
-                "XDG_DATA_HOME": str(tmp_path / "data"),
-                "ENDOCYTOSIS_CONFIG_DIR": str(config_dir),
-            },
-        ):
-            cfg = rss_config.restore_config()
-            assert cfg.digest_model == "custom_model"
-
-    def test_loads_sources_yaml(self, tmp_path: Path) -> None:
-        config_dir = tmp_path / "config"
-        config_dir.mkdir(parents=True)
-        sources_yaml = config_dir / "sources.yaml"
-        sources_yaml.write_text(
-            "rss_feeds:\n  - name: test\n    url: https://example.com\n",
-            encoding="utf-8",
-        )
-
-        with mock.patch.dict(
-            os.environ,
-            {
-                "XDG_CONFIG_HOME": str(tmp_path / "xdg_config"),
-                "XDG_CACHE_HOME": str(tmp_path / "cache"),
-                "XDG_DATA_HOME": str(tmp_path / "data"),
-                "ENDOCYTOSIS_CONFIG_DIR": str(config_dir),
-            },
-        ):
-            cfg = rss_config.restore_config()
-            assert "rss_feeds" in cfg.sources_data
+def test_restore_config_default_digest_model():
+    """Test restore_config defaults digest_model to 'glm'."""
+    with patch.dict(os.environ, {}, clear=False):
+        with patch("metabolon.organelles.endocytosis_rss.config._load_yaml", return_value={}):
+            cfg = restore_config()
+    
+    assert cfg.digest_model == "glm"

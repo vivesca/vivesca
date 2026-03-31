@@ -1,182 +1,144 @@
-"""Tests for metabolon/organelles/endocytosis_rss/discover.py"""
-from __future__ import annotations
+"""Tests for endocytosis_rss/discover.py - X/Twitter discovery."""
 
 import re
-from pathlib import Path
-from typing import Any
+from unittest.mock import MagicMock, patch
 
-import pytest
-
-from metabolon.organelles.endocytosis_rss import discover as rss_discover
-from metabolon.organelles.endocytosis_rss.config import EndocytosisConfig
-
-
-class TestCompileKeywords:
-    """Tests for _compile_keywords function."""
-
-    def test_compiles_valid_patterns(self) -> None:
-        patterns = ["test", "\\d+", "[a-z]+"]
-        compiled = rss_discover._compile_keywords(patterns)
-        assert len(compiled) == 3
-        assert all(isinstance(p, re.Pattern) for p in compiled)
-
-    def test_skips_invalid_patterns(self) -> None:
-        patterns = ["valid", "[invalid(", "another"]
-        compiled = rss_discover._compile_keywords(patterns)
-        assert len(compiled) == 2
-
-    def test_empty_list_returns_empty(self) -> None:
-        compiled = rss_discover._compile_keywords([])
-        assert compiled == []
-
-    def test_patterns_are_case_insensitive(self) -> None:
-        compiled = rss_discover._compile_keywords(["TEST"])
-        assert compiled[0].search("this is a test match")
-        assert compiled[0].search("THIS IS A TEST MATCH")
+from metabolon.organelles.endocytosis_rss.discover import (
+    _compile_keywords,
+    _extract_handle,
+    _normalize_handle,
+    _sample,
+    has_affinity,
+)
 
 
-class TestHasAffinity:
-    """Tests for has_affinity function."""
-
-    def test_matches_keyword(self) -> None:
-        patterns = [re.compile(r"banking", re.IGNORECASE)]
-        assert rss_discover.has_affinity("Banking news today", patterns) is True
-
-    def test_no_match_returns_false(self) -> None:
-        patterns = [re.compile(r"crypto", re.IGNORECASE)]
-        assert rss_discover.has_affinity("Sports news today", patterns) is False
-
-    def test_any_pattern_matches(self) -> None:
-        patterns = [
-            re.compile(r"banking", re.IGNORECASE),
-            re.compile(r"finance", re.IGNORECASE),
-        ]
-        assert rss_discover.has_affinity("Finance report", patterns) is True
-
-    def test_empty_patterns_returns_false(self) -> None:
-        assert rss_discover.has_affinity("any text", []) is False
+def test_compile_keywords_valid_patterns():
+    """Test _compile_keywords returns compiled regex patterns."""
+    patterns = ["crypto", "banking", "fintech"]
+    compiled = _compile_keywords(patterns)
+    assert len(compiled) == 3
+    assert all(isinstance(p, re.Pattern) for p in compiled)
 
 
-class TestNormalizeHandle:
-    """Tests for _normalize_handle function."""
-
-    def test_strips_leading_at(self) -> None:
-        assert rss_discover._normalize_handle("@username") == "username"
-
-    def test_lowercases(self) -> None:
-        assert rss_discover._normalize_handle("UserName") == "username"
-
-    def test_strips_whitespace_and_at(self) -> None:
-        # lstrip("@") only strips @ from the very start, then strip() removes whitespace
-        # So "@UserName" -> "username" but "  @UserName  " -> "@username"
-        assert rss_discover._normalize_handle("@username") == "username"
-        assert rss_discover._normalize_handle("  @UserName  ") == "@username"
-
-    def test_handles_already_normalized(self) -> None:
-        assert rss_discover._normalize_handle("username") == "username"
+def test_compile_keywords_ignores_invalid():
+    """Test _compile_keywords skips invalid regex patterns."""
+    patterns = ["valid", "[invalid(regex", "another"]
+    compiled = _compile_keywords(patterns)
+    assert len(compiled) == 2
 
 
-class TestExtractHandle:
-    """Tests for _extract_handle function."""
-
-    def test_extracts_from_author_dict_handle(self) -> None:
-        tweet: dict[str, Any] = {"author": {"handle": "testuser"}}
-        assert rss_discover._extract_handle(tweet) == "testuser"
-
-    def test_extracts_from_author_dict_username(self) -> None:
-        tweet: dict[str, Any] = {"author": {"username": "testuser"}}
-        assert rss_discover._extract_handle(tweet) == "testuser"
-
-    def test_extracts_from_author_dict_screen_name(self) -> None:
-        tweet: dict[str, Any] = {"author": {"screen_name": "testuser"}}
-        assert rss_discover._extract_handle(tweet) == "testuser"
-
-    def test_extracts_from_top_level_handle(self) -> None:
-        tweet: dict[str, Any] = {"handle": "testuser"}
-        assert rss_discover._extract_handle(tweet) == "testuser"
-
-    def test_extracts_from_top_level_username(self) -> None:
-        tweet: dict[str, Any] = {"username": "testuser"}
-        assert rss_discover._extract_handle(tweet) == "testuser"
-
-    def test_extracts_from_author_handle(self) -> None:
-        tweet: dict[str, Any] = {"author_handle": "testuser"}
-        assert rss_discover._extract_handle(tweet) == "testuser"
-
-    def test_returns_empty_for_missing_handle(self) -> None:
-        tweet: dict[str, Any] = {}
-        assert rss_discover._extract_handle(tweet) == ""
-
-    def test_normalizes_handle(self) -> None:
-        tweet: dict[str, Any] = {"author": {"handle": "@TestUser"}}
-        assert rss_discover._extract_handle(tweet) == "testuser"
+def test_compile_keywords_empty():
+    """Test _compile_keywords returns empty list for empty input."""
+    assert _compile_keywords([]) == []
 
 
-class TestSample:
-    """Tests for _sample function."""
-
-    def test_short_text_unchanged(self) -> None:
-        text = "Short text"
-        assert rss_discover._sample(text) == text
-
-    def test_long_text_truncated(self) -> None:
-        text = "x" * 150
-        result = rss_discover._sample(text, limit=100)
-        assert len(result) == 100
-        assert result.endswith("…")
-
-    def test_collapses_whitespace(self) -> None:
-        text = "word1   word2\nword3"
-        result = rss_discover._sample(text)
-        assert "   " not in result
-        assert "\n" not in result
-
-    def test_exact_limit(self) -> None:
-        text = "x" * 100
-        result = rss_discover._sample(text, limit=100)
-        assert result == text
+def test_has_affinity_matches():
+    """Test has_affinity returns True when pattern matches."""
+    patterns = [re.compile(r"bitcoin", re.IGNORECASE)]
+    assert has_affinity("Bitcoin prices surge", patterns) is True
+    assert has_affinity("No match here", patterns) is False
 
 
-class TestScoutSources:
-    """Tests for scout_sources function."""
-
-    def test_returns_zero_when_bird_not_in_path(self, tmp_path: Path) -> None:
-        """When bird_path is None and shutil.which returns None, returns 0."""
-        cfg = EndocytosisConfig(
-            config_dir=tmp_path,
-            cache_dir=tmp_path,
-            data_dir=tmp_path,
-            config_path=tmp_path / "config.yaml",
-            sources_path=tmp_path / "sources.yaml",
-            state_path=tmp_path / "state.json",
-            log_path=tmp_path / "news.md",
-            cargo_path=tmp_path / "cargo.jsonl",
-            article_cache_dir=tmp_path / "articles",
-            digest_output_dir=tmp_path / "digests",
-            digest_model="glm",
-            sources_data={},
-        )
-        # Pass None for bird_path to test PATH lookup (which will fail)
-        result = rss_discover.scout_sources(cfg, bird_path=None)
-        assert result == 0
+def test_has_affinity_case_insensitive():
+    """Test has_affinity is case insensitive."""
+    patterns = [re.compile(r"CRYPTO", re.IGNORECASE)]
+    assert has_affinity("crypto news", patterns) is True
+    assert has_affinity("CRYPTO NEWS", patterns) is True
 
 
-class TestIntegration:
-    """Integration tests for discover module."""
+def test_has_affinity_empty_patterns():
+    """Test has_affinity returns False for empty pattern list."""
+    assert has_affinity("any text", []) is False
 
-    def test_keyword_matching_workflow(self) -> None:
-        """Test the full keyword matching workflow."""
-        keywords = ["banking", "fintech", "crypto"]
-        compiled = rss_discover._compile_keywords(keywords)
 
-        texts = [
-            "New banking regulations announced",
-            "Sports team wins championship",
-            "Crypto prices surge",
-            "Weather forecast for tomorrow",
-        ]
+def test_normalize_handle_strips_at():
+    """Test _normalize_handle removes leading @."""
+    assert _normalize_handle("@username") == "username"
+    assert _normalize_handle("@@double") == "double"
 
-        matches = [t for t in texts if rss_discover.has_affinity(t, compiled)]
-        assert len(matches) == 2
-        assert "banking" in matches[0].lower()
-        assert "crypto" in matches[1].lower()
+
+def test_normalize_handle_lowercase():
+    """Test _normalize_handle converts to lowercase."""
+    assert _normalize_handle("UserName") == "username"
+    assert _normalize_handle("@BIGHANDLE") == "bighandle"
+
+
+def test_normalize_handle_strips_whitespace():
+    """Test _normalize_handle strips whitespace and @."""
+    # lstrip("@") removes @ from left, then strip() removes whitespace
+    assert _normalize_handle("@user  ") == "user"
+    assert _normalize_handle("  user  ") == "user"
+    # Whitespace before @ is stripped by strip() at the end
+    assert _normalize_handle("  @user  ") == "@user"  # lstrip("@") sees "  @user", keeps it
+
+
+def test_extract_handle_from_author_dict():
+    """Test _extract_handle extracts from author dict."""
+    tweet = {"author": {"handle": "testuser"}}
+    assert _extract_handle(tweet) == "testuser"
+
+
+def test_extract_handle_from_username():
+    """Test _extract_handle extracts from username field."""
+    tweet = {"author": {"username": "altuser"}}
+    assert _extract_handle(tweet) == "altuser"
+
+
+def test_extract_handle_from_top_level():
+    """Test _extract_handle falls back to top-level fields."""
+    tweet = {"handle": "toplevel"}
+    assert _extract_handle(tweet) == "toplevel"
+
+
+def test_extract_handle_empty():
+    """Test _extract_handle returns empty for missing handle."""
+    assert _extract_handle({}) == ""
+    assert _extract_handle({"author": {}}) == ""
+
+
+def test_sample_short_text():
+    """Test _sample returns text unchanged when under limit."""
+    text = "Short text"
+    assert _sample(text, limit=100) == "Short text"
+
+
+def test_sample_truncates_long_text():
+    """Test _sample truncates and adds ellipsis for long text."""
+    text = "A" * 150
+    result = _sample(text, limit=100)
+    assert len(result) == 100
+    assert result.endswith("…")
+
+
+def test_sample_collapses_whitespace():
+    """Test _sample collapses newlines and multiple spaces."""
+    text = "hello\n\nworld"
+    assert _sample(text) == "hello world"
+
+
+def test_scout_sources_no_bird_cli(tmp_path):
+    """Test scout_sources returns 0 when bird CLI not found."""
+    from metabolon.organelles.endocytosis_rss.discover import scout_sources
+    from metabolon.organelles.endocytosis_rss.config import EndocytosisConfig
+    
+    cfg = EndocytosisConfig(
+        config_dir=tmp_path,
+        cache_dir=tmp_path,
+        data_dir=tmp_path,
+        config_path=tmp_path / "config.yaml",
+        sources_path=tmp_path / "sources.yaml",
+        state_path=tmp_path / "state.json",
+        log_path=tmp_path / "news.md",
+        cargo_path=tmp_path / "cargo.jsonl",
+        article_cache_dir=tmp_path / "articles",
+        digest_output_dir=tmp_path / "digests",
+        digest_model="glm",
+        bird_path=None,
+        tg_notify_path=None,
+        config_data={},
+        sources_data={},
+    )
+    
+    with patch("metabolon.organelles.endocytosis_rss.discover.shutil.which", return_value=None):
+        result = scout_sources(cfg, bird_path=None)
+    assert result == 0

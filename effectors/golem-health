@@ -1,0 +1,146 @@
+#!/usr/bin/env python3
+"""golem-health — Health check for all golem providers.
+
+Sends minimal test prompt through each provider and reports status.
+
+Usage:
+    golem-health
+"""
+import sys
+import time
+import subprocess
+from dataclasses import dataclass
+from typing import List, Optional
+
+GOLEM_PATH = "/Users/terry/germline/effectors/golem"
+TEST_PROMPT = "What is 2 + 2? Answer with only the number."
+
+@dataclass
+class ProviderResult:
+    provider: str
+    status: str  # "ok" or "fail"
+    latency: float
+    model_name: str
+    error: Optional[str] = None
+
+def check_provider(provider: str) -> ProviderResult:
+    """Run health check on a single provider."""
+    start_time = time.time()
+    cmd = [
+        GOLEM_PATH,
+        "--provider", provider,
+        "--max-turns", "2",
+        "--bare",
+        TEST_PROMPT
+    ]
+    
+    try:
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=120  # 2 minute timeout
+        )
+        latency = time.time() - start_time
+        
+        # Get model name from provider config
+        if provider == "zhipu":
+            model_name = "GLM-5.1"
+        elif provider == "volcano":
+            model_name = "ark-code-latest"
+        elif provider == "infini":
+            model_name = "glm-5"
+        else:
+            model_name = "unknown"
+        
+        if result.returncode == 0:
+            # Check if output contains "4" (answer to 2+2)
+            output = result.stdout.lower()
+            if "4" in output:
+                return ProviderResult(
+                    provider=provider,
+                    status="ok",
+                    latency=latency,
+                    model_name=model_name
+                )
+            else:
+                return ProviderResult(
+                    provider=provider,
+                    status="fail",
+                    latency=latency,
+                    model_name=model_name,
+                    error=f"Expected '4' not found in output: {result.stdout[:100]}..."
+                )
+        else:
+            return ProviderResult(
+                provider=provider,
+                status="fail",
+                latency=latency,
+                model_name=model_name,
+                error=f"Exit code {result.returncode}: {result.stderr[:200]}"
+            )
+            
+    except subprocess.TimeoutExpired:
+        latency = time.time() - start_time
+        model_name = {
+            "zhipu": "GLM-5.1",
+            "volcano": "ark-code-latest",
+            "infini": "glm-5"
+        }.get(provider, "unknown")
+        return ProviderResult(
+            provider=provider,
+            status="fail",
+            latency=latency,
+            model_name=model_name,
+            error="Timeout after 120 seconds"
+        )
+    except Exception as e:
+        latency = time.time() - start_time
+        model_name = {
+            "zhipu": "GLM-5.1",
+            "volcano": "ark-code-latest",
+            "infini": "glm-5"
+        }.get(provider, "unknown")
+        return ProviderResult(
+            provider=provider,
+            status="fail",
+            latency=latency,
+            model_name=model_name,
+            error=str(e)
+        )
+
+def main():
+    """Main entry point."""
+    providers = ["zhipu", "infini", "volcano"]
+    results: List[ProviderResult] = []
+    
+    print("=== golem-health check starting ===\n")
+    print(f"Test prompt: {TEST_PROMPT}\n")
+    
+    for provider in providers:
+        print(f"Checking {provider}...")
+        result = check_provider(provider)
+        results.append(result)
+    
+    print("\n\n=== Health Check Results ===\n")
+    print(f"{'Provider':<10} | {'Status':<6} | {'Latency':>8} | {'Model'}")
+    print("-" * 60)
+    
+    all_ok = True
+    for result in results:
+        status = result.status
+        if result.status == "ok":
+            all_ok = all_ok and True
+        else:
+            all_ok = False
+        print(f"{result.provider:<10} | {result.status:<6} | {result.latency:>6.2f}s | {result.model_name}")
+        if result.error:
+            print(f"  Error: {result.error}\n")
+    
+    print(f"\nSummary: {sum(1 for r in results if r.status == 'ok')}/{len(results)} providers OK")
+    
+    if not all_ok:
+        sys.exit(1)
+
+if __name__ == "__main__":
+    main()

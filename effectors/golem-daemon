@@ -9,6 +9,7 @@ Usage:
     golem-daemon stop    # Stop daemon via pidfile
     golem-daemon status  # Check if running
 """
+import ast
 import os
 import re
 import sys
@@ -117,12 +118,37 @@ def mark_done(line_num: int, result: str = ""):
     
     QUEUE_FILE.write_text("\n".join(lines) + "\n")
 
-def mark_failed(line_num: int, result: str = ""):
-    """Mark task as failed in queue file — [!] instead of [x]."""
+def mark_failed(line_num: int, result: str = "") -> dict:
+    """Mark task as failed in queue file — [!] instead of [x].
+
+    On first failure, re-queue the task once by keeping [ ] and appending
+    ' (retry)' to the command. On second failure (retry already present),
+    mark as [!].
+
+    Returns:
+        dict with 'retried' key indicating whether task was re-queued.
+    """
     lines = QUEUE_FILE.read_text().splitlines()
     original = lines[line_num]
-    lines[line_num] = original.replace("- [ ] ", "- [!] ", 1)
-    QUEUE_FILE.write_text("\n".join(lines) + "\n")
+
+    # Extract command from the task line
+    cmd_match = re.search(r'`([^`]+)`', original)
+
+    if cmd_match and '(retry)' not in cmd_match.group(1):
+        # First attempt: re-queue with (retry) appended to command
+        old_cmd = cmd_match.group(1)
+        new_cmd = old_cmd + ' (retry)'
+        new_line = original.replace(f'`{old_cmd}`', f'`{new_cmd}`', 1)
+        # Keep as pending [ ] - don't change to [!]
+        lines[line_num] = new_line
+        QUEUE_FILE.write_text("\n".join(lines) + "\n")
+        log(f"Re-queued (retry): {old_cmd[:60]}...")
+        return {"retried": True}
+    else:
+        # Retry attempt or no command found: mark as failed [!]
+        lines[line_num] = original.replace("- [ ] ", "- [!] ", 1)
+        QUEUE_FILE.write_text("\n".join(lines) + "\n")
+        return {"retried": False}
 
 def run_golem(cmd: str) -> tuple[str, int, str]:
     """Run a golem command, return (cmd, exit_code, output_tail)."""
@@ -146,7 +172,6 @@ def run_golem(cmd: str) -> tuple[str, int, str]:
         return (cmd, 1, str(e))
 
 
-import ast
 
 
 def validate_golem_output() -> tuple[bool, list[str]]:
@@ -176,8 +201,6 @@ def validate_golem_output() -> tuple[bool, list[str]]:
             return (True, [])  # git diff failed (e.g., no commits), pass silently
 
         py_files = [f for f in git_result.stdout.strip().splitlines() if f.endswith(".py")]
-        if not py_files:
-            return (True, [])
 
         for rel_path in py_files:
             file_path = germline_dir / rel_path

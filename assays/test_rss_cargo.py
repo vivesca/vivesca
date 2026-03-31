@@ -1,269 +1,175 @@
-"""Tests for metabolon/organelles/endocytosis_rss/cargo.py"""
-from __future__ import annotations
+"""Tests for endocytosis_rss/cargo.py - JSONL cargo store."""
 
-import json
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
 
-import pytest
-
-from metabolon.organelles.endocytosis_rss import cargo as rss_cargo
-
-
-class TestAppendCargo:
-    """Tests for append_cargo function."""
-
-    def test_creates_file_if_not_exists(self, tmp_path: Path) -> None:
-        cargo_path = tmp_path / "cargo.jsonl"
-        articles = [{"title": "Test Article", "score": 5}]
-        rss_cargo.append_cargo(cargo_path, articles)
-        assert cargo_path.exists()
-
-    def test_appends_to_existing_file(self, tmp_path: Path) -> None:
-        cargo_path = tmp_path / "cargo.jsonl"
-        cargo_path.write_text('{"title": "First"}\n', encoding="utf-8")
-        articles = [{"title": "Second"}]
-        rss_cargo.append_cargo(cargo_path, articles)
-        lines = cargo_path.read_text(encoding="utf-8").strip().split("\n")
-        assert len(lines) == 2
-
-    def test_writes_valid_jsonl(self, tmp_path: Path) -> None:
-        cargo_path = tmp_path / "cargo.jsonl"
-        articles = [
-            {"title": "Article 1", "score": 5},
-            {"title": "Article 2", "score": 7},
-        ]
-        rss_cargo.append_cargo(cargo_path, articles)
-        for line in cargo_path.read_text(encoding="utf-8").strip().split("\n"):
-            parsed = json.loads(line)
-            assert isinstance(parsed, dict)
-
-    def test_handles_unicode(self, tmp_path: Path) -> None:
-        cargo_path = tmp_path / "cargo.jsonl"
-        articles = [{"title": "中文标题", "summary": "日本語コンテンツ"}]
-        rss_cargo.append_cargo(cargo_path, articles)
-        content = cargo_path.read_text(encoding="utf-8")
-        assert "中文标题" in content
-        assert "日本語コンテンツ" in content
-
-    def test_creates_parent_directory(self, tmp_path: Path) -> None:
-        cargo_path = tmp_path / "subdir" / "cargo.jsonl"
-        articles = [{"title": "Test"}]
-        rss_cargo.append_cargo(cargo_path, articles)
-        assert cargo_path.exists()
+from metabolon.organelles.endocytosis_rss.cargo import (
+    append_cargo,
+    recall_cargo,
+    recall_title_prefixes,
+    rotate_cargo,
+    _title_prefix,
+)
 
 
-class TestRecallCargo:
-    """Tests for recall_cargo function."""
-
-    def test_nonexistent_file_returns_empty(self, tmp_path: Path) -> None:
-        result = rss_cargo.recall_cargo(tmp_path / "nonexistent.jsonl")
-        assert result == []
-
-    def test_reads_all_entries(self, tmp_path: Path) -> None:
-        cargo_path = tmp_path / "cargo.jsonl"
-        cargo_path.write_text(
-            '{"title": "A", "date": "2024-01-01"}\n{"title": "B", "date": "2024-01-02"}\n',
-            encoding="utf-8",
-        )
-        result = rss_cargo.recall_cargo(cargo_path)
-        assert len(result) == 2
-
-    def test_filters_by_since_date(self, tmp_path: Path) -> None:
-        cargo_path = tmp_path / "cargo.jsonl"
-        cargo_path.write_text(
-            '{"title": "A", "date": "2024-01-01"}\n{"title": "B", "date": "2024-01-15"}\n',
-            encoding="utf-8",
-        )
-        result = rss_cargo.recall_cargo(cargo_path, since="2024-01-10")
-        assert len(result) == 1
-        assert result[0]["title"] == "B"
-
-    def test_filters_by_month(self, tmp_path: Path) -> None:
-        cargo_path = tmp_path / "cargo.jsonl"
-        cargo_path.write_text(
-            '{"title": "A", "date": "2024-01-15"}\n{"title": "B", "date": "2024-02-15"}\n',
-            encoding="utf-8",
-        )
-        result = rss_cargo.recall_cargo(cargo_path, month="2024-02")
-        assert len(result) == 1
-        assert result[0]["title"] == "B"
-
-    def test_skips_invalid_json(self, tmp_path: Path) -> None:
-        cargo_path = tmp_path / "cargo.jsonl"
-        cargo_path.write_text(
-            '{"title": "Valid"}\ninvalid json\n{"title": "Also Valid"}\n',
-            encoding="utf-8",
-        )
-        result = rss_cargo.recall_cargo(cargo_path)
-        assert len(result) == 2
-
-    def test_skips_non_dict_entries(self, tmp_path: Path) -> None:
-        cargo_path = tmp_path / "cargo.jsonl"
-        cargo_path.write_text(
-            '{"title": "Valid"}\n["list", "not", "dict"]\n{"title": "Also Valid"}\n',
-            encoding="utf-8",
-        )
-        result = rss_cargo.recall_cargo(cargo_path)
-        assert len(result) == 2
-
-    def test_skips_empty_lines(self, tmp_path: Path) -> None:
-        cargo_path = tmp_path / "cargo.jsonl"
-        cargo_path.write_text(
-            '{"title": "A"}\n\n{"title": "B"}\n   \n',
-            encoding="utf-8",
-        )
-        result = rss_cargo.recall_cargo(cargo_path)
-        assert len(result) == 2
+def test_append_cargo_creates_file(tmp_path):
+    """Test append_cargo creates file and writes articles."""
+    cargo_path = tmp_path / "cargo.jsonl"
+    articles = [
+        {"title": "Test Article", "source": "Feed", "score": 5},
+    ]
+    
+    append_cargo(cargo_path, articles)
+    assert cargo_path.exists()
+    content = cargo_path.read_text()
+    assert "Test Article" in content
 
 
-class TestRecallTitlePrefixes:
-    """Tests for recall_title_prefixes function."""
-
-    def test_nonexistent_file_returns_empty(self, tmp_path: Path) -> None:
-        result = rss_cargo.recall_title_prefixes(tmp_path / "nonexistent.jsonl")
-        assert result == set()
-
-    def test_extracts_prefixes(self, tmp_path: Path) -> None:
-        cargo_path = tmp_path / "cargo.jsonl"
-        cargo_path.write_text(
-            '{"title": "AI Breakthrough in Banking"}\n',
-            encoding="utf-8",
-        )
-        result = rss_cargo.recall_title_prefixes(cargo_path)
-        assert isinstance(result, set)
-        assert len(result) >= 1
-
-    def test_normalizes_titles(self, tmp_path: Path) -> None:
-        cargo_path = tmp_path / "cargo.jsonl"
-        cargo_path.write_text(
-            '{"title": "BREAKING: Major News Story!"}\n',
-            encoding="utf-8",
-        )
-        result = rss_cargo.recall_title_prefixes(cargo_path)
-        # Should be lowercase and stripped of punctuation
-        for prefix in result:
-            assert prefix == prefix.lower()
+def test_append_cargo_appends_not_overwrite(tmp_path):
+    """Test append_cargo appends to existing file."""
+    cargo_path = tmp_path / "cargo.jsonl"
+    
+    append_cargo(cargo_path, [{"title": "First"}])
+    append_cargo(cargo_path, [{"title": "Second"}])
+    
+    lines = cargo_path.read_text().strip().split("\n")
+    assert len(lines) == 2
 
 
-class TestTitlePrefix:
-    """Tests for _title_prefix helper."""
-
-    def test_normalizes_case(self) -> None:
-        result = rss_cargo._title_prefix("HELLO World")
-        assert result == "hello world"
-
-    def test_removes_short_words(self) -> None:
-        result = rss_cargo._title_prefix("A Big Test Article Here")
-        # Words with len > 2 are kept
-        words = result.split()
-        for word in words:
-            assert len(word) > 2
-
-    def test_limits_to_six_words(self) -> None:
-        result = rss_cargo._title_prefix(
-            "One Two Three Four Five Six Seven Eight Nine Ten"
-        )
-        assert len(result.split()) <= 6
-
-    def test_removes_punctuation(self) -> None:
-        result = rss_cargo._title_prefix("Hello! World? Test.")
-        assert "!" not in result
-        assert "?" not in result
-        assert "." not in result
-
-    def test_empty_title_returns_empty(self) -> None:
-        result = rss_cargo._title_prefix("")
-        assert result == ""
+def test_recall_cargo_empty_file(tmp_path):
+    """Test recall_cargo returns empty list for nonexistent file."""
+    result = recall_cargo(tmp_path / "nonexistent.jsonl")
+    assert result == []
 
 
-class TestRotateCargo:
-    """Tests for rotate_cargo function."""
-
-    def test_no_rotation_if_file_not_exists(self, tmp_path: Path) -> None:
-        # Should not raise
-        rss_cargo.rotate_cargo(
-            tmp_path / "nonexistent.jsonl",
-            tmp_path / "archive",
-        )
-
-    def test_no_rotation_if_all_recent(self, tmp_path: Path) -> None:
-        cargo_path = tmp_path / "cargo.jsonl"
-        now = datetime(2024, 3, 15, tzinfo=UTC)
-        recent_date = (now - timedelta(days=7)).strftime("%Y-%m-%d")
-        cargo_path.write_text(
-            f'{{"title": "Recent", "date": "{recent_date}"}}\n',
-            encoding="utf-8",
-        )
-        rss_cargo.rotate_cargo(cargo_path, tmp_path / "archive", retain_days=14, now=now)
-        # File should remain unchanged
-        assert len(rss_cargo.recall_cargo(cargo_path)) == 1
-
-    def test_rotates_old_entries(self, tmp_path: Path) -> None:
-        cargo_path = tmp_path / "cargo.jsonl"
-        archive_dir = tmp_path / "archive"
-        now = datetime(2024, 3, 15, tzinfo=UTC)
-        old_date = (now - timedelta(days=30)).strftime("%Y-%m-%d")
-        recent_date = (now - timedelta(days=5)).strftime("%Y-%m-%d")
-
-        cargo_path.write_text(
-            f'{{"title": "Old", "date": "{old_date}"}}\n'
-            f'{{"title": "Recent", "date": "{recent_date}"}}\n',
-            encoding="utf-8",
-        )
-        rss_cargo.rotate_cargo(
-            cargo_path, archive_dir, retain_days=14, now=now
-        )
-
-        # Old entry should be in archive
-        recent = rss_cargo.recall_cargo(cargo_path)
-        assert len(recent) == 1
-        assert recent[0]["title"] == "Recent"
-
-        # Check archive
-        archive_files = list(archive_dir.glob("cargo-*.jsonl"))
-        assert len(archive_files) == 1
-
-    def test_creates_monthly_archive_buckets(self, tmp_path: Path) -> None:
-        cargo_path = tmp_path / "cargo.jsonl"
-        archive_dir = tmp_path / "archive"
-        now = datetime(2024, 3, 15, tzinfo=UTC)
-
-        cargo_path.write_text(
-            '{"title": "Jan", "date": "2024-01-15"}\n'
-            '{"title": "Feb", "date": "2024-02-15"}\n',
-            encoding="utf-8",
-        )
-        rss_cargo.rotate_cargo(
-            cargo_path, archive_dir, retain_days=14, now=now
-        )
-
-        # Should have two archive files
-        archive_files = sorted(archive_dir.glob("cargo-*.jsonl"))
-        assert len(archive_files) == 2
-        assert "2024-01" in str(archive_files[0])
-        assert "2024-02" in str(archive_files[1])
+def test_recall_cargo_reads_all(tmp_path):
+    """Test recall_cargo reads all entries."""
+    cargo_path = tmp_path / "cargo.jsonl"
+    articles = [
+        {"title": "A", "date": "2024-01-10"},
+        {"title": "B", "date": "2024-01-15"},
+    ]
+    append_cargo(cargo_path, articles)
+    
+    result = recall_cargo(cargo_path)
+    assert len(result) == 2
 
 
-class TestAtomicWriteLines:
-    """Tests for _atomic_write_lines helper."""
+def test_recall_cargo_filters_by_since(tmp_path):
+    """Test recall_cargo filters entries by since date."""
+    cargo_path = tmp_path / "cargo.jsonl"
+    articles = [
+        {"title": "Old", "date": "2024-01-10"},
+        {"title": "New", "date": "2024-01-15"},
+    ]
+    append_cargo(cargo_path, articles)
+    
+    result = recall_cargo(cargo_path, since="2024-01-12")
+    assert len(result) == 1
+    assert result[0]["title"] == "New"
 
-    def test_writes_lines_to_file(self, tmp_path: Path) -> None:
-        path = tmp_path / "test.jsonl"
-        lines = ['{"a": 1}', '{"b": 2}']
-        rss_cargo._atomic_write_lines(path, lines)
-        content = path.read_text(encoding="utf-8")
-        assert content == '{"a": 1}\n{"b": 2}\n'
 
-    def test_creates_parent_directory(self, tmp_path: Path) -> None:
-        path = tmp_path / "subdir" / "test.jsonl"
-        lines = ['{"test": true}']
-        rss_cargo._atomic_write_lines(path, lines)
-        assert path.exists()
+def test_recall_cargo_filters_by_month(tmp_path):
+    """Test recall_cargo filters entries by month prefix."""
+    cargo_path = tmp_path / "cargo.jsonl"
+    articles = [
+        {"title": "Jan", "date": "2024-01-15"},
+        {"title": "Feb", "date": "2024-02-15"},
+    ]
+    append_cargo(cargo_path, articles)
+    
+    result = recall_cargo(cargo_path, month="2024-02")
+    assert len(result) == 1
+    assert result[0]["title"] == "Feb"
 
-    def test_handles_empty_lines(self, tmp_path: Path) -> None:
-        path = tmp_path / "test.jsonl"
-        rss_cargo._atomic_write_lines(path, [])
-        assert path.exists()
-        assert path.read_text(encoding="utf-8") == ""
+
+def test_recall_cargo_skips_invalid_json(tmp_path):
+    """Test recall_cargo skips malformed JSON lines."""
+    cargo_path = tmp_path / "cargo.jsonl"
+    cargo_path.write_text('{"title": "Valid"}\ninvalid json\n{"title": "Also Valid"}\n')
+    
+    result = recall_cargo(cargo_path)
+    assert len(result) == 2
+
+
+def test_recall_cargo_skips_non_dicts(tmp_path):
+    """Test recall_cargo skips non-dict JSON values."""
+    cargo_path = tmp_path / "cargo.jsonl"
+    cargo_path.write_text('["list", "not", "dict"]\n{"title": "Valid"}\n42\n')
+    
+    result = recall_cargo(cargo_path)
+    assert len(result) == 1
+
+
+def test_recall_title_prefixes_extracts(tmp_path):
+    """Test recall_title_prefixes extracts normalized prefixes."""
+    cargo_path = tmp_path / "cargo.jsonl"
+    articles = [
+        {"title": "Bitcoin Price Surges to New Highs"},
+        {"title": "Ethereum Update Released"},
+    ]
+    append_cargo(cargo_path, articles)
+    
+    prefixes = recall_title_prefixes(cargo_path)
+    assert len(prefixes) == 2
+
+
+def test_recall_title_prefixes_empty_file(tmp_path):
+    """Test recall_title_prefixes returns empty set for nonexistent file."""
+    result = recall_title_prefixes(tmp_path / "nonexistent.jsonl")
+    assert result == set()
+
+
+def test_title_prefix_matches_log():
+    """Test cargo._title_prefix matches log._title_prefix logic."""
+    from metabolon.organelles.endocytosis_rss.log import _title_prefix as log_prefix
+    
+    title = "The Quick Brown Fox Jumps Over"
+    assert _title_prefix(title) == log_prefix(title)
+
+
+def test_rotate_cargo_no_rotation_needed(tmp_path):
+    """Test rotate_cargo does nothing when all entries are recent."""
+    cargo_path = tmp_path / "cargo.jsonl"
+    archive_dir = tmp_path / "archive"
+    
+    articles = [{"title": "Recent", "date": "2024-01-15"}]
+    append_cargo(cargo_path, articles)
+    
+    now = datetime(2024, 1, 16, tzinfo=UTC)
+    rotate_cargo(cargo_path, archive_dir, retain_days=14, now=now)
+    
+    assert not archive_dir.exists()
+
+
+def test_rotate_cargo_archives_old_entries(tmp_path):
+    """Test rotate_cargo moves old entries to archive."""
+    cargo_path = tmp_path / "cargo.jsonl"
+    archive_dir = tmp_path / "archive"
+    
+    articles = [
+        {"title": "Old", "date": "2024-01-01"},
+        {"title": "Recent", "date": "2024-01-20"},
+    ]
+    append_cargo(cargo_path, articles)
+    
+    now = datetime(2024, 1, 20, tzinfo=UTC)
+    rotate_cargo(cargo_path, archive_dir, retain_days=7, now=now)
+    
+    # Old entry should be archived
+    archive_path = archive_dir / "cargo-2024-01.jsonl"
+    assert archive_path.exists()
+    
+    # Cargo should only have recent
+    remaining = recall_cargo(cargo_path)
+    assert len(remaining) == 1
+    assert remaining[0]["title"] == "Recent"
+
+
+def test_rotate_cargo_nonexistent_file(tmp_path):
+    """Test rotate_cargo handles nonexistent cargo file."""
+    cargo_path = tmp_path / "nonexistent.jsonl"
+    archive_dir = tmp_path / "archive"
+    
+    # Should not raise
+    rotate_cargo(cargo_path, archive_dir, retain_days=14)

@@ -353,16 +353,14 @@ def test_validate_pycache_detection():
     """validate_golem_output rejects __pycache__/.pyc files."""
     def mock_run(cmd, shell, capture_output, text, cwd=None):
         result = MagicMock()
-        if "diff --name-only" in cmd and "--diff-filter=AM" in cmd:
-            if "grep -E" not in cmd:
-                result.returncode = 0
-                result.stdout = ""  # No .py files
-            else:
-                result.returncode = 0
-                result.stdout = ""
-        elif "grep -E" in cmd and "__pycache__" in cmd:
+        # Check for the grep command for __pycache__/.pyc
+        if "grep -E" in cmd and "__pycache__" in cmd:
             result.returncode = 0
             result.stdout = "assays/__pycache__/test_foo.pyc"
+        elif "diff --name-only" in cmd and "--diff-filter=AM" in cmd:
+            # First git diff call for .py files
+            result.returncode = 0
+            result.stdout = ""
         else:
             result.returncode = 0
             result.stdout = ""
