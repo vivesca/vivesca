@@ -320,7 +320,7 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 - [ ] `golem --provider infini --max-turns 35 "Create effectors/conftest-gen as Python. Scans assays/ for hardcoded /Users/terry or /home/terry. Rewrites to Path.home(). --dry-run default, --fix to apply. Write tests."`
 - [!] `golem --provider volcano --max-turns 25 "Create effectors/stale-test-finder as Python. For each assays/test_*.py, check if the source module it tests still exists. Report orphan tests. Write tests." (retry)`
 - [ ] `golem --provider zhipu --max-turns 25 "Scan metabolon/**/*.py for unused imports (import X where X is never used). Remove them. ast.parse after each edit. Commit."`
-- [ ] `golem --provider infini --max-turns 25 "Find duplicate effectors — pairs that do similar things. Report to loci/copia/duplicate-effectors.md."`
+- [ ] `golem --provider infini --max-turns 25 "Find duplicate effectors — pairs that do similar things. Report to loci/copia/duplicate-effectors.md." (retry)`
 - [!] `golem --provider volcano --max-turns 25 "Find all TODO/FIXME in metabolon/**/*.py. List file:line:context. Write to loci/copia/todo-audit.md." (retry)`
 - [ ] `golem --provider zhipu --max-turns 25 "Find print() in metabolon/**/*.py that should be logging. Write to loci/copia/print-audit.md."`
 - [ ] `golem --provider infini --max-turns 25 "Check assays/test_*.py for false-positive tests (assert True, empty bodies, over-mocked). Write to loci/copia/false-positive-tests.md."`
