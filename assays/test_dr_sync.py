@@ -19,7 +19,7 @@ DR_SYNC_PATH = Path(__file__).resolve().parents[1] / "effectors" / "dr-sync"
 @pytest.fixture()
 def dr():
     """Load dr-sync via exec into an isolated namespace."""
-    ns: dict = {"__name__": "__main__"}
+    ns: dict = {"__name__": "dr_sync"}
     source = DR_SYNC_PATH.read_text(encoding="utf-8")
     exec(source, ns)
     mod = type("dr", (), {})()
