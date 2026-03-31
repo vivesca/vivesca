@@ -133,19 +133,21 @@ def test_scan_returns_results_when_not_dry_run(tmp_path):
     old_time = (datetime.now() - timedelta(days=100)).timestamp()
     import os
     os.utime(stale_file, (old_time, old_time))
-    
-    # Mock rheotaxis_engine
-    with patch("metabolon.organelles.rheotaxis_engine") as mock_rheo:
-        mock_result = MagicMock()
-        mock_result.error = False
-        mock_result.answer = "New update found"
-        mock_result.backend = "test"
+
+    # Mock rheotaxis_engine in the loaded module
+    from unittest.mock import patch
+    mock_result = MagicMock()
+    mock_result.error = False
+    mock_result.answer = "New update found"
+    mock_result.backend = "test"
+
+    with patch.object(_mod, 'rheotaxis_engine') as mock_rheo:
         mock_rheo.parallel_search.return_value = [mock_result]
         mock_rheo.format_results.return_value = "Formatted result"
-        
+
         stale_days = 90
         results = scan_regulatory_documents(tmp_path, stale_days, dry_run=False, timeout=1)
-        
+
         assert len(results) == 1
         assert "hkma-capital-requirements.md" in results
         doc_info = results["hkma-capital-requirements.md"]["doc_info"]
