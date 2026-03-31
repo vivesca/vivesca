@@ -8,7 +8,7 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 ### Fixes
 
 #### Fix sortase test failures (20 failures in 2 files)
-- [ ] `golem --provider infini --max-turns 40 "Run: uv run pytest assays/test_sortase_actions.py assays/test_sortase_cli.py -v --tb=short 2>&1 | tail -80. Read both test files and the source modules they test. Diagnose each failure. Fix tests or source. Run pytest until all pass. Do NOT delete tests."`
+- [x] `golem --provider infini --max-turns 40 "Run: uv run pytest assays/test_sortase_actions.py assays/test_sortase_cli.py -v --tb=short 2>&1 | tail -80. Read both test files and the source modules they test. Diagnose each failure. Fix tests or source. Run pytest until all pass. Do NOT delete tests."`
 
 #### Fix 6 substrate test failures
 - [x] `golem --provider volcano --max-turns 30 "Run: uv run pytest assays/test_substrate_memory.py assays/test_substrate_vasomotor.py -v --tb=short 2>&1 | tail -40. Read failing tests and source modules. Fix. Run pytest until green."`
