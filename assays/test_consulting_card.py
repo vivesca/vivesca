@@ -14,19 +14,28 @@ import pytest
 def _load_module():
     """Load consulting-card via exec (effector pattern, not importable).
 
-    The effector imports ``openai`` at load time.  Inject a stub module so
-    the exec succeeds even when the ``openai`` package is not installed.
+    The effector imports ``openai`` at load time.  Inject a stub into
+    sys.modules so the exec succeeds even when the package is not installed.
     """
-    source = open("/home/terry/germline/effectors/consulting-card.py").read()
     import types
+    import unittest.mock as _um
+
+    source = open("/home/terry/germline/effectors/consulting-card.py").read()
     openai_stub = types.ModuleType("openai")
-    openai_stub.OpenAI = MagicMock()
-    ns: dict = {
-        "__name__": "consulting_card",
-        "__file__": "/home/terry/germline/effectors/consulting-card.py",
-        "openai": openai_stub,
-    }
-    exec(source, ns)
+    openai_stub.OpenAI = _um.MagicMock()
+    saved = sys.modules.get("openai")
+    sys.modules["openai"] = openai_stub
+    try:
+        ns: dict = {
+            "__name__": "consulting_card",
+            "__file__": "/home/terry/germline/effectors/consulting-card.py",
+        }
+        exec(source, ns)
+    finally:
+        if saved is None:
+            sys.modules.pop("openai", None)
+        else:
+            sys.modules["openai"] = saved
     return ns
 
 
