@@ -2,6 +2,13 @@
 name: hybridization
 description: Stress-test bio naming — find gaps where the analogy breaks down. "naming audit"
 user_invocable: true
+triggers:
+  - hybridization
+  - naming audit
+  - naming
+  - analogy
+  - bio naming
+  - design gap
 model: sonnet
 context: fork
 ---
