@@ -1,0 +1,244 @@
+#!/usr/bin/env python3
+"""provider-bench — Send identical 1-turn task to all 3 providers in parallel.
+
+Compares latency, output quality (length, coherence). Table output.
+
+Usage:
+    provider-bench "Write a haiku about testing"
+    provider-bench --timeout 60 "Explain recursion"
+    provider-bench --json "Summarize Python GIL"
+    provider-bench --prompt-file task.txt
+"""
+from __future__ import annotations
+
+import os
+import re
+import subprocess
+import sys
+import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from pathlib import Path
+
+# Provider configurations matching golem daemon
+PROVIDERS = {
+    "zhipu": {
+        "name": "GLM-5.1",
+        "url": "https://open.bigmodel.cn/api/anthropic",
+        "opus": "GLM-5.1",
+        "sonnet": "GLM-5.1",
+        "haiku": "GLM-4.5-air",
+        "key_env": "ZHIPU_API_KEY",
+        "auth_mode": "key",
+    },
+    "volcano": {
+        "name": "ark-code",
+        "url": "https://ark.cn-beijing.volces.com/api/coding",
+        "opus": "ark-code-latest",
+        "sonnet": "ark-code-latest",
+        "haiku": "ark-code-latest",
+        "key_env": "VOLCANO_API_KEY",
+        "auth_mode": "token",
+    },
+    "infini": {
+        "name": "glm-5",
+        "url": "https://cloud.infini-ai.com/maas/coding",
+        "opus": "glm-5",
+        "sonnet": "glm-5",
+        "haiku": "glm-4.5-air",
+        "key_env": "INFINI_API_KEY",
+        "auth_mode": "key",
+    },
+}
+
+DEFAULT_TIMEOUT = 120
+
+
+def build_env(cfg: dict, api_key: str) -> dict[str, str]:
+    """Build environment dict for a provider subprocess."""
+    env = os.environ.copy()
+    if cfg["auth_mode"] == "token":
+        env["ANTHROPIC_AUTH_TOKEN"] = api_key
+        env["ANTHROPIC_API_KEY"] = ""
+        env.pop("ANTHROPIC_AUTH_TOKEN", None)  # clear if inherited
+        env["ANTHROPIC_AUTH_TOKEN"] = api_key
+    else:
+        env["ANTHROPIC_API_KEY"] = api_key
+        env.pop("ANTHROPIC_AUTH_TOKEN", None)
+    env["ANTHROPIC_BASE_URL"] = cfg["url"]
+    env["ANTHROPIC_DEFAULT_OPUS_MODEL"] = cfg["opus"]
+    env["ANTHROPIC_DEFAULT_SONNET_MODEL"] = cfg["sonnet"]
+    env["ANTHROPIC_DEFAULT_HAIKU_MODEL"] = cfg["haiku"]
+    env["API_TIMEOUT_MS"] = "3000000"
+    env["CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC"] = "1"
+    env["CLAUDECODE"] = ""
+    return env
+
+
+def score_output(text: str) -> dict:
+    """Score output quality: length, word count, sentence structure, uniqueness."""
+    chars = len(text)
+    words = text.split()
+    word_count = len(words)
+    # Count sentences via terminal punctuation
+    sentences = len(re.findall(r'[.!?。！？]', text))
+    unique_words = len(set(w.lower() for w in re.findall(r'[a-zA-Z]+', text)))
+    total_words_alpha = len(re.findall(r'[a-zA-Z]+', text))
+    unique_ratio = unique_words / total_words_alpha if total_words_alpha > 0 else 0.0
+
+    if chars == 0:
+        quality_label = "empty"
+    elif word_count < 5:
+        quality_label = "short"
+    elif unique_ratio < 0.3:
+        quality_label = "repetitive"
+    elif word_count > 20 and unique_ratio > 0.5 and sentences > 2:
+        quality_label = "good"
+    else:
+        quality_label = "ok"
+
+    return {
+        "chars": chars,
+        "words": word_count,
+        "sentences": sentences,
+        "unique_ratio": round(unique_ratio, 2),
+        "quality_label": quality_label,
+    }
+
+
+def run_provider(name: str, cfg: dict, prompt: str, timeout: int = DEFAULT_TIMEOUT) -> dict:
+    """Run a single provider and return result dict."""
+    api_key = os.environ.get(cfg["key_env"], "")
+    if not api_key:
+        return {
+            "provider": name,
+            "latency_s": 0.0,
+            "exit_code": -2,
+            "output": f"missing {cfg['key_env']}",
+            "score": score_output(""),
+        }
+
+    env = build_env(cfg, api_key)
+    cmd = [
+        "claude", "--print", "--dangerously-skip-permissions",
+        "--max-turns", "1", "-p", prompt,
+    ]
+    start = time.time()
+    try:
+        proc = subprocess.run(
+            cmd, env=env, capture_output=True, text=True, timeout=timeout,
+            stdin=subprocess.DEVNULL,
+        )
+        latency = time.time() - start
+        output = proc.stdout.strip()
+        return {
+            "provider": name,
+            "latency_s": round(latency, 2),
+            "exit_code": proc.returncode,
+            "output": output,
+            "score": score_output(output),
+        }
+    except subprocess.TimeoutExpired:
+        latency = time.time() - start
+        return {
+            "provider": name,
+            "latency_s": round(latency, 2),
+            "exit_code": -1,
+            "output": "timeout",
+            "score": score_output(""),
+        }
+
+
+def run_all(prompt: str, timeout: int = DEFAULT_TIMEOUT) -> list[dict]:
+    """Run all providers in parallel and return results sorted by latency."""
+    results: list[dict] = []
+    with ThreadPoolExecutor(max_workers=3) as pool:
+        futures = {
+            pool.submit(run_provider, name, cfg, prompt, timeout): name
+            for name, cfg in PROVIDERS.items()
+        }
+        for future in as_completed(futures):
+            results.append(future.result())
+    results.sort(key=lambda r: r["latency_s"])
+    return results
+
+
+def format_table(results: list[dict]) -> str:
+    """Format benchmark results as a readable table."""
+    header = f"{'Provider':<12} {'Model':<16} {'Latency':>8} {'Exit':>5} {'Chars':>7} {'Words':>7} {'Sent':>5} {'Uniq%':>6} {'Quality':<12}"
+    sep = "-" * len(header)
+    lines = [header, sep]
+
+    for r in results:
+        s = r["score"]
+        model_name = PROVIDERS.get(r["provider"], {}).get("name", "?")
+        status = "OK" if r["exit_code"] == 0 else f"FAIL({r['exit_code']})"
+        line = (
+            f"{r['provider']:<12} {model_name:<16} "
+            f"{r['latency_s']:>7.1f}s {status:>5} "
+            f"{s['chars']:>7} {s['words']:>7} {s['sentences']:>5} "
+            f"{s['unique_ratio']:>5.0%} {s['quality_label']:<12}"
+        )
+        lines.append(line)
+
+    lines.append(sep)
+
+    # Winner
+    ok_results = [r for r in results if r["exit_code"] == 0]
+    if ok_results:
+        fastest = min(ok_results, key=lambda r: r["latency_s"])
+        best_quality = max(ok_results, key=lambda r: (r["score"]["quality_label"] == "good", r["score"]["words"]))
+        lines.append(f"Fastest: {fastest['provider']} ({fastest['latency_s']:.1f}s)")
+        lines.append(f"Best quality: {best_quality['provider']} ({best_quality['score']['words']} words, {best_quality['score']['quality_label']})")
+    else:
+        lines.append("No successful responses.")
+
+    return "\n".join(lines)
+
+
+def main():
+    args = sys.argv[1:]
+    timeout = DEFAULT_TIMEOUT
+    json_output = False
+    prompt_file = None
+
+    # Parse flags
+    remaining = []
+    i = 0
+    while i < len(args):
+        if args[i] == "--timeout" and i + 1 < len(args):
+            timeout = int(args[i + 1])
+            i += 2
+        elif args[i] == "--json":
+            json_output = True
+            i += 1
+        elif args[i] == "--prompt-file" and i + 1 < len(args):
+            prompt_file = args[i + 1]
+            i += 2
+        elif args[i] in ("-h", "--help"):
+            print(__doc__)
+            sys.exit(0)
+        else:
+            remaining.append(args[i])
+            i += 1
+
+    if prompt_file:
+        prompt = Path(prompt_file).read_text().strip()
+    elif remaining:
+        prompt = " ".join(remaining)
+    else:
+        prompt = "Write a short paragraph (3-5 sentences) about the benefits of automated testing in software development."
+
+    results = run_all(prompt, timeout=timeout)
+
+    if json_output:
+        print(json.dumps({"prompt": prompt, "results": results}, indent=2))
+    else:
+        print(f"\nPrompt: {prompt[:80]}{'...' if len(prompt) > 80 else ''}\n")
+        print(format_table(results))
+        print()
+
+
+import json as _json  # noqa: E402 — needed for --json output
+
+if __name__ == "__main__":
+    main()
