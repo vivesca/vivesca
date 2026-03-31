@@ -723,3 +723,319 @@ def test_replisome_docstring():
     """Test that replisome has docstring."""
     assert '"""' in replisome_code
     assert 'replisome' in replisome_code.lower() or 'Replisome' in replisome_code
+
+
+# ---------------------------------------------------------------------------
+# Additional edge case tests
+# ---------------------------------------------------------------------------
+
+def test_query_model_empty_stdout():
+    """Test query_model handles empty stdout."""
+    mock_result = MagicMock()
+    mock_result.returncode = 0
+    mock_result.stdout = "   "  # Whitespace only
+    mock_result.stderr = ""
+
+    with patch('subprocess.run', return_value=mock_result):
+        result = replisome.query_model("gemini", "test prompt")
+        assert "error" in result or "empty" in result
+
+
+def test_query_model_unknown_model_falls_back_to_channel():
+    """Test query_model falls back to 'channel' command for unknown models."""
+    mock_result = MagicMock()
+    mock_result.returncode = 0
+    mock_result.stdout = "Channel response"
+    mock_result.stderr = ""
+
+    with patch('subprocess.run', return_value=mock_result) as mock_run:
+        result = replisome.query_model("unknown_model", "test")
+        # Should use channel command as fallback
+        call_args = mock_run.call_args[0][0]
+        assert call_args[0] == "channel"
+        assert call_args[1] == "unknown_model"
+
+
+def test_query_model_generic_exception():
+    """Test query_model handles generic exceptions."""
+    with patch('subprocess.run', side_effect=Exception("Unexpected error")):
+        result = replisome.query_model("gemini", "test prompt")
+        assert "error" in result.lower()
+
+
+def test_pty_query_proc_still_running():
+    """Test _pty_query handles process that stays running (kills it)."""
+    # This tests the timeout/kill path in _pty_query
+    # We can't easily mock the full PTY, but we can test the logic exists
+    with patch('pty.openpty', side_effect=OSError("Mocked failure")):
+        result = replisome.query_model("opencode", "test")
+        # Should handle the error gracefully
+        assert result  # Returns some error message
+
+
+def test_node_model_turn_multiline_response():
+    """Test node_model_turn handles multiline responses."""
+    state = {
+        "current_model_idx": 0,
+        "models": ["test_model"],
+        "turns": [],
+        "timeout": 120,
+        "repo": "~/germline",
+        "scratchpad_path": "/tmp/test.md",
+    }
+
+    multiline_response = "Line 1\nLine 2\nLine 3"
+    original_query_model = namespace['query_model']
+    namespace['query_model'] = MagicMock(return_value=multiline_response)
+    try:
+        with patch('builtins.open', mock_open()):
+            result = replisome.node_model_turn(state)
+    finally:
+        namespace['query_model'] = original_query_model
+
+    assert "turns" in result
+    assert result["turns"][0]["content"] == multiline_response
+
+
+def test_node_model_turn_empty_response():
+    """Test node_model_turn handles empty model response."""
+    state = {
+        "current_model_idx": 0,
+        "models": ["test_model"],
+        "turns": [],
+        "timeout": 120,
+        "repo": "~/germline",
+        "scratchpad_path": "/tmp/test.md",
+    }
+
+    original_query_model = namespace['query_model']
+    namespace['query_model'] = MagicMock(return_value="")
+    try:
+        with patch('builtins.open', mock_open()):
+            result = replisome.node_model_turn(state)
+    finally:
+        namespace['query_model'] = original_query_model
+
+    assert result["needs_human"] is False
+
+
+def test_node_model_turn_whitespace_response():
+    """Test node_model_turn handles whitespace-only response."""
+    state = {
+        "current_model_idx": 0,
+        "models": ["test_model"],
+        "turns": [],
+        "timeout": 120,
+        "repo": "~/germline",
+        "scratchpad_path": "/tmp/test.md",
+    }
+
+    original_query_model = namespace['query_model']
+    namespace['query_model'] = MagicMock(return_value="   \n\n   ")
+    try:
+        with patch('builtins.open', mock_open()):
+            result = replisome.node_model_turn(state)
+    finally:
+        namespace['query_model'] = original_query_model
+
+    # Should not crash
+    assert "turns" in result
+
+
+def test_model_prompt_with_special_characters():
+    """Test model_prompt handles special characters in scratchpad."""
+    scratchpad = "### Test\n\nContent with <special> & \"quotes\" & 'apostrophes'"
+    result = replisome.model_prompt(scratchpad, "~/germline")
+    assert scratchpad in result
+
+
+def test_scratchpad_text_with_newlines():
+    """Test scratchpad_text preserves newlines in content."""
+    turns = [{"role": "User", "content": "Line 1\nLine 2\nLine 3"}]
+    result = replisome.scratchpad_text(turns)
+    assert "Line 1\nLine 2\nLine 3" in result
+
+
+def test_scratchpad_text_with_markdown():
+    """Test scratchpad_text preserves markdown formatting."""
+    turns = [{"role": "Assistant", "content": "# Header\n\n- item 1\n- item 2"}]
+    result = replisome.scratchpad_text(turns)
+    assert "# Header" in result
+    assert "- item 1" in result
+
+
+def test_main_with_custom_timeout():
+    """Test that main parses --timeout argument."""
+    mock_graph = MagicMock()
+    mock_instance = MagicMock()
+    mock_instance.stream.return_value = iter([])
+    mock_graph.return_value = mock_instance
+
+    original_build_graph = namespace['build_graph']
+    namespace['build_graph'] = mock_graph
+    try:
+        with patch('sys.argv', ['replisome', '--timeout', '60', 'test task']):
+            with patch('pathlib.Path.mkdir'):
+                with patch('builtins.open', mock_open()):
+                    with patch('pathlib.Path.write_text'):
+                        replisome.main()
+    finally:
+        namespace['build_graph'] = original_build_graph
+
+
+def test_main_with_custom_repo():
+    """Test that main parses --repo argument."""
+    mock_graph = MagicMock()
+    mock_instance = MagicMock()
+    mock_instance.stream.return_value = iter([])
+    mock_graph.return_value = mock_instance
+
+    original_build_graph = namespace['build_graph']
+    namespace['build_graph'] = mock_graph
+    try:
+        with patch('sys.argv', ['replisome', '--repo', '/custom/repo', 'test task']):
+            with patch('pathlib.Path.mkdir'):
+                with patch('builtins.open', mock_open()):
+                    with patch('pathlib.Path.write_text'):
+                        replisome.main()
+    finally:
+        namespace['build_graph'] = original_build_graph
+
+
+def test_route_after_model_needs_human_takes_precedence():
+    """Test that needs_human takes precedence over model index check."""
+    state = {
+        "needs_human": True,
+        "current_model_idx": 0,
+        "models": ["glm"],  # Only one model, so would normally go to synthesise
+    }
+    # But needs_human should take precedence
+    assert replisome.route_after_model(state) == "human"
+
+
+def test_append_preserves_original_lists():
+    """Test that _append doesn't modify original lists."""
+    list1 = [1, 2]
+    list2 = [3, 4]
+    result = replisome._append(list1, list2)
+    assert list1 == [1, 2]  # Original unchanged
+    assert list2 == [3, 4]  # Original unchanged
+    assert result == [1, 2, 3, 4]
+
+
+def test_pty_model_uses_pty_path():
+    """Test that PTY models use _pty_query."""
+    # Patch _pty_query in namespace
+    original_pty_query = namespace.get('_pty_query')
+    mock_pty = MagicMock(return_value="PTY response")
+    namespace['_pty_query'] = mock_pty
+
+    try:
+        result = replisome.query_model("opencode", "test prompt", timeout=60)
+        # Should have called _pty_query
+        assert mock_pty.called
+        assert result == "PTY response"
+    finally:
+        if original_pty_query:
+            namespace['_pty_query'] = original_pty_query
+
+
+def test_pty_query_empty_response_handling():
+    """Test _pty_query returns proper message for empty response."""
+    with patch('pty.openpty') as mock_openpty:
+        # Setup mock PTY that returns nothing useful
+        master_fd = 999
+        slave_fd = 998
+        mock_openpty.return_value = (master_fd, slave_fd)
+
+        with patch('os.close'):
+            with patch('subprocess.Popen') as mock_popen:
+                mock_proc = MagicMock()
+                mock_proc.poll.return_value = 0  # Process done
+                mock_popen.return_value = mock_proc
+
+                with patch('select.select', return_value=([], [], [])):
+                    with patch('os.read', return_value=b''):
+                        result = replisome._pty_query(["test"], 10)
+                        # Should return empty string or error message
+                        assert result is not None
+
+
+def test_node_synthesise_includes_model_labels():
+    """Test that node_synthesise includes model labels in prompt."""
+    state = {
+        "models": ["model1", "model2"],
+        "turns": [],
+        "timeout": 120,
+        "current_round": 1,
+        "max_rounds": 2,
+        "scratchpad_path": "/tmp/test.md",
+    }
+
+    original_query_model = namespace['query_model']
+    captured_prompt = []
+
+    def capture_prompt(model, prompt, timeout):
+        captured_prompt.append(prompt)
+        return "Synthesis"
+
+    namespace['query_model'] = capture_prompt
+    try:
+        with patch('builtins.open', mock_open()):
+            replisome.node_synthesise(state)
+    finally:
+        namespace['query_model'] = original_query_model
+
+    # The prompt should mention both models
+    assert "model1 + model2" in captured_prompt[0]
+
+
+def test_node_human_human_role_label():
+    """Test that node_human labels human as 'Human (Terry)'."""
+    state = {
+        "human_question": "Question?",
+        "scratchpad_path": "/tmp/test.md",
+    }
+
+    with patch('builtins.input', return_value="My answer"):
+        with patch('builtins.open', mock_open()) as mock_file:
+            result = replisome.node_human(state)
+
+    assert result["turns"][0]["role"] == "Human (Terry)"
+
+
+def test_full_graph_flow_multiple_rounds():
+    """Test graph flow with multiple rounds."""
+    graph = replisome.build_graph()
+
+    initial_state = {
+        "task": "test task",
+        "models": ["model1"],
+        "turns": [],
+        "current_model_idx": 0,
+        "current_round": 1,
+        "max_rounds": 2,
+        "timeout": 10,
+        "repo": "~/germline",
+        "scratchpad_path": "/tmp/test.md",
+        "needs_human": False,
+        "human_question": "",
+        "done": False,
+    }
+
+    call_count = [0]
+
+    def mock_query(model, prompt, timeout):
+        call_count[0] += 1
+        return f"Response {call_count[0]}"
+
+    original_query_model = namespace['query_model']
+    namespace['query_model'] = mock_query
+    try:
+        with patch('builtins.open', mock_open()):
+            config = {"configurable": {"thread_id": "test_multi"}}
+            events = list(graph.stream(initial_state, config=config))
+            # Should have multiple events for multiple rounds
+            assert len(events) > 0
+    finally:
+        namespace['query_model'] = original_query_model

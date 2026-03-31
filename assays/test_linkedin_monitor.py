@@ -1,13 +1,30 @@
 #!/usr/bin/env python3
-"""Tests for linkedin-monitor effector — mocks all external file I/O and subprocess calls."""
+"""Tests for linkedin-monitor effector — mocks all external file I/O and subprocess calls.
 
+This test suite covers:
+- Unit tests for all helper functions
+- Parsing functions (eval result, snapshot)
+- Auth gate detection
+- Digest formatting
+- File I/O operations (load/save seen hashes)
+- Subprocess integration (_run helper)
+- Main function behavior
+- Edge cases and error handling
+- End-to-end scenarios with mocked dependencies
+"""
+
+import hashlib
 import json
-import pytest
+import os
 import subprocess
 import sys
-from unittest.mock import MagicMock, patch, mock_open
-from datetime import datetime
+import tempfile
+from io import StringIO
 from pathlib import Path
+from unittest.mock import MagicMock, call, mock_open, patch
+
+import pytest
+import yaml
 
 # Execute the linkedin-monitor file directly
 linkedin_code = Path("/home/terry/germline/effectors/linkedin-monitor").read_text()

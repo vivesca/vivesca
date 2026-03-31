@@ -74,10 +74,16 @@ def test_read_last_snapshot_returns_none_when_empty():
         if self == phagocytosis.LOG_FILE:
             return True
         return False
-    
+
     mock_file = io.BytesIO()
+
+    def mock_open(self, *args, **kwargs):
+        if self == phagocytosis.LOG_FILE:
+            return mock_file
+        raise FileNotFoundError(f"{self} not found")
+
     with patch('pathlib.Path.exists', mock_exists):
-        with patch('builtins.open', return_value=mock_file):
+        with patch('pathlib.Path.open', mock_open):
             result = phagocytosis.read_last_snapshot()
             assert result is None
 
@@ -86,16 +92,21 @@ def test_read_last_snapshot_reads_last_line():
     entry1 = json.dumps({"ts": 1234567890, "files": ["a.md", "b.md"]})
     entry2 = json.dumps({"ts": 1234567891, "files": ["b.md", "c.md"]})
     content = f"{entry1}\n{entry2}\n".encode('utf-8')
-    
+
     mock_io = io.BytesIO(content)
-    
+
     def mock_exists(self):
         if self == phagocytosis.LOG_FILE:
             return True
         return False
-    
+
+    def mock_open(self, *args, **kwargs):
+        if self == phagocytosis.LOG_FILE:
+            return mock_io
+        raise FileNotFoundError(f"{self} not found")
+
     with patch('pathlib.Path.exists', mock_exists):
-        with patch('builtins.open', return_value=mock_io):
+        with patch('pathlib.Path.open', mock_open):
             result = phagocytosis.read_last_snapshot()
             assert result == ["b.md", "c.md"]
 
@@ -122,38 +133,58 @@ def test_main_exits_if_no_current_files():
 def test_main_skips_if_same_as_last():
     """Test skips writing when files haven't changed."""
     file_list = ["/a.md", "/b.md"]
-    
+
+    # Track if open is called to ensure it isn't
+    open_called = False
+
+    def mock_open(self, *args, **kwargs):
+        nonlocal open_called
+        open_called = True
+        raise FileNotFoundError(f"Should not open when skipping")
+
     def mock_exists(self):
-        return str(self) == str(phagocytosis.WORKSPACE)
-    
+        # Both workspace and log file exist
+        return str(self) in (str(phagocytosis.WORKSPACE), str(phagocytosis.LOG_FILE))
+
     with patch('pathlib.Path.exists', mock_exists):
         with patch('pathlib.Path.read_text', return_value=json.dumps({"lastOpenFiles": file_list})):
             with patch.object(phagocytosis, 'read_last_snapshot', return_value=file_list):
-                with patch('builtins.open', mock_open()) as mock_file:
+                with patch('pathlib.Path.open', mock_open):
+                    # Should exit early without writing
                     phagocytosis.main()
-                    # Should not write
-                    handle = mock_file()
-                    handle.write.assert_not_called()
+                    assert open_called is False, "Should not open file when no change"
 
 def test_main_writes_entry_when_changed():
     """Test writes new entry when files changed."""
     last_files = ["/a.md", "/b.md"]
     current_files = ["/b.md", "/c.md"]
-    
+
+    written_content = []
+
+    class MockFile:
+        def __enter__(self): return self
+        def __exit__(self, *args): pass
+        def write(self, data): written_content.append(data)
+
+    mock_file = MockFile()
+
+    def mock_open(self, *args, **kwargs):
+        if self == phagocytosis.LOG_FILE:
+            return mock_file
+        raise FileNotFoundError(f"{self} not found")
+
     def mock_exists(self):
-        return str(self) == str(phagocytosis.WORKSPACE)
-    
+        return str(self) in (str(phagocytosis.WORKSPACE), str(phagocytosis.LOG_FILE))
+
     with patch('pathlib.Path.exists', mock_exists):
         with patch('pathlib.Path.read_text', return_value=json.dumps({"lastOpenFiles": current_files})):
             with patch.object(phagocytosis, 'read_last_snapshot', return_value=last_files):
-                mock_file_handle = mock_open()
-                with patch('builtins.open', mock_file_handle):
+                with patch('pathlib.Path.open', mock_open):
                     with patch('time.time', return_value=1234567890.0):
                         phagocytosis.main()
                         # Should write new entry
-                        handle = mock_file_handle()
-                        handle.write.assert_called_once()
-                        written = handle.write.call_args[0][0]
+                        assert len(written_content) == 1
+                        written = written_content[0].strip()
                         # Should be valid JSON
                         data = json.loads(written.strip())
                         assert data['ts'] == 1234567890

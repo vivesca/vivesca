@@ -1,251 +1,270 @@
 #!/usr/bin/env python3
-"""Tests for cn-route effector — tests routing logic and host list."""
+"""Tests for cn-route effector — routing logic and host list management."""
 
+import importlib.util
+import json
 import pytest
-import sys
 from pathlib import Path
-from unittest.mock import MagicMock, patch, call
-
-# Execute the cn-route file directly
-cn_route_path = Path("/home/terry/germline/effectors/cn-route")
-cn_route_code = cn_route_path.read_text()
-namespace = {}
-exec(cn_route_code, namespace)
-
-# Extract all the functions/globals from the namespace
-cn_route = type('cn_route_module', (), {})()
-for key, value in namespace.items():
-    if not key.startswith('__'):
-        setattr(cn_route, key, value)
+from unittest.mock import MagicMock, patch
 
 # ---------------------------------------------------------------------------
-# Test CN_API_HOSTS list
+# Module loading — use importlib for a proper module object so patch.object
+# works cleanly on every function.
 # ---------------------------------------------------------------------------
+_spec = importlib.util.spec_from_file_location(
+    "cn_route", "/home/terry/germline/effectors/cn-route"
+)
+cn = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(cn)
 
-def test_cn_api_hosts_not_empty():
-    """Test CN_API_HOSTS contains expected providers."""
-    assert len(cn_route.CN_API_HOSTS) > 0
-    # Check for major providers
-    assert any("bigmodel" in host for host in cn_route.CN_API_HOSTS)
-    assert any("dashscope" in host for host in cn_route.CN_API_HOSTS)
-    assert any("minimaxi" in host for host in cn_route.CN_API_HOSTS)
-    assert any("volces" in host for host in cn_route.CN_API_HOSTS)
-    assert any("infini-ai" in host for host in cn_route.CN_API_HOSTS)
 
-# ---------------------------------------------------------------------------
-# Test _route_cmd
-# ---------------------------------------------------------------------------
+# ===================================================================
+# CN_API_HOSTS
+# ===================================================================
 
-def test_route_cmd_root():
-    """Test _route_cmd doesn't add sudo when running as root."""
-    with patch('os.getuid', return_value=0):
-        cmd = cn_route._route_cmd("add", "1.2.3.4", "gateway")
-        assert cmd[0] == "/sbin/route"
-        assert "sudo" not in cmd
+class TestCNApiHosts:
+    """Validate the static host list covers all providers."""
 
-def test_route_cmd_non_root():
-    """Test _route_cmd adds sudo when not running as root."""
-    with patch('os.getuid', return_value=1000):
-        cmd = cn_route._route_cmd("add", "1.2.3.4", "gateway")
-        assert cmd[0] == "sudo"
-        assert cmd[1] == "/sbin/route"
+    def test_not_empty(self):
+        assert len(cn.CN_API_HOSTS) > 0
 
-# ---------------------------------------------------------------------------
-# Test _resolve
-# ---------------------------------------------------------------------------
+    @pytest.mark.parametrize("keyword", [
+        "bigmodel",      # ZhiPu
+        "dashscope",     # Alibaba / Bailian
+        "minimaxi",      # MiniMax
+        "infini-ai",     # Infini (无问芯穹)
+        "volces",        # Volcano Engine (火山引擎)
+    ])
+    def test_major_providers_present(self, keyword):
+        assert any(keyword in h for h in cn.CN_API_HOSTS)
 
-def test_resolve_filters_cnames():
-    """Test _resolve filters out CNAME records (lines ending with dot)."""
-    mock_result = MagicMock()
-    mock_result.stdout = """
-example.com.
-192.168.1.1
-203.0.113.42
-api.example.com.
-    """
-    mock_result.returncode = 0
-    
-    with patch('subprocess.run', return_value=mock_result):
-        ips = cn_route._resolve("example.com")
-        # Only the two IPs should be returned, not CNAME lines
-        assert len(ips) == 2
-        assert "192.168.1.1" in ips
-        assert "203.0.113.42" in ips
 
-def test_resolve_empty_no_ips():
-    """Test _resolve returns empty list when no IPs found."""
-    mock_result = MagicMock()
-    mock_result.stdout = "example.com.\napi.example.com."
-    mock_result.returncode = 0
-    
-    with patch('subprocess.run', return_value=mock_result):
-        ips = cn_route._resolve("example.com")
-        assert ips == []
+# ===================================================================
+# _route_cmd
+# ===================================================================
 
-# ---------------------------------------------------------------------------
-# Test _lan_gateway
-# ---------------------------------------------------------------------------
+class TestRouteCmd:
+    def test_root_omits_sudo(self):
+        with patch("os.getuid", return_value=0):
+            cmd = cn._route_cmd("-n", "add", "1.2.3.4/32", "gw")
+            assert cmd == ["/sbin/route", "-n", "add", "1.2.3.4/32", "gw"]
 
-def test_lan_gateway_finds_correct_line():
-    """Test _lan_gateway finds default gateway on en interface."""
-    mock_result = MagicMock()
-    mock_result.stdout = """
-Routing tables
+    def test_non_root_prepends_sudo(self):
+        with patch("os.getuid", return_value=1000):
+            cmd = cn._route_cmd("-n", "add", "1.2.3.4/32", "gw")
+            assert cmd == ["sudo", "/sbin/route", "-n", "add", "1.2.3.4/32", "gw"]
 
-Internet:
-Destination        Gateway            Flags           Netif Expire
-default            192.168.1.1        UG            en0
-127.0.0.1          127.0.0.1          UH            lo0
-192.168.1.0/24     link#4             U             en0
-    """
-    mock_result.returncode = 0
-    
-    with patch('subprocess.run', return_value=mock_result):
-        gateway = cn_route._lan_gateway()
-        assert gateway == "192.168.1.1"
 
-def test_lan_gateway_not_found_returns_none():
-    """Test _lan_gateway returns None when no matching gateway."""
-    mock_result = MagicMock()
-    mock_result.stdout = """
-Destination        Gateway            Flags           Netif Expire
-default            10.0.0.1           UG            utun0
-127.0.0.1          127.0.0.1          UH            lo0
-    """
-    mock_result.returncode = 0
-    
-    with patch('subprocess.run', return_value=mock_result):
-        gateway = cn_route._lan_gateway()
-        assert gateway is None
+# ===================================================================
+# _resolve
+# ===================================================================
 
-# ---------------------------------------------------------------------------
-# Test _tailscale_exit_active
-# ---------------------------------------------------------------------------
+class TestResolve:
+    @staticmethod
+    def _dig(stdout: str) -> MagicMock:
+        return MagicMock(stdout=stdout, returncode=0)
 
-def test_tailscale_exit_active_true():
-    """Test _tailscale_exit_active returns True when exit node active."""
-    mock_result = MagicMock()
-    mock_result.stdout = '''
-{
-  "Peer": {
-    "node1": {
-      "ExitNode": true
-    },
-    "node2": {
-      "ExitNode": false
-    }
-  }
-}
-    '''
-    mock_result.returncode = 0
-    
-    with patch('subprocess.run', return_value=mock_result):
-        assert cn_route._tailscale_exit_active() is True
+    def test_filters_cnames(self):
+        with patch("subprocess.run", return_value=self._dig(
+            "cdn.example.com.\n1.2.3.4\n5.6.7.8\nalias.com.\n"
+        )):
+            assert cn._resolve("host") == ["1.2.3.4", "5.6.7.8"]
 
-def test_tailscale_exit_active_false():
-    """Test _tailscale_exit_active returns False when no exit node active."""
-    mock_result = MagicMock()
-    mock_result.stdout = '''
-{
-  "Peer": {
-    "node1": {
-      "ExitNode": false
-    },
-    "node2": {
-      "ExitNode": false
-    }
-  }
-}
-    '''
-    mock_result.returncode = 0
-    
-    with patch('subprocess.run', return_value=mock_result):
-        assert cn_route._tailscale_exit_active() is False
+    def test_empty_output(self):
+        with patch("subprocess.run", return_value=self._dig("")):
+            assert cn._resolve("host") == []
 
-def test_tailscale_exit_active_exception_returns_false():
-    """Test _tailscale_exit_active handles exceptions gracefully."""
-    with patch('subprocess.run', side_effect=Exception("tailscale not found")):
-        assert cn_route._tailscale_exit_active() is False
+    def test_only_cnames(self):
+        with patch("subprocess.run", return_value=self._dig(
+            "cdn.a.com.\nalias.b.com.\n"
+        )):
+            assert cn._resolve("host") == []
 
-# ---------------------------------------------------------------------------
-# Test main command routing
-# ---------------------------------------------------------------------------
+    def test_strips_whitespace(self):
+        with patch("subprocess.run", return_value=self._dig(
+            "  1.2.3.4  \n  5.6.7.8  \n"
+        )):
+            assert cn._resolve("host") == ["1.2.3.4", "5.6.7.8"]
 
-def test_main_add_routes_called():
-    """Test main calls add_routes by default."""
-    mock_add = MagicMock()
-    original_add = cn_route.add_routes
-    cn_route.add_routes = mock_add
-    
-    with patch('sys.argv', ['cn-route']):
-        # Re-exec the main dispatch
-        cmd = sys.argv[1] if len(sys.argv) > 1 else "add"
-        if cmd == "remove":
-            cn_route.remove_routes()
-        elif cmd == "status":
-            cn_route.show_status()
-        elif cmd in ("add", ""):
-            cn_route.add_routes()
-    
-    cn_route.add_routes = original_add
-    mock_add.assert_called_once()
+    def test_skips_blank_lines(self):
+        with patch("subprocess.run", return_value=self._dig("\n\n1.2.3.4\n\n")):
+            assert cn._resolve("host") == ["1.2.3.4"]
 
-def test_main_remove_routes_called():
-    """Test main calls remove_routes when 'remove' given."""
-    mock_remove = MagicMock()
-    original_remove = cn_route.remove_routes
-    cn_route.remove_routes = mock_remove
-    
-    with patch('sys.argv', ['cn-route', 'remove']):
-        cmd = sys.argv[1] if len(sys.argv) > 1 else "add"
-        if cmd == "remove":
-            cn_route.remove_routes()
-    
-    cn_route.remove_routes = original_remove
-    mock_remove.assert_called_once()
 
-def test_main_show_status_called():
-    """Test main calls show_status when 'status' given."""
-    mock_status = MagicMock()
-    original_status = cn_route.show_status
-    cn_route.show_status = mock_status
-    
-    with patch('sys.argv', ['cn-route', 'status']):
-        cmd = sys.argv[1] if len(sys.argv) > 1 else "add"
-        if cmd == "status":
-            cn_route.show_status()
-    
-    cn_route.show_status = original_status
-    mock_status.assert_called_once()
+# ===================================================================
+# _lan_gateway
+# ===================================================================
 
-# ---------------------------------------------------------------------------
-# Test add_routes handles no gateway
-# ---------------------------------------------------------------------------
+class TestLanGateway:
+    def test_finds_en_gateway(self):
+        out = "default  192.168.1.1  UGSc  en0\ndefault  10.0.0.1  UGSc  utun0\n"
+        with patch("subprocess.run", return_value=MagicMock(stdout=out)):
+            assert cn._lan_gateway() == "192.168.1.1"
 
-def test_add_routes_exits_no_gateway():
-    """Test add_routes exits with code 1 when no gateway found."""
-    original_lan_gateway = cn_route._lan_gateway
-    cn_route._lan_gateway = lambda: None
-    
-    with pytest.raises(SystemExit) as exc_info:
-        with patch('builtins.print'):
-            cn_route.add_routes()
-    
-    cn_route._lan_gateway = original_lan_gateway
-    assert exc_info.value.code == 1
+    def test_no_en_interface_returns_none(self):
+        out = "default  10.0.0.1  UGSc  utun0\n"
+        with patch("subprocess.run", return_value=MagicMock(stdout=out)):
+            assert cn._lan_gateway() is None
 
-def test_add_routes_exits_no_ips():
-    """Test add_routes exits with code 1 when no IPs resolved."""
-    original_lan_gateway = cn_route._lan_gateway
-    original_resolve = cn_route._resolve
-    
-    cn_route._lan_gateway = lambda: "192.168.1.1"
-    cn_route._resolve = lambda host: []
-    
-    with pytest.raises(SystemExit) as exc_info:
-        with patch('builtins.print'):
-            cn_route.add_routes()
-    
-    cn_route._lan_gateway = original_lan_gateway
-    cn_route._resolve = original_resolve
-    assert exc_info.value.code == 1
+    def test_empty_routing_table(self):
+        with patch("subprocess.run", return_value=MagicMock(stdout="")):
+            assert cn._lan_gateway() is None
+
+
+# ===================================================================
+# _tailscale_exit_active
+# ===================================================================
+
+class TestTailscaleExitActive:
+    def test_exit_node_active(self):
+        data = json.dumps({"Peer": {"n1": {"ExitNode": True}}})
+        with patch("subprocess.run", return_value=MagicMock(stdout=data)):
+            assert cn._tailscale_exit_active() is True
+
+    def test_no_exit_node(self):
+        data = json.dumps({"Peer": {"n1": {"ExitNode": False}}})
+        with patch("subprocess.run", return_value=MagicMock(stdout=data)):
+            assert cn._tailscale_exit_active() is False
+
+    def test_empty_peers(self):
+        with patch("subprocess.run", return_value=MagicMock(stdout='{"Peer": {}}')):
+            assert cn._tailscale_exit_active() is False
+
+    def test_exception_returns_false(self):
+        with patch("subprocess.run", side_effect=FileNotFoundError):
+            assert cn._tailscale_exit_active() is False
+
+    def test_bad_json_returns_false(self):
+        with patch("subprocess.run", return_value=MagicMock(stdout="not json")):
+            assert cn._tailscale_exit_active() is False
+
+
+# ===================================================================
+# _current_zhipu_routes
+# ===================================================================
+
+class TestCurrentZhipuRoutes:
+    def test_matching_routes(self):
+        netstat = "1.2.3.4/32  192.168.1.1  UHSc  en0\n10.0.0.1  10.0.0.1  UH  lo0\n"
+        with patch.object(cn, "_resolve", return_value=["1.2.3.4"]):
+            with patch("subprocess.run", return_value=MagicMock(stdout=netstat)):
+                routes = cn._current_zhipu_routes()
+        assert routes == {"1.2.3.4/32": "en0"}
+
+    def test_no_matching_routes(self):
+        netstat = "10.0.0.1  10.0.0.1  UH  lo0\n"
+        with patch.object(cn, "_resolve", return_value=["1.2.3.4"]):
+            with patch("subprocess.run", return_value=MagicMock(stdout=netstat)):
+                assert cn._current_zhipu_routes() == {}
+
+
+# ===================================================================
+# add_routes
+# ===================================================================
+
+class TestAddRoutes:
+    def test_no_gateway_exits(self):
+        with patch.object(cn, "_lan_gateway", return_value=None):
+            with pytest.raises(SystemExit) as exc:
+                cn.add_routes()
+            assert exc.value.code == 1
+
+    def test_no_ips_exits(self):
+        with patch.object(cn, "_lan_gateway", return_value="192.168.1.1"):
+            with patch.object(cn, "_resolve", return_value=[]):
+                with pytest.raises(SystemExit) as exc:
+                    cn.add_routes()
+                assert exc.value.code == 1
+
+    def test_success_prints_added(self, capsys):
+        with patch.object(cn, "_lan_gateway", return_value="192.168.1.1"):
+            with patch.object(cn, "_resolve", return_value=["1.2.3.4", "5.6.7.8"]):
+                with patch.object(cn, "_route_cmd", return_value=["route"]):
+                    with patch("subprocess.run", return_value=MagicMock(returncode=0)):
+                        cn.add_routes()
+        out = capsys.readouterr().out
+        assert "2 route(s) added" in out
+        assert "1.2.3.4 via 192.168.1.1" in out
+
+    def test_already_in_table(self, capsys):
+        fail = MagicMock(returncode=1, stderr="route already in table")
+        with patch.object(cn, "_lan_gateway", return_value="192.168.1.1"):
+            with patch.object(cn, "_resolve", return_value=["1.2.3.4"]):
+                with patch.object(cn, "_route_cmd", return_value=["route"]):
+                    with patch("subprocess.run", return_value=fail):
+                        cn.add_routes()
+        assert "already routed" in capsys.readouterr().out
+
+    def test_failed_route(self, capsys):
+        fail = MagicMock(returncode=1, stderr="network unreachable")
+        with patch.object(cn, "_lan_gateway", return_value="192.168.1.1"):
+            with patch.object(cn, "_resolve", return_value=["1.2.3.4"]):
+                with patch.object(cn, "_route_cmd", return_value=["route"]):
+                    with patch("subprocess.run", return_value=fail):
+                        cn.add_routes()
+        assert "failed" in capsys.readouterr().out
+
+
+# ===================================================================
+# remove_routes
+# ===================================================================
+
+class TestRemoveRoutes:
+    def test_removes_resolved_ips(self, capsys):
+        with patch.object(cn, "_resolve", return_value=["1.2.3.4", "5.6.7.8"]):
+            with patch.object(cn, "_route_cmd", return_value=["route"]):
+                with patch("subprocess.run", return_value=MagicMock()):
+                    cn.remove_routes()
+        out = capsys.readouterr().out
+        assert "- 1.2.3.4" in out
+        assert "- 5.6.7.8" in out
+        assert "Routes removed" in out
+
+    def test_no_ips_still_completes(self, capsys):
+        with patch.object(cn, "_resolve", return_value=[]):
+            cn.remove_routes()
+        assert "Routes removed" in capsys.readouterr().out
+
+
+# ===================================================================
+# show_status
+# ===================================================================
+
+class TestShowStatus:
+    def test_no_routes_no_exit(self, capsys):
+        with patch.object(cn, "_current_zhipu_routes", return_value={}):
+            with patch.object(cn, "_tailscale_exit_active", return_value=False):
+                with patch.object(cn, "_lan_gateway", return_value="192.168.1.1"):
+                    with patch.object(cn, "_resolve", return_value=["1.2.3.4"]):
+                        cn.show_status()
+        out = capsys.readouterr().out
+        assert "inactive" in out
+        assert "No bypass routes needed" in out
+
+    def test_exit_active_no_routes_warns(self, capsys):
+        with patch.object(cn, "_current_zhipu_routes", return_value={}):
+            with patch.object(cn, "_tailscale_exit_active", return_value=True):
+                with patch.object(cn, "_lan_gateway", return_value="192.168.1.1"):
+                    with patch.object(cn, "_resolve", return_value=["1.2.3.4"]):
+                        cn.show_status()
+        out = capsys.readouterr().out
+        assert "active" in out
+        assert "No bypass routes set" in out
+
+    def test_direct_route_shows_direct(self, capsys):
+        with patch.object(cn, "_current_zhipu_routes",
+                          return_value={"1.2.3.4/32": "en0"}):
+            with patch.object(cn, "_tailscale_exit_active", return_value=True):
+                with patch.object(cn, "_lan_gateway", return_value="192.168.1.1"):
+                    with patch.object(cn, "_resolve", return_value=[]):
+                        cn.show_status()
+        assert "direct" in capsys.readouterr().out
+
+    def test_utun_route_shows_tunneled(self, capsys):
+        with patch.object(cn, "_current_zhipu_routes",
+                          return_value={"1.2.3.4/32": "utun3"}):
+            with patch.object(cn, "_tailscale_exit_active", return_value=True):
+                with patch.object(cn, "_lan_gateway", return_value="192.168.1.1"):
+                    with patch.object(cn, "_resolve", return_value=[]):
+                        cn.show_status()
+        assert "TUNNELED" in capsys.readouterr().out
