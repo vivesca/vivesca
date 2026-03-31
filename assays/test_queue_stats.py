@@ -331,16 +331,16 @@ class TestReadGolemLog:
         log.write_text("\n".join(json.dumps(e) for e in entries_data) + "\n")
 
         ns: dict = {"__name__": "queue_stats_test"}
-        ns["GOLEM_LOG"] = log
         exec(self.src, ns)
+        ns["GOLEM_LOG"] = log  # override after exec
         result = ns["read_golem_log"]()
         assert len(result) == 2
         assert result[0]["provider"] == "zhipu"
 
     def test_handles_missing_file(self, tmp_path):
         ns: dict = {"__name__": "queue_stats_test"}
-        ns["GOLEM_LOG"] = tmp_path / "nonexistent.jsonl"
         exec(self.src, ns)
+        ns["GOLEM_LOG"] = tmp_path / "nonexistent.jsonl"
         result = ns["read_golem_log"]()
         assert result == []
 
@@ -348,8 +348,8 @@ class TestReadGolemLog:
         log = tmp_path / "golem.jsonl"
         log.write_text('{"valid": true}\nbad json\n{"also": "valid"}\n')
         ns: dict = {"__name__": "queue_stats_test"}
-        ns["GOLEM_LOG"] = log
         exec(self.src, ns)
+        ns["GOLEM_LOG"] = log
         result = ns["read_golem_log"]()
         assert len(result) == 2
 
