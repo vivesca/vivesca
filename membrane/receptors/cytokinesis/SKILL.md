@@ -94,9 +94,17 @@ This is not a punishment — it's proprioception. The number trends toward zero 
 
 ### 1d. Publish (don't defer)
 
-If the session produced a publishable insight — pattern, framework, lesson — write the garden post NOW. `sarcio new "title"`, write it, `sarcio publish`. The insight is hottest in the session that produced it. Deferring to "tomorrow" kills 80% of posts.
+If the session produced a publishable insight — pattern, framework, lesson — draft and publish NOW. The insight is hottest in the session that produced it. Deferring to "tomorrow" kills 80% of posts.
 
-Test: "Would I explain this to a peer over coffee?" If yes, it's a post. Write it in Terry's voice, consulting-grade, 400-600 words. Don't ask permission — ship immediately.
+Test: "Would I explain this to a peer over coffee?" If yes, it's a post.
+
+**Mechanism:**
+1. CC identifies the insight and frames it (judgment — what's the takeaway?)
+2. `golem --full "Draft a garden post titled '<title>'. Core insight: <insight>. Use litura --platform garden to match Terry's voice. Then run: sarcio new '<title>' and write the post to the file sarcio created. 400-600 words, consulting-grade."` 
+3. CC reviews the draft (judgment — does it land?)
+4. `sarcio publish` — ship it
+
+Don't ask permission. Don't defer. If the insight is real, publish it.
 
 ### 2. Housekeeping (full mode only)
 
