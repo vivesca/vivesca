@@ -27,17 +27,6 @@ def mock_synthesize():
 
 
 @pytest.fixture
-def mock_classify():
-    """Mock the classify function from organelles.endosomal module."""
-    # Patch the 'endosomal' module reference in the enzyme
-    with patch("metabolon.enzymes.endosomal.endosomal") as mock_module:
-        mock_module.classify.return_value = ""
-        mock_module.CLASSIFY_PROMPT_TMPL = "Classify: {email_text}"
-        mock_module.CATEGORIES = ("action_required", "borderline", "monitor", "archive_now")
-        yield mock_module
-
-
-@pytest.fixture
 def enzyme():
     """Import and return the endosomal enzyme function."""
     from metabolon.enzymes.endosomal import endosomal as endosomal_fn
@@ -385,19 +374,17 @@ def test_endosomal_filter_all_actions(enzyme, mock_invoke_organelle):
 # ── Result type tests ───────────────────────────────────────────────────────
 
 
-def test_endosomal_result_has_output_for_read_actions(enzyme, mock_invoke_organelle, mock_classify):
+def test_endosomal_result_has_output_for_read_actions(enzyme, mock_invoke_organelle):
     """Read actions (search, thread, categorize) return EndosomalResult with output."""
-    mock_classify.classify.return_value = "archive_now"
-    
     # Search
     result = enzyme(action="search", query="test")
     assert hasattr(result, "output")
-    
+
     # Thread
     result = enzyme(action="thread", thread_id="123")
     assert hasattr(result, "output")
-    
-    # Categorize
+
+    # Categorize (using deterministic classification)
     result = enzyme(action="categorize", email_text="From: noreply@test.com\n\nBody")
     assert hasattr(result, "output")
 
