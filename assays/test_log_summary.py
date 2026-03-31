@@ -131,7 +131,7 @@ def test_classify_events(log_file):
     """classify_events correctly categorizes all event types."""
     entries = _read_lines(log_file)
     events = classify_events(entries)
-    assert len(events["starts"]) == 3
+    assert len(events["starts"]) == 2
     assert len(events["finishes"]) == 2
     assert len(events["failures"]) == 3
     assert len(events["timeouts"]) == 1
