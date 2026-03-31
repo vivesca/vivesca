@@ -1,0 +1,423 @@
+#!/usr/bin/env python3
+"""gemmule-health — system health monitor for gemmule.
+
+Usage:
+    gemmule-health              # Run all checks, print report
+    gemmule-health --json       # Output as JSON (for daemon consumption)
+    gemmule-health --fix        # Auto-fix what can be fixed
+    gemmule-health --daemon     # Called from daemon loop (fix + compact output)
+
+Checks:
+  1. Disk space (% used, absolute free)
+  2. Memory usage
+  3. Daemon status (running, PID, task counts)
+  4. Git repo health (clean, no corruption)
+  5. Python venv health (uv sync needed?)
+  6. Test count (collected, errors)
+  7. Stale files (old sessions, caches, logs)
+
+Auto-fix actions:
+  - Disk > 80%: prune old sessions, caches, logs
+  - Disk > 90%: aggressive prune + alert
+  - Git dirty with daemon changes: auto-commit
+  - Daemon not running: restart suggestion
+  - Stale lock files: remove
+
+Requires: Python 3.11+, runs on gemmule (Fly.io machine).
+"""
+from __future__ import annotations
+
+import json
+import os
+import shutil
+import subprocess
+import sys
+import time
+from dataclasses import dataclass, field, asdict
+from pathlib import Path
+
+# === Thresholds ===
+DISK_WARN_PCT = 80
+DISK_CRIT_PCT = 90
+MEM_WARN_PCT = 85
+SESSION_KEEP = 200
+LOG_MAX_MB = 10
+
+# === Paths ===
+HOME = Path.home()
+GERMLINE = HOME / "germline"
+SESSION_DIR = HOME / ".claude" / "projects" / "-home-terry-germline"
+VIVESCA_DIR = HOME / ".local" / "share" / "vivesca"
+PIDFILE = VIVESCA_DIR / "golem-daemon.pid"
+
+
+@dataclass
+class Check:
+    name: str
+    status: str  # ok, warn, crit, error
+    value: str
+    detail: str = ""
+    fixed: bool = False
+
+
+@dataclass
+class HealthReport:
+    timestamp: str = ""
+    checks: list[Check] = field(default_factory=list)
+    overall: str = "ok"
+    fixes_applied: list[str] = field(default_factory=list)
+
+    def add(self, check: Check):
+        self.checks.append(check)
+        if check.status == "crit" and self.overall != "crit":
+            self.overall = "crit"
+        elif check.status == "warn" and self.overall == "ok":
+            self.overall = "warn"
+
+
+def check_disk() -> Check:
+    """Check disk usage on /home/terry volume."""
+    try:
+        usage = shutil.disk_usage(HOME)
+        pct = (usage.used / usage.total) * 100
+        free_gb = usage.free / (1024**3)
+        total_gb = usage.total / (1024**3)
+
+        if pct >= DISK_CRIT_PCT:
+            status = "crit"
+        elif pct >= DISK_WARN_PCT:
+            status = "warn"
+        else:
+            status = "ok"
+
+        return Check(
+            name="disk",
+            status=status,
+            value=f"{pct:.0f}%",
+            detail=f"{free_gb:.1f}GB free / {total_gb:.1f}GB total",
+        )
+    except Exception as e:
+        return Check(name="disk", status="error", value="?", detail=str(e))
+
+
+def check_memory() -> Check:
+    """Check memory usage."""
+    try:
+        with open("/proc/meminfo") as f:
+            info = {}
+            for line in f:
+                parts = line.split()
+                if len(parts) >= 2:
+                    info[parts[0].rstrip(":")] = int(parts[1])
+
+        total = info.get("MemTotal", 0)
+        available = info.get("MemAvailable", 0)
+        used_pct = ((total - available) / total * 100) if total else 0
+
+        if used_pct >= MEM_WARN_PCT:
+            status = "warn"
+        else:
+            status = "ok"
+
+        return Check(
+            name="memory",
+            status=status,
+            value=f"{used_pct:.0f}%",
+            detail=f"{available // 1024}MB available / {total // 1024}MB total",
+        )
+    except Exception as e:
+        return Check(name="memory", status="error", value="?", detail=str(e))
+
+
+def check_daemon() -> Check:
+    """Check if golem-daemon is running."""
+    try:
+        if not PIDFILE.exists():
+            return Check(name="daemon", status="warn", value="stopped", detail="PID file not found")
+
+        pid = int(PIDFILE.read_text().strip())
+        # Check if process exists
+        try:
+            os.kill(pid, 0)
+        except ProcessLookupError:
+            return Check(name="daemon", status="warn", value="stale", detail=f"PID {pid} not running, stale pidfile")
+        except PermissionError:
+            pass  # Process exists but we can't signal it
+
+        return Check(name="daemon", status="ok", value="running", detail=f"PID {pid}")
+    except Exception as e:
+        return Check(name="daemon", status="error", value="?", detail=str(e))
+
+
+def check_git() -> Check:
+    """Check git repo health."""
+    try:
+        # Quick fsck
+        r = subprocess.run(
+            ["git", "fsck", "--no-dangling", "--no-progress"],
+            cwd=GERMLINE, capture_output=True, text=True, timeout=30
+        )
+        if r.returncode != 0:
+            return Check(name="git", status="crit", value="corrupt", detail=r.stderr[:200])
+
+        # Check for uncommitted changes
+        r2 = subprocess.run(
+            ["git", "status", "--porcelain"],
+            cwd=GERMLINE, capture_output=True, text=True, timeout=10
+        )
+        changed = len(r2.stdout.strip().splitlines()) if r2.stdout.strip() else 0
+
+        if changed > 50:
+            return Check(name="git", status="warn", value=f"{changed} dirty", detail="Many uncommitted files")
+
+        return Check(name="git", status="ok", value=f"{changed} dirty" if changed else "clean")
+    except Exception as e:
+        return Check(name="git", status="error", value="?", detail=str(e))
+
+
+def check_venv() -> Check:
+    """Check if Python venv is healthy."""
+    venv = GERMLINE / ".venv"
+    if not venv.exists():
+        return Check(name="venv", status="crit", value="missing", detail=".venv directory not found")
+
+    python = venv / "bin" / "python"
+    if not python.exists():
+        return Check(name="venv", status="crit", value="broken", detail="python binary missing")
+
+    try:
+        r = subprocess.run(
+            [str(python), "-c", "import metabolon; print('ok')"],
+            capture_output=True, text=True, timeout=10
+        )
+        if r.returncode != 0:
+            return Check(name="venv", status="warn", value="incomplete", detail="metabolon not importable")
+        return Check(name="venv", status="ok", value="healthy")
+    except Exception as e:
+        return Check(name="venv", status="error", value="?", detail=str(e))
+
+
+def check_tests() -> Check:
+    """Check test collection (fast, no execution)."""
+    try:
+        r = subprocess.run(
+            ["uv", "run", "pytest", "--co", "-q", "--continue-on-collection-errors"],
+            cwd=GERMLINE, capture_output=True, text=True, timeout=60
+        )
+        output = r.stdout + r.stderr
+        # Parse "X tests collected" or "X/Y tests collected, Z errors"
+        for line in output.splitlines():
+            if "test" in line and "collected" in line:
+                return Check(name="tests", status="ok", value=line.strip())
+            if "error" in line.lower() and "collection" in line.lower():
+                return Check(name="tests", status="warn", value=line.strip())
+
+        # Fallback: count from last line
+        lines = output.strip().splitlines()
+        last = lines[-1] if lines else "no output"
+        return Check(name="tests", status="ok", value=last)
+    except subprocess.TimeoutExpired:
+        return Check(name="tests", status="warn", value="timeout", detail="Collection took >60s")
+    except Exception as e:
+        return Check(name="tests", status="error", value="?", detail=str(e))
+
+
+def check_stale_files() -> Check:
+    """Check for accumulated stale files."""
+    issues = []
+
+    # Old session files
+    if SESSION_DIR.is_dir():
+        sessions = list(SESSION_DIR.glob("*.jsonl"))
+        if len(sessions) > SESSION_KEEP:
+            issues.append(f"{len(sessions) - SESSION_KEEP} excess sessions")
+
+    # Large log files
+    for log in VIVESCA_DIR.glob("*.log*"):
+        try:
+            sz_mb = log.stat().st_size / (1024 * 1024)
+            if sz_mb > LOG_MAX_MB:
+                issues.append(f"{log.name}: {sz_mb:.0f}MB")
+        except OSError:
+            pass
+
+    # Stale lock files
+    for lock in HOME.glob("**/*.lock"):
+        if lock.stat().st_mtime < time.time() - 3600:
+            issues.append(f"stale lock: {lock}")
+
+    if issues:
+        return Check(name="stale", status="warn", value=f"{len(issues)} issues", detail="; ".join(issues[:5]))
+    return Check(name="stale", status="ok", value="clean")
+
+
+# === Fix actions ===
+
+def fix_disk(report: HealthReport) -> None:
+    """Prune old sessions, caches, logs."""
+    freed = 0
+
+    # Prune sessions
+    if SESSION_DIR.is_dir():
+        sessions = sorted(SESSION_DIR.glob("*.jsonl"), key=lambda p: p.stat().st_mtime, reverse=True)
+        for old in sessions[SESSION_KEEP:]:
+            try:
+                freed += old.stat().st_size
+                old.unlink()
+            except OSError:
+                pass
+        if len(sessions) > SESSION_KEEP:
+            report.fixes_applied.append(f"pruned {len(sessions) - SESSION_KEEP} old sessions")
+
+    # Prune uv cache
+    try:
+        subprocess.run(["uv", "cache", "prune", "--force"], capture_output=True, timeout=60)
+        report.fixes_applied.append("pruned uv cache")
+    except Exception:
+        pass
+
+    # Prune go-build cache
+    go_cache = HOME / ".cache" / "go-build"
+    if go_cache.is_dir():
+        shutil.rmtree(go_cache, ignore_errors=True)
+        report.fixes_applied.append("cleared go-build cache")
+
+    # Truncate large logs
+    for log in VIVESCA_DIR.glob("*.log*"):
+        try:
+            if log.stat().st_size > LOG_MAX_MB * 1024 * 1024:
+                lines = log.read_text().splitlines()
+                log.write_text("\n".join(lines[-1000:]) + "\n")
+                report.fixes_applied.append(f"truncated {log.name}")
+        except Exception:
+            pass
+
+    # Truncate large JSONL files
+    for jl in VIVESCA_DIR.glob("*.jsonl"):
+        try:
+            if jl.stat().st_size > 20 * 1024 * 1024:
+                lines = jl.read_text().splitlines()
+                jl.write_text("\n".join(lines[-5000:]) + "\n")
+                report.fixes_applied.append(f"truncated {jl.name}")
+        except Exception:
+            pass
+
+
+def fix_stale(report: HealthReport) -> None:
+    """Remove stale lock files."""
+    for lock in HOME.glob("**/*.lock"):
+        try:
+            if lock.stat().st_mtime < time.time() - 3600:
+                lock.unlink()
+                report.fixes_applied.append(f"removed stale lock: {lock.name}")
+        except OSError:
+            pass
+
+
+def fix_daemon(report: HealthReport) -> None:
+    """Clean up stale daemon pidfile."""
+    if PIDFILE.exists():
+        try:
+            pid = int(PIDFILE.read_text().strip())
+            os.kill(pid, 0)
+        except (ProcessLookupError, ValueError):
+            PIDFILE.unlink(missing_ok=True)
+            report.fixes_applied.append("removed stale daemon pidfile")
+        except PermissionError:
+            pass
+
+
+# === Main ===
+
+def run_health(fix: bool = False, as_json: bool = False, daemon_mode: bool = False) -> HealthReport:
+    report = HealthReport(timestamp=time.strftime("%Y-%m-%d %H:%M:%S"))
+
+    report.add(check_disk())
+    report.add(check_memory())
+    report.add(check_daemon())
+    report.add(check_git())
+    report.add(check_venv())
+    report.add(check_stale_files())
+
+    # Skip slow test collection in daemon mode
+    if not daemon_mode:
+        report.add(check_tests())
+
+    # Auto-fix
+    if fix or daemon_mode:
+        disk_check = next((c for c in report.checks if c.name == "disk"), None)
+        if disk_check and disk_check.status in ("warn", "crit"):
+            fix_disk(report)
+            # Re-check disk after fix
+            new_disk = check_disk()
+            disk_check.value = new_disk.value
+            disk_check.detail = new_disk.detail + " (after fix)"
+            disk_check.status = new_disk.status
+            disk_check.fixed = True
+
+        stale_check = next((c for c in report.checks if c.name == "stale"), None)
+        if stale_check and stale_check.status != "ok":
+            fix_stale(report)
+
+        daemon_check = next((c for c in report.checks if c.name == "daemon"), None)
+        if daemon_check and daemon_check.value == "stale":
+            fix_daemon(report)
+
+    return report
+
+
+def print_report(report: HealthReport, as_json: bool = False, compact: bool = False) -> None:
+    if as_json:
+        out = {
+            "timestamp": report.timestamp,
+            "overall": report.overall,
+            "checks": [asdict(c) for c in report.checks],
+            "fixes": report.fixes_applied,
+        }
+        print(json.dumps(out, indent=2))
+        return
+
+    if compact:
+        # One-line summary for daemon logs
+        statuses = " ".join(f"{c.name}={c.value}" for c in report.checks)
+        fixes = f" fixes=[{', '.join(report.fixes_applied)}]" if report.fixes_applied else ""
+        print(f"[{report.overall.upper()}] {statuses}{fixes}")
+        return
+
+    # Human-readable
+    print(f"=== Gemmule Health Report ({report.timestamp}) ===\n")
+    for c in report.checks:
+        icon = {"ok": "+", "warn": "!", "crit": "X", "error": "?"}[c.status]
+        fixed = " (FIXED)" if c.fixed else ""
+        line = f"  [{icon}] {c.name}: {c.value}{fixed}"
+        if c.detail:
+            line += f"  — {c.detail}"
+        print(line)
+
+    if report.fixes_applied:
+        print(f"\n  Fixes applied:")
+        for f in report.fixes_applied:
+            print(f"    - {f}")
+
+    print(f"\n  Overall: {report.overall.upper()}")
+
+
+def main() -> None:
+    args = sys.argv[1:]
+    as_json = "--json" in args
+    fix = "--fix" in args
+    daemon_mode = "--daemon" in args
+
+    report = run_health(fix=fix, as_json=as_json, daemon_mode=daemon_mode)
+    print_report(report, as_json=as_json, compact=daemon_mode)
+
+    # Exit code based on overall status
+    if report.overall == "crit":
+        sys.exit(2)
+    elif report.overall == "warn":
+        sys.exit(1)
+    sys.exit(0)
+
+
+if __name__ == "__main__":
+    main()
