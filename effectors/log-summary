@@ -1,0 +1,268 @@
+#!/usr/bin/env python3
+"""log-summary — Summarize golem-daemon.log activity.
+
+Reads the daemon log and reports tasks completed, failure rates, and top
+errors across configurable time windows (1h, 6h, 24h).
+
+Usage:
+    log-summary              # Default: 1h, 6h, 24h windows
+    log-summary --hours 12   # Custom window
+    log-summary --json       # Machine-readable output
+"""
+from __future__ import annotations
+
+import re
+import sys
+from collections import Counter, defaultdict
+from datetime import datetime, timedelta
+from pathlib import Path
+
+LOGFILE = Path.home() / ".local" / "share" / "vivesca" / "golem-daemon.log"
+
+# Log line pattern: [2026-03-31 15:33:51] message
+_TS_RE = re.compile(r"^\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\]\s+(.*)")
+# Finished: group(1)=duration_s, group(2)=exit_code, group(3)=command
+_FIN_RE = re.compile(r"^Finished \((\d+)s, exit=(\d+)\):\s+(.*)")
+# Failed: group(1)=exit_code, group(2)=command
+_FAIL_RE = re.compile(r"^FAILED \(exit=(\d+)\):\s+(.*)")
+# Timeout: group(1)=duration_s, group(2)=command
+_TIMEOUT_RE = re.compile(r"^TIMEOUT \((\d+)s\):\s+(.*)")
+# Starting: group(1)=command
+_START_RE = re.compile(r"^Starting:\s+(.*)")
+# Daemon lifecycle
+_DAEMON_RE = re.compile(r"^(Daemon started|Daemon stopped|Fatal error:.*)")
+
+
+def parse_log(path: Path) -> list[dict]:
+    """Parse log file into structured records.
+
+    Returns list of dicts with keys: ts, kind, detail.
+    kind is one of: start, finish, fail, timeout, daemon, other.
+    """
+    if not path.exists():
+        return []
+
+    entries: list[dict] = []
+    for line in path.read_text().splitlines():
+        m = _TS_RE.match(line)
+        if not m:
+            continue
+        ts = datetime.strptime(m.group(1), "%Y-%m-%d %H:%M:%S")
+        body = m.group(2)
+        entry: dict = {"ts": ts, "kind": "other", "detail": {}}
+
+        fm = _FIN_RE.match(body)
+        if fm:
+            entry["kind"] = "finish"
+            entry["detail"] = {
+                "duration_s": int(fm.group(1)),
+                "exit_code": int(fm.group(2)),
+                "command": fm.group(3),
+            }
+            entries.append(entry)
+            continue
+
+        fm = _FAIL_RE.match(body)
+        if fm:
+            entry["kind"] = "fail"
+            entry["detail"] = {
+                "exit_code": int(fm.group(1)),
+                "command": fm.group(2),
+            }
+            entries.append(entry)
+            continue
+
+        fm = _TIMEOUT_RE.match(body)
+        if fm:
+            entry["kind"] = "timeout"
+            entry["detail"] = {
+                "duration_s": int(fm.group(1)),
+                "command": fm.group(2),
+            }
+            entries.append(entry)
+            continue
+
+        fm = _START_RE.match(body)
+        if fm:
+            entry["kind"] = "start"
+            entry["detail"] = {"command": fm.group(1)}
+            entries.append(entry)
+            continue
+
+        dm = _DAEMON_RE.match(body)
+        if dm:
+            entry["kind"] = "daemon"
+            entry["detail"] = {"event": dm.group(1)}
+            entries.append(entry)
+            continue
+
+        entry["detail"] = {"raw": body}
+        entries.append(entry)
+
+    return entries
+
+
+def summarize(entries: list[dict], hours: int) -> dict:
+    """Summarize entries within the last N hours.
+
+    Returns dict with keys:
+        window_hours, total_started, total_finished, total_failed,
+        total_timeouts, success_rate, failure_rate, avg_duration_s,
+        top_errors (list of (exit_code, count)), error_commands (list of
+        (command_snippet, count)), daemon_starts, daemon_stops,
+        fatal_errors, retries, first_ts, last_ts
+    """
+    cutoff = datetime.now() - timedelta(hours=hours)
+    recent = [e for e in entries if e["ts"] >= cutoff]
+
+    started = [e for e in recent if e["kind"] == "start"]
+    finished = [e for e in recent if e["kind"] == "finish"]
+    failed = [e for e in recent if e["kind"] == "fail"]
+    timeouts = [e for e in recent if e["kind"] == "timeout"]
+    daemon = [e for e in recent if e["kind"] == "daemon"]
+    retries = [e for e in recent if e["kind"] == "other"
+               and e["detail"].get("raw", "").startswith("Re-queued")]
+
+    success_count = sum(1 for e in finished if e["detail"]["exit_code"] == 0)
+    fail_count = len(failed) + sum(1 for e in finished if e["detail"]["exit_code"] != 0)
+    total_outcomes = success_count + fail_count
+    success_rate = (success_count / total_outcomes * 100) if total_outcomes else 0.0
+    failure_rate = (fail_count / total_outcomes * 100) if total_outcomes else 0.0
+
+    durations = [e["detail"]["duration_s"] for e in finished if "duration_s" in e["detail"]]
+    avg_dur = (sum(durations) / len(durations)) if durations else 0.0
+
+    # Top errors by exit code
+    exit_counter: Counter[int] = Counter()
+    for e in failed:
+        exit_counter[e["detail"]["exit_code"]] += 1
+    for e in finished:
+        if e["detail"]["exit_code"] != 0:
+            exit_counter[e["detail"]["exit_code"]] += 1
+    top_errors = exit_counter.most_common(5)
+
+    # Top failing command snippets
+    cmd_counter: Counter[str] = Counter()
+    for e in failed:
+        cmd_counter[e["detail"]["command"][:80]] += 1
+    for e in timeouts:
+        cmd_counter[e["detail"]["command"][:80]] += 1
+    error_commands = cmd_counter.most_common(5)
+
+    daemon_starts = sum(1 for e in daemon if "started" in e["detail"].get("event", "").lower())
+    daemon_stops = sum(1 for e in daemon if "stopped" in e["detail"].get("event", "").lower())
+    fatal_errors = [e["detail"]["event"] for e in daemon if "fatal" in e["detail"].get("event", "").lower()]
+
+    timestamps = [e["ts"] for e in recent]
+    first_ts = min(timestamps) if timestamps else None
+    last_ts = max(timestamps) if timestamps else None
+
+    return {
+        "window_hours": hours,
+        "total_started": len(started),
+        "total_finished": len(finished),
+        "total_failed": len(failed),
+        "total_timeouts": len(timeouts),
+        "success_count": success_count,
+        "fail_count": fail_count,
+        "success_rate": round(success_rate, 1),
+        "failure_rate": round(failure_rate, 1),
+        "avg_duration_s": round(avg_dur, 1),
+        "top_errors": top_errors,
+        "error_commands": error_commands,
+        "daemon_starts": daemon_starts,
+        "daemon_stops": daemon_stops,
+        "fatal_errors": fatal_errors,
+        "retries": len(retries),
+        "first_ts": first_ts,
+        "last_ts": last_ts,
+    }
+
+
+def format_report(summaries: list[dict]) -> str:
+    """Format summaries into a human-readable report."""
+    lines: list[str] = []
+
+    for s in summaries:
+        h = s["window_hours"]
+        lines.append(f"{'=' * 60}")
+        lines.append(f"  Last {h}h")
+        lines.append(f"{'=' * 60}")
+        lines.append(f"  Tasks started:    {s['total_started']}")
+        lines.append(f"  Tasks finished:   {s['total_finished']} (success: {s['success_count']})")
+        lines.append(f"  Tasks failed:     {s['total_failed']}")
+        lines.append(f"  Timeouts:         {s['total_timeouts']}")
+        lines.append(f"  Retries:          {s['retries']}")
+        lines.append(f"  Success rate:     {s['success_rate']}%")
+        lines.append(f"  Failure rate:     {s['failure_rate']}%")
+        lines.append(f"  Avg duration:     {s['avg_duration_s']}s")
+
+        if s["top_errors"]:
+            lines.append(f"  Top errors:")
+            for exit_code, count in s["top_errors"]:
+                lines.append(f"    exit {exit_code}: {count}x")
+
+        if s["error_commands"]:
+            lines.append(f"  Top failing commands:")
+            for cmd, count in s["error_commands"]:
+                lines.append(f"    [{count}x] {cmd}")
+
+        if s["fatal_errors"]:
+            lines.append(f"  Fatal errors:")
+            for fe in s["fatal_errors"]:
+                lines.append(f"    {fe}")
+
+        lines.append(f"  Daemon starts:    {s['daemon_starts']}")
+        lines.append(f"  Daemon stops:     {s['daemon_stops']}")
+        lines.append("")
+
+    # Failure rate trend across windows
+    if len(summaries) >= 2:
+        lines.append(f"{'=' * 60}")
+        lines.append("  Failure rate trend")
+        lines.append(f"{'=' * 60}")
+        for s in summaries:
+            bar_len = int(s["failure_rate"] / 2)
+            bar = "#" * bar_len + "-" * (50 - bar_len)
+            lines.append(f"  {s['window_hours']:>3}h |{bar}| {s['failure_rate']}%")
+        lines.append("")
+
+    return "\n".join(lines)
+
+
+def main() -> int:
+    hours_list = [1, 6, 24]
+    json_output = "--json" in sys.argv
+
+    # Custom --hours N
+    for i, arg in enumerate(sys.argv):
+        if arg == "--hours" and i + 1 < len(sys.argv):
+            try:
+                hours_list = [int(sys.argv[i + 1])]
+            except ValueError:
+                print(f"Invalid --hours value: {sys.argv[i + 1]}")
+                return 1
+
+    entries = parse_log(LOGFILE)
+    if not entries:
+        print("No log entries found.")
+        return 0
+
+    summaries = [summarize(entries, h) for h in hours_list]
+
+    if json_output:
+        import json
+        for s in summaries:
+            s["first_ts"] = s["first_ts"].isoformat() if s["first_ts"] else None
+            s["last_ts"] = s["last_ts"].isoformat() if s["last_ts"] else None
+            s["top_errors"] = [(str(k), v) for k, v in s["top_errors"]]
+            s["error_commands"] = [(k, v) for k, v in s["error_commands"]]
+        print(json.dumps(summaries, indent=2))
+    else:
+        print(format_report(summaries))
+
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
