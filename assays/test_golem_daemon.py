@@ -215,6 +215,128 @@ def test_mark_failed_exists():
     assert callable(_mod["mark_failed"])
 
 
+# ── mark_failed retry tests ─────────────────────────────────────────────
+
+
+def test_mark_failed_retries_first_attempt(tmp_path):
+    """mark_failed re-queues task on first failure (appends ' (retry)')."""
+    queue_dir = tmp_path / "germline" / "loci"
+    queue_dir.mkdir(parents=True)
+    queue_path = queue_dir / "golem-queue.md"
+    queue_path.write_text("- [ ] `golem --provider infini \"task1\"`\n")
+
+    original_queue = _mod["QUEUE_FILE"]
+    try:
+        _mod["QUEUE_FILE"] = queue_path
+        result = mark_failed(0)
+    finally:
+        _mod["QUEUE_FILE"] = original_queue
+
+    # Should return retried: True
+    assert result["retried"] is True
+
+    # Task should still be pending with (retry) appended
+    content = queue_path.read_text()
+    assert "- [ ] " in content  # Still pending
+    assert "- [!]" not in content  # Not marked failed
+    assert "(retry)" in content
+    assert 'golem --provider infini "task1" (retry)' in content
+
+
+def test_mark_failed_marks_failed_on_retry(tmp_path):
+    """mark_failed marks [!] when task already has (retry)."""
+    queue_dir = tmp_path / "germline" / "loci"
+    queue_dir.mkdir(parents=True)
+    queue_path = queue_dir / "golem-queue.md"
+    # Task already has (retry) from previous failure
+    queue_path.write_text("- [ ] `golem --provider infini \"task1\" (retry)`\n")
+
+    original_queue = _mod["QUEUE_FILE"]
+    try:
+        _mod["QUEUE_FILE"] = queue_path
+        result = mark_failed(0)
+    finally:
+        _mod["QUEUE_FILE"] = original_queue
+
+    # Should return retried: False
+    assert result["retried"] is False
+
+    # Task should now be marked failed
+    content = queue_path.read_text()
+    assert "- [!]" in content
+    assert "- [ ]" not in content
+
+
+def test_mark_failed_only_retries_once(tmp_path):
+    """Verify retry only happens once - second failure gets [!]."""
+    queue_dir = tmp_path / "germline" / "loci"
+    queue_dir.mkdir(parents=True)
+    queue_path = queue_dir / "golem-queue.md"
+    queue_path.write_text("- [ ] `golem \"original task\"`\n")
+
+    original_queue = _mod["QUEUE_FILE"]
+    try:
+        _mod["QUEUE_FILE"] = queue_path
+
+        # First failure: should retry
+        result1 = mark_failed(0)
+        assert result1["retried"] is True
+
+        # Re-read to get updated line
+        lines = queue_path.read_text().splitlines()
+        assert "(retry)" in lines[0]
+        assert "- [ ]" in lines[0]
+
+        # Simulate daemon re-parsing and re-queueing the same line number
+        # (in real daemon, line_num would be recalculated)
+        # For this test, we write a fresh line with (retry) already there
+        queue_path.write_text("- [ ] `golem \"original task\" (retry)`\n")
+
+        # Second failure: should mark as [!]
+        result2 = mark_failed(0)
+        assert result2["retried"] is False
+
+        content = queue_path.read_text()
+        assert "- [!]" in content
+    finally:
+        _mod["QUEUE_FILE"] = original_queue
+
+
+def test_mark_failed_handles_multiple_tasks(tmp_path):
+    """mark_failed correctly handles multiple tasks with retry logic."""
+    queue_dir = tmp_path / "germline" / "loci"
+    queue_dir.mkdir(parents=True)
+    queue_path = queue_dir / "golem-queue.md"
+    queue_path.write_text(
+        "- [ ] `golem \"task1\"`\n"
+        "- [ ] `golem \"task2\" (retry)`\n"
+        "- [ ] `golem \"task3\"`\n"
+    )
+
+    original_queue = _mod["QUEUE_FILE"]
+    try:
+        _mod["QUEUE_FILE"] = queue_path
+
+        # Task 0: first failure -> retry
+        result0 = mark_failed(0)
+        assert result0["retried"] is True
+
+        # Task 1: already retry -> fail
+        result1 = mark_failed(1)
+        assert result1["retried"] is False
+
+        # Task 2: first failure -> retry
+        result2 = mark_failed(2)
+        assert result2["retried"] is True
+
+        lines = queue_path.read_text().splitlines()
+        assert "(retry)" in lines[0]
+        assert "- [!]" in lines[1]
+        assert "(retry)" in lines[2]
+    finally:
+        _mod["QUEUE_FILE"] = original_queue
+
+
 # ── validate_golem_output tests ─────────────────────────────────────────
 
 

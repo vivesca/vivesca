@@ -146,16 +146,19 @@ _run_golem() {
     _api_key=""
     _auth_token="$_KEY"
   fi
-  output=$(CLAUDECODE= \
-  ANTHROPIC_API_KEY="$_api_key" \
-  ANTHROPIC_AUTH_TOKEN="$_auth_token" \
-  ANTHROPIC_BASE_URL="$_URL" \
-  ANTHROPIC_DEFAULT_OPUS_MODEL="$_OPUS" \
-  ANTHROPIC_DEFAULT_SONNET_MODEL="$_SONNET" \
-  ANTHROPIC_DEFAULT_HAIKU_MODEL="$_HAIKU" \
-  API_TIMEOUT_MS=3000000 \
-  CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1 \
-  claude "${args[@]}" -p "$prompt" 2>&1)
+  # Only set ANTHROPIC_AUTH_TOKEN if non-empty (volcano case)
+  local env_args=()
+  env_args+=(CLAUDECODE=)
+  env_args+=(ANTHROPIC_API_KEY="$_api_key")
+  [[ -n "$_auth_token" ]] && env_args+=(ANTHROPIC_AUTH_TOKEN="$_auth_token")
+  env_args+=(ANTHROPIC_BASE_URL="$_URL")
+  env_args+=(ANTHROPIC_DEFAULT_OPUS_MODEL="$_OPUS")
+  env_args+=(ANTHROPIC_DEFAULT_SONNET_MODEL="$_SONNET")
+  env_args+=(ANTHROPIC_DEFAULT_HAIKU_MODEL="$_HAIKU")
+  env_args+=(API_TIMEOUT_MS=3000000)
+  env_args+=(CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1)
+
+  output=$(env "${env_args[@]}" claude "${args[@]}" -p "$prompt" 2>&1)
   local exit_code=$?
   local duration=$(( $(date +%s) - start_ts ))
   local short_prompt="${prompt:0:100}"
