@@ -23,9 +23,9 @@ from pathlib import Path
 
 DEFAULT_ROOT = Path.home() / "germline"
 
-# Modules whose __main__.py is an entry-point, not imported normally.
-# They are never orphans.
-_ENTRY_POINT_NAMES = {"__main__"}
+# Filenames (with .py) that are entry-points, not normal import targets.
+# They are never reported as orphans.
+_ENTRY_POINT_FILES = {"__main__.py"}
 
 
 def collect_modules(metabolon_dir: Path) -> list[Path]:
@@ -94,7 +94,7 @@ def find_orphans(root: Path) -> list[dict]:
 
     for mod_path in modules:
         # Skip __main__.py — it is an entry point, not an import target
-        if mod_path.name in _ENTRY_POINT_NAMES:
+        if mod_path.name in _ENTRY_POINT_FILES:
             continue
 
         dotted = file_to_module(mod_path, root)
