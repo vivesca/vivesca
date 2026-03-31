@@ -454,6 +454,16 @@ class TestCmdGather:
         for info in data["repos"].values():
             assert info["clean"] is None
 
+    def test_format_json_output_is_valid_json(self, capsys):
+        args = self._make_args(format="json")
+        with _pdict(**self._gather_patches(memory_lines=MagicMock(return_value=42))):
+            cmd_gather(args)
+        out = capsys.readouterr().out
+        data = json.loads(out)
+        assert data["memory"]["lines"] == 42
+        assert data["repos"] != {}
+        assert "now" in data
+
 
 # ══════════════════════════════════════════════════════════════════════════════
 # cmd_archive
@@ -564,6 +574,35 @@ class TestCmdArchive:
         archive_text = archive.read_text()
         assert "## March 2026" in archive_text
         assert "First archived" in archive_text
+
+    def test_format_json_no_completed(self, capsys, tmp_path):
+        praxis = tmp_path / "Praxis.md"
+        praxis.write_text("# Tasks\n\n- [ ] TODO\n")
+        with _pdict(PRAXIS=praxis, PRAXIS_ARCHIVE=tmp_path / "archive.md"):
+            cmd_archive(MagicMock(format="json"))
+        out = capsys.readouterr().out
+        data = json.loads(out)
+        assert data["archived"] == 0
+        assert data["items"] == []
+
+    def test_format_json_archived_items(self, tmp_path, capsys):
+        from datetime import datetime
+        praxis = tmp_path / "Praxis.md"
+        praxis.write_text("- [x] Done thing\n- [ ] Still todo\n")
+        archive = tmp_path / "Praxis Archive.md"
+        archive.write_text("")
+        fake_now = datetime(2026, 3, 31, 12, 0, 0)
+        with _pdict(PRAXIS=praxis, PRAXIS_ARCHIVE=archive, datetime=self._fake_datetime(fake_now)):
+            cmd_archive(MagicMock(format="json"))
+        out = capsys.readouterr().out
+        data = json.loads(out)
+        assert data["archived"] == 1
+        assert "Done thing" in data["items"][0]
+
+    def test_format_json_no_praxis_exits(self):
+        with _pdict(PRAXIS=Path("/nonexistent/Praxis.md")):
+            with pytest.raises(SystemExit):
+                cmd_archive(MagicMock(format="json"))
 
 
 # ══════════════════════════════════════════════════════════════════════════════

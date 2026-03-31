@@ -108,9 +108,11 @@ class TestReadJsonl:
             f.write("not valid json\n")
             f.write(json.dumps({"c": 3}) + "\n")
         path = Path(f.name)
-        result = _read_jsonl(path)
-        assert len(result) == 2
-        path.unlink()
+        try:
+            result = _read_jsonl(path)
+            assert len(result) == 2
+        finally:
+            path.unlink(missing_ok=True)
 
 
 class TestRecordAffinity:
