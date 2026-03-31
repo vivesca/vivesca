@@ -124,6 +124,8 @@ class Cache:
         if self.dir.exists():
             for f in self.dir.glob("*.json"):
                 f.unlink(missing_ok=True)
+            for f in self.dir.glob("*.json.tmp"):
+                f.unlink(missing_ok=True)
 
 
 # ---------------------------------------------------------------------------
