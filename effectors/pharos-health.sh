@@ -14,7 +14,7 @@ fi
 
 DISK=$(df / --output=pcent | tail -1 | tr -d " %")
 MEM=$(free -m | awk "/Mem:/{printf \"%d/%dMB\", \$3, \$2}")
-FAILED=$(systemctl --user --failed --no-legend 2>/dev/null | wc -l)
+FAILED=$(systemctl --user --failed --no-legend 2>/dev/null | wc -l) || FAILED=0
 
 ALERT=false
 if [ "$DISK" -gt 85 ]; then
@@ -25,7 +25,7 @@ if [ "$FAILED" -gt 0 ]; then
 fi
 
 if $ALERT; then
-    ~/scripts/tg-notify.sh "pharos health: disk=${DISK}% mem=${MEM} failed_units=${FAILED}"
+    ~/germline/effectors/tg-notify.sh "pharos health: disk=${DISK}% mem=${MEM} failed_units=${FAILED}"
     exit 1
 fi
 
