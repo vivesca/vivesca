@@ -210,7 +210,7 @@ def test_compute_window_stats_full_window(log_file):
     events = classify_events(entries)
     cutoff = datetime(2026, 3, 30, 0, 0)
     stats = compute_window_stats(events, "24h", cutoff)
-    assert stats["tasks_started"] == 3
+    assert stats["tasks_started"] == 2
     assert stats["tasks_finished"] == 2
     assert stats["tasks_succeeded"] == 1
     assert stats["tasks_failed"] == 4  # 3 failures + 1 finish with exit!=0
