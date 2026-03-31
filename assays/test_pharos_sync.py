@@ -192,9 +192,12 @@ class TestMemorySync:
 
     def test_syncs_memory_directory(self, tmp_path):
         """Script syncs memory directory to officina/claude/memory/."""
-        _setup_officina(tmp_path)
+        officina = _setup_officina(tmp_path)
+        # rsync requires the parent directory to exist
+        (officina / "claude").mkdir()
 
         # Create source memory directory (Claude projects path)
+        # Script hardcodes -Users-terry path
         memory_src = tmp_path / ".claude" / "projects" / "-Users-terry" / "memory"
         memory_src.mkdir(parents=True)
         (memory_src / "MEMORY.md").write_text("# Test Memory\nContent here.\n")
@@ -207,7 +210,7 @@ class TestMemorySync:
         # Script uses: $CLAUDE_DIR/projects/-Users-terry/memory
         memory_dst = tmp_path / "officina" / "claude" / "memory"
         assert memory_dst.exists()
-        # Note: actual sync depends on rsync availability
+        assert (memory_dst / "MEMORY.md").read_text() == "# Test Memory\nContent here.\n"
 
     def test_synced_output_message(self, tmp_path):
         """Script reports 'synced: memory/' on successful sync."""

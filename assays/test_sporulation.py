@@ -398,3 +398,83 @@ def test_result_models_are_pydantic():
 
     li = SporulationListResult(checkpoints=[{"codename": "z", "description": "", "age_days": 0}])
     assert li.model_dump()["checkpoints"][0]["codename"] == "z"
+
+
+def test_gen_codename_fallback_returns_something():
+    """_gen_codename returns a valid name even when every combo is taken."""
+    from metabolon.enzymes.sporulation import _ADJECTIVES, _NOUNS
+    all_names = {f"{a}-{n}" for a in _ADJECTIVES for n in _NOUNS}
+    name = _gen_codename(all_names)
+    assert "-" in name
+    assert name  # non-empty
+
+
+def test_gen_codename_empty_existing():
+    """_gen_codename works with empty existing set."""
+    name = _gen_codename(set())
+    assert "-" in name
+
+
+def test_purge_stale_boundary_not_purged(tmp_path):
+    """File just under 7 days old is NOT purged."""
+    import os
+    f = tmp_path / "checkpoint_fresh-fox.md"
+    f.write_text("data")
+    six_days = (datetime.now(UTC) - timedelta(days=6, hours=20)).timestamp()
+    os.utime(f, (six_days, six_days))
+    with patch("metabolon.enzymes.sporulation._CHECKPOINT_DIR", tmp_path):
+        purged = _purge_stale()
+    assert purged == []
+    assert f.exists()
+
+
+def test_list_no_description_in_file(tmp_path):
+    """_list returns empty description when file has no description line."""
+    (tmp_path / "checkpoint_plain-owl.md").write_text(
+        "---\nname: plain\n---\njust content\n"
+    )
+    with patch("metabolon.enzymes.sporulation._CHECKPOINT_DIR", tmp_path):
+        result = _list()
+    assert len(result.checkpoints) == 1
+    assert result.checkpoints[0]["codename"] == "plain-owl"
+    assert result.checkpoints[0]["description"] == ""
+
+
+def test_list_age_days_is_positive(tmp_path):
+    """_list computes a non-negative age_days."""
+    (tmp_path / "checkpoint_agey-bat.md").write_text("---\n---\n")
+    with patch("metabolon.enzymes.sporulation._CHECKPOINT_DIR", tmp_path):
+        result = _list()
+    assert result.checkpoints[0]["age_days"] >= 0
+
+
+def test_sporulation_save_with_all_params(tmp_path):
+    """sporulation save with every parameter populated."""
+    with patch("metabolon.enzymes.sporulation._CHECKPOINT_DIR", tmp_path):
+        result = sporulation(
+            action="save",
+            context="Full context",
+            where_we_left_off="Halfway done",
+            action_needed="Run tests",
+            summary="Testing session",
+            codename="gold-star",
+        )
+    assert isinstance(result, SporulationSaveResult)
+    assert result.codename == "gold-star"
+    content = Path(result.path).read_text()
+    assert "Full context" in content
+    assert "Halfway done" in content
+    assert "Run tests" in content
+    assert "Testing session" in content
+
+
+def test_sporulation_load_with_consume_false(tmp_path):
+    """sporulation load with consume=False keeps the file."""
+    p = tmp_path / "checkpoint_iron-key.md"
+    p.write_text("secret stuff")
+    with patch("metabolon.enzymes.sporulation._CHECKPOINT_DIR", tmp_path):
+        result = sporulation(action="load", codename="iron-key", consume=False)
+    assert isinstance(result, SporulationLoadResult)
+    assert result.found is True
+    assert result.content == "secret stuff"
+    assert p.exists()
