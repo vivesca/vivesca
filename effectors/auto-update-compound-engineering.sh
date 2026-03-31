@@ -4,12 +4,22 @@
 
 LOG_FILE="$HOME/.compound-engineering-updates.log"
 
+# Use bunx if available, fall back to npx
+if command -v bunx &>/dev/null; then
+    RUNNER=bunx
+elif command -v npx &>/dev/null; then
+    RUNNER=npx
+else
+    echo "Error: neither bunx nor npx found. Install bun or node." >> "$LOG_FILE"
+    exit 1
+fi
+
 echo "========================================" >> "$LOG_FILE"
 echo "Update started: $(date)" >> "$LOG_FILE"
 
 # Update OpenCode
 echo "Updating OpenCode..." >> "$LOG_FILE"
-if bunx @every-env/compound-plugin install compound-engineering --to opencode >> "$LOG_FILE" 2>&1; then
+if $RUNNER @every-env/compound-plugin install compound-engineering --to opencode >> "$LOG_FILE" 2>&1; then
     echo "✅ OpenCode updated successfully" >> "$LOG_FILE"
 else
     echo "❌ OpenCode update failed" >> "$LOG_FILE"
@@ -17,7 +27,7 @@ fi
 
 # Update Codex
 echo "Updating Codex..." >> "$LOG_FILE"
-if bunx @every-env/compound-plugin install compound-engineering --to codex >> "$LOG_FILE" 2>&1; then
+if $RUNNER @every-env/compound-plugin install compound-engineering --to codex >> "$LOG_FILE" 2>&1; then
     echo "✅ Codex updated successfully" >> "$LOG_FILE"
 else
     echo "❌ Codex update failed" >> "$LOG_FILE"

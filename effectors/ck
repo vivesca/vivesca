@@ -2,6 +2,7 @@
 # Wrapper: launch Claude targeting Moonshot/Kimi API
 set -euo pipefail
 
+_REAL_HOME="$HOME"
 KIMI_HOME="$HOME/kimi-home"
 mkdir -p "$KIMI_HOME"
 export HOME="$KIMI_HOME"
@@ -13,8 +14,8 @@ else
   # Linux: try secret-tool (libsecret), then credential file, then env var
   if command -v secret-tool &>/dev/null; then
     _key="$(secret-tool lookup service moonshot-api-key 2>/dev/null)"
-  elif [[ -f "$HOME/.config/moonshot-api-key" ]]; then
-    _key="$(tr -d '\n' < "$HOME/.config/moonshot-api-key")"
+  elif [[ -f "$_REAL_HOME/.config/moonshot-api-key" ]]; then
+    _key="$(tr -d '\n' < "$_REAL_HOME/.config/moonshot-api-key")"
   else
     _key="${MOONSHOT_API_KEY:-}"
   fi
