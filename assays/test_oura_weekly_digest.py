@@ -6,9 +6,11 @@ Effectors are scripts — loaded via exec(open(path).read(), ns), never imported
 All function calls use dict-style access: ns["func"]().
 """
 
+import os
 import subprocess
 import types
 import sys
+import textwrap
 from datetime import date, timedelta
 from pathlib import Path
 from unittest.mock import MagicMock, patch
