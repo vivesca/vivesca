@@ -24,6 +24,11 @@ Tasks waiting for dispatch. CC adds, golem consumes. Keep ~10 tasks ahead.
 - engagement_scope debrief feature
 - complement coverage_summary feature
 
+- [ ] `golem --max-turns 30 --full "Use navigator to browse https://docs.bigmodel.cn/llms.txt and discover all available documentation pages. Then extract and read the most important pages about: API setup, rate limits, pricing, model list, Claude Code integration, coding plan details. Write a comprehensive reference document to ~/epigenome/chromatin/Reference/zhipu-coding-plan-reference.md with all technical details, exact endpoints, model names, rate limits, pricing tiers. Include everything needed to configure and troubleshoot golem."`
+- [ ] `golem --max-turns 30 --full "Use navigator to browse https://platform.minimaxi.com/docs/pricing/overview and follow links to all pricing pages. Extract complete pricing for Token Plan, Coding Plan, pay-as-you-go. Write reference to ~/epigenome/chromatin/Reference/minimax-pricing-reference.md with all tiers, prices in RMB, quotas, rate limits, model names, API endpoints, CC compatibility setup."`
+
+- [ ] `golem --max-turns 30 "Build effectors/browse as a Python script. A reliable web content extractor that chains fallbacks: 1) defuddle parse URL --md, 2) if empty, curl URL and extract text, 3) if still empty, print NEEDS_BROWSER. Usage: browse URL [--raw]. Output: clean markdown to stdout. Handle redirects, encoding, timeouts. Test with: browse https://platform.minimaxi.com/docs/guides/pricing-token-plan && browse https://news.ycombinator.com && browse https://github.com"`
+
 ## Done
 
 (move completed tasks here with result)
