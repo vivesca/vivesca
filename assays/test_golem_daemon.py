@@ -1846,32 +1846,32 @@ class TestCmdRetryAllEdgeCases:
 
     def test_cmd_retry_all_then_parse_queue(self, tmp_path):
         """After retry-all, parse_queue picks up the re-queued tasks."""
-    queue_path = _make_queue_for_clean(tmp_path, _RETRY_ALL_QUEUE)
-    original_queue = _mod["QUEUE_FILE"]
-    try:
-        _mod["QUEUE_FILE"] = queue_path
-        cmd_retry_all()
-        pending = parse_queue()
-    finally:
-        _mod["QUEUE_FILE"] = original_queue
+        queue_path = _make_queue_for_clean(tmp_path, _RETRY_ALL_QUEUE)
+        original_queue = _mod["QUEUE_FILE"]
+        try:
+            _mod["QUEUE_FILE"] = queue_path
+            cmd_retry_all()
+            pending = parse_queue()
+        finally:
+            _mod["QUEUE_FILE"] = original_queue
 
-    # Originally 1 pending + 2 re-queued = 3
-    assert len(pending) == 3
-    commands = [cmd for _, cmd in pending]
-    assert any("normal task" in c for c in commands)
-    assert any("failed task 1" in c for c in commands)
-    assert any("failed task 2" in c for c in commands)
-    # No (retry) in any command
-    assert not any("(retry)" in c for c in commands)
+        # Originally 1 pending + 2 re-queued = 3
+        assert len(pending) == 3
+        commands = [cmd for _, cmd in pending]
+        assert any("normal task" in c for c in commands)
+        assert any("failed task 1" in c for c in commands)
+        assert any("failed task 2" in c for c in commands)
+        # No (retry) in any command
+        assert not any("(retry)" in c for c in commands)
 
     def test_cmd_retry_all_preserves_inline_result_annotations(self, tmp_path):
         """cmd_retry_all handles [!] lines that have trailing annotations."""
-    annotated = "# Queue\n\n- [!] `golem \"task\"` some error text\n"
-    queue_path = _make_queue_for_clean(tmp_path, annotated)
-    original_queue = _mod["QUEUE_FILE"]
-    try:
-        _mod["QUEUE_FILE"] = queue_path
-        rc = cmd_retry_all()
+        annotated = "# Queue\n\n- [!] `golem \"task\"` some error text\n"
+        queue_path = _make_queue_for_clean(tmp_path, annotated)
+        original_queue = _mod["QUEUE_FILE"]
+        try:
+            _mod["QUEUE_FILE"] = queue_path
+            rc = cmd_retry_all()
     finally:
         _mod["QUEUE_FILE"] = original_queue
 
