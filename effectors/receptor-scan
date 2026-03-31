@@ -22,9 +22,11 @@ def run(cmd: list[str], timeout: int = 15) -> str:
 
 
 def main():
-    if len(sys.argv) < 2:
-        print("Usage: receptor-scan <query>", file=sys.stderr)
-        sys.exit(1)
+    if len(sys.argv) < 2 or sys.argv[1] in ("-h", "--help"):
+        print("receptor-scan — waterfall knowledge search\n")
+        print("Usage: receptor-scan <query>")
+        print("\nSearches QMD (authoritative vault) first, Oghma (conversation memory) fallback.")
+        sys.exit(0 if len(sys.argv) < 2 else 0)
 
     query = " ".join(sys.argv[1:])
 

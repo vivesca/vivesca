@@ -17,8 +17,6 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
-from metabolon.symbiont import parallel_transduce as parallel_query
-
 MODELS = ["gemini-3.1-pro", "codex"]
 TIMEOUT = 120
 
