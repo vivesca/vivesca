@@ -14,8 +14,6 @@ has been burned, and whether the organism is at risk of anaerobic (over-budget) 
 Core functions: sense_usage, budget_status, append_history, serialize_status.
 """
 
-from __future__ import annotations
-
 import configparser
 import contextlib
 import json

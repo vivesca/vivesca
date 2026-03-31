@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -132,3 +133,88 @@ def test_default_log_path():
 
     assert DEFAULT_REQUEST_LOG.name == "requests.jsonl"
     assert "vivesca" in str(DEFAULT_REQUEST_LOG)
+
+
+# --- Additional coverage ---
+
+
+def test_log_swallows_write_error(tmp_path, caplog):
+    """Write to a path inside a read-only directory should not raise."""
+    import os
+    import stat
+
+    from metabolon.server import RequestLogger
+
+    ro_dir = tmp_path / "readonly"
+    ro_dir.mkdir()
+    # Make directory read-only
+    ro_dir.chmod(stat.S_IRUSR | stat.S_IXUSR)
+    try:
+        logger = RequestLogger(ro_dir / "requests.jsonl")
+        with caplog.at_level(logging.DEBUG, logger="metabolon.server"):
+            logger.log(tool="bad", duration_ms=1, success=True)
+        # Should NOT raise — exception is caught internally
+        # File must not exist since write should have failed
+        assert not (ro_dir / "requests.jsonl").exists()
+    finally:
+        # Restore permissions so tmp_path cleanup can remove it
+        ro_dir.chmod(stat.S_IRUSR | stat.S_IWUSR | stat.S_IXUSR)
+
+
+def test_log_requires_keyword_args(log_file):
+    """log() uses *, so positional args should raise TypeError."""
+    from metabolon.server import RequestLogger
+
+    logger = RequestLogger(log_file)
+    with pytest.raises(TypeError):
+        logger.log("tool_name", 10, True)
+
+
+def test_constructor_accepts_string_path(tmp_path):
+    """Constructor wraps input with Path(), so a plain string works."""
+    from metabolon.server import RequestLogger
+
+    path_str = str(tmp_path / "requests.jsonl")
+    logger = RequestLogger(path_str)
+    logger.log(tool="str_path", duration_ms=5, success=True)
+
+    entries = _load_jsonl(Path(path_str))
+    assert len(entries) == 1
+    assert entries[0]["tool"] == "str_path"
+
+
+def test_log_entry_fields_exact(log_file):
+    """Verify every expected key is present and no extras."""
+    from metabolon.server import RequestLogger
+
+    logger = RequestLogger(log_file)
+    logger.log(tool="exact", duration_ms=99, success=False)
+
+    entries = _load_jsonl(log_file)
+    assert len(entries) == 1
+    assert set(entries[0].keys()) == {"ts", "tool", "duration_ms", "success"}
+
+
+def test_log_timestamp_is_recent_utc(log_file):
+    """The 'ts' field should be a UTC datetime within the last few seconds."""
+    from metabolon.server import RequestLogger
+
+    logger = RequestLogger(log_file)
+    before = datetime.now(UTC)
+    logger.log(tool="ts_check", duration_ms=1, success=True)
+    after = datetime.now(UTC)
+
+    entries = _load_jsonl(log_file)
+    ts = datetime.fromisoformat(entries[0]["ts"])
+    assert before <= ts <= after
+
+
+def test_log_zero_duration(log_file):
+    """Zero duration is a valid edge case."""
+    from metabolon.server import RequestLogger
+
+    logger = RequestLogger(log_file)
+    logger.log(tool="instant", duration_ms=0, success=True)
+
+    entries = _load_jsonl(log_file)
+    assert entries[0]["duration_ms"] == 0
