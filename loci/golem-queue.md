@@ -311,7 +311,7 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 - [ ] `golem --provider infini --max-turns 30 "Write tests for /home/terry/germline/metabolon/enzymes/pinocytosis.py. Mock external calls. Run uv run pytest. Fix failures. Commit."`
 - [x] `golem --provider volcano --max-turns 30 "Write tests for /home/terry/germline/metabolon/enzymes/sporulation.py. Mock external calls. Run uv run pytest. Fix failures. Commit."`
 - [ ] `golem --provider zhipu --max-turns 30 "Write tests for /home/terry/germline/metabolon/enzymes/navigator.py. Mock external calls. Run uv run pytest. Fix failures. Commit."`
-- [ ] `golem --provider infini --max-turns 30 "Write tests for /home/terry/germline/metabolon/enzymes/ingestion.py. Mock external calls. Run uv run pytest. Fix failures. Commit."`
+- [x] `golem --provider infini --max-turns 30 "Write tests for /home/terry/germline/metabolon/enzymes/ingestion.py. Mock external calls. Run uv run pytest. Fix failures. Commit."`
 - [x] `golem --provider volcano --max-turns 30 "Write tests for /home/terry/germline/metabolon/enzymes/rheotaxis.py. Mock external calls. Run uv run pytest. Fix failures. Commit."`
 - [ ] `golem --provider zhipu --max-turns 30 "Write tests for /home/terry/germline/metabolon/enzymes/circadian.py. Mock external calls. Run uv run pytest. Fix failures. Commit."`
 - [ ] `golem --provider infini --max-turns 30 "Write tests for /home/terry/germline/metabolon/enzymes/tachometer.py. Mock external calls. Run uv run pytest. Fix failures. Commit."`

@@ -244,7 +244,7 @@ class TestCrossLinkExperiment:
         exp_dir.mkdir()
         exp_file = exp_dir / "assay-test.md"
         exp_file.write_text(
-            "---\nstatus: active\nwatch_keywords: [sushi, ramen]\n---\nExperiment content\n"
+            "---\nstatus: active\nwatch_keywords: [salmon, ramen]\n---\nExperiment content\n"
         )
 
         fn = _cross_link_fn()
