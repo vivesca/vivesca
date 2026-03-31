@@ -70,7 +70,7 @@ def test_generate_query_basic_sfc():
     query = generate_query_from_filename(filename)
     assert "SFC" in query
     assert "latest update" in query
-    assert "securities futures act" in query.lower()
+    assert "securities and futures act" in query.lower()
 
 
 def test_generate_query_no_publisher():

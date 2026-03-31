@@ -131,7 +131,8 @@ class TestIdempotency:
 
 class TestRetention:
     def _seed_backups(self, backup_dir: Path, count: int) -> list[Path]:
-        """Create count dated backup files. Returns list of paths created."""
+        """Create count dated backup files with descending mtimes. Returns list newest-first."""
+        import time
         from datetime import timedelta
         files = []
         today = date.today()
@@ -140,6 +141,8 @@ class TestRetention:
             f = backup_dir / f"due-{d}.duecdb"
             f.parent.mkdir(parents=True, exist_ok=True)
             f.write_text(f"backup-{d}")
+            # Set mtime so ls -t sorts newest-first correctly
+            os.utime(f, (time.time() - i * 86400, time.time() - i * 86400))
             files.append(f)
         return files
 
