@@ -141,12 +141,17 @@ _run_golem() {
 
   # Prepend coaching notes (same file all providers get)
   if [[ -f "$COACHING_FILE" ]]; then
-    local coaching
-    coaching=$(<"$COACHING_FILE")
-    # Build prompt with coaching via printf to avoid shell expansion
-    prompt="$(printf '%s\n\n%s' "<coaching-notes>
-$(sed 's/[`$]/\\&/g' "$COACHING_FILE")
-</coaching-notes>" "$prompt")"
+    local _coaching_tmp
+    _coaching_tmp="$(mktemp)"
+    {
+      echo "<coaching-notes>"
+      cat "$COACHING_FILE"
+      echo "</coaching-notes>"
+      echo ""
+      echo "$prompt"
+    } > "$_coaching_tmp"
+    prompt="$(cat "$_coaching_tmp")"
+    rm -f "$_coaching_tmp"
   fi
   local args=(--print --dangerously-skip-permissions --max-turns "$MAX_TURNS")
   $BARE && args+=(--bare)
