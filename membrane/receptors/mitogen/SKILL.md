@@ -11,7 +11,7 @@ allowed-tools:
   - Grep
   - Glob
   - Agent
-context: fork
+context: inline
 epistemics: [audit, plan, delegate, verify]
 ---
 
