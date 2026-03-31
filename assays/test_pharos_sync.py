@@ -126,8 +126,8 @@ class TestSettingsSync:
         assert dst.exists()
         assert dst.read_text() == '{"test": true}'
 
-    def test_requires_officina_claude_dir_to_exist(self, tmp_path):
-        """Script does not create officina/claude/ automatically."""
+    def test_creates_officina_claude_dir(self, tmp_path):
+        """Script creates officina/claude/ automatically via mkdir -p."""
         _setup_officina(tmp_path)
         claude_dir = tmp_path / ".claude"
         claude_dir.mkdir()
@@ -137,9 +137,9 @@ class TestSettingsSync:
         r = _run(SCRIPT, env={"HOME": str(tmp_path)})
         assert r.returncode == 0
 
-        # Script does NOT create officina/claude/ - sync_file requires it
         dst = tmp_path / "officina" / "claude" / "settings.json"
-        assert not dst.exists()
+        assert dst.exists()
+        assert dst.read_text() == '{"auto": true}'
 
     def test_skips_identical_settings(self, tmp_path):
         """Script does not copy if settings.json is identical."""
@@ -239,6 +239,11 @@ class TestGitCommit:
         claude_dir.mkdir()
         settings = claude_dir / "settings.json"
         settings.write_text('{"commit": true}')
+
+        # Create memory source so rsync creates claude/memory/ for git add
+        memory_src = claude_dir / "projects" / "-Users-terry" / "memory"
+        memory_src.mkdir(parents=True)
+        (memory_src / "MEMORY.md").write_text("# Memory\n")
 
         r = _run(SCRIPT, env={"HOME": str(tmp_path)})
         assert r.returncode == 0
