@@ -2,6 +2,13 @@
 name: transcription
 description: Collaborative design before building — one question at a time. "let's build"
 user_invocable: true
+triggers:
+  - transcription
+  - "let's build"
+  - "I want to add"
+  - "what if we"
+  - design
+  - plan
 epistemics: [design, plan]
 ---
 
