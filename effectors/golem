@@ -22,11 +22,16 @@ while [[ "${1:-}" == --* ]]; do
   esac
 done
 
+GOLEM_LOG="${GOLEM_LOG:-$HOME/.local/share/vivesca/golem.jsonl}"
+mkdir -p "$(dirname "$GOLEM_LOG")"
+
 _run_golem() {
   local prompt="$1"
   local args=(--print --max-turns "$MAX_TURNS")
   $BARE && args+=(--bare)
-  CLAUDECODE= \
+  local start_ts=$(date +%s)
+  local output
+  output=$(CLAUDECODE= \
   ANTHROPIC_AUTH_TOKEN="${ZHIPU_API_KEY:?ZHIPU_API_KEY not set}" \
   ANTHROPIC_BASE_URL="https://open.bigmodel.cn/api/anthropic" \
   ANTHROPIC_DEFAULT_OPUS_MODEL="GLM-5.1" \
@@ -34,7 +39,16 @@ _run_golem() {
   ANTHROPIC_DEFAULT_HAIKU_MODEL="GLM-4.5-air" \
   API_TIMEOUT_MS=3000000 \
   CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1 \
-  claude "${args[@]}" -p "$prompt"
+  claude "${args[@]}" -p "$prompt" 2>&1)
+  local exit_code=$?
+  local duration=$(( $(date +%s) - start_ts ))
+  local short_prompt="${prompt:0:100}"
+  # Log result
+  printf '{"ts":"%s","duration":%d,"exit":%d,"turns":%d,"prompt":"%s","tail":"%s"}\n' \
+    "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$duration" "$exit_code" "$MAX_TURNS" \
+    "$(echo "$short_prompt" | tr '"' "'")" \
+    "$(echo "${output: -200}" | tr '"' "'" | tr '\n' ' ')" >> "$GOLEM_LOG"
+  echo "$output"
 }
 
 if $BATCH; then

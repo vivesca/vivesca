@@ -83,7 +83,7 @@ CC's tools (Read, Write, Edit, Bash) with no size limits, no session DB contenti
 ## Gotchas
 
 - **Cap concurrent golems at 4-5.** ZhiPu API rate limits at ~10+ concurrent. 19 golems → 429 across all sessions. 4-5 is the sweet spot.
-- **Golem hits max-turns on very large modules.** For 1000+ line modules, use `--max-turns 30`. Or let CC write those tests directly (that IS the high-value judgment work).
+- **Golem hits max-turns on complex tasks.** Test-only tasks fit in 20 turns. Feature tasks (read + implement + test + verify) need `--max-turns 30`. 1000+ line modules need `--max-turns 40`.
 - **Golem may not commit.** Check `git status` after batch and commit new files.
 - **Don't over-orchestrate.** No spec files, no coaching injection, no worktrees, no test-spec-gen. Just `golem "task"`.
 
