@@ -165,19 +165,8 @@ class TestSuccessfulSearch:
             text=True,
             timeout=20,
         )
-        # Note: safe_search.py uses --max-results flag which may not be supported
-        # on all rg versions. Check that the search either succeeds or fails gracefully.
-        # The script does not check rg's return code, so it may return 0 even if rg fails.
-        if "unique_pattern_xyz" in result.stdout:
-            # Pattern found - success
-            pass
-        elif "unrecognized flag" in result.stderr.lower():
-            # rg doesn't support --max-results - skip this test
-            pytest.skip("rg version doesn't support --max-results flag")
-        else:
-            # If it fails, it should not be due to blocking
-            assert "PROHIBITED" not in result.stdout
-            assert "too large" not in result.stdout.lower()
+        assert "unique_pattern_xyz" in result.stdout
+        assert result.returncode == 0
 
 
 # ── Internal function tests via exec ─────────────────────────────────────────
