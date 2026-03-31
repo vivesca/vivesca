@@ -165,3 +165,51 @@ def test_fetch_generic_error_exits(mock_fetch, capsys):
     assert exc_info.value.code == 1
     captured = capsys.readouterr()
     assert "playwright blew up" in captured.err
+
+
+# ── format_output unit tests ───────────────────────────────────────────
+
+
+def test_format_output_text():
+    """format_output returns text field by default."""
+    result = {"text": "Hello world", "title": "Test", "status": 200}
+    output = _mod["format_output"](result)
+    assert output == "Hello world"
+
+
+def test_format_output_missing_text():
+    """format_output returns empty string when text key missing."""
+    result = {"title": "Test", "status": 200}
+    output = _mod["format_output"](result)
+    assert output == ""
+
+
+def test_format_output_json():
+    """format_output with as_json=True returns indented JSON."""
+    result = {"text": "Hello", "title": "Test", "status": 200}
+    output = _mod["format_output"](result, as_json=True)
+    parsed = json.loads(output)
+    assert parsed == result
+
+
+def test_format_output_json_unicode():
+    """format_output preserves unicode characters in JSON output."""
+    result = {"text": "日本語テスト", "title": "中文标题"}
+    output = _mod["format_output"](result, as_json=True)
+    assert "日本語テスト" in output
+    assert "中文标题" in output
+
+
+# ── main return value tests ─────────────────────────────────────────────
+
+
+def test_main_returns_zero_on_success(mock_fetch):
+    """main() returns 0 (not via sys.exit) on successful fetch."""
+    code = main(["fetch", "https://example.com"])
+    assert code == 0
+
+
+def test_main_unknown_command():
+    """Unknown subcommand returns 1 without raising SystemExit."""
+    code = main(["unknown-command"])
+    assert code == 1
