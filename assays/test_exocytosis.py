@@ -200,6 +200,7 @@ class TestPublish:
 
 
 class TestMain:
+    @patch("sys.argv", ["exocytosis.py"])
     @patch("metabolon.organelles.golgi.publish")
     @patch("metabolon.organelles.golgi.new")
     @patch("metabolon.symbiont.transduce")
@@ -221,6 +222,7 @@ class TestMain:
         assert "Published" in msg
         assert fake_queue.read_text().startswith("- [x]")
 
+    @patch("sys.argv", ["exocytosis.py"])
     @patch("metabolon.organelles.secretory_vesicle.secrete_text")
     def test_empty_queue_notifies(self, mock_sec, fake_queue):
         fake_queue.write_text("")
@@ -228,6 +230,7 @@ class TestMain:
         mock_sec.assert_called_once()
         assert "empty" in mock_sec.call_args[0][0].lower()
 
+    @patch("sys.argv", ["exocytosis.py"])
     @patch("metabolon.symbiont.transduce")
     @patch("metabolon.organelles.secretory_vesicle.secrete_text")
     def test_judge_fail_notifies(
@@ -246,6 +249,7 @@ class TestMain:
         msgs = [c[0][0] for c in mock_sec.call_args_list]
         assert any("skipped" in m.lower() for m in msgs)
 
+    @patch("sys.argv", ["exocytosis.py"])
     @patch("metabolon.organelles.golgi.publish")
     @patch("metabolon.organelles.golgi.new")
     @patch("metabolon.symbiont.transduce")

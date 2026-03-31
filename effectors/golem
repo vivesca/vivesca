@@ -228,7 +228,7 @@ _run_golem() {
     "$(echo "$short_prompt" | tr '"' "'")" \
     "$(echo "${output: -200}" | tr '"' "'" | tr '\n' ' ')" \
     "$files_created" "$tests_passed" "$tests_failed" "$pytest_exit" >> "$GOLEM_LOG"
-  echo "$output"
+  $QUIET || echo "$output"
 }
 
 # _configure_provider: set _KEY, _URL, _OPUS, _SONNET, _HAIKU for given provider
