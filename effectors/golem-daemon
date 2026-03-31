@@ -93,10 +93,13 @@ def rotate_logs():
 
 def log(msg: str):
     """Append timestamped message to log file."""
-    LOGFILE.parent.mkdir(parents=True, exist_ok=True)
-    ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    with open(LOGFILE, "a") as f:
-        f.write(f"[{ts}] {msg}\n")
+    try:
+        LOGFILE.parent.mkdir(parents=True, exist_ok=True)
+        ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        with open(LOGFILE, "a") as f:
+            f.write(f"[{ts}] {msg}\n")
+    except OSError:
+        pass  # Don't crash daemon on log failure
 
 
 def auto_commit() -> str:
@@ -238,7 +241,10 @@ def mark_failed(line_num: int, result: str = "", exit_code: int = 1) -> dict:
             return {"retried": False}
         if line_num < 0:
             return {"retried": False}
-        lines = QUEUE_FILE.read_text().splitlines()
+        try:
+            lines = QUEUE_FILE.read_text().splitlines()
+        except (PermissionError, OSError):
+            return {"retried": False}
         if line_num >= len(lines):
             return {"retried": False}
         original = lines[line_num]
@@ -247,23 +253,27 @@ def mark_failed(line_num: int, result: str = "", exit_code: int = 1) -> dict:
             return {"retried": False}
         cmd_match = re.search(r'`([^`]+)`', original)
 
+        # Determine new line content
+        retried = False
         # Exit 2 = command not found / usage error — never retry
         if exit_code == 2 or not cmd_match:
             lines[line_num] = original.replace("- [ ] ", "- [!] ", 1)
-            QUEUE_FILE.write_text("\n".join(lines) + "\n")
-            return {"retried": False}
-
-        if '(retry)' not in cmd_match.group(1):
+        elif '(retry)' not in cmd_match.group(1):
             old_cmd = cmd_match.group(1)
             new_cmd = old_cmd + ' (retry)'
             lines[line_num] = original.replace(f'`{old_cmd}`', f'`{new_cmd}`', 1)
-            QUEUE_FILE.write_text("\n".join(lines) + "\n")
-            log(f"Re-queued (retry): {old_cmd[:60]}...")
-            return {"retried": True}
+            retried = True
         else:
             lines[line_num] = original.replace("- [ ] ", "- [!] ", 1)
+
+        try:
             QUEUE_FILE.write_text("\n".join(lines) + "\n")
+        except (PermissionError, OSError):
             return {"retried": False}
+
+        if retried:
+            log(f"Re-queued (retry): {cmd_match.group(1)[:60]}...")
+        return {"retried": retried}
 
 
 def _golem_env() -> dict:

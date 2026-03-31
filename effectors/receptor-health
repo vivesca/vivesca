@@ -1,310 +1,269 @@
 #!/usr/bin/env python3
 # /// script
 # requires-python = ">=3.11"
-# dependencies = ["pyyaml"]
 # ///
-"""
-Validate membrane/receptors/*/SKILL.md files.
+"""receptor-health — validate every membrane/receptors/*/SKILL.md and recipe.yaml.
 
-Checks: YAML parse, required frontmatter fields, description length,
-        recipe.yaml validity, referenced files, filename casing.
+Checks YAML parseability, required frontmatter fields, description length,
+body size, auxiliary files, and referenced-file existence. Exits 0 when
+all receptors pass, exits 1 with a report of broken ones.
 
 Usage:
-    receptor-health              # Check all receptors
-    receptor-health --json       # Output as JSON
-    receptor-health debridement  # Check specific receptor(s)
+    receptor-health              # scan all active receptors
+    receptor-health --json       # machine-readable output
+    receptor-health sporulation   # check one receptor
 """
 
-import argparse
+from __future__ import annotations
+
 import json
 import re
 import sys
-from dataclasses import dataclass, field
 from pathlib import Path
 
 import yaml
 
-RECEPTORS_DIR = Path(__file__).resolve().parents[1] / "membrane" / "receptors"
-MAX_DESCRIPTION_LEN = 1024
-REQUIRED_FRONTMATTER = {"name", "description"}
+GERMLINE = Path(__file__).resolve().parent.parent
+RECEPTORS = GERMLINE / "membrane" / "receptors"
+
+MAX_DESC_LEN = 1024
+MAX_BODY_LINES = 500
+ALLOWED_FILES = {"SKILL.md", "recipe.yaml"}
+ALLOWED_DIRS = {"scripts", "references", "agents"}
+
+# ---------------------------------------------------------------------------
+# Data classes
+# ---------------------------------------------------------------------------
+
+class Violation:
+    """Single check failure."""
+    __slots__ = ("receptor", "check", "detail")
+
+    def __init__(self, receptor: str, check: str, detail: str) -> None:
+        self.receptor = receptor
+        self.check = check
+        self.detail = detail
+
+    def __repr__(self) -> str:
+        return f"[{self.receptor}] {self.check}: {self.detail}"
+
+    def to_dict(self) -> dict:
+        return {"receptor": self.receptor, "check": self.check, "detail": self.detail}
 
 
-@dataclass
-class Issue:
-    receptor: str
-    severity: str  # "error", "warn"
-    check: str
-    detail: str
+# ---------------------------------------------------------------------------
+# SKILL.md checks
+# ---------------------------------------------------------------------------
 
+def parse_frontmatter(text: str) -> tuple[dict | None, str, list[str]]:
+    """Return (frontmatter_dict, body_text, errors)."""
+    errors: list[str] = []
+    if not text.startswith("---"):
+        return None, text, ["no opening --- frontmatter delimiter"]
 
-@dataclass
-class ReceptorReport:
-    receptor: str
-    ok: bool = True
-    issues: list[Issue] = field(default_factory=list)
+    # Find closing ---
+    close = text.find("\n---", 3)
+    if close == -1:
+        return None, text, ["no closing --- frontmatter delimiter"]
 
+    fm_raw = text[3:close]
+    body = text[close + 4:]
 
-def parse_frontmatter(text: str) -> tuple[dict | None, str]:
-    """Extract YAML frontmatter from markdown text.
-
-    Returns (parsed_dict, error_message). On success error_message is "".
-    """
-    match = re.match(r"^---\s*\n(.*?)\n---", text, re.DOTALL)
-    if not match:
-        return None, "no YAML frontmatter found"
-    raw = match.group(1)
     try:
-        parsed = yaml.safe_load(raw)
-    except yaml.YAMLError as e:
-        return None, f"YAML parse error: {e}"
-    if not isinstance(parsed, dict):
-        return None, "frontmatter is not a mapping"
-    return parsed, ""
+        fm = yaml.safe_load(fm_raw)
+    except yaml.YAMLError as exc:
+        return None, body, [f"YAML parse error: {exc}"]
+
+    if not isinstance(fm, dict):
+        return None, body, [f"frontmatter is {type(fm).__name__}, expected mapping"]
+
+    return fm, body, errors
 
 
-def check_frontmatter(name: str, fm: dict | None, report: ReceptorReport) -> None:
-    """Validate required frontmatter fields."""
-    if fm is None:
-        report.issues.append(Issue(name, "error", "frontmatter", "missing frontmatter"))
-        report.ok = False
-        return
-    for key in REQUIRED_FRONTMATTER:
-        if key not in fm or not fm[key]:
-            report.issues.append(
-                Issue(name, "error", "frontmatter", f"missing or empty '{key}'")
-            )
-            report.ok = False
-
-
-def check_description_length(
-    name: str, fm: dict | None, report: ReceptorReport
-) -> None:
-    """Check description is within length limits."""
-    if fm is None:
-        return
-    desc = fm.get("description", "")
-    if not desc:
-        return  # Already caught by frontmatter check
-    if len(desc) > MAX_DESCRIPTION_LEN:
-        report.issues.append(
-            Issue(
-                name,
-                "warn",
-                "description_length",
-                f"description is {len(desc)} chars (max {MAX_DESCRIPTION_LEN})",
-            )
-        )
-
-
-def check_recipe_yaml(
-    name: str, receptor_dir: Path, report: ReceptorReport
-) -> None:
-    """Validate recipe.yaml if it exists."""
-    recipe_path = receptor_dir / "recipe.yaml"
-    if not recipe_path.exists():
-        return
-    try:
-        with open(recipe_path) as f:
-            data = yaml.safe_load(f)
-        if not isinstance(data, dict):
-            report.issues.append(
-                Issue(name, "error", "recipe_yaml", "recipe.yaml is not a mapping")
-            )
-            report.ok = False
-            return
-        for req_key in ("name", "description", "instructions"):
-            if req_key not in data or not data[req_key]:
-                report.issues.append(
-                    Issue(
-                        name,
-                        "warn",
-                        "recipe_yaml",
-                        f"recipe.yaml missing or empty '{req_key}'",
-                    )
-                )
-    except yaml.YAMLError as e:
-        report.issues.append(
-            Issue(name, "error", "recipe_yaml", f"recipe.yaml parse error: {e}")
-        )
-        report.ok = False
-
-
-def check_referenced_files(
-    name: str, receptor_dir: Path, report: ReceptorReport
-) -> None:
-    """Check that referenced companion files exist."""
-    skill_path = receptor_dir / "SKILL.md"
-    recipe_path = receptor_dir / "recipe.yaml"
-
-    texts = []
-    if skill_path.exists():
-        texts.append(skill_path.read_text())
-    if recipe_path.exists():
-        texts.append(recipe_path.read_text())
-    combined = "\n".join(texts)
-
-    # Check references/ directory referenced but missing
-    if re.search(r"references/", combined):
-        ref_dir = receptor_dir / "references"
-        if not ref_dir.exists():
-            report.issues.append(
-                Issue(
-                    name,
-                    "warn",
-                    "referenced_files",
-                    f"references/ mentioned but {ref_dir} does not exist",
-                )
-            )
-
-    # Check relative markdown links in SKILL.md body
-    if skill_path.exists():
-        text = skill_path.read_text()
-        # Strip frontmatter first
-        body = re.sub(r"^---\s*\n.*?\n---", "", text, count=1, flags=re.DOTALL)
-        for match in re.finditer(r"\[[^\]]*\]\((\.\/[^)]+)\)", body):
-            ref = match.group(1)
-            ref_path = receptor_dir / ref
-            if not ref_path.exists():
-                report.issues.append(
-                    Issue(
-                        name,
-                        "warn",
-                        "referenced_files",
-                        f"linked file not found: {ref}",
-                    )
-                )
-
-
-def check_receptor(receptor_dir: Path) -> ReceptorReport:
-    """Run all checks on a single receptor directory."""
-    name = receptor_dir.name
-    report = ReceptorReport(receptor=name)
-
-    skill_path = receptor_dir / "SKILL.md"
-    lowercase = receptor_dir / "skill.md"
-
-    # Handle lowercase skill.md
-    if not skill_path.exists() and lowercase.exists():
-        report.issues.append(
-            Issue(
-                name,
-                "error",
-                "filename_case",
-                "found skill.md (lowercase) — should be SKILL.md",
-            )
-        )
-        report.ok = False
-        skill_path = lowercase
+def check_skill_md(skill_path: Path, receptor: str) -> list[Violation]:
+    """Validate a single SKILL.md. Returns list of violations."""
+    v: list[Violation] = []
 
     if not skill_path.exists():
-        report.issues.append(
-            Issue(name, "error", "skill_missing", "no SKILL.md found")
-        )
-        report.ok = False
-        check_recipe_yaml(name, receptor_dir, report)
-        return report
+        v.append(Violation(receptor, "SKILL.md", "file missing"))
+        return v
 
-    text = skill_path.read_text()
-    fm, fm_error = parse_frontmatter(text)
-    if fm_error:
-        report.issues.append(Issue(name, "error", "frontmatter", fm_error))
-        report.ok = False
+    text = skill_path.read_text(encoding="utf-8")
+    fm, body, fm_errors = parse_frontmatter(text)
 
-    check_frontmatter(name, fm, report)
-    check_description_length(name, fm, report)
-    check_recipe_yaml(name, receptor_dir, report)
-    check_referenced_files(name, receptor_dir, report)
+    for err in fm_errors:
+        v.append(Violation(receptor, "frontmatter", err))
 
-    return report
+    if fm is not None:
+        for field in ("name", "description"):
+            val = fm.get(field)
+            if not val or (isinstance(val, str) and not val.strip()):
+                v.append(Violation(receptor, "missing-field", f"{field} is empty or absent"))
+
+        desc = fm.get("description", "")
+        if isinstance(desc, str) and len(desc) > MAX_DESC_LEN:
+            v.append(Violation(receptor, "description-length",
+                               f"{len(desc)} chars (max {MAX_DESC_LEN})"))
+
+    # Body line count (lines after frontmatter)
+    body_lines = body.count("\n") + 1 if body else 0
+    if body_lines > MAX_BODY_LINES:
+        v.append(Violation(receptor, "body-size",
+                           f"{body_lines} lines (max {MAX_BODY_LINES})"))
+
+    return v
 
 
-def discover_receptors() -> list[Path]:
-    """Find all receptor directories under membrane/receptors/."""
-    if not RECEPTORS_DIR.exists():
-        return []
-    return sorted(p for p in RECEPTORS_DIR.iterdir() if p.is_dir())
+# ---------------------------------------------------------------------------
+# recipe.yaml checks
+# ---------------------------------------------------------------------------
+
+def check_recipe_yaml(recipe_path: Path, receptor: str) -> list[Violation]:
+    """Validate recipe.yaml. Returns list of violations."""
+    v: list[Violation] = []
+
+    if not recipe_path.exists():
+        # recipe.yaml is optional
+        return v
+
+    text = recipe_path.read_text(encoding="utf-8")
+    try:
+        data = yaml.safe_load(text)
+    except yaml.YAMLError as exc:
+        v.append(Violation(receptor, "recipe-yaml", f"parse error: {exc}"))
+        return v
+
+    if not isinstance(data, dict):
+        v.append(Violation(receptor, "recipe-yaml",
+                           f"root is {type(data).__name__}, expected mapping"))
+        return v
+
+    for field in ("name", "description"):
+        val = data.get(field)
+        if not val or (isinstance(val, str) and not val.strip()):
+            v.append(Violation(receptor, "recipe-missing-field",
+                               f"{field} is empty or absent in recipe.yaml"))
+
+    # Check referenced extensions URIs — local file paths only
+    extensions = data.get("extensions", [])
+    if isinstance(extensions, list):
+        for ext in extensions:
+            if not isinstance(ext, dict):
+                continue
+            uri = ext.get("uri", "")
+            if uri and not uri.startswith(("http://", "https://", "ws://", "wss://")):
+                ref = (recipe_path.parent / uri).resolve()
+                if not ref.exists():
+                    v.append(Violation(receptor, "reference-broken",
+                                       f"extension uri references missing: {uri}"))
+
+    # Check prompt field references to local paths
+    prompt = data.get("prompt", "")
+    if isinstance(prompt, str):
+        # Look for ~/ or relative path references
+        for match in re.finditer(r'[\s"\']([~/][\w./\-]+)', prompt):
+            ref_str = match.group(1)
+            if ref_str.startswith("~/"):
+                ref = Path(ref_str).expanduser()
+            else:
+                ref = recipe_path.parent / ref_str
+            if ref.exists():
+                continue
+            # Only flag if it looks like a deliberate file reference
+            if ref_str.endswith((".py", ".sh", ".md", ".yaml", ".json")):
+                v.append(Violation(receptor, "reference-broken",
+                                   f"prompt references missing: {ref_str}"))
+
+    return v
 
 
-def format_table(reports: list[ReceptorReport]) -> str:
-    """Format reports as a human-readable table."""
-    lines = []
-    lines.append(f"{'Receptor':<24} {'Status':<8} {'Issues'}")
-    lines.append("-" * 60)
-    for r in reports:
-        status = "OK" if r.ok else "BROKEN"
-        issue_summary = "; ".join(
-            f"{i.check}: {i.detail}" for i in r.issues
-        ) or "-"
-        lines.append(f"{r.receptor:<24} {status:<8} {issue_summary}")
-    broken = sum(1 for r in reports if not r.ok)
-    lines.append("-" * 60)
-    lines.append(f"Total: {len(reports)} receptors, {broken} broken")
+# ---------------------------------------------------------------------------
+# Directory structure checks
+# ---------------------------------------------------------------------------
+
+def check_directory(receptor_dir: Path, receptor: str) -> list[Violation]:
+    """Check for disallowed auxiliary files in receptor directory."""
+    v: list[Violation] = []
+
+    for child in receptor_dir.iterdir():
+        if child.name.startswith("."):
+            continue
+        if child.is_file() and child.name not in ALLOWED_FILES:
+            v.append(Violation(receptor, "auxiliary-file",
+                               f"unexpected file: {child.name}"))
+        elif child.is_dir() and child.name not in ALLOWED_DIRS:
+            v.append(Violation(receptor, "auxiliary-dir",
+                               f"unexpected directory: {child.name}"))
+
+    return v
+
+
+# ---------------------------------------------------------------------------
+# Main scan
+# ---------------------------------------------------------------------------
+
+def scan_receptors(names: list[str] | None = None) -> list[Violation]:
+    """Scan all (or named) receptors. Returns all violations."""
+    violations: list[Violation] = []
+
+    if not RECEPTORS.is_dir():
+        print(f"ERROR: {RECEPTORS} is not a directory", file=sys.stderr)
+        return [Violation("(root)", "config", f"{RECEPTORS} not found")]
+
+    for child in sorted(RECEPTORS.iterdir()):
+        if child.name.startswith("."):
+            continue
+        if not child.is_dir():
+            continue
+        if names and child.name not in names:
+            continue
+
+        receptor = child.name
+        skill_path = child / "SKILL.md"
+        recipe_path = child / "recipe.yaml"
+
+        violations.extend(check_skill_md(skill_path, receptor))
+        violations.extend(check_recipe_yaml(recipe_path, receptor))
+        violations.extend(check_directory(child, receptor))
+
+    return violations
+
+
+def format_report(violations: list[Violation]) -> str:
+    """Format violations into a human-readable report."""
+    if not violations:
+        return "All receptors healthy — no violations found."
+
+    by_receptor: dict[str, list[Violation]] = {}
+    for v in violations:
+        by_receptor.setdefault(v.receptor, []).append(v)
+
+    lines: list[str] = [f"Receptor Health Report — {len(violations)} violation(s)"]
+    lines.append("=" * 50)
+
+    for receptor, viols in sorted(by_receptor.items()):
+        lines.append(f"\n## {receptor} ({len(viols)} issue(s))")
+        for v in viols:
+            lines.append(f"  [{v.check}] {v.detail}")
+
+    lines.append(f"\nTotal: {len(violations)} violation(s) across {len(by_receptor)} receptor(s)")
     return "\n".join(lines)
 
 
-def format_json(reports: list[ReceptorReport]) -> str:
-    """Format reports as JSON."""
-    data = []
-    for r in reports:
-        data.append(
-            {
-                "receptor": r.receptor,
-                "ok": r.ok,
-                "issues": [
-                    {
-                        "severity": i.severity,
-                        "check": i.check,
-                        "detail": i.detail,
-                    }
-                    for i in r.issues
-                ],
-            }
-        )
-    return json.dumps(data, indent=2)
+def main() -> None:
+    args = sys.argv[1:]
+    use_json = "--json" in args
+    names = [a for a in args if not a.startswith("-")]
 
+    violations = scan_receptors(names or None)
 
-def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(
-        description="Validate membrane/receptors/*/SKILL.md files."
-    )
-    parser.add_argument(
-        "receptors",
-        nargs="*",
-        help="Specific receptor name(s) to check (default: all)",
-    )
-    parser.add_argument(
-        "--json",
-        action="store_true",
-        help="Output as JSON",
-    )
-    args = parser.parse_args(argv)
-
-    all_dirs = discover_receptors()
-    if not all_dirs:
-        print("No receptor directories found.", file=sys.stderr)
-        return 1
-
-    if args.receptors:
-        name_map = {d.name: d for d in all_dirs}
-        dirs = []
-        for r in args.receptors:
-            if r in name_map:
-                dirs.append(name_map[r])
-            else:
-                print(f"Warning: receptor '{r}' not found", file=sys.stderr)
+    if use_json:
+        print(json.dumps([v.to_dict() for v in violations], indent=2))
     else:
-        dirs = all_dirs
+        print(format_report(violations))
 
-    reports = [check_receptor(d) for d in dirs]
-
-    if args.json:
-        print(format_json(reports))
-    else:
-        print(format_table(reports))
-
-    broken = sum(1 for r in reports if not r.ok)
-    return 1 if broken > 0 else 0
+    sys.exit(1 if violations else 0)
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    main()
