@@ -48,7 +48,7 @@ def main():
     parser = argparse.ArgumentParser(
         description="Chromatin Decay Report — find orphan and stale notes."
     )
-    parser.parse_args([])
+    parser.parse_args()
 
     print("Chromatin Decay Report")
     print("=" * 50)
