@@ -292,7 +292,7 @@ def export_photos(db: PhotosDB, uuids: list[str]) -> None:
 
 
 def main() -> None:
-    if len(sys.argv) < 2:
+    if len(sys.argv) < 2 or sys.argv[1] in ("-h", "--help"):
         print(__doc__)
         return
 
