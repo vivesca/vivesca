@@ -426,3 +426,182 @@ class TestMainExec:
             sys.argv = saved
 
         assert (assays / "test_alpha.py").read_text() == "original content"
+
+    def test_create_stubs_nothing_when_all_tested(self, tmp_path):
+        """--create-stubs creates zero files when coverage is full."""
+        metabolon = tmp_path / "metabolon"
+        metabolon.mkdir()
+        (metabolon / "alpha.py").write_text("pass")
+        assays = tmp_path / "assays"
+        assays.mkdir()
+        (assays / "test_alpha.py").write_text("pass")
+
+        ns = self._make_ns(tmp_path)
+        saved = sys.argv
+        sys.argv = ["coverage-map", "--create-stubs"]
+        try:
+            rc = ns["main"]()
+        finally:
+            sys.argv = saved
+
+        assert rc == 0
+        assert list(assays.iterdir()) == [assays / "test_alpha.py"]
+
+    def test_create_stubs_makes_assays_dir(self, tmp_path):
+        """--create-stubs creates the assays/ directory if missing."""
+        metabolon = tmp_path / "metabolon"
+        metabolon.mkdir()
+        (metabolon / "orphan.py").write_text("pass")
+        # No assays/ dir at all
+
+        ns = self._make_ns(tmp_path)
+        saved = sys.argv
+        sys.argv = ["coverage-map", "--create-stubs"]
+        try:
+            ns["main"]()
+        finally:
+            sys.argv = saved
+
+        assays = tmp_path / "assays"
+        assert assays.is_dir()
+        assert (assays / "test_orphan.py").exists()
+
+    def test_json_zero_modules(self, tmp_path, capsys):
+        """--json with no modules returns zeros."""
+        metabolon = tmp_path / "metabolon"
+        metabolon.mkdir()
+        assays = tmp_path / "assays"
+        assays.mkdir()
+
+        ns = self._make_ns(tmp_path)
+        saved = sys.argv
+        sys.argv = ["coverage-map", "--json"]
+        try:
+            rc = ns["main"]()
+        finally:
+            sys.argv = saved
+
+        assert rc == 0
+        data = json.loads(capsys.readouterr().out)
+        assert data["total"] == 0
+        assert data["tested"] == 0
+        assert data["untested_count"] == 0
+        assert data["coverage_pct"] == 0
+        assert data["untested"] == []
+
+    def test_json_with_untested(self, tmp_path, capsys):
+        """--json includes untested module list."""
+        metabolon = tmp_path / "metabolon"
+        metabolon.mkdir()
+        (metabolon / "alpha.py").write_text("pass")
+        (metabolon / "beta.py").write_text("pass")
+        assays = tmp_path / "assays"
+        assays.mkdir()
+        (assays / "test_alpha.py").write_text("pass")
+
+        ns = self._make_ns(tmp_path)
+        saved = sys.argv
+        sys.argv = ["coverage-map", "--json"]
+        try:
+            ns["main"]()
+        finally:
+            sys.argv = saved
+
+        data = json.loads(capsys.readouterr().out)
+        assert data["total"] == 2
+        assert data["tested"] == 1
+        assert data["untested_count"] == 1
+        assert "beta" in data["untested"]
+        assert data["coverage_pct"] == 50.0
+
+
+# ── additional unit tests ──────────────────────────────────────────────
+
+
+class TestModuleToTestNameDeep:
+    """Edge cases for module_to_test_name with deep nesting."""
+
+    def test_four_level_path(self):
+        """4+ level path still uses last two parts."""
+        result = module_to_test_name("a/b/c/d")
+        assert result == "test_c_d.py"
+
+    def test_nested_underscore_prefix_multiple(self):
+        """Parent with multiple underscores uses last segment."""
+        result = module_to_test_name("organelles/foo_bar_baz/cli")
+        assert result == "test_baz_cli.py"
+
+
+class TestPrintReportDetailed:
+    """Detailed tests for print_report output formatting."""
+
+    def test_untested_grouped_by_package(self, capsys):
+        """Untested modules are grouped under package headers."""
+        modules = ["enzymes/sortase", "enzymes/catalase", "lysin/cli"]
+        test_files: set[str] = set()
+        coverage, untested = check_coverage(modules, test_files)
+        print_report(modules, test_files, coverage, untested)
+        out = capsys.readouterr().out
+        assert "[enzymes]" in out
+        assert "[lysin]" in out
+        assert "UNTESTED MODULES" in out
+
+    def test_tested_modules_shown_with_checkmark(self, capsys):
+        """Tested modules are listed with ✓ marks."""
+        modules = ["alpha"]
+        test_files = {"test_alpha.py"}
+        coverage, untested = check_coverage(modules, test_files)
+        print_report(modules, test_files, coverage, untested)
+        out = capsys.readouterr().out
+        assert "✓ alpha" in out
+        assert "TESTED MODULES" in out
+
+    def test_no_tested_section_when_none(self, capsys):
+        """No '✓' checkmark lines when everything is untested."""
+        modules = ["orphan"]
+        test_files: set[str] = set()
+        coverage, untested = check_coverage(modules, test_files)
+        print_report(modules, test_files, coverage, untested)
+        out = capsys.readouterr().out
+        assert "✓" not in out
+
+    def test_summary_line(self, capsys):
+        """Summary line at the end shows count and percentage."""
+        modules = ["alpha", "beta"]
+        test_files = {"test_alpha.py"}
+        coverage, untested = check_coverage(modules, test_files)
+        print_report(modules, test_files, coverage, untested)
+        out = capsys.readouterr().out
+        assert "SUMMARY: 1/2 modules tested (50.0%)" in out
+
+
+class TestFindModulesEdgeCases:
+    """Edge cases for find_modules."""
+
+    def test_nested_test_dir_skipped(self, tmp_path):
+        """Test dirs nested inside packages are skipped."""
+        pkg = tmp_path / "pkg"
+        pkg.mkdir()
+        tests = pkg / "tests"
+        tests.mkdir()
+        (tests / "test_inner.py").write_text("")
+        (pkg / "real.py").write_text("")
+        result = find_modules(tmp_path)
+        assert "pkg/real" in result
+        assert all("tests/" not in m for m in result)
+
+    def test_non_py_files_ignored(self, tmp_path):
+        """Non-.py files are not included."""
+        (tmp_path / "readme.md").write_text("")
+        (tmp_path / "data.json").write_text("")
+        (tmp_path / "real.py").write_text("")
+        result = find_modules(tmp_path)
+        assert result == ["real"]
+
+    def test_deeply_nested_module(self, tmp_path):
+        """Module nested 3 levels deep is found."""
+        deep = tmp_path / "a" / "b" / "c"
+        deep.mkdir(parents=True)
+        (deep / "core.py").write_text("")
+        result = find_modules(tmp_path)
+        assert "a/b/c/core" in result
