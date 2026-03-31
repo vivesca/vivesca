@@ -16,7 +16,7 @@ epistemics: [monitor, evaluate]
 
 Flow cytometry sorts cells into populations by measurable properties. This skill sorts organism subsystems into autonomy populations: what self-regulates, what waits for instructions, what requires human judgment by design.
 
-**Sibling structural audits:** `/karyotyping` (full component layout — what's missing/duplicated?) · `/histology` (client workshop format). For diagnostics: `/auscultation` → `/palpation` → `/integrin`.
+**Sibling structural audits:** `/histology` (client workshop format). For diagnostics: `/auscultation` → `/palpation` → `/integrin`.
 
 ## The Audit
 
@@ -47,7 +47,7 @@ INTENTIONALLY GATED (human judgment required by design)
 
 Report the ratio: `X% self-governing, Y% needs mayor, Z% intentionally gated`
 
-Compare to prior audit if available (check `~/epigenome/chromatin/` for previous cytometry results).
+Compare to prior audit if available (check for previous cytometry results in session history).
 
 ### 4. DIAGNOSE — Find the actionable gaps
 
