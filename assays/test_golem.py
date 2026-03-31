@@ -625,7 +625,11 @@ class TestReviewerRun:
 
     def test_run_timeout(self):
         ns = _load("golem-reviewer")
-        code, _ = ns.run("sleep 10", cwd="/tmp")
+        # The reviewer's run() has a 120s timeout, so mock subprocess.TimeoutExpired
+        with patch.object(ns, "subprocess") as mock_sp:
+            mock_sp.TimeoutExpired = subprocess.TimeoutExpired
+            mock_sp.run.side_effect = subprocess.TimeoutExpired(cmd="sleep", timeout=0.1)
+            code, _ = ns.run("sleep 999", cwd="/tmp")
         assert code == 124
 
 
