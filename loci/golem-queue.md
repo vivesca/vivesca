@@ -156,7 +156,7 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 - [ ] `golem --provider zhipu --max-turns 30 "Read assays/test_pinocytosis.py (12 failures). Run uv run pytest assays/test_pinocytosis.py -q --tb=short. Read the source. Fix failures. Run pytest until green."`
 - [x] `golem --provider volcano --max-turns 30 "Read assays/test_golem_summary.py (11 failures). Run uv run pytest assays/test_golem_summary.py -q --tb=short. Read effectors/golem. Fix failures. Run pytest until green."`
 - [ ] `golem --provider zhipu --max-turns 30 "Read assays/test_generate_solutions_index.py (11 failures). Run uv run pytest assays/test_generate_solutions_index.py -q --tb=short. Read the source. Fix failures. Run pytest until green."`
-- [ ] `golem --provider infini --max-turns 30 "Read assays/test_chromatin_decay_report.py (7 failures). Run uv run pytest assays/test_chromatin_decay_report.py -q --tb=short. Read the source. Fix failures. Run pytest until green."`
+- [ ] `golem --provider infini --max-turns 30 "Read assays/test_chromatin_decay_report.py (7 failures). Run uv run pytest assays/test_chromatin_decay_report.py -q --tb=short. Read the source. Fix failures. Run pytest until green." (retry)`
 
 #### Fix operon — remaining failures (batch smaller files)
 - [ ] `golem --provider zhipu --max-turns 30 "Fix test failures in: assays/test_search_guard.py (5), assays/test_scaffold_epigenome.py (4), assays/test_phagocytosis.py (4). For each: run pytest on the file, read source, fix, rerun. Use Path.home() for all paths."`
@@ -167,25 +167,25 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 - [ ] `golem --provider zhipu --max-turns 20 "Run: uv run pytest --co -q 2>&1 | grep ERROR. For each collection error: read the test file, fix the import/path/syntax issue. Common fix: replace /Users/terry/ with Path.home(). Replace import <effector> with exec(open(path).read()). Run pytest --co again to verify 0 errors."`
 
 #### Build — golem-health effector (provider liveness check)
-- [ ] `golem --provider infini --max-turns 40 "Create effectors/golem-health as a Python script. For each provider (zhipu, infini, volcano): source ~/.env.fly, then run a minimal golem invocation (golem --provider X --max-turns 1 'Say hello'). Measure: exit code, output presence, latency. Print a table: provider | status | latency | model. Usage: golem-health [--provider X]. Write assays/test_golem_health.py with mocked subprocess tests. Run pytest. Fix failures."`
+- [ ] `golem --provider infini --max-turns 40 "Create effectors/golem-health as a Python script. For each provider (zhipu, infini, volcano): source ~/.env.fly, then run a minimal golem invocation (golem --provider X --max-turns 1 'Say hello'). Measure: exit code, output presence, latency. Print a table: provider | status | latency | model. Usage: golem-health [--provider X]. Write assays/test_golem_health.py with mocked subprocess tests. Run pytest. Fix failures." (retry)`
 
 #### Build — daemon log rotation
 - [ ] `golem --provider zhipu --max-turns 30 "Read effectors/golem-daemon. Add a rotate_logs() function called at daemon start. If golem-daemon.log > 5MB, rename to golem-daemon.log.1 (overwrite old .1). Also rotate golem.jsonl the same way. Add to existing daemon start sequence. Write tests in assays/test_golem_daemon.py (append to existing). Run pytest on the file. Fix failures."`
 
 #### Build — daemon disk space check
-- [ ] `golem --provider infini --max-turns 30 "Read effectors/golem-daemon. Add a check_disk_space() function called every 10 poll cycles in daemon_loop. Use shutil.disk_usage(Path.home()). If free space < 1GB, log a WARNING and pause task dispatch (skip the 'Fill available slots' section for this cycle). Resume when space recovered. Add tests. Run pytest. Fix failures."`
+- [ ] `golem --provider infini --max-turns 30 "Read effectors/golem-daemon. Add a check_disk_space() function called every 10 poll cycles in daemon_loop. Use shutil.disk_usage(Path.home()). If free space < 1GB, log a WARNING and pause task dispatch (skip the 'Fill available slots' section for this cycle). Resume when space recovered. Add tests. Run pytest. Fix failures." (retry)`
 
 #### Build — daemon auto-commit
 - [ ] `golem --provider zhipu --max-turns 30 "Read effectors/golem-daemon. Add auto_commit() called after every 5 successful task completions. Runs: git -C ~/germline add assays/ effectors/ metabolon/ && git commit -m 'golem: daemon auto-commit' --allow-empty-message. Only commit if there are staged changes. Log the commit hash. Add tests (mock subprocess). Run pytest. Fix failures."`
 
 #### Build — golem stdin safety
-- [ ] `golem --provider infini --max-turns 30 "Read effectors/golem. Verify that all subprocess.run / os.system calls redirect stdin from /dev/null (stdin=subprocess.DEVNULL or < /dev/null). This prevents hangs when a child process tries to read stdin. Add stdin=subprocess.DEVNULL to any subprocess.run call that lacks it. Add a test that verifies no subprocess.run call in golem is missing stdin redirect. Run pytest."`
+- [ ] `golem --provider infini --max-turns 30 "Read effectors/golem. Verify that all subprocess.run / os.system calls redirect stdin from /dev/null (stdin=subprocess.DEVNULL or < /dev/null). This prevents hangs when a child process tries to read stdin. Add stdin=subprocess.DEVNULL to any subprocess.run call that lacks it. Add a test that verifies no subprocess.run call in golem is missing stdin redirect. Run pytest." (retry)`
 
 #### Build — golem output validator
 - [ ] `golem --provider zhipu --max-turns 40 "Create effectors/golem-validate as a Python script. Takes a list of .py files as args. For each: (1) ast.parse — catch SyntaxError, (2) check for /Users/terry/ hardcoded paths, (3) check for TODO/FIXME/stub, (4) if test file: check it can be collected by pytest --co. Print: file | status | issues. Exit 0 if all pass, 1 if any fail. Write assays/test_golem_validate.py. Run pytest. Fix failures."`
 
 #### Enhance — golem summary improvements
-- [ ] `golem --provider infini --max-turns 30 "Read effectors/golem. Find the summary subcommand. Enhance it to also show: (1) retry count vs first-attempt success rate, (2) average duration per provider, (3) tasks that timed out. Read ~/.local/share/vivesca/golem.jsonl for the data. Write/update assays/test_golem_summary.py. Run pytest. Fix failures."`
+- [ ] `golem --provider infini --max-turns 30 "Read effectors/golem. Find the summary subcommand. Enhance it to also show: (1) retry count vs first-attempt success rate, (2) average duration per provider, (3) tasks that timed out. Read ~/.local/share/vivesca/golem.jsonl for the data. Write/update assays/test_golem_summary.py. Run pytest. Fix failures." (retry)`
 
 
 ### Infra wave 2 — Gemmule/Golem/Daemon hardening (2026-03-31 late)
@@ -380,6 +380,33 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 - [ ] `golem --provider zhipu --max-turns 30 "Scan for files > 1000 lines in metabolon/. For each, count functions. Report to loci/copia/complexity-audit.md."`
 - [ ] `golem --provider infini --max-turns 30 "Find all .py files that use os.path instead of pathlib. In metabolon/ only: migrate to pathlib where straightforward. Commit."`
 - [ ] `golem --provider volcano --max-turns 30 "Check all assays/test_*.py for proper cleanup (temp files, mock patches). Add missing cleanup. Commit."`
+
+
+### Browser operon — powerful Playwright-based browser tool
+
+#### Build — cookie sync from Mac Chrome
+- [ ] `golem --provider zhipu --max-turns 40 "Create effectors/cookie-sync as Python. Exports cookies from Mac Chrome's Cookies SQLite DB (~/Library/Application Support/Google/Chrome/Default/Cookies) to a JSON file at ~/.local/share/vivesca/cookies.json. Handles Chrome's encrypted cookies on macOS using the keychain (security find-generic-password). Usage: cookie-sync export [--profile Default] [--domain example.com]. Also: cookie-sync import <cookies.json> — loads cookies into a Playwright browser context. Write assays/test_cookie_sync.py with mocked Chrome DB. Run uv run pytest. Fix failures."`
+
+#### Build — core Playwright browser engine
+- [ ] `golem --provider infini --max-turns 50 "Create metabolon/organelles/browser.py. A Playwright-based browser engine with these methods: (1) fetch(url) — navigate, wait for JS, return clean text + HTML, (2) screenshot(url, path) — full page screenshot, (3) interact(url, actions) — click, type, scroll via action list, (4) extract(url, selector) — extract specific elements, (5) pdf(url, path) — save page as PDF. All methods accept optional cookies_file for authenticated sessions. Use playwright.sync_api. Headless Chromium. Stealth: set realistic user-agent, viewport, disable webdriver flag. Write assays/test_browser.py — mock Playwright for unit tests, plus 1 live test against httpbin.org. Run uv run pytest."`
+
+#### Build — browser MCP tool (vivesca integration)
+- [ ] `golem --provider volcano --max-turns 40 "Create metabolon/enzymes/browser.py. An MCP tool wrapping metabolon/organelles/browser.py. Tool name: 'navigator' (replace existing). Actions: fetch|screenshot|interact|extract|pdf. Parameters: url (required), action (default: fetch), selector (optional), actions_json (optional for interact), cookies_file (optional), wait_ms (optional). Returns: BrowserResult with success, content, error. Register via @tool decorator with fastmcp. Write assays/test_browser_enzyme.py. Run uv run pytest."`
+
+#### Build — stealth + anti-detection
+- [ ] `golem --provider zhipu --max-turns 30 "Create metabolon/organelles/browser_stealth.py. Functions to make Playwright undetectable: (1) patch_navigator — override navigator.webdriver, (2) set_realistic_headers — rotate user-agents from a list of 20 real Chrome UAs, (3) human_delay — random delays between actions (0.5-2s), (4) stealth_context — create a Playwright context with all patches applied. Import and use in browser.py's methods. Write assays/test_browser_stealth.py. Run uv run pytest."`
+
+#### Build — cookie bridge (Mac to gemmule via Tailscale)
+- [ ] `golem --provider infini --max-turns 35 "Create effectors/cookie-bridge as Python. Connects to Mac via SSH (host 'imac' in SSH config) and runs: sqlite3 to export Chrome cookies for specified domains. Transfers cookie JSON to gemmule. Usage: cookie-bridge sync [--domains linkedin.com,google.com]. Stores at ~/.local/share/vivesca/cookies/<domain>.json. Write assays/test_cookie_bridge.py with mocked SSH. Run uv run pytest."`
+
+#### Build — authenticated browsing integration test
+- [ ] `golem --provider volcano --max-turns 30 "Create assays/test_browser_integration.py. Integration tests for the browser stack: (1) test_fetch_public — fetch httpbin.org, verify JSON content, (2) test_screenshot — screenshot httpbin.org, verify PNG exists, (3) test_extract — extract specific element from a known page, (4) test_js_rendering — fetch a JS-heavy page (e.g., httpbin.org/anything), verify dynamic content rendered, (5) test_stealth — check that navigator.webdriver is not exposed. Run uv run pytest assays/test_browser_integration.py."`
+
+#### Build — browser CLI effector
+- [ ] `golem --provider zhipu --max-turns 30 "Create effectors/browser as Python. CLI wrapper around metabolon/organelles/browser.py. Usage: browser fetch <url> [--cookies <file>] [--selector <css>] [--screenshot <path>] [--pdf <path>] [--wait <ms>]. Outputs clean text to stdout. --json for structured output. Write assays/test_browser_effector.py. Run uv run pytest."`
+
+#### Build — LinkedIn authenticated scraper
+- [ ] `golem --provider infini --max-turns 40 "Create effectors/linkedin-browser as Python. Uses the browser engine + cookie bridge to access LinkedIn while logged in. Actions: (1) profile <url> — extract profile data (name, headline, experience, education), (2) feed — extract recent feed posts, (3) search <query> — search people/companies. Requires cookies synced via cookie-bridge. Outputs structured JSON. Write assays/test_linkedin_browser.py with mocked browser. Run uv run pytest."`
 
 ## Done (2026-03-31)
 

@@ -25,6 +25,7 @@ dependencies = [
     "requests>=2.31",
     "trafilatura>=1.9",
     "typer>=0.9",
+    "playwright>=1.58.0",
 ]
 
 [tool.uv.sources]
