@@ -6,10 +6,10 @@ echo "=== $(date) ==="
 
 # Fetch X personalized feed into lustro cache
 echo "Fetching X feed..."
-python3 /Users/terry/reticulum/bin/x-feed-to-lustro 2>&1 || echo "X feed fetch failed (non-fatal)"
+python3 "${HOME}/reticulum/bin/x-feed-to-lustro" 2>&1 || echo "X feed fetch failed (non-fatal)"
 
 # Run transduction daily extraction
 echo "Running transduction daily..."
-/Users/terry/.local/bin/uv run --project /Users/terry/code/transduction transduction --period daily 2>&1
+uv run --project "${HOME}/code/transduction" transduction --period daily 2>&1
 
 echo "Done."

@@ -31,11 +31,12 @@ def is_protected(path: str) -> bool:
     return False
 
 def main():
-    if len(sys.argv) < 2:
-        print("Usage: safe_rm.py <path> [<path2> ...]")
-        sys.exit(1)
-
-    paths = sys.argv[1:]
+    parser = argparse.ArgumentParser(
+        description="Wrapper for rm -rf that blocks deletion of protected paths."
+    )
+    parser.add_argument("paths", nargs="+", metavar="path", help="Path(s) to delete")
+    args = parser.parse_args()
+    paths = args.paths
 
     for path in paths:
         if is_protected(path):

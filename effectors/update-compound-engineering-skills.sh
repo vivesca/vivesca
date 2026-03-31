@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-SCRIPT_DIR="/Users/terry/.codex/skills/.system/skill-installer/scripts"
+SCRIPT_DIR="${HOME}/.codex/skills/.system/skill-installer/scripts"
 INSTALLER="${SCRIPT_DIR}/install-skill-from-github.py"
 
 SKILLS=(
@@ -22,9 +22,9 @@ SKILLS=(
 
 REPO="EveryInc/compound-engineering-plugin"
 BASE_PATH="plugins/compound-engineering/skills"
-CODEX_SKILLS_DIR="/Users/terry/.codex/skills"
+CODEX_SKILLS_DIR="${HOME}/.codex/skills"
 
-BACKUP_DIR="/Users/terry/.codex/skills-backup/compound-engineering-$(date +%Y%m%d-%H%M%S)"
+BACKUP_DIR="${HOME}/.codex/skills-backup/compound-engineering-$(date +%Y%m%d-%H%M%S)"
 mkdir -p "${BACKUP_DIR}"
 
 restore_backup() {
