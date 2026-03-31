@@ -1,0 +1,193 @@
+#!/usr/bin/env python3
+"""skill-search — Search SKILL.md files by keyword.
+
+Searches YAML frontmatter fields (name, description, triggers) and
+body text across all membrane/receptors/*/SKILL.md files. Returns
+matching skills ranked by relevance (name hit > trigger hit > body hit).
+
+Usage:
+    skill-search <keyword> [keyword ...]
+    skill-search --json <keyword> [keyword ...]
+    skill-search --triggers <keyword>     # search triggers only
+    skill-search --all                    # include .archive skills
+"""
+from __future__ import annotations
+
+import json
+import re
+import sys
+from pathlib import Path
+
+RECEPTORS_DIR = Path(__file__).parent.parent / "membrane" / "receptors"
+FRONTMATTER_RE = re.compile(r"^---\s*\n(.*?)\n---\s*\n", re.DOTALL)
+
+
+def find_skill_files(include_archive: bool = False) -> list[Path]:
+    """Return all SKILL.md paths, sorted alphabetically."""
+    if not RECEPTORS_DIR.exists():
+        return []
+    files = []
+    for d in RECEPTORS_DIR.iterdir():
+        if not d.is_dir():
+            continue
+        if d.name.startswith(".") and not include_archive:
+            continue
+        if d.name == ".archive" and not include_archive:
+            continue
+        if d.name == ".archive" and include_archive:
+            for sub in sorted(d.iterdir()):
+                if sub.is_dir() and not sub.name.startswith("."):
+                    skill = sub / "SKILL.md"
+                    if skill.exists():
+                        files.append(skill)
+            continue
+        skill = d / "SKILL.md"
+        if skill.exists():
+            files.append(skill)
+    return sorted(files)
+
+
+def parse_frontmatter(content: str) -> dict:
+    """Parse YAML frontmatter, return dict (empty on failure)."""
+    match = FRONTMATTER_RE.match(content)
+    if not match:
+        return {}
+    try:
+        import yaml
+        data = yaml.safe_load(match.group(1))
+        return data if isinstance(data, dict) else {}
+    except Exception:
+        return {}
+
+
+def get_body(content: str) -> str:
+    """Return the body text (everything after frontmatter)."""
+    match = FRONTMATTER_RE.match(content)
+    if match:
+        return content[match.end():]
+    return content
+
+
+def search_skills(
+    keywords: list[str],
+    *,
+    triggers_only: bool = False,
+    include_archive: bool = False,
+) -> list[dict]:
+    """Search SKILL.md files and return ranked matches."""
+    results: list[dict] = []
+
+    for skill_path in find_skill_files(include_archive):
+        content = skill_path.read_text(encoding="utf-8")
+        fm = parse_frontmatter(content)
+        body = get_body(content) if not triggers_only else ""
+
+        name = fm.get("name", skill_path.parent.name)
+        description = fm.get("description", "")
+        triggers = fm.get("triggers", [])
+        if isinstance(triggers, str):
+            triggers = [triggers]
+
+        # Flatten triggers into a single searchable string
+        triggers_str = " ".join(str(t) for t in triggers)
+
+        # Build searchable text pools
+        # Scoring: name match = 3pts, trigger match = 2pts, description match = 1pt, body = 0.5pt
+        score = 0.0
+        matched_fields: list[str] = []
+
+        for kw in keywords:
+            kw_lower = kw.lower()
+
+            if kw_lower in name.lower():
+                score += 3
+                if "name" not in matched_fields:
+                    matched_fields.append("name")
+
+            if any(kw_lower in str(t).lower() for t in triggers):
+                score += 2
+                if "triggers" not in matched_fields:
+                    matched_fields.append("triggers")
+
+            if kw_lower in description.lower():
+                score += 1
+                if "description" not in matched_fields:
+                    matched_fields.append("description")
+
+            if not triggers_only and kw_lower in body.lower():
+                score += 0.5
+                if "body" not in matched_fields:
+                    matched_fields.append("body")
+
+        if score > 0:
+            results.append({
+                "name": name,
+                "description": description,
+                "triggers": triggers,
+                "path": str(skill_path),
+                "score": score,
+                "matched_fields": matched_fields,
+            })
+
+    results.sort(key=lambda r: r["score"], reverse=True)
+    return results
+
+
+def format_results(results: list[dict]) -> str:
+    """Format search results as human-readable output."""
+    if not results:
+        return "No matching skills found."
+
+    lines = []
+    for i, r in enumerate(results, 1):
+        fields = ", ".join(r["matched_fields"])
+        triggers = ", ".join(str(t) for t in r["triggers"]) if r["triggers"] else "—"
+        lines.append(f"{i}. {r['name']}  ({fields})")
+        lines.append(f"   {r['description']}")
+        lines.append(f"   triggers: {triggers}")
+        if len(results) > 1:
+            lines.append("")
+    return "\n".join(lines).rstrip()
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = list(argv or sys.argv[1:])
+
+    if not args or "-h" in args or "--help" in args:
+        print(__doc__)
+        return 0
+
+    use_json = False
+    triggers_only = False
+    include_archive = False
+
+    if "--json" in args:
+        use_json = True
+        args.remove("--json")
+    if "--triggers" in args:
+        triggers_only = True
+        args.remove("--triggers")
+    if "--all" in args:
+        include_archive = True
+        args.remove("--all")
+
+    if not args:
+        print("Error: no keywords provided", file=sys.stderr)
+        return 1
+
+    results = search_skills(
+        args,
+        triggers_only=triggers_only,
+        include_archive=include_archive,
+    )
+
+    if use_json:
+        print(json.dumps(results, indent=2))
+    else:
+        print(format_results(results))
+
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

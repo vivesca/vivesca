@@ -1,253 +1,202 @@
 #!/usr/bin/env python3
-# /// script
-# requires-python = ">=3.11"
-# dependencies = []
-# ///
-"""golem-top — Show running golem processes (like top for golems).
-
-Parses `ps aux` output for golem-related processes. For each matching
-process group, displays: PID, provider, elapsed duration, and a task
-description snippet. Deduplicates parent/child shells into single rows.
+"""golem-top — show running golem processes, like top for golems.
 
 Usage:
-    golem-top            # Show running golems
-    golem-top --no-color # No ANSI colors
-    golem-top --json     # Machine-readable JSON output
+    golem-top              # show all running golem processes
+    golem-top --watch      # refresh every 5 seconds
+    golem-top --json       # machine-readable JSON output
 """
 from __future__ import annotations
 
 import json
+import os
 import re
 import subprocess
 import sys
+import time
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any
-
-# ANSI colors
-GREEN = "\033[32m"
-RED = "\033[31m"
-YELLOW = "\033[33m"
-CYAN = "\033[36m"
-BOLD = "\033[1m"
-DIM = "\033[2m"
-RESET = "\033[0m"
-
-# How long a process has been running
-ELAPSED_RE = re.compile(
-    r"(?:(?P<days>\d+)-)?"        # optional days-
-    r"(?P<hh>\d{2}):(?P<mm>\d{2}):(?P<ss>\d{2})"  # HH:MM:SS
-)
-
-# Extract --provider VALUE from a command line
-PROVIDER_RE = re.compile(r"--provider\s+(\S+)")
-
-# Match the task string (last quoted or positional argument after flags)
-TASK_RE = re.compile(r'(?:--\S+\s+\S+\s+)*"([^"]+)"')
-TASK_RE_UNQUOTED = re.compile(r"(?:--\S+\s+\S+\s+)*([\w][\w ./-]+)$")
 
 
-def _c(text: str, color: str, use_color: bool) -> str:
-    return f"{color}{text}{RESET}" if use_color else text
+def get_golem_processes() -> list[dict]:
+    """Parse ps output and return list of golem process dicts.
 
-
-def parse_elapsed(raw: str) -> timedelta:
-    """Parse ps elapsed time like '01:23:45' or '2-00:15:30' into timedelta."""
-    m = ELAPSED_RE.match(raw.strip())
-    if not m:
-        return timedelta()
-    days = int(m.group("days") or 0)
-    hh = int(m.group("hh"))
-    mm = int(m.group("mm"))
-    ss = int(m.group("ss"))
-    return timedelta(days=days, hours=hh, minutes=mm, seconds=ss)
-
-
-def format_duration(td: timedelta) -> str:
-    """Format timedelta as compact human string."""
-    total = int(td.total_seconds())
-    if total < 60:
-        return f"{total}s"
-    if total < 3600:
-        return f"{total // 60}m{total % 60:02d}s"
-    hours = total // 3600
-    mins = (total % 3600) // 60
-    return f"{hours}h{mins:02d}m"
-
-
-def get_golem_processes() -> list[dict[str, Any]]:
-    """Run ps and return golem-related process info."""
+    Each dict has: pid, ppid, provider, task, started, elapsed, cpu, mem, command
+    """
     try:
         result = subprocess.run(
-            ["ps", "-eo", "pid,etime,command"],
-            capture_output=True, text=True, timeout=5,
+            ["ps", "aux"],
+            capture_output=True,
+            text=True,
+            timeout=5,
         )
-    except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
+    except (subprocess.TimeoutExpired, FileNotFoundError):
         return []
 
-    procs: list[dict[str, Any]] = []
-    for line in result.stdout.splitlines()[1:]:  # skip header
-        line = line.rstrip()
-        if not line:
-            continue
-        # ps -eo pid,etime,command — fields are right-justified
-        # PID is up to col ~6, etime ~13, rest is command
-        parts = line.split(None, 2)
-        if len(parts) < 3:
-            continue
-        pid_str, elapsed_str, command = parts
+    lines = result.stdout.strip().split("\n")
+    processes: list[dict] = []
 
-        # Filter for golem-related processes
-        if "golem" not in command.lower():
+    for line in lines[1:]:  # skip header
+        if "golem" not in line.lower():
             continue
-        # Skip the golem-top process itself
-        if "golem-top" in command:
-            continue
-        # Skip grep itself
-        if "grep" in command:
+        # Skip this script itself and grep
+        if "golem-top" in line and "python" in line:
+            parts = line.split()
+            # Keep only if it's not our own process
+            cmdline = " ".join(parts[10:])
+            if "golem-top" in cmdline and "grep" not in line:
+                continue
+        if "grep" in line and "golem" in line:
             continue
 
-        try:
-            pid = int(pid_str)
-        except ValueError:
-            continue
+        proc = _parse_ps_line(line)
+        if proc and proc.get("task"):
+            processes.append(proc)
 
-        procs.append({
-            "pid": pid,
-            "elapsed": elapsed_str,
-            "command": command,
-        })
-
-    return procs
+    return processes
 
 
-def extract_provider(command: str) -> str:
-    """Extract --provider value from command line."""
-    m = PROVIDER_RE.search(command)
-    return m.group(1) if m else "unknown"
+def _parse_ps_line(line: str) -> dict | None:
+    """Parse a single ps aux line into a process dict."""
+    parts = line.split(None, 10)
+    if len(parts) < 11:
+        return None
+
+    user, pid_str, cpu, mem, vsz, rss, tty, stat, started, elapsed, command = parts
+
+    try:
+        pid = int(pid_str)
+    except ValueError:
+        return None
+
+    # Extract provider from --provider flag
+    provider = _extract_provider(command)
+
+    # Extract task description (the quoted argument or trailing text)
+    task = _extract_task(command)
+
+    return {
+        "pid": pid,
+        "user": user,
+        "cpu_pct": cpu,
+        "mem_pct": mem,
+        "stat": stat,
+        "started": started,
+        "elapsed": elapsed,
+        "provider": provider,
+        "task": task,
+        "command": command,
+    }
 
 
-def extract_task(command: str) -> str:
-    """Extract task description from command line."""
-    # Try quoted string first
-    m = TASK_RE.search(command)
-    if m:
-        return m.group(1)
-    # Fall back to unquoted trailing text after all flags
-    m = TASK_RE_UNQUOTED.search(command)
-    if m:
-        return m.group(1).strip()
-    return command[:80]
+def _extract_provider(command: str) -> str:
+    """Extract --provider value from command string."""
+    m = re.search(r"--provider\s+(\S+)", command)
+    return m.group(1) if m else "default"
 
 
-def deduplicate(procs: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Deduplicate parent/child shell pairs sharing the same command.
+def _extract_task(command: str) -> str:
+    """Extract the human-readable task description from a golem command.
 
-    golem spawns via /bin/sh -c → bash → actual work. We keep only
-    the entry with the lowest PID per unique command (the parent).
+    Looks for quoted strings first, then falls back to text after
+    the last flag argument.
     """
-    seen: dict[str, dict[str, Any]] = {}
-    for p in procs:
-        cmd = p["command"]
-        # Normalize: strip leading shell invocations
-        # "bash /home/.../golem ..." and "/bin/sh -c golem ..." are the same task
-        key = re.sub(r"^(?:/bin/sh -c |bash )", "", cmd)
-        key = re.sub(r"\s+", " ", key).strip()
-        if key not in seen or p["pid"] < seen[key]["pid"]:
-            seen[key] = p
-    return sorted(seen.values(), key=lambda x: x["pid"])
+    # Prefer quoted task strings
+    quotes = re.findall(r'"([^"]+)"', command)
+    if quotes:
+        # Return the last quoted string (the actual task, not any inner quotes)
+        return quotes[-1][:80]
+
+    # For unquoted tasks: find text after the last --flag value
+    # Match the golem command pattern: flags then task
+    m = re.match(
+        r"(?:/[\w/.-]+/)?(?:bash|sh)\s+(?:/[\w/.-]+/)?golem\s+.*?(?:--\S+\s+\S+\s+)*(.+)",
+        command,
+    )
+    if m:
+        task = m.group(1).strip()
+        # Remove any remaining flags
+        task = re.sub(r"--\S+\s+\S+", "", task).strip()
+        return task[:80] if task else ""
+
+    return ""
 
 
-def build_rows(procs: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Turn raw process entries into display rows with parsed fields."""
-    rows = []
-    for p in procs:
-        td = parse_elapsed(p["elapsed"])
-        rows.append({
-            "pid": p["pid"],
-            "provider": extract_provider(p["command"]),
-            "elapsed": format_duration(td),
-            "elapsed_td": td,
-            "task": extract_task(p["command"]),
-        })
-    return rows
+def _parse_elapsed(elapsed: str) -> str:
+    """Normalize elapsed time display."""
+    return elapsed if elapsed else "?"
 
 
-def format_table(rows: list[dict[str, Any]], use_color: bool = True) -> str:
-    """Format rows into a human-readable table."""
-    if not rows:
-        msg = "No golem processes running."
-        return _c(msg, DIM, use_color) + "\n"
+def format_table(processes: list[dict]) -> str:
+    """Format process list as a human-readable table."""
+    if not processes:
+        return "No running golem processes.\n"
+
+    # Group deduplicated tasks — a single golem invocation produces
+    # multiple processes (sh -c, bash golem, bash golem again).
+    # Deduplicate by task text, keeping the first PID.
+    seen_tasks: dict[str, dict] = {}
+    for proc in processes:
+        key = proc["task"]
+        if key not in seen_tasks:
+            seen_tasks[key] = proc
+
+    procs = list(seen_tasks.values())
 
     # Column widths
-    pid_w = max(len(str(r["pid"])) for r in rows)
-    prov_w = max(len(r["provider"]) for r in rows)
-    dur_w = max(len(r["elapsed"]) for r in rows)
-    # Minimum widths for headers
-    pid_w = max(pid_w, 3)
-    prov_w = max(prov_w, 8)
-    dur_w = max(dur_w, 8)
+    pid_w = max(len(str(p["pid"])) for p in procs)
+    prov_w = max(len(p["provider"]) for p in procs)
+    task_w = 60
+    elapsed_w = max(len(p.get("elapsed", "?")) for p in procs)
 
     header = (
-        f"{'PID':>{pid_w}}  "
-        f"{'PROVIDER':<{prov_w}}  "
-        f"{'DURATION':>{dur_w}}  "
-        "TASK"
+        f"{'PID':>{pid_w}}  {'PROVIDER':<{prov_w}}  "
+        f"{'ELAPSED':>{elapsed_w}}  {'CPU':>4}  {'MEM':>4}  "
+        f"{'TASK':<{task_w}}"
     )
     sep = "-" * len(header)
 
-    lines = [
-        _c("Golem Processes", BOLD, use_color),
-        _c(sep, DIM, use_color),
-        _c(header, CYAN, use_color),
-        _c(sep, DIM, use_color),
-    ]
+    lines = [f"golem-top — {len(procs)} running golem task(s)", sep, header, sep]
 
-    for r in rows:
-        task_display = r["task"]
-        if len(task_display) > 60:
-            task_display = task_display[:57] + "..."
-
-        # Color code by duration: green <5m, yellow <30m, red >30m
-        secs = r["elapsed_td"].total_seconds()
-        if secs < 300:
-            dur_color = GREEN
-        elif secs < 1800:
-            dur_color = YELLOW
-        else:
-            dur_color = RED
-
-        row = (
-            f"{r['pid']:>{pid_w}}  "
-            f"{_c(r['provider'], BOLD, use_color):<{prov_w + (len(BOLD) + len(RESET)) if use_color else 0}}  "
-            f"{_c(r['elapsed'], dur_color, use_color):>{dur_w + (len(dur_color) + len(RESET)) if use_color else 0}}  "
-            f"{task_display}"
+    for p in procs:
+        task_display = p["task"]
+        if len(task_display) > task_w:
+            task_display = task_display[: task_w - 1] + "…"
+        lines.append(
+            f"{p['pid']:>{pid_w}}  {p['provider']:<{prov_w}}  "
+            f"{_parse_elapsed(p.get('elapsed', '?')):>{elapsed_w}}  "
+            f"{p['cpu_pct']:>4}  {p['mem_pct']:>4}  "
+            f"{task_display:<{task_w}}"
         )
-        lines.append(row)
 
-    lines.append(_c(sep, DIM, use_color))
-    lines.append(f"Total: {len(rows)} golem process{'es' if len(rows) != 1 else ''}")
+    lines.append(sep)
     return "\n".join(lines) + "\n"
 
 
-def main(argv: list[str] | None = None) -> int:
-    """Entry point."""
-    args = argv or sys.argv[1:]
-    use_color = "--no-color" not in args
+def main() -> None:
+    args = sys.argv[1:]
+
     as_json = "--json" in args
+    watch = "--watch" in args
 
-    procs = get_golem_processes()
-    deduped = deduplicate(procs)
-    rows = build_rows(deduped)
-
-    if as_json:
-        # Strip non-serializable fields
-        out = [{k: v for k, v in r.items() if k != "elapsed_td"} for r in rows]
-        print(json.dumps(out, indent=2))
+    if watch:
+        interval = 5
+        try:
+            while True:
+                procs = get_golem_processes()
+                os.system("clear" if os.name != "nt" else "cls")
+                print(format_table(procs))
+                print(f"Refreshing every {interval}s — Ctrl+C to stop")
+                time.sleep(interval)
+        except KeyboardInterrupt:
+            sys.exit(0)
+    elif as_json:
+        procs = get_golem_processes()
+        print(json.dumps(procs, indent=2))
     else:
-        sys.stdout.write(format_table(rows, use_color=use_color))
-    return 0
+        procs = get_golem_processes()
+        print(format_table(procs))
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    main()
