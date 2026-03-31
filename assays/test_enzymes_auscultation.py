@@ -256,14 +256,21 @@ class TestAuscultationErrors:
     def test_top_n_limits_output(self, tmp_path):
         log_dir = tmp_path / "logs"
         log_dir.mkdir()
-        lines = [f"ERROR unique error number {i}" for i in range(10)]
+        # Use distinct text labels so normalization doesn't collapse them
+        lines = [f"ERROR alpha error {i}" for i in range(4)]
+        lines += [f"ERROR beta error {i}" for i in range(3)]
+        lines += [f"ERROR gamma error {i}" for i in range(2)]
+        lines += [f"ERROR delta error {i}" for i in range(1)]
         (log_dir / "app.log").write_text("\n".join(lines))
         tmp_dir = tmp_path / "tmp"
         tmp_dir.mkdir()
-        result = self._call_errors(log_dir, tmp_dir, top_n=3)
-        # Should have header (3 lines) + 3 pattern lines = 6 lines total
-        data_lines = [l for l in result.splitlines() if l and not l.startswith("-") and not l.startswith("Error freq") and "Pattern" not in l]
-        assert len(data_lines) == 3
+        result = self._call_errors(log_dir, tmp_dir, top_n=2)
+        data_lines = [
+            l for l in result.splitlines()
+            if l and not l.startswith("-") and not l.startswith("Error freq") and "Pattern" not in l
+        ]
+        # top_n=2 means only 2 most-frequent normalized patterns appear
+        assert len(data_lines) == 2
 
     def test_no_errors_found(self, tmp_path):
         log_dir = tmp_path / "logs"
