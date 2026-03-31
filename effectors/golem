@@ -1,0 +1,45 @@
+#!/usr/bin/env bash
+# golem — headless CC + GLM-5.1 via ZhiPu. Faithful instruction executor.
+#
+# Usage:
+#   golem "Write tests for metabolon/foo.py"
+#   golem --batch metabolon/bar.py metabolon/baz.py   # sequential dispatch
+#   golem --max-turns 30 "Complex task"
+set -euo pipefail
+
+MAX_TURNS="${GOLEM_MAX_TURNS:-20}"
+
+# Parse flags
+BATCH=false
+while [[ "${1:-}" == --* ]]; do
+  case "$1" in
+    --batch) BATCH=true; shift ;;
+    --max-turns) MAX_TURNS="$2"; shift 2 ;;
+    *) echo "Unknown flag: $1" >&2; exit 1 ;;
+  esac
+done
+
+_run_golem() {
+  local prompt="$1"
+  CLAUDECODE= \
+  ANTHROPIC_AUTH_TOKEN="${ZHIPU_API_KEY:?ZHIPU_API_KEY not set}" \
+  ANTHROPIC_BASE_URL="https://open.bigmodel.cn/api/anthropic" \
+  ANTHROPIC_DEFAULT_OPUS_MODEL="GLM-5.1" \
+  ANTHROPIC_DEFAULT_SONNET_MODEL="GLM-5.1" \
+  ANTHROPIC_DEFAULT_HAIKU_MODEL="GLM-4.5-air" \
+  API_TIMEOUT_MS=3000000 \
+  CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1 \
+  claude --print --bare --max-turns "$MAX_TURNS" -p "$prompt"
+}
+
+if $BATCH; then
+  # Batch mode: each arg is a module path, generate test prompt
+  for mod in "$@"; do
+    echo ">>> golem: $mod"
+    _run_golem "Read $mod. Write comprehensive tests to assays/test_$(basename "${mod%.py}").py. Mock external calls and file I/O. Run: uv run pytest assays/test_$(basename "${mod%.py}").py -v --tb=short. Fix any failures." || true
+    echo
+  done
+else
+  # Single prompt mode
+  _run_golem "$*"
+fi
