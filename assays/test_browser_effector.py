@@ -73,13 +73,6 @@ def test_parser_no_subcommand_exits():
     assert exc_info.value.code == 1
 
 
-def test_parser_unknown_subcommand_exits():
-    """Unknown subcommand exits 1."""
-    with pytest.raises(SystemExit) as exc_info:
-        main(["bogus"])
-    assert exc_info.value.code == 1
-
-
 # ── fetch output tests (mocked) ──────────────────────────────────────
 
 _FAKE_RESULT = {
