@@ -20,7 +20,7 @@ PROVIDER="${GOLEM_PROVIDER:-zhipu}"
 GOLEM_LOG="${GOLEM_LOG:-$HOME/.local/share/vivesca/golem.jsonl}"
 mkdir -p "$(dirname "$GOLEM_LOG")"
 
-COACHING_FILE="$HOME/epigenome/marks/feedback_glm_coaching.md"
+COACHING_FILE="$HOME/epigenome/marks/feedback_golem_coaching.md"
 
 # Summary subcommand - show provider stats from JSONL log
 _run_summary() {
@@ -142,12 +142,11 @@ _run_golem() {
   # Prepend coaching notes (same file all providers get)
   if [[ -f "$COACHING_FILE" ]]; then
     local coaching
-    coaching="$(cat "$COACHING_FILE")"
-    prompt="<coaching-notes>
-${coaching}
-</coaching-notes>
-
-${prompt}"
+    coaching=$(<"$COACHING_FILE")
+    # Build prompt with coaching via printf to avoid shell expansion
+    prompt="$(printf '%s\n\n%s' "<coaching-notes>
+$(sed 's/[`$]/\\&/g' "$COACHING_FILE")
+</coaching-notes>" "$prompt")"
   fi
   local args=(--print --dangerously-skip-permissions --max-turns "$MAX_TURNS")
   $BARE && args+=(--bare)

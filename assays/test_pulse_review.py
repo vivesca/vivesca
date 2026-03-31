@@ -223,7 +223,7 @@ class TestCLISubprocess:
     def test_no_args_shows_help(self):
         """Running pulse-review with no args should show help and exit 0."""
         r = subprocess.run(
-            ["uv", "run", "--script", str(PULSE_REVIEW_PATH)],
+            [sys.executable, str(PULSE_REVIEW_PATH)],
             capture_output=True, text=True, timeout=60,
         )
         assert r.returncode == 0
@@ -232,7 +232,7 @@ class TestCLISubprocess:
     def test_nonexistent_manifest_exits_nonzero(self):
         """Running with a nonexistent manifest path should exit nonzero."""
         r = subprocess.run(
-            ["uv", "run", "--script", str(PULSE_REVIEW_PATH), "/tmp/no-such-file-xyz.md"],
+            [sys.executable, str(PULSE_REVIEW_PATH), "/tmp/no-such-file-xyz.md"],
             capture_output=True, text=True, timeout=60,
         )
         assert r.returncode != 0

@@ -9,16 +9,10 @@ import sys
 import re
 
 # Execute the commensal file directly into the namespace
-commensal_path = Path("/home/terry/germline/effectors/commensal")
-commensal_code = commensal_path.read_text()
-_ns = {}
-exec(commensal_code, _ns)
+import types
 
-# Make attributes accessible via dot notation
-class CommensalModule:
-    def __getattr__(self, name):
-        return _ns[name]
-commensal = CommensalModule()
+commensal = types.ModuleType("commensal")
+exec(Path("/home/terry/germline/effectors/commensal").read_text(), commensal.__dict__)
 
 # ---------------------------------------------------------------------------
 # Test constants
@@ -154,7 +148,7 @@ def test_main_parses_custom_cwd():
                     with patch('pathlib.Path.write_text'):
                         commensal.main()
                         # Check cwd was passed through
-                        called_args = mock_run.call_args[0][2]
+                        called_args = mock_run.call_args[0][1]
                         assert called_args == custom_cwd
 
 def test_main_parses_custom_timeout():
