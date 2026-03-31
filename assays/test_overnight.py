@@ -78,7 +78,7 @@ class TestMetabolise:
 
     @patch("metabolon.pathways.overnight.subprocess.run")
     def test_subprocess_exception_returns_none(self, mock_run):
-        mock_run.side_effect = subprocess.TimeoutError("timed out")
+        mock_run.side_effect = subprocess.TimeoutExpired(cmd="uv", timeout=600)
         result = metabolise("seed", "slug")
         assert result is None
 
@@ -333,5 +333,3 @@ class TestMetabolizePipeline:
         assert parsed["published"] == ["x"]
 
 
-# Need subprocess for the TimeoutError import used in tests
-import subprocess
