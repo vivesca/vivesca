@@ -171,6 +171,16 @@ class SensoryMiddleware(Middleware):
             except Exception:
                 logger.debug("Timing buffer record failed", exc_info=True)
 
+            # Append to JSONL request log.
+            try:
+                self._request_logger.log(
+                    tool=tool_name,
+                    duration_ms=latency_ms,
+                    success=(outcome == Outcome.success),
+                )
+            except Exception:
+                logger.debug("Request log write failed", exc_info=True)
+
             # Estimate output tokens.
             tokens_out = 0
             if result is not None:

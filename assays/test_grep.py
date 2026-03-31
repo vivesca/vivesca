@@ -86,21 +86,21 @@ class TestGrepBlocking:
 
     def test_blocks_library(self, sg):
         """Test massive-dir blocking with the hardcoded path from source."""
-        # The script has hardcoded paths: /Users/terry/Library etc.
+        # The script has hardcoded paths: /home/terry/Library etc.
         # Test with those exact paths to verify blocking logic.
-        with patch("sys.argv", ["grep", "-r", "pattern", "/Users/terry/Library"]):
+        with patch("sys.argv", ["grep", "-r", "pattern", "/home/terry/Library"]):
             with pytest.raises(SystemExit) as exc:
                 sg.main()
             assert exc.value.code == 1
 
     def test_blocks_pictures(self, sg):
-        with patch("sys.argv", ["grep", "-r", "pattern", "/Users/terry/Pictures"]):
+        with patch("sys.argv", ["grep", "-r", "pattern", "/home/terry/Pictures"]):
             with pytest.raises(SystemExit) as exc:
                 sg.main()
             assert exc.value.code == 1
 
     def test_blocks_downloads(self, sg):
-        with patch("sys.argv", ["grep", "-r", "pattern", "/Users/terry/Downloads"]):
+        with patch("sys.argv", ["grep", "-r", "pattern", "/home/terry/Downloads"]):
             with pytest.raises(SystemExit) as exc:
                 sg.main()
             assert exc.value.code == 1
@@ -108,7 +108,7 @@ class TestGrepBlocking:
     def test_blocks_tilde_expansion(self, sg):
         """~/Library tilde-expands and hits the massive-dir block."""
         # On this machine ~/Library -> /home/terry/Library which doesn't
-        # match the hardcoded /Users/terry/Library, so mock to make it match
+        # match the hardcoded /home/terry/Library, so mock to make it match
         lib_expanded = os.path.abspath(os.path.expanduser("~/Library"))
         with patch("sys.argv", ["grep", "-r", "pattern", "~/Library"]):
             # The code expands ~/Library to /home/terry/Library.

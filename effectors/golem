@@ -235,6 +235,7 @@ _run_golem() {
     "$(echo "${output: -200}" | tr '"' "'" | tr '\n' ' ')" \
     "$files_created" "$tests_passed" "$tests_failed" "$pytest_exit" >> "$GOLEM_LOG"
   $QUIET || echo "$output"
+  return $exit_code
 }
 
 # _configure_provider: set _KEY, _URL, _OPUS, _SONNET, _HAIKU for given provider
@@ -262,18 +263,19 @@ _configure_provider() {
 # _run_with_fallback: run _run_golem, retry on fallback provider if primary fails
 _run_with_fallback() {
   local prompt="$1"
-  local primary_exit=0
-  _run_golem "$prompt" || primary_exit=$?
+  local final_exit=0
+  _run_golem "$prompt" || final_exit=$?
 
-  if $FALLBACK && [[ $primary_exit -ne 0 ]]; then
+  if $FALLBACK && [[ $final_exit -ne 0 ]]; then
     FALLBACK_PROVIDER="$(_fallback_provider "$PROVIDER")"
     if [[ -n "$FALLBACK_PROVIDER" ]]; then
-      $QUIET || echo "[fallback] primary provider '$PROVIDER' failed (exit=$primary_exit), retrying on '$FALLBACK_PROVIDER'..." >&2
+      $QUIET || echo "[fallback] primary provider '$PROVIDER' failed (exit=$final_exit), retrying on '$FALLBACK_PROVIDER'..." >&2
       PROVIDER="$FALLBACK_PROVIDER"
       _configure_provider "$PROVIDER"
-      _run_golem "$prompt" || true
+      _run_golem "$prompt" || final_exit=$?
     fi
   fi
+  return $final_exit
 }
 
 if $BATCH; then
