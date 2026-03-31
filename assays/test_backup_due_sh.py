@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 """Tests for effectors/backup-due.sh — bash script tested via subprocess."""
 
 import os

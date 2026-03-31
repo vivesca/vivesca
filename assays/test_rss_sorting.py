@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 """Tests for endocytosis_rss/sorting.py - fate-based cargo sorting."""
 
 

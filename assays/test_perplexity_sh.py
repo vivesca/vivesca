@@ -5,7 +5,6 @@ import json
 import os
 import subprocess
 from pathlib import Path
-from unittest.mock import patch
 
 import pytest
 
@@ -115,57 +114,58 @@ class TestModeValidation:
 
 
 class TestAPIResponse:
-    def test_api_error_shows_message(self, tmp_path, monkeypatch):
+    def test_api_error_shows_message(self, tmp_path):
         """API error response is shown in stderr."""
-        # Create a mock curl that returns an error
-        mock_curl = tmp_path / "mock_curl.sh"
-        mock_curl.write_text(
-            '#!/bin/bash\necho \'{"error": {"message": "Rate limit exceeded"}}\''
+        # Create a wrapper script that mocks curl via bash function
+        wrapper = tmp_path / "wrapper.sh"
+        wrapper.write_text(
+            f"""#!/bin/bash
+curl() {{
+    echo '{{"error": {{"message": "Rate limit exceeded"}}}}'
+}}
+export -f curl
+source {SCRIPT}
+"""
         )
-        mock_curl.chmod(0o755)
+        wrapper.chmod(0o755)
 
-        # Create mock secrets file
         secrets = tmp_path / ".secrets"
         secrets.write_text("export PERPLEXITY_API_KEY=test-key-123\n")
 
-        env = {
-            "HOME": str(tmp_path),
-            "PATH": str(tmp_path) + ":" + os.environ.get("PATH", ""),
-        }
+        env = {"HOME": str(tmp_path)}
 
-        # Run with mock curl in PATH
         r = subprocess.run(
-            ["bash", str(SCRIPT), "search", "test query"],
+            ["bash", str(wrapper), "search", "test query"],
             capture_output=True,
             text=True,
             env=env,
             timeout=30,
         )
 
-        # Should exit with error
         assert r.returncode == 1
         assert "Rate limit exceeded" in r.stderr
 
     def test_successful_response_extracts_content(self, tmp_path):
         """Successful API response extracts content field."""
-        # Create a mock curl that returns a valid response
-        mock_curl = tmp_path / "mock_curl.sh"
-        mock_curl.write_text(
-            '#!/bin/bash\necho \'{"choices": [{"message": {"content": "This is the answer"}}"]}\''
+        wrapper = tmp_path / "wrapper.sh"
+        wrapper.write_text(
+            f"""#!/bin/bash
+curl() {{
+    echo '{{"choices": [{{"message": {{"content": "This is the answer"}}}}]}}'
+}}
+export -f curl
+source {SCRIPT}
+"""
         )
-        mock_curl.chmod(0o755)
+        wrapper.chmod(0o755)
 
-        # Create mock secrets file
         secrets = tmp_path / ".secrets"
         secrets.write_text("export PERPLEXITY_API_KEY=test-key-123\n")
 
-        env = {
-            "HOME": str(tmp_path),
-            "PATH": str(tmp_path) + ":" + os.environ.get("PATH", ""),
-        }
+        env = {"HOME": str(tmp_path)}
 
         r = subprocess.run(
-            ["bash", str(SCRIPT), "search", "test query"],
+            ["bash", str(wrapper), "search", "test query"],
             capture_output=True,
             text=True,
             env=env,
@@ -177,20 +177,25 @@ class TestAPIResponse:
 
     def test_malformed_response_falls_back(self, tmp_path):
         """Malformed JSON response is passed through."""
-        mock_curl = tmp_path / "mock_curl.sh"
-        mock_curl.write_text('#!/bin/bash\necho "not json at all"')
-        mock_curl.chmod(0o755)
+        wrapper = tmp_path / "wrapper.sh"
+        wrapper.write_text(
+            f"""#!/bin/bash
+curl() {{
+    echo "not json at all"
+}}
+export -f curl
+source {SCRIPT}
+"""
+        )
+        wrapper.chmod(0o755)
 
         secrets = tmp_path / ".secrets"
         secrets.write_text("export PERPLEXITY_API_KEY=test-key-123\n")
 
-        env = {
-            "HOME": str(tmp_path),
-            "PATH": str(tmp_path) + ":" + os.environ.get("PATH", ""),
-        }
+        env = {"HOME": str(tmp_path)}
 
         r = subprocess.run(
-            ["bash", str(SCRIPT), "search", "test query"],
+            ["bash", str(wrapper), "search", "test query"],
             capture_output=True,
             text=True,
             env=env,
@@ -207,29 +212,26 @@ class TestAPIResponse:
 class TestJSONEscaping:
     def test_query_with_quotes_escaped(self, tmp_path):
         """Query with quotes is properly escaped for JSON."""
-        # We'll check that the script runs without JSON parse errors
-        # by using a mock curl that echoes the received data
-        mock_curl = tmp_path / "mock_curl.sh"
-        mock_curl.write_text(
-            """#!/bin/bash
-# Echo the request body to verify JSON escaping
-cat
-echo '{"choices": [{"message": {"content": "ok"}}]}'
+        wrapper = tmp_path / "wrapper.sh"
+        wrapper.write_text(
+            f"""#!/bin/bash
+curl() {{
+    echo '{{"choices": [{{"message": {{"content": "ok"}}}}]}}'
+}}
+export -f curl
+source {SCRIPT}
 """
         )
-        mock_curl.chmod(0o755)
+        wrapper.chmod(0o755)
 
         secrets = tmp_path / ".secrets"
         secrets.write_text("export PERPLEXITY_API_KEY=test-key-123\n")
 
-        env = {
-            "HOME": str(tmp_path),
-            "PATH": str(tmp_path) + ":" + os.environ.get("PATH", ""),
-        }
+        env = {"HOME": str(tmp_path)}
 
         # Query with quotes should not break JSON parsing
         r = subprocess.run(
-            ["bash", str(SCRIPT), "search", 'what is "artificial intelligence"'],
+            ["bash", str(wrapper), "search", 'what is "artificial intelligence"'],
             capture_output=True,
             text=True,
             env=env,
@@ -241,23 +243,26 @@ echo '{"choices": [{"message": {"content": "ok"}}]}'
 
     def test_query_with_newlines_handled(self, tmp_path):
         """Query with newlines is properly escaped."""
-        mock_curl = tmp_path / "mock_curl.sh"
-        mock_curl.write_text(
-            '#!/bin/bash\necho \'{"choices": [{"message": {"content": "ok"}}]}\''
+        wrapper = tmp_path / "wrapper.sh"
+        wrapper.write_text(
+            f"""#!/bin/bash
+curl() {{
+    echo '{{"choices": [{{"message": {{"content": "ok"}}}}]}}'
+}}
+export -f curl
+source {SCRIPT}
+"""
         )
-        mock_curl.chmod(0o755)
+        wrapper.chmod(0o755)
 
         secrets = tmp_path / ".secrets"
         secrets.write_text("export PERPLEXITY_API_KEY=test-key-123\n")
 
-        env = {
-            "HOME": str(tmp_path),
-            "PATH": str(tmp_path) + ":" + os.environ.get("PATH", ""),
-        }
+        env = {"HOME": str(tmp_path)}
 
         # Query with newline
         r = subprocess.run(
-            ["bash", str(SCRIPT), "search", "line1\nline2"],
+            ["bash", str(wrapper), "search", "line1\nline2"],
             capture_output=True,
             text=True,
             env=env,
@@ -275,26 +280,35 @@ class TestModelMapping:
 
     def _capture_model(self, tmp_path, mode: str) -> str | None:
         """Run script and capture the model from curl request."""
-        mock_curl = tmp_path / "mock_curl.sh"
-        # This mock saves stdin to a file for inspection
-        mock_curl.write_text(
-            """#!/bin/bash
-cat > /tmp/curl_input.json
-echo '{"choices": [{"message": {"content": "test"}}]}'
+        capture_file = tmp_path / "curl_input.json"
+
+        wrapper = tmp_path / "wrapper.sh"
+        wrapper.write_text(
+            f"""#!/bin/bash
+curl() {{
+    # Capture the -d argument (the JSON body)
+    local args=("$@")
+    for ((i=0; i<${{#args[@]}}; i++)); do
+        if [[ "${{args[i]}}" == "-d" ]]; then
+            echo "${{args[i+1]}}" > {capture_file}
+            break
+        fi
+    done
+    echo '{{"choices": [{{"message": {{"content": "test"}}}}]}}'
+}}
+export -f curl
+source {SCRIPT}
 """
         )
-        mock_curl.chmod(0o755)
+        wrapper.chmod(0o755)
 
         secrets = tmp_path / ".secrets"
         secrets.write_text("export PERPLEXITY_API_KEY=test-key-123\n")
 
-        env = {
-            "HOME": str(tmp_path),
-            "PATH": str(tmp_path) + ":" + os.environ.get("PATH", ""),
-        }
+        env = {"HOME": str(tmp_path)}
 
         subprocess.run(
-            ["bash", str(SCRIPT), mode, "test query"],
+            ["bash", str(wrapper), mode, "test query"],
             capture_output=True,
             text=True,
             env=env,
@@ -303,9 +317,8 @@ echo '{"choices": [{"message": {"content": "test"}}]}'
 
         # Read the captured curl input
         try:
-            with open("/tmp/curl_input.json") as f:
-                data = json.load(f)
-                return data.get("model")
+            data = json.loads(capture_file.read_text())
+            return data.get("model")
         except (FileNotFoundError, json.JSONDecodeError):
             return None
 

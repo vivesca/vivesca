@@ -8,7 +8,6 @@ rg, grep, and find are symlinks to this script.
 It should be loaded via exec() or subprocess.run, NEVER imported.
 """
 
-from __future__ import annotations
 
 import os
 import subprocess

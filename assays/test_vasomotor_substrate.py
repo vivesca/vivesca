@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 """Tests for VasomotorSubstrate — pacing system metabolism.
 
 Tests the full sense -> candidates -> act -> report cycle using

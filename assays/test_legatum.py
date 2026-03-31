@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 """Tests for effectors/legatum — deterministic session-close gathering."""
 
 

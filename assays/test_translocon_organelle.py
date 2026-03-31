@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 """Tests for translocon organelle + MCP enzyme.
 
 TDD red→green cycle:

@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 """Tests for conjugation_engine — CC → Gemini CLI config replication.
 
 Unit tests cover each mapping function in isolation.

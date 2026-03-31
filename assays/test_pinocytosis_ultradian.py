@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 """Tests for pinocytosis/ultradian — situational snapshot gather."""
 
 import pytest

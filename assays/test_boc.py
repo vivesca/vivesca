@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 """Comprehensive tests for BOC Credit Card statement PDF parser.
 
 Tests mock external calls and file I/O to avoid dependency on real PDF fixtures.

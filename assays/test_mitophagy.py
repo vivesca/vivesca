@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 """Tests for mitophagy — model fitness tracking and auto-blacklist."""
 
 import json

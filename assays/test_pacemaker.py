@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 """Tests for pacemaker — reminder signaling organelle."""
 
 from unittest.mock import patch, MagicMock

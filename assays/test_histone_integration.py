@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 """Integration test: histone enzyme end-to-end save → recall → verify.
 
 Exercises the real file-I/O path through:

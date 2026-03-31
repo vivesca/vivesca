@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 """Tests for the Substrate protocol and its three implementations.
 
 Each substrate is tested through the full sense -> candidates -> act -> report

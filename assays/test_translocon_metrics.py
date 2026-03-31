@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 """Tests for translocon_metrics — record, stats, formatting."""
 
 

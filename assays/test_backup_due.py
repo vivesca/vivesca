@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 """Tests for effectors/backup-due.sh — nightly backup of Due app database."""
 
 import subprocess

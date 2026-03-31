@@ -10,7 +10,6 @@ so exec-based tests focus on loading the mapping and verifying structure.
 Functional rename tests use subprocess with temp directories.
 """
 
-from __future__ import annotations
 
 import os
 import subprocess

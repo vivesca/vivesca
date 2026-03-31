@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 """Assays for porta — Chrome cookie bridge organelle and MCP tool.
 
 Tests use mocked pycookiecheat and subprocess to avoid Chrome/Keychain/

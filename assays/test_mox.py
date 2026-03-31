@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 """Comprehensive tests for Mox Credit statement PDF parser.
 
 All external calls and file I/O are mocked for isolation.

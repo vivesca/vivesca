@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 """Tests for interoception enzyme: structural validation, constants, result types."""
 
 

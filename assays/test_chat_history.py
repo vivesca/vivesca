@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 """Tests for chat_history.py — Claude/Codex/OpenCode history scanner."""
 
 import json

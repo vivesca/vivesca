@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 """Tests for effectors/cn-route — bypass Tailscale exit node for Chinese AI APIs.
 
 cn-route is a script (effectors/cn-route), not an importable module.

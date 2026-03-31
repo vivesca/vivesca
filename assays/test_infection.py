@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 """Tests for the immune infection log — honest error pattern detection."""
 
 

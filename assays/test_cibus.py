@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 """Tests for effectors/cibus.py — loaded via exec (effectors are scripts, not importable modules)."""
 
 

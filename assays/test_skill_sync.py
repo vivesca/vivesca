@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 """Tests for skill-sync — SKILL.md → recipe.yaml → config.yaml sync."""
 
 

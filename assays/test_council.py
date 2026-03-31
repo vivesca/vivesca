@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 """Tests for council effector — parallel devil's advocates via Codex + Gemini."""
 
 import subprocess

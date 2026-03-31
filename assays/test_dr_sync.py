@@ -6,7 +6,6 @@ from __future__ import annotations
 All filesystem and subprocess calls are mocked.
 """
 
-from __future__ import annotations
 
 import pytest
 from unittest.mock import patch, MagicMock, call

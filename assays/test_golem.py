@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 """Tests for golem effectors (golem-daemon, golem-dash, golem-health,
 golem-reviewer, golem-validate).
 

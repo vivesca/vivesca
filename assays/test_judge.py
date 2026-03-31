@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 """Tests for judge effector script — LLM quality gate for content evaluation."""
 
 import os

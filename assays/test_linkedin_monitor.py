@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 from __future__ import annotations
+
 """Tests for linkedin-monitor effector — mocks all external file I/O and subprocess calls.
 
 This test suite covers:

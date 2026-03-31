@@ -7,7 +7,6 @@ receptor-scan is a script (effectors/receptor-scan), not an importable module.
 It is loaded via exec() into isolated namespaces.
 """
 
-from __future__ import annotations
 
 import subprocess
 import sys

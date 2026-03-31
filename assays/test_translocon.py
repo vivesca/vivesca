@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 """Tests for translocon — unified dispatch CLI."""
 
 import json

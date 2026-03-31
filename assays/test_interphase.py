@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 """Tests for metabolon.pinocytosis.interphase — evening routine gather."""
 
 import json

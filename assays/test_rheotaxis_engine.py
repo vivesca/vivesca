@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 """Tests for metabolon.organelles.rheotaxis_engine — pure functions and orchestration."""
 
 

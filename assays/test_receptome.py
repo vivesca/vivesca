@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 """Tests for metabolon.resources.receptome — receptor (skill) index resource."""
 
 

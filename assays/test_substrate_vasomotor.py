@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 """Tests for VasomotorSubstrate — respiration pacing metabolism."""
 
 import json

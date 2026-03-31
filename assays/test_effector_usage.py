@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 """Tests for effector-usage — scans golem logs for effector mentions."""
 
 import json

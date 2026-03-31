@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 """Tests for effectors/commensal — route coding tasks to free models.
 
 Commensal is a script — loaded via exec(), never imported.

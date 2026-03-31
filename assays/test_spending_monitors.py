@@ -2,7 +2,6 @@ from __future__ import annotations
 
 """Tests for spending monitors."""
 
-from __future__ import annotations
 
 from metabolon.respirometry.monitors import (
     assess_budget,

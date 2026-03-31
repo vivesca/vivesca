@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 """Tests for effectors/electroreception — Python script tested via subprocess and function extraction."""
 
 import subprocess

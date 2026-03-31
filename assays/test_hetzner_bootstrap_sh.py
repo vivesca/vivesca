@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 """Tests for effectors/hetzner-bootstrap.sh — bash provisioning script.
 
 Since the script requires root and runs system commands (apt-get, adduser, etc.),

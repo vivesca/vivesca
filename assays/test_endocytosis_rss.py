@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 """Tests for endocytosis enzyme analytics wiring.
 
 Tests cover the inline JSONL analytics (stats and top) which are

@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 """Meta-tests for metabolon/organelles/tests/test_moneo.py.
 
 Verifies every test function in the original test module executes

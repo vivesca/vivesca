@@ -7,7 +7,6 @@ safe_search.py is a script that wraps ripgrep with safety checks.
 It should be loaded via exec() or subprocess.run, NEVER imported.
 """
 
-from __future__ import annotations
 
 import subprocess
 import sys

@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 """Tests for effectors/skill-search — skill-aware SKILL.md search."""
 
 import json

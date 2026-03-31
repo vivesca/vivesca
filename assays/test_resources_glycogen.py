@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 """Tests for glycogen resource — token budget status via vasomotor_sensor.
 
 Covers:

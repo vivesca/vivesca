@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 """Tests for tissue_routing — symbiont strain matching."""
 
 from unittest.mock import patch

@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 """Tests for complement — convergent detection organelle."""
 
 import json

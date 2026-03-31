@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 """Tests for sortase watch command improvements."""
 
 import json

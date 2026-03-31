@@ -1,5 +1,6 @@
-"""Tests for effectors/assay — life experiment tracker (effector script)."""
 from __future__ import annotations
+
+"""Tests for effectors/assay — life experiment tracker (effector script)."""
 
 import sys
 from datetime import date, timedelta

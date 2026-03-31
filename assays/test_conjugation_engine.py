@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 """Tests for conjugation_engine — CC→Gemini config replication."""
 
 import json

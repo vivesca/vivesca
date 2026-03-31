@@ -8,7 +8,6 @@ namespace).  We access it through ``wg.gather_quarterly.__globals__`` and use
 ``patch.dict`` / direct assignment to override NOTES, _gather, time, etc.
 """
 
-from __future__ import annotations
 
 import json
 import os

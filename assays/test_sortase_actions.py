@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 """Tests for sortase — dispatch coding tasks to cheap LLM backends.
 
 Covers public API: SortaseResult, RouteResult, StatsResult, sortase().

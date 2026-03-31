@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 from __future__ import annotations
+
 """Tests for replisome effector — multi-model deliberation with LangGraph."""
 
 

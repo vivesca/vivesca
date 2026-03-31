@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 """Tests for ConsolidationSubstrate — memory file metabolism."""
 
 from datetime import UTC, datetime, timedelta

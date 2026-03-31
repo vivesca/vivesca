@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 """Tests for effectors/rename-plists — rename com.terry.* LaunchAgents to com.vivesca.*.
 
 rename-plists is a script (effectors/rename-plists), not an importable module.

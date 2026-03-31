@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 """Tests for entrainment — circadian zeitgeber sensing."""
 
 import datetime

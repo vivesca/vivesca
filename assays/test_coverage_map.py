@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 """Tests for effectors/coverage-map — metabolon test coverage scanner."""
 
 import json
@@ -71,17 +72,33 @@ class TestFindModules:
         assert "alpha" in result
         assert "beta" in result
 
-    def test_skips_init(self, tmp_path):
+    def test_skips_init_in_subpackage(self, tmp_path):
+        """Skips __init__.py inside subdirectories (has slash prefix)."""
+        pkg = tmp_path / "pkg"
+        pkg.mkdir()
+        (pkg / "__init__.py").write_text("")
+        (pkg / "real.py").write_text("")
+        result = find_modules(tmp_path)
+        assert "pkg/__init__" not in result
+        assert "pkg/real" in result
+
+    def test_skips_main_in_subpackage(self, tmp_path):
+        """Skips __main__.py inside subdirectories (has slash prefix)."""
+        pkg = tmp_path / "pkg"
+        pkg.mkdir()
+        (pkg / "__main__.py").write_text("")
+        (pkg / "real.py").write_text("")
+        result = find_modules(tmp_path)
+        assert "pkg/__main__" not in result
+        assert "pkg/real" in result
+
+    def test_root_init_included(self, tmp_path):
+        """Root __init__.py has no slash, so filter does not match it."""
         (tmp_path / "__init__.py").write_text("")
         (tmp_path / "real.py").write_text("")
         result = find_modules(tmp_path)
-        assert "__init__" not in result
+        assert "__init__" in result
         assert "real" in result
-
-    def test_skips_main(self, tmp_path):
-        (tmp_path / "__main__.py").write_text("")
-        result = find_modules(tmp_path)
-        assert "__main__" not in result
 
     def test_skips_test_dirs(self, tmp_path):
         tests = tmp_path / "tests"
@@ -295,3 +312,117 @@ class TestStubCreation:
         created = assays / "test_widget.py"
         assert created.exists()
         assert "test_placeholder" in created.read_text()
+
+
+# ── main() via exec with argv patching ───────────────────────────────
+
+
+class TestMainExec:
+    """Test main() by exec-ing with patched germline path and sys.argv."""
+
+    def _make_ns(self, tmp_path):
+        """Exec the effector with germline redirected to tmp_path."""
+        source = EFFECTOR.read_text().replace(
+            "germline = Path(__file__).parent.parent",
+            f"germline = Path('{tmp_path}')",
+        )
+        ns: dict = {"__name__": "coverage_map_main_test"}
+        exec(source, ns)
+        return ns
+
+    def test_exit_zero_when_fully_tested(self, tmp_path):
+        """main() returns 0 when all modules have tests."""
+        metabolon = tmp_path / "metabolon"
+        metabolon.mkdir()
+        (metabolon / "alpha.py").write_text("pass")
+        assays = tmp_path / "assays"
+        assays.mkdir()
+        (assays / "test_alpha.py").write_text("pass")
+
+        ns = self._make_ns(tmp_path)
+        saved = sys.argv
+        sys.argv = ["coverage-map"]
+        try:
+            assert ns["main"]() == 0
+        finally:
+            sys.argv = saved
+
+    def test_exit_one_when_untested(self, tmp_path):
+        """main() returns 1 when modules lack tests."""
+        metabolon = tmp_path / "metabolon"
+        metabolon.mkdir()
+        (metabolon / "alpha.py").write_text("pass")
+        (metabolon / "beta.py").write_text("pass")
+        assays = tmp_path / "assays"
+        assays.mkdir()
+        (assays / "test_alpha.py").write_text("pass")
+
+        ns = self._make_ns(tmp_path)
+        saved = sys.argv
+        sys.argv = ["coverage-map"]
+        try:
+            assert ns["main"]() == 1
+        finally:
+            sys.argv = saved
+
+    def test_json_flag_via_exec(self, tmp_path, capsys):
+        """--json flag outputs valid JSON when exec-ed."""
+        metabolon = tmp_path / "metabolon"
+        metabolon.mkdir()
+        (metabolon / "alpha.py").write_text("pass")
+        assays = tmp_path / "assays"
+        assays.mkdir()
+        (assays / "test_alpha.py").write_text("pass")
+
+        ns = self._make_ns(tmp_path)
+        saved = sys.argv
+        sys.argv = ["coverage-map", "--json"]
+        try:
+            ns["main"]()
+        finally:
+            sys.argv = saved
+
+        data = json.loads(capsys.readouterr().out)
+        assert data["total"] == 1
+        assert data["tested"] == 1
+        assert data["untested_count"] == 0
+        assert data["coverage_pct"] == 100.0
+
+    def test_create_stubs_via_exec(self, tmp_path):
+        """--create-stubs creates test files for untested modules."""
+        metabolon = tmp_path / "metabolon"
+        metabolon.mkdir()
+        (metabolon / "orphan.py").write_text("pass")
+        assays = tmp_path / "assays"
+        assays.mkdir()
+
+        ns = self._make_ns(tmp_path)
+        saved = sys.argv
+        sys.argv = ["coverage-map", "--create-stubs"]
+        try:
+            ns["main"]()
+        finally:
+            sys.argv = saved
+
+        stub = assays / "test_orphan.py"
+        assert stub.exists()
+        assert "test_placeholder" in stub.read_text()
+
+    def test_create_stubs_no_overwrite(self, tmp_path):
+        """--create-stubs does not overwrite existing test files."""
+        metabolon = tmp_path / "metabolon"
+        metabolon.mkdir()
+        (metabolon / "alpha.py").write_text("pass")
+        assays = tmp_path / "assays"
+        assays.mkdir()
+        (assays / "test_alpha.py").write_text("original content")
+
+        ns = self._make_ns(tmp_path)
+        saved = sys.argv
+        sys.argv = ["coverage-map", "--create-stubs"]
+        try:
+            ns["main"]()
+        finally:
+            sys.argv = saved
+
+        assert (assays / "test_alpha.py").read_text() == "original content"

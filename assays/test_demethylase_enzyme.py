@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 """Tests for demethylase enzyme — signal + mark management dispatcher.
 
 Tests the @tool-decorated demethylase() function in metabolon.enzymes.demethylase

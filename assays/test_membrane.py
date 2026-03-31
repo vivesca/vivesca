@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 """Smoke tests for vivesca MCP server assembly.
 
 Guards against silent 0-tool servers (burned us 2026-03-28 when a

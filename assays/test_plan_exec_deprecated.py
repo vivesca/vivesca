@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 """Tests for effectors/plan-exec.deprecated — execute plan with free AI backends.
 
 plan-exec.deprecated is a script (effectors/plan-exec.deprecated), not an importable module.

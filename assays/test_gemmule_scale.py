@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 """Tests for gemmule-scale — Fly.io machine resizer."""
 
 import json

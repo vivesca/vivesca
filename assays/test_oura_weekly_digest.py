@@ -1,348 +1,391 @@
 from __future__ import annotations
+"""Tests for oura-weekly-digest effector.
 
-"""Tests for oura-weekly-digest — weekly health data markdown generator."""
+Effectors are scripts — loaded via exec(open(path).read(), ns), never imported.
+All function calls use dict-style access: ns["func"]().
+"""
 
 import subprocess
+import types
+import sys
+from datetime import date, timedelta
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
 
-
-EFFECTOR_PATH = Path(__file__).parent.parent / "effectors" / "oura-weekly-digest.py"
-
-
-def _load_module() -> dict:
-    """Load the effector via exec (effectors are scripts, not importable modules)."""
-    source = EFFECTOR_PATH.read_text()
-    ns: dict = {"__name__": "oura_weekly_digest_test"}
-    exec(source, ns)
-    return ns
-
-
-_mod = _load_module()
-strip_ansi = _mod["strip_ansi"]
-parse_trend_table = _mod["parse_trend_table"]
-compute_avg = _mod["compute_avg"]
-trend_arrow = _mod["trend_arrow"]
-format_section = _mod["format_section"]
-run = _mod["run"]
-main = _mod["main"]
-
-
-# ── strip_ansi tests ────────────────────────────────────────────────────
-
-
-def test_strip_ansi_removes_color_codes():
-    """strip_ansi strips common ANSI escape sequences."""
-    text = "\x1b[32mOK\x1b[0m \x1b[1;31mFAIL\x1b[0m"
-    assert strip_ansi(text) == "OK FAIL"
-
-
-def test_strip_ansi_no_codes():
-    """strip_ansi returns plain text unchanged."""
-    assert strip_ansi("hello world") == "hello world"
-
-
-def test_strip_ansi_empty():
-    """strip_ansi handles empty string."""
-    assert strip_ansi("") == ""
-
-
-# ── parse_trend_table tests ─────────────────────────────────────────────
-
-
-def test_parse_trend_table_basic():
-    """parse_trend_table parses a well-formed trend output."""
-    raw = """Date  Sleep  Readiness  Activity
-Mon Mar 24  78  85  62
-Tue Mar 25  82  90  70
-Wed Mar 26  --  88  65"""
-    rows = parse_trend_table(raw)
-    assert len(rows) == 3
-    assert rows[0]["date"] == "Mon Mar 24"
-    assert rows[0]["sleep"] == "78"
-    assert rows[0]["readiness"] == "85"
-    assert rows[0]["activity"] == "62"
-    assert rows[1]["sleep"] == "82"
-    assert rows[2]["sleep"] == "--"
-    assert rows[2]["readiness"] == "88"
-
-
-def test_parse_trend_table_skips_header_and_average():
-    """parse_trend_table skips 'Date' header and 'Average' summary lines."""
-    raw = """Date  Sleep  Readiness  Activity
-Average  80  87  66
-Mon Mar 24  78  85  62"""
-    rows = parse_trend_table(raw)
-    assert len(rows) == 1
-    assert rows[0]["date"] == "Mon Mar 24"
-
-
-def test_parse_trend_table_empty():
-    """parse_trend_table returns empty list for empty string."""
-    assert parse_trend_table("") == []
-
-
-def test_parse_trend_table_short_lines():
-    """parse_trend_table skips lines with fewer than 2 parts."""
-    raw = "Mon\n\nTue Mar 25  82  90  70"
-    rows = parse_trend_table(raw)
-    assert len(rows) == 1
-    assert rows[0]["date"] == "Tue Mar 25"
-
-
-def test_parse_trend_table_missing_scores():
-    """parse_trend_table handles rows with fewer than 3 scores."""
-    raw = "Mon Mar 24  78  85"
-    rows = parse_trend_table(raw)
-    assert len(rows) == 1
-    assert rows[0]["sleep"] == "78"
-    assert rows[0]["readiness"] == "85"
-    assert rows[0]["activity"] == "--"
-
-
-# ── compute_avg tests ───────────────────────────────────────────────────
-
-
-def test_compute_avg_basic():
-    """compute_avg computes integer average of numeric strings."""
-    assert compute_avg(["80", "82", "78"]) == "80"
-
-
-def test_compute_avg_rounds():
-    """compute_avg rounds to nearest integer."""
-    assert compute_avg(["80", "81"]) == "80"  # 80.5 -> 80 (banker's rounding, but round(80.5)=80)
-
-
-def test_compute_avg_skips_dashes():
-    """compute_avg ignores '--' and '' entries."""
-    assert compute_avg(["80", "--", "82", ""]) == "81"
-
-
-def test_compute_avg_all_missing():
-    """compute_avg returns '--' when no valid numbers."""
-    assert compute_avg(["--", "", "--"]) == "--"
-
-
-def test_compute_avg_empty_list():
-    """compute_avg returns '--' for empty list."""
-    assert compute_avg([]) == "--"
-
-
-def test_compute_avg_single_value():
-    """compute_avg works with a single value."""
-    assert compute_avg(["95"]) == "95"
-
-
-# ── trend_arrow tests ───────────────────────────────────────────────────
-
-
-def test_trend_arrow_up():
-    """trend_arrow detects upward trend (recent 3 much higher than older)."""
-    values = ["70", "71", "72", "85", "86", "87"]
-    assert trend_arrow(values) == " (trending up)"
-
-
-def test_trend_arrow_down():
-    """trend_arrow detects downward trend."""
-    values = ["90", "89", "88", "75", "74", "73"]
-    assert trend_arrow(values) == " (trending down)"
-
-
-def test_trend_arrow_stable():
-    """trend_arrow reports stable when difference < 3."""
-    values = ["80", "81", "79", "80", "82", "81"]
-    assert trend_arrow(values) == " (stable)"
-
-
-def test_trend_arrow_too_few():
-    """trend_arrow returns empty string with fewer than 3 numeric values."""
-    assert trend_arrow(["80", "82"]) == ""
-    assert trend_arrow(["80"]) == ""
-
-
-def test_trend_arrow_just_three():
-    """trend_arrow returns empty string with exactly 3 values (no older baseline)."""
-    assert trend_arrow(["80", "82", "78"]) == ""
-
-
-def test_trend_arrow_skips_dashes():
-    """trend_arrow ignores '--' values."""
-    values = ["--", "70", "71", "72", "85", "86"]
-    # recent 3: [72, 85, 86] avg=81, older: [70, 71] avg=70.5, diff=10.5 -> up
-    assert trend_arrow(values) == " (trending up)"
-
-
-def test_trend_arrow_empty():
-    """trend_arrow returns empty string for empty list."""
-    assert trend_arrow([]) == ""
-
-
-# ── format_section tests ────────────────────────────────────────────────
-
-
-def test_format_section_basic():
-    """format_section formats each non-empty line as a bullet."""
-    raw = "Total sleep: 7h 30m\nEfficiency: 92%\nDeep sleep: 1h 20m"
-    result = format_section("Sleep", raw)
-    assert result == "- Total sleep: 7h 30m\n- Efficiency: 92%\n- Deep sleep: 1h 20m"
-
-
-def test_format_section_empty():
-    """format_section returns '*No data*' for empty input."""
-    assert format_section("Sleep", "") == "*No data*"
-
-
-def test_format_section_whitespace_only():
-    """format_section returns empty string for whitespace-only input (lines stripped to nothing)."""
-    assert format_section("Sleep", "   \n\n  ") == ""
-
-
-def test_format_section_strips_lines():
-    """format_section strips leading/trailing whitespace from lines."""
-    raw = "  hello  \n  world  "
-    result = format_section("Test", raw)
-    assert result == "- hello\n- world"
-
-
-# ── run() tests ─────────────────────────────────────────────────────────
-
-
-def test_run_substitutes_oura_path():
-    """run() replaces 'oura' with the full binary path."""
-    with patch("subprocess.run") as mock_run:
-        mock_run.return_value = MagicMock(stdout="output\n", stderr="")
-        result = run(["oura", "trend", "--days", "7"])
-        called_cmd = mock_run.call_args[0][0]
-        # First arg should be the full path, not "oura"
-        assert called_cmd[0] != "oura"
-        assert called_cmd[0].endswith("oura")
-        assert called_cmd[1:] == ["trend", "--days", "7"]
+EFFECTORS_DIR = Path(__file__).resolve().parent.parent / "effectors"
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+def _load_script(name: str) -> dict:
+    """Load a Python effector into a namespace dict."""
+    path = EFFECTORS_DIR / name
+    assert path.exists(), f"Effector not found: {path}"
+    mod_name = f"_test_oura_weekly_{name.replace('-', '_')}"
+    mod = types.ModuleType(mod_name)
+    mod.__file__ = str(path)
+    old_mod = sys.modules.get(mod_name)
+    sys.modules[mod_name] = mod
+    try:
+        exec(path.read_text(), mod.__dict__)
+    except Exception:
+        sys.modules.pop(mod_name, None)
+        if old_mod is not None:
+            sys.modules[mod_name] = old_mod
+        raise
+    return mod.__dict__
+
+
+class ns_proxy:
+    """Proxy that wraps a dict so ns.func() works via dict access."""
+    def __init__(self, d: dict):
+        self.__dict__["_d"] = d
+
+    def __getattr__(self, name):
+        try:
+            return self._d[name]
+        except KeyError:
+            raise AttributeError(f"namespace has no {name!r}")
+
+    def __setattr__(self, name, value):
+        self._d[name] = value
+
+    def __delattr__(self, name):
+        self._d.pop(name, None)
+
+
+def _load(name: str) -> ns_proxy:
+    return ns_proxy(_load_script(name))
+
+
+# ===================================================================
+# strip_ansi
+# ===================================================================
+
+class TestStripAnsi:
+    def test_removes_color_codes(self):
+        ns = _load("oura-weekly-digest")
+        text = "\x1b[32mOK\x1b[0m \x1b[1;33mwarning\x1b[0m"
+        assert ns.strip_ansi(text) == "OK warning"
+
+    def test_no_ansi_passthrough(self):
+        ns = _load("oura-weekly-digest")
+        assert ns.strip_ansi("hello world") == "hello world"
+
+    def test_empty_string(self):
+        ns = _load("oura-weekly-digest")
+        assert ns.strip_ansi("") == ""
+
+    def test_complex_ansi(self):
+        ns = _load("oura-weekly-digest")
+        text = "\x1b[38;5;196mred\x1b[0m"
+        assert ns.strip_ansi(text) == "red"
+
+
+# ===================================================================
+# parse_trend_table
+# ===================================================================
+
+class TestParseTrendTable:
+    def test_basic_rows(self):
+        ns = _load("oura-weekly-digest")
+        raw = (
+            "Date              Sleep  Readiness  Activity\n"
+            "Mon Mar 24  85  90  78\n"
+            "Tue Mar 25  88  92  80\n"
+            "Wed Mar 26  90  88  82\n"
+        )
+        rows = ns.parse_trend_table(raw)
+        assert len(rows) == 3
+        assert rows[0] == {"date": "Mon Mar 24", "sleep": "85", "readiness": "90", "activity": "78"}
+        assert rows[2]["sleep"] == "90"
+
+    def test_skips_header_and_average(self):
+        ns = _load("oura-weekly-digest")
+        raw = (
+            "Date              Sleep  Readiness  Activity\n"
+            "Average  87  90  80\n"
+            "Mon Mar 24  85  90  78\n"
+        )
+        rows = ns.parse_trend_table(raw)
+        assert len(rows) == 1
+        assert rows[0]["date"] == "Mon Mar 24"
+
+    def test_dashes_for_missing(self):
+        ns = _load("oura-weekly-digest")
+        raw = "Mon Mar 24  --  90  --\n"
+        rows = ns.parse_trend_table(raw)
+        assert len(rows) == 1
+        assert rows[0]["sleep"] == "--"
+        assert rows[0]["readiness"] == "90"
+        assert rows[0]["activity"] == "--"
+
+    def test_empty_input(self):
+        ns = _load("oura-weekly-digest")
+        assert ns.parse_trend_table("") == []
+
+    def test_skips_short_lines(self):
+        ns = _load("oura-weekly-digest")
+        raw = "Mon\n\nTue Mar 25  88  92  80\n"
+        rows = ns.parse_trend_table(raw)
+        assert len(rows) == 1
+
+
+# ===================================================================
+# compute_avg
+# ===================================================================
+
+class TestComputeAvg:
+    def test_normal_values(self):
+        ns = _load("oura-weekly-digest")
+        assert ns.compute_avg(["80", "85", "90"]) == "85"
+
+    def test_rounds_correctly(self):
+        ns = _load("oura-weekly-digest")
+        # (80 + 90) / 2 = 85.0
+        assert ns.compute_avg(["80", "90"]) == "85"
+
+    def test_rounds_half(self):
+        ns = _load("oura-weekly-digest")
+        # (80 + 91) / 2 = 85.5 -> 86
+        assert ns.compute_avg(["80", "91"]) == "86"
+
+    def test_all_dashes(self):
+        ns = _load("oura-weekly-digest")
+        assert ns.compute_avg(["--", "--"]) == "--"
+
+    def test_mixed_dashes(self):
+        ns = _load("oura-weekly-digest")
+        # only "80" and "90" count -> avg 85
+        assert ns.compute_avg(["--", "80", "--", "90"]) == "85"
+
+    def test_empty_list(self):
+        ns = _load("oura-weekly-digest")
+        assert ns.compute_avg([]) == "--"
+
+    def test_single_value(self):
+        ns = _load("oura-weekly-digest")
+        assert ns.compute_avg(["75"]) == "75"
+
+
+# ===================================================================
+# trend_arrow
+# ===================================================================
+
+class TestTrendArrow:
+    def test_trending_up(self):
+        ns = _load("oura-weekly-digest")
+        # recent [90,91,92] avg=91, older [80,81,82,83] avg=81.5, diff=9.5 >= 3
+        vals = ["80", "81", "82", "83", "90", "91", "92"]
+        assert ns.trend_arrow(vals) == " (trending up)"
+
+    def test_trending_down(self):
+        ns = _load("oura-weekly-digest")
+        # recent [70,71,72] avg=71, older [85,86,87,88] avg=86.5, diff=-15.5 <= -3
+        vals = ["85", "86", "87", "88", "70", "71", "72"]
+        assert ns.trend_arrow(vals) == " (trending down)"
+
+    def test_stable(self):
+        ns = _load("oura-weekly-digest")
+        # recent [83,84,85] avg=84, older [82,83,84,85] avg=83.5, diff=0.5
+        vals = ["82", "83", "84", "85", "83", "84", "85"]
+        assert ns.trend_arrow(vals) == " (stable)"
+
+    def test_too_few_values(self):
+        ns = _load("oura-weekly-digest")
+        assert ns.trend_arrow(["80", "85"]) == ""
+
+    def test_exactly_three_no_older(self):
+        ns = _load("oura-weekly-digest")
+        assert ns.trend_arrow(["80", "85", "90"]) == ""
+
+    def test_skips_dashes(self):
+        ns = _load("oura-weekly-digest")
+        # recent [--, 90, 92] nums=[90,92] -> only 2 nums < 3 -> ""
+        vals = ["--", "80", "81", "--", "90", "--", "92"]
+        assert ns.trend_arrow(vals) == ""
+
+
+# ===================================================================
+# format_section
+# ===================================================================
+
+class TestFormatSection:
+    def test_normal_text(self):
+        ns = _load("oura-weekly-digest")
+        raw = "Total sleep: 7h 30m\nDeep sleep: 1h 20m"
+        result = ns.format_section("Sleep", raw)
+        assert result == "- Total sleep: 7h 30m\n- Deep sleep: 1h 20m"
+
+    def test_empty_returns_no_data(self):
+        ns = _load("oura-weekly-digest")
+        assert ns.format_section("Sleep", "") == "*No data*"
+
+    def test_whitespace_only_returns_no_data(self):
+        ns = _load("oura-weekly-digest")
+        assert ns.format_section("Sleep", "  \n  \n") == "*No data*"
+
+    def test_single_line(self):
+        ns = _load("oura-weekly-digest")
+        assert ns.format_section("HRV", "Average HRV: 45ms") == "- Average HRV: 45ms"
+
+
+# ===================================================================
+# run (subprocess mock)
+# ===================================================================
+
+class TestRun:
+    def test_replaces_oura_binary(self):
+        ns = _load("oura-weekly-digest")
+        oura_path = str(Path.home() / "code" / "oura-cli" / "target" / "release" / "oura")
+
+        def fake_run(cmd, **kwargs):
+            assert cmd[0] == oura_path
+            assert cmd[1:] == ["trend", "--days", "7"]
+            return subprocess.CompletedProcess(cmd, 0, stdout="output", stderr="")
+
+        with patch("subprocess.run", fake_run):
+            result = ns.run(["oura", "trend", "--days", "7"])
         assert result == "output"
 
+    def test_strips_ansi_from_output(self):
+        ns = _load("oura-weekly-digest")
 
-def test_run_passes_through_other_commands():
-    """run() leaves non-oura commands unchanged."""
-    with patch("subprocess.run") as mock_run:
-        mock_run.return_value = MagicMock(stdout="ok", stderr="")
-        run(["echo", "hello"])
-        assert mock_run.call_args[0][0] == ["echo", "hello"]
+        with patch("subprocess.run", return_value=subprocess.CompletedProcess(
+            [], 0, stdout="\x1b[32mhello\x1b[0m", stderr=""
+        )):
+            result = ns.run(["some_cmd"])
+        assert result == "hello"
 
+    def test_full_path_passthrough(self):
+        ns = _load("oura-weekly-digest")
 
-def test_run_strips_ansi():
-    """run() strips ANSI codes from stdout."""
-    with patch("subprocess.run") as mock_run:
-        mock_run.return_value = MagicMock(stdout="\x1b[32mgreen\x1b[0m\n", stderr="")
-        assert run(["test"]) == "green"
+        def fake_run(cmd, **kwargs):
+            assert cmd[0] == "/usr/bin/echo"
+            return subprocess.CompletedProcess(cmd, 0, stdout="ok", stderr="")
 
-
-# ── main() integration test ─────────────────────────────────────────────
-
-
-def _make_subprocess_mock(trend_output="Mon Mar 24  78  85  62\nTue Mar 25  82  90  70\nWed Mar 26  80  88  65\nThu Mar 27  77  82  60\nFri Mar 28  83  91  72\nSat Mar 29  79  87  68\nSun Mar 30  81  89  71"):
-    """Create a mock subprocess.run that returns oura CLI outputs."""
-    call_count = {"n": 0}
-
-    def _mock_run(cmd, **kwargs):
-        call_count["n"] += 1
-        n = call_count["n"]
-        cmd_str = " ".join(str(c) for c in cmd)
-        if "trend" in cmd_str:
-            out = trend_output
-        elif "sleep" in cmd_str:
-            out = "Total sleep: 7h 30m\nEfficiency: 92%"
-        else:
-            # 2=sleep, 3=readiness, 4=activity, 5=hrv
-            outputs = {
-                2: "Total sleep: 7h 30m\nEfficiency: 92%",
-                3: "Score: 85\nTemperature: 36.5",
-                4: "Steps: 8500\nCalories: 2200",
-                5: "Average HRV: 45ms\nMax HRV: 65ms",
-            }
-            out = outputs.get(n, "data")
-        return MagicMock(stdout=out + "\n", stderr="")
-
-    return _mock_run
+        with patch("subprocess.run", fake_run):
+            result = ns.run(["/usr/bin/echo", "hi"])
+        assert result == "ok"
 
 
-def test_main_writes_note_file(tmp_path, monkeypatch):
-    """main() writes a markdown note to ~/notes/Daily/."""
-    monkeypatch.setattr(Path, "home", lambda: tmp_path)
-    monkeypatch.setattr("sys.argv", ["oura-weekly-digest.py"])
+# ===================================================================
+# main (integration with mocks)
+# ===================================================================
 
-    # We need to re-exec with the patched home since OURA_BIN uses Path.home()
-    source = EFFECTOR_PATH.read_text()
-    ns: dict = {"__name__": "test_oura_main"}
-    exec(source, ns)
+class TestMain:
+    @staticmethod
+    def _mock_run_outputs(trend_data=None):
+        """Return a mock subprocess.run that returns predetermined oura outputs."""
+        if trend_data is None:
+            trend_data = (
+                "Date              Sleep  Readiness  Activity\n"
+                "Mon Mar 24  85  90  78\n"
+                "Tue Mar 25  88  92  80\n"
+                "Wed Mar 26  90  88  82\n"
+                "Thu Mar 27  87  85  79\n"
+                "Fri Mar 28  82  88  81\n"
+                "Sat Mar 29  89  91  83\n"
+                "Sun Mar 30  86  87  77\n"
+            )
 
-    mock_run = _make_subprocess_mock()
+        def fake_run(cmd, **kwargs):
+            cmd_str = " ".join(cmd)
+            if "trend" in cmd_str:
+                stdout = trend_data
+            elif "sleep" in cmd_str:
+                stdout = "Sleep score: 85\nDeep: 1h"
+            elif "readiness" in cmd_str:
+                stdout = "Readiness: 88"
+            elif "hrv" in cmd_str:
+                stdout = "HRV avg: 42ms"
+            elif "activity" in cmd_str:
+                stdout = "Steps: 8000"
+            else:
+                stdout = ""
+            return subprocess.CompletedProcess(cmd, 0, stdout=stdout, stderr="")
 
-    with patch("subprocess.run", side_effect=mock_run):
-        ns["main"]()
+        return fake_run
 
-    # Check file was written
-    notes_dir = tmp_path / "notes" / "Daily"
-    files = list(notes_dir.glob("Oura Weekly - *.md"))
-    assert len(files) == 1
+    def test_main_creates_note_file(self, tmp_path, monkeypatch):
+        ns = _load("oura-weekly-digest")
+        notes_dir = tmp_path / "notes" / "Daily"
+        monkeypatch.setattr(Path, "home", lambda: tmp_path)
+        today = date.today()
+        expected_path = notes_dir / f"Oura Weekly - {today.strftime('%Y-%m-%d')}.md"
 
-    content = files[0].read_text()
-    # Verify structure
-    assert "# Oura Weekly Digest" in content
-    assert "## 7-Day Scores" in content
-    assert "| Date | Sleep | Readiness | Activity |" in content
-    assert "**Average**" in content
-    assert "## Yesterday's Detail" in content
-    assert "### Sleep" in content
-    assert "### Readiness" in content
-    assert "### HRV & Recovery" in content
-    assert "### Activity" in content
+        with patch("subprocess.run", self._mock_run_outputs()):
+            ns.main()
 
+        assert expected_path.exists()
+        content = expected_path.read_text()
+        # Check markdown structure
+        assert "# Oura Weekly Digest" in content
+        assert "## 7-Day Scores" in content
+        assert "| Date | Sleep | Readiness | Activity |" in content
+        assert "**Average**" in content
+        assert "## Yesterday's Detail" in content
+        assert "### Sleep" in content
+        assert "### Readiness" in content
+        assert "### HRV & Recovery" in content
+        assert "### Activity" in content
+        assert "tags: [oura, health, weekly]" in content
 
-def test_main_outputs_summary(tmp_path, monkeypatch, capsys):
-    """main() prints a one-line summary to stdout."""
-    monkeypatch.setattr(Path, "home", lambda: tmp_path)
-    monkeypatch.setattr("sys.argv", ["oura-weekly-digest.py"])
+    def test_main_prints_summary(self, tmp_path, monkeypatch, capsys):
+        ns = _load("oura-weekly-digest")
+        monkeypatch.setattr(Path, "home", lambda: tmp_path)
 
-    source = EFFECTOR_PATH.read_text()
-    ns: dict = {"__name__": "test_oura_main"}
-    exec(source, ns)
+        with patch("subprocess.run", self._mock_run_outputs()):
+            ns.main()
 
-    mock_run = _make_subprocess_mock()
+        captured = capsys.readouterr()
+        assert "Oura 7d:" in captured.out
+        assert "sleep avg" in captured.out
+        assert "readiness avg" in captured.out
+        assert "activity avg" in captured.out
 
-    with patch("subprocess.run", side_effect=mock_run):
-        ns["main"]()
+    def test_main_table_rows(self, tmp_path, monkeypatch):
+        ns = _load("oura-weekly-digest")
+        monkeypatch.setattr(Path, "home", lambda: tmp_path)
 
-    captured = capsys.readouterr()
-    assert "Oura 7d:" in captured.out
-    assert "sleep avg" in captured.out
-    assert "readiness avg" in captured.out
-    assert "activity avg" in captured.out
-    assert "saved" in captured.out
+        with patch("subprocess.run", self._mock_run_outputs()):
+            ns.main()
 
+        today = date.today()
+        note_path = tmp_path / "notes" / "Daily" / f"Oura Weekly - {today.strftime('%Y-%m-%d')}.md"
+        content = note_path.read_text()
+        # Should have 7 data rows
+        for d in ["Mon Mar 24", "Tue Mar 25", "Wed Mar 26", "Thu Mar 27",
+                   "Fri Mar 28", "Sat Mar 29", "Sun Mar 30"]:
+            assert d in content
 
-def test_main_atomic_write(tmp_path, monkeypatch):
-    """main() writes via temp file then renames (atomic write)."""
-    monkeypatch.setattr(Path, "home", lambda: tmp_path)
-    monkeypatch.setattr("sys.argv", ["oura-weekly-digest.py"])
+    def test_main_averages(self, tmp_path, monkeypatch):
+        ns = _load("oura-weekly-digest")
+        monkeypatch.setattr(Path, "home", lambda: tmp_path)
 
-    source = EFFECTOR_PATH.read_text()
-    ns: dict = {"__name__": "test_oura_main"}
-    exec(source, ns)
+        with patch("subprocess.run", self._mock_run_outputs()):
+            ns.main()
 
-    mock_run = _make_subprocess_mock()
-    replaces = []
+        today = date.today()
+        note_path = tmp_path / "notes" / "Daily" / f"Oura Weekly - {today.strftime('%Y-%m-%d')}.md"
+        content = note_path.read_text()
+        # Averages: sleep=(85+88+90+87+82+89+86)/7=86.71->87
+        # readiness=(90+92+88+85+88+91+87)/7=88.71->89
+        # activity=(78+80+82+79+81+83+77)/7=80
+        assert "**87**" in content
+        assert "**89**" in content
+        assert "**80**" in content
 
-    original_replace = Path.replace
+    def test_main_empty_trend(self, tmp_path, monkeypatch, capsys):
+        ns = _load("oura-weekly-digest")
+        monkeypatch.setattr(Path, "home", lambda: tmp_path)
 
-    def tracking_replace(self, target):
-        replaces.append((str(self), str(target)))
-        return original_replace(self, target)
+        with patch("subprocess.run", self._mock_run_outputs(trend_data="")):
+            ns.main()
 
-    with patch("subprocess.run", side_effect=mock_run), \
-         patch.object(Path, "replace", tracking_replace):
-        ns["main"]()
-
-    # Should have renamed .md.tmp -> .md
-    assert any(".md.tmp" in src and ".md" in dst and ".tmp" not in dst
-               for src, dst in replaces)
+        captured = capsys.readouterr()
+        assert "sleep avg --" in captured.out

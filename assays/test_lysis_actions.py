@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 """Tests for metabolon/enzymes/lysis.py — MCP tool wrapper around lysis effector.
 
 Covers all three action branches (scrape, search, unknown), argument

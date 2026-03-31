@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 """Tests for agent-sync.sh — pull config repos and sync MEMORY.md."""
 
 import os

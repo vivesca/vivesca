@@ -1,6 +1,7 @@
+from __future__ import annotations
+
 """Tests for importin — transport credentials from macOS Keychain into shell environment."""
 
-from __future__ import annotations
 
 import os
 import subprocess

@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 """Comprehensive tests for metabolon/pore.py — CLI entry point.
 
 Tests cover:

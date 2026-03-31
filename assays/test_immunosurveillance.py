@@ -8,7 +8,6 @@ so tests can patch names directly in the exec namespace (which the exec'd
 functions close over).
 """
 
-from __future__ import annotations
 
 import subprocess
 import sys

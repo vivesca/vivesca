@@ -7,7 +7,6 @@ safe_rm.py is a script (effectors/safe_rm.py), not an importable module.
 It is loaded via exec() into isolated namespaces.
 """
 
-from __future__ import annotations
 
 import os
 import subprocess

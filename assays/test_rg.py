@@ -7,7 +7,6 @@ rg is a symlink to search-guard, which wraps the real ripgrep binary.
 It should be loaded via exec() or subprocess.run, NEVER imported.
 """
 
-from __future__ import annotations
 
 import os
 import subprocess

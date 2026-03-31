@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 """Tests for pinocytosis/ecdysis — weekly review context gather."""
 
 import pytest

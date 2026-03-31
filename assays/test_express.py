@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 """Tests for effectors/express — membrane receptor installation.
 
 Express is a script (effectors/express), not an importable module.

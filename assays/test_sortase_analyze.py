@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 """Tests for sortase analyze command — log analysis subcommand."""
 
 import json

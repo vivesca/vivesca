@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 """Comprehensive tests for metabolon.enzymes.expression."""
 
 import datetime

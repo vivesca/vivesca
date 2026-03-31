@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 """Tests for provider-bench — parallel provider benchmarking effector."""
 
 import json

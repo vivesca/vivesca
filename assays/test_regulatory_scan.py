@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 """Tests for effectors/regulatory-scan — stale regulatory document scan (effector script)."""
 
 import sys

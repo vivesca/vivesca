@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 from __future__ import annotations
+
 """Tests for inflammasome-probe effector — mocks all external file I/O and subprocess."""
 
 

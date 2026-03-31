@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 from __future__ import annotations
+
 """Tests for cg effector — GLM-5.1 Claude Code wrapper via ZhipuAI."""
 
 

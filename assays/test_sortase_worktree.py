@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 """Tests for sortase worktree support in executor and CLI."""
 
 import subprocess

@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 from __future__ import annotations
+
 """Tests for effectors/vesicle — garden CLI for terryli.hm.
 
 vesicle is identical to publish (same script). Tests cover the same logic

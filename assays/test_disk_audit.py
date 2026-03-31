@@ -1,5 +1,6 @@
-"""Tests for effectors/disk-audit — disk usage and cleanup reporter."""
 from __future__ import annotations
+
+"""Tests for effectors/disk-audit — disk usage and cleanup reporter."""
 
 import os
 import time

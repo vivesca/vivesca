@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 """Tests for test-fixer — automated test file fixer for common issues."""
 
 import subprocess

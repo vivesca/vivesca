@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 """Tests that every oscillator (LaunchAgent) plist points to existing binaries/scripts.
 
 Catches path drift: when an effector is renamed/moved but its plist isn't updated.

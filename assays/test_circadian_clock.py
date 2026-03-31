@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 """Tests for circadian_clock organelle."""
 
 from datetime import date, datetime, timezone, timedelta

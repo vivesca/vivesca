@@ -6,7 +6,6 @@ from __future__ import annotations
 All filesystem calls are mocked.
 """
 
-from __future__ import annotations
 
 import io
 import json

@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 """Tests for metabolon.organelles.rename — scanning and dry-run logic."""
 
 

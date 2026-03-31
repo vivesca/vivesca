@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 """Tests for vasomotor_sensor — CC budget usage tracker."""
 
 import json

@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 """Tests for polarization_loop — state types and constants."""
 
 from pathlib import Path

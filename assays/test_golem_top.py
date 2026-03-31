@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 """Tests for effectors/golem-top.
 
 Effectors are scripts — load via exec, never import.

@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 """Tests for operons — dataclass, registry, and helper functions."""
 
 import pytest

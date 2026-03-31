@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 """Tests for the new MCP resources: skills, tools, operons, cc/hooks, cc/health."""
 
 

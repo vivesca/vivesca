@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 """Tests for conftest-gen — hardcoded path scanner and rewriter."""
 
 import subprocess

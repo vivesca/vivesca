@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 """Tests for effectors/methylation-review — weekly methylation review synthesis.
 
 methylation-review is a script (effectors/methylation-review), not an importable module.

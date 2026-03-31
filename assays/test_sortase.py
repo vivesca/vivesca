@@ -1,6 +1,7 @@
+from __future__ import annotations
+
 """Tests for metabolon/enzymes/sortase.py — dispatch coding tasks to cheap LLM backends."""
 
-from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path

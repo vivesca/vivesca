@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 """Integration tests — CLI end-to-end via Click test runner."""
 
 

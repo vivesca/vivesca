@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 """Integration test for parallel sortase dispatch — verifies status.json atomicity under concurrency."""
 
 

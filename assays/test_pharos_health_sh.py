@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 """Tests for effectors/pharos-health.sh — bash script tested via subprocess."""
 
 import os
@@ -177,8 +178,70 @@ class TestFailedUnits:
 
 class TestCombined:
     def test_both_high_disk_and_failed(self, tmp_path):
-        """Both triggers → single alert with both metrics."""
+        """Both triggers → single alert with all metrics."""
         r = _run(tmp_path, disk_pct=90, failed_units=3, tg_notify=False)
         assert r.returncode == 1
         assert "disk=90%" in r.stderr
         assert "failed_units=3" in r.stderr
+
+
+# ── edge cases ──────────────────────────────────────────────────────────
+
+
+class TestEdgeCases:
+    def test_tg_notify_not_executable(self, tmp_path):
+        """tg-notify.sh exists but is not executable → falls through to stderr."""
+        scripts_dir = tmp_path / "scripts"
+        scripts_dir.mkdir()
+        tg = scripts_dir / "tg-notify.sh"
+        tg.write_text("#!/bin/bash\nexit 0\n")
+        # deliberately do NOT chmod +x
+        r = _run(tmp_path, disk_pct=90, failed_units=0, tg_notify=False)
+        assert r.returncode == 1
+        assert "ALERT:" in r.stderr
+        # tg-notify.sh should NOT have been called
+        assert not (tmp_path / "tg.log").exists()
+
+    def test_systemctl_nonzero_falls_back_to_zero(self, tmp_path):
+        """systemctl exits non-zero → FAILED defaults to 0, still healthy."""
+        mock_dir = tmp_path / "mock-bin"
+        mock_dir.mkdir()
+        _make_mock(mock_dir, "df", "Use%\n  50%")
+        _make_mock(mock_dir, "free", "              total       used\nMem: 4096 8192")
+        # systemctl that exits 1 (non-zero)
+        _make_mock(mock_dir, "systemctl", "", exit_code=1)
+
+        env = os.environ.copy()
+        env["HOME"] = str(tmp_path)
+        env["PATH"] = str(mock_dir) + os.pathsep + env.get("PATH", "")
+
+        r = subprocess.run(
+            ["bash", str(SCRIPT)],
+            capture_output=True, text=True, env=env, timeout=10,
+        )
+        assert r.returncode == 0
+        assert "pharos health: ok" in r.stdout
+
+    def test_memory_format_in_healthy_output(self, tmp_path):
+        """Memory should appear as used/totalMB in healthy output."""
+        # mem_line "Mem: 2048 1024" → awk prints $3/$2MB = "1024/2048MB"
+        r = _run(tmp_path, disk_pct=50, mem_line="Mem: 2048 1024", failed_units=0)
+        assert r.returncode == 0
+        assert "1024/2048MB" in r.stdout
+
+    def test_memory_format_in_alert(self, tmp_path):
+        """Memory should appear as used/totalMB in alert output."""
+        r = _run(tmp_path, disk_pct=90, mem_line="Mem: 4096 2048", failed_units=0, tg_notify=False)
+        assert r.returncode == 1
+        assert "2048/4096MB" in r.stderr
+
+    def test_disk_100_percent(self, tmp_path):
+        """Extreme disk value triggers alert."""
+        r = _run(tmp_path, disk_pct=100, failed_units=0)
+        assert r.returncode == 1
+        assert "disk=100%" in r.stderr
+
+    def test_help_mentions_threshold(self, tmp_path):
+        """--help output mentions the 85% threshold."""
+        r = _run(tmp_path, args=["--help"])
+        assert "85%" in r.stdout

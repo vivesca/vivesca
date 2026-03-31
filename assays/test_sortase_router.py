@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 """Tests for sortase router."""
 
 from metabolon.sortase.router import DEFAULT_TOOL, RouteDecision, route_description

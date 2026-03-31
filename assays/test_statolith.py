@@ -183,7 +183,6 @@ class TestCache:
 class TestAliasMap:
     def test_load_alias_toml_parses_correctly(self):
         toml_str = """
-from __future__ import annotations
 
 [gpt-4]
 canonical = "gpt-4o"

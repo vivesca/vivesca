@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 """Tests for chromatin-backup.sh — git auto-commit and push for chromatin vault."""
 
 import subprocess

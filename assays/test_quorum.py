@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 """Tests for quorum — multi-model deliberation engine."""
 
 from pathlib import Path

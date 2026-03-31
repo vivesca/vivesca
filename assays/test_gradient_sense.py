@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 """Tests for gradient_sense — sensor array reading and polarity detection."""
 
 

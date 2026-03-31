@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 """Tests for metabolon.enzymes.endocytosis — public API dispatch.
 
 Covers EndocytosisResult construction and the endocytosis() tool

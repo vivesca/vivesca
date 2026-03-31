@@ -7,7 +7,6 @@ find is a symlink to search-guard, which wraps the real find binary.
 Loaded via exec() with all external calls mocked.
 """
 
-from __future__ import annotations
 
 import os
 import sys

@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 from __future__ import annotations
+
 """Tests for effectors/tmux-workspace.py — tmux workspace layout manager."""
 
 import os
