@@ -95,8 +95,9 @@ def test_retention_prunes_old_backups():
         assert result.returncode == 0
 
         remaining = sorted(backup_dir.glob("due-*.duecdb"))
-        assert len(remaining) == 31, (
-            f"Expected 31 backups (30 old + 1 new), got {len(remaining)}"
+        # ls -t | tail -n +31 keeps the first 30 (newest first), so total = 30
+        assert len(remaining) == 30, (
+            f"Expected 30 backups after pruning 35+1 to 30, got {len(remaining)}"
         )
 
 

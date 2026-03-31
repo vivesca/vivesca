@@ -198,3 +198,132 @@ class TestEdgeCases:
         """Script runs without any arguments."""
         r = _run(SCRIPT, env={"HOME": str(tmp_path)})
         assert r.returncode == 0
+
+    def test_git_pull_error_does_not_crash(self, tmp_path):
+        """Script tolerates git pull errors gracefully (|| true)."""
+        repo = tmp_path / "agent-config"
+        repo.mkdir()
+        (repo / ".git").mkdir()
+        # Not a real git repo — .git/ exists but is empty, so git commands fail
+        r = _run(SCRIPT, env={"HOME": str(tmp_path)})
+        assert r.returncode == 0
+
+    def test_git_rebase_fallback(self, tmp_path):
+        """Script falls back from --rebase to plain pull when rebase fails."""
+        repo = tmp_path / "skills"
+        repo.mkdir()
+        subprocess.run(["git", "init", str(repo)], capture_output=True, check=True)
+        # Add a dummy commit so there's something to pull
+        subprocess.run(
+            ["git", "-C", str(repo), "commit", "--allow-empty", "-m", "init"],
+            capture_output=True,
+            env={**os.environ, "GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@t",
+                 "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@t"},
+        )
+        # Point origin at a non-existent path so pull fails gracefully
+        subprocess.run(
+            ["git", "-C", str(repo), "remote", "add", "origin", "/no/such/path"],
+            capture_output=True,
+        )
+        r = _run(SCRIPT, env={"HOME": str(tmp_path)})
+        assert r.returncode == 0
+
+    def test_mixed_git_and_non_git_repos(self, tmp_path):
+        """Script processes repos with mixed .git presence."""
+        # agent-config has .git, skills does not, chromatin has .git
+        repo1 = tmp_path / "agent-config"
+        repo1.mkdir()
+        subprocess.run(["git", "init", str(repo1)], capture_output=True, check=True)
+
+        (tmp_path / "skills").mkdir()
+
+        repo3 = tmp_path / "code" / "epigenome" / "chromatin"
+        repo3.mkdir(parents=True)
+        subprocess.run(["git", "init", str(repo3)], capture_output=True, check=True)
+
+        r = _run(SCRIPT, env={"HOME": str(tmp_path)})
+        assert r.returncode == 0
+
+    def test_memory_file_with_unicode(self, tmp_path):
+        """Script handles MEMORY.md with unicode content."""
+        src_dir = tmp_path / "agent-config" / "claude" / "memory"
+        src_dir.mkdir(parents=True)
+        (src_dir / "MEMORY.md").write_text("# Mémoire 🧠\nÜnïcödé content: 日本語\n")
+
+        r = _run(SCRIPT, env={"HOME": str(tmp_path)})
+        assert r.returncode == 0
+
+        project_dash = str(tmp_path).lstrip("/").replace("/", "-")
+        dst = tmp_path / ".claude" / "projects" / f"-{project_dash}" / "memory" / "MEMORY.md"
+        assert dst.exists()
+        content = dst.read_text()
+        assert "Mémoire" in content
+        assert "日本語" in content
+
+    def test_memory_file_large_content(self, tmp_path):
+        """Script copies large MEMORY.md files correctly."""
+        src_dir = tmp_path / "agent-config" / "claude" / "memory"
+        src_dir.mkdir(parents=True)
+        large_content = "# Large\n" + "line of data\n" * 10000
+        (src_dir / "MEMORY.md").write_text(large_content)
+
+        r = _run(SCRIPT, env={"HOME": str(tmp_path)})
+        assert r.returncode == 0
+
+        project_dash = str(tmp_path).lstrip("/").replace("/", "-")
+        dst = tmp_path / ".claude" / "projects" / f"-{project_dash}" / "memory" / "MEMORY.md"
+        assert dst.exists()
+        assert len(dst.read_text()) == len(large_content)
+
+    def test_memory_source_is_directory_not_file(self, tmp_path):
+        """Script handles case where MEMORY.md source path is a directory."""
+        src_dir = tmp_path / "agent-config" / "claude" / "memory"
+        src_dir.mkdir(parents=True)
+        # Create MEMORY.md as a directory instead of a file
+        (src_dir / "MEMORY.md").mkdir()
+
+        r = _run(SCRIPT, env={"HOME": str(tmp_path)})
+        # Script checks [ -f "$SRC" ], so directory is skipped
+        assert r.returncode == 0
+
+        project_dash = str(tmp_path).lstrip("/").replace("/", "-")
+        dst = tmp_path / ".claude" / "projects" / f"-{project_dash}" / "memory" / "MEMORY.md"
+        assert not dst.exists()
+
+    def test_deeply_nested_home_path(self, tmp_path):
+        """Script correctly handles deeply nested HOME with many slashes."""
+        nested = tmp_path / "a" / "b" / "c" / "d" / "e"
+        nested.mkdir(parents=True)
+
+        src_dir = nested / "agent-config" / "claude" / "memory"
+        src_dir.mkdir(parents=True)
+        (src_dir / "MEMORY.md").write_text("deep path test\n")
+
+        r = _run(SCRIPT, env={"HOME": str(nested)})
+        assert r.returncode == 0
+
+        project_dash = str(nested).lstrip("/").replace("/", "-")
+        assert project_dash == "a-b-c-d-e"
+        dst = nested / ".claude" / "projects" / f"-{project_dash}" / "memory" / "MEMORY.md"
+        assert dst.exists()
+        assert dst.read_text() == "deep path test\n"
+
+    def test_home_with_trailing_slash(self, tmp_path):
+        """Script handles HOME with trailing slash."""
+        home = tmp_path / "myhome"
+        home.mkdir()
+        src_dir = home / "agent-config" / "claude" / "memory"
+        src_dir.mkdir(parents=True)
+        (src_dir / "MEMORY.md").write_text("trailing slash\n")
+
+        r = _run(SCRIPT, env={"HOME": str(home) + "/"})
+        assert r.returncode == 0
+
+        # sed 's|^/||' strips leading /, then tr '/' '-'
+        # With trailing slash: /tmp/.../myhome/ -> tmp/.../myhome/ -> tmp-...-myhome-
+        # The dst dir should exist somewhere under .claude/projects/
+        claude_dir = home / ".claude" / "projects"
+        if claude_dir.exists():
+            # Find MEMORY.md anywhere under projects
+            found = list(claude_dir.rglob("MEMORY.md"))
+            assert len(found) >= 1

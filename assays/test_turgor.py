@@ -4,7 +4,10 @@ from __future__ import annotations
 """Tests for metabolon.enzymes.turgor — tonus session state management tool."""
 
 
+from datetime import timedelta
+from pathlib import Path
 from unittest.mock import patch
+
 import pytest
 
 from metabolon.enzymes.turgor import tonus, ITEM_RE
@@ -267,3 +270,189 @@ class TestTonusUnknownAction:
         result = tonus(action="delete", label="test")
         assert result["success"] is False
         assert "Unknown action" in result["message"]
+
+
+# ── Internal I/O helpers ─────────────────────────────────────────────────────
+
+
+class TestReadTonus:
+    def test_reads_file_with_utf8(self, tmp_path):
+        """_read_tonus should read TONUS with utf-8 encoding."""
+        from metabolon.enzymes import turgor
+
+        tonus_file = tmp_path / "Tonus.md"
+        tonus_file.write_text("hello ünïcödé", encoding="utf-8")
+        with patch.object(turgor, "TONUS", tonus_file):
+            result = turgor._read_tonus()
+        assert result == "hello ünïcödé"
+
+    def test_tonus_path_points_to_epigenome(self):
+        """TONUS should live under ~/epigenome/chromatin/."""
+        from metabolon.enzymes.turgor import TONUS
+
+        assert TONUS == Path.home() / "epigenome" / "chromatin" / "Tonus.md"
+
+
+class TestWriteTonus:
+    def test_atomic_write_uses_tmp_then_replace(self, tmp_path):
+        """_write_tonus should write to .md.tmp then rename (atomic)."""
+        from metabolon.enzymes import turgor
+
+        tonus_file = tmp_path / "Tonus.md"
+        tonus_file.write_text("old", encoding="utf-8")
+        with patch.object(turgor, "TONUS", tonus_file):
+            turgor._write_tonus("new content")
+        assert tonus_file.read_text(encoding="utf-8") == "new content"
+        # tmp file should not linger
+        assert not tonus_file.with_suffix(".md.tmp").exists()
+
+
+# ── Fuzzy matching edge cases ─────────────────────────────────────────────────
+
+
+class TestTonusMarkEdgeCases:
+    def test_case_insensitive_fuzzy_match(self):
+        """Should match label case-insensitively."""
+        mock_content = "- [queued] **Write Tests.** Add tests\n"
+        wrote = None
+
+        def capture(content):
+            nonlocal wrote
+            wrote = content
+
+        with patch("metabolon.enzymes.turgor._read_tonus", return_value=mock_content):
+            with patch("metabolon.enzymes.turgor._write_tonus", side_effect=capture):
+                result = tonus(action="mark", label="write tests", item_status="in-progress")
+
+        assert result["success"] is True
+        assert "- [in-progress] **Write Tests.** Add tests" in wrote
+
+    def test_partial_label_match(self):
+        """Should match on partial label substring."""
+        mock_content = "- [queued] **Deploy production services.** Go live\n"
+        wrote = None
+
+        def capture(content):
+            nonlocal wrote
+            wrote = content
+
+        with patch("metabolon.enzymes.turgor._read_tonus", return_value=mock_content):
+            with patch("metabolon.enzymes.turgor._write_tonus", side_effect=capture):
+                result = tonus(action="mark", label="production", item_status="done")
+
+        assert result["success"] is True
+        assert "- [done] **Deploy production services.** Go live" in wrote
+
+    def test_only_first_match_updated(self):
+        """When multiple items match, only the first should be updated."""
+        mock_content = (
+            "- [queued] **Task A.** First\n"
+            "- [queued] **Task B.** Second\n"
+            "- [queued] **Task C.** Third\n"
+        )
+        wrote = None
+
+        def capture(content):
+            nonlocal wrote
+            wrote = content
+
+        with patch("metabolon.enzymes.turgor._read_tonus", return_value=mock_content):
+            with patch("metabolon.enzymes.turgor._write_tonus", side_effect=capture):
+                result = tonus(action="mark", label="Task", item_status="in-progress")
+
+        assert result["success"] is True
+        lines = wrote.splitlines()
+        assert "- [in-progress] **Task A.** First" in lines[0]
+        assert "- [queued] **Task B.** Second" in lines[1]
+        assert "- [queued] **Task C.** Third" in lines[2]
+
+    def test_mark_without_checkpoint_line_does_not_crash(self):
+        """Mark action should work even when no checkpoint line exists."""
+        mock_content = "- [queued] **Task A.** Do it\n"
+        wrote = None
+
+        def capture(content):
+            nonlocal wrote
+            wrote = content
+
+        with patch("metabolon.enzymes.turgor._read_tonus", return_value=mock_content):
+            with patch("metabolon.enzymes.turgor._write_tonus", side_effect=capture):
+                result = tonus(action="mark", label="Task A", item_status="done")
+
+        assert result["success"] is True
+        assert "- [done] **Task A.** Do it" in wrote
+
+    def test_mark_preserves_description_when_only_status_given(self):
+        """Updating only status on matched item should preserve description."""
+        mock_content = "- [queued] **Task.** Original description here\n"
+        wrote = None
+
+        def capture(content):
+            nonlocal wrote
+            wrote = content
+
+        with patch("metabolon.enzymes.turgor._read_tonus", return_value=mock_content):
+            with patch("metabolon.enzymes.turgor._write_tonus", side_effect=capture):
+                result = tonus(action="mark", label="Task", item_status="done")
+
+        assert result["success"] is True
+        assert "Original description here" in wrote
+        assert "- [done] **Task.** Original description here" in wrote
+
+    def test_mark_preserves_status_when_only_description_given(self):
+        """Updating only description on matched item should preserve status."""
+        mock_content = "- [in-progress] **Task.** Old desc\n"
+        wrote = None
+
+        def capture(content):
+            nonlocal wrote
+            wrote = content
+
+        with patch("metabolon.enzymes.turgor._read_tonus", return_value=mock_content):
+            with patch("metabolon.enzymes.turgor._write_tonus", side_effect=capture):
+                result = tonus(action="mark", label="Task", description="New desc")
+
+        assert result["success"] is True
+        assert "- [in-progress] **Task.** New desc" in wrote
+
+
+# ── Status edge cases ─────────────────────────────────────────────────────────
+
+
+class TestTonusStatusEdgeCases:
+    def test_pressure_format_string(self):
+        """Pressure string should show in-progress / total with percentage."""
+        mock_content = (
+            "- [in-progress] **A.** First\n"
+            "- [in-progress] **B.** Second\n"
+            "- [done] **C.** Third\n"
+        )
+        with patch("metabolon.enzymes.turgor._read_tonus", return_value=mock_content):
+            result = tonus(action="status")
+        assert result["pressure"] == "2 in-progress / 3 total (67%)"
+
+    def test_status_ignores_non_item_lines(self):
+        """Status should only count lines matching ITEM_RE."""
+        mock_content = (
+            "# Tonus\n"
+            "\n"
+            "Some prose here\n"
+            "- [done] **Real item.** A real task\n"
+            "- [ ] Checkbox not counted\n"
+            "More text\n"
+        )
+        with patch("metabolon.enzymes.turgor._read_tonus", return_value=mock_content):
+            result = tonus(action="status")
+        assert result["count"] == 1
+        assert result["done"] == 1
+
+
+# ── Timezone constant ─────────────────────────────────────────────────────────
+
+
+class TestConstants:
+    def test_hkt_is_utc_plus_8(self):
+        """HKT timezone should be UTC+8."""
+        from metabolon.enzymes.turgor import HKT
+
+        assert HKT.utcoffset(None) == timedelta(hours=8)
