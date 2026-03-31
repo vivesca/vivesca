@@ -54,43 +54,53 @@ class TestDispatchStructure:
 class TestLogAndGradient:
     """Test the gradient logging and change-detection helper."""
 
-    @patch("builtins.open", new_callable=mock_open)
-    @patch("os.makedirs")
-    def test_log_and_gradient_first_call_no_history(self, mock_makedirs, mock_file) -> None:
-        """First call logs the entry but returns None (no gradient to detect)."""
+    @patch("metabolon.enzymes.proprioception.os.makedirs")
+    @patch("metabolon.enzymes.proprioception.open", side_effect=FileNotFoundError)
+    def test_log_and_gradient_first_call_no_history(self, mock_file, mock_makedirs) -> None:
+        """First call logs the entry but returns None (no gradient to detect).
+
+        If open() raises FileNotFoundError even for the append call,
+        the function should not crash — but in practice the first open("a")
+        creates the file. We test the path where the read-after-write fails,
+        returning None.
+        """
         from metabolon.enzymes.proprioception import _log_and_gradient
 
-        # First call: file doesn't exist yet (open for read raises FileNotFoundError)
+        # open is called twice: append (succeeds), read (fails)
+        write_handle = MagicMock()
+        write_handle.__enter__ = MagicMock(return_value=write_handle)
+        write_handle.__exit__ = MagicMock(return_value=False)
+
         mock_file.side_effect = [
-            mock_open.return_value,  # write append
-            FileNotFoundError(),  # read fails
+            write_handle,  # open(..., "a") succeeds
+            FileNotFoundError(),  # open() for read fails
         ]
+
         result = _log_and_gradient("genome", "some reading text")
         assert result is None
-        # Verify makedirs was called for the log directory
         mock_makedirs.assert_called_once()
 
-    @patch("os.makedirs")
-    @patch("builtins.open")
+    @patch("metabolon.enzymes.proprioception.os.makedirs")
+    @patch("metabolon.enzymes.proprioception.open")
     def test_log_and_gradient_detects_growth(self, mock_file, mock_makedirs) -> None:
         """When prior readings exist and size changed significantly, returns gradient string."""
         from metabolon.enzymes.proprioception import _log_and_gradient
 
-        # Build history: 4 small readings + 1 large reading
+        # Build history: 4 small readings for "genome" target
         old_entries = [
             json.dumps({"ts": f"2026-03-31T0{i}:00:00+08:00", "target": "genome", "size": 100})
             for i in range(4)
         ]
-        # Append the new entry + all history
         history_lines = "\n".join(old_entries) + "\n"
 
-        # open is called twice: once for append ("a"), once for read ("r")
+        # open called twice: append, then read
         write_handle = MagicMock()
+        write_handle.__enter__ = MagicMock(return_value=write_handle)
+        write_handle.__exit__ = MagicMock(return_value=False)
+
         read_handle = MagicMock()
         read_handle.__enter__ = MagicMock(return_value=StringIO(history_lines))
         read_handle.__exit__ = MagicMock(return_value=False)
-        write_handle.__enter__ = MagicMock(return_value=write_handle)
-        write_handle.__exit__ = MagicMock(return_value=False)
 
         mock_file.side_effect = [write_handle, read_handle]
 

@@ -53,13 +53,10 @@ class TestToolFunctions:
         """The integrin tool should have readOnlyHint=True annotation."""
         from metabolon.enzymes.integrin import integrin
 
-        # FastMCP stores the annotations on the decorated function
-        # Check via the tool's metadata
-        fn = integrin
-        # The @tool decorator wraps the function; check _tool_meta or annotations
-        assert hasattr(fn, "annotations") or hasattr(fn, "_tool_meta"), (
-            "Expected annotations or _tool_meta on integrin"
-        )
+        # FastMCP stores metadata on __fastmcp__ attribute
+        meta = integrin.__fastmcp__
+        assert meta.annotations is not None
+        assert meta.annotations.readOnlyHint is True
 
 
 # ---------------------------------------------------------------------------
