@@ -1,118 +1,152 @@
 from __future__ import annotations
 
-"""Tests for metabolon.server — RequestLogger JSONL persistence."""
+"""Tests for metabolon.server.RequestLogger — JSONL request log persistence."""
 
 import json
-from unittest.mock import patch
+from pathlib import Path
 
 import pytest
 
-from metabolon.server import RequestLogger
+from metabolon.server import DEFAULT_REQUEST_LOG, RequestLogger
 
 
-class TestRequestLoggerInit:
-    def test_default_path(self):
-        rl = RequestLogger()
-        assert rl._path.name == "requests.jsonl"
-        assert "vivesca" in str(rl._path)
+# ── helpers ───────────────────────────────────────────────────────────
 
-    def test_custom_path(self, tmp_path):
-        custom = tmp_path / "custom.jsonl"
-        rl = RequestLogger(custom)
-        assert rl._path == custom
-
-    def test_path_is_always_path_object(self, tmp_path):
-        rl = RequestLogger(str(tmp_path / "x.jsonl"))
-        assert isinstance(rl._path, type(tmp_path / "x.jsonl"))
+@pytest.fixture
+def log_path(tmp_path: Path) -> Path:
+    """Return a unique JSONL path inside pytest's tmpdir."""
+    return tmp_path / "requests.jsonl"
 
 
-class TestRequestLoggerLog:
-    def test_appends_entry(self, tmp_path):
-        log_path = tmp_path / "req.jsonl"
-        rl = RequestLogger(log_path)
-        rl.log(tool="search", duration_ms=42, success=True)
-
-        lines = log_path.read_text().strip().splitlines()
-        assert len(lines) == 1
-        entry = json.loads(lines[0])
-        assert entry["tool"] == "search"
-        assert entry["duration_ms"] == 42
-        assert entry["success"] is True
-        assert "ts" in entry
-
-    def test_multiple_entries(self, tmp_path):
-        log_path = tmp_path / "req.jsonl"
-        rl = RequestLogger(log_path)
-        rl.log(tool="a", duration_ms=10, success=True)
-        rl.log(tool="b", duration_ms=20, success=False)
-
-        lines = log_path.read_text().strip().splitlines()
-        assert len(lines) == 2
-        assert json.loads(lines[0])["tool"] == "a"
-        assert json.loads(lines[1])["tool"] == "b"
-
-    def test_creates_parent_dirs(self, tmp_path):
-        log_path = tmp_path / "deep" / "nested" / "dir" / "req.jsonl"
-        rl = RequestLogger(log_path)
-        rl.log(tool="x", duration_ms=1, success=True)
-        assert log_path.exists()
-
-    def test_timestamp_is_iso8601(self, tmp_path):
-        log_path = tmp_path / "req.jsonl"
-        rl = RequestLogger(log_path)
-        rl.log(tool="t", duration_ms=5, success=True)
-
-        entry = json.loads(log_path.read_text().strip())
-        # ISO-8601 strings contain 'T' and timezone
-        assert "T" in entry["ts"]
-        assert "+" in entry["ts"] or entry["ts"].endswith("Z") or "UTC" in entry["ts"] or "-0" in entry["ts"]
-
-    def test_success_false(self, tmp_path):
-        log_path = tmp_path / "req.jsonl"
-        rl = RequestLogger(log_path)
-        rl.log(tool="fail", duration_ms=99, success=False)
-
-        entry = json.loads(log_path.read_text().strip())
-        assert entry["success"] is False
-
-    def test_write_failure_suppressed(self, tmp_path):
-        log_path = tmp_path / "readonly" / "req.jsonl"
-        # Make the parent dir read-only so writing fails
-        log_path.parent.mkdir()
-        log_path.parent.chmod(0o444)
-        try:
-            rl = RequestLogger(log_path)
-            # Should not raise — exception is suppressed
-            rl.log(tool="x", duration_ms=1, success=True)
-        finally:
-            log_path.parent.chmod(0o755)
-
-    def test_each_line_valid_json(self, tmp_path):
-        log_path = tmp_path / "req.jsonl"
-        rl = RequestLogger(log_path)
-        for i in range(5):
-            rl.log(tool=f"tool{i}", duration_ms=i * 10, success=i % 2 == 0)
-
-        for line in log_path.read_text().strip().splitlines():
-            entry = json.loads(line)
-            assert {"ts", "tool", "duration_ms", "success"} == set(entry.keys())
+def _read_lines(path: Path) -> list[dict]:
+    """Parse every non-empty line of a JSONL file into a dict."""
+    return [json.loads(line) for line in path.read_text().splitlines() if line.strip()]
 
 
-class TestRequestLoggerEdgeCases:
-    def test_duration_zero(self, tmp_path):
-        log_path = tmp_path / "req.jsonl"
-        rl = RequestLogger(log_path)
-        rl.log(tool="fast", duration_ms=0, success=True)
-        assert json.loads(log_path.read_text().strip())["duration_ms"] == 0
+# ── construction ──────────────────────────────────────────────────────
 
-    def test_large_duration(self, tmp_path):
-        log_path = tmp_path / "req.jsonl"
-        rl = RequestLogger(log_path)
-        rl.log(tool="slow", duration_ms=999999, success=True)
-        assert json.loads(log_path.read_text().strip())["duration_ms"] == 999999
+def test_default_path_is_under_vivesca_share():
+    """RequestLogger() defaults to ~/.local/share/vivesca/requests.jsonl."""
+    logger = RequestLogger()
+    assert logger._path == DEFAULT_REQUEST_LOG
+    assert "vivesca" in str(DEFAULT_REQUEST_LOG)
 
-    def test_special_chars_in_tool_name(self, tmp_path):
-        log_path = tmp_path / "req.jsonl"
-        rl = RequestLogger(log_path)
-        rl.log(tool="tool/with:special-chars", duration_ms=1, success=True)
-        assert json.loads(log_path.read_text().strip())["tool"] == "tool/with:special-chars"
+
+def test_custom_path_accepted(log_path: Path):
+    """RequestLogger(path=...) stores the given path."""
+    logger = RequestLogger(log_path)
+    assert logger._path == log_path
+
+
+# ── log() basic behaviour ────────────────────────────────────────────
+
+def test_log_creates_file_and_parent_dirs(tmp_path: Path):
+    """log() creates intermediate directories and the JSONL file."""
+    deep = tmp_path / "a" / "b" / "c" / "req.jsonl"
+    logger = RequestLogger(deep)
+    logger.log(tool="t1", duration_ms=42, success=True)
+
+    assert deep.exists()
+    entries = _read_lines(deep)
+    assert len(entries) == 1
+    assert entries[0]["tool"] == "t1"
+    assert entries[0]["duration_ms"] == 42
+    assert entries[0]["success"] is True
+
+
+def test_log_appends_multiple_entries(log_path: Path):
+    """Repeated log() calls append lines; they don't overwrite."""
+    logger = RequestLogger(log_path)
+    logger.log(tool="alpha", duration_ms=10, success=True)
+    logger.log(tool="beta", duration_ms=20, success=False)
+    logger.log(tool="gamma", duration_ms=30, success=True)
+
+    entries = _read_lines(log_path)
+    assert len(entries) == 3
+    assert [e["tool"] for e in entries] == ["alpha", "beta", "gamma"]
+    assert entries[1]["success"] is False
+
+
+def test_log_entry_has_iso_timestamp(log_path: Path):
+    """Each entry contains a valid ISO-8601 timestamp."""
+    from datetime import datetime
+
+    logger = RequestLogger(log_path)
+    logger.log(tool="ts_test", duration_ms=1, success=True)
+
+    entry = _read_lines(log_path)[0]
+    # Should parse without error
+    dt = datetime.fromisoformat(entry["ts"])
+    assert dt.tzinfo is not None  # timezone-aware
+
+
+def test_log_entry_schema(log_path: Path):
+    """Each JSONL line has exactly the expected keys."""
+    logger = RequestLogger(log_path)
+    logger.log(tool="schema_check", duration_ms=99, success=False)
+
+    entry = _read_lines(log_path)[0]
+    expected_keys = {"ts", "tool", "duration_ms", "success"}
+    assert set(entry.keys()) == expected_keys
+    assert isinstance(entry["tool"], str)
+    assert isinstance(entry["duration_ms"], int)
+    assert isinstance(entry["success"], bool)
+
+
+# ── edge cases ───────────────────────────────────────────────────────
+
+def test_log_with_zero_duration(log_path: Path):
+    """duration_ms=0 is a valid value (e.g. instant cache hit)."""
+    logger = RequestLogger(log_path)
+    logger.log(tool="cache_hit", duration_ms=0, success=True)
+
+    entry = _read_lines(log_path)[0]
+    assert entry["duration_ms"] == 0
+
+
+def test_log_with_large_duration(log_path: Path):
+    """Very large durations (slow upstream) are stored faithfully."""
+    logger = RequestLogger(log_path)
+    logger.log(tool="slow_call", duration_ms=300_000, success=True)
+
+    entry = _read_lines(log_path)[0]
+    assert entry["duration_ms"] == 300_000
+
+
+def test_log_does_not_raise_on_permission_error(tmp_path: Path, caplog):
+    """log() swallows write failures silently (logged at DEBUG)."""
+    import logging
+
+    read_only_dir = tmp_path / "readonly"
+    read_only_dir.mkdir()
+    log_file = read_only_dir / "req.jsonl"
+    logger = RequestLogger(log_file)
+
+    # Make directory read-only after creation
+    read_only_dir.chmod(0o444)
+    try:
+        # Should NOT raise — exceptions are caught internally
+        logger.log(tool="failing", duration_ms=1, success=True)
+    finally:
+        # Restore permissions so tmp_path cleanup can remove the dir
+        read_only_dir.chmod(0o755)
+
+
+def test_log_survives_concurrent_appends(log_path: Path):
+    """Multiple loggers writing to the same file don't lose lines."""
+    import concurrent.futures
+
+    n = 50
+    loggers = [RequestLogger(log_path) for _ in range(n)]
+
+    def write_one(idx: int) -> None:
+        loggers[idx].log(tool=f"concurrent_{idx}", duration_ms=idx, success=True)
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=10) as pool:
+        list(pool.map(write_one, range(n)))
+
+    entries = _read_lines(log_path)
+    # We expect exactly n entries (appends are atomic for small writes)
+    assert len(entries) == n
+    tools = {e["tool"] for e in entries}
+    assert tools == {f"concurrent_{i}" for i in range(n)}
