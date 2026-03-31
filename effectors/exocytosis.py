@@ -9,8 +9,6 @@ import argparse
 import configparser
 from pathlib import Path
 
-from metabolon.symbiont import transduce
-
 _CONF_PATH = Path(__file__).parent / "exocytosis.conf"
 _conf = configparser.ConfigParser()
 _conf.read(_CONF_PATH)

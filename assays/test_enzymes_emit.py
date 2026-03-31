@@ -176,14 +176,16 @@ class TestPraxis:
 # =========================== publish =======================================
 
 class TestPublish:
-    @patch("metabolon.enzymes.emit._golgi")
+    # publish does a local `from metabolon.organelles import golgi`,
+    # so patch the real module, not the module-level _golgi alias.
+    @patch("metabolon.organelles.golgi")
     def test_publish_new(self, mock_golgi):
         mock_golgi.new.return_value = ("slug-x", "/path/to/slug-x.md")
         r = _eff("publish", subcommand="new", slug="slug-x")
         assert r.success is True
         assert "slug-x" in r.message
 
-    @patch("metabolon.enzymes.emit._golgi")
+    @patch("metabolon.organelles.golgi")
     def test_publish_list(self, mock_golgi):
         mock_golgi.list_posts.return_value = [
             {"slug": "s1", "title": "Title One", "draft": True},
@@ -194,28 +196,28 @@ class TestPublish:
         assert "s1" in r.message
         assert "(draft)" in r.message
 
-    @patch("metabolon.enzymes.emit._golgi")
+    @patch("metabolon.organelles.golgi")
     def test_publish_publish(self, mock_golgi):
         mock_golgi.publish.return_value = "v1.2"
         r = _eff("publish", subcommand="publish", slug="s1")
         assert r.success is True
         assert "v1.2" in r.message
 
-    @patch("metabolon.enzymes.emit._golgi")
+    @patch("metabolon.organelles.golgi")
     def test_publish_push(self, mock_golgi):
         mock_golgi.push.return_value = "pushed"
         r = _eff("publish", subcommand="push")
         assert r.success is True
         assert "pushed" in r.message
 
-    @patch("metabolon.enzymes.emit._golgi")
+    @patch("metabolon.organelles.golgi")
     def test_publish_index(self, mock_golgi):
         mock_golgi.index.return_value = 42
         r = _eff("publish", subcommand="index")
         assert r.success is True
         assert "42" in r.message
 
-    @patch("metabolon.enzymes.emit._golgi")
+    @patch("metabolon.organelles.golgi")
     def test_publish_unknown_subcommand(self, mock_golgi):
         r = _eff("publish", subcommand="bogus")
         assert r.success is False

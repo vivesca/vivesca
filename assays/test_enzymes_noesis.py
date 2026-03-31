@@ -135,3 +135,45 @@ class TestNoesisSearchLog:
         # noesis_search_log doesn't catch TimeoutExpired, so it propagates
         with pytest.raises(subprocess.TimeoutExpired):
             noesis_search_log()
+
+    @patch("metabolon.enzymes.noesis.subprocess.run")
+    def test_exactly_10_lines_returns_all(self, mock_run):
+        """Boundary: exactly 10 lines should not slice."""
+        lines = [f"entry{i}" for i in range(10)]
+        mock_run.return_value = MagicMock(
+            stdout="\n".join(lines),
+            stderr="",
+        )
+        result = noesis_search_log()
+        assert result == "\n".join(lines)
+
+    @patch("metabolon.enzymes.noesis.subprocess.run")
+    def test_subprocess_called_with_check_and_timeout(self, mock_run):
+        """Verify subprocess.run is invoked with check=True and timeout=10."""
+        mock_run.return_value = MagicMock(stdout="line1", stderr="")
+        noesis_search_log()
+        _, kwargs = mock_run.call_args
+        assert kwargs["check"] is True
+        assert kwargs["timeout"] == 10
+        assert kwargs["capture_output"] is True
+        assert kwargs["text"] is True
+
+    @patch("metabolon.enzymes.noesis.subprocess.run")
+    def test_binary_path_expanded(self, mock_run):
+        """Verify the binary path goes through expanduser."""
+        import os
+
+        mock_run.return_value = MagicMock(stdout="ok", stderr="")
+        noesis_search_log()
+        cmd = mock_run.call_args[0][0]
+        assert cmd[0] == os.path.expanduser(BINARY)
+
+    @patch("metabolon.enzymes.noesis.subprocess.run")
+    def test_called_process_error_uses_str_when_no_stderr(self, mock_run):
+        """CalledProcessError with empty stderr falls back to str(e)."""
+        err = subprocess.CalledProcessError(
+            returncode=1, cmd=["noesis", "log"], stderr=None
+        )
+        mock_run.side_effect = err
+        with pytest.raises(ValueError, match="noesis log error"):
+            noesis_search_log()

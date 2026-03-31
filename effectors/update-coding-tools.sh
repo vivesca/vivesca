@@ -1,4 +1,4 @@
-#!/opt/homebrew/bin/bash
+#!/usr/bin/env bash
 # Auto-update all tools hourly
 # Runs via LaunchAgent com.terry.update-coding-tools
 
