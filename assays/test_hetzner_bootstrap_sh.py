@@ -244,35 +244,31 @@ class TestTmuxConfig:
         assert end is not None, "Could not find TMUX heredoc end"
         return "\n".join(lines[start : end + 1])
 
-    def test_generates_valid_tmux_config(self, tmp_path):
-        """Extract and run the tmux config block, verify output."""
-        block = self._extract_tmux_block()
-        conf_file = tmp_path / ".tmux.conf"
-
-        # Replace home-relative path with tmp_path
-        block_rewritten = block.replace(
-            "~/.tmux.conf", str(conf_file)
-        )
-        # Strip the sudo wrapper — just run the cat heredoc
-        # Extract just the heredoc content
+    def _extract_tmux_config_lines(self) -> list[str]:
+        """Extract just the tmux config directives from the heredoc."""
         content = _read_script()
         lines = content.splitlines()
         inside = False
         tmux_lines = []
         for line in lines:
-            if "TMUX\"" in line and "cat >" not in line:
+            if '<< "TMUX"' in line or "<<\"TMUX\"" in line:
                 inside = True
                 continue
             if inside:
                 if line.strip() == "TMUX'":
                     break
                 tmux_lines.append(line)
+        return tmux_lines
 
+    def test_generates_valid_tmux_config(self, tmp_path):
+        """Extract and run the tmux config block, verify output."""
+        tmux_lines = self._extract_tmux_config_lines()
+        assert len(tmux_lines) > 0, "No tmux config lines extracted"
+
+        conf_file = tmp_path / ".tmux.conf"
         conf_file.write_text("\n".join(tmux_lines) + "\n")
 
-        assert conf_file.exists()
         conf = conf_file.read_text()
-
         # Verify expected tmux settings
         assert "prefix C-a" in conf
         assert "unbind C-b" in conf
@@ -281,22 +277,9 @@ class TestTmuxConfig:
         assert "base-index 1" in conf
         assert "escape-time 0" in conf
 
-    def test_tmux_config_has_color_settings(self, tmp_path):
+    def test_tmux_config_has_color_settings(self):
         """Tmux config should include catppuccin-style color settings."""
-        block = self._extract_tmux_block()
-        content = _read_script()
-        lines = content.splitlines()
-        inside = False
-        tmux_lines = []
-        for line in lines:
-            if "TMUX\"" in line and "cat >" not in line:
-                inside = True
-                continue
-            if inside:
-                if line.strip() == "TMUX'":
-                    break
-                tmux_lines.append(line)
-
+        tmux_lines = self._extract_tmux_config_lines()
         conf = "\n".join(tmux_lines)
         assert "status-style" in conf
         assert "1e1e2e" in conf  # catppuccin mocha bg
