@@ -33,7 +33,18 @@ def main():
 
     # If invoked directly as search-guard (not via a symlink), bail out
     if binary_name not in _KNOWN_WRAPPERS:
+        if "--help" in args or "-h" in args:
+            print("search-guard — rg/grep/find wrapper that blocks broad filesystem searches")
+            print()
+            print("Usage: invoke via symlink named 'grep', 'rg', or 'find'.")
+            print("       The wrapper intercepts the call, checks that the search path")
+            print("       is not overly broad (e.g. ~, /, Pictures, Downloads), then")
+            print("       delegates to the real binary.")
+            print()
+            print("Blocked paths:  ~, /, ~/Pictures, ~/Downloads, ~/.local, ~/.cache, ~/node_modules")
+            sys.exit(0)
         print(f"Usage: invoke via symlink (grep, rg, find) — not as '{binary_name}'")
+        print("       Run with --help for more information.")
         sys.exit(1)
 
     # Identify the target path in arguments
