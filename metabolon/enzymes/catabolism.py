@@ -6,8 +6,6 @@ Tools:
 
 from __future__ import annotations
 
-from typing import Union
-
 from fastmcp.tools import tool
 from mcp.types import ToolAnnotations
 from pydantic import Field
@@ -147,7 +145,7 @@ def catabolism(
     action: str,
     days: int = 30,
     bank: str = "",
-) -> Union[CatabolismResult, CatabolismConfirmResult]:
+) -> CatabolismResult | CatabolismConfirmResult:
     """Financial tracking — spending summaries and payment confirmation.
 
     Args:

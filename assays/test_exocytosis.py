@@ -13,7 +13,7 @@ EFFECTOR_PATH = Path(__file__).parent.parent / "effectors" / "exocytosis.py"
 def _load_exocytosis():
     """Load exocytosis effector via exec, with a fake __name__ so main() doesn't fire."""
     source = EFFECTOR_PATH.read_text()
-    ns: dict = {"__name__": "test_exocytosis_load"}
+    ns: dict = {"__name__": "test_exocytosis_load", "__file__": str(EFFECTOR_PATH)}
     exec(source, ns)
     return ns
 

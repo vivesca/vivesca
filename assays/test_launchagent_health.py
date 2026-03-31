@@ -18,16 +18,15 @@ def _load_ns(
     source_dir,
     log,
     eff_dir=None,
-    subprocess_mock=None,
-    sys_mock=None,
-    as_main=False,
+    mock_subprocess=False,
+    mock_sys=False,
 ):
     """Exec the effector into an isolated namespace with overridden paths.
 
-    Because module-level lines like LAUNCH_DIR = Path.home()/... overwrite
-    pre-set values, we exec first then override the constants afterward.
-    Functions defined in exec close over the namespace dict, so they see
-    the updated values.
+    The effector code has module-level assignments (LAUNCH_DIR = ...) and
+    imports (import subprocess, import sys) that overwrite pre-set values.
+    We exec first then override constants and mocks afterward.  Functions
+    defined in exec close over the namespace dict, so they see updated values.
     """
     code = EFFECTOR_SRC
     if eff_dir is not None:
@@ -36,19 +35,23 @@ def _load_ns(
             f"Path({repr(str(eff_dir))})",
         )
 
-    ns = {
-        "__name__": "__main__" if as_main else "lh_test",
-        "subprocess": subprocess_mock or MagicMock(),
-        "Path": Path,
-        "sys": sys_mock if sys_mock is not None else sys,
-        "re": re,
-    }
+    # Always exec with __name__ != "__main__" so the main block is skipped
+    ns = {"__name__": "lh_test", "Path": Path, "re": re, "sys": sys}
     exec(code, ns)
 
     # Override module-level constants AFTER exec
     ns["LAUNCH_DIR"] = launch_dir
     ns["SOURCE_DIR"] = source_dir
     ns["LOG"] = log
+
+    # Override subprocess with mock if requested (plutil not available on Linux)
+    if mock_subprocess:
+        ns["subprocess"] = MagicMock()
+
+    # Override sys with mock if requested (to capture sys.exit calls)
+    if mock_sys:
+        ns["sys"] = MagicMock()
+
     return ns
 
 
@@ -83,7 +86,7 @@ def test_non_xml_plist_flagged_invalid(tmp_path):
         launch_dir,
         tmp_path / "nope",
         tmp_path / "test.log",
-        subprocess_mock=MagicMock(),
+        mock_subprocess=True,
     )
     ns["subprocess"].run.return_value = mock_result
     issues = ns["check"]()
