@@ -120,10 +120,6 @@ class TestPathBlocking:
         assert result.returncode == 1
         assert "PROHIBITED" in result.stdout or "ERROR" in result.stdout
 
-    @pytest.mark.skipif(
-        os.path.expanduser("~").startswith("/home"),
-        reason="Downloads blocking uses macOS-specific path"
-    )
     def test_blocks_downloads_directory(self):
         """Test that Downloads directory is blocked as too large."""
         result = subprocess.run(
@@ -135,10 +131,6 @@ class TestPathBlocking:
         assert result.returncode == 1
         assert "too large" in result.stdout.lower() or "ERROR" in result.stdout
 
-    @pytest.mark.skipif(
-        os.path.expanduser("~").startswith("/home"),
-        reason="Pictures blocking uses macOS-specific path"
-    )
     def test_blocks_pictures_directory(self):
         """Test that Pictures directory is blocked as too large."""
         result = subprocess.run(
