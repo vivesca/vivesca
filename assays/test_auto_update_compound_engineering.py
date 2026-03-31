@@ -42,13 +42,17 @@ def fake_home(tmp_path):
 
 @pytest.fixture
 def fake_home_no_runners(tmp_path):
-    """Provide a fake HOME directory with NO bunx or npx available."""
+    """Provide a fake HOME directory with NO bunx or npx available.
+
+    Excludes /usr/bin from PATH because npx lives there on this host.
+    Only includes /bin so core utils like date still work.
+    """
     bin_dir = tmp_path / "bin"
     bin_dir.mkdir()
 
     env = {
         "HOME": str(tmp_path),
-        "PATH": f"{bin_dir}:/usr/bin:/bin",
+        "PATH": f"{bin_dir}:/bin",
     }
     return tmp_path, env
 
