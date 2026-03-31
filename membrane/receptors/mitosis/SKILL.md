@@ -4,6 +4,10 @@ description: Monthly review — parallel audits + cross-domain synthesis. "month
 model: opus
 disable-model-invocation: true
 context: fork
+triggers:
+  - monthly
+  - monthly review
+  - monthly audit
 ---
 
 # Monthly Review
