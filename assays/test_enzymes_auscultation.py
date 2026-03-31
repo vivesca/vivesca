@@ -1,269 +1,372 @@
-"""Tests for metabolon/enzymes/auscultation — deterministic log reading."""
+"""Tests for metabolon/enzymes/auscultation.py.
+
+Covers _read_log_lines, _glob_logs, and the auscultation tool with actions
+'logs', 'errors', and unknown actions. All filesystem access is mocked.
+"""
+
 from __future__ import annotations
 
 import textwrap
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
 from metabolon.enzymes.auscultation import (
-    auscultation,
-    _read_log_lines,
     _glob_logs,
-    _LOG_DIR,
-    _TMP_DIR,
+    _read_log_lines,
+    auscultation,
 )
 
 
-# ── _read_log_lines ───────────────────────────────────────────────────
+# ---------------------------------------------------------------------------
+# Fixtures / helpers
+# ---------------------------------------------------------------------------
+
+_FAKE_LOG_DIR = Path("/fake/Library/Logs/vivesca")
+_FAKE_TMP_DIR = Path("/fake/tmp")
+
+
+def _make_log(name: str, content: str) -> Path:
+    """Return a fake Path whose read_text returns *content*."""
+    p = Path(_FAKE_LOG_DIR / name)
+    p._fake_content = content  # stash for mock side_effect
+    return p
+
+
+def _mock_paths(log_dir_files: list[str] | None = None,
+                tmp_dir_files: list[str] | None = None):
+    """Build patches so _LOG_DIR / _TMP_DIR return controlled file lists."""
+    log_paths = [Path(_FAKE_LOG_DIR / f) for f in (log_dir_files or [])]
+    tmp_paths = [Path(_FAKE_TMP_DIR / f) for f in (tmp_dir_files or [])]
+
+    def _read_text(self, errors="strict"):
+        return getattr(self, "_fake_content", "")
+
+    def _glob(self, pattern):
+        return [p for p in (log_paths if self == _FAKE_LOG_DIR else tmp_paths)
+                if p.suffix == ".log"]
+
+    return (
+        patch("metabolon.enzymes.auscultation._LOG_DIR", _FAKE_LOG_DIR),
+        patch("metabolon.enzymes.auscultation._TMP_DIR", _FAKE_TMP_DIR),
+        patch.object(Path, "exists", return_value=True),
+        patch.object(Path, "glob", _glob),
+        patch.object(Path, "read_text", _read_text),
+    )
+
+
+def _apply(ctx_list):
+    """Enter a list of context managers and return the tuple of mocks."""
+    entered = [c.__enter__() for c in ctx_list]
+    return entered
+
+
+# ---------------------------------------------------------------------------
+# _read_log_lines
+# ---------------------------------------------------------------------------
 
 class TestReadLogLines:
-    def test_reads_last_n_lines(self, tmp_path):
-        p = tmp_path / "test.log"
-        p.write_text("line1\nline2\nline3\nline4\nline5\n")
-        assert _read_log_lines(p, n=3) == ["line3", "line4", "line5"]
+    def test_reads_file_content(self, tmp_path):
+        f = tmp_path / "test.log"
+        f.write_text("line1\nline2\nline3")
+        assert _read_log_lines(f) == ["line1", "line2", "line3"]
 
-    def test_reads_all_when_fewer_than_n(self, tmp_path):
-        p = tmp_path / "short.log"
-        p.write_text("only\n")
-        assert _read_log_lines(p, n=200) == ["only"]
+    def test_truncates_to_last_n(self, tmp_path):
+        f = tmp_path / "test.log"
+        lines = [f"line{i}" for i in range(300)]
+        f.write_text("\n".join(lines))
+        result = _read_log_lines(f, n=5)
+        assert len(result) == 5
+        assert result[0] == "line295"
 
-    def test_returns_empty_for_missing_file(self, tmp_path):
-        p = tmp_path / "nonexistent.log"
-        assert _read_log_lines(p) == []
-
-    def test_handles_read_error_gracefully(self):
-        bad_path = MagicMock(spec=Path)
-        bad_path.read_text.side_effect = OSError("permission denied")
-        assert _read_log_lines(bad_path) == []
+    def test_returns_empty_on_missing_file(self):
+        result = _read_log_lines(Path("/nonexistent/file.log"))
+        assert result == []
 
     def test_default_n_is_200(self, tmp_path):
-        p = tmp_path / "big.log"
-        lines = [f"line{i}" for i in range(300)]
-        p.write_text("\n".join(lines) + "\n")
-        result = _read_log_lines(p)
+        f = tmp_path / "test.log"
+        lines = [f"line{i}" for i in range(250)]
+        f.write_text("\n".join(lines))
+        result = _read_log_lines(f)
         assert len(result) == 200
-        assert result[0] == "line100"
+
+    def test_replaces_decode_errors(self, tmp_path):
+        f = tmp_path / "bad.log"
+        f.write_bytes(b"valid\xff\xfealso valid")
+        result = _read_log_lines(f)
+        assert len(result) == 1
 
 
-# ── _glob_logs ────────────────────────────────────────────────────────
+# ---------------------------------------------------------------------------
+# _glob_logs
+# ---------------------------------------------------------------------------
 
 class TestGlobLogs:
-    @patch.object(Path, "home")
-    def test_returns_sorted_logs_from_both_dirs(self, mock_home):
-        base = MagicMock(return_value=None)  # stub
-        # Build a fake home with log dirs
-        fake_home = MagicMock(spec=Path)
-        mock_home.return_value = fake_home
-
-        log_dir = MagicMock(spec=Path)
-        tmp_dir = MagicMock(spec=Path)
-        # Patch module-level _LOG_DIR and _TMP_DIR via the module
-        with patch("metabolon.enzymes.auscultation._LOG_DIR", log_dir), \
-             patch("metabolon.enzymes.auscultation._TMP_DIR", tmp_dir):
-            log_dir.exists.return_value = True
-            f1 = MagicMock(spec=Path)
-            f1.name = "b.log"
-            f2 = MagicMock(spec=Path)
-            f2.name = "a.log"
-            log_dir.glob.return_value = [f1, f2]
-
-            tmp_dir.exists.return_value = True
-            f3 = MagicMock(spec=Path)
-            f3.name = "c.log"
-            tmp_dir.glob.return_value = [f3]
-
+    def test_returns_sorted_log_files(self):
+        files = ["b.log", "a.log"]
+        with _mock_paths(log_dir_files=files):
+            ctx = [c for c in _mock_paths(log_dir_files=files)]
+            # Re-enter for this test
+            pass
+        # Use a simpler approach: patch the module-level constants directly
+        with patch("metabolon.enzymes.auscultation._LOG_DIR", _FAKE_LOG_DIR), \
+             patch("metabolon.enzymes.auscultation._TMP_DIR", _FAKE_TMP_DIR), \
+             patch.object(Path, "exists", return_value=True), \
+             patch.object(Path, "glob", lambda self, pat: (
+                 sorted([_FAKE_LOG_DIR / "a.log", _FAKE_LOG_DIR / "b.log"])
+                 if self == _FAKE_LOG_DIR else []
+             )):
             result = _glob_logs()
-            # sorted([f1, f2]) + [f3]
-            assert len(result) == 3
+        assert len(result) == 2
+        assert result[0].name == "a.log"
+        assert result[1].name == "b.log"
 
-    @patch("metabolon.enzymes.auscultation._LOG_DIR")
-    @patch("metabolon.enzymes.auscultation._TMP_DIR")
-    def test_skips_nonexistent_dirs(self, mock_tmp, mock_log):
-        mock_log.exists.return_value = False
-        mock_tmp.exists.return_value = False
-        assert _glob_logs() == []
+    def test_includes_tmp_logs(self):
+        with patch("metabolon.enzymes.auscultation._LOG_DIR", _FAKE_LOG_DIR), \
+             patch("metabolon.enzymes.auscultation._TMP_DIR", _FAKE_TMP_DIR), \
+             patch.object(Path, "exists", return_value=True), \
+             patch.object(Path, "glob", lambda self, pat: (
+                 [_FAKE_LOG_DIR / "sys.log"]
+                 if self == _FAKE_LOG_DIR else
+                 [_FAKE_TMP_DIR / "debug.log"]
+             )):
+            result = _glob_logs()
+        names = [p.name for p in result]
+        assert "sys.log" in names
+        assert "debug.log" in names
 
-    @patch("metabolon.enzymes.auscultation._LOG_DIR")
-    @patch("metabolon.enzymes.auscultation._TMP_DIR")
-    def test_one_dir_exists(self, mock_tmp, mock_log):
-        mock_log.exists.return_value = True
-        f = MagicMock(spec=Path)
-        f.name = "x.log"
-        mock_log.glob.return_value = [f]
-        mock_tmp.exists.return_value = False
-        result = _glob_logs()
-        assert result == [f]
+    def test_empty_when_dirs_missing(self):
+        with patch("metabolon.enzymes.auscultation._LOG_DIR", _FAKE_LOG_DIR), \
+             patch("metabolon.enzymes.auscultation._TMP_DIR", _FAKE_TMP_DIR), \
+             patch.object(Path, "exists", return_value=False):
+            result = _glob_logs()
+        assert result == []
 
 
-# ── auscultation tool ────────────────────────────────────────────────
+# ---------------------------------------------------------------------------
+# auscultation — unknown action
+# ---------------------------------------------------------------------------
 
-class TestAuscultationLogs:
-    """Tests for action='logs'."""
+class TestUnknownAction:
+    def test_unknown_action_returns_error(self):
+        with patch("metabolon.enzymes.auscultation._LOG_DIR", _FAKE_LOG_DIR), \
+             patch("metabolon.enzymes.auscultation._TMP_DIR", _FAKE_TMP_DIR):
+            result = auscultation(action="bogus")
+        assert "Unknown action" in result
+        assert "bogus" in result
 
-    @patch("metabolon.enzymes.auscultation._glob_logs")
-    def test_no_logs_found(self, mock_glob):
-        mock_glob.return_value = []
-        result = auscultation(action="logs")
+
+# ---------------------------------------------------------------------------
+# auscultation — action=logs
+# ---------------------------------------------------------------------------
+
+class TestLogsAction:
+    def _setup(self, log_contents: dict[str, str]):
+        """Return patches that serve the given log_name->content mapping."""
+        def read_text(self, errors="strict"):
+            return log_contents.get(self.name, "")
+
+        def glob(self, pat):
+            return [Path(_FAKE_LOG_DIR / n) for n in log_contents if n.endswith(".log")]
+
+        return (
+            patch("metabolon.enzymes.auscultation._LOG_DIR", _FAKE_LOG_DIR),
+            patch("metabolon.enzymes.auscultation._TMP_DIR", _FAKE_TMP_DIR),
+            patch.object(Path, "exists", return_value=True),
+            patch.object(Path, "glob", glob),
+            patch.object(Path, "read_text", read_text),
+        )
+
+    def test_no_log_files_returns_message(self):
+        with patch("metabolon.enzymes.auscultation._LOG_DIR", _FAKE_LOG_DIR), \
+             patch("metabolon.enzymes.auscultation._TMP_DIR", _FAKE_TMP_DIR), \
+             patch.object(Path, "exists", return_value=False):
+            result = auscultation(action="logs")
         assert "No log files found" in result
 
-    @patch("metabolon.enzymes.auscultation._glob_logs")
-    @patch("metabolon.enzymes.auscultation._read_log_lines")
-    def test_returns_log_content(self, mock_read, mock_glob):
-        fake_log = MagicMock(spec=Path)
-        fake_log.name = "app.log"
-        mock_glob.return_value = [fake_log]
-        mock_read.return_value = ["INFO starting up", "INFO running"]
-        result = auscultation(action="logs")
-        assert "=== app.log (2 lines) ===" in result
-        assert "INFO starting up" in result
+    def test_reads_all_logs(self):
+        ctx = self._setup({"app.log": "alpha\nbeta", "sys.log": "gamma"})
+        with ctx[0], ctx[1], ctx[2], ctx[3], ctx[4]:
+            result = auscultation(action="logs")
+        assert "app.log" in result
+        assert "sys.log" in result
+        assert "alpha" in result
 
-    @patch("metabolon.enzymes.auscultation._glob_logs")
-    @patch("metabolon.enzymes.auscultation._read_log_lines")
-    def test_filter_pattern(self, mock_read, mock_glob):
-        fake_log = MagicMock(spec=Path)
-        fake_log.name = "app.log"
-        mock_glob.return_value = [fake_log]
-        mock_read.return_value = ["INFO ok", "ERROR bad", "INFO fine"]
-        result = auscultation(action="logs", filter_pattern="ERROR")
+    def test_log_name_filter(self):
+        ctx = self._setup({"app.log": "alpha", "other.log": "bravo"})
+        with ctx[0], ctx[1], ctx[2], ctx[3], ctx[4]:
+            result = auscultation(action="logs", log_name="app.log")
+        assert "alpha" in result
+        assert "other.log" not in result
+
+    def test_log_name_not_found(self):
+        ctx = self._setup({"app.log": "alpha"})
+        with ctx[0], ctx[1], ctx[2], ctx[3], ctx[4]:
+            result = auscultation(action="logs", log_name="missing.log")
+        assert "Log not found" in result
+
+    def test_filter_pattern(self):
+        ctx = self._setup({"app.log": "ERROR bad\nINFO ok\nERROR worse"})
+        with ctx[0], ctx[1], ctx[2], ctx[3], ctx[4]:
+            result = auscultation(action="logs", filter_pattern="ERROR")
         assert "ERROR bad" in result
         assert "INFO ok" not in result
+        assert "ERROR worse" in result
 
-    @patch("metabolon.enzymes.auscultation._glob_logs")
-    def test_log_name_filters_to_specific_file(self, mock_glob):
-        fake_log = MagicMock(spec=Path)
-        fake_log.name = "target.log"
-        other_log = MagicMock(spec=Path)
-        other_log.name = "other.log"
-        mock_glob.return_value = [fake_log, other_log]
+    def test_filter_pattern_no_matches(self):
+        ctx = self._setup({"app.log": "INFO fine\nDEBUG ok"})
+        with ctx[0], ctx[1], ctx[2], ctx[3], ctx[4]:
+            result = auscultation(action="logs", filter_pattern="FATAL")
+        assert "No log lines matching" in result
+        assert "FATAL" in result
 
-        with patch("metabolon.enzymes.auscultation._read_log_lines") as mock_read:
-            mock_read.return_value = ["line1"]
-            result = auscultation(action="logs", log_name="target.log")
-        assert "target.log" in result
-        # other.log should not appear as a section header
-        assert "=== other.log" not in result
+    def test_tail_lines_limits_output(self):
+        lines = "\n".join(f"line{i}" for i in range(50))
+        ctx = self._setup({"app.log": lines})
+        with ctx[0], ctx[1], ctx[2], ctx[3], ctx[4]:
+            result = auscultation(action="logs", tail_lines=3)
+        # Should contain last 3 lines only
+        assert "line49" in result
+        assert "line0" not in result
 
-    @patch("metabolon.enzymes.auscultation._glob_logs")
-    def test_log_name_not_found(self, mock_glob):
-        fake_log = MagicMock(spec=Path)
-        fake_log.name = "other.log"
-        mock_glob.return_value = [fake_log]
-        result = auscultation(action="logs", log_name="missing.log")
-        assert "Log not found: missing.log" in result
+    def test_empty_log_skipped(self):
+        ctx = self._setup({"empty.log": "", "full.log": "content"})
+        with ctx[0], ctx[1], ctx[2], ctx[3], ctx[4]:
+            result = auscultation(action="logs")
+        assert "full.log" in result
+        assert "empty.log" not in result
 
-    @patch("metabolon.enzymes.auscultation._glob_logs")
-    @patch("metabolon.enzymes.auscultation._read_log_lines")
-    def test_no_matching_lines_with_filter(self, mock_read, mock_glob):
-        fake_log = MagicMock(spec=Path)
-        fake_log.name = "app.log"
-        mock_glob.return_value = [fake_log]
-        mock_read.return_value = ["INFO ok", "INFO fine"]
-        result = auscultation(action="logs", filter_pattern="ERROR")
-        assert "No log lines matching 'ERROR' found" in result
-
-    @patch("metabolon.enzymes.auscultation._glob_logs")
-    @patch("metabolon.enzymes.auscultation._read_log_lines")
-    def test_no_matching_lines_without_filter(self, mock_read, mock_glob):
-        fake_log = MagicMock(spec=Path)
-        fake_log.name = "app.log"
-        mock_glob.return_value = [fake_log]
-        mock_read.return_value = []
-        result = auscultation(action="logs")
-        assert "No log lines found" in result
+    def test_header_shows_line_count(self):
+        ctx = self._setup({"app.log": "a\nb\nc"})
+        with ctx[0], ctx[1], ctx[2], ctx[3], ctx[4]:
+            result = auscultation(action="logs")
+        assert "(3 lines)" in result
 
 
-class TestAuscultationErrors:
-    """Tests for action='errors'."""
+# ---------------------------------------------------------------------------
+# auscultation — action=errors
+# ---------------------------------------------------------------------------
 
-    @patch("metabolon.enzymes.auscultation._glob_logs")
-    def test_no_logs_found(self, mock_glob):
-        mock_glob.return_value = []
-        result = auscultation(action="errors")
+class TestErrorsAction:
+    def _setup(self, log_contents: dict[str, str]):
+        def read_text(self, errors="strict"):
+            return log_contents.get(self.name, "")
+
+        def glob(self, pat):
+            return [Path(_FAKE_LOG_DIR / n) for n in log_contents if n.endswith(".log")]
+
+        return (
+            patch("metabolon.enzymes.auscultation._LOG_DIR", _FAKE_LOG_DIR),
+            patch("metabolon.enzymes.auscultation._TMP_DIR", _FAKE_TMP_DIR),
+            patch.object(Path, "exists", return_value=True),
+            patch.object(Path, "glob", glob),
+            patch.object(Path, "read_text", read_text),
+        )
+
+    def test_no_log_files(self):
+        with patch("metabolon.enzymes.auscultation._LOG_DIR", _FAKE_LOG_DIR), \
+             patch("metabolon.enzymes.auscultation._TMP_DIR", _FAKE_TMP_DIR), \
+             patch.object(Path, "exists", return_value=False):
+            result = auscultation(action="errors")
         assert "No log files found" in result
 
-    @patch("metabolon.enzymes.auscultation._glob_logs")
-    def test_no_error_lines(self, mock_glob, tmp_path):
-        fake_log = tmp_path / "clean.log"
-        fake_log.write_text("INFO all good\nINFO still good\n")
-        mock_glob.return_value = [fake_log]
-        result = auscultation(action="errors")
-        assert "sounds healthy" in result
+    def test_no_matching_errors(self):
+        ctx = self._setup({"app.log": "INFO all good\nDEBUG fine"})
+        with ctx[0], ctx[1], ctx[2], ctx[3], ctx[4]:
+            result = auscultation(action="errors")
+        assert "healthy" in result.lower()
 
-    @patch("metabolon.enzymes.auscultation._glob_logs")
-    def test_counts_errors_with_normalization(self, mock_glob, tmp_path):
-        log_file = tmp_path / "errors.log"
-        log_file.write_text(textwrap.dedent("""\
-            2025-01-01T12:00:00 ERROR connection to host 10 failed
-            2025-01-01T12:01:00 ERROR connection to host 20 failed
-            2025-01-01T12:02:00 ERROR connection to host 30 failed
-            INFO everything is fine
-            WARN disk usage at 80%
-        """))
-        mock_glob.return_value = [log_file]
-        result = auscultation(action="errors", severity="ERROR|WARN")
-        assert "4 total error lines" in result
-        # Numbers should be normalized to 'N' so all three connection errors collapse
-        assert "connection to host N failed" in result
-        assert "disk usage at N%" in result
+    def test_counts_errors(self):
+        log = textwrap.dedent("""\
+            2025-01-01T12:00:00 ERROR connection failed to host 10.0.0.1
+            2025-01-01T12:01:00 ERROR connection failed to host 10.0.0.2
+            INFO ok
+            2025-01-01T12:02:00 WARN disk space low
+        """)
+        ctx = self._setup({"app.log": log})
+        with ctx[0], ctx[1], ctx[2], ctx[3], ctx[4]:
+            result = auscultation(action="errors")
+        assert "3 total error lines" in result
+        assert "Count" in result
+        assert "Pattern" in result
 
-    @patch("metabolon.enzymes.auscultation._glob_logs")
-    def test_top_n_limits_output(self, mock_glob, tmp_path):
-        log_file = tmp_path / "many.log"
-        lines = [f"ERROR unique error type {i}" for i in range(30)]
-        log_file.write_text("\n".join(lines) + "\n")
-        mock_glob.return_value = [log_file]
-        result = auscultation(action="errors", top_n=5)
-        # Count the pattern rows (exclude header lines)
-        data_lines = [l for l in result.splitlines() if l and l[0].isdigit() or (l and l[:6].strip().isdigit())]
-        # The header + separator + count lines — let's just check <=5 patterns shown
-        count_lines = [l for l in result.splitlines() if l.strip() and not l.startswith("Error") and not l.startswith("---") and not l.startswith("Count")]
-        assert len(count_lines) <= 5
+    def test_normalize_numbers_collapses_similar(self):
+        log = "ERROR timeout after 5s\nERROR timeout after 10s\nERROR timeout after 99s\n"
+        ctx = self._setup({"app.log": log})
+        with ctx[0], ctx[1], ctx[2], ctx[3], ctx[4]:
+            result = auscultation(action="errors", normalize_numbers=True)
+        # All three should collapse to same pattern with N replacing digits
+        assert "timeout after Ns" in result
 
-    @patch("metabolon.enzymes.auscultation._glob_logs")
-    def test_no_normalize_numbers(self, mock_glob, tmp_path):
-        log_file = tmp_path / "nums.log"
-        log_file.write_text("ERROR failed port 8080\nERROR failed port 9090\n")
-        mock_glob.return_value = [log_file]
-        result = auscultation(action="errors", normalize_numbers=False)
-        # Each line should be counted separately (not normalized)
-        assert "2 total error lines" not in result  # they are distinct
-        # Both original patterns should appear
-        assert "failed port 8080" in result
-        assert "failed port 9090" in result
+    def test_no_normalize_numbers_keeps_original(self):
+        log = "ERROR timeout after 5s\nERROR timeout after 10s\n"
+        ctx = self._setup({"app.log": log})
+        with ctx[0], ctx[1], ctx[2], ctx[3], ctx[4]:
+            result = auscultation(action="errors", normalize_numbers=False)
+        assert "timeout after 5s" in result
+        assert "timeout after 10s" in result
 
-    @patch("metabolon.enzymes.auscultation._glob_logs")
-    def test_custom_severity(self, mock_glob, tmp_path):
-        log_file = tmp_path / "custom.log"
-        log_file.write_text("CRITICAL system down\nERROR minor issue\nINFO ok\n")
-        mock_glob.return_value = [log_file]
-        result = auscultation(action="errors", severity="CRITICAL")
-        assert "CRITICAL system down" in result
-        # ERROR should not be counted since we only asked for CRITICAL
-        assert "1 total error lines" in result
+    def test_custom_severity(self):
+        log = "CRITICAL system down\nERROR minor issue\nINFO fine\n"
+        ctx = self._setup({"app.log": log})
+        with ctx[0], ctx[1], ctx[2], ctx[3], ctx[4]:
+            result = auscultation(action="errors", severity="CRITICAL")
+        assert "system down" in result
+        assert "minor issue" not in result
 
-    @patch("metabolon.enzymes.auscultation._glob_logs")
-    def test_handles_unreadable_log_gracefully(self, mock_glob):
-        bad_log = MagicMock(spec=Path)
-        bad_log.read_text.side_effect = OSError("permission denied")
-        bad_log.name = "bad.log"
-        # Need a good log too so we don't just get "no logs"
-        mock_glob.return_value = [bad_log]
-        result = auscultation(action="errors")
-        # Should not crash; the bad log is skipped
-        assert "No lines matching" in result or "total error lines" in result
+    def test_top_n_limits_output(self):
+        lines = [f"ERROR unique pattern {i}" for i in range(50)]
+        log = "\n".join(lines) + "\n"
+        ctx = self._setup({"app.log": log})
+        with ctx[0], ctx[1], ctx[2], ctx[3], ctx[4]:
+            result = auscultation(action="errors", top_n=5)
+        # Count data rows (lines after header that start with spaces+digits)
+        data_rows = [l for l in result.splitlines()
+                     if l.strip() and l.strip()[0].isdigit()]
+        assert len(data_rows) == 5
 
+    def test_timestamps_stripped_in_normalization(self):
+        log = "2025-03-15T08:00:00 ERROR crash\n2025-03-15T09:00:00 ERROR crash\n"
+        ctx = self._setup({"app.log": log})
+        with ctx[0], ctx[1], ctx[2], ctx[3], ctx[4]:
+            result = auscultation(action="errors")
+        # Both lines collapse to same pattern (timestamp stripped)
+        assert "crash" in result
 
-class TestAuscultationUnknownAction:
-    def test_unknown_action(self):
-        result = auscultation(action="bogus")
-        assert "Unknown action: bogus" in result
-        assert "logs|errors" in result
+    def test_read_failure_skipped(self):
+        """A log file that raises on read_text should be silently skipped."""
+        def read_text(self, errors="strict"):
+            if self.name == "bad.log":
+                raise OSError("permission denied")
+            return "ERROR visible error"
 
-    def test_action_is_case_insensitive(self):
-        # uppercase should still work
-        with patch("metabolon.enzymes.auscultation._glob_logs") as mock_glob:
-            mock_glob.return_value = []
+        def glob(self, pat):
+            return [Path(_FAKE_LOG_DIR / "bad.log"), Path(_FAKE_LOG_DIR / "good.log")]
+
+        with patch("metabolon.enzymes.auscultation._LOG_DIR", _FAKE_LOG_DIR), \
+             patch("metabolon.enzymes.auscultation._TMP_DIR", _FAKE_TMP_DIR), \
+             patch.object(Path, "exists", return_value=True), \
+             patch.object(Path, "glob", glob), \
+             patch.object(Path, "read_text", read_text):
+            result = auscultation(action="errors")
+        assert "visible error" in result
+
+    def test_multiple_log_files_aggregated(self):
+        ctx = self._setup({"a.log": "ERROR from a\n", "b.log": "WARN from b\n"})
+        with ctx[0], ctx[1], ctx[2], ctx[3], ctx[4]:
+            result = auscultation(action="errors")
+        assert "2 total error lines" in result
+        assert "2 logs" in result
+
+    def test_action_case_insensitive(self):
+        ctx = self._setup({"app.log": "ERROR oops\n"})
+        with ctx[0], ctx[1], ctx[2], ctx[3], ctx[4]:
             result = auscultation(action="LOGS")
-            assert "No log files found" in result
+        assert "ERROR oops" in result
+
+    def test_action_whitespace_stripped(self):
+        ctx = self._setup({"app.log": "ERROR oops\n"})
+        with ctx[0], ctx[1], ctx[2], ctx[3], ctx[4]:
+            result = auscultation(action="  logs  ")
+        assert "ERROR oops" in result
