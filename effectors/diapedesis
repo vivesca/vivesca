@@ -68,7 +68,7 @@ def _cleanup_sockets():
 def _kill_daemons():
     """Kill any running agent-browser daemon and Chrome for Testing."""
     subprocess.run(
-        ["pkill", "-f", "agent-browser-darwin"],
+        ["pkill", "-f", "agent-browser"],
         capture_output=True, timeout=5,
     )
     subprocess.run(
