@@ -106,6 +106,7 @@ For non-test specs, follow centrosome conventions:
 - **Wave cross-contamination** — uncommitted files from earlier waves get absorbed into later wave commits. Not harmful, but confusing for attribution.
 - **Spec path** — always `~/germline/loci/plans/`, never centrosome-queue or /tmp.
 - **Single-task treatment** — sortase treats markdown plans as single tasks. For true parallelism, dispatch separate plan files.
+- **Use `--no-worktree` for test-only specs.** Tests create new files, never modify existing ones — no isolation needed. Worktrees cause contention in parallel dispatch (all complete in 1-2s with 0 output). Use worktrees only when tasks modify existing files.
 - **GLM for everything.** Both exploration and generation go to GLM (free, unlimited ZhiPu plan). CC is for orchestration, verification, and coaching only.
 
 ## Anti-patterns
