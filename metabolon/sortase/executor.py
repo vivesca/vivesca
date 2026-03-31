@@ -18,6 +18,13 @@ from metabolon.sortase.decompose import TaskSpec
 
 DEFAULT_TIMEOUT_SEC = 600
 
+
+def _cleanup_temp_specs(tasks: list[TaskSpec]) -> None:
+    """Remove temp spec files created by _write_temp_specs."""
+    for task in tasks:
+        if task.temp_file:
+            Path(task.temp_file).unlink(missing_ok=True)
+
 _READ_PATTERN = re.compile(r"\bread\b", re.IGNORECASE)
 _SOURCE_FILE_PATTERN = re.compile(r"\b[\w./-]+\.\w{1,4}\b")
 _EXACTLY_ONE_PATTERN = re.compile(r"\bexactly\s+1\s+tool\s+call\b", re.IGNORECASE)
