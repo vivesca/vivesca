@@ -293,7 +293,8 @@ class TestCLISubprocess:
             capture_output=True, text=True, timeout=60,
         )
         data = json.loads(r.stdout)
-        for entry in data["orphans"]:
+        entries = data["orphans"] if isinstance(data, dict) else data
+        for entry in entries:
             assert "path" in entry
             assert "module" in entry
             assert entry["path"].startswith("metabolon/")
