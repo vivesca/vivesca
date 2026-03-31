@@ -231,3 +231,410 @@ class TestCliWrongArgs:
             with pytest.raises(SystemExit):
                 mod["_cli"]()
         mock_wacli.assert_not_called()
+
+
+# ── Pure function tests ─────────────────────────────────────────────────
+
+
+class TestExtractMessages:
+    """Tests for _extract_messages."""
+
+    @staticmethod
+    def _fn():
+        return _load_module()["_extract_messages"]
+
+    def test_valid_envelope(self):
+        raw = {"data": {"messages": [{"MsgID": "1"}, {"MsgID": "2"}]}}
+        result = self._fn()(raw)
+        assert len(result) == 2
+        assert result[0]["MsgID"] == "1"
+
+    def test_missing_data_key(self):
+        result = self._fn()({})
+        assert result == []
+
+    def test_missing_messages_key(self):
+        result = self._fn()({"data": {}})
+        assert result == []
+
+    def test_messages_is_none(self):
+        result = self._fn()({"data": {"messages": None}})
+        assert result == []
+
+    def test_non_dict_input(self):
+        result = self._fn()("not a dict")
+        assert result == []
+
+    def test_data_is_list(self):
+        result = self._fn()({"data": []})
+        assert result == []
+
+
+class TestExtractContacts:
+    """Tests for _extract_contacts."""
+
+    @staticmethod
+    def _fn():
+        return _load_module()["_extract_contacts"]
+
+    def test_valid_envelope(self):
+        raw = {"data": [{"JID": "a@s.whatsapp.net"}, {"JID": "b@lid"}]}
+        result = self._fn()(raw)
+        assert len(result) == 2
+
+    def test_missing_data_key(self):
+        result = self._fn()({})
+        assert result == []
+
+    def test_data_is_dict_not_list(self):
+        result = self._fn()({"data": {"messages": []}})
+        assert result == []
+
+    def test_non_dict_input(self):
+        result = self._fn()(42)
+        assert result == []
+
+
+class TestDedupSort:
+    """Tests for _dedup_sort."""
+
+    @staticmethod
+    def _fn():
+        return _load_module()["_dedup_sort"]
+
+    def test_dedup_by_msgid(self):
+        msgs = [
+            {"MsgID": "a", "Timestamp": "2025-01-01"},
+            {"MsgID": "a", "Timestamp": "2025-01-01"},
+        ]
+        result = self._fn()(msgs, 10)
+        assert len(result) == 1
+
+    def test_sort_by_timestamp_descending(self):
+        msgs = [
+            {"MsgID": "a", "Timestamp": "2025-01-01"},
+            {"MsgID": "b", "Timestamp": "2025-01-03"},
+            {"MsgID": "c", "Timestamp": "2025-01-02"},
+        ]
+        result = self._fn()(msgs, 10)
+        assert [m["MsgID"] for m in result] == ["b", "c", "a"]
+
+    def test_limit_applied(self):
+        msgs = [{"MsgID": str(i), "Timestamp": f"2025-01-{i:02d}"} for i in range(1, 11)]
+        result = self._fn()(msgs, 3)
+        assert len(result) == 3
+
+    def test_empty_msgid_skipped(self):
+        msgs = [
+            {"MsgID": "", "Timestamp": "2025-01-01"},
+            {"MsgID": "a", "Timestamp": "2025-01-02"},
+        ]
+        result = self._fn()(msgs, 10)
+        assert len(result) == 1
+        assert result[0]["MsgID"] == "a"
+
+    def test_no_msgid_key_skipped(self):
+        msgs = [
+            {"Timestamp": "2025-01-01"},
+            {"MsgID": "a", "Timestamp": "2025-01-02"},
+        ]
+        result = self._fn()(msgs, 10)
+        assert len(result) == 1
+
+    def test_empty_input(self):
+        assert self._fn()([], 10) == []
+
+
+class TestFormatMessages:
+    """Tests for _format_messages."""
+
+    @staticmethod
+    def _fn():
+        return _load_module()["_format_messages"]
+
+    def test_formats_single_message(self):
+        msgs = [{"Timestamp": "2025-01-01T10:30:00Z", "FromMe": True, "Text": "hello"}]
+        result = self._fn()(msgs, "tara")
+        assert "2025-01-01T10:30:00" in result
+        assert "me: hello" in result
+
+    def test_formats_received_message(self):
+        msgs = [{"Timestamp": "2025-01-01T10:30:00Z", "FromMe": False, "Text": "hi"}]
+        result = self._fn()(msgs, "tara")
+        assert "tara: hi" in result
+
+    def test_empty_messages(self):
+        result = self._fn()([], "tara")
+        assert result == "No messages found"
+
+    def test_timestamp_truncated_to_19_chars(self):
+        msgs = [{"Timestamp": "2025-06-15T14:22:33.123456Z", "FromMe": False, "Text": "x"}]
+        result = self._fn()(msgs, "bob")
+        assert "2025-06-15T14:22:33" in result
+
+    def test_multiple_messages_newline_separated(self):
+        msgs = [
+            {"Timestamp": "2025-01-01T10:00:00Z", "FromMe": True, "Text": "a"},
+            {"Timestamp": "2025-01-01T11:00:00Z", "FromMe": False, "Text": "b"},
+        ]
+        result = self._fn()(msgs, "tara")
+        lines = result.split("\n")
+        assert len(lines) == 2
+
+    def test_missing_text_defaults_empty(self):
+        msgs = [{"Timestamp": "2025-01-01T10:00:00Z", "FromMe": False}]
+        result = self._fn()(msgs, "bob")
+        assert "bob: " in result
+
+
+class TestContactType:
+    """Tests for contact_type."""
+
+    @staticmethod
+    def _fn():
+        return _load_module()["contact_type"]
+
+    def test_gap_junction_contact(self):
+        for name in ["tara", "mum", "dad", "brother", "sister", "yujie"]:
+            assert self._fn()(name) == "gap_junction"
+
+    def test_gap_junction_case_insensitive(self):
+        assert self._fn()("Tara") == "gap_junction"
+        assert self._fn()("MUM") == "gap_junction"
+
+    def test_receptor_contact(self):
+        assert self._fn()("accountant") == "receptor"
+        assert self._fn()("boss") == "receptor"
+
+
+# ── Higher-level function tests (mocked _wacli) ─────────────────────────
+
+
+class TestWacliFunction:
+    """Tests for _wacli subprocess wrapper."""
+
+    @staticmethod
+    def _mod():
+        return _load_module()
+
+    def test_success_returns_stdout(self):
+        mod = self._mod()
+        mock_result = MagicMock()
+        mock_result.returncode = 0
+        mock_result.stdout = "  ok result  \n"
+        mock_result.stderr = ""
+        with patch("subprocess.run", return_value=mock_result):
+            result = mod["_wacli"](["test"])
+        assert result == "ok result"
+
+    def test_failure_raises_valueerror(self):
+        mod = self._mod()
+        mock_result = MagicMock()
+        mock_result.returncode = 1
+        mock_result.stdout = ""
+        mock_result.stderr = "something broke"
+        with patch("subprocess.run", return_value=mock_result):
+            with pytest.raises(ValueError, match="wacli failed"):
+                mod["_wacli"](["bad"])
+
+    def test_timeout_forwarded(self):
+        mod = self._mod()
+        mock_result = MagicMock()
+        mock_result.returncode = 0
+        mock_result.stdout = "ok"
+        mock_result.stderr = ""
+        with patch("subprocess.run", return_value=mock_result) as mock_run:
+            mod["_wacli"](["sync", "--once"], timeout=120)
+        call_kwargs = mock_run.call_args
+        assert call_kwargs.kwargs.get("timeout") == 120 or call_kwargs[1].get("timeout") == 120
+
+
+class TestWacliJson:
+    """Tests for _wacli_json."""
+
+    @staticmethod
+    def _mod():
+        return _load_module()
+
+    def test_parses_valid_json(self):
+        mod = self._mod()
+        with patch.object(mod, "_wacli", return_value='{"success": true, "data": []}'):
+            result = mod["_wacli_json"](["contacts", "search", "tara", "--json"])
+        assert result == {"success": True, "data": []}
+
+    def test_invalid_json_returns_empty_dict(self):
+        mod = self._mod()
+        with patch.object(mod, "_wacli", return_value="not json at all"):
+            result = mod["_wacli_json"](["test"])
+        assert result == {}
+
+    def test_empty_string_returns_empty_dict(self):
+        mod = self._mod()
+        with patch.object(mod, "_wacli", return_value=""):
+            result = mod["_wacli_json"](["test"])
+        assert result == {}
+
+
+class TestResolveJids:
+    """Tests for resolve_jids."""
+
+    @staticmethod
+    def _mod():
+        return _load_module()
+
+    def test_returns_jids_from_search(self):
+        mod = self._mod()
+        contacts = {"data": [
+            {"JID": "123@s.whatsapp.net", "Name": "tara"},
+            {"JID": "123@lid", "Name": "tara"},
+        ]}
+        with patch.object(mod, "_wacli_json", return_value=contacts):
+            jids = mod["resolve_jids"]("tara")
+        assert jids == ["123@s.whatsapp.net", "123@lid"]
+
+    def test_no_contacts_returns_empty(self):
+        mod = self._mod()
+        with patch.object(mod, "_wacli_json", return_value={"data": []}):
+            jids = mod["resolve_jids"]("nobody")
+        assert jids == []
+
+    def test_contacts_without_jid_skipped(self):
+        mod = self._mod()
+        contacts = {"data": [{"Name": "tara"}, {"JID": "123@s.whatsapp.net", "Name": "tara"}]}
+        with patch.object(mod, "_wacli_json", return_value=contacts):
+            jids = mod["resolve_jids"]("tara")
+        assert jids == ["123@s.whatsapp.net"]
+
+
+class TestReceiveSignals:
+    """Tests for receive_signals."""
+
+    @staticmethod
+    def _mod():
+        return _load_module()
+
+    def test_no_contact_found(self):
+        mod = self._mod()
+        with patch.object(mod, "resolve_jids", return_value=[]):
+            result = mod["receive_signals"]("nobody")
+        assert "No contact found" in result
+
+    def test_merges_multiple_jids(self):
+        mod = self._mod()
+        with patch.object(mod, "resolve_jids", return_value=["a@s.whatsapp.net", "a@lid"]):
+            with patch.object(mod, "_wacli_json", return_value={"data": {"messages": [
+                {"MsgID": "1", "Timestamp": "2025-01-01T10:00:00Z", "FromMe": True, "Text": "hi"},
+            ]}}):
+                result = mod["receive_signals"]("tara", limit=5)
+        assert "me: hi" in result
+
+
+class TestSearchSignals:
+    """Tests for search_signals."""
+
+    @staticmethod
+    def _mod():
+        return _load_module()
+
+    def test_global_search_no_name(self):
+        mod = self._mod()
+        msgs = {"data": {"messages": [
+            {"MsgID": "1", "Timestamp": "2025-03-01T12:00:00Z", "FromMe": False, "Text": "lunch?"},
+        ]}}
+        with patch.object(mod, "_wacli_json", return_value=msgs):
+            result = mod["search_signals"]("lunch")
+        assert "them: lunch?" in result
+
+    def test_scoped_search_no_contact(self):
+        mod = self._mod()
+        with patch.object(mod, "resolve_jids", return_value=[]):
+            result = mod["search_signals"]("hello", name="ghost")
+        assert "No contact found" in result
+
+    def test_scoped_search_with_jids(self):
+        mod = self._mod()
+        with patch.object(mod, "resolve_jids", return_value=["a@s.whatsapp.net"]):
+            with patch.object(mod, "_wacli_json", return_value={"data": {"messages": [
+                {"MsgID": "2", "Timestamp": "2025-02-01T09:00:00Z", "FromMe": True, "Text": "yo"},
+            ]}}):
+                result = mod["search_signals"]("yo", name="tara")
+        assert "me: yo" in result
+
+
+class TestComposeSignal:
+    """Tests for compose_signal (draft only, never sends)."""
+
+    @staticmethod
+    def _mod():
+        return _load_module()
+
+    def test_returns_wacli_command(self):
+        mod = self._mod()
+        with patch.object(mod, "resolve_jids", return_value=["123@s.whatsapp.net"]):
+            result = mod["compose_signal"]("tara", "hello there")
+        assert "wacli send --to '123@s.whatsapp.net'" in result
+        assert "hello there" in result
+
+    def test_no_contact_returns_comment(self):
+        mod = self._mod()
+        with patch.object(mod, "resolve_jids", return_value=[]):
+            result = mod["compose_signal"]("ghost", "hello")
+        assert result.startswith("# No contact found")
+
+    def test_escapes_single_quotes(self):
+        mod = self._mod()
+        with patch.object(mod, "resolve_jids", return_value=["123@s.whatsapp.net"]):
+            result = mod["compose_signal"]("tara", "it's fine")
+        assert "'\\''" in result or "it'\\''s fine" in result
+
+    def test_uses_first_jid_only(self):
+        mod = self._mod()
+        with patch.object(mod, "resolve_jids", return_value=["a@s.whatsapp.net", "a@lid"]):
+            result = mod["compose_signal"]("tara", "hi")
+        assert "a@s.whatsapp.net" in result
+        assert "a@lid" not in result
+
+
+class TestActiveJunctions:
+    """Tests for active_junctions."""
+
+    @staticmethod
+    def _mod():
+        return _load_module()
+
+    def test_calls_wacli_with_correct_args(self):
+        mod = self._mod()
+        with patch.object(mod, "_wacli", return_value="chat list") as mock:
+            result = mod["active_junctions"](limit=5)
+        mock.assert_called_once_with(["chats", "list", "--limit", "5"])
+        assert result == "chat list"
+
+
+class TestJunctionStatus:
+    """Tests for junction_status."""
+
+    @staticmethod
+    def _mod():
+        return _load_module()
+
+    def test_calls_wacli_sync_status(self):
+        mod = self._mod()
+        with patch.object(mod, "_wacli", return_value="running") as mock:
+            result = mod["junction_status"]()
+        mock.assert_called_once_with(["sync", "status"])
+        assert result == "running"
+
+
+class TestSyncCatchup:
+    """Tests for sync_catchup."""
+
+    @staticmethod
+    def _mod():
+        return _load_module()
+
+    def test_calls_wacli_sync_once(self):
+        mod = self._mod()
+        with patch.object(mod, "_wacli", return_value="synced") as mock:
+            result = mod["sync_catchup"]()
+        mock.assert_called_once_with(["sync", "--once"], timeout=120)
+        assert result == "synced"
