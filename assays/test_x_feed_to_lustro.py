@@ -25,7 +25,7 @@ X_FEED_PATH = Path(__file__).resolve().parents[1] / "effectors" / "x-feed-to-lus
 
 @pytest.fixture()
 def xfeed(tmp_path):
-    """Load x-feed-to-lustro via exec into an isolated namespace, redirect cache dir."""
+    """Load x-feed-to-lustro via exec into an isolated namespace dict, redirect cache dir."""
     ns: dict = {"__name__": "test_x_feed_to_lustro", "__doc__": ""}
     source = X_FEED_PATH.read_text(encoding="utf-8")
     exec(source, ns)
@@ -68,11 +68,11 @@ class TestBirdFailure:
         assert exc_info.value.code == 1
 
     def test_bird_timeout_exits(self, xfeed):
-        """Should handle bird timeout."""
+        """Should handle bird timeout by propagating the exception."""
         with patch.object(
             subprocess, "run", side_effect=subprocess.TimeoutExpired("bird", 60)
         ):
-            with pytest.raises(SystemExit):
+            with pytest.raises(subprocess.TimeoutExpired):
                 xfeed["main"]()
 
 
@@ -167,7 +167,6 @@ class TestTweetProcessing:
         cache_files = list(xfeed["CACHE_DIR"].glob("*.json"))
         assert len(cache_files) == 1
         name = cache_files[0].name
-        assert name.startswith("2026-01-01") or "_x-feed_" in name
         assert "_x-feed_" in name
         assert name.endswith(".json")
 

@@ -23,13 +23,10 @@ PULSE_REVIEW_PATH = Path(__file__).resolve().parents[1] / "effectors" / "pulse-r
 
 @pytest.fixture()
 def pr(tmp_path):
-    """Load pulse-review via exec into an isolated namespace, redirecting paths."""
+    """Load pulse-review via exec into an isolated namespace dict."""
     ns: dict = {"__name__": "test_pulse_review", "__doc__": ""}
     source = PULSE_REVIEW_PATH.read_text(encoding="utf-8")
     exec(source, ns)
-
-    # Redirect Path.home() to tmp_path for output directory
-    ns["_home"] = tmp_path
     return ns
 
 
@@ -39,7 +36,7 @@ def pr(tmp_path):
 class TestMainArgs:
     def test_no_args_shows_help(self, pr, capsys):
         """Should print docstring and exit 0 when no args given."""
-        with patch.object(pr["sys"], "argv", ["pulse-review"]):
+        with patch.object(sys, "argv", ["pulse-review"]):
             with pytest.raises(SystemExit) as exc_info:
                 pr["main"]()
         assert exc_info.value.code == 0
@@ -48,7 +45,7 @@ class TestMainArgs:
 
     def test_help_flag_exits_zero(self, pr, capsys):
         """Should print help and exit 0 with -h flag."""
-        with patch.object(pr["sys"], "argv", ["pulse-review", "-h"]):
+        with patch.object(sys, "argv", ["pulse-review", "-h"]):
             with pytest.raises(SystemExit) as exc_info:
                 pr["main"]()
         assert exc_info.value.code == 0
@@ -56,7 +53,7 @@ class TestMainArgs:
     def test_missing_manifest_exits(self, pr, tmp_path, capsys):
         """Should exit 1 when manifest file doesn't exist."""
         nonexistent = tmp_path / "no-such-manifest.md"
-        with patch.object(pr["sys"], "argv", ["pulse-review", str(nonexistent)]):
+        with patch.object(sys, "argv", ["pulse-review", str(nonexistent)]):
             with pytest.raises(SystemExit) as exc_info:
                 pr["main"]()
         assert exc_info.value.code == 1
@@ -66,10 +63,11 @@ class TestMainArgs:
         manifest = tmp_path / "manifest.md"
         manifest.write_text("# Manifest\n- item 1\n- item 2\n", encoding="utf-8")
 
-        mock_results = [("gemini-3.1-pro", "Looks good."), ("codex", "Clean.")]
-        with patch.object(pr["sys"], "argv", ["pulse-review", str(manifest)]), \
-             patch.object(pr, "parallel_query", return_value=mock_results) as mock_pq, \
-             patch.object(pr["Path"], "home", return_value=tmp_path):
+        mock_pq = MagicMock(return_value=[("gemini-3.1-pro", "Looks good."), ("codex", "Clean.")])
+        pr["parallel_query"] = mock_pq
+
+        with patch.object(sys, "argv", ["pulse-review", str(manifest)]), \
+             patch.object(Path, "home", return_value=tmp_path):
             pr["main"]()
 
         mock_pq.assert_called_once()
@@ -88,10 +86,11 @@ class TestOutputFormatting:
         manifest = tmp_path / "manifest.md"
         manifest.write_text("# Test\n", encoding="utf-8")
 
-        mock_results = [("gemini-3.1-pro", "Gemini review text."), ("codex", "Codex review text.")]
-        with patch.object(pr["sys"], "argv", ["pulse-review", str(manifest)]), \
-             patch.object(pr, "parallel_query", return_value=mock_results), \
-             patch.object(pr["Path"], "home", return_value=tmp_path):
+        pr["parallel_query"] = MagicMock(
+            return_value=[("gemini-3.1-pro", "Gemini review text."), ("codex", "Codex review text.")]
+        )
+        with patch.object(sys, "argv", ["pulse-review", str(manifest)]), \
+             patch.object(Path, "home", return_value=tmp_path):
             pr["main"]()
 
         out_dir = tmp_path / "tmp"
@@ -107,10 +106,11 @@ class TestOutputFormatting:
         manifest = tmp_path / "manifest.md"
         manifest.write_text("# Test\n", encoding="utf-8")
 
-        mock_results = [("gemini-3.1-pro", "Review A."), ("codex", "Review B.")]
-        with patch.object(pr["sys"], "argv", ["pulse-review", str(manifest)]), \
-             patch.object(pr, "parallel_query", return_value=mock_results), \
-             patch.object(pr["Path"], "home", return_value=tmp_path):
+        pr["parallel_query"] = MagicMock(
+            return_value=[("gemini-3.1-pro", "Review A."), ("codex", "Review B.")]
+        )
+        with patch.object(sys, "argv", ["pulse-review", str(manifest)]), \
+             patch.object(Path, "home", return_value=tmp_path):
             pr["main"]()
 
         out_dir = tmp_path / "tmp"
@@ -125,10 +125,11 @@ class TestOutputFormatting:
         manifest = tmp_path / "manifest.md"
         manifest.write_text("# Test\n", encoding="utf-8")
 
-        mock_results = [("gemini-3.1-pro", "ok"), ("codex", "ok")]
-        with patch.object(pr["sys"], "argv", ["pulse-review", str(manifest)]), \
-             patch.object(pr, "parallel_query", return_value=mock_results), \
-             patch.object(pr["Path"], "home", return_value=tmp_path):
+        pr["parallel_query"] = MagicMock(
+            return_value=[("gemini-3.1-pro", "ok"), ("codex", "ok")]
+        )
+        with patch.object(sys, "argv", ["pulse-review", str(manifest)]), \
+             patch.object(Path, "home", return_value=tmp_path):
             pr["main"]()
 
         out_dir = tmp_path / "tmp"
@@ -142,10 +143,11 @@ class TestOutputFormatting:
         manifest.write_text("# Test\n", encoding="utf-8")
 
         # Only one model responds
-        mock_results = [("gemini-3.1-pro", "Only Gemini responded.")]
-        with patch.object(pr["sys"], "argv", ["pulse-review", str(manifest)]), \
-             patch.object(pr, "parallel_query", return_value=mock_results), \
-             patch.object(pr["Path"], "home", return_value=tmp_path):
+        pr["parallel_query"] = MagicMock(
+            return_value=[("gemini-3.1-pro", "Only Gemini responded.")]
+        )
+        with patch.object(sys, "argv", ["pulse-review", str(manifest)]), \
+             patch.object(Path, "home", return_value=tmp_path):
             pr["main"]()
 
         out_dir = tmp_path / "tmp"
@@ -158,10 +160,11 @@ class TestOutputFormatting:
         manifest = tmp_path / "manifest.md"
         manifest.write_text("# Test\n", encoding="utf-8")
 
-        mock_results = [("gemini-3.1-pro", "Review text."), ("codex", "Codex text.")]
-        with patch.object(pr["sys"], "argv", ["pulse-review", str(manifest)]), \
-             patch.object(pr, "parallel_query", return_value=mock_results), \
-             patch.object(pr["Path"], "home", return_value=tmp_path):
+        pr["parallel_query"] = MagicMock(
+            return_value=[("gemini-3.1-pro", "Review text."), ("codex", "Codex text.")]
+        )
+        with patch.object(sys, "argv", ["pulse-review", str(manifest)]), \
+             patch.object(Path, "home", return_value=tmp_path):
             pr["main"]()
 
         out = capsys.readouterr().out
@@ -175,10 +178,11 @@ class TestOutputFormatting:
         manifest = tmp_path / "manifest.md"
         manifest.write_text("# Test\n", encoding="utf-8")
 
-        mock_results = [("gemini-3.1-pro", "ok"), ("codex", "ok")]
-        with patch.object(pr["sys"], "argv", ["pulse-review", str(manifest)]), \
-             patch.object(pr, "parallel_query", return_value=mock_results), \
-             patch.object(pr["Path"], "home", return_value=tmp_path):
+        pr["parallel_query"] = MagicMock(
+            return_value=[("gemini-3.1-pro", "ok"), ("codex", "ok")]
+        )
+        with patch.object(sys, "argv", ["pulse-review", str(manifest)]), \
+             patch.object(Path, "home", return_value=tmp_path):
             pr["main"]()
 
         out = capsys.readouterr().out
