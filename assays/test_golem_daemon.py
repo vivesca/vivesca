@@ -213,3 +213,273 @@ def test_mark_failed_exists():
     """Verify that mark_failed function exists."""
     assert "mark_failed" in _mod
     assert callable(_mod["mark_failed"])
+
+
+# ── validate_golem_output tests ─────────────────────────────────────────
+
+
+validate_golem_output = _mod["validate_golem_output"]
+
+
+def test_validate_golem_output_exists():
+    """Verify that validate_golem_output function exists."""
+    assert "validate_golem_output" in _mod
+    assert callable(_mod["validate_golem_output"])
+
+
+def test_validate_syntax_error_detection(tmp_path, monkeypatch):
+    """validate_golem_output detects SyntaxError in .py files."""
+    # Create a file with syntax error
+    bad_file = tmp_path / "germline" / "assays" / "test_bad.py"
+    bad_file.parent.mkdir(parents=True)
+    bad_file.write_text("def broken(\n")  # Missing closing paren
+
+    # Mock git diff to return our file
+    def mock_run(cmd, shell, capture_output, text, cwd=None):
+        result = MagicMock()
+        if "diff --name-only" in cmd and "--diff-filter=AM" in cmd:
+            result.returncode = 0
+            result.stdout = "assays/test_bad.py"
+        elif "grep -E" in cmd:
+            result.returncode = 0
+            result.stdout = ""
+        else:
+            result.returncode = 1
+        return result
+
+    with patch("subprocess.run", side_effect=mock_run):
+        # Also need to patch Path.home() to use tmp_path
+        original_home = _mod["Path"].home
+        monkeypatch.setattr(_mod["Path"], "home", lambda: tmp_path)
+        try:
+            passed, errors = validate_golem_output()
+        finally:
+            monkeypatch.setattr(_mod["Path"], "home", original_home)
+
+    assert not passed
+    assert any("SyntaxError" in e for e in errors)
+
+
+def test_validate_todo_fixme_detection(tmp_path, monkeypatch):
+    """validate_golem_output detects TODO/FIXME comments."""
+    # Create a file with TODO
+    todo_file = tmp_path / "germline" / "assays" / "test_todo.py"
+    todo_file.parent.mkdir(parents=True)
+    todo_file.write_text('def foo():\n    # TODO: implement this\n    pass\n')
+
+    def mock_run(cmd, shell, capture_output, text, cwd=None):
+        result = MagicMock()
+        if "diff --name-only" in cmd and "--diff-filter=AM" in cmd:
+            result.returncode = 0
+            result.stdout = "assays/test_todo.py"
+        elif "grep -E" in cmd:
+            result.returncode = 0
+            result.stdout = ""
+        else:
+            result.returncode = 1
+        return result
+
+    with patch("subprocess.run", side_effect=mock_run):
+        monkeypatch.setattr(_mod["Path"], "home", lambda: tmp_path)
+        try:
+            passed, errors = validate_golem_output()
+        finally:
+            monkeypatch.setattr(_mod["Path"], "home", original_home if 'original_home' in dir() else _mod["Path"].home)
+
+    assert not passed
+    assert any("TODO" in e or "FIXME" in e for e in errors)
+
+
+def test_validate_stub_detection(tmp_path, monkeypatch):
+    """validate_golem_output detects 'stub' in code."""
+    stub_file = tmp_path / "germline" / "assays" / "test_stub.py"
+    stub_file.parent.mkdir(parents=True)
+    stub_file.write_text('def foo():\n    return stub_function()\n')
+
+    def mock_run(cmd, shell, capture_output, text, cwd=None):
+        result = MagicMock()
+        if "diff --name-only" in cmd and "--diff-filter=AM" in cmd:
+            result.returncode = 0
+            result.stdout = "assays/test_stub.py"
+        elif "grep -E" in cmd:
+            result.returncode = 0
+            result.stdout = ""
+        else:
+            result.returncode = 1
+        return result
+
+    with patch("subprocess.run", side_effect=mock_run):
+        monkeypatch.setattr(_mod["Path"], "home", lambda: tmp_path)
+        try:
+            passed, errors = validate_golem_output()
+        finally:
+            pass
+
+    assert not passed
+    assert any("stub" in e.lower() for e in errors)
+
+
+def test_validate_nested_test_file_detection(tmp_path, monkeypatch):
+    """validate_golem_output rejects test files not flat in assays/."""
+    # Create nested test file
+    nested_file = tmp_path / "germline" / "assays" / "subdir" / "test_nested.py"
+    nested_file.parent.mkdir(parents=True)
+    nested_file.write_text('def test_foo(): pass\n')
+
+    def mock_run(cmd, shell, capture_output, text, cwd=None):
+        result = MagicMock()
+        if "diff --name-only" in cmd and "--diff-filter=AM" in cmd:
+            result.returncode = 0
+            result.stdout = "assays/subdir/test_nested.py"
+        elif "grep -E" in cmd:
+            result.returncode = 0
+            result.stdout = ""
+        else:
+            result.returncode = 1
+        return result
+
+    with patch("subprocess.run", side_effect=mock_run):
+        monkeypatch.setattr(_mod["Path"], "home", lambda: tmp_path)
+        try:
+            passed, errors = validate_golem_output()
+        finally:
+            pass
+
+    assert not passed
+    assert any("not flat" in e for e in errors)
+
+
+def test_validate_pycache_detection():
+    """validate_golem_output rejects __pycache__/.pyc files."""
+    def mock_run(cmd, shell, capture_output, text, cwd=None):
+        result = MagicMock()
+        if "diff --name-only" in cmd and "--diff-filter=AM" in cmd:
+            if "grep -E" not in cmd:
+                result.returncode = 0
+                result.stdout = ""  # No .py files
+            else:
+                result.returncode = 0
+                result.stdout = ""
+        elif "grep -E" in cmd and "__pycache__" in cmd:
+            result.returncode = 0
+            result.stdout = "assays/__pycache__/test_foo.pyc"
+        else:
+            result.returncode = 0
+            result.stdout = ""
+        return result
+
+    with patch("subprocess.run", side_effect=mock_run):
+        passed, errors = validate_golem_output()
+
+    assert not passed
+    assert any("__pycache__" in e or ".pyc" in e for e in errors)
+
+
+def test_validate_passes_clean_files(tmp_path, monkeypatch):
+    """validate_golem_output passes clean .py files."""
+    clean_file = tmp_path / "germline" / "assays" / "test_clean.py"
+    clean_file.parent.mkdir(parents=True)
+    clean_file.write_text('def test_foo():\n    assert True\n')
+
+    def mock_run(cmd, shell, capture_output, text, cwd=None):
+        result = MagicMock()
+        if "diff --name-only" in cmd and "--diff-filter=AM" in cmd:
+            result.returncode = 0
+            if "grep -E" not in cmd:
+                result.stdout = "assays/test_clean.py"
+            else:
+                result.stdout = ""
+        elif "grep -E" in cmd:
+            result.returncode = 0
+            result.stdout = ""
+        else:
+            result.returncode = 1
+        return result
+
+    with patch("subprocess.run", side_effect=mock_run):
+        monkeypatch.setattr(_mod["Path"], "home", lambda: tmp_path)
+        try:
+            passed, errors = validate_golem_output()
+        finally:
+            pass
+
+    assert passed
+    assert errors == []
+
+
+def test_validate_no_py_files_passes():
+    """validate_golem_output passes when no .py files changed."""
+    def mock_run(cmd, shell, capture_output, text, cwd=None):
+        result = MagicMock()
+        result.returncode = 0
+        result.stdout = "README.md\nsetup.py"  # No .py files with our filter
+        return result
+
+    with patch("subprocess.run", side_effect=mock_run):
+        passed, errors = validate_golem_output()
+
+    # Actually setup.py is a .py file, but let's test empty case
+    # The function should pass if git diff returns empty
+    result = MagicMock()
+    result.returncode = 0
+    result.stdout = ""
+
+    def mock_run_empty(cmd, shell, capture_output, text, cwd=None):
+        r = MagicMock()
+        r.returncode = 0
+        r.stdout = ""  # No files at all
+        return r
+
+    with patch("subprocess.run", side_effect=mock_run_empty):
+        passed, errors = validate_golem_output()
+
+    assert passed
+    assert errors == []
+
+
+def test_validate_git_diff_fails_gracefully():
+    """validate_golem_output passes silently if git diff fails."""
+    def mock_run_fail(cmd, shell, capture_output, text, cwd=None):
+        result = MagicMock()
+        result.returncode = 1  # git diff failed
+        result.stdout = ""
+        return result
+
+    with patch("subprocess.run", side_effect=mock_run_fail):
+        passed, errors = validate_golem_output()
+
+    assert passed
+    assert errors == []
+
+
+def test_validate_flat_test_file_passes(tmp_path, monkeypatch):
+    """validate_golem_output accepts test files flat in assays/."""
+    flat_file = tmp_path / "germline" / "assays" / "test_flat.py"
+    flat_file.parent.mkdir(parents=True)
+    flat_file.write_text('def test_bar():\n    assert 1 + 1 == 2\n')
+
+    def mock_run(cmd, shell, capture_output, text, cwd=None):
+        result = MagicMock()
+        if "diff --name-only" in cmd and "--diff-filter=AM" in cmd:
+            if "grep -E" not in cmd:
+                result.returncode = 0
+                result.stdout = "assays/test_flat.py"
+            else:
+                result.returncode = 0
+                result.stdout = ""
+        elif "grep -E" in cmd:
+            result.returncode = 0
+            result.stdout = ""
+        else:
+            result.returncode = 1
+        return result
+
+    with patch("subprocess.run", side_effect=mock_run):
+        monkeypatch.setattr(_mod["Path"], "home", lambda: tmp_path)
+        try:
+            passed, errors = validate_golem_output()
+        finally:
+            pass
+
+    assert passed
+    assert errors == []
