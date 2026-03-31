@@ -22,11 +22,21 @@ def _route_cmd(*args: str) -> list[str]:
     return base if os.getuid() == 0 else ["sudo"] + base
 
 ZHIPU_HOSTS = [
+    # ZhiPu
     "open.bigmodel.cn",
     "api.z.ai",
     "bigmodel.cn",
     "cdn.bigmodel.cn",
     "zhipuaishengchan.datasink.sensorsdata.cn",
+    # Alibaba Bailian (dashscope)
+    "dashscope.aliyuncs.com",
+    "account.aliyun.com",
+    "dashscope.console.aliyun.com",
+    # MiniMax
+    "api.minimaxi.com",
+    "platform.minimaxi.com",
+    # Infini (无问芯穹)
+    "cloud.infini-ai.com",
 ]
 
 
