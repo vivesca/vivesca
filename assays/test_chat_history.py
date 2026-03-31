@@ -1218,3 +1218,596 @@ class TestCLI:
         )
         assert result.returncode == 1
         assert "Invalid date format" in result.stdout
+
+    def test_search_deep_mode(self):
+        """--search --deep searches transcripts and outputs text."""
+        result = subprocess.run(
+            ["python3", str(EFFECTOR_PATH), "--search=definitely_not_a_real_match_xyzzy", "--deep"],
+            capture_output=True, text=True, timeout=30,
+        )
+        assert result.returncode == 0
+        assert "No matches found" in result.stdout
+
+    def test_search_with_specific_date(self):
+        """--search with YYYY-MM-DD searches that specific day."""
+        result = subprocess.run(
+            ["python3", str(EFFECTOR_PATH), "--search=test", "2026-01-15", "--json"],
+            capture_output=True, text=True, timeout=30,
+        )
+        assert result.returncode == 0
+        data = json.loads(result.stdout)
+        assert isinstance(data, list)
+
+    def test_search_with_days_flag(self):
+        """--days=N overrides default 7-day range."""
+        result = subprocess.run(
+            ["python3", str(EFFECTOR_PATH), "--search=test", "--days=30", "--json"],
+            capture_output=True, text=True, timeout=30,
+        )
+        assert result.returncode == 0
+        data = json.loads(result.stdout)
+        assert isinstance(data, list)
+
+    def test_today_explicit(self):
+        """'today' positional arg produces today's date."""
+        today_str = datetime.now(HKT).strftime("%Y-%m-%d")
+        result = subprocess.run(
+            ["python3", str(EFFECTOR_PATH), "today", "--json"],
+            capture_output=True, text=True, timeout=10,
+        )
+        assert result.returncode == 0
+        data = json.loads(result.stdout)
+        assert data["date"] == today_str
+
+    def test_search_deep_json(self):
+        """--search --deep --json outputs JSON list."""
+        result = subprocess.run(
+            ["python3", str(EFFECTOR_PATH), "--search=xyzzy_not_real", "--deep", "--json"],
+            capture_output=True, text=True, timeout=30,
+        )
+        assert result.returncode == 0
+        data = json.loads(result.stdout)
+        assert isinstance(data, list)
+
+    def test_search_human_readable_output(self):
+        """--search without --json outputs human-readable text."""
+        result = subprocess.run(
+            ["python3", str(EFFECTOR_PATH), "--search=xyzzy_not_real"],
+            capture_output=True, text=True, timeout=30,
+        )
+        assert result.returncode == 0
+        assert "Search:" in result.stdout
+
+
+# ── Additional scan_history edge-case tests ──────────────────────────────
+
+
+class TestScanHistoryEdgeCases:
+    """Edge-case tests for scan_history."""
+
+    def test_scan_history_multiple_tools(self, tmp_path):
+        """scan_history collects from both Claude and Codex files."""
+        ts = _hkt_ms(0, 10)
+        claude_path = tmp_path / ".claude" / "history.jsonl"
+        codex_path = tmp_path / ".codex" / "history.jsonl"
+        _make_history_jsonl(claude_path, [
+            {"timestamp": ts, "sessionId": "c1", "display": "claude prompt"},
+        ])
+        _make_history_jsonl(codex_path, [
+            {"timestamp": ts, "sessionId": "x1", "display": "codex prompt"},
+        ])
+
+        orig = dict(_mod["HISTORY_FILES"])
+        orig_projects = _mod["PROJECTS_DIR"]
+        orig_opencode = _mod["OPENCODE_STORAGE"]
+        try:
+            _mod["HISTORY_FILES"] = {"Claude": claude_path, "Codex": codex_path}
+            _mod["PROJECTS_DIR"] = tmp_path / "nonexistent"
+            _mod["OPENCODE_STORAGE"] = tmp_path / "nonexistent"
+            result = scan_history(_hkt_date_str(0))
+        finally:
+            _mod["HISTORY_FILES"] = orig
+            _mod["PROJECTS_DIR"] = orig_projects
+            _mod["OPENCODE_STORAGE"] = orig_opencode
+
+        assert result["total"] == 2
+        tools = {p["tool"] for p in result["all_prompts"]}
+        assert tools == {"Claude", "Codex"}
+
+    def test_scan_history_sessions_time_range(self, tmp_path):
+        """scan_history sessions track first/last times correctly."""
+        ts = _hkt_ms(0, 10)
+        history_path = tmp_path / ".claude" / "history.jsonl"
+        _make_history_jsonl(history_path, [
+            {"timestamp": ts, "sessionId": "sess1", "display": "first"},
+            {"timestamp": ts + 3600000, "sessionId": "sess1", "display": "second"},
+            {"timestamp": ts + 7200000, "sessionId": "sess1", "display": "third"},
+        ])
+
+        orig = dict(_mod["HISTORY_FILES"])
+        orig_projects = _mod["PROJECTS_DIR"]
+        orig_opencode = _mod["OPENCODE_STORAGE"]
+        try:
+            _mod["HISTORY_FILES"] = {"Claude": history_path}
+            _mod["PROJECTS_DIR"] = tmp_path / "nonexistent"
+            _mod["OPENCODE_STORAGE"] = tmp_path / "nonexistent"
+            result = scan_history(_hkt_date_str(0))
+        finally:
+            _mod["HISTORY_FILES"] = orig
+            _mod["PROJECTS_DIR"] = orig_projects
+            _mod["OPENCODE_STORAGE"] = orig_opencode
+
+        assert len(result["sessions"]) == 1
+        s = result["sessions"][0]
+        assert s["count"] == 3
+        assert s["range"] == f"{s['first']}-{s['last']}"
+
+    def test_scan_history_malformed_json_line(self, tmp_path):
+        """scan_history skips malformed JSON lines gracefully."""
+        ts = _hkt_ms(0, 10)
+        history_path = tmp_path / ".claude" / "history.jsonl"
+        history_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(history_path, "w") as f:
+            f.write("not json\n")
+            f.write(json.dumps({"timestamp": ts, "sessionId": "s1", "display": "valid"}) + "\n")
+
+        orig = dict(_mod["HISTORY_FILES"])
+        orig_projects = _mod["PROJECTS_DIR"]
+        orig_opencode = _mod["OPENCODE_STORAGE"]
+        try:
+            _mod["HISTORY_FILES"] = {"Claude": history_path}
+            _mod["PROJECTS_DIR"] = tmp_path / "nonexistent"
+            _mod["OPENCODE_STORAGE"] = tmp_path / "nonexistent"
+            result = scan_history(_hkt_date_str(0))
+        finally:
+            _mod["HISTORY_FILES"] = orig
+            _mod["PROJECTS_DIR"] = orig_projects
+            _mod["OPENCODE_STORAGE"] = orig_opencode
+
+        assert result["total"] == 1
+
+
+# ── Additional search_transcripts edge-case tests ────────────────────────
+
+
+class TestSearchTranscriptsEdgeCases:
+    """Edge-case tests for search_transcripts."""
+
+    def test_search_transcripts_list_content(self, tmp_path):
+        """search_transcripts handles content as a list of blocks."""
+        ts = _hkt_ms(0, 10)
+        start_ms = _hkt_ms(-1, 0)
+        end_ms = _hkt_ms(1, 0)
+
+        ts_iso = datetime.fromtimestamp(ts / 1000, tz=timezone.utc).isoformat().replace("+00:00", "Z")
+        session_dir = tmp_path / "proj1"
+        session_dir.mkdir()
+        session_file = session_dir / "sess1.jsonl"
+        _make_session_jsonl(session_file, [
+            {
+                "type": "user",
+                "timestamp": ts_iso,
+                "sessionId": "sess1",
+                "message": {
+                    "content": [
+                        {"type": "text", "text": "find this listcontent pattern"},
+                    ]
+                },
+            },
+        ])
+
+        orig_projects = _mod["PROJECTS_DIR"]
+        try:
+            _mod["PROJECTS_DIR"] = tmp_path
+            matches = search_transcripts("listcontent", start_ms, end_ms)
+        finally:
+            _mod["PROJECTS_DIR"] = orig_projects
+
+        assert len(matches) == 1
+        assert "listcontent" in matches[0]["snippet"]
+
+    def test_search_transcripts_empty_content_skipped(self, tmp_path):
+        """search_transcripts skips entries with empty content."""
+        ts = _hkt_ms(0, 10)
+        start_ms = _hkt_ms(-1, 0)
+        end_ms = _hkt_ms(1, 0)
+
+        ts_iso = datetime.fromtimestamp(ts / 1000, tz=timezone.utc).isoformat().replace("+00:00", "Z")
+        session_dir = tmp_path / "proj1"
+        session_dir.mkdir()
+        session_file = session_dir / "sess1.jsonl"
+        _make_session_jsonl(session_file, [
+            {
+                "type": "user",
+                "timestamp": ts_iso,
+                "sessionId": "sess1",
+                "message": {"content": ""},
+            },
+        ])
+
+        orig_projects = _mod["PROJECTS_DIR"]
+        try:
+            _mod["PROJECTS_DIR"] = tmp_path
+            matches = search_transcripts("anything", start_ms, end_ms)
+        finally:
+            _mod["PROJECTS_DIR"] = orig_projects
+
+        assert matches == []
+
+    def test_search_transcripts_no_timestamp_skipped(self, tmp_path):
+        """search_transcripts skips entries without a timestamp."""
+        start_ms = _hkt_ms(-1, 0)
+        end_ms = _hkt_ms(1, 0)
+
+        session_dir = tmp_path / "proj1"
+        session_dir.mkdir()
+        session_file = session_dir / "sess1.jsonl"
+        _make_session_jsonl(session_file, [
+            {
+                "type": "user",
+                "timestamp": "",
+                "sessionId": "sess1",
+                "message": {"content": "no timestamp keyword"},
+            },
+        ])
+
+        orig_projects = _mod["PROJECTS_DIR"]
+        try:
+            _mod["PROJECTS_DIR"] = tmp_path
+            matches = search_transcripts("keyword", start_ms, end_ms)
+        finally:
+            _mod["PROJECTS_DIR"] = orig_projects
+
+        assert matches == []
+
+    def test_search_transcripts_session_id_fallback(self, tmp_path):
+        """search_transcripts uses filename stem when sessionId missing."""
+        ts = _hkt_ms(0, 10)
+        start_ms = _hkt_ms(-1, 0)
+        end_ms = _hkt_ms(1, 0)
+
+        ts_iso = datetime.fromtimestamp(ts / 1000, tz=timezone.utc).isoformat().replace("+00:00", "Z")
+        session_dir = tmp_path / "proj1"
+        session_dir.mkdir()
+        session_file = session_dir / "my_session_file.jsonl"
+        _make_session_jsonl(session_file, [
+            {
+                "type": "user",
+                "timestamp": ts_iso,
+                "sessionId": "",
+                "message": {"content": "find fallback pattern"},
+            },
+        ])
+
+        orig_projects = _mod["PROJECTS_DIR"]
+        try:
+            _mod["PROJECTS_DIR"] = tmp_path
+            matches = search_transcripts("fallback", start_ms, end_ms)
+        finally:
+            _mod["PROJECTS_DIR"] = orig_projects
+
+        assert len(matches) == 1
+        assert matches[0]["session_full"] == "my_session_file"
+
+    def test_search_transcripts_sorts_by_timestamp_desc(self, tmp_path):
+        """search_transcripts returns results sorted newest first."""
+        ts1 = _hkt_ms(0, 9)
+        ts2 = _hkt_ms(0, 11)
+        start_ms = _hkt_ms(-1, 0)
+        end_ms = _hkt_ms(1, 0)
+
+        ts1_iso = datetime.fromtimestamp(ts1 / 1000, tz=timezone.utc).isoformat().replace("+00:00", "Z")
+        ts2_iso = datetime.fromtimestamp(ts2 / 1000, tz=timezone.utc).isoformat().replace("+00:00", "Z")
+
+        session_dir = tmp_path / "proj1"
+        session_dir.mkdir()
+        session_file = session_dir / "sess1.jsonl"
+        _make_session_jsonl(session_file, [
+            {
+                "type": "user",
+                "timestamp": ts1_iso,
+                "sessionId": "sess1",
+                "message": {"content": "early sortmatch"},
+            },
+            {
+                "type": "user",
+                "timestamp": ts2_iso,
+                "sessionId": "sess1",
+                "message": {"content": "later sortmatch"},
+            },
+        ])
+
+        orig_projects = _mod["PROJECTS_DIR"]
+        try:
+            _mod["PROJECTS_DIR"] = tmp_path
+            matches = search_transcripts("sortmatch", start_ms, end_ms)
+        finally:
+            _mod["PROJECTS_DIR"] = orig_projects
+
+        assert len(matches) == 2
+        assert matches[0]["timestamp"] > matches[1]["timestamp"]
+
+
+# ── Additional scan_opencode edge-case tests ─────────────────────────────
+
+
+class TestScanOpencodeEdgeCases:
+    """Edge-case tests for scan_opencode."""
+
+    def test_scan_opencode_multi_part_prompt(self, tmp_path):
+        """scan_opencode concatenates multiple parts into one prompt."""
+        ts = _hkt_ms(0, 10)
+        start_ms = _hkt_ms(-1, 0)
+        end_ms = _hkt_ms(1, 0)
+
+        storage = tmp_path
+        sess_dir = storage / "session" / "sess1"
+        sess_dir.mkdir(parents=True)
+        (sess_dir / "sess1.json").write_text(json.dumps({
+            "id": "sess1", "time": {"created": ts},
+        }))
+
+        msg_dir = storage / "message" / "sess1"
+        msg_dir.mkdir(parents=True)
+        (msg_dir / "msg_001.json").write_text(json.dumps({
+            "id": "msg_001", "role": "user", "time": {"created": ts},
+        }))
+
+        part_dir = storage / "part" / "msg_001"
+        part_dir.mkdir(parents=True)
+        (part_dir / "prt_001.json").write_text(json.dumps({"text": "hello "}))
+        (part_dir / "prt_002.json").write_text(json.dumps({"text": "world"}))
+
+        orig = _mod["OPENCODE_STORAGE"]
+        try:
+            _mod["OPENCODE_STORAGE"] = storage
+            prompts = scan_opencode(start_ms, end_ms)
+        finally:
+            _mod["OPENCODE_STORAGE"] = orig
+
+        assert len(prompts) == 1
+        assert prompts[0]["prompt"] == "hello world"
+
+    def test_scan_opencode_fallback_to_updated_time(self, tmp_path):
+        """scan_opencode falls back to 'updated' time when created is out of range."""
+        old_ts = _hkt_ms(-5, 10)
+        recent_ts = _hkt_ms(0, 10)
+        start_ms = _hkt_ms(-1, 0)
+        end_ms = _hkt_ms(1, 0)
+
+        storage = tmp_path
+        sess_dir = storage / "session" / "sess1"
+        sess_dir.mkdir(parents=True)
+        (sess_dir / "sess1.json").write_text(json.dumps({
+            "id": "sess1",
+            "time": {"created": old_ts, "updated": recent_ts},
+        }))
+
+        msg_dir = storage / "message" / "sess1"
+        msg_dir.mkdir(parents=True)
+        (msg_dir / "msg_001.json").write_text(json.dumps({
+            "id": "msg_001", "role": "user", "time": {"created": recent_ts},
+        }))
+
+        part_dir = storage / "part" / "msg_001"
+        part_dir.mkdir(parents=True)
+        (part_dir / "prt_001.json").write_text(json.dumps({"text": "fallback prompt"}))
+
+        orig = _mod["OPENCODE_STORAGE"]
+        try:
+            _mod["OPENCODE_STORAGE"] = storage
+            prompts = scan_opencode(start_ms, end_ms)
+        finally:
+            _mod["OPENCODE_STORAGE"] = orig
+
+        assert len(prompts) == 1
+        assert prompts[0]["prompt"] == "fallback prompt"
+
+    def test_scan_opencode_no_message_dir(self, tmp_path):
+        """scan_opencode skips session when message dir doesn't exist."""
+        ts = _hkt_ms(0, 10)
+        start_ms = _hkt_ms(-1, 0)
+        end_ms = _hkt_ms(1, 0)
+
+        storage = tmp_path
+        sess_dir = storage / "session" / "sess1"
+        sess_dir.mkdir(parents=True)
+        (sess_dir / "sess1.json").write_text(json.dumps({
+            "id": "sess1", "time": {"created": ts},
+        }))
+        # No message dir created
+
+        orig = _mod["OPENCODE_STORAGE"]
+        try:
+            _mod["OPENCODE_STORAGE"] = storage
+            prompts = scan_opencode(start_ms, end_ms)
+        finally:
+            _mod["OPENCODE_STORAGE"] = orig
+
+        assert prompts == []
+
+    def test_scan_opencode_no_part_dir(self, tmp_path):
+        """scan_opencode skips messages when part dir doesn't exist."""
+        ts = _hkt_ms(0, 10)
+        start_ms = _hkt_ms(-1, 0)
+        end_ms = _hkt_ms(1, 0)
+
+        storage = tmp_path
+        sess_dir = storage / "session" / "sess1"
+        sess_dir.mkdir(parents=True)
+        (sess_dir / "sess1.json").write_text(json.dumps({
+            "id": "sess1", "time": {"created": ts},
+        }))
+
+        msg_dir = storage / "message" / "sess1"
+        msg_dir.mkdir(parents=True)
+        (msg_dir / "msg_001.json").write_text(json.dumps({
+            "id": "msg_001", "role": "user", "time": {"created": ts},
+        }))
+        # No part dir — prompt_text will be empty, so it gets skipped
+
+        orig = _mod["OPENCODE_STORAGE"]
+        try:
+            _mod["OPENCODE_STORAGE"] = storage
+            prompts = scan_opencode(start_ms, end_ms)
+        finally:
+            _mod["OPENCODE_STORAGE"] = orig
+
+        assert prompts == []
+
+
+# ── Additional search_prompts edge-case tests ────────────────────────────
+
+
+class TestSearchPromptsEdgeCases:
+    """Edge-case tests for search_prompts."""
+
+    def test_search_prompts_opencode_tool_filter(self, tmp_path):
+        """search_prompts with tool='OpenCode' searches OpenCode storage."""
+        ts = _hkt_ms(0, 10)
+        start_ms = _hkt_ms(-1, 0)
+        end_ms = _hkt_ms(1, 0)
+
+        # Set up OpenCode storage
+        storage = tmp_path / "opencode"
+        sess_dir = storage / "session" / "sess1"
+        sess_dir.mkdir(parents=True)
+        (sess_dir / "sess1.json").write_text(json.dumps({
+            "id": "sess1", "time": {"created": ts},
+        }))
+        msg_dir = storage / "message" / "sess1"
+        msg_dir.mkdir(parents=True)
+        (msg_dir / "msg_001.json").write_text(json.dumps({
+            "id": "msg_001", "role": "user", "time": {"created": ts},
+        }))
+        part_dir = storage / "part" / "msg_001"
+        part_dir.mkdir(parents=True)
+        (part_dir / "prt_001.json").write_text(json.dumps({"text": "opencode searchterm match"}))
+
+        orig_files = dict(_mod["HISTORY_FILES"])
+        orig_projects = _mod["PROJECTS_DIR"]
+        orig_opencode = _mod["OPENCODE_STORAGE"]
+        try:
+            _mod["HISTORY_FILES"] = {"Claude": tmp_path / "nope.jsonl"}
+            _mod["PROJECTS_DIR"] = tmp_path / "nonexistent"
+            _mod["OPENCODE_STORAGE"] = storage
+            matches = search_prompts("searchterm", start_ms, end_ms, tool="OpenCode")
+        finally:
+            _mod["HISTORY_FILES"] = orig_files
+            _mod["PROJECTS_DIR"] = orig_projects
+            _mod["OPENCODE_STORAGE"] = orig_opencode
+
+        assert len(matches) == 1
+        assert matches[0]["tool"] == "OpenCode"
+
+    def test_search_prompts_unknown_tool_returns_empty(self, tmp_path):
+        """search_prompts with unknown tool and no OpenCode returns empty."""
+        start_ms = _hkt_ms(-1, 0)
+        end_ms = _hkt_ms(1, 0)
+
+        orig_files = dict(_mod["HISTORY_FILES"])
+        orig_projects = _mod["PROJECTS_DIR"]
+        orig_opencode = _mod["OPENCODE_STORAGE"]
+        try:
+            _mod["HISTORY_FILES"] = {"Claude": tmp_path / "nope.jsonl"}
+            _mod["PROJECTS_DIR"] = tmp_path / "nonexistent"
+            _mod["OPENCODE_STORAGE"] = tmp_path / "nonexistent"
+            matches = search_prompts("test", start_ms, end_ms, tool="UnknownTool")
+        finally:
+            _mod["HISTORY_FILES"] = orig_files
+            _mod["PROJECTS_DIR"] = orig_projects
+            _mod["OPENCODE_STORAGE"] = orig_opencode
+
+        assert matches == []
+
+    def test_search_prompts_regex_pattern(self, tmp_path):
+        """search_prompts supports regex patterns."""
+        ts = _hkt_ms(0, 10)
+        start_ms = _hkt_ms(-1, 0)
+        end_ms = _hkt_ms(1, 0)
+        history_path = tmp_path / ".claude" / "history.jsonl"
+        _make_history_jsonl(history_path, [
+            {"timestamp": ts, "sessionId": "s1", "display": "test123 and test456"},
+        ])
+
+        orig = dict(_mod["HISTORY_FILES"])
+        orig_projects = _mod["PROJECTS_DIR"]
+        orig_opencode = _mod["OPENCODE_STORAGE"]
+        try:
+            _mod["HISTORY_FILES"] = {"Claude": history_path}
+            _mod["PROJECTS_DIR"] = tmp_path / "nonexistent"
+            _mod["OPENCODE_STORAGE"] = tmp_path / "nonexistent"
+            matches = search_prompts(r"test\d+", start_ms, end_ms)
+        finally:
+            _mod["HISTORY_FILES"] = orig
+            _mod["PROJECTS_DIR"] = orig_projects
+            _mod["OPENCODE_STORAGE"] = orig_opencode
+
+        assert len(matches) == 1
+
+    def test_search_prompts_match_fields(self, tmp_path):
+        """search_prompts returns all expected fields in match dict."""
+        ts = _hkt_ms(0, 10)
+        start_ms = _hkt_ms(-1, 0)
+        end_ms = _hkt_ms(1, 0)
+        history_path = tmp_path / ".claude" / "history.jsonl"
+        _make_history_jsonl(history_path, [
+            {"timestamp": ts, "sessionId": "session12345", "display": "check fields"},
+        ])
+
+        orig = dict(_mod["HISTORY_FILES"])
+        orig_projects = _mod["PROJECTS_DIR"]
+        orig_opencode = _mod["OPENCODE_STORAGE"]
+        try:
+            _mod["HISTORY_FILES"] = {"Claude": history_path}
+            _mod["PROJECTS_DIR"] = tmp_path / "nonexistent"
+            _mod["OPENCODE_STORAGE"] = tmp_path / "nonexistent"
+            matches = search_prompts("fields", start_ms, end_ms)
+        finally:
+            _mod["HISTORY_FILES"] = orig
+            _mod["PROJECTS_DIR"] = orig_projects
+            _mod["OPENCODE_STORAGE"] = orig_opencode
+
+        assert len(matches) == 1
+        m = matches[0]
+        assert "date" in m
+        assert "time" in m
+        assert m["timestamp"] == ts
+        assert m["session"] == "session1"  # truncated to 8 chars
+        assert m["session_full"] == "session12345"
+        assert m["role"] == "you"
+        assert "snippet" in m
+        assert m["tool"] == "Claude"
+
+
+# ── Additional extract_text_from_content edge-case tests ─────────────────
+
+
+class TestExtractTextFromContentEdgeCases:
+    """Edge-case tests for extract_text_from_content."""
+
+    def test_mixed_block_types(self):
+        """extract_text_from_content handles mix of text, tool_use, tool_result."""
+        content = [
+            {"type": "text", "text": "Start"},
+            {"type": "tool_use", "name": "Read", "input": {}},
+            {"type": "tool_result", "content": "output"},
+            {"type": "text", "text": "End"},
+            {"type": "thinking", "thinking": "private"},
+        ]
+        result = extract_text_from_content(content)
+        assert "Start" in result
+        assert "[tool: Read]" in result
+        assert "End" in result
+        assert "output" not in result
+        assert "private" not in result
+
+    def test_nested_dict_in_list(self):
+        """extract_text_from_content handles unknown block types gracefully."""
+        content = [
+            {"type": "text", "text": "known"},
+            {"type": "unknown_type", "data": "ignored"},
+        ]
+        result = extract_text_from_content(content)
+        assert "known" in result
+        assert "ignored" not in result
