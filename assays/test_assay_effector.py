@@ -89,10 +89,10 @@ def test_extract_keywords_filters_stop_words():
 def test_extract_keywords_min_length():
     """_extract_keywords filters words shorter than 4 characters."""
     keywords = _extract_keywords("abc defg", "test hypo")
-    assert "abc" not in keywords  # too short
-    assert "defg" in keywords
-    assert "test" in keywords
-    assert "hypo" not in keywords  # too short
+    assert "abc" not in keywords  # too short (3 chars)
+    assert "defg" in keywords  # 4 chars, passes
+    assert "test" in keywords  # 4 chars, passes
+    assert "hypo" in keywords  # 4 chars, passes (exactly meets minimum)
 
 
 def test_extract_keywords_synonym_expansion_caffeine():

@@ -194,9 +194,11 @@ class TestHoursToReset:
         assert result is not None
         assert 11.5 < result < 12.5
 
-    def test_returns_none_when_no_reset_time(self):
-        """Should return None when no reset time available."""
-        result = vm._hours_to_reset({})
+    def test_returns_none_when_no_reset_time(self, tmp_path):
+        """Should return None when no reset time available and no fallback file."""
+        fallback_file = tmp_path / "no-resets-at"
+        with patch("metabolon.vasomotor._RESETS_AT_FILE", fallback_file):
+            result = vm._hours_to_reset({})
         assert result is None
 
     def test_uses_fallback_from_file(self):
@@ -835,8 +837,16 @@ class TestEmitDistressSignal:
         """Should call secrete_text with message."""
         mock_secrete = MagicMock()
 
-        with patch.dict("sys.modules", {"metabolon.organelles.secretory_vesicle": mock_secrete}):
-            with patch("metabolon.vasomotor.secrete_text", mock_secrete.secrete_text):
+        with patch.dict(
+            "sys.modules",
+            {"metabolon.organelles.secretory_vesicle": mock_secrete},
+            clear=False,
+        ):
+            # The import happens inside the function, so patch where it's imported from
+            with patch(
+                "metabolon.organelles.secretory_vesicle.secrete_text",
+                mock_secrete.secrete_text,
+            ):
                 vm.emit_distress_signal("Test alert")
 
     def test_logs_on_failure(self):

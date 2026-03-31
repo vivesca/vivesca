@@ -101,8 +101,9 @@ def test_skips_repos_without_git_dirs(tmp_path):
     r = _run(home=str(home), env_extra={"PATH": f"{fake_bin}:{os.environ['PATH']}"})
     assert r.returncode == 0
 
-    calls = log_file.read_text()
-    assert "pull" not in calls
+    # git is never called when no .git dirs exist, so log file may not exist
+    if log_file.exists():
+        assert "pull" not in log_file.read_text()
 
 
 def test_missing_repos_are_skipped(tmp_path):
@@ -121,8 +122,9 @@ def test_missing_repos_are_skipped(tmp_path):
     r = _run(home=str(home), env_extra={"PATH": f"{fake_bin}:{os.environ['PATH']}"})
     assert r.returncode == 0
 
-    calls = log_file.read_text()
-    assert "pull" not in calls
+    # git is never called when repos don't exist, so log file may not exist
+    if log_file.exists():
+        assert "pull" not in log_file.read_text()
 
 
 def test_git_pull_rebase_fallback(tmp_path):

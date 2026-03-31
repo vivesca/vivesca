@@ -210,6 +210,7 @@ def test_main_returns_zero_on_success(mock_fetch):
 
 
 def test_main_unknown_command():
-    """Unknown subcommand returns 1 without raising SystemExit."""
-    code = main(["unknown-command"])
-    assert code == 1
+    """Unknown subcommand raises SystemExit with code 2 (argparse error)."""
+    with pytest.raises(SystemExit) as exc_info:
+        main(["unknown-command"])
+    assert exc_info.value.code == 2

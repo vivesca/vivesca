@@ -146,7 +146,14 @@ class TestRunnerSelection:
         """npx on PATH (no bunx) → uses npx."""
         record = tmp_path / "calls.log"
         bindir = _make_recording_bin(tmp_path, "npx", record)
-        r = _run_script(path_dirs=[bindir], tmp_path=tmp_path)
+        # Filter system PATH to remove any dir that contains bunx
+        filtered_path = [bindir]
+        for dir_path in os.environ.get("PATH", "").split(os.pathsep):
+            if not dir_path:
+                continue
+            if not (Path(dir_path) / "bunx").exists():
+                filtered_path.append(Path(dir_path))
+        r = _run_script(path_dirs=filtered_path, tmp_path=tmp_path)
         assert r.returncode == 0
         calls = record.read_text()
         assert "@every-env/compound-plugin" in calls

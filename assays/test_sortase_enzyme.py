@@ -22,55 +22,55 @@ from metabolon.enzymes.sortase import (
 
 @pytest.fixture
 def mock_route_description():
-    """Mock route_description to avoid actual routing logic."""
-    with patch("metabolon.enzymes.sortase.route_description") as mock:
+    """Mock route_description at the source module."""
+    with patch("metabolon.sortase.router.route_description") as mock:
         mock.return_value = MagicMock(tool="goose", reason="Default route")
         yield mock
 
 
 @pytest.fixture
 def mock_execute_tasks():
-    """Mock execute_tasks to avoid actual LLM execution."""
-    with patch("metabolon.enzymes.sortase.execute_tasks") as mock:
+    """Mock execute_tasks at the source module."""
+    with patch("metabolon.sortase.executor.execute_tasks") as mock:
         mock.return_value = []
         yield mock
 
 
 @pytest.fixture
 def mock_list_running():
-    """Mock list_running to avoid process checks."""
-    with patch("metabolon.enzymes.sortase.list_running") as mock:
+    """Mock list_running at the source module."""
+    with patch("metabolon.sortase.executor.list_running") as mock:
         mock.return_value = []
         yield mock
 
 
 @pytest.fixture
 def mock_read_logs():
-    """Mock read_logs to avoid file system access."""
-    with patch("metabolon.enzymes.sortase.read_logs") as mock:
+    """Mock read_logs at the source module."""
+    with patch("metabolon.sortase.logger.read_logs") as mock:
         mock.return_value = []
         yield mock
 
 
 @pytest.fixture
 def mock_append_log():
-    """Mock append_log to avoid file system writes."""
-    with patch("metabolon.enzymes.sortase.append_log") as mock:
+    """Mock append_log at the source module."""
+    with patch("metabolon.sortase.logger.append_log") as mock:
         yield mock
 
 
 @pytest.fixture
 def mock_aggregate_stats():
-    """Mock aggregate_stats for stats action."""
-    with patch("metabolon.enzymes.sortase.aggregate_stats") as mock:
+    """Mock aggregate_stats at the source module."""
+    with patch("metabolon.sortase.logger.aggregate_stats") as mock:
         mock.return_value = {"per_tool": {}}
         yield mock
 
 
 @pytest.fixture
 def mock_validate_execution():
-    """Mock validate_execution to avoid actual validation."""
-    with patch("metabolon.enzymes.sortase.validate_execution") as mock:
+    """Mock validate_execution at the source module."""
+    with patch("metabolon.sortase.validator.validate_execution") as mock:
         mock.return_value = []
         yield mock
 
@@ -85,8 +85,8 @@ def mock_subprocess_run():
 
 @pytest.fixture
 def mock_task_spec():
-    """Mock TaskSpec class."""
-    with patch("metabolon.enzymes.sortase.TaskSpec") as mock:
+    """Mock TaskSpec class at the source module."""
+    with patch("metabolon.sortase.decompose.TaskSpec") as mock:
         mock.return_value = MagicMock(
             name="mcp-dispatch",
             description="test",
