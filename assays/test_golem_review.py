@@ -1,10 +1,10 @@
-"""Tests for golem-review — meta-golem that reviews other golem output."""
+"""Tests for golem-review — meta-golem that reviews golem output and queues work."""
 from __future__ import annotations
 
-import json
+import os
 import re
 import textwrap
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -14,629 +14,919 @@ import pytest
 def _load_golem_review():
     """Load the golem-review module by exec-ing its Python body."""
     source = open("/home/terry/germline/effectors/golem-review").read()
-    ns: dict = {"__name__": "golem_review"}
+    ns: dict = {"__name__": "golem_review_test"}
     exec(source, ns)
     return ns
 
 
 _mod = _load_golem_review()
-
-# Import key functions
-parse_since_arg = _mod["parse_since_arg"]
-get_recent_completed = _mod["get_recent_completed"]
-get_changed_files = _mod["get_changed_files"]
-classify_files = _mod["classify_files"]
+parse_since = _mod["parse_since"]
+parse_log_timestamp = _mod["parse_log_timestamp"]
+scan_log = _mod["scan_log"]
+get_recent_files = _mod["get_recent_files"]
 run_pytest_on_files = _mod["run_pytest_on_files"]
 check_consulting_content = _mod["check_consulting_content"]
 diagnose_failure = _mod["diagnose_failure"]
-write_fixed_task = _mod["write_fixed_task"]
+read_log_tail = _mod["read_log_tail"]
 count_pending_tasks = _mod["count_pending_tasks"]
-auto_generate_tasks = _mod["auto_generate_tasks"]
-generate_review_summary = _mod["generate_review_summary"]
+find_untested_modules = _mod["find_untested_modules"]
+generate_queue_tasks = _mod["generate_queue_tasks"]
+append_tasks_to_queue = _mod["append_tasks_to_queue"]
+write_fixed_tasks = _mod["write_fixed_tasks"]
+generate_review = _mod["generate_review"]
+run_review = _mod["run_review"]
 
 
-# ── parse_since_arg tests ──────────────────────────────────────────────
+# ── parse_since tests ──────────────────────────────────────────────────
 
 
-def test_parse_since_arg_minutes():
-    """parse_since_arg parses '30m' as 30 minutes."""
-    delta = parse_since_arg("30m")
-    assert delta == timedelta(minutes=30)
+def test_parse_since_minutes():
+    """parse_since parses '30m' as 30 minutes."""
+    assert parse_since("30m") == timedelta(minutes=30)
 
 
-def test_parse_since_arg_hours():
-    """parse_since_arg parses '2h' as 2 hours."""
-    delta = parse_since_arg("2h")
-    assert delta == timedelta(hours=2)
+def test_parse_since_hours():
+    """parse_since parses '1h' as 1 hour."""
+    assert parse_since("1h") == timedelta(hours=1)
 
 
-def test_parse_since_arg_default():
-    """parse_since_arg returns default 30m for empty string."""
-    delta = parse_since_arg("")
-    assert delta == timedelta(minutes=30)
+def test_parse_since_seconds():
+    """parse_since parses '60s' as 60 seconds."""
+    assert parse_since("60s") == timedelta(seconds=60)
 
 
-def test_parse_since_arg_invalid():
-    """parse_since_arg returns default 30m for invalid input."""
-    delta = parse_since_arg("invalid")
-    assert delta == timedelta(minutes=30)
+def test_parse_since_days():
+    """parse_since parses '2d' as 2 days."""
+    assert parse_since("2d") == timedelta(days=2)
 
 
-# ── get_recent_completed tests ─────────────────────────────────────────
+def test_parse_since_bare_number_defaults_to_minutes():
+    """parse_since treats bare number as minutes."""
+    assert parse_since("45") == timedelta(minutes=45)
 
 
-def test_get_recent_completed_parses_log(tmp_path):
-    """get_recent_completed extracts completed task entries from daemon log."""
+def test_parse_since_invalid_returns_default():
+    """parse_since returns 30 minutes for invalid input."""
+    assert parse_since("abc") == timedelta(minutes=30)
+
+
+def test_parse_since_whitespace_trimmed():
+    """parse_since trims whitespace."""
+    assert parse_since("  15m  ") == timedelta(minutes=15)
+
+
+# ── parse_log_timestamp tests ──────────────────────────────────────────
+
+
+def test_parse_log_timestamp_valid():
+    """parse_log_timestamp parses standard format."""
+    dt = parse_log_timestamp("2026-03-31 10:53:29")
+    assert dt is not None
+    assert dt.year == 2026
+    assert dt.month == 3
+    assert dt.day == 31
+    assert dt.hour == 10
+
+
+def test_parse_log_timestamp_invalid():
+    """parse_log_timestamp returns None for invalid format."""
+    assert parse_log_timestamp("not a timestamp") is None
+
+
+def test_parse_log_timestamp_none():
+    """parse_log_timestamp returns None for None input."""
+    assert parse_log_timestamp(None) is None
+
+
+# ── scan_log tests ─────────────────────────────────────────────────────
+
+
+def test_scan_log_missing_file(tmp_path):
+    """scan_log returns empty lists when log file doesn't exist."""
+    _mod["LOGFILE"] = tmp_path / "nonexistent.log"
+    try:
+        result = scan_log(timedelta(minutes=30))
+    finally:
+        _mod["LOGFILE"] = _mod.get("_orig_LOGFILE", Path.home() / ".local" / "share" / "vivesca" / "golem-daemon.log")
+
+    assert result["completed"] == []
+    assert result["failed"] == []
+    assert result["timeouts"] == []
+
+
+def test_scan_log_parses_completed(tmp_path):
+    """scan_log detects completed tasks (exit=0)."""
     log_file = tmp_path / "golem-daemon.log"
-    now = datetime.now(UTC)
-    recent = now - timedelta(minutes=5)
-    old = now - timedelta(hours=2)
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     log_file.write_text(
-        f"[{old.strftime('%Y-%m-%d %H:%M:%S')}] Finished (120s, exit=0): old task...\n"
-        f"[{recent.strftime('%Y-%m-%d %H:%M:%S')}] Finished (60s, exit=0): recent task...\n"
-        f"[{recent.strftime('%Y-%m-%d %H:%M:%S')}] FAILED (exit=1): failed task...\n"
+        f"[{now}] Finished (120s, exit=0): golem --provider infini \"write tests\"\n"
     )
-
-    original_log = _mod["DAEMON_LOG"]
-    _mod["DAEMON_LOG"] = log_file
+    _mod["LOGFILE"] = log_file
     try:
-        completed = get_recent_completed(timedelta(minutes=30))
+        result = scan_log(timedelta(minutes=30))
     finally:
-        _mod["DAEMON_LOG"] = original_log
+        _mod["LOGFILE"] = Path.home() / ".local" / "share" / "vivesca" / "golem-daemon.log"
 
-    assert len(completed) >= 1
-    assert any("recent task" in entry for entry in completed)
+    assert len(result["completed"]) == 1
+    assert "write tests" in result["completed"][0][1]
 
 
-def test_get_recent_completed_empty_log(tmp_path):
-    """get_recent_completed returns empty list for missing log."""
-    log_file = tmp_path / "nonexistent.log"
-    original_log = _mod["DAEMON_LOG"]
-    _mod["DAEMON_LOG"] = log_file
+def test_scan_log_parses_failed(tmp_path):
+    """scan_log detects failed tasks (exit!=0)."""
+    log_file = tmp_path / "golem-daemon.log"
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    log_file.write_text(
+        f"[{now}] FAILED (exit=1): golem --provider infini \"broken task\"\n"
+    )
+    _mod["LOGFILE"] = log_file
     try:
-        completed = get_recent_completed(timedelta(minutes=30))
+        result = scan_log(timedelta(minutes=30))
     finally:
-        _mod["DAEMON_LOG"] = original_log
+        _mod["LOGFILE"] = Path.home() / ".local" / "share" / "vivesca" / "golem-daemon.log"
 
-    assert completed == []
-
-
-# ── get_changed_files tests ────────────────────────────────────────────
+    assert len(result["failed"]) == 1
+    assert "broken task" in result["failed"][0][1]
 
 
-def test_get_changed_files_returns_list():
-    """get_changed_files returns a list of changed file paths."""
-    result = get_changed_files(head_range=5)
-    assert isinstance(result, list)
-
-
-def test_get_changed_files_with_mock():
-    """get_changed_files parses git diff output correctly."""
-    mock_output = "assays/test_foo.py\neffectors/bar\nloci/copia/baz.md\n"
-    with patch("subprocess.run") as mock_run:
-        mock_run.return_value = MagicMock(
-            returncode=0, stdout=mock_output, stderr=""
-        )
-        files = get_changed_files(head_range=5)
-    assert "assays/test_foo.py" in files
-    assert "effectors/bar" in files
-    assert "loci/copia/baz.md" in files
-
-
-# ── classify_files tests ───────────────────────────────────────────────
-
-
-def test_classify_files_categorizes_correctly():
-    """classify_files splits files into tests, effectors, consulting, other."""
-    files = [
-        "assays/test_foo.py",
-        "effectors/my-effector",
-        "loci/copia/some-report.md",
-        "loci/copia/reviewer-cycle-42.md",
-        "readme.md",
-    ]
-    result = classify_files(files)
-    assert "assays/test_foo.py" in result["tests"]
-    assert "effectors/my-effector" in result["effectors"]
-    assert "loci/copia/some-report.md" in result["consulting"]
-    assert "loci/copia/reviewer-cycle-42.md" not in result["consulting"]
-    assert "readme.md" in result["other"]
-
-
-def test_classify_files_empty():
-    """classify_files handles empty input."""
-    result = classify_files([])
-    assert result["tests"] == []
-    assert result["effectors"] == []
-    assert result["consulting"] == []
-    assert result["other"] == []
-
-
-def test_classify_files_test_pattern():
-    """classify_files only picks up assays/test_*.py as tests."""
-    files = [
-        "assays/test_foo.py",
-        "assays/foo.py",
-        "metabolon/test_bar.py",
-    ]
-    result = classify_files(files)
-    assert "assays/test_foo.py" in result["tests"]
-    assert "assays/foo.py" not in result["tests"]
-    assert "metabolon/test_bar.py" not in result["tests"]
-
-
-# ── run_pytest_on_files tests ──────────────────────────────────────────
-
-
-def test_run_pytest_on_files_with_mock():
-    """run_pytest_on_files invokes pytest and parses pass/fail counts."""
-    mock_output = "1 passed, 2 failed, 3 errors in 5.0s\n"
-    with patch("subprocess.run") as mock_run:
-        mock_run.return_value = MagicMock(
-            returncode=1, stdout=mock_output, stderr=""
-        )
-        result = run_pytest_on_files(["assays/test_foo.py"])
-
-    assert result["passed"] == 1
-    assert result["failed"] == 2
-    assert result["errors"] == 3
-    assert result["exit_code"] == 1
-
-
-def test_run_pytest_on_files_all_pass():
-    """run_pytest_on_files reports all passing tests."""
-    mock_output = "5 passed in 2.0s\n"
-    with patch("subprocess.run") as mock_run:
-        mock_run.return_value = MagicMock(
-            returncode=0, stdout=mock_output, stderr=""
-        )
-        result = run_pytest_on_files(["assays/test_bar.py"])
-
-    assert result["passed"] == 5
-    assert result["failed"] == 0
-    assert result["exit_code"] == 0
-
-
-def test_run_pytest_on_files_empty():
-    """run_pytest_on_files returns zeros for empty file list."""
-    result = run_pytest_on_files([])
-    assert result["passed"] == 0
-    assert result["failed"] == 0
-    assert result["exit_code"] == 0
-
-
-# ── check_consulting_content tests ─────────────────────────────────────
-
-
-def test_check_consulting_content_exists_and_long(tmp_path):
-    """check_consulting_content passes for file with >200 words."""
-    f = tmp_path / "report.md"
-    words = "word " * 250
-    f.write_text(f"# Report\n\n{words}\n")
-
-    original = _mod["GERMLINE"]
-    _mod["GERMLINE"] = tmp_path
+def test_scan_log_parses_timeouts(tmp_path):
+    """scan_log detects timeout tasks."""
+    log_file = tmp_path / "golem-daemon.log"
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    log_file.write_text(
+        f"[{now}] TIMEOUT (1800s): golem --provider volcano \"slow task\"\n"
+    )
+    _mod["LOGFILE"] = log_file
     try:
-        result = check_consulting_content(["report.md"])
+        result = scan_log(timedelta(minutes=30))
     finally:
-        _mod["GERMLINE"] = original
+        _mod["LOGFILE"] = Path.home() / ".local" / "share" / "vivesca" / "golem-daemon.log"
 
-    assert len(result) == 1
-    assert result[0]["file"] == "report.md"
-    assert result[0]["ok"] is True
+    assert len(result["timeouts"]) == 1
+    assert "slow task" in result["timeouts"][0][1]
 
 
-def test_check_consulting_content_too_short(tmp_path):
-    """check_consulting_content fails for file with <200 words."""
-    f = tmp_path / "short.md"
-    f.write_text("# Short\n\nOnly a few words here.\n")
-
-    original = _mod["GERMLINE"]
-    _mod["GERMLINE"] = tmp_path
+def test_scan_log_ignores_old_entries(tmp_path):
+    """scan_log skips entries older than the since window."""
+    log_file = tmp_path / "golem-daemon.log"
+    old_ts = (datetime.now() - timedelta(hours=2)).strftime("%Y-%m-%d %H:%M:%S")
+    log_file.write_text(
+        f"[{old_ts}] Finished (10s, exit=0): golem \"old task\"\n"
+    )
+    _mod["LOGFILE"] = log_file
     try:
-        result = check_consulting_content(["short.md"])
+        result = scan_log(timedelta(minutes=30))
     finally:
-        _mod["GERMLINE"] = original
+        _mod["LOGFILE"] = Path.home() / ".local" / "share" / "vivesca" / "golem-daemon.log"
 
-    assert len(result) == 1
-    assert result[0]["ok"] is False
-    assert "word count" in result[0]["reason"].lower() or "short" in result[0]["reason"].lower()
+    assert result["completed"] == []
 
 
-def test_check_consulting_content_missing_file(tmp_path):
-    """check_consulting_content reports error for missing file."""
-    original = _mod["GERMLINE"]
-    _mod["GERMLINE"] = tmp_path
+def test_scan_log_mixed_entries(tmp_path):
+    """scan_log handles a mix of completed, failed, and timeout entries."""
+    log_file = tmp_path / "golem-daemon.log"
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    log_file.write_text(
+        f"[{now}] Finished (60s, exit=0): golem \"task A\"\n"
+        f"[{now}] FAILED (exit=1): golem \"task B\"\n"
+        f"[{now}] TIMEOUT (1800s): golem \"task C\"\n"
+        f"[{now}] Starting: golem \"task D\"\n"
+        f"[{now}] Idle: 5 pending\n"
+    )
+    _mod["LOGFILE"] = log_file
     try:
-        result = check_consulting_content(["nonexistent.md"])
+        result = scan_log(timedelta(minutes=30))
     finally:
-        _mod["GERMLINE"] = original
+        _mod["LOGFILE"] = Path.home() / ".local" / "share" / "vivesca" / "golem-daemon.log"
 
-    assert len(result) == 1
-    assert result[0]["ok"] is False
+    assert len(result["completed"]) == 1
+    assert len(result["failed"]) == 1
+    assert len(result["timeouts"]) == 1
+
+
+def test_scan_log_unreadable_file(tmp_path):
+    """scan_log returns empty when log file exists but is unreadable."""
+    log_file = tmp_path / "golem-daemon.log"
+    log_file.write_text("[2026-03-31 10:00:00] Finished (1s, exit=0): golem\n")
+    log_file.chmod(0o000)
+    _mod["LOGFILE"] = log_file
+    try:
+        result = scan_log(timedelta(minutes=30))
+    finally:
+        _mod["LOGFILE"] = Path.home() / ".local" / "share" / "vivesca" / "golem-daemon.log"
+        log_file.chmod(0o644)
+
+    assert result["completed"] == []
 
 
 # ── diagnose_failure tests ─────────────────────────────────────────────
 
 
 def test_diagnose_path_issue():
-    """diagnose_failure identifies /Users/terry/ hardcoded path."""
-    log_tail = "ImportError: No module named 'foo'\n/Users/terry/germline/..."
-    result = diagnose_failure(log_tail)
-    assert result["diagnosis"] == "hardcoded_path"
-    assert "/Users/terry/" in result["detail"]
+    """diagnose_failure detects hardcoded /Users/terry/ paths."""
+    result = diagnose_failure("golem /Users/terry/germline", "")
+    assert "path_issue" in result
 
 
 def test_diagnose_import_error():
-    """diagnose_failure identifies import errors."""
-    log_tail = "ModuleNotFoundError: No module named 'bar_module'"
-    result = diagnose_failure(log_tail)
-    assert result["diagnosis"] == "import_error"
-    assert "bar_module" in result["detail"]
+    """diagnose_failure detects ImportError."""
+    result = diagnose_failure("golem task", "ImportError: no module")
+    assert "import_error" in result
 
 
 def test_diagnose_timeout():
-    """diagnose_failure identifies timeout."""
-    log_tail = "TIMEOUT after 1800s: golem --provider infini..."
-    result = diagnose_failure(log_tail)
-    assert result["diagnosis"] == "timeout"
+    """diagnose_failure detects timeout."""
+    result = diagnose_failure("golem timeout task", "")
+    assert "timeout" in result
 
 
 def test_diagnose_syntax_error():
-    """diagnose_failure identifies syntax errors."""
-    log_tail = "SyntaxError: invalid syntax (test_foo.py, line 42)"
-    result = diagnose_failure(log_tail)
-    assert result["diagnosis"] == "syntax_error"
+    """diagnose_failure detects SyntaxError."""
+    result = diagnose_failure("golem task", "SyntaxError: invalid")
+    assert "syntax_error" in result
+
+
+def test_diagnose_permission_error():
+    """diagnose_failure detects PermissionError."""
+    result = diagnose_failure("golem task", "PermissionError: denied")
+    assert "permission_error" in result
+
+
+def test_diagnose_assertion_error():
+    """diagnose_failure detects AssertionError."""
+    result = diagnose_failure("golem task", "AssertionError: wrong")
+    assert "assertion_error" in result
+
+
+def test_diagnose_command_error():
+    """diagnose_failure detects exit=2 command errors."""
+    result = diagnose_failure("exit=2 golem task", "")
+    assert "command_error" in result
 
 
 def test_diagnose_unknown():
     """diagnose_failure returns unknown for unrecognized patterns."""
-    log_tail = "Some random error message without known patterns"
-    result = diagnose_failure(log_tail)
-    assert result["diagnosis"] == "unknown"
+    result = diagnose_failure("golem task", "some random output")
+    assert "unknown" in result
 
 
-# ── write_fixed_task tests ─────────────────────────────────────────────
+def test_diagnose_path_issue_windows():
+    """diagnose_failure detects Windows-style paths."""
+    result = diagnose_failure('golem task', 'C:\\Users\\terry\\file')
+    assert "path_issue" in result
 
 
-def test_write_fixed_task_appends_to_queue(tmp_path):
-    """write_fixed_task appends a fixed task to the queue file."""
-    queue = tmp_path / "golem-queue.md"
-    queue.write_text("# Golem Task Queue\n\n## Pending\n\n## Done\n")
-
-    original = _mod["QUEUE_FILE"]
-    _mod["QUEUE_FILE"] = queue
-    try:
-        write_fixed_task("golem --provider infini \"write tests for foo\"")
-    finally:
-        _mod["QUEUE_FILE"] = original
-
-    content = queue.read_text()
-    assert "write tests for foo" in content
-    assert "- [ ]" in content
+def test_diagnose_module_not_found():
+    """diagnose_failure detects ModuleNotFoundError."""
+    result = diagnose_failure("golem task", "ModuleNotFoundError: lacuna")
+    assert "import_error" in result
 
 
-def test_write_fixed_task_creates_queue_if_missing(tmp_path):
-    """write_fixed_task creates queue file if it doesn't exist."""
-    queue = tmp_path / "subdir" / "golem-queue.md"
+# ── check_consulting_content tests ─────────────────────────────────────
 
-    original = _mod["QUEUE_FILE"]
-    _mod["QUEUE_FILE"] = queue
-    try:
-        write_fixed_task("golem \"new task\"")
-    finally:
-        _mod["QUEUE_FILE"] = original
 
-    assert queue.exists()
-    content = queue.read_text()
-    assert "new task" in content
+def test_check_consulting_content_exists_and_adequate(tmp_path, monkeypatch):
+    """check_consulting_content reports adequate for files with >200 words."""
+    monkeypatch.setattr(_mod["Path"], "home", lambda: tmp_path)
+    _mod["GERMLINE"] = tmp_path / "germline"
+    copia_dir = _mod["GERMLINE"] / "loci" / "copia"
+    copia_dir.mkdir(parents=True)
+    (copia_dir / "brief.md").write_text("word " * 250)
+
+    result = check_consulting_content(["loci/copia/brief.md"])
+    assert len(result) == 1
+    assert result[0]["exists"] is True
+    assert result[0]["adequate"] is True
+    assert result[0]["word_count"] >= 200
+
+
+def test_check_consulting_content_too_short(tmp_path, monkeypatch):
+    """check_consulting_content reports inadequate for files with <=200 words."""
+    monkeypatch.setattr(_mod["Path"], "home", lambda: tmp_path)
+    _mod["GERMLINE"] = tmp_path / "germline"
+    copia_dir = _mod["GERMLINE"] / "loci" / "copia"
+    copia_dir.mkdir(parents=True)
+    (copia_dir / "short.md").write_text("only a few words")
+
+    result = check_consulting_content(["loci/copia/short.md"])
+    assert len(result) == 1
+    assert result[0]["exists"] is True
+    assert result[0]["adequate"] is False
+
+
+def test_check_consulting_content_missing_file(tmp_path, monkeypatch):
+    """check_consulting_content reports missing for nonexistent files."""
+    monkeypatch.setattr(_mod["Path"], "home", lambda: tmp_path)
+    _mod["GERMLINE"] = tmp_path / "germline"
+
+    result = check_consulting_content(["loci/copia/nonexistent.md"])
+    assert len(result) == 1
+    assert result[0]["exists"] is False
+    assert result[0]["adequate"] is False
+
+
+def test_check_consulting_content_empty_list(tmp_path, monkeypatch):
+    """check_consulting_content returns empty list for no files."""
+    result = check_consulting_content([])
+    assert result == []
+
+
+# ── run_pytest_on_files tests ──────────────────────────────────────────
+
+
+def test_run_pytest_on_files_empty():
+    """run_pytest_on_files returns zeros when no files given."""
+    result = run_pytest_on_files([])
+    assert result["total_passed"] == 0
+    assert result["total_failed"] == 0
+    assert result["total_errors"] == 0
+    assert result["files"] == []
+
+
+def test_run_pytest_on_files_parses_output():
+    """run_pytest_on_files parses pytest output for pass/fail counts."""
+    def mock_run(cmd, shell, capture_output, text, timeout=None, cwd=None):
+        r = MagicMock()
+        r.stdout = "3 passed, 1 failed\n"
+        r.stderr = ""
+        r.returncode = 1
+        return r
+
+    with patch("subprocess.run", side_effect=mock_run):
+        result = run_pytest_on_files(["assays/test_example.py"])
+
+    assert result["total_passed"] == 3
+    assert result["total_failed"] == 1
+    assert result["total_errors"] == 0
+    assert len(result["files"]) == 1
+
+
+def test_run_pytest_on_files_timeout():
+    """run_pytest_on_files handles timeout gracefully."""
+    def mock_run_timeout(*args, **kwargs):
+        raise subprocess.TimeoutExpired("cmd", 120)
+
+    with patch("subprocess.run", side_effect=mock_run_timeout):
+        result = run_pytest_on_files(["assays/test_slow.py"])
+
+    assert result["total_errors"] == 1
+    assert len(result["files"]) == 1
+    assert result["files"][0][0] == "assays/test_slow.py"
+
+
+def test_run_pytest_on_files_errors():
+    """run_pytest_on_files parses error counts."""
+    def mock_run(cmd, shell, capture_output, text, timeout=None, cwd=None):
+        r = MagicMock()
+        r.stdout = "0 passed, 2 errors\n"
+        r.stderr = ""
+        r.returncode = 1
+        return r
+
+    with patch("subprocess.run", side_effect=mock_run):
+        result = run_pytest_on_files(["assays/test_broken.py"])
+
+    assert result["total_errors"] == 2
 
 
 # ── count_pending_tasks tests ──────────────────────────────────────────
 
 
-def test_count_pending_tasks(tmp_path):
-    """count_pending_tasks counts [ ] entries in queue."""
-    queue = tmp_path / "golem-queue.md"
-    queue.write_text(
-        "# Queue\n\n"
+def test_count_pending_tasks_counts_correctly(tmp_path):
+    """count_pending_tasks counts [ ] and [!!] but not [x] or [!]."""
+    queue_file = tmp_path / "golem-queue.md"
+    queue_file.write_text(
         "- [ ] `golem \"task1\"`\n"
-        "- [x] `golem \"task2\"`\n"
-        "- [ ] `golem \"task3\"`\n"
-        "- [!] `golem \"task4\"`\n"
+        "- [!!] `golem \"urgent\"`\n"
+        "- [x] `golem \"done\"`\n"
+        "- [!] `golem \"failed\"`\n"
+        "- [ ] `golem \"task2\"`\n"
     )
-
-    original = _mod["QUEUE_FILE"]
-    _mod["QUEUE_FILE"] = queue
+    _mod["QUEUE_FILE"] = queue_file
     try:
         count = count_pending_tasks()
     finally:
-        _mod["QUEUE_FILE"] = original
+        _mod["QUEUE_FILE"] = Path.home() / "germline" / "loci" / "golem-queue.md"
+
+    assert count == 3  # [ ] + [!!] + [ ]
+
+
+def test_count_pending_tasks_missing_file(tmp_path):
+    """count_pending_tasks returns 0 when queue file missing."""
+    _mod["QUEUE_FILE"] = tmp_path / "nonexistent.md"
+    try:
+        count = count_pending_tasks()
+    finally:
+        _mod["QUEUE_FILE"] = Path.home() / "germline" / "loci" / "golem-queue.md"
+
+    assert count == 0
+
+
+def test_count_pending_tasks_empty_file(tmp_path):
+    """count_pending_tasks returns 0 for empty queue."""
+    queue_file = tmp_path / "golem-queue.md"
+    queue_file.write_text("")
+    _mod["QUEUE_FILE"] = queue_file
+    try:
+        count = count_pending_tasks()
+    finally:
+        _mod["QUEUE_FILE"] = Path.home() / "germline" / "loci" / "golem-queue.md"
+
+    assert count == 0
+
+
+# ── generate_queue_tasks tests ─────────────────────────────────────────
+
+
+def test_generate_queue_tasks_basic():
+    """generate_queue_tasks creates properly formatted task lines."""
+    tasks = generate_queue_tasks(["my-module", "another"], 2)
+    assert len(tasks) == 2
+    assert tasks[0].startswith("- [ ] `golem")
+    assert "my-module" in tasks[0]
+    assert "another" in tasks[1]
+
+
+def test_generate_queue_tasks_limits_count():
+    """generate_queue_tasks respects the count limit."""
+    tasks = generate_queue_tasks(["a", "b", "c", "d", "e"], 3)
+    assert len(tasks) == 3
+
+
+def test_generate_queue_tasks_empty():
+    """generate_queue_tasks returns empty list for no modules."""
+    tasks = generate_queue_tasks([], 10)
+    assert tasks == []
+
+
+def test_generate_queue_tasks_provider_rotation():
+    """generate_queue_tasks rotates providers across tasks."""
+    tasks = generate_queue_tasks(["a", "b", "c", "d"], 4)
+    providers = []
+    for t in tasks:
+        m = re.search(r'--provider (\w+)', t)
+        if m:
+            providers.append(m.group(1))
+    # Should cycle through providers
+    assert len(set(providers)) > 1
+
+
+# ── append_tasks_to_queue tests ────────────────────────────────────────
+
+
+def test_append_tasks_to_queue(tmp_path):
+    """append_tasks_to_queue appends tasks to queue file."""
+    queue_file = tmp_path / "golem-queue.md"
+    queue_file.write_text("# Existing Queue\n\n- [ ] `golem \"old task\"`\n")
+    _mod["QUEUE_FILE"] = queue_file
+    _mod["COPIA_DIR"] = tmp_path
+    try:
+        count = append_tasks_to_queue(['- [ ] `golem \"new task\"`'])
+    finally:
+        _mod["QUEUE_FILE"] = Path.home() / "germline" / "loci" / "golem-queue.md"
+
+    assert count == 1
+    content = queue_file.read_text()
+    assert "old task" in content
+    assert "new task" in content
+
+
+def test_append_tasks_to_queue_empty(tmp_path):
+    """append_tasks_to_queue returns 0 for empty task list."""
+    queue_file = tmp_path / "golem-queue.md"
+    queue_file.write_text("# Queue\n")
+    _mod["QUEUE_FILE"] = queue_file
+    try:
+        count = append_tasks_to_queue([])
+    finally:
+        _mod["QUEUE_FILE"] = Path.home() / "germline" / "loci" / "golem-queue.md"
+
+    assert count == 0
+
+
+def test_append_tasks_creates_file(tmp_path):
+    """append_tasks_to_queue creates queue file if it doesn't exist."""
+    queue_file = tmp_path / "new-queue.md"
+    _mod["QUEUE_FILE"] = queue_file
+    _mod["COPIA_DIR"] = tmp_path
+    try:
+        count = append_tasks_to_queue(['- [ ] `golem \"task\"`'])
+    finally:
+        _mod["QUEUE_FILE"] = Path.home() / "germline" / "loci" / "golem-queue.md"
+
+    assert count == 1
+    assert queue_file.exists()
+
+
+# ── write_fixed_tasks tests ────────────────────────────────────────────
+
+
+def test_write_fixed_tasks(tmp_path):
+    """write_fixed_tasks appends diagnosed tasks with fix hints."""
+    queue_file = tmp_path / "golem-queue.md"
+    queue_file.write_text("# Queue\n")
+    _mod["QUEUE_FILE"] = queue_file
+    try:
+        count = write_fixed_tasks([
+            {"cmd": 'golem --provider infini "write tests for foo"', "diagnosis": "path_issue: hardcoded paths"},
+            {"cmd": 'golem --provider volcano "fix bar"', "diagnosis": "import_error: bad import"},
+        ])
+    finally:
+        _mod["QUEUE_FILE"] = Path.home() / "germline" / "loci" / "golem-queue.md"
 
     assert count == 2
+    content = queue_file.read_text()
+    assert "Path.home()" in content
+    assert "exec(open" in content
 
 
-def test_count_pending_tasks_empty(tmp_path):
-    """count_pending_tasks returns 0 for empty queue."""
-    queue = tmp_path / "golem-queue.md"
-    queue.write_text("# Queue\n")
-
-    original = _mod["QUEUE_FILE"]
-    _mod["QUEUE_FILE"] = queue
+def test_write_fixed_tasks_empty(tmp_path):
+    """write_fixed_tasks returns 0 for empty task list."""
+    queue_file = tmp_path / "golem-queue.md"
+    queue_file.write_text("# Queue\n")
+    _mod["QUEUE_FILE"] = queue_file
     try:
-        count = count_pending_tasks()
+        count = write_fixed_tasks([])
     finally:
-        _mod["QUEUE_FILE"] = original
+        _mod["QUEUE_FILE"] = Path.home() / "germline" / "loci" / "golem-queue.md"
 
     assert count == 0
 
 
-def test_count_pending_tasks_missing_file():
-    """count_pending_tasks returns 0 when queue file is missing."""
-    original = _mod["QUEUE_FILE"]
-    _mod["QUEUE_FILE"] = Path("/tmp/nonexistent_golem_queue_12345.md")
+def test_write_fixed_tasks_timeout_hint(tmp_path):
+    """write_fixed_tasks adds simplification hint for timeout diagnoses."""
+    queue_file = tmp_path / "golem-queue.md"
+    queue_file.write_text("# Queue\n")
+    _mod["QUEUE_FILE"] = queue_file
     try:
-        count = count_pending_tasks()
+        count = write_fixed_tasks([
+            {"cmd": 'golem "slow task"', "diagnosis": "timeout: too slow"},
+        ])
     finally:
-        _mod["QUEUE_FILE"] = original
+        _mod["QUEUE_FILE"] = Path.home() / "germline" / "loci" / "golem-queue.md"
 
-    assert count == 0
+    assert count == 1
+    content = queue_file.read_text()
+    assert "simple" in content.lower()
 
 
-# ── auto_generate_tasks tests ──────────────────────────────────────────
+# ── generate_review tests ──────────────────────────────────────────────
 
 
-def test_auto_generate_tasks_finds_untested(tmp_path):
-    """auto_generate_tasks identifies untested effectors."""
-    effectors_dir = tmp_path / "effectors"
-    effectors_dir.mkdir()
-    (effectors_dir / "foo-bar").write_text("#!/usr/bin/env python3\npass\n")
-    (effectors_dir / "baz-qux").write_text("#!/usr/bin/env python3\npass\n")
-    (effectors_dir / ".hidden").write_text("#!/usr/bin/env python3\npass\n")
+def test_generate_review_basic():
+    """generate_review produces markdown with expected sections."""
+    activity = {
+        "completed": [(datetime.now(), "golem task A")],
+        "failed": [(datetime.now(), "golem task B", "some error")],
+        "timeouts": [],
+        "start_time": datetime.now() - timedelta(minutes=30),
+    }
+    review = generate_review(
+        activity=activity,
+        recent_files=["assays/test_foo.py"],
+        test_results={"files": [], "total_passed": 0, "total_failed": 0, "total_errors": 0},
+        consulting_results=[],
+        failed_diagnoses=[{"cmd": "golem task B", "diagnosis": "unknown: check log"}],
+        pending_count=5,
+        auto_requeue=False,
+        queued_count=0,
+        fixed_count=0,
+    )
+    assert "# Golem Review" in review
+    assert "Activity Summary" in review
+    assert "Completed Tasks" in review
+    assert "Failed Tasks" in review
+    assert "pending tasks in queue" in review.lower() or "Pending" in review
 
-    assays_dir = tmp_path / "assays"
-    assays_dir.mkdir()
-    (assays_dir / "test_foo_bar.py").write_text("def test_foo(): pass\n")
 
-    original_germline = _mod["GERMLINE"]
-    _mod["GERMLINE"] = tmp_path
+def test_generate_review_with_test_results():
+    """generate_review includes test results table."""
+    activity = {
+        "completed": [], "failed": [], "timeouts": [], "start_time": None,
+    }
+    test_results = {
+        "files": [("assays/test_foo.py", 5, 1, 0)],
+        "total_passed": 5,
+        "total_failed": 1,
+        "total_errors": 0,
+    }
+    review = generate_review(
+        activity=activity,
+        recent_files=[],
+        test_results=test_results,
+        consulting_results=[],
+        failed_diagnoses=[],
+        pending_count=0,
+        auto_requeue=False,
+        queued_count=0,
+        fixed_count=0,
+    )
+    assert "Test Results" in review
+    assert "test_foo.py" in review
+    assert "5" in review
+
+
+def test_generate_review_with_consulting():
+    """generate_review includes consulting content checks."""
+    activity = {
+        "completed": [], "failed": [], "timeouts": [], "start_time": None,
+    }
+    consulting = [{"file": "brief.md", "exists": True, "word_count": 350, "adequate": True}]
+    review = generate_review(
+        activity=activity,
+        recent_files=["brief.md"],
+        test_results={"files": [], "total_passed": 0, "total_failed": 0, "total_errors": 0},
+        consulting_results=consulting,
+        failed_diagnoses=[],
+        pending_count=0,
+        auto_requeue=False,
+        queued_count=0,
+        fixed_count=0,
+    )
+    assert "Consulting Content" in review
+    assert "brief.md" in review
+    assert "350" in review
+
+
+def test_generate_review_auto_requeue_section():
+    """generate_review includes auto-requeue section when enabled."""
+    activity = {
+        "completed": [], "failed": [], "timeouts": [], "start_time": None,
+    }
+    review = generate_review(
+        activity=activity,
+        recent_files=[],
+        test_results={"files": [], "total_passed": 0, "total_failed": 0, "total_errors": 0},
+        consulting_results=[],
+        failed_diagnoses=[],
+        pending_count=10,
+        auto_requeue=True,
+        queued_count=40,
+        fixed_count=2,
+    )
+    assert "Auto-Requeue" in review
+    assert "40" in review
+    assert "2" in review
+
+
+def test_generate_review_timeouts():
+    """generate_review includes timeout details."""
+    activity = {
+        "completed": [],
+        "failed": [],
+        "timeouts": [(datetime.now(), "golem slow task")],
+        "start_time": None,
+    }
+    review = generate_review(
+        activity=activity,
+        recent_files=[],
+        test_results={"files": [], "total_passed": 0, "total_failed": 0, "total_errors": 0},
+        consulting_results=[],
+        failed_diagnoses=[],
+        pending_count=0,
+        auto_requeue=False,
+        queued_count=0,
+        fixed_count=0,
+    )
+    assert "Timeouts" in review
+    assert "slow task" in review
+
+
+# ── find_untested_modules tests ────────────────────────────────────────
+
+
+def test_find_untested_modules(tmp_path, monkeypatch):
+    """find_untested_modules identifies effectors without tests."""
+    monkeypatch.setattr(_mod["Path"], "home", lambda: tmp_path)
+    _mod["GERMLINE"] = tmp_path / "germline"
+    _mod["EFFECTORS_DIR"] = tmp_path / "germline" / "effectors"
+    _mod["ASSAYS_DIR"] = tmp_path / "germline" / "assays"
+    _mod["EFFECTORS_DIR"].mkdir(parents=True)
+    _mod["ASSAYS_DIR"].mkdir(parents=True)
+
+    # Create effectors
+    (_mod["EFFECTORS_DIR"] / "alpha").write_text("# alpha")
+    (_mod["EFFECTORS_DIR"] / "beta").write_text("# beta")
+    (_mod["EFFECTORS_DIR"] / "gamma").write_text("# gamma")
+
+    # Create test for alpha only
+    (_mod["ASSAYS_DIR"] / "test_alpha.py").write_text("def test_alpha(): pass")
+
     try:
-        tasks = auto_generate_tasks(target_count=50)
+        untested = find_untested_modules()
     finally:
-        _mod["GERMLINE"] = original_germline
+        _mod["GERMLINE"] = Path.home() / "germline"
+        _mod["EFFECTORS_DIR"] = Path.home() / "germline" / "effectors"
+        _mod["ASSAYS_DIR"] = Path.home() / "germline" / "assays"
 
-    # Should find baz-qux as untested (foo-bar maps to test_foo_bar)
-    assert isinstance(tasks, list)
-    assert len(tasks) > 0
-    assert any("baz-qux" in t for t in tasks)
+    assert "alpha" not in untested
+    assert "beta" in untested
+    assert "gamma" in untested
 
 
-def test_auto_generate_tasks_caps_at_target():
-    """auto_generate_tasks does not exceed target_count."""
-    effectors_dir = tmp_path / "effectors"
-    effectors_dir.mkdir()
-    for i in range(100):
-        (effectors_dir / f"effector-{i:03d}").write_text("# script\n")
+def test_find_untested_modules_empty_dirs(tmp_path, monkeypatch):
+    """find_untested_modules returns empty when no effectors exist."""
+    monkeypatch.setattr(_mod["Path"], "home", lambda: tmp_path)
+    _mod["EFFECTORS_DIR"] = tmp_path / "effectors"
+    _mod["ASSAYS_DIR"] = tmp_path / "assays"
+    _mod["EFFECTORS_DIR"].mkdir(parents=True)
+    _mod["ASSAYS_DIR"].mkdir(parents=True)
 
-    assays_dir = tmp_path / "assays"
-    assays_dir.mkdir()
-
-    original_germline = _mod["GERMLINE"]
-    _mod["GERMLINE"] = tmp_path
     try:
-        tasks = auto_generate_tasks(target_count=10)
+        untested = find_untested_modules()
     finally:
-        _mod["GERMLINE"] = original_germline
+        _mod["EFFECTORS_DIR"] = Path.home() / "germline" / "effectors"
+        _mod["ASSAYS_DIR"] = Path.home() / "germline" / "assays"
 
-    assert len(tasks) <= 10
-
-
-# ── generate_review_summary tests ──────────────────────────────────────
+    assert untested == []
 
 
-def test_generate_review_summary_structure(tmp_path):
-    """generate_review_summary produces valid markdown."""
-    report_dir = tmp_path / "loci" / "copia"
-    report_dir.mkdir(parents=True)
+# ── run_review integration tests ───────────────────────────────────────
 
-    original_germline = _mod["GERMLINE"]
-    original_report = _mod["REVIEW_SUMMARY"]
-    _mod["GERMLINE"] = tmp_path
-    _mod["REVIEW_SUMMARY"] = report_dir / "golem-review-latest.md"
+
+def test_run_review_basic(tmp_path, monkeypatch, capsys):
+    """run_review produces output and writes review file."""
+    monkeypatch.setattr(_mod["Path"], "home", lambda: tmp_path)
+    _mod["GERMLINE"] = tmp_path / "germline"
+    _mod["LOGFILE"] = tmp_path / "golem-daemon.log"
+    _mod["REVIEW_FILE"] = tmp_path / "golem-review-latest.md"
+    _mod["COPIA_DIR"] = tmp_path
+    _mod["QUEUE_FILE"] = tmp_path / "golem-queue.md"
+    _mod["EFFECTORS_DIR"] = tmp_path / "effectors"
+    _mod["ASSAYS_DIR"] = tmp_path / "assays"
+
+    # Create minimal files
+    _mod["LOGFILE"].parent.mkdir(parents=True, exist_ok=True)
+    _mod["LOGFILE"].write_text("")
+    _mod["QUEUE_FILE"].parent.mkdir(parents=True, exist_ok=True)
+    _mod["QUEUE_FILE"].write_text("# Queue\n")
+    _mod["EFFECTORS_DIR"].mkdir(parents=True, exist_ok=True)
+    _mod["ASSAYS_DIR"].mkdir(parents=True, exist_ok=True)
+
     try:
-        path = generate_review_summary(
-            completed_tasks=["task1", "task2"],
-            changed_files={"tests": ["a.py"], "effectors": [], "consulting": [], "other": []},
-            test_results={"passed": 5, "failed": 1, "errors": 0, "exit_code": 1},
-            consulting_results=[],
-            failures=["FAILED task3"],
-            failure_diagnoses=[{"diagnosis": "timeout", "detail": "after 1800s"}],
-            new_tasks=["golem \"new task\""],
-        )
+        rc = run_review(auto_requeue=False, since=timedelta(minutes=30))
     finally:
-        _mod["GERMLINE"] = original_germline
-        _mod["REVIEW_SUMMARY"] = original_report
+        _mod["GERMLINE"] = Path.home() / "germline"
+        _mod["LOGFILE"] = Path.home() / ".local" / "share" / "vivesca" / "golem-daemon.log"
+        _mod["REVIEW_FILE"] = Path.home() / "germline" / "loci" / "copia" / "golem-review-latest.md"
+        _mod["COPIA_DIR"] = Path.home() / "germline" / "loci" / "copia"
+        _mod["QUEUE_FILE"] = Path.home() / "germline" / "loci" / "golem-queue.md"
+        _mod["EFFECTORS_DIR"] = Path.home() / "germline" / "effectors"
+        _mod["ASSAYS_DIR"] = Path.home() / "germline" / "assays"
 
-    assert path.exists()
-    content = path.read_text()
-    assert "# Golem Review Summary" in content
-    assert "task1" in content
-    assert "5 passed" in content
-    assert "1 failed" in content
-
-
-def test_generate_review_summary_with_consulting(tmp_path):
-    """generate_review_summary includes consulting results."""
-    report_dir = tmp_path / "loci" / "copia"
-    report_dir.mkdir(parents=True)
-
-    original_germline = _mod["GERMLINE"]
-    original_report = _mod["REVIEW_SUMMARY"]
-    _mod["GERMLINE"] = tmp_path
-    _mod["REVIEW_SUMMARY"] = report_dir / "golem-review-latest.md"
-    try:
-        path = generate_review_summary(
-            completed_tasks=[],
-            changed_files={"tests": [], "effectors": [], "consulting": ["report.md"], "other": []},
-            test_results={"passed": 0, "failed": 0, "errors": 0, "exit_code": 0},
-            consulting_results=[{"file": "report.md", "ok": True, "word_count": 300}],
-            failures=[],
-            failure_diagnoses=[],
-            new_tasks=[],
-        )
-    finally:
-        _mod["GERMLINE"] = original_germline
-        _mod["REVIEW_SUMMARY"] = original_report
-
-    content = path.read_text()
-    assert "report.md" in content
-    assert "300" in content
-
-
-# ── main CLI tests ─────────────────────────────────────────────────────
-
-
-def test_main_help(capsys):
-    """main --help prints usage and returns 0."""
-    with patch("sys.argv", ["golem-review", "--help"]):
-        rc = _mod["main"]()
     assert rc == 0
-    out = capsys.readouterr().out
-    assert "golem-review" in out.lower()
+    assert _mod["REVIEW_FILE"].exists()
+    output = capsys.readouterr().out
+    assert "Golem Review" in output
 
 
-def test_main_once_runs_review(capsys, tmp_path):
-    """main with --once runs a single review cycle."""
-    report_dir = tmp_path / "loci" / "copia"
-    report_dir.mkdir(parents=True)
-    queue = tmp_path / "golem-queue.md"
-    queue.write_text("# Queue\n\n## Pending\n\n## Done\n")
+def test_run_review_with_auto_requeue(tmp_path, monkeypatch, capsys):
+    """run_review with auto_requeue tops up the queue when <50 pending."""
+    monkeypatch.setattr(_mod["Path"], "home", lambda: tmp_path)
+    _mod["GERMLINE"] = tmp_path / "germline"
+    _mod["LOGFILE"] = tmp_path / "golem-daemon.log"
+    _mod["REVIEW_FILE"] = tmp_path / "golem-review-latest.md"
+    _mod["COPIA_DIR"] = tmp_path
+    _mod["QUEUE_FILE"] = tmp_path / "golem-queue.md"
+    _mod["EFFECTORS_DIR"] = tmp_path / "effectors"
+    _mod["ASSAYS_DIR"] = tmp_path / "assays"
+
+    _mod["LOGFILE"].parent.mkdir(parents=True, exist_ok=True)
+    _mod["LOGFILE"].write_text("")
+    _mod["QUEUE_FILE"].parent.mkdir(parents=True, exist_ok=True)
+    _mod["QUEUE_FILE"].write_text("# Queue\n")
+    _mod["EFFECTORS_DIR"].mkdir(parents=True, exist_ok=True)
+    _mod["ASSAYS_DIR"].mkdir(parents=True, exist_ok=True)
+
+    # Create many untested effectors
+    for i in range(5):
+        (_mod["EFFECTORS_DIR"] / f"module-{i}").write_text(f"# module {i}")
+
+    try:
+        rc = run_review(auto_requeue=True, since=timedelta(minutes=30))
+    finally:
+        _mod["GERMLINE"] = Path.home() / "germline"
+        _mod["LOGFILE"] = Path.home() / ".local" / "share" / "vivesca" / "golem-daemon.log"
+        _mod["REVIEW_FILE"] = Path.home() / "germline" / "loci" / "copia" / "golem-review-latest.md"
+        _mod["COPIA_DIR"] = Path.home() / "germline" / "loci" / "copia"
+        _mod["QUEUE_FILE"] = Path.home() / "germline" / "loci" / "golem-queue.md"
+        _mod["EFFECTORS_DIR"] = Path.home() / "germline" / "effectors"
+        _mod["ASSAYS_DIR"] = Path.home() / "germline" / "assays"
+
+    assert rc == 0
+    content = _mod["QUEUE_FILE"].read_text()
+    assert "Auto-queued" in content
+
+
+# ── read_log_tail tests ────────────────────────────────────────────────
+
+
+def test_read_log_tail(tmp_path):
+    """read_log_tail returns last N lines of log."""
     log_file = tmp_path / "golem-daemon.log"
-    log_file.write_text("")
+    lines = [f"[2026-03-31 10:00:{i:02d}] line {i}" for i in range(10)]
+    log_file.write_text("\n".join(lines))
+    _mod["LOGFILE"] = log_file
+    try:
+        tail = read_log_tail(3)
+    finally:
+        _mod["LOGFILE"] = Path.home() / ".local" / "share" / "vivesca" / "golem-daemon.log"
 
-    original_germline = _mod["GERMLINE"]
-    original_queue = _mod["QUEUE_FILE"]
-    original_log = _mod["DAEMON_LOG"]
-    original_report = _mod["REVIEW_SUMMARY"]
-    _mod["GERMLINE"] = tmp_path
-    _mod["QUEUE_FILE"] = queue
-    _mod["DAEMON_LOG"] = log_file
-    _mod["REVIEW_SUMMARY"] = report_dir / "golem-review-latest.md"
-
-    with patch("subprocess.run") as mock_run:
-        mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
-        try:
-            with patch("sys.argv", ["golem-review", "--once"]):
-                rc = _mod["main"]()
-        finally:
-            _mod["GERMLINE"] = original_germline
-            _mod["QUEUE_FILE"] = original_queue
-            _mod["DAEMON_LOG"] = original_log
-            _mod["REVIEW_SUMMARY"] = original_report
-
-    assert rc == 0
+    assert "line 7" in tail
+    assert "line 9" in tail
+    assert "line 0" not in tail
 
 
-# ── Edge cases ─────────────────────────────────────────────────────────
+def test_read_log_tail_missing_file(tmp_path):
+    """read_log_tail returns empty string for missing file."""
+    _mod["LOGFILE"] = tmp_path / "nonexistent.log"
+    try:
+        tail = read_log_tail()
+    finally:
+        _mod["LOGFILE"] = Path.home() / ".local" / "share" / "vivesca" / "golem-daemon.log"
+
+    assert tail == ""
 
 
-class TestEdgeCases:
-    """Edge cases for golem-review."""
-
-    def test_diagnose_empty_log(self):
-        """diagnose_failure handles empty log gracefully."""
-        result = diagnose_failure("")
-        assert result["diagnosis"] in ("unknown", "empty")
-
-    def test_classify_files_only_reviewer_cycles(self):
-        """classify_files excludes reviewer-cycle files from consulting."""
-        files = [
-            "loci/copia/reviewer-cycle-42.md",
-            "loci/copia/reviewer-cycle-43.md",
-        ]
-        result = classify_files(files)
-        assert result["consulting"] == []
-        assert len(result["other"]) == 2
-
-    def test_run_pytest_malformed_output(self):
-        """run_pytest_on_files handles malformed pytest output."""
-        with patch("subprocess.run") as mock_run:
-            mock_run.return_value = MagicMock(
-                returncode=1, stdout="garbage output\nno numbers", stderr=""
-            )
-            result = run_pytest_on_files(["assays/test_foo.py"])
-
-        assert result["passed"] == 0
-        assert result["failed"] == 0
-
-    def test_count_pending_high_priority(self):
-        """count_pending_tasks counts [!!] tasks as pending too."""
-        queue = tmp_path / "golem-queue.md"  # noqa: F841
-        # Need to use tmp_path fixture properly
-
-    def test_count_pending_includes_high_priority(self, tmp_path):
-        """count_pending_tasks counts [!!] high-priority tasks."""
-        queue = tmp_path / "golem-queue.md"
-        queue.write_text(
-            "- [!!] `golem \"urgent\"`\n"
-            "- [ ] `golem \"normal\"`\n"
-            "- [x] `golem \"done\"`\n"
-        )
-
-        original = _mod["QUEUE_FILE"]
-        _mod["QUEUE_FILE"] = queue
-        try:
-            count = count_pending_tasks()
-        finally:
-            _mod["QUEUE_FILE"] = original
-
-        assert count == 2
-
-    def test_write_fixed_task_high_priority(self, tmp_path):
-        """write_fixed_task can write high-priority tasks."""
-        queue = tmp_path / "golem-queue.md"
-        queue.write_text("# Queue\n\n## Pending\n")
-
-        original = _mod["QUEUE_FILE"]
-        _mod["QUEUE_FILE"] = queue
-        try:
-            write_fixed_task("golem \"urgent fix\"", priority="high")
-        finally:
-            _mod["QUEUE_FILE"] = original
-
-        content = queue.read_text()
-        assert "- [!!]" in content
-        assert "urgent fix" in content
+# ── get_recent_files tests ─────────────────────────────────────────────
 
 
-# ── auto-requeue integration ───────────────────────────────────────────
+def test_get_recent_files_mocked():
+    """get_recent_files returns file list from git diff."""
+    def mock_run(cmd, shell, capture_output, text, timeout=None):
+        r = MagicMock()
+        if "diff --name-only" in cmd:
+            r.returncode = 0
+            r.stdout = "assays/test_new.py\neffectors/new_effector\n"
+        else:
+            r.returncode = 0
+            r.stdout = ""
+        return r
+
+    with patch("subprocess.run", side_effect=mock_run):
+        files = get_recent_files(n=5)
+
+    assert "assays/test_new.py" in files
+    assert "effectors/new_effector" in files
 
 
-class TestAutoRequeue:
-    """Tests for the --auto-requeue flow."""
+def test_get_recent_files_git_fails():
+    """get_recent_files returns empty list when git fails."""
+    def mock_run(cmd, shell, capture_output, text, timeout=None):
+        r = MagicMock()
+        r.returncode = 1
+        r.stdout = ""
+        return r
 
-    def test_auto_requeue_writes_fixed_tasks(self, tmp_path):
-        """auto-requeue diagnoses failures and writes fixed tasks."""
-        queue = tmp_path / "golem-queue.md"
-        queue.write_text("# Queue\n\n## Pending\n\n## Done\n")
+    with patch("subprocess.run", side_effect=mock_run):
+        files = get_recent_files(n=5)
 
-        original = _mod["QUEUE_FILE"]
-        _mod["QUEUE_FILE"] = queue
-        try:
-            diag = diagnose_failure("ModuleNotFoundError: No module named 'xyz'")
-            assert diag["diagnosis"] == "import_error"
-            write_fixed_task(
-                f"golem --provider infini \"fix import for xyz module\""
-            )
-        finally:
-            _mod["QUEUE_FILE"] = original
+    assert files == []
 
-        content = queue.read_text()
-        assert "fix import" in content
-        assert "- [ ]" in content
 
-    def test_auto_requeue_path_fix(self, tmp_path):
-        """auto-requeue generates task to fix hardcoded paths."""
-        diag = diagnose_failure("/Users/terry/germline/effectors/foo.py:42")
-        assert diag["diagnosis"] == "hardcoded_path"
-        assert "/Users/terry/" in diag["detail"]
+def test_get_recent_files_exception():
+    """get_recent_files returns empty list on exception."""
+    def mock_run(*args, **kwargs):
+        raise RuntimeError("git broken")
+
+    with patch("subprocess.run", side_effect=mock_run):
+        files = get_recent_files(n=5)
+
+    assert files == []
+
+
+# ── Edge case: completed task with exit code in Finished line ──────────
+
+
+def test_scan_log_finished_nonzero_exit(tmp_path):
+    """scan_log detects non-zero exit from Finished line (not just FAILED)."""
+    log_file = tmp_path / "golem-daemon.log"
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    log_file.write_text(
+        f"[{now}] Finished (5s, exit=1): golem --provider volcano \"task X\"\n"
+    )
+    _mod["LOGFILE"] = log_file
+    try:
+        result = scan_log(timedelta(minutes=30))
+    finally:
+        _mod["LOGFILE"] = Path.home() / ".local" / "share" / "vivesca" / "golem-daemon.log"
+
+    assert len(result["failed"]) == 1
+    assert "task X" in result["failed"][0][1]
+    assert len(result["completed"]) == 0
+
+
+# ── Edge case: binary/corrupt log file ─────────────────────────────────
+
+
+def test_scan_log_binary_content(tmp_path):
+    """scan_log handles binary content in log file."""
+    log_file = tmp_path / "golem-daemon.log"
+    log_file.write_bytes(b"\x00\x01\x02\xff\xfe\xfd")
+    _mod["LOGFILE"] = log_file
+    try:
+        result = scan_log(timedelta(minutes=30))
+    finally:
+        _mod["LOGFILE"] = Path.home() / ".local" / "share" / "vivesca" / "golem-daemon.log"
+
+    assert result["completed"] == []
+    assert result["failed"] == []
