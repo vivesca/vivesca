@@ -35,6 +35,9 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 - [x] `golem --provider infini --batch metabolon/enzymes/proprioception.py metabolon/enzymes/sporulation.py metabolon/enzymes/vasomotor.py metabolon/sortase/sortase.py`
 - [x] `golem --provider volcano --batch metabolon/resources/constitution.py metabolon/tachometer.py metabolon/respirometry/parsers/ccba.py metabolon/respirometry/parsers/mox.py`
 
+### Infrastructure
+- [ ] `golem --provider infini --max-turns 30 "Add 'ps' subcommand to effectors/golem. Lists running golem processes (ps aux | grep claude.*--print). For each: show module name, provider (from env vars), age, and stale flag. Stale = missing --dangerously-skip-permissions OR target test file already exists in assays/. Add --kill flag to kill stale ones. Usage: golem ps, golem ps --kill. Test it."`
+
 ### Research (--full mode, needs MCP)
 - [x] `golem --provider infini --full --max-turns 50 "Use rheotaxis_search to find recent AI governance news. Extract insights as structured card to ~/epigenome/chromatin/chemosensory/cards/. Include consulting angle for banking/finserv."`
 
