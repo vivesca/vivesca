@@ -149,9 +149,10 @@ class TestRunProvider:
         mock_completed.stdout = "Generated output text here."
         mock_completed.returncode = 0
 
-        with patch.object(subprocess, "run", return_value=mock_completed) as mock_run:
-            cfg = {"key_env": "K", "auth_mode": "key", "url": "u", "opus": "o", "sonnet": "s", "haiku": "h", "name": "test"}
-            result = mod["run_provider"]("test", cfg, "prompt text", timeout=30)
+        with patch.dict("os.environ", {"K": "testkey"}):
+            with patch.object(subprocess, "run", return_value=mock_completed):
+                cfg = {"key_env": "K", "auth_mode": "key", "url": "u", "opus": "o", "sonnet": "s", "haiku": "h", "name": "test"}
+                result = mod["run_provider"]("test", cfg, "prompt text", timeout=30)
 
         assert "provider" in result
         assert "latency_s" in result
@@ -163,9 +164,10 @@ class TestRunProvider:
 
     def test_run_provider_handles_timeout(self):
         mod = _load_effector()
-        with patch.object(subprocess, "run", side_effect=subprocess.TimeoutExpired(cmd="claude", timeout=5)):
-            cfg = {"key_env": "K", "auth_mode": "key", "url": "u", "opus": "o", "sonnet": "s", "haiku": "h", "name": "t"}
-            result = mod["run_provider"]("t", cfg, "p", timeout=5)
+        with patch.dict("os.environ", {"K": "testkey"}):
+            with patch.object(subprocess, "run", side_effect=subprocess.TimeoutExpired(cmd="claude", timeout=5)):
+                cfg = {"key_env": "K", "auth_mode": "key", "url": "u", "opus": "o", "sonnet": "s", "haiku": "h", "name": "t"}
+                result = mod["run_provider"]("t", cfg, "p", timeout=5)
 
         assert result["exit_code"] == -1
         assert "timeout" in result["output"].lower()
@@ -176,9 +178,10 @@ class TestRunProvider:
         mock_completed.stdout = ""
         mock_completed.returncode = 1
 
-        with patch.object(subprocess, "run", return_value=mock_completed):
-            cfg = {"key_env": "K", "auth_mode": "key", "url": "u", "opus": "o", "sonnet": "s", "haiku": "h", "name": "t"}
-            result = mod["run_provider"]("t", cfg, "p", timeout=30)
+        with patch.dict("os.environ", {"K": "testkey"}):
+            with patch.object(subprocess, "run", return_value=mock_completed):
+                cfg = {"key_env": "K", "auth_mode": "key", "url": "u", "opus": "o", "sonnet": "s", "haiku": "h", "name": "t"}
+                result = mod["run_provider"]("t", cfg, "p", timeout=30)
 
         assert result["exit_code"] == 1
 
@@ -188,12 +191,13 @@ class TestRunProvider:
         mock_completed.stdout = "ok"
         mock_completed.returncode = 0
 
-        with patch.object(subprocess, "run", return_value=mock_completed) as mock_run:
-            cfg = {"key_env": "MY_KEY", "auth_mode": "key", "url": "http://api.example.com", "opus": "big", "sonnet": "mid", "haiku": "small", "name": "test"}
-            mod["run_provider"]("test", cfg, "hello", timeout=30)
+        with patch.dict("os.environ", {"MY_KEY": "secret"}):
+            with patch.object(subprocess, "run", return_value=mock_completed) as mock_run:
+                cfg = {"key_env": "MY_KEY", "auth_mode": "key", "url": "http://api.example.com", "opus": "big", "sonnet": "mid", "haiku": "small", "name": "test"}
+                mod["run_provider"]("test", cfg, "hello", timeout=30)
 
         called_env = mock_run.call_args[1]["env"]
-        assert called_env["ANTHROPIC_API_KEY"] != ""
+        assert called_env["ANTHROPIC_API_KEY"] == "secret"
         assert called_env["ANTHROPIC_BASE_URL"] == "http://api.example.com"
         assert called_env["ANTHROPIC_DEFAULT_OPUS_MODEL"] == "big"
 
@@ -203,15 +207,26 @@ class TestRunProvider:
         mock_completed.stdout = "ok"
         mock_completed.returncode = 0
 
-        with patch.object(subprocess, "run", return_value=mock_completed) as mock_run:
-            cfg = {"key_env": "K", "auth_mode": "key", "url": "u", "opus": "o", "sonnet": "s", "haiku": "h", "name": "t"}
-            mod["run_provider"]("t", cfg, "write a poem", timeout=30)
+        with patch.dict("os.environ", {"K": "testkey"}):
+            with patch.object(subprocess, "run", return_value=mock_completed) as mock_run:
+                cfg = {"key_env": "K", "auth_mode": "key", "url": "u", "opus": "o", "sonnet": "s", "haiku": "h", "name": "t"}
+                mod["run_provider"]("t", cfg, "write a poem", timeout=30)
 
         cmd_args = mock_run.call_args[0][0]
-        # Prompt should be the last arg to claude -p
         assert "-p" in cmd_args
         prompt_idx = cmd_args.index("-p")
         assert cmd_args[prompt_idx + 1] == "write a poem"
+
+    def test_run_provider_missing_key(self):
+        mod = _load_effector()
+        with patch.dict("os.environ", {}, clear=False):
+            # Ensure MISSING_KEY is not set
+            os.environ.pop("MISSING_KEY", None)
+            cfg = {"key_env": "MISSING_KEY", "auth_mode": "key", "url": "u", "opus": "o", "sonnet": "s", "haiku": "h", "name": "t"}
+            result = mod["run_provider"]("t", cfg, "p", timeout=30)
+
+        assert result["exit_code"] == -2
+        assert "MISSING_KEY" in result["output"]
 
 
 # ── format_table tests ─────────────────────────────────────────────────
