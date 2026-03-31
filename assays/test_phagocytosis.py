@@ -19,7 +19,7 @@ PHAGO_PATH = Path(__file__).resolve().parents[1] / "effectors" / "phagocytosis.p
 @pytest.fixture()
 def phago():
     """Load phagocytosis via exec into an isolated namespace."""
-    ns: dict = {"__name__": "__main__"}
+    ns: dict = {"__name__": "phagocytosis"}
     source = PHAGO_PATH.read_text(encoding="utf-8")
     exec(source, ns)
     mod = type("phago", (), {})()
