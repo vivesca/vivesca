@@ -162,11 +162,13 @@ def rfts_verify() -> list[dict]:
 
         issues = []
 
-        # Check file path references (~/path/to/thing or /Users/terry/path/to/thing)
+        # Check file path references (~/path/to/thing or absolute home path)
         # Must have at least 2 path segments to avoid matching skill names like /ecphory
-        for m in re.finditer(r"[`~]((?:/[\w.-]+){2,})|(/Users/terry(?:/[\w.-]+){2,})", content):
+        _home_prefixes = (f"/Users/{os.getenv('USER', 'terry')}", str(home))
+        _home_re = "|".join(re.escape(p) for p in _home_prefixes)
+        for m in re.finditer(rf"[`~]((?:/[\w.-]+){{2,}})|({_home_re}(?:/[\w.-]+){{2,}})", content):
             ref_path = m.group(1) or m.group(2)
-            if ref_path.startswith("/Users"):
+            if ref_path.startswith("/"):
                 full = Path(ref_path)
             else:
                 full = home / ref_path.lstrip("/")

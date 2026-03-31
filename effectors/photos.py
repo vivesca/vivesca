@@ -297,6 +297,14 @@ def main() -> None:
         return
 
     cmd = sys.argv[1]
+
+    # Validate command before touching the DB
+    valid_cmds = {"today", "recent", "date", "range", "export", "search"}
+    if cmd not in valid_cmds:
+        print(f"Unknown command: {cmd}")
+        print(__doc__)
+        return
+
     db = PhotosDB()
 
     try:
@@ -347,10 +355,6 @@ def main() -> None:
             keyword = " ".join(sys.argv[2:])
             photos = db.search(keyword)
             print_photos(photos)
-
-        else:
-            print(f"Unknown command: {cmd}")
-            print(__doc__)
 
     finally:
         db.close()

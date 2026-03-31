@@ -31,7 +31,19 @@ import yaml
 CONFIG_PATH = Path.home() / "epigenome/phenotype/linkedin-monitor.yaml"
 OUTPUT_DIR = Path.home() / "epigenome/chromatin/Consulting"
 CACHE_DIR = Path.home() / ".cache/linkedin-monitor"
-AGENT_BROWSER = "/opt/homebrew/bin/agent-browser"
+def _find_agent_browser() -> str:
+    """Locate agent-browser: check PATH first, then platform-specific fallbacks."""
+    from shutil import which
+    found = which("agent-browser")
+    if found:
+        return found
+    candidates = ["/opt/homebrew/bin/agent-browser", "/usr/bin/agent-browser", "/usr/local/bin/agent-browser"]
+    for c in candidates:
+        if Path(c).exists():
+            return c
+    return "/opt/homebrew/bin/agent-browser"  # fallback
+
+AGENT_BROWSER = _find_agent_browser()
 
 # Delay between profile fetches to avoid rate-limiting
 INTER_PROFILE_DELAY = 5  # seconds
@@ -265,6 +277,10 @@ def format_digest(profile: dict, posts: list[dict], new_count: int) -> str:
 # --- Main ---
 
 def main():
+    if "--help" in sys.argv or "-h" in sys.argv:
+        print(__doc__)
+        sys.exit(0)
+
     dry_run = "--dry-run" in sys.argv
 
     if not CONFIG_PATH.exists():

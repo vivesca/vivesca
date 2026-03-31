@@ -17,7 +17,11 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 _HKT = timezone(timedelta(hours=8))
-_SESSIONS_DIR = Path.home() / ".claude" / "projects" / "-Users-terry"
+_CLAUDE_PROJECTS = Path.home() / ".claude" / "projects"
+_SESSIONS_DIR = next(
+    (d for d in sorted(_CLAUDE_PROJECTS.iterdir()) if d.is_dir() and "-" in d.name),
+    _CLAUDE_PROJECTS / "-Users-terry",  # fallback to macOS path
+)
 _ARSENAL = Path.home() / "notes" / "Consulting" / "Copia Arsenal Index - 2026-03.md"
 _TODO = Path.home() / "notes" / "Praxis.md"
 _EFFERENS_DIR = Path.home() / "notes" / "efferens"
