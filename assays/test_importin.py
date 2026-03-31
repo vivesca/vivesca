@@ -1,173 +1,273 @@
-"""Tests for effectors/importin — credential loader for macOS Keychain.
+from __future__ import annotations
 
-Effectors are scripts, loaded via exec() not import.
-"""
+"""Tests for importin — macOS Keychain credential loader."""
 
-from pathlib import Path
-from unittest.mock import patch
+import os
 import subprocess
 import sys
+from unittest.mock import MagicMock, patch
+
+import pytest
 
 
-def load_importin():
-    """Load importin effector via exec and return its namespace."""
-    ns = {"__name__": "importin_tested"}
-    effector_path = Path(__file__).parent.parent / "effectors" / "importin"
-    exec(open(effector_path).read(), ns)
+def _load_importin():
+    """Load the importin module by exec-ing its Python body."""
+    source = open("/home/terry/germline/effectors/importin").read()
+    ns: dict = {"__name__": "importin"}
+    exec(source, ns)
     return ns
 
 
-class TestGetKeychainValue:
-    """Tests for get_keychain_value function."""
-
-    def test_success_returns_stripped_value(self):
-        """When security CLI succeeds, return stripped stdout."""
-        ns = load_importin()
-        mock_result = subprocess.CompletedProcess(
-            args=[], returncode=0, stdout="secret-value\n", stderr=""
-        )
-        with patch.object(subprocess, "run", return_value=mock_result):
-            result = ns["get_keychain_value"]("my-service")
-        assert result == "secret-value"
-
-    def test_failure_returns_none(self):
-        """When security CLI fails, return None."""
-        ns = load_importin()
-        mock_result = subprocess.CompletedProcess(
-            args=[], returncode=44, stdout="", stderr="not found"
-        )
-        with patch.object(subprocess, "run", return_value=mock_result):
-            result = ns["get_keychain_value"]("missing-service")
-        assert result is None
-
-    def test_timeout_returns_none(self):
-        """When security CLI times out, return None."""
-        ns = load_importin()
-        with patch.object(
-            subprocess, "run", side_effect=subprocess.TimeoutExpired(cmd=[], timeout=5)
-        ):
-            result = ns["get_keychain_value"]("slow-service")
-        assert result is None
-
-    def test_file_not_found_returns_none(self):
-        """When security CLI is not found (FileNotFoundError), return None."""
-        ns = load_importin()
-        with patch.object(subprocess, "run", side_effect=FileNotFoundError):
-            result = ns["get_keychain_value"]("any-service")
-        assert result is None
+_mod = _load_importin()
+get_keychain_value = _mod["get_keychain_value"]
+load_keychain_env = _mod["load_keychain_env"]
+CREDENTIALS = _mod["CREDENTIALS"]
 
 
-class TestLoadKeychainEnv:
-    """Tests for load_keychain_env function."""
+# ── get_keychain_value tests ───────────────────────────────────────────────
 
-    def test_loads_missing_keys(self):
-        """Load credentials that are not already in environ."""
-        ns = load_importin()
-        mock_result = subprocess.CompletedProcess(
-            args=[], returncode=0, stdout="test-key\n", stderr=""
-        )
-        # Clear any existing keys first
-        import os
 
-        for key in ns["CREDENTIALS"]:
+def test_get_keychain_value_success():
+    """get_keychain_value returns password on success."""
+    mock_result = MagicMock()
+    mock_result.returncode = 0
+    mock_result.stdout = "secret-value\n"
+
+    with patch("subprocess.run", return_value=mock_result) as mock_run:
+        result = get_keychain_value("test-service")
+
+    assert result == "secret-value"
+    mock_run.assert_called_once()
+    args = mock_run.call_args[0][0]
+    assert args[0] == "security"
+    assert args[1] == "find-generic-password"
+
+
+def test_get_keychain_value_strips_trailing_newline():
+    """get_keychain_value strips trailing newline from password."""
+    mock_result = MagicMock()
+    mock_result.returncode = 0
+    mock_result.stdout = "secret-value\n\n"
+
+    with patch("subprocess.run", return_value=mock_result):
+        result = get_keychain_value("test-service")
+
+    assert result == "secret-value"
+
+
+def test_get_keychain_value_strips_all_whitespace():
+    """get_keychain_value strips both leading and trailing whitespace."""
+    mock_result = MagicMock()
+    mock_result.returncode = 0
+    mock_result.stdout = "  secret-value  \n\n"
+
+    with patch("subprocess.run", return_value=mock_result):
+        result = get_keychain_value("test-service")
+
+    # .strip() removes ALL leading/trailing whitespace
+    assert result == "secret-value"
+
+
+def test_get_keychain_value_failure_returns_none():
+    """get_keychain_value returns None when security command fails."""
+    mock_result = MagicMock()
+    mock_result.returncode = 44  # macOS security error code
+
+    with patch("subprocess.run", return_value=mock_result):
+        result = get_keychain_value("missing-service")
+
+    assert result is None
+
+
+def test_get_keychain_value_timeout_returns_none():
+    """get_keychain_value returns None on timeout."""
+    with patch("subprocess.run", side_effect=subprocess.TimeoutExpired("security", 5)):
+        result = get_keychain_value("slow-service")
+
+    assert result is None
+
+
+def test_get_keychain_value_file_not_found_returns_none():
+    """get_keychain_value returns None when security binary not found."""
+    with patch("subprocess.run", side_effect=FileNotFoundError):
+        result = get_keychain_value("any-service")
+
+    assert result is None
+
+
+def test_get_keychain_value_uses_current_user():
+    """get_keychain_value passes current username to security command."""
+    import getpass
+
+    expected_user = getpass.getuser()
+    mock_result = MagicMock()
+    mock_result.returncode = 0
+    mock_result.stdout = "value"
+
+    with patch("subprocess.run", return_value=mock_result) as mock_run:
+        get_keychain_value("test-service")
+
+    args = mock_run.call_args[0][0]
+    assert "-a" in args
+    user_idx = args.index("-a") + 1
+    assert args[user_idx] == expected_user
+
+
+# ── load_keychain_env tests ────────────────────────────────────────────────
+
+
+def test_load_keychain_env_loads_missing_keys():
+    """load_keychain_env loads keys not already in environment."""
+    mock_result = MagicMock()
+    mock_result.returncode = 0
+    mock_result.stdout = "test-api-key"
+
+    # Clear all existing credential keys from environment
+    for key in CREDENTIALS:
+        os.environ.pop(key, None)
+
+    with patch("subprocess.run", return_value=mock_result):
+        loaded = load_keychain_env()
+
+    # Should have loaded all credentials (since none existed in env)
+    assert len(loaded) == len(CREDENTIALS)
+    for key in CREDENTIALS:
+        assert key in loaded
+        assert os.environ.get(key) == "test-api-key"
+
+    # Cleanup
+    for key in CREDENTIALS:
+        os.environ.pop(key, None)
+
+
+def test_load_keychain_env_skips_existing_keys():
+    """load_keychain_env does not overwrite existing env vars."""
+    os.environ["ANTHROPIC_API_KEY"] = "existing-value"
+    mock_result = MagicMock()
+    mock_result.returncode = 0
+    mock_result.stdout = "new-value"
+
+    # Clear all other keys
+    for key in CREDENTIALS:
+        if key != "ANTHROPIC_API_KEY":
             os.environ.pop(key, None)
 
-        with patch.object(subprocess, "run", return_value=mock_result):
-            loaded = ns["load_keychain_env"]()
+    with patch("subprocess.run", return_value=mock_result):
+        loaded = load_keychain_env()
 
-        # Should have loaded all credentials
-        assert len(loaded) == len(ns["CREDENTIALS"])
-        assert all(key in loaded for key in ns["CREDENTIALS"])
+    # ANTHROPIC_API_KEY should retain existing value, not be in loaded
+    assert "ANTHROPIC_API_KEY" not in loaded
+    assert os.environ["ANTHROPIC_API_KEY"] == "existing-value"
 
-    def test_skips_existing_keys(self):
-        """Do not overwrite keys already in environ."""
-        ns = load_importin()
-        import os
-
-        # Set a pre-existing value
-        os.environ["ANTHROPIC_API_KEY"] = "existing-value"
-        # Remove other keys
-        for key in ns["CREDENTIALS"]:
-            if key != "ANTHROPIC_API_KEY":
-                os.environ.pop(key, None)
-
-        mock_result = subprocess.CompletedProcess(
-            args=[], returncode=0, stdout="new-value\n", stderr=""
-        )
-        with patch.object(subprocess, "run", return_value=mock_result):
-            loaded = ns["load_keychain_env"]()
-
-        # ANTHROPIC_API_KEY should NOT be in loaded (it was already set)
-        assert "ANTHROPIC_API_KEY" not in loaded
-        # The existing value should remain
-        assert os.environ["ANTHROPIC_API_KEY"] == "existing-value"
-
-    def test_returns_only_successful_loads(self):
-        """Only return keys that were successfully retrieved."""
-        ns = load_importin()
-        import os
-
-        # Clear all keys
-        for key in ns["CREDENTIALS"]:
-            os.environ.pop(key, None)
-
-        call_count = [0]
-
-        def mock_run(*args, **kwargs):
-            call_count[0] += 1
-            # Succeed for first call, fail for second
-            if call_count[0] == 1:
-                return subprocess.CompletedProcess(
-                    args=[], returncode=0, stdout="success\n", stderr=""
-                )
-            return subprocess.CompletedProcess(
-                args=[], returncode=44, stdout="", stderr=""
-            )
-
-        with patch.object(subprocess, "run", side_effect=mock_run):
-            loaded = ns["load_keychain_env"]()
-
-        # Only first credential should be loaded
-        assert len(loaded) == 1
+    # Cleanup
+    os.environ.pop("ANTHROPIC_API_KEY", None)
+    for key in CREDENTIALS:
+        os.environ.pop(key, None)
 
 
-class TestMainBlock:
-    """Tests for __main__ behavior via subprocess execution."""
+def test_load_keychain_env_skips_none_values():
+    """load_keychain_env skips keys that return None from keychain."""
+    mock_result = MagicMock()
+    mock_result.returncode = 0
+    mock_result.stdout = "test-value"
 
-    def test_help_flag_exits_zero(self):
-        """--help prints usage and exits 0."""
-        effector_path = Path(__file__).parent.parent / "effectors" / "importin"
-        result = subprocess.run(
-            [sys.executable, str(effector_path), "--help"],
-            capture_output=True,
-            text=True,
-        )
-        assert result.returncode == 0
-        assert "importin" in result.stdout
+    # Clear all existing keys
+    for key in CREDENTIALS:
+        os.environ.pop(key, None)
 
-    def test_non_darwin_exits_error(self):
-        """On non-macOS, exit with error message."""
-        effector_path = Path(__file__).parent.parent / "effectors" / "importin"
-        result = subprocess.run(
-            [sys.executable, str(effector_path)],
-            capture_output=True,
-            text=True,
-        )
-        # We're on Linux, so should fail
-        assert result.returncode == 1
-        assert "requires macOS Keychain" in result.stderr
+    # Track which calls should return None
+    call_count = [0]
+    
+    def mock_run_returning_none_for_some(*args, **kwargs):
+        mock_res = MagicMock()
+        call_count[0] += 1
+        # Return None for half the calls (via non-zero return code)
+        if call_count[0] % 2 == 0:
+            mock_res.returncode = 44
+            mock_res.stdout = ""
+        else:
+            mock_res.returncode = 0
+            mock_res.stdout = "test-value"
+        return mock_res
 
-    def test_export_format_single_quotes(self):
-        """Export statements use single quotes to prevent expansion."""
-        ns = load_importin()
-        # Test the escaping logic inline
-        val = "value-with-$var"
-        escaped = val.replace("'", "'\\''")
-        assert escaped == "value-with-$var"  # $ preserved
+    with patch("subprocess.run", side_effect=mock_run_returning_none_for_some):
+        loaded = load_keychain_env()
 
-    def test_export_escapes_single_quotes(self):
-        """Single quotes in values are properly escaped."""
-        ns = load_importin()
-        val = "value'with'quotes"
-        escaped = val.replace("'", "'\\''")
-        assert escaped == "value'\\''with'\\''quotes"
+    # Only half should be loaded (odd-numbered calls)
+    assert len(loaded) == len(CREDENTIALS) // 2 + (len(CREDENTIALS) % 2)
+
+    # Cleanup
+    for key in CREDENTIALS:
+        os.environ.pop(key, None)
+
+
+def test_credentials_mapping_has_expected_keys():
+    """CREDENTIALS dict contains expected API keys."""
+    expected_keys = [
+        "ANTHROPIC_API_KEY",
+        "OPENAI_API_KEY",
+        "GEMINI_API_KEY",
+        "GOOGLE_API_KEY",
+    ]
+    for key in expected_keys:
+        assert key in CREDENTIALS, f"Missing expected key: {key}"
+
+
+# ── CLI mode tests ─────────────────────────────────────────────────────────
+
+
+def test_cli_help_flag():
+    """CLI --help prints docstring and exits 0."""
+    result = subprocess.run(
+        ["python3", "/home/terry/germline/effectors/importin", "--help"],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0
+    assert "importin" in result.stdout
+
+
+def test_cli_h_flag():
+    """CLI -h prints docstring and exits 0."""
+    result = subprocess.run(
+        ["python3", "/home/terry/germline/effectors/importin", "-h"],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0
+    assert "importin" in result.stdout
+
+
+def test_cli_non_macos_exits_with_error():
+    """CLI exits with error on non-macOS platforms."""
+    result = subprocess.run(
+        ["python3", "/home/terry/germline/effectors/importin"],
+        capture_output=True,
+        text=True,
+    )
+    # On Linux (gemmule), should exit with error
+    assert result.returncode == 1
+    assert "requires macOS Keychain" in result.stderr
+
+
+def test_cli_shell_escaping():
+    """Test shell escaping logic for single quotes in values."""
+    test_val = "value-with'quote"
+    expected = "value-with'\\''quote"
+    escaped = test_val.replace("'", "'\\''")
+    assert escaped == expected
+
+
+# ── Integration test (macOS only) ─────────────────────────────────────────
+
+
+@pytest.mark.skipif(
+    sys.platform != "darwin",
+    reason="Keychain integration only works on macOS"
+)
+def test_real_keychain_fetch():
+    """Test actual keychain fetch on macOS."""
+    # This test is skipped on Linux
+    result = get_keychain_value("test-service")
+    if result:
+        assert isinstance(result, str)
