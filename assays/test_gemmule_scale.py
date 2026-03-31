@@ -1,225 +1,347 @@
-#!/usr/bin/env python3
-"""Tests for gemmule-scale effector — mocked HTTP via urlopen, no real Fly API calls."""
+"""Tests for gemmule-scale — Fly.io machine resizer."""
 from __future__ import annotations
 
 import json
 import os
+import sys
 from io import BytesIO
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
 
-# Load effector via exec (effectors are scripts, not importable packages)
-_effector_path = Path(__file__).parent.parent / "effectors" / "gemmule-scale"
-_ns: dict = {"__name__": "effectors.gemmule_scale", "__file__": str(_effector_path)}
-exec(open(_effector_path).read(), _ns)  # noqa: S102
 
-# Pull symbols from exec namespace
-main = _ns["main"]
-build_parser = _ns["build_parser"]
-cmd_status = _ns["cmd_status"]
-cmd_resize = _ns["cmd_resize"]
-_fmt_guest = _ns["_fmt_guest"]
-PROFILES = _ns["PROFILES"]
+# ── Load effector via exec (scripts aren't importable modules) ───────
 
-# The effector uses urllib.request.urlopen inside _api.  Because the code was
-# loaded via exec(), patching a module-attribute name won't intercept the
-# function calls — we must mock at the point where the stdlib function is
-# *looked up*, which is the effector namespace's copy of urlopen.
-_URLOPEN_TARGET = "effectors.gemmule_scale.urlopen"
+def _load_module():
+    """Load gemmule-scale by exec-ing, mocking urllib.request.urlopen."""
+    source = open("/home/terry/germline/effectors/gemmule-scale").read()
+    # We mock urlopen by injecting a fake into the module's urllib.request namespace.
+    # The effector does `from urllib.request import Request, urlopen` so we need
+    # to provide those at exec time.
+    from urllib.request import Request
+    mock_urlopen = MagicMock()
+    ns: dict = {
+        "__name__": "gemmule_scale",
+        "__builtins__": __builtins__,
+    }
+    # Let the exec use real imports except we'll override after
+    exec(source, ns)
+    # Replace urlopen in the module namespace
+    ns["urlopen"] = mock_urlopen
+    return ns
 
 
-def _mock_urlopen(body: dict | list | None = None, status: int = 200) -> MagicMock:
-    """Build a mock suitable for use as urlopen return value (context manager)."""
+_mod = _load_module()
+_token = _mod["_token"]
+_headers = _mod["_headers"]
+_request = _mod["_request"]
+list_machines = _mod["list_machines"]
+get_primary = _mod["get_primary"]
+stop_machine = _mod["stop_machine"]
+start_machine = _mod["start_machine"]
+update_config = _mod["update_config"]
+fmt_config = _mod["fmt_config"]
+cmd_status = _mod["cmd_status"]
+cmd_resize = _mod["cmd_resize"]
+main = _mod["main"]
+PROFILES = _mod["PROFILES"]
+API_BASE = _mod["API_BASE"]
+APP_NAME = _mod["APP_NAME"]
+mock_urlopen = _mod["urlopen"]
+
+
+# ── helpers ──────────────────────────────────────────────────────────
+
+def _mock_response(body: dict | None = None, status: int = 200):
+    """Create a fake urllib response object."""
     resp = MagicMock()
-    raw = json.dumps(body).encode() if body is not None else b""
+    raw = json.dumps(body).encode() if body else b""
     resp.read.return_value = raw
-    resp.status = status
-    resp.__enter__ = lambda s: s
+    resp.__enter__ = MagicMock(return_value=resp)
     resp.__exit__ = MagicMock(return_value=False)
+    resp.status = status
     return resp
 
 
-MOCK_MACHINES = [
-    {
-        "id": "m-abc123",
-        "state": "started",
-        "region": "sjc",
-        "config": {
-            "guest": {"cpus": 2, "cpu_kind": "shared", "memory_mb": 8192},
-            "image": "ghcr.io/example/gemmule:latest",
-        },
-    }
-]
+# ── _token ───────────────────────────────────────────────────────────
 
 
-@pytest.fixture(autouse=True)
-def _set_token():
-    """Ensure FLY_API_TOKEN is set for every test."""
-    with patch.dict(os.environ, {"FLY_API_TOKEN": "test-token"}, clear=False):
-        yield
+def test_token_returns_env_value():
+    """_token returns the FLY_API_TOKEN from env."""
+    with patch.dict(os.environ, {"FLY_API_TOKEN": "tok_abc"}):
+        assert _token() == "tok_abc"
 
 
-# ── _fmt_guest ────────────────────────────────────────────────────────────────
-
-class TestFmtGuest:
-    def test_full_guest(self):
-        assert _fmt_guest({"cpus": 8, "cpu_kind": "shared", "memory_mb": 32768}) == "8 CPU (shared), 32768 MB"
-
-    def test_minimal_guest(self):
-        assert _fmt_guest({}) == "? CPU (?), ? MB"
-
-
-# ── argparser ─────────────────────────────────────────────────────────────────
-
-class TestParser:
-    def test_up(self):
-        args = build_parser().parse_args(["up"])
-        assert args.command == "up"
-
-    def test_down(self):
-        args = build_parser().parse_args(["down"])
-        assert args.command == "down"
-
-    def test_status(self):
-        args = build_parser().parse_args(["status"])
-        assert args.command == "status"
-
-    def test_invalid_exits(self):
+def test_token_missing_exits():
+    """_token exits when FLY_API_TOKEN is not set."""
+    with patch.dict(os.environ, {}, clear=True):
+        os.environ.pop("FLY_API_TOKEN", None)
         with pytest.raises(SystemExit):
-            build_parser().parse_args(["explode"])
+            _token()
 
 
-# ── cmd_status ────────────────────────────────────────────────────────────────
-
-class TestStatus:
-    def test_prints_machine_info(self, capsys):
-        with patch(_URLOPEN_TARGET, return_value=_mock_urlopen(MOCK_MACHINES)):
-            cmd_status()
-        out = capsys.readouterr().out
-        assert "m-abc123" in out
-        assert "started" in out
-        assert "sjc" in out
-        assert "2 CPU (shared), 8192 MB" in out
-
-    def test_no_machines(self, capsys):
-        with patch(_URLOPEN_TARGET, return_value=_mock_urlopen([])):
-            cmd_status()
-        out = capsys.readouterr().out
-        assert "no machines found" in out
+# ── _headers ─────────────────────────────────────────────────────────
 
 
-# ── cmd_resize ────────────────────────────────────────────────────────────────
-
-class TestResize:
-    def test_scale_up(self, capsys):
-        with patch(_URLOPEN_TARGET, return_value=_mock_urlopen(MOCK_MACHINES)):
-            cmd_resize("up")
-        out = capsys.readouterr().out
-
-        # Should print old -> new
-        assert "8192 MB" in out
-        assert "32768 MB" in out
-        assert "8 CPU" in out
-
-    def test_scale_down(self, capsys):
-        up_machines = [
-            {
-                "id": "m-xyz789",
-                "state": "started",
-                "region": "sjc",
-                "config": {
-                    "guest": {"cpus": 8, "cpu_kind": "shared", "memory_mb": 32768},
-                    "image": "ghcr.io/example/gemmule:latest",
-                },
-            }
-        ]
-        with patch(_URLOPEN_TARGET, return_value=_mock_urlopen(up_machines)):
-            cmd_resize("down")
-        out = capsys.readouterr().out
-
-        assert "32768 MB" in out
-        assert "8192 MB" in out
-        assert "2 CPU" in out
-
-    def test_no_machines_exits(self):
-        with patch(_URLOPEN_TARGET, return_value=_mock_urlopen([])):
-            with pytest.raises(SystemExit):
-                cmd_resize("up")
-
-    def test_preserves_other_config(self, capsys):
-        machines = [
-            {
-                "id": "m-keep",
-                "state": "started",
-                "region": "sjc",
-                "config": {
-                    "guest": {"cpus": 2, "cpu_kind": "shared", "memory_mb": 8192},
-                    "image": "ghcr.io/example/gemmule:v2",
-                    "env": {"FOO": "bar"},
-                    "services": [{"port": 443}],
-                },
-            }
-        ]
-        # We need to intercept the PATCH call to verify its body.
-        # urlopen is called 4 times: list, stop, patch, start.
-        # Use side_effect to capture the PATCH request body.
-        captured_bodies: list[dict] = []
-
-        def _fake_urlopen(req, **kw):
-            if req.method == "PATCH":
-                captured_bodies.append(json.loads(req.data))
-            return _mock_urlopen(machines)
-
-        with patch(_URLOPEN_TARGET, side_effect=_fake_urlopen):
-            cmd_resize("up")
-
-        assert len(captured_bodies) == 1
-        body = captured_bodies[0]
-        assert body["guest"]["cpus"] == 8
-        assert body["guest"]["memory_mb"] == 32768
-        assert body["image"] == "ghcr.io/example/gemmule:v2"
-        assert body["env"] == {"FOO": "bar"}
-        assert body["services"] == [{"port": 443}]
+def test_headers_contains_bearer():
+    """_headers returns Authorization: Bearer header."""
+    h = _headers("mytoken")
+    assert h["Authorization"] == "Bearer mytoken"
+    assert h["Content-Type"] == "application/json"
 
 
-# ── main() CLI dispatch ──────────────────────────────────────────────────────
-
-class TestMain:
-    def test_main_status(self):
-        with patch(_URLOPEN_TARGET, return_value=_mock_urlopen(MOCK_MACHINES)):
-            main(["status"])
-
-    def test_main_up(self, capsys):
-        with patch(_URLOPEN_TARGET, return_value=_mock_urlopen(MOCK_MACHINES)):
-            main(["up"])
-        out = capsys.readouterr().out
-        assert "32768 MB" in out
-
-    def test_main_down(self, capsys):
-        with patch(_URLOPEN_TARGET, return_value=_mock_urlopen(MOCK_MACHINES)):
-            main(["down"])
-        out = capsys.readouterr().out
-        assert "8192 MB" in out
+# ── _request ─────────────────────────────────────────────────────────
 
 
-# ── env var guard ─────────────────────────────────────────────────────────────
-
-class TestToken:
-    def test_missing_token_exits(self):
-        with patch.dict(os.environ, {}, clear=True):
-            with pytest.raises(SystemExit):
-                _ns["_token"]()
+def test_request_get_success():
+    """_request parses JSON response from urlopen."""
+    mock_urlopen.return_value = _mock_response({"id": "m1"})
+    result = _request("GET", "/v1/apps/gemmule/machines", "tok")
+    assert result == {"id": "m1"}
 
 
-# ── profiles constant ─────────────────────────────────────────────────────────
+def test_request_post_empty_response():
+    """_request returns {} when response body is empty."""
+    mock_urlopen.return_value = _mock_response(None)
+    result = _request("POST", "/v1/apps/gemmule/machines/m1/stop", "tok")
+    assert result == {}
 
-class TestProfiles:
-    def test_up_profile(self):
-        assert PROFILES["up"]["guest"]["cpus"] == 8
-        assert PROFILES["up"]["guest"]["memory_mb"] == 32768
 
-    def test_down_profile(self):
-        assert PROFILES["down"]["guest"]["cpus"] == 2
-        assert PROFILES["down"]["guest"]["memory_mb"] == 8192
+# ── list_machines ────────────────────────────────────────────────────
+
+
+def test_list_machines_calls_correct_path():
+    """list_machines GETs /v1/apps/gemmule/machines."""
+    mock_urlopen.return_value = _mock_response([{"id": "m1"}])
+    result = list_machines("tok")
+    assert result == [{"id": "m1"}]
+    # Verify the URL passed to Request
+    call_args = mock_urlopen.call_args
+    req = call_args[0][0]
+    assert "/v1/apps/gemmule/machines" in req.full_url
+
+
+# ── get_primary ──────────────────────────────────────────────────────
+
+
+def test_get_primary_prefers_non_autostopped():
+    """get_primary returns first non-autostop machine."""
+    machines = [
+        {"id": "a", "autostop": True},
+        {"id": "b"},
+        {"id": "c"},
+    ]
+    assert get_primary(machines) == {"id": "b"}
+
+
+def test_get_primary_all_autostop_returns_first():
+    """get_primary falls back to first when all have autostop."""
+    machines = [
+        {"id": "a", "autostop": True},
+        {"id": "b", "autostop": True},
+    ]
+    assert get_primary(machines) == machines[0]
+
+
+def test_get_primary_empty_returns_none():
+    """get_primary returns None for empty list."""
+    assert get_primary([]) is None
+
+
+# ── fmt_config ───────────────────────────────────────────────────────
+
+
+def test_fmt_config_formats_cpus_and_gb():
+    """fmt_config renders cpus and GB."""
+    assert fmt_config(8, 32768) == "8 CPU, 32 GB RAM"
+    assert fmt_config(2, 8192) == "2 CPU, 8 GB RAM"
+
+
+# ── update_config ────────────────────────────────────────────────────
+
+
+def test_update_config_sends_correct_payload():
+    """update_config PATCHes with guest cpus and memory_mb."""
+    mock_urlopen.return_value = _mock_response({})
+    update_config("tok", "mid123", 8, 32768)
+    req = mock_urlopen.call_args[0][0]
+    assert req.method == "PATCH"
+    assert "/machines/mid123" in req.full_url
+    body = json.loads(req.data)
+    assert body == {"config": {"guest": {"cpus": 8, "cpu_kind": "shared", "memory_mb": 32768}}}
+
+
+# ── stop_machine / start_machine ─────────────────────────────────────
+
+
+def test_stop_machine_posts_to_stop():
+    """stop_machine POSTs to /machines/<id>/stop."""
+    mock_urlopen.return_value = _mock_response({})
+    stop_machine("tok", "mid1")
+    req = mock_urlopen.call_args[0][0]
+    assert req.method == "POST"
+    assert "/machines/mid1/stop" in req.full_url
+
+
+def test_start_machine_posts_to_start():
+    """start_machine POSTs to /machines/<id>/start."""
+    mock_urlopen.return_value = _mock_response({})
+    start_machine("tok", "mid1")
+    req = mock_urlopen.call_args[0][0]
+    assert req.method == "POST"
+    assert "/machines/mid1/start" in req.full_url
+
+
+# ── cmd_status ───────────────────────────────────────────────────────
+
+
+def test_cmd_status_prints_machine_info(capsys):
+    """cmd_status prints machine id, state, cpus, and RAM."""
+    mock_urlopen.return_value = _mock_response([
+        {
+            "id": "m_abc",
+            "state": "started",
+            "config": {"guest": {"cpus": 2, "memory_mb": 8192}},
+        }
+    ])
+    cmd_status("tok")
+    out = capsys.readouterr().out
+    assert "m_abc" in out
+    assert "state=started" in out
+    assert "2 CPU, 8 GB RAM" in out
+
+
+def test_cmd_status_no_machines(capsys):
+    """cmd_status handles empty machine list."""
+    mock_urlopen.return_value = _mock_response([])
+    cmd_status("tok")
+    out = capsys.readouterr().out
+    assert "no machines" in out
+
+
+# ── cmd_resize ───────────────────────────────────────────────────────
+
+
+def test_cmd_resize_up(capsys):
+    """cmd_resize up: stop → patch(8,32768) → start, prints old→new."""
+    mock_urlopen.return_value = _mock_response([
+        {
+            "id": "m_scale",
+            "state": "started",
+            "config": {"guest": {"cpus": 2, "memory_mb": 8192}},
+        }
+    ])
+
+    cmd_resize("tok", "up")
+
+    out = capsys.readouterr().out
+    assert "stopping m_scale" in out
+    assert "2 CPU, 8 GB RAM → 8 CPU, 32 GB RAM" in out
+    assert "starting m_scale" in out
+    assert "done:" in out
+
+    # Verify 3 urlopen calls: list, stop, update, start = 4 total
+    assert mock_urlopen.call_count == 4
+    # Check PATCH payload
+    # Calls: list(GET), stop(POST), update(PATCH), start(POST)
+    methods = []
+    for call in mock_urlopen.call_args_list:
+        req = call[0][0]
+        methods.append(req.method)
+    assert methods == ["GET", "POST", "PATCH", "POST"]
+
+
+def test_cmd_resize_down(capsys):
+    """cmd_resize down: scales from 8→2 CPU, 32→8 GB."""
+    mock_urlopen.return_value = _mock_response([
+        {
+            "id": "m_big",
+            "state": "started",
+            "config": {"guest": {"cpus": 8, "memory_mb": 32768}},
+        }
+    ])
+
+    cmd_resize("tok", "down")
+
+    out = capsys.readouterr().out
+    assert "8 CPU, 32 GB RAM → 2 CPU, 8 GB RAM" in out
+
+
+def test_cmd_resize_no_change(capsys):
+    """cmd_resize skips when already at target config."""
+    mock_urlopen.return_value = _mock_response([
+        {
+            "id": "m_same",
+            "state": "started",
+            "config": {"guest": {"cpus": 8, "memory_mb": 32768}},
+        }
+    ])
+
+    cmd_resize("tok", "up")
+
+    out = capsys.readouterr().out
+    assert "already at 8 CPU, 32 GB RAM" in out
+    assert "nothing to do" in out
+    # Only 1 urlopen call (list machines), no stop/update/start
+    assert mock_urlopen.call_count == 1
+
+
+def test_cmd_resize_no_machines_exits():
+    """cmd_resize exits when no machines found."""
+    mock_urlopen.return_value = _mock_response([])
+    with pytest.raises(SystemExit):
+        cmd_resize("tok", "up")
+
+
+# ── main (CLI dispatch) ─────────────────────────────────────────────
+
+
+def test_main_no_args_exits():
+    """main exits with usage when no command given."""
+    with pytest.raises(SystemExit):
+        main([])
+
+
+def test_main_unknown_command_exits():
+    """main exits for unknown commands."""
+    with pytest.raises(SystemExit):
+        main(["explode"])
+
+
+def test_main_status_dispatches(capsys):
+    """main 'status' invokes cmd_status."""
+    mock_urlopen.return_value = _mock_response([
+        {
+            "id": "m1",
+            "state": "started",
+            "config": {"guest": {"cpus": 2, "memory_mb": 8192}},
+        }
+    ])
+    with patch.dict(os.environ, {"FLY_API_TOKEN": "tok"}):
+        main(["status"])
+    out = capsys.readouterr().out
+    assert "m1" in out
+
+
+def test_main_up_dispatches(capsys):
+    """main 'up' invokes cmd_resize."""
+    mock_urlopen.return_value = _mock_response([
+        {
+            "id": "m1",
+            "state": "started",
+            "config": {"guest": {"cpus": 2, "memory_mb": 8192}},
+        }
+    ])
+    with patch.dict(os.environ, {"FLY_API_TOKEN": "tok"}):
+        main(["up"])
+    out = capsys.readouterr().out
+    assert "8 CPU, 32 GB RAM" in out
+
+
+# ── PROFILES constants ───────────────────────────────────────────────
+
+
+def test_profiles_values():
+    """PROFILES has correct up/down specs."""
+    assert PROFILES["up"] == {"cpus": 8, "memory": 32768}
+    assert PROFILES["down"] == {"cpus": 2, "memory": 8192}

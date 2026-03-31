@@ -853,78 +853,81 @@ async def execute_tasks(
     coaching: bool = True,
     worktree: bool = False,
 ) -> list[TaskExecutionResult]:
-    if serial:
-        results: list[TaskExecutionResult] = []
-        for task in tasks:
-            if worktree and _is_git_repo(project_dir):
-                wt_path = _create_worktree(project_dir, task.name)
-                try:
-                    result = await execute_task(task, wt_path, tool_by_task[task.name], timeout_sec=timeout_sec, verbose=verbose, dry_run=dry_run, max_retries=max_retries, coaching=coaching)
-                except Exception:
-                    # On unexpected error, still clean up the worktree
-                    _force_remove_worktree(project_dir, wt_path)
-                    raise
-                if result.success:
-                    _merge_worktree(project_dir, wt_path)
+    try:
+        if serial:
+            results: list[TaskExecutionResult] = []
+            for task in tasks:
+                if worktree and _is_git_repo(project_dir):
+                    wt_path = _create_worktree(project_dir, task.name)
+                    try:
+                        result = await execute_task(task, wt_path, tool_by_task[task.name], timeout_sec=timeout_sec, verbose=verbose, dry_run=dry_run, max_retries=max_retries, coaching=coaching)
+                    except Exception:
+                        # On unexpected error, still clean up the worktree
+                        _force_remove_worktree(project_dir, wt_path)
+                        raise
+                    if result.success:
+                        _merge_worktree(project_dir, wt_path)
+                    else:
+                        _force_remove_worktree(project_dir, wt_path)
+                    results.append(result)
                 else:
-                    _force_remove_worktree(project_dir, wt_path)
-                results.append(result)
+                    results.append(await execute_task(task, project_dir, tool_by_task[task.name], timeout_sec=timeout_sec, verbose=verbose, dry_run=dry_run, max_retries=max_retries, coaching=coaching))
+            return results
+
+        use_worktrees = (worktree or (isolate and len(tasks) > 1)) and _is_git_repo(project_dir)
+
+        worktree_map: dict[str, Path] = {}
+        if use_worktrees:
+            for task in tasks:
+                worktree_map[task.name] = _create_worktree(project_dir, task.name)
+
+        coroutines = [
+            execute_task(
+                task,
+                worktree_map.get(task.name, project_dir),
+                tool_by_task[task.name],
+                timeout_sec=timeout_sec,
+                verbose=verbose,
+                dry_run=dry_run,
+                max_retries=max_retries,
+                coaching=coaching,
+            )
+            for task in tasks
+        ]
+        raw_results = await asyncio.gather(*coroutines, return_exceptions=True)
+
+        # Convert exceptions into failed TaskExecutionResult so worktree cleanup runs
+        results: list[TaskExecutionResult] = []
+        for task, raw in zip(tasks, raw_results):
+            if isinstance(raw, BaseException):
+                results.append(TaskExecutionResult(
+                    task_name=task.name,
+                    tool=tool_by_task[task.name],
+                    prompt_file=task.temp_file,
+                    success=False,
+                    attempts=[],
+                    output=f"Unhandled exception: {raw}",
+                    fallbacks=[],
+                    fallback_chain=[],
+                    cost_estimate="",
+                ))
             else:
-                results.append(await execute_task(task, project_dir, tool_by_task[task.name], timeout_sec=timeout_sec, verbose=verbose, dry_run=dry_run, max_retries=max_retries, coaching=coaching))
+                results.append(raw)
+
+        if use_worktrees:
+            for task in tasks:
+                wt = worktree_map.get(task.name)
+                if not wt:
+                    continue
+                task_result = next((r for r in results if r.task_name == task.name), None)
+                if task_result and task_result.success:
+                    _merge_worktree(project_dir, wt)
+                else:
+                    _force_remove_worktree(project_dir, wt)
+
         return results
-
-    use_worktrees = (worktree or (isolate and len(tasks) > 1)) and _is_git_repo(project_dir)
-
-    worktree_map: dict[str, Path] = {}
-    if use_worktrees:
-        for task in tasks:
-            worktree_map[task.name] = _create_worktree(project_dir, task.name)
-
-    coroutines = [
-        execute_task(
-            task,
-            worktree_map.get(task.name, project_dir),
-            tool_by_task[task.name],
-            timeout_sec=timeout_sec,
-            verbose=verbose,
-            dry_run=dry_run,
-            max_retries=max_retries,
-            coaching=coaching,
-        )
-        for task in tasks
-    ]
-    raw_results = await asyncio.gather(*coroutines, return_exceptions=True)
-
-    # Convert exceptions into failed TaskExecutionResult so worktree cleanup runs
-    results: list[TaskExecutionResult] = []
-    for task, raw in zip(tasks, raw_results):
-        if isinstance(raw, BaseException):
-            results.append(TaskExecutionResult(
-                task_name=task.name,
-                tool=tool_by_task[task.name],
-                prompt_file=task.temp_file,
-                success=False,
-                attempts=[],
-                output=f"Unhandled exception: {raw}",
-                fallbacks=[],
-                fallback_chain=[],
-                cost_estimate="",
-            ))
-        else:
-            results.append(raw)
-
-    if use_worktrees:
-        for task in tasks:
-            wt = worktree_map.get(task.name)
-            if not wt:
-                continue
-            task_result = next((r for r in results if r.task_name == task.name), None)
-            if task_result and task_result.success:
-                _merge_worktree(project_dir, wt)
-            else:
-                _force_remove_worktree(project_dir, wt)
-
-    return results
+    finally:
+        _cleanup_temp_specs(tasks)
 
 
 def summarize_results(results: list[TaskExecutionResult]) -> dict[str, object]:
