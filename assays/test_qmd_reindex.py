@@ -189,8 +189,8 @@ def test_script_suppresses_qmd_stderr():
     assert "qmd embed 2>/dev/null" in content
 
 
-def test_script_suppresses_qmd_stdout():
-    """Script suppresses stdout from qmd commands."""
+def test_script_does_not_suppress_qmd_stdout():
+    """Script does not suppress stdout from qmd commands (only stderr)."""
     test_script = """
 # Mock pgrep - no process found
 pgrep() { return 1; }
@@ -217,9 +217,9 @@ qmd embed 2>/dev/null
         text=True,
         timeout=5.0,
     )
-    # stdout should be empty (no output captured)
-    assert "stdout output" not in result.stdout
-    # stderr is also suppressed
+    # stdout is NOT suppressed (no > /dev/null for stdout)
+    assert "stdout output" in result.stdout
+    # stderr IS suppressed by 2>/dev/null
     assert "stderr output" not in result.stderr
 
 

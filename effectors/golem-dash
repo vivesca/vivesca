@@ -295,16 +295,18 @@ def eta_section(eta: dict, use_color: bool = True) -> str:
     return "\n".join(lines)
 
 
-def queue_status(queue_path: Path, use_color: bool = True) -> str:
-    """Parse queue file, return status summary."""
+def queue_status(queue_path: Path, use_color: bool = True) -> tuple[str, list[tuple[str, str]], int]:
+    """Parse queue file, return status summary.
+
+    Returns: (status_text, last_done, pending_count)
+    """
     pending = done = failed = 0
-    last_done: list[str] = []
+    last_done: list[tuple[str, str]] = []
 
     if not queue_path.exists():
-        return "Queue file not found."
+        return "Queue file not found.", [], 0
 
-    lines = queue_path.read_text().splitlines()
-    for line in lines:
+    for line in queue_path.read_text().splitlines():
         m = re.match(r'^- \[ \] `([^`]+)`', line)
         if m:
             pending += 1
@@ -334,7 +336,7 @@ def queue_status(queue_path: Path, use_color: bool = True) -> str:
         f"Total: {b}{total}{rst}",
     ]
 
-    return "  ".join(parts), last_done[-5:] if last_done else []
+    return "  ".join(parts), last_done[-5:] if last_done else [], pending
 
 
 def last_completed_table(last_done: list[tuple[str, str]], use_color: bool = True) -> str:
@@ -374,26 +376,52 @@ def disk_free(use_color: bool = True) -> str:
         return f"  Disk check failed: {e}"
 
 
-def print_dashboard(use_color: bool = True) -> int:
+def print_dashboard(use_color: bool = True, json_output: bool = False) -> int:
     """Print the full golem dashboard."""
     b = BOLD if use_color else ""
     rst = RESET if use_color else ""
 
-    # 1. Provider stats
+    # Gather data
     records = load_jsonl(JSONL_PATH)
+    status_text, last_done, pending = queue_status(QUEUE_PATH, use_color)
+    running = get_running_golems()
+    eta = calculate_eta(records, pending, len(running))
+
+    if json_output:
+        data = {
+            "timestamp": datetime.now().isoformat(),
+            "running": running,
+            "queue": {
+                "pending": pending,
+                "completed_count": len(last_done),
+            },
+            "eta": eta,
+            "disk_free": disk_free(False),
+        }
+        print(json.dumps(data, indent=2))
+        return 0
+
+    # 1. Running tasks (real-time progress)
+    print(f"\n{b}Running Tasks{rst}")
+    print(running_tasks_table(running, use_color))
+
+    # 2. ETA to drain
+    print(f"\n{b}ETA to Drain{rst}")
+    print(eta_section(eta, use_color))
+
+    # 3. Provider stats
     print(f"\n{b}Provider Stats{rst}")
     print(provider_stats(records, use_color))
 
-    # 2. Queue status
+    # 4. Queue status
     print(f"\n{b}Queue Status{rst}")
-    status_text, last_done = queue_status(QUEUE_PATH, use_color)
     print(status_text)
 
-    # 3. Last 5 completed
+    # 5. Last 5 completed
     print(f"\n{b}Last Completed{rst}")
     print(last_completed_table(last_done, use_color))
 
-    # 4. Disk free
+    # 6. Disk free
     print(f"\n{b}Disk{rst}")
     print(disk_free(use_color))
     print()
