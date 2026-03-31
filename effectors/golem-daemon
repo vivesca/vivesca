@@ -146,6 +146,90 @@ def run_golem(cmd: str) -> tuple[str, int, str]:
         return (cmd, 1, str(e))
 
 
+import ast
+
+
+def validate_golem_output() -> tuple[bool, list[str]]:
+    """Validate new/modified .py files before pytest gate.
+
+    Checks:
+        1. ast.parse() each .py — fail on SyntaxError
+        2. grep for TODO/FIXME/stub — fail if found
+        3. test_*.py must be flat in assays/ — reject assays/subdir/test_foo.py
+        4. No __pycache__/.pyc
+
+    Returns:
+        (passed: bool, errors: list[str])
+    """
+    errors: list[str] = []
+    germline_dir = Path.home() / "germline"
+
+    try:
+        # Get new/modified .py files
+        git_result = subprocess.run(
+            f"git -C {germline_dir} diff --name-only --diff-filter=AM HEAD 2>/dev/null",
+            shell=True,
+            capture_output=True,
+            text=True
+        )
+        if git_result.returncode != 0:
+            return (True, [])  # git diff failed (e.g., no commits), pass silently
+
+        py_files = [f for f in git_result.stdout.strip().splitlines() if f.endswith(".py")]
+        if not py_files:
+            return (True, [])
+
+        for rel_path in py_files:
+            file_path = germline_dir / rel_path
+
+            # Check 1: ast.parse() — fail on SyntaxError
+            try:
+                source = file_path.read_text()
+                ast.parse(source)
+            except SyntaxError as e:
+                errors.append(f"SyntaxError in {rel_path}: {e}")
+                continue  # skip further checks if syntax is broken
+            except FileNotFoundError:
+                errors.append(f"File not found: {rel_path}")
+                continue
+
+            # Check 2: grep for TODO/FIXME/stub
+            for line_num, line in enumerate(source.splitlines(), 1):
+                line_upper = line.upper()
+                if "TODO" in line_upper or "FIXME" in line_upper:
+                    # Skip if it's in a string literal that looks like a test expectation
+                    if '"TODO' not in line and "'TODO" not in line and '"FIXME' not in line and "'FIXME" not in line:
+                        errors.append(f"TODO/FIXME in {rel_path}:{line_num}: {line.strip()[:60]}")
+                if "stub" in line.lower():
+                    # Allow "stub" only in comments explaining what stub is
+                    if not line.strip().startswith("#"):
+                        errors.append(f"stub in {rel_path}:{line_num}: {line.strip()[:60]}")
+
+            # Check 3: test_*.py must be flat in assays/
+            if rel_path.startswith("assays/") and "/test_" in rel_path:
+                # assays/test_foo.py is OK, assays/subdir/test_foo.py is not
+                parts = rel_path.split("/")
+                if len(parts) > 2:  # more than assays/test_*.py
+                    errors.append(f"test file not flat in assays/: {rel_path}")
+
+        # Check 4: No __pycache__/.pyc in new/modified files
+        pycache_result = subprocess.run(
+            f"git -C {germline_dir} diff --name-only --diff-filter=AM HEAD 2>/dev/null | grep -E '(__pycache__|\\.pyc)' || true",
+            shell=True,
+            capture_output=True,
+            text=True
+        )
+        if pycache_result.stdout.strip():
+            for f in pycache_result.stdout.strip().splitlines():
+                errors.append(f"__pycache__/.pyc not allowed: {f}")
+
+        return (len(errors) == 0, errors)
+
+    except Exception as e:
+        errors.append(f"validate_golem_output exception: {e}")
+        return (False, errors)
+
+
 def check_new_test_files_and_run_pytest() -> tuple[bool, str]:
     """Check for new assays/test_*.py files, run pytest, return (passed, summary)."""
     germline_dir = str(Path.home() / "germline")
@@ -213,13 +297,20 @@ def daemon_loop():
                     try:
                         _, exit_code, tail = future.result()
                         if exit_code == 0:
-                            # Check for new test files and run pytest
-                            passed, test_result = check_new_test_files_and_run_pytest()
-                            if passed:
-                                mark_done(line_num, f"exit={exit_code}, {test_result}")
+                            # Validate output first, then pytest gate
+                            passed, errors = validate_golem_output()
+                            if not passed:
+                                error_summary = "; ".join(errors[:3])
+                                mark_failed(line_num, f"validation failed: {error_summary[:60]}")
+                                log(f"VALIDATION FAILED: {cmd[:60]}... → {error_summary}")
                             else:
-                                mark_failed(line_num, f"exit={exit_code}, {test_result[:60]}")
-                                log(f"TEST FAILED: {cmd[:60]}... → {test_result}")
+                                # Check for new test files and run pytest
+                                passed, test_result = check_new_test_files_and_run_pytest()
+                                if passed:
+                                    mark_done(line_num, f"exit={exit_code}, {test_result}")
+                                else:
+                                    mark_failed(line_num, f"exit={exit_code}, {test_result[:60]}")
+                                    log(f"TEST FAILED: {cmd[:60]}... → {test_result}")
                         else:
                             mark_failed(line_num, f"exit={exit_code} {tail[:60]}")
                             log(f"FAILED (exit={exit_code}): {cmd[:60]}...")

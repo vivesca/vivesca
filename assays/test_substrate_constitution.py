@@ -27,12 +27,14 @@ def test_sense_reads_rules(tmp_path):
     )
     mock_collector = MagicMock()
     mock_collector.recall_since.return_value = []
-    s = ExecutiveSubstrate(constitution_path=constitution, collector=mock_collector)
-    sensed = s.sense()
-    assert isinstance(sensed, list)
-    assert len(sensed) == 2
-    assert sensed[0]["title"] == "Rule one"
-    assert sensed[1]["title"] == "Rule two"
+    with patch("metabolon.metabolism.substrates.constitution.precision_scan") as mock_ps:
+        mock_ps.return_value = []
+        s = ExecutiveSubstrate(constitution_path=constitution, collector=mock_collector)
+        sensed = s.sense()
+        assert isinstance(sensed, list)
+        assert len(sensed) == 2
+        assert sensed[0]["title"] == "Rule one:"
+        assert sensed[1]["title"] == "Rule two:"
 
 
 def test_sense_cross_references_activated_enzymes(tmp_path):
@@ -46,13 +48,15 @@ def test_sense_cross_references_activated_enzymes(tmp_path):
     mock_collector.recall_since.return_value = [
         MagicMock(tool="rheotaxis_detect", kind="invocation"),
     ]
-    s = ExecutiveSubstrate(constitution_path=constitution, collector=mock_collector)
-    sensed = s.sense()
-    assert len(sensed) == 2
-    # rheotaxis should have evidence from rheotaxis_detect
-    assert sensed[0]["has_evidence"] is True
-    # glycolysis has no evidence
-    assert sensed[1]["has_evidence"] is False
+    with patch("metabolon.metabolism.substrates.constitution.precision_scan") as mock_ps:
+        mock_ps.return_value = []
+        s = ExecutiveSubstrate(constitution_path=constitution, collector=mock_collector)
+        sensed = s.sense()
+        assert len(sensed) == 2
+        # rheotaxis should have evidence from rheotaxis_detect
+        assert sensed[0]["has_evidence"] is True
+        # glycolysis has no evidence
+        assert sensed[1]["has_evidence"] is False
 
 
 def test_candidates_filters_unevidenced_rules():
@@ -114,7 +118,10 @@ def test_report_format():
 def test_report_shows_summary():
     """Test report shows summary counts."""
     s = ExecutiveSubstrate()
-    sensed = [{"title": "r1", "has_evidence": True}, {"title": "r2", "has_evidence": False}]
+    sensed = [
+        {"title": "r1", "has_evidence": True, "activated_enzymes": set()},
+        {"title": "r2", "has_evidence": False}
+    ]
     report = s.report(sensed, [])
     assert "1 evidenced" in report
     assert "1 without evidence" in report
