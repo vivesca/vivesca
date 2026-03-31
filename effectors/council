@@ -1,0 +1,281 @@
+#!/usr/bin/env python3
+"""council — challenge a position with parallel devil's advocates.
+
+Dispatches codex and gemini in parallel to challenge a proposed position/decision.
+Synthesizes their critiques into a structured report.
+
+Usage:
+    council 'We should refactor X into Y'
+    council 'The API should use GraphQL instead of REST'
+    council --verbose 'We should migrate to Kubernetes'
+"""
+
+from __future__ import annotations
+
+import subprocess
+import sys
+import textwrap
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from dataclasses import dataclass
+from typing import Optional
+
+
+@dataclass
+class Critique:
+    model: str
+    response: str
+    error: Optional[str] = None
+
+
+def run_codex(prompt: str, timeout: int = 120) -> Critique:
+    """Run codex exec with the challenge prompt."""
+    try:
+        result = subprocess.run(
+            ["codex", "exec", prompt],
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+        )
+        if result.returncode != 0:
+            return Critique(model="codex", response="", error=result.stderr.strip() or f"exit code {result.returncode}")
+        return Critique(model="codex", response=result.stdout.strip())
+    except subprocess.TimeoutExpired:
+        return Critique(model="codex", response="", error="timeout")
+    except Exception as e:
+        return Critique(model="codex", response="", error=str(e))
+
+
+def run_gemini(prompt: str, timeout: int = 120) -> Critique:
+    """Run gemini -p with the challenge prompt."""
+    try:
+        result = subprocess.run(
+            ["gemini", "-p", prompt],
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+        )
+        if result.returncode != 0:
+            return Critique(model="gemini", response="", error=result.stderr.strip() or f"exit code {result.returncode}")
+        return Critique(model="gemini", response=result.stdout.strip())
+    except subprocess.TimeoutExpired:
+        return Critique(model="gemini", response="", error="timeout")
+    except Exception as e:
+        return Critique(model="gemini", response="", error=str(e))
+
+
+def build_challenge_prompt(position: str) -> str:
+    """Build the devil's advocate prompt."""
+    return textwrap.dedent(f"""\
+        Challenge this position: "{position}"
+
+        What is wrong? What was missed? Strongest argument against?
+        200 words max.""")
+
+
+def synthesize(codex: Critique, gemini: Critique, position: str) -> str:
+    """Synthesize critiques into a structured report."""
+    lines = [
+        f"# Council Report",
+        f"",
+        f"**Position**: {position}",
+        f"",
+    ]
+
+    # Raw critiques
+    lines.append("## Raw Critiques")
+    lines.append("")
+    for critique in [codex, gemini]:
+        lines.append(f"### {critique.model.upper()}")
+        lines.append("")
+        if critique.error:
+            lines.append(f"⚠️ **Error**: {critique.error}")
+        else:
+            lines.append(critique.response)
+        lines.append("")
+
+    # Analysis
+    lines.append("## Analysis")
+    lines.append("")
+
+    # Convergence points
+    convergence = find_convergence(codex.response, gemini.response)
+    lines.append("### 🎯 Convergence Points")
+    lines.append("")
+    if convergence:
+        for point in convergence:
+            lines.append(f"- {point}")
+    else:
+        lines.append("_No clear convergence detected_")
+    lines.append("")
+
+    # Divergence points
+    divergence = find_divergence(codex.response, gemini.response)
+    lines.append("### ⚡ Divergence Points")
+    lines.append("")
+    if divergence:
+        for point in divergence:
+            lines.append(f"- {point}")
+    else:
+        lines.append("_No significant divergence_")
+    lines.append("")
+
+    # Risks flagged
+    risks = extract_risks(codex.response, gemini.response)
+    lines.append("### ⚠️ Risks Flagged")
+    lines.append("")
+    if risks:
+        for risk in risks:
+            lines.append(f"- {risk}")
+    else:
+        lines.append("_No specific risks identified_")
+    lines.append("")
+
+    return "\n".join(lines)
+
+
+def find_convergence(codex_text: str, gemini_text: str) -> list[str]:
+    """Find points where both critiques agree."""
+    if not codex_text or not gemini_text:
+        return []
+
+    convergence = []
+    codex_lower = codex_text.lower()
+    gemini_lower = gemini_text.lower()
+
+    # Common concern keywords to check
+    concerns = [
+        ("complexity", "Complexity concerns raised by both"),
+        ("scalab", "Scalability questioned by both"),
+        ("maintain", "Maintenance burden noted by both"),
+        ("cost", "Cost implications flagged by both"),
+        ("risk", "Risk considerations highlighted by both"),
+        ("time", "Timing/deadline concerns from both"),
+        ("test", "Testing challenges mentioned by both"),
+        ("performance", "Performance worries from both"),
+        ("security", "Security implications raised by both"),
+        ("migration", "Migration challenges noted by both"),
+        ("technical debt", "Technical debt concerns from both"),
+    ]
+
+    for keyword, message in concerns:
+        if keyword in codex_lower and keyword in gemini_lower:
+            convergence.append(message)
+
+    # Check for agreement in overall sentiment
+    if "agree" in codex_lower and "agree" in gemini_lower:
+        convergence.append("Both models express some agreement with critique")
+
+    return convergence[:5]  # Limit to top 5
+
+
+def find_divergence(codex_text: str, gemini_text: str) -> list[str]:
+    """Find points where critiques disagree."""
+    if not codex_text or not gemini_text:
+        return []
+
+    divergence = []
+
+    # Check for different focus areas
+    codex_lower = codex_text.lower()
+    gemini_lower = gemini_text.lower()
+
+    # One mentions, other doesn't
+    if ("security" in codex_lower) != ("security" in gemini_lower):
+        which = "Codex" if "security" in codex_lower else "Gemini"
+        divergence.append(f"{which} uniquely raises security concerns")
+
+    if ("performance" in codex_lower) != ("performance" in gemini_lower):
+        which = "Codex" if "performance" in codex_lower else "Gemini"
+        divergence.append(f"{which} uniquely focuses on performance")
+
+    if ("cost" in codex_lower) != ("cost" in gemini_lower):
+        which = "Codex" if "cost" in codex_lower else "Gemini"
+        divergence.append(f"{which} uniquely considers cost implications")
+
+    if ("user" in codex_lower) != ("user" in gemini_lower):
+        which = "Codex" if "user" in codex_lower else "Gemini"
+        divergence.append(f"{which} uniquely considers user impact")
+
+    return divergence[:4]
+
+
+def extract_risks(codex_text: str, gemini_text: str) -> list[str]:
+    """Extract explicit risk mentions from both critiques."""
+    risks = []
+    combined = codex_text + "\n" + gemini_text
+
+    # Look for sentences containing risk-related terms
+    risk_keywords = ["risk", "danger", "fail", "break", "downside", "problem", "issue", "concern", "warning", "caution"]
+
+    sentences = combined.replace("\n", " ").split(". ")
+    for sentence in sentences:
+        sentence = sentence.strip()
+        if not sentence:
+            continue
+        if any(kw in sentence.lower() for kw in risk_keywords):
+            # Clean up and add
+            if len(sentence) > 20 and len(sentence) < 200:
+                if not sentence.endswith("."):
+                    sentence += "."
+                risks.append(sentence)
+
+    return risks[:5]  # Limit to top 5
+
+
+def main():
+    import argparse
+
+    parser = argparse.ArgumentParser(
+        description="Challenge a position with parallel devil's advocates (Codex + Gemini)"
+    )
+    parser.add_argument("position", help="The position/decision to challenge")
+    parser.add_argument("--timeout", "-t", type=int, default=120, help="Per-model timeout in seconds")
+    parser.add_argument("--verbose", "-v", action="store_true", help="Show verbose output")
+    parser.add_argument("--json", "-j", action="store_true", help="Output as JSON")
+    args = parser.parse_args()
+
+    prompt = build_challenge_prompt(args.position)
+
+    if args.verbose:
+        print(f"[council] Challenging: {args.position}", file=sys.stderr)
+        print(f"[council] Prompt: {prompt[:100]}...", file=sys.stderr)
+
+    # Run both in parallel
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        futures = {
+            executor.submit(run_codex, prompt, args.timeout): "codex",
+            executor.submit(run_gemini, prompt, args.timeout): "gemini",
+        }
+
+        results = {}
+        for future in as_completed(futures):
+            model = futures[future]
+            try:
+                results[model] = future.result()
+            except Exception as e:
+                results[model] = Critique(model=model, response="", error=str(e))
+
+    codex_result = results.get("codex", Critique(model="codex", response="", error="no result"))
+    gemini_result = results.get("gemini", Critique(model="gemini", response="", error="no result"))
+
+    # Output
+    if args.json:
+        import json
+        output = {
+            "position": args.position,
+            "critiques": {
+                "codex": {"response": codex_result.response, "error": codex_result.error},
+                "gemini": {"response": gemini_result.response, "error": gemini_result.error},
+            },
+            "convergence": find_convergence(codex_result.response, gemini_result.response),
+            "divergence": find_divergence(codex_result.response, gemini_result.response),
+            "risks": extract_risks(codex_result.response, gemini_result.response),
+        }
+        print(json.dumps(output, indent=2))
+    else:
+        report = synthesize(codex_result, gemini_result, args.position)
+        print(report)
+
+
+if __name__ == "__main__":
+    main()

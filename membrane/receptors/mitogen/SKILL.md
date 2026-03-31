@@ -76,22 +76,37 @@ git add assays/test_*.py && git commit
 
 ## Golem
 
-`golem` = headless Claude Code + GLM-5.1 via ZhiPu (free, unlimited).
+`golem` = headless Claude Code dispatched across multiple providers.
 
 ```bash
-golem "any task"                          # single prompt
+golem "any task"                          # ZhiPu default
+golem --provider infini "task"            # Infini (deepseek-v3.2)
+golem --provider volcano "task"           # Volcano (ark-code-latest)
 golem --batch mod1.py mod2.py             # sequential test generation
-golem --max-turns 30 "complex task"       # more turns for big modules
+golem --test mod.py                       # single module test gen
+golem --max-turns 50 "complex task"       # more turns for big modules
+golem --full "task needing MCP"           # non-bare mode
 ```
 
-CC's tools (Read, Write, Edit, Bash) with no size limits, no session DB contention, 200K context, 131K max output.
+### Provider config
+
+| Provider | Model | TTFB | Concurrent limit | Auth |
+|----------|-------|------|-----------------|------|
+| ZhiPu (default) | GLM-5.1 | 380ms | 4-5 | ANTHROPIC_API_KEY |
+| Infini | deepseek-v3.2 | 2.6s | 6-7 | ANTHROPIC_API_KEY |
+| Volcano | ark-code-latest | 11s | 8+ (degrades) | ANTHROPIC_AUTH_TOKEN |
+
+**Total concurrent budget: ~18-20 golems across all 3 providers.**
+
+Priority: ZhiPu (fast) > Infini (good coder, decent speed) > Volcano (slow but high concurrency).
 
 ## Gotchas
 
-- **Cap concurrent golems at 4-5.** ZhiPu API rate limits at ~10+ concurrent. 19 golems → 429 across all sessions. 4-5 is the sweet spot.
-- **Golem hits max-turns on complex tasks.** Test-only tasks fit in 20 turns. Feature tasks (read + implement + test + verify) need `--max-turns 30`. 1000+ line modules need `--max-turns 40`.
+- **Default turns: 50.** Test-only tasks need ~30. Feature tasks (read + implement + test + fix) need 50. 1000+ line modules may need more.
 - **Golem may not commit.** Check `git status` after batch and commit new files.
-- **Don't over-orchestrate.** No spec files, no coaching injection, no worktrees, no test-spec-gen. Just `golem "task"`.
+- **Don't over-orchestrate.** No spec files, no coaching injection, no worktrees. Just `golem "task"`.
+- **Volcano routes HK→Tokyo→SJC.** Structural, unfixable. Use for background/overflow only.
+- **Infini coding plan models:** deepseek-v3.2 (2.6s, best), glm-5 (7s), glm-4.5-air (1.8s fast but weaker). kimi-k2.5/glm-4.7 are thinking models (68s), avoid.
 
 ## Anti-patterns
 

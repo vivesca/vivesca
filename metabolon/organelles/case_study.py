@@ -168,6 +168,47 @@ def package_use_case(file_path: str | Path, anonymise: bool = False) -> CaseStud
     )
 
 
+def generate_from_template(
+    title: str,
+    context: str,
+    action: str,
+    result: str,
+    metrics: list[str] | None = None,
+    domain: str = "",
+    jurisdiction: str = "",
+) -> CaseStudy:
+    """Generate a CaseStudy from CAR framework components (Context, Action, Result).
+
+    The CAR framework structures case studies as:
+    - Context: The background situation and challenges faced
+    - Action: What was done to address the situation
+    - Result: The outcomes and impact achieved
+
+    Args:
+        title: Title of the case study.
+        context: Background context and challenges (CAR - Context).
+        action: Actions taken to address the situation (CAR - Action).
+        result: Results and outcomes achieved (CAR - Result).
+        metrics: Optional list of key metrics/outcomes.
+        domain: Optional domain classification (e.g., "Banking", "Healthcare").
+        jurisdiction: Optional jurisdiction/region.
+
+    Returns:
+        A CaseStudy instance with CAR framework mapped to internal fields.
+    """
+    return CaseStudy(
+        title=title,
+        challenge=context,  # CAR Context maps to challenge
+        approach=action,    # CAR Action maps to approach
+        result=result,      # CAR Result maps to result
+        metrics=metrics or [],
+        domain=domain,
+        jurisdiction=jurisdiction,
+        source_file="",
+        anonymised=False,
+    )
+
+
 def list_use_cases() -> list[dict]:
     """List available use case files."""
     if not USE_CASE_DIR.exists():

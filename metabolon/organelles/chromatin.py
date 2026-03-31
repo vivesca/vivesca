@@ -167,6 +167,41 @@ class _MarkIndex:
         self.ensure_loaded()
         return sum(len(e["content"].encode()) for e in self._entries.values())
 
+    def stale_marks(self, days: int = 180) -> list[dict[str, Any]]:
+        """Return all marks that haven't been modified in more than `days` days.
+
+        Entries are sorted from oldest to newest.
+        """
+        self.ensure_loaded()
+        now = datetime.now(timezone.utc).timestamp()
+        cutoff = now - (days * 86400)
+        stale = [
+            {
+                "file": entry["file"],
+                "name": entry["name"],
+                "type": entry["type"],
+                "mtime_days": round((now - entry["mtime"]) / 86400, 1),
+                "path": entry["path"],
+            }
+            for entry in self._entries.values()
+            if entry["mtime"] < cutoff
+        ]
+        stale.sort(key=lambda x: x["mtime_days"], reverse=True)
+        return stale
+
+    def type_counts(self) -> dict[str, int]:
+        """Return counts of marks by their type field.
+
+        Only counts non-empty type values.
+        """
+        self.ensure_loaded()
+        counts: dict[str, int] = {}
+        for entry in self._entries.values():
+            typ = entry.get("type", "").strip()
+            if typ:
+                counts[typ] = counts.get(typ, 0) + 1
+        return dict(sorted(counts.items(), key=lambda item: item[1], reverse=True))
+
 
 # Module-level singleton index — shared across all calls in a process
 _index = _MarkIndex(MARKS_DIR)
@@ -235,3 +270,13 @@ def status() -> str:
     count = _index.entry_count
     size_kb = _index.total_bytes / 1024
     return f"Marks: {MARKS_DIR} ({count} files, {size_kb:.0f}KB)"
+
+
+def stale_marks(days: int = 180) -> list[dict[str, Any]]:
+    """Return all stale marks (not modified in > N days)."""
+    return _index.stale_marks(days=days)
+
+
+def type_counts() -> dict[str, int]:
+    """Return counts of marks by type."""
+    return _index.type_counts()

@@ -8,14 +8,16 @@
 #   golem --max-turns 30 "Complex task"
 set -euo pipefail
 
-MAX_TURNS="${GOLEM_MAX_TURNS:-30}"
+MAX_TURNS="${GOLEM_MAX_TURNS:-50}"
 BARE=true
 BATCH=false
+TEST=false
 PROVIDER="${GOLEM_PROVIDER:-zhipu}"
 
 while [[ "${1:-}" == --* ]]; do
   case "$1" in
     --batch) BATCH=true; shift ;;
+    --test) TEST=true; shift ;;
     --max-turns) MAX_TURNS="$2"; shift 2 ;;
     --full) BARE=false; shift ;;
     --bare) BARE=true; shift ;;
@@ -34,11 +36,13 @@ case "$PROVIDER" in
     _KEY="${VOLCANO_API_KEY:?VOLCANO_API_KEY not set}"
     _URL="https://ark.cn-beijing.volces.com/api/coding"
     _AUTH_MODE="token"  # volcano needs AUTH_TOKEN, not API_KEY
-    _OPUS="deepseek-v3.2"; _SONNET="deepseek-v3.2"; _HAIKU="doubao-seed-2.0-lite" ;;
+    _OPUS="ark-code-latest"; _SONNET="ark-code-latest"; _HAIKU="ark-code-latest" ;;
   infini)
+    # WARNING: Infini API does NOT support CC tool-use. Models ask for permission
+    # instead of invoking tools. Only usable for text-only tasks, not golem.
     _KEY="${INFINI_API_KEY:?INFINI_API_KEY not set}"
     _URL="https://cloud.infini-ai.com/maas/coding"
-    _OPUS="deepseek-v3.2"; _SONNET="deepseek-v3.2"; _HAIKU="glm-4.5-air" ;;
+    _OPUS="glm-5"; _SONNET="glm-5"; _HAIKU="glm-4.5-air" ;;
   *) echo "Unknown provider: $PROVIDER (zhipu|volcano|infini)" >&2; exit 1 ;;
 esac
 
@@ -47,7 +51,7 @@ mkdir -p "$(dirname "$GOLEM_LOG")"
 
 _run_golem() {
   local prompt="$1"
-  local args=(--print --max-turns "$MAX_TURNS")
+  local args=(--print --dangerously-skip-permissions --max-turns "$MAX_TURNS")
   $BARE && args+=(--bare)
   local start_ts=$(date +%s)
   local output
@@ -84,6 +88,10 @@ if $BATCH; then
     _run_golem "Read $mod. Write comprehensive tests to assays/test_$(basename "${mod%.py}").py. Mock external calls and file I/O. Run: uv run pytest assays/test_$(basename "${mod%.py}").py -v --tb=short. Fix any failures." || true
     echo
   done
+elif $TEST; then
+  # Single module test gen — use with & for parallel: golem --test metabolon/foo.py &
+  mod="$1"
+  _run_golem "Read $mod. Write comprehensive tests to assays/test_$(basename "${mod%.py}").py. Mock external calls and file I/O. Run: uv run pytest assays/test_$(basename "${mod%.py}").py -v --tb=short. Fix any failures."
 else
   _run_golem "$*"
 fi
