@@ -406,25 +406,32 @@ def test_list_experiments_filters_by_prefix(tmp_path):
 # ── pull_intake tests ──────────────────────────────────────────────────────
 
 
-def test_pull_intake_no_meal_plan(tmp_path, monkeypatch):
+def test_pull_intake_no_meal_plan(tmp_path):
     """pull_intake returns empty list when meal plan doesn't exist."""
-    # Mock MEAL_PLAN to non-existent path
-    monkeypatch.setattr(_mod, "MEAL_PLAN", tmp_path / "nonexistent.md")
-    result = pull_intake("2024-01-01", ["caffeine"])
+    original_meal_plan = _mod["MEAL_PLAN"]
+    _mod["MEAL_PLAN"] = tmp_path / "nonexistent.md"
+    try:
+        result = pull_intake("2024-01-01", ["caffeine"])
+    finally:
+        _mod["MEAL_PLAN"] = original_meal_plan
     assert result == []
 
 
-def test_pull_intake_no_order_log(tmp_path, monkeypatch):
+def test_pull_intake_no_order_log(tmp_path):
     """pull_intake returns empty list when no Order log section."""
     meal_plan = tmp_path / "meal-plan.md"
     meal_plan.write_text("# Meal Plan\n\nNo log here.\n")
-    monkeypatch.setattr(_mod, "MEAL_PLAN", meal_plan)
 
-    result = pull_intake("2024-01-01", ["coffee"])
+    original_meal_plan = _mod["MEAL_PLAN"]
+    _mod["MEAL_PLAN"] = meal_plan
+    try:
+        result = pull_intake("2024-01-01", ["coffee"])
+    finally:
+        _mod["MEAL_PLAN"] = original_meal_plan
     assert result == []
 
 
-def test_pull_intake_matches_keywords(tmp_path, monkeypatch):
+def test_pull_intake_matches_keywords(tmp_path):
     """pull_intake returns entries matching keywords."""
     meal_plan = tmp_path / "meal-plan.md"
     meal_plan.write_text(
@@ -435,15 +442,20 @@ def test_pull_intake_matches_keywords(tmp_path, monkeypatch):
         "- 2024-01-17 (Day): Afternoon espresso\n"
         "\n## Other section\n"
     )
-    monkeypatch.setattr(_mod, "MEAL_PLAN", meal_plan)
 
-    result = pull_intake("2024-01-01", ["coffee", "espresso"])
+    original_meal_plan = _mod["MEAL_PLAN"]
+    _mod["MEAL_PLAN"] = meal_plan
+    try:
+        result = pull_intake("2024-01-01", ["coffee", "espresso"])
+    finally:
+        _mod["MEAL_PLAN"] = original_meal_plan
+
     assert len(result) == 2
     assert any("coffee" in r.lower() for r in result)
     assert any("espresso" in r.lower() for r in result)
 
 
-def test_pull_intake_filters_by_date(tmp_path, monkeypatch):
+def test_pull_intake_filters_by_date(tmp_path):
     """pull_intake filters entries before start date."""
     meal_plan = tmp_path / "meal-plan.md"
     meal_plan.write_text(
@@ -451,20 +463,30 @@ def test_pull_intake_filters_by_date(tmp_path, monkeypatch):
         "- 2024-01-01 (Day): Old entry\n"
         "- 2024-01-15 (Day): New entry\n"
     )
-    monkeypatch.setattr(_mod, "MEAL_PLAN", meal_plan)
 
-    result = pull_intake("2024-01-10", ["entry"])
+    original_meal_plan = _mod["MEAL_PLAN"]
+    _mod["MEAL_PLAN"] = meal_plan
+    try:
+        result = pull_intake("2024-01-10", ["entry"])
+    finally:
+        _mod["MEAL_PLAN"] = original_meal_plan
+
     assert len(result) == 1
     assert "New entry" in result[0]
 
 
-def test_pull_intake_strips_prefix(tmp_path, monkeypatch):
+def test_pull_intake_strips_prefix(tmp_path):
     """pull_intake strips the '- ' prefix from entries."""
     meal_plan = tmp_path / "meal-plan.md"
     meal_plan.write_text("## Order log\n- 2024-01-15 (Day): Test entry\n")
-    monkeypatch.setattr(_mod, "MEAL_PLAN", meal_plan)
 
-    result = pull_intake("2024-01-01", ["test"])
+    original_meal_plan = _mod["MEAL_PLAN"]
+    _mod["MEAL_PLAN"] = meal_plan
+    try:
+        result = pull_intake("2024-01-01", ["test"])
+    finally:
+        _mod["MEAL_PLAN"] = original_meal_plan
+
     assert result[0].startswith("2024-01-15")
 
 

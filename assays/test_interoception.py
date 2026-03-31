@@ -282,7 +282,7 @@ class TestFlywheelAction:
 
         from metabolon.enzymes.interoception import AnabolismResult
         assert isinstance(result, AnabolismResult)
-        assert len(result.links) == 4
+        assert len(result.links) == 5
         assert len(result.blind_spots) > 0
 
 
@@ -298,7 +298,7 @@ class TestDiskCleanAction:
             patch("metabolon.enzymes.interoception.subprocess.run") as mock_run,
             patch("metabolon.enzymes.interoception._clean_build_artifacts", return_value=(0.5, ["cleaned something"])),
             patch("metabolon.enzymes.interoception.shutil.disk_usage") as mock_disk,
-            patch("metabolon.enzymes.interoception.Threshold"),
+            patch("metabolon.metabolism.setpoint.Threshold"),
         ):
             mock_proc = MagicMock()
             mock_proc.stdout = "cleaned\n"
@@ -420,6 +420,7 @@ class TestCrisprAction:
         assert result.spacer_count == 127
         assert result.guide_count == 2
         assert "127 spacers" in result.summary
+        assert "No spacers acquired yet" in result.summary
 
 
 # ---------------------------------------------------------------------------
