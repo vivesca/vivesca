@@ -2,6 +2,15 @@
 # Transduction daily pipeline — fetch X feed, then extract articles
 set -euo pipefail
 
+if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
+    echo "Usage: transduction-daily-run"
+    echo ""
+    echo "Run the daily transduction pipeline:"
+    echo "  1. Fetch X personalized feed into lustro cache"
+    echo "  2. Run transduction daily extraction"
+    exit 0
+fi
+
 echo "=== $(date) ==="
 
 # Fetch X personalized feed into lustro cache

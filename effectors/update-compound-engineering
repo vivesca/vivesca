@@ -3,6 +3,17 @@
 
 set -e
 
+if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
+    echo "Usage: update-compound-engineering"
+    echo ""
+    echo "Update the compound-engineering plugin for:"
+    echo "  - OpenCode (~/.config/opencode/)"
+    echo "  - Codex    (~/.codex/)"
+    echo ""
+    echo "Requires: bunx (via bun)"
+    exit 0
+fi
+
 echo "🔄 Updating compound-engineering plugin..."
 echo ""
 
