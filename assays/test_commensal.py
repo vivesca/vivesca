@@ -11,13 +11,13 @@ import re
 # Execute the commensal file directly into the namespace
 commensal_path = Path("/home/terry/germline/effectors/commensal")
 commensal_code = commensal_path.read_text()
-commensal = {}
-exec(commensal_code, commensal)
+_ns = {}
+exec(commensal_code, _ns)
 
 # Make attributes accessible via dot notation
 class CommensalModule:
     def __getattr__(self, name):
-        return commensal[name]
+        return _ns[name]
 commensal = CommensalModule()
 
 # ---------------------------------------------------------------------------
