@@ -220,3 +220,4 @@
 {"ts": "2026-03-31T06:04:03+00:00", "model": "sonar-pro", "query": "\u65e0\u95ee\u82af\u7a79 coding plan Claude Code \u517c\u5bb9"}
 {"ts": "2026-03-31T06:04:03+00:00", "model": "sonar-pro", "query": "\u767e\u70bc coding plan \u4ef7\u683c Claude Code \u914d\u7f6e API endpoint 2026"}
 {"ts": "2026-03-31T06:04:03+00:00", "model": "sonar-pro", "query": "\u706b\u5c71\u5f15\u64ce \u8c46\u5305 coding plan \u4ef7\u683c Claude Code"}
+{"ts": "2026-03-31T06:49:34+00:00", "model": "sonar", "query": "test"}
