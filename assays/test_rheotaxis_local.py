@@ -1,6 +1,7 @@
 """Tests for effectors/rheotaxis-local — ambient related-notes surfacer."""
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -36,7 +37,6 @@ def test_extract_query_basic():
     assert "about" in result
     assert "python" in result
     assert "programming" in result
-    # short words like "is", "a" should be excluded
     assert "is" not in result.split()
     assert "a" not in result.split()
 
@@ -209,14 +209,11 @@ def test_query_qmd_passes_extracted_query():
     with patch.object(_mod["subprocess"], "run", return_value=mock_result) as mock_run:
         query_qmd("some meaningful text about programming", limit=3)
     called_query = mock_run.call_args[0][0][2]
-    # _extract_query filters short words and keeps meaningful ones
     assert "meaningful" in called_query
     assert "programming" in called_query
-    # Short words should be stripped
-    assert "some" not in called_query.split() or len("some") > 3
 
 
-# ── main CLI tests (mocked subprocess) ────────────────────────────────
+# ── main CLI tests (mocked subprocess + sys.argv) ─────────────────────
 
 
 def _make_qmd_mock(stdout="", returncode=0, stderr=""):
@@ -228,13 +225,19 @@ def _make_qmd_mock(stdout="", returncode=0, stderr=""):
     return mock_result
 
 
+def _run_main(args: list[str]):
+    """Run main() with patched sys.argv."""
+    with patch.object(sys, "argv", ["rheotaxis-local"] + args):
+        main()
+
+
 class TestMain:
     """Tests for the main() CLI entry point."""
 
     def test_note_not_found_exits(self):
         """Nonexistent note path prints error and exits 1."""
         with pytest.raises(SystemExit) as exc_info:
-            main(["/nonexistent/path/to/note.md"])
+            _run_main(["/nonexistent/path/to/note.md"])
         assert exc_info.value.code == 1
 
     def test_short_note_exits_cleanly(self, tmp_path, capsys):
@@ -242,7 +245,7 @@ class TestMain:
         note = tmp_path / "short.md"
         note.write_text("Hi", encoding="utf-8")
         with pytest.raises(SystemExit) as exc_info:
-            main([str(note)])
+            _run_main([str(note)])
         assert exc_info.value.code == 0
         assert "too short" in capsys.readouterr().err
 
@@ -259,10 +262,9 @@ class TestMain:
             "Score: 0.88\n"
         )
         with patch.object(_mod["subprocess"], "run", return_value=_make_qmd_mock(qmd_output)):
-            main([str(note), "--dry-run"])
+            _run_main([str(note), "--dry-run"])
         captured = capsys.readouterr()
         assert "[[Related Article]] (0.88)" in captured.out
-        # File should NOT be modified
         assert note.read_text(encoding="utf-8") == original
 
     def test_append_mode_modifies_file(self, tmp_path, capsys):
@@ -278,7 +280,7 @@ class TestMain:
             "Score: 0.88\n"
         )
         with patch.object(_mod["subprocess"], "run", return_value=_make_qmd_mock(qmd_output)):
-            main([str(note)])
+            _run_main([str(note)])
         captured = capsys.readouterr()
         assert "Appended" in captured.out
         new_content = note.read_text(encoding="utf-8")
@@ -295,7 +297,7 @@ class TestMain:
         )
         with patch.object(_mod["subprocess"], "run", return_value=_make_qmd_mock("")):
             with pytest.raises(SystemExit) as exc_info:
-                main([str(note)])
+                _run_main([str(note)])
             assert exc_info.value.code == 0
         assert "No related notes found" in capsys.readouterr().out
 
@@ -313,7 +315,7 @@ class TestMain:
         )
         with patch.object(_mod["subprocess"], "run", return_value=_make_qmd_mock(qmd_output)):
             with pytest.raises(SystemExit) as exc_info:
-                main([str(note)])
+                _run_main([str(note)])
             assert exc_info.value.code == 0
         assert "No related notes (excluding self)" in capsys.readouterr().out
 
@@ -328,9 +330,8 @@ class TestMain:
         with patch.object(
             _mod["subprocess"], "run", return_value=_make_qmd_mock(qmd_output)
         ) as mock_run:
-            main([str(note), "--dry-run"])
+            _run_main([str(note), "--dry-run"])
         called_query = mock_run.call_args[0][0][2]
-        # Filename stems replace - with space: "python testing guide"
         assert "python" in called_query.lower()
         assert "testing" in called_query.lower()
         assert "guide" in called_query.lower()
