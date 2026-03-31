@@ -7,7 +7,6 @@ Tools:
 """
 
 from pathlib import Path
-from typing import Optional
 
 
 from metabolon.organelles.effector import run_cli  # noqa: E402
@@ -28,7 +27,7 @@ _TIMEOUT = 60
 def judge_evaluate(
     rubric: str,
     content: str,
-    context: Optional[str] = None,
+    context: str | None = None,
     model: str = "glm",
 ) -> str:
     """Evaluate content against a named rubric.
