@@ -25,9 +25,6 @@ _dir_size = _mod["_dir_size"]
 _safe_path = _mod["_safe_path"]
 TMP_CUTOFF = _mod["TMP_CUTOFF"]
 UV_CACHE_CUTOFF = _mod["UV_CACHE_CUTOFF"]
-HOME = _mod["HOME"]
-GERMLINE = _mod["GERMLINE"]
-EPIGENOME = _mod["EPIGENOME"]
 
 
 # ── _fmt_bytes ─────────────────────────────────────────────────────────
@@ -68,22 +65,25 @@ def test_dir_size_missing_dir():
 
 # ── _safe_path ─────────────────────────────────────────────────────────
 
-def test_safe_path_allows_tmp():
-    assert _safe_path(Path("/tmp/claude-xyz"))
+def test_safe_path_allows_tmp(tmp_path):
+    assert _safe_path(tmp_path / "claude-xyz", germline=tmp_path / "g", epigenome=tmp_path / "e")
 
 
-def test_safe_path_blocks_germline_source():
-    src = GERMLINE / "effectors" / "foo.py"
-    assert not _safe_path(src)
+def test_safe_path_blocks_germline_source(tmp_path):
+    germline = tmp_path / "germline"
+    src = germline / "effectors" / "foo.py"
+    assert not _safe_path(src, germline=germline, epigenome=tmp_path / "e")
 
 
-def test_safe_path_allows_pycache_in_germline():
-    pyc = GERMLINE / "effectors" / "__pycache__"
-    assert _safe_path(pyc)
+def test_safe_path_allows_pycache_in_germline(tmp_path):
+    germline = tmp_path / "germline"
+    pyc = germline / "effectors" / "__pycache__"
+    assert _safe_path(pyc, germline=germline, epigenome=tmp_path / "e")
 
 
-def test_safe_path_blocks_epigenome():
-    assert not _safe_path(EPIGENOME / "some" / "file")
+def test_safe_path_blocks_epigenome(tmp_path):
+    epigenome = tmp_path / "epigenome"
+    assert not _safe_path(epigenome / "some" / "file", germline=tmp_path / "g", epigenome=epigenome)
 
 
 # ── clean_tmp_claude ──────────────────────────────────────────────────
@@ -97,17 +97,7 @@ def test_clean_tmp_claude_removes_old(tmp_path):
     old_mtime = now - TMP_CUTOFF - 3600
     os.utime(old_dir, (old_mtime, old_mtime))
 
-    orig_path = _mod["Path"]
-    try:
-        def _fake_path(arg=""):
-            if arg == "/tmp":
-                return tmp_path
-            return Path(arg)
-        _mod["Path"] = _fake_path
-        freed = clean_tmp_claude(now)
-    finally:
-        _mod["Path"] = orig_path
-
+    freed = clean_tmp_claude(now, tmp_root=tmp_path)
     assert freed >= 200
     assert not old_dir.exists()
 
@@ -120,17 +110,7 @@ def test_clean_tmp_claude_keeps_recent(tmp_path):
     (recent_dir / "file.txt").write_bytes(b"y" * 300)
     os.utime(recent_dir, (now - 3600, now - 3600))
 
-    orig_path = _mod["Path"]
-    try:
-        def _fake_path(arg=""):
-            if arg == "/tmp":
-                return tmp_path
-            return Path(arg)
-        _mod["Path"] = _fake_path
-        freed = clean_tmp_claude(now)
-    finally:
-        _mod["Path"] = orig_path
-
+    freed = clean_tmp_claude(now, tmp_root=tmp_path)
     assert freed == 0
     assert recent_dir.exists()
 
@@ -143,17 +123,7 @@ def test_clean_tmp_claude_ignores_non_claude(tmp_path):
     (other / "f").write_bytes(b"z" * 500)
     os.utime(other, (now - TMP_CUTOFF - 3600, now - TMP_CUTOFF - 3600))
 
-    orig_path = _mod["Path"]
-    try:
-        def _fake_path(arg=""):
-            if arg == "/tmp":
-                return tmp_path
-            return Path(arg)
-        _mod["Path"] = _fake_path
-        freed = clean_tmp_claude(now)
-    finally:
-        _mod["Path"] = orig_path
-
+    freed = clean_tmp_claude(now, tmp_root=tmp_path)
     assert freed == 0
     assert other.exists()
 
@@ -170,13 +140,7 @@ def test_clean_uv_archive_removes_old(tmp_path):
     old_mtime = now - UV_CACHE_CUTOFF - 3600
     os.utime(old, (old_mtime, old_mtime))
 
-    orig_home = _mod["HOME"]
-    try:
-        _mod["HOME"] = tmp_path
-        freed = clean_uv_archive(now)
-    finally:
-        _mod["HOME"] = orig_home
-
+    freed = clean_uv_archive(now, home=tmp_path)
     assert freed >= 1000
     assert not old.exists()
 
@@ -190,25 +154,14 @@ def test_clean_uv_archive_keeps_recent(tmp_path):
     (recent / "data").write_bytes(b"b" * 500)
     os.utime(recent, (now - 3600, now - 3600))
 
-    orig_home = _mod["HOME"]
-    try:
-        _mod["HOME"] = tmp_path
-        freed = clean_uv_archive(now)
-    finally:
-        _mod["HOME"] = orig_home
-
+    freed = clean_uv_archive(now, home=tmp_path)
     assert freed == 0
     assert recent.exists()
 
 
 def test_clean_uv_archive_no_dir(tmp_path):
     """Gracefully handles missing archive-v0."""
-    orig_home = _mod["HOME"]
-    try:
-        _mod["HOME"] = tmp_path
-        freed = clean_uv_archive(time.time())
-    finally:
-        _mod["HOME"] = orig_home
+    freed = clean_uv_archive(time.time(), home=tmp_path)
     assert freed == 0
 
 
@@ -220,16 +173,7 @@ def test_clean_pycache_removes_dirs(tmp_path):
     pc.mkdir(parents=True)
     (pc / "foo.cpython-312.pyc").write_bytes(b"c" * 100)
 
-    orig_germ = _mod["GERMLINE"]
-    orig_epi = _mod["EPIGENOME"]
-    try:
-        _mod["GERMLINE"] = germline
-        _mod["EPIGENOME"] = tmp_path / "epigenome"
-        freed = clean_pycache()
-    finally:
-        _mod["GERMLINE"] = orig_germ
-        _mod["EPIGENOME"] = orig_epi
-
+    freed = clean_pycache(germline=germline, epigenome=tmp_path / "epi")
     assert freed >= 100
     assert not pc.exists()
 
@@ -246,30 +190,15 @@ def test_clean_pycache_skips_epigenome(tmp_path):
     pc_epi.mkdir(parents=True)
     (pc_epi / "b.pyc").write_bytes(b"e" * 50)
 
-    orig_germ = _mod["GERMLINE"]
-    orig_epi = _mod["EPIGENOME"]
-    try:
-        _mod["GERMLINE"] = germline
-        _mod["EPIGENOME"] = epi
-        freed = clean_pycache()
-    finally:
-        _mod["GERMLINE"] = orig_germ
-        _mod["EPIGENOME"] = orig_epi
-
+    freed = clean_pycache(germline=germline, epigenome=epi)
     assert freed >= 50
     assert not pc_germ.exists()
-    # epigenome cache must survive
     assert pc_epi.exists()
 
 
 def test_clean_pycache_no_germline(tmp_path):
     """Gracefully handles missing germline dir."""
-    orig_germ = _mod["GERMLINE"]
-    try:
-        _mod["GERMLINE"] = tmp_path / "nonexistent"
-        freed = clean_pycache()
-    finally:
-        _mod["GERMLINE"] = orig_germ
+    freed = clean_pycache(germline=tmp_path / "nonexistent")
     assert freed == 0
 
 
@@ -284,16 +213,16 @@ def test_dry_run_does_not_delete(tmp_path):
     old_mtime = now - TMP_CUTOFF - 3600
     os.utime(old_dir, (old_mtime, old_mtime))
 
-    orig_path = _mod["Path"]
-    try:
-        def _fake_path(arg=""):
-            if arg == "/tmp":
-                return tmp_path
-            return Path(arg)
-        _mod["Path"] = _fake_path
-        freed = clean_tmp_claude(now, dry_run=True)
-    finally:
-        _mod["Path"] = orig_path
-
+    freed = clean_tmp_claude(now, dry_run=True, tmp_root=tmp_path)
     assert freed >= 200
     assert old_dir.exists()
+
+
+# ── integration: main() ──────────────────────────────────────────────
+
+def test_main_runs_without_error(capsys):
+    """main() completes and prints summary."""
+    _main = _mod["main"]
+    _main(dry_run=True)
+    captured = capsys.readouterr()
+    assert "Total freed:" in captured.out

@@ -13,7 +13,7 @@ def main():
     root_path = os.path.abspath(os.path.expanduser("~"))
 
     # Hard block on searching the root directly or its parents
-    if search_path == root_path or search_path == "/Users/terry" or search_path == "/":
+    if search_path == root_path or search_path == "/":
         print(f"ERROR: Searching the root directory '{search_path}' is PROHIBITED.")
         print("Reason: Performance bottleneck and context pollution.")
         print("Action: Specify a narrow sub-directory (e.g., 'bank-faq-chatbot', 'notes').")
@@ -21,7 +21,7 @@ def main():
 
     # Prevent searching directories known to be massive without further narrowing
     # (Example: searching ~/Library recursive is almost always a mistake)
-    massive_dirs = ["/Users/terry/Library", "/Users/terry/Pictures", "/Users/terry/Downloads"]
+    massive_dirs = [os.path.join(root_path, d) for d in ["Library", "Pictures", "Downloads"]]
     if search_path in [os.path.abspath(d) for d in massive_dirs]:
         print(f"ERROR: Directory '{search_path}' is too large for broad search.")
         print("Action: Narrow your search path (e.g., '~/Library/Application Support/app').")
