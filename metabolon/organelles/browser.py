@@ -1,100 +1,95 @@
-"""browser — high-level Playwright browsing with stealth baked in.
+"""browser — headless page fetcher built on Playwright.
 
-Wraps common browsing operations (navigate, extract, screenshot) in a
-context that is already patched for undetectability via
-:mod:`metabolon.organelles.browser_stealth`.
+Public API:
+  fetch(url, **options) -> dict   — fetch a URL and return structured result
+  fetch_text(url, **options) -> str — fetch a URL and return clean text only
 
-Biology: the cell's exploratory pseudopod — reaching out into the
-environment while wearing camouflage to avoid triggering defensive
-responses from the substrate.
+Options:
+  cookies:   Path to JSON cookie file (Playwright storageState format)
+  selector:  CSS selector to extract a subtree instead of full page
+  screenshot: Path to write a PNG screenshot
+  pdf:       Path to write a PDF (requires headed chromium)
+  wait:      Milliseconds to wait after load before extracting (default 0)
 """
-
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+import asyncio
+import json
+import sys
+from pathlib import Path
+from typing import Any, Optional
 
 from playwright.sync_api import sync_playwright
 
-from metabolon.organelles.browser_stealth import (
-    human_delay,
-    patch_navigator,
-    set_realistic_headers,
-    stealth_context,
-)
 
-if TYPE_CHECKING:
-    from playwright.sync_api import Browser, BrowserContext, Page, Playwright
+def fetch(
+    url: str,
+    *,
+    cookies: Optional[str] = None,
+    selector: Optional[str] = None,
+    screenshot: Optional[str] = None,
+    pdf: Optional[str] = None,
+    wait: int = 0,
+) -> dict[str, Any]:
+    """Fetch *url* with a headless Chromium browser.
 
-
-class StealthBrowser:
-    """Manages a Playwright browser lifecycle with stealth patches.
-
-    Usage::
-
-        with StealthBrowser() as sb:
-            page = sb.goto("https://example.com")
-            html = page.content()
+    Returns a dict with keys: url, title, text, status, cookies, screenshot, pdf.
     """
+    with sync_playwright() as pw:
+        browser = pw.chromium.launch(headless=True)
+        context_opts: dict[str, Any] = {}
+        if cookies:
+            cookie_path = Path(cookies)
+            if not cookie_path.exists():
+                raise FileNotFoundError(f"Cookie file not found: {cookie_path}")
+            context_opts["storage_state"] = str(cookie_path)
 
-    def __init__(self, headless: bool = True) -> None:
-        self._headless = headless
-        self._pw: Playwright | None = None
-        self._browser: Browser | None = None
-        self._context: BrowserContext | None = None
+        context = browser.new_context(**context_opts)
+        page = context.new_page()
 
-    # -- context manager ---------------------------------------------------
+        response = page.goto(url, wait_until="domcontentloaded", timeout=30_000)
+        status = response.status if response else None
 
-    def __enter__(self) -> StealthBrowser:
-        self.launch()
-        return self
+        if wait > 0:
+            page.wait_for_timeout(wait)
 
-    def __exit__(self, *exc: object) -> None:
-        self.close()
+        title = page.title()
 
-    # -- lifecycle ---------------------------------------------------------
+        # Extract text
+        if selector:
+            element = page.query_selector(selector)
+            if element:
+                text = element.inner_text()
+            else:
+                text = ""
+        else:
+            text = page.inner_text("body")
 
-    def launch(self) -> None:
-        """Start Playwright, launch browser, create stealth context."""
-        self._pw = sync_playwright().start()
-        self._browser = self._pw.chromium.launch(headless=self._headless)
-        self._context = stealth_context(
-            self._browser,
-            viewport={"width": 1920, "height": 1080},
-            locale="en-US",
-            timezone_id="America/New_York",
-        )
+        # Screenshot
+        screenshot_path = None
+        if screenshot:
+            page.screenshot(path=screenshot, full_page=True)
+            screenshot_path = screenshot
 
-    def close(self) -> None:
-        """Shut down browser and Playwright."""
-        if self._context is not None:
-            self._context.close()
-        if self._browser is not None:
-            self._browser.close()
-        if self._pw is not None:
-            self._pw.stop()
-        self._context = self._browser = self._pw = None
+        # PDF
+        pdf_path = None
+        if pdf:
+            page.pdf(path=pdf)
+            pdf_path = pdf
 
-    # -- browsing operations -----------------------------------------------
+        context.close()
+        browser.close()
 
-    def goto(self, url: str, *, wait_until: str = "domcontentloaded") -> Page:
-        """Navigate to *url* with a human-like delay first.
+    return {
+        "url": url,
+        "title": title,
+        "text": text,
+        "status": status,
+        "screenshot": screenshot_path,
+        "pdf": pdf_path,
+    }
 
-        Returns the Page object for further interaction.
-        """
-        assert self._context is not None, "Browser not launched"
-        human_delay()
-        page = self._context.new_page()
-        page.goto(url, wait_until=wait_until)
-        return page
 
-    @property
-    def context(self) -> BrowserContext:
-        """The active stealth context (read-only)."""
-        assert self._context is not None, "Browser not launched"
-        return self._context
-
-    @property
-    def browser(self) -> Browser:
-        """The active Browser instance (read-only)."""
-        assert self._browser is not None, "Browser not launched"
-        return self._browser
+def fetch_text(url: str, **kwargs: Any) -> str:
+    """Fetch *url* and return only the clean text content."""
+    return fetch(url, **kwargs)["text"]

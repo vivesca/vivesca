@@ -5,15 +5,26 @@ Actions: extract|screenshot|check_auth
 
 from __future__ import annotations
 
+import atexit
 import os
 import subprocess
 import time
+from pathlib import Path
 from typing import Any
 
 from fastmcp.tools import tool
 from mcp.types import ToolAnnotations
 
 from metabolon.morphology import Secretion
+
+# Track auto-generated temp screenshots for cleanup on exit.
+_pending_screenshots: list[str] = []
+
+
+@atexit.register
+def _cleanup_temp_screenshots() -> None:
+    for p in _pending_screenshots:
+        Path(p).unlink(missing_ok=True)
 
 
 class NavigatorResult(Secretion):

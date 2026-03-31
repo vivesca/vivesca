@@ -1,0 +1,175 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.13"
+# dependencies = ["playwright"]
+# ///
+"""regulatory-capture — Capture regulatory publications from HKMA and SFC.
+
+Uses Playwright to navigate regulator websites, extract circular/publication
+titles, dates, URLs, and summaries. Stores results as JSON.
+
+Usage:
+    regulatory-capture --regulator hkma [--since 2026-01-01] [--output path]
+    regulatory-capture --regulator sfc  [--since 2026-01-01] [--output path]
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import sys
+from datetime import datetime
+from pathlib import Path
+
+from playwright.sync_api import Page, sync_playwright
+
+DEFAULT_OUTPUT_DIR = Path.home() / "epigenome/chromatin/euchromatin/regulatory/captures"
+
+REGULATOR_CONFIGS = {
+    "hkma": {
+        "name": "Hong Kong Monetary Authority",
+        "url": "https://www.hkma.gov.hk/eng/key-functions/banking/regulatory-regime/banking-regulatory-and-supervisory-regime/circulars/",
+        "list_selector": "table tbody tr, .view-content .views-row",
+        "title_selector": "a",
+        "date_selector": "td:nth-child(2), .date-display-single, time",
+        "summary_selector": "td:nth-child(3), .field-content",
+    },
+    "sfc": {
+        "name": "Securities and Futures Commission",
+        "url": "https://www.sfc.hk/en/Rules-and-Forms/Circulars",
+        "list_selector": ".circular-list-item, .search-result-item, table tbody tr",
+        "title_selector": "a",
+        "date_selector": ".date, time, td:nth-child(2)",
+        "summary_selector": ".summary, .description, td:nth-child(3)",
+    },
+}
+
+
+def parse_date(date_str: str) -> datetime | None:
+    """Try multiple date formats and return a datetime or None."""
+    formats = [
+        "%d %b %Y", "%d %B %Y", "%Y-%m-%d", "%d/%m/%Y",
+        "%d.%m.%Y", "%b %d, %Y", "%B %d, %Y", "%Y-%m-%dT%H:%M:%S",
+    ]
+    cleaned = date_str.strip()
+    for fmt in formats:
+        try:
+            return datetime.strptime(cleaned, fmt)
+        except ValueError:
+            continue
+    return None
+
+
+def extract_publications_from_page(
+    page: Page,
+    config: dict,
+    since: datetime | None,
+) -> list[dict]:
+    """Extract publication entries from a loaded page using CSS selectors."""
+    results: list[dict] = []
+
+    rows = page.query_selector_all(config["list_selector"])
+    for row in rows:
+        title_el = row.query_selector(config["title_selector"])
+        if not title_el:
+            continue
+
+        title = (title_el.inner_text() or "").strip()
+        href = title_el.get_attribute("href") or ""
+        if href and not href.startswith("http"):
+            # Resolve relative URLs against the base
+            base = config["url"].rsplit("/", 1)[0]
+            href = base + "/" + href.lstrip("/")
+
+        date_text = ""
+        date_el = row.query_selector(config["date_selector"])
+        if date_el:
+            date_text = (date_el.inner_text() or "").strip()
+
+        summary = ""
+        summary_el = row.query_selector(config["summary_selector"])
+        if summary_el:
+            summary = (summary_el.inner_text() or "").strip()
+
+        pub_date = parse_date(date_text) if date_text else None
+
+        if since and pub_date and pub_date < since:
+            continue
+
+        results.append({
+            "title": title,
+            "date": date_text,
+            "url": href,
+            "summary": summary,
+            "source": config["name"],
+        })
+
+    return results
+
+
+def scrape_regulator(
+    regulator: str,
+    since: datetime | None = None,
+    output_path: Path | None = None,
+) -> list[dict]:
+    """Scrape publications for a given regulator using Playwright."""
+    config = REGULATOR_CONFIGS.get(regulator)
+    if not config:
+        print(f"Unknown regulator: {regulator}", file=sys.stderr)
+        print(f"Supported: {', '.join(REGULATOR_CONFIGS)}", file=sys.stderr)
+        sys.exit(1)
+
+    with sync_playwright() as pw:
+        browser = pw.chromium.launch(headless=True)
+        page = browser.new_page()
+        page.goto(config["url"], timeout=30_000)
+        page.wait_for_load_state("networkidle", timeout=15_000)
+
+        results = extract_publications_from_page(page, config, since)
+
+        browser.close()
+
+    if output_path:
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(output_path, "w") as f:
+            json.dump(results, f, indent=2, ensure_ascii=False)
+        print(f"Captured {len(results)} publications to {output_path}")
+    else:
+        print(json.dumps(results, indent=2, ensure_ascii=False))
+
+    return results
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(
+        description="Capture regulatory publications from HKMA and SFC."
+    )
+    parser.add_argument(
+        "--regulator", required=True,
+        choices=list(REGULATOR_CONFIGS.keys()),
+        help="Regulator to scrape",
+    )
+    parser.add_argument(
+        "--since",
+        type=lambda s: datetime.strptime(s, "%Y-%m-%d"),
+        default=None,
+        help="Only capture publications since this date (YYYY-MM-DD)",
+    )
+    parser.add_argument(
+        "--output",
+        type=Path,
+        default=None,
+        help="Output JSON file path",
+    )
+    args = parser.parse_args()
+
+    output_path = args.output
+    if not output_path:
+        ts = datetime.now().strftime("%Y%m%d")
+        output_path = DEFAULT_OUTPUT_DIR / f"{args.regulator}-{ts}.json"
+
+    scrape_regulator(args.regulator, args.since, output_path)
+
+
+if __name__ == "__main__":
+    main()
