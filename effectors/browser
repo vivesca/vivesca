@@ -18,7 +18,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path.home() / "germline"))
 
-from metabolon.organelles.browser import fetch
+import metabolon.organelles.browser as _browser_mod
 
 
 def build_parser() -> argparse.ArgumentParser:
