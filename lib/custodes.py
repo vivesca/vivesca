@@ -39,7 +39,9 @@ def _read_cache() -> dict[str, str]:
 
 def _write_cache(deps: dict[str, str]):
     _ensure_cache_dir()
-    CACHE_FILE.write_text(json.dumps(deps, indent=2))
+    tmp = CACHE_FILE.with_suffix(".json.tmp")
+    tmp.write_text(json.dumps(deps, indent=2))
+    tmp.replace(CACHE_FILE)
 
 
 def _diff(old: dict[str, str], new: dict[str, str]) -> dict[str, dict]:

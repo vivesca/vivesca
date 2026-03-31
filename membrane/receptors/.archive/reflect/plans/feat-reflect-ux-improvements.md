@@ -101,7 +101,7 @@ After applying updates, show confirmation:
 
 ### File Changes
 
-Single file: `/Users/terry/skills/reflect/SKILL.md`
+Single file: `~/skills/reflect/SKILL.md`
 
 ### Changes by Section
 
@@ -154,10 +154,10 @@ Only list items actually written. Skip this section if nothing was applied.
 
 | File | Change |
 |------|--------|
-| `/Users/terry/skills/reflect/SKILL.md` | Add nudge logic + confirmation step |
+| `~/skills/reflect/SKILL.md` | Add nudge logic + confirmation step |
 
 ## References
 
-- Current skill: `/Users/terry/skills/reflect/SKILL.md`
+- Current skill: `~/skills/reflect/SKILL.md`
 - Research: CLI confirmation patterns (Terraform, kubectl, git)
 - Pattern: Existing `AskUserQuestion` usage in Step 2

@@ -199,7 +199,7 @@ type: hemostasis-handoff
 {next_steps}
 """
 
-        path.write_text(content, encoding="utf-8")  # new file, atomic not needed
+        path.write_text(content, encoding="utf-8")
 
         return EffectorResult(
             success=True,

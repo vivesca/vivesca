@@ -135,7 +135,7 @@ For each link, confirm the target note exists. Fix broken links.
 
 ### 6. Save to Vault
 
-Save review to `/Users/terry/epigenome/chromatin/Vault Hygiene - YYYY-MM.md`
+Save review to `~/epigenome/chromatin/Vault Hygiene - YYYY-MM.md`
 
 ## Quick Version (15 min)
 

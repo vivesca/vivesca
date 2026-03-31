@@ -13,7 +13,7 @@ This skill allows the agent to interact with the web using **Computer Vision** a
 Invoke this skill when you need to perform a task that requires visual understanding of a website (e.g., clicking complex buttons, navigating non-standard UIs, or summarizing visual content).
 
 ```bash
-uv run /Users/terry/skills/visual-browser/browse.py "Find the latest AI news on TechCrunch and summarize the top 3 stories."
+uv run ~/skills/visual-browser/browse.py "Find the latest AI news on TechCrunch and summarize the top 3 stories."
 ```
 
 ## Capabilities

@@ -16,7 +16,7 @@ Use when:
 
 ## Inputs
 
-- **file_path**: Local path to file (e.g., `/Users/terry/Documents/resume.pdf`)
+- **file_path**: Local path to file (e.g., `~/Documents/resume.pdf`)
 - **target_element** (optional): Specific file input selector if multiple exist
 
 ## Workflow
@@ -100,7 +100,7 @@ Use when:
 ## Common File Paths
 
 - CV: Search for latest `Terry_Li_CV*.pdf` (location may change — check iCloud Drive, Downloads, or Desktop)
-- Notes: `/Users/terry/epigenome/chromatin/`
+- Notes: `~/epigenome/chromatin/`
 
 ## Limitations
 

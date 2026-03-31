@@ -23,13 +23,13 @@ Run these checks and present a concise status summary:
 ### 1. Current Task (always)
 
 ```bash
-cat /Users/terry/epigenome/chromatin/WORKING.md 2>/dev/null || echo "No WORKING.md found"
+cat ~/epigenome/chromatin/WORKING.md 2>/dev/null || echo "No WORKING.md found"
 ```
 
 ### 2. Pending Items (always)
 
 ```bash
-cat /Users/terry/epigenome/chromatin/Praxis.md 2>/dev/null | head -30
+cat ~/epigenome/chromatin/Praxis.md 2>/dev/null | head -30
 ```
 
 ### 3. Git Status (if in a git repo)
@@ -48,7 +48,7 @@ fi
 
 If the conversation involves job hunting, also glance at:
 ```bash
-head -50 "/Users/terry/epigenome/chromatin/Active Pipeline.md"
+head -50 "~/epigenome/chromatin/Active Pipeline.md"
 ```
 
 ## Output Format

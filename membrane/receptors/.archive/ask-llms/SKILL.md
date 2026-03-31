@@ -29,14 +29,14 @@ export OPENROUTER_API_KEY=sk-or-v1-...
 When questions contain personal information, mask before sending:
 
 ```bash
-cd /Users/terry/skills/pii-mask
+cd ~/skills/pii-mask
 masked=$(uv run mask.py "Question with personal details...")
 
-cd /Users/terry/skills/ask-llms
+cd ~/skills/ask-llms
 uv run council.py "$masked"
 ```
 
-Preview: `uv run mask.py --dry-run "your question"` — see `/Users/terry/skills/pii-mask/SKILL.md`
+Preview: `uv run mask.py --dry-run "your question"` — see `~/skills/pii-mask/SKILL.md`
 
 ## Instructions
 
@@ -48,7 +48,7 @@ Ask the user what question they want answered, or use the question they already 
 
 **Expensive mode (default)** — frontier models with thinking:
 ```bash
-cd /Users/terry/skills/ask-llms
+cd ~/skills/ask-llms
 uv run council.py "YOUR QUESTION HERE"
 ```
 
@@ -129,5 +129,5 @@ Stay in Claude Code if context is already built. Suggest OpenCode for new tasks 
 
 ## Files
 
-- Script: `/Users/terry/skills/ask-llms/council.py`
-- This skill: `/Users/terry/skills/ask-llms/SKILL.md`
+- Script: `~/skills/ask-llms/council.py`
+- This skill: `~/skills/ask-llms/SKILL.md`

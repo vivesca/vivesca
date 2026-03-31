@@ -82,7 +82,7 @@ Look for:
 
 ### 6. Daily Note Updates
 
-Activity worth logging in the daily note (`/Users/terry/epigenome/chromatin/YYYY-MM-DD.md`).
+Activity worth logging in the daily note (`~/epigenome/chromatin/YYYY-MM-DD.md`).
 
 Categories:
 - **Job search activity** — applications sent, responses received, interviews scheduled
@@ -144,8 +144,8 @@ Then use `AskUserQuestion` with options like:
 
 1. **CLAUDE.md mistakes** — Append to "Record Mistakes Here" section
 2. **CLAUDE.md preferences** — Add to relevant section
-3. **Daily note** — Create or update `/Users/terry/epigenome/chromatin/YYYY-MM-DD.md`
-4. **Skills** — Create/update in `/Users/terry/skills/`
+3. **Daily note** — Create or update `~/epigenome/chromatin/YYYY-MM-DD.md`
+4. **Skills** — Create/update in `~/skills/`
 5. **Follow-ups** — Add to daily note under "## Follow-ups"
 
 ### Step 3b: Confirm Changes
@@ -179,7 +179,7 @@ cd ~/skills && git add -A && git commit -m "Update skills from session reflectio
 
 ## Files
 
-- This skill: `/Users/terry/skills/reflect/SKILL.md`
-- CLAUDE.md: `/Users/terry/CLAUDE.md`
-- Daily notes: `/Users/terry/epigenome/chromatin/YYYY-MM-DD.md`
-- Skills: `/Users/terry/skills/`
+- This skill: `~/skills/reflect/SKILL.md`
+- CLAUDE.md: `~/CLAUDE.md`
+- Daily notes: `~/epigenome/chromatin/YYYY-MM-DD.md`
+- Skills: `~/skills/`

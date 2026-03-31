@@ -66,7 +66,7 @@ When delegating prompts that contain personal information, mask first:
 
 ```bash
 # Mask sensitive info before delegation
-cd /Users/terry/skills/pii-mask
+cd ~/skills/pii-mask
 masked=$(uv run mask.py "Prompt with terry@email.com and 6187 2354")
 
 # Then delegate the masked version
@@ -78,7 +78,7 @@ OPENCODE_HOME=~/.opencode-lean opencode run -m zhipuai-coding-plan/glm-4.7 --tit
 uv run mask.py --dry-run "Contact Terry at +852 6187 2354"
 ```
 
-See `/Users/terry/skills/pii-mask/SKILL.md` for details on what gets detected.
+See `~/skills/pii-mask/SKILL.md` for details on what gets detected.
 
 ## Prompt Engineering for Delegation
 

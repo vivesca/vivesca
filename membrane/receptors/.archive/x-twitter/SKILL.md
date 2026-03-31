@@ -103,7 +103,7 @@ bird returns structured output with:
 
 ## Integration with AI News Skill
 
-The `/ai-news` skill can use this for X account scanning in deep mode. Accounts are configured in `/Users/terry/skills/ai-news/sources.yaml`.
+The `/ai-news` skill can use this for X account scanning in deep mode. Accounts are configured in `~/skills/ai-news/sources.yaml`.
 
 ## Example Workflows
 

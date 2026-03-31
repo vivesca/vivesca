@@ -90,4 +90,4 @@ Options: No Selection, No, Yes
 
 ## Files
 
-- This skill: `/Users/terry/skills/successfactors/SKILL.md`
+- This skill: `~/skills/successfactors/SKILL.md`

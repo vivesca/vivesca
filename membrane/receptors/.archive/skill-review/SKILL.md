@@ -96,8 +96,8 @@ Confirm completion to the user.
 
 ## Files
 
-- This skill: `/Users/terry/.claude/skills/skill-review/SKILL.md`
-- Skills location: `/Users/terry/.claude/skills/`
+- This skill: `~/.claude/skills/skill-review/SKILL.md`
+- Skills location: `~/.claude/skills/`
 
 ## Reference
 

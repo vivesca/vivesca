@@ -246,15 +246,15 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 - [x] `golem --provider zhipu --max-turns 25 "Scan for ANY remaining /Users/terry hardcoded paths across entire repo. Fix ALL. Commit."`
 - [x] `golem --provider zhipu --max-turns 25 "Check ALL async functions for missing await calls. Fix. Commit."`
 - [x] `golem --provider zhipu --max-turns 25 "Verify ALL git hooks in .git/hooks/ still work. Remove broken ones. Commit."`
-- [ ] `golem --provider zhipu --max-turns 25 "Check ALL test fixtures clean up after themselves (temp files, env vars). Fix leaks. Commit."`
+- [x] `golem --provider zhipu --max-turns 25 "Check ALL test fixtures clean up after themselves (temp files, env vars). Fix leaks. Commit."`
 - [x] `golem --provider zhipu --max-turns 25 "Verify ALL pathlib usage is cross-platform (no hardcoded / separators). Fix. Commit." (retry)`
-- [ ] `golem --provider zhipu --max-turns 25 "Check ALL file writes use atomic write pattern (write to .tmp, rename). Fix critical ones. Commit."`
+- [!] `golem --provider zhipu --max-turns 25 "Check ALL file writes use atomic write pattern (write to .tmp, rename). Fix critical ones. Commit." (retry)`
 
 
 ### Post-batch synthesis (run after overnight batch drains)
 
 #### Synthesis — overnight output digest
-- [ ] `golem --provider zhipu --max-turns 50 "You are running after a mega batch of 900 golem tasks. Create a digest of everything produced overnight. (1) List all new files in ~/epigenome/chromatin/euchromatin/consulting/ — group by type (cards, deep-dives, case-studies, prep, regulatory). Count each. (2) List all new/modified files in ~/germline/assays/ — count new tests, fixed tests. (3) List all new/modified effectors in ~/germline/effectors/. (4) Run uv run pytest -q --tb=no --continue-on-collection-errors 2>&1 | tail -5 — record pass/fail. (5) Read golem summary stats from ~/.local/share/vivesca/golem.jsonl — pass/fail by provider. Write a structured morning digest to ~/epigenome/chromatin/euchromatin/consulting/overnight-digest.md. Include: what was produced, what worked, what failed, what needs human review."`
+- [!] `golem --provider zhipu --max-turns 50 "You are running after a mega batch of 900 golem tasks. Create a digest of everything produced overnight. (1) List all new files in ~/epigenome/chromatin/euchromatin/consulting/ — group by type (cards, deep-dives, case-studies, prep, regulatory). Count each. (2) List all new/modified files in ~/germline/assays/ — count new tests, fixed tests. (3) List all new/modified effectors in ~/germline/effectors/. (4) Run uv run pytest -q --tb=no --continue-on-collection-errors 2>&1 | tail -5 — record pass/fail. (5) Read golem summary stats from ~/.local/share/vivesca/golem.jsonl — pass/fail by provider. Write a structured morning digest to ~/epigenome/chromatin/euchromatin/consulting/overnight-digest.md. Include: what was produced, what worked, what failed, what needs human review." (retry)`
 
 #### Synthesis — consulting IP executive summary
 
@@ -270,7 +270,7 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 #### Process — endocytosis content → Capco prep
 
 #### Process — lustro financial articles
-- [ ] `golem --provider zhipu --full --max-turns 40 "Read files in ~/.cache/lustro-articles/ that contain keywords: bank, HSBC, fintech, regulation, compliance, risk. For each matching article: extract title + 1 key takeaway. Compile into: (1) Banking industry signals this week, (2) Technology trends affecting banks, (3) Regulatory developments. Write to ~/epigenome/chromatin/euchromatin/consulting/lustro-banking-signals.md."`
+- [x] `golem --provider zhipu --full --max-turns 40 "Read files in ~/.cache/lustro-articles/ that contain keywords: bank, HSBC, fintech, regulation, compliance, risk. For each matching article: extract title + 1 key takeaway. Compile into: (1) Banking industry signals this week, (2) Technology trends affecting banks, (3) Regulatory developments. Write to ~/epigenome/chromatin/euchromatin/consulting/lustro-banking-signals.md."`
 
 #### Process — lustro AI/tech articles
 

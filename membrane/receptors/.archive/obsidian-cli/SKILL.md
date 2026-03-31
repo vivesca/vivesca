@@ -21,7 +21,7 @@ For simple read/write operations, prefer direct file access (faster, no CLI over
 ## Prerequisites
 
 - `obsidian-cli` installed (`/opt/homebrew/bin/obsidian-cli`)
-- Default vault configured (Terry's vault: `/Users/terry/epigenome/chromatin`)
+- Default vault configured (Terry's vault: `~/epigenome/chromatin`)
 
 ## Commands
 

@@ -23,7 +23,7 @@ Use when:
 
 ### Step 1: Load Context
 
-Read `/Users/terry/epigenome/chromatin/Why leave CITIC.md` for the approved framing and principles.
+Read `~/epigenome/chromatin/Why leave CITIC.md` for the approved framing and principles.
 
 If file missing, ask Terry to briefly describe the situation.
 

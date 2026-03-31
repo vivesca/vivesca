@@ -475,8 +475,8 @@ Only proceed if you actually need:
 ## References
 
 ### Internal
-- Current implementation: `/Users/terry/skills/llm-council/council.py`
-- SKILL.md: `/Users/terry/skills/llm-council/SKILL.md`
+- Current implementation: `~/skills/llm-council/council.py`
+- SKILL.md: `~/skills/llm-council/SKILL.md`
 
 ### External
 - OpenRouter structured outputs: https://openrouter.ai/docs/guides/features/structured-outputs

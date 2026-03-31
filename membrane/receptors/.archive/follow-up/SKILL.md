@@ -29,7 +29,7 @@ Use when:
 ### 1. Check Vault for Status
 
 Read:
-- `/Users/terry/epigenome/chromatin/Job Hunting.md` — find the application or contact
+- `~/epigenome/chromatin/Job Hunting.md` — find the application or contact
 - Any related notes
 
 Gather:

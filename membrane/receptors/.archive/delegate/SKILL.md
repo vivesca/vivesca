@@ -131,7 +131,7 @@ This saves Claude tokens for work that actually needs orchestration and judgment
 
 ## Example
 
-> Delegated to Codex (`codex exec --full-auto`) for multi-file bugfix in `/Users/terry/skills`.
+> Delegated to Codex (`codex exec --full-auto`) for multi-file bugfix in `~/skills`.
 > Fallback not needed; session completed.
 > Verification: `pytest tests/test_delegate.py` passed, `git diff --stat` shows 3 files changed.
 

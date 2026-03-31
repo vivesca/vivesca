@@ -38,7 +38,7 @@ Mask personally identifiable information before sending prompts to external LLMs
 
 ```bash
 # Mask a prompt before delegation
-cd /Users/terry/skills/pii-mask
+cd ~/skills/pii-mask
 masked=$(uv run mask.py "My salary is 2.5M HKD, call me at 6187 2354")
 OPENCODE_HOME=~/.opencode-lean opencode run -m zhipuai-coding-plan/glm-5 --title "Task" "$masked"
 ```
@@ -112,5 +112,5 @@ HK-specific (custom patterns):
 
 ## Files
 
-- Script: `/Users/terry/skills/pii-mask/mask.py`
-- This skill: `/Users/terry/skills/pii-mask/SKILL.md`
+- Script: `~/skills/pii-mask/mask.py`
+- This skill: `~/skills/pii-mask/SKILL.md`
