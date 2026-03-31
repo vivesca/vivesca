@@ -4,6 +4,13 @@ description: Quarterly review — direction, finances, career. Mar/Jun/Sep/Dec. 
 user_invocable: true
 disable-model-invocation: true
 context: fork
+triggers:
+  - quarterly
+  - quarterly review
+  - q1 review
+  - q2 review
+  - q3 review
+  - q4 review
 ---
 
 # Quarterly Review
@@ -32,7 +39,7 @@ Update the note in-place — it's a live map, not a historical document.
 
 ### 2. Career trajectory
 
-Read `memory/user_career_north_star.md`. Check:
+Read `~/epigenome/marks/user_career_north_star.md`. Check:
 - Is this quarter's work building toward "real AI problems + sharp people who build"?
 - Flag drift — are you getting pulled into busywork, or staying on the sharp edge?
 - Any credential milestones hit or missed? (GARP, AIGP, ECF timeline)
