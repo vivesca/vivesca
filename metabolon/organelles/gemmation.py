@@ -7,8 +7,6 @@ Manages YAML queue at ~/epigenome/chromatin/agent-queue.yaml.
 Dispatches detached processes (claude, gemini, codex, opencode).
 """
 
-from __future__ import annotations
-
 import json
 import os
 import subprocess

@@ -19,7 +19,7 @@ def test_status_unreachable():
     """Test status when gemmule unreachable."""
     mock_status = MagicMock(return_value={"reachable": False})
     
-    with patch("metabolon.enzymes.mitosis.status", mock_status):
+    with patch("metabolon.organelles.mitosis.status", mock_status):
         result = mitosis(action="status")
     
     assert isinstance(result, Vital)
@@ -39,7 +39,7 @@ def test_status_stale_targets():
         }
     })
     
-    with patch("metabolon.enzymes.mitosis.status", mock_status):
+    with patch("metabolon.organelles.mitosis.status", mock_status):
         result = mitosis(action="status")
     
     assert isinstance(result, Vital)
@@ -59,7 +59,7 @@ def test_status_all_ok():
         }
     })
     
-    with patch("metabolon.enzymes.mitosis.status", mock_status):
+    with patch("metabolon.organelles.mitosis.status", mock_status):
         result = mitosis(action="status")
     
     assert isinstance(result, Vital)
@@ -91,7 +91,7 @@ def test_sync_success():
     
     mock_sync = MagicMock(return_value=mock_report)
     
-    with patch("metabolon.enzymes.mitosis.sync", mock_sync):
+    with patch("metabolon.organelles.mitosis.sync", mock_sync):
         result = mitosis(action="sync", targets=["germline", "epigenome"])
     
     mock_sync.assert_called_once_with(["germline", "epigenome"])
@@ -125,7 +125,7 @@ def test_sync_partial_failure():
     
     mock_sync = MagicMock(return_value=mock_report)
     
-    with patch("metabolon.enzymes.mitosis.sync", mock_sync):
+    with patch("metabolon.organelles.mitosis.sync", mock_sync):
         result = mitosis(action="sync")
     
     assert isinstance(result, EffectorResult)

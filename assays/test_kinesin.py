@@ -10,7 +10,7 @@ from metabolon.enzymes.kinesin import translocation, TranslocationResult, Effect
 
 def test_translocation_list_action():
     """list action calls list_tasks and returns TranslocationResult."""
-    with patch("metabolon.enzymes.kinesin.list_tasks") as mock_list:
+    with patch("metabolon.organelles.gemmation.list_tasks") as mock_list:
         mock_list.return_value = "task1\n task2"
 
         result = translocation(action="list")
@@ -22,7 +22,7 @@ def test_translocation_list_action():
 
 def test_translocation_run_action():
     """run action calls run_task with name and returns EffectorResult."""
-    with patch("metabolon.enzymes.kinesin.run_task") as mock_run:
+    with patch("metabolon.organelles.gemmation.run_task") as mock_run:
         mock_run.return_value = "Started task my-task"
 
         result = translocation(action="run", name="my-task")
@@ -35,7 +35,7 @@ def test_translocation_run_action():
 
 def test_translocation_cancel_action():
     """cancel action calls cancel_task with name and returns EffectorResult."""
-    with patch("metabolon.enzymes.kinesin.cancel_task") as mock_cancel:
+    with patch("metabolon.organelles.gemmation.cancel_task") as mock_cancel:
         mock_cancel.return_value = "Cancelled task my-task"
 
         result = translocation(action="cancel", name="my-task")
@@ -48,7 +48,7 @@ def test_translocation_cancel_action():
 
 def test_translocation_results_with_name():
     """results action calls get_results with specified name."""
-    with patch("metabolon.enzymes.kinesin.get_results") as mock_results:
+    with patch("metabolon.organelles.gemmation.get_results") as mock_results:
         mock_results.return_value = "Results for my-task"
 
         result = translocation(action="results", name="my-task")
@@ -60,7 +60,7 @@ def test_translocation_results_with_name():
 
 def test_translocation_results_without_name():
     """results action calls get_results with None when no name given."""
-    with patch("metabolon.enzymes.kinesin.get_results") as mock_results:
+    with patch("metabolon.organelles.gemmation.get_results") as mock_results:
         mock_results.return_value = "All results"
 
         result = translocation(action="results")
@@ -81,7 +81,7 @@ def test_translocation_unknown_action():
 
 def test_translocation_empty_name_not_required_for_list():
     """list action works even without name (ignored)."""
-    with patch("metabolon.enzymes.kinesin.list_tasks") as mock_list:
+    with patch("metabolon.organelles.gemmation.list_tasks") as mock_list:
         mock_list.return_value = ""
 
         result = translocation(action="list", name="")

@@ -15,8 +15,6 @@ Five-layer self-regulation:
 5. Pacing gate — combines all layers into a single go/no-go decision
 """
 
-from __future__ import annotations
-
 import contextlib
 import datetime
 import json
