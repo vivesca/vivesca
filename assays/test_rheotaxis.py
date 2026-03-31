@@ -181,20 +181,20 @@ def test_search_exa_error(mock_urlopen):
     assert "Network error" in result.error
 
 
-@patch("metabolon.organelles.rheotaxis_engine.search_perplexity")
-def test_parallel_search_single_backend(mock_search_p):
+@patch("metabolon.organelles.rheotaxis_engine._BACKENDS")
+def test_parallel_search_single_backend(mock_backends):
     """Test parallel_search with single backend."""
     mock_result = RheotaxisResult(backend="perplexity", query="test", results=[], answer="ok")
-    mock_search_p.return_value = mock_result
+    mock_search = MagicMock(return_value=mock_result)
+    mock_backends.__getitem__.side_effect = lambda key: mock_search if key == "perplexity" else None
+    mock_backends.__contains__.side_effect = lambda key: key == "perplexity"
 
     results = parallel_search("test query", backends=["perplexity"], depth="quick", timeout=20)
 
     assert len(results) == 1
     assert results[0].backend == "perplexity"
-    # Since it's called through ThreadPoolExecutor, just verify it was called
-    # with the correct arguments (order matters: query, timeout, depth)
-    assert mock_search_p.called
-    call_args = mock_search_p.call_args
+    assert mock_search.called
+    call_args = mock_search.call_args
     assert call_args[0][0] == "test query"
     assert call_args[0][1] == 20
     assert call_args[0][2] == "quick"
@@ -278,7 +278,8 @@ def test_rheotaxis_search_parses_backends():
 
     # Check that backends were parsed correctly
     call_args = mock_parallel.call_args
-    backends_arg = call_args[0][1]
+    # The arguments are keyword arguments, get from kwargs
+    backends_arg = call_args.kwargs['backends']
     assert backends_arg == ["perplexity", "exa", "tavily"]
 
 

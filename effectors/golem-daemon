@@ -491,16 +491,17 @@ def check_new_test_files_and_run_pytest() -> tuple[bool, str]:
 
 
 def auto_requeue(min_pending: int = 50) -> int:
-    """Generate new tasks when queue runs low. Returns count of tasks added."""
-    import os
+    """Generate diverse high-value tasks when queue runs low."""
+    import os, random
     pending = parse_queue()
     if len(pending) >= min_pending:
         return 0
 
     germline = Path.home() / "germline"
+    epigenome = Path.home() / "epigenome"
     tasks = []
     providers = ["zhipu", "infini", "volcano"]
-    pi = 0
+    pi = random.randint(0, 2)
 
     def add(prompt, turns=25):
         nonlocal pi
@@ -509,13 +510,28 @@ def auto_requeue(min_pending: int = 50) -> int:
         prompt = prompt.replace('"', '\\"')
         tasks.append(f'- [ ] `golem --provider {p} --max-turns {turns} "{prompt}"`')
 
-    # 1. Find untested modules
     existing_tests = set()
     assays = germline / "assays"
     if assays.exists():
         for f in assays.glob("test_*.py"):
             existing_tests.add(f.stem)
 
+    # === 1. Fix collection errors (highest priority) ===
+    add("Run uv run pytest --co -q 2>&1 | grep ERROR. Fix ALL collection errors. Common: hardcoded paths, bad imports, syntax. Run --co again until 0 errors. Commit.", turns=40)
+
+    # === 2. Fix failing tests (top 5 by failure count) ===
+    add("Run uv run pytest -q --tb=no --continue-on-collection-errors 2>&1 | grep FAILED | sed 's/::.*//g' | sort | uniq -c | sort -rn | head -5. For each of the top 5 failing test files: run pytest on it, read traceback, fix. Iterate until green. Commit.", turns=50)
+
+    # === 3. Effector health checks (random batch of 10) ===
+    effectors = sorted([f.name for f in (germline / "effectors").iterdir()
+        if f.is_file() and not f.name.startswith(".")
+        and f.suffix not in (".conf", ".plist", ".json", ".md")])
+    batch = random.sample(effectors, min(10, len(effectors)))
+    names = ", ".join(batch)
+    add(f"Health check: {names}. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit.", turns=30)
+
+    # === 4. Untested modules (random 5) ===
+    untested_mods = []
     for root, dirs, files in os.walk(str(germline / "metabolon")):
         dirs[:] = [d for d in dirs if d != "__pycache__"]
         for f in files:
@@ -523,51 +539,82 @@ def auto_requeue(min_pending: int = 50) -> int:
                 clean = f.replace(".py", "")
                 parent = Path(root).name
                 test_name = f"test_{parent}_{clean}" if parent != "metabolon" else f"test_{clean}"
-                if test_name not in existing_tests and len(tasks) < 30:
-                    add(f"Write tests for {os.path.join(root, f)}. Mock external calls. Run uv run pytest. Fix failures. Commit.", turns=30)
+                if test_name not in existing_tests:
+                    untested_mods.append(os.path.join(root, f))
+    for mod in random.sample(untested_mods, min(5, len(untested_mods))):
+        name = Path(mod).stem
+        parent = Path(mod).parent.name
+        tn = f"test_{parent}_{name}" if parent != "metabolon" else f"test_{name}"
+        add(f"Write tests for {mod}. Mock external calls. Write assays/{tn}.py. Run uv run pytest. Fix failures. Commit.", turns=30)
 
-    # 2. Find untested effectors
-    for f in sorted((germline / "effectors").iterdir()):
-        if f.is_file() and not f.name.startswith(".") and f.suffix not in (".conf", ".plist", ".json", ".md"):
-            clean = f.name.replace("-", "_").replace(".py", "")
-            if f"test_{clean}" not in existing_tests and len(tasks) < 60:
-                add(f"Write tests for effectors/{f.name}. Effectors are scripts — load via exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit.", turns=30)
+    # === 5. Untested effectors (random 5) ===
+    untested_eff = [e for e in effectors if f"test_{e.replace('-','_').replace('.py','')}" not in existing_tests]
+    for eff in random.sample(untested_eff, min(5, len(untested_eff))):
+        clean = eff.replace("-", "_").replace(".py", "")
+        add(f"Write tests for effectors/{eff}. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit.", turns=30)
 
-    # 3. Fix collection errors
-    if len(tasks) < 70:
-        add("Run uv run pytest --co -q 2>&1 | grep ERROR. Fix ALL collection errors. Common: hardcoded paths, bad imports, syntax. Run --co again until 0 errors.", turns=40)
-
-    # 4. System hardening
+    # === 6. System hardening (random 3) ===
     hardening = [
-        "Scan assays/ for hardcoded /Users/terry paths. Replace with Path.home(). Run pytest. Commit.",
-        "Find test files with SyntaxError (ast.parse fails). Fix syntax. Run pytest. Commit.",
-        "Run uv run pytest -q --tb=no --continue-on-collection-errors. Report pass/fail. Fix top 5 failures. Commit.",
+        "Scan assays/ for hardcoded /Users/terry paths. Replace with Path.home(). Commit.",
+        "Find test files with SyntaxError. Fix syntax. Commit.",
+        "Scan effectors/ for hardcoded paths. Fix with Path.home() or $HOME. Commit.",
+        "Check all effectors respond to --help without crashing. Fix crashers. Commit.",
+        "Find subprocess.run calls without timeout in effectors/. Add timeout=300. Commit.",
+        "Find Python files missing shebang in effectors/. Add #!/usr/bin/env python3. Commit.",
+        "Check all assays/test_*.py can be collected by pytest --co. Fix any that error. Commit.",
+        "Find unused imports in metabolon/**/*.py. Remove them. Commit.",
     ]
-    for h in hardening:
-        if len(tasks) < 80:
-            add(h, turns=30)
+    for h in random.sample(hardening, min(3, len(hardening))):
+        add(h, turns=25)
+
+    # === 7. Consulting IP (2 random topics) ===
+    consulting = [
+        "AI model risk management framework for banks — write a consulting brief with problem, approach, key considerations. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-model-risk-framework.md",
+        "Responsible AI governance checklist for financial institutions. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/responsible-ai-checklist.md",
+        "LLM deployment risks in banking — regulatory expectations vs reality. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/llm-deployment-risks.md",
+        "AI vendor due diligence questionnaire for banks. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-vendor-due-diligence.md",
+        "Board-level AI risk reporting template for banks. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/board-ai-risk-reporting.md",
+        "AI skills gap assessment for banking technology teams. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-skills-gap.md",
+        "GenAI policy template for bank employees. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/genai-policy-template.md",
+        "AI bias testing framework for credit decisioning. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-bias-testing.md",
+        "Data governance for AI/ML training data in banking. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/data-governance-ai.md",
+        "AI incident response playbook for financial services. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-incident-response.md",
+        "Cross-border AI regulation comparison — HK vs SG vs UK vs EU. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/cross-border-ai-regulation.md",
+        "AI audit methodology for internal audit teams. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-audit-methodology.md",
+    ]
+    for c in random.sample(consulting, min(2, len(consulting))):
+        add(f"Write a consulting insight card: {c}. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words.", turns=30)
+
+    # === 8. Effector enhancements (1 random) ===
+    enhancements = [
+        "Read effectors/golem-daemon. Add cmd_stats — show pass/fail/retry counts, avg duration by provider, tasks completed today. Usage: golem-daemon stats.",
+        "Read effectors/golem. Add --json flag that outputs result as JSON instead of raw text. Useful for piping.",
+        "Read effectors/golem-dash (if exists). Improve to show real-time task progress, ETA to drain.",
+        "Read effectors/golem-review (if exists). Enhance to also check consulting content quality (>200 words, proper structure).",
+    ]
+    add(random.choice(enhancements) + " Write tests. Run uv run pytest. Commit.", turns=35)
 
     if not tasks:
         return 0
 
-    # Append to queue file
     with QueueLock():
         lines = QUEUE_FILE.read_text().splitlines()
-        # Find insertion point (before Done section)
         insert_idx = len(lines)
         for i, line in enumerate(lines):
             if line.strip().startswith("## Done"):
                 insert_idx = i
                 break
-        header = f"\n### Auto-requeue ({len(tasks)} tasks)"
+        from datetime import datetime
+        ts = datetime.now().strftime("%H:%M")
+        header = f"\n### Auto-requeue ({len(tasks)} tasks @ {ts})"
         lines.insert(insert_idx, header)
-        for t in tasks:
-            insert_idx += 1
-            lines.insert(insert_idx, t)
+        for j, t in enumerate(tasks):
+            lines.insert(insert_idx + 1 + j, t)
         QUEUE_FILE.write_text("\n".join(lines) + "\n")
 
-    log(f"Auto-requeued {len(tasks)} tasks (queue was {len(pending)} pending)")
+    log(f"Auto-requeued {len(tasks)} diverse tasks (queue was {len(pending)} pending)")
     return len(tasks)
+
 
 def daemon_loop():
     """Main daemon loop: poll queue, run tasks, mark done."""
