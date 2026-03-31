@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""browser — CLI wrapper for headless page fetcher.
+"""browser — CLI wrapper around metabolon.organelles.browser.
 
 Usage:
-    browser fetch <url> [--cookies <file>] [--selector <css>]
-                        [--screenshot <path>] [--pdf <path>]
-                        [--wait <ms>] [--json]
+  browser fetch <url> [--cookies <file>] [--selector <css>]
+                      [--screenshot <path>] [--pdf <path>]
+                      [--wait <ms>] [--json]
 
-Outputs clean text to stdout.  Add --json for structured output.
+Outputs clean text to stdout.  Use --json for structured output.
 """
 from __future__ import annotations
 
@@ -14,96 +14,70 @@ import argparse
 import asyncio
 import json
 import sys
-from pathlib import Path
 
-sys.path.insert(0, str(Path.home() / "germline"))
-
-import metabolon.organelles.browser as _browser_mod
+from metabolon.organelles.browser import fetch as _async_fetch
 
 
 def build_parser() -> argparse.ArgumentParser:
-    """Build and return the argument parser."""
     parser = argparse.ArgumentParser(
         prog="browser",
-        description="Fetch web pages via headless Playwright",
+        description="Headless browser fetcher powered by Playwright",
     )
     sub = parser.add_subparsers(dest="command")
 
-    fp = sub.add_parser("fetch", help="Fetch a URL")
-    fp.add_argument("url", help="URL to fetch")
-    fp.add_argument("--cookies", default=None, help="Path to cookie JSON file")
-    fp.add_argument("--selector", default=None, help="CSS selector to extract")
-    fp.add_argument("--screenshot", default=None, help="Save PNG screenshot to path")
-    fp.add_argument("--pdf", default=None, help="Save PDF to path")
-    fp.add_argument("--wait", type=int, default=0, help="Wait N ms after load")
-    fp.add_argument("--json", action="store_true", dest="json_output",
-                     help="Output structured JSON")
+    fetch_p = sub.add_parser("fetch", help="Fetch a URL and extract text")
+    fetch_p.add_argument("url", help="URL to fetch")
+    fetch_p.add_argument("--cookies", default=None,
+                         help="Path to JSON cookie file")
+    fetch_p.add_argument("--selector", default=None,
+                         help="CSS selector to extract a subtree")
+    fetch_p.add_argument("--screenshot", default=None,
+                         help="Path to write a PNG screenshot")
+    fetch_p.add_argument("--pdf", default=None,
+                         help="Path to write a PDF")
+    fetch_p.add_argument("--wait", type=int, default=0,
+                         help="Milliseconds to wait after load")
+    fetch_p.add_argument("--json", action="store_true", dest="json_output",
+                         help="Output structured JSON instead of plain text")
 
     return parser
 
 
-def format_text(result: dict) -> str:
-    """Render a fetch result dict as human-readable text."""
-    parts: list[str] = []
-
-    body = result.get("text", "")
-    if body:
-        parts.append(body)
-
-    meta: list[str] = []
-    if result.get("title"):
-        meta.append(f"title: {result['title']}")
-    if result.get("url"):
-        meta.append(f"url: {result['url']}")
-    if result.get("status"):
-        meta.append(f"status: {result['status']}")
-
-    if meta:
-        parts.append("")
-        parts.append("---")
-        parts.extend(meta)
-
-    return "\n".join(parts)
-
-
-def format_json(result: dict) -> str:
-    """Render a fetch result dict as indented JSON."""
-    return json.dumps(result, indent=2, ensure_ascii=False)
-
-
-async def run_fetch(args: argparse.Namespace) -> int:
-    """Execute the fetch subcommand and print output."""
-    result = await fetch(
+def run_fetch(args: argparse.Namespace) -> dict:
+    """Run the async fetch and return the result dict."""
+    return asyncio.run(_async_fetch(
         args.url,
         cookies=args.cookies,
         selector=args.selector,
         screenshot=args.screenshot,
         pdf=args.pdf,
         wait=args.wait,
-    )
-
-    if getattr(args, "json_output", False):
-        print(format_json(result))
-    else:
-        print(format_text(result))
-
-    return 0
+    ))
 
 
-def main(argv: list[str] | None = None) -> int:
-    """Entry point.  Returns exit code."""
+def main(argv: list[str] | None = None) -> None:
     parser = build_parser()
     args = parser.parse_args(argv)
 
     if args.command is None:
-        parser.print_help(sys.stderr)
-        return 1
+        parser.print_help()
+        sys.exit(1)
 
     if args.command == "fetch":
-        return asyncio.run(run_fetch(args))
+        try:
+            result = run_fetch(args)
+        except Exception as exc:
+            print(f"Error: {exc}", file=sys.stderr)
+            sys.exit(1)
 
-    return 1
+        if args.json_output:
+            print(json.dumps(result, indent=2))
+        else:
+            print(result["text"])
+    else:
+        parser.print_help()
+        sys.exit(1)
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    main()

@@ -14,19 +14,19 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 # Load effector via exec (effectors are scripts, not importable packages)
+# Use the module's own __dict__ as exec namespace so patching the module
+# attribute is visible to the exec'd functions' globals.
 _effector_path = Path(__file__).parent.parent / "effectors" / "browser"
-_ns: dict = {"__name__": "effectors.browser", "__file__": str(_effector_path)}
-exec(open(_effector_path).read(), _ns)  # noqa: S102
-
-# Register as a real module so @patch("effectors.browser.fetch") works
 _mod = types.ModuleType("effectors.browser")
-_mod.__dict__.update(_ns)
+_mod.__file__ = str(_effector_path)
+_mod.__name__ = "effectors.browser"
 sys.modules["effectors.browser"] = _mod
+exec(open(_effector_path).read(), _mod.__dict__)  # noqa: S102
 
-main = _ns["main"]
-build_parser = _ns["build_parser"]
-format_text = _ns["format_text"]
-format_json = _ns["format_json"]
+main = _mod.__dict__["main"]
+build_parser = _mod.__dict__["build_parser"]
+format_text = _mod.__dict__["format_text"]
+format_json = _mod.__dict__["format_json"]
 
 
 # ---------------------------------------------------------------------------
