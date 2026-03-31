@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """Shared helpers for invoking external CLI organelles and LLM calls from tools."""
 
 import os
@@ -16,7 +18,6 @@ def invoke_organelle(
     stdin_text: str | None = None,
 ) -> str:
     """Invoke an external CLI organelle, return stdout, raise ValueError on failure."""
-from __future__ import annotations
 
     path = os.path.expanduser(binary)
     # Resolve via PATH if not an absolute/relative path

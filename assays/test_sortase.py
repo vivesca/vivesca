@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+from __future__ import annotations
+
 """Tests for effectors/sortase — thin wrapper for metabolon.sortase.cli."""
 
 import subprocess
@@ -17,7 +19,6 @@ SORTASE_PATH = Path(__file__).resolve().parents[1] / "effectors" / "sortase"
 class TestSortaseBasics:
     def test_file_exists(self):
         """Test that sortase effector file exists."""
-from __future__ import annotations
 
         assert SORTASE_PATH.exists()
         assert SORTASE_PATH.is_file()

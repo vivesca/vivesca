@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 """Prompt templates for common agent workflows.
 
 Prompts:

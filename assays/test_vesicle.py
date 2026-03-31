@@ -5,6 +5,8 @@ vesicle is identical to publish (same script). Tests cover the same logic
 loaded via the vesicle path. Uses exec() — never imports.
 """
 
+from __future__ import annotations
+
 import re
 import sys
 from datetime import UTC, datetime

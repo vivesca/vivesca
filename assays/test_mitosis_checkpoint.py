@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Tests for mitosis-checkpoint.py effector."""
 
+from __future__ import annotations
+
 import pytest
 import sys
 from unittest.mock import MagicMock, patch

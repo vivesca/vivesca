@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """effector — run CLI binaries from MCP tool handlers."""
 
 import os
@@ -11,7 +13,6 @@ def run_cli(
     stdin_text: str | None = None,
 ) -> str:
     """Run a CLI binary, return stdout, raise ValueError on failure."""
-from __future__ import annotations
 
     path = os.path.expanduser(binary)
     try:

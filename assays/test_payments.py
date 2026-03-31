@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """Tests for metabolon.respirometry.payments."""
 
 from datetime import datetime
@@ -18,7 +20,6 @@ from metabolon.respirometry.payments import (
 class TestRestorePersistPayments:
     """Tests for restore_payments and persist_payments."""
 
-from __future__ import annotations
 
     def test_restore_nonexistent_returns_empty(self) -> None:
         """Non-existent file returns empty list."""

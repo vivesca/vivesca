@@ -5,6 +5,8 @@ cost estimation, failure classification, tool chain, status bookkeeping,
 git worktree helpers, and async execute_task / execute_tasks orchestration.
 """
 
+from __future__ import annotations
+
 import json
 import os
 from pathlib import Path

@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Tests for channel effector — mocks all external subprocess calls."""
 
+from __future__ import annotations
+
 import pytest
 import subprocess
 from unittest.mock import MagicMock, patch, call

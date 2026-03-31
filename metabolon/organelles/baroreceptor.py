@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """baroreceptor — HK Observatory environmental sensor (baroreceptor = pressure sensor)."""
 
 import json
@@ -147,7 +149,6 @@ def build_weather_line(now: dict, fnd: dict, warn: dict) -> str:
 
 def sense() -> str:
     """Fetch current HK weather and return a one-line summary."""
-from __future__ import annotations
 
     now = _fetch_json(NOW_URL)
     fnd = _fetch_json(FND_URL)

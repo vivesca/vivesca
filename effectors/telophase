@@ -666,26 +666,31 @@ def main():
     )
     sub = parser.add_subparsers(dest="command")
 
+    # Shared format flag
+    fmt = argparse.ArgumentParser(add_help=False)
+    fmt.add_argument("--format", choices=["text", "json"], default="text",
+                      help="Output format (default: text)")
+
     # gather
-    g = sub.add_parser("gather", help="Run all pre-wrap checks")
+    g = sub.add_parser("gather", parents=[fmt], help="Run all pre-wrap checks")
     g.add_argument("--syntactic", action="store_true", help="JSON output (for code)")
     g.add_argument("--perceptual", action="store_true", help="Pretty terminal output")
     g.add_argument("--repos", type=str, help="Extra repo paths (comma-separated)")
 
     # archive
-    sub.add_parser("archive", help="Move completed items to archive")
+    sub.add_parser("archive", parents=[fmt], help="Move completed items to archive")
 
     # daily
-    d = sub.add_parser("daily", help="Append session log template")
+    d = sub.add_parser("daily", parents=[fmt], help="Append session log template")
     d.add_argument("title", nargs="?", default=None, help="Session title")
 
     # reflect
-    rf = sub.add_parser("reflect", help="Scan transcript for reflection candidates")
+    rf = sub.add_parser("reflect", parents=[fmt], help="Scan transcript for reflection candidates")
     rf.add_argument("session", help="Session ID (prefix match for anam)")
     rf.add_argument("--json", action="store_true", help="JSON output")
 
     # extract
-    ex = sub.add_parser("extract", help="Review candidates, recommend filings")
+    ex = sub.add_parser("extract", parents=[fmt], help="Review candidates, recommend filings")
     ex.add_argument("--input", type=str, help="Path to gather JSON (default: stdin)")
 
     args = parser.parse_args()

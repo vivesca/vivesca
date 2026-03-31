@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Tests for effectors/sarcio — symlink to sarcio tool."""
 
+from __future__ import annotations
+
 import subprocess
 import sys
 from pathlib import Path

@@ -1,5 +1,7 @@
 """Tests for metabolon/lysin/fetch.py - biology article fetching."""
 
+from __future__ import annotations
+
 import re
 from unittest.mock import MagicMock, patch
 

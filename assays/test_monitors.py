@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """Tests for metabolon.respirometry.monitors."""
 
 from metabolon.respirometry.schema import ConsumptionEvent
@@ -12,7 +14,6 @@ from metabolon.respirometry.monitors import (
 
 def make_event(date: str, merchant: str, category: str, hkd: float) -> ConsumptionEvent:
     """Helper to make test ConsumptionEvent."""
-from __future__ import annotations
 
     return ConsumptionEvent(
         date=date,

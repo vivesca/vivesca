@@ -200,14 +200,14 @@ class TestRunBackend:
         original_env = os.environ.get("CLAUDECODE")
         os.environ["CLAUDECODE"] = "1"
 
-        with patch.object(pe["subprocess"], "run", mock_run):
-            pe["run_backend"](backend, project, str(prompt_file), output_file)
-
-        # Restore env
-        if original_env is not None:
-            os.environ["CLAUDECODE"] = original_env
-        else:
-            del os.environ["CLAUDECODE"]
+        try:
+            with patch.object(pe["subprocess"], "run", mock_run):
+                pe["run_backend"](backend, project, str(prompt_file), output_file)
+        finally:
+            if original_env is not None:
+                os.environ["CLAUDECODE"] = original_env
+            else:
+                os.environ.pop("CLAUDECODE", None)
 
         assert "CLAUDECODE" not in captured_env
 

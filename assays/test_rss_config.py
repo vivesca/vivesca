@@ -30,9 +30,11 @@ def test_expand_path_resolves_relative():
 def test_expand_env_vars_expands_dollar():
     """Test _expand_env_vars expands ${VAR} references."""
     os.environ["TEST_VAR"] = "test_value"
-    result = _expand_env_vars("prefix_${TEST_VAR}_suffix")
-    assert result == "prefix_test_value_suffix"
-    del os.environ["TEST_VAR"]
+    try:
+        result = _expand_env_vars("prefix_${TEST_VAR}_suffix")
+        assert result == "prefix_test_value_suffix"
+    finally:
+        os.environ.pop("TEST_VAR", None)
 
 
 def test_expand_env_vars_no_match():

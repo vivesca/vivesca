@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """Tests for metabolon/lysin/format.py - BioArticle formatting."""
 
 import json
@@ -11,7 +13,6 @@ from metabolon.lysin.format import format_text, format_json
 
 def make_article(**kwargs) -> BioArticle:
     """Create a test BioArticle with defaults."""
-from __future__ import annotations
 
     defaults = {
         "title": "Test Article",

@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Tests for respirometry effector cost tracking functionality."""
 
+from __future__ import annotations
+
 import json
 import tempfile
 from datetime import datetime, timedelta, timezone

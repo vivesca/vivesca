@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Tests for overnight-gather effector — mocks all external file I/O."""
 
+from __future__ import annotations
+
 import json
 import pytest
 from unittest.mock import MagicMock, patch, PropertyMock

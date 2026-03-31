@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """vivesca add — add components to an existing project."""
 
 from pathlib import Path
@@ -13,7 +15,6 @@ _env = Environment(
 
 def _detect_module(project_dir: Path) -> str:
     """Detect the Python module name from project structure."""
-from __future__ import annotations
 
     src = project_dir / "src"
     if not src.exists():

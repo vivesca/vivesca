@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Tests for taste-score effector."""
 
+from __future__ import annotations
+
 import pytest
 import os
 from unittest.mock import MagicMock, patch

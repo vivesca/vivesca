@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Tests for cg effector — GLM-5.1 Claude Code wrapper via ZhipuAI."""
 
+from __future__ import annotations
+
 import os
 import stat
 import subprocess

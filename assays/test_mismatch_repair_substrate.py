@@ -1,5 +1,7 @@
 """Tests for AnamScanSubstrate (mismatch_repair)."""
 
+from __future__ import annotations
+
 import subprocess
 from unittest.mock import patch, MagicMock
 from metabolon.metabolism.substrates.mismatch_repair import AnamScanSubstrate, _run

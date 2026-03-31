@@ -523,10 +523,12 @@ class TestWriteDbWithMockedIO:
             tmp = Path(f.name)
         mock_path.return_value = tmp
         data: dict = {"re": [], "mt": {"ts": 0}, "dl": {}}
-        with patch.object(moneo, "now_ts", return_value=5555555):
-            moneo.write_db(data)
-        assert data["mt"]["ts"] == 5555555
-        tmp.unlink(missing_ok=True)
+        try:
+            with patch.object(moneo, "now_ts", return_value=5555555):
+                moneo.write_db(data)
+            assert data["mt"]["ts"] == 5555555
+        finally:
+            tmp.unlink(missing_ok=True)
 
 
 class TestHomeDir:

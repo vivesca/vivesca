@@ -1,5 +1,7 @@
 """Tests for effectors/poiesis — search Capco vault notes by keyword."""
 
+from __future__ import annotations
+
 import importlib.util
 from importlib.machinery import SourceFileLoader
 from pathlib import Path

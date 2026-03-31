@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """Tests for metabolon.respirometry.detect."""
 
 from metabolon.respirometry.detect import filename_matches, identify_bank
@@ -6,7 +8,6 @@ from metabolon.respirometry.detect import filename_matches, identify_bank
 class TestFilenameMatches:
     """Tests for filename_matches."""
 
-from __future__ import annotations
 
     def test_mox_filename_matches(self) -> None:
         """Mox statement filename matches."""

@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Tests for bud effector — lightweight agent dispatch tests."""
 
+from __future__ import annotations
+
 import pytest
 import subprocess
 import sys

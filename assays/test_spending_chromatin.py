@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """Tests for chromatin writing, PDF archival, and deduplication."""
 
 from metabolon.respirometry.schema import ConsumptionEvent, RespirogramMeta
@@ -94,7 +96,6 @@ def test_dedup_multiple(tmp_path):
 
 def test_monthly_summary_single_card(tmp_path):
     """Generate summary from one statement file."""
-from __future__ import annotations
 
     md = tmp_path / "2025-01-mox.md"
     md.write_text(

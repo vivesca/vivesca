@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """Tests for effectors/nightly — system health dashboard + flywheel report."""
 
 import contextlib
@@ -21,7 +23,6 @@ exec(_NIGHTLY_CODE, _mod)
 
 class _M:
     """Proxy that reads/writes the exec'd module dict."""
-from __future__ import annotations
 
     def __getattr__(self, name):
         return _mod[name]

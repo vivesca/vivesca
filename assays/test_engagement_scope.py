@@ -1,4 +1,7 @@
 """Tests for engagement scoping tool."""
+
+from __future__ import annotations
+
 import pytest
 
 SAMPLE_RFP = """

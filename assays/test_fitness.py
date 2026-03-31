@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """Tests for fitness computation."""
 
 import pytest
@@ -63,7 +65,6 @@ def test_empty_signals():
 
 def test_minimum_signal_threshold():
     """Tools with < min_stimuli get valence=None."""
-from __future__ import annotations
 
     signals = [_signal("t", "success"), _signal("t", "success")]
     result = sense_affect(signals, min_stimuli=3)

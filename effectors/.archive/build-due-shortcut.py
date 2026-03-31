@@ -6,6 +6,8 @@ Usage: python3 ~/germline/effectors/build-due-shortcut.py
 Then: open ~/germline/effectors/DueAddRecurring.shortcut → click "Add Shortcut"
 """
 
+from __future__ import annotations
+
 import os
 import plistlib
 import subprocess

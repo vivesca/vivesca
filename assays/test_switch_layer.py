@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Tests for switch-layer effector — tests layer switching and vocabulary management."""
 
+from __future__ import annotations
+
 import pytest
 import sys
 import os

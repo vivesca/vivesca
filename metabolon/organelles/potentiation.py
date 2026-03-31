@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """potentiation — spaced repetition engine (potentiation = LTP, learning via timed stimulation)."""
 
 # GARP RAI spaced repetition: FSRS scheduling, tracker markdown, session planning.
@@ -102,7 +104,6 @@ _AGAIN, _HARD, _GOOD, _EASY = 1, 2, 3, 4
 
 def _fsrs_forgetting_curve(elapsed_days: float, stability: float) -> float:
     """Retrieve-ability after elapsed_days given stability."""
-from __future__ import annotations
 
     if stability <= 0:
         return 0.0

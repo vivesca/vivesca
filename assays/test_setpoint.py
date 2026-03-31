@@ -1,5 +1,7 @@
 """Tests for autonomic thresholds."""
 
+from __future__ import annotations
+
 import pytest
 
 from metabolon.metabolism.setpoint import Threshold

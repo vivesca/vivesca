@@ -1,5 +1,7 @@
 """Tests for HSBC Visa Signature statement parser."""
 
+from __future__ import annotations
+
 from pathlib import Path
 
 import pytest

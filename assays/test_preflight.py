@@ -1,4 +1,7 @@
 """Tests for preflight health validator."""
+
+from __future__ import annotations
+
 from unittest.mock import patch, MagicMock
 from pathlib import Path
 import time

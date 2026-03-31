@@ -1,4 +1,7 @@
 """Tests for relevance.py"""
+
+from __future__ import annotations
+
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 import tempfile

@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+from __future__ import annotations
+
 """Tests for effectors/hkicpa — HKICPA LMS auto-login script."""
 
 import subprocess
@@ -17,7 +19,6 @@ HKICPA_PATH = Path(__file__).resolve().parents[1] / "effectors" / "hkicpa"
 class TestHkicpaBasics:
     def test_file_exists(self):
         """Test that hkicpa effector file exists."""
-from __future__ import annotations
 
         assert HKICPA_PATH.exists()
         assert HKICPA_PATH.is_file()

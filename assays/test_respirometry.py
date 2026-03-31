@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Tests for respirometry effector — mocks all external file I/O and API calls."""
 
+from __future__ import annotations
+
 import json
 import pytest
 import subprocess

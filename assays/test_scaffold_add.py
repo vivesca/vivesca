@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """Tests for vivesca add commands."""
 
 from pathlib import Path
@@ -7,7 +9,6 @@ from metabolon.gastrulation.init import scaffold_project
 
 def _make_project(tmp_path: Path) -> Path:
     """Helper: scaffold a project for testing add commands."""
-from __future__ import annotations
 
     target = tmp_path / "myserver"
     scaffold_project("myserver", target=target, description="Test server")

@@ -5,6 +5,8 @@ Uses exec() to load the script (never imports). Mocks filesystem paths
 and subprocess calls.
 """
 
+from __future__ import annotations
+
 import re
 import sys
 from datetime import UTC, datetime

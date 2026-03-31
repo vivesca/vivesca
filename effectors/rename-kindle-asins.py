@@ -6,6 +6,8 @@ Run after overnight queue extraction.
 Usage: python3 rename-kindle-asins.py [--dry-run]
 """
 
+from __future__ import annotations
+
 import argparse
 import sys
 from pathlib import Path

@@ -65,15 +65,15 @@ def test_load_keychain_env_skips_already_set():
     original_env = os.environ.copy()
     os.environ["ANTHROPIC_API_KEY"] = "already-set"
 
-    with patch.object(importin, 'get_keychain_value') as mock_get:
-        mock_get.return_value = "should-not-overwrite"
-        loaded = importin.load_keychain_env()
-        assert "ANTHROPIC_API_KEY" not in loaded
-        assert os.environ["ANTHROPIC_API_KEY"] == "already-set"
-
-    # Restore env
-    os.environ.clear()
-    os.environ.update(original_env)
+    try:
+        with patch.object(importin, 'get_keychain_value') as mock_get:
+            mock_get.return_value = "should-not-overwrite"
+            loaded = importin.load_keychain_env()
+            assert "ANTHROPIC_API_KEY" not in loaded
+            assert os.environ["ANTHROPIC_API_KEY"] == "already-set"
+    finally:
+        os.environ.clear()
+        os.environ.update(original_env)
 
 
 def test_load_keychain_env_adds_values_not_set():

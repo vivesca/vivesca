@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Tests for replisome effector — multi-model deliberation with LangGraph."""
 
+from __future__ import annotations
+
 import subprocess
 import types
 from unittest.mock import MagicMock, patch, mock_open

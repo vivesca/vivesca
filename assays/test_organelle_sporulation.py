@@ -666,3 +666,115 @@ def test_full_workflow(tmp_path, monkeypatch):
     # Catalog
     cat_result = catalog()
     assert cat_result["indexed"] == 1
+
+
+# ── list_checkpoints tests ─────────────────────────────────────────────
+
+
+def test_list_checkpoints_empty_directory(tmp_path, monkeypatch):
+    """list_checkpoints returns empty list when checkpoint dir is empty."""
+    monkeypatch.setattr(
+        "metabolon.organelles.sporulation.CHECKPOINT_DIR", tmp_path
+    )
+    result = list_checkpoints()
+    assert result == []
+
+
+def test_list_checkpoints_nonexistent_directory(tmp_path, monkeypatch):
+    """list_checkpoints returns empty list when checkpoint dir doesn't exist."""
+    nonexistent = tmp_path / "no_such_dir"
+    monkeypatch.setattr(
+        "metabolon.organelles.sporulation.CHECKPOINT_DIR", nonexistent
+    )
+    result = list_checkpoints()
+    assert result == []
+
+
+def test_list_checkpoints_lists_checkpoints(tmp_path, monkeypatch):
+    """list_checkpoints lists saved checkpoints with metadata."""
+    monkeypatch.setattr(
+        "metabolon.organelles.sporulation.CHECKPOINT_DIR", tmp_path
+    )
+    # Create a checkpoint file matching the enzyme's format
+    content = """---
+name: bold-fox checkpoint
+description: Resume point for fixing the blog sync (2025-03-30 ~14:30 HKT)
+type: project
+---
+
+## Context
+Working on blog sync.
+
+## Where we left off
+Finished the sync script.
+
+## Action needed
+1. Test the deploy.
+2. Verify the URL.
+"""
+    (tmp_path / "checkpoint_bold-fox.md").write_text(content)
+
+    result = list_checkpoints()
+    assert len(result) == 1
+    cp = result[0]
+    assert cp["codename"] == "bold-fox"
+    assert "Resume point" in cp["description"]
+    assert "date" in cp
+    assert "age_days" in cp
+    assert isinstance(cp["age_days"], float)
+
+
+def test_list_checkpoints_multiple_sorted_by_age(tmp_path, monkeypatch):
+    """list_checkpoints returns checkpoints sorted most recent first."""
+    monkeypatch.setattr(
+        "metabolon.organelles.sporulation.CHECKPOINT_DIR", tmp_path
+    )
+    import time
+
+    # Create two checkpoints with different mtimes
+    cp1 = tmp_path / "checkpoint_swift-owl.md"
+    cp1.write_text("---\nname: swift-owl checkpoint\ndescription: Older checkpoint\ntype: project\n---\nBody")
+    # Ensure different mtime
+    time.sleep(0.05)
+    cp2 = tmp_path / "checkpoint_calm-bee.md"
+    cp2.write_text("---\nname: calm-bee checkpoint\ndescription: Newer checkpoint\ntype: project\n---\nBody")
+
+    result = list_checkpoints()
+    assert len(result) == 2
+    # Most recent first (lower age_days)
+    assert result[0]["codename"] == "calm-bee"
+    assert result[0]["age_days"] <= result[1]["age_days"]
+
+
+def test_list_checkpoints_ignores_non_checkpoint_files(tmp_path, monkeypatch):
+    """list_checkpoints only reads checkpoint_*.md files."""
+    monkeypatch.setattr(
+        "metabolon.organelles.sporulation.CHECKPOINT_DIR", tmp_path
+    )
+    (tmp_path / "random-file.md").write_text("not a checkpoint")
+    (tmp_path / "checkpoint_warm-elk.md").write_text(
+        "---\nname: warm-elk checkpoint\ndescription: A checkpoint\ntype: project\n---\nBody"
+    )
+
+    result = list_checkpoints()
+    assert len(result) == 1
+    assert result[0]["codename"] == "warm-elk"
+
+
+def test_list_checkpoints_date_format(tmp_path, monkeypatch):
+    """list_checkpoints date field is in YYYY-MM-DD HH:MM UTC format."""
+    monkeypatch.setattr(
+        "metabolon.organelles.sporulation.CHECKPOINT_DIR", tmp_path
+    )
+    (tmp_path / "checkpoint_keen-arc.md").write_text(
+        "---\nname: keen-arc checkpoint\ndescription: Test\ntype: project\n---\nBody"
+    )
+
+    result = list_checkpoints()
+    assert len(result) == 1
+    date = result[0]["date"]
+    # Should match "YYYY-MM-DD HH:MM UTC"
+    assert date.endswith(" UTC")
+    parts = date.replace(" UTC", "").split(" ")
+    assert len(parts[0]) == 10  # YYYY-MM-DD
+    assert len(parts[1]) == 5   # HH:MM

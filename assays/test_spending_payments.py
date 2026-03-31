@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """Tests for payment tracking -- pending payments, overdue checks, confirm flow."""
 
 from datetime import datetime, timedelta, timezone
@@ -262,7 +264,6 @@ class TestCheckMissingStatements:
 class TestConfirmPaymentTool:
     def test_confirm_removes_entry(self, tmp_path):
         """Integration test: confirm_payment via the tool removes from file."""
-from __future__ import annotations
 
         pf = tmp_path / "payments.yaml"
         _write_payments(

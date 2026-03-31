@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Tests for methylation effector — mocks all external file I/O and subprocess."""
 
+from __future__ import annotations
+
 import json
 import pytest
 import subprocess

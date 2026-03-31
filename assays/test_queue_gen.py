@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """Tests for queue-gen effector."""
 
 import subprocess
@@ -7,7 +9,6 @@ from pathlib import Path
 
 def run_queue_gen(args: list[str]) -> subprocess.CompletedProcess:
     """Run queue-gen with given arguments."""
-from __future__ import annotations
 
     return subprocess.run(
         [Path.home() / "germline" / "effectors" / "queue-gen"] + args,

@@ -1,5 +1,7 @@
 """Tests for effectors/lacuna - Regulatory Gap Analysis CLI."""
 
+from __future__ import annotations
+
 import os
 import re
 from unittest.mock import patch, MagicMock, Mock

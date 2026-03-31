@@ -1,5 +1,7 @@
 """Tests for cytosol shared helpers."""
 
+from __future__ import annotations
+
 import subprocess
 from unittest.mock import patch, MagicMock
 from metabolon.cytosol import invoke_organelle, synthesize, VIVESCA_ROOT

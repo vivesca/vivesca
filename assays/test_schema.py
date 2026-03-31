@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """Tests for metabolon.respirometry.schema."""
 
 from metabolon.respirometry.schema import ConsumptionEvent, RespirogramMeta
@@ -6,7 +8,6 @@ from metabolon.respirometry.schema import ConsumptionEvent, RespirogramMeta
 class TestConsumptionEvent:
     """Tests for the ConsumptionEvent dataclass."""
 
-from __future__ import annotations
 
     def test_create_basic_event(self) -> None:
         """Test creating a basic ConsumptionEvent."""

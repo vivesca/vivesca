@@ -1,5 +1,7 @@
 """Tests for metabolon.pathways.overnight — overnight metabolism pipeline."""
 
+from __future__ import annotations
+
 import json
 import os
 import subprocess

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """vivesca init — scaffold a new MCP server project."""
 
 from pathlib import Path
@@ -13,7 +15,6 @@ _env = Environment(
 
 def _to_module(name: str) -> str:
     """Convert project name to valid Python module name."""
-from __future__ import annotations
 
     return name.replace("-", "_")
 
