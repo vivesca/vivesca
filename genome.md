@@ -84,10 +84,10 @@ Epistemics library: `~/epigenome/chromatin/euchromatin/epistemics/`. Each file h
 
 ## Knowledge Architecture
 
-Three layers, each with clear promotion/demotion criteria:
-- **Genome** (every session) — facts, values, constraints. Universal, non-derivable.
+Three layers. Promotion test: "does every future session need this, regardless of task?"
+- **Genome** (every session) — facts, values, constraints. Universal, non-derivable. **Promote here when:** a correction applies to all work, not one domain. If it's a meta-rule (how to think), a hard constraint (never do X), or a value (prefer X over Y) — it's genome.
 - **Epistemics** (per-situation grep) — frameworks, lessons, methodology. Situation-tagged.
-- **Memory** (when relevant) — incident-specific, project-specific. Path-scoped → `.claude/rules/`. Gotchas → `MEMORY.md`.
+- **Memory** (when relevant) — incident-specific, project-specific. Path-scoped → `.claude/rules/`. Gotchas → `MEMORY.md`. **Demote from here when:** the lesson generalises beyond its origin domain — promote to genome or codify into a skill.
 
 
 ## Autonomy
