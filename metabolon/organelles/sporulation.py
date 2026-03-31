@@ -223,6 +223,46 @@ def propagate_site() -> dict:
     return {"pushed": True, "url": "https://terryli.hm"}
 
 
+def list_checkpoints() -> list[dict]:
+    """List all saved checkpoints with dates.
+
+    Reads checkpoint files from CHECKPOINT_DIR and returns metadata
+    including codename, description, file mtime date, and age in days.
+
+    Returns:
+        [{"codename": "...", "description": "...", "date": "YYYY-MM-DD HH:MM", "age_days": float}, ...]
+        Sorted by date, most recent first. Empty list if no checkpoints.
+    """
+    if not CHECKPOINT_DIR.exists():
+        return []
+
+    checkpoints: list[dict] = []
+    for p in sorted(CHECKPOINT_DIR.glob("checkpoint_*.md")):
+        codename = p.stem[len("checkpoint_"):]
+        desc = ""
+        try:
+            for line in p.read_text().splitlines():
+                if line.startswith("description:"):
+                    desc = line.split(":", 1)[1].strip()
+                    break
+        except OSError:
+            pass
+        mtime = p.stat().st_mtime
+        date_str = datetime.fromtimestamp(mtime, tz=UTC).strftime("%Y-%m-%d %H:%M UTC")
+        age_days = round((datetime.now(UTC).timestamp() - mtime) / 86400, 1)
+        checkpoints.append(
+            {
+                "codename": codename,
+                "description": desc,
+                "date": date_str,
+                "age_days": age_days,
+            }
+        )
+
+    checkpoints.sort(key=lambda x: x["age_days"])
+    return checkpoints
+
+
 def catalog() -> dict:
     """Regenerate the terryli.hm.md garden index from published posts.
 

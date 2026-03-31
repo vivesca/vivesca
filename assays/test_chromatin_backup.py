@@ -1,7 +1,6 @@
 """Tests for chromatin-backup — git auto-commit/push for Obsidian vault."""
 from __future__ import annotations
 
-import os
 import subprocess
 from pathlib import Path
 from unittest.mock import MagicMock, call, patch
@@ -25,49 +24,57 @@ _git = _mod["_git"]
 CHROMATIN_DIR = _mod["CHROMATIN_DIR"]
 
 
+def _mock_run(stdout="", returncode=0):
+    """Build a CompletedProcess mock."""
+    return MagicMock(stdout=stdout, returncode=returncode, stderr="")
+
+
+def _git_calls(mock_run):
+    """Extract list of (args_tuple,) from subprocess.run calls."""
+    return [tuple(c[0][0]) for c in mock_run.call_args_list]
+
+
 # ── _has_changes tests ────────────────────────────────────────────────
 
 
 def test_has_changes_no_changes():
     """Returns False when no diff, no cached diff, no untracked files."""
-    with patch.object(_mod, "_git") as mock_git:
-        # git diff --quiet returns 0, git diff --cached --quiet returns 0,
-        # git ls-files returns empty string
-        mock_git.side_effect = [
-            MagicMock(returncode=0),
-            MagicMock(returncode=0),
-            MagicMock(stdout=""),
+    with patch("subprocess.run") as mock_run:
+        mock_run.side_effect = [
+            _mock_run(returncode=0),   # git diff --quiet
+            _mock_run(returncode=0),   # git diff --cached --quiet
+            _mock_run(stdout=""),      # git ls-files
         ]
         assert _has_changes() is False
-        assert mock_git.call_count == 3
+        assert mock_run.call_count == 3
 
 
 def test_has_changes_unstaged():
-    """Returns True when there are unstaged changes."""
-    with patch.object(_mod, "_git") as mock_git:
-        mock_git.return_value = MagicMock(returncode=1)
+    """Returns True when there are unstaged changes (diff --quiet fails)."""
+    with patch("subprocess.run") as mock_run:
+        mock_run.return_value = _mock_run(returncode=1)
         assert _has_changes() is True
-        assert mock_git.call_count == 1
+        assert mock_run.call_count == 1
 
 
 def test_has_changes_staged():
-    """Returns True when there are staged changes."""
-    with patch.object(_mod, "_git") as mock_git:
-        mock_git.side_effect = [
-            MagicMock(returncode=0),
-            MagicMock(returncode=1),
+    """Returns True when there are staged changes (cached diff fails)."""
+    with patch("subprocess.run") as mock_run:
+        mock_run.side_effect = [
+            _mock_run(returncode=0),   # diff --quiet ok
+            _mock_run(returncode=1),   # diff --cached --quiet fails
         ]
         assert _has_changes() is True
-        assert mock_git.call_count == 2
+        assert mock_run.call_count == 2
 
 
 def test_has_changes_untracked():
     """Returns True when there are untracked files."""
-    with patch.object(_mod, "_git") as mock_git:
-        mock_git.side_effect = [
-            MagicMock(returncode=0),
-            MagicMock(returncode=0),
-            MagicMock(stdout="newfile.md\n"),
+    with patch("subprocess.run") as mock_run:
+        mock_run.side_effect = [
+            _mock_run(returncode=0),       # diff --quiet ok
+            _mock_run(returncode=0),       # diff --cached --quiet ok
+            _mock_run(stdout="newfile.md\n"),  # ls-files has output
         ]
         assert _has_changes() is True
 
@@ -76,69 +83,68 @@ def test_has_changes_untracked():
 
 
 def test_sync_remote_no_diverge():
-    """No-op when local and remote are the same."""
-    with patch.object(_mod, "_git") as mock_git:
-        mock_git.side_effect = [
-            MagicMock(returncode=0),       # fetch
-            MagicMock(stdout="abc123\n"),  # rev-parse HEAD
-            MagicMock(stdout="abc123\n"),  # rev-parse origin/main
+    """No-op when local and remote HEAD are the same."""
+    with patch("subprocess.run") as mock_run:
+        mock_run.side_effect = [
+            _mock_run(returncode=0),     # fetch
+            _mock_run(stdout="abc123\n"),  # rev-parse HEAD
+            _mock_run(stdout="abc123\n"),  # rev-parse origin/main
         ]
         sync_remote()
-        assert mock_git.call_count == 3
-        mock_git.assert_any_call("fetch", "origin", "main", check=False)
-        mock_git.assert_any_call("rev-parse", "HEAD")
-        mock_git.assert_any_call("rev-parse", "origin/main", check=False)
+        assert mock_run.call_count == 3
+        cmds = _git_calls(mock_run)
+        assert ("git", "fetch", "origin", "main") in cmds
 
 
 def test_sync_remote_rebase_succeeds():
     """Uses rebase when local != remote and rebase works."""
-    with patch.object(_mod, "_git") as mock_git:
-        mock_git.side_effect = [
-            MagicMock(returncode=0),       # fetch
-            MagicMock(stdout="aaa\n"),     # rev-parse HEAD
-            MagicMock(stdout="bbb\n"),     # rev-parse origin/main
-            MagicMock(returncode=0),       # rebase
+    with patch("subprocess.run") as mock_run:
+        mock_run.side_effect = [
+            _mock_run(returncode=0),     # fetch
+            _mock_run(stdout="aaa\n"),   # rev-parse HEAD
+            _mock_run(stdout="bbb\n"),   # rev-parse origin/main
+            _mock_run(returncode=0),     # rebase succeeds
         ]
         sync_remote()
-        calls = [c[0] for c in mock_git.call_args_list]
-        assert ("rebase", "origin/main") in calls or any("rebase" in str(c) for c in calls)
+        cmds = _git_calls(mock_run)
+        assert ("git", "rebase", "origin/main") in cmds
 
 
 def test_sync_remote_rebase_fails_merge_succeeds():
     """Falls back to merge when rebase fails."""
-    with patch.object(_mod, "_git") as mock_git:
-        mock_git.side_effect = [
-            MagicMock(returncode=0),       # fetch
-            MagicMock(stdout="aaa\n"),     # rev-parse HEAD
-            MagicMock(stdout="bbb\n"),     # rev-parse origin/main
-            MagicMock(returncode=1),       # rebase fails
-            MagicMock(returncode=0),       # rebase --abort
-            MagicMock(returncode=0),       # merge succeeds
+    with patch("subprocess.run") as mock_run:
+        mock_run.side_effect = [
+            _mock_run(returncode=0),     # fetch
+            _mock_run(stdout="aaa\n"),   # rev-parse HEAD
+            _mock_run(stdout="bbb\n"),   # rev-parse origin/main
+            _mock_run(returncode=1),     # rebase fails
+            _mock_run(returncode=0),     # rebase --abort
+            _mock_run(returncode=0),     # merge succeeds
         ]
         sync_remote()
-        call_args = [c[0][:2] for c in mock_git.call_args_list]
-        assert ("rebase", "--abort") in [c[:2] for c in call_args if len(c) >= 2] or \
-               any(c[0] == "rebase" and c[1] == "--abort" for c in call_args if len(c) >= 2)
+        cmds = _git_calls(mock_run)
+        assert ("git", "rebase", "--abort") in cmds
+        assert ("git", "merge", "origin/main", "--no-edit") in cmds
 
 
 def test_sync_remote_merge_fails_accept_theirs():
     """Last resort: checkout --theirs when both rebase and merge fail."""
-    with patch.object(_mod, "_git") as mock_git:
-        mock_git.side_effect = [
-            MagicMock(returncode=0),       # fetch
-            MagicMock(stdout="aaa\n"),     # rev-parse HEAD
-            MagicMock(stdout="bbb\n"),     # rev-parse origin/main
-            MagicMock(returncode=1),       # rebase fails
-            MagicMock(returncode=0),       # rebase --abort
-            MagicMock(returncode=1),       # merge fails
-            MagicMock(returncode=0),       # checkout --theirs
-            MagicMock(returncode=0),       # add -A
-            MagicMock(returncode=0),       # commit
+    with patch("subprocess.run") as mock_run:
+        mock_run.side_effect = [
+            _mock_run(returncode=0),     # fetch
+            _mock_run(stdout="aaa\n"),   # rev-parse HEAD
+            _mock_run(stdout="bbb\n"),   # rev-parse origin/main
+            _mock_run(returncode=1),     # rebase fails
+            _mock_run(returncode=0),     # rebase --abort
+            _mock_run(returncode=1),     # merge fails
+            _mock_run(returncode=0),     # checkout --theirs .
+            _mock_run(returncode=0),     # add -A
+            _mock_run(returncode=0),     # commit
         ]
         sync_remote()
-        # Verify checkout --theirs was called
-        call_strs = [str(c) for c in mock_git.call_args_list]
-        assert any("--theirs" in s for s in call_strs)
+        cmds = _git_calls(mock_run)
+        assert ("git", "checkout", "--theirs", ".") in cmds
+        assert ("git", "add", "-A") in cmds
 
 
 # ── backup tests ──────────────────────────────────────────────────────
@@ -146,28 +152,41 @@ def test_sync_remote_merge_fails_accept_theirs():
 
 def test_backup_no_changes():
     """Returns False when no changes to commit."""
-    with patch.object(_mod, "_git") as mock_git, \
-         patch.object(_mod, "sync_remote"), \
-         patch.object(_mod, "_has_changes", return_value=False), \
+    with patch("subprocess.run") as mock_run, \
          patch.object(Path, "is_dir", return_value=True):
+        # sync_remote calls: fetch, rev-parse HEAD, rev-parse origin/main (same)
+        mock_run.side_effect = [
+            _mock_run(returncode=0),     # fetch
+            _mock_run(stdout="abc\n"),   # rev-parse HEAD
+            _mock_run(stdout="abc\n"),   # rev-parse origin/main (same → no rebase)
+            _mock_run(returncode=0),     # diff --quiet (no changes)
+            _mock_run(returncode=0),     # diff --cached --quiet
+            _mock_run(stdout=""),        # ls-files (empty)
+        ]
         assert backup() is False
 
 
 def test_backup_with_changes():
     """Commits and pushes when changes exist."""
-    with patch.object(_mod, "_git") as mock_git, \
-         patch.object(_mod, "sync_remote"), \
-         patch.object(_mod, "_has_changes", return_value=True), \
+    with patch("subprocess.run") as mock_run, \
          patch.object(Path, "is_dir", return_value=True):
+        mock_run.side_effect = [
+            _mock_run(returncode=0),     # fetch (sync_remote)
+            _mock_run(stdout="abc\n"),   # rev-parse HEAD
+            _mock_run(stdout="abc\n"),   # rev-parse origin/main
+            _mock_run(returncode=1),     # diff --quiet (has changes)
+            _mock_run(returncode=0),     # add -A
+            _mock_run(returncode=0),     # commit
+            _mock_run(returncode=0),     # push
+        ]
         assert backup() is True
-        call_args = [c[0] for c in mock_git.call_args_list]
-        # Should: add -A, commit -m ..., push origin main
-        assert ("add", "-A") in call_args
-        assert ("push", "origin", "main") in call_args
-        # Commit message should contain timestamp pattern
-        commit_calls = [c for c in mock_git.call_args_list if c[0][0] == "commit"]
+        cmds = _git_calls(mock_run)
+        assert ("git", "add", "-A") in cmds
+        assert ("git", "push", "origin", "main") in cmds
+        # Verify commit message format
+        commit_calls = [c for c in mock_run.call_args_list if c[0][0][1] == "commit"]
         assert len(commit_calls) == 1
-        msg = commit_calls[0][0][2]
+        msg = commit_calls[0][0][0][3]  # ["git", "commit", "-m", "<msg>"]
         assert msg.startswith("chromatin backup: ")
 
 
@@ -185,7 +204,7 @@ def test_backup_missing_dir_exits():
 def test_git_runs_in_chromatin_dir():
     """_git passes cwd as CHROMATIN_DIR."""
     with patch("subprocess.run") as mock_run:
-        mock_run.return_value = MagicMock(stdout="ok\n", returncode=0)
+        mock_run.return_value = _mock_run(stdout="ok\n")
         _git("status")
         _, kwargs = mock_run.call_args
         assert kwargs["cwd"] == CHROMATIN_DIR
@@ -194,7 +213,7 @@ def test_git_runs_in_chromatin_dir():
 def test_git_passes_all_args():
     """_git forwards all positional args to git."""
     with patch("subprocess.run") as mock_run:
-        mock_run.return_value = MagicMock(stdout="", returncode=0)
+        mock_run.return_value = _mock_run(stdout="")
         _git("log", "--oneline", "-5")
         args = mock_run.call_args[0][0]
         assert args == ["git", "log", "--oneline", "-5"]
