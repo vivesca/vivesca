@@ -1,1 +1,0 @@
-Skill `/ecphory` is useful.

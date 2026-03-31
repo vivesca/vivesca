@@ -1,1 +1,0 @@
-{"timestamp": "2026-03-31T18:02:10", "name": "cascade-test", "source": "cc", "content": "Trigger downstream", "path": "/home/terry/germline/pytest-of-terry/pytest-17/test_emit_signal_with_downstre0/signals/signal_cascade-test_20260331-180210_86c3e2.md", "fire_count": 1, "deduplicated": false, "downstream": ["echo hello", "echo world"]}

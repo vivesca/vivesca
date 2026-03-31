@@ -5,8 +5,8 @@ from __future__ import annotations
 import json
 import subprocess
 import sys
+from contextlib import contextmanager
 from pathlib import Path
-from unittest.mock import patch
 
 import pytest
 
@@ -32,6 +32,17 @@ validate_skill_md = _mod["validate_skill_md"]
 lint_receptors = _mod["lint_receptors"]
 main = _mod["main"]
 RECEPTORS_DIR = _mod["RECEPTORS_DIR"]
+
+
+@contextmanager
+def _patch_receptors_dir(new_dir: Path):
+    """Context manager to temporarily swap RECEPTORS_DIR in the exec'd namespace."""
+    original = _mod["RECEPTORS_DIR"]
+    _mod["RECEPTORS_DIR"] = new_dir
+    try:
+        yield
+    finally:
+        _mod["RECEPTORS_DIR"] = original
 
 
 # ── parse_frontmatter tests ──────────────────────────────────────────
@@ -82,12 +93,13 @@ class TestParseFrontmatter:
         assert fm is None
         assert "str" in err
 
-    def test_empty_frontmatter(self):
-        """parse_frontmatter returns error when frontmatter block is empty (None)."""
+    def test_empty_frontmatter_blocks(self):
+        """parse_frontmatter returns error when frontmatter block is empty (---\\n\\n---)."""
+        # Regex requires content between markers; bare ---\\n--- has no match
         content = "---\n---\nBody\n"
         fm, err = parse_frontmatter(content)
         assert fm is None
-        assert "NoneType" in err
+        assert err is not None
 
     def test_extra_whitespace_in_markers(self):
         """parse_frontmatter tolerates trailing spaces after ---."""
@@ -222,7 +234,7 @@ class TestFindReceptorDirs:
 
     def test_nonexistent_receptors_dir(self, tmp_path):
         """find_receptor_dirs returns empty list when dir is missing."""
-        with patch.object(_mod, "RECEPTORS_DIR", tmp_path / "nope"):
+        with _patch_receptors_dir(tmp_path / "nope"):
             result = find_receptor_dirs()
         assert result == []
 
@@ -232,7 +244,7 @@ class TestFindReceptorDirs:
         receptors.mkdir()
         (receptors / ".hidden").mkdir()
         (receptors / "visible").mkdir()
-        with patch.object(_mod, "RECEPTORS_DIR", receptors):
+        with _patch_receptors_dir(receptors):
             result = find_receptor_dirs()
         names = [d.name for d in result]
         assert "visible" in names
@@ -244,7 +256,7 @@ class TestFindReceptorDirs:
         receptors.mkdir()
         for name in ("charlie", "alpha", "bravo"):
             (receptors / name).mkdir()
-        with patch.object(_mod, "RECEPTORS_DIR", receptors):
+        with _patch_receptors_dir(receptors):
             result = find_receptor_dirs()
         names = [d.name for d in result]
         assert names == sorted(names)
@@ -255,7 +267,7 @@ class TestFindReceptorDirs:
         receptors.mkdir()
         (receptors / "adir").mkdir()
         (receptors / "afile.txt").write_text("hello")
-        with patch.object(_mod, "RECEPTORS_DIR", receptors):
+        with _patch_receptors_dir(receptors):
             result = find_receptor_dirs()
         names = [d.name for d in result]
         assert "adir" in names
@@ -289,7 +301,7 @@ class TestLintReceptors:
             "alpha": valid,
             "bravo": valid,
         })
-        with patch.object(_mod, "RECEPTORS_DIR", receptors):
+        with _patch_receptors_dir(receptors):
             results = lint_receptors()
         assert len(results) == 2
         assert all(r["status"] == "PASS" for r in results)
@@ -297,7 +309,7 @@ class TestLintReceptors:
     def test_missing_skill_md(self, tmp_path):
         """lint_receptors returns MISSING for dirs without SKILL.md."""
         receptors = self._make_receptors(tmp_path, {"alpha": None})
-        with patch.object(_mod, "RECEPTORS_DIR", receptors):
+        with _patch_receptors_dir(receptors):
             results = lint_receptors()
         assert len(results) == 1
         assert results[0]["status"] == "MISSING"
@@ -311,7 +323,7 @@ class TestLintReceptors:
             "bad": bad,
             "empty": None,
         })
-        with patch.object(_mod, "RECEPTORS_DIR", receptors):
+        with _patch_receptors_dir(receptors):
             results = lint_receptors()
         by_name = {r["receptor"]: r for r in results}
         assert by_name["good"]["status"] == "PASS"
@@ -322,7 +334,7 @@ class TestLintReceptors:
         """lint_receptors results have expected keys."""
         valid = "---\nname: foo\ndescription: bar\n---\nBody\n"
         receptors = self._make_receptors(tmp_path, {"alpha": valid})
-        with patch.object(_mod, "RECEPTORS_DIR", receptors):
+        with _patch_receptors_dir(receptors):
             results = lint_receptors()
         assert len(results) == 1
         r = results[0]
@@ -336,7 +348,7 @@ class TestLintReceptors:
         """lint_receptors returns empty list when no receptor dirs exist."""
         receptors = tmp_path / "receptors"
         receptors.mkdir()
-        with patch.object(_mod, "RECEPTORS_DIR", receptors):
+        with _patch_receptors_dir(receptors):
             results = lint_receptors()
         assert results == []
 
@@ -359,7 +371,7 @@ class TestMain:
     def test_text_output(self, tmp_path, capsys):
         """main prints text table by default."""
         receptors = self._make_valid_receptors(tmp_path)
-        with patch.object(_mod, "RECEPTORS_DIR", receptors):
+        with _patch_receptors_dir(receptors):
             rc = main([])
         assert rc == 0
         out = capsys.readouterr().out
@@ -369,7 +381,7 @@ class TestMain:
     def test_json_output(self, tmp_path, capsys):
         """main --json outputs valid JSON."""
         receptors = self._make_valid_receptors(tmp_path)
-        with patch.object(_mod, "RECEPTORS_DIR", receptors):
+        with _patch_receptors_dir(receptors):
             rc = main(["--json"])
         assert rc == 0
         out = capsys.readouterr().out
@@ -385,7 +397,7 @@ class TestMain:
         d = receptors / "bad-receptor"
         d.mkdir()
         (d / "SKILL.md").write_text("---\nother: value\n---\nBody\n")
-        with patch.object(_mod, "RECEPTORS_DIR", receptors):
+        with _patch_receptors_dir(receptors):
             rc = main([])
         assert rc == 1
 
@@ -393,7 +405,7 @@ class TestMain:
         """main returns 1 when no receptor directories found."""
         receptors = tmp_path / "receptors"
         receptors.mkdir()
-        with patch.object(_mod, "RECEPTORS_DIR", receptors):
+        with _patch_receptors_dir(receptors):
             rc = main([])
         assert rc == 1
 
@@ -404,7 +416,7 @@ class TestMain:
         d = receptors / "broken"
         d.mkdir()
         (d / "SKILL.md").write_text("No frontmatter here\n")
-        with patch.object(_mod, "RECEPTORS_DIR", receptors):
+        with _patch_receptors_dir(receptors):
             rc = main([])
         assert rc == 1
         out = capsys.readouterr().out
@@ -418,7 +430,7 @@ class TestMain:
         d = receptors / "broken"
         d.mkdir()
         (d / "SKILL.md").write_text("---\nname: test\n---\nBody\n")
-        with patch.object(_mod, "RECEPTORS_DIR", receptors):
+        with _patch_receptors_dir(receptors):
             rc = main(["--json"])
         assert rc == 1
         out = capsys.readouterr().out
@@ -433,16 +445,14 @@ class TestMain:
 class TestSubprocessRun:
     """Test the effector as a subprocess (integration)."""
 
-    def test_help_flag(self):
-        """skill-lint --help exits successfully (if argparse or docstring)."""
-        # The script doesn't use argparse, but we can verify it runs
+    def test_script_runs(self):
+        """skill-lint exits with 0 or 1 (pass or fail) but not crash."""
         result = subprocess.run(
             [sys.executable, str(EFFECTOR_PATH)],
             capture_output=True,
             text=True,
             timeout=10,
         )
-        # It will exit 0 (all pass) or 1 (some fail or no dirs)
         assert result.returncode in (0, 1)
 
     def test_json_flag_runs(self):

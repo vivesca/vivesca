@@ -1,1 +1,0 @@
-No heading here, just plain text content about things.

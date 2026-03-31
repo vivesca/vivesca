@@ -1,3 +1,0 @@
-custom-suite:
-  cache_pattern: /tmp/y
-  local: /tmp/x

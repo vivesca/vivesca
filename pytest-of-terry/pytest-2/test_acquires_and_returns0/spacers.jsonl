@@ -1,1 +1,0 @@
-{"ts": "2026-03-31T18:01:02.458106+00:00", "tool": "goose", "raw_error": "ImportError: no module named foo", "pattern": "ImportError: no module named foo", "regex": "ImportError:\\ no\\ module\\ named\\ foo"}

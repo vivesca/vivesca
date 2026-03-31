@@ -1,1 +1,0 @@
-{"timestamp": "2026-03-31T18:02:10", "name": "mark-test", "source": "cc", "content": "One-shot cascade", "path": "/home/terry/germline/pytest-of-terry/pytest-17/test_transduce_marks_as_transd0/signals/signal_mark-test_20260331-180210_20852a.md", "fire_count": 1, "deduplicated": false, "downstream": ["echo once"]}

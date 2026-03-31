@@ -1,1 +1,0 @@
-- [ ] Only open tasks

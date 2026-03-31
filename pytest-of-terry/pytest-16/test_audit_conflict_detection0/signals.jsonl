@@ -1,2 +1,0 @@
-{"ts":"2026-03-31T18:01:39.892479Z","tool":"fasti_list_events","outcome":"success","substrate_consumed":100,"product_released":50,"response_latency":200,"error":null,"correction":null,"context":null}
-{"ts":"2026-03-31T18:01:39.892744Z","tool":"fasti_create_event","outcome":"success","substrate_consumed":100,"product_released":50,"response_latency":200,"error":null,"correction":null,"context":null}

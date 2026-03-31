@@ -1,1 +1,0 @@
-PATH = "/Users/terry/project"

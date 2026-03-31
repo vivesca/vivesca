@@ -1,1 +1,0 @@
-See `~/some_ref`.

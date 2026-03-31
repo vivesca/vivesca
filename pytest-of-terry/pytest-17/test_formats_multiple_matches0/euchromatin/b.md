@@ -1,2 +1,0 @@
-# Beta
-Beta content.

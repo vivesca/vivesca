@@ -1,1 +1,0 @@
-X = "/home/terry/x"

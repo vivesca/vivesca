@@ -1,2 +1,0 @@
-# Alpha
-Alpha content.

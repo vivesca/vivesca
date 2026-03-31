@@ -1,5 +1,0 @@
-
-- name: task1
-  description: First task
-  files: [file1.py]
-  spec: Do something

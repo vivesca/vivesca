@@ -1,2 +1,0 @@
-# Praxis
-- [ ] Open task
