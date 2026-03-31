@@ -51,7 +51,7 @@ def test_prepend_coaching_strips_frontmatter(tmp_path):
     notes = tmp_path / "coaching.md"
     notes.write_text("---\nname: test\ntype: feedback\n---\n\nActual content here.")
     with patch("metabolon.sortase.executor.COACHING_NOTES", notes):
-        result = _prepend_coaching("task", "forge")
+        result = _prepend_coaching("task", "golem")
     assert "name: test" not in result
     assert "Actual content here" in result
 
@@ -123,10 +123,10 @@ def test_droid_tool_command_uses_translocon():
     assert "droid" in cmd
 
 
-def test_clean_env_forge_sets_zhipu():
+def test_clean_env_golem_sets_zhipu():
     import os
     with patch.dict(os.environ, {"ZHIPU_API_KEY": "test-key"}):
-        env = _clean_env("forge")
+        env = _clean_env("golem")
     assert env["ANTHROPIC_AUTH_TOKEN"] == "test-key"
     assert "bigmodel.cn" in env["ANTHROPIC_BASE_URL"]
     assert env["ANTHROPIC_DEFAULT_OPUS_MODEL"] == "GLM-5.1"
@@ -158,7 +158,7 @@ def test_estimate_cost_flat_rate_droid():
 
 
 def test_estimate_cost_flat_rate_cc_glm():
-    assert estimate_cost("forge", "prompt", "output") == "$0.00 (flat-rate)"
+    assert estimate_cost("golem", "prompt", "output") == "$0.00 (flat-rate)"
 
 
 def test_estimate_cost_crush_unknown_pricing():

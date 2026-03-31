@@ -50,7 +50,7 @@ def _prepend_coaching(prompt: str, tool: str) -> str:
     """
     if tool in ("goose", "droid"):
         return prompt
-    if tool not in ("opencode", "forge", "crush") or not COACHING_NOTES.exists():
+    if tool not in ("opencode", "golem", "crush") or not COACHING_NOTES.exists():
         return prompt
     try:
         notes = COACHING_NOTES.read_text(encoding="utf-8")
@@ -95,7 +95,7 @@ TOOL_COMMANDS: dict[str, Callable[[Path, str], list[str]]] = {
         "--dir", str(project),
         prompt,
     ],
-    "forge": lambda project, prompt: [
+    "golem": lambda project, prompt: [
         "claude",
         "--print",
         "--bare",
@@ -134,13 +134,13 @@ class ExecutionAttempt:
 
 # ── cost estimation ──────────────────────────────────────────
 
-FLAT_RATE_TOOLS = {"goose", "droid", "forge"}
+FLAT_RATE_TOOLS = {"goose", "droid", "golem"}
 MODEL_BY_TOOL: dict[str, str | None] = {
     "gemini": "gemini-3-pro-preview",
     "codex": "gpt-5.3-codex",
     "goose": "glm-5.1",
     "opencode": None,
-    "forge": "glm-5.1",
+    "golem": "glm-5.1",
     "droid": "glm-5.1",
     "crush": "zhipu-coding/glm-5",
 }
@@ -157,7 +157,7 @@ TOKEN_PRICING: dict[str, dict[str, float]] = {
 def estimate_cost(tool: str, prompt: str, output: str) -> str:
     """Estimate API cost for a single execution attempt.
 
-    For ZhiPu coding-plan backends (goose, droid, forge) the cost
+    For ZhiPu coding-plan backends (goose, droid, golem) the cost
     is covered by a flat-rate subscription so the estimate is "$0.00 (flat-rate)".
 
     For others, approximate input tokens as ``len(prompt) // 4`` and output
@@ -257,7 +257,7 @@ def _clean_env(tool: str) -> dict[str, str]:
     if tool in ("goose", "droid"):
         # translocon handles env vars internally
         pass
-    if tool == "forge":
+    if tool == "golem":
         # Headless CC with GLM via ZhiPu Coding Plan Anthropic-compat endpoint
         # Docs: https://docs.bigmodel.cn/cn/coding-plan/tool/claude
         env["ANTHROPIC_AUTH_TOKEN"] = env.get("ZHIPU_API_KEY", "")
