@@ -65,5 +65,5 @@ def noesis_search_log() -> str:
         lines = result.stdout.strip().splitlines()
         return "\n".join(lines[-10:]) if len(lines) > 10 else result.stdout.strip()
     except subprocess.CalledProcessError as e:
-        error_msg = e.stderr.strip() or str(e)
+        error_msg = (e.stderr or "").strip() or str(e)
         raise ValueError(f"noesis log error: {error_msg}")
