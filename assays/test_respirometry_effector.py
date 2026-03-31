@@ -107,18 +107,17 @@ def test_summarize_cost_rows_mixed():
 def test_get_cost_tracking_no_file():
     """Test cost tracking when log file doesn't exist."""
     with tempfile.TemporaryDirectory() as tmpdir:
-        # Temporarily patch the path
-        import respirometry
-        original_path = respirometry.SORTASE_LOG
-        respirometry.SORTASE_LOG = Path(tmpdir) / "nonexistent.jsonl"
-        
+        # Temporarily patch the path in the exec'd namespace
+        original_path = _ns["SORTASE_LOG"]
+        _ns["SORTASE_LOG"] = Path(tmpdir) / "nonexistent.jsonl"
+
         result = get_cost_tracking()
         assert result["available"] is False
         assert result["source"] == "sortase"
         assert result["lookback_days"] == COST_WINDOW_DAYS
-        
+
         # Restore original
-        respirometry.SORTASE_LOG = original_path
+        _ns["SORTASE_LOG"] = original_path
 
 
 def test_get_cost_tracking_with_data():
@@ -161,10 +160,9 @@ def test_get_cost_tracking_with_data():
         f.write('\n')
     
     try:
-        import respirometry
-        original_path = respirometry.SORTASE_LOG
-        respirometry.SORTASE_LOG = Path(f.name)
-        
+        original_path = _ns["SORTASE_LOG"]
+        _ns["SORTASE_LOG"] = Path(f.name)
+
         result = get_cost_tracking(now=now)
         assert result["available"] is True
         assert result["current_7d"]["runs"] == 2
@@ -173,8 +171,8 @@ def test_get_cost_tracking_with_data():
         assert result["previous_7d"]["metered_cost_usd"] == 0.05
         assert "trend" in result
         assert result["trend"]["metered_cost_usd_delta"] == -0.025
-        
-        respirometry.SORTASE_LOG = original_path
+
+        _ns["SORTASE_LOG"] = original_path
     finally:
         Path(f.name).unlink()
 
