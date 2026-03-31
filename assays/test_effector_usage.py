@@ -21,8 +21,8 @@ def _load_module():
 _mod = _load_module()
 scan_jsonl = _mod["scan_jsonl"]
 scan_daemon_log = _mod["scan_daemon_log"]
-build_report = _mod["build_report"]
-get_known_effectors = _mod["get_known_effectors"]
+compute_report = _mod["compute_report"]
+list_effectors = _mod["list_effectors"]
 RE_EFFECTOR = _mod["RE_EFFECTOR"]
 
 
@@ -173,10 +173,9 @@ class TestBuildReport:
             '{"ts":"2026-03-31T10:00:00Z","provider":"zhipu","duration":10,"exit":0,"turns":1,"prompt":"Read effectors/golem-top","tail":"","files_created":0,"tests_passed":0,"tests_failed":0,"pytest_exit":0}',
         ])
         lf = self._make_log(tmp_path, "")
-        report = build_report(jsonl_path=jf, log_path=lf, rotated_log_path=Path("/nonexistent"))
-        assert "EFFECTOR USAGE REPORT" in report
-        assert "Most Used" in report
-        assert "golem-top" in report
+        report = compute_report(jsonl_path=jf, log_path=lf, rotated_path=Path("/nonexistent"))
+        assert "most_used" in report
+        assert "golem-top" in [e["name"] for e in report["most_used"]]
 
     def test_json_report_structure(self, tmp_path):
         jf = self._make_jsonl(tmp_path, [
