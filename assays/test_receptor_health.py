@@ -8,19 +8,26 @@ from pathlib import Path
 from unittest import mock
 
 import pytest
+import yaml
 
 RECEPTOR_HEALTH_PATH = Path(__file__).resolve().parents[1] / "effectors" / "receptor-health"
 RECEPTORS_DIR = Path(__file__).resolve().parents[1] / "membrane" / "receptors"
 
+# Import module via exec pattern (effector script, not importable package)
+_NS = {}
+
 
 def _load_module():
-    """Load the receptor-health script as a module."""
+    """Load receptor-health as a module for unit testing."""
+    if _NS:
+        return _NS["mod"]
     import importlib.util
 
     spec = importlib.util.spec_from_file_location("receptor_health", RECEPTOR_HEALTH_PATH)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    _NS["mod"] = mod
+    return mod
 
 
 # ── Script structure tests ────────────────────────────────────────────────────
@@ -38,196 +45,338 @@ class TestReceptorHealthScript:
         assert "python" in first_line.lower()
 
 
-# ── Argument parsing ─────────────────────────────────────────────────────────
+# ── Unit tests: parse_frontmatter ─────────────────────────────────────────────
 
 
-class TestArgumentParsing:
-    def test_help_runs(self):
-        result = subprocess.run(
-            [sys.executable, str(RECEPTOR_HEALTH_PATH), "--help"],
-            capture_output=True,
-            text=True,
-            timeout=10,
-        )
-        assert result.returncode == 0
-        assert "receptor" in result.stdout.lower() or "skill" in result.stdout.lower()
-
-    def test_json_flag_accepted(self):
-        result = subprocess.run(
-            [sys.executable, str(RECEPTOR_HEALTH_PATH), "--help"],
-            capture_output=True,
-            text=True,
-            timeout=10,
-        )
-        assert result.returncode == 0
-
-
-# ── parse_front_matter ────────────────────────────────────────────────────────
-
-
-class TestParseFrontMatter:
-    def test_valid_yaml(self):
+class TestParseFrontmatter:
+    def test_valid_frontmatter(self):
         mod = _load_module()
-        text = "---\nname: foo\ndescription: bar\n---\nBody here"
-        meta, body, err = mod.parse_front_matter(text)
-        assert err is None
-        assert meta["name"] == "foo"
-        assert meta["description"] == "bar"
-        assert "Body here" in body
+        text = "---\nname: foo\ndescription: bar\n---\n# Body"
+        fm, err = mod.parse_frontmatter(text)
+        assert err == ""
+        assert fm == {"name": "foo", "description": "bar"}
 
-    def test_missing_closing_delimiter(self):
+    def test_no_frontmatter(self):
         mod = _load_module()
-        text = "---\nname: foo\n"
-        meta, body, err = mod.parse_front_matter(text)
-        assert err is not None
-        assert "closing" in err.lower() or "delimiter" in err.lower()
+        text = "# Just markdown\nNo frontmatter here."
+        fm, err = mod.parse_frontmatter(text)
+        assert fm is None
+        assert "no YAML frontmatter" in err
 
-    def test_invalid_yaml_content(self):
+    def test_bad_yaml(self):
         mod = _load_module()
-        text = "---\nname: [\n---\nBody"
-        meta, body, err = mod.parse_front_matter(text)
-        assert err is not None
+        text = "---\nname: [\nbad yaml\n---\n# Body"
+        fm, err = mod.parse_frontmatter(text)
+        assert fm is None
+        assert "YAML parse error" in err
 
-    def test_empty_front_matter(self):
+    def test_non_mapping_frontmatter(self):
         mod = _load_module()
-        text = "---\n---\nBody"
-        meta, body, err = mod.parse_front_matter(text)
-        assert err is None
-        assert meta == {}
-        assert "Body" in body
+        text = "---\n- just\n- a\n- list\n---\n# Body"
+        fm, err = mod.parse_frontmatter(text)
+        assert fm is None
+        assert "not a mapping" in err
 
 
-# ── validate_skill ────────────────────────────────────────────────────────────
+# ── Unit tests: check_frontmatter ─────────────────────────────────────────────
 
 
-class TestValidateSkill:
-    def test_valid_skill_passes(self):
-        mod = _load_module()
-        meta = {"name": "test", "description": "A valid skill description for testing."}
-        errors = mod.validate_skill("test-skill", meta, "body text here")
-        assert errors == []
-
+class TestCheckFrontmatter:
     def test_missing_name(self):
         mod = _load_module()
-        meta = {"description": "A valid skill description for testing."}
-        errors = mod.validate_skill("test-skill", meta, "")
-        assert any("name" in e.lower() for e in errors)
+        report = mod.ReceptorReport(receptor="test")
+        mod.check_frontmatter("test", {"description": "has desc"}, report)
+        assert not report.ok
+        assert any(i.check == "frontmatter" and "name" in i.detail for i in report.issues)
 
     def test_missing_description(self):
         mod = _load_module()
-        meta = {"name": "test"}
-        errors = mod.validate_skill("test-skill", meta, "")
-        assert any("description" in e.lower() for e in errors)
+        report = mod.ReceptorReport(receptor="test")
+        mod.check_frontmatter("test", {"name": "has_name"}, report)
+        assert not report.ok
+        assert any(i.check == "frontmatter" and "description" in i.detail for i in report.issues)
 
-    def test_description_too_short(self):
+    def test_none_frontmatter(self):
         mod = _load_module()
-        meta = {"name": "test", "description": "hi"}
-        errors = mod.validate_skill("test-skill", meta, "")
-        assert any("short" in e.lower() or "length" in e.lower() for e in errors)
+        report = mod.ReceptorReport(receptor="test")
+        mod.check_frontmatter("test", None, report)
+        assert not report.ok
 
-    def test_description_too_long(self):
+    def test_valid_frontmatter_passes(self):
         mod = _load_module()
-        meta = {"name": "test", "description": "x" * 300}
-        errors = mod.validate_skill("test-skill", meta, "")
-        assert any("long" in e.lower() or "length" in e.lower() for e in errors)
+        report = mod.ReceptorReport(receptor="test")
+        mod.check_frontmatter("test", {"name": "x", "description": "y"}, report)
+        assert report.ok
 
-    def test_empty_description(self):
+
+# ── Unit tests: check_description_length ──────────────────────────────────────
+
+
+class TestCheckDescriptionLength:
+    def test_short_description_ok(self):
         mod = _load_module()
-        meta = {"name": "test", "description": ""}
-        errors = mod.validate_skill("test-skill", meta, "")
-        assert any("description" in e.lower() for e in errors)
+        report = mod.ReceptorReport(receptor="test")
+        mod.check_description_length("test", {"description": "short"}, report)
+        assert report.ok
+        assert not report.issues
 
-
-# ── check_referenced_files ────────────────────────────────────────────────────
-
-
-class TestCheckReferencedFiles:
-    def test_recipe_yaml_exists(self, tmp_path):
+    def test_long_description_warns(self):
         mod = _load_module()
-        receptor_dir = tmp_path / "test-receptor"
-        receptor_dir.mkdir()
-        (receptor_dir / "SKILL.md").write_text("---\nname: test\n---\n")
-        (receptor_dir / "recipe.yaml").write_text("name: test\n")
-        errors = mod.check_referenced_files(receptor_dir, "body")
-        assert errors == []
+        report = mod.ReceptorReport(receptor="test")
+        long_desc = "x" * 2000
+        mod.check_description_length("test", {"description": long_desc}, report)
+        assert any(i.check == "description_length" for i in report.issues)
+        assert report.issues[0].severity == "warn"
 
-    def test_recipe_yaml_missing(self, tmp_path):
+    def test_none_frontmatter_skipped(self):
         mod = _load_module()
-        receptor_dir = tmp_path / "test-receptor"
-        receptor_dir.mkdir()
-        (receptor_dir / "SKILL.md").write_text("---\nname: test\n---\n")
-        errors = mod.check_referenced_files(receptor_dir, "body")
-        assert any("recipe.yaml" in e for e in errors)
+        report = mod.ReceptorReport(receptor="test")
+        mod.check_description_length("test", None, report)
+        assert report.ok
+
+
+# ── Unit tests: check_recipe_yaml ─────────────────────────────────────────────
+
+
+class TestCheckRecipeYaml:
+    def test_no_recipe_is_ok(self, tmp_path):
+        mod = _load_module()
+        report = mod.ReceptorReport(receptor="test")
+        mod.check_recipe_yaml("test", tmp_path, report)
+        assert report.ok
+
+    def test_valid_recipe(self, tmp_path):
+        mod = _load_module()
+        recipe = tmp_path / "recipe.yaml"
+        recipe.write_text(yaml.dump({
+            "name": "test", "description": "d", "instructions": "do it"
+        }))
+        report = mod.ReceptorReport(receptor="test")
+        mod.check_recipe_yaml("test", tmp_path, report)
+        assert report.ok
 
     def test_invalid_recipe_yaml(self, tmp_path):
         mod = _load_module()
-        receptor_dir = tmp_path / "test-receptor"
-        receptor_dir.mkdir()
-        (receptor_dir / "SKILL.md").write_text("---\nname: test\n---\n")
-        (receptor_dir / "recipe.yaml").write_text("name: [\n")
-        errors = mod.check_referenced_files(receptor_dir, "body")
-        assert any("recipe.yaml" in e for e in errors)
+        recipe = tmp_path / "recipe.yaml"
+        recipe.write_text("name: [\nbad yaml")
+        report = mod.ReceptorReport(receptor="test")
+        mod.check_recipe_yaml("test", tmp_path, report)
+        assert not report.ok
+        assert any(i.check == "recipe_yaml" for i in report.issues)
 
-    def test_relative_file_reference_in_body(self, tmp_path):
-        """File paths like ./sibling.md referenced in body should be checked."""
+    def test_recipe_missing_required_key(self, tmp_path):
         mod = _load_module()
-        receptor_dir = tmp_path / "test-receptor"
-        receptor_dir.mkdir()
-        (receptor_dir / "SKILL.md").write_text("---\nname: test\n---\nSee [notes](./notes.md)")
-        (receptor_dir / "recipe.yaml").write_text("name: test\n")
-        errors = mod.check_referenced_files(receptor_dir, 'See [notes](./notes.md)')
-        assert any("notes.md" in e for e in errors)
+        recipe = tmp_path / "recipe.yaml"
+        recipe.write_text(yaml.dump({"name": "test"}))
+        report = mod.ReceptorReport(receptor="test")
+        mod.check_recipe_yaml("test", tmp_path, report)
+        assert any(i.check == "recipe_yaml" for i in report.issues)
 
 
-# ── scan_receptors (integration-ish) ──────────────────────────────────────────
+# ── Unit tests: check_referenced_files ────────────────────────────────────────
 
 
-class TestScanReceptors:
-    def test_scan_finds_all_receptors(self):
-        """scan_receptors should find all SKILL.md directories."""
+class TestCheckReferencedFiles:
+    def test_lowercase_skill_md_flagged(self, tmp_path):
         mod = _load_module()
-        results = mod.scan_receptors(RECEPTORS_DIR)
-        skill_dirs = {p.name for p in RECEPTORS_DIR.iterdir() if p.is_dir() and (p / "SKILL.md").exists()}
-        result_names = {r["name"] for r in results}
-        # "name" comes from YAML; check we got the right number
-        assert len(results) >= len(skill_dirs) - 5  # allow a few with bad YAML
+        (tmp_path / "skill.md").write_text(
+            "---\nname: test\ndescription: d\n---\n# Body"
+        )
+        report = mod.ReceptorReport(receptor="test")
+        mod.check_referenced_files("test", tmp_path, report)
+        assert any(i.check == "filename_case" for i in report.issues)
 
-    def test_scan_returns_list_of_dicts(self):
+    def test_references_dir_missing_but_mentioned(self, tmp_path):
         mod = _load_module()
-        results = mod.scan_receptors(RECEPTORS_DIR)
-        assert isinstance(results, list)
-        for r in results:
-            assert "name" in r
-            assert "errors" in r
-            assert isinstance(r["errors"], list)
+        skill = tmp_path / "SKILL.md"
+        skill.write_text(
+            "---\nname: test\ndescription: d\n---\nSee references/ for details."
+        )
+        report = mod.ReceptorReport(receptor="test")
+        mod.check_referenced_files("test", tmp_path, report)
+        assert any("references directory" in i.detail for i in report.issues)
 
 
-# ── CLI output ────────────────────────────────────────────────────────────────
+# ── Unit tests: check_receptor (integration) ──────────────────────────────────
 
 
-class TestCLIOutput:
-    def test_runs_against_real_receptors(self):
-        """Full run against the actual receptors dir should succeed."""
+class TestCheckReceptor:
+    def test_healthy_receptor(self, tmp_path):
+        mod = _load_module()
+        skill = tmp_path / "SKILL.md"
+        skill.write_text("---\nname: test\ndescription: a good one\n---\n# Body")
+        report = mod.check_receptor(tmp_path)
+        assert report.ok
+
+    def test_missing_skill_md(self, tmp_path):
+        mod = _load_module()
+        report = mod.check_receptor(tmp_path)
+        assert not report.ok
+        assert any(i.check == "skill_missing" for i in report.issues)
+
+    def test_lowercase_skill_md(self, tmp_path):
+        mod = _load_module()
+        (tmp_path / "skill.md").write_text(
+            "---\nname: test\ndescription: d\n---\n# Body"
+        )
+        report = mod.check_receptor(tmp_path)
+        assert not report.ok
+        assert any(i.check == "filename_case" for i in report.issues)
+
+    def test_bad_frontmatter_and_bad_recipe(self, tmp_path):
+        mod = _load_module()
+        skill = tmp_path / "SKILL.md"
+        skill.write_text("---\nname: test\n---\n# Body")  # missing description
+        recipe = tmp_path / "recipe.yaml"
+        recipe.write_text("bad: [\nyaml")
+        report = mod.check_receptor(tmp_path)
+        assert not report.ok
+        assert len(report.issues) >= 2
+
+
+# ── Unit tests: format_table / format_json ────────────────────────────────────
+
+
+class TestFormatting:
+    def test_format_table_healthy(self):
+        mod = _load_module()
+        reports = [mod.ReceptorReport(receptor="foo", ok=True)]
+        out = mod.format_table(reports)
+        assert "foo" in out
+        assert "OK" in out
+
+    def test_format_table_broken(self):
+        mod = _load_module()
+        reports = [
+            mod.ReceptorReport(
+                receptor="bar", ok=False,
+                issues=[mod.Issue("bar", "error", "frontmatter", "missing 'name'")]
+            )
+        ]
+        out = mod.format_table(reports)
+        assert "bar" in out
+        assert "BROKEN" in out
+        assert "missing 'name'" in out
+
+    def test_format_json_healthy(self):
+        mod = _load_module()
+        reports = [mod.ReceptorReport(receptor="baz", ok=True)]
+        out = mod.format_json(reports)
+        data = json.loads(out)
+        assert len(data) == 1
+        assert data[0]["ok"] is True
+        assert data[0]["receptor"] == "baz"
+
+    def test_format_json_broken(self):
+        mod = _load_module()
+        reports = [
+            mod.ReceptorReport(
+                receptor="qux", ok=False,
+                issues=[mod.Issue("qux", "error", "test_check", "test detail")]
+            )
+        ]
+        out = mod.format_json(reports)
+        data = json.loads(out)
+        assert len(data) == 1
+        assert data[0]["ok"] is False
+        assert data[0]["issues"][0]["check"] == "test_check"
+
+
+# ── CLI integration tests ─────────────────────────────────────────────────────
+
+
+class TestCLI:
+    def test_help_runs(self):
+        result = subprocess.run(
+            [sys.executable, str(RECEPTOR_HEALTH_PATH), "--help"],
+            capture_output=True, text=True, timeout=10,
+        )
+        assert result.returncode == 0
+        assert "receptor" in result.stdout.lower()
+
+    def test_runs_on_real_receptors(self):
+        """Smoke test against actual receptor directory."""
         result = subprocess.run(
             [sys.executable, str(RECEPTOR_HEALTH_PATH), "--json"],
-            capture_output=True,
-            text=True,
-            timeout=30,
+            capture_output=True, text=True, timeout=30,
         )
-        assert result.returncode in (0, 1)  # 1 if broken, but shouldn't crash
+        assert result.returncode in (0, 1)  # may find issues
         data = json.loads(result.stdout)
-        assert isinstance(data, list)
         assert len(data) > 0
+        for entry in data:
+            assert "receptor" in entry
+            assert "ok" in entry
+            assert "issues" in entry
 
-    def test_table_output(self):
-        """Default output should be a human-readable table."""
+    def test_specific_receptor(self):
         result = subprocess.run(
-            [sys.executable, str(RECEPTOR_HEALTH_PATH)],
-            capture_output=True,
-            text=True,
-            timeout=30,
+            [sys.executable, str(RECEPTOR_HEALTH_PATH), "debridement", "--json"],
+            capture_output=True, text=True, timeout=10,
         )
-        # Should contain receptor names
         assert result.returncode in (0, 1)
-        # Should mention at least a few receptor names
-        assert "integrin" in result.stdout or "total" in result.stdout.lower()
+        data = json.loads(result.stdout)
+        assert len(data) == 1
+        assert data[0]["receptor"] == "debridement"
+
+    def test_unknown_receptor_warns(self):
+        result = subprocess.run(
+            [sys.executable, str(RECEPTOR_HEALTH_PATH), "nonexistent_xyz"],
+            capture_output=True, text=True, timeout=10,
+        )
+        assert "not found" in result.stderr.lower()
+
+    def test_main_returns_zero_on_all_healthy(self, tmp_path, monkeypatch):
+        mod = _load_module()
+        # Create a healthy fake receptor dir
+        skill = tmp_path / "healthy" / "SKILL.md"
+        skill.parent.mkdir()
+        skill.write_text("---\nname: healthy\ndescription: fine\n---\n# Body")
+        monkeypatch.setattr(mod, "RECEPTORS_DIR", tmp_path)
+        exit_code = mod.main(["--json"])
+        assert exit_code == 0
+
+    def test_main_returns_one_on_broken(self, tmp_path, monkeypatch):
+        mod = _load_module()
+        broken_dir = tmp_path / "broken"
+        broken_dir.mkdir()
+        # No SKILL.md → broken
+        monkeypatch.setattr(mod, "RECEPTORS_DIR", tmp_path)
+        exit_code = mod.main(["--json"])
+        assert exit_code == 1
+
+
+# ── Real receptor validation (catches actual problems) ────────────────────────
+
+
+class TestRealReceptors:
+    def test_all_receptors_parseable(self):
+        """Every SKILL.md should have valid YAML frontmatter."""
+        mod = _load_module()
+        broken = []
+        for d in sorted(RECEPTORS_DIR.iterdir()):
+            if not d.is_dir():
+                continue
+            report = mod.check_receptor(d)
+            if not report.ok:
+                broken.append(report)
+        # We report but don't fail the test — this is a survey
+        if broken:
+            names = [r.receptor for r in broken]
+            print(f"\nBroken receptors ({len(broken)}): {', '.join(names)}")
+            for r in broken:
+                for i in r.issues:
+                    print(f"  {r.receptor}: [{i.severity}] {i.check}: {i.detail}")
+
+    def test_all_recipe_yamls_parseable(self):
+        """Every recipe.yaml should be valid YAML with required keys."""
+        mod = _load_module()
+        broken = []
+        for rp in sorted(RECEPTORS_DIR.glob("*/recipe.yaml")):
+            name = rp.parent.name
+            report = mod.ReceptorReport(receptor=name)
+            mod.check_recipe_yaml(name, rp.parent, report)
+            if not report.ok:
+                broken.append(report)
+        if broken:
+            names = [r.receptor for r in broken]
+            print(f"\nBad recipe.yaml ({len(broken)}): {', '.join(names)}")

@@ -49,6 +49,9 @@ def read_last_snapshot() -> list[str] | None:
 
 
 def main() -> None:
+    parser = argparse.ArgumentParser(description="Snapshot Obsidian's lastOpenFiles to a JSONL consumption log.")
+    parser.parse_args()
+
     if not WORKSPACE.exists():
         return
 

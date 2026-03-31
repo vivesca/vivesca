@@ -238,7 +238,5 @@ def main():
         print()
 
 
-import json as _json  # noqa: E402 — needed for --json output
-
 if __name__ == "__main__":
     main()

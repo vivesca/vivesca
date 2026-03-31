@@ -5,6 +5,7 @@ Run via LaunchAgent every 6h. Only alerts on state *changes* to avoid spam.
 Re-auth: localhost:8001 → scan QR with WeChat.
 """
 
+import argparse
 import json
 import subprocess
 import sys
