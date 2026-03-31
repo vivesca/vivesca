@@ -11,6 +11,7 @@ via deltos (Telegram). Designed to feed into /zeitgeber.
 Runs as a LaunchAgent: com.terry.circadian-probe
 """
 
+import argparse
 import configparser
 import re
 import subprocess
@@ -257,6 +258,11 @@ def send_via_telegram(message: str) -> bool:
 
 
 def main() -> None:
+    parser = argparse.ArgumentParser(
+        description="AKM Heartbeat — nightly chromatin health digest via Telegram."
+    )
+    parser.parse_args()
+
     digest = build_digest()
     print(digest)  # Log to stdout (captured by LaunchAgent)
 

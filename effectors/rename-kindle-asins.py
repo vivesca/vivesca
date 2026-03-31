@@ -6,6 +6,7 @@ Run after overnight queue extraction.
 Usage: python3 rename-kindle-asins.py [--dry-run]
 """
 
+import argparse
 import sys
 from pathlib import Path
 
@@ -32,9 +33,14 @@ ASIN_TO_TITLE = {
     "B09QMHZ5KW": "The Abyss - Nuclear Crisis Cuba 1962",
 }
 
-dry_run = "--dry-run" in sys.argv
+def main():
+    parser = argparse.ArgumentParser(
+        description="Rename ASIN-named Kindle extract files to proper titles."
+    )
+    parser.add_argument("--dry-run", action="store_true", help="Show what would be renamed without doing it.")
+    args = parser.parse_args()
 
-renamed = 0
+    renamed = 0
 for asin, title in ASIN_TO_TITLE.items():
     src = BOOKS_DIR / f"{asin}.md"
     dst = BOOKS_DIR / f"{title}.md"
@@ -42,9 +48,13 @@ for asin, title in ASIN_TO_TITLE.items():
         if dst.exists():
             print(f"SKIP (dest exists): {asin} → {title}.md")
         else:
-            print(f"{'[dry-run] ' if dry_run else ''}Rename: {asin}.md → {title}.md")
-            if not dry_run:
+            print(f"{'[dry-run] ' if args.dry_run else ''}Rename: {asin}.md → {title}.md")
+            if not args.dry_run:
                 src.rename(dst)
             renamed += 1
 
-print(f"\n{'Would rename' if dry_run else 'Renamed'} {renamed} files.")
+    print(f"\n{'Would rename' if args.dry_run else 'Renamed'} {renamed} files.")
+
+
+if __name__ == "__main__":
+    main()

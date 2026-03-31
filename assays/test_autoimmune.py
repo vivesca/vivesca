@@ -213,7 +213,7 @@ class TestMain:
 
     def test_below_threshold_exits_cleanly(self, ai):
         data = json.dumps({"tool_input": {"skill": "sarcio-publish"}, "session_id": "s1"})
-        with patch("sys.stdin", io.StringIO(data)):
+        with patch("sys.argv", ["autoimmune"]), patch("sys.stdin", io.StringIO(data)):
             with pytest.raises(SystemExit) as exc_info:
                 ai["main"]()
         assert exc_info.value.code == 0

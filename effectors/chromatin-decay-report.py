@@ -11,6 +11,7 @@ Stale: Not mentioned in daily notes for 30+ days (if tracking exists).
 Cold: Has access_count but last_accessed > 30 days ago.
 """
 
+import argparse
 import os
 import re
 import yaml
@@ -44,6 +45,11 @@ def should_exclude(path: Path) -> bool:
     return any(ex in path_str for ex in EXCLUDE_PATTERNS)
 
 def main():
+    parser = argparse.ArgumentParser(
+        description="Chromatin Decay Report — find orphan and stale notes."
+    )
+    parser.parse_args()
+
     print("Chromatin Decay Report")
     print("=" * 50)
 

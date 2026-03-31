@@ -17,6 +17,7 @@ Logic:
 Silent when healthy. Runs via pacemaker every 30 min.
 """
 
+import argparse
 import sys
 from pathlib import Path
 
@@ -84,6 +85,11 @@ def _alert(message: str) -> None:
 
 
 def main() -> None:
+    parser = argparse.ArgumentParser(
+        description="Mitosis checkpoint — watchdog for DR sync health."
+    )
+    parser.parse_args()
+
     try:
         check_and_heal()
     except Exception as exc:

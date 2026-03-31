@@ -1,15 +1,18 @@
 #!/usr/bin/env python3
-import sys
+import argparse
 import subprocess
+import sys
 from pathlib import Path
 
 def main():
-    if len(sys.argv) < 3:
-        print("Usage: safe_search.py <pattern> <path>")
-        sys.exit(1)
+    parser = argparse.ArgumentParser(
+        description="Safe grep wrapper — searches with ripgrep and guards against massive directories."
+    )
+    parser.add_argument("pattern", help="Search pattern")
+    parser.add_argument("path", help="Directory to search in")
+    args = parser.parse_args()
 
-    pattern = sys.argv[1]
-    search_path = Path(sys.argv[2]).expanduser().resolve()
+    search_path = Path(args.path).expanduser().resolve()
     home_path = Path.home().resolve()
 
     # Hard block on searching the root directly or home directory
@@ -35,7 +38,7 @@ def main():
         "--glob", "!.Trash/**",
         "--glob", "!*.log",
         "--glob", "!node_modules/**",
-        pattern,
+        args.pattern,
         str(search_path)
     ]
     try:
