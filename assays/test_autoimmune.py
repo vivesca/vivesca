@@ -225,7 +225,7 @@ class TestMain:
         # Set state to count = 2 so next invocation hits threshold (3)
         ai["save_state"]({"session_id": "s1", "sarcio_count": 2})
         data = json.dumps({"tool_input": {"skill": "sarcio-publish"}, "session_id": "s1"})
-        with patch("sys.stdin", io.StringIO(data)):
+        with patch("sys.argv", ["autoimmune"]), patch("sys.stdin", io.StringIO(data)):
             with pytest.raises(SystemExit) as exc_info:
                 ai["main"]()
         assert exc_info.value.code == 0
