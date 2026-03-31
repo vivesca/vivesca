@@ -10,13 +10,14 @@ from __future__ import annotations
 
 import json
 import subprocess
+import tempfile
 import time
 import urllib.parse
 import urllib.request
 from pathlib import Path
 
 _API_BASE = "https://api.telegram.org"
-_LOCK = Path("/tmp/deltos.lock")
+_LOCK = Path(tempfile.gettempdir()) / "deltos.lock"
 
 
 def _keychain(service: str) -> str:

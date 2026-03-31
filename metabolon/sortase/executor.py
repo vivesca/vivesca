@@ -662,7 +662,7 @@ def _is_git_repo(project_dir: Path) -> bool:
 def _create_worktree(project_dir: Path, task_name: str) -> Path:
     """Create a temporary git worktree for isolated parallel execution."""
     branch = f"sortase/{task_name}-{uuid.uuid4().hex[:8]}"
-    worktree_path = Path(f"/tmp/sortase-{task_name}-{uuid.uuid4().hex[:8]}")
+    worktree_path = Path(tempfile.gettempdir()) / f"sortase-{task_name}-{uuid.uuid4().hex[:8]}"
     subprocess.run(
         ["git", "worktree", "add", "-b", branch, str(worktree_path)],
         cwd=project_dir,

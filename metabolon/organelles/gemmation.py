@@ -116,7 +116,7 @@ def _build_cmd(task: dict, out_dir: Path) -> list[str]:
 def _working_dir(task: dict) -> Path:
     wd = task.get("working_dir")
     if wd:
-        return Path(os.path.expanduser(wd))
+        return Path(wd).expanduser()
     return Path.home()
 
 

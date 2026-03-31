@@ -97,7 +97,9 @@ def ingestion(
             after = text[next_section:]
             new_text = before + "\n" + entry + after
 
-        MEAL_PLAN.write_text(new_text)  # rewrite meal plan
+        tmp = MEAL_PLAN.with_suffix(".md.tmp")
+        tmp.write_text(new_text)
+        tmp.replace(MEAL_PLAN)
         result = f"Logged: {entry}"
 
         xlink = _cross_link_experiment(entry, dish)
