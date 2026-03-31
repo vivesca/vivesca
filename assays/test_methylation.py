@@ -8,6 +8,7 @@ import json
 import pytest
 import subprocess
 import importlib.util
+import importlib.machinery
 import sys
 from unittest.mock import MagicMock, patch, mock_open
 from datetime import UTC, datetime, timedelta
@@ -18,12 +19,10 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 # Import methylation as a module since it's a script file
 methylation_path = Path(__file__).parent.parent / "effectors" / "methylation"
-spec = importlib.util.spec_from_file_location("methylation", methylation_path)
-if spec is None or spec.loader is None:
-    raise FileNotFoundError(f"Could not load methylation module from {methylation_path}")
-methylation = importlib.util.module_from_spec(spec)
+loader = importlib.machinery.SourceFileLoader("methylation", str(methylation_path))
+methylation = loader.create_module()
 sys.modules["methylation"] = methylation
-spec.loader.exec_module(methylation)
+loader.exec_module(methylation)
 
 
 # -----------------------------------------------------------------------------
