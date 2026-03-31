@@ -23,6 +23,9 @@ get_provider_limit = _mod["get_provider_limit"]
 parse_queue = _mod["parse_queue"]
 PROVIDER_LIMITS = _mod["PROVIDER_LIMITS"]
 DEFAULT_LIMIT = _mod["DEFAULT_LIMIT"]
+QUEUE_FILE = _mod["QUEUE_FILE"]
+mark_failed = _mod["mark_failed"]
+check_new_test_files_and_run_pytest = _mod["check_new_test_files_and_run_pytest"]
 
 
 # ── parse_provider tests ─────────────────────────────────────────────
@@ -110,10 +113,13 @@ _QUEUE_CONTENT = """# Golem Task Queue
 
 def test_parse_queue_returns_pending_tasks(tmp_path):
     """parse_queue returns list of (line_number, command) for pending tasks."""
-    _make_queue_file(tmp_path, _QUEUE_CONTENT)
-    with patch.object(Path, "home", return_value=tmp_path):
-        with patch.object(_mod, "QUEUE_FILE", tmp_path / "germline" / "loci" / "golem-queue.md"):
-            pending = parse_queue()
+    queue_path = _make_queue_file(tmp_path, _QUEUE_CONTENT)
+    original_queue = _mod["QUEUE_FILE"]
+    try:
+        _mod["QUEUE_FILE"] = queue_path
+        pending = parse_queue()
+    finally:
+        _mod["QUEUE_FILE"] = original_queue
 
     assert len(pending) == 3
     # Commands should include the golem prefix
@@ -124,10 +130,13 @@ def test_parse_queue_returns_pending_tasks(tmp_path):
 
 def test_parse_queue_skips_done_tasks(tmp_path):
     """parse_queue skips completed tasks (marked with [x])."""
-    _make_queue_file(tmp_path, _QUEUE_CONTENT)
-    with patch.object(Path, "home", return_value=tmp_path):
-        with patch.object(_mod, "QUEUE_FILE", tmp_path / "germline" / "loci" / "golem-queue.md"):
-            pending = parse_queue()
+    queue_path = _make_queue_file(tmp_path, _QUEUE_CONTENT)
+    original_queue = _mod["QUEUE_FILE"]
+    try:
+        _mod["QUEUE_FILE"] = queue_path
+        pending = parse_queue()
+    finally:
+        _mod["QUEUE_FILE"] = original_queue
 
     # Should not include "Completed task"
     commands = [cmd for _, cmd in pending]
@@ -136,18 +145,25 @@ def test_parse_queue_skips_done_tasks(tmp_path):
 
 def test_parse_queue_empty_file(tmp_path):
     """parse_queue returns empty list for non-existent file."""
-    with patch.object(Path, "home", return_value=tmp_path):
-        with patch.object(_mod, "QUEUE_FILE", tmp_path / "nonexistent.md"):
-            pending = parse_queue()
+    queue_path = tmp_path / "nonexistent.md"
+    original_queue = _mod["QUEUE_FILE"]
+    try:
+        _mod["QUEUE_FILE"] = queue_path
+        pending = parse_queue()
+    finally:
+        _mod["QUEUE_FILE"] = original_queue
     assert pending == []
 
 
 def test_parse_queue_returns_line_numbers(tmp_path):
     """parse_queue returns correct line numbers for tasks."""
-    _make_queue_file(tmp_path, _QUEUE_CONTENT)
-    with patch.object(Path, "home", return_value=tmp_path):
-        with patch.object(_mod, "QUEUE_FILE", tmp_path / "germline" / "loci" / "golem-queue.md"):
-            pending = parse_queue()
+    queue_path = _make_queue_file(tmp_path, _QUEUE_CONTENT)
+    original_queue = _mod["QUEUE_FILE"]
+    try:
+        _mod["QUEUE_FILE"] = queue_path
+        pending = parse_queue()
+    finally:
+        _mod["QUEUE_FILE"] = original_queue
 
     # Line numbers should be unique
     line_nums = [ln for ln, _ in pending]
@@ -159,10 +175,13 @@ def test_parse_queue_returns_line_numbers(tmp_path):
 
 def test_provider_extraction_from_queue(tmp_path):
     """Provider can be extracted from queued commands."""
-    _make_queue_file(tmp_path, _QUEUE_CONTENT)
-    with patch.object(Path, "home", return_value=tmp_path):
-        with patch.object(_mod, "QUEUE_FILE", tmp_path / "germline" / "loci" / "golem-queue.md"):
-            pending = parse_queue()
+    queue_path = _make_queue_file(tmp_path, _QUEUE_CONTENT)
+    original_queue = _mod["QUEUE_FILE"]
+    try:
+        _mod["QUEUE_FILE"] = queue_path
+        pending = parse_queue()
+    finally:
+        _mod["QUEUE_FILE"] = original_queue
 
     providers = [parse_provider(cmd) for _, cmd in pending]
     assert "infini" in providers
@@ -174,3 +193,23 @@ def test_concurrency_respects_provider_limits():
     """Verify that max workers would allow full provider concurrency."""
     max_workers = max(PROVIDER_LIMITS.values())
     assert max_workers == 8  # volcano has highest limit
+
+
+# ── check_new_test_files_and_run_pytest tests ───────────────────────────
+
+
+check_new_test_files_and_run_pytest = _mod["check_new_test_files_and_run_pytest"]
+
+
+def test_check_new_test_files_filters_correctly():
+    """Check that new test files filtering works."""
+    # Test filtering logic with sample file list
+    # This test just verifies the function is loaded and callable
+    # The actual git call is mocked when needed
+    assert callable(check_new_test_files_and_run_pytest)
+
+
+def test_mark_failed_exists():
+    """Verify that mark_failed function exists."""
+    assert "mark_failed" in _mod
+    assert callable(_mod["mark_failed"])

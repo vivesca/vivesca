@@ -4,45 +4,52 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 
 ## Pending
 
-### Operons (grouped by shared context)
+### Compound infra (build the machine that builds)
 
-#### Coverage operon — test coverage tooling
-- [x] `golem --provider infini --max-turns 50 "Read metabolon/sortase/validator.py AND metabolon/organelles/complement.py. Add check_test_coverage to validator (validates test coverage meets threshold). Add coverage_summary to complement (cross-refs metabolon/ vs assays/). These are related — validator uses complement's data. Write tests for both. Run pytest. Fix failures."`
+#### Golem enhancement — enriched logging + summary subcommand
+- [ ] `golem --provider infini --max-turns 50 "Read effectors/golem AND loci/plans/golem-compound-infra.md. Implement enhancements 1 and 3 from the spec: (1) After claude finishes in _run_golem, count new files via git diff, run pytest on any new assays/test_*.py files, parse pass/fail, add files_created/tests_passed/tests_failed/pytest_exit to the JSONL log line. (2) Add a 'summary' subcommand — golem summary reads GOLEM_LOG JSONL and prints a provider stats table (runs, pass, fail, avg duration, tests created). Support --recent N flag. Use python for the summary since jq may not be installed. Write tests in assays/test_golem_summary.py. Run pytest. Fix failures."`
 
-#### Readiness operon — system health checks
-- [x] `golem --provider infini --max-turns 50 "Read metabolon/metabolism/preflight.py AND metabolon/organelles/glycolysis_rate.py. Add check_golem_ready to preflight (verifies golem binary, API keys, provider health). Add suggest_conversions to glycolysis_rate (identifies LLM calls that could be deterministic). Write tests for both. Run pytest. Fix failures."`
+#### Daemon enhancement — post-dispatch pytest gate
+- [x] `golem --provider volcano --max-turns 50 "Read effectors/golem-daemon AND loci/plans/golem-compound-infra.md. Implement enhancement 2: after a golem task completes with exit=0, check git diff for new assays/test_*.py files, run pytest on them, log result. If pytest fails mark task as [!] instead of [x]. The mark_failed function already exists in golem-daemon. Update assays/test_golem_daemon.py with tests for the new behavior (note: the test loads golem-daemon via exec with __name__='golem_daemon' to avoid sys.exit). Run pytest. Fix failures."`
 
-#### Dispatch operon — execution infrastructure
-- [x] `golem --provider infini --max-turns 50 "Read metabolon/organelles/translocon.py AND effectors/golem-daemon. Add dispatch_stats to translocon (tracks golem runs, success rate, provider breakdown). Add provider-aware concurrency to golem-daemon (parse --provider from queued commands, respect limits: zhipu=4, infini=6, volcano=8). Write tests. Run pytest. Fix failures."`
+### Fixes (heal first)
 
-### Standalone tasks
+#### Fix sortase test failures (20 failures across 2 files)
+- [!] `golem --provider zhipu --max-turns 40 "Run: uv run pytest assays/test_sortase_actions.py assays/test_sortase_cli.py -v --tb=short 2>&1 | tail -80. Read both test files and the source modules they test (metabolon/sortase/sortase.py, metabolon/enzymes/sortase.py, metabolon/sortase/router.py). Diagnose each failure. Fix tests or source as needed. Run pytest on both files until all pass. Do NOT delete tests — fix them."`
 
-#### Effectors
-- [x] `golem --provider volcano --max-turns 50 "Create effectors/capco-prep as Python. Reads chromatin/Capco/, lists docs, flags stale, outputs readiness checklist. Test it."`
-- [x] `golem --provider infini --max-turns 50 "Create effectors/weekly-status as Python. git stats, test count, calendar, outputs markdown report. Test it."`
+### Operons — tests (reset failed Infini tasks, spread across all providers)
 
-#### Tests (remaining untested)
-- [x] `golem --provider infini --batch metabolon/respirometry/parsers/ccba.py metabolon/respirometry/parsers/mox.py`
-- [x] `golem --provider volcano --test metabolon/enzymes/circadian.py`
+#### Sortase core operon (4 modules, ~70K)
+- [ ] `golem --provider infini --max-turns 50 "Write tests for these 4 modules. Read each, write assays/test_<name>.py. Run pytest on each. Fix failures. Modules: metabolon/sortase/executor.py metabolon/sortase/decompose.py metabolon/sortase/graph.py metabolon/sortase/logger.py"`
 
-### Test batches (daemon-ready, round-robin across providers)
-- [x] `golem --provider infini --batch metabolon/organelles/catabolism.py metabolon/organelles/consolidation.py metabolon/organelles/cytokinesis.py metabolon/organelles/ecphory.py metabolon/organelles/expression.py`
-- [x] `golem --provider volcano --batch metabolon/organelles/glycogen.py metabolon/organelles/hemostasis.py metabolon/organelles/integrin.py metabolon/organelles/kinesin.py metabolon/organelles/operons.py`
-- [x] `golem --provider infini --batch metabolon/organelles/pinocytosis.py metabolon/organelles/polarization.py metabolon/organelles/pseudopod.py metabolon/organelles/synthase.py metabolon/organelles/turgor.py`
-- [x] `golem --provider volcano --batch metabolon/enzymes/auscultation.py metabolon/enzymes/demethylase.py metabolon/enzymes/differentiation.py metabolon/enzymes/electroreception.py metabolon/enzymes/emit.py`
-- [x] `golem --provider infini --batch metabolon/enzymes/endocytosis.py metabolon/enzymes/endosomal.py metabolon/enzymes/gap_junction.py metabolon/enzymes/histone.py metabolon/enzymes/ingestion.py`
-- [x] `golem --provider volcano --batch metabolon/enzymes/interoception.py metabolon/enzymes/lysis.py metabolon/enzymes/mitosis.py metabolon/enzymes/navigator.py metabolon/enzymes/noesis.py`
-- [x] `golem --provider infini --batch metabolon/enzymes/proprioception.py metabolon/enzymes/sporulation.py metabolon/enzymes/vasomotor.py metabolon/sortase/sortase.py`
-- [x] `golem --provider volcano --batch metabolon/resources/constitution.py metabolon/tachometer.py metabolon/respirometry/parsers/ccba.py metabolon/respirometry/parsers/mox.py`
+#### RSS core operon (4 modules, ~92K)
+- [x] `golem --provider volcano --max-turns 50 "Write tests for these 4 modules. Read each, write assays/test_<name>.py. Run pytest on each. Fix failures. Modules: metabolon/organelles/endocytosis_rss/fetcher.py metabolon/organelles/endocytosis_rss/digest.py metabolon/organelles/endocytosis_rss/breaking.py metabolon/organelles/endocytosis_rss/relevance.py"`
 
-### Infrastructure
-- [x] `golem --provider infini --max-turns 30 "Add 'ps' subcommand to effectors/golem. Lists running golem processes (ps aux | grep claude.*--print). For each: show module name, provider (from env vars), age, and stale flag. Stale = missing --dangerously-skip-permissions OR target test file already exists in assays/. Add --kill flag to kill stale ones. Usage: golem ps, golem ps --kill. Test it."`
+#### Substrates big operon (3 modules, ~45K)
+- [ ] `golem --provider infini --max-turns 50 "Write tests for these 3 modules. Read each, write assays/test_<name>.py (test_substrate_vasomotor.py, test_substrate_hygiene.py, test_substrate_memory.py). Run pytest. Fix failures. Modules: metabolon/metabolism/substrates/vasomotor.py metabolon/metabolism/substrates/hygiene.py metabolon/metabolism/substrates/memory.py"`
 
-### Research (--full mode, needs MCP)
-- [x] `golem --provider infini --full --max-turns 50 "Use rheotaxis_search to find recent AI governance news. Extract insights as structured card to ~/epigenome/chromatin/chemosensory/cards/. Include consulting angle for banking/finserv."`
+#### Vasomotor standalone (45K)
+- [x] `golem --provider volcano --max-turns 50 "Write thorough tests for metabolon/vasomotor.py (45K lines). Read carefully, write assays/test_vasomotor_core.py. Focus on pure functions and data transformations. Mock external calls. Run pytest. Fix failures."`
+
+#### Resources batch
+- [ ] `golem --provider zhipu --batch metabolon/resources/constitution.py metabolon/resources/glycogen.py metabolon/resources/chromatin_stats.py metabolon/resources/consolidation.py`
+
+#### Small batch
+- [ ] `golem --provider zhipu --batch metabolon/morphology/base.py metabolon/pinocytosis/photoreception.py metabolon/pinocytosis/ultradian.py metabolon/pinocytosis/ecdysis.py metabolon/organelles/sporulation.py`
 
 ## Done (2026-03-31)
 
+### ZhiPu tasks (confirmed ran)
+- [x] Sortase tooling operon (6 modules) — zhipu
+- [x] RSS support operon (7 modules) — zhipu
+- [x] Respirometry operon (5 modules) — zhipu
+- [x] Gastrulation operon (4 modules) — zhipu
+- [x] Substrates small operon (4 modules) — zhipu
+- [x] Lysin operon (2 modules) — zhipu
+- [x] Endosomal (2 modules) — zhipu
+- [x] Codons templates — zhipu
+
+### Prior batches
 - [x] golem-daemon, council, browse, --provider, cn-route — infra done
 - [x] case_study CAR, chromatin stale_marks/type_counts — features done
 - [x] pore, pulse, statolith, vitals, boc, diff_viewer, hsbc, scb, reflexes, anatomy — tests done (+505)

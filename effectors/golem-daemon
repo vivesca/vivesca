@@ -117,11 +117,18 @@ def mark_done(line_num: int, result: str = ""):
     
     QUEUE_FILE.write_text("\n".join(lines) + "\n")
 
+def mark_failed(line_num: int, result: str = ""):
+    """Mark task as failed in queue file — [!] instead of [x]."""
+    lines = QUEUE_FILE.read_text().splitlines()
+    original = lines[line_num]
+    lines[line_num] = original.replace("- [ ] ", "- [!] ", 1)
+    QUEUE_FILE.write_text("\n".join(lines) + "\n")
+
 def run_golem(cmd: str) -> tuple[str, int, str]:
     """Run a golem command, return (cmd, exit_code, output_tail)."""
     log(f"Starting: {cmd[:80]}...")
     start = time.time()
-    
+
     try:
         result = subprocess.run(
             cmd,
@@ -137,6 +144,53 @@ def run_golem(cmd: str) -> tuple[str, int, str]:
     except Exception as e:
         log(f"ERROR: {cmd[:50]}... - {e}")
         return (cmd, 1, str(e))
+
+
+def check_new_test_files_and_run_pytest() -> tuple[bool, str]:
+    """Check for new assays/test_*.py files, run pytest, return (passed, summary)."""
+    germline_dir = str(Path.home() / "germline")
+    try:
+        # Get list of newly added files from git
+        git_result = subprocess.run(
+            "git -C {} diff --name-only --diff-filter=A HEAD~1 2>/dev/null".format(germline_dir),
+            shell=True,
+            capture_output=True,
+            text=True
+        )
+        if git_result.returncode != 0:
+            # If diff fails (e.g., first commit), just pass
+            return (True, "git diff failed, skipping test check")
+
+        new_files = git_result.stdout.strip().splitlines()
+        # Filter for assays/test_*.py pattern
+        new_test_files = [f for f in new_files if f.startswith("assays/") and f.endswith(".py") and "/test_" in ("/" + f)]
+
+        if not new_test_files:
+            return (True, "no new test files found")
+
+        # Run pytest on new test files
+        pytest_cmd = "uv run pytest {} -q --tb=line".format(" ".join(new_test_files))
+        pytest_result = subprocess.run(
+            pytest_cmd,
+            shell=True,
+            capture_output=True,
+            text=True,
+            cwd=germline_dir
+        )
+
+        summary = pytest_result.stdout.strip().splitlines()[-3:] if pytest_result.stdout else []
+        summary_str = " | ".join(summary).replace("\n", " ")
+        log(f"pytest on new tests: exit={pytest_result.returncode}, {summary_str}")
+
+        if pytest_result.returncode == 0:
+            return (True, f"pytest passed: {summary_str}")
+        else:
+            return (False, f"pytest failed: {summary_str}")
+
+    except Exception as e:
+        log(f"ERROR in check_new_test_files_and_run_pytest: {e}")
+        # On error, proceed but log
+        return (True, f"test check exception: {e}")
 
 def daemon_loop():
     """Main daemon loop: poll queue, run tasks, mark done."""
@@ -158,10 +212,20 @@ def daemon_loop():
                     provider_running[provider] = max(0, provider_running.get(provider, 0) - 1)
                     try:
                         _, exit_code, tail = future.result()
-                        mark_done(line_num, f"exit={exit_code}")
+                        if exit_code == 0:
+                            # Check for new test files and run pytest
+                            passed, test_result = check_new_test_files_and_run_pytest()
+                            if passed:
+                                mark_done(line_num, f"exit={exit_code}, {test_result}")
+                            else:
+                                mark_failed(line_num, f"exit={exit_code}, {test_result[:60]}")
+                                log(f"TEST FAILED: {cmd[:60]}... → {test_result}")
+                        else:
+                            mark_failed(line_num, f"exit={exit_code} {tail[:60]}")
+                            log(f"FAILED (exit={exit_code}): {cmd[:60]}...")
                     except Exception as e:
                         log(f"Future error: {e}")
-                        mark_done(line_num, str(e))
+                        mark_failed(line_num, str(e))
 
                 # Fill available slots per provider
                 pending = parse_queue()

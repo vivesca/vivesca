@@ -6,25 +6,43 @@
 #   golem --full "Task needing MCP/skills/context"   # full organism access
 #   golem --batch metabolon/bar.py metabolon/baz.py  # sequential test gen
 #   golem --max-turns 30 "Complex task"
+#   golem summary [--recent N]                       # show provider stats
 set -euo pipefail
 
 MAX_TURNS="${GOLEM_MAX_TURNS:-50}"
 BARE=true
 BATCH=false
 TEST=false
+SUMMARY=false
+RECENT=0
 PROVIDER="${GOLEM_PROVIDER:-zhipu}"
 
-while [[ "${1:-}" == --* ]]; do
-  case "$1" in
-    --batch) BATCH=true; shift ;;
-    --test) TEST=true; shift ;;
-    --max-turns) MAX_TURNS="$2"; shift 2 ;;
-    --full) BARE=false; shift ;;
-    --bare) BARE=true; shift ;;
-    --provider) PROVIDER="$2"; shift 2 ;;
-    *) echo "Unknown flag: $1" >&2; exit 1 ;;
-  esac
-done
+GOLEM_LOG="${GOLEM_LOG:-$HOME/.local/share/vivesca/golem.jsonl}"
+mkdir -p "$(dirname "$GOLEM_LOG")"
+
+# Handle subcommands first
+if [[ "${1:-}" == "summary" ]]; then
+  SUMMARY=true
+  shift
+  while [[ "${1:-}" == --* ]]; do
+    case "$1" in
+      --recent) RECENT="$2"; shift 2 ;;
+      *) echo "Unknown flag: $1" >&2; exit 1 ;;
+    esac
+  done
+else
+  while [[ "${1:-}" == --* ]]; do
+    case "$1" in
+      --batch) BATCH=true; shift ;;
+      --test) TEST=true; shift ;;
+      --max-turns) MAX_TURNS="$2"; shift 2 ;;
+      --full) BARE=false; shift ;;
+      --bare) BARE=true; shift ;;
+      --provider) PROVIDER="$2"; shift 2 ;;
+      *) echo "Unknown flag: $1" >&2; exit 1 ;;
+    esac
+  done
+fi
 
 # Provider config: KEY_VAR, BASE_URL, OPUS_MODEL, SONNET_MODEL, HAIKU_MODEL
 case "$PROVIDER" in
@@ -48,6 +66,84 @@ esac
 
 GOLEM_LOG="${GOLEM_LOG:-$HOME/.local/share/vivesca/golem.jsonl}"
 mkdir -p "$(dirname "$GOLEM_LOG")"
+
+# Summary subcommand - show provider stats from JSONL log
+_run_summary() {
+  local recent_filter=""
+  if [[ "$RECENT" -gt 0 ]]; then
+    recent_filter="tail -n $RECENT |"
+  fi
+
+  python3 << 'PYTHON_SCRIPT'
+import json
+import sys
+from collections import defaultdict
+from datetime import datetime
+
+recent = 0
+log_file = None
+
+# Parse args
+args = sys.argv[1:]
+i = 0
+while i < len(args):
+    if args[i] == '--recent' and i + 1 < len(args):
+        recent = int(args[i + 1])
+        i += 2
+    elif args[i].startswith('--log='):
+        log_file = args[i][6:]
+        i += 1
+    else:
+        i += 1
+
+if not log_file:
+    import os
+    log_file = os.environ.get('GOLEM_LOG', os.path.expanduser('~/.local/share/vivesca/golem.jsonl'))
+
+stats = defaultdict(lambda: {'runs': 0, 'pass': 0, 'fail': 0, 'total_duration': 0, 'tests_created': 0})
+
+try:
+    with open(log_file, 'r') as f:
+        lines = f.readlines()
+
+    if recent > 0:
+        lines = lines[-recent:]
+
+    for line in lines:
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            data = json.loads(line)
+            provider = data.get('provider', 'unknown')
+            stats[provider]['runs'] += 1
+            exit_code = data.get('exit', -1)
+            if exit_code == 0:
+                stats[provider]['pass'] += 1
+            else:
+                stats[provider]['fail'] += 1
+            stats[provider]['total_duration'] += data.get('duration', 0)
+            stats[provider]['tests_created'] += data.get('tests_passed', 0) + data.get('tests_failed', 0)
+        except json.JSONDecodeError:
+            continue
+
+    # Print table
+    print(f"{'Provider':<12} | {'Runs':>4} | {'Pass':>4} | {'Fail':>4} | {'Avg Duration':>12} | {'Tests Created':>13}")
+    print('-' * 63)
+    for provider in sorted(stats.keys()):
+        s = stats[provider]
+        avg_dur = s['total_duration'] // s['runs'] if s['runs'] > 0 else 0
+        print(f"{provider:<12} | {s['runs']:>4} | {s['pass']:>4} | {s['fail']:>4} | {avg_dur:>10}s | {s['tests_created']:>13}")
+except FileNotFoundError:
+    print(f"No log file found: {log_file}", file=sys.stderr)
+    sys.exit(1)
+PYTHON_SCRIPT
+}
+
+if $SUMMARY; then
+  _run_summary
+  exit 0
+fi
 
 _run_golem() {
   local prompt="$1"
@@ -74,11 +170,35 @@ _run_golem() {
   local exit_code=$?
   local duration=$(( $(date +%s) - start_ts ))
   local short_prompt="${prompt:0:100}"
-  # Log result
-  printf '{"ts":"%s","provider":"%s","duration":%d,"exit":%d,"turns":%d,"prompt":"%s","tail":"%s"}\n' \
+
+  # Enriched logging: count files and run pytest on new test files
+  local files_created=0
+  local tests_passed=0
+  local tests_failed=0
+  local pytest_exit=0
+
+  # Count new/modified files
+  files_created=$(git diff --name-only --diff-filter=AM HEAD 2>/dev/null | wc -l | tr -d ' ')
+
+  # Find new test files and run pytest
+  local new_tests=$(git diff --name-only --diff-filter=A HEAD 2>/dev/null | grep '^assays/test_.*\.py$' || true)
+  if [[ -n "$new_tests" ]]; then
+    local pytest_output
+    pytest_output=$(uv run pytest $new_tests -q --tb=no 2>&1 || true)
+    pytest_exit=$?
+    # Parse pass/fail from pytest output (e.g., "3 passed, 1 failed" or "5 passed")
+    tests_passed=$(echo "$pytest_output" | grep -oE '[0-9]+ passed' | grep -oE '[0-9]+' || echo "0")
+    tests_failed=$(echo "$pytest_output" | grep -oE '[0-9]+ failed' | grep -oE '[0-9]+' || echo "0")
+    [[ -z "$tests_passed" ]] && tests_passed=0
+    [[ -z "$tests_failed" ]] && tests_failed=0
+  fi
+
+  # Log result with enriched fields
+  printf '{"ts":"%s","provider":"%s","duration":%d,"exit":%d,"turns":%d,"prompt":"%s","tail":"%s","files_created":%d,"tests_passed":%d,"tests_failed":%d,"pytest_exit":%d}\n' \
     "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$PROVIDER" "$duration" "$exit_code" "$MAX_TURNS" \
     "$(echo "$short_prompt" | tr '"' "'")" \
-    "$(echo "${output: -200}" | tr '"' "'" | tr '\n' ' ')" >> "$GOLEM_LOG"
+    "$(echo "${output: -200}" | tr '"' "'" | tr '\n' ' ')" \
+    "$files_created" "$tests_passed" "$tests_failed" "$pytest_exit" >> "$GOLEM_LOG"
   echo "$output"
 }
 
