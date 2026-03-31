@@ -1,84 +1,109 @@
-"""Tests for metabolon/enzymes/electroreception.py — iMessage reader."""
+"""Tests for metabolon/enzymes/electroreception.py — iMessage/SMS reading."""
 
 from __future__ import annotations
 
 import sqlite3
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
 
-from metabolon.enzymes.electroreception import (
-    ElectroreceptionResult,
-    _extract_text,
-    electroreception_read,
-)
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+def _fn():
+    """Return the raw function behind the @tool decorator."""
+    from metabolon.enzymes import electroreception as mod
+
+    return mod.electroception_read
+
+
+def _build_attributed_body(text: str) -> bytes:
+    """Build a minimal NSAttributedString blob containing *text*.
+
+    The real format is streamtyped but for _extract_text we only need
+    the text to survive the regex split on control chars.
+    """
+    # Encode with a control-char separator that the regex will split on
+    return f"\x01NSString\x02{text}".encode("utf-8")
 
 
 # ---------------------------------------------------------------------------
-# _extract_text
+# _extract_text unit tests
 # ---------------------------------------------------------------------------
 
 class TestExtractText:
-    """Unit tests for _extract_text helper."""
+    """Tests for _extract_text helper."""
 
     def test_none_blob_returns_none(self):
+        from metabolon.enzymes.electroreception import _extract_text
+
         assert _extract_text(None) is None
 
     def test_empty_blob_returns_none(self):
+        from metabolon.enzymes.electroreception import _extract_text
+
         assert _extract_text(b"") is None
 
-    def test_plain_text_blob(self):
-        blob = b"Hello, world"
-        result = _extract_text(blob)
-        assert result == "Hello, world"
+    def test_extracts_plain_text(self):
+        from metabolon.enzymes.electroreception import _extract_text
 
-    def test_extracts_text_from_attributed_body(self):
-        # Simulated attributedBody: control-char separated runs with metadata junk
-        blob = b"streamtyped\x00NSString\x06Hello there\x0bNSFont\x01NSColor"
+        blob = _build_attributed_body("Hello world")
+        assert _extract_text(blob) == "Hello world"
+
+    def test_skips_metadata_tokens(self):
+        from metabolon.enzymes.electroreception import _extract_text
+
+        # All runs are metadata — should return None
+        blob = b"\x02NSString\x02NSDictionary\x02NSObject"
+        assert _extract_text(blob) is None
+
+    def test_short_runs_skipped(self):
+        from metabolon.enzymes.electroreception import _extract_text
+
+        # "ab" is < 3 chars but >= 2 after strip, so it should still be returned
+        # Actually runs < 3 chars are skipped. A run of exactly "ab" has len 2 < 3 → skipped.
+        blob = b"\x02ab\x02NSString"
+        assert _extract_text(blob) is None
+
+    def test_plus_prefix_stripped(self):
+        from metabolon.enzymes.electroreception import _extract_text
+
+        blob = b"\x02+ Hello there\x02NSString"
         result = _extract_text(blob)
         assert result == "Hello there"
 
-    def test_skips_short_runs(self):
-        # All runs are < 3 chars after stripping
-        blob = b"ab\x00cd\x01ef"
-        assert _extract_text(blob) is None
+    def test_returns_first_valid_text(self):
+        from metabolon.enzymes.electroreception import _extract_text
 
-    def test_strips_plus_prefix(self):
-        # Runs starting with "+\x00" get prefix removed (starts with "+", len > 2)
-        blob = b"+\x00\x00My message text\x00NSObject"
+        blob = b"\x02NSString\x02First match\x02Second match"
+        assert _extract_text(blob) == "First match"
+
+    def test_invalid_utf8_handled_gracefully(self):
+        from metabolon.enzymes.electroreception import _extract_text
+
+        # Garbage bytes — should not raise
+        blob = b"\xff\xfe\xfd"
+        # The regex split may produce nothing valid
         result = _extract_text(blob)
-        # After + stripping: "My message text"
-        assert result is not None
-        assert "My message text" in result
-
-    def test_all_metadata_returns_none(self):
-        blob = b"NSString\x00NSObject\x00NSDictionary"
-        assert _extract_text(blob) is None
-
-    def test_unicode_content(self):
-        blob = "Café résumé".encode("utf-8")
-        result = _extract_text(blob)
-        assert "Café" in result
-
-    def test_returns_first_valid_run(self):
-        blob = b"NSFont\x00\x00First good\x00NSNumber\x00Second good"
-        result = _extract_text(blob)
-        assert result == "First good"
+        # We just verify no exception; result depends on decode
+        assert result is None or isinstance(result, str)
 
 
 # ---------------------------------------------------------------------------
 # electroreception_read — DB not found
 # ---------------------------------------------------------------------------
 
-class TestElectroreceptionReadNoDb:
+class TestDBNotFound:
     """When chat.db does not exist."""
 
-    @patch("metabolon.enzymes.electroreception.os.path.exists", return_value=False)
-    def test_returns_error_when_db_missing(self, mock_exists):
-        result = electroreception_read()
-        assert isinstance(result, ElectroreceptionResult)
+    def test_returns_error_message(self):
+        fn = _fn()
+        with patch("metabolon.enzymes.electroreception.os.path.exists", return_value=False):
+            result = fn()
         assert result.count == 0
         assert len(result.messages) == 1
         assert "error" in result.messages[0]
@@ -89,149 +114,149 @@ class TestElectroreceptionReadNoDb:
 # electroreception_read — with mock DB
 # ---------------------------------------------------------------------------
 
-def _make_in_memory_db(rows: list[tuple]) -> sqlite3.Connection:
-    """Create an in-memory SQLite DB that mimics the chat.db query shape.
+class TestElectroreceptionRead:
+    """Tests with an in-memory SQLite database."""
 
-    rows: list of (rowid, dt, sender, text, attributedBody, is_from_me)
-    """
-    conn = sqlite3.connect(":memory:")
-    conn.execute(
-        """
-        CREATE TABLE message (
-            rowid INTEGER PRIMARY KEY,
-            date INTEGER,
-            text TEXT,
-            attributedBody BLOB,
-            is_from_me INTEGER,
-            handle_id INTEGER
-        )
-        """
-    )
-    conn.execute(
-        """
-        CREATE TABLE handle (
-            rowid INTEGER PRIMARY KEY,
-            id TEXT
-        )
-        """
-    )
-    for i, (rowid, dt, sender, text, body, from_me) in enumerate(rows):
-        # Insert a handle if sender is not 'Me'
-        handle_id = 0
-        if sender != "Me":
-            handle_id = i + 1
-            conn.execute(
-                "INSERT INTO handle (rowid, id) VALUES (?, ?)",
-                (handle_id, sender),
+    @pytest.fixture()
+    def mock_db(self, tmp_path):
+        """Create a temporary chat.db and return its path."""
+        db_path = tmp_path / "chat.db"
+        conn = sqlite3.connect(str(db_path))
+        cur = conn.cursor()
+        # macOS chat.db schema (simplified)
+        cur.execute(
+            """
+            CREATE TABLE message (
+                rowid INTEGER PRIMARY KEY AUTOINCREMENT,
+                text TEXT,
+                attributedBody BLOB,
+                is_from_me INTEGER DEFAULT 0,
+                handle_id INTEGER,
+                date INTEGER
             )
-        # Apple NSDate: (unix_timestamp - 978307200) * 1e9
-        # We store a plausible integer; the SQL formats it.
-        conn.execute(
-            "INSERT INTO message (rowid, date, text, attributedBody, is_from_me, handle_id) "
-            "VALUES (?, ?, ?, ?, ?, ?)",
-            (rowid, 700000000000000000, text, body, from_me, handle_id),
+            """
         )
-    conn.commit()
-    return conn
+        cur.execute(
+            """
+            CREATE TABLE handle (
+                rowid INTEGER PRIMARY KEY AUTOINCREMENT,
+                id TEXT
+            )
+            """
+        )
+        conn.commit()
 
+        # Insert sample handles
+        handles = [
+            (1, "+85291234567"),
+            (2, "MoxBank"),
+            (3, "john@example.com"),
+        ]
+        cur.executemany("INSERT INTO handle (rowid, id) VALUES (?, ?)", handles)
 
-class TestElectroreceptionReadWithDb:
-    """When chat.db exists and returns rows."""
+        # Insert sample messages — date uses Apple epoch (nanoseconds since 2001-01-01)
+        base = datetime(2025, 6, 15, 12, 0, 0)
+        messages = [
+            # (text, attributedBody, is_from_me, handle_id, date_ns_offset)
+            ("Hello from MoxBank", None, 0, 2, 0),
+            ("Sent message", None, 1, 1, -1_000_000_000_000),
+            (None, _build_attributed_body("Blob message"), 0, 3, -2_000_000_000_000),
+            ("Another from MoxBank", None, 0, 2, -3_000_000_000_000),
+            (None, None, 0, 1, -4_000_000_000_000),  # empty — should be skipped
+            ("Old message", None, 0, 1, -30 * 86_400_000_000_000),  # 30 days ago
+        ]
+        now_ns = int((base.timestamp() - 978307200) * 1_000_000_000)
+        for text, body, from_me, handle_id, offset in messages:
+            cur.execute(
+                "INSERT INTO message (text, attributedBody, is_from_me, handle_id, date) "
+                "VALUES (?, ?, ?, ?, ?)",
+                (text, body, from_me, handle_id, now_ns + offset),
+            )
+        conn.commit()
+        conn.close()
+        return db_path
 
-    SAMPLE_ROWS = [
-        (1, "2025-01-01 10:00:00", "+8521234", "Hello from bank", None, 0),
-        (2, "2025-01-01 11:00:00", "Me", "My reply", None, 1),
-        (3, "2025-01-02 09:00:00", "+8525678", "Another message", None, 0),
-        (4, "2025-01-02 10:00:00", "+8521234", "Bank OTP 123456", None, 0),
-    ]
-
-    def _run_with_mock(self, **kwargs):
-        """Patch os.path.exists + sqlite3.connect to use in-memory DB."""
-        mem_db = _make_in_memory_db(self.SAMPLE_ROWS)
-
+    def _call(self, mock_db, **kwargs):
+        """Call electroreception_read with DB patched to our temp DB."""
+        fn = _fn()
+        db_str = str(mock_db)
         with (
             patch("metabolon.enzymes.electroreception.os.path.exists", return_value=True),
-            patch("metabolon.enzymes.electroreception.sqlite3.connect", return_value=mem_db),
+            patch("metabolon.enzymes.electroreception._DB", db_str),
         ):
-            result = electroreception_read(**kwargs)
-        return result
+            return fn(**kwargs)
 
-    def test_basic_fetch(self):
-        result = self._run_with_mock()
-        assert isinstance(result, ElectroreceptionResult)
-        assert result.count == len(result.messages)
+    def test_basic_fetch(self, mock_db):
+        result = self._call(mock_db, limit=10)
+        # 4 non-empty messages (empty body+text one is skipped)
         assert result.count == 4
+        assert all("dt" in m and "sender" in m and "text" in m for m in result.messages)
 
-    def test_limit(self):
-        result = self._run_with_mock(limit=2)
+    def test_limit_respected(self, mock_db):
+        result = self._call(mock_db, limit=2)
         assert result.count == 2
 
-    def test_incoming_only(self):
-        result = self._run_with_mock(incoming_only=True)
-        assert all(not m["from_me"] for m in result.messages)
-        # Row 2 is from_me=1, so should be excluded
+    def test_sender_filter(self, mock_db):
+        result = self._call(mock_db, sender="MoxBank")
+        assert result.count == 2
+        assert all("MoxBank" in m["sender"] for m in result.messages)
+
+    def test_incoming_only(self, mock_db):
+        result = self._call(mock_db, incoming_only=True)
         assert result.count == 3
+        assert all(not m["from_me"] for m in result.messages)
 
-    def test_sender_filter(self):
-        result = self._run_with_mock(sender="+8521234")
-        assert result.count == 2
-        assert all("+8521234" in m["sender"] for m in result.messages)
-
-    def test_query_filter(self):
-        result = self._run_with_mock(query="OTP")
+    def test_query_filter(self, mock_db):
+        result = self._call(mock_db, query="Blob")
         assert result.count == 1
-        assert "OTP" in result.messages[0]["text"]
+        assert "Blob" in result.messages[0]["text"]
 
-    def test_query_filter_case_insensitive(self):
-        result = self._run_with_mock(query="otp")
+    def test_query_case_insensitive(self, mock_db):
+        result = self._call(mock_db, query="hello")
         assert result.count == 1
+        assert "hello" in result.messages[0]["text"].lower()
 
-    def test_empty_result(self):
-        result = self._run_with_mock(query="nonexistent_xyz")
+    def test_from_me_sender_label(self, mock_db):
+        result = self._call(mock_db, limit=10)
+        sent = [m for m in result.messages if m["from_me"]]
+        assert len(sent) == 1
+        assert sent[0]["sender"] == "Me"
+
+    def test_days_filter(self, mock_db):
+        # Only messages from last 7 days — excludes the 30-day-old one
+        # Our DB is anchored to 2025-06-15; patch datetime too
+        fn = _fn()
+        db_str = str(mock_db)
+        fake_now = datetime(2025, 6, 15, 12, 0, 0)
+        with (
+            patch("metabolon.enzymes.electroreception.os.path.exists", return_value=True),
+            patch("metabolon.enzymes.electroreception._DB", db_str),
+            patch("metabolon.enzymes.electroreception.datetime") as mock_dt,
+        ):
+            mock_dt.now.return_value = fake_now
+            mock_dt.side_effect = lambda *a, **kw: datetime(*a, **kw)
+            # timedelta still needs to work
+            from datetime import timedelta as real_td
+            mock_dt.timedelta = real_td
+            result = fn(days=7)
+
+        # Should exclude the 30-day-old message
+        texts = [m["text"] for m in result.messages]
+        assert "Old message" not in texts
+
+    def test_empty_result(self, mock_db):
+        result = self._call(mock_db, sender="NONEXISTENT")
         assert result.count == 0
         assert result.messages == []
 
-    def test_result_fields(self):
-        result = self._run_with_mock(limit=1)
-        msg = result.messages[0]
-        assert "dt" in msg
-        assert "sender" in msg
-        assert "text" in msg
-        assert "from_me" in msg
+    def test_result_is_electroreception_result(self, mock_db):
+        from metabolon.enzymes.electroreception import ElectroreceptionResult
 
-    def test_text_falls_back_to_attributed_body(self):
-        """When text is NULL but attributedBody has content, extract from blob."""
-        rows = [
-            (1, "2025-01-01 10:00:00", "+8529999", None, b"Extracted text here", 0),
-        ]
-        mem_db = _make_in_memory_db(rows)
-        # Patch _extract_text to return known value
-        with (
-            patch("metabolon.enzymes.electroreception.os.path.exists", return_value=True),
-            patch("metabolon.enzymes.electroreception.sqlite3.connect", return_value=mem_db),
-            patch(
-                "metabolon.enzymes.electroreception._extract_text",
-                return_value="Extracted text here",
-            ),
-        ):
-            result = electroreception_read()
+        result = self._call(mock_db, limit=1)
+        assert isinstance(result, ElectroreceptionResult)
 
-        assert result.count == 1
-        assert result.messages[0]["text"] == "Extracted text here"
-
-    def test_skips_rows_with_no_content(self):
-        """Rows where both text and _extract_text(body) are None are skipped."""
-        rows = [
-            (1, "2025-01-01 10:00:00", "+8529999", None, None, 0),
-            (2, "2025-01-01 11:00:00", "Me", "Visible", None, 1),
-        ]
-        mem_db = _make_in_memory_db(rows)
-        with (
-            patch("metabolon.enzymes.electroreception.os.path.exists", return_value=True),
-            patch("metabolon.enzymes.electroreception.sqlite3.connect", return_value=mem_db),
-            patch("metabolon.enzymes.electroreception._extract_text", return_value=None),
-        ):
-            result = electroreception_read()
-
-        assert result.count == 1
-        assert result.messages[0]["text"] == "Visible"
+    def test_sender_sql_injection_safe(self, mock_db):
+        """Single quotes in sender should be escaped."""
+        result = self._call(mock_db, sender="MoxBank'; DROP TABLE message;--")
+        # Should not crash — just return no results (no match)
+        assert isinstance(result.count, int)
