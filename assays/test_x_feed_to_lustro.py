@@ -5,6 +5,7 @@ import hashlib
 import json
 from datetime import UTC, datetime
 from pathlib import Path
+from contextlib import contextmanager
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -25,6 +26,17 @@ COUNT = _mod["COUNT"]
 MIN_TEXT_LENGTH = _mod["MIN_TEXT_LENGTH"]
 
 
+@contextmanager
+def _cache_dir(target: Path):
+    """Temporarily swap CACHE_DIR in the exec'd namespace."""
+    original = _mod["CACHE_DIR"]
+    _mod["CACHE_DIR"] = target
+    try:
+        yield
+    finally:
+        _mod["CACHE_DIR"] = original
+
+
 # ── helper: build a fake tweet ──────────────────────────────────────
 
 def _tweet(text="A" * 150, handle="testuser", name="Test User",
@@ -41,13 +53,13 @@ def _tweet(text="A" * 150, handle="testuser", name="Test User",
     return t
 
 
-def _mock_subprocess_run(stdout_json, returncode=0):
-    """Return a mock subprocess.run that produces the given JSON stdout."""
-    mock_result = MagicMock()
-    mock_result.returncode = returncode
-    mock_result.stdout = stdout_json
-    mock_result.stderr = ""
-    return mock_result
+def _mock_run(stdout_json, returncode=0):
+    """Return a mock subprocess.run result."""
+    m = MagicMock()
+    m.returncode = returncode
+    m.stdout = stdout_json
+    m.stderr = ""
+    return m
 
 
 # ── constants / module loading ───────────────────────────────────────
@@ -66,9 +78,9 @@ def test_cache_dir_under_home():
 
 # ── bird CLI failure ─────────────────────────────────────────────────
 
-def test_bird_failure_exits(capsys):
+def test_bird_failure_exits():
     """main exits 1 when bird CLI returns non-zero."""
-    with patch("subprocess.run", return_value=_mock_subprocess_run("", returncode=1)):
+    with patch("subprocess.run", return_value=_mock_run("", returncode=1)):
         with pytest.raises(SystemExit) as exc_info:
             main()
         assert exc_info.value.code == 1
@@ -76,13 +88,13 @@ def test_bird_failure_exits(capsys):
 
 # ── single tweet saved ────────────────────────────────────────────────
 
-def test_single_tweet_saved(tmp_path, capsys):
+def test_single_tweet_saved(tmp_path):
     """A long-enough tweet is saved as a JSON cache file."""
     tweet = _tweet()
     tweets_json = json.dumps([tweet])
 
-    with patch("subprocess.run", return_value=_mock_subprocess_run(tweets_json)):
-        with patch.object(_mod, "CACHE_DIR", tmp_path):
+    with patch("subprocess.run", return_value=_mock_run(tweets_json)):
+        with _cache_dir(tmp_path):
             main()
 
     files = list(tmp_path.glob("*.json"))
@@ -103,12 +115,11 @@ def test_short_tweet_skipped(tmp_path):
     short_tweet = _tweet(text="hi")
     tweets_json = json.dumps([short_tweet])
 
-    with patch("subprocess.run", return_value=_mock_subprocess_run(tweets_json)):
-        with patch.object(_mod, "CACHE_DIR", tmp_path):
+    with patch("subprocess.run", return_value=_mock_run(tweets_json)):
+        with _cache_dir(tmp_path):
             main()
 
-    files = list(tmp_path.glob("*.json"))
-    assert len(files) == 0
+    assert list(tmp_path.glob("*.json")) == []
 
 
 # ── duplicate not overwritten ─────────────────────────────────────────
@@ -125,11 +136,10 @@ def test_duplicate_not_overwritten(tmp_path):
     existing = tmp_path / filename
     existing.write_text('{"old": true}')
 
-    with patch("subprocess.run", return_value=_mock_subprocess_run(tweets_json)):
-        with patch.object(_mod, "CACHE_DIR", tmp_path):
+    with patch("subprocess.run", return_value=_mock_run(tweets_json)):
+        with _cache_dir(tmp_path):
             main()
 
-    # File content should remain the old one
     record = json.loads(existing.read_text())
     assert record == {"old": True}
 
@@ -139,17 +149,15 @@ def test_duplicate_not_overwritten(tmp_path):
 def test_quoted_tweet_appended(tmp_path):
     """Quoted tweet text is appended to the main text."""
     tweet = _tweet(text="B" * 120, quoted_tweet={"text": "C" * 120})
-    # Combined length > MIN_TEXT_LENGTH
     tweets_json = json.dumps([tweet])
 
-    with patch("subprocess.run", return_value=_mock_subprocess_run(tweets_json)):
-        with patch.object(_mod, "CACHE_DIR", tmp_path):
+    with patch("subprocess.run", return_value=_mock_run(tweets_json)):
+        with _cache_dir(tmp_path):
             main()
 
     files = list(tmp_path.glob("*.json"))
     assert len(files) == 1
     record = json.loads(files[0].read_text())
-    # Summary should contain the quoted text
     assert "C" * 10 in record["summary"]
 
 
@@ -160,8 +168,8 @@ def test_date_parsing(tmp_path):
     tweet = _tweet(date="Wed Mar 15 09:30:00 +0000 2025")
     tweets_json = json.dumps([tweet])
 
-    with patch("subprocess.run", return_value=_mock_subprocess_run(tweets_json)):
-        with patch.object(_mod, "CACHE_DIR", tmp_path):
+    with patch("subprocess.run", return_value=_mock_run(tweets_json)):
+        with _cache_dir(tmp_path):
             main()
 
     files = list(tmp_path.glob("2025-03-15_*.json"))
@@ -174,15 +182,13 @@ def test_bad_date_uses_today(tmp_path):
     """Bad/missing date falls back to today's date."""
     tweet = _tweet(date="not-a-date")
     tweets_json = json.dumps([tweet])
-
     today_str = datetime.now(UTC).strftime("%Y-%m-%d")
 
-    with patch("subprocess.run", return_value=_mock_subprocess_run(tweets_json)):
-        with patch.object(_mod, "CACHE_DIR", tmp_path):
+    with patch("subprocess.run", return_value=_mock_run(tweets_json)):
+        with _cache_dir(tmp_path):
             main()
 
-    files = list(tmp_path.glob(f"{today_str}_*.json"))
-    assert len(files) == 1
+    assert len(list(tmp_path.glob(f"{today_str}_*.json"))) == 1
 
 
 def test_missing_date_uses_today(tmp_path):
@@ -190,15 +196,13 @@ def test_missing_date_uses_today(tmp_path):
     tweet = _tweet()
     del tweet["date"]
     tweets_json = json.dumps([tweet])
-
     today_str = datetime.now(UTC).strftime("%Y-%m-%d")
 
-    with patch("subprocess.run", return_value=_mock_subprocess_run(tweets_json)):
-        with patch.object(_mod, "CACHE_DIR", tmp_path):
+    with patch("subprocess.run", return_value=_mock_run(tweets_json)):
+        with _cache_dir(tmp_path):
             main()
 
-    files = list(tmp_path.glob(f"{today_str}_*.json"))
-    assert len(files) == 1
+    assert len(list(tmp_path.glob(f"{today_str}_*.json"))) == 1
 
 
 # ── single object (non-list) response ────────────────────────────────
@@ -208,12 +212,11 @@ def test_single_object_response(tmp_path):
     tweet = _tweet()
     tweets_json = json.dumps(tweet)  # no list wrapper
 
-    with patch("subprocess.run", return_value=_mock_subprocess_run(tweets_json)):
-        with patch.object(_mod, "CACHE_DIR", tmp_path):
+    with patch("subprocess.run", return_value=_mock_run(tweets_json)):
+        with _cache_dir(tmp_path):
             main()
 
-    files = list(tmp_path.glob("*.json"))
-    assert len(files) == 1
+    assert len(list(tmp_path.glob("*.json"))) == 1
 
 
 # ── mixed long and short tweets ───────────────────────────────────────
@@ -224,12 +227,11 @@ def test_mixed_tweets(tmp_path, capsys):
     short_tweet = _tweet(text="hi", handle="shortuser")
     tweets_json = json.dumps([long_tweet, short_tweet])
 
-    with patch("subprocess.run", return_value=_mock_subprocess_run(tweets_json)):
-        with patch.object(_mod, "CACHE_DIR", tmp_path):
+    with patch("subprocess.run", return_value=_mock_run(tweets_json)):
+        with _cache_dir(tmp_path):
             main()
 
-    files = list(tmp_path.glob("*.json"))
-    assert len(files) == 1
+    assert len(list(tmp_path.glob("*.json"))) == 1
 
     captured = capsys.readouterr()
     assert "1 saved" in captured.err
@@ -243,16 +245,15 @@ def test_subprocess_called_correctly(tmp_path):
     """subprocess.run is called with bird home --count 20 --json."""
     tweets_json = json.dumps([_tweet()])
 
-    with patch("subprocess.run", return_value=_mock_subprocess_run(tweets_json)) as mock_run:
-        with patch.object(_mod, "CACHE_DIR", tmp_path):
+    with patch("subprocess.run", return_value=_mock_run(tweets_json)) as mock_run:
+        with _cache_dir(tmp_path):
             main()
 
     mock_run.assert_called_once()
-    args = mock_run.call_args
-    cmd = args[0][0]
+    cmd = mock_run.call_args[0][0]
     assert cmd == ["bird", "home", "--count", "20", "--json"]
-    assert args[1]["capture_output"] is True
-    assert args[1]["timeout"] == 60
+    assert mock_run.call_args[1]["capture_output"] is True
+    assert mock_run.call_args[1]["timeout"] == 60
 
 
 # ── cache dir created if missing ──────────────────────────────────────
@@ -263,8 +264,8 @@ def test_cache_dir_created(tmp_path):
     tweet = _tweet()
     tweets_json = json.dumps([tweet])
 
-    with patch("subprocess.run", return_value=_mock_subprocess_run(tweets_json)):
-        with patch.object(_mod, "CACHE_DIR", deep_dir):
+    with patch("subprocess.run", return_value=_mock_run(tweets_json)):
+        with _cache_dir(deep_dir):
             main()
 
     assert deep_dir.exists()
@@ -278,8 +279,8 @@ def test_record_fields(tmp_path):
     tweet = _tweet()
     tweets_json = json.dumps([tweet])
 
-    with patch("subprocess.run", return_value=_mock_subprocess_run(tweets_json)):
-        with patch.object(_mod, "CACHE_DIR", tmp_path):
+    with patch("subprocess.run", return_value=_mock_run(tweets_json)):
+        with _cache_dir(tmp_path):
             main()
 
     record = json.loads(list(tmp_path.glob("*.json"))[0].read_text())
