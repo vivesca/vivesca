@@ -101,27 +101,37 @@ class TestHelpFlag:
 
 
 class TestURLExtraction:
-    """Test the grep pattern used to extract URLs from the buffer."""
+    """Test the grep pattern used to extract URLs from the buffer.
+
+    We write a small helper script to avoid quoting hell with the
+    complex grep regex when passed through bash -c.
+    """
+
+    def _extract_urls(self, buf_path: Path) -> subprocess.CompletedProcess:
+        """Run the same grep+awk pipeline the script uses, via a temp script."""
+        script = buf_path.parent / "extract.sh"
+        # Use the exact same regex from the original script:
+        # https?://[^ >)"']+
+        script.write_text(
+            f"#!/bin/bash\n"
+            f"grep -oE 'https?://[^ >)\"'\\''']+\\' {buf_path} | awk '!seen[$0]++'\n"
+        )
+        script.chmod(0o755)
+        return subprocess.run(
+            [str(script)], capture_output=True, text=True, timeout=10,
+        )
 
     def test_extracts_http_url(self, tmp_path):
         buf = tmp_path / "buffer"
         buf.write_text("See http://example.com for details\n")
-        r = subprocess.run(
-            ["bash", "-c",
-             f'grep -oE \'https?://[^ >)"\\x27\\x27]+\' {buf} | awk \'!seen[$0]++\''],
-            capture_output=True, text=True, timeout=10,
-        )
+        r = self._extract_urls(buf)
         assert r.returncode == 0
         assert "http://example.com" in r.stdout
 
     def test_extracts_https_url(self, tmp_path):
         buf = tmp_path / "buffer"
         buf.write_text("Visit https://example.com/path?q=1\n")
-        r = subprocess.run(
-            ["bash", "-c",
-             f'grep -oE \'https?://[^ >)"\\x27\\x27]+\' {buf} | awk \'!seen[$0]++\''],
-            capture_output=True, text=True, timeout=10,
-        )
+        r = self._extract_urls(buf)
         assert r.returncode == 0
         assert "https://example.com/path?q=1" in r.stdout
 
@@ -130,11 +140,7 @@ class TestURLExtraction:
         buf.write_text(
             "See https://example.com and also https://example.com again\n"
         )
-        r = subprocess.run(
-            ["bash", "-c",
-             f'grep -oE \'https?://[^ >)"\\x27\\x27]+\' {buf} | awk \'!seen[$0]++\''],
-            capture_output=True, text=True, timeout=10,
-        )
+        r = self._extract_urls(buf)
         assert r.returncode == 0
         urls = r.stdout.strip().splitlines()
         assert urls.count("https://example.com") == 1
@@ -144,11 +150,7 @@ class TestURLExtraction:
         buf.write_text(
             "https://foo.com and https://bar.com and https://baz.com\n"
         )
-        r = subprocess.run(
-            ["bash", "-c",
-             f'grep -oE \'https?://[^ >)"\\x27\\x27]+\' {buf} | awk \'!seen[$0]++\''],
-            capture_output=True, text=True, timeout=10,
-        )
+        r = self._extract_urls(buf)
         assert r.returncode == 0
         urls = r.stdout.strip().splitlines()
         assert len(urls) == 3
@@ -156,55 +158,35 @@ class TestURLExtraction:
     def test_stops_at_space(self, tmp_path):
         buf = tmp_path / "buffer"
         buf.write_text("https://example.com/path other text\n")
-        r = subprocess.run(
-            ["bash", "-c",
-             f'grep -oE \'https?://[^ >)"\\x27\\x27]+\' {buf} | awk \'!seen[$0]++\''],
-            capture_output=True, text=True, timeout=10,
-        )
+        r = self._extract_urls(buf)
         assert r.returncode == 0
         assert r.stdout.strip() == "https://example.com/path"
 
     def test_stops_at_closing_paren(self, tmp_path):
         buf = tmp_path / "buffer"
         buf.write_text("link (https://example.com) here\n")
-        r = subprocess.run(
-            ["bash", "-c",
-             f'grep -oE \'https?://[^ >)"\\x27\\x27]+\' {buf} | awk \'!seen[$0]++\''],
-            capture_output=True, text=True, timeout=10,
-        )
+        r = self._extract_urls(buf)
         assert r.returncode == 0
         assert r.stdout.strip() == "https://example.com"
 
     def test_stops_at_double_quote(self, tmp_path):
         buf = tmp_path / "buffer"
         buf.write_text('href="https://example.com/page" target\n')
-        r = subprocess.run(
-            ["bash", "-c",
-             f'grep -oE \'https?://[^ >)"\\x27\\x27]+\' {buf} | awk \'!seen[$0]++\''],
-            capture_output=True, text=True, timeout=10,
-        )
+        r = self._extract_urls(buf)
         assert r.returncode == 0
         assert r.stdout.strip() == "https://example.com/page"
 
     def test_stops_at_single_quote(self, tmp_path):
         buf = tmp_path / "buffer"
         buf.write_text("url='https://example.com/x' next\n")
-        r = subprocess.run(
-            ["bash", "-c",
-             f'grep -oE \'https?://[^ >)"\\x27\\x27]+\' {buf} | awk \'!seen[$0]++\''],
-            capture_output=True, text=True, timeout=10,
-        )
+        r = self._extract_urls(buf)
         assert r.returncode == 0
         assert r.stdout.strip() == "https://example.com/x"
 
     def test_no_urls_in_plain_text(self, tmp_path):
         buf = tmp_path / "buffer"
         buf.write_text("just some plain text without any links\n")
-        r = subprocess.run(
-            ["bash", "-c",
-             f'grep -oE \'https?://[^ >)"\\x27\\x27]+\' {buf}'],
-            capture_output=True, text=True, timeout=10,
-        )
+        r = self._extract_urls(buf)
         assert r.stdout.strip() == ""
 
 
