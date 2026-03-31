@@ -11,6 +11,7 @@ Usage:
 """
 from __future__ import annotations
 
+import json
 import os
 import re
 import subprocess
@@ -57,9 +58,8 @@ def build_env(cfg: dict, api_key: str) -> dict[str, str]:
     """Build environment dict for a provider subprocess."""
     env = os.environ.copy()
     if cfg["auth_mode"] == "token":
-        env["ANTHROPIC_AUTH_TOKEN"] = api_key
         env["ANTHROPIC_API_KEY"] = ""
-        env.pop("ANTHROPIC_AUTH_TOKEN", None)  # clear if inherited
+        env.pop("ANTHROPIC_AUTH_TOKEN", None)
         env["ANTHROPIC_AUTH_TOKEN"] = api_key
     else:
         env["ANTHROPIC_API_KEY"] = api_key
