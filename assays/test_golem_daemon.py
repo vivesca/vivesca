@@ -419,7 +419,7 @@ def test_validate_stub_detection(tmp_path, monkeypatch):
     stub_file.parent.mkdir(parents=True)
     stub_file.write_text('def foo():\n    return stub_function()\n')
 
-    def mock_run(cmd, shell, capture_output, text, cwd=None):
+    def mock_run(cmd, shell, capture_output, text, cwd=None, **kwargs):
         result = MagicMock()
         if "diff --name-only" in cmd and "--diff-filter=AM" in cmd:
             result.returncode = 0
@@ -449,7 +449,7 @@ def test_validate_nested_test_file_detection(tmp_path, monkeypatch):
     nested_file.parent.mkdir(parents=True)
     nested_file.write_text('def test_foo(): pass\n')
 
-    def mock_run(cmd, shell, capture_output, text, cwd=None):
+    def mock_run(cmd, shell, capture_output, text, cwd=None, **kwargs):
         result = MagicMock()
         if "diff --name-only" in cmd and "--diff-filter=AM" in cmd:
             result.returncode = 0
@@ -474,7 +474,7 @@ def test_validate_nested_test_file_detection(tmp_path, monkeypatch):
 
 def test_validate_pycache_detection():
     """validate_golem_output rejects __pycache__/.pyc files."""
-    def mock_run(cmd, shell, capture_output, text, cwd=None):
+    def mock_run(cmd, shell, capture_output, text, cwd=None, **kwargs):
         result = MagicMock()
         # Check for the grep command for __pycache__/.pyc
         if "grep -E" in cmd and "__pycache__" in cmd:
@@ -502,7 +502,7 @@ def test_validate_passes_clean_files(tmp_path, monkeypatch):
     clean_file.parent.mkdir(parents=True)
     clean_file.write_text('def test_foo():\n    assert True\n')
 
-    def mock_run(cmd, shell, capture_output, text, cwd=None):
+    def mock_run(cmd, shell, capture_output, text, cwd=None, **kwargs):
         result = MagicMock()
         if "diff --name-only" in cmd and "--diff-filter=AM" in cmd:
             result.returncode = 0
@@ -530,7 +530,7 @@ def test_validate_passes_clean_files(tmp_path, monkeypatch):
 
 def test_validate_no_py_files_passes():
     """validate_golem_output passes when no .py files changed."""
-    def mock_run(cmd, shell, capture_output, text, cwd=None):
+    def mock_run(cmd, shell, capture_output, text, cwd=None, **kwargs):
         result = MagicMock()
         result.returncode = 0
         result.stdout = "README.md\nsetup.py"  # No .py files with our filter
@@ -545,7 +545,7 @@ def test_validate_no_py_files_passes():
     result.returncode = 0
     result.stdout = ""
 
-    def mock_run_empty(cmd, shell, capture_output, text, cwd=None):
+    def mock_run_empty(cmd, shell, capture_output, text, cwd=None, **kwargs):
         r = MagicMock()
         r.returncode = 0
         r.stdout = ""  # No files at all
@@ -560,7 +560,7 @@ def test_validate_no_py_files_passes():
 
 def test_validate_git_diff_fails_gracefully():
     """validate_golem_output passes silently if git diff fails."""
-    def mock_run_fail(cmd, shell, capture_output, text, cwd=None):
+    def mock_run_fail(cmd, shell, capture_output, text, cwd=None, **kwargs):
         result = MagicMock()
         result.returncode = 1  # git diff failed
         result.stdout = ""
@@ -579,7 +579,7 @@ def test_validate_flat_test_file_passes(tmp_path, monkeypatch):
     flat_file.parent.mkdir(parents=True)
     flat_file.write_text('def test_bar():\n    assert 1 + 1 == 2\n')
 
-    def mock_run(cmd, shell, capture_output, text, cwd=None):
+    def mock_run(cmd, shell, capture_output, text, cwd=None, **kwargs):
         result = MagicMock()
         if "diff --name-only" in cmd and "--diff-filter=AM" in cmd:
             if "grep -E" not in cmd:
