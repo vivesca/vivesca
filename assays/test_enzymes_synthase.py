@@ -25,17 +25,21 @@ class TestChannel:
 
 
 class TestToolMetadata:
+    def _meta(self):
+        return mod.synthase.__fastmcp__
+
     def test_tool_name(self):
-        assert mod.synthase.name == "synthase"
+        assert self._meta().name == "synthase"
 
     def test_tool_description_nonempty(self):
-        assert isinstance(mod.synthase.description, str) and len(mod.synthase.description) > 0
+        desc = self._meta().description
+        assert isinstance(desc, str) and len(desc) > 0
 
     def test_tool_not_readonly(self):
-        assert mod.synthase.annotations.readOnlyHint is False
+        assert self._meta().annotations.readOnlyHint is False
 
     def test_tool_not_idempotent(self):
-        assert mod.synthase.annotations.idempotentHint is False
+        assert self._meta().annotations.idempotentHint is False
 
 
 # ── Model validation ──────────────────────────────────────────────────────────
