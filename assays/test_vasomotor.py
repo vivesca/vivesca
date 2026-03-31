@@ -634,13 +634,13 @@ class TestInteractivePressure:
             "five_hour": {"utilization": 50.0},
         }
 
-        # Create a mock datetime object with hour=14
-        mock_now = MagicMock()
-        mock_now.hour = 14
+        # Create a mock datetime that returns an object with hour=14
+        mock_dt = MagicMock()
+        mock_dt.now.return_value.hour = 14
 
         with patch("metabolon.vasomotor.INTERACTIVE_PATTERN_FILE", pattern_file):
             with patch("metabolon.vasomotor._fetch_telemetry", return_value=mock_telemetry):
-                with patch("metabolon.vasomotor.datetime.datetime.now", return_value=mock_now):
+                with patch("metabolon.vasomotor.datetime", mock_dt):
                     with patch("metabolon.vasomotor.record_event"):
                         result = vm.interactive_pressure()
 
@@ -653,12 +653,12 @@ class TestInteractivePressure:
         pattern_file = tmp_path / "pattern.json"
         pattern_file.write_text(json.dumps({"14": 60.0}))
 
-        mock_now = MagicMock()
-        mock_now.hour = 14
+        mock_dt = MagicMock()
+        mock_dt.now.return_value.hour = 14
 
         with patch("metabolon.vasomotor.INTERACTIVE_PATTERN_FILE", pattern_file):
             with patch("metabolon.vasomotor._fetch_telemetry", return_value=None):
-                with patch("metabolon.vasomotor.datetime.datetime.now", return_value=mock_now):
+                with patch("metabolon.vasomotor.datetime", mock_dt):
                     with patch("metabolon.vasomotor.record_event"):
                         result = vm.interactive_pressure()
 

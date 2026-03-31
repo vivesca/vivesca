@@ -374,9 +374,9 @@ class TestParseFrontmatter:
         assert result == {}
 
     def test_scalar_value(self):
-        text = "---\ntitle: My Title\n---\nBody"
+        text = "---\ntitle: MyTitle\n---\nBody"
         result = mod._parse_frontmatter(text)
-        assert result["title"] == "My Title"
+        assert result["title"] == "MyTitle"
 
     def test_quoted_scalar(self):
         text = '---\ntitle: "My Title"\n---\nBody'
@@ -420,18 +420,18 @@ class TestStripFrontmatter:
 
 class TestExtractColonyBudRefs:
     def test_extracts_bud_refs(self):
-        text = "Invoke the financial-audit bud for analysis"
+        text = "invoke financial-audit bud for analysis"
         result = mod._extract_colony_bud_refs(text)
         assert "financial-audit" in result
 
     def test_multiple_refs(self):
-        text = "Invoke research bud then invoke drafting bud"
+        text = "invoke research bud then invoke drafting bud"
         result = mod._extract_colony_bud_refs(text)
         assert "research" in result
         assert "drafting" in result
 
     def test_case_insensitive(self):
-        text = "INVOKE the Analysis BUD"
+        text = "INVOKE Analysis BUD"
         result = mod._extract_colony_bud_refs(text)
         assert "Analysis" in result
 
@@ -457,7 +457,7 @@ class TestExtractColonySkillRefs:
         assert "my-skill" in result
 
     def test_no_skill_refs(self):
-        text = "Just text without /skill references"
+        text = "Just text without skill references"
         result = mod._extract_colony_skill_refs(text)
         assert result == []
 

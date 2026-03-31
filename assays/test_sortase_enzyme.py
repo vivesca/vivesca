@@ -78,7 +78,7 @@ def mock_validate_execution():
 @pytest.fixture
 def mock_subprocess_run():
     """Mock subprocess.run for git diff."""
-    with patch("metabolon.enzymes.sortase._sp.run") as mock:
+    with patch("subprocess.run") as mock:
         mock.return_value = MagicMock(stdout="", stderr="", returncode=0)
         yield mock
 
