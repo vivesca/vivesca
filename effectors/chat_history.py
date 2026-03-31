@@ -1,9 +1,4 @@
 #!/usr/bin/env python3
-from __future__ import annotations
-
-# /// script
-# dependencies = []
-# ///
 """
 Scan and search Claude Code chat history with proper HKT (UTC+8) day boundaries.
 
@@ -23,6 +18,11 @@ Search (full transcripts — slower, searches both user + assistant):
     python chat_history.py --search="self-intro" --deep         # Last 7 days
     python chat_history.py --search="DBS" --deep --days=30      # Last 30 days
 """
+from __future__ import annotations
+
+# /// script
+# dependencies = []
+# ///
 
 
 import json

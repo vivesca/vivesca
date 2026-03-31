@@ -24,8 +24,6 @@ import sys
 from datetime import date
 from pathlib import Path
 
-from openai import OpenAI
-
 CARDS_DIR = (
     Path.home()
     / "epigenome"
@@ -73,6 +71,8 @@ def slugify(text: str) -> str:
 
 def generate_card(topic: str, model: str = MODEL) -> str:
     """Call the LLM and return the insight card body as markdown."""
+    from openai import OpenAI
+
     client = OpenAI()  # uses OPENAI_API_KEY env var
     response = client.chat.completions.create(
         model=model,

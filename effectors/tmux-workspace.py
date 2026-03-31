@@ -1,6 +1,4 @@
 #!/usr/bin/env python3
-from __future__ import annotations
-
 """Set up tmux workspace with research-backed tab layout.
 
 One deep-work tab (CC) + stateless utility tabs.
@@ -12,6 +10,7 @@ Usage:
     tmux-workspace dev          # use 'dev' layout (cc|shell|test|logs)
     tmux-workspace --help
 """
+from __future__ import annotations
 
 
 import os

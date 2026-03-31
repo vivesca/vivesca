@@ -1,4 +1,12 @@
 #!/usr/bin/env python3
+"""Chromatin git backup — auto-commit and push if there are changes.
+
+Replaces Obsidian Git plugin (which only runs when app is open).
+
+Usage:
+    chromatin-backup.py           # Run backup
+    chromatin-backup.py --help    # Show this help
+"""
 from __future__ import annotations
 
 # /// script
@@ -93,6 +101,9 @@ def backup() -> bool:
 
 
 def main() -> None:
+    if "--help" in sys.argv or "-h" in sys.argv:
+        print(__doc__)
+        return
     backup()
 
 
