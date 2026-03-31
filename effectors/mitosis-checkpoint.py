@@ -88,7 +88,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description="Mitosis checkpoint — watchdog for DR sync health."
     )
-    parser.parse_args([])
+    parser.parse_args()
 
     try:
         check_and_heal()

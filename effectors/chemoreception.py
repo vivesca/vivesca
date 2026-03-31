@@ -245,7 +245,7 @@ def format_suggestions(scored: list[tuple[str, float]]) -> str:
 
 def main():
     parser = argparse.ArgumentParser(description="UserPromptSubmit hook — keyword-based retrieval over reference docs. Scans markdown for relevance to user prompt via TF-IDF scoring.")
-    parser.parse_args([])
+    parser.parse_args()
 
     # Read hook input from stdin
     try:

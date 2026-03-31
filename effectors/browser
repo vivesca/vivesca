@@ -2,9 +2,9 @@
 """browser — CLI wrapper around metabolon.organelles.browser.
 
 Usage:
-  browser fetch <url> [--cookies <file>] [--selector <css>]
-                      [--screenshot <path>] [--pdf <path>]
-                      [--wait <ms>] [--json]
+    browser fetch <url> [--cookies <file>] [--selector <css>]
+                        [--screenshot <path>] [--pdf <path>]
+                        [--wait <ms>] [--json]
 
 Outputs clean text to stdout.  Use --json for structured output.
 """
@@ -14,70 +14,79 @@ import argparse
 import asyncio
 import json
 import sys
+from pathlib import Path
 
-from metabolon.organelles.browser import fetch as _async_fetch
+sys.path.insert(0, str(Path.home() / "germline"))
+
+import metabolon.organelles.browser as _browser_mod  # noqa: E402
 
 
 def build_parser() -> argparse.ArgumentParser:
+    """Build and return the argument parser."""
     parser = argparse.ArgumentParser(
         prog="browser",
-        description="Headless browser fetcher powered by Playwright",
+        description="Fetch web pages via headless Playwright",
     )
     sub = parser.add_subparsers(dest="command")
 
-    fetch_p = sub.add_parser("fetch", help="Fetch a URL and extract text")
-    fetch_p.add_argument("url", help="URL to fetch")
-    fetch_p.add_argument("--cookies", default=None,
-                         help="Path to JSON cookie file")
-    fetch_p.add_argument("--selector", default=None,
-                         help="CSS selector to extract a subtree")
-    fetch_p.add_argument("--screenshot", default=None,
-                         help="Path to write a PNG screenshot")
-    fetch_p.add_argument("--pdf", default=None,
-                         help="Path to write a PDF")
-    fetch_p.add_argument("--wait", type=int, default=0,
-                         help="Milliseconds to wait after load")
-    fetch_p.add_argument("--json", action="store_true", dest="json_output",
-                         help="Output structured JSON instead of plain text")
+    fp = sub.add_parser("fetch", help="Fetch a URL")
+    fp.add_argument("url", help="URL to fetch")
+    fp.add_argument("--cookies", default=None, help="Path to cookie JSON file")
+    fp.add_argument("--selector", default=None, help="CSS selector to extract")
+    fp.add_argument("--screenshot", default=None, help="Save PNG screenshot to path")
+    fp.add_argument("--pdf", default=None, help="Save PDF to path")
+    fp.add_argument("--wait", type=int, default=0, help="Wait N ms after load")
+    fp.add_argument("--json", action="store_true", dest="json_output",
+                     help="Output structured JSON")
 
     return parser
 
 
-def run_fetch(args: argparse.Namespace) -> dict:
-    """Run the async fetch and return the result dict."""
-    return asyncio.run(_async_fetch(
+def format_output(result: dict, as_json: bool = False) -> str:
+    """Render a fetch result for stdout.
+
+    Default: page text only.  When as_json=True, full structured JSON.
+    """
+    if as_json:
+        return json.dumps(result, indent=2, ensure_ascii=False)
+    return result.get("text", "")
+
+
+async def _do_fetch(args: argparse.Namespace) -> dict:
+    """Call the organelle fetch function with CLI arguments."""
+    return await _browser_mod.fetch(
         args.url,
         cookies=args.cookies,
         selector=args.selector,
         screenshot=args.screenshot,
         pdf=args.pdf,
         wait=args.wait,
-    ))
+    )
 
 
-def main(argv: list[str] | None = None) -> None:
+def main(argv: list[str] | None = None) -> int:
+    """Entry point.  Returns exit code."""
     parser = build_parser()
     args = parser.parse_args(argv)
 
     if args.command is None:
-        parser.print_help()
+        parser.print_help(sys.stderr)
         sys.exit(1)
 
     if args.command == "fetch":
         try:
-            result = run_fetch(args)
+            result = asyncio.run(_do_fetch(args))
+        except FileNotFoundError as exc:
+            print(f"Error: {exc}", file=sys.stderr)
+            sys.exit(1)
         except Exception as exc:
             print(f"Error: {exc}", file=sys.stderr)
             sys.exit(1)
+        print(format_output(result, as_json=args.json_output))
+        return 0
 
-        if args.json_output:
-            print(json.dumps(result, indent=2))
-        else:
-            print(result["text"])
-    else:
-        parser.print_help()
-        sys.exit(1)
+    return 1
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())
