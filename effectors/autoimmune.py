@@ -108,7 +108,7 @@ def has_open_items_due_within_days(days: int = 7) -> bool:
 
 def main():
     parser = argparse.ArgumentParser(description="PreToolUse hook — meta-spiral guard. Blocks excessive sarcio calls when deadline work is pending.")
-    parser.parse_args([])
+    parser.parse_args()
 
     try:
         data = json.load(sys.stdin)

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import textwrap
+from contextlib import contextmanager
 from pathlib import Path
 from unittest.mock import MagicMock, call, patch
 
@@ -23,9 +24,17 @@ sync_env = _mod["sync_env"]
 sync_ssh_keys = _mod["sync_ssh_keys"]
 sync_gitconfig = _mod["sync_gitconfig"]
 main = _mod["main"]
-ENV_FLY = _mod["ENV_FLY"]
-SSH_DIR = _mod["SSH_DIR"]
-GITCONFIG = _mod["GITCONFIG"]
+
+
+@contextmanager
+def _patch_ns(key: str, value):
+    """Patch a value in the exec'd module namespace dict, restoring on exit."""
+    old = _mod[key]
+    _mod[key] = value
+    try:
+        yield
+    finally:
+        _mod[key] = old
 
 
 # ── parse_env_file ──────────────────────────────────────────────
