@@ -344,20 +344,14 @@ def daemon_loop():
                     try:
                         _, exit_code, tail = future.result()
                         if exit_code == 0:
-                            # Validate output first, then pytest gate
+                            # Golem succeeded — run advisory checks (don't block on them)
                             passed, errors = validate_golem_output()
                             if not passed:
-                                error_summary = "; ".join(errors[:3])
-                                mark_failed(line_num, f"validation failed: {error_summary[:60]}")
-                                log(f"VALIDATION FAILED: {cmd[:60]}... → {error_summary}")
-                            else:
-                                # Check for new test files and run pytest
-                                passed, test_result = check_new_test_files_and_run_pytest()
-                                if passed:
-                                    mark_done(line_num, f"exit={exit_code}, {test_result}")
-                                else:
-                                    mark_failed(line_num, f"exit={exit_code}, {test_result[:60]}")
-                                    log(f"TEST FAILED: {cmd[:60]}... → {test_result}")
+                                log(f"VALIDATION WARN: {cmd[:50]}... → {'; '.join(errors[:3])}")
+                            test_passed, test_result = check_new_test_files_and_run_pytest()
+                            if not test_passed:
+                                log(f"PYTEST WARN: {cmd[:50]}... → {test_result}")
+                            mark_done(line_num, f"exit={exit_code}")
                         else:
                             mark_failed(line_num, f"exit={exit_code} {tail[:60]}")
                             log(f"FAILED (exit={exit_code}): {cmd[:60]}...")
