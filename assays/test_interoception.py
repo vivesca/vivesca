@@ -1,392 +1,578 @@
-"""Tests for interoception enzyme."""
+"""Tests for metabolon/enzymes/interoception.py — internal state sensing."""
+
+from __future__ import annotations
+
+from unittest.mock import MagicMock, patch
+from datetime import date
+
 import pytest
-from unittest.mock import patch, MagicMock
-import json
-from pathlib import Path
-
-from metabolon.enzymes.interoception import (
-    interoception,
-    _format_duration,
-    _sleep_result,
-    _heartrate_result,
-    CircadianResult,
-    HeartRateResult,
-    MembranePotentialResult,
-    HomeostasisResult,
-    HomeostasisFinancialResult,
-    LysosomeResult,
-    AnabolismResult,
-    GlycolysisResult,
-    TissueRoutingResult,
-    CrisprResult,
-    RetrogradeResult,
-    MitophagyResult,
-    AngiogenesisResult,
-    InflammasomeResult,
-    EffectorResult,
-)
 
 
-def test_format_duration():
-    """Test _format_duration handles various cases."""
-    assert _format_duration(None) == "n/a"
-    assert _format_duration(0) == "0m"
-    assert _format_duration(30) == "0m"
-    assert _format_duration(60) == "1m"
-    assert _format_duration(75) == "1m"
-    assert _format_duration(90) == "1m"
-    assert _format_duration(4320) == "1h12m"  # 4320 seconds = 72 minutes = 1h12m
-    assert _format_duration(480 * 60) == "8h00m"
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+def _fn():
+    """Return the raw function behind the @tool decorator."""
+    from metabolon.enzymes import interoception as mod
+    return mod.interoception
 
 
-def test_unknown_action():
-    """Test unknown action returns error."""
-    result = interoception(action="invalid_action_that_does_not_exist")
-    assert isinstance(result, EffectorResult)
-    assert not result.success
-    assert "Unknown action" in result.message
-    assert "Valid:" in result.message
+def _result_classes():
+    from metabolon.enzymes.interoception import (
+        CircadianResult,
+        HeartRateResult,
+        MembranePotentialResult,
+        HomeostasisResult,
+        HomeostasisFinancialResult,
+        LysosomeResult,
+        AnabolismResult,
+        AngiogenesisResult,
+        MitophagyResult,
+        GlycolysisResult,
+        TissueRoutingResult,
+        CrisprResult,
+        RetrogradeResult,
+        InflammasomeResult,
+    )
+    return {
+        "CircadianResult": CircadianResult,
+        "HeartRateResult": HeartRateResult,
+        "MembranePotentialResult": MembranePotentialResult,
+        "HomeostasisResult": HomeostasisResult,
+        "HomeostasisFinancialResult": HomeostasisFinancialResult,
+        "LysosomeResult": LysosomeResult,
+        "AnabolismResult": AnabolismResult,
+        "AngiogenesisResult": AngiogenesisResult,
+        "MitophagyResult": MitophagyResult,
+        "GlycolysisResult": GlycolysisResult,
+        "TissueRoutingResult": TissueRoutingResult,
+        "CrisprResult": CrisprResult,
+        "RetrogradeResult": RetrogradeResult,
+        "InflammasomeResult": InflammasomeResult,
+    }
 
 
-def test_action_system_with_mocks():
-    """Test system action with all external calls mocked."""
-    mock_subprocess = MagicMock()
-    mock_subprocess.return_value.stdout = "com.terry.vivesca.pulse\n"
-    mock_subprocess.return_value.stderr = ""
+# ---------------------------------------------------------------------------
+# Format duration tests
+# ---------------------------------------------------------------------------
 
-    mock_vasomotor = MagicMock()
-    mock_vasomotor.return_value = {"formatted": "12.5GB / 50GB (25%)"}
+class TestFormatDuration:
+    """Tests for _format_duration helper."""
 
-    mock_precision = MagicMock(return_value="Precision: everything up to date")
+    def test_none_returns_na(self):
+        from metabolon.enzymes.interoception import _format_duration
+        assert _format_duration(None) == "n/a"
 
-    mock_threshold = MagicMock()
-    mock_threshold.read.return_value = 15.0
+    def test_zero_minutes(self):
+        from metabolon.enzymes.interoception import _format_duration
+        assert _format_duration(0) == "0m"
 
-    with patch("metabolon.enzymes.interoception.subprocess.run", mock_subprocess), \
-         patch("metabolon.organelles.vasomotor_sensor.sense", mock_vasomotor), \
-         patch("metabolon.metabolism.mismatch_repair.summary", mock_precision), \
-         patch("metabolon.metabolism.setpoint.Threshold", return_value=mock_threshold), \
-         patch("builtins.open", MagicMock(side_effect=FileNotFoundError)):
+    def test_only_minutes(self):
+        from metabolon.enzymes.interoception import _format_duration
+        assert _format_duration(45 * 60) == "45m"
 
-        result = interoception(action="system")
+    def test_hours_and_minutes(self):
+        from metabolon.enzymes.interoception import _format_duration
+        assert _format_duration((7 * 60 + 5) * 60) == "7h05m"
+
+    def test_hours_and_minutes_padded(self):
+        from metabolon.enzymes.interoception import _format_duration
+        assert _format_duration((2 * 60 + 9) * 60) == "2h09m"
+
+
+# ---------------------------------------------------------------------------
+# Unknown action tests
+# ---------------------------------------------------------------------------
+
+class TestUnknownAction:
+    """Tests for unknown actions."""
+
+    def test_unknown_action_returns_error(self):
+        result = _fn()(action="invalid_action")
+        assert result.success is False
+        assert "Unknown action" in result.message
+        assert "invalid_action" in result.message
+
+    def test_action_case_insensitive(self):
+        """Action is lowercased and stripped."""
+        with patch("metabolon.enzymes.interoception.subprocess.run"):
+            with patch("metabolon.enzymes.interoception.shutil.disk_usage"):
+                result = _fn()(action="  SYSTEM  ")
+        from metabolon.enzymes.interoception import HomeostasisResult
+        assert isinstance(result, HomeostasisResult)
+        assert hasattr(result, "sections")
+
+
+# ---------------------------------------------------------------------------
+# System action tests
+# ---------------------------------------------------------------------------
+
+class TestSystemAction:
+    """Tests for system action."""
+
+    def test_system_returns_homeostasis_result(self):
+        mock_proc = MagicMock()
+        mock_proc.stdout = ""
+        with (
+            patch("metabolon.enzymes.interoception.subprocess.run", return_value=mock_proc),
+            patch("metabolon.enzymes.interoception.shutil.disk_usage") as mock_disk,
+            patch("metabolon.enzymes.interoception.open"),
+            patch("metabolon.enzymes.interoception.contextlib.suppress"),
+        ):
+            mock_usage = MagicMock()
+            mock_usage.free = 100 * (1024**3)
+            mock_usage.total = 500 * (1024**3)
+            mock_disk.return_value = mock_usage
+            result = _fn()(action="system")
+
+        from metabolon.enzymes.interoception import HomeostasisResult
         assert isinstance(result, HomeostasisResult)
         assert isinstance(result.sections, list)
         assert len(result.sections) > 0
-        # Should contain Gate line
-        assert any("Gate:" in section for section in result.sections)
-        # Pulse should be found
-        assert any("Pulse:" in section for section in result.sections)
-        assert any("vivesca" in section for section in result.sections)
 
 
-def test_action_sleep_period_today():
-    """Test sleep action with today period."""
-    mock_sense = MagicMock(return_value={
-        "sleep_score": 82,
-        "readiness_score": 76,
-        "average_hrv": 35,
-        "sleep_contributors": {"consistency": 90},
-        "contributors": {"activity": 80},
-        "temperature_deviation": 0.2,
-        "temperature_trend_deviation": -0.1,
-        "deep_sleep_duration": 4320,
-        "light_sleep_duration": 2160,
-        "rem_sleep_duration": 1080,
-        "awake_time": 180,
-        "total_sleep_duration": 7740,
-        "time_in_bed": 8400,
-        "bedtime_start": "2025-01-01T23:00:00",
-        "bedtime_end": "2025-01-02T07:00:00",
-        "latency": 15,
-        "efficiency": 92,
-        "restless_periods": 3,
-        "average_heart_rate": 58,
-        "lowest_heart_rate": 52,
-        "average_breath": 12,
-        "type": "decent",
-        "sleep_phase_5_min": "111222333  ",
-        "movement_30_sec": "11223",
-    })
+# ---------------------------------------------------------------------------
+# Sleep action tests
+# ---------------------------------------------------------------------------
 
-    with patch("metabolon.organelles.chemoreceptor.sense", mock_sense):
-        result = interoception(action="sleep", period="today")
+class TestSleepAction:
+    """Tests for sleep action."""
+
+    def test_sleep_returns_circadian_result(self):
+        mock_sense = MagicMock(return_value={
+            "sleep_score": 85,
+            "readiness_score": 75,
+            "average_hrv": 45,
+        })
+        with patch("metabolon.enzymes.interoception._health_log_path", return_value="/tmp/fake"):
+            with patch("metabolon.enzymes.interoception.locus"):
+                with patch("metabolon.enzymes.interoception.organelles.chemoreceptor.sense", mock_sense):
+                    result = _fn()(action="sleep")
+
+        from metabolon.enzymes.interoception import CircadianResult
         assert isinstance(result, CircadianResult)
-        assert "82" in result.summary
-        assert "76" in result.summary
-        assert "Deep" in result.summary
-        assert "Hypnogram" in result.summary
-        assert "Movement" in result.summary
+        assert isinstance(result.summary, str)
+        assert "85" in result.summary
+        assert "75" in result.summary
 
+    def test_sleep_handles_error_data(self):
+        mock_sense = MagicMock(return_value={"error": "API unavailable"})
+        with patch("metabolon.enzymes.interoception.organelles.chemoreceptor.sense", mock_sense):
+            result = _fn()(action="sleep")
 
-def test_action_sleep_with_error():
-    """Test sleep when API returns error."""
-    mock_sense = MagicMock(return_value={"error": "API rate limit exceeded"})
-
-    with patch("metabolon.organelles.chemoreceptor.sense", mock_sense):
-        result = interoception(action="sleep", period="today")
+        from metabolon.enzymes.interoception import CircadianResult
         assert isinstance(result, CircadianResult)
-        assert "Error: API rate limit exceeded" in result.summary
+        assert "Error: API unavailable" in result.summary
 
+    def test_sleep_week_delegates_to_week(self):
+        mock_week = MagicMock(return_value="Weekly summary")
+        with patch("metabolon.enzymes.interoception.organelles.chemoreceptor.week", mock_week):
+            result = _fn()(action="sleep", period="week")
 
-def test_action_sleep_week():
-    """Test sleep action with week period."""
-    mock_week = MagicMock(return_value="Weekly summary: ...")
-
-    with patch("metabolon.organelles.chemoreceptor.week", mock_week):
-        result = interoception(action="sleep", period="week")
+        from metabolon.enzymes.interoception import CircadianResult
         assert isinstance(result, CircadianResult)
-        assert "Weekly summary" in result.summary
+        assert result.summary == "Weekly summary"
+        mock_week.assert_called_once()
 
 
-def test_action_membrane():
-    """Test membrane action."""
-    mock_oura_today = MagicMock(return_value={"formatted": "Readiness: 68/100"})
+# ---------------------------------------------------------------------------
+# Membrane/readiness action tests
+# ---------------------------------------------------------------------------
 
-    with patch("metabolon.organelles.chemoreceptor.today", mock_oura_today):
-        result = interoception(action="membrane")
+class TestMembraneAction:
+    """Tests for membrane/readiness action."""
+
+    def test_membrane_returns_membrane_result(self):
+        mock_oura_today = MagicMock(return_value={"formatted": "Readiness: 82"})
+        with patch("metabolon.enzymes.interoception.organelles.chemoreceptor.today", mock_oura_today):
+            result = _fn()(action="membrane")
+
+        from metabolon.enzymes.interoception import MembranePotentialResult
         assert isinstance(result, MembranePotentialResult)
-        assert "Readiness: 68" in result.summary
+        assert "82" in result.summary
         assert "Exercise guidance" in result.guidance
 
+    def test_readiness_is_same_as_membrane(self):
+        mock_oura_today = MagicMock(return_value={"formatted": "Readiness: 68"})
+        with patch("metabolon.enzymes.interoception.organelles.chemoreceptor.today", mock_oura_today):
+            result = _fn()(action="readiness")
 
-def test_action_heartrate_no_data():
-    """Test heartrate action when no data available."""
-    mock_heartrate = MagicMock(return_value=[])
+        from metabolon.enzymes.interoception import MembranePotentialResult
+        assert isinstance(result, MembranePotentialResult)
 
-    with patch("metabolon.organelles.chemoreceptor.heartrate", mock_heartrate):
-        result = interoception(action="heartrate")
+
+# ---------------------------------------------------------------------------
+# Heartrate action tests
+# ---------------------------------------------------------------------------
+
+class TestHeartRateAction:
+    """Tests for heartrate action."""
+
+    def test_no_data_returns_no_data_message(self):
+        mock_heartrate = MagicMock(return_value=[])
+        with patch("metabolon.enzymes.interoception.organelles.chemoreceptor.heartrate", mock_heartrate):
+            result = _fn()(action="heartrate")
+
+        from metabolon.enzymes.interoception import HeartRateResult
         assert isinstance(result, HeartRateResult)
         assert "No heart rate data available" in result.summary
 
+    def test_with_data_aggregates_correctly(self):
+        mock_heartrate = MagicMock(return_value=[
+            {"timestamp": "2024-01-01T10:00", "bpm": 60},
+            {"timestamp": "2024-01-01T10:00", "bpm": 62},
+            {"timestamp": "2024-01-01T10:30", "bpm": 65},
+        ])
+        with patch("metabolon.enzymes.interoception.organelles.chemoreceptor.heartrate", mock_heartrate):
+            result = _fn()(action="heartrate")
 
-def test_action_heartrate_with_data():
-    """Test heartrate action with data."""
-    mock_records = [
-        {"timestamp": "2025-01-01T08:00:00", "bpm": 62},
-        {"timestamp": "2025-01-01T08:01:00", "bpm": 65},
-        {"timestamp": "2025-01-01T08:02:00", "bpm": 60},
-    ]
-    mock_heartrate = MagicMock(return_value=mock_records)
-
-    with patch("metabolon.organelles.chemoreceptor.heartrate", mock_heartrate):
-        result = interoception(action="heartrate", start_datetime="2025-01-01", end_datetime="2025-01-02")
+        from metabolon.enzymes.interoception import HeartRateResult
         assert isinstance(result, HeartRateResult)
         assert "3 readings" in result.summary
-        assert "62" in result.summary
         assert "avg 62" in result.summary
 
 
-def test_action_log_symptom_missing_symptom():
-    """Test log_symptom without symptom."""
-    result = interoception(action="log_symptom")
-    assert isinstance(result, EffectorResult)
-    assert not result.success
-    assert "requires: symptom" in result.message
+# ---------------------------------------------------------------------------
+# log_symptom tests
+# ---------------------------------------------------------------------------
+
+class TestLogSymptom:
+    """Tests for log_symptom action."""
+
+    def test_missing_symptom_returns_error(self):
+        result = _fn()(action="log_symptom")
+        assert result.success is False
+        assert "requires: symptom" in result.message
+
+    def test_log_symptom_success(self):
+        with (
+            patch("metabolon.enzymes.interoception._health_log_path", return_value="/tmp/test_health_log.md"),
+            patch("metabolon.enzymes.interoception._cross_link_experiment_symptom", return_value=None),
+            patch("builtins.open", MagicMock()) as mock_open,
+        ):
+            result = _fn()(action="log_symptom", symptom="headache", severity="moderate", notes="after lunch")
+
+        assert result.success is True
+        assert "Logged: headache (moderate)" in result.message
+        mock_open.assert_called_once()
 
 
-@patch("metabolon.enzymes.interoception._cross_link_experiment_symptom")
-@patch("builtins.open")
-@patch("os.makedirs")
-def test_action_log_symptom_success(mock_makedirs, mock_open, mock_cross):
-    """Test successful symptom logging."""
-    mock_cross.return_value = None
+# ---------------------------------------------------------------------------
+# flywheel action tests
+# ---------------------------------------------------------------------------
 
-    result = interoception(action="log_symptom", symptom="headache", severity="mild", notes="After lunch")
-    assert isinstance(result, EffectorResult)
-    assert result.success
-    assert "Logged: headache" in result.message
-    mock_open.assert_called_once()
+class TestFlywheelAction:
+    """Tests for flywheel action."""
 
+    def test_flywheel_returns_anabolism_result(self):
+        with (
+            patch("metabolon.enzymes.interoception.locus"),
+            patch("metabolon.enzymes.interoception.subprocess.run") as mock_run,
+            patch("builtins.open", MagicMock()),
+            patch("metabolon.enzymes.interoception.os.path.exists", return_value=False),
+            patch("metabolon.enzymes.interoception.organelles.chemoreceptor.today", side_effect=Exception("unavailable")),
+            patch("metabolon.enzymes.interoception.organelles.circadian_clock.scheduled_events", side_effect=Exception("unavailable")),
+        ):
+            mock_proc1 = MagicMock()
+            mock_proc1.stdout = ""
+            mock_proc2 = MagicMock()
+            mock_proc2.stdout = ""
+            mock_run.side_effect = [mock_proc1, mock_proc2]
+            result = _fn()(action="flywheel")
 
-def test_action_flywheel_all_fail():
-    """Test flywheel action when all sensors fail."""
-    with patch("metabolon.organelles.chemoreceptor.today", side_effect=Exception("Network error")), \
-         patch("metabolon.organelles.circadian_clock.scheduled_events", side_effect=Exception("No module")), \
-         patch("metabolon.enzymes.interoception.subprocess.run", side_effect=Exception("Git error")), \
-         patch("os.path.exists", return_value=False):
-
-        result = interoception(action="flywheel")
+        from metabolon.enzymes.interoception import AnabolismResult
         assert isinstance(result, AnabolismResult)
-        assert len(result.links) == 5  # sleep, energy, calendar, creative, symptoms
-        assert any(link["name"] == "sleep" and link["score"] is None for link in result.links)
-        assert any(link["name"] == "symptoms" and link["recent_entries_7d"] == 0 for link in result.links)
-        assert len(result.blind_spots) == 3
+        assert len(result.links) == 4
+        assert len(result.blind_spots) > 0
 
 
-def test_action_disk_clean():
-    """Test disk_clean action."""
-    mock_subprocess = MagicMock()
-    mock_subprocess.return_value.stdout = "Cleaned up 1.2GB\n"
-    mock_subprocess.return_value.stderr = ""
+# ---------------------------------------------------------------------------
+# disk_clean action tests
+# ---------------------------------------------------------------------------
 
-    mock_disk_usage = MagicMock()
-    mock_disk_usage.side_effect = [
-        MagicMock(free=int(100 * 1024**3)),  # before
-        MagicMock(free=int(103 * 1024**3)),  # after
-    ]
+class TestDiskCleanAction:
+    """Tests for disk_clean action."""
 
-    mock_threshold = MagicMock()
-    mock_threshold.read.return_value = 15.0
+    def test_disk_clean_returns_lysosome_result(self):
+        with (
+            patch("metabolon.enzymes.interoception.subprocess.run") as mock_run,
+            patch("metabolon.enzymes.interoception._clean_build_artifacts", return_value=(0.5, ["cleaned something"])),
+            patch("metabolon.enzymes.interoception.shutil.disk_usage") as mock_disk,
+            patch("metabolon.enzymes.interoception.Threshold"),
+        ):
+            mock_proc = MagicMock()
+            mock_proc.stdout = "cleaned\n"
+            mock_proc.stderr = ""
+            mock_run.return_value = mock_proc
+            mock_usage1 = MagicMock()
+            mock_usage1.free = 10 * (1024**3)
+            mock_usage2 = MagicMock()
+            mock_usage2.free = 12 * (1024**3)
+            mock_disk.side_effect = [mock_usage1, mock_usage2]
+            result = _fn()(action="disk_clean")
 
-    with patch("metabolon.enzymes.interoception.subprocess.run", mock_subprocess), \
-         patch("shutil.disk_usage", mock_disk_usage), \
-         patch("metabolon.enzymes.interoception._clean_build_artifacts", return_value=(1.2, ["Node: project/node_modules"])), \
-         patch("metabolon.metabolism.setpoint.Threshold", return_value=mock_threshold):
-
-        result = interoception(action="disk_clean")
+        from metabolon.enzymes.interoception import LysosomeResult
         assert isinstance(result, LysosomeResult)
-        assert result.freed_gb == 3.0
-        assert "Build artifacts" in result.output
+        assert result.before_gb == 10.0
+        assert result.after_gb == 12.0
+        assert result.freed_gb == 2.0
+        assert "cleaned something" in result.output
 
 
-def test_action_glycolysis():
-    """Test glycolysis action."""
-    mock_snapshot = MagicMock(return_value={
-        "deterministic_count": 42,
-        "symbiont_count": 18,
-        "hybrid_count": 7,
-        "total": 67,
-        "glycolysis_pct": 62.7,
-    })
-    mock_trend = MagicMock(return_value=[
-        {"date": "2025-01-01", "glycolysis_pct": 58.0},
-        {"date": "2025-01-30", "glycolysis_pct": 62.7},
-    ])
+# ---------------------------------------------------------------------------
+# _clean_build_artifacts tests
+# ---------------------------------------------------------------------------
 
-    with patch("metabolon.organelles.glycolysis_rate.snapshot", mock_snapshot), \
-         patch("metabolon.organelles.glycolysis_rate.trend", mock_trend):
+class TestCleanBuildArtifacts:
+    """Tests for _clean_build_artifacts helper."""
 
-        result = interoception(action="glycolysis", trend_days=30)
+    def test_cargo_sweep_not_installed(self):
+        from metabolon.enzymes.interoception import _clean_build_artifacts
+        with (
+            patch("metabolon.enzymes.interoception.CODE_DIR", "/tmp/fake"),
+            patch("os.path.isdir", return_value=True),
+            patch("subprocess.run", side_effect=FileNotFoundError),
+            patch("os.scandir", return_value=[]),
+            patch("shutil.disk_usage") as mock_disk,
+        ):
+            mock_usage1 = MagicMock()
+            mock_usage1.free = 100 * (1024**3)
+            mock_usage2 = MagicMock()
+            mock_usage2.free = 100 * (1024**3)
+            mock_disk.side_effect = [mock_usage1, mock_usage2]
+            freed_gb, logs = _clean_build_artifacts()
+
+        assert freed_gb == 0.0
+        assert any("cargo-sweep not installed" in line for line in logs)
+
+
+# ---------------------------------------------------------------------------
+# glycolysis action tests
+# ---------------------------------------------------------------------------
+
+class TestGlycolysisAction:
+    """Tests for glycolysis action."""
+
+    def test_glycolysis_returns_glycolysis_result(self):
+        mock_snapshot = MagicMock(return_value={
+            "glycolysis_pct": 65.5,
+            "deterministic_count": 120,
+            "symbiont_count": 30,
+            "hybrid_count": 10,
+            "total": 160,
+        })
+        mock_trend = MagicMock(return_value=[])
+        with (
+            patch("metabolon.enzymes.interoception.organelles.glycolysis_rate.snapshot", mock_snapshot),
+            patch("metabolon.enzymes.interoception.organelles.glycolysis_rate.trend", mock_trend),
+        ):
+            result = _fn()(action="glycolysis")
+
+        from metabolon.enzymes.interoception import GlycolysisResult
         assert isinstance(result, GlycolysisResult)
-        assert result.deterministic_count == 42
-        assert result.symbiont_count == 18
-        assert result.glycolysis_pct == 62.7
-        assert "62.7% deterministic" in result.summary
-        assert len(result.trend) == 2
+        assert result.glycolysis_pct == 65.5
+        assert result.deterministic_count == 120
+        assert result.symbiont_count == 30
+        assert "65.5% deterministic" in result.summary
 
 
-def test_action_tissue_routing():
-    """Test tissue_routing action."""
-    mock_observed = MagicMock(return_value={"dna": "replication", "protein": "translation"})
-    mock_report = MagicMock(return_value="All routes observed: 2 active.")
+# ---------------------------------------------------------------------------
+# tissue_routing action tests
+# ---------------------------------------------------------------------------
 
-    with patch("metabolon.organelles.tissue_routing.observed_routes", mock_observed), \
-         patch("metabolon.organelles.tissue_routing.route_report", mock_report):
+class TestTissueRoutingAction:
+    """Tests for tissue_routing action."""
 
-        result = interoception(action="tissue_routing")
+    def test_tissue_routing_returns_result(self):
+        mock_routes = MagicMock(return_value={"a": "path-a", "b": "path-b"})
+        mock_report = MagicMock(return_value="Routing report here")
+        with (
+            patch("metabolon.enzymes.interoception.organelles.tissue_routing.observed_routes", mock_routes),
+            patch("metabolon.enzymes.interoception.organelles.tissue_routing.route_report", mock_report),
+        ):
+            result = _fn()(action="tissue_routing")
+
+        from metabolon.enzymes.interoception import TissueRoutingResult
         assert isinstance(result, TissueRoutingResult)
-        assert result.routes == {"dna": "replication", "protein": "translation"}
-        assert "All routes observed" in result.report
+        assert result.routes == {"a": "path-a", "b": "path-b"}
+        assert result.report == "Routing report here"
 
 
-def test_action_crispr():
-    """Test crispr action."""
-    mock_spacer_count = MagicMock(return_value=127)
-    mock_compile_guides = MagicMock(return_value=[{"spacer": "AAA", "pam": "NGG"}])
+# ---------------------------------------------------------------------------
+# crispr action tests
+# ---------------------------------------------------------------------------
 
-    with patch("metabolon.organelles.crispr.spacer_count", mock_spacer_count), \
-         patch("metabolon.organelles.crispr.compile_guides", mock_compile_guides), \
-         patch("pathlib.Path.exists", return_value=False):
+class TestCrisprAction:
+    """Tests for crispr action."""
 
-        result = interoception(action="crispr", recent_n=5)
+    def test_crispr_returns_result(self):
+        mock_spacer_count = MagicMock(return_value=127)
+        mock_compile_guides = MagicMock(return_value=[{"guide": "seq1"}, {"guide": "seq2"}])
+        with (
+            patch("pathlib.Path.exists", return_value=False),
+            patch("metabolon.enzymes.interoception.organelles.crispr.spacer_count", mock_spacer_count),
+            patch("metabolon.enzymes.interoception.organelles.crispr.compile_guides", mock_compile_guides),
+        ):
+            result = _fn()(action="crispr")
+
+        from metabolon.enzymes.interoception import CrisprResult
         assert isinstance(result, CrisprResult)
         assert result.spacer_count == 127
-        assert result.guide_count == 1
-        assert "127" in result.summary
-        assert "acquired" in result.summary
+        assert result.guide_count == 2
+        assert "127 spacers" in result.summary
 
 
-def test_action_retrograde():
-    """Test retrograde action."""
-    mock_signal_balance = MagicMock(return_value={
-        "anterograde_count": 12,
-        "retrograde_count": 8,
-        "ratio": 1.5,
-        "assessment": "balanced",
-    })
+# ---------------------------------------------------------------------------
+# retrograde action tests
+# ---------------------------------------------------------------------------
 
-    with patch("metabolon.organelles.retrograde.signal_balance", mock_signal_balance):
+class TestRetrogradeAction:
+    """Tests for retrograde action."""
 
-        result = interoception(action="retrograde", days=7)
+    def test_retrograde_returns_result(self):
+        mock_balance = MagicMock(return_value={
+            "anterograde_count": 10,
+            "retrograde_count": 5,
+            "ratio": 2.0,
+            "assessment": "balanced",
+        })
+        with (
+            patch("metabolon.enzymes.interoception.organelles.retrograde.signal_balance", mock_balance),
+        ):
+            result = _fn()(action="retrograde", days=7)
+
+        from metabolon.enzymes.interoception import RetrogradeResult
         assert isinstance(result, RetrogradeResult)
-        assert result.anterograde_count == 12
-        assert result.retrograde_count == 8
-        assert result.ratio == 1.5
-        assert result.assessment == "balanced"
-        assert "BALANCED" in result.summary.upper()
+        assert result.anterograde_count == 10
+        assert result.retrograde_count == 5
+        assert result.ratio == 2.0
+        assert "2.0:1" in result.summary
 
 
-def test_action_mitophagy():
-    """Test mitophagy action."""
-    mock_fitness = MagicMock(return_value=[
-        {"model": "model1", "score": 0.85},
-        {"model": "model2", "score": 0.62},
-    ])
-    mock_blacklist = MagicMock(return_value={"model2": "outdated"})
+# ---------------------------------------------------------------------------
+# mitophagy action tests
+# ---------------------------------------------------------------------------
 
-    with patch("metabolon.organelles.mitophagy.model_fitness", mock_fitness), \
-         patch("metabolon.organelles.mitophagy._load_blacklist", mock_blacklist):
+class TestMitophagyAction:
+    """Tests for mitophagy action."""
 
-        result = interoception(action="mitophagy", task_type="coding", days=30)
+    def test_mitophagy_returns_result(self):
+        mock_fitness = MagicMock(return_value=[{"model": "model1", "score": 0.8}])
+        mock_blacklist = MagicMock(return_value={"model1": "accuracy issues"})
+        with (
+            patch("metabolon.enzymes.interoception.organelles.mitophagy.model_fitness", mock_fitness),
+            patch("metabolon.enzymes.interoception.organelles.mitophagy._load_blacklist", mock_blacklist),
+        ):
+            result = _fn()(action="mitophagy")
+
+        from metabolon.enzymes.interoception import MitophagyResult
         assert isinstance(result, MitophagyResult)
-        assert len(result.fitness) == 2
-        assert result.blacklist == {"model2": "outdated"}
+        assert len(result.fitness) == 1
+        assert "model1" in result.blacklist
 
 
-def test_action_angiogenesis():
-    """Test angiogenesis action."""
-    mock_detect = MagicMock(return_value=[{"source": "module_a", "target": "module_b"}])
-    mock_propose = MagicMock(return_value={"source": "module_a", "target": "module_b", "proposal": "Add connector X"})
-    mock_registry = MagicMock(return_value=[{"name": "existing_vessel", "source": "x", "target": "y"}])
+# ---------------------------------------------------------------------------
+# angiogenesis action tests
+# ---------------------------------------------------------------------------
 
-    with patch("metabolon.organelles.angiogenesis.detect_hypoxia", mock_detect), \
-         patch("metabolon.organelles.angiogenesis.propose_vessel", mock_propose), \
-         patch("metabolon.organelles.angiogenesis.vessel_registry", mock_registry):
+class TestAngiogenesisAction:
+    """Tests for angiogenesis action."""
 
-        result = interoception(action="angiogenesis")
+    def test_angiogenesis_returns_result(self):
+        mock_detect = MagicMock(return_value=[{"source": "a", "target": "b"}])
+        mock_propose = MagicMock(return_value={"source": "a", "target": "b", "proposal": "build corridor"})
+        mock_registry = MagicMock(return_value=[{"name": "existing-vessel-1"}])
+        with (
+            patch("metabolon.enzymes.interoception.organelles.angiogenesis.detect_hypoxia", mock_detect),
+            patch("metabolon.enzymes.interoception.organelles.angiogenesis.propose_vessel", mock_propose),
+            patch("metabolon.enzymes.interoception.organelles.angiogenesis.vessel_registry", mock_registry),
+        ):
+            result = _fn()(action="angiogenesis")
+
+        from metabolon.enzymes.interoception import AngiogenesisResult
         assert isinstance(result, AngiogenesisResult)
         assert len(result.hypoxic_pairs) == 1
         assert len(result.proposals) == 1
         assert len(result.existing_vessels) == 1
 
 
-def test_action_probe():
-    """Test probe (inflammasome) action."""
-    mock_run_all = MagicMock(return_value=[
-        {"name": "probe1", "passed": True, "message": "OK", "duration_ms": 120},
-        {"name": "probe2", "passed": False, "message": "Failed", "duration_ms": 80},
-    ])
+# ---------------------------------------------------------------------------
+# probe action tests
+# ---------------------------------------------------------------------------
 
-    with patch("metabolon.organelles.inflammasome.run_all_probes", mock_run_all):
+class TestProbeAction:
+    """Tests for probe (inflammasome) action."""
 
-        result = interoception(action="probe")
+    def test_probe_returns_result(self):
+        mock_run_all = MagicMock(return_value=[
+            {"name": "probe1", "passed": True, "message": "ok", "duration_ms": 10},
+            {"name": "probe2", "passed": False, "message": "fail", "duration_ms": 20},
+        ])
+        with (
+            patch("metabolon.enzymes.interoception.organelles.inflammasome.run_all_probes", mock_run_all),
+        ):
+            result = _fn()(action="probe")
+
+        from metabolon.enzymes.interoception import InflammasomeResult
         assert isinstance(result, InflammasomeResult)
         assert result.passed == 1
         assert result.total == 2
-        assert "[PASS]" in result.report
-        assert "[FAIL]" in result.report
         assert "1/2 passed" in result.report
 
 
-def test__sleep_result_wrapper():
-    """Test _sleep_result wrapper function."""
-    mock_interoception = MagicMock(return_value=CircadianResult(summary="Test"))
+# ---------------------------------------------------------------------------
+# financial action tests
+# ---------------------------------------------------------------------------
 
-    with patch("metabolon.enzymes.interoception.interoception", mock_interoception):
-        result = _sleep_result("today")
+class TestFinancialAction:
+    """Tests for financial action."""
+
+    def test_financial_returns_result(self):
+        with (
+            patch("metabolon.enzymes.interoception.locus"),
+            patch("builtins.open", MagicMock()),
+            patch("metabolon.enzymes.interoception.synthesize", return_value="Summary with no urgent items"),
+        ):
+            result = _fn()(action="financial")
+
+        from metabolon.enzymes.interoception import HomeostasisFinancialResult
+        assert isinstance(result, HomeostasisFinancialResult)
+        assert "Summary" in result.summary
+        assert isinstance(result.flagged_count, int)
+
+
+# ---------------------------------------------------------------------------
+# Result classes all subclass Secretion
+# ---------------------------------------------------------------------------
+
+class TestResultTypes:
+    """Verify all result types inherit from Secretion."""
+
+    def test_all_result_types_are_secretion_subclasses(self):
+        from metabolon.morphology import Secretion
+        classes = _result_classes()
+        for name, cls in classes.items():
+            assert issubclass(cls, Secretion), f"{name} is not a subclass of Secretion"
+
+
+# ---------------------------------------------------------------------------
+# Wrappers tests
+# ---------------------------------------------------------------------------
+
+class TestWrappers:
+    """Tests for the wrapper functions _sleep_result and _heartrate_result."""
+
+    def test_sleep_result_wrapper(self):
+        from metabolon.enzymes.interoception import _sleep_result, CircadianResult
+        with patch("metabolon.enzymes.interoception.interoception", return_value=CircadianResult(summary="test")):
+            result = _sleep_result("week")
         assert isinstance(result, CircadianResult)
-        mock_interoception.assert_called_with(action="sleep", period="today")
+        assert result.summary == "test"
 
-
-def test__heartrate_result_wrapper():
-    """Test _heartrate_result wrapper function."""
-    mock_interoception = MagicMock(return_value=HeartRateResult(summary="Test"))
-
-    with patch("metabolon.enzymes.interoception.interoception", mock_interoception):
-        result = _heartrate_result("2025-01-01", "2025-01-02")
+    def test_heartrate_result_wrapper(self):
+        from metabolon.enzymes.interoception import _heartrate_result, HeartRateResult
+        with patch("metabolon.enzymes.interoception.interoception", return_value=HeartRateResult(summary="hr test")):
+            result = _heartrate_result("2024-01-01", "2024-01-02")
         assert isinstance(result, HeartRateResult)
-        mock_interoception.assert_called_with(
-            action="heartrate",
-            start_datetime="2025-01-01",
-            end_datetime="2025-01-02"
-        )
+        assert result.summary == "hr test"

@@ -21,15 +21,22 @@ def _run_script(
     path_dirs: list[Path] | None = None,
     tmp_path: Path | None = None,
 ) -> subprocess.CompletedProcess:
-    """Run the script with an optional custom PATH."""
+    """Run the script with an optional custom PATH.
+
+    If path_dirs provided, prepend them to PATH but keep system entries
+    so essential commands like bash are still found. This works for
+        tests that block all bunx/npx except what they explicitly provide.
+    """
     env = os.environ.copy()
     # Unset HOME override if present so script uses tmp_path as HOME
     if tmp_path is not None:
         env["HOME"] = str(tmp_path)
     if path_dirs is not None:
-        # Always keep system PATH entries to find bash
-        existing_path = env.get("PATH", "")
-        env["PATH"] = os.pathsep.join(str(p) for p in path_dirs) + os.pathsep + existing_path
+        # Prepend custom path dirs, keep system PATH after
+        # This ensures bash is still found but any system-level
+        # bunx/npx comes AFTER our mocks and only gets used if
+        # we don't provide a mock
+        env["PATH"] = os.pathsep.join(str(p) for p in path_dirs) + os.pathsep + env.get("PATH", "")
     if env_extra:
         env.update(env_extra)
     cmd = ["bash", str(SCRIPT)] + (args or [])
@@ -97,7 +104,7 @@ class TestHelpFlag:
 class TestRunnerSelection:
     def test_no_runner_exits_1(self, tmp_path):
         """Script exits 1 when neither bunx nor npx is on PATH."""
-        # Need to include the location of bash so subprocess can find it
+        # Need to include the location of bash so script can run
         bash_path = subprocess.run(['which', 'bash'], capture_output=True, text=True).stdout.strip()
         bash_dir = Path(bash_path).parent
         empty_bin = tmp_path / "bin"

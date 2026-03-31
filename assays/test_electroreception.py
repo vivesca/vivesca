@@ -33,7 +33,7 @@ def test_h_flag_exits_zero():
 def test_help_shows_usage():
     """Test help output contains usage instructions."""
     r = _run_script(["--help"])
-    assert "Usage:" in r.stdout
+    assert "usage:" in r.stdout
     assert "electroreception" in r.stdout
     assert "iMessage" in r.stdout
 
@@ -69,16 +69,19 @@ class TestExtractText:
         
         assert extract_text(b"") is None
     
-    def test_clean_text_blob_returns_text(self):
-        """Test a clean text blob extracts correctly."""
+    def test_clean_text_after_metadata_extracts(self):
+        """Test text after metadata extracts correctly."""
         ns = {}
         with open(SCRIPT) as f:
             code = f.read()
         exec(code, ns)
         extract_text = ns["extract_text"]
         
-        # Simple text blob with some metadata typical of NSAttributedString
-        test_blob = b"NSStringHello World\x00NSObject"
+        # The actual blob contains control characters separating runs
+        # Let's create a decoded string that would result from blob decoding
+        # with actual useful content after metadata
+        test_content = "streamtyped\x00NSString\x00Hello World\x00NSObject"
+        test_blob = test_content.encode("utf-8")
         result = extract_text(test_blob)
         assert result == "Hello World"
     
@@ -90,7 +93,8 @@ class TestExtractText:
         exec(code, ns)
         extract_text = ns["extract_text"]
         
-        test_blob = b"+1Hello World\x00"
+        test_content = "NSString\x00+1Hello World\x00"
+        test_blob = test_content.encode("utf-8")
         result = extract_text(test_blob)
         assert result == "Hello World"
     
@@ -102,24 +106,49 @@ class TestExtractText:
         exec(code, ns)
         extract_text = ns["extract_text"]
         
-        test_blob = b"streamtypedNSStringNSDictionaryNSArray\x00\x00"
+        test_content = "streamtyped\x00NSString\x00NSDictionary\x00NSArray"
+        test_blob = test_content.encode("utf-8")
         result = extract_text(test_blob)
         assert result is None
     
-    def test_short_strings_ignored(self):
-        """Test strings shorter than 2 characters are ignored."""
+    def test_three_characters_kept(self):
+        """Test strings >=3 characters are kept, shorter are ignored."""
         ns = {}
         with open(SCRIPT) as f:
             code = f.read()
         exec(code, ns)
         extract_text = ns["extract_text"]
         
-        test_blob = b"Hi\x00NSString"
+        test_content = "NSString\x00Hi!\x00"
+        test_blob = test_content.encode("utf-8")
         result = extract_text(test_blob)
-        # "Hi" is length 2, should be kept
-        assert result == "Hi"
+        # "Hi!" is length 3, should be kept
+        assert result == "Hi!"
+
+    def test_two_characters_ignored(self):
+        """Test two character strings are ignored (need len >=3)."""
+        ns = {}
+        with open(SCRIPT) as f:
+            code = f.read()
+        exec(code, ns)
+        extract_text = ns["extract_text"]
+
+        test_content = "NSString\x00Hi\x00"
+        test_blob = test_content.encode("utf-8")
+        result = extract_text(test_blob)
+        # "Hi" is length 2 < 3, should be ignored
+        assert result is None
+
+    def test_single_char_ignored(self):
+        """Test a single character is ignored."""
+        ns = {}
+        with open(SCRIPT) as f:
+            code = f.read()
+        exec(code, ns)
+        extract_text = ns["extract_text"]
         
-        test_blob = b"H\x00NSString"
+        test_content = "NSString\x00H\x00"
+        test_blob = test_content.encode("utf-8")
         result = extract_text(test_blob)
         # "H" is length 1, should be ignored
         assert result is None

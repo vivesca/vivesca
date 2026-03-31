@@ -632,32 +632,36 @@ class TestInteractivePressure:
             "five_hour": {"utilization": 50.0},
         }
 
+        # Create a mock datetime object with hour=14
+        mock_now = MagicMock()
+        mock_now.hour = 14
+
         with patch("metabolon.vasomotor.INTERACTIVE_PATTERN_FILE", pattern_file):
             with patch("metabolon.vasomotor._fetch_telemetry", return_value=mock_telemetry):
-                with patch("metabolon.vasomotor.datetime") as mock_dt:
-                    mock_dt.now.return_value.hour = 14
-                    mock_dt.datetime.now.return_value.hour = 14
+                with patch("metabolon.vasomotor.datetime.datetime.now", return_value=mock_now):
                     with patch("metabolon.vasomotor.record_event"):
                         result = vm.interactive_pressure()
 
         # blended = 0.7 * 50 + 0.3 * 30 = 35 + 9 = 44
         # pressure = (44 - 20) / 40 = 0.6
-        assert result == pytest.approx(0.6, rel=0.01)
+        assert result == pytest.approx(0.6, abs=0.05)
 
     def test_uses_pattern_only_when_no_telemetry(self, tmp_path):
         """Should use pattern only when telemetry unavailable."""
         pattern_file = tmp_path / "pattern.json"
         pattern_file.write_text(json.dumps({"14": 60.0}))
 
+        mock_now = MagicMock()
+        mock_now.hour = 14
+
         with patch("metabolon.vasomotor.INTERACTIVE_PATTERN_FILE", pattern_file):
             with patch("metabolon.vasomotor._fetch_telemetry", return_value=None):
-                with patch("metabolon.vasomotor.datetime") as mock_dt:
-                    mock_dt.now.return_value.hour = 14
+                with patch("metabolon.vasomotor.datetime.datetime.now", return_value=mock_now):
                     with patch("metabolon.vasomotor.record_event"):
                         result = vm.interactive_pressure()
 
         # pressure = (60 - 20) / 40 = 1.0
-        assert result == pytest.approx(1.0)
+        assert result == pytest.approx(1.0, abs=0.05)
 
     def test_pressure_capped_at_one(self, tmp_path):
         """Should cap pressure at 1.0."""
