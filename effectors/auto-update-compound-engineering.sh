@@ -2,6 +2,17 @@
 # Auto-update compound-engineering plugin
 # Add to crontab: 0 2 * * 0 ~/germline/effectors/auto-update-compound-engineering.sh
 
+if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
+    echo "Usage: auto-update-compound-engineering.sh"
+    echo ""
+    echo "Run the compound-engineering plugin update for OpenCode and Codex."
+    echo "Logs output to ~/.compound-engineering-updates.log"
+    echo ""
+    echo "Schedule via crontab:"
+    echo "  0 2 * * 0 ~/germline/effectors/auto-update-compound-engineering.sh"
+    exit 0
+fi
+
 LOG_FILE="$HOME/.compound-engineering-updates.log"
 
 # Use bunx if available, fall back to npx
