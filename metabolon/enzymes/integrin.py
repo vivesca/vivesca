@@ -1206,19 +1206,19 @@ def _run_colony_probe(
 # source -- new skills added upstream, or local copies modified.
 
 
-REGISTRY_PATH = Path(os.path.expanduser("~/.local/share/vivesca/skill-forks.yaml"))
+REGISTRY_PATH = Path.home() / ".local" / "share" / "vivesca" / "skill-forks.yaml"
 
 DEFAULT_REGISTRY = {
     "superpowers": {
-        "local": os.path.expanduser("~/germline/receptors/superpowers"),
-        "cache_pattern": os.path.expanduser(
-            "~/.claude/plugins/cache/claude-plugins-official/superpowers"
+        "local": str(Path.home() / "germline" / "receptors" / "superpowers"),
+        "cache_pattern": str(
+            Path.home() / ".claude" / "plugins" / "cache" / "claude-plugins-official" / "superpowers"
         ),
     },
     "compound-engineering": {
-        "local": os.path.expanduser("~/germline/receptors/compound-engineering"),
-        "cache_pattern": os.path.expanduser(
-            "~/.claude/plugins/cache/every-marketplace/compound-engineering"
+        "local": str(Path.home() / "germline" / "receptors" / "compound-engineering"),
+        "cache_pattern": str(
+            Path.home() / ".claude" / "plugins" / "cache" / "every-marketplace" / "compound-engineering"
         ),
     },
 }
