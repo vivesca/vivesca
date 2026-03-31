@@ -254,9 +254,10 @@ class TestStatsResult:
         mock_stats.return_value = {"status": "insufficient_data"}
 
         result = _stats_result()
-        # "Bad" score raises TypeError/ValueError → suppressed, scored as 0
-        # "Good" scored 6 >= 5 → signal = 1 of 2
-        assert result.signal_ratio == pytest.approx(0.5)
+        # int("high") raises ValueError → suppressed → entry skipped entirely
+        # Only "Good" remains in scored dict → 1 of 1 >= 5
+        assert result.signal_ratio == pytest.approx(1.0)
+        assert result.total_scored == 1
 
 
 # ---------------------------------------------------------------------------
