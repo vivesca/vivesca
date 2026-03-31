@@ -409,16 +409,17 @@ class TestExecuteTask:
             spec="Do something",
             files=[],
         )
-        
+
+        # Use "process-error" instead of "quota" to avoid the quota retry logic
         fail_attempt = ExecutionAttempt(
             tool="gemini",
             exit_code=1,
             duration_s=1.0,
             output="Failed",
-            failure_reason="quota",
+            failure_reason="process-error",
             cost_estimate="$0.00",
         )
-        
+
         success_attempt = ExecutionAttempt(
             tool="goose",
             exit_code=0,
@@ -427,9 +428,9 @@ class TestExecuteTask:
             failure_reason=None,
             cost_estimate="$0.00 (flat-rate)",
         )
-        
+
         status_file = tmp_path / "status.json"
-        
+
         with patch("metabolon.sortase.executor._status_path", return_value=status_file):
             with patch("metabolon.sortase.executor._run_command", new_callable=AsyncMock, side_effect=[fail_attempt, success_attempt]):
                 with patch("metabolon.sortase.executor._validate_backend"):
@@ -439,7 +440,7 @@ class TestExecuteTask:
                         "gemini",
                         timeout_sec=60,
                     )
-        
+
         assert result.success is True
         assert result.tool == "goose"
         assert "goose" in result.fallbacks
