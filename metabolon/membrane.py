@@ -127,6 +127,7 @@ class SensoryMiddleware(Middleware):
 
     def __init__(self, collector: SensorySystem | None = None) -> None:
         self.collector = collector or SensorySystem()
+        self._request_logger = RequestLogger()
 
     async def on_call_tool(
         self,

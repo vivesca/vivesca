@@ -538,10 +538,13 @@ def cmd_reflect(args):
     findings, usage = run_reflect(session_id)
 
     if not findings:
-        print(f"  {OK}  No messages found for session {session_id}")
+        if args.json or getattr(args, "format", None) == "json":
+            print(json.dumps([]))
+        else:
+            print(f"  {OK}  No messages found for session {session_id}")
         return
 
-    if args.json:
+    if args.json or getattr(args, "format", None) == "json":
         print(json.dumps(findings, indent=2))
     else:
         print(f"{BOLD}─── Reflection Scan ({len(findings)} candidates) ──────{RESET}")
