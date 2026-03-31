@@ -27,7 +27,9 @@ def _run_script(
     if tmp_path is not None:
         env["HOME"] = str(tmp_path)
     if path_dirs is not None:
-        env["PATH"] = os.pathsep.join(str(p) for p in path_dirs)
+        # Always keep system PATH entries to find bash
+        existing_path = env.get("PATH", "")
+        env["PATH"] = os.pathsep.join(str(p) for p in path_dirs) + os.pathsep + existing_path
     if env_extra:
         env.update(env_extra)
     cmd = ["bash", str(SCRIPT)] + (args or [])

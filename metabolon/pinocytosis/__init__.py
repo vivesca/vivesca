@@ -10,8 +10,6 @@ Shared helpers live here. Per-routine modules (interphase, ultradian, etc.)
 compose these into routine-specific gathers.
 """
 
-from __future__ import annotations
-
 import concurrent.futures
 import json
 import os

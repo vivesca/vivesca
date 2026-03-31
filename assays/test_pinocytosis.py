@@ -422,44 +422,42 @@ class TestCountGooseTasks:
     def test_returns_zero_if_no_done_dir(self):
         from metabolon.enzymes.pinocytosis import _count_goose_tasks
 
-        with patch("metabolon.enzymes.pinocytosis.CHROMATIN") as mock_chrom:
-            done_dir = MagicMock()
-            done_dir.exists.return_value = False
-            mock_chrom.__truediv__ = lambda self, name: done_dir
-            result = _count_goose_tasks()
-            assert "0 ready for review" in result
+        # Patch the entire CHROMATIN path computation
+        with patch("metabolon.enzymes.pinocytosis.CHROMATIN", Path("/mock/chromatin")):
+            with patch("pathlib.Path.exists", return_value=False):
+                result = _count_goose_tasks()
+                assert "0 ready for review" in result
 
     def test_counts_md_files(self):
         from metabolon.enzymes.pinocytosis import _count_goose_tasks
 
-        with patch("metabolon.enzymes.pinocytosis.CHROMATIN") as mock_chrom:
-            done_dir = MagicMock()
-            done_dir.exists.return_value = True
-            done_dir.glob.return_value = [MagicMock() for _ in range(5)]
-            mock_chrom.__truediv__ = lambda self, name: done_dir
-            result = _count_goose_tasks()
-            assert "5 ready for review" in result
+        with patch("metabolon.enzymes.pinocytosis.CHROMATIN", Path("/mock/chromatin")):
+            mock_files = [MagicMock(spec=Path) for _ in range(5)]
+            with (
+                patch("pathlib.Path.exists", return_value=True),
+                patch("pathlib.Path.glob", return_value=mock_files),
+            ):
+                result = _count_goose_tasks()
+                assert "5 ready for review" in result
 
     def test_returns_zero_if_empty(self):
         from metabolon.enzymes.pinocytosis import _count_goose_tasks
 
-        with patch("metabolon.enzymes.pinocytosis.CHROMATIN") as mock_chrom:
-            done_dir = MagicMock()
-            done_dir.exists.return_value = True
-            done_dir.glob.return_value = []
-            mock_chrom.__truediv__ = lambda self, name: done_dir
-            result = _count_goose_tasks()
-            assert "0 ready for review" in result
+        with patch("metabolon.enzymes.pinocytosis.CHROMATIN", Path("/mock/chromatin")):
+            with (
+                patch("pathlib.Path.exists", return_value=True),
+                patch("pathlib.Path.glob", return_value=[]),
+            ):
+                result = _count_goose_tasks()
+                assert "0 ready for review" in result
 
     def test_handles_exception(self):
         from metabolon.enzymes.pinocytosis import _count_goose_tasks
 
-        with patch("metabolon.enzymes.pinocytosis.CHROMATIN") as mock_chrom:
-            done_dir = MagicMock()
-            done_dir.exists.side_effect = PermissionError("no access")
-            mock_chrom.__truediv__ = lambda self, name: done_dir
-            result = _count_goose_tasks()
-            assert "read error" in result
+        with patch("metabolon.enzymes.pinocytosis.CHROMATIN", Path("/mock/chromatin")):
+            with patch("pathlib.Path.exists", side_effect=PermissionError("no access")):
+                result = _count_goose_tasks()
+                assert "read error" in result
 
 
 # ---------------------------------------------------------------------------
