@@ -29,7 +29,9 @@ def _cross_link_experiment(entry: str, dish: str) -> str | None:
         keywords = [kw.strip().lower() for kw in match.group(1).split(",")]
         if any(kw in dish_lower for kw in keywords):
             intake_note = f"\n> **Intake logged:** {entry}\n"
-            exp_file.write_text(text.rstrip() + "\n" + intake_note + "\n")
+            tmp = exp_file.with_suffix(".md.tmp")
+            tmp.write_text(text.rstrip() + "\n" + intake_note + "\n")
+            tmp.replace(exp_file)
             return f"Cross-linked to experiment: {exp_file.name}"
     return None
 
