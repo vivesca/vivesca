@@ -67,6 +67,8 @@ packages = ["metabolon"]
 [tool.pytest.ini_options]
 testpaths = ["assays"]
 asyncio_mode = "auto"
+tmp_path_retention_policy = "none"
+basetemp = "/tmp/pytest-vivesca"
 addopts = "-m 'not slow'"
 markers = ["slow: boots full MCP server (skip with default opts)"]
 
