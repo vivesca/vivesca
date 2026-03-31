@@ -230,19 +230,19 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 - [!] `golem --provider infini --max-turns 40 "Run uv run pytest assays/test_grok.py -q --tb=short. Read the test AND source. Fix all 25 failures. Use Path.home(). NEVER hardcode /Users/terry/. Iterate until 0 failures." (retry)`
 - [!] `golem --provider volcano --max-turns 40 "Run uv run pytest assays/test_commensal.py -q --tb=short. Read the test AND source. Fix all 23 failures. Use Path.home(). NEVER hardcode /Users/terry/. Iterate until 0 failures." (retry)`
 - [ ] `golem --provider zhipu --max-turns 40 "Run uv run pytest assays/test_channel.py -q --tb=short. Read the test AND source. Fix all 22 failures. Use Path.home(). NEVER hardcode /Users/terry/. Iterate until 0 failures."`
-- [ ] `golem --provider infini --max-turns 40 "Run uv run pytest assays/test_sortase_actions.py -q --tb=short. Read the test AND source. Fix all 14 failures. Use Path.home(). NEVER hardcode /Users/terry/. Iterate until 0 failures." (retry)`
+- [!] `golem --provider infini --max-turns 40 "Run uv run pytest assays/test_sortase_actions.py -q --tb=short. Read the test AND source. Fix all 14 failures. Use Path.home(). NEVER hardcode /Users/terry/. Iterate until 0 failures." (retry)`
 - [!] `golem --provider volcano --max-turns 40 "Run uv run pytest assays/test_tmux_workspace.py -q --tb=short. Read the test AND source. Fix all 12 failures. Use Path.home(). NEVER hardcode /Users/terry/. Iterate until 0 failures." (retry)`
 - [ ] `golem --provider zhipu --max-turns 40 "Run uv run pytest assays/test_pinocytosis.py -q --tb=short. Read the test AND source. Fix all 12 failures. Use Path.home(). NEVER hardcode /Users/terry/. Iterate until 0 failures."`
 - [!] `golem --provider infini --max-turns 40 "Run uv run pytest assays/test_golem_summary.py -q --tb=short. Read the test AND source. Fix all 11 failures. Use Path.home(). NEVER hardcode /Users/terry/. Iterate until 0 failures." (retry)`
 - [!] `golem --provider volcano --max-turns 40 "Run uv run pytest assays/test_generate_solutions_index.py -q --tb=short. Read the test AND source. Fix all 11 failures. Use Path.home(). NEVER hardcode /Users/terry/. Iterate until 0 failures." (retry)`
 - [ ] `golem --provider zhipu --max-turns 40 "Run uv run pytest assays/test_chromatin_decay_report.py -q --tb=short. Read the test AND source. Fix all 7 failures. Use Path.home(). NEVER hardcode /Users/terry/. Iterate until 0 failures."`
-- [ ] `golem --provider infini --max-turns 40 "Run uv run pytest assays/test_search_guard.py -q --tb=short. Read the test AND source. Fix all 5 failures. Use Path.home(). NEVER hardcode /Users/terry/. Iterate until 0 failures."`
+- [ ] `golem --provider infini --max-turns 40 "Run uv run pytest assays/test_search_guard.py -q --tb=short. Read the test AND source. Fix all 5 failures. Use Path.home(). NEVER hardcode /Users/terry/. Iterate until 0 failures." (retry)`
 - [!] `golem --provider volcano --max-turns 40 "Run uv run pytest assays/test_scaffold_epigenome.py -q --tb=short. Read the test AND source. Fix all 4 failures. Use Path.home(). NEVER hardcode /Users/terry/. Iterate until 0 failures." (retry)`
 - [ ] `golem --provider zhipu --max-turns 40 "Run uv run pytest assays/test_phagocytosis.py -q --tb=short. Read the test AND source. Fix all 4 failures. Use Path.home(). NEVER hardcode /Users/terry/. Iterate until 0 failures."`
-- [ ] `golem --provider infini --max-turns 40 "Run uv run pytest assays/test_methylation.py -q --tb=short. Read the test AND source. Fix all 4 failures. Use Path.home(). NEVER hardcode /Users/terry/. Iterate until 0 failures."`
+- [ ] `golem --provider infini --max-turns 40 "Run uv run pytest assays/test_methylation.py -q --tb=short. Read the test AND source. Fix all 4 failures. Use Path.home(). NEVER hardcode /Users/terry/. Iterate until 0 failures." (retry)`
 - [!] `golem --provider volcano --max-turns 40 "Run uv run pytest assays/test_circadian_probe.py -q --tb=short. Read the test AND source. Fix all 4 failures. Use Path.home(). NEVER hardcode /Users/terry/. Iterate until 0 failures." (retry)`
 - [ ] `golem --provider zhipu --max-turns 40 "Run uv run pytest assays/test_safe_search.py -q --tb=short. Read the test AND source. Fix all 3 failures. Use Path.home(). NEVER hardcode /Users/terry/. Iterate until 0 failures."`
-- [ ] `golem --provider infini --max-turns 40 "Run uv run pytest assays/test_wewe_rss_health.py -q --tb=short. Read the test AND source. Fix all 4 failures. Use Path.home(). NEVER hardcode /Users/terry/. Iterate until 0 failures."`
+- [ ] `golem --provider infini --max-turns 40 "Run uv run pytest assays/test_wewe_rss_health.py -q --tb=short. Read the test AND source. Fix all 4 failures. Use Path.home(). NEVER hardcode /Users/terry/. Iterate until 0 failures." (retry)`
 - [!] `golem --provider volcano --max-turns 40 "Run uv run pytest assays/test_respirometry_effector.py -q --tb=short. Read the test AND source. Fix all 2 failures. Use Path.home(). NEVER hardcode /Users/terry/. Iterate until 0 failures." (retry)`
 - [ ] `golem --provider zhipu --max-turns 40 "Run uv run pytest assays/test_importin.py -q --tb=short. Read the test AND source. Fix all 2 failures. Use Path.home(). NEVER hardcode /Users/terry/. Iterate until 0 failures."`
 - [ ] `golem --provider infini --max-turns 40 "Run uv run pytest assays/test_rg.py -q --tb=short. Read the test AND source. Fix all 1 failures. Use Path.home(). NEVER hardcode /Users/terry/. Iterate until 0 failures."`
@@ -264,13 +264,13 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 - [!] `golem --provider volcano --max-turns 25 "Health check: regulatory-scan, rename-kindle-asins.py, rename-plists, replisome, respirometry. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit fixes." (retry)`
 - [ ] `golem --provider zhipu --max-turns 25 "Health check: rg, rheotaxis, rheotaxis-local, rotate-logs.py, safe_rm.py. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit fixes."`
 - [ ] `golem --provider infini --max-turns 25 "Health check: safe_search.py, search-guard, skill-sync, sortase, switch-layer. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit fixes."`
-- [ ] `golem --provider volcano --max-turns 25 "Health check: synthase, taste-score, telophase, test-dashboard, test-spec-gen. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit fixes." (retry)`
+- [!] `golem --provider volcano --max-turns 25 "Health check: synthase, taste-score, telophase, test-dashboard, test-spec-gen. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit fixes." (retry)`
 - [ ] `golem --provider zhipu --max-turns 25 "Health check: tm, tmux-workspace.py, transduction-daily-run, translocon, update-compound-engineering. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit fixes."`
 - [ ] `golem --provider infini --max-turns 25 "Health check: vesicle, wacli-ro, weekly-gather, wewe-rss-health.py, x-feed-to-lustro. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit fixes."`
-- [ ] `golem --provider volcano --max-turns 20 "Validate skills: adhesion, adytum, agent-cli, agoras, amicus, analyze, anam, artifex, askesis, assay. Check SKILL.md has name+description in frontmatter, description < 200 chars, no broken refs. Fix issues." (retry)`
+- [!] `golem --provider volcano --max-turns 20 "Validate skills: adhesion, adytum, agent-cli, agoras, amicus, analyze, anam, artifex, askesis, assay. Check SKILL.md has name+description in frontmatter, description < 200 chars, no broken refs. Fix issues." (retry)`
 - [ ] `golem --provider zhipu --max-turns 20 "Validate skills: auceps, auscultation, auspex, autophagy, autopoiesis, bouleusis, caelum, cardo, centrosome, certus. Check SKILL.md has name+description in frontmatter, description < 200 chars, no broken refs. Fix issues."`
 - [ ] `golem --provider infini --max-turns 20 "Validate skills: chemoreception, circadian, comes, conjugation, consilium, contract, cron, cursus, custodia, cytokinesis. Check SKILL.md has name+description in frontmatter, description < 200 chars, no broken refs. Fix issues."`
-- [ ] `golem --provider volcano --max-turns 20 "Validate skills: cytometry, daily, debridement, defuddle, deleo, deltos, diagnosis, dialexis, differentiation, digest. Check SKILL.md has name+description in frontmatter, description < 200 chars, no broken refs. Fix issues."`
+- [ ] `golem --provider volcano --max-turns 20 "Validate skills: cytometry, daily, debridement, defuddle, deleo, deltos, diagnosis, dialexis, differentiation, digest. Check SKILL.md has name+description in frontmatter, description < 200 chars, no broken refs. Fix issues." (retry)`
 - [ ] `golem --provider zhipu --max-turns 20 "Validate skills: docima, ecphory, elencho, endocytosis, endosomal, endosymbiosis, eow, epistula, etiology, evaluate-ai-repo. Check SKILL.md has name+description in frontmatter, description < 200 chars, no broken refs. Fix issues."`
 - [ ] `golem --provider infini --max-turns 20 "Validate skills: evaluate-job, evolvo, examen, exauro, expression, fasti, fingo, fiscus, fodina, friction. Check SKILL.md has name+description in frontmatter, description < 200 chars, no broken refs. Fix issues."`
 - [ ] `golem --provider volcano --max-turns 20 "Validate skills: gist, gnome, graphis, grapho, hemostasis, heuretes, histology, hkicpa, horizo, hybridization. Check SKILL.md has name+description in frontmatter, description < 200 chars, no broken refs. Fix issues."`
@@ -1189,6 +1189,38 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 - [ ] `golem --provider infini --max-turns 25 "Check ALL JSON parsing has error handling. Add try/except where missing. Commit."`
 - [ ] `golem --provider volcano --max-turns 25 "Scan for ANY eval() or exec() in production code (not tests). Report security implications."`
 - [ ] `golem --provider zhipu --max-turns 25 "Check ALL file writes use atomic write pattern (write to .tmp, rename). Fix critical ones. Commit."`
+
+
+### Post-batch synthesis (run after overnight batch drains)
+
+#### Synthesis — overnight output digest
+- [ ] `golem --provider zhipu --max-turns 50 "You are running after a mega batch of 900 golem tasks. Create a digest of everything produced overnight. (1) List all new files in ~/epigenome/chromatin/euchromatin/consulting/ — group by type (cards, deep-dives, case-studies, prep, regulatory). Count each. (2) List all new/modified files in ~/germline/assays/ — count new tests, fixed tests. (3) List all new/modified effectors in ~/germline/effectors/. (4) Run uv run pytest -q --tb=no --continue-on-collection-errors 2>&1 | tail -5 — record pass/fail. (5) Read golem summary stats from ~/.local/share/vivesca/golem.jsonl — pass/fail by provider. Write a structured morning digest to ~/epigenome/chromatin/euchromatin/consulting/overnight-digest.md. Include: what was produced, what worked, what failed, what needs human review."`
+
+#### Synthesis — consulting IP executive summary
+- [ ] `golem --provider infini --full --max-turns 50 "Read ALL files in ~/epigenome/chromatin/euchromatin/consulting/cards/ and ~/epigenome/chromatin/euchromatin/consulting/deep-dives/. For each: extract title + 1-line summary. Then write an executive summary document: (1) Total pieces produced, (2) Top 10 most actionable for Capco Week 1, (3) Organized by theme (model risk, governance, regulatory, operations, skills), (4) Gaps — what topics are NOT covered that should be. Write to ~/epigenome/chromatin/euchromatin/consulting/consulting-ip-executive-summary.md."`
+
+#### Synthesis — regulatory landscape summary
+- [ ] `golem --provider volcano --full --max-turns 40 "Read ALL files in ~/epigenome/chromatin/euchromatin/regulatory/. Create a master regulatory summary: (1) Regulator-by-regulator: key AI requirements in 3 bullets each, (2) Cross-cutting themes table, (3) Timeline of upcoming deadlines, (4) Top 5 consulting opportunities ranked by urgency. Write to ~/epigenome/chromatin/euchromatin/regulatory/regulatory-master-summary.md."`
+
+### Lustro content analysis — process cached articles
+
+#### Build — lustro batch analyzer
+- [ ] `golem --provider zhipu --max-turns 40 "Create effectors/lustro-analyze as Python. Reads all articles from ~/.cache/lustro-articles/. For each .json or .md file: extract title, source, date, content snippet. Classify by topic: AI, banking, regulation, technology, other. Output: (1) summary table of all articles by topic, (2) top 20 most relevant to banking AI consulting, (3) key themes across all articles. Usage: lustro-analyze [--top N] [--topic banking]. Write to stdout or --output file. Write assays/test_lustro_analyze.py. Run uv run pytest."`
+
+#### Process — lustro articles → consulting signals
+- [ ] `golem --provider infini --full --max-turns 50 "Read the 20 most recent files in ~/.cache/lustro-articles/ (sort by modification date). For each article: (1) summarize in 2 sentences, (2) rate relevance to banking AI consulting 1-5, (3) extract 1 actionable insight. Then synthesize: top 5 signals from this week's reading that are relevant to Capco consulting. Write to ~/epigenome/chromatin/euchromatin/consulting/lustro-weekly-signals.md."`
+
+#### Process — endocytosis content → Capco prep
+- [ ] `golem --provider volcano --full --max-turns 50 "Read ALL files in ~/epigenome/chromatin/euchromatin/endocytosis/ that match *AI* or *Governance* or *Regulatory*. For each: extract title, date, 2-line summary. Then create a Capco onboarding knowledge pack: (1) AI governance landscape (what you already know), (2) Regulatory posture (what regulators are saying), (3) Market signals (what competitors are doing), (4) Knowledge gaps (what you need to learn in Week 1). Write to ~/epigenome/chromatin/euchromatin/consulting/capco-knowledge-pack.md."`
+
+#### Process — lustro financial articles
+- [ ] `golem --provider zhipu --full --max-turns 40 "Read files in ~/.cache/lustro-articles/ that contain keywords: bank, HSBC, fintech, regulation, compliance, risk. For each matching article: extract title + 1 key takeaway. Compile into: (1) Banking industry signals this week, (2) Technology trends affecting banks, (3) Regulatory developments. Write to ~/epigenome/chromatin/euchromatin/consulting/lustro-banking-signals.md."`
+
+#### Process — lustro AI/tech articles
+- [ ] `golem --provider infini --full --max-turns 40 "Read files in ~/.cache/lustro-articles/ that contain keywords: LLM, GPT, Claude, agent, AI, machine learning, transformer. For each matching article: extract title + key innovation. Compile into: (1) AI capability updates this week, (2) New tools/frameworks worth tracking, (3) Implications for banking AI consulting. Write to ~/epigenome/chromatin/euchromatin/consulting/lustro-ai-signals.md."`
+
+#### Synthesis — weekly intelligence brief
+- [ ] `golem --provider volcano --full --max-turns 50 "Read: lustro-weekly-signals.md, lustro-banking-signals.md, lustro-ai-signals.md, consulting-ip-executive-summary.md, regulatory-master-summary.md (all in ~/epigenome/chromatin/euchromatin/consulting/ or regulatory/). Synthesize into a single weekly intelligence brief: (1) Top 5 signals this week, (2) Regulatory radar (what changed), (3) Technology radar (what's new), (4) Consulting opportunity radar (where's the work), (5) Recommended actions for Week 1 at Capco. Write to ~/epigenome/chromatin/euchromatin/consulting/weekly-intelligence-brief.md. This is the ONE document to read Monday morning."`
 
 ## Done (2026-03-31)
 
