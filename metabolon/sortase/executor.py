@@ -262,7 +262,7 @@ def _clean_env(tool: str) -> dict[str, str]:
         # Docs: https://docs.bigmodel.cn/cn/coding-plan/tool/claude
         env["ANTHROPIC_AUTH_TOKEN"] = env.get("ZHIPU_API_KEY", "")
         env["ANTHROPIC_BASE_URL"] = "https://open.bigmodel.cn/api/anthropic"
-        env["ANTHROPIC_DEFAULT_OPUS_MODEL"] = "glm-5.1"
+        env["ANTHROPIC_DEFAULT_OPUS_MODEL"] = "GLM-5.1"
         env["ANTHROPIC_DEFAULT_SONNET_MODEL"] = "GLM-5.1"
         env["ANTHROPIC_DEFAULT_HAIKU_MODEL"] = "GLM-4.5-air"
         env["API_TIMEOUT_MS"] = "3000000"

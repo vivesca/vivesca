@@ -123,12 +123,13 @@ def test_droid_tool_command_uses_translocon():
     assert "droid" in cmd
 
 
-def test_clean_env_cc_glm_sets_zhipu():
+def test_clean_env_forge_sets_zhipu():
     import os
     with patch.dict(os.environ, {"ZHIPU_API_KEY": "test-key"}):
         env = _clean_env("forge")
-    assert env["ANTHROPIC_API_KEY"] == "test-key"
+    assert env["ANTHROPIC_AUTH_TOKEN"] == "test-key"
     assert "bigmodel.cn" in env["ANTHROPIC_BASE_URL"]
+    assert env["ANTHROPIC_DEFAULT_OPUS_MODEL"] == "GLM-5.1"
 
 
 def test_execution_attempt_dataclass():
