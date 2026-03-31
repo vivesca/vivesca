@@ -253,6 +253,16 @@ def review_cycle():
 
 
 def main():
+    if "--help" in sys.argv or "-h" in sys.argv:
+        print("Usage: golem-reviewer [--once] [-h|--help]")
+        print()
+        print("Monitor golem output, review quality, requeue failures.")
+        print()
+        print("Options:")
+        print("  --once    Run a single review cycle and exit")
+        print("  -h, --help  Show this help message")
+        return 0
+
     log("Golem reviewer started")
 
     if "--once" in sys.argv:

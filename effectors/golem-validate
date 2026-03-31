@@ -73,9 +73,14 @@ def validate_file(path: Path) -> tuple[str, list[str]]:
 def main(argv: list[str] | None = None) -> int:
     args = argv if argv is not None else sys.argv[1:]
 
-    if not args:
-        print("Usage: golem-validate <file.py> [...]", file=sys.stderr)
-        return 2
+    if not args or "--help" in args or "-h" in args:
+        print("Usage: golem-validate <file.py> [...]")
+        print()
+        print("Validate Python files for golem output quality.")
+        print()
+        print("Checks: syntax, hardcoded paths, TODO/FIXME markers,")
+        print("        pytest collectability (for test_*.py)")
+        return 0 if ("--help" in args or "-h" in args) else 2
 
     all_pass = True
     for raw in args:
