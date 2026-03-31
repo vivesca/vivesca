@@ -484,3 +484,204 @@ Please sign off on this budget by EOD.
     assert result["category"] == "action_required"
     assert result["action"] is not None
     assert result["fate"] == "surface immediately"
+
+
+# ---------------------------------------------------------------------------
+# Additional coverage: organelle pass-2 short-circuit, empty subjects, edge cases
+# ---------------------------------------------------------------------------
+
+
+def test_classify_subject_empty():
+    """classify_subject returns '' for empty string."""
+    assert endosomal_organelle.classify_subject("") == ""
+
+
+def test_classify_subject_no_match():
+    """classify_subject returns '' for subject with no matching patterns."""
+    assert endosomal_organelle.classify_subject("Regular subject line") == ""
+
+
+def test_classify_pass2_short_circuit():
+    """classify returns subject verdict at pass 2 when sender is not automated.
+
+    This covers line 144 (return subject_verdict) in the organelle.
+    """
+    email_text = """From: alice@company.com
+Subject: [URGENT] Server down
+
+We need to fix this now.
+"""
+    assert endosomal_organelle.classify(email_text) == "action_required"
+
+
+def test_classify_no_subject_header():
+    """classify handles email with no Subject: header (empty subject at pass 2)."""
+    email_text = """From: bob@company.com
+
+Just wanted to check in with you.
+"""
+    # Falls through to body scan — "please" not present, but nothing else matches
+    # "just wanted to" is not in any keyword list, so this should be ambiguous
+    assert endosomal_organelle.classify(email_text) == ""
+
+
+@patch("metabolon.enzymes.endosomal.invoke_organelle")
+def test_endosomal_send_default_message(mock_invoke):
+    """Test send returns default message when invoke_organelle returns empty."""
+    mock_invoke.return_value = ""
+
+    result = endosomal(action="send", to="a@b.com", subject="Hi", body="Hello")
+
+    assert isinstance(result, EffectorResult)
+    assert result.success
+    assert result.message == "Email sent."
+
+
+@patch("metabolon.enzymes.endosomal.invoke_organelle")
+def test_endosomal_send_reply_only_body(mock_invoke):
+    """Test send as reply with only body — no to/subject needed."""
+    mock_invoke.return_value = "Reply sent"
+
+    result = endosomal(action="send", reply_to_message_id="msg999", body="Noted, thanks")
+
+    args = mock_invoke.call_args[0][1]
+    assert "--reply-to-message-id" in args
+    assert "msg999" in args
+    assert "--body" in args
+    assert "Noted, thanks" in args
+    assert isinstance(result, EffectorResult)
+    assert result.success
+
+
+@patch("metabolon.enzymes.endosomal.invoke_organelle")
+def test_endosomal_mark_read_default_message(mock_invoke):
+    """Test mark_read returns default message when invoke returns empty."""
+    mock_invoke.return_value = ""
+
+    result = endosomal(action="mark_read", message_ids=["m1"])
+
+    assert isinstance(result, EffectorResult)
+    assert result.success
+    assert "Marked 1 message(s) as read." in result.message
+
+
+@patch("metabolon.enzymes.endosomal.invoke_organelle")
+def test_endosomal_label_default_message(mock_invoke):
+    """Test label returns default message when invoke returns empty."""
+    mock_invoke.return_value = ""
+
+    result = endosomal(action="label", name="Projects")
+
+    assert isinstance(result, EffectorResult)
+    assert result.success
+    assert "Label created: Projects" in result.message
+
+
+@patch("metabolon.enzymes.endosomal.invoke_organelle")
+def test_endosomal_filter_subject_pattern_only(mock_invoke):
+    """Test filter with only subject_pattern (no from_sender)."""
+    mock_invoke.return_value = "Filter created"
+
+    result = endosomal(
+        action="filter",
+        subject_pattern="Newsletter",
+        add_label="Bulk",
+        dry_run=False,
+    )
+
+    args = mock_invoke.call_args[0][1]
+    assert "--subject" in args
+    assert "--from" not in args
+    assert isinstance(result, EffectorResult)
+    assert result.success
+
+
+@patch("metabolon.enzymes.endosomal.invoke_organelle")
+def test_endosomal_filter_default_message(mock_invoke):
+    """Test filter returns default message when invoke returns empty."""
+    mock_invoke.return_value = ""
+
+    result = endosomal(
+        action="filter",
+        from_sender="x@y.com",
+        mark_read=True,
+        dry_run=False,
+    )
+
+    assert isinstance(result, EffectorResult)
+    assert result.success
+    assert result.message == "Filter applied."
+
+
+def test_endosomal_action_whitespace_padding():
+    """Test action with leading/trailing whitespace is stripped."""
+    with patch("metabolon.enzymes.endosomal.invoke_organelle") as mock:
+        mock.return_value = "ok"
+        result = endosomal(action="  search  ", query="test")
+        assert isinstance(result, EndosomalResult)
+        mock.assert_called_once()
+
+
+@patch("metabolon.enzymes.endosomal.synthesize")
+def test_endosomal_categorize_llm_valid_category_normalization(mock_synthesize):
+    """Test categorize normalizes LLM output with dashes to underscores."""
+    email_text = "From: a@b.com\nSubject: Test\nBody"
+    mock_synthesize.return_value = "  action-required  "
+
+    result = endosomal(action="categorize", email_text=email_text)
+
+    assert isinstance(result, EndosomalResult)
+    assert result.output == "action_required"
+
+
+def test_endosomal_pipeline_with_borderline():
+    """Test pipeline returns correct fate for borderline category."""
+    email_text = """From: colleague@company.com
+Subject: Re: Project update
+
+Could you review this when you have a chance?
+"""
+    result = endosomal_organelle.endosomal_pipeline(email_text)
+    assert result["stage"] == "complete"
+    assert result["category"] == "borderline"
+    assert result["fate"] == "batch for review"
+
+
+def test_endosomal_pipeline_with_archive():
+    """Test pipeline returns correct fate for archive_now category."""
+    email_text = """From: noreply@github.com
+Subject: Notification
+
+Your issue was closed.
+"""
+    result = endosomal_organelle.endosomal_pipeline(email_text)
+    assert result["stage"] == "complete"
+    assert result["category"] == "archive_now"
+    assert result["fate"] == "archive silently"
+
+
+def test_endosomal_pipeline_with_monitor():
+    """Test pipeline returns correct fate for monitor category."""
+    email_text = """From: team@company.com
+Subject: FYI: New policy
+
+FYI, just wanted to share this update with you.
+"""
+    result = endosomal_organelle.endosomal_pipeline(email_text)
+    assert result["stage"] == "complete"
+    assert result["category"] == "monitor"
+    assert result["fate"] == "note and archive"
+
+
+def test_endosomal_pipeline_ambiguous_defaults_to_archive():
+    """Test pipeline defaults to 'archive silently' for unclassified email."""
+    email_text = """From: john@example.com
+Subject: Hello
+
+Just checking in.
+"""
+    result = endosomal_organelle.endosomal_pipeline(email_text)
+    assert result["stage"] == "complete"
+    assert result["category"] == ""
+    assert result["action"] is None
+    assert result["fate"] == "archive silently"
