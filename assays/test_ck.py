@@ -1,6 +1,7 @@
 """Tests for ck effector script — Moonshot/Kimi Claude wrapper."""
 from __future__ import annotations
 
+import os
 import subprocess
 import pytest
 
@@ -9,14 +10,18 @@ CK_PATH = "/home/terry/germline/effectors/ck"
 
 def test_ck_fails_without_api_key():
     """Test ck exits with error when no Moonshot API key is found."""
-    # Unset all possible places the script looks for the key
-    env = subprocess.run(
-        ["env", "-i", "PATH=$PATH", "HOME=$HOME", CK_PATH, "--help"],
+    # Copy current env and remove MOONSHOT_API_KEY
+    env = os.environ.copy()
+    env.pop("MOONSHOT_API_KEY", None)
+    # Also remove any possible key from secret-tool but keep PATH etc.
+    result = subprocess.run(
+        [CK_PATH, "--help"],
         capture_output=True,
         text=True,
+        env=env,
     )
-    assert env.returncode == 1
-    assert "error: no Moonshot API key found" in env.stderr
+    assert result.returncode == 1
+    assert "error: no Moonshot API key found" in result.stderr
 
 
 def test_ck_is_executable():
