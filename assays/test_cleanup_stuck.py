@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 """Tests for effectors/cleanup-stuck — bash script that kills stuck processes."""
 
 import subprocess
