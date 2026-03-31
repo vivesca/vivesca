@@ -1872,10 +1872,10 @@ class TestCmdRetryAllEdgeCases:
         try:
             _mod["QUEUE_FILE"] = queue_path
             rc = cmd_retry_all()
-    finally:
-        _mod["QUEUE_FILE"] = original_queue
+        finally:
+            _mod["QUEUE_FILE"] = original_queue
 
-    assert rc == 0
-    content = queue_path.read_text()
-    # Should match the pattern and convert to [ ]
-    assert "- [ ]" in content
+        assert rc == 0
+        content = queue_path.read_text()
+        # Should match the pattern and convert to [ ]
+        assert "- [ ]" in content
