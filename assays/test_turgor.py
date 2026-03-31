@@ -20,7 +20,7 @@ class TestItemRe:
         assert m is not None
         assert m.group(1) == "in-progress"
         assert m.group(2) == "Write tests."
-        assert m.group(3) == " Add comprehensive test coverage"
+        assert m.group(3) == "Add comprehensive test coverage"
 
     def test_matches_empty_description(self):
         """Should match items with empty description."""
