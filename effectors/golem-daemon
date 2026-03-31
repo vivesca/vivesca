@@ -178,7 +178,7 @@ def parse_queue() -> list[tuple[int, str]]:
 
     try:
         lines = QUEUE_FILE.read_text().splitlines()
-    except (PermissionError, OSError):
+    except (PermissionError, OSError, UnicodeDecodeError):
         return []
 
     pending = []
@@ -213,7 +213,7 @@ def mark_done(line_num: int, result: str = ""):
             return
         try:
             lines = QUEUE_FILE.read_text().splitlines()
-        except (PermissionError, OSError):
+        except (PermissionError, OSError, UnicodeDecodeError):
             return
         if line_num >= len(lines):
             return
