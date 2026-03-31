@@ -4,6 +4,8 @@ description: RETIRED — merged into /mitogen. Use /mitogen for all dispatch.
 model: opus
 user_invocable: true
 context: inline
+triggers:
+  - centrosome
 ---
 
 # /centrosome — RETIRED
