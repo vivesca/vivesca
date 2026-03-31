@@ -91,6 +91,36 @@ class TestSet:
         r = circadian(action="set", summary="S", date="2025-06-15", from_time="10:00", to_time="11:00")
         mock_se.assert_called_once_with("S", "2025-06-15", "10:00", duration=60)
 
+    @patch("metabolon.organelles.circadian_clock.schedule_event", return_value="ok")
+    def test_set_zero_duration_defaults_to_60(self, mock_se):
+        """Same from_time and to_time → 0 min → falls back to 60."""
+        r = circadian(action="set", summary="Flash", date="2025-06-15", from_time="10:00", to_time="10:00")
+        assert isinstance(r, CircadianResult)
+        mock_se.assert_called_once_with("Flash", "2025-06-15", "10:00", duration=60)
+
+    @patch("metabolon.organelles.circadian_clock.schedule_event", return_value="ok")
+    def test_set_multi_hour_duration(self, mock_se):
+        """09:00 → 12:30 = 210 minutes."""
+        r = circadian(action="set", summary="Workshop", date="2025-06-15", from_time="09:00", to_time="12:30")
+        assert isinstance(r, CircadianResult)
+        mock_se.assert_called_once_with("Workshop", "2025-06-15", "09:00", duration=210)
+
+    @patch("metabolon.organelles.circadian_clock.schedule_event", return_value="ok")
+    def test_set_description_only_no_location(self, mock_se):
+        """Only description note appended, no location note."""
+        r = circadian(action="set", summary="S", date="d", from_time="10:00", to_time="11:00", description="notes")
+        assert isinstance(r, CircadianResult)
+        assert "description ignored by circadian_clock: notes" in r.output
+        assert "location ignored" not in r.output
+
+    @patch("metabolon.organelles.circadian_clock.schedule_event", return_value="ok")
+    def test_set_location_only_no_description(self, mock_se):
+        """Only location note appended, no description note."""
+        r = circadian(action="set", summary="S", date="d", from_time="10:00", to_time="11:00", location="Room 1")
+        assert isinstance(r, CircadianResult)
+        assert "location ignored by circadian_clock: Room 1" in r.output
+        assert "description ignored" not in r.output
+
 
 # ---------------------------------------------------------------------------
 # move
