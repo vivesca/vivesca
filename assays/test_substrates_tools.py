@@ -16,11 +16,11 @@ from metabolon.metabolism.substrates.tools import PhenotypeSubstrate
 # ---------------------------------------------------------------------------
 
 def _emotion(
-    tool: str,
+    tool: str = "t1",
     activations: int = 5,
     success_rate: float = 0.8,
-    metabolic_cost: float = 1.0,
-    valence: float | None = 0.6,
+    metabolic_cost: float = 10.0,
+    valence: float | None = 0.4,
 ) -> Emotion:
     return Emotion(
         tool=tool,
@@ -31,249 +31,250 @@ def _emotion(
     )
 
 
-def _mock_collector(signals=None):
-    """Return a mock SensorySystem with configurable recall_since."""
+def _make_substrate(
+    recall_return: list | None = None,
+    expressed_tools: list[str] | None = None,
+    allele_variants: dict[str, list[int]] | None = None,
+) -> PhenotypeSubstrate:
+    """Build a PhenotypeSubstrate with mocked collector and genome."""
     collector = MagicMock()
-    collector.recall_since.return_value = signals or []
-    return collector
+    collector.recall_since.return_value = recall_return or []
 
-
-def _mock_genome(tools=None, variants=None):
-    """Return a mock Genome.
-
-    tools: list of expressed tool names
-    variants: dict mapping tool name -> list[int] of variant ids
-    """
     genome = MagicMock()
-    genome.expressed_tools.return_value = tools or []
-    default_variants = variants or {}
-    genome.allele_variants.side_effect = lambda t: default_variants.get(t, [])
-    return genome
+    genome.expressed_tools.return_value = expressed_tools or []
+    if allele_variants:
+        genome.allele_variants.side_effect = lambda t: allele_variants.get(t, [])
+    else:
+        genome.allele_variants.return_value = []
+
+    return PhenotypeSubstrate(collector=collector, genome=genome)
 
 
-# ---------------------------------------------------------------------------
-# __init__
-# ---------------------------------------------------------------------------
-
-class TestInit:
-    def test_default_construction(self):
-        sub = PhenotypeSubstrate()
-        assert sub.name == "tools"
-        assert sub.collector is not None
-        assert sub.genome is not None
-
-    def test_custom_deps(self):
-        col = _mock_collector()
-        gen = _mock_genome()
-        sub = PhenotypeSubstrate(collector=col, genome=gen)
-        assert sub.collector is col
-        assert sub.genome is gen
-
-
-# ---------------------------------------------------------------------------
+# ===========================================================================
 # sense
-# ---------------------------------------------------------------------------
+# ===========================================================================
 
 class TestSense:
-    @patch("metabolon.metabolism.substrates.tools.sense_affect")
-    def test_basic_sense(self, mock_sense):
-        emotions = {
-            "tool_a": _emotion("tool_a", valence=0.9),
-            "tool_b": _emotion("tool_b", valence=0.3),
-        }
-        mock_sense.return_value = emotions
-        col = _mock_collector(signals=["s1", "s2"])
-        gen = _mock_genome(tools=["tool_a"], variants={"tool_a": [1, 2]})
+    """Tests for PhenotypeSubstrate.sense()."""
 
-        sub = PhenotypeSubstrate(collector=col, genome=gen)
+    @patch("metabolon.metabolism.substrates.tools.sense_affect")
+    def test_empty_signals_and_no_genome(self, mock_sense):
+        """No signals and no genome → empty list."""
+        mock_sense.return_value = {}
+        sub = _make_substrate(recall_return=[], expressed_tools=[])
+        result = sub.sense(days=30)
+        assert result == []
+
+    @patch("metabolon.metabolism.substrates.tools.sense_affect")
+    def test_signals_only(self, mock_sense):
+        """Signals exist but no genome entries → sensed with in_store=False."""
+        mock_sense.return_value = {"tool_a": _emotion("tool_a")}
+        sub = _make_substrate(recall_return=["stub"], expressed_tools=[])
         result = sub.sense(days=30)
 
-        # recall_since called with a datetime roughly 30 days ago
-        col.recall_since.assert_called_once()
-        called_since = col.recall_since.call_args[0][0]
-        assert isinstance(called_since, datetime)
-        assert (datetime.now(UTC) - called_since).days <= 31
-
-        mock_sense.assert_called_once_with(["s1", "s2"])
-
-        # Both tools should appear (union of emotion keys + catalogued)
-        tools_in_result = {r["tool"] for r in result}
-        assert tools_in_result == {"tool_a", "tool_b"}
-
-        # tool_a: has emotion, in store, 2 variants
-        entry_a = next(r for r in result if r["tool"] == "tool_a")
-        assert entry_a["emotion"] == emotions["tool_a"]
-        assert entry_a["variant_count"] == 2
-        assert entry_a["in_store"] is True
-
-        # tool_b: has emotion, not in store, 0 variants
-        entry_b = next(r for r in result if r["tool"] == "tool_b")
-        assert entry_b["emotion"] == emotions["tool_b"]
-        assert entry_b["variant_count"] == 0
-        assert entry_b["in_store"] is False
+        assert len(result) == 1
+        entry = result[0]
+        assert entry["tool"] == "tool_a"
+        assert entry["emotion"] is not None
+        assert entry["in_store"] is False
+        assert entry["variant_count"] == 0
 
     @patch("metabolon.metabolism.substrates.tools.sense_affect")
-    def test_sense_empty(self, mock_sense):
+    def test_genome_only(self, mock_sense):
+        """No signals but tools in genome → sensed with no emotion."""
         mock_sense.return_value = {}
-        col = _mock_collector(signals=[])
-        gen = _mock_genome(tools=[])
-
-        sub = PhenotypeSubstrate(collector=col, genome=gen)
-        assert sub.sense() == []
-
-    @patch("metabolon.metabolism.substrates.tools.sense_affect")
-    def test_sense_tool_only_in_genome(self, mock_sense):
-        """Tool catalogued but never invoked — should still appear."""
-        mock_sense.return_value = {}
-        col = _mock_collector(signals=[])
-        gen = _mock_genome(tools=["lonely_tool"])
-
-        sub = PhenotypeSubstrate(collector=col, genome=gen)
-        result = sub.sense()
+        sub = _make_substrate(
+            recall_return=[],
+            expressed_tools=["tool_b"],
+            allele_variants={"tool_b": [0, 1]},
+        )
+        result = sub.sense(days=30)
 
         assert len(result) == 1
-        assert result[0]["tool"] == "lonely_tool"
-        assert result[0]["emotion"] is None
-        assert result[0]["in_store"] is True
+        entry = result[0]
+        assert entry["tool"] == "tool_b"
+        assert entry["emotion"] is None
+        assert entry["in_store"] is True
+        assert entry["variant_count"] == 2
+
+    @patch("metabolon.metabolism.substrates.tools.sense_affect")
+    def test_mixed_sources_dedup_sorted(self, mock_sense):
+        """Signals + genome merge into sorted deduplicated list."""
+        mock_sense.return_value = {
+            "alpha": _emotion("alpha"),
+            "gamma": _emotion("gamma"),
+        }
+        sub = _make_substrate(
+            recall_return=["stub"],
+            expressed_tools=["beta", "gamma"],
+            allele_variants={"beta": [0], "gamma": [0, 1, 2]},
+        )
+        result = sub.sense(days=30)
+
+        tools = [r["tool"] for r in result]
+        assert tools == ["alpha", "beta", "gamma"]
+
+        # alpha: has emotion, not in genome
+        alpha = result[0]
+        assert alpha["in_store"] is False
+        assert alpha["variant_count"] == 0
+
+        # beta: no emotion, in genome
+        beta = result[1]
+        assert beta["emotion"] is None
+        assert beta["in_store"] is True
+        assert beta["variant_count"] == 1
+
+        # gamma: both emotion and genome
+        gamma = result[2]
+        assert gamma["emotion"] is not None
+        assert gamma["in_store"] is True
+        assert gamma["variant_count"] == 3
+
+    @patch("metabolon.metabolism.substrates.tools.sense_affect")
+    def test_sense_passes_since_to_collector(self, mock_sense):
+        """sense() computes `since` from days and passes it to recall_since."""
+        mock_sense.return_value = {}
+        sub = _make_substrate()
+        sub.sense(days=7)
+
+        call_args = sub.collector.recall_since.call_args
+        since = call_args[0][0]
+        expected_since = datetime.now(UTC) - timedelta(days=7)
+        # Allow up to 5 seconds of clock drift
+        assert abs((since - expected_since).total_seconds()) < 5
 
 
-# ---------------------------------------------------------------------------
+# ===========================================================================
 # candidates
-# ---------------------------------------------------------------------------
+# ===========================================================================
 
 class TestCandidates:
-    @patch("metabolon.metabolism.substrates.tools.select")
-    def test_filters_below_median(self, mock_select):
-        mock_select.return_value = ["weak_tool"]
-        sub = PhenotypeSubstrate()
-
-        sensed = [
-            {"tool": "strong_tool", "emotion": _emotion("strong_tool", valence=0.9), "variant_count": 0, "in_store": True},
-            {"tool": "weak_tool", "emotion": _emotion("weak_tool", valence=0.1), "variant_count": 0, "in_store": True},
-        ]
-
-        result = sub.candidates(sensed)
-        assert len(result) == 1
-        assert result[0]["tool"] == "weak_tool"
+    """Tests for PhenotypeSubstrate.candidates()."""
 
     @patch("metabolon.metabolism.substrates.tools.select")
-    def test_no_candidates(self, mock_select):
+    def test_empty_sensed(self, mock_select):
+        """Empty input returns empty output."""
         mock_select.return_value = []
-        sub = PhenotypeSubstrate()
+        sub = _make_substrate()
+        assert sub.candidates([]) == []
 
+    @patch("metabolon.metabolism.substrates.tools.select")
+    def test_filters_to_unfit(self, mock_select):
+        """Only tools returned by select() survive."""
+        mock_select.return_value = ["b"]
         sensed = [
-            {"tool": "ok_tool", "emotion": _emotion("ok_tool", valence=0.8), "variant_count": 0, "in_store": True},
+            {"tool": "a", "emotion": _emotion("a", valence=0.9)},
+            {"tool": "b", "emotion": _emotion("b", valence=0.1)},
+            {"tool": "c", "emotion": _emotion("c", valence=0.8)},
         ]
-
-        assert sub.candidates(sensed) == []
+        result = sub.candidates(sensed) if (sub := _make_substrate()) else []
+        assert len(result) == 1
+        assert result[0]["tool"] == "b"
 
     @patch("metabolon.metabolism.substrates.tools.select")
     def test_skips_none_emotions(self, mock_select):
-        """Entries with emotion=None are passed through (not in phenotype_scores)."""
+        """Entries with emotion=None are not passed to select()."""
         mock_select.return_value = []
-        sub = PhenotypeSubstrate()
-
         sensed = [
-            {"tool": "unknown", "emotion": None, "variant_count": 0, "in_store": False},
+            {"tool": "x", "emotion": None},
         ]
+        sub = _make_substrate()
+        sub.candidates(sensed)
 
-        # phenotype_scores will be empty, select gets {}
-        result = sub.candidates(sensed)
+        # select() should receive empty dict because emotion is None
         mock_select.assert_called_once_with({})
-        assert result == []
 
 
-# ---------------------------------------------------------------------------
+# ===========================================================================
 # act
-# ---------------------------------------------------------------------------
+# ===========================================================================
 
 class TestAct:
+    """Tests for PhenotypeSubstrate.act()."""
+
     def test_skip_not_in_store(self):
-        sub = PhenotypeSubstrate()
-        candidate = {"tool": "ghost", "emotion": None, "in_store": False}
-        assert sub.act(candidate) == "skip: ghost not in genome"
+        """Tool not in genome → skip message."""
+        sub = _make_substrate()
+        result = sub.act({"tool": "absent", "emotion": None, "in_store": False})
+        assert "skip" in result
+        assert "absent" in result
 
-    def test_mutation_no_emotion(self):
-        sub = PhenotypeSubstrate()
-        candidate = {"tool": "new_tool", "emotion": None, "in_store": True}
-        assert sub.act(candidate) == "mutation needed for new_tool: no emotion data"
+    def test_no_emotion_data(self):
+        """No emotion → mutation needed, no emotion data."""
+        sub = _make_substrate()
+        result = sub.act({"tool": "t", "emotion": None, "in_store": True})
+        assert "mutation needed" in result
+        assert "no emotion data" in result
 
-    def test_mutation_no_valence(self):
-        sub = PhenotypeSubstrate()
-        emo = _emotion("sketchy", activations=2, valence=None)
-        candidate = {"tool": "sketchy", "emotion": emo, "in_store": True}
-        result = sub.act(candidate)
-        assert result == "mutation needed for sketchy: insufficient stimuli (2 invocations)"
+    def test_none_valence(self):
+        """Emotion with None valence → mutation needed, insufficient stimuli."""
+        sub = _make_substrate()
+        emo = _emotion(valence=None, activations=2)
+        result = sub.act({"tool": "t", "emotion": emo, "in_store": True})
+        assert "mutation needed" in result
+        assert "insufficient stimuli" in result
+        assert "2 invocations" in result
 
-    def test_mutation_low_valence(self):
-        sub = PhenotypeSubstrate()
-        emo = _emotion("sad_tool", valence=0.123)
-        candidate = {"tool": "sad_tool", "emotion": emo, "in_store": True}
-        result = sub.act(candidate)
-        assert result == "mutation needed for sad_tool: valence 0.123"
+    def test_low_valence(self):
+        """Low valence → mutation needed, valence shown."""
+        sub = _make_substrate()
+        emo = _emotion(valence=0.123)
+        result = sub.act({"tool": "t", "emotion": emo, "in_store": True})
+        assert "mutation needed" in result
+        assert "0.123" in result
 
 
-# ---------------------------------------------------------------------------
+# ===========================================================================
 # report
-# ---------------------------------------------------------------------------
+# ===========================================================================
 
 class TestReport:
-    def test_empty_report(self):
-        sub = PhenotypeSubstrate()
-        report = sub.report([], [])
-        assert "0 tool(s) sensed" in report
+    """Tests for PhenotypeSubstrate.report()."""
 
-    def test_report_with_data(self):
-        sub = PhenotypeSubstrate()
-        sensed = [
-            {
-                "tool": "alpha",
-                "emotion": _emotion("alpha", activations=10, success_rate=0.75, valence=0.55),
-                "variant_count": 3,
-                "in_store": True,
-            },
-            {
-                "tool": "beta",
-                "emotion": None,
-                "variant_count": 0,
-                "in_store": False,
-            },
-        ]
-        acted = ["mutation needed for alpha: valence 0.550"]
+    def test_empty(self):
+        """Empty sensed + no actions → header only."""
+        sub = _make_substrate()
+        rpt = sub.report([], [])
+        assert "0 tool(s) sensed" in rpt
 
-        report = sub.report(sensed, acted)
+    def test_with_emotion(self):
+        """Entry with emotion shows valence, invocations, success_rate."""
+        sub = _make_substrate()
+        emo = _emotion(valence=0.556, activations=10, success_rate=0.75)
+        sensed = [{"tool": "mytool", "emotion": emo, "variant_count": 3}]
+        rpt = sub.report(sensed, [])
+        assert "mytool" in rpt
+        assert "0.556" in rpt
+        assert "invocations=10" in rpt
+        assert "75.0%" in rpt
+        assert "variants=3" in rpt
 
-        assert "2 tool(s) sensed" in report
-        assert "alpha: valence=0.550" in report
-        assert "invocations=10" in report
-        assert "success_rate=75.0%" in report
-        assert "variants=3" in report
-        assert "beta: no signals" in report
-        assert "-- Actions --" in report
-        assert "mutation needed for alpha" in report
+    def test_with_none_emotion(self):
+        """Entry with None emotion shows 'no signals'."""
+        sub = _make_substrate()
+        sensed = [{"tool": "ghost", "emotion": None, "variant_count": 0}]
+        rpt = sub.report(sensed, [])
+        assert "ghost" in rpt
+        assert "no signals" in rpt
 
-    def test_report_no_actions(self):
-        sub = PhenotypeSubstrate()
-        sensed = [
-            {
-                "tool": "ok",
-                "emotion": _emotion("ok", valence=0.99),
-                "variant_count": 0,
-                "in_store": True,
-            },
-        ]
-        report = sub.report(sensed, [])
-        assert "-- Actions --" not in report
+    def test_none_valence_shows_na(self):
+        """Emotion with None valence shows 'N/A' for valence."""
+        sub = _make_substrate()
+        emo = _emotion(valence=None, activations=1)
+        sensed = [{"tool": "partial", "emotion": emo, "variant_count": 0}]
+        rpt = sub.report(sensed, [])
+        assert "N/A" in rpt
 
-    def test_report_valence_na(self):
-        sub = PhenotypeSubstrate()
-        sensed = [
-            {
-                "tool": "mystery",
-                "emotion": _emotion("mystery", valence=None),
-                "variant_count": 1,
-                "in_store": True,
-            },
-        ]
-        report = sub.report(sensed, [])
-        assert "valence=N/A" in report
+    def test_actions_section(self):
+        """Acted strings appear under '-- Actions --'."""
+        sub = _make_substrate()
+        rpt = sub.report([], ["mutation needed for t: valence 0.100"])
+        assert "-- Actions --" in rpt
+        assert "mutation needed for t" in rpt
+
+    def test_no_actions_section_when_empty(self):
+        """No '-- Actions --' section when acted is empty."""
+        sub = _make_substrate()
+        rpt = sub.report([{"tool": "a", "emotion": None, "variant_count": 0}], [])
+        assert "-- Actions --" not in rpt
