@@ -784,6 +784,7 @@ class TestMetabolismSummary:
         mock_sensory.return_value = sensory_instance
 
         lines = _metabolism_summary()
+        print(f"DEBUG lines: {lines}")  # Debug output
 
         assert any("2 tool(s)" in line for line in lines)
         assert any("4 total variant(s)" in line for line in lines)

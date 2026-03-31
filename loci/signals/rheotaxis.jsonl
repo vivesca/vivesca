@@ -234,3 +234,4 @@
 {"ts": "2026-03-31T08:00:09+00:00", "model": "sonar-pro", "query": "\u706b\u5c71\u5f15\u64ce ark coding plan cn-guangzhou cn-hongkong endpoint \u5730\u533a"}
 {"ts": "2026-03-31T08:01:38+00:00", "model": "sonar-pro", "query": "volcengine ark coding plan cn-shanghai endpoint available 2026"}
 {"ts": "2026-03-31T08:01:39+00:00", "model": "sonar-pro", "query": "\u706b\u5c71\u65b9\u821f ark API key \u683c\u5f0f \"API key format is incorrect\" UUID \"d3f\" OR \"ark-\" OR \"sk-\""}
+{"ts": "2026-03-31T08:49:51+00:00", "model": "sonar", "query": "test"}
