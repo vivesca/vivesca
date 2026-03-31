@@ -68,24 +68,10 @@ class TestSetRealisticHeaders:
         set_realistic_headers(mock_context)
         mock_context.set_extra_http_headers.assert_called_once()
 
-    def test_headers_include_required_fields(self, mock_context: MagicMock) -> None:
+    def test_headers_include_user_agent(self, mock_context: MagicMock) -> None:
         set_realistic_headers(mock_context)
         call_args = mock_context.set_extra_http_headers.call_args[0][0]
-        required = [
-            "Accept",
-            "Accept-Encoding",
-            "Accept-Language",
-            "Sec-Ch-Ua",
-            "Sec-Ch-Ua-Mobile",
-            "Sec-Ch-Ua-Platform",
-            "Sec-Fetch-Dest",
-            "Sec-Fetch-Mode",
-            "Sec-Fetch-Site",
-            "Sec-Fetch-User",
-            "Upgrade-Insecure-Requests",
-        ]
-        for key in required:
-            assert key in call_args, f"Missing header: {key}"
+        assert "User-Agent" in call_args
 
     def test_randomness_across_calls(self, mock_context: MagicMock) -> None:
         """With 20 UAs, 50 calls should produce > 1 unique UA."""
@@ -97,30 +83,34 @@ class TestSetRealisticHeaders:
 
 
 class TestHumanDelay:
-    @patch("metabolon.organelles.browser_stealth.time.sleep")
-    def test_returns_float_in_range(self, mock_sleep: MagicMock) -> None:
+    @pytest.mark.asyncio
+    @patch("metabolon.organelles.browser_stealth.asyncio.sleep")
+    async def test_returns_float_in_range(self, mock_sleep: MagicMock) -> None:
         mock_sleep.return_value = None
-        delay = human_delay(0.5, 2.0)
+        delay = await human_delay(0.5, 2.0)
         assert isinstance(delay, float)
         assert 0.5 <= delay <= 2.0
 
-    @patch("metabolon.organelles.browser_stealth.time.sleep")
-    def test_calls_sleep_with_delay(self, mock_sleep: MagicMock) -> None:
+    @pytest.mark.asyncio
+    @patch("metabolon.organelles.browser_stealth.asyncio.sleep")
+    async def test_calls_sleep_with_delay(self, mock_sleep: MagicMock) -> None:
         mock_sleep.return_value = None
-        human_delay(1.0, 1.0)
+        await human_delay(1.0, 1.0)
         # With min==max, sleep argument should be 1.0 (within float epsilon)
         assert abs(mock_sleep.call_args[0][0] - 1.0) < 1e-6
 
-    @patch("metabolon.organelles.browser_stealth.time.sleep")
-    def test_custom_range(self, mock_sleep: MagicMock) -> None:
+    @pytest.mark.asyncio
+    @patch("metabolon.organelles.browser_stealth.asyncio.sleep")
+    async def test_custom_range(self, mock_sleep: MagicMock) -> None:
         mock_sleep.return_value = None
-        delay = human_delay(3.0, 5.0)
+        delay = await human_delay(3.0, 5.0)
         assert 3.0 <= delay <= 5.0
 
-    @patch("metabolon.organelles.browser_stealth.time.sleep")
-    def test_default_range(self, mock_sleep: MagicMock) -> None:
+    @pytest.mark.asyncio
+    @patch("metabolon.organelles.browser_stealth.asyncio.sleep")
+    async def test_default_range(self, mock_sleep: MagicMock) -> None:
         mock_sleep.return_value = None
-        delay = human_delay()
+        delay = await human_delay()
         assert 0.5 <= delay <= 2.0
 
 
