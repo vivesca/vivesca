@@ -572,6 +572,72 @@ def check_new_test_files_and_run_pytest() -> tuple[bool, str]:
         return (True, f"test check exception: {e}")
 
 
+
+def disk_guard(warn_gb: float = 2.0, clean_gb: float = 1.0) -> bool:
+    """Check disk space. Auto-clean if low. Pause dispatch if critical.
+
+    Returns True if safe to dispatch, False if disk is too full.
+    """
+    import shutil
+
+    home = Path.home()
+    volume = home  # Fly mounts volume at /home/terry
+    root_tmp = Path("/tmp")
+
+    def _free_gb(path: Path) -> float:
+        usage = shutil.disk_usage(str(path))
+        return usage.free / (1024**3)
+
+    # Check both volume and root
+    vol_free = _free_gb(volume)
+    root_free = _free_gb(root_tmp)
+
+    # Auto-clean if either is below warn threshold
+    if vol_free < warn_gb or root_free < warn_gb:
+        import subprocess
+        cleaned = 0
+
+        # Clean pytest temps
+        for d in [volume / "germline" / "pytest-of-terry",
+                  root_tmp / "pytest-of-terry",
+                  root_tmp / "pytest-vivesca"]:
+            if d.exists():
+                subprocess.run(f"rm -rf {d}", shell=True, timeout=30)
+                cleaned += 1
+
+        # Clean Claude Code session temps
+        for d in root_tmp.glob("claude-*"):
+            if d.is_dir():
+                subprocess.run(f"rm -rf {d}", shell=True, timeout=30)
+                cleaned += 1
+
+        # Clean Python cache
+        subprocess.run(
+            "find /home/terry/germline -name __pycache__ -type d -exec rm -rf {} + 2>/dev/null",
+            shell=True, timeout=30
+        )
+
+        # Clean uv cache if desperate
+        if _free_gb(volume) < clean_gb:
+            cache = home / ".cache" / "uv"
+            if cache.exists():
+                subprocess.run(f"rm -rf {cache}", shell=True, timeout=30)
+                cleaned += 1
+
+        vol_after = _free_gb(volume)
+        root_after = _free_gb(root_tmp)
+        log(f"DISK GUARD: vol={vol_free:.1f}GB→{vol_after:.1f}GB, root={root_free:.1f}GB→{root_after:.1f}GB, cleaned={cleaned}")
+
+        vol_free = vol_after
+        root_free = root_after
+
+    # Critical: refuse to dispatch
+    if vol_free < clean_gb or root_free < clean_gb:
+        log(f"DISK CRITICAL: vol={vol_free:.1f}GB root={root_free:.1f}GB — pausing dispatch")
+        return False
+
+    return True
+
 def auto_requeue(min_pending: int = 50) -> int:
     """Generate diverse high-value tasks when queue runs low."""
     import os, random
@@ -808,6 +874,12 @@ def daemon_loop():
                     added = auto_requeue()
                     if added > 0:
                         pending = parse_queue()
+
+                # Disk guard — pause dispatch if disk is full
+                if not disk_guard():
+                    log("Disk guard: skipping dispatch this cycle")
+                    time.sleep(POLL_INTERVAL)
+                    continue
 
                     for line_num, cmd in pending:
                         provider = parse_provider(cmd)
