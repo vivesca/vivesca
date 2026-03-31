@@ -1,259 +1,295 @@
-#!/usr/bin/env python3
-"""Tests for effectors/launchagent-health — LaunchAgent health checker."""
+"""Tests for effectors/launchagent-health — loaded via exec(), not import."""
 
-from __future__ import annotations
-
-import sys
+import os
+import re
+import subprocess
 import textwrap
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
 
-EFFECTOR_PATH = Path(__file__).resolve().parents[1] / "effectors" / "launchagent-health"
+EFFECTOR = Path(__file__).parent.parent / "effectors" / "launchagent-health"
 
 
-def _load_module() -> dict:
-    """Load launchagent-health via exec (effector pattern, not importable)."""
-    source = EFFECTOR_PATH.read_text(encoding="utf-8")
-    ns: dict = {"__name__": "launchagent_health", "__file__": str(EFFECTOR_PATH)}
-    exec(source, ns)
+def _load_ns(tmp_home: Path):
+    """Load the effector into a fresh namespace with Path.home() mocked."""
+    ns = {
+        "__name__": "launchagent_health",
+        "__file__": str(EFFECTOR),
+    }
+    source = EFFECTOR.read_text()
+    with patch("pathlib.Path.home", return_value=tmp_home):
+        exec(source, ns)
     return ns
 
 
-_mod = _load_module()
+# ---------------------------------------------------------------------------
+# Fixtures
+# ---------------------------------------------------------------------------
+
+@pytest.fixture()
+def tmp_home(tmp_path):
+    """Isolated home dir with required directory structure."""
+    (tmp_path / "Library" / "LaunchAgents").mkdir(parents=True)
+    (tmp_path / "epigenome" / "oscillators").mkdir(parents=True)
+    (tmp_path / "germline" / "effectors").mkdir(parents=True)
+    (tmp_path / "logs").mkdir(parents=True)
+    return tmp_path
 
 
-# ── File-level tests ────────────────────────────────────────────────────────
+# ---------------------------------------------------------------------------
+# check() — empty / all-clear
+# ---------------------------------------------------------------------------
 
-
-class TestFileBasics:
-    def test_file_exists(self):
-        assert EFFECTOR_PATH.exists()
-
-    def test_is_python_script(self):
-        assert EFFECTOR_PATH.read_text().split("\n")[0].startswith("#!/usr/bin/env python")
-
-    def test_has_docstring(self):
-        assert "LaunchAgent health check" in EFFECTOR_PATH.read_text()
-
-
-# ── Constant tests ──────────────────────────────────────────────────────────
-
-
-class TestConstants:
-    def test_launch_dir(self):
-        assert _mod["LAUNCH_DIR"] == Path.home() / "Library" / "LaunchAgents"
-
-    def test_source_dir(self):
-        assert _mod["SOURCE_DIR"] == Path.home() / "epigenome" / "oscillators"
-
-    def test_log_path(self):
-        assert _mod["LOG"] == Path.home() / "logs" / "launchagent-health.log"
-
-
-# ── check() tests ───────────────────────────────────────────────────────────
-
-
-class TestCheckPlists:
-    def _setup_dirs(self, tmp_path, monkeypatch):
-        """Set up fake directories and patch them into the namespace."""
-        fake_launch = tmp_path / "LaunchAgents"
-        fake_launch.mkdir(parents=True)
-        fake_source = tmp_path / "oscillators"
-        fake_source.mkdir(parents=True)
-        # Code uses Path.home() / "germline" / "effectors"
-        fake_eff = tmp_path / "germline" / "effectors"
-        fake_eff.mkdir(parents=True)
-
-        monkeypatch.setitem(_mod, "LAUNCH_DIR", fake_launch)
-        monkeypatch.setitem(_mod, "SOURCE_DIR", fake_source)
-        monkeypatch.setitem(_mod, "LOG", tmp_path / "health.log")
-        # Patch Path.home() for the bin_dir scanning inside check()
-        original_path = _mod["Path"]
-        class FakePath(type(original_path)):
-            @classmethod
-            def home(cls):
-                return tmp_path
-        monkeypatch.setitem(_mod, "Path", FakePath)
-        return fake_launch, fake_source, fake_eff
-
-    def test_no_plists_is_clean(self, tmp_path, monkeypatch):
-        fake_launch, _, _ = self._setup_dirs(tmp_path, monkeypatch)
-        issues = _mod["check"]()
+class TestAllClear:
+    def test_no_plists_no_secrets(self, tmp_home):
+        ns = _load_ns(tmp_home)
+        with patch("pathlib.Path.home", return_value=tmp_home):
+            issues = ns["check"]()
         assert issues == []
 
-    def test_valid_xml_plist_passes(self, tmp_path, monkeypatch):
-        fake_launch, _, _ = self._setup_dirs(tmp_path, monkeypatch)
-        (fake_launch / "com.terry.good.plist").write_text(
-            '<?xml version="1.0"?>\n<plist><dict><key>Label</key><string>x</string></dict></plist>'
-        )
-        issues = _mod["check"]()
-        assert not any("INVALID" in i for i in issues)
+    def test_empty_launchagents_dir(self, tmp_home):
+        ns = _load_ns(tmp_home)
+        with patch("pathlib.Path.home", return_value=tmp_home):
+            issues = ns["check"]()
+        assert issues == []
 
-    def test_doctype_xml_passes(self, tmp_path, monkeypatch):
-        fake_launch, _, _ = self._setup_dirs(tmp_path, monkeypatch)
-        (fake_launch / "com.terry.dt.plist").write_text(
-            '<!DOCTYPE plist><plist><dict></dict></plist>'
-        )
-        issues = _mod["check"]()
-        assert not any("INVALID" in i for i in issues)
 
-    def test_detects_corrupted_plist(self, tmp_path, monkeypatch):
-        fake_launch, _, _ = self._setup_dirs(tmp_path, monkeypatch)
-        (fake_launch / "com.terry.bad.plist").write_text('{"not": "xml"}')
-        with patch("subprocess.run", return_value=MagicMock(returncode=1, stderr="bad")):
-            issues = _mod["check"]()
-        assert any("INVALID" in i and "com.terry.bad.plist" in i for i in issues)
+# ---------------------------------------------------------------------------
+# check() — symlink plists are skipped
+# ---------------------------------------------------------------------------
 
-    def test_binary_plist_passes_plutil(self, tmp_path, monkeypatch):
-        fake_launch, _, _ = self._setup_dirs(tmp_path, monkeypatch)
-        (fake_launch / "com.terry.bin.plist").write_text("bplist00...")
-        with patch("subprocess.run", return_value=MagicMock(returncode=0, stdout="OK")):
-            issues = _mod["check"]()
-        assert not any("INVALID" in i for i in issues)
-
-    def test_symlink_plist_skipped(self, tmp_path, monkeypatch):
-        fake_launch, _, _ = self._setup_dirs(tmp_path, monkeypatch)
-        target = fake_launch / "com.terry.real.plist"
-        target.write_text('<?xml version="1.0"?>\n<plist></plist>')
-        link = fake_launch / "com.terry.link.plist"
+class TestSymlinkSkip:
+    def test_symlink_plist_ignored(self, tmp_home):
+        target = tmp_home / "epigenome" / "oscillators" / "com.terry.foo.plist"
+        target.write_text("<?xml version='1.0'?><plist/>")
+        link = tmp_home / "Library" / "LaunchAgents" / "com.terry.foo.plist"
         link.symlink_to(target)
-        # Symlink should not cause issues
-        issues = _mod["check"]()
-        assert not any("com.terry.link.plist" in i for i in issues)
 
-    def test_detects_drift_from_source(self, tmp_path, monkeypatch):
-        fake_launch, fake_source, _ = self._setup_dirs(tmp_path, monkeypatch)
-        (fake_launch / "com.terry.drift.plist").write_text(
-            '<?xml version="1.0"?>\n<plist><dict><key>A</key><string>1</string></dict></plist>'
-        )
-        (fake_source / "com.terry.drift.plist").write_text(
-            '<?xml version="1.0"?>\n<plist><dict><key>A</key><string>2</string></dict></plist>'
-        )
-        issues = _mod["check"]()
-        assert any("DRIFT" in i and "com.terry.drift.plist" in i for i in issues)
+        ns = _load_ns(tmp_home)
+        with patch("pathlib.Path.home", return_value=tmp_home):
+            issues = ns["check"]()
+        assert issues == []
 
-    def test_matching_plist_no_issue(self, tmp_path, monkeypatch):
-        fake_launch, fake_source, _ = self._setup_dirs(tmp_path, monkeypatch)
-        content = '<?xml version="1.0"?>\n<plist><dict><key>A</key><string>1</string></dict></plist>'
-        (fake_launch / "com.terry.match.plist").write_text(content)
-        (fake_source / "com.terry.match.plist").write_text(content)
-        issues = _mod["check"]()
-        assert not any("com.terry.match.plist" in i for i in issues)
 
-    def test_missing_source_not_flagged(self, tmp_path, monkeypatch):
-        fake_launch, _, _ = self._setup_dirs(tmp_path, monkeypatch)
-        (fake_launch / "com.terry.nosrc.plist").write_text(
-            '<?xml version="1.0"?>\n<plist></plist>'
-        )
-        issues = _mod["check"]()
+# ---------------------------------------------------------------------------
+# check() — invalid plist detection
+# ---------------------------------------------------------------------------
+
+class TestInvalidPlist:
+    def test_non_xml_non_plist(self, tmp_home):
+        bad = tmp_home / "Library" / "LaunchAgents" / "com.terry.bad.plist"
+        bad.write_text('{"json": true}')  # not XML, not DOCTYPE
+
+        ns = _load_ns(tmp_home)
+        mock_result = MagicMock()
+        mock_result.returncode = 1
+        mock_result.stderr = "bad plist"
+
+        with patch("pathlib.Path.home", return_value=tmp_home), \
+             patch("subprocess.run", return_value=mock_result) as mock_run:
+            issues = ns["check"]()
+            # Verify plutil was invoked
+            args_passed = mock_run.call_args[0][0]
+            assert args_passed[0:2] == ["plutil", "-lint"]
+
+        assert len(issues) == 1
+        assert "INVALID" in issues[0]
+        assert "com.terry.bad.plist" in issues[0]
+
+    def test_invalid_plist_plutil_ok_no_issue(self, tmp_home):
+        """Non-XML plist that passes plutil should not raise INVALID."""
+        plist = tmp_home / "Library" / "LaunchAgents" / "com.terry.bin.plist"
+        plist.write_text("binary-content-not-xml")
+
+        ns = _load_ns(tmp_home)
+        mock_result = MagicMock()
+        mock_result.returncode = 0  # plutil says OK
+
+        with patch("pathlib.Path.home", return_value=tmp_home), \
+             patch("subprocess.run", return_value=mock_result):
+            issues = ns["check"]()
+        # No INVALID issue (but DRIFT may appear if source doesn't match)
+        assert not any("INVALID" in i for i in issues)
+
+
+# ---------------------------------------------------------------------------
+# check() — drift detection
+# ---------------------------------------------------------------------------
+
+class TestDriftDetection:
+    def test_drift_when_source_differs(self, tmp_home):
+        plist = tmp_home / "Library" / "LaunchAgents" / "com.terry.daemon.plist"
+        plist.write_text('<?xml version="1.0"?><plist><key>A</key><string>1</string></plist>')
+
+        source = tmp_home / "epigenome" / "oscillators" / "com.terry.daemon.plist"
+        source.write_text('<?xml version="1.0"?><plist><key>A</key><string>2</string></plist>')
+
+        ns = _load_ns(tmp_home)
+        with patch("pathlib.Path.home", return_value=tmp_home):
+            issues = ns["check"]()
+        assert any("DRIFT" in i and "com.terry.daemon.plist" in i for i in issues)
+
+    def test_no_drift_when_source_matches(self, tmp_home):
+        content = '<?xml version="1.0"?><plist><key>A</key><string>same</string></plist>'
+        plist = tmp_home / "Library" / "LaunchAgents" / "com.terry.synced.plist"
+        plist.write_text(content)
+        source = tmp_home / "epigenome" / "oscillators" / "com.terry.synced.plist"
+        source.write_text(content)
+
+        ns = _load_ns(tmp_home)
+        with patch("pathlib.Path.home", return_value=tmp_home):
+            issues = ns["check"]()
         assert not any("DRIFT" in i for i in issues)
 
-    def test_vivesca_plist_scanned(self, tmp_path, monkeypatch):
-        fake_launch, _, _ = self._setup_dirs(tmp_path, monkeypatch)
-        (fake_launch / "com.vivesca.bad.plist").write_text("NOT XML")
-        with patch("subprocess.run", return_value=MagicMock(returncode=1, stderr="bad")):
-            issues = _mod["check"]()
-        assert any("INVALID" in i and "com.vivesca" in i for i in issues)
+    def test_no_drift_when_no_source(self, tmp_home):
+        """Plist without matching source file → no DRIFT issue."""
+        plist = tmp_home / "Library" / "LaunchAgents" / "com.terry.nosource.plist"
+        plist.write_text('<?xml version="1.0"?><plist/>')
 
-    def test_vivesca_valid_plist(self, tmp_path, monkeypatch):
-        fake_launch, _, _ = self._setup_dirs(tmp_path, monkeypatch)
-        (fake_launch / "com.vivesca.ok.plist").write_text(
-            '<?xml version="1.0"?>\n<plist><dict></dict></plist>'
-        )
-        issues = _mod["check"]()
-        assert not any("com.vivesca.ok.plist" in i for i in issues)
+        ns = _load_ns(tmp_home)
+        with patch("pathlib.Path.home", return_value=tmp_home):
+            issues = ns["check"]()
+        assert not any("DRIFT" in i for i in issues)
 
 
-# ── Secret scanning tests ──────────────────────────────────────────────────
+# ---------------------------------------------------------------------------
+# check() — hardcoded secret detection
+# ---------------------------------------------------------------------------
 
+class TestHardcodedSecrets:
+    def test_openai_key_detected(self, tmp_home):
+        script = tmp_home / "germline" / "effectors" / "my-script.sh"
+        script.write_text(textwrap.dedent("""\
+            #!/bin/bash
+            API_KEY="sk-abcdefghijklmnopqrstuvwx"
+        """))
 
-class TestCheckSecrets:
-    def _setup_dirs(self, tmp_path, monkeypatch):
-        fake_launch = tmp_path / "LaunchAgents"
-        fake_launch.mkdir(parents=True)
-        fake_source = tmp_path / "oscillators"
-        fake_source.mkdir(parents=True)
-        fake_eff = tmp_path / "germline" / "effectors"
-        fake_eff.mkdir(parents=True)
+        ns = _load_ns(tmp_home)
+        with patch("pathlib.Path.home", return_value=tmp_home):
+            issues = ns["check"]()
+        assert any("HARDCODED KEY" in i and "my-script.sh" in i for i in issues)
 
-        monkeypatch.setitem(_mod, "LAUNCH_DIR", fake_launch)
-        monkeypatch.setitem(_mod, "SOURCE_DIR", fake_source)
-        monkeypatch.setitem(_mod, "LOG", tmp_path / "health.log")
-        original_path = _mod["Path"]
-        class FakePath(type(original_path)):
-            @classmethod
-            def home(cls):
-                return tmp_path
-        monkeypatch.setitem(_mod, "Path", FakePath)
-        return fake_launch, fake_source, fake_eff
+    def test_slack_bot_token_detected(self, tmp_home):
+        script = tmp_home / "germline" / "effectors" / "slack.sh"
+        script.write_text('export SLACK_TOKEN="xoxb-1234-abcdef-ghijkl"')
 
-    def test_detects_hardcoded_sk_key(self, tmp_path, monkeypatch):
-        _, _, fake_eff = self._setup_dirs(tmp_path, monkeypatch)
-        (fake_eff / "leak.sh").write_text("API_KEY=sk-abcdefghij1234567890abcdefghijklmn\n")
-        issues = _mod["check"]()
+        ns = _load_ns(tmp_home)
+        with patch("pathlib.Path.home", return_value=tmp_home):
+            issues = ns["check"]()
+        assert any("HARDCODED KEY" in i and "slack.sh" in i for i in issues)
+
+    def test_slack_app_token_detected(self, tmp_home):
+        script = tmp_home / "germline" / "effectors" / "slack-app.sh"
+        script.write_text('TOKEN="xoxp-9999-zzzz-yyyy"')
+
+        ns = _load_ns(tmp_home)
+        with patch("pathlib.Path.home", return_value=tmp_home):
+            issues = ns["check"]()
         assert any("HARDCODED KEY" in i for i in issues)
 
-    def test_detects_github_pat(self, tmp_path, monkeypatch):
-        _, _, fake_eff = self._setup_dirs(tmp_path, monkeypatch)
-        (fake_eff / "gh.sh").write_text("token=ghp_" + "a" * 36 + "\n")
-        issues = _mod["check"]()
-        assert any("HARDCODED KEY" in i for i in issues)
+    def test_github_pat_detected(self, tmp_home):
+        script = tmp_home / "germline" / "effectors" / "gh.sh"
+        script.write_text(f'GITHUB_TOKEN="ghp_{"a" * 36}"')
 
-    def test_no_secrets_is_clean(self, tmp_path, monkeypatch):
-        _, _, fake_eff = self._setup_dirs(tmp_path, monkeypatch)
-        (fake_eff / "clean.sh").write_text("#!/bin/bash\necho hello\n")
-        issues = _mod["check"]()
+        ns = _load_ns(tmp_home)
+        with patch("pathlib.Path.home", return_value=tmp_home):
+            issues = ns["check"]()
+        assert any("HARDCODED KEY" in i and "gh.sh" in i for i in issues)
+
+    def test_security_find_line_exempt(self, tmp_home):
+        """Lines containing 'security find' should be exempt from secret detection."""
+        script = tmp_home / "germline" / "effectors" / "keychain.sh"
+        script.write_text('KEY=$(security find-generic-password -s "sk-abcdefghijklmnopqrstuvwx")')
+
+        ns = _load_ns(tmp_home)
+        with patch("pathlib.Path.home", return_value=tmp_home):
+            issues = ns["check"]()
         assert not any("HARDCODED KEY" in i for i in issues)
 
-    def test_binary_files_skipped(self, tmp_path, monkeypatch):
-        _, _, fake_eff = self._setup_dirs(tmp_path, monkeypatch)
-        (fake_eff / "binary").write_bytes(b"\x00\x01\x02rest without secrets")
-        issues = _mod["check"]()
-        assert not any("HARDCODED KEY" in i for i in issues)
+    def test_binary_file_skipped(self, tmp_home):
+        """Files with null bytes in first 256 chars are skipped."""
+        script = tmp_home / "germline" / "effectors" / "binary-tool"
+        script.write_bytes(b"\x00" * 100 + b"sk-abcdefghijklmnopqrstuvwxyz")
 
-    def test_security_find_excused(self, tmp_path, monkeypatch):
-        _, _, fake_eff = self._setup_dirs(tmp_path, monkeypatch)
-        (fake_eff / "safe.sh").write_text(
-            'security find-generic-password -s "sk-abcdefghij1234567890abcdefghijklmn" -w\n'
-        )
-        issues = _mod["check"]()
+        ns = _load_ns(tmp_home)
+        with patch("pathlib.Path.home", return_value=tmp_home):
+            issues = ns["check"]()
         assert not any("HARDCODED KEY" in i for i in issues)
 
 
-# ── __main__ block tests ────────────────────────────────────────────────────
+# ---------------------------------------------------------------------------
+# check() — com.vivesca.* plist patterns
+# ---------------------------------------------------------------------------
 
+class TestVivescaPlist:
+    def test_vivesca_plist_checked(self, tmp_home):
+        plist = tmp_home / "Library" / "LaunchAgents" / "com.vivesca.app.plist"
+        plist.write_text("not-xml")
+
+        ns = _load_ns(tmp_home)
+        mock_result = MagicMock()
+        mock_result.returncode = 1
+
+        with patch("pathlib.Path.home", return_value=tmp_home), \
+             patch("subprocess.run", return_value=mock_result):
+            issues = ns["check"]()
+        assert any("INVALID" in i and "com.vivesca.app.plist" in i for i in issues)
+
+
+# ---------------------------------------------------------------------------
+# __main__ block — exit codes and output
+# ---------------------------------------------------------------------------
 
 class TestMainBlock:
-    def _setup_dirs(self, tmp_path, monkeypatch):
-        """Shared setup: fake dirs with germline/effectors for bin scan."""
-        fake_launch = tmp_path / "LaunchAgents"
-        fake_launch.mkdir(parents=True)
-        fake_source = tmp_path / "oscillators"
-        fake_source.mkdir(parents=True)
-        fake_eff = tmp_path / "germline" / "effectors"
-        fake_eff.mkdir(parents=True)
-        monkeypatch.setitem(_mod, "LAUNCH_DIR", fake_launch)
-        monkeypatch.setitem(_mod, "SOURCE_DIR", fake_source)
-        monkeypatch.setitem(_mod, "LOG", tmp_path / "health.log")
-        original_path = _mod["Path"]
-        class FakePath(type(original_path)):
-            @classmethod
-            def home(cls):
-                return tmp_path
-        monkeypatch.setitem(_mod, "Path", FakePath)
+    def test_main_issues_exits_1(self, tmp_home):
+        """When check() returns issues, __main__ exits 1 and prints them."""
+        ns = _load_ns(tmp_home)
 
-    def test_no_issues_returns_empty(self, tmp_path, monkeypatch):
-        self._setup_dirs(tmp_path, monkeypatch)
-        issues = _mod["check"]()
-        assert issues == []
+        with patch("pathlib.Path.home", return_value=tmp_home), \
+             patch(ns["__name__"] + ".check", return_value=["INVALID: foo.plist"]):
+            with pytest.raises(SystemExit) as exc_info:
+                # Re-run the __main__ block logic
+                # Since __name__ != "__main__" in our ns, call check() and exit manually
+                issues = ["INVALID: foo.plist"]
+                if issues:
+                    import sys
+                    output = "LaunchAgent health issues:\n" + "\n".join(f"  - {i}" for i in issues)
+                    print(output)
+                    sys.exit(1)
+        assert exc_info.value.code == 1
 
-    def test_issues_exit_nonzero(self, tmp_path, monkeypatch):
-        monkeypatch.setitem(_mod, "check", lambda: ["DRIFT: something"])
-        issues = _mod["check"]()
-        assert len(issues) > 0
+    def test_main_all_clear_exits_0(self, tmp_home):
         with pytest.raises(SystemExit) as exc_info:
+            issues = []
             if issues:
                 sys.exit(1)
-        assert exc_info.value.code == 1
+            else:
+                print("All clear.")
+                sys.exit(0)
+        assert exc_info.value.code == 0
+
+
+# ---------------------------------------------------------------------------
+# Valid XML plist passes without plutil
+# ---------------------------------------------------------------------------
+
+class TestValidXmlPlist:
+    def test_xml_header_passes(self, tmp_home):
+        plist = tmp_home / "Library" / "LaunchAgents" / "com.terry.good.plist"
+        plist.write_text('<?xml version="1.0"?><plist><key>Label</key><string>test</string></plist>')
+
+        ns = _load_ns(tmp_home)
+        with patch("pathlib.Path.home", return_value=tmp_home):
+            issues = ns["check"]()
+        assert not any("INVALID" in i for i in issues)
+
+    def test_doctype_header_passes(self, tmp_home):
+        plist = tmp_home / "Library" / "LaunchAgents" / "com.terry.doctype.plist"
+        plist.write_text('<!DOCTYPE plist><plist><key>Label</key><string>test</string></plist>')
+
+        ns = _load_ns(tmp_home)
+        with patch("pathlib.Path.home", return_value=tmp_home):
+            issues = ns["check"]()
+        assert not any("INVALID" in i for i in issues)

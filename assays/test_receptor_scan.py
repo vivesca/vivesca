@@ -104,20 +104,20 @@ class TestRunHelper:
 
 
 class TestMain:
-    def test_no_args_exits(self, ns, monkeypatch):
-        """Should exit 1 when no query provided."""
+    def test_no_args_exits_zero(self, ns, monkeypatch):
+        """Should exit 0 when no query provided (help mode)."""
         monkeypatch.setattr(sys, "argv", ["receptor-scan"])
         with pytest.raises(SystemExit) as exc_info:
             ns["main"]()
-        assert exc_info.value.code == 1
+        assert exc_info.value.code == 0
 
     def test_no_args_prints_usage(self, ns, capsys, monkeypatch):
-        """Should print usage message to stderr when no args."""
+        """Should print usage message to stdout when no args."""
         monkeypatch.setattr(sys, "argv", ["receptor-scan"])
         with pytest.raises(SystemExit):
             ns["main"]()
-        err = capsys.readouterr().err
-        assert "Usage" in err
+        out = capsys.readouterr().out
+        assert "Usage" in out
 
     def test_qmd_results_printed(self, ns, capsys, monkeypatch):
         """Should print vault results when qmd returns matches."""
@@ -204,14 +204,14 @@ class TestMain:
 
 
 class TestCLISubprocess:
-    def test_no_args_exits_nonzero(self):
-        """Running receptor-scan with no args should exit nonzero."""
+    def test_no_args_exits_zero(self):
+        """Running receptor-scan with no args should exit 0 (help mode)."""
         r = subprocess.run(
             [sys.executable, str(RECEPTOR_SCAN_PATH)],
             capture_output=True, text=True, timeout=30,
         )
-        assert r.returncode != 0
-        assert "Usage" in r.stderr
+        assert r.returncode == 0
+        assert "Usage" in r.stdout
 
     def test_with_query_runs(self):
         """Running receptor-scan with a query should not crash."""
