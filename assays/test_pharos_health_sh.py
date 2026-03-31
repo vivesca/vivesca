@@ -46,8 +46,11 @@ def _run(
     # Mock free — outputs Mem: line with given numbers
     _make_mock(mock_dir, "free", f"              total       used\n{mem_line}")
 
-    # Mock systemctl — outputs failed_units number of lines
-    failed_lines = "\n".join(["unit.service  loaded  failed"] * failed_units)
+    # Mock systemctl — outputs failed_units number of lines (trailing newline for wc -l)
+    if failed_units > 0:
+        failed_lines = "\n".join(["unit.service  loaded  failed"] * failed_units) + "\n"
+    else:
+        failed_lines = ""
     _make_mock(mock_dir, "systemctl", failed_lines)
 
     # Optionally create a real tg-notify.sh mock that records calls
