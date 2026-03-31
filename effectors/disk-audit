@@ -1,0 +1,239 @@
+#!/usr/bin/env python3
+"""disk-audit — report disk usage and cleanup candidates.
+
+Reports:
+  - Total/used/free on root filesystem (/)
+  - Largest directories under ~/germline
+  - Largest directories under ~/epigenome (if exists)
+  - tmp cleanup candidates (old/large files in /tmp)
+"""
+from __future__ import annotations
+
+import os
+import sys
+import time
+from dataclasses import dataclass
+from pathlib import Path
+
+HOME = Path.home()
+GERMLINE = HOME / "germline"
+EPIGENOME = HOME / "epigenome"
+TMP_ROOT = Path("/tmp")
+
+# Thresholds
+OLD_FILE_DAYS = 7  # Files older than this in /tmp are cleanup candidates
+LARGE_FILE_MB = 100  # Files larger than this in /tmp are cleanup candidates
+TOP_N_DIRS = 10  # Number of largest dirs to show
+
+
+@dataclass
+class DiskUsage:
+    """Disk usage for a filesystem."""
+    total: int
+    used: int
+    free: int
+
+    @property
+    def percent_used(self) -> float:
+        return (self.used / self.total * 100) if self.total > 0 else 0
+
+
+@dataclass
+class DirInfo:
+    """Info about a directory's size."""
+    path: Path
+    size: int
+
+    def __lt__(self, other: "DirInfo") -> bool:
+        return self.size < other.size
+
+
+@dataclass
+class TmpCandidate:
+    """A tmp cleanup candidate."""
+    path: Path
+    size: int
+    mtime: float
+    reason: str  # "old", "large", or "old+large"
+
+
+def _fmt_bytes(n: int) -> str:
+    """Human-readable byte count."""
+    for unit in ("B", "KB", "MB", "GB", "TB"):
+        if abs(n) < 1024:
+            return f"{n:.1f} {unit}"
+        n /= 1024  # type: ignore[assignment]
+    return f"{n:.1f} PB"
+
+
+def _fmt_age(mtime: float, now: float) -> str:
+    """Human-readable age from mtime."""
+    age_sec = now - mtime
+    if age_sec < 3600:
+        return f"{int(age_sec / 60)}m"
+    elif age_sec < 86400:
+        return f"{int(age_sec / 3600)}h"
+    else:
+        return f"{int(age_sec / 86400)}d"
+
+
+def get_root_usage() -> DiskUsage:
+    """Get disk usage for root filesystem."""
+    import shutil
+    total, used, free = shutil.disk_usage("/")
+    return DiskUsage(total=total, used=used, free=free)
+
+
+def _dir_size(path: Path) -> int:
+    """Calculate total size of a directory tree."""
+    total = 0
+    try:
+        with os.scandir(path) as entries:
+            for entry in entries:
+                try:
+                    if entry.is_dir(follow_symlinks=False):
+                        total += _dir_size(Path(entry.path))
+                    elif entry.is_file(follow_symlinks=False):
+                        total += entry.stat(follow_symlinks=False).st_size
+                except (PermissionError, FileNotFoundError, OSError):
+                    pass
+    except (PermissionError, FileNotFoundError, OSError):
+        pass
+    return total
+
+
+def get_largest_dirs(root: Path, top_n: int = TOP_N_DIRS) -> list[DirInfo]:
+    """Get the N largest immediate subdirectories under root."""
+    if not root.is_dir():
+        return []
+
+    dirs = []
+    try:
+        for entry in os.scandir(root):
+            if entry.is_dir(follow_symlinks=False):
+                try:
+                    # Skip hidden dirs and common exclusions
+                    if entry.name.startswith("."):
+                        continue
+                    size = _dir_size(Path(entry.path))
+                    dirs.append(DirInfo(path=Path(entry.path), size=size))
+                except (PermissionError, FileNotFoundError, OSError):
+                    pass
+    except (PermissionError, FileNotFoundError, OSError):
+        pass
+
+    dirs.sort(reverse=True)
+    return dirs[:top_n]
+
+
+def get_tmp_candidates(
+    tmp_root: Path = TMP_ROOT,
+    old_days: int = OLD_FILE_DAYS,
+    large_mb: int = LARGE_FILE_MB,
+) -> list[TmpCandidate]:
+    """Find cleanup candidates in /tmp."""
+    candidates = []
+    now = time.time()
+    old_cutoff = now - (old_days * 86400)
+    large_bytes = large_mb * 1024 * 1024
+
+    try:
+        for entry in os.scandir(tmp_root):
+            try:
+                stat = entry.stat(follow_symlinks=False)
+                mtime = stat.st_mtime
+                size = stat.st_size if entry.is_file(follow_symlinks=False) else _dir_size(Path(entry.path))
+
+                is_old = mtime < old_cutoff
+                is_large = size >= large_bytes
+
+                if is_old or is_large:
+                    if is_old and is_large:
+                        reason = "old+large"
+                    elif is_old:
+                        reason = "old"
+                    else:
+                        reason = "large"
+
+                    candidates.append(TmpCandidate(
+                        path=Path(entry.path),
+                        size=size,
+                        mtime=mtime,
+                        reason=reason,
+                    ))
+            except (PermissionError, FileNotFoundError, OSError):
+                pass
+    except (PermissionError, FileNotFoundError, OSError):
+        pass
+
+    candidates.sort(key=lambda c: c.size, reverse=True)
+    return candidates[:20]  # Top 20 candidates
+
+
+def print_report() -> None:
+    """Print the disk audit report."""
+    # Root filesystem usage
+    print("=" * 60)
+    print("ROOT FILESYSTEM (/)")
+    print("=" * 60)
+    root = get_root_usage()
+    print(f"  Total: {_fmt_bytes(root.total)}")
+    print(f"  Used:  {_fmt_bytes(root.used)} ({root.percent_used:.1f}%)")
+    print(f"  Free:  {_fmt_bytes(root.free)}")
+
+    # Largest dirs under germline
+    print()
+    print("=" * 60)
+    print(f"LARGEST DIRS UNDER {GERMLINE}")
+    print("=" * 60)
+    germline_dirs = get_largest_dirs(GERMLINE)
+    if germline_dirs:
+        for d in germline_dirs:
+            print(f"  {_fmt_bytes(d.size):>10}  {d.path.name}")
+    else:
+        print("  (directory not found or empty)")
+
+    # Largest dirs under epigenome
+    print()
+    print("=" * 60)
+    print(f"LARGEST DIRS UNDER {EPIGENOME}")
+    print("=" * 60)
+    epigenome_dirs = get_largest_dirs(EPIGENOME)
+    if epigenome_dirs:
+        for d in epigenome_dirs:
+            print(f"  {_fmt_bytes(d.size):>10}  {d.path.name}")
+    else:
+        print("  (directory not found or empty)")
+
+    # tmp cleanup candidates
+    print()
+    print("=" * 60)
+    print("TMP CLEANUP CANDIDATES")
+    print("=" * 60)
+    candidates = get_tmp_candidates()
+    if candidates:
+        now = time.time()
+        for c in candidates:
+            age = _fmt_age(c.mtime, now)
+            print(f"  {_fmt_bytes(c.size):>10}  {age:>4}  {c.reason:>10}  {c.path.name}")
+    else:
+        print("  (no candidates found)")
+
+    print()
+    print("=" * 60)
+
+
+def main(argv: list[str] | None = None) -> int:
+    """Main entry point."""
+    args = argv or sys.argv[1:]
+
+    if "--help" in args or "-h" in args:
+        print(__doc__.strip())
+        return 0
+
+    print_report()
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
