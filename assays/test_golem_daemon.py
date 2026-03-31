@@ -1406,3 +1406,240 @@ class TestParseQueueConcurrentModification:
 
         # Both are returned — deduplication is the daemon_loop's job
         assert len(pending) == 2
+
+
+# ── Priority queue tests ([!!] high-priority before [ ] normal) ──────────
+
+
+_PRIORITY_QUEUE = """\
+# Golem Task Queue
+
+## Pending
+
+- [ ] `golem --provider infini --max-turns 50 "normal task 1"`
+- [!!] `golem --provider volcano "urgent task"`
+- [ ] `golem "normal task 2"`
+- [!!] `golem --provider zhipu "another urgent"`
+- [x] `golem "already done"`
+"""
+
+
+def test_parse_queue_high_priority_before_normal(tmp_path):
+    """parse_queue returns [!!] tasks before [ ] tasks regardless of order in file."""
+    queue_path = _make_queue_dir(tmp_path)
+    queue_path.write_text(_PRIORITY_QUEUE)
+    original_queue = _mod["QUEUE_FILE"]
+    try:
+        _mod["QUEUE_FILE"] = queue_path
+        pending = parse_queue()
+    finally:
+        _mod["QUEUE_FILE"] = original_queue
+
+    assert len(pending) == 4
+    commands = [cmd for _, cmd in pending]
+    # High-priority tasks should come first
+    assert "urgent task" in commands[0]
+    assert "another urgent" in commands[1]
+    # Then normal tasks
+    assert "normal task 1" in commands[2]
+    assert "normal task 2" in commands[3]
+
+
+def test_parse_queue_high_priority_line_numbers_preserved(tmp_path):
+    """parse_queue preserves correct line numbers for [!!] tasks."""
+    queue_path = _make_queue_dir(tmp_path)
+    queue_path.write_text(_PRIORITY_QUEUE)
+    original_queue = _mod["QUEUE_FILE"]
+    try:
+        _mod["QUEUE_FILE"] = queue_path
+        pending = parse_queue()
+    finally:
+        _mod["QUEUE_FILE"] = original_queue
+
+    # Build a map of command snippet -> line number
+    by_cmd = {cmd: ln for ln, cmd in pending}
+    # "urgent task" is on line 5, "normal task 1" on line 4, etc.
+    assert by_cmd['golem --provider volcano "urgent task"'] == 5
+    assert by_cmd['golem --provider infini --max-turns 50 "normal task 1"'] == 4
+    assert by_cmd['golem "normal task 2"'] == 6
+    assert by_cmd['golem --provider zhipu "another urgent"'] == 7
+
+
+def test_parse_queue_only_high_priority(tmp_path):
+    """parse_queue handles queue with only [!!] tasks."""
+    queue_path = _make_queue_dir(tmp_path)
+    queue_path.write_text(
+        "- [!!] `golem \"urgent1\"`\n"
+        "- [!!] `golem \"urgent2\"`\n"
+    )
+    original_queue = _mod["QUEUE_FILE"]
+    try:
+        _mod["QUEUE_FILE"] = queue_path
+        pending = parse_queue()
+    finally:
+        _mod["QUEUE_FILE"] = original_queue
+
+    assert len(pending) == 2
+    commands = [cmd for _, cmd in pending]
+    assert "urgent1" in commands[0]
+    assert "urgent2" in commands[1]
+
+
+def test_parse_queue_only_normal_priority(tmp_path):
+    """parse_queue still works with only [ ] tasks (no regression)."""
+    queue_path = _make_queue_dir(tmp_path)
+    queue_path.write_text(
+        "- [ ] `golem \"task1\"`\n"
+        "- [ ] `golem \"task2\"`\n"
+    )
+    original_queue = _mod["QUEUE_FILE"]
+    try:
+        _mod["QUEUE_FILE"] = queue_path
+        pending = parse_queue()
+    finally:
+        _mod["QUEUE_FILE"] = original_queue
+
+    assert len(pending) == 2
+
+
+def test_parse_queue_high_priority_preserves_file_order(tmp_path):
+    """Multiple [!!] tasks maintain their original file order relative to each other."""
+    queue_path = _make_queue_dir(tmp_path)
+    queue_path.write_text(
+        "- [!!] `golem \"urgent-A\"`\n"
+        "- [ ] `golem \"normal-B\"`\n"
+        "- [!!] `golem \"urgent-C\"`\n"
+        "- [ ] `golem \"normal-D\"`\n"
+    )
+    original_queue = _mod["QUEUE_FILE"]
+    try:
+        _mod["QUEUE_FILE"] = queue_path
+        pending = parse_queue()
+    finally:
+        _mod["QUEUE_FILE"] = original_queue
+
+    commands = [cmd for _, cmd in pending]
+    # urgent-A before urgent-C (stable sort preserves relative order)
+    idx_a = next(i for i, c in enumerate(commands) if "urgent-A" in c)
+    idx_c = next(i for i, c in enumerate(commands) if "urgent-C" in c)
+    assert idx_a < idx_c
+    # normal-B before normal-D
+    idx_b = next(i for i, c in enumerate(commands) if "normal-B" in c)
+    idx_d = next(i for i, c in enumerate(commands) if "normal-D" in c)
+    assert idx_b < idx_d
+
+
+def test_mark_done_high_priority_task(tmp_path):
+    """mark_done correctly marks [!!] tasks as [x]."""
+    queue_path = _make_queue_dir(tmp_path)
+    queue_path.write_text(
+        "- [!!] `golem \"urgent task\"`\n"
+        "\n"
+        "## Done\n"
+    )
+    original_queue = _mod["QUEUE_FILE"]
+    try:
+        _mod["QUEUE_FILE"] = queue_path
+        mark_done(0, "exit=0")
+    finally:
+        _mod["QUEUE_FILE"] = original_queue
+
+    content = queue_path.read_text()
+    assert "- [x]" in content
+    assert "- [!!]" not in content
+    assert "- [ ]" not in content
+
+
+def test_mark_done_high_priority_no_done_section(tmp_path):
+    """mark_done handles [!!] task when no ## Done section exists."""
+    queue_path = _make_queue_dir(tmp_path)
+    queue_path.write_text("- [!!] `golem \"urgent\"`\n")
+    original_queue = _mod["QUEUE_FILE"]
+    try:
+        _mod["QUEUE_FILE"] = queue_path
+        mark_done(0, "exit=0")
+    finally:
+        _mod["QUEUE_FILE"] = original_queue
+
+    content = queue_path.read_text()
+    assert "- [x]" in content
+    assert "- [!!]" not in content
+
+
+def test_mark_failed_high_priority_first_failure_retries(tmp_path):
+    """mark_failed retries [!!] tasks, keeping [!!] status on first failure."""
+    queue_path = _make_queue_dir(tmp_path)
+    queue_path.write_text("- [!!] `golem --provider infini \"urgent\"`\n")
+    original_queue = _mod["QUEUE_FILE"]
+    try:
+        _mod["QUEUE_FILE"] = queue_path
+        result = mark_failed(0)
+    finally:
+        _mod["QUEUE_FILE"] = original_queue
+
+    assert result["retried"] is True
+    content = queue_path.read_text()
+    # Should still be high-priority pending with (retry) appended
+    assert "- [!!]" in content
+    assert "(retry)" in content
+    assert "- [!]" not in content
+
+
+def test_mark_failed_high_priority_second_failure_marks_failed(tmp_path):
+    """mark_failed marks [!!] task as [!] on second failure (already has retry)."""
+    queue_path = _make_queue_dir(tmp_path)
+    queue_path.write_text("- [!!] `golem \"urgent\" (retry)`\n")
+    original_queue = _mod["QUEUE_FILE"]
+    try:
+        _mod["QUEUE_FILE"] = queue_path
+        result = mark_failed(0)
+    finally:
+        _mod["QUEUE_FILE"] = original_queue
+
+    assert result["retried"] is False
+    content = queue_path.read_text()
+    assert "- [!]" in content
+    assert "- [!!]" not in content
+
+
+def test_mark_failed_high_priority_exit_code_2_no_retry(tmp_path):
+    """mark_failed with exit_code=2 never retries, even for [!!] tasks."""
+    queue_path = _make_queue_dir(tmp_path)
+    queue_path.write_text("- [!!] `golem \"urgent\"`\n")
+    original_queue = _mod["QUEUE_FILE"]
+    try:
+        _mod["QUEUE_FILE"] = queue_path
+        result = mark_failed(0, "bad command", exit_code=2)
+    finally:
+        _mod["QUEUE_FILE"] = original_queue
+
+    assert result["retried"] is False
+    content = queue_path.read_text()
+    assert "- [!]" in content
+    assert "- [!!]" not in content
+
+
+def test_mark_done_and_mark_failed_mixed_priorities(tmp_path):
+    """mark_done and mark_failed work correctly with mixed [!!] and [ ] tasks."""
+    queue_path = _make_queue_dir(tmp_path)
+    queue_path.write_text(
+        "- [!!] `golem \"urgent\"`\n"
+        "- [ ] `golem \"normal\"`\n"
+        "\n"
+        "## Done\n"
+    )
+    original_queue = _mod["QUEUE_FILE"]
+    try:
+        _mod["QUEUE_FILE"] = queue_path
+        mark_done(0, "exit=0")
+        mark_failed(1, "exit=1")
+    finally:
+        _mod["QUEUE_FILE"] = original_queue
+
+    content = queue_path.read_text()
+    lines = content.splitlines()
+    # Line 0 should be [x] (was [!!], now done)
+    assert "- [x]" in lines[0]
+    # Line 1 should be [ ] with (retry) (first failure of normal task)
+    assert "- [ ]" in lines[1]
+    assert "(retry)" in lines[1]
