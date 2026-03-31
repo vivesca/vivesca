@@ -5,7 +5,7 @@
 # ///
 """
 Oura weekly digest — fetches 7-day health data via oura CLI and saves a
-clean markdown note to ~/code/epigenome/chromatin/Daily/Oura Weekly - YYYY-MM-DD.md.
+clean markdown note to ~/notes/Daily/Oura Weekly - YYYY-MM-DD.md.
 """
 
 import argparse
