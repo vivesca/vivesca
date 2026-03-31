@@ -52,7 +52,7 @@ def load_jsonl(path: Path) -> list[dict]:
     if not path.exists():
         return []
     records = []
-    for line in path.read_text().splitlines():
+    for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
         line = line.strip()
         if not line:
             continue
@@ -213,10 +213,11 @@ def print_dashboard(use_color: bool = True) -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
-    use_color = True
     args = argv if argv is not None else sys.argv[1:]
-    if "--no-color" in args:
-        use_color = False
+    if "-h" in args or "--help" in args:
+        print(__doc__.strip())
+        return 0
+    use_color = "--no-color" not in args
 
     return print_dashboard(use_color)
 
