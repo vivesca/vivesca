@@ -177,7 +177,7 @@ class TestAuscultationLogs:
         result = self._call(log_dir, tmp_dir, tail_lines=5)
         # Should contain only last 5 lines from big.log
         assert "line 49" in result
-        assert "line 44" in result
+        assert "line 45" in result
         assert "line 0" not in result
 
     def test_line_count_in_header(self, tmp_path):
