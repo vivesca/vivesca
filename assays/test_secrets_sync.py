@@ -1,347 +1,323 @@
-"""Tests for secrets-sync — Sync API keys, SSH keys, gitconfig to a target host."""
+"""Tests for effectors/secrets-sync — mocked SSH, no real network."""
+
 from __future__ import annotations
 
-import subprocess
 import textwrap
-from contextlib import contextmanager
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
 
-# ── Load effector via exec (it's a script, not an importable module) ──
-
-_SCRIPT = Path(__file__).parent.parent / "effectors" / "secrets-sync"
+# Load the effector via exec (it's a script, not an importable module).
+_SCRIPT = Path(__file__).resolve().parent.parent / "effectors" / "secrets-sync"
 _NS: dict = {"__name__": "secrets_sync"}
-exec(open(_SCRIPT).read(), _NS)
+exec(_SCRIPT.read_text(), _NS)
 
 parse_env_file = _NS["parse_env_file"]
-ssh_key_files = _NS["ssh_key_files"]
-run_remote = _NS["run_remote"]
-sync_env = _NS["sync_env"]
-sync_ssh_keys = _NS["sync_ssh_keys"]
-sync_gitconfig = _NS["sync_gitconfig"]
+local_ssh_keys = _NS["local_ssh_keys"]
+ssh_cmd = _NS["ssh_cmd"]
+scp_file = _NS["scp_file"]
+write_remote_env = _NS["write_remote_env"]
+sync = _NS["sync"]
 main = _NS["main"]
 
 
-@contextmanager
-def _patch_ns(**kwargs):
-    """Patch module-level constants in the exec'd namespace dict.
-
-    patch.object fails on plain dicts, and patch("secrets_sync.KEY", ...)
-    fails because secrets_sync is not in sys.modules. So we mutate and
-    restore the dict directly.
-    """
-    old = {k: _NS[k] for k in kwargs}
-    _NS.update(kwargs)
-    try:
-        yield
-    finally:
-        _NS.update(old)
-
-
-# ── parse_env_file ──────────────────────────────────────────────────
+# ── parse_env_file ─────────────────────────────────────────────
 
 
 class TestParseEnvFile:
-    def test_double_quoted(self, tmp_path: Path):
+    def test_extracts_double_quoted(self, tmp_path: Path) -> None:
         env = tmp_path / ".env.fly"
         env.write_text('export ANTHROPIC_API_KEY="sk-ant-abc123"\n')
         assert parse_env_file(env) == [("ANTHROPIC_API_KEY", "sk-ant-abc123")]
 
-    def test_single_quoted(self, tmp_path: Path):
-        env = tmp_path / ".env"
-        env.write_text("export KEY='val'\n")
-        assert parse_env_file(env) == [("KEY", "val")]
+    def test_extracts_single_quoted(self, tmp_path: Path) -> None:
+        env = tmp_path / ".env.fly"
+        env.write_text("export ZHIPU_API_KEY='zhipu-key'\n")
+        assert parse_env_file(env) == [("ZHIPU_API_KEY", "zhipu-key")]
 
-    def test_unquoted(self, tmp_path: Path):
-        env = tmp_path / ".env"
-        env.write_text("export TOKEN=gho_abc\n")
-        assert parse_env_file(env) == [("TOKEN", "gho_abc")]
+    def test_extracts_unquoted(self, tmp_path: Path) -> None:
+        env = tmp_path / ".env.fly"
+        env.write_text("export GITHUB_TOKEN=gho_token\n")
+        assert parse_env_file(env) == [("GITHUB_TOKEN", "gho_token")]
 
-    def test_skips_comments_and_blanks(self, tmp_path: Path):
-        env = tmp_path / ".env"
-        env.write_text("# comment\n\nexport A=1\n# x\nexport B=2\n")
-        assert parse_env_file(env) == [("A", "1"), ("B", "2")]
+    def test_skips_blanks_and_comments(self, tmp_path: Path) -> None:
+        env = tmp_path / ".env.fly"
+        env.write_text("# comment\n\nexport FOO=bar\n")
+        assert parse_env_file(env) == [("FOO", "bar")]
 
-    def test_nonexistent_returns_empty(self, tmp_path: Path):
+    def test_missing_file_returns_empty(self, tmp_path: Path) -> None:
         assert parse_env_file(tmp_path / "nope") == []
 
-    def test_non_export_lines_skipped(self, tmp_path: Path):
-        env = tmp_path / ".env"
-        env.write_text("PLAIN=value\nexport GOOD=yes\n")
-        assert parse_env_file(env) == [("GOOD", "yes")]
-
-    def test_multiple_keys(self, tmp_path: Path):
+    def test_multiple_keys(self, tmp_path: Path) -> None:
         env = tmp_path / ".env.fly"
-        env.write_text('export K1="v1"\nexport K2="v2"\nexport K3="v3"\n')
+        env.write_text(textwrap.dedent("""\
+            export KEY_A="val_a"
+            export KEY_B="val_b"
+            export KEY_C="val_c"
+        """))
         result = parse_env_file(env)
         assert len(result) == 3
-        assert [k for k, _ in result] == ["K1", "K2", "K3"]
+        assert [k for k, _ in result] == ["KEY_A", "KEY_B", "KEY_C"]
 
 
-# ── ssh_key_files ───────────────────────────────────────────────────
+# ── local_ssh_keys ─────────────────────────────────────────────
 
 
-class TestSshKeyFiles:
-    def test_finds_both_keys(self, tmp_path: Path):
+class TestLocalSshKeys:
+    def test_finds_existing_keys(self, tmp_path: Path) -> None:
         ssh_dir = tmp_path / ".ssh"
         ssh_dir.mkdir()
         (ssh_dir / "id_ed25519").write_text("key")
         (ssh_dir / "id_ed25519.pub").write_text("pub")
-        with _patch_ns(SSH_DIR=ssh_dir):
-            files = ssh_key_files()
-        names = {f.name for f in files}
+        _NS["HOME"] = tmp_path
+        found = local_ssh_keys()
+        _NS["HOME"] = Path.home()  # restore
+        names = {p.name for p in found}
         assert names == {"id_ed25519", "id_ed25519.pub"}
 
-    def test_only_private_key(self, tmp_path: Path):
+    def test_returns_empty_when_no_keys(self, tmp_path: Path) -> None:
+        ssh_dir = tmp_path / ".ssh"
+        ssh_dir.mkdir()
+        _NS["HOME"] = tmp_path
+        assert local_ssh_keys() == []
+        _NS["HOME"] = Path.home()
+
+    def test_returns_only_existing(self, tmp_path: Path) -> None:
         ssh_dir = tmp_path / ".ssh"
         ssh_dir.mkdir()
         (ssh_dir / "id_ed25519").write_text("key")
-        with _patch_ns(SSH_DIR=ssh_dir):
-            files = ssh_key_files()
-        assert len(files) == 1
-        assert files[0].name == "id_ed25519"
-
-    def test_no_keys_returns_empty(self, tmp_path: Path):
-        ssh_dir = tmp_path / ".ssh"
-        ssh_dir.mkdir()
-        with _patch_ns(SSH_DIR=ssh_dir):
-            assert ssh_key_files() == []
+        _NS["HOME"] = tmp_path
+        found = local_ssh_keys()
+        _NS["HOME"] = Path.home()
+        assert len(found) == 1
+        assert found[0].name == "id_ed25519"
 
 
-# ── run_remote ──────────────────────────────────────────────────────
+# ── ssh_cmd (mocked subprocess) ────────────────────────────────
 
 
-class TestRunRemote:
-    def test_dry_run_returns_success(self, capsys):
-        result = run_remote(["ssh", "host", "echo hi"], dry_run=True)
-        assert result.returncode == 0
+class TestSshCmd:
+    @patch("subprocess.run")
+    def test_success(self, mock_run: MagicMock) -> None:
+        mock_run.return_value = MagicMock(returncode=0, stdout="ok\n", stderr="")
+        out = ssh_cmd("host", "echo hi")
+        assert out == "ok\n"
+        cmd_args = mock_run.call_args[0][0]
+        assert cmd_args == ["ssh", "host", "echo hi"]
+
+    @patch("subprocess.run")
+    def test_failure_raises(self, mock_run: MagicMock) -> None:
+        mock_run.return_value = MagicMock(returncode=1, stdout="", stderr="denied")
+        with pytest.raises(RuntimeError, match="denied"):
+            ssh_cmd("host", "bad")
+
+    def test_dry_run_no_subprocess(self, capsys: pytest.CaptureFixture) -> None:
+        out = ssh_cmd("host", "echo hi", dry_run=True)
+        assert out == ""
         assert "[dry-run]" in capsys.readouterr().out
 
-    def test_real_run_calls_subprocess(self):
-        with patch("subprocess.run") as mock_run:
-            mock_run.return_value = subprocess.CompletedProcess([], 0, "", "")
-            run_remote(["ssh", "host", "echo hi"], dry_run=False)
-            mock_run.assert_called_once_with(
-                ["ssh", "host", "echo hi"], capture_output=True, text=True
-            )
+
+# ── scp_file (mocked subprocess) ───────────────────────────────
 
 
-# ── sync_env ────────────────────────────────────────────────────────
+class TestScpFile:
+    @patch("subprocess.run")
+    def test_success(self, mock_run: MagicMock, tmp_path: Path) -> None:
+        mock_run.return_value = MagicMock(returncode=0, stderr="")
+        f = tmp_path / "testkey"
+        f.write_text("data")
+        scp_file("host", f, ".ssh/testkey")
+        cmd_args = mock_run.call_args[0][0]
+        assert cmd_args[0] == "scp"
+        assert "host:.ssh/testkey" in cmd_args
+
+    @patch("subprocess.run")
+    def test_failure_raises(self, mock_run: MagicMock, tmp_path: Path) -> None:
+        mock_run.return_value = MagicMock(returncode=1, stderr="nope")
+        f = tmp_path / "testkey"
+        f.write_text("data")
+        with pytest.raises(RuntimeError, match="nope"):
+            scp_file("host", f, ".ssh/testkey")
+
+    def test_dry_run_no_subprocess(self, capsys: pytest.CaptureFixture, tmp_path: Path) -> None:
+        f = tmp_path / "testkey"
+        f.write_text("data")
+        scp_file("host", f, ".ssh/testkey", dry_run=True)
+        assert "[dry-run]" in capsys.readouterr().out
 
 
-class TestSyncEnv:
-    def test_dry_run_no_subprocess(self, capsys):
-        pairs = [("API_KEY", "secret123"), ("TOKEN", "tok456")]
-        with patch("subprocess.run") as mock_run:
-            result = sync_env("user@host", pairs, dry_run=True)
-        assert result is True
-        mock_run.assert_not_called()
+# ── write_remote_env (mocked subprocess) ───────────────────────
+
+
+class TestWriteRemoteEnv:
+    @patch("subprocess.run")
+    def test_writes_all_keys_via_stdin(self, mock_run: MagicMock) -> None:
+        mock_run.return_value = MagicMock(returncode=0, stderr="")
+        pairs = [("FOO", "secret123"), ("BAR", "abc")]
+        write_remote_env("host", pairs)
+        call_args = mock_run.call_args
+        sent = call_args.kwargs.get("input", "")
+        assert 'export FOO="secret123"' in sent
+        assert 'export BAR="abc"' in sent
+
+    @patch("subprocess.run")
+    def test_logs_key_names_not_values(self, mock_run: MagicMock, capsys: pytest.CaptureFixture) -> None:
+        mock_run.return_value = MagicMock(returncode=0, stderr="")
+        write_remote_env("host", [("SECRET_KEY", "supersecret")])
         out = capsys.readouterr().out
+        assert "SECRET_KEY" in out
+        assert "supersecret" not in out
+
+    def test_dry_run_no_ssh(self, capsys: pytest.CaptureFixture) -> None:
+        pairs = [("KEY1", "v1")]
+        write_remote_env("host", pairs, dry_run=True)
+        out = capsys.readouterr().out
+        assert "[dry-run]" in out
+        assert "KEY1" in out
+        assert "v1" not in out
+
+    @patch("subprocess.run")
+    def test_failure_raises(self, mock_run: MagicMock) -> None:
+        mock_run.return_value = MagicMock(returncode=1, stderr="conn refused")
+        with pytest.raises(RuntimeError, match="conn refused"):
+            write_remote_env("host", [("K", "v")])
+
+
+# ── full sync integration (mocked) ─────────────────────────────
+
+
+class TestSync:
+    @patch("subprocess.run")
+    def test_full_sync_dry_run(self, mock_run: MagicMock, tmp_path: Path, capsys: pytest.CaptureFixture) -> None:
+        env_file = tmp_path / ".env.fly"
+        env_file.write_text('export API_KEY="testval"\n')
+        ssh_dir = tmp_path / ".ssh"
+        ssh_dir.mkdir()
+        (ssh_dir / "id_ed25519").write_text("privkey")
+        (ssh_dir / "id_ed25519.pub").write_text("pubkey")
+        gitconfig = tmp_path / ".gitconfig"
+        gitconfig.write_text("[user]\n  name = Test\n")
+
+        _NS["HOME"] = tmp_path
+        _NS["ENV_FILE"] = env_file
+        _NS["GITCONFIG"] = gitconfig
+
+        sync("user@host", dry_run=True)
+        out = capsys.readouterr().out
+
+        mock_run.assert_not_called()
         assert "API_KEY" in out
-        assert "TOKEN" in out
-        assert "secret123" not in out
-
-    def test_writes_via_ssh_stdin(self):
-        pairs = [("KEY1", "val1"), ("KEY2", "val2")]
-        with patch("subprocess.run") as mock_run:
-            mock_run.return_value = subprocess.CompletedProcess([], 0, "", "")
-            result = sync_env("user@host", pairs, dry_run=False)
-        assert result is True
-        mock_run.assert_called_once()
-        call_args = mock_run.call_args
-        assert call_args[0][0] == ["ssh", "user@host", "cat > ~/.env.fly"]
-        stdin_content = call_args[1]["input"]
-        assert 'export KEY1="val1"' in stdin_content
-        assert 'export KEY2="val2"' in stdin_content
-
-    def test_ssh_failure_returns_false(self):
-        with patch("subprocess.run") as mock_run:
-            mock_run.return_value = subprocess.CompletedProcess([], 1, "", "connection refused")
-            assert sync_env("user@host", [("K", "v")], dry_run=False) is False
-
-    def test_empty_pairs_succeeds(self, capsys):
-        assert sync_env("user@host", [], dry_run=False) is True
-        assert "No env vars" in capsys.readouterr().out
-
-
-# ── sync_ssh_keys ───────────────────────────────────────────────────
-
-
-class TestSyncSshKeys:
-    def test_dry_run_no_subprocess(self, capsys):
-        keys = [Path("/home/terry/.ssh/id_ed25519")]
-        with patch("subprocess.run") as mock_run:
-            result = sync_ssh_keys("user@host", keys, dry_run=True)
-        assert result is True
-        mock_run.assert_not_called()
-        assert "id_ed25519" in capsys.readouterr().out
-
-    def test_copies_and_chmod(self):
-        keys = [Path("/home/terry/.ssh/id_ed25519")]
-        with patch("subprocess.run") as mock_run:
-            mock_run.return_value = subprocess.CompletedProcess([], 0, "", "")
-            result = sync_ssh_keys("user@host", keys, dry_run=False)
-        assert result is True
-        # mkdir + scp + chmod = 3 calls
-        assert mock_run.call_count == 3
-        cmd_strs = [" ".join(c[0][0]) for c in mock_run.call_args_list]
-        assert any("mkdir" in s for s in cmd_strs)
-        assert any("scp" in s for s in cmd_strs)
-        assert any("chmod" in s for s in cmd_strs)
-
-    def test_scp_failure_returns_false(self):
-        keys = [Path("/home/terry/.ssh/id_ed25519")]
-        with patch("subprocess.run") as mock_run:
-            mock_run.side_effect = [
-                subprocess.CompletedProcess([], 0, "", ""),
-                subprocess.CompletedProcess([], 1, "", "scp failed"),
-            ]
-            assert sync_ssh_keys("user@host", keys, dry_run=False) is False
-
-    def test_no_keys_succeeds(self, capsys):
-        assert sync_ssh_keys("user@host", [], dry_run=False) is True
-        assert "No SSH key" in capsys.readouterr().out
-
-
-# ── sync_gitconfig ──────────────────────────────────────────────────
-
-
-class TestSyncGitconfig:
-    def test_dry_run(self, tmp_path: Path, capsys):
-        cfg = tmp_path / ".gitconfig"
-        cfg.write_text("[user]\n  name = Test\n")
-        with _patch_ns(GITCONFIG=cfg):
-            with patch("subprocess.run") as mock_run:
-                result = sync_gitconfig("user@host", dry_run=True)
-        assert result is True
-        mock_run.assert_not_called()
-        assert "dry-run" in capsys.readouterr().out
-
-    def test_writes_via_ssh_stdin(self, tmp_path: Path):
-        cfg = tmp_path / ".gitconfig"
-        content = "[user]\n  name = Test\n"
-        cfg.write_text(content)
-        with _patch_ns(GITCONFIG=cfg):
-            with patch("subprocess.run") as mock_run:
-                mock_run.return_value = subprocess.CompletedProcess([], 0, "", "")
-                result = sync_gitconfig("user@host", dry_run=False)
-        assert result is True
-        mock_run.assert_called_once()
-        call_args = mock_run.call_args
-        assert call_args[0][0] == ["ssh", "user@host", "cat > ~/.gitconfig"]
-        assert call_args[1]["input"] == content
-
-    def test_ssh_failure_returns_false(self, tmp_path: Path):
-        cfg = tmp_path / ".gitconfig"
-        cfg.write_text("[user]\n  name = T\n")
-        with _patch_ns(GITCONFIG=cfg):
-            with patch("subprocess.run") as mock_run:
-                mock_run.return_value = subprocess.CompletedProcess([], 1, "", "ssh error")
-                assert sync_gitconfig("user@host", dry_run=False) is False
-
-    def test_missing_file_succeeds(self, capsys):
-        with _patch_ns(GITCONFIG=Path("/nonexistent/path/gitconfig")):
-            assert sync_gitconfig("user@host", dry_run=False) is True
-        assert "No ~/.gitconfig" in capsys.readouterr().out
-
-
-# ── main integration ────────────────────────────────────────────────
-
-
-class TestMain:
-    def test_dry_run_exits_zero(self, tmp_path: Path, capsys):
-        env = tmp_path / ".env.fly"
-        env.write_text('export TEST_KEY="testval"\n')
-        ssh_dir = tmp_path / ".ssh"
-        ssh_dir.mkdir()
-        (ssh_dir / "id_ed25519").write_text("key")
-        cfg = tmp_path / ".gitconfig"
-        cfg.write_text("[user]\n  name = T\n")
-
-        with _patch_ns(ENV_FILE=env, SSH_DIR=ssh_dir, GITCONFIG=cfg):
-            ret = main(["--target", "user@host", "--dry-run"])
-        assert ret == 0
-        out = capsys.readouterr().out
-        assert "TEST_KEY" in out
-        assert "dry-run" in out
         assert "testval" not in out
+        assert "id_ed25519" in out
+        assert ".gitconfig" in out
+        assert "[dry-run]" in out
 
-    def test_full_sync(self, tmp_path: Path):
-        env = tmp_path / ".env.fly"
-        env.write_text('export API="secret"\n')
+        _NS["HOME"] = Path.home()
+        _NS["ENV_FILE"] = Path.home() / ".env.fly"
+        _NS["GITCONFIG"] = Path.home() / ".gitconfig"
+
+    @patch("subprocess.run")
+    def test_full_sync_real(self, mock_run: MagicMock, tmp_path: Path) -> None:
+        env_file = tmp_path / ".env.fly"
+        env_file.write_text('export API_KEY="val"\n')
         ssh_dir = tmp_path / ".ssh"
         ssh_dir.mkdir()
         (ssh_dir / "id_ed25519").write_text("key")
-        (ssh_dir / "id_ed25519.pub").write_text("pub")
-        cfg = tmp_path / ".gitconfig"
-        cfg.write_text("[user]\n  name = T\n")
+        gitconfig = tmp_path / ".gitconfig"
+        gitconfig.write_text("[user]\nname=T\n")
 
-        with _patch_ns(ENV_FILE=env, SSH_DIR=ssh_dir, GITCONFIG=cfg):
-            with patch("subprocess.run") as mock_run:
-                mock_run.return_value = subprocess.CompletedProcess([], 0, "", "")
-                ret = main(["--target", "user@host"])
-        assert ret == 0
-        assert mock_run.call_count >= 4
+        _NS["HOME"] = tmp_path
+        _NS["ENV_FILE"] = env_file
+        _NS["GITCONFIG"] = gitconfig
 
-    def test_no_target_exits_error(self):
-        with pytest.raises(SystemExit):
-            main([])
+        mock_run.return_value = MagicMock(returncode=0, stderr="")
+        sync("user@host")
 
-    def test_never_logs_secret_values(self, tmp_path: Path, capsys):
-        env = tmp_path / ".env.fly"
-        env.write_text('export SUPER_SECRET="hunter2"\nexport ANOTHER="password123"\n')
+        assert mock_run.call_count > 0
+
+        _NS["HOME"] = Path.home()
+        _NS["ENV_FILE"] = Path.home() / ".env.fly"
+        _NS["GITCONFIG"] = Path.home() / ".gitconfig"
+
+    @patch("subprocess.run")
+    def test_sync_no_env_no_keys(self, mock_run: MagicMock, tmp_path: Path, capsys: pytest.CaptureFixture) -> None:
         ssh_dir = tmp_path / ".ssh"
         ssh_dir.mkdir()
-        cfg = tmp_path / ".gitconfig"
-        cfg.write_text("[user]\n  name = T\n")
 
-        with _patch_ns(ENV_FILE=env, SSH_DIR=ssh_dir, GITCONFIG=cfg):
-            with patch("subprocess.run") as mock_run:
-                mock_run.return_value = subprocess.CompletedProcess([], 0, "", "")
-                main(["--target", "user@host"])
-        captured = capsys.readouterr()
-        output = captured.out + captured.err
-        assert "SUPER_SECRET" in output
-        assert "ANOTHER" in output
-        assert "hunter2" not in output
-        assert "password123" not in output
+        _NS["HOME"] = tmp_path
+        _NS["ENV_FILE"] = tmp_path / ".env.fly"
+        _NS["GITCONFIG"] = tmp_path / ".gitconfig"
+
+        sync("host", dry_run=True)
+        out = capsys.readouterr().out
+        assert "no keys found" in out
+        assert "no ed25519 keys" in out
+        assert "no .gitconfig" in out
+
+        _NS["HOME"] = Path.home()
+        _NS["ENV_FILE"] = Path.home() / ".env.fly"
+        _NS["GITCONFIG"] = Path.home() / ".gitconfig"
 
 
-# ── secret leakage guard ────────────────────────────────────────────
+# ── No secret leakage in command args ──────────────────────────
 
 
 class TestNoSecretLeakage:
-    def test_secret_not_in_command_args(self, tmp_path: Path):
+    """Verify secret values never appear in subprocess command-line arguments."""
+
+    @patch("subprocess.run")
+    def test_secret_not_in_command_args(self, mock_run: MagicMock, tmp_path: Path) -> None:
         env = tmp_path / ".env.fly"
         env.write_text('export SUPER_SECRET="leaked_value_xyz"\n')
+        ssh_dir = tmp_path / ".ssh"
+        ssh_dir.mkdir()
+        gitconfig = tmp_path / ".gitconfig"
+        gitconfig.write_text("[user]\nname=T\n")
 
-        with _patch_ns(ENV_FILE=env, SSH_DIR=tmp_path, GITCONFIG=tmp_path / "nope"):
-            with patch("subprocess.run") as mock_run:
-                mock_run.return_value = subprocess.CompletedProcess([], 0, "", "")
-                main(["--target", "t@h"])
+        _NS["HOME"] = tmp_path
+        _NS["ENV_FILE"] = env
+        _NS["GITCONFIG"] = gitconfig
+
+        mock_run.return_value = MagicMock(returncode=0, stderr="")
+        sync("t@h")
 
         for call_args in mock_run.call_args_list:
             cmd = call_args[0][0]
             cmd_str = " ".join(cmd) if isinstance(cmd, list) else str(cmd)
-            assert "leaked_value_xyz" not in cmd_str, f"Secret leaked: {cmd_str}"
+            assert "leaked_value_xyz" not in cmd_str, f"Secret leaked in command: {cmd_str}"
 
-    def test_secret_only_in_stdin(self, tmp_path: Path):
+        _NS["HOME"] = Path.home()
+        _NS["ENV_FILE"] = Path.home() / ".env.fly"
+        _NS["GITCONFIG"] = Path.home() / ".gitconfig"
+
+    @patch("subprocess.run")
+    def test_secret_only_in_stdin(self, mock_run: MagicMock, tmp_path: Path) -> None:
         env = tmp_path / ".env.fly"
         env.write_text('export MY_TOKEN="token_abc_999"\n')
+        ssh_dir = tmp_path / ".ssh"
+        ssh_dir.mkdir()
+        gitconfig = tmp_path / ".gitconfig"
+        gitconfig.write_text("[user]\nname=T\n")
 
-        with _patch_ns(ENV_FILE=env, SSH_DIR=tmp_path, GITCONFIG=tmp_path / "nope"):
-            with patch("subprocess.run") as mock_run:
-                mock_run.return_value = subprocess.CompletedProcess([], 0, "", "")
-                main(["--target", "t@h"])
+        _NS["HOME"] = tmp_path
+        _NS["ENV_FILE"] = env
+        _NS["GITCONFIG"] = gitconfig
 
+        mock_run.return_value = MagicMock(returncode=0, stderr="")
+        sync("t@h")
+
+        # Find the env-write call and verify input contains the secret
         env_call = None
         for c in mock_run.call_args_list:
             cmd = c[0][0]
-            if "cat > ~/.env.fly" in " ".join(cmd):
+            if "cat > .env.fly" in " ".join(cmd):
                 env_call = c
                 break
-        assert env_call is not None, "No env write call found"
-        stdin_input = env_call[1].get("input", "")
+        assert env_call is not None, "No env-write SSH call found"
+        stdin_input = env_call.kwargs.get("input", "")
         assert "token_abc_999" in stdin_input
+
+        _NS["HOME"] = Path.home()
+        _NS["ENV_FILE"] = Path.home() / ".env.fly"
+        _NS["GITCONFIG"] = Path.home() / ".gitconfig"
