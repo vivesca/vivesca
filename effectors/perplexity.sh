@@ -12,11 +12,17 @@
 
 set -euo pipefail
 
-# Load API key
-source ~/.secrets 2>/dev/null || true
-: "${PERPLEXITY_API_KEY:?Set PERPLEXITY_API_KEY in ~/.secrets}"
+# Handle --help / -h before requiring API key
+usage() {
+  sed -n '2,11p' "$0"
+  exit 0
+}
 
-MODE="${1:?Usage: perplexity.sh <search|ask|research|reason> \"query\"}"
+MODE="${1:-}"
+case "$MODE" in
+  -h|--help) usage ;;
+  "")        echo "Usage: perplexity.sh <search|ask|research|reason> \"query\"" >&2; exit 1 ;;
+esac
 QUERY="${2:?Missing query}"
 
 case "$MODE" in
@@ -26,6 +32,10 @@ case "$MODE" in
   reason)   MODEL="sonar-reasoning-pro" ;;
   *)        echo "Unknown mode: $MODE (use search|ask|research|reason)" >&2; exit 1 ;;
 esac
+
+# Load API key (deferred so --help works without it)
+source ~/.secrets 2>/dev/null || true
+: "${PERPLEXITY_API_KEY:?Set PERPLEXITY_API_KEY in ~/.secrets}"
 
 # Escape query for JSON
 QUERY_JSON=$(python3 -c "import json,sys; print(json.dumps(sys.argv[1]))" "$QUERY")
