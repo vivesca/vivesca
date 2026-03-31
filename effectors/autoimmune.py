@@ -75,7 +75,9 @@ def load_state() -> dict:
 def save_state(state: dict) -> None:
     try:
         STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
-        STATE_FILE.write_text(json.dumps(state))
+        tmp = STATE_FILE.with_suffix(".json.tmp")
+        tmp.write_text(json.dumps(state))
+        tmp.replace(STATE_FILE)
     except OSError:
         pass
 

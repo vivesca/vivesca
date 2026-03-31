@@ -1,0 +1,402 @@
+#!/usr/bin/env python3
+from __future__ import annotations
+
+# /// script
+# requires-python = ">=3.11"
+# ///
+"""lustro-analyze — classify and rank cached Lustro articles.
+
+Reads all .json/.md files from ~/.cache/lustro-articles/, extracts metadata,
+classifies each by topic, and outputs a summary table, top-N articles ranked
+for banking AI consulting relevance, and key themes.
+
+Usage:
+    lustro-analyze [--top N] [--topic TOPIC] [--output FILE]
+"""
+
+import argparse
+import json
+import re
+import sys
+from collections import Counter
+from pathlib import Path
+
+ARTICLE_DIR = Path.home() / ".cache" / "lustro-articles"
+
+TOPICS = ("AI", "banking", "regulation", "technology", "other")
+
+# Keyword dictionaries for topic classification — a single article can score
+# on multiple topics; the highest-scoring topic wins.
+_TOPIC_KEYWORDS: dict[str, list[str]] = {
+    "AI": [
+        "artificial intelligence", "machine learning", "deep learning",
+        "neural network", "llm", "large language model", "gpt", "claude",
+        "gemini", "transformer", "generative ai", "genai", "agi",
+        "foundation model", "chatbot", "copilot", "openai", "anthropic",
+        "ai model", "ai system", "ai research", "diffusion", "embedding",
+        "reinforcement learning", "nlp", "natural language", "computer vision",
+        "autonomous agent", "ai agent", "smol", "karpathy", "mollick",
+        "qbitai", "artificial analysis", "ai safety", "alignment",
+        "reasoning model", "o1", "o3", "r1", "inference",
+    ],
+    "banking": [
+        "bank", "banking", "lending", "credit", "loan", "mortgage",
+        "deposit", "fintech", "payment", "financial service", "finance",
+        "trading", "hedge fund", "asset management", "wealth management",
+        "insurance", "capital market", "td bank", "layer 6", "evident",
+        "anti-money laundering", "aml", "kyc", "risk management",
+        "compliance", "fraud detect", "underwriting",
+    ],
+    "regulation": [
+        "regulation", "regulatory", "regulator", "compliance", "governance",
+        "fca", "sec", "eu ai act", "gdpr", "legislation", "policy",
+        "directive", "supervision", "supervisory", "enforcement",
+        "federal reserve", "central bank", "basel", "dodd-frank",
+        "consumer protection", "data protection", "privacy law",
+        "unregulated", "authorisation", "rulebook", "ombudsman",
+    ],
+    "technology": [
+        "software", "hardware", "chip", "semiconductor", "nvidia",
+        "cloud computing", "kubernetes", "docker", "devops", "api",
+        "database", "blockchain", "crypto", "cybersecurity",
+        "open source", "github", "programming", "python", "rust",
+        "web assembly", "quantum", "start-up", "startup", "venture capital",
+        "infrastructure", "data center", "data centre", "gpu", "tpu",
+    ],
+}
+
+
+def _normalize(text: str) -> str:
+    return text.lower()
+
+
+def classify_topic(article: dict) -> str:
+    """Return the best-fitting topic for an article based on keyword scoring."""
+    blob = _normalize(
+        article.get("title", "")
+        + " "
+        + article.get("summary", "")
+        + " "
+        + article.get("text", "")[:2000]
+    )
+    scores: dict[str, int] = {}
+    for topic, keywords in _TOPIC_KEYWORDS.items():
+        scores[topic] = sum(blob.count(kw) for kw in keywords)
+    best = max(scores, key=lambda t: scores[t])
+    if scores[best] == 0:
+        return "other"
+    return best
+
+
+def relevance_score(article: dict) -> float:
+    """Score article relevance for banking AI consulting (0-10 scale)."""
+    blob = _normalize(
+        article.get("title", "")
+        + " "
+        + article.get("summary", "")
+        + " "
+        + article.get("text", "")[:3000]
+    )
+
+    score = 0.0
+
+    # Banking presence
+    banking_hits = sum(1 for kw in _TOPIC_KEYWORDS["banking"] if kw in blob)
+    score += min(banking_hits * 0.5, 3.0)
+
+    # AI presence
+    ai_hits = sum(1 for kw in _TOPIC_KEYWORDS["AI"] if kw in blob)
+    score += min(ai_hits * 0.4, 3.0)
+
+    # Regulation presence
+    reg_hits = sum(1 for kw in _TOPIC_KEYWORDS["regulation"] if kw in blob)
+    score += min(reg_hits * 0.3, 2.0)
+
+    # Bonus: both banking AND AI keywords present — strong signal
+    if banking_hits >= 2 and ai_hits >= 2:
+        score += 2.0
+
+    # Tier bonus (tier 1 sources are curated)
+    tier = article.get("tier", 99)
+    if isinstance(tier, (int, float)):
+        if tier == 1:
+            score += 0.5
+        elif tier == 2:
+            score += 0.2
+
+    return round(min(score, 10.0), 2)
+
+
+def load_article(path: Path) -> dict | None:
+    """Load a single article file (.json or .md) and return normalized dict."""
+    try:
+        if path.suffix == ".json":
+            with open(path) as f:
+                data = json.load(f)
+            if not isinstance(data, dict):
+                return None
+            return {
+                "title": data.get("title", path.stem),
+                "source": data.get("source", "unknown"),
+                "date": data.get("date", ""),
+                "tier": data.get("tier", 99),
+                "link": data.get("link", ""),
+                "summary": data.get("summary", ""),
+                "text": data.get("text", ""),
+                "fetched_at": data.get("fetched_at", ""),
+                "filename": path.name,
+            }
+        elif path.suffix == ".md":
+            content = path.read_text(errors="replace")
+            # Try to extract title from first heading or first line
+            title = path.stem
+            lines = content.split("\n")
+            for line in lines[:5]:
+                if line.startswith("# "):
+                    title = line.lstrip("# ").strip()
+                    break
+            return {
+                "title": title,
+                "source": "markdown",
+                "date": "",
+                "tier": 99,
+                "link": "",
+                "summary": content[:200],
+                "text": content,
+                "fetched_at": "",
+                "filename": path.name,
+            }
+    except (json.JSONDecodeError, OSError):
+        return None
+    return None
+
+
+def load_all_articles(directory: Path | None = None) -> list[dict]:
+    """Load all articles from the cache directory."""
+    d = directory or ARTICLE_DIR
+    if not d.is_dir():
+        return []
+    articles: list[dict] = []
+    for p in sorted(d.iterdir()):
+        if p.suffix in (".json", ".md"):
+            art = load_article(p)
+            if art is not None:
+                articles.append(art)
+    return articles
+
+
+def _snippet(text: str, max_len: int = 100) -> str:
+    s = text.replace("\n", " ").strip()
+    if len(s) > max_len:
+        return s[: max_len - 1] + "…"
+    return s
+
+
+def format_summary_table(articles: list[dict]) -> str:
+    """Build a human-readable summary table grouped by topic."""
+    by_topic: dict[str, list[dict]] = {t: [] for t in TOPICS}
+    for art in articles:
+        topic = art.get("_topic", "other")
+        by_topic[topic].append(art)
+
+    lines: list[str] = []
+    lines.append("=" * 90)
+    lines.append("LUSTRO ARTICLE ANALYSIS — SUMMARY BY TOPIC")
+    lines.append("=" * 90)
+    lines.append("")
+
+    for topic in TOPICS:
+        group = by_topic[topic]
+        lines.append(f"── {topic.upper()} ({len(group)} articles) ──")
+        if not group:
+            lines.append("  (none)")
+        for art in sorted(group, key=lambda a: a.get("date", ""), reverse=True):
+            title = art.get("title", "Untitled")[:60]
+            src = art.get("source", "?")[:25]
+            date = art.get("date", "?")[:10]
+            lines.append(f"  [{date}] {title:<60} {src}")
+        lines.append("")
+
+    lines.append(f"Total articles: {len(articles)}")
+    return "\n".join(lines)
+
+
+def format_top_articles(articles: list[dict], n: int = 20) -> str:
+    """Format the top-N articles ranked by banking AI consulting relevance."""
+    ranked = sorted(articles, key=lambda a: a.get("_relevance", 0), reverse=True)
+    top = ranked[:n]
+
+    lines: list[str] = []
+    lines.append("=" * 90)
+    lines.append(f"TOP {len(top)} ARTICLES — BANKING AI CONSULTING RELEVANCE")
+    lines.append("=" * 90)
+    lines.append("")
+
+    for i, art in enumerate(top, 1):
+        score = art.get("_relevance", 0)
+        title = art.get("title", "Untitled")
+        src = art.get("source", "?")
+        date = art.get("date", "?")[:10]
+        topic = art.get("_topic", "?")
+        snippet = _snippet(art.get("summary") or art.get("text", ""), 80)
+
+        lines.append(f"  {i:>2}. [{score:>4}] {title}")
+        lines.append(f"       {date} | {src} | topic: {topic}")
+        lines.append(f"       {snippet}")
+        lines.append("")
+
+    return "\n".join(lines)
+
+
+def extract_themes(articles: list[dict], top_n: int = 10) -> list[tuple[str, int]]:
+    """Extract key themes as most-common meaningful phrases across articles."""
+    # Collect all words from titles + summaries
+    word_counter: Counter[str] = Counter()
+    stop = {
+        "the", "a", "an", "is", "are", "was", "were", "be", "been", "have",
+        "has", "had", "do", "does", "did", "will", "would", "could", "should",
+        "may", "might", "can", "shall", "to", "of", "in", "for", "on", "with",
+        "at", "by", "from", "as", "into", "through", "during", "before",
+        "after", "above", "below", "between", "and", "but", "or", "not", "no",
+        "so", "if", "than", "that", "this", "these", "those", "it", "its",
+        "he", "she", "they", "we", "you", "i", "my", "his", "her", "their",
+        "our", "your", "what", "which", "who", "whom", "how", "when", "where",
+        "why", "all", "each", "every", "both", "few", "more", "most", "other",
+        "some", "such", "only", "own", "same", "also", "just", "about", "up",
+        "out", "over", "then", "very", "much", "many", "any", "new", "one",
+        "two", "first", "last", "long", "great", "like", "well", "back",
+        "even", "still", "way", "take", "make", "get", "go", "see", "know",
+        "come", "think", "look", "want", "give", "use", "find", "tell",
+        "say", "said", "will", "don", "doesn", "isn", "aren", "wasn",
+        "hasn", "haven", "won", "wouldn", "couldn", "shouldn",
+    }
+
+    for art in articles:
+        text = _normalize(
+            art.get("title", "") + " " + art.get("summary", "")
+            + " " + art.get("text", "")[:1000]
+        )
+        words = re.findall(r"[a-z]{3,}", text)
+        word_counter.update(w for w in words if w not in stop)
+
+    return word_counter.most_common(top_n)
+
+
+def format_themes(articles: list[dict], top_n: int = 10) -> str:
+    """Format extracted themes as a report section."""
+    themes = extract_themes(articles, top_n)
+
+    lines: list[str] = []
+    lines.append("=" * 90)
+    lines.append("KEY THEMES ACROSS ALL ARTICLES")
+    lines.append("=" * 90)
+    lines.append("")
+
+    # Group themes into high-level categories
+    ai_terms = {
+        "ai", "model", "models", "training", "data", "learning",
+        "neural", "network", "language", "generation", "agents", "agent",
+        "llm", "llms", "gpt", "openai", "google", "microsoft", "claude",
+        "chatgpt", "reasoning", "inference", "parameters", "benchmark",
+    }
+    banking_terms = {
+        "bank", "banks", "banking", "financial", "finance", "fintech",
+        "credit", "lending", "payments", "capital", "trading", "risk",
+        "regulatory", "compliance", "insurance", "investment",
+    }
+
+    lines.append("  Top terms by frequency:")
+    for term, count in themes:
+        tag = ""
+        if term in ai_terms:
+            tag = " [AI]"
+        elif term in banking_terms:
+            tag = " [BANKING]"
+        lines.append(f"    {term:<25} {count:>4}{tag}")
+    lines.append("")
+
+    # Derive narrative themes from top terms
+    ai_count = sum(c for t, c in themes if t in ai_terms)
+    bank_count = sum(c for t, c in themes if t in banking_terms)
+    total = sum(c for _, c in themes)
+
+    lines.append("  Narrative themes:")
+    if ai_count > total * 0.3:
+        lines.append("    • AI/ML is a dominant theme across the corpus")
+    if bank_count > total * 0.1:
+        lines.append("    • Banking and financial services content has meaningful presence")
+    if ai_count > 0 and bank_count > 0:
+        lines.append("    • Intersection of AI and banking is well-represented")
+    if ai_count > total * 0.3 and bank_count < total * 0.05:
+        lines.append("    • Strong AI signal but weak banking coverage — may want more banking sources")
+
+    return "\n".join(lines)
+
+
+def run(directory: Path | None = None, top: int = 20, topic: str | None = None,
+        output: str | None = None) -> str:
+    """Main analysis pipeline. Returns the full report as a string."""
+    articles = load_all_articles(directory)
+
+    if not articles:
+        return "No articles found in " + str(directory or ARTICLE_DIR)
+
+    # Classify and score
+    for art in articles:
+        art["_topic"] = classify_topic(art)
+        art["_relevance"] = relevance_score(art)
+
+    # Filter by topic if requested
+    if topic:
+        topic_lower = topic.lower()
+        articles = [a for a in articles if a["_topic"].lower() == topic_lower]
+
+    parts: list[str] = []
+    parts.append(format_summary_table(articles))
+    parts.append("")
+    parts.append(format_top_articles(articles, top))
+    parts.append("")
+    parts.append(format_themes(articles))
+
+    report = "\n".join(parts)
+
+    if output:
+        Path(output).parent.mkdir(parents=True, exist_ok=True)
+        Path(output).write_text(report)
+        print(f"Report written to {output}")
+
+    return report
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(
+        description="Classify and rank Lustro articles for banking AI consulting."
+    )
+    parser.add_argument(
+        "--top", type=int, default=20,
+        help="Number of top articles to show (default: 20)",
+    )
+    parser.add_argument(
+        "--topic", type=str, default=None,
+        choices=["AI", "banking", "regulation", "technology", "other"],
+        help="Filter to a single topic",
+    )
+    parser.add_argument(
+        "--output", type=str, default=None,
+        help="Write report to file instead of stdout",
+    )
+    parser.add_argument(
+        "--dir", type=str, default=None,
+        help="Override article cache directory (for testing)",
+    )
+    args = parser.parse_args()
+
+    directory = Path(args.dir) if args.dir else None
+    report = run(directory=directory, top=args.top, topic=args.topic, output=args.output)
+
+    if not args.output:
+        print(report)
+
+
+if __name__ == "__main__":
+    main()

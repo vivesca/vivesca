@@ -21,7 +21,9 @@ def _read_tonus() -> str:
 
 
 def _write_tonus(content: str) -> None:
-    TONUS.write_text(content, encoding="utf-8")
+    tmp = TONUS.with_suffix(".md.tmp")
+    tmp.write_text(content, encoding="utf-8")
+    tmp.replace(TONUS)
 
 
 @tool(

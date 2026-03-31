@@ -680,6 +680,34 @@ class TestCmdDaily:
         assert "### 14:30–??:?? — My Title" in content
         assert "- \n" in content
 
+    def test_format_json_creates_new(self, tmp_path, capsys):
+        from datetime import datetime
+        daily_dir = tmp_path / "Daily"
+        daily_dir.mkdir()
+        fake_now = datetime(2026, 3, 31, 14, 30, 0)
+        with _pdict(DAILY_DIR=daily_dir, datetime=self._fake_datetime(fake_now)):
+            args = MagicMock(title="Test Session", format="json")
+            cmd_daily(args)
+        out = capsys.readouterr().out
+        data = json.loads(out)
+        assert data["created"] is True
+        assert data["title"] == "Test Session"
+        assert "2026-03-31.md" in data["path"]
+
+    def test_format_json_appends_existing(self, tmp_path, capsys):
+        from datetime import datetime
+        daily_dir = tmp_path / "Daily"
+        daily_dir.mkdir()
+        daily_path = daily_dir / "2026-03-31.md"
+        daily_path.write_text("# 2026-03-31 — Tuesday\n\nexisting\n")
+        fake_now = datetime(2026, 3, 31, 14, 30, 0)
+        with _pdict(DAILY_DIR=daily_dir, datetime=self._fake_datetime(fake_now)):
+            args = MagicMock(title="Second", format="json")
+            cmd_daily(args)
+        out = capsys.readouterr().out
+        data = json.loads(out)
+        assert data["created"] is False
+
 
 # ══════════════════════════════════════════════════════════════════════════════
 # cmd_reflect

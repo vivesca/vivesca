@@ -32,7 +32,9 @@ def load_state() -> dict:
 
 
 def save_state(state: dict) -> None:
-    STATE_FILE.write_text(json.dumps(state))
+    tmp = STATE_FILE.with_suffix(".json.tmp")
+    tmp.write_text(json.dumps(state))
+    tmp.replace(STATE_FILE)
 
 
 def send_alert(msg: str) -> None:

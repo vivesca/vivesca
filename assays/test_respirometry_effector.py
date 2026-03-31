@@ -109,17 +109,15 @@ def test_summarize_cost_rows_mixed():
 def test_get_cost_tracking_no_file():
     """Test cost tracking when log file doesn't exist."""
     with tempfile.TemporaryDirectory() as tmpdir:
-        # Temporarily patch the path in the exec'd namespace
         original_path = _ns["SORTASE_LOG"]
         _ns["SORTASE_LOG"] = Path(tmpdir) / "nonexistent.jsonl"
-
-        result = get_cost_tracking()
-        assert result["available"] is False
-        assert result["source"] == "sortase"
-        assert result["lookback_days"] == COST_WINDOW_DAYS
-
-        # Restore original
-        _ns["SORTASE_LOG"] = original_path
+        try:
+            result = get_cost_tracking()
+            assert result["available"] is False
+            assert result["source"] == "sortase"
+            assert result["lookback_days"] == COST_WINDOW_DAYS
+        finally:
+            _ns["SORTASE_LOG"] = original_path
 
 
 def test_get_cost_tracking_with_data():
@@ -161,10 +159,9 @@ def test_get_cost_tracking_with_data():
         }, f)
         f.write('\n')
     
+    original_path = _ns["SORTASE_LOG"]
+    _ns["SORTASE_LOG"] = Path(f.name)
     try:
-        original_path = _ns["SORTASE_LOG"]
-        _ns["SORTASE_LOG"] = Path(f.name)
-
         result = get_cost_tracking(now=now)
         assert result["available"] is True
         assert result["current_7d"]["runs"] == 2
@@ -173,9 +170,8 @@ def test_get_cost_tracking_with_data():
         assert result["previous_7d"]["metered_cost_usd"] == 0.05
         assert "trend" in result
         assert result["trend"]["metered_cost_usd_delta"] == -0.025
-
-        _ns["SORTASE_LOG"] = original_path
     finally:
+        _ns["SORTASE_LOG"] = original_path
         Path(f.name).unlink()
 
 

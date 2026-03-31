@@ -150,7 +150,9 @@ def update_debounce():
     """Record that we just ran."""
     try:
         DEBOUNCE_FILE.parent.mkdir(parents=True, exist_ok=True)
-        DEBOUNCE_FILE.write_text(str(time.time()))
+        tmp = DEBOUNCE_FILE.with_suffix(".json.tmp")
+        tmp.write_text(str(time.time()))
+        tmp.replace(DEBOUNCE_FILE)
     except OSError:
         pass
 

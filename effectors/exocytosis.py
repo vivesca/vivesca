@@ -65,7 +65,9 @@ def get_next_topic() -> tuple[int, str] | None:
 def mark_done(line_num: int) -> None:
     lines = QUEUE.read_text().splitlines()
     lines[line_num] = lines[line_num].replace("- [ ] ", "- [x] ", 1)
-    QUEUE.write_text("\n".join(lines) + "\n")
+    tmp = QUEUE.with_suffix(".md.tmp")
+    tmp.write_text("\n".join(lines) + "\n")
+    tmp.replace(QUEUE)
 
 
 def generate(topic: str, style_excerpt: str, extra: str = "") -> str:
@@ -88,7 +90,9 @@ def publish(title: str, body: str) -> str:
 
     slug, post_path = new(title)
     content = post_path.read_text()
-    post_path.write_text(content.rstrip() + "\n\n" + body + "\n")
+    tmp = post_path.with_suffix(".md.tmp")
+    tmp.write_text(content.rstrip() + "\n\n" + body + "\n")
+    tmp.replace(post_path)
     garden_publish(slug, force=True)
     return slug
 
