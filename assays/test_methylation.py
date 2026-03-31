@@ -147,15 +147,15 @@ def test_extract_repair_pattern_labels():
     """Test extract_repair_pattern_labels extracts labels correctly."""
     mock_src = '''
     _REPAIR_PATTERNS = list[
-        ("fix_permissions", lambda p: fix_perms(p), _fix_generic, 
-         "fix_permissions"),
+        ("fix_permissions", lambda p: fix_perms(p), _fix_generic,
+"fix_permissions"),
         ("reset_socket", lambda p: reset_sock(p), _reset_socket,
-         "reset_socket"),
+"reset_socket"),
     ]
     '''
-    
-    with patch.object(type(methylation.INFLAMMASOME_PY), 'read_text', return_value=mock_src):
-        labels = methylation.extract_repair_pattern_labels()
+
+    with patch.object(type(namespace["INFLAMMASOME_PY"]), 'read_text', return_value=mock_src):
+        labels = namespace["extract_repair_pattern_labels"]()
         # The labels are on separate lines, so should extract both
         assert "fix_permissions" in labels
         assert "reset_socket" in labels
