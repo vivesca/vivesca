@@ -464,13 +464,12 @@ class TestSkills:
 
 class TestTiming:
     def test_no_entries(self):
-        with patch("metabolon.enzymes.proprioception.timing_buffer") as mock_buf:
+        with patch("metabolon.membrane.timing_buffer") as mock_buf:
             mock_buf.snapshot.return_value = []
             result = _timing()
         assert "No tool call timings" in result
 
     def test_with_entries(self):
-        Entry = MagicMock
         e1 = MagicMock()
         e1.latency_ms = 100
         e1.tool = "tool_a"
@@ -484,7 +483,7 @@ class TestTiming:
         e3.tool = "tool_a"
         e3.outcome = "error"
 
-        with patch("metabolon.enzymes.proprioception.timing_buffer") as mock_buf:
+        with patch("metabolon.membrane.timing_buffer") as mock_buf:
             mock_buf.snapshot.return_value = [e1, e2, e3]
             result = _timing()
         assert "avg:" in result
