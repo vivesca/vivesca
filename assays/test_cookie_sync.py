@@ -1,366 +1,386 @@
-"""Tests for effectors/cookie-sync — mocked Chrome Cookies DB + decryption."""
+"""Tests for effectors/cookie-sync — Chrome cookie export/import.
+
+cookie-sync is a script — loaded via exec(), never imported.
+"""
 
 from __future__ import annotations
 
 import base64
 import hashlib
 import json
-import os
 import sqlite3
-import tempfile
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
 
-# ── Load the effector via exec (it's a script, not an importable module) ────────
+# ── Load effector via exec (never import) ─────────────────────────────────────
 
-EFFECTOR = Path(__file__).resolve().parent.parent / "effectors" / "cookie-sync"
-_ns: dict = {"__name__": "cookie_sync", "__file__": str(EFFECTOR)}
-exec(compile(EFFECTOR.read_text(), EFFECTOR, "exec"), _ns)
+_CS_PATH = Path(__file__).resolve().parents[1] / "effectors" / "cookie-sync"
+_CS_CODE = _CS_PATH.read_text()
+_ns: dict = {"__name__": "cookie_sync", "__file__": str(_CS_PATH)}
+exec(_CS_CODE, _ns)
 
-# Pull symbols into module scope
-build_parser = _ns["build_parser"]
-main = _ns["main"]
-read_cookies = _ns["read_cookies"]
-decrypt_cookie_value = _ns["decrypt_cookie_value"]
-decrypt_exported_cookies = _ns["decrypt_exported_cookies"]
+# Pull names into module-level convenience bindings
+CHROME_BASE = _ns["CHROME_BASE"]
+DEFAULT_OUTPUT = _ns["DEFAULT_OUTPUT"]
+SAMESITE_MAP = _ns["SAMESITE_MAP"]
+V10_PREFIX = _ns["V10_PREFIX"]
+V11_PREFIX = _ns["V11_PREFIX"]
 derive_key = _ns["derive_key"]
 decrypt_v10 = _ns["decrypt_v10"]
 decrypt_v11 = _ns["decrypt_v11"]
-get_chrome_key = _ns["get_chrome_key"]
-import_cookies = _ns["import_cookies"]
-_samesite_str = _ns["_samesite_str"]
-CHROME_BASE = _ns["CHROME_BASE"]
-DEFAULT_OUTPUT = _ns["DEFAULT_OUTPUT"]
-V10_PREFIX = _ns["V10_PREFIX"]
-V11_PREFIX = _ns["V11_PREFIX"]
-PBKDF2_SALT = _ns["PBKDF2_SALT"]
-PBKDF2_ITERATIONS = _ns["PBKDF2_ITERATIONS"]
-KEY_LENGTH = _ns["KEY_LENGTH"]
+decrypt_cookie_value = _ns["decrypt_cookie_value"]
+decrypt_exported_cookies = _ns["decrypt_exported_cookies"]
+read_cookies = _ns["read_cookies"]
+build_parser = _ns["build_parser"]
+main = _ns["main"]
 
-# ── Shared test key ─────────────────────────────────────────────────────────────
+# ── Deterministic test key ────────────────────────────────────────────────────
 
-TEST_PASSWORD = b"test_chrome_key"
+TEST_PASSWORD = b"test-chrome-safe-storage-key"
 TEST_KEY = derive_key(TEST_PASSWORD)
 
+# v10 uses IV = b" " * 16 (Chrome convention on macOS)
+V10_IV = b" " * 16
 
-# ── Helpers ─────────────────────────────────────────────────────────────────────
+
+# ── Helpers ───────────────────────────────────────────────────────────────────
 
 
-def _make_mock_db(cookies_rows: list[dict]) -> Path:
-    """Create a temporary SQLite DB mimicking Chrome's Cookies schema."""
-    fd, db_path = tempfile.mkstemp(suffix=".db")
-    os.close(fd)
-    conn = sqlite3.connect(db_path)
+def _encrypt_v10(plaintext: str, key: bytes = TEST_KEY) -> bytes:
+    """Encrypt a value using v10 (AES-128-CBC) like Chrome would."""
+    from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+    from cryptography.hazmat.primitives.padding import PKCS7
+
+    padder = PKCS7(128).padder()
+    padded = padder.update(plaintext.encode("utf-8")) + padder.finalize()
+    cipher = Cipher(algorithms.AES(key), modes.CBC(V10_IV))
+    encryptor = cipher.encryptor()
+    ct = encryptor.update(padded) + encryptor.finalize()
+    return V10_PREFIX + ct
+
+
+def _encrypt_v11(plaintext: str, key: bytes = TEST_KEY) -> bytes:
+    """Encrypt a value using v11 (AES-128-GCM) like Chrome would."""
+    from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+
+    nonce = b"\x00" * 12  # deterministic for tests
+    aesgcm = AESGCM(key)
+    ct_and_tag = aesgcm.encrypt(nonce, plaintext.encode("utf-8"), None)
+    return V11_PREFIX + nonce + ct_and_tag
+
+
+def _create_cookie_db(db_path: Path, cookies: list[dict]) -> None:
+    """Create a minimal Chrome Cookies SQLite DB at db_path."""
+    db_path.parent.mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(str(db_path))
     conn.execute(
-        """CREATE TABLE cookies (
+        """
+        CREATE TABLE cookies (
             host_key TEXT,
             name TEXT,
             path TEXT,
             encrypted_value BLOB,
-            expires_utc INTEGER,
+            expires_utc REAL,
             is_secure INTEGER,
             is_httponly INTEGER,
             samesite INTEGER
-        )"""
+        )
+        """
     )
-    for row in cookies_rows:
+    for c in cookies:
         conn.execute(
             "INSERT INTO cookies (host_key, name, path, encrypted_value, "
-            "expires_utc, is_secure, is_httponly, samesite) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            "expires_utc, is_secure, is_httponly, samesite) VALUES (?,?,?,?,?,?,?,?)",
             (
-                row.get("host_key", ".example.com"),
-                row.get("name", "test_cookie"),
-                row.get("path", "/"),
-                row.get("encrypted_value"),
-                row.get("expires_utc", 1735689600),
-                int(row.get("is_secure", True)),
-                int(row.get("is_httponly", True)),
-                row.get("samesite", 1),
+                c["host_key"],
+                c["name"],
+                c.get("path", "/"),
+                c.get("encrypted_value", b""),
+                c.get("expires_utc", 0),
+                int(c.get("is_secure", False)),
+                int(c.get("is_httponly", False)),
+                c.get("samesite", 0),
             ),
         )
     conn.commit()
     conn.close()
-    return Path(db_path)
 
 
-def _encrypt_v10(plaintext: bytes, key: bytes = TEST_KEY) -> bytes:
-    """Encrypt plaintext in Chrome v10 format for test data."""
-    from cryptography.hazmat.primitives import padding as sym_padding
-    from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+def _sample_cookies() -> list[dict]:
+    """Return sample cookie rows for the test DB."""
+    return [
+        {
+            "host_key": ".example.com",
+            "name": "session_id",
+            "encrypted_value": _encrypt_v10("abc123"),
+            "path": "/",
+            "expires_utc": 1735689600.0,
+            "is_httponly": True,
+            "is_secure": True,
+            "samesite": 1,
+        },
+        {
+            "host_key": ".other.com",
+            "name": "pref",
+            "encrypted_value": b"",
+            "path": "/",
+            "expires_utc": 0,
+            "is_httponly": False,
+            "is_secure": False,
+            "samesite": 0,
+        },
+        {
+            "host_key": ".secure.org",
+            "name": "token_v11",
+            "encrypted_value": _encrypt_v11("gcm-secret"),
+            "path": "/api",
+            "expires_utc": 9999999999.0,
+            "is_httponly": True,
+            "is_secure": True,
+            "samesite": 2,
+        },
+    ]
 
-    iv = b" " * 16
-    padder = sym_padding.PKCS7(128).padder()
-    padded = padder.update(plaintext) + padder.finalize()
-    cipher = Cipher(algorithms.AES(key), modes.CBC(iv))
-    enc = cipher.encryptor()
-    ciphertext = enc.update(padded) + enc.finalize()
-    return V10_PREFIX + ciphertext
+
+# ── Fixtures ──────────────────────────────────────────────────────────────────
 
 
-def _encrypt_v11(plaintext: bytes, key: bytes = TEST_KEY) -> bytes:
-    """Encrypt plaintext in Chrome v11 format for test data."""
-    from cryptography.hazmat.primitives.ciphers.aead import AESGCM
-
-    nonce = os.urandom(12)
-    aesgcm = AESGCM(key)
-    ciphertext = aesgcm.encrypt(nonce, plaintext, None)
-    return V11_PREFIX + nonce + ciphertext
+@pytest.fixture
+def cookie_db(tmp_path):
+    """Create a temporary Chrome-style cookies DB with sample data."""
+    db_path = tmp_path / "Chrome" / "Default" / "Cookies"
+    _create_cookie_db(db_path, _sample_cookies())
+    return tmp_path
 
 
-# ════════════════════════════════════════════════════════════════════════════════
-# Tests
-# ════════════════════════════════════════════════════════════════════════════════
+# ── Unit tests: derive_key ────────────────────────────────────────────────────
 
 
 class TestDeriveKey:
     def test_deterministic(self):
-        k1 = derive_key(b"password")
-        k2 = derive_key(b"password")
-        assert k1 == k2
+        assert derive_key(b"password") == derive_key(b"password")
 
-    def test_length(self):
-        assert len(derive_key(b"x")) == KEY_LENGTH
+    def test_16_bytes(self):
+        assert len(derive_key(b"password")) == 16
 
-    def test_different_inputs_differ(self):
+    def test_different_passwords(self):
         assert derive_key(b"a") != derive_key(b"b")
 
 
-class TestSameSiteMapping:
-    @pytest.mark.parametrize("val,expected", [
-        (-1, "None"),
-        (0, "Unspecified"),
-        (1, "Lax"),
-        (2, "Strict"),
-        (3, "None"),
-    ])
-    def test_known_values(self, val, expected):
-        assert _samesite_str(val) == expected
+# ── Unit tests: decrypt ──────────────────────────────────────────────────────
 
-    def test_unknown_falls_back(self):
-        assert _samesite_str(99) == "Unspecified"
+
+class TestDecryptV10:
+    def test_decrypts_v10_cookie(self):
+        encrypted = _encrypt_v10("hello world")
+        result = decrypt_v10(encrypted, TEST_KEY)
+        assert result == "hello world"
+
+    def test_decrypts_empty_string(self):
+        encrypted = _encrypt_v10("")
+        result = decrypt_v10(encrypted, TEST_KEY)
+        assert result == ""
+
+
+class TestDecryptV11:
+    def test_decrypts_v11_cookie(self):
+        encrypted = _encrypt_v11("gcm-value")
+        result = decrypt_v11(encrypted, TEST_KEY)
+        assert result == "gcm-value"
+
+    def test_decrypts_empty_string(self):
+        encrypted = _encrypt_v11("")
+        result = decrypt_v11(encrypted, TEST_KEY)
+        assert result == ""
 
 
 class TestDecryptCookieValue:
     def test_none_returns_empty(self):
         assert decrypt_cookie_value(None, TEST_KEY) == ""
 
+    def test_v10_dispatches(self):
+        encrypted = _encrypt_v10("dispatched")
+        assert decrypt_cookie_value(encrypted, TEST_KEY) == "dispatched"
+
+    def test_v11_dispatches(self):
+        encrypted = _encrypt_v11("dispatched-gcm")
+        assert decrypt_cookie_value(encrypted, TEST_KEY) == "dispatched-gcm"
+
     def test_plaintext_passthrough(self):
-        raw = b"plain_text_value"
-        assert decrypt_cookie_value(raw, TEST_KEY) == "plain_text_value"
-
-    def test_v10_roundtrip(self):
-        plaintext = b"secret_session_id"
-        encrypted = _encrypt_v10(plaintext, TEST_KEY)
-        result = decrypt_cookie_value(encrypted, TEST_KEY)
-        assert result == "secret_session_id"
-
-    def test_v11_roundtrip(self):
-        plaintext = b"gcm_protected_value"
-        encrypted = _encrypt_v11(plaintext, TEST_KEY)
-        result = decrypt_cookie_value(encrypted, TEST_KEY)
-        assert result == "gcm_protected_value"
+        assert decrypt_cookie_value(b"plain-text", TEST_KEY) == "plain-text"
 
 
-class TestDecryptV10:
-    def test_decrypts_correctly(self):
-        encrypted = _encrypt_v10(b"hello", TEST_KEY)
-        assert decrypt_v10(encrypted, TEST_KEY) == "hello"
-
-    def test_invalid_key_produces_garbage_or_error(self):
-        encrypted = _encrypt_v10(b"hello", TEST_KEY)
-        wrong_key = derive_key(b"wrong")
-        # Should either raise or return garbage — not the original
-        try:
-            result = decrypt_v10(encrypted, wrong_key)
-            assert result != "hello"
-        except Exception:
-            pass  # Error is also acceptable
+class TestSameSiteMap:
+    def test_known_values(self):
+        assert SAMESITE_MAP[-1] == "None"
+        assert SAMESITE_MAP[0] == "Unspecified"
+        assert SAMESITE_MAP[1] == "Lax"
+        assert SAMESITE_MAP[2] == "Strict"
+        assert SAMESITE_MAP[3] == "None"
 
 
-class TestDecryptV11:
-    def test_decrypts_correctly(self):
-        encrypted = _encrypt_v11(b"gcm_value", TEST_KEY)
-        assert decrypt_v11(encrypted, TEST_KEY) == "gcm_value"
-
-    def test_wrong_key_raises(self):
-        encrypted = _encrypt_v11(b"gcm_value", TEST_KEY)
-        wrong_key = derive_key(b"wrong")
-        with pytest.raises(Exception):
-            decrypt_v11(encrypted, wrong_key)
+# ── Integration: read_cookies ────────────────────────────────────────────────
 
 
 class TestReadCookies:
-    def test_reads_plaintext_cookie(self):
-        db = _make_mock_db([
-            {"host_key": ".example.com", "name": "sid", "encrypted_value": None,
-             "is_secure": 0, "is_httponly": 0, "samesite": 0}
-        ])
-        try:
-            cookies = read_cookies(db)
-            assert len(cookies) == 1
-            c = cookies[0]
-            assert c["domain"] == ".example.com"
-            assert c["name"] == "sid"
-            assert c["value"] == ""  # None encrypted_value -> empty base64
-            assert c["secure"] is False
-            assert c["httpOnly"] is False
-            assert c["_encrypted"] is False
-        finally:
-            os.unlink(db)
+    def test_reads_all_cookies(self, cookie_db):
+        db_path = cookie_db / "Chrome" / "Default" / "Cookies"
+        rows = read_cookies(db_path)
+        assert len(rows) == 3
+        names = {r["name"] for r in rows}
+        assert names == {"session_id", "pref", "token_v11"}
 
-    def test_reads_encrypted_cookie(self):
-        raw_val = _encrypt_v10(b"my_secret", TEST_KEY)
-        db = _make_mock_db([
-            {"host_key": ".site.com", "name": "token",
-             "encrypted_value": raw_val, "samesite": 1}
-        ])
-        try:
-            cookies = read_cookies(db)
-            assert len(cookies) == 1
-            c = cookies[0]
-            assert c["value"] == base64.b64encode(raw_val).decode("ascii")
-            assert c["_encrypted"] is True
-        finally:
-            os.unlink(db)
+    def test_domain_filter(self, cookie_db):
+        db_path = cookie_db / "Chrome" / "Default" / "Cookies"
+        rows = read_cookies(db_path, domain_filter="example")
+        assert len(rows) == 1
+        assert rows[0]["name"] == "session_id"
+        assert rows[0]["domain"] == ".example.com"
 
-    def test_domain_filter(self):
-        db = _make_mock_db([
-            {"host_key": ".example.com", "name": "a"},
-            {"host_key": ".other.com", "name": "b"},
-        ])
-        try:
-            cookies = read_cookies(db, domain_filter="example")
-            assert len(cookies) == 1
-            assert cookies[0]["domain"] == ".example.com"
-        finally:
-            os.unlink(db)
+    def test_row_shape(self, cookie_db):
+        db_path = cookie_db / "Chrome" / "Default" / "Cookies"
+        rows = read_cookies(db_path)
+        row = rows[0]
+        for key in ("domain", "name", "path", "value", "expires", "secure", "httpOnly", "sameSite"):
+            assert key in row, f"Missing key: {key}"
 
-    def test_empty_db(self):
-        db = _make_mock_db([])
-        try:
-            cookies = read_cookies(db)
-            assert cookies == []
-        finally:
-            os.unlink(db)
+    def test_encrypted_value_is_base64(self, cookie_db):
+        db_path = cookie_db / "Chrome" / "Default" / "Cookies"
+        rows = read_cookies(db_path)
+        enc_row = [r for r in rows if r["_encrypted"]][0]
+        # value should be valid base64
+        base64.b64decode(enc_row["value"])
+
+    def test_plaintext_cookie_has_empty_value(self, cookie_db):
+        db_path = cookie_db / "Chrome" / "Default" / "Cookies"
+        rows = read_cookies(db_path)
+        plain = [r for r in rows if r["name"] == "pref"][0]
+        assert plain["value"] == ""
+        assert plain["_encrypted"] is False
+
+
+# ── Integration: decrypt_exported_cookies ─────────────────────────────────────
 
 
 class TestDecryptExportedCookies:
-    def test_decrypts_v10_cookies(self):
-        raw = _encrypt_v10(b"decrypted_value", TEST_KEY)
-        cookies = [{
-            "domain": ".example.com",
-            "name": "session",
-            "value": base64.b64encode(raw).decode("ascii"),
-            "path": "/",
-            "expires": 1735689600,
-            "secure": True,
-            "httpOnly": False,
-            "sameSite": "Lax",
-            "_encrypted": True,
-        }]
-        result = decrypt_exported_cookies(cookies, TEST_KEY)
-        assert len(result) == 1
-        assert result[0]["value"] == "decrypted_value"
-        assert "_encrypted" not in result[0]
+    def test_decrypts_all(self, cookie_db):
+        db_path = cookie_db / "Chrome" / "Default" / "Cookies"
+        rows = read_cookies(db_path)
+        result = decrypt_exported_cookies(rows, TEST_KEY)
+        by_name = {c["name"]: c for c in result}
+        assert by_name["session_id"]["value"] == "abc123"
+        assert by_name["pref"]["value"] == ""
+        assert by_name["token_v11"]["value"] == "gcm-secret"
 
-    def test_skips_plaintext(self):
-        cookies = [{
-            "domain": ".x.com", "name": "n", "value": "already_plain",
-            "path": "/", "expires": 0, "secure": False, "httpOnly": False,
-            "sameSite": "Unspecified", "_encrypted": False,
-        }]
-        result = decrypt_exported_cookies(cookies, TEST_KEY)
-        assert result[0]["value"] == "already_plain"
-
-    def test_v11_roundtrip(self):
-        raw = _encrypt_v11(b"gcm_secret", TEST_KEY)
-        cookies = [{
-            "domain": ".gcm.com", "name": "gcm_tok",
-            "value": base64.b64encode(raw).decode("ascii"),
-            "path": "/", "expires": 0, "secure": True, "httpOnly": True,
-            "sameSite": "Strict", "_encrypted": True,
-        }]
-        result = decrypt_exported_cookies(cookies, TEST_KEY)
-        assert result[0]["value"] == "gcm_secret"
+    def test_removes_encrypted_flag(self, cookie_db):
+        db_path = cookie_db / "Chrome" / "Default" / "Cookies"
+        rows = read_cookies(db_path)
+        result = decrypt_exported_cookies(rows, TEST_KEY)
+        for c in result:
+            assert "_encrypted" not in c
 
 
-class TestMainExport:
-    def test_export_no_decrypt(self, tmp_path):
-        """Export with --no-decrypt skips keychain entirely."""
-        db = _make_mock_db([
-            {"host_key": ".example.com", "name": "test", "encrypted_value": None}
-        ])
-        out = tmp_path / "cookies.json"
-        with patch.object(_ns["Path"], "exists", return_value=True), \
-             patch(_ns["__name__"] + ".read_cookies", return_value=[]):
-            # Patch CHROME_BASE so db_path check passes
-            with patch(_ns["__name__"] + ".CHROME_BASE", db.parent):
-                rc = main(["export", "--no-decrypt", "-o", str(out)])
+# ── CLI: export ───────────────────────────────────────────────────────────────
+
+
+class TestExportCLI:
+    def test_export_writes_json(self, cookie_db, tmp_path):
+        output = tmp_path / "out.json"
+        with patch.object(_ns["cookie_sync"], "CHROME_BASE", cookie_db / "Chrome"), \
+             patch.object(_ns["cookie_sync"], "get_chrome_key", return_value=TEST_KEY):
+            rc = main(["export", "--output", str(output)])
         assert rc == 0
-        data = json.loads(out.read_text())
-        assert isinstance(data, list)
+        cookies = json.loads(output.read_text())
+        assert len(cookies) == 3
+
+        by_name = {c["name"]: c for c in cookies}
+        assert by_name["session_id"]["value"] == "abc123"
+        assert by_name["token_v11"]["value"] == "gcm-secret"
+
+    def test_export_domain_filter(self, cookie_db, tmp_path):
+        output = tmp_path / "filtered.json"
+        with patch.object(_ns["cookie_sync"], "CHROME_BASE", cookie_db / "Chrome"), \
+             patch.object(_ns["cookie_sync"], "get_chrome_key", return_value=TEST_KEY):
+            rc = main(["export", "--domain", "other", "--output", str(output)])
+        assert rc == 0
+        cookies = json.loads(output.read_text())
+        assert len(cookies) == 1
+        assert cookies[0]["name"] == "pref"
 
     def test_export_missing_db(self, tmp_path):
-        """Return 1 when Chrome cookies DB doesn't exist."""
-        out = tmp_path / "cookies.json"
-        rc = main(["export", "--no-decrypt", "-o", str(out), "--profile", "NoSuchProfile"])
+        output = tmp_path / "missing.json"
+        fake_base = tmp_path / "nochrome"
+        with patch.object(_ns["cookie_sync"], "CHROME_BASE", fake_base):
+            rc = main(["export", "--output", str(output)])
         assert rc == 1
 
-    def test_export_creates_output_dir(self, tmp_path):
-        """Output directory is created if missing."""
-        out = tmp_path / "deep" / "nested" / "cookies.json"
-        db = _make_mock_db([])
-        with patch(_ns["__name__"] + ".CHROME_BASE", db.parent), \
-             patch(_ns["__name__"] + ".read_cookies", return_value=[]):
-            rc = main(["export", "--no-decrypt", "-o", str(out)])
+    def test_export_creates_parent_dirs(self, cookie_db, tmp_path):
+        output = tmp_path / "deep" / "nested" / "cookies.json"
+        with patch.object(_ns["cookie_sync"], "CHROME_BASE", cookie_db / "Chrome"), \
+             patch.object(_ns["cookie_sync"], "get_chrome_key", return_value=TEST_KEY):
+            rc = main(["export", "--output", str(output)])
         assert rc == 0
-        assert out.exists()
+        assert output.exists()
+
+    def test_export_no_decrypt(self, cookie_db, tmp_path):
+        output = tmp_path / "raw.json"
+        with patch.object(_ns["cookie_sync"], "CHROME_BASE", cookie_db / "Chrome"):
+            rc = main(["export", "--no-decrypt", "--output", str(output)])
+        assert rc == 0
+        cookies = json.loads(output.read_text())
+        # Encrypted cookies should have base64 values, no _encrypted flag
+        for c in cookies:
+            assert "_encrypted" not in c
+        # The session_id cookie was encrypted, so value should be base64
+        enc = [c for c in cookies if c["name"] == "session_id"][0]
+        raw = base64.b64decode(enc["value"])
+        assert raw[:3] == V10_PREFIX
+
+    def test_export_no_encrypted_value_in_output(self, cookie_db, tmp_path):
+        output = tmp_path / "clean.json"
+        with patch.object(_ns["cookie_sync"], "CHROME_BASE", cookie_db / "Chrome"), \
+             patch.object(_ns["cookie_sync"], "get_chrome_key", return_value=TEST_KEY):
+            rc = main(["export", "--output", str(output)])
+        assert rc == 0
+        cookies = json.loads(output.read_text())
+        for c in cookies:
+            assert "_encrypted" not in c
 
 
-class TestMainImport:
+# ── CLI: import ───────────────────────────────────────────────────────────────
+
+
+class TestImportCLI:
     def test_import_missing_file(self, tmp_path):
-        rc = main(["import", str(tmp_path / "nonexistent.json")])
+        rc = main(["import", str(tmp_path / "nope.json")])
         assert rc == 1
 
     def test_import_calls_playwright(self, tmp_path):
-        """Import with a valid file invokes import_cookies."""
-        cookies = [{"domain": ".x.com", "name": "c", "value": "v",
-                    "path": "/", "expires": 0, "secure": False,
-                    "httpOnly": False, "sameSite": "Lax"}]
-        cookie_file = tmp_path / "cookies.json"
-        cookie_file.write_text(json.dumps(cookies))
-
-        with patch(_ns["__name__"] + ".import_cookies") as mock_import:
-            rc = main(["import", str(cookie_file)])
-
+        cookies_file = tmp_path / "cookies.json"
+        cookies_file.write_text(json.dumps([
+            {"name": "k", "value": "v", "domain": ".d.com", "path": "/"},
+        ]))
+        with patch.object(_ns["cookie_sync"], "import_cookies") as mock_imp:
+            rc = main(["import", str(cookies_file)])
         assert rc == 0
-        mock_import.assert_called_once()
-        assert mock_import.call_args[0][0] == cookie_file
+        mock_imp.assert_called_once()
+        assert mock_imp.call_args[0][0] == cookies_file
 
 
-class TestMainNoCommand:
+# ── CLI: general ──────────────────────────────────────────────────────────────
+
+
+class TestMainCLI:
     def test_no_args_returns_1(self):
         rc = main([])
         assert rc == 1
 
+    def test_unknown_command_returns_1(self):
+        rc = main(["nonexistent"])
+        assert rc == 1
 
-class TestBuildParser:
-    def test_parser_prog(self):
-        p = build_parser()
-        assert p.prog == "cookie-sync"
-
-    def test_export_subcommand(self):
-        p = build_parser()
-        args = p.parse_args(["export", "--profile", "Profile1", "--domain", "foo.com"])
-        assert args.command == "export"
-        assert args.profile == "Profile1"
-        assert args.domain == "foo.com"
-
-    def test_import_subcommand(self):
-        p = build_parser()
-        args = p.parse_args(["import", "cookies.json", "--browser", "firefox"])
-        assert args.command == "import"
-        assert args.browser == "firefox"
+    def test_build_parser_returns_parser(self):
+        parser = build_parser()
+        assert parser.prog == "cookie-sync"

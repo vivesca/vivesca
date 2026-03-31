@@ -284,7 +284,11 @@ def _golem_env() -> dict:
     env = os.environ.copy()
     env_file = Path.home() / ".env.fly"
     if env_file.exists():
-        for line in env_file.read_text().splitlines():
+        try:
+            env_text = env_file.read_text()
+        except (PermissionError, OSError, UnicodeDecodeError):
+            env_text = ""
+        for line in env_text.splitlines():
             line = line.strip()
             if line.startswith("export "):
                 line = line[7:]
