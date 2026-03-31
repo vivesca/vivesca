@@ -649,7 +649,11 @@ def cmd_clean() -> int:
         return 1
 
     with QueueLock():
-        lines = QUEUE_FILE.read_text().splitlines()
+        try:
+            lines = QUEUE_FILE.read_text().splitlines()
+        except (PermissionError, OSError, UnicodeDecodeError):
+            print("Queue file unreadable")
+            return 1
         kept = []
         removed = 0
         for line in lines:
@@ -657,7 +661,11 @@ def cmd_clean() -> int:
                 removed += 1
             else:
                 kept.append(line)
-        QUEUE_FILE.write_text("\n".join(kept) + "\n")
+        try:
+            QUEUE_FILE.write_text("\n".join(kept) + "\n")
+        except (PermissionError, OSError):
+            print("Queue file not writable")
+            return 1
 
     print(f"Removed {removed} entries from queue")
     return 0
