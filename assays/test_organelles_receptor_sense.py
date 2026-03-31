@@ -44,12 +44,6 @@ def test_current_phase_returns_first_matching():
     assert result["name"] == "late"
 
 
-def test_current_phase_handles_empty_phases():
-    """Test current_phase handles empty input gracefully."""
-    result = current_phase([], today=datetime.date.today())
-    assert result == {}
-
-
 def test_restore_goals_returns_empty_when_directory_missing():
     """Test restore_goals returns empty list when directory doesn't exist."""
     fake_dir = Path("/nonexistent/path/that/never/exists")

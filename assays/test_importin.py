@@ -379,25 +379,40 @@ def test_load_keychain_env_empty_result():
                 del os.environ[key]
 
 
-def test_load_keychain_env_with_exception():
-    """load_keychain_env handles exceptions from get_keychain_value gracefully."""
-    # Clear a test key
-    test_key = "PERPLEXITY_API_KEY"
-    original = os.environ.pop(test_key, None)
+def test_load_keychain_env_mixed_success_failure():
+    """load_keychain_env handles mixed success/failure from keychain."""
+    # Clear some test keys
+    keys = ["BRAVE_API_KEY", "TAVILY_API_KEY"]
+    originals = {}
+    for key in keys:
+        originals[key] = os.environ.pop(key, None)
 
     try:
-        with patch(_mod["__name__"] + ".get_keychain_value") if False else patch.object(
-            _mod.get("get_keychain_value").__class__.__module__ if hasattr(_mod.get("get_keychain_value"), "__class__") else _mod,
-            "get_keychain_value",
-            side_effect=RuntimeError("unexpected error")
-        ):
-            # Since get_keychain_value is from the exec'd module, we patch differently
-            pass
+        with patch("subprocess.run") as mock_run:
+            def mock_security(cmd, *args, **kwargs):
+                result = MagicMock()
+                # Brave succeeds
+                if "brave-api-key" in cmd:
+                    result.returncode = 0
+                    result.stdout = "brave-key\n"
+                # Tavily fails
+                else:
+                    result.returncode = 44
+                    result.stdout = ""
+                return result
+            mock_run.side_effect = mock_security
+
+            loaded = load_keychain_env()
+
+        # Only brave should be loaded
+        assert "BRAVE_API_KEY" in loaded
+        assert "TAVILY_API_KEY" not in loaded
     finally:
-        if original is not None:
-            os.environ[test_key] = original
-        elif test_key in os.environ:
-            del os.environ[test_key]
+        for key, val in originals.items():
+            if val is not None:
+                os.environ[key] = val
+            elif key in os.environ:
+                del os.environ[key]
 
 
 def test_credentials_service_names_unique():

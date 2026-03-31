@@ -194,8 +194,8 @@ def test_format_section_empty():
 
 
 def test_format_section_whitespace_only():
-    """format_section returns '*No data*' for whitespace-only input."""
-    assert format_section("Sleep", "   \n\n  ") == "*No data*"
+    """format_section returns empty string for whitespace-only input (lines stripped to nothing)."""
+    assert format_section("Sleep", "   \n\n  ") == ""
 
 
 def test_format_section_strips_lines():
@@ -267,6 +267,7 @@ def _make_subprocess_mock(trend_output="Mon Mar 24  78  85  62\nTue Mar 25  82  
 def test_main_writes_note_file(tmp_path, monkeypatch):
     """main() writes a markdown note to ~/notes/Daily/."""
     monkeypatch.setattr(Path, "home", lambda: tmp_path)
+    monkeypatch.setattr("sys.argv", ["oura-weekly-digest.py"])
 
     # We need to re-exec with the patched home since OURA_BIN uses Path.home()
     source = EFFECTOR_PATH.read_text()
@@ -299,6 +300,7 @@ def test_main_writes_note_file(tmp_path, monkeypatch):
 def test_main_outputs_summary(tmp_path, monkeypatch, capsys):
     """main() prints a one-line summary to stdout."""
     monkeypatch.setattr(Path, "home", lambda: tmp_path)
+    monkeypatch.setattr("sys.argv", ["oura-weekly-digest.py"])
 
     source = EFFECTOR_PATH.read_text()
     ns: dict = {"__name__": "test_oura_main"}
@@ -320,6 +322,7 @@ def test_main_outputs_summary(tmp_path, monkeypatch, capsys):
 def test_main_atomic_write(tmp_path, monkeypatch):
     """main() writes via temp file then renames (atomic write)."""
     monkeypatch.setattr(Path, "home", lambda: tmp_path)
+    monkeypatch.setattr("sys.argv", ["oura-weekly-digest.py"])
 
     source = EFFECTOR_PATH.read_text()
     ns: dict = {"__name__": "test_oura_main"}

@@ -287,10 +287,19 @@ def test_main_accepts_once_flag():
     content = GOLEM_REVIEWER_PATH.read_text()
     exec(content, ns)
 
-    # Mock sys.argv and capture exit
+    # Mock sys.argv and capture exit, mock review_cycle
     import sys
     original_argv = sys.argv
     original_exit = sys.exit
+    original_review_cycle = ns['review_cycle']
+
+    cycle_called = False
+
+    def mock_review_cycle():
+        nonlocal cycle_called
+        cycle_called = True
+        # Don't actually run the full cycle
+        return
 
     exit_called = False
     exit_code = None
@@ -302,18 +311,20 @@ def test_main_accepts_once_flag():
         raise SystemExit(code)
 
     sys.exit = mock_exit
+    ns['review_cycle'] = mock_review_cycle
 
     try:
         sys.argv = [str(GOLEM_REVIEWER_PATH), "--once"]
-        # We expect it to exit after one cycle
         try:
             ns['main']()
         except SystemExit:
             pass
-        # Should not throw any exceptions
+        # Should not throw any exceptions and review_cycle should be called
+        assert cycle_called
     finally:
         sys.argv = original_argv
         sys.exit = original_exit
+        ns['review_cycle'] = original_review_cycle
 
 
 if __name__ == "__main__":

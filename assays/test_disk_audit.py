@@ -11,10 +11,16 @@ import pytest
 
 def _load_disk_audit():
     """Load the disk-audit effector by exec-ing its Python body."""
+    import types
+    import sys
     source = open(Path.home() / "germline" / "effectors" / "disk-audit").read()
-    ns: dict = {"__name__": "disk_audit_effector"}
-    exec(source, ns)
-    return ns
+    # Create a proper module for dataclasses to find
+    mod = types.ModuleType("disk_audit_effector")
+    mod.__file__ = str(Path.home() / "germline" / "effectors" / "disk-audit")
+    # Register in sys.modules so dataclasses can find it
+    sys.modules["disk_audit_effector"] = mod
+    exec(source, mod.__dict__)
+    return mod.__dict__
 
 
 # Load the module and extract functions/classes
