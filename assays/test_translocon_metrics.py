@@ -108,6 +108,18 @@ class TestFormatReport:
         assert "P95" in report
 
 
+    def test_format_report_includes_summary(self, tmp_metrics: Path) -> None:
+        """format_report output includes a Summary section."""
+        record(**_entry(backend="goose", duration=50.0, success=True))
+        record(**_entry(backend="goose", duration=30.0, success=False))
+        report = format_report()
+        assert "Summary" in report
+        assert "Success rate" in report
+        assert "Total dispatches: 2" in report
+        assert "50%" in report
+        assert "Primary backend: goose" in report
+
+
 class TestPercentileEdgeCases:
     def test_p95_single_value(self, tmp_metrics: Path) -> None:
         record(**_entry(backend="goose", duration=42.0))

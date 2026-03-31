@@ -137,4 +137,24 @@ def format_report(days: int | None = None) -> str:
         lines.append(f"    P50 duration:  {stats['p50_duration']:.1f}s")
         lines.append(f"    P95 duration:  {stats['p95_duration']:.1f}s")
 
+    # Summary section
+    entries = _load_entries(days)
+    summary_lines = ["", "Summary:"]
+    total = len(entries)
+    if total == 0:
+        summary_lines.append("  No dispatches recorded.")
+    else:
+        successes = sum(1 for e in entries if e.get("success"))
+        avg_dur = sum(e.get("duration_s", 0) for e in entries) / total
+        summary_lines.append(f"  Total dispatches: {total}")
+        summary_lines.append(f"  Success rate: {successes/total*100:.0f}%")
+        summary_lines.append(f"  Avg duration: {avg_dur:.0f}s")
+        from collections import Counter
+
+        backends = Counter(e.get("backend", "?") for e in entries)
+        top = backends.most_common(1)
+        if top:
+            summary_lines.append(f"  Primary backend: {top[0][0]} ({top[0][1]} dispatches)")
+    lines.extend(summary_lines)
+
     return "\n".join(lines)
