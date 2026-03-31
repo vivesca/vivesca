@@ -500,8 +500,8 @@ class TestTiming:
 class TestDrillDirect:
     def test_valid_score_records(self):
         mock_store = MagicMock()
-        with patch("metabolon.enzymes.proprioception.ProprioceptiveStore", return_value=mock_store):
-            with patch("metabolon.enzymes.proprioception._ORGANELLE_SIGNALS_DIR", Path("/tmp")):
+        with patch("metabolon.organelles.receptor_sense.ProprioceptiveStore", return_value=mock_store):
+            with patch("metabolon.organelles.receptor_sense.SIGNALS_DIR", Path("/tmp")):
                 from metabolon.enzymes.proprioception import _drill
 
                 result = _drill("goal1", "math", 2, "flashcard", "derivatives", "ok")
@@ -511,19 +511,19 @@ class TestDrillDirect:
         mock_store.append.assert_called_once()
 
     def test_invalid_score_low(self):
-        from metabolon.enzymes.proprioception import _drill
+        with patch("metabolon.organelles.receptor_sense.ProprioceptiveStore"):
+            with patch("metabolon.organelles.receptor_sense.SIGNALS_DIR", Path("/tmp")):
+                from metabolon.enzymes.proprioception import _drill
 
-        with patch("metabolon.enzymes.proprioception.ProprioceptiveStore"):
-            with patch("metabolon.enzymes.proprioception._ORGANELLE_SIGNALS_DIR", Path("/tmp")):
                 result = _drill("g", "c", 0)
         assert "Failed" in result
         assert "must be 1-3" in result
 
     def test_invalid_score_high(self):
-        from metabolon.enzymes.proprioception import _drill
+        with patch("metabolon.organelles.receptor_sense.ProprioceptiveStore"):
+            with patch("metabolon.organelles.receptor_sense.SIGNALS_DIR", Path("/tmp")):
+                from metabolon.enzymes.proprioception import _drill
 
-        with patch("metabolon.enzymes.proprioception.ProprioceptiveStore"):
-            with patch("metabolon.enzymes.proprioception._ORGANELLE_SIGNALS_DIR", Path("/tmp")):
                 result = _drill("g", "c", 5)
         assert "Failed" in result
 
