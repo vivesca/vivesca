@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import configparser
 from dataclasses import dataclass
 from pathlib import Path
@@ -57,7 +58,8 @@ async def _mutate(request: ImmuneRequest) -> str:
         f"Change as little as possible. Output ONLY the new description, nothing else."
     )
 
-    return transduce("glm", prompt).strip()
+    result = await asyncio.to_thread(transduce, "glm", prompt)
+    return result.strip()
 
 
 async def immune_response(

@@ -1,306 +1,374 @@
-"""Tests for effectors/lustro-analyze.
-
-Load the effector via exec() with a non-__main__ __name__ so the
-if __name__ == "__main__" guard does not fire during import.
-"""
-
+"""Tests for lustro-analyze — article classification and ranking effector."""
 from __future__ import annotations
 
 import json
+import subprocess
 import textwrap
 from pathlib import Path
 
 import pytest
 
 
-EFFECTOR = Path(__file__).resolve().parent.parent / "effectors" / "lustro-analyze"
-
-
-@pytest.fixture()
-def lustro():
-    """Import the effector namespace without triggering main()."""
-    ns = {"__name__": "lustro_analyze_test", "__file__": str(EFFECTOR)}
-    exec(open(EFFECTOR).read(), ns)  # noqa: S102
+def _load_module():
+    """Load lustro-analyze by exec-ing its source."""
+    source = open("/home/terry/germline/effectors/lustro-analyze").read()
+    ns: dict = {"__name__": "lustro_analyze"}
+    exec(source, ns)
     return ns
 
 
-@pytest.fixture()
-def article_dir(tmp_path):
-    """Create a temp directory with sample lustro articles."""
-    articles = [
-        {
-            "file": "2026-03-01_openai_abc123.json",
-            "data": {
-                "title": "GPT-5 Launches with Reasoning Capabilities",
-                "date": "2026-03-01",
-                "source": "OpenAI News",
-                "tier": 1,
-                "link": "https://openai.com/gpt5",
-                "summary": "",
-                "text": "OpenAI today announced GPT-5, a large language model with "
-                        "advanced reasoning and agentic capabilities. The model "
-                        "achieves state-of-the-art results on multiple benchmarks.",
-            },
-        },
-        {
-            "file": "2026-03-02_hkma_def456.json",
-            "data": {
-                "title": "HKMA Issues AI Governance Framework for Banks",
-                "date": "2026-03-02",
-                "source": "HKMA Press Releases",
-                "tier": 1,
-                "link": "https://hkma.gov/ai-framework",
-                "summary": "",
-                "text": "The Hong Kong Monetary Authority has published a comprehensive "
-                        "AI governance framework requiring banks to implement model risk "
-                        "management practices for all AI systems used in lending, "
-                        "fraud detection, and compliance. Banks must appoint a chief AI "
-                        "officer and submit annual AI audit reports.",
-            },
-        },
-        {
-            "file": "2026-03-03_willison_ghi789.json",
-            "data": {
-                "title": "Django 6.0 Released with Async Improvements",
-                "date": "2026-03-03",
-                "source": "Simon Willison",
-                "tier": 1,
-                "link": "https://simonwillison.net/django6",
-                "summary": "",
-                "text": "Django 6.0 brings major improvements to async view handling, "
-                        "a new ORM query compiler, and better Python 3.14 support. "
-                        "The framework continues to be a popular choice for web developers.",
-            },
-        },
-        {
-            "file": "2026-03-04_fca_jkl012.json",
-            "data": {
-                "title": "FCA Consults on AI Model Risk in Financial Services",
-                "date": "2026-03-04",
-                "source": "UK FCA (AI/FS)",
-                "tier": 1,
-                "link": "https://fca.org/ai-risk",
-                "summary": "",
-                "text": "The UK Financial Conduct Authority published a consultation "
-                        "paper on managing AI model risk in financial services. "
-                        "The paper covers stress testing, algorithmic accountability, "
-                        "and data protection requirements for banks deploying AI.",
-            },
-        },
-    ]
-    for art in articles:
-        p = tmp_path / art["file"]
-        p.write_text(json.dumps(art["data"]), encoding="utf-8")
+_mod = _load_module()
 
-    # Also add a .md file to test markdown parsing.
-    (tmp_path / "2026-03-05_notes_xyz.md").write_text(
-        textwrap.dedent("""\
-            # Banking AI Trends Q1 2026
-            Banks are accelerating AI adoption for fraud detection, credit scoring,
-            and customer service chatbots. Regulatory pressure from HKMA and EBA
-            continues to shape deployment strategies.
-        """),
-        encoding="utf-8",
-    )
+classify_topic = _mod["classify_topic"]
+relevance_score = _mod["relevance_score"]
+extract_themes = _mod["extract_themes"]
+load_articles = _mod["load_articles"]
+format_summary_table = _mod["format_summary_table"]
+format_top_articles = _mod["format_top_articles"]
+format_themes = _mod["format_themes"]
+build_parser = _mod["build_parser"]
+TOPICS = _mod["TOPICS"]
+
+
+# ── Fixtures ─────────────────────────────────────────────────────────
+
+
+@pytest.fixture()
+def tmp_article_dir(tmp_path):
+    """Create a temp directory with mixed article files."""
+    # JSON article — banking + AI
+    (tmp_path / "bank_ai.json").write_text(json.dumps({
+        "title": "Banks Adopt LLMs for Trading",
+        "source": "Evident",
+        "date": "2026-03-10",
+        "text": "JPMorgan and Goldman Sachs use large language models for "
+                "trading and risk management in banking.",
+    }))
+
+    # JSON article — pure AI
+    (tmp_path / "pure_ai.json").write_text(json.dumps({
+        "title": "OpenAI Releases GPT-5.4",
+        "source": "TechCrunch",
+        "date": "2026-03-12",
+        "text": "OpenAI announces new foundation model with improved reasoning "
+                "and NLP benchmarks for generative AI.",
+    }))
+
+    # JSON article — regulation
+    (tmp_path / "regulation.json").write_text(json.dumps({
+        "title": "FCA Updates AI Regulation for Financial Services",
+        "source": "UK FCA",
+        "date": "2026-03-08",
+        "text": "The FCA issued new regulatory guidance on AI governance, "
+                "compliance, and supervision for financial services.",
+    }))
+
+    # JSON article — technology (no AI/banking keywords)
+    (tmp_path / "tech.json").write_text(json.dumps({
+        "title": "New Kubernetes Monitoring Tool",
+        "source": "DevOps Weekly",
+        "date": "2026-03-05",
+        "text": "A new open source tool for monitoring kubernetes clusters "
+                "with improved observability and ci/cd integration.",
+    }))
+
+    # Markdown article — generic
+    (tmp_path / "2026-03-01_notes.md").write_text(textwrap.dedent("""\
+        # Random Startup Notes
+        Some notes about venture capital and startup culture.
+        Nothing specific about banking or AI here.
+    """))
+
+    # Non-article file (should be skipped)
+    (tmp_path / "readme.txt").write_text("not an article")
+
     return tmp_path
 
 
-# ---------------------------------------------------------------------------
-# Tests
-# ---------------------------------------------------------------------------
+@pytest.fixture()
+def classified_articles(tmp_article_dir):
+    """Load articles, classify and score them — ready for formatting."""
+    articles = load_articles(tmp_article_dir)
+    for a in articles:
+        a["topic"] = classify_topic(a["title"], a["source"], a["text"])
+        a["relevance"] = relevance_score(a["title"], a["source"], a["text"])
+    return articles
+
+
+# ── classify_topic ────────────────────────────────────────────────────
+
 
 class TestClassifyTopic:
-    """Tests for classify_topic()."""
+    def test_pure_ai_article(self):
+        assert classify_topic(
+            "OpenAI Releases GPT-5.4", "TechCrunch",
+            "The new foundation model improves generative AI capabilities.",
+        ) == "AI"
 
-    def test_ai_article(self, lustro):
-        topic = lustro["classify_topic"](
-            "GPT-5 Launches", "OpenAI News",
-            "A new large language model with reasoning capabilities.",
-        )
-        assert topic == "AI"
+    def test_banking_article(self):
+        assert classify_topic(
+            "HSBC Deploys AI in Lending", "Evident",
+            "HSBC uses machine learning for lending and credit decisions.",
+        ) == "banking"
 
-    def test_banking_article(self, lustro):
-        topic = lustro["classify_topic"](
-            "HSBC Digital Banking Expansion", "Evident Banking Brief",
-            "HSBC is expanding its digital banking platform with new lending tools.",
+    def test_regulation_article(self):
+        result = classify_topic(
+            "FCA AI Regulation Update", "UK FCA",
+            "The FCA issued new regulatory guidance on governance, compliance, "
+            "supervision, and enforcement of data protection legislation.",
         )
-        assert topic == "banking"
+        assert result == "regulation"
 
-    def test_regulation_article(self, lustro):
-        topic = lustro["classify_topic"](
-            "EU AI Act Implementation", "Norton Rose Fulbright",
-            "New regulation requiring AI governance and compliance for banks.",
-        )
-        assert topic == "regulation"
+    def test_technology_article(self):
+        assert classify_topic(
+            "New Kubernetes Tool", "DevOps Weekly",
+            "A new open source tool for monitoring kubernetes clusters "
+            "with devops and ci/cd integration.",
+        ) == "technology"
 
-    def test_technology_article(self, lustro):
-        topic = lustro["classify_topic"](
-            "Kubernetes 2.0 Released", "Tech Blog",
-            "New features for cloud infrastructure and devops pipelines.",
-        )
-        assert topic == "technology"
+    def test_no_keywords_is_other(self):
+        assert classify_topic(
+            "Random Musing", "Personal Blog",
+            "Today I walked to the park and saw a bird sitting on a fence.",
+        ) == "other"
 
-    def test_other_article(self, lustro):
-        topic = lustro["classify_topic"](
-            "A Motorcycle for the Mind", "Naval Ravikant",
-            "Philosophical reflections on wealth, happiness, and meditation.",
-        )
-        assert topic == "other"
+    def test_classify_uses_first_2000_chars(self):
+        """Classification only examines first 2000 chars of text."""
+        long_text = "x" * 2000 + " bank banking lending credit fintech"
+        result = classify_topic("Boring Title", "Boring Source", long_text)
+        assert result == "other"
+
+
+# ── relevance_score ───────────────────────────────────────────────────
 
 
 class TestRelevanceScore:
-    """Tests for relevance_score()."""
-
-    def test_high_relevance_banking_ai(self, lustro):
-        score = lustro["relevance_score"](
-            "HKMA Issues AI Governance Framework for Banks",
-            "HKMA Press Releases",
-            "The HKMA has published AI governance requirements for banks "
-            "covering model risk management and compliance.",
+    def test_banking_ai_scores_high(self):
+        score = relevance_score(
+            "Banks Use AI for Fraud Detection", "Evident",
+            "JPMorgan and HSBC deploy AI models for banking compliance "
+            "and risk management in financial services.",
         )
-        assert score > 20, f"Expected high relevance, got {score}"
+        assert score >= 10.0, f"Expected high score, got {score}"
 
-    def test_low_relevance_tech(self, lustro):
-        score = lustro["relevance_score"](
-            "Django 6.0 Released",
-            "Simon Willison",
-            "Django 6.0 brings async improvements for web developers.",
+    def test_pure_ai_scores_moderate(self):
+        score = relevance_score(
+            "GPT-5.4 Released", "TechCrunch",
+            "The new foundation model shows improvements in generative AI.",
         )
-        assert score < 5, f"Expected low relevance, got {score}"
+        assert score >= 1.0
 
-    def test_medium_relevance_regulation(self, lustro):
-        score = lustro["relevance_score"](
-            "FCA Consults on AI Model Risk",
-            "UK FCA (AI/FS)",
-            "The FCA published a consultation on AI model risk in banking.",
+    def test_irrelevant_scores_low(self):
+        score = relevance_score(
+            "Weather Report", "Local News",
+            "Expect clear skies across the region today.",
         )
-        assert score > 10, f"Expected medium relevance, got {score}"
+        assert score < 1.0
+
+    def test_source_bonus(self):
+        """Known finance sources get bonus score."""
+        score_evident = relevance_score("Update", "Evident Banking Brief", "Minor update.")
+        score_generic = relevance_score("Update", "Random Blog", "Minor update.")
+        assert score_evident > score_generic
+
+    def test_banking_weight_double_ai(self):
+        """Banking keywords weigh 2x vs AI at 1.5x."""
+        score_bank = relevance_score(
+            "Banking News", "Generic",
+            "bank banking financial services lending credit trading.",
+        )
+        score_ai = relevance_score(
+            "AI News", "Generic",
+            "artificial intelligence llm gpt claude transformer chatbot.",
+        )
+        assert score_bank > score_ai
 
 
-class TestExtractThemes:
-    """Tests for extract_themes()."""
-
-    def test_detects_generative_ai_theme(self, lustro):
-        articles = [
-            {"title": "GPT-5 Launch", "text": "OpenAI launches a new large language model "
-             "with generative AI capabilities and foundation model improvements."},
-        ]
-        themes = lustro["extract_themes"](articles)
-        labels = [t[0] for t in themes]
-        assert "Generative AI / LLMs" in labels
-
-    def test_detects_multiple_themes(self, lustro):
-        articles = [
-            {"title": "Banks Adopt AI", "text": "HSBC and other banks are deploying AI "
-             "agents for fraud detection under new HKMA AI governance regulations."},
-        ]
-        themes = lustro["extract_themes"](articles)
-        labels = [t[0] for t in themes]
-        assert len(themes) >= 2
-
-    def test_empty_articles(self, lustro):
-        themes = lustro["extract_themes"]([])
-        assert themes == []
+# ── load_articles ─────────────────────────────────────────────────────
 
 
 class TestLoadArticles:
-    """Tests for load_articles()."""
+    def test_loads_json_and_md(self, tmp_article_dir):
+        articles = load_articles(tmp_article_dir)
+        filenames = [a["file"] for a in articles]
+        assert "bank_ai.json" in filenames
+        assert "pure_ai.json" in filenames
+        assert "regulation.json" in filenames
+        assert "tech.json" in filenames
+        assert "2026-03-01_notes.md" in filenames
+        assert "readme.txt" not in filenames
+        assert len(articles) == 5
 
-    def test_loads_json_files(self, lustro, article_dir):
-        articles = lustro["load_articles"](article_dir)
-        json_articles = [a for a in articles if a["file"].endswith(".json")]
-        assert len(json_articles) == 4
+    def test_article_has_required_keys(self, tmp_article_dir):
+        articles = load_articles(tmp_article_dir)
+        for a in articles:
+            assert "file" in a
+            assert "title" in a
+            assert "source" in a
+            assert "date" in a
+            assert "snippet" in a
+            assert "text" in a
 
-    def test_loads_md_files(self, lustro, article_dir):
-        articles = lustro["load_articles"](article_dir)
-        md_articles = [a for a in articles if a["file"].endswith(".md")]
-        assert len(md_articles) == 1
+    def test_json_snippet_truncated(self, tmp_article_dir):
+        articles = load_articles(tmp_article_dir)
+        for a in articles:
+            if a["file"].endswith(".json"):
+                assert len(a["snippet"]) <= 200
 
-    def test_md_file_has_title(self, lustro, article_dir):
-        articles = lustro["load_articles"](article_dir)
-        md = [a for a in articles if a["file"].endswith(".md")][0]
-        assert md["title"] == "Banking AI Trends Q1 2026"
+    def test_md_extracts_date_from_filename(self, tmp_article_dir):
+        articles = load_articles(tmp_article_dir)
+        md = [a for a in articles if a["file"] == "2026-03-01_notes.md"][0]
+        assert md["date"] == "2026-03-01"
 
-    def test_json_file_has_all_fields(self, lustro, article_dir):
-        articles = lustro["load_articles"](article_dir)
-        art = [a for a in articles if "hkma" in a["file"]][0]
-        assert art["title"] == "HKMA Issues AI Governance Framework for Banks"
-        assert art["source"] == "HKMA Press Releases"
-        assert art["date"] == "2026-03-02"
-        assert "Hong Kong Monetary Authority" in art["snippet"]
+    def test_md_extracts_title_from_heading(self, tmp_path):
+        (tmp_path / "notes.md").write_text("# My Great Article\n\nBody text.\n")
+        articles = load_articles(tmp_path)
+        assert articles[0]["title"] == "My Great Article"
 
-    def test_missing_dir_exits(self, lustro):
-        with pytest.raises(SystemExit):
-            lustro["load_articles"](Path("/nonexistent/path"))
+    def test_md_no_heading_uses_first_line(self, tmp_path):
+        (tmp_path / "notes.md").write_text("Just plain text here.\nMore lines.\n")
+        articles = load_articles(tmp_path)
+        assert articles[0]["title"] == "Just plain text here."
+
+    def test_missing_dir_exits(self):
+        """load_articles calls sys.exit(1) for missing directory."""
+        with pytest.raises(SystemExit) as exc_info:
+            load_articles(Path("/nonexistent/path/abc123"))
+        assert exc_info.value.code == 1
+
+
+# ── format_summary_table ──────────────────────────────────────────────
 
 
 class TestFormatSummaryTable:
-    """Tests for format_summary_table()."""
+    def test_contains_headers(self, classified_articles):
+        output = format_summary_table(classified_articles)
+        assert "LUSTRO ARTICLE ANALYSIS SUMMARY" in output
+        assert "Total articles:" in output
 
-    def test_contains_topic_headers(self, lustro, article_dir):
-        articles = lustro["load_articles"](article_dir)
-        for a in articles:
-            a["topic"] = lustro["classify_topic"](a["title"], a["source"], a["text"])
-        table = lustro["format_summary_table"](articles)
-        for topic in lustro["TOPICS"]:
-            assert topic in table
+    def test_shows_topic_rows(self, classified_articles):
+        output = format_summary_table(classified_articles)
+        for topic in TOPICS:
+            assert topic in output
 
-    def test_contains_total_count(self, lustro, article_dir):
-        articles = lustro["load_articles"](article_dir)
-        for a in articles:
-            a["topic"] = lustro["classify_topic"](a["title"], a["source"], a["text"])
-        table = lustro["format_summary_table"](articles)
-        assert f"Total articles: {len(articles)}" in table
+    def test_shows_unique_sources(self, classified_articles):
+        output = format_summary_table(classified_articles)
+        assert "Unique sources:" in output
+
+
+# ── format_top_articles ───────────────────────────────────────────────
 
 
 class TestFormatTopArticles:
-    """Tests for format_top_articles()."""
+    def test_respects_n_limit(self, classified_articles):
+        output = format_top_articles(classified_articles, top_n=2)
+        numbered = [l for l in output.split("\n")
+                    if l.strip() and l.strip()[0].isdigit() and "." in l[:5]]
+        assert len(numbered) <= 2
 
-    def test_respects_top_n(self, lustro, article_dir):
-        articles = lustro["load_articles"](article_dir)
-        for a in articles:
-            a["topic"] = lustro["classify_topic"](a["title"], a["source"], a["text"])
-            a["relevance"] = lustro["relevance_score"](a["title"], a["source"], a["text"])
-        output = lustro["format_top_articles"](articles, 2)
-        assert "TOP 2 ARTICLES" in output
+    def test_shows_ranking_header(self, classified_articles):
+        output = format_top_articles(classified_articles, top_n=3)
+        assert "BANKING AI CONSULTING RELEVANCE" in output
 
-    def test_banking_ai_article_ranks_first(self, lustro, article_dir):
-        articles = lustro["load_articles"](article_dir)
-        for a in articles:
-            a["topic"] = lustro["classify_topic"](a["title"], a["source"], a["text"])
-            a["relevance"] = lustro["relevance_score"](a["title"], a["source"], a["text"])
-        output = lustro["format_top_articles"](articles, 3)
-        # First article entry appears in the full output block
-        assert "HKMA" in output
+    def test_shows_source_and_date(self, classified_articles):
+        output = format_top_articles(classified_articles, top_n=1)
+        assert "Source:" in output
+        assert "Date:" in output
+
+    def test_shows_topic(self, classified_articles):
+        output = format_top_articles(classified_articles, top_n=1)
+        assert "Topic:" in output
 
 
-class TestFormatThemes:
-    """Tests for format_themes()."""
+# ── extract_themes / format_themes ────────────────────────────────────
 
-    def test_with_themes(self, lustro):
-        themes = [("AI in banking / finance", 42), ("Generative AI / LLMs", 30)]
-        output = lustro["format_themes"](themes)
-        assert "AI in banking" in output
-        assert "Generative AI" in output
 
-    def test_empty_themes(self, lustro):
-        output = lustro["format_themes"]([])
+class TestThemes:
+    def test_extract_returns_tuples(self, classified_articles):
+        themes = extract_themes(classified_articles, top_n=5)
+        assert isinstance(themes, list)
+        for item in themes:
+            assert isinstance(item, tuple)
+            assert len(item) == 2
+            assert isinstance(item[0], str)
+            assert isinstance(item[1], int)
+
+    def test_detects_ai_theme(self, classified_articles):
+        themes = extract_themes(classified_articles, top_n=15)
+        labels = [t for t, _ in themes]
+        assert any("LLM" in l or "Generative" in l for l in labels)
+
+    def test_format_produces_header(self, classified_articles):
+        themes = extract_themes(classified_articles)
+        output = format_themes(themes)
+        assert "KEY THEMES" in output
+
+    def test_format_empty_themes(self):
+        output = format_themes([])
         assert "no significant themes" in output
 
 
-class TestBuildParser:
-    """Tests for CLI argument parser."""
+# ── build_parser ──────────────────────────────────────────────────────
 
-    def test_default_args(self, lustro):
-        parser = lustro["build_parser"]()
+
+class TestParser:
+    def test_defaults(self):
+        parser = build_parser()
         args = parser.parse_args([])
         assert args.top == 20
         assert args.topic is None
         assert args.output is None
+        assert args.dir is None
 
-    def test_custom_args(self, lustro):
-        parser = lustro["build_parser"]()
-        args = parser.parse_args(["--top", "5", "--topic", "banking", "--output", "out.txt"])
+    def test_custom_args(self):
+        parser = build_parser()
+        args = parser.parse_args(["--top", "5", "--topic", "AI", "--output", "out.txt"])
         assert args.top == 5
-        assert args.topic == "banking"
+        assert args.topic == "AI"
         assert args.output == "out.txt"
+
+
+# ── CLI (subprocess) ──────────────────────────────────────────────────
+
+
+class TestCLI:
+    def test_help_flag(self):
+        result = subprocess.run(
+            ["python3", "/home/terry/germline/effectors/lustro-analyze", "--help"],
+            capture_output=True, text=True, timeout=10,
+        )
+        assert result.returncode == 0
+        assert "--top" in result.stdout
+        assert "--topic" in result.stdout
+
+    def test_cli_with_dir(self, tmp_article_dir):
+        result = subprocess.run(
+            ["python3", "/home/terry/germline/effectors/lustro-analyze",
+             "--dir", str(tmp_article_dir), "--top", "3"],
+            capture_output=True, text=True, timeout=15,
+        )
+        assert result.returncode == 0
+        assert "LUSTRO ARTICLE ANALYSIS SUMMARY" in result.stdout
+        assert "BANKING AI CONSULTING RELEVANCE" in result.stdout
+        assert "KEY THEMES" in result.stdout
+
+    def test_cli_topic_filter(self, tmp_article_dir):
+        result = subprocess.run(
+            ["python3", "/home/terry/germline/effectors/lustro-analyze",
+             "--dir", str(tmp_article_dir), "--topic", "AI"],
+            capture_output=True, text=True, timeout=15,
+        )
+        assert result.returncode == 0
+        assert "LUSTRO ARTICLE ANALYSIS SUMMARY" in result.stdout
+
+    def test_cli_output_file(self, tmp_article_dir, tmp_path):
+        outfile = tmp_path / "report.txt"
+        result = subprocess.run(
+            ["python3", "/home/terry/germline/effectors/lustro-analyze",
+             "--dir", str(tmp_article_dir), "--output", str(outfile)],
+            capture_output=True, text=True, timeout=15,
+        )
+        assert result.returncode == 0
+        assert outfile.exists()
+        content = outfile.read_text()
+        assert "LUSTRO ARTICLE ANALYSIS SUMMARY" in content

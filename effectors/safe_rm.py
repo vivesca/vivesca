@@ -30,7 +30,7 @@ def is_protected(path: str) -> bool:
         if abs_path == protected_abs:
             return True
         # Block if trying to delete a parent of a protected path
-        if protected_abs.startswith(abs_path + "/"):
+        if protected_abs.startswith(abs_path + os.sep):
             return True
     return False
 

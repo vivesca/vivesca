@@ -103,7 +103,6 @@ def secrete_statement(
     """Write parsed statement and return the file path."""
     spending_dir.mkdir(parents=True, exist_ok=True)
     md_path = spending_dir / f"{meta.filename_stem}.md"
-    md_path.write_text(serialize_markdown(meta, transactions))
     tmp = md_path.with_suffix(".md.tmp")
     tmp.write_text(serialize_markdown(meta, transactions))
     tmp.replace(md_path)
@@ -216,5 +215,7 @@ def secrete_monthly_summary(month: str, spending_dir: Path) -> Path:
     lines.append("")
 
     summary_path = spending_dir / f"{month}-summary.md"
-    summary_path.write_text("\n".join(lines))
+    tmp = summary_path.with_suffix(".md.tmp")
+    tmp.write_text("\n".join(lines))
+    tmp.replace(summary_path)
     return summary_path
