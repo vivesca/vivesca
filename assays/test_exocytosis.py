@@ -1,7 +1,6 @@
 """Tests for effectors/exocytosis.py — garden post pipeline."""
 from __future__ import annotations
 
-import textwrap
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -28,41 +27,51 @@ publish = _mod["publish"]
 main = _mod["main"]
 
 
+@pytest.fixture
+def fake_queue(tmp_path):
+    """Temporarily redirect QUEUE to a temp file, restoring after test."""
+    queue = tmp_path / "Queue.md"
+    original = _mod["QUEUE"]
+    _mod["QUEUE"] = queue
+    yield queue
+    _mod["QUEUE"] = original
+
+
+@pytest.fixture
+def fake_style(tmp_path):
+    """Temporarily redirect STYLE_GUIDE to a temp file."""
+    style = tmp_path / "CLAUDE.md"
+    original = _mod["STYLE_GUIDE"]
+    _mod["STYLE_GUIDE"] = style
+    yield style
+    _mod["STYLE_GUIDE"] = original
+
+
 # ── get_next_topic ────────────────────────────────────────────────────
 
 
 class TestGetNextTopic:
-    def test_returns_first_unchecked(self, tmp_path):
-        queue = tmp_path / "Queue.md"
-        queue.write_text("- [ ] Topic A\n- [ ] Topic B\n")
-        with patch.object(_mod, "QUEUE", queue):
-            result = get_next_topic()
+    def test_returns_first_unchecked(self, fake_queue):
+        fake_queue.write_text("- [ ] Topic A\n- [ ] Topic B\n")
+        result = get_next_topic()
         assert result == (0, "Topic A")
 
-    def test_skips_checked(self, tmp_path):
-        queue = tmp_path / "Queue.md"
-        queue.write_text("- [x] Done\n- [ ] Next\n")
-        with patch.object(_mod, "QUEUE", queue):
-            result = get_next_topic()
+    def test_skips_checked(self, fake_queue):
+        fake_queue.write_text("- [x] Done\n- [ ] Next\n")
+        result = get_next_topic()
         assert result == (1, "Next")
 
-    def test_returns_none_when_empty(self, tmp_path):
-        queue = tmp_path / "Queue.md"
-        queue.write_text("- [x] All done\n")
-        with patch.object(_mod, "QUEUE", queue):
-            assert get_next_topic() is None
+    def test_returns_none_when_all_checked(self, fake_queue):
+        fake_queue.write_text("- [x] All done\n")
+        assert get_next_topic() is None
 
-    def test_returns_none_on_blank_file(self, tmp_path):
-        queue = tmp_path / "Queue.md"
-        queue.write_text("")
-        with patch.object(_mod, "QUEUE", queue):
-            assert get_next_topic() is None
+    def test_returns_none_on_blank_file(self, fake_queue):
+        fake_queue.write_text("")
+        assert get_next_topic() is None
 
-    def test_strips_whitespace_from_topic(self, tmp_path):
-        queue = tmp_path / "Queue.md"
-        queue.write_text("- [ ]   Spaced topic  \n")
-        with patch.object(_mod, "QUEUE", queue):
-            result = get_next_topic()
+    def test_strips_whitespace_from_topic(self, fake_queue):
+        fake_queue.write_text("- [ ]   Spaced topic  \n")
+        result = get_next_topic()
         assert result == (0, "Spaced topic")
 
 
@@ -70,27 +79,21 @@ class TestGetNextTopic:
 
 
 class TestMarkDone:
-    def test_marks_line_checked(self, tmp_path):
-        queue = tmp_path / "Queue.md"
-        queue.write_text("- [ ] Alpha\n- [ ] Beta\n")
-        with patch.object(_mod, "QUEUE", queue):
-            mark_done(0)
-        assert queue.read_text().startswith("- [x] Alpha")
+    def test_marks_line_checked(self, fake_queue):
+        fake_queue.write_text("- [ ] Alpha\n- [ ] Beta\n")
+        mark_done(0)
+        assert fake_queue.read_text().startswith("- [x] Alpha")
 
-    def test_preserves_other_lines(self, tmp_path):
-        queue = tmp_path / "Queue.md"
-        queue.write_text("- [ ] Alpha\n- [ ] Beta\n")
-        with patch.object(_mod, "QUEUE", queue):
-            mark_done(0)
-        lines = queue.read_text().splitlines()
+    def test_preserves_other_lines(self, fake_queue):
+        fake_queue.write_text("- [ ] Alpha\n- [ ] Beta\n")
+        mark_done(0)
+        lines = fake_queue.read_text().splitlines()
         assert lines[1] == "- [ ] Beta"
 
-    def test_marks_second_line(self, tmp_path):
-        queue = tmp_path / "Queue.md"
-        queue.write_text("- [ ] Alpha\n- [ ] Beta\n")
-        with patch.object(_mod, "QUEUE", queue):
-            mark_done(1)
-        lines = queue.read_text().splitlines()
+    def test_marks_second_line(self, fake_queue):
+        fake_queue.write_text("- [ ] Alpha\n- [ ] Beta\n")
+        mark_done(1)
+        lines = fake_queue.read_text().splitlines()
         assert lines[0] == "- [ ] Alpha"
         assert lines[1] == "- [x] Beta"
 
@@ -197,89 +200,66 @@ class TestPublish:
 
 
 class TestMain:
-    @patch.object(_mod, "STYLE_GUIDE")
-    @patch.object(_mod, "QUEUE")
     @patch("metabolon.organelles.golgi.publish")
     @patch("metabolon.organelles.golgi.new")
     @patch("metabolon.symbiont.transduce")
     @patch("metabolon.organelles.secretory_vesicle.secrete_text")
     def test_full_pipeline_publish(
-        self, mock_sec, mock_td, mock_new, mock_pub, mock_queue, mock_style, tmp_path,
+        self, mock_sec, mock_td, mock_new, mock_pub, fake_queue, fake_style,
     ):
-        queue = tmp_path / "Queue.md"
-        queue.write_text("- [ ] My Topic — a subtitle\n")
-        style = tmp_path / "CLAUDE.md"
-        style.write_text("Write clearly.")
-        mock_queue.__class__ = type(queue)
-        # Patch QUEUE and STYLE_GUIDE to tmp_path versions
-        with patch.object(_mod, "QUEUE", queue), \
-             patch.object(_mod, "STYLE_GUIDE", style):
-            post_path = tmp_path / "post.md"
-            post_path.write_text("---\n---\n")
-            mock_new.return_value = ("my-topic", post_path)
-            # First transduce call = generate, second = judge (PASS)
-            mock_td.side_effect = ["A great post.", "PASS — solid."]
-            main()
+        fake_queue.write_text("- [ ] My Topic — a subtitle\n")
+        fake_style.write_text("Write clearly.")
+        post_path = fake_queue.parent / "post.md"
+        post_path.write_text("---\n---\n")
+        mock_new.return_value = ("my-topic", post_path)
+        # First transduce call = generate, second = judge (PASS)
+        mock_td.side_effect = ["A great post.", "PASS — solid."]
+        main()
 
         mock_sec.assert_called()
         msg = mock_sec.call_args[0][0]
         assert "Published" in msg
-        assert queue.read_text().startswith("- [x]")
+        assert fake_queue.read_text().startswith("- [x]")
 
-    @patch.object(_mod, "QUEUE")
     @patch("metabolon.organelles.secretory_vesicle.secrete_text")
-    def test_empty_queue_notifies(self, mock_sec, mock_queue, tmp_path):
-        queue = tmp_path / "Queue.md"
-        queue.write_text("")
-        with patch.object(_mod, "QUEUE", queue):
-            main()
+    def test_empty_queue_notifies(self, mock_sec, fake_queue):
+        fake_queue.write_text("")
+        main()
         mock_sec.assert_called_once()
         assert "empty" in mock_sec.call_args[0][0].lower()
 
-    @patch.object(_mod, "STYLE_GUIDE")
-    @patch.object(_mod, "QUEUE")
     @patch("metabolon.symbiont.transduce")
     @patch("metabolon.organelles.secretory_vesicle.secrete_text")
     def test_judge_fail_notifies(
-        self, mock_sec, mock_td, mock_queue, mock_style, tmp_path,
+        self, mock_sec, mock_td, fake_queue, fake_style,
     ):
-        queue = tmp_path / "Queue.md"
-        queue.write_text("- [ ] Failing topic\n")
-        style = tmp_path / "CLAUDE.md"
-        style.write_text("Style.")
-        with patch.object(_mod, "QUEUE", queue), \
-             patch.object(_mod, "STYLE_GUIDE", style):
-            # generate + judge = FAIL, then retry generate + judge = FAIL
-            mock_td.side_effect = [
-                "Bad post.",
-                "FAIL — weak.",
-                "Still bad post.",
-                "FAIL — still weak.",
-            ]
-            main()
+        fake_queue.write_text("- [ ] Failing topic\n")
+        fake_style.write_text("Style.")
+        # generate + judge = FAIL, then retry generate + judge = FAIL
+        mock_td.side_effect = [
+            "Bad post.",
+            "FAIL — weak.",
+            "Still bad post.",
+            "FAIL — still weak.",
+        ]
+        main()
         msgs = [c[0][0] for c in mock_sec.call_args_list]
         assert any("skipped" in m.lower() for m in msgs)
 
-    @patch.object(_mod, "STYLE_GUIDE")
-    @patch.object(_mod, "QUEUE")
     @patch("metabolon.organelles.golgi.publish")
     @patch("metabolon.organelles.golgi.new")
     @patch("metabolon.symbiont.transduce")
     @patch("metabolon.organelles.secretory_vesicle.secrete_text")
     def test_publish_failure_notifies(
-        self, mock_sec, mock_td, mock_new, mock_pub, mock_queue, mock_style, tmp_path,
+        self, mock_sec, mock_td, mock_new, mock_pub, fake_queue, fake_style,
     ):
-        queue = tmp_path / "Queue.md"
-        queue.write_text("- [ ] Publish fail topic\n")
-        style = tmp_path / "CLAUDE.md"
-        style.write_text("Style.")
-        with patch.object(_mod, "QUEUE", queue), \
-             patch.object(_mod, "STYLE_GUIDE", style):
-            post_path = tmp_path / "post.md"
-            post_path.write_text("---\n---\n")
-            mock_new.return_value = ("slug", post_path)
-            mock_pub.side_effect = RuntimeError("Connection lost")
-            mock_td.side_effect = ["Post body.", "PASS — good."]
-            main()
+        fake_queue.write_text("- [ ] Publish fail topic\n")
+        fake_style.write_text("Style.")
+        post_path = fake_queue.parent / "post.md"
+        post_path.write_text("---\n---\n")
+        mock_new.return_value = ("slug", post_path)
+        mock_pub.side_effect = RuntimeError("Connection lost")
+        mock_td.side_effect = ["Post body.", "PASS — good."]
+        main()
         msgs = [c[0][0] for c in mock_sec.call_args_list]
         assert any("failed" in m.lower() for m in msgs)
