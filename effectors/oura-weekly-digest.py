@@ -99,7 +99,7 @@ def main():
     parser = argparse.ArgumentParser(
         description="Oura weekly digest — fetches 7-day health data via oura CLI and saves a markdown note."
     )
-    parser.parse_args([])
+    parser.parse_args()
 
     today = date.today()
     yesterday = today - timedelta(days=1)

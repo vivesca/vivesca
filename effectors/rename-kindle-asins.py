@@ -41,17 +41,17 @@ def main():
     args = parser.parse_args()
 
     renamed = 0
-for asin, title in ASIN_TO_TITLE.items():
-    src = BOOKS_DIR / f"{asin}.md"
-    dst = BOOKS_DIR / f"{title}.md"
-    if src.exists():
-        if dst.exists():
-            print(f"SKIP (dest exists): {asin} → {title}.md")
-        else:
-            print(f"{'[dry-run] ' if args.dry_run else ''}Rename: {asin}.md → {title}.md")
-            if not args.dry_run:
-                src.rename(dst)
-            renamed += 1
+    for asin, title in ASIN_TO_TITLE.items():
+        src = BOOKS_DIR / f"{asin}.md"
+        dst = BOOKS_DIR / f"{title}.md"
+        if src.exists():
+            if dst.exists():
+                print(f"SKIP (dest exists): {asin} → {title}.md")
+            else:
+                print(f"{'[dry-run] ' if args.dry_run else ''}Rename: {asin}.md → {title}.md")
+                if not args.dry_run:
+                    src.rename(dst)
+                renamed += 1
 
     print(f"\n{'Would rename' if args.dry_run else 'Renamed'} {renamed} files.")
 
