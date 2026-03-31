@@ -795,10 +795,10 @@ _IMPL_READ_COUNT_FILE = Path("/tmp/.cc-impl-read-count")
 
 
 def guard_pipeline_bypass(data):
-    """Nudge when CC reads multiple implementation files without invoking specification.
+    """Nudge when CC reads multiple implementation files without invoking mitogen.
 
     Tracks reads of implementation files (.py, .rs, .ts, .sh) in germline/code.
-    Resets when specification skill is invoked.
+    Resets when mitogen skill is invoked.
     """
     ti = data.get("tool_input", {})
     fp = ti.get("file_path", "") or ""
@@ -826,14 +826,14 @@ def guard_pipeline_bypass(data):
     if count >= 3:
         allow_msg(
             "PIPELINE BYPASS: You've read 3+ implementation files without invoking "
-            "/specification. Are you building? Route through the dispatch pipeline."
+            "/mitogen. Are you building? Route through the dispatch pipeline."
         )
 
 
 def reset_pipeline_counter(data):
-    """Reset impl read counter when specification skill is invoked."""
+    """Reset impl read counter when mitogen skill is invoked."""
     skill_name = data.get("tool_input", {}).get("skill", "")
-    if skill_name == "specification":
+    if skill_name == "mitogen":
         try:
             _IMPL_READ_COUNT_FILE.write_text("0")
         except OSError:

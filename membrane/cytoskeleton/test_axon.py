@@ -192,13 +192,13 @@ def test_pipeline_bypass_ignores_markdown():
     count_file.unlink(missing_ok=True)
 
 
-def test_pipeline_counter_resets_on_specification():
-    """Invoking specification skill resets the counter."""
+def test_pipeline_counter_resets_on_mitogen():
+    """Invoking mitogen skill resets the counter."""
     import tempfile
     count_file = Path(tempfile.mktemp())
     count_file.write_text("5")
     with patch.object(axon, '_IMPL_READ_COUNT_FILE', count_file):
-        data = _make_data("Skill", {"skill": "specification"})
+        data = _make_data("Skill", {"skill": "mitogen"})
         axon.reset_pipeline_counter(data)
         assert count_file.read_text().strip() == "0"
     count_file.unlink(missing_ok=True)

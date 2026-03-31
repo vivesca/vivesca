@@ -18,6 +18,8 @@ epistemics: [audit, delegate, verify]
 
 Biology: a mitogen is a signal that triggers rapid cell proliferation. `/mitogen` is the signal that tells the organism to mass-produce improvements autonomously.
 
+**Philosophy: build fast, break things, evolve fast.** Features > tests. Fix broken things. Ship iteratively. Tests follow building, not the other way around.
+
 ## When to trigger
 
 User says: "build", "implement", "dispatch", "spec this", "batch", "go build", "blitz", "keep going while I'm away", or invokes `/mitogen` directly.
@@ -38,25 +40,37 @@ uv run pytest --co -q | tail -3           # test count
 
 If daemon produced work since last session: review, commit, report delta. Then write next batch.
 
+**Delegate everything possible to golems** — including pytest runs, failure diagnosis, and verification. CC is the scheduler, not the executor.
+
 ### Phase 1: Identify work (CC judgment)
 
-CC decides what needs doing. Examples:
-- **Test gaps**: cross-reference `metabolon/` vs `assays/`
-- **Features**: read queue, identify gaps
-- **Consulting readiness**: assess what's missing for Capco
+CC decides what needs doing. Priority order:
+1. **Fixes** — broken tests, regressions, bugs. Heal first.
+2. **Features** — new capabilities, effectors, organism improvements. Build second.
+3. **Tests** — coverage for untested modules. Fill gaps last.
+
+Ratio target: ~60% build/fix, ~40% test. Never dispatch a pure-test batch without also dispatching builds.
 
 CC writes fully-specified entries to `loci/golem-queue.md`. Each entry has provider, turns, and complete prompt baked in. CC does the thinking — golems do the labor.
 
 ### Phase 2: Write the queue
 
+**Task types:**
+- **Fix** — read failing test, read source, diagnose, fix, verify. `--max-turns 30`.
+- **Build** — create new effector/feature/module + tests. `--max-turns 50`.
+- **Test** — write tests for existing module. `--batch` or `--max-turns 30`.
+
 **Group related tasks into operons** — tasks that share context run in one golem session:
 
 ```markdown
-#### Coverage operon — test coverage tooling
-- [ ] `golem --provider infini --max-turns 50 "Read validator.py AND complement.py. Add check_test_coverage to validator. Add coverage_summary to complement. Write tests for both. Run pytest. Fix failures."`
+#### Fix operon — sortase test failures
+- [ ] `golem --provider zhipu --max-turns 30 "Read assays/test_sortase_actions.py. Run it. Read the source it tests. Fix all failures. Run pytest on the file. Iterate until green."`
 
-#### Standalone
-- [ ] `golem --provider volcano --max-turns 50 "Create effectors/capco-prep..."`
+#### Build — new effector
+- [ ] `golem --provider infini --max-turns 50 "Create effectors/some-tool as Python..."`
+
+#### Test batch
+- [ ] `golem --provider zhipu --batch mod1.py mod2.py`
 ```
 
 Operons save context-building time and produce coherent cross-module designs. Group when:
@@ -86,10 +100,15 @@ golem-daemon stop    # halt
 
 ### Phase 4: Verify + commit
 
+Delegate to a golem:
 ```bash
-uv run pytest --co -q | tail -3          # count
-uv run pytest assays/test_new*.py -q     # verify new files
-git add assays/test_*.py && git commit
+golem --provider zhipu --max-turns 10 "Run uv run pytest --co -q | tail -5. Then uv run pytest -q --tb=line | tail -20. Report counts."
+```
+
+Or if interactive, commit directly:
+```bash
+cd ~/germline && git add -A && git status --short   # review
+git commit -m "mitogen: ..."
 ```
 
 ### Phase 5: Report
@@ -97,9 +116,9 @@ git add assays/test_*.py && git commit
 ```
 ## Mitogen Report
 - Tests before/after: X → Y (+Z)
-- New test files: [list]
-- Pass rate: N/N
 - Failures fixed: N
+- New features: [list]
+- New test files: [list]
 ```
 
 ## Golem
