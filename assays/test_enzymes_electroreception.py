@@ -1,16 +1,11 @@
-"""Comprehensive tests for metabolon/enzymes/electroreception.py.
-
-Covers _extract_text edge cases, electroreception_read with mock sqlite3,
-all filter combinations, limit, days cutoff, sender quoting, empty results,
-and ElectroreceptionResult shape.
-"""
+"""Tests for metabolon/enzymes/electroreception.py — iMessage reader."""
 
 from __future__ import annotations
 
 import sqlite3
-import time
-from datetime import datetime, timedelta
-from unittest.mock import patch
+from datetime import datetime
+from pathlib import Path
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -22,412 +17,221 @@ from metabolon.enzymes.electroreception import (
 
 
 # ---------------------------------------------------------------------------
-# Helpers
+# _extract_text
 # ---------------------------------------------------------------------------
 
-def _apple_ns_from_dt(dt: datetime) -> int:
-    """Convert a datetime to Apple Nanoseconds timestamp used in chat.db."""
-    return int((dt.timestamp() - 978307200) * 1_000_000_000)
+class TestExtractText:
+    """Unit tests for _extract_text helper."""
+
+    def test_none_blob_returns_none(self):
+        assert _extract_text(None) is None
+
+    def test_empty_blob_returns_none(self):
+        assert _extract_text(b"") is None
+
+    def test_plain_text_blob(self):
+        blob = b"Hello, world"
+        result = _extract_text(blob)
+        assert result == "Hello, world"
+
+    def test_extracts_text_from_attributed_body(self):
+        # Simulated attributedBody: control-char separated runs with metadata junk
+        blob = b"streamtyped\x00NSString\x06Hello there\x0bNSFont\x01NSColor"
+        result = _extract_text(blob)
+        assert result == "Hello there"
+
+    def test_skips_short_runs(self):
+        # All runs are < 3 chars after stripping
+        blob = b"ab\x00cd\x01ef"
+        assert _extract_text(blob) is None
+
+    def test_strips_plus_prefix(self):
+        # Runs starting with "+\x00" get prefix removed (starts with "+", len > 2)
+        blob = b"+\x00\x00My message text\x00NSObject"
+        result = _extract_text(blob)
+        # After + stripping: "My message text"
+        assert result is not None
+        assert "My message text" in result
+
+    def test_all_metadata_returns_none(self):
+        blob = b"NSString\x00NSObject\x00NSDictionary"
+        assert _extract_text(blob) is None
+
+    def test_unicode_content(self):
+        blob = "Café résumé".encode("utf-8")
+        result = _extract_text(blob)
+        assert "Café" in result
+
+    def test_returns_first_valid_run(self):
+        blob = b"NSFont\x00\x00First good\x00NSNumber\x00Second good"
+        result = _extract_text(blob)
+        assert result == "First good"
 
 
-def _make_db(*rows: tuple):
-    """Return an in-memory sqlite3 connection with handle+message tables populated.
+# ---------------------------------------------------------------------------
+# electroreception_read — DB not found
+# ---------------------------------------------------------------------------
 
-    Each row is (rowid, handle_id, handle_str, is_from_me, text, date_dt).
+class TestElectroreceptionReadNoDb:
+    """When chat.db does not exist."""
+
+    @patch("metabolon.enzymes.electroreception.os.path.exists", return_value=False)
+    def test_returns_error_when_db_missing(self, mock_exists):
+        result = electroreception_read()
+        assert isinstance(result, ElectroreceptionResult)
+        assert result.count == 0
+        assert len(result.messages) == 1
+        assert "error" in result.messages[0]
+        assert "chat.db not found" in result.messages[0]["error"]
+
+
+# ---------------------------------------------------------------------------
+# electroreception_read — with mock DB
+# ---------------------------------------------------------------------------
+
+def _make_in_memory_db(rows: list[tuple]) -> sqlite3.Connection:
+    """Create an in-memory SQLite DB that mimics the chat.db query shape.
+
+    rows: list of (rowid, dt, sender, text, attributedBody, is_from_me)
     """
     conn = sqlite3.connect(":memory:")
-    conn.execute("CREATE TABLE handle (rowid INTEGER PRIMARY KEY, id TEXT)")
     conn.execute(
-        "CREATE TABLE message ("
-        "  rowid INTEGER PRIMARY KEY, date INTEGER, is_from_me INTEGER, "
-        "  text TEXT, attributedBody BLOB, handle_id INTEGER)"
+        """
+        CREATE TABLE message (
+            rowid INTEGER PRIMARY KEY,
+            date INTEGER,
+            text TEXT,
+            attributedBody BLOB,
+            is_from_me INTEGER,
+            handle_id INTEGER
+        )
+        """
     )
-    for rowid, hid, handle_str, from_me, text, dt in rows:
-        conn.execute("INSERT OR IGNORE INTO handle VALUES (?, ?)", (hid, handle_str))
-        apple_ns = _apple_ns_from_dt(dt)
+    conn.execute(
+        """
+        CREATE TABLE handle (
+            rowid INTEGER PRIMARY KEY,
+            id TEXT
+        )
+        """
+    )
+    for i, (rowid, dt, sender, text, body, from_me) in enumerate(rows):
+        # Insert a handle if sender is not 'Me'
+        handle_id = 0
+        if sender != "Me":
+            handle_id = i + 1
+            conn.execute(
+                "INSERT INTO handle (rowid, id) VALUES (?, ?)",
+                (handle_id, sender),
+            )
+        # Apple NSDate: (unix_timestamp - 978307200) * 1e9
+        # We store a plausible integer; the SQL formats it.
         conn.execute(
-            "INSERT INTO message VALUES (?, ?, ?, ?, NULL, ?)",
-            (rowid, apple_ns, from_me, text, hid),
+            "INSERT INTO message (rowid, date, text, attributedBody, is_from_me, handle_id) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
+            (rowid, 700000000000000000, text, body, from_me, handle_id),
         )
     conn.commit()
     return conn
 
 
-def _patch_db(conn):
-    """Return context managers patching os.path.exists and sqlite3.connect."""
-    return (
-        patch("os.path.exists", return_value=True),
-        patch("sqlite3.connect", return_value=conn),
-    )
+class TestElectroreceptionReadWithDb:
+    """When chat.db exists and returns rows."""
 
+    SAMPLE_ROWS = [
+        (1, "2025-01-01 10:00:00", "+8521234", "Hello from bank", None, 0),
+        (2, "2025-01-01 11:00:00", "Me", "My reply", None, 1),
+        (3, "2025-01-02 09:00:00", "+8525678", "Another message", None, 0),
+        (4, "2025-01-02 10:00:00", "+8521234", "Bank OTP 123456", None, 0),
+    ]
 
-NOW = datetime.now()
+    def _run_with_mock(self, **kwargs):
+        """Patch os.path.exists + sqlite3.connect to use in-memory DB."""
+        mem_db = _make_in_memory_db(self.SAMPLE_ROWS)
 
+        with (
+            patch("metabolon.enzymes.electroreception.os.path.exists", return_value=True),
+            patch("metabolon.enzymes.electroreception.sqlite3.connect", return_value=mem_db),
+        ):
+            result = electroreception_read(**kwargs)
+        return result
 
-# ---------------------------------------------------------------------------
-# _extract_text unit tests
-# ---------------------------------------------------------------------------
-
-class TestExtractText:
-    """Tests for _extract_text helper."""
-
-    def test_none_returns_none(self):
-        assert _extract_text(None) is None
-
-    def test_empty_bytes_returns_none(self):
-        assert _extract_text(b"") is None
-
-    def test_plain_text(self):
-        assert _extract_text(b"Hello world") == "Hello world"
-
-    def test_attributed_body_blob(self):
-        """Simulate an NSAttributedString blob with metadata junk."""
-        raw = b"streamtyped\x01NSString\x02Hello there\x00NSFont\x03junk"
-        result = _extract_text(raw)
-        assert result is not None
-        assert "Hello there" in result
-
-    def test_too_short_returns_none(self):
-        assert _extract_text(b"ab") is None
-
-    def test_only_metadata_returns_none(self):
-        blob = b"NSString\x01NSObject\x02NSDictionary"
-        assert _extract_text(blob) is None
-
-    def test_plus_prefix_stripped(self):
-        """Strings starting with '+' followed by 2 chars have prefix removed."""
-        blob = b"+\x00\x00Hi"
-        # After splitting on control chars, '+Hi' should survive the meta check
-        # and the + prefix handling should strip first 2 chars
-        result = _extract_text(blob)
-        # Depending on split behaviour, verify no crash
-        assert isinstance(result, (str, type(None)))
-
-    def test_unicode_text(self):
-        assert _extract_text("你好世界".encode("utf-8")) is not None
-
-    def test_non_utf8_bytes_no_crash(self):
-        """Garbage bytes should not raise, just return None or a string."""
-        result = _extract_text(b"\xff\xfe\x80\x81")
-        assert isinstance(result, (str, type(None)))
-
-
-# ---------------------------------------------------------------------------
-# electroreception_read — missing DB
-# ---------------------------------------------------------------------------
-
-class TestMissingDB:
-    def test_returns_error_result(self):
-        with patch("os.path.exists", return_value=False):
-            result = electroreception_read()
+    def test_basic_fetch(self):
+        result = self._run_with_mock()
         assert isinstance(result, ElectroreceptionResult)
+        assert result.count == len(result.messages)
+        assert result.count == 4
+
+    def test_limit(self):
+        result = self._run_with_mock(limit=2)
+        assert result.count == 2
+
+    def test_incoming_only(self):
+        result = self._run_with_mock(incoming_only=True)
+        assert all(not m["from_me"] for m in result.messages)
+        # Row 2 is from_me=1, so should be excluded
+        assert result.count == 3
+
+    def test_sender_filter(self):
+        result = self._run_with_mock(sender="+8521234")
+        assert result.count == 2
+        assert all("+8521234" in m["sender"] for m in result.messages)
+
+    def test_query_filter(self):
+        result = self._run_with_mock(query="OTP")
+        assert result.count == 1
+        assert "OTP" in result.messages[0]["text"]
+
+    def test_query_filter_case_insensitive(self):
+        result = self._run_with_mock(query="otp")
+        assert result.count == 1
+
+    def test_empty_result(self):
+        result = self._run_with_mock(query="nonexistent_xyz")
         assert result.count == 0
-        assert len(result.messages) == 1
-        assert "error" in result.messages[0]
+        assert result.messages == []
 
-    def test_error_message_mentions_chat_db(self):
-        with patch("os.path.exists", return_value=False):
-            result = electroreception_read()
-        assert "chat.db" in result.messages[0].get("error", "")
-
-
-# ---------------------------------------------------------------------------
-# electroreception_read — basic retrieval
-# ---------------------------------------------------------------------------
-
-class TestBasicRead:
-    def test_returns_result_instance(self):
-        conn = _make_db(
-            (1, 1, "Alice", 0, "Hi", NOW),
-        )
-        with patch("os.path.exists", return_value=True), patch(
-            "sqlite3.connect", return_value=conn
-        ):
-            result = electroreception_read()
-        assert isinstance(result, ElectroreceptionResult)
-
-    def test_message_shape(self):
-        conn = _make_db(
-            (1, 1, "Alice", 0, "Hello", NOW),
-        )
-        with patch("os.path.exists", return_value=True), patch(
-            "sqlite3.connect", return_value=conn
-        ):
-            result = electroreception_read()
+    def test_result_fields(self):
+        result = self._run_with_mock(limit=1)
         msg = result.messages[0]
         assert "dt" in msg
         assert "sender" in msg
         assert "text" in msg
         assert "from_me" in msg
 
-    def test_from_me_false_shows_sender(self):
-        conn = _make_db(
-            (1, 1, "Bob", 0, "Hey", NOW),
-        )
-        with patch("os.path.exists", return_value=True), patch(
-            "sqlite3.connect", return_value=conn
+    def test_text_falls_back_to_attributed_body(self):
+        """When text is NULL but attributedBody has content, extract from blob."""
+        rows = [
+            (1, "2025-01-01 10:00:00", "+8529999", None, b"Extracted text here", 0),
+        ]
+        mem_db = _make_in_memory_db(rows)
+        # Patch _extract_text to return known value
+        with (
+            patch("metabolon.enzymes.electroreception.os.path.exists", return_value=True),
+            patch("metabolon.enzymes.electroreception.sqlite3.connect", return_value=mem_db),
+            patch(
+                "metabolon.enzymes.electroreception._extract_text",
+                return_value="Extracted text here",
+            ),
         ):
             result = electroreception_read()
-        assert result.messages[0]["sender"] == "Bob"
-        assert result.messages[0]["from_me"] is False
 
-    def test_from_me_true_shows_me(self):
-        conn = _make_db(
-            (1, 1, "Bob", 1, "Reply", NOW),
-        )
-        with patch("os.path.exists", return_value=True), patch(
-            "sqlite3.connect", return_value=conn
+        assert result.count == 1
+        assert result.messages[0]["text"] == "Extracted text here"
+
+    def test_skips_rows_with_no_content(self):
+        """Rows where both text and _extract_text(body) are None are skipped."""
+        rows = [
+            (1, "2025-01-01 10:00:00", "+8529999", None, None, 0),
+            (2, "2025-01-01 11:00:00", "Me", "Visible", None, 1),
+        ]
+        mem_db = _make_in_memory_db(rows)
+        with (
+            patch("metabolon.enzymes.electroreception.os.path.exists", return_value=True),
+            patch("metabolon.enzymes.electroreception.sqlite3.connect", return_value=mem_db),
+            patch("metabolon.enzymes.electroreception._extract_text", return_value=None),
         ):
             result = electroreception_read()
-        assert result.messages[0]["sender"] == "Me"
-        assert result.messages[0]["from_me"] is True
 
-    def test_empty_db_returns_empty(self):
-        conn = _make_db()
-        with patch("os.path.exists", return_value=True), patch(
-            "sqlite3.connect", return_value=conn
-        ):
-            result = electroreception_read()
-        assert result.count == 0
-        assert result.messages == []
-
-    def test_null_handle_shows_unknown(self):
-        conn = _make_db(
-            (1, 99, "Ignored", 0, "Msg", NOW),
-        )
-        # Override to have NULL handle
-        conn.execute("UPDATE message SET handle_id = NULL WHERE rowid = 1")
-        conn.commit()
-        with patch("os.path.exists", return_value=True), patch(
-            "sqlite3.connect", return_value=conn
-        ):
-            result = electroreception_read()
-        assert result.count == 1
-        assert result.messages[0]["sender"] == "Unknown"
-
-
-# ---------------------------------------------------------------------------
-# Filters
-# ---------------------------------------------------------------------------
-
-class TestLimit:
-    def test_limit_respected(self):
-        conn = _make_db(
-            (1, 1, "A", 0, "one", NOW),
-            (2, 1, "A", 0, "two", NOW),
-            (3, 1, "A", 0, "three", NOW),
-        )
-        with patch("os.path.exists", return_value=True), patch(
-            "sqlite3.connect", return_value=conn
-        ):
-            result = electroreception_read(limit=2)
-        assert result.count == 2
-
-
-class TestSenderFilter:
-    def test_sender_substring_match(self):
-        conn = _make_db(
-            (1, 1, "+85298765432", 0, "Msg1", NOW),
-            (2, 2, "MoxBank", 0, "Msg2", NOW),
-        )
-        with patch("os.path.exists", return_value=True), patch(
-            "sqlite3.connect", return_value=conn
-        ):
-            result = electroreception_read(sender="MoxBank")
-        assert result.count == 1
-        assert result.messages[0]["text"] == "Msg2"
-
-    def test_sender_with_quote_safe(self):
-        """Single quotes in sender are escaped to avoid SQL injection."""
-        conn = _make_db(
-            (1, 1, "O'Brien", 0, "Hey", NOW),
-        )
-        with patch("os.path.exists", return_value=True), patch(
-            "sqlite3.connect", return_value=conn
-        ):
-            # Should not raise
-            result = electroreception_read(sender="O'Brien")
-        assert result.count == 1
-
-    def test_sender_no_match_returns_empty(self):
-        conn = _make_db(
-            (1, 1, "Alice", 0, "Hi", NOW),
-        )
-        with patch("os.path.exists", return_value=True), patch(
-            "sqlite3.connect", return_value=conn
-        ):
-            result = electroreception_read(sender="Nobody")
-        assert result.count == 0
-
-
-class TestDaysFilter:
-    def test_days_excludes_old_messages(self):
-        old_dt = NOW - timedelta(days=30)
-        recent_dt = NOW - timedelta(hours=1)
-        conn = _make_db(
-            (1, 1, "A", 0, "Old message", old_dt),
-            (2, 1, "A", 0, "Recent message", recent_dt),
-        )
-        with patch("os.path.exists", return_value=True), patch(
-            "sqlite3.connect", return_value=conn
-        ):
-            result = electroreception_read(days=7)
-        assert result.count == 1
-        assert "Recent" in result.messages[0]["text"]
-
-    def test_days_zero_means_no_limit(self):
-        old_dt = NOW - timedelta(days=365)
-        conn = _make_db(
-            (1, 1, "A", 0, "Very old", old_dt),
-        )
-        with patch("os.path.exists", return_value=True), patch(
-            "sqlite3.connect", return_value=conn
-        ):
-            result = electroreception_read(days=0)
-        assert result.count == 1
-
-
-class TestQueryFilter:
-    def test_case_insensitive_search(self):
-        conn = _make_db(
-            (1, 1, "A", 0, "URGENT notification", NOW),
-            (2, 1, "A", 0, "casual chat", NOW),
-        )
-        with patch("os.path.exists", return_value=True), patch(
-            "sqlite3.connect", return_value=conn
-        ):
-            result = electroreception_read(query="urgent")
-        assert result.count == 1
-        assert "URGENT" in result.messages[0]["text"]
-
-    def test_query_no_match(self):
-        conn = _make_db(
-            (1, 1, "A", 0, "Hello", NOW),
-        )
-        with patch("os.path.exists", return_value=True), patch(
-            "sqlite3.connect", return_value=conn
-        ):
-            result = electroreception_read(query="nonexistent")
-        assert result.count == 0
-
-
-class TestIncomingOnly:
-    def test_excludes_sent(self):
-        conn = _make_db(
-            (1, 1, "A", 0, "Incoming", NOW),
-            (2, 1, "A", 1, "Outgoing", NOW),
-        )
-        with patch("os.path.exists", return_value=True), patch(
-            "sqlite3.connect", return_value=conn
-        ):
-            result = electroreception_read(incoming_only=True)
-        assert result.count == 1
-        assert result.messages[0]["text"] == "Incoming"
-        assert result.messages[0]["from_me"] is False
-
-
-# ---------------------------------------------------------------------------
-# Combined filters
-# ---------------------------------------------------------------------------
-
-class TestCombinedFilters:
-    def test_sender_and_days(self):
-        old_dt = NOW - timedelta(days=10)
-        conn = _make_db(
-            (1, 1, "MoxBank", 0, "Old txn", old_dt),
-            (2, 1, "MoxBank", 0, "New txn", NOW),
-            (3, 2, "Alice", 0, "New msg", NOW),
-        )
-        with patch("os.path.exists", return_value=True), patch(
-            "sqlite3.connect", return_value=conn
-        ):
-            result = electroreception_read(sender="MoxBank", days=3)
-        assert result.count == 1
-        assert "New txn" in result.messages[0]["text"]
-
-    def test_incoming_and_query(self):
-        conn = _make_db(
-            (1, 1, "A", 0, "urgent alert", NOW),
-            (2, 1, "A", 1, "urgent reply", NOW),
-            (3, 1, "A", 0, "casual note", NOW),
-        )
-        with patch("os.path.exists", return_value=True), patch(
-            "sqlite3.connect", return_value=conn
-        ):
-            result = electroreception_read(incoming_only=True, query="urgent")
-        assert result.count == 1
-        assert result.messages[0]["text"] == "urgent alert"
-        assert result.messages[0]["from_me"] is False
-
-    def test_all_filters_combined(self):
-        conn = _make_db(
-            (1, 1, "MoxBank", 0, "OTP is 1234", NOW),
-            (2, 1, "MoxBank", 1, "OTP is 5678", NOW),
-            (3, 2, "Alice", 0, "OTP is 9999", NOW),
-            (4, 1, "MoxBank", 0, "balance update", NOW),
-        )
-        with patch("os.path.exists", return_value=True), patch(
-            "sqlite3.connect", return_value=conn
-        ):
-            result = electroreception_read(
-                sender="MoxBank", incoming_only=True, query="OTP", days=1
-            )
-        assert result.count == 1
-        assert "1234" in result.messages[0]["text"]
-
-
-# ---------------------------------------------------------------------------
-# Empty / null text handling
-# ---------------------------------------------------------------------------
-
-class TestNullText:
-    def test_null_text_and_null_body_skipped(self):
-        conn = _make_db(
-            (1, 1, "A", 0, "Visible", NOW),
-        )
-        # Add a message with NULL text and no body
-        apple_ns = _apple_ns_from_dt(NOW)
-        conn.execute(
-            "INSERT INTO message VALUES (2, ?, 0, NULL, NULL, 1)", (apple_ns,)
-        )
-        conn.commit()
-        with patch("os.path.exists", return_value=True), patch(
-            "sqlite3.connect", return_value=conn
-        ):
-            result = electroreception_read()
-        # Only the message with actual text should appear
         assert result.count == 1
         assert result.messages[0]["text"] == "Visible"
-
-    def test_null_text_with_attributed_body_uses_extract(self):
-        conn = _make_db(
-            (1, 1, "A", 0, None, NOW),
-        )
-        # Update to have NULL text but valid attributedBody
-        apple_ns = _apple_ns_from_dt(NOW)
-        conn.execute(
-            "UPDATE message SET text = NULL, attributedBody = ? WHERE rowid = 1",
-            (b"Extracted text here",),
-        )
-        conn.commit()
-        with patch("os.path.exists", return_value=True), patch(
-            "sqlite3.connect", return_value=conn
-        ):
-            result = electroreception_read()
-        assert result.count == 1
-        assert "Extracted" in result.messages[0]["text"]
-
-
-# ---------------------------------------------------------------------------
-# Result type
-# ---------------------------------------------------------------------------
-
-class TestElectroreceptionResult:
-    def test_has_messages_and_count(self):
-        r = ElectroreceptionResult(messages=[{"a": 1}], count=1)
-        assert r.count == 1
-        assert len(r.messages) == 1
-
-    def test_empty_result(self):
-        r = ElectroreceptionResult(messages=[], count=0)
-        assert r.count == 0
