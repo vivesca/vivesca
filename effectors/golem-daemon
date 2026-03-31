@@ -736,9 +736,11 @@ def main():
         return cmd_status()
     elif cmd == "clean":
         return cmd_clean()
+    elif cmd == "retry-all":
+        return cmd_retry_all()
     else:
         print(f"Unknown command: {cmd}")
-        print("Commands: start, stop, status, clean")
+        print("Commands: start, stop, status, clean, retry-all")
         return 1
 
 if __name__ == "__main__":
