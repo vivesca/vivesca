@@ -203,12 +203,12 @@ _run_golem() {
 if $BATCH; then
   for mod in "$@"; do
     echo ">>> golem: $mod"
-    _run_golem "Read $mod. Write comprehensive tests to assays/test_$(basename "${mod%.py}").py. Mock external calls and file I/O. Run: uv run pytest assays/test_$(basename "${mod%.py}").py -v --tb=short. Fix any failures. Then git add the test file and git commit -m 'golem: tests for $(basename "${mod%.py}")'." || true
+    _run_golem "Read $mod. Write comprehensive tests to assays/test_$(basename "${mod%.py}").py. NOTE: Effectors are scripts, not importable modules. Load via exec(open(path).read(), {\"__name__\": \"test_module\"}) or test via subprocess.run. NEVER use import <effector_name>. Mock external calls and file I/O. Run: uv run pytest assays/test_$(basename "${mod%.py}").py -v --tb=short. Fix any failures. Then git add the test file and git commit -m 'golem: tests for $(basename "${mod%.py}")'." || true
     echo
   done
 elif $TEST; then
   mod="$1"
-  _run_golem "Read $mod. Write comprehensive tests to assays/test_$(basename "${mod%.py}").py. Mock external calls and file I/O. Run: uv run pytest assays/test_$(basename "${mod%.py}").py -v --tb=short. Fix any failures. Then git add the test file and git commit -m 'golem: tests for $(basename "${mod%.py}")'."
+  _run_golem "Read $mod. Write comprehensive tests to assays/test_$(basename "${mod%.py}").py. NOTE: Effectors are scripts, not importable modules. Load via exec(open(path).read(), {\"__name__\": \"test_module\"}) or test via subprocess.run. NEVER use import <effector_name>. Mock external calls and file I/O. Run: uv run pytest assays/test_$(basename "${mod%.py}").py -v --tb=short. Fix any failures. Then git add the test file and git commit -m 'golem: tests for $(basename "${mod%.py}")'."
 else
   _run_golem "$*"
 fi

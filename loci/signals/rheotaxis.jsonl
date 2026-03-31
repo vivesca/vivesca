@@ -236,3 +236,9 @@
 {"ts": "2026-03-31T08:01:39+00:00", "model": "sonar-pro", "query": "\u706b\u5c71\u65b9\u821f ark API key \u683c\u5f0f \"API key format is incorrect\" UUID \"d3f\" OR \"ark-\" OR \"sk-\""}
 {"ts": "2026-03-31T08:49:51+00:00", "model": "sonar", "query": "test"}
 {"ts": "2026-03-31T09:50:00+00:00", "model": "sonar", "query": "test"}
+{"ts": "2026-03-31T10:23:39+00:00", "model": "sonar-pro", "query": "SFC Hong Kong AI financial services 2025 2026 model risk"}
+{"ts": "2026-03-31T10:23:42+00:00", "model": "sonar-pro", "query": "HKMA AI banking guidance 2025 2026 model risk management governance"}
+{"ts": "2026-03-31T10:23:42+00:00", "model": "sonar-pro", "query": "MAS Singapore AI governance banking 2025 2026 GenAI policy"}
+{"ts": "2026-03-31T10:24:24+00:00", "model": "sonar-pro", "query": "Hong Kong financial services consulting competitors Capco McKinsey BCG Oliver Wyman"}
+{"ts": "2026-03-31T10:24:25+00:00", "model": "sonar-pro", "query": "Capco consulting APAC banking AI projects 2025 2026"}
+{"ts": "2026-03-31T10:24:25+00:00", "model": "sonar-pro", "query": "Capco consulting methodology delivery approach agile banking transformation"}

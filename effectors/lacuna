@@ -68,7 +68,7 @@ def _client(timeout=TIMEOUT) -> httpx.Client:
 
 def s(text) -> str:
     """Escape Rich markup in any API-sourced string."""
-    return escape(str(text)) if text else ""
+    return escape(str(text)) if text is not None else ""
 
 def resolve(name: str) -> str:
     name = name.strip()
