@@ -158,7 +158,7 @@ _run_golem() {
   env_args+=(API_TIMEOUT_MS=3000000)
   env_args+=(CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1)
 
-  output=$(env "${env_args[@]}" claude "${args[@]}" -p "$prompt" 2>&1)
+  output=$(env "${env_args[@]}" claude "${args[@]}" -p "$prompt" < /dev/null 2>&1)
   local exit_code=$?
   local duration=$(( $(date +%s) - start_ts ))
   local short_prompt="${prompt:0:100}"
