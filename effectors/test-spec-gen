@@ -73,13 +73,40 @@ def generate_spec(module_path: str, wave: int | None = None) -> Path:
     plan_name = f"{wave_label}test-{name}"
     plan_path = PLANS_DIR / f"{plan_name}.md"
 
+    # For large modules (>200 lines), embed only API signatures + docstrings
+    # to avoid exceeding goose's prompt limit (~8K tokens effective)
+    MAX_EMBED_LINES = 200
+    if lines <= MAX_EMBED_LINES:
+        source_block = f"## Source code (DO NOT MODIFY — read-only reference)\n\n```python\n{source}\n```"
+    else:
+        # Extract signatures and docstrings only
+        sig_lines = []
+        in_docstring = False
+        docstring_delim = 0
+        for line in source.splitlines():
+            stripped = line.strip()
+            # Keep imports, class/def lines, and docstrings
+            if stripped.startswith(("import ", "from ")):
+                sig_lines.append(line)
+            elif stripped.startswith(("def ", "class ", "@")):
+                sig_lines.append(line)
+                in_docstring = False
+            elif '"""' in stripped and not in_docstring:
+                sig_lines.append(line)
+                if stripped.count('"""') == 1:
+                    in_docstring = True
+            elif in_docstring:
+                sig_lines.append(line)
+                if '"""' in stripped:
+                    in_docstring = False
+        source_block = (
+            f"## API signatures (module is {lines} lines — read `{module_path}` for full source)\n\n"
+            f"```python\n" + "\n".join(sig_lines) + "\n```"
+        )
+
     spec = f"""# Test: {module_path}
 
-## Source code (DO NOT MODIFY — read-only reference)
-
-```python
-{source}
-```
+{source_block}
 
 ## Task
 
