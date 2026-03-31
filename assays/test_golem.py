@@ -295,30 +295,29 @@ class TestDaemonValidateGolemOutput:
         assert errors == []
 
 
-class TestDaemonConfigureProvider:
-    def test_zhipu_config(self):
-        ns = _load("golem-daemon")
-        with patch.dict(os.environ, {"ZHIPU_API_KEY": "sk-test"}):
-            ns._configure_provider("zhipu")
-        assert ns._URL == "https://open.bigmodel.cn/api/anthropic"
-        assert ns._OPUS == "GLM-5.1"
+class TestDaemonRunGolem:
+    """Test run_golem with mocked subprocess."""
 
-    def test_volcano_config(self):
+    def test_run_golem_success(self):
         ns = _load("golem-daemon")
-        with patch.dict(os.environ, {"VOLCANO_API_KEY": "sk-test"}):
-            ns._configure_provider("volcano")
-        assert ns._AUTH_MODE == "token"
+        mock_result = MagicMock()
+        mock_result.returncode = 0
+        mock_result.stdout = "all tests passed"
+        mock_result.stderr = ""
+        with patch("subprocess.run", return_value=mock_result):
+            cmd, exit_code, tail = ns.run_golem('golem "test"')
+        assert exit_code == 0
+        assert "test" in cmd
 
-    def test_unknown_provider_returns_error(self):
+    def test_run_golem_failure(self):
         ns = _load("golem-daemon")
-        with pytest.raises(SystemExit):
-            ns._configure_provider("nonexistent")
-
-    def test_infini_config(self):
-        ns = _load("golem-daemon")
-        with patch.dict(os.environ, {"INFINI_API_KEY": "sk-test"}):
-            ns._configure_provider("infini")
-        assert ns._URL == "https://cloud.infini-ai.com/maas/coding"
+        mock_result = MagicMock()
+        mock_result.returncode = 1
+        mock_result.stdout = ""
+        mock_result.stderr = "error occurred"
+        with patch("subprocess.run", return_value=mock_result):
+            _, exit_code, _ = ns.run_golem('golem "test"')
+        assert exit_code == 1
 
 
 class TestDaemonGolemEnv:
