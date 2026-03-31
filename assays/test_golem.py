@@ -2,6 +2,8 @@
 golem-reviewer, golem-validate).
 
 Effectors are scripts — loaded via exec(open(path).read(), ns), never imported.
+All function calls use dict-style access: ns["func"]().
+Constants patched by mutating ns dict directly (save/restore pattern).
 """
 from __future__ import annotations
 
@@ -11,48 +13,60 @@ import re
 import shutil
 import subprocess
 import sys
-import textwrap
-import time
 import types
 from pathlib import Path
-from unittest.mock import MagicMock, patch, call
+from unittest.mock import MagicMock, patch
 
 import pytest
 
 EFFECTORS_DIR = Path(__file__).resolve().parent.parent / "effectors"
-ASSAYS_DIR = Path(__file__).resolve().parent
 
 
 # ---------------------------------------------------------------------------
-# Helpers: load script namespaces
+# Helpers
 # ---------------------------------------------------------------------------
 
-
-class _AttrDict(dict):
-    """Dict subclass that supports attribute access for exec'd namespaces.
-
-    exec() stores functions with the dict as __globals__, so we must keep
-    the *same* dict object.  Attribute access delegates to dict get/set
-    so that ``ns.QUEUE_FILE = path`` mutates the globals the functions read.
-    """
-
-    def __getattr__(self, key):
-        try:
-            return self[key]
-        except KeyError:
-            raise AttributeError(key)
-
-    def __setattr__(self, key, value):
-        self[key] = value
-
-
-def _load(name: str) -> _AttrDict:
-    """Load a Python effector into an attribute-accessible namespace."""
+def _load_script(name: str) -> dict:
+    """Load a Python effector into a namespace dict."""
     path = EFFECTORS_DIR / name
     assert path.exists(), f"Effector not found: {path}"
-    ns = _AttrDict({"__name__": "test_golem_module", "__file__": str(path)})
-    exec(path.read_text(), ns)
-    return ns
+    mod_name = f"_test_golem_{name.replace('-', '_')}"
+    # Create a real module in sys.modules (needed for @dataclass in golem-health)
+    mod = types.ModuleType(mod_name)
+    mod.__file__ = str(path)
+    old_mod = sys.modules.get(mod_name)
+    sys.modules[mod_name] = mod
+    try:
+        exec(path.read_text(), mod.__dict__)
+    except Exception:
+        sys.modules.pop(mod_name, None)
+        if old_mod is not None:
+            sys.modules[mod_name] = old_mod
+        raise
+    return mod.__dict__
+
+
+class ns_proxy:
+    """Proxy that wraps a dict so `ns.func()` works via dict access.
+    Also keeps attribute mutations in sync with the underlying dict."""
+    def __init__(self, d: dict):
+        self.__dict__["_d"] = d
+
+    def __getattr__(self, name):
+        try:
+            return self._d[name]
+        except KeyError:
+            raise AttributeError(f"namespace has no {name!r}")
+
+    def __setattr__(self, name, value):
+        self._d[name] = value
+
+    def __delattr__(self, name):
+        self._d.pop(name, None)
+
+
+def _load(name: str) -> ns_proxy:
+    return ns_proxy(_load_script(name))
 
 
 # ---------------------------------------------------------------------------
@@ -83,8 +97,7 @@ def tmp_jsonl(tmp_path):
         {"provider": "zhipu", "exit": 1, "duration": 60, "tests_passed": 0},
         {"provider": "volcano", "exit": 0, "duration": 200, "tests_passed": 5},
     ]
-    lines = [json.dumps(r) for r in records]
-    j.write_text("\n".join(lines) + "\n")
+    j.write_text("\n".join(json.dumps(r) for r in records) + "\n")
     return j
 
 
@@ -95,86 +108,86 @@ def tmp_jsonl(tmp_path):
 
 class TestDaemonParseQueue:
     def test_parse_pending_tasks(self, tmp_queue):
-        mod = _load("golem-daemon")
-        mod.QUEUE_FILE = tmp_queue
-        result = mod.parse_queue()
+        ns = _load("golem-daemon")
+        ns.QUEUE_FILE = tmp_queue
+        result = ns.parse_queue()
         assert len(result) == 3
         assert result[0][1] == 'golem "Write tests for foo.py"'
         assert "--provider zhipu" in result[1][1]
 
     def test_parse_empty_queue(self, tmp_path):
-        mod = _load("golem-daemon")
+        ns = _load("golem-daemon")
         q = tmp_path / "empty.md"
         q.write_text("# Empty\n")
-        mod.QUEUE_FILE = q
-        assert mod.parse_queue() == []
+        ns.QUEUE_FILE = q
+        assert ns.parse_queue() == []
 
     def test_parse_missing_file(self, tmp_path):
-        mod = _load("golem-daemon")
-        mod.QUEUE_FILE = tmp_path / "nonexistent.md"
-        assert mod.parse_queue() == []
+        ns = _load("golem-daemon")
+        ns.QUEUE_FILE = tmp_path / "nonexistent.md"
+        assert ns.parse_queue() == []
 
     def test_parse_skips_done_tasks(self, tmp_path):
-        mod = _load("golem-daemon")
+        ns = _load("golem-daemon")
         q = tmp_path / "q.md"
         q.write_text(
             '- [ ] `golem "task A"`\n'
             '- [x] `golem "task B"`\n'
             '- [!] `golem "task C"`\n'
         )
-        mod.QUEUE_FILE = q
-        result = mod.parse_queue()
+        ns.QUEUE_FILE = q
+        result = ns.parse_queue()
         assert len(result) == 1
         assert "task A" in result[0][1]
 
     def test_parse_non_golem_command_skipped(self, tmp_path):
-        mod = _load("golem-daemon")
+        ns = _load("golem-daemon")
         q = tmp_path / "q.md"
         q.write_text(
             '- [ ] `echo hello`\n'
             '- [ ] `golem "real task"`\n'
         )
-        mod.QUEUE_FILE = q
-        result = mod.parse_queue()
+        ns.QUEUE_FILE = q
+        result = ns.parse_queue()
         assert len(result) == 1
 
 
 class TestDaemonParseProvider:
     def test_explicit_provider(self):
-        mod = _load("golem-daemon")
-        assert mod.parse_provider('golem --provider zhipu "test"') == "zhipu"
+        ns = _load("golem-daemon")
+        assert ns.parse_provider('golem --provider zhipu "test"') == "zhipu"
 
     def test_no_provider_returns_default(self):
-        mod = _load("golem-daemon")
-        assert mod.parse_provider('golem "test"') == "default"
+        ns = _load("golem-daemon")
+        assert ns.parse_provider('golem "test"') == "default"
 
     def test_volcano_provider(self):
-        mod = _load("golem-daemon")
-        assert mod.parse_provider("golem --provider volcano task") == "volcano"
+        ns = _load("golem-daemon")
+        assert ns.parse_provider("golem --provider volcano task") == "volcano"
 
     def test_infini_provider(self):
-        mod = _load("golem-daemon")
-        assert mod.parse_provider("golem --provider infini task") == "infini"
+        ns = _load("golem-daemon")
+        assert ns.parse_provider("golem --provider infini task") == "infini"
 
 
 class TestDaemonProviderLimits:
     def test_known_provider(self):
-        mod = _load("golem-daemon")
-        assert mod.get_provider_limit("zhipu") == 8
+        ns = _load("golem-daemon")
+        assert ns.get_provider_limit("zhipu") == 8
 
     def test_unknown_provider(self):
-        mod = _load("golem-daemon")
-        assert mod.get_provider_limit("unknown") == 4
+        ns = _load("golem-daemon")
+        assert ns.get_provider_limit("unknown") == 4
 
     def test_volcano_limit(self):
-        mod = _load("golem-daemon")
-        assert mod.get_provider_limit("volcano") == 16
+        ns = _load("golem-daemon")
+        assert ns.get_provider_limit("volcano") == 16
 
 
 class TestDaemonCheckDiskSpace:
     def test_returns_tuple(self):
-        mod = _load("golem-daemon")
-        ok, free = mod.check_disk_space()
+        ns = _load("golem-daemon")
+        ok, free = ns.check_disk_space()
         assert isinstance(ok, bool)
         assert isinstance(free, int)
         assert ok is True
@@ -183,197 +196,197 @@ class TestDaemonCheckDiskSpace:
 
 class TestDaemonReadPid:
     def test_no_pidfile(self, tmp_path):
-        mod = _load("golem-daemon")
-        mod.PIDFILE = tmp_path / "nope.pid"
-        assert mod.read_pid() is None
+        ns = _load("golem-daemon")
+        ns.PIDFILE = tmp_path / "nope.pid"
+        assert ns.read_pid() is None
 
     def test_stale_pidfile(self, tmp_path):
-        mod = _load("golem-daemon")
+        ns = _load("golem-daemon")
         pidfile = tmp_path / "golem-daemon.pid"
         pidfile.write_text("99999999")
-        mod.PIDFILE = pidfile
-        assert mod.read_pid() is None
+        ns.PIDFILE = pidfile
+        assert ns.read_pid() is None
         assert not pidfile.exists()
 
     def test_valid_pidfile(self, tmp_path):
-        mod = _load("golem-daemon")
+        ns = _load("golem-daemon")
         pidfile = tmp_path / "golem-daemon.pid"
         pidfile.write_text(str(os.getpid()))
-        mod.PIDFILE = pidfile
-        assert mod.read_pid() == os.getpid()
+        ns.PIDFILE = pidfile
+        assert ns.read_pid() == os.getpid()
 
 
 class TestDaemonMarkDone:
     def test_mark_done_replaces_checkbox(self, tmp_queue):
-        mod = _load("golem-daemon")
-        mod.QUEUE_FILE = tmp_queue
+        ns = _load("golem-daemon")
+        ns.QUEUE_FILE = tmp_queue
         lock_path = tmp_queue.parent / "golem-queue.lock"
-        mod.QueueLock._lock_path = lock_path
-        mod.mark_done(4, "exit=0")
+        ns.QueueLock._lock_path = lock_path
+        ns.mark_done(4, "exit=0")
         content = tmp_queue.read_text()
         assert "- [x]" in content
         assert "exit=0" in content
 
     def test_mark_done_negative_line(self, tmp_queue):
-        mod = _load("golem-daemon")
-        mod.QUEUE_FILE = tmp_queue
+        ns = _load("golem-daemon")
+        ns.QUEUE_FILE = tmp_queue
         lock_path = tmp_queue.parent / "golem-queue.lock"
-        mod.QueueLock._lock_path = lock_path
-        mod.mark_done(-1, "test")  # should not crash
+        ns.QueueLock._lock_path = lock_path
+        ns.mark_done(-1, "test")  # should not crash
 
     def test_mark_done_out_of_range(self, tmp_queue):
-        mod = _load("golem-daemon")
-        mod.QUEUE_FILE = tmp_queue
+        ns = _load("golem-daemon")
+        ns.QUEUE_FILE = tmp_queue
         lock_path = tmp_queue.parent / "golem-queue.lock"
-        mod.QueueLock._lock_path = lock_path
-        mod.mark_done(999, "test")  # should not crash
+        ns.QueueLock._lock_path = lock_path
+        ns.mark_done(999, "test")  # should not crash
 
     def test_mark_done_already_done_line(self, tmp_queue):
-        mod = _load("golem-daemon")
-        mod.QUEUE_FILE = tmp_queue
+        ns = _load("golem-daemon")
+        ns.QUEUE_FILE = tmp_queue
         lock_path = tmp_queue.parent / "golem-queue.lock"
-        mod.QueueLock._lock_path = lock_path
-        mod.mark_done(4, "exit=0")
-        # Second call on same line — should no-op (line is now [x])
-        mod.mark_done(4, "exit=0")
+        ns.QueueLock._lock_path = lock_path
+        ns.mark_done(4, "exit=0")
+        # Second call should no-op (line is now [x])
+        ns.mark_done(4, "exit=0")
 
 
 class TestDaemonMarkFailed:
     def test_mark_failed_retries_once(self, tmp_queue):
-        mod = _load("golem-daemon")
-        mod.QUEUE_FILE = tmp_queue
+        ns = _load("golem-daemon")
+        ns.QUEUE_FILE = tmp_queue
         lock_path = tmp_queue.parent / "golem-queue.lock"
-        mod.QueueLock._lock_path = lock_path
-        result = mod.mark_failed(4, "exit=1 timeout", exit_code=1)
+        ns.QueueLock._lock_path = lock_path
+        result = ns.mark_failed(4, "exit=1 timeout", exit_code=1)
         assert result["retried"] is True
         content = tmp_queue.read_text()
         assert "(retry)" in content
 
     def test_mark_failed_no_retry_on_usage_error(self, tmp_queue):
-        mod = _load("golem-daemon")
-        mod.QUEUE_FILE = tmp_queue
+        ns = _load("golem-daemon")
+        ns.QUEUE_FILE = tmp_queue
         lock_path = tmp_queue.parent / "golem-queue.lock"
-        mod.QueueLock._lock_path = lock_path
-        result = mod.mark_failed(4, "bad command", exit_code=2)
+        ns.QueueLock._lock_path = lock_path
+        result = ns.mark_failed(4, "bad command", exit_code=2)
         assert result["retried"] is False
         content = tmp_queue.read_text()
         assert "- [!]" in content
 
     def test_mark_failed_second_failure_marks_bang(self, tmp_queue):
-        mod = _load("golem-daemon")
-        mod.QUEUE_FILE = tmp_queue
+        ns = _load("golem-daemon")
+        ns.QUEUE_FILE = tmp_queue
         lock_path = tmp_queue.parent / "golem-queue.lock"
-        mod.QueueLock._lock_path = lock_path
-        mod.mark_failed(4, "exit=1", exit_code=1)
-        mod.mark_failed(4, "exit=1 (retry)", exit_code=1)
+        ns.QueueLock._lock_path = lock_path
+        ns.mark_failed(4, "exit=1", exit_code=1)
+        ns.mark_failed(4, "exit=1 (retry)", exit_code=1)
         content = tmp_queue.read_text()
         assert "- [!]" in content
 
 
 class TestDaemonValidateGolemOutput:
     def test_passes_when_no_changes(self):
-        mod = _load("golem-daemon")
+        ns = _load("golem-daemon")
         mock_result = MagicMock()
         mock_result.returncode = 0
         mock_result.stdout = ""
         with patch("subprocess.run", return_value=mock_result):
-            passed, errors = mod.validate_golem_output()
+            passed, errors = ns.validate_golem_output()
         assert passed is True
         assert errors == []
 
 
 class TestDaemonConfigureProvider:
     def test_zhipu_config(self):
-        mod = _load("golem-daemon")
+        ns = _load("golem-daemon")
         with patch.dict(os.environ, {"ZHIPU_API_KEY": "sk-test"}):
-            mod._configure_provider("zhipu")
-        assert mod._URL == "https://open.bigmodel.cn/api/anthropic"
-        assert mod._OPUS == "GLM-5.1"
+            ns._configure_provider("zhipu")
+        assert ns._URL == "https://open.bigmodel.cn/api/anthropic"
+        assert ns._OPUS == "GLM-5.1"
 
     def test_volcano_config(self):
-        mod = _load("golem-daemon")
+        ns = _load("golem-daemon")
         with patch.dict(os.environ, {"VOLCANO_API_KEY": "sk-test"}):
-            mod._configure_provider("volcano")
-        assert mod._AUTH_MODE == "token"
+            ns._configure_provider("volcano")
+        assert ns._AUTH_MODE == "token"
 
     def test_unknown_provider_returns_error(self):
-        mod = _load("golem-daemon")
+        ns = _load("golem-daemon")
         with pytest.raises(SystemExit):
-            mod._configure_provider("nonexistent")
+            ns._configure_provider("nonexistent")
 
     def test_infini_config(self):
-        mod = _load("golem-daemon")
+        ns = _load("golem-daemon")
         with patch.dict(os.environ, {"INFINI_API_KEY": "sk-test"}):
-            mod._configure_provider("infini")
-        assert mod._URL == "https://cloud.infini-ai.com/maas/coding"
+            ns._configure_provider("infini")
+        assert ns._URL == "https://cloud.infini-ai.com/maas/coding"
 
 
 class TestDaemonGolemEnv:
     def test_includes_effectors_in_path(self):
-        mod = _load("golem-daemon")
-        env = mod._golem_env()
+        ns = _load("golem-daemon")
+        env = ns._golem_env()
         assert "effectors" in env["PATH"]
 
     def test_includes_venv_bin(self):
-        mod = _load("golem-daemon")
-        env = mod._golem_env()
+        ns = _load("golem-daemon")
+        env = ns._golem_env()
         assert ".venv" in env["PATH"]
 
 
 class TestDaemonClean:
     def test_clean_removes_done_and_failed(self, tmp_queue):
-        mod = _load("golem-daemon")
-        mod.QUEUE_FILE = tmp_queue
+        ns = _load("golem-daemon")
+        ns.QUEUE_FILE = tmp_queue
         lock_path = tmp_queue.parent / "golem-queue.lock"
-        mod.QueueLock._lock_path = lock_path
-        mod.mark_done(4, "exit=0")
-        mod.mark_failed(5, "exit=2 bad", exit_code=2)
-        ret = mod.cmd_clean()
+        ns.QueueLock._lock_path = lock_path
+        ns.mark_done(4, "exit=0")
+        ns.mark_failed(5, "exit=2 bad", exit_code=2)
+        ret = ns.cmd_clean()
         assert ret == 0
         content = tmp_queue.read_text()
         assert "- [x]" not in content
         assert "- [!]" not in content
 
     def test_clean_missing_queue(self, tmp_path):
-        mod = _load("golem-daemon")
-        mod.QUEUE_FILE = tmp_path / "nope.md"
-        assert mod.cmd_clean() == 1
+        ns = _load("golem-daemon")
+        ns.QUEUE_FILE = tmp_path / "nope.md"
+        assert ns.cmd_clean() == 1
 
 
 class TestDaemonRotateLogs:
     def test_rotate_no_files(self, tmp_path):
-        mod = _load("golem-daemon")
-        mod.LOGFILE = tmp_path / "nope.log"
-        mod.JSONLFILE = tmp_path / "nope.jsonl"
-        mod.rotate_logs()  # should not crash
+        ns = _load("golem-daemon")
+        ns.LOGFILE = tmp_path / "nope.log"
+        ns.JSONLFILE = tmp_path / "nope.jsonl"
+        ns.rotate_logs()  # should not crash
 
     def test_rotate_large_file(self, tmp_path):
-        mod = _load("golem-daemon")
+        ns = _load("golem-daemon")
         big_log = tmp_path / "golem-daemon.log"
         big_log.write_bytes(b"x" * (6 * 1024 * 1024))
-        mod.LOGFILE = big_log
-        mod.JSONLFILE = tmp_path / "nope.jsonl"
-        mod.rotate_logs()
+        ns.LOGFILE = big_log
+        ns.JSONLFILE = tmp_path / "nope.jsonl"
+        ns.rotate_logs()
         assert (tmp_path / "golem-daemon.log.1").exists()
         assert not big_log.exists()
 
     def test_rotate_small_file_kept(self, tmp_path):
-        mod = _load("golem-daemon")
+        ns = _load("golem-daemon")
         small_log = tmp_path / "golem-daemon.log"
         small_log.write_text("small log\n")
-        mod.LOGFILE = small_log
-        mod.JSONLFILE = tmp_path / "nope.jsonl"
-        mod.rotate_logs()
+        ns.LOGFILE = small_log
+        ns.JSONLFILE = tmp_path / "nope.jsonl"
+        ns.rotate_logs()
         assert small_log.exists()
 
 
 class TestDaemonAutoCommit:
     def test_nothing_to_commit(self):
-        mod = _load("golem-daemon")
+        ns = _load("golem-daemon")
         mock_result = MagicMock()
-        mock_result.returncode = 0  # git diff --cached --quiet: 0 = no changes
+        mock_result.returncode = 0  # git diff --cached --quiet: 0 = no staged changes
         with patch("subprocess.run", return_value=mock_result):
-            result = mod.auto_commit()
+            result = ns.auto_commit()
         assert result == "nothing to commit"
 
 
@@ -384,93 +397,89 @@ class TestDaemonAutoCommit:
 
 class TestDashFmtBytes:
     def test_bytes(self):
-        mod = _load("golem-dash")
-        assert mod.fmt_bytes(500) == "500.0 B"
+        ns = _load("golem-dash")
+        assert ns.fmt_bytes(500) == "500.0 B"
 
     def test_kilobytes(self):
-        mod = _load("golem-dash")
-        assert mod.fmt_bytes(2048) == "2.0 KB"
+        ns = _load("golem-dash")
+        assert ns.fmt_bytes(2048) == "2.0 KB"
 
     def test_gigabytes(self):
-        mod = _load("golem-dash")
-        result = mod.fmt_bytes(2 * 1024 * 1024 * 1024)
-        assert "GB" in result
+        ns = _load("golem-dash")
+        assert "GB" in ns.fmt_bytes(2 * 1024 * 1024 * 1024)
 
     def test_zero(self):
-        mod = _load("golem-dash")
-        assert mod.fmt_bytes(0) == "0.0 B"
+        ns = _load("golem-dash")
+        assert ns.fmt_bytes(0) == "0.0 B"
 
     def test_negative(self):
-        mod = _load("golem-dash")
-        result = mod.fmt_bytes(-1)
-        assert "B" in result
+        ns = _load("golem-dash")
+        assert "B" in ns.fmt_bytes(-1)
 
 
 class TestDashLoadJsonl:
     def test_load_valid(self, tmp_jsonl):
-        mod = _load("golem-dash")
-        records = mod.load_jsonl(tmp_jsonl)
+        ns = _load("golem-dash")
+        records = ns.load_jsonl(tmp_jsonl)
         assert len(records) == 3
         assert records[0]["provider"] == "zhipu"
 
     def test_load_missing(self, tmp_path):
-        mod = _load("golem-dash")
-        assert mod.load_jsonl(tmp_path / "nope.jsonl") == []
+        ns = _load("golem-dash")
+        assert ns.load_jsonl(tmp_path / "nope.jsonl") == []
 
     def test_load_with_malformed(self, tmp_path):
-        mod = _load("golem-dash")
+        ns = _load("golem-dash")
         j = tmp_path / "bad.jsonl"
         j.write_text('{"valid": true}\nnot json\n{"also": true}\n')
-        assert len(mod.load_jsonl(j)) == 2
+        assert len(ns.load_jsonl(j)) == 2
 
     def test_load_empty_lines(self, tmp_path):
-        mod = _load("golem-dash")
+        ns = _load("golem-dash")
         j = tmp_path / "empty_lines.jsonl"
         j.write_text('\n\n{"provider": "zhipu"}\n\n')
-        assert len(mod.load_jsonl(j)) == 1
+        assert len(ns.load_jsonl(j)) == 1
 
 
 class TestDashProviderStats:
     def test_basic_stats(self, tmp_jsonl):
-        mod = _load("golem-dash")
-        records = mod.load_jsonl(tmp_jsonl)
-        output = mod.provider_stats(records, use_color=False)
+        ns = _load("golem-dash")
+        records = ns.load_jsonl(tmp_jsonl)
+        output = ns.provider_stats(records, use_color=False)
         assert "zhipu" in output
         assert "volcano" in output
 
     def test_empty_records(self):
-        mod = _load("golem-dash")
-        output = mod.provider_stats([], use_color=False)
-        assert "No task records" in output
+        ns = _load("golem-dash")
+        assert "No task records" in ns.provider_stats([], use_color=False)
 
     def test_with_color(self, tmp_jsonl):
-        mod = _load("golem-dash")
-        records = mod.load_jsonl(tmp_jsonl)
-        output = mod.provider_stats(records, use_color=True)
-        assert "\033[" in output
+        ns = _load("golem-dash")
+        records = ns.load_jsonl(tmp_jsonl)
+        assert "\033[" in ns.provider_stats(records, use_color=True)
 
 
 class TestDashQueueStatus:
     def test_basic_status(self, tmp_queue):
-        mod = _load("golem-dash")
-        status_text, last_done = mod.queue_status(tmp_queue, use_color=False)
+        ns = _load("golem-dash")
+        status_text, last_done = ns.queue_status(tmp_queue, use_color=False)
         assert "Pending: 3" in status_text
         assert "Done: 0" in status_text
 
     def test_missing_queue(self, tmp_path):
-        mod = _load("golem-dash")
-        output = mod.queue_status(tmp_path / "nope.md", use_color=False)
+        ns = _load("golem-dash")
+        output = ns.queue_status(tmp_path / "nope.md", use_color=False)
         assert "not found" in output.lower()
 
     def test_with_done_tasks(self, tmp_path):
-        mod = _load("golem-dash")
+        ns = _load("golem-dash")
         q = tmp_path / "q.md"
         q.write_text(
             '- [ ] `golem "task A"`\n'
             '- [x] `golem "task B"` \u2192 exit=0\n'
             '- [!] `golem "task C"`\n'
         )
-        status_text, last_done = mod.queue_status(q, use_color=False)
+        status_text, last_done = ns.queue_status(q, use_color=False)
         assert "Pending: 1" in status_text
         assert "Done: 1" in status_text
         assert "Failed: 1" in status_text
@@ -479,148 +488,123 @@ class TestDashQueueStatus:
 
 class TestDashDiskFree:
     def test_returns_string(self):
-        mod = _load("golem-dash")
-        output = mod.disk_free(use_color=False)
-        assert "Free:" in output
+        ns = _load("golem-dash")
+        assert "Free:" in ns.disk_free(use_color=False)
 
 
 class TestDashMain:
     def test_help_flag(self, capsys):
-        mod = _load("golem-dash")
-        ret = mod.main(["--help"])
-        assert ret == 0
-        captured = capsys.readouterr()
-        assert "golem-dash" in captured.out
+        ns = _load("golem-dash")
+        assert ns.main(["--help"]) == 0
+        assert "golem-dash" in capsys.readouterr().out
 
     def test_no_color(self, capsys, tmp_jsonl, tmp_queue):
-        mod = _load("golem-dash")
-        mod.JSONL_PATH = tmp_jsonl
-        mod.QUEUE_PATH = tmp_queue
-        ret = mod.main(["--no-color"])
-        assert ret == 0
-        captured = capsys.readouterr()
-        assert "\033[" not in captured.out
+        ns = _load("golem-dash")
+        ns.JSONL_PATH = tmp_jsonl
+        ns.QUEUE_PATH = tmp_queue
+        assert ns.main(["--no-color"]) == 0
+        assert "\033[" not in capsys.readouterr().out
 
     def test_dashboard_output(self, capsys, tmp_jsonl, tmp_queue):
-        mod = _load("golem-dash")
-        mod.JSONL_PATH = tmp_jsonl
-        mod.QUEUE_PATH = tmp_queue
-        mod.print_dashboard(use_color=False)
-        captured = capsys.readouterr()
-        assert "Provider Stats" in captured.out
-        assert "Queue Status" in captured.out
-        assert "Disk" in captured.out
+        ns = _load("golem-dash")
+        ns.JSONL_PATH = tmp_jsonl
+        ns.QUEUE_PATH = tmp_queue
+        ns.print_dashboard(use_color=False)
+        out = capsys.readouterr().out
+        assert "Provider Stats" in out
+        assert "Queue Status" in out
+        assert "Disk" in out
 
 
 class TestDashLastCompleted:
     def test_empty(self):
-        mod = _load("golem-dash")
-        output = mod.last_completed_table([], use_color=False)
-        assert "No completed" in output
+        ns = _load("golem-dash")
+        assert "No completed" in ns.last_completed_table([], use_color=False)
 
     def test_with_entries(self):
-        mod = _load("golem-dash")
-        entries = [('golem "Write tests"', "exit=0")]
-        output = mod.last_completed_table(entries, use_color=False)
-        assert "Write tests" in output
+        ns = _load("golem-dash")
+        out = ns.last_completed_table([('golem "Write tests"', "exit=0")], use_color=False)
+        assert "Write tests" in out
 
 
 # ===================================================================
 # golem-health tests
 # ===================================================================
 
-# golem-health uses @dataclass which needs sys.modules entry
-@pytest.fixture
-def health_mod():
-    """Load golem-health, handling @dataclass sys.modules requirement."""
-    path = EFFECTORS_DIR / "golem-health"
-    mod_name = "test_golem_health"
-    ns = {"__name__": mod_name, "__file__": str(path)}
-    # Register in sys.modules so @dataclass can find it
-    old = sys.modules.get(mod_name)
-    sys.modules[mod_name] = types.ModuleType(mod_name)
-    sys.modules[mod_name].__file__ = str(path)
-    try:
-        exec(path.read_text(), sys.modules[mod_name].__dict__)
-    finally:
-        if old is None:
-            sys.modules.pop(mod_name, None)
-        else:
-            sys.modules[mod_name] = old
-    return sys.modules[mod_name] if old is None else old
-
 
 class TestHealthSourceEnv:
-    def test_missing_file(self, tmp_path, health_mod):
-        result = health_mod.source_env_file(tmp_path / "nope")
+    def test_missing_file(self, tmp_path):
+        ns = _load("golem-health")
+        result = ns.source_env_file(tmp_path / "nope")
         assert isinstance(result, dict)
         assert len(result) == 0
 
-    def test_parses_env_file(self, tmp_path, health_mod):
+    def test_parses_env_file(self, tmp_path):
+        ns = _load("golem-health")
         env_f = tmp_path / ".env.fly"
         env_f.write_text('export ZHIPU_API_KEY="sk-test-123"\nVOLCANO_API_KEY=sk-volc\n')
-        result = health_mod.source_env_file(env_f)
+        result = ns.source_env_file(env_f)
         assert "ZHIPU_API_KEY" in result
         assert result["ZHIPU_API_KEY"] == "sk-test-123"
         assert result["VOLCANO_API_KEY"] == "sk-volc"
 
 
 class TestHealthCheckProvider:
-    def test_unknown_provider(self, health_mod):
-        env = os.environ.copy()
-        golem_path = EFFECTORS_DIR / "golem"
-        result = health_mod.check_provider("unknown_provider", env, golem_path)
+    def test_unknown_provider(self):
+        ns = _load("golem-health")
+        result = ns.check_provider("unknown_provider", os.environ.copy(), EFFECTORS_DIR / "golem")
         assert result.status == "ERROR"
         assert "Unknown provider" in result.error
 
-    def test_missing_key(self, health_mod):
-        env = {}
-        golem_path = EFFECTORS_DIR / "golem"
-        result = health_mod.check_provider("zhipu", env, golem_path)
+    def test_missing_key(self):
+        ns = _load("golem-health")
+        result = ns.check_provider("zhipu", {}, EFFECTORS_DIR / "golem")
         assert result.status == "FAIL"
         assert "ZHIPU_API_KEY not set" in result.error
 
 
 class TestHealthPrintTable:
-    def test_print_results(self, capsys, health_mod):
-        result = health_mod.HealthResult(
+    def test_print_results(self, capsys):
+        ns = _load("golem-health")
+        result = ns.HealthResult(
             provider="zhipu", status="OK", latency_ms=150,
             model="GLM-5.1", exit_code=0, has_output=True,
         )
-        health_mod.print_table([result])
-        captured = capsys.readouterr()
-        assert "zhipu" in captured.out
-        assert "OK" in captured.out
-        assert "150ms" in captured.out
+        ns.print_table([result])
+        out = capsys.readouterr().out
+        assert "zhipu" in out
+        assert "OK" in out
+        assert "150ms" in out
 
-    def test_print_with_error(self, capsys, health_mod):
-        result = health_mod.HealthResult(
+    def test_print_with_error(self, capsys):
+        ns = _load("golem-health")
+        result = ns.HealthResult(
             provider="infini", status="FAIL", latency_ms=0,
             model="glm-5", exit_code=1, has_output=False, error="timeout",
         )
-        health_mod.print_table([result])
-        captured = capsys.readouterr()
-        assert "timeout" in captured.out
+        ns.print_table([result])
+        assert "timeout" in capsys.readouterr().out
 
 
 class TestHealthPrintJson:
-    def test_print_json(self, capsys, health_mod):
-        result = health_mod.HealthResult(
+    def test_print_json(self, capsys):
+        ns = _load("golem-health")
+        result = ns.HealthResult(
             provider="zhipu", status="OK", latency_ms=100,
             model="GLM-5.1", exit_code=0, has_output=True,
         )
-        health_mod.print_json([result])
-        captured = capsys.readouterr()
-        data = json.loads(captured.out)
+        ns.print_json([result])
+        data = json.loads(capsys.readouterr().out)
         assert len(data) == 1
         assert data[0]["provider"] == "zhipu"
         assert data[0]["status"] == "OK"
 
 
 class TestHealthMain:
-    def test_help_flag(self, health_mod):
+    def test_help_flag(self):
+        ns = _load("golem-health")
         with pytest.raises(SystemExit) as exc_info:
-            health_mod.main(["--help"])
+            ns.main(["--help"])
         assert exc_info.value.code == 0
 
 
@@ -631,46 +615,45 @@ class TestHealthMain:
 
 class TestReviewerRun:
     def test_run_echo(self):
-        mod = _load("golem-reviewer")
-        code, out = mod.run("echo hello")
+        ns = _load("golem-reviewer")
+        code, out = ns.run("echo hello")
         assert code == 0
         assert "hello" in out
 
     def test_run_failure(self):
-        mod = _load("golem-reviewer")
-        code, out = mod.run("false")
-        assert code != 0
+        ns = _load("golem-reviewer")
+        assert ns.run("false")[0] != 0
 
     def test_run_timeout(self):
-        mod = _load("golem-reviewer")
-        code, out = mod.run("sleep 10", cwd="/tmp")
+        ns = _load("golem-reviewer")
+        code, _ = ns.run("sleep 10", cwd="/tmp")
         assert code == 124
 
 
 class TestReviewerCheckDaemonStatus:
     def test_parses_running(self):
-        mod = _load("golem-reviewer")
-        with patch.object(mod, "run", return_value=(0, "Daemon running (PID 1234), 5 pending tasks (zhipu:3)")):
-            status = mod.check_daemon_status()
+        ns = _load("golem-reviewer")
+        with patch.object(ns, "run", return_value=(0, "Daemon running (PID 1234), 5 pending tasks (zhipu:3)")):
+            status = ns.check_daemon_status()
         assert status["running"] is True
         assert status["pending"] == 5
 
     def test_parses_not_running(self):
-        mod = _load("golem-reviewer")
-        with patch.object(mod, "run", return_value=(1, "Daemon not running")):
-            status = mod.check_daemon_status()
+        ns = _load("golem-reviewer")
+        with patch.object(ns, "run", return_value=(1, "Daemon not running")):
+            status = ns.check_daemon_status()
         assert status["running"] is False
         assert status["pending"] == 0
 
 
 class TestReviewerFixCollectionErrors:
     def test_no_errors(self):
-        mod = _load("golem-reviewer")
-        with patch.object(mod, "run", return_value=(1, "")):
-            assert mod.fix_collection_errors() == 0
+        ns = _load("golem-reviewer")
+        with patch.object(ns, "run", return_value=(1, "")):
+            assert ns.fix_collection_errors() == 0
 
     def test_fixes_hardcoded_paths(self, tmp_path):
-        mod = _load("golem-reviewer")
+        ns = _load("golem-reviewer")
         test_file = tmp_path / "assays" / "test_example.py"
         test_file.parent.mkdir(parents=True)
         test_file.write_text(
@@ -679,9 +662,9 @@ class TestReviewerFixCollectionErrors:
             'def test_something():\n'
             '    assert True\n'
         )
-        mod.GERMLINE = tmp_path
-        with patch.object(mod, "run", return_value=(0, f"ERROR {test_file}")):
-            fixed = mod.fix_collection_errors()
+        ns.GERMLINE = tmp_path
+        with patch.object(ns, "run", return_value=(0, f"ERROR {test_file}")):
+            fixed = ns.fix_collection_errors()
         assert fixed == 1
         content = test_file.read_text()
         assert "/Users/terry/" not in content
@@ -690,17 +673,17 @@ class TestReviewerFixCollectionErrors:
 
 class TestReviewerRunTestSnapshot:
     def test_parses_output(self):
-        mod = _load("golem-reviewer")
-        with patch.object(mod, "run", return_value=(0, "10 passed, 2 failed, 1 error")):
-            result = mod.run_test_snapshot()
+        ns = _load("golem-reviewer")
+        with patch.object(ns, "run", return_value=(0, "10 passed, 2 failed, 1 error")):
+            result = ns.run_test_snapshot()
         assert result["passed"] == 10
         assert result["failed"] == 2
         assert result["errors"] == 1
 
     def test_empty_output(self):
-        mod = _load("golem-reviewer")
-        with patch.object(mod, "run", return_value=(1, "")):
-            result = mod.run_test_snapshot()
+        ns = _load("golem-reviewer")
+        with patch.object(ns, "run", return_value=(1, "")):
+            result = ns.run_test_snapshot()
         assert result["passed"] == 0
         assert result["failed"] == 0
         assert result["errors"] == 0
@@ -708,35 +691,34 @@ class TestReviewerRunTestSnapshot:
 
 class TestReviewerCheckDaemonFailures:
     def test_with_failures(self):
-        mod = _load("golem-reviewer")
-        with patch.object(mod, "run", return_value=(0, "FAILED task A\nFAILED task B\n")):
-            failures = mod.check_daemon_failures()
-        assert len(failures) == 2
+        ns = _load("golem-reviewer")
+        with patch.object(ns, "run", return_value=(0, "FAILED task A\nFAILED task B\n")):
+            assert len(ns.check_daemon_failures()) == 2
 
     def test_no_failures(self):
-        mod = _load("golem-reviewer")
-        with patch.object(mod, "run", return_value=(1, "")):
-            failures = mod.check_daemon_failures()
-        assert failures == []
+        ns = _load("golem-reviewer")
+        with patch.object(ns, "run", return_value=(1, "")):
+            assert ns.check_daemon_failures() == []
 
 
 class TestReviewerWriteProgressReport:
     def test_writes_report(self, tmp_path):
-        mod = _load("golem-reviewer")
+        ns = _load("golem-reviewer")
         copia = tmp_path / "copia"
         copia.mkdir()
-        mod.cycle_number = 1
-        mod.commit_counter = 0
-        status = {"running": True, "pending": 5}
-        output = {"new_tests": 3, "new_effectors": 1, "consulting_pieces": 2}
-        tests = {"passed": 10, "failed": 1, "errors": 0}
-        mod.GERMLINE = tmp_path
-        mod.write_progress_report(status, output, tests, [])
-        report_file = copia / "reviewer-cycle-1.md"
-        assert report_file.exists()
-        content = report_file.read_text()
-        assert "Cycle 1" in content
-        assert "5 pending" in content
+        ns.cycle_number = 1
+        ns.commit_counter = 0
+        ns.GERMLINE = tmp_path
+        ns.write_progress_report(
+            {"running": True, "pending": 5},
+            {"new_tests": 3, "new_effectors": 1, "consulting_pieces": 2},
+            {"passed": 10, "failed": 1, "errors": 0},
+            [],
+        )
+        report = copia / "reviewer-cycle-1.md"
+        assert report.exists()
+        assert "Cycle 1" in report.read_text()
+        assert "5 pending" in report.read_text()
 
 
 # ===================================================================
@@ -746,123 +728,116 @@ class TestReviewerWriteProgressReport:
 
 class TestValidateFile:
     def test_valid_file(self, tmp_path):
-        mod = _load("golem-validate")
+        ns = _load("golem-validate")
         good = tmp_path / "good.py"
         good.write_text("x = 1\ny = 2\n")
-        status, issues = mod.validate_file(good)
+        status, issues = ns.validate_file(good)
         assert status == "PASS"
         assert issues == []
 
     def test_syntax_error(self, tmp_path):
-        mod = _load("golem-validate")
+        ns = _load("golem-validate")
         bad = tmp_path / "bad.py"
         bad.write_text("def broken(\n")
-        status, issues = mod.validate_file(bad)
+        status, issues = ns.validate_file(bad)
         assert status == "FAIL"
         assert any("SyntaxError" in i for i in issues)
 
     def test_hardcoded_mac_path(self, tmp_path):
-        mod = _load("golem-validate")
+        ns = _load("golem-validate")
         f = tmp_path / "path.py"
         f.write_text('p = "/Users/terry/germline"\n')
-        status, issues = mod.validate_file(f)
+        status, issues = ns.validate_file(f)
         assert status == "FAIL"
         assert any("/Users/terry/" in i for i in issues)
 
     def test_todo_marker(self, tmp_path):
-        mod = _load("golem-validate")
+        ns = _load("golem-validate")
         f = tmp_path / "todo.py"
         f.write_text("# TODO: fix this later\nx = 1\n")
-        status, issues = mod.validate_file(f)
+        status, issues = ns.validate_file(f)
         assert status == "FAIL"
         assert any("TODO" in i for i in issues)
 
     def test_fixme_marker(self, tmp_path):
-        mod = _load("golem-validate")
+        ns = _load("golem-validate")
         f = tmp_path / "fixme.py"
         f.write_text("# FIXME: broken\nx = 1\n")
-        status, issues = mod.validate_file(f)
+        status, issues = ns.validate_file(f)
         assert status == "FAIL"
         assert any("FIXME" in i for i in issues)
 
     def test_stub_marker(self, tmp_path):
-        mod = _load("golem-validate")
+        ns = _load("golem-validate")
         f = tmp_path / "stub.py"
         f.write_text("def stub():\n    pass\n")
-        status, issues = mod.validate_file(f)
+        status, issues = ns.validate_file(f)
         assert status == "FAIL"
         assert any("stub" in i.lower() for i in issues)
 
     def test_unreadable_file(self, tmp_path):
-        mod = _load("golem-validate")
+        ns = _load("golem-validate")
         f = tmp_path / "unreadable.py"
         f.write_text("x = 1\n")
         f.chmod(0o000)
         try:
-            status, issues = mod.validate_file(f)
+            status, issues = ns.validate_file(f)
             assert status == "FAIL"
         finally:
             f.chmod(0o644)
 
     def test_test_file_collectability_pass(self, tmp_path):
-        mod = _load("golem-validate")
+        ns = _load("golem-validate")
         f = tmp_path / "test_good.py"
         f.write_text("def test_ok():\n    assert True\n")
         mock_result = MagicMock()
         mock_result.returncode = 0
-        mock_result.stdout = "1 test collected"
         with patch("subprocess.run", return_value=mock_result):
-            status, issues = mod.validate_file(f)
+            status, issues = ns.validate_file(f)
         assert status == "PASS"
 
     def test_test_file_collection_failure(self, tmp_path):
-        mod = _load("golem-validate")
+        ns = _load("golem-validate")
         f = tmp_path / "test_bad.py"
         f.write_text("def test_ok():\n    assert True\n")
         mock_result = MagicMock()
         mock_result.returncode = 1
         mock_result.stderr = "import error"
         with patch("subprocess.run", return_value=mock_result):
-            status, issues = mod.validate_file(f)
+            status, issues = ns.validate_file(f)
         assert status == "FAIL"
         assert any("pytest --co failed" in i for i in issues)
 
 
 class TestValidateMain:
     def test_no_args(self, capsys):
-        mod = _load("golem-validate")
-        ret = mod.main([])
-        assert ret == 2
+        ns = _load("golem-validate")
+        assert ns.main([]) == 2
 
     def test_valid_file(self, tmp_path, capsys):
-        mod = _load("golem-validate")
+        ns = _load("golem-validate")
         good = tmp_path / "good.py"
         good.write_text("x = 1\n")
-        ret = mod.main([str(good)])
-        assert ret == 0
-        captured = capsys.readouterr()
-        assert "PASS" in captured.out
+        assert ns.main([str(good)]) == 0
+        assert "PASS" in capsys.readouterr().out
 
     def test_invalid_file(self, tmp_path, capsys):
-        mod = _load("golem-validate")
+        ns = _load("golem-validate")
         bad = tmp_path / "bad.py"
         bad.write_text("def (\n")
-        ret = mod.main([str(bad)])
-        assert ret == 1
-        captured = capsys.readouterr()
-        assert "FAIL" in captured.out
+        assert ns.main([str(bad)]) == 1
+        assert "FAIL" in capsys.readouterr().out
 
     def test_multiple_files(self, tmp_path, capsys):
-        mod = _load("golem-validate")
+        ns = _load("golem-validate")
         good = tmp_path / "good.py"
         good.write_text("x = 1\n")
         bad = tmp_path / "bad.py"
         bad.write_text("def (\n")
-        ret = mod.main([str(good), str(bad)])
-        assert ret == 1
-        captured = capsys.readouterr()
-        assert "PASS" in captured.out
-        assert "FAIL" in captured.out
+        assert ns.main([str(good), str(bad)]) == 1
+        out = capsys.readouterr().out
+        assert "PASS" in out
+        assert "FAIL" in out
 
 
 # ===================================================================
@@ -872,30 +847,30 @@ class TestValidateMain:
 
 class TestGolemBashHelp:
     def test_help_flag(self):
-        result = subprocess.run(
+        r = subprocess.run(
             [str(EFFECTORS_DIR / "golem"), "--help"],
             capture_output=True, text=True, timeout=10,
         )
-        assert result.returncode == 0
-        assert "golem" in result.stdout.lower()
+        assert r.returncode == 0
+        assert "golem" in r.stdout.lower()
 
     def test_summary_help(self):
-        result = subprocess.run(
+        r = subprocess.run(
             [str(EFFECTORS_DIR / "golem"), "summary", "--help"],
             capture_output=True, text=True, timeout=10,
         )
-        assert result.returncode == 0
+        assert r.returncode == 0
 
 
 class TestGolemBashSummary:
     def test_summary_no_log(self, tmp_path):
         log_file = tmp_path / "golem.jsonl"
-        result = subprocess.run(
+        r = subprocess.run(
             [str(EFFECTORS_DIR / "golem"), "summary"],
             capture_output=True, text=True, timeout=10,
             env={**os.environ, "GOLEM_LOG": str(log_file)},
         )
-        assert result.returncode != 0
+        assert r.returncode != 0
 
     def test_summary_with_data(self, tmp_path):
         log_file = tmp_path / "golem.jsonl"
@@ -904,31 +879,31 @@ class TestGolemBashSummary:
             {"provider": "zhipu", "exit": 1, "duration": 60},
         ]
         log_file.write_text("\n".join(json.dumps(r) for r in records) + "\n")
-        result = subprocess.run(
+        r = subprocess.run(
             [str(EFFECTORS_DIR / "golem"), "summary"],
             capture_output=True, text=True, timeout=10,
             env={**os.environ, "GOLEM_LOG": str(log_file)},
         )
-        assert result.returncode == 0
-        assert "zhipu" in result.stdout
+        assert r.returncode == 0
+        assert "zhipu" in r.stdout
 
     def test_summary_recent_flag(self, tmp_path):
         log_file = tmp_path / "golem.jsonl"
         log_file.write_text(json.dumps({"provider": "zhipu", "exit": 0, "duration": 10}) + "\n")
-        result = subprocess.run(
+        r = subprocess.run(
             [str(EFFECTORS_DIR / "golem"), "summary", "--recent", "5"],
             capture_output=True, text=True, timeout=10,
             env={**os.environ, "GOLEM_LOG": str(log_file)},
         )
-        assert result.returncode == 0
+        assert r.returncode == 0
 
     def test_summary_custom_log(self, tmp_path):
         log_file = tmp_path / "custom.jsonl"
         log_file.write_text(json.dumps({"provider": "volcano", "exit": 0, "duration": 200}) + "\n")
-        result = subprocess.run(
-            [str(EFFECTORS_DIR / "golem"), "summary"],
+        r = subprocess.run(
+            [str(EFFECTORS_DIR / "golem"), "summary", f"--log={log_file}"],
             capture_output=True, text=True, timeout=10,
-            env={**os.environ, "GOLEM_LOG": str(log_file)},
+            env={**os.environ, "GOLEM_LOG": str(tmp_path / "default.jsonl")},
         )
-        assert result.returncode == 0
-        assert "volcano" in result.stdout
+        assert r.returncode == 0
+        assert "volcano" in r.stdout

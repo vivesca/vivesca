@@ -75,8 +75,13 @@ def classify_process(args: str) -> dict | None:
     Returns dict with keys: provider, max_turns, task, kind
     or None if not a golem process.
     """
-    # Match golem-runner tasks
-    if "effectors/golem" in args and "--provider" in args:
+    # Match golem-runner tasks: either "effectors/golem --provider" or
+    # "/bin/sh -c golem --provider"
+    is_golem_task = (
+        ("effectors/golem" in args or "/bin/sh -c golem " in args)
+        and "--provider" in args
+    )
+    if is_golem_task:
         m_prov = PROVIDER_RE.search(args)
         m_turns = MAX_TURNS_RE.search(args)
         provider = m_prov.group(1) if m_prov else "unknown"
