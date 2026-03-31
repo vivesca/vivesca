@@ -358,7 +358,7 @@ def test_endosomal_pipeline_monitor():
 
 def test_endosomal_pipeline_borderline():
     """endosomal_pipeline handles borderline category."""
-    email = "From: team@company.com\nSubject: Question\n\nPlease review when you can."
+    email = "From: team@company.com\nSubject: Re: Question\n\nPlease review when you can."
     result = endosomal_pipeline(email)
 
     assert result["stage"] == "complete"

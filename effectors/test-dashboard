@@ -19,15 +19,15 @@ from collections import defaultdict
 
 # Paths
 GERMLINE_DIR = Path.home() / "germline"
-GOLEM_LOGL = Path.home() / ".local" / "share" / "vivesca" / "golem.jsonl"
+GOLEM_LOG = Path.home() / ".local" / "share" / "vivesca" / "golem.jsonl"
 
 
 def read_golem_log() -> list[dict]:
     """Read golem.jsonl and return list of entries."""
-    if not GOLEM_LOGL.exists():
+    if not GOLEM_LOG.exists():
         return []
     entries = []
-    with open(GOLEM_LOGL) as f:
+    with open(GOLEM_LOG) as f:
         for line in f:
             line = line.strip()
             if line:

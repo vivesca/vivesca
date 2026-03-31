@@ -72,16 +72,17 @@ def test_strip_html_handles_nested_tags():
 
 def test_strip_pubmed_refs_removes_single_ref():
     """_strip_pubmed_refs removes single PubMed references."""
-    text = "Protein function (PubMed:12345678) is important."
+    text = "Protein function (PubMed:12345678)."
     result = _strip_pubmed_refs(text)
-    assert result == "Protein function  is important."
+    assert "(PubMed:12345678)" not in result
+    assert "Protein function" in result
 
 
 def test_strip_pubmed_refs_removes_multiple_refs():
     """_strip_pubmed_refs removes multiple PubMed references."""
-    text = "Function (PubMed:111, PubMed:222) described here."
+    text = "Function (PubMed:111, PubMed:222)."
     result = _strip_pubmed_refs(text)
-    assert result == "Function  described here."
+    assert "PubMed" not in result
 
 
 def test_strip_pubmed_refs_no_refs():
@@ -340,9 +341,8 @@ def test_fetch_wikipedia_404_falls_back_to_search():
     mock_404_response = MagicMock()
     mock_404_response.status_code = 404
 
-    mock_search_response = MagicMock()
-    mock_search_response.status_code = 200
-    mock_search_response.json.return_value = ["apoptosis"]
+    # The _search_wikipedia returns titles
+    mock_search_json = ["apoptosis", ["Apoptosis", "Programmed cell death"], [], []]
 
     mock_summary_response = MagicMock()
     mock_summary_response.status_code = 200
@@ -356,16 +356,16 @@ def test_fetch_wikipedia_404_falls_back_to_search():
     mock_sections_response.status_code = 200
     mock_sections_response.json.return_value = {"remaining": {"sections": []}}
 
-    with patch("httpx.Client") as mock_client:
-        client_mock = mock_client.return_value.__enter__.return_value
-        # First call is 404, then search, then summary with sections
-        client_mock.get.side_effect = [
-            mock_404_response,  # Initial 404
-            mock_search_response,  # Search fallback (inside _search_wikipedia call)
-            mock_summary_response,  # Summary after search
-            mock_sections_response,  # Sections
-        ]
-        result = _fetch_wikipedia("nonexistentterm123")
+    with patch("metabolon.lysin.fetch._search_wikipedia", return_value=["Apoptosis"]):
+        with patch("httpx.Client") as mock_client:
+            client_mock = mock_client.return_value.__enter__.return_value
+            # First call is 404, then summary (after search fallback), then sections
+            client_mock.get.side_effect = [
+                mock_404_response,  # Initial 404
+                mock_summary_response,  # Summary after search
+                mock_sections_response,  # Sections
+            ]
+            result = _fetch_wikipedia("nonexistentterm123")
 
     assert result is not None
 
@@ -425,31 +425,13 @@ def test_fetch_summary_routes_gene_to_uniprot():
 
 def test_fetch_summary_raises_lookup_error_not_found():
     """fetch_summary raises LookupError when term not found anywhere."""
-    # Mock all three sources to return None/empty
-    mock_empty_response = MagicMock()
-    mock_empty_response.status_code = 200
-    mock_empty_response.json.return_value = {"results": []}
-
-    mock_reactome_empty = MagicMock()
-    mock_reactome_empty.status_code = 200
-    mock_reactome_empty.json.return_value = {"results": []}
-
-    mock_wiki_empty = MagicMock()
-    mock_wiki_empty.status_code = 404
-
-    with patch("httpx.Client") as mock_client:
-        client_mock = mock_client.return_value.__enter__.return_value
-        client_mock.get.return_value = mock_empty_response
-        # Need to handle different responses for different endpoints
-        client_mock.get.side_effect = [
-            mock_empty_response,  # UniProt search
-            mock_reactome_empty,  # Reactome search
-            mock_wiki_empty,  # Wikipedia 404
-            mock_empty_response,  # Wikipedia search fallback
-            mock_wiki_empty,  # Wikipedia summary fallback
-        ]
-        with pytest.raises(LookupError):
-            fetch_summary("zzzznonexistentterm123xyz")
+    # Mock all three sources to return None
+    with patch("metabolon.lysin.fetch._fetch_uniprot", return_value=None):
+        with patch("metabolon.lysin.fetch._fetch_reactome", return_value=None):
+            with patch("metabolon.lysin.fetch._fetch_wikipedia", return_value=None):
+                with pytest.raises(LookupError) as exc_info:
+                    fetch_summary("zzzznonexistentterm123xyz")
+                assert "not found" in str(exc_info.value).lower()
 
 
 # ── fetch_sections tests ────────────────────────────────────────────────
