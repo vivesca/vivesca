@@ -129,6 +129,18 @@ def compare_sessions(log_path: Path, date_a: str, date_b: str) -> CompareDelta:
     )
 
 
+def _delta_str(old: float, new: float) -> str:
+    """Return a percentage-change indicator like ' (↑50%)'.
+
+    Returns empty string if *old* is zero (division undefined).
+    """
+    if old == 0:
+        return ""
+    pct = (new - old) / old * 100
+    arrow = "↑" if pct > 0 else "↓" if pct < 0 else "→"
+    return f" ({arrow}{abs(pct):.0f}%)"
+
+
 def format_compare_report(delta: CompareDelta) -> str:
     """Format a CompareDelta as a human-readable markdown report.
 
@@ -149,6 +161,10 @@ def format_compare_report(delta: CompareDelta) -> str:
     count_delta_sign = "+" if delta.task_count_delta >= 0 else ""
     count_delta_str = f"{count_delta_sign}{delta.task_count_delta}"
 
+    count_pct = _delta_str(float(delta.task_count_a), float(delta.task_count_b))
+    rate_pct = _delta_str(delta.success_rate_a, delta.success_rate_b)
+    dur_pct = _delta_str(delta.avg_duration_a, delta.avg_duration_b)
+
     lines: list[str] = [
         "# Session Comparison",
         "",
@@ -156,9 +172,9 @@ def format_compare_report(delta: CompareDelta) -> str:
         "",
         "| Metric | {} | {} | Delta |".format(delta.date_a, delta.date_b),
         "|--------|------|------|-------|",
-        "| Tasks | {} | {} | {} |".format(delta.task_count_a, delta.task_count_b, count_delta_str),
-        "| Success rate | {} | {} | {} |".format(rate_a_str, rate_b_str, rate_delta_str),
-        "| Avg duration | {:.1f}s | {:.1f}s | {} |".format(delta.avg_duration_a, delta.avg_duration_b, dur_delta_str),
+        "| Tasks | {} | {} | {}{} |".format(delta.task_count_a, delta.task_count_b, count_delta_str, count_pct),
+        "| Success rate | {} | {} | {}{} |".format(rate_a_str, rate_b_str, rate_delta_str, rate_pct),
+        "| Avg duration | {:.1f}s | {:.1f}s | {}{} |".format(delta.avg_duration_a, delta.avg_duration_b, dur_delta_str, dur_pct),
         "",
     ]
 
