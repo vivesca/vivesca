@@ -35,9 +35,9 @@ instructions: |
 
   1. **Call `entrainment_brief`** — aggregates sleep + overnight alerts in one call. Do not call sopor separately.
   2. **Call `germination_brief`** — automation results, NEEDS_ATTENTION flags. Both always run; they sense different systems.
-  3. **Readiness < 65** → flag explicitly before discussing workload. Cross-ref `memory/user_health_exercise_readiness.md` (< 70 = light only, resume > 75).
+  3. **Readiness < 65** → flag explicitly before discussing workload. Cross-ref `~/epigenome/marks/user_health_exercise_readiness.md` (< 70 = light only, resume > 75).
   4. **Active experiments** → `assay list` — surface experiment day and status.
-  5. **Right-sided morning headache** → check `memory/user_health_sleep_headache_pattern.md`.
+  5. **Right-sided morning headache** → check `~/epigenome/marks/user_health_sleep_headache_pattern.md`.
   6. **Overnight alerts** → any NEEDS_ATTENTION or CRITICAL lines surface immediately.
   7. **"No overnight data"** → note automation may not have run.
 
