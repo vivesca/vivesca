@@ -1,3 +1,4 @@
+from __future__ import annotations
 """Tests for conjugation_engine — CC → Gemini CLI config replication.
 
 Unit tests cover each mapping function in isolation.
@@ -6,7 +7,6 @@ Dry-run tests verify no files are written.
 Round-trip tests verify no hooks/MCP servers are silently dropped.
 """
 
-from __future__ import annotations
 
 import json
 from typing import Any

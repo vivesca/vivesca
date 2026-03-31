@@ -1,5 +1,5 @@
-"""Tests for metabolon.sortase.router."""
 from __future__ import annotations
+"""Tests for metabolon.sortase.router."""
 
 from metabolon.sortase.router import (
     DEFAULT_TOOL,

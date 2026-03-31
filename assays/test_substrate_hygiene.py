@@ -1,5 +1,5 @@
-"""Tests for HygieneSubstrate — dependency and tooling health metabolism."""
 from __future__ import annotations
+"""Tests for HygieneSubstrate — dependency and tooling health metabolism."""
 
 import os
 from pathlib import Path

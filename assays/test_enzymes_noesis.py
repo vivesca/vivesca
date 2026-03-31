@@ -1,5 +1,5 @@
-"""Tests for metabolon/enzymes/noesis — Perplexity-powered AI search tool."""
 from __future__ import annotations
+"""Tests for metabolon/enzymes/noesis — Perplexity-powered AI search tool."""
 
 import subprocess
 from unittest.mock import MagicMock, patch

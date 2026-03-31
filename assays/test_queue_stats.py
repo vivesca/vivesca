@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""Tests for effectors/queue-stats."""
 from __future__ import annotations
+"""Tests for effectors/queue-stats."""
 
 import json
 import textwrap

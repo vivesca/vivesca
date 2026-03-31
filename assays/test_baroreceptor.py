@@ -1,5 +1,5 @@
-"""Tests for baroreceptor — HK Observatory weather sensor."""
 from __future__ import annotations
+"""Tests for baroreceptor — HK Observatory weather sensor."""
 
 import pytest
 

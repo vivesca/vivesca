@@ -1,5 +1,5 @@
-"""Tests for effectors/coaching-stats."""
 from __future__ import annotations
+"""Tests for effectors/coaching-stats."""
 
 import json
 import subprocess

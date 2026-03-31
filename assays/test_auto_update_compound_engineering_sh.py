@@ -1,5 +1,5 @@
-"""Tests for effectors/auto-update-compound-engineering.sh — bash script tested via subprocess."""
 from __future__ import annotations
+"""Tests for effectors/auto-update-compound-engineering.sh — bash script tested via subprocess."""
 
 import os
 import stat

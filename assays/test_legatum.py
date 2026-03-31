@@ -1,6 +1,6 @@
+from __future__ import annotations
 """Tests for effectors/legatum — deterministic session-close gathering."""
 
-from __future__ import annotations
 
 import json
 import subprocess

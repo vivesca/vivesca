@@ -1,9 +1,9 @@
+from __future__ import annotations
 """Tests for metabolon/enzymes/efferens.py — MCP tool wrapper.
 
 Mocks run_cli (the subprocess call) and verifies argument forwarding,
 defaults, return values, and error propagation.
 """
-from __future__ import annotations
 
 from pathlib import Path
 from unittest.mock import call, patch

@@ -1,5 +1,5 @@
-"""Tests for morphogen hook (InstructionsLoaded logger)."""
 from __future__ import annotations
+"""Tests for morphogen hook (InstructionsLoaded logger)."""
 
 import json
 import sys

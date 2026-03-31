@@ -1,5 +1,5 @@
-"""Tests for metabolon/enzymes/integrin.py — attachment integrity probe."""
 from __future__ import annotations
+"""Tests for metabolon/enzymes/integrin.py — attachment integrity probe."""
 
 import subprocess
 from datetime import datetime, timedelta

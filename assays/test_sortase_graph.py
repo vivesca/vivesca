@@ -1,6 +1,6 @@
+from __future__ import annotations
 """Tests for metabolon.sortase.graph DOT visualization."""
 
-from __future__ import annotations
 
 import subprocess
 import sys

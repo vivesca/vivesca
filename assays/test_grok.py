@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
+from __future__ import annotations
 """Tests for grok effector — mocks all external API calls."""
 
-from __future__ import annotations
 
 import pytest
 import subprocess

@@ -1,8 +1,8 @@
+from __future__ import annotations
 """Tests for effectors/autoimmune — meta-spiral guard hook.
 
 Autoimmune is a script — loaded via exec(), never imported.
 """
-from __future__ import annotations
 
 import io
 import json

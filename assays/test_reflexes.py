@@ -1,6 +1,6 @@
+from __future__ import annotations
 """Tests for metabolon/resources/reflexes.py."""
 
-from __future__ import annotations
 
 import json
 from pathlib import Path

@@ -1,5 +1,5 @@
-"""Tests for metabolon.sortase.history."""
 from __future__ import annotations
+"""Tests for metabolon.sortase.history."""
 
 from datetime import datetime
 

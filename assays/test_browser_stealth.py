@@ -1,9 +1,9 @@
+from __future__ import annotations
 """Tests for metabolon/organelles/browser_stealth.py.
 
 All Playwright objects are mocked — no browser launch required.
 """
 
-from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
 

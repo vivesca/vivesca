@@ -1,6 +1,6 @@
+from __future__ import annotations
 """Tests for metabolism.precision — gap detection."""
 
-from __future__ import annotations
 
 from pathlib import Path
 from textwrap import dedent

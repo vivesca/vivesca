@@ -1,8 +1,8 @@
+from __future__ import annotations
 """Tests for effectors/golem-validate — Python file quality validator.
 
 The validator is loaded via exec() (not imported), following the effector testing pattern.
 """
-from __future__ import annotations
 
 import subprocess
 import sys

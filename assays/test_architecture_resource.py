@@ -1,6 +1,6 @@
+from __future__ import annotations
 """Tests for the vivesca://anatomy resource."""
 
-from __future__ import annotations
 
 from pathlib import Path
 

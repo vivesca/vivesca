@@ -1,5 +1,5 @@
-"""Tests for effectors/log-summary — golem-daemon log analyzer."""
 from __future__ import annotations
+"""Tests for effectors/log-summary — golem-daemon log analyzer."""
 
 import json
 from datetime import datetime

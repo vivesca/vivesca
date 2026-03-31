@@ -1,3 +1,4 @@
+from __future__ import annotations
 """Tests for effectors/receptor-health — SKILL.md / recipe.yaml validation.
 
 Uses exec() to load the effector as a module (it is a script, not an
@@ -6,7 +7,6 @@ description length, body size, recipe YAML validation, directory checks,
 and the full scan pipeline.
 """
 
-from __future__ import annotations
 
 import json
 import textwrap

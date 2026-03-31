@@ -1,3 +1,4 @@
+from __future__ import annotations
 """Tests for metabolon.enzymes.endocytosis — public API dispatch.
 
 Covers EndocytosisResult construction and the endocytosis() tool
@@ -6,7 +7,6 @@ All internal helpers use lazy imports inside function bodies,
 so we patch at the *source* module, not on the enzyme module.
 """
 
-from __future__ import annotations
 
 import json
 from datetime import UTC, datetime, timedelta

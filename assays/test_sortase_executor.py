@@ -1,3 +1,4 @@
+from __future__ import annotations
 """Tests for metabolon/sortase/executor.py — task execution, fallback, and cost logic.
 
 Pure-function and mock-heavy tests covering adaptive timeout, coaching prep,
@@ -5,7 +6,6 @@ cost estimation, failure classification, tool chain, status bookkeeping,
 git worktree helpers, and async execute_task / execute_tasks orchestration.
 """
 
-from __future__ import annotations
 
 import json
 import os

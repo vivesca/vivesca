@@ -1,8 +1,8 @@
+from __future__ import annotations
 """Tests for plan-exec — deprecated plan execution effector.
 
 plan-exec now just outputs a deprecation message pointing to sortase exec.
 """
-from __future__ import annotations
 
 import subprocess
 from pathlib import Path

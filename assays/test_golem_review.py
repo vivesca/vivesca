@@ -1,5 +1,5 @@
-"""Tests for golem-review — META-GOLEM review and requeue effector."""
 from __future__ import annotations
+"""Tests for golem-review — META-GOLEM review and requeue effector."""
 
 import subprocess
 import textwrap

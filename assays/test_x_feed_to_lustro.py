@@ -1,5 +1,5 @@
-"""Tests for x-feed-to-lustro — fetch X feed via bird CLI and cache articles."""
 from __future__ import annotations
+"""Tests for x-feed-to-lustro — fetch X feed via bird CLI and cache articles."""
 
 import hashlib
 import json

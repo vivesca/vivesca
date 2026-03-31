@@ -1,6 +1,6 @@
+from __future__ import annotations
 """Tests for metabolon/enzymes/sortase.py - LLM task dispatcher."""
 
-from __future__ import annotations
 
 import tempfile
 from dataclasses import dataclass

@@ -1,9 +1,9 @@
+from __future__ import annotations
 """Comprehensive tests for CCBA eye Credit Card statement PDF parser.
 
 All external calls and file I/O are mocked for isolation.
 """
 
-from __future__ import annotations
 
 from datetime import datetime
 from pathlib import Path

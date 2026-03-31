@@ -1,5 +1,5 @@
-"""Tests for golem-daemon — provider-aware task queue processor."""
 from __future__ import annotations
+"""Tests for golem-daemon — provider-aware task queue processor."""
 
 import json
 from pathlib import Path

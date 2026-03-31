@@ -1,9 +1,9 @@
+from __future__ import annotations
 """Tests for vasomotor.py — pure functions and data transformations.
 
 Mock all external I/O and subprocess calls to test core logic in isolation.
 """
 
-from __future__ import annotations
 
 import json
 import pytest

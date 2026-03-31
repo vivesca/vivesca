@@ -1,6 +1,6 @@
+from __future__ import annotations
 """Tests for emit enzyme helpers and dispatch."""
 
-from __future__ import annotations
 
 import re
 

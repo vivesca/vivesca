@@ -1,6 +1,6 @@
+from __future__ import annotations
 """Tests for metabolon/enzymes/emit.py — all outbound secretion channels."""
 
-from __future__ import annotations
 
 import json
 import os

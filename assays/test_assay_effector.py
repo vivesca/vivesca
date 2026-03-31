@@ -1,5 +1,5 @@
-"""Tests for effectors/assay — life experiment tracker (effector script)."""
 from __future__ import annotations
+"""Tests for effectors/assay — life experiment tracker (effector script)."""
 
 import sys
 from datetime import date, timedelta
@@ -815,7 +815,7 @@ def test_cmd_close_appends_results(capsys, tmp_path):
 pull_oura = _mod["pull_oura"]
 
 
-def test_pull_oura_fetches_data(monkeypatch):
+def test_pull_oura_fetches_data():
     """pull_oura fetches and combines sleep and readiness data."""
     mock_sleep = [{"day": "2024-01-01", "score": 80, "contributors": {"deep_sleep": 20}}]
     mock_readiness = [{"day": "2024-01-01", "score": 70, "contributors": {"hrv_balance": 50}}]
@@ -827,10 +827,15 @@ def test_pull_oura_fetches_data(monkeypatch):
             return mock_readiness
         return []
 
-    monkeypatch.setattr(_mod, "_fetch", mock_fetch)
-    monkeypatch.setattr(_mod, "_get_token", lambda: "test-token")
-
-    result = pull_oura("2024-01-01", "2024-01-02")
+    original_fetch = _mod["_fetch"]
+    original_token = _mod["_get_token"]
+    _mod["_fetch"] = mock_fetch
+    _mod["_get_token"] = lambda: "test-token"
+    try:
+        result = pull_oura("2024-01-01", "2024-01-02")
+    finally:
+        _mod["_fetch"] = original_fetch
+        _mod["_get_token"] = original_token
 
     assert "2024-01-01" in result
     assert result["2024-01-01"]["sleep_score"] == 80
@@ -839,7 +844,7 @@ def test_pull_oura_fetches_data(monkeypatch):
     assert result["2024-01-01"]["readiness_contributors"]["hrv_balance"] == 50
 
 
-def test_pull_oura_sorts_by_date(monkeypatch):
+def test_pull_oura_sorts_by_date():
     """pull_oura returns data sorted by date."""
     mock_sleep = [
         {"day": "2024-01-03", "score": 85},
@@ -851,10 +856,15 @@ def test_pull_oura_sorts_by_date(monkeypatch):
     def mock_fetch(endpoint, start, end, token):
         return mock_sleep if endpoint == "daily_sleep" else []
 
-    monkeypatch.setattr(_mod, "_fetch", mock_fetch)
-    monkeypatch.setattr(_mod, "_get_token", lambda: "test-token")
-
-    result = pull_oura("2024-01-01", "2024-01-03")
+    original_fetch = _mod["_fetch"]
+    original_token = _mod["_get_token"]
+    _mod["_fetch"] = mock_fetch
+    _mod["_get_token"] = lambda: "test-token"
+    try:
+        result = pull_oura("2024-01-01", "2024-01-03")
+    finally:
+        _mod["_fetch"] = original_fetch
+        _mod["_get_token"] = original_token
 
     dates = list(result.keys())
     assert dates == ["2024-01-01", "2024-01-02", "2024-01-03"]

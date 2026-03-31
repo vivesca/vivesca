@@ -1,5 +1,5 @@
-"""Tests for effectors/rheotaxis-local — ambient related-notes surfacer."""
 from __future__ import annotations
+"""Tests for effectors/rheotaxis-local — ambient related-notes surfacer."""
 
 import sys
 from pathlib import Path

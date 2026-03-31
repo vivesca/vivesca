@@ -1,6 +1,6 @@
+from __future__ import annotations
 """Tests for metabolon/gastrulation/check.py."""
 
-from __future__ import annotations
 
 from pathlib import Path
 

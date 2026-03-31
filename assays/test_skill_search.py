@@ -1,5 +1,5 @@
-"""Tests for effectors/skill-search — skill-aware SKILL.md search."""
 from __future__ import annotations
+"""Tests for effectors/skill-search — skill-aware SKILL.md search."""
 
 import json
 import subprocess

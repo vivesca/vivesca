@@ -1,3 +1,4 @@
+from __future__ import annotations
 """Tests for operons — dataclass, registry, and helper functions."""
 
 import pytest
@@ -50,7 +51,6 @@ def test_operon_frozen():
 
 def test_operon_frozen_list_still_appends():
     """Frozen dataclass: list fields are frozen at the dataclass level but
-from __future__ import annotations
 
     the list object itself is mutable — standard Python behaviour."""
     op = Operon(reaction="test", product="x", substrates=["a"])

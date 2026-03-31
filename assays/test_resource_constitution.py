@@ -1,6 +1,6 @@
+from __future__ import annotations
 """Tests for constitution resource module."""
 
-from __future__ import annotations
 
 from pathlib import Path
 from metabolon.resources import constitution

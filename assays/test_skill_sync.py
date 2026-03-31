@@ -1,6 +1,6 @@
+from __future__ import annotations
 """Tests for skill-sync — SKILL.md → recipe.yaml → config.yaml sync."""
 
-from __future__ import annotations
 
 import os
 from pathlib import Path

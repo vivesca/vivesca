@@ -1,5 +1,5 @@
-"""Tests for effectors/queue-balance — task distribution by provider."""
 from __future__ import annotations
+"""Tests for effectors/queue-balance — task distribution by provider."""
 
 import subprocess
 import sys

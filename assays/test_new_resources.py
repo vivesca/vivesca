@@ -1,6 +1,6 @@
+from __future__ import annotations
 """Tests for the new MCP resources: skills, tools, operons, cc/hooks, cc/health."""
 
-from __future__ import annotations
 
 import json
 from pathlib import Path

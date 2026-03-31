@@ -1,6 +1,6 @@
+from __future__ import annotations
 """Tests for metabolon/enzymes/interoception.py — internal state sensing."""
 
-from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
 from datetime import date

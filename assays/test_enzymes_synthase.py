@@ -1,6 +1,6 @@
+from __future__ import annotations
 """Tests for metabolon/enzymes/synthase.py — headless CC with full organism access."""
 
-from __future__ import annotations
 
 from pathlib import Path
 from unittest.mock import patch

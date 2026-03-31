@@ -1,5 +1,5 @@
-"""Tests for circadian-probe effector — AKM Heartbeat nightly digest."""
 from __future__ import annotations
+"""Tests for circadian-probe effector — AKM Heartbeat nightly digest."""
 
 import configparser
 import subprocess

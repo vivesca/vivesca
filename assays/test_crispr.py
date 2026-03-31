@@ -1,5 +1,5 @@
-"""Tests for crispr — adaptive immunity spacer system."""
 from __future__ import annotations
+"""Tests for crispr — adaptive immunity spacer system."""
 
 import json
 from unittest.mock import patch

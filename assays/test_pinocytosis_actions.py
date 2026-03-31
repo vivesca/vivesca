@@ -1,6 +1,6 @@
+from __future__ import annotations
 """Tests for pinocytosis enzyme helpers."""
 
-from __future__ import annotations
 
 import os
 import time

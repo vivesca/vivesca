@@ -1,5 +1,5 @@
-"""Tests for gemmule-clean — temp/cache cleaner effector."""
 from __future__ import annotations
+"""Tests for gemmule-clean — temp/cache cleaner effector."""
 
 import os
 import time

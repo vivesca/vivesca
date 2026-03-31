@@ -1,6 +1,6 @@
+from __future__ import annotations
 """Tests for PhenotypeSubstrate (tools)."""
 
-from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
 from metabolon.metabolism.substrates.tools import PhenotypeSubstrate

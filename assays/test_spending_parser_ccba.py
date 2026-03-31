@@ -1,6 +1,6 @@
+from __future__ import annotations
 """Tests for CCBA eye Credit Card statement parser."""
 
-from __future__ import annotations
 
 from pathlib import Path
 

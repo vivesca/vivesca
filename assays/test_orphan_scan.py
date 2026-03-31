@@ -1,5 +1,5 @@
-"""Tests for orphan-scan — find .py files in metabolon/ not imported anywhere."""
 from __future__ import annotations
+"""Tests for orphan-scan — find .py files in metabolon/ not imported anywhere."""
 
 import json
 import subprocess

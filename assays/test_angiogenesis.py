@@ -1,5 +1,5 @@
-"""Tests for angiogenesis — subsystem integration detector."""
 from __future__ import annotations
+"""Tests for angiogenesis — subsystem integration detector."""
 
 import json
 from datetime import datetime, UTC, timedelta

@@ -1,6 +1,6 @@
+from __future__ import annotations
 """Tests for generate-solutions-index.py effector."""
 
-from __future__ import annotations
 
 import os
 import pytest

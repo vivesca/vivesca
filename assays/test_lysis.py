@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
+from __future__ import annotations
 """Tests for effectors/lysis — Firecrawl scrape/search CLI.
 
 Lysis is a script (effectors/lysis), not an importable module.
 It is loaded via exec() into isolated namespaces.
 """
 
-from __future__ import annotations
 
 import json
 import subprocess

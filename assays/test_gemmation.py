@@ -1,5 +1,5 @@
-"""Tests for gemmation — background agent job queue."""
 from __future__ import annotations
+"""Tests for gemmation — background agent job queue."""
 
 from pathlib import Path
 

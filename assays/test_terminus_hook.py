@@ -1,5 +1,5 @@
-"""Tests for terminus hook."""
 from __future__ import annotations
+"""Tests for terminus hook."""
 
 import json
 import re

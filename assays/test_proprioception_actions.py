@@ -1,6 +1,6 @@
+from __future__ import annotations
 """Tests for proprioception enzyme: dispatch mechanism, gradient detection, structural validation."""
 
-from __future__ import annotations
 
 import json
 import os

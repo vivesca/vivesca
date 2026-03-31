@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
+from __future__ import annotations
 """Tests for metabolon.enzymes.turgor — tonus session state management tool."""
 
-from __future__ import annotations
 
 from unittest.mock import patch
 import pytest

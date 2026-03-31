@@ -1,6 +1,6 @@
+from __future__ import annotations
 """Tests for golgi — blog publishing pipeline."""
 
-from __future__ import annotations
 
 from unittest.mock import patch
 

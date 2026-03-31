@@ -1,8 +1,8 @@
+from __future__ import annotations
 """Tests for effectors/chromatin-decay-report — find orphan and stale notes.
 
 Chromatin-decay-report is a script — loaded via exec(), never imported.
 """
-from __future__ import annotations
 
 import io
 import json

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""Tests for effectors/git-activity — git pulse across repos."""
 from __future__ import annotations
+"""Tests for effectors/git-activity — git pulse across repos."""
 
 import json
 import subprocess

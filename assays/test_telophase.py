@@ -1,8 +1,8 @@
+from __future__ import annotations
 """Tests for telophase — deterministic session-close gathering.
 
 Tests use exec() to load the script since effectors are not importable modules.
 """
-from __future__ import annotations
 
 import json
 import os

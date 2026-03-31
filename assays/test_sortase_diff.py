@@ -1,6 +1,6 @@
+from __future__ import annotations
 """Tests for metabolon.sortase.diff_viewer."""
 
-from __future__ import annotations
 
 import subprocess
 from pathlib import Path

@@ -1,5 +1,5 @@
-"""Tests for hebbian_nudge shared library."""
 from __future__ import annotations
+"""Tests for hebbian_nudge shared library."""
 
 import json
 import sys

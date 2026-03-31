@@ -1,6 +1,6 @@
+from __future__ import annotations
 """Tests for the immune infection log — honest error pattern detection."""
 
-from __future__ import annotations
 
 from metabolon.metabolism.infection import (
     CHRONIC_THRESHOLD,

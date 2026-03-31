@@ -1,6 +1,6 @@
+from __future__ import annotations
 """Tests for metabolon.metabolism.substrates.hygiene."""
 
-from __future__ import annotations
 
 import os
 import subprocess

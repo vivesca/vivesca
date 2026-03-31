@@ -1,6 +1,6 @@
+from __future__ import annotations
 """Tests for metabolon/enzymes/tachometer.py"""
 
-from __future__ import annotations
 
 from datetime import datetime
 from unittest.mock import patch

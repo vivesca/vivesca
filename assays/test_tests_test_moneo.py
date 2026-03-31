@@ -1,10 +1,10 @@
+from __future__ import annotations
 """Meta-tests for metabolon/organelles/tests/test_moneo.py.
 
 Verifies every test function in the original test module executes
 without error, and adds supplementary tests with mocked external
 calls (datetime.now, subprocess, file I/O) to cover edge cases.
 """
-from __future__ import annotations
 
 import base64
 import io

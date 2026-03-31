@@ -1,6 +1,6 @@
+from __future__ import annotations
 """Integration tests for the wired metabolism loop."""
 
-from __future__ import annotations
 
 import asyncio
 import sys

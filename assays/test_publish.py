@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
+from __future__ import annotations
 """Tests for effectors/publish — garden CLI for terryli.hm.
 
 Uses exec() to load the script (never imports). Mocks filesystem paths
 and subprocess calls.
 """
 
-from __future__ import annotations
 
 import re
 import sys

@@ -1,6 +1,6 @@
+from __future__ import annotations
 """Comprehensive tests for ConsolidationSubstrate (memory.py)."""
 
-from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
 from pathlib import Path

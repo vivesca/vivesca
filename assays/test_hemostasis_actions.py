@@ -1,6 +1,6 @@
+from __future__ import annotations
 """Comprehensive tests for hemostasis enzyme — all actions and branches."""
 
-from __future__ import annotations
 
 import os
 import subprocess

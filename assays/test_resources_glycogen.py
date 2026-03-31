@@ -1,3 +1,4 @@
+from __future__ import annotations
 """Tests for glycogen resource — token budget status via vasomotor_sensor.
 
 Covers:
@@ -9,7 +10,6 @@ Covers:
   - proprioception._glycogen() integration (mocked organelle)
 """
 
-from __future__ import annotations
 
 import json
 from datetime import UTC, datetime

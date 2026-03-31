@@ -1,3 +1,4 @@
+from __future__ import annotations
 """Tests for sortase — dispatch coding tasks to cheap LLM backends.
 
 Covers public API: SortaseResult, RouteResult, StatsResult, sortase().
@@ -5,7 +6,6 @@ Tests all four actions (dispatch, route, status, stats) plus unknown action,
 with edge cases for empty/missing input.
 """
 
-from __future__ import annotations
 
 import json
 import subprocess

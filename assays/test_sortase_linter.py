@@ -1,6 +1,6 @@
+from __future__ import annotations
 """Tests for metabolon.sortase.linter."""
 
-from __future__ import annotations
 
 from metabolon.sortase.linter import LintIssue, format_lint_report, lint_plan
 

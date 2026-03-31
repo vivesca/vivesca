@@ -1,5 +1,5 @@
-"""Tests for metabolism_loop — state types and constants."""
 from __future__ import annotations
+"""Tests for metabolism_loop — state types and constants."""
 
 import pytest
 

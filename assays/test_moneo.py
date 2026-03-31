@@ -1,6 +1,6 @@
+from __future__ import annotations
 """Tests for pure functions in metabolon.organelles.moneo."""
 
-from __future__ import annotations
 
 import pytest
 from datetime import date, datetime, time, timedelta

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
+from __future__ import annotations
 """Tests for effectors/wewe-rss-health.py — Wechat2RSS health monitor."""
 
-from __future__ import annotations
 
 import json
 from io import BytesIO

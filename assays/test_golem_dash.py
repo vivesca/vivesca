@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""Tests for effectors/golem-dash — golem dashboard."""
 from __future__ import annotations
+"""Tests for effectors/golem-dash — golem dashboard."""
 
 import json
 import textwrap

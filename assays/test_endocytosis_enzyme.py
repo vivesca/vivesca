@@ -1,5 +1,5 @@
-"""Tests for metabolon.enzymes.endocytosis — all actions mocked."""
 from __future__ import annotations
+"""Tests for metabolon.enzymes.endocytosis — all actions mocked."""
 
 import json
 from datetime import UTC, datetime, timedelta

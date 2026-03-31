@@ -1,5 +1,5 @@
-"""Tests for sortase decompose."""
 from __future__ import annotations
+"""Tests for sortase decompose."""
 
 from pathlib import Path
 

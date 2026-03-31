@@ -1,6 +1,6 @@
+from __future__ import annotations
 """Tests for metabolon.resources.proteome."""
 
-from __future__ import annotations
 
 import textwrap
 from pathlib import Path

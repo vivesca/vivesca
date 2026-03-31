@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
+from __future__ import annotations
 """Tests for respirometry effector cost tracking functionality."""
 
-from __future__ import annotations
 
 import json
 import tempfile

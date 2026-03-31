@@ -1,172 +1,416 @@
-#!/usr/bin/env python3
 from __future__ import annotations
+"""Tests for metabolon/enzymes/sortase.py — dispatch coding tasks to cheap LLM backends."""
 
-"""Tests for effectors/sortase — thin wrapper for metabolon.sortase.cli."""
 
-import subprocess
-import sys
+from dataclasses import dataclass
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
-SORTASE_PATH = Path(__file__).resolve().parents[1] / "effectors" / "sortase"
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
 
 
-# ── File structure tests ──────────────────────────────────────────────────────
+def _fn():
+    """Return the raw function behind the @tool decorator."""
+    from metabolon.enzymes import sortase as mod
+
+    return mod.sortase
 
 
-class TestSortaseBasics:
-    def test_file_exists(self):
-        """Test that sortase effector file exists."""
+def _make_execution_result(
+    task_name: str = "test-task",
+    tool: str = "goose",
+    success: bool = True,
+    duration_s: float = 1.5,
+    fallbacks: list[str] | None = None,
+) -> object:
+    """Create a mock TaskExecutionResult."""
+    from metabolon.sortase.executor import ExecutionAttempt
 
-        assert SORTASE_PATH.exists()
-        assert SORTASE_PATH.is_file()
+    @dataclass
+    class MockResult:
+        task_name: str
+        tool: str
+        success: bool
+        attempts: list
+        fallbacks: list[str]
 
-    def test_is_python_script(self):
-        """Test that sortase has Python shebang."""
-        first_line = SORTASE_PATH.read_text().split("\n")[0]
-        assert first_line.startswith("#!/")
-        assert "python" in first_line.lower()
-
-    def test_has_docstring(self):
-        """Test that sortase has docstring."""
-        content = SORTASE_PATH.read_text()
-        assert '"""' in content or "'''" in content
-
-    def test_docstring_mentions_absorbed(self):
-        """Test docstring mentions absorbed into germline."""
-        content = SORTASE_PATH.read_text()
-        assert "absorbed" in content.lower()
-
-
-# ── Code structure tests ───────────────────────────────────────────────────────
-
-
-class TestCodeStructure:
-    def test_imports_from_metabolon(self):
-        """Test sortase imports from metabolon.sortase.cli."""
-        content = SORTASE_PATH.read_text()
-        assert "from metabolon.sortase.cli import main" in content
-
-    def test_calls_main(self):
-        """Test sortase calls main()."""
-        content = SORTASE_PATH.read_text()
-        assert "main()" in content
-
-    def test_is_thin_wrapper(self):
-        """Test sortase is a thin wrapper (minimal code)."""
-        content = SORTASE_PATH.read_text()
-        # Should be very short - just import and call
-        lines = [l for l in content.split("\n") if l.strip() and not l.strip().startswith("#")]
-        assert len(lines) <= 5
+    return MockResult(
+        task_name=task_name,
+        tool=tool,
+        success=success,
+        attempts=[ExecutionAttempt(tool=tool, exit_code=0, duration_s=duration_s, output="ok")],
+        fallbacks=fallbacks or [],
+    )
 
 
-# ── Execution via subprocess tests ─────────────────────────────────────────────
+def _make_route_decision(tool: str = "goose", reason: str = "Default route") -> object:
+    """Create a mock RouteDecision."""
+    from metabolon.sortase.router import RouteDecision
+
+    return RouteDecision(tool=tool, reason=reason)
 
 
-class TestSortaseSubprocess:
-    def test_sortase_runs_as_script(self):
-        """Test sortase can be run as Python script."""
-        result = subprocess.run(
-            [sys.executable, str(SORTASE_PATH), "--help"],
-            capture_output=True,
-            text=True,
-            timeout=30,
-        )
-        # Should either show help or fail gracefully
-        # We're testing it runs, not specific behavior
-        assert result.returncode is not None
+def _make_validation_issue(severity: str = "warning", message: str = "Test issue") -> object:
+    """Create a mock ValidationIssue."""
+    from metabolon.sortase.validator import ValidationIssue
 
-    def test_sortase_with_no_args(self):
-        """Test sortase with no arguments."""
-        result = subprocess.run(
-            [sys.executable, str(SORTASE_PATH)],
-            capture_output=True,
-            text=True,
-            timeout=30,
-        )
-        # May exit with error or show help
-        # Just verify it runs
-        assert result.returncode is not None
+    return ValidationIssue(check="test", message=message, severity=severity)
 
 
-# ── Module loading tests ───────────────────────────────────────────────────────
+# ---------------------------------------------------------------------------
+# dispatch action tests
+# ---------------------------------------------------------------------------
 
 
-class TestModuleLoading:
-    def test_load_via_exec(self):
-        """Test sortase can be loaded via exec."""
-        ns: dict = {"__name__": "test_sortase", "__file__": str(SORTASE_PATH)}
-        source = SORTASE_PATH.read_text(encoding="utf-8")
+class TestDispatchValidation:
+    """Tests for dispatch action input validation."""
 
-        # Remove the main() call to prevent execution
-        source_no_exec = source.replace("main()", "# main()")
+    def test_missing_prompt_returns_error(self, tmp_path):
+        fn = _fn()
+        result = fn(action="dispatch", prompt="", project_dir=str(tmp_path))
+        assert result.success is False
+        assert "prompt" in result.message.lower()
 
-        # Should not raise when importing
-        try:
-            exec(source_no_exec, ns)
-        except ImportError as e:
-            pytest.skip(f"metabolon not installed: {e}")
+    def test_missing_project_dir_returns_error(self):
+        fn = _fn()
+        result = fn(action="dispatch", prompt="do something", project_dir="")
+        assert result.success is False
+        assert "project_dir" in result.message.lower()
 
-    def test_main_is_callable(self):
-        """Test main function is callable when loaded."""
-        ns: dict = {"__name__": "test_sortase", "__file__": str(SORTASE_PATH)}
-        source = SORTASE_PATH.read_text(encoding="utf-8")
-        source_no_exec = source.replace("main()", "# main()")
-
-        try:
-            exec(source_no_exec, ns)
-            assert callable(ns.get("main"))
-        except ImportError as e:
-            pytest.skip(f"metabolon not installed: {e}")
+    def test_nonexistent_project_dir_returns_error(self):
+        fn = _fn()
+        result = fn(action="dispatch", prompt="do something", project_dir="/nonexistent/path")
+        assert result.success is False
+        assert "not a directory" in result.message.lower()
 
 
-# ── Shebang tests ──────────────────────────────────────────────────────────────
+class TestDispatchSuccess:
+    """Tests for successful dispatch execution."""
+
+    def test_dispatch_returns_sortase_result(self, tmp_path):
+        fn = _fn()
+        with (
+            patch("metabolon.enzymes.sortase.TaskSpec") as mock_taskspec,
+            patch("metabolon.enzymes.sortase.execute_tasks") as mock_exec,
+            patch("metabolon.enzymes.sortase.route_description") as mock_route,
+            patch("metabolon.enzymes.sortase.validate_execution") as mock_validate,
+            patch("metabolon.enzymes.sortase.append_log") as mock_log,
+            patch("metabolon.enzymes.sortase._sp.run") as mock_run,
+        ):
+            mock_route.return_value = _make_route_decision(tool="goose")
+            mock_exec.return_value = [_make_execution_result()]
+            mock_validate.return_value = []
+            mock_run.return_value = MagicMock(stdout="", stderr="")
+
+            result = fn(
+                action="dispatch",
+                prompt="write a hello world function",
+                project_dir=str(tmp_path),
+            )
+
+            assert result.success is True
+            assert "goose" in result.message.lower()
+            assert len(result.tasks) == 1
+            assert result.tasks[0]["name"] == "test-task"
+
+    def test_dispatch_with_backend_override(self, tmp_path):
+        fn = _fn()
+        with (
+            patch("metabolon.enzymes.sortase.TaskSpec") as mock_taskspec,
+            patch("metabolon.enzymes.sortase.execute_tasks") as mock_exec,
+            patch("metabolon.enzymes.sortase.route_description") as mock_route,
+            patch("metabolon.enzymes.sortase.validate_execution") as mock_validate,
+            patch("metabolon.enzymes.sortase.append_log") as mock_log,
+            patch("metabolon.enzymes.sortase._sp.run") as mock_run,
+        ):
+            mock_route.return_value = _make_route_decision(tool="codex", reason="Forced")
+            mock_exec.return_value = [_make_execution_result(tool="codex")]
+            mock_validate.return_value = []
+            mock_run.return_value = MagicMock(stdout="", stderr="")
+
+            result = fn(
+                action="dispatch",
+                prompt="write rust code",
+                project_dir=str(tmp_path),
+                backend="codex",
+            )
+
+            assert result.success is True
+            # route_description should be called with forced_backend
+            mock_route.assert_called_once()
+            call_kwargs = mock_route.call_args[1]
+            assert call_kwargs.get("forced_backend") == "codex"
+
+    def test_dispatch_captures_files_changed(self, tmp_path):
+        fn = _fn()
+        with (
+            patch("metabolon.enzymes.sortase.TaskSpec") as mock_taskspec,
+            patch("metabolon.enzymes.sortase.execute_tasks") as mock_exec,
+            patch("metabolon.enzymes.sortase.route_description") as mock_route,
+            patch("metabolon.enzymes.sortase.validate_execution") as mock_validate,
+            patch("metabolon.enzymes.sortase.append_log") as mock_log,
+            patch("metabolon.enzymes.sortase._sp.run") as mock_run,
+        ):
+            mock_route.return_value = _make_route_decision()
+            mock_exec.return_value = [_make_execution_result()]
+            mock_validate.return_value = []
+            mock_run.return_value = MagicMock(stdout="main.py\nutils.py\n", stderr="")
+
+            result = fn(
+                action="dispatch",
+                prompt="refactor code",
+                project_dir=str(tmp_path),
+            )
+
+            assert result.files_changed == ["main.py", "utils.py"]
+
+    def test_dispatch_captures_validation_issues(self, tmp_path):
+        fn = _fn()
+        with (
+            patch("metabolon.enzymes.sortase.TaskSpec") as mock_taskspec,
+            patch("metabolon.enzymes.sortase.execute_tasks") as mock_exec,
+            patch("metabolon.enzymes.sortase.route_description") as mock_route,
+            patch("metabolon.enzymes.sortase.validate_execution") as mock_validate,
+            patch("metabolon.enzymes.sortase.append_log") as mock_log,
+            patch("metabolon.enzymes.sortase._sp.run") as mock_run,
+        ):
+            mock_route.return_value = _make_route_decision()
+            mock_exec.return_value = [_make_execution_result()]
+            mock_validate.return_value = [
+                _make_validation_issue(severity="warning", message="Unused import")
+            ]
+            mock_run.return_value = MagicMock(stdout="", stderr="")
+
+            result = fn(
+                action="dispatch",
+                prompt="add a feature",
+                project_dir=str(tmp_path),
+            )
+
+            assert len(result.validation_issues) == 1
+            assert result.validation_issues[0]["severity"] == "warning"
+
+    def test_dispatch_logs_execution(self, tmp_path):
+        fn = _fn()
+        with (
+            patch("metabolon.enzymes.sortase.TaskSpec") as mock_taskspec,
+            patch("metabolon.enzymes.sortase.execute_tasks") as mock_exec,
+            patch("metabolon.enzymes.sortase.route_description") as mock_route,
+            patch("metabolon.enzymes.sortase.validate_execution") as mock_validate,
+            patch("metabolon.enzymes.sortase.append_log") as mock_log,
+            patch("metabolon.enzymes.sortase._sp.run") as mock_run,
+        ):
+            mock_route.return_value = _make_route_decision()
+            mock_exec.return_value = [_make_execution_result()]
+            mock_validate.return_value = []
+            mock_run.return_value = MagicMock(stdout="", stderr="")
+
+            fn(
+                action="dispatch",
+                prompt="write tests",
+                project_dir=str(tmp_path),
+            )
+
+            mock_log.assert_called_once()
+            entry = mock_log.call_args[0][0]
+            assert entry["plan"] == "mcp-dispatch"
+            assert entry["tasks"] == 1
 
 
-class TestShebang:
-    def test_shebang_points_to_venv_python(self):
-        """Test shebang points to venv Python."""
-        first_line = SORTASE_PATH.read_text().split("\n")[0]
-        # Should point to a Python in .venv
-        assert ".venv" in first_line or "python" in first_line.lower()
-
-    def test_shebang_is_absolute_path(self):
-        """Test shebang uses absolute path."""
-        first_line = SORTASE_PATH.read_text().split("\n")[0]
-        # Should start with #!/ and contain absolute path
-        assert first_line.startswith("#!/")
-        # Path should be absolute (contains germline)
-        assert "germline" in first_line or "python" in first_line
+# ---------------------------------------------------------------------------
+# route action tests
+# ---------------------------------------------------------------------------
 
 
-# ── Integration tests ───────────────────────────────────────────────────────────
+class TestRouteAction:
+    """Tests for route action."""
+
+    def test_route_returns_route_result(self):
+        fn = _fn()
+        with patch("metabolon.enzymes.sortase.route_description") as mock_route:
+            mock_route.return_value = _make_route_decision(tool="gemini", reason="Algorithmic")
+
+            result = fn(action="route", description="write an algorithm to sort numbers")
+
+            assert result.tool == "gemini"
+            assert "Algorithmic" in result.reason
+
+    def test_route_uses_prompt_if_no_description(self):
+        fn = _fn()
+        with patch("metabolon.enzymes.sortase.route_description") as mock_route:
+            mock_route.return_value = _make_route_decision(tool="codex", reason="Rust")
+
+            result = fn(action="route", prompt="refactor cargo crate")
+
+            assert result.tool == "codex"
+            mock_route.assert_called_once_with("refactor cargo crate")
+
+    def test_route_no_input_returns_unknown(self):
+        fn = _fn()
+        result = fn(action="route", prompt="", description="")
+        assert result.tool == "unknown"
+        assert "no description" in result.reason.lower()
 
 
-class TestSortaseIntegration:
-    def test_file_is_executable(self):
-        """Test sortase file has execute permission."""
-        assert SORTASE_PATH.stat().st_mode & 0o111
+# ---------------------------------------------------------------------------
+# status action tests
+# ---------------------------------------------------------------------------
 
-    def test_direct_execution_possible(self):
-        """Test sortase can be executed directly if metabolon is installed."""
-        # Check if metabolon is available
-        result = subprocess.run(
-            [sys.executable, "-c", "from metabolon.sortase.cli import main"],
-            capture_output=True,
-            text=True,
-            timeout=10,
-        )
-        if result.returncode != 0:
-            pytest.skip("metabolon not installed")
 
-        # Try running sortase --help using sys.executable
-        result = subprocess.run(
-            [sys.executable, str(SORTASE_PATH), "--help"],
-            capture_output=True,
-            text=True,
-            timeout=30,
-        )
-        # Should show help or run successfully
-        assert result.stdout or result.stderr
+class TestStatusAction:
+    """Tests for status action."""
+
+    def test_status_returns_running_tasks(self):
+        fn = _fn()
+        with patch("metabolon.enzymes.sortase.list_running") as mock_list:
+            mock_list.return_value = [
+                {"task_name": "task-1", "tool": "goose", "project_dir": "/tmp/proj"},
+                {"task_name": "task-2", "tool": "codex", "project_dir": "/tmp/other"},
+            ]
+
+            result = fn(action="status")
+
+            assert result.success is True
+            assert "2 running" in result.message
+            assert len(result.tasks) == 2
+            assert result.tasks[0]["name"] == "task-1"
+            assert result.tasks[1]["name"] == "task-2"
+
+    def test_status_empty_returns_zero(self):
+        fn = _fn()
+        with patch("metabolon.enzymes.sortase.list_running") as mock_list:
+            mock_list.return_value = []
+
+            result = fn(action="status")
+
+            assert result.success is True
+            assert "0 running" in result.message
+            assert result.tasks == []
+
+
+# ---------------------------------------------------------------------------
+# stats action tests
+# ---------------------------------------------------------------------------
+
+
+class TestStatsAction:
+    """Tests for stats action."""
+
+    def test_stats_returns_stats_result(self):
+        fn = _fn()
+        with (
+            patch("metabolon.enzymes.sortase.read_logs") as mock_read,
+            patch("metabolon.enzymes.sortase.aggregate_stats") as mock_agg,
+        ):
+            mock_read.return_value = [
+                {"timestamp": "2025-01-01T12:00:00", "plan": "p1", "tool": "goose", "success": True},
+                {"timestamp": "2025-01-01T13:00:00", "plan": "p2", "tool": "codex", "success": False},
+            ]
+            mock_agg.return_value = {"per_tool": {"goose": 1, "codex": 1}}
+
+            result = fn(action="stats")
+
+            assert result.total_runs == 2
+            assert "goose" in result.per_tool
+            assert len(result.entries) == 2
+
+    def test_stats_respects_last_n(self):
+        fn = _fn()
+        with (
+            patch("metabolon.enzymes.sortase.read_logs") as mock_read,
+            patch("metabolon.enzymes.sortase.aggregate_stats") as mock_agg,
+        ):
+            mock_read.return_value = [
+                {"timestamp": f"2025-01-0{i}T12:00:00", "plan": f"p{i}", "tool": "goose", "success": True}
+                for i in range(1, 11)  # 10 entries
+            ]
+            mock_agg.return_value = {"per_tool": {"goose": 10}}
+
+            result = fn(action="stats", last_n=3)
+
+            assert result.total_runs == 10
+            assert len(result.entries) == 3
+
+    def test_stats_empty_logs_returns_empty_result(self):
+        fn = _fn()
+        with (
+            patch("metabolon.enzymes.sortase.read_logs") as mock_read,
+            patch("metabolon.enzymes.sortase.aggregate_stats") as mock_agg,
+        ):
+            mock_read.return_value = []
+
+            result = fn(action="stats")
+
+            assert result.total_runs == 0
+            assert result.entries == []
+            assert result.per_tool == {}
+
+
+# ---------------------------------------------------------------------------
+# unknown action tests
+# ---------------------------------------------------------------------------
+
+
+class TestUnknownAction:
+    """Tests for unknown/invalid actions."""
+
+    def test_unknown_action_returns_error(self):
+        fn = _fn()
+        result = fn(action="foobar")
+        assert result.success is False
+        assert "unknown action" in result.message.lower()
+        assert "dispatch" in result.message.lower()
+
+
+# ---------------------------------------------------------------------------
+# result type tests
+# ---------------------------------------------------------------------------
+
+
+class TestResultTypes:
+    """Verify correct return types for each action."""
+
+    def test_dispatch_returns_sortase_result(self, tmp_path):
+        from metabolon.enzymes.sortase import SortaseResult
+
+        fn = _fn()
+        with (
+            patch("metabolon.enzymes.sortase.TaskSpec"),
+            patch("metabolon.enzymes.sortase.execute_tasks") as mock_exec,
+            patch("metabolon.enzymes.sortase.route_description") as mock_route,
+            patch("metabolon.enzymes.sortase.validate_execution"),
+            patch("metabolon.enzymes.sortase.append_log"),
+            patch("metabolon.enzymes.sortase._sp.run") as mock_run,
+        ):
+            mock_route.return_value = _make_route_decision()
+            mock_exec.return_value = [_make_execution_result()]
+            mock_run.return_value = MagicMock(stdout="", stderr="")
+
+            result = fn(action="dispatch", prompt="test", project_dir=str(tmp_path))
+            assert isinstance(result, SortaseResult)
+
+    def test_route_returns_route_result(self):
+        from metabolon.enzymes.sortase import RouteResult
+
+        fn = _fn()
+        with patch("metabolon.enzymes.sortase.route_description") as mock_route:
+            mock_route.return_value = _make_route_decision()
+            result = fn(action="route", description="test")
+            assert isinstance(result, RouteResult)
+
+    def test_stats_returns_stats_result(self):
+        from metabolon.enzymes.sortase import StatsResult
+
+        fn = _fn()
+        with (
+            patch("metabolon.enzymes.sortase.read_logs") as mock_read,
+            patch("metabolon.enzymes.sortase.aggregate_stats"),
+        ):
+            mock_read.return_value = []
+            result = fn(action="stats")
+            assert isinstance(result, StatsResult)

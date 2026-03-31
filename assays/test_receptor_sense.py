@@ -1,5 +1,5 @@
-"""Tests for receptor_sense — proprioceptive readiness organelle."""
 from __future__ import annotations
+"""Tests for receptor_sense — proprioceptive readiness organelle."""
 
 import datetime
 import json

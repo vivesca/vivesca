@@ -1,5 +1,5 @@
-"""Tests for pulse — the organism's heartbeat."""
 from __future__ import annotations
+"""Tests for pulse — the organism's heartbeat."""
 
 import datetime
 import json

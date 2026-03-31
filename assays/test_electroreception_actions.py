@@ -1,6 +1,6 @@
+from __future__ import annotations
 """Tests for electroreception enzyme."""
 
-from __future__ import annotations
 
 import sqlite3
 import time

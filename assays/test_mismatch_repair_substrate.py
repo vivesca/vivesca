@@ -1,6 +1,6 @@
+from __future__ import annotations
 """Tests for AnamScanSubstrate (mismatch_repair)."""
 
-from __future__ import annotations
 
 import subprocess
 from unittest.mock import patch, MagicMock

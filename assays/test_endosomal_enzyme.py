@@ -1,6 +1,6 @@
+from __future__ import annotations
 """Tests for metabolon/enzymes/endosomal.py - Gmail MCP tool wrapper."""
 
-from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
 

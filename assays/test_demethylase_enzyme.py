@@ -1,3 +1,4 @@
+from __future__ import annotations
 """Tests for demethylase enzyme — signal + mark management dispatcher.
 
 Tests the @tool-decorated demethylase() function in metabolon.enzymes.demethylase
@@ -5,7 +6,6 @@ by mocking all organelle-layer imports.  The enzyme uses lazy imports
 (inside function body), so we patch at the organelle module.
 """
 
-from __future__ import annotations
 
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch

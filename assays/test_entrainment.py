@@ -1,5 +1,5 @@
-"""Tests for entrainment — circadian zeitgeber sensing."""
 from __future__ import annotations
+"""Tests for entrainment — circadian zeitgeber sensing."""
 
 import datetime
 from unittest.mock import patch

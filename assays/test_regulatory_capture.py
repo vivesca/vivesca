@@ -1,5 +1,5 @@
-"""Tests for regulatory-capture — mocked Playwright tests."""
 from __future__ import annotations
+"""Tests for regulatory-capture — mocked Playwright tests."""
 
 import json
 import sys

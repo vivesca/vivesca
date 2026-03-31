@@ -1,5 +1,5 @@
-"""Tests for effectors/browser — CLI wrapper around metabolon.organelles.browser."""
 from __future__ import annotations
+"""Tests for effectors/browser — CLI wrapper around metabolon.organelles.browser."""
 
 import json
 from pathlib import Path

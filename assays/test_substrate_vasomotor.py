@@ -1,5 +1,5 @@
-"""Tests for VasomotorSubstrate — respiration pacing metabolism."""
 from __future__ import annotations
+"""Tests for VasomotorSubstrate — respiration pacing metabolism."""
 
 import json
 import os

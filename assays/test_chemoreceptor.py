@@ -1,5 +1,5 @@
-"""Tests for chemoreceptor — Oura health sensing."""
 from __future__ import annotations
+"""Tests for chemoreceptor — Oura health sensing."""
 
 from unittest.mock import patch, MagicMock
 

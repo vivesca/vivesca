@@ -1,6 +1,6 @@
+from __future__ import annotations
 """Tests for sortase compare delta indicators."""
 
-from __future__ import annotations
 
 from metabolon.sortase.compare import _delta_str
 

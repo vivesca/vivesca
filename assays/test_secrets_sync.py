@@ -1,5 +1,5 @@
-"""Tests for effectors/secrets-sync -- mocked SSH, no real network."""
 from __future__ import annotations
+"""Tests for effectors/secrets-sync -- mocked SSH, no real network."""
 
 import subprocess
 import textwrap

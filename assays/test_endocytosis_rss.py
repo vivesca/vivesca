@@ -1,3 +1,4 @@
+from __future__ import annotations
 """Tests for endocytosis enzyme analytics wiring.
 
 Tests cover the inline JSONL analytics (stats and top) which are
@@ -5,7 +6,6 @@ deterministic and don't require network or lustro binary access.
 The fetch/status tools are CLI-delegating and tested via integration only.
 """
 
-from __future__ import annotations
 
 import json
 from datetime import UTC, datetime, timedelta

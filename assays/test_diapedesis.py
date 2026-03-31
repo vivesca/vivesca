@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
+from __future__ import annotations
 """Tests for diapedesis effector — mocks all external subprocess calls."""
 
-from __future__ import annotations
 
 import pytest
 import subprocess

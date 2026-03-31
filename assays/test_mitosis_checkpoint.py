@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
+from __future__ import annotations
 """Tests for mitosis-checkpoint.py effector."""
 
-from __future__ import annotations
 
 import pytest
 import sys

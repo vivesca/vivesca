@@ -1,10 +1,10 @@
+from __future__ import annotations
 """Tests for the Substrate protocol and its three implementations.
 
 Each substrate is tested through the full sense -> candidates -> act -> report
 cycle using fixture data — no real signals or filesystem state required.
 """
 
-from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
 from pathlib import Path

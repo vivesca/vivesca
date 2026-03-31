@@ -1,6 +1,6 @@
+from __future__ import annotations
 """Tests for metabolon.resources.receptome — receptor (skill) index resource."""
 
-from __future__ import annotations
 
 from datetime import UTC, datetime
 from pathlib import Path

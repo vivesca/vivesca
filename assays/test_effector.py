@@ -1,5 +1,5 @@
-"""Tests for effector — CLI binary runner."""
 from __future__ import annotations
+"""Tests for effector — CLI binary runner."""
 
 from unittest.mock import patch, MagicMock
 import subprocess

@@ -1,5 +1,5 @@
-"""Tests for effectors/pharos-env.sh — bash script tested via subprocess."""
 from __future__ import annotations
+"""Tests for effectors/pharos-env.sh — bash script tested via subprocess."""
 
 import os
 import stat
@@ -8,10 +8,20 @@ from pathlib import Path
 
 import pytest
 
-SCRIPT = Path(__file__).parent.parent / "effectors" / "pharos-env.sh"
+ORIGINAL_SCRIPT = Path(__file__).parent.parent / "effectors" / "pharos-env.sh"
 
 
 # ── helpers ─────────────────────────────────────────────────────────────
+
+
+def _prepare_script(tmp_path: Path) -> Path:
+    """Copy the script and replace /home/terry with tmp_path for testing."""
+    script_content = ORIGINAL_SCRIPT.read_text()
+    script_content = script_content.replace('/home/terry', str(tmp_path))
+    script_path = tmp_path / "pharos-env.sh"
+    script_path.write_text(script_content)
+    script_path.chmod(script_path.stat().st_mode | stat.S_IEXEC)
+    return script_path
 
 
 def _run(
@@ -21,29 +31,20 @@ def _run(
 ) -> subprocess.CompletedProcess:
     """Run pharos-env.sh with given command in a testable environment."""
     env = os.environ.copy()
+    script_path = _prepare_script(tmp_path)
 
-    # Create the .zshenv.local in the real HOME location (pharos is /home/terry)
+    # Create the .zshenv.local if requested
     if have_local_env:
-        # We create it even though it doesn't exist by default in tests
-        zshenv = Path("/home/terry") / ".zshenv.local"
-        if not zshenv.exists():
-            zshenv.write_text(
-                "export PHAROS_TEST_VAR=test-value\n"
-                "export ANOTHER_VAR=another-value\n"
-            )
+        zshenv = tmp_path / ".zshenv.local"
+        zshenv.write_text(
+            "export PHAROS_TEST_VAR=test-value\n"
+            "export ANOTHER_VAR=another-value\n"
+        )
 
-    result = subprocess.run(
-        ["bash", str(SCRIPT)] + command,
+    return subprocess.run(
+        ["bash", str(script_path)] + command,
         capture_output=True, text=True, env=env, timeout=10,
     )
-
-    # Clean up if we created it
-    if have_local_env:
-        zshenv = Path("/home/terry") / ".zshenv.local"
-        if zshenv.exists() and zshenv.read_text().strip() == "export PHAROS_TEST_VAR=test-value\nexport ANOTHER_VAR=another-value":
-            zshenv.unlink()
-
-    return result
 
 
 # ── Basic functionality tests ───────────────────────────────────────────
@@ -54,15 +55,15 @@ class TestPharosEnv:
 
     def test_script_is_executable(self):
         """The script should have executable permissions."""
-        assert SCRIPT.exists()
-        stat_info = SCRIPT.stat()
+        assert ORIGINAL_SCRIPT.exists()
+        stat_info = ORIGINAL_SCRIPT.stat()
         assert stat_info.st_mode & stat.S_IEXEC != 0, "Script should be executable"
 
     def test_sets_correct_home(self, tmp_path: Path):
-        """HOME should be set to /home/terry (hardcoded for pharos)."""
+        """HOME should be set correctly."""
         r = _run(tmp_path, ["printenv", "HOME"])
         assert r.returncode == 0
-        assert r.stdout.strip() == "/home/terry"
+        assert r.stdout.strip() == str(tmp_path)
 
     def test_sets_extended_path(self, tmp_path: Path):
         """PATH should include all expected directories."""
@@ -70,11 +71,11 @@ class TestPharosEnv:
         assert r.returncode == 0
         path = r.stdout.strip()
         expected_dirs = [
-            "/home/terry/.local/bin",
-            "/home/terry/.cargo/bin",
-            "/home/terry/.bun/bin",
-            "/home/terry/go/bin",
-            "/home/terry/.nix-profile/bin",
+            f"{tmp_path}/.local/bin",
+            f"{tmp_path}/.cargo/bin",
+            f"{tmp_path}/.bun/bin",
+            f"{tmp_path}/go/bin",
+            f"{tmp_path}/.nix-profile/bin",
             "/nix/var/nix/profiles/default/bin",
             "/usr/local/bin",
             "/usr/bin",

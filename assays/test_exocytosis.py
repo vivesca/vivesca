@@ -1,5 +1,5 @@
-"""Tests for effectors/exocytosis.py — garden post pipeline."""
 from __future__ import annotations
+"""Tests for effectors/exocytosis.py — garden post pipeline."""
 
 from pathlib import Path
 from unittest.mock import MagicMock, patch

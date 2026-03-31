@@ -1,5 +1,5 @@
-"""Tests for organelles/sporulation — garden publishing for terryli.hm."""
 from __future__ import annotations
+"""Tests for organelles/sporulation — garden publishing for terryli.hm."""
 
 import subprocess
 from pathlib import Path

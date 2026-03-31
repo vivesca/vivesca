@@ -1,6 +1,6 @@
+from __future__ import annotations
 """Tests for metabolon/enzymes/pinocytosis.py — context gathering and overnight summaries."""
 
-from __future__ import annotations
 
 import json
 import time

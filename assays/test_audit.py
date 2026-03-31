@@ -1,6 +1,6 @@
+from __future__ import annotations
 """Tests for the metabolism audit CLI command."""
 
-from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
 from pathlib import Path

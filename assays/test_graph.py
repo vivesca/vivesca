@@ -1,6 +1,6 @@
+from __future__ import annotations
 """Tests for metabolon.sortase.graph module."""
 
-from __future__ import annotations
 
 import tempfile
 from dataclasses import asdict

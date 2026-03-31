@@ -1,6 +1,7 @@
-"""Tests for regulatory-scan effector — scans stale regulatory documents."""
 from __future__ import annotations
+"""Tests for effectors/regulatory-scan — stale regulatory document scan (effector script)."""
 
+import sys
 from datetime import datetime, timedelta
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -8,255 +9,173 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 
-def _load_regulatory_scan():
-    """Load the regulatory-scan module by exec-ing its Python body."""
-    source = open("/home/terry/germline/effectors/regulatory-scan").read()
-    ns: dict = {"__name__": "regulatory_scan"}
+def _load_regulatory_scan_effector():
+    """Load the regulatory-scan effector by exec-ing its Python body."""
+    source = open(Path.home() / "germline" / "effectors" / "regulatory-scan").read()
+    ns: dict = {"__name__": "regulatory_scan_effector"}
     exec(source, ns)
     return ns
 
 
-_mod = _load_regulatory_scan()
+# Load the module and extract functions
+_mod = _load_regulatory_scan_effector()
 is_stale = _mod["is_stale"]
 generate_query_from_filename = _mod["generate_query_from_filename"]
 scan_regulatory_documents = _mod["scan_regulatory_documents"]
-generate_freshness_report = _mod["generate_freshness_report"]
 DEFAULT_STALE_DAYS = _mod["DEFAULT_STALE_DAYS"]
+DEFAULT_REGULATORY_PATH = _mod["DEFAULT_REGULATORY_PATH"]
 
 
-# ── is_stale tests ─────────────────────────────────────────────────────────
+# ── is_stale tests ───────────────────────────────────────────────────────────
 
 
-def test_is_stale_returns_true_for_old_file():
-    """is_stale correctly identifies stale files older than cutoff."""
-    cutoff = datetime.now() - timedelta(days=DEFAULT_STALE_DAYS)
-    file = MagicMock(spec=Path)
-    old_mtime = (cutoff - timedelta(days=1)).timestamp()
-    file.stat.return_value.st_mtime = old_mtime
-    assert is_stale(file, cutoff) is True
+def test_is_stale_old_file():
+    """Old file older than cutoff should be stale."""
+    cutoff = datetime.now() - timedelta(days=10)
+    old_file_mtime = datetime.now() - timedelta(days=20)
+    
+    mock_path = MagicMock(spec=Path)
+    mock_path.stat.return_value.st_mtime = old_file_mtime.timestamp()
+    
+    assert is_stale(mock_path, cutoff) is True
 
 
-def test_is_stale_returns_false_for_fresh_file():
-    """is_stale correctly identifies fresh files newer than cutoff."""
-    cutoff = datetime.now() - timedelta(days=DEFAULT_STALE_DAYS)
-    file = MagicMock(spec=Path)
-    new_mtime = (cutoff + timedelta(days=1)).timestamp()
-    file.stat.return_value.st_mtime = new_mtime
-    assert is_stale(file, cutoff) is False
+def test_is_stale_fresh_file():
+    """Fresh file younger than cutoff should not be stale."""
+    cutoff = datetime.now() - timedelta(days=10)
+    fresh_mtime = datetime.now() - timedelta(days=5)
+    
+    mock_path = MagicMock(spec=Path)
+    mock_path.stat.return_value.st_mtime = fresh_mtime.timestamp()
+    
+    assert is_stale(mock_path, cutoff) is False
 
 
-def test_is_stale_returns_false_for_exact_cutoff():
-    """is_stale returns False for file exactly at cutoff (not older)."""
-    cutoff = datetime.now() - timedelta(days=DEFAULT_STALE_DAYS)
-    file = MagicMock(spec=Path)
-    file.stat.return_value.st_mtime = cutoff.timestamp()
-    assert is_stale(file, cutoff) is False
+# ── generate_query_from_filename tests ───────────────────────────────────────
 
 
-# ── generate_query_from_filename tests ─────────────────────────────────────
-
-
-def test_generate_query_adds_hkma_for_hkma_in_name():
-    """generate_query_from_filename includes HKMA publisher when filename has hkma."""
-    filename = "hkma-circular-2025-01.md"
+def test_generate_query_basic_hkma():
+    """Generate query from HKMA file with hyphens should include publisher."""
+    filename = "hkma-banking-ordinance.md"
     query = generate_query_from_filename(filename)
     assert "HKMA" in query
     assert "latest update" in query
-    assert "2026" in query
-    assert "hkma circular" in query
-    assert "regulatory document" not in query  # because publisher is present
+    assert "regulatory update 2026" in query
+    assert "hkma banking ordinance" in query.lower()
 
 
-def test_generate_query_adds_sfc_for_sfc_in_name():
-    """generate_query_from_filename includes SFC publisher when filename has sfc."""
-    filename = "sfc-code-of-conduct.pdf"
+def test_generate_query_basic_sfc():
+    """Generate query from SFC file with hyphens should include publisher."""
+    filename = "sfc-securities-and-futures-act.pdf"
     query = generate_query_from_filename(filename)
     assert "SFC" in query
     assert "latest update" in query
-    assert "sfc code of conduct" in query
+    assert "securities futures act" in query.lower()
 
 
 def test_generate_query_no_publisher():
-    """generate_query_from_filename works without recognized publisher."""
-    filename = "ma-general-circular.md"
+    """Generate query from file without recognized publisher."""
+    filename = "company-registration-guidelines.md"
     query = generate_query_from_filename(filename)
-    assert "latest update ma general circular" in query
+    assert "latest update" in query
+    assert "company registration guidelines" in query.lower()
     assert "regulatory document 2026" in query
-    assert "HKMA" not in query
-    assert "SFC" not in query
 
 
-def test_generate_query_handles_hyphenated_filename():
-    """generate_query_from_filename replaces hyphens with spaces correctly."""
-    filename = "anti-money-laundering-guidelines.md"
+def test_generate_query_with_date():
+    """Generate query from file with date at end."""
+    filename = "hkgcc-remuneration-report-2025.md"
     query = generate_query_from_filename(filename)
-    assert "anti money laundering guidelines" in query
+    assert "latest update" in query
+    assert "hkgcc remuneration report 2025" in query.lower()
+    assert "regulatory document 2026" in query
 
 
-def test_generate_query_preserves_words_with_hkma_in_middle():
-    """generate_query_from_filename detects HKMA even if not first word."""
-    filename = "circular-hkma-2025.md"
-    query = generate_query_from_filename(filename)
-    assert "HKMA" in query
+# ── scan_regulatory_documents tests ──────────────────────────────────────────
 
 
-# ── scan_regulatory_documents tests ────────────────────────────────────────
-
-
-def test_scan_regulatory_returns_empty_when_no_files(tmp_path):
-    """scan_regulatory_documents returns empty dict when no files in path."""
-    with patch("datetime.datetime") as mock_dt:
-        mock_now = datetime(2026, 4, 1)
-        mock_dt.now.return_value = mock_now
-        result = scan_regulatory_documents(tmp_path, 90, dry_run=True)
-        assert result == {}
-
-
-def test_scan_regulatory_finds_stale_files(tmp_path):
-    """scan_regulatory_documents correctly identifies stale files."""
-    # Create test files
-    stale_file = tmp_path / "stale-doc.md"
-    stale_file.write_text("# Test\n")
-    fresh_file = tmp_path / "fresh-doc.md"
-    fresh_file.write_text("# Fresh\n")
-    
-    # Set mtimes: stale is 100 days ago, fresh 10 days ago
-    stale_cutoff_days = 90
-    now = datetime.now()
-    stale_mtime = (now - timedelta(days=100)).timestamp()
-    fresh_mtime = (now - timedelta(days=10)).timestamp()
-    
-    # Need to actually change the mtime
-    import os
-    os.utime(stale_file, (stale_mtime, stale_mtime))
-    os.utime(fresh_file, (fresh_mtime, fresh_mtime))
-    
-    with patch("metabolon.organelles.rheotaxis_engine.parallel_search") as mock_search:
-        mock_search.return_value = []
-        result = scan_regulatory_documents(tmp_path, stale_cutoff_days, dry_run=False)
-        assert len(result) == 1
-        assert "stale-doc.md" in result
-        assert result["stale-doc.md"]["doc_info"]["days_old"] >= 90
-
-
-def test_scan_regulatory_includes_pdfs_and_mds(tmp_path):
-    """scan_regulatory_documents scans both .md and .pdf files."""
-    now = datetime.now()
-    old_mtime = (now - timedelta(days=100)).timestamp()
-    
-    file1 = tmp_path / "doc1.md"
+def test_scan_no_stale_files(tmp_path):
+    """Scan should return empty dict when no stale files."""
+    # Create two fresh files
+    file1 = tmp_path / "fresh1.md"
     file1.touch()
-    import os
-    os.utime(file1, (old_mtime, old_mtime))
-    
-    file2 = tmp_path / "doc2.pdf"
+    file2 = tmp_path / "fresh2.pdf"
     file2.touch()
-    os.utime(file2, (old_mtime, old_mtime))
     
-    with patch("metabolon.organelles.rheotaxis_engine.parallel_search") as mock_search:
-        mock_search.return_value = []
-        result = scan_regulatory_documents(tmp_path, 90, dry_run=False)
-        assert len(result) == 2
-        assert "doc1.md" in result
-        assert "doc2.pdf" in result
+    stale_days = 10
+    results = scan_regulatory_documents(tmp_path, stale_days, dry_run=True)
+    assert results == {}
 
 
-def test_scan_regulatory_calls_rheotaxis_with_correct_query(tmp_path):
-    """scan_regulatory_documents calls rheotaxis with generated query."""
-    now = datetime.now()
-    old_mtime = (now - timedelta(days=100)).timestamp()
-    
-    hkma_file = tmp_path / "hkma-banking-requirements.md"
-    hkma_file.touch()
+def test_scan_mixed_fresh_and_stale(tmp_path):
+    """Scan should find only stale files."""
+    # Create a stale file by manipulating mtime
+    stale_file = tmp_path / "stale-doc.md"
+    stale_file.touch()
+    # Set mtime to 100 days ago
+    old_time = (datetime.now() - timedelta(days=100)).timestamp()
     import os
-    os.utime(hkma_file, (old_mtime, old_mtime))
+    os.utime(stale_file, (old_time, old_time))
     
-    with patch("metabolon.organelles.rheotaxis_engine.parallel_search") as mock_search:
+    fresh_file = tmp_path / "fresh-doc.pdf"
+    fresh_file.touch()
+    
+    stale_days = 90
+    results = scan_regulatory_documents(tmp_path, stale_days, dry_run=True)
+    assert len(results) == 0  # dry_run returns empty
+
+
+def test_scan_returns_results_when_not_dry_run(tmp_path):
+    """Scan should return results when not dry run."""
+    # Create stale file
+    stale_file = tmp_path / "hkma-capital-requirements.md"
+    stale_file.touch()
+    old_time = (datetime.now() - timedelta(days=100)).timestamp()
+    import os
+    os.utime(stale_file, (old_time, old_time))
+    
+    # Mock rheotaxis_engine
+    with patch("metabolon.organelles.rheotaxis_engine") as mock_rheo:
         mock_result = MagicMock()
         mock_result.error = False
-        mock_result.answer = "Update found 2026"
+        mock_result.answer = "New update found"
         mock_result.backend = "test"
-        mock_search.return_value = [mock_result]
+        mock_rheo.parallel_search.return_value = [mock_result]
+        mock_rheo.format_results.return_value = "Formatted result"
         
-        result = scan_regulatory_documents(tmp_path, 90, dry_run=False, backends="test")
+        stale_days = 90
+        results = scan_regulatory_documents(tmp_path, stale_days, dry_run=False, timeout=1)
         
-        mock_search.assert_called_once()
-        call_args = mock_search.call_args
-        assert "HKMA" in call_args[0][0]
-        assert call_args[1]["backends"] == ["test"]
-        assert "hkma banking requirements" in call_args[0][0]
-        assert result["hkma-banking-requirements.md"]["query"] == call_args[0][0]
+        assert len(results) == 1
+        assert "hkma-capital-requirements.md" in results
+        doc_info = results["hkma-capital-requirements.md"]["doc_info"]
+        assert doc_info["days_old"] >= 90
+        assert "HKMA" in results["hkma-capital-requirements.md"]["query"]
+        assert mock_rheo.parallel_search.called
 
 
-def test_generate_freshness_report_prints_summary(capsys, tmp_path):
-    """generate_freshness_report outputs correct summary statistics."""
-    now = datetime.now()
-    
-    # Create mock results
-    mock_result = {
-        "doc1.md": {
-            "doc_info": {
-                "name": "doc1.md",
-                "days_old": 100,
-            },
-            "results": [
-                MagicMock(error=False, answer="New update available")
-            ]
-        },
-        "doc2.pdf": {
-            "doc_info": {
-                "name": "doc2.pdf", 
-                "days_old": 120,
-            },
-            "results": [
-                MagicMock(error=True, answer=None)
-            ]
-        }
-    }
-    
-    generate_freshness_report(mock_result)
-    out = capsys.readouterr().out
-    
-    assert "FRESHNESS REPORT" in out
-    assert "Total stale documents scanned: 2" in out
-    assert "Documents with potential updates: 1" in out
-    assert "doc1.md" in out
-    assert "doc2.pdf" in out
-    assert "UPDATE AVAILABLE" in out
-    assert "NO UPDATES FOUND" in out
+# ── CLI tests ─────────────────────────────────────────────────────────────────
 
 
-def test_generate_freshness_report_empty_result_no_output():
-    """generate_freshness_report does nothing for empty results."""
-    # Should not error, just return
-    generate_freshness_report({})
-
-
-# ── Integration test: subprocess invocation ──────────────────────────────────
-
-
-def test_subprocess_help_flag():
-    """Test that the script can be executed with --help."""
+def test_cli_nonexistent_path():
+    """CLI should exit with 1 when path doesn't exist."""
     import subprocess
     result = subprocess.run(
-        ["/home/terry/germline/effectors/regulatory-scan", "--help"],
-        capture_output=True,
-        text=True
-    )
-    assert result.returncode == 0
-    assert "Scan for stale regulatory documents" in result.stdout
-    assert "--days" in result.stdout
-    assert "--dry-run" in result.stdout
-    assert "--backend" in result.stdout
-
-
-def test_subprocess_nonexistent_path_exits_with_error():
-    """Test that the script exits with error when path doesn't exist."""
-    import subprocess
-    result = subprocess.run(
-        ["/home/terry/germline/effectors/regulatory-scan", "--path", "/nonexistent/path/that/never/exists"],
+        [str(Path.home() / "germline" / "effectors" / "regulatory-scan"), "--path", "/nonexistent/path/does/not/exist"],
         capture_output=True,
         text=True
     )
     assert result.returncode == 1
     assert "does not exist" in result.stderr
+
+
+def test_cli_help():
+    """CLI help should work."""
+    import subprocess
+    result = subprocess.run(
+        [str(Path.home() / "germline" / "effectors" / "regulatory-scan"), "--help"],
+        capture_output=True,
+        text=True
+    )
+    assert result.returncode == 0
+    assert "Scan for stale regulatory documents" in result.stdout

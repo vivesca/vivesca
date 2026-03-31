@@ -1,6 +1,6 @@
+from __future__ import annotations
 """Tests for metabolon/enzymes/ingestion.py — meal planning."""
 
-from __future__ import annotations
 
 from pathlib import Path
 from unittest.mock import patch

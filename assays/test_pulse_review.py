@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
+from __future__ import annotations
 """Tests for effectors/pulse-review — cross-model review of copia manifests.
 
 Pulse-review is a script (effectors/pulse-review), not an importable module.
 It is loaded via exec() into isolated namespaces.
 """
 
-from __future__ import annotations
 
 import subprocess
 import sys

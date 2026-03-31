@@ -1,6 +1,6 @@
+from __future__ import annotations
 """Tests for circulation organelle — state types, pure helpers, constants."""
 
-from __future__ import annotations
 
 import json
 import textwrap

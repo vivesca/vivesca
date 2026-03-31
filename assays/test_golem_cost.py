@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""Tests for effectors/golem-cost — golem run cost estimator."""
 from __future__ import annotations
+"""Tests for effectors/golem-cost — golem run cost estimator."""
 
 import json
 from pathlib import Path

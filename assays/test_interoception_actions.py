@@ -1,6 +1,6 @@
+from __future__ import annotations
 """Tests for interoception enzyme: structural validation, constants, result types."""
 
-from __future__ import annotations
 
 import os
 from pathlib import Path

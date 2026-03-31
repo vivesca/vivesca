@@ -1,5 +1,5 @@
-"""Tests for consulting-card effector — insight card generator."""
 from __future__ import annotations
+"""Tests for consulting-card effector — insight card generator."""
 
 import argparse
 import sys

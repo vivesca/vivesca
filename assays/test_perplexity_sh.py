@@ -1,5 +1,5 @@
-"""Tests for effectors/perplexity.sh — bash script tested via subprocess."""
 from __future__ import annotations
+"""Tests for effectors/perplexity.sh — bash script tested via subprocess."""
 
 import json
 import os

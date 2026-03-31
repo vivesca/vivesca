@@ -1,5 +1,5 @@
-"""Tests for inflammasome — deterministic self-test probes."""
 from __future__ import annotations
+"""Tests for inflammasome — deterministic self-test probes."""
 
 import json
 from pathlib import Path

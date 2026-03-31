@@ -1,10 +1,10 @@
+from __future__ import annotations
 """Smoke tests for vivesca MCP server assembly.
 
 Guards against silent 0-tool servers (burned us 2026-03-28 when a
 directory rename left a stale path in membrane.py).
 """
 
-from __future__ import annotations
 
 import asyncio
 

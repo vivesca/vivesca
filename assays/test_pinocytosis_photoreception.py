@@ -1,5 +1,5 @@
-"""Tests for pinocytosis/photoreception — morning brief context gather."""
 from __future__ import annotations
+"""Tests for pinocytosis/photoreception — morning brief context gather."""
 
 import pytest
 

@@ -1,6 +1,6 @@
+from __future__ import annotations
 """Tests for endosome sorting: cargo fate assignment and log filtering."""
 
-from __future__ import annotations
 
 from metabolon.organelles.endocytosis_rss.sorting import (
     FATE_DEGRADE,

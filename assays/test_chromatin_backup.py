@@ -1,5 +1,5 @@
-"""Tests for chromatin-backup — git auto-commit/push for Obsidian vault."""
 from __future__ import annotations
+"""Tests for chromatin-backup — git auto-commit/push for Obsidian vault."""
 
 import subprocess
 from pathlib import Path

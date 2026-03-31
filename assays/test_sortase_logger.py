@@ -1,5 +1,5 @@
-"""Tests for sortase logger."""
 from __future__ import annotations
+"""Tests for sortase logger."""
 
 from datetime import datetime
 

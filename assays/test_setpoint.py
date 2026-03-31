@@ -1,6 +1,6 @@
+from __future__ import annotations
 """Tests for autonomic thresholds."""
 
-from __future__ import annotations
 
 import pytest
 

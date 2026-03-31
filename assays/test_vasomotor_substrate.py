@@ -1,10 +1,10 @@
+from __future__ import annotations
 """Tests for VasomotorSubstrate — pacing system metabolism.
 
 Tests the full sense -> candidates -> act -> report cycle using
 fixture JSONL events. No real filesystem state required.
 """
 
-from __future__ import annotations
 
 import json
 from datetime import UTC, datetime, timedelta

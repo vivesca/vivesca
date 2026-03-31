@@ -1,5 +1,5 @@
-"""Tests for kinesin — session-independent agent dispatcher."""
 from __future__ import annotations
+"""Tests for kinesin — session-independent agent dispatcher."""
 
 from unittest.mock import patch
 

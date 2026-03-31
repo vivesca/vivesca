@@ -1,5 +1,5 @@
-"""Tests for vasomotor — autonomic pacing and budget regulation."""
 from __future__ import annotations
+"""Tests for vasomotor — autonomic pacing and budget regulation."""
 
 import datetime
 import json

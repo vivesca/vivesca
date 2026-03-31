@@ -1,6 +1,6 @@
+from __future__ import annotations
 """Tests for metabolon.sortase.decompose module."""
 
-from __future__ import annotations
 
 import tempfile
 from pathlib import Path

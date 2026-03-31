@@ -1,6 +1,6 @@
+from __future__ import annotations
 """Tests for gradient_sense — sensor array reading and polarity detection."""
 
-from __future__ import annotations
 
 import json
 from datetime import UTC, datetime, timedelta

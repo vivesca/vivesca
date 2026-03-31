@@ -1,6 +1,6 @@
+from __future__ import annotations
 """Tests for demethylase — active memory erasure and consolidation."""
 
-from __future__ import annotations
 
 from pathlib import Path
 

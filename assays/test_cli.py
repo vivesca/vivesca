@@ -1,6 +1,6 @@
+from __future__ import annotations
 """Integration tests — CLI end-to-end via Click test runner."""
 
-from __future__ import annotations
 
 from click.testing import CliRunner
 

@@ -1,5 +1,5 @@
-"""Tests for interoceptor hook (Notification logger)."""
 from __future__ import annotations
+"""Tests for interoceptor hook (Notification logger)."""
 
 import json
 import sys

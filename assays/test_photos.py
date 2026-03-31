@@ -1,5 +1,5 @@
-"""Tests for effectors/photos.py — photo access script."""
 from __future__ import annotations
+"""Tests for effectors/photos.py — photo access script."""
 
 import sqlite3
 import sys

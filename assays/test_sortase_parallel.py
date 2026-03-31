@@ -1,6 +1,6 @@
+from __future__ import annotations
 """Integration test for parallel sortase dispatch — verifies status.json atomicity under concurrency."""
 
-from __future__ import annotations
 
 import json
 from concurrent.futures import ThreadPoolExecutor, as_completed

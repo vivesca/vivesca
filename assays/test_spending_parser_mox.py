@@ -1,6 +1,6 @@
+from __future__ import annotations
 """Tests for Mox Credit statement parser."""
 
-from __future__ import annotations
 
 from pathlib import Path
 

@@ -1,6 +1,6 @@
+from __future__ import annotations
 """Tests for effectors/browse — web content extractor with fallback chain."""
 
-from __future__ import annotations
 
 import subprocess
 import sys

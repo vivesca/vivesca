@@ -1,5 +1,5 @@
-"""Tests for praxis — Praxis.md TODO list management."""
 from __future__ import annotations
+"""Tests for praxis — Praxis.md TODO list management."""
 
 from unittest.mock import patch
 

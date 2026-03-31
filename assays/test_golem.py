@@ -1,3 +1,4 @@
+from __future__ import annotations
 """Tests for golem effectors (golem-daemon, golem-dash, golem-health,
 golem-reviewer, golem-validate).
 
@@ -5,7 +6,6 @@ Effectors are scripts — loaded via exec(open(path).read(), ns), never imported
 All function calls use dict-style access: ns["func"]().
 Constants patched by mutating ns dict directly (save/restore pattern).
 """
-from __future__ import annotations
 
 import json
 import os

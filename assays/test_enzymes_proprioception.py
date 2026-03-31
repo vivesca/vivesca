@@ -1,6 +1,6 @@
+from __future__ import annotations
 """Tests for metabolon/enzymes/proprioception.py — internal-state sensing with gradients."""
 
-from __future__ import annotations
 
 import json
 from datetime import datetime, timedelta, timezone

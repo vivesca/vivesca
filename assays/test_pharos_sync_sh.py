@@ -1,5 +1,5 @@
-"""Tests for effectors/pharos-sync.sh — bash script tested via subprocess."""
 from __future__ import annotations
+"""Tests for effectors/pharos-sync.sh — bash script tested via subprocess."""
 
 import os
 import stat

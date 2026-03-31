@@ -1,5 +1,5 @@
-"""Tests for lustro-analyze — article classification and ranking effector."""
 from __future__ import annotations
+"""Tests for lustro-analyze — article classification and ranking effector."""
 
 import json
 import subprocess

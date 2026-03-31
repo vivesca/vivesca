@@ -1,6 +1,6 @@
+from __future__ import annotations
 """Tests for metabolon.sortase.overnight module."""
 
-from __future__ import annotations
 
 import json
 import tempfile

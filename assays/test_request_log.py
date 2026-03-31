@@ -1,6 +1,6 @@
+from __future__ import annotations
 """Tests for request logging — JSONL file with tool name, duration, success/fail."""
 
-from __future__ import annotations
 
 import json
 from pathlib import Path

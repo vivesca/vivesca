@@ -1,5 +1,5 @@
-"""Tests for compaction hook."""
 from __future__ import annotations
+"""Tests for compaction hook."""
 
 import json
 import sys

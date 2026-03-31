@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
+from __future__ import annotations
 """Tests for effectors/efferens — shared notice board CLI.
 
 Unit tests mock acta; integration tests exercise the real CLI via subprocess.
 """
-from __future__ import annotations
 
 import argparse
 import subprocess

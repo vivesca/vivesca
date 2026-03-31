@@ -1,6 +1,6 @@
+from __future__ import annotations
 """Tests for metabolon/enzymes/expression.py — career forge pre-flight checks."""
 
-from __future__ import annotations
 
 import datetime
 from pathlib import Path

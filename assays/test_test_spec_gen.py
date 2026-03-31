@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""Tests for effectors/test-spec-gen — sortase-ready test spec generator."""
 from __future__ import annotations
+"""Tests for effectors/test-spec-gen — sortase-ready test spec generator."""
 
 import re
 import textwrap

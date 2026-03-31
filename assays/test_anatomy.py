@@ -1,6 +1,6 @@
+from __future__ import annotations
 """Comprehensive tests for metabolon/resources/anatomy.py."""
 
-from __future__ import annotations
 
 import ast
 from datetime import UTC, datetime, timedelta

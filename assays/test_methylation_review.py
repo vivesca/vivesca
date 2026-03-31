@@ -1,9 +1,9 @@
+from __future__ import annotations
 """Tests for effectors/methylation-review — weekly methylation review synthesis.
 
 methylation-review is a script (effectors/methylation-review), not an importable module.
 It is loaded via exec() so that module-level constants can be patched per test.
 """
-from __future__ import annotations
 
 import json
 from datetime import datetime, timedelta, timezone

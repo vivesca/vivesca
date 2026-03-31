@@ -1,5 +1,5 @@
-"""Tests for retrograde — symbiont influence tracker."""
 from __future__ import annotations
+"""Tests for retrograde — symbiont influence tracker."""
 
 import json
 from datetime import datetime, UTC

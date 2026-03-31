@@ -1,6 +1,6 @@
+from __future__ import annotations
 """Tests for metabolon.resources.oscillators — pacemaker LaunchAgent status."""
 
-from __future__ import annotations
 
 import plistlib
 from pathlib import Path

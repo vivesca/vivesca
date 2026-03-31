@@ -1,5 +1,5 @@
-"""Tests for sortase validator."""
 from __future__ import annotations
+"""Tests for sortase validator."""
 
 from pathlib import Path
 

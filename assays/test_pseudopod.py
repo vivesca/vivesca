@@ -1,5 +1,5 @@
-"""Tests for pseudopod — browser cookie bridge + translocon dispatch."""
 from __future__ import annotations
+"""Tests for pseudopod — browser cookie bridge + translocon dispatch."""
 
 from unittest.mock import patch, Mock
 

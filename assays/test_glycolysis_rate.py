@@ -1,5 +1,5 @@
-"""Tests for glycolysis_rate — symbiont dependency ratio."""
 from __future__ import annotations
+"""Tests for glycolysis_rate — symbiont dependency ratio."""
 
 import json
 from unittest.mock import patch

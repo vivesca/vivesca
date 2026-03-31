@@ -1,5 +1,5 @@
-"""Tests for secretory_vesicle — Telegram export organelle."""
 from __future__ import annotations
+"""Tests for secretory_vesicle — Telegram export organelle."""
 
 from unittest.mock import patch
 

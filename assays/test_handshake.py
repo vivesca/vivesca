@@ -1,10 +1,10 @@
+from __future__ import annotations
 """Test MCP initialize handshake via the mcp client SDK.
 
 Uses FastMCP's client to connect to the vivesca server over stdio
 and verify the handshake, tool listing, and resource listing.
 """
 
-from __future__ import annotations
 
 import asyncio
 import sys

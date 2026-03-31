@@ -1,6 +1,6 @@
+from __future__ import annotations
 """Tests for effectors/client-brief — client brief generator."""
 
-from __future__ import annotations
 
 import importlib.machinery
 import importlib.util

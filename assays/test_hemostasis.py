@@ -1,6 +1,6 @@
+from __future__ import annotations
 """Tests for metabolon.enzymes.hemostasis — emergency process stabilization."""
 
-from __future__ import annotations
 
 import datetime
 import subprocess

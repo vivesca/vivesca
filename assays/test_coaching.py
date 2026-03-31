@@ -1,5 +1,5 @@
-"""Tests for metabolon.sortase.coaching."""
 from __future__ import annotations
+"""Tests for metabolon.sortase.coaching."""
 
 import tempfile
 from pathlib import Path

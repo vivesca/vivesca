@@ -1,9 +1,9 @@
+from __future__ import annotations
 """Tests for metabolon/enzymes/lysis.py — MCP tool wrapper around lysis effector.
 
 Covers all three action branches (scrape, search, unknown), argument
 forwarding, timeout, and error propagation from run_cli.
 """
-from __future__ import annotations
 
 from pathlib import Path
 from unittest.mock import patch

@@ -1,3 +1,4 @@
+from __future__ import annotations
 """Tests for phenotype_translate and gemini_adapter.
 
 Covers:
@@ -9,7 +10,6 @@ Covers:
   - Full translate_to_gemini pipeline (dry-run)
 """
 
-from __future__ import annotations
 
 import json
 import subprocess

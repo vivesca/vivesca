@@ -1,8 +1,8 @@
+from __future__ import annotations
 """Tests for effectors/capco-prep — CAPCO readiness checklist.
 
 Capco-prep is a script — loaded via exec(), never imported.
 """
-from __future__ import annotations
 
 import os
 import subprocess

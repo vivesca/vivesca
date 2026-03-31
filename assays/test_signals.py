@@ -1,6 +1,6 @@
+from __future__ import annotations
 """Tests for signal collection and JSONL persistence."""
 
-from __future__ import annotations
 
 from datetime import UTC
 from typing import Any, cast

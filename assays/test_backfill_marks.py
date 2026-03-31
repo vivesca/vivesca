@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
+from __future__ import annotations
 """Tests for backfill-marks effector — tests frontmatter field addition for epigenome marks."""
 
-from __future__ import annotations
 
 import pytest
 import sys

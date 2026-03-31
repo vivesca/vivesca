@@ -1,9 +1,9 @@
+from __future__ import annotations
 """Tests for effectors/cookie-sync — Chrome cookie export/import.
 
 cookie-sync is a script — loaded via exec(), never imported.
 """
 
-from __future__ import annotations
 
 import base64
 import hashlib

@@ -1,9 +1,9 @@
+from __future__ import annotations
 """Tests for OperonSubstrate — the operon heartbeat monitor.
 
 Full sense -> candidates -> act -> report cycle using fixture signals.
 """
 
-from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
 

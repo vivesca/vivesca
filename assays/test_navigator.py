@@ -1,6 +1,6 @@
+from __future__ import annotations
 """Tests for metabolon/enzymes/navigator.py — browser automation."""
 
-from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
 
