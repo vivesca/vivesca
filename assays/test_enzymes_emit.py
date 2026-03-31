@@ -187,17 +187,27 @@ class TestPraxis:
 
 
 class TestPublish:
-    @patch("metabolon.enzymes.emit._golgi")
-    def test_publish_new(self, mock_golgi):
-        mock_golgi.new.return_value = ("slug", "/path/to/draft.md")
+    # publish does a local `from metabolon.organelles import golgi`,
+    # so we must patch the real module, not the module-level _golgi alias.
+    @patch("metabolon.organelles.golgi.push")
+    @patch("metabolon.organelles.golgi.index")
+    @patch("metabolon.organelles.golgi.publish")
+    @patch("metabolon.organelles.golgi.list_posts")
+    @patch("metabolon.organelles.golgi.new")
+    def test_publish_new(self, mock_new, mock_list, mock_publish, mock_index, mock_push):
+        mock_new.return_value = ("slug", "/path/to/draft.md")
         fn = _fn()
         result = fn(action="publish", subcommand="new", slug="my-post")
         assert result.success is True
         assert "draft" in result.message.lower()
 
-    @patch("metabolon.enzymes.emit._golgi")
-    def test_publish_list(self, mock_golgi):
-        mock_golgi.list_posts.return_value = [
+    @patch("metabolon.organelles.golgi.push")
+    @patch("metabolon.organelles.golgi.index")
+    @patch("metabolon.organelles.golgi.publish")
+    @patch("metabolon.organelles.golgi.list_posts")
+    @patch("metabolon.organelles.golgi.new")
+    def test_publish_list(self, mock_new, mock_list, mock_publish, mock_index, mock_push):
+        mock_list.return_value = [
             {"slug": "post-a", "title": "Title A", "draft": True},
             {"slug": "post-b", "title": "Title B", "draft": False},
         ]
@@ -207,31 +217,48 @@ class TestPublish:
         assert "post-a" in result.message
         assert "draft" in result.message
 
-    @patch("metabolon.enzymes.emit._golgi")
-    def test_publish_publish(self, mock_golgi):
-        mock_golgi.publish.return_value = "2026-03-31-my-post"
+    @patch("metabolon.organelles.golgi.push")
+    @patch("metabolon.organelles.golgi.index")
+    @patch("metabolon.organelles.golgi.publish")
+    @patch("metabolon.organelles.golgi.list_posts")
+    @patch("metabolon.organelles.golgi.new")
+    def test_publish_publish(self, mock_new, mock_list, mock_publish, mock_index, mock_push):
+        mock_publish.return_value = "2026-03-31-my-post"
         fn = _fn()
         result = fn(action="publish", subcommand="publish", slug="my-post")
         assert result.success is True
         assert "Published" in result.message
 
-    @patch("metabolon.enzymes.emit._golgi")
-    def test_publish_push(self, mock_golgi):
-        mock_golgi.push.return_value = "pushed"
+    @patch("metabolon.organelles.golgi.push")
+    @patch("metabolon.organelles.golgi.index")
+    @patch("metabolon.organelles.golgi.publish")
+    @patch("metabolon.organelles.golgi.list_posts")
+    @patch("metabolon.organelles.golgi.new")
+    def test_publish_push(self, mock_new, mock_list, mock_publish, mock_index, mock_push):
+        mock_push.return_value = "pushed"
         fn = _fn()
         result = fn(action="publish", subcommand="push")
         assert result.success is True
+        assert "pushed" in result.message
 
-    @patch("metabolon.enzymes.emit._golgi")
-    def test_publish_index(self, mock_golgi):
-        mock_golgi.index.return_value = 42
+    @patch("metabolon.organelles.golgi.push")
+    @patch("metabolon.organelles.golgi.index")
+    @patch("metabolon.organelles.golgi.publish")
+    @patch("metabolon.organelles.golgi.list_posts")
+    @patch("metabolon.organelles.golgi.new")
+    def test_publish_index(self, mock_new, mock_list, mock_publish, mock_index, mock_push):
+        mock_index.return_value = 42
         fn = _fn()
         result = fn(action="publish", subcommand="index")
         assert result.success is True
         assert "42" in result.message
 
-    @patch("metabolon.enzymes.emit._golgi")
-    def test_publish_unknown_subcommand(self, mock_golgi):
+    @patch("metabolon.organelles.golgi.push")
+    @patch("metabolon.organelles.golgi.index")
+    @patch("metabolon.organelles.golgi.publish")
+    @patch("metabolon.organelles.golgi.list_posts")
+    @patch("metabolon.organelles.golgi.new")
+    def test_publish_unknown_subcommand(self, mock_new, mock_list, mock_publish, mock_index, mock_push):
         fn = _fn()
         result = fn(action="publish", subcommand="bogus")
         assert result.success is False
