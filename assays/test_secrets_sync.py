@@ -3,9 +3,8 @@ from __future__ import annotations
 
 import subprocess
 import textwrap
-from contextlib import contextmanager
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
@@ -26,20 +25,6 @@ sync_env = _mod["sync_env"]
 sync_ssh_keys = _mod["sync_ssh_keys"]
 sync_gitconfig = _mod["sync_gitconfig"]
 main = _mod["main"]
-
-
-@contextmanager
-def _patch_ns(**kwargs):
-    """Patch module-level constants in the exec'd namespace dict.
-
-    ``patch.object`` fails on plain dicts, so we mutate and restore directly.
-    """
-    old = {k: _mod[k] for k in kwargs}
-    _mod.update(kwargs)
-    try:
-        yield
-    finally:
-        _mod.update(old)
 
 
 # ── parse_env_file tests ─────────────────────────────────────────────
@@ -100,8 +85,12 @@ def test_ssh_key_files_finds_existing(tmp_path: Path):
     ssh_dir.mkdir()
     (ssh_dir / "id_ed25519").write_text("key")
     (ssh_dir / "id_ed25519.pub").write_text("pub-key")
-    with patch.object(_mod, "SSH_DIR", ssh_dir):
+    saved = _mod["SSH_DIR"]
+    try:
+        _mod["SSH_DIR"] = ssh_dir
         files = ssh_key_files()
+    finally:
+        _mod["SSH_DIR"] = saved
     names = {f.name for f in files}
     assert names == {"id_ed25519", "id_ed25519.pub"}
 
@@ -111,8 +100,12 @@ def test_ssh_key_files_missing_pub(tmp_path: Path):
     ssh_dir = tmp_path / ".ssh"
     ssh_dir.mkdir()
     (ssh_dir / "id_ed25519").write_text("key")
-    with patch.object(_mod, "SSH_DIR", ssh_dir):
+    saved = _mod["SSH_DIR"]
+    try:
+        _mod["SSH_DIR"] = ssh_dir
         files = ssh_key_files()
+    finally:
+        _mod["SSH_DIR"] = saved
     assert len(files) == 1
     assert files[0].name == "id_ed25519"
 
@@ -121,8 +114,12 @@ def test_ssh_key_files_none_exist(tmp_path: Path):
     """ssh_key_files returns empty when no keys found."""
     ssh_dir = tmp_path / ".ssh"
     ssh_dir.mkdir()
-    with patch.object(_mod, "SSH_DIR", ssh_dir):
+    saved = _mod["SSH_DIR"]
+    try:
+        _mod["SSH_DIR"] = ssh_dir
         files = ssh_key_files()
+    finally:
+        _mod["SSH_DIR"] = saved
     assert files == []
 
 
@@ -252,62 +249,66 @@ def test_sync_ssh_keys_no_keys(capsys):
 # ── sync_gitconfig tests ─────────────────────────────────────────────
 
 
-def test_sync_gitconfig_dry_run(capsys):
+def test_sync_gitconfig_dry_run(capsys, tmp_path: Path):
     """sync_gitconfig in dry-run prints action without executing."""
-    with patch.object(_mod, "GITCONFIG", Path("/nonexistent")):
-        # Need a file that exists
-        pass
-    tmp = Path("/tmp/test_gitconfig_ss")
+    tmp = tmp_path / "gitconfig"
     tmp.write_text("[user]\n  name = Test\n  email = test@test.com\n")
+    saved = _mod["GITCONFIG"]
     try:
-        with patch.object(_mod, "GITCONFIG", tmp):
-            with patch("subprocess.run") as mock_run:
-                result = sync_gitconfig("user@host", dry_run=True)
-        assert result is True
-        mock_run.assert_not_called()
-        captured = capsys.readouterr()
-        assert "dry-run" in captured.out
+        _mod["GITCONFIG"] = tmp
+        with patch("subprocess.run") as mock_run:
+            result = sync_gitconfig("user@host", dry_run=True)
     finally:
-        tmp.unlink(missing_ok=True)
+        _mod["GITCONFIG"] = saved
+    assert result is True
+    mock_run.assert_not_called()
+    captured = capsys.readouterr()
+    assert "dry-run" in captured.out
 
 
-def test_sync_gitconfig_writes_via_ssh():
+def test_sync_gitconfig_writes_via_ssh(tmp_path: Path):
     """sync_gitconfig writes gitconfig content via ssh stdin."""
-    tmp = Path("/tmp/test_gitconfig_ss2")
+    tmp = tmp_path / "gitconfig"
     content = "[user]\n  name = Test\n"
     tmp.write_text(content)
+    saved = _mod["GITCONFIG"]
     try:
-        with patch.object(_mod, "GITCONFIG", tmp):
-            with patch("subprocess.run") as mock_run:
-                mock_run.return_value = subprocess.CompletedProcess([], 0, "", "")
-                result = sync_gitconfig("user@host", dry_run=False)
-        assert result is True
-        mock_run.assert_called_once()
-        call_args = mock_run.call_args
-        assert call_args[0][0] == ["ssh", "user@host", "cat > ~/.gitconfig"]
-        assert call_args[1]["input"] == content
+        _mod["GITCONFIG"] = tmp
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = subprocess.CompletedProcess([], 0, "", "")
+            result = sync_gitconfig("user@host", dry_run=False)
     finally:
-        tmp.unlink(missing_ok=True)
+        _mod["GITCONFIG"] = saved
+    assert result is True
+    mock_run.assert_called_once()
+    call_args = mock_run.call_args
+    assert call_args[0][0] == ["ssh", "user@host", "cat > ~/.gitconfig"]
+    assert call_args[1]["input"] == content
 
 
-def test_sync_gitconfig_ssh_failure():
+def test_sync_gitconfig_ssh_failure(tmp_path: Path):
     """sync_gitconfig returns False on SSH failure."""
-    tmp = Path("/tmp/test_gitconfig_ss3")
+    tmp = tmp_path / "gitconfig"
     tmp.write_text("[user]\n  name = T\n")
+    saved = _mod["GITCONFIG"]
     try:
-        with patch.object(_mod, "GITCONFIG", tmp):
-            with patch("subprocess.run") as mock_run:
-                mock_run.return_value = subprocess.CompletedProcess([], 1, "", "ssh error")
-                result = sync_gitconfig("user@host", dry_run=False)
-        assert result is False
+        _mod["GITCONFIG"] = tmp
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = subprocess.CompletedProcess([], 1, "", "ssh error")
+            result = sync_gitconfig("user@host", dry_run=False)
     finally:
-        tmp.unlink(missing_ok=True)
+        _mod["GITCONFIG"] = saved
+    assert result is False
 
 
 def test_sync_gitconfig_no_file(capsys):
     """sync_gitconfig returns True when no .gitconfig exists."""
-    with patch.object(_mod, "GITCONFIG", Path("/nonexistent/path/gitconfig")):
+    saved = _mod["GITCONFIG"]
+    try:
+        _mod["GITCONFIG"] = Path("/nonexistent/path/gitconfig")
         result = sync_gitconfig("user@host", dry_run=False)
+    finally:
+        _mod["GITCONFIG"] = saved
     assert result is True
     captured = capsys.readouterr()
     assert "No ~/.gitconfig" in captured.out
@@ -316,65 +317,74 @@ def test_sync_gitconfig_no_file(capsys):
 # ── main integration tests ───────────────────────────────────────────
 
 
-def test_main_dry_run(capsys):
+def _patch_paths(env_content: str, gitconfig_content: str, ssh_keys: list[str] | None = None):
+    """Context manager that patches ENV_FLY, GITCONFIG, SSH_DIR in _mod dict."""
+    import contextlib, tempfile
+    # We'll use a fixture-style approach with manual setup
+    pass
+
+
+def test_main_dry_run(capsys, tmp_path: Path):
     """main with --dry-run prints all actions, exits 0."""
-    tmp_env = Path("/tmp/test_envfly_ss")
+    tmp_env = tmp_path / ".env.fly"
     tmp_env.write_text('export TEST_KEY="testval"\n')
-    tmp_git = Path("/tmp/test_gitconfig_ss4")
+    tmp_git = tmp_path / ".gitconfig"
     tmp_git.write_text("[user]\n  name = T\n")
-    ssh_dir = Path("/tmp/test_ssh_ss")
-    ssh_dir.mkdir(exist_ok=True)
+    ssh_dir = tmp_path / ".ssh"
+    ssh_dir.mkdir()
     (ssh_dir / "id_ed25519").write_text("key")
+
+    saved_env = _mod["ENV_FLY"]
+    saved_git = _mod["GITCONFIG"]
+    saved_ssh = _mod["SSH_DIR"]
     try:
-        with (
-            patch.object(_mod, "ENV_FLY", tmp_env),
-            patch.object(_mod, "GITCONFIG", tmp_git),
-            patch.object(_mod, "SSH_DIR", ssh_dir),
-        ):
-            ret = main(["--target", "user@host", "--dry-run"])
-        assert ret == 0
-        captured = capsys.readouterr()
-        assert "TEST_KEY" in captured.out
-        assert "dry-run" in captured.out
-        assert "sync complete" in captured.out
-        # Never log values
-        assert "testval" not in captured.out
+        _mod["ENV_FLY"] = tmp_env
+        _mod["GITCONFIG"] = tmp_git
+        _mod["SSH_DIR"] = ssh_dir
+        ret = main(["--target", "user@host", "--dry-run"])
     finally:
-        tmp_env.unlink(missing_ok=True)
-        tmp_git.unlink(missing_ok=True)
-        (ssh_dir / "id_ed25519").unlink(missing_ok=True)
-        ssh_dir.rmdir()
+        _mod["ENV_FLY"] = saved_env
+        _mod["GITCONFIG"] = saved_git
+        _mod["SSH_DIR"] = saved_ssh
+
+    assert ret == 0
+    captured = capsys.readouterr()
+    assert "TEST_KEY" in captured.out
+    assert "dry-run" in captured.out
+    assert "sync complete" in captured.out
+    # Never log values
+    assert "testval" not in captured.out
 
 
-def test_main_full_sync():
+def test_main_full_sync(tmp_path: Path):
     """main performs full sync: env + ssh keys + gitconfig."""
-    tmp_env = Path("/tmp/test_envfly_ss2")
+    tmp_env = tmp_path / ".env.fly"
     tmp_env.write_text('export API="secret"\n')
-    tmp_git = Path("/tmp/test_gitconfig_ss5")
+    tmp_git = tmp_path / ".gitconfig"
     tmp_git.write_text("[user]\n  name = T\n")
-    ssh_dir = Path("/tmp/test_ssh_ss2")
-    ssh_dir.mkdir(exist_ok=True)
+    ssh_dir = tmp_path / ".ssh"
+    ssh_dir.mkdir()
     (ssh_dir / "id_ed25519").write_text("key")
     (ssh_dir / "id_ed25519.pub").write_text("pub")
+
+    saved_env = _mod["ENV_FLY"]
+    saved_git = _mod["GITCONFIG"]
+    saved_ssh = _mod["SSH_DIR"]
     try:
-        with (
-            patch.object(_mod, "ENV_FLY", tmp_env),
-            patch.object(_mod, "GITCONFIG", tmp_git),
-            patch.object(_mod, "SSH_DIR", ssh_dir),
-            patch("subprocess.run") as mock_run,
-        ):
+        _mod["ENV_FLY"] = tmp_env
+        _mod["GITCONFIG"] = tmp_git
+        _mod["SSH_DIR"] = ssh_dir
+        with patch("subprocess.run") as mock_run:
             mock_run.return_value = subprocess.CompletedProcess([], 0, "", "")
             ret = main(["--target", "user@host"])
-        assert ret == 0
-        # subprocess.run should be called multiple times:
-        # env write + mkdir + scp(private) + scp(pub) + chmod + gitconfig
-        assert mock_run.call_count >= 4
     finally:
-        tmp_env.unlink(missing_ok=True)
-        tmp_git.unlink(missing_ok=True)
-        for f in ["id_ed25519", "id_ed25519.pub"]:
-            (ssh_dir / f).unlink(missing_ok=True)
-        ssh_dir.rmdir()
+        _mod["ENV_FLY"] = saved_env
+        _mod["GITCONFIG"] = saved_git
+        _mod["SSH_DIR"] = saved_ssh
+
+    assert ret == 0
+    # subprocess.run called: env write + mkdir + scp(priv) + scp(pub) + chmod(priv) + gitconfig
+    assert mock_run.call_count >= 4
 
 
 def test_main_no_target_exits_error():
@@ -383,30 +393,33 @@ def test_main_no_target_exits_error():
         main([])
 
 
-def test_main_never_logs_secret_values(capsys):
+def test_main_never_logs_secret_values(capsys, tmp_path: Path):
     """main never prints secret values to stdout/stderr."""
-    tmp_env = Path("/tmp/test_envfly_ss3")
+    tmp_env = tmp_path / ".env.fly"
     tmp_env.write_text('export SUPER_SECRET="hunter2"\nexport ANOTHER="password123"\n')
-    tmp_git = Path("/tmp/test_gitconfig_ss6")
+    tmp_git = tmp_path / ".gitconfig"
     tmp_git.write_text("[user]\n  name = T\n")
-    ssh_dir = Path("/tmp/test_ssh_ss3")
-    ssh_dir.mkdir(exist_ok=True)
+    ssh_dir = tmp_path / ".ssh"
+    ssh_dir.mkdir()
+
+    saved_env = _mod["ENV_FLY"]
+    saved_git = _mod["GITCONFIG"]
+    saved_ssh = _mod["SSH_DIR"]
     try:
-        with (
-            patch.object(_mod, "ENV_FLY", tmp_env),
-            patch.object(_mod, "GITCONFIG", tmp_git),
-            patch.object(_mod, "SSH_DIR", ssh_dir),
-            patch("subprocess.run") as mock_run,
-        ):
+        _mod["ENV_FLY"] = tmp_env
+        _mod["GITCONFIG"] = tmp_git
+        _mod["SSH_DIR"] = ssh_dir
+        with patch("subprocess.run") as mock_run:
             mock_run.return_value = subprocess.CompletedProcess([], 0, "", "")
             ret = main(["--target", "user@host"])
-        captured = capsys.readouterr()
-        output = captured.out + captured.err
-        assert "SUPER_SECRET" in output
-        assert "ANOTHER" in output
-        assert "hunter2" not in output
-        assert "password123" not in output
     finally:
-        tmp_env.unlink(missing_ok=True)
-        tmp_git.unlink(missing_ok=True)
-        ssh_dir.rmdir()
+        _mod["ENV_FLY"] = saved_env
+        _mod["GITCONFIG"] = saved_git
+        _mod["SSH_DIR"] = saved_ssh
+
+    captured = capsys.readouterr()
+    output = captured.out + captured.err
+    assert "SUPER_SECRET" in output
+    assert "ANOTHER" in output
+    assert "hunter2" not in output
+    assert "password123" not in output

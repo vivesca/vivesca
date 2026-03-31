@@ -126,7 +126,7 @@ class TestResize:
         assert calls[1] == (("POST", "/v1/apps/gemmule/machines/m-abc123/stop"),)
         assert calls[2][0][0] == "PATCH"
         assert calls[2][0][1] == "/v1/apps/gemmule/machines/m-abc123"
-        patch_body = calls[2][1]["body"]
+        patch_body = calls[2][0][2]  # 3rd positional arg
         assert patch_body["guest"]["cpus"] == 8
         assert patch_body["guest"]["memory_mb"] == 32768
         assert calls[3] == (("POST", "/v1/apps/gemmule/machines/m-abc123/start"),)
