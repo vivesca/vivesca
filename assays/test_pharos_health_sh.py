@@ -44,8 +44,8 @@ def _run(
     # Stub systemctl — prints failed_units number of lines (or nothing when 0)
     systemctl_stub = stub_dir / "systemctl"
     if failed_units > 0:
-        lines = "\\n".join(["unit.service  failed"] * failed_units)
-        systemctl_stub.write_text(f"#!/bin/bash\nprintf '%s\\n' {lines}\n")
+        echo_lines = "\n".join(["echo 'unit.service  failed'"] * failed_units)
+        systemctl_stub.write_text(f"#!/bin/bash\n{echo_lines}\n")
     else:
         systemctl_stub.write_text("#!/bin/bash\ntrue\n")
     systemctl_stub.chmod(0o755)
