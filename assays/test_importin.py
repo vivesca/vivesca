@@ -103,14 +103,15 @@ def test_load_keychain_env_adds_values_not_set():
 def test_main_prints_exports_for_values():
     """Test __main__ block prints export statements."""
     # The __main__ block is inline code, not a function.
-    # Build a namespace with a mocked get_keychain_value and capture prints.
+    # Load the module WITHOUT triggering __main__ (avoid macOS guard),
+    # then manually run the __main__ loop logic with mocks.
     printed_lines = []
 
     def fake_print(msg=""):
         printed_lines.append(str(msg))
 
     ns_main = {
-        "__name__": "__main__",
+        "__name__": "test_loader",
         "__file__": str(importin_path),
     }
     exec(importin_code, ns_main)

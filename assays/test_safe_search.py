@@ -202,6 +202,6 @@ class TestInternalFunctions:
         monkeypatch.setattr(sys, "argv", ["safe_search.py"])
         with pytest.raises(SystemExit) as exc_info:
             safe_search_module["main"]()
-        assert exc_info.value.code == 1
+        assert exc_info.value.code == 2
         captured = capsys.readouterr()
-        assert "Usage" in captured.out
+        assert "usage" in captured.err.lower()
