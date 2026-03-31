@@ -33,7 +33,9 @@ def main():
         try:
             lines = log.read_text().splitlines()
             if len(lines) > args.keep:
-                log.write_text("\n".join(lines[-args.keep:]) + "\n")
+                tmp = log.with_suffix(".log.tmp")
+                tmp.write_text("\n".join(lines[-args.keep:]) + "\n")
+                tmp.replace(log)
         except OSError:
             pass
 

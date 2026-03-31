@@ -119,7 +119,9 @@ def write_card(topic: str, body: str) -> Path:
     slug = slugify(topic)
     filename = f"{today}-{slug}.md"
     path = CARDS_DIR / filename
-    path.write_text(build_markdown(topic, body), encoding="utf-8")
+    tmp = path.with_suffix(".md.tmp")
+    tmp.write_text(build_markdown(topic, body), encoding="utf-8")
+    tmp.replace(path)
     return path
 
 

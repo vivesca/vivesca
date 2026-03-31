@@ -176,7 +176,9 @@ tags: [oura, health, weekly]
     # Save note
     output_path = Path.home() / "notes" / "Daily" / f"Oura Weekly - {note_date}.md"
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    output_path.write_text(note)
+    tmp = output_path.with_suffix(".md.tmp")
+    tmp.write_text(note)
+    tmp.replace(output_path)
 
     # One-line summary to stdout
     # Pull yesterday's scores directly from rows if available

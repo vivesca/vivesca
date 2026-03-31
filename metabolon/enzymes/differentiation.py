@@ -77,7 +77,12 @@ def differentiation(
             return f"Invalid date format: {session_date!r}. Use YYYY-MM-DD."
 
         target = HEALTH_DIR / f"Gym Log - {session_date}.md"
-        target.write_text(content)
+        if target.exists():
+            tmp = target.with_suffix(".md.tmp")
+            tmp.write_text(content)
+            tmp.replace(target)
+        else:
+            target.write_text(content)
         return f"Gym log written to {target}"
 
     else:

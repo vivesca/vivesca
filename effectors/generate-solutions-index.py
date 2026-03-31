@@ -102,5 +102,7 @@ if __name__ == "__main__":
         print(content)
         print(f"\nDry run complete. {count} entries found.")
     else:
-        INDEX.write_text(content)
+        tmp = INDEX.with_suffix(".md.tmp")
+        tmp.write_text(content)
+        tmp.replace(INDEX)
         print(f"Generated {INDEX} ({count} entries)")

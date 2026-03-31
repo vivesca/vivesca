@@ -322,7 +322,9 @@ def emit(
             new_text = existing.rstrip() + "\n" + block
         else:
             new_text = f"# {d.isoformat()}\n" + block
-        note_path.write_text(new_text)
+        tmp = note_path.with_suffix(".md.tmp")
+        tmp.write_text(new_text)
+        tmp.replace(note_path)
         return EmitResult(output=f"Interphase block written to {note_path}")
 
     else:
