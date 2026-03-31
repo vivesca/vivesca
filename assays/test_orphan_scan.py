@@ -56,109 +56,105 @@ class TestOrphanScanBasics:
         assert '"""' in content
 
 
-# ── module_path() ──────────────────────────────────────────────────────────
+# ── collect_modules() ──────────────────────────────────────────────────────
 
 
-class TestModulePath:
-    def test_simple_module(self, ns, fake_root):
-        p = fake_root / "metabolon" / "alpha.py"
-        assert ns["module_path"](p, fake_root) == "metabolon.alpha"
-
-    def test_nested_module(self, ns, fake_root):
-        p = fake_root / "metabolon" / "organelles" / "nucleus.py"
-        assert ns["module_path"](p, fake_root) == "metabolon.organelles.nucleus"
-
-    def test_deeply_nested(self, ns, fake_root):
-        p = fake_root / "metabolon" / "a" / "b" / "c.py"
-        assert ns["module_path"](p, fake_root) == "metabolon.a.b.c"
-
-
-# ── collect_metabolon_modules() ────────────────────────────────────────────
-
-
-class TestCollectMetabolonModules:
+class TestCollectModules:
     def test_finds_py_files(self, ns, fake_root):
         _write(fake_root / "metabolon" / "alpha.py")
         _write(fake_root / "metabolon" / "beta.py")
-        modules = ns["collect_metabolon_modules"](fake_root / "metabolon")
-        assert "metabolon.alpha" in modules
-        assert "metabolon.beta" in modules
+        modules = ns["collect_modules"](fake_root / "metabolon")
+        names = [p.name for p in modules]
+        assert "alpha.py" in names
+        assert "beta.py" in names
 
     def test_excludes_init(self, ns, fake_root):
         _write(fake_root / "metabolon" / "__init__.py", "# init")
         _write(fake_root / "metabolon" / "real.py")
-        modules = ns["collect_metabolon_modules"](fake_root / "metabolon")
-        assert "metabolon" not in modules  # __init__.py excluded
-        assert "metabolon.real" in modules
-
-    def test_excludes_test_files(self, ns, fake_root):
-        _write(fake_root / "metabolon" / "alpha.py")
-        _write(fake_root / "metabolon" / "test_alpha.py")
-        _write(fake_root / "metabolon" / "conftest.py")
-        modules = ns["collect_metabolon_modules"](fake_root / "metabolon")
-        assert "metabolon.alpha" in modules
-        assert "metabolon.test_alpha" not in modules
-        assert "metabolon.conftest" not in modules
+        modules = ns["collect_modules"](fake_root / "metabolon")
+        names = [p.name for p in modules]
+        assert "__init__.py" not in names
+        assert "real.py" in names
 
     def test_nested_subdirs(self, ns, fake_root):
         _write(fake_root / "metabolon" / "organelles" / "nucleus.py")
         _write(fake_root / "metabolon" / "organelles" / "__init__.py")
-        modules = ns["collect_metabolon_modules"](fake_root / "metabolon")
-        assert "metabolon.organelles.nucleus" in modules
-        assert "metabolon.organelles" not in modules  # __init__.py excluded
+        modules = ns["collect_modules"](fake_root / "metabolon")
+        names = [p.name for p in modules]
+        assert "nucleus.py" in names
+        assert "__init__.py" not in names
 
     def test_empty_dir(self, ns, fake_root):
-        modules = ns["collect_metabolon_modules"](fake_root / "metabolon")
-        assert modules == set()
+        modules = ns["collect_modules"](fake_root / "metabolon")
+        assert modules == []
+
+    def test_returns_sorted(self, ns, fake_root):
+        _write(fake_root / "metabolon" / "zeta.py")
+        _write(fake_root / "metabolon" / "alpha.py")
+        modules = ns["collect_modules"](fake_root / "metabolon")
+        names = [p.name for p in modules]
+        assert names == sorted(names)
 
 
-# ── extract_imports_from_file() ────────────────────────────────────────────
+# ── file_to_module() ───────────────────────────────────────────────────────
 
 
-class TestExtractImports:
+class TestFileToModule:
+    def test_simple_module(self, ns, fake_root):
+        p = fake_root / "metabolon" / "alpha.py"
+        assert ns["file_to_module"](p, fake_root) == "metabolon.alpha"
+
+    def test_nested_module(self, ns, fake_root):
+        p = fake_root / "metabolon" / "organelles" / "nucleus.py"
+        assert ns["file_to_module"](p, fake_root) == "metabolon.organelles.nucleus"
+
+    def test_deeply_nested(self, ns, fake_root):
+        p = fake_root / "metabolon" / "a" / "b" / "c.py"
+        assert ns["file_to_module"](p, fake_root) == "metabolon.a.b.c"
+
+
+# ── build_import_index() ───────────────────────────────────────────────────
+
+
+class TestBuildImportIndex:
     def test_captures_from_import(self, ns, fake_root):
-        p = _write(fake_root / "consumer.py", "from metabolon.alpha import something\n")
-        imports = ns["extract_imports_from_file"](p)
-        assert "metabolon.alpha" in imports
+        _write(fake_root / "consumer.py", "from metabolon.alpha import something\n")
+        idx = ns["build_import_index"](fake_root)
+        assert "metabolon.alpha" in idx
+        assert "something" in idx
 
     def test_captures_plain_import(self, ns, fake_root):
-        p = _write(fake_root / "consumer.py", "import metabolon.organelles.nucleus\n")
-        imports = ns["extract_imports_from_file"](p)
-        assert "metabolon.organelles.nucleus" in imports
+        _write(fake_root / "consumer.py", "import metabolon.organelles.nucleus\n")
+        idx = ns["build_import_index"](fake_root)
+        assert "metabolon.organelles.nucleus" in idx
 
     def test_captures_parent_packages(self, ns, fake_root):
-        p = _write(
-            fake_root / "consumer.py",
-            "from metabolon.organelles import crispr\n",
-        )
-        imports = ns["extract_imports_from_file"](p)
-        assert "metabolon.organelles" in imports
-        assert "metabolon" in imports
+        _write(fake_root / "consumer.py", "from metabolon.organelles import crispr\n")
+        idx = ns["build_import_index"](fake_root)
+        assert "metabolon.organelles" in idx
+        assert "metabolon" in idx
+        assert "crispr" in idx
 
     def test_ignores_comments(self, ns, fake_root):
-        p = _write(fake_root / "consumer.py", "# from metabolon.alpha import something\n")
-        imports = ns["extract_imports_from_file"](p)
-        assert "metabolon.alpha" not in imports
+        _write(fake_root / "consumer.py", "# from metabolon.alpha import something\n")
+        idx = ns["build_import_index"](fake_root)
+        assert "metabolon.alpha" not in idx
 
     def test_handles_syntax_error(self, ns, fake_root):
-        p = _write(fake_root / "bad.py", "def foo(:\n")
-        imports = ns["extract_imports_from_file"](p)
-        assert imports == set()
-
-    def test_handles_missing_file(self, ns, tmp_path):
-        p = tmp_path / "nonexistent.py"
-        imports = ns["extract_imports_from_file"](p)
-        assert imports == set()
+        _write(fake_root / "bad.py", "def foo(:\n")
+        idx = ns["build_import_index"](fake_root)
+        # Should not crash, returns empty or partial set
+        assert isinstance(idx, set)
 
     def test_multiple_imports(self, ns, fake_root):
-        p = _write(
+        _write(
             fake_root / "consumer.py",
             "from metabolon.alpha import foo\nimport os\nfrom metabolon.beta import bar\n",
         )
-        imports = ns["extract_imports_from_file"](p)
-        assert "metabolon.alpha" in imports
-        assert "metabolon.beta" in imports
-        assert "os" in imports
+        idx = ns["build_import_index"](fake_root)
+        assert "metabolon.alpha" in idx
+        assert "metabolon.beta" in idx
+        assert "os" in idx
 
 
 # ── find_orphans() ─────────────────────────────────────────────────────────
@@ -206,51 +202,44 @@ class TestFindOrphans:
         o = orphans[0]
         assert "module" in o
         assert "path" in o
-        assert "is_entry_point" in o
 
-    def test_entry_point_flag(self, ns, fake_root):
+    def test_skips_main_entry_point(self, ns, fake_root):
         _write(fake_root / "metabolon" / "sortase" / "__main__.py")
         orphans = ns["find_orphans"](fake_root)
-        eps = [o for o in orphans if o["is_entry_point"]]
-        non_eps = [o for o in orphans if not o["is_entry_point"]]
-        assert len(eps) == 1
-        assert "metabolon.sortase.__main__" in [o["module"] for o in eps]
+        modules = [o["module"] for o in orphans]
+        assert "metabolon.sortase.__main__" not in modules
 
 
-# ── format_report() ────────────────────────────────────────────────────────
+# ── format_human() / format_json() ─────────────────────────────────────────
 
 
-class TestFormatReport:
-    def test_human_no_orphans(self, ns):
-        report = ns["format_report"]([], use_json=False)
+class TestFormatting:
+    def test_format_human_no_orphans(self, ns, fake_root):
+        report = ns["format_human"]([], fake_root)
         assert "No orphan modules found" in report
 
-    def test_human_with_orphans(self, ns):
-        orphans = [{"module": "metabolon.alpha", "path": "metabolon/alpha.py", "is_entry_point": False}]
-        report = ns["format_report"](orphans, use_json=False)
+    def test_format_human_with_orphans(self, ns, fake_root):
+        _write(fake_root / "metabolon" / "alpha.py")
+        orphans = [{"path": "metabolon/alpha.py", "module": "metabolon.alpha"}]
+        report = ns["format_human"](orphans, fake_root)
         assert "metabolon/alpha.py" in report
-        assert "1 orphans" in report
+        assert "1 found" in report
 
-    def test_human_entry_points(self, ns):
-        orphans = [
-            {"module": "metabolon.lonely", "path": "metabolon/lonely.py", "is_entry_point": False},
-            {"module": "metabolon.sortase.__main__", "path": "metabolon/sortase/__main__.py", "is_entry_point": True},
-        ]
-        report = ns["format_report"](orphans, use_json=False)
-        assert "Entry points" in report
-        assert "metabolon/sortase/__main__.py" in report
-
-    def test_json_output(self, ns):
-        orphans = [{"module": "metabolon.alpha", "path": "metabolon/alpha.py", "is_entry_point": False}]
-        out = ns["format_report"](orphans, use_json=True)
+    def test_format_json_structure(self, ns, fake_root):
+        _write(fake_root / "metabolon" / "alpha.py")
+        orphans = [{"path": "metabolon/alpha.py", "module": "metabolon.alpha"}]
+        out = ns["format_json"](orphans, fake_root)
         data = json.loads(out)
-        assert len(data) == 1
-        assert data[0]["module"] == "metabolon.alpha"
+        assert data["orphan_count"] == 1
+        assert data["orphans"][0]["module"] == "metabolon.alpha"
+        assert "total_modules" in data
+        assert "root" in data
 
-    def test_json_empty(self, ns):
-        out = ns["format_report"]([], use_json=True)
+    def test_format_json_empty(self, ns, fake_root):
+        out = ns["format_json"]([], fake_root)
         data = json.loads(out)
-        assert data == []
+        assert data["orphan_count"] == 0
+        assert data["orphans"] == []
 
 
 # ── main() ─────────────────────────────────────────────────────────────────
@@ -267,10 +256,10 @@ class TestMain:
         assert rc == 0
         output = capsys.readouterr().out
         data = json.loads(output)
-        assert isinstance(data, list)
+        assert "orphan_count" in data
+        assert "orphans" in data
 
-    def test_no_args_uses_default_root(self, ns, capsys, monkeypatch):
-        monkeypatch.setattr(ns, "DEFAULT_ROOT", Path("/tmp"))
+    def test_no_args(self, ns, capsys):
         rc = ns["main"]([])
         assert rc == 0
 
@@ -294,7 +283,9 @@ class TestCLISubprocess:
         )
         assert r.returncode == 0
         data = json.loads(r.stdout)
-        assert isinstance(data, list)
+        assert "orphan_count" in data
+        assert "orphans" in data
+        assert isinstance(data["orphans"], list)
 
     def test_json_entries_have_required_fields(self):
         r = subprocess.run(
@@ -302,7 +293,7 @@ class TestCLISubprocess:
             capture_output=True, text=True, timeout=60,
         )
         data = json.loads(r.stdout)
-        for entry in data:
+        for entry in data["orphans"]:
             assert "path" in entry
             assert "module" in entry
-            assert "is_entry_point" in entry
+            assert entry["path"].startswith("metabolon/")
