@@ -22,12 +22,29 @@ from pathlib import Path
 from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import json
+import fcntl
 
 # Paths
 QUEUE_FILE = Path.home() / "germline" / "loci" / "golem-queue.md"
 PIDFILE = Path.home() / ".local" / "share" / "vivesca" / "golem-daemon.pid"
 LOGFILE = Path.home() / ".local" / "share" / "vivesca" / "golem-daemon.log"
 POLL_INTERVAL = 30
+GOLEM_TIMEOUT = 1800  # 30 min max per golem run
+
+
+class QueueLock:
+    _lock_path = Path.home() / '.local' / 'share' / 'vivesca' / 'golem-queue.lock'
+
+    def __enter__(self):
+        self._lock_path.parent.mkdir(parents=True, exist_ok=True)
+        self._fd = open(self._lock_path, 'w')
+        fcntl.flock(self._fd, fcntl.LOCK_EX)
+        return self
+
+    def __exit__(self, *args):
+        fcntl.flock(self._fd, fcntl.LOCK_UN)
+        self._fd.close()
+
 
 # Per-provider concurrency limits
 PROVIDER_LIMITS = {
@@ -96,61 +113,48 @@ def get_provider_limit(provider: str) -> int:
 
 def mark_done(line_num: int, result: str = ""):
     """Mark task as done in queue file, move to Done section."""
-    lines = QUEUE_FILE.read_text().splitlines()
-    
-    # Change - [ ] to - [x]
-    original = lines[line_num]
-    done_line = original.replace("- [ ] ", "- [x] ", 1)
-    lines[line_num] = done_line
-    
-    # Find Done section and append
-    done_idx = None
-    for i, line in enumerate(lines):
-        if line.strip() == "## Done":
-            done_idx = i
-            break
-    
-    if done_idx is not None:
-        # Insert after "(move completed tasks here with result)"
-        insert_idx = done_idx + 2
-        result_line = f"{done_line} → {result[:80]}" if result else done_line
-        lines.insert(insert_idx, result_line)
-        # Remove the original done line (now shifted by 1)
-        # Actually, keep both - the [x] in place and copy in Done
-    
-    QUEUE_FILE.write_text("\n".join(lines) + "\n")
-
-def mark_failed(line_num: int, result: str = "") -> dict:
-    """Mark task as failed in queue file — [!] instead of [x].
-
-    On first failure, re-queue the task once by keeping [ ] and appending
-    ' (retry)' to the command. On second failure (retry already present),
-    mark as [!].
-
-    Returns:
-        dict with 'retried' key indicating whether task was re-queued.
-    """
-    lines = QUEUE_FILE.read_text().splitlines()
-    original = lines[line_num]
-
-    # Extract command from the task line
-    cmd_match = re.search(r'`([^`]+)`', original)
-
-    if cmd_match and '(retry)' not in cmd_match.group(1):
-        # First attempt: re-queue with (retry) appended to command
-        old_cmd = cmd_match.group(1)
-        new_cmd = old_cmd + ' (retry)'
-        new_line = original.replace(f'`{old_cmd}`', f'`{new_cmd}`', 1)
-        # Keep as pending [ ] - don't change to [!]
-        lines[line_num] = new_line
+    with QueueLock():
+        lines = QUEUE_FILE.read_text().splitlines()
+        if line_num >= len(lines):
+            return
+        original = lines[line_num]
+        done_line = original.replace("- [ ] ", "- [x] ", 1)
+        lines[line_num] = done_line
+        for i, line in enumerate(lines):
+            if line.strip() == "## Done":
+                result_line = f"{done_line} \u2192 {result[:80]}" if result else done_line
+                lines.insert(i + 2, result_line)
+                break
         QUEUE_FILE.write_text("\n".join(lines) + "\n")
-        log(f"Re-queued (retry): {old_cmd[:60]}...")
-        return {"retried": True}
-    else:
-        # Retry attempt or no command found: mark as failed [!]
-        lines[line_num] = original.replace("- [ ] ", "- [!] ", 1)
-        QUEUE_FILE.write_text("\n".join(lines) + "\n")
-        return {"retried": False}
+
+
+def mark_failed(line_num: int, result: str = "", exit_code: int = 1) -> dict:
+    """Mark task as failed. Retry once unless exit_code=2 (command error)."""
+    with QueueLock():
+        lines = QUEUE_FILE.read_text().splitlines()
+        if line_num >= len(lines):
+            return {"retried": False}
+        original = lines[line_num]
+        cmd_match = re.search(r'`([^`]+)`', original)
+
+        # Exit 2 = command not found / usage error — never retry
+        if exit_code == 2 or not cmd_match:
+            lines[line_num] = original.replace("- [ ] ", "- [!] ", 1)
+            QUEUE_FILE.write_text("\n".join(lines) + "\n")
+            return {"retried": False}
+
+        if '(retry)' not in cmd_match.group(1):
+            old_cmd = cmd_match.group(1)
+            new_cmd = old_cmd + ' (retry)'
+            lines[line_num] = original.replace(f'`{old_cmd}`', f'`{new_cmd}`', 1)
+            QUEUE_FILE.write_text("\n".join(lines) + "\n")
+            log(f"Re-queued (retry): {old_cmd[:60]}...")
+            return {"retried": True}
+        else:
+            lines[line_num] = original.replace("- [ ] ", "- [!] ", 1)
+            QUEUE_FILE.write_text("\n".join(lines) + "\n")
+            return {"retried": False}
+
 
 def _golem_env() -> dict:
     """Build environment for golem subprocesses.
@@ -184,6 +188,7 @@ def run_golem(cmd: str) -> tuple[str, int, str]:
             shell=True,
             capture_output=True,
             text=True,
+            timeout=GOLEM_TIMEOUT,
             cwd=str(Path.home() / "germline"),
             env=_golem_env(),
         )
@@ -191,6 +196,10 @@ def run_golem(cmd: str) -> tuple[str, int, str]:
         tail = (result.stdout + result.stderr)[-200:].replace("\n", " ")
         log(f"Finished ({duration}s, exit={result.returncode}): {cmd[:50]}...")
         return (cmd, result.returncode, tail)
+    except subprocess.TimeoutExpired:
+        duration = int(time.time() - start)
+        log(f"TIMEOUT ({duration}s): {cmd[:50]}...")
+        return (cmd, 124, f"timeout after {GOLEM_TIMEOUT}s")
     except Exception as e:
         log(f"ERROR: {cmd[:50]}... - {e}")
         return (cmd, 1, str(e))
@@ -353,7 +362,7 @@ def daemon_loop():
                                 log(f"PYTEST WARN: {cmd[:50]}... → {test_result}")
                             mark_done(line_num, f"exit={exit_code}")
                         else:
-                            mark_failed(line_num, f"exit={exit_code} {tail[:60]}")
+                            mark_failed(line_num, f"exit={exit_code} {tail[:60]}", exit_code=exit_code)
                             log(f"FAILED (exit={exit_code}): {cmd[:60]}...")
                     except Exception as e:
                         log(f"Future error: {e}")
