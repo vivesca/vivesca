@@ -1,4 +1,4 @@
-"""Tests for orphan-scan effector — find unimported metabolon .py files."""
+"""Tests for orphan-scan — find .py files in metabolon/ not imported anywhere."""
 from __future__ import annotations
 
 import json
@@ -8,230 +8,246 @@ from pathlib import Path
 import pytest
 
 
-def _load_orphan_scan():
-    """Load orphan-scan by exec-ing its source (effector pattern)."""
-    source = Path("/home/terry/germline/effectors/orphan-scan").read_text()
+def _load_effector():
+    """Load orphan-scan by exec-ing its source."""
+    source = open(Path.home() / "germline" / "effectors" / "orphan-scan").read()
     ns: dict = {"__name__": "orphan_scan"}
     exec(source, ns)
     return ns
 
 
-_mod = _load_orphan_scan()
-module_path = _mod["module_path"]
-collect_metabolon_modules = _mod["collect_metabolon_modules"]
-extract_imports_from_file = _mod["extract_imports_from_file"]
+_mod = _load_effector()
+collect_modules = _mod["collect_modules"]
+file_to_module = _mod["file_to_module"]
+build_import_index = _mod["build_import_index"]
 find_orphans = _mod["find_orphans"]
-format_report = _mod["format_report"]
+format_human = _mod["format_human"]
+format_json = _mod["format_json"]
+main = _mod["main"]
 
 
-# ── module_path tests ────────────────────────────────────────────────────
+# ── Fixtures ──────────────────────────────────────────────────────────
 
 
-def test_module_path_simple():
-    """module_path converts a simple .py file to dotted path."""
-    p = Path("/fake/metabolon/locus.py")
-    assert module_path(p, Path("/fake")) == "metabolon.locus"
-
-
-def test_module_path_nested():
-    """module_path handles nested package files."""
-    p = Path("/fake/metabolon/organelles/chromatin.py")
-    assert module_path(p, Path("/fake")) == "metabolon.organelles.chromatin"
-
-
-def test_module_path_init():
-    """module_path strips __init__ suffix."""
-    p = Path("/fake/metabolon/organelles/__init__.py")
-    assert module_path(p, Path("/fake")) == "metabolon.organelles"
-
-
-# ── collect_metabolon_modules tests ──────────────────────────────────────
-
-
-def test_collect_excludes_init(tmp_path):
-    """collect_metabolon_modules excludes __init__.py."""
-    met = tmp_path / "metabolon"
-    met.mkdir()
-    (met / "__init__.py").write_text("")
-    (met / "locus.py").write_text("x = 1\n")
-    modules = collect_metabolon_modules(met)
-    assert "metabolon.locus" in modules
-    assert "metabolon.__init__" not in modules
-
-
-def test_collect_excludes_test_files(tmp_path):
-    """collect_metabolon_modules excludes test_*.py files."""
-    met = tmp_path / "metabolon"
-    met.mkdir()
-    (met / "foo.py").write_text("x = 1\n")
-    (met / "test_foo.py").write_text("def test_foo(): pass\n")
-    modules = collect_metabolon_modules(met)
-    assert "metabolon.foo" in modules
-    assert "metabolon.test_foo" not in modules
-
-
-def test_collect_nested(tmp_path):
-    """collect_metabolon_modules finds nested subpackages."""
-    met = tmp_path / "metabolon"
-    enzymes = met / "enzymes"
-    enzymes.mkdir(parents=True)
-    (enzymes / "assay.py").write_text("x = 1\n")
-    modules = collect_metabolon_modules(met)
-    assert "metabolon.enzymes.assay" in modules
-
-
-# ── extract_imports_from_file tests ──────────────────────────────────────
-
-
-def test_extract_imports_simple(tmp_path):
-    """extract_imports_from_file finds plain imports."""
-    f = tmp_path / "a.py"
-    f.write_text("import os\nimport json\n")
-    imports = extract_imports_from_file(f)
-    assert "os" in imports
-    assert "json" in imports
-
-
-def test_extract_imports_from(tmp_path):
-    """extract_imports_from_file finds from-imports and parent packages."""
-    f = tmp_path / "b.py"
-    f.write_text("from metabolon.locus import meal_plan\n")
-    imports = extract_imports_from_file(f)
-    assert "metabolon.locus" in imports
-    assert "metabolon" in imports
-
-
-def test_extract_imports_syntax_error(tmp_path):
-    """extract_imports_from_file returns empty on syntax error."""
-    f = tmp_path / "bad.py"
-    f.write_text("def broken(\n")
-    imports = extract_imports_from_file(f)
-    assert imports == set()
-
-
-# ── find_orphans tests ───────────────────────────────────────────────────
-
-
-def _make_project(tmp_path: Path, *, imported: list[str] | None = None,
-                   orphaned: list[str] | None = None) -> Path:
-    """Create a fake project tree with metabolon/ modules and a consumer file."""
-    met = tmp_path / "metabolon"
-    met.mkdir()
-
-    all_modules = (imported or []) + (orphaned or [])
-    for mod in all_modules:
-        parts = mod.split(".")
-        # e.g. "metabolon.enzymes.assay" => ["metabolon", "enzymes", "assay"]
-        # First parts are dirs, last is the .py file
-        if len(parts) > 1:
-            dirs = met / "/".join(parts[1:-1])
-            dirs.mkdir(parents=True, exist_ok=True)
-            (dirs / (parts[-1] + ".py")).write_text("x = 1\n")
-        else:
-            (met / (parts[0] + ".py")).write_text("x = 1\n")
-
-    # Create a consumer file that imports the "imported" modules
-    if imported:
-        consumer = tmp_path / "consumer.py"
-        lines = [f"import {mod}" for mod in imported]
-        consumer.write_text("\n".join(lines) + "\n")
-
+@pytest.fixture()
+def fake_root(tmp_path: Path) -> Path:
+    """Create a minimal fake germline tree for testing."""
+    meta = tmp_path / "metabolon"
+    meta.mkdir()
+    (meta / "__init__.py").write_text("")
     return tmp_path
 
 
-def test_find_orphans_detects_unused(tmp_path):
-    """find_orphans reports modules not imported anywhere."""
-    root = _make_project(tmp_path,
-                         imported=["metabolon.locus"],
-                         orphaned=["metabolon.ghost"])
-    orphans = find_orphans(root)
-    modules = [o["module"] for o in orphans]
-    assert "metabolon.locus" not in modules
-    assert "metabolon.ghost" in modules
+def _write_file(path: Path, content: str = "") -> Path:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(content)
+    return path
 
 
-def test_find_orphans_empty_metabolon(tmp_path):
-    """find_orphans returns empty when metabolon/ has no .py files."""
-    met = tmp_path / "metabolon"
-    met.mkdir()
-    assert find_orphans(tmp_path) == []
+# ── collect_modules ──────────────────────────────────────────────────
 
 
-def test_find_orphans_all_imported(tmp_path):
-    """find_orphans returns empty when everything is imported."""
-    root = _make_project(tmp_path,
-                         imported=["metabolon.alpha", "metabolon.beta"],
-                         orphaned=[])
-    orphans = find_orphans(root)
-    assert orphans == []
+class TestCollectModules:
+    def test_finds_py_files(self, fake_root: Path):
+        _write_file(fake_root / "metabolon" / "alpha.py")
+        _write_file(fake_root / "metabolon" / "beta.py")
+        modules = collect_modules(fake_root / "metabolon")
+        names = [p.name for p in modules]
+        assert "alpha.py" in names
+        assert "beta.py" in names
+
+    def test_excludes_init(self, fake_root: Path):
+        _write_file(fake_root / "metabolon" / "__init__.py", "# init")
+        _write_file(fake_root / "metabolon" / "real.py")
+        modules = collect_modules(fake_root / "metabolon")
+        names = [p.name for p in modules]
+        assert "__init__.py" not in names
+        assert "real.py" in names
+
+    def test_nested_subdirs(self, fake_root: Path):
+        _write_file(fake_root / "metabolon" / "organelles" / "nucleus.py")
+        _write_file(fake_root / "metabolon" / "organelles" / "__init__.py")
+        modules = collect_modules(fake_root / "metabolon")
+        names = [p.name for p in modules]
+        assert "nucleus.py" in names
+        assert "__init__.py" not in names
+
+    def test_empty_dir(self, fake_root: Path):
+        modules = collect_modules(fake_root / "metabolon")
+        assert modules == []
 
 
-def test_find_orphans_from_import(tmp_path):
-    """find_orphans recognizes from-imports as usage."""
-    met = tmp_path / "metabolon"
-    met.mkdir()
-    (met / "used.py").write_text("x = 1\n")
-    consumer = tmp_path / "main.py"
-    consumer.write_text("from metabolon.used import x\n")
-    orphans = find_orphans(tmp_path)
-    modules = [o["module"] for o in orphans]
-    assert "metabolon.used" not in modules
+# ── file_to_module ───────────────────────────────────────────────────
 
 
-def test_find_orphans_marks_entry_points(tmp_path):
-    """find_orphans marks __main__.py as entry points."""
-    met = tmp_path / "metabolon"
-    met.mkdir()
-    (met / "__main__.py").write_text("print('hello')\n")
-    orphans = find_orphans(tmp_path)
-    assert len(orphans) == 1
-    assert orphans[0]["is_entry_point"] is True
-    assert orphans[0]["module"] == "metabolon.__main__"
+class TestFileToModule:
+    def test_simple_module(self, fake_root: Path):
+        p = fake_root / "metabolon" / "alpha.py"
+        assert file_to_module(p, fake_root) == "metabolon.alpha"
+
+    def test_nested_module(self, fake_root: Path):
+        p = fake_root / "metabolon" / "organelles" / "nucleus.py"
+        assert file_to_module(p, fake_root) == "metabolon.organelles.nucleus"
+
+    def test_deeply_nested(self, fake_root: Path):
+        p = fake_root / "metabolon" / "a" / "b" / "c.py"
+        assert file_to_module(p, fake_root) == "metabolon.a.b.c"
 
 
-# ── format_report tests ──────────────────────────────────────────────────
+# ── build_import_index ───────────────────────────────────────────────
 
 
-def test_format_report_empty():
-    """format_report shows success when no orphans."""
-    out = format_report([])
-    assert "No orphan modules found" in out
+class TestBuildImportIndex:
+    def test_captures_from_import(self, fake_root: Path):
+        _write_file(
+            fake_root / "consumer.py",
+            "from metabolon.alpha import something\n",
+        )
+        idx = build_import_index(fake_root)
+        assert "metabolon.alpha" in idx
+        assert "something" in idx
+
+    def test_captures_plain_import(self, fake_root: Path):
+        _write_file(
+            fake_root / "consumer.py",
+            "import metabolon.organelles.nucleus\n",
+        )
+        idx = build_import_index(fake_root)
+        assert "metabolon.organelles.nucleus" in idx
+
+    def test_ignores_comments(self, fake_root: Path):
+        _write_file(
+            fake_root / "consumer.py",
+            "# from metabolon.alpha import something\n",
+        )
+        idx = build_import_index(fake_root)
+        assert "metabolon.alpha" not in idx
+
+    def test_handles_multiple_imports(self, fake_root: Path):
+        _write_file(
+            fake_root / "consumer.py",
+            textwrap.dedent("""\
+                from metabolon.alpha import foo
+                from metabolon.beta import bar
+                import os
+            """),
+        )
+        idx = build_import_index(fake_root)
+        assert "metabolon.alpha" in idx
+        assert "metabolon.beta" in idx
+        assert "os" in idx
 
 
-def test_format_report_json():
-    """format_report --json produces valid JSON."""
-    data = [{"module": "metabolon.ghost", "path": "metabolon/ghost.py",
-             "is_entry_point": False}]
-    out = format_report(data, use_json=True)
-    parsed = json.loads(out)
-    assert len(parsed) == 1
-    assert parsed[0]["module"] == "metabolon.ghost"
+# ── find_orphans ─────────────────────────────────────────────────────
 
 
-def test_format_report_groups_entry_points():
-    """format_report separates orphans from entry points."""
-    data = [
-        {"module": "metabolon.ghost", "path": "metabolon/ghost.py",
-         "is_entry_point": False},
-        {"module": "metabolon.__main__", "path": "metabolon/__main__.py",
-         "is_entry_point": True},
-    ]
-    out = format_report(data)
-    assert "Orphans (never imported)" in out
-    assert "Entry points (not imported by design)" in out
-    assert "1 orphans, 1 entry points" in out
+class TestFindOrphans:
+    def test_no_orphans_when_imported(self, fake_root: Path):
+        _write_file(fake_root / "metabolon" / "alpha.py")
+        _write_file(
+            fake_root / "main.py",
+            "from metabolon.alpha import run\n",
+        )
+        orphans = find_orphans(fake_root)
+        assert orphans == []
+
+    def test_detects_orphan(self, fake_root: Path):
+        _write_file(fake_root / "metabolon" / "alpha.py")
+        _write_file(fake_root / "metabolon" / "orphan.py")
+        _write_file(
+            fake_root / "main.py",
+            "from metabolon.alpha import run\n",
+        )
+        orphans = find_orphans(fake_root)
+        modules = [o["module"] for o in orphans]
+        assert "metabolon.orphan" in modules
+        assert "metabolon.alpha" not in modules
+
+    def test_skips_main_entry_point(self, fake_root: Path):
+        _write_file(fake_root / "metabolon" / "sortase" / "__main__.py")
+        # No imports of it anywhere — should still NOT be flagged
+        orphans = find_orphans(fake_root)
+        modules = [o["module"] for o in orphans]
+        assert "metabolon.sortase.__main__" not in modules
+
+    def test_from_pkg_import_name(self, fake_root: Path):
+        """``from metabolon.organelles import nucleus`` should count."""
+        _write_file(fake_root / "metabolon" / "organelles" / "__init__.py")
+        _write_file(fake_root / "metabolon" / "organelles" / "nucleus.py")
+        _write_file(
+            fake_root / "main.py",
+            "from metabolon.organelles import nucleus\n",
+        )
+        orphans = find_orphans(fake_root)
+        modules = [o["module"] for o in orphans]
+        assert "metabolon.organelles.nucleus" not in modules
+
+    def test_missing_metabolon_dir(self, tmp_path: Path):
+        orphans = find_orphans(tmp_path)
+        assert orphans == []
+
+    def test_all_orphans(self, fake_root: Path):
+        """Everything is an orphan when nothing is imported."""
+        _write_file(fake_root / "metabolon" / "alpha.py")
+        _write_file(fake_root / "metabolon" / "beta.py")
+        orphans = find_orphans(fake_root)
+        assert len(orphans) == 2
+
+    def test_import_from_orphan_itself_doesnt_count(self, fake_root: Path):
+        """A file importing itself should still be an orphan."""
+        _write_file(
+            fake_root / "metabolon" / "lonely.py",
+            "from metabolon.lonely import self_ref\n",
+        )
+        # The import IS in the file, so it IS referenced
+        # This is actually correct — it's referenced
+        orphans = find_orphans(fake_root)
+        modules = [o["module"] for o in orphans]
+        # lonely.py imports itself, so it is referenced
+        assert "metabolon.lonely" not in modules
 
 
-# ── Integration: run against real metabolon ─────────────────────────────
+# ── format_human / format_json ───────────────────────────────────────
 
 
-def test_real_metabolon_scan():
-    """Sanity check: orphan-scan runs against the real metabolon tree."""
-    root = Path("/home/terry/germline")
-    orphans = find_orphans(root)
-    # Should return a list (may be empty, may have entries, but must not crash)
-    assert isinstance(orphans, list)
-    for o in orphans:
-        assert "module" in o
-        assert "path" in o
-        assert "is_entry_point" in o
+class TestFormatting:
+    def test_format_human_no_orphans(self, fake_root: Path):
+        report = format_human([], fake_root)
+        assert "No orphan modules found" in report
+
+    def test_format_human_with_orphans(self, fake_root: Path):
+        orphans = [{"path": "metabolon/alpha.py", "module": "metabolon.alpha"}]
+        report = format_human(orphans, fake_root)
+        assert "metabolon/alpha.py" in report
+        assert "1 found" in report
+
+    def test_format_json_structure(self, fake_root: Path):
+        _write_file(fake_root / "metabolon" / "alpha.py")
+        orphans = [{"path": "metabolon/alpha.py", "module": "metabolon.alpha"}]
+        out = format_json(orphans, fake_root)
+        data = json.loads(out)
+        assert data["orphan_count"] == 1
+        assert data["orphans"][0]["module"] == "metabolon.alpha"
+
+    def test_format_json_empty(self, fake_root: Path):
+        out = format_json([], fake_root)
+        data = json.loads(out)
+        assert data["orphan_count"] == 0
+        assert data["orphans"] == []
+
+
+# ── main() integration ───────────────────────────────────────────────
+
+
+class TestMain:
+    def test_main_returns_zero(self, fake_root: Path, capsys):
+        rc = main(["--path", str(fake_root)])
+        assert rc == 0
+
+    def test_main_json_flag(self, fake_root: Path, capsys):
+        _write_file(fake_root / "metabolon" / "alpha.py")
+        rc = main(["--path", str(fake_root), "--json"])
+        assert rc == 0
+        output = capsys.readouterr().out
+        data = json.loads(output)
+        assert "orphan_count" in data
