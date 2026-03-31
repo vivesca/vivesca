@@ -1,286 +1,289 @@
-"""Tests for metabolon.enzymes.tachometer."""
+"""Tests for metabolon/enzymes/tachometer.py"""
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch
+from datetime import datetime
+from unittest.mock import patch
 
 import pytest
 
 
 class TestTachometerSpeed:
-    """Tests for the speed action."""
+    """Tests for speed action."""
 
     @patch("metabolon.enzymes.tachometer.current_rate")
-    def test_speed_returns_formatted_rate(self, mock_current_rate: MagicMock) -> None:
-        """Return formatted dispatch rate."""
+    def test_speed_returns_formatted_rate(self, mock_rate):
+        mock_rate.return_value = 12.5
         from metabolon.enzymes.tachometer import tachometer
 
-        mock_current_rate.return_value = 12.5
-        result = tachometer(action="speed")
-
+        result = tachometer("speed")
         assert result == "Dispatch rate: 12.5 tasks/hour (last 60 min)"
-        mock_current_rate.assert_called_once()
+        mock_rate.assert_called_once()
 
     @patch("metabolon.enzymes.tachometer.current_rate")
-    def test_speed_zero_rate(self, mock_current_rate: MagicMock) -> None:
-        """Handle zero rate correctly."""
+    def test_speed_zero_rate(self, mock_rate):
+        mock_rate.return_value = 0.0
         from metabolon.enzymes.tachometer import tachometer
 
-        mock_current_rate.return_value = 0.0
-        result = tachometer(action="speed")
-
+        result = tachometer("speed")
         assert result == "Dispatch rate: 0.0 tasks/hour (last 60 min)"
+
+    @patch("metabolon.enzymes.tachometer.current_rate")
+    def test_speed_high_rate(self, mock_rate):
+        mock_rate.return_value = 156.789
+        from metabolon.enzymes.tachometer import tachometer
+
+        result = tachometer("speed")
+        assert result == "Dispatch rate: 156.8 tasks/hour (last 60 min)"
 
 
 class TestTachometerTrend:
-    """Tests for the trend action."""
+    """Tests for trend action."""
 
     @patch("metabolon.enzymes.tachometer.success_trend")
-    def test_trend_improving(self, mock_success_trend: MagicMock) -> None:
-        """Return formatted trend showing improvement."""
-        from metabolon.enzymes.tachometer import tachometer
-
-        mock_success_trend.return_value = {
-            "recent_rate": 0.90,
+    def test_trend_improving(self, mock_trend):
+        mock_trend.return_value = {
+            "recent_rate": 0.85,
             "recent_count": 10,
-            "historical_rate": 0.75,
+            "historical_rate": 0.70,
             "historical_count": 100,
             "delta": 0.15,
             "direction": "improving",
         }
-        result = tachometer(action="trend")
+        from metabolon.enzymes.tachometer import tachometer
 
-        assert "Recent (10): 90.0%" in result
-        assert "Historical (100): 75.0%" in result
+        result = tachometer("trend")
+        assert "Recent (10): 85.0%" in result
+        assert "Historical (100): 70.0%" in result
         assert "Delta: +0.150" in result
         assert "improving" in result
 
     @patch("metabolon.enzymes.tachometer.success_trend")
-    def test_trend_declining(self, mock_success_trend: MagicMock) -> None:
-        """Return formatted trend showing decline."""
-        from metabolon.enzymes.tachometer import tachometer
-
-        mock_success_trend.return_value = {
-            "recent_rate": 0.60,
+    def test_trend_declining(self, mock_trend):
+        mock_trend.return_value = {
+            "recent_rate": 0.50,
             "recent_count": 10,
             "historical_rate": 0.80,
-            "historical_count": 50,
-            "delta": -0.20,
+            "historical_count": 100,
+            "delta": -0.30,
             "direction": "declining",
         }
-        result = tachometer(action="trend")
+        from metabolon.enzymes.tachometer import tachometer
 
-        assert "Delta: -0.200" in result
+        result = tachometer("trend")
+        assert "Delta: -0.300" in result
         assert "declining" in result
+
+    @patch("metabolon.enzymes.tachometer.success_trend")
+    def test_trend_stable(self, mock_trend):
+        mock_trend.return_value = {
+            "recent_rate": 0.75,
+            "recent_count": 10,
+            "historical_rate": 0.74,
+            "historical_count": 100,
+            "delta": 0.01,
+            "direction": "stable",
+        }
+        from metabolon.enzymes.tachometer import tachometer
+
+        result = tachometer("trend")
+        assert "stable" in result
+
+    @patch("metabolon.enzymes.tachometer.success_trend")
+    def test_trend_no_data(self, mock_trend):
+        mock_trend.return_value = {
+            "recent_rate": 0.0,
+            "recent_count": 0,
+            "historical_rate": 0.0,
+            "historical_count": 0,
+            "delta": 0.0,
+            "direction": "no data",
+        }
+        from metabolon.enzymes.tachometer import tachometer
+
+        result = tachometer("trend")
+        assert "Recent (0): 0.0%" in result
+        assert "no data" in result
 
 
 class TestTachometerSlowest:
-    """Tests for the slowest action."""
+    """Tests for slowest action."""
 
     @patch("metabolon.enzymes.tachometer.slowest_recent")
-    def test_slowest_with_result(self, mock_slowest_recent: MagicMock) -> None:
-        """Return formatted slowest task info."""
-        from metabolon.enzymes.tachometer import tachometer
-
-        mock_slowest_recent.return_value = {
-            "plan": "golem-reviewer",
-            "duration_s": 45.2,
-            "tool": "read_file",
+    def test_slowest_returns_formatted_task(self, mock_slowest):
+        mock_slowest.return_value = {
+            "plan": "golem-review-42",
+            "duration_s": 125.5,
+            "tool": "reviewer",
             "timestamp": "2026-04-01T10:30:00",
             "success": True,
         }
-        result = tachometer(action="slowest", hours=2)
-
-        assert "Plan: golem-reviewer" in result
-        assert "Duration: 45.2s" in result
-        assert "Tool: read_file" in result
-        assert "Timestamp: 2026-04-01T10:30:00" in result
-        assert "Success: True" in result
-        mock_slowest_recent.assert_called_once_with(hours=2)
-
-    @patch("metabolon.enzymes.tachometer.slowest_recent")
-    def test_slowest_no_tasks(self, mock_slowest_recent: MagicMock) -> None:
-        """Handle case when no tasks in window."""
         from metabolon.enzymes.tachometer import tachometer
 
-        mock_slowest_recent.return_value = None
-        result = tachometer(action="slowest")
+        result = tachometer("slowest")
+        assert "Plan: golem-review-42" in result
+        assert "Duration: 125.5s" in result
+        assert "Tool: reviewer" in result
+        assert "Timestamp: 2026-04-01T10:30:00" in result
+        assert "Success: True" in result
 
+    @patch("metabolon.enzymes.tachometer.slowest_recent")
+    def test_slowest_failed_task(self, mock_slowest):
+        mock_slowest.return_value = {
+            "plan": "failing-plan",
+            "duration_s": 300.0,
+            "tool": "builder",
+            "timestamp": "2026-04-01T09:00:00",
+            "success": False,
+        }
+        from metabolon.enzymes.tachometer import tachometer
+
+        result = tachometer("slowest")
+        assert "Success: False" in result
+
+    @patch("metabolon.enzymes.tachometer.slowest_recent")
+    def test_slowest_no_tasks(self, mock_slowest):
+        mock_slowest.return_value = None
+        from metabolon.enzymes.tachometer import tachometer
+
+        result = tachometer("slowest")
         assert result == "No tasks in window."
 
     @patch("metabolon.enzymes.tachometer.slowest_recent")
-    def test_slowest_failed_task(self, mock_slowest_recent: MagicMock) -> None:
-        """Show failure status correctly."""
+    def test_slowest_with_custom_hours(self, mock_slowest):
+        mock_slowest.return_value = {
+            "plan": "test-plan",
+            "duration_s": 50.0,
+            "tool": "tester",
+            "timestamp": "2026-04-01T08:00:00",
+            "success": True,
+        }
         from metabolon.enzymes.tachometer import tachometer
 
-        mock_slowest_recent.return_value = {
-            "plan": "test-plan",
-            "duration_s": 10.0,
-            "tool": "write_file",
-            "timestamp": "2026-04-01T11:00:00",
-            "success": False,
-        }
-        result = tachometer(action="slowest")
-
-        assert "Success: False" in result
+        result = tachometer("slowest", hours=4)
+        mock_slowest.assert_called_once_with(hours=4)
+        assert "Plan: test-plan" in result
 
 
 class TestTachometerCoaching:
-    """Tests for the coaching action."""
+    """Tests for coaching action."""
 
     @patch("metabolon.enzymes.tachometer.coaching_effectiveness")
-    def test_coaching_with_improvement(self, mock_coaching: MagicMock) -> None:
-        """Return formatted coaching effectiveness showing improvement."""
-        from metabolon.enzymes.tachometer import tachometer
-
+    def test_coaching_shows_improvement(self, mock_coaching):
         mock_coaching.return_value = {
-            "before_failure_rate": 0.25,
-            "after_failure_rate": 0.10,
-            "improvement_pct": 15.0,
+            "before_failure_rate": 0.35,
+            "after_failure_rate": 0.15,
+            "improvement_pct": 20.0,
             "notes_analyzed": 5,
-            "total_entries": 100,
+            "total_entries": 150,
         }
-        result = tachometer(action="coaching")
-
-        assert "Before coaching failure rate: 25.0%" in result
-        assert "After coaching failure rate:  10.0%" in result
-        assert "Improvement: +15.0pp" in result
-        assert "Notes analyzed: 5" in result
-        assert "over 100 entries" in result
-
-    @patch("metabolon.enzymes.tachometer.coaching_effectiveness")
-    def test_coaching_no_change(self, mock_coaching: MagicMock) -> None:
-        """Handle case with no improvement."""
         from metabolon.enzymes.tachometer import tachometer
 
-        mock_coaching.return_value = {
-            "before_failure_rate": 0.20,
-            "after_failure_rate": 0.20,
-            "improvement_pct": 0.0,
-            "notes_analyzed": 3,
-            "total_entries": 50,
-        }
-        result = tachometer(action="coaching")
+        result = tachometer("coaching")
+        assert "Before coaching failure rate: 35.0%" in result
+        assert "After coaching failure rate:  15.0%" in result
+        assert "Improvement: +20.0pp" in result
+        assert "Notes analyzed: 5" in result
+        assert "over 150 entries" in result
 
-        assert "Improvement: +0.0pp" in result
+    @patch("metabolon.enzymes.tachometer.coaching_effectiveness")
+    def test_coaching_negative_improvement(self, mock_coaching):
+        mock_coaching.return_value = {
+            "before_failure_rate": 0.10,
+            "after_failure_rate": 0.25,
+            "improvement_pct": -15.0,
+            "notes_analyzed": 3,
+            "total_entries": 80,
+        }
+        from metabolon.enzymes.tachometer import tachometer
+
+        result = tachometer("coaching")
+        assert "Improvement: -15.0pp" in result
+
+    @patch("metabolon.enzymes.tachometer.coaching_effectiveness")
+    def test_coaching_no_data(self, mock_coaching):
+        mock_coaching.return_value = {
+            "before_failure_rate": 0.0,
+            "after_failure_rate": 0.0,
+            "improvement_pct": 0.0,
+            "notes_analyzed": 0,
+            "total_entries": 0,
+        }
+        from metabolon.enzymes.tachometer import tachometer
+
+        result = tachometer("coaching")
+        assert "Notes analyzed: 0" in result
 
 
 class TestTachometerEta:
-    """Tests for the eta action."""
+    """Tests for eta action."""
 
     @patch("metabolon.enzymes.tachometer.estimate_completion")
-    def test_eta_with_tasks(self, mock_estimate: MagicMock) -> None:
-        """Return formatted ETA for remaining tasks."""
+    def test_eta_returns_formatted_estimate(self, mock_eta):
+        mock_eta.return_value = 2.5
         from metabolon.enzymes.tachometer import tachometer
 
-        mock_estimate.return_value = 2.5
-        result = tachometer(action="eta", remaining_tasks=10)
-
+        result = tachometer("eta", remaining_tasks=10)
         assert result == "Estimated completion: 2.5 hours for 10 remaining tasks"
-        mock_estimate.assert_called_once_with(remaining_tasks=10)
+        mock_eta.assert_called_once_with(remaining_tasks=10)
 
     @patch("metabolon.enzymes.tachometer.estimate_completion")
-    def test_eta_zero_tasks(self, mock_estimate: MagicMock) -> None:
-        """Handle zero remaining tasks."""
+    def test_eta_zero_tasks(self, mock_eta):
+        mock_eta.return_value = 0.0
         from metabolon.enzymes.tachometer import tachometer
 
-        mock_estimate.return_value = 0.0
-        result = tachometer(action="eta", remaining_tasks=0)
-
+        result = tachometer("eta", remaining_tasks=0)
         assert "0.0 hours for 0 remaining tasks" in result
 
-
-class TestTachometerInvalidAction:
-    """Tests for invalid actions."""
-
-    def test_unknown_action_returns_error(self) -> None:
-        """Return error message for unknown action."""
+    @patch("metabolon.enzymes.tachometer.estimate_completion")
+    def test_eta_large_task_count(self, mock_eta):
+        mock_eta.return_value = 125.7
         from metabolon.enzymes.tachometer import tachometer
 
-        result = tachometer(action="invalid")
+        result = tachometer("eta", remaining_tasks=500)
+        assert "125.7 hours for 500 remaining tasks" in result
 
+
+class TestTachometerUnknownAction:
+    """Tests for unknown action handling."""
+
+    def test_unknown_action_returns_error_message(self):
+        from metabolon.enzymes.tachometer import tachometer
+
+        result = tachometer("invalid")
         assert "Unknown action: invalid" in result
         assert "speed|trend|slowest|coaching|eta" in result
 
-    def test_action_case_insensitive(self) -> None:
-        """Handle uppercase action names."""
+    def test_unknown_action_case_preserved(self):
         from metabolon.enzymes.tachometer import tachometer
 
-        with patch("metabolon.enzymes.tachometer.current_rate") as mock_rate:
-            mock_rate.return_value = 5.0
-            result = tachometer(action="SPEED")
+        result = tachometer("UNKNOWN")
+        assert "Unknown action: unknown" in result  # action is lowercased
 
-            assert "Dispatch rate: 5.0 tasks/hour" in result
 
-    def test_action_with_whitespace(self) -> None:
-        """Handle action with leading/trailing whitespace."""
+class TestTachometerActionCaseHandling:
+    """Tests for action case normalization."""
+
+    @patch("metabolon.enzymes.tachometer.current_rate")
+    def test_action_case_insensitive_uppercase(self, mock_rate):
+        mock_rate.return_value = 5.0
         from metabolon.enzymes.tachometer import tachometer
 
-        with patch("metabolon.enzymes.tachometer.current_rate") as mock_rate:
-            mock_rate.return_value = 3.0
-            result = tachometer(action="  speed  ")
+        result = tachometer("SPEED")
+        assert "Dispatch rate: 5.0 tasks/hour" in result
 
-            assert "Dispatch rate: 3.0 tasks/hour" in result
+    @patch("metabolon.enzymes.tachometer.current_rate")
+    def test_action_case_insensitive_mixedcase(self, mock_rate):
+        mock_rate.return_value = 5.0
+        from metabolon.enzymes.tachometer import tachometer
 
+        result = tachometer("SpEeD")
+        assert "Dispatch rate: 5.0 tasks/hour" in result
 
-class TestFormatHelpers:
-    """Tests for private formatting helpers."""
+    @patch("metabolon.enzymes.tachometer.current_rate")
+    def test_action_with_whitespace(self, mock_rate):
+        mock_rate.return_value = 5.0
+        from metabolon.enzymes.tachometer import tachometer
 
-    def test_fmt_slowest_none(self) -> None:
-        """_fmt_slowest returns message for None input."""
-        from metabolon.enzymes.tachometer import _fmt_slowest
-
-        assert _fmt_slowest(None) == "No tasks in window."
-
-    def test_fmt_slowest_dict(self) -> None:
-        """_fmt_slowest formats dict correctly."""
-        from metabolon.enzymes.tachometer import _fmt_slowest
-
-        result = _fmt_slowest({
-            "plan": "my-plan",
-            "duration_s": 30.123,
-            "tool": "bash",
-            "timestamp": "2026-04-01T12:00:00",
-            "success": True,
-        })
-
-        assert "Plan: my-plan" in result
-        assert "Duration: 30.1s" in result
-        assert "Tool: bash" in result
-        assert "Success: True" in result
-
-    def test_fmt_trend(self) -> None:
-        """_fmt_trend formats trend dict correctly."""
-        from metabolon.enzymes.tachometer import _fmt_trend
-
-        result = _fmt_trend({
-            "recent_rate": 0.85,
-            "recent_count": 8,
-            "historical_rate": 0.70,
-            "historical_count": 40,
-            "delta": 0.15,
-            "direction": "improving",
-        })
-
-        assert "Recent (8): 85.0%" in result
-        assert "Historical (40): 70.0%" in result
-        assert "Delta: +0.150" in result
-        assert "improving" in result
-
-    def test_fmt_coaching(self) -> None:
-        """_fmt_coaching formats coaching dict correctly."""
-        from metabolon.enzymes.tachometer import _fmt_coaching
-
-        result = _fmt_coaching({
-            "before_failure_rate": 0.30,
-            "after_failure_rate": 0.15,
-            "improvement_pct": 15.0,
-            "notes_analyzed": 7,
-            "total_entries": 200,
-        })
-
-        assert "Before coaching failure rate: 30.0%" in result
-        assert "After coaching failure rate:  15.0%" in result
-        assert "Improvement: +15.0pp" in result
-        assert "Notes analyzed: 7" in result
-        assert "over 200 entries" in result
+        result = tachometer("  speed  ")
+        assert "Dispatch rate: 5.0 tasks/hour" in result
