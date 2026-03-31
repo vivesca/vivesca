@@ -24,7 +24,7 @@ def _fake_bin(tmp_path: Path, *, pkill_exit: int = 0, process_count: str = "42")
     (bin_dir / "ps").chmod(0o755)
     (bin_dir / "wc").write_text(f"#!/bin/bash\necho ' {process_count}'\n")
     (bin_dir / "wc").chmod(0o755)
-    (bin_dir / "tr").write_text("#!/bin/bash\ncat\n")
+    (bin_dir / "tr").write_text('#!/bin/bash\nif [ "$1" = "-d" ]; then sed "s/ //g"; else cat; fi\n')
     (bin_dir / "tr").chmod(0o755)
     return bin_dir
 

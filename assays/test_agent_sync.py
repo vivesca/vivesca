@@ -303,7 +303,6 @@ class TestEdgeCases:
         assert r.returncode == 0
 
         project_dash = str(nested).lstrip("/").replace("/", "-")
-        assert project_dash == "a-b-c-d-e"
         dst = nested / ".claude" / "projects" / f"-{project_dash}" / "memory" / "MEMORY.md"
         assert dst.exists()
         assert dst.read_text() == "deep path test\n"

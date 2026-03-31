@@ -12,9 +12,13 @@ import pytest
 
 def _load_disk_audit():
     """Load the disk-audit effector by exec-ing its Python body."""
+    import sys, types
     source = open("/home/terry/germline/effectors/disk-audit").read()
+    mod = types.ModuleType("disk_audit")
+    sys.modules["disk_audit"] = mod
     ns: dict = {"__name__": "disk_audit"}
     exec(source, ns)
+    del sys.modules["disk_audit"]
     return ns
 
 
@@ -248,7 +252,8 @@ class TestGetRootUsage:
         assert du.total > 0
         assert du.used > 0
         assert du.free >= 0
-        assert du.total == du.used + du.free
+        # total >= used + free (reserved blocks may make total larger)
+        assert du.total >= du.used + du.free
 
     def test_percent_used_reasonable(self):
         du = get_root_usage()
