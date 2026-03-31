@@ -650,3 +650,85 @@ def test_rotate_logs_skips_small_file(tmp_path):
 
     assert small_file.exists()
     assert not (tmp_path / "golem.jsonl.1").exists()
+
+
+def test_rotate_logs_overwrites_old_dot1(tmp_path):
+    """rotate_logs overwrites existing .1 file when rotating."""
+    fake_log = tmp_path / "golem-daemon.log"
+    old_dot1 = tmp_path / "golem-daemon.log.1"
+    old_dot1.write_text("old rotated content\n")
+    fake_log.write_bytes(b"x" * (ROTATE_MAX_BYTES + 1))
+
+    original_log = _mod["LOGFILE"]
+    original_jsonl = _mod["JSONLFILE"]
+    try:
+        _mod["LOGFILE"] = fake_log
+        _mod["JSONLFILE"] = tmp_path / "nonexistent.jsonl"
+        rotate_logs()
+    finally:
+        _mod["LOGFILE"] = original_log
+        _mod["JSONLFILE"] = original_jsonl
+
+    assert not fake_log.exists()
+    assert old_dot1.exists()
+    assert old_dot1.stat().st_size == ROTATE_MAX_BYTES + 1
+
+
+def test_rotate_logs_both_oversized(tmp_path):
+    """rotate_logs rotates both files when both exceed 5MB."""
+    fake_log = tmp_path / "golem-daemon.log"
+    fake_jsonl = tmp_path / "golem.jsonl"
+    fake_log.write_bytes(b"a" * (ROTATE_MAX_BYTES + 100))
+    fake_jsonl.write_bytes(b"b" * (ROTATE_MAX_BYTES + 200))
+
+    original_log = _mod["LOGFILE"]
+    original_jsonl = _mod["JSONLFILE"]
+    try:
+        _mod["LOGFILE"] = fake_log
+        _mod["JSONLFILE"] = fake_jsonl
+        rotate_logs()
+    finally:
+        _mod["LOGFILE"] = original_log
+        _mod["JSONLFILE"] = original_jsonl
+
+    assert not fake_log.exists()
+    assert not fake_jsonl.exists()
+    assert (tmp_path / "golem-daemon.log.1").stat().st_size == ROTATE_MAX_BYTES + 100
+    assert (tmp_path / "golem.jsonl.1").stat().st_size == ROTATE_MAX_BYTES + 200
+
+
+def test_rotate_logs_exactly_at_threshold_not_rotated(tmp_path):
+    """rotate_logs does not rotate files exactly at 5MB (must exceed)."""
+    fake_log = tmp_path / "golem-daemon.log"
+    fake_log.write_bytes(b"x" * ROTATE_MAX_BYTES)
+
+    original_log = _mod["LOGFILE"]
+    original_jsonl = _mod["JSONLFILE"]
+    try:
+        _mod["LOGFILE"] = fake_log
+        _mod["JSONLFILE"] = tmp_path / "nonexistent.jsonl"
+        rotate_logs()
+    finally:
+        _mod["LOGFILE"] = original_log
+        _mod["JSONLFILE"] = original_jsonl
+
+    assert fake_log.exists()
+    assert not (tmp_path / "golem-daemon.log.1").exists()
+
+
+def test_rotate_logs_no_files(tmp_path):
+    """rotate_logs does nothing when neither file exists."""
+    original_log = _mod["LOGFILE"]
+    original_jsonl = _mod["JSONLFILE"]
+    try:
+        _mod["LOGFILE"] = tmp_path / "nonexistent.log"
+        _mod["JSONLFILE"] = tmp_path / "nonexistent.jsonl"
+        rotate_logs()
+    finally:
+        _mod["LOGFILE"] = original_log
+        _mod["JSONLFILE"] = original_jsonl
+
+    assert not (tmp_path / "nonexistent.log").exists()
+    assert not (tmp_path / "nonexistent.jsonl").exists()
+    assert not (tmp_path / "nonexistent.log.1").exists()
+    assert not (tmp_path / "nonexistent.jsonl.1").exists()

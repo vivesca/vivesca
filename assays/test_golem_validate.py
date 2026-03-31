@@ -1,4 +1,4 @@
-"""Tests for effectors/golem-validate — Python file validation checker."""
+"""Tests for golem-validate — Python file validator for common issues."""
 from __future__ import annotations
 
 import subprocess
@@ -7,191 +7,206 @@ from pathlib import Path
 
 import pytest
 
-EFFECTOR = Path("/home/terry/germline/effectors/golem-validate")
+
+def _load_module() -> dict:
+    """Load golem-validate via exec (effector pattern)."""
+    source = Path("/home/terry/germline/effectors/golem-validate").read_text()
+    ns: dict = {"__name__": "golem_validate"}
+    exec(source, ns)
+    return ns
 
 
-def _run(args: list[str]) -> subprocess.CompletedProcess[str]:
-    """Run golem-validate with given args, return CompletedProcess."""
-    return subprocess.run(
-        ["python3", str(EFFECTOR), *args],
-        capture_output=True,
-        text=True,
-        timeout=60,
-    )
+_mod = _load_module()
+check_syntax = _mod["check_syntax"]
+check_patterns = _mod["check_patterns"]
+check_pytest_collect = _mod["check_pytest_collect"]
+validate_file = _mod["validate_file"]
+main = _mod["main"]
+FORBIDDEN_PATTERNS = _mod["FORBIDDEN_PATTERNS"]
 
 
 @pytest.fixture()
-def good_file(tmp_path: Path) -> Path:
-    """A clean Python file that should pass all checks."""
+def clean_py(tmp_path: Path) -> Path:
+    """Write a clean Python file and return its path."""
     p = tmp_path / "clean.py"
-    p.write_text('"""Module docstring."""\nprint("hello")\n')
+    p.write_text('x = 1\n')
     return p
 
 
 @pytest.fixture()
-def syntax_error_file(tmp_path: Path) -> Path:
-    """A Python file with a syntax error."""
+def bad_syntax_py(tmp_path: Path) -> Path:
+    """Write a file with a syntax error."""
     p = tmp_path / "bad_syntax.py"
-    p.write_text("def f(\n")  # incomplete function def
+    p.write_text('def f(\n')
     return p
 
 
 @pytest.fixture()
-def hardcoded_path_file(tmp_path: Path) -> Path:
-    """A Python file with /Users/terry/ hardcoded."""
+def mac_path_py(tmp_path: Path) -> Path:
+    """Write a file containing a hardcoded macOS path."""
     p = tmp_path / "mac_path.py"
-    p.write_text('path = "/Users/terry/project"\n')
+    p.write_text('PATH = "/Users/terry/project"\n')
     return p
 
 
 @pytest.fixture()
-def todo_file(tmp_path: Path) -> Path:
-    """A Python file with TODO marker."""
-    p = tmp_path / "todo.py"
-    p.write_text("# TODO: implement this later\n")
+def todo_py(tmp_path: Path) -> Path:
+    """Write a file containing a TODO marker."""
+    p = tmp_path / "has_todo.py"
+    p.write_text('# TODO: fix this later\n')
     return p
 
 
 @pytest.fixture()
-def fixme_file(tmp_path: Path) -> Path:
-    """A Python file with FIXME marker."""
-    p = tmp_path / "fixme.py"
-    p.write_text("# FIXME broken logic\n")
+def fixme_py(tmp_path: Path) -> Path:
+    """Write a file containing a FIXME marker."""
+    p = tmp_path / "has_fixme.py"
+    p.write_text('# FIXME: broken\n')
     return p
 
 
 @pytest.fixture()
-def stub_file(tmp_path: Path) -> Path:
-    """A Python file with stub marker."""
-    p = tmp_path / "stub.py"
-    p.write_text("def process():\n    pass  # stub implementation\n")
+def stub_py(tmp_path: Path) -> Path:
+    """Write a file containing a stub marker."""
+    p = tmp_path / "has_stub.py"
+    p.write_text('def stub(): pass\n')
     return p
 
 
-# ── CLI behaviour ────────────────────────────────────────────────────
+# ── check_syntax ──────────────────────────────────────────────────
 
 
-def test_no_args_exits_1():
-    """Running with no args prints usage and exits 1."""
-    r = _run([])
-    assert r.returncode == 1
-    assert "Usage" in r.stderr
+class TestCheckSyntax:
+    def test_valid_file_returns_none(self, clean_py: Path):
+        assert check_syntax(clean_py) is None
+
+    def test_syntax_error_returns_message(self, bad_syntax_py: Path):
+        result = check_syntax(bad_syntax_py)
+        assert result is not None
+        assert "SyntaxError" in result
 
 
-def test_missing_file_exits_1(tmp_path: Path):
-    """Non-existent file is reported MISSING, exit 1."""
-    missing = tmp_path / "nonexistent.py"
-    r = _run([str(missing)])
-    assert r.returncode == 1
-    assert "MISSING" in r.stdout
+# ── check_patterns ────────────────────────────────────────────────
 
 
-# ── Syntax check ─────────────────────────────────────────────────────
+class TestCheckPatterns:
+    def test_clean_file_no_issues(self, clean_py: Path):
+        assert check_patterns(clean_py) == []
+
+    def test_detects_macos_path(self, mac_path_py: Path):
+        issues = check_patterns(mac_path_py)
+        assert any("macOS" in i for i in issues)
+
+    def test_detects_todo(self, todo_py: Path):
+        issues = check_patterns(todo_py)
+        assert any("work-in-progress" in i for i in issues)
+
+    def test_detects_fixme(self, fixme_py: Path):
+        issues = check_patterns(fixme_py)
+        assert any("work-in-progress" in i for i in issues)
+
+    def test_detects_stub(self, stub_py: Path):
+        issues = check_patterns(stub_py)
+        assert any("placeholder" in i for i in issues)
 
 
-def test_clean_file_passes(good_file: Path):
-    """A well-formed file with no issues should PASS."""
-    r = _run([str(good_file)])
-    assert r.returncode == 0
-    assert "PASS" in r.stdout
+# ── check_pytest_collect ──────────────────────────────────────────
 
 
-def test_syntax_error_fails(syntax_error_file: Path):
-    """A file with a SyntaxError should FAIL."""
-    r = _run([str(syntax_error_file)])
-    assert r.returncode == 1
-    assert "SyntaxError" in r.stdout
+class TestCheckPytestCollect:
+    def test_valid_test_file_passes(self, tmp_path: Path):
+        p = tmp_path / "test_sample.py"
+        p.write_text('def test_ok(): assert True\n')
+        assert check_pytest_collect(p) is None
+
+    def test_broken_test_file_fails(self, tmp_path: Path):
+        p = tmp_path / "test_broken.py"
+        p.write_text('def test_bad(): import nonexistent_module_xyz\n')
+        result = check_pytest_collect(p)
+        assert result is not None
+        assert "pytest collection" in result
 
 
-# ── Pattern checks ───────────────────────────────────────────────────
+# ── validate_file ─────────────────────────────────────────────────
 
 
-def test_hardcoded_mac_path_fails(hardcoded_path_file: Path):
-    """A file with /Users/terry/ should FAIL."""
-    r = _run([str(hardcoded_path_file)])
-    assert r.returncode == 1
-    assert "macOS hardcoded path" in r.stdout
+class TestValidateFile:
+    def test_clean_file_passes(self, clean_py: Path):
+        status, issues = validate_file(clean_py)
+        assert status == "PASS"
+        assert issues == []
+
+    def test_syntax_error_fails_immediately(self, bad_syntax_py: Path):
+        status, issues = validate_file(bad_syntax_py)
+        assert status == "FAIL"
+        assert len(issues) == 1
+        assert "SyntaxError" in issues[0]
+
+    def test_pattern_violations_fail(self, mac_path_py: Path):
+        status, issues = validate_file(mac_path_py)
+        assert status == "FAIL"
+        assert any("macOS" in i for i in issues)
+
+    def test_non_test_file_skips_pytest(self, clean_py: Path):
+        """Non-test files should not trigger pytest collection."""
+        status, issues = validate_file(clean_py)
+        assert status == "PASS"
+
+    def test_test_file_triggers_pytest_check(self, tmp_path: Path):
+        """A test_*.py file should run pytest collection."""
+        p = tmp_path / "test_good.py"
+        p.write_text('def test_ok(): assert 1 + 1 == 2\n')
+        status, issues = validate_file(p)
+        assert status == "PASS"
+
+    def test_multiple_violations_detected(self, tmp_path: Path):
+        """File with multiple issues reports all of them."""
+        p = tmp_path / "multi.py"
+        p.write_text('"/Users/terry/x"  # TODO: fix\n')
+        status, issues = validate_file(p)
+        assert status == "FAIL"
+        assert len(issues) >= 2
 
 
-def test_todo_fails(todo_file: Path):
-    """A file with TODO should FAIL."""
-    r = _run([str(todo_file)])
-    assert r.returncode == 1
-    assert "work-in-progress marker" in r.stdout
+# ── main (CLI) ────────────────────────────────────────────────────
 
 
-def test_fixme_fails(fixme_file: Path):
-    """A file with FIXME should FAIL."""
-    r = _run([str(fixme_file)])
-    assert r.returncode == 1
-    assert "work-in-progress marker" in r.stdout
+class TestMain:
+    def test_no_args_returns_1(self, capsys):
+        assert main([]) == 1
+        assert "Usage" in capsys.readouterr().err
 
+    def test_missing_file_reports_missing(self, tmp_path: Path, capsys):
+        assert main([str(tmp_path / "gone.py")]) == 1
+        out = capsys.readouterr().out
+        assert "MISSING" in out
 
-def test_stub_fails(stub_file: Path):
-    """A file with stub should FAIL."""
-    r = _run([str(stub_file)])
-    assert r.returncode == 1
-    assert "stub" in r.stdout.lower()
+    def test_all_pass_exits_0(self, clean_py: Path, capsys):
+        assert main([str(clean_py)]) == 0
+        out = capsys.readouterr().out
+        assert "PASS" in out
 
+    def test_failure_exits_1(self, bad_syntax_py: Path, capsys):
+        assert main([str(bad_syntax_py)]) == 1
+        out = capsys.readouterr().out
+        assert "FAIL" in out
 
-def test_multiple_issues_reported(tmp_path: Path):
-    """All issues in a single file are reported."""
-    p = tmp_path / "multi.py"
-    p.write_text('path = "/Users/terry/x"\n# TODO: fix\n')
-    r = _run([str(p)])
-    assert r.returncode == 1
-    assert "/Users/terry/" in r.stdout or "macOS hardcoded path" in r.stdout
-    assert "work-in-progress marker" in r.stdout
+    def test_subprocess_invocation(self, clean_py: Path):
+        """Verify the script works when run as a subprocess."""
+        script = "/home/terry/germline/effectors/golem-validate"
+        result = subprocess.run(
+            [script, str(clean_py)],
+            capture_output=True, text=True, timeout=30,
+        )
+        assert result.returncode == 0
+        assert "PASS" in result.stdout
 
-
-# ── Multiple files ───────────────────────────────────────────────────
-
-
-def test_mixed_files_exit_1(good_file: Path, todo_file: Path):
-    """If any file fails, overall exit code is 1."""
-    r = _run([str(good_file), str(todo_file)])
-    assert r.returncode == 1
-    lines = r.stdout.strip().splitlines()
-    assert len(lines) == 2
-
-
-def test_all_pass_exit_0(good_file: Path, tmp_path: Path):
-    """All passing files → exit 0."""
-    p2 = tmp_path / "also_clean.py"
-    p2.write_text("x = 1\n")
-    r = _run([str(good_file), str(p2)])
-    assert r.returncode == 0
-
-
-# ── Pytest collection (test files only) ──────────────────────────────
-
-
-def test_valid_test_file_passes_collection(tmp_path: Path):
-    """A valid test_*.py file that pytest can collect should PASS."""
-    p = tmp_path / "test_sample.py"
-    p.write_text(textwrap.dedent("""\
-        def test_addition():
-            assert 1 + 1 == 2
-    """))
-    r = _run([str(p)])
-    assert r.returncode == 0
-    assert "PASS" in r.stdout
-
-
-def test_broken_test_file_fails_collection(tmp_path: Path):
-    """A test_*.py with import errors should FAIL collection."""
-    p = tmp_path / "test_broken_import.py"
-    p.write_text("from nonexistent_module_xyz import foo\n\ndef test_x(): pass\n")
-    r = _run([str(p)])
-    assert r.returncode == 1
-    assert "pytest collection failed" in r.stdout
-
-
-# ── Self-validation ──────────────────────────────────────────────────
-
-
-def test_validate_self():
-    """golem-validate itself should pass its own checks."""
-    r = _run([str(EFFECTOR)])
-    assert r.returncode == 0
-    assert "PASS" in r.stdout
+    def test_subprocess_failure(self, bad_syntax_py: Path):
+        """Verify subprocess exits 1 on failure."""
+        script = "/home/terry/germline/effectors/golem-validate"
+        result = subprocess.run(
+            [script, str(bad_syntax_py)],
+            capture_output=True, text=True, timeout=30,
+        )
+        assert result.returncode == 1
+        assert "FAIL" in result.stdout

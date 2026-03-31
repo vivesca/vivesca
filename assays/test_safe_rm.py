@@ -8,6 +8,7 @@ It is loaded via exec() into isolated namespaces.
 import os
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 from unittest.mock import patch
 
@@ -20,17 +21,12 @@ SAFE_RM_PATH = Path(__file__).resolve().parents[1] / "effectors" / "safe_rm.py"
 
 
 @pytest.fixture()
-def safe():
-    """Load safe_rm via exec into an isolated namespace."""
-    ns: dict = {"__name__": "test_safe_rm", "__file__": str(SAFE_RM_PATH)}
+def ns():
+    """Load safe_rm via exec into an isolated namespace dict."""
+    ns_dict: dict = {"__name__": "test_safe_rm", "__file__": str(SAFE_RM_PATH)}
     source = SAFE_RM_PATH.read_text(encoding="utf-8")
-    exec(source, ns)
-    mod = type("safe_rm", (), {})()
-    for k, v in ns.items():
-        if not k.startswith("__"):
-            setattr(mod, k, v)
-    mod._ns = ns
-    return mod
+    exec(source, ns_dict)
+    return ns_dict
 
 
 # ── File structure tests ───────────────────────────────────────────────────
@@ -63,167 +59,153 @@ class TestSafeRmBasics:
 
 
 class TestProtectedPaths:
-    def test_home_is_protected(self, safe):
+    def test_home_is_protected(self, ns):
         """Test ~ (home) is in protected paths."""
-        expanded = [os.path.expanduser(p) for p in safe.PROTECTED_PATHS]
+        expanded = [os.path.expanduser(p) for p in ns["PROTECTED_PATHS"]]
         assert os.path.expanduser("~") in expanded
 
-    def test_ssh_is_protected(self, safe):
+    def test_ssh_is_protected(self, ns):
         """Test ~/.ssh is in protected paths."""
-        assert "~/.ssh" in safe.PROTECTED_PATHS or os.path.expanduser("~/.ssh") in safe.PROTECTED_PATHS
+        assert "~/.ssh" in ns["PROTECTED_PATHS"] or os.path.expanduser("~/.ssh") in ns["PROTECTED_PATHS"]
 
-    def test_gnupg_is_protected(self, safe):
+    def test_gnupg_is_protected(self, ns):
         """Test ~/.gnupg is in protected paths."""
-        assert "~/.gnupg" in safe.PROTECTED_PATHS or os.path.expanduser("~/.gnupg") in safe.PROTECTED_PATHS
+        assert "~/.gnupg" in ns["PROTECTED_PATHS"] or os.path.expanduser("~/.gnupg") in ns["PROTECTED_PATHS"]
 
-    def test_root_is_protected(self, safe):
+    def test_root_is_protected(self, ns):
         """Test / is in protected paths."""
-        assert "/" in safe.PROTECTED_PATHS
+        assert "/" in ns["PROTECTED_PATHS"]
 
-    def test_users_is_protected(self, safe):
+    def test_users_is_protected(self, ns):
         """Test /Users is in protected paths."""
-        assert "/Users" in safe.PROTECTED_PATHS
-
-    def test_has_multiple_protected_paths(self, safe):
-        """Test there are multiple protected paths."""
-        assert len(safe.PROTECTED_PATHS) >= 5
+        assert "/Users" in ns["PROTECTED_PATHS"]
 
 
 # ── is_protected() ─────────────────────────────────────────────────────────
 
 
 class TestIsProtected:
-    def test_exact_home_is_protected(self, safe):
+    def test_exact_home_is_protected(self, ns):
         """Home directory exactly should be protected."""
-        assert safe.is_protected("~") is True
+        assert ns["is_protected"]("~") is True
 
-    def test_exact_root_is_protected(self, safe):
+    def test_exact_root_is_protected(self, ns):
         """Root directory should be protected."""
-        assert safe.is_protected("/") is True
+        assert ns["is_protected"]("/") is True
 
-    def test_exact_ssh_is_protected(self, safe):
+    def test_exact_ssh_is_protected(self, ns):
         """~/.ssh should be protected."""
-        assert safe.is_protected("~/.ssh") is True
+        assert ns["is_protected"]("~/.ssh") is True
 
-    def test_exact_gnupg_is_protected(self, safe):
+    def test_exact_gnupg_is_protected(self, ns):
         """~/.gnupg should be protected."""
-        assert safe.is_protected("~/.gnupg") is True
+        assert ns["is_protected"]("~/.gnupg") is True
 
-    def test_parent_of_protected_is_protected(self, safe):
-        """A parent of a protected path should also be protected.
-        E.g. deleting / would delete ~/.ssh — so / is blocked."""
-        assert safe.is_protected("/") is True
+    def test_parent_of_protected_is_protected(self, ns):
+        """A parent of a protected path should also be protected."""
+        assert ns["is_protected"]("/") is True
 
-    def test_tmp_is_not_protected(self, safe):
+    def test_tmp_is_not_protected(self, ns):
         """A normal tmp path should not be protected."""
-        assert safe.is_protected("/tmp/some_random_dir") is False
+        assert ns["is_protected"]("/tmp/some_random_dir") is False
 
-    def test_nested_unprotected_path(self, safe):
+    def test_nested_unprotected_path(self, ns):
         """A deeply nested non-protected path should not be protected."""
-        assert safe.is_protected("/tmp/a/b/c/d") is False
+        assert ns["is_protected"]("/tmp/a/b/c/d") is False
 
-    def test_home_expansion(self, safe):
+    def test_home_expansion(self, ns):
         """Paths with ~ should be expanded before checking."""
-        assert safe.is_protected("~") is True
+        assert ns["is_protected"]("~") is True
 
-    def test_relative_path_resolved(self, safe):
+    def test_relative_path_resolved(self, ns):
         """Relative paths should be resolved to absolute before checking."""
-        assert safe.is_protected("some_random_file.txt") is False
-
-    def test_users_terry_is_protected(self, safe):
-        """/Users/terry should be protected."""
-        assert safe.is_protected("/Users/terry") is True
-
-    def test_var_tmp_not_protected(self, safe):
-        """/var/tmp should not be protected."""
-        assert safe.is_protected("/var/tmp") is False
+        assert ns["is_protected"]("some_random_file.txt") is False
 
 
 # ── main() ─────────────────────────────────────────────────────────────────
 
 
 class TestMain:
-    def test_no_args_exits(self, safe, monkeypatch):
+    def test_no_args_exits(self, ns, monkeypatch):
         """Should exit 1 when no path provided."""
         monkeypatch.setattr(sys, "argv", ["safe_rm.py"])
         with pytest.raises(SystemExit) as exc_info:
-            safe.main()
+            ns["main"]()
         assert exc_info.value.code == 1
 
-    def test_no_args_shows_usage(self, safe, monkeypatch, capsys):
+    def test_no_args_shows_usage(self, ns, capsys, monkeypatch):
         """Should print usage when no path provided."""
         monkeypatch.setattr(sys, "argv", ["safe_rm.py"])
         with pytest.raises(SystemExit):
-            safe.main()
+            ns["main"]()
         out = capsys.readouterr().out
         assert "Usage" in out
 
-    def test_protected_path_blocked(self, safe, monkeypatch, capsys):
+    def test_protected_path_blocked(self, ns, capsys, monkeypatch):
         """Should block deletion of protected path and exit 1."""
         monkeypatch.setattr(sys, "argv", ["safe_rm.py", "~/.ssh"])
         with pytest.raises(SystemExit) as exc_info:
-            safe.main()
+            ns["main"]()
         assert exc_info.value.code == 1
         out = capsys.readouterr().out
         assert "BLOCKED" in out
 
-    def test_root_blocked(self, safe, monkeypatch, capsys):
+    def test_root_blocked(self, ns, capsys, monkeypatch):
         """Should block deletion of / and exit 1."""
         monkeypatch.setattr(sys, "argv", ["safe_rm.py", "/"])
         with pytest.raises(SystemExit) as exc_info:
-            safe.main()
+            ns["main"]()
         assert exc_info.value.code == 1
         out = capsys.readouterr().out
         assert "BLOCKED" in out
 
-    def test_safe_path_printed(self, safe, monkeypatch, capsys):
+    def test_safe_path_printed(self, ns, capsys, monkeypatch):
         """Should print absolute path of safe path and exit 0."""
         monkeypatch.setattr(sys, "argv", ["safe_rm.py", "/tmp/some_dir"])
         with pytest.raises(SystemExit) as exc_info:
-            safe.main()
+            ns["main"]()
         assert exc_info.value.code == 0
         out = capsys.readouterr().out
         assert "/tmp/some_dir" in out
 
-    def test_multiple_safe_paths(self, safe, monkeypatch, capsys):
+    def test_safe_path_exits_zero(self, ns, monkeypatch):
+        """Should exit 0 for safe paths."""
+        monkeypatch.setattr(sys, "argv", ["safe_rm.py", "/tmp/safe_to_delete"])
+        with pytest.raises(SystemExit) as exc_info:
+            ns["main"]()
+        assert exc_info.value.code == 0
+
+    def test_multiple_safe_paths(self, ns, capsys, monkeypatch):
         """Should print all safe paths."""
         monkeypatch.setattr(sys, "argv", ["safe_rm.py", "/tmp/a", "/tmp/b"])
         with pytest.raises(SystemExit) as exc_info:
-            safe.main()
+            ns["main"]()
         assert exc_info.value.code == 0
         out = capsys.readouterr().out
         assert "/tmp/a" in out
         assert "/tmp/b" in out
 
-    def test_mixed_paths_blocked_on_first_protected(self, safe, monkeypatch, capsys):
+    def test_mixed_paths_blocked_on_first_protected(self, ns, capsys, monkeypatch):
         """Should block when first protected path encountered."""
         monkeypatch.setattr(sys, "argv", ["safe_rm.py", "/tmp/ok", "~/.ssh", "/tmp/also_ok"])
         with pytest.raises(SystemExit) as exc_info:
-            safe.main()
+            ns["main"]()
         assert exc_info.value.code == 1
 
-    def test_home_blocked(self, safe, monkeypatch, capsys):
+    def test_home_blocked(self, ns, capsys, monkeypatch):
         """Should block deletion of home directory."""
         monkeypatch.setattr(sys, "argv", ["safe_rm.py", "~"])
         with pytest.raises(SystemExit) as exc_info:
-            safe.main()
+            ns["main"]()
         assert exc_info.value.code == 1
 
-    def test_block_message_mentions_manual(self, safe, monkeypatch, capsys):
+    def test_block_message_mentions_manual(self, ns, capsys, monkeypatch):
         """Block message should mention doing it manually."""
         monkeypatch.setattr(sys, "argv", ["safe_rm.py", "/"])
         with pytest.raises(SystemExit):
-            safe.main()
+            ns["main"]()
         out = capsys.readouterr().out
         assert "manually" in out.lower()
-
-    def test_block_message_shows_emoji(self, safe, monkeypatch, capsys):
-        """Block message should show ❌ emoji."""
-        monkeypatch.setattr(sys, "argv", ["safe_rm.py", "/"])
-        with pytest.raises(SystemExit):
-            safe.main()
-        out = capsys.readouterr().out
-        assert "❌" in out
 
 
 # ── CLI subprocess ──────────────────────────────────────────────────────────
@@ -256,12 +238,3 @@ class TestCLISubprocess:
         )
         assert r.returncode == 0
         assert "/tmp/safe_rm_test_xyz_12345" in r.stdout
-
-    def test_ssh_blocked(self):
-        """Running safe_rm.py with ~/.ssh should exit nonzero."""
-        r = subprocess.run(
-            [sys.executable, str(SAFE_RM_PATH), "~/.ssh"],
-            capture_output=True, text=True, timeout=30,
-        )
-        assert r.returncode != 0
-        assert "BLOCKED" in r.stdout

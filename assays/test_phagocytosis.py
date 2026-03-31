@@ -110,11 +110,11 @@ class TestReadLastSnapshot:
 
 class TestPhagoMain:
     def test_exits_when_workspace_missing(self, phago):
-        with patch.object(phago.WORKSPACE, "exists", return_value=False):
+        with patch("pathlib.Path.exists", return_value=False):
             phago.main()  # should return silently, no error
 
     def test_exits_when_no_open_files(self, phago):
-        with patch.object(phago.WORKSPACE, "exists", return_value=True):
+        with patch("pathlib.Path.exists", return_value=True):
             with patch("pathlib.Path.read_text", return_value='{"lastOpenFiles": []}'):
                 phago.main()  # should return silently
 
