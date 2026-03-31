@@ -490,11 +490,19 @@ class TestAutoUpdatePython:
         assert "bar" not in state["blocked"]
 
     def test_git_pinned_unpins_when_available(self, ns):
-        ns["_uv_outdated"] = MagicMock(return_value={})
-        ns["emit_signal"] = MagicMock()
-        # run is called for pip index versions
-        ns["run"] = MagicMock(return_value=(True, "fastmcp (3.2.0)\nother"))
+        # Need a dummy outdated package to avoid the early return on empty
+        ns["_uv_outdated"] = MagicMock(return_value={
+            "somepkg": {"name": "somepkg", "version": "1.0", "latest_version": "2.0"},
+        })
+        # Snapshots show no actual version change → upgraded is empty → skip bisect
+        ns["_uv_snapshot"] = MagicMock(side_effect=[
+            {"somepkg": "1.0"}, {"somepkg": "1.0"},
+        ])
         ns["_uv_install"] = MagicMock(return_value=(True, ""))
+        ns["smoke_test"] = MagicMock(return_value=(True, ""))
+        ns["emit_signal"] = MagicMock()
+        # run is called for pip index versions in the git-pinned section
+        ns["run"] = MagicMock(return_value=(True, "fastmcp (3.2.0)\nother"))
         alerts = ns["auto_update_python"]({"blocked": {}})
         assert any("unpinned" in a and "fastmcp" in a for a in alerts)
 
