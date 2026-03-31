@@ -94,11 +94,20 @@ class TestNoApiKey:
 class TestClaudeNotFound:
     def test_exits_with_error_when_claude_not_found(self, tmp_path):
         """Script exits 1 when claude binary not found."""
-        # We have an API key but no claude
+        # We have an API key but no claude - filter PATH to remove claude
+        filtered_path_dirs = []
+        for dir_path in os.environ.get("PATH", "").split(os.pathsep):
+            if not dir_path:
+                continue
+            # Skip any directory that contains claude
+            if not (Path(dir_path) / "claude").exists():
+                filtered_path_dirs.append(Path(dir_path))
+        # Add empty bin dir at the beginning
         bindir = tmp_path / "bin"
         bindir.mkdir()
+        filtered_path_dirs.insert(0, bindir)
         r = _run_script(
-            path_dirs=[bindir],
+            path_dirs=filtered_path_dirs,
             env_extra={"MOONSHOT_API_KEY": "test_key"},
         )
         assert r.returncode == 1

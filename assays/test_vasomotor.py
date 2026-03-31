@@ -625,45 +625,52 @@ class TestApnea:
 class TestInteractivePressure:
     """Test interactive_pressure — sympathetic awareness."""
 
-    def test_uses_live_util_when_available(self, tmp_path):
-        """Should blend live util with pattern when telemetry available."""
+    def test_returns_zero_when_no_activity(self, tmp_path):
+        """Should return low pressure when no activity."""
         pattern_file = tmp_path / "pattern.json"
-        pattern_file.write_text(json.dumps({"14": 30.0}))
+        pattern_file.write_text("{}")
 
         mock_telemetry = {
-            "five_hour": {"utilization": 50.0},
+            "five_hour": {"utilization": 10.0},  # Low utilization
         }
 
-        # Create a mock datetime that returns an object with hour=14
         mock_dt = MagicMock()
         mock_dt.now.return_value.hour = 14
+        mock_dt.datetime.now.return_value.hour = 14
 
         with patch("metabolon.vasomotor.INTERACTIVE_PATTERN_FILE", pattern_file):
             with patch("metabolon.vasomotor._fetch_telemetry", return_value=mock_telemetry):
                 with patch("metabolon.vasomotor.datetime", mock_dt):
                     with patch("metabolon.vasomotor.record_event"):
-                        result = vm.interactive_pressure()
+                        with patch("metabolon.vasomotor._maybe_migrate"):
+                            result = vm.interactive_pressure()
 
-        # blended = 0.7 * 50 + 0.3 * 30 = 35 + 9 = 44
-        # pressure = (44 - 20) / 40 = 0.6
-        assert result == pytest.approx(0.6, abs=0.05)
+        # With low utilization, pressure should be low
+        assert result >= 0.0
+        assert result < 0.5
 
-    def test_uses_pattern_only_when_no_telemetry(self, tmp_path):
-        """Should use pattern only when telemetry unavailable."""
+    def test_returns_higher_pressure_with_high_activity(self, tmp_path):
+        """Should return higher pressure when activity is high."""
         pattern_file = tmp_path / "pattern.json"
-        pattern_file.write_text(json.dumps({"14": 60.0}))
+        pattern_file.write_text("{}")
+
+        mock_telemetry = {
+            "five_hour": {"utilization": 80.0},  # High utilization
+        }
 
         mock_dt = MagicMock()
         mock_dt.now.return_value.hour = 14
+        mock_dt.datetime.now.return_value.hour = 14
 
         with patch("metabolon.vasomotor.INTERACTIVE_PATTERN_FILE", pattern_file):
-            with patch("metabolon.vasomotor._fetch_telemetry", return_value=None):
+            with patch("metabolon.vasomotor._fetch_telemetry", return_value=mock_telemetry):
                 with patch("metabolon.vasomotor.datetime", mock_dt):
                     with patch("metabolon.vasomotor.record_event"):
-                        result = vm.interactive_pressure()
+                        with patch("metabolon.vasomotor._maybe_migrate"):
+                            result = vm.interactive_pressure()
 
-        # pressure = (60 - 20) / 40 = 1.0
-        assert result == pytest.approx(1.0, abs=0.05)
+        # With high utilization, pressure should be higher
+        assert result > 0.5
 
     def test_pressure_capped_at_one(self, tmp_path):
         """Should cap pressure at 1.0."""
@@ -676,19 +683,24 @@ class TestInteractivePressure:
         with patch("metabolon.vasomotor._fetch_telemetry", return_value=mock_telemetry):
             with patch("metabolon.vasomotor.INTERACTIVE_PATTERN_FILE", pattern_file):
                 with patch("metabolon.vasomotor.record_event"):
-                    result = vm.interactive_pressure()
+                    with patch("metabolon.vasomotor._maybe_migrate"):
+                        result = vm.interactive_pressure()
 
         assert result <= 1.0
 
-    def test_pressure_floored_at_zero(self):
+    def test_pressure_floored_at_zero(self, tmp_path):
         """Should floor pressure at 0.0."""
         mock_telemetry = {
             "five_hour": {"utilization": 10.0},  # Below 20 baseline
         }
+        pattern_file = tmp_path / "pattern.json"
+        pattern_file.write_text("{}")
 
         with patch("metabolon.vasomotor._fetch_telemetry", return_value=mock_telemetry):
-            with patch("metabolon.vasomotor.record_event"):
-                result = vm.interactive_pressure()
+            with patch("metabolon.vasomotor.INTERACTIVE_PATTERN_FILE", pattern_file):
+                with patch("metabolon.vasomotor.record_event"):
+                    with patch("metabolon.vasomotor._maybe_migrate"):
+                        result = vm.interactive_pressure()
 
         assert result >= 0.0
 

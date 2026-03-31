@@ -18,7 +18,7 @@ def _fn():
     """Return the raw function behind the @tool decorator."""
     from metabolon.enzymes import electroreception as mod
 
-    return mod.electroception_read
+    return mod.electroreception_read
 
 
 def _build_attributed_body(text: str) -> bytes:

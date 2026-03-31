@@ -114,9 +114,9 @@ def test_all_expected_functions_present():
     import ast
     content = GOLEM_REVIEWER_PATH.read_text()
     tree = ast.parse(content)
-    
+
     function_names = [node.name for node in ast.walk(tree) if isinstance(node, ast.FunctionDef)]
-    
+
     expected_functions = [
         "log",
         "run",
@@ -130,6 +130,218 @@ def test_all_expected_functions_present():
         "review_cycle",
         "main",
     ]
-    
+
     for func_name in expected_functions:
         assert func_name in function_names, f"Missing expected function: {func_name}"
+
+
+def test_run_function_executes_command():
+    """Test that run function executes command and returns result."""
+    ns = {}
+    content = GOLEM_REVIEWER_PATH.read_text()
+    exec(content, ns)
+
+    returncode, output = ns['run']("echo 'hello world'")
+    assert returncode == 0
+    assert output == "hello world"
+
+    # Test non-zero exit code
+    returncode, output = ns['run']("false")
+    assert returncode != 0
+
+
+def test_check_daemon_status_parses_output():
+    """Test that check_daemon_status correctly parses daemon output."""
+    ns = {}
+    content = GOLEM_REVIEWER_PATH.read_text()
+    exec(content, ns)
+
+    # Mock the run function
+    original_run = ns['run']
+
+    def mock_run(cmd):
+        return 0, "Daemon running (PID 1234), 5 pending tasks (current 1/5)"
+
+    ns['run'] = mock_run
+
+    result = ns['check_daemon_status']()
+    assert result['running'] is True
+    assert result['pending'] == 5
+    assert "1234" in result['raw']
+
+    # Test parsing when no match
+    def mock_run_no_match(cmd):
+        return 0, "Daemon stopped"
+
+    ns['run'] = mock_run_no_match
+    result = ns['check_daemon_status']()
+    assert result['pending'] == 0
+
+
+def test_check_daemon_failures_finds_failures():
+    """Test that check_daemon_failures extracts failure lines."""
+    ns = {}
+    content = GOLEM_REVIEWER_PATH.read_text()
+    exec(content, ns)
+
+    # Mock the run function
+    original_run = ns['run']
+
+    def mock_run(cmd):
+        return 0, "FAILED: task 1\nFAILED: task 2"
+
+    ns['run'] = mock_run
+
+    failures = ns['check_daemon_failures']()
+    assert len(failures) == 2
+    assert "FAILED: task 1" in failures
+
+    # Test empty case
+    def mock_run_empty(cmd):
+        return 1, ""
+
+    ns['run'] = mock_run_empty
+    failures = ns['check_daemon_failures']()
+    assert failures == []
+
+
+def test_run_test_snapshot_parses_output():
+    """Test that run_test_snapshot parses pytest output."""
+    ns = {}
+    content = GOLEM_REVIEWER_PATH.read_text()
+    exec(content, ns)
+
+    # Mock the run function
+    original_run = ns['run']
+
+    def mock_run(cmd):
+        return 0, "10 passed, 2 failed, 1 error\n"
+
+    ns['run'] = mock_run
+
+    result = ns['run_test_snapshot']()
+    assert result['passed'] == 10
+    assert result['failed'] == 2
+    assert result['errors'] == 1
+
+    # Test when no numbers found
+    def mock_run_no_match(cmd):
+        return 0, "no tests ran"
+
+    ns['run'] = mock_run_no_match
+    result = ns['run_test_snapshot']()
+    assert result['passed'] == 0
+    assert result['failed'] == 0
+
+
+def test_write_progress_report_creates_file():
+    """Test that write_progress_report creates a report file."""
+    ns = {}
+    content = GOLEM_REVIEWER_PATH.read_text()
+    exec(content, ns)
+
+    # Set GERMLINE and reset cycle_number
+    ns['GERMLINE'] = GERMLINE
+    ns['cycle_number'] = 999
+
+    # Call with test data
+    status = {"running": True, "pending": 3}
+    output = {"new_tests": 2, "new_effectors": 1, "consulting_pieces": 5}
+    tests = {"passed": 100, "failed": 2, "errors": 1, "raw": ""}
+    failures = ["Failure 1", "Failure 2"]
+
+    ns['write_progress_report'](status, output, tests, failures)
+
+    # Check file was created
+    report_path = GERMLINE / "loci" / "copia" / "reviewer-cycle-999.md"
+    assert report_path.exists()
+
+    # Verify content
+    report_content = report_path.read_text()
+    assert "Golem Reviewer — Cycle 999" in report_content
+    assert "Queue: 3 pending" in report_content
+    assert "100 passed" in report_content
+    assert "2 failed" in report_content
+
+    # Cleanup
+    report_path.unlink()
+
+    # Check directory created if not exists
+    import shutil
+    temp_dir = GERMLINE / "loci" / "copia"
+    if temp_dir.exists():
+        temp_dir.rmdir()
+    ns['write_progress_report'](status, output, tests, failures)
+    assert temp_dir.exists()
+    report_path.unlink()
+    if not any(temp_dir.iterdir()):
+        temp_dir.rmdir()
+
+
+def test_log_creates_log_file():
+    """Test that log writes to log file."""
+    ns = {}
+    content = GOLEM_REVIEWER_PATH.read_text()
+    exec(content, ns)
+
+    # Override REVIEW_LOG to a temp file
+    temp_log = GERMLINE / "tmp_golem_reviewer_test.log"
+    ns['REVIEW_LOG'] = temp_log
+
+    ns['log']("test message")
+
+    assert temp_log.exists()
+    assert "test message" in temp_log.read_text()
+
+    # Cleanup
+    if temp_log.exists():
+        temp_log.unlink()
+
+
+def test_main_accepts_once_flag():
+    """Test that main accepts --once flag."""
+    ns = {}
+    content = GOLEM_REVIEWER_PATH.read_text()
+    exec(content, ns)
+
+    # Mock sys.argv and capture exit
+    import sys
+    original_argv = sys.argv
+    original_exit = sys.exit
+
+    exit_called = False
+    exit_code = None
+
+    def mock_exit(code):
+        nonlocal exit_called, exit_code
+        exit_called = True
+        exit_code = code
+        raise SystemExit(code)
+
+    sys.exit = mock_exit
+
+    try:
+        sys.argv = [str(GOLEM_REVIEWER_PATH), "--once"]
+        # We expect it to exit after one cycle
+        try:
+            ns['main']()
+        except SystemExit:
+            pass
+        # Should not throw any exceptions
+    finally:
+        sys.argv = original_argv
+        sys.exit = original_exit
+
+
+def test_golem_reviewer_once_flag():
+    """Test that golem-reviewer --once runs and exits."""
+    result = subprocess.run(
+        [sys.executable, str(GOLEM_REVIEWER_PATH), "--once"],
+        capture_output=True,
+        text=True,
+        cwd=str(GERMLINE),
+        timeout=30
+    )
+    # It will run successfully even if daemon not running
+    assert "=== Review cycle 1 ===" in result.stdout
+    # Doesn't crash

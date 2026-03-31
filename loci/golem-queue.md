@@ -296,7 +296,7 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 
 ### Auto-requeue (64 tasks)
 - [x] `golem --provider zhipu --max-turns 30 "Write tests for /home/terry/germline/metabolon/server.py. Mock external calls. Run uv run pytest. Fix failures. Commit."`
-- [ ] `golem --provider infini --max-turns 30 "Write tests for /home/terry/germline/metabolon/vasomotor.py. Mock external calls. Run uv run pytest. Fix failures. Commit."`
+- [!] `golem --provider infini --max-turns 30 "Write tests for /home/terry/germline/metabolon/vasomotor.py. Mock external calls. Run uv run pytest. Fix failures. Commit." (retry)`
 - [x] `golem --provider volcano --max-turns 30 "Write tests for /home/terry/germline/metabolon/enzymes/mitosis.py. Mock external calls. Run uv run pytest. Fix failures. Commit."`
 - [x] `golem --provider zhipu --max-turns 30 "Write tests for /home/terry/germline/metabolon/enzymes/synthase.py. Mock external calls. Run uv run pytest. Fix failures. Commit."`
 - [x] `golem --provider infini --max-turns 30 "Write tests for /home/terry/germline/metabolon/enzymes/judge.py. Mock external calls. Run uv run pytest. Fix failures. Commit."`
@@ -315,21 +315,21 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 - [x] `golem --provider volcano --max-turns 30 "Write tests for /home/terry/germline/metabolon/enzymes/rheotaxis.py. Mock external calls. Run uv run pytest. Fix failures. Commit."`
 - [x] `golem --provider zhipu --max-turns 30 "Write tests for /home/terry/germline/metabolon/enzymes/circadian.py. Mock external calls. Run uv run pytest. Fix failures. Commit."`
 - [x] `golem --provider infini --max-turns 30 "Write tests for /home/terry/germline/metabolon/enzymes/tachometer.py. Mock external calls. Run uv run pytest. Fix failures. Commit."`
-- [ ] `golem --provider volcano --max-turns 30 "Write tests for /home/terry/germline/metabolon/enzymes/gap_junction.py. Mock external calls. Run uv run pytest. Fix failures. Commit." (retry)`
+- [!] `golem --provider volcano --max-turns 30 "Write tests for /home/terry/germline/metabolon/enzymes/gap_junction.py. Mock external calls. Run uv run pytest. Fix failures. Commit." (retry)`
 - [x] `golem --provider zhipu --max-turns 30 "Write tests for /home/terry/germline/metabolon/enzymes/expression.py. Mock external calls. Run uv run pytest. Fix failures. Commit."`
 - [x] `golem --provider infini --max-turns 30 "Write tests for /home/terry/germline/metabolon/enzymes/assay.py. Mock external calls. Run uv run pytest. Fix failures. Commit."`
 - [x] `golem --provider volcano --max-turns 30 "Write tests for /home/terry/germline/metabolon/enzymes/interoception.py. Mock external calls. Run uv run pytest. Fix failures. Commit."`
 - [x] `golem --provider zhipu --max-turns 30 "Write tests for /home/terry/germline/metabolon/enzymes/endocytosis.py. Mock external calls. Run uv run pytest. Fix failures. Commit."`
 - [ ] `golem --provider infini --max-turns 30 "Write tests for /home/terry/germline/metabolon/enzymes/integrin.py. Mock external calls. Run uv run pytest. Fix failures. Commit."`
 - [x] `golem --provider volcano --max-turns 30 "Write tests for /home/terry/germline/metabolon/enzymes/turgor.py. Mock external calls. Run uv run pytest. Fix failures. Commit."`
-- [ ] `golem --provider zhipu --max-turns 30 "Write tests for /home/terry/germline/metabolon/enzymes/hemostasis.py. Mock external calls. Run uv run pytest. Fix failures. Commit."`
+- [x] `golem --provider zhipu --max-turns 30 "Write tests for /home/terry/germline/metabolon/enzymes/hemostasis.py. Mock external calls. Run uv run pytest. Fix failures. Commit."`
 - [ ] `golem --provider infini --max-turns 30 "Write tests for /home/terry/germline/metabolon/enzymes/sortase.py. Mock external calls. Run uv run pytest. Fix failures. Commit."`
 - [x] `golem --provider volcano --max-turns 30 "Write tests for /home/terry/germline/metabolon/enzymes/endosomal.py. Mock external calls. Run uv run pytest. Fix failures. Commit."`
-- [ ] `golem --provider zhipu --max-turns 30 "Write tests for effectors/agent-sync.sh. Effectors are scripts — load via exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
+- [x] `golem --provider zhipu --max-turns 30 "Write tests for effectors/agent-sync.sh. Effectors are scripts — load via exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
 - [ ] `golem --provider infini --max-turns 30 "Write tests for effectors/assay. Effectors are scripts — load via exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
 - [x] `golem --provider volcano --max-turns 30 "Write tests for effectors/auto-update-compound-engineering.sh. Effectors are scripts — load via exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
 - [x] `golem --provider zhipu --max-turns 30 "Write tests for effectors/backup-due.sh. Effectors are scripts — load via exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
-- [ ] `golem --provider infini --max-turns 30 "Write tests for effectors/browser. Effectors are scripts — load via exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
+- [x] `golem --provider infini --max-turns 30 "Write tests for effectors/browser. Effectors are scripts — load via exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
 - [x] `golem --provider volcano --max-turns 30 "Write tests for effectors/centrosome. Effectors are scripts — load via exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
 - [ ] `golem --provider zhipu --max-turns 30 "Write tests for effectors/chat_history.py. Effectors are scripts — load via exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
 - [ ] `golem --provider infini --max-turns 30 "Write tests for effectors/chromatin-backup.sh. Effectors are scripts — load via exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
@@ -339,10 +339,10 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 - [ ] `golem --provider volcano --max-turns 30 "Write tests for effectors/compound-engineering-test. Effectors are scripts — load via exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit." (retry)`
 - [ ] `golem --provider zhipu --max-turns 30 "Write tests for effectors/coverage-map. Effectors are scripts — load via exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
 - [ ] `golem --provider infini --max-turns 30 "Write tests for effectors/disk-audit. Effectors are scripts — load via exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
-- [ ] `golem --provider volcano --max-turns 30 "Write tests for effectors/electroreception. Effectors are scripts — load via exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
+- [x] `golem --provider volcano --max-turns 30 "Write tests for effectors/electroreception. Effectors are scripts — load via exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
 - [ ] `golem --provider zhipu --max-turns 30 "Write tests for effectors/gap_junction_sync. Effectors are scripts — load via exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
 - [ ] `golem --provider infini --max-turns 30 "Write tests for effectors/gemmation-env. Effectors are scripts — load via exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
-- [ ] `golem --provider volcano --max-turns 30 "Write tests for effectors/golem-reviewer. Effectors are scripts — load via exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
+- [x] `golem --provider volcano --max-turns 30 "Write tests for effectors/golem-reviewer. Effectors are scripts — load via exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
 - [ ] `golem --provider zhipu --max-turns 30 "Write tests for effectors/hetzner-bootstrap.sh. Effectors are scripts — load via exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
 - [ ] `golem --provider infini --max-turns 30 "Write tests for effectors/importin. Effectors are scripts — load via exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
 - [ ] `golem --provider volcano --max-turns 30 "Write tests for effectors/judge. Effectors are scripts — load via exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
@@ -390,3 +390,11 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 - [ ] `golem --provider infini --max-turns 30 "Create ~/germline/loci/priorities.md with this structure: north_stars (3 items with deadline), current_focus (what to prioritize now), blocked (what to skip). Initial content: (1) Capco readiness — deadline Apr 8 — consulting IP, regulatory briefs, case studies (2) Organism robustness — ongoing — fix tests, effector health (3) Consulting arsenal — ongoing — frameworks, templates. CC will update this file each session."`
 
 - [ ] `golem --provider volcano --max-turns 40 "Read effectors/golem-daemon. Add a morning_digest() function called once per day at 06:00 HKT. It: (1) counts tasks completed in last 24h by category, (2) runs pytest --co -q for test count, (3) checks consulting output dirs for new files, (4) writes a digest to ~/epigenome/chromatin/euchromatin/consulting/morning-digest-YYYY-MM-DD.md. Wire it into daemon_loop — check if hour==6 and last_digest_date != today. Write tests. Run uv run pytest. Commit."`
+
+### Build — wire circulation into golem-daemon
+
+- [ ] `golem --provider zhipu --max-turns 50 "Read metabolon/organelles/circulation.py (535 lines). Read effectors/golem-daemon auto_requeue function. Design integration: (1) Create effectors/circulate-dispatch as Python. It runs circulation.select_goals() to get intelligent goal list, then converts each goal into a golem queue entry in loci/golem-queue.md. Uses symbiont.transduce_safe() for CC-powered goal selection (reads Tonus.md + priorities.md + calendar). Writes queue entries. Usage: circulate-dispatch [--max-goals 8]. (2) Wire this into golem-daemon auto_requeue: when queue < 50, call circulate-dispatch instead of random task generation. Write tests. Run uv run pytest. Commit."`
+
+- [ ] `golem --provider infini --max-turns 40 "Read metabolon/organelles/circulation.py. Extract the evaluate() and compound() functions into a standalone effectors/circulate-evaluate as Python. After golem tasks complete, this reads results and: (1) updates coaching notes if new failure patterns found, (2) updates priorities.md if goals were completed, (3) writes a cycle report. Called by golem-reviewer periodically. Write tests. Run uv run pytest. Commit."`
+
+- [ ] `golem --provider volcano --max-turns 40 "Read metabolon/organelles/circulation.py. Extract the checkpoint logic. Create effectors/circulate-checkpoint as Python. Saves current state: pending tasks, completed count, pass rate, north stars progress, consulting IP count. Writes to ~/.local/share/vivesca/circulation-state.json. Loads on daemon restart so circulation resumes where it left off. Write tests. Run uv run pytest. Commit."`

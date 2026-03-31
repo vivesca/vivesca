@@ -722,7 +722,7 @@ def test_cmd_close_no_experiment_exits(capsys, tmp_path):
     assert "No active experiment" in err
 
 
-def test_cmd_close_flips_status(capsys, tmp_path, monkeypatch):
+def test_cmd_close_flips_status(capsys, tmp_path):
     """cmd_close changes status from active to closed."""
     exp_dir = tmp_path / "experiments"
     exp_dir.mkdir()
@@ -742,14 +742,21 @@ def test_cmd_close_flips_status(capsys, tmp_path, monkeypatch):
     def mock_pull_oura(start, end):
         return {"2024-01-15": {"sleep_score": 80, "readiness_score": 75, "readiness_contributors": {"hrv_balance": 55}}}
 
-    monkeypatch.setattr(_mod, "EXPERIMENT_DIR", exp_dir)
-    monkeypatch.setattr(_mod, "pull_oura", mock_pull_oura)
-    monkeypatch.setattr(_mod["date"], "today", lambda: date(2024, 1, 22))
+    original_dir = _mod["EXPERIMENT_DIR"]
+    original_pull = _mod["pull_oura"]
+    original_today = _mod["date"].today
+    _mod["EXPERIMENT_DIR"] = exp_dir
+    _mod["pull_oura"] = mock_pull_oura
+    _mod["date"].today = lambda: date(2024, 1, 22)
+    try:
+        args = MagicMock()
+        args.name = None
 
-    args = MagicMock()
-    args.name = None
-
-    cmd_close(args)
+        cmd_close(args)
+    finally:
+        _mod["EXPERIMENT_DIR"] = original_dir
+        _mod["pull_oura"] = original_pull
+        _mod["date"].today = original_today
 
     content = exp_file.read_text()
     assert "status: closed" in content
@@ -758,7 +765,7 @@ def test_cmd_close_flips_status(capsys, tmp_path, monkeypatch):
     assert "## Verdict" in content
 
 
-def test_cmd_close_appends_results(capsys, tmp_path, monkeypatch):
+def test_cmd_close_appends_results(capsys, tmp_path):
     """cmd_close appends results section with delta calculations."""
     exp_dir = tmp_path / "experiments"
     exp_dir.mkdir()
@@ -780,14 +787,21 @@ def test_cmd_close_appends_results(capsys, tmp_path, monkeypatch):
             "2024-01-16": {"sleep_score": 82, "readiness_score": 77, "readiness_contributors": {"hrv_balance": 57}},
         }
 
-    monkeypatch.setattr(_mod, "EXPERIMENT_DIR", exp_dir)
-    monkeypatch.setattr(_mod, "pull_oura", mock_pull_oura)
-    monkeypatch.setattr(_mod["date"], "today", lambda: date(2024, 1, 17))
+    original_dir = _mod["EXPERIMENT_DIR"]
+    original_pull = _mod["pull_oura"]
+    original_today = _mod["date"].today
+    _mod["EXPERIMENT_DIR"] = exp_dir
+    _mod["pull_oura"] = mock_pull_oura
+    _mod["date"].today = lambda: date(2024, 1, 17)
+    try:
+        args = MagicMock()
+        args.name = None
 
-    args = MagicMock()
-    args.name = None
-
-    cmd_close(args)
+        cmd_close(args)
+    finally:
+        _mod["EXPERIMENT_DIR"] = original_dir
+        _mod["pull_oura"] = original_pull
+        _mod["date"].today = original_today
 
     content = exp_file.read_text()
     # Check for delta in results (improvement from baseline)
