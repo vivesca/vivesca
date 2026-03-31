@@ -29,7 +29,7 @@ CC then reviews the droid output for false positives and applies the homology te
 ### Module names under metabolon/ that aren't biological
 
 ```bash
-ls /Users/terry/germline/metabolon/
+ls ~/germline/metabolon/
 ```
 
 Flag any directory or `.py` file whose name is a generic English word (helper, utils, manager, handler, client, service, loader, parser, processor, runner, worker, base, common, core, main, shared, misc).
@@ -38,9 +38,9 @@ Flag any directory or `.py` file whose name is a generic English word (helper, u
 
 ```python
 # Run from vivesca root
-grep -rn "^class " /Users/terry/germline/metabolon/ \
-  /Users/terry/germline/membrane/ \
-  /Users/terry/germline/effectors/ \
+grep -rn "^class " ~/germline/metabolon/ \
+  ~/germline/membrane/ \
+  ~/germline/effectors/ \
   --include="*.py" | head_limit: 60
 ```
 
@@ -52,7 +52,7 @@ Generic verbs to flag in public function positions (not private/dunder):
 
 ```python
 grep -rn "^\s*def \(gather\|fetch\|send\|read\|write\|log\|start\|stop\|run\|get\|set\|update\|process\|handle\|execute\|perform\|do_\)\b" \
-  /Users/terry/germline/metabolon/ \
+  ~/germline/metabolon/ \
   --include="*.py" | head_limit: 40
 ```
 
@@ -62,7 +62,7 @@ Private methods (`_fetch`, `__send__`) are exempt — runtime mechanics.
 
 ```python
 grep -rn "\bllm\b\|\bpoiesis\b\|\bkairos\b\|\bcommute\b\|\befferens\b\|\breticulum\b" \
-  /Users/terry/germline/metabolon/ \
+  ~/germline/metabolon/ \
   --include="*.py" --include="*.md" --include="*.json" \
   --exclude-dir=".git" | head_limit: 40
 ```
@@ -75,7 +75,7 @@ grep -rn "\bllm\b\|\bpoiesis\b\|\bkairos\b\|\bcommute\b\|\befferens\b\|\breticul
 
 ```bash
 grep -rn "cofactors/\|~/bin/\b\|reticulum/" \
-  /Users/terry/germline/metabolon/ \
+  ~/germline/metabolon/ \
   --include="*.py" --include="*.md" --include="*.json" \
   --exclude-dir=".git" | head_limit: 30
 ```
@@ -83,7 +83,7 @@ grep -rn "cofactors/\|~/bin/\b\|reticulum/" \
 ### Dead sys.path hacks
 
 ```python
-grep -rn "sys\.path\." /Users/terry/germline/metabolon/ \
+grep -rn "sys\.path\." ~/germline/metabolon/ \
   --include="*.py" --exclude-dir=".git" | head_limit: 20
 ```
 
@@ -91,7 +91,7 @@ grep -rn "sys\.path\." /Users/terry/germline/metabolon/ \
 
 ```bash
 grep -rn "#.*\(llm\|poiesis\|kairos\|reticulum\|efferens\b\|commute\)" \
-  /Users/terry/germline/metabolon/ \
+  ~/germline/metabolon/ \
   --include="*.py" --exclude-dir=".git" | head_limit: 20
 ```
 
@@ -168,10 +168,10 @@ Report violations alongside naming results. This catches skill rot before it acc
 
 Default sweep covers:
 
-- `/Users/terry/germline/metabolon/`
-- `/Users/terry/germline/membrane/`
-- `/Users/terry/germline/effectors/`
-- `/Users/terry/germline/membrane/receptors/` (SKILL.md frontmatter names only)
-- `/Users/terry/germline/anatomy.md`
+- `~/germline/metabolon/`
+- `~/germline/membrane/`
+- `~/germline/effectors/`
+- `~/germline/membrane/receptors/` (SKILL.md frontmatter names only)
+- `~/germline/anatomy.md`
 
 If user specifies a subdirectory or file, scope to that.
