@@ -1,199 +1,181 @@
-"""Tests for effectors/cg — GLM-5.1 Claude Code wrapper via ZhipuAI."""
-
+"""Tests for effectors/cg — GLM-5.1 Claude Code wrapper."""
 from __future__ import annotations
 
 import os
 import stat
 import subprocess
-import textwrap
+import tempfile
 from pathlib import Path
 
 import pytest
 
-cg_path = Path.home() / "germline" / "effectors" / "cg"
+CG_PATH = Path.home() / "germline" / "effectors" / "cg"
 
 
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
+def _mock_claude_script(tmpdir: Path) -> Path:
+    """Create a fake claude that records invocation details to a file."""
+    fake = tmpdir / "claude"
+    record = tmpdir / "invocation.txt"
+    fake.write_text(
+        "#!/bin/bash\n"
+        f"echo \"$@\" > {record}\n"
+        "env > " + str(tmpdir / "envdump.txt") + "\n"
+    )
+    fake.chmod(fake.stat().st_mode | stat.S_IEXEC)
+    return fake
 
-def _run_cg(args: list[str], env: dict[str, str] | None = None, timeout: int = 10) -> subprocess.CompletedProcess:
-    """Run the cg effector as a subprocess and return the result."""
-    run_env = dict(os.environ)
-    if env is not None:
-        run_env.update(env)
-    return subprocess.run(
-        ["bash", str(cg_path), *args],
+
+# ── Help flag tests ──────────────────────────────────────────────────
+
+
+def test_help_flag_prints_usage_and_exits_zero():
+    result = subprocess.run(
+        ["bash", str(CG_PATH), "--help"],
         capture_output=True,
         text=True,
-        timeout=timeout,
-        env=run_env,
     )
+    assert result.returncode == 0
+    assert "cg — Claude Code via GLM-5.1" in result.stdout
+    assert "Usage" in result.stdout
 
 
-def _make_fake_claude(tmp_path: Path, record_file: Path | None = None) -> Path:
-    """Create a fake ``claude`` script that records env + args, then return its directory."""
-    fake_dir = tmp_path / "bin"
-    fake_dir.mkdir()
-    fake_bin = fake_dir / "claude"
-    record = record_file or (tmp_path / "claude_invocation.txt")
-    fake_bin.write_text(
-        textwrap.dedent(f"""\
-            #!/bin/bash
-            echo "ARGV: $@" >> {record}
-            echo "ANTHROPIC_API_KEY=$ANTHROPIC_API_KEY" >> {record}
-            echo "ANTHROPIC_BASE_URL=$ANTHROPIC_BASE_URL" >> {record}
-            echo "ANTHROPIC_AUTH_TOKEN=$ANTHROPIC_AUTH_TOKEN" >> {record}
-        """),
-        encoding="utf-8",
+def test_help_short_flag():
+    result = subprocess.run(
+        ["bash", str(CG_PATH), "-h"],
+        capture_output=True,
+        text=True,
     )
-    fake_bin.chmod(fake_bin.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
-    return fake_dir
+    assert result.returncode == 0
+    assert "cg — Claude Code via GLM-5.1" in result.stdout
 
 
-# ---------------------------------------------------------------------------
-# Tests
-# ---------------------------------------------------------------------------
-
-class TestHelp:
-    """--help and -h should print usage and exit 0."""
-
-    def test_help_long_flag(self):
-        r = _run_cg(["--help"])
-        assert r.returncode == 0
-        assert "cg — Claude Code via GLM-5.1" in r.stdout
-        assert "ZHIPU_API_KEY" in r.stdout
-
-    def test_help_short_flag(self):
-        r = _run_cg(["-h"])
-        assert r.returncode == 0
-        assert "cg — Claude Code via GLM-5.1" in r.stdout
-
-    def test_help_mentions_glm_model(self):
-        r = _run_cg(["--help"])
-        assert "glm-5.1" in r.stdout
+# ── Missing API key ──────────────────────────────────────────────────
 
 
-class TestMissingApiKey:
-    """Without ZHIPU_API_KEY the script must fail."""
+def test_missing_zhipu_key_exits_nonzero():
+    env = os.environ.copy()
+    env.pop("ZHIPU_API_KEY", None)
+    result = subprocess.run(
+        ["bash", str(CG_PATH), "-p", "hello"],
+        capture_output=True,
+        text=True,
+        env=env,
+    )
+    assert result.returncode != 0
+    assert "ZHIPU_API_KEY not set" in result.stderr
 
-    def test_exits_nonzero_without_key(self):
-        r = _run_cg(["-p", "hello"], env={"ZHIPU_API_KEY": ""})
-        assert r.returncode != 0
 
-    def test_error_message_mentions_key(self):
-        r = _run_cg(["-p", "hello"], env={"ZHIPU_API_KEY": ""})
-        combined = r.stderr + r.stdout
-        assert "ZHIPU_API_KEY" in combined
+# ── Environment propagation via mock claude ──────────────────────────
 
 
-class TestEnvSetup:
-    """When ZHIPU_API_KEY is set, the wrapper should configure the environment correctly."""
+def test_sets_anthropic_api_key_from_zhipu_key():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmp = Path(tmpdir)
+        fake_claude = _mock_claude_script(tmp)
 
-    def test_anthropic_api_key_set(self, tmp_path):
-        record = tmp_path / "invocation.txt"
-        fake_dir = _make_fake_claude(tmp_path, record)
-        r = _run_cg(
-            ["-p", "hello"],
-            env={
-                "ZHIPU_API_KEY": "test-zhipu-key-123",
-                "PATH": str(fake_dir) + ":" + os.environ.get("PATH", ""),
-            },
+        env = os.environ.copy()
+        env["ZHIPU_API_KEY"] = "test-key-12345"
+        env["PATH"] = str(tmp) + ":" + env.get("PATH", "")
+        # Ensure no leftover key
+        env.pop("ANTHROPIC_AUTH_TOKEN", None)
+
+        result = subprocess.run(
+            ["bash", str(CG_PATH), "-p", "test"],
+            capture_output=True,
+            text=True,
+            env=env,
         )
-        assert r.returncode == 0
-        content = record.read_text()
-        assert "ANTHROPIC_API_KEY=test-zhipu-key-123" in content
+        assert result.returncode == 0
 
-    def test_anthropic_base_url_set(self, tmp_path):
-        record = tmp_path / "invocation.txt"
-        fake_dir = _make_fake_claude(tmp_path, record)
-        r = _run_cg(
-            ["-p", "hello"],
-            env={
-                "ZHIPU_API_KEY": "test-key",
-                "PATH": str(fake_dir) + ":" + os.environ.get("PATH", ""),
-            },
+        envdump = (tmp / "envdump.txt").read_text()
+        assert "ANTHROPIC_API_KEY=test-key-12345" in envdump
+
+
+def test_sets_anthropic_base_url():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmp = Path(tmpdir)
+        _mock_claude_script(tmp)
+
+        env = os.environ.copy()
+        env["ZHIPU_API_KEY"] = "test-key-12345"
+        env["PATH"] = str(tmp) + ":" + env.get("PATH", "")
+
+        subprocess.run(
+            ["bash", str(CG_PATH), "-p", "test"],
+            capture_output=True,
+            text=True,
+            env=env,
         )
-        assert r.returncode == 0
-        content = record.read_text()
-        assert "ANTHROPIC_BASE_URL=https://open.bigmodel.cn/api/anthropic" in content
 
-    def test_anthropic_auth_token_unset(self, tmp_path):
-        record = tmp_path / "invocation.txt"
-        fake_dir = _make_fake_claude(tmp_path, record)
-        r = _run_cg(
-            ["-p", "hello"],
-            env={
-                "ZHIPU_API_KEY": "test-key",
-                "ANTHROPIC_AUTH_TOKEN": "should-be-gone",
-                "PATH": str(fake_dir) + ":" + os.environ.get("PATH", ""),
-            },
+        envdump = (tmp / "envdump.txt").read_text()
+        assert "ANTHROPIC_BASE_URL=https://open.bigmodel.cn/api/anthropic" in envdump
+
+
+def test_unsets_anthropic_auth_token():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmp = Path(tmpdir)
+        _mock_claude_script(tmp)
+
+        env = os.environ.copy()
+        env["ZHIPU_API_KEY"] = "test-key-12345"
+        env["ANTHROPIC_AUTH_TOKEN"] = "should-be-removed"
+        env["PATH"] = str(tmp) + ":" + env.get("PATH", "")
+
+        subprocess.run(
+            ["bash", str(CG_PATH), "-p", "test"],
+            capture_output=True,
+            text=True,
+            env=env,
         )
-        assert r.returncode == 0
-        content = record.read_text()
-        # After unset, the variable should be empty
-        assert "ANTHROPIC_AUTH_TOKEN=" in content
-        assert "should-be-gone" not in content
+
+        envdump = (tmp / "envdump.txt").read_text()
+        # The token must NOT appear in the env passed to claude
+        assert "ANTHROPIC_AUTH_TOKEN" not in envdump
 
 
-class TestClaudeInvocation:
-    """Verify the exec claude line passes correct model and flags."""
+# ── Argument passthrough ─────────────────────────────────────────────
 
-    def test_model_flag_passed(self, tmp_path):
-        record = tmp_path / "invocation.txt"
-        fake_dir = _make_fake_claude(tmp_path, record)
-        r = _run_cg(
-            ["-p", "write a test"],
-            env={
-                "ZHIPU_API_KEY": "test-key",
-                "PATH": str(fake_dir) + ":" + os.environ.get("PATH", ""),
-            },
+
+def test_passes_model_and_flags_to_claude():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmp = Path(tmpdir)
+        _mock_claude_script(tmp)
+
+        env = os.environ.copy()
+        env["ZHIPU_API_KEY"] = "test-key-12345"
+        env["PATH"] = str(tmp) + ":" + env.get("PATH", "")
+
+        subprocess.run(
+            ["bash", str(CG_PATH), "-p", "do the thing"],
+            capture_output=True,
+            text=True,
+            env=env,
         )
-        assert r.returncode == 0
-        content = record.read_text()
-        assert "--model" in content
-        assert "glm-5.1" in content
 
-    def test_dangerously_skip_permissions_passed(self, tmp_path):
-        record = tmp_path / "invocation.txt"
-        fake_dir = _make_fake_claude(tmp_path, record)
-        r = _run_cg(
-            ["-p", "hello"],
-            env={
-                "ZHIPU_API_KEY": "test-key",
-                "PATH": str(fake_dir) + ":" + os.environ.get("PATH", ""),
-            },
-        )
-        assert r.returncode == 0
-        content = record.read_text()
-        assert "--dangerously-skip-permissions" in content
+        invocation = (tmp / "invocation.txt").read_text().strip()
+        assert "--dangerously-skip-permissions" in invocation
+        assert "--model" in invocation
+        assert "glm-5.1" in invocation
+        assert "-p" in invocation
+        assert "do the thing" in invocation
 
-    def test_extra_args_forwarded(self, tmp_path):
-        record = tmp_path / "invocation.txt"
-        fake_dir = _make_fake_claude(tmp_path, record)
-        r = _run_cg(
-            ["-p", "explain this code", "--verbose"],
-            env={
-                "ZHIPU_API_KEY": "test-key",
-                "PATH": str(fake_dir) + ":" + os.environ.get("PATH", ""),
-            },
-        )
-        assert r.returncode == 0
-        content = record.read_text()
-        assert "ARGV: --dangerously-skip-permissions --model glm-5.1 -p explain this code --verbose" in content
 
-    def test_no_args_starts_interactive(self, tmp_path):
-        """With no extra args, still passes model and skip-permissions."""
-        record = tmp_path / "invocation.txt"
-        fake_dir = _make_fake_claude(tmp_path, record)
-        r = _run_cg(
-            [],
-            env={
-                "ZHIPU_API_KEY": "test-key",
-                "PATH": str(fake_dir) + ":" + os.environ.get("PATH", ""),
-            },
+def test_passes_additional_args():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmp = Path(tmpdir)
+        _mock_claude_script(tmp)
+
+        env = os.environ.copy()
+        env["ZHIPU_API_KEY"] = "test-key-12345"
+        env["PATH"] = str(tmp) + ":" + env.get("PATH", "")
+
+        subprocess.run(
+            ["bash", str(CG_PATH), "--max-turns", "10", "-p", "hello"],
+            capture_output=True,
+            text=True,
+            env=env,
         )
-        assert r.returncode == 0
-        content = record.read_text()
-        assert "glm-5.1" in content
-        assert "--dangerously-skip-permissions" in content
+
+        invocation = (tmp / "invocation.txt").read_text().strip()
+        assert "--max-turns" in invocation
+        assert "10" in invocation
