@@ -1,10 +1,51 @@
 #!/usr/bin/env bash
 # Test the compound-engineering auto-update script
 
+set -euo pipefail
+
+usage() {
+    cat <<'USAGE'
+Usage: compound-engineering-test [OPTIONS]
+
+Test the compound-engineering auto-update script by running it now.
+
+Options:
+  -n, --dry-run    Show what would be done without running the update
+  -h, --help       Show this help message
+USAGE
+}
+
+dry_run=0
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        -h|--help)
+            usage
+            exit 0
+            ;;
+        -n|--dry-run)
+            dry_run=1
+            shift
+            ;;
+        *)
+            echo "Unknown option: $1" >&2
+            usage >&2
+            exit 2
+            ;;
+    esac
+done
+
 echo "🧪 Testing compound-engineering update script..."
 echo ""
 echo "This will run the update script now (not waiting for Sunday 2 AM)"
 echo ""
+
+if [[ $dry_run -eq 1 ]]; then
+    echo "🔍 Dry run — would execute: $HOME/scripts/auto-update-compound-engineering.sh"
+    echo ""
+    echo "✅ Dry run complete."
+    exit 0
+fi
 
 if [ -t 0 ]; then
     read -p "Continue? (y/N) " -n 1 -r
