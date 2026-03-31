@@ -1,9 +1,10 @@
+from __future__ import annotations
+
 """demethylase — signal + mark management (active memory erasure tools).
 
 Actions: emit|read|history|transduce|resensitize|sweep|record_access
 """
 
-from __future__ import annotations
 
 from fastmcp.tools import tool
 from mcp.types import ToolAnnotations

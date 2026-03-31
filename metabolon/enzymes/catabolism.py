@@ -1,10 +1,11 @@
+from __future__ import annotations
+
 """spending -- catabolic metabolism of credit card statements.
 
 Tools:
   catabolism -- parse statements, summarise spending, flag issues, confirm payments
 """
 
-from __future__ import annotations
 
 from fastmcp.tools import tool
 from mcp.types import ToolAnnotations

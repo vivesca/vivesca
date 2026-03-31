@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """noesis — web-grounded search via Perplexity API.
 
 Tools:
@@ -7,7 +9,6 @@ Resources:
   vivesca://noesis/search-log — last 10 search queries
 """
 
-from __future__ import annotations
 
 import subprocess
 

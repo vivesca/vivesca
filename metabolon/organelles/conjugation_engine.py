@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """conjugation_engine — replicate Claude Code configuration to Gemini CLI format.
 
 Conjugation = lateral gene transfer. CC config is the donor; Gemini CLI is the
@@ -18,7 +20,6 @@ Hook definition structure is identical in both systems:
 MCP server structure is identical in both systems.
 """
 
-from __future__ import annotations
 
 import json
 from pathlib import Path

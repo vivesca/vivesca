@@ -16,7 +16,6 @@ Safety nets:
 7. Cardiac lock prevents concurrent instances
 """
 
-from __future__ import annotations
 
 import atexit
 import datetime

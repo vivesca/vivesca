@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """Self-assessment of biological design precision.
 
 Three levels:
@@ -12,7 +14,6 @@ receptor, the structure exists but nothing in the organism activates it.
 
 """
 
-from __future__ import annotations
 
 import ast
 import subprocess

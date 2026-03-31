@@ -1,9 +1,10 @@
+from __future__ import annotations
+
 """navigator — browser automation via agent-browser.
 
 Actions: extract|screenshot|check_auth
 """
 
-from __future__ import annotations
 
 import atexit
 import os

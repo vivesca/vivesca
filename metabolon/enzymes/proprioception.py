@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """Proprioception — sensing the organism's structural state and gradients.
 
 Biology: proprioception at the cell level = mechanosensing of shape,
@@ -8,7 +10,6 @@ Gradient sensing: each reading logs key metrics. On query, current
 reading is compared to recent history to surface trends.
 """
 
-from __future__ import annotations
 
 import filecmp
 import json

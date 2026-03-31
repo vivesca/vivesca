@@ -1,10 +1,11 @@
+from __future__ import annotations
+
 """mitosis — DR sync tools for gemmule hot standby.
 
 One-way push from iMac to gemmule (fly.io, nrt).
 Mac is authoritative. Lucerna never writes back.
 """
 
-from __future__ import annotations
 
 from fastmcp.tools import tool
 from mcp.types import ToolAnnotations

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """angiogenesis — detect underserved subsystem connections and propose new integrations.
 
 Angiogenesis = growing new blood vessels to supply hypoxic tissue.
@@ -8,7 +10,6 @@ Detection is pure Python — no LLM. Proposals are logged for crystallization.
 Registry lives at ~/.cache/angiogenesis/vessels.json.
 """
 
-from __future__ import annotations
 
 import json
 from collections import Counter

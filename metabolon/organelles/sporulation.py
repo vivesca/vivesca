@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """sporulation — garden publishing for terryli.hm (formerly publish CLI).
 
 Endosymbiosis: Python script (vivesca/effectors/publish) → Python organelle.
@@ -11,7 +13,6 @@ publishing garden posts into the world.
 Core functions: new, list_posts, publish, revise, push, index.
 """
 
-from __future__ import annotations
 
 import re
 import subprocess

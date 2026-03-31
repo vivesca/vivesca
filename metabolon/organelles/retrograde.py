@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """retrograde — symbiont influence tracking.
 
 Retrograde signaling: mitochondria (symbiont) send signals BACK to the
@@ -19,7 +21,6 @@ influence between organism and symbiont.
     < 1:1 = "dependent"
 """
 
-from __future__ import annotations
 
 import datetime
 import json

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """Infection log — structured record of tool errors for immune pattern detection.
 
 Honest immunity: the organism cannot auto-heal deterministically, so it does the
@@ -9,7 +11,6 @@ Log path: ~/.local/share/vivesca/infections.jsonl
 Chronic threshold: CHRONIC_THRESHOLD repeated errors with the same fingerprint.
 """
 
-from __future__ import annotations
 
 import configparser
 import hashlib

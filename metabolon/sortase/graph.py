@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """sortase.graph — LangGraph executor for plan-based agent orchestration.
 
 Reimplements the sortase exec flow as a LangGraph StateGraph:
@@ -14,7 +16,6 @@ Nodes call CLI agents (gemini, codex, goose, headless CC) via subprocess.
 Zero API key cost for free-tier CLIs.
 """
 
-from __future__ import annotations
 
 import asyncio
 import logging

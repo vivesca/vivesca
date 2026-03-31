@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """Autonomic thresholds with calibration.
 
 A threshold is a pain level that triggers an autonomic response (clean disk,
@@ -30,7 +32,6 @@ Storage: ~/.local/share/vivesca/setpoints/{name}.json
 Events:  ~/.local/share/vivesca/setpoints/{name}-events.jsonl
 """
 
-from __future__ import annotations
 
 import json
 from datetime import date, datetime

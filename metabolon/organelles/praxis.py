@@ -11,7 +11,6 @@ without shelling out.
 Core functions: today, upcoming, overdue, someday, all_items, spare, clean, stats.
 """
 
-from __future__ import annotations
 
 import re
 from datetime import datetime, timedelta

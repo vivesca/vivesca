@@ -1,6 +1,7 @@
+from __future__ import annotations
+
 """BOC Credit Card statement PDF parser."""
 
-from __future__ import annotations
 
 import re
 from datetime import datetime

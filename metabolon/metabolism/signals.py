@@ -1,6 +1,7 @@
+from __future__ import annotations
+
 """Stimulus collection and JSONL persistence."""
 
-from __future__ import annotations
 
 from datetime import UTC, datetime
 from enum import StrEnum

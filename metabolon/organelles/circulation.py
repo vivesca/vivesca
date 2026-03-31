@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """circulation — autonomous overnight work loop via LangGraph.
 
 Circulation is the pump. It cycles through north star goals, dispatches work,
@@ -24,7 +26,6 @@ Usage:
     circulate(mode="interactive") # pauses before dispatch for review
 """
 
-from __future__ import annotations
 
 import json
 import operator

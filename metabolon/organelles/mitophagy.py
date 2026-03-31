@@ -1,10 +1,11 @@
+from __future__ import annotations
+
 """mitophagy — selective removal of underperforming LLM models.
 
 Auto-blacklist threshold: <50% success over >=5 attempts in last 7 days.
 Blacklist is advisory — always logged, never silently dropped.
 """
 
-from __future__ import annotations
 
 import json
 import time

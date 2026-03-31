@@ -1,10 +1,11 @@
+from __future__ import annotations
+
 """Plan file linter with structured issue reporting.
 
 Checks plan files for common problems: missing sections, forbidden
 paths, placeholder markers, and absent do-NOT instructions.
 """
 
-from __future__ import annotations
 
 import re
 from dataclasses import dataclass

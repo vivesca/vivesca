@@ -1,6 +1,5 @@
 #!/usr/bin/env -S uv run --script
 from __future__ import annotations
-from __future__ import annotations
 
 # /// script
 # requires-python = ">=3.13"

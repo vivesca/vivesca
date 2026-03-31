@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """polarization_loop — overnight flywheel via LangGraph.
 
 Systole loop: preflight → brainstorm → [INTERRUPT] → dispatch → collect →
@@ -15,7 +17,6 @@ Usage:
     polarize(mode="interactive") # pauses before dispatch for review
 """
 
-from __future__ import annotations
 
 import json
 import operator

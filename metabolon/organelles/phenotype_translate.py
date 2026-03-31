@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """phenotype_translate — generate Gemini CLI hook config from Claude Code hook config.
 
 Reads ~/.claude/settings.json (or a given path), extracts the hooks section,
@@ -21,7 +23,6 @@ This is deliberately separate from conjugation_engine (which does a simpler
 pass-through). phenotype_translate adds the runtime adapter layer.
 """
 
-from __future__ import annotations
 
 import json
 import warnings

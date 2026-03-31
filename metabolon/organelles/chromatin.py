@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """chromatin — file-based memory store.
 
 Oghma retired (Mar 2026). This organelle now reads/writes markdown files
@@ -8,7 +10,6 @@ so that repeated queries hit RAM instead of disk. The index is lazy-loaded
 on first access and auto-refreshed on writes.
 """
 
-from __future__ import annotations
 
 import logging
 import re

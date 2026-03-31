@@ -1,6 +1,7 @@
+from __future__ import annotations
+
 """Detect which bank issued a credit card statement."""
 
-from __future__ import annotations
 
 import re
 

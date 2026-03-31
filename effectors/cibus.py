@@ -1,11 +1,12 @@
 #!/usr/bin/env -S uv run --script
+from __future__ import annotations
+
 # /// script
 # requires-python = ">=3.11"
 # dependencies = []
 # ///
 """cibus — Hong Kong restaurant finder via OpenRice API."""
 
-from __future__ import annotations
 
 import argparse
 import json

@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 """Tests for effectors/gap_junction_sync — bash wrapper + Python _cli."""
 
 import os

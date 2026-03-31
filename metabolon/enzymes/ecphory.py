@@ -1,9 +1,10 @@
+from __future__ import annotations
+
 """ecphory — deterministic memory retrieval across stores.
 
 Actions: engram|chromatin|logs
 """
 
-from __future__ import annotations
 
 import re
 

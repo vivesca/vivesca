@@ -1,10 +1,11 @@
+from __future__ import annotations
+
 """Reflexes — automatic responses to lifecycle stimuli.
 
 Resources:
   vivesca://reflexes — inventory of all CC lifecycle hooks
 """
 
-from __future__ import annotations
 
 import json
 from pathlib import Path

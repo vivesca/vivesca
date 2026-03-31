@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """Endosome sorting: route scored cargo to one of three fates.
 
 Biological analogy
@@ -12,7 +14,6 @@ Items entering the endosome are sorted by receptor-ligand affinity (score):
                 Silently dropped; not persisted.
 """
 
-from __future__ import annotations
 
 FATE_TRANSCYTOSE = "transcytose"
 FATE_STORE = "store"

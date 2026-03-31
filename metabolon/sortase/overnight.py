@@ -1,10 +1,11 @@
+from __future__ import annotations
+
 """Overnight session report generator for sortase.
 
 Analyzes sortase log entries from the last N hours to produce a summary
 report covering success rates, backend distribution, and failure reasons.
 """
 
-from __future__ import annotations
 
 import json
 from collections import Counter

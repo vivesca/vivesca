@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """demethylase — active memory erasure and consolidation.
 
 Scans histone marks (memory files) for staleness, flags candidates for removal,
@@ -14,7 +16,6 @@ In vivesca: marks accumulate across sessions. The demethylase sweeps for stale
 ones, strengthens accessed ones, and protects critical corrections.
 """
 
-from __future__ import annotations
 
 import json
 import re

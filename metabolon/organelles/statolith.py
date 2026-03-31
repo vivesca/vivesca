@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """statolith — AI model benchmark aggregator (statolith = gravity-sensing dense body)."""
 
 # /// script
@@ -8,7 +10,6 @@
 # ]
 # ///
 
-from __future__ import annotations
 
 import argparse
 import contextlib

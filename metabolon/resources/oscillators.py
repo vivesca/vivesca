@@ -1,10 +1,11 @@
+from __future__ import annotations
+
 """Pacemakers — live state of all vivesca LaunchAgent oscillators.
 
 Resources:
   vivesca://oscillators — schedule, status, exit code, and type for each pacemaker
 """
 
-from __future__ import annotations
 
 import plistlib
 import re

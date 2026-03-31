@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """polarization — North star agent dispatch pre-flight and guard control.
 
 Wraps the deterministic polarization-gather CLI:
@@ -8,7 +10,6 @@ Orchestration (agent dispatch, flywheel, systole management) stays in the skill.
 These tools give the skill grounded facts and guard control before dispatch.
 """
 
-from __future__ import annotations
 
 import json
 import shutil

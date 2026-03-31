@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """translocon — dispatch cheap LLM tasks via goose/droid on ZhiPu plan.
 
 Organelle: pure functions returning structured dicts.
@@ -11,7 +13,6 @@ Modes:
   skill   — execute an organism skill (goose + recipe, or droid for --mcp)
 """
 
-from __future__ import annotations
 
 import hashlib
 import json

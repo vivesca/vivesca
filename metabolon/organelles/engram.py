@@ -1,6 +1,7 @@
+from __future__ import annotations
+
 """engram — chat session archive search (formerly anam)."""
 
-from __future__ import annotations
 
 import argparse
 import difflib

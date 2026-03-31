@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """hemostasis — Emergency stabilization: stop the bleeding.
 
 Deterministic triage tools for the hemostasis skill:
@@ -10,7 +12,6 @@ Root cause analysis, cleanup, and fixing are out of scope.
 Clot first, understand second.
 """
 
-from __future__ import annotations
 
 import datetime
 import subprocess

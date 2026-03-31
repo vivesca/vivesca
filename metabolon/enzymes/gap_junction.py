@@ -1,10 +1,11 @@
+from __future__ import annotations
+
 """gap_junction — WhatsApp messaging via wacli.
 
 Actions: read|search|draft|list_chats|sync_status
 Absorbs: gap_junction (ligand_*), keryx (keryx_*), receptor (receptor_*).
 """
 
-from __future__ import annotations
 
 from fastmcp.tools import tool
 from mcp.types import ToolAnnotations

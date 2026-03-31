@@ -1,9 +1,10 @@
+from __future__ import annotations
+
 """endocytosis — RSS ingestion and status tools.
 
 Actions: status|fetch|stats|top
 """
 
-from __future__ import annotations
 
 import contextlib
 from datetime import datetime

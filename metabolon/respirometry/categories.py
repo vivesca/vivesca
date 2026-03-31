@@ -1,6 +1,7 @@
+from __future__ import annotations
+
 """Merchant categorisation via YAML prefix map."""
 
-from __future__ import annotations
 
 from pathlib import Path
 

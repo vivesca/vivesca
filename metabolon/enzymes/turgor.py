@@ -1,6 +1,7 @@
+from __future__ import annotations
+
 """tonus tool — session state. Actions: mark|status"""
 
-from __future__ import annotations
 
 import re
 from datetime import datetime, timedelta, timezone

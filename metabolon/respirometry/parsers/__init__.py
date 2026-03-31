@@ -1,6 +1,7 @@
+from __future__ import annotations
+
 """Bank-specific statement parsers."""
 
-from __future__ import annotations
 
 from collections.abc import Callable
 from pathlib import Path

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """EngramScanSubstrate -- cross-session transcript pattern recognition.
 
 The forgetting/synthesis layer. Senses engram transcripts for repeated
@@ -9,7 +11,6 @@ Design: ~/germline/loci/poiesis/cross-session-scanner-design-2026-03-23.md
 Architecture: ~/germline/loci/pulse/transcript-scan-architecture-2026-03-24.md
 """
 
-from __future__ import annotations
 
 import subprocess
 import sys

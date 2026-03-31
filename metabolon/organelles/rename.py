@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """rename — deterministic rename across the organism.
 
 Scans and renames a concept (name, directory, file, reference) across the
@@ -14,7 +16,6 @@ Steps (in order):
     8. commit     — git add + commit in each affected repo (unless --dry-run)
 """
 
-from __future__ import annotations
 
 import subprocess
 from pathlib import Path

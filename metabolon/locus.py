@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """Locus — canonical paths for the organism.
 
 Single source of truth. Effectors, tools, and scripts import from here
@@ -7,7 +9,6 @@ Usage:
     from metabolon.locus import germline, chromatin, praxis, marks
 """
 
-from __future__ import annotations
 
 from pathlib import Path
 

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """chemoreceptor — Oura health sensing (formerly sopor). Endosymbiosis: Python CLI -> organelle.
 
 Reads Oura Ring data via the Oura API v2. Credential resolution: OURA_TOKEN env var first,
@@ -6,7 +8,6 @@ then macOS Keychain entry 'oura-token'. Requires httpx (already a vivesca depend
 Core functions: today(), week(), readiness(), sleep_score(), sleep_detail(), heartrate(), sense().
 """
 
-from __future__ import annotations
 
 import os
 import subprocess

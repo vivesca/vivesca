@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """PhenotypeSubstrate — metabolism of MCP tool descriptions (phenotype).
 
 Wraps the existing sweep logic (emotion computation, selection,
@@ -5,7 +7,6 @@ genome) behind the Substrate protocol. The async mutation/taste steps
 remain as proposals — this layer stays sync.
 """
 
-from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
 

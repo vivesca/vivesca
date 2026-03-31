@@ -17,7 +17,6 @@ Export converts HEIC to JPEG for Claude Code's Read tool.
 
 Zero external dependencies — queries Photos.sqlite directly.
 """
-from __future__ import annotations
 
 import shutil
 import sqlite3

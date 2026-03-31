@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """case_study — package consulting use cases into presentation-ready formats.
 
 Takes a use case markdown file and generates:
@@ -7,7 +9,6 @@ Takes a use case markdown file and generates:
 - Client-safe version (anonymised)
 """
 
-from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field

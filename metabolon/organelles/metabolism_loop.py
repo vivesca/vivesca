@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """metabolism_loop — self-improvement state machine via LangGraph.
 
 Wires the metabolism subsystems (fitness, infection, repair, sweep) into an
@@ -18,7 +20,6 @@ Usage:
     from metabolon.organelles.metabolism_loop import run_metabolism
 """
 
-from __future__ import annotations
 
 import time
 from typing import Annotated, TypedDict

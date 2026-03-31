@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """VasomotorSubstrate — metabolism of autonomous pacing/budgeting.
 
 Senses the vivesca-events JSONL log to assess respiration pacing health:
@@ -5,7 +7,6 @@ daily burn vs budget, saturation rates, cost volatility, and process
 liveness. Proposes tuning actions when pacing drifts.
 """
 
-from __future__ import annotations
 
 import contextlib
 import json

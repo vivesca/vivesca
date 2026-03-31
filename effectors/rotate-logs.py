@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
+from __future__ import annotations
+
 """Truncate cron logs to last N lines. Runs weekly via cron."""
 
-from __future__ import annotations
 
 import argparse
 from pathlib import Path

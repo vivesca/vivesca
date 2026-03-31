@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+from __future__ import annotations
+
 # /// script
 # dependencies = []
 # ///
@@ -22,7 +24,6 @@ Search (full transcripts — slower, searches both user + assistant):
     python chat_history.py --search="DBS" --deep --days=30      # Last 30 days
 """
 
-from __future__ import annotations
 
 import json
 import os

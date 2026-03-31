@@ -1,10 +1,11 @@
+from __future__ import annotations
+
 """Anatomy resource — auto-generated organism overview.
 
 Resources:
   vivesca://anatomy — introspected anatomy overview
 """
 
-from __future__ import annotations
 
 import ast
 import logging

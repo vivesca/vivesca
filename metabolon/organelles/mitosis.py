@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """mitosis — asymmetric cell division for disaster recovery.
 
 The iMac is the self-renewing daughter cell. Lucerna (fly.io, nrt) is the
@@ -12,7 +14,6 @@ State divergence is impossible by design: Mac is always authoritative.
 Core functions: sync, status, setup.
 """
 
-from __future__ import annotations
 
 import subprocess
 import time

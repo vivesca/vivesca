@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """browser — headless page fetcher using Playwright.
 
 Single public async function:
@@ -7,7 +9,6 @@ Single public async function:
 Returns dict with: text, title, url, status, cookies_loaded,
                     screenshot_saved, pdf_saved.
 """
-from __future__ import annotations
 
 import json
 from pathlib import Path

@@ -1,6 +1,7 @@
+from __future__ import annotations
+
 """ingestion — meal planning. Actions: read_plan|log_meal"""
 
-from __future__ import annotations
 
 import re
 from datetime import date

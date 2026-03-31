@@ -1,10 +1,11 @@
+from __future__ import annotations
+
 """kinesin — session-independent agent dispatcher.
 
 Tool:
   translocation — async tasks. Actions: list|run|cancel|results
 """
 
-from __future__ import annotations
 
 from fastmcp.tools import tool
 from mcp.types import ToolAnnotations

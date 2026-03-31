@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """complement — convergent detection and resolution (MAC assembly).
 
 In biology, the complement system converges from multiple detection pathways
@@ -13,7 +15,6 @@ Complement joins these two streams. When the same key appears in both, it
 assembles a MAC to resolve the chronic inflammation.
 """
 
-from __future__ import annotations
 
 import datetime
 import json

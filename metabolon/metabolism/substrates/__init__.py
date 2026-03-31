@@ -1,6 +1,7 @@
+from __future__ import annotations
+
 """Substrate implementations — one per metabolism target."""
 
-from __future__ import annotations
 
 # Lazy imports to avoid circular dependencies and keep startup fast.
 _RECEPTOR_CATALOG: dict[str, type] | None = None

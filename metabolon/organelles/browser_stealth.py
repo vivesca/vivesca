@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """browser_stealth — make Playwright browser contexts undetectable.
 
 Provides four public functions:
@@ -7,7 +9,6 @@ Provides four public functions:
   - stealth_context: create a Playwright context with all patches applied
 """
 
-from __future__ import annotations
 
 import asyncio
 import random

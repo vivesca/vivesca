@@ -6,7 +6,6 @@ Collects: inbox, archived emails, WhatsApp, calendar (today + tomorrow),
 Praxis, Tonus, budget, reminders, email threads tracker, prospective memory.
 """
 
-from __future__ import annotations
 
 import concurrent.futures
 import datetime

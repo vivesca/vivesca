@@ -1,6 +1,7 @@
+from __future__ import annotations
+
 """tachometer — dispatch speed monitor. Actions: speed|trend|slowest|coaching|eta"""
 
-from __future__ import annotations
 
 
 from fastmcp.tools import tool

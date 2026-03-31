@@ -6,7 +6,6 @@ Endosymbiosis: Rust binary → Python organelle.
 Credentials: macOS keychain (telegram-bot-token, telegram-chat-id).
 """
 
-from __future__ import annotations
 
 import json
 import subprocess

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """ConsolidationSubstrate — cortical metabolism of memory files.
 
 Hippocampal consolidation: senses memory files, classifies by type,
@@ -5,7 +7,6 @@ checks signal correlation and constitution overlap, then proposes
 promote/migrate/prune actions. Short-term → long-term.
 """
 
-from __future__ import annotations
 
 import re
 from datetime import UTC, datetime, timedelta

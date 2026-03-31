@@ -1,10 +1,11 @@
+from __future__ import annotations
+
 """Techne — the organism's practiced capabilities.
 
 Resources:
   vivesca://techne — index of all active receptors (CC: skills) with metadata
 """
 
-from __future__ import annotations
 
 from datetime import UTC, datetime
 from pathlib import Path

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """Substrate protocol — the contract any metabolism target must satisfy.
 
 Any artifact with three properties is a metabolism target:
@@ -9,7 +11,6 @@ The Substrate protocol encodes these as four phases:
     sense → candidates → act → report
 """
 
-from __future__ import annotations
 
 from typing import Protocol, runtime_checkable
 

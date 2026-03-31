@@ -36,11 +36,7 @@ class TestPreflight:
 
         with patch("metabolon.organelles.circulation.NORTH_STAR_PATH", mock_ns):
             with patch("metabolon.organelles.circulation.praxis", mock_praxis):
-                allo_path = MagicMock()
-                allo_path.exists.return_value = False
-                with patch("metabolon.organelles.circulation.Path") as mock_path_cls:
-                    mock_path_cls.return_value = allo_path
-
+                with patch.object(Path, 'home', return_value=MagicMock()):
                     state: CirculationState = {"systole_num": 0}
                     result = preflight(state)
 
@@ -64,11 +60,15 @@ class TestPreflight:
         mock_allo_path.exists.return_value = True
         mock_allo_path.read_text.return_value = allo_state
 
+        mock_claude_dir = MagicMock()
+        mock_claude_dir.__truediv__.return_value = mock_allo_path
+
+        mock_home = MagicMock()
+        mock_home.__truediv__.return_value = mock_claude_dir
+
         with patch("metabolon.organelles.circulation.NORTH_STAR_PATH", mock_ns):
             with patch("metabolon.organelles.circulation.praxis", mock_praxis_path):
-                with patch("metabolon.organelles.circulation.Path") as mock_path:
-                    mock_path.return_value = mock_allo_path
-
+                with patch.object(Path, 'home', return_value=mock_home):
                     state: CirculationState = {"systole_num": 1}
                     result = preflight(state)
 
@@ -84,6 +84,12 @@ class TestPreflight:
         mock_allo_path.exists.return_value = True
         mock_allo_path.read_text.return_value = allo_state
 
+        mock_claude_dir = MagicMock()
+        mock_claude_dir.__truediv__.return_value = mock_allo_path
+
+        mock_home = MagicMock()
+        mock_home.__truediv__.return_value = mock_claude_dir
+
         mock_ns = MagicMock()
         mock_ns.exists.return_value = False
         mock_praxis = MagicMock()
@@ -91,9 +97,7 @@ class TestPreflight:
 
         with patch("metabolon.organelles.circulation.NORTH_STAR_PATH", mock_ns):
             with patch("metabolon.organelles.circulation.praxis", mock_praxis):
-                with patch("metabolon.organelles.circulation.Path") as mock_path:
-                    mock_path.return_value = mock_allo_path
-
+                with patch.object(Path, 'home', return_value=mock_home):
                     state: CirculationState = {"systole_num": 0}
                     result = preflight(state)
                     assert result["budget_status"] == "red"
@@ -105,6 +109,12 @@ class TestPreflight:
         mock_allo_path.exists.return_value = True
         mock_allo_path.read_text.return_value = allo_state
 
+        mock_claude_dir = MagicMock()
+        mock_claude_dir.__truediv__.return_value = mock_allo_path
+
+        mock_home = MagicMock()
+        mock_home.__truediv__.return_value = mock_claude_dir
+
         mock_ns = MagicMock()
         mock_ns.exists.return_value = False
         mock_praxis = MagicMock()
@@ -112,9 +122,7 @@ class TestPreflight:
 
         with patch("metabolon.organelles.circulation.NORTH_STAR_PATH", mock_ns):
             with patch("metabolon.organelles.circulation.praxis", mock_praxis):
-                with patch("metabolon.organelles.circulation.Path") as mock_path:
-                    mock_path.return_value = mock_allo_path
-
+                with patch.object(Path, 'home', return_value=mock_home):
                     state: CirculationState = {"systole_num": 0}
                     result = preflight(state)
                     assert result["budget_status"] == "yellow"
@@ -173,8 +181,8 @@ class TestSelectGoals:
     @patch("metabolon.organelles.circulation.transduce")
     def test_select_goals_invalid_json_adds_error(self, mock_transduce):
         """select_goals adds error on invalid JSON when brackets exist."""
-        # Invalid JSON with brackets (JSON parsing fails)
-        mock_transduce.return_value = '[ this is not valid { json here '
+        # Valid bracket positions but invalid JSON content
+        mock_transduce.return_value = '[ {"bad": json, "syntax": ] ]'
 
         state: CirculationState = {
             "north_stars": "North stars content",

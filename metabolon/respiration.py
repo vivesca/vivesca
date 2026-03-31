@@ -17,7 +17,6 @@ not how much budget remains (vasomotor), not how well the heart
 pumps (pulse), but whether the oxygen is reaching the cells.
 """
 
-from __future__ import annotations
 
 import datetime
 import json

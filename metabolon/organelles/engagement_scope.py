@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """engagement_scope — structured engagement scoping from RFP/RFI text.
 
 Extracts: scope, timeline, budget indicators, deliverables, regulatory context,
@@ -6,7 +8,6 @@ team requirements, and risk flags from unstructured engagement text.
 Output is a structured ScopeResult suitable for SOW/proposal generation.
 """
 
-from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field

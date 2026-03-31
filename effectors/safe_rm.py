@@ -5,7 +5,6 @@ from __future__ import annotations
 Wrapper for rm -rf that blocks deletion of protected paths.
 Usage: safe_rm.py <path> [<path2> ...]
 """
-from __future__ import annotations
 
 import argparse
 import os

@@ -12,7 +12,6 @@ The organism equivalent: pulse can run all day, but if Career gets
 11 agents and Marriage gets 0, the marriage star is ischaemic.
 """
 
-from __future__ import annotations
 
 import datetime
 from pathlib import Path

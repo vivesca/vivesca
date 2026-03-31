@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """circadian_clock — Google Calendar via gog CLI (formerly fasti).
 
 Endosymbiosis: Rust binary → Python organelle.
@@ -8,7 +10,6 @@ Phase detection: dawn (06–10), day (10–17), dusk (17–21), night (21–06).
 Weekend and holiday awareness for schedule-sensitive routing.
 """
 
-from __future__ import annotations
 
 import json
 import logging

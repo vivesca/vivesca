@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """Prompt templates for common agent workflows.
 
 Prompts:
@@ -6,7 +8,6 @@ Prompts:
   morning_brief  — morning situation report combining calendar and context
 """
 
-from __future__ import annotations
 
 from fastmcp.prompts import prompt
 

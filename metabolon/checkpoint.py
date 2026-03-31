@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """checkpoint — immune checkpoint filter for task dispatch.
 
 Deterministic gate that runs before any task is dispatched or before an
@@ -25,7 +27,6 @@ Skip if: Q2=no (wrong category).
 Also enforce: max 3 agent:terry items per systole.
 """
 
-from __future__ import annotations
 
 import datetime
 import json

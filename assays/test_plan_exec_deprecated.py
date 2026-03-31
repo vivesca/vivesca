@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 """Tests for plan-exec.deprecated — AI orchestrator fallback chain."""
 
 import os
@@ -475,6 +476,8 @@ class TestMain:
         """main creates a timestamped results directory."""
         plan = tmp_path / "plan.md"
         plan.write_text("task")
+        new_results = tmp_path / "cache" / "plan-exec"
+        original_results = _mod["RESULTS_DIR"]
 
         def mock_run(cmd, cwd, env, stdout, stderr, timeout):
             if hasattr(stdout, 'write'):
@@ -483,13 +486,17 @@ class TestMain:
             result.returncode = 0
             return result
 
-        with patch.object(_mod, "RESULTS_DIR", tmp_path / "cache" / "plan-exec"):
+        try:
+            _mod["RESULTS_DIR"] = new_results
             with patch("sys.argv", ["plan-exec", str(plan)]):
                 with patch("subprocess.run", side_effect=mock_run):
                     with pytest.raises(SystemExit) as exc_info:
                         main()
+        finally:
+            _mod["RESULTS_DIR"] = original_results
 
         assert exc_info.value.code == 0
+        assert new_results.exists()
 
     def test_fallback_from_first_to_second(self, tmp_path, capsys):
         """main falls back from first to second backend on failure."""

@@ -1,10 +1,11 @@
+from __future__ import annotations
+
 """Effectors — how the organism acts on the world.
 
 Resources:
   vivesca://effectors — CLI tools, MCP tools, and trigger routing
 """
 
-from __future__ import annotations
 
 import os
 from pathlib import Path

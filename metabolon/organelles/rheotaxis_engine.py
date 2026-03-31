@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """rheotaxis_engine — multi-backend web search with parallel execution.
 
 Named after rheotaxis: orientation in response to current flow.
@@ -7,7 +9,6 @@ Backends: Perplexity (sonar), Exa, Tavily, Serper.
 Credentials via importin (macOS Keychain → env vars).
 """
 
-from __future__ import annotations
 
 import json
 import os

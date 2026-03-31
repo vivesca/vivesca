@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+from __future__ import annotations
+
 """
 Rename ASIN-named Kindle extract files to proper titles.
 Run after overnight queue extraction.
@@ -6,7 +8,6 @@ Run after overnight queue extraction.
 Usage: python3 rename-kindle-asins.py [--dry-run]
 """
 
-from __future__ import annotations
 
 import argparse
 import sys

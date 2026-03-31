@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """vivesca epigenome — scaffold a new epigenome (instance repo).
 
 The genome encodes structure; the epigenome expresses it.
@@ -5,7 +7,6 @@ This command lays down the chromatin scaffold for a new instance:
 credentials, config, constitution, and automation hooks.
 """
 
-from __future__ import annotations
 
 import subprocess
 from pathlib import Path

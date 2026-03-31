@@ -1,6 +1,7 @@
+from __future__ import annotations
+
 """entrainment — circadian zeitgeber sensing and schedule advisory."""
 
-from __future__ import annotations
 
 import datetime
 import json

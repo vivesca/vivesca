@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """translocon_metrics — per-dispatch metrics collection and reporting.
 
 Records prompt length, output length, duration, model, backend, and
@@ -7,7 +9,6 @@ grouped by backend.
 Storage: ~/.local/share/translocon/metrics.jsonl
 """
 
-from __future__ import annotations
 
 import json
 import statistics

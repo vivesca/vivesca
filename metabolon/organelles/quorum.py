@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """quorum — multi-model deliberation engine.
 
 Quorum sensing: bacteria coordinate behavior by accumulating signal molecules
@@ -15,7 +17,6 @@ Usage:
     result = deliberate("Should we use Kafka or Redis Streams?", mode="quick")
 """
 
-from __future__ import annotations
 
 import json
 import textwrap

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """nociceptor — unified error detection and pain signaling.
 
 Fuses infection log, signal bus, and hook fire log into a unified
@@ -11,7 +13,6 @@ Pain taxonomy:
   chronic   — any type seen >CHRONIC_THRESHOLD times (escalate)
 """
 
-from __future__ import annotations
 
 import json
 from collections import Counter

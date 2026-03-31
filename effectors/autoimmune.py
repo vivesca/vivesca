@@ -14,7 +14,6 @@ Input: PreToolUse JSON on stdin (tool_input.skill, session_id)
 Output: JSON with hookSpecificOutput.permissionDecision = "deny" to block.
 """
 
-from __future__ import annotations
 
 import argparse
 import json

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """preflight — pre-operation health validator.
 
 Runs quick deterministic checks before expensive operations.
@@ -5,7 +7,6 @@ Returns a PreflightResult with pass/fail and details.
 Fails fast on critical issues, warns on degraded state.
 """
 
-from __future__ import annotations
 
 import os
 import shutil

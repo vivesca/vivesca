@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """rheotaxis — multi-backend web search.
 
 Parallel search across Perplexity, Exa, Tavily, Serper.
@@ -5,7 +7,6 @@ Pipe-separated queries triangulate facts that single searches miss.
 Depth tiers (quick/thorough/deep) control Perplexity model selection.
 """
 
-from __future__ import annotations
 
 from fastmcp.tools import tool
 from mcp.types import ToolAnnotations

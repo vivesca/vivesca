@@ -1,6 +1,7 @@
+from __future__ import annotations
+
 """ConsumptionEvent and statement metadata schema."""
 
-from __future__ import annotations
 
 from dataclasses import dataclass
 

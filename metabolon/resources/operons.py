@@ -1,10 +1,11 @@
+from __future__ import annotations
+
 """Operon map resource — the organism's catalytic repertoire.
 
 Resources:
   vivesca://operons — current operon status (expressed/dormant/crystallised)
 """
 
-from __future__ import annotations
 
 
 def express_operon_map() -> str:

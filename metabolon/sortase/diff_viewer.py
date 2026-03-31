@@ -1,6 +1,7 @@
+from __future__ import annotations
+
 """Show what a completed sortase task changed via git history."""
 
-from __future__ import annotations
 
 import re
 import subprocess

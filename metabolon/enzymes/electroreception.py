@@ -1,10 +1,11 @@
+from __future__ import annotations
+
 """electroreception — read iMessage/SMS from macOS chat.db.
 
 Tools:
   electroreception_read   — fetch recent messages with optional filters
 """
 
-from __future__ import annotations
 
 import os
 import re

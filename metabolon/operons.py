@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """Behavioural repertoire — the organism's enzyme catalogue.
 
 Each operon is packaged expertise for catalysing one reaction,
@@ -12,7 +14,6 @@ network matures, more will crystallise from experience.
 Dormant operons are transcribed but not yet translated.
 """
 
-from __future__ import annotations
 
 from dataclasses import dataclass, field
 

@@ -8,7 +8,6 @@ Uses AST analysis to check:
 - Resources: URI in @resource() decorator
 """
 
-from __future__ import annotations
 
 import ast
 from pathlib import Path

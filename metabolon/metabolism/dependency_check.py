@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """dependency_check — API key and external dependency integrity.
 
 Runs monthly or on-demand. Checks:
@@ -6,7 +8,6 @@ Runs monthly or on-demand. Checks:
 - Sortase/dispatch infrastructure is functional
 """
 
-from __future__ import annotations
 
 import os
 import subprocess

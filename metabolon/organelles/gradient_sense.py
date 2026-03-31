@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """gradient_sense — sensor array reading and polarity detection.
 
 Biology: A small stochastic asymmetry amplified into a stable polarity axis.
@@ -17,7 +19,6 @@ Sensor arrays:
 Output: ranked polarity vectors with signal strength and sensor coverage.
 """
 
-from __future__ import annotations
 
 import json
 from collections import Counter, defaultdict

@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 """Tests for oura-weekly-digest effector.
 
 Effectors are scripts — loaded via exec(open(path).read(), ns), never imported.
@@ -24,6 +25,8 @@ EFFECTORS_DIR = Path(__file__).resolve().parent.parent / "effectors"
 def _load_script(name: str) -> dict:
     """Load a Python effector into a namespace dict."""
     path = EFFECTORS_DIR / name
+    if not path.exists() and not path.name.endswith(".py"):
+        path = path.with_suffix(".py")
     assert path.exists(), f"Effector not found: {path}"
     mod_name = f"_test_oura_weekly_{name.replace('-', '_')}"
     mod = types.ModuleType(mod_name)

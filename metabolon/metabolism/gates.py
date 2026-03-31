@@ -1,6 +1,7 @@
+from __future__ import annotations
+
 """Selection pressure — reflex checks + taste."""
 
-from __future__ import annotations
 
 import asyncio
 import configparser

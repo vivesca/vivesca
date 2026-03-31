@@ -1,9 +1,10 @@
+from __future__ import annotations
+
 """sortase — dispatch coding tasks to cheap LLM backends.
 
 Actions: dispatch|route|status|stats
 """
 
-from __future__ import annotations
 
 import asyncio
 import tempfile

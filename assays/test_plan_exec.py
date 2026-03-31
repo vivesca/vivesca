@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 """Tests for effectors/plan-exec — deprecated bash script tested via subprocess."""
 
 import subprocess

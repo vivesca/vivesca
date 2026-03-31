@@ -7,7 +7,6 @@ Collects: next week calendar, TODO, Oura, spores/garden.
 """
 
 
-from __future__ import annotations
 
 def intake(as_json: bool = True) -> str:
     """Run ecdysis gather. Returns formatted string."""

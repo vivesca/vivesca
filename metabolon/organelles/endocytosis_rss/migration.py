@@ -1,5 +1,6 @@
-"""One-time migration: markdown news log -> JSONL cargo store."""
 from __future__ import annotations
+
+"""One-time migration: markdown news log -> JSONL cargo store."""
 
 import re
 from pathlib import Path

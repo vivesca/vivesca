@@ -6,7 +6,6 @@ Manages Markdown posts in chromatin/Garden Posts/.
 Syncs to terryli.hm via ~/code/blog/sync-from-chromatin.sh.
 """
 
-from __future__ import annotations
 
 import re
 import subprocess

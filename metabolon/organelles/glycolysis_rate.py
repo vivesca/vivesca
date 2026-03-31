@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """glycolysis_rate — symbiont dependency ratio tracker.
 
 Glycolysis = energy extracted without the symbiont (pure deterministic code).
@@ -8,7 +10,6 @@ organism evolves. The methylation cycle can update classifications when
 a capability crystallises from LLM to deterministic.
 """
 
-from __future__ import annotations
 
 import datetime
 import json

@@ -1,6 +1,7 @@
+from __future__ import annotations
+
 """Request logging for MCP tool calls — JSONL persistence of tool name, duration, and outcome."""
 
-from __future__ import annotations
 
 import json
 import logging

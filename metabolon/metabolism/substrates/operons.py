@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """OperonSubstrate — heartbeat monitor for the organism's behavioural repertoire.
 
 Scans signal history for enzyme activity, maps back to operons, and flags
@@ -8,7 +10,6 @@ Nothing noticed "we haven't done monitor in 72 hours." This substrate
 closes that gap — pure sensing, no mutation.
 """
 
-from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
 

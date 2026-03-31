@@ -1,10 +1,11 @@
+from __future__ import annotations
+
 """lysis — Firecrawl URL scraper, fallback for bot-protected pages.
 
 Extends navigator with Firecrawl-backed scraping for sites that block
 headless browsers. Returns clean markdown.
 """
 
-from __future__ import annotations
 
 from pathlib import Path
 

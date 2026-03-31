@@ -1,6 +1,7 @@
+from __future__ import annotations
+
 """Genome variant storage — tool descriptions as versioned markdown files."""
 
-from __future__ import annotations
 
 import json
 from pathlib import Path

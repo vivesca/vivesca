@@ -1,9 +1,10 @@
+from __future__ import annotations
+
 """endosomal — Gmail email triage.
 
 Actions: search|thread|categorize|archive|mark_read|label|send|filter
 """
 
-from __future__ import annotations
 
 from fastmcp.tools import tool
 from mcp.types import ToolAnnotations
