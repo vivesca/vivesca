@@ -237,7 +237,7 @@ class TestMain:
         soon = (datetime.now() + timedelta(days=3)).strftime("%Y-%m-%d")
         ai["PRAXIS_FILE"].write_text(_praxis_line(True, due=soon))
         data = json.dumps({"tool_input": {"skill": "sarcio-publish"}, "session_id": "s1"})
-        with patch("sys.stdin", io.StringIO(data)):
+        with patch("sys.argv", ["autoimmune"]), patch("sys.stdin", io.StringIO(data)):
             with pytest.raises(SystemExit) as exc_info:
                 ai["main"]()
         assert exc_info.value.code == 0
@@ -248,7 +248,7 @@ class TestMain:
     def test_new_session_resets_counter(self, ai):
         ai["save_state"]({"session_id": "old-session", "sarcio_count": 10})
         data = json.dumps({"tool_input": {"skill": "sarcio-publish"}, "session_id": "new-session"})
-        with patch("sys.stdin", io.StringIO(data)):
+        with patch("sys.argv", ["autoimmune"]), patch("sys.stdin", io.StringIO(data)):
             with pytest.raises(SystemExit):
                 ai["main"]()
         state = ai["load_state"]()

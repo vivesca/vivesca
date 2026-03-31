@@ -96,6 +96,11 @@ def format_section(label: str, raw: str) -> str:
 
 
 def main():
+    parser = argparse.ArgumentParser(
+        description="Oura weekly digest — fetches 7-day health data via oura CLI and saves a markdown note."
+    )
+    parser.parse_args()
+
     today = date.today()
     yesterday = today - timedelta(days=1)
     yesterday_str = yesterday.strftime("%Y-%m-%d")
