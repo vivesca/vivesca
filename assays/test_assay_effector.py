@@ -78,7 +78,6 @@ def test_extract_keywords_basic():
 
 def test_extract_keywords_filters_stop_words():
     """_extract_keywords filters out stop words."""
-    # "the", "and", "with", "from" should be filtered
     keywords = _extract_keywords("test", "the experiment with the subject")
     assert "the" not in keywords
     assert "with" not in keywords
@@ -237,7 +236,7 @@ def test_extract_float_invalid_number():
     assert result is None
 
 
-# ── _is_active tests ────────────────────────────────────────────────────────
+# ── _is_active tests ───────────────────────────────────────────────────────
 
 
 def test_is_active_true(tmp_path):
@@ -492,6 +491,7 @@ def test_pull_intake_strips_prefix(tmp_path):
 
 # ── cmd_list tests ─────────────────────────────────────────────────────────
 
+
 cmd_list = _mod["cmd_list"]
 
 
@@ -536,6 +536,7 @@ def test_cmd_list_shows_status(capsys, tmp_path):
 
 # ── cmd_new tests ──────────────────────────────────────────────────────────
 
+
 cmd_new = _mod["cmd_new"]
 
 
@@ -544,7 +545,7 @@ def test_cmd_new_creates_experiment(capsys, tmp_path):
     exp_dir = tmp_path / "experiments"
     exp_dir.mkdir()
 
-    # Mock pull_oura and summarise_period
+    # Mock pull_oura
     def mock_pull_oura(start, end):
         return {
             "2024-01-01": {
@@ -554,20 +555,17 @@ def test_cmd_new_creates_experiment(capsys, tmp_path):
             }
         }
 
-    from datetime import date as original_date
     original_dir = _mod["EXPERIMENT_DIR"]
     original_pull = _mod["pull_oura"]
-    original_date_in_mod = _mod["date"]
-
-    # Create mock date class that returns fixed today
-    class MockDate(original_date):
-        @staticmethod
-        def today():
-            return original_date(2024, 1, 15)
-
+    original_date = _mod["date"]
     _mod["EXPERIMENT_DIR"] = exp_dir
     _mod["pull_oura"] = mock_pull_oura
-    _mod["date"] = MockDate
+    # Mock date in the effector's namespace
+    mock_date = MagicMock()
+    mock_date.today.return_value = date(2024, 1, 15)
+    mock_date.fromisoformat = date.fromisoformat
+    mock_date.timedelta = timedelta
+    _mod["date"] = mock_date
     try:
         args = MagicMock()
         args.name = "Test Experiment"
@@ -579,7 +577,7 @@ def test_cmd_new_creates_experiment(capsys, tmp_path):
     finally:
         _mod["EXPERIMENT_DIR"] = original_dir
         _mod["pull_oura"] = original_pull
-        _mod["date"] = original_date_in_mod
+        _mod["date"] = original_date
 
     # Check file was created
     files = list(exp_dir.glob("assay-*.md"))
@@ -603,20 +601,17 @@ def test_cmd_new_pulls_baseline(capsys, tmp_path):
         pull_calls.append((start, end))
         return {"2024-01-01": {"sleep_score": 80, "readiness_score": 70, "readiness_contributors": {}}}
 
-    from datetime import date as original_date
     original_dir = _mod["EXPERIMENT_DIR"]
     original_pull = _mod["pull_oura"]
-    original_date_in_mod = _mod["date"]
-
-    # Create mock date class that returns fixed today
-    class MockDate(original_date):
-        @staticmethod
-        def today():
-            return original_date(2024, 1, 15)
-
+    original_date = _mod["date"]
     _mod["EXPERIMENT_DIR"] = exp_dir
     _mod["pull_oura"] = mock_pull_oura
-    _mod["date"] = MockDate
+    # Mock date in the effector's namespace
+    mock_date = MagicMock()
+    mock_date.today.return_value = date(2024, 1, 15)
+    mock_date.fromisoformat = date.fromisoformat
+    mock_date.timedelta = timedelta
+    _mod["date"] = mock_date
     try:
         args = MagicMock()
         args.name = "Test"
@@ -628,7 +623,7 @@ def test_cmd_new_pulls_baseline(capsys, tmp_path):
     finally:
         _mod["EXPERIMENT_DIR"] = original_dir
         _mod["pull_oura"] = original_pull
-        _mod["date"] = original_date_in_mod
+        _mod["date"] = original_date
 
     # Baseline should be 7 days before start
     assert len(pull_calls) == 1
@@ -637,6 +632,7 @@ def test_cmd_new_pulls_baseline(capsys, tmp_path):
 
 
 # ── cmd_check tests ────────────────────────────────────────────────────────
+
 
 cmd_check = _mod["cmd_check"]
 
@@ -686,22 +682,19 @@ def test_cmd_check_appends_to_file(capsys, tmp_path):
             }
         }
 
-    from datetime import date as original_date
     original_dir = _mod["EXPERIMENT_DIR"]
     original_pull = _mod["pull_oura"]
     original_intake = _mod["pull_intake"]
-    original_date_in_mod = _mod["date"]
-
-    # Create mock date class that returns fixed today
-    class MockDate(original_date):
-        @staticmethod
-        def today():
-            return original_date(2024, 1, 15)
-
+    original_date = _mod["date"]
     _mod["EXPERIMENT_DIR"] = exp_dir
     _mod["pull_oura"] = mock_pull_oura
     _mod["pull_intake"] = lambda s, k: []
-    _mod["date"] = MockDate
+    # Mock date in the effector's namespace
+    mock_date = MagicMock()
+    mock_date.today.return_value = date(2024, 1, 15)
+    mock_date.fromisoformat = date.fromisoformat
+    mock_date.timedelta = timedelta
+    _mod["date"] = mock_date
     try:
         args = MagicMock()
         args.name = None
@@ -711,7 +704,7 @@ def test_cmd_check_appends_to_file(capsys, tmp_path):
         _mod["EXPERIMENT_DIR"] = original_dir
         _mod["pull_oura"] = original_pull
         _mod["pull_intake"] = original_intake
-        _mod["date"] = original_date_in_mod
+        _mod["date"] = original_date
 
     content = exp_file.read_text()
     assert "### Day 1" in content
@@ -720,6 +713,7 @@ def test_cmd_check_appends_to_file(capsys, tmp_path):
 
 
 # ── cmd_close tests ────────────────────────────────────────────────────────
+
 
 cmd_close = _mod["cmd_close"]
 
@@ -762,21 +756,17 @@ def test_cmd_close_flips_status(capsys, tmp_path):
     def mock_pull_oura(start, end):
         return {"2024-01-15": {"sleep_score": 80, "readiness_score": 75, "readiness_contributors": {"hrv_balance": 55}}}
 
-    from datetime import date as original_date
-    # Create mock date class that returns fixed today
-    class MockDate(original_date):
-        @staticmethod
-        def today():
-            return original_date(2024, 1, 22)
-
     original_dir = _mod["EXPERIMENT_DIR"]
     original_pull = _mod["pull_oura"]
-    original_date_in_mod = _mod["date"]
-
+    original_date = _mod["date"]
     _mod["EXPERIMENT_DIR"] = exp_dir
     _mod["pull_oura"] = mock_pull_oura
-    _mod["date"] = MockDate
-
+    # Mock date in the effector's namespace
+    mock_date = MagicMock()
+    mock_date.today.return_value = date(2024, 1, 22)
+    mock_date.fromisoformat = date.fromisoformat
+    mock_date.timedelta = timedelta
+    _mod["date"] = mock_date
     try:
         args = MagicMock()
         args.name = None
@@ -785,7 +775,7 @@ def test_cmd_close_flips_status(capsys, tmp_path):
     finally:
         _mod["EXPERIMENT_DIR"] = original_dir
         _mod["pull_oura"] = original_pull
-        _mod["date"] = original_date_in_mod
+        _mod["date"] = original_date
 
     content = exp_file.read_text()
     assert "status: closed" in content
@@ -816,21 +806,17 @@ def test_cmd_close_appends_results(capsys, tmp_path):
             "2024-01-16": {"sleep_score": 82, "readiness_score": 77, "readiness_contributors": {"hrv_balance": 57}},
         }
 
-    from datetime import date as original_date
-    # Create mock date class that returns fixed today
-    class MockDate(original_date):
-        @staticmethod
-        def today():
-            return original_date(2024, 1, 17)
-
     original_dir = _mod["EXPERIMENT_DIR"]
     original_pull = _mod["pull_oura"]
-    original_date_in_mod = _mod["date"]
-
+    original_date = _mod["date"]
     _mod["EXPERIMENT_DIR"] = exp_dir
     _mod["pull_oura"] = mock_pull_oura
-    _mod["date"] = MockDate
-
+    # Mock date in the effector's namespace
+    mock_date = MagicMock()
+    mock_date.today.return_value = date(2024, 1, 17)
+    mock_date.fromisoformat = date.fromisoformat
+    mock_date.timedelta = timedelta
+    _mod["date"] = mock_date
     try:
         args = MagicMock()
         args.name = None
@@ -839,7 +825,7 @@ def test_cmd_close_appends_results(capsys, tmp_path):
     finally:
         _mod["EXPERIMENT_DIR"] = original_dir
         _mod["pull_oura"] = original_pull
-        _mod["date"] = original_date_in_mod
+        _mod["date"] = original_date
 
     content = exp_file.read_text()
     # Check for delta in results (improvement from baseline)
@@ -848,6 +834,7 @@ def test_cmd_close_appends_results(capsys, tmp_path):
 
 
 # ── pull_oura integration test (mocked API) ─────────────────────────────────
+
 
 pull_oura = _mod["pull_oura"]
 
@@ -865,16 +852,14 @@ def test_pull_oura_fetches_data():
         return []
 
     original_fetch = _mod["_fetch"]
-    original_get_token = _mod["_get_token"]
-
+    original_token = _mod["_get_token"]
     _mod["_fetch"] = mock_fetch
     _mod["_get_token"] = lambda: "test-token"
-
     try:
         result = pull_oura("2024-01-01", "2024-01-02")
     finally:
         _mod["_fetch"] = original_fetch
-        _mod["_get_token"] = original_get_token
+        _mod["_get_token"] = original_token
 
     assert "2024-01-01" in result
     assert result["2024-01-01"]["sleep_score"] == 80
@@ -896,22 +881,21 @@ def test_pull_oura_sorts_by_date():
         return mock_sleep if endpoint == "daily_sleep" else []
 
     original_fetch = _mod["_fetch"]
-    original_get_token = _mod["_get_token"]
-
+    original_token = _mod["_get_token"]
     _mod["_fetch"] = mock_fetch
     _mod["_get_token"] = lambda: "test-token"
-
     try:
         result = pull_oura("2024-01-01", "2024-01-03")
     finally:
         _mod["_fetch"] = original_fetch
-        _mod["_get_token"] = original_get_token
+        _mod["_get_token"] = original_token
 
     dates = list(result.keys())
     assert dates == ["2024-01-01", "2024-01-02", "2024-01-03"]
 
 
 # ── Constants and helpers tests ─────────────────────────────────────────────
+
 
 def test_stop_words_contains_expected():
     """_STOP_WORDS contains expected stop words."""
