@@ -437,6 +437,11 @@ def print_search_results(matches: list, pattern: str, days: int, deep: bool):
 def main():
     args = sys.argv[1:]
 
+    # Help
+    if "--help" in args or "-h" in args:
+        print(__doc__)
+        sys.exit(0)
+
     # Parse flags
     full = "--full" in args
     as_json = "--json" in args

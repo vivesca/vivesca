@@ -226,7 +226,8 @@ class TestCheckSecrets:
 
 
 class TestMainBlock:
-    def test_no_issues_exits_zero(self, tmp_path, monkeypatch, capsys):
+    def _setup_dirs(self, tmp_path, monkeypatch):
+        """Shared setup: fake dirs with germline/effectors for bin scan."""
         fake_launch = tmp_path / "LaunchAgents"
         fake_launch.mkdir(parents=True)
         fake_source = tmp_path / "oscillators"
@@ -242,19 +243,17 @@ class TestMainBlock:
             def home(cls):
                 return tmp_path
         monkeypatch.setitem(_mod, "Path", FakePath)
-        # Simulate the __main__ logic
+
+    def test_no_issues_returns_empty(self, tmp_path, monkeypatch):
+        self._setup_dirs(tmp_path, monkeypatch)
         issues = _mod["check"]()
-        if issues:
-            pytest.fail(f"Expected no issues but got: {issues}")
-        assert "All clear." in capsys.readouterr().out or True  # no issues = no output in __main__
+        assert issues == []
 
     def test_issues_exit_nonzero(self, tmp_path, monkeypatch):
         monkeypatch.setitem(_mod, "check", lambda: ["DRIFT: something"])
-        # Simulate __main__ logic
         issues = _mod["check"]()
         assert len(issues) > 0
         with pytest.raises(SystemExit) as exc_info:
-            # This is what the __main__ block does
             if issues:
                 sys.exit(1)
         assert exc_info.value.code == 1

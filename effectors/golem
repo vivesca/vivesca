@@ -227,15 +227,54 @@ _run_golem() {
   echo "$output"
 }
 
+# _configure_provider: set _KEY, _URL, _OPUS, _SONNET, _HAIKU for given provider
+_configure_provider() {
+  local prov="$1"
+  unset _AUTH_MODE
+  case "$prov" in
+    zhipu)
+      _KEY="${ZHIPU_API_KEY:?ZHIPU_API_KEY not set}"
+      _URL="https://open.bigmodel.cn/api/anthropic"
+      _OPUS="GLM-5.1"; _SONNET="GLM-5.1"; _HAIKU="GLM-4.5-air" ;;
+    volcano)
+      _KEY="${VOLCANO_API_KEY:?VOLCANO_API_KEY not set}"
+      _URL="https://ark.cn-beijing.volces.com/api/coding"
+      _AUTH_MODE="token"
+      _OPUS="ark-code-latest"; _SONNET="ark-code-latest"; _HAIKU="ark-code-latest" ;;
+    infini)
+      _KEY="${INFINI_API_KEY:?INFINI_API_KEY not set}"
+      _URL="https://cloud.infini-ai.com/maas/coding"
+      _OPUS="glm-5"; _SONNET="glm-5"; _HAIKU="glm-4.5-air" ;;
+    *) echo "Unknown provider: $prov (zhipu|volcano|infini)" >&2; return 1 ;;
+  esac
+}
+
+# _run_with_fallback: run _run_golem, retry on fallback provider if primary fails
+_run_with_fallback() {
+  local prompt="$1"
+  local primary_exit=0
+  _run_golem "$prompt" || primary_exit=$?
+
+  if $FALLBACK && [[ $primary_exit -ne 0 ]]; then
+    FALLBACK_PROVIDER="$(_fallback_provider "$PROVIDER")"
+    if [[ -n "$FALLBACK_PROVIDER" ]]; then
+      echo "[fallback] primary provider '$PROVIDER' failed (exit=$primary_exit), retrying on '$FALLBACK_PROVIDER'..." >&2
+      PROVIDER="$FALLBACK_PROVIDER"
+      _configure_provider "$PROVIDER"
+      _run_golem "$prompt" || true
+    fi
+  fi
+}
+
 if $BATCH; then
   for mod in "$@"; do
     echo ">>> golem: $mod"
-    _run_golem "Read $mod. Write comprehensive tests to assays/test_$(basename "${mod%.py}").py. NOTE: Effectors are scripts, not importable modules. Load via exec(open(path).read(), {\"__name__\": \"test_module\"}) or test via subprocess.run. NEVER use import <effector_name>. Mock external calls and file I/O. Run: uv run pytest assays/test_$(basename "${mod%.py}").py -v --tb=short. Fix any failures. Then git add the test file and git commit -m 'golem: tests for $(basename "${mod%.py}")'." || true
+    _run_with_fallback "Read $mod. Write comprehensive tests to assays/test_$(basename "${mod%.py}").py. NOTE: Effectors are scripts, not importable modules. Load via exec(open(path).read(), {\"__name__\": \"test_module\"}) or test via subprocess.run. NEVER use import <effector_name>. Mock external calls and file I/O. Run: uv run pytest assays/test_$(basename "${mod%.py}").py -v --tb=short. Fix any failures. Then git add the test file and git commit -m 'golem: tests for $(basename "${mod%.py}")'." || true
     echo
   done
 elif $TEST; then
   mod="$1"
-  _run_golem "Read $mod. Write comprehensive tests to assays/test_$(basename "${mod%.py}").py. NOTE: Effectors are scripts, not importable modules. Load via exec(open(path).read(), {\"__name__\": \"test_module\"}) or test via subprocess.run. NEVER use import <effector_name>. Mock external calls and file I/O. Run: uv run pytest assays/test_$(basename "${mod%.py}").py -v --tb=short. Fix any failures. Then git add the test file and git commit -m 'golem: tests for $(basename "${mod%.py}")'."
+  _run_with_fallback "Read $mod. Write comprehensive tests to assays/test_$(basename "${mod%.py}").py. NOTE: Effectors are scripts, not importable modules. Load via exec(open(path).read(), {\"__name__\": \"test_module\"}) or test via subprocess.run. NEVER use import <effector_name>. Mock external calls and file I/O. Run: uv run pytest assays/test_$(basename "${mod%.py}").py -v --tb=short. Fix any failures. Then git add the test file and git commit -m 'golem: tests for $(basename "${mod%.py}")'."
 else
-  _run_golem "$*"
+  _run_with_fallback "$*"
 fi

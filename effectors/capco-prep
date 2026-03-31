@@ -107,6 +107,14 @@ def print_readiness_checklist(docs: list) -> None:
 
 def main():
     """Main entry point."""
+    if "--help" in sys.argv or "-h" in sys.argv:
+        print(__doc__)
+        print(f"\nUsage: capco-prep [--help|-h]")
+        print(f"  Scans {CAPCO_DIR} for supported documents and outputs a readiness checklist.")
+        print(f"  Stale threshold: {STALE_DAYS} days.")
+        print(f"  Supported extensions: {', '.join(sorted(SUPPORTED_EXTENSIONS))}")
+        sys.exit(0)
+
     docs = list_capco_docs()
     print_readiness_checklist(docs)
     

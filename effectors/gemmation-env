@@ -1,7 +1,18 @@
-#!/bin/zsh
+#!/usr/bin/env bash
 # Wrapper for LaunchAgent-invoked legatus — minimal env for launchd context
-# Only export what backends actually need: PATH + Homebrew.
+# Only export what backends actually need: PATH + package managers.
 # Telegram, GOG, browser profile, 1Password token are NOT needed.
-eval "$(/opt/homebrew/bin/brew shellenv)"
-export PATH="/Users/terry/germline/.venv/bin:/Users/terry/.local/bin:/Users/terry/.cargo/bin:$PATH"
-exec legatus --queue /Users/terry/epigenome/chromatin/agent-queue.yaml "$@"
+set -euo pipefail
+
+UNAME_S="$(uname -s)"
+HOME_DIR="$(eval echo ~)"
+
+if [[ "$UNAME_S" == "Darwin" ]]; then
+  eval "$(/opt/homebrew/bin/brew shellenv)"
+  export PATH="$HOME_DIR/germline/.venv/bin:$HOME_DIR/.local/bin:$HOME_DIR/.cargo/bin:$PATH"
+  exec legatus --queue "$HOME_DIR/epigenome/chromatin/agent-queue.yaml" "$@"
+else
+  export PATH="$HOME_DIR/.local/bin:$HOME_DIR/.cargo/bin:$PATH"
+  echo "gemmation-env: legatus is macOS-only, nothing to launch on $UNAME_S" >&2
+  exit 0
+fi
