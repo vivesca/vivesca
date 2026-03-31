@@ -1,5 +1,5 @@
-from __future__ import annotations
 """Tests for effectors/ck — bash script tested via subprocess."""
+from __future__ import annotations
 
 import os
 import stat
@@ -29,7 +29,7 @@ def _run_script(
     env.pop("ANTHROPIC_MODEL", None)
     if path_dirs is not None:
         # Prepend custom path dirs, keep system PATH after
-        env["PATH"] = os.pathsep.join(str(p) for p in path_dirs)
+        env["PATH"] = os.pathsep.join(str(p) for p in path_dirs) + os.pathsep + env.get("PATH", "")
     if env_extra:
         env.update(env_extra)
     cmd = ["bash", str(SCRIPT)] + (args or [])
