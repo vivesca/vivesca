@@ -8,16 +8,16 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 ### IMPORTANT (perishable / high-impact — dispatch first)
 
 #### Capco onboarding research
-- [ ] `golem --provider zhipu --full --max-turns 50 "Research Capco consulting firm. Use rheotaxis_search to find: (1) recent Capco projects in APAC banking/AI, (2) their methodology and delivery approach, (3) key competitors in HK finserv consulting. Write findings to ~/epigenome/chromatin/euchromatin/consulting/capco-research.md as structured reference. Include actionable prep items for a new joiner."`
+- [ ] `golem --provider zhipu --full --max-turns 50 "Research Capco consulting firm. Use rheotaxis_search to find: (1) recent Capco projects in APAC banking/AI, (2) their methodology and delivery approach, (3) key competitors in HK finserv consulting. Write findings to ~/epigenome/chromatin/euchromatin/consulting/capco-research.md as structured reference. Include actionable prep items for a new joiner." (retry)`
 
 #### AI in banking regulatory briefing
-- [ ] `golem --provider infini --full --max-turns 50 "Use rheotaxis_search to find latest HKMA, SFC, and MAS guidance on AI in banking (2025-2026). Focus on: model risk management, AI governance, GenAI usage policies. Write a consulting-ready briefing to ~/epigenome/chromatin/euchromatin/regulatory/ai-banking-briefing-2026.md. Structure as: key themes, regulatory expectations, gaps banks typically have, consulting opportunities."`
+- [ ] `golem --provider infini --full --max-turns 50 "Use rheotaxis_search to find latest HKMA, SFC, and MAS guidance on AI in banking (2025-2026). Focus on: model risk management, AI governance, GenAI usage policies. Write a consulting-ready briefing to ~/epigenome/chromatin/euchromatin/regulatory/ai-banking-briefing-2026.md. Structure as: key themes, regulatory expectations, gaps banks typically have, consulting opportunities." (retry)`
 
 #### Fix effector test coaching (prevents broken golem output)
 - [x] `golem --provider zhipu --max-turns 30 "Read effectors/golem. After the _run_golem function, find the BATCH mode section. Update the batch prompt template to include: 'NOTE: Effectors are scripts, not importable modules. Load via exec(open(path).read(), {\"__name__\": \"test_module\"}) or test via subprocess.run. NEVER use import <effector_name>.' Do the same for the TEST mode prompt. This coaching prevents broken test files."`
 
 #### Integrin health check (is the organism healthy?)
-- [ ] `golem --provider infini --full --max-turns 40 "Run the integrin skill: scan all CLI binaries in ~/germline/effectors/ for breakage. For each Python effector, run python3 -c 'import ast; ast.parse(open(path).read())' to check syntax. For each with --help, run it. Report: total effectors, healthy, broken, missing shebangs. Write report to ~/epigenome/chromatin/euchromatin/system/integrin-report.md."`
+- [ ] `golem --provider infini --full --max-turns 40 "Run the integrin skill: scan all CLI binaries in ~/germline/effectors/ for breakage. For each Python effector, run python3 -c 'import ast; ast.parse(open(path).read())' to check syntax. For each with --help, run it. Report: total effectors, healthy, broken, missing shebangs. Write report to ~/epigenome/chromatin/euchromatin/system/integrin-report.md." (retry)`
 
 ### Retries (split [!] failures into smaller tasks)
 
@@ -66,7 +66,7 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 ### Effector test blitz (24 tasks, 73 effectors)
 
 - [ ] `golem --provider zhipu --max-turns 50 "Write tests for effectors/cytokinesis (40K). Write assays/test_cytokinesis.py. Mock external calls, subprocess, file I/O. Run pytest. Fix failures."`
-- [ ] `golem --provider infini --max-turns 50 "Write tests for effectors/lacuna (30K). Write assays/test_lacuna.py. Mock external calls, subprocess, file I/O. Run pytest. Fix failures."`
+- [ ] `golem --provider infini --max-turns 50 "Write tests for effectors/lacuna (30K). Write assays/test_lacuna.py. Mock external calls, subprocess, file I/O. Run pytest. Fix failures." (retry)`
 - [ ] `golem --provider volcano --max-turns 50 "Write tests for effectors/methylation (26K). Write assays/test_methylation.py. Mock external calls, subprocess, file I/O. Run pytest. Fix failures."`
 - [ ] `golem --provider zhipu --max-turns 50 "Write tests for effectors/legatum (24K). Write assays/test_legatum.py. Mock external calls, subprocess, file I/O. Run pytest. Fix failures."`
 - [!] `golem --provider infini --max-turns 50 "Write tests for effectors/telophase (24K). Write assays/test_telophase.py. Mock external calls, subprocess, file I/O. Run pytest. Fix failures." (retry)`

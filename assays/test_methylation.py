@@ -7,16 +7,23 @@ All external file I/O and subprocess calls are mocked.
 import json
 import pytest
 import subprocess
+import importlib.util
+import sys
 from unittest.mock import MagicMock, patch, mock_open
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
-# Add the project root to path so we can import the module
-import sys
+# Add the project root to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-# Import the module directly since it's a script
-from effectors import methylation
+# Import methylation as a module since it's a script file
+methylation_path = Path(__file__).parent.parent / "effectors" / "methylation"
+spec = importlib.util.spec_from_file_location("methylation", methylation_path)
+if spec is None or spec.loader is None:
+    raise FileNotFoundError(f"Could not load methylation module from {methylation_path}")
+methylation = importlib.util.module_from_spec(spec)
+sys.modules["methylation"] = methylation
+spec.loader.exec_module(methylation)
 
 
 # -----------------------------------------------------------------------------
@@ -27,7 +34,7 @@ from effectors import methylation
 def mock_now():
     """Fixture for mocking the current time."""
     fixed_now = datetime(2026, 3, 31, 12, 0, 0, tzinfo=UTC)
-    with patch('effectors.methylation.datetime') as mock_dt:
+    with patch('methylation.datetime') as mock_dt:
         mock_dt.now.return_value = fixed_now
         mock_dt.UTC = UTC
         mock_dt.fromisoformat = datetime.fromisoformat
@@ -301,8 +308,8 @@ class TestDispatchSonnet:
         mock_result.stderr = ""
 
         with patch.object(methylation.CHANNEL, 'exists', return_value=True):
-            with patch('effectors.methylation.subprocess.run', return_value=mock_result):
-                with patch('effectors.methylation._record_mitophagy'):
+            with patch('methylation.subprocess.run', return_value=mock_result):
+                with patch('methylation._record_mitophagy'):
                     result = methylation.dispatch_sonnet("test prompt")
                     assert result is not None
                     assert "TYPE: probe" in result
@@ -315,16 +322,16 @@ class TestDispatchSonnet:
         mock_result.stderr = "error"
 
         with patch.object(methylation.CHANNEL, 'exists', return_value=True):
-            with patch('effectors.methylation.subprocess.run', return_value=mock_result):
-                with patch('effectors.methylation._record_mitophagy'):
+            with patch('methylation.subprocess.run', return_value=mock_result):
+                with patch('methylation._record_mitophagy'):
                     result = methylation.dispatch_sonnet("test prompt")
                     assert result is None
 
     def test_handles_timeout_gracefully(self):
         """Test timeout returns None and records failure."""
         with patch.object(methylation.CHANNEL, 'exists', return_value=True):
-            with patch('effectors.methylation.subprocess.run', side_effect=subprocess.TimeoutExpired(cmd=[], timeout=120)):
-                with patch('effectors.methylation._record_mitophagy') as mock_record:
+            with patch('methylation.subprocess.run', side_effect=subprocess.TimeoutExpired(cmd=[], timeout=120)):
+                with patch('methylation._record_mitophagy') as mock_record:
                     result = methylation.dispatch_sonnet("test prompt")
                     assert result is None
                     mock_record.assert_called_once()
@@ -438,7 +445,7 @@ class TestWriteProposal:
 
     def test_creates_correct_content(self, tmp_path):
         """Test proposal file is written with correct structure."""
-        with patch('effectors.methylation.TMP_DIR', tmp_path):
+        with patch('methylation.TMP_DIR', tmp_path):
             patterns = {
                 "repair_candidates": {"chromatin": 2},
                 "probe_failures": {"chromatin": 2},
@@ -463,9 +470,9 @@ class TestMain:
 
     def test_main_no_patterns_exits_cleanly(self, mock_now):
         """Test when no patterns above threshold, main exits cleanly."""
-        with patch('effectors.methylation.read_methylation_candidates', return_value=[]):
-            with patch('effectors.methylation.read_infections', return_value=[]):
-                with patch('effectors.methylation.read_inflammasome_log', return_value=[]):
+        with patch('methylation.read_methylation_candidates', return_value=[]):
+            with patch('methylation.read_infections', return_value=[]):
+                with patch('methylation.read_inflammasome_log', return_value=[]):
                     # Should not raise exceptions
                     methylation.main()
 
@@ -476,14 +483,14 @@ class TestMain:
             "probe_failures": {"chromatin": 2},
             "infection_tools": {}
         }
-        with patch('effectors.methylation.read_methylation_candidates', return_value=[{}, {}]):
-            with patch('effectors.methylation.read_infections', return_value=[{}, {}]):
-                with patch('effectors.methylation.read_inflammasome_log', return_value=[{}, {}]):
-                    with patch('effectors.methylation.find_crystallizable_patterns', return_value=patterns):
-                        with patch('effectors.methylation.extract_probe_names', return_value=["chromatin"]):
-                            with patch('effectors.methylation.extract_repair_pattern_labels', return_value=["fix"]):
-                                with patch('effectors.methylation.dispatch_sonnet', return_value="test response"):
-                                    with patch('effectors.methylation.write_proposal') as mock_write:
-                                        with patch('effectors.methylation.hybridization_pass', return_value=None):
+        with patch('methylation.read_methylation_candidates', return_value=[{}, {}]):
+            with patch('methylation.read_infections', return_value=[{}, {}]):
+                with patch('methylation.read_inflammasome_log', return_value=[{}, {}]):
+                    with patch('methylation.find_crystallizable_patterns', return_value=patterns):
+                        with patch('methylation.extract_probe_names', return_value=["chromatin"]):
+                            with patch('methylation.extract_repair_pattern_labels', return_value=["fix"]):
+                                with patch('methylation.dispatch_sonnet', return_value="test response"):
+                                    with patch('methylation.write_proposal') as mock_write:
+                                        with patch('methylation.hybridization_pass', return_value=None):
                                             methylation.main()
                                             mock_write.assert_called_once()
