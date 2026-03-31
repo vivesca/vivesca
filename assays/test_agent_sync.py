@@ -137,14 +137,17 @@ def test_git_pull_rebase_fallback(tmp_path):
     fake_bin = tmp_path / "bin"
     fake_bin.mkdir()
     log_file = tmp_path / "git_calls.txt"
-    # Fake git: fail on --rebase, succeed on plain pull
+    # Fake git: fail when --rebase is in args, succeed on plain pull
+    # Script calls: git -C <repo> pull --rebase  →  args: -C <repo> pull --rebase
     fake_git = fake_bin / "git"
     fake_git.write_text(
         '#!/bin/bash\n'
         f'echo "$@" >> {log_file}\n'
-        'if [[ "$1" == "pull" && "$2" == "--rebase" ]]; then\n'
-        '  exit 1\n'
-        'fi\n'
+        'for arg in "$@"; do\n'
+        '  if [[ "$arg" == "--rebase" ]]; then\n'
+        '    exit 1\n'
+        '  fi\n'
+        'done\n'
         'exit 0\n'
     )
     fake_git.chmod(0o755)
@@ -154,9 +157,10 @@ def test_git_pull_rebase_fallback(tmp_path):
 
     calls = log_file.read_text()
     lines = calls.strip().splitlines()
-    # Each repo should have: pull --rebase (fail) then pull (fallback)
-    rebase_count = sum(1 for l in lines if "pull --rebase" in l)
-    plain_pull_count = sum(1 for l in lines if l.strip() == "pull" or l.strip().startswith("pull ") and "--rebase" not in l)
+    # Each repo should have: -C <repo> pull --rebase (fail) then -C <repo> pull (fallback)
+    rebase_count = sum(1 for l in lines if "--rebase" in l)
+    # Plain pull: lines with "pull" but not "--rebase"
+    plain_pull_count = sum(1 for l in lines if "pull" in l and "--rebase" not in l)
     assert rebase_count == 3
     assert plain_pull_count == 3
 
@@ -447,7 +451,9 @@ def test_git_pull_failure_does_not_stop_script(tmp_path):
 
     calls = log_file.read_text()
     # Should have attempted pull for all 3 repos
-    assert calls.count("pull --rebase") == 3
-    # And plain pull fallback for all 3
-    plain_pull = [l for l in calls.strip().splitlines() if l.strip().startswith("pull") and "--rebase" not in l]
+    # Script calls: git -C <repo> pull --rebase, then git -C <repo> pull as fallback
+    assert calls.count("--rebase") == 3
+    # Plain pull fallback: lines with "pull" but not "--rebase"
+    lines = calls.strip().splitlines()
+    plain_pull = [l for l in lines if "pull" in l and "--rebase" not in l]
     assert len(plain_pull) == 3

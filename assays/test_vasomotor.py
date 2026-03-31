@@ -980,11 +980,14 @@ class TestSelectReviewTier:
         """Should select haiku when no ligand and recent sonnet/opus."""
         review_state = tmp_path / "review-state.json"
         now = datetime.datetime.now()
-        yesterday = (now - datetime.timedelta(days=1)).isoformat()
-        last_week = (now - datetime.timedelta(days=2)).isoformat()
+        # Both sonnet and opus must be recent for haiku selection
+        # sonnet: < 24 hours ago
+        # opus: < 7 days ago
+        one_hour_ago = (now - datetime.timedelta(hours=1)).isoformat()
+        one_day_ago = (now - datetime.timedelta(days=1)).isoformat()
         review_state.write_text(json.dumps({
-            "sonnet_last": yesterday,
-            "opus_last": last_week,
+            "sonnet_last": one_hour_ago,
+            "opus_last": one_day_ago,
         }))
 
         with patch("metabolon.vasomotor._REVIEW_STATE_FILE", review_state):

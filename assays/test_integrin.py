@@ -283,11 +283,16 @@ class TestCheckPhenotypeSymlinks:
 
 
 class TestCheckUntestedCode:
-    def test_no_organelles_dir(self):
+    def test_no_organelles_dir(self, tmp_path):
+        # Use tmp_path as both dirs (empty = no untested modules found)
         with (
-            patch.object(mod._ORGANELLES_DIR, "is_dir", return_value=False),
-            patch.object(mod._ENZYMES_DIR, "is_dir", return_value=False),
+            patch.object(mod, "_ORGANELLES_DIR", tmp_path / "organelles"),
+            patch.object(mod, "_ENZYMES_DIR", tmp_path / "enzymes"),
+            patch.object(mod, "_ASSAYS_DIR", tmp_path / "assays"),
         ):
+            # Create the directories so is_dir() returns True but they're empty
+            (tmp_path / "organelles").mkdir(exist_ok=True)
+            (tmp_path / "enzymes").mkdir(exist_ok=True)
             result = mod._check_untested_code()
             assert result == []
 

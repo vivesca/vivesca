@@ -419,7 +419,7 @@ class TestCrisprAction:
         assert isinstance(result, CrisprResult)
         assert result.spacer_count == 127
         assert result.guide_count == 2
-        assert "127 spacers" in result.summary
+        assert "127 acquired" in result.summary
         assert "No spacers acquired yet" in result.summary
 
 
