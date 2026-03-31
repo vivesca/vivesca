@@ -533,6 +533,7 @@ class TestHomeDir:
     """Tests for home_dir."""
 
     def test_home_dir_from_env(self) -> None:
+        from pathlib import Path
         with patch.dict(moneo.os.environ, {"HOME": "/custom/home"}):
             assert moneo.home_dir() == Path("/custom/home")
 
