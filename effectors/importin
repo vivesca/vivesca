@@ -87,6 +87,12 @@ def load_keychain_env() -> dict[str, str]:
 
 
 if __name__ == "__main__":
+    import sys
+
+    if len(sys.argv) > 1 and sys.argv[1] in ("-h", "--help"):
+        print(__doc__)
+        sys.exit(0)
+
     # Shell mode: print export statements
     for env_var, service in CREDENTIALS.items():
         val = get_keychain_value(service)
