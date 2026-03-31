@@ -713,8 +713,10 @@ def _merge_worktree(project_dir: Path, worktree_path: Path) -> tuple[bool, str]:
         capture_output=True,
         text=True,
     )
-    worktree_files = set(worktree_changed.stdout.splitlines()) - {""}
-    main_files = set(main_changed.stdout.splitlines()) - {""}
+    # Exclude ephemeral files that worktrees recreate (e.g. .venv, .claude)
+    _MERGE_EXCLUDES = {".venv", ".claude"}
+    worktree_files = set(worktree_changed.stdout.splitlines()) - {""} - _MERGE_EXCLUDES
+    main_files = set(main_changed.stdout.splitlines()) - {""} - _MERGE_EXCLUDES
     conflicted = sorted(worktree_files & main_files)
 
     if conflicted:
