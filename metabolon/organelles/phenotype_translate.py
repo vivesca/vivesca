@@ -60,7 +60,7 @@ def _is_synaptic_script(command: str) -> bool:
 
     Matches patterns like:
         python3 ~/.claude/hooks/synapse.py
-        python3 /Users/terry/germline/synaptic/axon.py
+        python3 ~/germline/synaptic/axon.py
         /usr/bin/python3 ~/.claude/hooks/dendrite.py
     """
     parts = command.strip().split()

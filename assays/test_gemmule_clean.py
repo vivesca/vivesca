@@ -37,7 +37,7 @@ def _make_old_file(path: Path, age_seconds: float, size: int = 100) -> Path:
 
 
 def _make_old_dir(path: Path, age_seconds: float) -> Path:
-    """Create a dir with mtime set age_seconds ago (and a 200-byte file inside)."""
+    """Create a dir with mtime age_seconds ago and a 200-byte file inside."""
     path.mkdir(parents=True, exist_ok=True)
     (path / "data.bin").write_bytes(b"\x00" * 200)
     old_time = time.time() - age_seconds
@@ -109,14 +109,6 @@ class TestCleanTmpClaude:
         assert freed == 0
         assert (tmp_path / "other-xyz").exists()
 
-    def test_ignores_files_named_claude_prefix(self, tmp_path: Path):
-        _make_old_file(tmp_path / "claude-stray", age_seconds=TMP_CUTOFF + 3600)
-        freed = clean_tmp_claude(NOW, tmp_root=tmp_path)
-        # File is not a dir, should still be cleaned (glob matches files too)
-        # Actually the code removes both dirs and files via glob
-        # Check behavior: the code does entry.is_dir() check, handles both
-        pass
-
     def test_nonexistent_root(self, tmp_path: Path):
         freed = clean_tmp_claude(NOW, tmp_root=tmp_path / "nope")
         assert freed == 0
@@ -125,44 +117,49 @@ class TestCleanTmpClaude:
         old = _make_old_dir(tmp_path / "claude-old", age_seconds=TMP_CUTOFF + 3600)
         freed = clean_tmp_claude(NOW, tmp_root=tmp_path, dry_run=True)
         assert freed >= 200
-        assert old.exists()  # still there
+        assert old.exists()
 
 
 # ── clean_uv_archive ─────────────────────────────────────
 
 class TestCleanUvArchive:
-    def _archive_root(self, cache_root: Path) -> Path:
-        return cache_root / "uv" / "archive-v0"
+    def _make_cache(self, tmp_path: Path) -> Path:
+        """Return a fake home whose .cache/uv/archive-v0/ is usable."""
+        return tmp_path
 
     def test_removes_old_dir_entry(self, tmp_path: Path):
-        archive = self._archive_root(tmp_path)
+        home = self._make_cache(tmp_path)
+        archive = home / ".cache" / "uv" / "archive-v0"
         old = _make_old_dir(archive / "old-pkg", age_seconds=UV_CACHE_CUTOFF + 3600)
-        freed = clean_uv_archive(NOW, cache_root=tmp_path)
+        freed = clean_uv_archive(NOW, home=home)
         assert freed >= 200
         assert not old.exists()
 
     def test_removes_old_file_entry(self, tmp_path: Path):
-        archive = self._archive_root(tmp_path)
+        home = self._make_cache(tmp_path)
+        archive = home / ".cache" / "uv" / "archive-v0"
         _make_old_file(archive / "old-file.tar", age_seconds=UV_CACHE_CUTOFF + 3600, size=300)
-        freed = clean_uv_archive(NOW, cache_root=tmp_path)
+        freed = clean_uv_archive(NOW, home=home)
         assert freed >= 300
         assert not (archive / "old-file.tar").exists()
 
     def test_keeps_recent_entry(self, tmp_path: Path):
-        archive = self._archive_root(tmp_path)
+        home = self._make_cache(tmp_path)
+        archive = home / ".cache" / "uv" / "archive-v0"
         recent = _make_old_dir(archive / "new-pkg", age_seconds=UV_CACHE_CUTOFF - 3600)
-        freed = clean_uv_archive(NOW, cache_root=tmp_path)
+        freed = clean_uv_archive(NOW, home=home)
         assert freed == 0
         assert recent.exists()
 
     def test_no_archive_dir(self, tmp_path: Path):
-        freed = clean_uv_archive(NOW, cache_root=tmp_path)
+        freed = clean_uv_archive(NOW, home=tmp_path)
         assert freed == 0
 
     def test_dry_run_does_not_delete(self, tmp_path: Path):
-        archive = self._archive_root(tmp_path)
+        home = self._make_cache(tmp_path)
+        archive = home / ".cache" / "uv" / "archive-v0"
         old = _make_old_dir(archive / "old-pkg", age_seconds=UV_CACHE_CUTOFF + 3600)
-        freed = clean_uv_archive(NOW, cache_root=tmp_path, dry_run=True)
+        freed = clean_uv_archive(NOW, home=home, dry_run=True)
         assert freed >= 200
         assert old.exists()
 
@@ -173,7 +170,7 @@ class TestCleanPycache:
     def test_removes_pycache_dirs(self, tmp_path: Path):
         pyc = tmp_path / "sub" / "__pycache__"
         _make_old_dir(pyc, age_seconds=0)
-        freed = clean_pycache(germline_root=tmp_path)
+        freed = clean_pycache(germline=tmp_path)
         assert freed >= 200
         assert not pyc.exists()
 
@@ -182,18 +179,22 @@ class TestCleanPycache:
         pyc2 = tmp_path / "a" / "b" / "__pycache__"
         _make_old_dir(pyc1, age_seconds=0)
         _make_old_dir(pyc2, age_seconds=0)
-        freed = clean_pycache(germline_root=tmp_path)
+        freed = clean_pycache(germline=tmp_path)
         assert freed >= 400
         assert not pyc1.exists()
         assert not pyc2.exists()
 
     def test_no_pycache(self, tmp_path: Path):
-        freed = clean_pycache(germline_root=tmp_path)
+        freed = clean_pycache(germline=tmp_path)
         assert freed == 0
 
     def test_dry_run_does_not_delete(self, tmp_path: Path):
         pyc = tmp_path / "__pycache__"
         _make_old_dir(pyc, age_seconds=0)
-        freed = clean_pycache(germline_root=tmp_path, dry_run=True)
+        freed = clean_pycache(germline=tmp_path, dry_run=True)
         assert freed >= 200
         assert pyc.exists()
+
+    def test_nonexistent_root(self, tmp_path: Path):
+        freed = clean_pycache(germline=tmp_path / "nope")
+        assert freed == 0
