@@ -1,6 +1,13 @@
 ---
 name: integrin
 description: Scan CLI binaries and skills for breakage or dormancy. "health check"
+user_invocable: true
+triggers:
+  - integrin
+  - health check
+  - probe
+  - check skills
+  - skill health
 model: sonnet
 ---
 
