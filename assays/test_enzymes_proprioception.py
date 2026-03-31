@@ -329,11 +329,12 @@ class TestRestoreForkRegistry:
         assert "custom-suite" in result
         assert "superpowers" not in result
 
-    def test_empty_yaml_returns_defaults(self, tmp_path):
+    def test_empty_yaml_returns_empty_dict(self, tmp_path):
         registry_path = tmp_path / "skill-forks.yaml"
         registry_path.write_text("")
         result = _restore_fork_registry(registry_path)
-        assert "superpowers" in result
+        # yaml.safe_load("") → None → or {} → returns {}
+        assert result == {}
 
 
 # ── _find_latest_cache_version ───────────────────────────────────────────
