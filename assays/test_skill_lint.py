@@ -1022,3 +1022,204 @@ class TestSubprocessRobustness:
         )
         # Just verify it doesn't crash
         assert result.returncode in (0, 1)
+
+
+# ── Gap-filling edge cases ──────────────────────────────────────────────
+
+
+class TestParseFrontmatterGaps:
+    """Cover remaining parse_frontmatter edge cases."""
+
+    def test_yaml_safe_load_returns_none(self):
+        """parse_frontmatter returns error when safe_load yields None."""
+        # "null" parses to None, but the regex requires content between markers.
+        # Use a comment-only block that safe_load returns None for.
+        content = "---\n# just a comment\n---\nBody\n"
+        fm, err = parse_frontmatter(content)
+        assert fm is None
+        assert "NoneType" in err
+
+    def test_frontmatter_trailing_content_after_close(self):
+        """parse_frontmatter only matches frontmatter at the very start."""
+        content = "Some preamble\n---\nname: foo\n---\nBody\n"
+        fm, err = parse_frontmatter(content)
+        assert fm is None
+        assert err is not None
+
+    def test_frontmatter_windows_line_endings(self):
+        """parse_frontmatter does not match with CRLF line endings (regex uses \\n)."""
+        content = "---\r\nname: foo\r\ndescription: bar\r\n---\r\nBody\r\n"
+        fm, err = parse_frontmatter(content)
+        # The regex uses \n, so \r\n won't match the --- markers properly
+        assert fm is None
+
+    def test_frontmatter_with_indented_yaml(self):
+        """parse_frontmatter handles indented YAML values."""
+        content = "---\nname: foo\ndescription: bar\nconfig:\n  a: 1\n  b: 2\n---\nBody\n"
+        fm, err = parse_frontmatter(content)
+        assert err is None
+        assert fm["config"] == {"a": 1, "b": 2}
+
+
+class TestValidateSkillMdGaps:
+    """Cover remaining validate_skill_md edge cases."""
+
+    def test_name_is_empty_string(self, tmp_path):
+        """validate_skill_md returns FAIL when name is literal empty string."""
+        skill = tmp_path / "SKILL.md"
+        skill.write_text("---\nname: ''\ndescription: bar\n---\nBody\n")
+        status, issues = validate_skill_md(skill)
+        assert status == "FAIL"
+        assert any("non-empty" in i for i in issues)
+
+    def test_description_is_empty_string(self, tmp_path):
+        """validate_skill_md returns FAIL when description is literal empty string."""
+        skill = tmp_path / "SKILL.md"
+        skill.write_text("---\nname: foo\ndescription: ''\n---\nBody\n")
+        status, issues = validate_skill_md(skill)
+        assert status == "FAIL"
+        assert any("non-empty" in i for i in issues)
+
+    def test_name_is_list(self, tmp_path):
+        """validate_skill_md returns FAIL when name is a YAML list."""
+        skill = tmp_path / "SKILL.md"
+        skill.write_text("---\nname:\n  - foo\n  - bar\ndescription: baz\n---\nBody\n")
+        status, issues = validate_skill_md(skill)
+        assert status == "FAIL"
+        assert any("non-empty" in i for i in issues)
+
+    def test_description_is_dict(self, tmp_path):
+        """validate_skill_md returns FAIL when description is a YAML dict."""
+        skill = tmp_path / "SKILL.md"
+        skill.write_text("---\nname: foo\ndescription:\n  key: val\n---\nBody\n")
+        status, issues = validate_skill_md(skill)
+        assert status == "FAIL"
+        assert any("non-empty" in i for i in issues)
+
+    def test_pass_returns_empty_issues_list(self, tmp_path):
+        """validate_skill_md returns empty list (not None) for valid file."""
+        skill = tmp_path / "SKILL.md"
+        skill.write_text("---\nname: foo\ndescription: bar\n---\nBody\n")
+        status, issues = validate_skill_md(skill)
+        assert status == "PASS"
+        assert issues == []
+        assert isinstance(issues, list)
+
+
+class TestMainGaps:
+    """Cover remaining main() edge cases."""
+
+    def test_argv_parameter(self, tmp_path, capsys):
+        """main accepts explicit argv parameter."""
+        receptors = tmp_path / "receptors"
+        receptors.mkdir()
+        d = receptors / "test-r"
+        d.mkdir()
+        (d / "SKILL.md").write_text("---\nname: test\ndescription: desc\n---\nBody\n")
+        with _patch_receptors_dir(receptors):
+            rc = main(["--json"])
+        assert rc == 0
+        data = json.loads(capsys.readouterr().out)
+        assert data[0]["receptor"] == "test-r"
+
+    def test_text_output_multiple_issues_semicolon_separated(self, tmp_path, capsys):
+        """main text output joins multiple issues with semicolons."""
+        receptors = tmp_path / "receptors"
+        receptors.mkdir()
+        d = receptors / "broken"
+        d.mkdir()
+        # Both name and description missing → two issues
+        (d / "SKILL.md").write_text("---\nother: value\n---\nBody\n")
+        with _patch_receptors_dir(receptors):
+            rc = main([])
+        assert rc == 1
+        out = capsys.readouterr().out
+        assert "FAIL" in out
+        # Both "name" and "description" should appear in the output
+        assert "name" in out
+        assert "description" in out
+
+    def test_exit_0_all_pass(self, tmp_path, capsys):
+        """main returns 0 when all receptors pass."""
+        valid = "---\nname: a\ndescription: b\n---\nBody\n"
+        receptors = tmp_path / "receptors"
+        receptors.mkdir()
+        for name in ("r1", "r2"):
+            d = receptors / name
+            d.mkdir()
+            (d / "SKILL.md").write_text(valid)
+        with _patch_receptors_dir(receptors):
+            rc = main([])
+        assert rc == 0
+
+    def test_json_indent_formatting(self, tmp_path, capsys):
+        """main --json uses indent=2 formatting."""
+        receptors = tmp_path / "receptors"
+        receptors.mkdir()
+        d = receptors / "fmt"
+        d.mkdir()
+        (d / "SKILL.md").write_text("---\nname: test\ndescription: desc\n---\nBody\n")
+        with _patch_receptors_dir(receptors):
+            rc = main(["--json"])
+        assert rc == 0
+        out = capsys.readouterr().out
+        # Indented JSON has leading spaces
+        assert "  " in out
+        # Verify round-trip
+        data = json.loads(out)
+        assert isinstance(data, list)
+
+
+class TestLintReceptorsGaps:
+    """Cover remaining lint_receptors edge cases."""
+
+    def test_single_missing_receptor(self, tmp_path):
+        """lint_receptors handles single receptor with no SKILL.md."""
+        receptors = tmp_path / "receptors"
+        receptors.mkdir()
+        d = receptors / "lonely"
+        d.mkdir()
+        with _patch_receptors_dir(receptors):
+            results = lint_receptors()
+        assert len(results) == 1
+        assert results[0]["receptor"] == "lonely"
+        assert results[0]["status"] == "MISSING"
+        assert results[0]["issues"] == ["SKILL.md not found"]
+
+    def test_receptor_name_in_result(self, tmp_path):
+        """lint_receptors uses directory name as receptor identifier."""
+        valid = "---\nname: internal-name\ndescription: desc\n---\nBody\n"
+        receptors = tmp_path / "receptors"
+        receptors.mkdir()
+        d = receptors / "dir-name-different"
+        d.mkdir()
+        (d / "SKILL.md").write_text(valid)
+        with _patch_receptors_dir(receptors):
+            results = lint_receptors()
+        # receptor field is the directory name, not the YAML name
+        assert results[0]["receptor"] == "dir-name-different"
+
+
+class TestRegexEdgeCases:
+    """Cover FRONTMATTER_RE regex edge cases."""
+
+    def test_four_dashes_not_matched_as_marker(self, tmp_path):
+        """Four dashes ---- are not treated as frontmatter marker."""
+        skill = tmp_path / "SKILL.md"
+        skill.write_text("----\nname: foo\ndescription: bar\n----\nBody\n")
+        status, issues = validate_skill_md(skill)
+        assert status == "FAIL"
+
+    def test_frontmatter_with_trailing_spaces_on_content_lines(self, tmp_path):
+        """Frontmatter with trailing spaces on content lines still parses."""
+        skill = tmp_path / "SKILL.md"
+        skill.write_text("---\nname: foo   \ndescription: bar   \n---\nBody\n")
+        status, issues = validate_skill_md(skill)
+        assert status == "PASS"
+
+    def test_frontmatter_tabs_in_marker_line(self):
+        """parse_frontmatter: tabs after --- are treated as whitespace by \\s."""
+        content = "---\t\nname: foo\ndescription: bar\n---\t\nBody\n"
+        fm, err = parse_frontmatter(content)
+        assert err is None
+        assert fm["name"] == "foo"

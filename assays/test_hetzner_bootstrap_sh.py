@@ -13,6 +13,7 @@ tests operate by:
 import os
 import stat
 import subprocess
+import textwrap
 from pathlib import Path
 
 import pytest
@@ -547,3 +548,309 @@ class TestSyntaxCheck:
                 if "error" in line.lower()
             ]
             assert not errors, f"shellcheck errors:\n{r.stdout}"
+
+
+# ── Heredoc execution tests ────────────────────────────────────────────
+
+
+class TestHeredocExecution:
+    """Run extracted heredoc blocks through bash and verify output."""
+
+    def test_tmux_heredoc_produces_exact_config(self, tmp_path):
+        """Execute the tmux heredoc block through bash and verify output file."""
+        content = _read_script()
+        lines = content.splitlines()
+        # Find the sudo -u terry line with cat > ~/.tmux.conf
+        heredoc_start = None
+        for i, line in enumerate(lines):
+            if "cat > ~/.tmux.conf" in line:
+                heredoc_start = i
+                break
+        assert heredoc_start is not None
+
+        # Build a standalone script: extract from cat line through TMUX'
+        script_lines = []
+        for line in lines[heredoc_start:]:
+            script_lines.append(line)
+            if line.strip() == "TMUX'":
+                break
+
+        # Replace ~ with tmp_path for the output
+        conf_file = tmp_path / ".tmux.conf"
+        block = "\n".join(script_lines)
+        block = block.replace("~/.tmux.conf", str(conf_file))
+        # Strip the sudo wrapper — just the cat heredoc
+        # The line looks like: sudo -u terry bash -c 'cat > ... << "TMUX"
+        # Replace with just the cat command
+        block = block.replace("sudo -u terry bash -c '", "")
+
+        result = subprocess.run(
+            ["bash", "-c", block],
+            capture_output=True, text=True, timeout=10,
+        )
+        assert result.returncode == 0, f"tmux heredoc failed: {result.stderr}"
+        assert conf_file.exists()
+        conf = conf_file.read_text()
+        # 9 config directives expected
+        assert conf.count("set -g") >= 5
+        assert conf.count("unbind") >= 1
+        assert conf.count("bind") >= 1
+
+    def test_echo_messages_render_correctly(self):
+        """Extract pure echo statements and verify they render without error."""
+        content = _read_script()
+        echo_lines = [
+            line.strip() for line in content.splitlines()
+            if line.strip().startswith("echo ")
+            and ">>>" not in line
+            and ">" not in line.strip().replace(">>>", "")
+        ]
+        assert len(echo_lines) > 0
+        for echo_line in echo_lines:
+            result = subprocess.run(
+                ["bash", "-c", echo_line],
+                capture_output=True, text=True, timeout=5,
+            )
+            assert result.returncode == 0, f"Bad echo: {echo_line}"
+
+
+# ── URL safety tests ──────────────────────────────────────────────────
+
+
+class TestURLSafety:
+    """Verify all external URLs use HTTPS."""
+
+    def test_all_curl_urls_are_https(self):
+        """Every curl invocation should use https, not http."""
+        content = _read_script()
+        for line in content.splitlines():
+            if "curl" in line and "http://" in line:
+                # http:// is acceptable only if it redirects; verify no plain http URLs
+                assert False, f"Found http:// in curl line: {line.strip()}"
+
+    def test_known_download_urls_present(self):
+        """All expected download URLs are present."""
+        content = _read_script()
+        expected_urls = [
+            "fnm.vercel.app/install",
+            "tailscale.com/install.sh",
+            "astral.sh/uv/install.sh",
+        ]
+        for url in expected_urls:
+            assert url in content, f"Expected URL not found: {url}"
+
+    def test_claude_code_package_is_official(self):
+        """Claude Code package should be the official @anthropic-ai scope."""
+        content = _read_script()
+        assert "@anthropic-ai/claude-code" in content
+
+
+# ── User block internal ordering ───────────────────────────────────────
+
+
+class TestUserBlockOrdering:
+    """Verify steps within the user creation block are in correct order."""
+
+    def _extract_user_block(self) -> str:
+        content = _read_script()
+        lines = content.splitlines()
+        start = end = None
+        for i, line in enumerate(lines):
+            if "if ! id terry" in line:
+                start = i
+            if start is not None and line.strip() == "fi":
+                end = i
+                break
+        assert start is not None
+        assert end is not None
+        return "\n".join(lines[start : end + 1])
+
+    def test_adduser_before_usermod(self):
+        block = self._extract_user_block()
+        assert block.index("adduser") < block.index("usermod")
+
+    def test_adduser_before_sudoers(self):
+        block = self._extract_user_block()
+        assert block.index("adduser") < block.index("sudoers.d")
+
+    def test_mkdir_before_cp(self):
+        """mkdir for .ssh should come before cp of authorized_keys."""
+        block = self._extract_user_block()
+        assert block.index("mkdir") < block.index("cp ")
+
+    def test_cp_before_chown(self):
+        """cp authorized_keys should come before chown."""
+        block = self._extract_user_block()
+        assert block.index("cp ") < block.index("chown")
+
+    def test_chown_before_chmod(self):
+        """chown should come before chmod."""
+        block = self._extract_user_block()
+        assert block.index("chown") < block.index("chmod")
+
+
+# ── SSH hardening edge cases ───────────────────────────────────────────
+
+
+class TestSSSHardeningEdgeCases:
+    """Additional SSH hardening tests for edge cases."""
+
+    def _extract_sed_lines(self) -> list[str]:
+        content = _read_script()
+        return [
+            line.strip() for line in content.splitlines()
+            if line.strip().startswith("sed -i") and "sshd_config" in line
+        ]
+
+    def test_does_not_corrupt_other_lines(self, tmp_path):
+        """sed should not modify unrelated sshd_config lines."""
+        sshd = tmp_path / "sshd_config"
+        sshd.write_text(
+            "#Port 22\n"
+            "#PasswordAuthentication yes\n"
+            "PermitRootLogin yes\n"
+            "X11Forwarding yes\n"
+        )
+        for sed_cmd in self._extract_sed_lines():
+            cmd = sed_cmd.replace("/etc/ssh/sshd_config", str(sshd))
+            subprocess.run(["bash", "-c", cmd], timeout=10)
+        content = sshd.read_text()
+        # Unrelated lines should be preserved
+        assert "#Port 22" in content
+        assert "X11Forwarding yes" in content
+
+    def test_handles_already_hardened_config(self, tmp_path):
+        """sed should not break an already-hardened sshd_config."""
+        sshd = tmp_path / "sshd_config"
+        sshd.write_text(
+            "PasswordAuthentication no\n"
+            "PermitRootLogin no\n"
+        )
+        for sed_cmd in self._extract_sed_lines():
+            cmd = sed_cmd.replace("/etc/ssh/sshd_config", str(sshd))
+            subprocess.run(["bash", "-c", cmd], timeout=10)
+        content = sshd.read_text()
+        assert "PasswordAuthentication no" in content
+        assert "PermitRootLogin no" in content
+        # No duplicate lines
+        lines = [l for l in content.splitlines() if l.strip()]
+        assert len(lines) == 2
+
+
+# ── fnm eval pattern test ──────────────────────────────────────────────
+
+
+class TestFnmEvalPattern:
+    """Verify the fnm eval pattern is correct bash."""
+
+    def test_fnm_eval_pattern_is_valid_bash(self):
+        """The fnm setup pattern (export PATH + eval) is valid bash syntax."""
+        pattern = textwrap.dedent("""\
+            export PATH="$HOME/.local/share/fnm:$PATH"
+            eval "$(fnm env)"
+        """)
+        result = subprocess.run(
+            ["bash", "-n", "-c", pattern],
+            capture_output=True, text=True, timeout=5,
+        )
+        assert result.returncode == 0, f"fnm pattern syntax error: {result.stderr}"
+
+    def test_fnm_path_expansion(self):
+        """$HOME/.local/share/fnm expands correctly."""
+        result = subprocess.run(
+            ["bash", "-c", 'echo "$HOME/.local/share/fnm"'],
+            capture_output=True, text=True, timeout=5,
+        )
+        assert result.returncode == 0
+        assert "/.local/share/fnm" in result.stdout
+
+
+# ── Tmux config completeness ──────────────────────────────────────────
+
+
+class TestTmuxConfigCompleteness:
+    """Verify the tmux config has all expected directives."""
+
+    def _extract_config(self) -> str:
+        content = _read_script()
+        lines = content.splitlines()
+        inside = False
+        tmux_lines = []
+        for line in lines:
+            if '<< "TMUX"' in line or "<<\"TMUX\"" in line:
+                inside = True
+                continue
+            if inside:
+                if line.strip() == "TMUX'":
+                    break
+                tmux_lines.append(line)
+        return "\n".join(tmux_lines)
+
+    def test_has_default_terminal(self):
+        conf = self._extract_config()
+        assert "default-terminal" in conf
+        assert "screen-256color" in conf
+
+    def test_has_terminal_overrides(self):
+        conf = self._extract_config()
+        assert "terminal-overrides" in conf
+        assert "xterm-256color:Tc" in conf
+
+    def test_has_send_prefix_bind(self):
+        conf = self._extract_config()
+        assert "send-prefix" in conf
+        assert "bind C-a" in conf
+
+    def test_no_duplicate_settings(self):
+        """Each tmux directive should appear exactly once."""
+        conf = self._extract_config()
+        directives = [l.strip() for l in conf.splitlines() if l.strip()]
+        assert len(directives) == len(set(directives)), \
+            f"Duplicate tmux directives found: {directives}"
+
+
+# ── Script integrity ──────────────────────────────────────────────────
+
+
+class TestScriptIntegrity:
+    """Verify the script has no obvious issues."""
+
+    def test_no_hardcoded_ip_addresses(self):
+        """Script should not contain hardcoded IP addresses."""
+        content = _read_script()
+        import re
+        # Look for IPv4 patterns (but not in comments or <IP> placeholders)
+        for line in content.splitlines():
+            stripped = line.strip()
+            if stripped.startswith("#"):
+                continue
+            # Skip <IP> placeholders
+            if "<IP>" in stripped:
+                continue
+            ips = re.findall(r'\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b', stripped)
+            assert not ips, f"Hardcoded IP found: {ips} in: {stripped}"
+
+    def test_no_todo_or_fixme(self):
+        """Script should not contain TODO or FIXME markers."""
+        content = _read_script()
+        for line in content.splitlines():
+            upper = line.upper()
+            assert "TODO" not in upper, f"Found TODO: {line.strip()}"
+            assert "FIXME" not in upper, f"Found FIXME: {line.strip()}"
+
+    def test_all_numbered_comments_are_sequential(self):
+        """Numbered section comments go 1–10 without gaps."""
+        content = _read_script()
+        import re
+        section_nums = []
+        for line in content.splitlines():
+            m = re.match(r'^# (\d+)\.', line.strip())
+            if m:
+                section_nums.append(int(m.group(1)))
+        assert section_nums == list(range(1, 11)), \
+            f"Sections not sequential 1-10: {section_nums}"
+
+    def test_script_ends_with_newline(self):
+        """Script should end with a trailing newline."""
+        content = _read_script()
+        assert content.endswith("\n"), "Script should end with a newline"

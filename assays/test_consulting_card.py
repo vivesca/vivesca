@@ -12,9 +12,20 @@ import pytest
 
 
 def _load_module():
-    """Load consulting-card via exec (effector pattern, not importable)."""
+    """Load consulting-card via exec (effector pattern, not importable).
+
+    The effector imports ``openai`` at load time.  Inject a stub module so
+    the exec succeeds even when the ``openai`` package is not installed.
+    """
     source = open("/home/terry/germline/effectors/consulting-card.py").read()
-    ns: dict = {"__name__": "consulting_card", "__file__": "/home/terry/germline/effectors/consulting-card.py"}
+    import types
+    openai_stub = types.ModuleType("openai")
+    openai_stub.OpenAI = MagicMock()
+    ns: dict = {
+        "__name__": "consulting_card",
+        "__file__": "/home/terry/germline/effectors/consulting-card.py",
+        "openai": openai_stub,
+    }
     exec(source, ns)
     return ns
 
