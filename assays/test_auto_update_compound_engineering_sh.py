@@ -97,15 +97,21 @@ class TestHelpFlag:
 class TestRunnerSelection:
     def test_no_runner_exits_1(self, tmp_path):
         """Script exits 1 when neither bunx nor npx is on PATH."""
+        # Need to include the location of bash so subprocess can find it
+        bash_path = subprocess.run(['which', 'bash'], capture_output=True, text=True).stdout.strip()
+        bash_dir = Path(bash_path).parent
         empty_bin = tmp_path / "bin"
         empty_bin.mkdir()
-        r = _run_script(path_dirs=[empty_bin], tmp_path=tmp_path)
+        r = _run_script(path_dirs=[empty_bin, bash_dir], tmp_path=tmp_path)
         assert r.returncode == 1
 
     def test_no_runner_logs_error(self, tmp_path):
+        # Need to include the location of bash so subprocess can find it
+        bash_path = subprocess.run(['which', 'bash'], capture_output=True, text=True).stdout.strip()
+        bash_dir = Path(bash_path).parent
         empty_bin = tmp_path / "bin"
         empty_bin.mkdir()
-        _run_script(path_dirs=[empty_bin], tmp_path=tmp_path)
+        _run_script(path_dirs=[empty_bin, bash_dir], tmp_path=tmp_path)
         log = _log_file(tmp_path)
         assert log.exists()
         assert "neither bunx nor npx found" in log.read_text()

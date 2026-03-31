@@ -355,12 +355,16 @@ def test_day_snapshot_pre_noon_skips_jobs():
 
 def test_entrainment_brief_basic():
     """Test _entrainment_brief returns valid output."""
-    mock_sense = MagicMock()
-    mock_sense.sense.return_value = {"error": "no data"}
+    mock_chemoreceptor = MagicMock()
+    mock_chemoreceptor.sense.return_value = {"error": "no data"}
 
-    with patch.dict('sys.modules', {'metabolon.organelles.chemoreceptor': mock_sense}):
-        with patch('metabolon.enzymes.pinocytosis._read_if_fresh', return_value=None):
-            with patch.dict('sys.modules', {'metabolon.cytosol': MagicMock()}):
+    mock_cytosol = MagicMock()
+    mock_cytosol.invoke_organelle.return_value = ""
+    mock_cytosol.VIVESCA_ROOT = Path("/tmp")
+
+    with patch.dict('sys.modules', {'metabolon.organelles.chemoreceptor': mock_chemoreceptor}):
+        with patch.dict('sys.modules', {'metabolon.cytosol': mock_cytosol}):
+            with patch('metabolon.enzymes.pinocytosis._read_if_fresh', return_value=None):
                 result = pino._entrainment_brief()
 
     assert isinstance(result, pino.PinocytosisResult)
@@ -369,16 +373,20 @@ def test_entrainment_brief_basic():
 
 def test_entrainment_brief_with_oura_data():
     """Test _entrainment_brief with Oura data."""
-    mock_sense = MagicMock()
-    mock_sense.sense.return_value = {
+    mock_chemoreceptor = MagicMock()
+    mock_chemoreceptor.sense.return_value = {
         "sleep_score": 85,
         "readiness_score": 70,
         "spo2": {"average": 97},
     }
 
-    with patch.dict('sys.modules', {'metabolon.organelles.chemoreceptor': mock_sense}):
-        with patch('metabolon.enzymes.pinocytosis._read_if_fresh', return_value=None):
-            with patch.dict('sys.modules', {'metabolon.cytosol': MagicMock()}):
+    mock_cytosol = MagicMock()
+    mock_cytosol.invoke_organelle.return_value = ""
+    mock_cytosol.VIVESCA_ROOT = Path("/tmp")
+
+    with patch.dict('sys.modules', {'metabolon.organelles.chemoreceptor': mock_chemoreceptor}):
+        with patch.dict('sys.modules', {'metabolon.cytosol': mock_cytosol}):
+            with patch('metabolon.enzymes.pinocytosis._read_if_fresh', return_value=None):
                 result = pino._entrainment_brief()
 
     assert "Sleep: 85" in result.output
@@ -387,15 +395,19 @@ def test_entrainment_brief_with_oura_data():
 
 def test_entrainment_brief_low_readiness_alert():
     """Test _entrainment_brief alerts on low readiness."""
-    mock_sense = MagicMock()
-    mock_sense.sense.return_value = {
+    mock_chemoreceptor = MagicMock()
+    mock_chemoreceptor.sense.return_value = {
         "sleep_score": 60,
         "readiness_score": 50,  # Low!
     }
 
-    with patch.dict('sys.modules', {'metabolon.organelles.chemoreceptor': mock_sense}):
-        with patch('metabolon.enzymes.pinocytosis._read_if_fresh', return_value=None):
-            with patch.dict('sys.modules', {'metabolon.cytosol': MagicMock()}):
+    mock_cytosol = MagicMock()
+    mock_cytosol.invoke_organelle.return_value = ""
+    mock_cytosol.VIVESCA_ROOT = Path("/tmp")
+
+    with patch.dict('sys.modules', {'metabolon.organelles.chemoreceptor': mock_chemoreceptor}):
+        with patch.dict('sys.modules', {'metabolon.cytosol': mock_cytosol}):
+            with patch('metabolon.enzymes.pinocytosis._read_if_fresh', return_value=None):
                 result = pino._entrainment_brief()
 
     assert "Low readiness" in result.output

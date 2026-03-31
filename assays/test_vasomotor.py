@@ -171,7 +171,8 @@ class TestVasomotorSnapshot:
 
     def test_handles_missing_fields(self):
         """Should handle missing telemetry fields gracefully."""
-        mock_telemetry = {}  # Missing both fields
+        # When telemetry is truthy but missing fields, returns zeros
+        mock_telemetry = {"seven_day": {}, "seven_day_sonnet": {}}  # Present but empty
 
         with patch("metabolon.vasomotor._fetch_telemetry", return_value=mock_telemetry):
             result = vm.vasomotor_snapshot()

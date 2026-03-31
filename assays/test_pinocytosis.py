@@ -665,22 +665,22 @@ class TestEntrainmentBrief:
             assert "easier day" in result.output
 
     def test_includes_overnight_health_warnings(self):
-        import metabolon.enzymes.pinocytosis as pin_mod
+        from metabolon.enzymes.pinocytosis import _entrainment_brief
 
         mock_chemo = MagicMock()
         mock_chemo.sense.return_value = {"error": "no data"}
 
+        def mock_read_fresh(path, max_age_hours=24):
+            path_str = str(path)
+            if "health" in path_str:
+                return "warning: disk full\nall green"
+            return None
+
         with (
             patch.dict("sys.modules", {"metabolon.organelles.chemoreceptor": mock_chemo}),
-            patch(
-                "metabolon.enzymes.pinocytosis._read_if_fresh",
-                side_effect=lambda p: "warning: disk full\nall green" if "health" in str(p) else None,
-            ),
+            patch("metabolon.enzymes.pinocytosis._read_if_fresh", side_effect=mock_read_fresh),
         ):
-            import importlib
-
-            importlib.reload(pin_mod)
-            result = pin_mod._entrainment_brief()
+            result = _entrainment_brief()
             assert "disk full" in result.output
 
 
@@ -716,28 +716,18 @@ class TestPinocytosisDispatch:
             assert "Situational snapshot" in result.output
 
     def test_morning_action(self):
+        """Test that morning action dispatches to photoreception.intake."""
         from metabolon.enzymes.pinocytosis import pinocytosis
 
+        # The morning action imports and calls metabolon.pinocytosis.photoreception.intake
+        # We patch the import inside the function
         mock_photoreception = MagicMock()
-        mock_photoreception.intake.return_value = "morning data"
+        mock_photoreception.intake.return_value = "morning intake data"
 
         with patch.dict("sys.modules", {"metabolon.pinocytosis.photoreception": mock_photoreception}):
-            with patch("metabolon.enzymes.pinocytosis.pinocytosis.__wrapped__", pinocytosis):
-                # The function dispatches to photoreception.intake
-                import metabolon.enzymes.pinocytosis as mod
-
-                original_photoreception = None
-                try:
-                    # Patch the import inside the function
-                    with patch.dict("sys.modules", {"metabolon.pinocytosis.photoreception": mock_photoreception}):
-                        # We need to actually run the function which imports internally
-                        pass
-                except Exception:
-                    pass
-
-        # Simpler test: just verify the action is recognized
-        result = pinocytosis(action="day", json_output=True)
-        assert hasattr(result, "output")
+            result = pinocytosis(action="morning", json_output=False)
+            assert "morning intake data" in result.output
+            mock_photoreception.intake.assert_called_once_with(as_json=False, send_weather=False)
 
     def test_overnight_action(self):
         from metabolon.enzymes.pinocytosis import pinocytosis
