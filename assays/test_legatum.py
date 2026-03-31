@@ -348,7 +348,7 @@ class TestRunReflect:
 
 class TestCmdGather:
     def _make_args(self, **overrides):
-        defaults = {"syntactic": False, "perceptual": False, "repos": None}
+        defaults = {"syntactic": False, "perceptual": False, "repos": None, "format": "text"}
         defaults.update(overrides)
         return MagicMock(**defaults)
 
