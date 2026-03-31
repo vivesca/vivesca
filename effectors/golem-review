@@ -27,7 +27,7 @@ COPIA_DIR = GERMLINE / "loci" / "copia"
 EFFECTORS_DIR = GERMLINE / "effectors"
 ASSAYS_DIR = GERMLINE / "assays"
 
-# Providers to rotate through
+# Provider rotation
 _PROVIDERS = ["infini", "zhipu", "volcano", "infini", "zhipu"]
 
 
@@ -35,27 +35,22 @@ _PROVIDERS = ["infini", "zhipu", "volcano", "infini", "zhipu"]
 
 
 def parse_since(arg: str) -> timedelta:
-    """Parse a time-duration string like '30m', '2h', '45s', '1d'.
+    """Parse time-duration string: '30m', '2h', '45s', '1d'.
 
-    Returns timedelta. Defaults to 30 minutes for invalid input.
-    A bare number (no suffix) is treated as minutes.
+    Bare number treated as minutes. Invalid returns 30 minutes.
     """
     if not arg or not isinstance(arg, str):
         return timedelta(minutes=30)
     arg = arg.strip()
     m = re.match(r'^(\d+)([smhd])$', arg)
     if m:
-        value = int(m.group(1))
-        unit = m.group(2)
-        if unit == "s":
-            return timedelta(seconds=value)
-        elif unit == "m":
-            return timedelta(minutes=value)
-        elif unit == "h":
-            return timedelta(hours=value)
-        elif unit == "d":
-            return timedelta(days=value)
-    # Bare number -> minutes
+        val, unit = int(m.group(1)), m.group(2)
+        return {
+            "s": timedelta(seconds=val),
+            "m": timedelta(minutes=val),
+            "h": timedelta(hours=val),
+            "d": timedelta(days=val),
+        }[unit]
     if arg.isdigit():
         return timedelta(minutes=int(arg))
     return timedelta(minutes=30)
@@ -65,10 +60,7 @@ def parse_since(arg: str) -> timedelta:
 
 
 def parse_log_timestamp(ts_str: str | None) -> datetime | None:
-    """Parse a log timestamp string like '2026-03-31 14:00:00'.
-
-    Returns datetime or None if invalid.
-    """
+    """Parse '2026-03-31 14:00:00'. Returns datetime or None."""
     if not ts_str:
         return None
     try:
@@ -81,10 +73,10 @@ def parse_log_timestamp(ts_str: str | None) -> datetime | None:
 
 
 def scan_log(since: timedelta) -> dict:
-    """Read daemon log, return tasks completed/failed/timeout within window.
+    """Read daemon log, return {completed, failed, timeouts, start_time}.
 
-    Returns dict with keys: completed, failed, timeouts.
-    Each is a list of (timestamp, message) tuples.
+    Each entry is a tuple: (timestamp, command[, tail]).
+    Filters to entries within the `since` window from now (UTC).
     """
     result = {"completed": [], "failed": [], "timeouts": [], "start_time": None}
 
@@ -96,7 +88,7 @@ def scan_log(since: timedelta) -> dict:
     except (PermissionError, OSError, UnicodeDecodeError):
         return result
 
-    cutoff = datetime.now() - since
+    cutoff = datetime.now(UTC).replace(tzinfo=None) - since
 
     for line in content.splitlines():
         m = re.match(r'^\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\] (.+)$', line)
@@ -107,27 +99,25 @@ def scan_log(since: timedelta) -> dict:
         if ts is None or ts < cutoff:
             continue
 
-        if ts and (result["start_time"] is None or ts < result["start_time"]):
+        if result["start_time"] is None or ts < result["start_time"]:
             result["start_time"] = ts
 
         if re.match(r'Finished \(\d+s, exit=0\)', msg):
-            # Extract the command after "): "
             cmd_m = re.match(r'Finished \(\d+s, exit=\d+\): (.+)', msg)
-            cmd = cmd_m.group(1) if cmd_m else msg
-            result["completed"].append((ts, cmd.rstrip(".")))
+            cmd = cmd_m.group(1).rstrip(".") if cmd_m else msg
+            result["completed"].append((ts, cmd))
         elif re.match(r'Finished \(\d+s, exit=[^0]\)', msg):
-            # Non-zero exit = failed
             cmd_m = re.match(r'Finished \(\d+s, exit=\d+\): (.+)', msg)
-            cmd = cmd_m.group(1) if cmd_m else msg
-            result["failed"].append((ts, cmd.rstrip("."), ""))
+            cmd = cmd_m.group(1).rstrip(".") if cmd_m else msg
+            result["failed"].append((ts, cmd, ""))
         elif msg.startswith("FAILED"):
             cmd_m = re.match(r'FAILED \(exit=\d+\): (.+)', msg)
-            cmd = cmd_m.group(1) if cmd_m else msg
-            result["failed"].append((ts, cmd.rstrip("."), ""))
+            cmd = cmd_m.group(1).rstrip(".") if cmd_m else msg
+            result["failed"].append((ts, cmd, ""))
         elif msg.startswith("TIMEOUT"):
             cmd_m = re.match(r'TIMEOUT \(\d+s\): (.+)', msg)
-            cmd = cmd_m.group(1) if cmd_m else msg
-            result["timeouts"].append((ts, cmd.rstrip(".")))
+            cmd = cmd_m.group(1).rstrip(".") if cmd_m else msg
+            result["timeouts"].append((ts, cmd))
 
     return result
 
@@ -136,18 +126,15 @@ def scan_log(since: timedelta) -> dict:
 
 
 def get_recent_files(head_range: int = 5) -> list[str]:
-    """Get files changed in the last N commits via git diff.
-
-    Returns list of relative file paths.
-    """
+    """Get files changed in last N commits via git diff."""
     try:
-        result = subprocess.run(
+        r = subprocess.run(
             f"git -C {GERMLINE} diff --name-only HEAD~{head_range} 2>/dev/null",
             shell=True, capture_output=True, text=True, timeout=30,
         )
-        if result.returncode != 0 or not result.stdout.strip():
+        if r.returncode != 0 or not r.stdout.strip():
             return []
-        return [f for f in result.stdout.strip().splitlines() if f.strip()]
+        return [f for f in r.stdout.strip().splitlines() if f.strip()]
     except Exception:
         return []
 
@@ -156,10 +143,9 @@ def get_recent_files(head_range: int = 5) -> list[str]:
 
 
 def run_pytest_on_files(files: list[str]) -> dict:
-    """Run pytest on the given test files, parse results.
+    """Run pytest on each file. Returns {files, total_passed, total_failed, total_errors}.
 
-    Returns dict with: files, total_passed, total_failed, total_errors.
-    files is list of (file, passed, failed, errors) tuples.
+    files is list of (path, passed, failed, errors) tuples.
     """
     result = {"files": [], "total_passed": 0, "total_failed": 0, "total_errors": 0}
     if not files:
@@ -173,30 +159,26 @@ def run_pytest_on_files(files: list[str]) -> dict:
                 timeout=120, cwd=str(GERMLINE),
             )
             output = r.stdout + r.stderr
+            passed = failed = errors = 0
+            m = re.search(r'(\d+) passed', output)
+            if m:
+                passed = int(m.group(1))
+            m = re.search(r'(\d+) failed', output)
+            if m:
+                failed = int(m.group(1))
+            m = re.search(r'(\d+) error', output)
+            if m:
+                errors = int(m.group(1))
+            result["files"].append((f, passed, failed, errors))
+            result["total_passed"] += passed
+            result["total_failed"] += failed
+            result["total_errors"] += errors
         except subprocess.TimeoutExpired:
             result["files"].append((f, 0, 0, 1))
             result["total_errors"] += 1
-            continue
         except Exception:
             result["files"].append((f, 0, 0, 1))
             result["total_errors"] += 1
-            continue
-
-        passed = failed = errors = 0
-        m = re.search(r'(\d+) passed', output)
-        if m:
-            passed = int(m.group(1))
-        m = re.search(r'(\d+) failed', output)
-        if m:
-            failed = int(m.group(1))
-        m = re.search(r'(\d+) error', output)
-        if m:
-            errors = int(m.group(1))
-
-        result["files"].append((f, passed, failed, errors))
-        result["total_passed"] += passed
-        result["total_failed"] += failed
-        result["total_errors"] += errors
 
     return result
 
@@ -205,28 +187,31 @@ def run_pytest_on_files(files: list[str]) -> dict:
 
 
 def check_consulting_content(files: list[str]) -> list[dict]:
-    """Check each consulting file exists and has >200 words.
+    """Check each file: exists? adequate word count (>200)?
 
-    Returns list of dicts: {file, exists, word_count, adequate}.
+    Returns list of {file, exists, word_count, adequate}.
     """
     results = []
     for rel_path in files:
         full_path = GERMLINE / rel_path
+        entry = {"file": rel_path, "exists": False, "word_count": 0, "adequate": False}
+
         if not full_path.exists():
-            results.append({"file": rel_path, "exists": False, "word_count": 0, "adequate": False})
+            results.append(entry)
             continue
+
+        entry["exists"] = True
         try:
             text = full_path.read_text()
         except (PermissionError, OSError, UnicodeDecodeError):
-            results.append({"file": rel_path, "exists": True, "word_count": 0, "adequate": False})
+            results.append(entry)
             continue
+
         wc = len(text.split())
-        results.append({
-            "file": rel_path,
-            "exists": True,
-            "word_count": wc,
-            "adequate": wc > 200,
-        })
+        entry["word_count"] = wc
+        entry["adequate"] = wc > 200
+        results.append(entry)
+
     return results
 
 
@@ -234,7 +219,7 @@ def check_consulting_content(files: list[str]) -> list[dict]:
 
 
 def diagnose_failure(cmd: str, output: str) -> str:
-    """Diagnose a failed golem task. Returns diagnosis string.
+    """Diagnose a failure from command and output. Returns diagnosis string.
 
     One of: import_error, syntax_error, path_issue, timeout,
     permission_error, command_error, assertion_error, unknown.
@@ -242,7 +227,7 @@ def diagnose_failure(cmd: str, output: str) -> str:
     combined = (cmd + " " + output).lower()
     text = cmd + " " + output
 
-    if "importerror" in combined or "modulenotfounderror" in combined:
+    if "modulenotfounderror" in combined or "importerror" in combined:
         return "import_error"
     if "syntaxerror" in combined:
         return "syntax_error"
@@ -254,7 +239,7 @@ def diagnose_failure(cmd: str, output: str) -> str:
         return "permission_error"
     if "exit=2" in combined or "exit_code=2" in combined:
         return "command_error"
-    if "assert " in text:
+    if re.search(r'\bassert\b', text):
         return "assertion_error"
     return "unknown"
 
@@ -263,10 +248,7 @@ def diagnose_failure(cmd: str, output: str) -> str:
 
 
 def read_log_tail(n: int = 50) -> str:
-    """Read last N lines of the daemon log.
-
-    Returns the tail as a string (lines joined with newline).
-    """
+    """Read last N lines of daemon log."""
     if not LOGFILE.exists():
         return ""
     try:
@@ -280,10 +262,7 @@ def read_log_tail(n: int = 50) -> str:
 
 
 def count_pending_tasks() -> int:
-    """Count pending ([ ] and [!!]) tasks in the queue file.
-
-    Does NOT count [!] (failed) or [x] (done).
-    """
+    """Count [ ] and [!!] pending tasks in queue (not [x], [!])."""
     if not QUEUE_FILE.exists():
         return 0
     try:
@@ -302,14 +281,10 @@ def count_pending_tasks() -> int:
 
 
 def find_untested_modules() -> list[str]:
-    """Scan for effectors that don't have corresponding test files.
-
-    Returns list of effector names (filenames).
-    """
+    """Find effectors without corresponding test files."""
     if not EFFECTORS_DIR.exists():
         return []
 
-    # Build set of tested names (normalized)
     tested_names = set()
     if ASSAYS_DIR.exists():
         for f in ASSAYS_DIR.glob("test_*.py"):
@@ -324,7 +299,6 @@ def find_untested_modules() -> list[str]:
             continue
         if f.name.startswith(".") or f.name.startswith("__"):
             continue
-        # Normalize for comparison
         normalized = f.name.replace("-", "_").replace(".py", "").replace(".sh", "")
         if f.name in tested_names or normalized in tested_names:
             continue
@@ -339,10 +313,9 @@ def find_untested_modules() -> list[str]:
 
 
 def generate_queue_tasks(modules: list[str], count: int) -> list[str]:
-    """Generate golem queue task lines for the given modules.
+    """Generate golem queue task lines for modules, rotating providers.
 
-    Rotates through providers. Returns count items max.
-    Each line starts with '- [ ] `golem ...`'.
+    Returns list of '- [ ] `golem --provider X ...`' lines.
     """
     if not modules:
         return []
@@ -350,12 +323,13 @@ def generate_queue_tasks(modules: list[str], count: int) -> list[str]:
     tasks = []
     for i, mod in enumerate(modules[:count]):
         provider = _PROVIDERS[i % len(_PROVIDERS)]
-        test_name = f"test_{mod.replace('-', '_').replace('.', '_')}"
+        test_name = f"test_{mod.replace('-', '_')}"
         tasks.append(
             f'- [ ] `golem --provider {provider} --max-turns 50 '
             f'"Write assays/{test_name}.py for effectors/{mod}. '
             f'Run uv run pytest assays/{test_name}.py -v --tb=short."`'
         )
+
     return tasks
 
 
@@ -363,10 +337,7 @@ def generate_queue_tasks(modules: list[str], count: int) -> list[str]:
 
 
 def append_tasks_to_queue(task_lines: list[str]) -> int:
-    """Append task lines to the queue file.
-
-    Returns number of tasks added.
-    """
+    """Append task lines to the queue file. Returns count added."""
     if not task_lines:
         return 0
 
@@ -398,10 +369,9 @@ def append_tasks_to_queue(task_lines: list[str]) -> int:
 
 
 def write_fixed_tasks(failed_tasks: list[dict]) -> int:
-    """Write fixed task entries to the queue based on failure diagnoses.
+    """Write fixed task entries based on failure diagnoses.
 
-    Each failed_task has: {cmd, diagnosis}.
-    Returns count of tasks written.
+    Each failed_task: {cmd, diagnosis}. Returns count written.
     """
     if not failed_tasks:
         return 0
@@ -413,33 +383,34 @@ def write_fixed_tasks(failed_tasks: list[dict]) -> int:
 
         if "path_issue" in diag:
             lines.append(
-                f'- [ ] `golem --provider infini --max-turns 50 '
-                f'"Fix hardcoded /Users/terry/ paths. Use Path.home() instead. '
-                f'Run tests after."`'
+                '- [ ] `golem --provider infini --max-turns 50 '
+                '"Fix path_issue: replace /Users/terry/ with Path.home(). '
+                'Run tests after."`'
             )
         elif "import_error" in diag:
             lines.append(
-                f'- [ ] `golem --provider infini --max-turns 50 '
-                f'"Fix import errors — use exec(open(path).read(), ns) pattern '
-                f'for effectors. Check module exists before importing."`'
+                '- [ ] `golem --provider infini --max-turns 50 '
+                '"Fix import_error: use exec(open(path).read(), ns) pattern '
+                'instead of import. '
+                'Check module exists or needs install. Run tests."`'
             )
         elif "syntax_error" in diag:
             lines.append(
-                f'- [ ] `golem --provider infini --max-turns 50 '
-                f'"Fix Python syntax errors. Run ast.parse() on each .py file."`'
+                '- [ ] `golem --provider infini --max-turns 50 '
+                '"Fix syntax_error: run ast.parse() on changed .py files. '
+                'Run tests after."`'
             )
         elif "timeout" in diag:
-            # Reduce turns for retry
-            turns_match = re.search(r'--max-turns\s+(\d+)', cmd)
-            if turns_match:
-                old = int(turns_match.group(1))
-                new_turns = max(10, old - 20)
-                fixed_cmd = cmd.replace(f"--max-turns {old}", f"--max-turns {new_turns}")
-            else:
-                fixed_cmd = cmd.replace("golem ", "golem --max-turns 30 ", 1)
-            lines.append(f'- [ ] `{fixed_cmd}`')
+            lines.append(
+                '- [ ] `golem --provider infini --max-turns 30 '
+                '"Retry with lower turns. Break into smaller tasks. '
+                'Run tests."`'
+            )
         else:
-            lines.append(f'- [ ] `{cmd}`')
+            lines.append(
+                f'- [ ] `golem --provider infini --max-turns 50 '
+                f'"Retry task (diagnosis: {diag}). Run tests."`'
+            )
 
     return append_tasks_to_queue(lines)
 
@@ -458,19 +429,7 @@ def generate_review(
     queued_count: int,
     fixed_count: int,
 ) -> str:
-    """Generate a review summary markdown string.
-
-    Args:
-        activity: dict from scan_log with completed, failed, timeouts, start_time
-        recent_files: list of recently changed file paths
-        test_results: dict from run_pytest_on_files
-        consulting_results: list from check_consulting_content
-        failed_diagnoses: list of {cmd, diagnosis} dicts
-        pending_count: number of pending tasks in queue
-        auto_requeue: whether auto-requeue was enabled
-        queued_count: number of new tasks generated
-        fixed_count: number of fixed tasks written
-    """
+    """Generate a review summary markdown string."""
     ts = datetime.now(UTC).strftime("%Y-%m-%d %H:%M UTC")
     lines = [f"# Golem Review — {ts}", ""]
 
@@ -484,26 +443,24 @@ def generate_review(
     lines.append(f"- Timeouts: {len(timeouts)}")
     lines.append("")
 
-    # Completed details
     if completed:
         lines.append("### Completed tasks")
-        for ts_val, cmd in completed:
+        for entry in completed:
+            cmd = entry[1] if len(entry) >= 2 else str(entry)
             lines.append(f"- {cmd[:100]}")
         lines.append("")
 
-    # Failed details
     if failed:
         lines.append("### Failed Tasks")
         for entry in failed:
-            if len(entry) >= 2:
-                _, cmd = entry[0], entry[1]
-                lines.append(f"- {cmd[:100]}")
+            cmd = entry[1] if len(entry) >= 2 else str(entry)
+            lines.append(f"- {cmd[:100]}")
         lines.append("")
 
-    # Timeouts
     if timeouts:
         lines.append("### Timeouts")
-        for ts_val, cmd in timeouts:
+        for entry in timeouts:
+            cmd = entry[1] if len(entry) >= 2 else str(entry)
             lines.append(f"- {cmd[:100]}")
         lines.append("")
 
@@ -560,17 +517,14 @@ def generate_review(
 
 
 def run_review(auto_requeue: bool = False, since: timedelta = timedelta(minutes=30)) -> int:
-    """Run a single review cycle.
-
-    Returns 0 on success.
-    """
-    # 1. Scan log for completed/failed/timeout tasks
+    """Run a single review cycle. Returns 0 on success."""
+    # 1. Scan log
     activity = scan_log(since)
 
-    # 2. Get recent changed files
+    # 2. Get recent files
     recent_files = get_recent_files(head_range=5)
 
-    # 3. Classify and run tests
+    # 3. Run tests on new test files
     test_files = [f for f in recent_files if f.startswith("assays/test_") and f.endswith(".py")]
     test_results = run_pytest_on_files(test_files)
 
@@ -584,24 +538,23 @@ def run_review(auto_requeue: bool = False, since: timedelta = timedelta(minutes=
 
     # 5. Diagnose failures
     failed_diagnoses = []
-    fixed_count = 0
     for entry in activity.get("failed", []):
         cmd = entry[1] if len(entry) >= 2 else "unknown"
         tail = entry[2] if len(entry) >= 3 else ""
         diag = diagnose_failure(cmd, tail)
         failed_diagnoses.append({"cmd": cmd, "diagnosis": diag})
 
-    # Also diagnose timeouts
     for entry in activity.get("timeouts", []):
         cmd = entry[1] if len(entry) >= 2 else "unknown"
         failed_diagnoses.append({"cmd": cmd, "diagnosis": "timeout"})
 
-    # 6. Auto-requeue if enabled
-    queued_count = 0
-    if auto_requeue:
+    # 6. Auto-requeue
+    fixed_count = 0
+    if auto_requeue and failed_diagnoses:
         fixed_count = write_fixed_tasks(failed_diagnoses)
 
-    # 7. Check queue and auto-generate if low
+        # 7. Auto-generate if queue low
+    queued_count = 0
     pending = count_pending_tasks()
     if pending < 50:
         untested = find_untested_modules()
@@ -609,10 +562,8 @@ def run_review(auto_requeue: bool = False, since: timedelta = timedelta(minutes=
         if needed > 0:
             new_tasks = generate_queue_tasks(untested, needed)
             queued_count = append_tasks_to_queue(new_tasks)
-    else:
-        queued_count = 0
 
-    # 8. Generate and write review
+        # 8. Write review
     review = generate_review(
         activity=activity,
         recent_files=recent_files,
