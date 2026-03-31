@@ -1,1 +1,1 @@
-/Users/terry/germline/genome.md
+../genome.md

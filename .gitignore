@@ -78,3 +78,7 @@ membrane/receptors/compound-engineering/
 membrane/receptors/superpowers/
 .fastembed_cache/
 .venv
+.coverage
+.last-sync
+pytest-of-*/
+.claude

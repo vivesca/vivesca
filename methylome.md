@@ -1,1 +1,1 @@
-/Users/terry/.claude/projects/-Users-terry/memory/MEMORY.md
+../epigenome/marks/MEMORY.md
