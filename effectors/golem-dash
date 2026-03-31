@@ -50,6 +50,114 @@ def fmt_bytes(n: int) -> str:
     return f"{n:.1f} PB"
 
 
+def fmt_duration(seconds: int) -> str:
+    """Format seconds as human-readable duration."""
+    if seconds < 60:
+        return f"{seconds}s"
+    elif seconds < 3600:
+        return f"{seconds // 60}m {seconds % 60}s"
+    elif seconds < 86400:
+        h, rem = divmod(seconds, 3600)
+        m, s = divmod(rem, 60)
+        return f"{h}h {m}m"
+    else:
+        d, rem = divmod(seconds, 86400)
+        h, rem2 = divmod(rem, 3600)
+        return f"{d}d {h}h"
+
+
+# ── Running tasks (from ps) ─────────────────────────────────────────
+
+PROVIDER_RE = re.compile(r"--provider\s+(\S+)")
+
+
+def get_running_golems() -> list[dict]:
+    """Get list of currently running golem processes via ps."""
+    try:
+        result = subprocess.run(
+            ["ps", "-eo", "pid,etime,args"],
+            capture_output=True, text=True, timeout=5
+        )
+    except (subprocess.TimeoutExpired, FileNotFoundError):
+        return []
+
+    running = []
+    for line in result.stdout.splitlines():
+        if "effectors/golem" not in line and "/bin/sh -c golem " not in line:
+            continue
+        if "golem-dash" in line or "grep" in line.split()[0] if line.split() else "":
+            continue
+
+        parts = line.split(None, 2)
+        if len(parts) < 3:
+            continue
+
+        pid_str, etime, args = parts
+        try:
+            pid = int(pid_str)
+        except ValueError:
+            continue
+
+        # Extract provider
+        m = PROVIDER_RE.search(args)
+        provider = m.group(1) if m else "unknown"
+
+        # Parse elapsed time
+        secs = etime_to_seconds(etime)
+
+        # Extract task snippet
+        task = extract_task_snippet(args)
+
+        running.append({
+            "pid": pid,
+            "provider": provider,
+            "etime": etime,
+            "duration_secs": secs,
+            "task": task,
+        })
+
+    return running
+
+
+def etime_to_seconds(etime: str) -> int:
+    """Convert ps etime string to total seconds."""
+    day = 0
+    if "-" in etime:
+        day_part, etime = etime.split("-", 1)
+        day = int(day_part)
+
+    parts = etime.split(":")
+    if len(parts) == 2:
+        minutes, seconds = int(parts[0]), int(parts[1])
+        return day * 86400 + minutes * 60 + seconds
+    elif len(parts) == 3:
+        hours, minutes, seconds = int(parts[0]), int(parts[1]), int(parts[2])
+        return day * 86400 + hours * 3600 + minutes * 60 + seconds
+    return 0
+
+
+def extract_task_snippet(args: str) -> str:
+    """Extract task description from golem command line."""
+    # Strip shell prefix
+    rest = args
+    if rest.startswith("/bin/sh -c golem "):
+        rest = rest[len("/bin/sh -c golem "):]
+    elif "effectors/golem" in rest:
+        # Find the golem script and skip past it
+        m = re.search(r"effectors/golem\s+", rest)
+        if m:
+            rest = rest[m.end():]
+
+    # Strip flags
+    rest = PROVIDER_RE.sub("", rest)
+    rest = re.sub(r"--max-turns\s+\d+", "", rest)
+    rest = re.sub(r"--full\s*", "", rest)
+
+    # Clean up
+    task = rest.strip().strip('"').strip("'")
+    return task[:60] + "…" if len(task) > 60 else task
+
+
 def load_jsonl(path: Path) -> list[dict]:
     """Parse golem.jsonl, return list of record dicts."""
     if not path.exists():
@@ -106,6 +214,84 @@ def provider_stats(records: list[dict], use_color: bool = True) -> str:
 
         lines.append(f"  {provider:<10} {pass_str:>6} {fail_str:>6} {rate_str_color:>7} {avg_str:>8}")
 
+    return "\n".join(lines)
+
+
+def calculate_eta(records: list[dict], pending: int, running_count: int) -> dict:
+    """Calculate ETA to drain the queue.
+
+    Returns dict with: avg_duration, pending, running, eta_seconds, eta_str
+    """
+    # Get all durations
+    durations = [r.get("duration") for r in records if r.get("duration") is not None]
+    if not durations:
+        avg_duration = 120  # Default 2 minutes if no data
+    else:
+        # Use median to avoid outlier skew
+        sorted_dur = sorted(durations)
+        mid = len(sorted_dur) // 2
+        avg_duration = sorted_dur[mid]
+
+    # Effective workers: running + 1 (at least one)
+    workers = max(running_count, 1)
+
+    # Tasks to complete
+    tasks_remaining = pending
+
+    # ETA = tasks * avg_duration / workers
+    if tasks_remaining == 0:
+        eta_seconds = 0
+    else:
+        eta_seconds = int(tasks_remaining * avg_duration / workers)
+
+    return {
+        "avg_duration": avg_duration,
+        "pending": pending,
+        "running": running_count,
+        "workers": workers,
+        "eta_seconds": eta_seconds,
+        "eta_str": fmt_duration(eta_seconds) if eta_seconds > 0 else "—",
+    }
+
+
+def running_tasks_table(running: list[dict], use_color: bool = True) -> str:
+    """Format currently running tasks."""
+    if not running:
+        return "  No golem processes running."
+
+    c = CYAN if use_color else ""
+    y = YELLOW if use_color else ""
+    rst = RESET if use_color else ""
+
+    lines = []
+    for t in sorted(running, key=lambda x: x["duration_secs"], reverse=True):
+        dur = fmt_duration(t["duration_secs"])
+        lines.append(f"  {c}[{t['pid']}] {t['provider']:<8}{rst} {y}{dur:>6}{rst}  {t['task']}")
+
+    # Summary
+    providers = defaultdict(int)
+    for t in running:
+        providers[t["provider"]] += 1
+    summary = "  ".join(f"{k}:{v}" for k, v in sorted(providers.items()))
+    lines.append(f"  {len(running)} running  [{summary}]")
+
+    return "\n".join(lines)
+
+
+def eta_section(eta: dict, use_color: bool = True) -> str:
+    """Format ETA section."""
+    b = BOLD if use_color else ""
+    c = CYAN if use_color else ""
+    dim = DIM if use_color else ""
+    rst = RESET if use_color else ""
+
+    if eta["pending"] == 0:
+        return f"  {b}Queue empty{rst}"
+
+    lines = [
+        f"  Pending: {eta['pending']}  |  Running: {eta['running']}  |  "
+        f"Avg: {eta['avg_duration']}s  |  ETA: {c}{b}{eta['eta_str']}{rst}"
+    ]
     return "\n".join(lines)
 
 

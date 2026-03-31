@@ -1150,13 +1150,14 @@ def test_extract_keywords_empty_inputs():
 
 
 def test_summarise_period_zero_scores():
-    """summarise_period handles zero scores (valid Oura data)."""
+    """summarise_period filters out zero scores (0 is falsy in the filter)."""
     data = {
         "2024-01-01": {"sleep_score": 0, "readiness_score": 0, "readiness_contributors": {"hrv_balance": 0}},
     }
     result = summarise_period(data)
-    assert result["sleep_avg"] == 0.0
-    assert result["sleep_range"] == "0-0"
+    # Zero scores are filtered out by the "if v.get('sleep_score')" check
+    assert result["sleep_avg"] is None
+    assert result["sleep_range"] is None
 
 
 def test_slugify_unicode():

@@ -1,302 +1,245 @@
-#!/usr/bin/env python3
 from __future__ import annotations
 
-"""Tests for effectors/efferens — shared notice board CLI.
+"""Tests for metabolon/enzymes/efferens.py."""
 
-Unit tests mock acta; integration tests exercise the real CLI via subprocess.
-"""
-
-import argparse
-import subprocess
-import sys
-from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
-EFFERENS = Path(__file__).resolve().parents[1] / "effectors" / "efferens"
+
+# Import the module under test
+from metabolon.enzymes.efferens import efferens, BINARY
 
 
-# ── Load module via exec (with acta mocked) ──────────────────────────────────
+class TestEfferensList:
+    """Tests for efferens list action."""
+
+    @patch("metabolon.enzymes.efferens.run_cli")
+    def test_list_basic(self, mock_run_cli):
+        """Test list action with default to parameter."""
+        mock_run_cli.return_value = "message1\nmessage2"
+        
+        result = efferens(action="list")
+        
+        mock_run_cli.assert_called_once_with(BINARY, ["list", "--to", "terry"])
+        assert result == "message1\nmessage2"
+
+    @patch("metabolon.enzymes.efferens.run_cli")
+    def test_list_with_custom_recipient(self, mock_run_cli):
+        """Test list action with custom recipient."""
+        mock_run_cli.return_value = "custom messages"
+        
+        result = efferens(action="list", to="alice")
+        
+        mock_run_cli.assert_called_once_with(BINARY, ["list", "--to", "alice"])
+        assert result == "custom messages"
+
+    @patch("metabolon.enzymes.efferens.run_cli")
+    def test_list_empty_recipient(self, mock_run_cli):
+        """Test list action with empty recipient."""
+        mock_run_cli.return_value = "all messages"
+        
+        result = efferens(action="list", to="")
+        
+        # Empty to should not add --to flag
+        mock_run_cli.assert_called_once_with(BINARY, ["list"])
+        assert result == "all messages"
+
+    @patch("metabolon.enzymes.efferens.run_cli")
+    def test_list_returns_empty_string(self, mock_run_cli):
+        """Test list action when no messages exist."""
+        mock_run_cli.return_value = ""
+        
+        result = efferens(action="list")
+        
+        assert result == ""
 
 
-@pytest.fixture()
-def efferens():
-    """Load efferens module with acta mocked."""
-    mock_acta = MagicMock()
-    ns: dict = {
-        "__name__": "efferens",
-        "__file__": str(EFFERENS),
-    }
-    source = EFFERENS.read_text()
-    # Pre-populate sys.modules so the `import acta` inside exec succeeds
-    with patch.dict(sys.modules, {"acta": mock_acta}):
-        exec(source, ns)
-    mod = type("efferens", (), {})()
-    for k, v in ns.items():
-        if not k.startswith("__"):
-            setattr(mod, k, v)
-    mod._acta = mock_acta
-    return mod
+class TestEfferensPost:
+    """Tests for efferens post action."""
 
-
-# ── cmd_list ─────────────────────────────────────────────────────────────────
-
-
-class TestCmdList:
-    def test_empty_board(self, efferens, capsys):
-        efferens._acta.read.return_value = []
-        args = argparse.Namespace(to=None)
-        efferens.cmd_list(args)
-        assert "Board empty" in capsys.readouterr().out
-
-    def test_empty_board_filtered(self, efferens, capsys):
-        efferens._acta.read.return_value = []
-        args = argparse.Namespace(to="terry")
-        efferens.cmd_list(args)
-        assert "No messages for 'terry'" in capsys.readouterr().out
-
-    def test_lists_messages(self, efferens, capsys):
-        efferens._acta.read.return_value = [
-            {
-                "id": "2026-01-01-test.md",
-                "from": "copia",
-                "to": "terry",
-                "severity": "action",
-                "body": "Do something important",
-            },
-        ]
-        efferens.cmd_list(argparse.Namespace(to=None))
-        out = capsys.readouterr().out
-        assert "1 message(s)" in out
-        assert "2026-01-01-test.md" in out
-        assert "copia → terry" in out
-        assert "Do something important" in out
-
-    def test_action_marker(self, efferens, capsys):
-        efferens._acta.read.return_value = [
-            {"id": "a.md", "from": "x", "to": "y", "severity": "action", "body": "b"},
-        ]
-        efferens.cmd_list(argparse.Namespace(to=None))
-        assert "[!]" in capsys.readouterr().out
-
-    def test_warning_marker(self, efferens, capsys):
-        efferens._acta.read.return_value = [
-            {"id": "w.md", "from": "x", "to": "y", "severity": "warning", "body": "b"},
-        ]
-        efferens.cmd_list(argparse.Namespace(to=None))
-        assert "[~]" in capsys.readouterr().out
-
-    def test_info_marker(self, efferens, capsys):
-        efferens._acta.read.return_value = [
-            {"id": "i.md", "from": "x", "to": "y", "severity": "info", "body": "b"},
-        ]
-        efferens.cmd_list(argparse.Namespace(to=None))
-        out = capsys.readouterr().out
-        assert "[ ]" in out
-
-    def test_filtered_by_to(self, efferens, capsys):
-        efferens._acta.read.return_value = [
-            {"id": "m.md", "from": "x", "to": "test-filter", "severity": "info", "body": "hi"},
-        ]
-        efferens.cmd_list(argparse.Namespace(to="test-filter"))
-        out = capsys.readouterr().out
-        assert "(to: test-filter)" in out
-
-    def test_body_truncated_at_100(self, efferens, capsys):
-        efferens._acta.read.return_value = [
-            {"id": "long.md", "from": "x", "to": "y", "severity": "info", "body": "A" * 200},
-        ]
-        efferens.cmd_list(argparse.Namespace(to=None))
-        out = capsys.readouterr().out
-        # Preview should be truncated; full 200 chars should not appear
-        assert "A" * 100 in out
-        assert "A" * 101 not in out
-
-    def test_newlines_in_body_collapsed(self, efferens, capsys):
-        efferens._acta.read.return_value = [
-            {"id": "nl.md", "from": "x", "to": "y", "severity": "info", "body": "line1\nline2"},
-        ]
-        efferens.cmd_list(argparse.Namespace(to=None))
-        out = capsys.readouterr().out
-        assert "line1 line2" in out
-
-
-# ── cmd_post ─────────────────────────────────────────────────────────────────
-
-
-class TestCmdPost:
-    def test_post_prints_filename(self, efferens, capsys):
-        efferens._acta.post.return_value = Path("2026-01-01-test.md")
-        args = argparse.Namespace(
-            message="hello", sender="cli", to="all", severity="info", subject="test"
+    @patch("metabolon.enzymes.efferens.run_cli")
+    def test_post_basic(self, mock_run_cli):
+        """Test post action with required parameters."""
+        mock_run_cli.return_value = "Posted"
+        
+        result = efferens(
+            action="post",
+            message="Hello world",
+            sender="bot",
         )
-        efferens.cmd_post(args)
-        assert "Posted: 2026-01-01-test.md" in capsys.readouterr().out
-
-    def test_post_passes_all_args(self, efferens):
-        efferens._acta.post.return_value = Path("x.md")
-        args = argparse.Namespace(
-            message="msg", sender="bot", to="terry", severity="warning", subject="sub"
+        
+        mock_run_cli.assert_called_once_with(
+            BINARY,
+            ["post", "Hello world", "--from", "bot", "--to", "terry", "--severity", "info"]
         )
-        efferens.cmd_post(args)
-        efferens._acta.post.assert_called_once_with(
-            message="msg", sender="bot", to="terry", severity="warning", subject="sub"
+        assert result == "Posted"
+
+    @patch("metabolon.enzymes.efferens.run_cli")
+    def test_post_with_all_parameters(self, mock_run_cli):
+        """Test post action with all parameters specified."""
+        mock_run_cli.return_value = "Done."
+        
+        result = efferens(
+            action="post",
+            message="Urgent message",
+            sender="alert-system",
+            to="admin",
+            severity="warning",
+            subject="System Alert",
         )
-
-
-# ── cmd_clear ────────────────────────────────────────────────────────────────
-
-
-class TestCmdClear:
-    def test_clear_all(self, efferens, capsys):
-        efferens._acta.clear_all.return_value = 5
-        efferens.cmd_clear(argparse.Namespace(all=True, id=None))
-        assert "Cleared 5 message(s)" in capsys.readouterr().out
-
-    def test_clear_one(self, efferens, capsys):
-        efferens._acta.clear.return_value = True
-        efferens.cmd_clear(argparse.Namespace(all=False, id="2026-01-01-test.md"))
-        assert "Cleared: 2026-01-01-test.md" in capsys.readouterr().out
-
-    def test_clear_one_not_found(self, efferens):
-        efferens._acta.clear.return_value = False
-        with pytest.raises(SystemExit) as exc:
-            efferens.cmd_clear(argparse.Namespace(all=False, id="nope.md"))
-        assert exc.value.code == 1
-
-    def test_clear_no_args(self, efferens):
-        with pytest.raises(SystemExit) as exc:
-            efferens.cmd_clear(argparse.Namespace(all=False, id=None))
-        assert exc.value.code == 1
-
-
-# ── cmd_archive ──────────────────────────────────────────────────────────────
-
-
-class TestCmdArchive:
-    def test_archive_all(self, efferens, capsys):
-        efferens._acta.archive_all.return_value = 3
-        efferens.cmd_archive(argparse.Namespace(all=True, id=None))
-        assert "Archived 3 message(s)" in capsys.readouterr().out
-
-    def test_archive_one(self, efferens, capsys):
-        efferens._acta.archive.return_value = True
-        efferens.cmd_archive(argparse.Namespace(all=False, id="2026-01-01-test.md"))
-        assert "Archived: 2026-01-01-test.md" in capsys.readouterr().out
-
-    def test_archive_one_not_found(self, efferens):
-        efferens._acta.archive.return_value = False
-        with pytest.raises(SystemExit) as exc:
-            efferens.cmd_archive(argparse.Namespace(all=False, id="nope.md"))
-        assert exc.value.code == 1
-
-    def test_archive_no_args(self, efferens):
-        with pytest.raises(SystemExit) as exc:
-            efferens.cmd_archive(argparse.Namespace(all=False, id=None))
-        assert exc.value.code == 1
-
-
-# ── cmd_count ────────────────────────────────────────────────────────────────
-
-
-class TestCmdCount:
-    def test_count(self, efferens, capsys):
-        efferens._acta.count.return_value = 42
-        efferens.cmd_count(argparse.Namespace())
-        assert "42" in capsys.readouterr().out
-
-
-# ── main (argparse routing) ──────────────────────────────────────────────────
-
-
-class TestMain:
-    def test_default_runs_list(self, efferens, capsys):
-        """No subcommand → list."""
-        efferens._acta.read.return_value = []
-        with patch("sys.argv", ["efferens"]):
-            efferens.main()
-        assert "Board empty" in capsys.readouterr().out
-
-    def test_list_subcommand(self, efferens, capsys):
-        efferens._acta.read.return_value = []
-        with patch("sys.argv", ["efferens", "list"]):
-            efferens.main()
-        assert "Board empty" in capsys.readouterr().out
-
-    def test_count_subcommand(self, efferens, capsys):
-        efferens._acta.count.return_value = 7
-        with patch("sys.argv", ["efferens", "count"]):
-            efferens.main()
-        assert "7" in capsys.readouterr().out
-
-    def test_post_subcommand(self, efferens, capsys):
-        efferens._acta.post.return_value = Path("2026-03-31-test.md")
-        with patch("sys.argv", ["efferens", "post", "hello", "--from", "test"]):
-            efferens.main()
-        assert "Posted:" in capsys.readouterr().out
-
-
-# ── Integration (subprocess, real acta) ──────────────────────────────────────
-
-
-class TestIntegration:
-    """These tests hit the real acta board. They create & clean up."""
-
-    def test_help(self):
-        r = subprocess.run(
-            [sys.executable, str(EFFERENS), "--help"],
-            capture_output=True, text=True,
+        
+        mock_run_cli.assert_called_once_with(
+            BINARY,
+            ["post", "Urgent message", "--from", "alert-system", "--to", "admin", "--severity", "warning", "--subject", "System Alert"]
         )
-        assert r.returncode == 0
-        assert "shared notice board" in r.stdout
+        assert result == "Done."
 
-    def test_count_returns_int(self):
-        r = subprocess.run(
-            [sys.executable, str(EFFERENS), "count"],
-            capture_output=True, text=True,
+    @patch("metabolon.enzymes.efferens.run_cli")
+    def test_post_with_subject(self, mock_run_cli):
+        """Test post action with subject."""
+        mock_run_cli.return_value = "Posted with subject"
+        
+        result = efferens(
+            action="post",
+            message="Body text",
+            sender="sender",
+            subject="Important Subject",
         )
-        assert r.returncode == 0
-        int(r.stdout.strip())  # must be parseable as int
+        
+        call_args = mock_run_cli.call_args[0][1]
+        assert "--subject" in call_args
+        assert "Important Subject" in call_args
 
-    def test_list_runs(self):
-        r = subprocess.run(
-            [sys.executable, str(EFFERENS), "list"],
-            capture_output=True, text=True,
+    @patch("metabolon.enzymes.efferens.run_cli")
+    def test_post_without_subject(self, mock_run_cli):
+        """Test post action without subject omits --subject flag."""
+        mock_run_cli.return_value = "Posted"
+        
+        result = efferens(
+            action="post",
+            message="No subject",
+            sender="sender",
         )
-        assert r.returncode == 0
+        
+        call_args = mock_run_cli.call_args[0][1]
+        assert "--subject" not in call_args
 
-    def test_post_and_archive_roundtrip(self):
-        # Post
-        r = subprocess.run(
-            [sys.executable, str(EFFERENS), "post",
-             "efferens assay test", "--from", "pytest",
-             "--to", "pytest", "--subject", "efferens-roundtrip"],
-            capture_output=True, text=True,
+    @patch("metabolon.enzymes.efferens.run_cli")
+    def test_post_severity_action(self, mock_run_cli):
+        """Test post action with 'action' severity."""
+        mock_run_cli.return_value = "Action posted"
+        
+        result = efferens(
+            action="post",
+            message="Action required",
+            sender="system",
+            severity="action",
         )
-        assert r.returncode == 0
-        assert "Posted:" in r.stdout
-        posted_name = r.stdout.split("Posted:")[1].strip()
+        
+        call_args = mock_run_cli.call_args[0][1]
+        assert "--severity" in call_args
+        severity_idx = call_args.index("--severity")
+        assert call_args[severity_idx + 1] == "action"
 
-        # Verify it appears in list --to pytest
-        r = subprocess.run(
-            [sys.executable, str(EFFERENS), "list", "--to", "pytest"],
-            capture_output=True, text=True,
+    @patch("metabolon.enzymes.efferens.run_cli")
+    def test_post_empty_message(self, mock_run_cli):
+        """Test post action with empty message."""
+        mock_run_cli.return_value = "Done."
+        
+        result = efferens(
+            action="post",
+            message="",
+            sender="empty-sender",
         )
-        assert posted_name in r.stdout
+        
+        # Empty message should still be passed
+        call_args = mock_run_cli.call_args[0][1]
+        assert "post" in call_args
+        assert "" in call_args
 
-        # Archive it
-        r = subprocess.run(
-            [sys.executable, str(EFFERENS), "archive", posted_name],
-            capture_output=True, text=True,
-        )
-        assert r.returncode == 0
-        assert f"Archived: {posted_name}" in r.stdout
 
-    def test_clear_nonexistent_exits_1(self):
-        r = subprocess.run(
-            [sys.executable, str(EFFERENS), "clear", "nonexistent-99999.md"],
-            capture_output=True, text=True,
-        )
-        assert r.returncode == 1
-        assert "Not found" in r.stderr
+class TestEfferensCount:
+    """Tests for efferens count action."""
+
+    @patch("metabolon.enzymes.efferens.run_cli")
+    def test_count_returns_number(self, mock_run_cli):
+        """Test count action returns count."""
+        mock_run_cli.return_value = "42"
+        
+        result = efferens(action="count")
+        
+        mock_run_cli.assert_called_once_with(BINARY, ["count"])
+        assert result == "42"
+
+    @patch("metabolon.enzymes.efferens.run_cli")
+    def test_count_zero(self, mock_run_cli):
+        """Test count action when no messages."""
+        mock_run_cli.return_value = "0"
+        
+        result = efferens(action="count")
+        
+        assert result == "0"
+
+
+class TestEfferensUnknownAction:
+    """Tests for unknown action handling."""
+
+    def test_unknown_action_returns_error(self):
+        """Test unknown action returns helpful error message."""
+        result = efferens(action="invalid")
+        
+        assert "Unknown action" in result
+        assert "invalid" in result
+        assert "list" in result
+        assert "post" in result
+        assert "count" in result
+
+    def test_unknown_action_delete(self):
+        """Test delete action is not recognized."""
+        result = efferens(action="delete")
+        
+        assert "Unknown action" in result
+
+    def test_unknown_action_empty(self):
+        """Test empty action returns error."""
+        result = efferens(action="")
+        
+        assert "Unknown action" in result
+
+
+class TestEfferensBinary:
+    """Tests for BINARY constant."""
+
+    def test_binary_path(self):
+        """Test that BINARY points to correct location."""
+        assert ".local/bin/efferens" in BINARY
+        assert BINARY.endswith("efferens")
+
+
+class TestEfferensErrorHandling:
+    """Tests for error propagation from run_cli."""
+
+    @patch("metabolon.enzymes.efferens.run_cli")
+    def test_run_cli_error_propagates(self, mock_run_cli):
+        """Test that run_cli errors are propagated."""
+        mock_run_cli.side_effect = ValueError("Binary not found")
+        
+        with pytest.raises(ValueError, match="Binary not found"):
+            efferens(action="list")
+
+    @patch("metabolon.enzymes.efferens.run_cli")
+    def test_run_cli_timeout_propagates(self, mock_run_cli):
+        """Test that timeout errors are propagated."""
+        mock_run_cli.side_effect = ValueError("efferens timed out (30s)")
+        
+        with pytest.raises(ValueError, match="timed out"):
+            efferens(action="count")
+
+    @patch("metabolon.enzymes.efferens.run_cli")
+    def test_run_cli_process_error_propagates(self, mock_run_cli):
+        """Test that process errors are propagated."""
+        mock_run_cli.side_effect = ValueError("efferens error: permission denied")
+        
+        with pytest.raises(ValueError, match="permission denied"):
+            efferens(action="post", message="test", sender="test")

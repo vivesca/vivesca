@@ -779,6 +779,30 @@ def daemon_loop():
                 else:
                     pending = parse_queue()
 
+                # Auto-stop check: if no pending AND no running → idle timer
+                # Must check BEFORE auto_requeue to avoid infinite refill loop
+                if not pending and not running:
+                    if idle_since is None:
+                        idle_since = time.time()
+                        log("Queue empty, no tasks running — idle timer started")
+                    else:
+                        idle_min = (time.time() - idle_since) / 60
+                        log(f"Idle for {idle_min:.1f} min (stop at {IDLE_STOP_MINUTES})")
+                        if idle_min >= IDLE_STOP_MINUTES:
+                            log(f"Idle for {IDLE_STOP_MINUTES}+ min — committing and stopping machine")
+                            auto_commit()
+                            if fly_stop_self():
+                                log("Fly machine stop requested — goodbye")
+                                break
+                            else:
+                                log("FLY_API_TOKEN not set or stop failed — continuing with auto-requeue")
+                                idle_since = None  # Reset, fall through to auto-requeue
+                    # Skip auto-requeue and dispatch while idle timer is ticking
+                    time.sleep(POLL_INTERVAL)
+                    continue
+
+                idle_since = None  # We have work — reset idle timer
+
                 # Auto-requeue when queue runs low
                 if len(pending) < 50:
                     added = auto_requeue()
@@ -803,33 +827,14 @@ def daemon_loop():
                             provider_running[provider] = current + 1
                             log(f"Queued [{provider}]: {cmd[:60]}...")
 
-                # Status check + auto-stop
+                # Status check
                 if running:
                     running_by_provider = ", ".join(
                         f"{p}:{n}" for p, n in sorted(provider_running.items()) if n > 0
                     )
                     log(f"Running: {len(running)} tasks ({running_by_provider}), {len(pending)} pending")
-                    idle_since = None  # Reset idle timer
-                elif pending:
-                    log(f"Idle: {len(pending)} pending")
-                    idle_since = None
                 else:
-                    # No running tasks AND no pending tasks → truly idle
-                    if idle_since is None:
-                        idle_since = time.time()
-                        log("Queue empty, no tasks running — idle timer started")
-                    else:
-                        idle_min = (time.time() - idle_since) / 60
-                        log(f"Idle for {idle_min:.1f} min (stop at {IDLE_STOP_MINUTES})")
-                        if idle_min >= IDLE_STOP_MINUTES:
-                            log(f"Idle for {IDLE_STOP_MINUTES}+ min — committing and stopping machine")
-                            auto_commit()
-                            if fly_stop_self():
-                                log("Fly machine stop requested — goodbye")
-                                break
-                            else:
-                                log("FLY_API_TOKEN not set or stop failed — staying alive")
-                                idle_since = None  # Reset to avoid spamming
+                    log(f"Idle: {len(pending)} pending")
 
                 time.sleep(POLL_INTERVAL)
 

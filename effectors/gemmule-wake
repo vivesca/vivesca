@@ -1,0 +1,92 @@
+#!/usr/bin/env python3
+"""gemmule-wake — start the gemmule Fly.io machine if stopped.
+
+Usage:
+    gemmule-wake              # Start machine if stopped, no-op if running
+    gemmule-wake --status     # Print current state without starting
+
+Designed to be called from:
+  - Git post-push hook (after pushing golem-queue.md changes)
+  - GitHub Actions workflow (on push to loci/golem-queue.md)
+  - Manual invocation
+
+Requires FLY_API_TOKEN in environment.
+"""
+from __future__ import annotations
+
+import json
+import os
+import sys
+from urllib.request import Request, urlopen
+
+API_BASE = "https://api.machines.dev"
+APP_NAME = "gemmule"
+
+
+def _token() -> str:
+    tok = os.environ.get("FLY_API_TOKEN", "")
+    if not tok:
+        print("error: FLY_API_TOKEN not set", file=sys.stderr)
+        sys.exit(1)
+    return tok
+
+
+def _api(method: str, path: str) -> dict | list:
+    token = _token()
+    url = f"{API_BASE}{path}"
+    req = Request(url, method=method)
+    req.add_header("Authorization", f"Bearer {token}")
+    req.add_header("Content-Type", "application/json")
+    with urlopen(req, timeout=15) as resp:
+        raw = resp.read()
+        return json.loads(raw) if raw else {}
+
+
+def get_machine() -> dict | None:
+    machines: list[dict] = _api("GET", f"/v1/apps/{APP_NAME}/machines")  # type: ignore[assignment]
+    return machines[0] if machines else None
+
+
+def wake() -> int:
+    m = get_machine()
+    if not m:
+        print(f"no machines found for app '{APP_NAME}'")
+        return 1
+
+    mid = m["id"]
+    state = m.get("state", "unknown")
+
+    if state == "started":
+        print(f"gemmule already running (machine {mid})")
+        return 0
+
+    if state in ("stopped", "suspended"):
+        print(f"gemmule is {state} — starting machine {mid} ...")
+        _api("POST", f"/v1/apps/{APP_NAME}/machines/{mid}/start")
+        print("start request sent")
+        return 0
+
+    print(f"gemmule in unexpected state '{state}' (machine {mid})")
+    return 1
+
+
+def status() -> int:
+    m = get_machine()
+    if not m:
+        print(f"no machines found for app '{APP_NAME}'")
+        return 1
+    guest = m.get("config", {}).get("guest", {})
+    cpus = guest.get("cpus", "?")
+    mem = guest.get("memory_mb", "?")
+    print(f"machine {m['id']}  state={m.get('state', '?')}  region={m.get('region', '?')}  {cpus}CPU/{mem}MB")
+    return 0
+
+
+def main() -> None:
+    if "--status" in sys.argv or "status" in sys.argv[1:]:
+        sys.exit(status())
+    sys.exit(wake())
+
+
+if __name__ == "__main__":
+    main()

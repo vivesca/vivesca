@@ -1,0 +1,135 @@
+#!/usr/bin/env python3
+"""gemmule-snapshot — create a snapshot of the gemmule Fly.io machine.
+
+Usage:
+    gemmule-snapshot              # Create snapshot (stop → snapshot → start)
+    gemmule-snapshot --list       # List existing snapshots
+    gemmule-snapshot --volume     # Show volume info
+
+Creates a point-in-time snapshot of the attached volume for disaster recovery.
+Machine must be stopped briefly during snapshot creation.
+
+Requires FLY_API_TOKEN in environment.
+"""
+from __future__ import annotations
+
+import json
+import os
+import sys
+from datetime import datetime
+from urllib.request import Request, urlopen
+
+API_BASE = "https://api.machines.dev"
+APP_NAME = "gemmule"
+
+
+def _token() -> str:
+    tok = os.environ.get("FLY_API_TOKEN", "")
+    if not tok:
+        print("error: FLY_API_TOKEN not set", file=sys.stderr)
+        sys.exit(1)
+    return tok
+
+
+def _api(method: str, path: str, body: dict | None = None) -> dict | list:
+    token = _token()
+    url = f"{API_BASE}{path}"
+    data = json.dumps(body).encode() if body else None
+    req = Request(url, data=data, method=method)
+    req.add_header("Authorization", f"Bearer {token}")
+    req.add_header("Content-Type", "application/json")
+    with urlopen(req, timeout=30) as resp:
+        raw = resp.read()
+        return json.loads(raw) if raw else {}
+
+
+def _get_machine() -> dict:
+    machines: list[dict] = _api("GET", f"/v1/apps/{APP_NAME}/machines")  # type: ignore[assignment]
+    if not machines:
+        print(f"no machines found for app '{APP_NAME}'")
+        sys.exit(1)
+    return machines[0]
+
+
+def _get_volumes() -> list[dict]:
+    return _api("GET", f"/v1/apps/{APP_NAME}/volumes")  # type: ignore[return-value]
+
+
+def cmd_volume() -> None:
+    vols = _get_volumes()
+    if not vols:
+        print("no volumes found")
+        return
+    for v in vols:
+        sz = v.get("size_gb", "?")
+        state = v.get("state", "?")
+        region = v.get("region", "?")
+        print(f"vol {v['id']}  {sz}GB  state={state}  region={region}  name={v.get('name', '?')}")
+
+
+def cmd_list() -> None:
+    vols = _get_volumes()
+    if not vols:
+        print("no volumes — no snapshots")
+        return
+    for v in vols:
+        snaps: list[dict] = _api("GET", f"/v1/apps/{APP_NAME}/volumes/{v['id']}/snapshots")  # type: ignore[assignment]
+        if not snaps:
+            print(f"vol {v['id']}: no snapshots")
+            continue
+        for s in snaps:
+            ts = s.get("created_at", "?")
+            sz = s.get("size", "?")
+            print(f"  snap {s.get('id', '?')}  created={ts}  size={sz}")
+
+
+def cmd_snapshot() -> None:
+    m = _get_machine()
+    mid = m["id"]
+    state = m.get("state", "unknown")
+
+    vols = _get_volumes()
+    if not vols:
+        print("no volumes to snapshot")
+        sys.exit(1)
+    vol_id = vols[0]["id"]
+
+    was_running = state == "started"
+
+    if was_running:
+        print(f"stopping machine {mid} for snapshot...")
+        _api("POST", f"/v1/apps/{APP_NAME}/machines/{mid}/stop")
+        # Wait for stop
+        import time
+        for _ in range(30):
+            time.sleep(2)
+            m = _get_machine()
+            if m.get("state") == "stopped":
+                break
+        else:
+            print("warning: machine didn't stop in time, proceeding anyway")
+
+    print(f"creating snapshot of volume {vol_id}...")
+    result = _api("POST", f"/v1/apps/{APP_NAME}/volumes/{vol_id}/snapshots")
+    print(f"snapshot created: {json.dumps(result, indent=2)}")
+
+    if was_running:
+        print(f"restarting machine {mid}...")
+        _api("POST", f"/v1/apps/{APP_NAME}/machines/{mid}/start")
+        print("machine restarted")
+
+    print("done")
+
+
+def main() -> None:
+    args = sys.argv[1:]
+    if "--list" in args or "list" in args:
+        cmd_list()
+    elif "--volume" in args or "volume" in args:
+        cmd_volume()
+    else:
+        cmd_snapshot()
+
+
+if __name__ == "__main__":
+    main()

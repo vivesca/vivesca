@@ -60,7 +60,8 @@ def _fmt_guest(guest: dict) -> str:
 
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="gemmule-scale", description="Resize gemmule Fly.io machine")
-    p.add_argument("command", choices=["up", "down", "status"])
+    p.add_argument("command", choices=["up", "down", "status", "extend-vol"])
+    p.add_argument("--size-gb", type=int, default=20, help="Target volume size in GB (for extend-vol)")
     return p
 
 
@@ -116,11 +117,30 @@ def cmd_resize(direction: str) -> None:
     print(f"done: {old_desc} → {new_desc}")
 
 
+def cmd_extend_vol(size_gb: int) -> None:
+    """Extend the attached volume to size_gb."""
+    vols: list[dict] = _api("GET", f"/v1/apps/{APP_NAME}/volumes")  # type: ignore[assignment]
+    if not vols:
+        print(f"no volumes found for app '{APP_NAME}'")
+        sys.exit(1)
+    v = vols[0]
+    vid = v["id"]
+    old_size = v.get("size_gb", "?")
+    if old_size >= size_gb:
+        print(f"volume already {old_size}GB (requested {size_gb}GB), nothing to do")
+        return
+    print(f"extending volume {vid}: {old_size}GB → {size_gb}GB ...")
+    _api("PUT", f"/v1/apps/{APP_NAME}/volumes/{vid}/extend", {"size_gb": size_gb})
+    print(f"done: {old_size}GB → {size_gb}GB")
+
+
 def main(argv: list[str] | None = None) -> None:
     args = argv or sys.argv[1:]
     ns = build_parser().parse_args(args)
     if ns.command == "status":
         cmd_status()
+    elif ns.command == "extend-vol":
+        cmd_extend_vol(ns.size_gb)
     else:
         cmd_resize(ns.command)
 
