@@ -302,3 +302,175 @@ class TestMockedExecution:
 
         # Should contain "42" in the process count line
         assert "42" in result.stdout
+
+    def test_exactly_five_pkill_calls(self, tmp_path):
+        """Script calls pkill exactly 5 times (one per target pattern)."""
+        log = tmp_path / "calls.log"
+        fake_pkill = tmp_path / "pkill"
+        fake_pkill.write_text(
+            f'#!/bin/bash\necho "$@" >> {log}\nexit 0\n'
+        )
+        fake_pkill.chmod(0o755)
+        fake_ps = tmp_path / "ps"
+        fake_ps.write_text('#!/bin/bash\necho "USER PID CMD"\n')
+        fake_ps.chmod(0o755)
+        fake_wc = tmp_path / "wc"
+        fake_wc.write_text('#!/bin/bash\necho "3"\n')
+        fake_wc.chmod(0o755)
+
+        env = {
+            "PATH": f"{tmp_path}:{__import__('os').environ.get('PATH', '')}",
+        }
+        result = subprocess.run(
+            ["/bin/bash", str(SCRIPT)],
+            capture_output=True,
+            text=True,
+            timeout=10,
+            env=env,
+        )
+        assert result.returncode == 0
+
+        calls = log.read_text().strip().splitlines()
+        assert len(calls) == 5, f"Expected exactly 5 pkill calls, got {len(calls)}: {calls}"
+
+    def test_output_order(self, tmp_path):
+        """Messages appear in order: pyenv, claude/agent, playwright, count, done."""
+        fake_pkill = tmp_path / "pkill"
+        fake_pkill.write_text('#!/bin/bash\nexit 0\n')
+        fake_pkill.chmod(0o755)
+        fake_ps = tmp_path / "ps"
+        fake_ps.write_text('#!/bin/bash\necho "line1"\necho "line2"\n')
+        fake_ps.chmod(0o755)
+        fake_wc = tmp_path / "wc"
+        fake_wc.write_text('#!/bin/bash\necho "7"\n')
+        fake_wc.chmod(0o755)
+
+        env = {
+            "PATH": f"{tmp_path}:{__import__('os').environ.get('PATH', '')}",
+        }
+        result = subprocess.run(
+            ["/bin/bash", str(SCRIPT)],
+            capture_output=True,
+            text=True,
+            timeout=10,
+            env=env,
+        )
+        lines = [l.strip() for l in result.stdout.splitlines() if l.strip()]
+
+        # Find indices of key messages using specific keywords
+        idx_pyenv = next(i for i, l in enumerate(lines) if "pyenv" in l.lower())
+        idx_agent = next(i for i, l in enumerate(lines) if "claude" in l.lower() or "orphan" in l.lower())
+        idx_playwright = next(i for i, l in enumerate(lines) if "playwright" in l.lower())
+        idx_done = next(i for i, l in enumerate(lines) if "done" in l.lower())
+
+        assert idx_pyenv < idx_agent < idx_playwright < idx_done, (
+            f"Messages out of order: pyenv@{idx_pyenv}, agent@{idx_agent}, "
+            f"playwright@{idx_playwright}, done@{idx_done}"
+        )
+
+    def test_tr_strips_spaces_from_wc(self, tmp_path):
+        """wc -l output has leading spaces stripped by tr -d ' '."""
+        fake_pkill = tmp_path / "pkill"
+        fake_pkill.write_text('#!/bin/bash\nexit 0\n')
+        fake_pkill.chmod(0o755)
+        fake_ps = tmp_path / "ps"
+        fake_ps.write_text('#!/bin/bash\necho "a"\necho "b"\n')
+        fake_ps.chmod(0o755)
+        # wc on Linux outputs padded numbers like "      2"
+        fake_wc = tmp_path / "wc"
+        fake_wc.write_text('#!/bin/bash\necho "      2"\n')
+        fake_wc.chmod(0o755)
+
+        env = {
+            "PATH": f"{tmp_path}:{__import__('os').environ.get('PATH', '')}",
+        }
+        result = subprocess.run(
+            ["/bin/bash", str(SCRIPT)],
+            capture_output=True,
+            text=True,
+            timeout=10,
+            env=env,
+        )
+        # The process count line should contain "2" without leading spaces
+        count_lines = [l for l in result.stdout.splitlines() if "Process count" in l]
+        assert len(count_lines) == 1, f"Expected 1 process count line, got: {count_lines}"
+        # The number after "Process count:" should be clean
+        count_val = count_lines[0].split(":")[-1].strip()
+        assert count_val == "2", f"Expected '2', got '{count_val}'"
+
+    def test_no_stdin_consumed(self, tmp_path):
+        """Script does not read from stdin."""
+        fake_pkill = tmp_path / "pkill"
+        fake_pkill.write_text('#!/bin/bash\nexit 0\n')
+        fake_pkill.chmod(0o755)
+        fake_ps = tmp_path / "ps"
+        fake_ps.write_text('#!/bin/bash\necho "1"\n')
+        fake_ps.chmod(0o755)
+        fake_wc = tmp_path / "wc"
+        fake_wc.write_text('#!/bin/bash\necho "1"\n')
+        fake_wc.chmod(0o755)
+
+        env = {
+            "PATH": f"{tmp_path}:{__import__('os').environ.get('PATH', '')}",
+        }
+        result = subprocess.run(
+            ["/bin/bash", str(SCRIPT)],
+            capture_output=True,
+            text=True,
+            timeout=10,
+            env=env,
+            stdin=subprocess.DEVNULL,
+        )
+        assert result.returncode == 0
+
+
+# ── Additional content analysis ─────────────────────────────────────────
+
+
+class TestScriptContentAdditional:
+    """Deeper static analysis of the script contents."""
+
+    def test_has_terminal_advice_message(self):
+        """Script tells user to open a new terminal tab."""
+        content = SCRIPT.read_text()
+        assert "new terminal" in content.lower()
+
+    def test_each_echo_section_pairs_with_pkill(self):
+        """Each 'Killing...' echo is followed by at least one pkill command."""
+        content = SCRIPT.read_text()
+        lines = content.splitlines()
+
+        killing_sections = []
+        for i, line in enumerate(lines):
+            if line.strip().startswith("echo") and "Killing" in line:
+                killing_sections.append(i)
+
+        assert len(killing_sections) >= 3, (
+            f"Expected >=3 'Killing...' echo lines, found {len(killing_sections)}"
+        )
+
+        # Each echo section should be followed by at least one pkill before next echo
+        for idx, echo_line in enumerate(killing_sections):
+            end = killing_sections[idx + 1] if idx + 1 < len(killing_sections) else len(lines)
+            block = "\n".join(lines[echo_line:end])
+            assert "pkill" in block, (
+                f"No pkill after 'Killing' echo at line {echo_line + 1}: "
+                f"{lines[echo_line]}"
+            )
+
+    def test_no_dangerous_commands(self):
+        """Script does not contain rm -rf or other destructive filesystem commands."""
+        content = SCRIPT.read_text()
+        assert "rm " not in content
+        assert "rmdir" not in content
+        assert "mkfs" not in content
+        assert "dd " not in content
+
+    def test_all_pkill_redirected_to_devnull(self):
+        """Every pkill line redirects stderr to /dev/null."""
+        content = SCRIPT.read_text()
+        for line in content.splitlines():
+            if "pkill" in line:
+                assert "2>/dev/null" in line, (
+                    f"pkill line missing stderr redirect: {line.strip()}"
+                )
