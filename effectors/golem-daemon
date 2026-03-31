@@ -48,9 +48,9 @@ class QueueLock:
 
 # Per-provider concurrency limits
 PROVIDER_LIMITS = {
-    "zhipu": 4,
-    "infini": 6,
-    "volcano": 8,
+    "zhipu": 8,
+    "infini": 8,
+    "volcano": 16,
 }
 DEFAULT_LIMIT = 4  # Fallback for unknown providers
 
