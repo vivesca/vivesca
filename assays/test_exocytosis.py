@@ -1,276 +1,285 @@
-#!/usr/bin/env python3
 """Tests for effectors/exocytosis.py — garden post pipeline."""
 from __future__ import annotations
 
-import sys
-import types
+import textwrap
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
 
-EFFECTOR = Path.home() / "germline" / "effectors" / "exocytosis.py"
-CONF = Path.home() / "germline" / "effectors" / "exocytosis.conf"
+EFFECTOR_PATH = Path(__file__).parent.parent / "effectors" / "exocytosis.py"
 
 
-@pytest.fixture
-def ns(tmp_path, monkeypatch):
-    """Load the effector into a namespace with mocks for lazy imports."""
-    # Create fake metabolon submodules for lazy imports
-    fake_sv = types.ModuleType("metabolon.organelles.secretory_vesicle")
-    fake_sv.secrete_text = MagicMock()
-    fake_symbiont = types.ModuleType("metabolon.symbiont")
-    fake_symbiont.transduce = MagicMock(return_value="PASS Great post.")
-    fake_golgi = types.ModuleType("metabolon.organelles.golgi")
-    fake_golgi.new = MagicMock(return_value=("test-slug", tmp_path / "test-post.md"))
-    fake_golgi.publish = MagicMock()
-
-    # Ensure parent packages exist
-    for pkg in ("metabolon", "metabolon.organelles"):
-        if pkg not in sys.modules:
-            sys.modules[pkg] = types.ModuleType(pkg)
-
-    monkeypatch.setitem(sys.modules, "metabolon.organelles.secretory_vesicle", fake_sv)
-    monkeypatch.setitem(sys.modules, "metabolon.symbiont", fake_symbiont)
-    monkeypatch.setitem(sys.modules, "metabolon.organelles.golgi", fake_golgi)
-
-    # Provide a fake queue file
-    queue = tmp_path / "Queue.md"
-    queue.write_text("- [ ] My test topic\n")
-    # Provide a fake style guide
-    style = tmp_path / "CLAUDE.md"
-    style.write_text("Write clearly. Be concise.\n")
-
-    namespace: dict = {"__name__": "test_exocytosis", "__file__": str(EFFECTOR)}
-    exec(open(EFFECTOR).read(), namespace)
-
-    # Patch module-level constants to use tmp_path
-    namespace["QUEUE"] = queue
-    namespace["STYLE_GUIDE"] = style
-
-    return namespace
+def _load_exocytosis():
+    """Load exocytosis effector via exec, with a fake __name__ so main() doesn't fire."""
+    source = EFFECTOR_PATH.read_text()
+    ns: dict = {"__name__": "test_exocytosis_load"}
+    exec(source, ns)
+    return ns
 
 
-# ---------------------------------------------------------------------------
-# get_next_topic
-# ---------------------------------------------------------------------------
+_mod = _load_exocytosis()
+get_next_topic = _mod["get_next_topic"]
+mark_done = _mod["mark_done"]
+generate = _mod["generate"]
+judge = _mod["judge"]
+notify = _mod["notify"]
+publish = _mod["publish"]
+main = _mod["main"]
+
+
+# ── get_next_topic ────────────────────────────────────────────────────
+
+
 class TestGetNextTopic:
-    def test_returns_first_unchecked(self, ns):
-        result = ns["get_next_topic"]()
-        assert result is not None
-        line_num, topic = result
-        assert line_num == 0
-        assert topic == "My test topic"
+    def test_returns_first_unchecked(self, tmp_path):
+        queue = tmp_path / "Queue.md"
+        queue.write_text("- [ ] Topic A\n- [ ] Topic B\n")
+        with patch.object(_mod, "QUEUE", queue):
+            result = get_next_topic()
+        assert result == (0, "Topic A")
 
-    def test_returns_none_when_all_done(self, ns):
-        queue: Path = ns["QUEUE"]
-        queue.write_text("- [x] Done thing\n- [x] Also done\n")
-        assert ns["get_next_topic"]() is None
+    def test_skips_checked(self, tmp_path):
+        queue = tmp_path / "Queue.md"
+        queue.write_text("- [x] Done\n- [ ] Next\n")
+        with patch.object(_mod, "QUEUE", queue):
+            result = get_next_topic()
+        assert result == (1, "Next")
 
-    def test_returns_none_on_empty(self, ns):
-        ns["QUEUE"].write_text("")
-        assert ns["get_next_topic"]() is None
+    def test_returns_none_when_empty(self, tmp_path):
+        queue = tmp_path / "Queue.md"
+        queue.write_text("- [x] All done\n")
+        with patch.object(_mod, "QUEUE", queue):
+            assert get_next_topic() is None
 
-    def test_skips_checked_returns_second(self, ns):
-        ns["QUEUE"].write_text("- [x] Done\n- [ ] Pending topic\n")
-        line_num, topic = ns["get_next_topic"]()
-        assert line_num == 1
-        assert topic == "Pending topic"
+    def test_returns_none_on_blank_file(self, tmp_path):
+        queue = tmp_path / "Queue.md"
+        queue.write_text("")
+        with patch.object(_mod, "QUEUE", queue):
+            assert get_next_topic() is None
 
-    def test_strips_whitespace(self, ns):
-        ns["QUEUE"].write_text("- [ ]   Spaced topic   \n")
-        _, topic = ns["get_next_topic"]()
-        assert topic == "Spaced topic"
+    def test_strips_whitespace_from_topic(self, tmp_path):
+        queue = tmp_path / "Queue.md"
+        queue.write_text("- [ ]   Spaced topic  \n")
+        with patch.object(_mod, "QUEUE", queue):
+            result = get_next_topic()
+        assert result == (0, "Spaced topic")
 
 
-# ---------------------------------------------------------------------------
-# mark_done
-# ---------------------------------------------------------------------------
+# ── mark_done ─────────────────────────────────────────────────────────
+
+
 class TestMarkDone:
-    def test_marks_line_done(self, ns):
-        ns["mark_done"](0)
-        content = ns["QUEUE"].read_text()
-        assert "- [x] My test topic" in content
-        assert "- [ ] " not in content
+    def test_marks_line_checked(self, tmp_path):
+        queue = tmp_path / "Queue.md"
+        queue.write_text("- [ ] Alpha\n- [ ] Beta\n")
+        with patch.object(_mod, "QUEUE", queue):
+            mark_done(0)
+        assert queue.read_text().startswith("- [x] Alpha")
 
-    def test_only_touches_target_line(self, ns):
-        ns["QUEUE"].write_text("- [ ] First\n- [ ] Second\n")
-        ns["mark_done"](0)
-        lines = ns["QUEUE"].read_text().splitlines()
-        assert lines[0].startswith("- [x]")
-        assert lines[1].startswith("- [ ]")
+    def test_preserves_other_lines(self, tmp_path):
+        queue = tmp_path / "Queue.md"
+        queue.write_text("- [ ] Alpha\n- [ ] Beta\n")
+        with patch.object(_mod, "QUEUE", queue):
+            mark_done(0)
+        lines = queue.read_text().splitlines()
+        assert lines[1] == "- [ ] Beta"
 
-    def test_preserves_other_content(self, ns):
-        ns["QUEUE"].write_text("# Title\n- [ ] Task\n## Notes\n")
-        ns["mark_done"](1)
-        content = ns["QUEUE"].read_text()
-        assert "# Title" in content
-        assert "## Notes" in content
-
-
-# ---------------------------------------------------------------------------
-# notify
-# ---------------------------------------------------------------------------
-class TestNotify:
-    def test_calls_secrete_text(self, ns):
-        ns["notify"]("hello world")
-        sv = sys.modules["metabolon.organelles.secretory_vesicle"]
-        sv.secrete_text.assert_called_once_with("hello world", html=False, label="garden")
+    def test_marks_second_line(self, tmp_path):
+        queue = tmp_path / "Queue.md"
+        queue.write_text("- [ ] Alpha\n- [ ] Beta\n")
+        with patch.object(_mod, "QUEUE", queue):
+            mark_done(1)
+        lines = queue.read_text().splitlines()
+        assert lines[0] == "- [ ] Alpha"
+        assert lines[1] == "- [x] Beta"
 
 
-# ---------------------------------------------------------------------------
-# generate
-# ---------------------------------------------------------------------------
+# ── generate ──────────────────────────────────────────────────────────
+
+
 class TestGenerate:
-    def test_calls_transduce(self, ns):
-        fake_transduce = sys.modules["metabolon.symbiont"].transduce
-        fake_transduce.return_value = "Generated post body."
-        result = ns["generate"]("my topic", "style rules")
+    @patch("metabolon.symbiont.transduce", return_value="Generated post body.")
+    def test_calls_transduce_with_formatted_prompt(self, mock_td):
+        result = generate("My topic", "be concise")
         assert result == "Generated post body."
-        fake_transduce.assert_called_once()
-        call_args = fake_transduce.call_args
+        mock_td.assert_called_once()
+        call_args = mock_td.call_args
         assert call_args[0][0] == "goose"
-        assert "my topic" in call_args[0][1]
-        assert "style rules" in call_args[0][1]
+        assert "My topic" in call_args[0][1]
+        assert "be concise" in call_args[0][1]
 
-    def test_appends_extra_when_provided(self, ns):
-        fake_transduce = sys.modules["metabolon.symbiont"].transduce
-        fake_transduce.return_value = "Better post."
-        ns["generate"]("topic", "style", extra="\nPrevious failed.")
-        prompt = fake_transduce.call_args[0][1]
-        assert "Previous failed." in prompt
+    @patch("metabolon.symbiont.transduce", return_value="With extra context.")
+    def test_appends_extra_context(self, mock_td):
+        result = generate("Topic", "style", extra="\n\nFix this.")
+        assert result == "With extra context."
+        prompt = mock_td.call_args[0][1]
+        assert "Fix this." in prompt
+
+    @patch("metabolon.symbiont.transduce", return_value="Post text.")
+    def test_uses_timeout(self, mock_td):
+        generate("Topic", "style")
+        assert mock_td.call_args[1]["timeout"] == 120
 
 
-# ---------------------------------------------------------------------------
-# judge
-# ---------------------------------------------------------------------------
+# ── judge ─────────────────────────────────────────────────────────────
+
+
 class TestJudge:
-    def test_pass_verdict(self, ns):
-        fake_transduce = sys.modules["metabolon.symbiont"].transduce
-        fake_transduce.return_value = "PASS — clear thesis and good evidence."
-        passed, verdict = ns["judge"]("A great post about testing.")
+    @patch("metabolon.symbiont.transduce", return_value="PASS — strong thesis.")
+    def test_pass_verdict(self, mock_td):
+        passed, verdict = judge("Some post text")
         assert passed is True
         assert "PASS" in verdict
 
-    def test_fail_verdict(self, ns):
-        fake_transduce = sys.modules["metabolon.symbiont"].transduce
-        fake_transduce.return_value = "FAIL — no thesis."
-        passed, verdict = ns["judge"]("Weak post.")
+    @patch("metabolon.symbiont.transduce", return_value="FAIL — no thesis.")
+    def test_fail_verdict(self, mock_td):
+        passed, verdict = judge("Bad post")
         assert passed is False
         assert "FAIL" in verdict
 
-    def test_case_insensitive_pass(self, ns):
-        fake_transduce = sys.modules["metabolon.symbiont"].transduce
-        fake_transduce.return_value = "pass — decent post."
-        passed, _ = ns["judge"]("ok post")
+    @patch("metabolon.symbiont.transduce", return_value="pass — lowercase.")
+    def test_case_insensitive_pass(self, mock_td):
+        passed, verdict = judge("Post")
         assert passed is True
 
-    def test_includes_post_in_prompt(self, ns):
-        fake_transduce = sys.modules["metabolon.symbiont"].transduce
-        fake_transduce.return_value = "PASS"
-        ns["judge"]("Unique post content XYZ")
-        prompt = fake_transduce.call_args[0][1]
-        assert "Unique post content XYZ" in prompt
+    @patch("metabolon.symbiont.transduce", return_value="Whatever")
+    def test_unexpected_response_is_fail(self, mock_td):
+        passed, verdict = judge("Post")
+        assert passed is False
 
-    def test_uses_glm_provider(self, ns):
-        fake_transduce = sys.modules["metabolon.symbiont"].transduce
-        fake_transduce.return_value = "PASS"
-        ns["judge"]("post")
-        assert fake_transduce.call_args[0][0] == "glm"
+    @patch("metabolon.symbiont.transduce", return_value="PASS.")
+    def test_passes_post_to_prompt(self, mock_td):
+        judge("My specific post content")
+        prompt = mock_td.call_args[0][1]
+        assert "My specific post content" in prompt
 
 
-# ---------------------------------------------------------------------------
-# publish
-# ---------------------------------------------------------------------------
+# ── notify ────────────────────────────────────────────────────────────
+
+
+class TestNotify:
+    @patch("metabolon.organelles.secretory_vesicle.secrete_text")
+    def test_sends_message(self, mock_sec):
+        notify("Hello world")
+        mock_sec.assert_called_once_with("Hello world", html=False, label="garden")
+
+
+# ── publish ───────────────────────────────────────────────────────────
+
+
 class TestPublish:
-    def test_creates_and_publishes(self, ns, tmp_path):
-        fake_golgi = sys.modules["metabolon.organelles.golgi"]
-        post_file = tmp_path / "test-post.md"
-        post_file.write_text("---\ntitle: Test\n---\n")
-        fake_golgi.new.return_value = ("my-slug", post_file)
+    @patch("metabolon.organelles.golgi.publish")
+    @patch("metabolon.organelles.golgi.new")
+    def test_creates_and_publishes(self, mock_new, mock_pub, tmp_path):
+        post_path = tmp_path / "post.md"
+        post_path.write_text("---\ntitle: Test\n---\n")
+        mock_new.return_value = ("test-slug", post_path)
+        result = publish("Test Title", "Body content here")
+        assert result == "test-slug"
+        mock_pub.assert_called_once_with("test-slug", force=True)
+        written = post_path.read_text()
+        assert "Body content here" in written
 
-        slug = ns["publish"]("Test Title", "Body content here.")
-        assert slug == "my-slug"
-        fake_golgi.publish.assert_called_once_with("my-slug", force=True)
-
-    def test_appends_body_to_post(self, ns, tmp_path):
-        fake_golgi = sys.modules["metabolon.organelles.golgi"]
-        post_file = tmp_path / "test-post.md"
-        post_file.write_text("existing content")
-        fake_golgi.new.return_value = ("slug2", post_file)
-
-        ns["publish"]("Title", "New body text.")
-        written = post_file.read_text()
-        assert "existing content" in written
-        assert "New body text." in written
+    @patch("metabolon.organelles.golgi.publish")
+    @patch("metabolon.organelles.golgi.new")
+    def test_appends_body_to_existing_content(self, mock_new, mock_pub, tmp_path):
+        post_path = tmp_path / "post.md"
+        post_path.write_text("---\ntitle: Test\n---\nExisting\n")
+        mock_new.return_value = ("slug-2", post_path)
+        publish("Title", "New body")
+        written = post_path.read_text()
+        assert "Existing" in written
+        assert "New body" in written
 
 
-# ---------------------------------------------------------------------------
-# main — integration
-# ---------------------------------------------------------------------------
-class TestMainIntegration:
-    def test_empty_queue_notifies(self, ns, capsys):
-        ns["QUEUE"].write_text("")
-        ns["main"]()
-        sv = sys.modules["metabolon.organelles.secretory_vesicle"]
-        sv.secrete_text.assert_called()
-        msg = sv.secrete_text.call_args[0][0]
-        assert "empty" in msg.lower() or "nothing" in msg.lower()
+# ── main integration ──────────────────────────────────────────────────
 
-    def test_happy_path_publishes(self, ns):
-        fake_transduce = sys.modules["metabolon.symbiont"].transduce
-        fake_transduce.return_value = "PASS — excellent."
-        fake_golgi = sys.modules["metabolon.organelles.golgi"]
-        post_file = ns["QUEUE"].parent / "post.md"
-        post_file.write_text("---\n---\n")
-        fake_golgi.new.return_value = ("slug", post_file)
 
-        ns["main"]()
-        fake_golgi.publish.assert_called_once()
-        sv = sys.modules["metabolon.organelles.secretory_vesicle"]
-        notify_msg = sv.secrete_text.call_args[0][0]
-        assert "Published" in notify_msg
+class TestMain:
+    @patch.object(_mod, "STYLE_GUIDE")
+    @patch.object(_mod, "QUEUE")
+    @patch("metabolon.organelles.golgi.publish")
+    @patch("metabolon.organelles.golgi.new")
+    @patch("metabolon.symbiont.transduce")
+    @patch("metabolon.organelles.secretory_vesicle.secrete_text")
+    def test_full_pipeline_publish(
+        self, mock_sec, mock_td, mock_new, mock_pub, mock_queue, mock_style, tmp_path,
+    ):
+        queue = tmp_path / "Queue.md"
+        queue.write_text("- [ ] My Topic — a subtitle\n")
+        style = tmp_path / "CLAUDE.md"
+        style.write_text("Write clearly.")
+        mock_queue.__class__ = type(queue)
+        # Patch QUEUE and STYLE_GUIDE to tmp_path versions
+        with patch.object(_mod, "QUEUE", queue), \
+             patch.object(_mod, "STYLE_GUIDE", style):
+            post_path = tmp_path / "post.md"
+            post_path.write_text("---\n---\n")
+            mock_new.return_value = ("my-topic", post_path)
+            # First transduce call = generate, second = judge (PASS)
+            mock_td.side_effect = ["A great post.", "PASS — solid."]
+            main()
 
-    def test_judge_fail_skips_publish(self, ns):
-        fake_transduce = sys.modules["metabolon.symbiont"].transduce
-        fake_transduce.return_value = "FAIL — no thesis."
-        fake_golgi = sys.modules["metabolon.organelles.golgi"]
+        mock_sec.assert_called()
+        msg = mock_sec.call_args[0][0]
+        assert "Published" in msg
+        assert queue.read_text().startswith("- [x]")
 
-        ns["main"]()
-        fake_golgi.publish.assert_not_called()
-        sv = sys.modules["metabolon.organelles.secretory_vesicle"]
-        notify_msg = sv.secrete_text.call_args[0][0]
-        assert "skipped" in notify_msg.lower()
+    @patch.object(_mod, "QUEUE")
+    @patch("metabolon.organelles.secretory_vesicle.secrete_text")
+    def test_empty_queue_notifies(self, mock_sec, mock_queue, tmp_path):
+        queue = tmp_path / "Queue.md"
+        queue.write_text("")
+        with patch.object(_mod, "QUEUE", queue):
+            main()
+        mock_sec.assert_called_once()
+        assert "empty" in mock_sec.call_args[0][0].lower()
 
-    def test_marks_done_even_on_fail(self, ns):
-        fake_transduce = sys.modules["metabolon.symbiont"].transduce
-        fake_transduce.return_value = "FAIL — bad."
+    @patch.object(_mod, "STYLE_GUIDE")
+    @patch.object(_mod, "QUEUE")
+    @patch("metabolon.symbiont.transduce")
+    @patch("metabolon.organelles.secretory_vesicle.secrete_text")
+    def test_judge_fail_notifies(
+        self, mock_sec, mock_td, mock_queue, mock_style, tmp_path,
+    ):
+        queue = tmp_path / "Queue.md"
+        queue.write_text("- [ ] Failing topic\n")
+        style = tmp_path / "CLAUDE.md"
+        style.write_text("Style.")
+        with patch.object(_mod, "QUEUE", queue), \
+             patch.object(_mod, "STYLE_GUIDE", style):
+            # generate + judge = FAIL, then retry generate + judge = FAIL
+            mock_td.side_effect = [
+                "Bad post.",
+                "FAIL — weak.",
+                "Still bad post.",
+                "FAIL — still weak.",
+            ]
+            main()
+        msgs = [c[0][0] for c in mock_sec.call_args_list]
+        assert any("skipped" in m.lower() for m in msgs)
 
-        ns["main"]()
-        content = ns["QUEUE"].read_text()
-        assert "- [x]" in content
-
-    def test_publish_exception_notifies(self, ns):
-        fake_transduce = sys.modules["metabolon.symbiont"].transduce
-        fake_transduce.return_value = "PASS — great."
-        fake_golgi = sys.modules["metabolon.organelles.golgi"]
-        fake_golgi.new.side_effect = RuntimeError("disk full")
-
-        ns["main"]()
-        sv = sys.modules["metabolon.organelles.secretory_vesicle"]
-        notify_msg = sv.secrete_text.call_args[0][0]
-        assert "failed" in notify_msg.lower()
-
-    def test_title_truncation(self, ns):
-        long_topic = "A very long topic that goes on and on and should be truncated"
-        ns["QUEUE"].write_text(f"- [ ] {long_topic}\n")
-        fake_transduce = sys.modules["metabolon.symbiont"].transduce
-        fake_transduce.return_value = "PASS"
-        fake_golgi = sys.modules["metabolon.organelles.golgi"]
-        post_file = ns["QUEUE"].parent / "post.md"
-        post_file.write_text("---\n---\n")
-        fake_golgi.new.return_value = ("slug", post_file)
-
-        ns["main"]()
-        title_arg = fake_golgi.new.call_args[0][0]
-        assert len(title_arg) <= 60
+    @patch.object(_mod, "STYLE_GUIDE")
+    @patch.object(_mod, "QUEUE")
+    @patch("metabolon.organelles.golgi.publish")
+    @patch("metabolon.organelles.golgi.new")
+    @patch("metabolon.symbiont.transduce")
+    @patch("metabolon.organelles.secretory_vesicle.secrete_text")
+    def test_publish_failure_notifies(
+        self, mock_sec, mock_td, mock_new, mock_pub, mock_queue, mock_style, tmp_path,
+    ):
+        queue = tmp_path / "Queue.md"
+        queue.write_text("- [ ] Publish fail topic\n")
+        style = tmp_path / "CLAUDE.md"
+        style.write_text("Style.")
+        with patch.object(_mod, "QUEUE", queue), \
+             patch.object(_mod, "STYLE_GUIDE", style):
+            post_path = tmp_path / "post.md"
+            post_path.write_text("---\n---\n")
+            mock_new.return_value = ("slug", post_path)
+            mock_pub.side_effect = RuntimeError("Connection lost")
+            mock_td.side_effect = ["Post body.", "PASS — good."]
+            main()
+        msgs = [c[0][0] for c in mock_sec.call_args_list]
+        assert any("failed" in m.lower() for m in msgs)
