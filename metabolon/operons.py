@@ -187,7 +187,7 @@ def co_regulated(operon: Operon) -> list[Operon]:
     return shared
 
 
-def unclaimed_enzymes(known_enzymes: list[str]) -> list[Operon]:
+def unclaimed_enzymes(known_enzymes: list[str]) -> list[str]:
     """Enzymes that exist but no operon claims them."""
     claimed = {e for op in OPERONS for e in op.enzymes}
     return [e for e in known_enzymes if e not in claimed]

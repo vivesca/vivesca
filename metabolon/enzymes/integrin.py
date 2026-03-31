@@ -1354,3 +1354,8 @@ def integrin(
             skill_path_broken=[],
             untested_code=[],
         )
+
+
+# Public aliases for pore.py imports
+integrin_probe = _run_probe
+integrin_apoptosis_check = _run_apoptosis_check

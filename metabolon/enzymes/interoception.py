@@ -128,6 +128,16 @@ class RetrogradeResult(Secretion):
     summary: str
 
 
+def _sleep_result(period: str = "today") -> CircadianResult:
+    """Wrapper for circadian.py — delegates to interoception(action='sleep')."""
+    return interoception(action="sleep", period=period)  # type: ignore[return-value]
+
+
+def _heartrate_result(start_datetime: str = "", end_datetime: str = "") -> HeartRateResult:
+    """Wrapper for circadian.py — delegates to interoception(action='heartrate')."""
+    return interoception(action="heartrate", start_datetime=start_datetime, end_datetime=end_datetime)  # type: ignore[return-value]
+
+
 def _health_log_path() -> str:
     from metabolon import locus
 
