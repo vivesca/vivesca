@@ -6,7 +6,6 @@ Absorbs: secretory (emit_*), deltos (exocytosis_*), pseudopod endocytosis_extrac
 
 from __future__ import annotations
 
-import contextlib
 import os
 import re
 from datetime import date as _date, datetime, timedelta, timezone

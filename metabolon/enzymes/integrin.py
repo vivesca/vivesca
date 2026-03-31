@@ -44,7 +44,6 @@ from typing import Any
 import yaml
 from fastmcp.tools import tool
 from mcp.types import ToolAnnotations
-from pydantic import Field
 
 from metabolon.cytosol import VIVESCA_ROOT
 from metabolon.morphology import Secretion

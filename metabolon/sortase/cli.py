@@ -15,8 +15,8 @@ from metabolon.sortase.coaching_cli import coaching as coaching_group
 from metabolon.sortase.decompose import decompose_plan
 from metabolon.sortase.diff_viewer import find_task_commit, format_diff_summary, get_task_diff
 from metabolon.sortase.linter import lint_plan as structured_lint, format_lint_report
-from metabolon.sortase.executor import execute_tasks, list_running, summarize_cost_estimates, _write_status_entries, _read_status_entries
-from metabolon.sortase.history import build_history_entries, build_history_table, display_history
+from metabolon.sortase.executor import execute_tasks, list_running, summarize_cost_estimates, _write_status_entries
+from metabolon.sortase.history import build_history_entries, build_history_table
 from metabolon.sortase.logger import aggregate_stats, analyze_logs, append_log, read_logs, resolve_log_path
 from metabolon.sortase.compare import compare_sessions, format_compare_report
 from metabolon.sortase.overnight import compute_overnight_stats, format_overnight_report, load_overnight_entries

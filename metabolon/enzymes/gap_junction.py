@@ -9,7 +9,7 @@ from __future__ import annotations
 from fastmcp.tools import tool
 from mcp.types import ToolAnnotations
 
-from metabolon.morphology import Secretion, Vital
+from metabolon.morphology import Secretion
 
 GAP_JUNCTION_CONTACTS = {"tara", "mum", "dad", "brother", "sister", "yujie"}
 

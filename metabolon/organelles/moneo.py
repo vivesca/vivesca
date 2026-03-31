@@ -12,7 +12,6 @@ from dataclasses import dataclass
 from datetime import UTC, date, datetime, time as dt_time, timedelta
 from pathlib import Path
 from typing import Any, NoReturn
-from urllib.parse import quote
 from zoneinfo import ZoneInfo
 
 HKT = ZoneInfo("Asia/Hong_Kong")

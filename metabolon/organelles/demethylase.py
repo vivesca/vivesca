@@ -17,7 +17,6 @@ ones, strengthens accessed ones, and protects critical corrections.
 from __future__ import annotations
 
 import json
-import math
 import re
 import shlex
 import subprocess
@@ -269,7 +268,6 @@ def consolidate(marks_dir: Path | None = None) -> ConsolidationReport:
                                    Update the methylome index with new clusters.
                                    Strengthen marks that were accessed (reinforce active regions).
     """
-    from datetime import timedelta
 
     marks_dir = marks_dir or MARKS_DIR
     report = ConsolidationReport()

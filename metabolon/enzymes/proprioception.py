@@ -292,7 +292,6 @@ def _drill(
     notes: str = "",
 ) -> str:
     """Record a proprioceptive drill signal."""
-    from metabolon.morphology import EffectorResult
     from metabolon.organelles.receptor_sense import (
         SIGNALS_DIR as _ORGANELLE_SIGNALS_DIR,
         ProprioceptiveStore,

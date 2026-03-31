@@ -3,17 +3,15 @@
 # requires-python = ">=3.11"
 # dependencies = []
 # ///
-"""queue-stats — Summarize golem task queue status.
+"""queue-stats — Summary statistics for the golem task queue.
 
-Reads golem-queue.md and golem.jsonl to show:
-  - Pending / Done / Failed counts
-  - Tasks per provider breakdown
-  - Estimated completion time (based on historical avg duration)
+Reads golem-queue.md for pending/done/failed counts and tasks per provider.
+Reads golem.jsonl for historical durations to estimate completion time.
 
 Usage:
-    queue-stats              # Show stats
+    queue-stats              # Show full stats
+    queue-stats --no-color   # No ANSI colors
     queue-stats --json       # Machine-readable JSON output
-    queue-stats --no-color   # Disable ANSI colors
 """
 from __future__ import annotations
 
@@ -22,11 +20,14 @@ import re
 import sys
 from collections import defaultdict
 from pathlib import Path
+from datetime import datetime, timezone
 
+# Paths
+VIVESCA_DIR = Path.home() / ".local" / "share" / "vivesca"
+JSONL_PATH = VIVESCA_DIR / "golem.jsonl"
 QUEUE_PATH = Path.home() / "germline" / "loci" / "golem-queue.md"
-JSONL_PATH = Path.home() / ".local" / "share" / "vivesca" / "golem.jsonl"
 
-# ANSI colors
+# ANSI
 GREEN = "\033[32m"
 RED = "\033[31m"
 YELLOW = "\033[33m"
@@ -36,74 +37,70 @@ DIM = "\033[2m"
 RESET = "\033[0m"
 
 
-def parse_queue(path: Path) -> dict:
-    """Parse golem-queue.md and return structured task data.
+def parse_queue(queue_path: Path) -> dict:
+    """Parse golem-queue.md, return counts and per-provider breakdown.
 
     Returns dict with keys:
-        pending: int
-        done: int
-        failed: int
-        by_provider: dict[str, dict(status -> int)]
-        pending_details: list[dict(provider, max_turns, line)]
-        failed_details: list[dict(provider, max_turns, line)]
+        pending, done, failed, total,
+        providers: {name: {"pending": n, "done": n, "failed": n, "total": n}},
+        sections: {section_name: {"pending": n, "done": n, "failed": n}}
     """
     result = {
         "pending": 0,
         "done": 0,
         "failed": 0,
-        "by_provider": defaultdict(lambda: {"pending": 0, "done": 0, "failed": 0}),
-        "pending_details": [],
-        "failed_details": [],
+        "total": 0,
+        "providers": defaultdict(lambda: {"pending": 0, "done": 0, "failed": 0, "total": 0}),
+        "sections": {},
     }
 
-    if not path.exists():
+    if not queue_path.exists():
         return result
 
-    for line in path.read_text().splitlines():
-        # Pending: - [ ] `golem ...`
-        m = re.match(r"^- \[ \] `([^`]+)`", line)
-        if m:
-            result["pending"] += 1
-            provider, turns = _extract_provider_turns(m.group(1))
-            result["by_provider"][provider]["pending"] += 1
-            result["pending_details"].append({
-                "provider": provider,
-                "max_turns": turns,
-            })
+    current_section = "(root)"
+    section_counts: dict[str, dict] = {}
+
+    for line in queue_path.read_text().splitlines():
+        # Track sections (### and #### headers)
+        sec_match = re.match(r'^#{2,4}\s+(.+)', line)
+        if sec_match:
+            current_section = sec_match.group(1).strip()
+            if current_section not in section_counts:
+                section_counts[current_section] = {"pending": 0, "done": 0, "failed": 0}
             continue
 
-        # Done: - [x] `golem ...`
-        m = re.match(r"^- \[x\] `([^`]+)`", line)
-        if m:
-            result["done"] += 1
-            provider, turns = _extract_provider_turns(m.group(1))
-            result["by_provider"][provider]["done"] += 1
+        # Parse task lines
+        m = re.match(r'^- \[( |x|!)\] `([^`]+)`', line)
+        if not m:
             continue
 
-        # Failed: - [!] `golem ...`
-        m = re.match(r"^- \[!\] `([^`]+)`", line)
-        if m:
-            result["failed"] += 1
-            provider, turns = _extract_provider_turns(m.group(1))
-            result["by_provider"][provider]["failed"] += 1
-            result["failed_details"].append({
-                "provider": provider,
-                "max_turns": turns,
-            })
-            continue
+        status_char = m.group(1)
+        command = m.group(2)
 
+        if status_char == ' ':
+            status = "pending"
+        elif status_char == 'x':
+            status = "done"
+        else:  # !
+            status = "failed"
+
+        result[status] += 1
+        result["total"] += 1
+
+        # Track section
+        if current_section not in section_counts:
+            section_counts[current_section] = {"pending": 0, "done": 0, "failed": 0}
+        section_counts[current_section][status] += 1
+
+        # Extract provider from command
+        prov_match = re.search(r'--provider\s+(\w+)', command)
+        provider = prov_match.group(1) if prov_match else "unknown"
+
+        result["providers"][provider][status] += 1
+        result["providers"][provider]["total"] += 1
+
+    result["sections"] = section_counts
     return result
-
-
-def _extract_provider_turns(cmd: str) -> tuple[str, int]:
-    """Extract provider name and max-turns from a golem command string."""
-    provider_match = re.search(r"--provider\s+(\S+)", cmd)
-    provider = provider_match.group(1) if provider_match else "unknown"
-
-    turns_match = re.search(r"--max-turns\s+(\d+)", cmd)
-    turns = int(turns_match.group(1)) if turns_match else 0
-
-    return provider, turns
 
 
 def load_jsonl(path: Path) -> list[dict]:
@@ -111,7 +108,7 @@ def load_jsonl(path: Path) -> list[dict]:
     if not path.exists():
         return []
     records = []
-    for line in path.read_text(errors="replace").splitlines():
+    for line in path.read_text().splitlines():
         line = line.strip()
         if not line:
             continue
@@ -122,82 +119,94 @@ def load_jsonl(path: Path) -> list[dict]:
     return records
 
 
-def estimate_completion(queue_data: dict, records: list[dict]) -> str:
-    """Estimate time to complete all pending + retryable failed tasks.
-
-    Uses average duration per provider from JSONL history.
-    Falls back to a rough estimate if no history exists.
-    """
-    pending = queue_data["pending"]
-    failed = queue_data["failed"]
-    remaining = pending + failed
-
-    if remaining == 0:
-        return "0s (queue empty)"
-
-    # Build avg duration per provider from JSONL
-    durations_by_provider: dict[str, list[float]] = defaultdict(list)
+def compute_avg_durations(records: list[dict]) -> dict[str, float]:
+    """Compute average duration per provider from JSONL records."""
+    durations: dict[str, list[float]] = defaultdict(list)
     for r in records:
         provider = r.get("provider", "unknown")
         dur = r.get("duration")
-        if dur is not None and r.get("exit") == 0:
-            durations_by_provider[provider].append(dur)
+        if dur is not None and isinstance(dur, (int, float)):
+            durations[provider].append(float(dur))
+    return {
+        provider: sum(ds) / len(ds) if ds else 0.0
+        for provider, ds in durations.items()
+    }
 
-    avg_by_provider: dict[str, float] = {}
-    for provider, durs in durations_by_provider.items():
-        avg_by_provider[provider] = sum(durs) / len(durs) if durs else 0
 
-    # Global average fallback
-    all_durs = [d for ds in durations_by_provider.values() for d in ds]
-    global_avg = sum(all_durs) / len(all_durs) if all_durs else 300  # 5 min guess
+def estimate_completion(queue_data: dict, avg_durations: dict[str, float], concurrency: dict[str, int] | None = None) -> str:
+    """Estimate time to complete all pending+failed tasks.
 
-    # Estimate total work: sum of avg durations for pending+failed tasks
+    Uses historical avg duration per provider and assumes concurrent execution.
+    Default concurrency: zhipu=4, infini=6, volcano=8 (from queue header).
+    """
+    if concurrency is None:
+        concurrency = {"zhipu": 4, "infini": 6, "volcano": 8}
+
+    pending_per_provider: dict[str, int] = {}
+    for provider, counts in queue_data["providers"].items():
+        n_pending = counts["pending"] + counts["failed"]
+        if n_pending > 0:
+            pending_per_provider[provider] = n_pending
+
+    if not pending_per_provider:
+        return "No pending tasks."
+
+    # For each provider: time = ceil(tasks / concurrency) * avg_duration
     total_seconds = 0.0
-    for task in queue_data["pending_details"]:
-        avg = avg_by_provider.get(task["provider"], global_avg)
-        total_seconds += avg
-    for task in queue_data["failed_details"]:
-        avg = avg_by_provider.get(task["provider"], global_avg)
-        total_seconds += avg
+    details: list[str] = []
 
-    # With concurrent execution: divide by number of concurrent slots
-    # From queue header: ZhiPu(4) + Infini(6) + Volcano(8) = 18 concurrent
-    concurrent = _count_concurrent_slots()
-    if concurrent < 1:
-        concurrent = 1
-    estimated_seconds = total_seconds / concurrent
+    for provider in sorted(pending_per_provider):
+        n = pending_per_provider[provider]
+        avg_dur = avg_durations.get(provider, 0)
+        conc = concurrency.get(provider, 1)
 
-    return _format_duration(estimated_seconds)
+        if avg_dur <= 0:
+            details.append(f"{provider}: {n} tasks (no duration data)")
+            continue
 
+        batches = -(-n // conc)  # ceil division
+        est_seconds = batches * avg_dur
+        total_seconds = max(total_seconds, est_seconds)  # parallel = max wall time
+        details.append(f"{provider}: {n} tasks, ~{format_duration(est_seconds)} est")
 
-def _count_concurrent_slots() -> int:
-    """Try to extract concurrency from queue header comment."""
-    if not QUEUE_PATH.exists():
-        return 18
-    header = QUEUE_PATH.read_text().split("\n## Pending")[0] if "\n## Pending" in QUEUE_PATH.read_text() else ""
-    m = re.search(r"(\d+)\s+concurrent", header)
-    if m:
-        return int(m.group(1))
-    # Default from the queue header pattern
-    return 18
+    wall_time = format_duration(total_seconds)
+    return f"{wall_time} (parallel: {'; '.join(details)})"
 
 
-def _format_duration(seconds: float) -> str:
-    """Format seconds into human-readable duration."""
-    if seconds < 60:
-        return f"{seconds:.0f}s"
-    if seconds < 3600:
-        m = seconds / 60
-        return f"{m:.0f}m" if m == int(m) else f"{m:.1f}m"
-    h = seconds / 3600
-    if h < 24:
-        return f"{h:.1f}h"
-    d = h / 24
-    return f"{d:.1f}d"
+def format_duration(seconds: float) -> str:
+    """Format seconds into human-readable duration string."""
+    if seconds <= 0:
+        return "0m"
+    hours = int(seconds // 3600)
+    minutes = int((seconds % 3600) // 60)
+    if hours > 0:
+        return f"{hours}h {minutes}m"
+    return f"{minutes}m"
 
 
-def format_stats(queue_data: dict, records: list[dict], use_color: bool = True) -> str:
-    """Build the full stats report as a string."""
+def print_stats(queue_path: Path = QUEUE_PATH, jsonl_path: Path = JSONL_PATH,
+                use_color: bool = True, json_output: bool = False) -> int:
+    """Print queue statistics."""
+    queue_data = parse_queue(queue_path)
+    records = load_jsonl(jsonl_path)
+    avg_durations = compute_avg_durations(records)
+    est = estimate_completion(queue_data, avg_durations)
+
+    if json_output:
+        output = {
+            "pending": queue_data["pending"],
+            "done": queue_data["done"],
+            "failed": queue_data["failed"],
+            "total": queue_data["total"],
+            "providers": dict(queue_data["providers"]),
+            "sections": queue_data["sections"],
+            "estimated_completion": est,
+            "avg_durations_sec": avg_durations,
+        }
+        print(json.dumps(output, indent=2))
+        return 0
+
+    # Color helpers
     g = GREEN if use_color else ""
     r = RED if use_color else ""
     y = YELLOW if use_color else ""
@@ -206,89 +215,65 @@ def format_stats(queue_data: dict, records: list[dict], use_color: bool = True) 
     d = DIM if use_color else ""
     rst = RESET if use_color else ""
 
-    pending = queue_data["pending"]
-    done = queue_data["done"]
-    failed = queue_data["failed"]
-    total = pending + done + failed
+    # 1. Overall status
+    print(f"\n{b}Queue Overview{rst}")
+    print(f"  Pending: {c}{queue_data['pending']}{rst}  "
+          f"Done: {g}{queue_data['done']}{rst}  "
+          f"Failed: {r}{queue_data['failed']}{rst}  "
+          f"Total: {b}{queue_data['total']}{rst}")
 
-    lines: list[str] = []
+    pct_done = (queue_data['done'] / queue_data['total'] * 100) if queue_data['total'] else 0
+    bar_width = 30
+    filled = int(pct_done / 100 * bar_width)
+    bar = f"  [{g}{'=' * filled}{rst}{'-' * (bar_width - filled)}] {pct_done:.1f}% done"
+    print(bar)
 
-    # Section 1: Overall counts
-    lines.append(f"{b}Queue Summary{rst}")
-    pct_done = (done / total * 100) if total else 0
-    lines.append(
-        f"  Pending: {c}{pending}{rst}  "
-        f"Done: {g}{done}{rst}  "
-        f"Failed: {r}{failed}{rst}  "
-        f"Total: {b}{total}{rst}  "
-        f"({pct_done:.0f}% complete)"
-    )
+    # 2. Tasks per provider
+    print(f"\n{b}Tasks per Provider{rst}")
+    header = f"  {'Provider':<10} {'Pending':>7} {'Done':>7} {'Failed':>7} {'Total':>7} {'AvgDur':>8}"
+    sep = "  " + "-" * 50
+    print(header)
+    print(sep)
 
-    # Section 2: Tasks per provider
-    lines.append(f"\n{b}Tasks per Provider{rst}")
-    lines.append(f"  {'Provider':<10} {'Pending':>8} {'Done':>8} {'Failed':>8} {'Total':>8}")
-    lines.append(f"  {'-' * 44}")
-    for provider in sorted(queue_data["by_provider"]):
-        s = queue_data["by_provider"][provider]
-        t = s["pending"] + s["done"] + s["failed"]
-        p_str = f"{c}{s['pending']}{rst}" if use_color else str(s["pending"])
-        d_str = f"{g}{s['done']}{rst}" if use_color else str(s["done"])
-        f_str = f"{r}{s['failed']}{rst}" if use_color else str(s["failed"])
-        lines.append(f"  {provider:<10} {p_str:>8} {d_str:>8} {f_str:>8} {t:>8}")
+    for provider in sorted(queue_data["providers"]):
+        counts = queue_data["providers"][provider]
+        avg_dur = avg_durations.get(provider, 0)
+        avg_str = f"{avg_dur:.0f}s" if avg_dur > 0 else "-"
 
-    # Section 3: Estimated completion time
-    lines.append(f"\n{b}Estimated Completion{rst}")
-    est = estimate_completion(queue_data, records)
-    remaining = pending + failed
-    lines.append(f"  {remaining} tasks remaining \u2192 ~{est}")
+        p_str = f"{c}{counts['pending']}{rst}" if use_color else str(counts["pending"])
+        d_str = f"{g}{counts['done']}{rst}" if use_color else str(counts["done"])
+        f_str = f"{r}{counts['failed']}{rst}" if use_color else str(counts["failed"])
 
-    return "\n".join(lines)
+        print(f"  {provider:<10} {p_str:>7} {d_str:>7} {f_str:>7} {counts['total']:>7} {avg_str:>8}")
 
+    # 3. Estimated completion
+    print(f"\n{b}Estimated Completion{rst}")
+    print(f"  {est}")
 
-def format_json(queue_data: dict, records: list[dict]) -> str:
-    """Build JSON output for machine consumption."""
-    pending = queue_data["pending"]
-    done = queue_data["done"]
-    failed = queue_data["failed"]
-    total = pending + done + failed
-    remaining = pending + failed
+    # 4. Top sections by pending count
+    pending_sections = [
+        (name, s["pending"]) for name, s in queue_data["sections"].items()
+        if s["pending"] > 0
+    ]
+    if pending_sections:
+        pending_sections.sort(key=lambda x: x[1], reverse=True)
+        print(f"\n{b}Sections with Pending Tasks{rst}")
+        for name, count in pending_sections[:10]:
+            sec_data = queue_data["sections"][name]
+            total_sec = sec_data["pending"] + sec_data["done"] + sec_data["failed"]
+            print(f"  {d}{name}{rst}  {count} pending / {total_sec} total")
 
-    output = {
-        "pending": pending,
-        "done": done,
-        "failed": failed,
-        "total": total,
-        "pct_complete": round(done / total * 100, 1) if total else 0,
-        "by_provider": {
-            provider: dict(stats)
-            for provider, stats in sorted(queue_data["by_provider"].items())
-        },
-        "tasks_remaining": remaining,
-        "estimated_completion": estimate_completion(queue_data, records),
-    }
-    return json.dumps(output, indent=2)
+    print()
+    return 0
 
 
 def main(argv: list[str] | None = None) -> int:
     args = argv if argv is not None else sys.argv[1:]
     use_color = True
-    use_json = False
-
+    json_output = "--json" in args
     if "--no-color" in args:
         use_color = False
-    if "--json" in args:
-        use_json = True
-
-    queue_data = parse_queue(QUEUE_PATH)
-    records = load_jsonl(JSONL_PATH)
-
-    if use_json:
-        print(format_json(queue_data, records))
-    else:
-        print(format_stats(queue_data, records, use_color))
-        print()
-
-    return 0
+    return print_stats(use_color=use_color, json_output=json_output)
 
 
 if __name__ == "__main__":

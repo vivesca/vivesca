@@ -7,7 +7,7 @@ paths, placeholder markers, and absent do-NOT instructions.
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 
 @dataclass
