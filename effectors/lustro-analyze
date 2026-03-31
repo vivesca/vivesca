@@ -151,7 +151,7 @@ def extract_themes(articles: list[dict], top_n: int = 15) -> list[tuple[str, int
     ]
 
     all_text = " ".join(
-        f"{a['title']} {a.get('text', '')[:1500]}" for a in articles
+        f"{a['title']} {(a.get('text') or '')[:1500]}" for a in articles
     ).lower()
 
     theme_counts: list[tuple[str, int]] = []
