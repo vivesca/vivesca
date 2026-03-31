@@ -1,6 +1,6 @@
 ---
 name: mitogen
-description: Autonomous bulk improvement campaign — audit gaps, dispatch golem, verify, commit. "go build", "work on everything", "blitz"
+description: Dispatch golem for any build task — bulk campaigns or single features. "build", "implement", "dispatch", "go build", "blitz", "batch"
 model: opus
 user_invocable: true
 allowed-tools:
@@ -20,7 +20,11 @@ Biology: a mitogen is a signal that triggers rapid cell proliferation. `/mitogen
 
 ## When to trigger
 
-User says: "go build", "work on everything", "blitz", "keep going while I'm away", or invokes `/mitogen` directly.
+User says: "build", "implement", "dispatch", "spec this", "batch", "go build", "blitz", "keep going while I'm away", or invokes `/mitogen` directly.
+
+**Two modes:**
+- **Directed** — user specifies what to build → skip to Phase 2
+- **Autonomous** — user says "blitz" / "work on everything" → Phase 1 audit first
 
 ## Process
 
