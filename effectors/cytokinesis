@@ -164,7 +164,7 @@ def rfts_verify() -> list[dict]:
 
         # Check file path references (~/path/to/thing or absolute home path)
         # Must have at least 2 path segments to avoid matching skill names like /ecphory
-        _home_prefixes = (f"/Users/{os.getenv('USER', 'terry')}", str(home))
+        _home_prefixes = (str(home),)
         _home_re = "|".join(re.escape(p) for p in _home_prefixes)
         for m in re.finditer(rf"[`~]((?:/[\w.-]+){{2,}})|({_home_re}(?:/[\w.-]+){{2,}})", content):
             ref_path = m.group(1) or m.group(2)
@@ -586,7 +586,7 @@ def _since_flag(hours: int = 2) -> str:
 
 def _gather_filed(hours: int = 2) -> list[str]:
     """List memory files created/modified in the last N hours."""
-    mem_dir = home / ".claude" / "projects" / "-Users-terry" / "memory"
+    mem_dir = home / ".claude" / "projects" / ("-" + str(germline).lstrip("/").replace("/", "-")) / "memory"
     since = _since_flag(hours)
     try:
         # Committed today
