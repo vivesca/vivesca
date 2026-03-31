@@ -47,7 +47,7 @@ def _make_jsonl(tmp: Path) -> Path:
             "exit": 0,
             "turns": 20,
             "prompt": "Write tests for effectors/foo",
-            "tail": "All tests pass: 18 passed",
+            "tail": "All tests pass: uv run pytest -q 18 passed",
             "files_created": 3,
             "tests_passed": 18,
             "tests_failed": 0,
