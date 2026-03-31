@@ -1,112 +1,55 @@
-from __future__ import annotations
-
-"""Tests for judge effector script — LLM quality gate for content evaluation."""
-
-import os
-import subprocess
+"""Tests for judge.py."""
 import pytest
-from pathlib import Path
+from unittest.mock import patch, MagicMock
 
-JUDGE_PATH = Path(__file__).parent.parent / "effectors" / "judge"
-assert JUDGE_PATH.exists(), f"judge effector not found at {JUDGE_PATH}"
-
-
-def test_judge_is_executable():
-    """Test judge script has executable permissions."""
-    assert JUDGE_PATH.is_file(), "judge is not a file"
-    assert (JUDGE_PATH.stat().st_mode & 0o111) != 0, "judge script is not executable"
+from metabolon.enzymes.judge import judge_evaluate
 
 
-def test_judge_has_valid_python_syntax():
-    """Check that Python syntax is valid."""
-    # Use python -m py_compile to check syntax
-    result = subprocess.run(
-        ["uv", "run", "python", "-m", "py_compile", str(JUDGE_PATH)],
-        capture_output=True,
-        text=True,
-    )
-    assert result.returncode == 0, f"Syntax errors in judge script: {result.stderr}"
+def test_judge_evaluate_invalid_rubric():
+    """Test that ValueError is raised for invalid rubrics."""
+    with pytest.raises(ValueError) as excinfo:
+        judge_evaluate("invalid_rubric", "content")
+    assert "Invalid rubric 'invalid_rubric'" in str(excinfo.value)
+    assert "article, job-eval, outreach" in str(excinfo.value)
 
 
-def test_judge_help_works():
-    """Test --help output works."""
-    result = subprocess.run(
-        [str(JUDGE_PATH), "--help"],
-        capture_output=True,
-        text=True,
-    )
-    assert result.returncode == 0
-    assert "LLM quality gate" in result.stdout
-    assert "rubric" in result.stdout
-    assert "--json" in result.stdout
+@pytest.mark.parametrize(
+    "rubric",
+    ["article", "job-eval", "outreach"],
+)
+def test_judge_evaluate_valid_rubrics_no_context(rubric):
+    """Test that valid rubrics work without context."""
+    mock_return = '{"score": 90, "feedback": "Great"}'
+    with patch("metabolon.enzymes.judge.run_cli") as mock_run:
+        mock_run.return_value = mock_return
+        result = judge_evaluate(rubric, "test content")
+        assert result == mock_return
+        mock_run.assert_called_once()
+        args = mock_run.call_args[0][1]
+        assert args[0] == rubric
+        assert "--json" in args
+        assert "--model" in args
+        assert "glm" in args
+        assert len(args) == 4  # rubric --json --model glm
 
 
-def test_judge_list_rubrics_works():
-    """Test --list-rubrics outputs all expected rubrics."""
-    result = subprocess.run(
-        [str(JUDGE_PATH), "--list-rubrics"],
-        capture_output=True,
-        text=True,
-    )
-    assert result.returncode == 0
-    # Check all expected rubrics are present
-    for rubric in ["article", "job-eval", "outreach"]:
-        assert rubric in result.stdout
-    # Check criteria listed
-    assert "clear_thesis" in result.stdout
-    assert "fit_analysis" in result.stdout
-    assert "tone" in result.stdout
-
-
-def test_judge_fails_without_rubric():
-    """Test exits with error when no rubric provided."""
-    result = subprocess.run(
-        [str(JUDGE_PATH)],
-        capture_output=True,
-        text=True,
-    )
-    assert result.returncode == 2  # argparse error exit code
-    assert "the following arguments are required: rubric" in result.stderr
-
-
-def test_judge_fails_with_nonexistent_file():
-    """Test exits with error when input file doesn't exist."""
-    result = subprocess.run(
-        [str(JUDGE_PATH), "article", "nonexistent-test-file.md"],
-        capture_output=True,
-        text=True,
-    )
-    assert result.returncode == 3
-    assert "Error: file not found" in result.stderr
-
-
-def test_judge_fails_with_empty_content():
-    """Test exits with error when content is empty."""
-    empty_file = Path(__file__).parent / "empty-test-file.tmp"
-    empty_file.touch()
-    try:
-        result = subprocess.run(
-            [str(JUDGE_PATH), "article", str(empty_file)],
-            capture_output=True,
-            text=True,
+def test_judge_evaluate_with_context_custom_model():
+    """Test that context and custom model are correctly added to args."""
+    mock_return = '{"score": 85, "feedback": "Good"}'
+    with patch("metabolon.enzymes.judge.run_cli") as mock_run:
+        mock_run.return_value = mock_return
+        result = judge_evaluate(
+            rubric="article",
+            content="test content",
+            context="Additional context",
+            model="gpt-4",
         )
-        assert result.returncode == 3
-        assert "Error: empty content" in result.stderr
-    finally:
-        empty_file.unlink()
-
-
-def test_judge_accepts_stdin_input():
-    """Test accepts input from stdin."""
-    # This just checks it reads stdin okay — the API call will fail (no mock here), but that's fine
-    # We just want to confirm it doesn't error before getting to evaluation
-    result = subprocess.run(
-        [str(JUDGE_PATH), "article"],
-        input="This is a test article with a clear thesis.",
-        capture_output=True,
-        text=True,
-    )
-    # It will fail at the API step (expects ANTHROPIC_API_KEY), but shouldn't fail input parsing
-    assert result.returncode in (2, 3)
-    # Should not get input error, should error at API step
-    assert "Error: API call failed" in result.stderr or "Error:" in result.stderr
+        assert result == mock_return
+        mock_run.assert_called_once()
+        args = mock_run.call_args[0][1]
+        assert args[0] == "article"
+        assert "--json" in args
+        assert "--model" in args
+        assert "gpt-4" in args
+        assert "--context" in args
+        assert "Additional context" in args
