@@ -235,6 +235,16 @@ _run_golem() {
     "$(echo "${output: -200}" | tr '"' "'" | tr '\n' ' ')" \
     "$files_created" "$tests_passed" "$tests_failed" "$pytest_exit" >> "$GOLEM_LOG"
   $QUIET || echo "$output"
+
+  # Auto-capture: if prompt mentions "Write to ~/...md", save output there
+  local _target
+  _target=$(echo "$1" | grep -oE 'Write to ~/[^ "]+' | head -1 | sed 's/^Write to //')
+  if [[ -n "$_target" && ${#output} -gt 200 ]]; then
+    _target="${_target/#~/$HOME}"
+    mkdir -p "$(dirname "$_target")"
+    printf '%s\n' "$output" > "$_target"
+  fi
+
   return $exit_code
 }
 
