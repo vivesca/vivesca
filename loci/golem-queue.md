@@ -110,7 +110,7 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 - [x] `golem --provider zhipu --max-turns 30 "Read effectors/immunosurveillance. Verify LaunchAgent health checking works. Run --help. Fix if broken. Write assays/test_immunosurveillance.py."`
 - [!] `golem --provider infini --max-turns 30 "Read effectors/proteostasis. Verify session cleanup works. Run --help. Fix if broken. Write assays/test_proteostasis.py." (retry)`
 - [x] `golem --provider volcano --max-turns 30 "Read effectors/overnight-gather. Verify overnight content gathering works. Run --help. Fix if broken. Write assays/test_overnight_gather.py."`
-- [ ] `golem --provider zhipu --max-turns 30 "Read effectors/weekly-gather. Verify weekly summary works. Run --help. Fix if broken. Write assays/test_weekly_gather.py." (retry)`
+- [!] `golem --provider zhipu --max-turns 30 "Read effectors/weekly-gather. Verify weekly summary works. Run --help. Fix if broken. Write assays/test_weekly_gather.py." (retry)`
 - [x] `golem --provider infini --max-turns 30 "Read effectors/diapedesis. Verify data migration/export works. Run --help. Fix if broken. Write assays/test_diapedesis.py."`
 
 ### Effector tests with coaching (25 tasks)
@@ -206,19 +206,19 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 - [ ] `golem --provider zhipu --max-turns 40 "Read effectors/golem. Add --fallback flag. When set AND the primary provider fails (exit != 0), automatically retry once on a different provider: zhipu->infini, infini->zhipu, volcano->infini. Log the fallback attempt. Usage: golem --provider zhipu --fallback 'task'. Add tests that mock subprocess to verify fallback triggers. Run uv run pytest."`
 
 #### Gemmule — startup validation script
-- [ ] `golem --provider infini --max-turns 30 "Create effectors/gemmule-validate as Python. Checks: (1) disk free > 2GB, (2) supervisorctl status shows vivesca+golem-daemon running, (3) git -C ~/germline status is clean or only has expected untracked, (4) ~/.env.fly has ZHIPU/INFINI/VOLCANO keys set, (5) uv run pytest --co -q exits 0. Print pass/fail for each. Exit 0 if all pass, 1 otherwise. Write assays/test_gemmule_validate.py. Run uv run pytest." (retry)`
+- [!] `golem --provider infini --max-turns 30 "Create effectors/gemmule-validate as Python. Checks: (1) disk free > 2GB, (2) supervisorctl status shows vivesca+golem-daemon running, (3) git -C ~/germline status is clean or only has expected untracked, (4) ~/.env.fly has ZHIPU/INFINI/VOLCANO keys set, (5) uv run pytest --co -q exits 0. Print pass/fail for each. Exit 0 if all pass, 1 otherwise. Write assays/test_gemmule_validate.py. Run uv run pytest." (retry)`
 
 #### Gemmule — ephemeral file cleanup
 - [ ] `golem --provider zhipu --max-turns 25 "Create effectors/gemmule-clean as Python. Removes: /tmp/claude-*/ older than 24h, ~/.cache/uv/archive-v0/ entries older than 7d, __pycache__ dirs in ~/germline/. Reports bytes freed. Safe: never touches germline source or epigenome. Write assays/test_gemmule_clean.py with mocked paths. Run uv run pytest."`
 
 #### MCP server — health endpoint
-- [ ] `golem --provider infini --max-turns 30 "Read metabolon/server.py. Add a /health HTTP endpoint that returns JSON: {status: 'ok', uptime_s: int, tools_count: int, pid: int}. Use the existing HTTP server setup. Write assays/test_server_health.py that starts the server and hits /health. Run uv run pytest." (retry)`
+- [!] `golem --provider infini --max-turns 30 "Read metabolon/server.py. Add a /health HTTP endpoint that returns JSON: {status: 'ok', uptime_s: int, tools_count: int, pid: int}. Use the existing HTTP server setup. Write assays/test_server_health.py that starts the server and hits /health. Run uv run pytest." (retry)`
 
 #### Test infra — conftest for platform-aware paths
 - [ ] `golem --provider zhipu --max-turns 25 "Create assays/conftest.py (or append to existing). Add a fixture 'home_dir' that returns Path.home(). Add a fixture 'germline_dir' that returns Path.home() / 'germline'. Add a fixture 'effectors_dir'. This ensures no test hardcodes /Users/terry or /home/terry. Write 3 tests in assays/test_conftest.py to verify fixtures work. Run uv run pytest assays/test_conftest.py."`
 
 #### Test infra — ast-check all test files pre-commit hook
-- [ ] `golem --provider infini --max-turns 25 "Create effectors/check-test-syntax as Python. Runs ast.parse() on every assays/test_*.py file. Reports broken files. Exit 0 if all pass, 1 if any fail. Intended as a pre-commit or CI check. Write assays/test_check_test_syntax.py. Run uv run pytest."`
+- [ ] `golem --provider infini --max-turns 25 "Create effectors/check-test-syntax as Python. Runs ast.parse() on every assays/test_*.py file. Reports broken files. Exit 0 if all pass, 1 if any fail. Intended as a pre-commit or CI check. Write assays/test_check_test_syntax.py. Run uv run pytest." (retry)`
 
 #### Monitoring — golem dashboard CLI
 - [ ] `golem --provider zhipu --max-turns 40 "Create effectors/golem-dash as Python. Reads golem.jsonl + golem-daemon.log + golem-queue.md. Prints a dashboard: (1) Provider stats table (pass/fail/rate/avg_dur), (2) Queue status (pending/done/failed counts), (3) Last 5 completed tasks with result, (4) Disk free. Colorize pass=green fail=red. Usage: golem-dash. Write assays/test_golem_dash.py. Run uv run pytest."`
@@ -227,7 +227,7 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 ### Mega batch (2026-03-31 night) — fixes, health, builds, cleanup
 
 - [ ] `golem --provider zhipu --max-turns 40 "Run uv run pytest assays/test_legatum.py -q --tb=short. Read the test AND source. Fix all 29 failures. Use Path.home(). NEVER hardcode /Users/terry/. Iterate until 0 failures."`
-- [ ] `golem --provider infini --max-turns 40 "Run uv run pytest assays/test_grok.py -q --tb=short. Read the test AND source. Fix all 25 failures. Use Path.home(). NEVER hardcode /Users/terry/. Iterate until 0 failures."`
+- [ ] `golem --provider infini --max-turns 40 "Run uv run pytest assays/test_grok.py -q --tb=short. Read the test AND source. Fix all 25 failures. Use Path.home(). NEVER hardcode /Users/terry/. Iterate until 0 failures." (retry)`
 - [!] `golem --provider volcano --max-turns 40 "Run uv run pytest assays/test_commensal.py -q --tb=short. Read the test AND source. Fix all 23 failures. Use Path.home(). NEVER hardcode /Users/terry/. Iterate until 0 failures." (retry)`
 - [ ] `golem --provider zhipu --max-turns 40 "Run uv run pytest assays/test_channel.py -q --tb=short. Read the test AND source. Fix all 22 failures. Use Path.home(). NEVER hardcode /Users/terry/. Iterate until 0 failures."`
 - [ ] `golem --provider infini --max-turns 40 "Run uv run pytest assays/test_sortase_actions.py -q --tb=short. Read the test AND source. Fix all 14 failures. Use Path.home(). NEVER hardcode /Users/terry/. Iterate until 0 failures."`
@@ -249,10 +249,10 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 - [!] `golem --provider volcano --max-turns 25 "Health check: assay, autoimmune.py, backfill-marks, browse, bud. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit fixes." (retry)`
 - [ ] `golem --provider zhipu --max-turns 25 "Health check: capco-prep, centrosome, cg, channel, chat_history.py. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit fixes."`
 - [ ] `golem --provider infini --max-turns 25 "Health check: chemoreception.py, chromatin-decay-report.py, cibus.py, circadian-probe.py, ck. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit fixes."`
-- [ ] `golem --provider volcano --max-turns 25 "Health check: cleanup-stuck, client-brief, cn-route, commensal, complement. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit fixes."`
+- [ ] `golem --provider volcano --max-turns 25 "Health check: cleanup-stuck, client-brief, cn-route, commensal, complement. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit fixes." (retry)`
 - [ ] `golem --provider zhipu --max-turns 25 "Health check: compound-engineering-status, compound-engineering-test, consulting-card.py, council, cytokinesis. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit fixes."`
 - [ ] `golem --provider infini --max-turns 25 "Health check: demethylase, diapedesis, dr-sync, efferens, electroreception. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit fixes."`
-- [ ] `golem --provider volcano --max-turns 25 "Health check: engram, exocytosis.py, express, find, gap_junction_sync. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit fixes."`
+- [ ] `golem --provider volcano --max-turns 25 "Health check: engram, exocytosis.py, express, find, gap_junction_sync. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit fixes." (retry)`
 - [ ] `golem --provider zhipu --max-turns 25 "Health check: gemmation-env, generate-solutions-index.py, golem, golem-daemon, golem-health. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit fixes."`
 - [ ] `golem --provider infini --max-turns 25 "Health check: goose-worker, grep, grok, hkicpa, immunosurveillance. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit fixes."`
 - [ ] `golem --provider volcano --max-turns 25 "Health check: immunosurveillance.py, importin, inflammasome-probe, judge, lacuna. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit fixes."`
@@ -463,6 +463,24 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 - [ ] `golem --provider infini --max-turns 40 "Read effectors/golem-daemon. Add auto-scale logic: (1) Track idle_cycles counter — increments each poll when queue is empty and no tasks running, resets when work exists. (2) When idle_cycles > 20 (10 min idle): run 'gemmule-scale down' via subprocess, then log 'Auto-scaled down'. (3) When new tasks appear after idle scale-down: run 'gemmule-scale up' first, wait 10s for restart, then dispatch. Add a SCALE_ENABLED = True flag to disable. Write tests. Run uv run pytest assays/test_golem_daemon.py."`
 
 - [ ] `golem --provider volcano --max-turns 30 "Create effectors/fly-cost as Python. Uses Fly.io API to check current machine config + estimate monthly cost. Reads machine list, calculates: CPU cost (perf=$0.031/core/hr, shared=$0.0035/core/hr) + RAM cost ($0.00000649/MB/hr). Prints: current config, hourly/daily/monthly cost, and cost if scaled down. Usage: fly-cost [--json]. Write assays/test_fly_cost.py. Run uv run pytest."`
+
+
+### Build — Oracle Cloud free tier setup
+
+#### Research — Oracle Cloud account + instance provisioning
+- [ ] `golem --provider zhipu --full --max-turns 50 "Use rheotaxis_search to find a complete guide for setting up Oracle Cloud free tier ARM instance. Search: oracle cloud free tier ARM Ampere A1 always free 2025 2026 setup guide. Document: (1) signup process + gotchas (credit card needed? region selection matters?), (2) exact free tier specs (4 OCPU / 24GB ARM Ampere), (3) how to create the instance via console, (4) which OS image (Ubuntu 22.04 ARM), (5) networking setup (open SSH port, assign public IP), (6) common pitfalls (capacity limits by region, shape not available). Write step-by-step guide to ~/epigenome/chromatin/euchromatin/consulting/oracle-cloud-setup-guide.md."`
+
+#### Build — gemmule migration script
+- [ ] `golem --provider infini --max-turns 50 "Create effectors/gemmule-migrate as Python. Automates migrating gemmule setup to a new Linux server. Steps it performs via SSH to a target host: (1) install system deps (python3, uv, git, supervisor, tailscale, playwright deps), (2) clone germline + epigenome repos, (3) setup uv venv + install deps, (4) install playwright + chromium, (5) write supervisor config for vivesca + golem-daemon, (6) setup .env.fly with API keys (prompted or copied from source), (7) start supervisor, (8) verify: golem-daemon status, uv run pytest --co -q. Usage: gemmule-migrate --target <ssh-host> [--source gemmule]. Dry-run by default, --apply to execute. Write assays/test_gemmule_migrate.py with mocked SSH. Run uv run pytest."`
+
+#### Build — Tailscale setup automation
+- [ ] `golem --provider volcano --max-turns 30 "Create effectors/tailscale-setup as Python. Automates Tailscale installation and auth on a new Linux host via SSH. Steps: (1) install tailscale via official script, (2) authenticate with auth key from env TAILSCALE_AUTH_KEY, (3) set hostname to 'gemmule', (4) verify connectivity by pinging the Mac node. Usage: tailscale-setup --target <ssh-host> --hostname gemmule. Write assays/test_tailscale_setup.py. Run uv run pytest."`
+
+#### Build — env/secrets sync tool
+- [ ] `golem --provider zhipu --max-turns 30 "Create effectors/secrets-sync as Python. Syncs API keys and secrets from current gemmule to a new host. Reads ~/.env.fly, extracts all export KEY=VALUE lines, SSHs to target, writes them. Also syncs: SSH keys (~/.ssh/id_ed25519*), git config. Usage: secrets-sync --target <ssh-host> [--dry-run]. NEVER logs secret values — only key names. Write assays/test_secrets_sync.py with mocked SSH. Run uv run pytest."`
+
+#### Build — dual-host health check
+- [ ] `golem --provider infini --max-turns 25 "Create effectors/host-compare as Python. SSHs to two hosts and compares: CPU count, RAM, disk free, Python version, uv version, test count (pytest --co -q), golem-daemon status, tailscale status. Prints side-by-side table. Usage: host-compare gemmule oracle-arm. For validating migration. Write assays/test_host_compare.py. Run uv run pytest."`
 
 ## Done (2026-03-31)
 
