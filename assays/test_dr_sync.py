@@ -44,10 +44,16 @@ def test_claude_settings_copied():
     def mock_copy2(src, dst):
         calls.append((src, dst))
     
+    # Patch exists to return True only for settings.json
+    exists_orig = Path.exists
+    def mock_exists(self):
+        if str(self).endswith("settings.json") or str(self).endswith("settings.local.json"):
+            return True
+        return False
+    
     with patch('shutil.copy2', side_effect=mock_copy2):
         with patch('shutil.copytree'):
-            # First src (settings.json) exists = True, others don't matter
-            with patch('pathlib.Path.exists', return_value=True):
+            with patch('pathlib.Path.exists', mock_exists):
                 with patch('subprocess.run') as mock_run:
                     mock_run.return_value = MagicMock(stdout='')
                     dr_sync.sync()
@@ -57,13 +63,22 @@ def test_claude_settings_copied():
 def test_claude_memory_copied():
     """Test Claude project memory is copied when exists."""
     mock_copytree = MagicMock()
-    exists_values = [False, True, True]  # settings doesn't exist, memory src exists, memory dst exists
+    exists_calls = []
+    def mock_exists(self):
+        exists_calls.append(str(self))
+        if 'memory' in str(self) and 'src' not in str(self):  # mem_dst exists: we return True to trigger rm
+            return True
+        if 'mem_src' in str(self) or str(self).endswith("projects/-Users-terry/memory"):
+            return True
+        return False
+    
     with patch('shutil.copy2'):
         with patch('shutil.copytree', mock_copytree):
-            with patch('pathlib.Path.exists', side_effect=exists_values):
-                with patch('subprocess.run'):
-                    dr_sync.sync()
-                    mock_copytree.assert_called_once()
+            with patch('shutil.rmtree'):
+                with patch('pathlib.Path.exists', mock_exists):
+                    with patch('subprocess.run'):
+                        dr_sync.sync()
+                        mock_copytree.assert_called_once()
 
 def test_zshenv_copied():
     """Test .zshenv.local is copied when exists."""
@@ -71,9 +86,12 @@ def test_zshenv_copied():
     def mock_copy2(src, dst):
         calls.append((src, dst))
     
+    def mock_exists(self):
+        return str(self).endswith('.zshenv.local')
+    
     with patch('shutil.copy2', side_effect=mock_copy2):
         with patch('shutil.copytree'):
-            with patch('pathlib.Path.exists', return_value=True):
+            with patch('pathlib.Path.exists', mock_exists):
                 with patch('subprocess.run'):
                     dr_sync.sync()
                     assert any('zshenv.local' in str(call[1]) for call in calls)
@@ -84,9 +102,12 @@ def test_synaxis_config_copied():
     def mock_copy2(src, dst):
         calls.append((src, dst))
     
+    def mock_exists(self):
+        return str(self).endswith('config.toml') and 'synaxis' in str(self)
+    
     with patch('shutil.copy2', side_effect=mock_copy2):
         with patch('shutil.copytree'):
-            with patch('pathlib.Path.exists', return_value=True):
+            with patch('pathlib.Path.exists', mock_exists):
                 with patch('pathlib.Path.mkdir'):
                     with patch('subprocess.run'):
                         dr_sync.sync()
