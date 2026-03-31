@@ -247,7 +247,7 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 - [x] `golem --provider zhipu --max-turns 25 "Check ALL async functions for missing await calls. Fix. Commit."`
 - [x] `golem --provider zhipu --max-turns 25 "Verify ALL git hooks in .git/hooks/ still work. Remove broken ones. Commit."`
 - [ ] `golem --provider zhipu --max-turns 25 "Check ALL test fixtures clean up after themselves (temp files, env vars). Fix leaks. Commit."`
-- [ ] `golem --provider zhipu --max-turns 25 "Verify ALL pathlib usage is cross-platform (no hardcoded / separators). Fix. Commit."`
+- [x] `golem --provider zhipu --max-turns 25 "Verify ALL pathlib usage is cross-platform (no hardcoded / separators). Fix. Commit." (retry)`
 - [ ] `golem --provider zhipu --max-turns 25 "Check ALL file writes use atomic write pattern (write to .tmp, rename). Fix critical ones. Commit."`
 
 
