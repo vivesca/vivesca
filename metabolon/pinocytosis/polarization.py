@@ -1,8 +1,12 @@
+from __future__ import annotations
+
 """Polarization gather -- overnight flywheel preflight (was poiesis).
 
 Establishing cell polarity before division: which direction to grow.
 Collects: consumption check, guard status, north stars.
 """
+
+from __future__ import annotations
 
 import json
 import subprocess

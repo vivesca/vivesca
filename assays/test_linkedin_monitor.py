@@ -13,6 +13,8 @@ This test suite covers:
 - End-to-end scenarios with mocked dependencies
 """
 
+from __future__ import annotations
+
 import hashlib
 import json
 import os

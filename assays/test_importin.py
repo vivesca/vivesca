@@ -22,6 +22,8 @@ for key, value in namespace.items():
 
 def test_credentials_have_correct_mapping():
     """Test that all credentials have non-empty mappings."""
+from __future__ import annotations
+
     for env_var, service in importin.CREDENTIALS.items():
         assert env_var, "Env var name should not be empty"
         assert service, "Service name should not be empty"

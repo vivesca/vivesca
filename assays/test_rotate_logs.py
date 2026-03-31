@@ -16,6 +16,8 @@ ROTATE_LOGS_PATH = Path(__file__).resolve().parents[1] / "effectors" / "rotate-l
 class TestRotateLogsBasics:
     def test_file_exists(self):
         """Test that rotate-logs.py effector file exists."""
+from __future__ import annotations
+
         assert ROTATE_LOGS_PATH.exists()
         assert ROTATE_LOGS_PATH.is_file()
 

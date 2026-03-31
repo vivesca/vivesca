@@ -17,6 +17,8 @@ from metabolon.respirometry.schema import ConsumptionEvent, RespirogramMeta
 
 def test_clean_merchant_removes_trailing_location():
     """Test that merchant cleaning removes trailing location/country codes."""
+from __future__ import annotations
+
     cases = [
         ("SOME STORE HONG KONG HK", "SOME STORE"),
         ("CENTRAL STORE CENTRAL HK", "CENTRAL STORE"),

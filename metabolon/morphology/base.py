@@ -1,9 +1,13 @@
+from __future__ import annotations
+
 """Base Pydantic models for vivesca structured output.
 
 Every tool secretes a product into the organism's environment.
 These base classes define the membrane through which all
 tool outputs pass — typed, structured, forward-compatible.
 """
+
+from __future__ import annotations
 
 from pydantic import BaseModel, ConfigDict
 

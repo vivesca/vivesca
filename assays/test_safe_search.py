@@ -1,9 +1,13 @@
 #!/usr/bin/env python3
+from __future__ import annotations
+
 """Tests for effectors/safe_search.py — Search guard wrapper tests.
 
 safe_search.py is a script that wraps ripgrep with safety checks.
 It should be loaded via exec() or subprocess.run, NEVER imported.
 """
+
+from __future__ import annotations
 
 import subprocess
 import sys

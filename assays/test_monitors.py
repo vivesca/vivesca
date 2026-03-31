@@ -12,6 +12,8 @@ from metabolon.respirometry.monitors import (
 
 def make_event(date: str, merchant: str, category: str, hkd: float) -> ConsumptionEvent:
     """Helper to make test ConsumptionEvent."""
+from __future__ import annotations
+
     return ConsumptionEvent(
         date=date,
         merchant=merchant,

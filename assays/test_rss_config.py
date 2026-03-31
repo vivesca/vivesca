@@ -15,6 +15,8 @@ from metabolon.organelles.endocytosis_rss.config import (
 
 def test_expand_path_resolves_home():
     """Test _expand_path expands ~ to home directory."""
+from __future__ import annotations
+
     result = _expand_path("~/test/path")
     assert str(result).startswith(str(Path.home()))
 

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """praxis — Praxis.md TODO list management (formerly todo-cli).
 
 Endosymbiosis: uv/Python script (vivesca/effectors/todo-cli) → Python organelle.
@@ -8,6 +10,8 @@ without shelling out.
 
 Core functions: today, upcoming, overdue, someday, all_items, spare, clean, stats.
 """
+
+from __future__ import annotations
 
 import re
 from datetime import datetime, timedelta

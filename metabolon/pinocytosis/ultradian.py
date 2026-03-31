@@ -1,9 +1,13 @@
+from __future__ import annotations
+
 """Ultradian gather — situational snapshot (situational snapshot).
 
 Sub-circadian rhythm: what's actionable right now?
 Collects: calendar, TODO, Tonus, alerts.
 """
 
+
+from __future__ import annotations
 
 def intake(as_json: bool = True) -> str:
     """Run ultradian gather. Returns formatted string."""

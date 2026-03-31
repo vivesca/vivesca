@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """Symbiont — shared LLM dispatch. Single source of truth for multi-model queries.
 
 The endosymbiont interface: deterministic routing to external LLM models.
@@ -9,6 +11,8 @@ Usage:
     result = transduce("gemini", "What is 2+2?")
     results = parallel_query(["gemini", "claude"], "What is 2+2?")
 """
+
+from __future__ import annotations
 
 import concurrent.futures
 import json

@@ -6,6 +6,8 @@ from metabolon.metabolism.substrates.constitution import ExecutiveSubstrate
 
 def test_name():
     """Verify substrate name is correct."""
+from __future__ import annotations
+
     s = ExecutiveSubstrate()
     assert s.name == "constitution"
 

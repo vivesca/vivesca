@@ -22,6 +22,8 @@ _loader.exec_module(resp)
 @pytest.fixture
 def tmp_history(tmp_path, monkeypatch):
     """Point usage-history.jsonl at a temp file."""
+from __future__ import annotations
+
     history_file = tmp_path / "usage-history.jsonl"
     monkeypatch.setattr(resp, "USAGE_HISTORY", history_file)
     return history_file

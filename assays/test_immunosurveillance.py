@@ -1,10 +1,14 @@
 #!/usr/bin/env python3
+from __future__ import annotations
+
 """Tests for effectors/immunosurveillance.py — cargo audit sweep & LaunchAgent health.
 
 All filesystem and subprocess calls are mocked.  The module is loaded via exec
 so tests can patch names directly in the exec namespace (which the exec'd
 functions close over).
 """
+
+from __future__ import annotations
 
 import subprocess
 import sys

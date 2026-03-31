@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """vivesca check — validate a project against vivesca conventions.
 
 Uses AST analysis to check:
@@ -5,6 +7,8 @@ Uses AST analysis to check:
 - Prompts: description in @prompt() decorator
 - Resources: URI in @resource() decorator
 """
+
+from __future__ import annotations
 
 import ast
 from pathlib import Path

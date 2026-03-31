@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """pulse — the organism's heartbeat.
 
 Each systole is a heartbeat: respiration regulates the rate, pulse is the
@@ -13,6 +15,8 @@ Safety nets:
 6. Systole timeout with stall/churn detection
 7. Cardiac lock prevents concurrent instances
 """
+
+from __future__ import annotations
 
 import atexit
 import datetime

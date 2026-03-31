@@ -1,8 +1,12 @@
+from __future__ import annotations
+
 """Overnight metabolism pipeline: metabolise → draft → publish.
 
 An actus pipeline — each product is the next substrate.
 Runs autonomously. Human reviews products, not process.
 """
+
+from __future__ import annotations
 
 import json
 import os

@@ -1,9 +1,13 @@
 #!/usr/bin/env python3
+from __future__ import annotations
+
 """Tests for effectors/grep — search-guard grep wrapper unit tests.
 
 grep is a symlink to search-guard, which wraps the real grep binary.
 Loaded via exec() with all external calls mocked.
 """
+
+from __future__ import annotations
 
 import os
 import sys

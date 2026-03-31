@@ -1,10 +1,14 @@
 #!/usr/bin/env python3
+from __future__ import annotations
+
 """Tests for effectors/search-guard — Search guard wrapper tests.
 
 search-guard is a script that wraps grep/rg/find with safety checks.
 rg, grep, and find are symlinks to this script.
 It should be loaded via exec() or subprocess.run, NEVER imported.
 """
+
+from __future__ import annotations
 
 import os
 import subprocess

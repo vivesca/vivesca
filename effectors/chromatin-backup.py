@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+from __future__ import annotations
+from __future__ import annotations
+
 # /// script
 # requires-python = ">=3.11"
 # ///
@@ -7,6 +10,7 @@
 Replaces Obsidian Git plugin (which only runs when app is open).
 """
 
+import os
 import subprocess
 import sys
 from datetime import datetime
@@ -15,15 +19,17 @@ from pathlib import Path
 CHROMATIN_DIR = Path.home() / "epigenome" / "chromatin"
 
 
-def _git(*args: str, check: bool = True, capture: bool = True) -> subprocess.CompletedProcess[str]:
+def _git(*args: str, check: bool = True, capture: bool = True, env: dict | None = None) -> subprocess.CompletedProcess[str]:
     """Run a git command in the chromatin directory."""
-    return subprocess.run(
-        ["git", *args],
-        cwd=CHROMATIN_DIR,
-        capture_output=capture,
-        text=True,
-        check=check,
-    )
+    run_kwargs: dict = {
+        "cwd": CHROMATIN_DIR,
+        "capture_output": capture,
+        "text": True,
+        "check": check,
+    }
+    if env is not None:
+        run_kwargs["env"] = env
+    return subprocess.run(["git", *args], **run_kwargs)
 
 
 def _has_changes() -> bool:
@@ -51,7 +57,7 @@ def sync_remote() -> None:
 
     # Try rebase first
     rebase = _git("rebase", "origin/main", check=False,
-                   env={**__import__("os").environ, "GIT_EDITOR": "true"})
+                   env={**os.environ, "GIT_EDITOR": "true"})
     if rebase.returncode == 0:
         return
 
@@ -65,7 +71,7 @@ def sync_remote() -> None:
     _git("checkout", "--theirs", ".", check=False)
     _git("add", "-A")
     _git("commit", "--no-edit", check=False,
-         env={**__import__("os").environ, "GIT_EDITOR": "true"})
+         env={**os.environ, "GIT_EDITOR": "true"})
 
 
 def backup() -> bool:

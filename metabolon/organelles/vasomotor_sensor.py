@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """vasomotor_sensor — Claude Code Max plan token budget usage (formerly respirometry).
 
 Endosymbiosis: standalone Python script (~/.local/bin/respirometry) → Python organelle.
@@ -11,6 +13,8 @@ has been burned, and whether the organism is at risk of anaerobic (over-budget) 
 
 Core functions: sense_usage, budget_status, append_history, serialize_status.
 """
+
+from __future__ import annotations
 
 import configparser
 import contextlib

@@ -18,6 +18,8 @@ from metabolon.respirometry.payments import (
 class TestRestorePersistPayments:
     """Tests for restore_payments and persist_payments."""
 
+from __future__ import annotations
+
     def test_restore_nonexistent_returns_empty(self) -> None:
         """Non-existent file returns empty list."""
         result = restore_payments(Path("/nonexistent"))

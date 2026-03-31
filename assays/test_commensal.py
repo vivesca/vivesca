@@ -20,6 +20,8 @@ exec(Path("/home/terry/germline/effectors/commensal").read_text(), commensal.__d
 
 def test_backends_defined():
     """Test all expected backends are defined."""
+from __future__ import annotations
+
     assert "opencode" in commensal.BACKENDS
     assert "gemini" in commensal.BACKENDS
     assert "codex" in commensal.BACKENDS

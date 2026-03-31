@@ -6,6 +6,8 @@ from metabolon.metabolism.substrates.spending import SpendingSubstrate
 
 def test_name():
     """Verify substrate name is correct."""
+from __future__ import annotations
+
     s = SpendingSubstrate()
     assert s.name == "spending"
 

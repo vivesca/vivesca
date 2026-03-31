@@ -1,8 +1,12 @@
 #!/usr/bin/env python3
+from __future__ import annotations
+
 """Tests for effectors/phagocytosis.py — Obsidian lastOpenFiles logging.
 
 All filesystem calls are mocked.
 """
+
+from __future__ import annotations
 
 import io
 import json

@@ -1,9 +1,13 @@
+from __future__ import annotations
+
 """gemmation — background AI agent job queue (vesicle budding and dispatch).
 
 Endosymbiosis: Rust binary -> Python organelle.
 Manages YAML queue at ~/epigenome/chromatin/agent-queue.yaml.
 Dispatches detached processes (claude, gemini, codex, opencode).
 """
+
+from __future__ import annotations
 
 import json
 import os

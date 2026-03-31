@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """gap_junction — WhatsApp via wacli.
 
 wacli CLI knowhow (Go binary, /opt/homebrew/bin/wacli):
@@ -12,6 +14,8 @@ wacli CLI knowhow (Go binary, /opt/homebrew/bin/wacli):
 Contacts have multiple JIDs: phone (xxx@s.whatsapp.net) + LID (xxx@lid).
 Messages must be fetched from all JIDs and merged/deduped by MsgID.
 """
+
+from __future__ import annotations
 
 import json
 import subprocess

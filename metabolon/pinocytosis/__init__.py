@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """Pinocytosis — deterministic context gathering for skills.
 
 Non-specific fluid-phase uptake: the cell drinks from its environment without
@@ -7,6 +9,8 @@ return structured dicts. Skills reason over the output.
 Shared helpers live here. Per-routine modules (interphase, ultradian, etc.)
 compose these into routine-specific gathers.
 """
+
+from __future__ import annotations
 
 import concurrent.futures
 import json

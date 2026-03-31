@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """sporulation — garden publishing for terryli.hm (formerly publish CLI).
 
 Endosymbiosis: Python script (vivesca/effectors/publish) → Python organelle.
@@ -10,6 +12,8 @@ publishing garden posts into the world.
 
 Core functions: new, list_posts, publish, revise, push, index.
 """
+
+from __future__ import annotations
 
 import re
 import subprocess
@@ -221,6 +225,38 @@ def propagate_site() -> dict:
         err = result.stderr.strip() or f"exit {result.returncode}"
         return {"error": f"Sync failed: {err}"}
     return {"pushed": True, "url": "https://terryli.hm"}
+
+
+def checkpoint_post(slug: str, description: str = "") -> dict:
+    """Save a timestamped checkpoint of a post.
+
+    Copies the current post content into CHECKPOINT_DIR so that
+    ``list_checkpoints`` can discover it later.
+
+    Args:
+        slug: Post filename stem (without .md).
+        description: Optional human-readable description of why the
+            checkpoint was saved.  Written as a ``description:`` line at
+            the top of the checkpoint file so ``list_checkpoints`` picks
+            it up.
+
+    Returns:
+        {"checkpoint": True, "codename": "...", "path": "..."}
+        or {"error": "message"}
+    """
+    path = PUBLISHED_DIR / f"{slug}.md"
+    if not path.exists():
+        return {"error": f"No post found: {slug}.md"}
+    content = path.read_text()
+    stamp = datetime.now(UTC).strftime("%Y%m%d-%H%M%S")
+    codename = f"{slug}_{stamp}"
+    CHECKPOINT_DIR.mkdir(parents=True, exist_ok=True)
+    cp_path = CHECKPOINT_DIR / f"checkpoint_{codename}.md"
+    if description:
+        cp_path.write_text(f"description: {description}\n{content}")
+    else:
+        cp_path.write_text(content)
+    return {"checkpoint": True, "codename": codename, "path": str(cp_path)}
 
 
 def list_checkpoints() -> list[dict]:

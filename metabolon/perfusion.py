@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """perfusion — are all tissues receiving blood?
 
 Measures whether outputs are reaching all north stars or whether some
@@ -9,6 +11,8 @@ Poor perfusion = tissue death, even if the heart pumps fine.
 The organism equivalent: pulse can run all day, but if Career gets
 11 agents and Marriage gets 0, the marriage star is ischaemic.
 """
+
+from __future__ import annotations
 
 import datetime
 from pathlib import Path

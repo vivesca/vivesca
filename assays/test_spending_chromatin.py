@@ -94,6 +94,8 @@ def test_dedup_multiple(tmp_path):
 
 def test_monthly_summary_single_card(tmp_path):
     """Generate summary from one statement file."""
+from __future__ import annotations
+
     md = tmp_path / "2025-01-mox.md"
     md.write_text(
         "---\nbank: mox\ncard: Mox Credit\nstatement_date: 2025-01-30\n"

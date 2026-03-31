@@ -1,9 +1,13 @@
 #!/usr/bin/env python3
+from __future__ import annotations
+
 """Wechat2RSS health check — alerts via Telegram when service is unhealthy.
 
 Run via LaunchAgent every 6h. Only alerts on state *changes* to avoid spam.
 Re-auth: localhost:8001 → scan QR with WeChat.
 """
+
+from __future__ import annotations
 
 import argparse
 import json

@@ -10,6 +10,8 @@ import pytest
 
 def create_test_log(entries: list[dict], tmp_path: Path) -> Path:
     """Create a test JSONL log file with given entries."""
+from __future__ import annotations
+
     log_file = tmp_path / "golem.jsonl"
     with open(log_file, "w") as f:
         for entry in entries:

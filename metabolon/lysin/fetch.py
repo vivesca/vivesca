@@ -1,7 +1,11 @@
+from __future__ import annotations
+
 """Fetch biology for hybridization grounding.
 
 Source hierarchy: UniProt (protein mechanism) → Reactome (pathway context) → Wikipedia (general).
 """
+
+from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field

@@ -452,6 +452,8 @@ def cmd_archive(args):
 # ── Daily ────────────────────────────────────────────────────────────────────
 def cmd_daily(args):
     """Append session log template to today's daily note."""
+    json_mode = getattr(args, "format", None) == "json"
+
     today = datetime.now().strftime("%Y-%m-%d")
     weekday = datetime.now().strftime("%A")
     now_time = datetime.now().strftime("%H:%M")
@@ -460,6 +462,7 @@ def cmd_daily(args):
     title = args.title if args.title else "Session"
     template = f"\n### {now_time}–??:?? — {title}\n\n- \n"
 
+    created = not daily_path.exists()
     if daily_path.exists():
         content = daily_path.read_text(encoding="utf-8")
         content += template
@@ -468,8 +471,12 @@ def cmd_daily(args):
         content = header + template
 
     daily_path.write_text(content, encoding="utf-8")
-    print(f"  {OK}  Daily note: {daily_path}")
-    print(f"       Template appended — fill in outcomes")
+
+    if json_mode:
+        print(json.dumps({"path": str(daily_path), "title": title, "created": created}))
+    else:
+        print(f"  {OK}  Daily note: {daily_path}")
+        print(f"       Template appended — fill in outcomes")
 
 
 # ── Reflect ─────────────────────────────────────────────────────────────────

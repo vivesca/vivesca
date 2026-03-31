@@ -11,6 +11,7 @@ import logging
 import time
 import traceback
 from collections import deque
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -22,6 +23,7 @@ from fastmcp.tools.tool import ToolResult
 
 from metabolon.metabolism.infection import record_infection
 from metabolon.metabolism.signals import Outcome, SensorySystem, Stimulus
+from metabolon.server import RequestLogger
 
 logger = logging.getLogger(__name__)
 

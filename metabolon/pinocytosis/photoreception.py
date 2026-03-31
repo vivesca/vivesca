@@ -1,9 +1,13 @@
+from __future__ import annotations
+
 """Photoreception gather — morning brief context.
 
 Sensing light: first input of the day.
 Collects: weather, sleep (Oura), calendar, health signals.
 """
 
+
+from __future__ import annotations
 
 def intake(as_json: bool = True, send_weather: bool = False) -> str:
     """Run photoreception gather. Returns formatted string."""

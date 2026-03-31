@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """vasomotor — autonomic pacing and budget regulation.
 
 The organism's respiratory system. Pure arithmetic, no LLM judgment.
@@ -12,6 +14,8 @@ Five-layer self-regulation:
 4. Saturation penalty — wasted systoles count at 1.5x cost
 5. Pacing gate — combines all layers into a single go/no-go decision
 """
+
+from __future__ import annotations
 
 import contextlib
 import datetime

@@ -8,6 +8,8 @@ from metabolon.respirometry.categories import restore_categories, categorise
 class TestRestoreCategories:
     """Tests for restore_categories."""
 
+from __future__ import annotations
+
     def test_file_not_exists_returns_empty_dict(self) -> None:
         """If file doesn't exist, return empty dict."""
         result = restore_categories(Path("/nonexistent/path.yaml"))

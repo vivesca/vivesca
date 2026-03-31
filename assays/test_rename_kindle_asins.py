@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+from __future__ import annotations
+
 """Tests for effectors/rename-kindle-asins.py — rename ASIN Kindle files to titles.
 
 rename-kindle-asins.py is a script (effectors/rename-kindle-asins.py), not an importable module.
@@ -7,6 +9,8 @@ Note: The script runs its rename loop at module level (no main() function),
 so exec-based tests focus on loading the mapping and verifying structure.
 Functional rename tests use subprocess with temp directories.
 """
+
+from __future__ import annotations
 
 import os
 import subprocess

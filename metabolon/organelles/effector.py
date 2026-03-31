@@ -11,6 +11,8 @@ def run_cli(
     stdin_text: str | None = None,
 ) -> str:
     """Run a CLI binary, return stdout, raise ValueError on failure."""
+from __future__ import annotations
+
     path = os.path.expanduser(binary)
     try:
         result = subprocess.run(

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """Prompt templates for common agent workflows.
 
 Prompts:
@@ -5,6 +7,8 @@ Prompts:
   compose_signal  — draft a message in Terry's voice for a given platform
   morning_brief  — morning situation report combining calendar and context
 """
+
+from __future__ import annotations
 
 from fastmcp.prompts import prompt
 

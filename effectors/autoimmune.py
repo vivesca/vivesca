@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+from __future__ import annotations
+
 """
 PreToolUse hook — meta-spiral guard.
 
@@ -11,6 +13,8 @@ State: ~/.claude/meta-spiral-state.json
 Input: PreToolUse JSON on stdin (tool_input.skill, session_id)
 Output: JSON with hookSpecificOutput.permissionDecision = "deny" to block.
 """
+
+from __future__ import annotations
 
 import argparse
 import json

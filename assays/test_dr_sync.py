@@ -1,8 +1,12 @@
 #!/usr/bin/env python3
+from __future__ import annotations
+
 """Tests for effectors/dr-sync — disaster recovery sync backup tests.
 
 All filesystem and subprocess calls are mocked.
 """
+
+from __future__ import annotations
 
 import pytest
 from unittest.mock import patch, MagicMock, call

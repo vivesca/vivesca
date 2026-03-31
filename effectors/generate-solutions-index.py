@@ -1,9 +1,13 @@
 #!/usr/bin/env python3
+from __future__ import annotations
+
 """Generate INDEX.md for docs/solutions/.
 
 Categorizes files by subdirectory, extracts first meaningful line as description.
 Run manually or via /monthly.
 """
+
+from __future__ import annotations
 
 import argparse
 import os

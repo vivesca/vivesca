@@ -8,6 +8,8 @@ from metabolon.gastrulation.init import scaffold_project
 
 def _make_project_with_tool(tmp_path: Path) -> Path:
     """Helper: scaffold project + add a valid tool."""
+from __future__ import annotations
+
     target = tmp_path / "myserver"
     scaffold_project("myserver", target=target, description="Test server")
     graft_tool(target, domain="weather", verb="fetch", description="Fetch weather")

@@ -136,7 +136,7 @@ class TestMorningBriefPrompt:
 
     def test_calendar_step_included(self):
         result = morning_brief()
-        assert "calendar" in result.lower()
+        assert "vivesca://circadian" in result
         assert "today" in result.lower()
 
     def test_jeeves_tone(self):
@@ -146,7 +146,8 @@ class TestMorningBriefPrompt:
 
     def test_histone_search_step(self):
         result = morning_brief()
-        assert "histone_search" in result
+        assert "histone" in result.lower()
+        assert "action=search" in result
 
     def test_tonus_check(self):
         result = morning_brief()
@@ -194,3 +195,52 @@ class TestMorningBriefPrompt:
     def test_prose_over_bullets(self):
         result = morning_brief()
         assert "prose over bullets" in result.lower()
+
+
+class TestNoStaleReferences:
+    """Guard tests: ensure no stale/renamed tool or resource names appear."""
+
+    # Tools that were renamed — old names must not appear in any template output
+    STALE_TOOL_NAMES = ["histone_search"]
+    # Resource URIs that were renamed — old URIs must not appear
+    STALE_RESOURCE_URIS = ["vivesca://calendar/today"]
+    # Current valid tool names that SHOULD appear where referenced
+    VALID_TOOLS = {
+        "rheotaxis_search": lambda: research(topic="x"),
+        "histone": lambda: morning_brief(),
+    }
+    # Current valid resource URIs that SHOULD appear where referenced
+    VALID_RESOURCE_URIS = {
+        "vivesca://circadian": lambda: morning_brief(),
+        "vivesca://budget": lambda: morning_brief(include_budget=True),
+    }
+
+    @pytest.mark.parametrize("stale_name", STALE_TOOL_NAMES)
+    def test_no_stale_tool_names_in_research(self, stale_name):
+        result = research(topic="test")
+        assert stale_name not in result
+
+    @pytest.mark.parametrize("stale_name", STALE_TOOL_NAMES)
+    def test_no_stale_tool_names_in_morning_brief(self, stale_name):
+        result = morning_brief()
+        assert stale_name not in result
+
+    @pytest.mark.parametrize("stale_name", STALE_TOOL_NAMES)
+    def test_no_stale_tool_names_in_compose_signal(self, stale_name):
+        result = compose_signal(platform="email", recipient="X", intent="Y")
+        assert stale_name not in result
+
+    @pytest.mark.parametrize("stale_uri", STALE_RESOURCE_URIS)
+    def test_no_stale_resource_uris_in_morning_brief(self, stale_uri):
+        result = morning_brief()
+        assert stale_uri not in result
+
+    @pytest.mark.parametrize("tool_name,fn", list(VALID_TOOLS.items()))
+    def test_valid_tools_present(self, tool_name, fn):
+        result = fn()
+        assert tool_name in result
+
+    @pytest.mark.parametrize("uri,fn", list(VALID_RESOURCE_URIS.items()))
+    def test_valid_resource_uris_present(self, uri, fn):
+        result = fn()
+        assert uri in result
