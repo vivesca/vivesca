@@ -65,3 +65,83 @@ class TestSnapshot:
         assert f.exists()
         data = json.loads(f.read_text().strip())
         assert "glycolysis_pct" in data
+
+
+class TestSuggestConversions:
+    def test_returns_list_of_dicts(self):
+        from metabolon.organelles.glycolysis_rate import suggest_conversions
+        result = suggest_conversions()
+        assert isinstance(result, list)
+        assert all(isinstance(item, dict) for item in result)
+
+    def test_each_suggestion_has_required_keys(self):
+        from metabolon.organelles.glycolysis_rate import suggest_conversions
+        result = suggest_conversions()
+        required_keys = {"capability", "current_type", "reason", "effort", "dependencies", "priority"}
+        for item in result:
+            assert required_keys.issubset(item.keys())
+
+    def test_current_type_is_symbiont_or_hybrid(self):
+        from metabolon.organelles.glycolysis_rate import suggest_conversions
+        result = suggest_conversions()
+        for item in result:
+            assert item["current_type"] in ("symbiont", "hybrid")
+
+    def test_sorted_by_priority_descending(self):
+        from metabolon.organelles.glycolysis_rate import suggest_conversions
+        result = suggest_conversions()
+        priorities = [item["priority"] for item in result]
+        assert priorities == sorted(priorities, reverse=True)
+
+    def test_effort_is_valid_value(self):
+        from metabolon.organelles.glycolysis_rate import suggest_conversions
+        result = suggest_conversions()
+        valid_efforts = {"low", "medium", "high", "unknown"}
+        for item in result:
+            assert item["effort"] in valid_efforts
+
+    def test_dependencies_is_list(self):
+        from metabolon.organelles.glycolysis_rate import suggest_conversions
+        result = suggest_conversions()
+        for item in result:
+            assert isinstance(item["dependencies"], list)
+
+
+class TestGetConversionReport:
+    def test_returns_required_keys(self):
+        from metabolon.organelles.glycolysis_rate import get_conversion_report
+        result = get_conversion_report()
+        required_keys = {
+            "total_symbiont",
+            "total_hybrid",
+            "conversion_candidates",
+            "potential_glycolysis_gain",
+            "potential_glycolysis_pct",
+            "suggestions",
+        }
+        assert required_keys.issubset(result.keys())
+
+    def test_suggestions_match_suggest_conversions(self):
+        from metabolon.organelles.glycolysis_rate import get_conversion_report, suggest_conversions
+        report = get_conversion_report()
+        direct = suggest_conversions()
+        assert len(report["suggestions"]) == len(direct)
+
+    def test_potential_glycolysis_pct_higher_than_current(self):
+        from metabolon.organelles.glycolysis_rate import get_conversion_report, measure_rate
+        report = get_conversion_report()
+        current = measure_rate()
+        if report["conversion_candidates"] > 0:
+            assert report["potential_glycolysis_pct"] >= current["glycolysis_pct"]
+
+    def test_gain_is_non_negative(self):
+        from metabolon.organelles.glycolysis_rate import get_conversion_report
+        report = get_conversion_report()
+        assert report["potential_glycolysis_gain"] >= 0
+
+    def test_counts_are_non_negative(self):
+        from metabolon.organelles.glycolysis_rate import get_conversion_report
+        report = get_conversion_report()
+        assert report["total_symbiont"] >= 0
+        assert report["total_hybrid"] >= 0
+        assert report["conversion_candidates"] >= 0

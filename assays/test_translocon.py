@@ -733,3 +733,144 @@ def test_429_in_tee_log_triggers_rate_limit(tmp_path):
     state = json.loads(health_file.read_text())
     assert state["goose"]["consecutive_failures"] == 1
     assert "last_rate_limit" in state["goose"]
+
+
+# ── dispatch_stats tests ─────────────────────────────────────────────
+
+
+_TRANSLOCON_MODULE_PATH = os.path.expanduser("~/germline/metabolon/organelles/translocon.py")
+
+
+def _load_translocon_module():
+    """Load translocon.py module for testing dispatch_stats."""
+    source = open(_TRANSLOCON_MODULE_PATH).read()
+    ns: dict = {"__name__": "__main__"}
+    exec(source, ns)
+    return ns
+
+
+_translocon_mod = _load_translocon_module()
+dispatch_stats = _translocon_mod["dispatch_stats"]
+
+
+def _make_golem_log(tmp_path: Path, entries: list[dict]) -> Path:
+    """Create a fake golem.jsonl in tmp_path."""
+    log_dir = tmp_path / ".local" / "share" / "vivesca"
+    log_dir.mkdir(parents=True)
+    log_path = log_dir / "golem.jsonl"
+    lines = [json.dumps(e) for e in entries]
+    log_path.write_text("\n".join(lines) + "\n")
+    return log_path
+
+
+_GOLEM_ENTRIES = [
+    {"ts": "2026-03-31T06:54:50Z", "duration": 122, "exit": 0, "turns": 30, "provider": "infini", "prompt": "Test task 1", "tail": " "},
+    {"ts": "2026-03-31T07:29:39Z", "duration": 913, "exit": 1, "turns": 20, "provider": "volcano", "prompt": "Test task 2", "tail": " "},
+    {"ts": "2026-03-31T07:32:18Z", "duration": 1074, "exit": 0, "turns": 25, "provider": "infini", "prompt": "Test task 3", "tail": " "},
+    {"ts": "2026-03-31T07:34:58Z", "duration": 1235, "exit": 1, "turns": 40, "provider": "zhipu", "prompt": "Test task 4", "tail": " "},
+    {"ts": "2026-03-31T07:38:23Z", "duration": 524, "exit": 0, "turns": 15, "provider": "volcano", "prompt": "Test task 5", "tail": " "},
+]
+
+
+def test_dispatch_stats_reads_log_and_returns_summary(tmp_path):
+    """dispatch_stats reads golem.jsonl and returns success rate + provider breakdown."""
+    _make_golem_log(tmp_path, _GOLEM_ENTRIES)
+    with patch.object(Path, "home", return_value=tmp_path):
+        result = dispatch_stats(count=50)
+
+    assert result["success"] is True
+    assert "Golem runs: 5" in result["output"]
+    assert "Success: 3 (60%)" in result["output"]
+    assert "Fail: 2" in result["output"]
+    # Provider breakdown
+    assert "infini:" in result["output"]
+    assert "volcano:" in result["output"]
+    assert "zhipu:" in result["output"]
+    # Stats dict
+    assert "stats" in result
+    assert result["stats"]["total"] == 5
+    assert result["stats"]["success"] == 3
+    assert result["stats"]["success_rate"] == 60.0
+
+
+def test_dispatch_stats_no_log(tmp_path):
+    """dispatch_stats with no log file returns error."""
+    with patch.object(Path, "home", return_value=tmp_path):
+        result = dispatch_stats()
+    assert result["success"] is False
+    assert "no golem log" in result["output"]
+
+
+def test_dispatch_stats_count_limits_entries(tmp_path):
+    """dispatch_stats --count N analyzes only last N entries."""
+    _make_golem_log(tmp_path, _GOLEM_ENTRIES)
+    with patch.object(Path, "home", return_value=tmp_path):
+        result = dispatch_stats(count=2)
+
+    assert result["success"] is True
+    # Last 2 entries: zhipu (fail) + volcano (success) = 1 success
+    assert result["stats"]["total"] == 2
+    assert result["stats"]["success"] == 1
+
+
+def test_dispatch_stats_provider_success_breakdown(tmp_path):
+    """dispatch_stats correctly tracks success per provider."""
+    _make_golem_log(tmp_path, _GOLEM_ENTRIES)
+    with patch.object(Path, "home", return_value=tmp_path):
+        result = dispatch_stats()
+
+    # infini: 2 runs, 2 success (100%)
+    # volcano: 2 runs, 1 success (50%)
+    # zhipu: 1 run, 0 success (0%)
+    assert result["stats"]["provider_success"]["infini"] == 2
+    assert result["stats"]["provider_success"]["volcano"] == 1
+    assert result["stats"]["provider_success"]["zhipu"] == 0
+
+
+def test_dispatch_stats_shows_recent_failures(tmp_path):
+    """dispatch_stats includes recent failures in output."""
+    _make_golem_log(tmp_path, _GOLEM_ENTRIES)
+    with patch.object(Path, "home", return_value=tmp_path):
+        result = dispatch_stats()
+
+    assert "Recent failures:" in result["output"]
+    # Should show the failed task prompts (truncated)
+    assert "Test task 2" in result["output"] or "Test task 4" in result["output"]
+
+
+def test_dispatch_stats_empty_log(tmp_path):
+    """dispatch_stats with empty log returns appropriate message."""
+    _make_golem_log(tmp_path, [])
+    with patch.object(Path, "home", return_value=tmp_path):
+        result = dispatch_stats()
+
+    assert result["success"] is True
+    assert "no entries found" in result["output"]
+
+
+def test_dispatch_stats_all_success(tmp_path):
+    """dispatch_stats with 100% success rate."""
+    entries = [
+        {"ts": "2026-03-31T10:00:00Z", "duration": 100, "exit": 0, "turns": 10, "provider": "infini", "prompt": "OK 1", "tail": " "},
+        {"ts": "2026-03-31T10:01:00Z", "duration": 200, "exit": 0, "turns": 20, "provider": "volcano", "prompt": "OK 2", "tail": " "},
+    ]
+    _make_golem_log(tmp_path, entries)
+    with patch.object(Path, "home", return_value=tmp_path):
+        result = dispatch_stats()
+
+    assert result["stats"]["success_rate"] == 100.0
+    assert result["stats"]["fail"] == 0
+    # No failures section
+    assert "Recent failures" not in result["output"]
+
+
+def test_dispatch_stats_includes_provider_limits(tmp_path):
+    """dispatch_stats shows provider limits in output."""
+    _make_golem_log(tmp_path, _GOLEM_ENTRIES)
+    with patch.object(Path, "home", return_value=tmp_path):
+        result = dispatch_stats()
+
+    # Check that provider limits are shown
+    assert "[limit=6]" in result["output"]  # infini
+    assert "[limit=8]" in result["output"]  # volcano
+    assert "[limit=4]" in result["output"]  # zhipu
