@@ -13,6 +13,9 @@ import pytest
 from metabolon.organelles.browser_stealth import (
     CHROME_USER_AGENTS,
     _WEBDRIVER_PATCH_JS,
+    _CHROME_RUNTIME_PATCH_JS,
+    _PLUGINS_PATCH_JS,
+    _PERMISSIONS_PATCH_JS,
     human_delay,
     patch_navigator,
     set_realistic_headers,
