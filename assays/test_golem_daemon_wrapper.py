@@ -578,3 +578,132 @@ def test_env_file_with_empty_value():
             text=True,
         )
         assert "EMPTY=[]" in r.stdout
+
+
+# ── conditional env sourcing ──────────────────────────────────────────────
+
+
+def test_wrapper_checks_env_file_exists_before_sourcing():
+    """Wrapper uses 'if [ -f ... ]' to guard the source command."""
+    content = WRAPPER.read_text()
+    assert '-f "$HOME/.env.fly"' in content or '-f "$HOME/.env.fly"]' in content
+
+
+def test_missing_env_file_no_errors():
+    """When .env.fly does not exist, the wrapper silently proceeds (no stderr)."""
+    with tempfile.TemporaryDirectory() as td:
+        shim_dir = Path(td) / "bin"
+        shim_dir.mkdir()
+        shim = shim_dir / "python3"
+        shim.write_text('#!/bin/bash\necho "OK"\nexit 0\n')
+        shim.chmod(0o755)
+
+        fake_germline = Path(td) / "germline" / "effectors"
+        fake_germline.mkdir(parents=True)
+        fake_daemon = fake_germline / "golem-daemon"
+        fake_daemon.write_text("# dummy\n")
+
+        r = subprocess.run(
+            [
+                "bash", "-c",
+                f'HOME={td} PATH={shim_dir}:$PATH bash "{WRAPPER}"',
+            ],
+            capture_output=True,
+            text=True,
+        )
+        assert r.returncode == 0
+        assert r.stderr == ""
+
+
+# ── shellcheck directive ─────────────────────────────────────────────────
+
+
+def test_wrapper_has_shellcheck_ignore_for_source():
+    """Wrapper includes shellcheck disable for the dynamic source."""
+    content = WRAPPER.read_text()
+    assert "shellcheck" in content
+
+
+# ── env.fly with special characters ──────────────────────────────────────
+
+
+def test_env_file_value_with_spaces_no_quotes():
+    """Unquoted values with spaces are handled by the source mechanism."""
+    with tempfile.TemporaryDirectory() as td:
+        env_file = Path(td) / ".env.fly"
+        env_file.write_text('SPACED_VAL="hello world"\n')
+
+        shim_dir = Path(td) / "bin"
+        shim_dir.mkdir()
+        shim = shim_dir / "python3"
+        shim.write_text('#!/bin/bash\necho "SP=$SPACED_VAL"\nexit 0\n')
+        shim.chmod(0o755)
+
+        fake_germline = Path(td) / "germline" / "effectors"
+        fake_germline.mkdir(parents=True)
+        fake_daemon = fake_germline / "golem-daemon"
+        fake_daemon.write_text("# dummy\n")
+
+        r = subprocess.run(
+            [
+                "bash", "-c",
+                f'HOME={td} PATH={shim_dir}:$PATH bash "{WRAPPER}"',
+            ],
+            capture_output=True,
+            text=True,
+        )
+        assert "SP=hello world" in r.stdout
+
+
+def test_env_file_overrides_existing_var():
+    """If a var is already set in the environment, .env.fly overrides it."""
+    with tempfile.TemporaryDirectory() as td:
+        env_file = Path(td) / ".env.fly"
+        env_file.write_text("OVERRIDE_VAR=from_env_fly\n")
+
+        shim_dir = Path(td) / "bin"
+        shim_dir.mkdir()
+        shim = shim_dir / "python3"
+        shim.write_text('#!/bin/bash\necho "OV=$OVERRIDE_VAR"\nexit 0\n')
+        shim.chmod(0o755)
+
+        fake_germline = Path(td) / "germline" / "effectors"
+        fake_germline.mkdir(parents=True)
+        fake_daemon = fake_germline / "golem-daemon"
+        fake_daemon.write_text("# dummy\n")
+
+        r = subprocess.run(
+            [
+                "bash", "-c",
+                f'HOME={td} PATH={shim_dir}:$PATH OVERRIDE_VAR=original bash "{WRAPPER}"',
+            ],
+            capture_output=True,
+            text=True,
+        )
+        assert "OV=from_env_fly" in r.stdout
+
+
+# ── set +a restores normal behavior ──────────────────────────────────────
+
+
+def test_set_plus_a_after_source():
+    """set +a appears AFTER the source line, bracketing it."""
+    content = WRAPPER.read_text()
+    lines = content.splitlines()
+    set_a_idx = None
+    set_plus_a_idx = None
+    source_idx = None
+    for i, line in enumerate(lines):
+        stripped = line.strip()
+        if stripped == "set -a":
+            set_a_idx = i
+        elif stripped == "set +a":
+            set_plus_a_idx = i
+        elif "source" in stripped and ".env.fly" in stripped:
+            source_idx = i
+    assert set_a_idx is not None, "set -a not found"
+    assert set_plus_a_idx is not None, "set +a not found"
+    assert source_idx is not None, "source .env.fly not found"
+    assert set_a_idx < source_idx < set_plus_a_idx, (
+        f"Order wrong: set -a at {set_a_idx}, source at {source_idx}, set +a at {set_plus_a_idx}"
+    )
