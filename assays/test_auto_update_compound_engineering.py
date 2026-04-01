@@ -91,9 +91,9 @@ def test_auto_update_compound_engineering_exits_1_when_no_bunx_or_npx(tmp_path):
     """Script exits 1 with error when neither bunx nor npx is available."""
     # Create a minimal environment with empty PATH and isolated HOME
     fake_home = tmp_path / "home"
-    fake_home.mkdir()
+    fake_home.mkdir(exist_ok=True)
     empty_bin = tmp_path / "bin"
-    empty_bin.mkdir()
+    empty_bin.mkdir(exist_ok=True)
 
     # Use env -i to run with clean environment, only setting what we need
     # This ensures bunx/npx are NOT found since PATH is empty
