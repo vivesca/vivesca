@@ -362,15 +362,10 @@ def cmd_gather(args):
         rfts_fut = pool.submit(rfts_verify)
         deps_fut = pool.submit(dep_check)
         peira_fut = pool.submit(peira_status)
-        # Reflect is opt-in (--reflect) because the LLM call takes 30-60s
-        sid = None
-        reflect_fut = None
-        if getattr(args, 'reflect', False):
-            sid = latest_session_id()
-            if sid:
-                reflect_fut = pool.submit(run_reflect, sid)
-        # Methylation audit uses an LLM call (60s) — opt-in only
-        methyl_fut = pool.submit(run_methylation_audit) if getattr(args, 'reflect', False) else None
+        # LLM calls (reflect + methylation) always run, but don't block fast output
+        sid = latest_session_id()
+        reflect_fut = pool.submit(run_reflect, sid) if sid else None
+        methyl_fut = pool.submit(run_methylation_audit)
 
         _futures = [
             ("rfts", rfts_fut, "rfts", []),
@@ -394,6 +389,44 @@ def cmd_gather(args):
             except (concurrent.futures.TimeoutError, Exception):
                 results["reflect"] = []
 
+    # --- Phase 1: print fast results immediately ---
+    if not args.syntactic and not args.perceptual:
+        for label, info in sorted(results["repos"].items()):
+            if not info["clean"] and info["clean"] is not None:
+                print(f"repo:{label} dirty {info['status']}")
+        gaps = results["skills"]["gaps"]
+        if gaps:
+            print(f"skills:unlinked {','.join(gaps)}")
+        missing_clis = results["skills"].get("cli_gaps", [])
+        if missing_clis:
+            print(f"skills:cli-missing {','.join(missing_clis)}")
+        mem = results["memory"]
+        print(f"memory:{mem['lines']}/{mem['limit']}")
+        rfts = results.get("rfts", [])
+        if rfts:
+            print(f"rfts:{len(rfts)} stale marks")
+            for r in rfts:
+                print(f"  {r['file']}: {'; '.join(r['issues'])}")
+        print(f"now:{results['now']['age_label']}")
+        if results["deps"]:
+            print(f"deps:{'; '.join(results['deps'])}")
+        sys.stdout.flush()
+
+    # --- Phase 2: wait for LLM calls, append results ---
+    if methyl_fut:
+        try:
+            results["methylation"] = methyl_fut.result(timeout=90)
+        except (concurrent.futures.TimeoutError, Exception):
+            results["methylation"] = {}
+    if reflect_fut:
+        try:
+            candidates, reflect_usage = reflect_fut.result(timeout=90)
+            results["reflect"] = candidates
+            results["reflect_session"] = sid
+            results["reflect_usage"] = reflect_usage
+        except (concurrent.futures.TimeoutError, Exception):
+            results["reflect"] = []
+
     # Output
     if args.syntactic:
         print(json.dumps(results, indent=2))
@@ -403,26 +436,7 @@ def cmd_gather(args):
         _print_human(results, sid)
         return
 
-    # Default: compact text (LLM-optimized)
-    for label, info in sorted(results["repos"].items()):
-        if not info["clean"] and info["clean"] is not None:
-            print(f"repo:{label} dirty {info['status']}")
-    gaps = results["skills"]["gaps"]
-    if gaps:
-        print(f"skills:unlinked {','.join(gaps)}")
-    missing_clis = results["skills"].get("cli_gaps", [])
-    if missing_clis:
-        print(f"skills:cli-missing {','.join(missing_clis)}")
-    mem = results["memory"]
-    print(f"memory:{mem['lines']}/{mem['limit']}")
-    rfts = results.get("rfts", [])
-    if rfts:
-        print(f"rfts:{len(rfts)} stale marks")
-        for r in rfts:
-            print(f"  {r['file']}: {'; '.join(r['issues'])}")
-    print(f"now:{results['now']['age_label']}")
-    if results["deps"]:
-        print(f"deps:{';'.join(results['deps'])}")
+    # Default: LLM results only (fast results already printed in phase 1)
     if results["peira"]:
         print(f"peira:{results['peira']}")
     reflect = results.get("reflect", [])

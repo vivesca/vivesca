@@ -261,18 +261,16 @@ class TestPlatformDetection:
 class TestRunningDetection:
     """Test detection when Chrome is already running with debugging."""
 
-    def test_exits_0_when_already_running(self):
+    def test_exits_0_when_already_running(self, tmp_path):
         """If curl can connect to the port, exit 0 with message."""
+        # Create a fake executable chrome
+        fake_chrome = tmp_path / "chrome"
+        fake_chrome.write_text("#!/bin/bash\necho 'fake chrome'\n")
+        fake_chrome.chmod(0o755)
+
         mock_script = f"""\
             uname() {{ echo "Linux"; }}
-            command() {{ echo "/fake/chrome"; return 0; }}
-            CHROME="/fake/chrome"
-            [() {{
-                if [ "$1" = "-x" ]; then
-                    return 0;
-                fi
-                return 0;
-            }}
+            command() {{ echo "{fake_chrome}"; return 0; }}
             # Curl succeeds → already running
             curl() {{ return 0; }}
             . {SCRIPT}
