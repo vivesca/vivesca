@@ -299,3 +299,76 @@ class TestExecution:
         # Script fails (set -e) but stderr is empty (2>/dev/null)
         assert r.returncode != 0
         assert r.stderr == ""
+
+    def test_help_mentions_reindex(self):
+        """Help output mentions re-index / reindex."""
+        r = _run_script("--help")
+        lower = r.stdout.lower()
+        assert "re-index" in lower or "reindex" in lower
+
+    def test_help_mentions_skip(self):
+        """Help output mentions the skip-if-running behavior."""
+        r = _run_script("--help")
+        lower = r.stdout.lower()
+        assert "skip" in lower
+
+    def test_help_output_multiline(self):
+        """Help output has multiple lines (Usage + description)."""
+        r = _run_script("--help")
+        lines = [l for l in r.stdout.strip().splitlines() if l.strip()]
+        assert len(lines) >= 2
+
+    def test_unknown_arg_is_not_help(self, tmp_path):
+        """Unknown args do NOT trigger help — script proceeds to execution."""
+        _create_mock_bin(tmp_path, "pgrep", exit_code=1)
+
+        qmd_call_log = tmp_path / "qmd_calls"
+        qmd_path = tmp_path / "bin" / "qmd"
+        qmd_path.parent.mkdir(parents=True, exist_ok=True)
+        qmd_path.write_text(f'#!/bin/bash\necho "$@" >> {qmd_call_log}\nexit 0')
+        qmd_path.chmod(0o755)
+
+        env = os.environ.copy()
+        env["HOME"] = str(tmp_path)
+        env["PATH"] = f"{tmp_path}/bin:{env['PATH']}"
+
+        r = _run_script("--random-flag", env=env)
+        # Script should attempt to run qmd (not exit early with help)
+        assert qmd_call_log.exists()
+
+    def test_no_stdout_during_normal_run(self, tmp_path):
+        """Normal execution (not --help) produces no stdout."""
+        _create_mock_bin(tmp_path, "pgrep", exit_code=1)
+
+        qmd_path = tmp_path / "bin" / "qmd"
+        qmd_path.parent.mkdir(parents=True, exist_ok=True)
+        qmd_path.write_text('#!/bin/bash\nexit 0')
+        qmd_path.chmod(0o755)
+
+        env = os.environ.copy()
+        env["HOME"] = str(tmp_path)
+        env["PATH"] = f"{tmp_path}/bin:{env['PATH']}"
+
+        r = _run_script(env=env)
+        assert r.stdout == ""
+
+    def test_bun_path_prepend_order(self, tmp_path):
+        """$HOME/.bun/bin is prepended (first in PATH), not appended."""
+        _create_mock_bin(tmp_path, "pgrep", exit_code=1)
+
+        path_log = tmp_path / "path_log"
+        qmd_path = tmp_path / "bin" / "qmd"
+        qmd_path.parent.mkdir(parents=True, exist_ok=True)
+        qmd_path.write_text(f'#!/bin/bash\necho "$PATH" > {path_log}\nexit 0')
+        qmd_path.chmod(0o755)
+
+        env = os.environ.copy()
+        env["HOME"] = str(tmp_path)
+        env["PATH"] = f"{tmp_path}/bin:{env['PATH']}"
+
+        _run_script(env=env)
+
+        recorded_path = path_log.read_text().strip()
+        bun_segment = f"{tmp_path}/.bun/bin"
+        # .bun/bin should be the very first entry in PATH
+        assert recorded_path.startswith(bun_segment)
