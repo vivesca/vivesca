@@ -799,7 +799,13 @@ def mark_failed(line_num: int, result: str = "", exit_code: int = 1,
             lines[actual_line] = _to_failed(original)
         elif '(retry)' not in cmd_match.group(1):
             old_cmd = cmd_match.group(1)
-            new_cmd = old_cmd + ' (retry)'
+            # Insert (retry) BEFORE the closing double-quote so dash/sh won't
+            # hit a syntax error on the bare parentheses outside quotes.
+            # E.g. "…Commit." → "…Commit. (retry)"
+            if old_cmd.rstrip().endswith('"'):
+                new_cmd = old_cmd.rstrip()[:-1] + ' (retry)"'
+            else:
+                new_cmd = old_cmd + ' (retry)'
             lines[actual_line] = original.replace(f'`{old_cmd}`', f'`{new_cmd}`', 1)
             retried = True
         else:

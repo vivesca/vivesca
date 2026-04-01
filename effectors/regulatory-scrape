@@ -1,9 +1,13 @@
 #!/usr/bin/env python3
 """regulatory-scrape — fetch a regulatory document and save as frontmattered markdown.
 
+Bakes in per-regulator knowhow:
+- BoE: curl with browser UA (blocks bots), PDF link detection
+- PDF URLs: PyMuPDF extraction fallback
+- Landing pages: scan for PDF links before giving up
+
 Usage:
   regulatory-scrape <url> --issuer fca --date 2024-04-22 --title "AI Update" --type guidance
-  regulatory-scrape <url> --issuer pra --date 2023-05-17 --title "SS1/23" --type supervisory-statement --slug ss1-23-model-risk
   regulatory-scrape --batch catalog.tsv   # TSV: url\tissuer\tdate\ttitle\ttype\tslug(optional)
 """
 
@@ -13,28 +17,153 @@ import os
 import re
 import subprocess
 import sys
+import tempfile
+from urllib.parse import urlparse
 
 REG_DIR = os.path.expanduser("~/epigenome/chromatin/euchromatin/regulatory")
+UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+
+# Domains where pinocytosis fails — need curl with browser UA
+BOT_BLOCKED = {"bankofengland.co.uk"}
 
 
 def slugify(text: str) -> str:
-    s = text.lower()
-    s = re.sub(r'[^a-z0-9]+', '-', s)
-    return s.strip('-')[:60]
+    return re.sub(r'[^a-z0-9]+', '-', text.lower()).strip('-')[:60]
 
 
-def scrape_one(url: str, issuer: str, date: str, title: str, doc_type: str, slug: str | None = None, status: str = "final") -> str:
+def _curl_fetch(url: str) -> str:
+    """Fetch with browser UA — bypasses bot blocks."""
+    r = subprocess.run(
+        ["curl", "-sL", "-H", f"User-Agent: {UA}", url],
+        capture_output=True, text=True, timeout=30,
+    )
+    if r.returncode == 0 and len(r.stdout) > 200:
+        # Strip HTML tags for crude markdown (better than nothing)
+        from html.parser import HTMLParser
+        class Stripper(HTMLParser):
+            def __init__(self):
+                super().__init__()
+                self.parts = []
+                self.in_main = False
+                self.skip = False
+            def handle_starttag(self, tag, attrs):
+                if tag == "main": self.in_main = True
+                if tag in ("script", "style", "nav", "footer", "header"): self.skip = True
+            def handle_endtag(self, tag):
+                if tag == "main": self.in_main = False
+                if tag in ("script", "style", "nav", "footer", "header"): self.skip = False
+                if tag in ("p", "h1", "h2", "h3", "h4", "li", "br", "div"):
+                    self.parts.append("\n")
+            def handle_data(self, data):
+                if not self.skip:
+                    self.parts.append(data)
+        s = Stripper()
+        s.feed(r.stdout)
+        text = ''.join(s.parts).strip()
+        # Collapse excessive whitespace
+        text = re.sub(r'\n{3,}', '\n\n', text)
+        if len(text) > 200:
+            return text
+    return ""
+
+
+def _pdf_extract(url_or_path: str) -> str:
+    """Extract text from PDF using PyMuPDF."""
+    try:
+        import fitz
+    except ImportError:
+        return ""
+
+    path = url_or_path
+    if url_or_path.startswith("http"):
+        # Download first
+        tmp = tempfile.NamedTemporaryFile(suffix=".pdf", delete=False)
+        r = subprocess.run(
+            ["curl", "-sL", "-H", f"User-Agent: {UA}", "-o", tmp.name, url_or_path],
+            timeout=60,
+        )
+        if r.returncode != 0:
+            os.unlink(tmp.name)
+            return ""
+        path = tmp.name
+
+    try:
+        doc = fitz.open(path)
+        text = "\n\n".join(page.get_text() for page in doc)
+        doc.close()
+        return text if len(text) > 200 else ""
+    except Exception:
+        return ""
+    finally:
+        if url_or_path.startswith("http") and os.path.exists(path):
+            os.unlink(path)
+
+
+def _find_pdf_links(html: str, base_url: str) -> list[str]:
+    """Extract PDF links from HTML page."""
+    pdf_links = re.findall(r'href="([^"]*\.pdf[^"]*)"', html, re.I)
+    parsed = urlparse(base_url)
+    base = f"{parsed.scheme}://{parsed.netloc}"
+    return [
+        (link if link.startswith("http") else base + link)
+        for link in pdf_links
+    ]
+
+
+def fetch_content(url: str) -> str:
+    """Smart fetch with per-domain knowhow and fallback chain."""
+    domain = urlparse(url).netloc.lstrip("www.")
+
+    # PDF URL — go straight to PyMuPDF
+    if url.lower().endswith(".pdf"):
+        text = _pdf_extract(url)
+        if text:
+            return text
+
+    # Bot-blocked domains — skip pinocytosis, use curl
+    is_blocked = any(domain.endswith(d) for d in BOT_BLOCKED)
+
+    if not is_blocked:
+        # Try pinocytosis first (has its own fallback chain)
+        r = subprocess.run(["pinocytosis", url], capture_output=True, text=True, timeout=60)
+        if r.returncode == 0 and len(r.stdout.strip()) > 500:
+            return r.stdout.strip()
+
+    # Curl with browser UA
+    r = subprocess.run(
+        ["curl", "-sL", "-H", f"User-Agent: {UA}", url],
+        capture_output=True, text=True, timeout=30,
+    )
+    if r.returncode == 0 and r.stdout:
+        # Check for PDF links on landing page
+        pdf_links = _find_pdf_links(r.stdout, url)
+        if pdf_links:
+            for pdf_url in pdf_links[:3]:
+                text = _pdf_extract(pdf_url)
+                if text:
+                    return text
+
+        # Parse HTML as text
+        text = _curl_fetch(url)
+        if text:
+            return text
+
+    return ""
+
+
+def scrape_one(url: str, issuer: str, date: str, title: str, doc_type: str,
+               slug: str | None = None, status: str = "final") -> str:
     slug = slug or slugify(title)
-    filename = f"{issuer}-{date[:7].replace('-', '-')}-{slug}.md"
+    filename = f"{issuer}-{date[:7]}-{slug}.md"
     filepath = os.path.join(REG_DIR, filename)
 
     if os.path.exists(filepath) and os.path.getsize(filepath) > 500:
         print(f"SKIP (exists): {filename}", file=sys.stderr)
         return filepath
 
-    r = subprocess.run(["pinocytosis", url], capture_output=True, text=True, timeout=60)
-    if r.returncode != 0 or not r.stdout.strip():
-        print(f"FAIL: {url} — {r.stderr.strip()}", file=sys.stderr)
+    text = fetch_content(url)
+    if not text:
+        print(f"FAIL: {url}", file=sys.stderr)
         return ""
 
     frontmatter = f'''---
@@ -48,16 +177,15 @@ status: {status}
 
 '''
     with open(filepath, 'w') as f:
-        f.write(frontmatter + r.stdout.strip() + '\n')
+        f.write(frontmatter + text + '\n')
 
-    print(f"OK: {filename} ({len(r.stdout)} chars)", file=sys.stderr)
+    print(f"OK: {filename} ({len(text)} chars)", file=sys.stderr)
     return filepath
 
 
 def batch(tsv_path: str):
     with open(tsv_path) as f:
-        reader = csv.reader(f, delimiter='\t')
-        for row in reader:
+        for row in csv.reader(f, delimiter='\t'):
             if not row or row[0].startswith('#'):
                 continue
             url, issuer, date, title, doc_type = row[:5]
