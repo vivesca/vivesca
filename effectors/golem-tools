@@ -92,7 +92,7 @@ def validate_file(path: Path) -> tuple[str, list[str]]:
     return status, issues
 
 
-def main(argv: list[str] | None = None) -> int:
+def cmd_validate(argv: list[str] | None = None) -> int:
     args = argv if argv is not None else sys.argv[1:]
 
     if not args or "--help" in args or "-h" in args:
@@ -292,7 +292,7 @@ def print_json(results: list[HealthResult]) -> None:
     print(json.dumps(data, indent=2))
 
 
-def main(argv: list[str] | None = None) -> int:
+def cmd_health(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description="Health check for golem providers."
     )
@@ -531,7 +531,7 @@ def generate_report(records: list[dict], date_str: str) -> str:
     return "\n".join(lines)
 
 
-def main() -> None:
+def cmd_report() -> None:
     args = parse_args()
     
     # Determine date filter
@@ -822,7 +822,7 @@ def top_run(json_output: bool = False) -> str:
     return render_table(tasks)
 
 
-def main():
+def cmd_top():
     parser = argparse.ArgumentParser(
         description="Show currently running golem processes.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -1085,7 +1085,7 @@ def review_cycle():
     log(f"  Cycle {cycle_number} complete. Next in {POLL_INTERVAL}s.")
 
 
-def main():
+def cmd_reviewer():
     if "--help" in sys.argv or "-h" in sys.argv:
         print("Usage: golem-reviewer [--once] [-h|--help]")
         print()
@@ -2075,7 +2075,7 @@ def run_review(auto_requeue: bool = False, since: timedelta = timedelta(minutes=
 # ── main CLI ───────────────────────────────────────────────────────────
 
 
-def main():
+def cmd_review():
     """CLI entry point."""
     args = sys.argv[1:]
 
@@ -3462,7 +3462,7 @@ def tail_jsonl(file_path: Path, from_byte: int = 0):
         return
 
 
-def main():
+def cmd_dash():
     import argparse
 
     parser = argparse.ArgumentParser(description="Golem task queue dashboard")
@@ -3530,8 +3530,6 @@ def main():
 
 # ══════════════════════════════════════════════════════════════════════
 # ══ argparse dispatch
-# ══════════════════════════════════════════════════════════════════════
-
 def main():
     parser = argparse.ArgumentParser(
         prog="golem-tools",
