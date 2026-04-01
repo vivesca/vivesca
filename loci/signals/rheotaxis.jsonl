@@ -302,3 +302,10 @@
 {"ts": "2026-04-01T15:00:30+00:00", "model": "sonar", "query": "query1"}
 {"ts": "2026-04-01T15:00:32+00:00", "model": "sonar", "query": "query2"}
 {"ts": "2026-04-01T15:00:35+00:00", "model": "sonar", "query": "q1"}
+{"ts": "2026-04-01T15:03:29+00:00", "model": "sonar", "query": "test query"}
+{"ts": "2026-04-01T15:03:29+00:00", "model": "sonar", "query": "test query"}
+{"ts": "2026-04-01T15:03:33+00:00", "model": "sonar", "query": "test query"}
+{"ts": "2026-04-01T15:03:39+00:00", "model": "sonar", "query": "test query"}
+{"ts": "2026-04-01T15:03:44+00:00", "model": "sonar", "query": "query2"}
+{"ts": "2026-04-01T15:03:44+00:00", "model": "sonar", "query": "query1"}
+{"ts": "2026-04-01T15:03:49+00:00", "model": "sonar", "query": "q1"}

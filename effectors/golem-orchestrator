@@ -1,0 +1,313 @@
+#!/usr/bin/env python3
+"""golem-orchestrator — Switch between golem-daemon, Hatchet, and Temporal backends.
+
+Usage:
+    golem-orchestrator start <backend>     # Start a backend (daemon|hatchet|temporal)
+    golem-orchestrator stop [<backend>]    # Stop a backend (or all if omitted)
+    golem-orchestrator status              # Show which backends are running
+    golem-orchestrator dispatch [<backend>] # Dispatch pending queue to backend
+    golem-orchestrator switch <backend>    # Stop all, start the given backend
+
+Backends:
+    daemon    — original golem-daemon (direct subprocess dispatch)
+    hatchet   — Hatchet orchestrator (Docker + worker)
+    temporal  — Temporal orchestrator (Docker + worker)
+"""
+from __future__ import annotations
+
+import json
+import os
+import signal
+import subprocess
+import sys
+import time
+from pathlib import Path
+
+EFFECTORS = Path(__file__).resolve().parent
+HATCHET_DIR = EFFECTORS / "hatchet-golem"
+TEMPORAL_DIR = EFFECTORS / "temporal-golem"
+VENV_PYTHON = Path.home() / "germline" / ".venv" / "bin" / "python3"
+ENV_FILE = Path.home() / ".env.fly"
+LOG_DIR = Path.home() / ".local" / "share" / "vivesca"
+
+BACKENDS = ("daemon", "hatchet", "temporal")
+
+# Pidfiles for worker processes
+WORKER_PIDFILES = {
+    "hatchet": LOG_DIR / "hatchet-worker.pid",
+    "temporal": LOG_DIR / "temporal-worker.pid",
+}
+
+
+def _source_env() -> dict:
+    """Return current env merged with .env.fly exports."""
+    env = dict(os.environ)
+    if ENV_FILE.exists():
+        for line in ENV_FILE.read_text().splitlines():
+            line = line.strip()
+            if line.startswith("export ") and "=" in line:
+                kv = line[7:]  # strip "export "
+                key, _, val = kv.partition("=")
+                val = val.strip('"').strip("'")
+                env[key] = val
+    return env
+
+
+def _docker(*args: str, cwd: Path | None = None) -> subprocess.CompletedProcess:
+    """Run a docker command via sg docker."""
+    cmd = ["sg", "docker", "-c", "docker " + " ".join(args)]
+    return subprocess.run(cmd, capture_output=True, text=True, cwd=cwd, timeout=60)
+
+
+def _find_worker_pid(backend: str) -> int | None:
+    """Find worker PID from pidfile, verify alive."""
+    pf = WORKER_PIDFILES.get(backend)
+    if pf and pf.exists():
+        try:
+            pid = int(pf.read_text().strip())
+            os.kill(pid, 0)
+            return pid
+        except (ProcessLookupError, ValueError):
+            pf.unlink(missing_ok=True)
+    return None
+
+
+def _is_running(backend: str) -> dict | None:
+    """Check if a backend is running. Returns info dict or None."""
+    if backend == "daemon":
+        pidfile = LOG_DIR / "golem-daemon.pid"
+        if pidfile.exists():
+            try:
+                pid = int(pidfile.read_text().strip())
+                os.kill(pid, 0)  # check alive
+                return {"pid": pid, "backend": "daemon"}
+            except (ProcessLookupError, ValueError):
+                pass
+        # Also check by process name
+        r = subprocess.run(
+            ["pgrep", "-f", "golem-daemon start"],
+            capture_output=True, text=True,
+        )
+        if r.returncode == 0:
+            pid = int(r.stdout.strip().split("\n")[0])
+            return {"pid": pid, "backend": "daemon"}
+        return None
+
+    elif backend == "hatchet":
+        # Check Docker containers
+        r = _docker("ps", "--filter", "name=hatchet-golem", "--format", "{{.Names}}")
+        containers = [c for c in r.stdout.strip().split("\n") if c]
+        # Check worker via pidfile or pgrep
+        worker_pid = _find_worker_pid("hatchet")
+        if containers or worker_pid:
+            return {
+                "backend": "hatchet",
+                "containers": len(containers),
+                "worker_pid": worker_pid,
+            }
+        return None
+
+    elif backend == "temporal":
+        r = _docker("ps", "--filter", "name=temporal-golem", "--format", "{{.Names}}")
+        containers = [c for c in r.stdout.strip().split("\n") if c]
+        worker_pid = _find_worker_pid("temporal")
+        if containers or worker_pid:
+            return {
+                "backend": "temporal",
+                "containers": len(containers),
+                "worker_pid": worker_pid,
+            }
+        return None
+
+    return None
+
+
+def cmd_status() -> None:
+    """Show status of all backends."""
+    for b in BACKENDS:
+        info = _is_running(b)
+        if info:
+            print(f"  {b:10s}  RUNNING  {json.dumps(info)}")
+        else:
+            print(f"  {b:10s}  stopped")
+
+
+def cmd_stop(backend: str | None = None) -> None:
+    """Stop a backend or all backends."""
+    targets = [backend] if backend else list(BACKENDS)
+
+    for b in targets:
+        info = _is_running(b)
+        if not info:
+            continue
+
+        print(f"Stopping {b}...")
+
+        if b == "daemon":
+            pid = info.get("pid")
+            if pid:
+                try:
+                    os.kill(pid, signal.SIGTERM)
+                    time.sleep(2)
+                except ProcessLookupError:
+                    pass
+            print(f"  daemon stopped")
+
+        elif b == "hatchet":
+            # Kill worker first
+            wp = info.get("worker_pid")
+            if wp:
+                try:
+                    os.kill(wp, signal.SIGTERM)
+                    time.sleep(2)
+                except ProcessLookupError:
+                    pass
+            # Stop Docker stack
+            _docker("compose", "stop", cwd=HATCHET_DIR)
+            print(f"  hatchet stopped")
+
+        elif b == "temporal":
+            wp = info.get("worker_pid")
+            if wp:
+                try:
+                    os.kill(wp, signal.SIGTERM)
+                    time.sleep(2)
+                except ProcessLookupError:
+                    pass
+            _docker("compose", "stop", cwd=TEMPORAL_DIR)
+            print(f"  temporal stopped")
+
+
+def cmd_start(backend: str) -> None:
+    """Start a backend."""
+    if _is_running(backend):
+        print(f"{backend} is already running")
+        return
+
+    env = _source_env()
+
+    if backend == "daemon":
+        subprocess.Popen(
+            [str(VENV_PYTHON), str(EFFECTORS / "golem-daemon"), "start"],
+            env=env,
+            cwd=Path.home() / "germline",
+        )
+        print("golem-daemon starting...")
+
+    elif backend == "hatchet":
+        # Start Docker stack
+        print("Starting Hatchet Docker stack...")
+        _docker("compose", "up", "-d", cwd=HATCHET_DIR)
+        time.sleep(5)
+        # Start worker
+        log = LOG_DIR / "hatchet-worker.log"
+        p = subprocess.Popen(
+            [str(VENV_PYTHON), str(HATCHET_DIR / "worker.py")],
+            env=env,
+            cwd=Path.home() / "germline",
+            stdout=open(log, "a"),
+            stderr=subprocess.STDOUT,
+        )
+        WORKER_PIDFILES["hatchet"].write_text(str(p.pid))
+        print(f"Hatchet worker starting (pid={p.pid}, log: {log})")
+
+    elif backend == "temporal":
+        print("Starting Temporal Docker stack...")
+        _docker("compose", "up", "-d", cwd=TEMPORAL_DIR)
+        # Wait for server health
+        print("Waiting for Temporal server...")
+        for i in range(20):
+            r = _docker(
+                "compose", "exec", "-T", "temporal-server",
+                "tctl", "--address", "localhost:7233", "cluster", "health",
+                cwd=TEMPORAL_DIR,
+            )
+            if r.returncode == 0:
+                print("  Temporal server healthy")
+                break
+            time.sleep(3)
+        # Start worker
+        log = LOG_DIR / "temporal-worker.log"
+        p = subprocess.Popen(
+            [str(VENV_PYTHON), str(TEMPORAL_DIR / "worker.py")],
+            env=env,
+            cwd=TEMPORAL_DIR,
+            stdout=open(log, "a"),
+            stderr=subprocess.STDOUT,
+        )
+        WORKER_PIDFILES["temporal"].write_text(str(p.pid))
+        print(f"Temporal worker starting (pid={p.pid}, log: {log})")
+
+
+def cmd_switch(backend: str) -> None:
+    """Stop all backends, start the given one."""
+    cmd_stop(None)
+    time.sleep(2)
+    cmd_start(backend)
+
+
+def cmd_dispatch(backend: str | None = None) -> None:
+    """Dispatch pending queue tasks to a backend."""
+    # Auto-detect running backend if not specified
+    if backend is None:
+        for b in BACKENDS:
+            if _is_running(b):
+                backend = b
+                break
+        if backend is None:
+            print("No backend running. Start one first.")
+            sys.exit(1)
+
+    env = _source_env()
+
+    if backend == "daemon":
+        print("golem-daemon dispatches from queue automatically.")
+        return
+
+    elif backend == "hatchet":
+        subprocess.run(
+            [str(VENV_PYTHON), str(HATCHET_DIR / "dispatch.py")],
+            env=env,
+            cwd=Path.home() / "germline",
+        )
+
+    elif backend == "temporal":
+        subprocess.run(
+            [str(VENV_PYTHON), str(TEMPORAL_DIR / "dispatch.py")],
+            env=env,
+            cwd=TEMPORAL_DIR,
+        )
+
+
+def main() -> None:
+    if len(sys.argv) < 2 or sys.argv[1] in ("-h", "--help"):
+        print(__doc__)
+        sys.exit(0)
+
+    cmd = sys.argv[1]
+    arg = sys.argv[2] if len(sys.argv) > 2 else None
+
+    if cmd == "status":
+        cmd_status()
+    elif cmd == "stop":
+        cmd_stop(arg)
+    elif cmd == "start":
+        if not arg or arg not in BACKENDS:
+            print(f"Usage: golem-orchestrator start <{'|'.join(BACKENDS)}>")
+            sys.exit(1)
+        cmd_start(arg)
+    elif cmd == "switch":
+        if not arg or arg not in BACKENDS:
+            print(f"Usage: golem-orchestrator switch <{'|'.join(BACKENDS)}>")
+            sys.exit(1)
+        cmd_switch(arg)
+    elif cmd == "dispatch":
+        cmd_dispatch(arg)
+    else:
+        print(f"Unknown command: {cmd}")
+        print(__doc__)
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()
