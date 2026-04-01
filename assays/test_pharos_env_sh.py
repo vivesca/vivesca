@@ -193,38 +193,29 @@ class TestZshenvSourcing:
         """When .zshenv.local exists, its exports are visible to the child."""
         zshenv = tmp_path / ".zshenv.local"
         zshenv.write_text('export PHAROS_TEST_SECRET="open sesame"\n')
-        env = os.environ.copy()
-        env["HOME"] = str(tmp_path)
-        r = _run("printenv", "PHAROS_TEST_SECRET", env=env)
+        r = _run_patched(tmp_path, "printenv", "PHAROS_TEST_SECRET")
         assert r.returncode == 0
         assert r.stdout.strip() == "open sesame"
 
     def test_missing_zshenv_no_error(self, tmp_path):
         """When .zshenv.local is absent, the script still works fine."""
-        env = os.environ.copy()
-        env["HOME"] = str(tmp_path)
-        # Ensure no .zshenv.local
         assert not (tmp_path / ".zshenv.local").exists()
-        r = _run("true", env=env)
+        r = _run_patched(tmp_path, "true")
         assert r.returncode == 0
 
     def test_set_a_exports_without_explicit_export(self, tmp_path):
         """set -a auto-exports variables; no 'export' keyword needed in .zshenv.local."""
         zshenv = tmp_path / ".zshenv.local"
         zshenv.write_text('PHAROS_IMPLICIT_VAR="auto_exported"\n')
-        env = os.environ.copy()
-        env["HOME"] = str(tmp_path)
-        r = _run("printenv", "PHAROS_IMPLICIT_VAR", env=env)
+        r = _run_patched(tmp_path, "printenv", "PHAROS_IMPLICIT_VAR")
         assert r.returncode == 0
         assert r.stdout.strip() == "auto_exported"
 
     def test_zshenv_error_causes_failure(self, tmp_path):
         """If .zshenv.local has a syntax error, the script fails (set -e)."""
         zshenv = tmp_path / ".zshenv.local"
-        zshenv.write_text('this is not valid bash syntax !!!!\n')
-        env = os.environ.copy()
-        env["HOME"] = str(tmp_path)
-        r = _run("true", env=env)
+        zshenv.write_text('exec-this-is-not-valid-bash-syntax\n')
+        r = _run_patched(tmp_path, "true")
         assert r.returncode != 0
 
 
@@ -232,8 +223,7 @@ class TestZshenvSourcing:
 
 
 class TestNoArgs:
-    def test_no_args_exits_nonzero(self):
-        """With no arguments, exec "$@" fails (set -e)."""
+    def test_no_args_exits_zero(self):
+        """exec "$@" with no args is a no-op in bash — returns 0."""
         r = _run()
-        # exec with no args is a bash error
-        assert r.returncode != 0
+        assert r.returncode == 0
