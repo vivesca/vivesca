@@ -529,14 +529,16 @@ class TestEdgeCases:
         # Should have two sets of date markers
         assert log_text.count("===") >= 4
 
-    def test_health_overwritten_on_rerun(self, tmp_path):
+    def test_health_overwritten_not_appended_on_rerun(self, tmp_path):
+        """Health file should be overwritten (single JSON object), not appended to."""
         bindir, _ = _setup_full_mocks(tmp_path)
         _run_script(path_dirs=[bindir], tmp_path=tmp_path)
-        first_health = _health_file(tmp_path).read_text()
         _run_script(path_dirs=[bindir], tmp_path=tmp_path)
-        second_health = _health_file(tmp_path).read_text()
-        # Should be different (different timestamps)
-        assert first_health != second_health
+        content = _health_file(tmp_path).read_text().strip()
+        # If appended, there would be two JSON objects — json.loads would fail
+        data = json.loads(content)
+        assert "status" in data
+        assert "failures" in data
 
     def test_unknown_args_ignored(self, tmp_path):
         """Unknown arguments should not cause --help to trigger."""
