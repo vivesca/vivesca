@@ -287,7 +287,7 @@ _run_golem() {
     if [[ "${_CLI:-claude}" == "gemini" ]]; then
       output=$(
       timeout "$_claude_timeout" \
-      env GOOGLE_API_KEY="$_KEY" GEMINI_SANDBOX=false \
+      env GEMINI_API_KEY="$_KEY" GOOGLE_API_KEY="$_KEY" \
       gemini -p "$prompt" < /dev/null 2>&1
       )
       exit_code=$?
@@ -295,7 +295,7 @@ _run_golem() {
       output=$(
       timeout "$_claude_timeout" \
       env OPENAI_API_KEY="$_KEY" \
-      codex --full-auto --quiet "$prompt" < /dev/null 2>&1
+      codex exec "$prompt" 2>&1
       )
       exit_code=$?
     else
