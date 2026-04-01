@@ -241,19 +241,34 @@ def probe_importin() -> tuple[bool, str]:
 
 
 def probe_mcp_server() -> tuple[bool, str]:
-    """Verify com.vivesca.mcp LaunchAgent is loaded."""
+    """Verify vivesca MCP server is running."""
+    import platform
+
     try:
-        result = subprocess.run(
-            ["launchctl", "list", "com.vivesca.mcp"],
-            capture_output=True,
-            text=True,
-            timeout=5,
-        )
-        if result.returncode != 0:
-            return False, "com.vivesca.mcp LaunchAgent is not loaded (launchctl returned non-zero)"
-        return True, "com.vivesca.mcp LaunchAgent is loaded"
+        if platform.system() == "Darwin":
+            result = subprocess.run(
+                ["launchctl", "list", "com.vivesca.mcp"],
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+            if result.returncode != 0:
+                return False, "com.vivesca.mcp LaunchAgent is not loaded"
+            return True, "com.vivesca.mcp LaunchAgent is loaded"
+        else:
+            # Linux: check if vivesca serve process is running
+            result = subprocess.run(
+                ["pgrep", "-f", "vivesca serve"],
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+            if result.returncode != 0:
+                return False, "vivesca serve process not found"
+            pids = result.stdout.strip().splitlines()
+            return True, f"vivesca serve running (pid {pids[0]})"
     except subprocess.TimeoutExpired:
-        return False, "launchctl timed out (5s)"
+        return False, "process check timed out (5s)"
     except Exception as exc:
         return False, f"exception: {exc}"
 
@@ -382,23 +397,34 @@ def _repair_rss_stale() -> tuple[bool, str]:
 
 
 def _repair_mcp_not_loaded() -> tuple[bool, str]:
-    """Load the com.vivesca.mcp LaunchAgent via launchctl."""
+    """Restart vivesca MCP server — launchctl on macOS, supervisorctl on Linux."""
+    import platform
+
     try:
-        plist = str(Path.home() / "Library" / "LaunchAgents" / "com.vivesca.mcp.plist")
-        result = subprocess.run(
-            ["launchctl", "load", plist],
-            capture_output=True,
-            text=True,
-            timeout=10,
-        )
-        if result.returncode != 0:
-            return (
-                False,
-                f"launchctl load exited {result.returncode}: {result.stderr.strip()[:200]}",
+        if platform.system() == "Darwin":
+            plist = str(Path.home() / "Library" / "LaunchAgents" / "com.vivesca.mcp.plist")
+            result = subprocess.run(
+                ["launchctl", "load", plist],
+                capture_output=True,
+                text=True,
+                timeout=10,
             )
-        return True, f"launchctl load {plist} ok"
+            if result.returncode != 0:
+                return False, f"launchctl load exited {result.returncode}: {result.stderr.strip()[:200]}"
+            return True, f"launchctl load {plist} ok"
+        else:
+            # Linux: try supervisorctl, fall back to direct start
+            result = subprocess.run(
+                ["supervisorctl", "restart", "vivesca"],
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
+            if result.returncode == 0:
+                return True, "supervisorctl restart vivesca ok"
+            return False, f"supervisorctl failed: {result.stderr.strip()[:200]}"
     except subprocess.TimeoutExpired:
-        return False, "launchctl load timed out (10s)"
+        return False, "restart timed out (10s)"
     except Exception as exc:
         return False, f"exception: {exc}"
 
