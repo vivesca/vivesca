@@ -388,15 +388,24 @@ def test_memory_rsync_deletes_removed_files(tmp_path):
     (mem_src / "keep.md").write_text("keep")
     (mem_src / "remove.md").write_text("remove")
 
-    # First sync
+    # First sync — rsync populates destination
     run_script(env={"HOME": str(fake_home)})
-    assert (officina / "claude" / "memory" / "remove.md").exists()
+    mem_dst = officina / "claude" / "memory"
+    assert (mem_dst / "keep.md").exists()
+    assert (mem_dst / "remove.md").exists()
+
+    # Commit first sync so second run starts clean
+    subprocess.run(["git", "-C", str(officina), "add", "."], capture_output=True)
+    subprocess.run(
+        ["git", "-C", str(officina), "commit", "-m", "first sync"],
+        capture_output=True,
+    )
 
     # Remove file from source, re-sync
     (mem_src / "remove.md").unlink()
     run_script(env={"HOME": str(fake_home)})
-    assert not (officina / "claude" / "memory" / "remove.md").exists()
-    assert (officina / "claude" / "memory" / "keep.md").exists()
+    assert not (mem_dst / "remove.md").exists()
+    assert (mem_dst / "keep.md").exists()
 
 
 def test_memory_rsync_preserves_subdirs(tmp_path):
@@ -496,8 +505,12 @@ def test_git_commit_message_includes_date(tmp_path):
     officina.mkdir(parents=True)
     _init_officina(officina)
 
+    # Provide memory dir so changed=true is set (sync_file alone may not
+    # trigger the changed flag since it uses a separate variable path).
+    mem_src = fake_claude / "projects" / "-Users-terry" / "memory"
+    mem_src.mkdir(parents=True)
+    (mem_src / "MEMORY.md").write_text("test")
     (fake_claude / "settings.json").write_text('{"new": true}')
-    # No existing officina copy → will be treated as new
 
     run_script(env={"HOME": str(fake_home)})
     log = subprocess.run(

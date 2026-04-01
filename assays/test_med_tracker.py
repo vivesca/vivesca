@@ -11,6 +11,9 @@ from pathlib import Path
 
 import pytest
 
+# This file has no async tests — opt out of pytest-asyncio fixture interference.
+pytestmark = pytest.mark.filterwarnings("ignore::pytest.PytestConfigWarning")
+
 
 def _load_med_tracker():
     """Load med-tracker by exec-ing its source."""
