@@ -1091,7 +1091,7 @@ def cmd_stats() -> int:
     for path in (JSONLFILE, Path(str(JSONLFILE) + ".1")):
         if path.exists():
             try:
-                for line in path.read_text().splitlines():
+                for line in path.read_text(errors="replace").splitlines():
                     line = line.strip()
                     if not line:
                         continue
@@ -1099,7 +1099,7 @@ def cmd_stats() -> int:
                         records.append(json.loads(line))
                     except (json.JSONDecodeError, ValueError):
                         pass
-            except (PermissionError, OSError):
+            except (PermissionError, OSError, UnicodeDecodeError):
                 pass
 
     if not records:
