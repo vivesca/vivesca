@@ -420,6 +420,9 @@ def main() -> None:
 
 
 if __name__ == "__main__":
+    if "--help" in sys.argv:
+        print(__doc__)
+        sys.exit(0)
     try:
         main()
     except Exception:

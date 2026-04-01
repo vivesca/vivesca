@@ -362,10 +362,15 @@ def cmd_gather(args):
         rfts_fut = pool.submit(rfts_verify)
         deps_fut = pool.submit(dep_check)
         peira_fut = pool.submit(peira_status)
-        # LLM calls (reflect + methylation) always run, but don't block fast output
-        sid = latest_session_id()
-        reflect_fut = pool.submit(run_reflect, sid) if sid else None
-        methyl_fut = pool.submit(run_methylation_audit)
+        # LLM calls — skip with --fast
+        if not getattr(args, 'fast', False):
+            sid = latest_session_id()
+            reflect_fut = pool.submit(run_reflect, sid) if sid else None
+            methyl_fut = pool.submit(run_methylation_audit)
+        else:
+            sid = None
+            reflect_fut = None
+            methyl_fut = None
 
         _futures = [
             ("rfts", rfts_fut, "rfts", []),
@@ -1060,6 +1065,7 @@ def main():
     g.add_argument("--perceptual", action="store_true", help="Pretty terminal output")
     g.add_argument("--repos", type=str, help="Extra repo paths (comma-separated)")
     g.add_argument("--reflect", action="store_true", help="Include LLM reflection scan (slow)")
+    g.add_argument("--fast", action="store_true", help="Skip LLM calls, filesystem checks only")
 
     # archive
     sub.add_parser("archive", help="Move completed items to archive")
