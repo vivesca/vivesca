@@ -60,12 +60,14 @@ RATE_LIMIT_COOLDOWN_SECONDS = 18000  # 5-hour cooldown for quota exhaustion (mat
 PROVIDER_RATE_WINDOWS: dict[str, int] = {
     "infini": 18000,  # 1000 req / 5 hours
     "volcano": 18000,  # 5-hour quota window (parse_rate_limit_window extracts exact reset time)
+    "codex": 3600,    # ~hourly resets (parse_rate_limit_window extracts exact "try again at" time)
 }
 
 # Rate-limit detection patterns (checked against task output/tail)
 RATE_LIMIT_PATTERNS = re.compile(
     r'429|AccountQuotaExceeded|rate.?limit|quota.?exceeded|20013|'
-    r'request.?limit.?exceeded|API Error.*429|too many requests|TooManyRequests',
+    r'request.?limit.?exceeded|API Error.*429|too many requests|TooManyRequests|'
+    r'usage.?limit|hit your.*limit',
     re.IGNORECASE,
 )
 
@@ -568,7 +570,27 @@ def parse_rate_limit_window(tail: str) -> int | None:
         except (ValueError, OverflowError):
             pass
 
-    # 2. Duration patterns
+    # 2. Codex format: "try again at 9:01 PM"
+    m = re.search(r'try again at (\d{1,2}):(\d{2})\s*([AP]M)', tail, re.IGNORECASE)
+    if m:
+        try:
+            hour = int(m.group(1))
+            minute = int(m.group(2))
+            if m.group(3).upper() == "PM" and hour != 12:
+                hour += 12
+            elif m.group(3).upper() == "AM" and hour == 12:
+                hour = 0
+            now = datetime.now()
+            reset_time = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
+            if reset_time <= now:
+                reset_time = reset_time.replace(day=now.day + 1)
+            delta = (reset_time - now).total_seconds()
+            if 0 < delta < 86400:
+                return int(delta)
+        except (ValueError, OverflowError):
+            pass
+
+    # 3. Duration patterns
     m = re.search(r'(\d+)[- ]hour', tail)
     if m:
         return int(m.group(1)) * 3600
