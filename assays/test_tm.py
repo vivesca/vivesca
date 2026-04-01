@@ -2,11 +2,11 @@ from __future__ import annotations
 
 """Tests for effectors/tm — mobile tmux session manager (bash script)."""
 
+import json
 import os
 import stat
 import subprocess
 import sys
-import textwrap
 from pathlib import Path
 
 import pytest
@@ -16,65 +16,77 @@ TM_SCRIPT = Path.home() / "germline" / "effectors" / "tm"
 
 @pytest.fixture()
 def mock_tmux(tmp_path: Path):
-    """Create a fake ``tmux`` that records calls and returns canned output.
+    """Create a fake ``tmux`` binary that logs calls and returns canned output/exit codes.
 
-    Returns a callable that accepts (responses) where *responses* maps
-    subcommand patterns to stdout output.  The fixture yields the mock
-    binary path; callers prepend it to PATH.
+    The helper has a ``configure`` method that accepts a dict mapping
+    substring patterns to ``{"stdout": str, "exitcode": int}`` objects.
     """
     log_file = tmp_path / "tmux_calls.log"
-    responses_file = tmp_path / "tmux_responses.py"
+    config_file = tmp_path / "tmux_config.json"
 
-    # Write a mock tmux script
     mock_bin = tmp_path / "bin"
     mock_bin.mkdir()
     tmux_mock = mock_bin / "tmux"
     tmux_mock.write_text(
-        textwrap.dedent(f"""\
-            #!/usr/bin/env python3
-            import sys, json
-            cmd = " ".join(sys.argv[1:])
-
-            with open("{log_file}", "a") as f:
-                f.write(cmd + "\\n")
-
-            responses = json.loads(open("{responses_file}").read())
-            for pattern, out in responses.items():
-                if pattern in cmd:
-                    sys.stdout.write(out)
-                    sys.exit(0)
-            sys.exit(0)
-        """)
+        "#!/usr/bin/env python3\n"
+        "import sys, json\n"
+        f'cmd = " ".join(sys.argv[1:])\n'
+        f'with open("{log_file}", "a") as f:\n'
+        f'    f.write(cmd + "\\n")\n'
+        f'try:\n'
+        f'    cfg = json.loads(open("{config_file}").read())\n'
+        f"except Exception:\n"
+        f"    cfg = {{}}\n"
+        f"for pattern, val in cfg.items():\n"
+        f'    if pattern == "__default__":\n'
+        f"        continue\n"
+        f"    if pattern in cmd:\n"
+        f'        sys.stdout.write(val.get("stdout", ""))\n'
+        f"        sys.exit(val.get(\"exitcode\", 0))\n"
+        f'__default = cfg.get("__default__", {{"exitcode": 0, "stdout": ""}})\n'
+        f'sys.stdout.write(__default.get("stdout", ""))\n'
+        f"sys.exit(__default.get('exitcode', 0))\n"
     )
     tmux_mock.chmod(tmux_mock.stat().st_mode | stat.S_IEXEC)
 
-    # Default: empty responses
-    responses_file.write_text("{}")
+    config_file.write_text("{}")
 
     class _Helper:
         def __init__(self):
             self.bin_dir = mock_bin
             self.log = log_file
-            self.resp = responses_file
+            self.cfg = config_file
 
-        def set_responses(self, mapping: dict[str, str]) -> None:
-            self.resp.write_text(json.dumps(mapping))
+        def configure(self, responses: dict[str, dict], *, default: dict | None = None) -> None:
+            """Set mock responses. Keys are substring patterns matched against the tmux command line.
+
+            Values are {"stdout": "...", "exitcode": N}.
+            Special key "__default__" is used when no pattern matches.
+            """
+            cfg = dict(responses)
+            if default is not None:
+                cfg["__default__"] = default
+            self.cfg.write_text(json.dumps(cfg))
 
         def calls(self) -> list[str]:
             if not self.log.exists():
                 return []
-            return self.log.read_text().strip().splitlines()
+            text = self.log.read_text().strip()
+            return text.splitlines() if text else []
+
+        def reset(self) -> None:
+            """Reset the call log."""
+            if self.log.exists():
+                self.log.unlink()
 
     helper = _Helper()
     yield helper
 
 
-def _run_tm(args: list[str], mock_tmux, **kwargs) -> subprocess.CompletedProcess:
-    """Run the tm script with PATH pointing at the mock tmux."""
+def _run_tm(args: list[str], mock, **kwargs) -> subprocess.CompletedProcess:
+    """Run the tm script with PATH pointing at the mock tmux binary."""
     env = os.environ.copy()
-    env["PATH"] = str(mock_tmux.bin_dir) + os.pathsep + env.get("PATH", "")
-    cmd = [sys.executable, "-c", "import subprocess,sys; sys.exit(subprocess.run(sys.argv[1:]).returncode)"]
-    # Use bash to run the script directly
+    env["PATH"] = str(mock.bin_dir) + os.pathsep + env.get("PATH", "")
     return subprocess.run(
         ["bash", str(TM_SCRIPT)] + args,
         capture_output=True,
@@ -90,7 +102,7 @@ def _run_tm(args: list[str], mock_tmux, **kwargs) -> subprocess.CompletedProcess
 
 def test_no_args_shows_usage(mock_tmux):
     """tm with no arguments shows usage and exits 0."""
-    mock_tmux.set_responses({"list-sessions": "session1\nsession2"})
+    mock_tmux.configure({"list-sessions": {"stdout": "session1\nsession2", "exitcode": 0}})
     r = _run_tm([], mock_tmux)
     assert r.returncode == 0
     assert "Usage:" in r.stdout
@@ -100,16 +112,24 @@ def test_no_args_shows_usage(mock_tmux):
 
 def test_no_args_lists_sessions(mock_tmux):
     """tm with no arguments shows current sessions."""
-    mock_tmux.set_responses({"list-sessions": "main\nwork"})
+    mock_tmux.configure({"list-sessions": {"stdout": "main\nwork", "exitcode": 0}})
     r = _run_tm([], mock_tmux)
     assert r.returncode == 0
     assert "main" in r.stdout
     assert "work" in r.stdout
 
 
+def test_no_args_no_sessions(mock_tmux):
+    """tm with no arguments shows 'No active sessions' when tmux has none."""
+    mock_tmux.configure({"list-sessions": {"stdout": "", "exitcode": 1}})
+    r = _run_tm([], mock_tmux)
+    assert r.returncode == 0
+    assert "No active sessions" in r.stdout
+
+
 def test_help_flag(mock_tmux):
     """tm --help shows usage and exits 0."""
-    mock_tmux.set_responses({"list-sessions": ""})
+    mock_tmux.configure({"list-sessions": {"stdout": "", "exitcode": 1}})
     r = _run_tm(["--help"], mock_tmux)
     assert r.returncode == 0
     assert "Usage:" in r.stdout
@@ -117,7 +137,7 @@ def test_help_flag(mock_tmux):
 
 def test_h_flag(mock_tmux):
     """tm -h shows usage and exits 0."""
-    mock_tmux.set_responses({"list-sessions": ""})
+    mock_tmux.configure({"list-sessions": {"stdout": "", "exitcode": 1}})
     r = _run_tm(["-h"], mock_tmux)
     assert r.returncode == 0
     assert "Usage:" in r.stdout
@@ -128,7 +148,7 @@ def test_h_flag(mock_tmux):
 
 def test_ls_lists_sessions(mock_tmux):
     """tm ls lists active tmux sessions."""
-    mock_tmux.set_responses({"list-sessions": "dev\nmain"})
+    mock_tmux.configure({"list-sessions": {"stdout": "dev\nmain", "exitcode": 0}})
     r = _run_tm(["ls"], mock_tmux)
     assert r.returncode == 0
     assert "dev" in r.stdout
@@ -136,8 +156,8 @@ def test_ls_lists_sessions(mock_tmux):
 
 
 def test_ls_no_sessions(mock_tmux):
-    """tm ls shows 'No active sessions' when none exist."""
-    mock_tmux.set_responses({})  # tmux exits 0 with empty stdout
+    """tm ls shows 'No active sessions' when tmux returns nothing."""
+    mock_tmux.configure({"list-sessions": {"stdout": "", "exitcode": 1}})
     r = _run_tm(["ls"], mock_tmux)
     assert r.returncode == 0
     assert "No active sessions" in r.stdout
@@ -155,10 +175,20 @@ def test_kill_without_session_name(mock_tmux):
 
 def test_kill_named_session(mock_tmux):
     """tm kill <name> calls tmux kill-session -t <name>."""
-    mock_tmux.set_responses({})
+    mock_tmux.configure({})
     r = _run_tm(["kill", "mywork"], mock_tmux)
     assert r.returncode == 0
-    assert "kill-session -t mywork" in mock_tmux.calls()[-1]
+    calls = mock_tmux.calls()
+    assert any("kill-session -t mywork" in c for c in calls)
+
+
+def test_kill_session_with_special_chars(mock_tmux):
+    """tm kill handles session names with dashes and dots."""
+    mock_tmux.configure({})
+    r = _run_tm(["kill", "my-session.v2"], mock_tmux)
+    assert r.returncode == 0
+    calls = mock_tmux.calls()
+    assert any("kill-session -t my-session.v2" in c for c in calls)
 
 
 # ── killall subcommand ────────────────────────────────────────────────
@@ -166,7 +196,7 @@ def test_kill_named_session(mock_tmux):
 
 def test_killall(mock_tmux):
     """tm killall calls tmux kill-server."""
-    mock_tmux.set_responses({})
+    mock_tmux.configure({})
     r = _run_tm(["killall"], mock_tmux)
     assert r.returncode == 0
     assert "All tmux sessions killed" in r.stdout
@@ -178,8 +208,8 @@ def test_killall(mock_tmux):
 
 def test_attach_existing_session(mock_tmux):
     """tm <name> attaches when session already exists."""
-    mock_tmux.set_responses({
-        "has-session": "",  # exit 0 = session exists
+    mock_tmux.configure({
+        "has-session": {"stdout": "", "exitcode": 0},
     })
     r = _run_tm(["work"], mock_tmux)
     assert r.returncode == 0
@@ -190,15 +220,46 @@ def test_attach_existing_session(mock_tmux):
 
 
 def test_create_new_session(mock_tmux):
-    """tm <name> creates a new session when it doesn't exist."""
-    mock_tmux.set_responses({})  # all tmux calls exit 0 by default
-    # has-session should "fail" (exit 1) to trigger new-session
-    # But our mock always exits 0, so we need a different approach
-    # Let's use a response that makes has-session "not found"
-    # Actually, our mock always exits 0. The script checks tmux has-session
-    # exit code. We need to control exit codes.
-    # Let me rewrite the mock approach.
-    pass
+    """tm <name> creates new session when it does not exist."""
+    mock_tmux.configure(
+        {"has-session": {"stdout": "", "exitcode": 1}},
+        default={"stdout": "", "exitcode": 0},
+    )
+    r = _run_tm(["devproj"], mock_tmux)
+    assert r.returncode == 0
+    calls = mock_tmux.calls()
+    assert any("has-session -t devproj" in c for c in calls)
+    assert any("new-session -d -s devproj" in c for c in calls)
+    assert any("attach-session -t devproj" in c for c in calls)
+    assert "Creating new session: devproj" in r.stdout
+
+
+def test_create_session_calls_new_before_attach(mock_tmux):
+    """tm <name> calls new-session before attach-session for new sessions."""
+    mock_tmux.configure(
+        {"has-session": {"stdout": "", "exitcode": 1}},
+        default={"stdout": "", "exitcode": 0},
+    )
+    mock_tmux.reset()
+    r = _run_tm(["fresh"], mock_tmux)
+    assert r.returncode == 0
+    calls = mock_tmux.calls()
+    new_idx = next(i for i, c in enumerate(calls) if "new-session" in c)
+    attach_idx = next(i for i, c in enumerate(calls) if "attach-session" in c)
+    assert new_idx < attach_idx, "new-session must be called before attach-session"
+
+
+# ── usage text content ────────────────────────────────────────────────
+
+
+def test_usage_mentions_all_subcommands(mock_tmux):
+    """Usage text documents ls, kill, and killall."""
+    mock_tmux.configure({"list-sessions": {"stdout": "", "exitcode": 1}})
+    r = _run_tm([], mock_tmux)
+    assert r.returncode == 0
+    assert "tm ls" in r.stdout
+    assert "tm kill" in r.stdout
+    assert "tm killall" in r.stdout
 
 
 # ── Integration with real tmux (skip if no server) ────────────────────
@@ -216,5 +277,4 @@ def test_ls_with_real_tmux():
         text=True,
         timeout=5,
     )
-    # Should exit 0 whether or not sessions exist
     assert r.returncode == 0
