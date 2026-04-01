@@ -251,6 +251,9 @@ def format_report(violations: list[Violation]) -> str:
 
 
 def main() -> None:
+    if "--help" in sys.argv or "-h" in sys.argv:
+        print(__doc__)
+        sys.exit(0)
     args = sys.argv[1:]
     use_json = "--json" in args
     names = [a for a in args if not a.startswith("-")]

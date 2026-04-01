@@ -1458,7 +1458,7 @@ def test_parse_queue_high_priority_line_numbers_preserved(tmp_path):
         _mod["QUEUE_FILE"] = original_queue
 
     # Build a map of command snippet -> line number
-    by_cmd = {cmd: ln for ln, cmd in pending}
+    by_cmd = {cmd: ln for ln, cmd, _ in pending}
     # "urgent task" is on line 5, "normal task 1" on line 4, etc.
     assert by_cmd['golem --provider volcano "urgent task"'] == 5
     assert by_cmd['golem --provider infini --max-turns 50 "normal task 1"'] == 4

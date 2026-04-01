@@ -83,6 +83,9 @@ def status() -> int:
 
 
 def main() -> None:
+    if "--help" in sys.argv or "-h" in sys.argv:
+        print(__doc__)
+        sys.exit(0)
     if "--status" in sys.argv or "status" in sys.argv[1:]:
         sys.exit(status())
     sys.exit(wake())

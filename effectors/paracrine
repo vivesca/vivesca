@@ -249,6 +249,10 @@ def print_tensions(tensions: list[dict]) -> None:
 
 
 def main() -> None:
+    if "--help" in sys.argv or "-h" in sys.argv:
+        print(__doc__)
+        return
+
     memories = load_feedback_memories()
     print(f"{BOLD}Loaded {len(memories)} feedback memories{RESET}")
 

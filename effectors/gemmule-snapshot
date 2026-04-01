@@ -122,6 +122,9 @@ def cmd_snapshot() -> None:
 
 
 def main() -> None:
+    if "--help" in sys.argv or "-h" in sys.argv:
+        print(__doc__)
+        sys.exit(0)
     args = sys.argv[1:]
     if "--list" in args or "list" in args:
         cmd_list()

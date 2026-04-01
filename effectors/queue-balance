@@ -188,6 +188,9 @@ def format_report(provider_counts: Counter[str], unassigned: int) -> str:
 
 
 def main() -> None:
+    if "--help" in sys.argv or "-h" in sys.argv:
+        print(__doc__)
+        sys.exit(0)
     if len(sys.argv) < 2:
         print("Usage: queue-balance <path-to-golem-queue.md>", file=sys.stderr)
         sys.exit(1)

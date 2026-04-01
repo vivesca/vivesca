@@ -272,6 +272,25 @@ def _generate_task_id() -> str:
     return f"t-{secrets.token_hex(3)}"
 
 
+def _write_jsonl_record(task_id: str, provider: str, exit_code: int,
+                        duration: int, cmd: str):
+    """Append a JSONL record for a completed task."""
+    record = {
+        "ts": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "task_id": task_id,
+        "provider": provider,
+        "exit": exit_code,
+        "duration": duration,
+        "cmd": cmd[:120],
+    }
+    try:
+        JSONLFILE.parent.mkdir(parents=True, exist_ok=True)
+        with open(JSONLFILE, "a") as f:
+            f.write(json.dumps(record) + "\n")
+    except OSError:
+        pass
+
+
 def parse_queue() -> list[tuple[int, str, str]]:
     """Parse queue file, return list of (line_number, command, task_id) for pending tasks.
 
@@ -460,8 +479,8 @@ def _golem_env() -> dict:
     env["PATH"] = f"{effectors}:{venv_bin}:{local_bin}:{env.get('PATH', '/usr/bin:/bin')}"
     return env
 
-def run_golem(cmd: str) -> tuple[str, int, str]:
-    """Run a golem command, return (cmd, exit_code, output_tail)."""
+def run_golem(cmd: str) -> tuple[str, int, str, int]:
+    """Run a golem command, return (cmd, exit_code, output_tail, duration)."""
     task_id = _extract_task_id(cmd)
     env = _golem_env()
     env["GOLEM_TASK_ID"] = task_id
@@ -482,14 +501,14 @@ def run_golem(cmd: str) -> tuple[str, int, str]:
         duration = int(time.time() - start)
         tail = (result.stdout + result.stderr)[-200:].replace("\n", " ")
         log(f"Finished [{task_id}] ({duration}s, exit={result.returncode}): {cmd[:50]}...")
-        return (cmd, result.returncode, tail)
+        return (cmd, result.returncode, tail, duration)
     except subprocess.TimeoutExpired:
         duration = int(time.time() - start)
         log(f"TIMEOUT [{task_id}] ({duration}s): {cmd[:50]}...")
-        return (cmd, 124, f"timeout after {GOLEM_TIMEOUT}s")
+        return (cmd, 124, f"timeout after {GOLEM_TIMEOUT}s", duration)
     except Exception as e:
         log(f"ERROR [{task_id}]: {cmd[:50]}... - {e}")
-        return (cmd, 1, str(e))
+        return (cmd, 1, str(e), 0)
 
 
 
@@ -895,7 +914,8 @@ def daemon_loop():
                     line_num, cmd, provider, task_id = running.pop(future)
                     provider_running[provider] = max(0, provider_running.get(provider, 0) - 1)
                     try:
-                        _, exit_code, tail = future.result()
+                        _, exit_code, tail, duration = future.result()
+                        _write_jsonl_record(task_id, provider, exit_code, duration, cmd)
                         if exit_code == 0:
                             # Golem succeeded — run advisory checks (don't block on them)
                             passed, errors = validate_golem_output()
@@ -925,6 +945,7 @@ def daemon_loop():
                                 log(f"COOLDOWN: {provider} hit {provider_consecutive_fails[provider]} consecutive failures — pausing for {PROVIDER_COOLDOWN_SECONDS//60}min")
                     except Exception as e:
                         log(f"Future error: {e}")
+                        _write_jsonl_record(task_id, provider, 1, 0, cmd)
                         mark_failed(line_num, str(e), task_id=task_id)
                 if done_futures:
                     _update_running_file(running)

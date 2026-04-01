@@ -403,6 +403,9 @@ def print_report(report: HealthReport, as_json: bool = False, compact: bool = Fa
 
 
 def main() -> None:
+    if "--help" in sys.argv or "-h" in sys.argv:
+        print(__doc__)
+        sys.exit(0)
     args = sys.argv[1:]
     as_json = "--json" in args
     fix = "--fix" in args
