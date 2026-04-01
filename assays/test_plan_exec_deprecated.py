@@ -417,22 +417,26 @@ def test_main_fallback_to_second_backend(tmp_path, capsys):
     assert call_count == 2
 
 
-def test_main_creates_results_dir(tmp_path, monkeypatch):
+def test_main_creates_results_dir(tmp_path):
     """main creates timestamped results directory."""
     plan = tmp_path / "plan.md"
     plan.write_text("# Plan")
     results = tmp_path / "cache_results"
-    monkeypatch.setattr(_mod, "RESULTS_DIR", results)
+    original_results = _mod["RESULTS_DIR"]
+    _mod["RESULTS_DIR"] = results
 
     def fake_run(cmd, cwd, env, stdout, stderr, timeout):
         stdout.write("PLAN-EXEC-DONE\n")
         stdout.flush()
         return MagicMock(returncode=0)
 
-    with patch("subprocess.run", side_effect=fake_run):
-        with pytest.raises(SystemExit):
-            with patch("sys.argv", ["plan-exec", str(plan)]):
-                main()
+    try:
+        with patch("subprocess.run", side_effect=fake_run):
+            with pytest.raises(SystemExit):
+                with patch("sys.argv", ["plan-exec", str(plan)]):
+                    main()
+    finally:
+        _mod["RESULTS_DIR"] = original_results
 
     # results dir should have been created with a timestamped subdirectory
     subdirs = list(results.iterdir())

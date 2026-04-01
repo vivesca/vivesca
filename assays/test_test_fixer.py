@@ -49,10 +49,10 @@ def test_detect_hardcoded_macos_path():
     """detect_issues flags /Users/terry/ hardcoded paths."""
     _mod = _load_test_fixer()
     detect_issues = _mod["detect_issues"]
-    
+
     test_code = '''
 def test_foo():
-    path = str(Path.home() / "germline/effectors/foo")
+    path = "/Users/terry/germline/effectors/foo"
     assert True
 '''
     issues = detect_issues(test_code)
