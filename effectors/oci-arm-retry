@@ -85,14 +85,15 @@ def try_launch(config: dict) -> dict | None:
             log(f"SUCCESS but couldn't parse output: {result.stdout[:200]}")
             return {"raw": result.stdout[:500]}
 
-    # Parse error
+    # Parse error — OCI CLI sends ServiceError to stderr, RequestException to stdout
+    raw = result.stderr.strip() or result.stdout.strip()
     try:
-        err = json.loads(result.stderr or result.stdout)
+        err = json.loads(raw)
         code = err.get("code", "unknown")
-        msg = err.get("message", "unknown")
+        msg = err.get("message", "unknown")[:200]
         log(f"FAIL [{code}]: {msg}")
-    except json.JSONDecodeError:
-        log(f"FAIL: {result.stderr[:200]}")
+    except (json.JSONDecodeError, ValueError):
+        log(f"FAIL: {raw[:200]}")
 
     return None
 
