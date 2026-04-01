@@ -12,8 +12,8 @@ import pytest
 
 
 def _load_golem_dash():
-    """Load golem-dash by exec-ing its source (effector, not importable)."""
-    source = open(str(Path.home() / "germline/effectors/golem-dash")).read()
+    """Load golem-tools by exec-ing its source (effector, not importable)."""
+    source = open(str(Path.home() / "germline/effectors/golem-tools")).read()
     ns: dict = {"__name__": "golem_dash_test"}
     exec(source, ns)
     return ns

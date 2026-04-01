@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-"""Tests for effectors/golem-validate — Python file quality validator.
+"""Tests for effectors/golem-tools validate subcommand — Python file quality validator.
 
 The validator is loaded via exec() (not imported), following the effector testing pattern.
 """
@@ -12,14 +12,14 @@ from pathlib import Path
 
 import pytest
 
-EFFECTOR = Path(__file__).resolve().parents[1] / "effectors" / "golem-validate"
+EFFECTOR = Path(__file__).resolve().parents[1] / "effectors" / "golem-tools"
 GERMLINE_ROOT = Path(__file__).resolve().parents[1]
 
 
 def _run_validator(*files: str) -> subprocess.CompletedProcess[str]:
-    """Invoke golem-validate as a subprocess."""
+    """Invoke golem-tools validate as a subprocess."""
     return subprocess.run(
-        [sys.executable, str(EFFECTOR), *files],
+        [sys.executable, str(EFFECTOR), "validate", *files],
         capture_output=True,
         text=True,
         timeout=60,
