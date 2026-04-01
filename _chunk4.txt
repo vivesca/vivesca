@@ -37,4 +37,63 @@
 ........................................................................ [ 82%]
 ..F..................................................................... [ 84%]
 ........................................................................ [ 86%]
-.....................................................
+........................................................................ [ 88%]
+................................................EEEE..........E......... [ 91%]
+..................................................F..................... [ 93%]
+...................F.............F.F.................................... [ 95%]
+........................................................................ [ 97%]
+........................................................................ [ 99%]
+...                                                                      [100%]
+=============================== warnings summary ===============================
+assays/test_oci_arm_retry.py::test_parse_args
+assays/test_oci_arm_retry.py::test_parse_args
+assays/test_oci_arm_retry.py::test_parse_args
+assays/test_oci_arm_retry.py::test_try_launch_out_of_capacity
+  <string>:73: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+
+assays/test_orphan_scan.py::TestMain::test_no_args
+  /home/terry/germline/.venv/lib/python3.13/site-packages/services/core/src/oci_cli_compute/compute_cli_extended.py:25: SyntaxWarning: invalid escape sequence '\.'
+    INSTANCE_CONSOLE_CONNECTION_STRING_INTERMEDIATE_HOST_REGEX = "(instance-console\.[a-z0-9-]+\.(oraclecloud|oracleiaas)\.com)"  # noqa: W605
+
+assays/test_phenotype_translate.py::TestEventMapping::test_pre_tool_use_maps_to_before_tool
+  /home/terry/germline/assays/test_phenotype_translate.py:132: UserWarning: [phenotype_translate] Skipping prompt-type hook in PreToolUse — Gemini CLI does not support prompt-type hooks.
+    gemini_hooks, _ = translate_hooks(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED assays/test_organelles_circulation.py::test_preflight_with_budget_red
+FAILED assays/test_organelles_circulation.py::test_select_goals_handles_parse_error
+FAILED assays/test_organelles_circulation.py::test_circulation_non_persistent
+FAILED assays/test_organelles_effector.py::TestRunCliSuccess::test_expanduser_called
+FAILED assays/test_organelles_mitosis.py::TestFlyCmd::test_wraps_in_bash_c - ...
+FAILED assays/test_organelles_porta.py::TestInject::test_pycookiecheat_missing
+FAILED assays/test_organelles_porta.py::TestInject::test_pycookiecheat_import_error_branch
+FAILED assays/test_organelles_porta.py::TestInject::test_cookie_extraction_exception
+FAILED assays/test_organelles_porta.py::TestInject::test_no_cookies_found - A...
+FAILED assays/test_organelles_porta.py::TestInject::test_strips_https_prefix
+FAILED assays/test_organelles_porta.py::TestInject::test_strips_http_prefix
+FAILED assays/test_organelles_porta.py::TestInject::test_strips_trailing_slash
+FAILED assays/test_organelles_porta.py::TestInject::test_navigation_open_succeeds
+FAILED assays/test_organelles_porta.py::TestInject::test_navigation_open_fails_eval_succeeds
+FAILED assays/test_organelles_porta.py::TestInject::test_navigation_both_fail
+FAILED assays/test_organelles_porta.py::TestInject::test_partial_injection_success
+FAILED assays/test_organelles_porta.py::TestInject::test_all_cookies_fail_injection
+FAILED assays/test_organelles_porta.py::TestInject::test_many_failures_truncates_in_message
+FAILED assays/test_organelles_porta.py::TestInject::test_cookie_value_sanitization
+FAILED assays/test_organelles_porta.py::TestInject::test_domain_passed_to_cookie_set
+FAILED assays/test_organelles_porta.py::TestInject::test_cookie_flags_set - A...
+FAILED assays/test_organelles_secretory_vesicle.py::TestKeychain::test_returns_stripped_value
+FAILED assays/test_orphan_scan.py::TestCLI::test_runs - subprocess.TimeoutExp...
+FAILED assays/test_orphan_scan.py::TestCLI::test_json_valid - subprocess.Time...
+FAILED assays/test_oscillator_integrity.py::test_plist_targets_exist[com.vivesca.speculor]
+FAILED assays/test_payments.py::TestAssessMissingStatements::test_flag_missing
+FAILED assays/test_pinocytosis.py::test_pinocytosis_count_job_alerts_no_files
+FAILED assays/test_pinocytosis_enzymes.py::test_read_praxis_today_with_items
+FAILED assays/test_pinocytosis_enzymes.py::test_pinocytosis_morning_action - ...
+FAILED assays/test_pinocytosis_enzymes.py::test_pinocytosis_weekly_action - N...
+ERROR assays/test_phenotype_translate.py::TestSyncPhenotype::test_dry_run_does_not_write_gemini_settings
+ERROR assays/test_phenotype_translate.py::TestSyncPhenotype::test_sync_result_has_summary
+ERROR assays/test_phenotype_translate.py::TestSyncPhenotype::test_sync_result_dry_run_label_in_summary
+ERROR assays/test_phenotype_translate.py::TestSyncPhenotype::test_no_cc_settings_hooks_skipped
+ERROR assays/test_phenotype_translate.py::TestSkillSymlinking::test_live_sync_includes_skills_count
+30 failed, 3208 passed, 6 warnings, 5 errors in 455.27s (0:07:35)
