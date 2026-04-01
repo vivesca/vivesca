@@ -70,10 +70,14 @@ exit 0
     # Mock all other commands the script runs
     for cmd in (
         "npm", "pnpm", "uv", "cargo", "mas",
-        "claude", "opencode", "gemini", "codex", "agent-browser"
+        "claude", "opencode", "gemini", "codex", "agent-browser",
+        "date"
     ):
         script = bindir / cmd
-        script.write_text("#!/bin/bash\nexit 0\n")
+        if cmd == "date":
+            script.write_text("#!/bin/bash\necho 'Mon Apr  1 12:00:00 UTC 2026'\nexit 0\n")
+        else:
+            script.write_text("#!/bin/bash\nexit 0\n")
         script.chmod(script.stat().st_mode | stat.S_IEXEC)
 
     return bindir
