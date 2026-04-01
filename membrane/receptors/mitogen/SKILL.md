@@ -70,6 +70,10 @@ Then prioritize:
 
 **Tests are filler, not the main course.** Never fill the entire queue with test generation. Always reserve slots for fixes and builds. Ask: "If I could only dispatch 5 tasks, which 5 would move the needle most?"
 
+**Prose is not golem work.** Consulting cards, case studies, briefings, playbooks, positioning papers — these are single-turn prose generation that any model can do inline in seconds. Golem's value is multi-turn tool loops (read → edit → test → fix). Never send "write a 600-word card" through golem — generate it on-demand in CC when actually needed, with live conversation context. Golem queue = tool-dependent tasks only.
+
+**Prep for people, not domains.** When prepping for a deadline, identify the 2-3 specific people the user will meet. Write tasks that serve those interactions — not generic domain knowledge that sits unread.
+
 CC writes fully-specified entries to `loci/golem-queue.md`. Each entry has provider, turns, and complete prompt baked in. CC does the thinking — golems do the labor.
 
 ### Phase 2: Write the queue
@@ -78,6 +82,7 @@ CC writes fully-specified entries to `loci/golem-queue.md`. Each entry has provi
 - **Fix** — read failing test, read source, diagnose, fix, verify. `--max-turns 30`.
 - **Build** — create new effector/feature/module + tests. `--max-turns 50`.
 - **Test** — write tests for existing module. `--batch` or `--max-turns 30`.
+- **NOT golem work** — prose generation, consulting content, briefs, cards. Generate inline in CC.
 
 **Group related tasks into operons** — tasks that share context run in one golem session:
 

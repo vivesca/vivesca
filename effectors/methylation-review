@@ -12,6 +12,7 @@ Gathers:
   3. Synthesizes into a single review for human judgment.
 """
 
+import argparse
 import json
 import subprocess
 import sys
@@ -131,14 +132,19 @@ def synthesize_review(proposals: str, observations: str) -> str:
 # ---------------------------------------------------------------------------
 
 def main():
+    parser = argparse.ArgumentParser(
+        description="Weekly crystallization review for the vivesca organism."
+    )
+    parser.parse_args()
+
     date_str = datetime.now().strftime("%Y-%m-%d")
     review_path = TMP_DIR / f"methylation-review-{date_str}.md"
-    
+
     proposals = gather_effector_proposals()
     observations = gather_jsonl_observations()
-    
+
     review_content = synthesize_review(proposals, observations)
-    
+
     review_path.write_text(review_content)
     log(f"Review written to {review_path}")
     print(f"\nSaved to {review_path}")
