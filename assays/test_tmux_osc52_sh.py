@@ -1,0 +1,65 @@
+from __future__ import annotations
+
+"""Tests for effectors/tmux-osc52.sh — bash script tested via subprocess."""
+
+import os
+import subprocess
+from pathlib import Path
+
+import pytest
+
+SCRIPT = Path(__file__).parent.parent / "effectors" / "tmux-osc52.sh"
+
+
+# ── help flag ───────────────────────────────────────────────────────────
+class TestHelp:
+    def _run_help(self, *args: str) -> subprocess.CompletedProcess:
+        return subprocess.run(
+            ["bash", str(SCRIPT), *args],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+
+    def test_help_exits_zero(self):
+        r = self._run_help("--help")
+        assert r.returncode == 0
+
+    def test_help_short_flag_exits_zero(self):
+        r = self._run_help("-h")
+        assert r.returncode == 0
+
+    def test_help_shows_usage(self):
+        r = self._run_help("--help")
+        assert "Usage:" in r.stdout
+
+    def test_help_mentions_tmux(self):
+        r = self._run_help("--help")
+        assert "tmux" in r.stdout
+
+    def test_help_mentions_osc52(self):
+        r = self._run_help("--help")
+        assert "OSC 52" in r.stdout
+
+    def test_help_no_stderr(self):
+        r = self._run_help("--help")
+        assert r.stderr == ""
+
+
+# ── file basics ────────────────────────────────────────────────────────
+class TestFileBasics:
+    def test_file_exists(self):
+        assert SCRIPT.exists()
+
+    def test_is_bash_script(self):
+        first = SCRIPT.read_text().split("\n")[0]
+        assert first.startswith("#!/bin/bash")
+
+
+# ── script permissions ──────────────────────────────────────────────────
+class TestScriptPermissions:
+    def test_script_is_executable(self):
+        assert os.access(SCRIPT, os.X_OK)
+
+    def test_script_file_not_directory(self):
+        assert SCRIPT.is_file()
