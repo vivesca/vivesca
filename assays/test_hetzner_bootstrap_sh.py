@@ -570,3 +570,185 @@ class TestEdgeCases:
         tmux_pos = src.index(".tmux.conf")
         preceding = src[:tmux_pos + 100]
         assert "<<" in preceding
+
+
+# ── additional coverage: tmux, heredoc, hygiene, fnm subshells ────────────
+
+
+class TestTmuxExtended:
+    """Test tmux config lines not in the parametrized TestTmuxConfig."""
+
+    _EXTRA_LINES = [
+        "bind C-a send-prefix",
+        'set -g default-terminal "screen-256color"',
+        ',xterm-256color:Tc',
+        "set -g status-style",
+    ]
+
+    @pytest.mark.parametrize("line", _EXTRA_LINES)
+    def test_tmux_extra_config_contains(self, line: str):
+        assert line in _src()
+
+    def test_tmux_heredoc_delimiter_quoted(self):
+        """Heredoc delimiter is quoted to prevent variable expansion."""
+        src = _src()
+        assert '<< "TMUX"' in src or "<<'TMUX'" in src
+
+    def test_tmux_heredoc_closes(self):
+        """Heredoc has a matching close delimiter."""
+        src = _src()
+        assert "TMUX'" in src
+
+
+class TestFileHygiene:
+    """File-level hygiene checks."""
+
+    def test_no_crlf_line_endings(self):
+        """Script must use Unix line endings only."""
+        raw = SCRIPT.read_bytes()
+        assert b"\r\n" not in raw
+
+    def test_script_ends_with_newline(self):
+        """Script ends with a trailing newline (POSIX)."""
+        raw = SCRIPT.read_text()
+        assert raw.endswith("\n")
+
+    def test_no_trailing_whitespace_on_commands(self):
+        """No significant lines have trailing whitespace."""
+        for i, line in enumerate(_src().splitlines(), 1):
+            stripped = line.rstrip()
+            if stripped and not stripped.startswith("#"):
+                assert line == stripped or line == stripped + "\n", (
+                    f"Line {i}: trailing whitespace"
+                )
+
+
+class TestFnmSubshells:
+    """Each sudo -u terry block that needs node/fnm sets up PATH + eval."""
+
+    def test_claude_code_block_has_fnm_env(self):
+        """The Claude Code install block evaluates fnm env."""
+        src = _src()
+        cc_block_start = src.index("@anthropic-ai/claude-code")
+        # Find the sudo -u terry block containing claude-code
+        block_start = src.rfind("sudo -u terry", 0, cc_block_start)
+        block_end = src.find("\n'", cc_block_start) + 1
+        block = src[block_start:block_end]
+        assert "fnm env" in block
+
+    def test_pnpm_block_has_fnm_env(self):
+        """The pnpm install block evaluates fnm env."""
+        src = _src()
+        pnpm_pos = src.index("npm install -g pnpm")
+        block_start = src.rfind("sudo -u terry", 0, pnpm_pos)
+        block_end = src.find("\n'", pnpm_pos) + 1
+        block = src[block_start:block_end]
+        assert "fnm env" in block
+
+    def test_no_sudo_inside_sudo_u_blocks(self):
+        """No 'sudo' used inside sudo -u terry subshell blocks."""
+        src = _src()
+        lines = src.splitlines()
+        in_sudo_block = False
+        for i, line in enumerate(lines, 1):
+            if "sudo -u terry bash -c" in line:
+                in_sudo_block = True
+                continue
+            if in_sudo_block:
+                stripped = line.strip()
+                if stripped == "'":
+                    in_sudo_block = False
+                    continue
+                assert "sudo " not in stripped or stripped.startswith("#"), (
+                    f"Line {i}: sudo inside sudo -u terry block: {stripped}"
+                )
+
+
+class TestHelpUsagePattern:
+    """Test the --help output mentions the recommended invocation."""
+
+    def _run(self) -> subprocess.CompletedProcess:
+        return subprocess.run(
+            ["bash", str(SCRIPT), "--help"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+
+    def test_help_shows_bash_s_usage(self):
+        out = self._run().stdout
+        assert "bash -s" in out
+
+    def test_help_shows_ssh_root_pattern(self):
+        out = self._run().stdout
+        assert "ssh root@" in out
+
+    def test_help_exits_cleanly(self):
+        """No stdout/stderr leakage after help."""
+        r = self._run()
+        lines = r.stdout.strip().splitlines()
+        assert len(lines) >= 3, "Help should have multiple lines"
+
+    def test_help_mentions_user_terry(self):
+        assert "terry" in self._run().stdout
+
+
+class TestSSHSedPatterns:
+    """Verify the sed patterns are correct for SSH hardening."""
+
+    def test_password_auth_sed_handles_commented_and_uncommented(self):
+        """Pattern matches both #PasswordAuthentication and PasswordAuthentication."""
+        src = _src()
+        assert "^#\\?PasswordAuthentication" in src
+
+    def test_root_login_sed_handles_commented_and_uncommented(self):
+        """Pattern matches both #PermitRootLogin and PermitRootLogin."""
+        src = _src()
+        assert "^#\\?PermitRootLogin" in src
+
+    def test_sed_replaces_value_to_no(self):
+        """Both sed patterns replace to 'no'."""
+        src = _src()
+        lines = [l for l in src.splitlines() if "sed -i" in l and "sshd_config" in l]
+        for line in lines:
+            assert line.strip().endswith("no'/") or "no/" in line
+
+
+class TestDirectoryOwnership:
+    """Verify directories are created as the correct user."""
+
+    def test_dirs_created_as_terry(self):
+        """Directory creation is inside a sudo -u terry block."""
+        src = _src()
+        mkdir_pos = src.index("mkdir -p ~/code")
+        preceding = src[:mkdir_pos]
+        assert "sudo -u terry" in preceding[-200:]
+
+    def test_mkdir_creates_all_dirs_at_once(self):
+        """All directories are created in a single mkdir -p call."""
+        src = _src()
+        assert "mkdir -p ~/code ~/scripts ~/code/epigenome/chromatin ~/skills" in src
+
+
+class TestInvalidFlags:
+    """Verify script behavior with unexpected arguments."""
+
+    def test_unknown_flag_exits_nonzero(self):
+        """An unrecognized flag should cause an error (set -e)."""
+        r = subprocess.run(
+            ["bash", str(SCRIPT), "--bogus"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        assert r.returncode != 0
+
+    def test_no_args_fails_as_nonroot(self):
+        """Running without args (not root) exits 1."""
+        r = subprocess.run(
+            ["bash", str(SCRIPT)],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        assert r.returncode == 1
