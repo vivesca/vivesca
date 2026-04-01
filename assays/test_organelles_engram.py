@@ -202,7 +202,7 @@ class TestMakeSnippet:
         assert result.startswith("...")
 
     def test_elided_end(self):
-        text = "a" * 50 + "MATCH"
+        text = "a" * 50 + "MATCH" + "b" * 200
         result = _make_snippet(text, 50, 55)
         assert result.endswith("...")
 
