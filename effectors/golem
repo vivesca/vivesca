@@ -15,6 +15,7 @@ BARE=true
 BATCH=false
 TEST=false
 QUIET=false
+JSON_OUTPUT=false
 SUMMARY=false
 RECENT=0
 PROVIDER="${GOLEM_PROVIDER:-zhipu}"
