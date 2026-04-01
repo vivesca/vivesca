@@ -410,11 +410,17 @@ class TestSyncResult:
 # ── sync_phenotype (mocked) ────────────────────────────────────────────────
 
 class TestSyncPhenotype:
-    @patch("metabolon.organelles.phenotype_translate._check_phenotype_symlinks")
-    @patch("metabolon.organelles.phenotype_translate.phenotype_md", new_callable=lambda: MagicMock)
-    @patch("metabolon.organelles.phenotype_translate.PLATFORM_SYMLINKS", new_callable=lambda: MagicMock)
-    @patch("metabolon.organelles.phenotype_translate.receptors", new_callable=lambda: MagicMock)
-    @patch("metabolon.organelles.phenotype_translate.read_gemini_settings")
+    """sync_phenotype uses local imports from metabolon.locus and integrin.
+
+    We patch at the *source* module because the function does
+    ``from metabolon.locus import ...`` inside its body.
+    """
+
+    @patch("metabolon.enzymes.integrin._check_phenotype_symlinks", return_value=([], []))
+    @patch("metabolon.locus.phenotype_md")
+    @patch("metabolon.locus.PLATFORM_SYMLINKS")
+    @patch("metabolon.locus.receptors")
+    @patch("metabolon.organelles.phenotype_translate.read_gemini_settings", return_value={})
     @patch("metabolon.organelles.phenotype_translate.read_cc_settings")
     def test_sync_dry_run(
         self,
@@ -434,11 +440,9 @@ class TestSyncPhenotype:
         gemini_path = tmp_path / ".gemini" / "settings.json"
 
         mock_read_cc.return_value = json.loads(cc_path.read_text())
-        mock_read_gemini.return_value = {}
         mock_platforms.__iter__ = lambda self: iter([])
         mock_receptors.is_dir.return_value = False
         mock_phenotype_md.resolve.return_value = Path("/fake/phenotype.md")
-        mock_check.return_value = ([], [])
 
         result = sync_phenotype(
             dry_run=True,
@@ -448,15 +452,13 @@ class TestSyncPhenotype:
         assert isinstance(result, SyncResult)
         assert result.dry_run is True
 
-    @patch("metabolon.organelles.phenotype_translate._check_phenotype_symlinks")
-    @patch("metabolon.organelles.phenotype_translate.phenotype_md", new_callable=lambda: MagicMock)
-    @patch("metabolon.organelles.phenotype_translate.PLATFORM_SYMLINKS", new_callable=lambda: MagicMock)
-    @patch("metabolon.organelles.phenotype_translate.receptors", new_callable=lambda: MagicMock)
-    @patch("metabolon.organelles.phenotype_translate.read_gemini_settings")
-    @patch("metabolon.organelles.phenotype_translate.read_cc_settings")
+    @patch("metabolon.enzymes.integrin._check_phenotype_symlinks", return_value=([], []))
+    @patch("metabolon.locus.phenotype_md")
+    @patch("metabolon.locus.PLATFORM_SYMLINKS")
+    @patch("metabolon.locus.receptors")
+    @patch("metabolon.organelles.phenotype_translate.read_gemini_settings", return_value={})
     def test_sync_no_cc_settings(
         self,
-        mock_read_cc: MagicMock,
         mock_read_gemini: MagicMock,
         mock_receptors: MagicMock,
         mock_platforms: MagicMock,
@@ -471,7 +473,6 @@ class TestSyncPhenotype:
         mock_platforms.__iter__ = lambda self: iter([])
         mock_receptors.is_dir.return_value = False
         mock_phenotype_md.resolve.return_value = Path("/fake/phenotype.md")
-        mock_check.return_value = ([], [])
 
         result = sync_phenotype(
             dry_run=False,
