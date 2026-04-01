@@ -324,7 +324,7 @@ _run_golem() {
       fi
       # Parse Infini-style window hint: "window=5h" means 5-hour rate limit window
       local _window_h
-      _window_h=$(echo "$_preflight_result" | grep -oE 'window=[0-9]+h' | grep -oE '[0-9]+' | head -1)
+      _window_h=$(echo "$_preflight_result" | grep -oE 'window=[0-9]+h' | grep -oE '[0-9]+' | head -1 || true)
       if [[ -n "$_window_h" ]] && [[ $_wait_secs -lt $(( _window_h * 3600 )) ]]; then
         # No explicit reset time, but we know the window — wait the full window duration
         _wait_secs=$(( _window_h * 3600 ))
