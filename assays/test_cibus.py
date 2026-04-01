@@ -176,7 +176,7 @@ class TestFormatTable:
                 "scoreCry": 0,
                 "reviewCount": 0,
                 "priceRangeId": 1,
-                "phones": [],
+                "phones": ["23456789"],
                 "openNow": False,
                 "poiHours": [],
                 "shortenUrl": "",
@@ -190,7 +190,7 @@ class TestFormatTable:
         results = [
             {"name": f"R{i}", "categories": [], "district": {"name": "?"}, "scoreOverall": None,
              "scoreSmile": 0, "scoreCry": 0, "reviewCount": 0, "priceRangeId": 0,
-             "phones": [], "openNow": False, "poiHours": [], "shortenUrl": "", "address": ""}
+             "phones": ["00000000"], "openNow": False, "poiHours": [], "shortenUrl": "", "address": ""}
             for i in range(3)
         ]
         output = format_table(results)
