@@ -3377,10 +3377,26 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 - [!] `golem [t-95bc52] --provider infini --max-turns 30 "Write tests for effectors/tmux-url-select.sh. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
 - [!] `golem [t-467385] --provider volcano --max-turns 25 "Find test files with SyntaxError. Fix syntax. Commit."`
 - [!] `golem [t-f7fb09] --provider zhipu --max-turns 25 "Check all effectors respond to --help without crashing. Fix crashers. Commit."`
-- [ ] `golem [t-b1bfe3] --provider infini --max-turns 25 "Find unused imports in metabolon/**/*.py. Remove them. Commit."`
-- [ ] `golem [t-f312c7] --provider volcano --max-turns 30 "Write a consulting insight card: Board-level AI risk reporting template for banks. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/board-ai-risk-reporting.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
-- [ ] `golem [t-4c7267] --provider zhipu --max-turns 30 "Write a consulting insight card: Responsible AI governance checklist for financial institutions. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/responsible-ai-checklist.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
-- [ ] `golem [t-893b81] --provider infini --max-turns 35 "Read effectors/golem. Add --json flag that outputs result as JSON instead of raw text. Useful for piping. Write tests. Run uv run pytest. Commit."`
+- [!] `golem [t-b1bfe3] --provider infini --max-turns 25 "Find unused imports in metabolon/**/*.py. Remove them. Commit."`
+- [!] `golem [t-f312c7] --provider volcano --max-turns 30 "Write a consulting insight card: Board-level AI risk reporting template for banks. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/board-ai-risk-reporting.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
+- [!] `golem [t-4c7267] --provider zhipu --max-turns 30 "Write a consulting insight card: Responsible AI governance checklist for financial institutions. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/responsible-ai-checklist.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
+- [!] `golem [t-893b81] --provider infini --max-turns 35 "Read effectors/golem. Add --json flag that outputs result as JSON instead of raw text. Useful for piping. Write tests. Run uv run pytest. Commit."`
+
+### Auto-requeue (14 tasks @ 22:03)
+- [ ] `golem [t-1a1245] --provider volcano --max-turns 40 "Run uv run pytest --co -q 2>&1 | grep ERROR. Fix ALL collection errors. Common: hardcoded paths, bad imports, syntax. Run --co again until 0 errors. Commit."`
+- [ ] `golem [t-1fbbe4] --provider zhipu --max-turns 50 "Run uv run pytest -q --tb=no --continue-on-collection-errors 2>&1 | grep FAILED | sed 's/::.*//g' | sort | uniq -c | sort -rn | head -5. For each of the top 5 failing test files: run pytest on it, read traceback, fix. Iterate until green. Commit."`
+- [ ] `golem [t-607feb] --provider infini --max-turns 30 "Health check: soma-scale, demethylase, capco-prep, golem-review, queue-balance, fix-symlinks, pulse-review, sortase, gap_junction_sync, gemmule-sync. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
+- [ ] `golem [t-3b87f0] --provider volcano --max-turns 30 "Write tests for effectors/plan-exec.deprecated. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
+- [ ] `golem [t-496516] --provider zhipu --max-turns 30 "Write tests for effectors/tmux-url-select.sh. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
+- [ ] `golem [t-377283] --provider infini --max-turns 30 "Write tests for effectors/qmd-reindex.sh. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
+- [ ] `golem [t-93cedb] --provider volcano --max-turns 30 "Write tests for effectors/agent-sync.sh. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
+- [ ] `golem [t-77bbe1] --provider zhipu --max-turns 30 "Write tests for effectors/perplexity.sh. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
+- [ ] `golem [t-48b0db] --provider infini --max-turns 25 "Find Python files missing shebang in effectors/. Add #!/usr/bin/env python3. Commit."`
+- [ ] `golem [t-d25890] --provider volcano --max-turns 25 "Check all assays/test_*.py can be collected by pytest --co. Fix any that error. Commit."`
+- [ ] `golem [t-da2702] --provider zhipu --max-turns 25 "Find unused imports in metabolon/**/*.py. Remove them. Commit."`
+- [ ] `golem [t-59f795] --provider infini --max-turns 30 "Write a consulting insight card: Responsible AI governance checklist for financial institutions. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/responsible-ai-checklist.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
+- [ ] `golem [t-3d2d80] --provider volcano --max-turns 30 "Write a consulting insight card: AI incident response playbook for financial services. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-incident-response.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
+- [ ] `golem [t-b883db] --provider zhipu --max-turns 35 "Read effectors/golem. Add --json flag that outputs result as JSON instead of raw text. Useful for piping. Write tests. Run uv run pytest. Commit."`
 ## Done (2026-03-31)
 
 
@@ -3626,13 +3642,13 @@ Concentrated runtime errors around 8-11% of test suite. Likely common root cause
 #### Builds — Capco tooling (3 tasks)
 
 - [!] `golem [t-7fd981] --provider zhipu --max-turns 50 "Create effectors/consulting-timer as a Python CLI that tracks billable hours. Subcommands: start <client> [project], stop, status, report [--week|--month], log <client> <hours> <description>. Store in ~/.config/consulting-timer/log.jsonl. Format report as table: date | client | project | hours | description. Add argparse with --help. chmod +x. Write tests in assays/test_consulting_timer.py using subprocess. Commit."`
-- [ ] `golem [t-51fa51] --provider codex --max-turns 50 "Create effectors/engagement-brief as a Python CLI that generates a structured brief for a new consulting engagement. Takes --client <name> --industry <industry> --scope <scope>. Outputs markdown with: client overview, key stakeholders section, engagement objectives, deliverables, timeline, risks, first-week priorities. Write to stdout. Add argparse with --help. chmod +x. Write tests using subprocess. Commit."`
+- [!] `golem [t-51fa51] --provider codex --max-turns 50 "Create effectors/engagement-brief as a Python CLI that generates a structured brief for a new consulting engagement. Takes --client <name> --industry <industry> --scope <scope>. Outputs markdown with: client overview, key stakeholders section, engagement objectives, deliverables, timeline, risks, first-week priorities. Write to stdout. Add argparse with --help. chmod +x. Write tests using subprocess. Commit."`
 - [!] `golem [t-e33e24] --provider zhipu --max-turns 40 "Create effectors/standup-log as a Python CLI for daily standup notes. Subcommands: add <what-I-did> [--blocker <text>], show [--today|--week], export [--format md|json]. Store in ~/.config/standup/log.jsonl. Format output cleanly with dates and blockers highlighted. Add argparse. chmod +x. Write subprocess tests. Commit."`
 
 #### Code quality (3 tasks)
 
 - [!] `golem [t-118cbf] --provider zhipu --max-turns 25 "Run: python3 -c \"import ast, sys, pathlib; [print(f) for f in sorted(pathlib.Path('assays').glob('test_*.py')) if not (lambda p: (ast.parse(p.read_text()), True)[1])(f)]\" 2>&1 | head -20. These are test files with syntax errors. For each: read the file, fix the syntax error. Run pytest on it. Commit."`
-- [ ] `golem [t-7d80a8] --provider codex --max-turns 30 "Find effectors that crash on --help. Run: for f in effectors/*; do [ -x \"\$f\" ] && timeout 5 \"\$f\" --help >/dev/null 2>&1 || echo \"CRASH: \$f\"; done. For each crasher: read the file, add proper argparse or fix the crash. Commit."`
+- [!] `golem [t-7d80a8] --provider codex --max-turns 30 "Find effectors that crash on --help. Run: for f in effectors/*; do [ -x \"\$f\" ] && timeout 5 \"\$f\" --help >/dev/null 2>&1 || echo \"CRASH: \$f\"; done. For each crasher: read the file, add proper argparse or fix the crash. Commit."`
 - [!] `golem [t-bb1417] --provider zhipu --max-turns 25 "Check metabolon/**/*.py for unused imports. Run: python3 -c \"import ast, pathlib; ...\". For files with >3 unused imports, remove them. Run pytest on changed files to verify no breakage. Commit."`
 
 ### Overnight wave — Capco T-5 (2026-04-01 night)

@@ -1647,6 +1647,115 @@ def disk_free(use_color: bool = True) -> str:
         return f"  Disk check failed: {e}"
 
 
+def task_phase(pct: int) -> str:
+    """Return a phase label for a running task based on estimated progress.
+
+    Returns one of: 'starting' (0-15%), 'running' (16-75%), 'wrapping' (76-95%),
+    'finishing' (96-99%), 'overdue' (100%).
+    """
+    if pct >= 100:
+        return "overdue"
+    elif pct >= 96:
+        return "finishing"
+    elif pct >= 76:
+        return "wrapping"
+    elif pct >= 16:
+        return "running"
+    else:
+        return "starting"
+
+
+PHASE_ICONS: dict[str, str] = {
+    "starting": "○",
+    "running": "◑",
+    "wrapping": "◕",
+    "finishing": "●",
+    "overdue": "!",
+}
+
+
+def drain_bar(
+    done: int, running: int, pending: int, eta_seconds: int,
+    width: int = 40, use_color: bool = True,
+) -> str:
+    """Render a visual drain bar showing done/running/pending proportions.
+
+    The bar is split into three segments: filled (done), shaded (running),
+    and empty (pending).  Appends the wall-clock ETA at the end.
+
+    Returns a string like '████████▓▓▓░░░░ ETA today 15:30'.
+    """
+    total = done + running + pending
+    if total == 0:
+        g = GREEN if use_color else ""
+        dim = DIM if use_color else ""
+        rst = RESET if use_color else ""
+        return f"{g}{'█' * width}{rst} {dim}queue empty{rst}"
+
+    done_w = int(width * done / total)
+    run_w = int(width * running / total)
+    pend_w = width - done_w - run_w
+
+    g = GREEN if use_color else ""
+    y = YELLOW if use_color else ""
+    dim = DIM if use_color else ""
+    rst = RESET if use_color else ""
+
+    bar = f"{g}{'█' * done_w}{rst}{y}{'▓' * run_w}{rst}{dim}{'░' * pend_w}{rst}"
+
+    wall = eta_wall_clock(eta_seconds) if eta_seconds > 0 else "—"
+    pct = done / total * 100
+
+    return f"{bar} {pct:.0f}%  ETA {wall}"
+
+
+def heartbeat_line(
+    stall_secs: int | None, m15: int, m60: int,
+    trend: str, ewma_rate: float, use_color: bool = True,
+) -> str:
+    """Render a single-line activity heartbeat indicator.
+
+    Shows: seconds since last completion, burst counts, trend arrow, EWMA rate.
+    Uses color to indicate health (green = active, yellow = slow, red = stalled).
+    """
+    g = GREEN if use_color else ""
+    y = YELLOW if use_color else ""
+    r_col = RED if use_color else ""
+    dim = DIM if use_color else ""
+    rst = RESET if use_color else ""
+
+    parts: list[str] = []
+
+    # Activity indicator
+    if stall_secs is None:
+        parts.append(f"{dim}no completions yet{rst}")
+    elif stall_secs < 60:
+        parts.append(f"{g}last done {stall_secs}s ago{rst}")
+    elif stall_secs < 300:
+        parts.append(f"{y}last done {fmt_duration(stall_secs)} ago{rst}")
+    else:
+        parts.append(f"{r_col}last done {fmt_duration(stall_secs)} ago{rst}")
+
+    # Burst
+    parts.append(f"{dim}burst {m15}/{m60}{rst}")
+
+    # Trend arrow
+    if trend == "accelerating":
+        parts.append(f"{g}↑ accel{rst}")
+    elif trend == "decelerating":
+        parts.append(f"{r_col}↓ decel{rst}")
+    else:
+        parts.append(f"{dim}→ steady{rst}")
+
+    # EWMA rate
+    if ewma_rate > 0:
+        parts.append(f"{ewma_rate:.1f}/hr")
+    else:
+        parts.append(f"{dim}—/hr{rst}")
+
+    return "  ".join(parts)
+
+
 def print_dashboard(use_color: bool = True, json_output: bool = False) -> int:
     """Print the full golem dashboard."""
     b = BOLD if use_color else ""
