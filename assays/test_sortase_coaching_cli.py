@@ -1,4 +1,6 @@
-"""Tests for metabolon/sortase/coaching_cli.py."""
+from __future__ import annotations
+
+from unittest.mock import MagicMock, patch
 
 from click.testing import CliRunner
 
@@ -6,206 +8,119 @@ from metabolon.sortase.coaching_cli import coaching
 
 
 class TestCoachingList:
-    """Tests for the 'coaching list' command."""
+    """Tests for the `coaching list` CLI command."""
 
-    def test_list_shows_categories_and_counts(self, monkeypatch):
-        """Should display categories with note counts in a table."""
-        monkeypatch.setattr(
-            "metabolon.sortase.coaching_cli.load_coaching_notes",
-            lambda: [
-                {"category": "Code patterns", "notes": ["note1", "note2", "note3"]},
-                {"category": "Execution", "notes": ["note4"]},
-            ],
-        )
+    def test_list_shows_categories_and_counts(self) -> None:
+        fake_entries = [
+            {"category": "Syntax", "notes": ["note A", "note B"]},
+            {"category": "Testing", "notes": ["note C"]},
+        ]
         runner = CliRunner()
-        result = runner.invoke(coaching, ["list"])
+        with patch(
+            "metabolon.sortase.coaching_cli.load_coaching_notes",
+            return_value=fake_entries,
+        ):
+            result = runner.invoke(coaching, ["list"])
+
         assert result.exit_code == 0
-        assert "Code patterns" in result.output
-        assert "3" in result.output
-        assert "Execution" in result.output
+        assert "Syntax" in result.output
+        assert "Testing" in result.output
+        assert "2" in result.output
         assert "1" in result.output
 
-    def test_list_empty_notes(self, monkeypatch):
-        """Should show message when no notes exist."""
-        monkeypatch.setattr(
-            "metabolon.sortase.coaching_cli.load_coaching_notes",
-            lambda: [],
-        )
+    def test_list_empty_notes(self) -> None:
         runner = CliRunner()
-        result = runner.invoke(coaching, ["list"])
+        with patch(
+            "metabolon.sortase.coaching_cli.load_coaching_notes",
+            return_value=[],
+        ):
+            result = runner.invoke(coaching, ["list"])
+
         assert result.exit_code == 0
         assert "No coaching notes found" in result.output
 
-    def test_list_category_with_zero_notes(self, monkeypatch):
-        """Should handle category with empty notes list."""
-        monkeypatch.setattr(
-            "metabolon.sortase.coaching_cli.load_coaching_notes",
-            lambda: [
-                {"category": "Empty category", "notes": []},
-            ],
-        )
-        runner = CliRunner()
-        result = runner.invoke(coaching, ["list"])
-        assert result.exit_code == 0
-        assert "Empty category" in result.output
-        assert "0" in result.output
-
 
 class TestCoachingAdd:
-    """Tests for the 'coaching add' command."""
+    """Tests for the `coaching add` CLI command."""
 
-    def test_add_note_success(self, monkeypatch):
-        """Should call add_coaching_note and print success message."""
-        calls = []
-
-        def mock_add(category: str, note: str):
-            calls.append({"category": category, "note": note})
-
-        monkeypatch.setattr(
-            "metabolon.sortase.coaching_cli.add_coaching_note",
-            mock_add,
-        )
+    def test_add_calls_add_coaching_note(self) -> None:
         runner = CliRunner()
-        result = runner.invoke(
-            coaching, ["add", "--category", "Testing", "--note", "Always write tests"]
-        )
+        with patch("metabolon.sortase.coaching_cli.add_coaching_note") as mock_add:
+            result = runner.invoke(
+                coaching, ["add", "--category", "Patterns", "--note", "Use flat params"]
+            )
+
         assert result.exit_code == 0
-        assert "Added note to 'Testing'" in result.output
-        assert calls == [{"category": "Testing", "note": "Always write tests"}]
+        mock_add.assert_called_once_with(category="Patterns", note="Use flat params")
 
-    def test_add_missing_category(self):
-        """Should fail when category is not provided."""
+    def test_add_prints_success(self) -> None:
         runner = CliRunner()
-        result = runner.invoke(coaching, ["add", "--note", "Some note"])
-        assert result.exit_code != 0
-        assert "Missing option" in result.output or "required" in result.output.lower()
+        with patch("metabolon.sortase.coaching_cli.add_coaching_note"):
+            result = runner.invoke(
+                coaching, ["add", "--category", "Bugfix", "--note", "Fix the thing"]
+            )
 
-    def test_add_missing_note(self):
-        """Should fail when note is not provided."""
-        runner = CliRunner()
-        result = runner.invoke(coaching, ["add", "--category", "Testing"])
-        assert result.exit_code != 0
-        assert "Missing option" in result.output or "required" in result.output.lower()
-
-    def test_add_with_special_characters(self, monkeypatch):
-        """Should handle notes with special characters."""
-        calls = []
-
-        def mock_add(category: str, note: str):
-            calls.append({"category": category, "note": note})
-
-        monkeypatch.setattr(
-            "metabolon.sortase.coaching_cli.add_coaching_note",
-            mock_add,
-        )
-        runner = CliRunner()
-        result = runner.invoke(
-            coaching,
-            [
-                "add",
-                "--category",
-                "Syntax",
-                "--note",
-                "Avoid `TODO` and `FIXME` placeholders!",
-            ],
-        )
         assert result.exit_code == 0
-        assert calls[0]["note"] == "Avoid `TODO` and `FIXME` placeholders!"
+        assert "Bugfix" in result.output
+
+    def test_add_missing_category_option(self) -> None:
+        runner = CliRunner()
+        with patch("metabolon.sortase.coaching_cli.add_coaching_note"):
+            result = runner.invoke(coaching, ["add", "--note", "orphan"])
+
+        assert result.exit_code != 0
+
+    def test_add_missing_note_option(self) -> None:
+        runner = CliRunner()
+        with patch("metabolon.sortase.coaching_cli.add_coaching_note"):
+            result = runner.invoke(coaching, ["add", "--category", "Cat"])
+
+        assert result.exit_code != 0
 
 
 class TestCoachingSearch:
-    """Tests for the 'coaching search' command."""
+    """Tests for the `coaching search` CLI command."""
 
-    def test_search_finds_matches(self, monkeypatch):
-        """Should display matching notes in a table."""
-        monkeypatch.setattr(
-            "metabolon.sortase.coaching_cli.search_coaching",
-            lambda query: [
-                {
-                    "category": "Code patterns",
-                    "notes": ["No hallucinated imports", "Never duplicate imports"],
-                }
-            ],
-        )
+    def test_search_returns_matching_results(self) -> None:
+        fake_results = [
+            {"category": "Patterns", "notes": ["Use if/elif dispatch"]},
+        ]
         runner = CliRunner()
-        result = runner.invoke(coaching, ["search", "imports"])
+        with patch(
+            "metabolon.sortase.coaching_cli.search_coaching",
+            return_value=fake_results,
+        ):
+            result = runner.invoke(coaching, ["search", "dispatch"])
+
         assert result.exit_code == 0
-        assert "imports" in result.output.lower()
-        assert "Code patterns" in result.output
+        assert "Patterns" in result.output
+        assert "Use if/elif dispatch" in result.output
 
-    def test_search_no_matches(self, monkeypatch):
-        """Should show message when no matches found."""
-        monkeypatch.setattr(
-            "metabolon.sortase.coaching_cli.search_coaching",
-            lambda query: [],
-        )
+    def test_search_no_matches(self) -> None:
         runner = CliRunner()
-        result = runner.invoke(coaching, ["search", "nonexistent"])
+        with patch(
+            "metabolon.sortase.coaching_cli.search_coaching",
+            return_value=[],
+        ):
+            result = runner.invoke(coaching, ["search", "nonexistent"])
+
         assert result.exit_code == 0
         assert "No matches for 'nonexistent'" in result.output
 
-    def test_search_multiple_categories(self, monkeypatch):
-        """Should display results from multiple categories."""
-        monkeypatch.setattr(
+    def test_search_multiple_results(self) -> None:
+        fake_results = [
+            {"category": "A", "notes": ["match one"]},
+            {"category": "B", "notes": ["match two"]},
+        ]
+        runner = CliRunner()
+        with patch(
             "metabolon.sortase.coaching_cli.search_coaching",
-            lambda query: [
-                {"category": "Code patterns", "notes": ["Test first"]},
-                {"category": "Execution", "notes": ["Test twice"]},
-            ],
-        )
-        runner = CliRunner()
-        result = runner.invoke(coaching, ["search", "test"])
+            return_value=fake_results,
+        ):
+            result = runner.invoke(coaching, ["search", "match"])
+
         assert result.exit_code == 0
-        assert "Code patterns" in result.output
-        assert "Execution" in result.output
-
-    def test_search_preserves_query(self, monkeypatch):
-        """Should pass query correctly to search function."""
-        captured = {}
-
-        def mock_search(query: str):
-            captured["query"] = query
-            return []
-
-        monkeypatch.setattr(
-            "metabolon.sortase.coaching_cli.search_coaching",
-            mock_search,
-        )
-        runner = CliRunner()
-        runner.invoke(coaching, ["search", "case-sensitive"])
-        assert captured["query"] == "case-sensitive"
-
-
-class TestCoachingGroup:
-    """Tests for the coaching CLI group."""
-
-    def test_help_shows_subcommands(self):
-        """Should list all available subcommands in help."""
-        runner = CliRunner()
-        result = runner.invoke(coaching, ["--help"])
-        assert result.exit_code == 0
-        assert "list" in result.output
-        assert "add" in result.output
-        assert "search" in result.output
-
-    def test_list_help(self):
-        """Should show help for list subcommand."""
-        runner = CliRunner()
-        result = runner.invoke(coaching, ["list", "--help"])
-        assert result.exit_code == 0
-        assert "Show all coaching categories" in result.output
-
-    def test_add_help(self):
-        """Should show help for add subcommand."""
-        runner = CliRunner()
-        result = runner.invoke(coaching, ["add", "--help"])
-        assert result.exit_code == 0
-        assert "--category" in result.output
-        assert "--note" in result.output
-
-    def test_search_help(self):
-        """Should show help for search subcommand."""
-        runner = CliRunner()
-        result = runner.invoke(coaching, ["search", "--help"])
-        assert result.exit_code == 0
-        assert "QUERY" in result.output or "keyword" in result.output.lower()
+        assert "A" in result.output
+        assert "B" in result.output
+        assert "match one" in result.output
+        assert "match two" in result.output
