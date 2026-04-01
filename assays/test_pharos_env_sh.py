@@ -15,7 +15,7 @@ SCRIPT = Path(__file__).parent.parent / "effectors" / "pharos-env.sh"
 
 
 def _run_command_with_env(
-    tmp_path: Path, *args: str, env: dict[str, str] | None = None
+    *args: str, env: dict[str, str] | None = None
 ) -> subprocess.CompletedProcess:
     """Run pharos-env.sh with given args and optional env overrides."""
     if env is None:
@@ -96,13 +96,13 @@ class TestEnvironmentSetup:
     def test_sets_home(self, tmp_path):
         """Verify HOME is set to /home/terry."""
         # Use printenv to check environment variables
-        r = _run_command_with_env(tmp_path, "printenv", "HOME")
+        r = _run_command_with_env("printenv", "HOME")
         assert r.returncode == 0
         assert r.stdout.strip() == "/home/terry"
 
     def test_sets_path(self, tmp_path):
         """Verify PATH contains expected components."""
-        r = _run_command_with_env(tmp_path, "printenv", "PATH")
+        r = _run_command_with_env("printenv", "PATH")
         assert r.returncode == 0
         path = r.stdout.strip()
         assert "/home/terry/.local/bin" in path
@@ -117,7 +117,7 @@ class TestEnvironmentSetup:
 
     def test_executes_command(self, tmp_path):
         """Verify the wrapper execs the given command successfully."""
-        r = _run_command_with_env(tmp_path, "echo", "hello from pharos-env")
+        r = _run_command_with_env("echo", "hello from pharos-env")
         assert r.returncode == 0
         assert r.stdout.strip() == "hello from pharos-env"
 
