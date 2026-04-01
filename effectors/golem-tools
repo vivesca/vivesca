@@ -3530,6 +3530,9 @@ def cmd_dash():
 
 # ══════════════════════════════════════════════════════════════════════
 # ══ argparse dispatch
+# ══════════════════════════════════════════════════════════════════════
+
+
 def main():
     parser = argparse.ArgumentParser(
         prog="golem-tools",
@@ -3542,19 +3545,16 @@ def main():
     p.add_argument("--once", action="store_true")
     p.add_argument("--window", type=int, default=60)
     p.add_argument("--json", action="store_true")
-    p.set_defaults(func=cmd_dash)
 
     # health
     p = sub.add_parser("health", help="Health check for golem providers")
     p.add_argument("--provider", choices=["zhipu", "infini", "volcano"])
     p.add_argument("--json", action="store_true")
-    p.set_defaults(func=cmd_health)
 
     # report
     p = sub.add_parser("report", help="Analytics report from golem task logs")
     p.add_argument("--date", type=str, default=None)
     p.add_argument("--json", action="store_true")
-    p.set_defaults(func=cmd_report)
 
     # review
     p = sub.add_parser("review", help="Review golem output, diagnose failures")
@@ -3562,31 +3562,93 @@ def main():
     p.add_argument("--since", type=str, default="30m")
     p.add_argument("--check-consulting", type=str, default=None, metavar="DIR")
     p.add_argument("--once", action="store_true")
-    p.set_defaults(func=cmd_review)
 
     # reviewer
     p = sub.add_parser("reviewer", help="Monitor golem output, auto-review quality")
     p.add_argument("--once", action="store_true")
-    p.set_defaults(func=cmd_reviewer)
 
     # top
     p = sub.add_parser("top", help="Show running golem processes")
     p.add_argument("--json", action="store_true")
     p.add_argument("--watch", action="store_true")
-    p.set_defaults(func=cmd_top)
 
     # validate
     p = sub.add_parser("validate", help="Validate Python files for golem quality")
     p.add_argument("files", nargs="*")
-    p.set_defaults(func=cmd_validate)
 
     args = parser.parse_args()
     if not args.command:
         parser.print_help()
         sys.exit(2)
-    rc = args.func(args)
-    if rc is not None and rc != 0:
-        sys.exit(rc)
+
+    # Dispatch: translate argparse Namespace into the calling convention
+    # expected by each cmd_* function.  cmd_validate and cmd_health accept
+    # an explicit argv; the others read sys.argv internally, so we set it
+    # before calling.
+    if args.command == "validate":
+        files = args.files or []
+        if not files:
+            print("Usage: golem-tools validate <file.py> [...]")
+            print()
+            print("Validate Python files for golem output quality.")
+            return 2
+        return cmd_validate(files)
+
+    if args.command == "health":
+        argv: list[str] = []
+        if args.provider:
+            argv += ["--provider", args.provider]
+        if args.json:
+            argv += ["--json"]
+        return cmd_health(argv)
+
+    if args.command == "report":
+        argv = ["golem-report"]
+        if args.date:
+            argv += ["--date", args.date]
+        if args.json:
+            argv += ["--json"]
+        sys.argv = argv
+        return cmd_report()
+
+    if args.command == "top":
+        argv = ["golem-top"]
+        if args.json:
+            argv += ["--json"]
+        if args.watch:
+            argv += ["--watch"]
+        sys.argv = argv
+        return cmd_top()
+
+    if args.command == "reviewer":
+        argv = ["golem-reviewer"]
+        if args.once:
+            argv += ["--once"]
+        sys.argv = argv
+        return cmd_reviewer()
+
+    if args.command == "review":
+        argv = ["golem-review"]
+        if args.auto_requeue:
+            argv += ["--auto-requeue"]
+        if args.since and args.since != "30m":
+            argv += ["--since", args.since]
+        if args.check_consulting:
+            argv += ["--check-consulting", args.check_consulting]
+        sys.argv = argv
+        return cmd_review()
+
+    if args.command == "dash":
+        argv = ["golem-dash"]
+        if args.once:
+            argv += ["--once"]
+        if args.window != 60:
+            argv += ["--window", str(args.window)]
+        sys.argv = argv
+        return cmd_dash()
+
+    parser.print_help()
+    return 2
 
 
 if __name__ == "__main__":
