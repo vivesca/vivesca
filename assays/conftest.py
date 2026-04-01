@@ -81,8 +81,11 @@ def clean_pytest_temp_dirs():
     a directory that already exists and is non-empty.
     """
     import tempfile
+
     tmpdir = Path(tempfile.gettempdir())
-    for path in tmpdir.glob("pytest-*"):
+    temp_paths = list(tmpdir.glob("pytest-*"))
+    temp_paths.append(tmpdir / "pytest-vivesca")
+    for path in temp_paths:
         if path.is_dir():
             try:
                 shutil.rmtree(path, ignore_errors=True)

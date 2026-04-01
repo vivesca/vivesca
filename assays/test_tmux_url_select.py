@@ -377,9 +377,10 @@ def test_http_url_scheme_extracted():
 def test_url_stops_at_space():
     """URLs must be truncated at the first space character."""
     with tempfile.TemporaryDirectory() as tmpdir:
-        fzf_input_file = tmpdir / "fzf_stdin.txt"
+        tmpdir_path = Path(tmpdir)
+        fzf_input_file = tmpdir_path / "fzf_stdin.txt"
         env = _setup_mocks(
-            tmpdir,
+            tmpdir_path,
             fzf_action=f"cat > {fzf_input_file}\nhead -1\n",
         )
         with _Buffer("https://example.com/path page2 other\n"):
@@ -398,9 +399,10 @@ def test_url_stops_at_space():
 def test_url_stops_at_angle_bracket():
     """URLs inside <...> markup should stop at >."""
     with tempfile.TemporaryDirectory() as tmpdir:
-        fzf_input_file = tmpdir / "fzf_stdin.txt"
+        tmpdir_path = Path(tmpdir)
+        fzf_input_file = tmpdir_path / "fzf_stdin.txt"
         env = _setup_mocks(
-            tmpdir,
+            tmpdir_path,
             fzf_action=f"cat > {fzf_input_file}\nhead -1\n",
         )
         with _Buffer("link <https://example.com/a>b\n"):
@@ -419,9 +421,10 @@ def test_url_stops_at_angle_bracket():
 def test_url_stops_at_closing_paren():
     """URLs inside parentheses should stop at )."""
     with tempfile.TemporaryDirectory() as tmpdir:
-        fzf_input_file = tmpdir / "fzf_stdin.txt"
+        tmpdir_path = Path(tmpdir)
+        fzf_input_file = tmpdir_path / "fzf_stdin.txt"
         env = _setup_mocks(
-            tmpdir,
+            tmpdir_path,
             fzf_action=f"cat > {fzf_input_file}\nhead -1\n",
         )
         with _Buffer("see (https://example.com/x) next\n"):
@@ -440,9 +443,10 @@ def test_url_stops_at_closing_paren():
 def test_url_stops_at_double_quote():
     """URLs inside double quotes should stop at the quote."""
     with tempfile.TemporaryDirectory() as tmpdir:
-        fzf_input_file = tmpdir / "fzf_stdin.txt"
+        tmpdir_path = Path(tmpdir)
+        fzf_input_file = tmpdir_path / "fzf_stdin.txt"
         env = _setup_mocks(
-            tmpdir,
+            tmpdir_path,
             fzf_action=f"cat > {fzf_input_file}\nhead -1\n",
         )
         with _Buffer('href="https://example.com/z" more\n'):
@@ -462,9 +466,10 @@ def test_tmux_display_message_called_with_url():
     """When a URL is selected, tmux display-message must be invoked with it."""
     url = "https://msg.example.com/ok"
     with tempfile.TemporaryDirectory() as tmpdir:
-        tmux_log = tmpdir / "tmux_calls.txt"
+        tmpdir_path = Path(tmpdir)
+        tmux_log = tmpdir_path / "tmux_calls.txt"
         env = _setup_mocks(
-            tmpdir,
+            tmpdir_path,
             fzf_action=f'echo "{url}"\n',
             tmux_action=f'echo "$@" >> {tmux_log}\n',
         )
@@ -485,9 +490,10 @@ def test_tmux_display_message_called_with_url():
 def test_fzf_called_with_expected_flags():
     """fzf must be invoked with --reverse, --prompt, and --no-info."""
     with tempfile.TemporaryDirectory() as tmpdir:
-        fzf_log = tmpdir / "fzf_args.txt"
+        tmpdir_path = Path(tmpdir)
+        fzf_log = tmpdir_path / "fzf_args.txt"
         env = _setup_mocks(
-            tmpdir,
+            tmpdir_path,
             fzf_action=f'echo "$@" >> {fzf_log}\nhead -1\n',
         )
         with _Buffer("https://example.com\n"):
