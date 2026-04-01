@@ -1,9 +1,78 @@
 STDOUT:
+e::test_default_runs_run_all
+assays/test_weekly_gather.py::TestCLIArgparse::test_json_flag_outputs_json
+assays/test_weekly_gather.py::TestLazyGatherImport::test_load_gather_returns_false_when_missing
+assays/test_weekly_gather.py::TestLazyGatherImport::test_load_gather_caches_result
+assays/test_weekly_gather.py::TestLazyGatherImport::test_load_gather_returns_module_when_present
+assays/test_weekly_gather.py::TestGatherCalendar::test_unavailable_when_no_gather_lib
+assays/test_weekly_gather.py::TestGatherCalendar::test_returns_events_from_gather_lib
+assays/test_weekly_gather.py::TestGatherCalendar::test_no_events
+assays/test_weekly_gather.py::TestGatherCalendar::test_unavailable_calendar
+assays/test_weekly_gather.py::TestGatherTodo::test_unavailable_when_no_gather_lib
+assays/test_weekly_gather.py::TestGatherTodo::test_counts_items
+assays/test_weekly_gather.py::TestGatherTodo::test_overdue_items
+assays/test_weekly_gather.py::TestGatherTodo::test_not_available
+assays/test_weekly_gather.py::TestGatherNow::test_unavailable_when_no_gather_lib
+assays/test_weekly_gather.py::TestGatherNow::test_counts_open_items
+assays/test_weekly_gather.py::TestGatherQuarterly::test_found
+assays/test_weekly_gather.py::TestGatherQuarterly::test_not_found
+assays/test_weekly_gather.py::TestGatherQuarterly::test_correct_quarter_calculation
+assays/test_weekly_gather.py::TestGatherDaily::test_no_daily_notes
+assays/test_weekly_gather.py::TestGatherDaily::test_counts_notes_and_commute_closes
+assays/test_weekly_gather.py::TestGatherDaily::test_extracts_session_headers
+assays/test_weekly_gather.py::TestGatherOura::test_no_sopor_command
+assays/test_weekly_gather.py::TestGatherOura::test_parses_sopor_week_output
+assays/test_weekly_gather.py::TestGatherOura::test_fallback_trend_output
+assays/test_weekly_gather.py::TestGatherJobAlerts::test_no_job_hunting_dir
+assays/test_weekly_gather.py::TestGatherJobAlerts::test_counts_unchecked
+assays/test_weekly_gather.py::TestGatherGarden::test_no_published_dir
+assays/test_weekly_gather.py::TestGatherGarden::test_counts_recent_posts
+assays/test_weekly_gather.py::TestRunAll::test_run_all_returns_all_keys
+assays/test_weekly_gather.py::TestRunAll::test_run_all_each_has_summary
+assays/test_weekly_gather.py::TestRunAll::test_run_all_catches_exceptions
+assays/test_weekly_gather.py::TestRenderText::test_renders_all_sections
+assays/test_weekly_gather.py::TestRenderText::test_render_text_has_decorators
+assays/test_weekly_gather.py::TestRunCmd::test_success
+assays/test_weekly_gather.py::TestRunCmd::test_timeout
+assays/test_weekly_gather.py::TestRunCmd::test_generic_exception
+assays/test_wewe_rss_health.py::TestFileBasics::test_file_exists
+assays/test_wewe_rss_health.py::TestFileBasics::test_is_python_script
+assays/test_wewe_rss_health.py::TestFileBasics::test_has_docstring
+assays/test_wewe_rss_health.py::TestLoadState::test_returns_state_when_file_exists
+assays/test_wewe_rss_health.py::TestLoadState::test_returns_default_when_file_missing
+assays/test_wewe_rss_health.py::TestLoadState::test_empty_file_raises_json_error
+assays/test_wewe_rss_health.py::TestSaveState::test_writes_json
+assays/test_wewe_rss_health.py::TestSaveState::test_overwrites_existing
+assays/test_wewe_rss_health.py::TestCheckService::test_healthy_with_active_feeds
+assays/test_wewe_rss_health.py::TestCheckService::test_unreachable_api
+assays/test_wewe_rss_health.py::TestCheckService::test_api_error
+assays/test_wewe_rss_health.py::TestCheckService::test_no_feeds
+assays/test_wewe_rss_health.py::TestCheckService::test_paused_feeds
+assays/test_wewe_rss_health.py::TestSendAlert::test_calls_tg_script_when_exists
+assays/test_wewe_rss_health.py::TestSendAlert::test_prints_to_stderr_when_no_script
+assays/test_wewe_rss_health.py::TestMain::test_alerts_on_transition_to_failing
+assays/test_wewe_rss_health.py::TestMain::test_alerts_on_recovery
+assays/test_wewe_rss_health.py::TestMain::test_no_alert_when_stable_ok
+assays/test_wewe_rss_health.py::TestMain::test_no_alert_when_stable_failing
+assays/test_wewe_rss_health.py::TestMain::test_saves_state_after_check
+assays/test_x_feed_to_lustro.py::test_module_loads
+assays/test_x_feed_to_lustro.py::test_cache_dir_under_home
+assays/test_x_feed_to_lustro.py::test_bird_failure_exits
+assays/test_x_feed_to_lustro.py::test_single_tweet_saved
+assays/test_x_feed_to_lustro.py::test_short_tweet_skipped
+assays/test_x_feed_to_lustro.py::test_duplicate_not_overwritten
+assays/test_x_feed_to_lustro.py::test_quoted_tweet_appended
+assays/test_x_feed_to_lustro.py::test_date_parsing
+assays/test_x_feed_to_lustro.py::test_bad_date_uses_today
+assays/test_x_feed_to_lustro.py::test_missing_date_uses_today
+assays/test_x_feed_to_lustro.py::test_single_object_response
+assays/test_x_feed_to_lustro.py::test_mixed_tweets
+assays/test_x_feed_to_lustro.py::test_subprocess_called_correctly
+assays/test_x_feed_to_lustro.py::test_cache_dir_created
+assays/test_x_feed_to_lustro.py::test_record_fields
 
-no tests collected in 0.00s
+15063/15069 tests collected (6 deselected) in 69.15s (0:01:09)
 
 STDERR:
-ERROR: file or directory not found: assays/test_*.py
 
-
-RETURNCODE: 4
+RETURNCODE: 0
