@@ -202,6 +202,32 @@ class TestPortFlag:
         assert "9222" in r.stdout
 
 
+# ── Platform detection ────────────────────────────────────────────────
+
+
+class TestPlatformDetection:
+    """Test platform detection logic."""
+
+    def test_linux_searches_multiple_candidates(self):
+        content = _read_script()
+        for name in ("google-chrome-stable", "google-chrome", "chromium-browser", "chromium"):
+            assert name in content
+
+    def test_darwin_path_in_script(self):
+        content = _read_script()
+        assert "Darwin" in content
+        assert "Google Chrome.app" in content
+
+    def test_unsupported_platform_exits_1(self):
+        mock_script = f'uname() {{ echo "FreeBSD"; }}\n. {SCRIPT}'
+        r = subprocess.run(
+            ["bash", "-c", mock_script],
+            capture_output=True, text=True,
+        )
+        assert r.returncode == 1
+        assert "Unsupported platform:" in r.stderr
+
+
 # ── Chrome already running (curl succeeds) ────────────────────────────
 
 

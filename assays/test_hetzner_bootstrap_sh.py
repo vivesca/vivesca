@@ -51,6 +51,17 @@ class TestHelp:
         r = _run_help("--help")
         assert r.stderr == ""
 
+    def test_help_includes_root_ssh_usage(self):
+        r = _run_help("--help")
+        assert "ssh root@<IP> 'bash -s' < hetzner-bootstrap.sh" in r.stdout
+
+    def test_help_lists_installed_tooling(self):
+        r = _run_help("--help")
+        assert "Node.js" in r.stdout
+        assert "Tailscale" in r.stdout
+        assert "pnpm" in r.stdout
+        assert "uv" in r.stdout
+
 
 # ── root check ─────────────────────────────────────────────────────────
 
@@ -73,6 +84,22 @@ class TestRootCheck:
         src = SCRIPT.read_text()
         assert "EUID -ne 0" in src or "EUID != 0" in src
         assert "must be run as root" in src.lower()
+
+    def test_non_root_failure_stops_before_banner(self):
+        r = subprocess.run(
+            ["bash", str(SCRIPT)],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        assert "=== Hetzner Claude Code Bootstrap ===" not in r.stdout
+
+    def test_root_guard_precedes_first_mutating_command(self):
+        src = SCRIPT.read_text()
+        root_guard_index = src.index('if [[ $EUID -ne 0 ]]')
+        apt_update_index = src.index("apt-get update && apt-get upgrade -y")
+        banner_index = src.index('echo "=== Hetzner Claude Code Bootstrap ==="')
+        assert root_guard_index < banner_index < apt_update_index
 
 
 # ── file basics ────────────────────────────────────────────────────────
@@ -167,6 +194,22 @@ class TestContentChecks:
     def test_mentions_gh_auth_login(self):
         src = SCRIPT.read_text()
         assert "gh auth login" in src
+
+    def test_creates_passwordless_sudoers_dropin(self):
+        src = SCRIPT.read_text()
+        assert 'echo "terry ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/terry' in src
+
+    def test_copies_root_authorized_keys_for_terry(self):
+        src = SCRIPT.read_text()
+        assert "cp /root/.ssh/authorized_keys /home/terry/.ssh/" in src
+        assert "chmod 600 /home/terry/.ssh/authorized_keys" in src
+
+    def test_prints_post_bootstrap_next_steps(self):
+        src = SCRIPT.read_text()
+        assert 'echo "=== Bootstrap Complete ==="' in src
+        assert 'echo "  1. SSH in as terry: ssh terry@<IP>"' in src
+        assert 'echo "  2. Authenticate Tailscale: sudo tailscale up"' in src
+        assert 'echo "After Tailscale, connect via: ssh terry@<tailscale-hostname>"' in src
 
     def test_harden_ssh_robust(self):
         """SSH hardening should match both commented and uncommented lines."""
