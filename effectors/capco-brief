@@ -49,6 +49,32 @@ def _capco_files() -> list[Path]:
 
 # ── stakeholders ─────────────────────────────────────────────────────
 
+# A person name looks like 2–4 title-cased words (possibly with a hyphen)
+_NAME_RE = re.compile(r"^[A-Z][a-z]+(?: [A-Z][a-z]+){0,3}$")
+# Words that are NOT person names
+_NOT_NAMES = frozenset({
+    "role", "manager", "team", "office", "day", "week", "month", "year",
+    "morning", "evening", "night", "lunch", "checklist", "outfit", "alarm",
+    "reception", "laptop", "phone", "bag", "item", "route", "dress",
+    "transport", "benefits", "insurance", "probation", "payroll", "tax",
+    "sim", "coffee", "sim", "not", "do", "what", "key", "note", "event",
+    "capco", "hsbc", "cncbi", "mpf", "aia", "hkid", "ibkr", "garp",
+})
+
+
+def _is_person_name(s: str) -> bool:
+    """Return True if s looks like a real person name (2+ capitalized words)."""
+    s = s.strip("* ")
+    if not _NAME_RE.match(s):
+        return False
+    words = s.split()
+    if len(words) < 2:
+        return False
+    if words[0].lower() in _NOT_NAMES or words[-1].lower() in _NOT_NAMES:
+        return False
+    return True
+
+
 def cmd_stakeholders(_args: argparse.Namespace) -> None:
     """Extract named people with roles from Capco markdown files."""
     entries: list[tuple[str, str, str]] = []  # (name, role, source)
@@ -57,43 +83,52 @@ def cmd_stakeholders(_args: argparse.Namespace) -> None:
         text = _read(fpath)
         stem = fpath.stem
 
-        # Pattern 1: "### Name — Role" headings (Key People.md style)
+        # Pattern 1: "### Firstname Lastname — Role" (Key People.md)
         for m in re.finditer(r"^###\s+(.+?)\s*[—–-]\s*(.+)$", text, re.M):
             name = m.group(1).strip()
-            # grab first sentence of role (before newline)
-            role_line = m.group(2).strip()
-            role = role_line.split("\n")[0].strip()
-            if name and role and len(name) < 60:
+            role = m.group(2).split("\n")[0].strip()
+            if _is_person_name(name) and role:
                 entries.append((name, role, stem))
 
-        # Pattern 2: table rows with **Name** | Role | ... (pocket-card style)
+        # Pattern 2: table row "| **Firstname Lastname** | Role |"
         for m in re.finditer(
             r"\|\s*\*\*(.+?)\*\*\s*\|\s*(.+?)\s*\|", text
         ):
             name = m.group(1).strip()
             role = m.group(2).strip()
-            if name and role and len(name) < 60 and not name.startswith("-"):
-                # skip header-like rows
-                if name.lower() not in ("name", "person", "item"):
-                    entries.append((name, role, stem))
+            if _is_person_name(name) and role and len(role) > 5:
+                entries.append((name, role, stem))
 
-        # Pattern 3: "**Name** — Role" in free text (Transition.md style)
-        for m in re.finditer(r"\*\*(.+?)\*\*\s*[,:]?\s*([^,*]{10,}?)(?:\.|,|\n)", text):
+        # Pattern 3: "- **Label:** Firstname Lastname (Role)" from Transition.md
+        for m in re.finditer(
+            r"\*\*\w+\*{0,2}:\*\*\s+([A-Z][a-z]+(?: [A-Z][a-z]+)+)\s*[(\[](.+?)[)\]]",
+            text,
+        ):
             name = m.group(1).strip()
-            role = m.group(2).strip().rstrip(".,")
-            if name and role and len(name) < 60 and "http" not in role:
-                if any(kw in role.lower() for kw in (
-                    "director", "partner", "principal", "consultant",
-                    "manager", "head", "lead", "president", "officer",
-                    "cdo", "cto", "ceo", "ed ", "ea", "admin", "practice",
-                    "managing", "executive", "senior",
-                )):
-                    entries.append((name, role, stem))
+            role = m.group(2).strip()
+            if _is_person_name(name) and role:
+                entries.append((name, role, stem))
 
-    # deduplicate by name (keep first occurrence)
+        # Pattern 4: "Firstname Lastname (Capco / Role)" one-liners
+        for m in re.finditer(
+            r"([A-Z][a-z]+(?: [A-Z][a-z]+)+)\s*\(([^)]{5,80}?)\)", text
+        ):
+            name = m.group(1).strip()
+            role = m.group(2).strip()
+            if _is_person_name(name) and any(
+                kw in role.lower() for kw in (
+                    "director", "partner", "principal", "consultant",
+                    "manager", "head", "lead", "officer", "ed ",
+                    "managing", "executive", "capco", "hsbc", "bank",
+                    "practice", "governance", "data", "ai ",
+                )
+            ):
+                entries.append((name, role, stem))
+
+    # deduplicate by name (keep first occurrence — richest source)
     seen: dict[str, tuple[str, str, str]] = {}
     for name, role, src in entries:
-        key = name.lower().strip("*")
+        key = name.lower()
         if key not in seen:
             seen[key] = (name, role, src)
 
@@ -103,14 +138,13 @@ def cmd_stakeholders(_args: argparse.Namespace) -> None:
 
     # print table
     print("# Capco Stakeholders\n")
-    print(f"| {'Name':<25} | {'Role':<55} | {'Source':<30} |")
-    print(f"|{'-'*27}|{'-'*57}|{'-'*32}|")
+    print(f"| {'Name':<22} | {'Role':<60} | {'Source':<25} |")
+    print(f"|{'-'*24}|{'-'*62}|{'-'*27}|")
     for name, role, src in seen.values():
-        # truncate long fields
-        n = (name[:23] + "..") if len(name) > 25 else name
-        r = (role[:53] + "..") if len(role) > 55 else role
-        s = (src[:28] + "..") if len(src) > 30 else src
-        print(f"| {n:<25} | {r:<55} | {s:<30} |")
+        n = (name[:20] + "..") if len(name) > 22 else name
+        r = (role[:58] + "..") if len(role) > 60 else role
+        s = (src[:23] + "..") if len(src) > 25 else src
+        print(f"| {n:<22} | {r:<60} | {s:<25} |")
 
     print(f"\n_{len(seen)} people extracted from {len(_capco_files())} files._")
 
