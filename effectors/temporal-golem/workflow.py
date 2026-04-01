@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Temporal workflow for golem batch dispatch.
 
 GolemDispatchWorkflow accepts a list of tasks, dispatches them as activities

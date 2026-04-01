@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# gemmule-bootstrap — provision a fresh Fly.io machine as a Gemmule instance.
+# soma-bootstrap — provision a fresh Fly.io machine as a Soma instance.
 #
 # Run as root on a fresh Ubuntu 24.04 Fly Machine:
-#   fly ssh console -a gemmule < germline/effectors/gemmule-bootstrap
+#   fly ssh console -a soma < germline/effectors/soma-bootstrap
 #
 # Or from inside the machine:
-#   sudo bash ~/germline/effectors/gemmule-bootstrap
+#   sudo bash ~/germline/effectors/soma-bootstrap
 #
 # Idempotent — safe to re-run. Skips already-installed components.
 # Secrets are pulled from 1Password after op is installed.
@@ -40,7 +40,7 @@ command_exists() { command -v "$1" &>/dev/null; }
 # ---------------------------------------------------------------------------
 # 0. Pre-flight
 # ---------------------------------------------------------------------------
-log "Gemmule Bootstrap"
+log "Soma Bootstrap"
 
 if [[ "$(id -u)" -ne 0 ]]; then
   echo "Run as root: sudo bash $0"

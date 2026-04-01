@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""gemmule-snapshot — create a snapshot of the gemmule Fly.io machine.
+"""soma-snapshot — create a snapshot of the soma Fly.io machine.
 
 Usage:
-    gemmule-snapshot              # Create snapshot (stop → snapshot → start)
-    gemmule-snapshot --list       # List existing snapshots
-    gemmule-snapshot --volume     # Show volume info
+    soma-snapshot              # Create snapshot (stop → snapshot → start)
+    soma-snapshot --list       # List existing snapshots
+    soma-snapshot --volume     # Show volume info
 
 Creates a point-in-time snapshot of the attached volume for disaster recovery.
 Machine must be stopped briefly during snapshot creation.
@@ -20,7 +20,7 @@ from datetime import datetime
 from urllib.request import Request, urlopen
 
 API_BASE = "https://api.machines.dev"
-APP_NAME = "gemmule"
+APP_NAME = "soma"
 
 
 def _token() -> str:

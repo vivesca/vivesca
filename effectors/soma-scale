@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""gemmule-scale — resize the gemmule Fly.io machine.
+"""soma-scale — resize the soma Fly.io machine.
 
 Usage:
-    gemmule-scale up       # 8 CPUs, 32 GB RAM
-    gemmule-scale down     # 2 CPUs, 8 GB RAM
-    gemmule-scale status   # print current machine config
+    soma-scale up       # 8 CPUs, 32 GB RAM
+    soma-scale down     # 2 CPUs, 8 GB RAM
+    soma-scale status   # print current machine config
 
 Uses the Fly.io Machines API. Requires FLY_API_TOKEN in the environment.
 """
@@ -17,7 +17,7 @@ import sys
 from urllib.request import Request, urlopen
 
 API_BASE = "https://api.machines.dev"
-APP_NAME = "gemmule"
+APP_NAME = "soma"
 
 PROFILES = {
     "up": {
@@ -59,7 +59,7 @@ def _fmt_guest(guest: dict) -> str:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    p = argparse.ArgumentParser(prog="gemmule-scale", description="Resize gemmule Fly.io machine")
+    p = argparse.ArgumentParser(prog="soma-scale", description="Resize soma Fly.io machine")
     p.add_argument("command", choices=["up", "down", "status", "extend-vol"])
     p.add_argument("--size-gb", type=int, default=20, help="Target volume size in GB (for extend-vol)")
     return p

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""gemmule-clean — remove stale temp files and caches.
+"""soma-clean — remove stale temp files and caches.
 
 Removes:
   - /tmp/claude-*/ entries older than 24 h

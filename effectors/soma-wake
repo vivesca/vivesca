@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""gemmule-wake — start the gemmule Fly.io machine if stopped.
+"""soma-wake — start the soma Fly.io machine if stopped.
 
 Usage:
-    gemmule-wake              # Start machine if stopped, no-op if running
-    gemmule-wake --status     # Print current state without starting
+    soma-wake              # Start machine if stopped, no-op if running
+    soma-wake --status     # Print current state without starting
 
 Designed to be called from:
   - Git post-push hook (after pushing golem-queue.md changes)
@@ -20,7 +20,7 @@ import sys
 from urllib.request import Request, urlopen
 
 API_BASE = "https://api.machines.dev"
-APP_NAME = "gemmule"
+APP_NAME = "soma"
 
 
 def _token() -> str:
@@ -57,16 +57,16 @@ def wake() -> int:
     state = m.get("state", "unknown")
 
     if state == "started":
-        print(f"gemmule already running (machine {mid})")
+        print(f"soma already running (machine {mid})")
         return 0
 
     if state in ("stopped", "suspended"):
-        print(f"gemmule is {state} — starting machine {mid} ...")
+        print(f"soma is {state} — starting machine {mid} ...")
         _api("POST", f"/v1/apps/{APP_NAME}/machines/{mid}/start")
         print("start request sent")
         return 0
 
-    print(f"gemmule in unexpected state '{state}' (machine {mid})")
+    print(f"soma in unexpected state '{state}' (machine {mid})")
     return 1
 
 

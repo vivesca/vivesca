@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""gemmule-watchdog — system health monitor. Runs under supervisor.
+"""soma-watchdog — system health monitor. Runs under supervisor.
 
 Every 60 seconds:
 1. Disk space: auto-clean if <2GB, kill golems if <1GB
@@ -21,7 +21,7 @@ from pathlib import Path
 POLL = 60  # seconds
 HOME = Path.home()
 GERMLINE = HOME / "germline"
-LOG = HOME / "tmp" / "gemmule-watchdog.log"
+LOG = HOME / "tmp" / "soma-watchdog.log"
 
 # Thresholds
 DISK_WARN_GB = 2.0

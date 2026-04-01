@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""gemmule-health — system health monitor for gemmule.
+"""soma-health — system health monitor for soma.
 
 Usage:
-    gemmule-health              # Run all checks, print report
-    gemmule-health --json       # Output as JSON (for daemon consumption)
-    gemmule-health --fix        # Auto-fix what can be fixed
-    gemmule-health --daemon     # Called from daemon loop (fix + compact output)
+    soma-health              # Run all checks, print report
+    soma-health --json       # Output as JSON (for daemon consumption)
+    soma-health --fix        # Auto-fix what can be fixed
+    soma-health --daemon     # Called from daemon loop (fix + compact output)
 
 Checks:
   1. Disk space (% used, absolute free)
@@ -23,7 +23,7 @@ Auto-fix actions:
   - Daemon not running: restart suggestion
   - Stale lock files: remove
 
-Requires: Python 3.11+, runs on gemmule (Fly.io machine).
+Requires: Python 3.11+, runs on soma (Fly.io machine).
 """
 from __future__ import annotations
 

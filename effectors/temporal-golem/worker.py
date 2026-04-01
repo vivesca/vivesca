@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Temporal worker for golem task orchestration.
 
 Polls the 'golem-tasks' task queue and executes golem commands as activities.

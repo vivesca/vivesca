@@ -902,3 +902,353 @@ class TestHelpFlag:
         assert rc == 0
         captured = capsys.readouterr()
         assert "golem-dash" in captured.out
+
+
+# ── per_provider_pending (NEW) ──────────────────────────────────────────
+
+
+class TestPerProviderPending:
+    """Tests for per-provider pending task breakdown."""
+
+    def test_missing_file(self, tmp_path):
+        func = _mod["per_provider_pending"]
+        result = func(tmp_path / "nope.md")
+        assert result == {}
+
+    def test_empty_queue(self, tmp_path):
+        func = _mod["per_provider_pending"]
+        p = tmp_path / "queue.md"
+        p.write_text("# Queue\n\n## Pending\n")
+        result = func(p)
+        assert result == {}
+
+    def test_single_provider(self, tmp_path):
+        func = _mod["per_provider_pending"]
+        p = tmp_path / "queue.md"
+        p.write_text(textwrap.dedent("""\
+            # Queue
+            - [ ] `golem --provider zhipu "task A"`
+            - [ ] `golem --provider zhipu "task B"`
+        """))
+        result = func(p)
+        assert result == {"zhipu": 2}
+
+    def test_multiple_providers(self, tmp_path):
+        func = _mod["per_provider_pending"]
+        p = tmp_path / "queue.md"
+        p.write_text(textwrap.dedent("""\
+            # Queue
+            - [ ] `golem --provider zhipu "task A"`
+            - [ ] `golem --provider infini "task B"`
+            - [ ] `golem --provider volcano "task C"`
+            - [ ] `golem --provider zhipu "task D"`
+        """))
+        result = func(p)
+        assert result["zhipu"] == 2
+        assert result["infini"] == 1
+        assert result["volcano"] == 1
+
+    def test_ignores_done_and_failed(self, tmp_path):
+        func = _mod["per_provider_pending"]
+        p = tmp_path / "queue.md"
+        p.write_text(textwrap.dedent("""\
+            # Queue
+            - [ ] `golem --provider zhipu "pending"`
+            - [x] `golem --provider zhipu "done"`
+            - [!] `golem --provider zhipu "failed"`
+        """))
+        result = func(p)
+        assert result == {"zhipu": 1}
+
+    def test_default_provider_when_missing(self, tmp_path):
+        func = _mod["per_provider_pending"]
+        p = tmp_path / "queue.md"
+        p.write_text('- [ ] `golem "no provider specified"`\n')
+        result = func(p)
+        assert "unknown" in result or result == {}
+
+    def test_high_priority_counted(self, tmp_path):
+        func = _mod["per_provider_pending"]
+        p = tmp_path / "queue.md"
+        p.write_text('- [!!] `golem --provider zhipu "urgent"`\n')
+        result = func(p)
+        assert result == {"zhipu": 1}
+
+
+# ── ewma_throughput (NEW) ──────────────────────────────────────────────
+
+
+class TestEwmaThroughput:
+    """Tests for exponentially weighted moving average throughput."""
+
+    def test_no_records(self):
+        func = _mod["ewma_throughput"]
+        assert func([], alpha=0.3) == 0.0
+
+    def test_single_recent_record(self):
+        func = _mod["ewma_throughput"]
+        now = datetime.now()
+        recs = [{"ts": now.isoformat(), "exit": 0}]
+        rate = func(recs, alpha=0.3)
+        assert rate > 0
+
+    def test_recent_burst_higher_than_steady(self):
+        func = _mod["ewma_throughput"]
+        now = datetime.now()
+        # Burst: 5 tasks in last 10 minutes
+        burst = [{"ts": (now - timedelta(minutes=2 * i)).isoformat(), "exit": 0} for i in range(5)]
+        # Steady: 5 tasks spread over 3 hours
+        steady = [{"ts": (now - timedelta(hours=1, minutes=10 * i)).isoformat(), "exit": 0} for i in range(5)]
+        burst_rate = func(burst, alpha=0.3)
+        steady_rate = func(steady, alpha=0.3)
+        assert burst_rate > steady_rate
+
+    def test_alpha_closer_to_one_weights_recent_more(self):
+        func = _mod["ewma_throughput"]
+        now = datetime.now()
+        recs = [
+            {"ts": (now - timedelta(minutes=5)).isoformat(), "exit": 0},
+            {"ts": (now - timedelta(minutes=55)).isoformat(), "exit": 0},
+        ]
+        rate_high = func(recs, alpha=0.9)
+        rate_low = func(recs, alpha=0.1)
+        # Higher alpha weights the recent task more, should give higher rate
+        assert rate_high >= rate_low
+
+    def test_old_records_contribute_little(self):
+        func = _mod["ewma_throughput"]
+        now = datetime.now()
+        recs = [
+            {"ts": (now - timedelta(hours=12)).isoformat(), "exit": 0},
+            {"ts": (now - timedelta(hours=24)).isoformat(), "exit": 0},
+        ]
+        rate = func(recs, alpha=0.3)
+        assert rate < 1.0  # Should be very low
+
+
+# ── eta_confidence (NEW) ──────────────────────────────────────────────
+
+
+class TestEtaConfidence:
+    """Tests for ETA confidence indicator based on sample size."""
+
+    def test_no_data(self):
+        func = _mod["eta_confidence"]
+        assert func([]) == "none"
+
+    def test_low_sample(self):
+        func = _mod["eta_confidence"]
+        recs = [{"duration": 100, "exit": 0}]
+        assert func(recs) == "low"
+
+    def test_medium_sample(self):
+        func = _mod["eta_confidence"]
+        recs = [{"duration": 100 + i, "exit": 0} for i in range(15)]
+        assert func(recs) == "medium"
+
+    def test_high_sample(self):
+        func = _mod["eta_confidence"]
+        recs = [{"duration": 100 + i, "exit": 0} for i in range(50)]
+        assert func(recs) == "high"
+
+    def test_only_counts_with_duration(self):
+        func = _mod["eta_confidence"]
+        recs = [{"exit": 0}] * 100  # No duration field
+        assert func(recs) == "none"
+
+
+# ── print_compact (NEW) ──────────────────────────────────────────────
+
+
+class TestPrintCompact:
+    """Tests for compact one-line output for tmux status bar."""
+
+    def test_empty_queue(self, tmp_path, capsys):
+        func = _mod["print_compact"]
+        orig_jsonl = _mod["JSONL_PATH"]
+        orig_queue = _mod["QUEUE_PATH"]
+        try:
+            _mod["JSONL_PATH"] = tmp_path / "golem.jsonl"
+            _mod["QUEUE_PATH"] = tmp_path / "queue.md"
+            (tmp_path / "golem.jsonl").write_text("")
+            (tmp_path / "queue.md").write_text("# Queue\n")
+            func()
+        finally:
+            _mod["JSONL_PATH"] = orig_jsonl
+            _mod["QUEUE_PATH"] = orig_queue
+        captured = capsys.readouterr()
+        assert "empty" in captured.out.lower() or "0" in captured.out
+
+    def test_with_pending(self, tmp_path, capsys):
+        func = _mod["print_compact"]
+        orig_jsonl = _mod["JSONL_PATH"]
+        orig_queue = _mod["QUEUE_PATH"]
+        try:
+            _mod["JSONL_PATH"] = tmp_path / "golem.jsonl"
+            _mod["QUEUE_PATH"] = tmp_path / "queue.md"
+            (tmp_path / "golem.jsonl").write_text(
+                '{"ts":"2026-01-01","provider":"zhipu","duration":60,"exit":0}\n'
+            )
+            (tmp_path / "queue.md").write_text(textwrap.dedent("""\
+                - [ ] `golem --provider zhipu "task A"`
+                - [ ] `golem --provider zhipu "task B"`
+                - [x] `golem --provider zhipu "task C"` → exit=0
+            """))
+            func()
+        finally:
+            _mod["JSONL_PATH"] = orig_jsonl
+            _mod["QUEUE_PATH"] = orig_queue
+        captured = capsys.readouterr()
+        # Should show pending count and some progress info
+        assert "2" in captured.out  # 2 pending
+        assert "1" in captured.out  # 1 done
+
+    def test_output_is_single_line(self, tmp_path, capsys):
+        func = _mod["print_compact"]
+        orig_jsonl = _mod["JSONL_PATH"]
+        orig_queue = _mod["QUEUE_PATH"]
+        try:
+            _mod["JSONL_PATH"] = tmp_path / "golem.jsonl"
+            _mod["QUEUE_PATH"] = tmp_path / "queue.md"
+            (tmp_path / "golem.jsonl").write_text("")
+            (tmp_path / "queue.md").write_text(
+                '- [ ] `golem --provider zhipu "task A"`\n'
+            )
+            func()
+        finally:
+            _mod["JSONL_PATH"] = orig_jsonl
+            _mod["QUEUE_PATH"] = orig_queue
+        captured = capsys.readouterr()
+        # Compact output should be a single line
+        lines = [l for l in captured.out.strip().splitlines() if l.strip()]
+        assert len(lines) == 1
+
+
+# ── provider_concurrency_display (NEW) ─────────────────────────────────
+
+
+class TestProviderConcurrencyDisplay:
+    """Tests for per-provider concurrency display (active/max)."""
+
+    def test_no_running(self):
+        func = _mod["provider_concurrency_display"]
+        recs = [
+            {"provider": "zhipu", "duration": 100, "exit": 0},
+        ]
+        result = func(recs, [], use_color=False)
+        assert "zhipu" in result
+
+    def test_with_running_tasks(self):
+        func = _mod["provider_concurrency_display"]
+        recs = [
+            {"provider": "zhipu", "duration": 100, "exit": 0},
+            {"provider": "infini", "duration": 80, "exit": 0},
+        ]
+        running = [
+            {"pid": 1, "provider": "zhipu", "duration_secs": 30, "task": "a"},
+            {"pid": 2, "provider": "zhipu", "duration_secs": 45, "task": "b"},
+            {"pid": 3, "provider": "infini", "duration_secs": 20, "task": "c"},
+        ]
+        result = func(recs, running, use_color=False)
+        assert "zhipu" in result
+        assert "infini" in result
+        assert "2/" in result  # 2 zhipu running
+
+    def test_color_mode(self):
+        func = _mod["provider_concurrency_display"]
+        recs = [{"provider": "zhipu", "duration": 100, "exit": 0}]
+        running = [{"pid": 1, "provider": "zhipu", "duration_secs": 30, "task": "a"}]
+        result = func(recs, running, use_color=True)
+        assert "\033[" in result
+
+
+# ── compact flag integration (NEW) ────────────────────────────────────
+
+
+class TestCompactFlag:
+    def test_compact_flag(self, tmp_path, capsys):
+        orig_jsonl = _mod["JSONL_PATH"]
+        orig_queue = _mod["QUEUE_PATH"]
+        try:
+            _mod["JSONL_PATH"] = tmp_path / "golem.jsonl"
+            _mod["QUEUE_PATH"] = tmp_path / "queue.md"
+            (tmp_path / "golem.jsonl").write_text("")
+            (tmp_path / "queue.md").write_text("# Queue\n")
+            rc = main(["--compact", "--no-color"])
+        finally:
+            _mod["JSONL_PATH"] = orig_jsonl
+            _mod["QUEUE_PATH"] = orig_queue
+        assert rc == 0
+        captured = capsys.readouterr()
+        # Compact output should be short
+        assert len(captured.out.strip()) < 200
+
+
+# ── get_hatchet_status (NEW) ──────────────────────────────────────────
+
+
+class TestGetHatchetStatus:
+    """Tests for Hatchet API integration (graceful when unavailable)."""
+
+    def test_returns_none_when_unavailable(self):
+        func = _mod["get_hatchet_status"]
+        # Should not crash when Hatchet SDK is not configured
+        result = func()
+        # Should return None or empty list, not raise
+        assert result is None or isinstance(result, (list, dict))
+
+    def test_returns_list_or_none(self):
+        func = _mod["get_hatchet_status"]
+        result = func()
+        assert result is None or isinstance(result, (list, dict))
+
+
+# ── per-provider pending shown in dashboard (NEW) ────────────────────
+
+
+class TestDashboardProviderBreakdown:
+    def test_shows_per_provider_pending(self, tmp_path, capsys):
+        orig_jsonl = _mod["JSONL_PATH"]
+        orig_queue = _mod["QUEUE_PATH"]
+        try:
+            _mod["JSONL_PATH"] = tmp_path / "golem.jsonl"
+            _mod["QUEUE_PATH"] = tmp_path / "queue.md"
+            (tmp_path / "golem.jsonl").write_text(
+                '{"ts":"2026-01-01","provider":"zhipu","duration":60,"exit":0}\n'
+            )
+            (tmp_path / "queue.md").write_text(textwrap.dedent("""\
+                - [ ] `golem --provider zhipu "task A"`
+                - [ ] `golem --provider zhipu "task B"`
+                - [ ] `golem --provider infini "task C"`
+            """))
+            rc = main(["--no-color"])
+        finally:
+            _mod["JSONL_PATH"] = orig_jsonl
+            _mod["QUEUE_PATH"] = orig_queue
+        assert rc == 0
+        captured = capsys.readouterr()
+        # Should show provider breakdown
+        assert "zhipu:2" in captured.out or "zhipu 2" in captured.out
+        assert "infini:1" in captured.out or "infini 1" in captured.out
+
+    def test_shows_eta_confidence(self, tmp_path, capsys):
+        orig_jsonl = _mod["JSONL_PATH"]
+        orig_queue = _mod["QUEUE_PATH"]
+        try:
+            _mod["JSONL_PATH"] = tmp_path / "golem.jsonl"
+            _mod["QUEUE_PATH"] = tmp_path / "queue.md"
+            recs = [{"ts": "2026-01-01", "provider": "zhipu", "duration": 60 + i, "exit": 0} for i in range(5)]
+            (tmp_path / "golem.jsonl").write_text(
+                "\n".join(json.dumps(r) for r in recs) + "\n"
+            )
+            (tmp_path / "queue.md").write_text(
+                '- [ ] `golem --provider zhipu "task A"`\n'
+            )
+            rc = main(["--no-color"])
+        finally:
+            _mod["JSONL_PATH"] = orig_jsonl
+            _mod["QUEUE_PATH"] = orig_queue
+        assert rc == 0
+        captured = capsys.readouterr()
+        # Should show confidence indicator
+        assert "low" in captured.out.lower() or "conf" in captured.out.lower()

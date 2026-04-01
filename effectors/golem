@@ -452,6 +452,27 @@ _run_golem() {
     "$(echo "$short_prompt" | tr '"' "'" | tr '\n' ' ')" \
     "$(echo "${output: -200}" | tr '"' "'" | tr '\n' ' ')" \
     "$files_created" "$tests_passed" "$tests_failed" "$pytest_exit" "$task_id" >> "$GOLEM_LOG"
+  # Emit rate-limit marker on stderr if detected — ensures daemon's tail always
+  # catches it even when claude output is long (pushing error msg out of last 200 chars)
+  local _rl_window=""
+  local _emit_rl_marker=false
+  # Case 1: output contains explicit rate-limit text
+  if [[ $exit_code -ne 0 ]] && echo "$output" | grep -qiE '429|AccountQuotaExceeded|rate.?limit|quota.?exceeded|20013|request.?limit.?exceeded'; then
+    _emit_rl_marker=true
+    _rl_window=$(echo "$output" | grep -oE '[0-9]+-hour request limit' | grep -oE '[0-9]+' | head -1 || true)
+  fi
+  # Case 2: exit=2 (claude init error — API 429, auth failure, model not found)
+  if [[ $exit_code -eq 2 ]]; then
+    _emit_rl_marker=true
+  fi
+  # Case 3: empty/whitespace output with non-zero exit (claude swallowed 429 silently)
+  if [[ $exit_code -ne 0 ]] && [[ -z "${output// /}" ]] && [[ $duration -le 10 ]]; then
+    _emit_rl_marker=true
+  fi
+  if $_emit_rl_marker; then
+    echo "GOLEM_RATE_LIMIT: provider=$PROVIDER exit=$exit_code window=${_rl_window:-?}h duration=${duration}s" >&2
+  fi
+
   if $JSON_OUTPUT; then
     local _json_tmp
     _json_tmp="$(mktemp)"

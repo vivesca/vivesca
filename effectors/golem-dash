@@ -7,13 +7,15 @@
 
 Reads golem.jsonl, golem-daemon.log, and golem-queue.md.
 Prints: (1) Progress bar, (2) Throughput sparkline, (3) Real-time running
-tasks with per-task progress, (4) ETA to drain with milestones, (5) Provider
-stats, (6) Queue status, (7) Last 5 completed, (8) Disk free. Colorized output.
+tasks with per-task progress, (4) ETA to drain with milestones + confidence,
+(5) Provider stats, (6) Queue status with per-provider pending breakdown,
+(7) Provider concurrency, (8) Last 5 completed, (9) Disk free. Colorized.
 
 Usage:
     golem-dash              # Show dashboard
     golem-dash --no-color   # No ANSI colors
     golem-dash --json       # Machine-readable output
+    golem-dash --compact    # One-line tmux status bar
     golem-dash --watch 5    # Auto-refresh every 5 seconds
 """
 from __future__ import annotations
@@ -404,7 +406,190 @@ def enrich_running_progress(running: list[dict], records: list[dict]) -> list[di
     return running
 
 
-def calculate_eta(
+def per_provider_pending(queue_path: Path) -> dict[str, int]:
+    """Parse queue file and return dict of provider -> pending count.
+
+    Only counts unchecked items (- [ ] and - [!!]).
+    """
+    if not queue_path.exists():
+        return {}
+
+    counts: dict[str, int] = defaultdict(int)
+    for line in queue_path.read_text().splitlines():
+        # Only count pending (not done/failed)
+        if not (line.strip().startswith("- [ ] ") or line.strip().startswith("- [!!] ")):
+            continue
+        cmd_match = re.search(r'`([^`]+)`', line)
+        if not cmd_match:
+            continue
+        cmd = cmd_match.group(1)
+        provider_match = re.search(r'--provider\s+(\w+)', cmd)
+        provider = provider_match.group(1) if provider_match else "unknown"
+        counts[provider] += 1
+
+    return dict(counts)
+
+
+def ewma_throughput(records: list[dict], alpha: float = 0.3) -> float:
+    """Calculate exponentially weighted moving average throughput.
+
+    Weights recent completions more heavily than older ones.
+    Returns tasks/hour.
+    """
+    if not records:
+        return 0.0
+
+    now = datetime.now()
+    # Collect (age_hours, weight) for each record with valid timestamp
+    ages: list[float] = []
+    for r in records:
+        ts_str = r.get("ts")
+        if not ts_str:
+            continue
+        ts = _parse_ts(ts_str)
+        if ts is None:
+            continue
+        age_hours = max((now - ts).total_seconds() / 3600, 0.001)
+        ages.append(age_hours)
+
+    if not ages:
+        return 0.0
+
+    # EWMA: weight each record by alpha * (1-alpha)^(age_rank)
+    # Sort by age (newest first)
+    ages.sort()
+    weighted_sum = 0.0
+    weight_total = 0.0
+    for i, age_h in enumerate(ages):
+        w = alpha * ((1 - alpha) ** i)
+        # Convert to rate: 1 task in age_h hours = 1/age_h tasks/hr
+        rate = 1.0 / age_h if age_h > 0 else 0.0
+        weighted_sum += w * rate
+        weight_total += w
+
+    if weight_total == 0:
+        return 0.0
+
+    return weighted_sum / weight_total
+
+
+def eta_confidence(records: list[dict]) -> str:
+    """Return confidence level for ETA based on sample size.
+
+    Returns 'high' (30+), 'medium' (10+), 'low' (1+), or 'none' (0).
+    Only counts records with a duration field.
+    """
+    count = sum(1 for r in records if r.get("duration") is not None)
+    if count >= 30:
+        return "high"
+    elif count >= 10:
+        return "medium"
+    elif count >= 1:
+        return "low"
+    return "none"
+
+
+def provider_concurrency_display(
+    records: list[dict], running: list[dict], use_color: bool = True
+) -> str:
+    """Show per-provider concurrency: active running / historical avg parallelism.
+
+    Format: 'zhipu: 2/8  infini: 1/8  volcano: 0/16'
+    """
+    # Known provider concurrency limits
+    PROVIDER_MAX = {"zhipu": 8, "infini": 8, "volcano": 16, "gemini": 4}
+
+    # Count running per provider
+    running_by_prov: dict[str, int] = defaultdict(int)
+    for t in running:
+        running_by_prov[t.get("provider", "unknown")] += 1
+
+    # Collect all providers seen in records
+    all_providers: set[str] = set()
+    for r in records:
+        p = r.get("provider", "unknown")
+        if p and p != "unknown":
+            all_providers.add(p)
+    for p in running_by_prov:
+        all_providers.add(p)
+
+    if not all_providers:
+        return "  No provider data."
+
+    c = CYAN if use_color else ""
+    g = GREEN if use_color else ""
+    dim = DIM if use_color else ""
+    rst = RESET if use_color else ""
+
+    parts = []
+    for prov in sorted(all_providers):
+        active = running_by_prov.get(prov, 0)
+        max_c = PROVIDER_MAX.get(prov, "?")
+        if active > 0:
+            parts.append(f"{prov}: {g}{active}{rst}/{max_c}")
+        else:
+            parts.append(f"{prov}: {dim}{active}{rst}/{max_c}")
+
+    return "  ".join(parts)
+
+
+def get_hatchet_status() -> list[dict] | None:
+    """Query Hatchet API for running tasks. Returns None if unavailable.
+
+    Gracefully handles: SDK not installed, API not configured, network errors.
+    """
+    try:
+        from hatchet_sdk import Hatchet
+        h = Hatchet()
+        runs = h.runs.list(limit=20)
+        result = []
+        for run in runs:
+            result.append({
+                "workflow_run_id": getattr(run, "workflow_run_id", ""),
+                "status": getattr(run, "status", "unknown"),
+                "started_at": str(getattr(run, "started_at", "")),
+            })
+        return result
+    except Exception:
+        return None
+
+
+def print_compact() -> None:
+    """Print one-line compact status for tmux status bar.
+
+    Format: '■ 2/5 done | 3 pending | ETA 5m | 2 zhipu, 1 infini running'
+    """
+    records = load_jsonl(JSONL_PATH)
+    status_text, last_done, pending, done, failed = queue_status(QUEUE_PATH, use_color=False)
+    running = get_running_golems()
+    running = enrich_running_progress(running, records)
+    eta = calculate_eta(records, pending, len(running), running)
+    total = pending + done + failed
+
+    parts = []
+    if total > 0:
+        parts.append(f"■ {done}/{total}")
+    else:
+        parts.append("■ empty")
+
+    if pending > 0:
+        parts.append(f"{pending} pending")
+
+    if eta["eta_seconds"] > 0:
+        parts.append(f"ETA {eta['eta_str']}")
+
+    if running:
+        prov_counts: dict[str, int] = defaultdict(int)
+        for t in running:
+            prov_counts[t.get("provider", "?")] += 1
+        prov_str = " ".join(f"{k}:{v}" for k, v in sorted(prov_counts.items()))
+        parts.append(f"{len(running)} running [{prov_str}]")
+
+    thr = ewma_throughput(records)
+    if thr > 0:
+        parts.append(f"{thr:.1f}/hr")
+
+    print(" | ".join(parts))
     records: list[dict],
     pending: int,
     running_count: int,
@@ -653,8 +838,12 @@ def print_dashboard(use_color: bool = True, json_output: bool = False) -> int:
     running = enrich_running_progress(running, records)
     eta = calculate_eta(records, pending, len(running), running)
     thr = throughput_rate(records, window_minutes=60)
+    ewma = ewma_throughput(records)
+    conf = eta_confidence(records)
     m15, m60 = completion_burst(records)
     spark = throughput_sparkline(records)
+    prov_pending = per_provider_pending(QUEUE_PATH)
+    prov_concurrency = provider_concurrency_display(records, running, use_color)
 
     if json_output:
         data = {
@@ -665,11 +854,14 @@ def print_dashboard(use_color: bool = True, json_output: bool = False) -> int:
                 "done": done,
                 "failed": failed,
                 "completed_count": len(last_done),
+                "per_provider_pending": prov_pending,
             },
-            "eta": eta,
+            "eta": {**eta, "confidence": conf},
             "throughput_per_hour": thr,
+            "ewma_throughput": ewma,
             "throughput_sparkline": spark,
             "completion_burst": {"last_15min": m15, "last_60min": m60},
+            "provider_concurrency": prov_concurrency,
             "disk_free": disk_free(False),
         }
         print(json.dumps(data, indent=2))
@@ -691,17 +883,33 @@ def print_dashboard(use_color: bool = True, json_output: bool = False) -> int:
     print(f"\n{b}Running Tasks{rst}")
     print(running_tasks_table(running, use_color))
 
-    # 4. ETA to drain with milestones
+    # 4. ETA to drain with milestones + confidence
     print(f"\n{b}ETA to Drain{rst}")
     print(eta_section(eta, thr, use_color))
+    # Show EWMA throughput and confidence indicator
+    y = YELLOW if use_color else ""
+    dim = DIM if use_color else ""
+    ewma_str = f"{ewma:.1f}/hr" if ewma > 0 else "—/hr"
+    conf_str = conf
+    print(f"  EWMA: {dim}{ewma_str}{rst}  |  Confidence: {y}{conf_str}{rst}")
 
     # 5. Provider stats
     print(f"\n{b}Provider Stats{rst}")
     print(provider_stats(records, use_color))
 
-    # 6. Queue status
+    # 6. Queue status with per-provider breakdown
     print(f"\n{b}Queue Status{rst}")
     print(status_text)
+    if prov_pending:
+        c = CYAN if use_color else ""
+        dim = DIM if use_color else ""
+        rst = RESET if use_color else ""
+        prov_parts = [f"{c}{k}{rst}:{v}" for k, v in sorted(prov_pending.items())]
+        print(f"  {dim}Pending by provider: {' '.join(prov_parts)}{rst}")
+
+    # 7. Provider concurrency
+    print(f"\n{b}Provider Concurrency{rst}")
+    print(prov_concurrency)
 
     # 7. Last 5 completed
     print(f"\n{b}Last Completed{rst}")

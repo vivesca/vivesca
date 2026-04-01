@@ -1,0 +1,187 @@
+#!/usr/bin/env bash
+# soma-activate — bring a gemmule image to life as a running soma.
+#
+# The gemmule (Docker image) contains all tools and runtimes.
+# This script injects the living state: repos, secrets, symlinks.
+#
+# Usage (after booting a gemmule image):
+#   bash soma-activate
+#
+# Requires:
+#   - OP_SERVICE_ACCOUNT_TOKEN in ~/.env.fly (one secret to unlock everything)
+#   - GITHUB_TOKEN in ~/.env.fly (for private repo cloning)
+#
+# Idempotent — safe to re-run.
+
+set -euo pipefail
+
+log()  { printf '\n\033[1;34m==> %s\033[0m\n' "$*"; }
+ok()   { printf '    \033[32m[ok]\033[0m %s\n' "$*"; }
+skip() { printf '    \033[33m[skip]\033[0m %s\n' "$*"; }
+
+# ---------------------------------------------------------------------------
+# 0. Pre-flight
+# ---------------------------------------------------------------------------
+log "Soma activation"
+
+if [[ ! -f ~/.env.fly ]]; then
+  echo "~/.env.fly not found. Create it with at minimum:"
+  echo '  export OP_SERVICE_ACCOUNT_TOKEN="ops_..."'
+  echo '  export GITHUB_TOKEN="gho_..."'
+  echo '  export ANTHROPIC_API_KEY="sk-ant-..."'
+  exit 1
+fi
+
+source ~/.env.fly
+
+# ---------------------------------------------------------------------------
+# 1. Clone repos
+# ---------------------------------------------------------------------------
+log "Repositories"
+
+clone_if_missing() {
+  local url="$1" dest="$2" name="$3"
+  if [[ -d "${dest}/.git" ]]; then
+    skip "${name} already cloned"
+  else
+    git clone "$url" "$dest" 2>/dev/null && ok "$name" || echo "    [warn] failed to clone $name"
+  fi
+}
+
+clone_if_missing "https://github.com/terryli-vt/vivesca.git" ~/germline "germline"
+clone_if_missing "https://github.com/terryli-vt/epigenome.git" ~/epigenome "epigenome"
+
+# Pull latest if already cloned
+for repo in ~/germline ~/epigenome; do
+  if [[ -d "${repo}/.git" ]]; then
+    (cd "$repo" && git pull --ff-only 2>/dev/null) && ok "$(basename $repo) updated" || true
+  fi
+done
+
+# ---------------------------------------------------------------------------
+# 2. Symlinks
+# ---------------------------------------------------------------------------
+log "Symlinks"
+
+mkdir -p ~/.claude/hooks ~/.claude/skills ~/.claude/agents
+
+# Hooks -> germline/synaptic (via membrane/cytoskeleton)
+if [[ -d ~/germline/membrane/cytoskeleton ]]; then
+  for hook in ~/germline/membrane/cytoskeleton/*.py; do
+    name=$(basename "$hook")
+    ln -sfn "$hook" ~/.claude/hooks/"$name"
+  done
+  ok "hooks linked ($(ls ~/.claude/hooks/*.py 2>/dev/null | wc -l) files)"
+fi
+
+# Skills -> germline/membrane/receptors
+if [[ -d ~/germline/membrane/receptors ]]; then
+  for skill_dir in ~/germline/membrane/receptors/*/; do
+    name=$(basename "$skill_dir")
+    ln -sfn "$skill_dir" ~/.claude/skills/"$name"
+  done
+  ok "skills linked ($(ls -d ~/.claude/skills/*/ 2>/dev/null | wc -l) dirs)"
+fi
+
+# Agents -> germline/membrane/buds
+if [[ -d ~/germline/membrane/buds ]]; then
+  for agent in ~/germline/membrane/buds/*.md; do
+    name=$(basename "$agent")
+    ln -sfn "$agent" ~/.claude/agents/"$name"
+  done
+  ok "agents linked"
+fi
+
+# Memory -> epigenome/marks
+mkdir -p ~/.claude/projects/-home-terry/memory
+ln -sfn ~/epigenome/marks/* ~/.claude/projects/-home-terry/memory/ 2>/dev/null || true
+if [[ -f ~/epigenome/marks/MEMORY.md ]]; then
+  ln -sfn ~/epigenome/marks/MEMORY.md ~/.claude/projects/-home-terry/memory/MEMORY.md
+  ok "memory linked"
+fi
+
+# Claude settings
+if [[ -f ~/germline/membrane/settings.json ]]; then
+  ln -sfn ~/germline/membrane/settings.json ~/.claude/settings.json
+  ok "settings.json linked"
+fi
+
+# ---------------------------------------------------------------------------
+# 3. Credential injection via 1Password
+# ---------------------------------------------------------------------------
+log "Credentials"
+
+if [[ -n "${OP_SERVICE_ACCOUNT_TOKEN:-}" ]] && command -v op &>/dev/null; then
+  if op vault list &>/dev/null; then
+    ok "1Password connection verified"
+    eval "$(python3 ~/germline/effectors/importin 2>/dev/null)"
+    ok "credentials loaded via importin"
+  else
+    echo "    [warn] op token set but vault access failed"
+  fi
+else
+  echo "    [skip] op not available or OP_SERVICE_ACCOUNT_TOKEN not set"
+fi
+
+# ---------------------------------------------------------------------------
+# 4. SSH key
+# ---------------------------------------------------------------------------
+log "SSH"
+
+if [[ -f ~/.ssh/id_ed25519 ]]; then
+  skip "SSH key exists"
+else
+  echo "    No SSH key found. Generate one:"
+  echo "      ssh-keygen -t ed25519 -C 'terry@soma'"
+  echo "    Then add to GitHub: gh ssh-key add ~/.ssh/id_ed25519.pub"
+fi
+
+# ---------------------------------------------------------------------------
+# 5. Tailscale
+# ---------------------------------------------------------------------------
+log "Tailscale"
+
+if command -v tailscale &>/dev/null && tailscale status &>/dev/null 2>&1; then
+  skip "tailscale connected ($(tailscale ip -4 2>/dev/null))"
+else
+  echo "    Run: sudo tailscale up --ssh --hostname soma"
+fi
+
+# ---------------------------------------------------------------------------
+# 6. Claude Code auth
+# ---------------------------------------------------------------------------
+log "Claude Code"
+
+if command -v claude &>/dev/null; then
+  ok "claude installed ($(claude --version 2>/dev/null || echo 'unknown'))"
+  echo "    If not authenticated: claude (follow OAuth flow)"
+else
+  echo "    [warn] claude not found — install: npm install -g @anthropic-ai/claude-code"
+fi
+
+# ---------------------------------------------------------------------------
+# 7. germline Python deps
+# ---------------------------------------------------------------------------
+log "Python dependencies"
+
+if [[ -f ~/germline/pyproject.toml ]]; then
+  (cd ~/germline && uv sync 2>/dev/null) && ok "germline deps synced" || true
+fi
+
+# ---------------------------------------------------------------------------
+# Done
+# ---------------------------------------------------------------------------
+log "Soma activated"
+
+echo ""
+echo "  germline:  ~/germline"
+echo "  epigenome: ~/epigenome"
+echo "  effectors: ~/germline/effectors (on PATH)"
+echo "  hooks:     ~/.claude/hooks"
+echo "  skills:    ~/.claude/skills"
+echo ""
+echo "  Remaining manual steps:"
+echo "    - tailscale up --ssh --hostname soma  (if not connected)"
+echo "    - claude  (if not authenticated)"
+echo "    - Clone additional repos to ~/code/ as needed"
+echo ""

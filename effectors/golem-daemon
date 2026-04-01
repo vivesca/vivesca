@@ -550,6 +550,78 @@ def mark_failed(line_num: int, result: str = "", exit_code: int = 1,
         return {"retried": retried, "rate_limited": rate_limited}
 
 
+def _provider_preflight(provider: str, env: dict) -> tuple[bool, int | None]:
+    """Proactive per-provider health check before dispatching tasks.
+
+    Pings the provider's /v1/messages endpoint with a minimal request.
+    Returns (healthy, cooldown_seconds).
+      - (True, None) if provider is responsive
+      - (False, cooldown_secs) if rate-limited (includes window duration)
+      - (False, None) if connection/auth error (transient)
+    """
+    from urllib.request import Request, urlopen
+    from urllib.error import URLError, HTTPError
+
+    provider_cfg = {
+        "zhipu": {
+            "url": "https://open.bigmodel.cn/api/anthropic/v1/messages",
+            "header": "x-api-key",
+            "key_env": "ZHIPU_API_KEY",
+            "model": "GLM-4.5-air",
+        },
+        "infini": {
+            "url": "https://cloud.infini-ai.com/maas/coding/v1/messages",
+            "header": "x-api-key",
+            "key_env": "INFINI_API_KEY",
+            "model": "glm-4.7",
+        },
+        "volcano": {
+            "url": "https://ark.cn-beijing.volces.com/api/coding/v1/messages",
+            "header": "x-api-key",
+            "key_env": "VOLCANO_API_KEY",
+            "model": "ark-code-latest",
+        },
+    }
+    if provider not in provider_cfg:
+        return (True, None)  # unknown providers skip preflight
+
+    cfg = provider_cfg[provider]
+    key = env.get(cfg["key_env"], "")
+    if not key:
+        return (False, None)  # missing key, let golem report the error
+
+    body = json.dumps({
+        "model": cfg["model"],
+        "max_tokens": 1,
+        "messages": [{"role": "user", "content": "ping"}],
+    }).encode()
+
+    try:
+        req = Request(cfg["url"], data=body, method="POST")
+        req.add_header(cfg["header"], key)
+        req.add_header("Content-Type", "application/json")
+        req.add_header("anthropic-version", "2023-06-01")
+        with urlopen(req, timeout=15) as resp:
+            return (True, None)
+    except HTTPError as e:
+        body_text = ""
+        try:
+            body_text = e.read().decode("utf-8", errors="replace")
+        except Exception:
+            pass
+        if e.code == 429 or '"code":20013' in body_text:
+            # Rate-limited — parse window duration
+            window_secs = parse_rate_limit_window(body_text)
+            return (False, window_secs)
+        # Other HTTP errors — treat as transient, let golem try
+        return (True, None)
+    except (URLError, OSError, TimeoutError):
+        # Connection error — transient, let golem try
+        return (True, None)
+    except Exception:
+        return (True, None)
+
+
 def _golem_env() -> dict:
     """Build environment for golem subprocesses.
 
