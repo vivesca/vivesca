@@ -102,6 +102,16 @@ def extract_task_id(prompt: str) -> str:
     return ""
 
 
+def get_task_id(rec: dict) -> str:
+    """Get task ID from record, checking both task_id field and prompt."""
+    # First check the task_id field directly
+    tid = rec.get("task_id", "")
+    if tid:
+        return f"[{tid}]" if not tid.startswith("[") else tid
+    # Then try to extract from prompt
+    return extract_task_id(rec.get("prompt", ""))
+
+
 def is_rate_limited(rec: dict) -> bool:
     """Check if a record indicates rate limiting."""
     tail = rec.get("tail", "")
@@ -192,8 +202,7 @@ def generate_report(records: list[dict], date_str: str) -> str:
     # Top 3 most-retried tasks (by task_id occurrence)
     task_id_counts = defaultdict(list)
     for r in records:
-        prompt = r.get("prompt", "")
-        tid = extract_task_id(prompt)
+        tid = get_task_id(r)
         if tid:
             task_id_counts[tid].append(r)
     
