@@ -120,11 +120,11 @@ def test_fix_hardcoded_linux_path():
     """apply_fixes replaces /home/terry/ with Path.home()."""
     _mod = _load_test_fixer()
     apply_fixes = _mod["apply_fixes"]
-    
-    test_code = '''config = open(str(Path.home() / ".config/app.conf"))'''
+
+    test_code = '''config = open("/home/terry/.config/app.conf")'''
     fixed = apply_fixes(test_code)
     assert "Path.home()" in fixed
-    assert str(Path.home() / "") not in fixed
+    assert "/home/terry/" not in fixed
 
 
 def test_fix_adds_path_import():
