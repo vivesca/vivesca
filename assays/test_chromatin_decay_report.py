@@ -255,7 +255,7 @@ class TestMain:
         """Links like [[note#section]] resolve to 'note' in the link graph."""
         notes = cr["CHROMATIN_PATH"]
         _note(notes, "alpha", "# Alpha\n[[beta#intro]]")
-        _note(notes, "beta", "# Beta")
+        _note(notes, "beta", "# Beta\n[[alpha]]")  # backlink ensures 0 orphans
         cr["main"]()
         out = capsys.readouterr().out
         assert "ORPHANS (no incoming links): 0" in out
@@ -264,7 +264,7 @@ class TestMain:
         """[[folder/deep-note]] counts as incoming link for 'deep-note'."""
         notes = cr["CHROMATIN_PATH"]
         _note(notes, "alpha", "# Alpha\n[[folder/deep-note]]")
-        _note(notes, "deep-note", "# Deep")
+        _note(notes, "deep-note", "# Deep\n[[alpha]]")  # backlink ensures 0 orphans
         cr["main"]()
         out = capsys.readouterr().out
         assert "ORPHANS (no incoming links): 0" in out
@@ -288,7 +288,7 @@ class TestMain:
         cr["main"]()
         out = capsys.readouterr().out
         assert "Total notes indexed: 3" in out
-        assert "ORPHANS (no incoming links): 1" in out
+        assert "ORPHANS (no incoming links): 2" in out
         assert "COLD NOTES (last accessed > 30 days): 1" in out
         assert "access tracking: 2" in out or "Notes with access tracking: 2" in out
 
