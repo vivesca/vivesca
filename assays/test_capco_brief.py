@@ -251,10 +251,13 @@ class TestCalendar:
         mock.write_text("#!/bin/sh\necho 'HSBC catchup 10:00'\n")
         import os
         os.chmod(str(mock), 0o755)
-        ns2 = dict(cb)
-        ns2["FASTI"] = mock
-        ns2["cmd_calendar"](argparse.Namespace())
-        out = capsys.readouterr().out
+        saved = cb["FASTI"]
+        cb["FASTI"] = mock
+        try:
+            cb["cmd_calendar"](argparse.Namespace())
+            out = capsys.readouterr().out
+        finally:
+            cb["FASTI"] = saved
         assert "Client" in out
 
     def test_internal_events_categorised(self, cb, capsys, tmp_path):
@@ -262,10 +265,13 @@ class TestCalendar:
         mock.write_text("#!/bin/sh\necho 'Team standup 09:00'\n")
         import os
         os.chmod(str(mock), 0o755)
-        ns2 = dict(cb)
-        ns2["FASTI"] = mock
-        ns2["cmd_calendar"](argparse.Namespace())
-        out = capsys.readouterr().out
+        saved = cb["FASTI"]
+        cb["FASTI"] = mock
+        try:
+            cb["cmd_calendar"](argparse.Namespace())
+            out = capsys.readouterr().out
+        finally:
+            cb["FASTI"] = saved
         assert "Internal" in out
 
     def test_fasti_unavailable(self, cb, capsys):
@@ -279,10 +285,13 @@ class TestCalendar:
         mock.write_text("#!/bin/sh\necho 'HSBC sync 10:00'\necho 'Lunch with team 12:00'\n")
         import os
         os.chmod(str(mock), 0o755)
-        ns2 = dict(cb)
-        ns2["FASTI"] = mock
-        ns2["cmd_calendar"](argparse.Namespace())
-        out = capsys.readouterr().out
+        saved = cb["FASTI"]
+        cb["FASTI"] = mock
+        try:
+            cb["cmd_calendar"](argparse.Namespace())
+            out = capsys.readouterr().out
+        finally:
+            cb["FASTI"] = saved
         assert "total" in out
 
 
