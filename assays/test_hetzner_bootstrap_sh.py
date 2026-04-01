@@ -854,3 +854,67 @@ class TestScriptIntegrity:
         """Script should end with a trailing newline."""
         content = _read_script()
         assert content.endswith("\n"), "Script should end with a newline"
+
+
+# ── Help flag execution tests ───────────────────────────────────────────
+
+
+class TestHelpFlag:
+    """Run the script with --help / -h and verify output."""
+
+    def test_help_long_flag(self):
+        """--help prints usage text and exits 0."""
+        result = subprocess.run(
+            ["bash", str(SCRIPT), "--help"],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0
+        assert "Usage:" in result.stdout
+        assert "Bootstrap" in result.stdout or "bootstrap" in result.stdout
+
+    def test_help_short_flag(self):
+        """-h prints usage text and exits 0."""
+        result = subprocess.run(
+            ["bash", str(SCRIPT), "-h"],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0
+        assert "Usage:" in result.stdout
+
+    def test_help_mentions_terry_user(self):
+        """Help text mentions creating user terry."""
+        result = subprocess.run(
+            ["bash", str(SCRIPT), "--help"],
+            capture_output=True,
+            text=True,
+        )
+        assert "terry" in result.stdout
+
+    def test_help_mentions_root_requirement(self):
+        """Help text states root is required."""
+        result = subprocess.run(
+            ["bash", str(SCRIPT), "--help"],
+            capture_output=True,
+            text=True,
+        )
+        assert "root" in result.stdout.lower()
+
+
+# ── Execution safety ─────────────────────────────────────────────────────
+
+
+class TestExecutionSafety:
+    """Verify the script behaves correctly in non-ideal conditions."""
+
+    def test_non_root_execution_fails(self):
+        """Running without root (no --help) fails due to apt-get or id check."""
+        result = subprocess.run(
+            ["bash", str(SCRIPT)],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        # Should fail — can't run apt-get without root
+        assert result.returncode != 0
