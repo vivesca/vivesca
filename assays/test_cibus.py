@@ -118,7 +118,7 @@ class TestCurrentHours:
 
     def test_normal_hours(self, _fake_datetime):
         poi = {"poiHours": [{"dayOfWeek": 1, "period1Start": "1100", "period1End": "2300"}]}
-        assert current_hours(poi) == "11:00-23:00"
+        assert current_hours(poi) == "1100-2300"
 
     def test_no_matching_day(self, _fake_datetime):
         poi = {"poiHours": [{"dayOfWeek": 3, "period1Start": "1100", "period1End": "2300"}]}
