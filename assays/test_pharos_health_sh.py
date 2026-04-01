@@ -181,6 +181,67 @@ class TestAlertCases:
 # ── script permissions ──────────────────────────────────────────────────
 
 
+class TestTgNotify:
+    """Tests for the tg-notify.sh alert path."""
+
+    def _run_with_notify(self, tmp_path, df_pcent=90, failed_units=0):
+        """Run with a fake HOME so tg-notify.sh lives under ~/scripts/."""
+        mock_bin = _mock_bin(tmp_path, df_pcent, failed_units)
+        fake_home = tmp_path / "home"
+        fake_home.mkdir()
+        scripts_dir = fake_home / "scripts"
+        scripts_dir.mkdir()
+        alert_file = tmp_path / "alert.txt"
+        notify = scripts_dir / "tg-notify.sh"
+        notify.write_text(f"#!/bin/bash\necho \"$@\" > {alert_file}\n")
+        notify.chmod(0o755)
+
+        env = os.environ.copy()
+        env["HOME"] = str(fake_home)
+        env["PATH"] = f"{mock_bin}:{env['PATH']}"
+        r = subprocess.run(
+            ["bash", str(SCRIPT)],
+            capture_output=True,
+            text=True,
+            env=env,
+            timeout=10,
+        )
+        return r, alert_file
+
+    def test_tg_notify_called_on_disk_alert(self, tmp_path):
+        r, alert_file = self._run_with_notify(tmp_path, df_pcent=90)
+        assert r.returncode == 1
+        assert alert_file.exists()
+        msg = alert_file.read_text().strip()
+        assert "pharos health:" in msg
+        assert "disk=90%" in msg
+
+    def test_tg_notify_called_on_failed_units(self, tmp_path):
+        r, alert_file = self._run_with_notify(tmp_path, df_pcent=50, failed_units=2)
+        assert r.returncode == 1
+        msg = alert_file.read_text().strip()
+        assert "failed_units=2" in msg
+
+    def test_tg_notify_not_called_when_healthy(self, tmp_path):
+        r, alert_file = self._run_with_notify(tmp_path, df_pcent=50, failed_units=0)
+        assert r.returncode == 0
+        assert not alert_file.exists()
+
+    def test_tg_notify_stderr_empty(self, tmp_path):
+        """When tg-notify.sh exists, alert goes there — not stderr."""
+        r, _ = self._run_with_notify(tmp_path, df_pcent=90)
+        assert r.stderr == ""
+
+    def test_no_tg_notify_stderr_has_alert(self, tmp_path):
+        """Without tg-notify.sh, alert goes to stderr."""
+        r = _run(tmp_path, df_pcent=90)
+        assert r.returncode == 1
+        assert "ALERT:" in r.stderr
+
+
+# ── script permissions ──────────────────────────────────────────────────
+
+
 class TestScriptPermissions:
     def test_script_is_executable(self):
         assert os.access(SCRIPT, os.X_OK)
