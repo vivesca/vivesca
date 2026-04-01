@@ -3,5 +3,12 @@
 # Called by com.terry.wacli-catchup LaunchAgent every 2 hours.
 # Sets PYTHONPATH so metabolon is importable without venv activation.
 
+if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
+    echo "gap_junction_sync — one-shot WhatsApp sync (replaces Rust keryx sync catchup)"
+    echo "Usage: gap_junction_sync"
+    echo "  Called by LaunchAgent every 2 hours. No user-facing options."
+    exit 0
+fi
+
 export PYTHONPATH="${HOME}/germline:${PYTHONPATH:-}"
 exec python3 -m metabolon.organelles.gap_junction sync catchup

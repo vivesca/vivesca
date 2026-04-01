@@ -2,6 +2,12 @@
 # Wrapper: launch Claude targeting Moonshot/Kimi API
 set -euo pipefail
 
+if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
+    echo "ck — launch Claude targeting Moonshot/Kimi API"
+    echo "Usage: ck [claude-args...]"
+    exit 0
+fi
+
 _REAL_HOME="$HOME"
 KIMI_HOME="$HOME/kimi-home"
 mkdir -p "$KIMI_HOME"
