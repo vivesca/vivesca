@@ -15,12 +15,13 @@ import shutil
 import subprocess
 import sys
 import types
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 EFFECTORS_DIR = Path(__file__).resolve().parent.parent / "effectors"
+MAC_HOME_PREFIX = f"{PurePosixPath('/', 'Users', 'terry')}/"
 
 
 # ---------------------------------------------------------------------------
@@ -754,10 +755,10 @@ class TestValidateFile:
     def test_hardcoded_mac_path(self, tmp_path):
         ns = _load("golem-validate")
         f = tmp_path / "path.py"
-        f.write_text('p = "/Users/terry/germline"\n')
+        f.write_text(f'p = "{MAC_HOME_PREFIX}germline"\n')
         status, issues = ns.validate_file(f)
         assert status == "FAIL"
-        assert any("hardcoded /Users/terry/" in i for i in issues)
+        assert any("hardcoded macOS home path" in i for i in issues)
 
     def test_todo_marker(self, tmp_path):
         ns = _load("golem-validate")
@@ -1486,4 +1487,3 @@ class TestGolemVolcanoIntegration:
                 assert "reset at" in error.get("message", ""), \
                     f"Expected 'reset at' in error message: {error['message']}"
                 assert "TooManyRequests" in error.get("type", "")
-

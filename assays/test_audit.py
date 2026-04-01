@@ -62,7 +62,7 @@ SAMPLE_CONSTITUTION = """\
 
 ## Context Hygiene
 
-**Scope narrowly.** NEVER unconstrained grep on /Users/terry.
+**Scope narrowly.** NEVER unconstrained grep on /home/terry.
 
 **Parallelize independent tasks.** Background only >5 min tasks.
 """

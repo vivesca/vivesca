@@ -111,23 +111,23 @@ def test_sync_file_returns_correct_exit_codes(tmp_path):
     source {SCRIPT_PATH}
     src="{tmp_path / 'src.txt'}"
     dst="{tmp_path / 'dst.txt'}"
-    
+
     # Test 1: src doesn't exist → should return 1
-    sync_file "$src" "$dst"
+    sync_file "$src" "$dst" >/dev/null 2>&1
     echo "test1: $?"
-    
+
     # Test 2: create src, dst doesn't exist → should return 0
     echo "content" > "$src"
-    sync_file "$src" "$dst"
+    sync_file "$src" "$dst" >/dev/null 2>&1
     echo "test2: $?"
-    
+
     # Test 3: src and dst same → should return 1
-    sync_file "$src" "$dst"
+    sync_file "$src" "$dst" >/dev/null 2>&1
     echo "test3: $?"
-    
+
     # Test4: src changed → should return 0
     echo "new content" > "$src"
-    sync_file "$src" "$dst"
+    sync_file "$src" "$dst" >/dev/null 2>&1
     echo "test4: $?"
     """
     result = subprocess.run(["bash", "-c", test_script], capture_output=True, text=True)

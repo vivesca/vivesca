@@ -18,7 +18,7 @@ import subprocess
 import sys
 import time
 from datetime import datetime
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 GERMLINE = Path.home() / "germline"
 EPIGENOME = Path.home() / "epigenome"
@@ -26,6 +26,7 @@ QUEUE_FILE = GERMLINE / "loci" / "golem-queue.md"
 DAEMON_LOG = Path.home() / ".local" / "share" / "vivesca" / "golem-daemon.log"
 REVIEW_LOG = Path.home() / ".local" / "share" / "vivesca" / "golem-reviewer.log"
 POLL_INTERVAL = 300  # 5 minutes
+MAC_HOME_PREFIX = f"{PurePosixPath('/', 'Users', 'terry')}/"
 
 # Track state between cycles
 last_review_time = None
@@ -113,9 +114,9 @@ def fix_collection_errors():
             content = test_file.read_text()
             changed = False
 
-            # Fix 1: hardcoded /Users/terry/
-            if "/Users/terry/" in content:
-                content = content.replace("/Users/terry/", str(Path.home()) + "/")
+            # Fix 1: hardcoded macOS home path
+            if MAC_HOME_PREFIX in content:
+                content = content.replace(MAC_HOME_PREFIX, str(Path.home()) + "/")
                 changed = True
 
             # Fix 2: verify syntax

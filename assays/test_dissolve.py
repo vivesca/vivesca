@@ -64,7 +64,7 @@ SAMPLE_CONSTITUTION = """\
 
 **Gather before responding.** Collect all data first, then synthesise.
 
-**Scope narrowly.** NEVER unconstrained grep on /Users/terry.
+**Scope narrowly.** NEVER unconstrained grep on /home/terry.
 """
 
 

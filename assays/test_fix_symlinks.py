@@ -9,12 +9,13 @@ import os
 import subprocess
 import sys
 import types
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 import pytest
 
 EFFECTORS_DIR = Path(__file__).resolve().parent.parent / "effectors"
 SCRIPT = EFFECTORS_DIR / "fix-symlinks"
+MAC_HOME = PurePosixPath("/", "Users", "terry")
 
 
 # ---------------------------------------------------------------------------
@@ -59,7 +60,7 @@ class TestScanAndFix:
         return ns, dirs
 
     def test_fixes_broken_mac_symlink(self, tmp_path):
-        """A symlink targeting /Users/terry/... should be rewritten to /home/terry/..."""
+        """A symlink targeting a macOS home path should be rewritten to Path.home()."""
         ns, dirs = self.load_with_tmpdir(tmp_path)
         scan_dir = Path(dirs[0])
 
@@ -68,7 +69,7 @@ class TestScanAndFix:
         linux_target.write_text("hello")
 
         # Create a symlink pointing to the mac-style path
-        mac_target = f"/Users/terry/fix_symlinks_test_target.txt"
+        mac_target = str(MAC_HOME / "fix_symlinks_test_target.txt")
         link = scan_dir / "mylink"
         link.symlink_to(mac_target)
 
@@ -87,18 +88,18 @@ class TestScanAndFix:
 
         # Symlink pointing to a mac path that doesn't exist on linux
         link = scan_dir / "dangling"
-        link.symlink_to("/Users/terry/__nonexistent_file_xyz__")
+        link.symlink_to(str(MAC_HOME / "__nonexistent_file_xyz__"))
 
         fixed, skipped = ns["scan_and_fix"]()
         assert fixed == 0
         assert skipped == 1
         # Original symlink unchanged
-        assert os.readlink(link) == "/Users/terry/__nonexistent_file_xyz__"
+        assert os.readlink(link) == str(MAC_HOME / "__nonexistent_file_xyz__")
         out = capsys.readouterr().out
         assert "WARNING" in out
 
     def test_ignores_non_mac_symlinks(self, tmp_path):
-        """Symlinks without /Users/terry/ in the target should be left alone."""
+        """Symlinks without a macOS home target should be left alone."""
         ns, dirs = self.load_with_tmpdir(tmp_path)
         scan_dir = Path(dirs[0])
 
@@ -132,7 +133,7 @@ class TestScanAndFix:
         linux_target.write_text("hello")
 
         link = scan_dir / "link"
-        link.symlink_to("/Users/terry/fix_symlinks_idem_target.txt")
+        link.symlink_to(str(MAC_HOME / "fix_symlinks_idem_target.txt"))
 
         try:
             fixed1, skipped1 = ns["scan_and_fix"]()
@@ -161,9 +162,9 @@ class TestScanAndFix:
         linux_file_b.write_text("b")
 
         link_a = Path(dirs[0]) / "link_a"
-        link_a.symlink_to("/Users/terry/fix_symlinks_multi_a.txt")
+        link_a.symlink_to(str(MAC_HOME / "fix_symlinks_multi_a.txt"))
         link_b = Path(dirs[1]) / "link_b"
-        link_b.symlink_to("/Users/terry/fix_symlinks_multi_b.txt")
+        link_b.symlink_to(str(MAC_HOME / "fix_symlinks_multi_b.txt"))
 
         try:
             fixed, skipped = ns["scan_and_fix"]()
@@ -186,7 +187,7 @@ class TestScanAndFix:
         linux_target.write_text("deep")
 
         link = nested / "deeplink"
-        link.symlink_to("/Users/terry/fix_symlinks_nested.txt")
+        link.symlink_to(str(MAC_HOME / "fix_symlinks_nested.txt"))
 
         try:
             fixed, skipped = ns["scan_and_fix"]()

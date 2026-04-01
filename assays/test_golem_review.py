@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 import tempfile
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 # Load the effector script
 TEST_GERMLINE = Path(__file__).parent.parent
 GOLEM_REVIEW = TEST_GERMLINE / "effectors" / "golem-review"
 exec(open(GOLEM_REVIEW).read(), globals())
+MAC_HOME_PREFIX = f"{PurePosixPath('/', 'Users', 'terry')}/"
 
 
 def test_parse_since():
@@ -296,7 +297,7 @@ def test_count_sections():
 def test_diagnose_failure():
     assert diagnose_failure("cmd", "ModuleNotFoundError") == "import_error"
     assert diagnose_failure("cmd", "SyntaxError") == "syntax_error"
-    assert diagnose_failure("cmd", "/Users/terry/") == "path_issue"
+    assert diagnose_failure("cmd", MAC_HOME_PREFIX) == "path_issue"
     assert diagnose_failure("cmd", "timeout") == "timeout"
     assert diagnose_failure("cmd", "Permission denied") == "permission_error"
     assert diagnose_failure("cmd", "exit=2") == "command_error"

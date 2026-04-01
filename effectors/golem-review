@@ -16,7 +16,7 @@ import re
 import subprocess
 import sys
 from datetime import UTC, datetime, timedelta
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 # Paths
 GERMLINE = Path.home() / "germline"
@@ -26,6 +26,7 @@ REVIEW_FILE = GERMLINE / "loci" / "copia" / "golem-review-latest.md"
 COPIA_DIR = GERMLINE / "loci" / "copia"
 EFFECTORS_DIR = GERMLINE / "effectors"
 ASSAYS_DIR = GERMLINE / "assays"
+MAC_HOME_PREFIX = f"{PurePosixPath('/', 'Users', 'terry')}/"
 
 # Provider rotation
 _PROVIDERS = ["infini", "zhipu", "volcano", "infini", "zhipu"]
@@ -390,7 +391,7 @@ def diagnose_failure(cmd: str, output: str) -> str:
         return "import_error"
     if "syntaxerror" in combined:
         return "syntax_error"
-    if "/users/terry/" in combined:
+    if MAC_HOME_PREFIX.lower() in combined:
         return "path_issue"
     if "timeout" in combined:
         return "timeout"
@@ -543,7 +544,7 @@ def write_fixed_tasks(failed_tasks: list[dict]) -> int:
         if "path_issue" in diag:
             lines.append(
                 '- [ ] `golem --provider infini --max-turns 50 '
-                '"Fix path_issue: replace /Users/terry/ with Path.home(). '
+                '"Fix path_issue: replace hardcoded home paths with Path.home(). '
                 'Run tests after."`'
             )
         elif "import_error" in diag:

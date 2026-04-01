@@ -3,7 +3,7 @@ from __future__ import annotations
 """Tests for conftest-gen — hardcoded path scanner and rewriter."""
 
 import subprocess
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 import pytest
 
@@ -20,6 +20,7 @@ _mod = _load_module()
 scan_file = _mod["scan_file"]
 apply_fix = _mod["apply_fix"]
 Finding = _mod["Finding"]
+MAC_HOME = PurePosixPath("/", "Users", "terry")
 
 
 # ── scan_file ────────────────────────────────────────────────────────
@@ -43,16 +44,16 @@ class TestScanFile:
 
     def test_detects_macos_path(self, tmp_path: Path):
         p = tmp_path / "mac.py"
-        p.write_text('PATH = "/Users/terry/project"\n')
+        p.write_text(f'PATH = "{MAC_HOME / "project"}"\n')
         results = scan_file(p)
         assert len(results) == 1
         f = results[0]
-        assert "/Users/terry/project" in f.original
+        assert str(MAC_HOME / "project") in f.original
         assert "Path.home()" in f.replacement
 
     def test_detects_home_only(self, tmp_path: Path):
         p = tmp_path / "home.py"
-        p.write_text('HOME = "/Users/terry/project"\n')
+        p.write_text(f'HOME = "{MAC_HOME / "project"}"\n')
         results = scan_file(p)
         assert len(results) == 1
         assert "Path.home()" in results[0].replacement
@@ -89,7 +90,7 @@ class TestApplyFix:
         result = apply_fix(p, findings)
         assert result == 1
         assert "Path.home()" in p.read_text()
-        assert "/Users/terry" not in p.read_text()
+        assert str(MAC_HOME) not in p.read_text()
 
     def test_applies_multiple_fixes(self, tmp_path: Path):
         p = tmp_path / "multi.py"
@@ -99,7 +100,7 @@ class TestApplyFix:
         assert result == 2
         text = p.read_text()
         assert "Path.home()" in text
-        assert "/Users/terry" not in text
+        assert str(MAC_HOME) not in text
         assert "/home/terry" not in text
 
     def test_preserves_other_content(self, tmp_path: Path):

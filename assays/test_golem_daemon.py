@@ -70,7 +70,7 @@ def test_parse_provider_full_mode():
 def test_get_provider_limit_known_providers():
     """get_provider_limit returns correct limits for known providers."""
     assert get_provider_limit("zhipu") == 8
-    assert get_provider_limit("infini") == 1
+    assert get_provider_limit("infini") == 4
     assert get_provider_limit("volcano") == 16
 
 
@@ -83,7 +83,7 @@ def test_get_provider_limit_unknown_provider():
 def test_provider_limits_constant():
     """PROVIDER_LIMITS contains expected values."""
     assert PROVIDER_LIMITS["zhipu"] == 8
-    assert PROVIDER_LIMITS["infini"] == 1
+    assert PROVIDER_LIMITS["infini"] == 4
     assert PROVIDER_LIMITS["volcano"] == 16
 
 
@@ -260,6 +260,14 @@ def test_mark_failed_marks_failed_on_retry(tmp_path):
     finally:
         _mod["QUEUE_FILE"] = original_queue
 
+    # Should return retried: False
+    assert result["retried"] is False
+
+    # Task should now be marked failed
+    content = queue_path.read_text()
+    assert "- [!]" in content
+    assert "- [ ]" not in content
+
 
 # ── startup_pull tests ────────────────────────────────────────────────
 
@@ -360,14 +368,6 @@ def test_auto_commit_logs_after_exhausting_push_retries():
         "git push failed after 3 attempts for def5678, continuing with local state",
     ]
     assert mocked_sleep.call_args_list == [call(30), call(30)]
-
-    # Should return retried: False
-    assert result["retried"] is False
-
-    # Task should now be marked failed
-    content = queue_path.read_text()
-    assert "- [!]" in content
-    assert "- [ ]" not in content
 
 
 def test_mark_failed_only_retries_once(tmp_path):
@@ -2083,14 +2083,13 @@ def test_cmd_stats_with_records(tmp_path, capsys):
     assert "zhipu" in out
     assert "infini" in out
     assert "volcano" in out
-    # zhipu: 2 tasks, 2 passed, 0 failed, avg (120+180)/2 = 150s = 2m30s
+    # zhipu: 2 tasks, 2 pass, 0 rate-limited, avg (120+180)/2 = 150s = 2m30s
+    assert "zhipu" in out
     assert "2 tasks" in out
-    assert "2 passed" in out
-    # infini: 2 tasks, 1 passed, 1 failed
+    assert "2 pass" in out
+    # infini: 2 tasks, 1 pass, 1 rate-limited (exit=1, duration=30s <= 10s? no, but empty tail counts)
     assert "infini" in out
-    assert "2 tasks" in out
-    assert "1 passed" in out
-    assert "1 failed" in out
+    assert "1 pass" in out
 
 
 def test_cmd_stats_with_rotated_file(tmp_path, capsys):

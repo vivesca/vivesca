@@ -400,3 +400,134 @@ def test_memory_md_large_file(tmp_path):
     dst = fake_home / ".claude" / "projects" / f"-{project_dash}" / "memory" / "MEMORY.md"
     assert dst.exists()
     assert dst.read_text() == big_content
+
+
+# ── Empty / whitespace MEMORY.md ─────────────────────────────────────────
+
+
+def test_memory_md_empty_file(tmp_path):
+    """An empty (zero-byte) MEMORY.md should still be copied."""
+    fake_home = tmp_path / "home"
+    fake_home.mkdir()
+
+    agent_config = fake_home / "agent-config"
+    agent_config.mkdir()
+    subprocess.run(["git", "init"], cwd=agent_config, capture_output=True, check=True)
+
+    memory_dir = agent_config / "claude" / "memory"
+    memory_dir.mkdir(parents=True)
+    (memory_dir / "MEMORY.md").write_text("")
+
+    result = run_script(env={"HOME": str(fake_home)})
+    assert result.returncode == 0
+
+    project_dash = str(fake_home).lstrip("/").replace("/", "-")
+    dst = fake_home / ".claude" / "projects" / f"-{project_dash}" / "memory" / "MEMORY.md"
+    assert dst.exists()
+    assert dst.read_text() == ""
+
+
+def test_memory_md_whitespace_only(tmp_path):
+    """MEMORY.md with only whitespace should be copied as-is."""
+    fake_home = tmp_path / "home"
+    fake_home.mkdir()
+
+    agent_config = fake_home / "agent-config"
+    agent_config.mkdir()
+    subprocess.run(["git", "init"], cwd=agent_config, capture_output=True, check=True)
+
+    memory_dir = agent_config / "claude" / "memory"
+    memory_dir.mkdir(parents=True)
+    (memory_dir / "MEMORY.md").write_text("   \n\n\t\n")
+
+    result = run_script(env={"HOME": str(fake_home)})
+    assert result.returncode == 0
+
+    project_dash = str(fake_home).lstrip("/").replace("/", "-")
+    dst = fake_home / ".claude" / "projects" / f"-{project_dash}" / "memory" / "MEMORY.md"
+    assert dst.exists()
+    assert dst.read_text() == "   \n\n\t\n"
+
+
+# ── Idempotency ──────────────────────────────────────────────────────────
+
+
+def test_idempotent_double_run(tmp_path):
+    """Running the script twice should produce identical results."""
+    fake_home = tmp_path / "home"
+    fake_home.mkdir()
+
+    agent_config = fake_home / "agent-config"
+    agent_config.mkdir()
+    subprocess.run(["git", "init"], cwd=agent_config, capture_output=True, check=True)
+
+    memory_dir = agent_config / "claude" / "memory"
+    memory_dir.mkdir(parents=True)
+    (memory_dir / "MEMORY.md").write_text("stable content\n")
+
+    project_dash = str(fake_home).lstrip("/").replace("/", "-")
+    dst = fake_home / ".claude" / "projects" / f"-{project_dash}" / "memory" / "MEMORY.md"
+
+    # First run
+    r1 = run_script(env={"HOME": str(fake_home)})
+    assert r1.returncode == 0
+    content1 = dst.read_text()
+
+    # Second run
+    r2 = run_script(env={"HOME": str(fake_home)})
+    assert r2.returncode == 0
+    content2 = dst.read_text()
+
+    assert content1 == content2 == "stable content\n"
+
+
+# ── Unknown arguments ────────────────────────────────────────────────────
+
+
+def test_unknown_args_still_exit_zero(tmp_path):
+    """Unknown arguments are ignored; script still exits 0."""
+    fake_home = tmp_path / "home"
+    fake_home.mkdir()
+    result = run_script(["--bogus"], env={"HOME": str(fake_home)})
+    assert result.returncode == 0
+
+
+# ── agent-config has MEMORY.md but no .git ───────────────────────────────
+
+
+def test_memory_md_sync_without_git_in_agent_config(tmp_path):
+    """MEMORY.md is synced even when agent-config lacks .git directory."""
+    fake_home = tmp_path / "home"
+    fake_home.mkdir()
+
+    # agent-config is a plain dir (no .git) but has MEMORY.md
+    agent_config = fake_home / "agent-config"
+    agent_config.mkdir()
+    memory_dir = agent_config / "claude" / "memory"
+    memory_dir.mkdir(parents=True)
+    (memory_dir / "MEMORY.md").write_text("no-git memory")
+
+    result = run_script(env={"HOME": str(fake_home)})
+    assert result.returncode == 0
+
+    project_dash = str(fake_home).lstrip("/").replace("/", "-")
+    dst = fake_home / ".claude" / "projects" / f"-{project_dash}" / "memory" / "MEMORY.md"
+    assert dst.exists()
+    assert dst.read_text() == "no-git memory"
+
+
+# ── git repo with no commits ─────────────────────────────────────────────
+
+
+def test_git_repo_no_commits(tmp_path):
+    """A bare git init (no commits) should not crash the script."""
+    fake_home = tmp_path / "home"
+    fake_home.mkdir()
+
+    repo = fake_home / "agent-config"
+    repo.mkdir()
+    subprocess.run(["git", "init"], cwd=repo, capture_output=True, check=True)
+    # No commits — pull will fail but `|| true` should catch it
+
+    result = run_script(env={"HOME": str(fake_home)})
+    assert result.returncode == 0

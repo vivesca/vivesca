@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-# Paths (no hardcoded /Users/terry)
+# Paths (no hardcoded macOS home path)
 SUPERVISOR_CONF = Path("/etc/supervisor/conf.d/golem-daemon.conf")
 WRAPPER_SCRIPT = Path.home() / "germline" / "effectors" / "golem-daemon-wrapper.sh"
 DAEMON_SCRIPT = Path.home() / "germline" / "effectors" / "golem-daemon"
@@ -126,7 +126,7 @@ class TestWrapperScript:
     def test_wrapper_script_uses_home_variable(self):
         """Wrapper should use $HOME not hardcoded path."""
         content = WRAPPER_SCRIPT.read_text()
-        assert "/Users/terry" not in content, "Wrapper must not hardcode /Users/terry"
+        assert "Users/terry" not in content, "Wrapper must not hardcode a macOS home path"
         assert "$HOME" in content, "Wrapper should use $HOME variable"
 
 

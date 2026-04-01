@@ -1158,7 +1158,7 @@ def auto_requeue(min_pending: int = 50) -> int:
 
     # === 6. System hardening (random 3) ===
     hardening = [
-        "Scan assays/ for hardcoded /Users/terry paths. Replace with Path.home(). Commit.",
+        "Scan assays/ for hardcoded macOS home paths. Replace with Path.home(). Commit.",
         "Find test files with SyntaxError. Fix syntax. Commit.",
         "Scan effectors/ for hardcoded paths. Fix with Path.home() or $HOME. Commit.",
         "Check all effectors respond to --help without crashing. Fix crashers. Commit.",

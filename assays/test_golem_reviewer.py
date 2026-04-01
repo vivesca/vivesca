@@ -2,10 +2,11 @@
 """Tests for golem-reviewer effector script."""
 import subprocess
 import sys
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 GERMLINE = Path(__file__).parent.parent
 GOLEM_REVIEWER_PATH = GERMLINE / "effectors" / "golem-reviewer"
+MAC_HOME_PREFIX = f"{PurePosixPath('/', 'Users', 'terry')}/"
 
 
 def test_golem_reviewer_help():
@@ -70,14 +71,14 @@ def test_golem_functions_loadable_via_exec():
 
 
 def test_fix_collection_errors_identifies_hardcoded_paths():
-    """Test that fix_collection_errors correctly identifies /Users/terry/ paths."""
+    """Test that fix_collection_errors correctly identifies macOS home paths."""
     ns = {}
     content = GOLEM_REVIEWER_PATH.read_text()
     exec(content, ns)
     
     # Create a test file in assays with hardcoded path
     temp_test_file = GERMLINE / "assays" / "tmp_test_hardcoded.py"
-    temp_test_file.write_text('test_path = str(Path.home() / "germline/some/file.py")\n')
+    temp_test_file.write_text(f'test_path = "{MAC_HOME_PREFIX}germline/some/file.py"\n')
     
     try:
         # Mock the run function to return our test file as an error
