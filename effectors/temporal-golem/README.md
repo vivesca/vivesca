@@ -1,131 +1,133 @@
 # temporal-golem
 
-Temporal.io-based orchestrator that replaces the golem-daemon markdown queue.
+A Temporal.io-based orchestrator to replace the golem-daemon markdown queue.
+Provides durable execution, heartbeating, per-provider concurrency control,
+automatic retries, and a web UI for task visibility.
 
 ## Architecture
 
 ```
-┌─────────────┐     ┌──────────────────┐     ┌─────────────┐
-│  cli.py     │────>│  Temporal Server  │<────│  worker.py   │
-│  (submit /  │     │  (task queue:     │     │  (polls &    │
-│   status)   │     │   golem-tasks)    │     │   executes)  │
-└─────────────┘     └──────────────────┘     └──────┬───────┘
-                                                     │
-                                                     ▼
-                                              bash effectors/golem
-                                              --provider X task
+CLI (cli.py)  ──submit──>  Temporal Server  <──poll──  Worker (worker.py)
+                                │                         │
+                                │   Workflow (workflow.py) │
+                                │   GolemDispatchWorkflow  │
+                                │                         │
+                          PostgreSQL              Activity: run_golem_task
+                          (persistence)                    │
+                                                     bash effectors/golem
 ```
 
-### Components
+## Quick Start
 
-| File | Purpose |
-|------|---------|
-| `models.py` | Shared data classes (`GolemResult`, `GolemTaskSpec`, etc.) |
-| `worker.py` | Temporal worker; runs `golem` as an activity |
-| `workflow.py` | `GolemDispatchWorkflow` with per-provider concurrency |
-| `cli.py` | CLI: `submit` and `status` commands |
-| `docker-compose.yml` | Temporal server + PostgreSQL + Web UI |
-| `start.sh` | One-command local development startup |
+### 1. Start Temporal Server
 
-### Per-provider concurrency
+```bash
+cd effectors/temporal-golem
+./start.sh
+```
 
-| Provider | Max concurrent tasks |
+This launches:
+- **Temporal Server** on `localhost:7233`
+- **PostgreSQL 15** on `localhost:5432`
+- **Temporal Web UI** on `http://localhost:8080`
+
+### 2. Start the Worker
+
+```bash
+cd effectors/temporal-golem
+pip install temporalio click
+python worker.py
+```
+
+The worker polls the `golem-tasks` task queue and executes golem commands
+as Temporal activities with:
+- 30-second heartbeats
+- 30-minute timeout per task
+- 3 retry attempts with exponential backoff
+
+### 3. Submit Tasks
+
+```bash
+# Single task
+temporal-golem submit --provider zhipu "Write tests for metabolon/foo.py"
+
+# Multiple tasks
+temporal-golem submit --provider infini "Task one" "Task two" "Task three"
+
+# From file (one task per line)
+temporal-golem submit --provider volcano --file tasks.txt
+
+# Custom workflow ID
+temporal-golem submit -p zhipu -w my-batch-001 "Do the thing"
+```
+
+### 4. Check Status
+
+```bash
+# Single workflow
+temporal-golem status <workflow-id>
+
+# List recent workflows
+temporal-golem list
+```
+
+## Per-Provider Concurrency
+
+| Provider | Max Concurrent Tasks |
 |----------|---------------------|
 | zhipu    | 8                   |
 | infini   | 8                   |
 | volcano  | 16                  |
 
-### Retry policy
+Concurrency is enforced via asyncio semaphores in the worker. The workflow
+dispatches all tasks in parallel; the worker-level semaphore gates execution.
+
+## Retry Policy
 
 - **Maximum attempts:** 3
-- **Initial backoff:** 10s
-- **Backoff coefficient:** 2.0 (10s → 20s → 40s)
-- **Max interval:** 5 minutes
-- **Non-retryable:** `ActivityError`
+- **Initial backoff:** 10 seconds
+- **Backoff coefficient:** 2.0
+- **Maximum backoff:** 5 minutes
+- **Heartbeat timeout:** 90 seconds (worker must heartbeat within this window)
 
-### Activity configuration
+## Configuration
 
-- **Timeout:** 30 minutes (start-to-close)
-- **Heartbeat:** every 60 seconds (activity heartbeats on completion)
-- **Task queue:** `golem-tasks`
+| Environment Variable   | Default            | Description                  |
+|------------------------|--------------------|------------------------------|
+| `TEMPORAL_HOST`        | `localhost:7233`   | Temporal server address      |
+| `TEMPORAL_NAMESPACE`   | `default`          | Temporal namespace           |
+| `GOLEM_PROVIDER`       | `zhipu`            | Default provider (fallback)  |
 
-## Quick start
-
-### 1. Start Temporal server
-
-```bash
-cd effectors/temporal-golem
-bash start.sh
-```
-
-Or manually:
-
-```bash
-docker compose up -d
-```
-
-### 2. Start the worker
-
-```bash
-cd ~/germline
-uv run python effectors/temporal-golem/worker.py
-```
-
-### 3. Submit tasks
-
-```bash
-# Single task
-temporal-golem submit --provider zhipu --task "Write tests for metabolon/foo.py"
-
-# Multiple tasks
-temporal-golem submit --provider infini --task "task one" --task "task two"
-
-# From a file (provider|task per line)
-temporal-golem submit --provider zhipu --file tasks.txt
-
-# Custom workflow ID
-temporal-golem submit --provider volcano --task "refactor" --workflow-id my-run-001
-```
-
-### 4. Check status
-
-```bash
-temporal-golem status my-run-001
-temporal-golem status my-run-001 --json
-```
-
-### Task file format
+## File Layout
 
 ```
-# Lines starting with # are comments; blank lines are skipped.
-zhipu|Write tests for foo.py
-infini|Refactor bar.py
-# Bare lines default to provider=zhipu:
-Write tests for baz.py
+effectors/temporal-golem/
+├── pyproject.toml          # Dependencies: temporalio, click
+├── worker.py               # Temporal worker + activity definitions
+├── workflow.py             # GolemDispatchWorkflow definition
+├── cli.py                  # CLI: submit, status, list commands
+├── docker-compose.yml      # Temporal server + PostgreSQL + Web UI
+├── start.sh                # One-command startup script
+├── config/
+│   └── dynamicconfig/
+│       └── development-sql.yaml
+└── README.md               # This file
 ```
 
-## Ports
+## Migration from golem-daemon
 
-| Service | Port |
-|---------|------|
-| Temporal gRPC | 7233 |
-| Temporal Web UI | 8080 |
-| PostgreSQL | 5432 |
+The markdown queue (`loci/golem-queue.md`) is replaced by Temporal's durable
+task queue. Key differences:
 
-## Testing
+| Feature              | golem-daemon              | temporal-golem                |
+|----------------------|---------------------------|-------------------------------|
+| Task queue           | Markdown file             | Temporal task queue           |
+| Persistence          | File-based, fragile       | PostgreSQL-backed             |
+| Visibility           | `cat golem-queue.md`      | Web UI + CLI                  |
+| Heartbeating         | None                      | 30s heartbeats                |
+| Retry                | Manual requeue            | Automatic (3 attempts)        |
+| Concurrency control  | ThreadPoolExecutor        | asyncio semaphores            |
+| Durable execution    | No (lost on crash)        | Yes (server-side history)     |
 
-```bash
-cd ~/germline
-uv run pytest assays/test_temporal_golem.py -v
-```
-
-All tests mock the Temporal client — no live server required.
-
-## Migration from markdown queue
-
-The existing `loci/golem-queue.md` can be converted to a task file:
-
-```bash
-grep -E '^\w+\|' loci/golem-queue.md > tasks.txt
-temporal-golem submit --provider zhipu --file tasks.txt
-```
+Phase 1 is scaffold only — the golem-daemon remains active until Phase 2
+adds the migration path.

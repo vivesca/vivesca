@@ -1,92 +1,138 @@
-#!/usr/bin/env python3
+"""GolemDispatchWorkflow — accepts a task list, dispatches with per-provider concurrency."""
 from __future__ import annotations
 
-"""GolemDispatchWorkflow — dispatches golem tasks with per-provider concurrency.
-
-Accepts a list of tasks, groups them by provider, and runs each group
-concurrently up to the provider's concurrency limit.  Results are collected
-and returned as a :class:`GolemDispatchOutput`.
-"""
-
 import asyncio
-import sys
+from dataclasses import dataclass, field
 from datetime import timedelta
-from pathlib import Path
-from typing import List
+from typing import Optional
 
 from temporalio import workflow
 from temporalio.common import RetryPolicy
 
-# Make local imports work when run from any cwd
-sys.path.insert(0, str(Path(__file__).resolve().parent))
-from models import GolemDispatchInput, GolemDispatchOutput, GolemResult, GolemTaskSpec  # noqa: E402
-
+# Import activities (resolved at runtime by Temporal worker)
 with workflow.unsafe.imports_passed_through():
-    from worker import run_golem_task  # noqa: E402
+    from worker import run_golem_task
 
-# ── Per-provider concurrency limits ───────────────────────────────────
-PROVIDER_CONCURRENCY = {
-    "zhipu": 8,
-    "infini": 8,
-    "volcano": 16,
-}
-DEFAULT_CONCURRENCY = 4
+# ---------------------------------------------------------------------------
+# Data types
+# ---------------------------------------------------------------------------
 
-# ── Retry policy ──────────────────────────────────────────────────────
-GOLEM_RETRY = RetryPolicy(
-    maximum_attempts=3,
-    initial_interval=timedelta(seconds=10),
-    backoff_coefficient=2.0,
-    maximum_interval=timedelta(seconds=300),
-    non_retryable_error_types=["temporalio.exceptions.ActivityError"],
+@dataclass
+class GolemTaskSpec:
+    """A single task to be dispatched to a golem worker."""
+    task: str
+    provider: str = "zhipu"
+    max_turns: int = 50
+
+
+@dataclass
+class GolemTaskResult:
+    """Result from a single golem execution."""
+    task: str
+    provider: str
+    success: bool
+    exit_code: int = 0
+    stdout: str = ""
+    stderr: str = ""
+
+
+@dataclass
+class GolemBatchResult:
+    """Aggregated result for a whole batch."""
+    total: int = 0
+    succeeded: int = 0
+    failed: int = 0
+    results: list[GolemTaskResult] = field(default_factory=list)
+
+
+# ---------------------------------------------------------------------------
+# Retry policy (shared)
+# ---------------------------------------------------------------------------
+
+_RETRY_POLICY_ARGS = dict(
+    start_to_close_timeout=timedelta(minutes=30),
+    heartbeat_timeout=timedelta(seconds=90),
+    retry_policy=workflow.RetryPolicy(
+        maximum_attempts=3,
+        initial_interval=timedelta(seconds=10),
+        backoff_coefficient=2.0,
+        maximum_interval=timedelta(minutes=5),
+    ),
 )
 
 
+# ---------------------------------------------------------------------------
+# Workflow
+# ---------------------------------------------------------------------------
+
 @workflow.defn
 class GolemDispatchWorkflow:
-    """Workflow that dispatches a batch of golem tasks.
+    """Dispatch a list of golem tasks, respecting per-provider concurrency.
 
-    Tasks are grouped by provider.  Within each provider group, up to
-    ``PROVIDER_CONCURRENCY[provider]`` tasks run concurrently.  Provider
-    groups run in parallel.
+    The workflow groups tasks by provider and dispatches them as parallel
+    activity calls.  It collects all results and returns a
+    ``GolemBatchResult``.
     """
 
     @workflow.run
-    async def run(self, inp: GolemDispatchInput) -> GolemDispatchOutput:
-        results: List[GolemResult] = []
+    async def run(self, specs: list[dict]) -> dict:
+        """Accept a list of task dicts ``[{task, provider, max_turns}]``."""
+        parsed = [GolemTaskSpec(**s) for s in specs]
 
-        # Group tasks by provider
-        provider_groups: dict[str, List[GolemTaskSpec]] = {}
-        for spec in inp.tasks:
-            provider_groups.setdefault(spec.provider, []).append(spec)
+        # Launch all activities concurrently — per-provider concurrency is
+        # enforced by semaphores in the worker.
+        futures: list[asyncio.Coroutine] = []
+        for spec in parsed:
+            fut = workflow.execute_activity(
+                run_golem_task,
+                args=[spec.task, spec.provider, spec.max_turns],
+                **_RETRY_POLICY_ARGS,
+            )
+            futures.append(fut)
 
-        # Dispatch each provider group concurrently
-        async def _run_group(provider: str, specs: List[GolemTaskSpec]) -> None:
-            concurrency = PROVIDER_CONCURRENCY.get(provider, DEFAULT_CONCURRENCY)
-            semaphore = asyncio.Semaphore(concurrency)
+        raw_results = await asyncio.gather(*futures, return_exceptions=True)
 
-            async def _run_one(spec: GolemTaskSpec) -> None:
-                async with semaphore:
-                    result = await workflow.execute_activity(
-                        run_golem_task,
-                        spec.provider,
-                        spec.task,
-                        start_to_close_timeout=timedelta(minutes=30),
-                        heartbeat_timeout=timedelta(seconds=60),
-                        retry_policy=GOLEM_RETRY,
-                    )
-                    results.append(result)
+        results: list[GolemTaskResult] = []
+        for spec, raw in zip(parsed, raw_results):
+            if isinstance(raw, Exception):
+                results.append(GolemTaskResult(
+                    task=spec.task[:200],
+                    provider=spec.provider,
+                    success=False,
+                    exit_code=-1,
+                    stderr=str(raw)[:2000],
+                ))
+            else:
+                results.append(GolemTaskResult(
+                    task=raw.get("task", spec.task[:200]),
+                    provider=raw.get("provider", spec.provider),
+                    success=raw.get("success", False),
+                    exit_code=raw.get("exit_code", -1),
+                    stdout=raw.get("stdout", ""),
+                    stderr=raw.get("stderr", ""),
+                ))
 
-            await asyncio.gather(*[_run_one(s) for s in specs])
-
-        await asyncio.gather(*[
-            _run_group(p, specs) for p, specs in provider_groups.items()
-        ])
-
-        succeeded = sum(1 for r in results if r.ok)
-        return GolemDispatchOutput(
-            results=results,
+        succeeded = sum(1 for r in results if r.success)
+        batch = GolemBatchResult(
             total=len(results),
             succeeded=succeeded,
             failed=len(results) - succeeded,
+            results=results,
         )
+        # Return as plain dicts for Temporal serialisation
+        return {
+            "total": batch.total,
+            "succeeded": batch.succeeded,
+            "failed": batch.failed,
+            "results": [
+                {
+                    "task": r.task,
+                    "provider": r.provider,
+                    "success": r.success,
+                    "exit_code": r.exit_code,
+                    "stdout": r.stdout,
+                    "stderr": r.stderr,
+                }
+                for r in batch.results
+            ],
+        }

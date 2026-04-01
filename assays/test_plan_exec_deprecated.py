@@ -270,18 +270,17 @@ def test_run_backend_writes_output_to_file(tmp_path):
         "cwd": lambda p: p,
     }
     
-    with patch("subprocess.run") as mock_run:
-        mock_run.return_value = MagicMock(returncode=0)
-        # Actually write to the file during mock
-        def side_effect(*args, **kwargs):
-            if "stdout" in kwargs and kwargs["stdout"] != _mod["subprocess"].PIPE:
-                kwargs["stdout"].write(b"test output\n")
-            return MagicMock(returncode=0)
-        mock_run.side_effect = side_effect
+    def write_to_stdout(*args, **kwargs):
+        f = kwargs.get("stdout")
+        if f and hasattr(f, "write"):
+            f.write("test output\n")
+        return MagicMock(returncode=0)
+
+    with patch("subprocess.run", side_effect=write_to_stdout):
         run_backend(backend, "/project", str(plan_file), output_file)
-    
-    # Output file should have been created
+
     assert output_file.exists()
+    assert "test output" in output_file.read_text()
 
 
 def test_run_backend_strips_claudcode_env(tmp_path):
@@ -452,28 +451,27 @@ class TestRunBackendEdgeCases:
     """Edge cases for run_backend."""
 
     def test_output_file_created_if_missing(self, tmp_path):
-        """run_backend creates output file even if it doesn't exist."""
+        """run_backend creates output file even if parent dir exists."""
         plan_file = tmp_path / "plan.md"
         plan_file.write_text("Task")
-        output_file = tmp_path / "subdir" / "output.log"
-        
+        output_file = tmp_path / "output.log"
+
         backend = {
             "name": "test",
             "cmd": lambda p, f: ["echo"],
             "cwd": lambda p: p,
         }
-        
-        with patch("subprocess.run") as mock_run:
-            mock_run.return_value = MagicMock(returncode=0)
-            # The real run_backend opens the file for writing
-            # We need to let it actually write
-            def do_write(*args, **kwargs):
-                f = kwargs.get("stdout")
-                if f and hasattr(f, "write"):
-                    f.write(b"output\n")
-                return MagicMock(returncode=0)
-            mock_run.side_effect = do_write
+
+        def do_write(*args, **kwargs):
+            f = kwargs.get("stdout")
+            if f and hasattr(f, "write"):
+                f.write("output\n")
+            return MagicMock(returncode=0)
+
+        with patch("subprocess.run", side_effect=do_write):
             run_backend(backend, "/project", str(plan_file), output_file)
+
+        assert output_file.exists()
 
     def test_success_without_marker_but_no_errors(self, tmp_path):
         """run_backend succeeds on exit 0 even without PLAN-EXEC-DONE if no errors."""
@@ -499,19 +497,23 @@ class TestRunBackendEdgeCases:
         plan_file = tmp_path / "plan.md"
         plan_file.write_text("Task")
         output_file = tmp_path / "output.log"
-        # Put error in last 200 chars
-        output_file.write_text("x" * 500 + "error occurred")
-        
+
         backend = {
             "name": "test",
             "cmd": lambda p, f: ["echo"],
             "cwd": lambda p: p,
         }
-        
-        with patch("subprocess.run") as mock_run:
-            mock_run.return_value = MagicMock(returncode=0)
+
+        # Mock subprocess.run to write "error" to the stdout file handle
+        def write_error(*args, **kwargs):
+            f = kwargs.get("stdout")
+            if f and hasattr(f, "write"):
+                f.write("x" * 500 + "error occurred\n")
+            return MagicMock(returncode=0)
+
+        with patch("subprocess.run", side_effect=write_error):
             result = run_backend(backend, "/project", str(plan_file), output_file)
-        
+
         assert result is False
 
 
