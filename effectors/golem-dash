@@ -813,6 +813,183 @@ def sparkline(values: list[int]) -> str:
     return "".join(chars[min(int(v / mx * (len(chars) - 1)), len(chars) - 1)] for v in values)
 
 
+def spinner_char() -> str:
+    """Return a braille spinner character that cycles based on current time."""
+    chars = "⠁⠂⠃⠄⠅⠆⠇⠈⠉⠊⠋⠌⠍⠎⠏"
+    idx = int(time.time() * 2) % len(chars)
+    return chars[idx]
+
+
+def compute_recent_events(records: list[dict], n: int = 5) -> list[dict]:
+    """Classify the last N records as recent events with outcome, age, and task_id.
+
+    Returns list of dicts sorted oldest-first, each with:
+      - outcome: "success" | "failed" | "rate_limited" | "killed"
+      - provider: str
+      - age_seconds: float (seconds since event)
+      - task_id: str (if present in record)
+    """
+    if not records:
+        return []
+    now = datetime.now(timezone.utc)
+    events: list[dict] = []
+    for rec in records:
+        ts = parse_ts(rec.get("ts", ""))
+        if ts == datetime.min.replace(tzinfo=timezone.utc):
+            age = 0.0
+        else:
+            age = max(0.0, (now - ts).total_seconds())
+        exit_code = rec.get("exit", -1)
+        if exit_code == 0:
+            outcome = "success"
+        elif exit_code == 137:
+            outcome = "killed"
+        elif is_rate_limited(rec):
+            outcome = "rate_limited"
+        else:
+            outcome = "failed"
+        ev: dict = {
+            "outcome": outcome,
+            "provider": rec.get("provider", "unknown"),
+            "age_seconds": age,
+        }
+        if "task_id" in rec:
+            ev["task_id"] = rec["task_id"]
+        events.append(ev)
+    return events[-n:]
+
+
+def sort_running_by_completion(
+    running: list[dict], avg_durs: dict[str, float],
+) -> list[dict]:
+    """Sort running tasks by estimated remaining time (soonest first).
+
+    Tasks with no avg duration for their provider are sorted last.
+    """
+    if not running:
+        return []
+    def _remaining(task: dict) -> float:
+        tid = task.get("task_id", "")
+        prov = task.get("provider", "")
+        avg = avg_durs.get(prov, 0)
+        if avg <= 0:
+            return float("inf")
+        elapsed = compute_elapsed(tid)
+        return max(0.0, avg - elapsed)
+    return sorted(running, key=_remaining)
+
+
+def build_drain_timeline(
+    per_provider_eta: dict[str, float],
+    pending: dict[str, int],
+) -> Table | None:
+    """Build a per-provider drain timeline table.
+
+    Returns None if no pending tasks.
+    """
+    if not pending or sum(pending.values()) == 0:
+        return None
+    table = Table(
+        show_header=True,
+        header_style="bold",
+        border_style="dim",
+        padding=(0, 1),
+        title="[bold]Drain Timeline[/bold]",
+    )
+    table.add_column("Provider", style="bold", min_width=10)
+    table.add_column("Queue", justify="right", style="cyan", min_width=6)
+    table.add_column("ETA", justify="right", min_width=9)
+    table.add_column("Finishes", justify="right", min_width=8)
+
+    for prov in sorted(pending.keys(), key=lambda p: per_provider_eta.get(p, float("inf"))):
+        queue = pending[prov]
+        if queue == 0:
+            continue
+        eta = per_provider_eta.get(prov, float("inf"))
+        eta_str = fmt_eta(eta) if eta != float("inf") else "∞"
+        finishes_str = fmt_wallclock_eta(eta)
+        table.add_row(prov, str(queue), eta_str, finishes_str)
+
+    return table
+
+
+def build_recent_events_table(events: list[dict]) -> Table:
+    """Build a compact table showing recent task events."""
+    table = Table(
+        show_header=True,
+        header_style="bold",
+        border_style="dim",
+        padding=(0, 1),
+        title="[bold]Recent Events[/bold]",
+    )
+    table.add_column("Outcome", min_width=12)
+    table.add_column("Provider", min_width=10)
+    table.add_column("Age", justify="right", min_width=7)
+    table.add_column("TaskID", style="dim", min_width=9)
+
+    outcome_styles = {
+        "success": "[green]success[/green]",
+        "failed": "[red]failed[/red]",
+        "rate_limited": "[yellow]rate_limited[/yellow]",
+        "killed": "[dim red]killed[/dim red]",
+    }
+    for ev in reversed(events):
+        outcome_str = outcome_styles.get(ev["outcome"], ev["outcome"])
+        age_str = fmt_duration(ev["age_seconds"])
+        tid = ev.get("task_id", "—")
+        table.add_row(outcome_str, ev["provider"], age_str, tid)
+
+    return table
+
+
+def build_json_snapshot(window_minutes: int = 60) -> dict:
+    """Build a JSON-serializable snapshot of the dashboard state.
+
+    Used by --json output mode for programmatic consumption.
+    """
+    window_records = load_jsonl(window_minutes)
+    running = load_running()
+    pending_by_provider = count_pending_by_provider()
+    total_pending = sum(pending_by_provider.values())
+    total_completed_queue = count_total_completed()
+
+    update_task_first_seen(running)
+    all_records = load_all_jsonl()
+
+    stats = compute_provider_stats(window_records, running)
+    eta_seconds = compute_eta(stats, pending_by_provider, all_records)
+    drain_rate = compute_drain_rate(all_records, window_minutes=10)
+    recent_events = compute_recent_events(all_records, n=10)
+
+    # Build per-task progress for running tasks
+    avg_durs = compute_avg_duration_by_provider(all_records)
+    running_tasks = []
+    for task in running:
+        tid = task.get("task_id", "")
+        prov = task.get("provider", "")
+        elapsed = compute_elapsed(tid)
+        avg = avg_durs.get(prov, 0)
+        remaining = estimate_task_completion(elapsed, avg)
+        running_tasks.append({
+            "task_id": tid,
+            "provider": prov,
+            "elapsed": elapsed,
+            "progress": estimate_task_progress(elapsed, avg),
+            "eta_remaining": remaining,
+        })
+
+    return {
+        "pending": total_pending,
+        "completed": total_completed_queue,
+        "eta_seconds": eta_seconds if eta_seconds != float("inf") else None,
+        "drain_rate": drain_rate,
+        "providers": stats,
+        "pending_by_provider": dict(pending_by_provider),
+        "recent_events": recent_events,
+        "running_tasks": running_tasks,
+    }
+
+
 def build_running_tasks_table(
     running: list[dict],
     avg_duration_by_provider: dict[str, float] | None = None,
@@ -1119,9 +1296,11 @@ def build_dashboard(
 
     # === Running tasks table ===
     components = [header, table, summary, drain_progress]
+    avg_durs = compute_avg_duration_by_provider(all_records)
     if running:
-        avg_durs = compute_avg_duration_by_provider(all_records)
-        components.append(build_running_tasks_table(running, avg_durs, stats))
+        # Sort running tasks by soonest completion
+        sorted_running = sort_running_by_completion(running, avg_durs)
+        components.append(build_running_tasks_table(sorted_running, avg_durs, stats))
 
         # === Stale task warnings ===
         stale = detect_stale_tasks(running, avg_durs)
@@ -1135,6 +1314,16 @@ def build_dashboard(
                     style="red",
                 )
             components.append(stale_text)
+
+    # === Drain timeline (per-provider) ===
+    drain_timeline = build_drain_timeline(per_provider_eta, pending_by_provider)
+    if drain_timeline is not None:
+        components.append(drain_timeline)
+
+    # === Recent events ===
+    recent_events = compute_recent_events(all_records, n=8)
+    if recent_events:
+        components.append(build_recent_events_table(recent_events))
 
     # === Cooldown info ===
     cooldown_lines = []

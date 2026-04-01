@@ -858,6 +858,22 @@ def generate_review(
             )
         lines.append("")
 
+    # Consulting quality summary
+    if consulting_summary:
+        lines.append("## Consulting Quality Summary")
+        lines.append(f"- {consulting_summary['total']} files checked: "
+                     f"{consulting_summary['passed']} passed, "
+                     f"{consulting_summary['failed']} failed, "
+                     f"{consulting_summary['missing']} missing")
+        lines.append(f"- Average word count: {consulting_summary['avg_word_count']:.0f}")
+        lines.append(f"- Average quality score: {consulting_summary['avg_quality_score']:.0f}/100")
+        lines.append(f"- Pass rate: {consulting_summary['pass_rate']:.0%}")
+        verdicts = consulting_summary.get("verdicts", {})
+        if verdicts:
+            parts = [f"{k}: {v}" for k, v in sorted(verdicts.items())]
+            lines.append(f"- Verdicts: {', '.join(parts)}")
+        lines.append("")
+
     # Failure diagnoses
     if failed_diagnoses:
         lines.append("## Failure Diagnoses")
@@ -899,6 +915,13 @@ def run_review(auto_requeue: bool = False, since: timedelta = timedelta(minutes=
     ]
     consulting_results = check_consulting_content(content_files)
 
+    # 4b. Also check epigenome consulting content directories
+    consulting_dir_files = scan_consulting_dirs()
+    if consulting_dir_files:
+        epigenome_results = check_consulting_content(consulting_dir_files)
+        consulting_results.extend(epigenome_results)
+    consulting_summary = compute_consulting_summary(consulting_results)
+
     # 5. Diagnose failures
     failed_diagnoses = []
     for entry in activity.get("failed", []):
@@ -937,6 +960,7 @@ def run_review(auto_requeue: bool = False, since: timedelta = timedelta(minutes=
         auto_requeue=auto_requeue,
         queued_count=queued_count,
         fixed_count=fixed_count,
+        consulting_summary=consulting_summary,
     )
 
     REVIEW_FILE.parent.mkdir(parents=True, exist_ok=True)
@@ -957,6 +981,31 @@ def main():
 
     if "--help" in args or "-h" in args:
         print(__doc__)
+        return 0
+
+    # --check-consulting <dir>: scan a directory for consulting content
+    if "--check-consulting" in args:
+        idx = args.index("--check-consulting")
+        base = Path(args[idx + 1]) if idx + 1 < len(args) else EPIGENOME
+        files = scan_consulting_dirs(base_dir=base)
+        if not files:
+            print(f"No consulting content found under {base}")
+            return 0
+        results = check_consulting_content(files)
+        summary = compute_consulting_summary(results)
+        print(f"Consulting content under {base}:")
+        print(f"  {summary['total']} files: "
+              f"{summary['passed']} passed, "
+              f"{summary['failed']} failed, "
+              f"{summary['missing']} missing")
+        print(f"  Avg word count: {summary['avg_word_count']:.0f}")
+        print(f"  Avg quality score: {summary['avg_quality_score']:.0f}/100")
+        print(f"  Pass rate: {summary['pass_rate']:.0%}")
+        for r in results:
+            mark = "✓" if r.get("overall_quality_pass") else "✗"
+            wc = r.get("word_count", 0)
+            verdict = r.get("verdict", "poor")
+            print(f"  [{mark}] {r['file']}: {wc} words ({verdict})")
         return 0
 
     auto_requeue = "--auto-requeue" in args
