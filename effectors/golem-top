@@ -11,6 +11,7 @@ Usage:
 """
 from __future__ import annotations
 
+import argparse
 import json
 import subprocess
 import sys
@@ -279,13 +280,19 @@ def run(json_output: bool = False) -> str:
 
 
 def main():
-    json_mode = "--json" in sys.argv
-    watch_mode = "--watch" in sys.argv
+    parser = argparse.ArgumentParser(
+        description="Show currently running golem processes.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="Like top(1) but for golems.",
+    )
+    parser.add_argument("--json", action="store_true", help="Machine-readable JSON output")
+    parser.add_argument("--watch", action="store_true", help="Refresh every 5 seconds")
+    args = parser.parse_args()
 
-    if watch_mode:
+    if args.watch:
         try:
             while True:
-                output = run(json_output=json_mode)
+                output = run(json_output=args.json)
                 # Clear screen
                 print("\033[2J\033[H", end="")
                 print(f"golem-top — {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
@@ -295,7 +302,7 @@ def main():
             print()
             sys.exit(0)
     else:
-        print(run(json_output=json_mode))
+        print(run(json_output=args.json))
 
 
 if __name__ == "__main__":

@@ -1,0 +1,433 @@
+#!/usr/bin/env bash
+# gemmule-bootstrap — provision a fresh Fly.io machine as a Gemmule instance.
+#
+# Run as root on a fresh Ubuntu 24.04 Fly Machine:
+#   fly ssh console -a gemmule < germline/effectors/gemmule-bootstrap
+#
+# Or from inside the machine:
+#   sudo bash ~/germline/effectors/gemmule-bootstrap
+#
+# Idempotent — safe to re-run. Skips already-installed components.
+# Secrets are pulled from 1Password after op is installed.
+#
+# Requires: OP_SERVICE_ACCOUNT_TOKEN set in ~/.env.fly (or passed via env)
+# for credential injection. Without it, the script installs tools but skips secrets.
+
+set -euo pipefail
+
+# ---------------------------------------------------------------------------
+# Config
+# ---------------------------------------------------------------------------
+USER_NAME="terry"
+USER_HOME="/home/${USER_NAME}"
+GITHUB_REPO="https://github.com/terryli-vt/vivesca.git"
+GO_VERSION="1.24.1"
+NODE_MAJOR=22
+BUN_VERSION="latest"
+OP_VERSION="2.30.3"
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+log()  { printf '\n\033[1;34m==> %s\033[0m\n' "$*"; }
+ok()   { printf '    \033[32m[ok]\033[0m %s\n' "$*"; }
+skip() { printf '    \033[33m[skip]\033[0m %s already installed\n' "$*"; }
+
+as_terry() { sudo -u "$USER_NAME" bash -c "$1"; }
+
+command_exists() { command -v "$1" &>/dev/null; }
+
+# ---------------------------------------------------------------------------
+# 0. Pre-flight
+# ---------------------------------------------------------------------------
+log "Gemmule Bootstrap"
+
+if [[ "$(id -u)" -ne 0 ]]; then
+  echo "Run as root: sudo bash $0"
+  exit 1
+fi
+
+# Ensure user exists
+if ! id "$USER_NAME" &>/dev/null; then
+  log "Creating user $USER_NAME"
+  adduser --disabled-password --gecos "" "$USER_NAME"
+  usermod -aG sudo "$USER_NAME"
+  echo "${USER_NAME} ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/"$USER_NAME"
+  # Copy SSH keys from root if available
+  if [[ -f /root/.ssh/authorized_keys ]]; then
+    mkdir -p "${USER_HOME}/.ssh"
+    cp /root/.ssh/authorized_keys "${USER_HOME}/.ssh/"
+    chown -R "${USER_NAME}:${USER_NAME}" "${USER_HOME}/.ssh"
+    chmod 700 "${USER_HOME}/.ssh"
+    chmod 600 "${USER_HOME}/.ssh/authorized_keys"
+  fi
+fi
+
+# ---------------------------------------------------------------------------
+# 1. System packages
+# ---------------------------------------------------------------------------
+log "System packages"
+
+export DEBIAN_FRONTEND=noninteractive
+apt-get update -qq
+
+PKGS=(
+  curl wget git tmux htop jq unzip build-essential
+  zsh python3 python3-pip python3-venv
+  sqlite3 libsqlite3-dev
+  pkg-config libssl-dev
+  ca-certificates gnupg
+)
+
+for pkg in "${PKGS[@]}"; do
+  if dpkg -s "$pkg" &>/dev/null; then
+    skip "$pkg"
+  else
+    apt-get install -y -qq "$pkg" && ok "$pkg"
+  fi
+done
+
+# Set zsh as default shell
+if [[ "$(getent passwd "$USER_NAME" | cut -d: -f7)" != */zsh ]]; then
+  chsh -s "$(which zsh)" "$USER_NAME"
+  ok "zsh set as default shell"
+fi
+
+# ---------------------------------------------------------------------------
+# 2. Tailscale
+# ---------------------------------------------------------------------------
+log "Tailscale"
+
+if command_exists tailscale; then
+  skip "tailscale"
+else
+  curl -fsSL https://tailscale.com/install.sh | sh
+  ok "tailscale installed"
+  echo ">>> Run 'sudo tailscale up --ssh' after bootstrap to authenticate"
+fi
+
+# ---------------------------------------------------------------------------
+# 3. Go
+# ---------------------------------------------------------------------------
+log "Go ${GO_VERSION}"
+
+if command_exists go && go version | grep -q "${GO_VERSION}"; then
+  skip "go ${GO_VERSION}"
+else
+  wget -q "https://go.dev/dl/go${GO_VERSION}.linux-amd64.tar.gz" -O /tmp/go.tar.gz
+  rm -rf /usr/local/go
+  tar -C /usr/local -xzf /tmp/go.tar.gz
+  rm /tmp/go.tar.gz
+  ok "go ${GO_VERSION}"
+fi
+
+# ---------------------------------------------------------------------------
+# 4. Node.js
+# ---------------------------------------------------------------------------
+log "Node.js ${NODE_MAJOR}"
+
+if command_exists node && node --version | grep -q "v${NODE_MAJOR}"; then
+  skip "node ${NODE_MAJOR}"
+else
+  mkdir -p /etc/apt/keyrings
+  curl -fsSL "https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key" | \
+    gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg 2>/dev/null
+  echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_${NODE_MAJOR}.x nodistro main" | \
+    tee /etc/apt/sources.list.d/nodesource.list > /dev/null
+  apt-get update -qq && apt-get install -y -qq nodejs
+  ok "node $(node --version)"
+fi
+
+# ---------------------------------------------------------------------------
+# 5. Tools installed as terry
+# ---------------------------------------------------------------------------
+log "User-space tools (as ${USER_NAME})"
+
+# Rust
+if as_terry 'command -v rustc &>/dev/null'; then
+  skip "rust"
+else
+  as_terry 'curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --quiet'
+  ok "rust"
+fi
+
+# uv (Python package manager)
+if as_terry 'command -v uv &>/dev/null'; then
+  skip "uv"
+else
+  as_terry 'curl -LsSf https://astral.sh/uv/install.sh | sh'
+  ok "uv"
+fi
+
+# Bun
+if as_terry 'command -v bun &>/dev/null'; then
+  skip "bun"
+else
+  as_terry 'curl -fsSL https://bun.sh/install | bash'
+  ok "bun"
+fi
+
+# pipx tools
+log "pipx tools"
+PIPX_PKGS=(llm openai sqlite-utils tqdm puremagic httpx tabulate python-ulid)
+for pkg in "${PIPX_PKGS[@]}"; do
+  if as_terry "~/.local/bin/uv tool list 2>/dev/null | grep -q '^${pkg} '"; then
+    skip "$pkg"
+  else
+    as_terry "~/.local/bin/uv tool install ${pkg} 2>/dev/null" && ok "$pkg" || true
+  fi
+done
+
+# Cargo tools (system utilities)
+log "Cargo tools"
+CARGO_BINS=(starship eza zoxide bat fd-find)
+for bin in "${CARGO_BINS[@]}"; do
+  name="${bin##*-}"  # fd-find -> find, but we check the binary name
+  case "$bin" in
+    fd-find) check="fd" ;;
+    *) check="$bin" ;;
+  esac
+  if as_terry "source ~/.cargo/env 2>/dev/null && command -v ${check} &>/dev/null"; then
+    skip "$bin"
+  else
+    as_terry "source ~/.cargo/env 2>/dev/null && cargo install ${bin} --quiet 2>/dev/null" && ok "$bin" || true
+  fi
+done
+
+# ---------------------------------------------------------------------------
+# 6. 1Password CLI
+# ---------------------------------------------------------------------------
+log "1Password CLI"
+
+if [[ -f "${USER_HOME}/bin/op" ]]; then
+  skip "op"
+else
+  mkdir -p "${USER_HOME}/bin"
+  curl -sS "https://cache.agilebits.com/dist/1P/op2/pkg/v${OP_VERSION}/op_linux_amd64_v${OP_VERSION}.zip" \
+    -o /tmp/op.zip
+  unzip -o /tmp/op.zip op -d "${USER_HOME}/bin/"
+  chmod +x "${USER_HOME}/bin/op"
+  chown "${USER_NAME}:${USER_NAME}" "${USER_HOME}/bin/op"
+  rm /tmp/op.zip
+  ok "op ${OP_VERSION}"
+fi
+
+# ---------------------------------------------------------------------------
+# 7. Claude Code
+# ---------------------------------------------------------------------------
+log "Claude Code"
+
+if as_terry 'command -v claude &>/dev/null'; then
+  skip "claude"
+else
+  as_terry 'npm install -g @anthropic-ai/claude-code 2>/dev/null' && ok "claude" || \
+  as_terry 'curl -fsSL https://claude.ai/install.sh | sh' && ok "claude (direct)" || true
+fi
+
+# ---------------------------------------------------------------------------
+# 8. Clone germline
+# ---------------------------------------------------------------------------
+log "Germline repo"
+
+if [[ -d "${USER_HOME}/germline/.git" ]]; then
+  skip "germline"
+else
+  as_terry "git clone ${GITHUB_REPO} ${USER_HOME}/germline 2>/dev/null" && ok "germline" || \
+  echo ">>> Clone manually: git clone ${GITHUB_REPO} ~/germline"
+fi
+
+# ---------------------------------------------------------------------------
+# 9. Directory structure & symlinks
+# ---------------------------------------------------------------------------
+log "Directory structure"
+
+as_terry 'mkdir -p ~/bin ~/code ~/scripts ~/notes ~/epigenome/chromatin ~/epigenome/marks'
+
+# Claude Code hooks -> germline
+as_terry '
+  mkdir -p ~/.claude/hooks ~/.claude/skills
+  if [[ -d ~/germline/membrane/cytoskeleton ]]; then
+    ln -sfn ~/germline/membrane/cytoskeleton/* ~/.claude/hooks/ 2>/dev/null || true
+    ok_count=$(ls ~/.claude/hooks/*.py 2>/dev/null | wc -l)
+    echo "    [ok] ${ok_count} hooks linked"
+  fi
+  # Skills symlinks
+  if [[ -d ~/germline/membrane/receptors ]]; then
+    for skill_dir in ~/germline/membrane/receptors/*/; do
+      name=$(basename "$skill_dir")
+      ln -sfn "$skill_dir" ~/.claude/skills/"$name" 2>/dev/null || true
+    done
+  fi
+'
+
+# Epigenome marks -> claude memory
+as_terry '
+  ln -sfn ~/epigenome/marks ~/.claude/projects/-home-terry/memory 2>/dev/null || true
+'
+
+ok "directory structure"
+
+# ---------------------------------------------------------------------------
+# 10. Shell config (.zshrc)
+# ---------------------------------------------------------------------------
+log "Shell config"
+
+as_terry 'cat > ~/.zshrc << "ZSHRC"
+# Fix for Ghostty terminal over SSH
+[[ $TERM == xterm-ghostty ]] && export TERM=xterm-256color
+
+# PATH
+typeset -U path
+path=(
+  "$HOME/.local/bin"
+  "$HOME/bin"
+  "$HOME/go/bin"
+  "$HOME/.cargo/bin"
+  "$HOME/.bun/bin"
+  /usr/local/go/bin
+  "$path[@]"
+)
+export PATH
+
+# Environment
+export BUN_INSTALL="$HOME/.bun"
+export COLORTERM=truecolor
+export EDITOR=vim
+export TZ=Asia/Hong_Kong
+export GOG_ACCOUNT=terry.li.hm@gmail.com
+
+# Aliases
+alias c="claude --dangerously-skip-permissions"
+alias cc="claude --continue"
+alias cs="claude --model sonnet"
+alias co="claude --model opus"
+alias t="tmux new-session -A -s main"
+alias x="exit"
+alias ll="ls -la"
+alias la="ls -la"
+alias lg="lazygit"
+
+# Modern CLI tools
+command -v eza &>/dev/null && { alias ls="eza"; alias ll="eza -l --git"; alias la="eza -la --git"; alias tree="eza --tree"; }
+command -v bat &>/dev/null && { alias cat="bat --paging=never"; alias less="bat"; }
+command -v fd &>/dev/null && alias find="fd"
+command -v zoxide &>/dev/null && eval "$(zoxide init zsh --cmd z)"
+command -v starship &>/dev/null && eval "$(starship init zsh)"
+
+# Completion
+autoload -Uz compinit && compinit -C
+
+# Machine-local overrides
+[ -f ~/.zshenv.local ] && source ~/.zshenv.local
+[ -f ~/.env.fly ] && source ~/.env.fly
+export PATH=$HOME/germline/effectors:$PATH
+
+# Load credentials from 1Password (op) or macOS Keychain
+eval "$(python3 ~/germline/effectors/importin 2>/dev/null)"
+ZSHRC'
+
+ok ".zshrc"
+
+# ---------------------------------------------------------------------------
+# 11. tmux config
+# ---------------------------------------------------------------------------
+log "tmux config"
+
+as_terry 'cat > ~/.tmux.conf << "TMUX"
+set -g prefix C-a
+unbind C-b
+bind C-a send-prefix
+set -g mouse on
+set -g history-limit 50000
+set -g default-terminal "screen-256color"
+set -ga terminal-overrides ",xterm-256color:Tc"
+set -g base-index 1
+set -g escape-time 0
+set -g status-style "bg=#1e1e2e,fg=#cdd6f4"
+TMUX'
+
+ok ".tmux.conf"
+
+# ---------------------------------------------------------------------------
+# 12. Git config
+# ---------------------------------------------------------------------------
+log "Git config"
+
+as_terry '
+  git config --global user.name "Terry Li"
+  git config --global user.email "terry.li.hm@gmail.com"
+  git config --global init.defaultBranch main
+  git config --global pull.rebase false
+  git config --global push.autoSetupRemote true
+'
+
+ok "git config"
+
+# ---------------------------------------------------------------------------
+# 13. Inject credentials from 1Password
+# ---------------------------------------------------------------------------
+log "Credential injection"
+
+if as_terry 'test -f ~/.env.fly && source ~/.env.fly && test -n "${OP_SERVICE_ACCOUNT_TOKEN:-}"'; then
+  as_terry '
+    source ~/.env.fly
+    export OP_SERVICE_ACCOUNT_TOKEN
+    export PATH="$HOME/bin:$PATH"
+    if op vault list &>/dev/null; then
+      echo "    [ok] 1Password connection verified"
+      # Inject via importin
+      eval "$(python3 ~/germline/effectors/importin 2>/dev/null)"
+      echo "    [ok] credentials loaded via importin"
+    else
+      echo "    [warn] op authenticated but vault access failed"
+    fi
+  '
+else
+  echo "    [skip] OP_SERVICE_ACCOUNT_TOKEN not set in ~/.env.fly"
+  echo "    >>> Add it manually, then run: eval \"\$(importin)\""
+fi
+
+# ---------------------------------------------------------------------------
+# 14. Build custom Rust tools from germline
+# ---------------------------------------------------------------------------
+log "Custom Rust tools"
+
+# These are published crates — install from crates.io
+CUSTOM_CRATES=(noesis pondus consilium fasti keryx moneo sarcio grapho caelum stips anam auceps)
+for crate in "${CUSTOM_CRATES[@]}"; do
+  if as_terry "source ~/.cargo/env 2>/dev/null && command -v ${crate} &>/dev/null"; then
+    skip "$crate"
+  else
+    as_terry "source ~/.cargo/env 2>/dev/null && cargo install ${crate} --quiet 2>/dev/null" && ok "$crate" || \
+    echo "    [warn] ${crate} not on crates.io — build from source"
+  fi
+done
+
+# ---------------------------------------------------------------------------
+# 15. SSH hardening
+# ---------------------------------------------------------------------------
+log "SSH hardening"
+
+if grep -q "PasswordAuthentication no" /etc/ssh/sshd_config 2>/dev/null; then
+  skip "ssh already hardened"
+else
+  sed -i 's/#PasswordAuthentication yes/PasswordAuthentication no/' /etc/ssh/sshd_config 2>/dev/null || true
+  sed -i 's/PasswordAuthentication yes/PasswordAuthentication no/' /etc/ssh/sshd_config 2>/dev/null || true
+  systemctl restart sshd 2>/dev/null || true
+  ok "ssh hardened"
+fi
+
+# ---------------------------------------------------------------------------
+# Done
+# ---------------------------------------------------------------------------
+log "Bootstrap complete"
+
+echo ""
+echo "  Next steps:"
+echo "  1. Authenticate Tailscale:  sudo tailscale up --ssh"
+echo "  2. Add OP_SERVICE_ACCOUNT_TOKEN to ~/.env.fly (if not done)"
+echo "  3. Authenticate Claude Code: claude"
+echo "  4. Clone additional repos (epigenome, notes, code/*)"
+echo "  5. Generate SSH key if needed: ssh-keygen -t ed25519"
+echo "  6. Run 'source ~/.zshrc' to load environment"
+echo ""
