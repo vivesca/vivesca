@@ -12,7 +12,7 @@ def _build_receptor_catalog() -> dict[str, type]:
     from metabolon.metabolism.substrates.hygiene import HygieneSubstrate
     from metabolon.metabolism.substrates.memory import ConsolidationSubstrate
     from metabolon.metabolism.substrates.mismatch_repair import AnamScanSubstrate
-    from metabolon.metabolism.substrates.operons import OperonSubstrate
+    from metabolon.metabolism.substrates.operon_monitor import OperonSubstrate
     from metabolon.metabolism.substrates.spending import SpendingSubstrate
     from metabolon.metabolism.substrates.tools import PhenotypeSubstrate
     from metabolon.metabolism.substrates.vasomotor import VasomotorSubstrate
