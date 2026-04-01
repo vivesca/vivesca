@@ -11,10 +11,14 @@ Usage:
     python3 dispatch.py --poll --interval 30  # Custom poll interval (seconds)
     python3 dispatch.py --dry-run        # Show what would be dispatched
     python3 dispatch.py --status         # Show running Hatchet workflows
+    python3 dispatch.py --dry-run --json # Pending tasks as JSON
+    python3 dispatch.py --status --json  # Workflow runs as JSON
+    python3 dispatch.py --json           # Dispatch results as JSON
 """
 from __future__ import annotations
 
 import asyncio
+import json
 import re
 import sys
 import time
@@ -36,11 +40,15 @@ PROVIDER_TASKS = {
     "gemini": golem_gemini,
 }
 
+_json_mode = False
+_dispatch_results: list[dict] = []
+
 
 def log(msg: str) -> None:
     ts = time.strftime("%Y-%m-%d %H:%M:%S")
     line = f"[{ts}] {msg}"
-    print(line)
+    if not _json_mode:
+        print(line)
     try:
         LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
         with open(LOG_FILE, "a") as f:
@@ -115,8 +123,34 @@ def mark_failed(line_num: int, result: str = "") -> None:
     QUEUE_FILE.write_text("\n".join(lines) + "\n")
 
 
+async def _run_one(task_ref, line_num, prompt, provider, task_id, max_turns):
+    """Run a single task and handle result."""
+    info = {"task_id": task_id, "provider": provider, "prompt": prompt[:200], "status": "pending"}
+    try:
+        result = await task_ref.aio_run({
+            "task": prompt,
+            "max_turns": max_turns,
+        })
+        if result.success:
+            mark_done(line_num, f"hatchet:exit={result.exit_code}")
+            log(f"[OK] [{task_id}] {provider}: {prompt[:60]}...")
+            info["status"] = "ok"
+            info["exit_code"] = result.exit_code
+        else:
+            mark_failed(line_num, f"hatchet:exit={result.exit_code}")
+            log(f"[FAIL] [{task_id}] {provider}: exit={result.exit_code}")
+            info["status"] = "failed"
+            info["exit_code"] = result.exit_code
+    except Exception as e:
+        mark_failed(line_num, str(e)[:100])
+        log(f"[ERROR] [{task_id}] {provider}: {e}")
+        info["status"] = "error"
+        info["error"] = str(e)[:200]
+    _dispatch_results.append(info)
+
+
 async def dispatch_all(dry_run: bool = False) -> int:
-    """Dispatch all pending tasks via Hatchet. Returns count dispatched."""
+    """Dispatch all pending tasks via Hatchet concurrently. Returns count dispatched."""
     pending = parse_queue()
     if not pending:
         log("No pending tasks in queue")
@@ -124,37 +158,26 @@ async def dispatch_all(dry_run: bool = False) -> int:
 
     log(f"Found {len(pending)} pending tasks")
 
-    dispatched = 0
+    if dry_run:
+        for line_num, prompt, provider, task_id, max_turns in pending:
+            log(f"[DRY] [{task_id}] {provider}: {prompt[:60]}...")
+        return len(pending)
+
+    # Fire all tasks concurrently — Hatchet handles per-provider concurrency
+    coros = []
     for line_num, prompt, provider, task_id, max_turns in pending:
         task_ref = PROVIDER_TASKS.get(provider)
         if not task_ref:
             log(f"[{task_id}] Unknown provider '{provider}', skipping")
             continue
+        log(f"[DISPATCH] [{task_id}] {provider}: {prompt[:60]}...")
+        coros.append(_run_one(task_ref, line_num, prompt, provider, task_id, max_turns))
 
-        if dry_run:
-            log(f"[DRY] [{task_id}] {provider}: {prompt[:60]}...")
-            dispatched += 1
-            continue
+    # Run all concurrently — Hatchet's concurrency limits handle the throttling
+    await asyncio.gather(*coros, return_exceptions=True)
 
-        try:
-            result = await task_ref.aio_run({
-                "task": prompt,
-                "max_turns": max_turns,
-            })
-            if result.success:
-                mark_done(line_num, f"hatchet:exit={result.exit_code}")
-                log(f"[OK] [{task_id}] {provider}: {prompt[:60]}...")
-            else:
-                mark_failed(line_num, f"hatchet:exit={result.exit_code}")
-                log(f"[FAIL] [{task_id}] {provider}: exit={result.exit_code}")
-            dispatched += 1
-        except Exception as e:
-            mark_failed(line_num, str(e)[:100])
-            log(f"[ERROR] [{task_id}] {provider}: {e}")
-            dispatched += 1
-
-    log(f"Dispatched {dispatched}/{len(pending)} tasks")
-    return dispatched
+    log(f"Dispatched {len(coros)}/{len(pending)} tasks")
+    return len(coros)
 
 
 async def poll_loop(interval: int = 30) -> None:
@@ -170,23 +193,40 @@ async def poll_loop(interval: int = 30) -> None:
         await asyncio.sleep(interval)
 
 
-def show_status() -> None:
+def show_status(json_output: bool = False) -> None:
     """Show current Hatchet workflow runs."""
     h = Hatchet()
     runs = h.runs.list(limit=20)
-    for run in runs:
-        print(f"  {run.workflow_run_id}  {run.status}  {run.started_at}")
+    if json_output:
+        data = [
+            {
+                "workflow_run_id": r.workflow_run_id,
+                "status": r.status,
+                "started_at": str(r.started_at),
+            }
+            for r in runs
+        ]
+        print(json.dumps(data, indent=2))
+    else:
+        for run in runs:
+            print(f"  {run.workflow_run_id}  {run.status}  {run.started_at}")
 
 
 def main() -> None:
+    global _json_mode
+
     args = sys.argv[1:]
 
     if "--help" in args or "-h" in args:
         print(__doc__)
         return
 
+    json_mode = "--json" in args
+    if json_mode:
+        _json_mode = True
+
     if "--status" in args:
-        show_status()
+        show_status(json_output=json_mode)
         return
 
     dry_run = "--dry-run" in args
@@ -200,6 +240,16 @@ def main() -> None:
 
     if poll:
         asyncio.run(poll_loop(interval))
+    elif dry_run and json_mode:
+        pending = parse_queue()
+        tasks = [
+            {"task_id": tid, "provider": p, "prompt": prompt[:200], "max_turns": mt, "line": ln}
+            for ln, prompt, p, tid, mt in pending
+        ]
+        print(json.dumps({"total": len(tasks), "tasks": tasks}, indent=2))
+    elif json_mode:
+        count = asyncio.run(dispatch_all(dry_run=dry_run))
+        print(json.dumps({"dispatched": count, "total": count, "tasks": _dispatch_results}, indent=2))
     else:
         asyncio.run(dispatch_all(dry_run=dry_run))
 
