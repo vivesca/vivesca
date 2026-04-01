@@ -1,4 +1,10 @@
 {
+  "mcpServers": {
+    "vivesca": {
+      "command": "/home/terry/germline/.venv/bin/vivesca",
+      "args": ["serve"]
+    }
+  },
   "env": {
     "AGENT_BROWSER_PROFILE": "/home/terry/.agent-browser-profile",
     "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1",

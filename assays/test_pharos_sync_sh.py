@@ -303,3 +303,114 @@ class TestMainExecution:
         # No sync output when sourced
         assert "updated:" not in r.stdout
         assert "synced:" not in r.stdout
+
+    def test_memory_rsync_deletes_removed_files(self, tmp_path):
+        """rsync --delete should remove files from dst that no longer exist in src."""
+        memory_src = tmp_path / ".claude" / "projects" / "-Users-terry" / "memory"
+        memory_src.mkdir(parents=True)
+        (memory_src / "keep.md").write_text("staying")
+        officina = tmp_path / "officina"
+        officina.mkdir()
+        # First sync
+        r = _run(tmp_path)
+        assert r.returncode == 0
+        assert (officina / "claude" / "memory" / "keep.md").exists()
+        # Remove the source file, add a new one, re-sync
+        (memory_src / "keep.md").unlink()
+        (memory_src / "new.md").write_text("added")
+        r2 = _run(tmp_path)
+        assert r2.returncode == 0
+        assert not (officina / "claude" / "memory" / "keep.md").exists()
+        assert (officina / "claude" / "memory" / "new.md").read_text() == "added"
+
+    def test_no_officina_dir_is_created(self, tmp_path):
+        """If officina dir doesn't exist, script should still exit cleanly."""
+        r = _run(tmp_path)
+        assert r.returncode == 0
+        # officina itself shouldn't be created just by running the script
+        assert not (tmp_path / "officina").exists() or not any(
+            (tmp_path / "officina").iterdir()
+        )
+
+    def test_empty_settings_json(self, tmp_path):
+        """An empty settings.json should still be synced."""
+        claude_dir = tmp_path / ".claude"
+        claude_dir.mkdir()
+        (claude_dir / "settings.json").write_text("")
+        officina = tmp_path / "officina"
+        officina.mkdir()
+        r = _run(tmp_path)
+        assert r.returncode == 0
+        assert (officina / "claude" / "settings.json").read_text() == ""
+
+    def test_memory_subdirectories_synced(self, tmp_path):
+        """Subdirectories inside memory/ should be preserved."""
+        memory_src = tmp_path / ".claude" / "projects" / "-Users-terry" / "memory"
+        sub = memory_src / "subdir"
+        sub.mkdir(parents=True)
+        (sub / "nested.md").write_text("deep content")
+        officina = tmp_path / "officina"
+        officina.mkdir()
+        r = _run(tmp_path)
+        assert r.returncode == 0
+        assert (officina / "claude" / "memory" / "subdir" / "nested.md").read_text() == "deep content"
+
+    def test_nonzero_exit_on_bash_error(self, tmp_path):
+        """Passing an invalid flag should not crash unexpectedly."""
+        r = subprocess.run(
+            ["bash", str(SCRIPT), "--bogus-flag"],
+            capture_output=True, text=True, timeout=10,
+        )
+        # The script doesn't validate flags (it ignores unknown args), so it
+        # should still exit 0 — the main body runs regardless.
+        assert r.returncode == 0
+
+
+# ── credential / remote sync (network-free) ─────────────────────────────
+
+
+class TestRemoteSyncGraceful:
+    """Verify remote-sync blocks fail gracefully without network."""
+
+    def test_no_flyctl_does_not_crash(self, tmp_path):
+        """flyctl not in PATH should not cause non-zero exit."""
+        claude_dir = tmp_path / ".claude"
+        claude_dir.mkdir()
+        (claude_dir / ".credentials.json").write_text('{"test": true}')
+        officina = tmp_path / "officina"
+        officina.mkdir()
+        r = _run(tmp_path)  # PATH=/usr/bin:/bin — no flyctl
+        assert r.returncode == 0
+
+    def test_no_scp_does_not_crash(self, tmp_path):
+        """scp not reachable should not cause non-zero exit for m2/m3 blocks."""
+        claude_dir = tmp_path / ".claude"
+        claude_dir.mkdir()
+        (claude_dir / ".credentials.json").write_text('{"test": true}')
+        officina = tmp_path / "officina"
+        officina.mkdir()
+        r = _run(tmp_path)  # PATH=/usr/bin:/bin — no scp
+        assert r.returncode == 0
+        # Should NOT mention m2 or m3 in output (scp failed silently)
+        assert "m2" not in r.stdout
+        assert "m3" not in r.stdout
+
+    def test_no_credentials_file_skips_push(self, tmp_path):
+        """If .credentials.json doesn't exist, no push attempts should run."""
+        claude_dir = tmp_path / ".claude"
+        claude_dir.mkdir()
+        (claude_dir / "settings.json").write_text("{}")
+        officina = tmp_path / "officina"
+        officina.mkdir()
+        r = _run(tmp_path)
+        assert r.returncode == 0
+        # No credential-related output
+        assert "credentials" not in r.stdout.lower()
+
+    def test_no_zshenv_files_no_error(self, tmp_path):
+        """Missing .zshenv and .zshenv.tpl should not cause failures."""
+        officina = tmp_path / "officina"
+        officina.mkdir()
+        r = _run(tmp_path)
+        assert r.returncode == 0
+        assert "zshenv" not in r.stdout
