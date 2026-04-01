@@ -347,8 +347,6 @@ def _fetch_locked(cfg: EndocytosisConfig, no_archive: bool) -> None:
         typer.echo("No articles survived endosome sorting.", err=True)
         raise typer.Exit(code=0)
 
-    today = now.strftime("%Y-%m-%d")
-
     # Write JSONL canonical cargo store
     flat_cargo = []
     for source_name, source_articles in sorted_results.items():

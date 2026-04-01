@@ -19,7 +19,6 @@ def test_parse_due_date_only() -> None:
 
 
 def test_parse_due_today_with_time() -> None:
-    now = datetime(2026, 3, 16, 9, 0, tzinfo=moneo.HKT)
     at, date = moneo.parse_due_string("today 10:00")
     assert at == "10:00"
     assert date == moneo.resolve_date_keyword("today")

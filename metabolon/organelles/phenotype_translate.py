@@ -71,7 +71,6 @@ def _is_synaptic_script(command: str) -> bool:
     for part in parts:
         if part.endswith(".py"):
             p = Path(part.replace("~", str(Path.home())))
-            name = p.name
             parent = p.parent.name
             # Match if it's in hooks/ or synaptic/ directory
             if parent in ("hooks", "synaptic"):

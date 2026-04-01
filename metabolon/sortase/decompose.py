@@ -314,8 +314,6 @@ def lint_plan(plan_text: str) -> list[str]:
             "No verification command found",
         ]
 
-    text_lower = text.lower()
-
     # Missing output path
     output_indicators = [
         r"(?i)output\s+path",
