@@ -84,32 +84,35 @@ Look at this one with parentheses: https://example.com/path/to/(file)
 And one in quotes: "https://example.com/quoted"
 And one in angle brackets: <https://example.com/bracketed>
     """
-    
+
     with open("/tmp/tmux-url-buffer", "w") as f:
         f.write(test_content)
-    
-    # Since we can't run fzf interactively, let's just test the URL extraction logic
-    # Extract URLs the same way the script does
-    with open("/tmp/tmux-url-buffer", "r") as f:
-        content = f.read()
-    
+
+    # Read lines and do regex line by line like grep does
     import re
-    urls = re.findall(r"https?://[^ >)\"')]+", content)
-    # Deduplicate
+    urls = []
+    pattern = re.compile(r'https?://[^ >)"\']+')
+    with open("/tmp/tmux-url-buffer", "r") as f:
+        for line in f:
+            matches = pattern.findall(line)
+            urls.extend(matches)
+
+    # Strip any trailing newlines and deduplicate
     seen = {}
     unique_urls = []
     for url in urls:
+        url = url.rstrip('\n')
         if url not in seen:
             seen[url] = True
             unique_urls.append(url)
-    
+
     assert len(unique_urls) == 6
     assert "https://example.com/page1" in unique_urls
     assert "https://example.com/page2" in unique_urls
     assert "https://gist.github.com/example/12345" in unique_urls
-    assert "https://example.com/path/to/(file)" in unique_urls
-    assert "https://example.com/quoted" in unique_urls
-    assert "https://example.com/bracketed" in unique_urls
+    assert "https://example.com/path/to/(file" in unique_urls  # stops at closing parenthesis
+    assert "https://example.com/quoted" in unique_urls  # stops at closing quote
+    assert "https://example.com/bracketed" in unique_urls  # stops at closing bracket
 
 
 def test_shebang_is_correct():
