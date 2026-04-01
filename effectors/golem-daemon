@@ -838,6 +838,8 @@ def daemon_loop():
     max_workers = max(PROVIDER_LIMITS.values())
     running = {}  # future -> (line_num, cmd, provider, task_id)
     provider_running: dict[str, int] = {}  # provider -> count of running tasks
+    provider_consecutive_fails: dict[str, int] = {}  # provider -> consecutive failure count
+    provider_cooldown_until: dict[str, float] = {}  # provider -> timestamp when cooldown ends
     poll_cycle = 0
     disk_space_paused = False
     idle_since: float | None = None  # timestamp when we became idle
@@ -903,6 +905,8 @@ def daemon_loop():
                             if not test_passed:
                                 log(f"PYTEST WARN [{task_id}]: {cmd[:50]}... → {test_result}")
                             mark_done(line_num, f"exit={exit_code}", task_id=task_id)
+                            # Success → reset provider failure count
+                            provider_consecutive_fails[provider] = 0
                             # Auto-commit every 5 successful completions
                             global _mark_done_count
                             _mark_done_count += 1
@@ -913,6 +917,12 @@ def daemon_loop():
                         else:
                             mark_failed(line_num, f"exit={exit_code} {tail[:60]}", exit_code=exit_code, task_id=task_id)
                             log(f"FAILED [{task_id}] (exit={exit_code}): {cmd[:60]}...")
+                            # Track consecutive failures per provider
+                            provider_consecutive_fails[provider] = provider_consecutive_fails.get(provider, 0) + 1
+                            if provider_consecutive_fails[provider] >= 3:
+                                cooldown_end = time.time() + PROVIDER_COOLDOWN_SECONDS
+                                provider_cooldown_until[provider] = cooldown_end
+                                log(f"COOLDOWN: {provider} hit {provider_consecutive_fails[provider]} consecutive failures — pausing for {PROVIDER_COOLDOWN_SECONDS//60}min")
                     except Exception as e:
                         log(f"Future error: {e}")
                         mark_failed(line_num, str(e), task_id=task_id)
@@ -962,8 +972,21 @@ def daemon_loop():
                     time.sleep(POLL_INTERVAL)
                     continue
 
+                # Clear expired cooldowns
+                now = time.time()
+                for p in list(provider_cooldown_until):
+                    if now >= provider_cooldown_until[p]:
+                        log(f"COOLDOWN LIFTED: {p} — resuming dispatch")
+                        del provider_cooldown_until[p]
+                        provider_consecutive_fails[p] = 0
+
                 for line_num, cmd, task_id in pending:
                     provider = parse_provider(cmd)
+
+                    # Skip providers in cooldown (rate-limited)
+                    if provider in provider_cooldown_until:
+                        continue
+
                     current = provider_running.get(provider, 0)
                     limit = get_provider_limit(provider)
 
