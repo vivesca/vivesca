@@ -260,22 +260,26 @@ def test_cmd_list_no_volumes(monkeypatch, capsys):
 
 def test_cmd_snapshot_running_machine(monkeypatch, capsys):
     """cmd_snapshot stops a running machine, snapshots, then restarts."""
+    from unittest.mock import patch as um_patch
+    import time as time_mod
+
     monkeypatch.setenv("FLY_API_TOKEN", "tok_snap")
     machines = [{"id": "m_1", "state": "started"}]
     vols = [{"id": "vol_data"}]
-    stopped_machine = {"id": "m_1", "state": "stopped"}
+    stopped_machines = [{"id": "m_1", "state": "stopped"}]
     snap_result = {"id": "snap_new"}
 
     responses = [
-        machines,             # _get_machine (initial)
-        vols,                 # _get_volumes
+        machines,             # _get_machine (initial) -> list
+        vols,                 # _get_volumes -> list
         {},                   # stop API call
-        stopped_machine,      # _get_machine (poll: stopped on 1st try)
+        stopped_machines,     # _get_machine (poll: stopped) -> list
         snap_result,          # snapshot creation
         {},                   # start API call
     ]
 
-    with patch_urlopen(_make_urlopen(responses)):
+    with patch_urlopen(_make_urlopen(responses)), \
+         um_patch.object(time_mod, "sleep", lambda s: None):
         cmd_snapshot()
 
     out = capsys.readouterr().out
