@@ -15,11 +15,30 @@ import os
 import subprocess
 import sys
 
+IS_LINUX = sys.platform == "linux"
 
-def _route_cmd(*args: str) -> list[str]:
-    """Build route command, skipping sudo when already root."""
-    base = ["/sbin/route"] + list(args)
-    return base if os.getuid() == 0 else ["sudo"] + base
+
+def _sudo_wrap() -> list[str]:
+    """Empty list if root, else ['sudo']."""
+    return [] if os.getuid() == 0 else ["sudo"]
+
+
+def _add_host_route(ip: str, gateway: str) -> subprocess.CompletedProcess:
+    """Add a host route. Cross-platform."""
+    if IS_LINUX:
+        cmd = _sudo_wrap() + ["ip", "route", "add", f"{ip}/32", "via", gateway]
+    else:
+        cmd = _sudo_wrap() + ["/sbin/route", "-n", "add", f"{ip}/32", gateway]
+    return subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+
+
+def _del_host_route(ip: str) -> subprocess.CompletedProcess:
+    """Delete a host route. Cross-platform."""
+    if IS_LINUX:
+        cmd = _sudo_wrap() + ["ip", "route", "del", f"{ip}/32"]
+    else:
+        cmd = _sudo_wrap() + ["/sbin/route", "-n", "delete", f"{ip}/32"]
+    return subprocess.run(cmd, capture_output=True, text=True, timeout=30)
 
 CN_API_HOSTS = [
     # ZhiPu
@@ -58,6 +77,17 @@ def _resolve(host: str) -> list[str]:
 
 def _lan_gateway() -> str | None:
     """Find the non-Tailscale default gateway."""
+    if IS_LINUX:
+        result = subprocess.run(
+            ["ip", "route", "show", "default"],
+            capture_output=True, text=True, timeout=5,
+        )
+        for line in result.stdout.splitlines():
+            parts = line.split()
+            # default via GW dev IFACE
+            if len(parts) >= 5 and parts[0] == "default" and not parts[4].startswith("tailscale"):
+                return parts[2]
+        return None
     result = subprocess.run(
         ["netstat", "-rn"], capture_output=True, text=True, timeout=5
     )
@@ -74,6 +104,17 @@ def _current_zhipu_routes() -> dict[str, str]:
     for host in CN_API_HOSTS:
         all_ips.update(_resolve(host))
 
+    if IS_LINUX:
+        result = subprocess.run(
+            ["ip", "route", "show"], capture_output=True, text=True, timeout=5,
+        )
+        routes = {}
+        for line in result.stdout.splitlines():
+            parts = line.split()
+            # 1.2.3.4/32 via GW dev IFACE
+            if len(parts) >= 5 and parts[0].split("/")[0] in all_ips:
+                routes[parts[0].split("/")[0]] = parts[4]
+        return routes
     result = subprocess.run(
         ["netstat", "-rn"], capture_output=True, text=True, timeout=5
     )
