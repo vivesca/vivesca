@@ -37,14 +37,17 @@ User says: "build", "implement", "dispatch", "spec this", "batch", "go build", "
 ```bash
 ssh soma 'source ~/.env.fly && cd ~/germline && python3 effectors/golem-daemon status'
 ssh soma 'cd ~/germline && git status --short | head -20'
-ssh soma 'cd ~/germline && uv run pytest --co -q 2>&1 | tail -3'
+ssh soma 'cd ~/germline && python3 effectors/golem-daemon stats'
 ```
 
 If on soma directly:
 ```bash
 python3 effectors/golem-daemon status
+python3 effectors/golem-daemon stats
 git log --oneline -10
 ```
+
+**Never run full pytest from CC.** With 14k+ tests it takes 5+ minutes, and on soma multiple CC instances compete for output files. Use `golem-daemon stats` for pass/fail signal. For targeted checks, run single-file: `uv run pytest assays/test_specific.py -q`.
 
 If daemon produced work since last session: review, commit, push. Then write next batch.
 
@@ -129,15 +132,25 @@ No need to trigger dispatch — daemon polls continuously. CC writes judgment in
 
 ### Phase 4: Verify + commit (on soma)
 
+**Don't run full pytest as verification.** Delegate that to a golem or check `golem-daemon stats`. CC verifies by sampling: pick 2-3 changed test files and run them individually.
+
 ```bash
-ssh soma 'cd ~/germline && uv run pytest --co -q 2>&1 | tail -3'
-ssh soma 'cd ~/germline && git add -A && git commit -m "golem: batch output" && git push'
+# Check what golems produced
+cd ~/germline && git status --short | head -30
+python3 effectors/golem-daemon stats
+
+# Sample-verify (not full suite)
+uv run pytest assays/test_one_changed_file.py -q
+
+# Commit
+git add -A && git status --short   # review
+git commit -m "mitogen: ..."
 ```
 
-Or if interactive, commit directly:
+From iMac:
 ```bash
-cd ~/germline && git add -A && git status --short   # review
-git commit -m "mitogen: ..."
+ssh soma 'cd ~/germline && python3 effectors/golem-daemon stats'
+ssh soma 'cd ~/germline && git add -A && git commit -m "golem: batch output" && git push'
 ```
 
 ### Phase 5: Report
@@ -169,7 +182,7 @@ golem --full "task needing MCP"           # non-bare mode
 | Provider | Model | TTFB | golem-daemon limit | Auth | Notes |
 |----------|-------|------|--------------------|------|-------|
 | ZhiPu (default) | GLM-5.1 | 380ms | 8 | ANTHROPIC_API_KEY | Most reliable (48% pass). Use for all critical work. |
-| Infini | deepseek-v3.2 | 2.6s | 4 | ANTHROPIC_API_KEY | Good coder. 1000 req/5hr plan limit — exhausts on mass dispatch. |
+| Infini | deepseek-v3.2 | 2.6s | 4 | ANTHROPIC_API_KEY | Good coder (78% pass). 1000 req/5hr plan limit — exhausts on mass dispatch. |
 | Volcano | ark-code-latest | 11s | 16 | ANTHROPIC_AUTH_TOKEN | HK->Tokyo->SJC routing. Background/overflow only. |
 | Gemini | gemini-3.1-pro | ~1s | 4 | GOOGLE_API_KEY | Uses `gemini` CLI, not claude. Momentary quota resets quickly. |
 | Codex | gpt-5.3-codex | ~2s | 4 | OPENAI_API_KEY | Uses `codex exec` CLI. Needs `--dangerously-bypass-approvals-and-sandbox`. |
@@ -195,3 +208,5 @@ Provider quotas recover naturally — Infini resets every 5hr, Volcano resets on
 - Don't use CC for work golem can do — CC judges, golem writes
 - Don't use shell `&` for background — use Bash tool's `run_in_background: true`
 - Don't rely on shell aliases in scripts — they don't expand
+- **Don't run full pytest from CC** — 14k+ tests = 5+ min, output files get cleaned by competing CC instances. Use `golem-daemon stats` for signal, single-file pytest for spot checks, and queue fix-golems for diagnosis
+- Don't dedicate CC time to diagnosing test failures — queue a golem with "run pytest, grep errors, fix" and let it do the work

@@ -82,7 +82,20 @@ For each: file as feedback with the preference and why, so future sessions match
 
 **The test:** if this session replayed tomorrow with a fresh context, would CC make the same mistakes AND misjudge the same preferences? If yes, something wasn't methylated.
 
-### 1b. Audit Signal
+### 1b. Skill drift check (2 min max)
+
+For each correction or learning filed this session, ask: **does this change how a skill operates?** Skills encode behavior; memories encode context. If the learning says "don't do X" and a skill currently says "do X", the skill is stale.
+
+Scan:
+- Feedback memories filed this session — grep the skill directory for the topic
+- Behavioral corrections from Terry — which skill guided the wrong behavior?
+- Surprising outcomes — did a skill's instructions cause the surprise?
+
+For each match: **edit the skill now** (add gotcha, update anti-pattern, fix instruction). Don't defer — the session context makes the edit precise. A memory without the corresponding skill update is a band-aid; the skill will guide the same mistake next time.
+
+**The test:** "If a fresh CC follows this skill tomorrow, will it repeat the mistake?" If yes, the skill needs updating, not just the memory.
+
+### 1c. Audit signal
 
 After consolidation, count findings routed in this pass. This is the "cytokinesis residual" — findings that should have been captured mid-session but were not.
 
@@ -94,7 +107,7 @@ This is not a punishment — it's proprioception. The number trends toward zero 
 
 **Capture displacement check:** "If I deleted all memories filed this session, would my behavior change next session?" If yes, the memories are load-bearing. If no, they're theater — the real learning happened in the code/skill edits, and the memories are redundant narration.
 
-### 1c. Publish (don't defer)
+### 1d. Publish (don't defer)
 
 If the session produced a publishable insight — pattern, framework, lesson — draft and publish NOW. The insight is hottest in the session that produced it. Deferring to "tomorrow" kills 80% of posts.
 
