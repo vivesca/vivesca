@@ -331,3 +331,15 @@
 {"ts": "2026-04-01T15:28:58+00:00", "model": "sonar", "query": "q1"}
 {"ts": "2026-04-01T15:28:58+00:00", "model": "sonar", "query": "test query"}
 {"ts": "2026-04-01T15:28:58+00:00", "model": "sonar", "query": "test query"}
+{"ts": "2026-04-01T15:39:22+00:00", "model": "sonar", "query": "test query"}
+{"ts": "2026-04-01T15:39:22+00:00", "model": "sonar", "query": "test query"}
+{"ts": "2026-04-01T15:39:30+00:00", "model": "sonar", "query": "test query"}
+{"ts": "2026-04-01T15:39:33+00:00", "model": "sonar", "query": "test query"}
+{"ts": "2026-04-01T15:39:36+00:00", "model": "sonar", "query": "query1"}
+{"ts": "2026-04-01T15:39:43+00:00", "model": "sonar", "query": "query2"}
+{"ts": "2026-04-01T15:39:46+00:00", "model": "sonar", "query": "q1"}
+{"ts": "2026-04-01T15:46:18+00:00", "model": "sonar", "query": "test query"}
+{"ts": "2026-04-01T15:46:20+00:00", "model": "sonar", "query": "q1"}
+{"ts": "2026-04-01T15:46:25+00:00", "model": "sonar", "query": "q2"}
+{"ts": "2026-04-01T15:46:25+00:00", "model": "sonar", "query": "test query"}
+{"ts": "2026-04-01T15:46:25+00:00", "model": "sonar", "query": "test query"}
