@@ -306,3 +306,97 @@ def test_project_dash_derivation(tmp_path):
     dst = fake_home / ".claude" / "projects" / f"-{project_dash}" / "memory" / "MEMORY.md"
     assert dst.exists(), f"Expected MEMORY.md at {dst}"
     assert dst.read_text() == "nested test"
+
+
+# ── Script sanity ───────────────────────────────────────────────────────
+
+
+def test_script_is_executable():
+    """agent-sync.sh must have execute permission."""
+    assert SCRIPT_PATH.exists()
+    assert os.access(str(SCRIPT_PATH), os.X_OK)
+
+
+# ── Directory-without-.git guard ────────────────────────────────────────
+
+
+def test_dir_exists_without_git_dir(tmp_path):
+    """A plain directory (no .git) under a repo path should be skipped silently."""
+    fake_home = tmp_path / "home"
+    fake_home.mkdir()
+
+    # Create agent-config as a plain dir (no .git)
+    (fake_home / "agent-config").mkdir()
+    # skills has a valid .git
+    repo = fake_home / "skills"
+    repo.mkdir()
+    subprocess.run(["git", "init"], cwd=repo, capture_output=True, check=True)
+    subprocess.run(["git", "config", "user.email", "t@t.com"], cwd=repo, capture_output=True, check=True)
+    subprocess.run(["git", "config", "user.name", "T"], cwd=repo, capture_output=True, check=True)
+    (repo / "f.txt").write_text("x")
+    subprocess.run(["git", "add", "f.txt"], cwd=repo, capture_output=True, check=True)
+    subprocess.run(["git", "commit", "-m", "i"], cwd=repo, capture_output=True, check=True)
+
+    result = run_script(env={"HOME": str(fake_home)})
+    assert result.returncode == 0
+
+
+# ── stderr clean on happy path ──────────────────────────────────────────
+
+
+def test_no_stderr_on_empty_home(tmp_path):
+    """Default run with no repos produces no stderr."""
+    fake_home = tmp_path / "home"
+    fake_home.mkdir()
+    result = run_script(env={"HOME": str(fake_home)})
+    assert result.stderr.strip() == ""
+
+
+# ── Nested epigenome/chromatin path ─────────────────────────────────────
+
+
+def test_nested_chromatin_repo(tmp_path):
+    """epigenome/chromatin is a nested path — both dirs must be created."""
+    fake_home = tmp_path / "home"
+    fake_home.mkdir()
+
+    chromatin = fake_home / "epigenome" / "chromatin"
+    chromatin.mkdir(parents=True)
+    subprocess.run(["git", "init"], cwd=chromatin, capture_output=True, check=True)
+    subprocess.run(["git", "config", "user.email", "t@t.com"], cwd=chromatin, capture_output=True, check=True)
+    subprocess.run(["git", "config", "user.name", "T"], cwd=chromatin, capture_output=True, check=True)
+    (chromatin / "r.md").write_text("c")
+    subprocess.run(["git", "add", "r.md"], cwd=chromatin, capture_output=True, check=True)
+    subprocess.run(["git", "commit", "-m", "i"], cwd=chromatin, capture_output=True, check=True)
+
+    result = run_script(env={"HOME": str(fake_home)})
+    assert result.returncode == 0
+
+
+# ── MEMORY.md large content ─────────────────────────────────────────────
+
+
+def test_memory_md_large_file(tmp_path):
+    """MEMORY.md over 100KB should be copied in full."""
+    fake_home = tmp_path / "home"
+    fake_home.mkdir()
+
+    agent_config = fake_home / "agent-config"
+    agent_config.mkdir()
+    subprocess.run(["git", "init"], cwd=agent_config, capture_output=True, check=True)
+
+    memory_dir = agent_config / "claude" / "memory"
+    memory_dir.mkdir(parents=True)
+
+    # ~200KB of repeated lines
+    line = "- " + "x" * 500 + "\n"
+    big_content = line * 400
+    (memory_dir / "MEMORY.md").write_text(big_content)
+
+    result = run_script(env={"HOME": str(fake_home)})
+    assert result.returncode == 0
+
+    project_dash = str(fake_home).lstrip("/").replace("/", "-")
+    dst = fake_home / ".claude" / "projects" / f"-{project_dash}" / "memory" / "MEMORY.md"
+    assert dst.exists()
+    assert dst.read_text() == big_content
