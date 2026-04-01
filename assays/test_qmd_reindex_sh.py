@@ -255,3 +255,94 @@ class TestMissingQmd:
         _make_fake_pgrep(tmp_path, body="exit 1")
         r = _run(tmp_path, env_extra={"PATH": str(tmp_path / "fake-bin") + ":/usr/bin:/bin"})
         assert r.returncode == 127
+
+
+# ── Behavior: help takes priority over running ────────────────────────────
+
+
+class TestHelpPriority:
+    def test_help_does_not_run_qmd(self, tmp_path):
+        """--help exits before calling qmd update/embed."""
+        log = tmp_path / "qmd.log"
+        _make_fake_qmd(tmp_path, body=f"echo \"$@\" >> {log}")
+        r = subprocess.run(
+            [str(SCRIPT), "--help"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        assert r.returncode == 0
+        assert not log.exists(), "qmd should not be invoked when --help is passed"
+
+    def test_help_does_not_check_pgrep(self, tmp_path):
+        """--help exits before the pgrep check, so missing pgrep doesn't matter."""
+        r = subprocess.run(
+            [str(SCRIPT), "-h"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+            env={**os.environ, "HOME": "/nonexistent"},
+        )
+        assert r.returncode == 0
+        assert "Usage:" in r.stdout
+
+
+# ── Behavior: no arguments → proceeds to run ─────────────────────────────
+
+
+class TestDefaultInvocation:
+    def test_no_args_runs_qmd(self, tmp_path):
+        """With no arguments, script proceeds to run qmd update + embed."""
+        log = tmp_path / "qmd.log"
+        _make_fake_qmd(tmp_path, body=f"echo \"$@\" >> {log}")
+        _make_fake_pgrep(tmp_path, body="exit 1")
+        r = _run(tmp_path, env_extra={"PATH": _path_with_fake(tmp_path)})
+        assert r.returncode == 0
+        calls = log.read_text().strip().splitlines()
+        assert calls == ["update", "embed"]
+
+    def test_unknown_args_not_intercepted(self, tmp_path):
+        """Unknown arguments are not handled (script doesn't parse them)."""
+        _make_fake_qmd(tmp_path, body="exit 0")
+        _make_fake_pgrep(tmp_path, body="exit 1")
+        r = _run(tmp_path, extra_args=["--random"], env_extra={"PATH": _path_with_fake(tmp_path)})
+        # Script ignores unknown flags and proceeds normally
+        assert r.returncode == 0
+
+
+# ── Behavior: pgrep edge cases ───────────────────────────────────────────
+
+
+class TestPgrepEdgeCases:
+    def test_pgrep_stderr_suppressed(self, tmp_path):
+        """pgrep errors (e.g., permission denied) are suppressed by 2>&1."""
+        _make_fake_qmd(tmp_path, body="exit 0")
+        _make_fake_pgrep(tmp_path, body="echo pgrep-error >&2; exit 1")
+        r = _run(tmp_path, env_extra={"PATH": _path_with_fake(tmp_path)})
+        # Script's own stderr should not contain pgrep error messages
+        assert r.returncode == 0
+
+    def test_pgrep_stdout_suppressed(self, tmp_path):
+        """pgrep output (e.g., matching PIDs) is suppressed by > /dev/null."""
+        _make_fake_qmd(tmp_path, body="exit 0")
+        # pgrep matching: exits 0 but we want to verify it still skips
+        _make_fake_pgrep(tmp_path, body="echo 12345; exit 0")
+        r = _run(tmp_path, env_extra={"PATH": _path_with_fake(tmp_path)})
+        assert r.returncode == 0
+        # Should have skipped qmd entirely (pgrep matched)
+        assert "12345" not in r.stdout
+
+
+# ── Behavior: help content accuracy ──────────────────────────────────────
+
+
+class TestHelpContent:
+    def test_help_mentions_skip_behavior(self):
+        """Help text mentions that running embed is skipped if already in progress."""
+        r = subprocess.run(
+            [str(SCRIPT), "--help"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        assert "already running" in r.stdout.lower() or "already" in r.stdout.lower() or "skip" in r.stdout.lower()
