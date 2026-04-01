@@ -102,7 +102,8 @@ def parse_index() -> list[dict]:
                 # This might be a brief card link
                 title_m = re.search(r'link "([^"]+)"', line)
                 href_m = re.search(r'ref=(\w+)', line)
-                if title_m and title_m.group(1) not in ("Read more", "SIGN IN", "Sign up to our newsletter", "privacy policy", "Learn more about Membership"):
+                skip = {"Read more", "SIGN IN", "Sign up to our newsletter", "privacy policy", "Learn more about Membership", "Show more", "Register here", "Apply here"}
+                if title_m and title_m.group(1) not in skip:
                     title = title_m.group(1)
                     # Need the slug — check if there's a heading with this title
                     slug = title.lower().strip()
