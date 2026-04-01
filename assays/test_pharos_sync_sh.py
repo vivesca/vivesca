@@ -232,11 +232,11 @@ def test_main_syncs_memory_directory(tmp_path):
     fake_home = tmp_path / "home"
     fake_claude = fake_home / ".claude"
     officina = fake_home / "officina"
+    fake_claude.mkdir(parents=True)
+    officina.mkdir(parents=True)
     mem_src = fake_claude / "projects" / "-Users-terry" / "memory"
     mem_src.mkdir(parents=True)
     (mem_src / "MEMORY.md").write_text("# Memory\nTest content")
-    fake_claude.mkdir(parents=True)
-    officina.mkdir(parents=True)
     subprocess.run(["git", "init", str(officina)], capture_output=True, check=True)
     subprocess.run(
         ["git", "-C", str(officina), "config", "user.email", "test@test.com"],
@@ -270,6 +270,10 @@ def test_main_git_commits_on_change(tmp_path):
         ["git", "-C", str(officina), "config", "user.name", "Test"],
         capture_output=True,
     )
+    # Provide both memory dir and settings so git add can find both paths
+    mem_src = fake_claude / "projects" / "-Users-terry" / "memory"
+    mem_src.mkdir(parents=True)
+    (mem_src / "MEMORY.md").write_text("# Memory")
     (fake_claude / "settings.json").write_text('{"first": true}')
 
     run_script(env={"HOME": str(fake_home)})
