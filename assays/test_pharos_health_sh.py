@@ -157,6 +157,10 @@ class TestHealthy:
         r = _run(tmp_path, disk_pct=50, failed_units=0)
         assert "failed_units=0" in r.stdout
 
+    def test_stderr_empty_when_healthy(self, tmp_path):
+        r = _run(tmp_path, disk_pct=50, failed_units=0)
+        assert r.stderr == ""
+
 
 # ── disk alert ────────────────────────────────────────────────────────
 

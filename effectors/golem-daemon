@@ -61,6 +61,7 @@ PROVIDER_RATE_WINDOWS: dict[str, int] = {
     "infini": 18000,  # 1000 req / 5 hours
     "volcano": 18000,  # 5-hour quota window (parse_rate_limit_window extracts exact reset time)
     "codex": 3600,    # ~hourly resets (parse_rate_limit_window extracts exact "try again at" time)
+    "gemini": 1200,   # ~20 min resets (parse_rate_limit_window extracts exact "Xm Ys" duration)
 }
 
 # Rate-limit detection patterns (checked against task output/tail)
@@ -590,7 +591,12 @@ def parse_rate_limit_window(tail: str) -> int | None:
         except (ValueError, OverflowError):
             pass
 
-    # 3. Duration patterns
+    # 3. Gemini format: "quota will reset after 18m38s"
+    m = re.search(r'quota will reset after (\d+)m(\d+)s', tail)
+    if m:
+        return int(m.group(1)) * 60 + int(m.group(2))
+
+    # 4. Duration patterns
     m = re.search(r'(\d+)[- ]hour', tail)
     if m:
         return int(m.group(1)) * 3600
