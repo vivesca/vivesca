@@ -190,20 +190,22 @@ async def poll_loop(interval: int = 30) -> None:
 def show_status(json_output: bool = False) -> None:
     """Show current Hatchet workflow runs."""
     h = Hatchet()
-    runs = h.runs.list(limit=20)
+    result = h.runs.list(limit=20)
+    rows = result.rows if hasattr(result, "rows") else []
     if json_output:
         data = [
             {
-                "workflow_run_id": r.workflow_run_id,
-                "status": r.status,
+                "task_id": r.task_id,
+                "workflow_name": r.workflow_name,
+                "status": str(r.status),
                 "started_at": str(r.started_at),
             }
-            for r in runs
+            for r in rows
         ]
         print(json.dumps(data, indent=2))
     else:
-        for run in runs:
-            print(f"  {run.workflow_run_id}  {run.status}  {run.started_at}")
+        for r in rows:
+            print(f"  {r.task_id}  {r.workflow_name}  {r.status}  {r.started_at}")
 
 
 def main() -> None:
