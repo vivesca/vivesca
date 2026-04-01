@@ -1425,320 +1425,383 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 - [!] `golem [t-afbf28] --provider gemini --max-turns 50 "Run uv run pytest -q --tb=no --continue-on-collection-errors 2>&1 | grep FAILED | sed 's/::.*//g' | sort | uniq -c | sort -rn | head -5. For each of the top 5 failing test files: run pytest on it, read traceback, fix. Iterate until green. Commit."`
 - [!] `golem [t-011b94] --provider gemini --max-turns 30 "Health check: queue-stats, find, linkedin-monitor, pharos-env.sh, tmux-url-select.sh, nightly, poiesis, soma-clean, golem-top, tm. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
 - [!] `golem [t-94223a] --provider gemini --max-turns 25 "Find test files with SyntaxError. Fix syntax. Commit."`
-- [ ] `golem [t-d6a6c7] --provider zhipu --max-turns 25 "Find subprocess.run calls without timeout in effectors/. Add timeout=300. Commit."`
+- [!] `golem [t-d6a6c7] --provider zhipu --max-turns 25 "Find subprocess.run calls without timeout in effectors/. Add timeout=300. Commit."`
 - [!] `golem [t-49b62e] --provider gemini --max-turns 25 "Check all effectors respond to --help without crashing. Fix crashers. Commit."`
 - [!] `golem [t-bab3a7] --provider gemini --max-turns 30 "Write a consulting insight card: Data governance for AI/ML training data in banking. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/data-governance-ai.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
-- [ ] `golem [t-6819e5] --provider gemini --max-turns 35 "Read effectors/golem-dash (if exists). Improve to show real-time task progress, ETA to drain. Write tests. Run uv run pytest. Commit."`
+- [!] `golem [t-6819e5] --provider gemini --max-turns 35 "Read effectors/golem-dash (if exists). Improve to show real-time task progress, ETA to drain. Write tests. Run uv run pytest. Commit."`
 
 ### Auto-requeue (19 tasks @ 16:27)
 - [!] `golem [t-916177] --provider gemini --max-turns 40 "Run uv run pytest --co -q 2>&1 | grep ERROR. Fix ALL collection errors. Common: hardcoded paths, bad imports, syntax. Run --co again until 0 errors. Commit."`
-- [ ] `golem [t-efaf80] --provider zhipu --max-turns 50 "Run uv run pytest -q --tb=no --continue-on-collection-errors 2>&1 | grep FAILED | sed 's/::.*//g' | sort | uniq -c | sort -rn | head -5. For each of the top 5 failing test files: run pytest on it, read traceback, fix. Iterate until green. Commit."`
+- [!] `golem [t-efaf80] --provider zhipu --max-turns 50 "Run uv run pytest -q --tb=no --continue-on-collection-errors 2>&1 | grep FAILED | sed 's/::.*//g' | sort | uniq -c | sort -rn | head -5. For each of the top 5 failing test files: run pytest on it, read traceback, fix. Iterate until green. Commit."`
 - [!] `golem [t-3f1eff] --provider gemini --max-turns 30 "Health check: lacuna.py, fix-symlinks, inflammasome-probe, secrets-sync, grok, queue-balance, vesicle, mitosis-checkpoint.py, pharos-env.sh, backfill-marks. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
-- [ ] `golem [t-4e00ad] --provider gemini --max-turns 25 "Find unused imports in metabolon/**/*.py. Remove them. Commit."`
+- [!] `golem [t-4e00ad] --provider gemini --max-turns 25 "Find unused imports in metabolon/**/*.py. Remove them. Commit."`
 - [!] `golem [t-d584a5] --provider gemini --max-turns 25 "Scan effectors/ for hardcoded paths. Fix with Path.home() or $HOME. Commit."`
-- [ ] `golem [t-fa0ded] --provider zhipu --max-turns 25 "Check all effectors respond to --help without crashing. Fix crashers. Commit."`
+- [!] `golem [t-fa0ded] --provider zhipu --max-turns 25 "Check all effectors respond to --help without crashing. Fix crashers. Commit."`
 - [!] `golem [t-823ef1] --provider gemini --max-turns 30 "Write a consulting insight card: Data governance for AI/ML training data in banking. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/data-governance-ai.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [!] `golem [t-45d201] --provider gemini --max-turns 35 "Read effectors/golem. Add --json flag that outputs result as JSON instead of raw text. Useful for piping. Write tests. Run uv run pytest. Commit."`
 
 ### Auto-requeue (19 tasks @ 16:28)
-- [ ] `golem [t-162c57] --provider gemini --max-turns 40 "Run uv run pytest --co -q 2>&1 | grep ERROR. Fix ALL collection errors. Common: hardcoded paths, bad imports, syntax. Run --co again until 0 errors. Commit."`
+- [!] `golem [t-162c57] --provider gemini --max-turns 40 "Run uv run pytest --co -q 2>&1 | grep ERROR. Fix ALL collection errors. Common: hardcoded paths, bad imports, syntax. Run --co again until 0 errors. Commit."`
 - [!] `golem [t-888445] --provider gemini --max-turns 50 "Run uv run pytest -q --tb=no --continue-on-collection-errors 2>&1 | grep FAILED | sed 's/::.*//g' | sort | uniq -c | sort -rn | head -5. For each of the top 5 failing test files: run pytest on it, read traceback, fix. Iterate until green. Commit."`
-- [ ] `golem [t-95e921] --provider zhipu --max-turns 30 "Health check: grok, switch-layer, ck, orphan-scan, golem-top, coverage-map, soma-snapshot, cn-route, replisome, engram. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
+- [!] `golem [t-95e921] --provider zhipu --max-turns 30 "Health check: grok, switch-layer, ck, orphan-scan, golem-top, coverage-map, soma-snapshot, cn-route, replisome, engram. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
 - [!] `golem [t-f3eafd] --provider gemini --max-turns 25 "Find test files with SyntaxError. Fix syntax. Commit."`
-- [ ] `golem [t-1ca3c1] --provider gemini --max-turns 25 "Find unused imports in metabolon/**/*.py. Remove them. Commit."`
+- [!] `golem [t-1ca3c1] --provider gemini --max-turns 25 "Find unused imports in metabolon/**/*.py. Remove them. Commit."`
 - [!] `golem [t-36af34] --provider gemini --max-turns 25 "Scan effectors/ for hardcoded paths. Fix with Path.home() or $HOME. Commit."`
 - [!] `golem [t-02201b] --provider gemini --max-turns 30 "Write a consulting insight card: Responsible AI governance checklist for financial institutions. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/responsible-ai-checklist.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
-- [ ] `golem [t-5ce644] --provider zhipu --max-turns 35 "Read effectors/golem. Add --json flag that outputs result as JSON instead of raw text. Useful for piping. Write tests. Run uv run pytest. Commit."`
+- [!] `golem [t-5ce644] --provider zhipu --max-turns 35 "Read effectors/golem. Add --json flag that outputs result as JSON instead of raw text. Useful for piping. Write tests. Run uv run pytest. Commit."`
 
 ### Auto-requeue (19 tasks @ 16:29)
 - [!] `golem [t-ce7017] --provider gemini --max-turns 40 "Run uv run pytest --co -q 2>&1 | grep ERROR. Fix ALL collection errors. Common: hardcoded paths, bad imports, syntax. Run --co again until 0 errors. Commit."`
-- [ ] `golem [t-fac9ce] --provider gemini --max-turns 50 "Run uv run pytest -q --tb=no --continue-on-collection-errors 2>&1 | grep FAILED | sed 's/::.*//g' | sort | uniq -c | sort -rn | head -5. For each of the top 5 failing test files: run pytest on it, read traceback, fix. Iterate until green. Commit."`
+- [!] `golem [t-fac9ce] --provider gemini --max-turns 50 "Run uv run pytest -q --tb=no --continue-on-collection-errors 2>&1 | grep FAILED | sed 's/::.*//g' | sort | uniq -c | sort -rn | head -5. For each of the top 5 failing test files: run pytest on it, read traceback, fix. Iterate until green. Commit."`
 - [!] `golem [t-c8af62] --provider gemini --max-turns 30 "Health check: oci-arm-retry, cleanup-stuck, tmux-osc52.sh, pulse-review, golem-top, immunosurveillance.py, tm, tmux-url-select.sh, goose-worker, lysis. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
-- [ ] `golem [t-70e788] --provider zhipu --max-turns 25 "Check all effectors respond to --help without crashing. Fix crashers. Commit."`
+- [!] `golem [t-70e788] --provider zhipu --max-turns 25 "Check all effectors respond to --help without crashing. Fix crashers. Commit."`
 - [!] `golem [t-a5ab65] --provider gemini --max-turns 25 "Find unused imports in metabolon/**/*.py. Remove them. Commit."`
-- [ ] `golem [t-929b4d] --provider gemini --max-turns 25 "Scan effectors/ for hardcoded paths. Fix with Path.home() or $HOME. Commit."`
+- [!] `golem [t-929b4d] --provider gemini --max-turns 25 "Scan effectors/ for hardcoded paths. Fix with Path.home() or $HOME. Commit."`
 - [!] `golem [t-07d6d6] --provider gemini --max-turns 30 "Write a consulting insight card: AI bias testing framework for credit decisioning. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-bias-testing.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [!] `golem [t-a89e22] --provider gemini --max-turns 35 "Read effectors/golem-dash (if exists). Improve to show real-time task progress, ETA to drain. Write tests. Run uv run pytest. Commit."`
 
 ### Auto-requeue (19 tasks @ 16:29)
-- [ ] `golem [t-7c4bd2] --provider zhipu --max-turns 40 "Run uv run pytest --co -q 2>&1 | grep ERROR. Fix ALL collection errors. Common: hardcoded paths, bad imports, syntax. Run --co again until 0 errors. Commit."`
+- [!] `golem [t-7c4bd2] --provider zhipu --max-turns 40 "Run uv run pytest --co -q 2>&1 | grep ERROR. Fix ALL collection errors. Common: hardcoded paths, bad imports, syntax. Run --co again until 0 errors. Commit."`
 - [!] `golem [t-7d81e9] --provider gemini --max-turns 50 "Run uv run pytest -q --tb=no --continue-on-collection-errors 2>&1 | grep FAILED | sed 's/::.*//g' | sort | uniq -c | sort -rn | head -5. For each of the top 5 failing test files: run pytest on it, read traceback, fix. Iterate until green. Commit."`
-- [ ] `golem [t-e59bd9] --provider gemini --max-turns 30 "Health check: auto-update-compound-engineering.sh, overnight-gather, soma-health, receptor-scan, test-dashboard, oura-weekly-digest.py, golem-top, golem-reviewer, secrets-sync, cytokinesis. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
+- [!] `golem [t-e59bd9] --provider gemini --max-turns 30 "Health check: auto-update-compound-engineering.sh, overnight-gather, soma-health, receptor-scan, test-dashboard, oura-weekly-digest.py, golem-top, golem-reviewer, secrets-sync, cytokinesis. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
 - [!] `golem [t-bdebed] --provider gemini --max-turns 25 "Scan effectors/ for hardcoded paths. Fix with Path.home() or $HOME. Commit."`
-- [ ] `golem [t-123823] --provider zhipu --max-turns 25 "Find subprocess.run calls without timeout in effectors/. Add timeout=300. Commit."`
+- [!] `golem [t-123823] --provider zhipu --max-turns 25 "Find subprocess.run calls without timeout in effectors/. Add timeout=300. Commit."`
 - [!] `golem [t-248ffd] --provider gemini --max-turns 25 "Scan assays/ for hardcoded /Users/terry paths. Replace with Path.home(). Commit."`
 - [!] `golem [t-ee66b3] --provider gemini --max-turns 30 "Write a consulting insight card: AI incident response playbook for financial services. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-incident-response.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
-- [ ] `golem [t-4d1d3a] --provider gemini --max-turns 35 "Read effectors/golem. Add --json flag that outputs result as JSON instead of raw text. Useful for piping. Write tests. Run uv run pytest. Commit."`
+- [!] `golem [t-4d1d3a] --provider gemini --max-turns 35 "Read effectors/golem. Add --json flag that outputs result as JSON instead of raw text. Useful for piping. Write tests. Run uv run pytest. Commit."`
 
 ### Auto-requeue (19 tasks @ 16:30)
 - [!] `golem [t-b851bb] --provider gemini --max-turns 40 "Run uv run pytest --co -q 2>&1 | grep ERROR. Fix ALL collection errors. Common: hardcoded paths, bad imports, syntax. Run --co again until 0 errors. Commit."`
-- [ ] `golem [t-7b9be4] --provider zhipu --max-turns 50 "Run uv run pytest -q --tb=no --continue-on-collection-errors 2>&1 | grep FAILED | sed 's/::.*//g' | sort | uniq -c | sort -rn | head -5. For each of the top 5 failing test files: run pytest on it, read traceback, fix. Iterate until green. Commit."`
+- [!] `golem [t-7b9be4] --provider zhipu --max-turns 50 "Run uv run pytest -q --tb=no --continue-on-collection-errors 2>&1 | grep FAILED | sed 's/::.*//g' | sort | uniq -c | sort -rn | head -5. For each of the top 5 failing test files: run pytest on it, read traceback, fix. Iterate until green. Commit."`
 - [!] `golem [t-78e9cb] --provider gemini --max-turns 30 "Health check: chat_history.py, golem-top, soma-clean, chromatin-backup.sh, agent-sync.sh, x-feed-to-lustro, ck, disk-audit, transduction-daily-run, sortase. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
-- [ ] `golem [t-799bfb] --provider gemini --max-turns 25 "Check all assays/test_*.py can be collected by pytest --co. Fix any that error. Commit."`
+- [!] `golem [t-799bfb] --provider gemini --max-turns 25 "Check all assays/test_*.py can be collected by pytest --co. Fix any that error. Commit."`
 - [!] `golem [t-591b5f] --provider gemini --max-turns 25 "Find test files with SyntaxError. Fix syntax. Commit."`
-- [ ] `golem [t-ca2c79] --provider zhipu --max-turns 25 "Find Python files missing shebang in effectors/. Add #!/usr/bin/env python3. Commit."`
+- [!] `golem [t-ca2c79] --provider zhipu --max-turns 25 "Find Python files missing shebang in effectors/. Add #!/usr/bin/env python3. Commit."`
 - [!] `golem [t-92fed9] --provider gemini --max-turns 30 "Write a consulting insight card: Responsible AI governance checklist for financial institutions. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/responsible-ai-checklist.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [!] `golem [t-70e9a9] --provider gemini --max-turns 35 "Read effectors/golem-daemon. Add cmd_stats — show pass/fail/retry counts, avg duration by provider, tasks completed today. Usage: golem-daemon stats. Write tests. Run uv run pytest. Commit."`
 
 ### Auto-requeue (19 tasks @ 16:31)
-- [ ] `golem [t-f9b2ec] --provider gemini --max-turns 40 "Run uv run pytest --co -q 2>&1 | grep ERROR. Fix ALL collection errors. Common: hardcoded paths, bad imports, syntax. Run --co again until 0 errors. Commit."`
+- [!] `golem [t-f9b2ec] --provider gemini --max-turns 40 "Run uv run pytest --co -q 2>&1 | grep ERROR. Fix ALL collection errors. Common: hardcoded paths, bad imports, syntax. Run --co again until 0 errors. Commit."`
 - [!] `golem [t-7fc40e] --provider gemini --max-turns 50 "Run uv run pytest -q --tb=no --continue-on-collection-errors 2>&1 | grep FAILED | sed 's/::.*//g' | sort | uniq -c | sort -rn | head -5. For each of the top 5 failing test files: run pytest on it, read traceback, fix. Iterate until green. Commit."`
-- [ ] `golem [t-8c9025] --provider zhipu --max-turns 30 "Health check: legatum-verify, receptor-health, soma-activate, fix-symlinks, circadian-probe.py, log-summary, x-feed-to-lustro, cn-route, soma-scale, grep. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
+- [!] `golem [t-8c9025] --provider zhipu --max-turns 30 "Health check: legatum-verify, receptor-health, soma-activate, fix-symlinks, circadian-probe.py, log-summary, x-feed-to-lustro, cn-route, soma-scale, grep. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
 - [!] `golem [t-205360] --provider gemini --max-turns 25 "Find unused imports in metabolon/**/*.py. Remove them. Commit."`
-- [ ] `golem [t-1854f9] --provider gemini --max-turns 25 "Find test files with SyntaxError. Fix syntax. Commit."`
+- [!] `golem [t-1854f9] --provider gemini --max-turns 25 "Find test files with SyntaxError. Fix syntax. Commit."`
 - [!] `golem [t-e08568] --provider gemini --max-turns 25 "Scan assays/ for hardcoded /Users/terry paths. Replace with Path.home(). Commit."`
 - [!] `golem [t-53d3c1] --provider gemini --max-turns 30 "Write a consulting insight card: Cross-border AI regulation comparison — HK vs SG vs UK vs EU. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/cross-border-ai-regulation.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
-- [ ] `golem [t-5f5674] --provider zhipu --max-turns 35 "Read effectors/golem-review (if exists). Enhance to also check consulting content quality (>200 words, proper structure). Write tests. Run uv run pytest. Commit."`
+- [!] `golem [t-5f5674] --provider zhipu --max-turns 35 "Read effectors/golem-review (if exists). Enhance to also check consulting content quality (>200 words, proper structure). Write tests. Run uv run pytest. Commit."`
 
 ### Auto-requeue (19 tasks @ 16:31)
 - [!] `golem [t-e01958] --provider gemini --max-turns 40 "Run uv run pytest --co -q 2>&1 | grep ERROR. Fix ALL collection errors. Common: hardcoded paths, bad imports, syntax. Run --co again until 0 errors. Commit."`
-- [ ] `golem [t-49b023] --provider gemini --max-turns 50 "Run uv run pytest -q --tb=no --continue-on-collection-errors 2>&1 | grep FAILED | sed 's/::.*//g' | sort | uniq -c | sort -rn | head -5. For each of the top 5 failing test files: run pytest on it, read traceback, fix. Iterate until green. Commit."`
+- [!] `golem [t-49b023] --provider gemini --max-turns 50 "Run uv run pytest -q --tb=no --continue-on-collection-errors 2>&1 | grep FAILED | sed 's/::.*//g' | sort | uniq -c | sort -rn | head -5. For each of the top 5 failing test files: run pytest on it, read traceback, fix. Iterate until green. Commit."`
 - [!] `golem [t-4905ca] --provider gemini --max-turns 30 "Health check: judge, x-feed-to-lustro, cytokinesis, goose-worker, commensal, translocon, engram, receptor-health, methylation, inflammasome-probe. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
-- [ ] `golem [t-73f6da] --provider zhipu --max-turns 25 "Find unused imports in metabolon/**/*.py. Remove them. Commit."`
+- [!] `golem [t-73f6da] --provider zhipu --max-turns 25 "Find unused imports in metabolon/**/*.py. Remove them. Commit."`
 - [!] `golem [t-8dfb35] --provider gemini --max-turns 25 "Find test files with SyntaxError. Fix syntax. Commit."`
-- [ ] `golem [t-09d8f2] --provider gemini --max-turns 25 "Check all effectors respond to --help without crashing. Fix crashers. Commit."`
+- [!] `golem [t-09d8f2] --provider gemini --max-turns 25 "Check all effectors respond to --help without crashing. Fix crashers. Commit."`
 - [!] `golem [t-7864e8] --provider gemini --max-turns 30 "Write a consulting insight card: LLM deployment risks in banking — regulatory expectations vs reality. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/llm-deployment-risks.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [!] `golem [t-0051a7] --provider gemini --max-turns 35 "Read effectors/golem-daemon. Add cmd_stats — show pass/fail/retry counts, avg duration by provider, tasks completed today. Usage: golem-daemon stats. Write tests. Run uv run pytest. Commit."`
 
 ### Auto-requeue (19 tasks @ 16:32)
-- [ ] `golem [t-23fdd3] --provider zhipu --max-turns 40 "Run uv run pytest --co -q 2>&1 | grep ERROR. Fix ALL collection errors. Common: hardcoded paths, bad imports, syntax. Run --co again until 0 errors. Commit."`
+- [!] `golem [t-23fdd3] --provider zhipu --max-turns 40 "Run uv run pytest --co -q 2>&1 | grep ERROR. Fix ALL collection errors. Common: hardcoded paths, bad imports, syntax. Run --co again until 0 errors. Commit."`
 - [!] `golem [t-110bcd] --provider gemini --max-turns 50 "Run uv run pytest -q --tb=no --continue-on-collection-errors 2>&1 | grep FAILED | sed 's/::.*//g' | sort | uniq -c | sort -rn | head -5. For each of the top 5 failing test files: run pytest on it, read traceback, fix. Iterate until green. Commit."`
-- [ ] `golem [t-a09f88] --provider gemini --max-turns 30 "Health check: backfill-marks, tm, proteostasis, soma-activate, pharos-env.sh, transduction-daily-run, cytokinesis, coaching-stats, chromatin-backup.sh, quorum. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
+- [!] `golem [t-a09f88] --provider gemini --max-turns 30 "Health check: backfill-marks, tm, proteostasis, soma-activate, pharos-env.sh, transduction-daily-run, cytokinesis, coaching-stats, chromatin-backup.sh, quorum. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
 - [!] `golem [t-624d45] --provider gemini --max-turns 25 "Find unused imports in metabolon/**/*.py. Remove them. Commit."`
-- [ ] `golem [t-be2ef7] --provider zhipu --max-turns 25 "Check all effectors respond to --help without crashing. Fix crashers. Commit."`
+- [!] `golem [t-be2ef7] --provider zhipu --max-turns 25 "Check all effectors respond to --help without crashing. Fix crashers. Commit."`
 - [!] `golem [t-ff2690] --provider gemini --max-turns 25 "Find subprocess.run calls without timeout in effectors/. Add timeout=300. Commit."`
 - [!] `golem [t-f7f343] --provider gemini --max-turns 30 "Write a consulting insight card: Data governance for AI/ML training data in banking. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/data-governance-ai.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
-- [ ] `golem [t-9f4bb9] --provider gemini --max-turns 35 "Read effectors/golem. Add --json flag that outputs result as JSON instead of raw text. Useful for piping. Write tests. Run uv run pytest. Commit."`
+- [!] `golem [t-9f4bb9] --provider gemini --max-turns 35 "Read effectors/golem. Add --json flag that outputs result as JSON instead of raw text. Useful for piping. Write tests. Run uv run pytest. Commit."`
 
 ### Auto-requeue (19 tasks @ 16:32)
 - [!] `golem [t-52246f] --provider gemini --max-turns 40 "Run uv run pytest --co -q 2>&1 | grep ERROR. Fix ALL collection errors. Common: hardcoded paths, bad imports, syntax. Run --co again until 0 errors. Commit."`
-- [ ] `golem [t-1808a9] --provider zhipu --max-turns 50 "Run uv run pytest -q --tb=no --continue-on-collection-errors 2>&1 | grep FAILED | sed 's/::.*//g' | sort | uniq -c | sort -rn | head -5. For each of the top 5 failing test files: run pytest on it, read traceback, fix. Iterate until green. Commit."`
+- [!] `golem [t-1808a9] --provider zhipu --max-turns 50 "Run uv run pytest -q --tb=no --continue-on-collection-errors 2>&1 | grep FAILED | sed 's/::.*//g' | sort | uniq -c | sort -rn | head -5. For each of the top 5 failing test files: run pytest on it, read traceback, fix. Iterate until green. Commit."`
 - [!] `golem [t-c75121] --provider gemini --max-turns 30 "Health check: commensal, oci-arm-retry, chromatin-backup.sh, receptor-scan, electroreception, replisome, pulse-review, importin, golem-validate, rg. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
-- [ ] `golem [t-de9d5e] --provider gemini --max-turns 25 "Find unused imports in metabolon/**/*.py. Remove them. Commit."`
+- [!] `golem [t-de9d5e] --provider gemini --max-turns 25 "Find unused imports in metabolon/**/*.py. Remove them. Commit."`
 - [!] `golem [t-795f33] --provider gemini --max-turns 25 "Find subprocess.run calls without timeout in effectors/. Add timeout=300. Commit."`
-- [ ] `golem [t-20444d] --provider zhipu --max-turns 25 "Scan effectors/ for hardcoded paths. Fix with Path.home() or $HOME. Commit."`
+- [!] `golem [t-20444d] --provider zhipu --max-turns 25 "Scan effectors/ for hardcoded paths. Fix with Path.home() or $HOME. Commit."`
 - [!] `golem [t-de09d3] --provider gemini --max-turns 30 "Write a consulting insight card: Data governance for AI/ML training data in banking. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/data-governance-ai.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [!] `golem [t-fdbb01] --provider gemini --max-turns 35 "Read effectors/golem-dash (if exists). Improve to show real-time task progress, ETA to drain. Write tests. Run uv run pytest. Commit."`
 
 ### Auto-requeue (19 tasks @ 16:33)
-- [ ] `golem [t-2bc127] --provider gemini --max-turns 40 "Run uv run pytest --co -q 2>&1 | grep ERROR. Fix ALL collection errors. Common: hardcoded paths, bad imports, syntax. Run --co again until 0 errors. Commit."`
+- [!] `golem [t-2bc127] --provider gemini --max-turns 40 "Run uv run pytest --co -q 2>&1 | grep ERROR. Fix ALL collection errors. Common: hardcoded paths, bad imports, syntax. Run --co again until 0 errors. Commit."`
 - [!] `golem [t-4c0664] --provider gemini --max-turns 50 "Run uv run pytest -q --tb=no --continue-on-collection-errors 2>&1 | grep FAILED | sed 's/::.*//g' | sort | uniq -c | sort -rn | head -5. For each of the top 5 failing test files: run pytest on it, read traceback, fix. Iterate until green. Commit."`
-- [ ] `golem [t-41ba30] --provider zhipu --max-turns 30 "Health check: cibus.py, vesicle, soma-pull, demethylase, soma-watchdog, cytokinesis, goose-worker, pulse-review, switch-layer, grok. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
+- [!] `golem [t-41ba30] --provider zhipu --max-turns 30 "Health check: cibus.py, vesicle, soma-pull, demethylase, soma-watchdog, cytokinesis, goose-worker, pulse-review, switch-layer, grok. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
 - [!] `golem [t-16e09d] --provider gemini --max-turns 25 "Find unused imports in metabolon/**/*.py. Remove them. Commit."`
-- [ ] `golem [t-623bcf] --provider gemini --max-turns 25 "Find Python files missing shebang in effectors/. Add #!/usr/bin/env python3. Commit."`
+- [!] `golem [t-623bcf] --provider gemini --max-turns 25 "Find Python files missing shebang in effectors/. Add #!/usr/bin/env python3. Commit."`
 - [!] `golem [t-e3e6a6] --provider gemini --max-turns 25 "Find test files with SyntaxError. Fix syntax. Commit."`
 - [!] `golem [t-f54c96] --provider gemini --max-turns 30 "Write a consulting insight card: GenAI policy template for bank employees. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/genai-policy-template.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
-- [ ] `golem [t-7e2662] --provider zhipu --max-turns 35 "Read effectors/golem. Add --json flag that outputs result as JSON instead of raw text. Useful for piping. Write tests. Run uv run pytest. Commit."`
+- [!] `golem [t-7e2662] --provider zhipu --max-turns 35 "Read effectors/golem. Add --json flag that outputs result as JSON instead of raw text. Useful for piping. Write tests. Run uv run pytest. Commit."`
 
 ### Auto-requeue (19 tasks @ 16:34)
 - [!] `golem [t-c88791] --provider gemini --max-turns 40 "Run uv run pytest --co -q 2>&1 | grep ERROR. Fix ALL collection errors. Common: hardcoded paths, bad imports, syntax. Run --co again until 0 errors. Commit."`
-- [ ] `golem [t-d2d39e] --provider gemini --max-turns 50 "Run uv run pytest -q --tb=no --continue-on-collection-errors 2>&1 | grep FAILED | sed 's/::.*//g' | sort | uniq -c | sort -rn | head -5. For each of the top 5 failing test files: run pytest on it, read traceback, fix. Iterate until green. Commit."`
+- [!] `golem [t-d2d39e] --provider gemini --max-turns 50 "Run uv run pytest -q --tb=no --continue-on-collection-errors 2>&1 | grep FAILED | sed 's/::.*//g' | sort | uniq -c | sort -rn | head -5. For each of the top 5 failing test files: run pytest on it, read traceback, fix. Iterate until green. Commit."`
 - [!] `golem [t-d9a9e0] --provider gemini --max-turns 30 "Health check: fix-symlinks, channel, lysis, circadian-probe.py, ck, test-dashboard, agent-sync.sh, soma-wake, gap_junction_sync, poiesis. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
-- [ ] `golem [t-ee59a8] --provider zhipu --max-turns 25 "Find unused imports in metabolon/**/*.py. Remove them. Commit."`
+- [!] `golem [t-ee59a8] --provider zhipu --max-turns 25 "Find unused imports in metabolon/**/*.py. Remove them. Commit."`
 - [!] `golem [t-dc7d7d] --provider gemini --max-turns 25 "Check all assays/test_*.py can be collected by pytest --co. Fix any that error. Commit."`
-- [ ] `golem [t-daa395] --provider gemini --max-turns 25 "Scan effectors/ for hardcoded paths. Fix with Path.home() or $HOME. Commit."`
+- [!] `golem [t-daa395] --provider gemini --max-turns 25 "Scan effectors/ for hardcoded paths. Fix with Path.home() or $HOME. Commit."`
 - [!] `golem [t-b5b00f] --provider gemini --max-turns 30 "Write a consulting insight card: LLM deployment risks in banking — regulatory expectations vs reality. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/llm-deployment-risks.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [!] `golem [t-460f92] --provider gemini --max-turns 35 "Read effectors/golem-dash (if exists). Improve to show real-time task progress, ETA to drain. Write tests. Run uv run pytest. Commit."`
 
 ### Auto-requeue (19 tasks @ 16:34)
-- [ ] `golem [t-fbd875] --provider zhipu --max-turns 40 "Run uv run pytest --co -q 2>&1 | grep ERROR. Fix ALL collection errors. Common: hardcoded paths, bad imports, syntax. Run --co again until 0 errors. Commit."`
+- [!] `golem [t-fbd875] --provider zhipu --max-turns 40 "Run uv run pytest --co -q 2>&1 | grep ERROR. Fix ALL collection errors. Common: hardcoded paths, bad imports, syntax. Run --co again until 0 errors. Commit."`
 - [!] `golem [t-25a291] --provider gemini --max-turns 50 "Run uv run pytest -q --tb=no --continue-on-collection-errors 2>&1 | grep FAILED | sed 's/::.*//g' | sort | uniq -c | sort -rn | head -5. For each of the top 5 failing test files: run pytest on it, read traceback, fix. Iterate until green. Commit."`
-- [ ] `golem [t-599411] --provider gemini --max-turns 30 "Health check: commensal, chat_history.py, lacuna, council, golem-reviewer, pharos-env.sh, wacli-ro, overnight-gather, regulatory-scan, perplexity.sh. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
+- [!] `golem [t-599411] --provider gemini --max-turns 30 "Health check: commensal, chat_history.py, lacuna, council, golem-reviewer, pharos-env.sh, wacli-ro, overnight-gather, regulatory-scan, perplexity.sh. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
 - [!] `golem [t-30404e] --provider gemini --max-turns 25 "Find unused imports in metabolon/**/*.py. Remove them. Commit."`
-- [ ] `golem [t-917167] --provider zhipu --max-turns 25 "Find Python files missing shebang in effectors/. Add #!/usr/bin/env python3. Commit."`
+- [!] `golem [t-917167] --provider zhipu --max-turns 25 "Find Python files missing shebang in effectors/. Add #!/usr/bin/env python3. Commit."`
 - [!] `golem [t-81e276] --provider gemini --max-turns 25 "Scan effectors/ for hardcoded paths. Fix with Path.home() or $HOME. Commit."`
 - [!] `golem [t-069984] --provider gemini --max-turns 30 "Write a consulting insight card: AI bias testing framework for credit decisioning. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-bias-testing.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
-- [ ] `golem [t-013b25] --provider gemini --max-turns 35 "Read effectors/golem. Add --json flag that outputs result as JSON instead of raw text. Useful for piping. Write tests. Run uv run pytest. Commit."`
+- [!] `golem [t-013b25] --provider gemini --max-turns 35 "Read effectors/golem. Add --json flag that outputs result as JSON instead of raw text. Useful for piping. Write tests. Run uv run pytest. Commit."`
 
 ### Auto-requeue (19 tasks @ 16:35)
 - [!] `golem [t-a289e6] --provider gemini --max-turns 40 "Run uv run pytest --co -q 2>&1 | grep ERROR. Fix ALL collection errors. Common: hardcoded paths, bad imports, syntax. Run --co again until 0 errors. Commit."`
-- [ ] `golem [t-4e6661] --provider zhipu --max-turns 50 "Run uv run pytest -q --tb=no --continue-on-collection-errors 2>&1 | grep FAILED | sed 's/::.*//g' | sort | uniq -c | sort -rn | head -5. For each of the top 5 failing test files: run pytest on it, read traceback, fix. Iterate until green. Commit."`
+- [!] `golem [t-4e6661] --provider zhipu --max-turns 50 "Run uv run pytest -q --tb=no --continue-on-collection-errors 2>&1 | grep FAILED | sed 's/::.*//g' | sort | uniq -c | sort -rn | head -5. For each of the top 5 failing test files: run pytest on it, read traceback, fix. Iterate until green. Commit."`
 - [!] `golem [t-3cd869] --provider gemini --max-turns 30 "Health check: chemoreception.py, autoimmune.py, wacli-ro, transduction-daily-run, tmux-workspace.py, consulting-card.py, engram, generate-solutions-index.py, mismatch-repair, rheotaxis-local. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
-- [ ] `golem [t-21c812] --provider gemini --max-turns 25 "Scan assays/ for hardcoded /Users/terry paths. Replace with Path.home(). Commit."`
+- [!] `golem [t-21c812] --provider gemini --max-turns 25 "Scan assays/ for hardcoded /Users/terry paths. Replace with Path.home(). Commit."`
 - [!] `golem [t-544429] --provider gemini --max-turns 25 "Find unused imports in metabolon/**/*.py. Remove them. Commit."`
-- [ ] `golem [t-86bd0f] --provider zhipu --max-turns 25 "Check all assays/test_*.py can be collected by pytest --co. Fix any that error. Commit."`
+- [!] `golem [t-86bd0f] --provider zhipu --max-turns 25 "Check all assays/test_*.py can be collected by pytest --co. Fix any that error. Commit."`
 - [!] `golem [t-076717] --provider gemini --max-turns 30 "Write a consulting insight card: AI bias testing framework for credit decisioning. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-bias-testing.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [!] `golem [t-1664a3] --provider gemini --max-turns 35 "Read effectors/golem-review (if exists). Enhance to also check consulting content quality (>200 words, proper structure). Write tests. Run uv run pytest. Commit."`
 
 ### Auto-requeue (19 tasks @ 16:35)
-- [ ] `golem [t-a22abb] --provider gemini --max-turns 40 "Run uv run pytest --co -q 2>&1 | grep ERROR. Fix ALL collection errors. Common: hardcoded paths, bad imports, syntax. Run --co again until 0 errors. Commit."`
+- [!] `golem [t-a22abb] --provider gemini --max-turns 40 "Run uv run pytest --co -q 2>&1 | grep ERROR. Fix ALL collection errors. Common: hardcoded paths, bad imports, syntax. Run --co again until 0 errors. Commit."`
 - [!] `golem [t-4cbc61] --provider gemini --max-turns 50 "Run uv run pytest -q --tb=no --continue-on-collection-errors 2>&1 | grep FAILED | sed 's/::.*//g' | sort | uniq -c | sort -rn | head -5. For each of the top 5 failing test files: run pytest on it, read traceback, fix. Iterate until green. Commit."`
-- [ ] `golem [t-d8f473] --provider zhipu --max-turns 30 "Health check: transduction-daily-run, browse, chat_history.py, test-fixer, golem-daemon, golem-dash, cytokinesis, mismatch-repair, client-brief, judge. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
+- [!] `golem [t-d8f473] --provider zhipu --max-turns 30 "Health check: transduction-daily-run, browse, chat_history.py, test-fixer, golem-daemon, golem-dash, cytokinesis, mismatch-repair, client-brief, judge. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
 - [!] `golem [t-8839b5] --provider gemini --max-turns 25 "Check all effectors respond to --help without crashing. Fix crashers. Commit."`
-- [ ] `golem [t-4cefba] --provider gemini --max-turns 25 "Find Python files missing shebang in effectors/. Add #!/usr/bin/env python3. Commit."`
+- [!] `golem [t-4cefba] --provider gemini --max-turns 25 "Find Python files missing shebang in effectors/. Add #!/usr/bin/env python3. Commit."`
 - [!] `golem [t-e8f1ff] --provider gemini --max-turns 25 "Scan assays/ for hardcoded /Users/terry paths. Replace with Path.home(). Commit."`
 - [!] `golem [t-255c15] --provider gemini --max-turns 30 "Write a consulting insight card: AI skills gap assessment for banking technology teams. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-skills-gap.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
-- [ ] `golem [t-e978ec] --provider zhipu --max-turns 35 "Read effectors/golem. Add --json flag that outputs result as JSON instead of raw text. Useful for piping. Write tests. Run uv run pytest. Commit."`
+- [!] `golem [t-e978ec] --provider zhipu --max-turns 35 "Read effectors/golem. Add --json flag that outputs result as JSON instead of raw text. Useful for piping. Write tests. Run uv run pytest. Commit."`
 
 ### Auto-requeue (19 tasks @ 16:36)
 - [!] `golem [t-3f3cd0] --provider gemini --max-turns 40 "Run uv run pytest --co -q 2>&1 | grep ERROR. Fix ALL collection errors. Common: hardcoded paths, bad imports, syntax. Run --co again until 0 errors. Commit."`
-- [ ] `golem [t-a4f878] --provider gemini --max-turns 50 "Run uv run pytest -q --tb=no --continue-on-collection-errors 2>&1 | grep FAILED | sed 's/::.*//g' | sort | uniq -c | sort -rn | head -5. For each of the top 5 failing test files: run pytest on it, read traceback, fix. Iterate until green. Commit."`
+- [!] `golem [t-a4f878] --provider gemini --max-turns 50 "Run uv run pytest -q --tb=no --continue-on-collection-errors 2>&1 | grep FAILED | sed 's/::.*//g' | sort | uniq -c | sort -rn | head -5. For each of the top 5 failing test files: run pytest on it, read traceback, fix. Iterate until green. Commit."`
 - [!] `golem [t-ad4ec1] --provider gemini --max-turns 30 "Health check: rg, chromatin-backup.sh, browse, linkedin-monitor, soma-bootstrap, immunosurveillance.py, generate-solutions-index.py, provider-bench, gemmation-env, lysis. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
-- [ ] `golem [t-62d671] --provider zhipu --max-turns 25 "Scan assays/ for hardcoded /Users/terry paths. Replace with Path.home(). Commit."`
+- [!] `golem [t-62d671] --provider zhipu --max-turns 25 "Scan assays/ for hardcoded /Users/terry paths. Replace with Path.home(). Commit."`
 - [!] `golem [t-5e32e8] --provider gemini --max-turns 25 "Find unused imports in metabolon/**/*.py. Remove them. Commit."`
-- [ ] `golem [t-5843e0] --provider gemini --max-turns 25 "Scan effectors/ for hardcoded paths. Fix with Path.home() or $HOME. Commit."`
+- [!] `golem [t-5843e0] --provider gemini --max-turns 25 "Scan effectors/ for hardcoded paths. Fix with Path.home() or $HOME. Commit."`
 - [!] `golem [t-def3d8] --provider gemini --max-turns 30 "Write a consulting insight card: AI audit methodology for internal audit teams. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-audit-methodology.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [!] `golem [t-02c270] --provider gemini --max-turns 35 "Read effectors/golem-dash (if exists). Improve to show real-time task progress, ETA to drain. Write tests. Run uv run pytest. Commit."`
 
 ### Auto-requeue (19 tasks @ 16:37)
-- [ ] `golem [t-c4853d] --provider zhipu --max-turns 40 "Run uv run pytest --co -q 2>&1 | grep ERROR. Fix ALL collection errors. Common: hardcoded paths, bad imports, syntax. Run --co again until 0 errors. Commit."`
+- [!] `golem [t-c4853d] --provider zhipu --max-turns 40 "Run uv run pytest --co -q 2>&1 | grep ERROR. Fix ALL collection errors. Common: hardcoded paths, bad imports, syntax. Run --co again until 0 errors. Commit."`
 - [!] `golem [t-c77ed8] --provider gemini --max-turns 50 "Run uv run pytest -q --tb=no --continue-on-collection-errors 2>&1 | grep FAILED | sed 's/::.*//g' | sort | uniq -c | sort -rn | head -5. For each of the top 5 failing test files: run pytest on it, read traceback, fix. Iterate until green. Commit."`
-- [ ] `golem [t-93d301] --provider gemini --max-turns 30 "Health check: coverage-map, oci-arm-retry, diapedesis, test-spec-gen, tmux-osc52.sh, golem-daemon, agent-sync.sh, cleanup-stuck, grok, auto-update-compound-engineering.sh. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
+- [!] `golem [t-93d301] --provider gemini --max-turns 30 "Health check: coverage-map, oci-arm-retry, diapedesis, test-spec-gen, tmux-osc52.sh, golem-daemon, agent-sync.sh, cleanup-stuck, grok, auto-update-compound-engineering.sh. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
 - [!] `golem [t-4a953d] --provider gemini --max-turns 25 "Scan assays/ for hardcoded /Users/terry paths. Replace with Path.home(). Commit."`
-- [ ] `golem [t-d357b1] --provider zhipu --max-turns 25 "Find unused imports in metabolon/**/*.py. Remove them. Commit."`
+- [!] `golem [t-d357b1] --provider zhipu --max-turns 25 "Find unused imports in metabolon/**/*.py. Remove them. Commit."`
 - [!] `golem [t-11a0cd] --provider gemini --max-turns 25 "Check all effectors respond to --help without crashing. Fix crashers. Commit."`
 - [!] `golem [t-87c7e5] --provider gemini --max-turns 30 "Write a consulting insight card: Cross-border AI regulation comparison — HK vs SG vs UK vs EU. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/cross-border-ai-regulation.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
-- [ ] `golem [t-75d417] --provider gemini --max-turns 35 "Read effectors/golem. Add --json flag that outputs result as JSON instead of raw text. Useful for piping. Write tests. Run uv run pytest. Commit."`
+- [!] `golem [t-75d417] --provider gemini --max-turns 35 "Read effectors/golem. Add --json flag that outputs result as JSON instead of raw text. Useful for piping. Write tests. Run uv run pytest. Commit."`
 
 ### Auto-requeue (19 tasks @ 16:37)
 - [!] `golem [t-581d4f] --provider gemini --max-turns 40 "Run uv run pytest --co -q 2>&1 | grep ERROR. Fix ALL collection errors. Common: hardcoded paths, bad imports, syntax. Run --co again until 0 errors. Commit."`
-- [ ] `golem [t-52ed5d] --provider zhipu --max-turns 50 "Run uv run pytest -q --tb=no --continue-on-collection-errors 2>&1 | grep FAILED | sed 's/::.*//g' | sort | uniq -c | sort -rn | head -5. For each of the top 5 failing test files: run pytest on it, read traceback, fix. Iterate until green. Commit."`
+- [!] `golem [t-52ed5d] --provider zhipu --max-turns 50 "Run uv run pytest -q --tb=no --continue-on-collection-errors 2>&1 | grep FAILED | sed 's/::.*//g' | sort | uniq -c | sort -rn | head -5. For each of the top 5 failing test files: run pytest on it, read traceback, fix. Iterate until green. Commit."`
 - [!] `golem [t-15825b] --provider gemini --max-turns 30 "Health check: goose-worker, golem, golem-validate, circadian-probe.py, vesicle, queue-stats, soma-snapshot, soma-health, plan-exec.deprecated, test-fixer. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
-- [ ] `golem [t-7958ff] --provider gemini --max-turns 25 "Scan assays/ for hardcoded /Users/terry paths. Replace with Path.home(). Commit."`
+- [!] `golem [t-7958ff] --provider gemini --max-turns 25 "Scan assays/ for hardcoded /Users/terry paths. Replace with Path.home(). Commit."`
 - [!] `golem [t-d4faf4] --provider gemini --max-turns 25 "Find Python files missing shebang in effectors/. Add #!/usr/bin/env python3. Commit."`
-- [ ] `golem [t-9f80ed] --provider zhipu --max-turns 25 "Check all assays/test_*.py can be collected by pytest --co. Fix any that error. Commit."`
+- [!] `golem [t-9f80ed] --provider zhipu --max-turns 25 "Check all assays/test_*.py can be collected by pytest --co. Fix any that error. Commit."`
 - [!] `golem [t-c62787] --provider gemini --max-turns 30 "Write a consulting insight card: AI bias testing framework for credit decisioning. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-bias-testing.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [!] `golem [t-735734] --provider gemini --max-turns 35 "Read effectors/golem-review (if exists). Enhance to also check consulting content quality (>200 words, proper structure). Write tests. Run uv run pytest. Commit."`
 
 ### Auto-requeue (19 tasks @ 16:38)
-- [ ] `golem [t-ca25c3] --provider gemini --max-turns 40 "Run uv run pytest --co -q 2>&1 | grep ERROR. Fix ALL collection errors. Common: hardcoded paths, bad imports, syntax. Run --co again until 0 errors. Commit."`
+- [!] `golem [t-ca25c3] --provider gemini --max-turns 40 "Run uv run pytest --co -q 2>&1 | grep ERROR. Fix ALL collection errors. Common: hardcoded paths, bad imports, syntax. Run --co again until 0 errors. Commit."`
 - [!] `golem [t-95a8e8] --provider gemini --max-turns 50 "Run uv run pytest -q --tb=no --continue-on-collection-errors 2>&1 | grep FAILED | sed 's/::.*//g' | sort | uniq -c | sort -rn | head -5. For each of the top 5 failing test files: run pytest on it, read traceback, fix. Iterate until green. Commit."`
-- [ ] `golem [t-31d31a] --provider zhipu --max-turns 30 "Health check: council, lysis, exocytosis.py, centrosome, poiesis, grep, respirometry, skill-lint, methylation-review, pulse-review. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
+- [!] `golem [t-31d31a] --provider zhipu --max-turns 30 "Health check: council, lysis, exocytosis.py, centrosome, poiesis, grep, respirometry, skill-lint, methylation-review, pulse-review. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
 - [!] `golem [t-10d1a2] --provider gemini --max-turns 25 "Scan effectors/ for hardcoded paths. Fix with Path.home() or $HOME. Commit."`
-- [ ] `golem [t-45ee0d] --provider gemini --max-turns 25 "Scan assays/ for hardcoded /Users/terry paths. Replace with Path.home(). Commit."`
+- [!] `golem [t-45ee0d] --provider gemini --max-turns 25 "Scan assays/ for hardcoded /Users/terry paths. Replace with Path.home(). Commit."`
 - [!] `golem [t-527f61] --provider gemini --max-turns 25 "Find subprocess.run calls without timeout in effectors/. Add timeout=300. Commit."`
 - [!] `golem [t-6886b2] --provider gemini --max-turns 30 "Write a consulting insight card: Cross-border AI regulation comparison — HK vs SG vs UK vs EU. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/cross-border-ai-regulation.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
-- [ ] `golem [t-087f5f] --provider zhipu --max-turns 35 "Read effectors/golem-daemon. Add cmd_stats — show pass/fail/retry counts, avg duration by provider, tasks completed today. Usage: golem-daemon stats. Write tests. Run uv run pytest. Commit."`
+- [!] `golem [t-087f5f] --provider zhipu --max-turns 35 "Read effectors/golem-daemon. Add cmd_stats — show pass/fail/retry counts, avg duration by provider, tasks completed today. Usage: golem-daemon stats. Write tests. Run uv run pytest. Commit."`
 
 ### Auto-requeue (19 tasks @ 16:39)
 - [!] `golem [t-8cc4d6] --provider gemini --max-turns 40 "Run uv run pytest --co -q 2>&1 | grep ERROR. Fix ALL collection errors. Common: hardcoded paths, bad imports, syntax. Run --co again until 0 errors. Commit."`
-- [ ] `golem [t-27c9e2] --provider gemini --max-turns 50 "Run uv run pytest -q --tb=no --continue-on-collection-errors 2>&1 | grep FAILED | sed 's/::.*//g' | sort | uniq -c | sort -rn | head -5. For each of the top 5 failing test files: run pytest on it, read traceback, fix. Iterate until green. Commit."`
+- [!] `golem [t-27c9e2] --provider gemini --max-turns 50 "Run uv run pytest -q --tb=no --continue-on-collection-errors 2>&1 | grep FAILED | sed 's/::.*//g' | sort | uniq -c | sort -rn | head -5. For each of the top 5 failing test files: run pytest on it, read traceback, fix. Iterate until green. Commit."`
 - [!] `golem [t-e8b1b9] --provider gemini --max-turns 30 "Health check: find, channel, nightly, generate-solutions-index.py, receptor-scan, queue-stats, receptor-health, pharos-sync.sh, rg, skill-search. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
-- [ ] `golem [t-14c7fb] --provider zhipu --max-turns 25 "Scan assays/ for hardcoded /Users/terry paths. Replace with Path.home(). Commit."`
+- [!] `golem [t-14c7fb] --provider zhipu --max-turns 25 "Scan assays/ for hardcoded /Users/terry paths. Replace with Path.home(). Commit."`
 - [!] `golem [t-c65fd1] --provider gemini --max-turns 25 "Find unused imports in metabolon/**/*.py. Remove them. Commit."`
-- [ ] `golem [t-c620de] --provider gemini --max-turns 25 "Find test files with SyntaxError. Fix syntax. Commit."`
+- [!] `golem [t-c620de] --provider gemini --max-turns 25 "Find test files with SyntaxError. Fix syntax. Commit."`
 - [!] `golem [t-6932ca] --provider gemini --max-turns 30 "Write a consulting insight card: AI vendor due diligence questionnaire for banks. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-vendor-due-diligence.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [!] `golem [t-12dcbf] --provider gemini --max-turns 35 "Read effectors/golem-daemon. Add cmd_stats — show pass/fail/retry counts, avg duration by provider, tasks completed today. Usage: golem-daemon stats. Write tests. Run uv run pytest. Commit."`
 
 ### Auto-requeue (19 tasks @ 16:39)
-- [ ] `golem [t-647959] --provider zhipu --max-turns 40 "Run uv run pytest --co -q 2>&1 | grep ERROR. Fix ALL collection errors. Common: hardcoded paths, bad imports, syntax. Run --co again until 0 errors. Commit."`
+- [!] `golem [t-647959] --provider zhipu --max-turns 40 "Run uv run pytest --co -q 2>&1 | grep ERROR. Fix ALL collection errors. Common: hardcoded paths, bad imports, syntax. Run --co again until 0 errors. Commit."`
 - [!] `golem [t-e8e7dc] --provider gemini --max-turns 50 "Run uv run pytest -q --tb=no --continue-on-collection-errors 2>&1 | grep FAILED | sed 's/::.*//g' | sort | uniq -c | sort -rn | head -5. For each of the top 5 failing test files: run pytest on it, read traceback, fix. Iterate until green. Commit."`
-- [ ] `golem [t-9a28ed] --provider gemini --max-turns 30 "Health check: browse, diapedesis, rheotaxis, regulatory-capture, lacuna, assay, overnight-gather, golem-cost, orphan-scan, safe_search.py. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
+- [!] `golem [t-9a28ed] --provider gemini --max-turns 30 "Health check: browse, diapedesis, rheotaxis, regulatory-capture, lacuna, assay, overnight-gather, golem-cost, orphan-scan, safe_search.py. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
 - [!] `golem [t-861f6d] --provider gemini --max-turns 25 "Find subprocess.run calls without timeout in effectors/. Add timeout=300. Commit."`
-- [ ] `golem [t-67cee1] --provider zhipu --max-turns 25 "Find test files with SyntaxError. Fix syntax. Commit."`
+- [!] `golem [t-67cee1] --provider zhipu --max-turns 25 "Find test files with SyntaxError. Fix syntax. Commit."`
 - [!] `golem [t-39bc39] --provider gemini --max-turns 25 "Find Python files missing shebang in effectors/. Add #!/usr/bin/env python3. Commit."`
 - [!] `golem [t-8a825e] --provider gemini --max-turns 30 "Write a consulting insight card: AI skills gap assessment for banking technology teams. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-skills-gap.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
-- [ ] `golem [t-fd3444] --provider gemini --max-turns 35 "Read effectors/golem-dash (if exists). Improve to show real-time task progress, ETA to drain. Write tests. Run uv run pytest. Commit."`
+- [!] `golem [t-fd3444] --provider gemini --max-turns 35 "Read effectors/golem-dash (if exists). Improve to show real-time task progress, ETA to drain. Write tests. Run uv run pytest. Commit."`
 
 ### Auto-requeue (19 tasks @ 16:40)
 - [!] `golem [t-c4f526] --provider gemini --max-turns 40 "Run uv run pytest --co -q 2>&1 | grep ERROR. Fix ALL collection errors. Common: hardcoded paths, bad imports, syntax. Run --co again until 0 errors. Commit."`
-- [ ] `golem [t-e0dbe0] --provider zhipu --max-turns 50 "Run uv run pytest -q --tb=no --continue-on-collection-errors 2>&1 | grep FAILED | sed 's/::.*//g' | sort | uniq -c | sort -rn | head -5. For each of the top 5 failing test files: run pytest on it, read traceback, fix. Iterate until green. Commit."`
+- [!] `golem [t-e0dbe0] --provider zhipu --max-turns 50 "Run uv run pytest -q --tb=no --continue-on-collection-errors 2>&1 | grep FAILED | sed 's/::.*//g' | sort | uniq -c | sort -rn | head -5. For each of the top 5 failing test files: run pytest on it, read traceback, fix. Iterate until green. Commit."`
 - [!] `golem [t-3b993a] --provider gemini --max-turns 30 "Health check: rheotaxis, cleanup-stuck, engram, grep, transduction-daily-run, backfill-marks, immunosurveillance, orphan-scan, assay, commensal. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
-- [ ] `golem [t-2b0ff6] --provider gemini --max-turns 25 "Find test files with SyntaxError. Fix syntax. Commit."`
+- [!] `golem [t-2b0ff6] --provider gemini --max-turns 25 "Find test files with SyntaxError. Fix syntax. Commit."`
 - [!] `golem [t-c392c4] --provider gemini --max-turns 25 "Check all assays/test_*.py can be collected by pytest --co. Fix any that error. Commit."`
-- [ ] `golem [t-07a20b] --provider zhipu --max-turns 25 "Find unused imports in metabolon/**/*.py. Remove them. Commit."`
+- [!] `golem [t-07a20b] --provider zhipu --max-turns 25 "Find unused imports in metabolon/**/*.py. Remove them. Commit."`
 - [!] `golem [t-37777f] --provider gemini --max-turns 30 "Write a consulting insight card: GenAI policy template for bank employees. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/genai-policy-template.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [!] `golem [t-a4d12e] --provider gemini --max-turns 35 "Read effectors/golem. Add --json flag that outputs result as JSON instead of raw text. Useful for piping. Write tests. Run uv run pytest. Commit."`
 
 ### Auto-requeue (19 tasks @ 16:41)
-- [ ] `golem [t-8ad577] --provider gemini --max-turns 40 "Run uv run pytest --co -q 2>&1 | grep ERROR. Fix ALL collection errors. Common: hardcoded paths, bad imports, syntax. Run --co again until 0 errors. Commit."`
+- [!] `golem [t-8ad577] --provider gemini --max-turns 40 "Run uv run pytest --co -q 2>&1 | grep ERROR. Fix ALL collection errors. Common: hardcoded paths, bad imports, syntax. Run --co again until 0 errors. Commit."`
 - [!] `golem [t-29d2f3] --provider gemini --max-turns 50 "Run uv run pytest -q --tb=no --continue-on-collection-errors 2>&1 | grep FAILED | sed 's/::.*//g' | sort | uniq -c | sort -rn | head -5. For each of the top 5 failing test files: run pytest on it, read traceback, fix. Iterate until green. Commit."`
-- [ ] `golem [t-946314] --provider zhipu --max-turns 30 "Health check: exocytosis.py, golem-top, immunosurveillance.py, perplexity.sh, regulatory-capture, queue-gen, importin, safe_rm.py, coverage-map, goose-worker. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
+- [!] `golem [t-946314] --provider zhipu --max-turns 30 "Health check: exocytosis.py, golem-top, immunosurveillance.py, perplexity.sh, regulatory-capture, queue-gen, importin, safe_rm.py, coverage-map, goose-worker. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
 - [!] `golem [t-07c809] --provider gemini --max-turns 25 "Find unused imports in metabolon/**/*.py. Remove them. Commit."`
-- [ ] `golem [t-62011c] --provider gemini --max-turns 25 "Check all assays/test_*.py can be collected by pytest --co. Fix any that error. Commit."`
+- [!] `golem [t-62011c] --provider gemini --max-turns 25 "Check all assays/test_*.py can be collected by pytest --co. Fix any that error. Commit."`
 - [!] `golem [t-16f98f] --provider gemini --max-turns 25 "Find Python files missing shebang in effectors/. Add #!/usr/bin/env python3. Commit."`
 - [!] `golem [t-4ab3ca] --provider gemini --max-turns 30 "Write a consulting insight card: AI audit methodology for internal audit teams. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-audit-methodology.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
-- [ ] `golem [t-6cd42f] --provider zhipu --max-turns 35 "Read effectors/golem-dash (if exists). Improve to show real-time task progress, ETA to drain. Write tests. Run uv run pytest. Commit."`
+- [!] `golem [t-6cd42f] --provider zhipu --max-turns 35 "Read effectors/golem-dash (if exists). Improve to show real-time task progress, ETA to drain. Write tests. Run uv run pytest. Commit."`
 
 ### Auto-requeue (19 tasks @ 16:41)
 - [!] `golem [t-4ab9c5] --provider gemini --max-turns 40 "Run uv run pytest --co -q 2>&1 | grep ERROR. Fix ALL collection errors. Common: hardcoded paths, bad imports, syntax. Run --co again until 0 errors. Commit."`
-- [ ] `golem [t-7f1029] --provider gemini --max-turns 50 "Run uv run pytest -q --tb=no --continue-on-collection-errors 2>&1 | grep FAILED | sed 's/::.*//g' | sort | uniq -c | sort -rn | head -5. For each of the top 5 failing test files: run pytest on it, read traceback, fix. Iterate until green. Commit."`
+- [!] `golem [t-7f1029] --provider gemini --max-turns 50 "Run uv run pytest -q --tb=no --continue-on-collection-errors 2>&1 | grep FAILED | sed 's/::.*//g' | sort | uniq -c | sort -rn | head -5. For each of the top 5 failing test files: run pytest on it, read traceback, fix. Iterate until green. Commit."`
 - [!] `golem [t-7443fc] --provider gemini --max-turns 30 "Health check: goose-worker, compound-engineering-status, golem-top, skill-lint, circadian-probe.py, soma-activate, tmux-url-select.sh, wacli-ro, weekly-gather, skill-search. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
-- [ ] `golem [t-c0b9d1] --provider zhipu --max-turns 25 "Scan effectors/ for hardcoded paths. Fix with Path.home() or $HOME. Commit."`
+- [!] `golem [t-c0b9d1] --provider zhipu --max-turns 25 "Scan effectors/ for hardcoded paths. Fix with Path.home() or $HOME. Commit."`
 - [!] `golem [t-19842e] --provider gemini --max-turns 25 "Scan assays/ for hardcoded /Users/terry paths. Replace with Path.home(). Commit."`
-- [ ] `golem [t-214e7b] --provider gemini --max-turns 25 "Find unused imports in metabolon/**/*.py. Remove them. Commit."`
+- [!] `golem [t-214e7b] --provider gemini --max-turns 25 "Find unused imports in metabolon/**/*.py. Remove them. Commit."`
 - [!] `golem [t-de6af1] --provider gemini --max-turns 30 "Write a consulting insight card: Board-level AI risk reporting template for banks. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/board-ai-risk-reporting.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [!] `golem [t-4432bb] --provider gemini --max-turns 35 "Read effectors/golem. Add --json flag that outputs result as JSON instead of raw text. Useful for piping. Write tests. Run uv run pytest. Commit."`
 
 ### Auto-requeue (19 tasks @ 16:42)
-- [ ] `golem [t-596a4a] --provider zhipu --max-turns 40 "Run uv run pytest --co -q 2>&1 | grep ERROR. Fix ALL collection errors. Common: hardcoded paths, bad imports, syntax. Run --co again until 0 errors. Commit."`
+- [!] `golem [t-596a4a] --provider zhipu --max-turns 40 "Run uv run pytest --co -q 2>&1 | grep ERROR. Fix ALL collection errors. Common: hardcoded paths, bad imports, syntax. Run --co again until 0 errors. Commit."`
 - [!] `golem [t-952144] --provider gemini --max-turns 50 "Run uv run pytest -q --tb=no --continue-on-collection-errors 2>&1 | grep FAILED | sed 's/::.*//g' | sort | uniq -c | sort -rn | head -5. For each of the top 5 failing test files: run pytest on it, read traceback, fix. Iterate until green. Commit."`
-- [ ] `golem [t-50083b] --provider gemini --max-turns 30 "Health check: pulse-review, complement, golem-dash, browser, disk-audit, effector-usage, immunosurveillance, rheotaxis-local, transduction-daily-run, soma-watchdog. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
+- [!] `golem [t-50083b] --provider gemini --max-turns 30 "Health check: pulse-review, complement, golem-dash, browser, disk-audit, effector-usage, immunosurveillance, rheotaxis-local, transduction-daily-run, soma-watchdog. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
 - [!] `golem [t-13f70c] --provider gemini --max-turns 25 "Find unused imports in metabolon/**/*.py. Remove them. Commit."`
-- [ ] `golem [t-9debe6] --provider zhipu --max-turns 25 "Find test files with SyntaxError. Fix syntax. Commit."`
+- [!] `golem [t-9debe6] --provider zhipu --max-turns 25 "Find test files with SyntaxError. Fix syntax. Commit."`
 - [!] `golem [t-2779d9] --provider gemini --max-turns 25 "Find subprocess.run calls without timeout in effectors/. Add timeout=300. Commit."`
 - [!] `golem [t-8c0299] --provider gemini --max-turns 30 "Write a consulting insight card: AI model risk management framework for banks — write a consulting brief with problem, approach, key considerations. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-model-risk-framework.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
-- [ ] `golem [t-980eaf] --provider gemini --max-turns 35 "Read effectors/golem-daemon. Add cmd_stats — show pass/fail/retry counts, avg duration by provider, tasks completed today. Usage: golem-daemon stats. Write tests. Run uv run pytest. Commit."`
+- [!] `golem [t-980eaf] --provider gemini --max-turns 35 "Read effectors/golem-daemon. Add cmd_stats — show pass/fail/retry counts, avg duration by provider, tasks completed today. Usage: golem-daemon stats. Write tests. Run uv run pytest. Commit."`
 
 ### Auto-requeue (19 tasks @ 16:43)
 - [!] `golem [t-764db2] --provider gemini --max-turns 40 "Run uv run pytest --co -q 2>&1 | grep ERROR. Fix ALL collection errors. Common: hardcoded paths, bad imports, syntax. Run --co again until 0 errors. Commit."`
-- [ ] `golem [t-6f5470] --provider zhipu --max-turns 50 "Run uv run pytest -q --tb=no --continue-on-collection-errors 2>&1 | grep FAILED | sed 's/::.*//g' | sort | uniq -c | sort -rn | head -5. For each of the top 5 failing test files: run pytest on it, read traceback, fix. Iterate until green. Commit."`
+- [!] `golem [t-6f5470] --provider zhipu --max-turns 50 "Run uv run pytest -q --tb=no --continue-on-collection-errors 2>&1 | grep FAILED | sed 's/::.*//g' | sort | uniq -c | sort -rn | head -5. For each of the top 5 failing test files: run pytest on it, read traceback, fix. Iterate until green. Commit."`
 - [!] `golem [t-c5ef31] --provider gemini --max-turns 30 "Health check: methylation, immunosurveillance.py, plan-exec, legatum, wewe-rss-health.py, queue-gen, wacli-ro, soma-pull, agent-sync.sh, soma-snapshot. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
-- [ ] `golem [t-9e41f0] --provider gemini --max-turns 25 "Find subprocess.run calls without timeout in effectors/. Add timeout=300. Commit."`
+- [!] `golem [t-9e41f0] --provider gemini --max-turns 25 "Find subprocess.run calls without timeout in effectors/. Add timeout=300. Commit."`
 - [!] `golem [t-71ed83] --provider gemini --max-turns 25 "Scan effectors/ for hardcoded paths. Fix with Path.home() or $HOME. Commit."`
-- [ ] `golem [t-3af6b9] --provider zhipu --max-turns 25 "Find Python files missing shebang in effectors/. Add #!/usr/bin/env python3. Commit."`
+- [!] `golem [t-3af6b9] --provider zhipu --max-turns 25 "Find Python files missing shebang in effectors/. Add #!/usr/bin/env python3. Commit."`
 - [!] `golem [t-3c16bc] --provider gemini --max-turns 30 "Write a consulting insight card: Cross-border AI regulation comparison — HK vs SG vs UK vs EU. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/cross-border-ai-regulation.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [!] `golem [t-c80e91] --provider gemini --max-turns 35 "Read effectors/golem. Add --json flag that outputs result as JSON instead of raw text. Useful for piping. Write tests. Run uv run pytest. Commit."`
 
 ### Auto-requeue (19 tasks @ 16:43)
-- [ ] `golem [t-a60e37] --provider gemini --max-turns 40 "Run uv run pytest --co -q 2>&1 | grep ERROR. Fix ALL collection errors. Common: hardcoded paths, bad imports, syntax. Run --co again until 0 errors. Commit."`
+- [!] `golem [t-a60e37] --provider gemini --max-turns 40 "Run uv run pytest --co -q 2>&1 | grep ERROR. Fix ALL collection errors. Common: hardcoded paths, bad imports, syntax. Run --co again until 0 errors. Commit."`
 - [!] `golem [t-0ee71c] --provider gemini --max-turns 50 "Run uv run pytest -q --tb=no --continue-on-collection-errors 2>&1 | grep FAILED | sed 's/::.*//g' | sort | uniq -c | sort -rn | head -5. For each of the top 5 failing test files: run pytest on it, read traceback, fix. Iterate until green. Commit."`
-- [ ] `golem [t-bb69d8] --provider zhipu --max-turns 30 "Health check: pinocytosis, goose-worker, soma-snapshot, cg, gap_junction_sync, soma-watchdog, coaching-stats, chemoreception.py, electroreception, linkedin-monitor. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
+- [!] `golem [t-bb69d8] --provider zhipu --max-turns 30 "Health check: pinocytosis, goose-worker, soma-snapshot, cg, gap_junction_sync, soma-watchdog, coaching-stats, chemoreception.py, electroreception, linkedin-monitor. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
 - [!] `golem [t-105023] --provider gemini --max-turns 25 "Find Python files missing shebang in effectors/. Add #!/usr/bin/env python3. Commit."`
-- [ ] `golem [t-828f5e] --provider gemini --max-turns 25 "Find subprocess.run calls without timeout in effectors/. Add timeout=300. Commit."`
+- [!] `golem [t-828f5e] --provider gemini --max-turns 25 "Find subprocess.run calls without timeout in effectors/. Add timeout=300. Commit."`
 - [!] `golem [t-0507bb] --provider gemini --max-turns 25 "Find test files with SyntaxError. Fix syntax. Commit."`
 - [!] `golem [t-ab9663] --provider gemini --max-turns 30 "Write a consulting insight card: Cross-border AI regulation comparison — HK vs SG vs UK vs EU. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/cross-border-ai-regulation.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
-- [ ] `golem [t-747178] --provider zhipu --max-turns 35 "Read effectors/golem. Add --json flag that outputs result as JSON instead of raw text. Useful for piping. Write tests. Run uv run pytest. Commit."`
+- [!] `golem [t-747178] --provider zhipu --max-turns 35 "Read effectors/golem. Add --json flag that outputs result as JSON instead of raw text. Useful for piping. Write tests. Run uv run pytest. Commit."`
 
 ### Auto-requeue (19 tasks @ 16:44)
 - [!] `golem [t-b1eced] --provider gemini --max-turns 40 "Run uv run pytest --co -q 2>&1 | grep ERROR. Fix ALL collection errors. Common: hardcoded paths, bad imports, syntax. Run --co again until 0 errors. Commit."`
-- [ ] `golem [t-02dd75] --provider gemini --max-turns 50 "Run uv run pytest -q --tb=no --continue-on-collection-errors 2>&1 | grep FAILED | sed 's/::.*//g' | sort | uniq -c | sort -rn | head -5. For each of the top 5 failing test files: run pytest on it, read traceback, fix. Iterate until green. Commit."`
+- [!] `golem [t-02dd75] --provider gemini --max-turns 50 "Run uv run pytest -q --tb=no --continue-on-collection-errors 2>&1 | grep FAILED | sed 's/::.*//g' | sort | uniq -c | sort -rn | head -5. For each of the top 5 failing test files: run pytest on it, read traceback, fix. Iterate until green. Commit."`
 - [!] `golem [t-7b3485] --provider gemini --max-turns 30 "Health check: compound-engineering-status, soma-pull, rename-kindle-asins.py, electroreception, hetzner-bootstrap.sh, start-chrome-debug.sh, synthase, rg, nightly, test-spec-gen. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
-- [ ] `golem [t-72a11f] --provider zhipu --max-turns 30 "Write tests for effectors/chromatin-backup.sh. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
+- [!] `golem [t-72a11f] --provider zhipu --max-turns 30 "Write tests for effectors/chromatin-backup.sh. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
 - [!] `golem [t-a73f07] --provider gemini --max-turns 25 "Check all assays/test_*.py can be collected by pytest --co. Fix any that error. Commit."`
-- [ ] `golem [t-3835fe] --provider gemini --max-turns 25 "Find Python files missing shebang in effectors/. Add #!/usr/bin/env python3. Commit."`
+- [!] `golem [t-3835fe] --provider gemini --max-turns 25 "Find Python files missing shebang in effectors/. Add #!/usr/bin/env python3. Commit."`
 - [!] `golem [t-7dc892] --provider gemini --max-turns 25 "Find test files with SyntaxError. Fix syntax. Commit."`
 - [!] `golem [t-426e05] --provider gemini --max-turns 30 "Write a consulting insight card: Cross-border AI regulation comparison — HK vs SG vs UK vs EU. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/cross-border-ai-regulation.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
-- [ ] `golem [t-d897fe] --provider zhipu --max-turns 35 "Read effectors/golem-daemon. Add cmd_stats — show pass/fail/retry counts, avg duration by provider, tasks completed today. Usage: golem-daemon stats. Write tests. Run uv run pytest. Commit."`
+- [!] `golem [t-d897fe] --provider zhipu --max-turns 35 "Read effectors/golem-daemon. Add cmd_stats — show pass/fail/retry counts, avg duration by provider, tasks completed today. Usage: golem-daemon stats. Write tests. Run uv run pytest. Commit."`
 
 ### Auto-requeue (19 tasks @ 16:45)
 - [!] `golem [t-a56584] --provider gemini --max-turns 40 "Run uv run pytest --co -q 2>&1 | grep ERROR. Fix ALL collection errors. Common: hardcoded paths, bad imports, syntax. Run --co again until 0 errors. Commit."`
-- [ ] `golem [t-19b971] --provider gemini --max-turns 50 "Run uv run pytest -q --tb=no --continue-on-collection-errors 2>&1 | grep FAILED | sed 's/::.*//g' | sort | uniq -c | sort -rn | head -5. For each of the top 5 failing test files: run pytest on it, read traceback, fix. Iterate until green. Commit."`
+- [!] `golem [t-19b971] --provider gemini --max-turns 50 "Run uv run pytest -q --tb=no --continue-on-collection-errors 2>&1 | grep FAILED | sed 's/::.*//g' | sort | uniq -c | sort -rn | head -5. For each of the top 5 failing test files: run pytest on it, read traceback, fix. Iterate until green. Commit."`
 - [!] `golem [t-cea82d] --provider gemini --max-turns 30 "Health check: paracrine, soma-pull, git-activity, x-feed-to-lustro, publish, auto-update-compound-engineering.sh, phagocytosis.py, safe_rm.py, rheotaxis, effector-usage. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
-- [ ] `golem [t-dd888f] --provider zhipu --max-turns 30 "Write tests for /home/terry/germline/metabolon/organelles/circadian_clock.py. Mock external calls. Write assays/test_organelles_circadian_clock.py. Run uv run pytest. Fix failures. Commit."`
+- [!] `golem [t-dd888f] --provider zhipu --max-turns 30 "Write tests for /home/terry/germline/metabolon/organelles/circadian_clock.py. Mock external calls. Write assays/test_organelles_circadian_clock.py. Run uv run pytest. Fix failures. Commit."`
 - [!] `golem [t-8f87f6] --provider gemini --max-turns 30 "Write tests for /home/terry/germline/metabolon/organelles/browser_stealth.py. Mock external calls. Write assays/test_organelles_browser_stealth.py. Run uv run pytest. Fix failures. Commit."`
-- [ ] `golem [t-f1beb3] --provider gemini --max-turns 30 "Write tests for /home/terry/germline/metabolon/metabolism/substrate.py. Mock external calls. Write assays/test_metabolism_substrate.py. Run uv run pytest. Fix failures. Commit."`
+- [!] `golem [t-f1beb3] --provider gemini --max-turns 30 "Write tests for /home/terry/germline/metabolon/metabolism/substrate.py. Mock external calls. Write assays/test_metabolism_substrate.py. Run uv run pytest. Fix failures. Commit."`
 - [!] `golem [t-47384f] --provider gemini --max-turns 30 "Write tests for /home/terry/germline/metabolon/organelles/talking_points.py. Mock external calls. Write assays/test_organelles_talking_points.py. Run uv run pytest. Fix failures. Commit."`
-- [ ] `golem [t-d111ae] --provider zhipu --max-turns 30 "Write tests for /home/terry/germline/metabolon/resources/consolidation.py. Mock external calls. Write assays/test_resources_consolidation.py. Run uv run pytest. Fix failures. Commit."`
+- [!] `golem [t-d111ae] --provider zhipu --max-turns 30 "Write tests for /home/terry/germline/metabolon/resources/consolidation.py. Mock external calls. Write assays/test_resources_consolidation.py. Run uv run pytest. Fix failures. Commit."`
 - [!] `golem [t-3a7d70] --provider gemini --max-turns 30 "Write tests for effectors/plan-exec.deprecated. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
-- [ ] `golem [t-baacb1] --provider gemini --max-turns 30 "Write tests for effectors/oci-arm-retry. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
+- [!] `golem [t-baacb1] --provider gemini --max-turns 30 "Write tests for effectors/oci-arm-retry. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
 - [!] `golem [t-a1ef6d] --provider gemini --max-turns 30 "Write tests for effectors/update-coding-tools.sh. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
-- [ ] `golem [t-3d855c] --provider zhipu --max-turns 30 "Write tests for effectors/tmux-url-select.sh. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
+- [!] `golem [t-3d855c] --provider zhipu --max-turns 30 "Write tests for effectors/tmux-url-select.sh. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
 - [!] `golem [t-c43ef1] --provider gemini --max-turns 30 "Write tests for effectors/pharos-health.sh. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
-- [ ] `golem [t-d8f5a7] --provider gemini --max-turns 25 "Check all assays/test_*.py can be collected by pytest --co. Fix any that error. Commit."`
+- [!] `golem [t-d8f5a7] --provider gemini --max-turns 25 "Check all assays/test_*.py can be collected by pytest --co. Fix any that error. Commit."`
 - [!] `golem [t-f78632] --provider gemini --max-turns 25 "Find Python files missing shebang in effectors/. Add #!/usr/bin/env python3. Commit."`
-- [ ] `golem [t-8ff51e] --provider zhipu --max-turns 25 "Scan effectors/ for hardcoded paths. Fix with Path.home() or $HOME. Commit."`
+- [!] `golem [t-8ff51e] --provider zhipu --max-turns 25 "Scan effectors/ for hardcoded paths. Fix with Path.home() or $HOME. Commit."`
 - [!] `golem [t-720ee6] --provider gemini --max-turns 30 "Write a consulting insight card: AI model risk management framework for banks — write a consulting brief with problem, approach, key considerations. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-model-risk-framework.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [!] `golem [t-1bb250] --provider gemini --max-turns 35 "Read effectors/golem-review (if exists). Enhance to also check consulting content quality (>200 words, proper structure). Write tests. Run uv run pytest. Commit."`
 
 ### Auto-requeue (19 tasks @ 16:45)
-- [ ] `golem [t-a82e47] --provider gemini --max-turns 40 "Run uv run pytest --co -q 2>&1 | grep ERROR. Fix ALL collection errors. Common: hardcoded paths, bad imports, syntax. Run --co again until 0 errors. Commit."`
+- [!] `golem [t-a82e47] --provider gemini --max-turns 40 "Run uv run pytest --co -q 2>&1 | grep ERROR. Fix ALL collection errors. Common: hardcoded paths, bad imports, syntax. Run --co again until 0 errors. Commit."`
 - [!] `golem [t-a9f0a5] --provider gemini --max-turns 50 "Run uv run pytest -q --tb=no --continue-on-collection-errors 2>&1 | grep FAILED | sed 's/::.*//g' | sort | uniq -c | sort -rn | head -5. For each of the top 5 failing test files: run pytest on it, read traceback, fix. Iterate until green. Commit."`
-- [ ] `golem [t-2e505c] --provider zhipu --max-turns 30 "Health check: channel, weekly-gather, effector-usage, circadian-probe.py, rename-plists, soma-snapshot, agent-sync.sh, importin, methylation-review, soma-wake. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
+- [!] `golem [t-2e505c] --provider zhipu --max-turns 30 "Health check: channel, weekly-gather, effector-usage, circadian-probe.py, rename-plists, soma-snapshot, agent-sync.sh, importin, methylation-review, soma-wake. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
 - [!] `golem [t-da856e] --provider gemini --max-turns 30 "Write tests for /home/terry/germline/metabolon/enzymes/turgor.py. Mock external calls. Write assays/test_enzymes_turgor.py. Run uv run pytest. Fix failures. Commit."`
-- [ ] `golem [t-c3212b] --provider gemini --max-turns 30 "Write tests for /home/terry/germline/metabolon/organelles/translocon_metrics.py. Mock external calls. Write assays/test_organelles_translocon_metrics.py. Run uv run pytest. Fix failures. Commit."`
+- [!] `golem [t-c3212b] --provider gemini --max-turns 30 "Write tests for /home/terry/germline/metabolon/organelles/translocon_metrics.py. Mock external calls. Write assays/test_organelles_translocon_metrics.py. Run uv run pytest. Fix failures. Commit."`
 - [!] `golem [t-897726] --provider gemini --max-turns 30 "Write tests for /home/terry/germline/metabolon/enzymes/circadian.py. Mock external calls. Write assays/test_enzymes_circadian.py. Run uv run pytest. Fix failures. Commit."`
-- [ ] `golem [t-c83170] --provider zhipu --max-turns 30 "Write tests for /home/terry/germline/metabolon/enzymes/demethylase.py. Mock external calls. Write assays/test_enzymes_demethylase.py. Run uv run pytest. Fix failures. Commit."`
+- [!] `golem [t-c83170] --provider zhipu --max-turns 30 "Write tests for /home/terry/germline/metabolon/enzymes/demethylase.py. Mock external calls. Write assays/test_enzymes_demethylase.py. Run uv run pytest. Fix failures. Commit."`
 - [!] `golem [t-761387] --provider gemini --max-turns 30 "Write tests for /home/terry/germline/metabolon/organelles/gradient_sense.py. Mock external calls. Write assays/test_organelles_gradient_sense.py. Run uv run pytest. Fix failures. Commit."`
-- [ ] `golem [t-41d8fb] --provider gemini --max-turns 30 "Write tests for effectors/qmd-reindex.sh. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
+- [!] `golem [t-41d8fb] --provider gemini --max-turns 30 "Write tests for effectors/qmd-reindex.sh. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
 - [!] `golem [t-946da8] --provider gemini --max-turns 30 "Write tests for effectors/fix-symlinks. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
-- [ ] `golem [t-e215af] --provider zhipu --max-turns 30 "Write tests for effectors/backup-due.sh. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
+- [!] `golem [t-e215af] --provider zhipu --max-turns 30 "Write tests for effectors/backup-due.sh. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
 - [!] `golem [t-9f5936] --provider gemini --max-turns 30 "Write tests for effectors/update-coding-tools.sh. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
-- [ ] `golem [t-343b81] --provider gemini --max-turns 30 "Write tests for effectors/soma-bootstrap. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
+- [!] `golem [t-343b81] --provider gemini --max-turns 30 "Write tests for effectors/soma-bootstrap. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
 - [!] `golem [t-1d74a0] --provider gemini --max-turns 25 "Find unused imports in metabolon/**/*.py. Remove them. Commit."`
-- [ ] `golem [t-6f05d4] --provider zhipu --max-turns 25 "Find test files with SyntaxError. Fix syntax. Commit."`
+- [!] `golem [t-6f05d4] --provider zhipu --max-turns 25 "Find test files with SyntaxError. Fix syntax. Commit."`
 - [!] `golem [t-034f19] --provider gemini --max-turns 25 "Scan effectors/ for hardcoded paths. Fix with Path.home() or $HOME. Commit."`
-- [ ] `golem [t-0f5421] --provider gemini --max-turns 35 "Read effectors/golem-dash (if exists). Improve to show real-time task progress, ETA to drain. Write tests. Run uv run pytest. Commit."`
+- [!] `golem [t-0f5421] --provider gemini --max-turns 35 "Read effectors/golem-dash (if exists). Improve to show real-time task progress, ETA to drain. Write tests. Run uv run pytest. Commit."`
+
+### Auto-requeue (19 tasks @ 18:10)
+- [ ] `golem [t-b46fc3] --provider zhipu --max-turns 40 "Run uv run pytest --co -q 2>&1 | grep ERROR. Fix ALL collection errors. Common: hardcoded paths, bad imports, syntax. Run --co again until 0 errors. Commit."`
+- [!] `golem [t-0ab0b0] --provider infini --max-turns 50 "Run uv run pytest -q --tb=no --continue-on-collection-errors 2>&1 | grep FAILED | sed 's/::.*//g' | sort | uniq -c | sort -rn | head -5. For each of the top 5 failing test files: run pytest on it, read traceback, fix. Iterate until green. Commit."`
+- [!] `golem [t-be7a3e] --provider volcano --max-turns 30 "Health check: goose-worker, chemoreception.py, chromatin-decay-report.py, start-chrome-debug.sh, safe_search.py, mismatch-repair, golem-top, rename-kindle-asins.py, cn-route, browse. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
+- [ ] `golem [t-2cbce7] --provider zhipu --max-turns 30 "Write tests for /home/terry/germline/metabolon/enzymes/ingestion.py. Mock external calls. Write assays/test_enzymes_ingestion.py. Run uv run pytest. Fix failures. Commit."`
+- [!] `golem [t-793743] --provider infini --max-turns 30 "Write tests for /home/terry/germline/metabolon/pathways/overnight.py. Mock external calls. Write assays/test_pathways_overnight.py. Run uv run pytest. Fix failures. Commit."`
+- [!] `golem [t-e7a882] --provider volcano --max-turns 30 "Write tests for /home/terry/germline/metabolon/metabolism/preflight.py. Mock external calls. Write assays/test_metabolism_preflight.py. Run uv run pytest. Fix failures. Commit."`
+- [ ] `golem [t-262316] --provider zhipu --max-turns 30 "Write tests for /home/terry/germline/metabolon/resources/chromatin_stats.py. Mock external calls. Write assays/test_resources_chromatin_stats.py. Run uv run pytest. Fix failures. Commit."`
+- [!] `golem [t-c09d47] --provider infini --max-turns 30 "Write tests for /home/terry/germline/metabolon/organelles/statolith.py. Mock external calls. Write assays/test_organelles_statolith.py. Run uv run pytest. Fix failures. Commit."`
+- [!] `golem [t-26d549] --provider volcano --max-turns 30 "Write tests for effectors/pharos-sync.sh. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
+- [!] `golem [t-08293d] --provider zhipu --max-turns 30 "Write tests for effectors/tmux-url-select.sh. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
+- [ ] `golem [t-bdda53] --provider infini --max-turns 30 "Write tests for effectors/agent-sync.sh. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
+- [x] `golem [t-2132ee] --provider volcano --max-turns 30 "Write tests for effectors/qmd-reindex.sh. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
+- [!] `golem [t-b226ce] --provider zhipu --max-turns 30 "Write tests for effectors/pharos-health.sh. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
+- [!] `golem [t-311b90] --provider infini --max-turns 25 "Find Python files missing shebang in effectors/. Add #!/usr/bin/env python3. Commit."`
+- [ ] `golem [t-ec2629] --provider volcano --max-turns 25 "Find test files with SyntaxError. Fix syntax. Commit."`
+- [ ] `golem [t-9292c8] --provider zhipu --max-turns 25 "Check all assays/test_*.py can be collected by pytest --co. Fix any that error. Commit."`
+- [ ] `golem [t-a3f49e] --provider infini --max-turns 30 "Write a consulting insight card: Board-level AI risk reporting template for banks. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/board-ai-risk-reporting.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
+- [ ] `golem [t-5a7c0b] --provider volcano --max-turns 30 "Write a consulting insight card: LLM deployment risks in banking — regulatory expectations vs reality. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/llm-deployment-risks.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
+- [!] `golem [t-f6eda7] --provider zhipu --max-turns 35 "Read effectors/golem-dash (if exists). Improve to show real-time task progress, ETA to drain. Write tests. Run uv run pytest. Commit."`
+
+### Auto-requeue (19 tasks @ 18:11)
+- [ ] `golem [t-f6c8e4] --provider zhipu --max-turns 40 "Run uv run pytest --co -q 2>&1 | grep ERROR. Fix ALL collection errors. Common: hardcoded paths, bad imports, syntax. Run --co again until 0 errors. Commit."`
+- [ ] `golem [t-a54e14] --provider infini --max-turns 50 "Run uv run pytest -q --tb=no --continue-on-collection-errors 2>&1 | grep FAILED | sed 's/::.*//g' | sort | uniq -c | sort -rn | head -5. For each of the top 5 failing test files: run pytest on it, read traceback, fix. Iterate until green. Commit."`
+- [ ] `golem [t-9d4c3d] --provider volcano --max-turns 30 "Health check: wewe-rss-health.py, consulting-card.py, queue-gen, plan-exec, regulatory-scan, transduction-daily-run, golem-cost, cookie-sync, telophase, demethylase. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
+- [ ] `golem [t-f81ac2] --provider zhipu --max-turns 30 "Write tests for /home/terry/germline/metabolon/enzymes/demethylase.py. Mock external calls. Write assays/test_enzymes_demethylase.py. Run uv run pytest. Fix failures. Commit."`
+- [ ] `golem [t-c45b1c] --provider infini --max-turns 30 "Write tests for /home/terry/germline/metabolon/enzymes/circadian.py. Mock external calls. Write assays/test_enzymes_circadian.py. Run uv run pytest. Fix failures. Commit."`
+- [ ] `golem [t-70c9b0] --provider volcano --max-turns 30 "Write tests for /home/terry/germline/metabolon/resources/consolidation.py. Mock external calls. Write assays/test_resources_consolidation.py. Run uv run pytest. Fix failures. Commit."`
+- [ ] `golem [t-677511] --provider zhipu --max-turns 30 "Write tests for /home/terry/germline/metabolon/metabolism/substrate.py. Mock external calls. Write assays/test_metabolism_substrate.py. Run uv run pytest. Fix failures. Commit."`
+- [ ] `golem [t-a6d3b3] --provider infini --max-turns 30 "Write tests for /home/terry/germline/metabolon/organelles/complement.py. Mock external calls. Write assays/test_organelles_complement.py. Run uv run pytest. Fix failures. Commit."`
+- [ ] `golem [t-48a8d8] --provider volcano --max-turns 30 "Write tests for effectors/oci-arm-retry. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
+- [ ] `golem [t-bc45a3] --provider zhipu --max-turns 30 "Write tests for effectors/chromatin-backup.sh. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
+- [ ] `golem [t-d02da2] --provider infini --max-turns 30 "Write tests for effectors/update-coding-tools.sh. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
+- [ ] `golem [t-2f6ba9] --provider volcano --max-turns 30 "Write tests for effectors/pharos-env.sh. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
+- [ ] `golem [t-fc20af] --provider zhipu --max-turns 30 "Write tests for effectors/golem-daemon-wrapper.sh. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
+- [ ] `golem [t-fb1985] --provider infini --max-turns 25 "Check all effectors respond to --help without crashing. Fix crashers. Commit."`
+- [ ] `golem [t-d80bb3] --provider volcano --max-turns 25 "Find test files with SyntaxError. Fix syntax. Commit."`
+- [ ] `golem [t-e257e8] --provider zhipu --max-turns 25 "Scan effectors/ for hardcoded paths. Fix with Path.home() or $HOME. Commit."`
+- [ ] `golem [t-b73ba6] --provider infini --max-turns 30 "Write a consulting insight card: AI model risk management framework for banks — write a consulting brief with problem, approach, key considerations. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-model-risk-framework.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
+- [ ] `golem [t-0cc635] --provider volcano --max-turns 30 "Write a consulting insight card: AI incident response playbook for financial services. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-incident-response.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
+- [ ] `golem [t-efd2b8] --provider zhipu --max-turns 35 "Read effectors/golem-daemon. Add cmd_stats — show pass/fail/retry counts, avg duration by provider, tasks completed today. Usage: golem-daemon stats. Write tests. Run uv run pytest. Commit."`
+
+### Auto-requeue (19 tasks @ 18:12)
+- [ ] `golem [t-ab6aed] --provider volcano --max-turns 40 "Run uv run pytest --co -q 2>&1 | grep ERROR. Fix ALL collection errors. Common: hardcoded paths, bad imports, syntax. Run --co again until 0 errors. Commit."`
+- [ ] `golem [t-b7964f] --provider zhipu --max-turns 50 "Run uv run pytest -q --tb=no --continue-on-collection-errors 2>&1 | grep FAILED | sed 's/::.*//g' | sort | uniq -c | sort -rn | head -5. For each of the top 5 failing test files: run pytest on it, read traceback, fix. Iterate until green. Commit."`
+- [ ] `golem [t-b1ad5f] --provider infini --max-turns 30 "Health check: legatum, switch-layer, grok, receptor-scan, rheotaxis, proteostasis, pulse-review, vesicle, paracrine, golem-top. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
+- [ ] `golem [t-4d4475] --provider volcano --max-turns 30 "Write tests for /home/terry/germline/metabolon/resources/operons.py. Mock external calls. Write assays/test_resources_operons.py. Run uv run pytest. Fix failures. Commit."`
+- [ ] `golem [t-55e23d] --provider zhipu --max-turns 30 "Write tests for /home/terry/germline/metabolon/enzymes/circadian.py. Mock external calls. Write assays/test_enzymes_circadian.py. Run uv run pytest. Fix failures. Commit."`
+- [ ] `golem [t-4164fc] --provider infini --max-turns 30 "Write tests for /home/terry/germline/metabolon/enzymes/demethylase.py. Mock external calls. Write assays/test_enzymes_demethylase.py. Run uv run pytest. Fix failures. Commit."`
+- [ ] `golem [t-acc471] --provider volcano --max-turns 30 "Write tests for /home/terry/germline/metabolon/organelles/rheotaxis_engine.py. Mock external calls. Write assays/test_organelles_rheotaxis_engine.py. Run uv run pytest. Fix failures. Commit."`
+- [ ] `golem [t-e4b9b2] --provider zhipu --max-turns 30 "Write tests for /home/terry/germline/metabolon/organelles/golgi.py. Mock external calls. Write assays/test_organelles_golgi.py. Run uv run pytest. Fix failures. Commit."`
+- [ ] `golem [t-9c5a9b] --provider infini --max-turns 30 "Write tests for effectors/pharos-health.sh. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
+- [ ] `golem [t-94faed] --provider volcano --max-turns 30 "Write tests for effectors/update-compound-engineering-skills.sh. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
+- [ ] `golem [t-87200f] --provider zhipu --max-turns 30 "Write tests for effectors/tmux-url-select.sh. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
+- [ ] `golem [t-3c2e4d] --provider infini --max-turns 30 "Write tests for effectors/oci-arm-retry. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
+- [ ] `golem [t-674624] --provider volcano --max-turns 30 "Write tests for effectors/backup-due.sh. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
+- [ ] `golem [t-02036b] --provider zhipu --max-turns 25 "Scan assays/ for hardcoded /Users/terry paths. Replace with Path.home(). Commit."`
+- [ ] `golem [t-4a7413] --provider infini --max-turns 25 "Find unused imports in metabolon/**/*.py. Remove them. Commit."`
+- [ ] `golem [t-70f658] --provider volcano --max-turns 25 "Scan effectors/ for hardcoded paths. Fix with Path.home() or $HOME. Commit."`
+- [ ] `golem [t-8f5bad] --provider zhipu --max-turns 30 "Write a consulting insight card: Board-level AI risk reporting template for banks. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/board-ai-risk-reporting.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
+- [ ] `golem [t-d9cd05] --provider infini --max-turns 30 "Write a consulting insight card: AI vendor due diligence questionnaire for banks. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-vendor-due-diligence.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
+- [ ] `golem [t-8db844] --provider volcano --max-turns 35 "Read effectors/golem-daemon. Add cmd_stats — show pass/fail/retry counts, avg duration by provider, tasks completed today. Usage: golem-daemon stats. Write tests. Run uv run pytest. Commit."`
 ## Done (2026-03-31)
 
 
@@ -1776,7 +1839,7 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 - [x] `golem --provider infini --max-turns 50 "Create 5 consulting insight cards for a management consultant joining Capco (financial services consulting). Topics: 1) AI model risk management in banking 2) LLM deployment regulatory expectations 3) AI vendor due diligence for banks 4) GenAI policy template for bank employees 5) AI incident response for financial services. Each card: 300+ words, problem statement, approach, key considerations, regulatory references. Write each to ~/epigenome/chromatin/euchromatin/consulting/cards/<slug>.md. Commit."`
 
 #### HK regulatory landscape briefing
-- [ ] `golem [t-211b2c] --provider zhipu --max-turns 40 "Write a comprehensive briefing on Hong Kong financial regulation for AI/technology: HKMA, SFC, IA key circulars and expectations around AI adoption in banking, insurance, securities. Include HKMA's Supervisory Policy Manual modules on technology risk (TM-E-1, OR-1). Write to ~/epigenome/chromatin/euchromatin/consulting/cards/hk-ai-regulatory-landscape.md. 500+ words. Commit." (retry)`
+- [!] `golem [t-211b2c] --provider zhipu --max-turns 40 "Write a comprehensive briefing on Hong Kong financial regulation for AI/technology: HKMA, SFC, IA key circulars and expectations around AI adoption in banking, insurance, securities. Include HKMA's Supervisory Policy Manual modules on technology risk (TM-E-1, OR-1). Write to ~/epigenome/chromatin/euchromatin/consulting/cards/hk-ai-regulatory-landscape.md. 500+ words. Commit." (retry)`
 
 ### System hardening
 
