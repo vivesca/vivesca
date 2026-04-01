@@ -11,8 +11,6 @@ Extracts trigger phrases from:
 Run after skill changes (e.g. from synaxis or skill-autocommit).
 """
 
-from __future__ import annotations
-
 import json
 import re
 from pathlib import Path
