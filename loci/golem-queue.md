@@ -15,7 +15,7 @@ All providers 89-97% capable — spread tasks across all 5 for quota pacing.
 
 - [ ] `golem [t-b8fb38] --provider infini --max-turns 25 "Check all effectors respond to --help without crashing. Fix crashers. Commit."`
 - [x] `golem [t-2d020a] --provider zhipu --max-turns 30 "Health check: taste-score, queue-gen, quorum, launchagent-health, circadian-probe.py, immunosurveillance, vesicle, receptor-health, phagocytosis.py, golem-validate. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
-- [ ] `golem [t-19745a] --provider gemini --max-turns 30 "Health check: chat_history.py, channel, search-guard, oura-weekly-digest.py, legatum-verify, cn-route, find, lacuna, chemoreception.py, regulatory-scan. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
+- [x] `golem [t-19745a] --provider gemini --max-turns 30 "Health check: chat_history.py, channel, search-guard, oura-weekly-digest.py, legatum-verify, cn-route, find, lacuna, chemoreception.py, regulatory-scan. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
 
 ### Codebase quality
 
