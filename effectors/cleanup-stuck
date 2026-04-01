@@ -1,6 +1,15 @@
 #!/bin/bash
 # Cleanup stuck processes that cause fork exhaustion
 
+case "${1:-}" in
+  -h|--help)
+    echo "cleanup-stuck — kill stuck/orphan processes (pyenv, claude, playwright)."
+    echo
+    echo "Usage: cleanup-stuck"
+    exit 0
+    ;;
+esac
+
 echo "Killing stuck pyenv processes..."
 pkill -9 -f "pyenv" 2>/dev/null
 
