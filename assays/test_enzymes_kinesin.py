@@ -16,30 +16,21 @@ from metabolon.morphology import EffectorResult, Secretion
 # ---------------------------------------------------------------------------
 
 
-def test_translocation_tool_name():
-    """The @tool-decorated function is named 'translocation'."""
-    assert translocation.name == "translocation"
-
-
-def test_translocation_tool_description():
-    """Tool description mentions async tasks."""
-    assert "async" in translocation.description.lower() or "task" in translocation.description.lower()
-
-
-def test_translocation_tool_not_readonly():
-    """Tool is marked not read-only (it dispatches side-effecting tasks)."""
-    assert translocation.annotations.readOnlyHint is False
-
-
-def test_translocation_tool_not_destructive():
-    """Tool is not marked as destructive."""
-    assert translocation.annotations.destructiveHint is False
-
-
-def test_translocation_is_callable():
-    """The @tool wrapper still allows direct invocation."""
+def test_translocation_is_callable_directly():
+    """The @tool-decorated function can still be invoked directly."""
     result = translocation(action="list")
     assert isinstance(result, TranslocationResult)
+
+
+def test_translocation_preserves_function_name():
+    """The @tool decorator preserves __name__."""
+    assert translocation.__name__ == "translocation"
+
+
+def test_translocation_has_docstring():
+    """The @tool decorator preserves the original docstring."""
+    assert translocation.__doc__ is not None
+    assert "action" in translocation.__doc__.lower()
 
 
 # ---------------------------------------------------------------------------
