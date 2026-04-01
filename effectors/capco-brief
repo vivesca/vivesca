@@ -49,28 +49,71 @@ def _capco_files() -> list[Path]:
 
 # ── stakeholders ─────────────────────────────────────────────────────
 
-# A person name looks like 2–4 title-cased words (possibly with a hyphen)
-_NAME_RE = re.compile(r"^[A-Z][a-z]+(?: [A-Z][a-z]+){0,3}$")
-# Words that are NOT person names
-_NOT_NAMES = frozenset({
+# A person name: exactly 2–3 title-cased words, matching a strict pattern
+_NAME_RE = re.compile(r"^[A-Z][a-z]+(?: [A-Z][a-z]+){1,2}$")
+
+# First/last words that disqualify a string as a person name
+_NOT_NAME_WORDS = frozenset({
+    # org / brand suffixes
+    "bank", "institute", "centre", "center", "library", "university",
+    "college", "association", "foundation", "council", "group", "labs",
+    "capital", "markets", "consulting", "partners", "solutions",
+    "technology", "services", "systems", "software", "platform",
+    # non-name concepts
     "role", "manager", "team", "office", "day", "week", "month", "year",
     "morning", "evening", "night", "lunch", "checklist", "outfit", "alarm",
     "reception", "laptop", "phone", "bag", "item", "route", "dress",
     "transport", "benefits", "insurance", "probation", "payroll", "tax",
-    "sim", "coffee", "sim", "not", "do", "what", "key", "note", "event",
+    "sim", "coffee", "not", "do", "what", "key", "note", "event",
     "capco", "hsbc", "cncbi", "mpf", "aia", "hkid", "ibkr", "garp",
+    "review", "model", "data", "risk", "governance", "ai", "regulatory",
+    "compliance", "engagement", "delivery", "strategy", "digital",
+    "transformation", "innovation", "operations", "managed", "fixed",
+    "scaled", "consumer", "principle", "four", "common", "named",
+    "newly", "super", "application", "selection", "use", "quick",
+    "typical", "pricing", "stage", "outputs", "inputs", "active",
+    "compliance", "smart", "process", "redesign", "explicit",
+    "technical", "standard", "hong", "kong", "first", "formal",
+    "deep", "module", "exam", "basic", "parent", "strategic",
+    "service", "org", "thought", "wells", "fargo", "delta",
+    "structured", "content", "arrival", "social", "one",
+    "mitigation", "prompt", "sensitive", "improper", "unbounded",
+    "system", "excessive", "agent", "agentic", "supply", "unexpected",
+    "cascading", "rogue", "bounded", "control", "minimum",
+    "due", "dynamic", "connect", "minimum", "why", "tiering",
+    "governance", "connectivity", "workflow", "low", "medium", "high",
+    "big", "inference", "governance", "decision", "performance",
+    "about", "content", "consulting", "talent",
+    "baringa", "neurons", "alan", "turing",
+    "hawaiian", "morgan", "stanley",
+    # additional concept words that sneak through
+    "the", "your", "her", "his", "their", "this", "that",
+})
+
+# Two-word combos that are org names, not people
+_ORG_NAMES = frozenset({
+    "delta capita", "sun life", "hang seng", "wells fargo",
+    "first hawaiian", "morgan stanley", "standard chartered",
+    "neurons lab", "baringa partners", "hong kong", "big data",
+    "microsoft", "openai", "wipro", "apple", "google",
 })
 
 
 def _is_person_name(s: str) -> bool:
-    """Return True if s looks like a real person name (2+ capitalized words)."""
+    """Return True if s looks like a real person name (2-3 capitalized words)."""
     s = s.strip("* ")
     if not _NAME_RE.match(s):
         return False
     words = s.split()
-    if len(words) < 2:
+    if len(words) < 2 or len(words) > 3:
         return False
-    if words[0].lower() in _NOT_NAMES or words[-1].lower() in _NOT_NAMES:
+    # first AND last word must not be a stop word
+    if words[0].lower() in _NOT_NAME_WORDS:
+        return False
+    if words[-1].lower() in _NOT_NAME_WORDS:
+        return False
+    # check full name against known org names
+    if s.lower() in _ORG_NAMES:
         return False
     return True
 
