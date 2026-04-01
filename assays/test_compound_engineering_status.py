@@ -26,7 +26,8 @@ def _run_script(
     if tmp_path is not None:
         env["HOME"] = str(tmp_path)
     if path_dirs is not None:
-        env["PATH"] = os.pathsep.join(str(p) for p in path_dirs)
+        # Keep original PATH after mock dirs so system utilities like bash are still found
+        env["PATH"] = os.pathsep.join(str(p) for p in path_dirs) + os.pathsep + os.environ["PATH"]
     if env_extra:
         env.update(env_extra)
     cmd = ["bash", str(SCRIPT)] + (args or [])
