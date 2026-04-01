@@ -52,11 +52,8 @@ class TestResolveId:
         assert resolve_id("", CUISINES, "cuisine") is None
 
     def test_none_returns_none(self):
-        assert resolve_id(None, CUISINES, "cuisine") is not None  # None.lower() would fail
-
-    def test_none_handling(self, capsys):
-        """resolve_id with empty-ish input returns None."""
-        assert resolve_id("", CUISINES, "cuisine") is None
+        """resolve_id(None, ...) returns None because 'not None' is True."""
+        assert resolve_id(None, CUISINES, "cuisine") is None
 
     def test_district_exact_match(self):
         assert resolve_id("central", DISTRICTS, "district") == 1003
