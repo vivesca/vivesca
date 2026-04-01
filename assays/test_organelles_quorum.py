@@ -515,10 +515,6 @@ def test_deliberate_custom_timeout():
 def test_main_text_output(capsys):
     d = Deliberation(question="Q?", mode="quick", decision="Yes")
     d.elapsed_s = 1.0
-    with patch("metabolon.organelles.quorum.deliberate", return_value=d):
-        with pytest.raises(SystemExit) if False else _dummy_context():
-            pass
-    # Use subprocess-style invocation via argparse
     import sys
     old_argv = sys.argv
     sys.argv = ["quorum", "Test question", "--mode", "quick", "--no-save"]
@@ -581,10 +577,177 @@ def test_judge_critic_models_defined():
     assert isinstance(CRITIC_MODEL, str) and len(CRITIC_MODEL) > 0
 
 
-# ── helpers ───────────────────────────────────────────────────────
+# ── Edge-case: prompt templates with empty inputs ──────────────────
 
-# No-op context manager for cleaner conditional logic
-from contextlib import nullcontext as _dummy_context
+
+def test_debate_prompt_empty_contributions():
+    p = _debate_prompt("Q?", [], "gemini")
+    assert "Q?" in p
+    # No "Other answers" content, but template should still render
+    assert "Other answers:" in p
+
+
+def test_debate_round2_prompt_empty_contributions():
+    p = _debate_round2_prompt("Q?", [], "gemini")
+    assert "Q?" in p
+    assert "round 2" in p.lower()
+
+
+def test_cross_examine_prompt_content(sample_contributions):
+    p = _cross_examine_prompt("Q?", sample_contributions, "gemini")
+    assert "weakest argument" in p.lower()
+    assert "Q?" in p
+    assert "claude" in p
+    assert "goose" in p
+
+
+def test_blind_prompt_empty_question():
+    p = _blind_prompt("")
+    assert "Question: " in p
+
+
+# ── Edge-case: Deliberation.save slug sanitization ─────────────────
+
+
+def test_deliberation_save_slug_sanitization(tmp_path):
+    d = Deliberation(question="What is 2+2? Yes/No! @#$%", mode="quick", decision="D")
+    out = d.save(path=tmp_path / "slug-test.md")
+    text = out.read_text()
+    # Transcript should have the original question
+    assert "What is 2+2? Yes/No! @#$%" in text
+
+
+def test_deliberation_save_long_question_truncates(tmp_path):
+    long_q = "A" * 200
+    d = Deliberation(question=long_q, mode="quick", decision="D")
+    out = d.save(path=tmp_path / "long-q.md")
+    assert out.exists()
+    content = out.read_text()
+    assert long_q in content
+
+
+# ── Edge-case: _parse_judge whitespace handling ────────────────────
+
+
+def test_parse_judge_whitespace_decision():
+    text = "[DECISION]   \n[REASONING]\n- R\n"
+    decision, dissents = _parse_judge(text)
+    # "[DECISION]" line stripped → tag present, content empty → stays ""
+    # Fallback: first non-empty line is "[DECISION]" itself
+    assert decision == "[DECISION]"
+
+
+def test_parse_judge_dissent_with_extra_whitespace():
+    text = "[DECISION] Yes\n[DISSENT]   A real dissent   \n"
+    decision, dissents = _parse_judge(text)
+    assert decision == "Yes"
+    assert len(dissents) == 1
+    assert dissents[0] == "A real dissent"
+
+
+def test_parse_judge_dissent_empty_text():
+    text = "[DECISION] Yes\n[DISSENT] \n"
+    decision, dissents = _parse_judge(text)
+    assert decision == "Yes"
+    # Empty after strip should be filtered (empty string is falsy)
+    assert dissents == []
+
+
+# ── Edge-case: _mode_quick with empty results ──────────────────────
+
+
+def test_mode_quick_empty_results():
+    with patch("metabolon.organelles.quorum.parallel_transduce") as pt, \
+         patch("metabolon.organelles.quorum.transduce") as t:
+        pt.return_value = []
+        t.return_value = "[DECISION] No panelists.\n"
+
+        delib = _mode_quick("Q?", [], "", 60)
+        assert len(delib.contributions) == 1  # just the judge
+        assert delib.contributions[0].phase == "judge"
+        assert delib.decision == "No panelists."
+
+
+# ── Edge-case: _mode_redteam single model ──────────────────────────
+
+
+def test_mode_redteam_single_model():
+    with patch("metabolon.organelles.quorum.parallel_transduce") as pt, \
+         patch("metabolon.organelles.quorum.transduce") as t:
+        # No attackers (panel has 1 model, attackers = panel[1:] = [])
+        pt.return_value = []  # no attack results
+        t.side_effect = [
+            "Position: use Rust.",  # blind
+            "Defending Rust!",  # defend (with no attacks to counter)
+            "[DECISION] Use Rust.\n",  # judge
+        ]
+
+        delib = _mode_redteam("Lang?", ["gemini"], "", 60)
+        phases = [c.phase for c in delib.contributions]
+        assert "blind" in phases
+        assert "attack" not in phases  # no attackers
+        assert "defend" in phases
+        assert "judge" in phases
+        assert delib.decision == "Use Rust."
+
+
+# ── Edge-case: transcript ordering ─────────────────────────────────
+
+
+def test_deliberation_transcript_multiple_contributions():
+    d = Deliberation(question="Order?", mode="council", decision="Decided")
+    d.contributions.append(Contribution(model="a", content="first", phase="blind"))
+    d.contributions.append(Contribution(model="b", content="second", phase="debate"))
+    d.contributions.append(Contribution(model="c", content="third", phase="judge"))
+    t = d.transcript()
+    # Contributions should appear in order
+    assert t.index("[blind] a") < t.index("[debate] b") < t.index("[judge] c")
+
+
+# ── Edge-case: deliberate elapsed_s accuracy ───────────────────────
+
+
+def test_deliberate_elapsed_s_set():
+    with patch("metabolon.organelles.quorum._mode_quick") as mq, \
+         patch("metabolon.organelles.quorum.time") as mock_time:
+        mock_time.time.side_effect = [50.0, 73.5]
+        mq.return_value = Deliberation(question="Q?", mode="quick")
+
+        result = deliberate("Q?", save=False)
+        assert result.elapsed_s == 23.5
+
+
+# ── Edge-case: CLI --timeout default ───────────────────────────────
+
+
+def test_main_default_timeout():
+    d = Deliberation(question="Q?", mode="quick", decision="D")
+    import sys
+    old_argv = sys.argv
+    sys.argv = ["quorum", "Q?", "--mode", "quick", "--no-save"]
+    try:
+        with patch("metabolon.organelles.quorum.deliberate", return_value=d) as m:
+            main()
+        m.assert_called_once_with("Q?", mode="quick", persona="", timeout=180, save=False)
+    finally:
+        sys.argv = old_argv
+
+
+# ── Edge-case: save with explicit path ─────────────────────────────
+
+
+def test_deliberation_save_explicit_path(tmp_path):
+    d = Deliberation(question="Explicit?", mode="quick", decision="Explicit decision")
+    custom_dir = tmp_path / "custom"
+    custom_dir.mkdir()
+    target = custom_dir / "output.md"
+    out = d.save(path=target)
+    assert out == target
+    assert target.exists()
+    assert "Explicit decision" in target.read_text()
+
+
+# ── helpers ───────────────────────────────────────────────────────
 
 
 @pytest.fixture(autouse=True)

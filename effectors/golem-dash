@@ -398,8 +398,8 @@ def running_tasks_table(running: list[dict], use_color: bool = True) -> str:
     return "\n".join(lines)
 
 
-def eta_section(eta: dict, use_color: bool = True) -> str:
-    """Format ETA section."""
+def eta_section(eta: dict, throughput: float, use_color: bool = True) -> str:
+    """Format ETA section with throughput and wall-clock estimate."""
     b = BOLD if use_color else ""
     c = CYAN if use_color else ""
     dim = DIM if use_color else ""
@@ -408,9 +408,14 @@ def eta_section(eta: dict, use_color: bool = True) -> str:
     if eta["pending"] == 0:
         return f"  {b}Queue empty{rst}"
 
+    wall = eta_wall_clock(eta["eta_seconds"])
+    thr_str = f"{throughput:.1f}/hr" if throughput > 0 else "—/hr"
+
     lines = [
         f"  Pending: {eta['pending']}  |  Running: {eta['running']}  |  "
-        f"Avg: {eta['avg_duration']}s  |  ETA: {c}{b}{eta['eta_str']}{rst}"
+        f"Workers: {eta['workers']}  |  Avg: {eta['avg_duration']}s",
+        f"  ETA: {c}{b}{eta['eta_str']}{rst}  ({wall})  |  "
+        f"Throughput: {dim}{thr_str}{rst}",
     ]
     return "\n".join(lines)
 

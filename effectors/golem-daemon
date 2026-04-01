@@ -49,6 +49,14 @@ HEALTH_CHECK_INTERVAL = 50  # Run health check every N poll cycles (~25 min)
 PROVIDER_COOLDOWN_SECONDS = 600  # 10 min cooldown after excessive failures
 PROVIDER_FAILURE_WINDOW = 600   # 10 min sliding window for failure counting
 PROVIDER_FAILURE_THRESHOLD = 5  # cooldown after N failures within the window
+RATE_LIMIT_COOLDOWN_SECONDS = 18000  # 5-hour cooldown for quota exhaustion (matches Infini window)
+
+# Rate-limit detection patterns (checked against task output/tail)
+RATE_LIMIT_PATTERNS = re.compile(
+    r'429|AccountQuotaExceeded|rate.?limit|quota.?exceeded|20013|'
+    r'request.?limit.?exceeded|API Error.*429|too many requests',
+    re.IGNORECASE,
+)
 
 
 def disk_hygiene() -> int:

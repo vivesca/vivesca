@@ -1,59 +1,33 @@
 #!/usr/bin/env bash
-# start.sh — Bring up Temporal stack and wait for health
+# start.sh — launch Temporal server + worker for local development.
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-cd "$SCRIPT_DIR"
+cd "$(dirname "$0")"
 
-# Load .env if present
-if [[ -f .env ]]; then
-    set -a; source .env; set +a
-fi
-
-echo "==> Starting Temporal stack..."
+echo "==> Starting Temporal server (PostgreSQL + server + Web UI)..."
 docker compose up -d
 
-echo "==> Waiting for PostgreSQL..."
-until docker compose exec -T postgresql pg_isready -U "${TEMPORAL_DB_USER:-temporal}" >/dev/null 2>&1; do
-    sleep 2
-done
-echo "    PostgreSQL ready."
-
-echo "==> Waiting for Temporal server health..."
-retries=0
-max_retries=60
-until docker compose exec -T temporal-server temporal operator cluster health >/dev/null 2>&1; do
-    retries=$((retries + 1))
-    if [[ $retries -ge $max_retries ]]; then
-        echo "ERROR: Temporal server did not become healthy after $max_retries attempts." >&2
-        echo "Check logs: docker compose logs temporal-server" >&2
-        exit 1
-    fi
-    sleep 3
-    echo "    attempt $retries/$max_retries..."
-done
-echo "    Temporal server healthy."
-
-echo "==> Waiting for Temporal Web..."
-retries=0
-max_retries=30
-until curl -sf "http://localhost:${TEMPORAL_WEB_PORT:-8080}" >/dev/null 2>&1; do
-    retries=$((retries + 1))
-    if [[ $retries -ge $max_retries ]]; then
-        echo "WARN: Temporal Web not reachable after $max_retries attempts." >&2
+echo "==> Waiting for Temporal server to be healthy..."
+for i in $(seq 1 30); do
+    if docker compose exec -T temporal-server tctl --address localhost:7233 cluster health 2>/dev/null; then
+        echo "    Server is healthy."
         break
     fi
+    echo "    Waiting... ($i/30)"
     sleep 2
 done
-if [[ $retries -lt $max_retries ]]; then
-    echo "    Temporal Web ready."
+
+echo "==> Starting worker..."
+echo "    Run:  uv run python worker.py"
+echo "    Or:   bash start.sh --worker  (to auto-start)"
+if [[ "${1:-}" == "--worker" ]]; then
+    exec uv run python worker.py
 fi
 
 echo ""
-echo "==> Temporal stack is up!"
-echo "    Server gRPC:  localhost:${TEMPORAL_GRPC_PORT:-7233}"
-echo "    Web UI:       http://localhost:${TEMPORAL_WEB_PORT:-8080}"
-echo "    Admin tools:  docker compose exec temporal-admin-tools tctl --help"
+echo "Temporal server:  http://localhost:7233"
+echo "Temporal Web UI:  http://localhost:8080"
+echo "Task queue:       golem-tasks"
 echo ""
-echo "To stop:  docker compose down"
-echo "To wipe:  docker compose down -v"
+echo "Submit tasks:     temporal-golem submit --provider zhipu --task 'hello'"
+echo "Check status:     temporal-golem status <workflow-id>"

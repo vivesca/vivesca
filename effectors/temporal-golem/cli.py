@@ -1,167 +1,143 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
-"""CLI for submitting golem workflows and checking status.
+"""temporal-golem CLI — submit workflows and check status.
 
-Usage::
-
-    temporal-golem submit --provider zhipu --task "Write tests for foo.py"
-    temporal-golem submit --file tasks.txt          # one task per line
+Usage:
+    temporal-golem submit --provider zhipu --task "Write tests"
+    temporal-golem submit --provider zhipu --file tasks.txt
     temporal-golem status <workflow-id>
+    temporal-golem status <workflow-id> --json
 """
 
 import asyncio
 import json
 import sys
+from datetime import datetime
 from pathlib import Path
 from typing import List, Optional
 
 import click
+from temporalio.client import Client, WorkflowFailureError
 
-from temporalio.client import Client, WorkflowExecution, WorkflowFailureError
-
-# Local imports — these work when invoked as a module from the project dir.
-from worker import TASK_QUEUE
-from workflow import (
-    GolemDispatchInput,
-    GolemDispatchOutput,
-    GolemDispatchWorkflow,
-    GolemTaskSpec,
-)
-
-TEMPORAL_ADDRESS_DEFAULT = "localhost:7233"
+# Re-export models for convenience
+from models import GolemDispatchInput, GolemDispatchOutput, GolemResult, GolemTaskSpec  # noqa: F401
 
 
-async def _connect(address: str) -> Client:
-    return await Client.connect(address)
+async def _connect() -> Client:
+    """Connect to the local Temporal server."""
+    return await Client.connect("localhost:7233")
 
 
 def _parse_task_file(path: str) -> List[GolemTaskSpec]:
-    """Parse a task file: each non-empty line is ``provider|task``."""
-    specs: list[GolemTaskSpec] = []
-    for line in Path(path).read_text().splitlines():
-        line = line.strip()
-        if not line or line.startswith("#"):
-            continue
-        if "|" in line:
-            provider, task = line.split("|", 1)
-        else:
-            provider, task = "zhipu", line
-        specs.append(GolemTaskSpec(provider=provider.strip(), task=task.strip()))
+    """Parse a task file into a list of GolemTaskSpec.
+
+    Each line is either ``provider|task`` (pipe-separated) or bare task text
+    (defaults to provider ``zhipu``).  Blank lines and lines starting with
+    ``#`` are skipped.
+    """
+    specs: List[GolemTaskSpec] = []
+    with open(path) as f:
+        for line in f:
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+            if "|" in line:
+                provider, task = line.split("|", 1)
+                specs.append(GolemTaskSpec(provider=provider.strip(), task=task.strip()))
+            else:
+                specs.append(GolemTaskSpec(provider="zhipu", task=line))
     return specs
 
 
 @click.group()
-@click.option(
-    "--address",
-    envvar="TEMPORAL_ADDRESS",
-    default=TEMPORAL_ADDRESS_DEFAULT,
-    help="Temporal server gRPC address",
-)
-@click.pass_context
-def cli(ctx: click.Context, address: str) -> None:
-    """temporal-golem — submit and inspect golem dispatch workflows."""
-    ctx.ensure_object(dict)
-    ctx.obj["address"] = address
+def cli() -> None:
+    """Temporal Golem — submit and monitor golem workflows."""
 
 
 @cli.command()
-@click.option("--provider", "-p", required=True, help="Provider name (zhipu, infini, volcano)")
-@click.option("--task", "-t", "tasks", multiple=True, help="Task string (repeatable)")
-@click.option("--file", "-f", "task_file", help="File with provider|task lines")
-@click.option("--workflow-id", "-w", help="Custom workflow ID")
-@click.pass_context
-def submit(
-    ctx: click.Context,
-    provider: str,
-    tasks: tuple[str, ...],
-    task_file: Optional[str],
-    workflow_id: Optional[str],
-) -> None:
-    """Submit a batch of golem tasks as a Temporal workflow."""
-    specs: list[GolemTaskSpec] = []
+@click.option("--provider", "-p", required=True, help="Golem provider (zhipu|infini|volcano)")
+@click.option("--task", "-t", "tasks", multiple=True, help="Task description (repeatable)")
+@click.option("--file", "-f", "task_file", default=None, help="File with tasks (provider|task per line)")
+@click.option("--workflow-id", default=None, help="Custom workflow ID")
+def submit(provider: str, tasks: tuple[str, ...], task_file: Optional[str], workflow_id: Optional[str]) -> None:
+    """Submit a golem dispatch workflow."""
+    specs: List[GolemTaskSpec] = []
+
     for t in tasks:
         specs.append(GolemTaskSpec(provider=provider, task=t))
+
     if task_file:
-        specs.extend(_parse_task_file(task_file))
+        file_specs = _parse_task_file(task_file)
+        specs.extend(file_specs)
 
     if not specs:
-        click.echo("No tasks provided. Use --task or --file.", err=True)
-        raise SystemExit(1)
+        click.echo("Error: no tasks provided. Use --task or --file.", err=True)
+        sys.exit(1)
 
-    address = ctx.obj["address"]
-    input_data = GolemDispatchInput(tasks=specs)
-    if not workflow_id:
-        import datetime
-        workflow_id = (
-            f"golem-{provider}-{datetime.datetime.now().strftime('%Y%m%d-%H%M%S')}"
-        )
+    inp = GolemDispatchInput(tasks=specs)
 
-    async def _run() -> None:
-        client = await _connect(address)
+    async def _do_submit() -> None:
+        client = await _connect()
+        if workflow_id:
+            wid = workflow_id
+        else:
+            timestamp = datetime.utcnow().strftime("%Y%m%d-%H%M%S")
+            wid = f"golem-{provider}-{timestamp}"
+
         handle = await client.start_workflow(
-            GolemDispatchWorkflow.run,
-            input_data,
-            id=workflow_id,
-            task_queue=TASK_QUEUE,
+            "GolemDispatchWorkflow",
+            inp,
+            id=wid,
+            task_queue="golem-tasks",
         )
         click.echo(f"Workflow started: {handle.id}")
-        click.echo(f"  Task queue: {TASK_QUEUE}")
-        click.echo(f"  Tasks: {len(specs)}")
 
-    asyncio.run(_run())
+    asyncio.run(_do_submit())
 
 
 @cli.command()
 @click.argument("workflow_id")
 @click.option("--json", "as_json", is_flag=True, help="Output as JSON")
-@click.pass_context
-def status(ctx: click.Context, workflow_id: str, as_json: bool) -> None:
-    """Check the status of a dispatched workflow."""
-    address = ctx.obj["address"]
-
-    async def _run() -> None:
-        client = await _connect(address)
+def status(workflow_id: str, as_json: bool) -> None:
+    """Check the status of a golem dispatch workflow."""
+    async def _do_status() -> None:
+        client = await _connect()
         handle = client.get_workflow_handle(workflow_id)
         desc = await handle.describe()
-        click.echo(f"Workflow:  {desc.id}")
-        click.echo(f"Status:    {desc.status.name}")
-        click.echo(f"Started:   {desc.start_time}")
+
+        status_name = desc.status.name
+        click.echo(f"Workflow: {desc.id}")
+        click.echo(f"Status:   {status_name}")
+        click.echo(f"Started:  {desc.start_time}")
+
         if desc.close_time:
-            click.echo(f"Finished:  {desc.close_time}")
+            click.echo(f"Finished: {desc.close_time}")
 
-        if desc.status.name == "COMPLETED":
-            try:
-                result = await handle.result()
-                if isinstance(result, GolemDispatchOutput):
-                    if as_json:
-                        click.echo(json.dumps({
-                            "total": result.total,
-                            "succeeded": result.succeeded,
-                            "failed": result.failed,
-                            "results": [
-                                {
-                                    "provider": r.provider,
-                                    "task": r.task,
-                                    "exit_code": r.exit_code,
-                                    "ok": r.ok,
-                                }
-                                for r in result.results
-                            ],
-                        }, indent=2))
-                    else:
-                        click.echo(str(result))
-                else:
-                    click.echo(json.dumps(result, indent=2, default=str))
-            except WorkflowFailureError as exc:
-                click.echo(f"Workflow failed: {exc}", err=True)
+        if status_name == "COMPLETED":
+            result = await handle.result()
+            if as_json:
+                data = {
+                    "total": result.total,
+                    "succeeded": result.succeeded,
+                    "failed": result.failed,
+                    "results": [
+                        {
+                            "provider": r.provider,
+                            "task": r.task,
+                            "exit_code": r.exit_code,
+                            "ok": r.ok,
+                            "timed_out": r.timed_out,
+                        }
+                        for r in result.results
+                    ],
+                }
+                click.echo(json.dumps(data, indent=2))
+            else:
+                click.echo(str(result))
 
-    asyncio.run(_run())
-
-
-def main() -> None:
-    cli()
+    asyncio.run(_do_status())
 
 
 if __name__ == "__main__":
-    main()
+    cli()
