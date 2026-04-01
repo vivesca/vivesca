@@ -204,15 +204,15 @@ class TestUserCreation:
     def test_copies_ssh_keys_from_root(self):
         src = _src()
         assert "/root/.ssh/authorized_keys" in src
-        assert "/home/terry/.ssh/" in src
+        assert "~terry/.ssh" in src
 
     def test_sets_ssh_dir_permissions(self):
         src = _src()
-        assert "chmod 700 /home/terry/.ssh" in src
-        assert "chmod 600 /home/terry/.ssh/authorized_keys" in src
+        assert "chmod 700 ~terry/.ssh" in src
+        assert "chmod 600 ~terry/.ssh/authorized_keys" in src
 
     def test_chowns_ssh_dir(self):
-        assert "chown -R terry:terry /home/terry/.ssh" in _src()
+        assert "chown -R terry:terry ~terry/.ssh" in _src()
 
 
 # ── content analysis: packages ───────────────────────────────────────────
@@ -419,12 +419,12 @@ class TestIdempotency:
 
     def test_all_curl_uses_fail_silent_flags(self):
         """All curl invocations use -f (fail silently on HTTP errors) or -LsSf."""
+        import re as _re
         src = _src()
-        # Find all curl lines
         for i, line in enumerate(src.splitlines(), 1):
             stripped = line.strip()
-            if stripped.startswith("curl ") or "curl " in stripped:
-                # Every curl should have -f or -fsSL or -LsSf
+            # Match curl as a command (pipelines, standalone), not as package name
+            if _re.search(r"(?:^|\|)\s*curl\b", stripped):
                 assert "-f" in stripped or "-LsSf" in stripped, (
                     f"Line {i}: curl without fail flag: {stripped}"
                 )
