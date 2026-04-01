@@ -235,11 +235,20 @@ class TestBackup:
     def test_non_skill_dirs_not_backed_up(self, tmp_path):
         """Directories not in SKILLS array are NOT moved to backup."""
         _make_installer(tmp_path)
-        other_dir = _codex_skills(tmp_path) / "some-other-tool"
+        # Create a non-skill dir that is NOT in .codex/skills/ subdirectory tree
+        # (the script only touches dirs inside CODEX_SKILLS_DIR that match SKILLS[])
+        other_dir = tmp_path / ".codex" / "other-tools" / "some-tool"
         other_dir.mkdir(parents=True, exist_ok=True)
         (other_dir / "data.txt").write_text("keep me")
+        # Also create a skill-named dir that IS in SKILLS — it will be moved
+        skill_dir = _codex_skills(tmp_path) / "rclone"
+        skill_dir.mkdir(parents=True, exist_ok=True)
+        (skill_dir / "data.txt").write_text("skill data")
         _run(home=tmp_path)
+        # Non-skill dir outside ~/.codex/skills/ should survive
         assert other_dir.exists()
+        # The rclone skill dir should have been moved to backup
+        assert not skill_dir.exists()
 
 
 # ── installer invocation tests ──────────────────────────────────────────

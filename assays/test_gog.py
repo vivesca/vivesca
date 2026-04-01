@@ -265,10 +265,10 @@ def _mock_msg(
 
 @pytest.fixture
 def mock_service():
-    """Monkey-patch _mod['_service'] with a MagicMock for the duration of a test."""
+    """Monkey-patch _mod['_service'] to return a configured MagicMock."""
     svc = MagicMock()
     original = _mod["_service"]
-    _mod["_service"] = svc
+    _mod["_service"] = lambda: svc
     yield svc
     _mod["_service"] = original
 

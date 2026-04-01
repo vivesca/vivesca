@@ -334,10 +334,15 @@ def test_cli_dry_run(tmp_path):
     plan_file.write_text("test plan")
 
     result = subprocess.run(
-        [str(Path.home() / "germline/effectors/plan-exec.deprecated"), str(plan_file), "--dry-run"],
+        [
+            str(Path.home() / "germline/effectors/plan-exec.deprecated"),
+            str(plan_file.resolve()),
+            "--project",
+            str(tmp_path.resolve()),
+            "--dry-run",
+        ],
         capture_output=True,
         text=True,
-        cwd=str(tmp_path),
     )
     assert result.returncode == 0
     assert "Would try" in result.stdout
@@ -352,13 +357,14 @@ def test_cli_unknown_backend(tmp_path):
     result = subprocess.run(
         [
             str(Path.home() / "germline/effectors/plan-exec.deprecated"),
-            str(plan_file),
+            str(plan_file.resolve()),
+            "--project",
+            str(tmp_path.resolve()),
             "--backend",
             "unknown_backend",
         ],
         capture_output=True,
         text=True,
-        cwd=str(tmp_path),
     )
     assert result.returncode == 1
     assert "unknown backend" in result.stderr
@@ -374,9 +380,9 @@ def test_cli_project_argument(tmp_path):
     result = subprocess.run(
         [
             str(Path.home() / "germline/effectors/plan-exec.deprecated"),
-            str(plan_file),
+            str(plan_file.resolve()),
             "--project",
-            str(project_dir),
+            str(project_dir.resolve()),
             "--dry-run",
         ],
         capture_output=True,
@@ -396,9 +402,9 @@ def test_cli_short_options(tmp_path):
     result = subprocess.run(
         [
             str(Path.home() / "germline/effectors/plan-exec.deprecated"),
-            str(plan_file),
+            str(plan_file.resolve()),
             "-p",
-            str(project_dir),
+            str(project_dir.resolve()),
             "--dry-run",
         ],
         capture_output=True,

@@ -3,10 +3,9 @@ from __future__ import annotations
 """Tests for golem-orchestrator — Switch between golem-daemon, Hatchet, and Temporal backends."""
 
 import os
-import signal
 import subprocess
 from pathlib import Path
-from unittest.mock import MagicMock, patch, mock_open
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -37,6 +36,7 @@ BACKENDS = _mod["BACKENDS"]
 WORKER_PIDFILES = _mod["WORKER_PIDFILES"]
 main = _mod["main"]
 ENV_FILE = _mod["ENV_FILE"]
+LOG_DIR = _mod["LOG_DIR"]
 
 
 # ── Constants tests ─────────────────────────────────────────────────────
