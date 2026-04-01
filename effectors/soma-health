@@ -9,12 +9,15 @@ Usage:
 
 Checks:
   1. Disk space (% used, absolute free)
-  2. Memory usage
-  3. Daemon status (running, PID, task counts)
-  4. Git repo health (clean, no corruption)
-  5. Python venv health (uv sync needed?)
-  6. Test count (collected, errors)
-  7. Stale files (old sessions, caches, logs)
+  2. Disk space on /data volume
+  3. Memory usage
+  4. Daemon status (running, PID, task counts)
+  5. Git repo health (clean, no corruption)
+  6. Python venv health (uv sync needed?)
+  7. Test count (collected, errors)
+  8. Stale files (old sessions, caches, logs)
+  9. Golem process count
+  10. Hatchet container health
 
 Auto-fix actions:
   - Disk > 80%: prune old sessions, caches, logs

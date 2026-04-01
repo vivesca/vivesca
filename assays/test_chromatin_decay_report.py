@@ -242,6 +242,75 @@ class TestMain:
         out = capsys.readouterr().out
         assert "access tracking" in out.lower()
 
+    def test_all_hub_files_excluded_from_orphans(self, cr, capsys):
+        """CLAUDE, TODO, Active Pipeline, Job Hunting, Contact Index are never orphans."""
+        notes = cr["CHROMATIN_PATH"]
+        for name in ["CLAUDE", "TODO", "Active Pipeline", "Job Hunting", "Contact Index"]:
+            _note(notes, name, f"# {name}")
+        cr["main"]()
+        out = capsys.readouterr().out
+        assert "ORPHANS (no incoming links): 0" in out
+
+    def test_wikilink_heading_fragment_stripped(self, cr, capsys):
+        """Links like [[note#section]] resolve to 'note' in the link graph."""
+        notes = cr["CHROMATIN_PATH"]
+        _note(notes, "alpha", "# Alpha\n[[beta#intro]]")
+        _note(notes, "beta", "# Beta")
+        cr["main"]()
+        out = capsys.readouterr().out
+        assert "ORPHANS (no incoming links): 0" in out
+
+    def test_subpath_link_resolves_to_stem(self, cr, capsys):
+        """[[folder/deep-note]] counts as incoming link for 'deep-note'."""
+        notes = cr["CHROMATIN_PATH"]
+        _note(notes, "alpha", "# Alpha\n[[folder/deep-note]]")
+        _note(notes, "deep-note", "# Deep")
+        cr["main"]()
+        out = capsys.readouterr().out
+        assert "ORPHANS (no incoming links): 0" in out
+
+    def test_invalid_last_accessed_date_ignored(self, cr, capsys):
+        """A malformed last_accessed does not crash — just skipped."""
+        notes = cr["CHROMATIN_PATH"]
+        _note(notes, "baddate", "# Bad", last_accessed="not-a-date", access_count=2)
+        cr["main"]()
+        out = capsys.readouterr().out
+        assert "COLD NOTES (last accessed > 30 days): 0" in out
+
+    def test_mixed_scenario(self, cr, capsys):
+        """One orphan, one cold, one tracked — all reported correctly."""
+        notes = cr["CHROMATIN_PATH"]
+        _note(notes, "orphan", "# Orphan")  # no incoming links
+        old = (datetime.now() - timedelta(days=90)).strftime("%Y-%m-%d")
+        _note(notes, "coldy", "# Cold", last_accessed=old, access_count=10)
+        _note(notes, "fresh", "# Fresh\n[[coldy]]", access_count=1,
+              last_accessed=datetime.now().strftime("%Y-%m-%d"))
+        cr["main"]()
+        out = capsys.readouterr().out
+        assert "Total notes indexed: 3" in out
+        assert "ORPHANS (no incoming links): 1" in out
+        assert "COLD NOTES (last accessed > 30 days): 1" in out
+        assert "access tracking: 2" in out or "Notes with access tracking: 2" in out
+
+    def test_excludes_templates_and_obsidian(self, cr, capsys):
+        """Notes under templates/ and .obsidian/ are excluded."""
+        notes = cr["CHROMATIN_PATH"]
+        _note(notes, "templates/daily", "# Template")
+        _note(notes, ".obsidian/config", "# Config")
+        _note(notes, "real", "# Real")
+        cr["main"]()
+        out = capsys.readouterr().out
+        assert "Total notes indexed: 1" in out
+
+    def test_cold_note_reports_days(self, cr, capsys):
+        """Cold notes show the number of days since last access."""
+        notes = cr["CHROMATIN_PATH"]
+        old = (datetime.now() - timedelta(days=45)).strftime("%Y-%m-%d")
+        _note(notes, "stale", "# Stale", last_accessed=old)
+        cr["main"]()
+        out = capsys.readouterr().out
+        assert "45 days ago" in out
+
 
 # ── CLI subprocess tests ──────────────────────────────────────────────────
 
