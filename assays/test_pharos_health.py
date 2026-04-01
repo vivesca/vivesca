@@ -181,7 +181,7 @@ class TestFailedUnitsAlert:
             _make_bin(tdir, "df", 'echo "Use% \n 20%"')
             _make_bin(tdir, "free", 'echo "              total        used        free"; echo "Mem:       32097        7000       25097"')
             # Simulate 3 failed units (3 lines of output)
-            _make_bin(tdir, "systemctl", 'if [[ "${1:-}" == *"--failed"* ]]; then echo "unit1.service  failed"; echo "unit2.service  failed"; echo "unit3.service  failed"; fi')
+            _make_bin(tdir, "systemctl", 'if [[ "$*" == *"--failed"* ]]; then echo "unit1.service  failed"; echo "unit2.service  failed"; echo "unit3.service  failed"; fi')
             fake_home = tdir / "home"
             fake_home.mkdir()
             (fake_home / "scripts").mkdir()
