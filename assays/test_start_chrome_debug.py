@@ -142,16 +142,24 @@ class TestPortFlag:
 
 class TestChromeAlreadyRunning:
     def test_detects_running_chrome(self, tmp_path):
-        """If curl to the debug port succeeds, script exits 0 without launching."""
+        """If curl to the debug port succeeds, script exits 0 without launching.
+
+        Chrome detection runs before the curl check, so we need a fake chrome
+        binary in PATH as well.
+        """
         bin_dir = tmp_path / "bin"
         bin_dir.mkdir()
 
-        # A fake curl that succeeds
+        # Fake chrome (found by detection loop but never launched)
+        chrome = bin_dir / "google-chrome-stable"
+        chrome.write_text("#!/bin/bash\nsleep 3\n")
+        chrome.chmod(chrome.stat().st_mode | stat.S_IEXEC)
+
+        # A fake curl that succeeds — placed BEFORE /usr/bin in PATH
         curl = bin_dir / "curl"
         curl.write_text("#!/bin/bash\nexit 0\n")
         curl.chmod(curl.stat().st_mode | stat.S_IEXEC)
 
-        # No chrome in PATH (should not be needed if curl succeeds first)
         r = _run(env={"PATH": str(bin_dir)})
         assert r.returncode == 0
         assert "already running" in r.stdout.lower()
