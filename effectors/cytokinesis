@@ -282,7 +282,7 @@ def run_reflect(session_id: str) -> tuple[list[dict], dict]:
     try:
         r = subprocess.run(
             ["channel", "haiku", "-p", prompt],
-            capture_output=True, text=True, timeout=120,
+            capture_output=True, text=True, timeout=15,
             env={k: v for k, v in os.environ.items() if k != "CLAUDECODE"},
         )
         if r.returncode != 0:
@@ -420,12 +420,12 @@ def cmd_gather(args):
     # --- Phase 2: wait for LLM calls, append results ---
     if methyl_fut:
         try:
-            results["methylation"] = methyl_fut.result(timeout=90)
+            results["methylation"] = methyl_fut.result(timeout=20)
         except (concurrent.futures.TimeoutError, Exception):
             results["methylation"] = {}
     if reflect_fut:
         try:
-            candidates, reflect_usage = reflect_fut.result(timeout=90)
+            candidates, reflect_usage = reflect_fut.result(timeout=20)
             results["reflect"] = candidates
             results["reflect_session"] = sid
             results["reflect_usage"] = reflect_usage
@@ -1008,7 +1008,7 @@ def cmd_extract(args):
     try:
         r = subprocess.run(
             ["channel", "haiku", "-p", prompt],
-            capture_output=True, text=True, timeout=120,
+            capture_output=True, text=True, timeout=15,
             env={k: v for k, v in os.environ.items() if k != "CLAUDECODE"},
         )
         if r.returncode != 0:
