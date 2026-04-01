@@ -256,7 +256,7 @@ _preflight_check() {
     429)
       # Extract reset time from error JSON (e.g. "reset at 2026-04-01 11:05:30 +0800")
       local _reset
-      _reset=$(echo "$_response" | grep -oE 'reset at [0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}' | head -1)
+      _reset=$(echo "$_response" | grep -oE 'reset at [0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}' | head -1 || true)
       echo "${_reset:-rate-limited, no reset time}"
       return 1 ;;
     *) return 2 ;;
