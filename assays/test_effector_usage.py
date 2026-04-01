@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-"""Tests for effector-usage — scans golem logs for effector mentions."""
+"""Tests for effector-usage — scans golem logs and skills/hooks for effector mentions."""
 
 import json
+import subprocess
 import textwrap
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -25,7 +26,11 @@ scan_daemon_log = _mod["scan_daemon_log"]
 compute_report = _mod["compute_report"]
 list_effectors = _mod["list_effectors"]
 scan_claude_sources = _mod["scan_claude_sources"]
+format_report = _mod["format_report"]
+main = _mod["main"]
 RE_EFFECTOR = _mod["RE_EFFECTOR"]
+
+EFFECTOR_PATH = Path.home() / "germline" / "effectors" / "effector-usage"
 
 
 # ── Regex tests ──────────────────────────────────────────────────────

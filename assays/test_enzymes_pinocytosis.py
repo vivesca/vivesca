@@ -188,36 +188,45 @@ def test_count_goose_tasks_exception():
 
 
 def test_read_praxis_today_uses_title_fallback():
+    import metabolon.organelles
+
     mock_praxis = MagicMock()
     mock_praxis.today.return_value = {
         "overdue": [{"title": "Important task"}],
         "today": [],
     }
     with patch.dict("sys.modules", {"metabolon.organelles.praxis": mock_praxis}):
-        result = pino._read_praxis_today()
+        with patch.object(metabolon.organelles, "praxis", mock_praxis):
+            result = pino._read_praxis_today()
     assert "Important task" in result
 
 
 def test_read_praxis_today_no_due_field():
+    import metabolon.organelles
+
     mock_praxis = MagicMock()
     mock_praxis.today.return_value = {
         "overdue": [{"text": "Untitled task"}],
         "today": [],
     }
     with patch.dict("sys.modules", {"metabolon.organelles.praxis": mock_praxis}):
-        result = pino._read_praxis_today()
+        with patch.object(metabolon.organelles, "praxis", mock_praxis):
+            result = pino._read_praxis_today()
     assert "Untitled task" in result
     assert "(due " not in result
 
 
 def test_read_praxis_today_limits_to_5():
+    import metabolon.organelles
+
     mock_praxis = MagicMock()
     mock_praxis.today.return_value = {
         "overdue": [{"text": f"Task {i}"} for i in range(8)],
         "today": [],
     }
     with patch.dict("sys.modules", {"metabolon.organelles.praxis": mock_praxis}):
-        result = pino._read_praxis_today()
+        with patch.object(metabolon.organelles, "praxis", mock_praxis):
+            result = pino._read_praxis_today()
     assert result.count("[overdue]") == 5
 
 
