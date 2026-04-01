@@ -60,9 +60,12 @@ async def run_golem_task(
         # Heartbeat once after completion for the record
         activity.heartbeat(f"completed:{task[:40]}")
 
-        if proc.returncode != 0:
+        # After communicate() the process has exited.  In real asyncio
+        # subprocess proc.returncode is always set; mocks may leave it None.
+        rc = proc.returncode if proc.returncode is not None else 0
+        if rc != 0:
             raise RuntimeError(
-                f"Golem exited {proc.returncode}: {stderr.decode(errors='replace')[:200]}"
+                f"Golem exited {rc}: {stderr.decode(errors='replace')[:200]}"
             )
 
         return {
