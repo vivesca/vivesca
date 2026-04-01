@@ -1,0 +1,108 @@
+#!/usr/bin/env python3
+"""gemmule-sync — pull key directories from gemmule (remote) to local.
+
+Syncs:
+  ~/epigenome/chromatin/
+  ~/notes/
+  ~/code/acta/
+
+Usage:
+  gemmule-sync           # live run
+  gemmule-sync --dry-run # preview only
+"""
+
+from __future__ import annotations
+
+import argparse
+import logging
+import subprocess
+import sys
+from datetime import datetime, timezone
+from pathlib import Path
+
+REMOTE_HOST = "terry@100.94.27.93"
+LOG_DIR = Path.home() / ".local" / "share" / "vivesca"
+LOG_FILE = LOG_DIR / "gemmule-sync.log"
+
+SYNC_PAIRS: list[tuple[str, str]] = [
+    ("~/epigenome/chromatin/", "~/epigenome/chromatin/"),
+    ("~/notes/", "~/notes/"),
+    ("~/code/acta/", "~/code/acta/"),
+]
+
+
+def setup_logging() -> logging.Logger:
+    """Configure file + console logging."""
+    LOG_DIR.mkdir(parents=True, exist_ok=True)
+    logger = logging.getLogger("gemmule-sync")
+    logger.setLevel(logging.INFO)
+    if not logger.handlers:
+        fh = logging.FileHandler(LOG_FILE)
+        fh.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(message)s"))
+        logger.addHandler(fh)
+        sh = logging.StreamHandler(sys.stdout)
+        sh.setFormatter(logging.Formatter("%(levelname)s: %(message)s"))
+        logger.addHandler(sh)
+    return logger
+
+
+def rsync_dir(
+    remote_host: str,
+    src: str,
+    dst: str,
+    dry_run: bool = False,
+) -> tuple[int, str]:
+    """Run a single rsync. Returns (returncode, stdout+stderr)."""
+    dst_path = Path(dst).expanduser()
+    dst_path.mkdir(parents=True, exist_ok=True)
+
+    cmd = [
+        "rsync", "-az", "--delete",
+    ]
+    if dry_run:
+        cmd.append("--dry-run")
+    cmd.append(f"{remote_host}:{src}")
+    cmd.append(str(dst_path) + "/")
+
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    output = (result.stdout + result.stderr).strip()
+    return result.returncode, output
+
+
+def run_sync(dry_run: bool = False) -> list[tuple[str, int, str]]:
+    """Sync all configured directories. Returns list of (label, rc, output)."""
+    logger = setup_logging()
+    results: list[tuple[str, int, str]] = []
+    label = "DRY-RUN" if dry_run else "SYNC"
+    logger.info("=== %s started ===", label)
+
+    for src, dst in SYNC_PAIRS:
+        short = src.rstrip("/").split("/")[-1] or src
+        rc, output = rsync_dir(REMOTE_HOST, src, dst, dry_run=dry_run)
+        status = "OK" if rc == 0 else "FAIL"
+        logger.info("[%s] %s → %s  (%s)", status, src, dst, rc)
+        if output:
+            for line in output.splitlines():
+                logger.info("  %s", line)
+        results.append((short, rc, output))
+
+    logger.info("=== %s complete: %d dirs ===", label, len(results))
+    return results
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description="Sync directories from gemmule")
+    parser.add_argument("--dry-run", action="store_true", help="preview changes without writing")
+    args = parser.parse_args(argv)
+
+    results = run_sync(dry_run=args.dry_run)
+    failures = sum(1 for _, rc, _ in results if rc != 0)
+    if failures:
+        print(f"\n{failures}/{len(results)} directories failed to sync.", file=sys.stderr)
+    else:
+        print(f"\nAll {len(results)} directories synced successfully.")
+    return 1 if failures else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

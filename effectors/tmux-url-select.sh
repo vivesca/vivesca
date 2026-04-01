@@ -14,7 +14,7 @@ if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
     exit 0
 fi
 
-urls=$(grep -oE 'https?://[^ >)"'"'"']+' /tmp/tmux-url-buffer | awk '!seen[$0]++')
+urls=$(grep -oE 'https?://[^ >)"'"'"']+' /tmp/tmux-url-buffer 2>/dev/null | awk '!seen[$0]++') || urls=""
 
 if [ -z "$urls" ]; then
     echo "No URLs found in pane"

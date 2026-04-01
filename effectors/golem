@@ -353,7 +353,7 @@ _run_golem() {
       output=$(
       timeout "$_claude_timeout" \
       env OPENAI_API_KEY="$_KEY" \
-      codex exec "$prompt" 2>&1
+      codex exec --skip-git-repo-check "$prompt" 2>&1
       ) && exit_code=0 || exit_code=$?
       _claude_ran=true
     else
