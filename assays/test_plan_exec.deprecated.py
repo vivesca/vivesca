@@ -234,12 +234,17 @@ def test_run_backend_quota_error_falls_back(tmp_path, capsys):
         "cwd": lambda proj: proj,
     }
     output_file = tmp_path / "mock.log"
-    output_file.write_text("Error 429 Too Many Requests\n")
 
-    with patch("subprocess.run") as mock_run:
+    def write_quota_output(*args, **kwargs):
+        # run_backend opens output_file with "w" then passes it as stdout
+        f = kwargs.get("stdout")
+        if f:
+            f.write("Error 429 Too Many Requests\n")
         mock_result = MagicMock()
         mock_result.returncode = 1
-        mock_run.return_value = mock_result
+        return mock_result
+
+    with patch("subprocess.run", side_effect=write_quota_output):
         ok = run_backend(backend, "/proj", "/plan.md", output_file)
 
     assert ok is False
@@ -255,12 +260,16 @@ def test_run_backend_quota_chinese_auth_error(tmp_path, capsys):
         "cwd": lambda proj: proj,
     }
     output_file = tmp_path / "mock.log"
-    output_file.write_text("身份验证失败\n")
 
-    with patch("subprocess.run") as mock_run:
+    def write_auth_output(*args, **kwargs):
+        f = kwargs.get("stdout")
+        if f:
+            f.write("身份验证失败\n")
         mock_result = MagicMock()
         mock_result.returncode = 1
-        mock_run.return_value = mock_result
+        return mock_result
+
+    with patch("subprocess.run", side_effect=write_auth_output):
         ok = run_backend(backend, "/proj", "/plan.md", output_file)
 
     assert ok is False
