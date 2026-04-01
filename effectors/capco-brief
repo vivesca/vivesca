@@ -1,0 +1,251 @@
+#!/usr/bin/env -S uv run --script
+from __future__ import annotations
+
+# /// script
+# requires-python = ">=3.11"
+# dependencies = []
+# ///
+"""capco-brief — quick-reference briefings for Capco onboarding."""
+
+import argparse
+import re
+import subprocess
+import sys
+from datetime import datetime, timedelta
+from pathlib import Path
+from zoneinfo import ZoneInfo
+
+HKT = ZoneInfo("Asia/Hong_Kong")
+CHROMATIN = Path.home() / "epigenome" / "chromatin"
+PULSE = Path.home() / "docs" / "pulse"
+FASTI = Path.home() / ".cargo" / "bin" / "fasti"
+
+# ── helpers ──────────────────────────────────────────────────────────
+
+def _read(p: Path) -> str:
+    try:
+        return p.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        return ""
+
+
+def _capco_files() -> list[Path]:
+    """Collect Capco Transition.md + Capco*.md from chromatin root and Capco/ dir."""
+    files: list[Path] = []
+    root_transition = CHROMATIN / "Capco Transition.md"
+    if root_transition.exists():
+        files.append(root_transition)
+    # glob root-level Capco*.md (excluding the Transition one)
+    for p in sorted(CHROMATIN.glob("Capco*.md")):
+        if p not in files:
+            files.append(p)
+    # glob Capco/ subdirectory
+    capco_dir = CHROMATIN / "Capco"
+    if capco_dir.is_dir():
+        for p in sorted(capco_dir.glob("*.md")):
+            files.append(p)
+    return files
+
+
+# ── stakeholders ─────────────────────────────────────────────────────
+
+def cmd_stakeholders(_args: argparse.Namespace) -> None:
+    """Extract named people with roles from Capco markdown files."""
+    entries: list[tuple[str, str, str]] = []  # (name, role, source)
+
+    for fpath in _capco_files():
+        text = _read(fpath)
+        stem = fpath.stem
+
+        # Pattern 1: "### Name — Role" headings (Key People.md style)
+        for m in re.finditer(r"^###\s+(.+?)\s*[—–-]\s*(.+)$", text, re.M):
+            name = m.group(1).strip()
+            # grab first sentence of role (before newline)
+            role_line = m.group(2).strip()
+            role = role_line.split("\n")[0].strip()
+            if name and role and len(name) < 60:
+                entries.append((name, role, stem))
+
+        # Pattern 2: table rows with **Name** | Role | ... (pocket-card style)
+        for m in re.finditer(
+            r"\|\s*\*\*(.+?)\*\*\s*\|\s*(.+?)\s*\|", text
+        ):
+            name = m.group(1).strip()
+            role = m.group(2).strip()
+            if name and role and len(name) < 60 and not name.startswith("-"):
+                # skip header-like rows
+                if name.lower() not in ("name", "person", "item"):
+                    entries.append((name, role, stem))
+
+        # Pattern 3: "**Name** — Role" in free text (Transition.md style)
+        for m in re.finditer(r"\*\*(.+?)\*\*\s*[,:]?\s*([^,*]{10,}?)(?:\.|,|\n)", text):
+            name = m.group(1).strip()
+            role = m.group(2).strip().rstrip(".,")
+            if name and role and len(name) < 60 and "http" not in role:
+                if any(kw in role.lower() for kw in (
+                    "director", "partner", "principal", "consultant",
+                    "manager", "head", "lead", "president", "officer",
+                    "cdo", "cto", "ceo", "ed ", "ea", "admin", "practice",
+                    "managing", "executive", "senior",
+                )):
+                    entries.append((name, role, stem))
+
+    # deduplicate by name (keep first occurrence)
+    seen: dict[str, tuple[str, str, str]] = {}
+    for name, role, src in entries:
+        key = name.lower().strip("*")
+        if key not in seen:
+            seen[key] = (name, role, src)
+
+    if not seen:
+        print("No stakeholders found in Capco files.")
+        return
+
+    # print table
+    print("# Capco Stakeholders\n")
+    print(f"| {'Name':<25} | {'Role':<55} | {'Source':<30} |")
+    print(f"|{'-'*27}|{'-'*57}|{'-'*32}|")
+    for name, role, src in seen.values():
+        # truncate long fields
+        n = (name[:23] + "..") if len(name) > 25 else name
+        r = (role[:53] + "..") if len(role) > 55 else role
+        s = (src[:28] + "..") if len(src) > 30 else src
+        print(f"| {n:<25} | {r:<55} | {s:<30} |")
+
+    print(f"\n_{len(seen)} people extracted from {len(_capco_files())} files._")
+
+
+# ── calendar ─────────────────────────────────────────────────────────
+
+def cmd_calendar(_args: argparse.Namespace) -> None:
+    """Read fasti output for next 5 days, group by client vs internal."""
+    today = datetime.now(tz=HKT).date()
+    all_events: list[tuple[str, str, str]] = []  # (date, time/title, category)
+
+    for i in range(5):
+        d = today + timedelta(days=i)
+        dstr = d.isoformat()
+        try:
+            result = subprocess.run(
+                [str(FASTI), "list", dstr],
+                capture_output=True, text=True, timeout=15,
+            )
+            output = result.stdout.strip()
+        except (subprocess.SubprocessError, FileNotFoundError, OSError):
+            output = ""
+
+        if not output:
+            continue
+
+        for line in output.splitlines():
+            line = line.strip()
+            if not line or line.startswith("#") or line.startswith("Events"):
+                continue
+            # categorise: client-side keywords vs internal
+            lower = line.lower()
+            if any(kw in lower for kw in (
+                "hsbc", "client", "aims", "customer", "hang seng",
+                "bank", "site visit", "secondment",
+            )):
+                cat = "client"
+            else:
+                cat = "internal"
+            all_events.append((dstr, line, cat))
+
+    if not all_events:
+        print("# Calendar — Next 5 Days\n")
+        print("_No events found. (fasti may be unavailable or calendar empty.)_")
+        return
+
+    # group
+    client = [(d, t) for d, t, c in all_events if c == "client"]
+    internal = [(d, t) for d, t, c in all_events if c == "internal"]
+
+    print("# Calendar — Next 5 Days\n")
+    if client:
+        print("## Client\n")
+        for d, t in client:
+            print(f"- **{d}** — {t}")
+        print()
+    if internal:
+        print("## Internal\n")
+        for d, t in internal:
+            print(f"- **{d}** — {t}")
+        print()
+    print(f"_{len(client)} client · {len(internal)} internal · {len(all_events)} total_")
+
+# ── checklist ────────────────────────────────────────────────────────
+
+def cmd_checklist(_args: argparse.Namespace) -> None:
+    """Read capco-day1-*.md files, output unchecked items."""
+    files = sorted(PULSE.glob("capco-day1-*.md"))
+    if not files:
+        print("No capco-day1-*.md files found in ~/docs/pulse/.")
+        return
+
+    items: list[tuple[str, str]] = []  # (source, item_text)
+    for fpath in files:
+        text = _read(fpath)
+        stem = fpath.stem
+        for m in re.finditer(r"^- \[ \] (.+)$", text, re.M):
+            item = m.group(1).strip()
+            if item:
+                items.append((stem, item))
+
+    if not items:
+        print("# Capco Day 1 Checklist\n")
+        print("_All items checked off! Nothing remaining._")
+        return
+
+    print("# Capco Day 1 — Unchecked Items\n")
+    current_src = ""
+    for src, item in items:
+        if src != current_src:
+            current_src = src
+            # extract a short label from filename
+            label = src.replace("capco-day1-", "").replace("-2026-", " (").split("-2026-")[0]
+            if "(" in label and ")" not in label:
+                label += ")"
+            print(f"## {label}\n")
+        # clean markdown bold from item for readability
+        clean = item.replace("**", "")
+        print(f"- [ ] {clean}")
+    print(f"\n_{len(items)} unchecked items from {len(files)} files._")
+
+
+# ── main ─────────────────────────────────────────────────────────────
+
+def main() -> None:
+    parser = argparse.ArgumentParser(
+        prog="capco-brief",
+        description="Quick-reference briefings for Capco onboarding.",
+    )
+    sub = parser.add_subparsers(dest="command")
+
+    sub.add_parser(
+        "stakeholders",
+        help="extract named people with roles into a quick-reference table",
+    )
+    sub.add_parser(
+        "calendar",
+        help="show next 5 days of calendar, grouped client vs internal",
+    )
+    sub.add_parser(
+        "checklist",
+        help="list unchecked Day 1 action items",
+    )
+
+    args = parser.parse_args()
+    if args.command == "stakeholders":
+        cmd_stakeholders(args)
+    elif args.command == "calendar":
+        cmd_calendar(args)
+    elif args.command == "checklist":
+        cmd_checklist(args)
+    else:
+        parser.print_help()
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()
