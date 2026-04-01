@@ -1,125 +1,121 @@
-#!/usr/bin/env python3
+"""Temporal worker that polls 'golem-tasks' and executes golem commands as activities."""
 from __future__ import annotations
 
-"""Temporal worker for golem task execution.
-
-Polls the 'golem-tasks' task queue and runs golem commands as activities.
-Each activity heartbeats every 30s, has a 30min timeout, and a retry policy.
-"""
-
 import asyncio
+import subprocess
 import os
 import sys
-from datetime import timedelta
 from pathlib import Path
+from datetime import timedelta
 
 from temporalio import activity, workflow
-from temporalio.client import Client
 from temporalio.worker import Worker
 
-# Make local imports work when run from any cwd
-sys.path.insert(0, str(Path(__file__).resolve().parent))
-from models import GolemResult, GolemTaskSpec  # noqa: E402
+# ---------------------------------------------------------------------------
+# Activity — run a single golem command
+# ---------------------------------------------------------------------------
 
-with workflow.unsafe.imports_passed_through():
-    pass  # future: import heavy deps here
+GOLEM_SCRIPT = Path(__file__).resolve().parent.parent / "golem"
 
-TASK_QUEUE = "golem-tasks"
-
-# Resolve germline root: two levels up from this file's parent directory
-_GERMLINE_ROOT = str(Path(__file__).resolve().parent.parent.parent)
-
-# Activity timeout
-ACTIVITY_TIMEOUT = timedelta(minutes=30)
-HEARTBEAT_INTERVAL_SECONDS = 30
+# Per-provider concurrency limits (shared via module-level semaphore dict)
+_PROVIDER_SEMAPHORES: dict[str, asyncio.Semaphore] = {
+    "zhipu": asyncio.Semaphore(8),
+    "infini": asyncio.Semaphore(8),
+    "volcano": asyncio.Semaphore(16),
+}
 
 
 @activity.defn
-async def run_golem_task(provider: str, task: str) -> GolemResult:
-    """Execute a single golem command as a Temporal activity.
+async def run_golem_task(task: str, provider: str, max_turns: int = 50) -> dict:
+    """Execute a single golem task.
 
-    Runs ``bash effectors/golem --provider <provider> <task>``, heartbeating
-    every 30 seconds while the subprocess runs.  The activity timeout is
-    30 minutes (enforced by the workflow options layer).
-
-    Returns a :class:`GolemResult` with exit code, stdout, stderr, and
-    timeout status.
+    Runs ``bash effectors/golem --provider <provider> --max-turns <N> <task>``.
+    Heartbeats every 30 s while the subprocess is alive.  Raises
+    ``temporalio.exceptions.ActivityError`` on non-zero exit so Temporal
+    triggers the retry policy.
     """
-    cmd = [
-        "bash",
-        str(Path(_GERMLINE_ROOT) / "effectors" / "golem"),
-        "--provider", provider,
-        task,
-    ]
-    env = {**os.environ, "GOLEM_PROVIDER": provider}
-
-    try:
+    semaphore = _PROVIDER_SEMAPHORES.get(provider, asyncio.Semaphore(4))
+    async with semaphore:
+        cmd = [
+            "bash",
+            str(GOLEM_SCRIPT),
+            "--provider", provider,
+            "--max-turns", str(max_turns),
+            task,
+        ]
         proc = await asyncio.create_subprocess_exec(
             *cmd,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
-            cwd=_GERMLINE_ROOT,
-            env=env,
+            env={**os.environ, "GOLEM_PROVIDER": provider},
         )
 
-        # Heartbeat loop — runs while subprocess is alive
         async def _heartbeat_loop() -> None:
             while proc.returncode is None:
-                activity.heartbeat(f"provider={provider} task={task!r} running")
-                await asyncio.sleep(HEARTBEAT_INTERVAL_SECONDS)
+                try:
+                    activity.heartbeat("golem-running")
+                except Exception:
+                    pass
+                await asyncio.sleep(30)
 
         heartbeat_task = asyncio.create_task(_heartbeat_loop())
 
         try:
-            stdout_bytes, stderr_bytes = await asyncio.wait_for(
-                proc.communicate(), timeout=ACTIVITY_TIMEOUT.total_seconds()
+            stdout, stderr = await asyncio.wait_for(
+                proc.communicate(), timeout=timedelta(minutes=30).total_seconds()
             )
         except asyncio.TimeoutError:
             proc.kill()
             await proc.wait()
-            return GolemResult(
-                provider=provider,
-                task=task,
-                exit_code=-1,
-                stdout="",
-                stderr="",
-                timed_out=True,
-            )
+            raise RuntimeError(f"Golem task timed out after 30 min: {task[:80]}")
         finally:
             heartbeat_task.cancel()
-            try:
-                await heartbeat_task
-            except asyncio.CancelledError:
-                pass
 
-        return GolemResult(
-            provider=provider,
-            task=task,
-            exit_code=proc.returncode if proc.returncode is not None else -1,
-            stdout=stdout_bytes.decode("utf-8", errors="replace"),
-            stderr=stderr_bytes.decode("utf-8", errors="replace"),
-        )
+        exit_code = proc.returncode or 0
+        result = {
+            "task": task[:200],
+            "provider": provider,
+            "exit_code": exit_code,
+            "stdout": (stdout or b"").decode(errors="replace")[:4000],
+            "stderr": (stderr or b"").decode(errors="replace")[:2000],
+            "success": exit_code == 0,
+        }
 
-    except Exception as exc:
-        return GolemResult(
-            provider=provider,
-            task=task,
-            exit_code=-1,
-            stdout="",
-            stderr=str(exc),
-        )
+        if exit_code != 0:
+            raise RuntimeError(
+                f"Golem exited {exit_code}: {(stderr or b'').decode(errors='replace')[:300]}"
+            )
+
+        return result
+
+
+# ---------------------------------------------------------------------------
+# Worker entry-point
+# ---------------------------------------------------------------------------
+
+TASK_QUEUE = "golem-tasks"
 
 
 async def main() -> None:
-    """Start the Temporal worker process."""
-    client = await Client.connect("localhost:7233")
+    """Start the Temporal worker."""
+    from workflow import GolemDispatchWorkflow
+
     worker = Worker(
-        client=client,
+        client=await _connect_client(),
         task_queue=TASK_QUEUE,
+        workflows=[GolemDispatchWorkflow],
         activities=[run_golem_task],
     )
-    print(f"Worker started, polling task queue: {TASK_QUEUE}")
+    print(f"Temporal worker started on queue '{TASK_QUEUE}'")
     await worker.run()
+
+
+async def _connect_client():
+    from temporalio.client import Client
+
+    host = os.environ.get("TEMPORAL_HOST", "localhost:7233")
+    namespace = os.environ.get("TEMPORAL_NAMESPACE", "default")
+    return await Client.connect(host, namespace=namespace)
 
 
 if __name__ == "__main__":
