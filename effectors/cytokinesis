@@ -281,7 +281,7 @@ def run_reflect(session_id: str) -> tuple[list[dict], dict]:
 
     try:
         r = subprocess.run(
-            ["channel", "glm", "-p", prompt],
+            ["channel", "haiku", "-p", prompt],
             capture_output=True, text=True, timeout=120,
             env={k: v for k, v in os.environ.items() if k != "CLAUDECODE"},
         )
@@ -824,7 +824,7 @@ def run_methylation_audit():
 
     try:
         result = subprocess.run(
-            ["channel", "glm", "-p", prompt],
+            ["channel", "haiku", "-p", prompt],
             capture_output=True, text=True, timeout=60,
             env={k: v for k, v in os.environ.items() if k != "CLAUDECODE"},
         )
@@ -1007,7 +1007,7 @@ def cmd_extract(args):
 
     try:
         r = subprocess.run(
-            ["channel", "glm", "-p", prompt],
+            ["channel", "haiku", "-p", prompt],
             capture_output=True, text=True, timeout=120,
             env={k: v for k, v in os.environ.items() if k != "CLAUDECODE"},
         )

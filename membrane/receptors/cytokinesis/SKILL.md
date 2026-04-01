@@ -52,7 +52,7 @@ If unfinished work exists: **finish it or park it with context — don't consoli
 
 In parallel:
 
-1. **`cytokinesis gather`** (CLI) — deterministic pre-checks, returns structured Vital
+1. **`cytokinesis gather --fast`** (CLI, ~1s) — deterministic pre-checks, returns structured Vital
 2. **LLM extraction** — scan session for candidates, classify by priority
 3. **Source data check** — user-provided facts that fed deliverables but weren't persisted to chromatin? Write directly using the Write tool
 
@@ -125,7 +125,8 @@ Don't ask permission. Don't defer. If the insight is real, publish it.
 
 | Subcommand | Purpose |
 |---|---|
-| `gather` | Deterministic pre-wrap checks: dirty repos, skill gaps, MEMORY.md line count, Tonus age, dep-check, reflection scan |
+| `gather --fast` | Deterministic pre-wrap checks: dirty repos, skill gaps, MEMORY.md line count, Tonus age (~1s) |
+| `gather` | Full checks including LLM reflection + methylation audit (~60s) |
 | `flush` | Commit dirty repos (git add -A + commit per repo) |
 | `gather --syntactic` | JSON output (most token-efficient; use this in skill) |
 | `archive` | Move `[x]` items from Praxis.md → Praxis Archive.md |
