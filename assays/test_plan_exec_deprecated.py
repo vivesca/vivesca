@@ -85,7 +85,8 @@ def test_backends_have_required_keys():
 def test_gemini_cmd_structure():
     """Gemini backend uses correct command structure."""
     gemini = next(b for b in BACKENDS if b["name"] == "gemini")
-    cmd = gemini["cmd"]("/project", "/plan.md")
+    with patch("pathlib.Path.read_text", return_value="plan"):
+        cmd = gemini["cmd"]("/project", "/plan.md")
 
     assert cmd[0] == "gemini"
     assert "-m" in cmd
@@ -95,7 +96,8 @@ def test_gemini_cmd_structure():
 def test_codex_cmd_structure():
     """Codex backend uses correct command structure."""
     codex = next(b for b in BACKENDS if b["name"] == "codex")
-    cmd = codex["cmd"]("/project", "/plan.md")
+    with patch("pathlib.Path.read_text", return_value="plan"):
+        cmd = codex["cmd"]("/project", "/plan.md")
 
     assert cmd[0] == "codex"
     assert "exec" in cmd
@@ -107,8 +109,9 @@ def test_codex_cmd_structure():
 def test_opencode_cmd_structure():
     """Opencode backend uses correct command structure."""
     opencode = next(b for b in BACKENDS if b["name"] == "opencode")
-    with patch.dict(_mod["os"].environ, {"OPENCODE_MODEL": "test-model"}):
-        cmd = opencode["cmd"]("/project", "/plan.md")
+    with patch("pathlib.Path.read_text", return_value="plan"):
+        with patch.dict(_mod["os"].environ, {"OPENCODE_MODEL": "test-model"}):
+            cmd = opencode["cmd"]("/project", "/plan.md")
 
     assert cmd[0] == "opencode"
     assert "run" in cmd
@@ -119,8 +122,9 @@ def test_opencode_cmd_structure():
 def test_opencode_uses_env_model():
     """Opencode backend respects OPENCODE_MODEL env var."""
     opencode = next(b for b in BACKENDS if b["name"] == "opencode")
-    with patch.dict(_mod["os"].environ, {"OPENCODE_MODEL": "custom-model"}):
-        cmd = opencode["cmd"]("/project", "/plan.md")
+    with patch("pathlib.Path.read_text", return_value="plan"):
+        with patch.dict(_mod["os"].environ, {"OPENCODE_MODEL": "custom-model"}):
+            cmd = opencode["cmd"]("/project", "/plan.md")
 
     assert "custom-model" in cmd
 
@@ -128,10 +132,11 @@ def test_opencode_uses_env_model():
 def test_opencode_default_model():
     """Opencode backend uses default model when env var not set."""
     opencode = next(b for b in BACKENDS if b["name"] == "opencode")
-    with patch.dict(_mod["os"].environ, {}, clear=False):
-        if "OPENCODE_MODEL" in _mod["os"].environ:
-            del _mod["os"].environ["OPENCODE_MODEL"]
-        cmd = opencode["cmd"]("/project", "/plan.md")
+    with patch("pathlib.Path.read_text", return_value="plan"):
+        env = _mod["os"].environ.copy()
+        env.pop("OPENCODE_MODEL", None)
+        with patch.dict(_mod["os"].environ, env, clear=True):
+            cmd = opencode["cmd"]("/project", "/plan.md")
 
     # Default is opencode/glm-5
     assert "opencode/glm-5" in cmd or "glm-5" in cmd

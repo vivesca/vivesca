@@ -99,7 +99,7 @@ def test_fix_collection_errors_identifies_hardcoded_paths():
         # Check the file was modified
         new_content = temp_test_file.read_text()
         assert str(Path.home()) in new_content
-        assert str(Path.home() / "") not in new_content
+        assert f"{Path.home()}//" not in new_content
         
         # Verify AST still valid
         import ast
