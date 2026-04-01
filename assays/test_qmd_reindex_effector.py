@@ -29,7 +29,9 @@ def _run_script(
     )
 
 
-def _create_mock_bin(tmp_path: Path, name: str, exit_code: int = 0, stdout: str = ""):
+def _create_mock_bin(
+    tmp_path: Path, name: str, exit_code: int = 0, stdout: str = ""
+) -> Path:
     """Create a mock binary in tmp_path/bin."""
     bin_dir = tmp_path / "bin"
     bin_dir.mkdir(parents=True, exist_ok=True)
@@ -46,12 +48,22 @@ class TestHelp:
     def test_help_exits_zero(self):
         r = _run_script("--help")
         assert r.returncode == 0
-        assert "Usage:" in r.stdout
 
     def test_help_short_flag_exits_zero(self):
         r = _run_script("-h")
         assert r.returncode == 0
+
+    def test_help_shows_usage(self):
+        r = _run_script("--help")
         assert "Usage:" in r.stdout
+
+    def test_help_mentions_qmd(self):
+        r = _run_script("--help")
+        assert "qmd" in r.stdout
+
+    def test_help_no_stderr(self):
+        r = _run_script("--help")
+        assert r.stderr == ""
 
 
 # ── file basics ────────────────────────────────────────────────────────
@@ -63,15 +75,26 @@ class TestFileBasics:
 
     def test_is_bash_script(self):
         first = SCRIPT.read_text().split("\n")[0]
-        assert "bash" in first
-
-    def test_has_set_e(self):
-        src = SCRIPT.read_text()
-        assert "set -e" in src or "set -euo pipefail" in src
+        assert first.startswith("#!/bin/bash")
 
     def test_has_shebang(self):
         src = SCRIPT.read_text()
         assert src.startswith("#!")
+
+    def test_has_set_euo_pipefail(self):
+        src = SCRIPT.read_text()
+        assert "set -euo pipefail" in src
+
+
+# ── script permissions ──────────────────────────────────────────────────
+
+
+class TestScriptPermissions:
+    def test_script_is_executable(self):
+        assert os.access(SCRIPT, os.X_OK)
+
+    def test_script_is_file_not_directory(self):
+        assert SCRIPT.is_file()
 
 
 # ── execution logic ─────────────────────────────────────────────────────
@@ -79,86 +102,116 @@ class TestFileBasics:
 
 class TestExecution:
     def test_skips_if_already_running(self, tmp_path):
-        """If pgrep -f 'qmd embed' returns 0, script should exit 0 without running qmd."""
-        # Create mock pgrep that returns 0 (found process)
+        """If pgrep -f 'qmd embed' returns 0, script exits 0 without running qmd."""
         _create_mock_bin(tmp_path, "pgrep", exit_code=0)
-        
-        # Create mock qmd that should NOT be called
-        qmd_path = _create_mock_bin(tmp_path, "qmd", exit_code=0)
+
+        # Mock qmd that should NOT be called
         qmd_call_log = tmp_path / "qmd_called"
+        qmd_path = _create_mock_bin(tmp_path, "qmd")
         qmd_path.write_text(f"#!/bin/bash\ntouch {qmd_call_log}\nexit 0")
-        
+        qmd_path.chmod(0o755)
+
         env = os.environ.copy()
         env["HOME"] = str(tmp_path)
         env["PATH"] = f"{tmp_path}/bin:{env['PATH']}"
-        
+
         r = _run_script(env=env)
         assert r.returncode == 0
         assert not qmd_call_log.exists()
 
     def test_runs_qmd_if_not_running(self, tmp_path):
-        """If pgrep returns 1, script should run qmd update and qmd embed."""
-        # Create mock pgrep that returns 1 (no process found)
+        """If pgrep returns 1, script runs both qmd update and qmd embed."""
         _create_mock_bin(tmp_path, "pgrep", exit_code=1)
-        
-        # Create mock qmd that records calls
+
+        # Mock qmd that records calls
         qmd_call_log = tmp_path / "qmd_calls"
         qmd_path = tmp_path / "bin" / "qmd"
         qmd_path.parent.mkdir(parents=True, exist_ok=True)
-        qmd_path.write_text(f"#!/bin/bash\necho \"$@\" >> {qmd_call_log}\nexit 0")
+        qmd_path.write_text(f'#!/bin/bash\necho "$@" >> {qmd_call_log}\nexit 0')
         qmd_path.chmod(0o755)
-        
+
         env = os.environ.copy()
         env["HOME"] = str(tmp_path)
         env["PATH"] = f"{tmp_path}/bin:{env['PATH']}"
-        
+
         r = _run_script(env=env)
         assert r.returncode == 0
-        
+
         calls = qmd_call_log.read_text().splitlines()
         assert "update" in calls
         assert "embed" in calls
 
-    def test_fails_if_qmd_update_fails(self, tmp_path):
-        """Script should exit with non-zero if qmd update fails (due to set -e)."""
+    def test_runs_update_before_embed(self, tmp_path):
+        """qmd update is called before qmd embed."""
         _create_mock_bin(tmp_path, "pgrep", exit_code=1)
-        
-        # Mock qmd to fail on 'update'
+
+        qmd_call_log = tmp_path / "qmd_calls"
         qmd_path = tmp_path / "bin" / "qmd"
         qmd_path.parent.mkdir(parents=True, exist_ok=True)
-        qmd_path.write_text("""#!/bin/bash
-if [[ "$1" == "update" ]]; then
-    exit 1
-fi
-exit 0
-""")
+        qmd_path.write_text(f'#!/bin/bash\necho "$@" >> {qmd_call_log}\nexit 0')
         qmd_path.chmod(0o755)
-        
+
         env = os.environ.copy()
         env["HOME"] = str(tmp_path)
         env["PATH"] = f"{tmp_path}/bin:{env['PATH']}"
-        
+
+        _run_script(env=env)
+
+        calls = qmd_call_log.read_text().splitlines()
+        assert calls.index("update") < calls.index("embed")
+
+    def test_fails_if_qmd_update_fails(self, tmp_path):
+        """Script exits non-zero if qmd update fails (set -e)."""
+        _create_mock_bin(tmp_path, "pgrep", exit_code=1)
+
+        qmd_path = tmp_path / "bin" / "qmd"
+        qmd_path.parent.mkdir(parents=True, exist_ok=True)
+        qmd_path.write_text(
+            '#!/bin/bash\nif [[ "$1" == "update" ]]; then\n    exit 1\nfi\nexit 0\n'
+        )
+        qmd_path.chmod(0o755)
+
+        env = os.environ.copy()
+        env["HOME"] = str(tmp_path)
+        env["PATH"] = f"{tmp_path}/bin:{env['PATH']}"
+
         r = _run_script(env=env)
         assert r.returncode != 0
 
     def test_fails_if_qmd_embed_fails(self, tmp_path):
-        """Script should exit with non-zero if qmd embed fails."""
+        """Script exits non-zero if qmd embed fails (set -e)."""
         _create_mock_bin(tmp_path, "pgrep", exit_code=1)
-        
-        # Mock qmd to fail on 'embed'
+
         qmd_path = tmp_path / "bin" / "qmd"
         qmd_path.parent.mkdir(parents=True, exist_ok=True)
-        qmd_path.write_text("""#!/bin/bash
-if [[ "$1" == "embed" ]]; then
-    exit 1
-fi
-exit 0
-""")
+        qmd_path.write_text(
+            '#!/bin/bash\nif [[ "$1" == "embed" ]]; then\n    exit 1\nfi\nexit 0\n'
+        )
         qmd_path.chmod(0o755)
-        
+
         env = os.environ.copy()
         env["HOME"] = str(tmp_path)
         env["PATH"] = f"{tmp_path}/bin:{env['PATH']}"
-        
+
         r = _run_script(env=env)
         assert r.returncode != 0
+
+    def test_sets_bun_path(self, tmp_path):
+        """Script prepends $HOME/.bun/bin to PATH."""
+        _create_mock_bin(tmp_path, "pgrep", exit_code=1)
+
+        # Create a qmd mock that records the resolved PATH
+        path_log = tmp_path / "path_log"
+        qmd_path = tmp_path / "bin" / "qmd"
+        qmd_path.parent.mkdir(parents=True, exist_ok=True)
+        qmd_path.write_text(f'#!/bin/bash\necho "$PATH" > {path_log}\nexit 0')
+        qmd_path.chmod(0o755)
+
+        env = os.environ.copy()
+        env["HOME"] = str(tmp_path)
+        env["PATH"] = f"{tmp_path}/bin:{env['PATH']}"
+
+        _run_script(env=env)
+
+        recorded_path = path_log.read_text().strip()
+        assert f"{tmp_path}/.bun/bin" in recorded_path
