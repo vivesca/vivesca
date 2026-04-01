@@ -80,7 +80,10 @@ def _count_anterograde(days: int) -> int:
             continue
         try:
             for line in path.read_text().splitlines():
-                entry = json.loads(line)
+                try:
+                    entry = json.loads(line)
+                except (json.JSONDecodeError, ValueError):
+                    continue
                 ts_str = entry.get("ts", "")
                 # parse ts — may or may not have timezone
                 try:
@@ -138,7 +141,10 @@ def _count_retrograde(days: int) -> int:
             continue
         try:
             for line in path.read_text().splitlines():
-                entry = json.loads(line)
+                try:
+                    entry = json.loads(line)
+                except (json.JSONDecodeError, ValueError):
+                    continue
                 ts_str = entry.get("ts", "")
                 try:
                     ts = datetime.datetime.fromisoformat(ts_str)
@@ -194,7 +200,10 @@ def _count_logged(days: int, direction: str) -> int:
     count = 0
     try:
         for line in SIGNALS_LOG.read_text().splitlines():
-            entry = json.loads(line)
+            try:
+                entry = json.loads(line)
+            except (json.JSONDecodeError, ValueError):
+                continue
             if entry.get("direction") != direction:
                 continue
             try:
