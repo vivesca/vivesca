@@ -192,10 +192,14 @@ def test_run_backend_handles_quota_error(tmp_path, capsys):
     plan_file.write_text("Test plan")
     output_file = tmp_path / "output.log"
 
-    with patch("subprocess.run") as mock_run:
-        mock_run.return_value = MagicMock(returncode=1)
-        # Write quota error to output file
-        output_file.write_text("Error 429: quota exceeded")
+    def mock_run_quota_error(*args, **kwargs):
+        # Write quota error to stdout file handle
+        stdout_fh = kwargs.get("stdout")
+        if stdout_fh:
+            stdout_fh.write("Error 429: quota exceeded\n")
+        return MagicMock(returncode=1)
+
+    with patch("subprocess.run", side_effect=mock_run_quota_error):
         result = run_backend(backend, str(tmp_path), str(plan_file), output_file)
 
     assert result is False
