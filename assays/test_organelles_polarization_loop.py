@@ -211,7 +211,7 @@ class TestPreflight:
     @patch.object(pl, "praxis")
     @patch.object(pl, "GUARD_FILE", MagicMock(spec=Path))
     def test_preflight_populates_context(
-        self, mock_guard, mock_praxis, mock_read, mock_budget, mock_consumption,
+        self, mock_praxis, mock_read, mock_budget, mock_consumption,
     ):
         mock_praxis.exists.return_value = True
         mock_praxis.read_text.return_value = "line1\nline2\n" * 50
@@ -250,7 +250,7 @@ class TestPreflight:
     @patch.object(pl, "praxis")
     @patch.object(pl, "GUARD_FILE", MagicMock(spec=Path))
     def test_preflight_no_praxis(
-        self, mock_guard, mock_praxis, mock_read, mock_budget, mock_consumption,
+        self, mock_praxis, mock_read, mock_budget, mock_consumption,
     ):
         mock_praxis.exists.return_value = False
 
