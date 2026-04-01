@@ -226,10 +226,11 @@ class TestRm:
     def test_delete_multiple_matches(self):
         r1 = _make_reminder("A", uuid="aa111111-1111")
         r2 = _make_reminder("B", uuid="bb222222-2222")
+        # reminder_uuid is called in outer loop + inner loop per match
         with patch.object(_m, "read_db", return_value=_db(r1, r2)), \
              patch.object(_m, "resolve_target", return_value=([(0, r1), (1, r2)], [])), \
              patch.object(_m, "now_ts", return_value=1711785600), \
-             patch.object(_m, "reminder_uuid", side_effect=[r1["u"], r2["u"]]), \
+             patch.object(_m, "reminder_uuid", side_effect=[r1["u"], r1["u"], r2["u"], r2["u"]]), \
              patch.object(_m, "reminder_title", side_effect=["A", "B"]), \
              patch.object(_m, "short_uuid", side_effect=["aa111111", "bb222222"]), \
              patch.object(_m, "reminders_mut", return_value=[r1, r2]), \
