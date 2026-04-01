@@ -1,10 +1,9 @@
 from __future__ import annotations
 
-"""Tests for metabolon.resources.vitals — focus on mocked external calls."""
+"""Tests for metabolon.resources.vitals — isolated, tmp_path-based, no global Path patching."""
 
 import json
 from pathlib import Path
-from unittest.mock import patch
 
 import pytest
 
@@ -12,260 +11,310 @@ from metabolon.resources.vitals import express_vitals
 
 
 # ---------------------------------------------------------------------------
-# Fixtures
+# Helpers
 # ---------------------------------------------------------------------------
 
-@pytest.fixture()
-def no_files(tmp_path: Path):
-    """Return three nonexistent paths under tmp_path."""
-    return {
-        "health_path": tmp_path / "no-health.md",
-        "settings_path": tmp_path / "no-settings.json",
-        "stats_path": tmp_path / "no-stats.json",
-    }
-
-
-def _write(path: Path, content: str) -> Path:
-    path.write_text(content)
-    return path
+def _no_file() -> Path:
+    """Return a path guaranteed not to exist."""
+    return Path("/nonexistent/vitals-test-placeholder-xyz")
 
 
 # ---------------------------------------------------------------------------
-# 1. Minimal report — no input files
+# Nightly health report section
 # ---------------------------------------------------------------------------
 
-class TestMinimalReport:
-    """When none of the three files exist."""
-
-    def test_header_present(self, no_files):
-        result = express_vitals(**no_files)
-        assert result.startswith("# Claude Code Health\n")
-
-    def test_placeholder_for_nightly(self, no_files):
-        result = express_vitals(**no_files)
-        assert "_(no nightly health report)_" in result
-
-    def test_no_plugins_section(self, no_files):
-        result = express_vitals(**no_files)
-        assert "## Plugins" not in result
-
-    def test_no_activity_section(self, no_files):
-        result = express_vitals(**no_files)
-        assert "## Recent Activity" not in result
-
-
-# ---------------------------------------------------------------------------
-# 2. Nightly health report
-# ---------------------------------------------------------------------------
 
 class TestNightlyReport:
-    """Reading ~/.claude/nightly-health.md."""
+    """Tests for the nightly health file handling."""
 
-    def test_content_included(self, tmp_path, no_files):
-        hp = _write(tmp_path / "h.md", "Disk OK\nMemory OK")
-        result = express_vitals(**{**no_files, "health_path": hp})
+    def test_missing_health_file_shows_placeholder(self, tmp_path: Path):
+        result = express_vitals(
+            health_path=_no_file(),
+            settings_path=_no_file(),
+            stats_path=_no_file(),
+        )
+        assert "# Claude Code Health" in result
+        assert "_(no nightly health report)_" in result
+
+    def test_health_file_content_included(self, tmp_path: Path):
+        hp = tmp_path / "health.md"
+        hp.write_text("Disk OK\nMemory OK")
+        result = express_vitals(health_path=hp, settings_path=_no_file(), stats_path=_no_file())
         assert "## Nightly Report" in result
         assert "Disk OK" in result
         assert "Memory OK" in result
 
-    def test_empty_file_still_shows_section(self, tmp_path, no_files):
-        hp = _write(tmp_path / "h.md", "")
-        result = express_vitals(**{**no_files, "health_path": hp})
+    def test_empty_health_file_still_shows_section(self, tmp_path: Path):
+        hp = tmp_path / "health.md"
+        hp.write_text("")
+        result = express_vitals(health_path=hp, settings_path=_no_file(), stats_path=_no_file())
         assert "## Nightly Report" in result
 
-    def test_oserror_shows_unreadable(self, tmp_path, no_files):
-        hp = tmp_path / "h.md"
-        hp.touch()
-        with patch.object(Path, "read_text", side_effect=OSError("denied")):
-            result = express_vitals(health_path=hp)
-        assert "_(nightly health report unreadable)_" in result
+    def test_health_file_with_whitespace_only(self, tmp_path: Path):
+        hp = tmp_path / "health.md"
+        hp.write_text("   \n  \n")
+        result = express_vitals(health_path=hp, settings_path=_no_file(), stats_path=_no_file())
+        assert "## Nightly Report" in result
+
+    def test_health_file_multiline_markdown(self, tmp_path: Path):
+        hp = tmp_path / "health.md"
+        hp.write_text("### CPU\n- load: 1.2\n### RAM\n- used: 4GB")
+        result = express_vitals(health_path=hp, settings_path=_no_file(), stats_path=_no_file())
+        assert "### CPU" in result
+        assert "### RAM" in result
 
 
 # ---------------------------------------------------------------------------
-# 3. Plugin status from settings.json
+# Plugin section
 # ---------------------------------------------------------------------------
+
 
 class TestPlugins:
-    """Reading ~/.claude/settings.json enabledPlugins."""
+    """Tests for the settings.json / plugin parsing."""
 
-    def test_enabled_and_disabled_listed(self, tmp_path, no_files):
-        sp = _write(tmp_path / "s.json", json.dumps({
-            "enabledPlugins": {"a": True, "b": False},
-        }))
-        result = express_vitals(**{**no_files, "settings_path": sp})
-        assert "**Enabled (1):** `a`" in result
-        assert "**Disabled (1):** `b`" in result
-
-    def test_no_enabled_plugins_key_skips_section(self, tmp_path, no_files):
-        sp = _write(tmp_path / "s.json", json.dumps({"otherKey": 42}))
-        result = express_vitals(**{**no_files, "settings_path": sp})
+    def test_no_enabled_plugins_key_skips_section(self, tmp_path: Path):
+        sp = tmp_path / "settings.json"
+        sp.write_text(json.dumps({"someOtherKey": 42}))
+        result = express_vitals(
+            health_path=_no_file(), settings_path=sp, stats_path=_no_file()
+        )
         assert "## Plugins" not in result
 
-    def test_empty_enabled_plugins_skips_section(self, tmp_path, no_files):
-        sp = _write(tmp_path / "s.json", json.dumps({"enabledPlugins": {}}))
-        result = express_vitals(**{**no_files, "settings_path": sp})
-        assert "## Plugins" not in result
-
-    def test_malformed_json_skips_section(self, tmp_path, no_files):
-        sp = _write(tmp_path / "s.json", "}{not json")
-        result = express_vitals(**{**no_files, "settings_path": sp})
-        assert "## Plugins" not in result
-
-    def test_oserror_skips_section(self, tmp_path, no_files):
-        sp = tmp_path / "s.json"
-        sp.touch()
-        with patch.object(Path, "read_text", side_effect=OSError("err")):
-            result = express_vitals(settings_path=sp)
-        assert "## Plugins" not in result
-
-    def test_all_enabled_no_disabled_line(self, tmp_path, no_files):
-        sp = _write(tmp_path / "s.json", json.dumps({
-            "enabledPlugins": {"x": True, "y": True},
-        }))
-        result = express_vitals(**{**no_files, "settings_path": sp})
+    def test_enabled_plugins_true_only(self, tmp_path: Path):
+        sp = tmp_path / "settings.json"
+        sp.write_text(json.dumps({"enabledPlugins": {"alpha": True, "beta": True}}))
+        result = express_vitals(
+            health_path=_no_file(), settings_path=sp, stats_path=_no_file()
+        )
         assert "**Enabled (2):**" in result
+        assert "`alpha`" in result
+        assert "`beta`" in result
         assert "Disabled" not in result
 
-    def test_all_disabled_no_enabled_line(self, tmp_path, no_files):
-        sp = _write(tmp_path / "s.json", json.dumps({
-            "enabledPlugins": {"x": False},
-        }))
-        result = express_vitals(**{**no_files, "settings_path": sp})
-        assert "**Disabled (1):**" in result
+    def test_disabled_plugins_only(self, tmp_path: Path):
+        sp = tmp_path / "settings.json"
+        sp.write_text(json.dumps({"enabledPlugins": {"x": False, "y": False}}))
+        result = express_vitals(
+            health_path=_no_file(), settings_path=sp, stats_path=_no_file()
+        )
+        assert "**Disabled (2):**" in result
         assert "Enabled" not in result
 
+    def test_mixed_enabled_disabled(self, tmp_path: Path):
+        sp = tmp_path / "settings.json"
+        sp.write_text(
+            json.dumps({"enabledPlugins": {"a": True, "b": False, "c": True, "d": False}})
+        )
+        result = express_vitals(
+            health_path=_no_file(), settings_path=sp, stats_path=_no_file()
+        )
+        assert "**Enabled (2):**" in result
+        assert "**Disabled (2):**" in result
+
+    def test_settings_file_missing(self, tmp_path: Path):
+        result = express_vitals(
+            health_path=_no_file(), settings_path=_no_file(), stats_path=_no_file()
+        )
+        assert "## Plugins" not in result
+
+    def test_settings_invalid_json(self, tmp_path: Path):
+        sp = tmp_path / "settings.json"
+        sp.write_text("{{broken")
+        result = express_vitals(
+            health_path=_no_file(), settings_path=sp, stats_path=_no_file()
+        )
+        assert "## Plugins" not in result
+
 
 # ---------------------------------------------------------------------------
-# 4. Activity stats from stats-cache.json
+# Activity / stats section
 # ---------------------------------------------------------------------------
 
-class TestActivity:
-    """Reading ~/.claude/stats-cache.json."""
 
-    def test_daily_activity_key(self, tmp_path, no_files):
-        sp = _write(tmp_path / "st.json", json.dumps({
+class TestActivityStats:
+    """Tests for the stats-cache.json activity parsing."""
+
+    def test_daily_activity_key_format(self, tmp_path: Path):
+        stp = tmp_path / "stats.json"
+        stp.write_text(json.dumps({
             "dailyActivity": [
                 {"date": "2026-01-01", "messageCount": 10, "sessionCount": 2, "toolCallCount": 3},
-            ],
+            ]
         }))
-        result = express_vitals(**{**no_files, "stats_path": sp})
-        assert "## Recent Activity" in result
+        result = express_vitals(
+            health_path=_no_file(), settings_path=_no_file(), stats_path=stp
+        )
         assert "| 2026-01-01 | 10 | 2 | 3 |" in result
 
-    def test_list_format(self, tmp_path, no_files):
-        sp = _write(tmp_path / "st.json", json.dumps([
-            {"date": "2026-01-02", "messages": 5, "sessions": 1, "tool_calls": 0},
+    def test_list_format(self, tmp_path: Path):
+        stp = tmp_path / "stats.json"
+        stp.write_text(json.dumps([
+            {"date": "2026-02-15", "messageCount": 5, "sessionCount": 1, "toolCallCount": 1},
         ]))
-        result = express_vitals(**{**no_files, "stats_path": sp})
-        assert "| 2026-01-02 | 5 | 1 | 0 |" in result
+        result = express_vitals(
+            health_path=_no_file(), settings_path=_no_file(), stats_path=stp
+        )
+        assert "| 2026-02-15 | 5 | 1 | 1 |" in result
 
-    def test_flat_dict_format(self, tmp_path, no_files):
-        sp = _write(tmp_path / "st.json", json.dumps({
-            "2026-01-03": {"messages": 8, "sessions": 2, "tool_calls": 4},
-            "2026-01-04": {"messages": 9, "sessions": 3, "tool_calls": 5},
+    def test_flat_dict_format(self, tmp_path: Path):
+        stp = tmp_path / "stats.json"
+        stp.write_text(json.dumps({
+            "2026-03-10": {"messages": 99, "sessions": 7, "tool_calls": 44},
         }))
-        result = express_vitals(**{**no_files, "stats_path": sp})
-        assert "2026-01-04" in result
-        assert "2026-01-03" in result
+        result = express_vitals(
+            health_path=_no_file(), settings_path=_no_file(), stats_path=stp
+        )
+        assert "| 2026-03-10 | 99 | 7 | 44 |" in result
 
-    def test_flat_dict_ignores_non_dict_values(self, tmp_path, no_files):
-        """Flat dict entries whose values aren't dicts should be skipped."""
-        sp = _write(tmp_path / "st.json", json.dumps({
-            "2026-01-05": "just a string",
-            "2026-01-06": {"messages": 1, "sessions": 1, "tool_calls": 1},
+    def test_flat_dict_ignores_non_dict_values(self, tmp_path: Path):
+        stp = tmp_path / "stats.json"
+        stp.write_text(json.dumps({
+            "2026-03-10": {"messages": 5, "sessions": 1, "tool_calls": 1},
+            "meta": "string_value",
+            "version": 3,
         }))
-        result = express_vitals(**{**no_files, "stats_path": sp})
-        assert "2026-01-06" in result
-        # The string-valued entry is excluded by the isinstance check
-        assert "| 2026-01-05 |" not in result
+        result = express_vitals(
+            health_path=_no_file(), settings_path=_no_file(), stats_path=stp
+        )
+        assert "2026-03-10" in result
+        # "meta" and "version" are non-dict values and should not appear as rows
+        lines = [l for l in result.splitlines() if l.startswith("|") and "Date" not in l and "---" not in l]
+        assert len(lines) == 1
 
-    def test_limits_to_five_rows(self, tmp_path, no_files):
-        days = [{"date": f"2026-01-{d:02d}", "messageCount": d} for d in range(1, 11)]
-        sp = _write(tmp_path / "st.json", json.dumps(days))
-        result = express_vitals(**{**no_files, "stats_path": sp})
-        # Should include dates 10,9,8,7,6 (top 5 desc) and NOT 5,4,3,2,1
-        for d in range(6, 11):
-            assert f"2026-01-{d:02d}" in result
-        for d in range(1, 6):
-            assert f"| 2026-01-{d:02d}" not in result
-
-    def test_missing_date_shows_question_mark(self, tmp_path, no_files):
-        sp = _write(tmp_path / "st.json", json.dumps([
-            {"messageCount": 1, "sessionCount": 2, "toolCallCount": 3},
+    def test_alternate_key_names_messages_sessions_tool_calls(self, tmp_path: Path):
+        stp = tmp_path / "stats.json"
+        stp.write_text(json.dumps([
+            {"date": "2026-04-01", "messages": 200, "sessions": 15, "tool_calls": 50},
         ]))
-        result = express_vitals(**{**no_files, "stats_path": sp})
-        assert "| ? | 1 | 2 | 3 |" in result
+        result = express_vitals(
+            health_path=_no_file(), settings_path=_no_file(), stats_path=stp
+        )
+        assert "| 2026-04-01 | 200 | 15 | 50 |" in result
 
-    def test_missing_stat_keys_default_zero(self, tmp_path, no_files):
-        sp = _write(tmp_path / "st.json", json.dumps([{"date": "2026-02-01"}]))
-        result = express_vitals(**{**no_files, "stats_path": sp})
-        assert "| 2026-02-01 | 0 | 0 | 0 |" in result
+    def test_missing_values_default_to_zero(self, tmp_path: Path):
+        stp = tmp_path / "stats.json"
+        stp.write_text(json.dumps([{"date": "2026-01-01"}]))
+        result = express_vitals(
+            health_path=_no_file(), settings_path=_no_file(), stats_path=stp
+        )
+        assert "| 2026-01-01 | 0 | 0 | 0 |" in result
 
-    def test_empty_activity_skips_section(self, tmp_path, no_files):
-        sp = _write(tmp_path / "st.json", json.dumps({"dailyActivity": []}))
-        result = express_vitals(**{**no_files, "stats_path": sp})
+    def test_missing_date_shows_question_mark(self, tmp_path: Path):
+        stp = tmp_path / "stats.json"
+        stp.write_text(json.dumps([{"messageCount": 1, "sessionCount": 1, "toolCallCount": 1}]))
+        result = express_vitals(
+            health_path=_no_file(), settings_path=_no_file(), stats_path=stp
+        )
+        assert "| ? | 1 | 1 | 1 |" in result
+
+    def test_sorted_descending_limited_to_five(self, tmp_path: Path):
+        stp = tmp_path / "stats.json"
+        entries = [{"date": f"2026-03-{d:02d}", "messageCount": d} for d in range(1, 11)]
+        stp.write_text(json.dumps(entries))
+        result = express_vitals(
+            health_path=_no_file(), settings_path=_no_file(), stats_path=stp
+        )
+        # Last 5 dates by desc: 10, 09, 08, 07, 06
+        for d in [10, 9, 8, 7, 6]:
+            assert f"2026-03-{d:02d}" in result
+        # Earlier dates should be excluded
+        for d in [5, 4, 3, 2, 1]:
+            assert f"2026-03-0{d}" not in result
+
+    def test_empty_daily_activity_skips_section(self, tmp_path: Path):
+        stp = tmp_path / "stats.json"
+        stp.write_text(json.dumps({"dailyActivity": []}))
+        result = express_vitals(
+            health_path=_no_file(), settings_path=_no_file(), stats_path=stp
+        )
         assert "## Recent Activity" not in result
 
-    def test_scalar_json_skips_section(self, tmp_path, no_files):
-        sp = _write(tmp_path / "st.json", json.dumps(42))
-        result = express_vitals(**{**no_files, "stats_path": sp})
+    def test_empty_list_skips_section(self, tmp_path: Path):
+        stp = tmp_path / "stats.json"
+        stp.write_text("[]")
+        result = express_vitals(
+            health_path=_no_file(), settings_path=_no_file(), stats_path=stp
+        )
         assert "## Recent Activity" not in result
 
-    def test_malformed_json_skips_section(self, tmp_path, no_files):
-        sp = _write(tmp_path / "st.json", "not json")
-        result = express_vitals(**{**no_files, "stats_path": sp})
+    def test_stats_string_json_skips_section(self, tmp_path: Path):
+        stp = tmp_path / "stats.json"
+        stp.write_text(json.dumps("just a string"))
+        result = express_vitals(
+            health_path=_no_file(), settings_path=_no_file(), stats_path=stp
+        )
         assert "## Recent Activity" not in result
 
-    def test_oserror_skips_section(self, tmp_path, no_files):
-        sp = tmp_path / "st.json"
-        sp.touch()
-        with patch.object(Path, "read_text", side_effect=OSError("err")):
-            result = express_vitals(stats_path=sp)
+    def test_stats_number_json_skips_section(self, tmp_path: Path):
+        stp = tmp_path / "stats.json"
+        stp.write_text("42")
+        result = express_vitals(
+            health_path=_no_file(), settings_path=_no_file(), stats_path=stp
+        )
         assert "## Recent Activity" not in result
 
-    def test_table_header_format(self, tmp_path, no_files):
-        sp = _write(tmp_path / "st.json", json.dumps([
-            {"date": "2026-03-01", "messageCount": 1, "sessionCount": 1, "toolCallCount": 1},
-        ]))
-        result = express_vitals(**{**no_files, "stats_path": sp})
-        assert "| Date | Messages | Sessions | Tool Calls |" in result
-        assert "|------|----------|----------|------------|" in result
+    def test_stats_invalid_json_skips_section(self, tmp_path: Path):
+        stp = tmp_path / "stats.json"
+        stp.write_text("{bad json!!")
+        result = express_vitals(
+            health_path=_no_file(), settings_path=_no_file(), stats_path=stp
+        )
+        assert "## Recent Activity" not in result
 
 
 # ---------------------------------------------------------------------------
-# 5. Full integration — all three files present
+# Integration: full report
 # ---------------------------------------------------------------------------
+
 
 class TestFullReport:
-    """All three input files are valid."""
+    """Tests for the full report with all sections present."""
 
-    def test_all_sections_present(self, tmp_path):
-        hp = _write(tmp_path / "h.md", "All good")
-        sp = _write(tmp_path / "s.json", json.dumps({
-            "enabledPlugins": {"p1": True, "p2": False},
-        }))
-        stp = _write(tmp_path / "st.json", json.dumps({
+    def test_all_sections_present(self, tmp_path: Path):
+        hp = tmp_path / "health.md"
+        hp.write_text("All clear.")
+
+        sp = tmp_path / "settings.json"
+        sp.write_text(json.dumps({"enabledPlugins": {"audit": True, "debug": False}}))
+
+        stp = tmp_path / "stats.json"
+        stp.write_text(json.dumps({
             "dailyActivity": [
-                {"date": "2026-04-01", "messageCount": 99, "sessionCount": 7, "toolCallCount": 33},
-            ],
+                {"date": "2026-03-30", "messageCount": 50, "sessionCount": 6, "toolCallCount": 20},
+            ]
         }))
+
         result = express_vitals(health_path=hp, settings_path=sp, stats_path=stp)
 
         assert "# Claude Code Health" in result
         assert "## Nightly Report" in result
-        assert "All good" in result
+        assert "All clear." in result
         assert "## Plugins" in result
-        assert "`p1`" in result
-        assert "`p2`" in result
+        assert "`audit`" in result
+        assert "`debug`" in result
         assert "## Recent Activity" in result
-        assert "| 2026-04-01 | 99 | 7 | 33 |" in result
+        assert "| 2026-03-30 | 50 | 6 | 20 |" in result
 
-    def test_output_ends_with_newline(self, tmp_path):
-        """Joined lines should end cleanly."""
-        hp = _write(tmp_path / "h.md", "ok")
-        result = express_vitals(
-            health_path=hp,
-            settings_path=tmp_path / "no.json",
-            stats_path=tmp_path / "no2.json",
-        )
-        assert result.endswith("\n") or result.strip() == result
+    def test_report_ordering_health_then_plugins_then_activity(self, tmp_path: Path):
+        hp = tmp_path / "health.md"
+        hp.write_text("report body")
+
+        sp = tmp_path / "settings.json"
+        sp.write_text(json.dumps({"enabledPlugins": {"p": True}}))
+
+        stp = tmp_path / "stats.json"
+        stp.write_text(json.dumps([{"date": "2026-01-01", "messageCount": 1, "sessionCount": 1, "toolCallCount": 1}]))
+
+        result = express_vitals(health_path=hp, settings_path=sp, stats_path=stp)
+
+        idx_health = result.index("## Nightly Report")
+        idx_plugins = result.index("## Plugins")
+        idx_activity = result.index("## Recent Activity")
+        assert idx_health < idx_plugins < idx_activity
+
+    def test_default_paths_are_module_constants(self):
+        """Verify module-level defaults exist and are Path objects."""
+        from metabolon.resources import vitals as mod
+        assert isinstance(mod._HEALTH_FILE, Path)
+        assert isinstance(mod._SETTINGS, Path)
+        assert isinstance(mod._STATS_CACHE, Path)

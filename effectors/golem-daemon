@@ -46,6 +46,7 @@ IDLE_STOP_MINUTES = 10  # Stop machine after N minutes idle
 FLY_APP_NAME = "gemmule"
 FLY_API_BASE = "https://api.machines.dev"
 HEALTH_CHECK_INTERVAL = 50  # Run health check every N poll cycles (~25 min)
+PROVIDER_COOLDOWN_SECONDS = 600  # 10 min cooldown after consecutive failures
 
 
 def disk_hygiene() -> int:
