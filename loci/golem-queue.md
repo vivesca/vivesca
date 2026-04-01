@@ -677,7 +677,7 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 
 ### Auto-requeue (19 tasks @ 03:09)
 - [x] `golem [t-6e625a] --provider infini --max-turns 40 "Run uv run pytest --co -q 2>&1 | grep ERROR. Fix ALL collection errors. Common: hardcoded paths, bad imports, syntax. Run --co again until 0 errors. Commit."`
-- [ ] `golem [t-ffbd6e] --provider volcano --max-turns 50 "Run uv run pytest -q --tb=no --continue-on-collection-errors 2>&1 | grep FAILED | sed 's/::.*//g' | sort | uniq -c | sort -rn | head -5. For each of the top 5 failing test files: run pytest on it, read traceback, fix. Iterate until green. Commit."`
+- [x] `golem [t-ffbd6e] --provider volcano --max-turns 50 "Run uv run pytest -q --tb=no --continue-on-collection-errors 2>&1 | grep FAILED | sed 's/::.*//g' | sort | uniq -c | sort -rn | head -5. For each of the top 5 failing test files: run pytest on it, read traceback, fix. Iterate until green. Commit."`
 - [x] `golem [t-8f9c9c] --provider zhipu --max-turns 30 "Health check: chat_history.py, cibus.py, phagocytosis.py, soma-watchdog, nightly, receptor-scan, photos.py, golem-daemon-wrapper.sh, transduction-daily-run, lacuna. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
 - [x] `golem [t-1045b7] --provider infini --max-turns 30 "Write tests for /home/terry/germline/metabolon/organelles/endosomal.py. Mock external calls. Write assays/test_organelles_endosomal.py. Run uv run pytest. Fix failures. Commit."`
 - [x] `golem [t-c995ce] --provider volcano --max-turns 30 "Write tests for /home/terry/germline/metabolon/respirometry/monitors.py. Mock external calls. Write assays/test_respirometry_monitors.py. Run uv run pytest. Fix failures. Commit."`
@@ -708,7 +708,7 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 - [x] `golem [t-07fb8e] --provider volcano --max-turns 30 "Write tests for effectors/hetzner-bootstrap.sh. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
 - [ ] `golem [t-448fbd] --provider zhipu --max-turns 30 "Write tests for effectors/agent-sync.sh. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
 - [x] `golem [t-749563] --provider infini --max-turns 30 "Write tests for effectors/backup-due.sh. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
-- [ ] `golem [t-ced9d7] --provider volcano --max-turns 30 "Write tests for effectors/pharos-health.sh. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit." (retry)`
+- [!] `golem [t-ced9d7] --provider volcano --max-turns 30 "Write tests for effectors/pharos-health.sh. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit." (retry)`
 - [ ] `golem [t-59c76e] --provider zhipu --max-turns 30 "Write tests for effectors/soma-snapshot. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
 - [!] `golem [t-b2d0ab] --provider infini --max-turns 25 "Find test files with SyntaxError. Fix syntax. Commit." (retry)`
 - [!] `golem [t-656b8a] --provider volcano --max-turns 25 "Find Python files missing shebang in effectors/. Add #!/usr/bin/env python3. Commit." (retry)`
@@ -726,16 +726,16 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 - [ ] `golem [t-3066f8] --provider volcano --max-turns 30 "Write tests for /home/terry/germline/metabolon/organelles/glycolysis_rate.py. Mock external calls. Write assays/test_organelles_glycolysis_rate.py. Run uv run pytest. Fix failures. Commit."`
 - [ ] `golem [t-4cc1a5] --provider zhipu --max-turns 30 "Write tests for /home/terry/germline/metabolon/enzymes/demethylase.py. Mock external calls. Write assays/test_enzymes_demethylase.py. Run uv run pytest. Fix failures. Commit."`
 - [x] `golem [t-2cc304] --provider infini --max-turns 30 "Write tests for /home/terry/germline/metabolon/resources/circadian.py. Mock external calls. Write assays/test_resources_circadian.py. Run uv run pytest. Fix failures. Commit."`
-- [ ] `golem [t-18b8ef] --provider volcano --max-turns 30 "Write tests for effectors/plan-exec.deprecated. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
+- [x] `golem [t-18b8ef] --provider volcano --max-turns 30 "Write tests for effectors/plan-exec.deprecated. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
 - [ ] `golem [t-ae9272] --provider zhipu --max-turns 30 "Write tests for effectors/perplexity.sh. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
-- [ ] `golem [t-47185c] --provider infini --max-turns 30 "Write tests for effectors/auto-update-compound-engineering.sh. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
-- [ ] `golem [t-fa5e48] --provider volcano --max-turns 30 "Write tests for effectors/agent-sync.sh. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
+- [!] `golem [t-47185c] --provider infini --max-turns 30 "Write tests for effectors/auto-update-compound-engineering.sh. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit." (retry)`
+- [x] `golem [t-fa5e48] --provider volcano --max-turns 30 "Write tests for effectors/agent-sync.sh. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
 - [ ] `golem [t-447f95] --provider zhipu --max-turns 30 "Write tests for effectors/backup-due.sh. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
 - [x] `golem [t-26fe9f] --provider infini --max-turns 25 "Find unused imports in metabolon/**/*.py. Remove them. Commit."`
 - [ ] `golem [t-941cf3] --provider volcano --max-turns 25 "Scan assays/ for hardcoded /Users/terry paths. Replace with Path.home(). Commit."`
 - [ ] `golem [t-904d26] --provider zhipu --max-turns 25 "Find test files with SyntaxError. Fix syntax. Commit."`
 - [x] `golem [t-751d27] --provider infini --max-turns 30 "Write a consulting insight card: Data governance for AI/ML training data in banking. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/data-governance-ai.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
-- [ ] `golem [t-afc300] --provider volcano --max-turns 30 "Write a consulting insight card: AI vendor due diligence questionnaire for banks. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-vendor-due-diligence.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
+- [x] `golem [t-afc300] --provider volcano --max-turns 30 "Write a consulting insight card: AI vendor due diligence questionnaire for banks. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-vendor-due-diligence.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [ ] `golem [t-a70649] --provider zhipu --max-turns 35 "Read effectors/golem-daemon. Add cmd_stats — show pass/fail/retry counts, avg duration by provider, tasks completed today. Usage: golem-daemon stats. Write tests. Run uv run pytest. Commit."`
 ## Done (2026-03-31)
 
