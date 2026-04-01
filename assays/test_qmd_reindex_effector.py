@@ -372,3 +372,169 @@ class TestExecution:
         bun_segment = f"{tmp_path}/.bun/bin"
         # .bun/bin should be the very first entry in PATH
         assert recorded_path.startswith(bun_segment)
+
+
+# ── additional edge cases ─────────────────────────────────────────────────
+
+
+class TestIdempotency:
+    def test_runs_twice_successfully(self, tmp_path):
+        """Script can be run multiple times in sequence without error."""
+        _create_mock_bin(tmp_path, "pgrep", exit_code=1)
+
+        qmd_path = tmp_path / "bin" / "qmd"
+        qmd_path.parent.mkdir(parents=True, exist_ok=True)
+        qmd_path.write_text("#!/bin/bash\nexit 0")
+        qmd_path.chmod(0o755)
+
+        env = os.environ.copy()
+        env["HOME"] = str(tmp_path)
+        env["PATH"] = f"{tmp_path}/bin:{env['PATH']}"
+
+        r1 = _run_script(env=env)
+        r2 = _run_script(env=env)
+        assert r1.returncode == 0
+        assert r2.returncode == 0
+
+    def test_second_run_after_skip(self, tmp_path):
+        """First run skipped (already running), second run proceeds."""
+        call_count = tmp_path / "call_count"
+
+        # pgrep returns 0 (running) then 1 (not running)
+        pgrep_path = tmp_path / "bin" / "pgrep"
+        pgrep_path.parent.mkdir(parents=True, exist_ok=True)
+        pgrep_path.write_text(
+            "#!/bin/bash\n"
+            f"if [ -f {call_count} ]; then\n"
+            f"    exit 1\n"
+            f"else\n"
+            f"    touch {call_count}\n"
+            f"    exit 0\n"
+            f"fi\n"
+        )
+        pgrep_path.chmod(0o755)
+
+        qmd_call_log = tmp_path / "qmd_calls"
+        qmd_path = tmp_path / "bin" / "qmd"
+        qmd_path.write_text(f'#!/bin/bash\necho "$@" >> {qmd_call_log}\nexit 0')
+        qmd_path.chmod(0o755)
+
+        env = os.environ.copy()
+        env["HOME"] = str(tmp_path)
+        env["PATH"] = f"{tmp_path}/bin:{env['PATH']}"
+
+        r1 = _run_script(env=env)
+        assert r1.returncode == 0
+        assert not qmd_call_log.exists()
+
+        r2 = _run_script(env=env)
+        assert r2.returncode == 0
+        calls = qmd_call_log.read_text().splitlines()
+        assert "update" in calls
+        assert "embed" in calls
+
+
+class TestPgrepEdgeCases:
+    def test_pgrep_stderr_suppressed(self, tmp_path):
+        """pgrep stderr does not leak into script stderr."""
+        pgrep_path = tmp_path / "bin" / "pgrep"
+        pgrep_path.parent.mkdir(parents=True, exist_ok=True)
+        pgrep_path.write_text('#!/bin/bash\necho "pgrep error" >&2\nexit 1')
+        pgrep_path.chmod(0o755)
+
+        qmd_path = tmp_path / "bin" / "qmd"
+        qmd_path.write_text("#!/bin/bash\nexit 0")
+        qmd_path.chmod(0o755)
+
+        env = os.environ.copy()
+        env["HOME"] = str(tmp_path)
+        env["PATH"] = f"{tmp_path}/bin:{env['PATH']}"
+
+        r = _run_script(env=env)
+        assert r.returncode == 0
+        assert r.stderr == ""
+
+    def test_pgrep_exit_2_allows_execution(self, tmp_path):
+        """pgrep returning exit code 2 (usage/syntax error) still allows qmd to run."""
+        _create_mock_bin(tmp_path, "pgrep", exit_code=2)
+
+        qmd_call_log = tmp_path / "qmd_calls"
+        qmd_path = tmp_path / "bin" / "qmd"
+        qmd_path.parent.mkdir(parents=True, exist_ok=True)
+        qmd_path.write_text(f'#!/bin/bash\necho "$@" >> {qmd_call_log}\nexit 0')
+        qmd_path.chmod(0o755)
+
+        env = os.environ.copy()
+        env["HOME"] = str(tmp_path)
+        env["PATH"] = f"{tmp_path}/bin:{env['PATH']}"
+
+        r = _run_script(env=env)
+        assert r.returncode == 0
+        calls = qmd_call_log.read_text().splitlines()
+        assert "update" in calls
+        assert "embed" in calls
+
+
+class TestHomePath:
+    def test_home_used_for_bun_path(self, tmp_path):
+        """Script uses $HOME to construct .bun/bin path."""
+        _create_mock_bin(tmp_path, "pgrep", exit_code=1)
+
+        custom_home = tmp_path / "custom_home"
+        custom_home.mkdir()
+
+        path_log = tmp_path / "path_log"
+        qmd_path = tmp_path / "bin" / "qmd"
+        qmd_path.parent.mkdir(parents=True, exist_ok=True)
+        qmd_path.write_text(f'#!/bin/bash\necho "$PATH" > {path_log}\nexit 0')
+        qmd_path.chmod(0o755)
+
+        env = os.environ.copy()
+        env["HOME"] = str(custom_home)
+        env["PATH"] = f"{tmp_path}/bin:{env['PATH']}"
+
+        _run_script(env=env)
+
+        recorded_path = path_log.read_text().strip()
+        assert f"{custom_home}/.bun/bin" in recorded_path
+
+    def test_no_stdout_on_skip(self, tmp_path):
+        """When already running (pgrep matches), produces no stdout or stderr."""
+        _create_mock_bin(tmp_path, "pgrep", exit_code=0)
+
+        env = os.environ.copy()
+        env["HOME"] = str(tmp_path)
+        env["PATH"] = f"{tmp_path}/bin:{env['PATH']}"
+
+        r = _run_script(env=env)
+        assert r.returncode == 0
+        assert r.stdout == ""
+        assert r.stderr == ""
+
+
+class TestUpdateFailureStopsEmbed:
+    def test_embed_not_called_when_update_fails(self, tmp_path):
+        """When qmd update fails, qmd embed is never called (set -e)."""
+        _create_mock_bin(tmp_path, "pgrep", exit_code=1)
+
+        qmd_call_log = tmp_path / "qmd_calls"
+        qmd_path = tmp_path / "bin" / "qmd"
+        qmd_path.parent.mkdir(parents=True, exist_ok=True)
+        qmd_path.write_text(
+            '#!/bin/bash\n'
+            f'echo "$@" >> {qmd_call_log}\n'
+            'if [[ "$1" == "update" ]]; then\n'
+            '    exit 1\n'
+            'fi\n'
+            'exit 0\n'
+        )
+        qmd_path.chmod(0o755)
+
+        env = os.environ.copy()
+        env["HOME"] = str(tmp_path)
+        env["PATH"] = f"{tmp_path}/bin:{env['PATH']}"
+
+        r = _run_script(env=env)
+        assert r.returncode != 0
+        calls = qmd_call_log.read_text().splitlines()
+        assert calls == ["update"]

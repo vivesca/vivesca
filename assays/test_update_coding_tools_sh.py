@@ -85,7 +85,7 @@ class TestFileBasics:
 
     def test_is_bash_script(self):
         first = SCRIPT.read_text().split("\n")[0]
-        assert first.startswith("#!/bin/bash")
+        assert first.startswith("#!/usr/bin/env bash")
 
     def test_has_set_e(self):
         src = SCRIPT.read_text()
@@ -98,11 +98,11 @@ class TestFileBasics:
 class TestNoBrewFound:
     def test_exits_1_when_no_brew(self, tmp_path):
         """When brew is not on PATH, script exits 1 with error message."""
-        # Create a bindir with no brew
+        # Create a bindir with no brew, but include /usr/bin for bash/date/etc
         bindir = tmp_path / "empty_bin"
         bindir.mkdir()
         env = os.environ.copy()
-        env["PATH"] = str(bindir)
+        env["PATH"] = str(bindir) + os.pathsep + "/usr/bin"
         env["HOME"] = str(tmp_path)
         r = subprocess.run(
             ["bash", str(SCRIPT)],
