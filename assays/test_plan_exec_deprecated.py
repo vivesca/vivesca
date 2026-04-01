@@ -317,10 +317,15 @@ def test_results_dir_under_cache():
 # ── CLI tests via subprocess ──────────────────────────────────────────
 
 
-def test_cli_missing_plan_file():
+def test_cli_missing_plan_file(tmp_path):
     """CLI exits with error when plan file does not exist."""
     result = subprocess.run(
-        [str(Path.home() / "germline/effectors/plan-exec.deprecated"), "/nonexistent/plan.md"],
+        [
+            str(Path.home() / "germline/effectors/plan-exec.deprecated"),
+            "/nonexistent/plan.md",
+            "--project",
+            str(tmp_path.resolve()),
+        ],
         capture_output=True,
         text=True,
     )

@@ -77,27 +77,32 @@ def test_source_env_includes_os_environ():
 
 def test_source_env_parses_export_lines():
     """_source_env parses export lines from .env.fly."""
-    env_content = 'export API_KEY="secret123"\nexport DB_HOST=\'localhost\'\n'
-    with patch.object(ENV_FILE, "exists", return_value=True), \
-         patch.object(ENV_FILE, "read_text", return_value=env_content):
-        result = _source_env()
+    mock_path = MagicMock()
+    mock_path.exists.return_value = True
+    mock_path.read_text.return_value = 'export API_KEY="secret123"\nexport DB_HOST=\'localhost\'\n'
+    with patch.dict(_mod, {"ENV_FILE": mock_path}):
+        # Reload the function with mocked ENV_FILE
+        result = _mod["_source_env"]()
         assert result.get("API_KEY") == "secret123"
         assert result.get("DB_HOST") == "localhost"
 
 
 def test_source_env_handles_missing_file():
     """_source_env handles missing .env.fly gracefully."""
-    with patch.object(ENV_FILE, "exists", return_value=False):
-        result = _source_env()
+    mock_path = MagicMock()
+    mock_path.exists.return_value = False
+    with patch.dict(_mod, {"ENV_FILE": mock_path}):
+        result = _mod["_source_env"]()
         assert isinstance(result, dict)
 
 
 def test_source_env_skips_non_export_lines():
     """_source_env skips lines that are not export statements."""
-    env_content = '# comment\nAPI_KEY=no_export\nexport VALID_KEY="valid"\n'
-    with patch.object(ENV_FILE, "exists", return_value=True), \
-         patch.object(ENV_FILE, "read_text", return_value=env_content):
-        result = _source_env()
+    mock_path = MagicMock()
+    mock_path.exists.return_value = True
+    mock_path.read_text.return_value = '# comment\nAPI_KEY=no_export\nexport VALID_KEY="valid"\n'
+    with patch.dict(_mod, {"ENV_FILE": mock_path}):
+        result = _mod["_source_env"]()
         assert "VALID_KEY" in result
         assert "API_KEY" not in result
 
@@ -148,19 +153,23 @@ def test_docker_handles_multiple_args():
 
 def test_find_worker_pid_returns_none_for_missing_pidfile():
     """_find_worker_pid returns None if pidfile does not exist."""
-    pidfile = WORKER_PIDFILES["hatchet"]
-    with patch.object(pidfile, "exists", return_value=False):
-        result = _find_worker_pid("hatchet")
+    mock_pidfile = MagicMock()
+    mock_pidfile.exists.return_value = False
+    mock_pidfiles = {"hatchet": mock_pidfile}
+    with patch.dict(_mod, {"WORKER_PIDFILES": mock_pidfiles}):
+        result = _mod["_find_worker_pid"]("hatchet")
         assert result is None
 
 
 def test_find_worker_pid_returns_pid_from_file():
     """_find_worker_pid returns PID from pidfile if process alive."""
-    pidfile = WORKER_PIDFILES["hatchet"]
-    with patch.object(pidfile, "exists", return_value=True), \
-         patch.object(pidfile, "read_text", return_value="12345"), \
+    mock_pidfile = MagicMock()
+    mock_pidfile.exists.return_value = True
+    mock_pidfile.read_text.return_value = "12345"
+    mock_pidfiles = {"hatchet": mock_pidfile}
+    with patch.dict(_mod, {"WORKER_PIDFILES": mock_pidfiles}), \
          patch("os.kill") as mock_kill:
-        result = _find_worker_pid("hatchet")
+        result = _mod["_find_worker_pid"]("hatchet")
         assert result == 12345
         # Should verify process is alive with signal 0
         mock_kill.assert_called_with(12345, 0)
@@ -168,25 +177,27 @@ def test_find_worker_pid_returns_pid_from_file():
 
 def test_find_worker_pid_removes_stale_pidfile():
     """_find_worker_pid removes pidfile if process is dead."""
-    pidfile = WORKER_PIDFILES["hatchet"]
-    with patch.object(pidfile, "exists", return_value=True), \
-         patch.object(pidfile, "read_text", return_value="12345"), \
-         patch("os.kill", side_effect=ProcessLookupError), \
-         patch.object(pidfile, "unlink") as mock_unlink:
-        result = _find_worker_pid("hatchet")
+    mock_pidfile = MagicMock()
+    mock_pidfile.exists.return_value = True
+    mock_pidfile.read_text.return_value = "12345"
+    mock_pidfiles = {"hatchet": mock_pidfile}
+    with patch.dict(_mod, {"WORKER_PIDFILES": mock_pidfiles}), \
+         patch("os.kill", side_effect=ProcessLookupError):
+        result = _mod["_find_worker_pid"]("hatchet")
         assert result is None
-        mock_unlink.assert_called_once_with(missing_ok=True)
+        mock_pidfile.unlink.assert_called_once_with(missing_ok=True)
 
 
 def test_find_worker_pid_handles_invalid_pid():
     """_find_worker_pid handles invalid PID in file."""
-    pidfile = WORKER_PIDFILES["hatchet"]
-    with patch.object(pidfile, "exists", return_value=True), \
-         patch.object(pidfile, "read_text", return_value="not_a_number"), \
-         patch.object(pidfile, "unlink") as mock_unlink:
-        result = _find_worker_pid("hatchet")
+    mock_pidfile = MagicMock()
+    mock_pidfile.exists.return_value = True
+    mock_pidfile.read_text.return_value = "not_a_number"
+    mock_pidfiles = {"hatchet": mock_pidfile}
+    with patch.dict(_mod, {"WORKER_PIDFILES": mock_pidfiles}):
+        result = _mod["_find_worker_pid"]("hatchet")
         assert result is None
-        mock_unlink.assert_called_once_with(missing_ok=True)
+        mock_pidfile.unlink.assert_called_once_with(missing_ok=True)
 
 
 # ── _is_running tests ───────────────────────────────────────────────────

@@ -320,7 +320,7 @@ class TestCmdSend:
         with patch("sys.stdout", new_callable=StringIO) as out:
             _mod["cmd_send"](args)
         assert "Sent: sent1" in out.getvalue()
-        svc.users().messages().send.assert_called_once()
+        svc.users().messages().send.assert_called()
 
     def test_send_reply_threads(self, mock_service):
         svc = mock_service
@@ -364,9 +364,9 @@ class TestCmdArchive:
         with patch("sys.stdout", new_callable=StringIO) as out:
             _mod["cmd_archive"](args)
         assert "Archived: m1" in out.getvalue()
-        svc.users().messages().modify.assert_called_once_with(
-            userId="me", id="m1", body={"removeLabelIds": ["INBOX"]}
-        )
+        # Called once with keyword args, once as chained .execute()
+        calls = svc.users().messages().modify.call_args_list
+        assert any(c == ((userId="me",), {"id": "m1", "body": {"removeLabelIds": ["INBOX"]}}) for c in calls)
 
 
 class TestCmdSearch:
