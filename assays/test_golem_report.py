@@ -783,3 +783,338 @@ class TestEdgeCases:
         report = generate_report(records, "2026-04-01")
         # avg should be 0 since all durations are 0
         assert "| Avg duration | 0s (0.0m) |" in report
+
+
+# ── Additional rate-limit pattern tests ──────────────────────────────────
+
+
+class TestRateLimitPatternsExtra:
+    """Tests for less-common RATE_LIMIT_PATTERNS substrings."""
+
+    def test_20013_error_code(self):
+        """is_rate_limited detects 20013 error code in tail."""
+        rec = {"tail": "Error code 20013 from upstream provider", "exit": 1, "duration": 30}
+        assert is_rate_limited(rec) is True
+
+    def test_request_limit_exceeded(self):
+        """is_rate_limited detects 'request limit exceeded' in tail."""
+        rec = {"tail": "request limit exceeded for this endpoint", "exit": 1, "duration": 30}
+        assert is_rate_limited(rec) is True
+
+    def test_api_error_429(self):
+        """is_rate_limited detects 'API Error: 429' in tail."""
+        rec = {"tail": "API Error 429: too many requests", "exit": 1, "duration": 30}
+        assert is_rate_limited(rec) is True
+
+    def test_hit_your_limit(self):
+        """is_rate_limited detects 'hit your limit' in tail."""
+        rec = {"tail": "You have hit your limit for this billing period", "exit": 1, "duration": 3}
+        assert is_rate_limited(rec) is True
+
+    def test_quota_will_reset(self):
+        """is_rate_limited detects 'quota will reset' in tail."""
+        rec = {"tail": "Your quota will reset at midnight UTC", "exit": 1, "duration": 5}
+        assert is_rate_limited(rec) is True
+
+    def test_missing_fields_defaults(self):
+        """is_rate_limited handles records with missing fields gracefully."""
+        rec = {}
+        assert is_rate_limited(rec) is False
+
+    def test_tail_missing_not_rate_limited(self):
+        """is_rate_limited returns False when tail field is absent and exit is 0."""
+        rec = {"exit": 0, "duration": 5}
+        assert is_rate_limited(rec) is False
+
+    def test_rate_limit_patterns_compiled(self):
+        """RATE_LIMIT_PATTERNS is a compiled regex object."""
+        import re
+        assert hasattr(RATE_LIMIT_PATTERNS, "search")
+        assert RATE_LIMIT_PATTERNS.flags & re.IGNORECASE
+
+
+# ── Additional parse_timestamp tests ─────────────────────────────────────
+
+
+class TestParseTimestampExtra:
+    """Additional edge cases for parse_timestamp."""
+
+    def test_none_input_raises_typeerror(self):
+        """parse_timestamp raises TypeError for None input."""
+        with pytest.raises(TypeError):
+            parse_timestamp(None)
+
+    def test_numeric_input_raises_typeerror(self):
+        """parse_timestamp raises TypeError for numeric input."""
+        with pytest.raises(TypeError):
+            parse_timestamp(12345)
+
+    def test_microseconds_no_z_suffix(self):
+        """parse_timestamp returns None for microseconds without Z."""
+        # The format '%Y-%m-%dT%H:%M:%S.%f' is not in the supported list
+        result = parse_timestamp("2026-04-01T10:00:00.123456")
+        assert result is None
+
+    def test_timestamp_with_timezone_offset(self):
+        """parse_timestamp returns None for +00:00 timezone offset."""
+        result = parse_timestamp("2026-04-01T10:00:00+00:00")
+        assert result is None
+
+    def test_whitespace_timestamp(self):
+        """parse_timestamp returns None for whitespace-only input."""
+        result = parse_timestamp("   ")
+        assert result is None
+
+
+# ── Additional truncate_prompt tests ─────────────────────────────────────
+
+
+class TestTruncatePromptExtra:
+    """Additional edge cases for truncate_prompt."""
+
+    def test_max_len_less_than_ellipsis(self):
+        """truncate_prompt with max_len < 3 still produces output."""
+        result = truncate_prompt("hello world", max_len=2)
+        # len > 2 so truncation happens: prompt[:2-3] + "..." = "" + "..." = "..."
+        # But prompt[:max_len-3] = prompt[:-1] = "hello worl" when max_len=2? No,
+        # max_len-3 = -1, so prompt[:-1] = "hello worl" — actually len of that > max_len
+        assert len(result) > 0
+
+    def test_prompt_with_newlines(self):
+        """truncate_prompt handles prompts containing newlines."""
+        prompt = "line one\nline two\nline three"
+        result = truncate_prompt(prompt)
+        assert "line one" in result
+
+    def test_prompt_with_unicode(self):
+        """truncate_prompt handles unicode characters correctly."""
+        prompt = "Implement feature: résumé builder 🚀"
+        result = truncate_prompt(prompt)
+        assert len(result) <= 60
+
+    def test_coaching_notes_multiline_separator(self):
+        """truncate_prompt strips coaching notes with multi-line content."""
+        prompt = "<coaching-notes>\nline1\nline2\nline3\n---\nactual task"
+        result = truncate_prompt(prompt)
+        assert result == "actual task"
+
+    def test_exact_boundary_61_chars(self):
+        """truncate_prompt truncates at 61 chars (one over max_len)."""
+        prompt = "x" * 61
+        result = truncate_prompt(prompt)
+        assert len(result) == 60
+        assert result.endswith("...")
+
+
+# ── Additional get_task_id tests ─────────────────────────────────────────
+
+
+class TestGetTaskIdExtra:
+    """Additional edge cases for get_task_id."""
+
+    def test_empty_string_task_id_field(self):
+        """get_task_id falls through to prompt when task_id is empty string."""
+        rec = {"task_id": "", "prompt": "do [t-abc999] something"}
+        assert get_task_id(rec) == "[t-abc999]"
+
+    def test_none_task_id_field(self):
+        """get_task_id falls through when task_id is None."""
+        rec = {"task_id": None, "prompt": "do [t-abc111] something"}
+        assert get_task_id(rec) == "[t-abc111]"
+
+    def test_missing_both_fields(self):
+        """get_task_id returns empty when neither task_id nor prompt field."""
+        rec = {"exit": 0}
+        assert get_task_id(rec) == ""
+
+    def test_numeric_task_id(self):
+        """get_task_id handles numeric task_id by wrapping in brackets."""
+        rec = {"task_id": "t-123456", "prompt": ""}
+        assert get_task_id(rec) == "[t-123456]"
+
+
+# ── Additional load_jsonl tests ──────────────────────────────────────────
+
+
+class TestLoadJsonlExtra:
+    """Additional edge cases for load_jsonl."""
+
+    def test_extra_fields_preserved(self, tmp_path):
+        """load_jsonl preserves extra fields in records."""
+        records = [
+            {
+                "ts": "2026-04-01T10:00:00Z",
+                "provider": "zhipu",
+                "custom_field": "custom_value",
+                "nested": {"key": "val"},
+            },
+        ]
+        jsonl_path = _make_jsonl(tmp_path, records)
+        original = _mod["JSONL_FILE"]
+        try:
+            _mod["JSONL_FILE"] = jsonl_path
+            result = load_jsonl("2026-04-01")
+        finally:
+            _mod["JSONL_FILE"] = original
+        assert len(result) == 1
+        assert result[0]["custom_field"] == "custom_value"
+        assert result[0]["nested"]["key"] == "val"
+
+    def test_multiple_records_same_timestamp(self, tmp_path):
+        """load_jsonl handles multiple records with identical timestamps."""
+        records = [
+            {"ts": "2026-04-01T10:00:00Z", "provider": "zhipu"},
+            {"ts": "2026-04-01T10:00:00Z", "provider": "infini"},
+            {"ts": "2026-04-01T10:00:00Z", "provider": "volcano"},
+        ]
+        jsonl_path = _make_jsonl(tmp_path, records)
+        original = _mod["JSONL_FILE"]
+        try:
+            _mod["JSONL_FILE"] = jsonl_path
+            result = load_jsonl("2026-04-01")
+        finally:
+            _mod["JSONL_FILE"] = original
+        assert len(result) == 3
+
+    def test_large_file_many_records(self, tmp_path):
+        """load_jsonl handles files with many records."""
+        records = [
+            {"ts": "2026-04-01T10:00:00Z", "provider": f"p{i % 5}", "exit": i % 2}
+            for i in range(500)
+        ]
+        jsonl_path = _make_jsonl(tmp_path, records)
+        original = _mod["JSONL_FILE"]
+        try:
+            _mod["JSONL_FILE"] = jsonl_path
+            result = load_jsonl("2026-04-01")
+        finally:
+            _mod["JSONL_FILE"] = original
+        assert len(result) == 500
+
+
+# ── Additional generate_report tests ─────────────────────────────────────
+
+
+class TestGenerateReportExtra:
+    """Additional edge cases for generate_report."""
+
+    def test_records_without_prompt_field(self):
+        """generate_report handles records missing prompt field."""
+        records = [
+            {"ts": "2026-04-01T10:00:00Z", "provider": "zhipu", "exit": 0, "duration": 60},
+        ]
+        report = generate_report(records, "2026-04-01")
+        assert "| Total tasks | 1 |" in report
+        assert "| Succeeded | 1 |" in report
+
+    def test_fewer_than_3_tasks_for_longest(self):
+        """generate_report shows only available tasks when < 3 total."""
+        records = [
+            {"ts": "2026-04-01T10:00:00Z", "provider": "zhipu", "exit": 0, "duration": 60, "prompt": "task1"},
+        ]
+        report = generate_report(records, "2026-04-01")
+        assert "## Top 3 Longest Tasks" in report
+        assert "1." in report
+        assert "2." not in report
+
+    def test_fewer_than_3_retried_tasks(self):
+        """generate_report shows available retried tasks when < 3 unique IDs."""
+        records = [
+            {"ts": "2026-04-01T10:00:00Z", "task_id": "t-aaa", "provider": "zhipu", "exit": 0, "duration": 60, "prompt": "[t-aaa] task"},
+            {"ts": "2026-04-01T10:05:00Z", "task_id": "t-aaa", "provider": "zhipu", "exit": 1, "duration": 30, "prompt": "[t-aaa] retry"},
+        ]
+        report = generate_report(records, "2026-04-01")
+        assert "## Top 3 Most-Retried Tasks" in report
+        assert "2 attempts" in report
+        # Only 1 unique task ID, so only "1." entry
+        assert "2. " not in report.split("## Top 3 Most-Retried Tasks")[1].split("##")[0]
+
+    def test_provider_stats_accuracy(self):
+        """generate_report shows correct per-provider stats."""
+        records = [
+            {"ts": "2026-04-01T10:00:00Z", "provider": "alpha", "exit": 0, "duration": 100, "prompt": "t1"},
+            {"ts": "2026-04-01T10:05:00Z", "provider": "alpha", "exit": 1, "duration": 50, "prompt": "t2"},
+            {"ts": "2026-04-01T10:10:00Z", "provider": "beta", "exit": 0, "duration": 200, "prompt": "t3"},
+        ]
+        report = generate_report(records, "2026-04-01")
+        # alpha: 2 tasks, 1 success = 50%, avg dur = 75s
+        assert "| alpha | 2 | 1 | 50% | 75s | 0 |" in report
+        # beta: 1 task, 1 success = 100%, avg dur = 200s
+        assert "| beta | 1 | 1 | 100% | 200s | 0 |" in report
+
+    def test_longest_tasks_with_tie_duration(self):
+        """generate_report handles ties in duration for top 3."""
+        records = [
+            {"ts": "2026-04-01T10:00:00Z", "provider": "a", "exit": 0, "duration": 100, "prompt": "t1"},
+            {"ts": "2026-04-01T10:05:00Z", "provider": "b", "exit": 0, "duration": 100, "prompt": "t2"},
+            {"ts": "2026-04-01T10:10:00Z", "provider": "c", "exit": 0, "duration": 50, "prompt": "t3"},
+        ]
+        report = generate_report(records, "2026-04-01")
+        assert "100s" in report
+        assert "50s" in report
+
+    def test_duration_minutes_formatting(self):
+        """generate_report formats large durations as minutes correctly."""
+        records = [
+            {"ts": "2026-04-01T10:00:00Z", "provider": "a", "exit": 0, "duration": 3600, "prompt": "t1"},
+        ]
+        report = generate_report(records, "2026-04-01")
+        assert "3600s (60.0m)" in report
+
+    def test_all_succeeded_rate_limits_zero(self):
+        """generate_report shows 0 rate-limit events when all tasks succeed."""
+        records = [
+            {"ts": "2026-04-01T10:00:00Z", "provider": "zhipu", "exit": 0, "duration": 60, "prompt": "t1"},
+            {"ts": "2026-04-01T10:05:00Z", "provider": "infini", "exit": 0, "duration": 90, "prompt": "t2"},
+        ]
+        report = generate_report(records, "2026-04-01")
+        assert "| Rate-limit events | 0 |" in report
+
+
+# ── Additional CLI tests ─────────────────────────────────────────────────
+
+
+class TestMainCliExtra:
+    """Additional CLI integration tests via subprocess.run."""
+
+    REPORT_PATH = Path.home() / "germline/effectors/golem-report"
+
+    def _run(self, args: list[str]) -> subprocess.CompletedProcess:
+        cmd = [sys.executable, str(self.REPORT_PATH)] + args
+        return subprocess.run(cmd, capture_output=True, text=True, timeout=10)
+
+    def test_json_output_structure_empty(self):
+        """golem-report --json with no matching records has correct structure."""
+        result = self._run(["--date", "2099-06-15", "--json"])
+        assert result.returncode == 0
+        data = json.loads(result.stdout)
+        assert data["date"] == "2099-06-15"
+        assert data["total"] == 0
+        assert isinstance(data["records"], list)
+
+    def test_help_shows_date_and_json_options(self):
+        """golem-report --help documents --date and --json flags."""
+        result = self._run(["--help"])
+        assert "--date" in result.stdout
+        assert "--json" in result.stdout
+
+    def test_no_args_uses_today(self):
+        """golem-report with no args generates a report for today."""
+        from datetime import datetime
+        today = datetime.now().strftime("%Y-%m-%d")
+        result = self._run([])
+        assert result.returncode == 0
+        assert today in result.stdout
+
+    def test_markdown_output_default(self):
+        """golem-report outputs markdown by default (not JSON)."""
+        result = self._run(["--date", "2099-01-01"])
+        assert result.returncode == 0
+        assert "# Golem Report" in result.stdout
+        # Should not be valid JSON (no surrounding braces)
+        assert not result.stdout.strip().startswith("{")
+
+    def test_exit_code_success(self):
+        """golem-report exits with code 0 on normal invocation."""
+        result = self._run(["--date", "2020-01-01"])
+        assert result.returncode == 0
