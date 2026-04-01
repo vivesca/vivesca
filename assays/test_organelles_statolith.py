@@ -210,7 +210,7 @@ class TestFetchers:
         
         assert result.source == "livebench"
         assert result.scores[0].source_model_name == "m1"
-        assert result.scores[0].metrics["global_average"] == 85.0
+        assert result.scores[0].metrics["global_average"] == pytest.approx(85.0)
 
     @patch("httpx.Client.get")
     def test_fetch_terminal_bench(self, mock_get, temp_dirs):
@@ -218,9 +218,9 @@ class TestFetchers:
             status_code=200,
             json=lambda: {
                 "siblings": [
-                    {"rfilename": "results/agent__model1/result.json"},
-                    {"rfilename": "results/agent__model1/other_result.json"},
-                    {"rfilename": "results/agent__model2/result.json"},
+                    {"rfilename": "data/leaderboard/results/agent__model1/result.json"},
+                    {"rfilename": "data/leaderboard/results/agent__model1/other_result.json"},
+                    {"rfilename": "data/leaderboard/results/agent__model2/result.json"},
                 ]
             }
         )
@@ -230,6 +230,9 @@ class TestFetchers:
         
         assert result.source == "terminal-bench"
         # model1 has 2 results, model2 has 1
+        # In data/leaderboard/results/agent__model1/result.json:
+        # parts = ['data', 'leaderboard', 'results', 'agent__model1', 'result.json']
+        # parts[3] = 'agent__model1'
         assert result.scores[0].model == "model1"
         assert result.scores[0].metrics["tasks_completed"] == 2
         assert result.scores[1].model == "model2"
