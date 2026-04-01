@@ -83,8 +83,8 @@ class TestUnknownOption:
 
 
 class TestChromeNotFound:
-    def test_exits_1_when_no_chrome(self, tmp_path, monkeypatch):
-        # PATH with no chrome candidates
+    def test_exits_1_when_no_chrome(self, tmp_path):
+        # PATH with no chrome candidates — only system dirs will be appended
         empty_bin = tmp_path / "empty_bin"
         empty_bin.mkdir()
         r = _run(env={"PATH": str(empty_bin)})
@@ -113,17 +113,15 @@ class TestChromeNotExecutable:
 
 class TestPortFlag:
     def test_custom_port_passed_through(self, tmp_path):
-        """With a fake chrome that echoes its args, verify --port is accepted."""
+        """With a fake chrome that survives the 1s background check."""
         bin_dir = tmp_path / "bin"
         bin_dir.mkdir()
-        # Fake chrome that just sleeps briefly so background check works
+        # Fake chrome must sleep >2s: script does `sleep 1` then kill -0 check
         chrome = bin_dir / "google-chrome-stable"
-        chrome.write_text("#!/bin/bash\necho ARGS: $@ >&2\nsleep 0.5\n")
+        chrome.write_text("#!/bin/bash\nsleep 3\n")
         chrome.chmod(chrome.stat().st_mode | stat.S_IEXEC)
 
         r = _run(["--port", "9333"], env={"PATH": str(bin_dir)})
-        # The script should start chrome (in background) and report success
-        # It will also curl localhost:9333 first, which will fail (good — proceeds to launch)
         assert r.returncode == 0
         assert "9333" in r.stdout
 
@@ -131,7 +129,7 @@ class TestPortFlag:
         bin_dir = tmp_path / "bin"
         bin_dir.mkdir()
         chrome = bin_dir / "google-chrome-stable"
-        chrome.write_text("#!/bin/bash\nsleep 0.5\n")
+        chrome.write_text("#!/bin/bash\nsleep 3\n")
         chrome.chmod(chrome.stat().st_mode | stat.S_IEXEC)
 
         r = _run(env={"PATH": str(bin_dir)})

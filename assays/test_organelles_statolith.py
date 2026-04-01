@@ -13,17 +13,22 @@ import httpx
 import metabolon.organelles.statolith as statolith
 
 
+import tempfile
+import shutil
+
 @pytest.fixture
-def temp_dirs(tmp_path):
-    cache_dir = tmp_path / "cache"
-    config_dir = tmp_path / "config"
-    cache_dir.mkdir()
-    config_dir.mkdir()
-    with patch.object(statolith, "CACHE_DIR", cache_dir), \
-         patch.object(statolith, "CONFIG_DIR", config_dir), \
-         patch.object(statolith, "MONITOR_STATE_PATH", config_dir / "monitors.json"), \
-         patch.object(statolith, "BUNDLED_MODELS_TOML_PATH", config_dir / "models.toml"):
-        yield cache_dir, config_dir
+def temp_dirs():
+    with tempfile.TemporaryDirectory() as tmp_dir_str:
+        tmp_path = Path(tmp_dir_str)
+        cache_dir = tmp_path / "cache"
+        config_dir = tmp_path / "config"
+        cache_dir.mkdir()
+        config_dir.mkdir()
+        with patch.object(statolith, "CACHE_DIR", cache_dir), \
+             patch.object(statolith, "CONFIG_DIR", config_dir), \
+             patch.object(statolith, "MONITOR_STATE_PATH", config_dir / "monitors.json"), \
+             patch.object(statolith, "BUNDLED_MODELS_TOML_PATH", config_dir / "models.toml"):
+            yield cache_dir, config_dir
 
 
 # ============================================================================
