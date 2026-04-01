@@ -229,21 +229,17 @@ class TestPlatformDetection:
         assert result.returncode == 1
         assert "Chrome/Chromium not found on PATH" in result.stderr
 
-    def test_non_executable_chrome_exits_with_1(self):
+    def test_non_executable_chrome_exits_with_1(self, tmp_path):
         """If Chrome binary exists but isn't executable, exit with 1."""
+        # Create a non-executable fake chrome
+        fake_chrome = tmp_path / "chrome"
+        fake_chrome.write_text("#!/bin/bash\necho 'fake chrome'\n")
+        # No executable permission
+        fake_chrome.chmod(0o644)
+
         mock_script = f"""\
             uname() {{ echo "Linux"; }}
-            command() {{
-                echo "/does/not/exist/chrome";
-                return 0;
-            }}
-            # Override [ -x to return false
-            [() {{
-                if [ "$1" = "-x" ]; then
-                    return 1;
-                fi
-                return 0;
-            }}
+            command() {{ echo "{fake_chrome}"; return 0; }}
             . {SCRIPT}
         """
         result = subprocess.run(
