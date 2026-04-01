@@ -1024,3 +1024,23 @@ Write ~/germline/effectors/soma-snapshot that creates a Fly volume snapshot via 
 
 #### Network partition handling
 What happens if Tailscale goes down? Document in ~/epigenome/chromatin/System/network-partition-playbook.md: 1) Direct SSH via fly ssh console 2) fly proxy for port forwarding 3) Direct IP access if allocated 4) What breaks without Tailscale (iMac↔soma, inter-service mesh). Keep under 100 lines. Commit.
+
+### High-value batch (lunch run, 2026-04-01 12:20)
+- [x] `golem --provider zhipu --max-turns 40 "Run uv run pytest --co -q 2>&1 | grep ERROR. Fix ALL collection errors. Run --co again until 0 errors. Commit."`
+- [x] `golem --provider zhipu --max-turns 50 "Run uv run pytest -q --tb=no --continue-on-collection-errors 2>&1 | grep FAILED | sed 's/::.*//g' | sort | uniq -c | sort -rn | head -10. For each top-5 failing file: run pytest on it, read traceback, fix. Iterate until green. Commit."`
+- [x] `golem --provider infini --max-turns 40 "Run uv run pytest -q --tb=no --continue-on-collection-errors 2>&1 | grep FAILED | sed 's/::.*//g' | sort | uniq -c | sort -rn | tail -5. Fix these 5 failing test files. Commit."`
+- [x] `golem --provider volcano --max-turns 30 "Check all effectors respond to --help without crashing. Fix crashers. Commit."`
+- [x] `golem --provider zhipu --max-turns 30 "Scan assays/ for hardcoded /Users/terry/ paths. Replace with Path.home(). Commit."`
+- [x] `golem --provider infini --max-turns 30 "Find subprocess.run calls without timeout in effectors/. Add timeout=300. Commit."`
+- [x] `golem --provider volcano --max-turns 30 "Find test files with SyntaxError via python3 -m py_compile on each assays/test_*.py. Fix syntax. Commit."`
+- [x] `golem --provider zhipu --max-turns 30 "Check all assays/test_*.py can be collected by pytest --co. Fix any that error. Commit."`
+- [x] `golem --provider infini --max-turns 40 "List all Python files in metabolon/ that have no corresponding test in assays/. Pick the 5 smallest by line count. Write tests for each. Run uv run pytest. Fix failures. Commit."`
+- [x] `golem --provider zhipu --max-turns 40 "List all Python files in metabolon/ that have no corresponding test in assays/. Pick files 6-10 by line count. Write tests for each. Run uv run pytest. Fix failures. Commit."`
+- [x] `golem --provider volcano --max-turns 40 "List all effectors that are Python scripts with no test in assays/. Pick 5. Write tests using subprocess.run. Run uv run pytest. Fix failures. Commit."`
+- [x] `golem --provider infini --max-turns 40 "List all effectors that are Python scripts with no test in assays/. Pick 5 different ones from the first batch. Write tests using subprocess.run. Run uv run pytest. Fix failures. Commit."`
+- [x] `golem --provider zhipu --max-turns 30 "Find all Python files importing deprecated modules (imp, optparse, distutils). Modernise imports. Run tests. Commit."`
+- [x] `golem --provider volcano --max-turns 30 "Scan effectors/ for any script missing a shebang line. Add #!/usr/bin/env python3 or #!/usr/bin/env bash as appropriate. Commit."`
+- [x] `golem --provider infini --max-turns 30 "Find duplicate test functions (same name in different files) in assays/. Rename to be unique. Run uv run pytest --co. Commit."`
+- [x] `golem --provider zhipu --max-turns 40 "Write a consulting insight card: AI agent orchestration patterns (Hatchet vs Temporal vs custom). Real-world trade-offs from production use. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/agent-orchestration-patterns.md. 500 words."`
+- [x] `golem --provider infini --max-turns 40 "Write a consulting insight card: Cost optimisation for AI coding agents — multi-provider routing, rate limit handling, fallback chains. Real patterns from golem. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-coding-cost-optimisation.md. 500 words."`
+- [x] `golem --provider volcano --max-turns 40 "Write a consulting insight card: Building self-sustaining AI development pipelines — auto-requeue, test generation, quality gates. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/self-sustaining-ai-pipelines.md. 500 words."`

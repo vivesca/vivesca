@@ -525,6 +525,8 @@ class TestSearchTranscripts:
     @patch("metabolon.organelles.engram._history_files")
     def test_claude_transcript_match(self, mock_hf, mock_os):
         from metabolon.organelles.engram import _search_transcripts
+        import os
+        import tempfile
 
         mock_os.return_value = Path("/fake/opencode")
         mock_hf.return_value = []
@@ -540,21 +542,18 @@ class TestSearchTranscripts:
             },
         })
 
-        # Create a temp fake project dir
-        import tempfile
+        ts_ms = int(datetime.fromisoformat(ts_str).timestamp() * 1000)
 
         with tempfile.TemporaryDirectory() as tmpdir:
             proj_dir = Path(tmpdir) / "test-project"
             proj_dir.mkdir()
             jsonl_file = proj_dir / "sessXYZ123456.jsonl"
             jsonl_file.write_text(entry + "\n")
-            # Set mtime to be in range
-            import os
+            # Set mtime to match the timestamp epoch so it falls within the range
+            epoch = ts_ms // 1000
+            os.utime(jsonl_file, (epoch, epoch))
 
-            os.utime(jsonl_file, (1718409600, 1718409600))
-
-            with patch("metabolon.organelles.engram._projects_dir", return_value=proj_dir.parent):
-                ts_ms = int(datetime.fromisoformat(ts_str).timestamp() * 1000)
+            with patch("metabolon.organelles.engram._projects_dir", return_value=Path(tmpdir)):
                 start_ms = ts_ms - 86400_000
                 end_ms = ts_ms + 86400_000
                 regex = re.compile("refactor", re.IGNORECASE)
