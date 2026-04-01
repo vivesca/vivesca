@@ -642,6 +642,77 @@ def per_provider_eta(
     return result
 
 
+def failure_adjusted_throughput(
+    records: list[dict], window_minutes: int = 60,
+) -> tuple[float, float, float]:
+    """Calculate raw throughput and failure-adjusted throughput.
+
+    Returns (raw_rate, adjusted_rate, failure_pct) where:
+      - raw_rate: total completions/hour (pass + fail)
+      - adjusted_rate: effective completions/hour (pass only, scaled by success rate)
+      - failure_pct: percentage of tasks that failed (0-100)
+    """
+    if not records:
+        return 0.0, 0.0, 0.0
+
+    cutoff = datetime.now() - timedelta(minutes=window_minutes)
+    total = 0
+    passed = 0
+    for r in records:
+        ts_str = r.get("ts")
+        if not ts_str:
+            continue
+        ts = _parse_ts(ts_str)
+        if ts is None or ts < cutoff:
+            continue
+        total += 1
+        if r.get("exit", 1) == 0:
+            passed += 1
+
+    if total == 0:
+        return 0.0, 0.0, 0.0
+
+    raw_rate = total / window_minutes * 60
+    success_rate = passed / total
+    adjusted_rate = raw_rate * success_rate
+    failure_pct = (1 - success_rate) * 100
+
+    return raw_rate, adjusted_rate, failure_pct
+
+
+def worker_utilization(
+    running: list[dict], provider_max: dict[str, int],
+) -> dict:
+    """Calculate per-provider and overall worker utilization.
+
+    Args:
+        running: list of running task dicts (each has 'provider' key)
+        provider_max: dict of provider -> max concurrency
+
+    Returns dict with keys:
+        overall: float (0-100% utilization across all known providers)
+        providers: dict[str, float] per-provider utilization %
+    """
+    running_by_prov: dict[str, int] = defaultdict(int)
+    for t in running:
+        p = t.get("provider", "unknown")
+        if p != "unknown" and p in provider_max:
+            running_by_prov[p] += 1
+
+    prov_utils: dict[str, float] = {}
+    total_slots = 0
+    total_used = 0
+    for prov, max_c in provider_max.items():
+        active = running_by_prov.get(prov, 0)
+        prov_utils[prov] = (active / max_c * 100) if max_c > 0 else 0.0
+        total_slots += max_c
+        total_used += active
+
+    overall = (total_used / total_slots * 100) if total_slots > 0 else 0.0
+
+    return {"overall": overall, "providers": prov_utils}
+
+
 def throughput_trend(records: list[dict]) -> str:
     """Detect whether throughput is accelerating, steady, or decelerating.
 
@@ -779,6 +850,18 @@ def print_compact() -> None:
     if thr > 0:
         parts.append(f"{thr:.1f}/hr")
 
+    # Trend indicator
+    trend = throughput_trend(records)
+    if trend == "accelerating":
+        parts.append("↑")
+    elif trend == "decelerating":
+        parts.append("↓")
+
+    # Stall warning
+    stall_secs = time_since_last_completion(records)
+    if stall_secs is not None and stall_secs > 300 and pending > 0:
+        parts.append("⚠ stall")
+
     print(" | ".join(parts))
 
 
@@ -885,9 +968,13 @@ def running_tasks_table(running: list[dict], use_color: bool = True) -> str:
             pct_str = f"{dim}{bar_chars}{rst} {g}{pct:.0f}%{rst}"
 
         rem_str = f" ~{fmt_duration(remaining)}" if remaining > 0 and not stale else ""
+        wall_str = ""
+        if remaining > 0 and not stale:
+            wall = eta_wall_clock(remaining)
+            wall_str = f" {dim}finish@{wall}{rst}"
         lines.append(
             f"  {c}[{t['pid']}] {t['provider']:<8}{rst} {y}{dur:>6}{rst}  "
-            f"{pct_str}{rem_str}  {t['task']}"
+            f"{pct_str}{rem_str}{wall_str}  {t['task']}"
         )
 
     # Summary with stale count
@@ -906,8 +993,10 @@ def eta_section(
     eta: dict, throughput: float, use_color: bool = True,
     confidence_intervals: dict | None = None,
     stall_secs: int | None = None, trend: str = "",
+    utilization: dict | None = None,
+    failure_adjusted: tuple[float, float, float] | None = None,
 ) -> str:
-    """Format ETA section with throughput, wall-clock estimate, confidence intervals, and stall detection."""
+    """Format ETA section with throughput, wall-clock estimate, confidence intervals, utilization, and stall detection."""
     b = BOLD if use_color else ""
     c = CYAN if use_color else ""
     g = GREEN if use_color else ""
@@ -951,6 +1040,29 @@ def eta_section(
     if stall_secs is not None and stall_secs > 300:
         stall_str = fmt_duration(stall_secs)
         lines.append(f"  {r_col}\u26a0 No completion in {stall_str}{rst}")
+
+    # Utilization
+    if utilization:
+        util_pct = utilization.get("overall", 0)
+        util_color = g if util_pct >= 70 else (y if util_pct >= 30 else r_col)
+        lines.append(f"  Utilization: {util_color}{util_pct:.0f}%{rst}")
+        # Per-provider detail if non-zero
+        prov_parts = []
+        for prov, pct in sorted(utilization.get("providers", {}).items()):
+            if pct > 0:
+                prov_parts.append(f"{prov}:{pct:.0f}%")
+        if prov_parts:
+            lines.append(f"  {dim}{' '.join(prov_parts)}{rst}")
+
+    # Failure-adjusted throughput
+    if failure_adjusted:
+        raw, adj, fail_pct = failure_adjusted
+        if fail_pct > 0:
+            adj_str = f"{adj:.1f}/hr" if adj > 0 else "0/hr"
+            fail_str = f"{fail_pct:.0f}%"
+            lines.append(
+                f"  Effective: {adj_str} {dim}(raw {raw:.1f}/hr, {fail_str} failed){rst}"
+            )
 
     # Drain milestones
     milestones = eta.get("drain_milestones", [])
@@ -1070,6 +1182,11 @@ def print_dashboard(use_color: bool = True, json_output: bool = False) -> int:
     trend = throughput_trend(records)
     prov_etas = per_provider_eta(records, prov_pending, running)
 
+    # New: failure-adjusted throughput, worker utilization
+    PROVIDER_MAX = {"zhipu": 8, "infini": 8, "volcano": 16, "gemini": 4}
+    fa_throughput = failure_adjusted_throughput(records)
+    util = worker_utilization(running, PROVIDER_MAX)
+
     if json_output:
         data = {
             "timestamp": datetime.now().isoformat(),
@@ -1091,6 +1208,12 @@ def print_dashboard(use_color: bool = True, json_output: bool = False) -> int:
             "provider_concurrency": prov_concurrency,
             "per_provider_eta": prov_etas,
             "disk_free": disk_free(False),
+            "failure_adjusted_throughput": {
+                "raw": fa_throughput[0],
+                "adjusted": fa_throughput[1],
+                "failure_pct": fa_throughput[2],
+            },
+            "utilization": util,
         }
         print(json.dumps(data, indent=2))
         return 0
@@ -1111,13 +1234,15 @@ def print_dashboard(use_color: bool = True, json_output: bool = False) -> int:
     print(f"\n{b}Running Tasks{rst}")
     print(running_tasks_table(running, use_color))
 
-    # 4. ETA to drain with milestones + confidence + intervals + stall + trend
+    # 4. ETA to drain with milestones + confidence + intervals + stall + trend + utilization
     print(f"\n{b}ETA to Drain{rst}")
     print(eta_section(
         eta, thr, use_color,
         confidence_intervals=conf_intervals,
         stall_secs=stall_secs,
         trend=trend,
+        utilization=util,
+        failure_adjusted=fa_throughput,
     ))
     # Show EWMA throughput and confidence indicator
     y = YELLOW if use_color else ""

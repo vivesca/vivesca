@@ -1,0 +1,50 @@
+# Fix for Ghostty terminal over SSH
+[[ $TERM == xterm-ghostty ]] && export TERM=xterm-256color
+
+# PATH
+typeset -U path
+path=(
+  "$HOME/.local/bin"
+  "$HOME/bin"
+  "$HOME/go/bin"
+  "$HOME/.bun/bin"
+  /usr/local/go/bin
+  "$path[@]"
+)
+export PATH
+
+# Environment
+export BUN_INSTALL="$HOME/.bun"
+export COLORTERM=truecolor
+export EDITOR=vim
+export TZ=Asia/Hong_Kong
+export GOG_ACCOUNT=terry.li.hm@gmail.com
+
+# Aliases
+alias c="claude --dangerously-skip-permissions"
+alias cc="claude --continue"
+alias cs="claude --model sonnet"
+alias co="claude --model opus"
+alias t="tmux new-session -A -s main"
+alias x="exit"
+alias ll="ls -la"
+alias la="ls -la"
+alias lg="lazygit"
+
+# Modern CLI tools
+command -v eza &>/dev/null && { alias ls="eza"; alias ll="eza -l --git"; alias la="eza -la --git"; alias tree="eza --tree"; }
+command -v bat &>/dev/null && { alias cat="bat --paging=never"; alias less="bat"; }
+command -v fd &>/dev/null && alias find="fd"
+command -v zoxide &>/dev/null && eval "$(zoxide init zsh --cmd z)"
+command -v starship &>/dev/null && eval "$(starship init zsh)"
+
+# Completion
+autoload -Uz compinit && compinit -C
+
+# Machine-local overrides
+[ -f ~/.zshenv.local ] && source ~/.zshenv.local
+[ -f ~/.env.fly ] && source ~/.env.fly
+export PATH=$HOME/germline/effectors:$PATH
+
+# Load credentials from 1Password
+eval "$(python3 ~/germline/effectors/importin 2>/dev/null)"

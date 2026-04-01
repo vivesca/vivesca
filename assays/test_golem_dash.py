@@ -1252,3 +1252,290 @@ class TestDashboardProviderBreakdown:
         captured = capsys.readouterr()
         # Should show confidence indicator
         assert "low" in captured.out.lower() or "conf" in captured.out.lower()
+
+
+# ── failure_adjusted_throughput (NEW) ────────────────────────────────────
+
+
+class TestFailureAdjustedThroughput:
+    """Tests for throughput adjusted by historical failure rate."""
+
+    def test_no_records(self):
+        func = _mod["failure_adjusted_throughput"]
+        raw, adj, fail_pct = func([], window_minutes=60)
+        assert raw == 0.0
+        assert adj == 0.0
+        assert fail_pct == 0.0
+
+    def test_all_success(self):
+        func = _mod["failure_adjusted_throughput"]
+        now = datetime.now()
+        recs = [
+            {"ts": (now - timedelta(minutes=10 * i)).isoformat(), "exit": 0}
+            for i in range(5)
+        ]
+        raw, adj, fail_pct = func(recs, window_minutes=60)
+        assert raw == pytest.approx(5.0, abs=0.1)
+        assert adj == pytest.approx(5.0, abs=0.1)  # no failures
+        assert fail_pct == 0.0
+
+    def test_mixed_pass_fail(self):
+        func = _mod["failure_adjusted_throughput"]
+        now = datetime.now()
+        recs = [
+            {"ts": (now - timedelta(minutes=10)).isoformat(), "exit": 0},
+            {"ts": (now - timedelta(minutes=20)).isoformat(), "exit": 0},
+            {"ts": (now - timedelta(minutes=30)).isoformat(), "exit": 1},
+            {"ts": (now - timedelta(minutes=40)).isoformat(), "exit": 1},
+        ]
+        raw, adj, fail_pct = func(recs, window_minutes=60)
+        assert raw == pytest.approx(4.0, abs=0.1)  # 4 total
+        assert fail_pct == pytest.approx(50.0, abs=1.0)
+        assert adj < raw  # adjusted should be lower
+
+    def test_all_failures(self):
+        func = _mod["failure_adjusted_throughput"]
+        now = datetime.now()
+        recs = [
+            {"ts": (now - timedelta(minutes=10 * i)).isoformat(), "exit": 1}
+            for i in range(3)
+        ]
+        raw, adj, fail_pct = func(recs, window_minutes=60)
+        assert raw == pytest.approx(3.0, abs=0.1)
+        assert fail_pct == pytest.approx(100.0, abs=1.0)
+        assert adj == 0.0  # 100% failure = 0 effective throughput
+
+
+# ── worker_utilization (NEW) ────────────────────────────────────────────
+
+
+class TestWorkerUtilization:
+    """Tests for per-provider and overall worker utilization."""
+
+    def test_no_running(self):
+        func = _mod["worker_utilization"]
+        result = func([], {"zhipu": 8, "infini": 8})
+        assert result["overall"] == 0.0
+        assert result["providers"]["zhipu"] == 0.0
+
+    def test_single_provider_partial(self):
+        func = _mod["worker_utilization"]
+        running = [
+            {"pid": 1, "provider": "zhipu", "duration_secs": 10, "task": "a"},
+            {"pid": 2, "provider": "zhipu", "duration_secs": 20, "task": "b"},
+        ]
+        result = func(running, {"zhipu": 8, "infini": 8})
+        assert result["providers"]["zhipu"] == pytest.approx(25.0)  # 2/8
+        assert result["providers"]["infini"] == 0.0
+        assert result["overall"] == pytest.approx(12.5)  # 2/16
+
+    def test_full_utilization(self):
+        func = _mod["worker_utilization"]
+        running = [
+            {"pid": i, "provider": "zhipu", "duration_secs": 10, "task": "t"}
+            for i in range(8)
+        ]
+        result = func(running, {"zhipu": 8})
+        assert result["providers"]["zhipu"] == pytest.approx(100.0)
+        assert result["overall"] == pytest.approx(100.0)
+
+    def test_unknown_provider_skipped(self):
+        func = _mod["worker_utilization"]
+        running = [
+            {"pid": 1, "provider": "unknown", "duration_secs": 10, "task": "a"},
+        ]
+        result = func(running, {"zhipu": 8})
+        assert "unknown" not in result["providers"]
+
+    def test_provider_not_in_max_defaults_to_zero(self):
+        func = _mod["worker_utilization"]
+        running = [
+            {"pid": 1, "provider": "newprov", "duration_secs": 10, "task": "a"},
+        ]
+        result = func(running, {"zhipu": 8})
+        # newprov not in max dict, should be skipped
+        assert result["overall"] == 0.0
+
+
+# ── running_tasks_table with wall-clock ETA ─────────────────────────────
+
+
+class TestRunningTasksTableWallClock:
+    """Tests for per-task wall-clock completion time in running tasks."""
+
+    def test_shows_wall_clock_eta(self):
+        tasks = [{
+            "pid": 1234,
+            "provider": "zhipu",
+            "duration_secs": 60,
+            "task": "my task",
+            "estimated_pct": 50,
+            "estimated_remaining": 60,
+            "is_stale": False,
+        }]
+        result = _mod["running_tasks_table"](tasks, use_color=False)
+        assert "1234" in result
+        assert "50%" in result
+        # Should show a wall-clock time like "today HH:MM"
+        assert "today" in result or ":" in result
+
+    def test_no_eta_when_zero_remaining(self):
+        tasks = [{
+            "pid": 5678,
+            "provider": "infini",
+            "duration_secs": 200,
+            "task": "almost done",
+            "estimated_pct": 95,
+            "estimated_remaining": 0,
+            "is_stale": False,
+        }]
+        result = _mod["running_tasks_table"](tasks, use_color=False)
+        assert "5678" in result
+        # When remaining is 0, no wall-clock needed
+
+
+# ── eta_section with utilization (NEW) ──────────────────────────────────
+
+
+class TestEtaSectionUtilization:
+    """Tests for utilization info in the ETA section."""
+
+    def test_shows_utilization(self):
+        eta = {
+            "pending": 10, "running": 2, "eta_seconds": 600, "eta_str": "10m 0s",
+            "workers": 2, "avg_duration": 100,
+            "drain_milestones": [(25, 150), (50, 300), (75, 450), (100, 600)],
+            "running_remaining_secs": 200,
+        }
+        util = {"overall": 12.5, "providers": {"zhipu": 25.0, "infini": 0.0}}
+        result = _mod["eta_section"](
+            eta, 6.0, use_color=False, utilization=util,
+        )
+        assert "Utilization" in result or "12.5%" in result or "12.5" in result
+
+    def test_no_utilization_arg(self):
+        eta = {
+            "pending": 10, "running": 2, "eta_seconds": 600, "eta_str": "10m 0s",
+            "workers": 2, "avg_duration": 100,
+            "drain_milestones": [],
+            "running_remaining_secs": 200,
+        }
+        # Should not crash when utilization is not provided
+        result = _mod["eta_section"](eta, 6.0, use_color=False)
+        assert "ETA" in result
+
+
+# ── print_compact enhanced (NEW) ────────────────────────────────────────
+
+
+class TestCompactEnhanced:
+    """Tests for enhanced compact mode with trend and stall info."""
+
+    def test_compact_shows_trend(self, tmp_path, capsys):
+        func = _mod["print_compact"]
+        orig_jsonl = _mod["JSONL_PATH"]
+        orig_queue = _mod["QUEUE_PATH"]
+        try:
+            _mod["JSONL_PATH"] = tmp_path / "golem.jsonl"
+            _mod["QUEUE_PATH"] = tmp_path / "queue.md"
+            now = datetime.now()
+            recs = [
+                {"ts": (now - timedelta(minutes=2 * i)).isoformat(), "exit": 0,
+                 "provider": "zhipu", "duration": 60}
+                for i in range(5)
+            ]
+            (tmp_path / "golem.jsonl").write_text(
+                "\n".join(json.dumps(r) for r in recs) + "\n"
+            )
+            (tmp_path / "queue.md").write_text(
+                '- [ ] `golem --provider zhipu "task A"`\n'
+                '- [ ] `golem --provider zhipu "task B"`\n'
+                '- [x] `golem --provider zhipu "done"` → exit=0\n'
+            )
+            func()
+        finally:
+            _mod["JSONL_PATH"] = orig_jsonl
+            _mod["QUEUE_PATH"] = orig_queue
+        captured = capsys.readouterr()
+        lines = [l for l in captured.out.strip().splitlines() if l.strip()]
+        assert len(lines) == 1
+        # Should contain a trend indicator
+        out = captured.out
+        assert "↑" in out or "↓" in out or "→" in out or "/hr" in out
+
+    def test_compact_stall_warning(self, tmp_path, capsys):
+        func = _mod["print_compact"]
+        orig_jsonl = _mod["JSONL_PATH"]
+        orig_queue = _mod["QUEUE_PATH"]
+        try:
+            _mod["JSONL_PATH"] = tmp_path / "golem.jsonl"
+            _mod["QUEUE_PATH"] = tmp_path / "queue.md"
+            # Old records = stall
+            (tmp_path / "golem.jsonl").write_text(
+                '{"ts":"' + (datetime.now() - timedelta(minutes=30)).isoformat()
+                + '","provider":"zhipu","duration":60,"exit":0}\n'
+            )
+            (tmp_path / "queue.md").write_text(
+                '- [ ] `golem --provider zhipu "pending task"`\n'
+            )
+            func()
+        finally:
+            _mod["JSONL_PATH"] = orig_jsonl
+            _mod["QUEUE_PATH"] = orig_queue
+        captured = capsys.readouterr()
+        # Should show stall warning when no recent completions + pending tasks
+        assert "stall" in captured.out.lower() or "⚠" in captured.out or "stale" in captured.out.lower()
+
+
+# ── JSON output includes new fields (NEW) ───────────────────────────────
+
+
+class TestJsonOutputNewFields:
+    """Tests that JSON output includes failure-adjusted throughput and utilization."""
+
+    def test_json_includes_failure_adjusted(self, tmp_path, capsys):
+        orig_jsonl = _mod["JSONL_PATH"]
+        orig_queue = _mod["QUEUE_PATH"]
+        try:
+            _mod["JSONL_PATH"] = tmp_path / "golem.jsonl"
+            _mod["QUEUE_PATH"] = tmp_path / "queue.md"
+            now = datetime.now()
+            recs = [
+                {"ts": (now - timedelta(minutes=10 * i)).isoformat(),
+                 "provider": "zhipu", "duration": 60, "exit": 0 if i % 2 == 0 else 1}
+                for i in range(6)
+            ]
+            (tmp_path / "golem.jsonl").write_text(
+                "\n".join(json.dumps(r) for r in recs) + "\n"
+            )
+            (tmp_path / "queue.md").write_text("# Queue\n")
+            rc = main(["--json"])
+        finally:
+            _mod["JSONL_PATH"] = orig_jsonl
+            _mod["QUEUE_PATH"] = orig_queue
+        assert rc == 0
+        data = json.loads(capsys.readouterr().out)
+        assert "failure_adjusted_throughput" in data
+        fa = data["failure_adjusted_throughput"]
+        assert "raw" in fa
+        assert "adjusted" in fa
+        assert "failure_pct" in fa
+
+    def test_json_includes_utilization(self, tmp_path, capsys):
+        orig_jsonl = _mod["JSONL_PATH"]
+        orig_queue = _mod["QUEUE_PATH"]
+        try:
+            _mod["JSONL_PATH"] = tmp_path / "golem.jsonl"
+            _mod["QUEUE_PATH"] = tmp_path / "queue.md"
+            (tmp_path / "golem.jsonl").write_text(
+                '{"ts":"2026-01-01","provider":"zhipu","duration":10,"exit":0}\n'
+            )
+            (tmp_path / "queue.md").write_text("# Queue\n")
+            rc = main(["--json"])
+        finally:
+            _mod["JSONL_PATH"] = orig_jsonl
+            _mod["QUEUE_PATH"] = orig_queue
+        assert rc == 0
+        data = json.loads(capsys.readouterr().out)
+        assert "utilization" in data
+        assert "overall" in data["utilization"]

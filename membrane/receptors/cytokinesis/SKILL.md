@@ -52,13 +52,15 @@ If unfinished work exists: **finish it or park it with context — don't consoli
 
 In parallel:
 
-1. **`cytokinesis_gather`** (MCP tool) — deterministic pre-checks, returns structured Vital
+1. **`cytokinesis gather`** (CLI) — deterministic pre-checks, returns structured Vital
 2. **LLM extraction** — scan session for candidates, classify by priority
 3. **Source data check** — user-provided facts that fed deliverables but weren't persisted to chromatin? Write directly using the Write tool
 
 Then: **present candidates and act** — show the full list with routing decisions, file immediately. Act-and-report, don't block on input.
 
 If continuous capture handled most of it → quick verification pass, report filed=0.
+
+If gather reports >50 stale marks, pick the 3 with most stale path references and either update or delete them. Don't audit all — just keep the count trending down.
 
 **MEMORY.md ≥145 lines →** downregulate by recurrence signal, not by position. Check `hits:` and `last-seen:` in memory file frontmatter (updated automatically by dendrite.py on every Read). Lowest hits + oldest last-seen = downregulate candidate. Move to `~/epigenome/chromatin/immunity/memory-overflow.md` (reversible — re-promote if topic resurfaces).
 
@@ -80,7 +82,7 @@ For each: file as feedback with the preference and why, so future sessions match
 
 **The test:** if this session replayed tomorrow with a fresh context, would CC make the same mistakes AND misjudge the same preferences? If yes, something wasn't methylated.
 
-### 1c. Audit Signal
+### 1b. Audit Signal
 
 After consolidation, count findings routed in this pass. This is the "cytokinesis residual" — findings that should have been captured mid-session but were not.
 
@@ -92,7 +94,7 @@ This is not a punishment — it's proprioception. The number trends toward zero 
 
 **Capture displacement check:** "If I deleted all memories filed this session, would my behavior change next session?" If yes, the memories are load-bearing. If no, they're theater — the real learning happened in the code/skill edits, and the memories are redundant narration.
 
-### 1d. Publish (don't defer)
+### 1c. Publish (don't defer)
 
 If the session produced a publishable insight — pattern, framework, lesson — draft and publish NOW. The insight is hottest in the session that produced it. Deferring to "tomorrow" kills 80% of posts.
 
@@ -130,6 +132,8 @@ Don't ask permission. Don't defer. If the insight is real, publish it.
 | `daily "title"` | Append session log template to today's daily note |
 | `reflect <session-id>` | Scan transcript for reflection candidates (haiku) |
 | `extract --input <json>` | Review candidates, recommend FILE/SKIP/PRINCIPLE (haiku) |
+
+Note: gather may take 10+ seconds. If Bash backgrounds it, read the output file directly rather than waiting.
 
 ## Boundaries
 

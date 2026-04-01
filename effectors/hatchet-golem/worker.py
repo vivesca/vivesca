@@ -2,18 +2,25 @@
 """Hatchet worker for golem task orchestration.
 
 Uses @hatchet.task (standalone tasks) with per-provider concurrency.
+Includes cron-triggered tasks for auto-requeue and health monitoring.
 Compare with temporal-golem/ for head-to-head eval.
 """
 from __future__ import annotations
 
 import os
+import random
+import re
+import secrets
 import subprocess
+from datetime import datetime
 from pathlib import Path
 
 from hatchet_sdk import ConcurrencyExpression, ConcurrencyLimitStrategy, Hatchet
 from hatchet_sdk.rate_limit import RateLimit, RateLimitDuration
 
 GOLEM_SCRIPT = Path(__file__).resolve().parent.parent / "golem"
+QUEUE_FILE = Path.home() / "germline" / "loci" / "golem-queue.md"
+HEALTH_SCRIPT = Path(__file__).resolve().parent.parent / "soma-health"
 
 hatchet = Hatchet()
 

@@ -30,19 +30,19 @@ User says: "build", "implement", "dispatch", "spec this", "batch", "go build", "
 
 ## Process
 
-### Phase 0: Check daemon on gemmule (every session start)
+### Phase 0: Check daemon on soma (every session start)
 
-**Gemmule is the primary compute.** All golems run there, not on the iMac.
+**Soma is the primary compute.** All golems run there, not on the iMac.
 
 ```bash
-ssh gemmule 'source ~/.env.fly && cd ~/germline && python3 effectors/golem-daemon status'
-ssh gemmule 'cd ~/germline && git status --short | head -20'
-ssh gemmule 'cd ~/germline && uv run pytest --co -q 2>&1 | tail -3'
+ssh soma 'source ~/.env.fly && cd ~/germline && python3 effectors/golem-daemon status'
+ssh soma 'cd ~/germline && git status --short | head -20'
+ssh soma 'cd ~/germline && uv run pytest --co -q 2>&1 | tail -3'
 ```
 
 If daemon produced work since last session: review, commit, push. Then write next batch.
 
-**Delegate everything possible to golems on gemmule** — including pytest runs, failure diagnosis, and verification. CC is the scheduler, not the executor.
+**Delegate everything possible to golems on soma** — including pytest runs, failure diagnosis, and verification. CC is the scheduler, not the executor.
 
 ### Phase 1: What matters? (CC judgment — do this BEFORE queuing)
 
@@ -90,39 +90,39 @@ Operons save context-building time and produce coherent cross-module designs. Gr
 
 Keep standalone when tasks have no shared context.
 
-### Phase 3: Dispatch (on gemmule)
+### Phase 3: Dispatch (on soma)
 
-**All dispatch happens on gemmule via SSH.** CC writes the queue, pushes to git, gemmule daemon picks it up.
+**All dispatch happens on soma via SSH.** CC writes the queue, pushes to git, soma daemon picks it up.
 
-**Option A — CC dispatches directly on gemmule:**
+**Option A — CC dispatches directly on soma:**
 ```bash
-ssh gemmule 'source ~/.env.fly && cd ~/germline && bash effectors/golem --provider infini --max-turns 50 "task..."' &
+ssh soma 'source ~/.env.fly && cd ~/germline && bash effectors/golem --provider infini --max-turns 50 "task..."' &
 ```
 
-**Option B — Write queue locally, push, daemon drains on gemmule:**
+**Option B — Write queue locally, push, daemon drains on soma:**
 ```bash
 # 1. Write tasks to loci/golem-queue.md locally
 # 2. Push
 cd ~/germline && git add loci/golem-queue.md && git commit -m "queue: new tasks" && git push
-# 3. Pull on gemmule and restart daemon
-ssh gemmule 'cd ~/germline && git pull --ff-only && python3 effectors/golem-daemon stop; python3 effectors/golem-daemon start'
+# 3. Pull on soma and restart daemon
+ssh soma 'cd ~/germline && git pull --ff-only && python3 effectors/golem-daemon stop; python3 effectors/golem-daemon start'
 ```
 
-**Option C — Write queue directly on gemmule via SSH:**
+**Option C — Write queue directly on soma via SSH:**
 ```bash
-ssh gemmule 'cat >> ~/germline/loci/golem-queue.md << "EOF"
+ssh soma 'cat >> ~/germline/loci/golem-queue.md << "EOF"
 - [ ] `golem --provider zhipu --max-turns 40 "task..."`
 EOF'
-ssh gemmule 'cd ~/germline && python3 effectors/golem-daemon stop; python3 effectors/golem-daemon start'
+ssh soma 'cd ~/germline && python3 effectors/golem-daemon stop; python3 effectors/golem-daemon start'
 ```
 
-**The daemon runs on gemmule 24/7** — supervisor auto-restarts it. CC writes judgment into the queue from anywhere (iMac, Blink, gemmule tmux). Daemon executes even when CC is offline.
+**The daemon runs on soma 24/7** — supervisor auto-restarts it. CC writes judgment into the queue from anywhere (iMac, Blink, soma tmux). Daemon executes even when CC is offline.
 
-### Phase 4: Verify + commit (on gemmule)
+### Phase 4: Verify + commit (on soma)
 
 ```bash
-ssh gemmule 'cd ~/germline && uv run pytest --co -q 2>&1 | tail -3'
-ssh gemmule 'cd ~/germline && git add -A && git commit -m "golem: batch output" && git push'
+ssh soma 'cd ~/germline && uv run pytest --co -q 2>&1 | tail -3'
+ssh soma 'cd ~/germline && git add -A && git commit -m "golem: batch output" && git push'
 ```
 
 Or if interactive, commit directly:

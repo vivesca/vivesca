@@ -369,3 +369,131 @@ def test_dispatch_empty_results(full_dispatch_mocks):
     assert result.success is True
     assert result.tasks == []
     assert result.duration_s == 0.0
+
+
+# ── Dispatch input validation ─────────────────────────────────────────────
+
+
+def test_dispatch_missing_prompt():
+    """Dispatch without prompt returns failure."""
+    result = sortase(action="dispatch", project_dir="/tmp")
+    assert result.success is False
+    assert "prompt" in result.message.lower() or "project_dir" in result.message.lower()
+
+
+def test_dispatch_missing_project_dir():
+    """Dispatch without project_dir returns failure."""
+    result = sortase(action="dispatch", prompt="do something")
+    assert result.success is False
+    assert "prompt" in result.message.lower() or "project_dir" in result.message.lower()
+
+
+def test_dispatch_nonexistent_project_dir():
+    """Dispatch with a non-existent directory returns failure."""
+    result = sortase(action="dispatch", prompt="task", project_dir="/no/such/dir/abc123")
+    assert result.success is False
+    assert "Not a directory" in result.message
+
+
+def test_dispatch_forced_backend(full_dispatch_mocks):
+    """Dispatch passes forced backend through to route_description."""
+    m = full_dispatch_mocks
+    sortase(action="dispatch", prompt="task", project_dir=str(m["proj_dir"]), backend="codex")
+
+    m["route"].assert_called_once()
+    call_kwargs = m["route"].call_args
+    assert call_kwargs[1].get("forced_backend") == "codex" or (
+        len(call_kwargs[0]) > 1 and call_kwargs[0][1] == "codex"
+    ) or call_kwargs == call(m["route"].call_args[0][0], forced_backend="codex")
+
+
+def test_dispatch_backend_empty_string_uses_none(full_dispatch_mocks):
+    """Empty backend string is treated as None (no forcing)."""
+    m = full_dispatch_mocks
+    sortase(action="dispatch", prompt="task", project_dir=str(m["proj_dir"]), backend="")
+
+    # forced_backend should be None when backend is empty
+    call_kwargs = m["route"].call_args
+    kw = call_kwargs[1] if call_kwargs[1] else {}
+    assert kw.get("forced_backend") is None or "forced_backend" not in kw
+
+
+# ── Route: no input ────────────────────────────────────────────────────────
+
+
+def test_route_no_description_no_prompt():
+    """Route with neither description nor prompt returns unknown."""
+    result = sortase(action="route")
+    assert result.tool == "unknown"
+    assert "no description" in result.reason.lower()
+
+
+# ── Status action ──────────────────────────────────────────────────────────
+
+
+def test_status_returns_running_entries():
+    """Status action returns entries from list_running."""
+    with patch("metabolon.sortase.executor.list_running") as m_list:
+        m_list.return_value = [
+            {"task_name": "t1", "tool": "goose", "project_dir": "/x", "started_at": "12:00"},
+            {"task_name": "t2", "tool": "codex", "project_dir": "/y", "started_at": "12:01"},
+        ]
+        result = sortase(action="status")
+        assert isinstance(result, SortaseResult)
+        assert result.success is True
+        assert result.message == "2 running"
+        assert len(result.tasks) == 2
+        assert result.tasks[0]["name"] == "t1"
+        assert result.tasks[1]["tool"] == "codex"
+
+
+def test_status_empty():
+    """Status with no running tasks."""
+    with patch("metabolon.sortase.executor.list_running") as m_list:
+        m_list.return_value = []
+        result = sortase(action="status")
+        assert result.success is True
+        assert result.message == "0 running"
+        assert result.tasks == []
+
+
+# ── Stats: empty logs ─────────────────────────────────────────────────────
+
+
+def test_stats_empty_logs():
+    """Stats with no log entries returns zeroes."""
+    with patch("metabolon.sortase.logger.read_logs") as m_read:
+        m_read.return_value = []
+        result = sortase(action="stats")
+        assert isinstance(result, StatsResult)
+        assert result.total_runs == 0
+        assert result.entries == []
+        assert result.per_tool == {}
+
+
+# ── Unknown action ─────────────────────────────────────────────────────────
+
+
+def test_unknown_action():
+    """Unknown action returns failure with valid-action list."""
+    result = sortase(action="foobar")
+    assert isinstance(result, SortaseResult)
+    assert result.success is False
+    assert "Unknown action" in result.message
+    assert "dispatch" in result.message
+
+
+# ── Action case insensitivity ──────────────────────────────────────────────
+
+
+def test_action_case_insensitive():
+    """Action is case-insensitive."""
+    with patch("metabolon.sortase.executor.list_running") as m_list:
+        m_list.return_value = []
+        result = sortase(action="STATUS")
+        assert result.success is True
+
+    with patch("metabolon.sortase.router.route_description") as m_route:
+        m_route.return_value = MagicMock(tool="goose", reason="ok")
+        result = sortase(action="Route", description="test")
+        assert result.tool == "goose"

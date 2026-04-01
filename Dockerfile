@@ -76,15 +76,15 @@ RUN curl -fsSL https://bun.sh/install | bash
 # System CLI tools (pre-built binaries — no cargo compile)
 # ---------------------------------------------------------------------------
 
-# starship prompt
-RUN curl -sS https://starship.rs/install.sh | sh -s -- -y
+# starship prompt (install to ~/.local/bin)
+RUN mkdir -p ~/.local/bin && curl -sS https://starship.rs/install.sh | sh -s -- -y -b ~/.local/bin
 
 # eza (modern ls)
 RUN curl -sL https://github.com/eza-community/eza/releases/latest/download/eza_x86_64-unknown-linux-gnu.tar.gz \
-    | tar xz -C /tmp && mv /tmp/eza ~/.local/bin/eza
+    | tar xz -C ~/.local/bin/
 
-# zoxide (smart cd)
-RUN curl -sSfL https://raw.githubusercontent.com/ajeetdsouza/zoxide/main/install.sh | sh
+# zoxide (smart cd) — install to ~/.local/bin
+RUN curl -sSfL https://raw.githubusercontent.com/ajeetdsouza/zoxide/main/install.sh | sh -s -- --bin-dir ~/.local/bin
 
 # bat (modern cat)
 RUN curl -sL https://github.com/sharkdp/bat/releases/download/v0.25.0/bat-v0.25.0-x86_64-unknown-linux-gnu.tar.gz \
@@ -134,72 +134,9 @@ RUN mkdir -p ~/bin ~/code ~/scripts ~/notes \
 # Shell config (static — secrets injected at activation)
 # ---------------------------------------------------------------------------
 
-COPY --chown=terry:terry <<'ZSHRC' /home/terry/.zshrc
-# Fix for Ghostty terminal over SSH
-[[ $TERM == xterm-ghostty ]] && export TERM=xterm-256color
-
-# PATH
-typeset -U path
-path=(
-  "$HOME/.local/bin"
-  "$HOME/bin"
-  "$HOME/go/bin"
-  "$HOME/.cargo/bin"
-  "$HOME/.bun/bin"
-  /usr/local/go/bin
-  "$path[@]"
-)
-export PATH
-
-# Environment
-export BUN_INSTALL="$HOME/.bun"
-export COLORTERM=truecolor
-export EDITOR=vim
-export TZ=Asia/Hong_Kong
-export GOG_ACCOUNT=terry.li.hm@gmail.com
-
-# Aliases
-alias c="claude --dangerously-skip-permissions"
-alias cc="claude --continue"
-alias cs="claude --model sonnet"
-alias co="claude --model opus"
-alias t="tmux new-session -A -s main"
-alias x="exit"
-alias ll="ls -la"
-alias la="ls -la"
-alias lg="lazygit"
-
-# Modern CLI tools
-command -v eza &>/dev/null && { alias ls="eza"; alias ll="eza -l --git"; alias la="eza -la --git"; alias tree="eza --tree"; }
-command -v bat &>/dev/null && { alias cat="bat --paging=never"; alias less="bat"; }
-command -v fd &>/dev/null && alias find="fd"
-command -v zoxide &>/dev/null && eval "$(zoxide init zsh --cmd z)"
-command -v starship &>/dev/null && eval "$(starship init zsh)"
-
-# Completion
-autoload -Uz compinit && compinit -C
-
-# Machine-local overrides
-[ -f ~/.zshenv.local ] && source ~/.zshenv.local
-[ -f ~/.env.fly ] && source ~/.env.fly
-export PATH=$HOME/germline/effectors:$PATH
-
-# Load credentials from 1Password
-eval "$(python3 ~/germline/effectors/importin 2>/dev/null)"
-ZSHRC
-
-COPY --chown=terry:terry <<'TMUX' /home/terry/.tmux.conf
-set -g prefix C-a
-unbind C-b
-bind C-a send-prefix
-set -g mouse on
-set -g history-limit 50000
-set -g default-terminal "screen-256color"
-set -ga terminal-overrides ",xterm-256color:Tc"
-set -g base-index 1
-set -g escape-time 0
-set -g status-style "bg=#1e1e2e,fg=#cdd6f4"
-TMUX
+# Shell and tmux config
+COPY --chown=terry:terry docker/zshrc /home/terry/.zshrc
+COPY --chown=terry:terry docker/tmux.conf /home/terry/.tmux.conf
 
 # Git config
 RUN git config --global user.name "Terry Li" \
