@@ -27,6 +27,7 @@ from pathlib import Path
 from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import json
+import threading
 import fcntl
 
 # Paths
@@ -184,6 +185,57 @@ DEFAULT_LIMIT = 4  # Fallback for unknown providers
 
 # Counter for successful mark_done calls (reset on auto-commit)
 _mark_done_count = 0
+
+# Graceful shutdown state
+_shutdown_event = threading.Event()
+
+
+def _handle_sigterm(signum, frame):
+    """SIGTERM handler: request graceful shutdown."""
+    log("SIGTERM received — initiating graceful shutdown")
+    _shutdown_event.set()
+
+
+def _drain_running(running: dict, timeout: int = 60) -> int:
+    """Wait for running golem futures to complete, up to timeout seconds.
+
+    Processes each completed future (mark done/failed, write JSONL).
+    Returns count of tasks still running after timeout.
+    """
+    if not running:
+        return 0
+
+    log(f"Graceful shutdown: waiting up to {timeout}s for {len(running)} running tasks")
+    deadline = time.time() + timeout
+
+    while running and time.time() < deadline:
+        done_futures = [f for f in running if f.done()]
+        for future in done_futures:
+            line_num, cmd, provider, task_id = running.pop(future)
+            try:
+                _, exit_code, tail, duration = future.result()
+                _write_jsonl_record(task_id, provider, exit_code, duration, cmd, tail=tail)
+                if exit_code == 0:
+                    mark_done(line_num, f"exit={exit_code}", task_id=task_id)
+                else:
+                    mark_failed(
+                        line_num, f"exit={exit_code} {tail[:60]}",
+                        exit_code=exit_code, task_id=task_id, tail=tail,
+                    )
+                    log(f"SHUTDOWN DRAIN: [{task_id}] failed (exit={exit_code})")
+            except Exception as e:
+                log(f"SHUTDOWN DRAIN: error processing [{task_id}]: {e}")
+                _write_jsonl_record(task_id, provider, 1, 0, cmd)
+                mark_failed(line_num, str(e), task_id=task_id)
+        if running:
+            time.sleep(2)
+
+    remaining = len(running)
+    if remaining:
+        log(f"Graceful shutdown: {remaining} tasks still running after {timeout}s timeout")
+    else:
+        log("Graceful shutdown: all tasks completed")
+    return remaining
 
 def rotate_logs():
     """Rotate log/jsonl files if they exceed 5MB.
@@ -1027,6 +1079,8 @@ def daemon_loop():
     startup_pull()
     log("Daemon started")
     write_pid()
+    signal.signal(signal.SIGTERM, _handle_sigterm)
+    _shutdown_event.clear()
 
     # Max workers = max provider limit (volcano=16)
     max_workers = max(PROVIDER_LIMITS.values())
@@ -1038,9 +1092,9 @@ def daemon_loop():
     disk_space_paused = False
     idle_since: float | None = None  # timestamp when we became idle
 
+    executor = ThreadPoolExecutor(max_workers=max_workers)
     try:
-        with ThreadPoolExecutor(max_workers=max_workers) as executor:
-            while True:
+        while not _shutdown_event.is_set():
                 poll_cycle += 1
 
                 # Check disk space every 10 poll cycles + run hygiene
@@ -1277,11 +1331,17 @@ def daemon_loop():
 
                 time.sleep(POLL_INTERVAL)
 
+        # Graceful shutdown: wait for running tasks to finish
+        if running:
+            _drain_running(running, timeout=60)
+
     except KeyboardInterrupt:
         log("Interrupted")
     except Exception as e:
         log(f"Fatal error: {e}")
     finally:
+        executor.shutdown(wait=False, cancel_futures=True)
+        auto_commit()
         remove_pid()
         log("Daemon stopped")
 
