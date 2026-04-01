@@ -3,18 +3,25 @@ from __future__ import annotations
 """Tests for tmux-osc52.sh — OSC 52 clipboard via tmux pane capture."""
 
 import base64
-import pytest
-
-# Synchronous tests — no async mark needed
 import os
 import stat
 import subprocess
+import tempfile
 from pathlib import Path
+
+import pytest
 
 SCRIPT = Path(__file__).parent.parent / "effectors" / "tmux-osc52.sh"
 
 
 # ── helpers ─────────────────────────────────────────────────────────────
+
+
+@pytest.fixture()
+def work_dir():
+    """Isolated temp dir using tempfile, avoiding pytest basetemp conflicts."""
+    with tempfile.TemporaryDirectory() as d:
+        yield Path(d)
 
 
 def _run(*args: str, env: dict | None = None) -> subprocess.CompletedProcess:
@@ -31,14 +38,14 @@ def _run(*args: str, env: dict | None = None) -> subprocess.CompletedProcess:
     )
 
 
-def _make_fake_tmux(output: str, tmp_path: Path) -> Path:
+def _make_fake_tmux(output: str, work_dir: Path) -> Path:
     """Create a fake tmux binary that prints *output* to stdout.
 
     Returns the bindir containing the fake tmux.
     """
-    bindir = tmp_path / "bin"
+    bindir = work_dir / "bin"
     bindir.mkdir(exist_ok=True)
-    payload = tmp_path / "tmux_output.bin"
+    payload = work_dir / "tmux_output.bin"
     payload.write_bytes(output.encode())
     fake = bindir / "tmux"
     fake.write_text(f"#!/bin/bash\ncat '{payload}'\n")
@@ -46,9 +53,9 @@ def _make_fake_tmux(output: str, tmp_path: Path) -> Path:
     return bindir
 
 
-def _make_logging_tmux(tmp_path: Path, log_file: Path) -> Path:
+def _make_logging_tmux(work_dir: Path, log_file: Path) -> Path:
     """Create a fake tmux that logs its args and prints 'captured'."""
-    bindir = tmp_path / "bin"
+    bindir = work_dir / "bin"
     bindir.mkdir(exist_ok=True)
     fake = bindir / "tmux"
     fake.write_text(
@@ -115,34 +122,34 @@ class TestBadArguments:
 
 
 class TestOsc52Sequence:
-    def test_writes_osc52_wrapper(self, tmp_path):
-        tty_file = tmp_path / "fake_tty"
-        bindir = _make_fake_tmux("hello world", tmp_path)
+    def test_writes_osc52_wrapper(self, work_dir):
+        tty_file = work_dir / "fake_tty"
+        bindir = _make_fake_tmux("hello world", work_dir)
         r = _run_with_fake_tmux("0", tty_file, bindir)
         assert r.returncode == 0, f"stderr: {r.stderr}"
         content = tty_file.read_text()
         assert content.startswith("\033]52;c;")
         assert content.endswith("\007")
 
-    def test_base64_decodes_correctly(self, tmp_path):
-        tty_file = tmp_path / "fake_tty"
-        bindir = _make_fake_tmux("hello world", tmp_path)
+    def test_base64_decodes_correctly(self, work_dir):
+        tty_file = work_dir / "fake_tty"
+        bindir = _make_fake_tmux("hello world", work_dir)
         _run_with_fake_tmux("0", tty_file, bindir)
         payload = _extract_payload(tty_file)
         assert base64.b64decode(payload).decode() == "hello world"
 
-    def test_no_newlines_in_payload(self, tmp_path):
+    def test_no_newlines_in_payload(self, work_dir):
         """base64 output is stripped of line breaks (tr -d '\\n')."""
-        tty_file = tmp_path / "fake_tty"
-        bindir = _make_fake_tmux("x" * 200, tmp_path)
+        tty_file = work_dir / "fake_tty"
+        bindir = _make_fake_tmux("x" * 200, work_dir)
         _run_with_fake_tmux("0", tty_file, bindir)
         payload = _extract_payload(tty_file)
         assert "\n" not in payload
         assert "\r" not in payload
 
-    def test_empty_pane_produces_valid_sequence(self, tmp_path):
-        tty_file = tmp_path / "fake_tty"
-        bindir = _make_fake_tmux("", tmp_path)
+    def test_empty_pane_produces_valid_sequence(self, work_dir):
+        tty_file = work_dir / "fake_tty"
+        bindir = _make_fake_tmux("", work_dir)
         r = _run_with_fake_tmux("0", tty_file, bindir)
         assert r.returncode == 0
         content = tty_file.read_text()
@@ -154,10 +161,10 @@ class TestOsc52Sequence:
 
 
 class TestPaneForwarding:
-    def test_passes_pane_id_to_tmux(self, tmp_path):
-        tty_file = tmp_path / "fake_tty"
-        log_file = tmp_path / "tmux_args.log"
-        bindir = _make_logging_tmux(tmp_path, log_file)
+    def test_passes_pane_id_to_tmux(self, work_dir):
+        tty_file = work_dir / "fake_tty"
+        log_file = work_dir / "tmux_args.log"
+        bindir = _make_logging_tmux(work_dir, log_file)
         r = _run_with_fake_tmux("mypane.42", tty_file, bindir)
         assert r.returncode == 0, f"stderr: {r.stderr}"
         logged = log_file.read_text().strip()
@@ -166,10 +173,10 @@ class TestPaneForwarding:
         assert "-p" in logged
         assert "-t" in logged
 
-    def test_numeric_pane_id(self, tmp_path):
-        tty_file = tmp_path / "fake_tty"
-        log_file = tmp_path / "tmux_args.log"
-        bindir = _make_logging_tmux(tmp_path, log_file)
+    def test_numeric_pane_id(self, work_dir):
+        tty_file = work_dir / "fake_tty"
+        log_file = work_dir / "tmux_args.log"
+        bindir = _make_logging_tmux(work_dir, log_file)
         r = _run_with_fake_tmux("0", tty_file, bindir)
         assert r.returncode == 0
         logged = log_file.read_text().strip()
@@ -180,34 +187,34 @@ class TestPaneForwarding:
 
 
 class TestContentEncoding:
-    def test_multiline_content(self, tmp_path):
-        tty_file = tmp_path / "fake_tty"
+    def test_multiline_content(self, work_dir):
+        tty_file = work_dir / "fake_tty"
         multiline = "line1\nline2\nline3"
-        bindir = _make_fake_tmux(multiline, tmp_path)
+        bindir = _make_fake_tmux(multiline, work_dir)
         _run_with_fake_tmux("0", tty_file, bindir)
         payload = _extract_payload(tty_file)
         assert base64.b64decode(payload).decode() == multiline
 
-    def test_special_characters(self, tmp_path):
-        tty_file = tmp_path / "fake_tty"
+    def test_special_characters(self, work_dir):
+        tty_file = work_dir / "fake_tty"
         special = "hello $USER `whoami` \t 'quoted' \"double\""
-        bindir = _make_fake_tmux(special, tmp_path)
+        bindir = _make_fake_tmux(special, work_dir)
         _run_with_fake_tmux("0", tty_file, bindir)
         payload = _extract_payload(tty_file)
         assert base64.b64decode(payload).decode() == special
 
-    def test_unicode_content(self, tmp_path):
-        tty_file = tmp_path / "fake_tty"
-        bindir = _make_fake_tmux("hello 日本語 🌍", tmp_path)
+    def test_unicode_content(self, work_dir):
+        tty_file = work_dir / "fake_tty"
+        bindir = _make_fake_tmux("hello 日本語 🌍", work_dir)
         _run_with_fake_tmux("0", tty_file, bindir)
         payload = _extract_payload(tty_file)
         assert base64.b64decode(payload).decode() == "hello 日本語 🌍"
 
-    def test_large_content(self, tmp_path):
+    def test_large_content(self, work_dir):
         """10 KB payload — ensures no truncation."""
         big = "A" * 10_000
-        tty_file = tmp_path / "fake_tty"
-        bindir = _make_fake_tmux(big, tmp_path)
+        tty_file = work_dir / "fake_tty"
+        bindir = _make_fake_tmux(big, work_dir)
         _run_with_fake_tmux("0", tty_file, bindir)
         payload = _extract_payload(tty_file)
         assert base64.b64decode(payload).decode() == big
@@ -217,18 +224,18 @@ class TestContentEncoding:
 
 
 class TestTtyFile:
-    def test_tty_file_overwritten(self, tmp_path):
-        tty_file = tmp_path / "fake_tty"
+    def test_tty_file_overwritten(self, work_dir):
+        tty_file = work_dir / "fake_tty"
         tty_file.write_text("old content that should be gone")
-        bindir = _make_fake_tmux("new", tmp_path)
+        bindir = _make_fake_tmux("new", work_dir)
         _run_with_fake_tmux("0", tty_file, bindir)
         content = tty_file.read_text()
         assert "old content" not in content
         assert content.startswith("\033]52;c;")
 
-    def test_nonexistent_tty_dir_fails(self, tmp_path):
+    def test_nonexistent_tty_dir_fails(self, work_dir):
         """Writing to a TTY path in a missing directory should fail."""
-        bindir = _make_fake_tmux("data", tmp_path)
-        bad_tty = tmp_path / "nonexistent" / "dir" / "tty"
+        bindir = _make_fake_tmux("data", work_dir)
+        bad_tty = work_dir / "nonexistent" / "dir" / "tty"
         r = _run_with_fake_tmux("0", bad_tty, bindir)
         assert r.returncode != 0
