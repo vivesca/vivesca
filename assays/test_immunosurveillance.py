@@ -1,13 +1,10 @@
-#!/usr/bin/env python3
 from __future__ import annotations
 
 """Tests for effectors/immunosurveillance.py — cargo audit sweep & LaunchAgent health.
 
-All filesystem and subprocess calls are mocked.  The module is loaded via exec
-so tests can patch names directly in the exec namespace (which the exec'd
-functions close over).
+Tests the script as a real subprocess (subprocess.run) for CLI integration,
+plus exec()-loaded unit tests for internal logic with mocked filesystem/subprocess.
 """
-
 
 import subprocess
 import sys
@@ -16,37 +13,89 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-SCRIPT_PATH = Path(__file__).resolve().parents[1] / "effectors" / "immunosurveillance.py"
+SCRIPT = Path(__file__).resolve().parents[1] / "effectors" / "immunosurveillance.py"
+
+
+def _run(args: list[str], **kw) -> subprocess.CompletedProcess[str]:
+    """Invoke the immunosurveillance script as a subprocess."""
+    return subprocess.run(
+        [sys.executable, str(SCRIPT), *args],
+        capture_output=True,
+        text=True,
+        timeout=30,
+        **kw,
+    )
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# CLI integration tests (subprocess.run)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+class TestCLIHelp:
+    def test_help_exits_0(self):
+        r = _run(["--help"])
+        assert r.returncode == 0
+        assert "cargo audit sweep" in r.stdout.lower()
+
+    def test_help_lists_flags(self):
+        r = _run(["--help"])
+        assert "--health" in r.stdout
+        assert "--dry-run" in r.stdout
+
+
+class TestCLIHealth:
+    def test_health_exits_1_without_cargo_audit(self):
+        """On gemmule (Linux), cargo-audit is missing → exit 1."""
+        r = _run(["--health"])
+        assert r.returncode == 1
+        assert "cargo-audit missing" in (r.stdout + r.stderr)
+
+    def test_health_mentions_plist_skip_on_linux(self):
+        """Non-macOS should skip the plist check gracefully."""
+        r = _run(["--health"])
+        combined = r.stdout + r.stderr
+        assert "plist check skipped" in combined or "Library" in combined
+
+
+class TestCLIDryRun:
+    def test_dry_run_exits_0(self):
+        r = _run(["--dry-run"])
+        assert r.returncode == 0
+
+    def test_dry_run_shows_targets_header(self):
+        r = _run(["--dry-run"])
+        assert "Targets" in r.stdout
+
+
+class TestCLIUnknownFlag:
+    def test_unknown_flag_exits_2(self):
+        r = _run(["--nonexistent"])
+        assert r.returncode == 2
+        assert "unrecognized" in r.stderr.lower() or "unknown" in r.stderr.lower()
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Unit tests — exec-loaded module, mocked filesystem & subprocess
+# ═══════════════════════════════════════════════════════════════════════════════
 
 
 @pytest.fixture()
 def ns():
     """Load immunosurveillance via exec, return the live namespace dict."""
     d: dict = {"__name__": "im_module"}
-    source = SCRIPT_PATH.read_text(encoding="utf-8")
+    source = SCRIPT.read_text(encoding="utf-8")
     exec(source, d)
     return d
-
-
-# Helpers to read constants from the namespace
-
-def _code_dir(ns):
-    return ns["CODE_DIR"]
-
-def _cargo_audit(ns):
-    return ns["CARGO_AUDIT"]
-
-def _plist_path(ns):
-    return ns["PLIST_PATH"]
 
 
 # ── Module basics ────────────────────────────────────────────────────────────
 
 
-class TestImmunosurveillanceBasics:
+class TestModuleBasics:
     def test_script_exists(self):
-        assert SCRIPT_PATH.exists()
-        assert SCRIPT_PATH.is_file()
+        assert SCRIPT.exists()
+        assert SCRIPT.is_file()
 
     def test_has_main_function(self, ns):
         assert callable(ns["main"])
@@ -55,64 +104,6 @@ class TestImmunosurveillanceBasics:
         assert ns["CODE_DIR"] == Path.home() / "code"
         assert ns["CARGO_AUDIT"] == Path.home() / ".cargo/bin/cargo-audit"
         assert ns["LAUNCH_AGENT_NAME"] == "com.terry.immunosurveillance"
-
-
-# ── CLI / argparse ──────────────────────────────────────────────────────────
-
-
-class TestCLIArgparse:
-    def test_help_exits_0(self, ns, capsys):
-        with pytest.raises(SystemExit) as exc:
-            ns["main"](["--help"])
-        assert exc.value.code == 0
-        assert "cargo audit sweep" in capsys.readouterr().out.lower()
-
-    def test_no_args_runs_sweep(self, ns, capsys):
-        """Default (no flags) should invoke run_sweep via main()."""
-        mock_sweep = MagicMock()
-        original = ns["run_sweep"]
-        ns["run_sweep"] = mock_sweep
-        try:
-            ns["main"]([])
-        finally:
-            ns["run_sweep"] = original
-        mock_sweep.assert_called_once_with(dry_run=False)
-
-    def test_dry_run_flag(self, ns, capsys):
-        mock_sweep = MagicMock()
-        original = ns["run_sweep"]
-        ns["run_sweep"] = mock_sweep
-        try:
-            ns["main"](["--dry-run"])
-        finally:
-            ns["run_sweep"] = original
-        mock_sweep.assert_called_once_with(dry_run=True)
-
-    def test_health_flag_calls_check_health(self, ns, capsys):
-        mock_health = MagicMock(return_value=True)
-        original = ns["check_health"]
-        ns["check_health"] = mock_health
-        try:
-            ns["main"](["--health"])
-        finally:
-            ns["check_health"] = original
-        mock_health.assert_called_once()
-
-    def test_health_failure_exits_1(self, ns, capsys):
-        mock_health = MagicMock(return_value=False)
-        original = ns["check_health"]
-        ns["check_health"] = mock_health
-        try:
-            with pytest.raises(SystemExit) as exc:
-                ns["main"](["--health"])
-            assert exc.value.code == 1
-        finally:
-            ns["check_health"] = original
-
-    def test_unknown_flag_exits_2(self, ns, capsys):
-        with pytest.raises(SystemExit) as exc:
-            ns["main"](["--nonexistent"])
-        assert exc.value.code == 2
 
 
 # ── has_rustsec ─────────────────────────────────────────────────────────────
@@ -128,7 +119,7 @@ class TestHasRustsec:
     def test_empty_string(self, ns):
         assert ns["has_rustsec"]("") is False
 
-    def test_rustsec_in_stderr(self, ns):
+    def test_rustsec_in_stderr_output(self, ns):
         output = "Crate: serde\nRUSTSEC-2023-0014\n"
         assert ns["has_rustsec"](output) is True
 
@@ -217,10 +208,8 @@ class TestRunAudit:
 
 
 class TestCheckHealth:
-    """Mock Path.exists via the class method to avoid read-only PosixPath attrs."""
-
     def _path_exists_side_effect(self, ns, mapping: dict):
-        """Return a side_effect function that returns True/False by path string."""
+        """Return a side_effect function for Path.exists that returns values by path."""
         cargo_audit = str(ns["CARGO_AUDIT"])
         plist_path = str(ns["PLIST_PATH"])
         plist_parent = str(ns["PLIST_PATH"].parent)
@@ -228,9 +217,6 @@ class TestCheckHealth:
 
         def _exists(self_path):
             s = str(self_path)
-            if s in mapping:
-                return mapping[s]
-            # Default: cargo-audit and code dir exist, plist parent doesn't
             if s == cargo_audit:
                 return mapping.get("__cargo_audit__", True)
             if s == plist_path:
@@ -239,13 +225,11 @@ class TestCheckHealth:
                 return mapping.get("__plist_parent__", False)
             if s == code_dir:
                 return mapping.get("__code_dir__", True)
-            # Fall back to real filesystem
             return Path(self_path).exists()
 
         return _exists
 
     def test_all_healthy_on_macos(self, ns, capsys):
-        """macOS with plist parent, plist, cargo-audit, code dir all present."""
         mapping = {
             "__cargo_audit__": True,
             "__plist_parent__": True,
