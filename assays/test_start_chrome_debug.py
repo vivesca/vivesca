@@ -116,7 +116,7 @@ class TestChromeDetection:
         fake_curl.chmod(fake_curl.stat().st_mode | stat.S_IEXEC)
 
         env = os.environ.copy()
-        env["PATH"] = str(tmp_path)
+        env["PATH"] = f"{tmp_path}:/usr/bin:/bin"
         env["HOME"] = str(tmp_path)
 
         result = run_script(env=env, timeout=10)
@@ -143,7 +143,7 @@ class TestChromeDetection:
         fake_curl.chmod(fake_curl.stat().st_mode | stat.S_IEXEC)
 
         env = os.environ.copy()
-        env["PATH"] = str(tmp_path)
+        env["PATH"] = f"{tmp_path}:/usr/bin:/bin"
         env["HOME"] = str(tmp_path)
 
         result = run_script("-p", "12345", env=env, timeout=10)
@@ -164,7 +164,7 @@ class TestChromeDetection:
         fake_curl.chmod(fake_curl.stat().st_mode | stat.S_IEXEC)
 
         env = os.environ.copy()
-        env["PATH"] = str(tmp_path)
+        env["PATH"] = f"{tmp_path}:/usr/bin:/bin"
         env["HOME"] = str(tmp_path)
 
         result = run_script(env=env, timeout=10)
@@ -182,7 +182,7 @@ class TestAlreadyRunning:
         fake_curl.chmod(fake_curl.stat().st_mode | stat.S_IEXEC)
 
         env = os.environ.copy()
-        env["PATH"] = str(tmp_path)
+        env["PATH"] = f"{tmp_path}:/usr/bin:/bin"
         env["HOME"] = str(tmp_path)
 
         result = run_script(env=env)
@@ -203,7 +203,7 @@ class TestAlreadyRunning:
         fake_curl.chmod(fake_curl.stat().st_mode | stat.S_IEXEC)
 
         env = os.environ.copy()
-        env["PATH"] = str(tmp_path)
+        env["PATH"] = f"{tmp_path}:/usr/bin:/bin"
         env["HOME"] = str(tmp_path)
 
         result = run_script("-p", "7777", env=env)
@@ -223,7 +223,7 @@ class TestAlreadyRunning:
         fake_chrome.chmod(fake_chrome.stat().st_mode | stat.S_IEXEC)
 
         env = os.environ.copy()
-        env["PATH"] = str(tmp_path)
+        env["PATH"] = f"{tmp_path}:/usr/bin:/bin"
         env["HOME"] = str(tmp_path)
 
         result = run_script(env=env)
@@ -245,7 +245,7 @@ class TestChromeStartupFailure:
         fake_curl.chmod(fake_curl.stat().st_mode | stat.S_IEXEC)
 
         env = os.environ.copy()
-        env["PATH"] = str(tmp_path)
+        env["PATH"] = f"{tmp_path}:/usr/bin:/bin"
         env["HOME"] = str(tmp_path)
 
         result = run_script(env=env, timeout=10)
