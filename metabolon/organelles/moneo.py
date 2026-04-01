@@ -201,7 +201,7 @@ def read_db() -> dict[str, Any]:
 
 
 def due_pid() -> str | None:
-    result = subprocess.run(["pgrep", "-x", "Due"], capture_output=True, text=True, check=False)
+    result = subprocess.run(["pgrep", "-x", "Due"], capture_output=True, text=True, check=False, timeout=300)
     if result.returncode != 0:
         return None
     pid = result.stdout.strip()
@@ -214,6 +214,7 @@ def run_best_effort(program: str, *args: str) -> None:
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
         check=False,
+    timeout=300,
     )
 
 
@@ -411,12 +412,13 @@ def git_snapshot(data: dict[str, Any]) -> None:
     path.write_text(f"{json.dumps(snapshot, indent=2)}\n", encoding="utf-8")
 
     repo = path.parent
-    subprocess.run(["git", "-C", str(repo), "add", str(path)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False)
+    subprocess.run(["git", "-C", str(repo), "add", str(path)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False, timeout=300)
     subprocess.run(
         ["git", "-C", str(repo), "commit", "-m", f"due: snapshot ({len(snapshot)} reminders)"],
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
         check=False,
+    timeout=300,
     )
 
 

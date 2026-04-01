@@ -1,15 +1,17 @@
 #!/usr/bin/env python3
-"""effector-usage — scan golem logs for effector mentions and report usage stats.
+"""effector-usage — scan golem logs and ~/.claude/ skills/hooks for effector references.
 
-Scans golem.jsonl and golem-daemon.log for references to effectors/.
-Reports: most used, never used, recently broken.
+Scans golem.jsonl, golem-daemon.log, and ~/.claude/skills/ + hooks/.
+Reports: most used, never used, recently broken, skill-referenced, orphaned.
 
 Usage:
-    effector-usage              # full report (most-used, never-used, recently-broken)
+    effector-usage              # full report (most-used, never-used, recently-broken, orphaned)
     effector-usage --json       # machine-readable JSON output
     effector-usage --top N      # show top N most-used (default 20)
     effector-usage --broken     # show only recently broken effectors
     effector-usage --unused     # show only never-used effectors
+    effector-usage --orphaned   # show effectors not referenced by any skill/hook
+    effector-usage --skills     # show which effectors are referenced by skills/hooks
 """
 from __future__ import annotations
 
@@ -24,6 +26,8 @@ EFFECTORS_DIR = Path.home() / "germline" / "effectors"
 JSONL_FILE = Path.home() / ".local" / "share" / "vivesca" / "golem.jsonl"
 DAEMON_LOG = Path.home() / ".local" / "share" / "vivesca" / "golem-daemon.log"
 ROTATED_LOG = Path.home() / ".local" / "share" / "vivesca" / "golem-daemon.log.1"
+SKILLS_DIR = Path.home() / ".claude" / "skills"
+HOOKS_DIR = Path.home() / ".claude" / "hooks"
 DEFAULT_TOP = 20
 RECENT_DAYS = 7
 
@@ -175,6 +179,58 @@ def merge_results(
     return merged_m, merged_f, merged_l
 
 
+def scan_claude_sources(
+    skills_dir: Path | None = None,
+    hooks_dir: Path | None = None,
+) -> dict[str, list[str]]:
+    """Scan ~/.claude/skills/ and hooks/ for references to specific effectors.
+
+    Returns:
+        effector_name -> sorted list of source labels
+        e.g. {"assay": ["skills/assay/SKILL.md", "skills/assay/recipe.yaml"],
+              "golem-daemon": ["hooks/synapse.py"]}
+    """
+    sd = skills_dir or SKILLS_DIR
+    hd = hooks_dir or HOOKS_DIR
+    refs: dict[str, set[str]] = defaultdict(set)
+
+    # Scan skills (each entry is a symlink to a receptor directory)
+    if sd.is_dir():
+        for skill_link in sorted(sd.iterdir()):
+            if skill_link.name.startswith(".") or not skill_link.is_dir():
+                continue
+            # Resolve symlink to read actual content
+            real_dir = skill_link.resolve()
+            if not real_dir.is_dir():
+                continue
+            for f in real_dir.iterdir():
+                if f.is_file() and not f.name.startswith("."):
+                    try:
+                        text = f.read_text(errors="replace")
+                    except OSError:
+                        continue
+                    for m in RE_EFFECTOR.finditer(text):
+                        name = _clean_name(m.group(1))
+                        label = f"skills/{skill_link.name}/{f.name}"
+                        refs[name].add(label)
+
+    # Scan hooks (Python files)
+    if hd.is_dir():
+        for f in sorted(hd.iterdir()):
+            if not f.is_file() or not f.name.endswith(".py") or f.name.startswith("."):
+                continue
+            try:
+                text = f.read_text(errors="replace")
+            except OSError:
+                continue
+            for m in RE_EFFECTOR.finditer(text):
+                name = _clean_name(m.group(1))
+                label = f"hooks/{f.name}"
+                refs[name].add(label)
+
+    return {name: sorted(labels) for name, labels in sorted(refs.items())}
+
+
 def compute_report(
     top_n: int = DEFAULT_TOP,
     recent_days: int = RECENT_DAYS,
@@ -237,10 +293,27 @@ def compute_report(
         key=lambda x: (-x["failures"], x["name"]),
     )
 
+    # Skills/hooks coverage
+    skill_refs = scan_claude_sources()
+    skill_referenced = sorted(
+        [
+            {"name": name, "sources": labels}
+            for name, labels in skill_refs.items()
+            if name in all_eff or any(
+                name.split(".")[0] in all_eff for _ in [None]
+            )
+        ],
+        key=lambda x: x["name"],
+    )
+    skill_referenced_names = {e["name"] for e in skill_referenced}
+    orphaned = sorted(all_eff - skill_referenced_names)
+
     return {
         "most_used": most_used,
         "never_used": never_used,
         "recently_broken": recently_broken,
+        "skill_referenced": skill_referenced,
+        "orphaned": orphaned,
         "total_effectors": len(all_eff),
         "total_mentions": sum(mentions.values()),
     }
@@ -298,6 +371,18 @@ def format_report(report: dict) -> str:
         lines.append("  (none)")
     lines.append("")
 
+    # Orphaned (not referenced by any skill/hook)
+    lines.append(f"-- Orphaned ({len(report['orphaned'])}) — not in any skill/hook --")
+    if report["orphaned"]:
+        col_w = max(len(n) for n in report["orphaned"]) + 2
+        cols = max(1, 60 // col_w)
+        for i in range(0, len(report["orphaned"]), cols):
+            row = report["orphaned"][i : i + cols]
+            lines.append("  " + "  ".join(n.ljust(col_w) for n in row).rstrip())
+    else:
+        lines.append("  (all effectors referenced by a skill or hook)")
+    lines.append("")
+
     lines.append("=" * 60)
     return "\n".join(lines)
 
@@ -312,6 +397,8 @@ def main() -> int:
     as_json = "--json" in args
     show_broken = "--broken" in args
     show_unused = "--unused" in args
+    show_orphaned = "--orphaned" in args
+    show_skills = "--skills" in args
 
     top_n = DEFAULT_TOP
     for i, arg in enumerate(args):
@@ -335,6 +422,21 @@ def main() -> int:
                 )
         else:
             print("No recently broken effectors.")
+    elif show_orphaned:
+        if report["orphaned"]:
+            print(f"Orphaned effectors ({len(report['orphaned'])}) — not in any skill/hook:")
+            for name in report["orphaned"]:
+                print(f"  {name}")
+        else:
+            print("All effectors are referenced by a skill or hook.")
+    elif show_skills:
+        if report["skill_referenced"]:
+            print(f"Skill/hook-referenced effectors ({len(report['skill_referenced'])}):")
+            for entry in report["skill_referenced"]:
+                sources = ", ".join(entry["sources"])
+                print(f"  {entry['name']:<24}  <- {sources}")
+        else:
+            print("No effectors referenced by skills or hooks.")
     elif show_unused:
         if report["never_used"]:
             print(f"Never used effectors ({len(report['never_used'])}):")

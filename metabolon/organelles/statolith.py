@@ -211,6 +211,7 @@ def _run_agent_browser(agent_browser_path: str, args: list[str]) -> str:
             [binary, *args],
             capture_output=True,
             text=True,
+        timeout=300,
         )
     except FileNotFoundError as exc:
         raise FileNotFoundError(f"agent-browser not found: {agent_browser_path}") from exc
@@ -1437,7 +1438,7 @@ def cmd_monitor_check(cache: Cache, aliases: AliasMap) -> None:
                     deltos_bin = shutil.which("deltos")
                     if deltos_bin:
                         try:
-                            subprocess.run([deltos_bin, msg], check=False)
+                            subprocess.run([deltos_bin, msg], check=False, timeout=300)
                             notified = True
                         except Exception:
                             pass

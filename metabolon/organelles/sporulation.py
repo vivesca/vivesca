@@ -219,7 +219,7 @@ def propagate_site() -> dict:
     """
     if not SYNC_SCRIPT.exists():
         return {"error": f"Sync script not found: {SYNC_SCRIPT}"}
-    result = subprocess.run(["bash", str(SYNC_SCRIPT)], capture_output=True, text=True)
+    result = subprocess.run(["bash", str(SYNC_SCRIPT)], capture_output=True, text=True, timeout=300)
     if result.returncode != 0:
         err = result.stderr.strip() or f"exit {result.returncode}"
         return {"error": f"Sync failed: {err}"}

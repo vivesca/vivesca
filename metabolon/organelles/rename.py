@@ -327,6 +327,7 @@ def commit_changes(
                     cwd=str(repo),
                     check=True,
                     capture_output=True,
+                timeout=300,
                 )
             # Also stage any newly renamed items (git add -u covers deletions)
             subprocess.run(
@@ -334,6 +335,7 @@ def commit_changes(
                 cwd=str(repo),
                 check=True,
                 capture_output=True,
+            timeout=300,
             )
             msg = f"rename: {old_name} \u2192 {new_name}"
             result = subprocess.run(
@@ -341,6 +343,7 @@ def commit_changes(
                 cwd=str(repo),
                 capture_output=True,
                 text=True,
+            timeout=300,
             )
             if result.returncode == 0:
                 messages.append(f"{repo}: {msg}")

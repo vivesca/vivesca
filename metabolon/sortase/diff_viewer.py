@@ -21,6 +21,7 @@ def find_task_commit(task_name: str, project_dir: Path) -> str | None:
         capture_output=True,
         text=True,
         check=False,
+    timeout=300,
     )
     if result.returncode != 0:
         return None
@@ -51,6 +52,7 @@ def get_task_diff(commit_hash: str, project_dir: Path) -> str:
         capture_output=True,
         text=True,
         check=False,
+    timeout=300,
     )
     return result.stdout
 

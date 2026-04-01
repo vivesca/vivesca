@@ -669,6 +669,7 @@ def _create_worktree(project_dir: Path, task_name: str) -> Path:
         cwd=project_dir,
         capture_output=True,
         check=True,
+    timeout=300,
     )
     # Symlink untracked directories from the original project so backends
     # can find project rules, memory, and Python dependencies.
@@ -687,6 +688,7 @@ def _merge_worktree(project_dir: Path, worktree_path: Path) -> tuple[bool, str]:
         cwd=project_dir,
         capture_output=True,
         text=True,
+    timeout=300,
     )
     branch = None
     found_path = False
@@ -707,6 +709,7 @@ def _merge_worktree(project_dir: Path, worktree_path: Path) -> tuple[bool, str]:
         cwd=project_dir,
         capture_output=True,
         text=True,
+    timeout=300,
     )
     if not diff.stdout.strip():
         _remove_worktree(project_dir, worktree_path, branch)
@@ -718,12 +721,14 @@ def _merge_worktree(project_dir: Path, worktree_path: Path) -> tuple[bool, str]:
         cwd=project_dir,
         capture_output=True,
         text=True,
+    timeout=300,
     )
     main_changed = subprocess.run(
         ["git", "diff", "--name-only", f"{branch}...HEAD"],
         cwd=project_dir,
         capture_output=True,
         text=True,
+    timeout=300,
     )
     # Exclude ephemeral files that worktrees recreate (e.g. .venv, .claude)
     _MERGE_EXCLUDES = {".venv", ".claude"}
@@ -742,6 +747,7 @@ def _merge_worktree(project_dir: Path, worktree_path: Path) -> tuple[bool, str]:
             ["git", "worktree", "remove", "--force", str(worktree_path)],
             cwd=project_dir,
             capture_output=True,
+        timeout=300,
         )
         return False, f"conflict: files modified in both branches: {', '.join(conflicted)}. Branch '{branch}' preserved."
 
@@ -750,6 +756,7 @@ def _merge_worktree(project_dir: Path, worktree_path: Path) -> tuple[bool, str]:
         cwd=project_dir,
         capture_output=True,
         text=True,
+    timeout=300,
     )
     _remove_worktree(project_dir, worktree_path, branch)
 
@@ -764,11 +771,13 @@ def _remove_worktree(project_dir: Path, worktree_path: Path, branch: str) -> Non
         ["git", "worktree", "remove", "--force", str(worktree_path)],
         cwd=project_dir,
         capture_output=True,
+    timeout=300,
     )
     subprocess.run(
         ["git", "branch", "-D", branch],
         cwd=project_dir,
         capture_output=True,
+    timeout=300,
     )
 
 
@@ -779,6 +788,7 @@ def _force_remove_worktree(project_dir: Path, worktree_path: Path) -> None:
         cwd=project_dir,
         capture_output=True,
         text=True,
+    timeout=300,
     )
     branch = None
     found_path = False
@@ -797,6 +807,7 @@ def _force_remove_worktree(project_dir: Path, worktree_path: Path) -> None:
             ["git", "worktree", "remove", "--force", str(worktree_path)],
             cwd=project_dir,
             capture_output=True,
+        timeout=300,
         )
 
 
@@ -816,12 +827,14 @@ def _reset_git_state(project_dir: Path, task_name: str, verbose: bool = False) -
         cwd=project_dir,
         capture_output=True,
         text=True,
+    timeout=300,
     )
     untracked = subprocess.run(
         ["git", "clean", "-nd"],
         cwd=project_dir,
         capture_output=True,
         text=True,
+    timeout=300,
     )
     dirty_files = dirty.stdout.strip()
     untracked_files = untracked.stdout.strip()
@@ -835,6 +848,7 @@ def _reset_git_state(project_dir: Path, task_name: str, verbose: bool = False) -
         cwd=project_dir,
         capture_output=True,
         text=True,
+    timeout=300,
     )
     if verbose and checkout.returncode != 0:
         sys.stderr.write(f"[{task_name}] git checkout -- . failed: {checkout.stderr}\n")
@@ -843,6 +857,7 @@ def _reset_git_state(project_dir: Path, task_name: str, verbose: bool = False) -
         cwd=project_dir,
         capture_output=True,
         text=True,
+    timeout=300,
     )
     if verbose and clean.returncode != 0:
         sys.stderr.write(f"[{task_name}] git clean -fd failed: {clean.stderr}\n")

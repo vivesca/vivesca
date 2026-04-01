@@ -56,6 +56,7 @@ def check_scope(
             capture_output=True,
             check=False,
             text=True,
+        timeout=300,
         )
         changed_files = [line for line in completed.stdout.splitlines() if line.strip()]
 
@@ -98,6 +99,7 @@ def run_test_command(project_dir: Path, test_command: str | None) -> tuple[bool,
         capture_output=True,
         check=False,
         text=True,
+    timeout=300,
     )
     output = "\n".join(part for part in [completed.stdout.strip(), completed.stderr.strip()] if part)
     return completed.returncode == 0, output
@@ -111,6 +113,7 @@ def _get_head_content(project_dir: Path, relative_path: str) -> str | None:
         capture_output=True,
         check=False,
         text=True,
+    timeout=300,
     )
     if completed.returncode != 0:
         return None

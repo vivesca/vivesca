@@ -93,18 +93,21 @@ def _initialise_genome_repo(target: Path) -> None:
             cwd=target,
             check=True,
             capture_output=True,
+        timeout=300,
         )
         subprocess.run(
             ["git", "add", "."],
             cwd=target,
             check=True,
             capture_output=True,
+        timeout=300,
         )
         subprocess.run(
             ["git", "commit", "-m", "chore: initialise epigenome scaffold"],
             cwd=target,
             check=True,
             capture_output=True,
+        timeout=300,
         )
     except (subprocess.CalledProcessError, FileNotFoundError):
         # git unavailable or failed — epigenome files are still written.

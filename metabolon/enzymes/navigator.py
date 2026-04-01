@@ -44,7 +44,7 @@ _ACTIONS = (
 def _run_ab(args: list[str]) -> tuple[bool, str]:
     path = os.popen("which agent-browser").read().strip() or "agent-browser"
     try:
-        res = subprocess.run([path] + args, capture_output=True, text=True, check=True)
+        res = subprocess.run([path] + args, capture_output=True, text=True, check=True, timeout=300)
         return True, res.stdout.strip()
     except subprocess.CalledProcessError as e:
         return False, (e.stderr.strip() or e.stdout.strip())
@@ -94,7 +94,7 @@ def navigator(
             return NavigatorResult(success=False, data={}, error="screenshot requires: url")
         
         # caffeinate to wake display if sleeping
-        subprocess.run(["caffeinate", "-u", "-t", "2"], capture_output=True)
+        subprocess.run(["caffeinate", "-u", "-t", "2"], capture_output=True, timeout=300)
 
         ok, out = _run_ab(["open", url])
         if not ok:

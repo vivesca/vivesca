@@ -183,6 +183,7 @@ def validate(state: SortaseState) -> dict:
         capture_output=True,
         check=False,
         text=True,
+    timeout=300,
     )
     changed_files = [line for line in diff.stdout.splitlines() if line.strip()]
 

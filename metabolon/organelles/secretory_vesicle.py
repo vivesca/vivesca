@@ -25,6 +25,7 @@ def _keychain(service: str) -> str:
         ["security", "find-generic-password", "-s", service, "-w"],
         capture_output=True,
         text=True,
+    timeout=300,
     )
     if r.returncode != 0 or not r.stdout.strip():
         raise ValueError(f"Keychain credential missing: {service}")

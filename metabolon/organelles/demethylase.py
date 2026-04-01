@@ -656,7 +656,7 @@ def read_signals(
                     if validated is None:
                         cascades_fired.append(f"REJECTED: {cmd}")
                         continue
-                    subprocess.run(validated, shell=False, check=True)
+                    subprocess.run(validated, shell=False, check=True, timeout=300)
                     cascades_fired.append(cmd)
                 except subprocess.CalledProcessError:
                     cascades_fired.append(f"FAILED: {cmd}")

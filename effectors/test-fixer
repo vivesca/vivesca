@@ -28,6 +28,7 @@ def run_pytest(cwd: Path | None = None) -> str:
         capture_output=True,
         text=True,
         cwd=cwd or GERMLINE_ROOT,
+        timeout=300,
     )
     return result.stdout + result.stderr
 

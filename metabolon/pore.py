@@ -69,8 +69,8 @@ def reload():
     if not os.path.exists(plist):
         click.echo(f"LaunchAgent not found: {plist}", err=True)
         sys.exit(1)
-    subprocess.run(["launchctl", "unload", plist], check=True)
-    subprocess.run(["launchctl", "load", plist], check=True)
+    subprocess.run(["launchctl", "unload", plist], check=True, timeout=300)
+    subprocess.run(["launchctl", "load", plist], check=True, timeout=300)
     click.echo(f"Reloaded {label}")
 
 
@@ -407,7 +407,7 @@ def autopoiesis_methylate():
     if not binary:
         click.echo("methylation effector not yet built — stub only", err=True)
         raise SystemExit(1)
-    result = subprocess.run([binary], capture_output=False)
+    result = subprocess.run([binary], capture_output=False, timeout=300)
     raise SystemExit(result.returncode)
 
 
@@ -430,6 +430,7 @@ def autopoiesis_hybridize():
         [binary, "--hybridize"],
         capture_output=True,
         text=True,
+    timeout=300,
     )
     if result.returncode == 2 and (
         "no such option" in result.stderr.lower() or "unrecognized" in result.stderr.lower()
