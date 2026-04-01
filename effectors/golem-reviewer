@@ -61,7 +61,8 @@ def check_daemon_status() -> dict:
     # Parse: "Daemon running (PID X), N pending tasks (...)"
     m = re.search(r"(\d+) pending", out)
     pending = int(m.group(1)) if m else 0
-    running = "running" in out.lower()
+    # Check for "running" but NOT "not running"
+    running = "running" in out.lower() and "not running" not in out.lower()
     return {"running": running, "pending": pending, "raw": out}
 
 

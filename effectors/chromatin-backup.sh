@@ -28,11 +28,13 @@ if [ "$(git rev-parse HEAD)" != "$(git rev-parse origin/main)" ]; then
     }
 fi
 
-# Skip if no changes
-if git diff --quiet && git diff --cached --quiet && [ -z "$(git ls-files --others --exclude-standard)" ]; then
-    exit 0
+# Commit if there are changes
+if ! (git diff --quiet && git diff --cached --quiet && [ -z "$(git ls-files --others --exclude-standard)" ]); then
+    git add -A
+    git commit -m "chromatin backup: $(date '+%Y-%m-%d %H:%M:%S')"
 fi
 
-git add -A
-git commit -m "chromatin backup: $(date '+%Y-%m-%d %H:%M:%S')"
-git push origin main
+# Push if we are ahead of origin/main
+if [ "$(git rev-parse HEAD)" != "$(git rev-parse origin/main)" ]; then
+    git push origin main
+fi

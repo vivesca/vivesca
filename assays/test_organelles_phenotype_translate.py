@@ -521,7 +521,8 @@ class TestSyncPhenotype:
         gemini_path = tmp_path / "gemini_settings.json"
 
         mock_locus = self._mock_locus(tmp_path)
-        mock_integrin = MagicMock(return_value=([], []))
+        mock_integrin = MagicMock()
+        mock_integrin._check_phenotype_symlinks.return_value = ([], [])
 
         with patch.dict(
             "sys.modules",
@@ -553,7 +554,8 @@ class TestSyncPhenotype:
         # File doesn't exist → cc_settings_path.exists() returns False
 
         mock_locus = self._mock_locus(tmp_path)
-        mock_integrin = MagicMock(return_value=([], []))
+        mock_integrin = MagicMock()
+        mock_integrin._check_phenotype_symlinks.return_value = ([], [])
 
         with patch.dict(
             "sys.modules",
