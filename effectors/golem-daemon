@@ -1539,55 +1539,51 @@ def daemon_loop():
                 _golem_env_cache = _golem_env()
 
                 for line_num, cmd, task_id in pending:
-                    provider = parse_provider(cmd)
-
-                    # Provider in cooldown → try fallback
-                    if provider in provider_cooldown_until:
-                        fallback = _pick_fallback(provider, provider_cooldown_until, provider_running)
-                        if fallback:
-                            original_provider = provider
-                            cmd = _swap_provider(cmd, provider, fallback)
-                            provider = fallback
-                        else:
-                            continue  # all providers burnt
+                    dispatch = _resolve_dispatch_command(cmd, provider_cooldown_until, provider_running)
+                    if dispatch is None:
+                        continue  # all providers burnt
+                    cmd, provider, dispatch_provider = dispatch
 
                     # Per-provider preflight: check once per cycle, before first dispatch
-                    if provider not in _preflight_checked and provider not in ("default", "gemini", "codex"):
-                        _preflight_checked.add(provider)
-                        healthy, cooldown_secs = _provider_preflight(provider, _golem_env_cache)
+                    if dispatch_provider not in _preflight_checked and dispatch_provider not in ("default", "gemini", "codex"):
+                        _preflight_checked.add(dispatch_provider)
+                        healthy, cooldown_secs = _provider_preflight(dispatch_provider, _golem_env_cache)
                         if not healthy and cooldown_secs is not None:
                             # Rate-limited — set cooldown immediately
                             cooldown_end = time.time() + cooldown_secs
-                            provider_cooldown_until[provider] = cooldown_end
-                            _log_cooldown(provider, cooldown_end, "preflight rate-limit")
-                            provider_failure_times.pop(provider, None)
+                            provider_cooldown_until[dispatch_provider] = cooldown_end
+                            _log_cooldown(dispatch_provider, cooldown_end, "preflight rate-limit")
+                            provider_failure_times.pop(dispatch_provider, None)
                             cd_min = cooldown_secs // 60
-                            log(f"PREFLIGHT: {provider} rate-limited — cooldown {cd_min}min")
+                            log(f"PREFLIGHT: {dispatch_provider} rate-limited — cooldown {cd_min}min")
                             continue
                         elif not healthy:
                             # Connection/auth error — transient, skip this cycle but no cooldown
-                            log(f"PREFLIGHT: {provider} connection error — skipping dispatch this cycle")
+                            log(f"PREFLIGHT: {dispatch_provider} connection error — skipping dispatch this cycle")
                             continue
 
                     # Global cap: don't exceed MAX_TOTAL_CONCURRENT across all providers
                     if len(running) >= MAX_TOTAL_CONCURRENT:
                         break
 
-                    current = provider_running.get(provider, 0)
-                    limit = get_provider_limit(provider)
+                    current = provider_running.get(dispatch_provider, 0)
+                    limit = get_provider_limit(dispatch_provider)
 
                     if current < limit:
                         # Check if already running (avoid duplicate dispatch)
                         already_running = any(
-                            c == cmd for (_, c, _, _) in running.values()
+                            _running_entry_details(entry)[1] == cmd for entry in running.values()
                         )
                         if already_running:
                             continue
 
                         future = executor.submit(run_golem, cmd)
-                        running[future] = (line_num, cmd, provider, task_id)
-                        provider_running[provider] = current + 1
-                        log(f"Queued [{provider}] [{task_id}]: {cmd[:60]}...")
+                        running[future] = (line_num, cmd, provider, task_id, dispatch_provider)
+                        provider_running[dispatch_provider] = current + 1
+                        if dispatch_provider == provider:
+                            log(f"Queued [{provider}] [{task_id}]: {cmd[:60]}...")
+                        else:
+                            log(f"Queued [{provider}->{dispatch_provider}] [{task_id}]: {cmd[:60]}...")
                 if pending:
                     _update_running_file(running)
 

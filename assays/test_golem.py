@@ -14,6 +14,7 @@ import re
 import shutil
 import subprocess
 import sys
+import tempfile
 import types
 from pathlib import Path, PurePosixPath
 from unittest.mock import MagicMock, patch
@@ -184,6 +185,60 @@ class TestDaemonProviderLimits:
     def test_volcano_limit(self):
         ns = _load("golem-daemon")
         assert ns.get_provider_limit("volcano") == 16
+
+
+class TestDaemonDispatchMigration:
+    def test_cooldown_provider_migrates_to_any_free_provider(self):
+        ns = _load("golem-daemon")
+        cmd = 'golem [t-abc123] --provider infini "test baz.py"'
+        provider_cooldown_until = {
+            "infini": 1000.0,
+            "codex": 1000.0,
+            "gemini": 1000.0,
+        }
+        runtime_cmd, provider, dispatch_provider = ns._resolve_dispatch_command(
+            cmd,
+            provider_cooldown_until,
+            {"volcano": 0},
+        )
+
+        assert provider == "infini"
+        assert dispatch_provider == "zhipu"
+        assert "--provider zhipu" in runtime_cmd
+        assert "--provider infini" not in runtime_cmd
+
+    def test_non_cooldown_provider_keeps_affinity(self):
+        ns = _load("golem-daemon")
+        cmd = 'golem [t-abc123] --provider zhipu "test bar.py"'
+
+        runtime_cmd, provider, dispatch_provider = ns._resolve_dispatch_command(
+            cmd,
+            {"infini": 1000.0},
+            {"gemini": 0, "volcano": 0},
+        )
+
+        assert provider == "zhipu"
+        assert dispatch_provider == "zhipu"
+        assert runtime_cmd == cmd
+
+    def test_jsonl_record_keeps_affinity_provider_for_stats(self):
+        ns = _load("golem-daemon")
+        with tempfile.TemporaryDirectory() as temp_dir:
+            jsonl_path = Path(temp_dir) / "golem.jsonl"
+            ns.JSONLFILE = jsonl_path
+
+            ns._write_jsonl_record(
+                "t-abc123",
+                "infini",
+                0,
+                42,
+                'golem [t-abc123] --provider zhipu "test baz.py"',
+                dispatch_provider="zhipu",
+            )
+
+            record = json.loads(jsonl_path.read_text().strip())
+            assert record["provider"] == "infini"
+            assert record["dispatch_provider"] == "zhipu"
 
 
 class TestDaemonCheckDiskSpace:
