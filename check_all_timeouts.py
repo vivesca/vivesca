@@ -41,13 +41,15 @@ def check_file(path):
         lines = content.splitlines()
         for i, line in enumerate(lines):
             if 'subprocess.run(' in line:
-                # Rough check: look for timeout= in current and next 10 lines
+                # Search for 'timeout=' until we find a matching closing parenthesis
                 found_timeout = False
-                for j in range(i, min(i+11, len(lines))):
+                bracket_count = 0
+                for j in range(i, min(i+20, len(lines))):
                     if 'timeout=' in lines[j]:
                         found_timeout = True
                         break
-                    if ')' in lines[j] and j > i: # assume it ended
+                    bracket_count += lines[j].count('(') - lines[j].count(')')
+                    if bracket_count <= 0 and j > i:
                         break
                 if not found_timeout:
                     findings.append(f"{path}:{i+1}: subprocess.run may miss timeout (rough check)")

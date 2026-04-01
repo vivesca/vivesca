@@ -89,6 +89,7 @@ class TestExecution:
         qmd_path.write_text(f"#!/bin/bash\ntouch {qmd_call_log}\nexit 0")
         
         env = os.environ.copy()
+        env["HOME"] = str(tmp_path)
         env["PATH"] = f"{tmp_path}/bin:{env['PATH']}"
         
         r = _run_script(env=env)
@@ -108,6 +109,7 @@ class TestExecution:
         qmd_path.chmod(0o755)
         
         env = os.environ.copy()
+        env["HOME"] = str(tmp_path)
         env["PATH"] = f"{tmp_path}/bin:{env['PATH']}"
         
         r = _run_script(env=env)
@@ -133,6 +135,7 @@ exit 0
         qmd_path.chmod(0o755)
         
         env = os.environ.copy()
+        env["HOME"] = str(tmp_path)
         env["PATH"] = f"{tmp_path}/bin:{env['PATH']}"
         
         r = _run_script(env=env)
@@ -154,6 +157,7 @@ exit 0
         qmd_path.chmod(0o755)
         
         env = os.environ.copy()
+        env["HOME"] = str(tmp_path)
         env["PATH"] = f"{tmp_path}/bin:{env['PATH']}"
         
         r = _run_script(env=env)
