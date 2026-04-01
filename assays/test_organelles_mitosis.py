@@ -340,7 +340,7 @@ class TestGitPullRemote:
         mock_fly.return_value = subprocess.CompletedProcess(
             [], 0, stdout="Already up to date.\n1234567890"
         )
-        ok, msg = _git_pull_remote("/home/terry/germline")
+        ok, msg = _git_pull_remote(str(Path.home() / "germline"))
         assert ok is True
         assert "Already up to date" in msg
 
@@ -349,7 +349,7 @@ class TestGitPullRemote:
         mock_fly.return_value = subprocess.CompletedProcess(
             [], 128, stdout="error: could not pull"
         )
-        ok, msg = _git_pull_remote("/home/terry/germline")
+        ok, msg = _git_pull_remote(str(Path.home() / "germline"))
         assert ok is False
 
     @patch("metabolon.organelles.mitosis._fly_cmd")
@@ -358,7 +358,7 @@ class TestGitPullRemote:
             [], 0,
             stdout="Connecting to soma...\nWarning: something\nAlready up to date.\n1234567890",
         )
-        ok, msg = _git_pull_remote("/home/terry/germline")
+        ok, msg = _git_pull_remote(str(Path.home() / "germline"))
         assert ok is True
         assert "Connecting to" not in msg
         assert "Warning:" not in msg
@@ -366,14 +366,14 @@ class TestGitPullRemote:
     @patch("metabolon.organelles.mitosis._fly_cmd")
     def test_pull_timeout(self, mock_fly):
         mock_fly.side_effect = subprocess.TimeoutExpired(cmd="fly", timeout=120)
-        ok, msg = _git_pull_remote("/home/terry/germline")
+        ok, msg = _git_pull_remote(str(Path.home() / "germline"))
         assert ok is False
         assert msg == "timeout"
 
     @patch("metabolon.organelles.mitosis._fly_cmd")
     def test_pull_generic_exception(self, mock_fly):
         mock_fly.side_effect = RuntimeError("unexpected")
-        ok, msg = _git_pull_remote("/home/terry/germline")
+        ok, msg = _git_pull_remote(str(Path.home() / "germline"))
         assert ok is False
         assert "unexpected" in msg
 

@@ -13,7 +13,7 @@ import pytest
 
 def _load_plan_exec():
     """Load the plan-exec.deprecated module by exec-ing its Python body."""
-    source = open("/home/terry/germline/effectors/plan-exec.deprecated").read()
+    source = open(Path(__file__).resolve().parent.parent / "effectors" / "plan-exec.deprecated").read()
     ns: dict = {"__name__": "plan_exec"}
     exec(source, ns)
     return ns

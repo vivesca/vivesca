@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from unittest.mock import patch
 
 import pytest
@@ -19,7 +20,7 @@ class TestLysis:
             result = lysis(action="scrape", url="https://example.com")
 
             mock_run.assert_called_once_with(
-                "/home/terry/germline/effectors/lysis",
+                str(Path.home() / "germline/effectors/lysis"),
                 ["https://example.com"],
                 timeout=60,
             )
@@ -34,7 +35,7 @@ class TestLysis:
             result = lysis(action="search", query="python testing")
 
             mock_run.assert_called_once_with(
-                "/home/terry/germline/effectors/lysis",
+                str(Path.home() / "germline/effectors/lysis"),
                 ["search", "python testing"],
                 timeout=60,
             )
@@ -80,7 +81,7 @@ class TestLysis:
             result = lysis(action="scrape")
 
             mock_run.assert_called_once_with(
-                "/home/terry/germline/effectors/lysis",
+                str(Path.home() / "germline/effectors/lysis"),
                 [""],
                 timeout=60,
             )
