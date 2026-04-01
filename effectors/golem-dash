@@ -1133,15 +1133,18 @@ def calculate_eta(
     pending: int,
     running_count: int,
     running_tasks: list[dict] | None = None,
+    cooldowns_data: list[dict] | None = None,
+    provider_max: dict[str, int] | None = None,
 ) -> dict:
     """Calculate ETA to drain the queue.
 
-    Accounts for running task progress: partially-done tasks reduce the
-    effective work remaining.
+    Accounts for running task progress and provider cooldowns.
+    Cooldowns reduce effective worker count, increasing ETA.
 
     Returns dict with keys:
         avg_duration, pending, running, workers, eta_seconds, eta_str,
-        drain_milestones, running_remaining_secs
+        drain_milestones, running_remaining_secs, cooldown_penalty_secs,
+        effective_workers
     """
     # Get all durations
     durations = [r.get("duration") for r in records if r.get("duration") is not None]
@@ -1155,6 +1158,25 @@ def calculate_eta(
 
     # Effective workers: running + 1 (at least one)
     workers = max(running_count, 1)
+
+    # Compute cooldown penalty: providers in cooldown can't accept new tasks
+    cooldown_penalty_secs = 0
+    effective_workers = workers
+    if cooldowns_data and provider_max:
+        active = active_cooldowns(cooldowns_data)
+        if active:
+            # Reduce effective workers by cooled-down provider capacity
+            cooled_slots = sum(
+                provider_max.get(p, 0) for p in active if p in provider_max
+            )
+            # The penalty is how long we wait for the longest cooldown
+            max_cooldown = max(info["remaining_secs"] for info in active.values())
+            cooldown_penalty_secs = max_cooldown
+            # Reduce effective workers proportionally
+            total_slots = sum(provider_max.values()) if provider_max else workers
+            if total_slots > 0:
+                reduction = min(cooled_slots / total_slots, 0.8)
+                effective_workers = max(1, int(workers * (1 - reduction)))
 
     # Running task remaining seconds
     running_remaining = 0
@@ -1176,11 +1198,14 @@ def calculate_eta(
         # Just waiting for running tasks to finish
         eta_seconds = max_running_remaining
     else:
-        batch_time = int(pending * avg_duration / workers)
+        batch_time = int(pending * avg_duration / effective_workers)
         if pending <= running_count:
             eta_seconds = max_running_remaining
         else:
             eta_seconds = max(max_running_remaining, batch_time)
+        # Add cooldown penalty to batch portion
+        if cooldown_penalty_secs > 0 and pending > running_count:
+            eta_seconds += cooldown_penalty_secs
 
     # Drain milestones: 25%, 50%, 75%, 100%
     milestones = []
@@ -1199,6 +1224,8 @@ def calculate_eta(
         "eta_str": fmt_duration(eta_seconds) if eta_seconds > 0 else "—",
         "drain_milestones": milestones,
         "running_remaining_secs": running_remaining,
+        "cooldown_penalty_secs": cooldown_penalty_secs,
+        "effective_workers": effective_workers,
     }
 
 
@@ -1326,6 +1353,15 @@ def eta_section(
             lines.append(
                 f"  Effective: {adj_str} {dim}(raw {raw:.1f}/hr, {fail_str} failed){rst}"
             )
+
+    # Cooldown penalty
+    cooldown_penalty = eta.get("cooldown_penalty_secs", 0)
+    if cooldown_penalty > 0:
+        cd_str = fmt_duration(cooldown_penalty)
+        eff_workers = eta.get("effective_workers", eta["workers"])
+        lines.append(
+            f"  {y}Cooldown penalty: +{cd_str}{rst} {dim}(effective workers: {eff_workers}){rst}"
+        )
 
     # Drain milestones
     milestones = eta.get("drain_milestones", [])
