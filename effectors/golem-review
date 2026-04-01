@@ -187,14 +187,21 @@ def run_pytest_on_files(files: list[str]) -> dict:
 
 
 def check_consulting_content(files: list[str]) -> list[dict]:
-    """Check each file: exists? adequate word count (>200)?
+    """Check each file: exists? adequate word count (>200)? proper structure?
 
-    Returns list of {file, exists, word_count, adequate}.
+    Returns list of {file, exists, word_count, adequate,
+                     has_headings, has_paragraphs, has_structure_elements,
+                     structure_ok}.
     """
     results = []
     for rel_path in files:
         full_path = GERMLINE / rel_path
-        entry = {"file": rel_path, "exists": False, "word_count": 0, "adequate": False}
+        entry: dict = {
+            "file": rel_path, "exists": False, "word_count": 0,
+            "adequate": False,
+            "has_headings": False, "has_paragraphs": False,
+            "has_structure_elements": False, "structure_ok": False,
+        }
 
         if not full_path.exists():
             results.append(entry)
@@ -210,6 +217,39 @@ def check_consulting_content(files: list[str]) -> list[dict]:
         wc = len(text.split())
         entry["word_count"] = wc
         entry["adequate"] = wc > 200
+
+        # Structure checks
+        lines = text.splitlines()
+        entry["has_headings"] = any(
+            stripped.startswith("#") for stripped in (l.strip() for l in lines) if stripped
+        )
+
+        # Paragraphs: count non-blank, non-heading blocks separated by blank lines
+        paragraph_count = 0
+        in_block = False
+        for line in lines:
+            if line.strip() == "":
+                in_block = False
+            elif not in_block:
+                paragraph_count += 1
+                in_block = True
+        entry["has_paragraphs"] = paragraph_count >= 2
+
+        # Structure elements: lists, code blocks, bold text, tables
+        has_list = any(
+            l.strip().startswith(("- ", "* ", "1. ", "2. ")) for l in lines
+        )
+        has_code = "```" in text
+        has_bold = "**" in text
+        has_table = any("|" in l and "---" in l for l in lines)
+        entry["has_structure_elements"] = has_list or has_code or has_bold or has_table
+
+        # Overall structure: needs headings + at least one of paragraphs/structure elements
+        entry["structure_ok"] = (
+            entry["has_headings"]
+            and (entry["has_paragraphs"] or entry["has_structure_elements"])
+        )
+
         results.append(entry)
 
     return results
@@ -492,7 +532,14 @@ def generate_review(
             wc = r.get("word_count", 0)
             status = "OK" if r.get("adequate") else "TOO SHORT"
             exists = "exists" if r.get("exists") else "MISSING"
-            lines.append(f"- [{status}] {r['file']}: {wc} words ({exists})")
+            struct = "structured" if r.get("structure_ok") else "UNSTRUCTURED"
+            heads = "H" if r.get("has_headings") else "_"
+            paras = "P" if r.get("has_paragraphs") else "_"
+            elems = "S" if r.get("has_structure_elements") else "_"
+            lines.append(
+                f"- [{status}|{struct}] {r['file']}: {wc} words ({exists}) "
+                f"[{heads}{paras}{elems}]"
+            )
         lines.append("")
 
     # Failure diagnoses

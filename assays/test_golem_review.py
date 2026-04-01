@@ -355,6 +355,132 @@ class TestCheckConsultingContent:
             _mod["GERMLINE"] = orig
         assert r[0]["exists"] is False
 
+    def test_well_structured(self, tmp_path):
+        f = tmp_path / "good.md"
+        f.write_text(textwrap.dedent("""\
+            # Good Consulting Report
+
+            This is the introduction paragraph with enough content
+            to meet the word count requirement for a proper report.
+
+            ## Analysis
+
+            - Key finding one with detailed explanation
+            - Key finding two with supporting evidence
+
+            **Conclusion**: This is a well-structured document that has
+            headings, paragraphs, lists, and bold text for proper structure.
+        """))
+        orig = _mod["GERMLINE"]
+        try:
+            _mod["GERMLINE"] = tmp_path
+            r = check_consulting_content(["good.md"])
+        finally:
+            _mod["GERMLINE"] = orig
+        assert r[0]["adequate"] is True
+        assert r[0]["has_headings"] is True
+        assert r[0]["has_paragraphs"] is True
+        assert r[0]["has_structure_elements"] is True
+        assert r[0]["structure_ok"] is True
+
+    def test_no_headings_fails_structure(self, tmp_path):
+        f = tmp_path / "flat.md"
+        f.write_text(" ".join(["word"] * 250) + "\n\n" + " ".join(["word"] * 50))
+        orig = _mod["GERMLINE"]
+        try:
+            _mod["GERMLINE"] = tmp_path
+            r = check_consulting_content(["flat.md"])
+        finally:
+            _mod["GERMLINE"] = orig
+        assert r[0]["has_headings"] is False
+        assert r[0]["structure_ok"] is False
+
+    def test_headings_but_no_content_fails(self, tmp_path):
+        f = tmp_path / "skeleton.md"
+        f.write_text("# Title\n\n## Section\n")
+        orig = _mod["GERMLINE"]
+        try:
+            _mod["GERMLINE"] = tmp_path
+            r = check_consulting_content(["skeleton.md"])
+        finally:
+            _mod["GERMLINE"] = orig
+        assert r[0]["has_headings"] is True
+        assert r[0]["has_paragraphs"] is False
+        assert r[0]["has_structure_elements"] is False
+        assert r[0]["structure_ok"] is False
+
+    def test_headings_with_single_paragraph_no_extras(self, tmp_path):
+        f = tmp_path / "minimal.md"
+        f.write_text("# Title\n\nA single paragraph here.")
+        orig = _mod["GERMLINE"]
+        try:
+            _mod["GERMLINE"] = tmp_path
+            r = check_consulting_content(["minimal.md"])
+        finally:
+            _mod["GERMLINE"] = orig
+        assert r[0]["has_headings"] is True
+        assert r[0]["has_paragraphs"] is False
+        assert r[0]["structure_ok"] is False
+
+    def test_code_block_counts_as_structure(self, tmp_path):
+        f = tmp_path / "code.md"
+        f.write_text("# Title\n\n```\nsome code\n```\n")
+        orig = _mod["GERMLINE"]
+        try:
+            _mod["GERMLINE"] = tmp_path
+            r = check_consulting_content(["code.md"])
+        finally:
+            _mod["GERMLINE"] = orig
+        assert r[0]["has_headings"] is True
+        assert r[0]["has_structure_elements"] is True
+        assert r[0]["structure_ok"] is True
+
+    def test_bold_text_counts_as_structure(self, tmp_path):
+        f = tmp_path / "bold.md"
+        f.write_text("# Title\n\n**Important note** about something.\n")
+        orig = _mod["GERMLINE"]
+        try:
+            _mod["GERMLINE"] = tmp_path
+            r = check_consulting_content(["bold.md"])
+        finally:
+            _mod["GERMLINE"] = orig
+        assert r[0]["has_structure_elements"] is True
+
+    def test_table_counts_as_structure(self, tmp_path):
+        f = tmp_path / "table.md"
+        f.write_text("# Title\n\n| A | B |\n| --- | --- |\n| 1 | 2 |\n")
+        orig = _mod["GERMLINE"]
+        try:
+            _mod["GERMLINE"] = tmp_path
+            r = check_consulting_content(["table.md"])
+        finally:
+            _mod["GERMLINE"] = orig
+        assert r[0]["has_structure_elements"] is True
+
+    def test_structure_fields_default_false_on_missing(self, tmp_path):
+        orig = _mod["GERMLINE"]
+        try:
+            _mod["GERMLINE"] = tmp_path
+            r = check_consulting_content(["absent.md"])
+        finally:
+            _mod["GERMLINE"] = orig
+        assert r[0]["has_headings"] is False
+        assert r[0]["has_paragraphs"] is False
+        assert r[0]["has_structure_elements"] is False
+        assert r[0]["structure_ok"] is False
+
+    def test_multiple_files(self, tmp_path):
+        (tmp_path / "a.md").write_text("# A\n\n" + " ".join(["w"] * 250) + "\n\n- item\n")
+        (tmp_path / "b.md").write_text("just a sentence")
+        orig = _mod["GERMLINE"]
+        try:
+            _mod["GERMLINE"] = tmp_path
+            r = check_consulting_content(["a.md", "b.md"])
+        finally:
+            _mod["GERMLINE"] = orig
+        assert r[0]["structure_ok"] is True
+        assert r[1]["structure_ok"] is False
+
 
 # ── read_log_tail ──────────────────────────────────────────────────────
 
