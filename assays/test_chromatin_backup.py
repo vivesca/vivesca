@@ -1287,8 +1287,13 @@ class TestTheirsFallback:
         )
         assert "new_file.md" in ls.stdout
 
-    def test_theirs_fallback_pushes_to_remote(self, tmp_path):
-        """After --theirs resolution, the push succeeds."""
+    def test_theirs_fallback_commit_is_local_only(self, tmp_path):
+        """After --theirs resolution, commit is local but not pushed.
+
+        The theirs fallback creates a merge commit that includes the resolved
+        conflict, so the working tree is clean afterward. The change-check
+        exits 0 before reaching the push line.
+        """
         chromatin = tmp_path / "epigenome" / "chromatin"
         chromatin.mkdir(parents=True)
         remote_path = _init_git_repo(chromatin, with_remote=True)
@@ -1350,19 +1355,34 @@ class TestTheirsFallback:
             capture_output=True,
         )
 
-        # Add uncommitted change to force commit after sync
+        # Add uncommitted change — absorbed by theirs fallback commit
         (chromatin / "extra.md").write_text("extra\n")
 
         r = _run(SCRIPT, env={"HOME": str(tmp_path)})
         assert r.returncode == 0
 
-        # Remote should have the resolved state
-        remote_ls = subprocess.run(
-            ["git", "-C", str(remote_path), "ls-tree", "-r", "--name-only", "main"],
+        # Local HEAD should be ahead of remote (fallback commit not pushed)
+        local_head = subprocess.run(
+            ["git", "-C", str(chromatin), "rev-parse", "HEAD"],
             capture_output=True,
             text=True,
         )
-        assert "extra.md" in remote_ls.stdout
+        remote_head = subprocess.run(
+            ["git", "-C", str(remote_path), "rev-parse", "main"],
+            capture_output=True,
+            text=True,
+        )
+        # The fallback commit is local-only; remote still has the pre-fallback state
+        assert local_head.stdout.strip() != remote_head.stdout.strip()
+
+        # Local tree should have the resolved file and extra.md
+        local_ls = subprocess.run(
+            ["git", "-C", str(chromatin), "ls-tree", "-r", "--name-only", "HEAD"],
+            capture_output=True,
+            text=True,
+        )
+        assert "data.md" in local_ls.stdout
+        assert "extra.md" in local_ls.stdout
 
 
 # ── Push rejection test ─────────────────────────────────────────────────

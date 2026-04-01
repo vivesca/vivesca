@@ -5,12 +5,14 @@ Reads ~/germline/loci/golem-queue.md for pending tasks, runs up to 4
 concurrent golem subprocesses. Marks completed tasks and starts next.
 
 Usage:
-    golem-daemon start      # Start daemon (nohup, backgrounds itself)
-    golem-daemon stop       # Stop daemon via pidfile
-    golem-daemon status     # Check if running
-    golem-daemon stats      # Show pass/fail/retry counts, avg duration by provider
-    golem-daemon clean      # Remove completed/failed entries from queue
-    golem-daemon retry-all  # Re-queue all [!] failed tasks as [ ]
+    golem-daemon start              # Start daemon (nohup, backgrounds itself)
+    golem-daemon stop               # Stop daemon via pidfile
+    golem-daemon status             # Check if running
+    golem-daemon stats              # Show pass/fail/retry counts, avg duration by provider
+    golem-daemon clean              # Remove completed/failed entries from queue
+    golem-daemon retry-all          # Re-queue all [!] failed tasks as [ ]
+    golem-daemon clear-cooldown     # Clear all provider cooldowns
+    golem-daemon clear-cooldown X   # Clear cooldown for provider X only
 """
 from __future__ import annotations
 
@@ -39,6 +41,7 @@ GOLEM_TIMEOUT = 1800  # 30 min max per golem run
 DISK_SPACE_MIN_BYTES = 1 * 1024 * 1024 * 1024  # 1GB minimum free space
 JSONLFILE = Path.home() / ".local" / "share" / "vivesca" / "golem.jsonl"
 ROTATE_MAX_BYTES = 5 * 1024 * 1024  # 5MB rotation threshold
+CLEAR_COOLDOWN_FILE = Path.home() / ".local" / "share" / "vivesca" / "clear-cooldowns"
 
 # Disk hygiene
 SESSION_DIR = Path.home() / ".claude" / "projects" / "-home-terry-germline"
@@ -56,6 +59,7 @@ RATE_LIMIT_COOLDOWN_SECONDS = 18000  # 5-hour cooldown for quota exhaustion (mat
 # explicit 429 text in the output.
 PROVIDER_RATE_WINDOWS: dict[str, int] = {
     "infini": 18000,  # 1000 req / 5 hours
+    "volcano": 18000,  # 5-hour quota window (parse_rate_limit_window extracts exact reset time)
 }
 
 # Rate-limit detection patterns (checked against task output/tail)
@@ -548,9 +552,23 @@ def is_rate_limited(tail: str) -> bool:
 def parse_rate_limit_window(tail: str) -> int | None:
     """Try to extract rate-limit window in seconds from error message.
 
-    Looks for patterns like "5-hour", "1-hour", "30-minute" in the tail.
-    Returns seconds or None if not parseable.
+    Priority:
+    1. Exact reset timestamp (e.g. "reset at 2026-04-01 21:09:32 +0800 CST")
+    2. Duration patterns (e.g. "5-hour", "30-minute")
+    Returns seconds until reset, or None if not parseable.
     """
+    # 1. Try exact reset timestamp (Volcano format: "reset at YYYY-MM-DD HH:MM:SS +TZTZ TZ")
+    m = re.search(r'reset at (\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})', tail)
+    if m:
+        try:
+            reset_time = datetime.strptime(m.group(1), "%Y-%m-%d %H:%M:%S")
+            delta = (reset_time - datetime.now()).total_seconds()
+            if delta > 0:
+                return int(delta)
+        except (ValueError, OverflowError):
+            pass
+
+    # 2. Duration patterns
     m = re.search(r'(\d+)[- ]hour', tail)
     if m:
         return int(m.group(1)) * 3600
@@ -1199,6 +1217,7 @@ def daemon_loop():
     provider_running: dict[str, int] = {}  # provider -> count of running tasks
     provider_failure_times: dict[str, list[float]] = {}  # provider -> list of failure timestamps
     provider_cooldown_until: dict[str, float] = {}  # provider -> timestamp when cooldown ends
+    _cooldown_probe_times: dict[str, float] = {}  # provider -> last probe timestamp
     poll_cycle = 0
     disk_space_paused = False
     idle_since: float | None = None  # timestamp when we became idle
@@ -1377,7 +1396,26 @@ def daemon_loop():
                     time.sleep(POLL_INTERVAL)
                     continue
 
-                # Clear expired cooldowns
+                # Check for manual cooldown clear signal
+                if CLEAR_COOLDOWN_FILE.exists():
+                    try:
+                        target = CLEAR_COOLDOWN_FILE.read_text().strip()
+                        CLEAR_COOLDOWN_FILE.unlink()
+                        cleared = []
+                        for p in list(provider_cooldown_until):
+                            if not target or target == "all" or p == target:
+                                _log_cooldown(p, provider_cooldown_until[p], "manual clear", event="resumed")
+                                del provider_cooldown_until[p]
+                                provider_failure_times.pop(p, None)
+                                _provider_throttle.pop(p, None)
+                                _cooldown_probe_times.pop(p, None)
+                                cleared.append(p)
+                        if cleared:
+                            log(f"MANUAL COOLDOWN CLEAR: {', '.join(cleared)}")
+                    except OSError:
+                        pass
+
+                # Clear expired cooldowns + probe providers that might have recovered early
                 now = time.time()
                 for p in list(provider_cooldown_until):
                     if now >= provider_cooldown_until[p]:
@@ -1385,6 +1423,18 @@ def daemon_loop():
                         log(f"COOLDOWN LIFTED: {p} — resuming dispatch")
                         del provider_cooldown_until[p]
                         provider_failure_times.pop(p, None)
+                    elif p not in ("gemini", "codex"):
+                        # Probe every 5 min: provider may have recovered before cooldown expires
+                        last_probe = _cooldown_probe_times.get(p, 0)
+                        if now - last_probe >= 300:
+                            _cooldown_probe_times[p] = now
+                            healthy, _ = _provider_preflight(p, _golem_env())
+                            if healthy:
+                                _log_cooldown(p, provider_cooldown_until[p], "early recovery (probe)", event="resumed")
+                                log(f"COOLDOWN EARLY LIFT: {p} — preflight probe succeeded, resuming dispatch")
+                                del provider_cooldown_until[p]
+                                provider_failure_times.pop(p, None)
+                                _provider_throttle.pop(p, None)
 
                 # Per-provider preflight health check: ping each provider once per
                 # dispatch cycle before submitting tasks. Detects rate-limits proactively
@@ -1731,6 +1781,22 @@ def cmd_stats() -> int:
     return 0
 
 
+def cmd_clear_cooldown(provider: str = "all") -> int:
+    """Signal the daemon to clear provider cooldowns.
+
+    Writes a signal file that the daemon picks up on next poll cycle.
+    """
+    pid = read_pid()
+    if not pid:
+        print("Daemon not running")
+        return 1
+    CLEAR_COOLDOWN_FILE.parent.mkdir(parents=True, exist_ok=True)
+    CLEAR_COOLDOWN_FILE.write_text(provider)
+    print(f"Signaled daemon to clear cooldown for: {provider}")
+    print(f"Daemon (PID {pid}) will process on next poll cycle (~{POLL_INTERVAL}s)")
+    return 0
+
+
 def main():
     if len(sys.argv) < 2:
         print(__doc__)
@@ -1755,9 +1821,12 @@ def main():
         return cmd_clean()
     elif cmd == "retry-all":
         return cmd_retry_all()
+    elif cmd == "clear-cooldown":
+        provider = sys.argv[2] if len(sys.argv) > 2 else "all"
+        return cmd_clear_cooldown(provider)
     else:
         print(f"Unknown command: {cmd}")
-        print("Commands: start, stop, status, stats, clean, retry-all")
+        print("Commands: start, stop, status, stats, clean, retry-all, clear-cooldown [provider]")
         return 1
 
 if __name__ == "__main__":

@@ -126,6 +126,7 @@ def _parse_index_browser() -> list[dict]:
         skip = {
             "Read more", "SIGN IN", "Sign up to our newsletter", "privacy policy",
             "Learn more about Membership", "Show more", "Register here", "Apply here",
+            "CAREERS", "Careers", "LINKEDIN", "TWITTER",
         }
 
         current_date = None
@@ -155,15 +156,19 @@ def _parse_index_browser() -> list[dict]:
 
 
 def parse_index() -> list[dict]:
-    """Parse the brief index. Firecrawl map → agent-browser fallback."""
+    """Parse the brief index. agent-browser (has dates + order) → Firecrawl map fallback."""
+    briefs = _parse_index_browser()
+    if briefs:
+        return briefs
+    # Fallback: map() gets all slugs but no dates/order
     try:
         briefs = _parse_index_firecrawl()
         if briefs:
-            print(f"[map] {len(briefs)} briefs found", file=sys.stderr)
+            print(f"[map] {len(briefs)} briefs (no dates)", file=sys.stderr)
             return briefs
     except Exception as e:
         print(f"[map] failed: {e}", file=sys.stderr)
-    return _parse_index_browser()
+    return []
 
 
 # ---------------------------------------------------------------------------
