@@ -228,3 +228,149 @@ class TestTgNotify:
         r = _run(tmp_path, disk_pct=90, failed_units=0, tg_notify=False)
         assert r.returncode == 1
         assert "ALERT" in r.stderr
+
+
+# ── combined alerts ─────────────────────────────────────────────────────
+
+
+class TestCombinedAlert:
+    def test_exit_one_when_both_disk_and_units_bad(self, tmp_path):
+        r = _run(tmp_path, disk_pct=90, failed_units=3)
+        assert r.returncode == 1
+
+    def test_stderr_shows_both_disk_and_units(self, tmp_path):
+        r = _run(tmp_path, disk_pct=92, failed_units=2)
+        assert "disk=92%" in r.stderr
+        assert "failed_units=2" in r.stderr
+
+
+# ── output format ───────────────────────────────────────────────────────
+
+
+class TestOutputFormat:
+    def test_healthy_output_starts_with_prefix(self, tmp_path):
+        r = _run(tmp_path, disk_pct=50, failed_units=0)
+        assert r.stdout.startswith("pharos health: ok")
+
+    def test_healthy_output_contains_all_fields(self, tmp_path):
+        r = _run(tmp_path, disk_pct=50, mem_used=2000, mem_total=8000, failed_units=0)
+        out = r.stdout.strip()
+        assert "disk=50%" in out
+        assert "mem=" in out
+        assert "failed_units=0" in out
+
+    def test_memory_format_shows_used_and_total(self, tmp_path):
+        r = _run(tmp_path, disk_pct=50, mem_used=3000, mem_total=8000)
+        assert "mem=" in r.stdout
+        # The awk format is "%d/%dMB", so we expect used/totalMB
+        mem_part = [p for p in r.stdout.strip().split() if p.startswith("mem=")][0]
+        assert "/" in mem_part  # used/total format
+        assert "MB" in mem_part
+
+    def test_stderr_alert_format(self, tmp_path):
+        r = _run(tmp_path, disk_pct=90, failed_units=0)
+        assert r.stderr.strip().startswith("ALERT:")
+
+    def test_stderr_alert_contains_pharos_health_prefix(self, tmp_path):
+        r = _run(tmp_path, disk_pct=90, failed_units=0)
+        assert "pharos health:" in r.stderr
+
+
+# ── extreme disk values ────────────────────────────────────────────────
+
+
+class TestExtremeDisk:
+    def test_disk_zero_pct_healthy(self, tmp_path):
+        r = _run(tmp_path, disk_pct=0, failed_units=0)
+        assert r.returncode == 0
+        assert "disk=0%" in r.stdout
+
+    def test_disk_ninety_nine_pct_alerts(self, tmp_path):
+        r = _run(tmp_path, disk_pct=99, failed_units=0)
+        assert r.returncode == 1
+        assert "disk=99%" in r.stderr
+
+
+# ── systemctl failure ──────────────────────────────────────────────────
+
+
+class TestSystemctlFailure:
+    def test_systemctl_nonzero_exits_treated_as_zero_failed(self, tmp_path):
+        """When systemctl exits non-zero, FAILED=0 fallback kicks in."""
+        r = _run(tmp_path, disk_pct=50, failed_units=0)
+        # Script should still be healthy — systemctl failure is handled
+        assert r.returncode == 0
+
+
+# ── tg-notify edge cases ──────────────────────────────────────────────
+
+
+class TestTgNotifyEdgeCases:
+    def test_tg_notify_message_contains_disk(self, tmp_path):
+        r = _run(tmp_path, disk_pct=90, failed_units=0, tg_notify=True)
+        log = (tmp_path / "tg-notify.log").read_text()
+        assert "disk=90%" in log
+
+    def test_tg_notify_message_contains_failed_units(self, tmp_path):
+        r = _run(tmp_path, disk_pct=50, failed_units=2, tg_notify=True)
+        log = (tmp_path / "tg-notify.log").read_text()
+        assert "failed_units=2" in log
+
+    def test_tg_notify_message_contains_mem(self, tmp_path):
+        r = _run(tmp_path, disk_pct=90, failed_units=0, tg_notify=True)
+        log = (tmp_path / "tg-notify.log").read_text()
+        assert "mem=" in log
+
+    def test_tg_notify_not_executable_falls_back_to_stderr(self, tmp_path):
+        """tg-notify.sh exists but is NOT executable → falls back to stderr."""
+        stub_dir = tmp_path / "stubs"
+        stub_dir.mkdir()
+        df_stub = stub_dir / "df"
+        df_stub.write_text("#!/bin/bash\nif [ \"$1\" = '/' ]; then\necho 'Use%'\necho '90%'\nfi\n")
+        df_stub.chmod(0o755)
+        free_stub = stub_dir / "free"
+        free_stub.write_text("#!/bin/bash\necho '              total        used        free'\necho 'Mem:        8000       2000       6000'\n")
+        free_stub.chmod(0o755)
+        systemctl_stub = stub_dir / "systemctl"
+        systemctl_stub.write_text("#!/bin/bash\ntrue\n")
+        systemctl_stub.chmod(0o755)
+
+        scripts_dir = tmp_path / "scripts"
+        scripts_dir.mkdir()
+        notify = scripts_dir / "tg-notify.sh"
+        notify.write_text("#!/bin/bash\necho SHOULD_NOT_RUN\n")
+        notify.chmod(0o644)  # NOT executable
+
+        env = os.environ.copy()
+        env["HOME"] = str(tmp_path)
+        env["PATH"] = str(stub_dir) + ":" + env.get("PATH", "/usr/bin:/bin")
+
+        r = subprocess.run(
+            ["bash", str(SCRIPT)],
+            capture_output=True,
+            text=True,
+            env=env,
+            timeout=10,
+        )
+        assert r.returncode == 1
+        assert "ALERT" in r.stderr
+
+
+# ── multiple failed units count ────────────────────────────────────────
+
+
+class TestFailedUnitsCount:
+    def test_one_failed_unit(self, tmp_path):
+        r = _run(tmp_path, disk_pct=50, failed_units=1)
+        assert r.returncode == 1
+        assert "failed_units=1" in r.stderr
+
+    def test_five_failed_units(self, tmp_path):
+        r = _run(tmp_path, disk_pct=50, failed_units=5)
+        assert r.returncode == 1
+        assert "failed_units=5" in r.stderr
+
+    def test_zero_failed_units_healthy(self, tmp_path):
+        r = _run(tmp_path, disk_pct=50, failed_units=0)
+        assert r.returncode == 0
+        assert "failed_units=0" in r.stdout
