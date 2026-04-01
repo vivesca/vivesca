@@ -251,7 +251,7 @@ class TestDirectApi:
         mock_urlopen.return_value.read.return_value = fake_response
 
         with patch.dict("os.environ", {"ZHIPU_API_KEY": "test-key"}):
-            with patch("metabolon.organelles.translocon.urllib.request.urlopen", mock_urlopen):
+            with patch("urllib.request.urlopen", mock_urlopen):
                 result = _direct_api("say hi")
 
         assert result["success"] is True
@@ -268,7 +268,7 @@ class TestDirectApi:
         mock_urlopen.side_effect = [exc, exc, exc]  # 3 attempts = 2 retries + 1
 
         with patch.dict("os.environ", {"ZHIPU_API_KEY": "key"}):
-            with patch("metabolon.organelles.translocon.urllib.request.urlopen", mock_urlopen):
+            with patch("urllib.request.urlopen", mock_urlopen):
                 result = _direct_api("prompt")
 
         assert result["success"] is False
@@ -278,7 +278,7 @@ class TestDirectApi:
         from metabolon.organelles.translocon import _direct_api
 
         with patch.dict("os.environ", {"ZHIPU_API_KEY": "key"}):
-            with patch("metabolon.organelles.translocon.urllib.request.urlopen", side_effect=OSError("network")):
+            with patch("urllib.request.urlopen", side_effect=OSError("network")):
                 result = _direct_api("prompt")
 
         assert result["success"] is False
