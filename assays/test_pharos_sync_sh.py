@@ -3,13 +3,14 @@ from __future__ import annotations
 """Tests for effectors/pharos-sync.sh — bash script tested via subprocess."""
 
 import os
+import shutil
 import subprocess
 from pathlib import Path
 
 import pytest
 
 SCRIPT = Path(__file__).parent.parent / "effectors" / "pharos-sync.sh"
-
+RSYNC_AVAILABLE = shutil.which("rsync") is not None
 
 # ── helpers ─────────────────────────────────────────────────────────────
 
@@ -20,7 +21,7 @@ def _run(
     """Run pharos-sync.sh with HOME=tmp_path."""
     env = os.environ.copy()
     env["HOME"] = str(tmp_path)
-    env["PATH"] = "/usr/bin:/bin"  # minimal PATH — no flyctl, no rsync surprises
+    env["PATH"] = "/usr/bin:/bin"  # minimal PATH — no flyctl, no scp
     if env_extra:
         env.update(env_extra)
     return subprocess.run(
@@ -155,9 +156,9 @@ class TestSyncFileSourced:
         assert r.returncode == 1
 
     def test_overwrites_changed_file(self, tmp_path):
-        src = tmp_path / "a.txt"
+        src = tmp_path / "src.txt"
         src.write_text("new content")
-        dst = tmp_path / "a.txt"
+        dst = tmp_path / "dst.txt"
         dst.write_text("old content")
         r = _source_sync_file(src, dst)
         assert r.returncode == 0
@@ -220,6 +221,7 @@ class TestMainExecution:
         lines = [l for l in r.stdout.strip().splitlines() if "settings.json" in l]
         assert all("updated" not in l for l in lines)
 
+    @pytest.mark.skipif(not RSYNC_AVAILABLE, reason="rsync not installed")
     def test_syncs_memory_directory(self, tmp_path):
         memory_src = tmp_path / ".claude" / "projects" / "-Users-terry" / "memory"
         memory_src.mkdir(parents=True)
@@ -232,6 +234,7 @@ class TestMainExecution:
         assert (dst / "notes.md").read_text() == "# Notes"
         assert (dst / "tips.md").read_text() == "# Tips"
 
+    @pytest.mark.skipif(not RSYNC_AVAILABLE, reason="rsync not installed")
     def test_memory_sync_prints_synced(self, tmp_path):
         memory_src = tmp_path / ".claude" / "projects" / "-Users-terry" / "memory"
         memory_src.mkdir(parents=True)
