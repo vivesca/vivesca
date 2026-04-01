@@ -549,3 +549,185 @@ def test_eta_confidence_with_rate_limits():
     conf = _mod["compute_eta_confidence"](records)
     # Many RL entries should drop confidence from "high" to "medium"
     assert conf in ("medium", "low")
+
+
+# ── New: compute_drain_velocity ──────────────────────────────────────
+
+
+def test_drain_velocity_empty():
+    """No activity = empty string."""
+    assert _mod["compute_drain_velocity"]([], {}) == ""
+
+
+def test_drain_velocity_draining():
+    """More completions than pending = draining."""
+    now = datetime.now(timezone.utc)
+    records = [
+        {"exit": 0, "ts": (now - timedelta(minutes=i)).isoformat(), "provider": "infini", "duration": 60}
+        for i in range(10)
+    ]
+    pending = {"infini": 2}
+    vel = _mod["compute_drain_velocity"](records, pending)
+    assert "↓" in vel or "draining" in vel.lower()
+
+
+def test_drain_velocity_growing():
+    """Few completions but many pending = growing."""
+    now = datetime.now(timezone.utc)
+    records = [
+        {"exit": 0, "ts": (now - timedelta(minutes=30)).isoformat(), "provider": "infini", "duration": 60},
+    ]
+    pending = {"infini": 50}
+    vel = _mod["compute_drain_velocity"](records, pending)
+    assert "↑" in vel or "growing" in vel.lower()
+
+
+def test_drain_velocity_no_pending():
+    """No pending tasks = done."""
+    now = datetime.now(timezone.utc)
+    records = [
+        {"exit": 0, "ts": now.isoformat(), "provider": "infini", "duration": 60},
+    ]
+    vel = _mod["compute_drain_velocity"](records, {})
+    assert "✓" in vel or "empty" in vel.lower() or "done" in vel.lower()
+
+
+# ── New: estimate_task_completion ────────────────────────────────────
+
+
+def test_task_completion_basic():
+    """Remaining time = avg_duration - elapsed."""
+    remaining = _mod["estimate_task_completion"](30, 120)
+    assert remaining == pytest.approx(90.0)
+
+
+def test_task_completion_over():
+    """Beyond avg duration = 0 remaining (should have completed)."""
+    remaining = _mod["estimate_task_completion"](150, 120)
+    assert remaining == 0.0
+
+
+def test_task_completion_no_avg():
+    """No average = unknown remaining."""
+    remaining = _mod["estimate_task_completion"](30, 0)
+    assert remaining == -1.0
+
+
+def test_task_completion_at_avg():
+    """Exactly at avg = 0 remaining."""
+    remaining = _mod["estimate_task_completion"](120, 120)
+    assert remaining == 0.0
+
+
+# ── New: compute_provider_utilization ────────────────────────────────
+
+
+def test_provider_utilization_basic():
+    """Active / limit ratio per provider."""
+    stats = {
+        "infini": {"active": 2, "completed": 0, "failed": 0, "rate_limited": 0,
+                   "killed": 0, "total_duration": 0, "success_count": 0, "total_count": 0},
+        "zhipu": {"active": 4, "completed": 0, "failed": 0, "rate_limited": 0,
+                  "killed": 0, "total_duration": 0, "success_count": 0, "total_count": 0},
+    }
+    limits = {"infini": 2, "zhipu": 8}
+    util = _mod["compute_provider_utilization"](stats, limits)
+    assert util["infini"] == pytest.approx(1.0)   # 2/2 = 100%
+    assert util["zhipu"] == pytest.approx(0.5)    # 4/8 = 50%
+
+
+def test_provider_utilization_unknown_provider():
+    """Unknown provider uses default limit."""
+    stats = {"other": {"active": 3, "completed": 0, "failed": 0, "rate_limited": 0,
+                       "killed": 0, "total_duration": 0, "success_count": 0, "total_count": 0}}
+    limits = {}
+    util = _mod["compute_provider_utilization"](stats, limits)
+    # Default limit = 4, active = 3
+    assert util["other"] == pytest.approx(0.75)
+
+
+def test_provider_utilization_no_active():
+    """No active tasks = 0%."""
+    stats = {"infini": {"active": 0, "completed": 5, "failed": 0, "rate_limited": 0,
+                        "killed": 0, "total_duration": 500, "success_count": 5, "total_count": 5}}
+    limits = {"infini": 2}
+    util = _mod["compute_provider_utilization"](stats, limits)
+    assert util["infini"] == pytest.approx(0.0)
+
+
+# ── New: fmt_utilization_bar ─────────────────────────────────────────
+
+
+def test_utilization_bar_full():
+    """100% utilization bar."""
+    bar = _mod["fmt_utilization_bar"](1.0)
+    assert "█" in bar
+    assert "100%" in bar
+
+
+def test_utilization_bar_half():
+    """50% utilization bar."""
+    bar = _mod["fmt_utilization_bar"](0.5)
+    assert "50%" in bar
+
+
+def test_utilization_bar_zero():
+    """0% utilization."""
+    bar = _mod["fmt_utilization_bar"](0.0)
+    assert "0%" in bar
+
+
+def test_utilization_bar_overloaded():
+    """>100% utilization (more active than limit)."""
+    bar = _mod["fmt_utilization_bar"](1.5)
+    assert "150%" in bar
+
+
+# ── Enhanced: running tasks table has ETA column ─────────────────────
+
+
+def test_running_tasks_table_has_eta_column():
+    """Running tasks table should include an ETA column."""
+    running = [
+        {"task_id": "abc456", "provider": "infini", "cmd": '"test"', "dispatch_provider": "infini"},
+    ]
+    _mod["compute_avg_duration_by_provider"] = lambda recs: {"infini": 120.0}
+    table = build_running_tasks_table(running)
+    col_names = [c.header for c in table.columns]
+    assert "ETA" in col_names
+
+
+# ── New: build_dashboard builds without error with mock data ─────────
+
+
+def test_build_dashboard_with_mock_data(tmp_path):
+    """build_dashboard renders without error when all data files exist."""
+    jsonl = tmp_path / "golem.jsonl"
+    now = datetime.now(timezone.utc)
+    records = [
+        {"exit": 0, "duration": 100, "provider": "infini", "ts": now.isoformat(), "tail": ""},
+        {"exit": 1, "duration": 50, "provider": "zhipu", "ts": now.isoformat(), "tail": "error"},
+    ]
+    jsonl.write_text("\n".join(json.dumps(r) for r in records) + "\n")
+
+    running_json = tmp_path / "golem-running.json"
+    running_json.write_text(json.dumps([
+        {"task_id": "t1", "provider": "infini", "cmd": '"test task"', "dispatch_provider": "infini"},
+    ]))
+
+    queue = tmp_path / "golem-queue.md"
+    queue.write_text("- [ ] task1 --provider infini\n- [x] task2 --provider zhipu\n")
+
+    cooldowns = tmp_path / "golem-cooldowns.json"
+    cooldowns.write_text("[]")
+
+    # Patch all paths
+    _mod["JSONL_PATH"] = jsonl
+    _mod["RUNNING_JSON_PATH"] = running_json
+    _mod["QUEUE_PATH"] = queue
+    _mod["COOLDOWNS_PATH"] = cooldowns
+
+    panel = _mod["build_dashboard"](window_minutes=60)
+    # Panel should contain text about the providers
+    rendered = panel.renderable
+    assert rendered is not None

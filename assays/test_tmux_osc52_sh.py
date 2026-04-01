@@ -147,3 +147,100 @@ class TestFunctional:
     def test_no_stderr_on_success(self, fake_tmux_dir, tty_file):
         r = self._run_with_mock("%0", tty_file, fake_tmux_dir)
         assert r.stderr == ""
+
+
+# ── edge cases ──────────────────────────────────────────────────────────
+class TestEdgeCases:
+    @pytest.fixture()
+    def fake_tmux_dir(self, tmp_path: Path):
+        """Create a fake ``tmux`` that prints deterministic pane content."""
+        fake = tmp_path / "tmux"
+        fake.write_text("#!/bin/bash\necho 'hello pane'\n")
+        fake.chmod(fake.stat().st_mode | stat.S_IEXEC)
+        return tmp_path
+
+    @pytest.fixture()
+    def tty_file(self, tmp_path: Path) -> Path:
+        return tmp_path / "tty"
+
+    def _run_with_mock(
+        self,
+        pane: str,
+        tty: Path,
+        fake_tmux_dir: Path,
+    ) -> subprocess.CompletedProcess:
+        env = os.environ.copy()
+        env["PATH"] = str(fake_tmux_dir) + ":" + env.get("PATH", "/usr/bin:/bin")
+        return _run(pane, str(tty), env=env)
+
+    def test_empty_pane_content(self, tmp_path, tty_file):
+        """Fake tmux outputs nothing — OSC 52 sequence still written with empty payload."""
+        fake = tmp_path / "tmux"
+        fake.write_text("#!/bin/bash\ntrue\n")
+        fake.chmod(fake.stat().st_mode | stat.S_IEXEC)
+        r = self._run_with_mock("%0", tty_file, tmp_path)
+        assert r.returncode == 0
+        raw = tty_file.read_bytes()
+        assert raw[:4] == b"\x1b]52"
+        assert raw[-1:] == b"\x07"
+
+    def test_multiline_pane_roundtrips(self, tmp_path, tty_file):
+        """Multiline pane content survives base64 round-trip."""
+        fake = tmp_path / "tmux"
+        fake.write_text("#!/bin/bash\necho 'line1\nline2\nline3'\n")
+        fake.chmod(fake.stat().st_mode | stat.S_IEXEC)
+        self._run_with_mock("%0", tty_file, tmp_path)
+        raw = tty_file.read_bytes()
+        payload = raw.split(b";c;", 1)[1].rstrip(b"\x07")
+        decoded = base64.b64decode(payload).decode()
+        assert "line1" in decoded
+        assert "line2" in decoded
+        assert "line3" in decoded
+
+    def test_special_chars_in_pane(self, tmp_path, tty_file):
+        """Pane content with shell-special characters round-trips correctly."""
+        content = "hello $world 'quotes' \"dquotes\" &|;<>"
+        fake = tmp_path / "tmux"
+        # Use printf to avoid echo interpretation
+        fake.write_text(f"#!/bin/bash\nprintf '%s\\n' {repr(content)}\n")
+        fake.chmod(fake.stat().st_mode | stat.S_IEXEC)
+        self._run_with_mock("%0", tty_file, tmp_path)
+        raw = tty_file.read_bytes()
+        payload = raw.split(b";c;", 1)[1].rstrip(b"\x07")
+        decoded = base64.b64decode(payload).decode()
+        assert "hello" in decoded
+
+    def test_base64_payload_has_no_newlines(self, fake_tmux_dir, tty_file):
+        """The tr -d '\\n' ensures no newlines in the base64 payload."""
+        self._run_with_mock("%0", tty_file, fake_tmux_dir)
+        raw = tty_file.read_bytes()
+        payload = raw.split(b";c;", 1)[1].rstrip(b"\x07")
+        assert b"\n" not in payload
+
+
+# ── tmux invocation flags ───────────────────────────────────────────────
+class TestTmuxFlags:
+    def test_tmux_called_with_capture_pane_flags(self, tmp_path, tty_file):
+        """Verify tmux is invoked with capture-pane -p -t <pane>."""
+        fake = tmp_path / "tmux"
+        # Record args passed to tmux
+        fake.write_text("#!/bin/bash\necho \"$@\" > /tmp/tmux_args_test\nexit 0\n")
+        fake.chmod(fake.stat().st_mode | stat.S_IEXEC)
+        env = os.environ.copy()
+        env["PATH"] = str(tmp_path) + ":" + env.get("PATH", "/usr/bin:/bin")
+        _run("mypane42", str(tty_file), env=env)
+        args = Path("/tmp/tmux_args_test").read_text().strip()
+        assert "capture-pane" in args
+        assert "-p" in args
+        assert "-t" in args
+        assert "mypane42" in args
+
+
+# ── help content accuracy ───────────────────────────────────────────────
+class TestHelpContent:
+    def test_help_matches_script_header_lines(self):
+        """--help outputs exactly lines 2–3 of the script (the usage comment)."""
+        script_lines = SCRIPT.read_text().splitlines()
+        r = _run("--help")
+        help_lines = r.stdout.strip().splitlines()
+        assert help_lines == script_lines[1:3]

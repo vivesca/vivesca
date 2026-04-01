@@ -556,6 +556,7 @@ def test_changed_accumulates_across_syncs(tmp_path):
     officina.mkdir(parents=True)
     _init_officina(officina)
 
+    # Use the full memory path that the script expects
     mem_src = fake_claude / "projects" / "-Users-terry" / "memory"
     mem_src.mkdir(parents=True)
     (mem_src / "MEMORY.md").write_text("data")
