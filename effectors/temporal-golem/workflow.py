@@ -52,7 +52,7 @@ class GolemBatchResult:
 _RETRY_POLICY_ARGS = dict(
     start_to_close_timeout=timedelta(minutes=30),
     heartbeat_timeout=timedelta(seconds=90),
-    retry_policy=workflow.RetryPolicy(
+    retry_policy=RetryPolicy(
         maximum_attempts=3,
         initial_interval=timedelta(seconds=10),
         backoff_coefficient=2.0,

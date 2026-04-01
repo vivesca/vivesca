@@ -468,8 +468,11 @@ def mark_failed(line_num: int, result: str = "", exit_code: int = 1, task_id: st
 
         # Determine new line content
         retried = False
-        # Exit 2 = command not found / usage error — never retry UNLESS rate-limited
-        if (exit_code == 2 and not rate_limited) or not cmd_match:
+        # Exit 2 = command not found / usage error — don't retry IF there's meaningful
+        # error output. But exit=2 with empty/whitespace output often means the API
+        # rejected the request silently (rate-limit, quota exhaustion) — retry those.
+        empty_output = not result or not result.strip()
+        if (exit_code == 2 and not rate_limited and not empty_output) or not cmd_match:
             lines[line_num] = _to_failed(original)
         elif '(retry)' not in cmd_match.group(1):
             old_cmd = cmd_match.group(1)

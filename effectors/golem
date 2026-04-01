@@ -279,8 +279,17 @@ _run_golem() {
       fi
       continue  # skip claude launch, retry the preflight
     elif [[ $_pf_rc -eq 2 ]]; then
-      $QUIET || echo "[preflight] $PROVIDER auth/connection error, skipping health check" >&2
-      # Don't retry on auth errors — just try claude directly (maybe endpoint behaves differently)
+      # Connection/auth error — may be transient (DNS blip, network hiccup).
+      # Retry with backoff like rate-limits. If all retries fail, fall through
+      # to claude launch as last resort (the endpoint may behave differently for CC).
+      _attempt=$(( _attempt + 1 ))
+      if [[ $_attempt -lt $_max_retries ]]; then
+        $QUIET || echo "[preflight] $PROVIDER connection error (attempt $_attempt/$_max_retries), retrying in ${_backoff}s" >&2
+        sleep "$_backoff"
+        _backoff=$(( _backoff * 2 ))
+        continue
+      fi
+      $QUIET || echo "[preflight] $PROVIDER connection error after $_max_retries attempts, trying claude directly" >&2
     fi
     fi  # end non-CC preflight
 
