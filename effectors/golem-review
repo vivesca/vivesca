@@ -230,12 +230,44 @@ def _verdict_from_score(score: int) -> str:
     return "poor"
 
 
+def _count_sections(lines: list[str]) -> tuple[int, int]:
+    """Count (total_sections, broken_sections).
+
+    A section is a heading line (# ...). A broken section is a heading
+    followed only by blank lines or another heading (no body text).
+    """
+    sections: list[tuple[str, bool]] = []  # (heading_text, has_body)
+    current_has_body = False
+
+    for line in lines:
+        stripped = line.strip()
+        if stripped.startswith("#"):
+            # Save previous section
+            if sections is not None and sections:
+                sections[-1] = (sections[-1][0], sections[-1][1] or current_has_body)
+            sections.append((stripped, False))
+            current_has_body = False
+        elif stripped == "":
+            continue
+        else:
+            current_has_body = True
+
+    # Finalize last section
+    if sections:
+        sections[-1] = (sections[-1][0], sections[-1][1] or current_has_body)
+
+    total = len(sections)
+    broken = sum(1 for _, has_body in sections if not has_body)
+    return total, broken
+
+
 def check_consulting_content(files: list[str]) -> list[dict]:
     """Check each file: exists? adequate word count (>200)? proper structure?
 
     Returns list of {file, exists, word_count, adequate,
                      has_headings, has_paragraphs, has_structure_elements,
                      structure_ok, has_introduction, has_conclusion,
+                     section_count, broken_sections, min_sections_ok,
                      quality_score, verdict}.
     """
     results = []
@@ -247,6 +279,8 @@ def check_consulting_content(files: list[str]) -> list[dict]:
             "has_headings": False, "has_paragraphs": False,
             "has_structure_elements": False, "structure_ok": False,
             "has_introduction": False, "has_conclusion": False,
+            "section_count": 0, "broken_sections": 0,
+            "min_sections_ok": False,
             "quality_score": 0, "verdict": "poor",
         }
 
@@ -298,6 +332,12 @@ def check_consulting_content(files: list[str]) -> list[dict]:
         has_bold = "**" in text
         has_table = any("|" in l and "---" in l for l in lines)
         entry["has_structure_elements"] = has_list or has_code or has_bold or has_table
+
+        # Section analysis
+        section_count, broken_sections = _count_sections(lines)
+        entry["section_count"] = section_count
+        entry["broken_sections"] = broken_sections
+        entry["min_sections_ok"] = section_count >= 2 and broken_sections == 0
 
         # Overall structure: needs headings + at least one of paragraphs/structure elements
         entry["structure_ok"] = (
