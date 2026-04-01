@@ -320,10 +320,13 @@ def _drain_running(running: dict, timeout: int = 60) -> int:
     while running and time.time() < deadline:
         done_futures = [f for f in running if f.done()]
         for future in done_futures:
-            line_num, cmd, provider, task_id = running.pop(future)
+            line_num, cmd, provider, dispatch_provider, task_id = _running_entry_details(running.pop(future))
             try:
                 _, exit_code, tail, duration = future.result()
-                _write_jsonl_record(task_id, provider, exit_code, duration, cmd, tail=tail)
+                _write_jsonl_record(
+                    task_id, provider, exit_code, duration, cmd, tail=tail,
+                    dispatch_provider=dispatch_provider,
+                )
                 if exit_code == 0:
                     mark_done(line_num, f"exit={exit_code}", task_id=task_id)
                 else:
@@ -334,7 +337,9 @@ def _drain_running(running: dict, timeout: int = 60) -> int:
                     log(f"SHUTDOWN DRAIN: [{task_id}] failed (exit={exit_code})")
             except Exception as e:
                 log(f"SHUTDOWN DRAIN: error processing [{task_id}]: {e}")
-                _write_jsonl_record(task_id, provider, 1, 0, cmd)
+                _write_jsonl_record(
+                    task_id, provider, 1, 0, cmd, dispatch_provider=dispatch_provider,
+                )
                 mark_failed(line_num, str(e), task_id=task_id)
         if running:
             time.sleep(2)
@@ -1273,8 +1278,12 @@ def auto_requeue(min_pending: int = 50) -> int:
 def _update_running_file(running: dict):
     """Write current running tasks to state file for cmd_status."""
     tasks = []
-    for _, (_, cmd, provider, task_id) in running.items():
-        tasks.append({"task_id": task_id, "provider": provider, "cmd": cmd[:80]})
+    for _, entry in running.items():
+        _, cmd, provider, dispatch_provider, task_id = _running_entry_details(entry)
+        task = {"task_id": task_id, "provider": provider, "cmd": cmd[:80]}
+        if dispatch_provider != provider:
+            task["dispatch_provider"] = dispatch_provider
+        tasks.append(task)
     try:
         RUNNING_FILE.parent.mkdir(parents=True, exist_ok=True)
         RUNNING_FILE.write_text(json.dumps(tasks))
@@ -1292,7 +1301,7 @@ def daemon_loop():
     _shutdown_event.clear()
 
     max_workers = MAX_TOTAL_CONCURRENT
-    running = {}  # future -> (line_num, cmd, provider, task_id)
+    running = {}  # future -> (line_num, cmd, provider, task_id, dispatch_provider)
     provider_running: dict[str, int] = {}  # provider -> count of running tasks
     provider_failure_times: dict[str, list[float]] = {}  # provider -> list of failure timestamps
     provider_cooldown_until: dict[str, float] = {}  # provider -> timestamp when cooldown ends
