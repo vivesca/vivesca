@@ -44,9 +44,11 @@ def test_bash_syntax_is_valid():
 
 def test_sync_function_works_correctly():
     """Test the sync_file function behaves correctly."""
-    # Create a test bash snippet that sources the script and tests sync_file
+    # Create a test bash snippet that sources the script but turns off nounset debugging
     test_script = f"""
+# Source the script to get the sync_file function
 source {EFFECTOR_PATH}
+set +u # Disable nounset for our test script since we don't need all the original vars
 
 # Create temp dir
 test_dir=$(mktemp -d)
@@ -58,7 +60,7 @@ echo "hello" > "$src1"
 sync_file "$src1" "$dst1"
 ret=$?
 if [ $ret -ne 0 ]; then
-    echo "Failed: sync new file should return 0"
+    echo "Failed: sync new file should return 0, got $ret"
     exit 1
 fi
 if ! diff -q "$src1" "$dst1"; then
@@ -70,7 +72,7 @@ fi
 sync_file "$src1" "$dst1"
 ret=$?
 if [ $ret -ne 1 ]; then
-    echo "Failed: unchanged file should return 1"
+    echo "Failed: unchanged file should return 1, got $ret"
     exit 1
 fi
 
@@ -78,7 +80,7 @@ fi
 sync_file "$test_dir/nonexistent" "$test_dir/dst2"
 ret=$?
 if [ $ret -ne 1 ]; then
-    echo "Failed: nonexistent source should return 1"
+    echo "Failed: nonexistent source should return 1, got $ret"
     exit 1
 fi
 
@@ -87,7 +89,7 @@ echo "world" > "$src1"
 sync_file "$src1" "$dst1"
 ret=$?
 if [ $ret -ne 0 ]; then
-    echo "Failed: changed file should return 0"
+    echo "Failed: changed file should return 0, got $ret"
     exit 1
 fi
 if ! diff -q "$src1" "$dst1"; then
@@ -104,10 +106,10 @@ exit 0
         text=True,
         check=False
     )
-    print(result.stdout)
-    print(result.stderr)
-    assert result.returncode == 0
-    assert "All sync_file tests passed" in result.stdout
+    # Show output for debugging
+    combined_output = result.stdout + "\n" + result.stderr
+    assert result.returncode == 0, f"Test failed with rc={result.returncode}\nOutput:\n{combined_output}"
+    assert "All sync_file tests passed" in combined_output, f"Expected success message not found.\nOutput:\n{combined_output}"
 
 
 if __name__ == "__main__":

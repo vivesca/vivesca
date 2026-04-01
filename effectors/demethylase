@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+from __future__ import annotations
 """demethylase — active memory erasure CLI.
 
 Usage:
@@ -8,8 +9,6 @@ Usage:
     demethylase --json             # JSON output
     demethylase --consolidate      # run consolidation only (no erasure)
 """
-
-from __future__ import annotations
 
 import argparse
 import json

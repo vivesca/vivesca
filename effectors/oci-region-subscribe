@@ -20,7 +20,7 @@ def oci(*args):
         ["oci"] + list(args),
         capture_output=True, text=True,
         env={**__import__("os").environ, **ENV},
-    timeout=300,
+        timeout=300,
     )
     return r.returncode, r.stdout, r.stderr
 

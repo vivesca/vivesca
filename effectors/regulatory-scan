@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+from __future__ import annotations
 """regulatory-scan — Scan regulatory documents for staleness and check for updates via rheotaxis.
 
 Scans ~/epigenome/chromatin/euchromatin/regulatory/ for documents older than 90 days.
@@ -7,8 +8,6 @@ For each stale document, uses rheotaxis to search for updates and generates a fr
 Usage:
     regulatory-scan [--days N] [--dry-run] [--backend BACKEND]
 """
-
-from __future__ import annotations
 
 import argparse
 import sys
