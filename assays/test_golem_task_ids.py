@@ -110,16 +110,29 @@ class TestTaskIDRegex:
 # 4. parse_queue generates IDs
 # ---------------------------------------------------------------------------
 
+class _FakeLock:
+    """Context-manager stub for QueueLock used in tests."""
+    def __enter__(self):
+        return self
+    def __exit__(self, *a):
+        pass
+
+_REAL_QUEUE_FILE = _mod["QUEUE_FILE"]
+_REAL_QLOCK = _mod["QueueLock"]
+
+
 class TestParseQueueIDs:
     @pytest.fixture(autouse=True)
-    def _setup_queue(self, tmp_path, monkeypatch):
+    def _setup_queue(self, tmp_path):
         self.qf = tmp_path / "golem-queue.md"
-        monkeypatch.setattr(_mod, "QUEUE_FILE", self.qf)
-        # Also patch the module-level reference used inside functions
-        _mod["QueueLock"] = type("QL", (), {
-            "__enter__": lambda self: None,
-            "__exit__": lambda self, *a: None,
-        })
+        self._orig_qf = _mod["QUEUE_FILE"]
+        self._orig_qlock = _mod["QueueLock"]
+        _mod["QUEUE_FILE"] = self.qf
+        _mod["QueueLock"] = _FakeLock
+
+    def teardown_method(self):
+        _mod["QUEUE_FILE"] = self._orig_qf
+        _mod["QueueLock"] = self._orig_qlock
 
     def test_generates_id_for_task_without_one(self):
         self.qf.write_text(textwrap.dedent("""\
@@ -198,8 +211,9 @@ class TestParseQueueIDs:
 # ---------------------------------------------------------------------------
 
 class TestRunGolemTaskID:
-    def test_env_var_set(self, monkeypatch):
+    def test_env_var_set(self):
         captured_env = {}
+
         def fake_run(cmd, **kwargs):
             captured_env.update(kwargs.get("env", {}))
             r = MagicMock()
@@ -208,13 +222,17 @@ class TestRunGolemTaskID:
             r.stderr = ""
             return r
 
-        monkeypatch.setattr(_mod, "subprocess")  # ensure module has subprocess
-        with patch("subprocess.run", fake_run):
+        _real_run = _mod["subprocess"].run
+        _mod["subprocess"].run = fake_run
+        try:
             _cmd, _exit, _tail, _dur = run_golem('golem [t-beef42] --provider zhipu "test"')
+        finally:
+            _mod["subprocess"].run = _real_run
         assert captured_env.get("GOLEM_TASK_ID") == "t-beef42"
 
-    def test_env_var_empty_when_no_id(self, monkeypatch):
+    def test_env_var_empty_when_no_id(self):
         captured_env = {}
+
         def fake_run(cmd, **kwargs):
             captured_env.update(kwargs.get("env", {}))
             r = MagicMock()
@@ -223,8 +241,12 @@ class TestRunGolemTaskID:
             r.stderr = ""
             return r
 
-        with patch("subprocess.run", fake_run):
+        _real_run = _mod["subprocess"].run
+        _mod["subprocess"].run = fake_run
+        try:
             _cmd, _exit, _tail, _dur = run_golem('golem --provider zhipu "test"')
+        finally:
+            _mod["subprocess"].run = _real_run
         assert captured_env.get("GOLEM_TASK_ID") == ""
 
 
@@ -232,26 +254,38 @@ class TestRunGolemTaskID:
 # 6. _write_jsonl_record includes task_id
 # ---------------------------------------------------------------------------
 
+_REAL_JSONLFILE = _mod["JSONLFILE"]
+
+
 class TestJsonlTaskID:
-    def test_task_id_in_record(self, tmp_path, monkeypatch):
+    def test_task_id_in_record(self, tmp_path):
         jsonl = tmp_path / "golem.jsonl"
-        monkeypatch.setattr(_mod, "JSONLFILE", jsonl)
-        _write_jsonl_record("t-cafe00", "zhipu", 0, 42, 'golem [t-cafe00] --provider zhipu "x"')
-        record = json.loads(jsonl.read_text().strip())
+        _mod["JSONLFILE"] = jsonl
+        try:
+            _write_jsonl_record("t-cafe00", "zhipu", 0, 42, 'golem [t-cafe00] --provider zhipu "x"')
+            record = json.loads(jsonl.read_text().strip())
+        finally:
+            _mod["JSONLFILE"] = _REAL_JSONLFILE
         assert record["task_id"] == "t-cafe00"
 
-    def test_empty_task_id(self, tmp_path, monkeypatch):
+    def test_empty_task_id(self, tmp_path):
         jsonl = tmp_path / "golem.jsonl"
-        monkeypatch.setattr(_mod, "JSONLFILE", jsonl)
-        _write_jsonl_record("", "zhipu", 1, 10, 'golem --provider zhipu "x"')
-        record = json.loads(jsonl.read_text().strip())
+        _mod["JSONLFILE"] = jsonl
+        try:
+            _write_jsonl_record("", "zhipu", 1, 10, 'golem --provider zhipu "x"')
+            record = json.loads(jsonl.read_text().strip())
+        finally:
+            _mod["JSONLFILE"] = _REAL_JSONLFILE
         assert record["task_id"] == ""
 
-    def test_record_shape(self, tmp_path, monkeypatch):
+    def test_record_shape(self, tmp_path):
         jsonl = tmp_path / "golem.jsonl"
-        monkeypatch.setattr(_mod, "JSONLFILE", jsonl)
-        _write_jsonl_record("t-112233", "volcano", 0, 99, "cmd", tail="out")
-        record = json.loads(jsonl.read_text().strip())
+        _mod["JSONLFILE"] = jsonl
+        try:
+            _write_jsonl_record("t-112233", "volcano", 0, 99, "cmd", tail="out")
+            record = json.loads(jsonl.read_text().strip())
+        finally:
+            _mod["JSONLFILE"] = _REAL_JSONLFILE
         for key in ("ts", "task_id", "provider", "exit", "duration", "cmd", "tail"):
             assert key in record, f"missing key: {key}"
 
@@ -262,13 +296,16 @@ class TestJsonlTaskID:
 
 class TestMarkDoneTaskID:
     @pytest.fixture(autouse=True)
-    def _setup(self, tmp_path, monkeypatch):
+    def _setup(self, tmp_path):
         self.qf = tmp_path / "golem-queue.md"
-        monkeypatch.setattr(_mod, "QUEUE_FILE", self.qf)
-        _mod["QueueLock"] = type("QL", (), {
-            "__enter__": lambda self: None,
-            "__exit__": lambda self, *a: None,
-        })
+        self._orig_qf = _mod["QUEUE_FILE"]
+        self._orig_qlock = _mod["QueueLock"]
+        _mod["QUEUE_FILE"] = self.qf
+        _mod["QueueLock"] = _FakeLock
+
+    def teardown_method(self):
+        _mod["QUEUE_FILE"] = self._orig_qf
+        _mod["QueueLock"] = self._orig_qlock
 
     def test_done_annotation_includes_task_id(self):
         self.qf.write_text(textwrap.dedent("""\
@@ -309,23 +346,30 @@ class TestMarkDoneTaskID:
 
 class TestMarkFailedTaskID:
     @pytest.fixture(autouse=True)
-    def _setup(self, tmp_path, monkeypatch):
+    def _setup(self, tmp_path):
         self.qf = tmp_path / "golem-queue.md"
-        monkeypatch.setattr(_mod, "QUEUE_FILE", self.qf)
-        _mod["QueueLock"] = type("QL", (), {
-            "__enter__": lambda self: None,
-            "__exit__": lambda self, *a: None,
-        })
+        self._orig_qf = _mod["QUEUE_FILE"]
+        self._orig_qlock = _mod["QueueLock"]
+        _mod["QUEUE_FILE"] = self.qf
+        _mod["QueueLock"] = _FakeLock
 
-    def test_retry_includes_task_id_in_log(self, caplog):
+    def teardown_method(self):
+        _mod["QUEUE_FILE"] = self._orig_qf
+        _mod["QueueLock"] = self._orig_qlock
+
+    def test_retry_includes_task_id_in_log(self):
         """mark_failed should log with task_id when retrying."""
         self.qf.write_text(textwrap.dedent("""\
             ## Tasks
             - [ ] `golem [t-dead00] --provider zhipu "test"`
             ## Done
         """))
-        with patch.object(_mod, "log"):
+        _real_log = _mod["log"]
+        _mod["log"] = lambda msg: None
+        try:
             result = mark_failed(1, "exit=1 some error", exit_code=1, task_id="t-dead00")
+        finally:
+            _mod["log"] = _real_log
         # Should retry (exit=1, first failure)
         assert result["retried"] is True
 
@@ -335,9 +379,14 @@ class TestMarkFailedTaskID:
             - [ ] `golem [t-badbad] --provider zhipu "test"`
             ## Done
         """))
-        with patch.object(_mod, "log"):
+        _real_log = _mod["log"]
+        _mod["log"] = lambda msg: None
+        try:
             # exit_code=2 with non-empty output = permanent failure
-            result = mark_failed(1, "command not found: foo", exit_code=2, task_id="t-badbad")
+            # Must pass tail= so empty_output check is False
+            result = mark_failed(1, "command not found: foo", exit_code=2, task_id="t-badbad", tail="command not found: foo")
+        finally:
+            _mod["log"] = _real_log
         assert result["retried"] is False
         content = self.qf.read_text()
         assert "- [!]" in content
@@ -348,11 +397,15 @@ class TestMarkFailedTaskID:
             - [ ] `golem [t-ratel1] --provider zhipu "test"`
             ## Done
         """))
-        with patch.object(_mod, "log"):
+        _real_log = _mod["log"]
+        _mod["log"] = lambda msg: None
+        try:
             result = mark_failed(
                 1, "Error: 429 rate limit exceeded", exit_code=2,
                 task_id="t-ratel1"
             )
+        finally:
+            _mod["log"] = _real_log
         assert result["retried"] is True
         assert result["rate_limited"] is True
 
@@ -361,43 +414,54 @@ class TestMarkFailedTaskID:
 # 9. cmd_status shows running task IDs
 # ---------------------------------------------------------------------------
 
+_REAL_RUNNING_FILE = _mod["RUNNING_FILE"]
+_REAL_READ_PID = _mod["read_pid"]
+
+
 class TestCmdStatusRunningIDs:
-    def test_shows_running_task_ids(self, tmp_path, monkeypatch, capsys):
-        monkeypatch.setattr(_mod, "QUEUE_FILE", tmp_path / "golem-queue.md")
+    def test_shows_running_task_ids(self, tmp_path, capsys):
+        _mod["QUEUE_FILE"] = tmp_path / "golem-queue.md"
+        _mod["RUNNING_FILE"] = tmp_path / "running.json"
+        _mod["read_pid"] = lambda: 1234
         (tmp_path / "golem-queue.md").write_text("## Done\n")
-        monkeypatch.setattr(_mod, "RUNNING_FILE", tmp_path / "running.json")
-
-        # Pretend daemon is running
-        monkeypatch.setattr(_mod, "read_pid", lambda: 1234)
-
-        # Write running file with task IDs
-        running_data = [
-            {"task_id": "t-abc123", "provider": "zhipu", "cmd": "golem [t-abc123] --provider zhipu do_x"},
-            {"task_id": "t-def456", "provider": "volcano", "cmd": "golem [t-def456] --provider volcano do_y"},
-        ]
-        (tmp_path / "running.json").write_text(json.dumps(running_data))
-
-        cmd_status()
-        output = capsys.readouterr().out
+        try:
+            running_data = [
+                {"task_id": "t-abc123", "provider": "zhipu", "cmd": "golem [t-abc123] --provider zhipu do_x"},
+                {"task_id": "t-def456", "provider": "volcano", "cmd": "golem [t-def456] --provider volcano do_y"},
+            ]
+            (tmp_path / "running.json").write_text(json.dumps(running_data))
+            cmd_status()
+            output = capsys.readouterr().out
+        finally:
+            _mod["QUEUE_FILE"] = _REAL_QUEUE_FILE
+            _mod["RUNNING_FILE"] = _REAL_RUNNING_FILE
+            _mod["read_pid"] = _REAL_READ_PID
         assert "t-abc123" in output
         assert "t-def456" in output
         assert "zhipu" in output
         assert "volcano" in output
 
-    def test_no_running_file(self, tmp_path, monkeypatch, capsys):
-        monkeypatch.setattr(_mod, "QUEUE_FILE", tmp_path / "golem-queue.md")
+    def test_no_running_file(self, tmp_path, capsys):
+        _mod["QUEUE_FILE"] = tmp_path / "golem-queue.md"
+        _mod["RUNNING_FILE"] = tmp_path / "nonexistent.json"
+        _mod["read_pid"] = lambda: 5678
         (tmp_path / "golem-queue.md").write_text("## Done\n")
-        monkeypatch.setattr(_mod, "RUNNING_FILE", tmp_path / "nonexistent.json")
-        monkeypatch.setattr(_mod, "read_pid", lambda: 5678)
-
-        cmd_status()
-        output = capsys.readouterr().out
+        try:
+            cmd_status()
+            output = capsys.readouterr().out
+        finally:
+            _mod["QUEUE_FILE"] = _REAL_QUEUE_FILE
+            _mod["RUNNING_FILE"] = _REAL_RUNNING_FILE
+            _mod["read_pid"] = _REAL_READ_PID
         assert "Daemon running" in output
         assert "5678" in output
 
-    def test_daemon_not_running(self, monkeypatch, capsys):
-        monkeypatch.setattr(_mod, "read_pid", lambda: None)
-        ret = cmd_status()
-        output = capsys.readouterr().out
+    def test_daemon_not_running(self, capsys):
+        _mod["read_pid"] = lambda: None
+        try:
+            ret = cmd_status()
+            output = capsys.readouterr().out
+        finally:
+            _mod["read_pid"] = _REAL_READ_PID
         assert "not running" in output
         assert ret == 1
