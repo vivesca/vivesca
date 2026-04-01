@@ -815,19 +815,32 @@ def test_scrape_one_content_after_frontmatter(tmp_path):
     assert "Body text here." in body
 
 
-def test_batch_malformed_row_skipped(tmp_path, capsys):
-    """Rows with fewer than 5 columns should be skipped (csv.reader gives fewer items)."""
+def test_batch_malformed_row_raises(tmp_path):
+    """Rows with fewer than 5 columns cause ValueError on unpacking."""
+    tsv_file = tmp_path / "catalog.tsv"
+    tsv_file.write_text("only_two\tcolumns\n")
+
+    original_so = _mod["scrape_one"]
+    _mod["scrape_one"] = lambda *a, **kw: "/fake/path"
+    try:
+        with pytest.raises(ValueError, match="not enough values"):
+            batch(str(tsv_file))
+    finally:
+        _mod["scrape_one"] = original_so
+
+
+def test_batch_row_with_extra_columns(tmp_path):
+    """Rows with more than 6 columns should still work (extras ignored)."""
     tsv_file = tmp_path / "catalog.tsv"
     tsv_file.write_text(
-        "only_two\tcolumns\n"
-        "https://example.com/a\tfca\t2024-01-01\tDoc A\tguidance\n"
+        "https://example.com/a\tfca\t2024-01-01\tDoc A\tguidance\tmy-slug\textra_col\n"
     )
 
     call_log = []
     original_so = _mod["scrape_one"]
 
     def mock_scrape_one(url, issuer, date, title, doc_type, slug=None, status="final"):
-        call_log.append((url, issuer, date, title, doc_type))
+        call_log.append({"slug": slug})
         return "/fake/path"
 
     _mod["scrape_one"] = mock_scrape_one
@@ -836,11 +849,8 @@ def test_batch_malformed_row_skipped(tmp_path, capsys):
     finally:
         _mod["scrape_one"] = original_so
 
-    # Only the valid row should be processed; the 2-column row gets unpacked
-    # and the url will be "only_two", which is fine — it still calls scrape_one
-    assert len(call_log) == 2
-    assert call_log[0][0] == "only_two"
-    assert call_log[1][0] == "https://example.com/a"
+    assert len(call_log) == 1
+    assert call_log[0]["slug"] == "my-slug"
 
 
 def test_cli_single_url_with_all_flags(tmp_path):
