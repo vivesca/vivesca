@@ -146,9 +146,17 @@ def _check_phenotype_symlinks() -> tuple[list[dict], list[str]]:
             continue
         if entry.name in _KNOWN_PLATFORM_DIRS:
             continue
-        if not (entry / PLATFORM_MARKERS_REQUIRED).exists():
+        try:
+            has_marker = (entry / PLATFORM_MARKERS_REQUIRED).exists()
+        except PermissionError:
             continue
-        if any((entry / m).exists() for m in PLATFORM_MARKERS_CONFIRM):
+        if not has_marker:
+            continue
+        try:
+            has_confirm = any((entry / m).exists() for m in PLATFORM_MARKERS_CONFIRM)
+        except PermissionError:
+            continue
+        if has_confirm:
             unknown.append(entry.name)
 
     return issues, unknown
