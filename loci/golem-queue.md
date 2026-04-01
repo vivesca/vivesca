@@ -183,78 +183,15 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 
 ### Overnight mega batch (2026-03-31 night)
 
-- [x] `golem --provider zhipu --max-turns 35 "Create effectors/skill-search as Python. Searches all SKILL.md files by keyword. Returns matching skills with description. Like grep but skill-aware. Write tests. Run uv run pytest."`
-- [x] `golem --provider zhipu --max-turns 35 "Create effectors/queue-balance as Python. Reads golem-queue.md. Reports task distribution by provider. Suggests rebalancing if one provider has >2x others. Write tests. Run uv run pytest."`
-- [x] `golem --provider zhipu --max-turns 35 "Create effectors/golem-top as Python. Shows currently running golem processes (ps aux | grep golem). For each: PID, provider, duration, task snippet. Like top for golems. Write tests. Run uv run pytest." (retry)`
-- [x] `golem --provider zhipu --max-turns 35 "Create effectors/effector-usage as Python. Scans golem.jsonl + golem-daemon.log for effector mentions. Reports: most used, never used, recently broken. Write tests. Run uv run pytest." (retry)`
-- [x] `golem --provider zhipu --max-turns 35 "Create effectors/golem-cost as Python. Estimates cost of golem runs. Reads golem.jsonl. Calculates: tokens estimated per run (turns * ~4K), total tokens, cost if metered. Write tests. Run uv run pytest."`
-- [x] `golem --provider zhipu --max-turns 35 "Create effectors/git-activity as Python. Shows git activity across germline + epigenome: commits today, files changed, top contributors (golem vs human). Quick pulse check. Write tests. Run uv run pytest." (retry)`
 
 
 ### Overnight fill — consulting IP + hardening + enhancements
 
-- [x] `golem --provider zhipu --max-turns 35 "Write a consulting deep-dive on: AI model risk management — HSBC perspective — global G-SIB with multi-jurisdiction requirements. Structure: Executive summary (3 sentences), Context (why now, regulatory drivers), Analysis (the core content, 4-6 sections with detail), Recommendations (5 numbered, actionable), Appendix (references, further reading). Write to ~/epigenome/chromatin/euchromatin/consulting/deep-dives/ with slugified filename. 800-1200 words, professional consulting tone."`
-- [x] `golem --provider zhipu --max-turns 35 "Write a consulting deep-dive on: Responsible AI governance — comparison of HKMA vs MAS vs PRA expectations. Structure: Executive summary (3 sentences), Context (why now, regulatory drivers), Analysis (the core content, 4-6 sections with detail), Recommendations (5 numbered, actionable), Appendix (references, further reading). Write to ~/epigenome/chromatin/euchromatin/consulting/deep-dives/ with slugified filename. 800-1200 words, professional consulting tone."`
-- [x] `golem --provider zhipu --max-turns 35 "Write a consulting deep-dive on: Third-party AI risk — vendor assessment scorecard with weighted criteria. Structure: Executive summary (3 sentences), Context (why now, regulatory drivers), Analysis (the core content, 4-6 sections with detail), Recommendations (5 numbered, actionable), Appendix (references, further reading). Write to ~/epigenome/chromatin/euchromatin/consulting/deep-dives/ with slugified filename. 800-1200 words, professional consulting tone."`
-- [x] `golem --provider zhipu --max-turns 35 "Write a consulting deep-dive on: AI explainability — customer-facing explanations for credit decisions — templates. Structure: Executive summary (3 sentences), Context (why now, regulatory drivers), Analysis (the core content, 4-6 sections with detail), Recommendations (5 numbered, actionable), Appendix (references, further reading). Write to ~/epigenome/chromatin/euchromatin/consulting/deep-dives/ with slugified filename. 800-1200 words, professional consulting tone."`
-- [x] `golem --provider zhipu --max-turns 35 "Write a consulting deep-dive on: AI in AML/KYC — transaction monitoring model comparison — rules vs ML vs hybrid. Structure: Executive summary (3 sentences), Context (why now, regulatory drivers), Analysis (the core content, 4-6 sections with detail), Recommendations (5 numbered, actionable), Appendix (references, further reading). Write to ~/epigenome/chromatin/euchromatin/consulting/deep-dives/ with slugified filename. 800-1200 words, professional consulting tone."`
-- [x] `golem --provider zhipu --max-turns 35 "Write a consulting deep-dive on: Cloud AI services — data residency mapping for APAC banking jurisdictions. Structure: Executive summary (3 sentences), Context (why now, regulatory drivers), Analysis (the core content, 4-6 sections with detail), Recommendations (5 numbered, actionable), Appendix (references, further reading). Write to ~/epigenome/chromatin/euchromatin/consulting/deep-dives/ with slugified filename. 800-1200 words, professional consulting tone."`
-- [x] `golem --provider zhipu --max-turns 35 "Write a consulting deep-dive on: GenAI policy for banks — acceptable use policy template with examples. Structure: Executive summary (3 sentences), Context (why now, regulatory drivers), Analysis (the core content, 4-6 sections with detail), Recommendations (5 numbered, actionable), Appendix (references, further reading). Write to ~/epigenome/chromatin/euchromatin/consulting/deep-dives/ with slugified filename. 800-1200 words, professional consulting tone."`
-- [x] `golem --provider zhipu --max-turns 35 "Write a consulting deep-dive on: AI incident response — post-incident review template with root cause taxonomy. Structure: Executive summary (3 sentences), Context (why now, regulatory drivers), Analysis (the core content, 4-6 sections with detail), Recommendations (5 numbered, actionable), Appendix (references, further reading). Write to ~/epigenome/chromatin/euchromatin/consulting/deep-dives/ with slugified filename. 800-1200 words, professional consulting tone."`
-- [x] `golem --provider zhipu --max-turns 35 "Write a consulting deep-dive on: AI model validation — validation framework adapted from SR 11-7 for ML models. Structure: Executive summary (3 sentences), Context (why now, regulatory drivers), Analysis (the core content, 4-6 sections with detail), Recommendations (5 numbered, actionable), Appendix (references, further reading). Write to ~/epigenome/chromatin/euchromatin/consulting/deep-dives/ with slugified filename. 800-1200 words, professional consulting tone."`
-- [x] `golem --provider zhipu --max-turns 35 "Write a consulting deep-dive on: RegTech landscape — build vs buy decision framework for compliance AI. Structure: Executive summary (3 sentences), Context (why now, regulatory drivers), Analysis (the core content, 4-6 sections with detail), Recommendations (5 numbered, actionable), Appendix (references, further reading). Write to ~/epigenome/chromatin/euchromatin/consulting/deep-dives/ with slugified filename. 800-1200 words, professional consulting tone."`
-- [x] `golem --provider zhipu --max-turns 35 "Write a consulting deep-dive on: AI fraud detection — ROC/precision trade-offs for different fraud types. Structure: Executive summary (3 sentences), Context (why now, regulatory drivers), Analysis (the core content, 4-6 sections with detail), Recommendations (5 numbered, actionable), Appendix (references, further reading). Write to ~/epigenome/chromatin/euchromatin/consulting/deep-dives/ with slugified filename. 800-1200 words, professional consulting tone."`
-- [x] `golem --provider zhipu --max-turns 35 "Write a consulting deep-dive on: Board AI reporting — materiality threshold framework — when to escalate AI issues. Structure: Executive summary (3 sentences), Context (why now, regulatory drivers), Analysis (the core content, 4-6 sections with detail), Recommendations (5 numbered, actionable), Appendix (references, further reading). Write to ~/epigenome/chromatin/euchromatin/consulting/deep-dives/ with slugified filename. 800-1200 words, professional consulting tone."`
-- [x] `golem --provider zhipu --max-turns 35 "Write a consulting deep-dive on: DORA implications — AI-specific requirements extracted from DORA articles. Structure: Executive summary (3 sentences), Context (why now, regulatory drivers), Analysis (the core content, 4-6 sections with detail), Recommendations (5 numbered, actionable), Appendix (references, further reading). Write to ~/epigenome/chromatin/euchromatin/consulting/deep-dives/ with slugified filename. 800-1200 words, professional consulting tone."`
-- [x] `golem --provider zhipu --max-turns 35 "Write a consulting deep-dive on: AI ethics — customer consent framework for AI-driven services. Structure: Executive summary (3 sentences), Context (why now, regulatory drivers), Analysis (the core content, 4-6 sections with detail), Recommendations (5 numbered, actionable), Appendix (references, further reading). Write to ~/epigenome/chromatin/euchromatin/consulting/deep-dives/ with slugified filename. 800-1200 words, professional consulting tone."`
-- [x] `golem --provider zhipu --max-turns 30 "Write a consulting case study template: GenAI document processing for trade finance operations. Structure: Client context (disguised), Challenge, Approach (phased), Key decisions, Results (with metrics — invent plausible ones), Lessons learned, Capco differentiator. Write to ~/epigenome/chromatin/euchromatin/consulting/case-studies/ with slugified filename. 600-900 words."`
-- [x] `golem --provider zhipu --max-turns 30 "Write a consulting case study template: AI model risk framework implementation — 16-week program. Structure: Client context (disguised), Challenge, Approach (phased), Key decisions, Results (with metrics — invent plausible ones), Lessons learned, Capco differentiator. Write to ~/epigenome/chromatin/euchromatin/consulting/case-studies/ with slugified filename. 600-900 words."`
-- [x] `golem --provider zhipu --max-turns 30 "Write a consulting case study template: Real-time fraud detection ML pipeline — architecture and results. Structure: Client context (disguised), Challenge, Approach (phased), Key decisions, Results (with metrics — invent plausible ones), Lessons learned, Capco differentiator. Write to ~/epigenome/chromatin/euchromatin/consulting/case-studies/ with slugified filename. 600-900 words."`
-- [x] `golem --provider zhipu --max-turns 30 "Write a consulting case study template: Intelligent document extraction for KYC onboarding. Structure: Client context (disguised), Challenge, Approach (phased), Key decisions, Results (with metrics — invent plausible ones), Lessons learned, Capco differentiator. Write to ~/epigenome/chromatin/euchromatin/consulting/case-studies/ with slugified filename. 600-900 words."`
-- [x] `golem --provider zhipu --max-turns 30 "Write a consulting case study template: Chatbot compliance monitoring — ensuring regulatory adherence. Structure: Client context (disguised), Challenge, Approach (phased), Key decisions, Results (with metrics — invent plausible ones), Lessons learned, Capco differentiator. Write to ~/epigenome/chromatin/euchromatin/consulting/case-studies/ with slugified filename. 600-900 words."`
-- [x] `golem --provider zhipu --max-turns 30 "Write a consulting case study template: NLP for regulatory change management — tracking 500+ updates/year. Structure: Client context (disguised), Challenge, Approach (phased), Key decisions, Results (with metrics — invent plausible ones), Lessons learned, Capco differentiator. Write to ~/epigenome/chromatin/euchromatin/consulting/case-studies/ with slugified filename. 600-900 words."`
-- [x] `golem --provider zhipu --max-turns 30 "Write a consulting case study template: Data quality framework for ML pipelines at a custodian bank. Structure: Client context (disguised), Challenge, Approach (phased), Key decisions, Results (with metrics — invent plausible ones), Lessons learned, Capco differentiator. Write to ~/epigenome/chromatin/euchromatin/consulting/case-studies/ with slugified filename. 600-900 words."`
-- [x] `golem --provider zhipu --max-turns 30 "Write a consulting case study template: Cross-border data governance for AI in a multi-jurisdiction bank. Structure: Client context (disguised), Challenge, Approach (phased), Key decisions, Results (with metrics — invent plausible ones), Lessons learned, Capco differentiator. Write to ~/epigenome/chromatin/euchromatin/consulting/case-studies/ with slugified filename. 600-900 words."`
-- [x] `golem --provider zhipu --max-turns 30 "Write a consulting case study template: AI red team exercise — adversarial testing of banking LLMs. Structure: Client context (disguised), Challenge, Approach (phased), Key decisions, Results (with metrics — invent plausible ones), Lessons learned, Capco differentiator. Write to ~/epigenome/chromatin/euchromatin/consulting/case-studies/ with slugified filename. 600-900 words."`
-- [x] `golem --provider zhipu --max-turns 30 "Write a consulting case study template: Digital twin for branch network optimization using AI. Structure: Client context (disguised), Challenge, Approach (phased), Key decisions, Results (with metrics — invent plausible ones), Lessons learned, Capco differentiator. Write to ~/epigenome/chromatin/euchromatin/consulting/case-studies/ with slugified filename. 600-900 words."`
-- [x] `golem --provider zhipu --max-turns 30 "Write: Capco-specific interview prep — company values, recent projects, culture. Practical, actionable, consulting-grade quality. Write to ~/epigenome/chromatin/euchromatin/consulting/prep/ with slugified filename."`
-- [x] `golem --provider zhipu --max-turns 30 "Write: Estimation questions for AI projects — how to size effort and cost. Practical, actionable, consulting-grade quality. Write to ~/epigenome/chromatin/euchromatin/consulting/prep/ with slugified filename."`
-- [x] `golem --provider zhipu --max-turns 30 "Write: AI readiness assessment questionnaire — 30 questions for bank self-assessment. Practical, actionable, consulting-grade quality. Write to ~/epigenome/chromatin/euchromatin/consulting/prep/ with slugified filename."`
-- [x] `golem --provider zhipu --max-turns 30 "Write: Regulatory examination prep — what examiners ask about AI/ML models. Practical, actionable, consulting-grade quality. Write to ~/epigenome/chromatin/euchromatin/consulting/prep/ with slugified filename."`
-- [x] `golem --provider zhipu --max-turns 30 "Write: AI project failure modes — 15 anti-patterns and how to avoid them. Practical, actionable, consulting-grade quality. Write to ~/epigenome/chromatin/euchromatin/consulting/prep/ with slugified filename."`
-- [x] `golem --provider zhipu --max-turns 30 "Write: AI demo preparation — how to showcase AI capabilities to bank executives. Practical, actionable, consulting-grade quality. Write to ~/epigenome/chromatin/euchromatin/consulting/prep/ with slugified filename."`
-- [x] `golem --provider zhipu --max-turns 40 "Research and write: HKMA SPM module on technology risk management — extract AI-relevant requirements. Use rheotaxis_search to find the actual regulatory text or summary. Extract key requirements. Write consulting-ready analysis to ~/epigenome/chromatin/euchromatin/regulatory/deep-dives/ with slugified filename. Include: source document, key requirements, bank obligations, common gaps, consulting opportunity."`
-- [x] `golem --provider zhipu --max-turns 40 "Research and write: PRA SS1/23 model risk management — ML-specific interpretation guide. Use rheotaxis_search to find the actual regulatory text or summary. Extract key requirements. Write consulting-ready analysis to ~/epigenome/chromatin/euchromatin/regulatory/deep-dives/ with slugified filename. Include: source document, key requirements, bank obligations, common gaps, consulting opportunity."`
-- [x] `golem --provider zhipu --max-turns 40 "Research and write: EU AI Act — banking-specific obligations by risk category. Use rheotaxis_search to find the actual regulatory text or summary. Extract key requirements. Write consulting-ready analysis to ~/epigenome/chromatin/euchromatin/regulatory/deep-dives/ with slugified filename. Include: source document, key requirements, bank obligations, common gaps, consulting opportunity."`
-- [x] `golem --provider zhipu --max-turns 40 "Research and write: OCC bulletin on model risk — how it applies to GenAI. Use rheotaxis_search to find the actual regulatory text or summary. Extract key requirements. Write consulting-ready analysis to ~/epigenome/chromatin/euchromatin/regulatory/deep-dives/ with slugified filename. Include: source document, key requirements, bank obligations, common gaps, consulting opportunity."`
-- [x] `golem --provider zhipu --max-turns 40 "Research and write: HKMA supervisory expectations on cybersecurity — AI security angle. Use rheotaxis_search to find the actual regulatory text or summary. Extract key requirements. Write consulting-ready analysis to ~/epigenome/chromatin/euchromatin/regulatory/deep-dives/ with slugified filename. Include: source document, key requirements, bank obligations, common gaps, consulting opportunity."`
-- [x] `golem --provider zhipu --max-turns 40 "Research and write: EBA guidelines on ICT risk management — AI-specific controls. Use rheotaxis_search to find the actual regulatory text or summary. Extract key requirements. Write consulting-ready analysis to ~/epigenome/chromatin/euchromatin/regulatory/deep-dives/ with slugified filename. Include: source document, key requirements, bank obligations, common gaps, consulting opportunity."`
-- [x] `golem --provider zhipu --max-turns 40 "Research and write: Singapore PDPA — AI model training data requirements. Use rheotaxis_search to find the actual regulatory text or summary. Extract key requirements. Write consulting-ready analysis to ~/epigenome/chromatin/euchromatin/regulatory/deep-dives/ with slugified filename. Include: source document, key requirements, bank obligations, common gaps, consulting opportunity."`
-- [x] `golem --provider zhipu --max-turns 30 "Read effectors/golem. Add --quiet flag that suppresses all output except the final exit code. Write/update tests. Run uv run pytest. Commit."`
-- [x] `golem --provider zhipu --max-turns 30 "Read effectors/golem-daemon. Add cmd_retry-all — re-queue all [!] failed tasks as [ ] for another attempt. Write/update tests. Run uv run pytest. Commit."`
-- [x] `golem --provider zhipu --max-turns 30 "Read effectors/golem-daemon. Add priority queue support — tasks marked [!!] run before [ ]. Write/update tests. Run uv run pytest. Commit."`
-- [x] `golem --provider zhipu --max-turns 30 "Read effectors/legatum. Add --format json flag for machine-readable output. Write/update tests. Run uv run pytest. Commit."`
-- [x] `golem --provider zhipu --max-turns 30 "Read effectors/chromatin-backup.sh. Convert to Python for nociceptor compatibility. Keep same functionality.. Write/update tests. Run uv run pytest. Commit."`
-- [x] `golem --provider zhipu --max-turns 30 "Read metabolon/server.py. Add request logging — log tool name, duration, success/fail to a JSONL file. Write/update tests. Run uv run pytest. Commit."`
-- [x] `golem --provider zhipu --max-turns 30 "Read metabolon/codons/templates.py. Audit template strings for stale references to renamed tools. Write/update tests. Run uv run pytest. Commit."`
-- [x] `golem --provider zhipu --max-turns 30 "Read metabolon/organelles/sporulation.py. Add checkpoint listing — show all saved checkpoints with dates. Write/update tests. Run uv run pytest. Commit."`
-- [x] `golem --provider zhipu --max-turns 30 "Read metabolon/sortase/graph.py. Add visualization output — DOT format for task dependency graph. Write/update tests. Run uv run pytest. Commit."`
-- [x] `golem --provider zhipu --max-turns 25 "Scan ALL .py files for bare except: clauses. Replace with specific exceptions. Commit."`
-- [x] `golem --provider zhipu --max-turns 25 "Check ALL assays/test_*.py for deterministic tests (no time.time, random, network calls without mock). Report non-deterministic tests."`
-- [x] `golem --provider zhipu --max-turns 25 "Find ALL Python files missing from __future__ import annotations. Add where type hints are used. Commit."`
-- [x] `golem --provider zhipu --max-turns 25 "Check ALL test files use assays/ flat structure. Move any in subdirectories. Commit."`
-- [x] `golem --provider zhipu --max-turns 25 "Scan for ANY remaining ~/ hardcoded paths across entire repo. Fix ALL. Commit."`
-- [x] `golem --provider zhipu --max-turns 25 "Check ALL async functions for missing await calls. Fix. Commit."`
-- [x] `golem --provider zhipu --max-turns 25 "Verify ALL git hooks in .git/hooks/ still work. Remove broken ones. Commit."`
-- [x] `golem --provider zhipu --max-turns 25 "Check ALL test fixtures clean up after themselves (temp files, env vars). Fix leaks. Commit." (retry)`
-- [x] `golem --provider zhipu --max-turns 25 "Verify ALL pathlib usage is cross-platform (no hardcoded / separators). Fix. Commit." (retry)`
-- [!] `golem --provider zhipu --max-turns 25 "Check ALL file writes use atomic write pattern (write to .tmp, rename). Fix critical ones. Commit." (retry)`
 
 
 ### Post-batch synthesis (run after overnight batch drains)
 
 #### Synthesis — overnight output digest
-- [!] `golem --provider zhipu --max-turns 50 "You are running after a mega batch of 900 golem tasks. Create a digest of everything produced overnight. (1) List all new files in ~/epigenome/chromatin/euchromatin/consulting/ — group by type (cards, deep-dives, case-studies, prep, regulatory). Count each. (2) List all new/modified files in ~/germline/assays/ — count new tests, fixed tests. (3) List all new/modified effectors in ~/germline/effectors/. (4) Run uv run pytest -q --tb=no --continue-on-collection-errors 2>&1 | tail -5 — record pass/fail. (5) Read golem summary stats from ~/.local/share/vivesca/golem.jsonl — pass/fail by provider. Write a structured morning digest to ~/epigenome/chromatin/euchromatin/consulting/overnight-digest.md. Include: what was produced, what worked, what failed, what needs human review." (retry)`
 
 #### Synthesis — consulting IP executive summary
 
@@ -263,14 +200,12 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 ### Lustro content analysis — process cached articles
 
 #### Build — lustro batch analyzer
-- [!] `golem --provider zhipu --max-turns 40 "Create effectors/lustro-analyze as Python. Reads all articles from ~/.cache/lustro-articles/. For each .json or .md file: extract title, source, date, content snippet. Classify by topic: AI, banking, regulation, technology, other. Output: (1) summary table of all articles by topic, (2) top 20 most relevant to banking AI consulting, (3) key themes across all articles. Usage: lustro-analyze [--top N] [--topic banking]. Write to stdout or --output file. Write assays/test_lustro_analyze.py. Run uv run pytest." (retry)`
 
 #### Process — lustro articles → consulting signals
 
 #### Process — endocytosis content → Capco prep
 
 #### Process — lustro financial articles
-- [x] `golem --provider zhipu --full --max-turns 40 "Read files in ~/.cache/lustro-articles/ that contain keywords: bank, HSBC, fintech, regulation, compliance, risk. For each matching article: extract title + 1 key takeaway. Compile into: (1) Banking industry signals this week, (2) Technology trends affecting banks, (3) Regulatory developments. Write to ~/epigenome/chromatin/euchromatin/consulting/lustro-banking-signals.md."`
 
 #### Process — lustro AI/tech articles
 
@@ -280,14 +215,12 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 ### Meta-golem — self-sustaining review + requeue loop
 
 #### Build — review-and-requeue effector (runs this once, then daemon picks up the cycle)
-- [!] `golem --provider zhipu --max-turns 50 "Create effectors/golem-review as Python. This is a META-GOLEM — it reviews other golem output and queues more work. Steps: (1) Read golem-daemon.log, find tasks completed in last 30 min. (2) For each completed task: check if output files were created (git diff --name-only HEAD~5). (3) For new test files: run uv run pytest on each, count pass/fail. (4) For new consulting content: check file exists and has >200 words. (5) For failed tasks: read the log tail, diagnose common failures (path issues, import errors, timeout), write a FIXED version of the task to loci/golem-queue.md. (6) Generate a review summary to loci/copia/golem-review-latest.md. (7) If queue has <50 pending tasks: auto-generate 50 more from untested modules/effectors. Usage: golem-review [--auto-requeue] [--since 30m]. Write assays/test_golem_review.py. Run uv run pytest." (retry)`
 
 #### Review cycle 1 (fires ~1h into batch)
 
 #### Review cycle 2 (fires ~2h into batch)
 
 #### Review cycle 3 (fires ~3h into batch)
-- [!] `golem --provider zhipu --max-turns 40 "Review golem output — third cycle. (1) Count consulting IP produced so far: cards, deep-dives, case-studies, prep, regulatory. (2) Quality check: read 5 random deep-dives, score each 1-5 on: structure, depth, actionability. Report scores. (3) Check lustro analysis output — did the lustro tasks produce signal files? (4) If consulting IP is thin in any category: generate 10 more tasks for that category. (5) Commit any uncommitted golem output: git add ~/epigenome/chromatin/ ~/germline/assays/ ~/germline/effectors/ && git commit -m 'golem: batch checkpoint'. (6) Write review to loci/copia/review-cycle-3.md." (retry)`
 
 #### Review cycle 4 (fires ~4h into batch)
 
@@ -295,303 +228,52 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 
 
 ### Auto-requeue (64 tasks)
-- [x] `golem --provider zhipu --max-turns 30 "Write tests for /home/terry/germline/metabolon/server.py. Mock external calls. Run uv run pytest. Fix failures. Commit."`
-- [!] `golem --provider infini --max-turns 30 "Write tests for /home/terry/germline/metabolon/vasomotor.py. Mock external calls. Run uv run pytest. Fix failures. Commit." (retry)`
-- [x] `golem --provider volcano --max-turns 30 "Write tests for /home/terry/germline/metabolon/enzymes/mitosis.py. Mock external calls. Run uv run pytest. Fix failures. Commit."`
-- [x] `golem --provider zhipu --max-turns 30 "Write tests for /home/terry/germline/metabolon/enzymes/synthase.py. Mock external calls. Run uv run pytest. Fix failures. Commit."`
-- [x] `golem --provider infini --max-turns 30 "Write tests for /home/terry/germline/metabolon/enzymes/judge.py. Mock external calls. Run uv run pytest. Fix failures. Commit."`
-- [x] `golem --provider volcano --max-turns 30 "Write tests for /home/terry/germline/metabolon/enzymes/kinesin.py. Mock external calls. Run uv run pytest. Fix failures. Commit."`
-- [x] `golem --provider zhipu --max-turns 30 "Write tests for /home/terry/germline/metabolon/enzymes/lysis.py. Mock external calls. Run uv run pytest. Fix failures. Commit."`
-- [x] `golem --provider infini --max-turns 30 "Write tests for /home/terry/germline/metabolon/enzymes/histone.py. Mock external calls. Run uv run pytest. Fix failures. Commit."`
-- [x] `golem --provider volcano --max-turns 30 "Write tests for /home/terry/germline/metabolon/enzymes/cytokinesis.py. Mock external calls. Run uv run pytest. Fix failures. Commit."`
-- [x] `golem --provider zhipu --max-turns 30 "Write tests for /home/terry/germline/metabolon/enzymes/efferens.py. Mock external calls. Run uv run pytest. Fix failures. Commit."`
-- [x] `golem --provider infini --max-turns 30 "Write tests for /home/terry/germline/metabolon/enzymes/differentiation.py. Mock external calls. Run uv run pytest. Fix failures. Commit."`
-- [x] `golem --provider volcano --max-turns 30 "Write tests for /home/terry/germline/metabolon/enzymes/pseudopod.py. Mock external calls. Run uv run pytest. Fix failures. Commit."`
-- [x] `golem --provider zhipu --max-turns 30 "Write tests for /home/terry/germline/metabolon/enzymes/demethylase.py. Mock external calls. Run uv run pytest. Fix failures. Commit."`
-- [x] `golem --provider infini --max-turns 30 "Write tests for /home/terry/germline/metabolon/enzymes/pinocytosis.py. Mock external calls. Run uv run pytest. Fix failures. Commit."`
-- [x] `golem --provider volcano --max-turns 30 "Write tests for /home/terry/germline/metabolon/enzymes/sporulation.py. Mock external calls. Run uv run pytest. Fix failures. Commit."`
-- [x] `golem --provider zhipu --max-turns 30 "Write tests for /home/terry/germline/metabolon/enzymes/navigator.py. Mock external calls. Run uv run pytest. Fix failures. Commit."`
-- [x] `golem --provider infini --max-turns 30 "Write tests for /home/terry/germline/metabolon/enzymes/ingestion.py. Mock external calls. Run uv run pytest. Fix failures. Commit."`
-- [x] `golem --provider volcano --max-turns 30 "Write tests for /home/terry/germline/metabolon/enzymes/rheotaxis.py. Mock external calls. Run uv run pytest. Fix failures. Commit."`
-- [x] `golem --provider zhipu --max-turns 30 "Write tests for /home/terry/germline/metabolon/enzymes/circadian.py. Mock external calls. Run uv run pytest. Fix failures. Commit."`
-- [x] `golem --provider infini --max-turns 30 "Write tests for /home/terry/germline/metabolon/enzymes/tachometer.py. Mock external calls. Run uv run pytest. Fix failures. Commit."`
-- [!] `golem --provider volcano --max-turns 30 "Write tests for /home/terry/germline/metabolon/enzymes/gap_junction.py. Mock external calls. Run uv run pytest. Fix failures. Commit." (retry)`
-- [x] `golem --provider zhipu --max-turns 30 "Write tests for /home/terry/germline/metabolon/enzymes/expression.py. Mock external calls. Run uv run pytest. Fix failures. Commit."`
-- [x] `golem --provider infini --max-turns 30 "Write tests for /home/terry/germline/metabolon/enzymes/assay.py. Mock external calls. Run uv run pytest. Fix failures. Commit."`
-- [x] `golem --provider volcano --max-turns 30 "Write tests for /home/terry/germline/metabolon/enzymes/interoception.py. Mock external calls. Run uv run pytest. Fix failures. Commit."`
-- [x] `golem --provider zhipu --max-turns 30 "Write tests for /home/terry/germline/metabolon/enzymes/endocytosis.py. Mock external calls. Run uv run pytest. Fix failures. Commit."`
-- [x] `golem --provider infini --max-turns 30 "Write tests for /home/terry/germline/metabolon/enzymes/integrin.py. Mock external calls. Run uv run pytest. Fix failures. Commit."`
-- [x] `golem --provider volcano --max-turns 30 "Write tests for /home/terry/germline/metabolon/enzymes/turgor.py. Mock external calls. Run uv run pytest. Fix failures. Commit."`
-- [x] `golem --provider zhipu --max-turns 30 "Write tests for /home/terry/germline/metabolon/enzymes/hemostasis.py. Mock external calls. Run uv run pytest. Fix failures. Commit."`
-- [x] `golem --provider infini --max-turns 30 "Write tests for /home/terry/germline/metabolon/enzymes/sortase.py. Mock external calls. Run uv run pytest. Fix failures. Commit."`
-- [x] `golem --provider volcano --max-turns 30 "Write tests for /home/terry/germline/metabolon/enzymes/endosomal.py. Mock external calls. Run uv run pytest. Fix failures. Commit."`
-- [x] `golem --provider zhipu --max-turns 30 "Write tests for effectors/agent-sync.sh. Effectors are scripts — load via exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
-- [!] `golem --provider infini --max-turns 30 "Write tests for effectors/assay. Effectors are scripts — load via exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit." (retry)`
-- [x] `golem --provider volcano --max-turns 30 "Write tests for effectors/auto-update-compound-engineering.sh. Effectors are scripts — load via exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
-- [x] `golem --provider zhipu --max-turns 30 "Write tests for effectors/backup-due.sh. Effectors are scripts — load via exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
-- [x] `golem --provider infini --max-turns 30 "Write tests for effectors/browser. Effectors are scripts — load via exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
-- [x] `golem --provider volcano --max-turns 30 "Write tests for effectors/centrosome. Effectors are scripts — load via exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
-- [x] `golem --provider zhipu --max-turns 30 "Write tests for effectors/chat_history.py. Effectors are scripts — load via exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
-- [!] `golem --provider infini --max-turns 30 "Write tests for effectors/chromatin-backup.sh. Effectors are scripts — load via exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit." (retry)`
-- [x] `golem --provider volcano --max-turns 30 "Write tests for effectors/ck. Effectors are scripts — load via exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
-- [!] `golem --provider zhipu --max-turns 30 "Write tests for effectors/cleanup-stuck. Effectors are scripts — load via exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit." (retry)`
-- [!] `golem --provider infini --max-turns 30 "Write tests for effectors/commensal. Effectors are scripts — load via exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit." (retry)`
-- [x] `golem --provider volcano --max-turns 30 "Write tests for effectors/compound-engineering-test. Effectors are scripts — load via exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit." (retry)`
-- [!] `golem --provider zhipu --max-turns 30 "Write tests for effectors/coverage-map. Effectors are scripts — load via exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit." (retry)`
-- [!] `golem --provider infini --max-turns 30 "Write tests for effectors/disk-audit. Effectors are scripts — load via exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
-- [x] `golem --provider volcano --max-turns 30 "Write tests for effectors/electroreception. Effectors are scripts — load via exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
-- [!] `golem --provider zhipu --max-turns 30 "Write tests for effectors/gap_junction_sync. Effectors are scripts — load via exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit." (retry)`
-- [x] `golem --provider infini --max-turns 30 "Write tests for effectors/gemmation-env. Effectors are scripts — load via exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
-- [x] `golem --provider volcano --max-turns 30 "Write tests for effectors/golem-reviewer. Effectors are scripts — load via exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
-- [!] `golem --provider zhipu --max-turns 30 "Write tests for effectors/hetzner-bootstrap.sh. Effectors are scripts — load via exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit." (retry)`
-- [!] `golem --provider infini --max-turns 30 "Write tests for effectors/importin. Effectors are scripts — load via exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit." (retry)`
-- [!] `golem --provider volcano --max-turns 30 "Write tests for effectors/judge. Effectors are scripts — load via exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit." (retry)`
-- [!] `golem --provider zhipu --max-turns 30 "Write tests for effectors/oura-weekly-digest.py. Effectors are scripts — load via exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit." (retry)`
-- [!] `golem --provider infini --max-turns 30 "Write tests for effectors/perplexity.sh. Effectors are scripts — load via exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit." (retry)`
-- [x] `golem --provider volcano --max-turns 30 "Write tests for effectors/pharos-env.sh. Effectors are scripts — load via exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
-- [!] `golem --provider zhipu --max-turns 30 "Write tests for effectors/pharos-health.sh. Effectors are scripts — load via exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit." (retry)`
-- [!] `golem --provider infini --max-turns 30 "Write tests for effectors/pharos-sync.sh. Effectors are scripts — load via exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit." (retry)`
-- [x] `golem --provider volcano --max-turns 30 "Write tests for effectors/plan-exec. Effectors are scripts — load via exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit." (retry)`
-- [!] `golem --provider zhipu --max-turns 30 "Write tests for effectors/plan-exec.deprecated. Effectors are scripts — load via exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit." (retry)`
-- [!] `golem --provider infini --max-turns 30 "Write tests for effectors/qmd-reindex.sh. Effectors are scripts — load via exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit." (retry)`
-- [!] `golem --provider volcano --max-turns 30 "Write tests for effectors/regulatory-scan. Effectors are scripts — load via exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit." (retry)`
-- [!] `golem --provider zhipu --max-turns 40 "Run uv run pytest --co -q 2>&1 | grep ERROR. Fix ALL collection errors. Common: hardcoded paths, bad imports, syntax. Run --co again until 0 errors." (retry)`
-- [!] `golem --provider infini --max-turns 30 "Scan assays/ for hardcoded /Users/terry paths. Replace with Path.home(). Run pytest. Commit." (retry)`
-- [!] `golem --provider volcano --max-turns 30 "Find test files with SyntaxError (ast.parse fails). Fix syntax. Run pytest. Commit." (retry)`
-- [!] `golem --provider zhipu --max-turns 30 "Run uv run pytest -q --tb=no --continue-on-collection-errors. Report pass/fail. Fix top 5 failures. Commit." (retry)`
 
 ### Auto-requeue (19 tasks @ 06:09)
-- [!] `golem --provider infini --max-turns 40 "Run uv run pytest --co -q 2>&1 | grep ERROR. Fix ALL collection errors. Common: hardcoded paths, bad imports, syntax. Run --co again until 0 errors. Commit." (retry)`
-- [!] `golem --provider volcano --max-turns 50 "Run uv run pytest -q --tb=no --continue-on-collection-errors 2>&1 | grep FAILED | sed 's/::.*//g' | sort | uniq -c | sort -rn | head -5. For each of the top 5 failing test files: run pytest on it, read traceback, fix. Iterate until green. Commit." (retry)`
-- [!] `golem --provider zhipu --max-turns 30 "Health check: immunosurveillance.py, tmux-osc52.sh, provider-bench, golem-review, rg, pharos-health.sh, dr-sync, receptor-scan, importin, chromatin-decay-report.py. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit." (retry)`
-- [!] `golem --provider infini --max-turns 30 "Write tests for /home/terry/germline/metabolon/metabolism/preflight.py. Mock external calls. Write assays/test_metabolism_preflight.py. Run uv run pytest. Fix failures. Commit." (retry)`
-- [!] `golem --provider volcano --max-turns 30 "Write tests for /home/terry/germline/metabolon/organelles/receptor_sense.py. Mock external calls. Write assays/test_organelles_receptor_sense.py. Run uv run pytest. Fix failures. Commit." (retry)`
-- [!] `golem --provider zhipu --max-turns 30 "Write tests for /home/terry/germline/metabolon/pinocytosis/polarization.py. Mock external calls. Write assays/test_pinocytosis_polarization.py. Run uv run pytest. Fix failures. Commit." (retry)`
-- [!] `golem --provider infini --max-turns 30 "Write tests for /home/terry/germline/metabolon/server.py. Mock external calls. Write assays/test_server.py. Run uv run pytest. Fix failures. Commit." (retry)`
-- [!] `golem --provider volcano --max-turns 30 "Write tests for /home/terry/germline/metabolon/organelles/circulation.py. Mock external calls. Write assays/test_organelles_circulation.py. Run uv run pytest. Fix failures. Commit." (retry)`
-- [!] `golem --provider zhipu --max-turns 30 "Write tests for effectors/backup-due.sh. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit." (retry)`
-- [!] `golem --provider infini --max-turns 30 "Write tests for effectors/commensal. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit." (retry)`
-- [!] `golem --provider volcano --max-turns 30 "Write tests for effectors/update-compound-engineering-skills.sh. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit." (retry)`
-- [!] `golem --provider zhipu --max-turns 30 "Write tests for effectors/qmd-reindex.sh. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit." (retry)`
-- [!] `golem --provider infini --max-turns 30 "Write tests for effectors/gemmation-env. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit." (retry)`
-- [!] `golem --provider volcano --max-turns 25 "Check all assays/test_*.py can be collected by pytest --co. Fix any that error. Commit." (retry)`
-- [!] `golem --provider zhipu --max-turns 25 "Find subprocess.run calls without timeout in effectors/. Add timeout=300. Commit." (retry)`
-- [!] `golem --provider infini --max-turns 25 "Check all effectors respond to --help without crashing. Fix crashers. Commit." (retry)`
-- [!] `golem --provider volcano --max-turns 30 "Write a consulting insight card: AI vendor due diligence questionnaire for banks. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-vendor-due-diligence.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words." (retry)`
-- [x] `golem --provider zhipu --max-turns 30 "Write a consulting insight card: AI model risk management framework for banks — write a consulting brief with problem, approach, key considerations. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-model-risk-framework.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
-- [!] `golem --provider infini --max-turns 35 "Read effectors/golem-dash (if exists). Improve to show real-time task progress, ETA to drain. Write tests. Run uv run pytest. Commit." (retry)`
 
 ### Auto-requeue (64 tasks)
-- [x] `golem --provider zhipu --max-turns 30 "Write tests for /home/terry/germline/metabolon/server.py. Mock external calls. Run uv run pytest. Fix failures. Commit."`
-- [!] `golem --provider infini --max-turns 30 "Write tests for /home/terry/germline/metabolon/enzymes/mitosis.py. Mock external calls. Run uv run pytest. Fix failures. Commit." (retry)`
-- [!] `golem --provider volcano --max-turns 30 "Write tests for /home/terry/germline/metabolon/enzymes/judge.py. Mock external calls. Run uv run pytest. Fix failures. Commit." (retry)`
-- [x] `golem --provider zhipu --max-turns 30 "Write tests for /home/terry/germline/metabolon/enzymes/kinesin.py. Mock external calls. Run uv run pytest. Fix failures. Commit."`
-- [!] `golem --provider infini --max-turns 30 "Write tests for /home/terry/germline/metabolon/enzymes/lysis.py. Mock external calls. Run uv run pytest. Fix failures. Commit." (retry)`
-- [!] `golem --provider volcano --max-turns 30 "Write tests for /home/terry/germline/metabolon/enzymes/histone.py. Mock external calls. Run uv run pytest. Fix failures. Commit." (retry)`
-- [!] `golem --provider zhipu --max-turns 30 "Write tests for /home/terry/germline/metabolon/enzymes/cytokinesis.py. Mock external calls. Run uv run pytest. Fix failures. Commit."`
-- [!] `golem --provider infini --max-turns 30 "Write tests for /home/terry/germline/metabolon/enzymes/efferens.py. Mock external calls. Run uv run pytest. Fix failures. Commit." (retry)`
-- [!] `golem --provider volcano --max-turns 30 "Write tests for /home/terry/germline/metabolon/enzymes/differentiation.py. Mock external calls. Run uv run pytest. Fix failures. Commit." (retry)`
-- [!] `golem --provider zhipu --max-turns 30 "Write tests for /home/terry/germline/metabolon/enzymes/pseudopod.py. Mock external calls. Run uv run pytest. Fix failures. Commit."`
-- [!] `golem --provider infini --max-turns 30 "Write tests for /home/terry/germline/metabolon/enzymes/demethylase.py. Mock external calls. Run uv run pytest. Fix failures. Commit." (retry)`
-- [!] `golem --provider volcano --max-turns 30 "Write tests for /home/terry/germline/metabolon/enzymes/pinocytosis.py. Mock external calls. Run uv run pytest. Fix failures. Commit." (retry)`
-- [!] `golem --provider zhipu --max-turns 30 "Write tests for /home/terry/germline/metabolon/enzymes/sporulation.py. Mock external calls. Run uv run pytest. Fix failures. Commit." (retry)`
-- [!] `golem --provider infini --max-turns 30 "Write tests for /home/terry/germline/metabolon/enzymes/navigator.py. Mock external calls. Run uv run pytest. Fix failures. Commit." (retry)`
-- [!] `golem --provider volcano --max-turns 30 "Write tests for /home/terry/germline/metabolon/enzymes/ingestion.py. Mock external calls. Run uv run pytest. Fix failures. Commit." (retry)`
-- [!] `golem --provider zhipu --max-turns 30 "Write tests for /home/terry/germline/metabolon/enzymes/rheotaxis.py. Mock external calls. Run uv run pytest. Fix failures. Commit." (retry)`
-- [!] `golem --provider infini --max-turns 30 "Write tests for /home/terry/germline/metabolon/enzymes/circadian.py. Mock external calls. Run uv run pytest. Fix failures. Commit." (retry)`
-- [!] `golem --provider volcano --max-turns 30 "Write tests for /home/terry/germline/metabolon/enzymes/tachometer.py. Mock external calls. Run uv run pytest. Fix failures. Commit." (retry)`
-- [!] `golem --provider zhipu --max-turns 30 "Write tests for /home/terry/germline/metabolon/enzymes/gap_junction.py. Mock external calls. Run uv run pytest. Fix failures. Commit." (retry)`
-- [!] `golem --provider infini --max-turns 30 "Write tests for /home/terry/germline/metabolon/enzymes/expression.py. Mock external calls. Run uv run pytest. Fix failures. Commit." (retry)`
-- [!] `golem --provider volcano --max-turns 30 "Write tests for /home/terry/germline/metabolon/enzymes/assay.py. Mock external calls. Run uv run pytest. Fix failures. Commit." (retry)`
-- [!] `golem --provider zhipu --max-turns 30 "Write tests for /home/terry/germline/metabolon/enzymes/interoception.py. Mock external calls. Run uv run pytest. Fix failures. Commit." (retry)`
-- [!] `golem --provider infini --max-turns 30 "Write tests for /home/terry/germline/metabolon/enzymes/endocytosis.py. Mock external calls. Run uv run pytest. Fix failures. Commit." (retry)`
-- [!] `golem --provider volcano --max-turns 30 "Write tests for /home/terry/germline/metabolon/enzymes/integrin.py. Mock external calls. Run uv run pytest. Fix failures. Commit." (retry)`
-- [x] `golem --provider zhipu --max-turns 30 "Write tests for /home/terry/germline/metabolon/enzymes/turgor.py. Mock external calls. Run uv run pytest. Fix failures. Commit."`
-- [!] `golem --provider infini --max-turns 30 "Write tests for /home/terry/germline/metabolon/enzymes/hemostasis.py. Mock external calls. Run uv run pytest. Fix failures. Commit." (retry)`
-- [!] `golem --provider volcano --max-turns 30 "Write tests for /home/terry/germline/metabolon/enzymes/sortase.py. Mock external calls. Run uv run pytest. Fix failures. Commit." (retry)`
-- [x] `golem --provider zhipu --max-turns 30 "Write tests for /home/terry/germline/metabolon/enzymes/endosomal.py. Mock external calls. Run uv run pytest. Fix failures. Commit."`
-- [!] `golem --provider infini --max-turns 30 "Write tests for /home/terry/germline/metabolon/enzymes/polarization.py. Mock external calls. Run uv run pytest. Fix failures. Commit." (retry)`
-- [!] `golem --provider volcano --max-turns 30 "Write tests for /home/terry/germline/metabolon/pathways/overnight.py. Mock external calls. Run uv run pytest. Fix failures. Commit." (retry)`
-- [x] `golem --provider zhipu --max-turns 30 "Write tests for effectors/agent-sync.sh. Effectors are scripts — load via exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
-- [!] `golem --provider infini --max-turns 30 "Write tests for effectors/assay. Effectors are scripts — load via exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit." (retry)`
-- [!] `golem --provider volcano --max-turns 30 "Write tests for effectors/auto-update-compound-engineering.sh. Effectors are scripts — load via exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit." (retry)`
-- [x] `golem --provider zhipu --max-turns 30 "Write tests for effectors/backup-due.sh. Effectors are scripts — load via exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
-- [!] `golem --provider infini --max-turns 30 "Write tests for effectors/browser. Effectors are scripts — load via exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit." (retry)`
-- [!] `golem --provider volcano --max-turns 30 "Write tests for effectors/chromatin-backup.sh. Effectors are scripts — load via exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit." (retry)`
-- [x] `golem --provider zhipu --max-turns 30 "Write tests for effectors/cleanup-stuck. Effectors are scripts — load via exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
-- [!] `golem --provider infini --max-turns 30 "Write tests for effectors/commensal. Effectors are scripts — load via exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit." (retry)`
-- [!] `golem --provider volcano --max-turns 30 "Write tests for effectors/coverage-map. Effectors are scripts — load via exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit." (retry)`
-- [x] `golem --provider zhipu --max-turns 30 "Write tests for effectors/disk-audit. Effectors are scripts — load via exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
-- [!] `golem --provider infini --max-turns 30 "Write tests for effectors/gap_junction_sync. Effectors are scripts — load via exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit." (retry)`
-- [!] `golem --provider volcano --max-turns 30 "Write tests for effectors/gemmation-env. Effectors are scripts — load via exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit." (retry)`
-- [x] `golem --provider zhipu --max-turns 30 "Write tests for effectors/hetzner-bootstrap.sh. Effectors are scripts — load via exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
-- [!] `golem --provider infini --max-turns 30 "Write tests for effectors/importin. Effectors are scripts — load via exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit." (retry)`
-- [!] `golem --provider volcano --max-turns 30 "Write tests for effectors/oura-weekly-digest.py. Effectors are scripts — load via exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit." (retry)`
-- [x] `golem --provider zhipu --max-turns 30 "Write tests for effectors/perplexity.sh. Effectors are scripts — load via exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
-- [!] `golem --provider infini --max-turns 30 "Write tests for effectors/pharos-env.sh. Effectors are scripts — load via exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit." (retry)`
-- [!] `golem --provider volcano --max-turns 30 "Write tests for effectors/pharos-health.sh. Effectors are scripts — load via exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit." (retry)`
-- [x] `golem --provider zhipu --max-turns 30 "Write tests for effectors/pharos-sync.sh. Effectors are scripts — load via exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
-- [!] `golem --provider infini --max-turns 30 "Write tests for effectors/plan-exec.deprecated. Effectors are scripts — load via exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit." (retry)`
-- [!] `golem --provider volcano --max-turns 30 "Write tests for effectors/qmd-reindex.sh. Effectors are scripts — load via exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit." (retry)`
-- [x] `golem --provider zhipu --max-turns 30 "Write tests for effectors/skill-lint. Effectors are scripts — load via exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
-- [!] `golem --provider infini --max-turns 30 "Write tests for effectors/start-chrome-debug.sh. Effectors are scripts — load via exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit." (retry)`
-- [!] `golem --provider volcano --max-turns 30 "Write tests for effectors/tm. Effectors are scripts — load via exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit." (retry)`
-- [!] `golem --provider zhipu --max-turns 30 "Write tests for effectors/tmux-osc52.sh. Effectors are scripts — load via exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit." (retry)`
-- [!] `golem --provider infini --max-turns 30 "Write tests for effectors/tmux-url-select.sh. Effectors are scripts — load via exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit." (retry)`
-- [!] `golem --provider volcano --max-turns 30 "Write tests for effectors/transduction-daily-run. Effectors are scripts — load via exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit." (retry)`
-- [x] `golem --provider zhipu --max-turns 30 "Write tests for effectors/update-coding-tools.sh. Effectors are scripts — load via exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
-- [!] `golem --provider infini --max-turns 30 "Write tests for effectors/update-compound-engineering. Effectors are scripts — load via exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit." (retry)`
-- [!] `golem --provider volcano --max-turns 30 "Write tests for effectors/update-compound-engineering-skills.sh. Effectors are scripts — load via exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit." (retry)`
-- [x] `golem --provider zhipu --max-turns 40 "Run uv run pytest --co -q 2>&1 | grep ERROR. Fix ALL collection errors. Common: hardcoded paths, bad imports, syntax. Run --co again until 0 errors."`
-- [!] `golem --provider infini --max-turns 30 "Scan assays/ for hardcoded /Users/terry paths. Replace with Path.home(). Run pytest. Commit." (retry)`
-- [!] `golem --provider volcano --max-turns 30 "Find test files with SyntaxError (ast.parse fails). Fix syntax. Run pytest. Commit." (retry)`
-- [!] `golem --provider zhipu --max-turns 30 "Run uv run pytest -q --tb=no --continue-on-collection-errors. Report pass/fail. Fix top 5 failures. Commit." (retry)`
 
 ### Auto-requeue (19 tasks @ 07:29)
-- [!] `golem --provider volcano --max-turns 40 "Run uv run pytest --co -q 2>&1 | grep ERROR. Fix ALL collection errors. Common: hardcoded paths, bad imports, syntax. Run --co again until 0 errors. Commit." (retry)`
 - [ ] `golem --provider zhipu --max-turns 50 "Run uv run pytest -q --tb=no --continue-on-collection-errors 2>&1 | grep FAILED | sed 's/::.*//g' | sort | uniq -c | sort -rn | head -5. For each of the top 5 failing test files: run pytest on it, read traceback, fix. Iterate until green. Commit."`
-- [!] `golem --provider infini --max-turns 30 "Health check: gap_junction_sync, wewe-rss-health.py, pinocytosis, orphan-scan, nightly, x-feed-to-lustro, paracrine, autoimmune.py, safe_search.py, sortase. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit." (retry)`
-- [!] `golem --provider volcano --max-turns 30 "Write tests for /home/terry/germline/metabolon/metabolism/gates.py. Mock external calls. Write assays/test_metabolism_gates.py. Run uv run pytest. Fix failures. Commit." (retry)`
-- [x] `golem --provider zhipu --max-turns 30 "Write tests for /home/terry/germline/metabolon/organelles/secretory_vesicle.py. Mock external calls. Write assays/test_organelles_secretory_vesicle.py. Run uv run pytest. Fix failures. Commit."`
-- [!] `golem --provider infini --max-turns 30 "Write tests for /home/terry/germline/metabolon/metabolism/mismatch_repair.py. Mock external calls. Write assays/test_metabolism_mismatch_repair.py. Run uv run pytest. Fix failures. Commit." (retry)`
-- [!] `golem --provider volcano --max-turns 30 "Write tests for /home/terry/germline/metabolon/enzymes/tachometer.py. Mock external calls. Write assays/test_enzymes_tachometer.py. Run uv run pytest. Fix failures. Commit." (retry)`
-- [x] `golem --provider zhipu --max-turns 30 "Write tests for /home/terry/germline/metabolon/enzymes/cytokinesis.py. Mock external calls. Write assays/test_enzymes_cytokinesis.py. Run uv run pytest. Fix failures. Commit."`
-- [!] `golem --provider infini --max-turns 30 "Write tests for effectors/start-chrome-debug.sh. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit." (retry)`
-- [!] `golem --provider volcano --max-turns 30 "Write tests for effectors/transduction-daily-run. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit." (retry)`
-- [x] `golem --provider zhipu --max-turns 30 "Write tests for effectors/pharos-health.sh. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
-- [!] `golem --provider infini --max-turns 30 "Write tests for effectors/backup-due.sh. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit." (retry)`
-- [!] `golem --provider volcano --max-turns 30 "Write tests for effectors/pharos-env.sh. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit." (retry)`
-- [x] `golem --provider zhipu --max-turns 25 "Find test files with SyntaxError. Fix syntax. Commit."`
-- [!] `golem --provider infini --max-turns 25 "Scan assays/ for hardcoded /Users/terry paths. Replace with Path.home(). Commit." (retry)`
-- [!] `golem --provider volcano --max-turns 25 "Find Python files missing shebang in effectors/. Add #!/usr/bin/env python3. Commit." (retry)`
-- [x] `golem --provider zhipu --max-turns 30 "Write a consulting insight card: AI skills gap assessment for banking technology teams. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-skills-gap.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
-- [!] `golem --provider infini --max-turns 30 "Write a consulting insight card: AI model risk management framework for banks — write a consulting brief with problem, approach, key considerations. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-model-risk-framework.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words." (retry)`
-- [!] `golem --provider volcano --max-turns 35 "Read effectors/golem-daemon. Add cmd_stats — show pass/fail/retry counts, avg duration by provider, tasks completed today. Usage: golem-daemon stats. Write tests. Run uv run pytest. Commit." (retry)`
 
 ### Auto-requeue (19 tasks @ 07:33)
-- [!] `golem --provider volcano --max-turns 40 "Run uv run pytest --co -q 2>&1 | grep ERROR. Fix ALL collection errors. Common: hardcoded paths, bad imports, syntax. Run --co again until 0 errors. Commit." (retry)`
 - [ ] `golem --provider zhipu --max-turns 50 "Run uv run pytest -q --tb=no --continue-on-collection-errors 2>&1 | grep FAILED | sed 's/::.*//g' | sort | uniq -c | sort -rn | head -5. For each of the top 5 failing test files: run pytest on it, read traceback, fix. Iterate until green. Commit."`
-- [!] `golem --provider infini --max-turns 30 "Health check: gap_junction_sync, skill-lint, receptor-scan, cytokinesis, start-chrome-debug.sh, plan-exec.deprecated, test-spec-gen, golem-daemon, backfill-marks, safe_rm.py. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit." (retry)`
-- [!] `golem --provider volcano --max-turns 30 "Write tests for /home/terry/germline/metabolon/organelles/praxis.py. Mock external calls. Write assays/test_organelles_praxis.py. Run uv run pytest. Fix failures. Commit." (retry)`
-- [x] `golem --provider zhipu --max-turns 30 "Write tests for /home/terry/germline/metabolon/metabolism/setpoint.py. Mock external calls. Write assays/test_metabolism_setpoint.py. Run uv run pytest. Fix failures. Commit."`
-- [!] `golem --provider infini --max-turns 30 "Write tests for /home/terry/germline/metabolon/organelles/mitosis.py. Mock external calls. Write assays/test_organelles_mitosis.py. Run uv run pytest. Fix failures. Commit." (retry)`
-- [!] `golem --provider volcano --max-turns 30 "Write tests for /home/terry/germline/metabolon/organelles/circadian_clock.py. Mock external calls. Write assays/test_organelles_circadian_clock.py. Run uv run pytest. Fix failures. Commit." (retry)`
-- [x] `golem --provider zhipu --max-turns 30 "Write tests for /home/terry/germline/metabolon/enzymes/endosomal.py. Mock external calls. Write assays/test_enzymes_endosomal.py. Run uv run pytest. Fix failures. Commit."`
-- [!] `golem --provider infini --max-turns 30 "Write tests for effectors/wacli-ro. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit." (retry)`
-- [!] `golem --provider volcano --max-turns 30 "Write tests for effectors/chromatin-backup.sh. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit." (retry)`
-- [x] `golem --provider zhipu --max-turns 30 "Write tests for effectors/update-compound-engineering-skills.sh. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
-- [!] `golem --provider infini --max-turns 30 "Write tests for effectors/pharos-health.sh. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit." (retry)`
-- [!] `golem --provider volcano --max-turns 30 "Write tests for effectors/plan-exec.deprecated. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit." (retry)`
-- [x] `golem --provider zhipu --max-turns 25 "Check all effectors respond to --help without crashing. Fix crashers. Commit."`
-- [!] `golem --provider infini --max-turns 25 "Find subprocess.run calls without timeout in effectors/. Add timeout=300. Commit." (retry)`
-- [!] `golem --provider volcano --max-turns 25 "Find unused imports in metabolon/**/*.py. Remove them. Commit." (retry)`
-- [x] `golem --provider zhipu --max-turns 30 "Write a consulting insight card: AI skills gap assessment for banking technology teams. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-skills-gap.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
-- [!] `golem --provider infini --max-turns 30 "Write a consulting insight card: AI bias testing framework for credit decisioning. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-bias-testing.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words." (retry)`
-- [!] `golem --provider volcano --max-turns 35 "Read effectors/golem-review (if exists). Enhance to also check consulting content quality (>200 words, proper structure). Write tests. Run uv run pytest. Commit." (retry)`
 
 ### Auto-requeue (19 tasks @ 07:39)
-- [!] `golem --provider infini --max-turns 40 "Run uv run pytest --co -q 2>&1 | grep ERROR. Fix ALL collection errors. Common: hardcoded paths, bad imports, syntax. Run --co again until 0 errors. Commit." (retry)`
-- [!] `golem --provider volcano --max-turns 50 "Run uv run pytest -q --tb=no --continue-on-collection-errors 2>&1 | grep FAILED | sed 's/::.*//g' | sort | uniq -c | sort -rn | head -5. For each of the top 5 failing test files: run pytest on it, read traceback, fix. Iterate until green. Commit." (retry)`
-- [x] `golem --provider zhipu --max-turns 30 "Health check: rename-kindle-asins.py, skill-search, inflammasome-probe, git-activity, skill-sync, agent-sync.sh, overnight-gather, provider-bench, phagocytosis.py, cg. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
-- [!] `golem --provider infini --max-turns 30 "Write tests for /home/terry/germline/metabolon/enzymes/differentiation.py. Mock external calls. Write assays/test_enzymes_differentiation.py. Run uv run pytest. Fix failures. Commit." (retry)`
-- [!] `golem --provider volcano --max-turns 30 "Write tests for /home/terry/germline/metabolon/resources/proteome.py. Mock external calls. Write assays/test_resources_proteome.py. Run uv run pytest. Fix failures. Commit." (retry)`
-- [x] `golem --provider zhipu --max-turns 30 "Write tests for /home/terry/germline/metabolon/resources/constitution.py. Mock external calls. Write assays/test_resources_constitution.py. Run uv run pytest. Fix failures. Commit."`
-- [!] `golem --provider infini --max-turns 30 "Write tests for /home/terry/germline/metabolon/organelles/engram.py. Mock external calls. Write assays/test_organelles_engram.py. Run uv run pytest. Fix failures. Commit." (retry)`
-- [!] `golem --provider volcano --max-turns 30 "Write tests for /home/terry/germline/metabolon/organelles/effector.py. Mock external calls. Write assays/test_organelles_effector.py. Run uv run pytest. Fix failures. Commit." (retry)`
-- [x] `golem --provider zhipu --max-turns 30 "Write tests for effectors/gemmule-health. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
-- [!] `golem --provider infini --max-turns 30 "Write tests for effectors/tm. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit." (retry)`
-- [!] `golem --provider volcano --max-turns 30 "Write tests for effectors/start-chrome-debug.sh. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit." (retry)`
-- [x] `golem --provider zhipu --max-turns 30 "Write tests for effectors/update-compound-engineering-skills.sh. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
-- [!] `golem --provider infini --max-turns 30 "Write tests for effectors/update-compound-engineering. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit." (retry)`
-- [!] `golem --provider volcano --max-turns 25 "Scan effectors/ for hardcoded paths. Fix with Path.home() or $HOME. Commit." (retry)`
-- [x] `golem --provider zhipu --max-turns 25 "Check all effectors respond to --help without crashing. Fix crashers. Commit."`
-- [!] `golem --provider infini --max-turns 25 "Find test files with SyntaxError. Fix syntax. Commit." (retry)`
-- [!] `golem --provider volcano --max-turns 30 "Write a consulting insight card: AI model risk management framework for banks — write a consulting brief with problem, approach, key considerations. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-model-risk-framework.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words." (retry)`
-- [x] `golem --provider zhipu --max-turns 30 "Write a consulting insight card: Board-level AI risk reporting template for banks. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/board-ai-risk-reporting.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
-- [!] `golem --provider infini --max-turns 35 "Read effectors/golem-review (if exists). Enhance to also check consulting content quality (>200 words, proper structure). Write tests. Run uv run pytest. Commit." (retry)`
 
 ### Auto-requeue (19 tasks @ 07:44)
-- [!] `golem --provider infini --max-turns 40 "Run uv run pytest --co -q 2>&1 | grep ERROR. Fix ALL collection errors. Common: hardcoded paths, bad imports, syntax. Run --co again until 0 errors. Commit." (retry)`
-- [!] `golem --provider volcano --max-turns 50 "Run uv run pytest -q --tb=no --continue-on-collection-errors 2>&1 | grep FAILED | sed 's/::.*//g' | sort | uniq -c | sort -rn | head -5. For each of the top 5 failing test files: run pytest on it, read traceback, fix. Iterate until green. Commit." (retry)`
-- [!] `golem --provider zhipu --max-turns 30 "Health check: replisome, golem-dash, proteostasis, pinocytosis, centrosome, generate-solutions-index.py, paracrine, git-activity, compound-engineering-test, update-compound-engineering-skills.sh. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit." (retry)`
-- [!] `golem --provider infini --max-turns 30 "Write tests for /home/terry/germline/metabolon/organelles/talking_points.py. Mock external calls. Write assays/test_organelles_talking_points.py. Run uv run pytest. Fix failures. Commit." (retry)`
-- [!] `golem --provider volcano --max-turns 30 "Write tests for /home/terry/germline/metabolon/organelles/endosomal.py. Mock external calls. Write assays/test_organelles_endosomal.py. Run uv run pytest. Fix failures. Commit." (retry)`
-- [x] `golem --provider zhipu --max-turns 30 "Write tests for /home/terry/germline/metabolon/organelles/chromatin.py. Mock external calls. Write assays/test_organelles_chromatin.py. Run uv run pytest. Fix failures. Commit."`
-- [!] `golem --provider infini --max-turns 30 "Write tests for /home/terry/germline/metabolon/sortase/coaching_cli.py. Mock external calls. Write assays/test_sortase_coaching_cli.py. Run uv run pytest. Fix failures. Commit." (retry)`
-- [!] `golem --provider volcano --max-turns 30 "Write tests for /home/terry/germline/metabolon/organelles/tachometer.py. Mock external calls. Write assays/test_organelles_tachometer.py. Run uv run pytest. Fix failures. Commit." (retry)`
-- [x] `golem --provider zhipu --max-turns 30 "Write tests for effectors/pharos-health.sh. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
-- [!] `golem --provider infini --max-turns 30 "Write tests for effectors/update-coding-tools.sh. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit." (retry)`
-- [!] `golem --provider volcano --max-turns 30 "Write tests for effectors/qmd-reindex.sh. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit." (retry)`
-- [x] `golem --provider zhipu --max-turns 30 "Write tests for effectors/backup-due.sh. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
-- [!] `golem --provider infini --max-turns 30 "Write tests for effectors/chromatin-backup.sh. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit." (retry)`
-- [!] `golem --provider volcano --max-turns 25 "Scan assays/ for hardcoded /Users/terry paths. Replace with Path.home(). Commit." (retry)`
-- [x] `golem --provider zhipu --max-turns 25 "Find Python files missing shebang in effectors/. Add #!/usr/bin/env python3. Commit."`
-- [!] `golem --provider infini --max-turns 25 "Find subprocess.run calls without timeout in effectors/. Add timeout=300. Commit." (retry)`
-- [!] `golem --provider volcano --max-turns 30 "Write a consulting insight card: Board-level AI risk reporting template for banks. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/board-ai-risk-reporting.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words." (retry)`
-- [x] `golem --provider zhipu --max-turns 30 "Write a consulting insight card: Data governance for AI/ML training data in banking. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/data-governance-ai.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
-- [ ] `golem --provider infini --max-turns 35 "Read effectors/golem. Add --json flag that outputs result as JSON instead of raw text. Useful for piping. Write tests. Run uv run pytest. Commit."`
+- [!] `golem --provider infini --max-turns 35 "Read effectors/golem. Add --json flag that outputs result as JSON instead of raw text. Useful for piping. Write tests. Run uv run pytest. Commit." (retry)`
 
 ### Auto-requeue (19 tasks @ 07:49)
-- [x] `golem --provider zhipu --max-turns 40 "Run uv run pytest --co -q 2>&1 | grep ERROR. Fix ALL collection errors. Common: hardcoded paths, bad imports, syntax. Run --co again until 0 errors. Commit."`
-- [ ] `golem --provider infini --max-turns 50 "Run uv run pytest -q --tb=no --continue-on-collection-errors 2>&1 | grep FAILED | sed 's/::.*//g' | sort | uniq -c | sort -rn | head -5. For each of the top 5 failing test files: run pytest on it, read traceback, fix. Iterate until green. Commit."`
-- [!] `golem --provider volcano --max-turns 30 "Health check: grep, queue-gen, phagocytosis.py, hkicpa, lustro-analyze, oura-weekly-digest.py, lacuna, update-coding-tools.sh, poiesis, taste-score. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit." (retry)`
-- [x] `golem --provider zhipu --max-turns 30 "Write tests for /home/terry/germline/metabolon/organelles/gemmation.py. Mock external calls. Write assays/test_organelles_gemmation.py. Run uv run pytest. Fix failures. Commit."`
-- [ ] `golem --provider infini --max-turns 30 "Write tests for /home/terry/germline/metabolon/enzymes/hemostasis.py. Mock external calls. Write assays/test_enzymes_hemostasis.py. Run uv run pytest. Fix failures. Commit."`
-- [!] `golem --provider volcano --max-turns 30 "Write tests for /home/terry/germline/metabolon/organelles/angiogenesis.py. Mock external calls. Write assays/test_organelles_angiogenesis.py. Run uv run pytest. Fix failures. Commit." (retry)`
-- [x] `golem --provider zhipu --max-turns 30 "Write tests for /home/terry/germline/metabolon/enzymes/endocytosis.py. Mock external calls. Write assays/test_enzymes_endocytosis.py. Run uv run pytest. Fix failures. Commit."`
-- [ ] `golem --provider infini --max-turns 30 "Write tests for /home/terry/germline/metabolon/metabolism/variants.py. Mock external calls. Write assays/test_metabolism_variants.py. Run uv run pytest. Fix failures. Commit."`
-- [!] `golem --provider volcano --max-turns 30 "Write tests for effectors/auto-update-compound-engineering.sh. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit." (retry)`
+- [!] `golem --provider infini --max-turns 50 "Run uv run pytest -q --tb=no --continue-on-collection-errors 2>&1 | grep FAILED | sed 's/::.*//g' | sort | uniq -c | sort -rn | head -5. For each of the top 5 failing test files: run pytest on it, read traceback, fix. Iterate until green. Commit." (retry)`
+- [!] `golem --provider infini --max-turns 30 "Write tests for /home/terry/germline/metabolon/enzymes/hemostasis.py. Mock external calls. Write assays/test_enzymes_hemostasis.py. Run uv run pytest. Fix failures. Commit." (retry)`
+- [!] `golem --provider infini --max-turns 30 "Write tests for /home/terry/germline/metabolon/metabolism/variants.py. Mock external calls. Write assays/test_metabolism_variants.py. Run uv run pytest. Fix failures. Commit." (retry)`
 - [ ] `golem --provider zhipu --max-turns 30 "Write tests for effectors/tmux-url-select.sh. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
 - [ ] `golem --provider infini --max-turns 30 "Write tests for effectors/update-coding-tools.sh. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
-- [!] `golem --provider volcano --max-turns 30 "Write tests for effectors/wacli-ro. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit." (retry)`
-- [ ] `golem --provider zhipu --max-turns 30 "Write tests for effectors/gemmule-health. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
 - [ ] `golem --provider infini --max-turns 25 "Scan effectors/ for hardcoded paths. Fix with Path.home() or $HOME. Commit."`
-- [!] `golem --provider volcano --max-turns 25 "Find unused imports in metabolon/**/*.py. Remove them. Commit." (retry)`
-- [x] `golem --provider zhipu --max-turns 25 "Check all effectors respond to --help without crashing. Fix crashers. Commit."`
 - [ ] `golem --provider infini --max-turns 30 "Write a consulting insight card: GenAI policy template for bank employees. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/genai-policy-template.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
-- [!] `golem --provider volcano --max-turns 30 "Write a consulting insight card: AI audit methodology for internal audit teams. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-audit-methodology.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words." (retry)`
-- [x] `golem --provider zhipu --max-turns 35 "Read effectors/golem-daemon. Add cmd_stats — show pass/fail/retry counts, avg duration by provider, tasks completed today. Usage: golem-daemon stats. Write tests. Run uv run pytest. Commit."`
 
 ### Auto-requeue (19 tasks @ 07:53)
-- [x] `golem --provider zhipu --max-turns 40 "Run uv run pytest --co -q 2>&1 | grep ERROR. Fix ALL collection errors. Common: hardcoded paths, bad imports, syntax. Run --co again until 0 errors. Commit."`
 - [ ] `golem --provider infini --max-turns 50 "Run uv run pytest -q --tb=no --continue-on-collection-errors 2>&1 | grep FAILED | sed 's/::.*//g' | sort | uniq -c | sort -rn | head -5. For each of the top 5 failing test files: run pytest on it, read traceback, fix. Iterate until green. Commit."`
-- [!] `golem --provider volcano --max-turns 30 "Health check: rotate-logs.py, pharos-health.sh, pharos-sync.sh, legatum, safe_rm.py, skill-sync, golem-top, disk-audit, engram, log-summary. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit." (retry)`
-- [x] `golem --provider zhipu --max-turns 30 "Write tests for /home/terry/germline/metabolon/organelles/chemoreceptor.py. Mock external calls. Write assays/test_organelles_chemoreceptor.py. Run uv run pytest. Fix failures. Commit."`
 - [ ] `golem --provider infini --max-turns 30 "Write tests for /home/terry/germline/metabolon/organelles/talking_points.py. Mock external calls. Write assays/test_organelles_talking_points.py. Run uv run pytest. Fix failures. Commit."`
-- [!] `golem --provider volcano --max-turns 30 "Write tests for /home/terry/germline/metabolon/enzymes/interoception.py. Mock external calls. Write assays/test_enzymes_interoception.py. Run uv run pytest. Fix failures. Commit." (retry)`
-- [x] `golem --provider zhipu --max-turns 30 "Write tests for /home/terry/germline/metabolon/respirometry/chromatin.py. Mock external calls. Write assays/test_respirometry_chromatin.py. Run uv run pytest. Fix failures. Commit."`
 - [ ] `golem --provider infini --max-turns 30 "Write tests for /home/terry/germline/metabolon/enzymes/lysis.py. Mock external calls. Write assays/test_enzymes_lysis.py. Run uv run pytest. Fix failures. Commit."`
-- [!] `golem --provider volcano --max-turns 30 "Write tests for effectors/plan-exec.deprecated. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit." (retry)`
-- [ ] `golem --provider zhipu --max-turns 30 "Write tests for effectors/hetzner-bootstrap.sh. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
 - [ ] `golem --provider infini --max-turns 30 "Write tests for effectors/gemmule-health. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
-- [!] `golem --provider volcano --max-turns 30 "Write tests for effectors/update-coding-tools.sh. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit." (retry)`
-- [ ] `golem --provider zhipu --max-turns 30 "Write tests for effectors/chromatin-backup.sh. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
 - [ ] `golem --provider infini --max-turns 25 "Check all assays/test_*.py can be collected by pytest --co. Fix any that error. Commit."`
-- [!] `golem --provider volcano --max-turns 25 "Find subprocess.run calls without timeout in effectors/. Add timeout=300. Commit." (retry)`
-- [x] `golem --provider zhipu --max-turns 25 "Check all effectors respond to --help without crashing. Fix crashers. Commit."`
 - [ ] `golem --provider infini --max-turns 30 "Write a consulting insight card: GenAI policy template for bank employees. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/genai-policy-template.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
-- [!] `golem --provider volcano --max-turns 30 "Write a consulting insight card: AI incident response playbook for financial services. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-incident-response.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words." (retry)`
 - [ ] `golem --provider zhipu --max-turns 35 "Read effectors/golem. Add --json flag that outputs result as JSON instead of raw text. Useful for piping. Write tests. Run uv run pytest. Commit."`
 
 ### Auto-requeue (19 tasks @ 07:57)
-- [ ] `golem --provider zhipu --max-turns 40 "Run uv run pytest --co -q 2>&1 | grep ERROR. Fix ALL collection errors. Common: hardcoded paths, bad imports, syntax. Run --co again until 0 errors. Commit."`
 - [ ] `golem --provider infini --max-turns 50 "Run uv run pytest -q --tb=no --continue-on-collection-errors 2>&1 | grep FAILED | sed 's/::.*//g' | sort | uniq -c | sort -rn | head -5. For each of the top 5 failing test files: run pytest on it, read traceback, fix. Iterate until green. Commit."`
-- [ ] `golem --provider volcano --max-turns 30 "Health check: compound-engineering-status, inflammasome-probe, engram, cookie-sync, perplexity.sh, queue-gen, demethylase, chromatin-backup.py, sortase, update-compound-engineering-skills.sh. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit." (retry)`
 - [ ] `golem --provider zhipu --max-turns 30 "Write tests for /home/terry/germline/metabolon/metabolism/gates.py. Mock external calls. Write assays/test_metabolism_gates.py. Run uv run pytest. Fix failures. Commit."`
 - [ ] `golem --provider infini --max-turns 30 "Write tests for /home/terry/germline/metabolon/organelles/pacemaker.py. Mock external calls. Write assays/test_organelles_pacemaker.py. Run uv run pytest. Fix failures. Commit."`
-- [ ] `golem --provider volcano --max-turns 30 "Write tests for /home/terry/germline/metabolon/metabolism/variants.py. Mock external calls. Write assays/test_metabolism_variants.py. Run uv run pytest. Fix failures. Commit." (retry)`
 - [ ] `golem --provider zhipu --max-turns 30 "Write tests for /home/terry/germline/metabolon/organelles/translocon.py. Mock external calls. Write assays/test_organelles_translocon.py. Run uv run pytest. Fix failures. Commit."`
 - [ ] `golem --provider infini --max-turns 30 "Write tests for /home/terry/germline/metabolon/metabolism/infection.py. Mock external calls. Write assays/test_metabolism_infection.py. Run uv run pytest. Fix failures. Commit."`
-- [ ] `golem --provider volcano --max-turns 30 "Write tests for effectors/pharos-health.sh. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit." (retry)`
 - [ ] `golem --provider zhipu --max-turns 30 "Write tests for effectors/start-chrome-debug.sh. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
 - [ ] `golem --provider infini --max-turns 30 "Write tests for effectors/qmd-reindex.sh. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
-- [ ] `golem --provider volcano --max-turns 30 "Write tests for effectors/auto-update-compound-engineering.sh. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit." (retry)`
 - [ ] `golem --provider zhipu --max-turns 30 "Write tests for effectors/gemmule-wake. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
 - [ ] `golem --provider infini --max-turns 25 "Scan effectors/ for hardcoded paths. Fix with Path.home() or $HOME. Commit."`
-- [ ] `golem --provider volcano --max-turns 25 "Check all effectors respond to --help without crashing. Fix crashers. Commit." (retry)`
 - [ ] `golem --provider zhipu --max-turns 25 "Scan assays/ for hardcoded /Users/terry paths. Replace with Path.home(). Commit."`
 - [ ] `golem --provider infini --max-turns 30 "Write a consulting insight card: Responsible AI governance checklist for financial institutions. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/responsible-ai-checklist.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
-- [ ] `golem --provider volcano --max-turns 30 "Write a consulting insight card: AI skills gap assessment for banking technology teams. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-skills-gap.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [ ] `golem --provider zhipu --max-turns 35 "Read effectors/golem-daemon. Add cmd_stats — show pass/fail/retry counts, avg duration by provider, tasks completed today. Usage: golem-daemon stats. Write tests. Run uv run pytest. Commit."`
 
 ### Auto-requeue (19 tasks @ 08:02)
@@ -623,7 +305,6 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 
 - [ ] `golem --provider infini --max-turns 30 "Create ~/germline/loci/priorities.md with this structure: north_stars (3 items with deadline), current_focus (what to prioritize now), blocked (what to skip). Initial content: (1) Capco readiness — deadline Apr 8 — consulting IP, regulatory briefs, case studies (2) Organism robustness — ongoing — fix tests, effector health (3) Consulting arsenal — ongoing — frameworks, templates. CC will update this file each session."`
 
-- [!] `golem --provider volcano --max-turns 40 "Read effectors/golem-daemon. Add a morning_digest() function called once per day at 06:00 HKT. It: (1) counts tasks completed in last 24h by category, (2) runs pytest --co -q for test count, (3) checks consulting output dirs for new files, (4) writes a digest to ~/epigenome/chromatin/euchromatin/consulting/morning-digest-YYYY-MM-DD.md. Wire it into daemon_loop — check if hour==6 and last_digest_date != today. Write tests. Run uv run pytest. Commit." (retry)`
 
 ### Build — wire circulation into golem-daemon
 
@@ -631,4 +312,67 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 
 - [ ] `golem --provider infini --max-turns 40 "Read metabolon/organelles/circulation.py. Extract the evaluate() and compound() functions into a standalone effectors/circulate-evaluate as Python. After golem tasks complete, this reads results and: (1) updates coaching notes if new failure patterns found, (2) updates priorities.md if goals were completed, (3) writes a cycle report. Called by golem-reviewer periodically. Write tests. Run uv run pytest. Commit."`
 
-- [!] `golem --provider volcano --max-turns 40 "Read metabolon/organelles/circulation.py. Extract the checkpoint logic. Create effectors/circulate-checkpoint as Python. Saves current state: pending tasks, completed count, pass rate, north stars progress, consulting IP count. Writes to ~/.local/share/vivesca/circulation-state.json. Loads on daemon restart so circulation resumes where it left off. Write tests. Run uv run pytest. Commit." (retry)`
+
+### High-priority — infra + task IDs (queued by CC)
+
+#### Add task IDs to golem-daemon
+- [!!] `golem --provider zhipu --max-turns 50 "Read effectors/golem-daemon. Add unique task IDs: 1) In parse_queue(), generate a short ID (t-xxxx, 6 hex chars) for each task that doesn't have one — prepend it inside the backtick like 'golem [t-a7f3] --provider ...'. 2) In run_golem(), extract the ID and pass it as env var GOLEM_TASK_ID. 3) In the JSONL output, add a 'task_id' field. 4) In mark_done/mark_failed, include the task ID in the result annotation. 5) In cmd_status, show task IDs of running tasks. Write tests in assays/test_golem_task_ids.py. Run uv run pytest on the test file. Commit."`
+
+#### Fix all from __future__ duplicate bugs
+- [!!] `golem --provider zhipu --max-turns 30 "Find ALL Python files under /home/terry/germline/ and /home/terry/.claude/hooks/ that have 'from __future__ import annotations' appearing more than once. For each file, remove the SECOND occurrence (keep only the first at the top). Verify with py_compile. Commit."`
+
+#### Fix collection errors blocking test suite
+- [!!] `golem --provider zhipu --max-turns 40 "Run uv run pytest --co -q 2>&1 | grep ERROR. Fix ALL collection errors. Common causes: hardcoded /Users/terry paths, bad imports, duplicate from __future__, missing modules. Run --co again until 0 errors. Commit."`
+
+#### Fix top 10 failing tests
+- [!!] `golem --provider infini --max-turns 50 "Run uv run pytest -q --tb=no --continue-on-collection-errors 2>&1 | grep FAILED | sed 's/::.*//g' | sort | uniq -c | sort -rn | head -10. For each of the top 10 failing test files: run pytest on it, read traceback, fix. Iterate until green. Commit."`
+
+### Consulting IP — Capco prep (T-7)
+
+#### AI risk management consulting cards
+- [ ] `golem --provider infini --max-turns 50 "Create 5 consulting insight cards for a management consultant joining Capco (financial services consulting). Topics: 1) AI model risk management in banking 2) LLM deployment regulatory expectations 3) AI vendor due diligence for banks 4) GenAI policy template for bank employees 5) AI incident response for financial services. Each card: 300+ words, problem statement, approach, key considerations, regulatory references. Write each to ~/epigenome/chromatin/euchromatin/consulting/cards/<slug>.md. Commit."`
+
+#### HK regulatory landscape briefing
+- [ ] `golem --provider zhipu --max-turns 40 "Write a comprehensive briefing on Hong Kong financial regulation for AI/technology: HKMA, SFC, IA key circulars and expectations around AI adoption in banking, insurance, securities. Include HKMA's Supervisory Policy Manual modules on technology risk (TM-E-1, OR-1). Write to ~/epigenome/chromatin/euchromatin/consulting/cards/hk-ai-regulatory-landscape.md. 500+ words. Commit."`
+
+### System hardening
+
+#### Add periodic rsync from Mac to gemmule
+- [ ] `golem --provider zhipu --max-turns 30 "Create effectors/gemmule-sync as a Python script. It should: 1) rsync terry@100.94.27.93:~/epigenome/chromatin/ ~/epigenome/chromatin/ 2) rsync terry@100.94.27.93:~/notes/ ~/notes/ 3) rsync terry@100.94.27.93:~/code/acta/ ~/code/acta/ 4) Log results to ~/.local/share/vivesca/gemmule-sync.log. Add --dry-run flag. Make it idempotent. Write tests. Commit."`
+
+#### Scan and fix hardcoded macOS paths
+- [ ] `golem --provider volcano --max-turns 30 "Find ALL files in ~/germline/ containing /Users/terry. Replace with Path.home() (Python) or $HOME (shell). Verify nothing breaks. Commit."`
+
+### Research — workflow orchestration for golem-daemon
+
+#### Landscape: Temporal vs alternatives for AI task orchestration
+- [!!] `golem --provider zhipu --max-turns 50 "Research workflow orchestration systems for replacing a custom Python task queue daemon that dispatches AI coding agents (Claude Code). Current system: markdown-file queue, 30 concurrent workers across 3 providers, retry logic, auto-commit. Requirements: task IDs, visibility/UI, durable execution, heartbeating, concurrency control, Python SDK. Compare: 1) Temporal.io — self-hosted vs Cloud, Python SDK maturity, resource footprint 2) Hatchet — AI-native, lighter weight 3) Inngest — serverless model 4) Prefect/Dagster — data pipeline focused but flexible 5) BullMQ/Celery — simpler task queues 6) Plain PostgreSQL+LISTEN/NOTIFY — minimal infra. For each: install complexity, resource overhead (RAM/CPU), cost (self-hosted vs cloud), Python SDK quality, UI/visibility, suitability for 20-50 concurrent AI agent tasks. Also note: the user is a consultant at Capco (financial services) — which systems have enterprise/banking adoption? Write findings to ~/epigenome/chromatin/euchromatin/consulting/cards/workflow-orchestration-landscape.md. 500+ words with recommendation. Commit."`
+
+### Resilience — vivesca self-healing and hardening
+
+#### Daemon auto-restart via supervisor
+- [!!] `golem --provider zhipu --max-turns 30 "Read the supervisor config for golem-daemon. If none exists, check /etc/supervisor/conf.d/. Create or fix a supervisor config at /etc/supervisor/conf.d/golem-daemon.conf that: 1) runs 'python3 /home/terry/germline/effectors/golem-daemon start --foreground' as user terry 2) auto-restarts on crash 3) sets environment from /home/terry/.env.fly (source it in a wrapper script if needed) 4) logs stdout/stderr to /home/terry/.local/share/vivesca/. Write tests. Commit."`
+
+#### Git auto-backup — push epigenome to remote
+- [!!] `golem --provider infini --max-turns 40 "The epigenome repo at ~/epigenome has 15K+ chromatin files that are NOT tracked in git. This caused data loss during a disk-full incident. Fix: 1) cd ~/epigenome && git add chromatin/ 2) Check .gitignore doesn't exclude chromatin 3) git commit -m 'backup: track all chromatin files' 4) git push. If push fails due to size, set up git-lfs for large files. Also add a .gitattributes for *.md files if > 1MB. Commit."`
+
+#### Provider failover in golem
+- [ ] `golem --provider zhipu --max-turns 40 "Read effectors/golem (the golem script, not golem-daemon). Add provider failover: if the primary provider returns HTTP 429 (rate limit) or 5xx, automatically retry with the next provider in priority order (zhipu -> infini -> volcano). Add a --fallback flag to opt-in. Log the failover. Write tests in assays/test_golem_failover.py. Commit."`
+
+#### Watchdog — detect and fix stuck golems
+- [ ] `golem --provider infini --max-turns 40 "Read effectors/golem-daemon. Add a watchdog: every 5 poll cycles, check if any running golem has exceeded GOLEM_TIMEOUT (1800s). If so: 1) kill the subprocess 2) mark task as failed with 'timeout' 3) log a warning. Currently the ThreadPoolExecutor handles timeouts but subprocess.run may hang. Add subprocess-level kill via os.kill(). Write tests. Commit."`
+
+#### Graceful shutdown — commit before dying
+- [ ] `golem --provider zhipu --max-turns 30 "Read effectors/golem-daemon. Improve the SIGTERM handler: on shutdown signal, 1) stop accepting new tasks 2) wait up to 60s for running golems to finish 3) auto-commit any uncommitted work 4) push to remote 5) then exit. Currently it just removes the pidfile. Write tests. Commit."`
+
+#### Config validation on daemon start
+- [ ] `golem --provider zhipu --max-turns 30 "Read effectors/golem-daemon. Add a validate_config() function that runs on startup and checks: 1) QUEUE_FILE exists and is readable 2) all providers in PROVIDER_LIMITS have valid API keys in env 3) git repo is clean enough to commit 4) disk space > 2GB 5) uv sync is up to date (uv run python -c 'import metabolon'). If any check fails, log a clear error and exit 1. Write tests. Commit."`
+
+#### Self-healing — auto-fix common breakages
+- [ ] `golem --provider infini --max-turns 50 "Create effectors/mismatch-repair as a Python script (biology: mismatch repair fixes DNA errors). It should detect and fix common vivesca breakages: 1) Duplicate 'from __future__ import annotations' in any .py file under ~/germline/ or ~/.claude/hooks/ — remove the second occurrence 2) Hardcoded /Users/terry paths — replace with Path.home() 3) Broken symlinks in ~/ — report them 4) Stale .pyc files — delete 5) pytest collection errors — run --co and report. Add --fix flag to auto-repair vs --check for dry-run. Write tests in assays/test_mismatch_repair.py. Commit."`
+
+#### Network resilience — retry git operations
+- [ ] `golem --provider volcano --max-turns 30 "Read effectors/golem-daemon, specifically auto_commit(). Add retry logic: if git push fails (network error), retry 3 times with 30s backoff. If all retries fail, log error but don't crash daemon. Also add: if git pull fails at startup, continue with local state rather than crashing. Write tests. Commit."`
+
+#### Backup marks/memory to git
+- [ ] `golem --provider zhipu --max-turns 30 "The epigenome/marks directory contains critical behavioral memory files. Ensure they are tracked in git: cd ~/epigenome && git add marks/ && git status. If there are untracked marks, commit them. Also create a pre-push hook or effector that validates all marks have valid YAML frontmatter. Write tests. Commit."`
