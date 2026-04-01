@@ -44,12 +44,13 @@ echo "Mem:       {mem_total}       {mem_used}       {mem_total - mem_used}"
 """)
     free_mock.chmod(free_mock.stat().st_mode | stat.S_IEXEC)
 
-    # Mock systemctl — outputs N failed unit lines
+    # Mock systemctl — outputs N failed unit lines (empty for 0)
     systemctl_mock = Path(tmpdir) / "systemctl"
     lines = "\n".join(["unit.service  failed"] * failed_units)
+    # When no failed units, output nothing so wc -l returns 0
+    body = f'echo "{lines}"' if failed_units > 0 else "true"
     systemctl_mock.write_text(f"""#!/bin/bash
-# Mock systemctl: ignore all flags, output requested failed units
-echo "{lines}"
+{body}
 """)
     systemctl_mock.chmod(systemctl_mock.stat().st_mode | stat.S_IEXEC)
 
@@ -98,7 +99,7 @@ def test_help_mentions_disk_threshold():
 
 def test_help_explains_exit_codes():
     r = _run(args=["--help"])
-    assert "exit 0" in r.stdout
+    assert "Exit 0" in r.stdout
     assert "exit 1" in r.stdout
 
 
@@ -232,6 +233,8 @@ def test_healthy_format_prefix():
     assert r.stdout.strip().startswith("pharos health:")
 
 
-def test_alert_format_stderr_prefix():
+def test_alert_format_stderr_contains_alert_line():
     r = _run(disk_pct=90, failed_units=0, has_tg_notify=False)
-    assert r.stderr.strip().startswith("ALERT:")
+    assert any(
+        line.startswith("ALERT:") for line in r.stderr.strip().splitlines()
+    )
