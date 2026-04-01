@@ -96,14 +96,29 @@ class TestIsPersonName:
     def test_valid_three_word_name(self, cb):
         assert cb["_is_person_name"]("Mary Jane Watson") is True
 
+    def test_valid_four_word_name(self, cb):
+        """Four words is the upper bound for acceptance."""
+        assert cb["_is_person_name"]("Mary Jane Watson Smith") is True
+
     def test_single_word_rejected(self, cb):
         assert cb["_is_person_name"]("Terry") is False
 
     def test_five_words_rejected(self, cb):
         assert cb["_is_person_name"]("A B C D E") is False
 
+    def test_empty_string_rejected(self, cb):
+        assert cb["_is_person_name"]("") is False
+
+    def test_single_char_words_rejected(self, cb):
+        """Words <2 chars after stripping punctuation are rejected."""
+        assert cb["_is_person_name"]("A B") is False
+
     def test_lowercase_rejected(self, cb):
         assert cb["_is_person_name"]("terry li") is False
+
+    def test_mixed_case_rejected(self, cb):
+        """Second word starting lowercase fails the title-case check."""
+        assert cb["_is_person_name"]("John smith") is False
 
     def test_never_name_words_rejected(self, cb):
         assert cb["_is_person_name"]("Hong Kong") is False
@@ -113,6 +128,12 @@ class TestIsPersonName:
 
     def test_never_name_word_bank(self, cb):
         assert cb["_is_person_name"]("Big Bank") is False
+
+    def test_never_name_word_consulting(self, cb):
+        assert cb["_is_person_name"]("Financial Consulting") is False
+
+    def test_never_name_word_digital(self, cb):
+        assert cb["_is_person_name"]("Smart Digital") is False
 
     def test_comma_suffix_handled(self, cb):
         """Names with commas like 'Dara Sosulski, PhD' should be handled."""
@@ -124,8 +145,22 @@ class TestIsPersonName:
     def test_honorifics_accepted(self, cb):
         assert cb["_is_person_name"]("Dr Jane Smith") is True
 
+    def test_honorific_mr(self, cb):
+        assert cb["_is_person_name"]("Mr John Smith") is True
+
+    def test_honorific_ms(self, cb):
+        assert cb["_is_person_name"]("Ms Jane Doe") is True
+
     def test_surrounding_stars_stripped(self, cb):
         assert cb["_is_person_name"]("**Terry Li**") is True
+
+    def test_trailing_punctuation_stripped(self, cb):
+        """Trailing :.,; on words should be stripped before checking."""
+        assert cb["_is_person_name"]("John Smith:") is True
+
+    def test_non_alpha_word_rejected(self, cb):
+        """Words containing digits should fail the isalpha check."""
+        assert cb["_is_person_name"]("John S2") is False
 
 
 # ── _capco_files ──────────────────────────────────────────────────────────
@@ -233,6 +268,80 @@ class TestStakeholders:
         cb["cmd_stakeholders"](argparse.Namespace())
         out = capsys.readouterr().out
         assert "1 people extracted" in out
+
+    def test_pattern1_en_dash(self, cb, capsys):
+        """En dash (–) should also work as separator."""
+        _chromatin_file(cb, "Capco/People.md",
+            "### Alice Johnson – Senior Partner\n")
+        cb["cmd_stakeholders"](argparse.Namespace())
+        out = capsys.readouterr().out
+        assert "Alice Johnson" in out
+
+    def test_pattern1_plain_hyphen(self, cb, capsys):
+        """Plain ASCII hyphen should also work as separator."""
+        _chromatin_file(cb, "Capco/People.md",
+            "### Alice Johnson - Consultant\n")
+        cb["cmd_stakeholders"](argparse.Namespace())
+        out = capsys.readouterr().out
+        assert "Alice Johnson" in out
+
+    def test_pattern1_empty_role_filtered(self, cb, capsys):
+        """Heading with dash but no role text should not produce entry."""
+        _chromatin_file(cb, "Capco/People.md",
+            "### Alice Johnson —\nSome text")
+        cb["cmd_stakeholders"](argparse.Namespace())
+        out = capsys.readouterr().out
+        assert "No stakeholders found" in out
+
+    def test_never_name_word_filtered(self, cb, capsys):
+        """Names that are in _NEVER_NAME_WORDS should not appear."""
+        _chromatin_file(cb, "Capco/People.md",
+            "### Hong Kong — Director\n")
+        cb["cmd_stakeholders"](argparse.Namespace())
+        out = capsys.readouterr().out
+        assert "No stakeholders found" in out
+
+    def test_pattern4_director_keyword(self, cb, capsys):
+        """Pattern 4 with 'director' keyword in role."""
+        _chromatin_file(cb, "Capco/Contacts.md",
+            "Alice Johnson (Executive Director)\n")
+        cb["cmd_stakeholders"](argparse.Namespace())
+        out = capsys.readouterr().out
+        assert "Alice Johnson" in out
+
+    def test_pattern4_head_keyword(self, cb, capsys):
+        """Pattern 4 with 'head' keyword in role."""
+        _chromatin_file(cb, "Capco/Contacts.md",
+            "Bob Chen (Head of Data)\n")
+        cb["cmd_stakeholders"](argparse.Namespace())
+        out = capsys.readouterr().out
+        assert "Bob Chen" in out
+
+    def test_pattern4_no_matching_keyword(self, cb, capsys):
+        """Pattern 4: name (role) but role lacks any keyword → filtered."""
+        _chromatin_file(cb, "Capco/Contacts.md",
+            "Alice Johnson (Software Engineer)\n")
+        cb["cmd_stakeholders"](argparse.Namespace())
+        out = capsys.readouterr().out
+        assert "No stakeholders found" in out
+
+    def test_long_name_truncated_in_table(self, cb, capsys):
+        """Names >22 chars should be truncated with '..'."""
+        _chromatin_file(cb, "Capco/People.md",
+            "### Verylongfirstname Verylonglastname — Director\n")
+        cb["cmd_stakeholders"](argparse.Namespace())
+        out = capsys.readouterr().out
+        assert ".." in out
+
+    def test_multiple_stakeholders_from_single_file(self, cb, capsys):
+        """Multiple people in one file should all appear."""
+        _chromatin_file(cb, "Capco/Team.md",
+            "### Alice Johnson — Director\n### Bob Chen — Partner\n")
+        cb["cmd_stakeholders"](argparse.Namespace())
+        out = capsys.readouterr().out
+        assert "Alice Johnson" in out
+        assert "Bob Chen" in out
+        assert "2 people extracted" in out
 
 
 # ── cmd_calendar ──────────────────────────────────────────────────────────
