@@ -240,10 +240,10 @@ _preflight_check() {
   # Infini returns code 20013 for quota exhaustion (sometimes with non-429 HTTP status)
   if echo "$_response" | grep -qE '"code":20013|request limit exceeded|AccountQuotaExceeded'; then
     local _reset
-    _reset=$(echo "$_response" | grep -oE 'reset at [0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}' | head -1)
+    _reset=$(echo "$_response" | grep -oE 'reset at [0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}' | head -1 || true)
     # Infini embeds the window in the error message: "5-hour request limit exceeded"
     local _window
-    _window=$(echo "$_response" | grep -oE '[0-9]+-hour request limit' | grep -oE '[0-9]+' | head -1)
+    _window=$(echo "$_response" | grep -oE '[0-9]+-hour request limit' | grep -oE '[0-9]+' | head -1 || true)
     if [[ -n "$_window" ]]; then
       echo "${_reset:-rate-limited, no reset time} window=${_window}h"
     else
