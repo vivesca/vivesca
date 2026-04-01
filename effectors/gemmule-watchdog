@@ -1,0 +1,174 @@
+#!/usr/bin/env python3
+"""gemmule-watchdog — system health monitor. Runs under supervisor.
+
+Every 60 seconds:
+1. Disk space: auto-clean if <2GB, kill golems if <1GB
+2. Log rotation: rotate files >10MB
+3. Runaway processes: kill golem processes >30min or >2GB RSS
+4. Root filesystem: clean /tmp if <500MB free
+"""
+from __future__ import annotations
+
+import os
+import shutil
+import signal
+import subprocess
+import sys
+import time
+from datetime import datetime
+from pathlib import Path
+
+POLL = 60  # seconds
+HOME = Path.home()
+GERMLINE = HOME / "germline"
+LOG = HOME / "tmp" / "gemmule-watchdog.log"
+
+# Thresholds
+DISK_WARN_GB = 2.0
+DISK_CRIT_GB = 1.0
+ROOT_WARN_MB = 500
+LOG_MAX_MB = 10
+GOLEM_MAX_SECONDS = 2400  # 40 min
+GOLEM_MAX_RSS_MB = 2048   # 2GB
+
+
+def log(msg: str):
+    LOG.parent.mkdir(parents=True, exist_ok=True)
+    ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    line = f"[{ts}] {msg}"
+    with open(LOG, "a") as f:
+        f.write(line + "\n")
+
+
+def free_gb(path: Path) -> float:
+    try:
+        u = shutil.disk_usage(str(path))
+        return u.free / (1024**3)
+    except Exception:
+        return 999.0
+
+
+def free_mb(path: Path) -> float:
+    return free_gb(path) * 1024
+
+
+def clean_temps():
+    """Remove known temp directories."""
+    cleaned = 0
+    for d in [
+        GERMLINE / "pytest-of-terry",
+        Path("/tmp/pytest-of-terry"),
+        Path("/tmp/pytest-vivesca"),
+    ]:
+        if d.exists():
+            shutil.rmtree(d, ignore_errors=True)
+            cleaned += 1
+
+    # Claude Code session temps
+    for d in Path("/tmp").glob("claude-*"):
+        if d.is_dir():
+            shutil.rmtree(d, ignore_errors=True)
+            cleaned += 1
+
+    # Python cache in germline
+    subprocess.run(
+        "find /home/terry/germline -name __pycache__ -type d -exec rm -rf {} + 2>/dev/null",
+        shell=True, timeout=30
+    )
+
+    return cleaned
+
+
+def rotate_log(path: Path, max_mb: float = LOG_MAX_MB):
+    """Rotate log file if too large."""
+    if not path.exists():
+        return
+    size_mb = path.stat().st_size / (1024 * 1024)
+    if size_mb > max_mb:
+        rotated = path.with_suffix(path.suffix + ".1")
+        if rotated.exists():
+            rotated.unlink()
+        path.rename(rotated)
+        log(f"Rotated {path.name} ({size_mb:.1f}MB)")
+
+
+def kill_runaway_golems():
+    """Kill golem/claude processes that exceed time or memory limits."""
+    killed = 0
+    try:
+        result = subprocess.run(
+            "ps -eo pid,etimes,rss,comm --no-headers | grep claude",
+            shell=True, capture_output=True, text=True, timeout=10
+        )
+        for line in result.stdout.strip().splitlines():
+            parts = line.split()
+            if len(parts) < 4:
+                continue
+            pid, elapsed_s, rss_kb = int(parts[0]), int(parts[1]), int(parts[2])
+            rss_mb = rss_kb / 1024
+
+            if elapsed_s > GOLEM_MAX_SECONDS:
+                os.kill(pid, signal.SIGTERM)
+                log(f"KILLED runaway PID {pid}: {elapsed_s}s elapsed (max {GOLEM_MAX_SECONDS})")
+                killed += 1
+            elif rss_mb > GOLEM_MAX_RSS_MB:
+                os.kill(pid, signal.SIGTERM)
+                log(f"KILLED memory hog PID {pid}: {rss_mb:.0f}MB RSS (max {GOLEM_MAX_RSS_MB})")
+                killed += 1
+    except Exception as e:
+        log(f"kill_runaway error: {e}")
+    return killed
+
+
+def check_cycle():
+    """One watchdog cycle."""
+    vol_free = free_gb(HOME)
+    root_free = free_mb(Path("/tmp"))
+
+    # Disk: volume
+    if vol_free < DISK_WARN_GB:
+        cleaned = clean_temps()
+        vol_after = free_gb(HOME)
+        log(f"DISK WARN: volume {vol_free:.1f}GB → {vol_after:.1f}GB (cleaned {cleaned})")
+
+        if vol_after < DISK_CRIT_GB:
+            # Emergency: kill all golems to stop disk writes
+            subprocess.run("pkill -f 'claude.*--print' 2>/dev/null", shell=True)
+            log(f"DISK CRITICAL: killed all golems. Volume at {vol_after:.1f}GB")
+
+    # Disk: root
+    if root_free < ROOT_WARN_MB:
+        clean_temps()
+        root_after = free_mb(Path("/tmp"))
+        log(f"ROOT WARN: /tmp {root_free:.0f}MB → {root_after:.0f}MB")
+
+    # Log rotation
+    for logfile in [
+        HOME / "tmp" / "golem-daemon-supervisor.log",
+        HOME / "tmp" / "mcp-server.log",
+        HOME / "tmp" / "golem-reviewer.log",
+        HOME / "tmp" / "supervisord.log",
+        HOME / ".local" / "share" / "vivesca" / "golem-daemon.log",
+        HOME / ".local" / "share" / "vivesca" / "golem.jsonl",
+        HOME / ".local" / "share" / "vivesca" / "golem-reviewer.log",
+        LOG,
+    ]:
+        rotate_log(logfile)
+
+    # Runaway processes
+    kill_runaway_golems()
+
+
+def main():
+    log("Watchdog started")
+    try:
+        while True:
+            check_cycle()
+            time.sleep(POLL)
+    except KeyboardInterrupt:
+        log("Watchdog stopped")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
