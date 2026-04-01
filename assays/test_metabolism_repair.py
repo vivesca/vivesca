@@ -23,11 +23,11 @@ from metabolon.metabolism.repair import (
 # ---------------------------------------------------------------------------
 
 class TestLoadConf:
-    def test_returns_defaults_when_no_conf_file(self, tmp_path: Path, monkeypatch):
+    def test_returns_defaults_when_no_conf_file(self, monkeypatch):
         """_load_conf should return defaults even if the .conf file is missing."""
         import metabolon.metabolism.repair as mod
 
-        monkeypatch.setattr(mod, "_CONF_PATH", tmp_path / "nonexistent.conf")
+        monkeypatch.setattr(mod, "_CONF_PATH", Path("/nonexistent/path/repair.conf"))
         cfg = mod._load_conf()
         assert cfg.getint("adaptation", "max_adaptation_cycles") == 3
 
