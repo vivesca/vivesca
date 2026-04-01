@@ -245,7 +245,7 @@ class TestSlowestRecent:
         assert result["plan"] == "old-slow"
 
     @patch("metabolon.organelles.tachometer.read_logs")
-    def test_missing_duration(self, mock_rl):
+    def test_missing_duration_returns_none(self, mock_rl):
         from metabolon.organelles.tachometer import slowest_recent
         entries = [_entry(ts=NOW - timedelta(minutes=5))]
         del entries[0]["duration_s"]
@@ -253,10 +253,23 @@ class TestSlowestRecent:
         with patch("metabolon.organelles.tachometer.datetime") as mock_dt:
             mock_dt.now.return_value = NOW
             mock_dt.fromisoformat = datetime.fromisoformat
+            # duration defaults to 0; since 0 > 0.0 is False, no entry selected
+            assert slowest_recent() is None
+
+    @patch("metabolon.organelles.tachometer.read_logs")
+    def test_zero_duration_with_positive_picks_positive(self, mock_rl):
+        from metabolon.organelles.tachometer import slowest_recent
+        entries = [
+            _entry(ts=NOW - timedelta(minutes=10), duration_s=0.0),
+            _entry(ts=NOW - timedelta(minutes=5), duration_s=1.5),
+        ]
+        mock_rl.return_value = entries
+        with patch("metabolon.organelles.tachometer.datetime") as mock_dt:
+            mock_dt.now.return_value = NOW
+            mock_dt.fromisoformat = datetime.fromisoformat
             result = slowest_recent()
-        # duration_s defaults to 0, so still found but with 0 duration
         assert result is not None
-        assert result["duration_s"] == 0.0
+        assert result["duration_s"] == 1.5
 
     @patch("metabolon.organelles.tachometer.read_logs")
     def test_returns_all_fields(self, mock_rl):
