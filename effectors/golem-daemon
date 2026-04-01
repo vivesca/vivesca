@@ -169,7 +169,7 @@ RUNNING_FILE = Path.home() / ".local" / "share" / "vivesca" / "golem-running.jso
 # Per-provider concurrency limits
 PROVIDER_LIMITS = {
     "zhipu": 8,
-    "infini": 8,
+    "infini": 2,  # 1000 req/5hr limit — 2 concurrent is safe
     "volcano": 16,
     "gemini": 4,
     "codex": 4,
@@ -1031,10 +1031,13 @@ def daemon_loop():
                                 log(f"auto-commit ({_mark_done_count} tasks): {commit_hash}")
                                 _mark_done_count = 0
                         else:
-                            failed_result = mark_failed(line_num, f"exit={exit_code} {tail[:60]}", exit_code=exit_code, task_id=task_id)
+                            failed_result = mark_failed(line_num, f"exit={exit_code} {tail[:60]}", exit_code=exit_code, task_id=task_id, tail=tail)
                             log(f"FAILED [{task_id}] (exit={exit_code}): {cmd[:60]}...")
-                            # Detect rate-limiting from task output
-                            if failed_result.get("rate_limited") or is_rate_limited(tail):
+                            # Detect rate-limiting from task output or fast-exit pattern
+                            is_explicit_ratelimit = failed_result.get("rate_limited") or is_rate_limited(tail)
+                            # Fast-exit: exit 1/2 in ≤5s with empty output = silent rate-limit
+                            is_fast_exit = exit_code in (1, 2) and duration <= 5 and not tail.strip()
+                            if is_explicit_ratelimit or is_fast_exit:
                                 # Rate-limited: apply proportional cooldown immediately
                                 window = parse_rate_limit_window(tail)
                                 cooldown = window if window else RATE_LIMIT_COOLDOWN_SECONDS
@@ -1043,7 +1046,8 @@ def daemon_loop():
                                 if provider_cooldown_until.get(provider, 0) < cooldown_end:
                                     provider_cooldown_until[provider] = cooldown_end
                                 cd_min = int(cooldown // 60)
-                                log(f"RATE-LIMITED [{provider}] [{task_id}]: cooldown {cd_min}min (exit={exit_code}, dur={duration}s)")
+                                reason = "fast-exit" if is_fast_exit and not is_explicit_ratelimit else "output-match"
+                                log(f"RATE-LIMITED [{provider}] [{task_id}] ({reason}): cooldown {cd_min}min (exit={exit_code}, dur={duration}s)")
                                 # Don't count rate-limit failures toward failure threshold
                             else:
                                 # Track non-rate-limit failures in sliding window per provider

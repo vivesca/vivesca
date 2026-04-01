@@ -11,6 +11,15 @@
 #   golem summary [--recent N] [--json]              # show provider stats
 set -euo pipefail
 
+# ERR trap: produce diagnostic output when a command fails (set -e kills the script).
+# Without this, crashes produce exit=2 with empty output, making debugging impossible.
+_golem_crash_handler() {
+  local _exit_code=$?
+  echo "[golem crash] command failed with exit=$_exit_code at line $1 (provider=${PROVIDER:-?})" >&2
+  exit "$_exit_code"
+}
+trap '_golem_crash_handler $LINENO' ERR
+
 MAX_TURNS="${GOLEM_MAX_TURNS:-50}"
 BARE=true
 BATCH=false
@@ -174,9 +183,10 @@ case "$PROVIDER" in
   infini)
     # WARNING: Infini API does NOT support CC tool-use. Models ask for permission
     # instead of invoking tools. Only usable for text-only tasks, not golem.
+    # NOTE: Infini /v1/models lists glm-4.7 (not glm-4.5-air). Use glm-4.7 for HA_AI KU.
     _KEY="${INFINI_API_KEY:?INFINI_API_KEY not set}"
     _URL="https://cloud.infini-ai.com/maas/coding"
-    _OPUS="glm-5"; _SONNET="glm-5"; _HAIKU="glm-4.5-air" ;;
+    _OPUS="glm-5"; _SONNET="glm-5"; _HAIKU="glm-4.7" ;;
   gemini)
     _KEY="${GOOGLE_API_KEY:?GOOGLE_API_KEY not set}"
     _CLI="gemini"  # uses gemini CLI, not claude
@@ -329,21 +339,22 @@ _run_golem() {
     fi
     fi  # end non-CC preflight
 
+    # NOTE: With set -e, `output=$(cmd)` where cmd exits non-zero kills the
+    # script before `exit_code=$?` is reached.  Use `&& exit_code=0 || exit_code=$?`
+    # to capture the exit code without triggering set -e.
     if [[ "${_CLI:-claude}" == "gemini" ]]; then
       output=$(
       timeout "$_claude_timeout" \
       env GEMINI_API_KEY="$_KEY" GOOGLE_API_KEY="$_KEY" \
       gemini -p "$prompt" < /dev/null 2>&1
-      )
-      exit_code=$?
+      ) && exit_code=0 || exit_code=$?
       _claude_ran=true
     elif [[ "${_CLI:-claude}" == "codex" ]]; then
       output=$(
       timeout "$_claude_timeout" \
       env OPENAI_API_KEY="$_KEY" \
       codex exec "$prompt" 2>&1
-      )
-      exit_code=$?
+      ) && exit_code=0 || exit_code=$?
       _claude_ran=true
     else
       output=$(
@@ -358,12 +369,17 @@ _run_golem() {
       CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1 \
       CLAUDE_CODE_MAX_RETRIES="${GOLEM_CLAUDE_RETRIES:-2}" \
       claude "${args[@]}" -p "$prompt" < /dev/null 2>&1
-      )
-      exit_code=$?
+      ) && exit_code=0 || exit_code=$?
       _claude_ran=true
     fi
     # Timeout returns 124 — treat as rate-limit for retry purposes
     [[ $exit_code -eq 124 ]] && exit_code=1
+
+    # Claude exits 0 even on 429 API errors — detect this and treat as rate-limit
+    if [[ $exit_code -eq 0 ]] && echo "$output" | grep -qiE 'API Error.*429|429.*quota|code.*20013'; then
+      exit_code=1
+      $QUIET || echo "[golem] claude reported 429 despite exit=0, treating as rate-limit" >&2
+    fi
 
     # Success — break immediately
     [[ $exit_code -eq 0 ]] && break
@@ -376,6 +392,9 @@ _run_golem() {
       _is_ratelimit=true
     elif [[ -z "${output// /}" ]]; then
       # Empty output + failure = claude got 429 and retried internally until giving up
+      _is_ratelimit=true
+    elif [[ $exit_code -eq 2 ]]; then
+      # Claude Code exit=2 = initialization error (API 429, auth failure, model not found)
       _is_ratelimit=true
     fi
 
@@ -483,7 +502,7 @@ _configure_provider() {
     infini)
       _KEY="${INFINI_API_KEY:?INFINI_API_KEY not set}"
       _URL="https://cloud.infini-ai.com/maas/coding"
-      _OPUS="glm-5"; _SONNET="glm-5"; _HAIKU="glm-4.5-air" ;;
+      _OPUS="glm-5"; _SONNET="glm-5"; _HAIKU="glm-4.7" ;;
     *) echo "Unknown provider: $prov (zhipu|volcano|infini)" >&2; return 1 ;;
   esac
 }
