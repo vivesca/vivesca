@@ -119,6 +119,7 @@ CMD_RE = re.compile(r"^[a-z][a-z0-9_-]*$")
 # Known platform config dirs to ignore in new-platform detection
 _KNOWN_PLATFORM_DIRS = {p.parent.name for p in PLATFORM_SYMLINKS if p.parent != Path.home()}
 _KNOWN_PLATFORM_DIRS.add(".claude")  # ~/.claude is known but symlink lives at ~/CLAUDE.md
+_KNOWN_PLATFORM_DIRS.add(".docker-data")  # root-owned, unreadable -- skip early
 
 
 def _check_phenotype_symlinks() -> tuple[list[dict], list[str]]:
@@ -285,9 +286,17 @@ def _check_skill_paths() -> list[dict]:
                 exp_path = Path(expanded)
                 parent = exp_path.parent
                 basename = exp_path.name
-                if parent.is_dir() and any(
-                    child.name.startswith(basename) for child in parent.iterdir()
-                ):
+                try:
+                    is_truncation = (
+                        parent.is_dir()
+                        and any(
+                            child.name.startswith(basename)
+                            for child in parent.iterdir()
+                        )
+                    )
+                except PermissionError:
+                    is_truncation = False
+                if is_truncation:
                     continue  # Truncation artifact, not a real break
                 broken.append({
                     "skill": skill_dir.name,
@@ -1276,11 +1285,11 @@ def diff_fork(local_dir: Path, cache_dir: Path) -> dict:
     local_files: set[str] = set()
     cache_files: set[str] = set()
 
-    for f in local_dir.rglob("*"):
+    for f in _safe_walk(local_dir):
         if f.is_file() and not any(p.name == ".git" for p in f.parents):
             local_files.add(str(f.relative_to(local_dir)))
 
-    for f in cache_dir.rglob("*"):
+    for f in _safe_walk(cache_dir):
         if f.is_file() and not any(p.name == ".git" for p in f.parents):
             cache_files.add(str(f.relative_to(cache_dir)))
 
