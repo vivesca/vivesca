@@ -692,6 +692,38 @@ class TestGenerateReview:
         assert "Failed Tasks" in r
         assert "1 fixed" in r
 
+    def test_consulting_with_structure(self):
+        r = generate_review(
+            activity={"completed": [], "failed": [], "timeouts": [], "start_time": None},
+            recent_files=[], test_results={"files": [], "total_passed": 0, "total_failed": 0, "total_errors": 0},
+            consulting_results=[{
+                "file": "loci/copia/report.md", "exists": True,
+                "word_count": 350, "adequate": True,
+                "has_headings": True, "has_paragraphs": True,
+                "has_structure_elements": True, "structure_ok": True,
+            }],
+            failed_diagnoses=[], pending_count=5,
+            auto_requeue=False, queued_count=0, fixed_count=0,
+        )
+        assert "OK|structured" in r
+        assert "[HPS]" in r
+
+    def test_consulting_unstructured(self):
+        r = generate_review(
+            activity={"completed": [], "failed": [], "timeouts": [], "start_time": None},
+            recent_files=[], test_results={"files": [], "total_passed": 0, "total_failed": 0, "total_errors": 0},
+            consulting_results=[{
+                "file": "loci/copia/raw.md", "exists": True,
+                "word_count": 50, "adequate": False,
+                "has_headings": False, "has_paragraphs": False,
+                "has_structure_elements": False, "structure_ok": False,
+            }],
+            failed_diagnoses=[], pending_count=5,
+            auto_requeue=False, queued_count=0, fixed_count=0,
+        )
+        assert "TOO SHORT|UNSTRUCTURED" in r
+        assert "[___]" in r
+
     def test_empty(self):
         r = generate_review(
             {"completed": [], "failed": [], "timeouts": [], "start_time": None},
