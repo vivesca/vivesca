@@ -420,6 +420,279 @@ def test_main_help(capsys):
         sys.argv = old_argv
 
 
+# ── New quality-check tests ────────────────────────────────────────────
+
+
+def test_check_heading_hierarchy_good():
+    """Sequential heading levels: H1 → H2 → H3."""
+    lines = ["# Title", "", "## Section", "", "### Subsection", "", "Text."]
+    assert _check_heading_hierarchy(lines) is True
+
+
+def test_check_heading_hierarchy_jump():
+    """H1 → H4 is a jump, should fail."""
+    lines = ["# Title", "", "#### Deep section", "", "Text."]
+    assert _check_heading_hierarchy(lines) is False
+
+
+def test_check_heading_hierarchy_single_level():
+    """All H2 headings is fine (no jumps)."""
+    lines = ["## A", "", "## B", "", "## C"]
+    assert _check_heading_hierarchy(lines) is True
+
+
+def test_check_heading_hierarchy_empty():
+    assert _check_heading_hierarchy([]) is True
+    assert _check_heading_hierarchy(["plain text"]) is True
+
+
+def test_check_heading_hierarchy_backtracking():
+    """H3 → H2 is allowed (going back up)."""
+    lines = ["# H1", "", "## H2", "", "### H3", "", "## H2 again"]
+    assert _check_heading_hierarchy(lines) is True
+
+
+def test_check_filler_content_repetitive():
+    """Same sentence repeated many times."""
+    text = ". ".join(["This is a filler sentence"] * 10)
+    assert _check_filler_content(text) is True
+
+
+def test_check_filler_content_good():
+    """Diverse, meaningful text."""
+    text = (
+        "The system architecture uses microservices. "
+        "Each service handles a specific domain. "
+        "Communication happens via message queues. "
+        "The database layer uses PostgreSQL for persistence. "
+        "Caching is handled by Redis instances."
+    )
+    assert _check_filler_content(text) is False
+
+
+def test_check_filler_content_short_sentences():
+    """Mostly very short sentences (<5 words) counts as filler."""
+    text = "Yes. No. Maybe. So. Done. Go. Stop. Wait. Try. Run."
+    assert _check_filler_content(text) is True
+
+
+def test_check_filler_content_empty():
+    assert _check_filler_content("") is False
+    assert _check_filler_content("Short.") is False
+
+
+def test_compute_paragraph_stats():
+    """Average word count per paragraph block."""
+    lines = [
+        "First paragraph with several words in it.",
+        "",
+        "Second paragraph also has multiple words.",
+        "",
+        "Third.",
+    ]
+    avg = _compute_paragraph_stats(lines)
+    assert avg > 0
+    # First para: 7 words, Second: 6 words, Third: 1 word → avg ~4.67
+    assert 3.0 < avg < 6.0
+
+
+def test_compute_paragraph_stats_empty():
+    assert _compute_paragraph_stats([]) == 0.0
+    assert _compute_paragraph_stats(["", "", ""]) == 0.0
+
+
+def test_compute_paragraph_stats_with_headings():
+    """Headings should not count as paragraphs."""
+    lines = [
+        "# Title",
+        "",
+        "Body text with some words.",
+        "",
+        "## Section",
+        "",
+        "More body text here now.",
+    ]
+    avg = _compute_paragraph_stats(lines)
+    # Two paragraphs: 5 words and 5 words → avg 5.0
+    assert avg == 5.0
+
+
+def test_consulting_overall_quality_pass():
+    """Good content gets overall_quality_pass=True."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmp_path = Path(tmpdir)
+        copia_dir = tmp_path / "loci" / "copia"
+        copia_dir.mkdir(parents=True, exist_ok=True)
+        f = copia_dir / "good.md"
+        f.write_text(_GOOD_CONTENT)
+
+        original_germline = globals()["GERMLINE"]
+        try:
+            globals()["GERMLINE"] = tmp_path
+            result = check_consulting_content(["loci/copia/good.md"])
+            r = result[0]
+            assert r["overall_quality_pass"] is True
+            assert r["has_filler_content"] is False
+            assert r["has_proper_heading_hierarchy"] is True
+            assert r["avg_paragraph_word_count"] > 0
+        finally:
+            globals()["GERMLINE"] = original_germline
+
+
+def test_consulting_overall_quality_fail_no_words():
+    """Short content fails overall quality pass."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmp_path = Path(tmpdir)
+        copia_dir = tmp_path / "loci" / "copia"
+        copia_dir.mkdir(parents=True, exist_ok=True)
+        f = copia_dir / "short.md"
+        f.write_text("# Intro\n\nShort text only.")
+
+        original_germline = globals()["GERMLINE"]
+        try:
+            globals()["GERMLINE"] = tmp_path
+            result = check_consulting_content(["loci/copia/short.md"])
+            assert result[0]["overall_quality_pass"] is False
+        finally:
+            globals()["GERMLINE"] = original_germline
+
+
+def test_consulting_overall_quality_fail_bad_hierarchy():
+    """Bad heading hierarchy causes overall quality fail."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmp_path = Path(tmpdir)
+        copia_dir = tmp_path / "loci" / "copia"
+        copia_dir.mkdir(parents=True, exist_ok=True)
+        f = copia_dir / "bad_hier.md"
+        # >200 words but with heading jump
+        body = "# Title\n\n" + "Word " * 100 + "\n\n#### Jumped section\n\n" + "More " * 100 + "\n"
+        f.write_text(body)
+
+        original_germline = globals()["GERMLINE"]
+        try:
+            globals()["GERMLINE"] = tmp_path
+            result = check_consulting_content(["loci/copia/bad_hier.md"])
+            r = result[0]
+            assert r["has_proper_heading_hierarchy"] is False
+            assert r["overall_quality_pass"] is False
+        finally:
+            globals()["GERMLINE"] = original_germline
+
+
+def test_consulting_filler_detected():
+    """Repetitive filler text should be flagged."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmp_path = Path(tmpdir)
+        copia_dir = tmp_path / "loci" / "copia"
+        copia_dir.mkdir(parents=True, exist_ok=True)
+        f = copia_dir / "filler.md"
+        # >200 words but repetitive
+        filler = "# Analysis\n\n" + "This is a filler sentence. " * 40
+        f.write_text(filler)
+
+        original_germline = globals()["GERMLINE"]
+        try:
+            globals()["GERMLINE"] = tmp_path
+            result = check_consulting_content(["loci/copia/filler.md"])
+            r = result[0]
+            assert r["has_filler_content"] is True
+            assert r["overall_quality_pass"] is False
+        finally:
+            globals()["GERMLINE"] = original_germline
+
+
+def test_consulting_content_code_only():
+    """File with only code blocks: no paragraphs, no headings → unstructured."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmp_path = Path(tmpdir)
+        copia_dir = tmp_path / "loci" / "copia"
+        copia_dir.mkdir(parents=True, exist_ok=True)
+        f = copia_dir / "code_only.md"
+        f.write_text("```\n" + "print('hello')\n" * 80 + "```\n")
+
+        original_germline = globals()["GERMLINE"]
+        try:
+            globals()["GERMLINE"] = tmp_path
+            result = check_consulting_content(["loci/copia/code_only.md"])
+            r = result[0]
+            assert r["has_headings"] is False
+            assert r["structure_ok"] is False
+            assert r["overall_quality_pass"] is False
+        finally:
+            globals()["GERMLINE"] = original_germline
+
+
+def test_consulting_new_fields_on_missing_file():
+    """Missing file should have sensible defaults for new fields."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmp_path = Path(tmpdir)
+        original_germline = globals()["GERMLINE"]
+        try:
+            globals()["GERMLINE"] = tmp_path
+            result = check_consulting_content(["nonexistent.md"])
+            r = result[0]
+            assert r["has_proper_heading_hierarchy"] is True
+            assert r["avg_paragraph_word_count"] == 0.0
+            assert r["has_filler_content"] is False
+            assert r["overall_quality_pass"] is False
+        finally:
+            globals()["GERMLINE"] = original_germline
+
+
+def test_consulting_new_fields_in_generate_review():
+    """generate_review renders the new fields correctly."""
+    review = generate_review(
+        activity={"completed": [], "failed": [], "timeouts": []},
+        recent_files=[],
+        test_results={"files": [], "total_passed": 0, "total_failed": 0, "total_errors": 0},
+        consulting_results=[{
+            "file": "doc.md", "exists": True, "word_count": 300,
+            "adequate": True, "has_headings": True, "has_paragraphs": True,
+            "has_structure_elements": True, "structure_ok": True,
+            "has_introduction": True, "has_conclusion": True,
+            "section_count": 3, "broken_sections": 0, "min_sections_ok": True,
+            "has_proper_heading_hierarchy": True,
+            "avg_paragraph_word_count": 25.0,
+            "has_filler_content": False, "overall_quality_pass": True,
+            "quality_score": 80, "verdict": "excellent",
+        }],
+        failed_diagnoses=[],
+        pending_count=5,
+        auto_requeue=False,
+        queued_count=0,
+        fixed_count=0,
+    )
+    assert "avg_p=25w" in review
+    assert "score=80" in review
+
+
+def test_consulting_new_fields_in_generate_review_with_issues():
+    """generate_review shows filler and hierarchy warnings."""
+    review = generate_review(
+        activity={"completed": [], "failed": [], "timeouts": []},
+        recent_files=[],
+        test_results={"files": [], "total_passed": 0, "total_failed": 0, "total_errors": 0},
+        consulting_results=[{
+            "file": "bad.md", "exists": True, "word_count": 50,
+            "adequate": False, "has_headings": False, "has_paragraphs": False,
+            "has_structure_elements": False, "structure_ok": False,
+            "has_introduction": False, "has_conclusion": False,
+            "section_count": 0, "broken_sections": 0, "min_sections_ok": False,
+            "has_proper_heading_hierarchy": False,
+            "avg_paragraph_word_count": 3.0,
+            "has_filler_content": True, "overall_quality_pass": False,
+            "quality_score": 10, "verdict": "poor",
+        }],
+        failed_diagnoses=[],
+        pending_count=0,
+        auto_requeue=False,
+        queued_count=0,
+        fixed_count=0,
+    )
+    assert "FILLER" in review
+    assert "avg_p=3w" in review
+
+
 if __name__ == "__main__":
     import pytest
     pytest.main([__file__, "-v", "--tb=short"])
