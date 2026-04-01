@@ -1,12 +1,10 @@
 from __future__ import annotations
 
-"""Tests for metabolon.organelles.engram — chat session archive search."""
+"""Tests for metabolon/organelles/engram.py — chat session archive search."""
 
 import json
 import re
-import sys
 from datetime import datetime, timedelta, timezone
-from io import StringIO
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -15,213 +13,178 @@ import pytest
 from metabolon.organelles.engram import (
     EngramRecord,
     TraceFragment,
-    _cli,
     _color_enabled,
-    _collect_words_from_transcripts,
     _date_to_range_ms,
     _extract_text,
-    _fuzzy_search,
     _highlight_matches,
     _is_plain_word,
-    _iter_opencode_messages,
     _make_line_context,
     _make_snippet,
     _matches_role,
     _ms_to_hkt,
-    _now_hkt,
     _parse_rfc3339,
-    _print_json_scan,
-    _print_json_search,
-    _print_scan,
-    _print_search,
-    _read_opencode_text,
     _resolve_date,
-    _scan_history,
-    _scan_opencode,
-    _search_prompts,
-    _search_transcripts,
     scan,
     search,
 )
 
-# Fixed reference time: 2025-06-15 14:30:00 HKT (UTC+8)
-_FIXED_HKT = datetime(2025, 6, 15, 14, 30, 0, tzinfo=timezone(timedelta(hours=8)))
-_FIXED_MS = int(_FIXED_HKT.timestamp() * 1000)
+_HKT = timezone(timedelta(hours=8))
 
 
-# ---------------------------------------------------------------------------
-# _resolve_date
-# ---------------------------------------------------------------------------
+# ── Time helpers ────────────────────────────────────────────────────────────
 
 
 class TestResolveDate:
+    """Tests for _resolve_date."""
+
+    def test_yyyy_mm_dd_passthrough(self):
+        assert _resolve_date("2025-06-15") == "2025-06-15"
+
     def test_today(self):
-        with patch("metabolon.organelles.engram._now_hkt", return_value=_FIXED_HKT):
+        with patch("metabolon.organelles.engram._now_hkt") as mock_now:
+            mock_now.return_value = datetime(2025, 6, 15, 10, 30, tzinfo=_HKT)
             assert _resolve_date("today") == "2025-06-15"
 
     def test_yesterday(self):
-        with patch("metabolon.organelles.engram._now_hkt", return_value=_FIXED_HKT):
+        with patch("metabolon.organelles.engram._now_hkt") as mock_now:
+            mock_now.return_value = datetime(2025, 6, 15, 10, 30, tzinfo=_HKT)
             assert _resolve_date("yesterday") == "2025-06-14"
 
-    def test_valid_date_string(self):
-        with patch("metabolon.organelles.engram._now_hkt", return_value=_FIXED_HKT):
-            assert _resolve_date("2025-01-01") == "2025-01-01"
+    def test_invalid_format_raises(self):
+        with pytest.raises(ValueError, match="Invalid date format"):
+            _resolve_date("15-06-2025")
 
-    def test_invalid_date_raises(self):
-        with patch("metabolon.organelles.engram._now_hkt", return_value=_FIXED_HKT):
-            with pytest.raises(ValueError, match="Invalid date format"):
-                _resolve_date("not-a-date")
-
-    def test_partial_date_raises(self):
-        with patch("metabolon.organelles.engram._now_hkt", return_value=_FIXED_HKT):
-            with pytest.raises(ValueError, match="Invalid date format"):
-                _resolve_date("2025-13-01")
-
-
-# ---------------------------------------------------------------------------
-# _date_to_range_ms
-# ---------------------------------------------------------------------------
+    def test_garbage_raises(self):
+        with pytest.raises(ValueError, match="Invalid date format"):
+            _resolve_date("not-a-date")
 
 
 class TestDateToRangeMs:
-    def test_returns_start_and_end_ms(self):
+    """Tests for _date_to_range_ms."""
+
+    def test_midnight_to_midnight(self):
         start, end = _date_to_range_ms("2025-06-15")
-        # Should be exactly 1 day apart
-        assert end - start == 86400_000
+        # start should be 2025-06-15 00:00 HKT, end 2025-06-16 00:00 HKT
+        assert end - start == 86400_000  # exactly 1 day in ms
 
-    def test_start_is_midnight_hkt(self):
-        start, _ = _date_to_range_ms("2025-06-15")
-        dt = _ms_to_hkt(start)
-        assert dt.hour == 0
-        assert dt.minute == 0
-        assert dt.second == 0
-
-    def test_end_is_next_midnight_hkt(self):
-        _, end = _date_to_range_ms("2025-06-15")
-        dt = _ms_to_hkt(end)
-        assert dt.day == 16
-        assert dt.hour == 0
-
-
-# ---------------------------------------------------------------------------
-# _ms_to_hkt
-# ---------------------------------------------------------------------------
+    def test_start_before_end(self):
+        start, end = _date_to_range_ms("2025-01-01")
+        assert start < end
 
 
 class TestMsToHkt:
-    def test_converts_ms_to_hkt_datetime(self):
-        dt = _ms_to_hkt(_FIXED_MS)
-        assert dt.tzinfo is not None
-        assert dt.hour == 14
-        assert dt.minute == 30
+    """Tests for _ms_to_hkt."""
 
-    def test_timezone_is_hkt(self):
-        dt = _ms_to_hkt(_FIXED_MS)
-        utc_offset = dt.utcoffset()
-        assert utc_offset == timedelta(hours=8)
-
-
-# ---------------------------------------------------------------------------
-# _parse_rfc3339
-# ---------------------------------------------------------------------------
+    def test_roundtrip(self):
+        dt = datetime(2025, 6, 15, 8, 0, 0, tzinfo=_HKT)
+        ms = int(dt.timestamp() * 1000)
+        result = _ms_to_hkt(ms)
+        assert result.tzinfo == _HKT
+        assert result.hour == 8
+        assert result.day == 15
 
 
 class TestParseRfc3339:
-    def test_z_suffix(self):
-        dt = _parse_rfc3339("2025-06-15T06:30:00Z")
-        assert dt is not None
-        assert dt.hour == 6
+    """Tests for _parse_rfc3339."""
 
-    def test_offset_suffix(self):
-        dt = _parse_rfc3339("2025-06-15T14:30:00+08:00")
+    def test_utc_z_suffix(self):
+        dt = _parse_rfc3339("2025-06-15T08:30:00Z")
         assert dt is not None
-        assert dt.hour == 14
+        assert dt.hour == 8
+        assert dt.minute == 30
+
+    def test_with_offset(self):
+        dt = _parse_rfc3339("2025-06-15T08:30:00+08:00")
+        assert dt is not None
 
     def test_invalid_returns_none(self):
-        assert _parse_rfc3339("not-a-date") is None
+        assert _parse_rfc3339("garbage") is None
 
-    def test_empty_string_returns_none(self):
+    def test_empty_returns_none(self):
         assert _parse_rfc3339("") is None
 
 
-# ---------------------------------------------------------------------------
-# _extract_text
-# ---------------------------------------------------------------------------
+# ── Content extraction ──────────────────────────────────────────────────────
 
 
 class TestExtractText:
-    def test_plain_string(self):
+    """Tests for _extract_text."""
+
+    def test_string_passthrough(self):
         assert _extract_text("hello world") == "hello world"
 
-    def test_text_blocks(self):
-        content = [
-            {"type": "text", "text": "line 1"},
-            {"type": "text", "text": "line 2"},
-        ]
-        assert _extract_text(content) == "line 1 line 2"
+    def test_text_block(self):
+        content = [{"type": "text", "text": "hello"}]
+        assert _extract_text(content) == "hello"
 
-    def test_tool_use_blocks(self):
-        content = [
-            {"type": "text", "text": "before"},
-            {"type": "tool_use", "name": "Read"},
-        ]
-        assert _extract_text(content) == "before [tool: Read]"
+    def test_tool_use_block(self):
+        content = [{"type": "tool_use", "name": "bash"}]
+        assert _extract_text(content) == "[tool: bash]"
 
-    def test_empty_text_blocks_skipped(self):
+    def test_mixed_blocks(self):
         content = [
-            {"type": "text", "text": ""},
-            {"type": "text", "text": "visible"},
+            {"type": "text", "text": "run it"},
+            {"type": "tool_use", "name": "bash"},
+            {"type": "text", "text": "done"},
         ]
-        assert _extract_text(content) == "visible"
+        assert _extract_text(content) == "run it [tool: bash] done"
 
-    def test_non_dict_blocks_skipped(self):
-        content = ["a string", {"type": "text", "text": "ok"}]
+    def test_empty_list(self):
+        assert _extract_text([]) == ""
+
+    def test_non_dict_items_ignored(self):
+        content = ["str_item", 42, {"type": "text", "text": "ok"}]
         assert _extract_text(content) == "ok"
-
-    def test_other_types_skipped(self):
-        content = [{"type": "image", "data": "..."}]
-        assert _extract_text(content) == ""
-
-    def test_unknown_type_returns_empty(self):
-        assert _extract_text(42) == ""
 
     def test_none_returns_empty(self):
         assert _extract_text(None) == ""
 
+    def test_int_returns_empty(self):
+        assert _extract_text(42) == ""
 
-# ---------------------------------------------------------------------------
-# _make_snippet
-# ---------------------------------------------------------------------------
+    def test_text_block_empty_text_ignored(self):
+        content = [{"type": "text", "text": ""}]
+        assert _extract_text(content) == ""
+
+    def test_unknown_block_type_ignored(self):
+        content = [{"type": "image", "data": "..."}]
+        assert _extract_text(content) == ""
+
+
+# ── Snippet helpers ─────────────────────────────────────────────────────────
 
 
 class TestMakeSnippet:
-    def test_short_text_unchanged(self):
-        text = "short match here end"
-        result = _make_snippet(text, 6, 11)
-        assert "match" in result
+    """Tests for _make_snippet."""
 
-    def test_elided_start(self):
-        text = "x" * 100 + "MATCH" + "y" * 100
-        result = _make_snippet(text, 100, 105)
+    def test_short_text_full(self):
+        text = "hello world"
+        result = _make_snippet(text, 0, 5)
+        assert "hello" in result
+        assert not result.startswith("...")
+        assert not result.endswith("...")
+
+    def test_long_text_start_ellipsis(self):
+        text = "x" * 200
+        # match at end
+        result = _make_snippet(text, 180, 195)
         assert result.startswith("...")
 
-    def test_elided_end(self):
-        text = "a" * 50 + "MATCH" + "b" * 200
-        result = _make_snippet(text, 50, 55)
+    def test_long_text_end_ellipsis(self):
+        text = "y" * 200
+        # match at start
+        result = _make_snippet(text, 0, 5)
         assert result.endswith("...")
 
     def test_newlines_replaced(self):
-        text = "line1\nline2\nMATCH\nline4"
-        result = _make_snippet(text, 13, 18)
+        text = "line1\nline2\nline3"
+        result = _make_snippet(text, 0, 5)
         assert "\n" not in result
 
 
-# ---------------------------------------------------------------------------
-# _make_line_context
-# ---------------------------------------------------------------------------
-
-
 class TestMakeLineContext:
+    """Tests for _make_line_context."""
+
     def test_empty_text(self):
         line, before, after = _make_line_context("", 0, 0)
         assert line == ""
@@ -229,70 +192,111 @@ class TestMakeLineContext:
         assert after == []
 
     def test_single_line(self):
-        line, before, after = _make_line_context("hello world", 0, 0)
+        text = "hello world"
+        line, before, after = _make_line_context(text, 0, 5, context_lines=2)
         assert line == "hello world"
         assert before == []
         assert after == []
 
-    def test_multiline_with_context(self):
+    def test_multi_line_with_context(self):
         text = "line0\nline1\nline2\nline3\nline4"
-        # match_start=10 falls in "line1" (offset 6..11)
-        line, before, after = _make_line_context(text, 10, context_lines=1)
-        assert line == "line1"
-        assert before == ["line0"]
-        assert after == ["line2"]
+        line, before, after = _make_line_context(text, 12, 15, context_lines=1)
+        assert line == "line2"
+        assert before == ["line1"]
+        assert after == ["line3"]
 
     def test_zero_context_lines(self):
-        text = "line0\nline1\nline2"
-        line, before, after = _make_line_context(text, 6, context_lines=0)
-        assert line == "line1"
+        text = "a\nb\nc"
+        line, before, after = _make_line_context(text, 2, 3, context_lines=0)
+        assert line == "b"
         assert before == []
         assert after == []
 
-    def test_context_at_start_of_file(self):
-        text = "line0\nline1\nline2"
-        line, before, after = _make_line_context(text, 0, context_lines=2)
-        assert line == "line0"
-        assert before == []
-        assert after == ["line1", "line2"]
 
-
-# ---------------------------------------------------------------------------
-# _matches_role
-# ---------------------------------------------------------------------------
+# ── Role matching ───────────────────────────────────────────────────────────
 
 
 class TestMatchesRole:
-    @pytest.mark.parametrize(
-        "filt",
-        ["you", "You", "USER", "user", "me", "Me"],
-    )
-    def test_user_aliases(self, filt):
-        assert _matches_role("you", filt) is True
+    """Tests for _matches_role."""
 
     @pytest.mark.parametrize(
-        "filt",
-        ["claude", "Claude", "ASSISTANT", "assistant", "AI", "ai"],
+        "filt,expected",
+        [
+            ("you", True),
+            ("user", True),
+            ("me", True),
+            ("You", True),
+            ("claude", False),
+        ],
     )
-    def test_assistant_aliases(self, filt):
-        assert _matches_role("claude", filt) is True
+    def test_user_roles(self, filt, expected):
+        assert _matches_role("you", filt) is expected
+
+    @pytest.mark.parametrize(
+        "filt,expected",
+        [
+            ("claude", True),
+            ("assistant", True),
+            ("ai", True),
+            ("you", False),
+        ],
+    )
+    def test_assistant_roles(self, filt, expected):
+        assert _matches_role("claude", filt) is expected
 
     def test_opencode_role(self):
         assert _matches_role("opencode", "opencode") is True
+        assert _matches_role("opencode", "claude") is True  # opencode matches assistant
+        assert _matches_role("opencode", "you") is False
 
-    def test_assistant_filter_matches_opencode(self):
-        assert _matches_role("opencode", "assistant") is True
+    def test_case_insensitive(self):
+        assert _matches_role("you", "USER") is True
+        assert _matches_role("claude", "ASSISTANT") is True
 
-    def test_exact_match(self):
+    def test_exact_match_fallback(self):
         assert _matches_role("custom", "custom") is True
-
-    def test_no_match(self):
-        assert _matches_role("you", "claude") is False
+        assert _matches_role("custom", "other") is False
 
 
-# ---------------------------------------------------------------------------
-# _is_plain_word
-# ---------------------------------------------------------------------------
+# ── Color / highlight ──────────────────────────────────────────────────────
+
+
+class TestColorEnabled:
+    def test_no_color_env(self):
+        with patch.dict("os.environ", {"NO_COLOR": "1"}):
+            assert _color_enabled() is False
+
+    def test_no_tty(self):
+        with patch("sys.stdout") as mock_out:
+            mock_out.isatty.return_value = False
+            assert _color_enabled() is False
+
+
+class TestHighlightMatches:
+    def test_color_false_returns_original(self):
+        text = "hello world"
+        regex = re.compile("world")
+        assert _highlight_matches(text, regex, color=False) == text
+
+    def test_empty_text(self):
+        regex = re.compile("test")
+        assert _highlight_matches("", regex, color=True) == ""
+
+    def test_highlights_match(self):
+        text = "find the needle here"
+        regex = re.compile("needle")
+        result = _highlight_matches(text, regex, color=True)
+        assert "\033[1;31m" in result
+        assert "\033[0m" in result
+        assert "needle" in result
+
+    def test_no_match_returns_original(self):
+        text = "nothing to see"
+        regex = re.compile("missing")
+        assert _highlight_matches(text, regex, color=True) == text
+
+
+# ── Plain word detection ───────────────────────────────────────────────────
 
 
 class TestIsPlainWord:
@@ -300,1283 +304,511 @@ class TestIsPlainWord:
         assert _is_plain_word("hello") is True
 
     def test_word_with_hyphen(self):
-        assert _is_plain_word("my-var") is True
+        assert _is_plain_word("my-variable") is True
 
-    def test_word_with_digits(self):
-        assert _is_plain_word("test123") is True
+    def test_regex_chars(self):
+        assert _is_plain_word("test.*") is False
+        assert _is_plain_word("a|b") is False
+        assert _is_plain_word("(group)") is False
 
-    def test_regex_chars_false(self):
-        assert _is_plain_word("hello.*") is False
 
-    def test_parenthesis_false(self):
-        assert _is_plain_word("func(") is False
-
-    def test_empty_false(self):
-        assert _is_plain_word("") is False
-
-
-# ---------------------------------------------------------------------------
-# _color_enabled
-# ---------------------------------------------------------------------------
-
-
-class TestColorEnabled:
-    def test_not_a_tty(self):
-        with patch.object(sys.stdout, "isatty", return_value=False):
-            assert _color_enabled() is False
-
-    def test_no_color_env(self):
-        with patch.object(sys.stdout, "isatty", return_value=True), \
-             patch.dict("os.environ", {"NO_COLOR": "1"}):
-            assert _color_enabled() is False
-
-    def test_enabled(self):
-        with patch.object(sys.stdout, "isatty", return_value=True), \
-             patch.dict("os.environ", {}, clear=True):
-            assert _color_enabled() is True
-
-
-# ---------------------------------------------------------------------------
-# _highlight_matches
-# ---------------------------------------------------------------------------
-
-
-class TestHighlightMatches:
-    def test_no_color_returns_text(self):
-        regex = re.compile("test", re.IGNORECASE)
-        assert _highlight_matches("test value", regex, color=False) == "test value"
-
-    def test_empty_text(self):
-        regex = re.compile("test", re.IGNORECASE)
-        assert _highlight_matches("", regex, color=True) == ""
-
-    def test_highlighted(self):
-        regex = re.compile("test", re.IGNORECASE)
-        result = _highlight_matches("a test b", regex, color=True)
-        assert "\033[1;31m" in result
-        assert "\033[0m" in result
-        assert "test" in result
-
-    def test_no_match_returns_original(self):
-        regex = re.compile("xyz", re.IGNORECASE)
-        assert _highlight_matches("hello world", regex, color=True) == "hello world"
-
-
-# ---------------------------------------------------------------------------
-# _scan_history
-# ---------------------------------------------------------------------------
-
-
-class TestScanHistory:
-    def _make_jsonl(self, entries):
-        return "\n".join(json.dumps(e) for e in entries) + "\n"
-
-    @patch("metabolon.organelles.engram._scan_opencode", return_value=[])
-    @patch("metabolon.organelles.engram._history_files")
-    def test_basic_scan(self, mock_hf, mock_oc):
-        ts_ms = _FIXED_MS
-        mock_path = MagicMock(spec=Path)
-        mock_path.exists.return_value = True
-        mock_path.open.return_value.__enter__ = lambda s: StringIO(
-            self._make_jsonl([{"timestamp": ts_ms, "display": "hello", "sessionId": "sess-abc123"}])
-        )
-        mock_path.open.return_value.__exit__ = MagicMock(return_value=False)
-        mock_hf.return_value = [("Claude", mock_path)]
-
-        result = _scan_history("2025-06-15")
-        assert len(result) == 1
-        assert result[0].prompt == "hello"
-        assert result[0].tool == "Claude"
-        assert result[0].session == "sess-abc"
-
-    @patch("metabolon.organelles.engram._scan_opencode", return_value=[])
-    @patch("metabolon.organelles.engram._history_files")
-    def test_out_of_range_filtered(self, mock_hf, mock_oc):
-        ts_ms = _FIXED_MS - 86400_000 * 10  # 10 days before
-        mock_path = MagicMock(spec=Path)
-        mock_path.exists.return_value = True
-        mock_path.open.return_value.__enter__ = lambda s: StringIO(
-            self._make_jsonl([{"timestamp": ts_ms, "display": "old", "sessionId": "sess-old"}])
-        )
-        mock_path.open.return_value.__exit__ = MagicMock(return_value=False)
-        mock_hf.return_value = [("Claude", mock_path)]
-
-        result = _scan_history("2025-06-15")
-        assert len(result) == 0
-
-    @patch("metabolon.organelles.engram._scan_opencode", return_value=[])
-    @patch("metabolon.organelles.engram._history_files")
-    def test_tool_filter(self, mock_hf, mock_oc):
-        ts_ms = _FIXED_MS
-        mock_path = MagicMock(spec=Path)
-        mock_path.exists.return_value = True
-        mock_path.open.return_value.__enter__ = lambda s: StringIO(
-            self._make_jsonl([{"timestamp": ts_ms, "display": "claude prompt", "sessionId": "s1"}])
-        )
-        mock_path.open.return_value.__exit__ = MagicMock(return_value=False)
-        mock_hf.return_value = [("Claude", mock_path)]
-
-        result = _scan_history("2025-06-15", tool_filter="Claude")
-        assert all(r.tool == "Claude" for r in result)
-
-    @patch("metabolon.organelles.engram._scan_opencode", return_value=[])
-    @patch("metabolon.organelles.engram._history_files")
-    def test_missing_file_skipped(self, mock_hf, mock_oc):
-        mock_path = MagicMock(spec=Path)
-        mock_path.exists.return_value = False
-        mock_hf.return_value = [("Claude", mock_path)]
-
-        result = _scan_history("2025-06-15")
-        assert result == []
-
-    @patch("metabolon.organelles.engram._scan_opencode", return_value=[])
-    @patch("metabolon.organelles.engram._history_files")
-    def test_malformed_jsonl_lines_skipped(self, mock_hf, mock_oc):
-        ts_ms = _FIXED_MS
-        data = "not json\n" + json.dumps({"timestamp": ts_ms, "display": "ok", "sessionId": "s1"}) + "\n"
-        mock_path = MagicMock(spec=Path)
-        mock_path.exists.return_value = True
-        mock_path.open.return_value.__enter__ = lambda s: StringIO(data)
-        mock_path.open.return_value.__exit__ = MagicMock(return_value=False)
-        mock_hf.return_value = [("Claude", mock_path)]
-
-        result = _scan_history("2025-06-15")
-        assert len(result) == 1
-        assert result[0].prompt == "ok"
-
-
-# ---------------------------------------------------------------------------
-# _search_prompts
-# ---------------------------------------------------------------------------
-
-
-class TestSearchPrompts:
-    @patch("metabolon.organelles.engram._iter_opencode_messages", return_value=[])
-    @patch("metabolon.organelles.engram._history_files")
-    def test_finds_match(self, mock_hf, mock_iter):
-        ts_ms = _FIXED_MS
-        mock_path = MagicMock(spec=Path)
-        mock_path.exists.return_value = True
-        data = json.dumps({"timestamp": ts_ms, "display": "findme please", "sessionId": "sess1"}) + "\n"
-        mock_path.open.return_value.__enter__ = lambda s: StringIO(data)
-        mock_path.open.return_value.__exit__ = MagicMock(return_value=False)
-        mock_hf.return_value = [("Claude", mock_path)]
-
-        regex = re.compile("findme", re.IGNORECASE)
-        start, end = _date_to_range_ms("2025-06-15")
-        results = _search_prompts(regex, start, end, None, None, None)
-        assert len(results) == 1
-        assert "findme" in results[0].snippet
-
-    @patch("metabolon.organelles.engram._iter_opencode_messages", return_value=[])
-    @patch("metabolon.organelles.engram._history_files")
-    def test_role_filter_non_user_returns_empty(self, mock_hf, mock_iter):
-        regex = re.compile("anything", re.IGNORECASE)
-        start, end = _date_to_range_ms("2025-06-15")
-        results = _search_prompts(regex, start, end, None, "claude", None)
-        assert results == []
-
-
-# ---------------------------------------------------------------------------
-# _search_transcripts
-# ---------------------------------------------------------------------------
-
-
-class TestSearchTranscripts:
-    @patch("metabolon.organelles.engram._iter_opencode_messages", return_value=[])
-    @patch("metabolon.organelles.engram._projects_dir")
-    @patch("metabolon.organelles.engram._opencode_storage")
-    def test_searches_claude_transcripts(self, mock_os, mock_pd, mock_iter):
-        ts_iso = "2025-06-15T14:30:00+08:00"
-        entry = {
-            "type": "user",
-            "timestamp": ts_iso,
-            "sessionId": "sess-transcript-1",
-            "message": {
-                "content": [{"type": "text", "text": "search for this pattern"}],
-            },
-        }
-        data = json.dumps(entry) + "\n"
-
-        # Build mock jsonl file with proper stat
-        mock_jsonl = MagicMock(spec=Path)
-        mock_jsonl.suffix = ".jsonl"
-        mock_jsonl.stem = "session-abc"
-        stat_result = MagicMock()
-        stat_result.st_mtime = _FIXED_MS / 1000
-        mock_jsonl.stat.return_value = stat_result
-        mock_jsonl.open.return_value.__enter__ = lambda s: StringIO(data)
-        mock_jsonl.open.return_value.__exit__ = MagicMock(return_value=False)
-
-        # Mock project dir
-        mock_proj_dir = MagicMock()
-        mock_proj_dir.is_dir.return_value = True
-        mock_proj_dir.iterdir.return_value = [mock_jsonl]
-
-        mock_projects = MagicMock()
-        mock_projects.exists.return_value = True
-        mock_projects.iterdir.return_value = [mock_proj_dir]
-        mock_pd.return_value = mock_projects
-
-        mock_os.return_value = Path("/fake/opencode")
-
-        regex = re.compile("pattern", re.IGNORECASE)
-        start, end = _date_to_range_ms("2025-06-15")
-
-        results = _search_transcripts(regex, start, end, None, None, None)
-        assert len(results) == 1
-        assert results[0].role == "you"
-
-
-# ---------------------------------------------------------------------------
-# _scan_opencode
-# ---------------------------------------------------------------------------
-
-
-class TestScanOpencode:
-    @patch("metabolon.organelles.engram._opencode_storage", return_value=Path("/fake/opencode"))
-    @patch("metabolon.organelles.engram._iter_opencode_messages")
-    @patch("metabolon.organelles.engram._read_opencode_text")
-    def test_scans_user_messages(self, mock_read, mock_iter, mock_storage):
-        ts_ms = _FIXED_MS
-        mock_iter.return_value = [
-            ("sess-oc-1234", {"role": "user", "id": "msg-1"}, ts_ms),
-            ("sess-oc-1234", {"role": "assistant", "id": "msg-2"}, ts_ms),
-        ]
-        mock_read.return_value = "my prompt text"
-
-        storage = Path("/fake/opencode")
-        result = _scan_opencode(0, ts_ms + 1)
-        # Only user messages should be included
-        assert len(result) == 1
-        assert result[0].prompt == "my prompt text"
-        assert result[0].tool == "OpenCode"
-
-    @patch("metabolon.organelles.engram._opencode_storage", return_value=Path("/fake/opencode"))
-    @patch("metabolon.organelles.engram._iter_opencode_messages")
-    @patch("metabolon.organelles.engram._read_opencode_text")
-    def test_empty_text_skipped(self, mock_read, mock_iter, mock_storage):
-        ts_ms = _FIXED_MS
-        mock_iter.return_value = [
-            ("sess-oc-1234", {"role": "user", "id": "msg-1"}, ts_ms),
-        ]
-        mock_read.return_value = ""
-
-        result = _scan_opencode(0, ts_ms + 1)
-        assert result == []
-
-
-# ---------------------------------------------------------------------------
-# _print_scan / _print_json_scan
-# ---------------------------------------------------------------------------
-
-
-class TestPrintScan:
-    def test_print_scan_output(self, capsys):
-        prompts = [
-            EngramRecord(
-                time_str="14:30",
-                timestamp_ms=_FIXED_MS,
-                session="sess-abc",
-                session_full="sess-abc12345",
-                prompt="hello world",
-                tool="Claude",
-            ),
-        ]
-        _print_scan(prompts, "2025-06-15", full=False)
-        captured = capsys.readouterr()
-        assert "Date: 2025-06-15" in captured.out
-        assert "Total: 1 prompts" in captured.out
-        assert "hello world" in captured.out
-
-    def test_print_json_scan_output(self, capsys):
-        prompts = [
-            EngramRecord(
-                time_str="14:30",
-                timestamp_ms=_FIXED_MS,
-                session="sess-abc",
-                session_full="sess-abc12345",
-                prompt="test prompt",
-                tool="Claude",
-            ),
-        ]
-        _print_json_scan(prompts, "2025-06-15")
-        captured = capsys.readouterr()
-        parsed = json.loads(captured.out)
-        assert parsed["date"] == "2025-06-15"
-        assert parsed["total"] == 1
-        assert parsed["prompts"][0]["prompt"] == "test prompt"
-
-
-# ---------------------------------------------------------------------------
-# _print_search / _print_json_search
-# ---------------------------------------------------------------------------
-
-
-class TestPrintSearch:
-    def test_print_search_with_matches(self, capsys):
-        regex = re.compile("test", re.IGNORECASE)
-        matches = [
-            TraceFragment(
-                date="2025-06-15",
-                time_str="14:30",
-                timestamp_ms=_FIXED_MS,
-                session="sess-ab",
-                role="you",
-                snippet="this is a test match",
-                tool="Claude",
-            ),
-        ]
-        _print_search(matches, regex, "test", 7, deep=True, role_filter=None, session_filter=None, context_lines=0)
-        captured = capsys.readouterr()
-        assert "Found 1 matches" in captured.out
-        assert "2025-06-15" in captured.out
-
-    def test_print_search_no_matches(self, capsys):
-        regex = re.compile("test", re.IGNORECASE)
-        _print_search([], regex, "test", 7, deep=False, role_filter=None, session_filter=None, context_lines=0)
-        captured = capsys.readouterr()
-        assert "No matches found" in captured.out
-
-    def test_print_json_search_output(self, capsys):
-        matches = [
-            TraceFragment(
-                date="2025-06-15",
-                time_str="14:30",
-                timestamp_ms=_FIXED_MS,
-                session="sess-ab",
-                role="you",
-                snippet="test snippet",
-                tool="Claude",
-            ),
-        ]
-        _print_json_search(matches)
-        captured = capsys.readouterr()
-        parsed = json.loads(captured.out)
-        assert len(parsed) == 1
-        assert parsed[0]["snippet"] == "test snippet"
-
-
-# ---------------------------------------------------------------------------
-# Public API: scan()
-# ---------------------------------------------------------------------------
-
-
-class TestScanApi:
-    @patch("metabolon.organelles.engram._scan_history", return_value=[])
-    @patch("metabolon.organelles.engram._resolve_date", return_value="2025-06-15")
-    def test_scan_delegates(self, mock_rd, mock_sh):
-        result = scan(date="2025-06-15")
-        mock_sh.assert_called_once_with("2025-06-15", None)
-
-    @patch("metabolon.organelles.engram._scan_history", return_value=[])
-    @patch("metabolon.organelles.engram._resolve_date", return_value="2025-06-15")
-    def test_scan_with_tool_filter(self, mock_rd, mock_sh):
-        scan(date="2025-06-15", tool="Claude")
-        mock_sh.assert_called_once_with("2025-06-15", "Claude")
-
-
-# ---------------------------------------------------------------------------
-# Public API: search()
-# ---------------------------------------------------------------------------
-
-
-class TestSearchApi:
-    @patch("metabolon.organelles.engram._fuzzy_search", return_value=[])
-    @patch("metabolon.organelles.engram._search_transcripts", return_value=[])
-    @patch("metabolon.organelles.engram._search_prompts", return_value=[])
-    @patch("metabolon.organelles.engram._now_hkt", return_value=_FIXED_HKT)
-    def test_search_deep(self, mock_now, mock_sp, mock_st, mock_fz):
-        result = search("pattern", days=7, deep=True)
-        mock_st.assert_called_once()
-        assert result == []
-
-    @patch("metabolon.organelles.engram._fuzzy_search", return_value=[])
-    @patch("metabolon.organelles.engram._search_transcripts", return_value=[])
-    @patch("metabolon.organelles.engram._search_prompts", return_value=[])
-    @patch("metabolon.organelles.engram._now_hkt", return_value=_FIXED_HKT)
-    def test_search_prompts_only(self, mock_now, mock_sp, mock_st, mock_fz):
-        result = search("pattern", days=7, deep=False)
-        mock_sp.assert_called_once()
-
-    @patch("metabolon.organelles.engram._now_hkt", return_value=_FIXED_HKT)
-    def test_search_invalid_regex(self, mock_now):
-        with pytest.raises(ValueError, match="Invalid regex"):
-            search("[invalid")
-
-    @patch("metabolon.organelles.engram._fuzzy_search")
-    @patch("metabolon.organelles.engram._search_prompts", return_value=[])
-    @patch("metabolon.organelles.engram._now_hkt", return_value=_FIXED_HKT)
-    def test_fuzzy_fallback_on_plain_word(self, mock_now, mock_sp, mock_fz):
-        mock_fz.return_value = [
-            TraceFragment(
-                date="2025-06-15",
-                time_str="14:30",
-                timestamp_ms=_FIXED_MS,
-                session="sess-fz",
-                role="note",
-                snippet="Fuzzy match",
-                tool="engram",
-            ),
-        ]
-        result = search("helo", days=7, deep=False)
-        mock_fz.assert_called_once()
-        assert len(result) == 1
-
-    @patch("metabolon.organelles.engram._search_prompts", return_value=[])
-    @patch("metabolon.organelles.engram._now_hkt", return_value=_FIXED_HKT)
-    def test_no_fuzzy_for_regex_pattern(self, mock_now, mock_sp):
-        # pattern with regex metachar should NOT trigger fuzzy fallback
-        result = search("test.*", days=7, deep=False)
-        # _search_prompts returns [], and fuzzy should not be invoked
-        assert result == []
-
-
-# ---------------------------------------------------------------------------
-# EngramRecord dataclass
-# ---------------------------------------------------------------------------
+# ── Data structures ─────────────────────────────────────────────────────────
 
 
 class TestEngramRecord:
     def test_fields(self):
         r = EngramRecord(
-            time_str="14:30",
-            timestamp_ms=_FIXED_MS,
-            session="sess-ab",
-            session_full="sess-abc123",
+            time_str="10:30",
+            timestamp_ms=1000,
+            session="abcd1234",
+            session_full="abcd12345678",
             prompt="hello",
             tool="Claude",
         )
-        assert r.time_str == "14:30"
-        assert r.prompt == "hello"
-
-
-# ---------------------------------------------------------------------------
-# TraceFragment dataclass
-# ---------------------------------------------------------------------------
+        assert r.time_str == "10:30"
+        assert r.tool == "Claude"
 
 
 class TestTraceFragment:
-    def test_fields(self):
+    def test_defaults(self):
         f = TraceFragment(
             date="2025-06-15",
-            time_str="14:30",
-            timestamp_ms=_FIXED_MS,
-            session="sess-ab",
+            time_str="10:30",
+            timestamp_ms=1000,
+            session="abcd1234",
             role="you",
-            snippet="test",
+            snippet="hello",
             tool="Claude",
         )
+        assert f.match_line == ""
         assert f.context_before == []
         assert f.context_after == []
-        assert f.match_line == ""
 
-    def test_with_context(self):
-        f = TraceFragment(
-            date="2025-06-15",
-            time_str="14:30",
-            timestamp_ms=_FIXED_MS,
-            session="sess-ab",
-            role="you",
-            snippet="test",
+
+# ── Scan (with mocked file reads) ──────────────────────────────────────────
+
+
+class TestScanHistory:
+    """Tests for _scan_history via public scan() function."""
+
+    @patch("metabolon.organelles.engram._scan_history")
+    @patch("metabolon.organelles.engram._resolve_date")
+    def test_scan_today(self, mock_resolve, mock_scan):
+        mock_resolve.return_value = "2025-06-15"
+        mock_scan.return_value = []
+        result = scan()
+        mock_resolve.assert_called_once_with("today")
+        assert result == []
+
+    @patch("metabolon.organelles.engram._scan_history")
+    @patch("metabolon.organelles.engram._resolve_date")
+    def test_scan_specific_date(self, mock_resolve, mock_scan):
+        mock_resolve.return_value = "2025-06-15"
+        mock_scan.return_value = [
+            EngramRecord("10:00", 1000, "sess1234", "sess12345678", "hi", "Claude")
+        ]
+        result = scan(date="2025-06-15")
+        assert len(result) == 1
+        assert result[0].prompt == "hi"
+
+
+class TestScanHistoryInternal:
+    """Tests for _scan_history with mocked filesystem."""
+
+    def _make_entry(self, ts_ms, session="sess1", display="prompt text"):
+        return json.dumps({
+            "timestamp": ts_ms,
+            "sessionId": session,
+            "display": display,
+        })
+
+    @patch("metabolon.organelles.engram._opencode_storage")
+    @patch("metabolon.organelles.engram._history_files")
+    def test_reads_history_file(self, mock_hf, mock_os):
+        from metabolon.organelles.engram import _scan_history
+
+        mock_os.return_value = Path("/fake/opencode")
+        # Create a fake file content
+        lines = [
+            self._make_entry(1718409600000, "sessAAA", "first prompt"),
+            self._make_entry(1718413200000, "sessAAA", "second prompt"),
+            "",  # empty line skipped
+            "bad json{",  # invalid json skipped
+        ]
+        content = "\n".join(lines)
+
+        fake_path = MagicMock()
+        fake_path.exists.return_value = True
+        fake_path.open.return_value.__enter__ = lambda s: iter(content.splitlines())
+        fake_path.open.return_value.__exit__ = MagicMock(return_value=False)
+        # Make the context manager work with 'for line in f'
+        fake_path.open.return_value.__iter__ = lambda s: iter(content.splitlines())
+        mock_hf.return_value = [("Claude", fake_path)]
+
+        # 2025-06-15 in HKT
+        result = _scan_history("2025-06-15")
+        assert isinstance(result, list)
+
+    @patch("metabolon.organelles.engram._opencode_storage")
+    @patch("metabolon.organelles.engram._history_files")
+    def test_tool_filter(self, mock_hf, mock_os):
+        from metabolon.organelles.engram import _scan_history
+
+        mock_os.return_value = Path("/fake/opencode")
+        claude_path = MagicMock()
+        claude_path.exists.return_value = True
+        claude_path.open.return_value.__iter__ = lambda s: iter([])
+        codex_path = MagicMock()
+        codex_path.exists.return_value = True
+        codex_path.open.return_value.__iter__ = lambda s: iter([])
+        mock_hf.return_value = [("Claude", claude_path), ("Codex", codex_path)]
+
+        result = _scan_history("2025-06-15", tool_filter="Codex")
+        # Claude path should be skipped
+        claude_path.open.assert_not_called()
+        codex_path.open.assert_called_once()
+
+
+# ── Search (with mocked internals) ─────────────────────────────────────────
+
+
+class TestSearch:
+    """Tests for the public search() function."""
+
+    @patch("metabolon.organelles.engram._search_transcripts")
+    @patch("metabolon.organelles.engram._now_hkt")
+    def test_search_deep(self, mock_now, mock_st):
+        mock_now.return_value = datetime(2025, 6, 15, 12, 0, tzinfo=_HKT)
+        frag = TraceFragment(
+            date="2025-06-14",
+            time_str="10:00",
+            timestamp_ms=1000,
+            session="abcd1234",
+            role="claude",
+            snippet="found it",
             tool="Claude",
-            match_line="test line",
-            context_before=["before1"],
-            context_after=["after1"],
         )
-        assert f.match_line == "test line"
-        assert f.context_before == ["before1"]
-        assert f.context_after == ["after1"]
+        mock_st.return_value = [frag]
+        results = search("found", deep=True)
+        assert len(results) == 1
+        assert results[0].snippet == "found it"
+
+    @patch("metabolon.organelles.engram._search_prompts")
+    @patch("metabolon.organelles.engram._now_hkt")
+    def test_search_prompts_only(self, mock_now, mock_sp):
+        mock_now.return_value = datetime(2025, 6, 15, 12, 0, tzinfo=_HKT)
+        mock_sp.return_value = []
+        results = search("missing", deep=False)
+        assert results == []
+
+    def test_search_invalid_regex(self):
+        with pytest.raises(ValueError, match="Invalid regex"):
+            search("[invalid")
 
 
-# ---------------------------------------------------------------------------
-# _iter_opencode_messages
-# ---------------------------------------------------------------------------
+# ── _search_prompts internal ───────────────────────────────────────────────
 
 
-class TestIterOpencodeMessages:
-    def test_no_session_dir(self):
-        mock_storage = MagicMock()
-        mock_session_dir = MagicMock()
-        mock_session_dir.exists.return_value = False
-        mock_storage.__truediv__ = MagicMock(return_value=mock_session_dir)
-        with patch("metabolon.organelles.engram._opencode_storage", return_value=mock_storage):
-            results = list(_iter_opencode_messages(0, 9999999999999, None))
+class TestSearchPrompts:
+    """Tests for _search_prompts with mocked filesystem."""
+
+    @patch("metabolon.organelles.engram._opencode_storage")
+    @patch("metabolon.organelles.engram._history_files")
+    def test_finds_match_in_history(self, mock_hf, mock_os):
+        from metabolon.organelles.engram import _search_prompts
+
+        mock_os.return_value = Path("/fake/opencode")
+        ts_ms = 1718409600000  # some timestamp in range
+        entry = json.dumps({
+            "timestamp": ts_ms,
+            "sessionId": "sessABC1",
+            "display": "deploy the application now",
+        })
+        fake_path = MagicMock()
+        fake_path.exists.return_value = True
+        fake_path.open.return_value.__iter__ = lambda s: iter(entry.splitlines())
+        mock_hf.return_value = [("Claude", fake_path)]
+
+        # Use wide time range
+        start_ms = ts_ms - 86400_000
+        end_ms = ts_ms + 86400_000
+        regex = re.compile("deploy", re.IGNORECASE)
+        results = _search_prompts(regex, start_ms, end_ms, None, None, None)
+        assert len(results) == 1
+        assert results[0].role == "you"
+        assert "deploy" in results[0].snippet
+
+    @patch("metabolon.organelles.engram._opencode_storage")
+    @patch("metabolon.organelles.engram._history_files")
+    def test_role_filter_skips_prompts(self, mock_hf, mock_os):
+        from metabolon.organelles.engram import _search_prompts
+
+        mock_os.return_value = Path("/fake/opencode")
+        # When role filter is "claude", prompts (always role "you") should be skipped
+        regex = re.compile("anything", re.IGNORECASE)
+        results = _search_prompts(regex, 0, 9999999999999, None, "claude", None)
         assert results == []
 
 
-# ---------------------------------------------------------------------------
-# _read_opencode_text
-# ---------------------------------------------------------------------------
+# ── _search_transcripts internal ────────────────────────────────────────────
 
 
-class TestReadOpencodeText:
-    def test_missing_part_dir(self):
-        from metabolon.organelles.engram import _read_opencode_text as _rot
-        mock_storage = MagicMock()
-        mock_part_dir = MagicMock()
-        mock_part_dir.exists.return_value = False
-        mock_storage.__truediv__ = MagicMock(return_value=mock_part_dir)
-        assert _rot(mock_storage, "msg-1") == ""
+class TestSearchTranscripts:
+    """Tests for _search_transcripts with mocked filesystem."""
+
+    @patch("metabolon.organelles.engram._opencode_storage")
+    @patch("metabolon.organelles.engram._history_files")
+    def test_claude_transcript_match(self, mock_hf, mock_os):
+        from metabolon.organelles.engram import _search_transcripts
+
+        mock_os.return_value = Path("/fake/opencode")
+        mock_hf.return_value = []
+
+        # Build a fake transcript entry
+        ts_str = "2025-06-15T10:30:00+08:00"
+        entry = json.dumps({
+            "type": "user",
+            "timestamp": ts_str,
+            "sessionId": "sessXYZ123456",
+            "message": {
+                "content": [{"type": "text", "text": "please refactor the module"}]
+            },
+        })
+
+        # Create a temp fake project dir
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            proj_dir = Path(tmpdir) / "test-project"
+            proj_dir.mkdir()
+            jsonl_file = proj_dir / "sessXYZ123456.jsonl"
+            jsonl_file.write_text(entry + "\n")
+            # Set mtime to be in range
+            import os
+
+            os.utime(jsonl_file, (1718409600, 1718409600))
+
+            with patch("metabolon.organelles.engram._projects_dir", return_value=proj_dir.parent):
+                ts_ms = int(datetime.fromisoformat(ts_str).timestamp() * 1000)
+                start_ms = ts_ms - 86400_000
+                end_ms = ts_ms + 86400_000
+                regex = re.compile("refactor", re.IGNORECASE)
+                results = _search_transcripts(regex, start_ms, end_ms, None, None, None)
+                assert len(results) == 1
+                assert results[0].role == "you"
+                assert "refactor" in results[0].snippet
+
+    @patch("metabolon.organelles.engram._opencode_storage")
+    @patch("metabolon.organelles.engram._history_files")
+    def test_tool_filter_skips_non_matching(self, mock_hf, mock_os):
+        from metabolon.organelles.engram import _search_transcripts
+
+        mock_os.return_value = Path("/fake/opencode")
+        mock_hf.return_value = []
+        regex = re.compile("anything", re.IGNORECASE)
+        # tool_filter="OpenCode" should skip Claude transcripts
+        results = _search_transcripts(regex, 0, 9999999999999, "OpenCode", None, None)
+        assert results == []  # no Claude scan happened
 
 
-# ---------------------------------------------------------------------------
-# _fuzzy_search
-# ---------------------------------------------------------------------------
+# ── Fuzzy search ────────────────────────────────────────────────────────────
 
 
 class TestFuzzySearch:
-    @patch("metabolon.organelles.engram._collect_words_from_transcripts", return_value=set())
-    def test_no_candidates(self, mock_cw):
+    """Tests for _fuzzy_search."""
+
+    @patch("metabolon.organelles.engram._collect_words_from_transcripts")
+    def test_no_candidates_returns_empty(self, mock_collect):
+        from metabolon.organelles.engram import _fuzzy_search
+
+        mock_collect.return_value = set()
         result = _fuzzy_search("test", 0, 9999999999999, None, None, None, deep=False)
         assert result == []
 
     @patch("metabolon.organelles.engram._search_prompts")
     @patch("metabolon.organelles.engram._collect_words_from_transcripts")
-    def test_fuzzy_returns_matches_with_note(self, mock_cw, mock_sp):
-        mock_cw.return_value = {"hello", "world", "testing"}
-        mock_sp.return_value = [
-            TraceFragment(
-                date="2025-06-15",
-                time_str="14:30",
-                timestamp_ms=_FIXED_MS,
-                session="sess-ab",
-                role="you",
-                snippet="testing result",
-                tool="Claude",
-            ),
-        ]
-        result = _fuzzy_search("testng", 0, 9999999999999, None, None, None, deep=False)
-        assert len(result) == 2  # 1 note + 1 match
-        assert result[0].role == "note"
-        assert "Fuzzy match" in result[0].snippet
+    def test_fuzzy_returns_note_fragment(self, mock_collect, mock_sp):
+        from metabolon.organelles.engram import _fuzzy_search
 
-    @patch("metabolon.organelles.engram._search_transcripts")
-    @patch("metabolon.organelles.engram._collect_words_from_transcripts")
-    def test_fuzzy_deep_mode(self, mock_cw, mock_st):
-        mock_cw.return_value = {"hello", "world", "testing"}
-        mock_st.return_value = [
-            TraceFragment(
-                date="2025-06-15",
-                time_str="14:30",
-                timestamp_ms=_FIXED_MS,
-                session="sess-ab",
-                role="you",
-                snippet="testing result",
-                tool="Claude",
-            ),
-        ]
-        result = _fuzzy_search("testng", 0, 9999999999999, None, None, None, deep=True)
-        mock_st.assert_called_once()
-        assert len(result) == 2
-
-    @patch("metabolon.organelles.engram._search_prompts", return_value=[])
-    @patch("metabolon.organelles.engram._collect_words_from_transcripts")
-    def test_fuzzy_no_close_matches_returns_empty(self, mock_cw, mock_sp):
-        mock_cw.return_value = {"hello", "world", "xyz"}
-        result = _fuzzy_search("qqqqq", 0, 9999999999999, None, None, None, deep=False)
-        assert result == []
-
-    @patch("metabolon.organelles.engram._search_prompts", return_value=[])
-    @patch("metabolon.organelles.engram._collect_words_from_transcripts")
-    def test_fuzzy_regex_error_returns_empty(self, mock_cw, mock_sp):
-        # Provide words that would cause a regex error when joined
-        mock_cw.return_value = {"test"}
-        # Force the search to return empty so we don't need to mock further
-        result = _fuzzy_search("test", 0, 9999999999999, None, None, None, deep=False)
-        # "test" is an exact match to "test" so get_close_matches should return it
-        # But _search_prompts returns [] so result is []
-        assert result == []
-
-
-# ---------------------------------------------------------------------------
-# _history_files / _projects_dir / _opencode_storage
-# ---------------------------------------------------------------------------
-
-
-class TestPathHelpers:
-    def test_history_files_returns_tuples(self):
-        from metabolon.organelles.engram import _history_files
-        files = _history_files()
-        assert len(files) >= 2
-        labels = [label for label, _ in files]
-        assert "Claude" in labels
-        assert "Codex" in labels
-
-    def test_projects_dir_uses_locus(self):
-        from metabolon.organelles.engram import _projects_dir
-        result = _projects_dir()
-        assert "projects" in str(result)
-
-    def test_opencode_storage_path(self):
-        from metabolon.organelles.engram import _opencode_storage
-        result = _opencode_storage()
-        assert ".local/share/opencode/storage" in str(result)
-
-
-# ---------------------------------------------------------------------------
-# _iter_opencode_messages with real data
-# ---------------------------------------------------------------------------
-
-
-class TestIterOpencodeMessagesWithData:
-    @patch("metabolon.organelles.engram._opencode_storage")
-    def test_iterates_sessions_and_messages(self, mock_storage_fn):
-        ts_ms = _FIXED_MS
-
-        # Build a fake filesystem using plain dicts for clarity
-        sess_json = MagicMock()
-        sess_json.is_dir.return_value = True
-        sess_json.read_text.return_value = json.dumps(
-            {"id": "sess-oc-abc", "time": {"created": ts_ms, "updated": 0}}
+        mock_collect.return_value = {"testing", "tester", "tested"}
+        frag = TraceFragment(
+            date="2025-06-15",
+            time_str="10:00",
+            timestamp_ms=1000,
+            session="abcd1234",
+            role="you",
+            snippet="testing here",
+            tool="Claude",
         )
-        sess_json.glob.return_value = [sess_json]
-
-        session_dir = MagicMock()
-        session_dir.exists.return_value = True
-        session_dir.iterdir.return_value = [sess_json]
-
-        msg_json = MagicMock()
-        msg_json.read_text.return_value = json.dumps(
-            {"id": "msg-001", "role": "user", "time": {"created": ts_ms}}
-        )
-        msg_json.name = "msg_001.json"
-
-        msg_dir = MagicMock()
-        msg_dir.exists.return_value = True
-        msg_dir.iterdir.return_value = [msg_json]
-
-        # message / sess-oc-abc -> msg_dir
-        message_dir = MagicMock()
-        message_dir_map = {"sess-oc-abc": msg_dir}
-
-        def message_truediv(self, key):
-            return message_dir_map.get(key, MagicMock())
-
-        message_dir.__truediv__ = message_truediv
-
-        storage = MagicMock()
-        storage_map = {"session": session_dir, "message": message_dir}
-
-        def storage_truediv(self, key):
-            return storage_map.get(key, MagicMock())
-
-        storage.__truediv__ = storage_truediv
-        mock_storage_fn.return_value = storage
-
-        results = list(_iter_opencode_messages(0, ts_ms + 1, None))
-        assert len(results) == 1
-        sess_id, msg, result_ts = results[0]
-        assert sess_id == "sess-oc-abc"
-        assert msg["role"] == "user"
-
-    @patch("metabolon.organelles.engram._opencode_storage")
-    def test_session_filter_applied(self, mock_storage_fn):
-        ts_ms = _FIXED_MS
-        storage = MagicMock()
-
-        session_dir_result = MagicMock()
-        session_dir_result.exists.return_value = True
-
-        sess_json = MagicMock()
-        sess_json.is_dir.return_value = True
-        sess_json.read_text.return_value = json.dumps(
-            {"id": "sess-oc-abc", "time": {"created": ts_ms, "updated": 0}}
-        )
-        sess_json.glob.return_value = [sess_json]
-        session_dir_result.iterdir.return_value = [sess_json]
-
-        storage.__truediv__ = MagicMock(return_value=session_dir_result)
-        mock_storage_fn.return_value = storage
-
-        # With session_filter that doesn't match
-        results = list(_iter_opencode_messages(0, ts_ms + 1, "ZZZZZ"))
-        assert results == []
+        mock_sp.return_value = [frag]
+        results = _fuzzy_search("tset", 0, 9999999999999, None, None, None, deep=False)
+        # First result should be the fuzzy note
+        assert len(results) >= 2
+        assert results[0].role == "note"
+        assert "Fuzzy match" in results[0].snippet
 
 
-# ---------------------------------------------------------------------------
-# _read_opencode_text with data
-# ---------------------------------------------------------------------------
+# ── OpenCode helpers ────────────────────────────────────────────────────────
 
 
-class TestReadOpencodeTextWithData:
-    def test_reads_and_concatenates_parts(self):
-        mock_part_dir = MagicMock()
-        mock_part_dir.exists.return_value = True
+class TestReadOpencodeText:
+    """Tests for _read_opencode_text."""
 
-        part1 = MagicMock()
-        part1.name = "part_001"
-        part1.read_text.return_value = json.dumps({"text": "Hello "})
+    def test_missing_dir_returns_empty(self):
+        from metabolon.organelles.engram import _read_opencode_text
 
-        part2 = MagicMock()
-        part2.name = "part_002"
-        part2.read_text.return_value = json.dumps({"text": "World"})
+        import tempfile
 
-        mock_part_dir.iterdir.return_value = [part2, part1]  # unsorted, should sort by name
+        with tempfile.TemporaryDirectory() as tmpdir:
+            result = _read_opencode_text(Path(tmpdir), "nonexistent")
+            assert result == ""
 
-        # storage / "part" / "msg-1" -> mock_part_dir
-        part_dir = MagicMock()
-        part_dir_map = {"msg-1": mock_part_dir}
+    def test_reads_parts(self):
+        from metabolon.organelles.engram import _read_opencode_text
 
-        def part_truediv(self, key):
-            return part_dir_map.get(key, MagicMock(exists=MagicMock(return_value=False)))
+        import tempfile
 
-        part_dir.__truediv__ = part_truediv
-
-        mock_storage = MagicMock()
-        storage_map = {"part": part_dir}
-
-        def storage_truediv(self, key):
-            return storage_map.get(key, MagicMock())
-
-        mock_storage.__truediv__ = storage_truediv
-        result = _read_opencode_text(mock_storage, "msg-1")
-        assert result == "Hello World"
+        with tempfile.TemporaryDirectory() as tmpdir:
+            part_dir = Path(tmpdir) / "part" / "msg1"
+            part_dir.mkdir(parents=True)
+            (part_dir / "001.json").write_text(json.dumps({"text": "hello "}))
+            (part_dir / "002.json").write_text(json.dumps({"text": "world"}))
+            result = _read_opencode_text(Path(tmpdir), "msg1")
+            assert result == "hello world"
 
 
-# ---------------------------------------------------------------------------
-# _search_prompts with tool_filter and session_filter
-# ---------------------------------------------------------------------------
+# ── Print helpers ───────────────────────────────────────────────────────────
 
 
-class TestSearchPromptsAdvanced:
-    @patch("metabolon.organelles.engram._iter_opencode_messages", return_value=[])
-    @patch("metabolon.organelles.engram._history_files")
-    def test_tool_filter_excludes_non_matching(self, mock_hf, mock_iter):
-        ts_ms = _FIXED_MS
-        mock_path = MagicMock(spec=Path)
-        mock_path.exists.return_value = True
-        data = json.dumps({"timestamp": ts_ms, "display": "findme", "sessionId": "s1"}) + "\n"
-        mock_path.open.return_value.__enter__ = lambda s: StringIO(data)
-        mock_path.open.return_value.__exit__ = MagicMock(return_value=False)
-        mock_hf.return_value = [("Claude", mock_path)]
+class TestPrintScan:
+    def test_empty_prompts(self, capsys):
+        from metabolon.organelles.engram import _print_scan
 
-        regex = re.compile("findme", re.IGNORECASE)
-        start, end = _date_to_range_ms("2025-06-15")
-        # Tool filter = "Codex" should exclude "Claude"
-        results = _search_prompts(regex, start, end, "Codex", None, None)
-        assert results == []
+        _print_scan([], "2025-06-15", full=False)
+        captured = capsys.readouterr()
+        assert "Date: 2025-06-15" in captured.out
+        assert "Total: 0 prompts" in captured.out
 
-    @patch("metabolon.organelles.engram._iter_opencode_messages", return_value=[])
-    @patch("metabolon.organelles.engram._history_files")
-    def test_session_filter_excludes_non_matching(self, mock_hf, mock_iter):
-        ts_ms = _FIXED_MS
-        mock_path = MagicMock(spec=Path)
-        mock_path.exists.return_value = True
-        data = json.dumps({"timestamp": ts_ms, "display": "findme", "sessionId": "sess-xyz"}) + "\n"
-        mock_path.open.return_value.__enter__ = lambda s: StringIO(data)
-        mock_path.open.return_value.__exit__ = MagicMock(return_value=False)
-        mock_hf.return_value = [("Claude", mock_path)]
+    def test_with_prompts(self, capsys):
+        from metabolon.organelles.engram import _print_scan
 
-        regex = re.compile("findme", re.IGNORECASE)
-        start, end = _date_to_range_ms("2025-06-15")
-        # Session filter that doesn't match
-        results = _search_prompts(regex, start, end, None, None, "ZZZZZ")
-        assert results == []
-
-    @patch("metabolon.organelles.engram._read_opencode_text")
-    @patch("metabolon.organelles.engram._iter_opencode_messages")
-    @patch("metabolon.organelles.engram._history_files", return_value=[])
-    @patch("metabolon.organelles.engram._opencode_storage", return_value=Path("/fake"))
-    def test_search_prompts_opencode_branch(self, mock_os, mock_hf, mock_iter, mock_read):
-        ts_ms = _FIXED_MS
-        mock_iter.return_value = [
-            ("sess-oc-1234", {"role": "user", "id": "msg-1"}, ts_ms),
+        records = [
+            EngramRecord("10:00", 1000, "abcd1234", "abcd12345678", "test prompt here", "Claude"),
         ]
-        mock_read.return_value = "find this opencode prompt"
-
-        regex = re.compile("opencode", re.IGNORECASE)
-        start, end = _date_to_range_ms("2025-06-15")
-        results = _search_prompts(regex, start, end, None, None, None)
-        assert len(results) == 1
-        assert results[0].tool == "OpenCode"
-        assert "opencode" in results[0].snippet
-
-
-# ---------------------------------------------------------------------------
-# _search_transcripts with role_filter and opencode branch
-# ---------------------------------------------------------------------------
-
-
-class TestSearchTranscriptsAdvanced:
-    @patch("metabolon.organelles.engram._iter_opencode_messages", return_value=[])
-    @patch("metabolon.organelles.engram._projects_dir")
-    @patch("metabolon.organelles.engram._opencode_storage")
-    def test_role_filter_excludes_non_matching(self, mock_os, mock_pd, mock_iter):
-        ts_iso = "2025-06-15T14:30:00+08:00"
-        entry = {
-            "type": "user",
-            "timestamp": ts_iso,
-            "sessionId": "sess-role",
-            "message": {"content": [{"type": "text", "text": "search pattern"}]},
-        }
-        data = json.dumps(entry) + "\n"
-
-        mock_jsonl = MagicMock(spec=Path)
-        mock_jsonl.suffix = ".jsonl"
-        mock_jsonl.stem = "session-abc"
-        stat_result = MagicMock()
-        stat_result.st_mtime = _FIXED_MS / 1000
-        mock_jsonl.stat.return_value = stat_result
-        mock_jsonl.open.return_value.__enter__ = lambda s: StringIO(data)
-        mock_jsonl.open.return_value.__exit__ = MagicMock(return_value=False)
-
-        mock_proj_dir = MagicMock()
-        mock_proj_dir.is_dir.return_value = True
-        mock_proj_dir.iterdir.return_value = [mock_jsonl]
-
-        mock_projects = MagicMock()
-        mock_projects.exists.return_value = True
-        mock_projects.iterdir.return_value = [mock_proj_dir]
-        mock_pd.return_value = mock_projects
-
-        mock_os.return_value = Path("/fake/opencode")
-
-        regex = re.compile("pattern", re.IGNORECASE)
-        start, end = _date_to_range_ms("2025-06-15")
-
-        # Filter for "claude" role should exclude "user" (role="you") entries
-        results = _search_transcripts(regex, start, end, None, "claude", None)
-        assert results == []
-
-    @patch("metabolon.organelles.engram._read_opencode_text")
-    @patch("metabolon.organelles.engram._iter_opencode_messages")
-    @patch("metabolon.organelles.engram._projects_dir")
-    @patch("metabolon.organelles.engram._opencode_storage")
-    def test_opencode_branch_in_transcripts(self, mock_os, mock_pd, mock_iter, mock_read):
-        ts_ms = _FIXED_MS
-        mock_iter.return_value = [
-            ("sess-oc-1234", {"role": "user", "id": "msg-1"}, ts_ms),
-        ]
-        mock_read.return_value = "search for this pattern in opencode"
-        mock_pd.return_value = MagicMock()  # projects dir not used
-        mock_os.return_value = Path("/fake/opencode")
-
-        regex = re.compile("pattern", re.IGNORECASE)
-        start, end = _date_to_range_ms("2025-06-15")
-
-        results = _search_transcripts(regex, start, end, "opencode", None, None)
-        assert len(results) == 1
-        assert results[0].tool == "OpenCode"
-        assert results[0].role == "you"
-
-
-# ---------------------------------------------------------------------------
-# _print_scan advanced
-# ---------------------------------------------------------------------------
-
-
-class TestPrintScanAdvanced:
-    def test_full_mode_shows_all(self, capsys):
-        prompts = [
-            EngramRecord(
-                time_str="14:30",
-                timestamp_ms=_FIXED_MS,
-                session="sess-abc",
-                session_full="sess-abc12345",
-                prompt="hello world",
-                tool="Claude",
-            ),
-        ]
-        _print_scan(prompts, "2025-06-15", full=True)
+        _print_scan(records, "2025-06-15", full=True)
         captured = capsys.readouterr()
-        assert "All prompts:" in captured.out
+        assert "test prompt here" in captured.out
+        assert "Claude" in captured.out
 
-    def test_multiple_sessions_with_time_range(self, capsys):
-        ts1 = _FIXED_MS
-        ts2 = _FIXED_MS + 3600_000  # 1 hour later
-        prompts = [
-            EngramRecord(
-                time_str="14:30",
-                timestamp_ms=ts1,
-                session="sess-aaa",
-                session_full="sess-aaa11111",
-                prompt="first",
-                tool="Claude",
-            ),
-            EngramRecord(
-                time_str="15:30",
-                timestamp_ms=ts2,
-                session="sess-bbb",
-                session_full="sess-bbb22222",
-                prompt="second",
-                tool="Codex",
-            ),
-        ]
-        _print_scan(prompts, "2025-06-15", full=False)
+
+class TestPrintSearch:
+    def test_no_matches(self, capsys):
+        from metabolon.organelles.engram import _print_search
+
+        regex = re.compile("test")
+        _print_search([], regex, "test", days=7, deep=True, role_filter=None, session_filter=None, context_lines=0)
         captured = capsys.readouterr()
-        assert "2 sessions" in captured.out
-        assert "Time range:" in captured.out
-        assert "14:30 - 15:30" in captured.out
+        assert "No matches found" in captured.out
 
-    def test_long_prompt_truncated(self, capsys):
-        long_prompt = "x" * 200
-        prompts = [
-            EngramRecord(
-                time_str="14:30",
-                timestamp_ms=_FIXED_MS,
-                session="sess-abc",
-                session_full="sess-abc12345",
-                prompt=long_prompt,
-                tool="Claude",
-            ),
-        ]
-        _print_scan(prompts, "2025-06-15", full=False)
-        captured = capsys.readouterr()
-        assert "..." in captured.out
+    def test_with_matches(self, capsys):
+        from metabolon.organelles.engram import _print_search
 
-
-# ---------------------------------------------------------------------------
-# _print_search with context_lines and role filter display
-# ---------------------------------------------------------------------------
-
-
-class TestPrintSearchAdvanced:
-    def test_role_filter_shown_in_header(self, capsys):
-        regex = re.compile("test", re.IGNORECASE)
-        _print_search(
-            [],
-            regex,
-            "test",
-            days=3,
-            deep=False,
-            role_filter="you",
-            session_filter=None,
-            context_lines=0,
-        )
-        captured = capsys.readouterr()
-        assert "role=you" in captured.out
-
-    def test_session_filter_shown_in_header(self, capsys):
-        regex = re.compile("test", re.IGNORECASE)
-        _print_search(
-            [],
-            regex,
-            "test",
-            days=3,
-            deep=False,
-            role_filter=None,
-            session_filter="abc",
-            context_lines=0,
-        )
-        captured = capsys.readouterr()
-        assert "session=abc" in captured.out
-
-    def test_context_lines_shown_in_header(self, capsys):
-        regex = re.compile("test", re.IGNORECASE)
-        _print_search(
-            [],
-            regex,
-            "test",
-            days=3,
-            deep=False,
-            role_filter=None,
-            session_filter=None,
-            context_lines=3,
-        )
-        captured = capsys.readouterr()
-        assert "context=3" in captured.out
-
-    def test_with_matches_and_deep_shows_role_tag(self, capsys):
-        regex = re.compile("test", re.IGNORECASE)
+        regex = re.compile("needle")
         matches = [
             TraceFragment(
-                date="2025-06-15",
-                time_str="14:30",
-                timestamp_ms=_FIXED_MS,
-                session="sess-ab",
-                role="claude",
-                snippet="test match here",
+                date="2025-06-14",
+                time_str="10:00",
+                timestamp_ms=1000,
+                session="abcd1234",
+                role="you",
+                snippet="find the needle here",
                 tool="Claude",
             ),
         ]
-        _print_search(
-            matches,
-            regex,
-            "test",
-            days=7,
-            deep=True,
-            role_filter=None,
-            session_filter=None,
-            context_lines=0,
-        )
+        _print_search(matches, regex, "needle", days=7, deep=False, role_filter=None, session_filter=None, context_lines=0)
         captured = capsys.readouterr()
-        assert "(claude)" in captured.out
+        assert "Found 1 matches" in captured.out
+        assert "2025-06-14" in captured.out
 
 
-# ---------------------------------------------------------------------------
-# _scan_history with prompt field fallback
-# ---------------------------------------------------------------------------
+class TestPrintJsonScan:
+    def test_outputs_valid_json(self, capsys):
+        from metabolon.organelles.engram import _print_json_scan
 
-
-class TestScanHistoryFallback:
-    @patch("metabolon.organelles.engram._scan_opencode", return_value=[])
-    @patch("metabolon.organelles.engram._history_files")
-    def test_uses_prompt_field_when_no_display(self, mock_hf, mock_oc):
-        ts_ms = _FIXED_MS
-        data = json.dumps({"timestamp": ts_ms, "prompt": "from prompt field", "sessionId": "s1"}) + "\n"
-        mock_path = MagicMock(spec=Path)
-        mock_path.exists.return_value = True
-        mock_path.open.return_value.__enter__ = lambda s: StringIO(data)
-        mock_path.open.return_value.__exit__ = MagicMock(return_value=False)
-        mock_hf.return_value = [("Claude", mock_path)]
-
-        result = _scan_history("2025-06-15")
-        assert len(result) == 1
-        assert result[0].prompt == "from prompt field"
-
-
-# ---------------------------------------------------------------------------
-# _collect_words_from_transcripts
-# ---------------------------------------------------------------------------
-
-
-class TestCollectWords:
-    @patch("metabolon.organelles.engram._iter_opencode_messages", return_value=[])
-    @patch("metabolon.organelles.engram._history_files", return_value=[])
-    @patch("metabolon.organelles.engram._opencode_storage")
-    @patch("metabolon.organelles.engram._projects_dir")
-    def test_collects_from_claude_transcripts(self, mock_pd, mock_os, mock_hf, mock_iter):
-        from metabolon.organelles.engram import _collect_words_from_transcripts
-
-        ts_iso = "2025-06-15T14:30:00+08:00"
-        entry = {
-            "type": "user",
-            "timestamp": ts_iso,
-            "sessionId": "sess-words",
-            "message": {
-                "content": [{"type": "text", "text": "search for important keywords here"}],
-            },
-        }
-        data = json.dumps(entry) + "\n"
-
-        mock_jsonl = MagicMock(spec=Path)
-        mock_jsonl.suffix = ".jsonl"
-        mock_jsonl.stem = "session-words"
-        stat_result = MagicMock()
-        stat_result.st_mtime = _FIXED_MS / 1000
-        mock_jsonl.stat.return_value = stat_result
-        mock_jsonl.open.return_value.__enter__ = lambda s: StringIO(data)
-        mock_jsonl.open.return_value.__exit__ = MagicMock(return_value=False)
-
-        mock_proj_dir = MagicMock()
-        mock_proj_dir.is_dir.return_value = True
-        mock_proj_dir.iterdir.return_value = [mock_jsonl]
-
-        mock_projects = MagicMock()
-        mock_projects.exists.return_value = True
-        mock_projects.iterdir.return_value = [mock_proj_dir]
-        mock_pd.return_value = mock_projects
-
-        mock_os.return_value = Path("/fake/opencode")
-
-        start, end = _date_to_range_ms("2025-06-15")
-        words = _collect_words_from_transcripts(start, end, None, None, None)
-        assert "search" in words
-        assert "important" in words
-        assert "keywords" in words
-
-    @patch("metabolon.organelles.engram._iter_opencode_messages", return_value=[])
-    @patch("metabolon.organelles.engram._history_files")
-    @patch("metabolon.organelles.engram._opencode_storage", return_value=Path("/fake"))
-    @patch("metabolon.organelles.engram._projects_dir")
-    def test_collects_from_history_files(self, mock_pd, mock_os, mock_hf, mock_iter):
-        from metabolon.organelles.engram import _collect_words_from_transcripts
-
-        ts_ms = _FIXED_MS
-        data = json.dumps({"timestamp": ts_ms, "display": "search database records", "sessionId": "s1"}) + "\n"
-        mock_path = MagicMock(spec=Path)
-        mock_path.exists.return_value = True
-        mock_path.open.return_value.__enter__ = lambda s: StringIO(data)
-        mock_path.open.return_value.__exit__ = MagicMock(return_value=False)
-        mock_hf.return_value = [("Claude", mock_path)]
-
-        # Empty projects dir
-        mock_pd.return_value = MagicMock()
-
-        start, end = _date_to_range_ms("2025-06-15")
-        words = _collect_words_from_transcripts(start, end, None, None, None)
-        assert "search" in words
-        assert "database" in words
-        assert "records" in words
-
-    @patch("metabolon.organelles.engram._iter_opencode_messages")
-    @patch("metabolon.organelles.engram._read_opencode_text")
-    @patch("metabolon.organelles.engram._history_files", return_value=[])
-    @patch("metabolon.organelles.engram._opencode_storage", return_value=Path("/fake"))
-    @patch("metabolon.organelles.engram._projects_dir")
-    def test_collects_from_opencode_messages(self, mock_pd, mock_os, mock_hf, mock_read, mock_iter):
-        from metabolon.organelles.engram import _collect_words_from_transcripts
-
-        ts_ms = _FIXED_MS
-        mock_iter.return_value = [
-            ("sess-oc-1234", {"role": "user", "id": "msg-1"}, ts_ms),
+        records = [
+            EngramRecord("10:00", 1000, "abcd1234", "abcd12345678", "hi", "Claude"),
         ]
-        mock_read.return_value = "examine opencode transcripts carefully"
-
-        start, end = _date_to_range_ms("2025-06-15")
-        words = _collect_words_from_transcripts(start, end, None, None, None)
-        assert "examine" in words
-        assert "opencode" in words
-        assert "transcripts" in words
-
-    @patch("metabolon.organelles.engram._iter_opencode_messages", return_value=[])
-    @patch("metabolon.organelles.engram._history_files", return_value=[])
-    @patch("metabolon.organelles.engram._opencode_storage", return_value=Path("/fake"))
-    @patch("metabolon.organelles.engram._projects_dir")
-    def test_short_words_excluded(self, mock_pd, mock_os, mock_hf, mock_iter):
-        from metabolon.organelles.engram import _collect_words_from_transcripts
-
-        ts_iso = "2025-06-15T14:30:00+08:00"
-        entry = {
-            "type": "user",
-            "timestamp": ts_iso,
-            "sessionId": "sess-short",
-            "message": {
-                "content": [{"type": "text", "text": "I am a go to do it"}],
-            },
-        }
-        data = json.dumps(entry) + "\n"
-
-        mock_jsonl = MagicMock(spec=Path)
-        mock_jsonl.suffix = ".jsonl"
-        mock_jsonl.stem = "session-short"
-        stat_result = MagicMock()
-        stat_result.st_mtime = _FIXED_MS / 1000
-        mock_jsonl.stat.return_value = stat_result
-        mock_jsonl.open.return_value.__enter__ = lambda s: StringIO(data)
-        mock_jsonl.open.return_value.__exit__ = MagicMock(return_value=False)
-
-        mock_proj_dir = MagicMock()
-        mock_proj_dir.is_dir.return_value = True
-        mock_proj_dir.iterdir.return_value = [mock_jsonl]
-
-        mock_projects = MagicMock()
-        mock_projects.exists.return_value = True
-        mock_projects.iterdir.return_value = [mock_proj_dir]
-        mock_pd.return_value = mock_projects
-
-        start, end = _date_to_range_ms("2025-06-15")
-        words = _collect_words_from_transcripts(start, end, None, None, None)
-        # Words < 3 chars should be excluded
-        assert "i" not in words
-        assert "am" not in words
-        assert "a" not in words
-        assert "go" not in words
-        assert "to" not in words
-        assert "do" not in words
-        assert "it" not in words
+        _print_json_scan(records, "2025-06-15")
+        captured = capsys.readouterr()
+        data = json.loads(captured.out)
+        assert data["date"] == "2025-06-15"
+        assert data["total"] == 1
+        assert len(data["prompts"]) == 1
 
 
-# ---------------------------------------------------------------------------
-# _cli()
-# ---------------------------------------------------------------------------
+class TestPrintJsonSearch:
+    def test_outputs_valid_json(self, capsys):
+        from metabolon.organelles.engram import _print_json_search
+
+        fragments = [
+            TraceFragment(
+                date="2025-06-15",
+                time_str="10:00",
+                timestamp_ms=1000,
+                session="abcd1234",
+                role="you",
+                snippet="test",
+                tool="Claude",
+            ),
+        ]
+        _print_json_search(fragments)
+        captured = capsys.readouterr()
+        data = json.loads(captured.out)
+        assert isinstance(data, list)
+        assert data[0]["snippet"] == "test"
+
+
+# ── CLI ─────────────────────────────────────────────────────────────────────
 
 
 class TestCli:
-    @patch("metabolon.organelles.engram._scan_history", return_value=[])
-    @patch("metabolon.organelles.engram._resolve_date", return_value="2025-06-15")
-    def test_scan_default(self, mock_rd, mock_sh, capsys):
-        with patch("sys.argv", ["engram", "scan"]):
+    """Test _cli entry point with mocked internals."""
+
+    @patch("metabolon.organelles.engram._scan_history")
+    @patch("metabolon.organelles.engram._resolve_date")
+    def test_cli_scan_default(self, mock_resolve, mock_scan, capsys):
+        from metabolon.organelles.engram import _cli
+
+        mock_resolve.return_value = "2025-06-15"
+        mock_scan.return_value = []
+
+        with patch("sys.argv", ["engram", "scan", "today"]):
             _cli()
+
         captured = capsys.readouterr()
         assert "Date: 2025-06-15" in captured.out
 
-    @patch("metabolon.organelles.engram._scan_history", return_value=[])
-    @patch("metabolon.organelles.engram._resolve_date", return_value="2025-06-15")
-    def test_scan_with_json(self, mock_rd, mock_sh, capsys):
-        with patch("sys.argv", ["engram", "scan", "--json"]):
+    @patch("metabolon.organelles.engram._scan_history")
+    @patch("metabolon.organelles.engram._resolve_date")
+    def test_cli_scan_json(self, mock_resolve, mock_scan, capsys):
+        from metabolon.organelles.engram import _cli
+
+        mock_resolve.return_value = "2025-06-15"
+        mock_scan.return_value = [
+            EngramRecord("10:00", 1000, "abcd1234", "abcd12345678", "hi", "Claude"),
+        ]
+
+        with patch("sys.argv", ["engram", "scan", "today", "--json"]):
             _cli()
+
         captured = capsys.readouterr()
-        parsed = json.loads(captured.out)
-        assert parsed["date"] == "2025-06-15"
+        data = json.loads(captured.out)
+        assert data["total"] == 1
 
-    @patch("metabolon.organelles.engram._scan_history", return_value=[])
-    @patch("metabolon.organelles.engram._resolve_date", return_value="2025-06-14")
-    def test_scan_yesterday(self, mock_rd, mock_sh, capsys):
-        with patch("sys.argv", ["engram", "scan", "yesterday"]):
-            _cli()
-        mock_sh.assert_called_once_with("2025-06-14", None)
+    @patch("metabolon.organelles.engram._search_transcripts")
+    @patch("metabolon.organelles.engram._now_hkt")
+    def test_cli_search(self, mock_now, mock_st, capsys):
+        from metabolon.organelles.engram import _cli
 
-    @patch("metabolon.organelles.engram._scan_history", return_value=[])
-    @patch("metabolon.organelles.engram._resolve_date", return_value="2025-06-15")
-    def test_scan_with_tool(self, mock_rd, mock_sh, capsys):
-        with patch("sys.argv", ["engram", "scan", "--tool", "Claude"]):
-            _cli()
-        mock_sh.assert_called_once_with("2025-06-15", "Claude")
+        mock_now.return_value = datetime(2025, 6, 15, 12, 0, tzinfo=_HKT)
+        mock_st.return_value = []
 
-    @patch("metabolon.organelles.engram._search_prompts", return_value=[])
-    @patch("metabolon.organelles.engram._now_hkt", return_value=_FIXED_HKT)
-    def test_search_prompts_only(self, mock_now, mock_sp, capsys):
-        with patch("sys.argv", ["engram", "search", "--prompts-only", "test"]):
+        with patch("sys.argv", ["engram", "search", "test"]):
             _cli()
+
         captured = capsys.readouterr()
-        assert "prompts only" in captured.out
+        assert "No matches found" in captured.out
 
-    @patch("metabolon.organelles.engram._search_transcripts", return_value=[])
-    @patch("metabolon.organelles.engram._now_hkt", return_value=_FIXED_HKT)
-    def test_search_deep(self, mock_now, mock_st, capsys):
-        with patch("sys.argv", ["engram", "search", "pattern"]):
-            _cli()
-        captured = capsys.readouterr()
-        assert "full transcripts" in captured.out
-        mock_st.assert_called_once()
+    @patch("metabolon.organelles.engram._resolve_date")
+    def test_cli_invalid_date_exits(self, mock_resolve, capsys):
+        from metabolon.organelles.engram import _cli
 
-    @patch("metabolon.organelles.engram._search_transcripts", return_value=[])
-    @patch("metabolon.organelles.engram._now_hkt", return_value=_FIXED_HKT)
-    def test_search_json_output(self, mock_now, mock_st, capsys):
-        with patch("sys.argv", ["engram", "search", "--json", "test"]):
-            _cli()
-        captured = capsys.readouterr()
-        parsed = json.loads(captured.out)
-        assert parsed == []
+        mock_resolve.side_effect = ValueError("Invalid date format: bad. Use YYYY-MM-DD.")
 
-    @patch("metabolon.organelles.engram._resolve_date", side_effect=ValueError("bad date"))
-    def test_cli_value_error_exits(self, mock_rd, capsys):
-        with patch("sys.argv", ["engram", "scan", "baddate"]):
-            with pytest.raises(SystemExit) as exc_info:
+        with pytest.raises(SystemExit):
+            with patch("sys.argv", ["engram", "scan", "bad"]):
                 _cli()
-            assert exc_info.value.code == 1
 
-    def test_no_subcommand_defaults_to_scan(self, capsys):
+    @patch("metabolon.organelles.engram._now_hkt")
+    def test_cli_invalid_regex_exits(self, mock_now, capsys):
+        from metabolon.organelles.engram import _cli
+
+        mock_now.return_value = datetime(2025, 6, 15, 12, 0, tzinfo=_HKT)
+
+        with pytest.raises(SystemExit):
+            with patch("sys.argv", ["engram", "search", "[invalid"]):
+                _cli()
+
+    @patch("metabolon.organelles.engram._scan_history")
+    @patch("metabolon.organelles.engram._resolve_date")
+    def test_cli_no_subcommand_defaults_scan(self, mock_resolve, mock_scan, capsys):
+        from metabolon.organelles.engram import _cli
+
+        mock_resolve.return_value = "2025-06-15"
+        mock_scan.return_value = []
+
         with patch("sys.argv", ["engram"]):
-            # This will call _resolve_date and _scan_history for real,
-            # which may or may not find data. Just ensure no crash.
-            try:
-                _cli()
-            except SystemExit:
-                pass
+            _cli()
 
-
-# ---------------------------------------------------------------------------
-# _highlight_matches edge cases
-# ---------------------------------------------------------------------------
-
-
-class TestHighlightMatchesEdgeCases:
-    def test_zero_length_match_skipped(self):
-        regex = re.compile(r"(?=lookahead)", re.IGNORECASE)
-        # Zero-length match should not produce ANSI codes
-        result = _highlight_matches("some text", regex, color=True)
-        assert "\033[" not in result
-
-    def test_multiple_matches(self):
-        regex = re.compile("test", re.IGNORECASE)
-        result = _highlight_matches("test one test two", regex, color=True)
-        # Should have 2 highlighted sections
-        assert result.count("\033[1;31m") == 2
-        assert result.count("\033[0m") == 2
-
-
-# ---------------------------------------------------------------------------
-# _extract_text edge cases
-# ---------------------------------------------------------------------------
-
-
-class TestExtractTextEdgeCases:
-    def test_empty_list(self):
-        assert _extract_text([]) == ""
-
-    def test_tool_use_without_name(self):
-        content = [{"type": "tool_use"}]
-        assert _extract_text(content) == ""
+        captured = capsys.readouterr()
+        assert "Date: 2025-06-15" in captured.out

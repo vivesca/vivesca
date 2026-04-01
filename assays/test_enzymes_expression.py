@@ -304,8 +304,7 @@ class TestExpressionLibrary:
         ).timestamp()
 
         mock_dir.glob.return_value = [recent_file, old_file]
-        mock_dirs.__iter__ = lambda self: iter([("Test", mock_dir)])
-        mock_dirs.__getitem__ = lambda self, key: mock_dir
+        mock_dirs.items.return_value = [("Test", mock_dir)]
 
         result = expression("library")
 
@@ -323,8 +322,7 @@ class TestExpressionLibrary:
         mock_file.stat.return_value.st_mtime = datetime.datetime.now().timestamp()
         mock_dir.glob.return_value = [mock_file]
 
-        mock_dirs.__iter__ = lambda self: iter([("Docs", mock_dir)])
-        mock_dirs.__getitem__ = lambda self, key: mock_dir
+        mock_dirs.items.return_value = [("Docs", mock_dir)]
 
         result = expression("library")
 
