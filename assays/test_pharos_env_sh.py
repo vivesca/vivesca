@@ -113,3 +113,57 @@ class TestPharosEnv:
         r = _run(tmp_path, ["echo", "one", "two three", "four"])
         assert r.returncode == 0
         assert r.stdout.strip() == "one two three four"
+
+    # ── Help flag tests ────────────────────────────────────────────────────
+
+    def test_help_long_flag(self, tmp_path: Path):
+        """--help should print usage text and exit 0."""
+        script_path = _prepare_script(tmp_path)
+        r = subprocess.run(
+            ["bash", str(script_path), "--help"],
+            capture_output=True, text=True, timeout=10,
+        )
+        assert r.returncode == 0
+        assert "Usage:" in r.stdout
+        assert "pharos-env.sh" in r.stdout
+
+    def test_help_short_flag(self, tmp_path: Path):
+        """-h should print usage text and exit 0."""
+        script_path = _prepare_script(tmp_path)
+        r = subprocess.run(
+            ["bash", str(script_path), "-h"],
+            capture_output=True, text=True, timeout=10,
+        )
+        assert r.returncode == 0
+        assert "Usage:" in r.stdout
+
+    # ── Error handling tests ───────────────────────────────────────────────
+
+    def test_no_arguments_exits_cleanly(self, tmp_path: Path):
+        """Running with no arguments: exec with empty $@ is a no-op, exits 0."""
+        script_path = _prepare_script(tmp_path)
+        r = subprocess.run(
+            ["bash", str(script_path)],
+            capture_output=True, text=True, timeout=10,
+        )
+        assert r.returncode == 0
+        assert r.stdout == ""
+        assert r.stderr == ""
+
+    # ── .zshenv.local multi-variable test ──────────────────────────────────
+
+    def test_sources_multiple_vars_from_local_secrets(self, tmp_path: Path):
+        """Both variables from .zshenv.local should be exported."""
+        r = _run(tmp_path, ["printenv", "ANOTHER_VAR"], have_local_env=True)
+        assert r.returncode == 0
+        assert r.stdout.strip() == "another-value"
+
+    # ── PATH ordering test ─────────────────────────────────────────────────
+
+    def test_path_order_prefers_local_bin(self, tmp_path: Path):
+        """$HOME/.local/bin should be the first entry in PATH."""
+        r = _run(tmp_path, ["printenv", "PATH"])
+        assert r.returncode == 0
+        path = r.stdout.strip()
+        first_entry = path.split(":")[0]
+        assert first_entry == f"{tmp_path}/.local/bin"
