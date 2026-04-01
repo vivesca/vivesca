@@ -560,9 +560,28 @@ def parse_rate_limit_window(tail: str) -> int | None:
     return None
 
 
+_provider_throttle: dict[str, int] = {}  # provider -> temporary reduction in concurrency
+
 def get_provider_limit(provider: str) -> int:
-    """Get concurrency limit for a provider."""
-    return PROVIDER_LIMITS.get(provider, DEFAULT_LIMIT)
+    """Get concurrency limit for a provider, reduced by adaptive throttle."""
+    base = PROVIDER_LIMITS.get(provider, DEFAULT_LIMIT)
+    throttle = _provider_throttle.get(provider, 0)
+    return max(1, base - throttle)
+
+
+def _throttle_provider(provider: str):
+    """Reduce provider concurrency by 1 after a failure (adaptive back-pressure)."""
+    base = PROVIDER_LIMITS.get(provider, DEFAULT_LIMIT)
+    current = _provider_throttle.get(provider, 0)
+    if current < base - 1:  # always keep at least 1 slot
+        _provider_throttle[provider] = current + 1
+
+
+def _unthrottle_provider(provider: str):
+    """Restore 1 slot of provider concurrency after a success."""
+    current = _provider_throttle.get(provider, 0)
+    if current > 0:
+        _provider_throttle[provider] = current - 1
 
 _PENDING_PREFIXES = ("- [ ] ", "- [!!] ", "- [!] ")  # pending, high-priority, failed (retryable)
 
