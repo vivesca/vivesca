@@ -268,7 +268,8 @@ class TestDaemonMarkFailed:
         ns.QUEUE_FILE = tmp_queue
         lock_path = tmp_queue.parent / "golem-queue.lock"
         ns.QueueLock._lock_path = lock_path
-        result = ns.mark_failed(4, "bad command", exit_code=2)
+        # Pass non-empty tail to trigger no-retry on exit=2
+        result = ns.mark_failed(4, "bad command", exit_code=2, tail="usage: ...")
         assert result["retried"] is False
         content = tmp_queue.read_text()
         assert "- [!]" in content
@@ -306,7 +307,7 @@ class TestDaemonRunGolem:
         mock_result.stdout = "all tests passed"
         mock_result.stderr = ""
         with patch("subprocess.run", return_value=mock_result):
-            cmd, exit_code, tail = ns.run_golem('golem "test"')
+            cmd, exit_code, tail, duration = ns.run_golem('golem "test"')
         assert exit_code == 0
         assert "test" in cmd
 
@@ -317,7 +318,7 @@ class TestDaemonRunGolem:
         mock_result.stdout = ""
         mock_result.stderr = "error occurred"
         with patch("subprocess.run", return_value=mock_result):
-            _, exit_code, _ = ns.run_golem('golem "test"')
+            _, exit_code, _, _ = ns.run_golem('golem "test"')
         assert exit_code == 1
 
 
@@ -462,14 +463,16 @@ class TestDashProviderStats:
 class TestDashQueueStatus:
     def test_basic_status(self, tmp_queue):
         ns = _load("golem-dash")
-        status_text, last_done = ns.queue_status(tmp_queue, use_color=False)
+        # queue_status returns (status_text, last_done, pending, done, failed)
+        status_text, last_done, _, _, _ = ns.queue_status(tmp_queue, use_color=False)
         assert "Pending: 3" in status_text
         assert "Done: 0" in status_text
 
     def test_missing_queue(self, tmp_path):
         ns = _load("golem-dash")
-        output = ns.queue_status(tmp_path / "nope.md", use_color=False)
-        assert "not found" in output.lower()
+        # queue_status returns 5 values
+        status_text, _, _, _, _ = ns.queue_status(tmp_path / "nope.md", use_color=False)
+        assert "not found" in status_text.lower()
 
     def test_with_done_tasks(self, tmp_path):
         ns = _load("golem-dash")

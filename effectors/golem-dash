@@ -644,26 +644,36 @@ def provider_stats(records: list[dict], use_color: bool = True) -> str:
     return "\n".join(lines)
 
 
-def enrich_running_progress(running: list[dict], records: list[dict]) -> list[dict]:
+def _percentile(values: list[float], percentile: float) -> float:
+    """Compute percentile (nearest rank) of a list of values."""
+    if not values:
+        return 0.0
+    sorted_vals = sorted(values)
+    k = math.ceil(percentile / 100.0 * len(sorted_vals)) - 1
+    k = max(0, min(k, len(sorted_vals) - 1))
+    return sorted_vals[k]
+
+
+def enrich_running_progress(running: list[dict], records: list[dict], percentile: int = PROGRESS_PERCENTILE) -> list[dict]:
     """Enrich running tasks with estimated progress from provider history.
 
     Adds keys to each task dict: estimated_pct, estimated_remaining, is_stale.
+    Uses the given percentile (default 90) of historical durations per provider.
     """
-    provider_medians: dict[str, float] = {}
+    provider_percentiles: dict[str, float] = {}
     by_provider: dict[str, list] = defaultdict(list)
     for r in records:
         dur = r.get("duration")
         if dur is not None:
             by_provider[r.get("provider", "unknown")].append(dur)
     for prov, durs in by_provider.items():
-        s = sorted(durs)
-        provider_medians[prov] = s[len(s) // 2]
-    overall_median = 120.0
-    if provider_medians:
-        overall_median = sum(provider_medians.values()) / len(provider_medians)
+        provider_percentiles[prov] = _percentile(durs, percentile)
+    # Fallback overall percentile (across all providers)
+    all_durations = [d for durs in by_provider.values() for d in durs]
+    overall_fallback = _percentile(all_durations, percentile) if all_durations else 120.0
 
     for task in running:
-        expected = provider_medians.get(task["provider"], overall_median)
+        expected = provider_percentiles.get(task["provider"], overall_fallback)
         elapsed = task["duration_secs"]
         pct = min(elapsed / expected * 100, 100) if expected > 0 else 0
         task["estimated_pct"] = round(pct)

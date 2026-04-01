@@ -960,14 +960,27 @@ class TestSkillSymlinking:
 
         assert link.resolve() == skill_a.resolve()
 
-    def test_live_sync_includes_skills_count(self, tmp_path):
+    @patch('metabolon.locus.PLATFORM_SYMLINKS', [])
+    @patch('metabolon.locus.phenotype_md', Path('/tmp/fake_phenotype.md'))
+    @patch('metabolon.enzymes.integrin._check_phenotype_symlinks', return_value=([], []))
+    @patch('metabolon.organelles.phenotype_translate.GEMINI_ADAPTER_PATH', Path('/tmp/fake_adapter.py'))
+    def test_live_sync_includes_skills_count(self, tmp_path, mock_check):
         """Full sync reports skills_synced count."""
-        from metabolon.organelles.phenotype_translate import CC_SETTINGS_PATH
-        gemini_settings = tmp_path / "settings.json"
-        result = sync_phenotype(
-            dry_run=True,
-            cc_settings_path=CC_SETTINGS_PATH,
-            gemini_settings_path=gemini_settings,
-        )
-        assert result.skills_synced > 0
-        assert "Skills" in result.summary
+        # Create a mock receptors directory with a skill
+        receptors = tmp_path / "receptors"
+        skill_dir = receptors / "test_skill"
+        skill_dir.mkdir(parents=True)
+        (skill_dir / "SKILL.md").write_text("---\nname: test\n---\n")
+        # Patch receptors to point to this directory
+        with patch('metabolon.locus.receptors', receptors):
+            cc_settings = tmp_path / "cc_settings.json"
+            cc_settings.write_text(json.dumps({"hooks": {}}))
+            with patch('metabolon.organelles.phenotype_translate.CC_SETTINGS_PATH', cc_settings):
+                gemini_settings = tmp_path / "settings.json"
+                result = sync_phenotype(
+                    dry_run=True,
+                    cc_settings_path=cc_settings,
+                    gemini_settings_path=gemini_settings,
+                )
+                assert result.skills_synced > 0
+                assert "Skills" in result.summary
