@@ -49,7 +49,7 @@ def noesis(action: str, query: str = "") -> str:
         return f"Unknown action '{action}'. Use one of: search, ask, research."
 
 
-@resource("vivesca://noesis/search-log")  # type: ignore[call-arg]
+@resource("vivesca://noesis/search-log")  # type: ignore
 def noesis_search_log() -> str:
     """Returns the last 10 noesis queries from the usage log."""
     import os

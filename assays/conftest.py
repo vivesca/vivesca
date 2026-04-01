@@ -17,12 +17,11 @@ import yaml
 
 
 class _DottedNameModule(pytest.Module):
-    """Module collector that loads .sh.py (and other dotted-name) test files
-    via importlib.util, skipping the broken package-resolution import."""
+    """Module collector that loads .sh.py test files via importlib.util,
+    bypassing the broken package-resolution import."""
 
     def _getobj(self):
         safe_name = self.path.name.replace(".", "_").removesuffix("_py")
-        print(f"[DottedNameModule._getobj] {safe_name} from {self.path}", flush=True)
         if safe_name not in sys.modules:
             spec = importlib.util.spec_from_file_location(safe_name, str(self.path))
             if spec is None or spec.loader is None:
@@ -33,12 +32,17 @@ class _DottedNameModule(pytest.Module):
         return sys.modules[safe_name]
 
 
+@pytest.hookimpl(hookwrapper=True)
 def pytest_collect_file(file_path: Path, parent):
+    """For .sh.py files, replace the default Module with our custom one
+    that handles dotted filenames correctly."""
     if file_path.suffixes != [".sh", ".py"] or not file_path.name.startswith("test_"):
-        return None
-    node = _DottedNameModule.from_parent(parent, path=file_path)
-    print(f"[conftest] created {type(node).__name__} for {file_path}", flush=True)
-    return node
+        yield
+        return
+    outcome = yield
+    # Discard any nodes created by other hooks (e.g. the default collector)
+    # and replace with our custom module that knows how to import dotted names.
+    outcome.force_result([_DottedNameModule.from_parent(parent, path=file_path)])
 
 
 @pytest.fixture

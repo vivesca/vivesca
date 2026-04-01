@@ -95,7 +95,7 @@ def set_realistic_headers(context: BrowserContext) -> str:
     Returns the selected UA string so callers can log or verify it.
     """
     ua = random.choice(CHROME_USER_AGENTS)
-    context.set_extra_http_headers({"User-Agent": ua})  # type: ignore[unused-coroutine]  # pyright: ignore[reportUnusedCoroutine]
+    context.set_extra_http_headers({"User-Agent": ua})  # type: ignore
     return ua
 
 
