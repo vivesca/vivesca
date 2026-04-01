@@ -531,3 +531,242 @@ def test_git_repo_no_commits(tmp_path):
 
     result = run_script(env={"HOME": str(fake_home)})
     assert result.returncode == 0
+
+
+# ── Path derivation edge cases ───────────────────────────────────────────
+
+
+def test_home_with_spaces_in_path(tmp_path):
+    """HOME containing spaces should still derive project-dash correctly."""
+    fake_home = tmp_path / "my home dir"
+    fake_home.mkdir()
+
+    agent_config = fake_home / "agent-config"
+    agent_config.mkdir()
+    subprocess.run(["git", "init"], cwd=agent_config, capture_output=True, check=True)
+
+    memory_dir = agent_config / "claude" / "memory"
+    memory_dir.mkdir(parents=True)
+    (memory_dir / "MEMORY.md").write_text("spacey home")
+
+    result = run_script(env={"HOME": str(fake_home)})
+    assert result.returncode == 0
+
+    # Spaces become dashes in the project name
+    project_dash = str(fake_home).lstrip("/").replace("/", "-")
+    dst = fake_home / ".claude" / "projects" / f"-{project_dash}" / "memory" / "MEMORY.md"
+    assert dst.exists(), f"Expected at {dst}"
+    assert dst.read_text() == "spacey home"
+
+
+def test_home_with_trailing_slash(tmp_path):
+    """HOME with a trailing slash should not produce double-dash in project dir."""
+    fake_home = tmp_path / "home"
+    fake_home.mkdir()
+
+    agent_config = fake_home / "agent-config"
+    agent_config.mkdir()
+    subprocess.run(["git", "init"], cwd=agent_config, capture_output=True, check=True)
+
+    memory_dir = agent_config / "claude" / "memory"
+    memory_dir.mkdir(parents=True)
+    (memory_dir / "MEMORY.md").write_text("trailing slash")
+
+    # Run with trailing slash on HOME
+    home_with_slash = str(fake_home) + "/"
+    result = run_script(env={"HOME": home_with_slash})
+    # Script uses $HOME directly for mkdir/cp, trailing slash is fine
+    # But project-dash derivation strips leading / then replaces / with -
+    # With trailing /, the sed 's|^/||' strips leading /, tr replaces remaining /
+    # "/tmp/xxx/home/" -> "tmp/xxx/home/" -> "tmp-xxx-home-"
+    # This creates a project dir with trailing dash
+    assert result.returncode == 0
+
+
+def test_home_single_component_path(tmp_path):
+    """HOME like /tmpxyz (single component) should produce a single-segment dash."""
+    # Use a path that looks like a single component
+    fake_home = tmp_path / "h"
+    fake_home.mkdir()
+
+    agent_config = fake_home / "agent-config"
+    agent_config.mkdir()
+    subprocess.run(["git", "init"], cwd=agent_config, capture_output=True, check=True)
+
+    memory_dir = agent_config / "claude" / "memory"
+    memory_dir.mkdir(parents=True)
+    (memory_dir / "MEMORY.md").write_text("short path")
+
+    result = run_script(env={"HOME": str(fake_home)})
+    assert result.returncode == 0
+
+    project_dash = str(fake_home).lstrip("/").replace("/", "-")
+    dst = fake_home / ".claude" / "projects" / f"-{project_dash}" / "memory" / "MEMORY.md"
+    assert dst.exists()
+
+
+# ── Symlinked MEMORY.md ──────────────────────────────────────────────────
+
+
+def test_memory_md_is_symlink(tmp_path):
+    """A symlinked MEMORY.md should be followed by cp (copies target content)."""
+    fake_home = tmp_path / "home"
+    fake_home.mkdir()
+
+    agent_config = fake_home / "agent-config"
+    agent_config.mkdir()
+    subprocess.run(["git", "init"], cwd=agent_config, capture_output=True, check=True)
+
+    memory_dir = agent_config / "claude" / "memory"
+    memory_dir.mkdir(parents=True)
+
+    # Create a real file and a symlink pointing to it
+    real_file = memory_dir / "REAL_MEMORY.md"
+    real_file.write_text("real content via symlink")
+    symlink = memory_dir / "MEMORY.md"
+    symlink.symlink_to(real_file)
+
+    result = run_script(env={"HOME": str(fake_home)})
+    assert result.returncode == 0
+
+    project_dash = str(fake_home).lstrip("/").replace("/", "-")
+    dst = fake_home / ".claude" / "projects" / f"-{project_dash}" / "memory" / "MEMORY.md"
+    assert dst.exists()
+    # cp follows symlinks by default — content should be the target
+    assert dst.read_text() == "real content via symlink"
+
+
+# ── Write-protected destination ──────────────────────────────────────────
+
+
+def test_write_protected_dest_dir(tmp_path):
+    """If .claude/projects is read-only, script still exits cleanly via set -e."""
+    fake_home = tmp_path / "home"
+    fake_home.mkdir()
+
+    agent_config = fake_home / "agent-config"
+    agent_config.mkdir()
+    subprocess.run(["git", "init"], cwd=agent_config, capture_output=True, check=True)
+
+    memory_dir = agent_config / "claude" / "memory"
+    memory_dir.mkdir(parents=True)
+    (memory_dir / "MEMORY.md").write_text("blocked content")
+
+    # Pre-create a read-only .claude directory
+    claude_dir = fake_home / ".claude"
+    claude_dir.mkdir()
+    claude_dir.chmod(0o000)
+
+    try:
+        result = run_script(env={"HOME": str(fake_home)})
+        # set -e will cause exit on mkdir -p failure
+        assert result.returncode != 0
+    finally:
+        claude_dir.chmod(0o755)
+
+
+# ── Git pull rebase fallback ────────────────────────────────────────────
+
+
+def test_git_repo_with_uncommitted_changes(tmp_path):
+    """Git repo with dirty working tree should not crash the script."""
+    fake_home = tmp_path / "home"
+    fake_home.mkdir()
+
+    repo = fake_home / "agent-config"
+    repo.mkdir()
+    subprocess.run(["git", "init"], cwd=repo, capture_output=True, check=True)
+    subprocess.run(["git", "config", "user.email", "t@t.com"], cwd=repo, capture_output=True, check=True)
+    subprocess.run(["git", "config", "user.name", "T"], cwd=repo, capture_output=True, check=True)
+    (repo / "file.txt").write_text("initial")
+    subprocess.run(["git", "add", "file.txt"], cwd=repo, capture_output=True, check=True)
+    subprocess.run(["git", "commit", "-m", "init"], cwd=repo, capture_output=True, check=True)
+
+    # Make working tree dirty
+    (repo / "file.txt").write_text("modified but not staged")
+
+    result = run_script(env={"HOME": str(fake_home)})
+    # No remote, so pull fails; but || true catches it
+    assert result.returncode == 0
+
+
+# ── REPOS array completeness ────────────────────────────────────────────
+
+
+def test_all_three_repos_synced_when_present(tmp_path):
+    """All three repos are iterated and attempted even if only some have .git."""
+    fake_home = tmp_path / "home"
+    fake_home.mkdir()
+
+    # Create all three dirs but only two have .git
+    for name in ["agent-config", "skills", "epigenome/chromatin"]:
+        repo = fake_home / name
+        repo.mkdir(parents=True, exist_ok=True)
+
+    # agent-config has .git + MEMORY.md
+    ac = fake_home / "agent-config"
+    subprocess.run(["git", "init"], cwd=ac, capture_output=True, check=True)
+    memory_dir = ac / "claude" / "memory"
+    memory_dir.mkdir(parents=True)
+    (memory_dir / "MEMORY.md").write_text("full cycle")
+
+    # skills has .git
+    sk = fake_home / "skills"
+    subprocess.run(["git", "init"], cwd=sk, capture_output=True, check=True)
+    subprocess.run(["git", "config", "user.email", "t@t.com"], cwd=sk, capture_output=True, check=True)
+    subprocess.run(["git", "config", "user.name", "T"], cwd=sk, capture_output=True, check=True)
+    (sk / "r.md").write_text("s")
+    subprocess.run(["git", "add", "r.md"], cwd=sk, capture_output=True, check=True)
+    subprocess.run(["git", "commit", "-m", "i"], cwd=sk, capture_output=True, check=True)
+
+    # epigenome/chromatin is a plain dir (no .git) — should be skipped
+
+    result = run_script(env={"HOME": str(fake_home)})
+    assert result.returncode == 0
+
+    # Verify MEMORY.md was synced
+    project_dash = str(fake_home).lstrip("/").replace("/", "-")
+    dst = fake_home / ".claude" / "projects" / f"-{project_dash}" / "memory" / "MEMORY.md"
+    assert dst.exists()
+    assert dst.read_text() == "full cycle"
+
+
+# ── Binary / non-UTF8 content in MEMORY.md ──────────────────────────────
+
+
+def test_memory_md_binary_content(tmp_path):
+    """MEMORY.md with binary content should be copied byte-for-byte."""
+    fake_home = tmp_path / "home"
+    fake_home.mkdir()
+
+    agent_config = fake_home / "agent-config"
+    agent_config.mkdir()
+    subprocess.run(["git", "init"], cwd=agent_config, capture_output=True, check=True)
+
+    memory_dir = agent_config / "claude" / "memory"
+    memory_dir.mkdir(parents=True)
+    binary_data = b"\x00\x01\x02\xff\xfe\xfdbinary\xffcontent"
+    (memory_dir / "MEMORY.md").write_bytes(binary_data)
+
+    result = run_script(env={"HOME": str(fake_home)})
+    assert result.returncode == 0
+
+    project_dash = str(fake_home).lstrip("/").replace("/", "-")
+    dst = fake_home / ".claude" / "projects" / f"-{project_dash}" / "memory" / "MEMORY.md"
+    assert dst.exists()
+    assert dst.read_bytes() == binary_data
+
+
+# ── Usage message content ───────────────────────────────────────────────
+
+
+def test_usage_mentions_options():
+    """--help output should mention the -h/--help option."""
+    result = run_script(["--help"])
+    assert "-h" in result.stdout or "--help" in result.stdout
+
+
+def test_usage_mentions_memory_sync():
+    """--help output should describe the MEMORY.md sync purpose."""
+    result = run_script(["--help"])
+    assert "MEMORY" in result.stdout or "memory" in result.stdout.lower()

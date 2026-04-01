@@ -232,6 +232,10 @@ class TestHelpers:
 
 # ── Functional tests (mocked API) ────────────────────────────────────
 
+from io import StringIO
+
+import pytest
+
 
 def _mock_msg(
     msg_id: str = "m1",
@@ -259,13 +263,21 @@ def _mock_msg(
     }
 
 
+@pytest.fixture
+def mock_service():
+    """Monkey-patch _mod['_service'] with a MagicMock for the duration of a test."""
+    svc = MagicMock()
+    original = _mod["_service"]
+    _mod["_service"] = svc
+    yield svc
+    _mod["_service"] = original
+
+
 class TestCmdRead:
     """Test cmd_read with mocked Gmail service."""
 
-    @patch.object(_mod, "_service")
-    def test_read_inbox(self, mock_svc):
-        svc = MagicMock()
-        mock_svc.return_value = svc
+    def test_read_inbox(self, mock_service):
+        svc = mock_service
         svc.users().messages().list().execute.return_value = {
             "messages": [{"id": "m1"}]
         }
@@ -274,7 +286,6 @@ class TestCmdRead:
         args = argparse.Namespace(
             query=None, max=20, unread=False, from_=None, after=None, full=False
         )
-        from io import StringIO
         with patch("sys.stdout", new_callable=StringIO) as out:
             _mod["cmd_read"](args)
         output = out.getvalue()
@@ -283,16 +294,13 @@ class TestCmdRead:
         assert "Test" in output
         assert "A test message" in output
 
-    @patch.object(_mod, "_service")
-    def test_read_empty(self, mock_svc):
-        svc = MagicMock()
-        mock_svc.return_value = svc
+    def test_read_empty(self, mock_service):
+        svc = mock_service
         svc.users().messages().list().execute.return_value = {}
 
         args = argparse.Namespace(
             query=None, max=20, unread=False, from_=None, after=None, full=False
         )
-        from io import StringIO
         with patch("sys.stdout", new_callable=StringIO) as out:
             _mod["cmd_read"](args)
         assert "No messages" in out.getvalue()
@@ -301,26 +309,21 @@ class TestCmdRead:
 class TestCmdSend:
     """Test cmd_send with mocked Gmail service."""
 
-    @patch.object(_mod, "_service")
-    def test_send(self, mock_svc):
-        svc = MagicMock()
-        mock_svc.return_value = svc
+    def test_send(self, mock_service):
+        svc = mock_service
         svc.users().messages().send().execute.return_value = {"id": "sent1"}
 
         args = argparse.Namespace(
             to="bob@test.com", subject="Hi", body="Hello",
             reply_to_message_id=None, quote=False
         )
-        from io import StringIO
         with patch("sys.stdout", new_callable=StringIO) as out:
             _mod["cmd_send"](args)
         assert "Sent: sent1" in out.getvalue()
         svc.users().messages().send.assert_called_once()
 
-    @patch.object(_mod, "_service")
-    def test_send_reply_threads(self, mock_svc):
-        svc = MagicMock()
-        mock_svc.return_value = svc
+    def test_send_reply_threads(self, mock_service):
+        svc = mock_service
         svc.users().messages().get().execute.return_value = _mock_msg("orig1")
         svc.users().messages().send().execute.return_value = {"id": "sent2"}
 
@@ -329,7 +332,6 @@ class TestCmdSend:
             body="Reply body",
             reply_to_message_id="orig1", quote=False
         )
-        from io import StringIO
         with patch("sys.stdout", new_callable=StringIO) as out:
             _mod["cmd_send"](args)
         assert "Sent: sent2" in out.getvalue()
@@ -338,15 +340,12 @@ class TestCmdSend:
 class TestCmdReply:
     """Test cmd_reply with mocked Gmail service."""
 
-    @patch.object(_mod, "_service")
-    def test_reply(self, mock_svc):
-        svc = MagicMock()
-        mock_svc.return_value = svc
+    def test_reply(self, mock_service):
+        svc = mock_service
         svc.users().messages().get().execute.return_value = _mock_msg("orig1")
         svc.users().messages().send().execute.return_value = {"id": "rep1"}
 
         args = argparse.Namespace(id="orig1", body="Reply text")
-        from io import StringIO
         with patch("sys.stdout", new_callable=StringIO) as out:
             _mod["cmd_reply"](args)
         assert "Replied: rep1" in out.getvalue()
@@ -357,14 +356,11 @@ class TestCmdReply:
 class TestCmdArchive:
     """Test cmd_archive with mocked Gmail service."""
 
-    @patch.object(_mod, "_service")
-    def test_archive(self, mock_svc):
-        svc = MagicMock()
-        mock_svc.return_value = svc
+    def test_archive(self, mock_service):
+        svc = mock_service
         svc.users().messages().modify().execute.return_value = {}
 
         args = argparse.Namespace(id="m1")
-        from io import StringIO
         with patch("sys.stdout", new_callable=StringIO) as out:
             _mod["cmd_archive"](args)
         assert "Archived: m1" in out.getvalue()
@@ -376,29 +372,23 @@ class TestCmdArchive:
 class TestCmdSearch:
     """Test cmd_search with mocked Gmail service."""
 
-    @patch.object(_mod, "_service")
-    def test_search(self, mock_svc):
-        svc = MagicMock()
-        mock_svc.return_value = svc
+    def test_search(self, mock_service):
+        svc = mock_service
         svc.users().messages().list().execute.return_value = {
             "messages": [{"id": "s1"}]
         }
         svc.users().messages().get().execute.return_value = _mock_msg("s1")
 
         args = argparse.Namespace(query="from:alice", max=20, limit=None)
-        from io import StringIO
         with patch("sys.stdout", new_callable=StringIO) as out:
             _mod["cmd_search"](args)
         assert "s1" in out.getvalue()
 
-    @patch.object(_mod, "_service")
-    def test_search_empty(self, mock_svc):
-        svc = MagicMock()
-        mock_svc.return_value = svc
+    def test_search_empty(self, mock_service):
+        svc = mock_service
         svc.users().messages().list().execute.return_value = {}
 
         args = argparse.Namespace(query="nonexistent", max=20, limit=None)
-        from io import StringIO
         with patch("sys.stdout", new_callable=StringIO) as out:
             _mod["cmd_search"](args)
         assert "No messages" in out.getvalue()
@@ -407,16 +397,13 @@ class TestCmdSearch:
 class TestCmdBatchModify:
     """Test batch modify with mocked Gmail service."""
 
-    @patch.object(_mod, "_service")
-    def test_batch_modify(self, mock_svc):
-        svc = MagicMock()
-        mock_svc.return_value = svc
+    def test_batch_modify(self, mock_service):
+        svc = mock_service
         svc.users().messages().batchModify().execute.return_value = {}
 
         args = argparse.Namespace(
             ids=["m1", "m2"], add=None, remove=["UNREAD", "INBOX"]
         )
-        from io import StringIO
         with patch("sys.stdout", new_callable=StringIO) as out:
             _mod["cmd_batch_modify"](args)
         assert "Modified 2 messages" in out.getvalue()
@@ -425,41 +412,32 @@ class TestCmdBatchModify:
 class TestCmdDrafts:
     """Test draft operations with mocked Gmail service."""
 
-    @patch.object(_mod, "_service")
-    def test_drafts_list_empty(self, mock_svc):
-        svc = MagicMock()
-        mock_svc.return_value = svc
+    def test_drafts_list_empty(self, mock_service):
+        svc = mock_service
         svc.users().drafts().list().execute.return_value = {}
 
         args = argparse.Namespace(max=20, plain=False)
-        from io import StringIO
         with patch("sys.stdout", new_callable=StringIO) as out:
             _mod["cmd_drafts_list"](args)
         assert "No drafts" in out.getvalue()
 
-    @patch.object(_mod, "_service")
-    def test_drafts_create(self, mock_svc):
-        svc = MagicMock()
-        mock_svc.return_value = svc
+    def test_drafts_create(self, mock_service):
+        svc = mock_service
         svc.users().drafts().create().execute.return_value = {"id": "d1"}
 
         args = argparse.Namespace(
             to="bob@test.com", cc=None, subject="Draft",
             body="Draft body", reply_to_message_id=None, attach=None
         )
-        from io import StringIO
         with patch("sys.stdout", new_callable=StringIO) as out:
             _mod["cmd_drafts_create"](args)
         assert "Draft created: d1" in out.getvalue()
 
-    @patch.object(_mod, "_service")
-    def test_drafts_delete(self, mock_svc):
-        svc = MagicMock()
-        mock_svc.return_value = svc
+    def test_drafts_delete(self, mock_service):
+        svc = mock_service
         svc.users().drafts().delete().execute.return_value = {}
 
         args = argparse.Namespace(id="d1", force=True)
-        from io import StringIO
         with patch("sys.stdout", new_callable=StringIO) as out:
             _mod["cmd_drafts_delete"](args)
         assert "Draft deleted: d1" in out.getvalue()
