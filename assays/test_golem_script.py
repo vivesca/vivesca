@@ -707,3 +707,133 @@ class TestJsonOutput:
             assert data["zhipu"]["runs"] == 3
         finally:
             os.unlink(tmp)
+
+    # -- Integration tests with mock codex CLI --
+
+    @staticmethod
+    def _make_mock_codex(tmp_path, script):
+        """Create a mock codex binary in tmp_path/bin/."""
+        bin_dir = tmp_path / "bin"
+        bin_dir.mkdir(exist_ok=True)
+        codex = bin_dir / "codex"
+        codex.write_text(f"#!/bin/bash\n{script}\n")
+        codex.chmod(0o755)
+        return bin_dir
+
+    @staticmethod
+    def _env_for_mock(bin_dir):
+        """Build env with mock codex on PATH and fake API keys."""
+        env = os.environ.copy()
+        env["PATH"] = f"{bin_dir}:{Path.home() / 'germline' / 'effectors'}:{env.get('PATH', '')}"
+        env["OPENAI_API_KEY"] = "test-key"
+        env.setdefault("ZHIPU_API_KEY", "test-zhipu-key")
+        env.setdefault("VOLCANO_API_KEY", "test-volcano-key")
+        env.setdefault("INFINI_API_KEY", "test-infini-key")
+        return env
+
+    def test_integration_json_valid_on_success(self, tmp_path):
+        """Full golem --json run with mock codex should produce valid JSON."""
+        bin_dir = self._make_mock_codex(tmp_path, 'echo "mock output"')
+        env = self._env_for_mock(bin_dir)
+        r = subprocess.run(
+            [str(GOLEM), "--provider", "codex", "--json", "test task"],
+            capture_output=True, text=True, timeout=30, env=env,
+        )
+        assert r.returncode == 0, f"stderr: {r.stderr[:300]}"
+        data = json.loads(r.stdout)
+        assert isinstance(data, dict)
+
+    def test_integration_json_has_all_fields(self, tmp_path):
+        """JSON output should contain output, exit_code, duration, provider, etc."""
+        bin_dir = self._make_mock_codex(tmp_path, 'echo "hello from codex"')
+        env = self._env_for_mock(bin_dir)
+        r = subprocess.run(
+            [str(GOLEM), "--provider", "codex", "--json", "test task"],
+            capture_output=True, text=True, timeout=30, env=env,
+        )
+        data = json.loads(r.stdout)
+        for field in ("output", "exit_code", "duration", "provider",
+                       "files_created", "tests_passed", "tests_failed"):
+            assert field in data, f"Missing field: {field}"
+
+    def test_integration_json_provider_field(self, tmp_path):
+        """JSON provider should be 'codex' when --provider codex."""
+        bin_dir = self._make_mock_codex(tmp_path, 'echo "ok"')
+        env = self._env_for_mock(bin_dir)
+        r = subprocess.run(
+            [str(GOLEM), "--provider", "codex", "--json", "test task"],
+            capture_output=True, text=True, timeout=30, env=env,
+        )
+        data = json.loads(r.stdout)
+        assert data["provider"] == "codex"
+
+    def test_integration_json_captures_stdout(self, tmp_path):
+        """JSON output field should contain the mock CLI's stdout."""
+        bin_dir = self._make_mock_codex(tmp_path, 'echo "unique-abc-123"')
+        env = self._env_for_mock(bin_dir)
+        r = subprocess.run(
+            [str(GOLEM), "--provider", "codex", "--json", "test task"],
+            capture_output=True, text=True, timeout=30, env=env,
+        )
+        data = json.loads(r.stdout)
+        assert "unique-abc-123" in data["output"]
+
+    def test_integration_json_exit_code_zero(self, tmp_path):
+        """JSON exit_code should be 0 when codex succeeds."""
+        bin_dir = self._make_mock_codex(tmp_path, 'echo "ok"')
+        env = self._env_for_mock(bin_dir)
+        r = subprocess.run(
+            [str(GOLEM), "--provider", "codex", "--json", "test task"],
+            capture_output=True, text=True, timeout=30, env=env,
+        )
+        assert r.returncode == 0
+        data = json.loads(r.stdout)
+        assert data["exit_code"] == 0
+
+    def test_integration_json_exit_code_nonzero(self, tmp_path):
+        """JSON exit_code should be non-zero when codex fails."""
+        bin_dir = self._make_mock_codex(tmp_path, 'echo "task failed"; exit 1')
+        env = self._env_for_mock(bin_dir)
+        r = subprocess.run(
+            [str(GOLEM), "--provider", "codex", "--json", "test task"],
+            capture_output=True, text=True, timeout=30, env=env,
+        )
+        assert r.returncode != 0
+        data = json.loads(r.stdout)
+        assert data["exit_code"] != 0
+
+    def test_integration_json_duration_non_negative(self, tmp_path):
+        """JSON duration should be >= 0."""
+        bin_dir = self._make_mock_codex(tmp_path, 'echo "ok"')
+        env = self._env_for_mock(bin_dir)
+        r = subprocess.run(
+            [str(GOLEM), "--provider", "codex", "--json", "test task"],
+            capture_output=True, text=True, timeout=30, env=env,
+        )
+        data = json.loads(r.stdout)
+        assert data["duration"] >= 0
+        assert isinstance(data["duration"], int)
+
+    def test_integration_json_with_quiet(self, tmp_path):
+        """--json --quiet should still produce JSON on stdout."""
+        bin_dir = self._make_mock_codex(tmp_path, 'echo "ok"')
+        env = self._env_for_mock(bin_dir)
+        r = subprocess.run(
+            [str(GOLEM), "--provider", "codex", "--json", "--quiet", "test task"],
+            capture_output=True, text=True, timeout=30, env=env,
+        )
+        assert r.returncode == 0
+        data = json.loads(r.stdout)
+        assert "output" in data
+
+    def test_integration_json_stdout_is_only_json(self, tmp_path):
+        """With --json, stdout should be parseable as a single JSON object."""
+        bin_dir = self._make_mock_codex(tmp_path, 'echo "payload"')
+        env = self._env_for_mock(bin_dir)
+        r = subprocess.run(
+            [str(GOLEM), "--provider", "codex", "--json", "test task"],
+            capture_output=True, text=True, timeout=30, env=env,
+        )
+        # json.loads parses the entire stdout — any extra raw text would fail
+        data = json.loads(r.stdout)
+        assert "payload" in data["output"]
