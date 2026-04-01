@@ -237,8 +237,8 @@ def replicate_to_gemini(
     hooks_only: bool = False,
     mcp_only: bool = False,
     dry_run: bool = False,
-    cc_settings_path: Path = CC_SETTINGS_PATH,
-    gemini_settings_path: Path = GEMINI_SETTINGS_PATH,
+    cc_settings_path: Path | None = None,
+    gemini_settings_path: Path | None = None,
 ) -> tuple[ConjugationResult, str]:
     """Replicate CC configuration to Gemini CLI settings.json.
 
@@ -246,6 +246,10 @@ def replicate_to_gemini(
         (result, diff_text) — result is a ConjugationResult summary;
         diff_text is the unified diff (empty string if no changes and not dry-run).
     """
+    if cc_settings_path is None:
+        cc_settings_path = CC_SETTINGS_PATH
+    if gemini_settings_path is None:
+        gemini_settings_path = GEMINI_SETTINGS_PATH
     cc_settings = read_cc_settings(cc_settings_path)
     current_gemini = read_gemini_settings(gemini_settings_path)
 
