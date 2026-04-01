@@ -273,18 +273,13 @@ class TestBlacklist:
         bl = json.loads(bl_path.read_text())
         assert bl["glm"] == ["probe"]
 
-    def test_records_infection(self, isolated):
+    def test_graceful_when_infection_missing(self, isolated):
+        """blacklist() must not raise even if infection module is unavailable."""
         _, _, bl_path = isolated
-        with patch("metabolon.organelles.mitophagy.record_infection") as mock_ri:
-            # Patch the import inside blacklist() — it does a local import
-            # so we patch the name after import resolution
-            pass
-        # The function does `from metabolon.metabolism.infection import record_infection`
-        # which may fail if the module doesn't exist. Test both paths:
-        # 1. If import succeeds, it calls record_infection
-        # 2. If import fails, it silently passes
-        # Test graceful failure when infection module missing:
-        mp.blacklist("glm", "probe")  # should not raise even if infection missing
+        import sys
+        sys.modules.pop("metabolon.metabolism.infection", None)
+        mp.blacklist("glm", "probe")  # should not raise
+        assert mp.is_blacklisted("glm", "probe")
 
     def test_infection_called_when_available(self, isolated):
         _, _, bl_path = isolated
