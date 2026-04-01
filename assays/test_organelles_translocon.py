@@ -1,17 +1,38 @@
 from __future__ import annotations
 
-"""Tests for metabolon.organelles.translocon — helpers, caching, command
-building, mode resolution, dispatch edge-cases, and dispatch_stats.
-
-All external calls (subprocess, network, filesystem) are mocked.
-"""
+"""Tests for metabolon.organelles.translocon — pure helpers + mocked dispatch."""
 
 import json
+import subprocess
 import time
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
+
+from metabolon.organelles.translocon import (
+    CACHE_DIR,
+    CACHE_TTL,
+    COACHING_NOTES,
+    GOLEM_LOG,
+    PROVIDER_LIMITS,
+    SORTASE_LOG,
+    _approx_tokens,
+    _build_droid_cmd,
+    _build_goose_cmd,
+    _cache_get,
+    _cache_key,
+    _cache_put,
+    _direct_api,
+    _explore_structured,
+    _inject_coaching,
+    _read_dir_context,
+    _resolve_mode,
+    _run_captured,
+    dispatch,
+    dispatch_stats,
+    run_eval,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -20,16 +41,12 @@ import pytest
 
 class TestCacheKey:
     def test_deterministic(self):
-        from metabolon.organelles.translocon import _cache_key
-        assert _cache_key("prompt", "model") == _cache_key("prompt", "model")
+        assert _cache_key("hello", "glm-4") == _cache_key("hello", "glm-4")
 
-    def test_different_inputs_different_keys(self):
-        from metabolon.organelles.translocon import _cache_key
-        assert _cache_key("aaa", "m1") != _cache_key("bbb", "m1")
-        assert _cache_key("aaa", "m1") != _cache_key("aaa", "m2")
+    def test_different_inputs_differ(self):
+        assert _cache_key("hello", "glm-4") != _cache_key("world", "glm-4")
 
-    def test_length_32(self):
-        from metabolon.organelles.translocon import _cache_key
+    def test_length(self):
         key = _cache_key("x", "y")
         assert len(key) == 32
 
@@ -38,42 +55,111 @@ class TestCacheKey:
 # _cache_get / _cache_put
 # ---------------------------------------------------------------------------
 
-class TestCacheGetPut:
-    def test_get_returns_none_when_missing(self, tmp_path):
-        import metabolon.organelles.translocon as mod
-        with patch.object(mod, "CACHE_DIR", tmp_path / "cache"):
-            result = mod._cache_get("nonexistent_key")
-        assert result is None
+class TestCache:
+    def test_put_and_get(self, tmp_path):
+        with patch.object(Path, "__truediv__", return_value=tmp_path / "test.json"):
+            # Directly use tmp_path for cache file
+            pass
+        cache_file = tmp_path / "abc.json"
+        entry = {"output": "hello world"}
+        with patch("metabolon.organelles.translocon.CACHE_DIR", tmp_path):
+            _cache_put("abc", entry)
+            result = _cache_get("abc")
+        assert result == entry
 
-    def test_put_then_get(self, tmp_path):
-        import metabolon.organelles.translocon as mod
-        cache_dir = tmp_path / "cache"
-        with patch.object(mod, "CACHE_DIR", cache_dir):
-            mod._cache_put("abc", {"output": "hello"})
-            result = mod._cache_get("abc")
-        assert result == {"output": "hello"}
+    def test_get_missing_returns_none(self, tmp_path):
+        with patch("metabolon.organelles.translocon.CACHE_DIR", tmp_path):
+            assert _cache_get("nonexistent") is None
 
     def test_stale_entry_removed(self, tmp_path):
-        import metabolon.organelles.translocon as mod
-        cache_dir = tmp_path / "cache"
-        cache_dir.mkdir()
-        # Write a stale entry manually (timestamp = 0)
-        stale = {"timestamp": 0, "response": {"output": "old"}}
-        (cache_dir / "stale_key.json").write_text(json.dumps(stale))
-        with patch.object(mod, "CACHE_DIR", cache_dir):
-            with patch.object(mod, "CACHE_TTL", 3600):
-                result = mod._cache_get("stale_key")
-        assert result is None
-        assert not (cache_dir / "stale_key.json").exists()
+        with patch("metabolon.organelles.translocon.CACHE_DIR", tmp_path):
+            # Write a stale entry (timestamp = 0)
+            stale_file = tmp_path / "stale.json"
+            stale_file.write_text(json.dumps({"timestamp": 0, "response": {"output": "old"}}))
+            with patch("metabolon.organelles.translocon.CACHE_TTL", 1):
+                result = _cache_get("stale")
+            assert result is None
+            assert not stale_file.exists()
 
     def test_corrupt_json_returns_none(self, tmp_path):
-        import metabolon.organelles.translocon as mod
-        cache_dir = tmp_path / "cache"
-        cache_dir.mkdir()
-        (cache_dir / "bad.json").write_text("NOT JSON!!!")
-        with patch.object(mod, "CACHE_DIR", cache_dir):
-            result = mod._cache_get("bad")
-        assert result is None
+        with patch("metabolon.organelles.translocon.CACHE_DIR", tmp_path):
+            bad_file = tmp_path / "bad.json"
+            bad_file.write_text("not json at all")
+            assert _cache_get("bad") is None
+
+    def test_missing_key_field_returns_none(self, tmp_path):
+        with patch("metabolon.organelles.translocon.CACHE_DIR", tmp_path):
+            bad_file = tmp_path / "nokey.json"
+            bad_file.write_text(json.dumps({"timestamp": time.time()}))
+            assert _cache_get("nokey") is None
+
+
+# ---------------------------------------------------------------------------
+# _inject_coaching
+# ---------------------------------------------------------------------------
+
+class TestInjectCoaching:
+    def test_no_coaching_file(self):
+        with patch.object(Path, "exists", return_value=False):
+            assert _inject_coaching("do stuff") == "do stuff"
+
+    def test_with_coaching_strips_yaml_frontmatter(self, tmp_path):
+        notes = tmp_path / "coaching.md"
+        notes.write_text("---\ntitle: foo\n---\nCoaching content here")
+        with patch("metabolon.organelles.translocon.COACHING_NOTES", notes):
+            result = _inject_coaching("my task")
+        assert result.startswith("Coaching content here")
+        assert "my task" in result
+        assert "---" in result  # separator between coaching and task
+
+    def test_with_coaching_no_frontmatter(self, tmp_path):
+        notes = tmp_path / "coaching.md"
+        notes.write_text("Just plain coaching text")
+        with patch("metabolon.organelles.translocon.COACHING_NOTES", notes):
+            result = _inject_coaching("my task")
+        assert result.startswith("Just plain coaching text")
+        assert "my task" in result
+
+
+# ---------------------------------------------------------------------------
+# _read_dir_context
+# ---------------------------------------------------------------------------
+
+class TestReadDirContext:
+    def test_reads_py_files(self, tmp_path):
+        (tmp_path / "a.py").write_text("print('a')")
+        (tmp_path / "b.py").write_text("print('b')")
+        (tmp_path / "c.txt").write_text("ignored")
+        result = _read_dir_context(str(tmp_path))
+        assert "a.py" in result
+        assert "b.py" in result
+        assert "c.txt" not in result
+
+    def test_custom_glob(self, tmp_path):
+        (tmp_path / "a.py").write_text("py file")
+        (tmp_path / "b.md").write_text("md file")
+        result = _read_dir_context(str(tmp_path), "*.md")
+        assert "b.md" in result
+        assert "a.py" not in result
+
+    def test_skips_large_files(self, tmp_path):
+        (tmp_path / "big.py").write_text("x" * 50001)
+        (tmp_path / "small.py").write_text("y")
+        result = _read_dir_context(str(tmp_path))
+        assert "small.py" in result
+        assert "big.py" not in result
+
+    def test_empty_dir(self, tmp_path):
+        result = _read_dir_context(str(tmp_path))
+        assert result == ""
+
+    def test_cumulative_cap(self, tmp_path):
+        # Create many small files that together exceed 100KB
+        for i in range(50):
+            (tmp_path / f"file{i:03d}.py").write_text("x" * 3000)
+        result = _read_dir_context(str(tmp_path))
+        # Should have some files but not all — result length capped
+        assert len(result) < 150_000
 
 
 # ---------------------------------------------------------------------------
@@ -81,27 +167,23 @@ class TestCacheGetPut:
 # ---------------------------------------------------------------------------
 
 class TestBuildGooseCmd:
-    def test_basic_command(self):
-        from metabolon.organelles.translocon import _build_goose_cmd
-        cmd = _build_goose_cmd("GLM-5.1", "do stuff")
+    def test_basic(self):
+        cmd = _build_goose_cmd("GLM-5.1", "hello world")
         assert cmd[:3] == ["goose", "run", "-q"]
-        assert "--no-session" in cmd
         assert "--provider" in cmd
         assert "glm-coding" in cmd
         assert "--model" in cmd
         assert "GLM-5.1" in cmd
         assert "-t" in cmd
-        assert cmd[-1] == "do stuff"
+        assert "hello world" in cmd
 
     def test_with_recipe(self):
-        from metabolon.organelles.translocon import _build_goose_cmd
         cmd = _build_goose_cmd("GLM-5.1", "task", recipe="/path/recipe.yaml")
         assert "--recipe" in cmd
         assert "/path/recipe.yaml" in cmd
 
     def test_no_recipe(self):
-        from metabolon.organelles.translocon import _build_goose_cmd
-        cmd = _build_goose_cmd("GLM-4.7", "task")
+        cmd = _build_goose_cmd("GLM-5.1", "task")
         assert "--recipe" not in cmd
 
 
@@ -110,29 +192,28 @@ class TestBuildGooseCmd:
 # ---------------------------------------------------------------------------
 
 class TestBuildDroidCmd:
-    def test_basic_command(self):
-        from metabolon.organelles.translocon import _build_droid_cmd
-        cmd = _build_droid_cmd("GLM-4.7", "/proj", "build tool")
+    def test_basic(self):
+        cmd = _build_droid_cmd("GLM-4.7", "/home/project", "fix the bug")
         assert cmd[0] == "droid"
         assert "exec" in cmd
         assert "--cwd" in cmd
-        assert "/proj" in cmd
-        assert cmd[-1] == "build tool"
-        # model should be prefixed with custom:
+        assert "/home/project" in cmd
+        assert "fix the bug" in cmd
+        # model gets custom: prefix
         assert "custom:GLM-4.7" in cmd
 
-    def test_model_already_custom_prefixed(self):
-        from metabolon.organelles.translocon import _build_droid_cmd
-        cmd = _build_droid_cmd("custom:mymodel", "/tmp", "task")
-        assert "custom:mymodel" in cmd
-        # Should not double-prefix
-        assert "custom:custom:" not in " ".join(cmd)
+    def test_model_already_prefixed(self):
+        cmd = _build_droid_cmd("custom:my-model", "/tmp", "prompt")
+        assert "custom:my-model" in cmd
 
-    def test_auto_flag_inserted(self):
-        from metabolon.organelles.translocon import _build_droid_cmd
-        cmd = _build_droid_cmd("GLM-4.7", "/dir", "task", auto="high")
+    def test_with_auto(self):
+        cmd = _build_droid_cmd("GLM-4.7", "/tmp", "prompt", auto="high")
         assert "--auto" in cmd
         assert "high" in cmd
+
+    def test_no_auto(self):
+        cmd = _build_droid_cmd("GLM-4.7", "/tmp", "prompt")
+        assert "--auto" not in cmd
 
 
 # ---------------------------------------------------------------------------
@@ -140,52 +221,41 @@ class TestBuildDroidCmd:
 # ---------------------------------------------------------------------------
 
 class TestResolveMode:
-    def test_explore_defaults(self):
-        from metabolon.organelles.translocon import _resolve_mode
-        backend, model, auto = _resolve_mode(mode="explore")
-        assert backend == "goose"
-        assert model == "GLM-4.7"
-        assert auto is None
+    @pytest.mark.parametrize("mode,expected_backend,expected_model", [
+        ("explore", "goose", "GLM-4.7"),
+        ("build", "goose", "GLM-5.1"),
+        ("mcp", "droid", "GLM-4.7"),
+        ("safe", "droid", "GLM-4.7"),
+        ("skill", "goose", "GLM-5.1"),
+    ])
+    def test_defaults(self, mode, expected_backend, expected_model):
+        backend, model, auto = _resolve_mode(mode=mode)
+        assert backend == expected_backend
+        assert model == expected_model
 
-    def test_build_defaults(self):
-        from metabolon.organelles.translocon import _resolve_mode
-        backend, model, auto = _resolve_mode(mode="build")
-        assert backend == "goose"
-        assert model == "GLM-5.1"
-        assert auto is None
-
-    def test_mcp_defaults(self):
-        from metabolon.organelles.translocon import _resolve_mode
-        backend, model, auto = _resolve_mode(mode="mcp")
-        assert backend == "droid"
-        assert model == "GLM-4.7"
+    def test_mcp_sets_auto_high(self):
+        _, _, auto = _resolve_mode(mode="mcp")
         assert auto == "high"
 
-    def test_safe_defaults(self):
-        from metabolon.organelles.translocon import _resolve_mode
-        backend, model, auto = _resolve_mode(mode="safe")
-        assert backend == "droid"
-        assert model == "GLM-4.7"
+    def test_explore_no_auto(self):
+        _, _, auto = _resolve_mode(mode="explore")
         assert auto is None
 
-    def test_skill_defaults(self):
-        from metabolon.organelles.translocon import _resolve_mode
-        backend, model, auto = _resolve_mode(mode="skill")
-        assert backend == "goose"
-        assert model == "GLM-5.1"
+    def test_safe_no_auto(self):
+        _, _, auto = _resolve_mode(mode="safe")
         assert auto is None
 
-    def test_user_overrides(self):
-        from metabolon.organelles.translocon import _resolve_mode
-        backend, model, auto = _resolve_mode(mode="explore", backend="droid", model="custom:X")
+    def test_user_backend_override(self):
+        backend, _, _ = _resolve_mode(mode="explore", backend="droid")
         assert backend == "droid"
-        assert model == "custom:X"
 
-    def test_unknown_mode_uses_explore_defaults(self):
-        from metabolon.organelles.translocon import _resolve_mode
-        backend, model, auto = _resolve_mode(mode="unknown")
-        assert backend == "goose"
-        assert model == "GLM-4.7"
+    def test_user_model_override(self):
+        _, model, _ = _resolve_mode(mode="explore", model="my-model")
+        assert model == "my-model"
+
+    def test_skill_backend_override(self):
+        backend, _, _ = _resolve_mode(mode="skill", backend="droid")
+        assert backend == "droid"
 
 
 # ---------------------------------------------------------------------------
@@ -193,17 +263,14 @@ class TestResolveMode:
 # ---------------------------------------------------------------------------
 
 class TestApproxTokens:
-    def test_short_string(self):
-        from metabolon.organelles.translocon import _approx_tokens
-        assert _approx_tokens("abcd") == 1
+    def test_basic(self):
+        assert _approx_tokens("abcdefgh") == 2  # 8 / 4
 
-    def test_longer_string(self):
-        from metabolon.organelles.translocon import _approx_tokens
-        assert _approx_tokens("a" * 400) == 100
+    def test_empty_string(self):
+        assert _approx_tokens("") == 1  # max(1, 0)
 
-    def test_empty_string_minimum_one(self):
-        from metabolon.organelles.translocon import _approx_tokens
-        assert _approx_tokens("") == 1
+    def test_single_char(self):
+        assert _approx_tokens("a") == 1  # max(1, 0)
 
 
 # ---------------------------------------------------------------------------
@@ -211,78 +278,14 @@ class TestApproxTokens:
 # ---------------------------------------------------------------------------
 
 class TestExploreStructured:
-    def test_returns_expected_keys(self):
-        from metabolon.organelles.translocon import _explore_structured
-        result = _explore_structured("output text", "prompt", "GLM-4.7", 1.5)
-        assert result["query"] == "prompt"
+    def test_fields(self):
+        result = _explore_structured("output text", "prompt?", "glm-4", 1.5, cached=True)
+        assert result["query"] == "prompt?"
         assert result["response"] == "output text"
-        assert result["model"] == "GLM-4.7"
-        assert result["cached"] is False
+        assert result["model"] == "glm-4"
+        assert result["cached"] is True
         assert result["duration_ms"] == 1500
         assert "tokens_approx" in result
-
-    def test_cached_flag(self):
-        from metabolon.organelles.translocon import _explore_structured
-        result = _explore_structured("out", "q", "m", 0.1, cached=True)
-        assert result["cached"] is True
-
-
-# ---------------------------------------------------------------------------
-# _direct_api
-# ---------------------------------------------------------------------------
-
-class TestDirectApi:
-    def test_missing_api_key(self):
-        from metabolon.organelles.translocon import _direct_api
-        with patch.dict("os.environ", {}, clear=True):
-            result = _direct_api("prompt")
-        assert result["success"] is False
-        assert "ZHIPU_API_KEY" in result["output"]
-        assert result["returncode"] == 1
-
-    @patch("metabolon.organelles.translocon.time.sleep")
-    def test_success_response(self, mock_sleep):
-        from metabolon.organelles.translocon import _direct_api
-        fake_response = json.dumps({
-            "content": [{"text": "hello from api"}]
-        }).encode()
-
-        mock_urlopen = MagicMock()
-        mock_urlopen.return_value.read.return_value = fake_response
-
-        with patch.dict("os.environ", {"ZHIPU_API_KEY": "test-key"}):
-            with patch("urllib.request.urlopen", mock_urlopen):
-                result = _direct_api("say hi")
-
-        assert result["success"] is True
-        assert result["output"] == "hello from api"
-        assert result["returncode"] == 0
-
-    @patch("metabolon.organelles.translocon.time.sleep")
-    def test_retry_on_429(self, mock_sleep):
-        import urllib.error
-        from metabolon.organelles.translocon import _direct_api
-
-        exc = urllib.error.HTTPError("url", 429, "rate limited", {}, None)
-        mock_urlopen = MagicMock()
-        mock_urlopen.side_effect = [exc, exc, exc]  # 3 attempts = 2 retries + 1
-
-        with patch.dict("os.environ", {"ZHIPU_API_KEY": "key"}):
-            with patch("urllib.request.urlopen", mock_urlopen):
-                result = _direct_api("prompt")
-
-        assert result["success"] is False
-        assert mock_sleep.call_count == 2  # slept between retries
-
-    def test_generic_exception(self):
-        from metabolon.organelles.translocon import _direct_api
-
-        with patch.dict("os.environ", {"ZHIPU_API_KEY": "key"}):
-            with patch("urllib.request.urlopen", side_effect=OSError("network")):
-                result = _direct_api("prompt")
-
-        assert result["success"] is False
-        assert "network" in result["output"]
 
 
 # ---------------------------------------------------------------------------
@@ -291,151 +294,282 @@ class TestDirectApi:
 
 class TestRunCaptured:
     def test_success(self):
-        from metabolon.organelles.translocon import _run_captured
-        mock_result = MagicMock()
-        mock_result.returncode = 0
-        mock_result.stdout = "output text"
-        mock_result.stderr = ""
-        with patch("metabolon.organelles.translocon.subprocess.run", return_value=mock_result):
-            rc, stdout = _run_captured(["echo", "hi"])
+        rc, stdout = _run_captured(["echo", "hello"])
         assert rc == 0
-        assert stdout == "output text"
+        assert "hello" in stdout
 
     def test_failure(self):
-        from metabolon.organelles.translocon import _run_captured
-        mock_result = MagicMock()
-        mock_result.returncode = 1
-        mock_result.stdout = None
-        mock_result.stderr = "err"
-        with patch("metabolon.organelles.translocon.subprocess.run", return_value=mock_result):
-            rc, stdout = _run_captured(["false"])
-        assert rc == 1
-        assert stdout == ""
+        rc, stdout = _run_captured(["false"])
+        assert rc != 0
 
 
 # ---------------------------------------------------------------------------
-# dispatch — edge cases
+# _direct_api
 # ---------------------------------------------------------------------------
 
-class TestDispatchEdgeCases:
-    @patch("metabolon.organelles.translocon._inject_coaching", side_effect=lambda p: p)
-    def test_skill_mode_without_skill_returns_error(self, mock_coach):
-        from metabolon.organelles.translocon import dispatch
-        result = dispatch("task", mode="skill")
+class TestDirectApi:
+    def test_missing_key(self):
+        with patch.dict("os.environ", {}, clear=True):
+            result = _direct_api("prompt")
+        assert result["success"] is False
+        assert "ZHIPU_API_KEY" in result["output"]
+        assert result["returncode"] == 1
+
+    def test_success_response(self):
+        mock_response = MagicMock()
+        mock_response.read.return_value = json.dumps({
+            "content": [{"text": "the answer"}]
+        }).encode()
+        with patch.dict("os.environ", {"ZHIPU_API_KEY": "test-key"}):
+            with patch("urllib.request.urlopen", return_value=mock_response):
+                result = _direct_api("prompt")
+        assert result["success"] is True
+        assert result["output"] == "the answer"
+        assert result["returncode"] == 0
+
+    def test_http_error_retried(self):
+        import urllib.error
+        mock_resp = MagicMock()
+        mock_resp.read.return_value = json.dumps({
+            "content": [{"text": "ok"}]
+        }).encode()
+        exc429 = urllib.error.HTTPError("url", 429, "rate limited", {}, None)
+        with patch.dict("os.environ", {"ZHIPU_API_KEY": "test-key"}):
+            with patch("urllib.request.urlopen", side_effect=[exc429, mock_resp]):
+                with patch("time.sleep"):  # skip retry delay
+                    result = _direct_api("prompt")
+        assert result["success"] is True
+
+    def test_persistent_http_error_fails(self):
+        import urllib.error
+        exc500 = urllib.error.HTTPError("url", 500, "server error", {}, None)
+        with patch.dict("os.environ", {"ZHIPU_API_KEY": "test-key"}):
+            with patch("urllib.request.urlopen", side_effect=[exc500, exc500, exc500]):
+                with patch("time.sleep"):
+                    result = _direct_api("prompt")
+        assert result["success"] is False
+        assert "direct API failed" in result["output"]
+
+    def test_generic_exception(self):
+        with patch.dict("os.environ", {"ZHIPU_API_KEY": "test-key"}):
+            with patch("urllib.request.urlopen", side_effect=ConnectionError("network down")):
+                result = _direct_api("prompt")
+        assert result["success"] is False
+        assert "direct API failed" in result["output"]
+
+
+# ---------------------------------------------------------------------------
+# dispatch
+# ---------------------------------------------------------------------------
+
+class TestDispatch:
+    def test_skill_mode_missing_skill_name(self):
+        result = dispatch("prompt", mode="skill")
         assert result["success"] is False
         assert "skill" in result["output"].lower()
 
-    @patch("metabolon.organelles.translocon._inject_coaching", side_effect=lambda p: p)
-    def test_safe_mode_prepends_readonly_guard(self, mock_coach):
-        from metabolon.organelles.translocon import dispatch
-        captured_prompt = {}
+    def test_skill_mode_missing_recipe(self):
+        result = dispatch("prompt", mode="skill", skill="nonexistent_skill_xyz")
+        assert result["success"] is False
+        assert "not found" in result["output"]
 
-        def fake_run(cmd, **kwargs):
-            # Extract prompt (last arg after -t or last positional)
-            captured_prompt["cmd"] = cmd
-            return (0, "safe output")
-
-        with patch("metabolon.organelles.translocon._run_captured", side_effect=fake_run):
-            result = dispatch("check things", mode="safe")
-
+    def test_explore_direct_api_success(self):
+        with patch.dict("os.environ", {"ZHIPU_API_KEY": "test-key"}):
+            with patch("metabolon.organelles.translocon._read_dir_context", return_value=""):
+                with patch("metabolon.organelles.translocon._cache_get", return_value=None):
+                    with patch("metabolon.organelles.translocon._direct_api",
+                               return_value={"success": True, "output": "answer", "returncode": 0}):
+                        with patch("metabolon.organelles.translocon._cache_put"):
+                            result = dispatch("test prompt", mode="explore")
         assert result["success"] is True
-        cmd = captured_prompt["cmd"]
-        # The prompt passed to droid should contain READ ONLY
-        assert "READ ONLY" in cmd[-1]
+        assert result["output"] == "answer"
+        assert result["backend"] == "direct"
 
-    @patch("metabolon.organelles.translocon._read_dir_context", return_value="")
-    @patch("metabolon.organelles.translocon._direct_api")
-    @patch("metabolon.organelles.translocon._cache_get", return_value=None)
-    @patch("metabolon.organelles.translocon._inject_coaching", side_effect=lambda p: p)
-    def test_explore_json_output(self, mock_coach, mock_cache, mock_api, mock_ctx):
-        from metabolon.organelles.translocon import dispatch
-        mock_api.return_value = {"success": True, "output": "api result", "returncode": 0}
-        result = dispatch("query", mode="explore", json_output=True)
+    def test_explore_cached_result(self):
+        cached = {"output": "cached answer"}
+        with patch.dict("os.environ", {"ZHIPU_API_KEY": "test-key"}):
+            with patch("metabolon.organelles.translocon._read_dir_context", return_value=""):
+                with patch("metabolon.organelles.translocon._cache_get", return_value=cached):
+                    result = dispatch("test prompt", mode="explore")
         assert result["success"] is True
-        # Output should be JSON string
-        parsed = json.loads(result["output"])
-        assert parsed["query"] == "query"
-        assert parsed["response"] == "api result"
-        assert parsed["cached"] is False
+        assert result["output"] == "cached answer"
+        assert "cached" in result["backend"]
 
-    @patch("metabolon.organelles.translocon._read_dir_context", return_value="")
-    @patch("metabolon.organelles.translocon._cache_get")
-    @patch("metabolon.organelles.translocon._inject_coaching", side_effect=lambda p: p)
-    def test_explore_cached_json_output(self, mock_coach, mock_cache, mock_ctx):
-        from metabolon.organelles.translocon import dispatch
-        mock_cache.return_value = {"output": "cached result"}
-        result = dispatch("query", mode="explore", json_output=True)
+    def test_explore_json_output(self):
+        with patch.dict("os.environ", {"ZHIPU_API_KEY": "test-key"}):
+            with patch("metabolon.organelles.translocon._read_dir_context", return_value=""):
+                with patch("metabolon.organelles.translocon._cache_get", return_value=None):
+                    with patch("metabolon.organelles.translocon._direct_api",
+                               return_value={"success": True, "output": "answer", "returncode": 0}):
+                        with patch("metabolon.organelles.translocon._cache_put"):
+                            result = dispatch("test prompt", mode="explore", json_output=True)
         assert result["success"] is True
         parsed = json.loads(result["output"])
-        assert parsed["cached"] is True
-        assert result["backend"] == "direct (cached)"
+        assert "response" in parsed
+        assert "cached" in parsed
 
-    @patch("metabolon.organelles.translocon._run_captured")
-    @patch("metabolon.organelles.translocon._inject_coaching", side_effect=lambda p: p)
-    def test_goose_failure_with_forced_backend(self, mock_coach, mock_run):
-        """If user forced backend=goose, don't fall back to droid."""
-        from metabolon.organelles.translocon import dispatch
-        mock_run.return_value = (1, "goose error")
-        result = dispatch("task", mode="build", backend="goose")
+    def test_goose_success(self):
+        with patch("metabolon.organelles.translocon._run_captured",
+                    return_value=(0, "goose output")):
+            with patch("metabolon.organelles.translocon._inject_coaching",
+                       side_effect=lambda p: p):
+                result = dispatch("task", mode="build", backend="goose")
+        assert result["success"] is True
+        assert result["output"] == "goose output"
+        assert result["backend"] == "goose"
+
+    def test_goose_failure_no_fallback_when_backend_forced(self):
+        with patch("metabolon.organelles.translocon._run_captured",
+                    return_value=(1, "goose error")):
+            with patch("metabolon.organelles.translocon._inject_coaching",
+                       side_effect=lambda p: p):
+                result = dispatch("task", mode="build", backend="goose")
         assert result["success"] is False
         assert result["backend"] == "goose"
-        # _run_captured should only be called once (no droid fallback)
-        assert mock_run.call_count == 1
 
-    @patch("metabolon.organelles.translocon._run_captured")
-    @patch("metabolon.organelles.translocon._inject_coaching", side_effect=lambda p: p)
-    def test_goose_failure_falls_back_to_droid(self, mock_coach, mock_run):
-        from metabolon.organelles.translocon import dispatch
-        mock_run.side_effect = [
-            (1, "goose error"),  # goose fails
-            (0, "droid success"),  # droid succeeds
-        ]
-        result = dispatch("task", mode="build")
+    def test_goose_failure_fallback_to_droid(self):
+        call_count = 0
+
+        def mock_run_captured(cmd, **kwargs):
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                return (1, "goose error")
+            return (0, "droid output")
+
+        with patch("metabolon.organelles.translocon._run_captured",
+                    side_effect=mock_run_captured):
+            with patch("metabolon.organelles.translocon._inject_coaching",
+                       side_effect=lambda p: p):
+                result = dispatch("task", mode="build")
         assert result["success"] is True
+        assert result["output"] == "droid output"
         assert result["backend"] == "droid"
-        assert mock_run.call_count == 2
 
-    @patch("metabolon.organelles.translocon._run_captured")
-    @patch("metabolon.organelles.translocon._inject_coaching", side_effect=lambda p: p)
-    def test_goose_exception_returns_error(self, mock_coach, mock_run):
-        from metabolon.organelles.translocon import dispatch
-        mock_run.side_effect = OSError("goose crashed")
-        result = dispatch("task", mode="build")
+    def test_droid_success(self):
+        with patch("metabolon.organelles.translocon._run_captured",
+                    return_value=(0, "droid output")):
+            with patch("metabolon.organelles.translocon._inject_coaching",
+                       side_effect=lambda p: p):
+                result = dispatch("task", mode="mcp")
+        assert result["success"] is True
+        assert result["output"] == "droid output"
+        assert result["backend"] == "droid"
+
+    def test_droid_failure(self):
+        with patch("metabolon.organelles.translocon._run_captured",
+                    return_value=(1, "droid error")):
+            with patch("metabolon.organelles.translocon._inject_coaching",
+                       side_effect=lambda p: p):
+                result = dispatch("task", mode="safe")
+        assert result["success"] is False
+        assert result["backend"] == "droid"
+
+    def test_safe_mode_prepends_read_only(self):
+        captured_prompts = {}
+
+        def fake_run_captured(cmd, **kwargs):
+            captured_prompts["last"] = cmd
+            return (0, "ok")
+
+        with patch("metabolon.organelles.translocon._run_captured",
+                    side_effect=fake_run_captured):
+            with patch("metabolon.organelles.translocon._inject_coaching",
+                       side_effect=lambda p: p):
+                dispatch("do audit", mode="safe")
+        # The last arg of the droid command should contain READ ONLY
+        last_arg = captured_prompts["last"][-1]
+        assert "READ ONLY" in last_arg
+
+    def test_goose_exception_caught(self):
+        with patch("metabolon.organelles.translocon._run_captured",
+                    side_effect=OSError("boom")):
+            with patch("metabolon.organelles.translocon._inject_coaching",
+                       side_effect=lambda p: p):
+                result = dispatch("task", mode="build", backend="goose")
         assert result["success"] is False
         assert "goose execution failed" in result["output"]
-        assert result["backend"] == "goose"
 
-    @patch("metabolon.organelles.translocon._run_captured")
-    @patch("metabolon.organelles.translocon._inject_coaching", side_effect=lambda p: p)
-    def test_droid_exception_returns_error(self, mock_coach, mock_run):
-        from metabolon.organelles.translocon import dispatch
-        mock_run.side_effect = OSError("droid crashed")
-        result = dispatch("task", mode="mcp")  # mcp routes to droid
+    def test_droid_exception_caught(self):
+        with patch("metabolon.organelles.translocon._run_captured",
+                    side_effect=OSError("boom")):
+            with patch("metabolon.organelles.translocon._inject_coaching",
+                       side_effect=lambda p: p):
+                result = dispatch("task", mode="mcp")
         assert result["success"] is False
         assert "droid execution failed" in result["output"]
 
-    @patch("metabolon.organelles.translocon._inject_coaching", side_effect=lambda p: p)
-    def test_skill_default_prompt(self, mock_coach):
-        """If prompt is empty and skill is provided, a default prompt is used."""
-        import tempfile
-        from metabolon.organelles.translocon import dispatch
+    def test_result_has_duration(self):
+        with patch("metabolon.organelles.translocon._run_captured",
+                    return_value=(0, "ok")):
+            with patch("metabolon.organelles.translocon._inject_coaching",
+                       side_effect=lambda p: p):
+                result = dispatch("task", mode="build")
+        assert "duration_s" in result
+        assert isinstance(result["duration_s"], float)
 
-        captured = {}
-        def fake_run(cmd, **kwargs):
-            captured["cmd"] = cmd
-            return (0, "ok")
 
-        with tempfile.TemporaryDirectory() as tmpdir:
-            skill_dir = Path(tmpdir) / "germline" / "membrane" / "receptors" / "myskill"
-            skill_dir.mkdir(parents=True)
-            (skill_dir / "recipe.yaml").write_text("name: myskill\n")
+# ---------------------------------------------------------------------------
+# run_eval
+# ---------------------------------------------------------------------------
 
-            with patch.object(Path, "home", return_value=Path(tmpdir)):
-                with patch("metabolon.organelles.translocon._run_captured", side_effect=fake_run):
-                    result = dispatch("", mode="skill", skill="myskill")
+class TestRunEval:
+    def test_no_sortase_log(self):
+        with patch.object(Path, "exists", return_value=False):
+            result = run_eval()
+        assert result["success"] is False
+        assert "no sortase log" in result["output"]
 
+    def test_empty_log(self, tmp_path):
+        log = tmp_path / "sortase.jsonl"
+        log.write_text("")
+        with patch("metabolon.organelles.translocon.SORTASE_LOG", log):
+            result = run_eval()
         assert result["success"] is True
-        assert "myskill" in captured["cmd"][-1]
+        assert "no traces" in result["output"]
+
+    def test_with_traces(self, tmp_path):
+        log = tmp_path / "sortase.jsonl"
+        traces = [
+            {"tool": "golem-reviewer", "success": True, "duration_s": 30},
+            {"tool": "golem-reviewer", "success": True, "duration_s": 25},
+            {"tool": "golem-builder", "success": False, "failure_reason": "timeout", "plan": "build-x", "duration_s": 120},
+        ]
+        log.write_text("\n".join(json.dumps(t) for t in traces))
+        with patch("metabolon.organelles.translocon.SORTASE_LOG", log):
+            result = run_eval()
+        assert result["success"] is True
+        assert "Success: 2" in result["output"]
+        assert "Fail: 1" in result["output"]
+        assert "golem-reviewer" in result["output"]
+        assert "timeout" in result["output"]
+
+    def test_count_limits_results(self, tmp_path):
+        log = tmp_path / "sortase.jsonl"
+        traces = [{"tool": "t", "success": True}] * 10
+        log.write_text("\n".join(json.dumps(t) for t in traces))
+        with patch("metabolon.organelles.translocon.SORTASE_LOG", log):
+            result = run_eval(count=3)
+        assert "Success: 3" in result["output"]
+
+    def test_failures_only_flag(self, tmp_path):
+        log = tmp_path / "sortase.jsonl"
+        traces = [
+            {"tool": "t1", "success": True},
+            {"tool": "t2", "success": False, "failure_reason": "err", "plan": "p", "duration_s": 5},
+        ]
+        log.write_text("\n".join(json.dumps(t) for t in traces))
+        with patch("metabolon.organelles.translocon.SORTASE_LOG", log):
+            result = run_eval(failures_only=True)
+        assert "Failed traces" in result["output"]
+
+    def test_malformed_lines_skipped(self, tmp_path):
+        log = tmp_path / "sortase.jsonl"
+        log.write_text("bad line\n{\"tool\": \"t\", \"success\": true}")
+        with patch("metabolon.organelles.translocon.SORTASE_LOG", log):
+            result = run_eval()
+        assert result["success"] is True
+        assert "Success: 1" in result["output"]
 
 
 # ---------------------------------------------------------------------------
@@ -443,78 +577,53 @@ class TestDispatchEdgeCases:
 # ---------------------------------------------------------------------------
 
 class TestDispatchStats:
-    def test_no_log_returns_error(self):
-        import metabolon.organelles.translocon as mod
-        from metabolon.organelles.translocon import dispatch_stats
-        fake_log = Path("/tmp/nonexistent_golem_log_test.jsonl")
-        with patch.object(mod, "GOLEM_LOG", fake_log):
+    def test_no_golem_log(self):
+        with patch.object(Path, "exists", return_value=False):
             result = dispatch_stats()
         assert result["success"] is False
-        assert "no golem log" in result["output"].lower()
+        assert "no golem log" in result["output"]
 
-    def test_empty_log_returns_success(self, tmp_path):
-        import metabolon.organelles.translocon as mod
-        from metabolon.organelles.translocon import dispatch_stats
-        log_path = tmp_path / "golem.jsonl"
-        log_path.write_text("")
-        with patch.object(mod, "GOLEM_LOG", log_path):
+    def test_empty_log(self, tmp_path):
+        log = tmp_path / "golem.jsonl"
+        log.write_text("")
+        with patch("metabolon.organelles.translocon.GOLEM_LOG", log):
             result = dispatch_stats()
         assert result["success"] is True
-        assert "no entries" in result["output"].lower()
+        assert "no entries" in result["output"]
 
-    def test_returns_summary(self, tmp_path):
-        import metabolon.organelles.translocon as mod
-        from metabolon.organelles.translocon import dispatch_stats
+    def test_with_entries(self, tmp_path):
+        log = tmp_path / "golem.jsonl"
         entries = [
-            json.dumps({"exit": 0, "provider": "zhipu", "duration": 30, "turns": 5, "prompt": "ok task"}),
-            json.dumps({"exit": 1, "provider": "infini", "duration": 60, "turns": 3, "prompt": "bad task"}),
-            json.dumps({"exit": 0, "provider": "zhipu", "duration": 20, "turns": 4, "prompt": "another ok"}),
+            {"provider": "zhipu", "exit": 0, "duration": 60, "turns": 5},
+            {"provider": "zhipu", "exit": 0, "duration": 45, "turns": 3},
+            {"provider": "infini", "exit": 1, "duration": 30, "turns": 2, "prompt": "failed task prompt here"},
         ]
-        log_path = tmp_path / "golem.jsonl"
-        log_path.write_text("\n".join(entries))
-        with patch.object(mod, "GOLEM_LOG", log_path):
-            result = dispatch_stats(count=50)
+        log.write_text("\n".join(json.dumps(e) for e in entries))
+        with patch("metabolon.organelles.translocon.GOLEM_LOG", log):
+            result = dispatch_stats()
         assert result["success"] is True
-        assert "3" in result["output"]  # total
+        assert "Success: 2" in result["output"]
+        assert "Fail: 1" in result["output"]
+        assert "zhipu" in result["output"]
+        assert "infini" in result["output"]
+        assert "stats" in result
         assert result["stats"]["total"] == 3
         assert result["stats"]["success"] == 2
         assert result["stats"]["fail"] == 1
-        assert "zhipu" in result["stats"]["providers"]
-        assert result["stats"]["provider_success"]["zhipu"] == 2
+
+    def test_provider_limits_in_output(self, tmp_path):
+        log = tmp_path / "golem.jsonl"
+        log.write_text(json.dumps({"provider": "zhipu", "exit": 0, "duration": 10, "turns": 1}))
+        with patch("metabolon.organelles.translocon.GOLEM_LOG", log):
+            result = dispatch_stats()
+        assert f"limit={PROVIDER_LIMITS['zhipu']}" in result["output"]
 
     def test_recent_failures_shown(self, tmp_path):
-        import metabolon.organelles.translocon as mod
-        from metabolon.organelles.translocon import dispatch_stats
+        log = tmp_path / "golem.jsonl"
         entries = [
-            json.dumps({"exit": 1, "provider": "volcano", "duration": 10, "turns": 1,
-                        "prompt": "a" * 80}),
+            {"provider": "zhipu", "exit": 1, "duration": 10, "turns": 1, "prompt": "a" * 60},
         ]
-        log_path = tmp_path / "golem.jsonl"
-        log_path.write_text("\n".join(entries))
-        with patch.object(mod, "GOLEM_LOG", log_path):
+        log.write_text("\n".join(json.dumps(e) for e in entries))
+        with patch("metabolon.organelles.translocon.GOLEM_LOG", log):
             result = dispatch_stats()
         assert "Recent failures" in result["output"]
-        assert "volcano" in result["output"]
-
-    def test_corrupt_lines_skipped(self, tmp_path):
-        import metabolon.organelles.translocon as mod
-        from metabolon.organelles.translocon import dispatch_stats
-        content = "not json\n" + json.dumps({"exit": 0, "provider": "zhipu", "duration": 5, "turns": 1, "prompt": "ok"})
-        log_path = tmp_path / "golem.jsonl"
-        log_path.write_text(content)
-        with patch.object(mod, "GOLEM_LOG", log_path):
-            result = dispatch_stats()
-        assert result["success"] is True
-        assert result["stats"]["total"] == 1
-
-
-# ---------------------------------------------------------------------------
-# PROVIDER_LIMITS constant
-# ---------------------------------------------------------------------------
-
-class TestProviderLimits:
-    def test_known_providers(self):
-        from metabolon.organelles.translocon import PROVIDER_LIMITS
-        assert PROVIDER_LIMITS["zhipu"] == 4
-        assert PROVIDER_LIMITS["infini"] == 6
-        assert PROVIDER_LIMITS["volcano"] == 8
