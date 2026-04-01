@@ -20,6 +20,7 @@ from pathlib import Path, PurePosixPath
 
 # Paths
 GERMLINE = Path.home() / "germline"
+EPIGENOME = Path.home() / "epigenome"
 QUEUE_FILE = GERMLINE / "loci" / "golem-queue.md"
 LOGFILE = Path.home() / ".local" / "share" / "vivesca" / "golem-daemon.log"
 REVIEW_FILE = GERMLINE / "loci" / "copia" / "golem-review-latest.md"
@@ -27,6 +28,7 @@ COPIA_DIR = GERMLINE / "loci" / "copia"
 EFFECTORS_DIR = GERMLINE / "effectors"
 ASSAYS_DIR = GERMLINE / "assays"
 MAC_HOME_PREFIX = f"{PurePosixPath('/', 'Users', 'terry')}/"
+CONSULTING_SUBDIRS = ["cards", "deep-dives", "case-studies", "prep", "regulatory"]
 
 # Provider rotation
 _PROVIDERS = ["infini", "zhipu", "volcano", "infini", "zhipu"]
@@ -474,6 +476,86 @@ def check_consulting_content(files: list[str]) -> list[dict]:
     return results
 
 
+# ── scan_consulting_dirs ───────────────────────────────────────────────
+
+
+def scan_consulting_dirs(base_dir: Path | None = None) -> list[str]:
+    """Recursively find .md files in consulting subdirectories.
+
+    Scans CONSULTING_SUBDIRS under base_dir (or EPIGENOME) and returns
+    relative paths as strings. Excludes reviewer-cycle- files.
+    """
+    root = base_dir or EPIGENOME
+    if not root.exists():
+        return []
+
+    files: list[str] = []
+    # Check both the flat consulting/ subdirs and nested chromatin/euchromatin/consulting/
+    search_dirs = [
+        root / "consulting",
+        root / "chromatin" / "euchromatin" / "consulting",
+    ]
+
+    for consulting_dir in search_dirs:
+        if not consulting_dir.exists():
+            continue
+        for subdir_name in CONSULTING_SUBDIRS:
+            subdir = consulting_dir / subdir_name
+            if not subdir.exists():
+                continue
+            for md_file in sorted(subdir.glob("*.md")):
+                if md_file.name.startswith("reviewer-cycle-"):
+                    continue
+                rel = md_file.relative_to(root)
+                files.append(str(rel))
+
+    return files
+
+
+# ── compute_consulting_summary ─────────────────────────────────────────
+
+
+def compute_consulting_summary(results: list[dict]) -> dict:
+    """Compute aggregate consulting quality stats from check_consulting_content results.
+
+    Returns {total, passed, failed, missing, avg_word_count,
+             avg_quality_score, pass_rate, verdicts}.
+    Missing files (exists=False) are counted in total but not in pass/fail.
+    """
+    total = len(results)
+    if total == 0:
+        return {
+            "total": 0, "passed": 0, "failed": 0, "missing": 0,
+            "avg_word_count": 0.0, "avg_quality_score": 0.0,
+            "pass_rate": 0.0, "verdicts": {},
+        }
+
+    existing = [r for r in results if r.get("exists")]
+    missing = [r for r in results if not r.get("exists")]
+    passed = [r for r in existing if r.get("overall_quality_pass")]
+    failed = [r for r in existing if not r.get("overall_quality_pass")]
+
+    avg_wc = sum(r.get("word_count", 0) for r in existing) / len(existing) if existing else 0.0
+    avg_score = sum(r.get("quality_score", 0) for r in existing) / len(existing) if existing else 0.0
+    pass_rate = len(passed) / len(existing) if existing else 0.0
+
+    verdicts: dict[str, int] = {}
+    for r in existing:
+        v = r.get("verdict", "poor")
+        verdicts[v] = verdicts.get(v, 0) + 1
+
+    return {
+        "total": total,
+        "passed": len(passed),
+        "failed": len(failed),
+        "missing": len(missing),
+        "avg_word_count": round(avg_wc, 1),
+        "avg_quality_score": round(avg_score, 1),
+        "pass_rate": round(pass_rate, 3),
+        "verdicts": verdicts,
+    }
+
+
 # ── diagnose_failure ───────────────────────────────────────────────────
 
 
@@ -687,6 +769,7 @@ def generate_review(
     auto_requeue: bool,
     queued_count: int,
     fixed_count: int,
+    consulting_summary: dict | None = None,
 ) -> str:
     """Generate a review summary markdown string."""
     ts = datetime.now(UTC).strftime("%Y-%m-%d %H:%M UTC")

@@ -864,3 +864,12 @@
 - [x] `golem --provider volcano --max-turns 50 "Write assays/test_pharos_env.sh.py for effectors/pharos-env.sh. Run uv run pytest assays/test_pharos_env.sh.py -v --tb=short."`
 - [x] `golem --provider infini --max-turns 50 "Write assays/test_pharos_health.sh.py for effectors/pharos-health.sh. Run uv run pytest assays/test_pharos_health.sh.py -v --tb=short."`
 - [x] `golem --provider zhipu --max-turns 50 "Write assays/test_qmd_reindex.sh.py for effectors/qmd-reindex.sh. Run uv run pytest assays/test_qmd_reindex.sh.py -v --tb=short."`
+- [ ] `golem --provider infini --max-turns 50 "Write assays/test_auto_update_compound_engineering.sh.py for effectors/auto-update-compound-engineering.sh. Run uv run pytest assays/test_auto_update_compound_engineering.sh.py -v --tb=short."`
+- [ ] `golem --provider zhipu --max-turns 50 "Write assays/test_backup_due.sh.py for effectors/backup-due.sh. Run uv run pytest assays/test_backup_due.sh.py -v --tb=short."`
+- [ ] `golem --provider volcano --max-turns 50 "Write assays/test_circadian_probe.conf.py for effectors/circadian-probe.conf. Run uv run pytest assays/test_circadian_probe.conf.py -v --tb=short."`
+- [ ] `golem --provider infini --max-turns 50 "Write assays/test_com.vivesca.soma_pull.plist.py for effectors/com.vivesca.soma-pull.plist. Run uv run pytest assays/test_com.vivesca.soma_pull.plist.py -v --tb=short."`
+- [ ] `golem --provider zhipu --max-turns 50 "Write assays/test_exocytosis.conf.py for effectors/exocytosis.conf. Run uv run pytest assays/test_exocytosis.conf.py -v --tb=short."`
+- [ ] `golem --provider infini --max-turns 50 "Write assays/test_fasti.py for effectors/fasti. Run uv run pytest assays/test_fasti.py -v --tb=short."`
+- [ ] `golem --provider zhipu --max-turns 50 "Write assays/test_pharos_env.sh.py for effectors/pharos-env.sh. Run uv run pytest assays/test_pharos_env.sh.py -v --tb=short."`
+- [ ] `golem --provider volcano --max-turns 50 "Write assays/test_pharos_health.sh.py for effectors/pharos-health.sh. Run uv run pytest assays/test_pharos_health.sh.py -v --tb=short."`
+- [ ] `golem --provider infini --max-turns 50 "Write assays/test_qmd_reindex.sh.py for effectors/qmd-reindex.sh. Run uv run pytest assays/test_qmd_reindex.sh.py -v --tb=short."`
