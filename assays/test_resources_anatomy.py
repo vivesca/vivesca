@@ -87,11 +87,12 @@ def test_scan_directory_nonexistent():
     assert "no test directory" in result[0]
 
 
-def test_scan_directory_empty(tmp_path):
+def test_scan_directory_empty():
     """Test scan handles empty directory."""
-    result = _scan_directory(tmp_path, "tool", "test")
-    assert len(result) == 1
-    assert "no test modules" in result[0]
+    with tempfile.TemporaryDirectory() as tmpdir:
+        result = _scan_directory(Path(tmpdir), "tool", "test")
+        assert len(result) == 1
+        assert "no test modules" in result[0]
 
 
 def test_extract_module_docstring():
@@ -204,10 +205,12 @@ def test_extract_module_summary():
         path.unlink()
 
 
-def test_organism_theory(tmp_path):
+def test_organism_theory():
     """Test extracting theory from DESIGN.md."""
-    design = tmp_path / "design.md"
-    design.write_text("""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmp_path = Path(tmpdir)
+        design = tmp_path / "design.md"
+        design.write_text("""
 # Project
 
 ## The Theory
@@ -219,22 +222,24 @@ This is another paragraph we shouldn't include.
 ## The Three Bodies
 Three bodies explanation here.
 """)
-    result = _organism_theory(tmp_path)
-    assert len(result) == 2
-    assert "**The Theory:** This is the theory paragraph. It continues here." in result
+        result = _organism_theory(tmp_path)
+        assert len(result) == 2
+        assert "**The Theory:** This is the theory paragraph. It continues here." in result
 
 
-def test_organism_theory_missing(tmp_path):
+def test_organism_theory_missing():
     """Test handles missing DESIGN.md."""
-    result = _organism_theory(tmp_path)
-    assert len(result) == 1
-    assert "DESIGN.md not found" in result[0]
+    with tempfile.TemporaryDirectory() as tmpdir:
+        result = _organism_theory(Path(tmpdir))
+        assert len(result) == 1
+        assert "DESIGN.md not found" in result[0]
 
 
-def test_known_lesions_no_plans(tmp_path):
+def test_known_lesions_no_plans():
     """Test known_lesions handles no plans directory."""
-    result = _known_lesions(tmp_path)
-    assert any("no plans directory" in line for line in result)
+    with tempfile.TemporaryDirectory() as tmpdir:
+        result = _known_lesions(Path(tmpdir))
+        assert any("no plans directory" in line for line in result)
 
 
 @patch("subprocess.run")
@@ -286,21 +291,23 @@ def test_operon_summary_import_error():
         assert any("operon map not found" in line for line in result)
 
 
-def test_express_anatomy_returns_markdown(tmp_path):
+def test_express_anatomy_returns_markdown():
     """Test express_anatomy generates markdown."""
-    # Create minimal directory structure
-    (tmp_path / "enzymes").mkdir()
-    (tmp_path / "resources").mkdir()
-    (tmp_path / "codons").mkdir()
-    (tmp_path / "metabolism").mkdir()
-    (tmp_path / "metabolism" / "substrates").mkdir()
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmp_path = Path(tmpdir)
+        # Create minimal directory structure
+        (tmp_path / "enzymes").mkdir()
+        (tmp_path / "resources").mkdir()
+        (tmp_path / "codons").mkdir()
+        (tmp_path / "metabolism").mkdir()
+        (tmp_path / "metabolism" / "substrates").mkdir()
 
-    src_root = tmp_path
-    result = express_anatomy(src_root)
-    assert isinstance(result, str)
-    assert "# vivesca — Anatomy" in result
-    assert "Organism Theory" in result
-    assert "Known Lesions" in result
+        src_root = tmp_path
+        result = express_anatomy(src_root)
+        assert isinstance(result, str)
+        assert "# vivesca — Anatomy" in result
+        assert "Organism Theory" in result
+        assert "Known Lesions" in result
 
 
 def test_organ_descriptions_handles_missing():
