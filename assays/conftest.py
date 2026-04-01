@@ -86,25 +86,40 @@ def clean_pytest_temp_dirs(pytestconfig: pytest.Config):
 
     def _force_rmtree(path: Path) -> None:
         """Remove a directory tree, handling permission errors on readonly files."""
-        for dirpath, dirnames, filenames in os.walk(path, topdown=False):
-            for name in filenames:
-                f = os.path.join(dirpath, name)
-                try:
-                    os.chmod(f, stat.S_IWRITE)
-                    os.unlink(f)
-                except OSError:
-                    pass
-            for name in dirnames:
-                d = os.path.join(dirpath, name)
-                try:
-                    os.chmod(d, stat.S_IWRITE)
-                    os.rmdir(d)
-                except OSError:
-                    pass
+        import errno
+
+        def handle_error(func, exc_path, exc_info):
+            """Error handler for shutil.rmtree that fixes permissions and retries."""
+            if exc_path and os.path.isdir(exc_path):
+                os.chmod(exc_path, stat.S_IRWXU | stat.S_IRWXG | stat.S_IRWXO)
+            elif exc_path and os.path.isfile(exc_path):
+                os.chmod(exc_path, stat.S_IWRITE | stat.S_IREAD)
+
+        # Use shutil.rmtree with error handler for robust removal
         try:
-            os.rmdir(path)
+            shutil.rmtree(path, onerror=handle_error)
         except OSError:
-            pass
+            # Fallback: walk and force-remove
+            for dirpath, dirnames, filenames in os.walk(path, topdown=False):
+                for name in filenames:
+                    f = os.path.join(dirpath, name)
+                    try:
+                        os.chmod(f, stat.S_IWRITE | stat.S_IREAD)
+                        os.unlink(f)
+                    except OSError:
+                        pass
+                for name in dirnames:
+                    d = os.path.join(dirpath, name)
+                    try:
+                        os.chmod(d, stat.S_IRWXU | stat.S_IRWXG | stat.S_IRWXO)
+                        os.rmdir(d)
+                    except OSError:
+                        pass
+            try:
+                os.chmod(path, stat.S_IRWXU | stat.S_IRWXG | stat.S_IRWXO)
+                os.rmdir(path)
+            except OSError:
+                pass
 
     tmpdir = Path(tempfile.gettempdir())
     basetemp = pytestconfig.option.basetemp
