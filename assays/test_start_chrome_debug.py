@@ -50,6 +50,67 @@ def _fake_chrome_dir(tmp_path: Path, name: str = "google-chrome-stable") -> Path
     return bin_dir
 
 
+# ── Structural tests ──────────────────────────────────────────────────
+
+
+class TestScriptStructure:
+    """Verify the script has required structural elements."""
+
+    def test_file_exists(self):
+        assert SCRIPT.exists()
+
+    def test_executable(self):
+        mode = SCRIPT.stat().st_mode
+        assert mode & stat.S_IEXEC, "start-chrome-debug.sh should be executable"
+
+    def test_shebang(self):
+        lines = _read_script().splitlines()
+        assert lines[0].startswith("#!") and "bash" in lines[0]
+
+    def test_strict_mode(self):
+        assert "set -euo pipefail" in _read_script()
+
+    def test_default_port_set(self):
+        assert "DEBUG_PORT=9222" in _read_script()
+
+    def test_no_todo_or_fixme(self):
+        for line in _read_script().splitlines():
+            upper = line.upper()
+            assert "TODO" not in upper, f"Found TODO: {line.strip()}"
+            assert "FIXME" not in upper, f"Found FIXME: {line.strip()}"
+
+    def test_script_ends_with_newline(self):
+        assert _read_script().endswith("\n"), "Script should end with a newline"
+
+
+class TestSyntaxCheck:
+    """Verify the script is syntactically valid bash."""
+
+    def test_bash_syntax_valid(self):
+        r = subprocess.run(
+            ["bash", "-n", str(SCRIPT)],
+            capture_output=True, text=True, timeout=10,
+        )
+        assert r.returncode == 0, f"Syntax error:\n{r.stderr}"
+
+    def test_shellcheck_if_available(self):
+        r = subprocess.run(
+            ["which", "shellcheck"],
+            capture_output=True, text=True, timeout=5,
+        )
+        if r.returncode != 0:
+            pytest.skip("shellcheck not installed")
+        r = subprocess.run(
+            ["shellcheck", str(SCRIPT)],
+            capture_output=True, text=True, timeout=10,
+        )
+        errors = [
+            line for line in r.stdout.splitlines()
+            if "error" in line.lower()
+        ]
+        assert not errors, f"shellcheck errors:\n{r.stdout}"
+
+
 # ── Help / usage ──────────────────────────────────────────────────────
 
 
