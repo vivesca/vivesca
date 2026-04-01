@@ -11,10 +11,17 @@ import subprocess
 from pathlib import Path
 
 from hatchet_sdk import ConcurrencyExpression, ConcurrencyLimitStrategy, Hatchet
+from hatchet_sdk.rate_limit import RateLimit, RateLimitDuration
 
 GOLEM_SCRIPT = Path(__file__).resolve().parent.parent / "golem"
 
 hatchet = Hatchet()
+
+# Register server-side rate limit keys (replaces manual cooldown in golem-daemon).
+hatchet.rate_limits.put("zhipu-rpm", limit=200, duration=RateLimitDuration.HOUR)
+hatchet.rate_limits.put("infini-rpm", limit=200, duration=RateLimitDuration.HOUR)
+hatchet.rate_limits.put("volcano-rpm", limit=200, duration=RateLimitDuration.HOUR)
+hatchet.rate_limits.put("gemini-rpm", limit=60, duration=RateLimitDuration.MINUTE)
 
 
 def _run_golem(input, context, provider: str) -> dict:
@@ -53,6 +60,7 @@ def _run_golem(input, context, provider: str) -> dict:
         max_runs=8,
         limit_strategy=ConcurrencyLimitStrategy.GROUP_ROUND_ROBIN,
     ),
+    rate_limits=[RateLimit(static_key="zhipu-rpm", units=1)],
 )
 def golem_zhipu(input, context):
     return _run_golem(input, context, "zhipu")
@@ -67,6 +75,7 @@ def golem_zhipu(input, context):
         max_runs=8,
         limit_strategy=ConcurrencyLimitStrategy.GROUP_ROUND_ROBIN,
     ),
+    rate_limits=[RateLimit(static_key="infini-rpm", units=1)],
 )
 def golem_infini(input, context):
     return _run_golem(input, context, "infini")
@@ -81,6 +90,7 @@ def golem_infini(input, context):
         max_runs=16,
         limit_strategy=ConcurrencyLimitStrategy.GROUP_ROUND_ROBIN,
     ),
+    rate_limits=[RateLimit(static_key="volcano-rpm", units=1)],
 )
 def golem_volcano(input, context):
     return _run_golem(input, context, "volcano")
@@ -95,6 +105,7 @@ def golem_volcano(input, context):
         max_runs=4,
         limit_strategy=ConcurrencyLimitStrategy.GROUP_ROUND_ROBIN,
     ),
+    rate_limits=[RateLimit(static_key="gemini-rpm", units=1)],
 )
 def golem_gemini(input, context):
     return _run_golem(input, context, "gemini")
