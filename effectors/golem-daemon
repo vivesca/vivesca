@@ -487,7 +487,8 @@ def mark_done(line_num: int, result: str = "", task_id: str = ""):
             return
 
 
-def mark_failed(line_num: int, result: str = "", exit_code: int = 1, task_id: str = "") -> dict:
+def mark_failed(line_num: int, result: str = "", exit_code: int = 1,
+                task_id: str = "", tail: str = "") -> dict:
     """Mark task as failed. Retry once unless genuinely permanent.
 
     Permanent failures: exit_code=2 (command error) UNLESS rate-limited.
@@ -526,7 +527,8 @@ def mark_failed(line_num: int, result: str = "", exit_code: int = 1, task_id: st
         # Exit 2 = command not found / usage error — don't retry IF there's meaningful
         # error output. But exit=2 with empty/whitespace output often means the API
         # rejected the request silently (rate-limit, quota exhaustion) — retry those.
-        empty_output = not result or not result.strip()
+        # Use raw tail for empty check (result always contains "exit=..." prefix).
+        empty_output = not tail or not tail.strip()
         if (exit_code == 2 and not rate_limited and not empty_output) or not cmd_match:
             lines[line_num] = _to_failed(original)
         elif '(retry)' not in cmd_match.group(1):

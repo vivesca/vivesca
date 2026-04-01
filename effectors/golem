@@ -22,6 +22,7 @@ RECENT=0
 PROVIDER="${GOLEM_PROVIDER:-zhipu}"
 FALLBACK=false
 FALLBACK_PROVIDER=""
+GOLEM_TASK_ID=""
 
 GOLEM_LOG="${GOLEM_LOG:-$HOME/.local/share/vivesca/golem.jsonl}"
 mkdir -p "$(dirname "$GOLEM_LOG")"
@@ -134,6 +135,14 @@ if [[ "${1:-}" == "summary" ]]; then
   exit 0
 fi
 
+# Strip optional task ID prefix: [t-xxxxxx] placed by golem-daemon before flags
+# e.g. "golem [t-a4a00f] --provider volcano ..." → task_id=t-a4a00f, then parse flags
+if [[ "${1:-}" =~ ^\[t-[0-9a-f]+\]$ ]]; then
+  GOLEM_TASK_ID="${1:1:-1}"  # strip brackets
+  export GOLEM_TASK_ID
+  shift
+fi
+
 # Parse regular flags
 while [[ "${1:-}" == --* ]]; do
   case "$1" in
@@ -203,6 +212,21 @@ _preflight_check() {
     --connect-timeout 10 --max-time 30 2>/dev/null) || return 2
   _http_code=$(echo "$_body" | tail -1)
   _response=$(echo "$_body" | sed '$d')
+  # Check response body for rate-limit indicators even on non-429 status
+  # Infini returns code 20013 for quota exhaustion (sometimes with non-429 HTTP status)
+  if echo "$_response" | grep -qE '"code":20013|request limit exceeded|AccountQuotaExceeded'; then
+    local _reset
+    _reset=$(echo "$_response" | grep -oE 'reset at [0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}' | head -1)
+    # Infini embeds the window in the error message: "5-hour request limit exceeded"
+    local _window
+    _window=$(echo "$_response" | grep -oE '[0-9]+-hour request limit' | grep -oE '[0-9]+' | head -1)
+    if [[ -n "$_window" ]]; then
+      echo "${_reset:-rate-limited, no reset time} window=${_window}h"
+    else
+      echo "${_reset:-rate-limited, no reset time}"
+    fi
+    return 1
+  fi
   case "$_http_code" in
     200) return 0 ;;
     429)
@@ -244,6 +268,7 @@ _run_golem() {
   local _max_retries=3
   local _attempt=0
   local _backoff=30  # initial backoff in seconds
+  local _claude_ran=false  # track whether claude was actually invoked
 
   while [[ $_attempt -lt $_max_retries ]]; do
     # Pre-flight health check: detect rate-limit before wasting time on claude
@@ -252,27 +277,38 @@ _run_golem() {
       : # non-CC provider, skip preflight
     else
     local _preflight_result
-    _preflight_result=$(_preflight_check)
-    local _pf_rc=$?
+    _pf_rc=0
+    _preflight_result=$(_preflight_check) || _pf_rc=$?
     if [[ $_pf_rc -eq 1 ]]; then
       # Rate-limited — extract reset time and compute smart backoff
       _attempt=$(( _attempt + 1 ))
-      if [[ $_attempt -lt $_max_retries ]]; then
-        # Parse "reset at YYYY-MM-DD HH:MM:SS" into epoch seconds
-        local _reset_str _reset_epoch _wait_secs
-        _reset_str=$(echo "$_preflight_result" | sed 's/reset at //')
-        if [[ -n "$_reset_str" ]]; then
-          _reset_epoch=$(date -d "$_reset_str" +%s 2>/dev/null || echo 0)
-          if [[ $_reset_epoch -gt 0 ]]; then
-            _wait_secs=$(( _reset_epoch - $(date +%s) + 30 ))  # 30s buffer past reset
-            [[ $_wait_secs -lt 30 ]] && _wait_secs=30
-            [[ $_wait_secs -gt 600 ]] && _wait_secs=600  # cap at 10 min
-          else
-            _wait_secs=$_backoff
-          fi
-        else
-          _wait_secs=$_backoff
+      # Parse "reset at YYYY-MM-DD HH:MM:SS" into epoch seconds
+      local _reset_str _reset_epoch _wait_secs
+      _reset_str=$(echo "$_preflight_result" | sed 's/reset at //')
+      _wait_secs=$_backoff
+      if [[ -n "$_reset_str" ]]; then
+        _reset_epoch=$(date -d "$_reset_str" +%s 2>/dev/null || echo 0)
+        if [[ $_reset_epoch -gt 0 ]]; then
+          _wait_secs=$(( _reset_epoch - $(date +%s) + 30 ))  # 30s buffer past reset
+          [[ $_wait_secs -lt 30 ]] && _wait_secs=30
         fi
+      fi
+      # Parse Infini-style window hint: "window=5h" means 5-hour rate limit window
+      local _window_h
+      _window_h=$(echo "$_preflight_result" | grep -oE 'window=[0-9]+h' | grep -oE '[0-9]+' | head -1)
+      if [[ -n "$_window_h" ]] && [[ $_wait_secs -lt $(( _window_h * 3600 )) ]]; then
+        # No explicit reset time, but we know the window — wait the full window duration
+        _wait_secs=$(( _window_h * 3600 ))
+      fi
+      # If wait exceeds 30 min, fail fast — let the daemon's cooldown handle it
+      if [[ $_wait_secs -gt 1800 ]]; then
+        $QUIET || echo "[preflight] $PROVIDER quota exhausted (reset in $(( _wait_secs / 60 ))min), failing fast for daemon cooldown — $_preflight_result" >&2
+        output="AccountQuotaExceeded: $_preflight_result"
+        exit_code=1
+        break  # exit retry loop, report rate-limit to daemon
+      fi
+      [[ $_wait_secs -gt 600 ]] && _wait_secs=600  # cap at 10 min
+      if [[ $_attempt -lt $_max_retries ]]; then
         $QUIET || echo "[preflight] $PROVIDER rate-limited (attempt $_attempt/$_max_retries), waiting ${_wait_secs}s — $_preflight_result" >&2
         sleep "$_wait_secs"
         _backoff=$(( _backoff * 2 ))
@@ -300,6 +336,7 @@ _run_golem() {
       gemini -p "$prompt" < /dev/null 2>&1
       )
       exit_code=$?
+      _claude_ran=true
     elif [[ "${_CLI:-claude}" == "codex" ]]; then
       output=$(
       timeout "$_claude_timeout" \
@@ -307,6 +344,7 @@ _run_golem() {
       codex exec "$prompt" 2>&1
       )
       exit_code=$?
+      _claude_ran=true
     else
       output=$(
       timeout "$_claude_timeout" \
@@ -322,6 +360,7 @@ _run_golem() {
       claude "${args[@]}" -p "$prompt" < /dev/null 2>&1
       )
       exit_code=$?
+      _claude_ran=true
     fi
     # Timeout returns 124 — treat as rate-limit for retry purposes
     [[ $exit_code -eq 124 ]] && exit_code=1
@@ -355,6 +394,12 @@ _run_golem() {
       break
     fi
   done
+
+  # If all retries exhausted and claude was never launched, report as rate-limit failure
+  if ! $_claude_ran && [[ $exit_code -eq 0 ]]; then
+    exit_code=1
+    output="AccountQuotaExceeded: $PROVIDER rate-limit retries exhausted, claude was never launched"
+  fi
 
   local duration=$(( $(date +%s) - start_ts ))
   local short_prompt="${prompt:0:100}"

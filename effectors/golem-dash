@@ -87,7 +87,7 @@ def progress_bar(done: int, total: int, width: int = 30, use_color: bool = True)
     c = CYAN if use_color else ""
     rst = RESET if use_color else ""
 
-    return f"{g}{bar}{rst} {c}{done}/{total}{rst} ({pct:.0f}%)"
+    return f"{g}{bar}{rst} {c}{done}/{total}{rst} ({pct * 100:.0f}%)"
 
 
 def eta_wall_clock(eta_seconds: int) -> str:

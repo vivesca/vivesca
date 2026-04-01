@@ -1,8 +1,12 @@
 #!/usr/bin/env python3
-"""importin -- transport credentials from macOS Keychain into the shell environment.
+"""importin -- transport credentials into the shell environment.
 
 Named after nuclear importins: transport receptors that carry cargo bearing
 the right signal (NLS) through nuclear pores into the nucleus.
+
+Backends (auto-detected):
+  - macOS: Keychain via `security` CLI
+  - Linux: 1Password via `op` CLI (requires OP_SERVICE_ACCOUNT_TOKEN)
 
 Usage (in shell):
     eval "$(importin)"
@@ -12,7 +16,7 @@ Usage (in Python):
     spec = importlib.util.spec_from_file_location("importin", os.path.expanduser("~/code/vivesca/bin/importin"))
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
-    mod.load_keychain_env()
+    mod.load_env()
 
 Credentials stay out of the flat env namespace unless explicitly loaded.
 """
@@ -20,43 +24,48 @@ Credentials stay out of the flat env namespace unless explicitly loaded.
 from __future__ import annotations
 
 import getpass
+import os
 import platform
 import shutil
 import subprocess
 
 _USER = getpass.getuser()
 
-# Map: env var name -> keychain service name
+# Map: env var name -> (keychain service, 1password reference)
+# 1password reference format: op://vault/item/field
 CREDENTIALS = {
     # From .zshenv
-    "XAI_API_KEY": "xai-api-key",
-    "DEEPGRAM_API_KEY": "deepgram-api-key",
-    "SPEECHMATICS_API_KEY": "speechmatics-api-key",
-    "GOG_KEYRING_PASSWORD": "gog-keyring-password",
-    # From .secrets (.secrets was sourced after .zshenv, so these values win)
-    "GEMINI_API_KEY": "gemini-api-key-secrets",
-    "GOOGLE_API_KEY": "google-api-key-secrets",
-    "ANTHROPIC_API_KEY": "anthropic-api-key",
-    "OPENAI_API_KEY": "openai-api-key",
-    "MOONSHOT_API_KEY": "moonshot-api-key",
-    "BRAVE_API_KEY": "brave-api-key",
-    "TAVILY_API_KEY": "tavily-api-key",
-    "PERPLEXITY_API_KEY": "perplexity-api-key",
-    "EXA_API_KEY": "exa-api-key",
-    "SERPER_API_KEY": "serper-api-key",
-    "PYPI_TOKEN": "pypi-token",
-    "OP_MASTER_PASSWORD": "op-master-password",
-    "OP_SECRET_KEY": "op-secret-key",
-    "OURA_TOKEN": "oura-token",
-    "LLAMA_CLOUD_API_KEY": "llama-cloud-api-key",
-    "MXBAI_API_KEY": "mxbai-api-key",
-    "KILO_API_TOKEN": "kilo-api-token",
-    "HKGBOOK_API_KEY": "hkgbook-api-key",
-    "TELEGRAM_BOT_TOKEN": "telegram-bot-token",
-    "TELEGRAM_CHAT_ID": "telegram-chat-id",
-    "PLAYWRIGHT_MCP_EXTENSION_TOKEN": "playwright-mcp-token",
+    "XAI_API_KEY": ("xai-api-key", "op://Agents/Agent Environment/xai_api_key"),
+    "DEEPGRAM_API_KEY": ("deepgram-api-key", None),
+    "SPEECHMATICS_API_KEY": ("speechmatics-api-key", None),
+    "GOG_KEYRING_PASSWORD": ("gog-keyring-password", "op://Agents/Agent Environment/gog_keyring_password"),
+    # From .secrets
+    "GEMINI_API_KEY": ("gemini-api-key-secrets", "op://Agents/Agent Environment/google_api_key"),
+    "GOOGLE_API_KEY": ("google-api-key-secrets", "op://Agents/Agent Environment/google_api_key"),
+    "ANTHROPIC_API_KEY": ("anthropic-api-key", "op://Agents/Agent Environment/anthropic_api_key"),
+    "OPENAI_API_KEY": ("openai-api-key", "op://Agents/Agent Environment/openai_api_key"),
+    "MOONSHOT_API_KEY": ("moonshot-api-key", "op://Agents/Agent Environment/moonshot_api_key"),
+    "BRAVE_API_KEY": ("brave-api-key", None),
+    "TAVILY_API_KEY": ("tavily-api-key", None),
+    "PERPLEXITY_API_KEY": ("perplexity-api-key", "op://Agents/Agent Environment/perplexity_api_key"),
+    "EXA_API_KEY": ("exa-api-key", "op://Agents/Agent Environment/exa_api_key"),
+    "SERPER_API_KEY": ("serper-api-key", None),
+    "PYPI_TOKEN": ("pypi-token", None),
+    "OP_MASTER_PASSWORD": ("op-master-password", None),
+    "OP_SECRET_KEY": ("op-secret-key", None),
+    "OURA_TOKEN": ("oura-token", "op://Agents/Agent Environment/oura_token"),
+    "LLAMA_CLOUD_API_KEY": ("llama-cloud-api-key", None),
+    "MXBAI_API_KEY": ("mxbai-api-key", "op://Agents/Agent Environment/mxbai_api_key"),
+    "KILO_API_TOKEN": ("kilo-api-token", None),
+    "HKGBOOK_API_KEY": ("hkgbook-api-key", None),
+    "TELEGRAM_BOT_TOKEN": ("telegram-bot-token", "op://Agents/Agent Environment/telegram_bot_token"),
+    "TELEGRAM_CHAT_ID": ("telegram-chat-id", "op://Agents/Agent Environment/telegram_chat_id"),
+    "PLAYWRIGHT_MCP_EXTENSION_TOKEN": ("playwright-mcp-token", None),
+    "OPENROUTER_API_KEY": (None, "op://Agents/Agent Environment/openrouter_api_key"),
 }
 
+
+# -- Backend: macOS Keychain --
 
 def get_keychain_value(service: str) -> str | None:
     """Fetch a password from macOS Keychain."""
@@ -74,18 +83,61 @@ def get_keychain_value(service: str) -> str | None:
     return None
 
 
-def load_keychain_env() -> dict[str, str]:
-    """Load all credentials from Keychain into os.environ. Returns loaded keys."""
-    import os
+# -- Backend: 1Password CLI --
 
+def get_op_value(reference: str) -> str | None:
+    """Fetch a secret from 1Password via `op read`."""
+    op_bin = shutil.which("op") or os.path.expanduser("~/bin/op")
+    try:
+        result = subprocess.run(
+            [op_bin, "read", reference],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        if result.returncode == 0:
+            return result.stdout.strip()
+    except (subprocess.TimeoutExpired, FileNotFoundError):
+        pass
+    return None
+
+
+def _detect_backend() -> str:
+    """Detect which credential backend to use."""
+    if platform.system() == "Darwin" and shutil.which("security"):
+        return "keychain"
+    if os.environ.get("OP_SERVICE_ACCOUNT_TOKEN") and (
+        shutil.which("op") or os.path.isfile(os.path.expanduser("~/bin/op"))
+    ):
+        return "op"
+    return "none"
+
+
+def _get_value(env_var: str, backend: str) -> str | None:
+    """Fetch a credential using the detected backend."""
+    keychain_svc, op_ref = CREDENTIALS[env_var]
+    if backend == "keychain" and keychain_svc:
+        return get_keychain_value(keychain_svc)
+    if backend == "op" and op_ref:
+        return get_op_value(op_ref)
+    return None
+
+
+def load_env() -> dict[str, str]:
+    """Load all credentials into os.environ. Returns loaded keys."""
+    backend = _detect_backend()
     loaded = {}
-    for env_var, service in CREDENTIALS.items():
+    for env_var in CREDENTIALS:
         if env_var not in os.environ:
-            val = get_keychain_value(service)
+            val = _get_value(env_var, backend)
             if val:
                 os.environ[env_var] = val
                 loaded[env_var] = val
     return loaded
+
+
+# Keep old name as alias
+load_keychain_env = load_env
 
 
 if __name__ == "__main__":
@@ -95,15 +147,21 @@ if __name__ == "__main__":
         print(__doc__)
         sys.exit(0)
 
-    # Guard: macOS Keychain not available on other platforms
-    if platform.system() != "Darwin" or not shutil.which("security"):
-        print("importin: requires macOS Keychain ('security' CLI not found)", file=sys.stderr)
+    backend = _detect_backend()
+    if backend == "none":
+        print("importin: no credential backend available", file=sys.stderr)
+        print("  macOS: needs 'security' CLI", file=sys.stderr)
+        print("  Linux: needs 'op' CLI + OP_SERVICE_ACCOUNT_TOKEN", file=sys.stderr)
         sys.exit(1)
 
-    # Shell mode: print export statements
-    for env_var, service in CREDENTIALS.items():
-        val = get_keychain_value(service)
+    print(f"# importin: using {backend} backend", file=sys.stderr)
+
+    count = 0
+    for env_var in CREDENTIALS:
+        val = _get_value(env_var, backend)
         if val:
-            # Single-quote the value to prevent shell expansion
             escaped = val.replace("'", "'\\''")
             print(f"export {env_var}='{escaped}'")
+            count += 1
+
+    print(f"# importin: exported {count} credentials", file=sys.stderr)
