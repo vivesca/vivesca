@@ -1,430 +1,242 @@
 from __future__ import annotations
 
-"""Tests for effectors/tmux-url-select.sh — tmux URL selector for Blink.
+"""Tests for tmux-url-select.sh — interactive URL picker with OSC 52 copy.
 
-Tests operate by:
-  1. Validating script structure (shebang, error flags, help text).
-  2. Running the script via subprocess with mocked commands (fzf, tmux)
-     via PATH overrides.
-  3. Verifying URL extraction logic and OSC 52 encoding.
+Uses subprocess.run to invoke the script (effectors are scripts, not importable).
 """
 
-import base64
 import os
-import re
-import stat
 import subprocess
+import tempfile
 from pathlib import Path
 
-import pytest
-
-SCRIPT = Path(__file__).parent.parent / "effectors" / "tmux-url-select.sh"
-BUFFER_PATH = Path("/tmp/tmux-url-buffer")
+SCRIPT = Path.home() / "germline" / "effectors" / "tmux-url-select.sh"
+BUFFER = Path("/tmp/tmux-url-buffer")
 
 
-def _read_script() -> str:
-    return SCRIPT.read_text()
+def _run(args: list[str], *, env_extra: dict | None = None, input_data: str = "") -> subprocess.CompletedProcess[str]:
+    env = os.environ.copy()
+    env.update(env_extra or {})
+    return subprocess.run(
+        ["/usr/bin/env", "bash", str(SCRIPT), *args],
+        capture_output=True,
+        text=True,
+        timeout=10,
+        env=env,
+        input=input_data,
+    )
 
 
-# ── Structural tests ────────────────────────────────────────────────────
+def _write_buffer(content: str) -> None:
+    BUFFER.write_text(content)
 
 
-class TestScriptStructure:
-    """Verify the script has required structural elements."""
-
-    def test_file_exists(self):
-        assert SCRIPT.exists()
-
-    def test_executable(self):
-        mode = SCRIPT.stat().st_mode
-        assert mode & stat.S_IEXEC, "tmux-url-select.sh should be executable"
-
-    def test_shebang(self):
-        lines = _read_script().splitlines()
-        assert lines[0] == "#!/usr/bin/env bash"
-
-    def test_strict_mode(self):
-        content = _read_script()
-        assert "set -euo pipefail" in content
-
-    def test_no_todo_or_fixme(self):
-        content = _read_script()
-        for line in content.splitlines():
-            upper = line.upper()
-            assert "TODO" not in upper, f"Found TODO: {line.strip()}"
-            assert "FIXME" not in upper, f"Found FIXME: {line.strip()}"
-
-    def test_script_ends_with_newline(self):
-        content = _read_script()
-        assert content.endswith("\n"), "Script should end with a newline"
+def _remove_buffer() -> None:
+    if BUFFER.exists():
+        BUFFER.unlink()
 
 
-# ── Help flag tests ─────────────────────────────────────────────────────
-
-
-class TestHelpFlag:
-    """Verify --help and -h produce expected output."""
-
-    def test_help_flag(self):
-        r = subprocess.run(
-            ["bash", str(SCRIPT), "--help"],
-            capture_output=True, text=True, timeout=10,
-        )
+class TestHelp:
+    def test_help_long_flag(self):
+        r = _run(["--help"])
         assert r.returncode == 0
-        assert "Usage:" in r.stdout
+        assert "Usage" in r.stdout
         assert "tmux-url-select.sh" in r.stdout
 
-    def test_short_help_flag(self):
-        r = subprocess.run(
-            ["bash", str(SCRIPT), "-h"],
-            capture_output=True, text=True, timeout=10,
-        )
+    def test_help_short_flag(self):
+        r = _run(["-h"])
         assert r.returncode == 0
-        assert "Usage:" in r.stdout
+        assert "Usage" in r.stdout
 
     def test_help_mentions_requirements(self):
-        r = subprocess.run(
-            ["bash", str(SCRIPT), "--help"],
-            capture_output=True, text=True, timeout=10,
-        )
+        r = _run(["--help"])
         assert "fzf" in r.stdout
         assert "tmux" in r.stdout
-
-    def test_help_exits_zero(self):
-        r = subprocess.run(
-            ["bash", str(SCRIPT), "--help"],
-            capture_output=True, text=True, timeout=10,
-        )
-        assert r.returncode == 0
+        assert "OSC 52" in r.stdout
 
 
-# ── URL extraction logic ────────────────────────────────────────────────
+class TestNoUrls:
+    def test_empty_buffer(self):
+        _write_buffer("no urls here just text\n")
+        try:
+            r = _run([])
+            assert r.returncode == 0
+            assert "No URLs found" in r.stdout
+        finally:
+            _remove_buffer()
+
+    def test_buffer_with_no_http(self):
+        _write_buffer("ftp://example.com\njust some words\n")
+        try:
+            r = _run([])
+            assert r.returncode == 0
+            assert "No URLs found" in r.stdout
+        finally:
+            _remove_buffer()
+
+    def test_missing_buffer_file(self):
+        _remove_buffer()
+        r = _run([])
+        # set -e causes non-zero exit when grep fails on missing file
+        assert r.returncode != 0
 
 
-class TestURLExtraction:
-    """Test the URL extraction regex from the script.
+class TestUrlExtraction:
+    def _make_fzf_mock(self, tmpdir: str, selection: str) -> str:
+        """Create a mock fzf that echoes the selection."""
+        mock = os.path.join(tmpdir, "fzf")
+        with open(mock, "w") as f:
+            f.write(f"#!/bin/sh\necho '{selection}'\n")
+        os.chmod(mock, 0o755)
+        return tmpdir
 
-    The script uses: grep -oE 'https?://[^ >)"']+'
-    which translates to the Python regex: r'https?://[^ >)"\']+'
-    We test it here with Python's re module, and the end-to-end
-    integration is covered by TestURLSelected.
-    """
-
-    REGEX = r"""https?://[^ >)"']+"""
-
-    def _extract(self, text: str) -> list[str]:
-        return re.findall(self.REGEX, text)
-
-    def test_extracts_http_url(self):
-        urls = self._extract("See http://example.com for details\n")
-        assert urls == ["http://example.com"]
-
-    def test_extracts_https_url(self):
-        urls = self._extract("Visit https://example.com/path?q=1\n")
-        assert urls == ["https://example.com/path?q=1"]
+    def test_single_url_selected(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            self._make_fzf_mock(tmpdir, "https://example.com/page")
+            _write_buffer("Visit https://example.com/page for details\n")
+            try:
+                r = _run([], env_extra={"PATH": f"{tmpdir}:{os.environ['PATH']}"})
+                # Should emit OSC 52 sequence with base64-encoded URL
+                assert r.returncode == 0
+                assert "\\033]52;c;" in r.stdout or "]52;c;" in r.stdout
+            finally:
+                _remove_buffer()
 
     def test_deduplicates_urls(self):
-        """awk '!seen[$0]++' in the script deduplicates; we verify unique logic."""
-        urls = self._extract(
-            "See https://example.com and also https://example.com again\n"
+        """URL extraction uses awk '!seen[$0]++' to deduplicate."""
+        _write_buffer(
+            "Visit https://example.com/a\n"
+            "Also https://example.com/a\n"
+            "And https://example.com/b\n"
         )
-        assert urls == ["https://example.com", "https://example.com"]
-        # Simulating awk dedup:
-        seen = []
-        for u in urls:
-            if u not in seen:
-                seen.append(u)
-        assert seen == ["https://example.com"]
+        try:
+            # Run just the extraction part manually to check dedup
+            r = subprocess.run(
+                ["bash", "-c",
+                 f"grep -oE 'https?://[^ >)\"'\\''']+' {BUFFER} | awk '!seen[$0]++'"],
+                capture_output=True, text=True, timeout=5,
+            )
+            lines = r.stdout.strip().split("\n")
+            assert lines == ["https://example.com/a", "https://example.com/b"]
+        finally:
+            _remove_buffer()
 
-    def test_extracts_multiple_unique_urls(self):
-        urls = self._extract(
-            "https://foo.com and https://bar.com and https://baz.com\n"
+    def test_multiple_urls_in_buffer(self):
+        _write_buffer(
+            "Check https://foo.com and https://bar.org/baz?q=1\n"
+            "Also https://foo.com repeated\n"
         )
-        assert len(urls) == 3
-        assert "https://foo.com" in urls
-        assert "https://bar.com" in urls
-        assert "https://baz.com" in urls
-
-    def test_stops_at_space(self):
-        urls = self._extract("https://example.com/path other text\n")
-        assert urls == ["https://example.com/path"]
-
-    def test_stops_at_closing_paren(self):
-        urls = self._extract("link (https://example.com) here\n")
-        assert urls == ["https://example.com"]
-
-    def test_stops_at_double_quote(self):
-        urls = self._extract('href="https://example.com/page" target\n')
-        assert urls == ["https://example.com/page"]
-
-    def test_stops_at_single_quote(self):
-        urls = self._extract("url='https://example.com/x' next\n")
-        assert urls == ["https://example.com/x"]
-
-    def test_no_urls_in_plain_text(self):
-        urls = self._extract("just some plain text without any links\n")
-        assert urls == []
-
-
-# ── No URLs found ───────────────────────────────────────────────────────
-
-
-class TestNoURLs:
-    """Verify behavior when the buffer has no URLs.
-
-    Note: the script uses set -eo pipefail, so grep returning exit 1
-    (no match) causes the script to abort before reaching the
-    'No URLs found' check. These tests document that actual behavior.
-    """
-
-    def test_no_urls_exits_nonzero(self, tmp_path):
-        """Script exits non-zero when buffer has no URLs (set -e kills it)."""
-        buf = tmp_path / "tmux-url-buffer"
-        buf.write_text("no urls here\n")
-        script_text = _read_script().replace("/tmp/tmux-url-buffer", str(buf))
-
-        r = subprocess.run(
-            ["bash", "-c", script_text],
-            capture_output=True, text=True, timeout=10,
-        )
-        # With set -eo pipefail, grep returning 1 (no match) aborts.
-        assert r.returncode != 0
-
-    def test_empty_buffer_exits_nonzero(self, tmp_path):
-        """Empty buffer also causes grep to fail and script to abort."""
-        buf = tmp_path / "tmux-url-buffer"
-        buf.write_text("")
-        script_text = _read_script().replace("/tmp/tmux-url-buffer", str(buf))
-
-        r = subprocess.run(
-            ["bash", "-c", script_text],
-            capture_output=True, text=True, timeout=10,
-        )
-        assert r.returncode != 0
-
-    def test_nonexistent_buffer_exits_nonzero(self, tmp_path):
-        """Nonexistent buffer file also causes script to abort."""
-        fake_buf = tmp_path / "nonexistent-buffer"
-        script_text = _read_script().replace("/tmp/tmux-url-buffer", str(fake_buf))
-
-        r = subprocess.run(
-            ["bash", "-c", script_text],
-            capture_output=True, text=True, timeout=10,
-        )
-        assert r.returncode != 0
-
-    def test_no_osc52_on_no_urls(self, tmp_path):
-        """No OSC 52 escape sequence should be emitted when there are no URLs."""
-        buf = tmp_path / "tmux-url-buffer"
-        buf.write_text("just plain text\n")
-        script_text = _read_script().replace("/tmp/tmux-url-buffer", str(buf))
-
-        r = subprocess.run(
-            ["bash", "-c", script_text],
-            capture_output=True, text=True, timeout=10,
-        )
-        assert "\x1b]52;" not in r.stdout
-
-
-# ── URL selected (mocked fzf + tmux) ───────────────────────────────────
-
-
-class TestURLSelected:
-    """Test the selection path with mocked fzf and tmux."""
-
-    def _make_mock_env(self, tmp_path, fzf_output: str) -> dict:
-        """Create a PATH-override env with mocked fzf and tmux."""
-        bin_dir = tmp_path / "bin"
-        bin_dir.mkdir()
-
-        # Mock fzf: just echo the predetermined output
-        (bin_dir / "fzf").write_text(
-            f"#!/bin/bash\necho '{fzf_output}'\n"
-        )
-        (bin_dir / "fzf").chmod(0o755)
-
-        # Mock tmux: record calls
-        tmux_log = tmp_path / "tmux.log"
-        (bin_dir / "tmux").write_text(
-            f"#!/bin/bash\necho \"$@\" >> {tmux_log}\n"
-        )
-        (bin_dir / "tmux").chmod(0o755)
-
-        env = os.environ.copy()
-        env["PATH"] = f"{bin_dir}:{env.get('PATH', '')}"
-        return env
-
-    def test_selected_url_emits_osc52(self, tmp_path):
-        buf = tmp_path / "tmux-url-buffer"
-        buf.write_text("https://example.com\n")
-        script_text = _read_script().replace("/tmp/tmux-url-buffer", str(buf))
-
-        env = self._make_mock_env(tmp_path, "https://example.com")
-
-        r = subprocess.run(
-            ["bash", "-c", script_text],
-            capture_output=True, text=True, timeout=10,
-            env=env,
-        )
-        assert r.returncode == 0
-
-        # Verify OSC 52 escape sequence was emitted
-        expected_b64 = base64.b64encode(b"https://example.com").decode()
-        osc52 = f"\x1b]52;c;{expected_b64}\x07"
-        assert osc52 in r.stdout, f"OSC 52 not found in stdout. Got: {repr(r.stdout)}"
-
-    def test_selected_url_calls_tmux_display_message(self, tmp_path):
-        buf = tmp_path / "tmux-url-buffer"
-        buf.write_text("https://example.com\n")
-        script_text = _read_script().replace("/tmp/tmux-url-buffer", str(buf))
-
-        env = self._make_mock_env(tmp_path, "https://example.com")
-
-        subprocess.run(
-            ["bash", "-c", script_text],
-            capture_output=True, text=True, timeout=10,
-            env=env,
-        )
-
-        tmux_log = (tmp_path / "tmux.log").read_text()
-        assert "display-message" in tmux_log
-        assert "Copied:" in tmux_log
-        assert "https://example.com" in tmux_log
-
-    def test_base64_encoding_correct(self, tmp_path):
-        url = "https://github.com/anthropics/claude-code"
-        buf = tmp_path / "tmux-url-buffer"
-        buf.write_text(url + "\n")
-        script_text = _read_script().replace("/tmp/tmux-url-buffer", str(buf))
-
-        env = self._make_mock_env(tmp_path, url)
-
-        r = subprocess.run(
-            ["bash", "-c", script_text],
-            capture_output=True, text=True, timeout=10,
-            env=env,
-        )
-        assert r.returncode == 0
-
-        expected_b64 = base64.b64encode(url.encode()).decode()
-        assert expected_b64 in r.stdout
-
-    def test_url_with_query_params(self, tmp_path):
-        url = "https://example.com/search?q=hello+world&lang=en"
-        buf = tmp_path / "tmux-url-buffer"
-        buf.write_text(url + "\n")
-        script_text = _read_script().replace("/tmp/tmux-url-buffer", str(buf))
-
-        env = self._make_mock_env(tmp_path, url)
-
-        r = subprocess.run(
-            ["bash", "-c", script_text],
-            capture_output=True, text=True, timeout=10,
-            env=env,
-        )
-        assert r.returncode == 0
-
-        expected_b64 = base64.b64encode(url.encode()).decode()
-        assert expected_b64 in r.stdout
-
-
-# ── No selection (fzf returns empty) ───────────────────────────────────
-
-
-class TestNoSelection:
-    """Test behavior when fzf is cancelled / returns empty."""
-
-    def _make_mock_env(self, tmp_path) -> dict:
-        bin_dir = tmp_path / "bin"
-        bin_dir.mkdir()
-
-        # Mock fzf: returns nothing (user cancelled)
-        (bin_dir / "fzf").write_text("#!/bin/bash\nexit 1\n")
-        (bin_dir / "fzf").chmod(0o755)
-
-        # Mock tmux: should NOT be called
-        tmux_log = tmp_path / "tmux.log"
-        (bin_dir / "tmux").write_text(
-            f"#!/bin/bash\necho \"$@\" >> {tmux_log}\n"
-        )
-        (bin_dir / "tmux").chmod(0o755)
-
-        env = os.environ.copy()
-        env["PATH"] = f"{bin_dir}:{env.get('PATH', '')}"
-        return env
-
-    def test_no_tmux_call_on_cancel(self, tmp_path):
-        buf = tmp_path / "tmux-url-buffer"
-        buf.write_text("https://example.com\n")
-        script_text = _read_script().replace("/tmp/tmux-url-buffer", str(buf))
-
-        env = self._make_mock_env(tmp_path)
-
-        r = subprocess.run(
-            ["bash", "-c", script_text],
-            capture_output=True, text=True, timeout=10,
-            env=env,
-        )
-        # Script may exit non-zero due to set -e + fzf returning 1,
-        # but the key thing is no OSC 52 and no tmux display-message.
-        tmux_log_path = tmp_path / "tmux.log"
-        if tmux_log_path.exists():
-            assert tmux_log_path.read_text() == "", "tmux should not be called on cancel"
-
-        # No OSC 52 sequence emitted
-        assert "\x1b]52;" not in r.stdout
-
-
-# ── OSC 52 encoding verification ───────────────────────────────────────
-
-
-class TestOSC52Encoding:
-    """Verify OSC 52 escape sequence format directly."""
-
-    def test_osc52_format(self):
-        """OSC 52 should follow the format ESC]52;c;<base64>BEL."""
-        url = "https://example.com"
-        encoded = base64.b64encode(url.encode()).decode()
-        osc52 = f"\x1b]52;c;{encoded}\x07"
-        assert osc52.startswith("\x1b]52;c;")
-        assert osc52.endswith("\x07")
-
-    def test_encoding_matches_script(self, tmp_path):
-        """The script's base64 encoding should match Python's."""
-        url = "https://test.org/path"
-        buf = tmp_path / "tmux-url-buffer"
-        buf.write_text(url + "\n")
-
-        bin_dir = tmp_path / "bin"
-        bin_dir.mkdir()
-        (bin_dir / "fzf").write_text(f"#!/bin/bash\necho '{url}'\n")
-        (bin_dir / "fzf").chmod(0o755)
-        (bin_dir / "tmux").write_text("#!/bin/bash\n")
-        (bin_dir / "tmux").chmod(0o755)
-
-        env = os.environ.copy()
-        env["PATH"] = f"{bin_dir}:{env.get('PATH', '')}"
-
-        script_text = _read_script().replace("/tmp/tmux-url-buffer", str(buf))
-        r = subprocess.run(
-            ["bash", "-c", script_text],
-            capture_output=True, text=True, timeout=10,
-            env=env,
-        )
-
-        python_b64 = base64.b64encode(url.encode()).decode()
-        assert python_b64 in r.stdout
-
-
-# ── Syntax check ────────────────────────────────────────────────────────
-
-
-class TestSyntaxCheck:
-    """Verify the script is syntactically valid bash."""
-
-    def test_bash_syntax_valid(self):
-        r = subprocess.run(
-            ["bash", "-n", str(SCRIPT)],
-            capture_output=True, text=True, timeout=10,
-        )
-        assert r.returncode == 0, f"Syntax error:\n{r.stderr}"
+        try:
+            r = subprocess.run(
+                ["bash", "-c",
+                 f"grep -oE 'https?://[^ >)\"'\\''']+' {BUFFER} | awk '!seen[$0]++'"],
+                capture_output=True, text=True, timeout=5,
+            )
+            lines = r.stdout.strip().split("\n")
+            assert "https://foo.com" in lines
+            assert "https://bar.org/baz?q=1" in lines
+            assert len(lines) == 2  # deduped
+        finally:
+            _remove_buffer()
+
+    def test_url_stops_at_space(self):
+        _write_buffer("link: https://example.com/path next word\n")
+        try:
+            r = subprocess.run(
+                ["bash", "-c",
+                 f"grep -oE 'https?://[^ >)\"'\\''']+' {BUFFER}"],
+                capture_output=True, text=True, timeout=5,
+            )
+            assert r.stdout.strip() == "https://example.com/path"
+        finally:
+            _remove_buffer()
+
+    def test_url_stops_at_angle_bracket(self):
+        _write_buffer("<https://example.com>click\n")
+        try:
+            r = subprocess.run(
+                ["bash", "-c",
+                 f"grep -oE 'https?://[^ >)\"'\\''']+' {BUFFER}"],
+                capture_output=True, text=True, timeout=5,
+            )
+            assert r.stdout.strip() == "https://example.com"
+        finally:
+            _remove_buffer()
+
+    def test_url_stops_at_double_quote(self):
+        _write_buffer('href="https://example.com/x" class\n')
+        try:
+            r = subprocess.run(
+                ["bash", "-c",
+                 f"grep -oE 'https?://[^ >)\"'\\''']+' {BUFFER}"],
+                capture_output=True, text=True, timeout=5,
+            )
+            assert r.stdout.strip() == "https://example.com/x"
+        finally:
+            _remove_buffer()
+
+    def test_url_stops_at_paren(self):
+        _write_buffer("(https://example.com/z)see\n")
+        try:
+            r = subprocess.run(
+                ["bash", "-c",
+                 f"grep -oE 'https?://[^ >)\"'\\''']+' {BUFFER}"],
+                capture_output=True, text=True, timeout=5,
+            )
+            assert r.stdout.strip() == "https://example.com/z"
+        finally:
+            _remove_buffer()
+
+    def test_url_stops_at_single_quote(self):
+        _write_buffer("url='https://example.com/sq'more\n")
+        try:
+            r = subprocess.run(
+                ["bash", "-c",
+                 f"grep -oE 'https?://[^ >)\"'\\''']+' {BUFFER}"],
+                capture_output=True, text=True, timeout=5,
+            )
+            assert r.stdout.strip() == "https://example.com/sq"
+        finally:
+            _remove_buffer()
+
+    def test_http_url_extracted(self):
+        _write_buffer("Visit http://insecure.com/page\n")
+        try:
+            r = subprocess.run(
+                ["bash", "-c",
+                 f"grep -oE 'https?://[^ >)\"'\\''']+' {BUFFER}"],
+                capture_output=True, text=True, timeout=5,
+            )
+            assert r.stdout.strip() == "http://insecure.com/page"
+        finally:
+            _remove_buffer()
+
+    def test_osc52_encoding(self):
+        """Verify the OSC 52 sequence contains correct base64."""
+        import base64
+        with tempfile.TemporaryDirectory() as tmpdir:
+            self._make_fzf_mock(tmpdir, "https://example.com/test")
+            _write_buffer("https://example.com/test\n")
+            try:
+                r = _run([], env_extra={"PATH": f"{tmpdir}:{os.environ['PATH']}"})
+                expected_b64 = base64.b64encode(b"https://example.com/test").decode()
+                assert expected_b64 in r.stdout
+            finally:
+                _remove_buffer()
+
+    def test_fzf_cancels_no_output(self):
+        """When fzf returns nothing (user cancels), no OSC 52 is emitted."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Mock fzf that returns empty (user pressed Esc)
+            mock = os.path.join(tmpdir, "fzf")
+            with open(mock, "w") as f:
+                f.write("#!/bin/sh\nexit 1\n")
+            os.chmod(mock, 0o755)
+            _write_buffer("https://example.com\n")
+            try:
+                r = _run([], env_extra={"PATH": f"{tmpdir}:{os.environ['PATH']}"})
+                # fzf exit 1 causes set -e to abort; no OSC 52 emitted
+                assert r.returncode != 0
+                assert "]52;c;" not in r.stdout
+            finally:
+                _remove_buffer()

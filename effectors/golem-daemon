@@ -1062,8 +1062,7 @@ def cmd_status():
         # Count pending tasks by provider
         pending = parse_queue()
         by_provider: dict[str, int] = {}
-        for item in pending:
-            cmd = item[1]
+        for _, cmd, _ in pending:
             p = parse_provider(cmd)
             by_provider[p] = by_provider.get(p, 0) + 1
 
@@ -1073,6 +1072,20 @@ def cmd_status():
         ) if by_provider else "none"
 
         print(f"Daemon running (PID {pid}), {len(pending)} pending tasks ({provider_info})")
+
+        # Show running task IDs from state file
+        if RUNNING_FILE.exists():
+            try:
+                running_tasks = json.loads(RUNNING_FILE.read_text())
+                if running_tasks:
+                    print("Running tasks:")
+                    for t in running_tasks:
+                        tid = t.get("task_id", "?")
+                        prov = t.get("provider", "?")
+                        print(f"  [{tid}] {prov} — {t.get('cmd', '')[:60]}")
+            except (json.JSONDecodeError, OSError):
+                pass
+
         return 0
     else:
         print("Daemon not running")
