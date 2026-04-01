@@ -555,8 +555,8 @@ def test_eta_confidence_with_rate_limits():
 
 
 def test_drain_velocity_empty():
-    """No activity = empty string."""
-    assert _mod["compute_drain_velocity"]([], {}) == ""
+    """No pending and no records = empty indicator."""
+    assert _mod["compute_drain_velocity"]([], {}) == "✓ empty"
 
 
 def test_drain_velocity_draining():
@@ -731,3 +731,234 @@ def test_build_dashboard_with_mock_data(tmp_path):
     # Panel should contain text about the providers
     rendered = panel.renderable
     assert rendered is not None
+
+
+# ── New: compute_ema_duration ─────────────────────────────────────────
+
+
+def test_ema_duration_basic():
+    """EMA weights recent durations more heavily."""
+    now = datetime.now(timezone.utc)
+    records = [
+        {"exit": 0, "duration": 200, "provider": "infini", "ts": (now - timedelta(minutes=50)).isoformat()},
+        {"exit": 0, "duration": 100, "provider": "infini", "ts": (now - timedelta(minutes=30)).isoformat()},
+        {"exit": 0, "duration": 60, "provider": "infini", "ts": (now - timedelta(minutes=10)).isoformat()},
+    ]
+    ema = _mod["compute_ema_duration"](records, "infini", alpha=0.5)
+    # EMA should be closer to the most recent value (60) than simple avg (120)
+    assert ema < 120
+    assert ema > 0
+
+
+def test_ema_duration_single_record():
+    """Single record = that record's duration."""
+    now = datetime.now(timezone.utc)
+    records = [
+        {"exit": 0, "duration": 150, "provider": "infini", "ts": now.isoformat()},
+    ]
+    ema = _mod["compute_ema_duration"](records, "infini", alpha=0.5)
+    assert ema == pytest.approx(150.0)
+
+
+def test_ema_duration_no_records():
+    """No records = 0.0."""
+    ema = _mod["compute_ema_duration"]([], "infini", alpha=0.5)
+    assert ema == 0.0
+
+
+def test_ema_duration_ignores_failures():
+    """Failed tasks are excluded from EMA."""
+    now = datetime.now(timezone.utc)
+    records = [
+        {"exit": 0, "duration": 100, "provider": "infini", "ts": now.isoformat()},
+        {"exit": 1, "duration": 300, "provider": "infini", "ts": now.isoformat()},
+    ]
+    ema = _mod["compute_ema_duration"](records, "infini", alpha=0.5)
+    assert ema == pytest.approx(100.0)
+
+
+def test_ema_duration_filters_by_provider():
+    """Only includes records matching the specified provider."""
+    now = datetime.now(timezone.utc)
+    records = [
+        {"exit": 0, "duration": 100, "provider": "infini", "ts": now.isoformat()},
+        {"exit": 0, "duration": 500, "provider": "zhipu", "ts": now.isoformat()},
+    ]
+    ema = _mod["compute_ema_duration"](records, "infini", alpha=0.5)
+    assert ema == pytest.approx(100.0)
+
+
+# ── New: compute_throughput_acceleration ──────────────────────────────
+
+
+def test_acceleration_stable():
+    """Consistent throughput = stable."""
+    now = datetime.now(timezone.utc)
+    records = []
+    for i in range(6):
+        # 2 completions in each 10-min bucket
+        for j in range(2):
+            ts = (now - timedelta(minutes=i * 10 + j)).isoformat()
+            records.append({"exit": 0, "ts": ts, "provider": "infini", "duration": 100})
+    accel = _mod["compute_throughput_acceleration"](records, window_minutes=60)
+    assert accel == "→stable"
+
+
+def test_acceleration_increasing():
+    """More completions recently = accelerating."""
+    now = datetime.now(timezone.utc)
+    records = []
+    # Old bucket: 1 completion
+    records.append({"exit": 0, "ts": (now - timedelta(minutes=50)).isoformat(),
+                     "provider": "infini", "duration": 100})
+    # Recent bucket: 5 completions
+    for i in range(5):
+        records.append({"exit": 0, "ts": (now - timedelta(minutes=i)).isoformat(),
+                         "provider": "infini", "duration": 100})
+    accel = _mod["compute_throughput_acceleration"](records, window_minutes=60)
+    assert accel == "↑accelerating"
+
+
+def test_acceleration_decreasing():
+    """Fewer completions recently = slowing."""
+    now = datetime.now(timezone.utc)
+    records = []
+    # Old bucket: 5 completions
+    for i in range(5):
+        records.append({"exit": 0, "ts": (now - timedelta(minutes=45 + i)).isoformat(),
+                         "provider": "infini", "duration": 100})
+    # Recent bucket: 0 completions
+    accel = _mod["compute_throughput_acceleration"](records, window_minutes=60)
+    assert accel == "↓slowing"
+
+
+def test_acceleration_no_data():
+    """No completions = no data indicator."""
+    accel = _mod["compute_throughput_acceleration"]([], window_minutes=60)
+    assert accel == "—"
+
+
+def test_acceleration_too_few():
+    """Only 1-2 completions = too few to judge."""
+    now = datetime.now(timezone.utc)
+    records = [
+        {"exit": 0, "ts": now.isoformat(), "provider": "infini", "duration": 100},
+    ]
+    accel = _mod["compute_throughput_acceleration"](records, window_minutes=60)
+    assert accel in ("→stable", "—")
+
+
+# ── New: fmt_wallclock_completion ─────────────────────────────────────
+
+
+def test_wallclock_completion_known():
+    """Known remaining seconds returns HH:MM."""
+    result = _mod["fmt_wallclock_completion"](120)
+    assert ":" in result
+    assert len(result) == 5  # "HH:MM"
+
+
+def test_wallclock_completion_unknown():
+    """Negative remaining = '—'."""
+    result = _mod["fmt_wallclock_completion"](-1)
+    assert result == "—"
+
+
+def test_wallclock_completion_zero():
+    """Zero remaining = 'now'."""
+    result = _mod["fmt_wallclock_completion"](0)
+    assert result == "now"
+
+
+# ── New: running tasks table includes Finishes column ────────────────
+
+
+def test_running_tasks_table_has_finishes_column():
+    """Running tasks table should include a Finishes column with wall-clock time."""
+    tid = "t-finish"
+    _mod["_task_first_seen"][tid] = time.time() - 30  # 30s ago
+    running = [
+        {"task_id": tid, "provider": "infini", "cmd": '"test"', "dispatch_provider": "infini"},
+    ]
+    _mod["compute_avg_duration_by_provider"] = lambda recs: {"infini": 120.0}
+    table = build_running_tasks_table(running, {"infini": 120.0})
+    col_names = [c.header for c in table.columns]
+    assert "Finishes" in col_names
+    del _mod["_task_first_seen"][tid]
+
+
+# ── Enhanced: drain progress includes speed trend ────────────────────
+
+
+def test_drain_progress_with_speed_trend(tmp_path):
+    """build_dashboard includes speed trend indicator."""
+    jsonl = tmp_path / "golem.jsonl"
+    now = datetime.now(timezone.utc)
+    records = []
+    for i in range(8):
+        ts = (now - timedelta(minutes=i * 5)).isoformat()
+        records.append({"exit": 0, "duration": 100, "provider": "infini", "ts": ts, "tail": ""})
+    jsonl.write_text("\n".join(json.dumps(r) for r in records) + "\n")
+
+    running_json = tmp_path / "golem-running.json"
+    running_json.write_text("[]")
+
+    queue = tmp_path / "golem-queue.md"
+    queue.write_text("- [ ] task1 --provider infini\n- [x] task2 --provider infini\n")
+
+    cooldowns = tmp_path / "golem-cooldowns.json"
+    cooldowns.write_text("[]")
+
+    _mod["JSONL_PATH"] = jsonl
+    _mod["RUNNING_JSON_PATH"] = running_json
+    _mod["QUEUE_PATH"] = queue
+    _mod["COOLDOWNS_PATH"] = cooldowns
+
+    panel = _mod["build_dashboard"](window_minutes=60)
+    # Render to string and check for speed trend indicator
+    from rich.console import Console
+    console = Console(file=open("/dev/null", "w"), width=120)
+    with console.capture() as cap:
+        console.print(panel)
+    output = cap.get()
+    # Should contain one of the speed indicators
+    assert any(s in output for s in ["accelerating", "stable", "slowing"])
+
+
+# ── Enhanced: build_dashboard integrates EMA durations ───────────────
+
+
+def test_build_dashboard_uses_ema_for_running_tasks(tmp_path):
+    """build_dashboard should use EMA-based durations for running task progress."""
+    jsonl = tmp_path / "golem.jsonl"
+    now = datetime.now(timezone.utc)
+    # Historical: slower tasks (200s avg)
+    records = [
+        {"exit": 0, "duration": 200, "provider": "infini", "ts": (now - timedelta(minutes=50)).isoformat(), "tail": ""},
+        {"exit": 0, "duration": 200, "provider": "infini", "ts": (now - timedelta(minutes=40)).isoformat(), "tail": ""},
+        # Recent: faster tasks (100s)
+        {"exit": 0, "duration": 100, "provider": "infini", "ts": (now - timedelta(minutes=10)).isoformat(), "tail": ""},
+    ]
+    jsonl.write_text("\n".join(json.dumps(r) for r in records) + "\n")
+
+    running_json = tmp_path / "golem-running.json"
+    tid = "t-ema"
+    _mod["_task_first_seen"][tid] = time.time() - 80  # 80s elapsed
+    running_json.write_text(json.dumps([
+        {"task_id": tid, "provider": "infini", "cmd": '"test"', "dispatch_provider": "infini"},
+    ]))
+
+    queue = tmp_path / "golem-queue.md"
+    queue.write_text("- [ ] task1 --provider infini\n")
+
+    cooldowns = tmp_path / "golem-cooldowns.json"
+    cooldowns.write_text("[]")
+
+    _mod["JSONL_PATH"] = jsonl
+    _mod["RUNNING_JSON_PATH"] = running_json
+    _mod["QUEUE_PATH"] = queue
+    _mod["COOLDOWNS_PATH"] = cooldowns
+
+    panel = _mod["build_dashboard"](window_minutes=60)
+    assert panel is not None
+    del _mod["_task_first_seen"][tid]

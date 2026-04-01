@@ -288,6 +288,9 @@ def _running_entry_details(entry: tuple) -> tuple[int, str, str, str, str]:
     if len(entry) == 4:
         line_num, cmd, provider, task_id = entry
         return line_num, cmd, provider, provider, task_id
+    if len(entry) >= 6:
+        line_num, cmd, provider, task_id, dispatch_provider, _started_at = entry
+        return line_num, cmd, provider, dispatch_provider, task_id
     line_num, cmd, provider, task_id, dispatch_provider = entry
     return line_num, cmd, provider, dispatch_provider, task_id
 
@@ -1195,13 +1198,20 @@ def auto_requeue(min_pending: int = 50) -> int:
         for f in assays.glob("test_*.py"):
             existing_tests.add(f.stem)
 
-    # === 1. Fix collection errors (highest priority) ===
+    # === 1. Fix collection errors (highest priority — always fresh) ===
     add("Run uv run pytest --co -q 2>&1 | grep ERROR. Fix ALL collection errors. Common: hardcoded paths, bad imports, syntax. Run --co again until 0 errors. Commit.", turns=40)
 
-    # === 2. Fix failing tests (top 5 by failure count) ===
+    # === 2. Fix failing tests (top 5 by failure count — always fresh) ===
     add("Run uv run pytest -q --tb=no --continue-on-collection-errors 2>&1 | grep FAILED | sed 's/::.*//g' | sort | uniq -c | sort -rn | head -5. For each of the top 5 failing test files: run pytest on it, read traceback, fix. Iterate until green. Commit.", turns=50)
 
-    # === 3. Effector health checks (random batch of 10) ===
+    # === 3. Review recent golem commits for quality ===
+    add("Run git log --oneline --since='24 hours ago' --author=golem | head -10. For each commit: git show <hash> --stat. Pick the 3 largest diffs. For each: read the changed file, check for assert True stubs, empty functions, broken logic, missing error handling. Fix issues. Run uv run pytest on affected files. Commit.", turns=40)
+
+    # === 4. Lint and type-check fixes (ruff + pyright on recent changes) ===
+    add("Run uv run ruff check metabolon/ --select E,W,F --output-format=concise 2>&1 | head -30. Fix the first 15 issues. Run ruff check again to verify. Commit.", turns=30)
+    add("Run uv run pyright metabolon/ --outputjson 2>&1 | python3 -c \"import sys,json; d=json.load(sys.stdin); [print(f'{x[\\\"file\\\"]}:{x[\\\"range\\\"][\\\"start\\\"][\\\"line\\\"]} {x[\\\"message\\\"]}') for x in d.get('generalDiagnostics',[])[:15]]\" 2>/dev/null || echo 'pyright clean'. Fix type errors found. Commit.", turns=30)
+
+    # === 5. Effector health checks (random batch of 10) ===
     effectors = sorted([f.name for f in (germline / "effectors").iterdir()
         if f.is_file() and not f.name.startswith(".")
         and f.suffix not in (".conf", ".plist", ".json", ".md")])
@@ -1209,7 +1219,21 @@ def auto_requeue(min_pending: int = 50) -> int:
     names = ", ".join(batch)
     add(f"Health check: {names}. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit.", turns=30)
 
-    # === 4. Untested modules (random 5) ===
+    # === 6. Replace stub tests with real ones ===
+    # Find test files that only contain assert True placeholders
+    stub_tests = []
+    for f in assays.glob("test_*.py"):
+        try:
+            content = f.read_text()
+            if "assert True" in content and content.count("def test_") <= 2 and len(content) < 500:
+                stub_tests.append(str(f))
+        except (OSError, UnicodeDecodeError):
+            pass
+    for stub in random.sample(stub_tests, min(3, len(stub_tests))):
+        name = Path(stub).stem
+        add(f"Read {stub}. It's a placeholder with only assert True. Find the source module it should test. Replace the placeholder with 5+ real tests covering actual functionality. Run uv run pytest {stub} -v --tb=short. Commit.", turns=35)
+
+    # === 7. Untested modules (random 3 — targeted, not bulk) ===
     untested_mods = []
     for root, dirs, files in os.walk(str(germline / "metabolon")):
         dirs[:] = [d for d in dirs if d != "__pycache__"]
@@ -1220,58 +1244,14 @@ def auto_requeue(min_pending: int = 50) -> int:
                 test_name = f"test_{parent}_{clean}" if parent != "metabolon" else f"test_{clean}"
                 if test_name not in existing_tests:
                     untested_mods.append(os.path.join(root, f))
-    for mod in random.sample(untested_mods, min(5, len(untested_mods))):
+    for mod in random.sample(untested_mods, min(3, len(untested_mods))):
         name = Path(mod).stem
         parent = Path(mod).parent.name
         tn = f"test_{parent}_{name}" if parent != "metabolon" else f"test_{name}"
-        add(f"Write tests for {mod}. Mock external calls. Write assays/{tn}.py. Run uv run pytest. Fix failures. Commit.", turns=30)
+        add(f"Read {mod} carefully first. Write assays/{tn}.py with tests for every public function. No assert True placeholders — test real behavior. Run uv run pytest assays/{tn}.py -v --tb=short. Commit.", turns=35)
 
-    # === 5. Untested effectors (random 5) ===
-    untested_eff = [e for e in effectors if f"test_{e.replace('-','_').replace('.py','')}" not in existing_tests]
-    for eff in random.sample(untested_eff, min(5, len(untested_eff))):
-        clean = eff.replace("-", "_").replace(".py", "")
-        add(f"Write tests for effectors/{eff}. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit.", turns=30)
-
-    # === 6. System hardening (random 3) ===
-    hardening = [
-        "Scan assays/ for hardcoded macOS home paths. Replace with Path.home(). Commit.",
-        "Find test files with SyntaxError. Fix syntax. Commit.",
-        "Scan effectors/ for hardcoded paths. Fix with Path.home() or $HOME. Commit.",
-        "Check all effectors respond to --help without crashing. Fix crashers. Commit.",
-        "Find subprocess.run calls without timeout in effectors/. Add timeout=300. Commit.",
-        "Find Python files missing shebang in effectors/. Add #!/usr/bin/env python3. Commit.",
-        "Check all assays/test_*.py can be collected by pytest --co. Fix any that error. Commit.",
-        "Find unused imports in metabolon/**/*.py. Remove them. Commit.",
-    ]
-    for h in random.sample(hardening, min(3, len(hardening))):
-        add(h, turns=25)
-
-    # === 7. Consulting IP (2 random topics) ===
-    consulting = [
-        "AI model risk management framework for banks — write a consulting brief with problem, approach, key considerations. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-model-risk-framework.md",
-        "Responsible AI governance checklist for financial institutions. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/responsible-ai-checklist.md",
-        "LLM deployment risks in banking — regulatory expectations vs reality. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/llm-deployment-risks.md",
-        "AI vendor due diligence questionnaire for banks. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-vendor-due-diligence.md",
-        "Board-level AI risk reporting template for banks. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/board-ai-risk-reporting.md",
-        "AI skills gap assessment for banking technology teams. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-skills-gap.md",
-        "GenAI policy template for bank employees. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/genai-policy-template.md",
-        "AI bias testing framework for credit decisioning. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-bias-testing.md",
-        "Data governance for AI/ML training data in banking. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/data-governance-ai.md",
-        "AI incident response playbook for financial services. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-incident-response.md",
-        "Cross-border AI regulation comparison — HK vs SG vs UK vs EU. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/cross-border-ai-regulation.md",
-        "AI audit methodology for internal audit teams. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-audit-methodology.md",
-    ]
-    for c in random.sample(consulting, min(2, len(consulting))):
-        add(f"Write a consulting insight card: {c}. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words.", turns=30)
-
-    # === 8. Effector enhancements (1 random) ===
-    enhancements = [
-        "Read effectors/golem-daemon. Add cmd_stats — show pass/fail/retry counts, avg duration by provider, tasks completed today. Usage: golem-daemon stats.",
-        "Read effectors/golem. Add --json flag that outputs result as JSON instead of raw text. Useful for piping.",
-        "Read effectors/golem-dash (if exists). Improve to show real-time task progress, ETA to drain.",
-        "Read effectors/golem-review (if exists). Enhance to also check consulting content quality (>200 words, proper structure).",
-    ]
-    add(random.choice(enhancements) + " Write tests. Run uv run pytest. Commit.", turns=35)
+    # === 8. Dead code cleanup ===
+    add("Run uv run ruff check metabolon/ --select F401,F841 --output-format=concise 2>&1 | head -20. These are unused imports (F401) and unused variables (F841). Fix all of them. Run ruff check again. Commit.", turns=25)
 
     if not tasks:
         return 0
@@ -1295,6 +1275,15 @@ def auto_requeue(min_pending: int = 50) -> int:
     return len(tasks)
 
 
+def _running_entry_details_full(entry: tuple) -> tuple[int, str, str, str, str, float]:
+    """Return full entry including started_at timestamp."""
+    if len(entry) >= 6:
+        return entry[0], entry[1], entry[2], entry[3], entry[4], entry[5]
+    # Fallback for old-format entries
+    line_num, cmd, provider, dispatch_provider, task_id = _running_entry_details(entry)
+    return line_num, cmd, provider, task_id, dispatch_provider, 0.0
+
+
 def _update_running_file(running: dict):
     """Write current running tasks to state file for cmd_status."""
     tasks = []
@@ -1303,6 +1292,10 @@ def _update_running_file(running: dict):
         task = {"task_id": task_id, "provider": provider, "cmd": cmd[:80]}
         if dispatch_provider != provider:
             task["dispatch_provider"] = dispatch_provider
+        # Include started_at for dashboard elapsed-time tracking
+        started_at = entry[5] if len(entry) >= 6 else 0.0
+        if started_at > 0:
+            task["started_at"] = started_at
         tasks.append(task)
     try:
         RUNNING_FILE.parent.mkdir(parents=True, exist_ok=True)

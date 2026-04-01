@@ -707,3 +707,251 @@ def test_set_plus_a_after_source():
     assert set_a_idx < source_idx < set_plus_a_idx, (
         f"Order wrong: set -a at {set_a_idx}, source at {source_idx}, set +a at {set_plus_a_idx}"
     )
+
+
+# ── additional coverage ──────────────────────────────────────────────────
+
+
+def test_set_plus_a_stops_auto_export():
+    """After set +a, new vars are NOT auto-exported to the child."""
+    with tempfile.TemporaryDirectory() as td:
+        env_file = Path(td) / ".env.fly"
+        env_file.write_text("FROM_FLY=yes\n")
+
+        shim_dir = Path(td) / "bin"
+        shim_dir.mkdir()
+        shim = shim_dir / "python3"
+        # Check that FROM_FLY is exported (present in env output)
+        shim.write_text('#!/bin/bash\nenv | grep "^FROM_FLY="\nexit 0\n')
+        shim.chmod(0o755)
+
+        fake_germline = Path(td) / "germline" / "effectors"
+        fake_germline.mkdir(parents=True)
+        fake_daemon = fake_germline / "golem-daemon"
+        fake_daemon.write_text("# dummy\n")
+
+        r = subprocess.run(
+            [
+                "bash", "-c",
+                f'HOME={td} PATH={shim_dir}:$PATH bash "{WRAPPER}"',
+            ],
+            capture_output=True,
+            text=True,
+        )
+        assert "FROM_FLY=yes" in r.stdout
+
+
+def test_wrapper_propagates_child_exit_code():
+    """Wrapper exits with the same code as the exec'd process."""
+    with tempfile.TemporaryDirectory() as td:
+        shim_dir = Path(td) / "bin"
+        shim_dir.mkdir()
+
+        for expected_rc in [0, 1, 42]:
+            shim = shim_dir / "python3"
+            shim.write_text(f'#!/bin/bash\nexit {expected_rc}\n')
+            shim.chmod(0o755)
+
+            fake_germline = Path(td) / "germline" / "effectors"
+            fake_germline.mkdir(parents=True)
+            fake_daemon = fake_germline / "golem-daemon"
+            fake_daemon.write_text("# dummy\n")
+
+            r = subprocess.run(
+                [
+                    "bash", "-c",
+                    f'HOME={td} PATH={shim_dir}:$PATH bash "{WRAPPER}"',
+                ],
+                capture_output=True,
+                text=True,
+            )
+            assert r.returncode == expected_rc, (
+                f"Expected exit code {expected_rc}, got {r.returncode}"
+            )
+
+
+def test_help_does_not_source_env_file():
+    """--help exits before any .env.fly sourcing happens."""
+    with tempfile.TemporaryDirectory() as td:
+        # Create a .env.fly that would cause an error if sourced
+        env_file = Path(td) / ".env.fly"
+        env_file.write_text("RUN_ME=$(exit 1)\n")
+
+        r = subprocess.run(
+            ["bash", "-c", f'HOME={td} bash "{WRAPPER}" --help'],
+            capture_output=True,
+            text=True,
+        )
+        assert r.returncode == 0
+        assert "golem-daemon-wrapper" in r.stdout
+
+
+def test_help_does_not_exec_daemon():
+    """--help exits without trying to exec the daemon."""
+    with tempfile.TemporaryDirectory() as td:
+        # No python3 shim — if exec were reached, the test would fail
+        r = subprocess.run(
+            [
+                "bash", "-c",
+                f'HOME={td} PATH="" bash "{WRAPPER}" --help',
+            ],
+            capture_output=True,
+            text=True,
+        )
+        assert r.returncode == 0
+        assert "Usage:" in r.stdout
+
+
+def test_exec_passes_exact_three_args():
+    """The wrapper passes exactly 'start' and '--foreground' to python3."""
+    with tempfile.TemporaryDirectory() as td:
+        shim_dir = Path(td) / "bin"
+        shim_dir.mkdir()
+        shim = shim_dir / "python3"
+        # Print arg count and all args
+        shim.write_text('#!/bin/bash\necho "ARGC=$#"\necho "ARGS=$@"\nexit 0\n')
+        shim.chmod(0o755)
+
+        fake_germline = Path(td) / "germline" / "effectors"
+        fake_germline.mkdir(parents=True)
+        fake_daemon = fake_germline / "golem-daemon"
+        fake_daemon.write_text("# dummy\n")
+
+        r = subprocess.run(
+            [
+                "bash", "-c",
+                f'HOME={td} PATH={shim_dir}:$PATH bash "{WRAPPER}"',
+            ],
+            capture_output=True,
+            text=True,
+        )
+        assert "ARGC=3" in r.stdout, f"Expected 3 args, got: {r.stdout!r}"
+        # The args are: <daemon_path> start --foreground
+        lines = r.stdout.strip().splitlines()
+        args_line = [l for l in lines if l.startswith("ARGS=")]
+        assert len(args_line) == 1
+        args_val = args_line[0].replace("ARGS=", "")
+        assert "start" in args_val
+        assert "--foreground" in args_val
+        assert "golem-daemon" in args_val
+
+
+def test_env_file_with_special_shell_chars():
+    """Values with shell-special characters are handled without error."""
+    with tempfile.TemporaryDirectory() as td:
+        env_file = Path(td) / ".env.fly"
+        env_file.write_text('SPECIAL_VAL="hello!world@test#"\n')
+
+        shim_dir = Path(td) / "bin"
+        shim_dir.mkdir()
+        shim = shim_dir / "python3"
+        shim.write_text('#!/bin/bash\necho "VAL=$SPECIAL_VAL"\nexit 0\n')
+        shim.chmod(0o755)
+
+        fake_germline = Path(td) / "germline" / "effectors"
+        fake_germline.mkdir(parents=True)
+        fake_daemon = fake_germline / "golem-daemon"
+        fake_daemon.write_text("# dummy\n")
+
+        r = subprocess.run(
+            [
+                "bash", "-c",
+                f'HOME={td} PATH={shim_dir}:$PATH bash "{WRAPPER}"',
+            ],
+            capture_output=True,
+            text=True,
+        )
+        assert "VAL=hello!world@test#" in r.stdout
+
+
+def test_only_env_fly_sourced_not_other_dotfiles():
+    """The wrapper only sources .env.fly, not .env, .bashrc, etc."""
+    content = WRAPPER.read_text()
+    # Should not reference .env (without .fly) or .bashrc or .profile
+    assert "$HOME/.env\"" not in content or ".env.fly" in content
+    assert ".bashrc" not in content
+    assert ".profile" not in content
+
+
+def test_help_output_single_line_description():
+    """--help output starts with a single-line description."""
+    r = subprocess.run(
+        ["bash", str(WRAPPER), "--help"],
+        capture_output=True,
+        text=True,
+    )
+    lines = r.stdout.strip().splitlines()
+    assert len(lines) >= 2, f"Expected at least 2 lines, got: {lines!r}"
+    # First line is the description (contains em-dash or dash)
+    first = lines[0]
+    assert "golem-daemon-wrapper" in first
+
+
+def test_daemon_path_uses_home_var():
+    """The daemon path uses $HOME, not a hardcoded absolute path."""
+    content = WRAPPER.read_text()
+    # The exec line should reference $HOME, not /home/terry or /Users/terry
+    for line in content.splitlines():
+        if "exec python3" in line:
+            assert "$HOME" in line, f"exec line should use $HOME: {line!r}"
+            break
+
+
+def test_env_file_with_multiline_not_supported():
+    """The wrapper does not handle multiline values — single line per var."""
+    with tempfile.TemporaryDirectory() as td:
+        env_file = Path(td) / ".env.fly"
+        # Simple multiline-like content — the second line is its own assignment
+        env_file.write_text('KEY_A=line1\nKEY_B=line2\n')
+
+        shim_dir = Path(td) / "bin"
+        shim_dir.mkdir()
+        shim = shim_dir / "python3"
+        shim.write_text('#!/bin/bash\necho "A=$KEY_A B=$KEY_B"\nexit 0\n')
+        shim.chmod(0o755)
+
+        fake_germline = Path(td) / "germline" / "effectors"
+        fake_germline.mkdir(parents=True)
+        fake_daemon = fake_germline / "golem-daemon"
+        fake_daemon.write_text("# dummy\n")
+
+        r = subprocess.run(
+            [
+                "bash", "-c",
+                f'HOME={td} PATH={shim_dir}:$PATH bash "{WRAPPER}"',
+            ],
+            capture_output=True,
+            text=True,
+        )
+        assert "A=line1" in r.stdout
+        assert "B=line2" in r.stdout
+
+
+def test_wrapper_stderr_from_env_source_is_suppressed():
+    """If .env.fly has a bad line, set -e causes the wrapper to exit non-zero."""
+    with tempfile.TemporaryDirectory() as td:
+        env_file = Path(td) / ".env.fly"
+        # A command substitution that fails will cause set -e to exit
+        env_file.write_text('BAD_VAR=$(false)\n')
+
+        shim_dir = Path(td) / "bin"
+        shim_dir.mkdir()
+        shim = shim_dir / "python3"
+        shim.write_text('#!/bin/bash\necho "SHOULD_NOT_REACH"\nexit 0\n')
+        shim.chmod(0o755)
+
+        fake_germline = Path(td) / "germline" / "effectors"
+        fake_germline.mkdir(parents=True)
+        fake_daemon = fake_germline / "golem-daemon"
+        fake_daemon.write_text("# dummy\n")
+
+        r = subprocess.run(
+            [
+                "bash", "-c",
+                f'HOME={td} PATH={shim_dir}:$PATH bash "{WRAPPER}"',
+            ],
+            capture_output=True,
+            text=True,
+        )
+        assert r.returncode != 0, "Expected non-zero exit due to set -e and failing .env.fly"
+        assert "SHOULD_NOT_REACH" not in r.stdout

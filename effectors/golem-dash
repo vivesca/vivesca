@@ -233,6 +233,38 @@ def compute_avg_duration_by_provider(records: list[dict]) -> dict[str, float]:
     return {prov: sum(durs) / len(durs) for prov, durs in totals.items()}
 
 
+def compute_ema_duration(records: list[dict], provider: str, alpha: float = 0.3) -> float:
+    """Compute exponential moving average of task duration for a provider.
+
+    Weights recent completions more heavily for better predictions.
+    Records are sorted by timestamp (oldest first) so alpha applies
+    to newer values.
+    Returns 0.0 if no successful completions found.
+    """
+    successful = [
+        rec for rec in records
+        if rec.get("exit") == 0
+        and rec.get("duration", 0) > 0
+        and rec.get("provider") == provider
+    ]
+    if not successful:
+        return 0.0
+    successful.sort(key=lambda r: parse_ts(r.get("ts", "")))
+    ema = float(successful[0]["duration"])
+    for rec in successful[1:]:
+        ema = alpha * rec["duration"] + (1 - alpha) * ema
+    return ema
+
+
+def compute_ema_duration_by_provider(records: list[dict], alpha: float = 0.3) -> dict[str, float]:
+    """Compute EMA duration per provider from records."""
+    providers = set()
+    for rec in records:
+        if rec.get("exit") == 0 and rec.get("duration", 0) > 0:
+            providers.add(rec.get("provider", "unknown"))
+    return {prov: compute_ema_duration(records, prov, alpha) for prov in providers}
+
+
 def estimate_task_progress(elapsed: float, avg_duration: float) -> float:
     """Estimate task progress as a fraction [0.0, 1.0].
 
@@ -397,6 +429,168 @@ def compute_drain_velocity(
         return f"↑ growing ({total_pending} left, {completion_rate:.1f}/min)"
 
 
+def compute_throughput_acceleration(
+    all_records: list[dict],
+    recent_minutes: int = 10,
+    baseline_minutes: int = 30,
+) -> float:
+    """Compare recent throughput vs baseline. Positive = accelerating.
+
+    Returns the difference between recent (last `recent_minutes`) completion
+    rate and the baseline (last `baseline_minutes`) completion rate, in
+    completions-per-minute. A positive value means the queue is draining
+    faster than the baseline; negative means it's slowing down.
+    """
+    if not all_records:
+        return 0.0
+    now = datetime.now(timezone.utc)
+
+    recent_cutoff = now - timedelta(minutes=recent_minutes)
+    baseline_cutoff = now - timedelta(minutes=baseline_minutes)
+
+    recent_count = sum(
+        1 for r in all_records
+        if parse_ts(r.get("ts", "")) >= recent_cutoff and r.get("exit") == 0
+    )
+    baseline_count = sum(
+        1 for r in all_records
+        if parse_ts(r.get("ts", "")) >= baseline_cutoff and r.get("exit") == 0
+    )
+
+    recent_rate = recent_count / recent_minutes if recent_minutes > 0 else 0.0
+    baseline_rate = baseline_count / baseline_minutes if baseline_minutes > 0 else 0.0
+
+    return recent_rate - baseline_rate
+
+
+def compute_time_since_last_event(
+    all_records: list[dict], exit_code: int = 0,
+) -> float:
+    """Seconds since the most recent record with the given exit code.
+
+    Returns -1.0 if no matching record found.
+    """
+    now = datetime.now(timezone.utc)
+    latest_ts = None
+    for rec in all_records:
+        if rec.get("exit") != exit_code:
+            continue
+        ts = parse_ts(rec.get("ts", ""))
+        if ts != datetime.min.replace(tzinfo=timezone.utc):
+            if latest_ts is None or ts > latest_ts:
+                latest_ts = ts
+    if latest_ts is None:
+        return -1.0
+    delta = (now - latest_ts).total_seconds()
+    return max(0.0, delta)
+
+
+def compute_task_health(
+    elapsed: float,
+    avg_duration: float,
+    provider_success_rate: float = 1.0,
+) -> str:
+    """Categorize running task health.
+
+    Returns one of: "on-track", "slow", "stalled".
+    - on-track: elapsed < 1.5× avg duration and provider success rate >= 50%
+    - slow: elapsed >= 1.5× avg but < 2.5× avg
+    - stalled: elapsed >= 2.5× avg, or provider success rate < 50% and elapsed > avg
+    """
+    if avg_duration <= 0:
+        return "on-track"  # no data to judge against
+    ratio = elapsed / avg_duration
+    if ratio >= 2.5:
+        return "stalled"
+    if ratio >= 1.5:
+        return "slow"
+    if provider_success_rate < 0.5 and ratio >= 1.0:
+        return "stalled"
+    return "on-track"
+
+
+def compute_drain_rate(
+    all_records: list[dict], window_minutes: int = 10,
+) -> float:
+    """Compute current drain rate in tasks/min over the given window."""
+    if not all_records:
+        return 0.0
+    now = datetime.now(timezone.utc)
+    cutoff = now - timedelta(minutes=window_minutes)
+    count = sum(
+        1 for r in all_records
+        if parse_ts(r.get("ts", "")) >= cutoff and r.get("exit") == 0
+    )
+    return count / window_minutes if window_minutes > 0 else 0.0
+
+
+def compute_drain_eta_bounds(
+    stats: dict[str, dict],
+    pending_by_provider: dict[str, int],
+    all_records: list[dict],
+) -> tuple[float, float, float]:
+    """Compute optimistic/median/pessimistic drain ETA in seconds.
+
+    Returns (optimistic, median, pessimistic) where:
+    - optimistic: assumes fastest recent throughput sustained
+    - median: same as compute_eta (baseline throughput)
+    - pessimistic: assumes half the baseline throughput
+    """
+    total_pending = sum(pending_by_provider.values())
+    if total_pending == 0:
+        return (0.0, 0.0, 0.0)
+
+    now = datetime.now(timezone.utc)
+
+    # Recent (10min) throughput for optimistic
+    recent_cutoff = now - timedelta(minutes=10)
+    recent_count = sum(
+        1 for r in all_records
+        if parse_ts(r.get("ts", "")) >= recent_cutoff and r.get("exit") == 0
+    )
+
+    # Baseline (60min) throughput for median
+    baseline_cutoff = now - timedelta(hours=1)
+    baseline_count = sum(
+        1 for r in all_records
+        if parse_ts(r.get("ts", "")) >= baseline_cutoff and r.get("exit") == 0
+    )
+
+    # Optimistic: use recent rate (10min window), at least 1 completion
+    if recent_count > 0:
+        optimistic_rate = recent_count / 10.0  # per minute
+        optimistic = total_pending / optimistic_rate * 60  # to seconds
+    else:
+        optimistic = float("inf")
+
+    # Median: use baseline rate (60min window)
+    if baseline_count > 0:
+        median = (total_pending / baseline_count) * 3600
+    else:
+        # Fallback to avg duration
+        durations = [
+            r.get("duration", 0) for r in all_records
+            if r.get("exit") == 0 and r.get("duration", 0) > 0
+        ]
+        if durations:
+            avg_duration = sum(durations) / len(durations)
+            total_active = sum(s.get("active", 0) for s in stats.values())
+            if total_active > 0:
+                median = (total_pending / total_active) * avg_duration
+            else:
+                median = float("inf")
+        else:
+            median = float("inf")
+
+    # Pessimistic: half the baseline rate
+    if baseline_count > 0:
+        pessimistic = median * 2.0
+    else:
+        pessimistic = float("inf")
+
+    return (optimistic, median, pessimistic)
+
+
 def compute_provider_utilization(
     stats: dict[str, dict], limits: dict[str, int],
 ) -> dict[str, float]:
@@ -414,10 +608,9 @@ def compute_provider_utilization(
 
 def fmt_utilization_bar(ratio: float, width: int = 6) -> str:
     """Format utilization as a mini progress bar with percentage."""
-    pct = ratio * 100
     filled = min(int(ratio * width), width)
     bar_str = "█" * filled + "░" * (width - filled)
-    return f"{bar_str} {pct:.0%}"
+    return f"{bar_str} {ratio:.0%}"
 
 
 def update_task_first_seen(running: list[dict]) -> None:
@@ -590,8 +783,9 @@ def sparkline(values: list[int]) -> str:
 def build_running_tasks_table(
     running: list[dict],
     avg_duration_by_provider: dict[str, float] | None = None,
+    provider_stats: dict[str, dict] | None = None,
 ) -> Table:
-    """Build a table showing each running task with elapsed time and progress."""
+    """Build a table showing each running task with elapsed time, progress, and health."""
     table = Table(
         show_header=True,
         header_style="bold",
@@ -601,6 +795,7 @@ def build_running_tasks_table(
     )
     table.add_column("TaskID", style="cyan", min_width=9)
     table.add_column("Provider", min_width=8)
+    table.add_column("Health", min_width=9)
     table.add_column("Progress", justify="right", min_width=14)
     table.add_column("ETA", justify="right", min_width=7)
     table.add_column("Elapsed", justify="right", min_width=7)
@@ -608,6 +803,7 @@ def build_running_tasks_table(
     table.add_column("Prompt", style="dim", min_width=30, max_width=50, no_wrap=True)
 
     avg_map = avg_duration_by_provider or {}
+    pstats = provider_stats or {}
 
     for task in running:
         tid = task.get("task_id", "?")
@@ -650,13 +846,33 @@ def build_running_tasks_table(
         else:
             eta_str = fmt_duration(remaining)
 
-        table.add_row(tid, prov, progress_str, eta_str, elapsed_str, through_str, prompt)
+        # Task health
+        ps = pstats.get(prov, {})
+        total_count = ps.get("total_count", 0)
+        success_count = ps.get("success_count", 0)
+        prov_success_rate = success_count / total_count if total_count > 0 else 1.0
+        health = compute_task_health(elapsed, avg_dur, prov_success_rate)
+        health_styles = {
+            "on-track": "[green]on-track[/green]",
+            "slow": "[yellow]slow[/yellow]",
+            "stalled": "[red]stalled[/red]",
+        }
+        health_str = health_styles.get(health, health)
+
+        table.add_row(tid, prov, health_str, progress_str, eta_str, elapsed_str, through_str, prompt)
 
     return table
 
 
-def build_drain_progress(total_pending: int, total_completed: int, eta_seconds: float) -> Text:
-    """Build drain progress bar with ETA."""
+def build_drain_progress(
+    total_pending: int,
+    total_completed: int,
+    eta_seconds: float,
+    drain_rate: float = 0.0,
+    eta_bounds: tuple[float, float, float] | None = None,
+    acceleration: float = 0.0,
+) -> Text:
+    """Build drain progress bar with ETA, rate, bounds, and wall-clock time."""
     total = total_pending + total_completed
     if total == 0:
         return Text("  No tasks in queue", style="dim")
@@ -671,7 +887,33 @@ def build_drain_progress(total_pending: int, total_completed: int, eta_seconds: 
     line.append(f"[{bar_str}] ", style="cyan")
     line.append(f"{pct:.0%} ", style="bold cyan")
     line.append(f"({total_completed}/{total}) ", style="dim")
-    line.append(f"ETA: {fmt_eta(eta_seconds)}", style="bold yellow")
+
+    # Drain rate
+    if drain_rate > 0:
+        line.append(f"rate: {drain_rate:.1f}/min ", style="green")
+    else:
+        line.append("rate: —/min ", style="dim")
+
+    # Acceleration indicator
+    if acceleration > 0.05:
+        line.append("▲ ", style="green")
+    elif acceleration < -0.05:
+        line.append("▼ ", style="red")
+    else:
+        line.append("· ", style="dim")
+
+    # ETA with bounds
+    line.append(f"ETA: {fmt_eta(eta_seconds)} ", style="bold yellow")
+    wallclock = fmt_wallclock_eta(eta_seconds)
+    line.append(f"(~{wallclock})", style="cyan")
+
+    if eta_bounds:
+        optimistic, _, pessimistic = eta_bounds
+        if optimistic != float("inf") and pessimistic != float("inf"):
+            opt_wc = fmt_wallclock_eta(optimistic)
+            pess_wc = fmt_wallclock_eta(pessimistic)
+            line.append(f" [{opt_wc}–{pess_wc}]", style="dim")
+
     return line
 
 
@@ -700,6 +942,10 @@ def build_dashboard(
     spark = sparkline(trend)
     drain_velocity = compute_drain_velocity(all_records, pending_by_provider)
     utilization = compute_provider_utilization(stats, PROVIDER_LIMITS)
+    drain_rate = compute_drain_rate(all_records, window_minutes=10)
+    acceleration = compute_throughput_acceleration(all_records)
+    time_since_last = compute_time_since_last_event(all_records, exit_code=0)
+    eta_bounds = compute_drain_eta_bounds(stats, pending_by_provider, all_records)
 
     # === Header ===
     now_str = datetime.now().strftime("%H:%M:%S")
@@ -708,6 +954,9 @@ def build_dashboard(
     header.append(f"  {now_str}", style="dim")
     header.append(f"  window={window_minutes}m", style="dim")
     header.append(f"  queue={total_pending} pending / {total_completed_queue} done", style="yellow")
+    header.append(f"  drain: {drain_rate:.1f}/min", style="green" if drain_rate > 0 else "dim")
+    if time_since_last >= 0:
+        header.append(f"  last✓: {fmt_duration(time_since_last)}", style="dim")
     header.append(f"  throughput: {spark}", style="green")
     header.append(f"  {drain_velocity}", style="bold")
 
@@ -721,6 +970,7 @@ def build_dashboard(
     )
     table.add_column("Provider", style="bold", min_width=10)
     table.add_column("Active", justify="right", min_width=6)
+    table.add_column("Cap", justify="right", min_width=8)
     table.add_column("✓", justify="right", style="green", min_width=5)
     table.add_column("✗", justify="right", style="red", min_width=5)
     table.add_column("⏳", justify="right", style="yellow", min_width=5)
@@ -769,9 +1019,14 @@ def build_dashboard(
         throughput = compute_throughput_per_hour(all_records, provider=prov)
         throughput_str = f"{throughput:.0f}" if throughput > 0 else "[dim]—[/dim]"
 
+        # Capacity utilization
+        util = utilization.get(prov, 0.0)
+        util_str = fmt_utilization_bar(util, width=4)
+
         table.add_row(
             prov,
             str(s["active"]),
+            util_str,
             str(s["completed"]),
             str(s["failed"]),
             str(s["rate_limited"]),
@@ -808,13 +1063,18 @@ def build_dashboard(
     summary.append(f"[{confidence}]", style=conf_style)
 
     # === Drain progress ===
-    drain_progress = build_drain_progress(total_pending, total_completed_queue, eta_seconds)
+    drain_progress = build_drain_progress(
+        total_pending, total_completed_queue, eta_seconds,
+        drain_rate=drain_rate,
+        eta_bounds=eta_bounds,
+        acceleration=acceleration,
+    )
 
     # === Running tasks table ===
     components = [header, table, summary, drain_progress]
     if running:
         avg_durs = compute_avg_duration_by_provider(all_records)
-        components.append(build_running_tasks_table(running, avg_durs))
+        components.append(build_running_tasks_table(running, avg_durs, stats))
 
         # === Stale task warnings ===
         stale = detect_stale_tasks(running, avg_durs)

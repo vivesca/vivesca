@@ -45,14 +45,14 @@ sync_file \
     "$OFFICINA/claude/settings.json" && changed=true || true
 
 # Push credentials to Fly.io pharos
-# Remote path for lucerna (Linux VM). Use literal since this runs over SSH to a remote.
-LUCERNA_CLAUDE_DIR="/home/terry/.claude"
+# Remote path for lucerna (Linux VM). Escaped \$HOME so it expands on the remote,
+# not on the local machine where $HOME may differ (e.g. macOS → /Users/terry).
 if [ -f "$CLAUDE_DIR/.credentials.json" ]; then
     CREDS=$(cat "$CLAUDE_DIR/.credentials.json")
-    flyctl ssh console -a lucerna -C "bash -c 'cat > ${LUCERNA_CLAUDE_DIR}/.credentials.json << ENDCREDS
+    flyctl ssh console -a lucerna -C "bash -c 'cat > \$HOME/.claude/.credentials.json << ENDCREDS
 ${CREDS}
 ENDCREDS
-chown terry:terry ${LUCERNA_CLAUDE_DIR}/.credentials.json'" 2>/dev/null \
+chown terry:terry \$HOME/.claude/.credentials.json'" 2>/dev/null \
         && echo "updated: .credentials.json → lucerna" || true
 fi
 
