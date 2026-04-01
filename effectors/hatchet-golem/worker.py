@@ -86,7 +86,7 @@ def _run_golem(input, context, provider: str) -> dict:
     retries=2,
     concurrency=ConcurrencyExpression(
         expression="'zhipu'",
-        max_runs=8,
+        max_runs=4,
         limit_strategy=ConcurrencyLimitStrategy.GROUP_ROUND_ROBIN,
     ),
     rate_limits=[RateLimit(static_key="zhipu-rpm", units=1)],
@@ -141,7 +141,7 @@ async def golem_zhipu(input, context):
     retries=2,
     concurrency=ConcurrencyExpression(
         expression="'infini'",
-        max_runs=8,
+        max_runs=4,
         limit_strategy=ConcurrencyLimitStrategy.GROUP_ROUND_ROBIN,
     ),
     rate_limits=[RateLimit(static_key="infini-rpm", units=1)],
@@ -156,7 +156,7 @@ def golem_infini(input, context):
     retries=2,
     concurrency=ConcurrencyExpression(
         expression="'volcano'",
-        max_runs=16,
+        max_runs=6,
         limit_strategy=ConcurrencyLimitStrategy.GROUP_ROUND_ROBIN,
     ),
     rate_limits=[RateLimit(static_key="volcano-rpm", units=1)],
