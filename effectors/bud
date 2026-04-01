@@ -21,12 +21,15 @@ def main():
     parser.add_argument("--timeout", type=int, default=300, help="Timeout in seconds")
     args = parser.parse_args()
 
-    cmd = [
-        "droid", "exec",
-        "--auto", args.auto,
-        "-m", args.model,
-        args.prompt,
-    ]
+    cmd = ["golem"]
+    if args.auto == "high":
+        cmd.append("--force")
+    if args.model != "glm-5.1":
+        # Check if the model is one of the golem providers
+        if args.model in ("zhipu", "volcano", "infini"):
+            cmd += ["--provider", args.model]
+    
+    cmd.append(args.prompt)
 
     try:
         result = subprocess.run(

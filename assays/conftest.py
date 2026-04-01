@@ -74,7 +74,7 @@ def effectors_dir(germline_dir):
 
 
 @pytest.fixture(scope="session", autouse=True)
-def clean_pytest_temp_dirs():
+def clean_pytest_temp_dirs(pytestconfig: pytest.Config):
     """Remove leftover pytest temporary directories before test session starts.
 
     This prevents FileExistsError when pytest's tmp_path fixture tries to create
@@ -83,11 +83,22 @@ def clean_pytest_temp_dirs():
     import tempfile
 
     tmpdir = Path(tempfile.gettempdir())
+    basetemp = pytestconfig.option.basetemp
+    active_basetemp = Path(basetemp) if basetemp else None
     temp_paths = list(tmpdir.glob("pytest-*"))
-    temp_paths.append(tmpdir / "pytest-vivesca")
+    if active_basetemp is not None:
+        temp_paths.append(active_basetemp)
     for path in temp_paths:
-        if path.is_dir():
-            try:
-                shutil.rmtree(path, ignore_errors=True)
-            except OSError:
-                pass
+        if not path.is_dir():
+            continue
+        try:
+            if active_basetemp is not None and path == active_basetemp:
+                for child in path.iterdir():
+                    if child.is_dir():
+                        shutil.rmtree(child, ignore_errors=True)
+                    else:
+                        child.unlink(missing_ok=True)
+                continue
+            shutil.rmtree(path, ignore_errors=True)
+        except OSError:
+            pass
