@@ -157,10 +157,8 @@ def test_truncate_prompt_strips_coaching():
 # ── load_jsonl ──────────────────────────────────────────────────────────
 
 
-def test_load_jsonl_file_not_found(tmp_path, monkeypatch):
+def test_load_jsonl_file_not_found(tmp_path):
     """Returns empty list when JSONL file does not exist."""
-    monkeypatch.setattr(_mod["__name__"] + ".JSONL_FILE", tmp_path / "nope.jsonl")
-    # Need to patch the module-level JSONL_FILE in the exec'd namespace
     _mod["JSONL_FILE"] = tmp_path / "nope.jsonl"
     try:
         result = load_jsonl(None)
