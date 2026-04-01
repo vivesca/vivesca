@@ -95,15 +95,13 @@ def test_auto_update_compound_engineering_exits_1_when_no_bunx_or_npx(tmp_path):
     empty_bin = tmp_path / "bin"
     empty_bin.mkdir(exist_ok=True)
 
-    # Use env -i to run with clean environment, only setting what we need
-    # This ensures bunx/npx are NOT found since PATH is empty
+    # Run script with empty PATH and isolated HOME
+    env = os.environ.copy()
+    env['PATH'] = str(empty_bin)
+    env['HOME'] = str(fake_home)
     r = subprocess.run(
-        [
-            "env", "-i",
-            f"PATH={empty_bin}",
-            f"HOME={fake_home}",
-            "/bin/bash", str(SCRIPT),
-        ],
+        ['bash', str(SCRIPT)],
+        env=env,
         capture_output=True,
         text=True,
         timeout=10,
