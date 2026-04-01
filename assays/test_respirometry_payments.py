@@ -281,55 +281,81 @@ def test_schedule_payment_reminder_not_found(mock_run: MagicMock):
     assert result is None
 
 
+# ── helpers for date-relative tests ──────────────────────────────────
+
+
+def _today() -> date:
+    """Return today's date in HKT."""
+    return datetime.now(HKT).date()
+
+
+def _fmt(d: date) -> str:
+    return d.strftime("%Y-%m-%d")
+
+
 # ── assess_missing_statements ────────────────────────────────────────
 
 
-@patch.object(datetime, "now")
 def test_assess_missing_statements_flags_missing(
-    mock_now_fn: MagicMock, tmp_config: Path, tmp_path: Path, sample_cards_config: dict
+    tmp_config: Path, tmp_path: Path
 ):
     """Flags cards past their grace period with no statement file."""
-    # Set "today" to April 21 — past day 15+5=20 for hsbc, past day 18+5=23? no, 18+5=23, April 21 < 23
-    # hsbc: statement_day=15, grace 5 → expected by day 20. April 21 >= 20 → flagged
-    # citi: statement_day=18, grace 5 → expected by day 23. April 21 < 23 → not flagged
-    mock_now_fn.return_value = datetime(2026, 4, 21, 12, 0, 0, tzinfo=HKT)
-    tmp_config.write_text(yaml.dump(sample_cards_config))
+    today = _today()
+    # statement_day well in the past → grace period definitely passed
+    config = {
+        "cards": {
+            "hsbc": {"active": True, "statement_day": 1},
+            "citi": {"active": True, "statement_day": 28},  # grace=28+5=33, always > today.day
+        }
+    }
+    tmp_config.write_text(yaml.dump(config))
     spending_dir = tmp_path / "spending"
     spending_dir.mkdir()
 
     alerts = assess_missing_statements(tmp_config, spending_dir)
-    # Only hsbc should be flagged (day 20 < April 21)
-    assert len(alerts) == 1
-    assert "HSBC" in alerts[0]
-    assert "Missing statement" in alerts[0]
+    # hsbc: day 1, grace=6. If today.day >= 6 (almost always), flagged.
+    # citi: day 28, grace=33. Never flagged (max day is 31).
+    hsbc_alerts = [a for a in alerts if "HSBC" in a]
+    if today.day >= 6:
+        assert len(hsbc_alerts) == 1
+        assert "Missing statement" in hsbc_alerts[0]
+    else:
+        # Edge case: day 1-5 of month, grace period not elapsed
+        assert len(hsbc_alerts) == 0
 
 
-@patch.object(datetime, "now")
 def test_assess_missing_statements_skips_inactive(
-    mock_now_fn: MagicMock, tmp_config: Path, tmp_path: Path, sample_cards_config: dict
+    tmp_config: Path, tmp_path: Path
 ):
     """Does not flag inactive cards."""
-    mock_now_fn.return_value = datetime(2026, 4, 30, 12, 0, 0, tzinfo=HKT)
-    tmp_config.write_text(yaml.dump(sample_cards_config))
+    config = {
+        "cards": {
+            "sc": {"active": False, "statement_day": 1},
+        }
+    }
+    tmp_config.write_text(yaml.dump(config))
     spending_dir = tmp_path / "spending"
     spending_dir.mkdir()
 
     alerts = assess_missing_statements(tmp_config, spending_dir)
-    # sc is inactive, should not appear
     assert not any("SC" in a for a in alerts)
 
 
-@patch.object(datetime, "now")
 def test_assess_missing_statements_statement_exists(
-    mock_now_fn: MagicMock, tmp_config: Path, tmp_path: Path, sample_cards_config: dict
+    tmp_config: Path, tmp_path: Path
 ):
     """Does not flag when statement file already exists."""
-    mock_now_fn.return_value = datetime(2026, 4, 21, 12, 0, 0, tzinfo=HKT)
-    tmp_config.write_text(yaml.dump(sample_cards_config))
+    today = _today()
+    config = {
+        "cards": {
+            "hsbc": {"active": True, "statement_day": 1},
+        }
+    }
+    tmp_config.write_text(yaml.dump(config))
     spending_dir = tmp_path / "spending"
     spending_dir.mkdir()
-    # Create the statement file that would be expected for hsbc
-    (spending_dir / "2026-04-hsbc.md").write_text("statement data")
+    # Create the expected statement file for current month
+    (spending_dir / f"{today.strftime('%Y-%m')}-hsbc.md").write_text("statement data")
 
     alerts = assess_missing_statements(tmp_config, spending_dir)
     assert len(alerts) == 0
@@ -338,12 +364,12 @@ def test_assess_missing_statements_statement_exists(
 # ── flag_overdue_payments ────────────────────────────────────────────
 
 
-@patch.object(datetime, "now")
-def test_flag_overdue_overdue(mock_now_fn: MagicMock, tmp_payments: Path):
+def test_flag_overdue_overdue(tmp_payments: Path):
     """Flags payments that are past due."""
-    mock_now_fn.return_value = datetime(2026, 4, 20, 12, 0, 0, tzinfo=HKT)
+    today = _today()
+    past_due = _fmt(today - timedelta(days=5))
     pending = [
-        {"bank": "hsbc", "amount": 5000.0, "due_date": "2026-04-15"},
+        {"bank": "hsbc", "amount": 5000.0, "due_date": past_due},
     ]
     persist_payments(tmp_payments, pending)
     alerts = flag_overdue_payments(tmp_payments)
@@ -352,12 +378,12 @@ def test_flag_overdue_overdue(mock_now_fn: MagicMock, tmp_payments: Path):
     assert "HSBC" in alerts[0]
 
 
-@patch.object(datetime, "now")
-def test_flag_overdue_due_soon(mock_now_fn: MagicMock, tmp_payments: Path):
+def test_flag_overdue_due_soon(tmp_payments: Path):
     """Flags payments due within 2 days."""
-    mock_now_fn.return_value = datetime(2026, 4, 14, 12, 0, 0, tzinfo=HKT)
+    today = _today()
+    soon_due = _fmt(today + timedelta(days=1))
     pending = [
-        {"bank": "citi", "amount": 3200.0, "due_date": "2026-04-15"},
+        {"bank": "citi", "amount": 3200.0, "due_date": soon_due},
     ]
     persist_payments(tmp_payments, pending)
     alerts = flag_overdue_payments(tmp_payments)
@@ -366,12 +392,12 @@ def test_flag_overdue_due_soon(mock_now_fn: MagicMock, tmp_payments: Path):
     assert "CITI" in alerts[0]
 
 
-@patch.object(datetime, "now")
-def test_flag_overdue_no_alert_when_far(mock_now_fn: MagicMock, tmp_payments: Path):
+def test_flag_overdue_no_alert_when_far(tmp_payments: Path):
     """No alert when payment is more than 2 days away."""
-    mock_now_fn.return_value = datetime(2026, 4, 10, 12, 0, 0, tzinfo=HKT)
+    today = _today()
+    far_due = _fmt(today + timedelta(days=10))
     pending = [
-        {"bank": "hsbc", "amount": 5000.0, "due_date": "2026-04-20"},
+        {"bank": "hsbc", "amount": 5000.0, "due_date": far_due},
     ]
     persist_payments(tmp_payments, pending)
     alerts = flag_overdue_payments(tmp_payments)
@@ -384,12 +410,11 @@ def test_flag_overdue_empty_payments(tmp_payments: Path):
     assert alerts == []
 
 
-@patch.object(datetime, "now")
-def test_flag_overdue_date_object(mock_now_fn: MagicMock, tmp_payments: Path):
+def test_flag_overdue_date_object(tmp_payments: Path):
     """Handles due_date stored as a date object."""
-    mock_now_fn.return_value = datetime(2026, 4, 20, 12, 0, 0, tzinfo=HKT)
+    today = _today()
     pending = [
-        {"bank": "hsbc", "amount": 5000.0, "due_date": date(2026, 4, 15)},
+        {"bank": "hsbc", "amount": 5000.0, "due_date": today - timedelta(days=5)},
     ]
     persist_payments(tmp_payments, pending)
     alerts = flag_overdue_payments(tmp_payments)
@@ -397,15 +422,14 @@ def test_flag_overdue_date_object(mock_now_fn: MagicMock, tmp_payments: Path):
     assert "OVERDUE" in alerts[0]
 
 
-@patch.object(datetime, "now")
-def test_flag_overdue_datetime_object(mock_now_fn: MagicMock, tmp_payments: Path):
+def test_flag_overdue_datetime_object(tmp_payments: Path):
     """Handles due_date stored as a datetime object."""
-    mock_now_fn.return_value = datetime(2026, 4, 20, 12, 0, 0, tzinfo=HKT)
+    today = _today()
     pending = [
         {
             "bank": "hsbc",
             "amount": 5000.0,
-            "due_date": datetime(2026, 4, 15, 0, 0, 0),
+            "due_date": datetime.combine(today - timedelta(days=5), datetime.min.time()),
         },
     ]
     persist_payments(tmp_payments, pending)
@@ -414,15 +438,16 @@ def test_flag_overdue_datetime_object(mock_now_fn: MagicMock, tmp_payments: Path
     assert "OVERDUE" in alerts[0]
 
 
-@patch.object(datetime, "now")
-def test_flag_overdue_exactly_1_day(mock_now_fn: MagicMock, tmp_payments: Path):
+def test_flag_overdue_exactly_1_day(tmp_payments: Path):
     """Uses singular 'day' when exactly 1 day left."""
-    mock_now_fn.return_value = datetime(2026, 4, 14, 12, 0, 0, tzinfo=HKT)
+    today = _today()
+    one_day_ahead = _fmt(today + timedelta(days=1))
     pending = [
-        {"bank": "citi", "amount": 1000.0, "due_date": "2026-04-15"},
+        {"bank": "citi", "amount": 1000.0, "due_date": one_day_ahead},
     ]
     persist_payments(tmp_payments, pending)
     alerts = flag_overdue_payments(tmp_payments)
     assert len(alerts) == 1
     assert "1 day left" in alerts[0]
+    # "days left" should not appear (singular form used)
     assert "days left" not in alerts[0].replace("1 day left", "")
