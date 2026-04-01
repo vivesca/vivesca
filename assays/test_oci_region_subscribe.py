@@ -334,8 +334,10 @@ def test_main_loop_retries_then_succeeds(capsys):
     assert "Attempt 2" in captured.out
     assert "Attempt 3" in captured.out
     assert "SUBSCRIBED" in captured.out
-    mock_sleep.assert_called_with(300)
-    assert mock_sleep.call_count == 2  # two retries
+    # 2 retries at 300s + 2 inter-region delays at 2s = 4 sleep calls total
+    sleep_calls = list(mock_sleep.call_args_list)
+    retry_calls = [c for c in sleep_calls if c == call(300)]
+    assert len(retry_calls) == 2  # two 5-min retry sleeps
 
 
 # ── main() — one region already subscribed ───────────────────────────
