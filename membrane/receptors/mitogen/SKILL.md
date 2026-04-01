@@ -195,7 +195,9 @@ golem --full "task needing MCP"           # non-bare mode
 **Total concurrent budget: ~36 golems across 5 providers.** golem-daemon manages concurrency and rate-limit cooldowns automatically.
 
 Priority for perishable work: ZhiPu > Gemini > Infini. Overflow: Volcano, Codex.
-Provider quotas recover naturally — Infini resets every 5hr, Volcano resets on a schedule. Don't panic on quota exhaustion; golem-daemon's cooldown handles it.
+Provider quotas recover naturally — Infini resets every 5hr, Volcano resets on a schedule. Don't panic on quota exhaustion; golem-daemon's cooldown and health probes handle it.
+
+**Real capability (2026-04-01):** All providers 89-97% when not rate-limited. Low reported rates (12-64%) were rate-limit retry inflation. Daemon now classifies correctly: `golem-daemon stats` shows rate-limited vs real-fail vs capability%.
 
 ## Gotchas
 
@@ -215,3 +217,5 @@ Provider quotas recover naturally — Infini resets every 5hr, Volcano resets on
 - Don't rely on shell aliases in scripts — they don't expand
 - **Don't run full pytest from CC** — 14k+ tests = 5+ min, output files get cleaned by competing CC instances. Use `golem-daemon stats` for signal, single-file pytest for spot checks, and queue fix-golems for diagnosis
 - Don't dedicate CC time to diagnosing test failures — queue a golem with "run pytest, grep errors, fix" and let it do the work
+- **Don't send prose to golem** — consulting cards, case studies, briefings, playbooks are single-turn generation. Generate inline in CC when needed, with live context. Golem = multi-turn tool loops only.
+- Don't pad the queue with filler to "utilize capacity" — 20 high-value tasks beat 100 generic ones. Idle providers are fine; wasted output is not.
