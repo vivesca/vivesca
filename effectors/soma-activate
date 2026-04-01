@@ -121,6 +121,29 @@ if [[ -n "${OP_SERVICE_ACCOUNT_TOKEN:-}" ]] && command -v op &>/dev/null; then
     ok "1Password connection verified"
     eval "$(python3 ~/germline/effectors/importin 2>/dev/null)"
     ok "credentials loaded via importin"
+
+    log "OAuth credentials"
+    inject_oauth_file() {
+      local op_ref="$1" dest="$2" name="$3"
+      local content
+      if [[ -f "$dest" ]]; then
+        skip "$name exists"
+        return
+      fi
+      if content=$(op read "$op_ref" 2>/dev/null); then
+        mkdir -p "$(dirname "$dest")"
+        printf '%s\n' "$content" > "$dest"
+        chmod 600 "$dest"
+        ok "$name injected"
+      else
+        echo "    [warn] $name not in vault"
+      fi
+    }
+
+    inject_oauth_file "op://Agents/claude-oauth/credential" ~/.claude/credentials.json "Claude OAuth"
+    inject_oauth_file "op://Agents/gemini-oauth/credential" ~/.gemini/oauth_creds.json "Gemini OAuth"
+    inject_oauth_file "op://Agents/gemini-oauth/google_accounts" ~/.gemini/google_accounts.json "Gemini accounts"
+    inject_oauth_file "op://Agents/codex-oauth/credential" ~/.codex/auth.json "Codex OAuth"
   else
     echo "    [warn] op token set but vault access failed"
   fi
