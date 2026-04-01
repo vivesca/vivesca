@@ -38,7 +38,7 @@ HEALTH_SCRIPT = Path(__file__).resolve().parent.parent / "soma-health"
 GEMMULE_HEALTH_SCRIPT = Path(__file__).resolve().parent.parent / "gemmule-health"
 REQUEUE_THRESHOLD = 20
 
-hatchet = Hatchet()
+hatchet = Hatchet(debug=True)
 
 # Register server-side rate limit keys (replaces manual cooldown in golem-daemon).
 hatchet.rate_limits.put("zhipu-rpm", limit=200, duration=RateLimitDuration.HOUR)
