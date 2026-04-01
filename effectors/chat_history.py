@@ -124,7 +124,7 @@ def search_transcripts(pattern: str, start_ms: int, end_ms: int, limit: int = 50
                         # Search
                         if regex.search(text):
                             ts_hkt = datetime.fromtimestamp(ts_ms / 1000, tz=HKT)
-                            session_id = entry.get("sessionId", jsonl_file.stem)
+                            session_id = entry.get("sessionId") or jsonl_file.stem
                             role = "you" if entry_type == "user" else "claude"
 
                             # Find match context (snippet around the match)

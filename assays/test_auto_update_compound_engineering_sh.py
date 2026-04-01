@@ -22,23 +22,28 @@ def _run_script(
     env_extra: dict | None = None,
     path_dirs: list[Path] | None = None,
     tmp_path: Path | None = None,
+    replace_path: bool = False,
 ) -> subprocess.CompletedProcess:
     """Run the script with an optional custom PATH.
 
-    If path_dirs provided, prepend them to PATH but keep system entries
-    so essential commands like bash are still found. This works for
-        tests that block all bunx/npx except what they explicitly provide.
+    If replace_path=False (default) and path_dirs provided, prepend them to PATH
+    keep system entries so essential commands like bash are still found.
+    If replace_path=True, use exactly path_dirs as the new PATH (for filtered tests).
     """
     env = os.environ.copy()
     # Unset HOME override if present so script uses tmp_path as HOME
     if tmp_path is not None:
         env["HOME"] = str(tmp_path)
     if path_dirs is not None:
-        # Prepend custom path dirs, keep system PATH after
-        # This ensures bash is still found but any system-level
-        # bunx/npx comes AFTER our mocks and only gets used if
-        # we don't provide a mock
-        env["PATH"] = os.pathsep.join(str(p) for p in path_dirs) + os.pathsep + env.get("PATH", "")
+        if replace_path:
+            # Use exactly the provided path dirs (already filtered)
+            env["PATH"] = os.pathsep.join(str(p) for p in path_dirs)
+        else:
+            # Prepend custom path dirs, keep system PATH after
+            # This ensures bash is still found but any system-level
+            # bunx/npx comes AFTER our mocks and only gets used if
+            # we don't provide a mock
+            env["PATH"] = os.pathsep.join(str(p) for p in path_dirs) + os.pathsep + env.get("PATH", "")
     if env_extra:
         env.update(env_extra)
     cmd = ["bash", str(SCRIPT)] + (args or [])
@@ -167,7 +172,7 @@ class TestRunnerSelection:
                 continue
             if not (Path(dir_path) / "bunx").exists():
                 filtered_path.append(Path(dir_path))
-        r = _run_script(path_dirs=filtered_path, tmp_path=tmp_path)
+        r = _run_script(path_dirs=filtered_path, tmp_path=tmp_path, replace_path=True)
         assert r.returncode == 0
         calls = record.read_text()
         assert "@every-env/compound-plugin" in calls
