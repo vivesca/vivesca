@@ -10,7 +10,7 @@ _FILENAME_PATTERNS = [
     re.compile(r"HO-MING-TERRY-LI_.*_Mox_Credit_Statement\.pdf$"),
     re.compile(r"eStatementFile[_.].*\.pdf$"),
     re.compile(r"ECardPersonalStatement.*\.pdf$"),
-    re.compile(r"\d{2}\s*月\.pdf$"),
+    re.compile(r"\d{1,2}\s*月\.pdf$"),
 ]
 
 # Page-1 text signatures for bank identification

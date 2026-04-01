@@ -242,6 +242,6 @@ def _clean_merchant(raw: str) -> str:
     name = re.sub(r"US\s*$", "", name).rstrip()
 
     # Remove trailing NL, etc.
-    name = re.sub(r"(?:Amsterdam)?NL\s*$", "", name).rstrip()
+    name = re.sub(r"(?i)(?:Amsterdam)?NL\s*$", "", name).rstrip()
 
     return name.strip()
