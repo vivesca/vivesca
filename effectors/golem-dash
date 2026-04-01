@@ -968,6 +968,8 @@ def next_completion(running: list[dict]) -> dict | None:
 
     best: dict | None = None
     for t in running:
+        if t.get("is_stale"):
+            continue
         remaining = t.get("estimated_remaining", 0)
         if remaining <= 0:
             continue

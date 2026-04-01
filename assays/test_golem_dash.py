@@ -2146,11 +2146,11 @@ class TestThroughputBasedEta:
 
     def test_with_ewma_rate(self):
         func = _mod["throughput_based_eta"]
-        # 6 tasks/hr = 0.00167 tasks/sec
+        # 6 tasks/hr = 0.001667 tasks/sec
         # 10 pending + 2 running = 12 tasks
-        # 12 / 0.00167 ≈ 7200 sec = 2hr
+        # 12 / 0.001667 ≈ 7200 sec
         eta = func([], pending=10, running_count=2, ewma_rate=6.0)
-        assert eta == 7200
+        assert abs(eta - 7200) <= 1  # int rounding
 
     def test_without_ewma_uses_windowed_rate(self):
         func = _mod["throughput_based_eta"]
