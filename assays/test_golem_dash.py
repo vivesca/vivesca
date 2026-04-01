@@ -1539,3 +1539,535 @@ class TestJsonOutputNewFields:
         data = json.loads(capsys.readouterr().out)
         assert "utilization" in data
         assert "overall" in data["utilization"]
+
+
+# ── load_running_json (NEW) ─────────────────────────────────────────────
+
+
+class TestLoadRunningJson:
+    """Tests for loading golem-running.json."""
+
+    def test_missing_file(self, tmp_path):
+        func = _mod["load_running_json"]
+        assert func(tmp_path / "nope.json") == []
+
+    def test_empty_file(self, tmp_path):
+        func = _mod["load_running_json"]
+        p = tmp_path / "running.json"
+        p.write_text("")
+        assert func(p) == []
+
+    def test_valid_entries(self, tmp_path):
+        func = _mod["load_running_json"]
+        p = tmp_path / "running.json"
+        p.write_text(json.dumps([
+            {"task_id": "t-abc", "provider": "zhipu", "cmd": "golem [t-abc] --provider zhipu \"test\""},
+            {"task_id": "t-def", "provider": "infini", "cmd": "golem [t-def] --provider infini \"task\""},
+        ]))
+        result = func(p)
+        assert len(result) == 2
+        assert result[0]["task_id"] == "t-abc"
+        assert result[1]["provider"] == "infini"
+
+    def test_invalid_json(self, tmp_path):
+        func = _mod["load_running_json"]
+        p = tmp_path / "running.json"
+        p.write_text("not json")
+        assert func(p) == []
+
+    def test_non_list_json(self, tmp_path):
+        func = _mod["load_running_json"]
+        p = tmp_path / "running.json"
+        p.write_text('{"error": "not a list"}')
+        assert func(p) == []
+
+
+# ── load_cooldowns (NEW) ────────────────────────────────────────────────
+
+
+class TestLoadCooldowns:
+    """Tests for loading golem-cooldowns.json."""
+
+    def test_missing_file(self, tmp_path):
+        func = _mod["load_cooldowns"]
+        assert func(tmp_path / "nope.json") == []
+
+    def test_valid_entries(self, tmp_path):
+        func = _mod["load_cooldowns"]
+        p = tmp_path / "cooldowns.json"
+        p.write_text(json.dumps([
+            {"ts": "2026-04-01 17:51:17", "provider": "codex",
+             "resets_at": "2026-04-01 18:01:17", "reason": "failure window"},
+        ]))
+        result = func(p)
+        assert len(result) == 1
+        assert result[0]["provider"] == "codex"
+
+    def test_invalid_json(self, tmp_path):
+        func = _mod["load_cooldowns"]
+        p = tmp_path / "cooldowns.json"
+        p.write_text("BAD")
+        assert func(p) == []
+
+
+# ── active_cooldowns (NEW) ──────────────────────────────────────────────
+
+
+class TestActiveCooldowns:
+    """Tests for filtering active cooldowns."""
+
+    def test_empty_list(self):
+        func = _mod["active_cooldowns"]
+        assert func([]) == {}
+
+    def test_expired_cooldowns_excluded(self):
+        func = _mod["active_cooldowns"]
+        cooldowns = [
+            {"provider": "zhipu", "resets_at": "2020-01-01 00:00:00", "reason": "old"},
+        ]
+        assert func(cooldowns) == {}
+
+    def test_active_cooldown_included(self):
+        func = _mod["active_cooldowns"]
+        future = (datetime.now() + timedelta(minutes=10)).strftime("%Y-%m-%d %H:%M:%S")
+        cooldowns = [
+            {"provider": "zhipu", "resets_at": future, "reason": "failure"},
+        ]
+        result = func(cooldowns)
+        assert "zhipu" in result
+        assert result["zhipu"]["remaining_secs"] > 0
+        assert result["zhipu"]["reason"] == "failure"
+
+    def test_mixed_active_and_expired(self):
+        func = _mod["active_cooldowns"]
+        future = (datetime.now() + timedelta(minutes=5)).strftime("%Y-%m-%d %H:%M:%S")
+        cooldowns = [
+            {"provider": "zhipu", "resets_at": future, "reason": "active"},
+            {"provider": "infini", "resets_at": "2020-01-01 00:00:00", "reason": "old"},
+        ]
+        result = func(cooldowns)
+        assert len(result) == 1
+        assert "zhipu" in result
+
+    def test_missing_fields_skipped(self):
+        func = _mod["active_cooldowns"]
+        cooldowns = [
+            {"provider": "", "resets_at": "2026-01-01 00:00:00"},
+            {"provider": "zhipu"},
+        ]
+        assert func(cooldowns) == {}
+
+
+# ── cooldown_display (NEW) ──────────────────────────────────────────────
+
+
+class TestCooldownDisplay:
+    """Tests for cooldown display formatting."""
+
+    def test_empty_cooldowns(self):
+        func = _mod["cooldown_display"]
+        assert func([]) == ""
+
+    def test_all_expired(self):
+        func = _mod["cooldown_display"]
+        cooldowns = [
+            {"provider": "zhipu", "resets_at": "2020-01-01 00:00:00", "reason": "old"},
+        ]
+        assert func(cooldowns) == ""
+
+    def test_active_cooldown_shown(self):
+        func = _mod["cooldown_display"]
+        future = (datetime.now() + timedelta(minutes=5)).strftime("%Y-%m-%d %H:%M:%S")
+        cooldowns = [
+            {"provider": "zhipu", "resets_at": future, "reason": "failure window"},
+        ]
+        result = func(cooldowns, use_color=False)
+        assert "zhipu" in result
+        assert "cooldown" in result
+        assert "failure window" in result
+
+    def test_color_mode(self):
+        func = _mod["cooldown_display"]
+        future = (datetime.now() + timedelta(minutes=5)).strftime("%Y-%m-%d %H:%M:%S")
+        cooldowns = [
+            {"provider": "zhipu", "resets_at": future, "reason": "test"},
+        ]
+        result = func(cooldowns, use_color=True)
+        assert "\033[" in result
+
+
+# ── merge_running_sources (NEW) ─────────────────────────────────────────
+
+
+class TestMergeRunningSources:
+    """Tests for merging ps and JSON running task sources."""
+
+    def test_both_empty(self):
+        func = _mod["merge_running_sources"]
+        assert func([], [], []) == []
+
+    def test_json_only(self):
+        func = _mod["merge_running_sources"]
+        json_running = [
+            {"task_id": "t-abc", "provider": "zhipu", "cmd": "golem [t-abc] --provider zhipu \"test\""},
+        ]
+        result = func([], json_running, [])
+        assert len(result) == 1
+        assert result[0]["task_id"] == "t-abc"
+        assert result[0]["provider"] == "zhipu"
+
+    def test_ps_only(self):
+        func = _mod["merge_running_sources"]
+        ps_running = [
+            {"pid": 1234, "provider": "infini", "duration_secs": 30,
+             "etime": "00:30", "task": "my task"},
+        ]
+        result = func(ps_running, [], [])
+        assert len(result) == 1
+        assert result[0]["pid"] == 1234
+
+    def test_merge_adds_task_id(self):
+        func = _mod["merge_running_sources"]
+        ps_running = [
+            {"pid": 1234, "provider": "zhipu", "duration_secs": 30,
+             "etime": "00:30", "task": '"test task"'},
+        ]
+        json_running = [
+            {"task_id": "t-abc", "provider": "zhipu",
+             "cmd": "golem [t-abc] --provider zhipu --max-turns 30 \"test task\""},
+        ]
+        result = func(ps_running, json_running, [])
+        assert len(result) == 1
+        assert result[0].get("task_id") == "t-abc"
+
+    def test_unmatched_json_adds_synthetic(self):
+        func = _mod["merge_running_sources"]
+        ps_running = [
+            {"pid": 1234, "provider": "infini", "duration_secs": 30,
+             "etime": "00:30", "task": "other task"},
+        ]
+        json_running = [
+            {"task_id": "t-abc", "provider": "zhipu",
+             "cmd": "golem [t-abc] --provider zhipu \"unique task\""},
+        ]
+        result = func(ps_running, json_running, [])
+        assert len(result) == 2
+
+
+# ── recent_activity_timeline (NEW) ──────────────────────────────────────
+
+
+class TestRecentActivityTimeline:
+    """Tests for parsing daemon log for recent events."""
+
+    def test_missing_file(self, tmp_path):
+        func = _mod["recent_activity_timeline"]
+        assert func(tmp_path / "nope.log") == []
+
+    def test_empty_file(self, tmp_path):
+        func = _mod["recent_activity_timeline"]
+        p = tmp_path / "daemon.log"
+        p.write_text("")
+        assert func(p) == []
+
+    def test_parses_starting_events(self, tmp_path):
+        func = _mod["recent_activity_timeline"]
+        p = tmp_path / "daemon.log"
+        p.write_text(
+            "[2026-04-01 10:00:00] Starting: golem --provider zhipu --max-turns 30 \"test task\"\n"
+            "[2026-04-01 10:05:00] Finished (300s, exit=0): golem --provider zhipu --max-turns 30 \"test task\"\n"
+        )
+        result = func(p, limit=5)
+        assert len(result) == 2
+        assert result[0][1] == "finish"  # Most recent first
+        assert result[1][1] == "start"
+
+    def test_parses_failed_events(self, tmp_path):
+        func = _mod["recent_activity_timeline"]
+        p = tmp_path / "daemon.log"
+        p.write_text(
+            "[2026-04-01 10:00:00] FAILED (exit=1): golem --provider infini \"bad task\"\n"
+        )
+        result = func(p, limit=5)
+        assert len(result) == 1
+        assert result[0][1] == "fail"
+
+    def test_parses_retry_events(self, tmp_path):
+        func = _mod["recent_activity_timeline"]
+        p = tmp_path / "daemon.log"
+        p.write_text(
+            "[2026-04-01 10:00:00] Re-queued (retry): golem --provider zhipu \"retry task\"\n"
+        )
+        result = func(p, limit=5)
+        assert len(result) == 1
+        assert result[0][1] == "retry"
+
+    def test_limit_respected(self, tmp_path):
+        func = _mod["recent_activity_timeline"]
+        p = tmp_path / "daemon.log"
+        lines = []
+        for i in range(10):
+            lines.append(f"[2026-04-01 10:{i:02d}:00] Starting: golem --provider zhipu \"task {i}\"\n")
+        p.write_text("".join(lines))
+        result = func(p, limit=3)
+        assert len(result) == 3
+
+    def test_ignores_non_matching_lines(self, tmp_path):
+        func = _mod["recent_activity_timeline"]
+        p = tmp_path / "daemon.log"
+        p.write_text("Random log line\nAnother line\n")
+        result = func(p, limit=5)
+        assert result == []
+
+
+# ── timeline_display (NEW) ──────────────────────────────────────────────
+
+
+class TestTimelineDisplay:
+    """Tests for formatting activity timeline."""
+
+    def test_empty_events(self):
+        func = _mod["timeline_display"]
+        result = func([], use_color=False)
+        assert "No recent activity" in result
+
+    def test_formats_start_event(self):
+        func = _mod["timeline_display"]
+        events = [("10:00:00", "start", "golem --provider zhipu \"test\"")]
+        result = func(events, use_color=False)
+        assert "10:00:00" in result
+        assert "golem" in result
+
+    def test_formats_finish_event(self):
+        func = _mod["timeline_display"]
+        events = [("10:05:00", "finish", "(300s, exit=0): golem --provider zhipu")]
+        result = func(events, use_color=False)
+        assert "10:05:00" in result
+
+    def test_formats_fail_event(self):
+        func = _mod["timeline_display"]
+        events = [("10:01:00", "fail", "(exit=1): golem --provider infini")]
+        result = func(events, use_color=False)
+        assert "10:01:00" in result
+
+    def test_color_mode(self):
+        func = _mod["timeline_display"]
+        events = [("10:00:00", "start", "golem --provider zhipu \"test\"")]
+        result = func(events, use_color=True)
+        assert "\033[" in result
+
+
+# ── calculate_eta with cooldowns (NEW) ──────────────────────────────────
+
+
+class TestCalculateEtaWithCooldowns:
+    """Tests for ETA calculation that accounts for provider cooldowns."""
+
+    def test_no_cooldowns(self):
+        recs = [{"duration": 100}]
+        eta = calculate_eta(
+            recs, pending=5, running_count=1,
+            cooldowns_data=[], provider_max={"zhipu": 8},
+        )
+        assert eta["cooldown_penalty_secs"] == 0
+        assert eta["effective_workers"] == 1
+
+    def test_active_cooldown_increases_eta(self):
+        recs = [{"duration": 100}]
+        future = (datetime.now() + timedelta(minutes=10)).strftime("%Y-%m-%d %H:%M:%S")
+        cooldowns = [
+            {"provider": "zhipu", "resets_at": future, "reason": "failure"},
+        ]
+        eta_no_cd = calculate_eta(recs, pending=5, running_count=1)
+        eta_with_cd = calculate_eta(
+            recs, pending=5, running_count=1,
+            cooldowns_data=cooldowns, provider_max={"zhipu": 8, "infini": 8},
+        )
+        assert eta_with_cd["cooldown_penalty_secs"] > 0
+        assert eta_with_cd["eta_seconds"] >= eta_no_cd["eta_seconds"]
+
+    def test_expired_cooldown_no_effect(self):
+        recs = [{"duration": 100}]
+        cooldowns = [
+            {"provider": "zhipu", "resets_at": "2020-01-01 00:00:00", "reason": "old"},
+        ]
+        eta = calculate_eta(
+            recs, pending=5, running_count=1,
+            cooldowns_data=cooldowns, provider_max={"zhipu": 8},
+        )
+        assert eta["cooldown_penalty_secs"] == 0
+
+    def test_zero_pending_no_cooldown_penalty(self):
+        recs = [{"duration": 100}]
+        future = (datetime.now() + timedelta(minutes=10)).strftime("%Y-%m-%d %H:%M:%S")
+        cooldowns = [
+            {"provider": "zhipu", "resets_at": future, "reason": "failure"},
+        ]
+        running_tasks = [
+            {"provider": "zhipu", "duration_secs": 50, "estimated_remaining": 50},
+        ]
+        eta = calculate_eta(
+            recs, pending=0, running_count=1, running_tasks=running_tasks,
+            cooldowns_data=cooldowns, provider_max={"zhipu": 8},
+        )
+        # No pending tasks: cooldown shouldn't add to ETA
+        assert eta["eta_seconds"] == 50
+
+    def test_new_keys_in_result(self):
+        recs = [{"duration": 100}]
+        eta = calculate_eta(
+            recs, pending=5, running_count=1,
+            cooldowns_data=[], provider_max={"zhipu": 8},
+        )
+        assert "cooldown_penalty_secs" in eta
+        assert "effective_workers" in eta
+
+
+# ── Dashboard shows new sections (NEW) ──────────────────────────────────
+
+
+class TestDashboardNewSectionsV2:
+    """Tests for new dashboard sections: cooldowns, timeline, recent activity."""
+
+    def test_shows_recent_activity(self, tmp_path, capsys):
+        orig_jsonl = _mod["JSONL_PATH"]
+        orig_queue = _mod["QUEUE_PATH"]
+        orig_log = _mod["LOG_PATH"]
+        try:
+            _mod["JSONL_PATH"] = tmp_path / "golem.jsonl"
+            _mod["QUEUE_PATH"] = tmp_path / "queue.md"
+            _mod["LOG_PATH"] = tmp_path / "daemon.log"
+            (tmp_path / "golem.jsonl").write_text(
+                '{"ts":"2026-01-01","provider":"zhipu","duration":10,"exit":0}\n'
+            )
+            (tmp_path / "queue.md").write_text("# Queue\n")
+            (tmp_path / "daemon.log").write_text(
+                "[2026-04-01 10:00:00] Starting: golem --provider zhipu \"test\"\n"
+                "[2026-04-01 10:05:00] Finished (300s, exit=0): golem --provider zhipu \"test\"\n"
+            )
+            rc = main(["--no-color"])
+        finally:
+            _mod["JSONL_PATH"] = orig_jsonl
+            _mod["QUEUE_PATH"] = orig_queue
+            _mod["LOG_PATH"] = orig_log
+        assert rc == 0
+        captured = capsys.readouterr()
+        assert "Recent Activity" in captured.out
+        assert "10:00:00" in captured.out
+
+    def test_shows_cooldowns(self, tmp_path, capsys):
+        orig_jsonl = _mod["JSONL_PATH"]
+        orig_queue = _mod["QUEUE_PATH"]
+        orig_cd = _mod["COOLDOWNS_PATH"]
+        try:
+            _mod["JSONL_PATH"] = tmp_path / "golem.jsonl"
+            _mod["QUEUE_PATH"] = tmp_path / "queue.md"
+            _mod["COOLDOWNS_PATH"] = tmp_path / "cooldowns.json"
+            (tmp_path / "golem.jsonl").write_text(
+                '{"ts":"2026-01-01","provider":"zhipu","duration":10,"exit":0}\n'
+            )
+            (tmp_path / "queue.md").write_text(
+                '- [ ] `golem --provider zhipu "task A"`\n'
+            )
+            future = (datetime.now() + timedelta(minutes=10)).strftime("%Y-%m-%d %H:%M:%S")
+            (tmp_path / "cooldowns.json").write_text(json.dumps([
+                {"provider": "zhipu", "resets_at": future, "reason": "failure window"},
+            ]))
+            rc = main(["--no-color"])
+        finally:
+            _mod["JSONL_PATH"] = orig_jsonl
+            _mod["QUEUE_PATH"] = orig_queue
+            _mod["COOLDOWNS_PATH"] = orig_cd
+        assert rc == 0
+        captured = capsys.readouterr()
+        assert "Cooldown" in captured.out
+        assert "zhipu" in captured.out
+
+    def test_json_includes_cooldowns(self, tmp_path, capsys):
+        orig_jsonl = _mod["JSONL_PATH"]
+        orig_queue = _mod["QUEUE_PATH"]
+        orig_cd = _mod["COOLDOWNS_PATH"]
+        try:
+            _mod["JSONL_PATH"] = tmp_path / "golem.jsonl"
+            _mod["QUEUE_PATH"] = tmp_path / "queue.md"
+            _mod["COOLDOWNS_PATH"] = tmp_path / "cooldowns.json"
+            (tmp_path / "golem.jsonl").write_text(
+                '{"ts":"2026-01-01","provider":"zhipu","duration":10,"exit":0}\n'
+            )
+            (tmp_path / "queue.md").write_text("# Queue\n")
+            (tmp_path / "cooldowns.json").write_text(json.dumps([
+                {"provider": "zhipu",
+                 "resets_at": (datetime.now() + timedelta(minutes=5)).strftime("%Y-%m-%d %H:%M:%S"),
+                 "reason": "test"},
+            ]))
+            rc = main(["--json"])
+        finally:
+            _mod["JSONL_PATH"] = orig_jsonl
+            _mod["QUEUE_PATH"] = orig_queue
+            _mod["COOLDOWNS_PATH"] = orig_cd
+        assert rc == 0
+        data = json.loads(capsys.readouterr().out)
+        assert "cooldowns" in data
+        assert "active_cooldowns" in data
+        assert "recent_activity" in data
+        assert "json_running" in data
+
+    def test_compact_shows_cooldown_info(self, tmp_path, capsys):
+        func = _mod["print_compact"]
+        orig_jsonl = _mod["JSONL_PATH"]
+        orig_queue = _mod["QUEUE_PATH"]
+        orig_cd = _mod["COOLDOWNS_PATH"]
+        try:
+            _mod["JSONL_PATH"] = tmp_path / "golem.jsonl"
+            _mod["QUEUE_PATH"] = tmp_path / "queue.md"
+            _mod["COOLDOWNS_PATH"] = tmp_path / "cooldowns.json"
+            (tmp_path / "golem.jsonl").write_text(
+                '{"ts":"2026-01-01","provider":"zhipu","duration":10,"exit":0}\n'
+            )
+            (tmp_path / "queue.md").write_text(
+                '- [ ] `golem --provider zhipu "task A"`\n'
+            )
+            future = (datetime.now() + timedelta(minutes=5)).strftime("%Y-%m-%d %H:%M:%S")
+            (tmp_path / "cooldowns.json").write_text(json.dumps([
+                {"provider": "zhipu", "resets_at": future, "reason": "test"},
+            ]))
+            func()
+        finally:
+            _mod["JSONL_PATH"] = orig_jsonl
+            _mod["QUEUE_PATH"] = orig_queue
+            _mod["COOLDOWNS_PATH"] = orig_cd
+        captured = capsys.readouterr()
+        assert "cd:" in captured.out
+
+
+# ── parse_daemon_log_start_times (NEW) ──────────────────────────────────
+
+
+class TestParseDaemonLogStartTimes:
+    """Tests for parsing daemon log start times."""
+
+    def test_missing_file(self, tmp_path):
+        func = _mod["parse_daemon_log_start_times"]
+        assert func(tmp_path / "nope.log") == {}
+
+    def test_parses_starting_lines(self, tmp_path):
+        func = _mod["parse_daemon_log_start_times"]
+        p = tmp_path / "daemon.log"
+        p.write_text(
+            "[2026-04-01 10:00:00] Starting: golem --provider zhipu --max-turns 30 \"test\"\n"
+        )
+        result = func(p)
+        assert len(result) == 1
+        key = list(result.keys())[0]
+        assert "zhipu" in key
+        assert isinstance(result[key], datetime)
+
+    def test_ignores_non_starting_lines(self, tmp_path):
+        func = _mod["parse_daemon_log_start_times"]
+        p = tmp_path / "daemon.log"
+        p.write_text(
+            "[2026-04-01 10:00:00] Finished (300s, exit=0): golem --provider zhipu\n"
+            "[2026-04-01 10:00:00] FAILED (exit=1): golem --provider infini\n"
+        )
+        result = func(p)
+        assert len(result) == 0
