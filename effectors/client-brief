@@ -273,7 +273,10 @@ def generate_brief(company: str, hits: list[ChromatinHit]) -> str:
 
 
 def main() -> None:
-    if len(sys.argv) < 2 or sys.argv[1] in ("--help", "-h"):
+    if len(sys.argv) < 2:
+        print(__doc__.strip(), file=sys.stderr)
+        sys.exit(1)
+    if sys.argv[1] in ("--help", "-h"):
         print(__doc__.strip())
         sys.exit(0)
 
