@@ -274,8 +274,7 @@ class TestExpressionLibrary:
         mock_dir = MagicMock(spec=Path)
         mock_dir.exists.return_value = False
 
-        mock_dirs.__iter__ = lambda self: iter([("Missing", mock_dir)])
-        mock_dirs.__getitem__ = lambda self, key: mock_dir
+        mock_dirs.items.return_value = [("Missing", mock_dir)]
 
         result = expression("library")
 
