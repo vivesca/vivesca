@@ -167,3 +167,9 @@ def test_conflict_accept_theirs(mock_home):
     # The script uses 'git checkout --theirs .'
     content = (repo_dir / "conflict.txt").read_text().strip()
     assert content == "modified remote"
+
+    # Verify it was pushed to remote
+    remote_log = subprocess.run(["git", "log", "--oneline"], cwd=remote_dir, capture_output=True, text=True).stdout
+    # If the script has the bug, this might NOT contain the merge commit or the conflict resolution.
+    # Actually, in the 'accept theirs' case, it might just match the remote's latest commit.
+    # But it should have a new commit locally if it was a merge.
