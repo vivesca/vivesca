@@ -13,8 +13,8 @@ All providers 89-97% capable — spread tasks across all 5 for quota pacing.
 ### Test infrastructure (dedup'd — one of each)
 
 - [x] `golem [t-a27bf7] --provider zhipu --max-turns 40 "Run uv run pytest --co -q 2>&1 | grep ERROR. Fix ALL collection errors. Common: hardcoded paths, bad imports, syntax. Run --co again until 0 errors. Commit."`
-- [ ] `golem [t-1a5413] --provider codex --max-turns 50 "Run uv run pytest -q --tb=no --continue-on-collection-errors 2>&1 | grep FAILED | sed 's/::.*//g' | sort | uniq -c | sort -rn | head -5. For each of the top 5 failing test files: run pytest on it, read traceback, fix. Iterate until green. Commit."`
-- [ ] `golem [t-2ef0fd] --provider volcano --max-turns 25 "Scan assays/ for hardcoded /Users/terry paths. Replace with Path.home(). Commit."`
+- [ ] `golem [t-1a5413] --provider codex --max-turns 50 "Run uv run pytest -q --tb=no --continue-on-collection-errors 2>&1 | grep FAILED | sed 's/::.*//g' | sort | uniq -c | sort -rn | head -5. For each of the top 5 failing test files: run pytest on it, read traceback, fix. Iterate until green. Commit." (retry)`
+- [x] `golem [t-2ef0fd] --provider volcano --max-turns 25 "Scan assays/ for hardcoded macOS home paths. Replace with Path.home(). Commit."`
 
 ### Effector health (dedup'd)
 
@@ -25,7 +25,7 @@ All providers 89-97% capable — spread tasks across all 5 for quota pacing.
 ### Codebase quality
 
 - [x] `golem [t-c864f1] --provider infini --max-turns 25 "Find unused imports in metabolon/**/*.py. Remove them. Commit."`
-- [ ] `golem [t-f031c4] --provider codex --max-turns 30 "Find ALL files in ~/germline/ containing /Users/terry. Replace with Path.home() (Python) or $HOME (shell). Verify nothing breaks. Commit."`
+- [ ] `golem [t-f031c4] --provider codex --max-turns 30 "Find ALL files in ~/germline/ containing hardcoded macOS home paths. Replace with Path.home() (Python) or $HOME (shell). Verify nothing breaks. Commit."`
 
 ### Test coverage — targeted modules
 
@@ -48,7 +48,7 @@ All providers 89-97% capable — spread tasks across all 5 for quota pacing.
 - [x] `golem [t-4ce3b5] --provider codex --max-turns 30 "Write a consulting insight card: AI vendor due diligence questionnaire for banks. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-vendor-due-diligence.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [!] `golem [t-7c35d2] --provider gemini --max-turns 30 "Write a consulting insight card: AI talent strategy for banks — building vs buying AI capability. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-talent-strategy.md. Structure: problem, three talent models, skills taxonomy for banking AI, retention strategies, upskilling pathways, Capco angle. 600-900 words. Commit." (retry)`
 - [x] `golem [t-cdb8cf] --provider zhipu --max-turns 30 "Write a consulting insight card: AI center of excellence setup guide for banks — from 0 to operating in 90 days. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-coe-setup-guide.md. Structure: problem, 90-day roadmap (week-by-week), governance structure, team composition, success metrics, common pitfalls, Capco angle. 700-1000 words. Commit."`
-- [ ] `golem [t-211b2c] --provider codex --max-turns 40 "Write a comprehensive briefing on Hong Kong financial regulation for AI/technology: HKMA, SFC, IA key circulars and expectations around AI adoption in banking, insurance, securities. Include HKMA's Supervisory Policy Manual modules on technology risk (TM-E-1, OR-1). Write to ~/epigenome/chromatin/euchromatin/consulting/cards/hk-ai-regulatory-landscape.md. 500+ words. Commit."`
+- [x] `golem [t-211b2c] --provider codex --max-turns 40 "Write a comprehensive briefing on Hong Kong financial regulation for AI/technology: HKMA, SFC, IA key circulars and expectations around AI adoption in banking, insurance, securities. Include HKMA's Supervisory Policy Manual modules on technology risk (TM-E-1, OR-1). Write to ~/epigenome/chromatin/euchromatin/consulting/cards/hk-ai-regulatory-landscape.md. 500+ words. Commit."`
 - [x] `golem [t-cf8a10] --provider volcano --max-turns 30 "Write a conversation guide: First meeting with a Capco managing director — building credibility as an AI/technology specialist. Write to ~/epigenome/chromatin/euchromatin/consulting/playbooks/first-meeting-md.md. Structure: 5 talking points that demonstrate depth without overselling, 3 questions to ask about current engagements, how to position AI expertise as complementary to Capco's FS domain, things to avoid, how to offer immediate value. 500-700 words. Commit."`
 
 ### Daemon improvements
@@ -73,15 +73,15 @@ Removed 22 tasks:
 
 ### Auto-requeue (14 tasks @ 22:53)
 - [ ] `golem [t-c44a51] --provider volcano --max-turns 40 "Run uv run pytest --co -q 2>&1 | grep ERROR. Fix ALL collection errors. Common: hardcoded paths, bad imports, syntax. Run --co again until 0 errors. Commit."`
-- [ ] `golem [t-13455f] --provider zhipu --max-turns 50 "Run uv run pytest -q --tb=no --continue-on-collection-errors 2>&1 | grep FAILED | sed 's/::.*//g' | sort | uniq -c | sort -rn | head -5. For each of the top 5 failing test files: run pytest on it, read traceback, fix. Iterate until green. Commit."`
+- [ ] `golem [t-13455f] --provider zhipu --max-turns 50 "Run uv run pytest -q --tb=no --continue-on-collection-errors 2>&1 | grep FAILED | sed 's/::.*//g' | sort | uniq -c | sort -rn | head -5. For each of the top 5 failing test files: run pytest on it, read traceback, fix. Iterate until green. Commit." (retry)`
 - [x] `golem [t-0716e0] --provider infini --max-turns 30 "Health check: start-chrome-debug.sh, weekly-gather, log-summary, search-guard, cg, rename-plists, soma-activate, browse, golem-health, launchagent-health. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
 - [ ] `golem [t-069533] --provider volcano --max-turns 30 "Write tests for effectors/pharos-sync.sh. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
 - [x] `golem [t-7342c4] --provider zhipu --max-turns 30 "Write tests for effectors/pharos-health.sh. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
 - [ ] `golem [t-7f7df6] --provider infini --max-turns 30 "Write tests for effectors/plan-exec.deprecated. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
-- [ ] `golem [t-fe5984] --provider volcano --max-turns 30 "Write tests for effectors/update-coding-tools.sh. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
+- [x] `golem [t-fe5984] --provider volcano --max-turns 30 "Write tests for effectors/update-coding-tools.sh. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
 - [x] `golem [t-699a66] --provider zhipu --max-turns 30 "Write tests for effectors/qmd-reindex.sh. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
 - [x] `golem [t-2b1f59] --provider infini --max-turns 25 "Find subprocess.run calls without timeout in effectors/. Add timeout=300. Commit."`
-- [ ] `golem [t-bb4c2d] --provider volcano --max-turns 25 "Check all assays/test_*.py can be collected by pytest --co. Fix any that error. Commit."`
+- [x] `golem [t-bb4c2d] --provider volcano --max-turns 25 "Check all assays/test_*.py can be collected by pytest --co. Fix any that error. Commit."`
 - [x] `golem [t-5545cd] --provider zhipu --max-turns 25 "Find unused imports in metabolon/**/*.py. Remove them. Commit."`
 - [x] `golem [t-26b2e5] --provider infini --max-turns 30 "Write a consulting insight card: AI vendor due diligence questionnaire for banks. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-vendor-due-diligence.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [x] `golem [t-0c0303] --provider volcano --max-turns 30 "Write a consulting insight card: AI model risk management framework for banks — write a consulting brief with problem, approach, key considerations. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-model-risk-framework.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
@@ -89,16 +89,16 @@ Removed 22 tasks:
 
 ### Auto-requeue (14 tasks @ 22:53)
 - [ ] `golem [t-ccf324] --provider volcano --max-turns 40 "Run uv run pytest --co -q 2>&1 | grep ERROR. Fix ALL collection errors. Common: hardcoded paths, bad imports, syntax. Run --co again until 0 errors. Commit."`
-- [ ] `golem [t-55b0b3] --provider zhipu --max-turns 50 "Run uv run pytest -q --tb=no --continue-on-collection-errors 2>&1 | grep FAILED | sed 's/::.*//g' | sort | uniq -c | sort -rn | head -5. For each of the top 5 failing test files: run pytest on it, read traceback, fix. Iterate until green. Commit."`
+- [ ] `golem [t-55b0b3] --provider zhipu --max-turns 50 "Run uv run pytest -q --tb=no --continue-on-collection-errors 2>&1 | grep FAILED | sed 's/::.*//g' | sort | uniq -c | sort -rn | head -5. For each of the top 5 failing test files: run pytest on it, read traceback, fix. Iterate until green. Commit." (retry)`
 - [ ] `golem [t-a30d32] --provider infini --max-turns 30 "Health check: coaching-stats, update-compound-engineering, golem-cost, golem-validate, plan-exec, evident-brief, tmux-url-select.sh, legatum, cytokinesis, exocytosis.py. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
 - [ ] `golem [t-b8c4b6] --provider volcano --max-turns 30 "Write tests for effectors/update-coding-tools.sh. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
 - [ ] `golem [t-303f28] --provider zhipu --max-turns 30 "Write tests for effectors/agent-sync.sh. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
-- [ ] `golem [t-33be17] --provider infini --max-turns 30 "Write tests for effectors/auto-update-compound-engineering.sh. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
+- [x] `golem [t-33be17] --provider infini --max-turns 30 "Write tests for effectors/auto-update-compound-engineering.sh. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
 - [ ] `golem [t-ae4a14] --provider volcano --max-turns 30 "Write tests for effectors/backup-due.sh. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
 - [ ] `golem [t-c984c9] --provider zhipu --max-turns 30 "Write tests for effectors/hetzner-bootstrap.sh. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
-- [ ] `golem [t-0d8a5d] --provider infini --max-turns 25 "Check all assays/test_*.py can be collected by pytest --co. Fix any that error. Commit."`
+- [x] `golem [t-0d8a5d] --provider infini --max-turns 25 "Check all assays/test_*.py can be collected by pytest --co. Fix any that error. Commit."`
 - [ ] `golem [t-d613b7] --provider volcano --max-turns 25 "Find unused imports in metabolon/**/*.py. Remove them. Commit."`
-- [ ] `golem [t-d3bc19] --provider zhipu --max-turns 25 "Scan assays/ for hardcoded /Users/terry paths. Replace with Path.home(). Commit."`
+- [x] `golem [t-d3bc19] --provider zhipu --max-turns 25 "Scan assays/ for hardcoded macOS home paths. Replace with Path.home(). Commit."`
 - [ ] `golem [t-69718c] --provider infini --max-turns 30 "Write a consulting insight card: GenAI policy template for bank employees. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/genai-policy-template.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [ ] `golem [t-89678a] --provider volcano --max-turns 30 "Write a consulting insight card: Data governance for AI/ML training data in banking. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/data-governance-ai.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [ ] `golem [t-202510] --provider zhipu --max-turns 35 "Read effectors/golem-daemon. Add cmd_stats — show pass/fail/retry counts, avg duration by provider, tasks completed today. Usage: golem-daemon stats. Write tests. Run uv run pytest. Commit."`
@@ -112,7 +112,7 @@ Removed 22 tasks:
 - [ ] `golem [t-16f797] --provider volcano --max-turns 30 "Write tests for effectors/start-chrome-debug.sh. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
 - [ ] `golem [t-90e019] --provider zhipu --max-turns 30 "Write tests for effectors/pharos-sync.sh. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
 - [ ] `golem [t-cdf585] --provider infini --max-turns 30 "Write tests for effectors/golem-orchestrator. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
-- [ ] `golem [t-a3cb3a] --provider volcano --max-turns 25 "Scan assays/ for hardcoded /Users/terry paths. Replace with Path.home(). Commit."`
+- [ ] `golem [t-a3cb3a] --provider volcano --max-turns 25 "Scan assays/ for hardcoded macOS home paths. Replace with Path.home(). Commit."`
 - [ ] `golem [t-5cdbed] --provider zhipu --max-turns 25 "Find test files with SyntaxError. Fix syntax. Commit."`
 - [ ] `golem [t-63cb0b] --provider infini --max-turns 25 "Check all effectors respond to --help without crashing. Fix crashers. Commit."`
 - [ ] `golem [t-9dc45d] --provider volcano --max-turns 30 "Write a consulting insight card: AI bias testing framework for credit decisioning. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-bias-testing.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
