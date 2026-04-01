@@ -911,6 +911,12 @@ def test_subprocess_interactions_no_file(tmp_path):
 def test_subprocess_add_and_status(tmp_path):
     """End-to-end: add a drug via subprocess then check it shows in status."""
     import subprocess
+    # Pre-create the directory structure so cmd_add can write the file
+    sched_dir = tmp_path / "epigenome" / "chromatin" / "Health"
+    sched_dir.mkdir(parents=True, exist_ok=True)
+    (sched_dir / "medication-schedule.md").write_text(
+        "| drug | start | end | notes |\n|------|-------|-----|-------|\n"
+    )
     env = {**os.environ, "HOME": str(tmp_path)}
     script = str(Path.home() / "germline/effectors/med-tracker")
 
