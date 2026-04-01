@@ -31,8 +31,14 @@ CLAUDE_DIR="$HOME/.claude"
 
 changed=false
 
-# Sync entire memory directory
-MEMORY_SRC="$CLAUDE_DIR/projects/-Users-terry/memory"
+# Sync entire memory directory — discover dynamically
+MEMORY_SRC=""
+for d in "$CLAUDE_DIR"/projects/*/memory; do
+    if [ -d "$d" ]; then
+        MEMORY_SRC="$d"
+        break
+    fi
+done
 MEMORY_DST="$OFFICINA/claude/memory"
 if [ -d "$MEMORY_SRC" ]; then
     mkdir -p "$MEMORY_DST"

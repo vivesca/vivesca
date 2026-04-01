@@ -18,10 +18,17 @@ from pathlib import Path
 
 _HKT = timezone(timedelta(hours=8))
 _CLAUDE_PROJECTS = Path.home() / ".claude" / "projects"
-_SESSIONS_DIR = next(
-    (d for d in sorted(_CLAUDE_PROJECTS.iterdir()) if d.is_dir() and "-" in d.name),
-    _CLAUDE_PROJECTS / "-Users-terry",  # fallback to macOS path
-)
+
+
+def _find_session_dirs() -> list[Path]:
+    """Find all project directories that contain .jsonl session files."""
+    if not _CLAUDE_PROJECTS.is_dir():
+        return []
+    dirs: list[Path] = []
+    for d in sorted(_CLAUDE_PROJECTS.iterdir()):
+        if d.is_dir() and "-" in d.name and any(d.glob("*.jsonl")):
+            dirs.append(d)
+    return dirs
 _ARSENAL = Path.home() / "notes" / "Consulting" / "Copia Arsenal Index - 2026-03.md"
 _TODO = Path.home() / "notes" / "Praxis.md"
 _EFFERENS_DIR = Path.home() / "notes" / "efferens"
@@ -29,11 +36,13 @@ _DAILY_DIR = Path.home() / "notes" / "Daily"
 
 
 def find_current_session() -> Path | None:
-    """Find the most recently modified session JSONL."""
-    jsonls = list(_SESSIONS_DIR.glob("*.jsonl"))
-    if not jsonls:
+    """Find the most recently modified session JSONL across all project dirs."""
+    all_jsonls: list[Path] = []
+    for session_dir in _find_session_dirs():
+        all_jsonls.extend(session_dir.glob("*.jsonl"))
+    if not all_jsonls:
         return None
-    return max(jsonls, key=lambda p: p.stat().st_mtime)
+    return max(all_jsonls, key=lambda p: p.stat().st_mtime)
 
 
 def extract_session_summary(path: Path) -> dict:
@@ -145,7 +154,13 @@ def main():
     args = parser.parse_args()
 
     if args.session_id:
-        session_path = _SESSIONS_DIR / f"{args.session_id}.jsonl"
+        # Search all session dirs for the given UUID
+        session_path = None
+        for d in _find_session_dirs():
+            candidate = d / f"{args.session_id}.jsonl"
+            if candidate.exists():
+                session_path = candidate
+                break
     else:
         session_path = find_current_session()
 
