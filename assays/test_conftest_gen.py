@@ -84,7 +84,7 @@ class TestApplyFix:
 
     def test_applies_single_fix(self, tmp_path: Path):
         p = tmp_path / "fix.py"
-        p.write_text('PATH = str(Path.home() / "project")\n')
+        p.write_text('PATH = "/home/terry/project"\n')
         findings = scan_file(p)
         result = apply_fix(p, findings)
         assert result == 1

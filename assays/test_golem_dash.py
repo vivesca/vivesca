@@ -378,7 +378,7 @@ class TestEtimeToSeconds:
 
 class TestExtractTaskSnippet:
     def test_golem_command(self):
-        result = extract_task_snippet(str(Path.home() / "germline/effectors/golem --provider zhipu ")hello world"')
+        result = extract_task_snippet(str(Path.home() / "germline/effectors/golem --provider zhipu \"hello world\""))
         assert "hello world" in result
 
     def test_shell_prefix(self):

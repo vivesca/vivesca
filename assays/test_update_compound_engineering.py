@@ -191,15 +191,33 @@ def test_output_mentions_opencode():
     assert "OpenCode" in r.stdout
 
 
-def test_output_mentions_codex():
+def test_output_mentions_codex(tmp_path):
     """Script mentions Codex in output."""
-    r = _run()
+    bindir = _make_fake_bin(tmp_path, "bunx")
+    env = os.environ.copy()
+    env["PATH"] = f"{bindir}:/bin:/usr/bin"
+    r = subprocess.run(
+        ["bash", str(SCRIPT)],
+        capture_output=True,
+        text=True,
+        timeout=10,
+        env=env,
+    )
     assert "Codex" in r.stdout
 
 
-def test_output_shows_complete_message():
+def test_output_shows_complete_message(tmp_path):
     """Script shows completion message."""
-    r = _run()
+    bindir = _make_fake_bin(tmp_path, "bunx")
+    env = os.environ.copy()
+    env["PATH"] = f"{bindir}:/bin:/usr/bin"
+    r = subprocess.run(
+        ["bash", str(SCRIPT)],
+        capture_output=True,
+        text=True,
+        timeout=10,
+        env=env,
+    )
     assert "complete" in r.stdout.lower() or "done" in r.stdout.lower() or "✅" in r.stdout
 
 
