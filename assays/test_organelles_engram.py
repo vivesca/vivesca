@@ -15,7 +15,9 @@ import pytest
 from metabolon.organelles.engram import (
     EngramRecord,
     TraceFragment,
+    _cli,
     _color_enabled,
+    _collect_words_from_transcripts,
     _date_to_range_ms,
     _extract_text,
     _fuzzy_search,
@@ -32,6 +34,7 @@ from metabolon.organelles.engram import (
     _print_json_search,
     _print_scan,
     _print_search,
+    _read_opencode_text,
     _resolve_date,
     _scan_history,
     _scan_opencode,

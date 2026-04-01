@@ -685,27 +685,25 @@ class TestSmoketest:
         ]
         with patch("metabolon.organelles.mitosis.Path") as mock_path:
             mock_probe = MagicMock()
-            mock_path.home.return_value.__truediv__.return_value.__truediv__.return_value = mock_probe
+            mock_path.home.return_value.__truediv__.return_value.__truediv__.return_value.__truediv__.return_value = mock_probe
             result = smoketest()
 
         assert result["success"] is False
         assert "mismatch" in result["error"]
 
+    @patch("random.choices", return_value=list("abcdefgh"))
     @patch("metabolon.organelles.mitosis.sync")
     @patch("metabolon.organelles.mitosis._fly_cmd")
     @patch("metabolon.organelles.mitosis._is_soma_reachable", return_value=True)
-    def test_smoketest_success(self, _, mock_fly, mock_sync):
+    def test_smoketest_success(self, _, mock_fly, mock_sync, __):
+        passcode = "mitosis-abcdefgh"
+
         good_report = FidelityReport(
             results=[ReplicationResult("epigenome", True, 0.1)]
         )
         mock_sync.side_effect = [good_report, FidelityReport()]
 
-        passcode = "mitosis-abcdef12"
-        # Make write_text capture the passcode
-        written_content = []
-
-        def fake_write(text):
-            written_content.append(text)
+        passcode = "mitosis-abcdefgh"
 
         # First fly call: cat memory file (return the passcode)
         # Second fly call: claude --version
@@ -718,8 +716,7 @@ class TestSmoketest:
 
         with patch("metabolon.organelles.mitosis.Path") as mock_path:
             mock_probe = MagicMock()
-            mock_probe.write_text = fake_write
-            mock_path.home.return_value.__truediv__.return_value.__truediv__.return_value = mock_probe
+            mock_path.home.return_value.__truediv__.return_value.__truediv__.return_value.__truediv__.return_value = mock_probe
             result = smoketest()
 
         assert result["success"] is True

@@ -1,0 +1,143 @@
+#!/usr/bin/env python3
+"""Retry OCI ARM A1 instance launch until capacity is available.
+
+Tries every 5 minutes. Logs attempts. Stops on success or after --max-attempts.
+Sends Telegram notification on success via deltos.
+
+Usage:
+    oci-arm-retry                    # run once
+    oci-arm-retry --loop             # retry every 5 minutes
+    oci-arm-retry --loop --interval 300  # custom interval in seconds
+    oci-arm-retry --max-attempts 100 # limit retries
+    oci-arm-retry --region ap-osaka-1 --ad GrDg:AP-OSAKA-1-AD-1  # try a different region
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import subprocess
+import sys
+import time
+from datetime import datetime
+from pathlib import Path
+
+LOG_FILE = Path.home() / "logs" / "oci-arm-retry.log"
+
+# Default config — Tokyo
+DEFAULT_CONFIG = {
+    "compartment_id": "ocid1.tenancy.oc1..aaaaaaaapkyvu7vwtpn5x7fgvcoy45wo6m457s4c6frhcwqivfzig5mizgya",
+    "ad": "GrDg:AP-TOKYO-1-AD-1",
+    "region": "ap-tokyo-1",
+    "subnet_id": "ocid1.subnet.oc1.ap-tokyo-1.aaaaaaaa7qlevaieugibmzcpqb25wxhwe7cldwdnm3oumh7luh6rbsnqfkqa",
+    "image_id": "ocid1.image.oc1.ap-tokyo-1.aaaaaaaapud7o6kkjplvam4qxm3nqowklkunidcth43gs6cdgj5ud3wuesrq",
+    "shape": "VM.Standard.A1.Flex",
+    "ocpus": 4,
+    "memory_gb": 24,
+    "display_name": "vivesca-arm",
+    "ssh_key_file": str(Path.home() / ".ssh" / "id_ed25519.pub"),
+}
+
+
+def log(msg: str) -> None:
+    ts = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+    line = f"[{ts}] {msg}"
+    print(line)
+    LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
+    with open(LOG_FILE, "a") as f:
+        f.write(line + "\n")
+
+
+def notify(msg: str) -> None:
+    """Send success notification via deltos."""
+    try:
+        subprocess.run(["deltos", msg], capture_output=True, timeout=10)
+    except Exception:
+        pass
+
+
+def try_launch(config: dict) -> dict | None:
+    """Attempt to launch an A1 instance. Returns instance data on success, None on failure."""
+    cmd = [
+        "oci", "compute", "instance", "launch",
+        "--compartment-id", config["compartment_id"],
+        "--availability-domain", config["ad"],
+        "--shape", config["shape"],
+        "--shape-config", json.dumps({"ocpus": config["ocpus"], "memoryInGBs": config["memory_gb"]}),
+        "--image-id", config["image_id"],
+        "--subnet-id", config["subnet_id"],
+        "--assign-public-ip", "true",
+        "--display-name", config["display_name"],
+        "--ssh-authorized-keys-file", config["ssh_key_file"],
+        "--region", config["region"],
+    ]
+
+    env = {"SUPPRESS_LABEL_WARNING": "True"}
+    import os
+    full_env = {**os.environ, **env}
+
+    result = subprocess.run(cmd, capture_output=True, text=True, timeout=120, env=full_env)
+
+    if result.returncode == 0:
+        try:
+            data = json.loads(result.stdout)["data"]
+            return data
+        except (json.JSONDecodeError, KeyError):
+            log(f"SUCCESS but couldn't parse output: {result.stdout[:200]}")
+            return {"raw": result.stdout[:500]}
+
+    # Parse error
+    try:
+        err = json.loads(result.stderr or result.stdout)
+        code = err.get("code", "unknown")
+        msg = err.get("message", "unknown")
+        log(f"FAIL [{code}]: {msg}")
+    except json.JSONDecodeError:
+        log(f"FAIL: {result.stderr[:200]}")
+
+    return None
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Retry OCI ARM A1 instance launch")
+    parser.add_argument("--loop", action="store_true", help="Retry in a loop")
+    parser.add_argument("--interval", type=int, default=300, help="Seconds between retries (default: 300)")
+    parser.add_argument("--max-attempts", type=int, default=0, help="Max attempts (0 = unlimited)")
+    parser.add_argument("--region", default=DEFAULT_CONFIG["region"])
+    parser.add_argument("--ad", default=DEFAULT_CONFIG["ad"])
+    parser.add_argument("--subnet-id", default=DEFAULT_CONFIG["subnet_id"])
+    parser.add_argument("--image-id", default=DEFAULT_CONFIG["image_id"])
+    args = parser.parse_args()
+
+    config = DEFAULT_CONFIG.copy()
+    config["region"] = args.region
+    config["ad"] = args.ad
+    config["subnet_id"] = args.subnet_id
+    config["image_id"] = args.image_id
+
+    attempt = 0
+    while True:
+        attempt += 1
+        log(f"Attempt {attempt} — {config['region']} / {config['ad']}")
+
+        data = try_launch(config)
+        if data:
+            instance_id = data.get("id", "unknown")
+            state = data.get("lifecycle-state", "unknown")
+            log(f"SUCCESS! Instance {instance_id} is {state}")
+            notify(f"OCI ARM A1 launched! {config['display_name']} in {config['region']}")
+            print(json.dumps(data, indent=2))
+            sys.exit(0)
+
+        if not args.loop:
+            sys.exit(1)
+
+        if args.max_attempts and attempt >= args.max_attempts:
+            log(f"Gave up after {attempt} attempts")
+            sys.exit(1)
+
+        log(f"Sleeping {args.interval}s before next attempt...")
+        time.sleep(args.interval)
+
+
+if __name__ == "__main__":
+    main()
