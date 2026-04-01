@@ -39,7 +39,7 @@ def enzyme():
 # ── Action validation tests ────────────────────────────────────────────────
 
 
-def test_endosomal_unknown_action(enzyme):
+def test_endosomal_enzyme_endosomal_unknown_action(enzyme):
     """endosomal returns error for unknown action."""
     result = enzyme(action="unknown")
     
@@ -48,7 +48,7 @@ def test_endosomal_unknown_action(enzyme):
     assert "Unknown action" in result.message
 
 
-def test_endosomal_action_case_insensitive(enzyme, mock_invoke_organelle):
+def test_endosomal_enzyme_action_case_insensitive(enzyme, mock_invoke_organelle):
     """endosomal handles action case-insensitively."""
     result = enzyme(action="SEARCH", query="test")
     assert hasattr(result, "output") or result.success is True
@@ -66,7 +66,7 @@ def test_endosomal_search_requires_query(enzyme):
     assert "query" in result.message.lower()
 
 
-def test_endosomal_search_success(enzyme, mock_invoke_organelle):
+def test_endosomal_enzyme_endosomal_search_success(enzyme, mock_invoke_organelle):
     """endosomal search invokes Gmail search."""
     result = enzyme(action="search", query="from:boss@company.com")
     
@@ -90,7 +90,7 @@ def test_endosomal_thread_requires_thread_id(enzyme):
     assert "thread_id" in result.message.lower()
 
 
-def test_endosomal_thread_success(enzyme, mock_invoke_organelle):
+def test_endosomal_enzyme_endosomal_thread_success(enzyme, mock_invoke_organelle):
     """endosomal thread invokes Gmail thread get."""
     result = enzyme(action="thread", thread_id="12345")
     
@@ -161,7 +161,7 @@ def test_endosomal_archive_requires_message_ids(enzyme):
     assert "message_ids" in result.message.lower()
 
 
-def test_endosomal_archive_success(enzyme, mock_invoke_organelle):
+def test_endosomal_enzyme_endosomal_archive_success(enzyme, mock_invoke_organelle):
     """endosomal archive invokes Gmail archive."""
     result = enzyme(action="archive", message_ids=["msg1", "msg2"])
     
@@ -185,7 +185,7 @@ def test_endosomal_mark_read_requires_message_ids(enzyme):
     assert "message_ids" in result.message.lower()
 
 
-def test_endosomal_mark_read_success(enzyme, mock_invoke_organelle):
+def test_endosomal_enzyme_endosomal_mark_read_success(enzyme, mock_invoke_organelle):
     """endosomal mark_read invokes Gmail mark-read."""
     result = enzyme(action="mark_read", message_ids=["msg1"])
     
@@ -207,7 +207,7 @@ def test_endosomal_label_requires_name(enzyme):
     assert "name" in result.message.lower()
 
 
-def test_endosomal_label_success(enzyme, mock_invoke_organelle):
+def test_endosomal_enzyme_endosomal_label_success(enzyme, mock_invoke_organelle):
     """endosomal label invokes Gmail labels create."""
     result = enzyme(action="label", name="Work")
     
@@ -231,7 +231,7 @@ def test_endosomal_send_new_email_requires_params(enzyme):
     assert "to" in result.message.lower() or "subject" in result.message.lower()
 
 
-def test_endosomal_send_new_email_success(enzyme, mock_invoke_organelle):
+def test_endosomal_enzyme_endosomal_send_new_email_success(enzyme, mock_invoke_organelle):
     """endosomal send invokes Gmail send for new emails."""
     result = enzyme(
         action="send",

@@ -3,7 +3,7 @@ from unittest.mock import patch, MagicMock
 import pytest
 
 
-def test_unknown_action():
+def test_mitosis_actions_unknown_action():
     from metabolon.enzymes.mitosis import mitosis, EffectorResult
     result = mitosis(action="nonexistent")
     assert isinstance(result, EffectorResult)
@@ -31,7 +31,7 @@ def test_sync_action(mock_sync):
 
 
 @patch("metabolon.organelles.mitosis.status")
-def test_status_action(mock_status):
+def test_mitosis_actions_status_action(mock_status):
     from metabolon.enzymes.mitosis import mitosis, Vital
     mock_status.return_value = {"reachable": True, "machine_state": "running", "targets": {}}
     result = mitosis(action="status")

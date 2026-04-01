@@ -73,13 +73,13 @@ def _machine_resp(**overrides):
 # ── _token ───────────────────────────────────────────────────────────
 
 
-def test_token_returns_env_value():
+def test_soma_scale_token_returns_env_value():
     """_token returns the FLY_API_TOKEN from env."""
     with patch.dict(os.environ, {"FLY_API_TOKEN": "tok_abc"}):
         assert _token() == "tok_abc"
 
 
-def test_token_missing_exits():
+def test_soma_scale_token_missing_exits():
     """_token exits when FLY_API_TOKEN is not set."""
     with patch.dict(os.environ, {}, clear=True):
         os.environ.pop("FLY_API_TOKEN", None)

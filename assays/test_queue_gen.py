@@ -65,7 +65,7 @@ def test_max_turns_option():
     assert "--max-turns 50" in result.stdout
 
 
-def test_output_to_file():
+def test_queue_gen_output_to_file():
     """Test --output writes to file."""
     with tempfile.NamedTemporaryFile(mode="w", suffix=".md", delete=False) as f:
         output_path = f.name

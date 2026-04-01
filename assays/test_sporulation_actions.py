@@ -3,7 +3,7 @@ from unittest.mock import patch, MagicMock
 import pytest
 
 
-def test_unknown_action():
+def test_sporulation_actions_unknown_action():
     from metabolon.enzymes.sporulation import sporulation
     result = sporulation(action="nonexistent")
     assert isinstance(result, str)
@@ -27,7 +27,7 @@ def test_load_action(mock_checkpoints_dir, tmp_path):
 
 
 @patch("metabolon.enzymes.sporulation._CHECKPOINT_DIR")
-def test_list_action(mock_checkpoints_dir, tmp_path):
+def test_sporulation_actions_list_action(mock_checkpoints_dir, tmp_path):
     from metabolon.enzymes.sporulation import sporulation
     with patch("metabolon.enzymes.sporulation._CHECKPOINT_DIR", tmp_path):
         result = sporulation(action="list")

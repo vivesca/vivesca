@@ -11,12 +11,12 @@ class ConcreteSubstrate:
     def report(self, sensed, acted): return f"{len(sensed)} sensed, {len(acted)} acted"
 
 
-def test_concrete_is_substrate():
+def test_substrate_protocol_concrete_is_substrate():
     s = ConcreteSubstrate()
     assert isinstance(s, Substrate)
 
 
-def test_sense_returns_list():
+def test_substrate_protocol_sense_returns_list():
     s = ConcreteSubstrate()
     result = s.sense()
     assert isinstance(result, list)
@@ -30,13 +30,13 @@ def test_candidates_filters():
     assert len(cands) == 1
 
 
-def test_act_returns_string():
+def test_substrate_protocol_act_returns_string():
     s = ConcreteSubstrate()
     result = s.act({"item": "x"})
     assert isinstance(result, str)
 
 
-def test_report_format():
+def test_substrate_protocol_report_format():
     s = ConcreteSubstrate()
     report = s.report([{"x": 1}], ["did thing"])
     assert "1 sensed" in report

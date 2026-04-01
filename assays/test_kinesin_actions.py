@@ -3,7 +3,7 @@ from unittest.mock import patch
 import pytest
 
 
-def test_unknown_action():
+def test_kinesin_actions_unknown_action():
     from metabolon.enzymes.kinesin import translocation, TranslocationResult
     result = translocation(action="nonexistent")
     assert isinstance(result, TranslocationResult)
@@ -11,7 +11,7 @@ def test_unknown_action():
 
 
 @patch("metabolon.organelles.gemmation.list_tasks")
-def test_list_action(mock_list):
+def test_kinesin_actions_list_action(mock_list):
     from metabolon.enzymes.kinesin import translocation, TranslocationResult
     mock_list.return_value = "list result"
     result = translocation(action="list")

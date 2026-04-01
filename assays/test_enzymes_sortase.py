@@ -474,7 +474,7 @@ def test_stats_empty_logs():
 # ── Unknown action ─────────────────────────────────────────────────────────
 
 
-def test_unknown_action():
+def test_enzymes_sortase_unknown_action():
     """Unknown action returns failure with valid-action list."""
     result = sortase(action="foobar")
     assert isinstance(result, SortaseResult)
@@ -486,7 +486,7 @@ def test_unknown_action():
 # ── Action case insensitivity ──────────────────────────────────────────────
 
 
-def test_action_case_insensitive():
+def test_enzymes_sortase_action_case_insensitive():
     """Action is case-insensitive."""
     with patch("metabolon.sortase.executor.list_running") as m_list:
         m_list.return_value = []

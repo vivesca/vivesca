@@ -10,28 +10,28 @@ from metabolon.sortase.router import (
 )
 
 
-def test_forced_backend_overrides():
+def test_router_forced_backend_overrides():
     d = route_description("anything", forced_backend="codex")
     assert d.tool == "codex"
     assert "Forced" in d.reason
 
 
-def test_rust_routes_to_codex():
+def test_router_rust_routes_to_codex():
     d = route_description("Fix the cargo build for this crate")
     assert d.tool == "codex"
 
 
-def test_algorithm_routes_to_gemini():
+def test_router_algorithm_routes_to_gemini():
     d = route_description("Implement a new sorting algorithm")
     assert d.tool == "gemini"
 
 
-def test_boilerplate_routes_to_opencode():
+def test_router_boilerplate_routes_to_opencode():
     d = route_description("Generate boilerplate for the new module")
     assert d.tool == "opencode"
 
 
-def test_default_routes_to_goose():
+def test_router_default_routes_to_goose():
     d = route_description("Fix a typo in the README")
     assert d.tool == DEFAULT_TOOL
     assert d.tool == "goose"

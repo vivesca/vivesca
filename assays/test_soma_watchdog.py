@@ -64,7 +64,7 @@ class _P:
 # ── Constants ──────────────────────────────────────────────────────────
 
 
-def test_constants():
+def test_soma_watchdog_constants():
     assert POLL == 60
     assert DISK_WARN_GB == 2.0
     assert DISK_CRIT_GB == 1.0
@@ -78,7 +78,7 @@ def test_home_is_path_home():
     assert HOME == Path.home()
 
 
-def test_germline_under_home():
+def test_soma_watchdog_germline_under_home():
     assert GERMLINE == HOME / "germline"
 
 
@@ -473,7 +473,7 @@ def test_cycle_log_root_warn(tmp_path):
 # ── main ───────────────────────────────────────────────────────────────
 
 
-def test_main_help(capsys):
+def test_soma_watchdog_main_help(capsys):
     with patch.object(_mod["sys"], "argv", ["w", "--help"]):
         assert main() == 0
     assert "watchdog" in capsys.readouterr().out.lower() or "system health monitor" in capsys.readouterr().out.lower()

@@ -351,7 +351,7 @@ def test_skill_skips_direct_api(tmp_path):
 # ── --output flag tests ───────────────────────────────────────────
 
 
-def test_output_to_file(tmp_path):
+def test_translocon_output_to_file(tmp_path):
     """--output <file> captures stdout and writes to file."""
     out_file = tmp_path / "result.md"
 

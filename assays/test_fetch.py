@@ -2,7 +2,7 @@
 import pytest
 
 
-def test_placeholder():
+def test_fetch_placeholder():
     """Placeholder test for lysin/fetch."""
     # TODO: Add real tests
     assert True

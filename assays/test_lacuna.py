@@ -620,7 +620,7 @@ def test_synthesize_invalid_baseline_exits():
 
 
 @patch('lacuna._client')
-def test_synthesize_success(mock_client_factory):
+def test_lacuna_synthesize_success(mock_client_factory):
     """Test cross-jurisdiction synthesis succeeds."""
     mock_client = MagicMock()
     mock_response = MagicMock()

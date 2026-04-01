@@ -54,13 +54,13 @@ def _mock_urlopen(response_body: bytes, status: int = 200):
 # ── _token tests ────────────────────────────────────────────────────────────
 
 
-def test_token_returns_env_value(monkeypatch):
+def test_soma_wake_token_returns_env_value(monkeypatch):
     """_token returns FLY_API_TOKEN from environment."""
     monkeypatch.setenv("FLY_API_TOKEN", "tok123")
     assert _token() == "tok123"
 
 
-def test_token_missing_exits(monkeypatch, capsys):
+def test_soma_wake_token_missing_exits(monkeypatch, capsys):
     """_token prints error and exits when FLY_API_TOKEN not set."""
     monkeypatch.delenv("FLY_API_TOKEN", raising=False)
     with pytest.raises(SystemExit) as exc:
@@ -116,7 +116,7 @@ def test_api_post_sends_request(monkeypatch):
     assert req.method == "POST"
 
 
-def test_api_empty_response(monkeypatch):
+def test_soma_wake_api_empty_response(monkeypatch):
     """_api returns empty dict when response body is empty bytes."""
     mock_urlopen_fn = MagicMock(return_value=_mock_urlopen(b""))
 
@@ -130,7 +130,7 @@ def test_api_empty_response(monkeypatch):
 # ── get_machine tests ───────────────────────────────────────────────────────
 
 
-def test_get_machine_returns_first(monkeypatch):
+def test_soma_wake_get_machine_returns_first(monkeypatch):
     """get_machine returns the first machine from the API."""
     machines = [{"id": "m-1", "state": "started"}, {"id": "m-2", "state": "stopped"}]
     mock_urlopen_fn = MagicMock(return_value=_mock_urlopen(json.dumps(machines).encode()))
@@ -364,7 +364,7 @@ def test_main_calls_status_with_bare_status(monkeypatch, capsys):
 # ── Constants tests ─────────────────────────────────────────────────────────
 
 
-def test_constants():
+def test_soma_wake_constants():
     """Verify expected API base and app name constants."""
     assert API_BASE == "https://api.machines.dev"
     assert APP_NAME == "soma"

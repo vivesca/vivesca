@@ -48,7 +48,7 @@ def test_classify_cost_mode():
     assert _classify_cost_mode({"cost_estimate": "", "tool": ""}) == "unknown"
 
 
-def test_summarize_cost_rows_empty():
+def test_respirometry_effector_summarize_cost_rows_empty():
     """Test summarization of empty rows."""
     summary = _summarize_cost_rows([])
     assert summary["runs"] == 0
@@ -58,7 +58,7 @@ def test_summarize_cost_rows_empty():
     assert summary["metered_runs"] == 0
 
 
-def test_summarize_cost_rows_mixed():
+def test_respirometry_effector_summarize_cost_rows_mixed():
     """Test summarization with mixed flat-rate and metered rows."""
     now = datetime.now(timezone.utc)
     
@@ -184,11 +184,11 @@ if __name__ == "__main__":
     test_classify_cost_mode()
     print("✓ test_classify_cost_mode passed")
     
-    test_summarize_cost_rows_empty()
-    print("✓ test_summarize_cost_rows_empty passed")
+    test_respirometry_effector_summarize_cost_rows_empty()
+    print("✓ test_respirometry_effector_summarize_cost_rows_empty passed")
     
-    test_summarize_cost_rows_mixed()
-    print("✓ test_summarize_cost_rows_mixed passed")
+    test_respirometry_effector_summarize_cost_rows_mixed()
+    print("✓ test_respirometry_effector_summarize_cost_rows_mixed passed")
     
     test_get_cost_tracking_no_file()
     print("✓ test_get_cost_tracking_no_file passed")

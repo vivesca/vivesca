@@ -2,7 +2,7 @@
 import pytest
 
 
-def test_placeholder():
+def test_constitution_placeholder():
     """Placeholder test for resources/constitution."""
     # TODO: Add real tests
     assert True

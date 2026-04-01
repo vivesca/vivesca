@@ -45,7 +45,7 @@ def test_agent_browser_constant():
 # Test _run helper
 # ---------------------------------------------------------------------------
 
-def test_run_success():
+def test_diapedesis_run_success():
     """Test _run returns (True, stdout, stderr) on success."""
     mock_result = MagicMock()
     mock_result.returncode = 0
@@ -58,7 +58,7 @@ def test_run_success():
         assert out == "output text"
         assert err == ""
 
-def test_run_failure():
+def test_diapedesis_run_failure():
     """Test _run returns (False, stdout, stderr) on non-zero exit."""
     mock_result = MagicMock()
     mock_result.returncode = 1
@@ -71,7 +71,7 @@ def test_run_failure():
         assert out == ""
         assert err == "error message"
 
-def test_run_timeout():
+def test_diapedesis_run_timeout():
     """Test _run handles timeout gracefully."""
     with patch('subprocess.run', side_effect=subprocess.TimeoutExpired("cmd", 15)):
         ok, out, err = diapedesis._run(["slow-cmd"])
@@ -79,7 +79,7 @@ def test_run_timeout():
         assert out == ""
         assert err == "timeout"
 
-def test_run_file_not_found():
+def test_diapedesis_run_file_not_found():
     """Test _run handles missing command gracefully."""
     with patch('subprocess.run', side_effect=FileNotFoundError()):
         ok, out, err = diapedesis._run(["nonexistent-cmd"])

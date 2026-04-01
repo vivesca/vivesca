@@ -3,7 +3,7 @@ from unittest.mock import patch
 import pytest
 
 
-def test_unknown_action():
+def test_turgor_actions_unknown_action():
     from metabolon.enzymes.turgor import tonus
     result = tonus(action="nonexistent")
     assert isinstance(result, dict)
@@ -12,7 +12,7 @@ def test_unknown_action():
 
 
 @patch("metabolon.enzymes.turgor.TONUS")
-def test_status_action(mock_tonus):
+def test_turgor_actions_status_action(mock_tonus):
     from metabolon.enzymes.turgor import tonus
     mock_tonus.exists.return_value = True
     mock_tonus.read_text.return_value = "- [done] **Task A.** completed item\n- [in-progress] **Task B.** working on it"

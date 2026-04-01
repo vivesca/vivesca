@@ -2,7 +2,7 @@
 import pytest
 
 
-def test_placeholder():
+def test_proprioception_placeholder():
     """Placeholder test for enzymes/proprioception."""
     # TODO: Add real tests
     assert True

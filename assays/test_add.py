@@ -2,7 +2,7 @@
 import pytest
 
 
-def test_placeholder():
+def test_add_placeholder():
     """Placeholder test for gastrulation/add."""
     # TODO: Add real tests
     assert True

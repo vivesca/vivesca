@@ -167,7 +167,7 @@ def test_extract_subject_preserves_whitespace():
 # ── classify_subject tests ───────────────────────────────────────────────
 
 
-def test_classify_subject_action_required():
+def test_endosomal_organelle_classify_subject_action_required():
     """classify_subject returns action_required for urgency markers."""
     assert classify_subject("[ACTION REQUIRED] Please respond") == "action_required"
     assert classify_subject("[URGENT] Important update") == "action_required"
@@ -191,7 +191,7 @@ def test_classify_subject_borderline_reply():
     assert classify_subject("Fwd: Important message") == "borderline"
 
 
-def test_classify_subject_empty():
+def test_endosomal_organelle_classify_subject_empty():
     """classify_subject returns empty string for empty subject."""
     assert classify_subject("") == ""
 

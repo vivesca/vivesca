@@ -36,17 +36,17 @@ def _make_fake_bin(tmp_path: Path, name: str) -> Path:
 # ── Script structure tests ─────────────────────────────────────────────
 
 
-def test_script_exists():
+def test_update_compound_engineering_script_exists():
     """Script file exists."""
     assert SCRIPT.exists()
 
 
-def test_script_is_executable():
+def test_update_compound_engineering_script_is_executable():
     """Script file is executable."""
     assert os.access(SCRIPT, os.X_OK)
 
 
-def test_script_has_shebang():
+def test_update_compound_engineering_script_has_shebang():
     """Script starts with #!/usr/bin/env bash."""
     first_line = SCRIPT.read_text().splitlines()[0]
     assert first_line == "#!/usr/bin/env bash"
@@ -55,14 +55,14 @@ def test_script_has_shebang():
 # ── Help / usage tests ─────────────────────────────────────────────────
 
 
-def test_help_long_flag():
+def test_update_compound_engineering_help_long_flag():
     """--help prints usage and exits 0."""
     r = _run(["--help"])
     assert r.returncode == 0
     assert "Usage:" in r.stdout
 
 
-def test_help_short_flag():
+def test_update_compound_engineering_help_short_flag():
     """-h prints usage and exits 0."""
     r = _run(["-h"])
     assert r.returncode == 0
@@ -93,7 +93,7 @@ def test_help_mentions_requirements():
 # ── Runner detection tests ─────────────────────────────────────────────
 
 
-def test_exits_1_when_no_bunx_or_npx(tmp_path):
+def test_update_compound_engineering_exits_1_when_no_bunx_or_npx(tmp_path):
     """Script exits 1 with error when neither bunx nor npx is available."""
     fake_home = tmp_path / "home"
     fake_home.mkdir()
@@ -115,7 +115,7 @@ def test_exits_1_when_no_bunx_or_npx(tmp_path):
     assert "neither bunx nor npx" in r.stderr.lower() or "neither bunx nor npx" in r.stdout.lower()
 
 
-def test_uses_bunx_when_available(tmp_path):
+def test_update_compound_engineering_uses_bunx_when_available(tmp_path):
     """Script uses bunx when available."""
     bindir = _make_fake_bin(tmp_path, "bunx")
     env = os.environ.copy()
@@ -130,7 +130,7 @@ def test_uses_bunx_when_available(tmp_path):
     assert r.returncode == 0
 
 
-def test_falls_back_to_npx_when_bunx_missing(tmp_path):
+def test_update_compound_engineering_falls_back_to_npx_when_bunx_missing(tmp_path):
     """Script falls back to npx when bunx is not available."""
     bindir = _make_fake_bin(tmp_path, "npx")
     env = os.environ.copy()
@@ -145,7 +145,7 @@ def test_falls_back_to_npx_when_bunx_missing(tmp_path):
     assert r.returncode == 0
 
 
-def test_prefers_bunx_over_npx(tmp_path):
+def test_update_compound_engineering_prefers_bunx_over_npx(tmp_path):
     """Script prefers bunx when both bunx and npx are available."""
     bindir = tmp_path / "bin"
     bindir.mkdir()
@@ -224,7 +224,7 @@ def test_output_shows_complete_message(tmp_path):
 # ── Runner invocation tests ─────────────────────────────────────────────
 
 
-def test_invokes_compound_plugin_for_opencode(tmp_path):
+def test_update_compound_engineering_invokes_compound_plugin_for_opencode(tmp_path):
     """Script invokes compound-plugin with --to opencode."""
     bindir = tmp_path / "bin"
     bindir.mkdir()
@@ -252,7 +252,7 @@ def test_invokes_compound_plugin_for_opencode(tmp_path):
         invocations_file.unlink(missing_ok=True)
 
 
-def test_invokes_compound_plugin_for_codex(tmp_path):
+def test_update_compound_engineering_invokes_compound_plugin_for_codex(tmp_path):
     """Script invokes compound-plugin with --to codex."""
     bindir = tmp_path / "bin"
     bindir.mkdir()

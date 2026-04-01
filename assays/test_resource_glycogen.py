@@ -2,14 +2,14 @@
 from metabolon.resources.glycogen import BINARY
 
 
-def test_module_structure():
+def test_resource_glycogen_module_structure():
     """Test that the module has the expected structure."""
     # Verify BINARY constant exists and is correct type
     assert isinstance(BINARY, str)
     assert BINARY == "respirometry"
 
 
-def test_docstring_content():
+def test_resource_glycogen_docstring_content():
     """Test that the module docstring contains expected information."""
     import metabolon.resources.glycogen as module
     docstring = module.__doc__

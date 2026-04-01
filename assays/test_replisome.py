@@ -29,7 +29,7 @@ for key, value in namespace.items():
 # Test constants and configuration
 # ---------------------------------------------------------------------------
 
-def test_default_model():
+def test_replisome_default_model():
     """Test that DEFAULT_MODEL is set correctly."""
     assert replisome.DEFAULT_MODEL == "glm"
 

@@ -166,7 +166,7 @@ def test_read_cost_rows_parses_valid():
 # Test cost summarization
 # ---------------------------------------------------------------------------
 
-def test_summarize_cost_rows_empty():
+def test_respirometry_summarize_cost_rows_empty():
     """Test _summarize_cost_rows with empty input returns zeros."""
     result = respirometry._summarize_cost_rows([])
     assert result["runs"] == 0
@@ -174,7 +174,7 @@ def test_summarize_cost_rows_empty():
     assert result["flat_rate_runs"] == 0
     assert result["metered_runs"] == 0
 
-def test_summarize_cost_rows_mixed():
+def test_respirometry_summarize_cost_rows_mixed():
     """Test _summarize_costrows correctly classifies mixed runs."""
     now = datetime.now(UTC)
     rows = [
@@ -326,7 +326,7 @@ def test_derive_session_stats_empty():
 # Test subprocess execution via main (smoke test)
 # ---------------------------------------------------------------------------
 
-def test_main_help():
+def test_respirometry_main_help():
     """Test that respirometry --help exits successfully."""
     result = subprocess.run(
         [str(Path.home() / "germline/effectors/respirometry"), "--help"],

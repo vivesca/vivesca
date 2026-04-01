@@ -37,7 +37,7 @@ def test_api_url_is_set():
     """Test API_URL is correctly configured."""
     assert grok.API_URL == "https://api.x.ai/v1/responses"
 
-def test_default_model():
+def test_grok_default_model():
     """Test DEFAULT_MODEL is set correctly."""
     assert grok.DEFAULT_MODEL == "grok-4-1-fast-reasoning"
 

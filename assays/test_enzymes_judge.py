@@ -21,7 +21,7 @@ def _import_module():
 
 # ---- rubric validation ----
 
-def test_invalid_rubric_raises():
+def test_enzymes_judge_invalid_rubric_raises():
     """Passing an unknown rubric name raises ValueError."""
     import metabolon.enzymes.judge as mod
 

@@ -95,7 +95,7 @@ def test_readiness_with_contributors():
         assert "Temperature deviation: -0.3" in result
 
 
-def test_unknown_action():
+def test_differentiation_unknown_action():
     """Test unknown action returns error message."""
     result = differentiation("invalid_action")
     assert "Unknown action: 'invalid_action'" in result

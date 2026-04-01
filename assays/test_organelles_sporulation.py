@@ -45,7 +45,7 @@ def test_to_slug(input_title, expected_slug):
     assert _to_slug(input_title) == expected_slug
 
 
-def test_parse_frontmatter_valid():
+def test_organelles_sporulation_parse_frontmatter_valid():
     content = """---
 title: "Test Post"
 pubDatetime: 2024-01-01T00:00:00.000Z
@@ -105,7 +105,7 @@ def test_scan_content_snippet_in_warning():
 
 
 @patch("metabolon.organelles.sporulation.PUBLISHED_DIR")
-def test_germinate_post_creates_file(mock_published_dir):
+def test_organelles_sporulation_germinate_post_creates_file(mock_published_dir):
     with tempfile.TemporaryDirectory() as tmpdir:
         tmp_path = Path(tmpdir)
         mock_published_dir.mkdir = MagicMock()
@@ -188,7 +188,7 @@ def test_publish_not_found(mock_published_dir):
 
 
 @patch("metabolon.organelles.sporulation.PUBLISHED_DIR")
-def test_publish_already_published(mock_published_dir):
+def test_organelles_sporulation_publish_already_published(mock_published_dir):
     with tempfile.TemporaryDirectory() as tmpdir:
         tmp_path = Path(tmpdir)
         post = tmp_path / "published.md"
@@ -227,7 +227,7 @@ Body content.
 
 @patch("metabolon.organelles.sporulation.propagate_site")
 @patch("metabolon.organelles.sporulation.PUBLISHED_DIR")
-def test_publish_with_push(mock_published_dir, mock_propagate):
+def test_organelles_sporulation_publish_with_push(mock_published_dir, mock_propagate):
     mock_propagate.return_value = {"pushed": True, "url": "https://example.com"}
     with tempfile.TemporaryDirectory() as tmpdir:
         tmp_path = Path(tmpdir)
@@ -289,7 +289,7 @@ def test_propagate_site_not_found(mock_sync_script):
 
 @patch("metabolon.organelles.sporulation.subprocess.run")
 @patch("metabolon.organelles.sporulation.SYNC_SCRIPT")
-def test_propagate_site_success(mock_sync_script, mock_subprocess_run):
+def test_organelles_sporulation_propagate_site_success(mock_sync_script, mock_subprocess_run):
     mock_sync_script.exists.return_value = True
     mock_sync_script.__str__ = MagicMock(return_value="/fake/path/sync.sh")
 
@@ -307,7 +307,7 @@ def test_propagate_site_success(mock_sync_script, mock_subprocess_run):
 
 @patch("metabolon.organelles.sporulation.subprocess.run")
 @patch("metabolon.organelles.sporulation.SYNC_SCRIPT")
-def test_propagate_site_failure(mock_sync_script, mock_subprocess_run):
+def test_organelles_sporulation_propagate_site_failure(mock_sync_script, mock_subprocess_run):
     mock_sync_script.exists.return_value = True
     mock_sync_script.__str__ = MagicMock(return_value="/fake/path/sync.sh")
 
@@ -373,7 +373,7 @@ def test_list_checkpoints_empty(mock_checkpoint_dir):
 
 @patch("metabolon.organelles.sporulation.INDEX_PATH")
 @patch("metabolon.organelles.sporulation.PUBLISHED_DIR")
-def test_catalog_creates_index(mock_published_dir, mock_index_path):
+def test_organelles_sporulation_catalog_creates_index(mock_published_dir, mock_index_path):
     with tempfile.TemporaryDirectory() as tmpdir:
         tmp_path = Path(tmpdir)
         published_dir = tmp_path / "published"
@@ -419,7 +419,7 @@ Body
 
 @patch("metabolon.organelles.sporulation.INDEX_PATH")
 @patch("metabolon.organelles.sporulation.PUBLISHED_DIR")
-def test_catalog_skips_drafts(mock_published_dir, mock_index_path):
+def test_organelles_sporulation_catalog_skips_drafts(mock_published_dir, mock_index_path):
     with tempfile.TemporaryDirectory() as tmpdir:
         tmp_path = Path(tmpdir)
         published_dir = tmp_path / "published"

@@ -94,7 +94,7 @@ def test_merge_worktree_merges_changes(tmp_path: Path):
     assert (repo / "README.md").read_text() == "changed by worktree\n"
 
 
-def test_merge_worktree_no_changes(tmp_path: Path):
+def test_sortase_worktree_merge_worktree_no_changes(tmp_path: Path):
     repo = _init_git_repo(tmp_path)
     worktree_path = _create_worktree(repo, "task-delta")
 

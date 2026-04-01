@@ -2,7 +2,7 @@
 from unittest.mock import patch
 import pytest
 
-def test_unknown_action():
+def test_noesis_actions_unknown_action():
     from metabolon.enzymes.noesis import noesis
     result = noesis(action="nonexistent")
     assert isinstance(result, str)

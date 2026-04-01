@@ -6,7 +6,7 @@ from metabolon.enzymes.endosomal import endosomal, EndosomalResult, EffectorResu
 from metabolon.organelles import endosomal as endosomal_organelle
 
 
-def test_endosomal_unknown_action():
+def test_endosomal_endosomal_unknown_action():
     """Test unknown action returns error message."""
     result = endosomal(action="invalid")
     assert isinstance(result, EffectorResult)
@@ -104,7 +104,7 @@ def test_endosomal_filter_missing_action():
 
 
 @patch("metabolon.enzymes.endosomal.invoke_organelle")
-def test_endosomal_search_success(mock_invoke):
+def test_endosomal_endosomal_search_success(mock_invoke):
     """Test search action calls invoke_organelle correctly."""
     mock_invoke.return_value = "Found 5 messages"
 
@@ -116,7 +116,7 @@ def test_endosomal_search_success(mock_invoke):
 
 
 @patch("metabolon.enzymes.endosomal.invoke_organelle")
-def test_endosomal_thread_success(mock_invoke):
+def test_endosomal_endosomal_thread_success(mock_invoke):
     """Test thread action calls invoke_organelle correctly."""
     mock_invoke.return_value = "Full thread content here"
 
@@ -181,7 +181,7 @@ Just wanted to say hi.
 
 
 @patch("metabolon.enzymes.endosomal.invoke_organelle")
-def test_endosomal_archive_success(mock_invoke):
+def test_endosomal_endosomal_archive_success(mock_invoke):
     """Test archive action calls invoke_organelle correctly."""
     mock_invoke.return_value = "Archived 2 messages"
 
@@ -206,7 +206,7 @@ def test_endosomal_archive_default_message(mock_invoke):
 
 
 @patch("metabolon.enzymes.endosomal.invoke_organelle")
-def test_endosomal_mark_read_success(mock_invoke):
+def test_endosomal_endosomal_mark_read_success(mock_invoke):
     """Test mark_read action calls invoke_organelle correctly."""
     mock_invoke.return_value = "Marked 3 messages as read"
 
@@ -219,7 +219,7 @@ def test_endosomal_mark_read_success(mock_invoke):
 
 
 @patch("metabolon.enzymes.endosomal.invoke_organelle")
-def test_endosomal_label_success(mock_invoke):
+def test_endosomal_endosomal_label_success(mock_invoke):
     """Test label action calls invoke_organelle correctly."""
     mock_invoke.return_value = "Created label 'Work'"
 
@@ -232,7 +232,7 @@ def test_endosomal_label_success(mock_invoke):
 
 
 @patch("metabolon.enzymes.endosomal.invoke_organelle")
-def test_endosomal_send_new_email_success(mock_invoke):
+def test_endosomal_endosomal_send_new_email_success(mock_invoke):
     """Test send action for new email calls invoke_organelle correctly."""
     mock_invoke.return_value = "Email sent successfully"
 
@@ -331,7 +331,7 @@ def test_endosomal_filter_no_dry_run(mock_invoke):
     assert "Filter applied" in result.message
 
 
-def test_action_case_insensitive():
+def test_endosomal_action_case_insensitive():
     """Test action is case-insensitive."""
     with patch("metabolon.enzymes.endosomal.invoke_organelle") as mock:
         mock.return_value = "Search results"
@@ -388,7 +388,7 @@ def test_extract_subject():
     assert endosomal_organelle.extract_subject(email_text) == ""
 
 
-def test_classify_subject_action_required():
+def test_endosomal_classify_subject_action_required():
     """Test classify_subject detects action required."""
     assert endosomal_organelle.classify_subject("[Action Required] Meeting today") == "action_required"
     assert endosomal_organelle.classify_subject("[URGENT] Finish report") == "action_required"
@@ -491,7 +491,7 @@ Please sign off on this budget by EOD.
 # ---------------------------------------------------------------------------
 
 
-def test_classify_subject_empty():
+def test_endosomal_classify_subject_empty():
     """classify_subject returns '' for empty string."""
     assert endosomal_organelle.classify_subject("") == ""
 

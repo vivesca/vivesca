@@ -64,7 +64,7 @@ def test_vesicle_fields():
     assert len(out.items) == 2
 
 
-def test_vesicle_auto_count():
+def test_schemas_vesicle_auto_count():
     from metabolon.morphology import Vesicle
 
     out = Vesicle(items=[{"a": 1}, {"b": 2}, {"c": 3}])

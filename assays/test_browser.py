@@ -2,7 +2,7 @@
 import pytest
 
 
-def test_placeholder():
+def test_browser_placeholder():
     """Placeholder test for organelles/browser."""
     # TODO: Add real tests
     assert True

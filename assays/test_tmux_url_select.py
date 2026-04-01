@@ -11,13 +11,13 @@ import pytest
 EFFECTOR_PATH = Path(__file__).parent.parent / "effectors" / "tmux-url-select.sh"
 
 
-def test_script_exists():
+def test_tmux_url_select_script_exists():
     """Verify the script file exists."""
     assert EFFECTOR_PATH.exists()
     assert EFFECTOR_PATH.is_file()
 
 
-def test_help_flag():
+def test_tmux_url_select_help_flag():
     """Test that --help prints usage and exits cleanly."""
     result = subprocess.run(
         [str(EFFECTOR_PATH), "--help"],
@@ -30,7 +30,7 @@ def test_help_flag():
     assert "fzf" in result.stdout
 
 
-def test_help_flag_short():
+def test_tmux_url_select_help_flag_short():
     """Test that -h prints usage and exits cleanly."""
     result = subprocess.run(
         [str(EFFECTOR_PATH), "-h"],

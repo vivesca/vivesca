@@ -2,7 +2,7 @@
 import pytest
 
 
-def test_placeholder():
+def test___main___placeholder():
     """Placeholder test for __main__."""
     # TODO: Add real tests
     assert True

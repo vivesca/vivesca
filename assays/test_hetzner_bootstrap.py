@@ -9,7 +9,7 @@ import pytest
 SCRIPT_PATH = os.path.join(os.path.dirname(__file__), "..", "effectors", "hetzner-bootstrap.sh")
 
 
-def test_script_exists_and_is_executable():
+def test_hetzner_bootstrap_script_exists_and_is_executable():
     """Test that the script exists and has executable permissions."""
     assert os.path.exists(SCRIPT_PATH)
     assert os.access(SCRIPT_PATH, os.X_OK), "Script should be executable"

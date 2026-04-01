@@ -217,7 +217,7 @@ def test_credentials_mapping_has_expected_keys():
 # ── CLI mode tests ─────────────────────────────────────────────────────────
 
 
-def test_cli_help_flag():
+def test_importin_cli_help_flag():
     """CLI --help prints docstring and exits 0."""
     result = subprocess.run(
         ["python3", str(Path.home() / "germline/effectors/importin"), "--help"],

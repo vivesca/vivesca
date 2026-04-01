@@ -133,7 +133,7 @@ def test_api_post_sends_body(monkeypatch):
     assert calls[0].data == json.dumps(body).encode()
 
 
-def test_api_empty_response(monkeypatch):
+def test_soma_snapshot_api_empty_response(monkeypatch):
     """_api returns {} for empty response body."""
     monkeypatch.setenv("FLY_API_TOKEN", "tok_empty")
 
@@ -146,7 +146,7 @@ def test_api_empty_response(monkeypatch):
 # ── _get_machine tests ────────────────────────────────────────────────
 
 
-def test_get_machine_returns_first(monkeypatch):
+def test_soma_snapshot_get_machine_returns_first(monkeypatch):
     """_get_machine returns the first machine from the API."""
     monkeypatch.setenv("FLY_API_TOKEN", "tok_m")
     machines = [{"id": "m1", "state": "started"}, {"id": "m2", "state": "stopped"}]
@@ -361,7 +361,7 @@ def test_cmd_snapshot_slow_stop_proceeds_anyway(monkeypatch, capsys):
 # ── main dispatch tests ───────────────────────────────────────────────
 
 
-def test_main_help():
+def test_soma_snapshot_main_help():
     """main with --help prints docstring and exits."""
     with pytest.raises(SystemExit) as exc_info:
         with patch_urlopen(lambda *a, **kw: FakeResponse()):
@@ -463,7 +463,7 @@ def test_main_dispatches_bare_volume_subcommand(monkeypatch, capsys):
 # ── constants tests ───────────────────────────────────────────────────
 
 
-def test_constants():
+def test_soma_snapshot_constants():
     """API_BASE and APP_NAME have expected values."""
     assert API_BASE == "https://api.machines.dev"
     assert APP_NAME == "soma"

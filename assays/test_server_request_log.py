@@ -53,7 +53,7 @@ def test_log_failure_entry(log_file):
     assert entries[0]["success"] is False
 
 
-def test_log_appends_multiple_entries(log_file):
+def test_server_request_log_log_appends_multiple_entries(log_file):
     from metabolon.server import RequestLogger
 
     logger = RequestLogger(log_file)

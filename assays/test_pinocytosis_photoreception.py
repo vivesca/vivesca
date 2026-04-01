@@ -10,14 +10,14 @@ from metabolon.pinocytosis.photoreception import intake, main
 # ── intake tests ───────────────────────────────────────────────────────
 
 
-def test_intake_raises_not_implemented():
+def test_pinocytosis_photoreception_intake_raises_not_implemented():
     """intake() raises NotImplementedError."""
     with pytest.raises(NotImplementedError) as exc_info:
         intake()
     assert "photoreception gather not yet implemented" in str(exc_info.value)
 
 
-def test_intake_as_json_parameter():
+def test_pinocytosis_photoreception_intake_as_json_parameter():
     """intake() accepts as_json parameter (even though it raises)."""
     with pytest.raises(NotImplementedError):
         intake(as_json=True)
@@ -36,7 +36,7 @@ def test_intake_send_weather_parameter():
 # ── main CLI tests ─────────────────────────────────────────────────────
 
 
-def test_main_calls_intake_with_default_args(monkeypatch, capsys):
+def test_pinocytosis_photoreception_main_calls_intake_with_default_args(monkeypatch, capsys):
     """main() calls intake with default arguments."""
     called = {}
 
@@ -59,7 +59,7 @@ def test_main_calls_intake_with_default_args(monkeypatch, capsys):
     assert "photoreception output" in captured.out
 
 
-def test_main_with_json_flag(monkeypatch, capsys):
+def test_pinocytosis_photoreception_main_with_json_flag(monkeypatch, capsys):
     """main() --json passes as_json=True to intake."""
     called = {}
 

@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, patch
 from metabolon.metabolism.substrates.tools import PhenotypeSubstrate
 
 
-def test_name():
+def test_substrate_tools_name():
     """Verify substrate name is correct."""
     s = PhenotypeSubstrate()
     assert s.name == "tools"
@@ -20,7 +20,7 @@ def test_init_defaults():
     assert s.genome is not None
 
 
-def test_sense_empty():
+def test_substrate_tools_sense_empty():
     """Test sense with no signals or tools."""
     mock_collector = MagicMock()
     mock_collector.recall_since.return_value = []
@@ -32,7 +32,7 @@ def test_sense_empty():
     assert len(sensed) == 0
 
 
-def test_sense_with_data():
+def test_substrate_tools_sense_with_data():
     """Test sense combines signals and genome data."""
     mock_collector = MagicMock()
     mock_collector.recall_since.return_value = [
@@ -132,7 +132,7 @@ def test_act_valence_problem():
     assert "mutation needed for bad_tool: valence 0.123" in result
 
 
-def test_report_format():
+def test_substrate_tools_report_format():
     """Test report produces human-readable output."""
     s = PhenotypeSubstrate()
     from unittest.mock import MagicMock

@@ -7,7 +7,7 @@ from unittest.mock import patch
 import pytest
 
 
-def test_unknown_action():
+def test_histone_actions_unknown_action():
     from metabolon.enzymes.histone import histone
 
     result = histone(action="nonexistent")
@@ -79,7 +79,7 @@ def test_status():
         assert result.status == "ok"
 
 
-def test_action_case_insensitive():
+def test_histone_actions_action_case_insensitive():
     """Action should be case insensitive."""
     from metabolon.enzymes.histone import histone
 

@@ -3,7 +3,7 @@ from unittest.mock import patch
 import pytest
 
 
-def test_unknown_action():
+def test_catabolism_actions_unknown_action():
     from metabolon.enzymes.catabolism import catabolism, CatabolismConfirmResult
     result = catabolism(action="nonexistent")
     assert isinstance(result, CatabolismConfirmResult)

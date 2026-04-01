@@ -8,7 +8,7 @@ def test_exact_prefix_match():
     assert categorise("GOOGLE", cats) == "Tech/Subscriptions"
 
 
-def test_case_insensitive():
+def test_spending_categories_case_insensitive():
     cats = {"SMARTONE": "Telecom"}
     assert categorise("SmarTone", cats) == "Telecom"
     assert categorise("smartone", cats) == "Telecom"

@@ -11,13 +11,13 @@ class ConcreteSubstrate:
     def report(self, sensed, acted): return f"{len(sensed)} sensed, {len(acted)} acted"
 
 
-def test_concrete_is_substrate():
+def test_substrate_concrete_is_substrate():
     """Verify that a concrete implementation satisfies the protocol."""
     s = ConcreteSubstrate()
     assert isinstance(s, Substrate)
 
 
-def test_sense_returns_list():
+def test_substrate_sense_returns_list():
     """Verify sense() returns a list of dicts."""
     s = ConcreteSubstrate()
     result = s.sense()
@@ -36,7 +36,7 @@ def test_candidates_filters_sensed():
     assert cands[0]["item"] == "a"
 
 
-def test_act_returns_string():
+def test_substrate_act_returns_string():
     """Verify act() returns a human-readable string."""
     s = ConcreteSubstrate()
     result = s.act({"item": "x"})
@@ -44,7 +44,7 @@ def test_act_returns_string():
     assert "x" in result
 
 
-def test_report_format():
+def test_substrate_report_format():
     """Verify report() returns a formatted string."""
     s = ConcreteSubstrate()
     report = s.report([{"x": 1}], ["did thing"])

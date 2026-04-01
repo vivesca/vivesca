@@ -53,7 +53,7 @@ MEAL_PLAN = _mod["MEAL_PLAN"]
 # ── _extract_keywords tests ─────────────────────────────────────────────
 
 
-def test_extract_keywords_basic():
+def test_assay_extract_keywords_basic():
     """Extract keywords from simple name and hypothesis."""
     result = _extract_keywords("caffeine cut", "cutting caffeine improves sleep")
     assert "caffeine" in result
@@ -79,7 +79,7 @@ def test_extract_keywords_short_words_filtered():
         assert word not in result
 
 
-def test_extract_keywords_synonym_expansion_caffeine():
+def test_assay_extract_keywords_synonym_expansion_caffeine():
     """Caffeine keyword expands to coffee synonyms."""
     result = _extract_keywords("caffeine reduction", "less caffeine better sleep")
     assert "caffeine" in result
@@ -94,14 +94,14 @@ def test_extract_keywords_synonym_expansion_alcohol():
     assert "beer" in result or "wine" in result
 
 
-def test_extract_keywords_synonym_expansion_exercise():
+def test_assay_extract_keywords_synonym_expansion_exercise():
     """Exercise keyword expands to workout synonyms."""
     result = _extract_keywords("exercise routine", "daily exercise helps")
     assert "exercise" in result
     assert "workout" in result or "gym" in result
 
 
-def test_extract_keywords_synonym_expansion_sleep():
+def test_assay_extract_keywords_synonym_expansion_sleep():
     """Sleep keyword expands to rest synonyms."""
     result = _extract_keywords("sleep optimization", "better sleep quality")
     assert "sleep" in result
@@ -217,12 +217,12 @@ def test_slugify_lowercase():
     assert slugify("Caffeine CUT") == "caffeine-cut"
 
 
-def test_slugify_special_chars():
+def test_assay_slugify_special_chars():
     """Slugify removes special characters."""
     assert slugify("caffeine! @cut#") == "caffeine-cut"
 
 
-def test_slugify_multiple_spaces():
+def test_assay_slugify_multiple_spaces():
     """Slugify collapses multiple spaces into single hyphen."""
     assert slugify("caffeine   cut") == "caffeine-cut"
 
@@ -232,12 +232,12 @@ def test_slugify_leading_trailing_spaces():
     assert slugify("  caffeine cut  ") == "caffeine-cut"
 
 
-def test_slugify_numbers_preserved():
+def test_assay_slugify_numbers_preserved():
     """Slugify preserves numbers."""
     assert slugify("experiment 123") == "experiment-123"
 
 
-def test_slugify_empty_string():
+def test_assay_slugify_empty_string():
     """Slugify handles empty string."""
     assert slugify("") == ""
 
@@ -255,7 +255,7 @@ def test_slugify_mixed_alphanumeric():
 # ── summarise_period tests ──────────────────────────────────────────────
 
 
-def test_summarise_period_basic():
+def test_assay_summarise_period_basic():
     """Summarise period computes averages correctly."""
     data = {
         "2024-01-01": {"sleep_score": 80, "readiness_score": 70, "readiness_contributors": {"hrv_balance": 50}},
@@ -323,7 +323,7 @@ def test_summarise_period_rounding():
     assert result["readiness_avg"] == 71.0
 
 
-def test_summarise_period_single_day():
+def test_assay_summarise_period_single_day():
     """Summarise period handles single day."""
     data = {
         "2024-01-01": {"sleep_score": 85, "readiness_score": 75, "readiness_contributors": {"hrv_balance": 55}},
@@ -337,21 +337,21 @@ def test_summarise_period_single_day():
 # ── _extract_float tests ─────────────────────────────────────────────────
 
 
-def test_extract_float_basic():
+def test_assay_extract_float_basic():
     """Extract float finds and returns float value."""
     text = "Sleep: avg 78.5"
     result = _extract_float(text, r"Sleep: avg ([\d.]+)")
     assert result == 78.5
 
 
-def test_extract_float_not_found():
+def test_assay_extract_float_not_found():
     """Extract float returns None when pattern not found."""
     text = "No sleep data here"
     result = _extract_float(text, r"Sleep: avg ([\d.]+)")
     assert result is None
 
 
-def test_extract_float_integer():
+def test_assay_extract_float_integer():
     """Extract float handles integer values."""
     text = "Sleep: avg 80"
     result = _extract_float(text, r"Sleep: avg ([\d.]+)")
@@ -365,7 +365,7 @@ def test_extract_float_multiple_matches():
     assert result == 78.5
 
 
-def test_extract_float_invalid_number():
+def test_assay_extract_float_invalid_number():
     """Extract float returns None for non-numeric match."""
     text = "Sleep: avg abc"
     result = _extract_float(text, r"Sleep: avg (\w+)")
@@ -466,7 +466,7 @@ Some other content.
 """
 
 
-def test_pull_intake_matches_keywords(tmp_path):
+def test_assay_pull_intake_matches_keywords(tmp_path):
     """Pull intake returns entries matching keywords."""
     meal_plan = _make_meal_plan(tmp_path, _MEAL_PLAN_CONTENT)
     
@@ -495,7 +495,7 @@ def test_pull_intake_missing_file(tmp_path):
 # ── _is_active tests ────────────────────────────────────────────────────
 
 
-def test_is_active_true(tmp_path):
+def test_assay_is_active_true(tmp_path):
     """_is_active returns True for active experiment."""
     exp_file = tmp_path / "assay-test.md"
     exp_file.write_text("---\nstatus: active\n---\n")
@@ -503,7 +503,7 @@ def test_is_active_true(tmp_path):
     assert _is_active(exp_file) is True
 
 
-def test_is_active_false_closed(tmp_path):
+def test_assay_is_active_false_closed(tmp_path):
     """_is_active returns False for closed experiment."""
     exp_file = tmp_path / "assay-test.md"
     exp_file.write_text("---\nstatus: closed\n---\n")
@@ -511,7 +511,7 @@ def test_is_active_false_closed(tmp_path):
     assert _is_active(exp_file) is False
 
 
-def test_is_active_false_no_status(tmp_path):
+def test_assay_is_active_false_no_status(tmp_path):
     """_is_active returns False when no status in frontmatter."""
     exp_file = tmp_path / "assay-test.md"
     exp_file.write_text("---\nname: test\n---\n")
@@ -529,7 +529,7 @@ def _make_experiment_dir(tmp_path: Path) -> Path:
     return exp_dir
 
 
-def test_find_experiment_by_name(tmp_path):
+def test_assay_find_experiment_by_name(tmp_path):
     """Find experiment by fuzzy name match."""
     exp_dir = _make_experiment_dir(tmp_path)
     exp_file = exp_dir / "assay-2024-01-01-caffeine-cut.md"
@@ -628,7 +628,7 @@ def test_find_experiment_closed_not_returned_without_name(tmp_path):
 # ── list_experiments tests ───────────────────────────────────────────────
 
 
-def test_list_experiments_returns_sorted(tmp_path):
+def test_assay_list_experiments_returns_sorted(tmp_path):
     """List experiments returns sorted list."""
     exp_dir = _make_experiment_dir(tmp_path)
     for name in ["zebra", "alpha", "middle"]:
@@ -695,7 +695,7 @@ def test_cmd_list_empty(tmp_path, capsys):
     assert "No experiments found" in captured.out
 
 
-def test_cmd_list_shows_status(tmp_path, capsys):
+def test_assay_cmd_list_shows_status(tmp_path, capsys):
     """cmd_list shows active/closed status."""
     exp_dir = _make_experiment_dir(tmp_path)
     (exp_dir / "assay-active.md").write_text('status: active\nname: "Test Active"\n')
@@ -839,7 +839,7 @@ def test_cmd_check_no_experiment(capsys):
     assert exc.value.code == 1
 
 
-def test_cmd_check_appends_to_file(tmp_path):
+def test_assay_cmd_check_appends_to_file(tmp_path):
     """cmd_check appends check-in entry to experiment file."""
     exp_dir = _make_experiment_dir(tmp_path)
     exp_file = exp_dir / "assay-test.md"
@@ -973,7 +973,7 @@ def test_cmd_close_no_experiment(capsys):
     assert exc.value.code == 1
 
 
-def test_cmd_close_flips_status(tmp_path):
+def test_assay_cmd_close_flips_status(tmp_path):
     """cmd_close changes status from active to closed."""
     exp_dir = _make_experiment_dir(tmp_path)
     exp_file = exp_dir / "assay-test.md"

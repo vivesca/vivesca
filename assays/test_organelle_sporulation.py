@@ -95,7 +95,7 @@ def test_to_slug_preserves_alphanumeric_and_hyphens():
 # ── _parse_frontmatter tests ───────────────────────────────────────────
 
 
-def test_parse_frontmatter_basic():
+def test_organelle_sporulation_parse_frontmatter_basic():
     """_parse_frontmatter parses basic frontmatter."""
     content = '---\ntitle: "Test"\ndraft: true\n---\n\nBody'
     result = _parse_frontmatter(content)
@@ -104,7 +104,7 @@ def test_parse_frontmatter_basic():
     assert result["draft"] is True
 
 
-def test_parse_frontmatter_no_frontmatter():
+def test_organelle_sporulation_parse_frontmatter_no_frontmatter():
     """_parse_frontmatter returns None for content without frontmatter."""
     content = "No frontmatter here"
     result = _parse_frontmatter(content)
@@ -210,7 +210,7 @@ def test_scan_content_multiple_issues():
 # ── germinate_post tests ───────────────────────────────────────────────
 
 
-def test_germinate_post_creates_file(tmp_path, monkeypatch):
+def test_organelle_sporulation_germinate_post_creates_file(tmp_path, monkeypatch):
     """germinate_post creates a new draft post file."""
     monkeypatch.setattr(
         "metabolon.organelles.sporulation.PUBLISHED_DIR", tmp_path
@@ -340,7 +340,7 @@ def test_publish_draft_post(tmp_path, monkeypatch):
     assert "draft: false" in content
 
 
-def test_publish_already_published(tmp_path, monkeypatch):
+def test_organelle_sporulation_publish_already_published(tmp_path, monkeypatch):
     """publish returns already_published for non-draft."""
     monkeypatch.setattr(
         "metabolon.organelles.sporulation.PUBLISHED_DIR", tmp_path
@@ -370,7 +370,7 @@ def test_publish_with_warnings(tmp_path, monkeypatch):
     assert len(result["warnings"]) > 0
 
 
-def test_publish_with_push(tmp_path, monkeypatch):
+def test_organelle_sporulation_publish_with_push(tmp_path, monkeypatch):
     """publish with push=True calls propagate_site."""
     monkeypatch.setattr(
         "metabolon.organelles.sporulation.PUBLISHED_DIR", tmp_path
@@ -460,7 +460,7 @@ def test_propagate_site_missing_script(monkeypatch):
     assert "not found" in result["error"]
 
 
-def test_propagate_site_success(monkeypatch):
+def test_organelle_sporulation_propagate_site_success(monkeypatch):
     """propagate_site returns success on successful sync."""
     # Use a fake script path that "exists"
     with patch.object(Path, "exists", return_value=True):
@@ -472,7 +472,7 @@ def test_propagate_site_success(monkeypatch):
     assert result["url"] == "https://terryli.hm"
 
 
-def test_propagate_site_failure(monkeypatch):
+def test_organelle_sporulation_propagate_site_failure(monkeypatch):
     """propagate_site returns error on sync failure."""
     with patch.object(Path, "exists", return_value=True):
         with patch("subprocess.run") as mock_run:
@@ -488,7 +488,7 @@ def test_propagate_site_failure(monkeypatch):
 # ── catalog tests ───────────────────────────────────────────────────────
 
 
-def test_catalog_creates_index(tmp_path, monkeypatch):
+def test_organelle_sporulation_catalog_creates_index(tmp_path, monkeypatch):
     """catalog creates index file from published posts."""
     published_dir = tmp_path / "published"
     index_path = tmp_path / "index.md"
@@ -520,7 +520,7 @@ This is the body content.
     assert index_path.exists()
 
 
-def test_catalog_skips_drafts(tmp_path, monkeypatch):
+def test_organelle_sporulation_catalog_skips_drafts(tmp_path, monkeypatch):
     """catalog skips draft posts."""
     published_dir = tmp_path / "published"
     index_path = tmp_path / "index.md"

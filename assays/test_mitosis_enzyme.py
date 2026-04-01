@@ -103,7 +103,7 @@ def test_sync_result_error_field_populated(mock_sync):
 
 
 @patch("metabolon.organelles.mitosis.status")
-def test_status_unreachable(mock_status):
+def test_mitosis_enzyme_status_unreachable(mock_status):
     mock_status.return_value = {"reachable": False}
 
     result = mitosis(action="status")
@@ -133,7 +133,7 @@ def test_status_healthy(mock_status):
 
 
 @patch("metabolon.organelles.mitosis.status")
-def test_status_stale_targets(mock_status):
+def test_mitosis_enzyme_status_stale_targets(mock_status):
     mock_status.return_value = {
         "reachable": True,
         "machine_state": "started",

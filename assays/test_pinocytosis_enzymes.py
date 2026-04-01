@@ -18,7 +18,7 @@ from metabolon.enzymes import pinocytosis as pino
 # ---------------------------------------------------------------------------
 
 
-def test_hkt_now_returns_datetime():
+def test_pinocytosis_enzymes_hkt_now_returns_datetime():
     """Test _hkt_now returns a datetime object."""
     result = pino._hkt_now()
     assert isinstance(result, datetime)
@@ -78,7 +78,7 @@ def test_read_if_fresh_file_exception():
 # ---------------------------------------------------------------------------
 
 
-def test_read_now_md_not_exists():
+def test_pinocytosis_enzymes_read_now_md_not_exists():
     """Test _read_now_md when file doesn't exist."""
     with patch('pathlib.Path.exists', return_value=False):
         result = pino._read_now_md()
@@ -136,7 +136,7 @@ def test_read_now_md_limits_to_20_items():
 # ---------------------------------------------------------------------------
 
 
-def test_count_job_alerts_no_files():
+def test_pinocytosis_enzymes_count_job_alerts_no_files():
     """Test _count_job_alerts when no alert files exist."""
     with patch('pathlib.Path.exists', return_value=False):
         with patch('pathlib.Path.glob', return_value=[]):
@@ -217,7 +217,7 @@ def test_read_efferens_with_messages():
     assert "system" in result
 
 
-def test_read_efferens_import_error():
+def test_pinocytosis_enzymes_read_efferens_import_error():
     """Test _read_efferens when acta import fails."""
     with patch.dict('sys.modules', {}):
         with patch('builtins.__import__', side_effect=ImportError("no acta")):
@@ -288,7 +288,7 @@ def test_read_praxis_today_with_items():
     assert "[today]" in result
 
 
-def test_read_praxis_today_import_error():
+def test_pinocytosis_enzymes_read_praxis_today_import_error():
     """Test _read_praxis_today when import fails."""
     with patch.dict('sys.modules', {}):
         with patch('builtins.__import__', side_effect=ImportError("no praxis")):
@@ -452,7 +452,7 @@ def test_overnight_list():
 # ---------------------------------------------------------------------------
 
 
-def test_pinocytosis_day_action():
+def test_pinocytosis_enzymes_pinocytosis_day_action():
     """Test pinocytosis with day action."""
     with patch('metabolon.enzymes.pinocytosis._day_snapshot') as mock_snapshot:
         mock_snapshot.return_value = pino.PinocytosisResult(output="day output")
@@ -556,7 +556,7 @@ def test_pinocytosis_entrainment_status_action():
     assert result.summary == "Good schedule"
 
 
-def test_pinocytosis_unknown_action():
+def test_pinocytosis_enzymes_pinocytosis_unknown_action():
     """Test pinocytosis with unknown action returns error."""
     from metabolon.morphology import EffectorResult
 

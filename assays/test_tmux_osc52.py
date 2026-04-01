@@ -42,7 +42,7 @@ def test_help_flag_long():
     assert "Usage" in r.stdout or "tmux-osc52.sh" in r.stdout
 
 
-def test_help_flag_short():
+def test_tmux_osc52_help_flag_short():
     """'-h' prints usage and exits 0."""
     r = _run("-h")
     assert r.returncode == 0

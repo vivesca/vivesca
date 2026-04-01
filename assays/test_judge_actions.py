@@ -7,7 +7,7 @@ from unittest.mock import patch
 import pytest
 
 
-def test_invalid_rubric_raises():
+def test_judge_actions_invalid_rubric_raises():
     from metabolon.enzymes.judge import judge_evaluate
 
     with pytest.raises(ValueError, match="Invalid rubric"):

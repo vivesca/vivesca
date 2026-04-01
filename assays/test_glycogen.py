@@ -2,7 +2,7 @@
 import pytest
 
 
-def test_placeholder():
+def test_glycogen_placeholder():
     """Placeholder test for resources/glycogen."""
     # TODO: Add real tests
     assert True

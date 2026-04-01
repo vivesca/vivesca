@@ -11,7 +11,7 @@ import pytest
 SCRIPT_PATH = Path(str(Path.home() / "germline/effectors/update-coding-tools.sh"))
 
 
-def test_script_exists_and_is_executable():
+def test_update_coding_tools_script_exists_and_is_executable():
     """Script exists and has execute permissions."""
     assert SCRIPT_PATH.exists()
     assert SCRIPT_PATH.is_file()

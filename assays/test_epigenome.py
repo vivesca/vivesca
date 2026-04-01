@@ -2,7 +2,7 @@
 import pytest
 
 
-def test_placeholder():
+def test_epigenome_placeholder():
     """Placeholder test for gastrulation/epigenome."""
     # TODO: Add real tests
     assert True

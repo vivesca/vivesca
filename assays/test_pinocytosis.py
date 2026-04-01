@@ -53,7 +53,7 @@ def test_read_if_fresh_fresh_file():
         assert result == "test content"
 
 
-def test_read_if_fresh_stale_file():
+def test_pinocytosis_read_if_fresh_stale_file():
     """Test _read_if_fresh returns None for stale file."""
     mock_path = MagicMock(spec=Path)
     mock_path.exists.return_value = True
@@ -65,7 +65,7 @@ def test_read_if_fresh_stale_file():
         assert result is None
 
 
-def test_read_now_md_not_exists():
+def test_pinocytosis_read_now_md_not_exists():
     """Test _read_now_md when file doesn't exist."""
     from metabolon.enzymes import pinocytosis as module
     original = module.NOW_MD
@@ -103,7 +103,7 @@ def test_read_now_md_filters_completed():
         module.NOW_MD = original
 
 
-def test_count_job_alerts_no_files():
+def test_pinocytosis_count_job_alerts_no_files():
     """Test _count_job_alerts when no files exist."""
     from metabolon.enzymes import pinocytosis as module
     original = module.JOB_HUNT_DIR
@@ -122,7 +122,7 @@ def test_count_job_alerts_no_files():
         module.JOB_HUNT_DIR = original
 
 
-def test_read_efferens_import_error():
+def test_pinocytosis_read_efferens_import_error():
     """Test _read_efferens handles import error."""
     with patch("builtins.__import__", side_effect=ImportError("No acta")):
         result = _read_efferens()
@@ -135,7 +135,7 @@ def test_count_goose_tasks_no_dir():
     assert "0 ready" in result
 
 
-def test_read_praxis_today_import_error():
+def test_pinocytosis_read_praxis_today_import_error():
     """Test _read_praxis_today handles import error."""
     with patch("builtins.__import__", side_effect=ImportError("No praxis")):
         result = _read_praxis_today()
@@ -180,14 +180,14 @@ def test_entrainment_brief_chemoreceptor_error():
             assert "unavailable" in result.output
 
 
-def test_pinocytosis_unknown_action():
+def test_pinocytosis_pinocytosis_unknown_action():
     """Test pinocytosis returns error for unknown action."""
     result = pinocytosis(action="invalid_action")
     assert not result.success
     assert "Unknown action" in result.message
 
 
-def test_pinocytosis_day_action():
+def test_pinocytosis_pinocytosis_day_action():
     """Test pinocytosis with day action."""
     with patch("metabolon.enzymes.pinocytosis._day_snapshot") as mock_snapshot:
         mock_snapshot.return_value = PinocytosisResult(output="test")

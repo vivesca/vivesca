@@ -15,7 +15,7 @@ DAEMON = Path.home() / "germline" / "effectors" / "golem-daemon"
 # ── help flags ────────────────────────────────────────────────────────
 
 
-def test_help_flag_exits_zero():
+def test_golem_daemon_wrapper_help_flag_exits_zero():
     """--help prints usage and exits 0."""
     r = subprocess.run(
         ["bash", str(WRAPPER), "--help"],

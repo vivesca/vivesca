@@ -1569,7 +1569,7 @@ def test_create_worktree_symlinks_dirs(tmp_path):
 # _merge_worktree tests
 # ─────────────────────────────────────────────────────────────────────────────
 
-def test_merge_worktree_no_changes(tmp_path):
+def test_sortase_executor_merge_worktree_no_changes(tmp_path):
     """Test _merge_worktree with no changes."""
     (tmp_path / ".git").mkdir()
     worktree_path = Path("/tmp/sortase-test")

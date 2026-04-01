@@ -2,7 +2,7 @@
 import pytest
 
 
-def test_placeholder():
+def test_rss_config_placeholder():
     """Placeholder test for organelles/endocytosis_rss/config."""
     # TODO: Add real tests
     assert True

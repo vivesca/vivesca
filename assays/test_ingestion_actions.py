@@ -3,7 +3,7 @@ from unittest.mock import patch, MagicMock
 import pytest
 
 
-def test_unknown_action():
+def test_ingestion_actions_unknown_action():
     from metabolon.enzymes.ingestion import ingestion
     result = ingestion(action="nonexistent")
     assert isinstance(result, str)

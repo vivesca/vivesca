@@ -2,7 +2,7 @@
 from unittest.mock import patch, MagicMock
 import pytest
 
-def test_unknown_action():
+def test_auscultation_actions_unknown_action():
     from metabolon.enzymes.auscultation import auscultation
     result = auscultation(action="nonexistent")
     assert isinstance(result, str)

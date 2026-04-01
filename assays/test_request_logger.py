@@ -54,7 +54,7 @@ def test_log_creates_file_and_parent_dirs(tmp_path: Path):
     assert entries[0]["success"] is True
 
 
-def test_log_appends_multiple_entries(log_path: Path):
+def test_request_logger_log_appends_multiple_entries(log_path: Path):
     """Repeated log() calls append lines; they don't overwrite."""
     logger = RequestLogger(log_path)
     logger.log(tool="alpha", duration_ms=10, success=True)

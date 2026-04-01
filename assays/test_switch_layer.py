@@ -430,7 +430,7 @@ def test_differentiate_dry_run(capsys):
 # Test main function CLI handling
 # ---------------------------------------------------------------------------
 
-def test_main_help(capsys):
+def test_switch_layer_main_help(capsys):
     """Test --help shows usage."""
     with patch('sys.argv', ['switch-layer', '--help']):
         with pytest.raises(SystemExit) as exc_info:
@@ -453,7 +453,7 @@ def test_main_current(capsys):
         namespace['CURRENT_LAYER'] = old_current
 
 
-def test_main_list(capsys):
+def test_switch_layer_main_list(capsys):
     """Test --list shows available layers."""
     with tempfile.TemporaryDirectory() as tmpdir:
         variants_dir = Path(tmpdir)

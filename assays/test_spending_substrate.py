@@ -3,7 +3,7 @@
 from metabolon.metabolism.substrates.spending import SpendingSubstrate
 
 
-def test_name():
+def test_spending_substrate_name():
     s = SpendingSubstrate()
     assert s.name == "spending"
 

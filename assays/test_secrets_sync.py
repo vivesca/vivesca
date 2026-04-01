@@ -275,7 +275,7 @@ def test_sync_gitconfig_no_file(capsys):
 # -- main integration tests --
 
 
-def test_main_dry_run(capsys, tmp_path: Path):
+def test_secrets_sync_main_dry_run(capsys, tmp_path: Path):
     tmp_env = tmp_path / ".env.fly"
     tmp_env.write_text('export TEST_KEY="testval"\n')
     tmp_git = tmp_path / ".gitconfig"

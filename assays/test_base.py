@@ -2,7 +2,7 @@
 import pytest
 
 
-def test_placeholder():
+def test_base_placeholder():
     """Placeholder test for morphology/base."""
     # TODO: Add real tests
     assert True

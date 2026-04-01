@@ -11,7 +11,7 @@ from metabolon.locus import (
 def test_home_is_home():
     assert home == Path.home()
 
-def test_germline_under_home():
+def test_locus_germline_under_home():
     assert germline == home / "germline"
 
 def test_epigenome_under_home():

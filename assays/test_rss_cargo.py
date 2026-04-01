@@ -114,7 +114,7 @@ def test_recall_title_prefixes_extracts(tmp_path):
     assert len(prefixes) == 2
 
 
-def test_recall_title_prefixes_empty_file(tmp_path):
+def test_rss_cargo_recall_title_prefixes_empty_file(tmp_path):
     """Test recall_title_prefixes returns empty set for nonexistent file."""
     result = recall_title_prefixes(tmp_path / "nonexistent.jsonl")
     assert result == set()

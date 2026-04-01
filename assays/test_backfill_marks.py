@@ -105,7 +105,7 @@ def test_get_git_blame_source_handles_error():
 # Test parse_frontmatter function
 # ---------------------------------------------------------------------------
 
-def test_parse_frontmatter_valid():
+def test_backfill_marks_parse_frontmatter_valid():
     """Test parse_frontmatter extracts frontmatter correctly."""
     content = "---\nname: test\nvalue: 123\n---\nBody content here"
     fm_lines, body = bm.parse_frontmatter(content)
@@ -113,7 +113,7 @@ def test_parse_frontmatter_valid():
     assert "Body content here" in body
 
 
-def test_parse_frontmatter_no_frontmatter():
+def test_backfill_marks_parse_frontmatter_no_frontmatter():
     """Test parse_frontmatter returns None for content without frontmatter."""
     content = "No frontmatter here\nJust body"
     fm_lines, body = bm.parse_frontmatter(content)
@@ -128,7 +128,7 @@ def test_parse_frontmatter_unclosed():
     assert fm_lines is None
 
 
-def test_parse_frontmatter_empty():
+def test_backfill_marks_parse_frontmatter_empty():
     """Test parse_frontmatter handles empty frontmatter."""
     content = "---\n---\nBody"
     fm_lines, body = bm.parse_frontmatter(content)

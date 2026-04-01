@@ -121,15 +121,15 @@ def test_system_prompt_contains_sections():
 # ── slugify ───────────────────────────────────────────────────────────────
 
 
-def test_slugify_basic():
+def test_consulting_card_slugify_basic():
     assert slugify("AI Governance in Banks") == "ai-governance-in-banks"
 
 
-def test_slugify_special_chars():
+def test_consulting_card_slugify_special_chars():
     assert slugify("EU AI Act — Penalties & Fines!") == "eu-ai-act-penalties-fines"
 
 
-def test_slugify_multiple_spaces():
+def test_consulting_card_slugify_multiple_spaces():
     assert slugify("  model   risk   governance  ") == "model-risk-governance"
 
 
@@ -265,7 +265,7 @@ def test_generate_card_strips_whitespace():
 # ── main CLI ──────────────────────────────────────────────────────────────
 
 
-def test_main_list(capsys, tmp_path):
+def test_consulting_card_main_list(capsys, tmp_path):
     with _cards_dir(tmp_path):
         (tmp_path / "card.md").write_text("x")
         main(["--list"])
@@ -285,7 +285,7 @@ def test_main_no_topic_exits():
         main([])
 
 
-def test_main_dry_run(capsys):
+def test_consulting_card_main_dry_run(capsys):
     mock_response = MagicMock()
     mock_response.choices = [MagicMock(message=MagicMock(content="## Problem\nP."))]
 

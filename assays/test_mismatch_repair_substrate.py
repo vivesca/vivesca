@@ -10,7 +10,7 @@ from metabolon.metabolism.substrates.mismatch_repair import AnamScanSubstrate, _
 
 # --- _run helper ---
 
-def test_run_success():
+def test_mismatch_repair_substrate_run_success():
     with patch("metabolon.metabolism.substrates.mismatch_repair.subprocess.run") as mock:
         mock.return_value = subprocess.CompletedProcess(args=["x"], returncode=0, stdout="ok", stderr="")
         result = _run(["x"])
@@ -18,7 +18,7 @@ def test_run_success():
         assert result.stdout == "ok"
 
 
-def test_run_timeout():
+def test_mismatch_repair_substrate_run_timeout():
     with patch("metabolon.metabolism.substrates.mismatch_repair.subprocess.run",
                side_effect=subprocess.TimeoutExpired("x", 5)):
         result = _run(["x"], timeout=5)
@@ -36,7 +36,7 @@ def test_run_not_found():
 
 # --- AnamScanSubstrate ---
 
-def test_name():
+def test_mismatch_repair_substrate_name():
     s = AnamScanSubstrate()
     assert s.name == "mismatch_repair"
 
@@ -122,7 +122,7 @@ def test_act_failure():
         assert "failed" in result
 
 
-def test_report_format():
+def test_mismatch_repair_substrate_report_format():
     s = AnamScanSubstrate()
     sensed = [
         {"kind": "sessions", "count": 10},

@@ -2,7 +2,7 @@
 import pytest
 
 
-def test_placeholder():
+def test_endocytosis_placeholder():
     """Placeholder test for enzymes/endocytosis."""
     # TODO: Add real tests
     assert True

@@ -127,7 +127,7 @@ def test_no_args_no_sessions(mock_tmux):
     assert "No active sessions" in r.stdout
 
 
-def test_help_flag(mock_tmux):
+def test_tm_help_flag(mock_tmux):
     """tm --help shows usage and exits 0."""
     mock_tmux.configure({"list-sessions": {"stdout": "", "exitcode": 1}})
     r = _run_tm(["--help"], mock_tmux)

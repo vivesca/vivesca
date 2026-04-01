@@ -289,7 +289,7 @@ def test_main_missing_plan_file(capsys):
     assert "not found" in err.lower() or "error" in err.lower()
 
 
-def test_main_dry_run(tmp_path, capsys):
+def test_plan_exec_deprecated_main_dry_run(tmp_path, capsys):
     """main with --dry-run prints backend names and exits 0."""
     plan = tmp_path / "plan.md"
     plan.write_text("# Plan")

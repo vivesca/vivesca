@@ -19,7 +19,7 @@ def _run_script(args: list[str] | None = None) -> subprocess.CompletedProcess:
     )
 
 
-def test_help_flag_exits_zero():
+def test_electroreception_help_flag_exits_zero():
     """Test --help exits with 0."""
     r = _run_script(["--help"])
     assert r.returncode == 0
@@ -167,7 +167,7 @@ class TestExtractText:
         assert result is None
 
 
-def test_json_flag_accepted():
+def test_electroreception_json_flag_accepted():
     """Test that --json flag is accepted by argparse."""
     # Even though DB doesn't exist, argparse should still parse
     r = _run_script(["--json", "-n", "10"])
@@ -190,7 +190,7 @@ def test_all_flags_combination_accepted():
     assert "chat.db not found" in r.stderr
 
 
-def test_script_is_executable():
+def test_electroreception_script_is_executable():
     """Test that the script has the shebang line and is executable."""
     assert SCRIPT.exists()
     content = SCRIPT.read_text()

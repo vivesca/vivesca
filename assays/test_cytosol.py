@@ -47,7 +47,7 @@ def test_invoke_organelle_empty_output():
         assert result == "Done."
 
 
-def test_synthesize_success():
+def test_cytosol_synthesize_success():
     with patch("metabolon.cytosol.shutil.which", return_value="/usr/bin/synthase"), \
          patch("metabolon.cytosol.subprocess.run") as mock_run:
         mock_run.return_value = MagicMock(stdout="result text\n", returncode=0)

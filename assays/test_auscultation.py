@@ -2,7 +2,7 @@
 import pytest
 
 
-def test_placeholder():
+def test_auscultation_placeholder():
     """Placeholder test for enzymes/auscultation."""
     # TODO: Add real tests
     assert True

@@ -2,7 +2,7 @@
 import pytest
 
 
-def test_placeholder():
+def test_polarization_placeholder():
     """Placeholder test for enzymes/polarization."""
     # TODO: Add real tests
     assert True

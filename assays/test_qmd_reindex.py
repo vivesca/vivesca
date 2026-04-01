@@ -37,7 +37,7 @@ def _make_fake_bin(tmpdir: Path, name: str, body: str) -> Path:
 # ── Script existence and basic structure tests ────────────────────────────────
 
 
-def test_script_exists():
+def test_qmd_reindex_script_exists():
     """The qmd-reindex.sh script exists and is readable."""
     assert SCRIPT_PATH.exists(), f"Script not found at {SCRIPT_PATH}"
     assert SCRIPT_PATH.is_file(), f"{SCRIPT_PATH} is not a file"
@@ -53,7 +53,7 @@ def test_script_is_executable_as_bash():
     assert result.returncode == 0, f"Syntax error in script: {result.stderr}"
 
 
-def test_script_has_shebang():
+def test_qmd_reindex_script_has_shebang():
     """The script starts with a bash shebang."""
     content = SCRIPT_PATH.read_text()
     assert content.startswith("#!/bin/bash"), "Script should start with #!/bin/bash"

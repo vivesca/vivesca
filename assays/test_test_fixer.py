@@ -51,7 +51,7 @@ def test_detect_hardcoded_macos_path():
     detect_issues = _mod["detect_issues"]
 
     test_code = '''
-def test_foo():
+def test_test_fixer_foo():
     path = "/Users/terry/germline/effectors/foo"
     assert True
 '''
@@ -94,7 +94,7 @@ def test_detect_no_issues_in_clean_code():
 from pathlib import Path
 from unittest.mock import patch
 
-def test_foo():
+def test_test_fixer_foo():
     path = Path.home() / "germline"
     assert path.exists()
 '''
@@ -133,7 +133,7 @@ def test_fix_adds_path_import():
     apply_fixes = _mod["apply_fixes"]
 
     test_code = '''
-def test_foo():
+def test_test_fixer_foo():
     path = "/home/terry/germline"
 '''
     fixed = apply_fixes(test_code)
@@ -147,7 +147,7 @@ def test_fix_preserves_existing_path_import():
 
     test_code = '''
 from pathlib import Path
-def test_foo():
+def test_test_fixer_foo():
     path = "/home/terry/germline"
 '''
     fixed = apply_fixes(test_code)
@@ -162,7 +162,7 @@ def test_fix_import_effector_to_exec_pattern():
     test_code = '''
 import lacuna
 
-def test_foo():
+def test_test_fixer_foo():
     result = lacuna.process("input")
 '''
     fixed = apply_fixes(test_code)
@@ -220,13 +220,13 @@ def test_format_report_shows_summary():
     format_report = _mod["format_report"]
     
     report = format_report(
-        test_file="test_foo.py",
+        test_file="test_test_fixer_foo.py",
         initial={"passed": 0, "failed": 2, "errors": []},
         final={"passed": 2, "failed": 0, "errors": []},
         fixes_applied=["Replaced /Users/terry/ with Path.home()"]
     )
     
-    assert "test_foo.py" in report
+    assert "test_test_fixer_foo.py" in report
     assert "2 passed" in report
     assert "fixes applied" in report.lower() or "fixes:" in report.lower()
 

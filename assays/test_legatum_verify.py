@@ -8,7 +8,7 @@ from pathlib import Path
 LEGATUM_VERIFY = Path(__file__).parent.parent / "effectors" / "legatum-verify"
 
 
-def test_script_exists_and_is_executable():
+def test_legatum_verify_script_exists_and_is_executable():
     """Verify the script exists and is executable."""
     assert LEGATUM_VERIFY.exists()
     assert LEGATUM_VERIFY.is_file()
@@ -16,7 +16,7 @@ def test_script_exists_and_is_executable():
     assert LEGATUM_VERIFY.stat().st_mode & 0o444 != 0
 
 
-def test_help_flag():
+def test_legatum_verify_help_flag():
     """Test that --help works."""
     result = subprocess.run([str(LEGATUM_VERIFY), "--help"], capture_output=True, text=True)
     # Should exit cleanly
@@ -38,7 +38,7 @@ def test_missing_session_exits_with_error():
     assert "No session found" in result.stderr
 
 
-def test_json_flag_accepted():
+def test_legatum_verify_json_flag_accepted():
     """Test that --json flag is accepted even without valid session."""
     result = subprocess.run(
         [str(LEGATUM_VERIFY), "--json", "nonexistent-session-id"],

@@ -385,7 +385,7 @@ def test_format_digest_multiple_posts():
 # Test _run helper
 # ---------------------------------------------------------------------------
 
-def test_run_success():
+def test_linkedin_monitor_run_success():
     """Test _run returns (True, stdout) on success."""
     with patch('subprocess.run') as mock_run:
         mock_run.return_value = MagicMock(returncode=0, stdout="output text\n")
@@ -393,14 +393,14 @@ def test_run_success():
         assert success is True
         assert output == "output text"
 
-def test_run_failure():
+def test_linkedin_monitor_run_failure():
     """Test _run returns (False, stdout) on non-zero exit."""
     with patch('subprocess.run') as mock_run:
         mock_run.return_value = MagicMock(returncode=1, stdout="")
         success, output = linkedin._run(["false"])
         assert success is False
 
-def test_run_timeout():
+def test_linkedin_monitor_run_timeout():
     """Test _run returns (False, error) on timeout."""
     with patch('subprocess.run') as mock_run:
         mock_run.side_effect = subprocess.TimeoutExpired(cmd=["sleep"], timeout=30)
@@ -408,7 +408,7 @@ def test_run_timeout():
         assert success is False
         assert "[error:" in output
 
-def test_run_file_not_found():
+def test_linkedin_monitor_run_file_not_found():
     """Test _run returns (False, error) when command not found."""
     with patch('subprocess.run') as mock_run:
         mock_run.side_effect = FileNotFoundError("command not found")
@@ -507,7 +507,7 @@ def test_fetch_activity_constructs_activity_url():
 # Test main function (via subprocess for isolation)
 # ---------------------------------------------------------------------------
 
-def test_main_help():
+def test_linkedin_monitor_main_help():
     """Test that linkedin-monitor --help exits successfully."""
     result = subprocess.run(
         [str(Path.home() / "germline/effectors/linkedin-monitor"), "--help"],

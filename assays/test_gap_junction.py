@@ -6,7 +6,7 @@ from unittest.mock import patch, MagicMock
 from metabolon.enzymes.gap_junction import gap_junction, GapJunctionResult
 
 
-def test_unknown_action():
+def test_gap_junction_unknown_action():
     """Test unknown action returns error message."""
     result = gap_junction(action="invalid")
     assert isinstance(result, GapJunctionResult)

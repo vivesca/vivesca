@@ -2,7 +2,7 @@
 import pytest
 
 
-def test_placeholder():
+def test_substrates_mismatch_repair_placeholder():
     """Placeholder test for metabolism/substrates/mismatch_repair."""
     # TODO: Add real tests
     assert True

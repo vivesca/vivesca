@@ -369,7 +369,7 @@ def test_do_fetch_forwards_args(mock_fetch):
 # ── integration-style tests (subprocess) ─────────────────────────────────
 
 
-def test_cli_help_flag():
+def test_browser_effector_cli_help_flag():
     """--help flag prints usage and exits 0."""
     import subprocess
 

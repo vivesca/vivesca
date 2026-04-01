@@ -11,7 +11,7 @@ from unittest.mock import patch
 import pytest
 
 
-def test_unknown_action():
+def test_navigator_actions_unknown_action():
     """Unknown action returns error with 'Unknown action' in message."""
     from metabolon.enzymes.navigator import navigator
 
@@ -210,7 +210,7 @@ def test_extract_partial_url_failure():
         assert result.data["url"] == "https://x.com"
 
 
-def test_action_case_insensitive():
+def test_navigator_actions_action_case_insensitive():
     """Action is case-insensitive."""
     from metabolon.enzymes.navigator import navigator
 

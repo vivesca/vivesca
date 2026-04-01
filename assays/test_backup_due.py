@@ -9,13 +9,13 @@ from pathlib import Path
 EFFECTOR_PATH = Path(__file__).parent.parent / "effectors" / "backup-due.sh"
 
 
-def test_script_exists():
+def test_backup_due_script_exists():
     """Verify the script file exists."""
     assert EFFECTOR_PATH.exists()
     assert EFFECTOR_PATH.is_file()
 
 
-def test_help_flag():
+def test_backup_due_help_flag():
     """Test that --help prints usage and exits cleanly."""
     result = subprocess.run(
         [str(EFFECTOR_PATH), "--help"],

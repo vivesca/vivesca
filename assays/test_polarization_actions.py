@@ -3,7 +3,7 @@ from unittest.mock import patch
 import pytest
 
 
-def test_unknown_action():
+def test_polarization_actions_unknown_action():
     from metabolon.enzymes.polarization import polarization, EffectorResult
     result = polarization(action="nonexistent")
     assert isinstance(result, EffectorResult)

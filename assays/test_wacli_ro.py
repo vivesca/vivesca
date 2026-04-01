@@ -37,7 +37,7 @@ def _create_mock_wacli(tmp_path: Path, stdout: str = "wacli-ok", exit_code: int 
 # ── Help flag tests ────────────────────────────────────────────────────
 
 
-def test_help_long_flag():
+def test_wacli_ro_help_long_flag():
     """--help shows usage and exits 0."""
     r = run_wacli_ro("--help")
     assert r.returncode == 0
@@ -45,7 +45,7 @@ def test_help_long_flag():
     assert "read-only" in r.stdout.lower()
 
 
-def test_help_short_flag():
+def test_wacli_ro_help_short_flag():
     """-h shows usage and exits 0."""
     r = run_wacli_ro("-h")
     assert r.returncode == 0

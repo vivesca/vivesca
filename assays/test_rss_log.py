@@ -82,7 +82,7 @@ def test_sanitize_text_preserves_normal_text():
     assert _sanitize_text("Normal text here") == "Normal text here"
 
 
-def test_recall_title_prefixes_empty_file(tmp_path):
+def test_rss_log_recall_title_prefixes_empty_file(tmp_path):
     """Test recall_title_prefixes returns empty set for nonexistent file."""
     result = recall_title_prefixes(tmp_path / "nonexistent.md")
     assert result == set()

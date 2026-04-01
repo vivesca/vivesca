@@ -2,7 +2,7 @@
 import pytest
 
 
-def test_placeholder():
+def test_emit_placeholder():
     """Placeholder test for enzymes/emit."""
     # TODO: Add real tests
     assert True

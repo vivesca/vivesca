@@ -2,7 +2,7 @@
 import pytest
 
 
-def test_placeholder():
+def test_chromatin_stats_placeholder():
     """Placeholder test for resources/chromatin_stats."""
     # TODO: Add real tests
     assert True

@@ -7,7 +7,7 @@ from unittest.mock import patch, MagicMock
 import pytest
 
 
-def test_unknown_action():
+def test_ecphory_actions_unknown_action():
     from metabolon.enzymes.ecphory import ecphory
 
     result = ecphory(action="nonexistent")

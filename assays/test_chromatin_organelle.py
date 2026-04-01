@@ -5,14 +5,14 @@ from metabolon.organelles.chromatin import _parse_frontmatter, _MarkIndex
 
 # --- _parse_frontmatter ---
 
-def test_parse_frontmatter_basic():
+def test_chromatin_organelle_parse_frontmatter_basic():
     text = "---\nname: test\ntype: feedback\n---\nBody text"
     meta = _parse_frontmatter(text)
     assert meta["name"] == "test"
     assert meta["type"] == "feedback"
 
 
-def test_parse_frontmatter_empty():
+def test_chromatin_organelle_parse_frontmatter_empty():
     assert _parse_frontmatter("No frontmatter here") == {}
 
 

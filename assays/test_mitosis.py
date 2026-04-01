@@ -6,7 +6,7 @@ from metabolon.enzymes.mitosis import mitosis
 from metabolon.morphology import EffectorResult, Vital
 
 
-def test_unknown_action():
+def test_mitosis_unknown_action():
     """Test unknown action returns error."""
     result = mitosis(action="invalid")
     assert isinstance(result, EffectorResult)
@@ -15,7 +15,7 @@ def test_unknown_action():
     assert result.data == {}
 
 
-def test_status_unreachable():
+def test_mitosis_status_unreachable():
     """Test status when soma unreachable."""
     mock_status = MagicMock(return_value={"reachable": False})
     
@@ -28,7 +28,7 @@ def test_status_unreachable():
     assert result.details["reachable"] is False
 
 
-def test_status_stale_targets():
+def test_mitosis_status_stale_targets():
     """Test status when some targets are stale."""
     mock_status = MagicMock(return_value={
         "reachable": True,

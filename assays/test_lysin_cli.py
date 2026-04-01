@@ -128,7 +128,7 @@ def test_no_term_shows_usage_error():
     assert "Missing argument" in result.output or "Usage" in result.output
 
 
-def test_help_flag():
+def test_lysin_cli_help_flag():
     runner = CliRunner()
     result = runner.invoke(main, ["--help"])
     assert result.exit_code == 0

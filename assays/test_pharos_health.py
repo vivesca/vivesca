@@ -8,7 +8,7 @@ from pathlib import Path
 EFFECTOR = Path.home() / "germline" / "effectors" / "pharos-health.sh"
 
 
-def test_help_flag():
+def test_pharos_health_help_flag():
     """--help shows usage and exits 0."""
     result = subprocess.run(
         [str(EFFECTOR), "--help"],

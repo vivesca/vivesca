@@ -29,7 +29,7 @@ def test_pathology_custom():
     assert p.details["seconds"] == 30
 
 
-def test_vesicle_auto_count():
+def test_morphology_base_vesicle_auto_count():
     v = Vesicle(items=[{"a": 1}, {"b": 2}])
     assert v.count == 2
 
