@@ -29,13 +29,32 @@ _SOPOR_DB = Path.home() / ".local" / "share" / "sopor" / "sopor.duckdb"
 
 
 def _keychain_token() -> str | None:
-    """Read Oura personal access token from macOS Keychain entry 'oura-token'."""
+    """Read Oura personal access token from macOS Keychain or 1Password."""
+    import platform
+    import shutil
+
+    # macOS Keychain
+    if platform.system() == "Darwin" and shutil.which("security"):
+        try:
+            r = subprocess.run(
+                ["security", "find-generic-password", "-s", "oura-token", "-w"],
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+            if r.returncode == 0:
+                return r.stdout.strip() or None
+        except Exception:
+            pass
+
+    # 1Password fallback
+    op_bin = shutil.which("op") or os.path.expanduser("~/bin/op")
     try:
         r = subprocess.run(
-            ["security", "find-generic-password", "-s", "oura-token", "-w"],
+            [op_bin, "read", "op://Agents/Agent Environment/oura_token"],
             capture_output=True,
             text=True,
-            timeout=5,
+            timeout=10,
         )
         if r.returncode == 0:
             return r.stdout.strip() or None

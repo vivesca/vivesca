@@ -164,7 +164,13 @@ def _check_phenotype_symlinks() -> tuple[list[dict], list[str]]:
     return issues, unknown
 
 
-_LAUNCHAGENTS_DIR = Path.home() / "Library" / "LaunchAgents"
+import platform as _platform
+
+_LAUNCHAGENTS_DIR = (
+    Path.home() / "Library" / "LaunchAgents"
+    if _platform.system() == "Darwin"
+    else Path.home() / "epigenome" / "oscillators"
+)
 
 
 def _check_launchagent_paths() -> list[dict]:

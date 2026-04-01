@@ -67,7 +67,13 @@ def get_oauth_token() -> str:
         except (json.JSONDecodeError, OSError) as e:
             raise RuntimeError(f"Failed to read ~/.claude/.credentials.json: {e}") from e
 
-    # Fallback: macOS Keychain (legacy storage path)
+    # Fallback: macOS Keychain (legacy storage path, Darwin only)
+    import platform
+    if platform.system() != "Darwin":
+        raise RuntimeError(
+            "No valid token in ~/.claude/.credentials.json and macOS Keychain not available. "
+            "Start a Claude Code session to create credentials."
+        )
     result = subprocess.run(
         ["security", "find-generic-password", "-s", "Claude Code-credentials", "-w"],
         capture_output=True,
