@@ -421,10 +421,8 @@ async def _run_command(
     dry_run: bool = False,
     coaching: bool = True,
 ) -> ExecutionAttempt:
-    if coaching:
-        prompt = _prepend_coaching(prompt, tool)
     # For codex: long specs get written to a file and referenced by path.
-    # Codex treats inline markdown walls as context, not instructions.
+    # Must happen BEFORE coaching prepend — otherwise coaching drowns the spec.
     if tool == "codex" and len(prompt) > 2000:
         spec_file = Path(tempfile.gettempdir()) / f"sortase-codex-spec-{task_name or 'task'}.md"
         spec_file.write_text(prompt, encoding="utf-8")
@@ -433,6 +431,8 @@ async def _run_command(
             f"Read the spec at {spec_file} and execute every step in it. "
             f"Only touch files listed in the spec's 'Files changed' section."
         )
+    if coaching:
+        prompt = _prepend_coaching(prompt, tool)
     if dry_run:
         prompt = (
             "DRY RUN MODE: Explain exactly what files you would edit and what changes you would make, "
