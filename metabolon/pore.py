@@ -62,16 +62,35 @@ def serve(http: bool, host: str | None, port: int | None):
 @cli.command()
 def reload():
     """Restart the HTTP server by bouncing the LaunchAgent."""
+    import platform
     import subprocess
 
     label = "com.vivesca.mcp"
-    plist = os.path.expanduser(f"~/Library/LaunchAgents/{label}.plist")
-    if not os.path.exists(plist):
-        click.echo(f"LaunchAgent not found: {plist}", err=True)
-        sys.exit(1)
-    subprocess.run(["launchctl", "unload", plist], check=True, timeout=300)
-    subprocess.run(["launchctl", "load", plist], check=True, timeout=300)
-    click.echo(f"Reloaded {label}")
+
+    if platform.system() == "Darwin":
+        plist = os.path.expanduser(f"~/Library/LaunchAgents/{label}.plist")
+        if not os.path.exists(plist):
+            click.echo(f"LaunchAgent not found: {plist}", err=True)
+            sys.exit(1)
+        subprocess.run(["launchctl", "unload", plist], check=True, timeout=300)
+        subprocess.run(["launchctl", "load", plist], check=True, timeout=300)
+        click.echo(f"Reloaded {label}")
+    else:
+        # Linux: try systemd user service
+        try:
+            subprocess.run(
+                ["systemctl", "--user", "restart", f"{label}.service"],
+                check=True,
+                timeout=300,
+            )
+            click.echo(f"Reloaded {label} via systemctl")
+        except (subprocess.CalledProcessError, FileNotFoundError) as exc:
+            click.echo(
+                f"launchctl not available on {platform.system()}; "
+                f"systemctl restart also failed: {exc}",
+                err=True,
+            )
+            sys.exit(1)
 
 
 @cli.command()

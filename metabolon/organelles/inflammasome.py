@@ -501,6 +501,43 @@ def check_pyroptosis(probe_name: str, priming: dict) -> bool:
     return priming.get(probe_name, 0) >= _PYROPTOSIS_THRESHOLD
 
 
+def _pyroptosis_alert(probe_name: str, count: int, message: str) -> None:
+    """Send Telegram alert on pyroptosis — the only loud escalation path.
+
+    Fires once per probe per pyroptosis threshold crossing (not every cycle).
+    Uses a cooldown file to avoid spam: one alert per probe per 6 hours.
+    """
+    cooldown_dir = _PRIMING_PATH.parent
+    cooldown_file = cooldown_dir / f"pyroptosis_{probe_name}.ts"
+    cooldown_seconds = 6 * 3600  # 6 hours
+
+    try:
+        if cooldown_file.exists():
+            last_alert = float(cooldown_file.read_text().strip())
+            if time.time() - last_alert < cooldown_seconds:
+                return  # Still in cooldown — don't spam
+    except Exception:
+        pass  # Corrupted file — alert anyway
+
+    try:
+        from metabolon.organelles.secretory_vesicle import secrete_text
+
+        alert = (
+            f"<b>🔴 PYROPTOSIS — {probe_name}</b>\n"
+            f"{count} consecutive failures\n"
+            f"<code>{message[:300]}</code>"
+        )
+        secrete_text(alert, html=True, label="inflammasome")
+    except Exception:
+        pass  # If Telegram itself is broken, don't crash the probe cycle
+
+    try:
+        cooldown_dir.mkdir(parents=True, exist_ok=True)
+        cooldown_file.write_text(str(time.time()))
+    except Exception:
+        pass
+
+
 def adaptive_response(results: list[dict]) -> list[dict]:
     """Apply known repairs to probe failures; log unknowns for human review.
 
@@ -549,13 +586,15 @@ def adaptive_response(results: list[dict]) -> list[dict]:
             result["repair_attempted"] = "priming"
             continue
 
-        # Pyroptosis: if this probe has failed too many times, escalate.
+        # Pyroptosis: if this probe has failed too many times, escalate LOUDLY.
         if check_pyroptosis(probe_name, priming):
+            fail_count = priming[probe_name]
             _log(
                 probe_name,
-                f"PYROPTOSIS — {priming[probe_name]} consecutive failures, human attention needed | {message}",
+                f"PYROPTOSIS — {fail_count} consecutive failures, human attention needed | {message}",
             )
-            result["repair_attempted"] = f"pyroptosis:{priming[probe_name]}"
+            _pyroptosis_alert(probe_name, fail_count, message)
+            result["repair_attempted"] = f"pyroptosis:{fail_count}"
             continue
 
         # Check for critical/structural failures first.

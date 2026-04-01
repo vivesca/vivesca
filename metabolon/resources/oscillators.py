@@ -7,6 +7,7 @@ Resources:
 """
 
 
+import platform
 import plistlib
 import re
 import subprocess
@@ -26,6 +27,8 @@ def _scan_pacemaker_plists() -> list[Path]:
 
 def _launchctl_status(label: str) -> dict:
     """Run launchctl list <label> and return parsed fields."""
+    if platform.system() != "Darwin":
+        return {"running": False, "pid": None, "last_exit": None, "loaded": False}
     try:
         result = subprocess.run(
             ["launchctl", "list", label],

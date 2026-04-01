@@ -14,6 +14,7 @@ Clot first, understand second.
 
 
 import datetime
+import platform
 import subprocess
 from pathlib import Path
 
@@ -134,6 +135,15 @@ def hemostasis(
 
     # --- launchagent ------------------------------------------------------
     if action == "launchagent":
+        if platform.system() != "Darwin":
+            return EffectorResult(
+                success=False,
+                message=(
+                    f"launchctl is not available on {platform.system()}. "
+                    "Use `systemctl --user start/stop <service>` instead."
+                ),
+            )
+
         la = launchagent_action.lower()
         if la not in ("load", "unload"):
             return EffectorResult(
