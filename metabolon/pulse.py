@@ -661,8 +661,6 @@ def fire_systole(
             elapsed = round(time.time() - start, 1)
             record_event("systole_error", systole=systole_num, error=str(e), elapsed_s=elapsed)
             return False, ""
-        finally:
-            log_fh.close()
 
 
 # ---------------------------------------------------------------------------

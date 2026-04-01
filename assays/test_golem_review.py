@@ -775,7 +775,7 @@ class TestRunReview:
         assert rc == 0
         assert env["REVIEW_FILE"].exists()
 
-    def test_with_task(self, tmp_path, capsys):
+    def test_with_task(self, tmp_path):
         env = _setup_env(tmp_path)
         now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         env["LOGFILE"].write_text(f"[{now}] Finished (100s, exit=0): golem task A\n")
@@ -792,7 +792,8 @@ class TestRunReview:
             for k, v in orig.items():
                 _mod[k] = v
         assert rc == 0
-        assert "task A" in capsys.readouterr().out
+        review_text = env["REVIEW_FILE"].read_text()
+        assert "task A" in review_text
 
     def test_auto_requeue(self, tmp_path, capsys):
         env = _setup_env(tmp_path)
