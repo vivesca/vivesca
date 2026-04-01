@@ -21,7 +21,10 @@ import sys
 import yaml
 from pathlib import Path
 
-MEMORY_DIR = Path.home() / ".claude/projects/-Users-terry/memory"
+# Claude Code memory dir: path-encodes the project root
+_CLAUDE_PROJ_DIR = Path.home() / ".claude" / "projects"
+_HOME_STEM = str(Path.home()).strip("/").replace("/", "-")
+MEMORY_DIR = _CLAUDE_PROJ_DIR / f"-{_HOME_STEM}" / "memory"
 
 # Behavioral axes — feedbacks that pull on the same dimension
 AXES = {

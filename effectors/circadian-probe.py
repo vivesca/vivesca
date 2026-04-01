@@ -22,8 +22,12 @@ import time
 from datetime import date, datetime
 from pathlib import Path
 
-CHROMATIN = Path.home() / "code" / "epigenome" / "chromatin"
-MEMORY_DIR = Path.home() / ".claude" / "projects" / "-Users-terry" / "memory"
+CHROMATIN = Path.home() / "epigenome" / "chromatin"
+
+# Claude Code memory dir: path-encodes the project root
+_CLAUDE_PROJ_DIR = Path.home() / ".claude" / "projects"
+_HOME_STEM = str(Path.home()).strip("/").replace("/", "-")
+MEMORY_DIR = _CLAUDE_PROJ_DIR / f"-{_HOME_STEM}" / "memory"
 PRAXIS_FILE = CHROMATIN / "Praxis.md"
 PROSPECTIVE_FILE = MEMORY_DIR / "prospective.md"
 
