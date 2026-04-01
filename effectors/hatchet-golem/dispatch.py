@@ -127,23 +127,14 @@ async def _run_one(task_ref, line_num, prompt, provider, task_id, max_turns):
     """Run a single task and handle result."""
     info = {"task_id": task_id, "provider": provider, "prompt": prompt[:200], "status": "pending"}
     try:
-        run_ref = await task_ref.aio_run({
+        run_ref = await task_ref.aio_run_no_wait({
             "task": prompt,
             "max_turns": max_turns,
         })
-        result = await run_ref.aio_result()
-        exit_code = result.get("exit_code", -1) if isinstance(result, dict) else -1
-        success = result.get("success", False) if isinstance(result, dict) else False
-        if success:
-            mark_done(line_num, f"hatchet:exit={exit_code}")
-            log(f"[OK] [{task_id}] {provider}: {prompt[:60]}...")
-            info["status"] = "ok"
-            info["exit_code"] = exit_code
-        else:
-            mark_failed(line_num, f"hatchet:exit={exit_code}")
-            log(f"[FAIL] [{task_id}] {provider}: exit={exit_code}")
-            info["status"] = "failed"
-            info["exit_code"] = exit_code
+        mark_done(line_num, f"hatchet:dispatched:{run_ref.workflow_run_id}")
+        log(f"[DISPATCHED] [{task_id}] {provider}: {prompt[:60]}...")
+        info["status"] = "dispatched"
+        info["workflow_run_id"] = run_ref.workflow_run_id
     except Exception as e:
         mark_failed(line_num, str(e)[:100])
         log(f"[ERROR] [{task_id}] {provider}: {e}")
