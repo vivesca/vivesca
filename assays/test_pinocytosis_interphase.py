@@ -52,7 +52,7 @@ def test_intake_emails_archived_returns_result():
         assert result["label"] == "Today's Archived (Cora safety net)"
         assert result["ok"] is True
         assert "archived message" in result["content"]
-        assert "newer_than:1d" in mock_run.call_args[0][0]
+        assert any("newer_than:1d" in arg for arg in mock_run.call_args[0][0])
 
 
 def test_intake_whatsapp_main_succeeds():
@@ -62,7 +62,7 @@ def test_intake_whatsapp_main_succeeds():
         assert result["label"] == "WhatsApp Messages (last 24h)"
         assert result["ok"] is True
         mock_run.assert_called_once()
-        assert "--after" in mock_run.call_args[0][0]
+        assert any("--after" in arg for arg in mock_run.call_args[0][0])
 
 
 def test_intake_whatsapp_main_falls_back_to_chats():
