@@ -236,6 +236,10 @@ class TestBlockingLogic:
         out = capsys.readouterr().out
         assert "BLOCKED" in out
 
+    @pytest.mark.skipif(
+        os.path.expanduser("~").startswith("/home"),
+        reason="~/Library blocking is macOS-specific"
+    )
     def test_blocks_macos_library_via_mock(self, sg):
         """Test macOS Library path blocking via mock."""
         with patch("sys.argv", ["rg", "pattern", str(Path.home() / "Library")]):
@@ -243,15 +247,15 @@ class TestBlockingLogic:
                 sg.main()
             assert exc.value.code == 1
 
-    def test_blocks_macos_downloads_via_mock(self, sg):
-        """Test macOS Downloads path blocking via mock."""
+    def test_blocks_downloads_via_mock(self, sg):
+        """Test Downloads path blocking via mock."""
         with patch("sys.argv", ["rg", "pattern", str(Path.home() / "Downloads")]):
             with pytest.raises(SystemExit) as exc:
                 sg.main()
             assert exc.value.code == 1
 
-    def test_blocks_macos_pictures_via_mock(self, sg):
-        """Test macOS Pictures path blocking via mock."""
+    def test_blocks_pictures_via_mock(self, sg):
+        """Test Pictures path blocking via mock."""
         with patch("sys.argv", ["rg", "pattern", str(Path.home() / "Pictures")]):
             with pytest.raises(SystemExit) as exc:
                 sg.main()

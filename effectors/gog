@@ -251,10 +251,7 @@ def cmd_get(args: argparse.Namespace) -> None:
     print(f"To:     {_header(msg, 'To')}")
     print(f"Subject:{_subject(msg)}")
     print()
-    if args.plain:
-        print(_decode_body(msg.get("payload", {})))
-    else:
-        print(_decode_body(msg.get("payload", {})))
+    print(_decode_body(msg.get("payload", {})))
 
 
 def cmd_thread_get(args: argparse.Namespace) -> None:
