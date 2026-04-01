@@ -231,14 +231,12 @@ def test_request_body_is_valid_json():
         log = _setup_fake_curl(tmpdir, GOOD_RESPONSE)
         _run(["search", "simple query"], _mock_env(tmpdir))
         args = log.read_text()
-        # Extract the -d argument (JSON payload between quotes after -d flag)
         import re
 
-        # The fake curl receives all args; find the JSON blob after -d
-        # The script sends: -d "{ ... }"
-        match = re.search(r"-d\s+\"(\{.*?\})\"", args, re.DOTALL)
+        # The fake curl receives: -d { ... }  (bash strips the wrapping quotes)
+        match = re.search(r"-d\s+(\{.*\})", args, re.DOTALL)
         assert match, f"Could not find -d JSON payload in curl args: {args}"
-        payload = json.loads(match.group(1).replace('\\"', '"'))
+        payload = json.loads(match.group(1).strip())
         assert payload["model"] == "sonar"
         assert payload["messages"][0]["role"] == "user"
         assert payload["messages"][0]["content"] == "simple query"
