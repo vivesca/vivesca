@@ -39,11 +39,4 @@ assays/test_pathways_overnight.py::TestMetabolizePipeline::test_full_success PAS
 assays/test_pathways_overnight.py::TestMetabolizePipeline::test_publish_failure PASSED [ 78%]
 assays/test_pathways_overnight.py::TestMetabolizePipeline::test_no_convergence PASSED [ 81%]
 assays/test_pathways_overnight.py::TestMetabolizePipeline::test_compose_failure PASSED [ 84%]
-assays/test_pathways_overnight.py::TestMetabolizePipeline::test_mixed_results PASSED [ 86%]
-assays/test_pathways_overnight.py::TestMetabolizePipeline::test_empty_seeds_list PASSED [ 89%]
-assays/test_pathways_overnight.py::TestMetabolizePipeline::test_summary_json_written PASSED [ 92%]
-assays/test_pathways_overnight.py::TestMetabolizePipeline::test_metabolise_called_with_expander_pusher PASSED [ 94%]
-assays/test_pathways_overnight.py::TestMetabolizePipeline::test_compose_receives_crystal_and_title PASSED [ 97%]
-assays/test_pathways_overnight.py::TestMetabolizePipeline::test_returns_dict_with_three_lists PASSED [100%]
-
-============================= 38 passed in 40.24s ==============================
+assays/test_pathways_overnight.py::TestMetabolizePipeline::test_mixed_results 
