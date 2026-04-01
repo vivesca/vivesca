@@ -7,7 +7,8 @@
 #   golem --batch metabolon/bar.py metabolon/baz.py  # sequential test gen
 #   golem --max-turns 30 "Complex task"
 #   golem --quiet "Task"                            # suppress all output, exit code only
-#   golem summary [--recent N]                       # show provider stats
+#   golem --json "Task"                             # output result as JSON
+#   golem summary [--recent N] [--json]              # show provider stats
 set -euo pipefail
 
 MAX_TURNS="${GOLEM_MAX_TURNS:-50}"
@@ -37,6 +38,7 @@ from collections import defaultdict
 
 recent = 0
 log_file = None
+json_output = False
 
 # Parse args
 args = sys.argv[1:]
@@ -47,6 +49,9 @@ while i < len(args):
         i += 2
     elif args[i].startswith('--log='):
         log_file = args[i][6:]
+        i += 1
+    elif args[i] == '--json':
+        json_output = True
         i += 1
     else:
         i += 1
@@ -81,13 +86,26 @@ try:
         except json.JSONDecodeError:
             continue
 
-    # Print table
-    print(f"{'Provider':<12} | {'Runs':>4} | {'Pass':>4} | {'Fail':>4} | {'Avg Duration':>12} | {'Tests Created':>13}")
-    print('-' * 63)
-    for provider in sorted(stats.keys()):
-        s = stats[provider]
-        avg_dur = s['total_duration'] // s['runs'] if s['runs'] > 0 else 0
-        print(f"{provider:<12} | {s['runs']:>4} | {s['pass']:>4} | {s['fail']:>4} | {avg_dur:>10}s | {s['tests_created']:>13}")
+    # Print output
+    if json_output:
+        result = {}
+        for provider in sorted(stats.keys()):
+            s = stats[provider]
+            result[provider] = {
+                'runs': s['runs'],
+                'pass': s['pass'],
+                'fail': s['fail'],
+                'avg_duration': s['total_duration'] // s['runs'] if s['runs'] > 0 else 0,
+                'tests_created': s['tests_created'],
+            }
+        print(json.dumps(result))
+    else:
+        print(f"{'Provider':<12} | {'Runs':>4} | {'Pass':>4} | {'Fail':>4} | {'Avg Duration':>12} | {'Tests Created':>13}")
+        print('-' * 63)
+        for provider in sorted(stats.keys()):
+            s = stats[provider]
+            avg_dur = s['total_duration'] // s['runs'] if s['runs'] > 0 else 0
+            print(f"{provider:<12} | {s['runs']:>4} | {s['pass']:>4} | {s['fail']:>4} | {avg_dur:>10}s | {s['tests_created']:>13}")
 except FileNotFoundError:
     print(f"No log file found: {log_file}", file=sys.stderr)
     sys.exit(1)
@@ -101,6 +119,7 @@ if [[ "${1:-}" == "summary" ]]; then
   while [[ "${1:-}" == --* ]]; do
     case "$1" in
       --recent) summary_args+=("--recent" "$2"); shift 2 ;;
+      --json) summary_args+=("--json"); JSON_OUTPUT=true; shift ;;
       --quiet) QUIET=true; shift ;;
       -h|--help) head -10 "$0" | tail -9 | sed 's/^# */  /'; exit 0 ;;
       *) echo "Unknown flag: $1" >&2; exit 1 ;;
@@ -123,6 +142,7 @@ while [[ "${1:-}" == --* ]]; do
     --full) BARE=false; shift ;;
     --bare) BARE=true; shift ;;
     --quiet) QUIET=true; shift ;;
+    --json) JSON_OUTPUT=true; shift ;;
     --provider) PROVIDER="$2"; shift 2 ;;
     --fallback) FALLBACK=true; shift ;;
     -h|--help) head -9 "$0" | tail -8 | sed 's/^# */  /'; exit 0 ;;
@@ -235,7 +255,28 @@ _run_golem() {
     "$(echo "$short_prompt" | tr '"' "'")" \
     "$(echo "${output: -200}" | tr '"' "'" | tr '\n' ' ')" \
     "$files_created" "$tests_passed" "$tests_failed" "$pytest_exit" >> "$GOLEM_LOG"
-  $QUIET || echo "$output"
+  if $JSON_OUTPUT; then
+    local _json_tmp
+    _json_tmp="$(mktemp)"
+    printf '%s' "$output" > "$_json_tmp"
+    python3 -c "
+import json, sys
+output_text = open(sys.argv[1]).read()
+result = {
+    'output': output_text,
+    'exit_code': int(sys.argv[2]),
+    'duration': int(sys.argv[3]),
+    'provider': sys.argv[4],
+    'files_created': int(sys.argv[5]),
+    'tests_passed': int(sys.argv[6]),
+    'tests_failed': int(sys.argv[7]),
+}
+print(json.dumps(result))
+" "$_json_tmp" "$exit_code" "$duration" "$PROVIDER" "$files_created" "$tests_passed" "$tests_failed"
+    rm -f "$_json_tmp"
+  elif ! $QUIET; then
+    echo "$output"
+  fi
 
   # Auto-capture: if prompt mentions "Write to ~/...md", save output there
   local _target

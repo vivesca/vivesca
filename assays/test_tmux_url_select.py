@@ -108,13 +108,18 @@ class TestURLExtraction:
     """
 
     def _extract_urls(self, buf_path: Path) -> subprocess.CompletedProcess:
-        """Run the same grep+awk pipeline the script uses, via a temp script."""
+        """Run the same grep+awk pipeline the script uses, via a temp script.
+
+        The regex is https?://[^ >)"']+ — same as the original script.
+        We build the bash quoting carefully: 'https?://[^ >)"'"'"']+'
+        which is three tokens:  'https?://[^ >)"'  +  "'"  +  ']+'
+        """
         script = buf_path.parent / "extract.sh"
-        # Use the exact same regex from the original script:
-        # https?://[^ >)"']+
+        # Build the grep line with proper bash quoting for the single quote
+        regex_part = "'https?://[^ >)\"" + "'" + '"' + "'" + "']+'"
         script.write_text(
-            f"#!/bin/bash\n"
-            f"grep -oE 'https?://[^ >)\"'\\''']+\\' {buf_path} | awk '!seen[$0]++'\n"
+            "#!/bin/bash\n"
+            f"grep -oE {regex_part} {buf_path} | awk '!seen[$0]++'\n"
         )
         script.chmod(0o755)
         return subprocess.run(
