@@ -58,7 +58,7 @@ def _prepend_coaching(prompt: str, tool: str) -> str:
     """
     if tool in ("goose", "droid"):
         return prompt
-    if tool not in ("opencode", "golem", "crush") or not COACHING_NOTES.exists():
+    if tool not in ("opencode", "golem", "crush", "codex") or not COACHING_NOTES.exists():
         return prompt
     try:
         notes = COACHING_NOTES.read_text(encoding="utf-8")
@@ -86,7 +86,7 @@ TOOL_COMMANDS: dict[str, Callable[[Path, str], list[str]]] = {
         "--sandbox",
         "danger-full-access",
         "--full-auto",
-        prompt,
+        f"You are working in {project}. Execute the following spec exactly — only touch files listed in the spec.\n\n{prompt}",
     ],
     "goose": lambda project, prompt: [
         "translocon",
