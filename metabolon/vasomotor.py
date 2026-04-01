@@ -272,7 +272,7 @@ def assess_vital_capacity() -> tuple[bool, str]:
         )
 
     if weekly > tachycardia_threshold or sonnet > tachycardia_threshold:
-        emit_distress_signal(f"Respiration: budget climbing -- weekly={weekly}%, sonnet={sonnet}%")
+        pass  # TG alert removed — noisy when above threshold
 
     # Pacing gate — are we burning faster than the week can sustain?
     pacing_ok, pacing_reason = assess_pacing()
