@@ -93,7 +93,7 @@ class TestApplyFix:
 
     def test_applies_multiple_fixes(self, tmp_path: Path):
         p = tmp_path / "multi.py"
-        p.write_text('a = str(Path.home() / "a")\nb = str(Path.home() / "b")\n')
+        p.write_text('a = "/home/terry/a"\nb = "/home/terry/b"\n')
         findings = scan_file(p)
         result = apply_fix(p, findings)
         assert result == 2
@@ -120,7 +120,7 @@ class TestSubprocessCLI:
     def test_dry_run_shows_findings(self, tmp_path: Path):
         """Verify subprocess works in dry-run mode."""
         p = tmp_path / "test_sub.py"
-        p.write_text('X = str(Path.home() / "x")\n')
+        p.write_text('X = "/home/terry/x"\n')
         script = str(Path.home() / "germline/effectors/conftest-gen")
         result = subprocess.run(
             [script, "--assays-dir", str(tmp_path)],
