@@ -12,7 +12,7 @@ import re
 from datetime import date as _date, datetime, timedelta, timezone
 from pathlib import Path
 
-from fastmcp.tools import tool
+from fastmcp.tools.function_tool import tool
 from mcp.types import ToolAnnotations
 
 from metabolon.cytosol import invoke_organelle, synthesize

@@ -7,7 +7,7 @@ from pathlib import Path
 
 from metabolon.organelles.effector import run_cli
 
-from fastmcp.tools import tool
+from fastmcp.tools.function_tool import tool
 from mcp.types import ToolAnnotations
 
 BINARY = str(Path.home() / ".local/bin/efferens")

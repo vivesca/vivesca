@@ -14,7 +14,7 @@ import subprocess
 
 from metabolon.organelles.effector import run_cli  # noqa: E402
 
-from fastmcp.tools import tool  # noqa: E402
+from fastmcp.tools.function_tool import tool  # noqa: E402
 from fastmcp.resources import resource  # noqa: E402
 from mcp.types import ToolAnnotations  # noqa: E402
 

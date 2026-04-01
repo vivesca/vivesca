@@ -6,7 +6,7 @@ Actions: search|thread|categorize|archive|mark_read|label|send|filter
 """
 
 
-from fastmcp.tools import tool
+from fastmcp.tools.function_tool import tool
 from mcp.types import ToolAnnotations
 
 from metabolon.cytosol import invoke_organelle, synthesize

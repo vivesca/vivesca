@@ -8,7 +8,7 @@ Depth tiers (quick/thorough/deep) control Perplexity model selection.
 """
 
 
-from fastmcp.tools import tool
+from fastmcp.tools.function_tool import tool
 from mcp.types import ToolAnnotations
 
 from metabolon.organelles import rheotaxis_engine

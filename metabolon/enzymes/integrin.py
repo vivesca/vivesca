@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import os
+
 from metabolon.locus import (
     chromatin,
     receptors,
@@ -32,6 +34,7 @@ Tools:
 """
 
 import filecmp
+import os
 import re
 import shutil
 import subprocess
@@ -41,7 +44,7 @@ from pathlib import Path
 from typing import Any
 
 import yaml
-from fastmcp.tools import tool
+from fastmcp.tools.function_tool import tool
 from mcp.types import ToolAnnotations
 
 from metabolon.cytosol import VIVESCA_ROOT

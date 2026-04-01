@@ -7,7 +7,7 @@ Absorbs: gap_junction (ligand_*), keryx (keryx_*), receptor (receptor_*).
 """
 
 
-from fastmcp.tools import tool
+from fastmcp.tools.function_tool import tool
 from mcp.types import ToolAnnotations
 
 from metabolon.morphology import Secretion

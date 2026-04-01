@@ -13,7 +13,7 @@ import time
 from pathlib import Path
 from typing import Any
 
-from fastmcp.tools import tool
+from fastmcp.tools.function_tool import tool
 from mcp.types import ToolAnnotations
 
 from metabolon.morphology import Secretion

@@ -6,7 +6,7 @@ Actions: emit|read|history|transduce|resensitize|sweep|record_access
 """
 
 
-from fastmcp.tools import tool
+from fastmcp.tools.function_tool import tool
 from mcp.types import ToolAnnotations
 
 from metabolon.morphology import Secretion

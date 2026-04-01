@@ -23,7 +23,7 @@ PRAXIS_ARCHIVE = NOTES / "Praxis Archive.md"
 
 
 def _parse_date(date_str: str | None):
-    if not date_str:
+    if not date_str or not isinstance(date_str, str):
         return None
     try:
         return datetime.strptime(date_str.strip(), "%Y-%m-%d").date()
@@ -61,6 +61,8 @@ def today() -> dict:
         {"date": "YYYY-MM-DD", "items": [...], "today_count": N, "overdue_count": N}
     """
     today_date = _today_date()
+    if today_date is None:
+        return {"error": "Cannot determine today's date"}
     data = _read_today()
     if not data["available"]:
         return {"error": data["error"]}
@@ -82,6 +84,8 @@ def upcoming(days: int = 14) -> dict:
         {"date": "YYYY-MM-DD", "items": [...], "total_count": N, "overdue_count": N}
     """
     today_date = _today_date()
+    if today_date is None:
+        return {"error": "Cannot determine today's date"}
     end_date = today_date + timedelta(days=days)
     data = _read_all()
     if not data["available"]:
@@ -124,6 +128,8 @@ def overdue() -> dict:
         {"date": "YYYY-MM-DD", "items": [...], "total_count": N, "overdue_count": N}
     """
     today_date = _today_date()
+    if today_date is None:
+        return {"error": "Cannot determine today's date"}
     data = _read_all()
     if not data["available"]:
         return {"error": data["error"]}
@@ -157,6 +163,8 @@ def someday() -> dict:
         {"date": "YYYY-MM-DD", "items": [...], "total_count": N, "overdue_count": N}
     """
     today_date = _today_date()
+    if today_date is None:
+        return {"error": "Cannot determine today's date"}
     data = _read_all()
     if not data["available"]:
         return {"error": data["error"]}

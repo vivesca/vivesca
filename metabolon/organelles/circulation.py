@@ -31,8 +31,9 @@ import json
 import operator
 import time
 from pathlib import Path
-from typing import Annotated, Any, TypedDict
+from typing import Annotated, Any, TypedDict, cast
 
+from langchain_core.runnables.config import RunnableConfig
 from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.checkpoint.sqlite import SqliteSaver
 from langgraph.graph import END, StateGraph
@@ -435,7 +436,7 @@ def circulate(
     interrupt = ["dispatch"] if interactive else None
     app = graph.compile(checkpointer=checkpointer, interrupt_before=interrupt)
 
-    config = {"configurable": {"thread_id": thread_id}}
+    config = cast(RunnableConfig, {"configurable": {"thread_id": thread_id}})
 
     # Check for existing checkpoint to resume
     if resume and persistent:
@@ -484,7 +485,7 @@ def review_and_continue(
     graph = build_graph()
     app = graph.compile(checkpointer=checkpointer, interrupt_before=["dispatch"])
 
-    config = {"configurable": {"thread_id": thread_id}}
+    config = cast(RunnableConfig, {"configurable": {"thread_id": thread_id}})
 
     if not approve:
         # Jump to checkpoint's output edge — should_continue routes to report → END
@@ -514,7 +515,7 @@ def main():
     args = parser.parse_args()
 
     if args.dry_run:
-        state = preflight({
+        state = preflight({  # type: ignore[arg-type]
             "systole_num": 0,
             "budget_status": "green",
             "mode": args.mode,

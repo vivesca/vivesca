@@ -104,7 +104,7 @@ def _query_codex(cmd: list[str], prompt: str, timeout: int) -> str:
     """Run codex CLI with output file. Kills the entire process group on timeout."""
     env = {k: v for k, v in os.environ.items() if k != "CLAUDECODE"}
     with tempfile.NamedTemporaryFile(mode="w", suffix=".md", delete=False) as tmp:
-        tmp_path = tmp.name
+        tmp_path = Path(tmp.name)
     try:
         full_cmd = [*cmd, "-o", tmp_path, prompt]
         proc = subprocess.Popen(

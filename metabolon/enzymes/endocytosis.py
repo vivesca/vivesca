@@ -10,7 +10,7 @@ import contextlib
 from datetime import datetime
 from typing import Any
 
-from fastmcp.tools import tool
+from fastmcp.tools.function_tool import tool
 from mcp.types import ToolAnnotations
 
 from metabolon.locus import endocytosis_affinity

@@ -72,7 +72,7 @@ packages = ["metabolon"]
 testpaths = ["assays"]
 asyncio_mode = "auto"
 tmp_path_retention_policy = "none"
-addopts = "-m 'not slow'"
+addopts = "-m 'not slow' --import-mode=importlib"
 markers = ["slow: boots full MCP server (skip with default opts)"]
 
 [tool.ruff]

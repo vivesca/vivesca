@@ -12,7 +12,7 @@ Consolidated tool for the differentiation gym-coaching skill:
 from datetime import date
 from pathlib import Path
 
-from fastmcp.tools import tool
+from fastmcp.tools.function_tool import tool
 from mcp.types import ToolAnnotations
 
 from metabolon.organelles import chemoreceptor

@@ -9,7 +9,7 @@ Prompts:
 """
 
 
-from fastmcp.prompts import prompt
+from fastmcp.prompts.function_prompt import prompt
 
 
 @prompt(

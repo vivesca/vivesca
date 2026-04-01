@@ -14,13 +14,15 @@ reading is compared to recent history to surface trends.
 import filecmp
 import json
 import os
+from collections.abc import Callable
 import re
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from collections.abc import Callable
 from typing import Literal
 
 import yaml
-from fastmcp.tools import tool
+from fastmcp.tools.function_tool import tool
 
 HKT = timezone(timedelta(hours=8))
 _GRADIENT_LOG = str(Path.home() / "logs" / "proprioception.jsonl")
@@ -500,7 +502,7 @@ def _timing() -> str:
     return "\n".join(lines)
 
 
-_DISPATCH: dict[str, callable] = {
+_DISPATCH: dict[str, Callable] = {
     "genome": _genome,
     "anatomy": _anatomy,
     "circadian": _circadian,

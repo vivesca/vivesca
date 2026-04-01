@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 import importlib
+import importlib.util
 import shutil
 import sys
-import types
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -11,23 +11,31 @@ import pytest
 import yaml
 
 
-# Allow pytest to collect test files with dots in the name (e.g. test_foo.sh.py)
-# by importing them under a sanitised module name instead of the broken default.
+# Allow pytest to collect test files with dots in the name (e.g. test_foo.sh.py).
+# The dot makes Python's importer treat "test_foo" as a package, causing
+# ModuleNotFoundError.  We pre-import under the dotted name so the default
+# collector finds the module already in sys.modules.
+
+
 def pytest_collect_file(file_path: Path, parent):
-    if file_path.name.startswith("test_") and file_path.suffixes == [".sh", ".py"]:
-        # Build a valid Python module name: replace dots with underscores
-        safe_name = file_path.name.replace(".", "_").removesuffix("_py")
-        if safe_name not in sys.modules:
-            mod = types.ModuleType(safe_name)
-            mod.__file__ = str(file_path)
-            spec = importlib.util.spec_from_file_location(safe_name, file_path)
-            if spec and spec.loader:
-                loader_mod = importlib.util.module_from_spec(spec)
-            else:
-                return None
-            sys.modules[safe_name] = loader_mod
-            spec.loader.exec_module(loader_mod)  # type: ignore[union-attr]
-        return pytest.Module.from_parent(parent, path=file_path)
+    if file_path.suffixes != [".sh", ".py"] or not file_path.name.startswith("test_"):
+        return None
+    # Derive the module name that the default collector will look for.
+    rootdir = Path(parent.config.rootdir)
+    try:
+        rel = file_path.relative_to(rootdir)
+    except ValueError:
+        return None
+    module_name = str(rel).replace("/", ".").replace("\\", ".").removesuffix(".py")
+    if module_name not in sys.modules:
+        spec = importlib.util.spec_from_file_location(module_name, str(file_path))
+        if spec is None or spec.loader is None:
+            return None
+        mod = importlib.util.module_from_spec(spec)
+        sys.modules[module_name] = mod
+        spec.loader.exec_module(mod)
+    # Return None to let the default collector create the Module node;
+    # it will find the module already cached in sys.modules.
     return None
 
 
