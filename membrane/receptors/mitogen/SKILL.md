@@ -166,15 +166,18 @@ golem --full "task needing MCP"           # non-bare mode
 
 ### Provider config
 
-| Provider | Model | TTFB | golem-daemon limit | Auth |
-|----------|-------|------|--------------------|------|
-| ZhiPu (default) | GLM-5.1 | 380ms | 8 | ANTHROPIC_API_KEY |
-| Infini | deepseek-v3.2 | 2.6s | 1 (rate-limited) | ANTHROPIC_API_KEY |
-| Volcano | ark-code-latest | 11s | 16 | ANTHROPIC_AUTH_TOKEN |
+| Provider | Model | TTFB | golem-daemon limit | Auth | Notes |
+|----------|-------|------|--------------------|------|-------|
+| ZhiPu (default) | GLM-5.1 | 380ms | 8 | ANTHROPIC_API_KEY | Most reliable (48% pass). Use for all critical work. |
+| Infini | deepseek-v3.2 | 2.6s | 4 | ANTHROPIC_API_KEY | Good coder. 1000 req/5hr plan limit — exhausts on mass dispatch. |
+| Volcano | ark-code-latest | 11s | 16 | ANTHROPIC_AUTH_TOKEN | HK->Tokyo->SJC routing. Background/overflow only. |
+| Gemini | gemini-3.1-pro | ~1s | 4 | GOOGLE_API_KEY | Uses `gemini` CLI, not claude. Momentary quota resets quickly. |
+| Codex | gpt-5.3-codex | ~2s | 4 | OPENAI_API_KEY | Uses `codex exec` CLI. Needs `--dangerously-bypass-approvals-and-sandbox`. |
 
-**Total concurrent budget: ~25 golems across 3 providers.** golem-daemon manages this automatically with per-provider cooldowns on rate-limit detection.
+**Total concurrent budget: ~36 golems across 5 providers.** golem-daemon manages concurrency and rate-limit cooldowns automatically.
 
-Priority: ZhiPu (fast, reliable) > Volcano (slow but high concurrency) > Infini (good coder, strict rate limit).
+Priority for perishable work: ZhiPu > Gemini > Infini. Overflow: Volcano, Codex.
+Provider quotas recover naturally — Infini resets every 5hr, Volcano resets on a schedule. Don't panic on quota exhaustion; golem-daemon's cooldown handles it.
 
 ## Gotchas
 
