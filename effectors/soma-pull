@@ -14,8 +14,6 @@ REPOS = [
     Path.home() / "epigenome",
     Path.home() / "code" / "gemmule",
     Path.home() / "code" / "oghma",
-    Path.home() / "code" / "acta",
-    Path.home() / "officina",
 ]
 
 LOG = Path.home() / "tmp" / "soma-pull.log"
