@@ -1001,9 +1001,6 @@ class TestIterOpencodeMessagesWithData:
 
 class TestReadOpencodeTextWithData:
     def test_reads_and_concatenates_parts(self):
-        from metabolon.organelles.engram import _read_opencode_text as _rot
-
-        mock_storage = MagicMock()
         mock_part_dir = MagicMock()
         mock_part_dir.exists.return_value = True
 
@@ -1017,15 +1014,23 @@ class TestReadOpencodeTextWithData:
 
         mock_part_dir.iterdir.return_value = [part2, part1]  # unsorted, should sort by name
 
-        def truediv(key):
-            if key == "part":
-                inner = MagicMock()
-                inner.__truediv__ = lambda s, k: mock_part_dir if k == "msg-1" else MagicMock()
-                return inner
-            return MagicMock()
+        # storage / "part" / "msg-1" -> mock_part_dir
+        part_dir = MagicMock()
+        part_dir_map = {"msg-1": mock_part_dir}
 
-        mock_storage.__truediv__ = truediv
-        result = _rot(mock_storage, "msg-1")
+        def part_truediv(self, key):
+            return part_dir_map.get(key, MagicMock(exists=MagicMock(return_value=False)))
+
+        part_dir.__truediv__ = part_truediv
+
+        mock_storage = MagicMock()
+        storage_map = {"part": part_dir}
+
+        def storage_truediv(self, key):
+            return storage_map.get(key, MagicMock())
+
+        mock_storage.__truediv__ = storage_truediv
+        result = _read_opencode_text(mock_storage, "msg-1")
         assert result == "Hello World"
 
 
