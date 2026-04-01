@@ -35,6 +35,8 @@ VIVESCA_DIR = Path.home() / ".local" / "share" / "vivesca"
 JSONL_PATH = VIVESCA_DIR / "golem.jsonl"
 LOG_PATH = VIVESCA_DIR / "golem-daemon.log"
 QUEUE_PATH = Path.home() / "germline" / "loci" / "golem-queue.md"
+RUNNING_JSON_PATH = VIVESCA_DIR / "golem-running.json"
+COOLDOWNS_PATH = VIVESCA_DIR / "golem-cooldowns.json"
 
 # ANSI colors
 GREEN = "\033[32m"
