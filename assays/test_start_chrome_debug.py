@@ -404,3 +404,44 @@ def test_usage_mentions_help_option():
     assert r.returncode == 0
     assert "--help" in r.stdout
     assert "-h" in r.stdout
+
+
+def test_unsupported_platform_exits_1(tmp_path):
+    """Script exits 1 on unsupported platform."""
+    # Run with fake uname that outputs something unsupported
+    bindir = tmp_path / "bin"
+    bindir.mkdir()
+    uname = bindir / "uname"
+    uname.write_text("#!/bin/bash\necho 'FreeBSD'\n")
+    uname.chmod(uname.stat().st_mode | stat.S_IEXEC)
+    env = os.environ.copy()
+    env["PATH"] = f"{bindir}:{env.get('PATH', '')}"
+    r = subprocess.run(
+        ["bash", str(SCRIPT)],
+        capture_output=True,
+        text=True,
+        timeout=10,
+        env=env,
+    )
+    assert r.returncode == 1
+    assert "Unsupported platform" in r.stderr
+
+
+def test_chrome_not_executable_exits_1(tmp_path):
+    """Script exits 1 if detected Chrome binary is not executable."""
+    bindir = tmp_path / "bin"
+    bindir.mkdir()
+    chrome = bindir / "google-chrome-stable"
+    chrome.write_text("#!/bin/bash\n# this won't be executable\n")
+    # Don't chmod +x — leave it non-executable
+    env = os.environ.copy()
+    env["PATH"] = f"{bindir}:{env.get('PATH', '')}"
+    r = subprocess.run(
+        ["bash", str(SCRIPT)],
+        capture_output=True,
+        text=True,
+        timeout=10,
+        env=env,
+    )
+    assert r.returncode == 1
+    assert "not executable" in r.stderr
