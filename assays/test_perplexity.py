@@ -282,3 +282,80 @@ class TestQueryEscaping:
         )
         assert proc.returncode == 0, f"stderr: {proc.stderr}"
         assert request["messages"][0]["content"] == "Héllo wörld 日本語"
+
+
+# ── Extra args / edge cases ─────────────────────────────────────────
+
+
+class TestExtraArgs:
+    def test_three_args_ignores_third(self, tmp_path):
+        """Extra positional args are ignored by bash — only $1 and $2 are used."""
+        body = json.dumps({"choices": [{"message": {"content": "ok"}}]})
+        env_extra = {
+            "PATH": f"{tmp_path}:{os.environ.get('PATH', '')}",
+            "PERPLEXITY_API_KEY": "test-key-12345",
+        }
+        _make_fake_curl(tmp_path, body)
+        proc = _run("search", "hello", "extra", env_extra=env_extra)
+        assert proc.returncode == 0, f"stderr: {proc.stderr}"
+
+    def test_response_with_empty_choices(self, tmp_path):
+        """Empty choices list should produce fallback output (no crash)."""
+        body = json.dumps({"choices": []})
+        proc, _ = _run_with_fake_curl(tmp_path, "search", "test", body)
+        # Script's python3 tries d['choices'][0] which raises IndexError,
+        # caught by the except block which dumps raw JSON.
+        assert proc.returncode == 0
+        assert "choices" in proc.stdout
+
+
+class TestAuthHeader:
+    def test_curl_receives_bearer_token(self, tmp_path):
+        """Verify the fake curl sees the Authorization header with Bearer."""
+        body = json.dumps({"choices": [{"message": {"content": "ok"}}]})
+
+        # Build a fake curl that captures -H args
+        fake = tmp_path / "curl"
+        capture = tmp_path / "captured_headers.txt"
+        resp_file = tmp_path / "mock_response.bin"
+        resp_file.write_text(body)
+        fake.write_text(
+            f"""#!/usr/bin/env bash
+while [ "$#" -gt 0 ]; do
+    case "$1" in
+        -H) shift; echo "$1" >> {capture}; shift ;;
+        -d) shift; shift ;;
+        *)  shift ;;
+    esac
+done
+cat {resp_file}
+"""
+        )
+        fake.chmod(fake.stat().st_mode | stat.S_IEXEC)
+
+        env_extra = {
+            "PATH": f"{tmp_path}:{os.environ.get('PATH', '')}",
+            "PERPLEXITY_API_KEY": "test-key-12345",
+        }
+        proc = _run("search", "test", env_extra=env_extra)
+        assert proc.returncode == 0, f"stderr: {proc.stderr}"
+        headers = capture.read_text().strip().split("\n")
+        assert any("Bearer test-key-12345" in h for h in headers), f"Headers: {headers}"
+
+
+class TestPayloadStructure:
+    def test_request_is_valid_json(self, tmp_path):
+        """The full -d payload should be parseable JSON with expected keys."""
+        body = json.dumps({"choices": [{"message": {"content": "ok"}}]})
+        proc, request = _run_with_fake_curl(tmp_path, "search", "test", body)
+        assert proc.returncode == 0, f"stderr: {proc.stderr}"
+        assert "model" in request
+        assert "messages" in request
+
+    def test_long_query_handled(self, tmp_path):
+        """A 10KB query string should survive JSON escaping intact."""
+        long_query = "x" * 10000
+        body = json.dumps({"choices": [{"message": {"content": "ok"}}]})
+        proc, request = _run_with_fake_curl(tmp_path, "search", long_query, body)
+        assert proc.returncode == 0, f"stderr: {proc.stderr}"
+        assert request["messages"][0]["content"] == long_query

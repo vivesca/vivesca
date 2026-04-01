@@ -364,9 +364,16 @@ class TestCmdArchive:
         with patch("sys.stdout", new_callable=StringIO) as out:
             _mod["cmd_archive"](args)
         assert "Archived: m1" in out.getvalue()
-        # Called once with keyword args, once as chained .execute()
-        calls = svc.users().messages().modify.call_args_list
-        assert any(c == ((userId="me",), {"id": "m1", "body": {"removeLabelIds": ["INBOX"]}}) for c in calls)
+        # Verify the modify call was made with correct kwargs
+        modify_calls = [
+            c for c in svc.users().messages().modify.call_args_list
+            if c.kwargs
+        ]
+        assert len(modify_calls) == 1
+        assert modify_calls[0].kwargs == {
+            "userId": "me", "id": "m1",
+            "body": {"removeLabelIds": ["INBOX"]},
+        }
 
 
 class TestCmdSearch:
