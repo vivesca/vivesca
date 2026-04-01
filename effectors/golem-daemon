@@ -889,7 +889,7 @@ def daemon_loop():
                 # Check for completed tasks
                 done_futures = [f for f in running if f.done()]
                 for future in done_futures:
-                    line_num, cmd, provider = running.pop(future)
+                    line_num, cmd, provider, task_id = running.pop(future)
                     provider_running[provider] = max(0, provider_running.get(provider, 0) - 1)
                     try:
                         _, exit_code, tail = future.result()
@@ -897,11 +897,11 @@ def daemon_loop():
                             # Golem succeeded — run advisory checks (don't block on them)
                             passed, errors = validate_golem_output()
                             if not passed:
-                                log(f"VALIDATION WARN: {cmd[:50]}... → {'; '.join(errors[:3])}")
+                                log(f"VALIDATION WARN [{task_id}]: {cmd[:50]}... → {'; '.join(errors[:3])}")
                             test_passed, test_result = check_new_test_files_and_run_pytest()
                             if not test_passed:
-                                log(f"PYTEST WARN: {cmd[:50]}... → {test_result}")
-                            mark_done(line_num, f"exit={exit_code}")
+                                log(f"PYTEST WARN [{task_id}]: {cmd[:50]}... → {test_result}")
+                            mark_done(line_num, f"exit={exit_code}", task_id=task_id)
                             # Auto-commit every 5 successful completions
                             global _mark_done_count
                             _mark_done_count += 1
@@ -910,11 +910,13 @@ def daemon_loop():
                                 log(f"auto-commit ({_mark_done_count} tasks): {commit_hash}")
                                 _mark_done_count = 0
                         else:
-                            mark_failed(line_num, f"exit={exit_code} {tail[:60]}", exit_code=exit_code)
-                            log(f"FAILED (exit={exit_code}): {cmd[:60]}...")
+                            mark_failed(line_num, f"exit={exit_code} {tail[:60]}", exit_code=exit_code, task_id=task_id)
+                            log(f"FAILED [{task_id}] (exit={exit_code}): {cmd[:60]}...")
                     except Exception as e:
                         log(f"Future error: {e}")
-                        mark_failed(line_num, str(e))
+                        mark_failed(line_num, str(e), task_id=task_id)
+                if done_futures:
+                    _update_running_file(running)
 
                 # Fill available slots per provider (skip if disk space is low)
                 if disk_space_paused:
@@ -959,8 +961,7 @@ def daemon_loop():
                     time.sleep(POLL_INTERVAL)
                     continue
 
-                for item in pending:
-                    line_num, cmd = item[0], item[1]
+                for line_num, cmd, task_id in pending:
                     provider = parse_provider(cmd)
                     current = provider_running.get(provider, 0)
                     limit = get_provider_limit(provider)
@@ -968,15 +969,17 @@ def daemon_loop():
                     if current < limit:
                         # Check if already running (avoid duplicate dispatch)
                         already_running = any(
-                            c == cmd for (_, c, _) in running.values()
+                            c == cmd for (_, c, _, _) in running.values()
                         )
                         if already_running:
                             continue
 
                         future = executor.submit(run_golem, cmd)
-                        running[future] = (line_num, cmd, provider)
+                        running[future] = (line_num, cmd, provider, task_id)
                         provider_running[provider] = current + 1
-                        log(f"Queued [{provider}]: {cmd[:60]}...")
+                        log(f"Queued [{provider}] [{task_id}]: {cmd[:60]}...")
+                if pending:
+                    _update_running_file(running)
 
                 # Status check
                 if running:

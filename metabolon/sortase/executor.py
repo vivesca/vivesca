@@ -7,6 +7,7 @@ import re
 import shutil
 import subprocess
 import sys
+import tempfile
 import uuid
 from collections.abc import Callable
 from dataclasses import dataclass, field

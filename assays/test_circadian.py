@@ -11,7 +11,7 @@ from metabolon.morphology import EffectorResult
 class TestCircadianList:
     """Tests for circadian(action='list')."""
 
-    @patch("metabolon.enzymes.circadian.scheduled_events")
+    @patch("metabolon.organelles.circadian_clock.scheduled_events")
     def test_list_returns_events(self, mock_scheduled: MagicMock) -> None:
         mock_scheduled.return_value = "10:00 Meeting\n12:00 Lunch"
         result = circadian(action="list", date="today")
@@ -19,7 +19,7 @@ class TestCircadianList:
         assert "Meeting" in result.output
         mock_scheduled.assert_called_once_with("today")
 
-    @patch("metabolon.enzymes.circadian.scheduled_events")
+    @patch("metabolon.organelles.circadian_clock.scheduled_events")
     def test_list_with_custom_date(self, mock_scheduled: MagicMock) -> None:
         mock_scheduled.return_value = "No events"
         result = circadian(action="list", date="2024-01-15")
@@ -30,7 +30,7 @@ class TestCircadianList:
 class TestCircadianSet:
     """Tests for circadian(action='set')."""
 
-    @patch("metabolon.enzymes.circadian.schedule_event")
+    @patch("metabolon.organelles.circadian_clock.schedule_event")
     def test_set_creates_event(self, mock_schedule: MagicMock) -> None:
         mock_schedule.return_value = "Created event #123"
         result = circadian(
@@ -44,7 +44,7 @@ class TestCircadianSet:
         assert "Created event" in result.output
         mock_schedule.assert_called_once_with("Team sync", "2024-01-15", "10:00", duration=60)
 
-    @patch("metabolon.enzymes.circadian.schedule_event")
+    @patch("metabolon.organelles.circadian_clock.schedule_event")
     def test_set_calculates_duration(self, mock_schedule: MagicMock) -> None:
         mock_schedule.return_value = "Created"
         circadian(
@@ -57,7 +57,7 @@ class TestCircadianSet:
         # 9:00 to 12:30 = 3.5 hours = 210 minutes
         mock_schedule.assert_called_once_with("Long meeting", "2024-01-15", "09:00", duration=210)
 
-    @patch("metabolon.enzymes.circadian.schedule_event")
+    @patch("metabolon.organelles.circadian_clock.schedule_event")
     def test_set_ignores_description_and_location(self, mock_schedule: MagicMock) -> None:
         mock_schedule.return_value = "Created"
         result = circadian(
@@ -82,7 +82,7 @@ class TestCircadianSet:
 class TestCircadianMove:
     """Tests for circadian(action='move')."""
 
-    @patch("metabolon.enzymes.circadian.reschedule_event")
+    @patch("metabolon.organelles.circadian_clock.reschedule_event")
     def test_move_reschedules_event(self, mock_reschedule: MagicMock) -> None:
         mock_reschedule.return_value = "Event moved"
         result = circadian(
@@ -105,7 +105,7 @@ class TestCircadianMove:
 class TestCircadianDelete:
     """Tests for circadian(action='delete')."""
 
-    @patch("metabolon.enzymes.circadian.cancel_event")
+    @patch("metabolon.organelles.circadian_clock.cancel_event")
     def test_delete_cancels_event(self, mock_cancel: MagicMock) -> None:
         mock_cancel.return_value = "Event deleted"
         result = circadian(action="delete", event_id="evt456")
@@ -123,7 +123,7 @@ class TestCircadianDelete:
 class TestCircadianSleep:
     """Tests for circadian(action='sleep')."""
 
-    @patch("metabolon.enzymes.circadian._sleep_result")
+    @patch("metabolon.enzymes.interoception._sleep_result")
     def test_sleep_returns_sleep_data(self, mock_sleep: MagicMock) -> None:
         mock_result = MagicMock()
         mock_result.summary = "Sleep score: 85"
@@ -134,7 +134,7 @@ class TestCircadianSleep:
         assert "Sleep score" in result.output
         mock_sleep.assert_called_once_with("today")
 
-    @patch("metabolon.enzymes.circadian._sleep_result")
+    @patch("metabolon.enzymes.interoception._sleep_result")
     def test_sleep_with_week_period(self, mock_sleep: MagicMock) -> None:
         mock_result = MagicMock()
         mock_result.summary = "Weekly sleep data"
@@ -147,7 +147,7 @@ class TestCircadianSleep:
 class TestCircadianHeartrate:
     """Tests for circadian(action='heartrate')."""
 
-    @patch("metabolon.enzymes.circadian._heartrate_result")
+    @patch("metabolon.enzymes.interoception._heartrate_result")
     def test_heartrate_returns_data(self, mock_hr: MagicMock) -> None:
         mock_result = MagicMock()
         mock_result.summary = "Avg HR: 72 bpm"
@@ -162,7 +162,7 @@ class TestCircadianHeartrate:
         assert "HR" in result.output
         mock_hr.assert_called_once_with("2024-01-15T00:00:00", "2024-01-15T23:59:59")
 
-    @patch("metabolon.enzymes.circadian._heartrate_result")
+    @patch("metabolon.enzymes.interoception._heartrate_result")
     def test_heartrate_with_defaults(self, mock_hr: MagicMock) -> None:
         mock_result = MagicMock()
         mock_result.summary = "HR data"
@@ -182,7 +182,7 @@ class TestCircadianUnknownAction:
         assert "Unknown action" in result.message
 
     def test_action_is_case_insensitive(self) -> None:
-        with patch("metabolon.enzymes.circadian.scheduled_events") as mock:
+        with patch("metabolon.organelles.circadian_clock.scheduled_events") as mock:
             mock.return_value = "Events"
             circadian(action="LIST")
             mock.assert_called_once()

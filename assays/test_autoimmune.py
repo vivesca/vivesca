@@ -257,13 +257,13 @@ class TestMain:
         assert state["session_id"] == "new-session"
 
     def test_invalid_json_exits_cleanly(self, ai):
-        with patch("sys.stdin", io.StringIO("not json")):
+        with patch("sys.argv", ["autoimmune"]), patch("sys.stdin", io.StringIO("not json")):
             with pytest.raises(SystemExit) as exc_info:
                 ai["main"]()
         assert exc_info.value.code == 0
 
     def test_empty_stdin_exits_cleanly(self, ai):
-        with patch("sys.stdin", io.StringIO("")):
+        with patch("sys.argv", ["autoimmune"]), patch("sys.stdin", io.StringIO("")):
             with pytest.raises(SystemExit) as exc_info:
                 ai["main"]()
         assert exc_info.value.code == 0
