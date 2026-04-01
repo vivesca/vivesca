@@ -319,3 +319,10 @@
 {"ts": "2026-04-01T15:10:55+00:00", "model": "sonar", "query": "q2"}
 {"ts": "2026-04-01T15:10:55+00:00", "model": "sonar", "query": "test query"}
 {"ts": "2026-04-01T15:10:55+00:00", "model": "sonar", "query": "test query"}
+{"ts": "2026-04-01T15:20:58+00:00", "model": "sonar", "query": "test query"}
+{"ts": "2026-04-01T15:20:58+00:00", "model": "sonar", "query": "test query"}
+{"ts": "2026-04-01T15:21:02+00:00", "model": "sonar", "query": "test query"}
+{"ts": "2026-04-01T15:21:06+00:00", "model": "sonar", "query": "test query"}
+{"ts": "2026-04-01T15:21:09+00:00", "model": "sonar", "query": "query1"}
+{"ts": "2026-04-01T15:21:29+00:00", "model": "sonar", "query": "query2"}
+{"ts": "2026-04-01T15:21:34+00:00", "model": "sonar", "query": "q1"}
