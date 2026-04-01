@@ -660,10 +660,10 @@ class TestSmoketest:
         )
         # sync called twice: once for test, once for cleanup
         mock_sync.side_effect = [bad_report, FidelityReport()]
-        # Mock probe file write
+        # Mock probe file: Path.home() / "epigenome" / "engrams" / "mitosis_probe.md"
         with patch("metabolon.organelles.mitosis.Path") as mock_path:
             mock_probe = MagicMock()
-            mock_path.home.return_value.__truediv__.return_value.__truediv__.return_value = mock_probe
+            mock_path.home.return_value.__truediv__.return_value.__truediv__.return_value.__truediv__.return_value = mock_probe
             result = smoketest()
 
         assert result["success"] is False
