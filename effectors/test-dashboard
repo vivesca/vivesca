@@ -28,14 +28,17 @@ def read_golem_log() -> list[dict]:
     if not GOLEM_LOG.exists():
         return []
     entries = []
-    with open(GOLEM_LOG) as f:
-        for line in f:
-            line = line.strip()
-            if line:
-                try:
-                    entries.append(json.loads(line))
-                except json.JSONDecodeError:
-                    pass
+    try:
+        with open(GOLEM_LOG, errors="replace") as f:
+            for line in f:
+                line = line.strip()
+                if line:
+                    try:
+                        entries.append(json.loads(line))
+                    except json.JSONDecodeError:
+                        pass
+    except OSError:
+        pass
     return entries
 
 

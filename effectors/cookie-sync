@@ -34,6 +34,7 @@ import base64
 import hashlib
 import json
 import os
+import platform
 import shutil
 import sqlite3
 import subprocess
@@ -42,9 +43,14 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
+IS_MACOS = platform.system() == "Darwin"
+
 # ── Constants ──────────────────────────────────────────────────────────────────
 
-CHROME_BASE = Path.home() / "Library" / "Application Support" / "Google" / "Chrome"
+if IS_MACOS:
+    CHROME_BASE = Path.home() / "Library" / "Application Support" / "Google" / "Chrome"
+else:
+    CHROME_BASE = Path.home() / ".config" / "google-chrome"
 DEFAULT_OUTPUT = (
     Path(os.environ.get("XDG_DATA_HOME", Path.home() / ".local" / "share"))
     / "vivesca"
@@ -52,7 +58,7 @@ DEFAULT_OUTPUT = (
 )
 
 PBKDF2_SALT = b"saltysalt"
-PBKDF2_ITERATIONS = 1003
+PBKDF2_ITERATIONS = 1003 if IS_MACOS else 1
 KEY_LENGTH = 16  # AES-128
 
 V10_PREFIX = b"v10"
@@ -63,22 +69,26 @@ V11_PREFIX = b"v11"
 
 
 def get_chrome_key() -> bytes:
-    """Retrieve Chrome Safe Storage key from macOS Keychain.
+    """Retrieve Chrome Safe Storage key.
 
-    Uses ``security find-generic-password`` to extract the password for
-    the "Chrome Safe Storage" item, then derives an AES-128 key via PBKDF2.
+    macOS: Uses Keychain via ``security find-generic-password``.
+    Linux: Chrome uses "peanuts" as the default password for PBKDF2.
     """
-    result = subprocess.run(
-        ["security", "find-generic-password", "-w", "-s", "Chrome Safe Storage"],
-        capture_output=True,
-        text=True,
-        timeout=300,
-    )
-    if result.returncode != 0:
-        raise RuntimeError(
-            f"Failed to get Chrome Safe Storage key: {result.stderr.strip()}"
+    if IS_MACOS:
+        result = subprocess.run(
+            ["security", "find-generic-password", "-w", "-s", "Chrome Safe Storage"],
+            capture_output=True,
+            text=True,
+            timeout=300,
         )
-    password = result.stdout.strip().encode("utf-8")
+        if result.returncode != 0:
+            raise RuntimeError(
+                f"Failed to get Chrome Safe Storage key: {result.stderr.strip()}"
+            )
+        password = result.stdout.strip().encode("utf-8")
+    else:
+        # Linux: Chrome uses the literal string "peanuts" as the password
+        password = b"peanuts"
     return derive_key(password)
 
 
