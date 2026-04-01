@@ -2,11 +2,10 @@ from __future__ import annotations
 
 import tempfile
 from pathlib import Path
-from unittest.mock import Mock, patch
 
 # Load the effector script
-GERMLINE = Path(__file__).parent.parent
-GOLEM_REVIEW = GERMLINE / "effectors" / "golem-review"
+TEST_GERMLINE = Path(__file__).parent.parent
+GOLEM_REVIEW = TEST_GERMLINE / "effectors" / "golem-review"
 exec(open(GOLEM_REVIEW).read(), globals())
 
 
@@ -29,11 +28,15 @@ def test_check_consulting_content_empty():
     with tempfile.TemporaryDirectory() as tmpdir:
         tmp_path = Path(tmpdir)
         # Temporarily set GERMLINE to tmpdir for testing
-        with patch("__main__.GERMLINE", tmp_path):
+        original_germline = globals()["GERMLINE"]
+        try:
+            globals()["GERMLINE"] = tmp_path
             (tmp_path / "loci").mkdir(parents=True, exist_ok=True)
             result = check_consulting_content(["non_existent.md"])
             assert len(result) == 1
             assert result[0]["exists"] is False
+        finally:
+            globals()["GERMLINE"] = original_germline
 
 
 def test_check_consulting_content_short():
@@ -43,13 +46,17 @@ def test_check_consulting_content_short():
         copia_dir.mkdir(parents=True, exist_ok=True)
         short_file = copia_dir / "short.md"
         short_file.write_text("This is short.")
-        
-        with patch("__main__.GERMLINE", tmp_path):
+
+        original_germline = globals()["GERMLINE"]
+        try:
+            globals()["GERMLINE"] = tmp_path
             result = check_consulting_content(["loci/copia/short.md"])
             assert len(result) == 1
             assert result[0]["exists"] is True
             assert result[0]["word_count"] < 200
             assert result[0]["adequate"] is False
+        finally:
+            globals()["GERMLINE"] = original_germline
 
 
 def test_check_consulting_content_good():
@@ -79,8 +86,10 @@ Here are some key points:
 This concludes our test document. It has headings, paragraphs, structure elements, and plenty of words.
 """
         good_file.write_text(content)
-        
-        with patch("__main__.GERMLINE", tmp_path):
+
+        original_germline = globals()["GERMLINE"]
+        try:
+            globals()["GERMLINE"] = tmp_path
             result = check_consulting_content(["loci/copia/good.md"])
             assert len(result) == 1
             assert result[0]["exists"] is True
@@ -90,6 +99,8 @@ This concludes our test document. It has headings, paragraphs, structure element
             assert result[0]["structure_ok"] is True
             assert result[0]["has_introduction"] is True
             assert result[0]["has_conclusion"] is True
+        finally:
+            globals()["GERMLINE"] = original_germline
 
 
 def test_diagnose_failure():

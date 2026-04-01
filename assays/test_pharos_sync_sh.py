@@ -40,6 +40,71 @@ def _run(
     mock_dir = work_dir / "mock-bin"
     mock_dir.mkdir(exist_ok=True)
 
+    # Create core command mocks (rsync, diff, cp, mkdir) if not already in recordings
+    core_commands = {}
+    if recordings is None or "rsync" not in recordings:
+        core_commands["rsync"] = None
+    if recordings is None or "diff" not in recordings:
+        core_commands["diff"] = None
+    if recordings is None or "cp" not in recordings:
+        core_commands["cp"] = None
+    if recordings is None or "mkdir" not in recordings:
+        core_commands["mkdir"] = None
+
+    for name in core_commands:
+        script = mock_dir / name
+        if name == "rsync":
+            # Mock rsync -a --delete src/ dst/ (copy recursively, delete extraneous)
+            script.write_text(
+                "#!/bin/bash\n"
+                "set -e\n"
+                "# Parse options -a --delete (ignore other opts)\n"
+                "while [[ $# -gt 0 && $1 == -* ]]; do shift; done\n"
+                "src=$1\n"
+                "dst=$2\n"
+                "# Remove trailing slash from src if present\n"
+                "src=${src%/}\n"
+                "dst=${dst%/}\n"
+                "# Ensure dst directory exists\n"
+                "mkdir -p \"$dst\"\n"
+                "# Copy all files from src to dst\n"
+                "cp -r \"$src\"/. \"$dst\"/ 2>/dev/null || true\n"
+                "# Delete files in dst not present in src (if --delete flag was used)\n"
+                "# We'll just find and delete extra files (simplified)\n"
+                "if [[ $* == *--delete* ]]; then\n"
+                "  (cd \"$dst\" && find . -type f -exec sh -c 'f=\"$1\"; if [ ! -f \"$src/$f\" ]; then rm \"$f\"; fi' _ {} \\; 2>/dev/null || true)\n"
+                "  (cd \"$dst\" && find . -type d -empty -delete 2>/dev/null || true)\n"
+                "fi\n"
+                "exit 0\n"
+            )
+        elif name == "diff":
+            # Mock diff -q: exit 0 if identical, 1 if different, 2 if error
+            script.write_text(
+                "#!/bin/bash\n"
+                "[[ $1 == \"-q\" ]] && shift\n"
+                "f1=$1\n"
+                "f2=$2\n"
+                "if [[ ! -f \"$f1\" || ! -f \"$f2\" ]]; then exit 2; fi\n"
+                "if cmp -s \"$f1\" \"$f2\"; then exit 0; else exit 1; fi\n"
+            )
+        elif name == "cp":
+            # Mock cp: copy file
+            script.write_text(
+                "#!/bin/bash\n"
+                "src=$1\n"
+                "dst=$2\n"
+                "mkdir -p \"$(dirname \"$dst\")\"\n"
+                "cp \"$src\" \"$dst\"\n"
+            )
+        elif name == "mkdir":
+            # Mock mkdir -p
+            script.write_text(
+                "#!/bin/bash\n"
+                "[[ $1 == \"-p\" ]] && shift\n"
+                "for d in \"$@\"; do mkdir -p \"$d\"; done\n"
+            )
+        script.chmod(script.stat().st_mode | stat.S_IEXEC)
+
     for name, rec_file in (recordings or {}).items():
         script = mock_dir / name
         script.write_text(

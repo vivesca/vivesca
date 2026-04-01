@@ -182,16 +182,18 @@ class TestStartupVerification:
         bindir = _make_mock_bin(tmp_path, "curl", exit_code=1)
         # Mock chrome that stays alive briefly then exits cleanly
         chrome_script = tmp_path / "bin" / "google-chrome-stable"
-        chrome_script.write_text("#!/bin/bash\nsleep 0.5\nexit 0\n")
+        # Mock chrome must stay alive past the script's 1-second sleep + kill -0 check
+        chrome_script.write_text("#!/bin/bash\nsleep 5\nexit 0\n")
         chrome_script.chmod(chrome_script.stat().st_mode | stat.S_IEXEC)
         r = _run_script(path_dirs=[bindir], tmp_path=tmp_path)
-        assert "Chrome started" in r.stdout or r.returncode == 0
+        assert "Chrome started" in r.stdout
 
     def test_connect_url_printed(self, tmp_path):
         """Output includes the localhost URL for connecting."""
         bindir = _make_mock_bin(tmp_path, "curl", exit_code=1)
         chrome_script = tmp_path / "bin" / "google-chrome-stable"
-        chrome_script.write_text("#!/bin/bash\nsleep 0.5\nexit 0\n")
+        # Mock chrome must stay alive past the script's 1-second sleep + kill -0 check
+        chrome_script.write_text("#!/bin/bash\nsleep 5\nexit 0\n")
         chrome_script.chmod(chrome_script.stat().st_mode | stat.S_IEXEC)
         r = _run_script(path_dirs=[bindir], tmp_path=tmp_path)
         assert "localhost" in r.stdout

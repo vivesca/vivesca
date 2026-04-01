@@ -244,14 +244,14 @@ class TestDemethylase:
         mock_record.assert_not_called()
 
     @patch("metabolon.organelles.demethylase.record_access")
-    def test_record_access_success(self, mock_record: MagicMock, tmp_path: Path) -> None:
-        mark_file = tmp_path / "test.mark"
-        mark_file.write_text("mark content")
+    def test_record_access_success(self, mock_record: MagicMock) -> None:
+        mock_dir = MagicMock(spec=Path)
+        mock_path = MagicMock(spec=Path)
+        mock_path.exists.return_value = True
+        mock_dir.__truediv__.return_value = mock_path
 
-        with patch("metabolon.locus.marks", tmp_path):
+        with patch("metabolon.locus.marks", mock_dir):
             result = demethylase(action="record_access", mark_filename="test.mark")
 
         assert "Access recorded for test.mark" in result.results
-        mock_record.assert_called_once()
-        called_path = mock_record.call_args[0][0]
-        assert called_path == mark_file
+        mock_record.assert_called_once_with(mock_path)

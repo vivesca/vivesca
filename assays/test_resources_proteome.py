@@ -196,9 +196,7 @@ class TestReadSignalRouting:
 
         p = MagicMock(spec=Path)
         p.exists.return_value = True
-        p.read_text.return_value = "# Routing Table
-| Trigger | Tool |
-"
+        p.read_text.return_value = "# Routing Table\n| Trigger | Tool |\n"
 
         result = _read_signal_routing(p)
         assert "Routing Table" in result
@@ -224,9 +222,7 @@ class TestReadSignalRouting:
 
         p = MagicMock(spec=Path)
         p.exists.return_value = True
-        p.read_text.return_value = "  content line  
-
-"
+        p.read_text.return_value = "  content line  \n\n"
         assert _read_signal_routing(p) == "content line"
 
 
@@ -269,8 +265,7 @@ class TestExpressEffectorIndex:
         assert "## CLI Tools (1)" in output
         assert "lysin" in output
 
-    @patch("metabolon.resources.proteome._read_signal_routing", return_value="# Routing
-stuff")
+    @patch("metabolon.resources.proteome._read_signal_routing", return_value="# Routing\nstuff")
     @patch("metabolon.resources.proteome._scan_organelle_tools", return_value=[])
     @patch("metabolon.resources.proteome._scan_effector_dir", return_value=[])
     def test_routing_included(
