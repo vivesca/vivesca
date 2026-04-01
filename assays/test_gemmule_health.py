@@ -589,3 +589,490 @@ class TestMain:
         gh["run_health"].assert_called_once()
         call_kwargs = gh["run_health"].call_args
         assert call_kwargs.kwargs.get("fix") is True or call_kwargs[0][0] if call_kwargs[0] else call_kwargs.kwargs.get("fix") is True
+
+    def test_default_no_fix_no_json(self, gh):
+        report = gh["HealthReport"]()
+        gh["run_health"] = mock.Mock(return_value=report)
+        with mock.patch.object(sys, "argv", ["gemmule-health"]):
+            with pytest.raises(SystemExit):
+                gh["main"]()
+        kw = gh["run_health"].call_args.kwargs
+        assert kw["fix"] is False
+        assert kw["as_json"] is False
+        assert kw["daemon_mode"] is False
+
+
+# ── HealthReport.add extended ─────────────────────────────────────────────────
+
+
+class TestHealthReportExtended:
+    def test_add_error_status(self, gh):
+        r = gh["HealthReport"]()
+        r.add(gh["Check"](name="x", status="error", value="?"))
+        assert r.overall == "ok"  # error does not change overall
+
+    def test_add_multiple_same_crit(self, gh):
+        r = gh["HealthReport"]()
+        r.add(gh["Check"](name="a", status="crit", value="c1"))
+        r.add(gh["Check"](name="b", status="crit", value="c2"))
+        assert r.overall == "crit"
+        assert len(r.checks) == 2
+
+    def test_add_error_after_warn(self, gh):
+        r = gh["HealthReport"]()
+        r.add(gh["Check"](name="a", status="warn", value="w"))
+        r.add(gh["Check"](name="b", status="error", value="?"))
+        assert r.overall == "warn"  # error doesn't downgrade warn
+
+
+# ── check_disk extended ───────────────────────────────────────────────────────
+
+
+class TestCheckDiskExtended:
+    def _usage(self, used, total):
+        return mock.Mock(used=used, total=total, free=total - used)
+
+    def test_value_format(self, gh):
+        with mock.patch("shutil.disk_usage", return_value=self._usage(42, 100)):
+            c = gh["check_disk"]()
+        assert c.value.endswith("%")
+        assert "42%" in c.value
+
+    def test_detail_format(self, gh):
+        with mock.patch("shutil.disk_usage", return_value=self._usage(30, 100)):
+            c = gh["check_disk"]()
+        assert "free" in c.detail
+        assert "total" in c.detail
+
+    def test_just_below_warn(self, gh):
+        with mock.patch("shutil.disk_usage", return_value=self._usage(79, 100)):
+            c = gh["check_disk"]()
+        assert c.status == "ok"
+
+    def test_just_below_crit(self, gh):
+        with mock.patch("shutil.disk_usage", return_value=self._usage(89, 100)):
+            c = gh["check_disk"]()
+        assert c.status == "warn"
+
+    def test_very_high_usage(self, gh):
+        with mock.patch("shutil.disk_usage", return_value=self._usage(99, 100)):
+            c = gh["check_disk"]()
+        assert c.status == "crit"
+
+
+# ── check_memory extended ─────────────────────────────────────────────────────
+
+
+class TestCheckMemoryExtended:
+    def _meminfo(self, total_kb, avail_kb):
+        return f"MemTotal: {total_kb} kB\nMemAvailable: {avail_kb} kB\n"
+
+    def test_just_below_warn(self, gh):
+        total = 8192000
+        avail = int(total * 0.20)  # 80% used, well below 85% warn
+        data = self._meminfo(total, avail)
+        with mock.patch("builtins.open", mock.mock_open(read_data=data)):
+            c = gh["check_memory"]()
+        assert c.status == "ok"
+
+    def test_exact_warn_boundary(self, gh):
+        # 85% used = warn
+        total = 8192000
+        avail = int(total * 0.15)  # 15% available = 85% used
+        data = self._meminfo(total, avail)
+        with mock.patch("builtins.open", mock.mock_open(read_data=data)):
+            c = gh["check_memory"]()
+        assert c.status == "warn"
+
+    def test_detail_format(self, gh):
+        data = self._meminfo(8192000, 4096000)
+        with mock.patch("builtins.open", mock.mock_open(read_data=data)):
+            c = gh["check_memory"]()
+        assert "MB available" in c.detail
+        assert "MB total" in c.detail
+
+    def test_value_format_pct(self, gh):
+        data = self._meminfo(8192000, 4096000)
+        with mock.patch("builtins.open", mock.mock_open(read_data=data)):
+            c = gh["check_memory"]()
+        assert "%" in c.value
+
+
+# ── check_daemon extended ─────────────────────────────────────────────────────
+
+
+class TestCheckDaemonExtended:
+    def test_bad_pid_content(self, gh, tmp_path):
+        pf = tmp_path / "d.pid"
+        pf.write_text("not-a-number")
+        gh["PIDFILE"] = pf
+        c = gh["check_daemon"]()
+        assert c.status == "error"
+
+    def test_empty_pidfile(self, gh, tmp_path):
+        pf = tmp_path / "d.pid"
+        pf.write_text("")
+        gh["PIDFILE"] = pf
+        c = gh["check_daemon"]()
+        assert c.status == "error"
+
+    def test_general_exception(self, gh, tmp_path):
+        pf = tmp_path / "d.pid"
+        pf.write_text(str(os.getpid()))
+        gh["PIDFILE"] = pf
+        with mock.patch("pathlib.Path.read_text", side_effect=RuntimeError("unexpected")):
+            c = gh["check_daemon"]()
+        assert c.status == "error"
+
+
+# ── check_git extended ────────────────────────────────────────────────────────
+
+
+class TestCheckGitExtended:
+    def _runs(self, fsck_rc=0, fsck_err="", status_out=""):
+        return [
+            mock.Mock(returncode=fsck_rc, stderr=fsck_err, stdout=""),
+            mock.Mock(returncode=0, stdout=status_out, stderr=""),
+        ]
+
+    def test_exactly_50_dirty_is_ok(self, gh):
+        dirty = "\n".join(f"M f{i}.py" for i in range(50))
+        with mock.patch("subprocess.run", side_effect=self._runs(status_out=dirty)):
+            c = gh["check_git"]()
+        assert c.status == "ok"
+        assert "50 dirty" in c.value
+
+    def test_exactly_51_dirty_is_warn(self, gh):
+        dirty = "\n".join(f"M f{i}.py" for i in range(51))
+        with mock.patch("subprocess.run", side_effect=self._runs(status_out=dirty)):
+            c = gh["check_git"]()
+        assert c.status == "warn"
+
+    def test_corrupt_detail_truncated(self, gh):
+        long_err = "fatal: " + "x" * 300
+        with mock.patch(
+            "subprocess.run",
+            side_effect=self._runs(fsck_rc=1, fsck_err=long_err),
+        ):
+            c = gh["check_git"]()
+        assert c.status == "crit"
+        assert len(c.detail) <= 200
+
+
+# ── check_venv extended ──────────────────────────────────────────────────────
+
+
+class TestCheckVenvExtended:
+    def test_subprocess_error(self, gh, tmp_path):
+        venv = tmp_path / "germline" / ".venv" / "bin"
+        venv.mkdir(parents=True, exist_ok=True)
+        (venv / "python").touch()
+        with mock.patch("subprocess.run", side_effect=Exception("spawn fail")):
+            c = gh["check_venv"]()
+        assert c.status == "error"
+        assert "spawn fail" in c.detail
+
+
+# ── check_tests extended ──────────────────────────────────────────────────────
+
+
+class TestCheckTestsExtended:
+    def test_collection_error_line(self, gh):
+        with mock.patch(
+            "subprocess.run",
+            return_value=mock.Mock(returncode=1, stdout="", stderr="collection error found\n"),
+        ):
+            c = gh["check_tests"]()
+        assert c.status == "warn"
+
+    def test_fallback_no_collected_line(self, gh):
+        with mock.patch(
+            "subprocess.run",
+            return_value=mock.Mock(returncode=0, stdout="some random output\n", stderr=""),
+        ):
+            c = gh["check_tests"]()
+        assert c.status == "ok"
+        assert "some random output" in c.value
+
+    def test_empty_output(self, gh):
+        with mock.patch(
+            "subprocess.run",
+            return_value=mock.Mock(returncode=0, stdout="", stderr=""),
+        ):
+            c = gh["check_tests"]()
+        assert c.status == "ok"
+        assert c.value == "no output"
+
+
+# ── check_stale_files extended ────────────────────────────────────────────────
+
+
+class TestCheckStaleFilesExtended:
+    def test_multiple_issues(self, gh, tmp_path):
+        sdir = tmp_path / "sessions"
+        sdir.mkdir(parents=True, exist_ok=True)
+        gh["SESSION_KEEP"] = 2
+        for i in range(5):
+            (sdir / f"s{i}.jsonl").write_text("{}")
+        lock = tmp_path / "test.lock"
+        lock.write_text("")
+        old = time.time() - 7200
+        os.utime(lock, (old, old))
+        c = gh["check_stale_files"]()
+        assert c.status == "warn"
+        assert "2 issues" in c.value
+
+    def test_log_stat_oserror(self, gh, tmp_path):
+        vdir = tmp_path / "vivesca"
+        vdir.mkdir(parents=True, exist_ok=True)
+        gh["LOG_MAX_MB"] = 0.0
+        log_file = vdir / "app.log"
+        log_file.write_text("x")
+        original_stat = Path.stat
+
+        def selective_stat(self, *, follow_symlinks=True):
+            if "app.log" in str(self):
+                raise OSError("permission denied")
+            return original_stat(self, follow_symlinks=follow_symlinks)
+
+        with mock.patch.object(Path, "stat", selective_stat):
+            c = gh["check_stale_files"]()
+        # Should not crash, may or may not report log issue
+        assert c.name == "stale"
+
+
+# ── fix_disk extended ─────────────────────────────────────────────────────────
+
+
+class TestFixDiskExtended:
+    def test_prunes_go_build_cache(self, gh, tmp_path):
+        go_cache = tmp_path / ".cache" / "go-build"
+        go_cache.mkdir(parents=True, exist_ok=True)
+        (go_cache / "testfile").write_text("data")
+        report = gh["HealthReport"]()
+        with mock.patch("subprocess.run"):
+            gh["fix_disk"](report)
+        assert not go_cache.exists()
+        assert any("go-build" in f for f in report.fixes_applied)
+
+    def test_uv_cache_prune_called(self, gh, tmp_path):
+        report = gh["HealthReport"]()
+        with mock.patch("subprocess.run") as mr:
+            gh["fix_disk"](report)
+        cmd_strs = [" ".join(str(a) for a in call[0][0]) if call[0][0] else "" for call in mr.call_args_list]
+        assert any("uv" in c and "cache" in c for c in cmd_strs)
+
+    def test_session_unlink_oserror(self, gh, tmp_path):
+        sdir = tmp_path / "sessions"
+        sdir.mkdir(parents=True, exist_ok=True)
+        gh["SESSION_KEEP"] = 0
+        (sdir / "s0.jsonl").write_text("{}")
+        report = gh["HealthReport"]()
+        with mock.patch.object(Path, "unlink", side_effect=OSError("busy")):
+            with mock.patch("subprocess.run"):
+                gh["fix_disk"](report)
+        # Should not crash
+        assert report is not None
+
+    def test_truncates_large_jsonl_content(self, gh, tmp_path):
+        vdir = tmp_path / "vivesca"
+        vdir.mkdir(parents=True, exist_ok=True)
+        big = vdir / "events.jsonl"
+        lines = [f'{{"i": {i}}}' for i in range(6000)]
+        big.write_text("\n".join(lines) + "\n")
+        original_stat = Path.stat
+
+        def fake_stat(self, *, follow_symlinks=True):
+            if "events.jsonl" in str(self):
+                return mock.Mock(st_size=21 * 1024 * 1024, st_mode=0o100644)
+            return original_stat(self, follow_symlinks=follow_symlinks)
+
+        report = gh["HealthReport"]()
+        with mock.patch.object(Path, "stat", fake_stat):
+            with mock.patch("subprocess.run"):
+                gh["fix_disk"](report)
+        # After truncation should keep last 5000 lines
+        remaining = big.read_text().strip().splitlines()
+        assert len(remaining) <= 5000
+
+    def test_no_sessions_dir(self, gh, tmp_path):
+        gh["SESSION_DIR"] = tmp_path / "nonexistent"
+        report = gh["HealthReport"]()
+        with mock.patch("subprocess.run"):
+            gh["fix_disk"](report)
+        # Should not crash
+
+
+# ── fix_stale extended ────────────────────────────────────────────────────────
+
+
+class TestFixStaleExtended:
+    def test_unlink_oserror(self, gh, tmp_path):
+        lock = tmp_path / "stuck.lock"
+        lock.write_text("")
+        old = time.time() - 7200
+        os.utime(lock, (old, old))
+        report = gh["HealthReport"]()
+        with mock.patch.object(Path, "unlink", side_effect=OSError("permission")):
+            gh["fix_stale"](report)
+        # Should not crash, fix should not be recorded
+        assert not any("stuck.lock" in f for f in report.fixes_applied)
+
+    def test_stat_oserror_skips(self, gh, tmp_path):
+        lock = tmp_path / "bad.lock"
+        lock.write_text("")
+        old = time.time() - 7200
+        os.utime(lock, (old, old))
+        report = gh["HealthReport"]()
+        with mock.patch.object(Path, "stat", side_effect=OSError("no access")):
+            gh["fix_stale"](report)
+        # Should not crash
+
+
+# ── fix_daemon extended ───────────────────────────────────────────────────────
+
+
+class TestFixDaemonExtended:
+    def test_bad_pid_value(self, gh, tmp_path):
+        pf = tmp_path / "d.pid"
+        pf.write_text("not-a-pid")
+        gh["PIDFILE"] = pf
+        report = gh["HealthReport"]()
+        gh["fix_daemon"](report)
+        assert not pf.exists()
+        assert any("stale" in f for f in report.fixes_applied)
+
+    def test_permission_error_keeps_pidfile(self, gh, tmp_path):
+        pf = tmp_path / "d.pid"
+        pf.write_text(str(os.getpid()))
+        gh["PIDFILE"] = pf
+        report = gh["HealthReport"]()
+        with mock.patch("os.kill", side_effect=PermissionError):
+            gh["fix_daemon"](report)
+        assert pf.exists()
+        assert report.fixes_applied == []
+
+
+# ── run_health extended ───────────────────────────────────────────────────────
+
+
+class TestRunHealthExtended:
+    def test_fix_mode_stale_files(self, gh, tmp_path):
+        lock = tmp_path / "test.lock"
+        lock.write_text("")
+        old = time.time() - 7200
+        os.utime(lock, (old, old))
+        mock_run = mock.Mock(return_value=mock.Mock(returncode=0, stdout="", stderr=""))
+        with mock.patch("subprocess.run", mock_run):
+            with mock.patch("shutil.disk_usage", return_value=mock.Mock(used=40, total=100, free=60)):
+                with mock.patch("builtins.open", mock.mock_open(read_data="MemTotal: 8000000 kB\nMemAvailable: 4000000 kB\n")):
+                    report = gh["run_health"](fix=True)
+        assert any("stale lock" in f for f in report.fixes_applied)
+
+    def test_daemon_mode_implies_fix(self, gh, tmp_path):
+        pf = tmp_path / "d.pid"
+        pf.write_text("999999999")
+        gh["PIDFILE"] = pf
+        mock_run = mock.Mock(return_value=mock.Mock(returncode=0, stdout="", stderr=""))
+        with mock.patch("subprocess.run", mock_run):
+            with mock.patch("shutil.disk_usage", return_value=mock.Mock(used=40, total=100, free=60)):
+                with mock.patch("builtins.open", mock.mock_open(read_data="MemTotal: 8000000 kB\nMemAvailable: 4000000 kB\n")):
+                    report = gh["run_health"](daemon_mode=True)
+        assert any("stale" in f for f in report.fixes_applied)
+
+    def test_overall_reflects_worst(self, gh):
+        mock_run = mock.Mock(return_value=mock.Mock(returncode=0, stdout="", stderr=""))
+        with mock.patch("subprocess.run", mock_run):
+            with mock.patch("shutil.disk_usage", return_value=mock.Mock(used=92, total=100, free=8)):
+                with mock.patch("builtins.open", mock.mock_open(read_data="MemTotal: 8000000 kB\nMemAvailable: 4000000 kB\n")):
+                    report = gh["run_health"](fix=False)
+        assert report.overall == "crit"
+
+    def test_no_fix_by_default(self, gh):
+        mock_run = mock.Mock(return_value=mock.Mock(returncode=0, stdout="", stderr=""))
+        with mock.patch("subprocess.run", mock_run):
+            with mock.patch("shutil.disk_usage", return_value=mock.Mock(used=40, total=100, free=60)):
+                with mock.patch("builtins.open", mock.mock_open(read_data="MemTotal: 8000000 kB\nMemAvailable: 4000000 kB\n")):
+                    report = gh["run_health"](fix=False)
+        assert report.fixes_applied == []
+
+    def test_timestamp_set(self, gh):
+        mock_run = mock.Mock(return_value=mock.Mock(returncode=0, stdout="", stderr=""))
+        with mock.patch("subprocess.run", mock_run):
+            with mock.patch("shutil.disk_usage", return_value=mock.Mock(used=40, total=100, free=60)):
+                with mock.patch("builtins.open", mock.mock_open(read_data="MemTotal: 8000000 kB\nMemAvailable: 4000000 kB\n")):
+                    report = gh["run_health"]()
+        assert report.timestamp  # non-empty string
+
+
+# ── print_report extended ─────────────────────────────────────────────────────
+
+
+class TestPrintReportExtended:
+    def test_error_icon(self, gh, capsys):
+        report = gh["HealthReport"](timestamp="2025-01-01")
+        report.add(gh["Check"](name="tests", status="error", value="?"))
+        gh["print_report"](report)
+        out = capsys.readouterr().out
+        assert "[?]" in out
+
+    def test_fixes_section(self, gh, capsys):
+        report = gh["HealthReport"](timestamp="2025-01-01")
+        report.add(gh["Check"](name="disk", status="ok", value="50%"))
+        report.fixes_applied.append("pruned cache")
+        report.fixes_applied.append("cleared go-build")
+        gh["print_report"](report)
+        out = capsys.readouterr().out
+        assert "Fixes applied" in out
+        assert "pruned cache" in out
+        assert "cleared go-build" in out
+
+    def test_json_has_timestamp(self, gh, capsys):
+        report = gh["HealthReport"](timestamp="2025-04-01 12:00:00")
+        gh["print_report"](report, as_json=True)
+        data = json.loads(capsys.readouterr().out)
+        assert data["timestamp"] == "2025-04-01 12:00:00"
+
+    def test_json_has_fixes(self, gh, capsys):
+        report = gh["HealthReport"](timestamp="2025-01-01")
+        report.fixes_applied.append("pruned cache")
+        gh["print_report"](report, as_json=True)
+        data = json.loads(capsys.readouterr().out)
+        assert data["fixes"] == ["pruned cache"]
+
+    def test_compact_no_fixes(self, gh, capsys):
+        report = gh["HealthReport"]()
+        report.add(gh["Check"](name="disk", status="ok", value="50%"))
+        gh["print_report"](report, compact=True)
+        out = capsys.readouterr().out
+        assert "fixes=" not in out
+
+    def test_human_output_overall_line(self, gh, capsys):
+        report = gh["HealthReport"](timestamp="2025-01-01")
+        report.add(gh["Check"](name="disk", status="warn", value="85%"))
+        gh["print_report"](report)
+        out = capsys.readouterr().out
+        assert "Overall: WARN" in out
+
+
+# ── main extended ─────────────────────────────────────────────────────────────
+
+
+class TestMainExtended:
+    def test_combined_fix_and_json(self, gh, capsys):
+        report = gh["HealthReport"](timestamp="2025-01-01")
+        gh["run_health"] = mock.Mock(return_value=report)
+        with mock.patch.object(sys, "argv", ["gemmule-health", "--fix", "--json"]):
+            with pytest.raises(SystemExit):
+                gh["main"]()
+        data = json.loads(capsys.readouterr().out)
+        assert data["overall"] == "ok"
+
+    def test_daemon_passes_flags(self, gh):
+        report = gh["HealthReport"]()
+        gh["run_health"] = mock.Mock(return_value=report)
+        with mock.patch.object(sys, "argv", ["gemmule-health", "--daemon"]):
+            with pytest.raises(SystemExit):
+                gh["main"]()
+        kw = gh["run_health"].call_args.kwargs
+        assert kw["daemon_mode"] is True
