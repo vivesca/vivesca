@@ -360,7 +360,7 @@ def sense_calendar(date: str = "today", days: int = 1) -> dict[str, Any]:
         d = _parse_date(date)
         base = d if d else datetime.now(HKT).date()
 
-    all_events: list[dict[str, str | bool]] = []
+    all_events: list[dict[str, Any]] = []
     all_raw: list[str] = []
     errors: list[str] = []
 
@@ -386,9 +386,9 @@ def sense_calendar(date: str = "today", days: int = 1) -> dict[str, Any]:
     }
 
 
-def _parse_calendar_output(text: str) -> list[dict[str, str | bool]]:
+def _parse_calendar_output(text: str) -> list[dict[str, Any]]:
     """Parse fasti list output into event dicts."""
-    events: list[dict[str, str | bool]] = []
+    events: list[dict[str, Any]] = []
     if not text:
         return events
 
