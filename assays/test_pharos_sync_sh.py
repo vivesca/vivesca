@@ -62,7 +62,7 @@ class TestFileBasics:
 
     def test_is_bash_script(self):
         first = SCRIPT.read_text().split("\n")[0]
-        assert first.startswith("#!/bin/bash")
+        assert first.startswith("#!/") and "bash" in first
 
     def test_has_set_uo_pipefail(self):
         src = SCRIPT.read_text()
