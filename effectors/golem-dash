@@ -458,8 +458,15 @@ def compute_throughput_acceleration(
         return "—" if window_minutes is not None else 0.0
     now = datetime.now(timezone.utc)
 
-    recent_cutoff = now - timedelta(minutes=recent_minutes)
-    baseline_cutoff = now - timedelta(minutes=baseline_minutes)
+    # When window_minutes is given, use it as baseline; scale recent proportionally
+    effective_recent = recent_minutes
+    effective_baseline = baseline_minutes
+    if window_minutes is not None:
+        effective_baseline = window_minutes
+        effective_recent = max(window_minutes // 6, 5)
+
+    recent_cutoff = now - timedelta(minutes=effective_recent)
+    baseline_cutoff = now - timedelta(minutes=effective_baseline)
 
     recent_count = sum(
         1 for r in all_records
@@ -470,8 +477,8 @@ def compute_throughput_acceleration(
         if parse_ts(r.get("ts", "")) >= baseline_cutoff and r.get("exit") == 0
     )
 
-    recent_rate = recent_count / recent_minutes if recent_minutes > 0 else 0.0
-    baseline_rate = baseline_count / baseline_minutes if baseline_minutes > 0 else 0.0
+    recent_rate = recent_count / effective_recent if effective_recent > 0 else 0.0
+    baseline_rate = baseline_count / effective_baseline if effective_baseline > 0 else 0.0
 
     raw_diff = recent_rate - baseline_rate
 
@@ -889,7 +896,7 @@ def build_running_tasks_table(
         }
         health_str = health_styles.get(health, health)
 
-        table.add_row(tid, prov, health_str, progress_str, eta_str, elapsed_str, through_str, prompt)
+        table.add_row(tid, prov, health_str, progress_str, eta_str, finishes_str, elapsed_str, through_str, prompt)
 
     return table
 
@@ -900,7 +907,7 @@ def build_drain_progress(
     eta_seconds: float,
     drain_rate: float = 0.0,
     eta_bounds: tuple[float, float, float] | None = None,
-    acceleration: float = 0.0,
+    acceleration: float | str = 0.0,
 ) -> Text:
     """Build drain progress bar with ETA, rate, bounds, and wall-clock time."""
     total = total_pending + total_completed
@@ -924,8 +931,17 @@ def build_drain_progress(
     else:
         line.append("rate: —/min ", style="dim")
 
-    # Acceleration indicator
-    if acceleration > 0.05:
+    # Acceleration indicator (supports both string and float)
+    if isinstance(acceleration, str):
+        if "accelerating" in acceleration:
+            line.append(f"▲ {acceleration} ", style="green")
+        elif "slowing" in acceleration:
+            line.append(f"▼ {acceleration} ", style="red")
+        elif "stable" in acceleration:
+            line.append(f"→ {acceleration} ", style="dim")
+        else:
+            line.append(f"· {acceleration} ", style="dim")
+    elif acceleration > 0.05:
         line.append("▲ ", style="green")
     elif acceleration < -0.05:
         line.append("▼ ", style="red")
@@ -973,7 +989,8 @@ def build_dashboard(
     drain_velocity = compute_drain_velocity(all_records, pending_by_provider)
     utilization = compute_provider_utilization(stats, PROVIDER_LIMITS)
     drain_rate = compute_drain_rate(all_records, window_minutes=10)
-    acceleration = compute_throughput_acceleration(all_records)
+    acceleration_raw = compute_throughput_acceleration(all_records)
+    acceleration = compute_throughput_acceleration(all_records, window_minutes=60)
     time_since_last = compute_time_since_last_event(all_records, exit_code=0)
     eta_bounds = compute_drain_eta_bounds(stats, pending_by_provider, all_records)
 
