@@ -460,3 +460,113 @@ class TestIdempotency:
         """Script prints Tailscale authentication reminder."""
         src = _src()
         assert "tailscale up" in src
+
+
+# ── bash syntax & shellcheck ───────────────────────────────────────────────
+
+
+class TestBashSyntax:
+    """Verify the script is valid bash."""
+
+    def test_bash_n_syntax_check(self):
+        """bash -n (noexec syntax check) passes on the script."""
+        r = subprocess.run(
+            ["bash", "-n", str(SCRIPT)],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        assert r.returncode == 0, f"Syntax error: {r.stderr}"
+
+
+class TestShellcheck:
+    """Run shellcheck if available; skip otherwise."""
+
+    def test_shellcheck_passes(self):
+        r = subprocess.run(
+            ["which", "shellcheck"], capture_output=True, text=True
+        )
+        if r.returncode != 0:
+            pytest.skip("shellcheck not installed")
+
+        r = subprocess.run(
+            ["shellcheck", str(SCRIPT)], capture_output=True, text=True
+        )
+        assert r.returncode == 0, f"Shellcheck issues:\n{r.stdout}{r.stderr}"
+
+
+# ── additional edge-case tests ─────────────────────────────────────────────
+
+
+class TestEdgeCases:
+    """Misc edge cases not covered by other test classes."""
+
+    def test_no_empty_subshells(self):
+        """No empty sudo -u terry blocks (would be a no-op)."""
+        src = _src()
+        # Check every sudo -u terry bash -c block has non-empty body
+        lines = src.splitlines()
+        for i, line in enumerate(lines):
+            if "sudo -u terry bash -c" in line and "<<" not in line:
+                # Next line should not be just a closing quote
+                if i + 1 < len(lines):
+                    next_line = lines[i + 1].strip()
+                    assert next_line != "'", f"Line {i+2}: empty sudo -u terry block"
+
+    def test_all_urls_use_https(self):
+        """All download URLs use HTTPS, not HTTP."""
+        src = _src()
+        for i, line in enumerate(src.splitlines(), 1):
+            stripped = line.strip()
+            if "http://" in stripped and "127.0.0" not in stripped and "localhost" not in stripped:
+                # Allow http in comments
+                assert stripped.startswith("#"), (
+                    f"Line {i}: insecure HTTP URL: {stripped}"
+                )
+
+    def test_no_curl_piped_to_sh_without_check(self):
+        """Curl | sh patterns should be from trusted sources only."""
+        src = _src()
+        for i, line in enumerate(src.splitlines(), 1):
+            stripped = line.strip()
+            if "| sh" in stripped or "| bash" in stripped:
+                # Must be from known trusted domains
+                assert any(
+                    domain in stripped
+                    for domain in ("tailscale.com", "fnm.vercel.app", "astral.sh")
+                ), f"Line {i}: untrusted curl|sh: {stripped}"
+
+    def test_no_deprecated_apt_commands(self):
+        """No deprecated apt-get commands (e.g., apt-get dist-upgrade)."""
+        src = _src()
+        # dist-upgrade can be risky in automated scripts
+        assert "dist-upgrade" not in src
+
+    def test_user_creation_guards_ssh_copy(self):
+        """SSH key copy is inside the same if-block as user creation."""
+        src = _src()
+        adduser_pos = src.index("adduser")
+        ssh_copy_pos = src.index("authorized_keys", adduser_pos)
+        # Find the if block boundaries
+        if_pos = src.rfind("if ! id terry", 0, adduser_pos)
+        fi_pos = src.find("fi", ssh_copy_pos)
+        # Both should be in the same if block
+        assert if_pos < adduser_pos < ssh_copy_pos < fi_pos
+
+    def test_fnm_path_set_before_eval(self):
+        """fnm PATH is set before eval "$(fnm env)" in node install block."""
+        src = _src()
+        # Find the fnm install block
+        fnm_install = src.index("fnm.vercel.app/install")
+        fnm_block = src[fnm_install:src.index("fnm default lts-latest") + 30]
+        path_pos = fnm_block.index("PATH")
+        eval_pos = fnm_block.index('eval "$(fnm env)"')
+        assert path_pos < eval_pos
+
+    def test_tmux_config_uses_heredoc(self):
+        """tmux config is written via heredoc, not echo per line."""
+        src = _src()
+        # The tmux section should use a heredoc (<<) for clean multiline write
+        tmux_pos = src.index(".tmux.conf")
+        preceding = src[:tmux_pos + 100]
+        assert "<<" in preceding
