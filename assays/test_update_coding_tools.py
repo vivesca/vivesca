@@ -729,9 +729,10 @@ class TestScriptConsistency:
             (i, l) for i, l in enumerate(self.lines)
             if "/opt/homebrew" in l
         ]
-        # Should be exactly 2: the eval line and the REPAIR[brew] entry
-        assert len(homebrew_refs) == 2, (
-            f"Expected exactly 2 /opt/homebrew references, found {len(homebrew_refs)}"
+        # Should be exactly 1: the REPAIR[brew] entry
+        # (eval "$(brew shellenv)" does not hardcode a path)
+        assert len(homebrew_refs) == 1, (
+            f"Expected exactly 1 /opt/homebrew reference, found {len(homebrew_refs)}"
         )
 
     def test_brew_cask_greedy_upgrade(self):
