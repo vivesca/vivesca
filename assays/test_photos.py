@@ -34,8 +34,13 @@ def _load_ns() -> dict:
 
 
 def _make_db(tmp_path: Path) -> Path:
-    """Create a minimal Photos.sqlite with test data and return its path."""
-    db_path = tmp_path / "Photos.sqlite"
+    """Create a minimal Photos.sqlite with test data and return its path.
+
+    Creates ``tmp_path/database/Photos.sqlite`` to match the real layout.
+    """
+    db_dir = tmp_path / "database"
+    db_dir.mkdir()
+    db_path = db_dir / "Photos.sqlite"
     conn = sqlite3.connect(str(db_path))
     conn.executescript(
         """
@@ -136,17 +141,15 @@ def _make_db(tmp_path: Path) -> Path:
     return db_path
 
 
-def _load_ns_with_db(tmp_path: Path) -> tuple[dict, sqlite3.Connection]:
+def _load_ns_with_db(tmp_path: Path) -> dict:
     """Load photos.py namespace with DB_PATH patched to temp DB."""
     db_path = _make_db(tmp_path)
     ns = _load_ns()
-    # Patch DB_PATH so PhotosDB finds our test database
+    # Patch constants so PhotosDB finds our test database and dirs stay in tmp
     ns["DB_PATH"] = db_path
-    # Patch PHOTOS_LIB parent so ORIGINALS_DIR etc are in tmp
-    lib = db_path.parent.parent
-    ns["PHOTOS_LIB"] = lib
-    ns["ORIGINALS_DIR"] = lib / "originals"
-    ns["DERIVATIVES_DIR"] = lib / "resources" / "derivatives"
+    ns["PHOTOS_LIB"] = tmp_path
+    ns["ORIGINALS_DIR"] = tmp_path / "originals"
+    ns["DERIVATIVES_DIR"] = tmp_path / "resources" / "derivatives"
     return ns
 
 

@@ -923,6 +923,13 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 - [x] `golem --provider volcano --max-turns 30 "Health check: lacuna, golem-daemon-wrapper.sh, methylation-review, secrets-sync, effector-usage. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
 - [x] `golem --provider zhipu --max-turns 25 "Check all assays/test_*.py can be collected by pytest --co. Fix any that error. Commit."`
 - [x] `golem --provider infini --max-turns 25 "Find test files with SyntaxError. Fix syntax. Commit."`
+
+### Auto-requeue (5 tasks @ 13:30)
+- [x] `golem --provider volcano --max-turns 40 "Run uv run pytest --co -q 2>&1 | grep ERROR. Fix ALL collection errors. Common: hardcoded paths, bad imports, syntax. Run --co again until 0 errors. Commit."`
+- [x] `golem --provider zhipu --max-turns 50 "Run uv run pytest -q --tb=no --continue-on-collection-errors 2>&1 | grep FAILED | sed 's/::.*//g' | sort | uniq -c | sort -rn | head -5. For each: run pytest on it, read traceback, fix. Iterate until green. Commit."`
+- [x] `golem --provider infini --max-turns 30 "Health check: hkicpa, queue-gen, golem-top, backup-due.sh, cookie-sync. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
+- [x] `golem --provider volcano --max-turns 25 "Find subprocess.run calls without timeout in effectors/. Add timeout=300. Commit."`
+- [x] `golem --provider zhipu --max-turns 25 "Check all assays/test_*.py can be collected by pytest --co. Fix any that error. Commit."`
 ## Done (2026-03-31)
 
 

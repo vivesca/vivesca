@@ -191,15 +191,16 @@ class TestZeitgebers:
     def test_rss_stale_true(self):
         from metabolon.organelles.entrainment import zeitgebers
 
-        # last fetch was 6 hours ago → stale
-        six_hours_ago = (datetime.datetime.now(tz=UTC) - datetime.timedelta(hours=6)).isoformat()
-        fake_state = {"feed1": six_hours_ago}
+        # last fetch was 6 hours before the mocked "now" → stale
+        # Use mock-relative time so the comparison works with the mocked datetime
+        now = _fake_now(10)
+        six_hours_before = (now - datetime.timedelta(hours=6)).isoformat()
+        fake_state = {"feed1": six_hours_before}
         fake_cfg = MagicMock(state_path="/fake/state.json")
 
-        now = _fake_now(10)
         mock_dt = _patch_dt(now)
-        # zeitgebers also calls datetime.datetime.now(tz=utc) internally
-        # The mock_dt.datetime.now handles the first call; we need fromisoformat to work
+        # fromisoformat must produce real datetime objects for the subtraction
+        mock_dt.datetime.fromisoformat = datetime.datetime.fromisoformat
         with (
             patch(f"{_MOD}.datetime", mock_dt),
             patch.dict(sys.modules, {
@@ -213,13 +214,14 @@ class TestZeitgebers:
     def test_rss_stale_false(self):
         from metabolon.organelles.entrainment import zeitgebers
 
-        # last fetch was 1 hour ago → not stale
-        one_hour_ago = (datetime.datetime.now(tz=UTC) - datetime.timedelta(hours=1)).isoformat()
-        fake_state = {"feed1": one_hour_ago}
+        # last fetch was 1 hour before the mocked "now" → not stale
+        now = _fake_now(10)
+        one_hour_before = (now - datetime.timedelta(hours=1)).isoformat()
+        fake_state = {"feed1": one_hour_before}
         fake_cfg = MagicMock(state_path="/fake/state.json")
 
-        now = _fake_now(10)
         mock_dt = _patch_dt(now)
+        mock_dt.datetime.fromisoformat = datetime.datetime.fromisoformat
         with (
             patch(f"{_MOD}.datetime", mock_dt),
             patch.dict(sys.modules, {
@@ -373,7 +375,8 @@ class TestOptimalSchedule:
     def test_night_suppresses_endocytosis(self):
         from metabolon.organelles.entrainment import optimal_schedule
 
-        sig = {"is_night": True, "budget_status": "green", "rss_stale": True,
+        # rss_stale must be False/not-True to reach the night check
+        sig = {"is_night": True, "budget_status": "green", "rss_stale": False,
                "hkt_hour": 1, "is_weekend": False}
         with patch.dict(sys.modules, {
             "metabolon.organelles.circadian_clock": MagicMock(is_holiday=MagicMock(return_value=False)),
