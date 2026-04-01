@@ -5,7 +5,8 @@ from __future__ import annotations
 Verifies:
   - golem-zhipu is registered via @hatchet.durable_task (not @hatchet.task)
   - The function is async and accepts DurableContext
-  - Checkpoint calls (aio_wait_for) are made before and after subprocess
+  - save_state() calls are made before and after subprocess
+  - save_state wraps aio_wait_for with zero-duration SleepCondition
   - Resume behaviour: on replay, checkpoints return cached results and
     subprocess may be re-invoked (idempotent)
 """
@@ -428,3 +429,173 @@ class TestTwoCheckpointsExactly:
 
         keys = [call.args[0] for call in ctx.aio_wait_for.call_args_list]
         assert len(set(keys)) == 2, "Both checkpoint keys must be distinct"
+
+
+# ── save_state helper tests ────────────────────────────────────────────
+
+
+class TestSaveStateHelper:
+    def test_save_state_exists_in_namespace(self):
+        """The save_state helper is defined in the worker module."""
+        ns = _exec_worker(_make_mock_hatchet())
+        assert "save_state" in ns
+        assert callable(ns["save_state"])
+
+    def test_save_state_is_async(self):
+        """save_state is an async coroutine function."""
+        ns = _exec_worker(_make_mock_hatchet())
+        assert inspect.iscoroutinefunction(ns["save_state"])
+
+    @pytest.mark.asyncio
+    async def test_save_state_calls_aio_wait_for(self):
+        """save_state delegates to context.aio_wait_for internally."""
+        ctx = AsyncMock()
+        ns = _exec_worker(_make_mock_hatchet())
+        await ns["save_state"](ctx, "test-checkpoint")
+        ctx.aio_wait_for.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_save_state_passes_zero_duration_sleep(self):
+        """save_state uses SleepCondition(duration=0) for instant checkpoint."""
+        ctx = AsyncMock()
+        ns = _exec_worker(_make_mock_hatchet())
+        await ns["save_state"](ctx, "my-key")
+        call_args = ctx.aio_wait_for.call_args
+        assert call_args.args[0] == "my-key"
+        conditions = call_args.args[1:]
+        assert len(conditions) == 1
+        assert isinstance(conditions[0], type(conditions[0]))
+        assert conditions[0].duration == timedelta(seconds=0)
+
+    @pytest.mark.asyncio
+    async def test_save_state_returns_none(self):
+        """save_state is a void checkpoint (returns None)."""
+        ctx = AsyncMock()
+        ns = _exec_worker(_make_mock_hatchet())
+        result = await ns["save_state"](ctx, "key")
+        assert result is None
+
+
+# ── Enhanced resume/restore tests ──────────────────────────────────────
+
+
+class TestSaveStateResume:
+    @pytest.mark.asyncio
+    async def test_pre_exec_uses_save_state(self):
+        """golem-zhipu pre-exec checkpoint goes through save_state."""
+        ns = _exec_worker(_make_mock_hatchet())
+        ns["subprocess"] = _make_mock_subprocess()
+        ctx = _make_mock_context()
+
+        # Track calls to save_state
+        original_save = ns["save_state"]
+        save_keys = []
+
+        async def tracking_save(context, key):
+            save_keys.append(key)
+            return await original_save(context, key)
+
+        ns["save_state"] = tracking_save
+        await ns["golem_zhipu"]({"task": "test"}, ctx)
+
+        assert "golem-zhipu-pre-exec" in save_keys
+
+    @pytest.mark.asyncio
+    async def test_post_exec_uses_save_state(self):
+        """golem-zhipu post-exec checkpoint goes through save_state."""
+        ns = _exec_worker(_make_mock_hatchet())
+        ns["subprocess"] = _make_mock_subprocess()
+        ctx = _make_mock_context()
+
+        original_save = ns["save_state"]
+        save_keys = []
+
+        async def tracking_save(context, key):
+            save_keys.append(key)
+            return await original_save(context, key)
+
+        ns["save_state"] = tracking_save
+        await ns["golem_zhipu"]({"task": "test"}, ctx)
+
+        assert "golem-zhipu-post-exec" in save_keys
+
+    @pytest.mark.asyncio
+    async def test_exactly_two_save_state_calls(self):
+        """golem-zhipu calls save_state exactly twice (pre + post)."""
+        ns = _exec_worker(_make_mock_hatchet())
+        ns["subprocess"] = _make_mock_subprocess()
+        ctx = _make_mock_context()
+
+        original_save = ns["save_state"]
+        save_keys = []
+
+        async def tracking_save(context, key):
+            save_keys.append(key)
+            return await original_save(context, key)
+
+        ns["save_state"] = tracking_save
+        await ns["golem_zhipu"]({"task": "test"}, ctx)
+
+        assert len(save_keys) == 2
+        assert save_keys == ["golem-zhipu-pre-exec", "golem-zhipu-post-exec"]
+
+    @pytest.mark.asyncio
+    async def test_resume_replays_save_state_in_order(self):
+        """On replay, both save_state calls fire in correct order.
+
+        Simulates worker restart: invocation_count > 1 means Hatchet is
+        replaying. Cached save_state calls return instantly, and the
+        subprocess re-runs between them (golem tasks are idempotent).
+        """
+        ns = _exec_worker(_make_mock_hatchet())
+        ns["subprocess"] = _make_mock_subprocess(returncode=0, stdout="ok")
+        ctx = _make_mock_context()
+        ctx.invocation_count = 2  # simulate replay
+
+        call_log = []
+        original_save = ns["save_state"]
+
+        async def tracking_save(context, key):
+            call_log.append(("save_state", key))
+            return await original_save(context, key)
+
+        ns["save_state"] = tracking_save
+
+        result = await ns["golem_zhipu"]({"task": "replay"}, ctx)
+        assert result["success"] is True
+        assert call_log == [
+            ("save_state", "golem-zhipu-pre-exec"),
+            ("save_state", "golem-zhipu-post-exec"),
+        ]
+
+    @pytest.mark.asyncio
+    async def test_resume_subprocess_between_checkpoints(self):
+        """On replay, subprocess runs AFTER pre-exec and BEFORE post-exec save_state."""
+        ns = _exec_worker(_make_mock_hatchet())
+        ns["subprocess"] = _make_mock_subprocess()
+        ctx = _make_mock_context()
+        ctx.invocation_count = 3
+
+        call_log = []
+        original_save = ns["save_state"]
+
+        async def tracking_save(context, key):
+            call_log.append(("save_state", key))
+            return await original_save(context, key)
+
+        ns["save_state"] = tracking_save
+        original_run = ns["subprocess"].run
+
+        def tracking_run(*a, **kw):
+            call_log.append(("subprocess",))
+            return original_run(*a, **kw)
+
+        ns["subprocess"].run = tracking_run
+        await ns["golem_zhipu"]({"task": "ordered"}, ctx)
+
+        # Verify order: pre-save, subprocess, post-save
+        assert call_log == [
+            ("save_state", "golem-zhipu-pre-exec"),
+            ("subprocess",),
+            ("save_state", "golem-zhipu-post-exec"),
+        ]

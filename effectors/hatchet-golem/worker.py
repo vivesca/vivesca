@@ -39,6 +39,20 @@ hatchet.rate_limits.put("gemini-rpm", limit=60, duration=RateLimitDuration.MINUT
 hatchet.rate_limits.put("codex-rpm", limit=60, duration=RateLimitDuration.MINUTE)
 
 
+async def save_state(context, key: str) -> None:
+    """Create a durable checkpoint in task execution.
+
+    On worker restart, Hatchet replays the task function from the start.
+    Each save_state call returns instantly if the checkpoint was already
+    reached in a previous invocation, letting execution effectively
+    resume from the last completed checkpoint.
+    """
+    await context.aio_wait_for(
+        key,
+        SleepCondition(duration=timedelta(seconds=0)),
+    )
+
+
 def _run_golem(input, context, provider: str) -> dict:
     """Shared golem execution logic."""
     task = input.get("task", "") if isinstance(input, dict) else str(input)
@@ -78,21 +92,19 @@ def _run_golem(input, context, provider: str) -> dict:
     rate_limits=[RateLimit(static_key="zhipu-rpm", units=1)],
 )
 async def golem_zhipu(input, context):
-    """Durable golem-zhipu task with checkpoints before/after subprocess.
+    """Durable golem-zhipu task with save_state checkpoints.
 
-    On worker restart, Hatchet replays the task. The aio_wait_for checkpoints
-    return cached results, so the function progresses to the next un-completed
-    section. The subprocess is re-run if the post-exec checkpoint was never
-    reached (golem tasks are idempotent).
+    save_state before subprocess marks execution start; save_state after
+    marks completion. On worker restart, Hatchet replays the task function;
+    cached save_state calls return instantly, so execution progresses past
+    already-completed sections. The subprocess re-runs only if the post-exec
+    checkpoint was never reached (golem tasks are idempotent).
     """
     task = input.get("task", "") if isinstance(input, dict) else str(input)
     max_turns = input.get("max_turns", 50) if isinstance(input, dict) else 50
 
-    # Checkpoint: mark that we've begun execution
-    await context.aio_wait_for(
-        "golem-zhipu-pre-exec",
-        SleepCondition(duration=timedelta(seconds=0)),
-    )
+    # Save state: mark that execution has begun
+    await save_state(context, "golem-zhipu-pre-exec")
 
     # Run subprocess in a thread to avoid blocking the event loop
     cmd = [
@@ -110,11 +122,8 @@ async def golem_zhipu(input, context):
         env={**os.environ, "GOLEM_PROVIDER": "zhipu"},
     )
 
-    # Checkpoint: mark that subprocess completed
-    await context.aio_wait_for(
-        "golem-zhipu-post-exec",
-        SleepCondition(duration=timedelta(seconds=0)),
-    )
+    # Save state: mark that subprocess completed
+    await save_state(context, "golem-zhipu-post-exec")
 
     return {
         "task": task[:200],
