@@ -16,7 +16,7 @@ import json
 import time
 from pathlib import Path
 
-CHROMATIN = Path.home() / "code" / "epigenome" / "chromatin"
+CHROMATIN = Path.home() / "epigenome" / "chromatin"
 WORKSPACE = CHROMATIN / ".obsidian" / "workspace.json"
 LOG_FILE = CHROMATIN / ".consumption-log.jsonl"
 
