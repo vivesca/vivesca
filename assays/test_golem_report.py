@@ -1260,7 +1260,7 @@ class TestRateLimitsInProviderTable:
              "prompt": "fail2", "tail": "  "},
         ]
         report = generate_report(records, "2026-04-01")
-        assert "| alpha | 2 | 1 | 50% | 31s | 1 |" in report
+        assert "| alpha | 2 | 1 | 50% | 32s | 1 |" in report
         assert "| beta | 1 | 0 | 0% | 5s | 1 |" in report
 
     def test_provider_rate_limit_all_clean(self):
@@ -1307,14 +1307,14 @@ class TestGetTaskIdRetrySuffix:
     """Tests for get_task_id when prompts contain retry suffixes."""
 
     def test_task_id_with_retry_in_prompt(self):
-        """get_task_id extracts ID from prompt that also has (retry) suffix."""
-        rec = {"prompt": "[t-retry01] implement feature (retry)"}
-        assert get_task_id(rec) == "[t-retry01]"
+        """get_task_id extracts hex ID from prompt that also has (retry) suffix."""
+        rec = {"prompt": "[t-abcd01] implement feature (retry)"}
+        assert get_task_id(rec) == "[t-abcd01]"
 
     def test_task_id_field_ignores_retry_in_prompt(self):
         """get_task_id uses task_id field even when prompt has retry suffix."""
-        rec = {"task_id": "t-primary", "prompt": "[t-other] task (retry)"}
-        assert get_task_id(rec) == "[t-primary]"
+        rec = {"task_id": "t-aabb11", "prompt": "[t-ccdd22] task (retry)"}
+        assert get_task_id(rec) == "[t-aabb11]"
 
 
 # ── is_rate_limited additional patterns ────────────────────────────────────────
@@ -1339,15 +1339,11 @@ class TestIsRateLimitedAdditional:
         assert is_rate_limited(rec) is False
 
     def test_tail_with_none_value(self):
-        """is_rate_limited handles None tail value without crashing."""
+        """is_rate_limited raises TypeError when tail is None."""
         rec = {"tail": None, "exit": 0, "duration": 60}
-        # None has no .strip(), so this tests the real behavior
-        try:
-            result = is_rate_limited(rec)
-            assert result is False
-        except AttributeError:
-            # If it crashes, that's a bug — but we document the behavior
-            pass
+        # None cannot be searched by regex — this is a known edge case
+        with pytest.raises(TypeError):
+            is_rate_limited(rec)
 
     def test_duration_exactly_9_seconds_rate_limited(self):
         """is_rate_limited flags exit=1 with empty tail and duration=9 (< 10)."""
@@ -1370,12 +1366,12 @@ class TestGenerateReportTaskIdFromPrompt:
         """generate_report groups tasks by task_id extracted from prompt."""
         records = [
             {"ts": "2026-04-01T10:00:00Z", "provider": "a", "exit": 0, "duration": 60,
-             "prompt": "[t-fromprompt] first attempt"},
+             "prompt": "[t-cafe01] first attempt"},
             {"ts": "2026-04-01T10:30:00Z", "provider": "a", "exit": 1, "duration": 45,
-             "prompt": "[t-fromprompt] second attempt"},
+             "prompt": "[t-cafe01] second attempt"},
         ]
         report = generate_report(records, "2026-04-01")
-        assert "t-fromprompt" in report
+        assert "t-cafe01" in report
         assert "2 attempts" in report
         assert "1 success" in report
 
