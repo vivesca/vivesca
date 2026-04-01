@@ -456,3 +456,207 @@ class TestSourceAnalysis:
         """Script clears hash table to get fresh runner path."""
         src = self._src()
         assert "hash -r" in src
+
+
+# ── stdout tests ──────────────────────────────────────────────────────────
+
+
+class TestStdout:
+    def test_no_stdout_on_success(self, tmp_path):
+        """Script writes to log file, not stdout, during normal run."""
+        bindir = _make_mock_bin(tmp_path, "bunx")
+        r = _run_script(path_dirs=[bindir], tmp_path=tmp_path)
+        assert r.stdout == ""
+
+    def test_no_stdout_on_update_failure(self, tmp_path):
+        """Script writes failure messages to log, not stdout."""
+        bindir = _make_mock_bin(tmp_path, "bunx", exit_code=1)
+        r = _run_script(path_dirs=[bindir], tmp_path=tmp_path)
+        assert r.stdout == ""
+
+    def test_no_stdout_on_no_runner(self, tmp_path):
+        """Script writes 'neither found' error to log, not stdout."""
+        r = _run_script(
+            env_extra={"PATH": "/usr/bin:/bin"},
+            tmp_path=tmp_path,
+        )
+        # Even with no runner, stdout should be empty (error goes to log)
+        # This may or may not be true depending on system PATH — just check
+        # that if there IS stdout, it doesn't contain the error message
+        assert "neither bunx nor npx found" not in r.stdout
+
+
+# ── runner output capture tests ───────────────────────────────────────────
+
+
+class TestRunnerOutputCapture:
+    def test_runner_stdout_captured_to_log(self, tmp_path):
+        """Runner's stdout output appears in the log file."""
+        bindir = _make_mock_bin(tmp_path, "bunx", stdout="installed-v1.2.3")
+        _run_script(path_dirs=[bindir], tmp_path=tmp_path)
+        log_text = _log_file(tmp_path).read_text()
+        assert "installed-v1.2.3" in log_text
+
+    def test_runner_stderr_captured_to_log(self, tmp_path):
+        """Runner's stderr output appears in the log file."""
+        bindir = tmp_path / "bin"
+        bindir.mkdir()
+        script = bindir / "bunx"
+        script.write_text('#!/bin/bash\necho "warn: deprecated" >&2\nexit 0\n')
+        script.chmod(script.stat().st_mode | stat.S_IEXEC)
+        _run_script(path_dirs=[bindir], tmp_path=tmp_path)
+        log_text = _log_file(tmp_path).read_text()
+        assert "warn: deprecated" in log_text
+
+
+# ── runner stdout appears once per invocation ────────────────────────────
+
+
+class TestRunnerOutputPerInvocation:
+    def test_runner_stdout_appears_twice_for_two_targets(self, tmp_path):
+        """Each target invocation's output is captured separately."""
+        bindir = tmp_path / "bin"
+        bindir.mkdir()
+        script = bindir / "bunx"
+        script.write_text('#!/bin/bash\necho "pkg-output"\nexit 0\n')
+        script.chmod(script.stat().st_mode | stat.S_IEXEC)
+        _run_script(path_dirs=[bindir], tmp_path=tmp_path)
+        log_text = _log_file(tmp_path).read_text()
+        # "pkg-output" should appear twice — once per target
+        assert log_text.count("pkg-output") == 2
+
+
+# ── log section ordering tests ────────────────────────────────────────────
+
+
+class TestLogSectionOrdering:
+    def test_separator_then_start_then_update_then_result(self, tmp_path):
+        """Log sections appear in correct order: separator, start, updates, results, end."""
+        bindir = _make_mock_bin(tmp_path, "bunx")
+        _run_script(path_dirs=[bindir], tmp_path=tmp_path)
+        log_text = _log_file(tmp_path).read_text()
+        sep_pos = log_text.index("========================================")
+        start_pos = log_text.index("Update started:")
+        oc_update_pos = log_text.index("Updating OpenCode...")
+        oc_result_pos = log_text.index("OpenCode updated successfully")
+        cx_update_pos = log_text.index("Updating Codex...")
+        cx_result_pos = log_text.index("Codex updated successfully")
+        end_pos = log_text.index("Update completed:")
+        assert sep_pos < start_pos < oc_update_pos < oc_result_pos
+        assert oc_result_pos < cx_update_pos < cx_result_pos < end_pos
+
+
+# ── npx runner with filtered path ─────────────────────────────────────────
+
+
+class TestNpxRunner:
+    def test_npx_records_correct_package(self, tmp_path):
+        """When npx is used, it's called with the correct package name."""
+        record = tmp_path / "calls.log"
+        bindir = _make_recording_bin(tmp_path, "npx", record)
+        # Filter system PATH to remove bunx
+        filtered_path = [bindir]
+        for dir_path in os.environ.get("PATH", "").split(os.pathsep):
+            if not dir_path:
+                continue
+            if not (Path(dir_path) / "bunx").exists():
+                filtered_path.append(Path(dir_path))
+        _run_script(path_dirs=filtered_path, tmp_path=tmp_path, replace_path=True)
+        calls = record.read_text()
+        assert "@every-env/compound-plugin install compound-engineering" in calls
+        assert calls.count("@every-env/compound-plugin") == 2
+
+    def test_npx_creates_log(self, tmp_path):
+        """npx-based run still creates the log file."""
+        record = tmp_path / "calls.log"
+        bindir = _make_recording_bin(tmp_path, "npx", record)
+        filtered_path = [bindir]
+        for dir_path in os.environ.get("PATH", "").split(os.pathsep):
+            if not dir_path:
+                continue
+            if not (Path(dir_path) / "bunx").exists():
+                filtered_path.append(Path(dir_path))
+        _run_script(path_dirs=filtered_path, tmp_path=tmp_path, replace_path=True)
+        assert _log_file(tmp_path).exists()
+
+
+# ── help output detail tests ─────────────────────────────────────────────
+
+
+class TestHelpDetails:
+    def test_help_mentions_compound_engineering(self, tmp_path):
+        r = _run_script(["--help"], tmp_path=tmp_path)
+        assert "compound-engineering" in r.stdout
+
+    def test_help_mentions_plugin(self, tmp_path):
+        r = _run_script(["--help"], tmp_path=tmp_path)
+        assert "plugin" in r.stdout.lower()
+
+    def test_help_exit_code_zero(self, tmp_path):
+        r = _run_script(["--help"], tmp_path=tmp_path)
+        assert r.returncode == 0
+
+    def test_help_stderr_empty(self, tmp_path):
+        r = _run_script(["--help"], tmp_path=tmp_path)
+        assert r.stderr == ""
+
+
+# ── log content on mixed success/failure ──────────────────────────────────
+
+
+class TestMixedResults:
+    def _make_flaky_bin(self, tmp_path: Path) -> Path:
+        """Create a mock bunx that succeeds first call, fails second."""
+        bindir = tmp_path / "bin"
+        bindir.mkdir(exist_ok=True)
+        count_file = tmp_path / ".call_count"
+        count_file.write_text("0")
+        script = bindir / "bunx"
+        script.write_text(
+            '#!/bin/bash\n'
+            f'COUNT_FILE="{count_file}"\n'
+            'COUNT=$(cat "$COUNT_FILE")\n'
+            'COUNT=$((COUNT + 1))\n'
+            'echo $COUNT > "$COUNT_FILE"\n'
+            'if [ "$COUNT" -eq 1 ]; then\n'
+            '    echo "success"\n'
+            '    exit 0\n'
+            'else\n'
+            '    echo "failure"\n'
+            '    exit 1\n'
+            'fi\n'
+        )
+        script.chmod(script.stat().st_mode | stat.S_IEXEC)
+        return bindir
+
+    def test_mixed_success_failure_log(self, tmp_path):
+        """First target succeeds, second fails: log shows both results."""
+        bindir = self._make_flaky_bin(tmp_path)
+        _run_script(path_dirs=[bindir], tmp_path=tmp_path)
+        log_text = _log_file(tmp_path).read_text()
+        assert "✅ OpenCode updated successfully" in log_text
+        assert "❌ Codex update failed" in log_text
+
+    def test_mixed_results_both_targets_attempted(self, tmp_path):
+        """Both targets are attempted even when first succeeds and second fails."""
+        bindir = self._make_flaky_bin(tmp_path)
+        r = _run_script(path_dirs=[bindir], tmp_path=tmp_path)
+        assert r.returncode == 0
+        log_text = _log_file(tmp_path).read_text()
+        assert "Updating OpenCode..." in log_text
+        assert "Updating Codex..." in log_text
+
+
+# ── source analysis: no hard-coded paths ──────────────────────────────────
+
+
+class TestSourceNoHardcodedPaths:
+    def test_no_hardcoded_usr_local(self):
+        """Script doesn't hard-code /usr/local paths."""
+        src = SCRIPT.read_text()
+        assert "/usr/local/bin" not in src
+
+    def test_log_file_uses_home(self):
+        """LOG_FILE is derived from $HOME, not a hard-coded absolute path."""
+        src = SCRIPT.read_text()
+        assert 'LOG_FILE="$HOME/' in src

@@ -250,6 +250,8 @@ def test_compute_quality_score():
         "min_sections_ok": True,
         "section_count": 5,
         "broken_sections": 0,
+        "has_proper_heading_hierarchy": True,
+        "has_filler_content": False,
     }
     score = _compute_quality_score(entry)
     assert score >= 80

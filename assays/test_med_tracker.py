@@ -3,6 +3,9 @@ from __future__ import annotations
 """Tests for med-tracker — medication schedule CLI tool."""
 
 import argparse
+import os
+import subprocess
+import sys
 from datetime import date, timedelta
 from pathlib import Path
 
@@ -565,3 +568,224 @@ def test_cmd_status_medication_not_started_yet(tmp_path, capsys):
 
     out = capsys.readouterr().out
     assert "Future" not in out
+
+
+# ── main() CLI entry-point tests (via exec namespace) ──────────────────
+
+
+def _run_main(*argv: str, schedule_path: Path | None = None):
+    """Run main() in the exec'd namespace with given argv.
+
+    Returns (stdout, stderr, exit_code).  exit_code is None if no SystemExit.
+    """
+    import io
+
+    old_argv = _mod["sys"].argv
+    if schedule_path is not None:
+        old_sched = _mod["SCHEDULE_PATH"]
+        _mod["SCHEDULE_PATH"] = schedule_path
+
+    _mod["sys"].argv = ["med-tracker", *argv]
+    captured_out = io.StringIO()
+    captured_err = io.StringIO()
+    _mod["sys"].stdout = captured_out
+    _mod["sys"].stderr = captured_err
+
+    exit_code = None
+    try:
+        _mod["main"]()
+    except SystemExit as e:
+        exit_code = e.code
+    finally:
+        _mod["sys"].argv = old_argv
+        _mod["sys"].stdout = sys.stdout
+        _mod["sys"].stderr = sys.stderr
+        if schedule_path is not None:
+            _mod["SCHEDULE_PATH"] = old_sched
+
+    return captured_out.getvalue(), captured_err.getvalue(), exit_code
+
+
+def test_main_no_args_exits():
+    """main() with no arguments exits with error (argparse required=True)."""
+    _, err, code = _run_main()
+    assert code == 2  # argparse exits 2 for missing required subcommand
+
+
+def test_main_status_subcommand(tmp_path):
+    """main() dispatches 'status' subcommand correctly."""
+    start, end = _active_date_range(-1, 5)
+    sched = _make_schedule(tmp_path, f"""\
+| drug | start | end | notes |
+|------|-------|-----|-------|
+| MainDrug | {start} | {end} | Via main |
+""")
+    out, _, code = _run_main("status", schedule_path=sched)
+    assert code is None
+    assert "MainDrug" in out
+    assert "Via main" in out
+
+
+def test_main_add_subcommand(tmp_path):
+    """main() dispatches 'add' subcommand and writes to file."""
+    sched = _make_schedule(tmp_path, """\
+| drug | start | end | notes |
+|------|-------|-----|-------|
+""")
+    out, _, code = _run_main(
+        "add", "AddedDrug", "--start", "2026-09-01", "--end", "2026-09-10",
+        "--notes", "from CLI", schedule_path=sched,
+    )
+    assert code is None
+    assert "Added AddedDrug" in out
+    assert "AddedDrug" in sched.read_text()
+
+
+def test_main_add_missing_start_exits():
+    """main() 'add' without --start exits with error."""
+    _, _, code = _run_main("add", "Drug", "--end", "2026-09-10")
+    assert code == 2  # argparse error for missing required arg
+
+
+def test_main_interactions_subcommand(tmp_path):
+    """main() dispatches 'interactions' subcommand."""
+    start, end = _active_date_range(-1, 5)
+    sched = _make_schedule(tmp_path, f"""\
+| drug | start | end | notes |
+|------|-------|-----|-------|
+| Plain | {start} | {end} | No interactions |
+""")
+    out, _, code = _run_main("interactions", schedule_path=sched)
+    assert code is None
+    assert "No CYP3A4 interaction concerns" in out
+
+
+def test_main_add_duplicate_exits(tmp_path):
+    """main() 'add' with duplicate drug exits via sys.exit(1)."""
+    sched = _make_schedule(tmp_path, """\
+| drug | start | end | notes |
+|------|-------|-----|-------|
+| Dup | 2026-01-01 | 2026-01-10 | Original |
+""")
+    _, err, code = _run_main(
+        "add", "dup", "--start", "2026-10-01", "--end", "2026-10-10",
+        schedule_path=sched,
+    )
+    assert code == 1
+    assert "already exists" in err
+
+
+# ── cmd_add with empty-string notes ────────────────────────────────────
+
+
+def test_cmd_add_empty_string_notes(tmp_path, capsys):
+    """cmd_add writes empty notes field when notes is '' (not None)."""
+    sched = _make_schedule(tmp_path, """\
+| drug | start | end | notes |
+|------|-------|-----|-------|
+""")
+    _mod["SCHEDULE_PATH"] = sched
+    try:
+        args = _mock_ns(drug="NoNotes", start="2026-07-01", end="2026-07-10", notes="")
+        cmd_add(args)
+    finally:
+        _mod["SCHEDULE_PATH"] = SCHEDULE_PATH
+
+    content = sched.read_text()
+    assert "| NoNotes | 2026-07-01 | 2026-07-10 |  |" in content
+
+
+# ── parse_schedule with preamble content ───────────────────────────────
+
+
+def test_parse_schedule_table_after_preamble(tmp_path):
+    """parse_schedule finds table even when preceded by paragraphs."""
+    content = """\
+# Medication Schedule
+
+This file tracks current medications.
+Last updated by Dr. Smith.
+
+| drug | start | end | notes |
+|------|-------|-----|-------|
+| BuriedDrug | 2026-03-01 | 2026-04-01 | Found it |
+"""
+    sched = _make_schedule(tmp_path, content)
+    _mod["SCHEDULE_PATH"] = sched
+    try:
+        meds = parse_schedule()
+    finally:
+        _mod["SCHEDULE_PATH"] = SCHEDULE_PATH
+
+    assert len(meds) == 1
+    assert meds[0]["drug"] == "BuriedDrug"
+
+
+# ── cmd_interactions keyword variants ─────────────────────────────────
+
+
+def test_cmd_interactions_inhibitor_keyword(tmp_path, capsys):
+    """cmd_interactions detects 'inhibitor' keyword alone."""
+    start1, end1 = _active_date_range(-5, 10)
+    start2, end2 = _active_date_range(-3, 12)
+    sched = _make_schedule(tmp_path, f"""\
+| drug | start | end | notes |
+|------|-------|-----|-------|
+| DrugA | {start1} | {end1} | strong inhibitor of metabolism |
+| DrugB | {start2} | {end2} | CYP3A4 substrate |
+""")
+    _mod["SCHEDULE_PATH"] = sched
+    try:
+        cmd_interactions(_mock_ns())
+    finally:
+        _mod["SCHEDULE_PATH"] = SCHEDULE_PATH
+
+    out = capsys.readouterr().out
+    assert "CYP3A4 Interaction Warning" in out
+    assert "DrugA" in out
+
+
+def test_cmd_interactions_substrate_keyword(tmp_path, capsys):
+    """cmd_interactions detects 'substrate' keyword alone."""
+    start1, end1 = _active_date_range(-5, 10)
+    start2, end2 = _active_date_range(-3, 12)
+    sched = _make_schedule(tmp_path, f"""\
+| drug | start | end | notes |
+|------|-------|-----|-------|
+| DrugX | {start1} | {end1} | substrate of CYP enzymes |
+| DrugY | {start2} | {end2} | 3A4 related |
+""")
+    _mod["SCHEDULE_PATH"] = sched
+    try:
+        cmd_interactions(_mock_ns())
+    finally:
+        _mod["SCHEDULE_PATH"] = SCHEDULE_PATH
+
+    out = capsys.readouterr().out
+    assert "CYP3A4 Interaction Warning" in out
+
+
+# ── subprocess invocation ──────────────────────────────────────────────
+
+
+def test_subprocess_help():
+    """med-tracker --help exits 0 and shows usage."""
+    import subprocess
+    result = subprocess.run(
+        ["python3", str(Path.home() / "germline/effectors/med-tracker"), "--help"],
+        capture_output=True, text=True, timeout=10,
+    )
+    assert result.returncode == 0
+    assert "med-tracker" in result.stdout.lower() or "medication" in result.stdout.lower()
+
+
+def test_subprocess_status_no_file(tmp_path, monkeypatch):
+    """med-tracker status runs via subprocess and handles missing file."""
+    import subprocess
+    env = {**os.environ, "HOME": str(tmp_path)}
+    result = subprocess.run(
+        ["python3", str(Path.home() / "germline/effectors/med-tracker"), "status"],
+        capture_output=True, text=True, timeout=10, env=env,
+    )
+    assert result.returncode == 0
+    assert "No active medications" in result.stdout

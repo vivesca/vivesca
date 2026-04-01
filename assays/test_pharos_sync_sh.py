@@ -305,3 +305,263 @@ def test_main_no_error_when_claude_dir_missing(tmp_path):
 
     result = run_script(env={"HOME": str(fake_home)})
     assert result.returncode == 0
+
+
+# ── sync_file edge cases ────────────────────────────────────────────────
+
+
+def test_sync_file_missing_src(tmp_path):
+    """sync_file returns 1 when source file doesn't exist."""
+    src = tmp_path / "nonexistent.txt"
+    dst = tmp_path / "dst.txt"
+    test_script = f"""
+    source {SCRIPT_PATH}
+    sync_file "{src}" "{dst}"
+    echo "exit: $?"
+    """
+    result = subprocess.run(["bash", "-c", test_script], capture_output=True, text=True)
+    assert result.returncode == 0
+    assert "exit: 1" in result.stdout
+    assert not dst.exists()
+
+
+def test_sync_file_overwrites_different_content(tmp_path):
+    """sync_file should overwrite dst when src differs."""
+    src = tmp_path / "src.txt"
+    dst = tmp_path / "dst.txt"
+    src.write_text("version 1\n")
+    dst.write_text("version 0\n")
+    test_script = f"""
+    source {SCRIPT_PATH}
+    sync_file "{src}" "{dst}"
+    """
+    result = subprocess.run(["bash", "-c", test_script], capture_output=True, text=True)
+    assert result.returncode == 0
+    assert dst.read_text() == "version 1\n"
+
+
+def test_sync_file_nested_dest_preserves_sibling(tmp_path):
+    """sync_file creating a new file in a dir shouldn't disturb siblings."""
+    dst_dir = tmp_path / "out"
+    dst_dir.mkdir()
+    sibling = dst_dir / "other.txt"
+    sibling.write_text("keep me\n")
+    src = tmp_path / "new.txt"
+    src.write_text("new file\n")
+    test_script = f"""
+    source {SCRIPT_PATH}
+    sync_file "{src}" "{dst_dir / 'new.txt'}"
+    """
+    result = subprocess.run(["bash", "-c", test_script], capture_output=True, text=True)
+    assert result.returncode == 0
+    assert sibling.read_text() == "keep me\n"
+    assert (dst_dir / "new.txt").read_text() == "new file\n"
+
+
+# ── Memory directory rsync tests ────────────────────────────────────────
+
+
+def _init_officina(officina: Path) -> None:
+    """Set up a minimal git repo in officina for commit tests."""
+    subprocess.run(["git", "init", str(officina)], capture_output=True, check=True)
+    subprocess.run(
+        ["git", "-C", str(officina), "config", "user.email", "test@test.com"],
+        capture_output=True,
+    )
+    subprocess.run(
+        ["git", "-C", str(officina), "config", "user.name", "Test"],
+        capture_output=True,
+    )
+
+
+def test_memory_rsync_deletes_removed_files(tmp_path):
+    """rsync --delete should remove files from dst that no longer exist in src."""
+    fake_home = tmp_path / "home"
+    fake_claude = fake_home / ".claude"
+    officina = fake_home / "officina"
+    fake_claude.mkdir(parents=True)
+    officina.mkdir(parents=True)
+    _init_officina(officina)
+
+    mem_src = fake_claude / "projects" / "-Users-terry" / "memory"
+    mem_src.mkdir(parents=True)
+    (mem_src / "keep.md").write_text("keep")
+    (mem_src / "remove.md").write_text("remove")
+
+    # First sync
+    run_script(env={"HOME": str(fake_home)})
+    assert (officina / "claude" / "memory" / "remove.md").exists()
+
+    # Remove file from source, re-sync
+    (mem_src / "remove.md").unlink()
+    run_script(env={"HOME": str(fake_home)})
+    assert not (officina / "claude" / "memory" / "remove.md").exists()
+    assert (officina / "claude" / "memory" / "keep.md").exists()
+
+
+def test_memory_rsync_preserves_subdirs(tmp_path):
+    """rsync -a should preserve directory structure inside memory/."""
+    fake_home = tmp_path / "home"
+    fake_claude = fake_home / ".claude"
+    officina = fake_home / "officina"
+    fake_claude.mkdir(parents=True)
+    officina.mkdir(parents=True)
+    _init_officina(officina)
+
+    mem_src = fake_claude / "projects" / "-Users-terry" / "memory"
+    subdir = mem_src / "subdir"
+    subdir.mkdir(parents=True)
+    (subdir / "nested.md").write_text("nested content")
+    (mem_src / "top.md").write_text("top level")
+
+    run_script(env={"HOME": str(fake_home)})
+    assert (officina / "claude" / "memory" / "subdir" / "nested.md").exists()
+    assert (officina / "claude" / "memory" / "top.md").exists()
+
+
+def test_memory_sync_prints_synced_message(tmp_path):
+    """Memory directory sync should print 'synced: memory/'."""
+    fake_home = tmp_path / "home"
+    fake_claude = fake_home / ".claude"
+    officina = fake_home / "officina"
+    fake_claude.mkdir(parents=True)
+    officina.mkdir(parents=True)
+    _init_officina(officina)
+
+    mem_src = fake_claude / "projects" / "-Users-terry" / "memory"
+    mem_src.mkdir(parents=True)
+    (mem_src / "MEMORY.md").write_text("data")
+
+    result = run_script(env={"HOME": str(fake_home)})
+    assert "synced: memory/" in result.stdout
+
+
+def test_empty_memory_dir_no_crash(tmp_path):
+    """Empty memory directory (exists but no files) should not crash."""
+    fake_home = tmp_path / "home"
+    fake_claude = fake_home / ".claude"
+    officina = fake_home / "officina"
+    fake_claude.mkdir(parents=True)
+    officina.mkdir(parents=True)
+    _init_officina(officina)
+
+    mem_src = fake_claude / "projects" / "-Users-terry" / "memory"
+    mem_src.mkdir(parents=True)
+
+    result = run_script(env={"HOME": str(fake_home)})
+    assert result.returncode == 0
+
+
+# ── changed guard / git tests ──────────────────────────────────────────
+
+
+def test_no_git_commit_when_nothing_changed(tmp_path):
+    """If no files changed, no git commit should be made."""
+    fake_home = tmp_path / "home"
+    fake_claude = fake_home / ".claude"
+    officina = fake_home / "officina"
+    fake_claude.mkdir(parents=True)
+    officina.mkdir(parents=True)
+    _init_officina(officina)
+
+    # Settings exist but already synced
+    settings_content = '{"unchanged": true}'
+    (fake_claude / "settings.json").write_text(settings_content)
+    (officina / "claude").mkdir()
+    (officina / "claude" / "settings.json").write_text(settings_content)
+    # Make initial commit so git log isn't empty
+    subprocess.run(
+        ["git", "-C", str(officina), "add", "."], capture_output=True
+    )
+    subprocess.run(
+        ["git", "-C", str(officina), "commit", "-m", "initial"],
+        capture_output=True,
+    )
+
+    run_script(env={"HOME": str(fake_home)})
+    log = subprocess.run(
+        ["git", "-C", str(officina), "log", "--oneline"],
+        capture_output=True, text=True,
+    )
+    # Only the initial commit should exist, no "sync:" commit
+    assert "sync:" not in log.stdout
+
+
+def test_git_commit_message_includes_date(tmp_path):
+    """Commit message should contain today's date in YYYY-MM-DD format."""
+    fake_home = tmp_path / "home"
+    fake_claude = fake_home / ".claude"
+    officina = fake_home / "officina"
+    fake_claude.mkdir(parents=True)
+    officina.mkdir(parents=True)
+    _init_officina(officina)
+
+    (fake_claude / "settings.json").write_text('{"new": true}')
+    # No existing officina copy → will be treated as new
+
+    run_script(env={"HOME": str(fake_home)})
+    log = subprocess.run(
+        ["git", "-C", str(officina), "log", "--format=%s"],
+        capture_output=True, text=True,
+    )
+    from datetime import date
+
+    today = date.today().isoformat()[:10]  # YYYY-MM-DD
+    assert today in log.stdout
+
+
+def test_settings_not_copied_when_identical(tmp_path):
+    """settings.json already matching in officina should not trigger changed."""
+    fake_home = tmp_path / "home"
+    fake_claude = fake_home / ".claude"
+    officina = fake_home / "officina"
+    fake_claude.mkdir(parents=True)
+    officina.mkdir(parents=True)
+    _init_officina(officina)
+
+    content = '{"already": "synced"}'
+    (fake_claude / "settings.json").write_text(content)
+    (officina / "claude").mkdir()
+    (officina / "claude" / "settings.json").write_text(content)
+    # Make initial commit
+    subprocess.run(["git", "-C", str(officina), "add", "."], capture_output=True)
+    subprocess.run(
+        ["git", "-C", str(officina), "commit", "-m", "initial"],
+        capture_output=True,
+    )
+
+    result = run_script(env={"HOME": str(fake_home)})
+    assert "updated: settings.json" not in result.stdout
+
+
+def test_changed_accumulates_across_syncs(tmp_path):
+    """Both memory and settings changes should set changed=true."""
+    fake_home = tmp_path / "home"
+    fake_claude = fake_home / ".claude"
+    officina = fake_home / "officina"
+    fake_claude.mkdir(parents=True)
+    officina.mkdir(parents=True)
+    _init_officina(officina)
+
+    mem_src = fake_claude / "projects" / "-Users-terry" / "memory"
+    mem_src.mkdir(parents=True)
+    (mem_src / "MEMORY.md").write_text("data")
+    (fake_claude / "settings.json").write_text('{"x": 1}')
+
+    result = run_script(env={"HOME": str(fake_home)})
+    assert "synced: memory/" in result.stdout
+    assert "updated: settings.json" in result.stdout
+
+
+def test_no_memory_dir_no_synced_output(tmp_path):
+    """If memory source dir doesn't exist, no 'synced: memory/' output."""
+    fake_home = tmp_path / "home"
+    fake_claude = fake_home / ".claude"
+    officina = fake_home / "officina"
+    fake_claude.mkdir(parents=True)
+    officina.mkdir(parents=True)
+    _init_officina(officina)
+    (fake_claude / "settings.json").write_text('{"only": "settings"}')
+
+    result = run_script(env={"HOME": str(fake_home)})
+    assert "synced: memory/" not in result.stdout
