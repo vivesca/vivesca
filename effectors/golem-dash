@@ -1402,12 +1402,15 @@ def running_tasks_table(running: list[dict], use_color: bool = True) -> str:
         filled = int(10 * pct / 100)
         bar_chars = "█" * filled + "░" * (10 - filled)
 
+        phase = task_phase(pct)
+        phase_icon = PHASE_ICONS.get(phase, "·")
+
         if stale:
             pct_str = f"{r_col}{bar_chars} STALE{rst}"
         elif is_leading:
-            pct_str = f"{b}{bar_chars} {pct:.0f}%{rst}"
+            pct_str = f"{b}{bar_chars} {pct:.0f}%{rst} {phase_icon}"
         else:
-            pct_str = f"{dim}{bar_chars}{rst} {g}{pct:.0f}%{rst}"
+            pct_str = f"{dim}{bar_chars}{rst} {g}{pct:.0f}%{rst} {phase_icon}"
 
         leader_marker = f"{g}★{rst} " if is_leading else "  "
         rem_str = f" ~{fmt_duration(remaining)}" if remaining > 0 and not stale else ""
@@ -1857,6 +1860,14 @@ def print_dashboard(use_color: bool = True, json_output: bool = False) -> int:
     print(f"  {progress_bar(done, total, width=30, use_color=use_color)}")
     burst_str = f"  Last 15min: {m15}  |  Last 60min: {m60}"
     print(burst_str)
+
+    # 1b. Drain bar (visual queue drain + ETA)
+    print(f"\n{b}Drain{rst}")
+    print(f"  {drain_bar(done, len(running), pending, eta['eta_seconds'], width=40, use_color=use_color)}")
+
+    # 1c. Activity heartbeat
+    print(f"\n{b}Heartbeat{rst}")
+    print(f"  {heartbeat_line(stall_secs, m15, m60, trend, ewma, use_color=use_color)}")
 
     # 2. Throughput sparkline
     print(f"\n{b}Throughput Trend (6hr){rst}")
