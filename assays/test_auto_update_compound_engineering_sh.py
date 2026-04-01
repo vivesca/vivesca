@@ -14,6 +14,21 @@ import pytest
 SCRIPT = Path(__file__).parent.parent / "effectors" / "auto-update-compound-engineering.sh"
 
 
+# ── script structure tests ──────────────────────────────────────────────
+
+
+class TestScriptStructure:
+    def test_script_exists(self):
+        assert SCRIPT.exists()
+
+    def test_script_is_executable(self):
+        assert os.access(SCRIPT, os.X_OK)
+
+    def test_script_has_shebang(self):
+        first_line = SCRIPT.read_text().splitlines()[0]
+        assert first_line == "#!/usr/bin/env bash"
+
+
 # ── helpers ─────────────────────────────────────────────────────────────
 
 
@@ -103,6 +118,11 @@ class TestHelpFlag:
     def test_help_does_not_create_log(self, tmp_path):
         _run_script(["--help"], tmp_path=tmp_path)
         assert not _log_file(tmp_path).exists()
+
+    def test_help_mentions_log_file(self, tmp_path):
+        r = _run_script(["--help"], tmp_path=tmp_path)
+        assert "log" in r.stdout.lower()
+        assert ".compound-engineering-updates.log" in r.stdout
 
 
 # ── runner selection tests ──────────────────────────────────────────────

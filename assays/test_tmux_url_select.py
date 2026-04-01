@@ -60,7 +60,7 @@ def build_mock_env(
     mock_fzf.write_text(
         "\n".join(
             [
-                "#!/usr/bin/env bash",
+                "#!/bin/bash",
                 f'printf "%s\\n" "$@" > "{fzf_args_path}"',
                 f'cat > "{fzf_input_path}"',
                 'case "${FZF_SELECTION_MODE:-first}" in',
@@ -84,7 +84,7 @@ def build_mock_env(
     mock_tmux.write_text(
         "\n".join(
             [
-                "#!/usr/bin/env bash",
+                "#!/bin/bash",
                 f'printf "%s\\n" "$*" >> "{tmux_calls_path}"',
             ]
         )
