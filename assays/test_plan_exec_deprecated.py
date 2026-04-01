@@ -85,10 +85,12 @@ def test_run_backend_success_with_marker(tmp_path):
         "cmd": lambda project, pf: ["echo", "hello"],
         "cwd": lambda project: project,
     }
-    with patch("subprocess.run") as mock_run:
-        mock_run.return_value = MagicMock(returncode=0)
-        # Write the output that the real subprocess would write
+
+    def _write_output(*args, **kwargs):
         output_file.write_text("PLAN-EXEC-DONE\nFiles touched: [a.py]")
+        return MagicMock(returncode=0)
+
+    with patch("subprocess.run", side_effect=_write_output):
         result = run_backend(backend, "/proj", "/plan.md", output_file)
     assert result is True
 
@@ -101,9 +103,12 @@ def test_run_backend_success_no_marker_no_error(tmp_path):
         "cmd": lambda project, pf: ["echo", "hello"],
         "cwd": lambda project: project,
     }
-    with patch("subprocess.run") as mock_run:
-        mock_run.return_value = MagicMock(returncode=0)
+
+    def _write_output(*args, **kwargs):
         output_file.write_text("All good, everything ran fine. Done.")
+        return MagicMock(returncode=0)
+
+    with patch("subprocess.run", side_effect=_write_output):
         result = run_backend(backend, "/proj", "/plan.md", output_file)
     assert result is True
 
@@ -116,9 +121,15 @@ def test_run_backend_success_but_error_in_tail(tmp_path):
         "cmd": lambda project, pf: ["echo", "hello"],
         "cwd": lambda project: project,
     }
-    with patch("subprocess.run") as mock_run:
-        mock_run.return_value = MagicMock(returncode=0)
-        output_file.write_text("x" * 300 + "Error: something went wrong")
+    error_tail = "x" * 300 + "Error: something went wrong"
+
+    def _write_output(*args, **kwargs):
+        # Simulate subprocess writing to the file (mocked run bypasses the
+        # file handle passed as stdout, so write directly to the output path).
+        output_file.write_text(error_tail)
+        return MagicMock(returncode=0)
+
+    with patch("subprocess.run", side_effect=_write_output):
         result = run_backend(backend, "/proj", "/plan.md", output_file)
     assert result is False
 
@@ -131,9 +142,12 @@ def test_run_backend_nonzero_exit(tmp_path):
         "cmd": lambda project, pf: ["false"],
         "cwd": lambda project: project,
     }
-    with patch("subprocess.run") as mock_run:
-        mock_run.return_value = MagicMock(returncode=1)
+
+    def _write_output(*args, **kwargs):
         output_file.write_text("some output")
+        return MagicMock(returncode=1)
+
+    with patch("subprocess.run", side_effect=_write_output):
         result = run_backend(backend, "/proj", "/plan.md", output_file)
     assert result is False
 
@@ -146,9 +160,12 @@ def test_run_backend_quota_error(tmp_path):
         "cmd": lambda project, pf: ["false"],
         "cwd": lambda project: project,
     }
-    with patch("subprocess.run") as mock_run:
-        mock_run.return_value = MagicMock(returncode=1)
+
+    def _write_output(*args, **kwargs):
         output_file.write_text("HTTP 429 Too Many Requests")
+        return MagicMock(returncode=1)
+
+    with patch("subprocess.run", side_effect=_write_output):
         result = run_backend(backend, "/proj", "/plan.md", output_file)
     assert result is False
 
@@ -161,9 +178,12 @@ def test_run_backend_quota_chinese_auth_error(tmp_path):
         "cmd": lambda project, pf: ["false"],
         "cwd": lambda project: project,
     }
-    with patch("subprocess.run") as mock_run:
-        mock_run.return_value = MagicMock(returncode=1)
+
+    def _write_output(*args, **kwargs):
         output_file.write_text("身份验证失败")
+        return MagicMock(returncode=1)
+
+    with patch("subprocess.run", side_effect=_write_output):
         result = run_backend(backend, "/proj", "/plan.md", output_file)
     assert result is False
 
@@ -209,9 +229,12 @@ def test_run_backend_env_extra(tmp_path):
         "cwd": lambda project: project,
         "env_extra": {"MY_KEY": "my_value"},
     }
-    with patch("subprocess.run") as mock_run:
-        mock_run.return_value = MagicMock(returncode=0)
+
+    def _write_output(*args, **kwargs):
         output_file.write_text("PLAN-EXEC-DONE")
+        return MagicMock(returncode=0)
+
+    with patch("subprocess.run", side_effect=_write_output) as mock_run:
         run_backend(backend, "/proj", "/plan.md", output_file)
     call_kwargs = mock_run.call_args
     assert call_kwargs.kwargs["env"]["MY_KEY"] == "my_value"
@@ -225,10 +248,13 @@ def test_run_backend_strips_claudecode(tmp_path):
         "cmd": lambda project, pf: ["echo", "hi"],
         "cwd": lambda project: project,
     }
+
+    def _write_output(*args, **kwargs):
+        output_file.write_text("PLAN-EXEC-DONE")
+        return MagicMock(returncode=0)
+
     with patch.dict(os.environ, {"CLAUDECODE": "1"}):
-        with patch("subprocess.run") as mock_run:
-            mock_run.return_value = MagicMock(returncode=0)
-            output_file.write_text("PLAN-EXEC-DONE")
+        with patch("subprocess.run", side_effect=_write_output) as mock_run:
             run_backend(backend, "/proj", "/plan.md", output_file)
     call_kwargs = mock_run.call_args
     assert "CLAUDECODE" not in call_kwargs.kwargs["env"]
@@ -253,10 +279,12 @@ def test_backends_each_has_required_keys():
         assert "cwd" in b
 
 
-def test_backends_cmd_returns_list():
+def test_backends_cmd_returns_list(tmp_path):
     """Each backend cmd callable returns a list."""
+    plan = tmp_path / "plan.md"
+    plan.write_text("do stuff")
     for b in BACKENDS:
-        cmd = b["cmd"]("/fake/project", "/fake/plan.md")
+        cmd = b["cmd"]("/fake/project", str(plan))
         assert isinstance(cmd, list)
         assert len(cmd) > 0
 
