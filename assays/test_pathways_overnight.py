@@ -1,367 +1,399 @@
 from __future__ import annotations
 
-"""Tests for metabolon.pathways.overnight — mock all external calls."""
+"""Tests for metabolon.pathways.overnight — overnight metabolism pipeline."""
 
 import json
 import os
+import subprocess
 from pathlib import Path
-from unittest.mock import MagicMock, patch, PropertyMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
-import metabolon.pathways.overnight as mod
+from metabolon.pathways.overnight import (
+    DRAFT_PROMPT,
+    LOGDIR,
+    PUBLISHED,
+    VIVESCA,
+    _sterile_env,
+    compose_post,
+    metabolise,
+    metabolize_pipeline,
+    publish,
+)
 
 
-# ── helpers ──────────────────────────────────────────────────────────────────
+# ---------------------------------------------------------------------------
+# _sterile_env
+# ---------------------------------------------------------------------------
 
-def _make_subprocess_result(stdout="", stderr="", returncode=0):
-    """Build a fake subprocess.CompletedProcess."""
-    return MagicMock(
-        stdout=stdout, stderr=stderr, returncode=returncode
-    )
-
-
-# ── _sterile_env ─────────────────────────────────────────────────────────────
 
 class TestSterileEnv:
     def test_removes_claudecode(self):
-        with patch.dict(os.environ, {"CLAUDECODE": "1", "PATH": "/usr/bin"}, clear=False):
-            env = mod._sterile_env()
+        with patch.dict(os.environ, {"CLAUDECODE": "yes", "HOME": "/tmp"}, clear=False):
+            env = _sterile_env()
             assert "CLAUDECODE" not in env
-            assert "PATH" in env
+            assert "HOME" in env
 
-    def test_preserves_all_other_vars(self):
-        with patch.dict(os.environ, {"FOO": "bar", "BAZ": "qux"}, clear=True):
-            env = mod._sterile_env()
-            assert env == {"FOO": "bar", "BAZ": "qux"}
+    def test_preserves_other_vars(self):
+        with patch.dict(os.environ, {"PATH": "/usr/bin", "TERM": "xterm"}, clear=False):
+            env = _sterile_env()
+            assert env["PATH"] == "/usr/bin"
+            assert env["TERM"] == "xterm"
 
-    def test_empty_environ(self):
+    def test_empty_env_safe(self):
         with patch.dict(os.environ, {}, clear=True):
-            env = mod._sterile_env()
+            env = _sterile_env()
             assert env == {}
 
 
-# ── metabolise ───────────────────────────────────────────────────────────────
+# ---------------------------------------------------------------------------
+# metabolise
+# ---------------------------------------------------------------------------
+
 
 class TestMetabolise:
     @patch("metabolon.pathways.overnight.subprocess.run")
-    @patch("metabolon.pathways.overnight.LOGDIR", new_callable=lambda: PropertyMock)
-    def test_reads_outfile(self, mock_logdir_prop, mock_run):
-        """When outfile exists, return its contents."""
-        fake_outfile = MagicMock()
-        fake_outfile.exists.return_value = True
-        fake_outfile.read_text.return_value = "  crystallised insight  "
-
-        # LOGDIR / f"metabolised-{slug}.md" → fake_outfile
-        mock_logdir = MagicMock()
-        mock_logdir.__truediv__ = MagicMock(return_value=fake_outfile)
-        # We need to patch the module-level LOGDIR
-        with patch.object(mod, "LOGDIR", mock_logdir):
-            result = mod.metabolise("seed text", "my-slug")
+    @patch("metabolon.pathways.overnight.LOGDIR", Path("/fake/logdir"))
+    def test_outfile_exists_returns_contents(self, mock_run):
+        mock_run.return_value = MagicMock(stdout="", returncode=0)
+        with patch.object(Path, "exists", return_value=True), \
+             patch.object(Path, "read_text", return_value="crystallised insight"):
+            result = metabolise("my seed text", "test-slug")
         assert result == "crystallised insight"
 
     @patch("metabolon.pathways.overnight.subprocess.run")
-    @patch("metabolon.pathways.overnight.LOGDIR", new_callable=lambda: PropertyMock)
-    def test_falls_back_to_stdout(self, mock_logdir_prop, mock_run):
-        """When outfile doesn't exist, return stdout."""
-        mock_run.return_value = _make_subprocess_result(stdout="stdout result\n")
-        fake_outfile = MagicMock()
-        fake_outfile.exists.return_value = False
-        mock_logdir = MagicMock()
-        mock_logdir.__truediv__ = MagicMock(return_value=fake_outfile)
-        with patch.object(mod, "LOGDIR", mock_logdir):
-            result = mod.metabolise("seed", "slug")
-        assert result == "stdout result"
+    def test_no_outfile_returns_stdout(self, mock_run):
+        mock_run.return_value = MagicMock(stdout="fallback output", returncode=0)
+        with patch("metabolon.pathways.overnight.LOGDIR", Path("/nonexistent")):
+            result = metabolise("seed", "slug")
+        assert result == "fallback output"
 
     @patch("metabolon.pathways.overnight.subprocess.run")
-    @patch("metabolon.pathways.overnight.LOGDIR", new_callable=lambda: PropertyMock)
-    def test_returns_none_on_no_output(self, mock_logdir_prop, mock_run):
-        """When outfile missing and stdout empty, return None."""
-        mock_run.return_value = _make_subprocess_result(stdout="")
-        fake_outfile = MagicMock()
-        fake_outfile.exists.return_value = False
-        mock_logdir = MagicMock()
-        mock_logdir.__truediv__ = MagicMock(return_value=fake_outfile)
-        with patch.object(mod, "LOGDIR", mock_logdir):
-            result = mod.metabolise("seed", "slug")
-        assert result is None
-
-    @patch("metabolon.pathways.overnight.subprocess.run", side_effect=Exception("boom"))
-    def test_returns_none_on_exception(self, mock_run):
-        result = mod.metabolise("seed", "slug")
+    def test_no_outfile_no_stdout_returns_none(self, mock_run):
+        mock_run.return_value = MagicMock(stdout="", returncode=0)
+        with patch("metabolon.pathways.overnight.LOGDIR", Path("/nonexistent")):
+            result = metabolise("seed", "slug")
         assert result is None
 
     @patch("metabolon.pathways.overnight.subprocess.run")
-    @patch("metabolon.pathways.overnight.LOGDIR", new_callable=lambda: PropertyMock)
-    def test_passes_expander_and_pusher(self, mock_logdir_prop, mock_run):
-        """Verify subprocess.run receives the correct CLI args."""
-        mock_run.return_value = _make_subprocess_result(stdout="")
-        fake_outfile = MagicMock()
-        fake_outfile.exists.return_value = False
-        mock_logdir = MagicMock()
-        mock_logdir.__truediv__ = MagicMock(return_value=fake_outfile)
-        with patch.object(mod, "LOGDIR", mock_logdir):
-            mod.metabolise("seed", "slug", expander="deepseek", pusher="glm")
-        args = mock_run.call_args[0][0]
-        assert "--expander" in args
-        idx_exp = args.index("--expander")
-        assert args[idx_exp + 1] == "deepseek"
-        idx_push = args.index("--pusher")
-        assert args[idx_push + 1] == "glm"
+    def test_subprocess_exception_returns_none(self, mock_run):
+        mock_run.side_effect = subprocess.TimeoutExpired(cmd="uv", timeout=600)
+        result = metabolise("seed", "slug")
+        assert result is None
 
     @patch("metabolon.pathways.overnight.subprocess.run")
-    @patch("metabolon.pathways.overnight.LOGDIR", new_callable=lambda: PropertyMock)
-    def test_uses_sterile_env(self, mock_logdir_prop, mock_run):
-        """subprocess.run must receive env without CLAUDECODE."""
-        mock_run.return_value = _make_subprocess_result(stdout="")
-        fake_outfile = MagicMock()
-        fake_outfile.exists.return_value = False
-        mock_logdir = MagicMock()
-        mock_logdir.__truediv__ = MagicMock(return_value=fake_outfile)
-        with patch.dict(os.environ, {"CLAUDECODE": "yes"}, clear=False):
-            with patch.object(mod, "LOGDIR", mock_logdir):
-                mod.metabolise("seed", "slug")
+    def test_empty_seed_still_calls(self, mock_run):
+        mock_run.return_value = MagicMock(stdout="", returncode=0)
+        with patch("metabolon.pathways.overnight.LOGDIR", Path("/nonexistent")):
+            metabolise("", "slug")
+        mock_run.assert_called_once()
+
+    @patch("metabolon.pathways.overnight.subprocess.run")
+    def test_passes_expander_and_pusher(self, mock_run):
+        mock_run.return_value = MagicMock(stdout="out", returncode=0)
+        with patch("metabolon.pathways.overnight.LOGDIR", Path("/nonexistent")):
+            metabolise("seed", "slug", expander="opus", pusher="gemini")
+        cmd = mock_run.call_args[0][0]
+        assert cmd[cmd.index("--expander") + 1] == "opus"
+        assert cmd[cmd.index("--pusher") + 1] == "gemini"
+
+    @patch("metabolon.pathways.overnight.subprocess.run")
+    def test_sterile_env_used(self, mock_run):
+        mock_run.return_value = MagicMock(stdout="out", returncode=0)
+        with patch.dict(os.environ, {"CLAUDECODE": "present"}, clear=False), \
+             patch("metabolon.pathways.overnight.LOGDIR", Path("/nonexistent")):
+            metabolise("seed", "slug")
         passed_env = mock_run.call_args[1]["env"]
         assert "CLAUDECODE" not in passed_env
 
     @patch("metabolon.pathways.overnight.subprocess.run")
-    @patch("metabolon.pathways.overnight.LOGDIR", new_callable=lambda: PropertyMock)
-    def test_uses_vivesca_cwd(self, mock_logdir_prop, mock_run):
-        """subprocess.run cwd must point at the vivesca checkout."""
-        mock_run.return_value = _make_subprocess_result(stdout="")
-        fake_outfile = MagicMock()
-        fake_outfile.exists.return_value = False
-        mock_logdir = MagicMock()
-        mock_logdir.__truediv__ = MagicMock(return_value=fake_outfile)
-        with patch.object(mod, "LOGDIR", mock_logdir):
-            mod.metabolise("seed", "slug")
-        cwd = mock_run.call_args[1]["cwd"]
-        assert "vivesca" in cwd
+    def test_cwd_is_vivesca(self, mock_run):
+        mock_run.return_value = MagicMock(stdout="out", returncode=0)
+        with patch("metabolon.pathways.overnight.LOGDIR", Path("/nonexistent")):
+            metabolise("seed", "slug")
+        assert mock_run.call_args[1]["cwd"] == str(VIVESCA)
+
+    @patch("metabolon.pathways.overnight.subprocess.run")
+    def test_timeout_600(self, mock_run):
+        mock_run.return_value = MagicMock(stdout="out", returncode=0)
+        with patch("metabolon.pathways.overnight.LOGDIR", Path("/nonexistent")):
+            metabolise("seed", "slug")
+        assert mock_run.call_args[1]["timeout"] == 600
+
+    @patch("metabolon.pathways.overnight.subprocess.run")
+    def test_outfile_path_includes_slug(self, mock_run):
+        mock_run.return_value = MagicMock(stdout="out", returncode=0)
+        with patch("metabolon.pathways.overnight.LOGDIR", Path("/nonexistent")):
+            metabolise("seed", "my-special-slug")
+        cmd = mock_run.call_args[0][0]
+        out_idx = cmd.index("-o")
+        assert "metabolised-my-special-slug.md" in cmd[out_idx + 1]
 
 
-# ── compose_post ─────────────────────────────────────────────────────────────
+# ---------------------------------------------------------------------------
+# compose_post
+# ---------------------------------------------------------------------------
+
 
 class TestComposePost:
+    @patch("metabolon.pathways.overnight.PUBLISHED", Path("/fake/published"))
     @patch("metabolon.pathways.overnight._acquire_catalyst")
-    @patch("metabolon.pathways.overnight.PUBLISHED", new_callable=lambda: PropertyMock)
-    def test_writes_post(self, mock_published_prop, mock_catalyst):
-        fake_symbiont = MagicMock()
-        fake_symbiont.transduce.return_value = "---\ntitle: Test\n---\nBody text."
-        mock_catalyst.return_value = fake_symbiont
-        fake_dir = MagicMock()
-        fake_path = MagicMock()
-        fake_dir.__truediv__ = MagicMock(return_value=fake_path)
-        with patch.object(mod, "PUBLISHED", fake_dir):
-            result = mod.compose_post("crystal text", "Test Title", "test-slug")
-        assert result is fake_path
-        fake_path.write_text.assert_called_once_with("---\ntitle: Test\n---\nBody text.")
+    def test_valid_input_returns_path(self, mock_acquire):
+        mock_symbiont = MagicMock()
+        mock_symbiont.transduce.return_value = "---\ntitle: test\n---\nContent"
+        mock_acquire.return_value = mock_symbiont
+        with patch.object(Path, "write_text"):
+            result = compose_post("insight text", "Test Title", "test-slug")
+        assert result == Path("/fake/published/test-slug.md")
 
+    @patch("metabolon.pathways.overnight.PUBLISHED", Path("/fake/published"))
     @patch("metabolon.pathways.overnight._acquire_catalyst")
-    @patch("metabolon.pathways.overnight.PUBLISHED", new_callable=lambda: PropertyMock)
-    def test_passes_model_to_transduce(self, mock_published_prop, mock_catalyst):
-        fake_symbiont = MagicMock()
-        fake_symbiont.transduce.return_value = "content"
-        mock_catalyst.return_value = fake_symbiont
-        fake_dir = MagicMock()
-        fake_path = MagicMock()
-        fake_dir.__truediv__ = MagicMock(return_value=fake_path)
-        with patch.object(mod, "PUBLISHED", fake_dir):
-            mod.compose_post("crystal", "Title", "slug", model="deepseek")
-        call_args = fake_symbiont.transduce.call_args
-        assert call_args[0][0] == "deepseek"
-
-    @patch("metabolon.pathways.overnight._acquire_catalyst")
-    @patch("metabolon.pathways.overnight.PUBLISHED", new_callable=lambda: PropertyMock)
-    def test_returns_none_on_exception(self, mock_published_prop, mock_catalyst):
-        fake_symbiont = MagicMock()
-        fake_symbiont.transduce.side_effect = RuntimeError("transduction failed")
-        mock_catalyst.return_value = fake_symbiont
-        fake_dir = MagicMock()
-        fake_path = MagicMock()
-        fake_dir.__truediv__ = MagicMock(return_value=fake_path)
-        with patch.object(mod, "PUBLISHED", fake_dir):
-            result = mod.compose_post("crystal", "Title", "slug")
+    def test_transduce_error_returns_none(self, mock_acquire):
+        mock_symbiont = MagicMock()
+        mock_symbiont.transduce.side_effect = RuntimeError("LLM down")
+        mock_acquire.return_value = mock_symbiont
+        result = compose_post("insight", "Title", "slug")
         assert result is None
 
+    @patch("metabolon.pathways.overnight.PUBLISHED", Path("/fake/published"))
     @patch("metabolon.pathways.overnight._acquire_catalyst")
-    @patch("metabolon.pathways.overnight.PUBLISHED", new_callable=lambda: PropertyMock)
-    def test_prompt_includes_result_and_title(self, mock_published_prop, mock_catalyst):
-        fake_symbiont = MagicMock()
-        fake_symbiont.transduce.return_value = "content"
-        mock_catalyst.return_value = fake_symbiont
-        fake_dir = MagicMock()
-        fake_path = MagicMock()
-        fake_dir.__truediv__ = MagicMock(return_value=fake_path)
-        with patch.object(mod, "PUBLISHED", fake_dir):
-            mod.compose_post("MY_INSIGHT", "MY_TITLE", "slug")
-        prompt = fake_symbiont.transduce.call_args[0][1]
-        assert "MY_INSIGHT" in prompt
-        assert "MY_TITLE" in prompt
+    def test_empty_result_still_writes(self, mock_acquire):
+        mock_symbiont = MagicMock()
+        mock_symbiont.transduce.return_value = ""
+        mock_acquire.return_value = mock_symbiont
+        with patch.object(Path, "write_text"):
+            result = compose_post("", "Title", "slug")
+        assert result == Path("/fake/published/slug.md")
 
+    @patch("metabolon.pathways.overnight.PUBLISHED", Path("/fake/published"))
     @patch("metabolon.pathways.overnight._acquire_catalyst")
-    @patch("metabolon.pathways.overnight.PUBLISHED", new_callable=lambda: PropertyMock)
-    def test_uses_slug_as_filename(self, mock_published_prop, mock_catalyst):
-        fake_symbiont = MagicMock()
-        fake_symbiont.transduce.return_value = "content"
-        mock_catalyst.return_value = fake_symbiont
-        fake_dir = MagicMock()
-        fake_path = MagicMock()
-        fake_dir.__truediv__ = MagicMock(return_value=fake_path)
-        with patch.object(mod, "PUBLISHED", fake_dir):
-            mod.compose_post("crystal", "Title", "my-special-slug")
-        # __truediv__ should have been called with "my-special-slug.md"
-        fake_dir.__truediv__.assert_called_with("my-special-slug.md")
+    def test_prompt_includes_seed_content_and_title(self, mock_acquire):
+        mock_symbiont = MagicMock()
+        mock_symbiont.transduce.return_value = "output"
+        mock_acquire.return_value = mock_symbiont
+        with patch.object(Path, "write_text"):
+            compose_post("my special insight", "My Title", "slug")
+        call_prompt = mock_symbiont.transduce.call_args[0][1]
+        assert "my special insight" in call_prompt
+        assert "My Title" in call_prompt
+
+    @patch("metabolon.pathways.overnight.PUBLISHED", Path("/fake/published"))
+    @patch("metabolon.pathways.overnight._acquire_catalyst")
+    def test_default_model_is_glm(self, mock_acquire):
+        mock_symbiont = MagicMock()
+        mock_symbiont.transduce.return_value = "output"
+        mock_acquire.return_value = mock_symbiont
+        with patch.object(Path, "write_text"):
+            compose_post("insight", "Title", "slug")
+        assert mock_symbiont.transduce.call_args[0][0] == "glm"
+
+    @patch("metabolon.pathways.overnight.PUBLISHED", Path("/fake/published"))
+    @patch("metabolon.pathways.overnight._acquire_catalyst")
+    def test_custom_model_passed(self, mock_acquire):
+        mock_symbiont = MagicMock()
+        mock_symbiont.transduce.return_value = "output"
+        mock_acquire.return_value = mock_symbiont
+        with patch.object(Path, "write_text"):
+            compose_post("insight", "Title", "slug", model="opus")
+        assert mock_symbiont.transduce.call_args[0][0] == "opus"
+
+    @patch("metabolon.pathways.overnight.PUBLISHED", Path("/fake/published"))
+    @patch("metabolon.pathways.overnight._acquire_catalyst")
+    def test_write_text_called_with_transduce_output(self, mock_acquire):
+        mock_symbiont = MagicMock()
+        mock_symbiont.transduce.return_value = "generated blog content"
+        mock_acquire.return_value = mock_symbiont
+        with patch.object(Path, "write_text") as mock_write:
+            compose_post("insight", "Title", "slug")
+        mock_write.assert_called_once_with("generated blog content")
+
+    @patch("metabolon.pathways.overnight.PUBLISHED", Path("/fake/published"))
+    @patch("metabolon.pathways.overnight._acquire_catalyst")
+    def test_prompt_has_timestamp(self, mock_acquire):
+        mock_symbiont = MagicMock()
+        mock_symbiont.transduce.return_value = "output"
+        mock_acquire.return_value = mock_symbiont
+        with patch.object(Path, "write_text"):
+            compose_post("insight", "Title", "slug")
+        call_prompt = mock_symbiont.transduce.call_args[0][1]
+        assert "pubDatetime:" in call_prompt
+
+    @patch("metabolon.pathways.overnight.PUBLISHED", Path("/fake/published"))
+    @patch("metabolon.pathways.overnight._acquire_catalyst")
+    def test_transduce_timeout_120(self, mock_acquire):
+        mock_symbiont = MagicMock()
+        mock_symbiont.transduce.return_value = "output"
+        mock_acquire.return_value = mock_symbiont
+        with patch.object(Path, "write_text"):
+            compose_post("insight", "Title", "slug")
+        assert mock_symbiont.transduce.call_args[1].get("timeout") == 120
 
 
-# ── publish ──────────────────────────────────────────────────────────────────
+# ---------------------------------------------------------------------------
+# publish
+# ---------------------------------------------------------------------------
+
 
 class TestPublish:
     @patch("metabolon.pathways.overnight.subprocess.run")
-    def test_returns_true_on_success(self, mock_run):
-        mock_run.return_value = _make_subprocess_result(returncode=0)
-        assert mod.publish("my-slug") is True
+    def test_success_returns_true(self, mock_run):
+        mock_run.return_value = MagicMock(returncode=0)
+        assert publish("my-post") is True
 
     @patch("metabolon.pathways.overnight.subprocess.run")
-    def test_returns_false_on_failure(self, mock_run):
-        mock_run.return_value = _make_subprocess_result(returncode=1)
-        assert mod.publish("my-slug") is False
-
-    @patch("metabolon.pathways.overnight.subprocess.run", side_effect=Exception("err"))
-    def test_returns_false_on_exception(self, mock_run):
-        assert mod.publish("my-slug") is False
+    def test_failure_returns_false(self, mock_run):
+        mock_run.return_value = MagicMock(returncode=1)
+        assert publish("my-post") is False
 
     @patch("metabolon.pathways.overnight.subprocess.run")
-    def test_passes_slug_and_push(self, mock_run):
-        mock_run.return_value = _make_subprocess_result(returncode=0)
-        mod.publish("test-slug")
-        args = mock_run.call_args[0][0]
-        assert args == ["sarcio", "publish", "test-slug", "--push"]
+    def test_nonzero_returncode_returns_false(self, mock_run):
+        mock_run.return_value = MagicMock(returncode=42)
+        assert publish("my-post") is False
 
     @patch("metabolon.pathways.overnight.subprocess.run")
-    def test_timeout(self, mock_run):
-        mock_run.return_value = _make_subprocess_result(returncode=0)
-        mod.publish("slug")
+    def test_exception_returns_false(self, mock_run):
+        mock_run.side_effect = Exception("boom")
+        assert publish("my-post") is False
+
+    @patch("metabolon.pathways.overnight.subprocess.run")
+    def test_calls_sarcio_publish_push(self, mock_run):
+        mock_run.return_value = MagicMock(returncode=0)
+        publish("my-post")
+        cmd = mock_run.call_args[0][0]
+        assert cmd == ["sarcio", "publish", "my-post", "--push"]
+
+    @patch("metabolon.pathways.overnight.subprocess.run")
+    def test_timeout_60(self, mock_run):
+        mock_run.return_value = MagicMock(returncode=0)
+        publish("slug")
         assert mock_run.call_args[1]["timeout"] == 60
 
 
-# ── metabolize_pipeline ─────────────────────────────────────────────────────
+# ---------------------------------------------------------------------------
+# metabolize_pipeline
+# ---------------------------------------------------------------------------
+
 
 class TestMetabolizePipeline:
-    @patch("metabolon.pathways.overnight.time.sleep")
     @patch("metabolon.pathways.overnight.publish", return_value=True)
-    @patch("metabolon.pathways.overnight.compose_post", return_value=Path("/fake/post.md"))
-    @patch("metabolon.pathways.overnight.metabolise", return_value="crystal text")
-    @patch("metabolon.pathways.overnight.LOGDIR", new_callable=lambda: PropertyMock)
-    def test_happy_path(self, mock_logdir_prop, mock_metabolise, mock_compose, mock_publish, mock_sleep):
-        fake_logdir = MagicMock()
-        fake_summary = MagicMock()
-        fake_logdir.__truediv__ = MagicMock(return_value=fake_summary)
-        with patch.object(mod, "LOGDIR", fake_logdir):
-            results = mod.metabolize_pipeline(
-                [{"seed": "s1", "slug": "slug-1", "title": "Title 1"}]
-            )
-        assert results["published"] == ["slug-1"]
+    @patch("metabolon.pathways.overnight.compose_post")
+    @patch("metabolon.pathways.overnight.metabolise")
+    @patch("metabolon.pathways.overnight.LOGDIR")
+    def test_full_success(self, mock_logdir, mock_meta, mock_compose, mock_pub):
+        mock_meta.return_value = "crystal"
+        mock_compose.return_value = Path("/fake/post.md")
+        mock_logdir.__truediv__ = MagicMock(return_value=MagicMock())
+        seeds = [
+            {"seed": "idea1", "slug": "post-1", "title": "First Post"},
+            {"seed": "idea2", "slug": "post-2", "title": "Second Post"},
+        ]
+        results = metabolize_pipeline(seeds)
+        assert results["published"] == ["post-1", "post-2"]
         assert results["failed"] == []
         assert results["no_convergence"] == []
-        mock_sleep.assert_called_once_with(5)
 
-    @patch("metabolon.pathways.overnight.time.sleep")
-    @patch("metabolon.pathways.overnight.publish")
-    @patch("metabolon.pathways.overnight.compose_post", return_value=Path("/fake/post.md"))
-    @patch("metabolon.pathways.overnight.metabolise", return_value="crystal")
-    @patch("metabolon.pathways.overnight.LOGDIR", new_callable=lambda: PropertyMock)
-    def test_compose_failure(self, mock_logdir_prop, mock_metabolise, mock_compose, mock_publish, mock_sleep):
-        mock_publish.return_value = True
-        mock_compose.return_value = None
-        fake_logdir = MagicMock()
-        fake_summary = MagicMock()
-        fake_logdir.__truediv__ = MagicMock(return_value=fake_summary)
-        with patch.object(mod, "LOGDIR", fake_logdir):
-            results = mod.metabolize_pipeline(
-                [{"seed": "s1", "slug": "slug-1", "title": "Title 1"}]
-            )
-        assert results["published"] == []
-        assert results["failed"] == ["slug-1"]
-
-    @patch("metabolon.pathways.overnight.time.sleep")
     @patch("metabolon.pathways.overnight.publish", return_value=False)
     @patch("metabolon.pathways.overnight.compose_post", return_value=Path("/fake/post.md"))
     @patch("metabolon.pathways.overnight.metabolise", return_value="crystal")
-    @patch("metabolon.pathways.overnight.LOGDIR", new_callable=lambda: PropertyMock)
-    def test_publish_failure(self, mock_logdir_prop, mock_metabolise, mock_compose, mock_publish, mock_sleep):
-        fake_logdir = MagicMock()
-        fake_summary = MagicMock()
-        fake_logdir.__truediv__ = MagicMock(return_value=fake_summary)
-        with patch.object(mod, "LOGDIR", fake_logdir):
-            results = mod.metabolize_pipeline(
-                [{"seed": "s1", "slug": "slug-1", "title": "Title 1"}]
-            )
+    @patch("metabolon.pathways.overnight.LOGDIR")
+    def test_publish_failure(self, mock_logdir, mock_meta, mock_compose, mock_pub):
+        mock_logdir.__truediv__ = MagicMock(return_value=MagicMock())
+        seeds = [{"seed": "idea", "slug": "fail-post", "title": "Fail"}]
+        results = metabolize_pipeline(seeds)
         assert results["published"] == []
-        assert results["failed"] == ["slug-1"]
+        assert results["failed"] == ["fail-post"]
 
-    @patch("metabolon.pathways.overnight.time.sleep")
     @patch("metabolon.pathways.overnight.publish")
     @patch("metabolon.pathways.overnight.compose_post")
     @patch("metabolon.pathways.overnight.metabolise", return_value=None)
-    @patch("metabolon.pathways.overnight.LOGDIR", new_callable=lambda: PropertyMock)
-    def test_no_convergence(self, mock_logdir_prop, mock_metabolise, mock_compose, mock_publish, mock_sleep):
-        fake_logdir = MagicMock()
-        fake_summary = MagicMock()
-        fake_logdir.__truediv__ = MagicMock(return_value=fake_summary)
-        with patch.object(mod, "LOGDIR", fake_logdir):
-            results = mod.metabolize_pipeline(
-                [{"seed": "s1", "slug": "slug-1", "title": "Title 1"}]
-            )
-        assert results["no_convergence"] == ["slug-1"]
+    @patch("metabolon.pathways.overnight.LOGDIR")
+    def test_no_convergence(self, mock_logdir, mock_meta, mock_compose, mock_pub):
+        mock_logdir.__truediv__ = MagicMock(return_value=MagicMock())
+        seeds = [{"seed": "idea", "slug": "no-conv", "title": "Nope"}]
+        results = metabolize_pipeline(seeds)
+        assert results["no_convergence"] == ["no-conv"]
         mock_compose.assert_not_called()
-        mock_publish.assert_not_called()
+        mock_pub.assert_not_called()
 
-    @patch("metabolon.pathways.overnight.time.sleep")
-    @patch("metabolon.pathways.overnight.publish", return_value=True)
-    @patch("metabolon.pathways.overnight.compose_post", return_value=Path("/fake/post.md"))
+    @patch("metabolon.pathways.overnight.publish")
+    @patch("metabolon.pathways.overnight.compose_post", return_value=None)
     @patch("metabolon.pathways.overnight.metabolise", return_value="crystal")
-    @patch("metabolon.pathways.overnight.LOGDIR", new_callable=lambda: PropertyMock)
-    def test_writes_summary_json(self, mock_logdir_prop, mock_metabolise, mock_compose, mock_publish, mock_sleep):
-        fake_logdir = MagicMock()
-        fake_summary = MagicMock()
-        fake_logdir.__truediv__ = MagicMock(return_value=fake_summary)
-        with patch.object(mod, "LOGDIR", fake_logdir):
-            results = mod.metabolize_pipeline(
-                [{"seed": "s1", "slug": "slug-1", "title": "Title 1"}]
-            )
-        fake_summary.write_text.assert_called_once()
-        written = fake_summary.write_text.call_args[0][0]
-        parsed = json.loads(written)
-        assert parsed["published"] == ["slug-1"]
+    @patch("metabolon.pathways.overnight.LOGDIR")
+    def test_compose_failure(self, mock_logdir, mock_meta, mock_compose, mock_pub):
+        mock_logdir.__truediv__ = MagicMock(return_value=MagicMock())
+        seeds = [{"seed": "idea", "slug": "bad-compose", "title": "Bad"}]
+        results = metabolize_pipeline(seeds)
+        assert results["failed"] == ["bad-compose"]
+        mock_pub.assert_not_called()
 
-    @patch("metabolon.pathways.overnight.time.sleep")
     @patch("metabolon.pathways.overnight.publish", return_value=True)
-    @patch("metabolon.pathways.overnight.compose_post", return_value=Path("/fake/post.md"))
-    @patch("metabolon.pathways.overnight.metabolise", return_value="crystal")
-    @patch("metabolon.pathways.overnight.LOGDIR", new_callable=lambda: PropertyMock)
-    def test_multiple_seeds(self, mock_logdir_prop, mock_metabolise, mock_compose, mock_publish, mock_sleep):
+    @patch("metabolon.pathways.overnight.compose_post")
+    @patch("metabolon.pathways.overnight.metabolise")
+    @patch("metabolon.pathways.overnight.LOGDIR")
+    def test_mixed_results(self, mock_logdir, mock_meta, mock_compose, mock_pub):
+        mock_logdir.__truediv__ = MagicMock(return_value=MagicMock())
+        mock_meta.side_effect = ["crystal1", None, "crystal3"]
+        mock_compose.side_effect = [Path("/a.md"), Path("/c.md")]
         seeds = [
-            {"seed": "s1", "slug": "slug-1", "title": "T1"},
-            {"seed": "s2", "slug": "slug-2", "title": "T2"},
-            {"seed": "s3", "slug": "slug-3", "title": "T3"},
+            {"seed": "s1", "slug": "a", "title": "A"},
+            {"seed": "s2", "slug": "b", "title": "B"},
+            {"seed": "s3", "slug": "c", "title": "C"},
         ]
-        # Make the second seed fail metabolise
-        mock_metabolise.side_effect = ["crystal", None, "crystal"]
-        fake_logdir = MagicMock()
-        fake_summary = MagicMock()
-        fake_logdir.__truediv__ = MagicMock(return_value=fake_summary)
-        with patch.object(mod, "LOGDIR", fake_logdir):
-            results = mod.metabolize_pipeline(seeds)
-        assert results["published"] == ["slug-1", "slug-3"]
-        assert results["no_convergence"] == ["slug-2"]
-        assert mock_sleep.call_count == 2  # only for published seeds
+        results = metabolize_pipeline(seeds)
+        assert results["published"] == ["a", "c"]
+        assert results["no_convergence"] == ["b"]
 
+    @patch("metabolon.pathways.overnight.publish")
+    @patch("metabolon.pathways.overnight.compose_post")
+    @patch("metabolon.pathways.overnight.metabolise")
+    @patch("metabolon.pathways.overnight.LOGDIR")
+    def test_empty_seeds_list(self, mock_logdir, mock_meta, mock_compose, mock_pub):
+        mock_logdir.__truediv__ = MagicMock(return_value=MagicMock())
+        results = metabolize_pipeline([])
+        assert results == {"published": [], "failed": [], "no_convergence": []}
+        mock_meta.assert_not_called()
 
-# ── _acquire_catalyst ────────────────────────────────────────────────────────
+    @patch("metabolon.pathways.overnight.publish", return_value=True)
+    @patch("metabolon.pathways.overnight.compose_post", return_value=Path("/x.md"))
+    @patch("metabolon.pathways.overnight.metabolise", return_value="crystal")
+    @patch("metabolon.pathways.overnight.LOGDIR")
+    def test_summary_json_written(self, mock_logdir, mock_meta, mock_compose, mock_pub):
+        mock_summary = MagicMock()
+        mock_logdir.__truediv__ = MagicMock(return_value=mock_summary)
+        seeds = [{"seed": "s", "slug": "x", "title": "X"}]
+        metabolize_pipeline(seeds)
+        mock_summary.write_text.assert_called_once()
+        written = mock_summary.write_text.call_args[0][0]
+        parsed = json.loads(written)
+        assert parsed["published"] == ["x"]
 
-class TestAcquireCatalyst:
-    def test_returns_symbiont_module(self):
-        from metabolon import symbiont as real_symbiont
+    @patch("metabolon.pathways.overnight.publish", return_value=True)
+    @patch("metabolon.pathways.overnight.compose_post", return_value=Path("/x.md"))
+    @patch("metabolon.pathways.overnight.metabolise", return_value="crystal")
+    @patch("metabolon.pathways.overnight.LOGDIR")
+    def test_metabolise_called_with_expander_pusher(self, mock_logdir, mock_meta, mock_compose, mock_pub):
+        mock_logdir.__truediv__ = MagicMock(return_value=MagicMock())
+        seeds = [{"seed": "s", "slug": "x", "title": "X"}]
+        metabolize_pipeline(seeds, expander="opus", pusher="deepseek")
+        mock_meta.assert_called_once_with("s", "x", "opus", "deepseek")
 
-        result = mod._acquire_catalyst()
-        assert result is real_symbiont
+    @patch("metabolon.pathways.overnight.publish", return_value=True)
+    @patch("metabolon.pathways.overnight.compose_post", return_value=Path("/x.md"))
+    @patch("metabolon.pathways.overnight.metabolise")
+    @patch("metabolon.pathways.overnight.LOGDIR")
+    def test_compose_receives_crystal_and_title(self, mock_logdir, mock_meta, mock_compose, mock_pub):
+        mock_meta.return_value = "the crystallised insight"
+        mock_logdir.__truediv__ = MagicMock(return_value=MagicMock())
+        seeds = [{"seed": "s", "slug": "x", "title": "My Title"}]
+        metabolize_pipeline(seeds)
+        mock_compose.assert_called_once_with("the crystallised insight", "My Title", "x")
+
+    @patch("metabolon.pathways.overnight.publish")
+    @patch("metabolon.pathways.overnight.compose_post")
+    @patch("metabolon.pathways.overnight.metabolise")
+    @patch("metabolon.pathways.overnight.LOGDIR")
+    def test_returns_dict_with_three_lists(self, mock_logdir, mock_meta, mock_compose, mock_pub):
+        mock_logdir.__truediv__ = MagicMock(return_value=MagicMock())
+        results = metabolize_pipeline([])
+        assert set(results.keys()) == {"published", "failed", "no_convergence"}

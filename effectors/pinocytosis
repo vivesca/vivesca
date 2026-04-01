@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 """pinocytosis — deterministic web content extraction.
 
-Fallback chain: defuddle → agent-browser eval → error.
+Fallback chain: defuddle → jina → firecrawl → agent-browser eval → error.
 
 Usage:
   pinocytosis <url>              # Extract text from URL
   pinocytosis --screenshot <url> # Screenshot to ~/tmp/
   pinocytosis --json <url>       # Structured output
+  pinocytosis --method jina <url> # Force specific method
 """
 
 import argparse
@@ -27,6 +28,21 @@ def _run(cmd: list[str], timeout: int = 30) -> tuple[bool, str]:
         return False, ""
 
 
+# Domains where specific tools are known-best (from benchmark)
+DOMAIN_HINTS = {
+    # Paywalled — skip straight to Firecrawl
+    "ft.com": "firecrawl",
+    "bloomberg.com": "firecrawl",
+    "wsj.com": "firecrawl",
+    # Government — defuddle is cleanest, no need for Jina's noise
+    "hkma.gov.hk": "defuddle",
+    "sfc.hk": "defuddle",
+    "mas.gov.sg": "defuddle",
+    # Evident — Firecrawl gets date + more links
+    "evidentinsights.com": "firecrawl",
+}
+
+
 def _defuddle(url: str) -> str:
     """Extract clean markdown via defuddle CLI."""
     ok, text = _run(["npx", "defuddle", "parse", "--markdown", url], timeout=30)
@@ -38,6 +54,43 @@ def _defuddle(url: str) -> str:
             return ""  # Auth-gated, escalate
         return text
     return ""
+
+
+def _jina(url: str) -> str:
+    """Extract via Jina Reader API (free, no auth needed)."""
+    import urllib.request
+    req = urllib.request.Request(
+        f"https://r.jina.ai/{url}",
+        headers={"Accept": "text/markdown", "User-Agent": "pinocytosis/1.0"},
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=20) as resp:
+            text = resp.read().decode("utf-8")
+        # Strip Jina metadata header
+        import re
+        text = re.sub(r'^(?:Title|URL Source|Markdown Content):.*\n?', '', text, flags=re.MULTILINE)
+        if len(text) > 100:
+            return text
+    except Exception:
+        pass
+    return ""
+
+
+def _firecrawl(url: str) -> str:
+    """Extract via Firecrawl API (1 credit/page). Reserved for paywalled/JS-heavy sites."""
+    try:
+        key = subprocess.check_output(
+            ["op", "item", "get", "Firecrawl", "--vault", "Agents", "--fields", "credential", "--reveal"],
+            timeout=10,
+        ).decode().strip()
+        if not key:
+            return ""
+        from firecrawl import FirecrawlApp
+        fc = FirecrawlApp(api_key=key)
+        doc = fc.scrape(url, formats=["markdown"])
+        return doc.markdown or ""
+    except Exception:
+        return ""
 
 
 def _agent_browser_eval(url: str, wait_ms: int = 5000) -> str:
@@ -76,15 +129,41 @@ def _screenshot(url: str, output: str) -> bool:
     return ok
 
 
-def fetch_url(url: str) -> dict:
-    """Fetch URL content through fallback chain."""
-    text = _defuddle(url)
-    if text:
-        return {"success": True, "text": text, "method": "defuddle", "url": url}
+def fetch_url(url: str, method: str | None = None) -> dict:
+    """Fetch URL content through smart fallback chain."""
+    from urllib.parse import urlparse
+    domain = urlparse(url).netloc.lstrip("www.")
 
-    text = _agent_browser_eval(url)
-    if text:
-        return {"success": True, "text": text, "method": "agent-browser", "url": url}
+    # Build chain
+    chain = [
+        ("defuddle", _defuddle),
+        ("jina", _jina),
+        ("firecrawl", _firecrawl),
+        ("agent-browser", _agent_browser_eval),
+    ]
+
+    # Manual override: use only the specified method
+    if method:
+        chain = [(m, fn) for m, fn in chain if m == method]
+        if not chain:
+            return {"success": False, "text": "", "method": "none", "url": url,
+                    "error": f"Unknown method: {method}"}
+    else:
+        # Check domain hints for skip-to
+        hint = None
+        for pattern, tool in DOMAIN_HINTS.items():
+            if domain.endswith(pattern):
+                hint = tool
+                break
+
+        # If hint, try that tool first
+        if hint:
+            chain = sorted(chain, key=lambda x: 0 if x[0] == hint else 1)
+
+    for name, fn in chain:
+        text = fn(url)
+        if text:
+            return {"success": True, "text": text, "method": name, "url": url}
 
     return {"success": False, "text": "", "method": "none", "url": url,
             "error": "All extraction methods failed"}
@@ -96,6 +175,9 @@ def main():
     parser.add_argument("--screenshot", action="store_true", help="Screenshot mode")
     parser.add_argument("--output", "-o", default="", help="Output path for screenshot")
     parser.add_argument("--json", action="store_true", help="JSON output")
+    parser.add_argument("--method", "-m",
+                        choices=["defuddle", "jina", "firecrawl", "agent-browser"],
+                        help="Force specific extraction method")
     args = parser.parse_args()
 
     if args.screenshot:
@@ -103,7 +185,7 @@ def main():
         ok = _screenshot(args.url, output)
         result = {"success": ok, "path": output, "url": args.url}
     else:
-        result = fetch_url(args.url)
+        result = fetch_url(args.url, method=args.method)
 
     if args.json:
         print(json.dumps(result, ensure_ascii=False))

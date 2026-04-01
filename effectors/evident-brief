@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 # /// script
 # requires-python = ">=3.11"
-# dependencies = ["firecrawl-py>=4"]
 # ///
 """Fetch the latest Evident Banking Brief and output as markdown.
 
@@ -11,7 +10,8 @@ Usage:
     evident-brief --list       # list available briefs (title, date, slug)
     evident-brief --slug X     # fetch a specific brief by slug
 
-Extraction chain: Firecrawl (richest) → Jina Reader (fast/free) → agent-browser (last resort).
+Content extraction delegated to pinocytosis (smart routing).
+Index discovery via Firecrawl map() → agent-browser fallback.
 """
 
 import argparse
@@ -21,23 +21,19 @@ import re
 import subprocess
 import sys
 import time
-import urllib.request
 from datetime import UTC, datetime
 from pathlib import Path
 
 INDEX_URL = "https://evidentinsights.com/bankingbrief/"
 BASE_URL = "https://evidentinsights.com/bankingbrief/"
-JINA_PREFIX = "https://r.jina.ai/"
 CACHE_DIR = Path.home() / ".cache" / "lustro-articles"
-
-# Firecrawl API key — env > 1Password (Agents vault)
-FIRECRAWL_KEY = os.environ.get("FIRECRAWL_API_KEY", "")
 
 
 def _get_firecrawl_key() -> str:
     """Resolve Firecrawl API key: env var, then 1Password."""
-    if FIRECRAWL_KEY:
-        return FIRECRAWL_KEY
+    key = os.environ.get("FIRECRAWL_API_KEY", "")
+    if key:
+        return key
     try:
         r = subprocess.run(
             ["op", "item", "get", "Firecrawl", "--vault", "Agents", "--fields", "credential", "--reveal"],
@@ -48,42 +44,8 @@ def _get_firecrawl_key() -> str:
             return key
     except Exception:
         pass
-    print("No Firecrawl API key found (set FIRECRAWL_API_KEY or add to 1Password Agents vault).", file=sys.stderr)
     return ""
 
-
-# ---------------------------------------------------------------------------
-# Tier 1: Firecrawl (richest output — links, bold, date, metadata)
-# ---------------------------------------------------------------------------
-
-def firecrawl_fetch(url: str) -> str:
-    """Fetch a URL via Firecrawl. Returns markdown string."""
-    key = _get_firecrawl_key()
-    if not key:
-        raise RuntimeError("No Firecrawl API key")
-    from firecrawl import FirecrawlApp
-    fc = FirecrawlApp(api_key=key)
-    doc = fc.scrape(url, formats=["markdown"])
-    return doc.markdown or ""
-
-
-# ---------------------------------------------------------------------------
-# Tier 2: Jina Reader (fast, free, good quality)
-# ---------------------------------------------------------------------------
-
-def jina_fetch(url: str, timeout: int = 30) -> str:
-    """Fetch a URL via Jina Reader API. Returns markdown string."""
-    req = urllib.request.Request(
-        f"{JINA_PREFIX}{url}",
-        headers={"Accept": "text/markdown", "User-Agent": "evident-brief/1.0"},
-    )
-    with urllib.request.urlopen(req, timeout=timeout) as resp:
-        return resp.read().decode("utf-8")
-
-
-# ---------------------------------------------------------------------------
-# Tier 3: agent-browser (last resort — plain text, slow)
-# ---------------------------------------------------------------------------
 
 def _ab(cmd: str, timeout: int = 15) -> str:
     r = subprocess.run(
@@ -93,41 +55,36 @@ def _ab(cmd: str, timeout: int = 15) -> str:
     return r.stdout.strip()
 
 
-def browser_fetch(url: str) -> str:
-    """Fetch page text via agent-browser."""
-    try:
-        _ab(f"open {url}", timeout=20)
-        time.sleep(3)
-        snap = _ab("snapshot")
-        for line in snap.splitlines():
-            if "Accept all" in line:
-                m = re.search(r'ref=(\w+)', line)
-                if m:
-                    _ab(f"click @{m.group(1)}")
-                    time.sleep(1)
-                break
-        return _ab("get text main", timeout=10) or _ab("get text body", timeout=10)
-    finally:
-        subprocess.run(["agent-browser", "close"], capture_output=True, timeout=5)
-
-
 # ---------------------------------------------------------------------------
-# Unified fetch with fallback chain
+# Content extraction — delegate to pinocytosis
 # ---------------------------------------------------------------------------
 
 def fetch_markdown(url: str) -> str:
-    """Fetch URL as markdown. Firecrawl → Jina → agent-browser."""
-    for name, fn in [("firecrawl", lambda: firecrawl_fetch(url)),
-                     ("jina", lambda: jina_fetch(url)),
-                     ("agent-browser", lambda: browser_fetch(url))]:
+    """Fetch URL as markdown via pinocytosis (smart routing)."""
+    r = subprocess.run(
+        ["pinocytosis", "--json", url],
+        capture_output=True, text=True, timeout=60,
+    )
+    if r.returncode == 0:
         try:
-            result = fn()
-            if result and len(result) > 100:
-                print(f"[{name}] OK", file=sys.stderr)
-                return result
-        except Exception as e:
-            print(f"[{name}] failed: {e}", file=sys.stderr)
-    print("All extraction methods failed.", file=sys.stderr)
+            result = json.loads(r.stdout)
+            if result.get("success") and result.get("text"):
+                print(f"[{result.get('method', '?')}] OK", file=sys.stderr)
+                return result["text"]
+        except json.JSONDecodeError:
+            # pinocytosis printed plain text (no --json support yet)
+            if r.stdout.strip() and len(r.stdout.strip()) > 100:
+                print("[pinocytosis] OK", file=sys.stderr)
+                return r.stdout.strip()
+    # Fallback: direct pinocytosis plain text
+    r = subprocess.run(
+        ["pinocytosis", url],
+        capture_output=True, text=True, timeout=60,
+    )
+    if r.returncode == 0 and r.stdout.strip() and len(r.stdout.strip()) > 100:
+        print("[pinocytosis-fallback] OK", file=sys.stderr)
+        return r.stdout.strip()
+    print("Extraction failed.", file=sys.stderr)
     sys.exit(1)
 
 
