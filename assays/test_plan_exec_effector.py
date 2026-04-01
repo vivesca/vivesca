@@ -94,19 +94,23 @@ def test_backends_have_required_keys():
         assert "cwd" in backend
 
 
-def test_gemini_cmd_structure():
+def test_gemini_cmd_structure(tmp_path):
     """Gemini backend cmd has expected structure."""
+    plan_file = tmp_path / "plan.md"
+    plan_file.write_text("Test plan")
     gemini = next(b for b in BACKENDS if b["name"] == "gemini")
-    cmd = gemini["cmd"]("/project", "/plan.md")
+    cmd = gemini["cmd"](str(tmp_path), str(plan_file))
     assert cmd[0] == "gemini"
     assert "-m" in cmd
     assert "--yolo" in cmd
 
 
-def test_codex_cmd_structure():
+def test_codex_cmd_structure(tmp_path):
     """Codex backend cmd has expected structure."""
+    plan_file = tmp_path / "plan.md"
+    plan_file.write_text("Test plan")
     codex = next(b for b in BACKENDS if b["name"] == "codex")
-    cmd = codex["cmd"]("/project", "/plan.md")
+    cmd = codex["cmd"](str(tmp_path), str(plan_file))
     assert cmd[0] == "codex"
     assert "exec" in cmd
     assert "--skip-git-repo-check" in cmd
@@ -114,10 +118,12 @@ def test_codex_cmd_structure():
     assert "--full-auto" in cmd
 
 
-def test_opencode_cmd_structure():
+def test_opencode_cmd_structure(tmp_path):
     """OpenCode backend cmd has expected structure."""
+    plan_file = tmp_path / "plan.md"
+    plan_file.write_text("Test plan")
     opencode = next(b for b in BACKENDS if b["name"] == "opencode")
-    cmd = opencode["cmd"]("/project", "/plan.md")
+    cmd = opencode["cmd"](str(tmp_path), str(plan_file))
     assert cmd[0] == "opencode"
     assert "run" in cmd
     assert "--title" in cmd

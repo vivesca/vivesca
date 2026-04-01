@@ -3,8 +3,9 @@ from __future__ import annotations
 """Tests for golem-daemon — provider-aware task queue processor."""
 
 import json
+import subprocess
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, call, patch
 
 import pytest
 
@@ -326,7 +327,7 @@ def test_auto_commit_retries_push_with_backoff_until_success():
         "git push failed (attempt 2/3): network timeout",
     ]
     assert mocked_run.call_count == 6
-    assert mocked_sleep.call_args_list == [((30,),), ((30,),)]
+    assert mocked_sleep.call_args_list == [call(30), call(30)]
 
 
 def test_auto_commit_logs_after_exhausting_push_retries():
@@ -358,7 +359,7 @@ def test_auto_commit_logs_after_exhausting_push_retries():
         "git push failed (attempt 3/3): network unreachable",
         "git push failed after 3 attempts for def5678, continuing with local state",
     ]
-    assert mocked_sleep.call_args_list == [((30,),), ((30,),)]
+    assert mocked_sleep.call_args_list == [call(30), call(30)]
 
     # Should return retried: False
     assert result["retried"] is False

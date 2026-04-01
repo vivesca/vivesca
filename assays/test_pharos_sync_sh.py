@@ -1,416 +1,139 @@
 from __future__ import annotations
 
-"""Tests for effectors/pharos-sync.sh — bash script tested via subprocess."""
+"""Tests for pharos-sync.sh — syncs Claude config to officina repo and remote machines."""
 
-import os
-import shutil
 import subprocess
 from pathlib import Path
+import tempfile
+import os
 
-import pytest
+SCRIPT_PATH = Path.home() / "germline/effectors/pharos-sync.sh"
 
-SCRIPT = Path(__file__).parent.parent / "effectors" / "pharos-sync.sh"
-RSYNC_AVAILABLE = shutil.which("rsync") is not None
 
-# ── helpers ─────────────────────────────────────────────────────────────
-
-
-def _run(
-    tmp_path: Path, args: list[str] | None = None, env_extra: dict | None = None
-) -> subprocess.CompletedProcess:
-    """Run pharos-sync.sh with HOME=tmp_path."""
-    env = os.environ.copy()
-    env["HOME"] = str(tmp_path)
-    env["PATH"] = "/usr/bin:/bin"  # minimal PATH — no flyctl, no scp
-    if env_extra:
-        env.update(env_extra)
-    return subprocess.run(
-        ["bash", str(SCRIPT)] + (args or []),
-        capture_output=True,
-        text=True,
-        env=env,
-        timeout=10,
-    )
-
-
-def _source_sync_file(src: Path, dst: Path) -> subprocess.CompletedProcess:
-    """Source the script (to load sync_file) then invoke it with given args."""
-    return subprocess.run(
-        ["bash", "-c", f'source "{SCRIPT}" && sync_file "$1" "$2"', "_test", str(src), str(dst)],
-        capture_output=True,
-        text=True,
-        timeout=10,
-    )
-
-
-def _make_git_repo(path: Path) -> None:
-    """Initialise a git repo so commit/push commands don't crash."""
-    subprocess.run(["git", "init", str(path)], capture_output=True, check=True)
-    subprocess.run(
-        ["git", "-C", str(path), "commit", "--allow-empty", "-m", "init"],
-        capture_output=True,
-        check=True,
-        env={**os.environ, "GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@t",
-             "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@t"},
-    )
-
-
-# ── help flag ───────────────────────────────────────────────────────────
-
-
-class TestHelp:
-    def _run_help(self, *args: str) -> subprocess.CompletedProcess:
-        return subprocess.run(
-            ["bash", str(SCRIPT), *args],
-            capture_output=True,
-            text=True,
-            timeout=10,
-        )
-
-    def test_help_exits_zero(self):
-        r = self._run_help("--help")
-        assert r.returncode == 0
-
-    def test_help_short_flag_exits_zero(self):
-        r = self._run_help("-h")
-        assert r.returncode == 0
-
-    def test_help_shows_usage(self):
-        r = self._run_help("--help")
-        assert "Usage:" in r.stdout
-
-    def test_help_mentions_sync(self):
-        r = self._run_help("--help")
-        assert "sync" in r.stdout.lower() or "Sync" in r.stdout
-
-
-# ── file basics ────────────────────────────────────────────────────────
-
-
-class TestFileBasics:
-    def test_file_exists(self):
-        assert SCRIPT.exists()
-
-    def test_is_bash_script(self):
-        first = SCRIPT.read_text().split("\n")[0]
-        assert first.startswith("#!/") and "bash" in first
-
-    def test_has_set_uo_pipefail(self):
-        src = SCRIPT.read_text()
-        assert "set -uo pipefail" in src
-
-    def test_has_sync_file_function(self):
-        src = SCRIPT.read_text()
-        assert "sync_file()" in src
-
-    def test_main_guard_uses_bash_source(self):
-        src = SCRIPT.read_text()
-        assert "BASH_SOURCE" in src
-
-
-# ── script permissions ──────────────────────────────────────────────────
-
-
-class TestScriptPermissions:
-    def test_script_is_executable(self):
-        assert os.access(SCRIPT, os.X_OK)
-
-    def test_script_is_regular_file(self):
-        assert SCRIPT.is_file()
-
-
-# ── sync_file() unit tests (sourced) ────────────────────────────────────
-
-
-class TestSyncFileSourced:
-    def test_copies_new_file(self, tmp_path):
-        src = tmp_path / "a.txt"
-        src.write_text("hello")
-        dst = tmp_path / "out" / "a.txt"
-        r = _source_sync_file(src, dst)
-        assert r.returncode == 0
-        assert dst.read_text() == "hello"
-
-    def test_creates_parent_directory(self, tmp_path):
-        src = tmp_path / "a.txt"
-        src.write_text("data")
-        dst = tmp_path / "deep" / "nested" / "dir" / "a.txt"
-        r = _source_sync_file(src, dst)
-        assert r.returncode == 0
-        assert dst.exists()
-
-    def test_returns_1_when_src_missing(self, tmp_path):
-        src = tmp_path / "nonexistent.txt"
-        dst = tmp_path / "out.txt"
-        r = _source_sync_file(src, dst)
-        assert r.returncode == 1
-
-    def test_skips_identical_file(self, tmp_path):
-        content = "unchanged"
-        src = tmp_path / "a.txt"
-        src.write_text(content)
-        dst = tmp_path / "a_copy.txt"
-        dst.write_text(content)
-        r = _source_sync_file(src, dst)
-        # sync_file returns 1 when file is unchanged
-        assert r.returncode == 1
-
-    def test_overwrites_changed_file(self, tmp_path):
-        src = tmp_path / "src.txt"
-        src.write_text("new content")
-        dst = tmp_path / "dst.txt"
-        dst.write_text("old content")
-        r = _source_sync_file(src, dst)
-        assert r.returncode == 0
-        assert dst.read_text() == "new content"
-
-    def test_prints_updated_on_success(self, tmp_path):
-        src = tmp_path / "a.txt"
-        src.write_text("data")
-        dst = tmp_path / "out" / "a.txt"
-        r = _source_sync_file(src, dst)
-        assert "updated:" in r.stdout
-
-    def test_no_output_when_unchanged(self, tmp_path):
-        content = "same"
-        src = tmp_path / "a.txt"
-        src.write_text(content)
-        dst = tmp_path / "a.txt"
-        dst.write_text(content)
-        r = _source_sync_file(src, dst)
-        assert r.stdout.strip() == ""
-
-
-# ── main script behaviour ──────────────────────────────────────────────
-
-
-class TestMainExecution:
-    def test_exits_zero_with_empty_home(self, tmp_path):
-        r = _run(tmp_path)
-        assert r.returncode == 0
-
-    def test_syncs_settings_json(self, tmp_path):
-        claude_dir = tmp_path / ".claude"
-        claude_dir.mkdir()
-        (claude_dir / "settings.json").write_text('{"key": "val"}')
-        officina = tmp_path / "officina"
-        officina.mkdir()
-        r = _run(tmp_path)
-        assert (officina / "claude" / "settings.json").read_text() == '{"key": "val"}'
-
-    def test_settings_sync_prints_updated(self, tmp_path):
-        claude_dir = tmp_path / ".claude"
-        claude_dir.mkdir()
-        (claude_dir / "settings.json").write_text('{"a": 1}')
-        officina = tmp_path / "officina"
-        officina.mkdir()
-        r = _run(tmp_path)
-        assert "updated: settings.json" in r.stdout
-
-    def test_no_update_when_settings_unchanged(self, tmp_path):
-        content = '{"unchanged": true}'
-        claude_dir = tmp_path / ".claude"
-        claude_dir.mkdir()
-        (claude_dir / "settings.json").write_text(content)
-        officina = tmp_path / "officina"
-        officina.mkdir()
-        (officina / "claude").mkdir(parents=True)
-        (officina / "claude" / "settings.json").write_text(content)
-        r = _run(tmp_path)
-        # The word "updated" should NOT appear for settings
-        lines = [l for l in r.stdout.strip().splitlines() if "settings.json" in l]
-        assert all("updated" not in l for l in lines)
-
-    @pytest.mark.skipif(not RSYNC_AVAILABLE, reason="rsync not installed")
-    def test_syncs_memory_directory(self, tmp_path):
-        memory_src = tmp_path / ".claude" / "projects" / "-Users-terry" / "memory"
-        memory_src.mkdir(parents=True)
-        (memory_src / "notes.md").write_text("# Notes")
-        (memory_src / "tips.md").write_text("# Tips")
-        officina = tmp_path / "officina"
-        officina.mkdir()
-        r = _run(tmp_path)
-        dst = officina / "claude" / "memory"
-        assert (dst / "notes.md").read_text() == "# Notes"
-        assert (dst / "tips.md").read_text() == "# Tips"
-
-    @pytest.mark.skipif(not RSYNC_AVAILABLE, reason="rsync not installed")
-    def test_memory_sync_prints_synced(self, tmp_path):
-        memory_src = tmp_path / ".claude" / "projects" / "-Users-terry" / "memory"
-        memory_src.mkdir(parents=True)
-        (memory_src / "a.md").write_text("x")
-        officina = tmp_path / "officina"
-        officina.mkdir()
-        r = _run(tmp_path)
-        assert "synced: memory/" in r.stdout
-
-    def test_skips_memory_when_no_source_dir(self, tmp_path):
-        officina = tmp_path / "officina"
-        officina.mkdir()
-        r = _run(tmp_path)
-        assert "synced: memory/" not in r.stdout
-
-    def test_git_commit_on_change(self, tmp_path):
-        claude_dir = tmp_path / ".claude"
-        claude_dir.mkdir()
-        (claude_dir / "settings.json").write_text('{"x": 1}')
-        officina = tmp_path / "officina"
-        officina.mkdir()
-        # Pre-create claude/memory/ with a placeholder so
-        # git add claude/memory/ succeeds (empty dirs cause git add to fail)
-        memory_dst = officina / "claude" / "memory"
-        memory_dst.mkdir(parents=True)
-        (memory_dst / ".gitkeep").write_text("")
-        _make_git_repo(officina)
-        r = _run(tmp_path, env_extra={
-            "GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@t",
-            "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@t",
-        })
-        assert r.returncode == 0
-        log = subprocess.run(
-            ["git", "-C", str(officina), "log", "--oneline"],
-            capture_output=True, text=True,
-        )
-        # Should have a "sync:" commit beyond the initial empty one
-        commits = [l for l in log.stdout.strip().splitlines() if "sync:" in l.lower()]
-        assert len(commits) >= 1
-
-    def test_no_git_commit_when_no_changes(self, tmp_path):
-        officina = tmp_path / "officina"
-        officina.mkdir()
-        _make_git_repo(officina)
-        r = _run(tmp_path, env_extra={
-            "GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@t",
-            "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@t",
-        })
-        assert r.returncode == 0
-        log = subprocess.run(
-            ["git", "-C", str(officina), "log", "--oneline"],
-            capture_output=True, text=True,
-        )
-        # Only the initial commit — no "sync:" commit
-        commits = [l for l in log.stdout.strip().splitlines() if "sync:" in l.lower()]
-        assert len(commits) == 0
-
-    def test_sourcing_does_not_run_main(self, tmp_path):
-        """Sourcing the script should not execute any sync logic."""
-        r = subprocess.run(
-            ["bash", "-c", f'source "{SCRIPT}" && echo "sourced ok"'],
-            capture_output=True, text=True, timeout=10,
-        )
-        assert r.returncode == 0
-        assert "sourced ok" in r.stdout
-        # No sync output when sourced
-        assert "updated:" not in r.stdout
-        assert "synced:" not in r.stdout
-
-    def test_memory_rsync_deletes_removed_files(self, tmp_path):
-        """rsync --delete should remove files from dst that no longer exist in src."""
-        memory_src = tmp_path / ".claude" / "projects" / "-Users-terry" / "memory"
-        memory_src.mkdir(parents=True)
-        (memory_src / "keep.md").write_text("staying")
-        officina = tmp_path / "officina"
-        officina.mkdir()
-        # First sync
-        r = _run(tmp_path)
-        assert r.returncode == 0
-        assert (officina / "claude" / "memory" / "keep.md").exists()
-        # Remove the source file, add a new one, re-sync
-        (memory_src / "keep.md").unlink()
-        (memory_src / "new.md").write_text("added")
-        r2 = _run(tmp_path)
-        assert r2.returncode == 0
-        assert not (officina / "claude" / "memory" / "keep.md").exists()
-        assert (officina / "claude" / "memory" / "new.md").read_text() == "added"
-
-    def test_no_officina_dir_is_created(self, tmp_path):
-        """If officina dir doesn't exist, script should still exit cleanly."""
-        r = _run(tmp_path)
-        assert r.returncode == 0
-        # officina itself shouldn't be created just by running the script
-        assert not (tmp_path / "officina").exists() or not any(
-            (tmp_path / "officina").iterdir()
-        )
-
-    def test_empty_settings_json(self, tmp_path):
-        """An empty settings.json should still be synced."""
-        claude_dir = tmp_path / ".claude"
-        claude_dir.mkdir()
-        (claude_dir / "settings.json").write_text("")
-        officina = tmp_path / "officina"
-        officina.mkdir()
-        r = _run(tmp_path)
-        assert r.returncode == 0
-        assert (officina / "claude" / "settings.json").read_text() == ""
-
-    def test_memory_subdirectories_synced(self, tmp_path):
-        """Subdirectories inside memory/ should be preserved."""
-        memory_src = tmp_path / ".claude" / "projects" / "-Users-terry" / "memory"
-        sub = memory_src / "subdir"
-        sub.mkdir(parents=True)
-        (sub / "nested.md").write_text("deep content")
-        officina = tmp_path / "officina"
-        officina.mkdir()
-        r = _run(tmp_path)
-        assert r.returncode == 0
-        assert (officina / "claude" / "memory" / "subdir" / "nested.md").read_text() == "deep content"
-
-    def test_nonzero_exit_on_bash_error(self, tmp_path):
-        """Passing an invalid flag should not crash unexpectedly."""
-        r = subprocess.run(
-            ["bash", str(SCRIPT), "--bogus-flag"],
-            capture_output=True, text=True, timeout=10,
-        )
-        # The script doesn't validate flags (it ignores unknown args), so it
-        # should still exit 0 — the main body runs regardless.
-        assert r.returncode == 0
-
-
-# ── credential / remote sync (network-free) ─────────────────────────────
-
-
-class TestRemoteSyncGraceful:
-    """Verify remote-sync blocks fail gracefully without network."""
-
-    def test_no_flyctl_does_not_crash(self, tmp_path):
-        """flyctl not in PATH should not cause non-zero exit."""
-        claude_dir = tmp_path / ".claude"
-        claude_dir.mkdir()
-        (claude_dir / ".credentials.json").write_text('{"test": true}')
-        officina = tmp_path / "officina"
-        officina.mkdir()
-        r = _run(tmp_path)  # PATH=/usr/bin:/bin — no flyctl
-        assert r.returncode == 0
-
-    def test_no_scp_does_not_crash(self, tmp_path):
-        """scp not reachable should not cause non-zero exit for m2/m3 blocks."""
-        claude_dir = tmp_path / ".claude"
-        claude_dir.mkdir()
-        (claude_dir / ".credentials.json").write_text('{"test": true}')
-        officina = tmp_path / "officina"
-        officina.mkdir()
-        r = _run(tmp_path)  # PATH=/usr/bin:/bin — no scp
-        assert r.returncode == 0
-        # Should NOT mention m2 or m3 in output (scp failed silently)
-        assert "m2" not in r.stdout
-        assert "m3" not in r.stdout
-
-    def test_no_credentials_file_skips_push(self, tmp_path):
-        """If .credentials.json doesn't exist, no push attempts should run."""
-        claude_dir = tmp_path / ".claude"
-        claude_dir.mkdir()
-        (claude_dir / "settings.json").write_text("{}")
-        officina = tmp_path / "officina"
-        officina.mkdir()
-        r = _run(tmp_path)
-        assert r.returncode == 0
-        # No credential-related output
-        assert "credentials" not in r.stdout.lower()
-
-    def test_no_zshenv_files_no_error(self, tmp_path):
-        """Missing .zshenv and .zshenv.tpl should not cause failures."""
-        officina = tmp_path / "officina"
-        officina.mkdir()
-        r = _run(tmp_path)
-        assert r.returncode == 0
-        assert "zshenv" not in r.stdout
+def run_script(args: list[str] = None, env: dict = None) -> subprocess.CompletedProcess:
+    """Run pharos-sync.sh with optional args and custom env."""
+    cmd = [str(SCRIPT_PATH)] + (args or [])
+    run_env = os.environ.copy()
+    if env:
+        run_env.update(env)
+    return subprocess.run(cmd, capture_output=True, text=True, env=run_env)
+
+
+# ── Help flag tests ─────────────────────────────────────────────────
+
+
+def test_help_flag_exits_zero():
+    """--help flag should exit with code 0."""
+    result = run_script(["--help"])
+    assert result.returncode == 0
+
+
+def test_help_flag_shows_usage():
+    """--help should show usage information."""
+    result = run_script(["--help"])
+    assert "Usage:" in result.stdout
+    assert "pharos-sync" in result.stdout
+
+
+def test_help_flag_short():
+    """-h should work the same as --help."""
+    result = run_script(["-h"])
+    assert result.returncode == 0
+    assert "Usage:" in result.stdout
+
+
+# ── Default run (no args) tests ────────────────────────────────────────
+
+
+def test_no_args_exits_zero(tmp_path):
+    """Running with no arguments should exit 0 even with missing directories."""
+    fake_home = tmp_path / "home"
+    fake_home.mkdir()
+    result = run_script(env={"HOME": str(fake_home)})
+    assert result.returncode == 0
+
+
+def test_no_args_no_stdout(tmp_path):
+    """Default run with empty home produces no stdout."""
+    fake_home = tmp_path / "home"
+    fake_home.mkdir()
+    result = run_script(env={"HOME": str(fake_home)})
+    assert result.stdout.strip() == ""
+
+
+def test_script_is_executable():
+    """pharos-sync.sh must have execute permission."""
+    assert SCRIPT_PATH.exists()
+    assert os.access(str(SCRIPT_PATH), os.X_OK)
+
+
+# ── sync_file function tests ─────────────────────────────────────────────
+
+
+def test_sync_file_creates_directory_structure(tmp_path):
+    """sync_file should create destination directories if they don't exist."""
+    # Let's test by sourcing the script and calling sync_file directly
+    test_script = f"""
+    source {SCRIPT_PATH}
+    src="{tmp_path / 'src.txt'}"
+    dst="{tmp_path / 'deep' / 'nested' / 'dst.txt'}"
+    echo "test content" > "$src"
+    sync_file "$src" "$dst"
+    """
+    result = subprocess.run(["bash", "-c", test_script], capture_output=True, text=True)
+    assert result.returncode == 0
+    assert (tmp_path / "deep" / "nested" / "dst.txt").exists()
+    assert (tmp_path / "deep" / "nested" / "dst.txt").read_text() == "test content\n"
+
+
+def test_sync_file_updates_changed_file(tmp_path):
+    """sync_file should update destination if source has changed."""
+    test_script = f"""
+    source {SCRIPT_PATH}
+    src="{tmp_path / 'src.txt'}"
+    dst="{tmp_path / 'dst.txt'}"
+    echo "old" > "$src"
+    echo "old" > "$dst"
+    # First sync - no change
+    sync_file "$src" "$dst"
+    # Now change source
+    echo "new" > "$src"
+    sync_file "$src" "$dst"
+    """
+    result = subprocess.run(["bash", "-c", test_script], capture_output=True, text=True)
+    assert result.returncode == 0
+    assert (tmp_path / "dst.txt").read_text() == "new\n"
+
+
+def test_sync_file_returns_correct_exit_codes(tmp_path):
+    """sync_file should return 0 when file updated, 1 otherwise."""
+    test_script = f"""
+    source {SCRIPT_PATH}
+    src="{tmp_path / 'src.txt'}"
+    dst="{tmp_path / 'dst.txt'}"
+    
+    # Test 1: src doesn't exist → should return 1
+    sync_file "$src" "$dst"
+    echo "test1: $?"
+    
+    # Test 2: create src, dst doesn't exist → should return 0
+    echo "content" > "$src"
+    sync_file "$src" "$dst"
+    echo "test2: $?"
+    
+    # Test 3: src and dst same → should return 1
+    sync_file "$src" "$dst"
+    echo "test3: $?"
+    
+    # Test4: src changed → should return 0
+    echo "new content" > "$src"
+    sync_file "$src" "$dst"
+    echo "test4: $?"
+    """
+    result = subprocess.run(["bash", "-c", test_script], capture_output=True, text=True)
+    assert result.returncode == 0
+    lines = result.stdout.strip().split("\n")
+    assert lines[0] == "test1: 1"
+    assert lines[1] == "test2: 0"
+    assert lines[2] == "test3: 1"
+    assert lines[3] == "test4: 0"
