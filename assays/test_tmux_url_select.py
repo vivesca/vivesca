@@ -11,6 +11,7 @@ Tests operate by:
 
 import base64
 import os
+import re
 import stat
 import subprocess
 from pathlib import Path
