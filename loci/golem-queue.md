@@ -5,55 +5,28 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 
 ## Pending
 
-### IMPORTANT (perishable / high-impact — dispatch first)
+### Capco readiness (T-7, perishable)
 
-#### Capco onboarding research
+- [ ] `golem --provider zhipu --max-turns 40 "Read ~/epigenome/chromatin/euchromatin/regulatory/ — list all files. For each HKMA and SFC circular about AI, write a 200-word briefing card summarizing: (1) what the regulator said, (2) implications for banks, (3) what a consultant should know. Write all cards to ~/epigenome/chromatin/euchromatin/consulting/cards/regulatory-ai-briefing.md as one consolidated document. Commit."`
+- [ ] `golem --provider infini --max-turns 40 "Create ~/epigenome/chromatin/euchromatin/consulting/cards/genai-risk-framework.md — a consulting insight card on GenAI risk management framework for banks. Structure: problem (2 sentences), why it matters (3 bullets), recommended approach (numbered steps), key considerations, Capco angle. 500-800 words. Commit."`
+- [ ] `golem --provider zhipu --max-turns 40 "Create ~/epigenome/chromatin/euchromatin/consulting/cards/model-risk-ai.md — a consulting insight card on Model Risk Management for AI/ML models in banking (SR 11-7 / SS1/23 context). Cover: current regulatory expectations, gaps in most banks' MRM frameworks for AI, practical remediation steps, and how a consultant adds value. 500-800 words. Commit."`
+- [ ] `golem --provider infini --max-turns 40 "Create ~/epigenome/chromatin/euchromatin/consulting/cards/ai-use-case-tiering.md — a consulting insight card on AI use case tiering for banks. Cover: why tiering matters (proportionality), typical tier criteria (risk, materiality, customer impact), example tier matrix, governance per tier, common mistakes. 500-800 words. Commit."`
 
-#### AI in banking regulatory briefing
+### Fix operon — test failures (diagnostic first)
 
-#### Fix effector test coaching (prevents broken golem output)
+- [ ] `golem --provider zhipu --max-turns 50 "Run uv run pytest -q --tb=no --continue-on-collection-errors 2>&1 | grep FAILED | sed 's/::.*//g' | sort | uniq -c | sort -rn | head -10. For each of the top 5 failing test files: run pytest on that file alone, read the traceback, read the source it tests, diagnose the root cause, fix. Run pytest on the file again until green. Commit each fix separately."`
+- [ ] `golem --provider infini --max-turns 50 "Run uv run pytest -q --tb=no --continue-on-collection-errors 2>&1 | grep FAILED | sed 's/::.*//g' | sort | uniq -c | sort -rn. Take failures ranked 6-10. For each: run pytest on that file alone, read traceback, fix. Iterate until green. Commit each fix."`
+- [ ] `golem --provider volcano --max-turns 40 "Run uv run pytest --co -q 2>&1 | grep ERROR. Fix ALL collection errors — common causes: hardcoded paths, bad imports, missing fixtures. Run --co again until 0 errors. Commit."`
 
-#### Integrin health check (is the organism healthy?)
+### Builds — consulting IP
 
-### Retries (split [!] failures into smaller tasks)
+- [ ] `golem --provider zhipu --max-turns 40 "Create ~/epigenome/chromatin/euchromatin/consulting/cards/responsible-ai-banking.md — insight card on Responsible AI in banking. Cover: ethical AI principles relevant to banking, bias testing requirements, explainability for credit decisions (ECOA/FCRA context + HK equivalent), monitoring for drift, board-level governance. 500-800 words. Commit."`
+- [ ] `golem --provider infini --max-turns 40 "Create ~/epigenome/chromatin/euchromatin/consulting/cards/llm-deployment-patterns.md — insight card on LLM deployment patterns for banks. Cover: RAG vs fine-tuning decision, data residency constraints, prompt injection risks, hallucination guardrails, human-in-the-loop patterns, cost management. Practical, not theoretical. 500-800 words. Commit."`
+- [ ] `golem --provider volcano --max-turns 40 "Create ~/epigenome/chromatin/euchromatin/consulting/cards/third-party-ai-risk.md — insight card on third-party AI risk management. Cover: vendor due diligence for AI services, concentration risk (everyone using same foundation models), data sharing agreements, exit strategies, regulatory expectations (HKMA OR-2, MAS TRMG). 500-800 words. Commit."`
 
-#### Sortase executor (33K — needs solo golem)
+### Infra — golem reliability
 
-#### Sortase decompose + graph + logger (3 modules)
-
-#### Lysin + endosomal (4 modules)
-
-#### Morphology + codons (2 modules)
-
-#### Pinocytosis + sporulation (4 modules)
-
-#### Remaining tiny (3 modules)
-
-### Fixes (mop up test failures)
-
-#### Fix all remaining test failures
-
-### Compound infra
-
-#### Coaching enforcement — post-golem validation gate
-
-### Builds (features > tests)
-
-#### ZhiPu golem diagnosis
-
-#### Golem auto-retry on [!]
-
-#### Golem provider health check
-
-#### Effector: test-dashboard
-
-### Effector test blitz (24 tasks, 73 effectors)
-
-
-### Builds + consulting prep (20 tasks)
-
-
-### Effector tests with coaching (25 tasks)
+- [ ] `golem --provider zhipu --max-turns 30 "Read effectors/hatchet-golem/dispatch.py. The parse_queue function returns 5-element tuples but the type hint says 4. Fix the type hint. Also fix the pyright warnings about unused 'result' parameters in mark_done and mark_failed. Run uv run pytest assays/test_dispatch* if tests exist. Commit."`
 
 
 
