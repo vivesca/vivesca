@@ -54,20 +54,23 @@ def test_check_and_heal_all_healthy_silent():
 
 
 def test_check_and_heal_unreachable_alerts():
-    """Test when soma is unreachable, it alerts immediately."""
+    """Test when soma is unreachable after retry, it alerts."""
     mock_status = MagicMock()
+    # Both initial and retry return unreachable
     mock_status.return_value = {
         "reachable": False,
         "targets": {}
     }
 
     with patch('metabolon.organelles.mitosis.status', mock_status):
-        with patch.dict(namespace, {'_alert': MagicMock()}) as mock_alert:
-            # Update the module object with the mocked version
-            setattr(mitosis_checkpoint, '_alert', namespace['_alert'])
-            mitosis_checkpoint.check_and_heal()
-            namespace['_alert'].assert_called_once()
-            assert "UNREACHABLE" in namespace['_alert'].call_args[0][0]
+        with patch('time.sleep'):  # skip the 15s wait
+            with patch.dict(namespace, {'_alert': MagicMock()}) as mock_alert:
+                setattr(mitosis_checkpoint, '_alert', namespace['_alert'])
+                mitosis_checkpoint.check_and_heal()
+                namespace['_alert'].assert_called_once()
+                assert "UNREACHABLE" in namespace['_alert'].call_args[0][0]
+                # Should have called status twice (initial + retry)
+                assert mock_status.call_count == 2
 
 
 def test_check_and_heal_self_heal_failure_alerts():

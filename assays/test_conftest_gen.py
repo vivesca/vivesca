@@ -33,39 +33,39 @@ class TestScanFile:
 
     def test_detects_linux_path(self, tmp_path: Path):
         p = tmp_path / "linux.py"
-        p.write_text('PATH = str(Path.home() / "project")\n')
+        p.write_text('PATH = "/home/terry/project"\n')
         results = scan_file(p)
         assert len(results) == 1
         f = results[0]
         assert f.line == 1
-        assert str(Path.home() / "project") in f.original
+        assert "/home/terry/project" in f.original
         assert "Path.home()" in f.replacement
 
     def test_detects_macos_path(self, tmp_path: Path):
         p = tmp_path / "mac.py"
-        p.write_text('PATH = str(Path.home() / "project")\n')
+        p.write_text('PATH = "/Users/terry/project"\n')
         results = scan_file(p)
         assert len(results) == 1
         f = results[0]
-        assert str(Path.home() / "project") in f.original
+        assert "/Users/terry/project" in f.original
         assert "Path.home()" in f.replacement
 
     def test_detects_home_only(self, tmp_path: Path):
         p = tmp_path / "home.py"
-        p.write_text('HOME = str(Path.home() / "project")\n')
+        p.write_text('HOME = "/Users/terry/project"\n')
         results = scan_file(p)
         assert len(results) == 1
         assert "Path.home()" in results[0].replacement
 
     def test_multiple_paths_on_same_line(self, tmp_path: Path):
         p = tmp_path / "multi.py"
-        p.write_text('a = str(Path.home() / "a"); b = str(Path.home() / "b")\n')
+        p.write_text('a = "/home/terry/a"; b = "/home/terry/b"\n')
         results = scan_file(p)
         assert len(results) == 2
 
     def test_paths_across_multiple_lines(self, tmp_path: Path):
         p = tmp_path / "lines.py"
-        p.write_text('a = str(Path.home() / "a")\nb = str(Path.home() / "b")\n')
+        p.write_text('a = "/home/terry/a"\nb = "/home/terry/b"\n')
         results = scan_file(p)
         assert len(results) == 2
         assert results[0].line == 1
