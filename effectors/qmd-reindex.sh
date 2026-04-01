@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # QMD re-index — embed new/changed vault notes for semantic search
 # Runs separately from vault backup (embedding is slow)
 

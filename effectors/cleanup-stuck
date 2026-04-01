@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Cleanup stuck processes that cause fork exhaustion
 
 case "${1:-}" in
