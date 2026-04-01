@@ -167,3 +167,79 @@ class TestPharosEnv:
         path = r.stdout.strip()
         first_entry = path.split(":")[0]
         assert first_entry == f"{tmp_path}/.local/bin"
+
+    # ── Additional edge-case tests ────────────────────────────────────────
+
+    def test_stderr_passthrough(self, tmp_path: Path):
+        """stderr from the executed command should pass through unchanged."""
+        r = _run(tmp_path, ["bash", "-c", "echo err >&2; echo out"])
+        assert r.returncode == 0
+        assert r.stdout.strip() == "out"
+        assert r.stderr.strip() == "err"
+
+    def test_set_a_exports_vars_to_child(self, tmp_path: Path):
+        """Variables from .zshenv.local must be exported (visible to child processes)."""
+        zshenv = tmp_path / ".zshenv.local"
+        zshenv.write_text("export EXPORTED_VAR=visible\n")
+        # Use a nested bash -c to confirm the var is in the environment
+        r = _run(
+            tmp_path,
+            ["bash", "-c", "printenv EXPORTED_VAR"],
+            have_local_env=False,
+        )
+        # Re-prepare with the custom zshenv already written above
+        script_path = _prepare_script(tmp_path)
+        env = os.environ.copy()
+        r = subprocess.run(
+            ["bash", str(script_path), "bash", "-c", "printenv EXPORTED_VAR"],
+            capture_output=True, text=True, env=env, timeout=10,
+        )
+        assert r.returncode == 0
+        assert r.stdout.strip() == "visible"
+
+    def test_empty_zshenv_local_no_error(self, tmp_path: Path):
+        """An empty .zshenv.local should not cause any errors."""
+        zshenv = tmp_path / ".zshenv.local"
+        zshenv.write_text("")
+        script_path = _prepare_script(tmp_path)
+        env = os.environ.copy()
+        r = subprocess.run(
+            ["bash", str(script_path), "echo", "ok"],
+            capture_output=True, text=True, env=env, timeout=10,
+        )
+        assert r.returncode == 0
+        assert r.stdout.strip() == "ok"
+        assert r.stderr == ""
+
+    def test_command_with_special_characters_in_args(self, tmp_path: Path):
+        """Arguments with spaces and special characters should pass through."""
+        r = _run(tmp_path, ["printf", "%s\\n", "hello world", "foo$bar"])
+        assert r.returncode == 0
+        assert r.stdout == "hello world\nfoo$bar\n"
+
+    def test_path_contains_nix_dirs(self, tmp_path: Path):
+        """PATH should include Nix profile directories."""
+        r = _run(tmp_path, ["printenv", "PATH"])
+        assert r.returncode == 0
+        path = r.stdout.strip()
+        assert f"{tmp_path}/.nix-profile/bin" in path
+        assert "/nix/var/nix/profiles/default/bin" in path
+
+    def test_path_order_cargo_before_system(self, tmp_path: Path):
+        """Cargo bin should come before /usr/bin to allow custom tool versions."""
+        r = _run(tmp_path, ["printenv", "PATH"])
+        assert r.returncode == 0
+        path = r.stdout.strip()
+        assert path.index(f"{tmp_path}/.cargo/bin") < path.index("/usr/bin")
+
+    def test_exit_code_propagation_nonzero(self, tmp_path: Path):
+        """Non-zero exit codes (e.g., 42) should propagate through exec."""
+        r = _run(tmp_path, ["bash", "-c", "exit 42"])
+        assert r.returncode == 42
+
+    def test_no_zshenv_local_does_not_source(self, tmp_path: Path):
+        """Without .zshenv.local, PHAROS_TEST_VAR should not be set."""
+        r = _run(tmp_path, ["printenv", "PHAROS_TEST_VAR"])
+        # printenv exits 1 when variable not found
+        assert r.returncode != 0
+        assert r.stdout.strip() == ""
