@@ -13,8 +13,8 @@ CLI (cli.py) ──submit──> Temporal Server ──dispatch──> Worker (w
                               └──status/list────────────┘
 ```
 
-- **worker.py** — Temporal worker that polls `golem-tasks` task queue. Each activity runs `bash effectors/golem --provider X --max-turns N "task"`, heartbeats every 30s, has a 30min timeout, and retries up to 3 times with exponential backoff.
-- **workflow.py** — `GolemDispatchWorkflow` accepts a list of task specs, dispatches them sequentially (per-provider concurrency enforced by semaphores in the worker), and returns an aggregate result.
+- **worker.py** — Temporal worker that polls `golem-tasks` task queue. Each activity runs `bash effectors/golem --provider X --max-turns N "task"`, heartbeats every 30s during execution (via a background coroutine), has a 30min timeout, and retries up to 3 times with exponential backoff.
+- **workflow.py** — `GolemDispatchWorkflow` accepts a list of task specs, dispatches them concurrently via `asyncio.gather` (per-provider concurrency enforced by semaphores in the worker), and returns an aggregate result.
 - **cli.py** — Click CLI for submitting workflows and checking status.
 
 ## Per-provider concurrency
@@ -25,7 +25,7 @@ CLI (cli.py) ──submit──> Temporal Server ──dispatch──> Worker (w
 | infini   | 8                   |
 | volcano  | 16                  |
 
-Concurrency is enforced via `asyncio.Semaphore` in the worker, one per provider.
+Concurrency is enforced via `asyncio.Semaphore` in the worker, one per provider. The workflow dispatches all tasks concurrently — the worker semaphores gate actual parallel execution per-provider.
 
 ## Quick start
 
