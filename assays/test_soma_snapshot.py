@@ -331,10 +331,13 @@ def test_cmd_snapshot_no_volumes(monkeypatch):
 
 def test_cmd_snapshot_slow_stop_proceeds_anyway(monkeypatch, capsys):
     """cmd_snapshot proceeds after 30 polls even if machine doesn't reach 'stopped'."""
+    from unittest.mock import patch as um_patch
+    import time as time_mod
+
     monkeypatch.setenv("FLY_API_TOKEN", "tok_snap4")
     machines = [{"id": "m_4", "state": "started"}]
     vols = [{"id": "vol_slow"}]
-    still_running = {"id": "m_4", "state": "started"}
+    still_running = [{"id": "m_4", "state": "started"}]
     snap_result = {"id": "snap_slow"}
 
     responses = [
@@ -346,13 +349,9 @@ def test_cmd_snapshot_slow_stop_proceeds_anyway(monkeypatch, capsys):
     responses.append(snap_result)           # snapshot creation
     responses.append({})                    # start call
 
-    original_sleep = _mod["time"].sleep
-    _mod["time"].sleep = lambda s: None
-    try:
-        with patch_urlopen(_make_urlopen(responses)):
-            cmd_snapshot()
-    finally:
-        _mod["time"].sleep = original_sleep
+    with patch_urlopen(_make_urlopen(responses)), \
+         um_patch.object(time_mod, "sleep", lambda s: None):
+        cmd_snapshot()
 
     out = capsys.readouterr().out
     assert "warning" in out.lower()
