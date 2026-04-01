@@ -403,3 +403,152 @@ def test_golem_dash_syntax_valid():
     import ast
     source = Path.home().joinpath("germline/effectors/golem-dash").read_text()
     ast.parse(source)
+
+
+# ── New: throughput_per_hour ─────────────────────────────────────────
+
+
+def test_throughput_per_hour_basic():
+    """Compute tasks/hr from recent completions."""
+    now = datetime.now(timezone.utc)
+    records = []
+    for i in range(4):
+        ts = (now - timedelta(minutes=i * 15)).isoformat()
+        records.append({"exit": 0, "ts": ts, "provider": "zhipu", "duration": 100})
+    rate = _mod["compute_throughput_per_hour"](records, provider="zhipu")
+    assert rate == pytest.approx(4.0)
+
+
+def test_throughput_per_hour_no_completions():
+    """No completions = 0 rate."""
+    rate = _mod["compute_throughput_per_hour"]([], provider="infini")
+    assert rate == 0.0
+
+
+def test_throughput_per_hour_mixed_providers():
+    """Only counts the specified provider."""
+    now = datetime.now(timezone.utc)
+    records = [
+        {"exit": 0, "ts": now.isoformat(), "provider": "infini", "duration": 100},
+        {"exit": 0, "ts": now.isoformat(), "provider": "zhipu", "duration": 100},
+    ]
+    rate = _mod["compute_throughput_per_hour"](records, provider="infini")
+    assert rate == pytest.approx(1.0)
+
+
+# ── New: detect_stale_tasks ─────────────────────────────────────────
+
+
+def test_detect_stale_tasks_none_running():
+    """No running tasks = no stale tasks."""
+    stale = _mod["detect_stale_tasks"]([], {"infini": 120.0})
+    assert stale == []
+
+
+def test_detect_stale_tasks_fresh():
+    """Running task within normal range is not stale."""
+    # Manually inject first-seen timestamp
+    tid = "t-fresh"
+    _mod["_task_first_seen"][tid] = time.time() - 60  # 60s ago
+    running = [{"task_id": tid, "provider": "infini"}]
+    stale = _mod["detect_stale_tasks"](running, {"infini": 120.0})
+    assert stale == []
+    del _mod["_task_first_seen"][tid]
+
+
+def test_detect_stale_tasks_over_2x():
+    """Running task >2× avg duration is stale."""
+    tid = "t-stale"
+    _mod["_task_first_seen"][tid] = time.time() - 300  # 300s ago
+    running = [{"task_id": tid, "provider": "infini"}]
+    stale = _mod["detect_stale_tasks"](running, {"infini": 100.0})
+    assert len(stale) == 1
+    assert stale[0]["task_id"] == tid
+    assert stale[0]["elapsed"] > 200
+    del _mod["_task_first_seen"][tid]
+
+
+def test_detect_stale_tasks_no_avg():
+    """No avg duration = not stale (can't judge)."""
+    tid = "t-noavg"
+    _mod["_task_first_seen"][tid] = time.time() - 500
+    running = [{"task_id": tid, "provider": "gemini"}]
+    stale = _mod["detect_stale_tasks"](running, {})
+    assert stale == []
+    del _mod["_task_first_seen"][tid]
+
+
+# ── New: fmt_wallclock_eta ──────────────────────────────────────────
+
+
+def test_wallclock_eta_positive():
+    """Returns HH:MM formatted wall-clock time."""
+    result = _mod["fmt_wallclock_eta"](3600)
+    # Should be a time string like "HH:MM" ~1hr from now
+    assert ":" in result
+    assert len(result) == 5  # "HH:MM"
+
+
+def test_wallclock_eta_zero():
+    """Zero ETA = dash."""
+    result = _mod["fmt_wallclock_eta"](0)
+    assert result == "—"
+
+
+def test_wallclock_eta_negative():
+    """Negative ETA = dash."""
+    result = _mod["fmt_wallclock_eta"](-10)
+    assert result == "—"
+
+
+def test_wallclock_eta_inf():
+    """Infinity ETA = special marker."""
+    result = _mod["fmt_wallclock_eta"](float("inf"))
+    assert result == "∞"
+
+
+# ── New: compute_eta_confidence ─────────────────────────────────────
+
+
+def test_eta_confidence_high():
+    """Many recent completions = high confidence."""
+    now = datetime.now(timezone.utc)
+    records = []
+    for i in range(20):
+        ts = (now - timedelta(minutes=i * 3)).isoformat()
+        records.append({"exit": 0, "ts": ts, "provider": "infini", "duration": 100})
+    conf = _mod["compute_eta_confidence"](records)
+    assert conf == "high"
+
+
+def test_eta_confidence_medium():
+    """Few completions = medium confidence."""
+    now = datetime.now(timezone.utc)
+    records = [
+        {"exit": 0, "ts": (now - timedelta(minutes=30)).isoformat(), "provider": "infini", "duration": 100},
+        {"exit": 0, "ts": (now - timedelta(minutes=45)).isoformat(), "provider": "infini", "duration": 100},
+    ]
+    conf = _mod["compute_eta_confidence"](records)
+    assert conf == "medium"
+
+
+def test_eta_confidence_low():
+    """No recent completions = low confidence."""
+    conf = _mod["compute_eta_confidence"]([])
+    assert conf == "low"
+
+
+def test_eta_confidence_with_rate_limits():
+    """Rate-limited entries reduce confidence."""
+    now = datetime.now(timezone.utc)
+    records = []
+    for i in range(10):
+        ts = (now - timedelta(minutes=i * 5)).isoformat()
+        records.append({"exit": 0, "ts": ts, "provider": "infini", "duration": 100})
+    for i in range(8):
+        ts = (now - timedelta(minutes=i * 5)).isoformat()
+        records.append({"exit": 1, "ts": ts, "provider": "infini", "duration": 3,
+                         "tail": "429 too many requests"})
+    conf = _mod["compute_eta_confidence"](records)
+    # Many RL entries should drop confidence from "high" to "medium"
+    assert conf in ("medium", "low")

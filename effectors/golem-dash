@@ -254,6 +254,83 @@ def compute_completions_per_minute(records: list[dict], window_minutes: int = 30
     return count / window_minutes
 
 
+def compute_throughput_per_hour(
+    records: list[dict], provider: str | None = None, window_minutes: int = 60,
+) -> float:
+    """Compute completions per hour, optionally filtered by provider."""
+    if not records:
+        return 0.0
+    now = datetime.now(timezone.utc)
+    cutoff = now - timedelta(minutes=window_minutes)
+    count = 0
+    for rec in records:
+        if rec.get("exit") != 0:
+            continue
+        if provider and rec.get("provider") != provider:
+            continue
+        ts = parse_ts(rec.get("ts", ""))
+        if ts >= cutoff:
+            count += 1
+    return count / (window_minutes / 60)
+
+
+def detect_stale_tasks(
+    running: list[dict], avg_duration_by_provider: dict[str, float],
+) -> list[dict]:
+    """Return list of stale running tasks (elapsed > 2× avg duration)."""
+    stale = []
+    for task in running:
+        tid = task.get("task_id", "")
+        prov = task.get("provider", "")
+        avg = avg_duration_by_provider.get(prov, 0)
+        if avg <= 0:
+            continue
+        elapsed = compute_elapsed(tid)
+        if elapsed > avg * 2:
+            stale.append({"task_id": tid, "provider": prov, "elapsed": elapsed, "avg": avg})
+    return stale
+
+
+def fmt_wallclock_eta(eta_seconds: float) -> str:
+    """Format ETA as a wall-clock completion time (HH:MM)."""
+    if eta_seconds <= 0:
+        return "—"
+    if eta_seconds == float("inf"):
+        return "∞"
+    target = datetime.now() + timedelta(seconds=eta_seconds)
+    return target.strftime("%H:%M")
+
+
+def compute_eta_confidence(records: list[dict], window_minutes: int = 60) -> str:
+    """Assess ETA confidence: high/medium/low.
+
+    high: >=10 successful completions in window with <30% rate-limited.
+    medium: >=2 completions.
+    low: <2 completions or >50% rate-limited.
+    """
+    now = datetime.now(timezone.utc)
+    cutoff = now - timedelta(minutes=window_minutes)
+    success = 0
+    rl = 0
+    for rec in records:
+        ts = parse_ts(rec.get("ts", ""))
+        if ts < cutoff:
+            continue
+        if rec.get("exit") == 0:
+            success += 1
+        elif is_rate_limited(rec):
+            rl += 1
+    total = success + rl
+    if total == 0:
+        return "low"
+    rl_ratio = rl / total
+    if success >= 10 and rl_ratio < 0.3:
+        return "high"
+    if success >= 2 and rl_ratio < 0.5:
+        return "medium"
+    return "low"
+
+
 def update_task_first_seen(running: list[dict]) -> None:
     """Track first-seen timestamps for running tasks to compute elapsed time."""
     global _task_first_seen
@@ -548,6 +625,7 @@ def build_dashboard(
     table.add_column("☠", justify="right", style="dim red", min_width=5)
     table.add_column("Rate", justify="right", min_width=8)
     table.add_column("AvgDur", justify="right", min_width=7)
+    table.add_column("tasks/hr", justify="right", min_width=8)
     table.add_column("Queue", justify="right", style="cyan", min_width=6)
     table.add_column("Drain ETA", justify="right", min_width=9)
     table.add_column("Status", min_width=10)
@@ -586,6 +664,8 @@ def build_dashboard(
             status = "[dim]idle[/dim]"
 
         eta_str = fmt_eta(prov_eta) if queue > 0 else "[dim]—[/dim]"
+        throughput = compute_throughput_per_hour(all_records, provider=prov)
+        throughput_str = f"{throughput:.0f}" if throughput > 0 else "[dim]—[/dim]"
 
         table.add_row(
             prov,
@@ -596,6 +676,7 @@ def build_dashboard(
             str(s["killed"]),
             rate_str,
             fmt_duration(avg_dur),
+            throughput_str,
             str(queue),
             eta_str,
             status,
@@ -615,7 +696,14 @@ def build_dashboard(
     summary.append(f"Failed: {total_failed_window}  ", style="red")
     summary.append(f"RateLimited: {total_rl_window}  ", style="yellow")
     summary.append(f"Success: {window_rate:.0f}%  ", style="bold green" if window_rate >= 80 else "bold yellow")
-    summary.append(f"ETA: {fmt_eta(eta_seconds)}", style="bold cyan")
+
+    # ETA with wall-clock time and confidence
+    confidence = compute_eta_confidence(all_records)
+    conf_style = {"high": "green", "medium": "yellow", "low": "red"}[confidence]
+    wallclock = fmt_wallclock_eta(eta_seconds)
+    summary.append(f"ETA: {fmt_eta(eta_seconds)} ", style="bold cyan")
+    summary.append(f"(~{wallclock}) ", style="cyan")
+    summary.append(f"[{confidence}]", style=conf_style)
 
     # === Drain progress ===
     drain_progress = build_drain_progress(total_pending, total_completed_queue, eta_seconds)

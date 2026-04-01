@@ -44,12 +44,12 @@ def _create_sysbin(tmp_path: Path) -> Path:
 
 
 def _env_with_fake_path(tmp_path: Path) -> dict[str, str]:
-    """Build env dict with HOME=tmp_path and PATH restricted to fake bin + sysbin."""
-    _create_sysbin(tmp_path)
+    """Build env dict with HOME=tmp_path and PATH=fake bin + /usr/bin for system tools."""
     env = os.environ.copy()
     env["HOME"] = str(tmp_path)
-    # Only our fake bin + minimal system tools — no /usr/bin to avoid system codex/gemini
-    env["PATH"] = str(tmp_path / "bin") + ":" + str(tmp_path / "sysbin")
+    # Fake bin first (so mocked brew/npm/etc are found), then /usr/bin for
+    # bash, tee, date, sed, and any other system utilities the script needs.
+    env["PATH"] = str(tmp_path / "bin") + ":" + "/usr/bin"
     # Strip any brew-related vars so the fake brew is the only one found
     for key in list(env):
         if "HOMEBREW" in key.upper():

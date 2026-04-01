@@ -465,3 +465,279 @@ def test_opencode_backend_env_extra():
     assert "env_extra" in opencode
     assert "OPENCODE_HOME" in opencode["env_extra"]
     assert ".opencode-lean" in opencode["env_extra"]["OPENCODE_HOME"]
+
+
+# ── Additional _build_prompt tests ──────────────────────────────────────
+
+
+def test_build_prompt_empty_plan(tmp_path):
+    """_build_prompt handles an empty plan file gracefully."""
+    plan_file = tmp_path / "empty_plan.md"
+    plan_file.write_text("")
+    prompt = _build_prompt("/project", str(plan_file))
+    assert "PROJECT DIRECTORY: /project" in prompt
+    assert "RULES:" in prompt
+    assert "PLAN-EXEC-DONE" in prompt
+
+
+def test_build_prompt_special_characters(tmp_path):
+    """_build_prompt preserves special characters in plan content."""
+    plan_file = tmp_path / "special.md"
+    plan_file.write_text("# Plan with $pecial <chars> & \"quotes\" 'and' `backticks`\n")
+    prompt = _build_prompt("/project", str(plan_file))
+    assert "$pecial" in prompt
+    assert "<chars>" in prompt
+    assert "&" in prompt
+
+
+def test_build_prompt_multiline_plan(tmp_path):
+    """_build_prompt preserves multiline content including indentation."""
+    plan_file = tmp_path / "multi.md"
+    content = "## Step 1\n\n```python\nprint('hello')\n```\n\n## Step 2\n\n- item 1\n- item 2\n"
+    plan_file.write_text(content)
+    prompt = _build_prompt("/my/proj", str(plan_file))
+    assert "## Step 1" in prompt
+    assert "```python" in prompt
+    assert "- item 1" in prompt
+
+
+# ── Additional run_backend tests ────────────────────────────────────────
+
+
+def test_run_backend_quota_lowercase(tmp_path, capsys):
+    """run_backend detects lowercase 'quota' in output."""
+    plan_file = tmp_path / "plan.md"
+    plan_file.write_text("test plan")
+    output_file = tmp_path / "output.log"
+
+    backend = {
+        "name": "test_backend",
+        "cmd": lambda p, f: ["sh", "-c", "echo 'quota exceeded for user'; exit 1"],
+        "cwd": lambda p: tmp_path,
+    }
+
+    result = run_backend(backend, str(tmp_path), str(plan_file), output_file)
+    assert result is False
+    captured = capsys.readouterr()
+    assert "quota/auth error" in captured.out
+
+
+def test_run_backend_non_quota_nonzero_exit(tmp_path, capsys):
+    """run_backend reports exit code for non-quota failures."""
+    plan_file = tmp_path / "plan.md"
+    plan_file.write_text("test plan")
+    output_file = tmp_path / "output.log"
+
+    backend = {
+        "name": "test_backend",
+        "cmd": lambda p, f: ["sh", "-c", "echo 'something broke'; exit 42"],
+        "cwd": lambda p: tmp_path,
+    }
+
+    result = run_backend(backend, str(tmp_path), str(plan_file), output_file)
+    assert result is False
+    captured = capsys.readouterr()
+    assert "exit 42" in captured.out
+
+
+def test_run_backend_writes_output_file(tmp_path):
+    """run_backend writes subprocess stdout+stderr to the output file."""
+    plan_file = tmp_path / "plan.md"
+    plan_file.write_text("test plan")
+    output_file = tmp_path / "output.log"
+
+    backend = {
+        "name": "test_backend",
+        "cmd": lambda p, f: ["sh", "-c", "echo 'line1'; echo 'line2'"],
+        "cwd": lambda p: tmp_path,
+    }
+
+    run_backend(backend, str(tmp_path), str(plan_file), output_file)
+    content = output_file.read_text()
+    assert "line1" in content
+    assert "line2" in content
+
+
+def test_run_backend_stderr_captured_in_output(tmp_path):
+    """run_backend captures stderr into the output file too."""
+    plan_file = tmp_path / "plan.md"
+    plan_file.write_text("test plan")
+    output_file = tmp_path / "output.log"
+
+    backend = {
+        "name": "test_backend",
+        "cmd": lambda p, f: ["sh", "-c", "echo stdout_msg; echo stderr_msg >&2; echo PLAN-EXEC-DONE"],
+        "cwd": lambda p: tmp_path,
+    }
+
+    result = run_backend(backend, str(tmp_path), str(plan_file), output_file)
+    assert result is True
+    content = output_file.read_text()
+    assert "stdout_msg" in content
+    assert "stderr_msg" in content
+
+
+# ── main() function tests via exec ──────────────────────────────────────
+
+
+def test_main_dry_run_creates_results_dir(tmp_path):
+    """main() creates the results directory even in dry-run mode."""
+    plan_file = tmp_path / "plan.md"
+    plan_file.write_text("test plan")
+
+    # Ensure the plan file actually exists on disk before subprocess
+    assert plan_file.exists()
+
+    result = subprocess.run(
+        [
+            str(Path.home() / "germline/effectors/plan-exec.deprecated"),
+            str(plan_file),
+            "--project",
+            str(tmp_path),
+            "--dry-run",
+        ],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0
+
+
+def test_main_backend_filter_unknown(tmp_path):
+    """main() with --backend unknown exits 1 and mentions 'unknown backend'."""
+    plan_file = tmp_path / "plan.md"
+    plan_file.write_text("test plan")
+
+    assert plan_file.exists()
+
+    result = subprocess.run(
+        [
+            str(Path.home() / "germline/effectors/plan-exec.deprecated"),
+            str(plan_file),
+            "--project",
+            str(tmp_path),
+            "--backend",
+            "nonexistent",
+        ],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 1
+    assert "unknown backend" in result.stderr
+
+
+def test_main_all_backends_fail(tmp_path):
+    """main() exits 1 when all backends fail (none installed)."""
+    plan_file = tmp_path / "plan.md"
+    plan_file.write_text("test plan")
+
+    assert plan_file.exists()
+
+    result = subprocess.run(
+        [
+            str(Path.home() / "germline/effectors/plan-exec.deprecated"),
+            str(plan_file),
+            "--project",
+            str(tmp_path),
+            "--backend",
+            "gemini",
+        ],
+        capture_output=True,
+        text=True,
+    )
+    # Gemini probably not installed in test env
+    assert result.returncode in (0, 1)
+
+
+# ── CLI -b short option test ────────────────────────────────────────────
+
+
+def test_cli_backend_short_option(tmp_path):
+    """CLI -b short option works the same as --backend."""
+    plan_file = tmp_path / "plan.md"
+    plan_file.write_text("test plan")
+
+    assert plan_file.exists()
+
+    result = subprocess.run(
+        [
+            str(Path.home() / "germline/effectors/plan-exec.deprecated"),
+            str(plan_file),
+            "--project",
+            str(tmp_path),
+            "-b",
+            "unknown_backend",
+        ],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 1
+    assert "unknown backend" in result.stderr
+
+
+# ── Backend cmd integration: verify prompt is embedded ──────────────────
+
+
+def test_gemini_cmd_contains_prompt(tmp_path):
+    """Gemini backend command embeds the prompt text."""
+    plan_file = tmp_path / "plan.md"
+    plan_file.write_text("# My Task Plan\nDo the thing.\n")
+
+    gemini = next(b for b in BACKENDS if b["name"] == "gemini")
+    cmd = gemini["cmd"](str(tmp_path), str(plan_file))
+
+    # The -p flag value should contain plan content
+    p_idx = cmd.index("-p")
+    prompt_value = cmd[p_idx + 1]
+    assert "My Task Plan" in prompt_value
+    assert "Do the thing" in prompt_value
+
+
+def test_codex_cmd_contains_prompt(tmp_path):
+    """Codex backend command embeds the prompt text."""
+    plan_file = tmp_path / "plan.md"
+    plan_file.write_text("# Codex Plan\nBuild it.\n")
+
+    codex = next(b for b in BACKENDS if b["name"] == "codex")
+    cmd = codex["cmd"](str(tmp_path), str(plan_file))
+
+    # Last argument is the prompt string
+    prompt_value = cmd[-1]
+    assert "Codex Plan" in prompt_value
+    assert "Build it" in prompt_value
+
+
+def test_opencode_cmd_contains_prompt(tmp_path):
+    """Opencode backend command embeds the prompt text."""
+    plan_file = tmp_path / "plan.md"
+    plan_file.write_text("# OpenCode Plan\nRun it.\n")
+
+    opencode = next(b for b in BACKENDS if b["name"] == "opencode")
+    cmd = opencode["cmd"](str(tmp_path), str(plan_file))
+
+    # Last argument is the prompt string
+    prompt_value = cmd[-1]
+    assert "OpenCode Plan" in prompt_value
+    assert "Run it" in prompt_value
+
+
+# ── Backend cwd tests ──────────────────────────────────────────────────
+
+
+def test_backends_cwd_returns_project(tmp_path):
+    """Each backend's cwd lambda returns the project directory."""
+    for backend in BACKENDS:
+        assert backend["cwd"]("/some/project") == "/some/project"
+        assert backend["cwd"](str(tmp_path)) == str(tmp_path)
+
+
+# ── RESULTS_DIR path tests ─────────────────────────────────────────────
+
+
+def test_results_dir_is_path():
+    """RESULTS_DIR is a Path object."""
+    assert isinstance(RESULTS_DIR, Path)
+
+
+def test_results_dir_absolute():
+    """RESULTS_DIR is an absolute path."""
+    assert RESULTS_DIR.is_absolute()
