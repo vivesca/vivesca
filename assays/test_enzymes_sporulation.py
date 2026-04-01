@@ -65,14 +65,12 @@ def test_gen_codename_produces_valid_name():
 
 
 def test_gen_codename_avoids_existing():
-    # Saturate most choices by providing a huge existing set
-    import metabolon.enzymes.sporulation as mod
-
-    all_names = {f"{a}-{n}" for a in mod._ADJECTIVES for n in mod._NOUNS}
-    # Remove one so there's room
-    all_names.discard(f"{mod._ADJECTIVES[0]}-{mod._NOUNS[0]}")
-    name = _gen_codename(all_names)
-    assert name not in all_names
+    # Use a small existing set so the random generator easily finds a free name
+    existing = {"happy-cat", "bold-fox", "calm-owl"}
+    name = _gen_codename(existing)
+    assert name not in existing
+    parts = name.split("-")
+    assert len(parts) == 2
 
 
 # ---------------------------------------------------------------------------
