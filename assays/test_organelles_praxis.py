@@ -427,7 +427,7 @@ def test_all_items_unavailable_returns_error(mock_read_all):
 
 def test_spare_returns_section_items(mock_today_date):
     """spare() returns items from Spare Capacity section."""
-    with patch("metabolon.organelles.praxis.recall_todo") as mock_recall:
+    with patch("metabolon.pinocytosis.recall_todo") as mock_recall:
         mock_recall.return_value = {
             "available": True,
             "items": [
@@ -442,7 +442,7 @@ def test_spare_returns_section_items(mock_today_date):
 
 def test_spare_excludes_done_items(mock_today_date):
     """spare() excludes completed items."""
-    with patch("metabolon.organelles.praxis.recall_todo") as mock_recall:
+    with patch("metabolon.pinocytosis.recall_todo") as mock_recall:
         mock_recall.return_value = {
             "available": True,
             "items": [
@@ -456,7 +456,7 @@ def test_spare_excludes_done_items(mock_today_date):
 
 def test_spare_unavailable_returns_error(mock_today_date):
     """spare() returns error when data unavailable."""
-    with patch("metabolon.organelles.praxis.recall_todo") as mock_recall:
+    with patch("metabolon.pinocytosis.recall_todo") as mock_recall:
         mock_recall.return_value = {"available": False, "error": "no file", "items": []}
         result = praxis.spare()
         assert "error" in result
@@ -467,7 +467,9 @@ def test_spare_unavailable_returns_error(mock_today_date):
 
 def test_clean_no_praxis_file():
     """clean() returns error when Praxis.md doesn't exist."""
-    with patch.object(praxis.PRAXIS, "exists", return_value=False):
+    mock_praxis = MagicMock()
+    mock_praxis.exists.return_value = False
+    with patch("metabolon.organelles.praxis.PRAXIS", mock_praxis):
         result = praxis.clean()
         assert "error" in result
         assert result["error"] == "No Praxis.md found"
@@ -480,16 +482,19 @@ def test_clean_no_completed_items():
 - [ ] Task 1
 - [ ] Task 2
 """
+    mock_praxis = MagicMock()
+    mock_praxis.exists.return_value = True
+    mock_praxis.read_text.return_value = praxis_content
+    mock_archive = MagicMock()
+    mock_archive.exists.return_value = False
     with (
-        patch.object(praxis.PRAXIS, "exists", return_value=True),
-        patch.object(praxis.PRAXIS, "read_text", return_value=praxis_content),
-        patch.object(praxis.PRAXIS, "write_text") as mock_write,
-        patch.object(praxis.PRAXIS_ARCHIVE, "exists", return_value=False),
+        patch("metabolon.organelles.praxis.PRAXIS", mock_praxis),
+        patch("metabolon.organelles.praxis.PRAXIS_ARCHIVE", mock_archive),
     ):
         result = praxis.clean()
         assert result["archived"] == 0
         assert result["items"] == []
-        mock_write.assert_not_called()
+        mock_praxis.write_text.assert_not_called()
 
 
 def test_clean_archives_completed_items():
@@ -505,13 +510,15 @@ def test_clean_archives_completed_items():
 
 - [x] Old completed
 """
+    mock_praxis = MagicMock()
+    mock_praxis.exists.return_value = True
+    mock_praxis.read_text.return_value = praxis_content
+    mock_archive = MagicMock()
+    mock_archive.exists.return_value = True
+    mock_archive.read_text.return_value = archive_content
     with (
-        patch.object(praxis.PRAXIS, "exists", return_value=True),
-        patch.object(praxis.PRAXIS, "read_text", return_value=praxis_content),
-        patch.object(praxis.PRAXIS, "write_text") as mock_praxis_write,
-        patch.object(praxis.PRAXIS_ARCHIVE, "exists", return_value=True),
-        patch.object(praxis.PRAXIS_ARCHIVE, "read_text", return_value=archive_content),
-        patch.object(praxis.PRAXIS_ARCHIVE, "write_text") as mock_archive_write,
+        patch("metabolon.organelles.praxis.PRAXIS", mock_praxis),
+        patch("metabolon.organelles.praxis.PRAXIS_ARCHIVE", mock_archive),
         patch("metabolon.organelles.praxis.datetime") as mock_dt,
     ):
         mock_dt.now.return_value.strftime.side_effect = lambda fmt: {
@@ -523,20 +530,22 @@ def test_clean_archives_completed_items():
         assert result["archived"] == 1
         assert "Completed task" in result["items"][0]
         assert "done:2025-06-15" in result["items"][0]
-        mock_praxis_write.assert_called_once()
-        mock_archive_write.assert_called_once()
+        mock_praxis.write_text.assert_called_once()
+        mock_archive.write_text.assert_called_once()
 
 
 def test_clean_adds_done_stamp_if_missing():
     """clean() adds done:YYYY-MM-DD to items without it."""
     praxis_content = "- [x] Task without stamp\n"
+    mock_praxis = MagicMock()
+    mock_praxis.exists.return_value = True
+    mock_praxis.read_text.return_value = praxis_content
+    mock_archive = MagicMock()
+    mock_archive.exists.return_value = False
+    mock_archive.read_text.return_value = ""
     with (
-        patch.object(praxis.PRAXIS, "exists", return_value=True),
-        patch.object(praxis.PRAXIS, "read_text", return_value=praxis_content),
-        patch.object(praxis.PRAXIS, "write_text"),
-        patch.object(praxis.PRAXIS_ARCHIVE, "exists", return_value=False),
-        patch.object(praxis.PRAXIS_ARCHIVE, "read_text", return_value=""),
-        patch.object(praxis.PRAXIS_ARCHIVE, "write_text"),
+        patch("metabolon.organelles.praxis.PRAXIS", mock_praxis),
+        patch("metabolon.organelles.praxis.PRAXIS_ARCHIVE", mock_archive),
         patch("metabolon.organelles.praxis.datetime") as mock_dt,
     ):
         mock_dt.now.return_value.strftime.side_effect = lambda fmt: {
@@ -550,13 +559,15 @@ def test_clean_adds_done_stamp_if_missing():
 def test_clean_preserves_existing_done_stamp():
     """clean() preserves existing done: stamp."""
     praxis_content = "- [x] Task `done:2025-05-01`\n"
+    mock_praxis = MagicMock()
+    mock_praxis.exists.return_value = True
+    mock_praxis.read_text.return_value = praxis_content
+    mock_archive = MagicMock()
+    mock_archive.exists.return_value = False
+    mock_archive.read_text.return_value = ""
     with (
-        patch.object(praxis.PRAXIS, "exists", return_value=True),
-        patch.object(praxis.PRAXIS, "read_text", return_value=praxis_content),
-        patch.object(praxis.PRAXIS, "write_text"),
-        patch.object(praxis.PRAXIS_ARCHIVE, "exists", return_value=False),
-        patch.object(praxis.PRAXIS_ARCHIVE, "read_text", return_value=""),
-        patch.object(praxis.PRAXIS_ARCHIVE, "write_text"),
+        patch("metabolon.organelles.praxis.PRAXIS", mock_praxis),
+        patch("metabolon.organelles.praxis.PRAXIS_ARCHIVE", mock_archive),
         patch("metabolon.organelles.praxis.datetime") as mock_dt,
     ):
         mock_dt.now.return_value.strftime.side_effect = lambda fmt: {
@@ -575,13 +586,15 @@ def test_clean_skips_children_of_completed():
   - Child item 2
 - [ ] Next task
 """
+    mock_praxis = MagicMock()
+    mock_praxis.exists.return_value = True
+    mock_praxis.read_text.return_value = praxis_content
+    mock_archive = MagicMock()
+    mock_archive.exists.return_value = False
+    mock_archive.read_text.return_value = ""
     with (
-        patch.object(praxis.PRAXIS, "exists", return_value=True),
-        patch.object(praxis.PRAXIS, "read_text", return_value=praxis_content),
-        patch.object(praxis.PRAXIS, "write_text") as mock_write,
-        patch.object(praxis.PRAXIS_ARCHIVE, "exists", return_value=False),
-        patch.object(praxis.PRAXIS_ARCHIVE, "read_text", return_value=""),
-        patch.object(praxis.PRAXIS_ARCHIVE, "write_text"),
+        patch("metabolon.organelles.praxis.PRAXIS", mock_praxis),
+        patch("metabolon.organelles.praxis.PRAXIS_ARCHIVE", mock_archive),
         patch("metabolon.organelles.praxis.datetime") as mock_dt,
     ):
         mock_dt.now.return_value.strftime.side_effect = lambda fmt: {
@@ -589,7 +602,7 @@ def test_clean_skips_children_of_completed():
             "%B %Y": "June 2025",
         }[fmt]
         praxis.clean()
-        written = mock_write.call_args[0][0]
+        written = mock_praxis.write_text.call_args[0][0]
         assert "Child item" not in written
         assert "Next task" in written
 
@@ -603,13 +616,15 @@ def test_clean_creates_month_header_if_missing():
 
 Old items
 """
+    mock_praxis = MagicMock()
+    mock_praxis.exists.return_value = True
+    mock_praxis.read_text.return_value = praxis_content
+    mock_archive = MagicMock()
+    mock_archive.exists.return_value = True
+    mock_archive.read_text.return_value = archive_content
     with (
-        patch.object(praxis.PRAXIS, "exists", return_value=True),
-        patch.object(praxis.PRAXIS, "read_text", return_value=praxis_content),
-        patch.object(praxis.PRAXIS, "write_text"),
-        patch.object(praxis.PRAXIS_ARCHIVE, "exists", return_value=True),
-        patch.object(praxis.PRAXIS_ARCHIVE, "read_text", return_value=archive_content),
-        patch.object(praxis.PRAXIS_ARCHIVE, "write_text") as mock_write,
+        patch("metabolon.organelles.praxis.PRAXIS", mock_praxis),
+        patch("metabolon.organelles.praxis.PRAXIS_ARCHIVE", mock_archive),
         patch("metabolon.organelles.praxis.datetime") as mock_dt,
     ):
         mock_dt.now.return_value.strftime.side_effect = lambda fmt: {
@@ -617,7 +632,7 @@ Old items
             "%B %Y": "June 2025",
         }[fmt]
         praxis.clean()
-        written = mock_write.call_args[0][0]
+        written = mock_archive.write_text.call_args[0][0]
         assert "## June 2025" in written
 
 
