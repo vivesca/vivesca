@@ -229,23 +229,50 @@ class TestErrorHandling:
         r = _run_script(tmp_path=tmp_path)
         assert r.returncode != 0
 
-    def test_partial_installs_cleaned_up_on_failure(self, tmp_path):
-        """When installer fails, partially installed skills are removed."""
+    def test_restores_old_skills_on_failure(self, tmp_path):
+        """When installer fails, pre-existing skills are restored from backup."""
         skills = _skills_dir(tmp_path)
         skills.mkdir(parents=True, exist_ok=True)
-        # Pre-existing skill should be backed up
+        
+        # Pre-existing skill
         (skills / "agent-browser").mkdir()
         (skills / "agent-browser" / "old.md").write_text("old")
         
+        # Installer will fail
         _make_mock_installer(tmp_path, exit_code=1)
         r = _run_script(tmp_path=tmp_path)
         assert r.returncode != 0
         
-        # The backed-up skill should be restored
-        # (backup was created before failure, restore happens on ERR trap)
-        backup = _backup_dir(tmp_path)
-        # Backup should exist and contain the old skill
-        assert backup.exists()
+        # Should be restored
+        assert (skills / "agent-browser" / "old.md").exists()
+        assert (skills / "agent-browser" / "old.md").read_text() == "old"
+
+    def test_cleans_up_new_partial_installs_on_failure(self, tmp_path):
+        """When installer fails, any new skill directories it created are removed."""
+        skills = _skills_dir(tmp_path)
+        skills.mkdir(parents=True, exist_ok=True)
+        
+        # Mock installer that creates a new skill directory then fails
+        script_dir = tmp_path / ".codex" / "skills" / ".system" / "skill-installer" / "scripts"
+        script_dir.mkdir(parents=True, exist_ok=True)
+        installer = script_dir / "install-skill-from-github.py"
+        installer.write_text(
+            "#!/usr/bin/env python3\n"
+            "import os, sys\n"
+            "from pathlib import Path\n"
+            "home = os.environ.get('HOME')\n"
+            "new_skill = Path(home) / '.codex' / 'skills' / 'rclone'\n"
+            "new_skill.mkdir(parents=True, exist_ok=True)\n"
+            "(new_skill / 'new.md').write_text('new content')\n"
+            "sys.exit(1)\n"
+        )
+        installer.chmod(installer.stat().st_mode | stat.S_IEXEC)
+        
+        r = _run_script(tmp_path=tmp_path)
+        assert r.returncode != 0
+        
+        # New skill should be cleaned up (it wasn't in backup)
+        assert not (skills / "rclone").exists()
 
 
 # ── skills list tests ───────────────────────────────────────────────────────
@@ -254,6 +281,31 @@ class TestErrorHandling:
 class TestSkillsList:
     """Verify the SKILLS array matches what's passed to installer."""
     
+    def test_skills_in_script_match_installer_args(self, tmp_path):
+        """All skills defined in the SKILLS array are passed to the installer."""
+        import re
+        script_content = SCRIPT.read_text()
+        # Extract skills from the bash array: SKILLS=( ... )
+        match = re.search(r"SKILLS=\((.*?)\)", script_content, re.DOTALL)
+        assert match, "Could not find SKILLS array in script"
+        
+        skills_text = match.group(1)
+        # Simple split, filtering out comments and empty lines
+        expected_skills = [
+            line.strip() 
+            for line in skills_text.splitlines() 
+            if line.strip() and not line.strip().startswith("#")
+        ]
+        
+        record = tmp_path / "calls.log"
+        _make_recording_installer(tmp_path, record)
+        r = _run_script(tmp_path=tmp_path)
+        assert r.returncode == 0
+        
+        calls = record.read_text()
+        for skill in expected_skills:
+            assert f"/{skill}" in calls, f"Skill '{skill}' from SKILLS array not found in installer call"
+
     def test_skills_count_matches(self, tmp_path):
         """Number of skills in SKILLS array matches installer args."""
         record = tmp_path / "calls.log"

@@ -13,7 +13,11 @@ from pathlib import Path
 
 import pytest
 
-SCRIPT = Path.home() / "germline" / "effectors" / "start-chrome-debug.sh"
+SCRIPT = Path(__file__).parent.parent / "effectors" / "start-chrome-debug.sh"
+
+
+def _read_script() -> str:
+    return SCRIPT.read_text()
 
 
 def _run(args: list[str] | None = None, *, env: dict | None = None) -> subprocess.CompletedProcess[str]:
