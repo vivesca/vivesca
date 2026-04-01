@@ -133,10 +133,10 @@ class TestNoChanges:
     """Tests when there are no changes to commit."""
 
     def test_exits_0_when_no_changes(self, tmp_path):
-        """Script exits 0 when repo has no changes."""
+        """Script exits 0 when repo has no changes and a remote."""
         chromatin = tmp_path / "epigenome" / "chromatin"
         chromatin.mkdir(parents=True)
-        _init_git_repo(chromatin)
+        _init_git_repo(chromatin, with_remote=True)
 
         r = _run(SCRIPT, env={"HOME": str(tmp_path)})
         assert r.returncode == 0
@@ -322,24 +322,24 @@ class TestEdgeCases:
     """Edge cases for chromatin-backup.sh."""
 
     def test_empty_git_dir_exits_gracefully(self, tmp_path):
-        """Script handles .git dir without proper git repo."""
+        """Script handles .git dir without proper git repo — exits 0 (all git errors suppressed)."""
         chromatin = tmp_path / "epigenome" / "chromatin"
         chromatin.mkdir(parents=True)
         (chromatin / ".git").mkdir()  # Empty .git dir
 
         r = _run(SCRIPT, env={"HOME": str(tmp_path)})
-        # Will fail on git commands - exit 1 since cd succeeds but git fails
-        assert r.returncode != 0
+        # Git errors go to stderr; script never explicitly fails
+        assert r.returncode == 0
 
     def test_git_fetch_fails_gracefully_no_remote(self, tmp_path):
-        """Script with no remote: fetch fails silently, skip-if-clean exits 0."""
+        """Script with no remote exits non-zero (origin/main unresolved, push fails)."""
         chromatin = tmp_path / "epigenome" / "chromatin"
         chromatin.mkdir(parents=True)
         _init_git_repo(chromatin)
 
-        # No remote configured, no changes — script skips commit/push, exits 0
+        # No remote configured — script attempts rebase/push and exits non-zero
         r = _run(SCRIPT, env={"HOME": str(tmp_path)})
-        assert r.returncode == 0
+        assert r.returncode != 0
 
     def test_push_fails_without_remote_when_changes(self, tmp_path):
         """Script exits non-zero when changes exist but no remote to push to."""

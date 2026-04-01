@@ -610,16 +610,18 @@ def test_frontmatter_has_yaml_delimiters(tmp_path):
 
 
 def test_frontmatter_title_quoted(tmp_path):
-    with patch.object(_mod, "REG_DIR", str(tmp_path)):
-        original_fc = _mod["fetch_content"]
-        _mod["fetch_content"] = lambda url: "Body " * 50
-        try:
-            path = scrape_one(
-                "https://example.com/x",
-                "fca", "2024-01-01", 'Title with "quotes"', "guidance",
-            )
-        finally:
-            _mod["fetch_content"] = original_fc
+    orig_regdir = _mod["REG_DIR"]
+    orig_fc = _mod["fetch_content"]
+    _mod["REG_DIR"] = str(tmp_path)
+    _mod["fetch_content"] = lambda url: "Body " * 50
+    try:
+        path = scrape_one(
+            "https://example.com/x",
+            "fca", "2024-01-01", 'Title with "quotes"', "guidance",
+        )
+    finally:
+        _mod["REG_DIR"] = orig_regdir
+        _mod["fetch_content"] = orig_fc
 
     content = open(path).read()
     assert 'title: "Title with \\"quotes\\""' in content

@@ -7,14 +7,21 @@ Fake Chrome binaries are created in tmp directories to isolate from the host.
 """
 
 import os
+import shutil
 import stat
 import subprocess
+import tempfile
 import time
 from pathlib import Path
 
 import pytest
 
 SCRIPT = Path(__file__).parent.parent / "effectors" / "start-chrome-debug.sh"
+
+
+def _make_tmp() -> Path:
+    """Create a temp dir independent of pytest's tmp_path (avoids retention_policy issues)."""
+    return Path(tempfile.mkdtemp(prefix="chrome_debug_test_"))
 
 
 def _wait_for_file(path: Path, timeout: float = 3.0, interval: float = 0.1) -> None:
