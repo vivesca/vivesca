@@ -95,6 +95,24 @@ def test_script_has_all_update_steps():
     assert "brew cleanup" in content
 
 
+def test_all_update_commands_have_or_true():
+    """Every update command has || true to prevent set -e from exiting on partial failure."""
+    content = SCRIPT_PATH.read_text()
+    lines = content.splitlines()
+    update_commands = [
+        "brew update", "brew upgrade", "npm update", "pnpm update",
+        "uv tool upgrade", "cargo binstall", "mas upgrade", "brew cleanup",
+        "eval \"${REPAIR[$cmd]}\"",
+    ]
+    for line in lines:
+        line_stripped = line.strip()
+        if not line_stripped or line_stripped.startswith("#") or "echo " in line_stripped:
+            continue
+        for cmd in update_commands:
+            if cmd in line_stripped:
+                assert "|| true" in line_stripped, f"Missing || true in line: {line}"
+
+
 @pytest.mark.skipif(not Path("/opt/homebrew/bin/brew").exists(),
                     reason="Homebrew not found at /opt/homebrew/bin/brew")
 def test_script_runs_with_homebrew():
