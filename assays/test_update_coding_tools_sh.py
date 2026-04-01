@@ -93,6 +93,21 @@ def _make_all_mocks(tmp_path: Path, exit_code: int = 0) -> Path:
     return bindir
 
 
+def _essential_system_dir(tmp_path: Path) -> Path:
+    """Create a dir with symlinks to only essential system tools.
+
+    Prevents system-installed tools like codex/gemini from leaking into
+    tests that expect them to be absent.
+    """
+    sysdir = tmp_path / "_sys"
+    sysdir.mkdir(exist_ok=True)
+    for cmd in ("bash", "cat", "chmod", "date", "mkdir", "sed", "tee", "touch", "tr"):
+        src = Path(f"/usr/bin/{cmd}")
+        if src.exists() and not (sysdir / cmd).exists():
+            (sysdir / cmd).symlink_to(src)
+    return sysdir
+
+
 def _run_script(
     tmp_path: Path,
     extra_env: dict | None = None,
@@ -101,16 +116,17 @@ def _run_script(
     """Run the full script with all commands mocked.
 
     Mock bindir is prepended to PATH so mocked commands take priority,
-    but system commands like bash, cat, tee are still found on the
-    original PATH.
+    but system commands like bash, cat, tee are still found via
+    symlinks in a restricted system dir (no codex/gemini leak-through).
     """
     if bindir is None:
         bindir = _make_all_mocks(tmp_path)
+    sysdir = _essential_system_dir(tmp_path)
     env = os.environ.copy()
     env["HOME"] = str(tmp_path)
-    # Prepend mock bindir so mocked commands take priority,
-    # but keep system PATH for bash, cat, tee, etc.
-    env["PATH"] = str(bindir) + os.pathsep + env.get("PATH", "")
+    # bindir (mocks) > restricted system dir (essentials only) —
+    # avoids /usr/bin/codex etc. leaking into repair tests.
+    env["PATH"] = str(bindir) + os.pathsep + str(sysdir)
     if extra_env:
         env.update(extra_env)
     return subprocess.run(
