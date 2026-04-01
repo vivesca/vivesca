@@ -1263,7 +1263,6 @@ def auto_requeue(min_pending: int = 50) -> int:
             if line.strip().startswith("## Done"):
                 insert_idx = i
                 break
-        from datetime import datetime
         ts = datetime.now().strftime("%H:%M")
         header = f"\n### Auto-requeue ({len(tasks)} tasks @ {ts})"
         lines.insert(insert_idx, header)
