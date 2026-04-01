@@ -6,15 +6,15 @@
     <string>com.vivesca.soma-pull</string>
     <key>ProgramArguments</key>
     <array>
-        <string>/Users/terry/.local/share/mise/installs/python/3.13.12/bin/python3</string>
-        <string>/Users/terry/germline/effectors/soma-pull</string>
+        <string>/home/terry/.local/share/mise/installs/python/3.13.12/bin/python3</string>
+        <string>/home/terry/germline/effectors/soma-pull</string>
     </array>
     <key>StartInterval</key>
     <integer>900</integer>
     <key>StandardOutPath</key>
-    <string>/Users/terry/tmp/soma-pull-stdout.log</string>
+    <string>/home/terry/tmp/soma-pull-stdout.log</string>
     <key>StandardErrorPath</key>
-    <string>/Users/terry/tmp/soma-pull-stderr.log</string>
+    <string>/home/terry/tmp/soma-pull-stderr.log</string>
     <key>RunAtLoad</key>
     <true/>
 </dict>
