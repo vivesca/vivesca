@@ -116,7 +116,10 @@ class TestURLExtraction:
         """
         script = buf_path.parent / "extract.sh"
         # Build the grep line with proper bash quoting for the single quote
-        regex_part = "'https?://[^ >)\"" + "'" + '"' + "'" + "']+'"
+        # The regex is https?://[^ >)"']+
+        # In bash: 'https?://[^ >)"'  +  "'"  +  ']+'
+        # Which is the classic '"'"' pattern for embedding a single quote
+        regex_part = "'https?://[^ >)\"" + "'" + '"' + "'" + '"' + "'" + "']+'"
         script.write_text(
             "#!/bin/bash\n"
             f"grep -oE {regex_part} {buf_path} | awk '!seen[$0]++'\n"
