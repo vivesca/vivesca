@@ -3,7 +3,6 @@
 # requires-python = ">=3.11"
 # dependencies = []
 # ///
-from __future__ import annotations
 """golem-cost — Estimate cost of golem runs.
 
 Reads golem.jsonl. Calculates tokens estimated per run (turns * ~4K),
@@ -14,6 +13,7 @@ Usage:
     golem-cost --json       # Output as JSON
     golem-cost --by-run     # Show per-run detail
 """
+from __future__ import annotations
 
 import json
 import sys
