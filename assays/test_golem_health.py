@@ -4,12 +4,21 @@
 import json
 import subprocess
 import sys
+import types
 from pathlib import Path
 from unittest import mock
 
 import pytest
 
 GOLEM_HEALTH_PATH = Path(__file__).resolve().parents[1] / "effectors" / "golem-health"
+
+
+def _load_module():
+    """Load golem-health effector into a module object via exec()."""
+    ns: dict = {"__name__": "golem_health", "__file__": str(GOLEM_HEALTH_PATH)}
+    exec(GOLEM_HEALTH_PATH.read_text(), ns)
+    mod = types.SimpleNamespace(**ns)
+    return mod
 
 
 # ── Script structure tests ────────────────────────────────────────────────────
@@ -65,25 +74,17 @@ class TestSourceEnvFile:
 
     def test_source_env_file_missing(self, tmp_path):
         """Test sourcing a non-existent file returns empty dict."""
-        import importlib.util
-
-        spec = importlib.util.spec_from_file_location("golem_health", GOLEM_HEALTH_PATH)
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
+        module = _load_module()
 
         result = module.source_env_file(tmp_path / "nonexistent.env")
         assert result == {}
 
     def test_source_env_file_basic(self, tmp_path):
         """Test sourcing a basic env file."""
-        import importlib.util
+        module = _load_module()
 
         env_file = tmp_path / "test.env"
         env_file.write_text("export TEST_VAR=hello\nexport ANOTHER_VAR=world\n")
-
-        spec = importlib.util.spec_from_file_location("golem_health", GOLEM_HEALTH_PATH)
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
 
         result = module.source_env_file(env_file)
         assert result.get("TEST_VAR") == "hello"
@@ -95,11 +96,7 @@ class TestHealthResult:
 
     def test_health_result_creation(self):
         """Test HealthResult can be created."""
-        import importlib.util
-
-        spec = importlib.util.spec_from_file_location("golem_health", GOLEM_HEALTH_PATH)
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
+        module = _load_module()
 
         result = module.HealthResult(
             provider="test",
@@ -121,11 +118,7 @@ class TestCheckProvider:
 
     def test_check_provider_unknown(self):
         """Test check_provider with unknown provider name."""
-        import importlib.util
-
-        spec = importlib.util.spec_from_file_location("golem_health", GOLEM_HEALTH_PATH)
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
+        module = _load_module()
 
         result = module.check_provider(
             provider="unknown",
@@ -137,11 +130,7 @@ class TestCheckProvider:
 
     def test_check_provider_missing_key(self):
         """Test check_provider when API key is missing."""
-        import importlib.util
-
-        spec = importlib.util.spec_from_file_location("golem_health", GOLEM_HEALTH_PATH)
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
+        module = _load_module()
 
         result = module.check_provider(
             provider="zhipu",

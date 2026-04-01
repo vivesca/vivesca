@@ -147,7 +147,8 @@ class TestChromeDetection:
         env["HOME"] = str(tmp_path)
 
         result = run_script("-p", "12345", env=env, timeout=10)
-        assert result.returncode == 0
+        assert result.returncode == 0, f"stdout={result.stdout!r} stderr={result.stderr!r}"
+        assert marker.exists(), f"Chrome was never invoked. stdout={result.stdout!r} stderr={result.stderr!r}"
         assert "--remote-debugging-port=12345" in marker.read_text()
 
     def test_user_data_dir_passed(self, tmp_path):
@@ -175,24 +176,34 @@ class TestChromeDetection:
 class TestAlreadyRunning:
     """Tests for already-running Chrome detection."""
 
-    def test_already_running_exits_zero(self, tmp_path):
-        """When curl succeeds on the debug port, exits 0 without launching Chrome."""
+    def _make_env_with_fake_chrome_and_curl(self, tmp_path, curl_exit=0):
+        """Helper: create env with fake chrome (that must NOT be called) and fake curl."""
+        # Fake curl that simulates Chrome already listening
         fake_curl = tmp_path / "curl"
-        fake_curl.write_text("#!/bin/bash\nexit 0\n")
+        fake_curl.write_text(f"#!/bin/bash\nexit {curl_exit}\n")
         fake_curl.chmod(fake_curl.stat().st_mode | stat.S_IEXEC)
+
+        # Fake chrome — if curl works correctly, this should never be invoked
+        fake_chrome = tmp_path / "google-chrome-stable"
+        fake_chrome.write_text("#!/bin/bash\necho SHOULD_NOT_BE_CALLED >&2\nexit 99\n")
+        fake_chrome.chmod(fake_chrome.stat().st_mode | stat.S_IEXEC)
 
         env = os.environ.copy()
         env["PATH"] = f"{tmp_path}:/usr/bin:/bin"
         env["HOME"] = str(tmp_path)
+        return env
 
+    def test_already_running_exits_zero(self, tmp_path):
+        """When curl succeeds on the debug port, exits 0 without launching Chrome."""
+        env = self._make_env_with_fake_chrome_and_curl(tmp_path, curl_exit=0)
         result = run_script(env=env)
         assert result.returncode == 0
         assert "already running" in result.stdout
 
     def test_already_running_with_custom_port(self, tmp_path):
         """Already-running check uses the custom port, not the default."""
+        # curl succeeds on port 7777 (via script pattern matching)
         fake_curl = tmp_path / "curl"
-        # Only succeed when called with the custom port
         fake_curl.write_text(
             '#!/bin/bash\n'
             'case "$@" in\n'
@@ -201,6 +212,11 @@ class TestAlreadyRunning:
             'esac\n'
         )
         fake_curl.chmod(fake_curl.stat().st_mode | stat.S_IEXEC)
+
+        # Fake chrome for detection phase (must exist and be executable)
+        fake_chrome = tmp_path / "google-chrome-stable"
+        fake_chrome.write_text("#!/bin/bash\necho SHOULD_NOT_BE_CALLED >&2\nexit 99\n")
+        fake_chrome.chmod(fake_chrome.stat().st_mode | stat.S_IEXEC)
 
         env = os.environ.copy()
         env["PATH"] = f"{tmp_path}:/usr/bin:/bin"
@@ -213,19 +229,7 @@ class TestAlreadyRunning:
 
     def test_already_running_does_not_launch_chrome(self, tmp_path):
         """Already-running path does NOT invoke the Chrome binary."""
-        fake_curl = tmp_path / "curl"
-        fake_curl.write_text("#!/bin/bash\nexit 0\n")
-        fake_curl.chmod(fake_curl.stat().st_mode | stat.S_IEXEC)
-
-        # Create a fake chrome that would fail the test if called
-        fake_chrome = tmp_path / "google-chrome-stable"
-        fake_chrome.write_text("#!/bin/bash\necho SHOULD_NOT_BE_CALLED >&2\nexit 99\n")
-        fake_chrome.chmod(fake_chrome.stat().st_mode | stat.S_IEXEC)
-
-        env = os.environ.copy()
-        env["PATH"] = f"{tmp_path}:/usr/bin:/bin"
-        env["HOME"] = str(tmp_path)
-
+        env = self._make_env_with_fake_chrome_and_curl(tmp_path, curl_exit=0)
         result = run_script(env=env)
         assert result.returncode == 0
         assert "SHOULD_NOT_BE_CALLED" not in result.stderr
