@@ -100,6 +100,79 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 - [x] `golem --provider volcano --max-turns 40 "Create ~/epigenome/chromatin/euchromatin/consulting/case-studies/ai-operating-model.md — a case study shell for establishing an AI Center of Excellence at an APAC bank. Cover: starting from zero, talent acquisition, governance framework, first 5 use cases, scaling challenges, 18-month roadmap. 600-1000 words. Commit."`
 - [x] `golem --provider zhipu --max-turns 40 "Create ~/epigenome/chromatin/euchromatin/consulting/case-studies/data-quality-ai-readiness.md — a case study shell for data quality remediation enabling AI adoption. Cover: data assessment findings, data lineage gaps, remediation program, feature store implementation, measurable improvement in model performance. 600-1000 words. Commit."`
 
+### Mitogen wave 3 -- 50 tasks (2026-04-01 afternoon)
+
+#### Test coverage -- metabolon organelles (12 tasks)
+
+- [x] `golem --provider zhipu --max-turns 30 "Write tests for metabolon/organelles/pacemaker.py. Read the module. Mock external calls. Write assays/test_organelles_pacemaker.py. Run uv run pytest on it. Fix. Commit."`
+- [x] `golem --provider infini --max-turns 30 "Write tests for metabolon/organelles/gradient_sense.py. Read the module. Mock externals. Write assays/test_organelles_gradient_sense.py. Run pytest. Fix. Commit."`
+- [x] `golem --provider volcano --max-turns 30 "Write tests for metabolon/organelles/tachometer.py. Read the module. Mock externals. Write assays/test_organelles_tachometer.py. Run pytest. Fix. Commit."`
+- [x] `golem --provider zhipu --max-turns 30 "Write tests for metabolon/organelles/statolith.py. Read the module. Mock externals. Write assays/test_organelles_statolith.py. Run pytest. Fix. Commit."`
+- [x] `golem --provider infini --max-turns 30 "Write tests for metabolon/organelles/complement.py. Read the module. Mock externals. Write assays/test_organelles_complement.py. Run pytest. Fix. Commit."`
+- [x] `golem --provider volcano --max-turns 30 "Write tests for metabolon/organelles/golgi.py. Read the module. Mock externals. Write assays/test_organelles_golgi.py. Run pytest. Fix. Commit."`
+- [x] `golem --provider zhipu --max-turns 30 "Write tests for metabolon/organelles/entrainment.py. Read the module. Mock externals. Write assays/test_organelles_entrainment.py. Run pytest. Fix. Commit."`
+- [x] `golem --provider infini --max-turns 30 "Write tests for metabolon/organelles/talking_points.py. Read the module. Mock externals. Write assays/test_organelles_talking_points.py. Run pytest. Fix. Commit."`
+- [x] `golem --provider volcano --max-turns 30 "Write tests for metabolon/organelles/crispr.py. Read the module. Mock externals. Write assays/test_organelles_crispr.py. Run pytest. Fix. Commit."`
+- [x] `golem --provider zhipu --max-turns 30 "Write tests for metabolon/organelles/moneo.py. Read the module. Mock externals. Write assays/test_organelles_moneo.py. Run pytest. Fix. Commit."`
+- [x] `golem --provider infini --max-turns 30 "Write tests for metabolon/organelles/phenotype_translate.py. Read the module. Mock externals. Write assays/test_organelles_phenotype_translate.py. Run pytest. Fix. Commit."`
+- [x] `golem --provider volcano --max-turns 30 "Write tests for metabolon/organelles/translocon_metrics.py. Read the module. Mock externals. Write assays/test_organelles_translocon_metrics.py. Run pytest. Fix. Commit."`
+
+#### Test coverage -- endocytosis subsystem (6 tasks)
+
+- [x] `golem --provider zhipu --max-turns 30 "Write tests for metabolon/organelles/endocytosis_rss_cargo.py. Read the module. Mock externals. Write assays/test_endocytosis_rss_cargo.py. Run pytest. Fix. Commit."`
+- [x] `golem --provider infini --max-turns 30 "Write tests for metabolon/organelles/endocytosis_rss_fetcher.py. Read the module. Mock network calls. Write assays/test_endocytosis_rss_fetcher.py. Run pytest. Fix. Commit."`
+- [x] `golem --provider volcano --max-turns 30 "Write tests for metabolon/organelles/endocytosis_rss_relevance.py. Read the module. Mock externals. Write assays/test_endocytosis_rss_relevance.py. Run pytest. Fix. Commit."`
+- [x] `golem --provider zhipu --max-turns 30 "Write tests for metabolon/organelles/endocytosis_rss_sorting.py. Read the module. Mock externals. Write assays/test_endocytosis_rss_sorting.py. Run pytest. Fix. Commit."`
+- [x] `golem --provider infini --max-turns 30 "Write tests for metabolon/organelles/endocytosis_rss_state.py. Read the module. Mock externals. Write assays/test_endocytosis_rss_state.py. Run pytest. Fix. Commit."`
+- [x] `golem --provider volcano --max-turns 30 "Write tests for metabolon/organelles/endocytosis_rss_config.py. Read the module. Mock externals. Write assays/test_endocytosis_rss_config.py. Run pytest. Fix. Commit."`
+
+#### Test coverage -- metabolism + resources (8 tasks)
+
+- [x] `golem --provider zhipu --max-turns 30 "Write tests for metabolon/metabolism/preflight.py. Read the module. Mock externals. Write assays/test_metabolism_preflight.py. Run pytest. Fix. Commit."`
+- [x] `golem --provider infini --max-turns 30 "Write tests for metabolon/metabolism/repair.py. Read the module. Mock externals. Write assays/test_metabolism_repair.py. Run pytest. Fix. Commit."`
+- [x] `golem --provider volcano --max-turns 30 "Write tests for metabolon/metabolism/substrate.py. Read the module. Mock externals. Write assays/test_metabolism_substrate.py. Run pytest. Fix. Commit."`
+- [x] `golem --provider zhipu --max-turns 30 "Write tests for metabolon/metabolism/dependency_check.py. Read the module. Mock externals. Write assays/test_metabolism_dependency_check.py. Run pytest. Fix. Commit."`
+- [x] `golem --provider infini --max-turns 30 "Write tests for metabolon/resources/consolidation.py. Read the module. Mock externals. Write assays/test_resources_consolidation.py. Run pytest. Fix. Commit."`
+- [x] `golem --provider volcano --max-turns 30 "Write tests for metabolon/resources/operons.py. Read the module. Mock externals. Write assays/test_resources_operons.py. Run pytest. Fix. Commit."`
+- [x] `golem --provider zhipu --max-turns 30 "Write tests for metabolon/resources/chromatin_stats.py. Read the module. Mock externals. Write assays/test_resources_chromatin_stats.py. Run pytest. Fix. Commit."`
+- [x] `golem --provider infini --max-turns 30 "Write tests for metabolon/respiration.py. Read the module. Mock externals. Write assays/test_respiration.py. Run pytest. Fix. Commit."`
+
+#### Test coverage -- more effectors (8 tasks)
+
+- [x] `golem --provider volcano --max-turns 30 "Write tests for effectors/autoimmune.py. Python script -- use subprocess.run. Write assays/test_autoimmune.py. Run pytest. Fix. Commit."`
+- [x] `golem --provider zhipu --max-turns 30 "Write tests for effectors/exocytosis.py. Python script -- use subprocess.run. Write assays/test_exocytosis.py. Run pytest. Fix. Commit."`
+- [x] `golem --provider infini --max-turns 30 "Write tests for effectors/chat_history.py. Python script -- use subprocess.run. Write assays/test_chat_history.py. Run pytest. Fix. Commit."`
+- [x] `golem --provider volcano --max-turns 30 "Write tests for effectors/chemoreception.py. Python script -- use subprocess.run. Write assays/test_chemoreception.py. Run pytest. Fix. Commit."`
+- [x] `golem --provider zhipu --max-turns 30 "Write tests for effectors/photos.py. Python script -- use subprocess.run. Write assays/test_photos.py. Run pytest. Fix. Commit."`
+- [x] `golem --provider infini --max-turns 30 "Write tests for effectors/safe_search.py. Python script -- use subprocess.run. Write assays/test_safe_search.py. Run pytest. Fix. Commit."`
+- [x] `golem --provider volcano --max-turns 30 "Write tests for effectors/tmux-workspace.py. Python script -- use subprocess.run. Write assays/test_tmux_workspace.py. Run pytest. Fix. Commit."`
+- [x] `golem --provider zhipu --max-turns 30 "Write tests for effectors/generate-solutions-index.py. Python script -- use subprocess.run. Write assays/test_generate_solutions_index.py. Run pytest. Fix. Commit."`
+
+#### Test coverage -- sortase + respirometry (4 tasks)
+
+- [x] `golem --provider infini --max-turns 40 "Write tests for metabolon/sortase/__main__.py. Read the module. Mock externals. Write assays/test_sortase___main__.py. Run pytest. Fix. Commit."`
+- [x] `golem --provider volcano --max-turns 30 "Write tests for metabolon/sortase/diff_viewer.py. Read the module. Mock externals. Write assays/test_sortase_diff_viewer.py. Run pytest. Fix. Commit."`
+- [x] `golem --provider zhipu --max-turns 30 "Write tests for metabolon/respirometry/categories.py. Read the module. Mock externals. Write assays/test_respirometry_categories.py. Run pytest. Fix. Commit."`
+- [x] `golem --provider infini --max-turns 30 "Write tests for metabolon/respirometry/schema.py. Read the module. Mock externals. Write assays/test_respirometry_schema.py. Run pytest. Fix. Commit."`
+
+#### Hardening -- codebase quality (6 tasks)
+
+- [x] `golem --provider volcano --max-turns 30 "Scan metabolon/ for any Python files with unused imports. Remove unused imports. Run uv run pytest --co to verify nothing broke. Commit."`
+- [x] `golem --provider zhipu --max-turns 30 "Find all subprocess.run calls in metabolon/ and effectors/ that lack a timeout parameter. Add timeout=300 to each. Run pytest --co to verify. Commit."`
+- [x] `golem --provider infini --max-turns 30 "Scan assays/ for test files that shell out to commands not available on Linux (e.g. macOS-only: open, pbcopy, osascript). Mock or skip those tests on Linux. Run pytest --co. Commit."`
+- [x] `golem --provider volcano --max-turns 30 "Find all open() calls in metabolon/ that don't use a context manager (with statement). Refactor to use with. Run pytest --co. Commit."`
+- [x] `golem --provider zhipu --max-turns 40 "Run uv run pytest -q --tb=no 2>&1 | grep FAILED | wc -l. Then run uv run pytest -q --tb=no --continue-on-collection-errors 2>&1 | grep ERROR | wc -l. Report both counts. Fix any collection errors. Commit."`
+- [x] `golem --provider infini --max-turns 30 "Check all Python files in metabolon/ have proper __all__ exports or are internal. For any public module missing __all__, add one. Run pytest --co. Commit."`
+
+#### Builds -- organism tooling (6 tasks)
+
+- [x] `golem --provider volcano --max-turns 40 "Create effectors/coverage-map as a Python script. It reads assays/ and metabolon/ to produce a coverage matrix: which modules have tests, which don't, percentage covered. Output as table. Add --json flag. Write tests. Run pytest. Commit."`
+- [x] `golem --provider zhipu --max-turns 40 "Create effectors/effector-usage as a Python script. Scan ~/.claude/ skills and hooks for references to effectors. Report which effectors are actively used by skills/hooks and which are orphaned. Add --json flag. Write tests. Commit."`
+- [x] `golem --provider infini --max-turns 40 "Read effectors/golem. Add a --summary flag that shows stats from the last N runs: success rate, average duration, per-provider breakdown. Read from ~/.local/share/vivesca/golem.jsonl. Write tests. Commit."`
+- [x] `golem --provider volcano --max-turns 40 "Create effectors/test-fixer as a Python script. It runs pytest -q --tb=line, parses failures, groups by file, and outputs a markdown report of what's broken and likely causes. Add --json flag. Write tests. Commit."`
+- [x] `golem --provider zhipu --max-turns 40 "Read effectors/queue-balance. If it doesn't exist, create it as a Python script that reads loci/golem-queue.md and reports: tasks per provider, suggested rebalancing to maximize throughput given provider concurrency limits. Write tests. Commit."`
+- [x] `golem --provider infini --max-turns 40 "Read effectors/provider-bench. If it doesn't exist, create it as a Python script that dispatches a small test task to each provider (zhipu, infini, volcano) and measures TTFB and completion time. Reports in a table. Write tests. Commit."`
+
 ### Robustness wave — Fly/Vivesca/Golem (2026-03-31 evening)
 
 #### Fix operon — top 5 failing test files (201 failures → target <50)

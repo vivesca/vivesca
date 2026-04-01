@@ -225,6 +225,108 @@ def check_tests() -> Check:
         return Check(name="tests", status="error", value="?", detail=str(e))
 
 
+def check_disk_data() -> Check:
+    """Check disk usage on /data volume."""
+    data_path = Path("/data")
+    try:
+        if not data_path.is_mount():
+            return Check(name="disk_data", status="warn", value="not mounted", detail="/data is not a separate mount")
+        usage = shutil.disk_usage(data_path)
+        pct = (usage.used / usage.total) * 100
+        free_gb = usage.free / (1024**3)
+        total_gb = usage.total / (1024**3)
+
+        if pct >= DISK_CRIT_PCT:
+            status = "crit"
+        elif pct >= DISK_WARN_PCT:
+            status = "warn"
+        else:
+            status = "ok"
+
+        return Check(
+            name="disk_data",
+            status=status,
+            value=f"{pct:.0f}%",
+            detail=f"{free_gb:.1f}GB free / {total_gb:.1f}GB total",
+        )
+    except Exception as e:
+        return Check(name="disk_data", status="error", value="?", detail=str(e))
+
+
+def check_golem_processes() -> Check:
+    """Count running golem processes."""
+    try:
+        r = subprocess.run(
+            ["pgrep", "-c", "-f", "golem"],
+            capture_output=True, text=True, timeout=10
+        )
+        if r.returncode == 0:
+            count = int(r.stdout.strip())
+            return Check(
+                name="golem_procs",
+                status="ok",
+                value=str(count),
+                detail=f"{count} golem processes running",
+            )
+        else:
+            # pgrep returns 1 when no processes match
+            return Check(
+                name="golem_procs",
+                status="ok",
+                value="0",
+                detail="no golem processes running",
+            )
+    except Exception as e:
+        return Check(name="golem_procs", status="error", value="?", detail=str(e))
+
+
+def check_hatchet() -> Check:
+    """Check Hatchet container health via docker ps."""
+    try:
+        r = subprocess.run(
+            ["docker", "ps", "--filter", "name=hatchet", "--format", "{{.Names}}\t{{.Status}}"],
+            capture_output=True, text=True, timeout=15
+        )
+        if r.returncode != 0:
+            return Check(name="hatchet", status="error", value="docker error", detail=r.stderr[:200])
+
+        lines = [l for l in r.stdout.strip().splitlines() if l]
+        if not lines:
+            return Check(name="hatchet", status="warn", value="not running", detail="No hatchet containers found")
+
+        unhealthy = []
+        healthy = []
+        for line in lines:
+            parts = line.split("\t", 1)
+            name = parts[0]
+            status_str = parts[1] if len(parts) > 1 else "unknown"
+            if "unhealthy" in status_str.lower() or "exited" in status_str.lower():
+                unhealthy.append(f"{name}: {status_str}")
+            else:
+                healthy.append(name)
+
+        if unhealthy:
+            return Check(
+                name="hatchet",
+                status="crit",
+                value=f"{len(unhealthy)} unhealthy",
+                detail="; ".join(unhealthy[:5]),
+            )
+
+        return Check(
+            name="hatchet",
+            status="ok",
+            value=f"{len(healthy)} running",
+            detail=", ".join(healthy[:5]),
+        )
+    except FileNotFoundError:
+        return Check(name="hatchet", status="warn", value="no docker", detail="docker command not found")
+    except subprocess.TimeoutExpired:
+        return Check(name="hatchet", status="warn", value="timeout", detail="docker ps timed out")
+    except Exception as e:
+        return Check(name="hatchet", status="error", value="?", detail=str(e))
+
+
 def check_stale_files() -> Check:
     """Check for accumulated stale files."""
     issues = []
@@ -336,8 +438,11 @@ def run_health(fix: bool = False, as_json: bool = False, daemon_mode: bool = Fal
     report = HealthReport(timestamp=time.strftime("%Y-%m-%d %H:%M:%S"))
 
     report.add(check_disk())
+    report.add(check_disk_data())
     report.add(check_memory())
     report.add(check_daemon())
+    report.add(check_golem_processes())
+    report.add(check_hatchet())
     report.add(check_git())
     report.add(check_venv())
     report.add(check_stale_files())
