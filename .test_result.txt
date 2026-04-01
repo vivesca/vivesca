@@ -24,4 +24,65 @@ assays/test_start_chrome_debug.py::TestUnknownOption::test_unknown_flag_stderr_m
 assays/test_start_chrome_debug.py::TestChromeNotFound::test_exits_1_when_no_chrome PASSED [ 45%]
 assays/test_start_chrome_debug.py::TestChromeNotExecutable::test_non_executable_chrome_exits_1 PASSED [ 48%]
 assays/test_start_chrome_debug.py::TestPortFlag::test_custom_port_passed_through PASSED [ 51%]
-assays/test_start_chrome_debug.py::TestPortFlag::test_short_flag_p 
+assays/test_start_chrome_debug.py::TestPortFlag::test_short_flag_p PASSED [ 54%]
+assays/test_start_chrome_debug.py::TestPortFlag::test_default_port_is_9222 PASSED [ 57%]
+assays/test_start_chrome_debug.py::TestChromeArgs::test_remote_debugging_port_flag PASSED [ 60%]
+assays/test_start_chrome_debug.py::TestChromeArgs::test_user_data_dir_flag PASSED [ 63%]
+assays/test_start_chrome_debug.py::TestChromeArgs::test_connect_url_printed PASSED [ 66%]
+assays/test_start_chrome_debug.py::TestChromiumFallback::test_fallback_binary_found[google-chrome-stable] PASSED [ 69%]
+assays/test_start_chrome_debug.py::TestChromiumFallback::test_fallback_binary_found[google-chrome] ERROR [ 72%]
+assays/test_start_chrome_debug.py::TestChromiumFallback::test_fallback_binary_found[chromium-browser] ERROR [ 75%]
+assays/test_start_chrome_debug.py::TestChromiumFallback::test_fallback_binary_found[chromium] ERROR [ 78%]
+assays/test_start_chrome_debug.py::TestChromiumFallback::test_first_candidate_wins ERROR [ 81%]
+assays/test_start_chrome_debug.py::TestPlatformDetection::test_linux_searches_multiple_candidates PASSED [ 84%]
+assays/test_start_chrome_debug.py::TestPlatformDetection::test_darwin_path_in_script PASSED [ 87%]
+assays/test_start_chrome_debug.py::TestPlatformDetection::test_unsupported_platform_exits_1 PASSED [ 90%]
+assays/test_start_chrome_debug.py::TestChromeAlreadyRunning::test_detects_running_chrome ERROR [ 93%]
+assays/test_start_chrome_debug.py::TestChromeStarts::test_successful_start_message ERROR [ 96%]
+assays/test_start_chrome_debug.py::TestChromeDiesImmediately::test_immediate_exit_detected ERROR [100%]
+
+==================================== ERRORS ====================================
+_ ERROR at setup of TestChromiumFallback.test_fallback_binary_found[google-chrome] _
+.venv/lib/python3.13/site-packages/pytest_asyncio/plugin.py:730: in pytest_fixture_setup
+    return (yield)
+            ^^^^^
+E   FileNotFoundError: [Errno 2] No such file or directory: '/tmp/pytest-vivesca'
+_ ERROR at setup of TestChromiumFallback.test_fallback_binary_found[chromium-browser] _
+.venv/lib/python3.13/site-packages/pytest_asyncio/plugin.py:730: in pytest_fixture_setup
+    return (yield)
+            ^^^^^
+E   FileNotFoundError: [Errno 2] No such file or directory: '/tmp/pytest-vivesca'
+_ ERROR at setup of TestChromiumFallback.test_fallback_binary_found[chromium] __
+.venv/lib/python3.13/site-packages/pytest_asyncio/plugin.py:730: in pytest_fixture_setup
+    return (yield)
+            ^^^^^
+E   FileNotFoundError: [Errno 2] No such file or directory: '/tmp/pytest-vivesca'
+_______ ERROR at setup of TestChromiumFallback.test_first_candidate_wins _______
+.venv/lib/python3.13/site-packages/pytest_asyncio/plugin.py:730: in pytest_fixture_setup
+    return (yield)
+            ^^^^^
+E   FileNotFoundError: [Errno 2] No such file or directory: '/tmp/pytest-vivesca'
+____ ERROR at setup of TestChromeAlreadyRunning.test_detects_running_chrome ____
+.venv/lib/python3.13/site-packages/pytest_asyncio/plugin.py:730: in pytest_fixture_setup
+    return (yield)
+            ^^^^^
+E   FileNotFoundError: [Errno 2] No such file or directory: '/tmp/pytest-vivesca'
+_______ ERROR at setup of TestChromeStarts.test_successful_start_message _______
+.venv/lib/python3.13/site-packages/pytest_asyncio/plugin.py:730: in pytest_fixture_setup
+    return (yield)
+            ^^^^^
+E   FileNotFoundError: [Errno 2] No such file or directory: '/tmp/pytest-vivesca'
+___ ERROR at setup of TestChromeDiesImmediately.test_immediate_exit_detected ___
+.venv/lib/python3.13/site-packages/pytest_asyncio/plugin.py:730: in pytest_fixture_setup
+    return (yield)
+            ^^^^^
+E   FileNotFoundError: [Errno 2] No such file or directory: '/tmp/pytest-vivesca'
+=========================== short test summary info ============================
+ERROR assays/test_start_chrome_debug.py::TestChromiumFallback::test_fallback_binary_found[google-chrome]
+ERROR assays/test_start_chrome_debug.py::TestChromiumFallback::test_fallback_binary_found[chromium-browser]
+ERROR assays/test_start_chrome_debug.py::TestChromiumFallback::test_fallback_binary_found[chromium]
+ERROR assays/test_start_chrome_debug.py::TestChromiumFallback::test_first_candidate_wins
+ERROR assays/test_start_chrome_debug.py::TestChromeAlreadyRunning::test_detects_running_chrome
+ERROR assays/test_start_chrome_debug.py::TestChromeStarts::test_successful_start_message
+ERROR assays/test_start_chrome_debug.py::TestChromeDiesImmediately::test_immediate_exit_detected
+=================== 25 passed, 1 skipped, 7 errors in 21.60s ===================
