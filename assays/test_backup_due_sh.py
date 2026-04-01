@@ -518,3 +518,121 @@ class TestRetentionCountOutput:
                 break
         else:
             pytest.fail("No 'backups retained' line found in output")
+
+
+# ── symlink source ───────────────────────────────────────────────────────
+
+
+class TestSymlinkSource:
+    def test_follows_symlink_to_real_file(self, tmp_path):
+        """Script follows a symlink source to the real database."""
+        real = tmp_path / "actual-data" / "Compact.duecdb"
+        real.parent.mkdir(parents=True)
+        real.write_text("symlinked-content")
+        link = tmp_path / DUE_RELATIVE
+        link.parent.mkdir(parents=True, exist_ok=True)
+        link.symlink_to(real)
+        r = _run(tmp_path)
+        assert r.returncode == 0
+        dest = tmp_path / BACKUP_RELATIVE / f"due-{_today_stamp()}.duecdb"
+        assert dest.read_text() == "symlinked-content"
+
+    def test_broken_symlink_treated_as_missing(self, tmp_path):
+        """A broken symlink is treated as a missing database."""
+        link = tmp_path / DUE_RELATIVE
+        link.parent.mkdir(parents=True, exist_ok=True)
+        link.symlink_to(tmp_path / "nonexistent-target")
+        r = _run(tmp_path)
+        assert r.returncode == 1
+        assert "ERROR" in r.stderr
+
+
+# ── HOME not set (set -u) ────────────────────────────────────────────────
+
+
+class TestHomeUnset:
+    def test_fails_when_home_unset(self, tmp_path):
+        """With set -u, unset HOME causes the script to fail immediately."""
+        env = os.environ.copy()
+        env.pop("HOME", None)
+        r = subprocess.run(
+            ["bash", str(SCRIPT)],
+            capture_output=True,
+            text=True,
+            env=env,
+            timeout=10,
+        )
+        assert r.returncode != 0
+
+    def test_fails_when_home_empty(self, tmp_path):
+        """Empty HOME results in an invalid path, triggering the missing-DB check."""
+        env = os.environ.copy()
+        env["HOME"] = ""
+        r = subprocess.run(
+            ["bash", str(SCRIPT)],
+            capture_output=True,
+            text=True,
+            env=env,
+            timeout=10,
+        )
+        assert r.returncode == 1
+
+
+# ── read-only backup directory ────────────────────────────────────────────
+
+
+class TestReadOnlyBackupDir:
+    def test_fails_when_backup_dir_readonly(self, tmp_path):
+        """cp fails into a read-only directory; set -e causes script exit."""
+        _make_db(tmp_path)
+        bdir = tmp_path / BACKUP_RELATIVE
+        bdir.mkdir(parents=True)
+        bdir.chmod(0o555)
+        r = _run(tmp_path)
+        try:
+            assert r.returncode != 0
+        finally:
+            bdir.chmod(0o755)
+
+
+# ── unicode content ──────────────────────────────────────────────────────
+
+
+class TestUnicodeContent:
+    def test_copies_unicode_content(self, tmp_path):
+        """Database with unicode characters is copied faithfully."""
+        content = " café résumé naïve こんにちは 🧬 "
+        _make_db(tmp_path, content)
+        r = _run(tmp_path)
+        assert r.returncode == 0
+        dest = tmp_path / BACKUP_RELATIVE / f"due-{_today_stamp()}.duecdb"
+        assert dest.read_text() == content
+
+
+# ── destination filename format ───────────────────────────────────────────
+
+
+class TestDestinationFormat:
+    def test_dest_has_due_prefix(self, tmp_path):
+        """Backup filename starts with 'due-'."""
+        _make_db(tmp_path)
+        _run(tmp_path)
+        backups = _backups(tmp_path)
+        assert all(b.startswith("due-") for b in backups)
+
+    def test_dest_has_duecdb_extension(self, tmp_path):
+        """Backup filename ends with '.duecdb'."""
+        _make_db(tmp_path)
+        _run(tmp_path)
+        backups = _backups(tmp_path)
+        assert all(b.endswith(".duecdb") for b in backups)
+
+    def test_dest_date_is_valid_iso(self, tmp_path):
+        """Date portion of filename is a valid ISO date (YYYY-MM-DD)."""
+        _make_db(tmp_path)
+        _run(tmp_path)
+        backups = _backups(tmp_path)
+        stamp = _today_stamp()
+        assert backups == [f"due-{stamp}.duecdb"]
+        # Verify it parses as a real date
+        datetime.strptime(stamp, "%Y-%m-%d")

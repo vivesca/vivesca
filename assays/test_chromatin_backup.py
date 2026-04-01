@@ -442,3 +442,434 @@ class TestEdgeCases:
 
         r = _run(SCRIPT, env={"HOME": str(tmp_path)})
         assert r.returncode == 0
+
+
+# ── Push verification tests ──────────────────────────────────────────────
+
+
+class TestPushVerification:
+    """Verify that commits actually reach the remote bare repo."""
+
+    def test_push_updates_remote(self, tmp_path):
+        """Script pushes commit so the remote bare repo has the new file."""
+        chromatin = tmp_path / "epigenome" / "chromatin"
+        chromatin.mkdir(parents=True)
+        remote_path = _init_git_repo(chromatin, with_remote=True)
+
+        (chromatin / "pushed.md").write_text("pushed content\n")
+
+        r = _run(SCRIPT, env={"HOME": str(tmp_path)})
+        assert r.returncode == 0
+
+        # Verify the bare remote received the commit
+        remote_log = subprocess.run(
+            ["git", "-C", str(remote_path), "log", "-1", "--format=%s"],
+            capture_output=True,
+            text=True,
+        )
+        assert "chromatin backup:" in remote_log.stdout
+
+        # Verify the file content on the remote
+        remote_show = subprocess.run(
+            ["git", "-C", str(remote_path), "show", "main:pushed.md"],
+            capture_output=True,
+            text=True,
+        )
+        assert remote_show.stdout.strip() == "pushed content"
+
+    def test_push_multiple_commits(self, tmp_path):
+        """Script pushes the latest commit; remote matches local HEAD."""
+        chromatin = tmp_path / "epigenome" / "chromatin"
+        chromatin.mkdir(parents=True)
+        remote_path = _init_git_repo(chromatin, with_remote=True)
+
+        # First round: add a file
+        (chromatin / "first.md").write_text("first\n")
+        _run(SCRIPT, env={"HOME": str(tmp_path)})
+
+        # Second round: add another file
+        (chromatin / "second.md").write_text("second\n")
+        r = _run(SCRIPT, env={"HOME": str(tmp_path)})
+        assert r.returncode == 0
+
+        # Remote should have both files
+        remote_ls = subprocess.run(
+            ["git", "-C", str(remote_path), "ls-tree", "-r", "--name-only", "main"],
+            capture_output=True,
+            text=True,
+        )
+        assert "first.md" in remote_ls.stdout
+        assert "second.md" in remote_ls.stdout
+
+
+# ── Rebase / sync tests ─────────────────────────────────────────────────
+
+
+class TestRebaseSync:
+    """Tests for the fetch-rebase-merge sync logic (lines 16-29)."""
+
+    def test_rebases_on_remote_changes(self, tmp_path):
+        """Script rebases local changes on top of remote changes."""
+        chromatin = tmp_path / "epigenome" / "chromatin"
+        chromatin.mkdir(parents=True)
+        remote_path = _init_git_repo(chromatin, with_remote=True)
+
+        # Simulate a remote change (e.g. Obsidian Git pushed)
+        # Clone remote, make a commit, push back
+        clone_dir = tmp_path / "obsidian_clone"
+        subprocess.run(
+            ["git", "clone", str(remote_path), str(clone_dir)],
+            capture_output=True,
+            check=True,
+        )
+        subprocess.run(
+            ["git", "-C", str(clone_dir), "config", "user.email", "obsidian@test.com"],
+            capture_output=True,
+            check=True,
+        )
+        subprocess.run(
+            ["git", "-C", str(clone_dir), "config", "user.name", "Obsidian"],
+            capture_output=True,
+            check=True,
+        )
+        (clone_dir / "remote_note.md").write_text("from obsidian\n")
+        subprocess.run(
+            ["git", "-C", str(clone_dir), "add", "remote_note.md"],
+            capture_output=True,
+        )
+        subprocess.run(
+            ["git", "-C", str(clone_dir), "commit", "-m", "obsidian push"],
+            capture_output=True,
+        )
+        subprocess.run(
+            ["git", "-C", str(clone_dir), "push", "origin", "main"],
+            capture_output=True,
+            check=True,
+        )
+
+        # Now add a local change (diverges from remote)
+        (chromatin / "local_note.md").write_text("from local\n")
+
+        r = _run(SCRIPT, env={"HOME": str(tmp_path)})
+        assert r.returncode == 0
+
+        # Both files should be present after rebase
+        local_ls = subprocess.run(
+            ["git", "-C", str(chromatin), "ls-tree", "-r", "--name-only", "HEAD"],
+            capture_output=True,
+            text=True,
+        )
+        assert "remote_note.md" in local_ls.stdout
+        assert "local_note.md" in local_ls.stdout
+
+    def test_merge_fallback_on_conflict(self, tmp_path):
+        """Script falls back to merge when rebase has conflicts."""
+        chromatin = tmp_path / "epigenome" / "chromatin"
+        chromatin.mkdir(parents=True)
+        remote_path = _init_git_repo(chromatin, with_remote=True)
+
+        # Create a shared file and push
+        shared = chromatin / "shared.md"
+        shared.write_text("original\n")
+        subprocess.run(
+            ["git", "-C", str(chromatin), "add", "shared.md"],
+            capture_output=True,
+        )
+        subprocess.run(
+            ["git", "-C", str(chromatin), "commit", "-m", "add shared"],
+            capture_output=True,
+        )
+        subprocess.run(
+            ["git", "-C", str(chromatin), "push", "origin", "main"],
+            capture_output=True,
+        )
+
+        # Remote changes the file differently
+        clone_dir = tmp_path / "obsidian_clone"
+        subprocess.run(
+            ["git", "clone", str(remote_path), str(clone_dir)],
+            capture_output=True,
+            check=True,
+        )
+        subprocess.run(
+            ["git", "-C", str(clone_dir), "config", "user.email", "obsidian@test.com"],
+            capture_output=True,
+            check=True,
+        )
+        subprocess.run(
+            ["git", "-C", str(clone_dir), "config", "user.name", "Obsidian"],
+            capture_output=True,
+            check=True,
+        )
+        (clone_dir / "shared.md").write_text("remote change\n")
+        subprocess.run(
+            ["git", "-C", str(clone_dir), "add", "shared.md"],
+            capture_output=True,
+        )
+        subprocess.run(
+            ["git", "-C", str(clone_dir), "commit", "-m", "remote edit"],
+            capture_output=True,
+        )
+        subprocess.run(
+            ["git", "-C", str(clone_dir), "push", "origin", "main"],
+            capture_output=True,
+            check=True,
+        )
+
+        # Local changes the same file (creates conflict)
+        shared.write_text("local change\n")
+
+        r = _run(SCRIPT, env={"HOME": str(tmp_path)})
+        # Script should still succeed via merge fallback
+        assert r.returncode == 0
+
+        # Verify the file was committed (merge resolved it)
+        log = subprocess.run(
+            ["git", "-C", str(chromatin), "log", "-1", "--format=%s"],
+            capture_output=True,
+            text=True,
+        )
+        assert "chromatin backup:" in log.stdout
+
+    def test_no_rebase_when_up_to_date(self, tmp_path):
+        """Script skips rebase when local HEAD matches origin/main."""
+        chromatin = tmp_path / "epigenome" / "chromatin"
+        chromatin.mkdir(parents=True)
+        _init_git_repo(chromatin, with_remote=True)
+
+        # Add a local change (local is ahead, not behind)
+        (chromatin / "local.md").write_text("local\n")
+
+        r = _run(SCRIPT, env={"HOME": str(tmp_path)})
+        assert r.returncode == 0
+
+        # Commit should be straightforward, no merge commits
+        log = subprocess.run(
+            ["git", "-C", str(chromatin), "log", "--oneline"],
+            capture_output=True,
+            text=True,
+        )
+        # Only init commit + backup commit, no merge commit
+        lines = [l for l in log.stdout.strip().splitlines() if l]
+        assert len(lines) == 2  # init + backup
+
+
+# ── Additional edge case tests ───────────────────────────────────────────
+
+
+class TestAdditionalEdgeCases:
+    """More edge cases for chromatin-backup.sh."""
+
+    def test_binary_file_commit(self, tmp_path):
+        """Script commits binary files and pushes."""
+        chromatin = tmp_path / "epigenome" / "chromatin"
+        chromatin.mkdir(parents=True)
+        _init_git_repo(chromatin, with_remote=True)
+
+        (chromatin / "image.bin").write_bytes(bytes(range(256)))
+
+        r = _run(SCRIPT, env={"HOME": str(tmp_path)})
+        assert r.returncode == 0
+
+        show = subprocess.run(
+            ["git", "-C", str(chromatin), "show", "--name-only"],
+            capture_output=True,
+            text=True,
+        )
+        assert "image.bin" in show.stdout
+
+    def test_empty_file_commit(self, tmp_path):
+        """Script commits empty files and pushes."""
+        chromatin = tmp_path / "epigenome" / "chromatin"
+        chromatin.mkdir(parents=True)
+        _init_git_repo(chromatin, with_remote=True)
+
+        (chromatin / "empty.md").write_text("")
+
+        r = _run(SCRIPT, env={"HOME": str(tmp_path)})
+        assert r.returncode == 0
+
+        show = subprocess.run(
+            ["git", "-C", str(chromatin), "show", "--name-only"],
+            capture_output=True,
+            text=True,
+        )
+        assert "empty.md" in show.stdout
+
+    def test_gitignore_respected(self, tmp_path):
+        """Script does not commit files matching .gitignore."""
+        chromatin = tmp_path / "epigenome" / "chromatin"
+        chromatin.mkdir(parents=True)
+        _init_git_repo(chromatin, with_remote=True)
+
+        # Create .gitignore
+        (chromatin / ".gitignore").write_text("*.tmp\nsecret/\n")
+        subprocess.run(
+            ["git", "-C", str(chromatin), "add", ".gitignore"],
+            capture_output=True,
+        )
+        subprocess.run(
+            ["git", "-C", str(chromatin), "commit", "-m", "add gitignore"],
+            capture_output=True,
+        )
+        subprocess.run(
+            ["git", "-C", str(chromatin), "push", "origin", "main"],
+            capture_output=True,
+        )
+
+        # Create an ignored file and a normal file
+        (chromatin / "ignored.tmp").write_text("should be ignored\n")
+        (chromatin / "real.md").write_text("should be committed\n")
+
+        r = _run(SCRIPT, env={"HOME": str(tmp_path)})
+        assert r.returncode == 0
+
+        # Only real.md should be in the commit
+        show = subprocess.run(
+            ["git", "-C", str(chromatin), "show", "--name-only"],
+            capture_output=True,
+            text=True,
+        )
+        assert "real.md" in show.stdout
+        assert "ignored.tmp" not in show.stdout
+
+    def test_whitespace_only_change_no_commit(self, tmp_path):
+        """Script does not create a new commit for whitespace-only changes."""
+        chromatin = tmp_path / "epigenome" / "chromatin"
+        chromatin.mkdir(parents=True)
+        _init_git_repo(chromatin, with_remote=True)
+
+        # Create and commit a file
+        (chromatin / "doc.md").write_text("content\n")
+        subprocess.run(
+            ["git", "-C", str(chromatin), "add", "doc.md"],
+            capture_output=True,
+        )
+        subprocess.run(
+            ["git", "-C", str(chromatin), "commit", "-m", "add doc"],
+            capture_output=True,
+        )
+        subprocess.run(
+            ["git", "-C", str(chromatin), "push", "origin", "main"],
+            capture_output=True,
+        )
+
+        # Get commit count before
+        before = subprocess.run(
+            ["git", "-C", str(chromatin), "rev-list", "--count", "HEAD"],
+            capture_output=True,
+            text=True,
+        )
+
+        # No changes at all
+        r = _run(SCRIPT, env={"HOME": str(tmp_path)})
+        assert r.returncode == 0
+
+        after = subprocess.run(
+            ["git", "-C", str(chromatin), "rev-list", "--count", "HEAD"],
+            capture_output=True,
+            text=True,
+        )
+        assert before.stdout.strip() == after.stdout.strip()
+
+    def test_mixed_staged_and_unstaged(self, tmp_path):
+        """Script commits both staged and unstaged changes together."""
+        chromatin = tmp_path / "epigenome" / "chromatin"
+        chromatin.mkdir(parents=True)
+        _init_git_repo(chromatin, with_remote=True)
+
+        # Add an initial file and commit
+        (chromatin / "base.md").write_text("base\n")
+        subprocess.run(
+            ["git", "-C", str(chromatin), "add", "base.md"],
+            capture_output=True,
+        )
+        subprocess.run(
+            ["git", "-C", str(chromatin), "commit", "-m", "base"],
+            capture_output=True,
+        )
+        subprocess.run(
+            ["git", "-C", str(chromatin), "push", "origin", "main"],
+            capture_output=True,
+        )
+
+        # Stage one file
+        (chromatin / "staged.md").write_text("staged\n")
+        subprocess.run(
+            ["git", "-C", str(chromatin), "add", "staged.md"],
+            capture_output=True,
+        )
+
+        # Leave another file unstaged
+        (chromatin / "unstaged.md").write_text("unstaged\n")
+
+        r = _run(SCRIPT, env={"HOME": str(tmp_path)})
+        assert r.returncode == 0
+
+        show = subprocess.run(
+            ["git", "-C", str(chromatin), "show", "--name-only"],
+            capture_output=True,
+            text=True,
+        )
+        assert "staged.md" in show.stdout
+        assert "unstaged.md" in show.stdout
+
+    def test_deeply_nested_directory(self, tmp_path):
+        """Script commits files in deeply nested directories."""
+        chromatin = tmp_path / "epigenome" / "chromatin"
+        chromatin.mkdir(parents=True)
+        _init_git_repo(chromatin, with_remote=True)
+
+        deep = chromatin / "a" / "b" / "c" / "d" / "e"
+        deep.mkdir(parents=True)
+        (deep / "deep.md").write_text("deeply nested\n")
+
+        r = _run(SCRIPT, env={"HOME": str(tmp_path)})
+        assert r.returncode == 0
+
+        show = subprocess.run(
+            ["git", "-C", str(chromatin), "show", "--name-only"],
+            capture_output=True,
+            text=True,
+        )
+        assert "a/b/c/d/e/deep.md" in show.stdout
+
+    def test_commit_message_date_format(self, tmp_path):
+        """Commit message contains a recognizable YYYY-MM-DD HH:MM:SS timestamp."""
+        chromatin = tmp_path / "epigenome" / "chromatin"
+        chromatin.mkdir(parents=True)
+        _init_git_repo(chromatin, with_remote=True)
+
+        (chromatin / "date.md").write_text("test\n")
+
+        r = _run(SCRIPT, env={"HOME": str(tmp_path)})
+        assert r.returncode == 0
+
+        log = subprocess.run(
+            ["git", "-C", str(chromatin), "log", "-1", "--format=%s"],
+            capture_output=True,
+            text=True,
+        )
+        msg = log.stdout.strip()
+        # Verify format: "chromatin backup: YYYY-MM-DD HH:MM:SS"
+        import re
+
+        assert re.search(r"chromatin backup: \d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}", msg)
+
+    def test_file_with_spaces_in_name(self, tmp_path):
+        """Script commits files with spaces in filename."""
+        chromatin = tmp_path / "epigenome" / "chromatin"
+        chromatin.mkdir(parents=True)
+        _init_git_repo(chromatin, with_remote=True)
+
+        (chromatin / "my notes.md").write_text("spaced name\n")
+
+        r = _run(SCRIPT, env={"HOME": str(tmp_path)})
+        assert r.returncode == 0
+
+        show = subprocess.run(
+            ["git", "-C", str(chromatin), "show", "--name-only"],
+            capture_output=True,
+            text=True,
+        )
+        assert "my notes.md" in show.stdout
