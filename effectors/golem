@@ -191,12 +191,9 @@ case "$PROVIDER" in
     # volcano accepts x-api-key header (same as ANTHROPIC_API_KEY)
     _OPUS="ark-code-latest"; _SONNET="ark-code-latest"; _HAIKU="ark-code-latest" ;;
   infini)
-    # WARNING: Infini API does NOT support CC tool-use. Models ask for permission
-    # instead of invoking tools. Only usable for text-only tasks, not golem.
-    # NOTE: Infini /v1/models lists glm-4.7 (not glm-4.5-air). Use glm-4.7 for HA_AI KU.
     _KEY="${INFINI_API_KEY:?INFINI_API_KEY not set}"
     _URL="https://cloud.infini-ai.com/maas/coding"
-    _OPUS="glm-5"; _SONNET="glm-5"; _HAIKU="glm-4.7" ;;
+    _OPUS="deepseek-v3.2"; _SONNET="deepseek-v3.2"; _HAIKU="glm-4.5-air" ;;
   gemini)
     _KEY="${GOOGLE_API_KEY:?GOOGLE_API_KEY not set}"
     _CLI="gemini"  # uses gemini CLI, not claude
