@@ -16,12 +16,25 @@ def check_files(directory):
                 # Try parsing as python
                 try:
                     tree = ast.parse(content)
+                    is_run_imported = False
                     for node in ast.walk(tree):
-                        if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and \
-                           node.func.attr == 'run' and getattr(node.func.value, 'id', None) == 'subprocess':
-                            has_timeout = any(k.arg == 'timeout' for k in node.keywords)
-                            if not has_timeout:
-                                print(f"{path}:{node.lineno}: subprocess.run missing timeout")
+                        if isinstance(node, ast.ImportFrom) and node.module == 'subprocess':
+                            if any(alias.name == 'run' for alias in node.names):
+                                is_run_imported = True
+                    
+                    for node in ast.walk(tree):
+                        if isinstance(node, ast.Call):
+                            is_target = False
+                            if isinstance(node.func, ast.Attribute) and \
+                               node.func.attr == 'run' and getattr(node.func.value, 'id', None) == 'subprocess':
+                                is_target = True
+                            elif is_run_imported and isinstance(node.func, ast.Name) and node.func.id == 'run':
+                                is_target = True
+                            
+                            if is_target:
+                                has_timeout = any(k.arg == 'timeout' for k in node.keywords)
+                                if not has_timeout:
+                                    print(f"{path}:{node.lineno}: subprocess.run missing timeout")
                 except SyntaxError:
                     # Not a valid python file, maybe a script without .py extension
                     # Just do a rough check
