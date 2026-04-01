@@ -9,34 +9,6 @@ from metabolon.enzymes.mitosis import mitosis
 from metabolon.morphology import EffectorResult, Vital
 
 
-class MockReplicationResult:
-    def __init__(self, target, success, elapsed_s, message=""):
-        self.target = target
-        self.success = success
-        self.elapsed_s = elapsed_s
-        self.message = message
-
-
-class MockFidelityReport:
-    def __init__(self, results, started=0.0, finished=1.0):
-        self.results = results
-        self.started = started
-        self.finished = finished
-
-    @property
-    def elapsed_s(self):
-        return self.finished - self.started
-
-    @property
-    def ok(self):
-        return all(r.success for r in self.results)
-
-    @property
-    def summary(self):
-        ok = sum(1 for r in self.results if r.success)
-        return f"{ok}/{len(self.results)} targets synced in {self.elapsed_s:.1f}s"
-
-
 def test_unknown_action():
     """Test unknown action returns error."""
     result = mitosis(action="invalid")
@@ -49,7 +21,7 @@ def test_unknown_action():
 def test_status_unreachable():
     """Test status when soma unreachable."""
     mock_status = MagicMock(return_value={"reachable": False})
-    with patch("metabolon.enzymes.mitosis.status", mock_status):
+    with patch("metabolon.organelles.mitosis.status", mock_status):
         result = mitosis(action="status")
         assert isinstance(result, Vital)
         assert result.status == "error"
@@ -68,7 +40,7 @@ def test_status_stale_targets():
         },
     }
     mock_status = MagicMock(return_value=mock_info)
-    with patch("metabolon.enzymes.mitosis.status", mock_status):
+    with patch("metabolon.organelles.mitosis.status", mock_status):
         result = mitosis(action="status")
         assert isinstance(result, Vital)
         assert result.status == "warning"
@@ -88,12 +60,46 @@ def test_status_all_ok():
         },
     }
     mock_status = MagicMock(return_value=mock_info)
-    with patch("metabolon.enzymes.mitosis.status", mock_status):
+    with patch("metabolon.organelles.mitosis.status", mock_status):
         result = mitosis(action="status")
         assert isinstance(result, Vital)
         assert result.status == "ok"
         assert "soma healthy" in result.message
         assert "running" in result.message
+
+
+class MockReplicationResult:
+    __slots__ = ("target", "success", "elapsed_s", "message")
+    def __init__(self, target, success, elapsed_s, message=""):
+        self.target = target
+        self.success = success
+        self.elapsed_s = elapsed_s
+        self.message = message
+
+
+def create_mock_fidelity_report(results):
+    class MockFidelityReport:
+        def __init__(self):
+            self.results = results
+            self.started = 0.0
+            self.finished = sum(r.elapsed_s for r in results)
+
+        @property
+        def elapsed_s(self):
+            return self.finished - self.started
+
+        @property
+        def ok(self):
+            # Mimic the real logic from organelles.mitosis
+            # All critical targets (germline, epigenome) must succeed
+            return all(r.success for r in self.results if r.target in ("germline", "epigenome"))
+
+        @property
+        def summary(self):
+            ok = sum(1 for r in self.results if r.success)
+            return f"{ok}/{len(self.results)} targets synced in {self.elapsed_s:.1f}s"
+
+    return MockFidelityReport()
 
 
 def test_sync_success():
@@ -102,9 +108,9 @@ def test_sync_success():
         MockReplicationResult("germline", True, 0.5),
         MockReplicationResult("epigenome", True, 0.8),
     ]
-    mock_report = MockFidelityReport(mock_results, 0, 1.3)
+    mock_report = create_mock_fidelity_report(mock_results)
     mock_sync = MagicMock(return_value=mock_report)
-    with patch("metabolon.enzymes.mitosis.sync", mock_sync):
+    with patch("metabolon.organelles.mitosis.sync", mock_sync):
         result = mitosis(action="sync")
         assert isinstance(result, EffectorResult)
         assert result.success is True
@@ -120,10 +126,9 @@ def test_sync_partial_failure_non_critical():
         MockReplicationResult("germline", True, 0.5),
         MockReplicationResult("cc-auth", False, 0.1, "permission denied"),
     ]
-    mock_report = MockFidelityReport(mock_results, 0, 0.6)
-    mock_report.ok = True  # cc-auth not critical
+    mock_report = create_mock_fidelity_report(mock_results)
     mock_sync = MagicMock(return_value=mock_report)
-    with patch("metabolon.enzymes.mitosis.sync", mock_sync):
+    with patch("metabolon.organelles.mitosis.sync", mock_sync):
         result = mitosis(action="sync", targets=["germline"])
         assert isinstance(result, EffectorResult)
         assert result.success is True  # still ok because cc-auth not critical
@@ -136,8 +141,8 @@ def test_sync_partial_failure_non_critical():
 def test_sync_with_targets_filtered():
     """Test sync with specific targets only passes them through."""
     mock_results = [MockReplicationResult("germline", True, 0.5)]
-    mock_report = MockFidelityReport(mock_results)
+    mock_report = create_mock_fidelity_report(mock_results)
     mock_sync = MagicMock(return_value=mock_report)
-    with patch("metabolon.enzymes.mitosis.sync", mock_sync):
+    with patch("metabolon.organelles.mitosis.sync", mock_sync):
         mitosis(action="sync", targets=["germline"])
         mock_sync.assert_called_once_with(["germline"])
