@@ -103,6 +103,9 @@ _NEVER_NAME_WORDS = frozenset({
 def _is_person_name(s: str) -> bool:
     """Return True if s looks like a real person name (2-3 title-case words)."""
     s = s.strip("* ")
+    # reject if contains commas (e.g. "Dara Sosulski, PhD")
+    if "," in s:
+        s = s.split(",")[0].strip()
     words = s.split()
     if len(words) < 2 or len(words) > 4:
         return False
