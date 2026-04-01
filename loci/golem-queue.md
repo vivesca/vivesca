@@ -930,6 +930,13 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 - [x] `golem --provider infini --max-turns 30 "Health check: hkicpa, queue-gen, golem-top, backup-due.sh, cookie-sync. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
 - [x] `golem --provider volcano --max-turns 25 "Find subprocess.run calls without timeout in effectors/. Add timeout=300. Commit."`
 - [x] `golem --provider zhipu --max-turns 25 "Check all assays/test_*.py can be collected by pytest --co. Fix any that error. Commit."`
+
+### Auto-requeue (5 tasks @ 14:30)
+- [x] `golem --provider zhipu --max-turns 40 "Run uv run pytest --co -q 2>&1 | grep ERROR. Fix ALL collection errors. Common: hardcoded paths, bad imports, syntax. Run --co again until 0 errors. Commit."`
+- [x] `golem --provider infini --max-turns 50 "Run uv run pytest -q --tb=no --continue-on-collection-errors 2>&1 | grep FAILED | sed 's/::.*//g' | sort | uniq -c | sort -rn | head -5. For each: run pytest on it, read traceback, fix. Iterate until green. Commit."`
+- [x] `golem --provider volcano --max-turns 30 "Health check: disk-audit, update-coding-tools.sh, photos.py, grok, rheotaxis. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
+- [x] `golem --provider zhipu --max-turns 25 "Check all effectors respond to --help without crashing. Fix crashers. Commit."`
+- [x] `golem --provider infini --max-turns 25 "Check all assays/test_*.py can be collected by pytest --co. Fix any that error. Commit."`
 ## Done (2026-03-31)
 
 

@@ -55,6 +55,9 @@ async def save_state(context, key: str) -> None:
 
 def _run_golem(input, context, provider: str) -> dict:
     """Shared golem execution logic."""
+    # Hatchet wraps payload in {"input": {...}} — unwrap if needed
+    if isinstance(input, dict) and "input" in input and isinstance(input["input"], dict):
+        input = input["input"]
     task = input.get("task", "") if isinstance(input, dict) else str(input)
     max_turns = input.get("max_turns", 50) if isinstance(input, dict) else 50
 
@@ -100,6 +103,9 @@ async def golem_zhipu(input, context):
     already-completed sections. The subprocess re-runs only if the post-exec
     checkpoint was never reached (golem tasks are idempotent).
     """
+    # Hatchet wraps payload in {"input": {...}} — unwrap if needed
+    if isinstance(input, dict) and "input" in input and isinstance(input["input"], dict):
+        input = input["input"]
     task = input.get("task", "") if isinstance(input, dict) else str(input)
     max_turns = input.get("max_turns", 50) if isinstance(input, dict) else 50
 
