@@ -9,13 +9,22 @@ Compare with temporal-golem/ for head-to-head eval.
 """
 from __future__ import annotations
 
+import sys
+
+# Early --help check to avoid initializing Hatchet client unnecessarily.
+if "--help" in sys.argv or "-h" in sys.argv:
+    print(__doc__)
+    print("\nUsage:")
+    print("    python worker.py           # Start the Hatchet golem worker")
+    print("    python worker.py --help    # Show this help")
+    sys.exit(0)
+
 import asyncio
 import os
 import random
 import re
 import secrets
 import subprocess
-import sys
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -364,13 +373,6 @@ def golem_health(input, context):
 
 
 def main():
-    if "--help" in sys.argv or "-h" in sys.argv:
-        print(__doc__)
-        print("\nUsage:")
-        print("    python worker.py           # Start the Hatchet golem worker")
-        print("    python worker.py --help    # Show this help")
-        sys.exit(0)
-
     worker = hatchet.worker(
         "golem-worker",
         workflows=[
