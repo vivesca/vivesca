@@ -42,7 +42,7 @@ def search_cards(keyword: str, full: bool = False) -> None:
 
     # Use grep to find matching files
     result = subprocess.run(
-        ["grep", "-l", "-i", keyword] + list(CARDS_DIR.glob("*.md")),
+        ["grep", "-l", "-i", keyword] + [str(p) for p in CARDS_DIR.glob("*.md")],
         capture_output=True,
         text=True,
     )
