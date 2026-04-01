@@ -579,3 +579,137 @@ def test_no_memory_dir_no_synced_output(tmp_path):
 
     result = run_script(env={"HOME": str(fake_home)})
     assert "synced: memory/" not in result.stdout
+
+
+# ── Remote sync graceful-failure tests ─────────────────────────────────
+
+
+def test_credentials_json_no_crash_when_present(tmp_path):
+    """Script should not crash when .credentials.json exists but remotes are unreachable."""
+    fake_home = tmp_path / "home"
+    fake_claude = fake_home / ".claude"
+    officina = fake_home / "officina"
+    fake_claude.mkdir(parents=True)
+    officina.mkdir(parents=True)
+    _init_officina(officina)
+
+    (fake_claude / "settings.json").write_text("{}")
+    (fake_claude / ".credentials.json").write_text('{"key": "val"}')
+
+    result = run_script(env={"HOME": str(fake_home)})
+    # flyctl/scp will fail (no remotes) but script should exit 0
+    assert result.returncode == 0
+
+
+def test_zshenv_no_crash_when_present(tmp_path):
+    """Script should not crash when .zshenv exists but pharos is unreachable."""
+    fake_home = tmp_path / "home"
+    fake_claude = fake_home / ".claude"
+    officina = fake_home / "officina"
+    fake_claude.mkdir(parents=True)
+    officina.mkdir(parents=True)
+    _init_officina(officina)
+
+    (fake_claude / "settings.json").write_text("{}")
+    (fake_home / ".zshenv").write_text("export FOO=bar\n")
+
+    result = run_script(env={"HOME": str(fake_home)})
+    assert result.returncode == 0
+
+
+def test_zshenv_tpl_no_crash_when_present(tmp_path):
+    """Script should not crash when .zshenv.tpl exists but pharos is unreachable."""
+    fake_home = tmp_path / "home"
+    fake_claude = fake_home / ".claude"
+    officina = fake_home / "officina"
+    fake_claude.mkdir(parents=True)
+    officina.mkdir(parents=True)
+    _init_officina(officina)
+
+    (fake_claude / "settings.json").write_text("{}")
+    (fake_home / ".zshenv.tpl").write_text("export FOO={{BAR}}\n")
+
+    result = run_script(env={"HOME": str(fake_home)})
+    assert result.returncode == 0
+
+
+# ── git push graceful-failure tests ────────────────────────────────────
+
+
+def test_git_push_failure_no_crash(tmp_path):
+    """git push to a bare/missing remote should not crash the script."""
+    fake_home = tmp_path / "home"
+    fake_claude = fake_home / ".claude"
+    officina = fake_home / "officina"
+    fake_claude.mkdir(parents=True)
+    officina.mkdir(parents=True)
+    _init_officina(officina)
+
+    mem_src = fake_claude / "projects" / "-Users-terry" / "memory"
+    mem_src.mkdir(parents=True)
+    (mem_src / "MEMORY.md").write_text("data")
+    (fake_claude / "settings.json").write_text('{"push": true}')
+
+    # No remote configured → git push will fail, but script should exit 0
+    result = run_script(env={"HOME": str(fake_home)})
+    assert result.returncode == 0
+
+
+# ── sync_file with special content ─────────────────────────────────────
+
+
+def test_sync_file_handles_binary_content(tmp_path):
+    """sync_file should correctly copy files with binary/null content."""
+    src = tmp_path / "binary.bin"
+    dst = tmp_path / "out" / "binary.bin"
+    src.write_bytes(b"\x00\x01\x02\xff\xfe\xfd")
+    test_script = f"""
+    source {SCRIPT_PATH}
+    sync_file "{src}" "{dst}"
+    """
+    result = subprocess.run(["bash", "-c", test_script], capture_output=True, text=True)
+    assert result.returncode == 0
+    assert dst.read_bytes() == b"\x00\x01\x02\xff\xfe\xfd"
+
+
+def test_sync_file_handles_empty_file(tmp_path):
+    """sync_file should handle empty source files correctly."""
+    src = tmp_path / "empty.txt"
+    dst = tmp_path / "out" / "empty.txt"
+    src.write_bytes(b"")
+    test_script = f"""
+    source {SCRIPT_PATH}
+    sync_file "{src}" "{dst}"
+    """
+    result = subprocess.run(["bash", "-c", test_script], capture_output=True, text=True)
+    assert result.returncode == 0
+    assert dst.read_bytes() == b""
+    assert "updated: empty.txt" in result.stdout
+
+
+# ── Multiple memory files ──────────────────────────────────────────────
+
+
+def test_multiple_memory_files_all_synced(tmp_path):
+    """All files in memory directory should be synced, not just one."""
+    fake_home = tmp_path / "home"
+    fake_claude = fake_home / ".claude"
+    officina = fake_home / "officina"
+    fake_claude.mkdir(parents=True)
+    officina.mkdir(parents=True)
+    _init_officina(officina)
+
+    mem_src = fake_claude / "projects" / "-Users-terry" / "memory"
+    mem_src.mkdir(parents=True)
+    (mem_src / "MEMORY.md").write_text("mem")
+    (mem_src / "NOTES.md").write_text("notes")
+    (mem_src / "TODO.md").write_text("todos")
+
+    run_script(env={"HOME": str(fake_home)})
+    mem_dst = officina / "claude" / "memory"
+    assert (mem_dst / "MEMORY.md").exists()
+    assert (mem_dst / "NOTES.md").exists()
+    assert (mem_dst / "TODO.md").exists()
+    assert (mem_dst / "MEMORY.md").read_text() == "mem"
+    assert (mem_dst / "NOTES.md").read_text() == "notes"
+    assert (mem_dst / "TODO.md").read_text() == "todos"
