@@ -128,12 +128,13 @@ class TestParseTransactions:
             01/25 100.00
         """)
         txns = _parse_transactions(text, "2025")
-        # PAYMENT is filtered out, so only APPLE and AMAZON
+        # PAYMENT desc filtered out; charge_descs = [APPLE, AMAZON]
+        # Amounts paired in order: APPLE→01/15 500.00, AMAZON→01/20 200.00
         assert len(txns) == 2
         assert txns[0].merchant == "APPLE STORE"
         assert txns[0].hkd == -500.00
         assert txns[0].date == "2025-01-15"
-        assert txns[1].hkd == -100.00
+        assert txns[1].hkd == -200.00
 
     def test_empty_text(self):
         txns = _parse_transactions("no transactions here", "2025")

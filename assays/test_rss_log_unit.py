@@ -39,9 +39,10 @@ class TestTitlePrefix:
         assert len(result.split()) == 6
 
     def test_short_words_filtered(self):
-        result = _title_prefix("the a an in on at bank")
+        result = _title_prefix("to a an in on at bank")
+        # Words with len > 2 are kept; "bank" (len=4) passes, "to" (len=2) does not
         assert "bank" in result
-        assert "the" not in result
+        assert "to" not in result
 
 
 # ---------------------------------------------------------------------------

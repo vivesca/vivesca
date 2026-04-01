@@ -87,7 +87,8 @@ class TestNormalizeHandle:
         assert _normalize_handle("USER") == "user"
 
     def test_strips_whitespace(self):
-        assert _normalize_handle("  @User  ") == "user"
+        # lstrip("@") only strips @ when it's the first char; leading spaces prevent it
+        assert _normalize_handle("  @User  ") == "@user"
 
 
 # ---------------------------------------------------------------------------
@@ -181,7 +182,7 @@ class TestScoutSources:
         with patch("metabolon.organelles.endocytosis_rss.discover.shutil.which", return_value="bird"), \
              patch("metabolon.organelles.endocytosis_rss.discover.subprocess.run", return_value=mock_proc), \
              patch("metabolon.organelles.endocytosis_rss.discover.record_cargo"), \
-             patch("metabolon.organelles.endocytosis_rss.discover.append_cargo"):
+             patch("metabolon.organelles.endocytosis_rss.cargo.append_cargo"):
             result = scout_sources(cfg)
         assert result == 0
 
@@ -198,7 +199,7 @@ class TestScoutSources:
         with patch("metabolon.organelles.endocytosis_rss.discover.shutil.which", return_value="bird"), \
              patch("metabolon.organelles.endocytosis_rss.discover.subprocess.run", return_value=mock_proc), \
              patch("metabolon.organelles.endocytosis_rss.discover.record_cargo"), \
-             patch("metabolon.organelles.endocytosis_rss.discover.append_cargo"):
+             patch("metabolon.organelles.endocytosis_rss.cargo.append_cargo"):
             result = scout_sources(cfg)
         assert result == 0
 

@@ -137,8 +137,9 @@ class TestRecallTitlePrefixes:
 class TestRotateCargo:
     def test_no_rotation_needed(self, tmp_path):
         cargo = tmp_path / "cargo.jsonl"
+        now = datetime(2025, 3, 20, tzinfo=UTC)
         cargo.write_text('{"date": "2025-03-15", "title": "recent"}\n')
-        rotate_cargo(cargo, tmp_path / "archive", retain_days=14)
+        rotate_cargo(cargo, tmp_path / "archive", retain_days=14, now=now)
         assert cargo.read_text().strip() != ""
 
     def test_rotates_old(self, tmp_path):
