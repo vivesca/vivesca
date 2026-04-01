@@ -80,7 +80,7 @@ services:
         condition: service_completed_successfully
     ports:
       - "7077:7070"
-      - "8080:8733"
+      - "8080:8080"
     environment:
       DATABASE_URL: "postgres://hatchet:hatchet@postgres:5432/hatchet"
       SERVER_GRPC_BIND_ADDRESS: "0.0.0.0"
