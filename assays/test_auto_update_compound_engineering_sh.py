@@ -476,14 +476,14 @@ class TestStdout:
 
     def test_no_stdout_on_no_runner(self, tmp_path):
         """Script writes 'neither found' error to log, not stdout."""
+        # Build a filtered PATH with no bunx/npx to avoid calling real ones
+        no_runner = TestRunnerSelection()._no_runner_path(tmp_path)
         r = _run_script(
-            env_extra={"PATH": "/usr/bin:/bin"},
+            env_extra={"PATH": no_runner},
             tmp_path=tmp_path,
         )
-        # Even with no runner, stdout should be empty (error goes to log)
-        # This may or may not be true depending on system PATH — just check
-        # that if there IS stdout, it doesn't contain the error message
-        assert "neither bunx nor npx found" not in r.stdout
+        # stdout should be empty (error message goes to log file only)
+        assert r.stdout == ""
 
 
 # ── runner output capture tests ───────────────────────────────────────────
