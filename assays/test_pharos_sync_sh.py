@@ -256,6 +256,11 @@ class TestMainExecution:
         (claude_dir / "settings.json").write_text('{"x": 1}')
         officina = tmp_path / "officina"
         officina.mkdir()
+        # Pre-create claude/memory/ with a placeholder so
+        # git add claude/memory/ succeeds (empty dirs cause git add to fail)
+        memory_dst = officina / "claude" / "memory"
+        memory_dst.mkdir(parents=True)
+        (memory_dst / ".gitkeep").write_text("")
         _make_git_repo(officina)
         r = _run(tmp_path, env_extra={
             "GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@t",
