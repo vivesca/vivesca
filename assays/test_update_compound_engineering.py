@@ -111,33 +111,43 @@ class TestHelpFlag:
 
 
 class TestRunnerSelection:
-    def _no_runner_path(self, tmp_path):
-        """Build a minimal PATH with bash but no bunx/npx."""
-        # Find where bash lives and ensure it's in PATH
-        bash_dir = str(Path(shutil.which("bash")).parent)
-        filtered = [bash_dir]
-        for dir_path in os.environ.get("PATH", "").split(os.pathsep):
-            if not dir_path:
-                continue
-            has_bunx = (Path(dir_path) / "bunx").exists()
-            has_npx = (Path(dir_path) / "npx").exists()
-            if not has_bunx and not has_npx and dir_path not in filtered:
-                filtered.append(dir_path)
-        return os.pathsep.join(filtered)
-
     def test_no_runner_exits_1(self, tmp_path):
         """Script exits 1 when neither bunx nor npx is on PATH."""
-        r = _run_script(
-            env_extra={"PATH": self._no_runner_path(tmp_path)},
-            tmp_path=tmp_path,
+        # Create an isolated environment with empty PATH
+        fake_home = tmp_path / "home"
+        fake_home.mkdir()
+        empty_bin = tmp_path / "bin"
+        empty_bin.mkdir()
+        # Use env -i to run with clean environment
+        r = subprocess.run(
+            [
+                "env", "-i",
+                f"PATH={empty_bin}",
+                f"HOME={fake_home}",
+                "/bin/bash", str(SCRIPT),
+            ],
+            capture_output=True,
+            text=True,
+            timeout=10,
         )
         assert r.returncode == 1
 
     def test_no_runner_prints_error(self, tmp_path):
         """Script prints error message when no runner found."""
-        r = _run_script(
-            env_extra={"PATH": self._no_runner_path(tmp_path)},
-            tmp_path=tmp_path,
+        fake_home = tmp_path / "home"
+        fake_home.mkdir()
+        empty_bin = tmp_path / "bin"
+        empty_bin.mkdir()
+        r = subprocess.run(
+            [
+                "env", "-i",
+                f"PATH={empty_bin}",
+                f"HOME={fake_home}",
+                "/bin/bash", str(SCRIPT),
+            ],
+            capture_output=True,
+            text=True,
+            timeout=10,
         )
         assert "neither bunx nor npx found" in r.stderr.lower() or "bun or node" in r.stderr.lower()
 
