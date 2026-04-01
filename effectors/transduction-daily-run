@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Transduction daily pipeline — fetch X feed, then extract articles
 set -euo pipefail
 
