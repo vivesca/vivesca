@@ -185,7 +185,7 @@ class TestScreenshot:
         mock_sp.return_value = _subprocess_ok()
         navigator(action="screenshot", url="https://x.co", wait_ms=0)
         mock_sp.assert_called_once_with(
-            ["caffeinate", "-u", "-t", "2"], capture_output=True,
+            ["caffeinate", "-u", "-t", "2"], capture_output=True, timeout=300
         )
 
 
