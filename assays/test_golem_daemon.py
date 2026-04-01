@@ -69,7 +69,7 @@ def test_parse_provider_full_mode():
 def test_get_provider_limit_known_providers():
     """get_provider_limit returns correct limits for known providers."""
     assert get_provider_limit("zhipu") == 8
-    assert get_provider_limit("infini") == 4
+    assert get_provider_limit("infini") == 2  # reduced from 4 to prevent parallel 429s
     assert get_provider_limit("volcano") == 16
 
 
@@ -82,7 +82,7 @@ def test_get_provider_limit_unknown_provider():
 def test_provider_limits_constant():
     """PROVIDER_LIMITS contains expected values."""
     assert PROVIDER_LIMITS["zhipu"] == 8
-    assert PROVIDER_LIMITS["infini"] == 4
+    assert PROVIDER_LIMITS["infini"] == 2  # reduced from 4 to prevent parallel 429s
     assert PROVIDER_LIMITS["volcano"] == 16
 
 
