@@ -516,26 +516,27 @@ def test_cmd_dispatch_temporal():
 # ── main (CLI) tests ─────────────────────────────────────────────────────
 
 
-def test_main_shows_help():
-    """main shows help with -h or --help."""
+def test_main_shows_help_with_h():
+    """main shows help with -h flag."""
+    # Patch sys in the module's namespace
     mock_sys = MagicMock()
     mock_sys.argv = ["golem-orchestrator", "-h"]
-    mock_exit = MagicMock()
-    mock_sys.exit = mock_exit
+    mock_sys.exit = MagicMock(side_effect=SystemExit(0))
     with patch.dict(_mod, {"sys": mock_sys}):
-        _mod["main"]()
-        mock_exit.assert_called_with(0)
+        with pytest.raises(SystemExit):
+            _mod["main"]()
+        mock_sys.exit.assert_called_with(0)
 
 
-def test_main_shows_help_no_args():
+def test_main_shows_help_with_no_args():
     """main shows help with no args."""
     mock_sys = MagicMock()
     mock_sys.argv = ["golem-orchestrator"]
-    mock_exit = MagicMock()
-    mock_sys.exit = mock_exit
+    mock_sys.exit = MagicMock(side_effect=SystemExit(0))
     with patch.dict(_mod, {"sys": mock_sys}):
-        _mod["main"]()
-        mock_exit.assert_called_with(0)
+        with pytest.raises(SystemExit):
+            _mod["main"]()
+        mock_sys.exit.assert_called_with(0)
 
 
 def test_main_status_command():
@@ -572,8 +573,7 @@ def test_main_start_requires_backend():
     """main exits if start missing backend arg."""
     mock_sys = MagicMock()
     mock_sys.argv = ["golem-orchestrator", "start"]
-    mock_exit = MagicMock(side_effect=SystemExit)
-    mock_sys.exit = mock_exit
+    mock_sys.exit = MagicMock(side_effect=SystemExit(1))
     with patch.dict(_mod, {"sys": mock_sys}):
         with pytest.raises(SystemExit):
             _mod["main"]()
@@ -583,8 +583,7 @@ def test_main_start_invalid_backend():
     """main exits if start given invalid backend."""
     mock_sys = MagicMock()
     mock_sys.argv = ["golem-orchestrator", "start", "invalid"]
-    mock_exit = MagicMock(side_effect=SystemExit)
-    mock_sys.exit = mock_exit
+    mock_sys.exit = MagicMock(side_effect=SystemExit(1))
     with patch.dict(_mod, {"sys": mock_sys}):
         with pytest.raises(SystemExit):
             _mod["main"]()
@@ -604,8 +603,7 @@ def test_main_switch_requires_backend():
     """main exits if switch missing backend arg."""
     mock_sys = MagicMock()
     mock_sys.argv = ["golem-orchestrator", "switch"]
-    mock_exit = MagicMock(side_effect=SystemExit)
-    mock_sys.exit = mock_exit
+    mock_sys.exit = MagicMock(side_effect=SystemExit(1))
     with patch.dict(_mod, {"sys": mock_sys}):
         with pytest.raises(SystemExit):
             _mod["main"]()
@@ -645,8 +643,7 @@ def test_main_unknown_command():
     """main exits for unknown command."""
     mock_sys = MagicMock()
     mock_sys.argv = ["golem-orchestrator", "unknown"]
-    mock_exit = MagicMock(side_effect=SystemExit)
-    mock_sys.exit = mock_exit
+    mock_sys.exit = MagicMock(side_effect=SystemExit(1))
     with patch.dict(_mod, {"sys": mock_sys}):
         with pytest.raises(SystemExit):
             _mod["main"]()
