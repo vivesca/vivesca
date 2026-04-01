@@ -30,6 +30,76 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 
 
 
+### Mitogen wave 2 — 50 tasks (2026-04-01 afternoon)
+
+#### Consulting IP — deep cards (10 tasks)
+
+- [x] `golem --provider zhipu --max-turns 40 "Create ~/epigenome/chromatin/euchromatin/consulting/cards/ai-talent-strategy-banking.md — consulting insight card on AI talent strategy for banks. Cover: build vs buy vs partner for AI capabilities, upskilling existing staff, data scientist vs ML engineer roles, retention challenges, realistic timelines. 500-800 words. Commit."`
+- [x] `golem --provider infini --max-turns 40 "Create ~/epigenome/chromatin/euchromatin/consulting/cards/ai-operating-model.md — consulting insight card on AI operating model design for banks. Cover: centralized vs federated vs hub-and-spoke, Center of Excellence patterns, embedding AI in business lines, reporting lines, common pitfalls. 500-800 words. Commit."`
+- [x] `golem --provider volcano --max-turns 40 "Create ~/epigenome/chromatin/euchromatin/consulting/cards/ai-data-strategy-banking.md — consulting insight card on data strategy for AI in banking. Cover: data quality as AI bottleneck, data lineage requirements, feature stores, synthetic data for testing, data mesh vs warehouse for ML, regulatory data constraints. 500-800 words. Commit."`
+- [x] `golem --provider zhipu --max-turns 40 "Create ~/epigenome/chromatin/euchromatin/consulting/cards/conversational-ai-banking.md — consulting insight card on conversational AI deployment in banking. Cover: chatbot maturity model, IVR modernization, agent assist vs full automation, measuring deflection and CSAT, compliance recording requirements, vendor landscape. 500-800 words. Commit."`
+- [x] `golem --provider infini --max-turns 40 "Create ~/epigenome/chromatin/euchromatin/consulting/cards/ai-in-credit-risk.md — consulting insight card on AI in credit risk. Cover: traditional scorecards vs ML models, explainability requirements (HKMA/ECOA), challenger model framework, monitoring for drift, regulatory approval process, back-testing requirements. 500-800 words. Commit."`
+- [x] `golem --provider volcano --max-turns 40 "Create ~/epigenome/chromatin/euchromatin/consulting/cards/ai-aml-kyc.md — consulting insight card on AI for AML/KYC in banking. Cover: transaction monitoring ML, name screening NLP, network analysis for suspicious patterns, false positive reduction, regulatory expectations (HKMA 2024 AML circular), vendor landscape. 500-800 words. Commit."`
+- [x] `golem --provider zhipu --max-turns 40 "Create ~/epigenome/chromatin/euchromatin/consulting/cards/cloud-ai-banking.md — consulting insight card on cloud strategy for AI workloads in banking. Cover: on-prem vs cloud vs hybrid, data residency (HK PDPO, China PIPL), GPU provisioning, cost management, multi-cloud risks, regulatory stance on cloud outsourcing. 500-800 words. Commit."`
+- [x] `golem --provider infini --max-turns 40 "Create ~/epigenome/chromatin/euchromatin/consulting/cards/ai-testing-validation.md — consulting insight card on AI testing and validation for banks. Cover: unit testing for ML pipelines, A/B testing in production, shadow deployment, champion-challenger, bias testing, adversarial testing, regulatory validation requirements. 500-800 words. Commit."`
+- [x] `golem --provider volcano --max-turns 40 "Create ~/epigenome/chromatin/euchromatin/consulting/cards/ai-change-management.md — consulting insight card on change management for AI initiatives in banks. Cover: stakeholder alignment, fear of job displacement, training programs, quick wins strategy, executive sponsorship, communication plan, measuring adoption. 500-800 words. Commit."`
+- [x] `golem --provider zhipu --max-turns 40 "Create ~/epigenome/chromatin/euchromatin/consulting/cards/ai-ethics-board.md — consulting insight card on establishing an AI ethics board/committee in a bank. Cover: composition, charter, decision authority, escalation criteria, case study review process, integration with existing risk governance, common failures. 500-800 words. Commit."`
+
+#### Fix operon — test failures wave 2 (5 tasks)
+
+- [x] `golem --provider zhipu --max-turns 50 "Run uv run pytest assays/test_sortase*.py -q --tb=short 2>&1 | head -80. Read all failures. Read the source modules they test. Fix root causes. Iterate until all sortase tests pass. Commit."`
+- [x] `golem --provider infini --max-turns 50 "Run uv run pytest assays/test_golem*.py -q --tb=short 2>&1 | head -80. Read failures and source. Fix all golem test failures. Commit."`
+- [x] `golem --provider volcano --max-turns 40 "Run uv run pytest assays/test_effector*.py assays/test_browser*.py -q --tb=short 2>&1 | head -80. Fix all failures in effector and browser tests. Commit."`
+- [x] `golem --provider zhipu --max-turns 40 "Run uv run pytest assays/test_respirometry*.py -q --tb=short 2>&1 | head -80. Fix all respirometry test failures. Commit."`
+- [x] `golem --provider infini --max-turns 40 "Run uv run pytest assays/test_circulation*.py assays/test_chromatin*.py -q --tb=short 2>&1 | head -80. Fix all circulation and chromatin test failures. Commit."`
+
+#### Test coverage — untested metabolon modules (15 tasks)
+
+- [x] `golem --provider zhipu --max-turns 30 "Write tests for metabolon/enzymes/hemostasis.py. Read the module first. Mock external calls (subprocess, network). Write to assays/test_enzymes_hemostasis.py. Run uv run pytest on the file. Fix failures. Commit."`
+- [x] `golem --provider infini --max-turns 30 "Write tests for metabolon/enzymes/lysis.py. Read the module first. Mock external calls. Write to assays/test_enzymes_lysis.py. Run uv run pytest on the file. Fix failures. Commit."`
+- [x] `golem --provider volcano --max-turns 30 "Write tests for metabolon/enzymes/sporulation.py. Read the module first. Mock external calls. Write to assays/test_enzymes_sporulation.py. Run uv run pytest on the file. Fix failures. Commit."`
+- [x] `golem --provider zhipu --max-turns 30 "Write tests for metabolon/enzymes/pinocytosis.py. Read the module first. Mock external calls. Write to assays/test_enzymes_pinocytosis.py. Run uv run pytest on the file. Fix failures. Commit."`
+- [x] `golem --provider infini --max-turns 30 "Write tests for metabolon/enzymes/turgor.py. Read the module. Mock externals. Write assays/test_enzymes_turgor.py. Run pytest. Fix. Commit."`
+- [x] `golem --provider volcano --max-turns 30 "Write tests for metabolon/enzymes/kinesin.py. Read the module. Mock externals. Write assays/test_enzymes_kinesin.py. Run pytest. Fix. Commit."`
+- [x] `golem --provider zhipu --max-turns 30 "Write tests for metabolon/enzymes/integrin.py. Read the module. Mock externals. Write assays/test_enzymes_integrin.py. Run pytest. Fix. Commit."`
+- [x] `golem --provider infini --max-turns 30 "Write tests for metabolon/symbiont.py. Read the module. Mock network calls. Write assays/test_symbiont.py. Run pytest. Fix. Commit."`
+- [x] `golem --provider volcano --max-turns 30 "Write tests for metabolon/vasomotor.py. Read the module. Mock externals. Write assays/test_vasomotor.py. Run pytest. Fix. Commit."`
+- [x] `golem --provider zhipu --max-turns 30 "Write tests for metabolon/respirometry/parsers/boc.py. Read the module. Mock file I/O. Write assays/test_respirometry_parsers_boc.py. Run pytest. Fix. Commit."`
+- [x] `golem --provider infini --max-turns 30 "Write tests for metabolon/respirometry/parsers/hsbc.py. Read the module. Mock file I/O. Write assays/test_respirometry_parsers_hsbc.py. Run pytest. Fix. Commit."`
+- [x] `golem --provider volcano --max-turns 30 "Write tests for metabolon/respirometry/parsers/mox.py. Read the module. Mock file I/O. Write assays/test_respirometry_parsers_mox.py. Run pytest. Fix. Commit."`
+- [x] `golem --provider zhipu --max-turns 30 "Write tests for metabolon/respirometry/detect.py. Read the module. Mock externals. Write assays/test_respirometry_detect.py. Run pytest. Fix. Commit."`
+- [x] `golem --provider infini --max-turns 30 "Write tests for metabolon/resources/proteome.py. Read the module. Mock externals. Write assays/test_resources_proteome.py. Run pytest. Fix. Commit."`
+- [x] `golem --provider volcano --max-turns 30 "Write tests for metabolon/resources/oscillators.py. Read the module. Mock externals. Write assays/test_resources_oscillators.py. Run pytest. Fix. Commit."`
+
+#### Test coverage — untested effectors (10 tasks)
+
+- [x] `golem --provider zhipu --max-turns 30 "Write tests for effectors/immunosurveillance.py. It is a Python script — use subprocess.run to test. Write assays/test_immunosurveillance.py. Run uv run pytest on it. Fix. Commit."`
+- [x] `golem --provider infini --max-turns 30 "Write tests for effectors/phagocytosis.py. It is a Python script — use subprocess.run to test. Write assays/test_phagocytosis.py. Run uv run pytest on it. Fix. Commit."`
+- [x] `golem --provider volcano --max-turns 30 "Write tests for effectors/chromatin-backup.py. It is a Python script — use subprocess.run to test. Write assays/test_chromatin_backup.py. Run uv run pytest on it. Fix. Commit."`
+- [x] `golem --provider zhipu --max-turns 30 "Write tests for effectors/chromatin-decay-report.py. Python script — use subprocess.run. Write assays/test_chromatin_decay_report.py. Run pytest. Fix. Commit."`
+- [x] `golem --provider infini --max-turns 30 "Write tests for effectors/cibus.py. Python script — use subprocess.run. Write assays/test_cibus.py. Run pytest. Fix. Commit."`
+- [x] `golem --provider volcano --max-turns 30 "Write tests for effectors/circadian-probe.py. Python script — use subprocess.run. Write assays/test_circadian_probe.py. Run pytest. Fix. Commit."`
+- [x] `golem --provider zhipu --max-turns 30 "Write tests for effectors/consulting-card.py. Python script — use subprocess.run. Write assays/test_consulting_card.py. Run pytest. Fix. Commit."`
+- [x] `golem --provider infini --max-turns 30 "Write tests for effectors/rotate-logs.py. Python script — use subprocess.run. Write assays/test_rotate_logs.py. Run pytest. Fix. Commit."`
+- [x] `golem --provider volcano --max-turns 30 "Write tests for effectors/wewe-rss-health.py. Python script — use subprocess.run. Write assays/test_wewe_rss_health.py. Run pytest. Fix. Commit."`
+- [x] `golem --provider zhipu --max-turns 30 "Write tests for effectors/mitosis-checkpoint.py. Python script — use subprocess.run. Write assays/test_mitosis_checkpoint.py. Run pytest. Fix. Commit."`
+
+#### Builds — organism health (5 tasks)
+
+- [x] `golem --provider infini --max-turns 40 "Create effectors/queue-stats as a Python script. It should read loci/golem-queue.md and output: total pending, total done, total failed, per-provider breakdown, average estimated turns. Add --json flag. Make it executable. Write tests in assays/test_queue_stats.py. Run pytest. Commit."`
+- [x] `golem --provider zhipu --max-turns 40 "Read effectors/soma-health. Enhance it to also check: (1) disk usage on /data, (2) number of running golem processes, (3) Hatchet container health via docker ps. Output a structured health report. Write tests. Run pytest. Commit."`
+- [x] `golem --provider volcano --max-turns 40 "Create effectors/golem-cost as a Python script. Read ~/.local/share/vivesca/golem.jsonl. Calculate: total runs per provider, success rate per provider, average duration, estimated token cost (ZhiPu=cheap, Infini=medium, Volcano=cheap). Output table. Add --json and --since flags. Write tests. Commit."`
+- [x] `golem --provider zhipu --max-turns 30 "Scan all assays/test_*.py files. Find any that import modules using hardcoded absolute paths like /Users/terry/ or /home/terry/. Replace with Path.home() or relative paths. Run pytest --co to verify collection. Commit."`
+- [x] `golem --provider infini --max-turns 30 "Scan effectors/ for any Python scripts missing a shebang line (#!/usr/bin/env python3). Add missing shebangs. Also check all Python effectors parse without SyntaxError using ast.parse. Fix any syntax errors. Commit."`
+
+#### Consulting IP — case study shells (5 tasks)
+
+- [x] `golem --provider volcano --max-turns 40 "Create ~/epigenome/chromatin/euchromatin/consulting/case-studies/genai-customer-service.md — a case study shell for a GenAI-powered customer service transformation at a mid-size HK bank. Structure: situation (bank context, pain points), approach (phases, technology choices), results (metrics), lessons learned, Capco role. 600-1000 words. Commit."`
+- [x] `golem --provider zhipu --max-turns 40 "Create ~/epigenome/chromatin/euchromatin/consulting/case-studies/ml-credit-scoring.md — a case study shell for ML-based credit scoring at a retail bank. Cover: legacy scorecard limitations, model development approach, explainability solution, regulatory approval process, production deployment, results. 600-1000 words. Commit."`
+- [x] `golem --provider infini --max-turns 40 "Create ~/epigenome/chromatin/euchromatin/consulting/case-studies/aml-ai-transformation.md — a case study shell for AI-driven AML transformation. Cover: false positive problem (80%+ rate), ML model for transaction monitoring, alert prioritization, regulatory engagement, phased rollout, results. 600-1000 words. Commit."`
+- [x] `golem --provider volcano --max-turns 40 "Create ~/epigenome/chromatin/euchromatin/consulting/case-studies/ai-operating-model.md — a case study shell for establishing an AI Center of Excellence at an APAC bank. Cover: starting from zero, talent acquisition, governance framework, first 5 use cases, scaling challenges, 18-month roadmap. 600-1000 words. Commit."`
+- [x] `golem --provider zhipu --max-turns 40 "Create ~/epigenome/chromatin/euchromatin/consulting/case-studies/data-quality-ai-readiness.md — a case study shell for data quality remediation enabling AI adoption. Cover: data assessment findings, data lineage gaps, remediation program, feature store implementation, measurable improvement in model performance. 600-1000 words. Commit."`
+
 ### Robustness wave — Fly/Vivesca/Golem (2026-03-31 evening)
 
 #### Fix operon — top 5 failing test files (201 failures → target <50)
