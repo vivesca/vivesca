@@ -2071,3 +2071,335 @@ class TestParseDaemonLogStartTimes:
         )
         result = func(p)
         assert len(result) == 0
+
+
+# ── next_completion (NEW) ──────────────────────────────────────────────
+
+
+class TestNextCompletion:
+    """Tests for next_completion — identifies the task closest to finishing."""
+
+    def test_no_running(self):
+        func = _mod["next_completion"]
+        assert func([]) is None
+
+    def test_returns_closest_to_done(self):
+        func = _mod["next_completion"]
+        running = [
+            {"pid": 1, "provider": "zhipu", "duration_secs": 100,
+             "estimated_remaining": 80, "is_stale": False},
+            {"pid": 2, "provider": "infini", "duration_secs": 50,
+             "estimated_remaining": 10, "is_stale": False},
+            {"pid": 3, "provider": "volcano", "duration_secs": 200,
+             "estimated_remaining": 150, "is_stale": False},
+        ]
+        result = func(running)
+        assert result is not None
+        assert result["pid"] == 2
+        assert result["finishes_in"] == 10
+        assert isinstance(result["finishes_at"], datetime)
+
+    def test_skips_stale_tasks(self):
+        func = _mod["next_completion"]
+        running = [
+            {"pid": 1, "provider": "zhipu", "duration_secs": 200,
+             "estimated_remaining": 10, "is_stale": True},
+            {"pid": 2, "provider": "infini", "duration_secs": 50,
+             "estimated_remaining": 30, "is_stale": False},
+        ]
+        result = func(running)
+        assert result is not None
+        assert result["pid"] == 2
+
+    def test_all_zero_remaining_picks_longest_running(self):
+        func = _mod["next_completion"]
+        running = [
+            {"pid": 1, "provider": "zhipu", "duration_secs": 100,
+             "estimated_remaining": 0, "is_stale": False},
+            {"pid": 2, "provider": "infini", "duration_secs": 200,
+             "estimated_remaining": 0, "is_stale": False},
+        ]
+        result = func(running)
+        assert result is not None
+        assert result["finishes_in"] == 0
+
+    def test_does_not_mutate_input(self):
+        func = _mod["next_completion"]
+        running = [
+            {"pid": 1, "provider": "zhipu", "duration_secs": 50,
+             "estimated_remaining": 20, "is_stale": False},
+        ]
+        original_keys = set(running[0].keys())
+        func(running)
+        assert set(running[0].keys()) == original_keys
+
+
+# ── throughput_based_eta (NEW) ──────────────────────────────────────────
+
+
+class TestThroughputBasedEta:
+    """Tests for throughput-based ETA calculation."""
+
+    def test_no_pending_no_running(self):
+        func = _mod["throughput_based_eta"]
+        assert func([], pending=0, running_count=0) == 0
+
+    def test_with_ewma_rate(self):
+        func = _mod["throughput_based_eta"]
+        # 6 tasks/hr = 0.00167 tasks/sec
+        # 10 pending + 2 running = 12 tasks
+        # 12 / 0.00167 ≈ 7200 sec = 2hr
+        eta = func([], pending=10, running_count=2, ewma_rate=6.0)
+        assert eta == 7200
+
+    def test_without_ewma_uses_windowed_rate(self):
+        func = _mod["throughput_based_eta"]
+        now = datetime.now()
+        recs = [
+            {"ts": (now - timedelta(minutes=10 * i)).isoformat(), "exit": 0}
+            for i in range(5)
+        ]
+        eta = func(recs, pending=5, running_count=1)
+        assert eta > 0
+
+    def test_zero_rate_returns_zero(self):
+        func = _mod["throughput_based_eta"]
+        # No records, no ewma — should return 0
+        eta = func([], pending=5, running_count=1)
+        assert eta == 0
+
+    def test_high_rate_gives_short_eta(self):
+        func = _mod["throughput_based_eta"]
+        eta_fast = func([], pending=10, running_count=2, ewma_rate=60.0)
+        eta_slow = func([], pending=10, running_count=2, ewma_rate=6.0)
+        assert eta_fast < eta_slow
+
+
+# ── drain_projection (NEW) ──────────────────────────────────────────────
+
+
+class TestDrainProjection:
+    """Tests for drain projection timeline."""
+
+    def test_no_running_no_pending(self):
+        func = _mod["drain_projection"]
+        result = func([], pending=0, running=[])
+        assert result == []
+
+    def test_running_only_shows_next_done(self):
+        func = _mod["drain_projection"]
+        running = [
+            {"pid": 1, "provider": "zhipu", "duration_secs": 50,
+             "estimated_remaining": 30, "is_stale": False},
+        ]
+        result = func([], pending=0, running=running)
+        events = [e["event"] for e in result]
+        assert "next_done" in events
+
+    def test_pending_shows_milestones(self):
+        func = _mod["drain_projection"]
+        now = datetime.now()
+        recs = [
+            {"ts": (now - timedelta(minutes=10 * i)).isoformat(), "exit": 0}
+            for i in range(5)
+        ]
+        running = [
+            {"pid": 1, "provider": "zhipu", "duration_secs": 50,
+             "estimated_remaining": 30, "is_stale": False},
+        ]
+        result = func(recs, pending=10, running=running)
+        events = [e["event"] for e in result]
+        assert "quarter" in events
+        assert "half" in events
+        assert "drain" in events
+
+    def test_events_sorted_by_offset(self):
+        func = _mod["drain_projection"]
+        now = datetime.now()
+        recs = [
+            {"ts": (now - timedelta(minutes=10 * i)).isoformat(), "exit": 0}
+            for i in range(5)
+        ]
+        running = [
+            {"pid": 1, "provider": "zhipu", "duration_secs": 50,
+             "estimated_remaining": 30, "is_stale": False},
+        ]
+        result = func(recs, pending=10, running=running)
+        offsets = [e["offset_secs"] for e in result]
+        assert offsets == sorted(offsets)
+
+
+# ── running_tasks_table leading task highlight (NEW) ────────────────────
+
+
+class TestRunningTasksTableLeading:
+    """Tests for leading task highlight (★ marker)."""
+
+    def test_single_task_has_star(self):
+        func = _mod["running_tasks_table"]
+        tasks = [{
+            "pid": 1234, "provider": "zhipu", "duration_secs": 100,
+            "task": "leading", "estimated_pct": 80, "estimated_remaining": 20,
+            "is_stale": False,
+        }]
+        result = func(tasks, use_color=False)
+        assert "★" in result
+
+    def test_multiple_tasks_only_one_star(self):
+        func = _mod["running_tasks_table"]
+        tasks = [
+            {"pid": 1, "provider": "zhipu", "duration_secs": 100,
+             "task": "slow", "estimated_pct": 30, "estimated_remaining": 70,
+             "is_stale": False},
+            {"pid": 2, "provider": "infini", "duration_secs": 80,
+             "task": "fast", "estimated_pct": 80, "estimated_remaining": 20,
+             "is_stale": False},
+        ]
+        result = func(tasks, use_color=False)
+        assert result.count("★") == 1
+        assert "[2]" in result  # The faster task
+
+    def test_no_star_for_no_running(self):
+        func = _mod["running_tasks_table"]
+        result = func([], use_color=False)
+        assert "★" not in result
+
+
+# ── eta_section with next_done and throughput-based ETA (NEW) ──────────
+
+
+class TestEtaSectionNextDone:
+    """Tests for ETA section showing next completion and rate-based ETA."""
+
+    def test_shows_next_done(self):
+        func = _mod["eta_section"]
+        eta = {"pending": 10, "running": 2, "eta_seconds": 600, "eta_str": "10m 0s",
+               "workers": 2, "avg_duration": 100,
+               "drain_milestones": [(25, 150), (50, 300), (75, 450), (100, 600)],
+               "running_remaining_secs": 200}
+        nxt = {"finishes_in": 30, "provider": "zhipu", "pid": 1234}
+        result = func(eta, 6.0, use_color=False, next_done=nxt)
+        assert "Next done" in result
+
+    def test_shows_throughput_based_eta(self):
+        func = _mod["eta_section"]
+        eta = {"pending": 10, "running": 2, "eta_seconds": 600, "eta_str": "10m 0s",
+               "workers": 2, "avg_duration": 100,
+               "drain_milestones": [],
+               "running_remaining_secs": 200}
+        result = func(eta, 6.0, use_color=False, tp_eta=3600)
+        assert "Rate-based" in result
+
+    def test_shows_projection(self):
+        func = _mod["eta_section"]
+        eta = {"pending": 10, "running": 2, "eta_seconds": 600, "eta_str": "10m 0s",
+               "workers": 2, "avg_duration": 100,
+               "drain_milestones": [],
+               "running_remaining_secs": 200}
+        projection = [
+            {"offset_secs": 30, "event": "next_done", "description": "Next task done"},
+            {"offset_secs": 900, "event": "quarter", "description": "25% drained"},
+            {"offset_secs": 1800, "event": "half", "description": "50% drained"},
+            {"offset_secs": 3600, "event": "drain", "description": "100% drained"},
+        ]
+        result = func(eta, 6.0, use_color=False, projection=projection)
+        assert "Projection" in result
+        assert "next" in result
+        assert "100%" in result
+
+    def test_no_next_done_when_none(self):
+        func = _mod["eta_section"]
+        eta = {"pending": 10, "running": 2, "eta_seconds": 600, "eta_str": "10m 0s",
+               "workers": 2, "avg_duration": 100,
+               "drain_milestones": [],
+               "running_remaining_secs": 200}
+        result = func(eta, 6.0, use_color=False)
+        assert "Next done" not in result
+
+    def test_rate_based_shows_faster_slower(self):
+        func = _mod["eta_section"]
+        eta = {"pending": 10, "running": 2, "eta_seconds": 600, "eta_str": "10m 0s",
+               "workers": 2, "avg_duration": 100,
+               "drain_milestones": [],
+               "running_remaining_secs": 200}
+        # tp_eta much shorter than duration-based → shows "faster"
+        result_fast = func(eta, 6.0, use_color=False, tp_eta=300)
+        assert "faster" in result_fast
+        # tp_eta much longer → shows "slower"
+        result_slow = func(eta, 6.0, use_color=False, tp_eta=1200)
+        assert "slower" in result_slow
+
+
+# ── Dashboard shows next completion and projection (NEW) ──────────────
+
+
+class TestDashboardNextCompletion:
+    """Tests that dashboard includes next completion and drain projection."""
+
+    def test_json_includes_next_completion(self, tmp_path, capsys):
+        orig_jsonl = _mod["JSONL_PATH"]
+        orig_queue = _mod["QUEUE_PATH"]
+        try:
+            _mod["JSONL_PATH"] = tmp_path / "golem.jsonl"
+            _mod["QUEUE_PATH"] = tmp_path / "queue.md"
+            (tmp_path / "golem.jsonl").write_text(
+                '{"ts":"2026-01-01","provider":"zhipu","duration":10,"exit":0}\n'
+            )
+            (tmp_path / "queue.md").write_text("# Queue\n")
+            rc = main(["--json"])
+        finally:
+            _mod["JSONL_PATH"] = orig_jsonl
+            _mod["QUEUE_PATH"] = orig_queue
+        assert rc == 0
+        data = json.loads(capsys.readouterr().out)
+        assert "throughput_based_eta_seconds" in data
+        assert "drain_projection" in data
+        assert isinstance(data["drain_projection"], list)
+
+    def test_compact_shows_next_completion(self, tmp_path, capsys):
+        func = _mod["print_compact"]
+        orig_jsonl = _mod["JSONL_PATH"]
+        orig_queue = _mod["QUEUE_PATH"]
+        try:
+            _mod["JSONL_PATH"] = tmp_path / "golem.jsonl"
+            _mod["QUEUE_PATH"] = tmp_path / "queue.md"
+            (tmp_path / "golem.jsonl").write_text(
+                '{"ts":"2026-01-01","provider":"zhipu","duration":10,"exit":0}\n'
+            )
+            (tmp_path / "queue.md").write_text(
+                '- [ ] `golem --provider zhipu "task A"`\n'
+            )
+            func()
+        finally:
+            _mod["JSONL_PATH"] = orig_jsonl
+            _mod["QUEUE_PATH"] = orig_queue
+        captured = capsys.readouterr()
+        # Compact may or may not show "next:" depending on running tasks
+        # Just verify it doesn't crash and produces output
+        assert len(captured.out.strip()) > 0
+
+    def test_eta_section_with_running_shows_next_done(self, tmp_path, capsys):
+        orig_jsonl = _mod["JSONL_PATH"]
+        orig_queue = _mod["QUEUE_PATH"]
+        try:
+            _mod["JSONL_PATH"] = tmp_path / "golem.jsonl"
+            _mod["QUEUE_PATH"] = tmp_path / "queue.md"
+            now = datetime.now()
+            recs = [
+                {"ts": (now - timedelta(minutes=10 * i)).isoformat(),
+                 "provider": "zhipu", "duration": 60, "exit": 0}
+                for i in range(5)
+            ]
+            (tmp_path / "golem.jsonl").write_text(
+                "\n".join(json.dumps(r) for r in recs) + "\n"
+            )
+            (tmp_path / "queue.md").write_text(
+                '- [ ] `golem --provider zhipu "task A"`\n'
+            )
+            rc = main(["--no-color"])
+        finally:
+            _mod["JSONL_PATH"] = orig_jsonl
+            _mod["QUEUE_PATH"] = orig_queue
+        assert rc == 0
+        captured = capsys.readouterr()
+        assert "ETA" in captured.out

@@ -40,6 +40,9 @@ DOMAIN_HINTS = {
     "mas.gov.sg": "defuddle",
     # Evident — Firecrawl gets date + more links
     "evidentinsights.com": "firecrawl",
+    # Substack — defuddle fails (returns audio tag only), skip to jina
+    "latent.space": "jina",
+    "substack.com": "jina",
 }
 
 
