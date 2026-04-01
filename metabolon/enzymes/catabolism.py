@@ -28,7 +28,6 @@ class CatabolismResult(Secretion):
 class CatabolismConfirmResult(EffectorResult):
     """Result of confirming a catabolic payment."""
 
-    pass
 
 
 def _spending(days: int = 30) -> CatabolismResult:

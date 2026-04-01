@@ -16,7 +16,6 @@ from metabolon.locus import blog_published
 @click.version_option(package_name="metabolon")
 def cli():
     """Vivesca — a living organism."""
-    pass
 
 
 @cli.command()
@@ -187,7 +186,6 @@ def receptor_health(output: str | None):
 @cli.group()
 def add():
     """Add a component to the current project."""
-    pass
 
 
 @add.command("tool")
@@ -267,7 +265,6 @@ def check():
 @cli.group()
 def hooks():
     """Check and repair ~/.claude symlinks."""
-    pass
 
 
 def _hooks_status():
@@ -362,7 +359,6 @@ def hooks_repair():
 @cli.group()
 def autopoiesis():
     """Autopoiesis: probes, repairs, and crystallization."""
-    pass
 
 
 @autopoiesis.command("probe")
@@ -969,7 +965,6 @@ def metabolise(seed, expander, pusher, rounds, output, no_publish, title, no_cha
 @cli.group()
 def metabolism():
     """Metabolism subsystem — sense, select, act, report."""
-    pass
 
 
 def _run_substrate(name: str, days: int) -> str:
@@ -1570,7 +1565,6 @@ def metabolism_dissolve(memory_dir: str | None, days: int):
 @cli.group()
 def endocytosis():
     """Receptor-mediated endocytosis — RSS/web/X feed ingestion."""
-    pass
 
 
 @endocytosis.command("fetch")
@@ -2031,7 +2025,6 @@ def auscultate():
 @cli.group()
 def mitosis():
     """DR sync to soma hot standby."""
-    pass
 
 
 @mitosis.command("sync")
@@ -2143,13 +2136,11 @@ def mitosis_setup():
 @cli.group()
 def conjugation():
     """Cross-pollinate configuration between Claude Code and Gemini CLI."""
-    pass
 
 
 @conjugation.group()
 def replicate():
     """Replicate CC config to a target CLI."""
-    pass
 
 
 @replicate.command("gemini")
@@ -2183,7 +2174,6 @@ def replicate_gemini(hooks_only: bool, mcp_only: bool, dry_run: bool):
 @cli.group()
 def phenotype():
     """Phenotype: hook config translation between CLI runtimes."""
-    pass
 
 
 @phenotype.command("translate")

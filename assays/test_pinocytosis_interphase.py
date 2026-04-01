@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import datetime
 import json
 from unittest.mock import patch, MagicMock
 
@@ -240,7 +241,7 @@ class TestIntake:
     @patch("metabolon.pinocytosis.interphase.sense_calendar")
     @patch("metabolon.pinocytosis.interphase.intake_context")
     def test_intake_json_output(
-        self, mock_intake_ctx, mock_sense_cal, mock_transduce, mock_secrete
+        self, mock_intake_ctx, mock_sense_cal, mock_transduce, mock_secrete_json
     ):
         """Test intake returns json output."""
         # Setup mocks
@@ -253,7 +254,7 @@ class TestIntake:
         
         mock_sense_cal.side_effect = lambda *args: {"ok": True, "content": f"event {args[0]}"}
         mock_transduce.return_value = {}  # base ctx from transduce
-        mock_secrete.return_value = '{"test": "json"}'
+        mock_secrete_json.return_value = '{"test": "json"}'
         
         result = intake(as_json=True)
         
@@ -274,13 +275,13 @@ class TestIntake:
     @patch("metabolon.pinocytosis.interphase.sense_calendar")
     @patch("metabolon.pinocytosis.interphase.intake_context")
     def test_intake_text_output(
-        self, mock_intake_ctx, mock_sense_cal, mock_transduce, mock_secrete
+        self, mock_intake_ctx, mock_sense_cal, mock_transduce, mock_secrete_text
     ):
         """Test intake returns text output."""
         mock_intake_ctx.return_value = {"datetime": "2024-01-01"}
         mock_sense_cal.side_effect = lambda *args: {"ok": True, "content": f"event {args[0]}"}
         mock_transduce.return_value = {}
-        mock_secrete.return_value = "FORMATTED TEXT OUTPUT"
+        mock_secrete_text.return_value = "FORMATTED TEXT OUTPUT"
         
         result = intake(as_json=False)
         

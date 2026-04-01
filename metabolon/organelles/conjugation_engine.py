@@ -170,7 +170,6 @@ def transform_mcp_servers(
 
 def transform_skills(_cc_settings: dict[str, Any]) -> None:
     """Stub: skill mapping not yet implemented."""
-    pass
 
 
 # ── merge write ──────────────────────────────────────────────────────────────
