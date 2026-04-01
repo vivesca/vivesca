@@ -89,39 +89,30 @@ def test_help_mentions_log_file():
 
 def test_exits_1_when_no_bunx_or_npx(tmp_path):
     """Script exits 1 with error when neither bunx nor npx is available."""
-    # We need to test the script when neither bunx nor npx is on PATH.
-    # However, on this system npx is in /usr/bin and /bin is a symlink to it.
-    # We create a minimal environment with just bash and command (needed by the script).
+    # Create a minimal environment with empty PATH and isolated HOME
     fake_home = tmp_path / "home"
     fake_home.mkdir()
-    bindir = tmp_path / "bin"
-    bindir.mkdir()
+    empty_bin = tmp_path / "bin"
+    empty_bin.mkdir()
 
-    # Create a fake bunx and npx that are NOT executable (simulating command -v failure)
-    # Actually, command -v checks if command exists AND is executable
-    # We just don't create bunx/npx at all in our bindir
-
-    # The script needs: bash, command (built-in), date, echo (built-in)
-    # We need /bin in PATH for bash, but /bin symlinks to /usr/bin which has npx
-    # So we test by checking that the error message is in the log when commands fail
-
-    # Alternative: test with a restricted HOME and check the log for error message
-    # when the runner commands fail to find compound-plugin
-
-    env = os.environ.copy()
-    # Use minimal PATH but must include bash location
-    # Since we can't exclude npx (it's in /usr/bin which we need for bash),
-    # we test a different error path: when the compound-plugin command fails
-    env["HOME"] = str(fake_home)
-
-    # Instead, let's verify the error handling when bunx/npx fail to run the plugin
-    # This is covered by test_logs_error_when_runner_fails
-    # For this test, we verify the script structure for the error path
-
-    # Read the script and verify it has the error handling code
-    content = SCRIPT.read_text()
-    assert "neither bunx nor npx" in content.lower()
-    assert "exit 1" in content
+    # Use env -i to run with clean environment, only setting what we need
+    # This ensures bunx/npx are NOT found since PATH is empty
+    r = subprocess.run(
+        [
+            "env", "-i",
+            f"PATH={empty_bin}",
+            f"HOME={fake_home}",
+            "/bin/bash", str(SCRIPT),
+        ],
+        capture_output=True,
+        text=True,
+        timeout=10,
+    )
+    assert r.returncode == 1
+    # Check that error was logged
+    log = fake_home / ".compound-engineering-updates.log"
+    assert log.exists()
+    assert "neither bunx nor npx" in log.read_text().lower()
 
 
 def test_uses_bunx_when_available(tmp_path):
