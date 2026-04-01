@@ -1005,14 +1005,20 @@ def disk_guard(warn_gb: float = 2.0, clean_gb: float = 1.0) -> bool:
                   root_tmp / "pytest-of-terry",
                   root_tmp / "pytest-vivesca"]:
             if d.exists():
-                subprocess.run(f"rm -rf {d}", shell=True, timeout=30)
-                cleaned += 1
+                try:
+                    subprocess.run(f"rm -rf {d}", shell=True, timeout=30)
+                    cleaned += 1
+                except subprocess.TimeoutExpired:
+                    log(f"DISK GUARD: rm -rf {d} timed out, skipping")
 
         # Clean Claude Code session temps
         for d in root_tmp.glob("claude-*"):
             if d.is_dir():
-                subprocess.run(f"rm -rf {d}", shell=True, timeout=30)
-                cleaned += 1
+                try:
+                    subprocess.run(f"rm -rf {d}", shell=True, timeout=30)
+                    cleaned += 1
+                except subprocess.TimeoutExpired:
+                    log(f"DISK GUARD: rm -rf {d} timed out, skipping")
 
         # Clean Python cache
         subprocess.run(
@@ -1259,7 +1265,7 @@ def daemon_loop():
                             if not test_passed:
                                 log(f"PYTEST WARN [{task_id}]: {cmd[:50]}... → {test_result}")
                             mark_done(line_num, f"exit={exit_code}", task_id=task_id)
-                            # Note: don't reset failure times on success — window expires old entries naturally
+                            _unthrottle_provider(provider)  # adaptive: restore concurrency on success
                             # Auto-commit every 5 successful completions
                             global _mark_done_count
                             _mark_done_count += 1
@@ -1269,6 +1275,7 @@ def daemon_loop():
                                 _mark_done_count = 0
                         else:
                             failed_result = mark_failed(line_num, f"exit={exit_code} {tail[:60]}", exit_code=exit_code, task_id=task_id, tail=tail)
+                            _throttle_provider(provider)  # adaptive: reduce concurrency on failure
                             log(f"FAILED [{task_id}] (exit={exit_code}): {cmd[:60]}...")
                             # Detect rate-limiting from task output or fast-exit pattern
                             is_explicit_ratelimit = failed_result.get("rate_limited") or is_rate_limited(tail)
