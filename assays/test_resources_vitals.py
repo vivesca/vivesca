@@ -317,3 +317,104 @@ class TestFullReport:
         assert isinstance(mod._HEALTH_FILE, Path)
         assert isinstance(mod._SETTINGS, Path)
         assert isinstance(mod._STATS_CACHE, Path)
+
+
+# ---------------------------------------------------------------------------
+# Error handling (OSError branches)
+# ---------------------------------------------------------------------------
+
+
+class TestOSErrorHandling:
+    """Tests for OSError handling across all three file reads."""
+
+    def test_health_file_unreadable_shows_unreadable_message(self, tmp_path: Path):
+        hp = tmp_path / "health.md"
+        hp.write_text("should not appear")
+        with patch.object(Path, "read_text", side_effect=OSError("permission denied")):
+            result = express_vitals(health_path=hp, settings_path=_no_file(), stats_path=_no_file())
+        assert "_(nightly health report unreadable)_" in result
+        assert "should not appear" not in result
+
+    def test_settings_file_unreadable_skips_plugins(self, tmp_path: Path):
+        sp = tmp_path / "settings.json"
+        sp.write_text(json.dumps({"enabledPlugins": {"p": True}}))
+        with patch.object(Path, "read_text", side_effect=OSError("permission denied")):
+            result = express_vitals(health_path=_no_file(), settings_path=sp, stats_path=_no_file())
+        assert "## Plugins" not in result
+
+    def test_stats_file_unreadable_skips_activity(self, tmp_path: Path):
+        stp = tmp_path / "stats.json"
+        stp.write_text(json.dumps({"dailyActivity": [{"date": "2026-01-01", "messageCount": 1, "sessionCount": 1, "toolCallCount": 1}]}))
+        with patch.object(Path, "read_text", side_effect=OSError("permission denied")):
+            result = express_vitals(health_path=_no_file(), settings_path=_no_file(), stats_path=stp)
+        assert "## Recent Activity" not in result
+
+
+# ---------------------------------------------------------------------------
+# Edge cases
+# ---------------------------------------------------------------------------
+
+
+class TestEdgeCases:
+    """Tests for edge cases and boundary conditions."""
+
+    def test_settings_with_null_enabled_plugins_skips_section(self, tmp_path: Path):
+        sp = tmp_path / "settings.json"
+        sp.write_text(json.dumps({"enabledPlugins": None}))
+        result = express_vitals(health_path=_no_file(), settings_path=sp, stats_path=_no_file())
+        assert "## Plugins" not in result
+
+    def test_settings_with_list_enabled_plugins_skips_section(self, tmp_path: Path):
+        sp = tmp_path / "settings.json"
+        sp.write_text(json.dumps({"enabledPlugins": ["a", "b"]}))
+        result = express_vitals(health_path=_no_file(), settings_path=sp, stats_path=_no_file())
+        assert "## Plugins" not in result
+
+    def test_settings_with_truthy_falsy_plugin_values(self, tmp_path: Path):
+        """Non-boolean truthy/falsy values should be handled correctly."""
+        sp = tmp_path / "settings.json"
+        sp.write_text(json.dumps({"enabledPlugins": {"present": 1, "absent": 0}}))
+        result = express_vitals(health_path=_no_file(), settings_path=sp, stats_path=_no_file())
+        assert "**Enabled (1):**" in result
+        assert "**Disabled (1):**" in result
+
+    def test_plugin_names_with_special_characters(self, tmp_path: Path):
+        """Plugin names containing colons and slashes should render in backticks."""
+        sp = tmp_path / "settings.json"
+        sp.write_text(json.dumps({"enabledPlugins": {"anthropic://claude-code": True}}))
+        result = express_vitals(health_path=_no_file(), settings_path=sp, stats_path=_no_file())
+        assert "`anthropic://claude-code`" in result
+
+    def test_empty_flat_dict_stats_skips_section(self, tmp_path: Path):
+        stp = tmp_path / "stats.json"
+        stp.write_text(json.dumps({}))
+        result = express_vitals(health_path=_no_file(), settings_path=_no_file(), stats_path=stp)
+        assert "## Recent Activity" not in result
+
+    def test_single_plugin_enabled(self, tmp_path: Path):
+        sp = tmp_path / "settings.json"
+        sp.write_text(json.dumps({"enabledPlugins": {"solo": True}}))
+        result = express_vitals(health_path=_no_file(), settings_path=sp, stats_path=_no_file())
+        assert "**Enabled (1):**" in result
+        assert "Disabled" not in result
+
+    def test_health_file_with_unicode_content(self, tmp_path: Path):
+        hp = tmp_path / "health.md"
+        hp.write_text("Systèmes: ✓ OK\nMémoire: stable")
+        result = express_vitals(health_path=hp, settings_path=_no_file(), stats_path=_no_file())
+        assert "Systèmes: ✓ OK" in result
+
+    def test_activity_table_header_format(self, tmp_path: Path):
+        stp = tmp_path / "stats.json"
+        stp.write_text(json.dumps([{"date": "2026-01-01", "messageCount": 1, "sessionCount": 1, "toolCallCount": 1}]))
+        result = express_vitals(health_path=_no_file(), settings_path=_no_file(), stats_path=stp)
+        assert "| Date | Messages | Sessions | Tool Calls |" in result
+        assert "|------|----------|----------|------------|" in result
+
+    def test_return_type_is_string(self):
+        result = express_vitals(
+            health_path=_no_file(),
+            settings_path=_no_file(),
+            stats_path=_no_file(),
+        )
+        assert isinstance(result, str)

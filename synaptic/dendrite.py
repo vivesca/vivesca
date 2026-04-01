@@ -7,8 +7,6 @@ Replaces 17 hooks (7 JS + 10 Python) with a single process.
 Routes by tool name and file path internally.
 """
 
-from __future__ import annotations
-
 import contextlib
 import json
 import os

@@ -7,8 +7,6 @@ Replaces 9 command hooks (8 JS + 1 Python) with a single process.
 Routes by tool name internally. deny() exits immediately.
 """
 
-from __future__ import annotations
-
 import contextlib
 import json
 import os

@@ -45,7 +45,7 @@ def express_vitals(
         try:
             data = json.loads(sp.read_text())
             plugins = data.get("enabledPlugins", {})
-            if plugins:
+            if isinstance(plugins, dict) and plugins:
                 enabled = [k for k, v in plugins.items() if v]
                 disabled = [k for k, v in plugins.items() if not v]
                 lines.append("## Plugins\n")
