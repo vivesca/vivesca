@@ -357,3 +357,164 @@ class TestRetentionPolicy:
         _make_db(tmp_path)
         r = _run(tmp_path)
         assert "1 backups retained" in r.stdout
+
+
+# ── script permissions ──────────────────────────────────────────────────
+
+
+class TestScriptPermissions:
+    def test_script_is_executable(self):
+        assert os.access(SCRIPT, os.X_OK)
+
+    def test_script_file_not_directory(self):
+        assert SCRIPT.is_file()
+
+
+# ── success message details ─────────────────────────────────────────────
+
+
+class TestSuccessMessageDetails:
+    def test_stdout_mentions_source_basename(self, tmp_path):
+        _make_db(tmp_path)
+        r = _run(tmp_path)
+        assert "Compact.duecdb" in r.stdout
+
+    def test_stdout_mentions_dest_path(self, tmp_path):
+        _make_db(tmp_path)
+        r = _run(tmp_path)
+        assert "due-" in r.stdout
+        assert ".duecdb" in r.stdout
+
+    def test_no_stderr_on_success(self, tmp_path):
+        _make_db(tmp_path)
+        r = _run(tmp_path)
+        assert r.stderr == ""
+
+    def test_success_output_two_lines(self, tmp_path):
+        """Successful run prints exactly 2 lines: copy + retention."""
+        _make_db(tmp_path)
+        r = _run(tmp_path)
+        lines = [l for l in r.stdout.strip().split("\n") if l]
+        assert len(lines) == 2
+
+
+# ── non-backup files in backup dir ──────────────────────────────────────
+
+
+class TestNonBackupFiles:
+    def test_pruning_ignores_non_duecdb_files(self, tmp_path):
+        """Files not matching due-*.duecdb pattern are never pruned."""
+        _make_db(tmp_path)
+        bdir = tmp_path / BACKUP_RELATIVE
+        bdir.mkdir(parents=True, exist_ok=True)
+        # Create a non-matching file
+        other = bdir / "other-file.txt"
+        other.write_text("keep me")
+        # Seed 35 backups so pruning happens
+        today = date.today()
+        for i in range(35):
+            d = (today - timedelta(days=i)).strftime("%Y-%m-%d")
+            (bdir / f"due-{d}.duecdb").write_text(f"backup-{d}")
+        r = _run(tmp_path)
+        assert r.returncode == 0
+        assert other.exists()
+        assert other.read_text() == "keep me"
+
+    def test_pruning_ignores_partial_name_match(self, tmp_path):
+        """Files like 'due-notes.txt' are not matched by due-*.duecdb glob."""
+        _make_db(tmp_path)
+        bdir = tmp_path / BACKUP_RELATIVE
+        bdir.mkdir(parents=True, exist_ok=True)
+        notes = bdir / "due-notes.txt"
+        notes.write_text("notes")
+        r = _run(tmp_path)
+        assert r.returncode == 0
+        assert notes.exists()
+
+
+# ── exact boundary tests ────────────────────────────────────────────────
+
+
+class TestExactBoundary:
+    def test_exactly_30_backups_no_pruning(self, tmp_path):
+        """With exactly 30 pre-existing backups, none are removed (today's makes 31 but prunes to 30)."""
+        _make_db(tmp_path)
+        bdir = tmp_path / BACKUP_RELATIVE
+        bdir.mkdir(parents=True, exist_ok=True)
+        today = date.today()
+        seeded = []
+        for i in range(30):
+            d = (today - timedelta(days=i + 1)).strftime("%Y-%m-%d")
+            f = bdir / f"due-{d}.duecdb"
+            f.write_text(f"backup-{d}")
+            os.utime(f, (time.time() - (i + 1) * 86400, time.time() - (i + 1) * 86400))
+            seeded.append(f.name)
+        r = _run(tmp_path)
+        assert r.returncode == 0
+        remaining = _backups(tmp_path)
+        # Today's backup + 29 oldest = 30 (1 seed pruned since 30+1=31, prune to 30)
+        assert len(remaining) == 30
+        assert f"due-{_today_stamp()}.duecdb" in remaining
+
+    def test_exactly_31_backups_prunes_to_30(self, tmp_path):
+        """With exactly 31 pre-existing backups, after run we have 30."""
+        _make_db(tmp_path)
+        bdir = tmp_path / BACKUP_RELATIVE
+        bdir.mkdir(parents=True, exist_ok=True)
+        today = date.today()
+        for i in range(31):
+            d = (today - timedelta(days=i + 1)).strftime("%Y-%m-%d")
+            f = bdir / f"due-{d}.duecdb"
+            f.write_text(f"backup-{d}")
+            os.utime(f, (time.time() - (i + 1) * 86400, time.time() - (i + 1) * 86400))
+        r = _run(tmp_path)
+        assert r.returncode == 0
+        remaining = _backups(tmp_path)
+        assert len(remaining) == 30
+
+
+# ── source file permissions ─────────────────────────────────────────────
+
+
+class TestCopyIntegrity:
+    def test_preserves_content_not_permissions(self, tmp_path):
+        """cp preserves content (permissions may differ, content must match)."""
+        content = b"\x00\xff\x80\x7f" * 100
+        db = _make_db(tmp_path, content)
+        _run(tmp_path)
+        dest = tmp_path / BACKUP_RELATIVE / f"due-{_today_stamp()}.duecdb"
+        assert dest.read_bytes() == content
+
+    def test_large_file_backup(self, tmp_path):
+        """Backup works with a large file (10 MB)."""
+        _make_db(tmp_path, b"X" * (10 * 1024 * 1024))
+        r = _run(tmp_path)
+        assert r.returncode == 0
+        dest = tmp_path / BACKUP_RELATIVE / f"due-{_today_stamp()}.duecdb"
+        assert dest.stat().st_size == 10 * 1024 * 1024
+
+
+# ── retention count output with many backups ────────────────────────────
+
+
+class TestRetentionCountOutput:
+    def test_count_matches_actual_after_pruning(self, tmp_path):
+        """The 'N backups retained' count matches actual file count."""
+        _make_db(tmp_path)
+        bdir = tmp_path / BACKUP_RELATIVE
+        bdir.mkdir(parents=True, exist_ok=True)
+        today = date.today()
+        for i in range(40):
+            d = (today - timedelta(days=i)).strftime("%Y-%m-%d")
+            (bdir / f"due-{d}.duecdb").write_text(f"b-{d}")
+        r = _run(tmp_path)
+        assert r.returncode == 0
+        actual = len(_backups(tmp_path))
+        # Extract count from output: "due-backup: retention pruned, N backups retained"
+        for line in r.stdout.strip().split("\n"):
+            if "backups retained" in line:
+                reported = int(line.split()[-3].strip(","))
+                assert reported == actual
+                break
+        else:
+            pytest.fail("No 'backups retained' line found in output")
