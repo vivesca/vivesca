@@ -144,11 +144,20 @@ def cmd_stop(backend: str | None = None) -> None:
         print(f"Stopping {b}...")
 
         if b == "daemon":
+            # Use golem-daemon's own stop command which handles graceful drain
+            subprocess.run(
+                [str(VENV_PYTHON), str(EFFECTORS / "golem-daemon"), "stop"],
+                timeout=10,
+                capture_output=True,
+            )
+            # Verify stopped, force kill if needed
+            time.sleep(3)
             pid = info.get("pid")
             if pid:
                 try:
-                    os.kill(pid, signal.SIGTERM)
-                    time.sleep(2)
+                    os.kill(pid, 0)  # still alive?
+                    os.kill(pid, signal.SIGKILL)
+                    time.sleep(1)
                 except ProcessLookupError:
                     pass
             print(f"  daemon stopped")

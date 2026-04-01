@@ -92,34 +92,37 @@ class TestResolveId:
 class TestCurrentHours:
     """Tests for current_hours time extraction."""
 
-    def test_closed_today(self):
+    @pytest.fixture()
+    def _fake_datetime(self):
+        """Temporarily replace _mod['datetime'] with a fake returning a fixed Monday."""
+        from datetime import datetime as real_dt
+        monday = real_dt(2026, 3, 30, 12, 0)  # Monday (weekday 0 → OR dow 1)
+        original = _mod["datetime"]
+
+        class FakeDT:
+            @staticmethod
+            def now(tz=None):
+                return monday
+
+        _mod["datetime"] = FakeDT
+        yield
+        _mod["datetime"] = original
+
+    def test_closed_today(self, _fake_datetime):
         poi = {"poiHours": [{"dayOfWeek": 1, "isClose": True}]}
-        # weekday dependent — mock datetime
-        with patch.object(_mod["datetime"], "now") as mock_now:
-            from datetime import datetime
-            mock_now.return_value = datetime(2026, 3, 30, 12, 0)  # Monday
-            assert current_hours(poi) == "Closed"
+        assert current_hours(poi) == "Closed"
 
-    def test_24hr(self):
+    def test_24hr(self, _fake_datetime):
         poi = {"poiHours": [{"dayOfWeek": 1, "is24hr": True}]}
-        with patch.object(_mod["datetime"], "now") as mock_now:
-            from datetime import datetime
-            mock_now.return_value = datetime(2026, 3, 30, 12, 0)  # Monday
-            assert current_hours(poi) == "24h"
+        assert current_hours(poi) == "24h"
 
-    def test_normal_hours(self):
+    def test_normal_hours(self, _fake_datetime):
         poi = {"poiHours": [{"dayOfWeek": 1, "period1Start": "1100", "period1End": "2300"}]}
-        with patch.object(_mod["datetime"], "now") as mock_now:
-            from datetime import datetime
-            mock_now.return_value = datetime(2026, 3, 30, 12, 0)  # Monday
-            assert current_hours(poi) == "11:00-23:00"
+        assert current_hours(poi) == "11:00-23:00"
 
-    def test_no_matching_day(self):
+    def test_no_matching_day(self, _fake_datetime):
         poi = {"poiHours": [{"dayOfWeek": 3, "period1Start": "1100", "period1End": "2300"}]}
-        with patch.object(_mod["datetime"], "now") as mock_now:
-            from datetime import datetime
-            mock_now.return_value = datetime(2026, 3, 30, 12, 0)  # Monday (dow=1)
-            assert current_hours(poi) == "—"
+        assert current_hours(poi) == "—"
 
     def test_empty_hours_list(self):
         assert current_hours({"poiHours": []}) == "—"
@@ -264,23 +267,32 @@ class TestCli:
 class TestFetch:
     """Tests for fetch with mocked urlopen."""
 
-    def test_fetch_builds_correct_url(self):
-        from urllib.request import Request
-
+    def _make_fake_urlopen(self, body: bytes):
+        """Build a fake urlopen that returns the given body bytes."""
         captured_url = {}
 
         def fake_urlopen(req, timeout=15):
             captured_url["url"] = req.full_url if hasattr(req, "full_url") else str(req)
             mock_resp = MagicMock()
-            mock_resp.read.return_value = json.dumps(
-                {"paginationResult": {"results": [{"name": "Sushi Place"}]}}
-            ).encode()
+            mock_resp.read.return_value = body
             mock_resp.__enter__ = lambda s: mock_resp
             mock_resp.__exit__ = MagicMock(return_value=False)
             return mock_resp
 
-        with patch.object(_mod, "urlopen", fake_urlopen):
+        return fake_urlopen, captured_url
+
+    def test_fetch_builds_correct_url(self):
+        body = json.dumps(
+            {"paginationResult": {"results": [{"name": "Sushi Place"}]}}
+        ).encode()
+        fake, captured_url = self._make_fake_urlopen(body)
+
+        original = _mod["urlopen"]
+        _mod["urlopen"] = fake
+        try:
             results = fetch(5, 3006, 1003, 3)
+        finally:
+            _mod["urlopen"] = original
 
         assert len(results) == 1
         assert results[0]["name"] == "Sushi Place"
@@ -291,20 +303,15 @@ class TestFetch:
         assert "rows=5" in url
 
     def test_fetch_no_optional_params(self):
-        captured_url = {}
+        body = json.dumps({"paginationResult": {"results": []}}).encode()
+        fake, captured_url = self._make_fake_urlopen(body)
 
-        def fake_urlopen(req, timeout=15):
-            captured_url["url"] = req.full_url if hasattr(req, "full_url") else str(req)
-            mock_resp = MagicMock()
-            mock_resp.read.return_value = json.dumps(
-                {"paginationResult": {"results": []}}
-            ).encode()
-            mock_resp.__enter__ = lambda s: mock_resp
-            mock_resp.__exit__ = MagicMock(return_value=False)
-            return mock_resp
-
-        with patch.object(_mod, "urlopen", fake_urlopen):
+        original = _mod["urlopen"]
+        _mod["urlopen"] = fake
+        try:
             results = fetch(10, None, None, None)
+        finally:
+            _mod["urlopen"] = original
 
         assert results == []
         url = captured_url["url"]
@@ -314,28 +321,26 @@ class TestFetch:
         assert "rows=10" in url
 
     def test_fetch_html_response_exits(self):
-        def fake_urlopen(req, timeout=15):
-            mock_resp = MagicMock()
-            mock_resp.read.return_value = b"<html>captcha</html>"
-            mock_resp.__enter__ = lambda s: mock_resp
-            mock_resp.__exit__ = MagicMock(return_value=False)
-            return mock_resp
+        fake, _ = self._make_fake_urlopen(b"<html>captcha</html>")
 
-        with patch.object(_mod, "urlopen", fake_urlopen):
+        original = _mod["urlopen"]
+        _mod["urlopen"] = fake
+        try:
             with pytest.raises(SystemExit):
                 fetch(5, None, None, None)
+        finally:
+            _mod["urlopen"] = original
 
     def test_fetch_invalid_json_exits(self):
-        def fake_urlopen(req, timeout=15):
-            mock_resp = MagicMock()
-            mock_resp.read.return_value = b"not json"
-            mock_resp.__enter__ = lambda s: mock_resp
-            mock_resp.__exit__ = MagicMock(return_value=False)
-            return mock_resp
+        fake, _ = self._make_fake_urlopen(b"not json")
 
-        with patch.object(_mod, "urlopen", fake_urlopen):
+        original = _mod["urlopen"]
+        _mod["urlopen"] = fake
+        try:
             with pytest.raises(SystemExit):
                 fetch(5, None, None, None)
+        finally:
+            _mod["urlopen"] = original
 
 
 # ── PRICE_LABELS sanity ────────────────────────────────────────────────────
