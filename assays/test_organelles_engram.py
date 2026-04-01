@@ -923,58 +923,52 @@ class TestIterOpencodeMessagesWithData:
     @patch("metabolon.organelles.engram._opencode_storage")
     def test_iterates_sessions_and_messages(self, mock_storage_fn):
         ts_ms = _FIXED_MS
-        storage = MagicMock()
 
-        # session dir
+        # Build a fake filesystem using plain dicts for clarity
+        sess_json = MagicMock()
+        sess_json.is_dir.return_value = True
+        sess_json.read_text.return_value = json.dumps(
+            {"id": "sess-oc-abc", "time": {"created": ts_ms, "updated": 0}}
+        )
+        sess_json.glob.return_value = [sess_json]
+
         session_dir = MagicMock()
         session_dir.exists.return_value = True
-
-        # session json
-        sess_json = MagicMock()
-        sess_json.is_dir.return_value = True  # won't matter since glob is on session_dir
-        sess_data = json.dumps({"id": "sess-oc-abc", "time": {"created": ts_ms, "updated": 0}})
-        sess_json.read_text.return_value = sess_data
-        sess_json.glob.return_value = [sess_json]  # session json is the glob result
-
         session_dir.iterdir.return_value = [sess_json]
-        # storage / "session" returns session_dir
-        session_dir_result = MagicMock()
-        session_dir_result.exists.return_value = True
-        session_dir_result.iterdir.return_value = [sess_json]
 
-        # msg dir
         msg_json = MagicMock()
-        msg_data = json.dumps({"id": "msg-001", "role": "user", "time": {"created": ts_ms}})
-        msg_json.read_text.return_value = msg_data
+        msg_json.read_text.return_value = json.dumps(
+            {"id": "msg-001", "role": "user", "time": {"created": ts_ms}}
+        )
         msg_json.name = "msg_001.json"
-        msg_json.startswith.return_value = True
-        msg_json.endswith.return_value = True
 
         msg_dir = MagicMock()
         msg_dir.exists.return_value = True
         msg_dir.iterdir.return_value = [msg_json]
 
-        # Wire up: storage / "session" / ... / "message" / ...
-        def storage_truediv(key):
-            if key == "session":
-                return session_dir_result
-            if key == "message":
-                msg_map = MagicMock()
-                msg_map.__truediv__ = lambda self, k: msg_dir if k == "sess-oc-abc" else MagicMock()
-                # More direct approach
-                inner = MagicMock()
-                inner.exists.return_value = True
-                inner.iterdir.return_value = [msg_json]
-                return inner
-            return MagicMock()
+        # message / sess-oc-abc -> msg_dir
+        message_dir = MagicMock()
+        message_dir_map = {"sess-oc-abc": msg_dir}
+
+        def message_truediv(self, key):
+            return message_dir_map.get(key, MagicMock())
+
+        message_dir.__truediv__ = message_truediv
+
+        storage = MagicMock()
+        storage_map = {"session": session_dir, "message": message_dir}
+
+        def storage_truediv(self, key):
+            return storage_map.get(key, MagicMock())
 
         storage.__truediv__ = storage_truediv
         mock_storage_fn.return_value = storage
 
         results = list(_iter_opencode_messages(0, ts_ms + 1, None))
-        # This test verifies the wiring; if the mock chain is off,
-        # the result is just an empty list (which is still valid)
-        assert isinstance(results, list)
+        assert len(results) == 1
+        sess_id, msg, result_ts = results[0]
+        assert sess_id == "sess-oc-abc"
+        assert msg["role"] == "user"
 
     @patch("metabolon.organelles.engram._opencode_storage")
     def test_session_filter_applied(self, mock_storage_fn):
