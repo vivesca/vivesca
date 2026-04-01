@@ -176,7 +176,7 @@ RUNNING_FILE = Path.home() / ".local" / "share" / "vivesca" / "golem-running.jso
 # Per-provider concurrency limits
 PROVIDER_LIMITS = {
     "zhipu": 8,
-    "infini": 1,  # 1000 req/5hr limit — 1 concurrent to avoid burst exhaustion
+    "infini": 4,  # 1000 req/5hr limit — 4 concurrent × ~5min avg = ~48 req/hr, well within budget
     "volcano": 16,
     "gemini": 4,
     "codex": 4,
@@ -197,20 +197,25 @@ PROVIDER_FALLBACK = {
 COOLDOWN_LOG = Path.home() / ".local" / "share" / "vivesca" / "golem-cooldowns.json"
 
 
-def _log_cooldown(provider: str, cooldown_until: float, reason: str = ""):
+def _log_cooldown(provider: str, cooldown_until: float, reason: str = "", event: str = "burnout"):
     """Append cooldown event to persistent log for visibility."""
     entry = {
         "ts": time.strftime("%Y-%m-%d %H:%M:%S"),
+        "event": event,
         "provider": provider,
-        "resets_at": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(cooldown_until)),
+        "resets_at": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(cooldown_until)) if event == "burnout" else None,
         "reason": reason[:100],
     }
     try:
         entries = json.loads(COOLDOWN_LOG.read_text()) if COOLDOWN_LOG.exists() else []
     except (json.JSONDecodeError, OSError):
         entries = []
+    # Dedupe: don't log burnout if the last entry for this provider is the same reset time
+    if event == "burnout" and entries:
+        last_for_provider = [e for e in entries if e.get("provider") == provider and e.get("event") == "burnout"]
+        if last_for_provider and last_for_provider[-1].get("resets_at") == entry.get("resets_at"):
+            return  # already logged this cooldown window
     entries.append(entry)
-    # Keep last 100 entries
     entries = entries[-100:]
     COOLDOWN_LOG.write_text(json.dumps(entries, indent=2) + "\n")
 
@@ -1350,6 +1355,7 @@ def daemon_loop():
                 now = time.time()
                 for p in list(provider_cooldown_until):
                     if now >= provider_cooldown_until[p]:
+                        _log_cooldown(p, provider_cooldown_until[p], "quota reset", event="resumed")
                         log(f"COOLDOWN LIFTED: {p} — resuming dispatch")
                         del provider_cooldown_until[p]
                         provider_failure_times.pop(p, None)
@@ -1515,18 +1521,23 @@ def cmd_status():
 
         print(f"Daemon running (PID {pid}), {len(pending)} pending tasks ({provider_info}), global cap {MAX_TOTAL_CONCURRENT}")
 
-        # Show cooldown status from log
+        # Show cooldown status from log (deduplicated per provider)
         if COOLDOWN_LOG.exists():
             try:
                 entries = json.loads(COOLDOWN_LOG.read_text())
                 now = time.time()
-                active = []
+                # Latest burnout per provider, not yet resumed
+                active = {}
                 for e in entries:
-                    reset_time = time.mktime(time.strptime(e["resets_at"], "%Y-%m-%d %H:%M:%S"))
-                    if reset_time > now:
-                        active.append(f"{e['provider']} (resets {e['resets_at'][11:16]})")
+                    p = e.get("provider", "?")
+                    if e.get("event") == "resumed":
+                        active.pop(p, None)
+                    elif e.get("event") == "burnout" and e.get("resets_at"):
+                        reset_time = time.mktime(time.strptime(e["resets_at"], "%Y-%m-%d %H:%M:%S"))
+                        if reset_time > now:
+                            active[p] = e["resets_at"][11:16]
                 if active:
-                    print(f"Cooldowns: {', '.join(active)}")
+                    print(f"Cooldowns: {', '.join(f'{p} (resets {t})' for p, t in sorted(active.items()))}")
             except (json.JSONDecodeError, OSError, KeyError, ValueError):
                 pass
 
