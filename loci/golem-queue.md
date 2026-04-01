@@ -1408,7 +1408,7 @@ Concentrated runtime errors around 8-11% of test suite. Likely common root cause
 - [ ] `golem [t-d568a0] --provider zhipu --max-turns 40 "Run uv run pytest -q --tb=line 2>&1 | grep '^ERROR' | head -30. Group errors by type (ImportError, FileNotFoundError, subprocess, etc). For the most common error type, fix ALL affected files. Run again. Commit."`
 - [ ] `golem [t-93772b] --provider zhipu --max-turns 40 "Run uv run pytest -q --tb=short 2>&1 | grep -B2 'FileNotFoundError\|No such file' | grep '::' | head -20. These are tests that call effectors by hardcoded path. Fix them to use shutil.which() or relative paths. Commit."`
 - [ ] `golem [t-c65bd6] --provider zhipu --max-turns 40 "Run uv run pytest -q --tb=short 2>&1 | grep -B2 'ModuleNotFoundError\|ImportError' | grep '::' | head -20. These are tests with broken imports. Fix each — either the import path changed or a dependency is missing. Commit."`
-- [ ] `golem [t-4b4a55] --provider codex --max-turns 40 "Run uv run pytest -q --tb=short 2>&1 | grep -B2 'subprocess.CalledProcessError\|PermissionError' | grep '::' | head -20. These are tests calling effectors that aren't executable or have wrong paths. Fix permissions and paths. Commit."`
+- [!] `golem [t-4b4a55] --provider codex --max-turns 40 "Run uv run pytest -q --tb=short 2>&1 | grep -B2 'subprocess.CalledProcessError\|PermissionError' | grep '::' | head -20. These are tests calling effectors that aren't executable or have wrong paths. Fix permissions and paths. Commit."`
 - [ ] `golem [t-40aacc] --provider zhipu --max-turns 30 "Find assays/test_*.py files that import from effectors directly (not via subprocess). These are wrong — effectors are scripts, not modules. Fix to use subprocess.run. Run pytest on each. Commit."`
 
 #### Fix operon — failing tests wave 3 (5 tasks)
@@ -1416,7 +1416,7 @@ Concentrated runtime errors around 8-11% of test suite. Likely common root cause
 - [ ] `golem [t-687442] --provider zhipu --max-turns 35 "Run uv run pytest assays/test_grep.py -v --tb=short. Read failures. Fix them. Ensure all pass. Commit."`
 - [ ] `golem [t-b3e066] --provider zhipu --max-turns 35 "Run uv run pytest -q --tb=no 2>&1 | grep '^FAILED' | shuf | head -10. For each: run pytest on that file, read traceback, fix. Iterate until green. Commit."`
 - [ ] `golem [t-f5d33f] --provider codex --max-turns 35 "Run uv run pytest -q --tb=no 2>&1 | grep '^FAILED' | shuf | head -10. For each: run pytest on that file, read traceback, fix. Iterate until green. Commit."`
-- [ ] `golem [t-ddac88] --provider infini --max-turns 35 "Run uv run pytest -q --tb=no 2>&1 | grep '^FAILED' | tail -10. For each: run pytest on that file, read traceback, fix. Iterate until green. Commit."`
+- [!] `golem [t-ddac88] --provider infini --max-turns 35 "Run uv run pytest -q --tb=no 2>&1 | grep '^FAILED' | tail -10. For each: run pytest on that file, read traceback, fix. Iterate until green. Commit."`
 - [ ] `golem [t-dfc879] --provider zhipu --max-turns 30 "Find test files that still reference /Users/terry/ (macOS path). Replace with /home/terry/ or Path.home(). Run pytest on changed files. Commit."`
 
 #### Build operon — Capco Week 1 toolkit (5 tasks)
