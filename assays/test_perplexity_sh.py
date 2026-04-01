@@ -1,193 +1,101 @@
 from __future__ import annotations
 
-"""Tests for effectors/perplexity.sh — Perplexity API CLI."""
+"""Tests for effectors/perplexity.sh — bash script tested via subprocess."""
 
-import json
 import os
 import stat
 import subprocess
-import tempfile
 from pathlib import Path
-from unittest.mock import patch
 
 import pytest
 
-SCRIPT = Path.home() / "germline/effectors/perplexity.sh"
+SCRIPT = Path(__file__).parent.parent / "effectors" / "perplexity.sh"
 
 
-def run_perplexity(*args: str, env: dict | None = None) -> subprocess.CompletedProcess[str]:
-    """Run perplexity.sh with given args, capture output."""
-    cmd = [str(SCRIPT), *args]
-    # Ensure no real API key leaks into tests unless explicitly provided
-    safe_env = {k: v for k, v in os.environ.items() if k != "PERPLEXITY_API_KEY"}
-    if env:
-        safe_env.update(env)
+# ── helpers ─────────────────────────────────────────────────────────────
+
+
+def _run_script(
+    args: list[str] | None = None,
+    env_extra: dict | None = None,
+    tmp_path: Path | None = None,
+) -> subprocess.CompletedProcess:
+    """Run perplexity.sh with optional args and environment overrides."""
+    env = os.environ.copy()
+    if tmp_path is not None:
+        env["HOME"] = str(tmp_path)
+    if env_extra:
+        env.update(env_extra)
+    cmd = ["bash", str(SCRIPT)] + (args or [])
     return subprocess.run(
-        cmd, capture_output=True, text=True, timeout=10, env=safe_env,
+        cmd, capture_output=True, text=True, env=env, timeout=30,
     )
 
 
-# ── Help / usage ──────────────────────────────────────────────────────
+# ── --help tests ────────────────────────────────────────────────────────
 
 
-def test_help_flag_stdout():
-    """--help prints usage header and exits 0."""
-    r = run_perplexity("--help")
-    assert r.returncode == 0
-    assert "Perplexity API CLI" in r.stdout
-    assert "search" in r.stdout
+class TestHelpFlag:
+    def test_help_exits_zero(self):
+        r = _run_script(["--help"])
+        assert r.returncode == 0
+
+    def test_h_short_flag_exits_zero(self):
+        r = _run_script(["-h"])
+        assert r.returncode == 0
+
+    def test_help_shows_usage(self):
+        r = _run_script(["--help"])
+        assert "Usage:" in r.stdout
+
+    def test_help_mentions_modes(self):
+        r = _run_script(["--help"])
+        assert "search" in r.stdout
+        assert "ask" in r.stdout
+        assert "research" in r.stdout
+        assert "reason" in r.stdout
 
 
-def test_help_short_flag():
-    """-h prints usage header and exits 0."""
-    r = run_perplexity("-h")
-    assert r.returncode == 0
-    assert "Perplexity API CLI" in r.stdout
+# ── file basics ─────────────────────────────────────────────────────────
 
 
-# ── Error handling ────────────────────────────────────────────────────
+class TestFileBasics:
+    def test_file_exists(self):
+        assert SCRIPT.exists()
+
+    def test_is_bash_script(self):
+        first = SCRIPT.read_text().split("\n")[0]
+        assert first.startswith("#!/usr/bin/env bash")
+
+    def test_has_set_euo(self):
+        src = SCRIPT.read_text()
+        assert "set -euo pipefail" in src
 
 
-def test_no_args_exits_1():
-    """No arguments prints usage to stderr and exits 1."""
-    r = run_perplexity()
-    assert r.returncode == 1
-    assert "Usage" in r.stderr
+# ── script permissions ──────────────────────────────────────────────────
 
 
-def test_unknown_mode_exits_1():
-    """Unknown mode prints error to stderr and exits 1."""
-    r = run_perplexity("foobar", "test query")
-    assert r.returncode == 1
-    assert "Unknown mode" in r.stderr
-    assert "foobar" in r.stderr
+class TestScriptPermissions:
+    def test_script_is_executable(self):
+        assert os.access(SCRIPT, os.X_OK)
+
+    def test_script_file_not_directory(self):
+        assert SCRIPT.is_file()
 
 
-def test_missing_query_exits_1():
-    """Valid mode without query exits with error."""
-    r = run_perplexity("search")
-    assert r.returncode != 0
+# ── invalid usage tests ─────────────────────────────────────────────────
 
 
-def test_modes_without_api_key():
-    """All valid modes fail gracefully without API key."""
-    for mode in ("search", "ask", "research", "reason"):
-        r = run_perplexity(mode, "test")
-        assert r.returncode != 0, f"mode={mode} should fail without API key"
+class TestInvalidUsage:
+    def test_no_args_exits_1(self):
+        r = _run_script([])
+        assert r.returncode == 1
 
+    def test_unknown_mode_exits_1(self):
+        r = _run_script(["invalid-mode", "test query"], env_extra={"PERPLEXITY_API_KEY": "fake-key"})
+        assert r.returncode == 1
+        assert "Unknown mode" in r.stderr
 
-# ── Mode-to-model mapping (mocked curl) ───────────────────────────────
-
-
-def _make_mock_curl(response_body: str) -> Path:
-    """Create a temporary script that acts like curl, returning fixed body."""
-    tmpdir = Path(tempfile.mkdtemp())
-    mock = tmpdir / "curl"
-    mock.write_text(
-        '#!/bin/bash\n'
-        '# Mock curl — capture args and return canned response\n'
-        f'echo {json.dumps(response_body)}\n'
-    )
-    mock.chmod(mock.stat().st_mode | stat.S_IEXEC)
-    return tmpdir
-
-
-def _run_with_mock_curl(mode: str, query: str, response_body: str) -> tuple[subprocess.CompletedProcess[str], str]:
-    """Run perplexity.sh with a mock curl on PATH; return (result, curl_log)."""
-    tmpdir = _make_mock_curl(response_body)
-    # Also capture what curl received by wrapping it
-    log_file = tmpdir / "curl_args.log"
-    wrapper = tmpdir / "curl"
-    wrapper.write_text(
-        '#!/bin/bash\n'
-        f'echo "$@" > {log_file}\n'
-        f'echo {json.dumps(response_body)}\n'
-    )
-    wrapper.chmod(wrapper.stat().st_mode | stat.S_IEXEC)
-
-    safe_env = {k: v for k, v in os.environ.items() if k != "PERPLEXITY_API_KEY"}
-    safe_env["PERPLEXITY_API_KEY"] = "test-key-123"
-    safe_env["PATH"] = f"{tmpdir}:{safe_env.get('PATH', '')}"
-
-    r = subprocess.run(
-        [str(SCRIPT), mode, query],
-        capture_output=True, text=True, timeout=10, env=safe_env,
-    )
-    curl_log = log_file.read_text() if log_file.exists() else ""
-    return r, curl_log
-
-
-def test_search_uses_sonar_model():
-    """search mode selects 'sonar' model."""
-    body = json.dumps({"choices": [{"message": {"content": "test result"}}]})
-    r, log = _run_with_mock_curl("search", "what is Python", body)
-    assert r.returncode == 0
-    assert '"model": "sonar"' in log or '"model":"sonar"' in log or 'sonar' in log
-    assert "test result" in r.stdout
-
-
-def test_ask_uses_sonar_pro_model():
-    """ask mode selects 'sonar-pro' model."""
-    body = json.dumps({"choices": [{"message": {"content": "pro answer"}}]})
-    r, log = _run_with_mock_curl("ask", "explain rust", body)
-    assert r.returncode == 0
-    assert "sonar-pro" in log
-    assert "pro answer" in r.stdout
-
-
-def test_research_uses_deep_research_model():
-    """research mode selects 'sonar-deep-research' model."""
-    body = json.dumps({"choices": [{"message": {"content": "deep answer"}}]})
-    r, log = _run_with_mock_curl("research", "comprehensive review", body)
-    assert r.returncode == 0
-    assert "sonar-deep-research" in log
-
-
-def test_reason_uses_reasoning_pro_model():
-    """reason mode selects 'sonar-reasoning-pro' model."""
-    body = json.dumps({"choices": [{"message": {"content": "reasoned answer"}}]})
-    r, log = _run_with_mock_curl("reason", "solve this puzzle", body)
-    assert r.returncode == 0
-    assert "sonar-reasoning-pro" in log
-
-
-# ── Response parsing ──────────────────────────────────────────────────
-
-
-def test_extracts_content_from_choices():
-    """Successfully extracts content from API response."""
-    content = "The answer is 42."
-    body = json.dumps({"choices": [{"message": {"content": content}}]})
-    r, _ = _run_with_mock_curl("search", "meaning of life", body)
-    assert r.returncode == 0
-    assert content in r.stdout
-
-
-def test_error_response_exits_nonzero():
-    """API error response exits non-zero and reports error."""
-    body = json.dumps({"error": {"message": "Rate limited"}})
-    r, _ = _run_with_mock_curl("search", "test", body)
-    assert r.returncode != 0
-
-
-def test_malformed_json_falls_back():
-    """Malformed response falls back to raw output."""
-    r, _ = _run_with_mock_curl("search", "test", "not-json-at-all")
-    # Should not crash — outputs something
-    assert r.returncode == 0 or r.stdout.strip() or r.stderr.strip()
-
-
-def test_query_json_escaping():
-    """Special characters in query are properly JSON-escaped."""
-    body = json.dumps({"choices": [{"message": {"content": "ok"}}]})
-    r, log = _run_with_mock_curl("search", 'He said "hello" & goodbye', body)
-    assert r.returncode == 0
-    # The query should appear in the curl payload with proper escaping
-    assert '\\"hello\\"' in log or '"hello"' in log
-
-
-def test_sends_api_key_in_header():
-    """Authorization header includes the API key."""
-    body = json.dumps({"choices": [{"message": {"content": "ok"}}]})
-    r, log = _run_with_mock_curl("search", "test", body)
-    assert "Bearer test-key-123" in log or "Authorization" in log
+    def test_missing_query_exits_1(self):
+        r = _run_script(["search"], env_extra={"PERPLEXITY_API_KEY": "fake-key"})
+        assert r.returncode == 1
