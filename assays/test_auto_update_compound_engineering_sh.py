@@ -245,14 +245,6 @@ class TestLogging:
 
 
 class TestUpdateTargets:
-    def test_runs_opencode_update(self, tmp_path):
-        """Script runs compound-engineering install --to opencode."""
-        record = tmp_path / "calls.log"
-        bindir = _make_recording_bin(tmp_path, "bunx", record)
-        _run_script(path_dirs=[bindir], tmp_path=tmp_path)
-        calls = record.read_text()
-        assert "--to opencode" in calls
-
     def test_runs_codex_update(self, tmp_path):
         """Script runs compound-engineering install --to codex."""
         record = tmp_path / "calls.log"
@@ -309,3 +301,22 @@ class TestLogFileLocation:
         bindir = _make_mock_bin(tmp_path, "bunx")
         r = _run_script(path_dirs=[bindir], tmp_path=tmp_path)
         assert r.returncode == 0
+
+    def test_log_appends_on_repeated_runs(self, tmp_path):
+        """Running the script twice appends to the same log file."""
+        bindir = _make_mock_bin(tmp_path, "bunx")
+        _run_script(path_dirs=[bindir], tmp_path=tmp_path)
+        _run_script(path_dirs=[bindir], tmp_path=tmp_path)
+        log_text = _log_file(tmp_path).read_text()
+        # Two runs → two "Update started" lines
+        assert log_text.count("Update started:") == 2
+
+    def test_runs_opencode_update_records_args(self, tmp_path):
+        """Script runs compound-engineering install --to opencode."""
+        record = tmp_path / "calls.log"
+        bindir = _make_recording_bin(tmp_path, "bunx", record)
+        r = _run_script(path_dirs=[bindir], tmp_path=tmp_path)
+        assert r.returncode == 0
+        assert record.exists(), f"Record file not created. stderr={r.stderr}"
+        calls = record.read_text()
+        assert "--to opencode" in calls
