@@ -3,7 +3,6 @@ from __future__ import annotations
 """Tests for effectors/hetzner-bootstrap.sh — bash script tested via subprocess."""
 
 import os
-import stat
 import subprocess
 from pathlib import Path
 
@@ -51,6 +50,29 @@ class TestHelp:
     def test_help_no_stderr(self):
         r = _run_help("--help")
         assert r.stderr == ""
+
+
+# ── root check ─────────────────────────────────────────────────────────
+
+
+class TestRootCheck:
+    def test_fails_if_not_root(self):
+        """Script should exit with 1 and an error message when run as non-root."""
+        # We are running as non-root in this environment
+        r = subprocess.run(
+            ["bash", str(SCRIPT)],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        assert r.returncode == 1
+        assert "ERROR: This script must be run as root." in r.stderr
+
+    def test_has_root_check_logic(self):
+        """Script should contain the EUID check logic."""
+        src = SCRIPT.read_text()
+        assert "EUID -ne 0" in src or "EUID != 0" in src
+        assert "must be run as root" in src.lower()
 
 
 # ── file basics ────────────────────────────────────────────────────────
@@ -108,6 +130,24 @@ class TestContentChecks:
         src = SCRIPT.read_text()
         assert ".tmux.conf" in src
 
+    def test_has_system_updates(self):
+        src = SCRIPT.read_text()
+        assert "apt-get update && apt-get upgrade -y" in src
+
+    def test_installs_build_essential(self):
+        src = SCRIPT.read_text()
+        assert "build-essential" in src
+
+    def test_harden_ssh_robust(self):
+        """SSH hardening should match both commented and uncommented lines."""
+        src = SCRIPT.read_text()
+        assert "sed -i 's/^#\?PasswordAuthentication .*/PasswordAuthentication no/'" in src
+        assert "sed -i 's/^#\?PermitRootLogin .*/PermitRootLogin no/'" in src
+
+    def test_restarts_sshd(self):
+        src = SCRIPT.read_text()
+        assert "systemctl restart sshd" in src
+
 
 # ── syntax check ─────────────────────────────────────────────────────────
 
@@ -145,4 +185,3 @@ class TestEndsWithNewline:
         """Script should end with a trailing newline."""
         content = SCRIPT.read_text()
         assert content.endswith("\n"), "Script should end with a newline"
-
