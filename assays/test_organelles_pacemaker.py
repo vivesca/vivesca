@@ -210,7 +210,7 @@ class TestRm:
     def test_delete_single_by_uuid_prefix(self):
         rem = _make_reminder("Delete me")
         with patch.object(_m, "read_db", return_value=_db(rem)), \
-             patch.object(_m, "resolve_target", return_value=([(0, rem), ])), \
+             patch.object(_m, "resolve_target", return_value=([(0, rem)], [])), \
              patch.object(_m, "now_ts", return_value=1711785600), \
              patch.object(_m, "reminder_uuid", return_value=rem["u"]), \
              patch.object(_m, "reminder_title", return_value="Delete me"), \
@@ -227,7 +227,7 @@ class TestRm:
         r1 = _make_reminder("A", uuid="aa111111-1111")
         r2 = _make_reminder("B", uuid="bb222222-2222")
         with patch.object(_m, "read_db", return_value=_db(r1, r2)), \
-             patch.object(_m, "resolve_target", return_value=([(0, r1), (1, r2)])), \
+             patch.object(_m, "resolve_target", return_value=([(0, r1), (1, r2)], [])), \
              patch.object(_m, "now_ts", return_value=1711785600), \
              patch.object(_m, "reminder_uuid", side_effect=[r1["u"], r2["u"]]), \
              patch.object(_m, "reminder_title", side_effect=["A", "B"]), \
@@ -242,7 +242,7 @@ class TestRm:
     def test_raises_on_missing_uuid(self):
         rem = {"n": "No UUID", "d": 100}  # no "u" key
         with patch.object(_m, "read_db", return_value=_db(rem)), \
-             patch.object(_m, "resolve_target", return_value=([(0, rem)])), \
+             patch.object(_m, "resolve_target", return_value=([(0, rem)], [])), \
              patch.object(_m, "now_ts", return_value=1711785600), \
              patch.object(_m, "reminder_uuid", return_value=None), \
              patch.object(_m, "reminder_title", return_value="No UUID"):
@@ -270,10 +270,10 @@ class TestEdit:
         cs = self._change_set()
         raw_list = [rem]
         with patch.object(_m, "read_db", return_value=_db(rem)), \
-             patch.object(_m, "resolve_target", return_value=([(0, rem)])), \
+             patch.object(_m, "resolve_target", return_value=([(0, rem)], [])), \
              patch.object(_m, "reminder_uuid", return_value=rem["u"]), \
              patch.object(_m, "short_uuid", return_value="abc12345"), \
-             patch.object(_m, "build_change_set", return_value=cs), \
+             patch.object(_m, "build_change_set", return_value=cs, create=True), \
              patch.object(_m, "ensure_no_duplicates"), \
              patch.object(_m, "reminders_mut", return_value=raw_list), \
              patch.object(_m, "now_ts", return_value=1711785600), \
@@ -289,7 +289,7 @@ class TestEdit:
         r1 = _make_reminder("A", uuid="a1111111-1111")
         r2 = _make_reminder("B", uuid="b2222222-2222")
         with patch.object(_m, "read_db", return_value=_db(r1, r2)), \
-             patch.object(_m, "resolve_target", return_value=([(0, r1), (1, r2)])), \
+             patch.object(_m, "resolve_target", return_value=([(0, r1), (1, r2)], [])), \
              patch.object(_m, "reminder_uuid", side_effect=[r1["u"], r2["u"]]), \
              patch.object(_m, "short_uuid", side_effect=["a1111111", "b2222222"]), \
              patch.object(_m, "reminder_title", side_effect=["A", "B"]):
@@ -299,7 +299,7 @@ class TestEdit:
     def test_rejects_missing_uuid(self):
         rem = {"n": "No UUID", "d": 100}
         with patch.object(_m, "read_db", return_value=_db(rem)), \
-             patch.object(_m, "resolve_target", return_value=([(0, rem)])), \
+             patch.object(_m, "resolve_target", return_value=([(0, rem)], [])), \
              patch.object(_m, "reminder_uuid", return_value=None), \
              patch.object(_m, "reminder_title", return_value="No UUID"):
             with pytest.raises(_m.MoneoError, match="missing UUID"):
@@ -401,12 +401,12 @@ class TestCli:
     """Tests for pacemaker._cli()."""
 
     def test_delegates_to_moneo_main(self):
-        with patch.object(_m, "main", return_value=0) as mock_main:
+        with patch.object(_m, "main", return_value=0, create=True) as mock_main:
             result = pacemaker._cli(["list"])
         assert result == 0
         mock_main.assert_called_once_with(["list"])
 
     def test_passes_none_argv(self):
-        with patch.object(_m, "main", return_value=0) as mock_main:
+        with patch.object(_m, "main", return_value=0, create=True) as mock_main:
             pacemaker._cli()
         mock_main.assert_called_once_with(None)

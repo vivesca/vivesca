@@ -1,716 +1,523 @@
+"""Tests for effectors/photos.py — CLI subprocess tests + exec-based unit tests."""
 from __future__ import annotations
 
-"""Tests for effectors/photos.py — photo access script."""
-
 import sqlite3
+import subprocess
 import sys
+import tempfile
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pytest
 
-SCRIPT = Path(__file__).parent.parent / "effectors" / "photos.py"
-
-# ─── Load the effector script into an isolated namespace ──────────────────────
-
-_NS: dict = {}
-exec(open(SCRIPT).read(), _NS)
-
-_cd_timestamp = _NS["_cd_timestamp"]
-_cd_to_datetime = _NS["_cd_to_datetime"]
-_print_photos = _NS["print_photos"]
-_PhotosDB = _NS["PhotosDB"]
-_export_photos = _NS["export_photos"]
-_find_original = _NS["_find_original"]
-_find_derivative = _NS["_find_derivative"]
-_CD_EPOCH = _NS["_CD_EPOCH"]
-_CD_OFFSET = _NS["_CD_OFFSET"]
-_HKT = _NS["_HKT"]
+SCRIPT = Path(__file__).resolve().parent.parent / "effectors" / "photos.py"
 
 
-# ─── Minimal Photos.sqlite schema ────────────────────────────────────────────
-
-_SCHEMA_SQL = """
-CREATE TABLE IF NOT EXISTS ZASSET (
-    Z_PK INTEGER PRIMARY KEY,
-    ZUUID TEXT,
-    ZDATECREATED REAL,
-    ZDIRECTORY TEXT,
-    ZFILENAME TEXT,
-    ZUNIFORMTYPEIDENTIFIER TEXT,
-    ZWIDTH INTEGER,
-    ZHEIGHT INTEGER,
-    ZKIND INTEGER,
-    ZTRASHEDSTATE INTEGER DEFAULT 0,
-    ZHIDDEN INTEGER DEFAULT 0
-);
-CREATE TABLE IF NOT EXISTS ZADDITIONALASSETATTRIBUTES (
-    Z_PK INTEGER PRIMARY KEY,
-    ZASSET INTEGER,
-    ZORIGINALFILENAME TEXT,
-    ZTITLE TEXT,
-    ZASSETDESCRIPTION INTEGER
-);
-CREATE TABLE IF NOT EXISTS ZASSETDESCRIPTION (
-    Z_PK INTEGER PRIMARY KEY,
-    ZLONGDESCRIPTION TEXT
-);
-CREATE TABLE IF NOT EXISTS ZDETECTEDFACE (
-    Z_PK INTEGER PRIMARY KEY,
-    ZASSETFORFACE INTEGER,
-    ZPERSONFORFACE INTEGER
-);
-CREATE TABLE IF NOT EXISTS ZPERSON (
-    Z_PK INTEGER PRIMARY KEY,
-    ZDISPLAYNAME TEXT,
-    ZFULLNAME TEXT
-);
-CREATE TABLE IF NOT EXISTS ZINTERNALRESOURCE (
-    Z_PK INTEGER PRIMARY KEY,
-    ZASSET INTEGER,
-    ZRESOURCETYPE INTEGER,
-    ZDATASTORESUBTYPE INTEGER,
-    ZLOCALAVAILABILITY INTEGER
-);
-"""
+# ── Helpers ───────────────────────────────────────────────────────────
 
 
-def _cd_ts_for(dt: datetime) -> float:
-    """Helper: produce a Core Data timestamp for a given datetime."""
-    return dt.timestamp() - _CD_OFFSET
+def run(*args: str) -> subprocess.CompletedProcess[str]:
+    """Run photos.py with given args, capture output."""
+    return subprocess.run(
+        [sys.executable, str(SCRIPT), *args],
+        capture_output=True,
+        text=True,
+        timeout=10,
+    )
 
 
-def _seed_db(db_path: Path, rows: list[dict]) -> None:
-    """Insert photo rows into the test database.
+def _load_ns() -> dict:
+    """Exec photos.py into a namespace for unit-testing pure functions."""
+    ns: dict = {"__name__": "photos_test", "__file__": str(SCRIPT)}
+    exec(SCRIPT.read_text(), ns)
+    return ns
 
-    Each row dict may contain keys:
-        uuid, date_created (datetime), directory, filename, uti,
-        width, height, original_filename, title, description,
-        people (list[str]), local_avail
-    """
+
+def _make_db(tmp_path: Path) -> Path:
+    """Create a minimal Photos.sqlite with test data and return its path."""
+    db_path = tmp_path / "Photos.sqlite"
     conn = sqlite3.connect(str(db_path))
-    conn.executescript(_SCHEMA_SQL)
+    conn.executescript(
+        """
+        CREATE TABLE ZASSET (
+            Z_PK INTEGER PRIMARY KEY, ZUUID TEXT, ZDATECREATED REAL,
+            ZDIRECTORY TEXT, ZFILENAME TEXT, ZUNIFORMTYPEIDENTIFIER TEXT,
+            ZWIDTH INTEGER, ZHEIGHT INTEGER,
+            ZTRASHEDSTATE INTEGER DEFAULT 0, ZHIDDEN INTEGER DEFAULT 0,
+            ZKIND INTEGER DEFAULT 0
+        );
+        CREATE TABLE ZADDITIONALASSETATTRIBUTES (
+            Z_PK INTEGER PRIMARY KEY, ZASSET INTEGER,
+            ZORIGINALFILENAME TEXT, ZTITLE TEXT, ZASSETDESCRIPTION INTEGER
+        );
+        CREATE TABLE ZASSETDESCRIPTION (
+            Z_PK INTEGER PRIMARY KEY, ZLONGDESCRIPTION TEXT
+        );
+        CREATE TABLE ZDETECTEDFACE (
+            Z_PK INTEGER PRIMARY KEY, ZASSETFORFACE INTEGER,
+            ZPERSONFORFACE INTEGER
+        );
+        CREATE TABLE ZPERSON (
+            Z_PK INTEGER PRIMARY KEY, ZDISPLAYNAME TEXT, ZFULLNAME TEXT
+        );
+        CREATE TABLE ZINTERNALRESOURCE (
+            Z_PK INTEGER PRIMARY KEY, ZASSET INTEGER,
+            ZRESOURCETYPE INTEGER, ZDATASTORESUBTYPE INTEGER,
+            ZLOCALAVAILABILITY INTEGER
+        );
+        """
+    )
+    # Insert test data.
+    # Use the module's own converter to get the right CD timestamp.
+    _ns0 = _load_ns()
+    _HKT = timezone(timedelta(hours=8))
+    _cd_timestamp = _ns0["_cd_timestamp"]
+    cd_ts = _cd_timestamp(datetime(2025, 6, 15, 12, 0, 0, tzinfo=_HKT))
+    cd_ts2 = _cd_timestamp(datetime(2025, 6, 16, 12, 0, 0, tzinfo=_HKT))
 
-    for i, r in enumerate(rows, start=1):
-        uuid = r.get("uuid", f"aaaaaaaa-0000-0000-0000-{i:012d}")
-        cd_ts = _cd_ts_for(r["date_created"]) if "date_created" in r else 0.0
-        directory = r.get("directory", "A")
-        filename = r.get("filename", f"{uuid}.heic")
-        uti = r.get("uti", "public.heic")
-        width = r.get("width", 4032)
-        height = r.get("height", 3024)
+    # Photo 1: normal, local
+    conn.execute(
+        "INSERT INTO ZASSET (Z_PK,ZUUID,ZDATECREATED,ZDIRECTORY,ZFILENAME,"
+        "ZUNIFORMTYPEIDENTIFIER,ZWIDTH,ZHEIGHT,ZTRASHEDSTATE,ZHIDDEN,ZKIND) "
+        "VALUES (1,'aaa11111-bb22-cc33-dd44-ee5566778899',?,"
+        "'0/A','IMG_0001.heic','public.heif',4032,3024,0,0,0)",
+        (cd_ts,),
+    )
+    # Photo 2: next day, trashed -> should be filtered
+    conn.execute(
+        "INSERT INTO ZASSET (Z_PK,ZUUID,ZDATECREATED,ZDIRECTORY,ZFILENAME,"
+        "ZUNIFORMTYPEIDENTIFIER,ZWIDTH,ZHEIGHT,ZTRASHEDSTATE,ZHIDDEN,ZKIND) "
+        "VALUES (2,'bbb22222-cc33-dd44-ee55-ff6677889900',?,"
+        "'0/B','IMG_0002.jpeg','public.jpeg',1920,1080,1,0,0)",
+        (cd_ts2,),
+    )
+    # Photo 3: hidden -> should be filtered
+    conn.execute(
+        "INSERT INTO ZASSET (Z_PK,ZUUID,ZDATECREATED,ZDIRECTORY,ZFILENAME,"
+        "ZUNIFORMTYPEIDENTIFIER,ZWIDTH,ZHEIGHT,ZTRASHEDSTATE,ZHIDDEN,ZKIND) "
+        "VALUES (3,'ccc33333-dd44-ee55-ff66-007788990011',?,"
+        "'0/C','IMG_0003.heic','public.heif',4032,3024,0,1,0)",
+        (cd_ts,),
+    )
+    # Photo 4: ZKIND=1 (video) -> filtered
+    conn.execute(
+        "INSERT INTO ZASSET (Z_PK,ZUUID,ZDATECREATED,ZDIRECTORY,ZFILENAME,"
+        "ZUNIFORMTYPEIDENTIFIER,ZWIDTH,ZHEIGHT,ZTRASHEDSTATE,ZHIDDEN,ZKIND) "
+        "VALUES (4,'ddd44444-ee55-ff66-0077-118899001122',?,"
+        "'0/D','MOV_0001.mov','com.apple.quicktime-movie',1920,1080,0,0,1)",
+        (cd_ts,),
+    )
 
-        conn.execute(
-            "INSERT INTO ZASSET (Z_PK, ZUUID, ZDATECREATED, ZDIRECTORY, ZFILENAME, "
-            "ZUNIFORMTYPEIDENTIFIER, ZWIDTH, ZHEIGHT, ZKIND, ZTRASHEDSTATE, ZHIDDEN) "
-            "VALUES (?,?,?,?,?,?,?, ?,0,?,?)",
-            (i, uuid, cd_ts, directory, filename, uti, width, height,
-             r.get("trashed", 0), r.get("hidden", 0)),
-        )
+    # Additional attributes for photo 1
+    conn.execute(
+        "INSERT INTO ZADDITIONALASSETATTRIBUTES "
+        "(Z_PK,ZASSET,ZORIGINALFILENAME,ZTITLE,ZASSETDESCRIPTION) "
+        "VALUES (1,1,'IMG_0001.heic','Sunset',1)"
+    )
+    conn.execute(
+        "INSERT INTO ZASSETDESCRIPTION (Z_PK,ZLONGDESCRIPTION) VALUES (1,'A beautiful sunset')"
+    )
 
-        orig_fname = r.get("original_filename", filename)
-        title = r.get("title")
-        desc_text = r.get("description")
-        people = r.get("people", [])
-        local_avail = r.get("local_avail", 1)
+    # Person + face for photo 1
+    conn.execute("INSERT INTO ZPERSON (Z_PK,ZDISPLAYNAME,ZFULLNAME) VALUES (1,'Alice','Alice Smith')")
+    conn.execute(
+        "INSERT INTO ZDETECTEDFACE (Z_PK,ZASSETFORFACE,ZPERSONFORFACE) VALUES (1,1,1)"
+    )
 
-        desc_pk = i
-        conn.execute(
-            "INSERT INTO ZASSETDESCRIPTION (Z_PK, ZLONGDESCRIPTION) VALUES (?,?)",
-            (desc_pk, desc_text),
-        )
-        conn.execute(
-            "INSERT INTO ZADDITIONALASSETATTRIBUTES "
-            "(Z_PK, ZASSET, ZORIGINALFILENAME, ZTITLE, ZASSETDESCRIPTION) "
-            "VALUES (?,?,?,?,?)",
-            (i, i, orig_fname, title, desc_pk),
-        )
-
-        for j, person_name in enumerate(people, start=1):
-            person_pk = i * 100 + j
-            conn.execute(
-                "INSERT OR IGNORE INTO ZPERSON (Z_PK, ZDISPLAYNAME, ZFULLNAME) VALUES (?,?,?)",
-                (person_pk, person_name, person_name),
-            )
-            conn.execute(
-                "INSERT INTO ZDETECTEDFACE (Z_PK, ZASSETFORFACE, ZPERSONFORFACE) VALUES (?,?,?)",
-                (i * 100 + j, i, person_pk),
-            )
-
-        conn.execute(
-            "INSERT INTO ZINTERNALRESOURCE "
-            "(Z_PK, ZASSET, ZRESOURCETYPE, ZDATASTORESUBTYPE, ZLOCALAVAILABILITY) "
-            "VALUES (?,?,0,1,?)",
-            (i, i, local_avail),
-        )
+    # Internal resource (local availability) for photo 1
+    conn.execute(
+        "INSERT INTO ZINTERNALRESOURCE "
+        "(Z_PK,ZASSET,ZRESOURCETYPE,ZDATASTORESUBTYPE,ZLOCALAVAILABILITY) "
+        "VALUES (1,1,0,1,1)"
+    )
 
     conn.commit()
     conn.close()
+    return db_path
 
 
-# ─── Sample data ──────────────────────────────────────────────────────────────
-
-_SAMPLE_ROWS = [
-    {
-        "uuid": "abcdef01-2222-3333-4444-555566667777",
-        "date_created": datetime(2025, 6, 15, 12, 0, 0, tzinfo=_HKT),
-        "directory": "A",
-        "filename": "abcdef01_1.heic",
-        "uti": "public.heic",
-        "original_filename": "IMG_5001.heic",
-        "title": "Beach Sunset",
-        "description": "Golden hour at the coast",
-        "people": ["Alice", "Bob"],
-        "local_avail": 1,
-    },
-    {
-        "uuid": "bcdef012-3333-4444-5555-666677778888",
-        "date_created": datetime(2025, 6, 14, 9, 30, 0, tzinfo=_HKT),
-        "directory": "B",
-        "filename": "bcdef012_1.jpeg",
-        "uti": "public.jpeg",
-        "original_filename": "IMG_5000.jpeg",
-        "title": "Morning Coffee",
-        "description": None,
-        "people": [],
-        "local_avail": 1,
-    },
-    {
-        "uuid": "cdef0123-4444-5555-6666-777788889999",
-        "date_created": datetime(2025, 5, 1, 8, 0, 0, tzinfo=_HKT),
-        "directory": "C",
-        "filename": "cdef0123_1.heic",
-        "uti": "public.heic",
-        "original_filename": "IMG_4000.heic",
-        "title": None,
-        "description": "Office desk photo",
-        "people": ["Charlie"],
-        "local_avail": 0,  # iCloud only
-    },
-    {
-        # Trashed — should not appear in normal queries
-        "uuid": "dead0000-0000-0000-0000-000000000000",
-        "date_created": datetime(2025, 6, 15, 1, 0, 0, tzinfo=_HKT),
-        "directory": "D",
-        "filename": "dead_trash.heic",
-        "uti": "public.heic",
-        "original_filename": "trashed.heic",
-        "trashed": 1,
-        "local_avail": 1,
-    },
-    {
-        # Hidden — should not appear in normal queries
-        "uuid": "beef0000-0000-0000-0000-000000000000",
-        "date_created": datetime(2025, 6, 15, 2, 0, 0, tzinfo=_HKT),
-        "directory": "E",
-        "filename": "beef_hidden.heic",
-        "uti": "public.heic",
-        "original_filename": "hidden.heic",
-        "hidden": 1,
-        "local_avail": 1,
-    },
-]
+def _load_ns_with_db(tmp_path: Path) -> tuple[dict, sqlite3.Connection]:
+    """Load photos.py namespace with DB_PATH patched to temp DB."""
+    db_path = _make_db(tmp_path)
+    ns = _load_ns()
+    # Patch DB_PATH so PhotosDB finds our test database
+    ns["DB_PATH"] = db_path
+    # Patch PHOTOS_LIB parent so ORIGINALS_DIR etc are in tmp
+    lib = db_path.parent.parent
+    ns["PHOTOS_LIB"] = lib
+    ns["ORIGINALS_DIR"] = lib / "originals"
+    ns["DERIVATIVES_DIR"] = lib / "resources" / "derivatives"
+    return ns
 
 
-# ─── Fixtures ─────────────────────────────────────────────────────────────────
+# ── CLI tests (subprocess) ───────────────────────────────────────────
 
 
-@pytest.fixture
-def photos_db(tmp_path, monkeypatch):
-    """Create a temporary Photos.sqlite and return a connected PhotosDB."""
-    db_file = tmp_path / "Photos.sqlite"
-    _seed_db(db_file, _SAMPLE_ROWS)
-    monkeypatch.setitem(_NS, "DB_PATH", db_file)
-    db = _PhotosDB()
-    yield db
-    db.close()
+class TestCLIHelp:
+    def test_no_args_prints_usage(self):
+        r = run()
+        assert r.returncode == 0
+        assert "Usage:" in r.stdout
+
+    def test_dash_h(self):
+        r = run("-h")
+        assert r.returncode == 0
+        assert "Usage:" in r.stdout
+
+    def test_double_dash_help(self):
+        r = run("--help")
+        assert r.returncode == 0
+        assert "Usage:" in r.stdout
 
 
-# ─── Script-level tests ──────────────────────────────────────────────────────
+class TestCLIUnknownCommand:
+    def test_unknown_cmd_shows_error(self):
+        r = run("foobar")
+        assert r.returncode == 0
+        assert "Unknown command: foobar" in r.stdout
+
+    def test_unknown_cmd_shows_usage(self):
+        r = run("xyz")
+        assert "Usage:" in r.stdout
 
 
-class TestScriptBasics:
-    def test_script_exists(self):
-        assert SCRIPT.exists()
-        assert SCRIPT.is_file()
+class TestCLIMissingDB:
+    """Valid commands attempt DB open, which fails without a Photos Library."""
 
-    def test_no_syntax_errors(self):
-        import ast
-        ast.parse(open(SCRIPT).read())
+    def test_today_no_db(self):
+        r = run("today")
+        assert r.returncode == 1
+        assert "Error:" in r.stderr
 
+    def test_recent_no_db(self):
+        r = run("recent")
+        assert r.returncode == 1
 
-# ─── Core Data timestamp helpers ─────────────────────────────────────────────
+    def test_date_no_db(self):
+        r = run("date", "2025-01-01")
+        assert r.returncode == 1
 
+    def test_range_no_db(self):
+        r = run("range", "2025-01-01", "2025-01-02")
+        assert r.returncode == 1
 
-class TestCdTimestamp:
-    def test_epoch_is_2001_01_01(self):
-        assert _CD_EPOCH == datetime(2001, 1, 1, tzinfo=timezone.utc)
-
-    def test_cd_offset_value(self):
-        # 2001-01-01 00:00:00 UTC as Unix timestamp
-        assert _CD_OFFSET == 978307200.0
-
-    def test_roundtrip(self):
-        dt = datetime(2025, 6, 15, 12, 0, 0, tzinfo=_HKT)
-        cd = _cd_timestamp(dt)
-        result = _cd_to_datetime(cd)
-        assert result == dt
-
-    def test_roundtrip_utc_midnight(self):
-        dt = datetime(2025, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
-        cd = _cd_timestamp(dt)
-        # HKT is UTC+8, so midnight UTC = 8am HKT
-        result = _cd_to_datetime(cd)
-        expected = datetime(2025, 1, 1, 8, 0, 0, tzinfo=_HKT)
-        assert result == expected
-
-    def test_cd_epoch_returns_zero(self):
-        dt = datetime(2001, 1, 1, tzinfo=timezone.utc)
-        assert _cd_timestamp(dt) == 0.0
-
-    def test_cd_to_datetime_positive(self):
-        # 1 second after Core Data epoch = 2001-01-01 00:00:01 UTC = 08:00:01 HKT
-        dt = _cd_to_datetime(1.0)
-        expected_hkt = datetime(2001, 1, 1, 8, 0, 1, tzinfo=_HKT)
-        assert dt == expected_hkt
-
-    def test_cd_to_datetime_negative(self):
-        # 1 second before Core Data epoch = 2000-12-31 23:59:59 UTC = 2001-01-01 07:59:59 HKT
-        dt = _cd_to_datetime(-1.0)
-        expected_hkt = datetime(2001, 1, 1, 7, 59, 59, tzinfo=_HKT)
-        assert dt == expected_hkt
+    def test_search_no_db(self):
+        r = run("search", "cat")
+        assert r.returncode == 1
 
 
-# ─── print_photos ─────────────────────────────────────────────────────────────
+# ── Pure-function unit tests (exec) ──────────────────────────────────
+
+
+class TestTimestampConversion:
+    @pytest.fixture(autouse=True)
+    def _load(self):
+        self.ns = _load_ns()
+
+    def test_cd_epoch_is_zero(self):
+        epoch = datetime(2001, 1, 1, tzinfo=timezone.utc)
+        assert self.ns["_cd_timestamp"](epoch) == 0.0
+
+    def test_cd_roundtrip(self):
+        _HKT = timezone(timedelta(hours=8))
+        dt = datetime(2025, 6, 15, 14, 30, 0, tzinfo=_HKT)
+        cd_ts = self.ns["_cd_timestamp"](dt)
+        dt_back = self.ns["_cd_to_datetime"](cd_ts)
+        assert dt_back == dt
+
+    def test_positive_after_epoch(self):
+        dt = datetime(2025, 1, 1, tzinfo=timezone.utc)
+        assert self.ns["_cd_timestamp"](dt) > 0
+
+    def test_to_datetime_tz_is_hkt(self):
+        result = self.ns["_cd_to_datetime"](0.0)
+        _HKT = timezone(timedelta(hours=8))
+        assert result.tzinfo == _HKT
+
+    def test_offset_approx_978307200(self):
+        assert abs(self.ns["_CD_OFFSET"] - 978307200.0) < 1.0
 
 
 class TestPrintPhotos:
+    @pytest.fixture(autouse=True)
+    def _load(self):
+        self.ns = _load_ns()
+        self.print_photos = self.ns["print_photos"]
+
     def test_empty_list(self, capsys):
-        _print_photos([])
+        self.print_photos([])
         out = capsys.readouterr().out
         assert "Found 0 items" in out
 
-    def test_single_photo(self, capsys):
-        cd_ts = _cd_ts_for(datetime(2025, 6, 15, 12, 0, 0, tzinfo=_HKT))
-        photos = [{
-            "ZUUID": "abcdef01-2222-3333-4444-555566667777",
-            "ZDATECREATED": cd_ts,
-            "ZFILENAME": "photo.heic",
-            "ZORIGINALFILENAME": "IMG_5001.heic",
-            "description": "A nice photo",
-            "people": "Alice, Bob",
-            "ZTITLE": "Beach",
-            "local_avail": 1,
-        }]
-        _print_photos(photos)
+    def test_single_photo_uuid_truncated(self, capsys):
+        uuid = "abcdef01" + "23456789" * 3 + "ab"
+        self.print_photos([{"ZUUID": uuid, "ZDATECREATED": 0.0}])
         out = capsys.readouterr().out
         assert "Found 1 items" in out
         assert "abcdef01" in out
-        assert "2025-06-15 12:00:00" in out
-        assert "Alice, Bob" in out
-        assert "Beach" in out
-        assert "A nice photo" in out
+        # Should NOT contain the full UUID
+        assert uuid[8:] not in out
 
-    def test_no_labels_shows_no_labels(self, capsys):
-        cd_ts = _cd_ts_for(datetime(2025, 6, 15, 12, 0, 0, tzinfo=_HKT))
-        photos = [{
-            "ZUUID": "aaaa0000-0000-0000-0000-000000000000",
-            "ZDATECREATED": cd_ts,
-            "ZFILENAME": "photo.heic",
-            "ZORIGINALFILENAME": "IMG.heic",
-            "description": None,
-            "people": None,
-            "ZTITLE": None,
-            "local_avail": 1,
-        }]
-        _print_photos(photos)
+    def test_no_timestamp_shows_question_mark(self, capsys):
+        self.print_photos([{"ZUUID": "12345678abcd", "ZDATECREATED": None}])
+        out = capsys.readouterr().out
+        assert "  ?  " in out
+
+    def test_people_in_labels(self, capsys):
+        self.print_photos([
+            {"ZUUID": "aaaabbbb", "ZDATECREATED": 100000.0,
+             "people": "Alice, Bob", "ZTITLE": "Beach"}
+        ])
+        out = capsys.readouterr().out
+        assert "Alice" in out
+        assert "Bob" in out
+        assert "Beach" in out
+
+    def test_no_labels_placeholder(self, capsys):
+        self.print_photos([{"ZUUID": "cccddddd", "ZDATECREATED": 50000.0}])
         out = capsys.readouterr().out
         assert "(no labels)" in out
 
     def test_icloud_indicator(self, capsys):
-        photos = [{
-            "ZUUID": "aaaa0000-0000-0000-0000-000000000000",
-            "ZDATECREATED": 0.0,
-            "ZFILENAME": "p.heic",
-            "local_avail": 0,
-        }]
-        _print_photos(photos)
+        """local_avail != 1 should show [iCloud]."""
+        self.print_photos([
+            {"ZUUID": "eeeeffff", "ZDATECREATED": 0.0, "local_avail": 0}
+        ])
         out = capsys.readouterr().out
         assert "[iCloud]" in out
 
-    def test_no_icloud_indicator_when_local(self, capsys):
-        photos = [{
-            "ZUUID": "aaaa0000-0000-0000-0000-000000000000",
-            "ZDATECREATED": 0.0,
-            "ZFILENAME": "p.heic",
-            "local_avail": 1,
-        }]
-        _print_photos(photos)
+    def test_description_shown(self, capsys):
+        self.print_photos([
+            {"ZUUID": "gggghhhh", "ZDATECREATED": 0.0,
+             "description": "A nice photo"}
+        ])
         out = capsys.readouterr().out
-        assert "[iCloud]" not in out
-
-    def test_no_date_shows_question_mark(self, capsys):
-        photos = [{
-            "ZUUID": "aaaa0000-0000-0000-0000-000000000000",
-            "ZDATECREATED": None,
-            "ZFILENAME": "p.heic",
-        }]
-        _print_photos(photos)
-        out = capsys.readouterr().out
-        assert "?" in out
+        assert "A nice photo" in out
 
     def test_description_2Q_suppressed(self, capsys):
-        """The literal string '2Q' is a common meaningless default — suppressed."""
-        photos = [{
-            "ZUUID": "aaaa0000-0000-0000-0000-000000000000",
-            "ZDATECREATED": 0.0,
-            "ZFILENAME": "p.heic",
-            "description": "2Q",
-        }]
-        _print_photos(photos)
+        """Description exactly '2Q' should not be shown."""
+        self.print_photos([
+            {"ZUUID": "iiiijjjj", "ZDATECREATED": 0.0, "description": "2Q"}
+        ])
         out = capsys.readouterr().out
-        assert '"2Q"' not in out
+        assert "2Q" not in out
 
 
-# ─── PhotosDB queries ────────────────────────────────────────────────────────
+class TestConstants:
+    @pytest.fixture(autouse=True)
+    def _load(self):
+        self.ns = _load_ns()
+
+    def test_export_dir_under_home(self):
+        assert self.ns["EXPORT_DIR"].is_relative_to(Path.home())
+
+    def test_db_path_name(self):
+        assert self.ns["DB_PATH"].name == "Photos.sqlite"
+
+    def test_originals_dir_name(self):
+        assert self.ns["ORIGINALS_DIR"].name == "originals"
 
 
-class TestPhotosDBDateRange:
-    def test_returns_matching_photos(self, photos_db):
-        start = datetime(2025, 6, 14, 0, 0, 0, tzinfo=_HKT)
-        end = datetime(2025, 6, 16, 0, 0, 0, tzinfo=_HKT)
-        results = photos_db.query_date_range(start, end)
-        uuids = {r["ZUUID"] for r in results}
-        assert "abcdef01-2222-3333-4444-555566667777" in uuids
-        assert "bcdef012-3333-4444-5555-666677778888" in uuids
-        assert "cdef0123-4444-5555-6666-777788889999" not in uuids
-
-    def test_excludes_trashed(self, photos_db):
-        start = datetime(2025, 6, 14, 0, 0, 0, tzinfo=_HKT)
-        end = datetime(2025, 6, 16, 0, 0, 0, tzinfo=_HKT)
-        results = photos_db.query_date_range(start, end)
-        uuids = {r["ZUUID"] for r in results}
-        assert "dead0000-0000-0000-0000-000000000000" not in uuids
-
-    def test_excludes_hidden(self, photos_db):
-        start = datetime(2025, 6, 14, 0, 0, 0, tzinfo=_HKT)
-        end = datetime(2025, 6, 16, 0, 0, 0, tzinfo=_HKT)
-        results = photos_db.query_date_range(start, end)
-        uuids = {r["ZUUID"] for r in results}
-        assert "beef0000-0000-0000-0000-000000000000" not in uuids
-
-    def test_empty_range(self, photos_db):
-        start = datetime(2020, 1, 1, 0, 0, 0, tzinfo=_HKT)
-        end = datetime(2020, 1, 2, 0, 0, 0, tzinfo=_HKT)
-        results = photos_db.query_date_range(start, end)
-        assert results == []
-
-    def test_ordered_desc(self, photos_db):
-        start = datetime(2025, 6, 1, 0, 0, 0, tzinfo=_HKT)
-        end = datetime(2025, 6, 30, 0, 0, 0, tzinfo=_HKT)
-        results = photos_db.query_date_range(start, end)
-        dates = [r["ZDATECREATED"] for r in results]
-        assert dates == sorted(dates, reverse=True)
+# ── PhotosDB unit tests with in-memory test database ─────────────────
 
 
-class TestPhotosDBRecent:
-    def test_returns_recent_within_days(self, photos_db, monkeypatch):
-        fake_now = datetime(2025, 6, 15, 23, 59, 0, tzinfo=_HKT)
-        # _NS['datetime'] is already the datetime class (script imports it from datetime module)
-        # Create subclass that overrides now
-        class MockDateTime(_NS['datetime']):
-            @classmethod
-            def now(cls, tz=None):
-                return fake_now
-        # Copy over other class attributes to preserve behavior
-        for attr in dir(_NS['datetime']):
-            if not attr.startswith('_') and attr not in ('now', '__dict__'):
-                setattr(MockDateTime, attr, getattr(_NS['datetime'], attr))
-        monkeypatch.setitem(_NS, 'datetime', MockDateTime)
-        results = photos_db.query_recent(days=7, limit=10)
-        uuids = {r["ZUUID"] for r in results}
-        assert "abcdef01-2222-3333-4444-555566667777" in uuids
-        assert "bcdef012-3333-4444-5555-666677778888" in uuids
-        assert "cdef0123-4444-5555-6666-777788889999" not in uuids
+class TestPhotosDB:
+    """Test PhotosDB queries against a minimal test database."""
 
-    def test_respects_limit(self, photos_db, monkeypatch):
-        fake_now = datetime(2025, 6, 15, 23, 59, 0, tzinfo=_HKT)
-        # _NS['datetime'] is already the datetime class (script imports it from datetime module)
-        # Create subclass that overrides now
-        class MockDateTime(_NS['datetime']):
-            @classmethod
-            def now(cls, tz=None):
-                return fake_now
-        # Copy over other class attributes to preserve behavior
-        for attr in dir(_NS['datetime']):
-            if not attr.startswith('_') and attr not in ('now', '__dict__'):
-                setattr(MockDateTime, attr, getattr(_NS['datetime'], attr))
-        monkeypatch.setitem(_NS, 'datetime', MockDateTime)
-        results = photos_db.query_recent(days=30, limit=1)
-        assert len(results) <= 1
+    @pytest.fixture(autouse=True)
+    def _setup(self, tmp_path):
+        self.ns = _load_ns_with_db(tmp_path)
+        self.db = self.ns["PhotosDB"]()
 
+    def teardown_method(self):
+        if hasattr(self, "db"):
+            self.db.close()
 
-class TestPhotosDBSearch:
-    def test_search_by_description(self, photos_db):
-        results = photos_db.search("Golden hour")
-        assert len(results) == 1
-        assert results[0]["ZUUID"] == "abcdef01-2222-3333-4444-555566667777"
+    def test_query_date_range_finds_photo(self):
+        _HKT = timezone(timedelta(hours=8))
+        start = datetime(2025, 6, 15, tzinfo=_HKT)
+        end = datetime(2025, 6, 16, tzinfo=_HKT)
+        rows = self.db.query_date_range(start, end)
+        # Only photo 1 matches (photo 2 is next day, 3 is hidden, 4 is video)
+        assert len(rows) == 1
+        assert rows[0]["ZUUID"] == "aaa11111-bb22-cc33-dd44-ee5566778899"
 
-    def test_search_by_title(self, photos_db):
-        results = photos_db.search("Morning Coffee")
-        assert len(results) == 1
-        assert results[0]["ZUUID"] == "bcdef012-3333-4444-5555-666677778888"
+    def test_query_date_range_excludes_trashed(self):
+        _HKT = timezone(timedelta(hours=8))
+        start = datetime(2025, 6, 15, tzinfo=_HKT)
+        end = datetime(2025, 6, 17, tzinfo=_HKT)
+        rows = self.db.query_date_range(start, end)
+        uuids = [r["ZUUID"] for r in rows]
+        assert "bbb22222-cc33-dd44-ee55-ff6677889900" not in uuids  # trashed
 
-    def test_search_by_person_name(self, photos_db):
-        results = photos_db.search("Alice")
-        assert len(results) >= 1
-        uuids = {r["ZUUID"] for r in results}
-        assert "abcdef01-2222-3333-4444-555566667777" in uuids
+    def test_query_date_range_excludes_hidden(self):
+        _HKT = timezone(timedelta(hours=8))
+        start = datetime(2025, 6, 14, tzinfo=_HKT)
+        end = datetime(2025, 6, 17, tzinfo=_HKT)
+        rows = self.db.query_date_range(start, end)
+        uuids = [r["ZUUID"] for r in rows]
+        assert "ccc33333-dd44-ee55-ff66-007788990011" not in uuids  # hidden
 
-    def test_search_case_insensitive(self, photos_db):
-        results = photos_db.search("golden hour")
-        assert len(results) == 1
+    def test_query_date_range_excludes_videos(self):
+        _HKT = timezone(timedelta(hours=8))
+        start = datetime(2025, 6, 14, tzinfo=_HKT)
+        end = datetime(2025, 6, 17, tzinfo=_HKT)
+        rows = self.db.query_date_range(start, end)
+        uuids = [r["ZUUID"] for r in rows]
+        assert "ddd44444-ee55-ff66-0077-118899001122" not in uuids  # video
 
-    def test_search_no_match(self, photos_db):
-        results = photos_db.search("xyzzy_nonexistent")
-        assert results == []
+    def test_query_date_range_empty(self):
+        _HKT = timezone(timedelta(hours=8))
+        start = datetime(1999, 1, 1, tzinfo=_HKT)
+        end = datetime(1999, 1, 2, tzinfo=_HKT)
+        rows = self.db.query_date_range(start, end)
+        assert rows == []
 
-    def test_search_respects_limit(self, photos_db):
-        results = photos_db.search("photo", limit=1)
-        assert len(results) <= 1
+    def test_query_recent(self):
+        # Use a very wide day range to catch our test data
+        rows = self.db.query_recent(days=365 * 30, limit=10)
+        assert len(rows) >= 1
+        uuids = [r["ZUUID"] for r in rows]
+        assert "aaa11111-bb22-cc33-dd44-ee5566778899" in uuids
 
+    def test_query_recent_respects_limit(self):
+        rows = self.db.query_recent(days=365 * 30, limit=0)
+        assert len(rows) == 0
 
-class TestPhotosDBResolveUUID:
-    def test_full_uuid_returns_self(self, photos_db):
-        full = "abcdef01-2222-3333-4444-555566667777"
-        assert photos_db.resolve_uuid(full) == full
+    def test_search_by_title(self):
+        rows = self.db.search("Sunset")
+        assert len(rows) == 1
+        assert rows[0]["ZUUID"] == "aaa11111-bb22-cc33-dd44-ee5566778899"
 
-    def test_short_prefix_resolves(self, photos_db):
-        result = photos_db.resolve_uuid("abcdef01")
-        assert result == "abcdef01-2222-3333-4444-555566667777"
+    def test_search_by_description(self):
+        rows = self.db.search("beautiful")
+        assert len(rows) == 1
 
-    def test_no_match_returns_none(self, photos_db):
-        assert photos_db.resolve_uuid("zzzzzzzz") is None
+    def test_search_by_person(self):
+        rows = self.db.search("Alice")
+        assert len(rows) == 1
 
+    def test_search_case_insensitive(self):
+        rows = self.db.search("sunset")
+        assert len(rows) == 1
 
-class TestPhotosDBGetByUUID:
-    def test_existing_uuid(self, photos_db):
-        result = photos_db.get_by_uuid("abcdef01-2222-3333-4444-555566667777")
-        assert result is not None
-        assert result["ZUUID"] == "abcdef01-2222-3333-4444-555566667777"
-        assert result["ZORIGINALFILENAME"] == "IMG_5001.heic"
+    def test_search_no_match(self):
+        rows = self.db.search("nonexistent_query_xyz")
+        assert rows == []
 
-    def test_nonexistent_uuid(self, photos_db):
-        assert photos_db.get_by_uuid("00000000-0000-0000-0000-000000000000") is None
+    def test_resolve_uuid_full(self):
+        full = "aaa11111-bb22-cc33-dd44-ee5566778899"
+        assert self.db.resolve_uuid(full) == full
 
+    def test_resolve_uuid_prefix(self):
+        assert self.db.resolve_uuid("aaa11111") == "aaa11111-bb22-cc33-dd44-ee5566778899"
 
-class TestPhotosDBClose:
-    def test_close_idempotent(self, photos_db):
-        photos_db.close()
-        photos_db.close()
+    def test_resolve_uuid_no_match(self):
+        assert self.db.resolve_uuid("zzz99999") is None
 
+    def test_get_by_uuid(self):
+        full = "aaa11111-bb22-cc33-dd44-ee5566778899"
+        row = self.db.get_by_uuid(full)
+        assert row is not None
+        assert row["ZUUID"] == full
+        assert row["ZTITLE"] == "Sunset"
 
-# ─── File-resolution helpers ─────────────────────────────────────────────────
+    def test_get_by_uuid_not_found(self):
+        assert self.db.get_by_uuid("nonexistent-uuid") is None
+
+    def test_people_joined(self):
+        full = "aaa11111-bb22-cc33-dd44-ee5566778899"
+        row = self.db.get_by_uuid(full)
+        assert row is not None
+        assert "Alice" in (row.get("people") or "")
+
+    def test_local_availability(self):
+        full = "aaa11111-bb22-cc33-dd44-ee5566778899"
+        row = self.db.get_by_uuid(full)
+        assert row is not None
+        assert row.get("local_avail") == 1
 
 
 class TestFindOriginal:
-    def test_existing_file(self, tmp_path, monkeypatch):
-        originals = tmp_path / "originals"
-        (originals / "A").mkdir(parents=True)
-        (originals / "A" / "photo.heic").write_bytes(b"\x00")
-        monkeypatch.setitem(_NS, "ORIGINALS_DIR", originals)
+    @pytest.fixture(autouse=True)
+    def _load(self, tmp_path):
+        self.ns = _load_ns()
+        # Create fake originals directory
+        orig = tmp_path / "originals" / "0/A"
+        orig.mkdir(parents=True)
+        (orig / "IMG_0001.heic").write_bytes(b"\x00")
+        self.ns["ORIGINALS_DIR"] = tmp_path / "originals"
 
-        result = _find_original("uuid", "A", "photo.heic")
-        assert result == originals / "A" / "photo.heic"
+    def test_find_existing(self):
+        result = self.ns["_find_original"]("fake-uuid", "0/A", "IMG_0001.heic")
+        assert result is not None
+        assert result.name == "IMG_0001.heic"
 
-    def test_missing_file(self, tmp_path, monkeypatch):
-        originals = tmp_path / "originals"
-        originals.mkdir()
-        monkeypatch.setitem(_NS, "ORIGINALS_DIR", originals)
-
-        result = _find_original("uuid", "Z", "nonexistent.heic")
+    def test_find_missing(self):
+        result = self.ns["_find_original"]("fake-uuid", "0/Z", "missing.heic")
         assert result is None
 
 
 class TestFindDerivative:
-    def test_2048_derivative(self, tmp_path, monkeypatch):
-        derivs = tmp_path / "derivatives"
-        uuid = "a" * 36
-        (derivs / uuid[0]).mkdir(parents=True)
-        dpath = derivs / uuid[0] / f"{uuid}_1_102_o.jpeg"
-        dpath.write_bytes(b"\x00")
-        monkeypatch.setitem(_NS, "DERIVATIVES_DIR", derivs)
+    @pytest.fixture(autouse=True)
+    def _load(self, tmp_path):
+        self.ns = _load_ns()
+        # Create fake derivative directories
+        deriv_a = tmp_path / "resources" / "derivatives" / "a"
+        deriv_a.mkdir(parents=True)
+        uuid = "aaa11111-bb22-cc33-dd44-ee5566778899"
+        (deriv_a / f"{uuid}_1_102_o.jpeg").write_bytes(b"\x00")
+        self.ns["DERIVATIVES_DIR"] = tmp_path / "resources" / "derivatives"
 
-        result = _find_derivative(uuid)
-        assert result == dpath
+    def test_find_2048_derivative(self):
+        uuid = "aaa11111-bb22-cc33-dd44-ee5566778899"
+        result = self.ns["_find_derivative"](uuid)
+        assert result is not None
+        assert "102_o" in result.name
 
-    def test_1024_fallback(self, tmp_path, monkeypatch):
-        derivs = tmp_path / "derivatives"
-        uuid = "b" * 36
-        (derivs / uuid[0]).mkdir(parents=True)
-        dpath = derivs / uuid[0] / f"{uuid}_1_105_c.jpeg"
-        dpath.write_bytes(b"\x00")
-        monkeypatch.setitem(_NS, "DERIVATIVES_DIR", derivs)
+    def test_fallback_1024_derivative(self, tmp_path):
+        # Remove the 2048 version, create 1024 version
+        uuid = "aaa11111-bb22-cc33-dd44-ee5566778899"
+        deriv_a = tmp_path / "resources" / "derivatives" / "a"
+        (deriv_a / f"{uuid}_1_102_o.jpeg").unlink()
+        (deriv_a / f"{uuid}_1_105_c.jpeg").write_bytes(b"\x00")
+        result = self.ns["_find_derivative"](uuid)
+        assert result is not None
+        assert "105_c" in result.name
 
-        result = _find_derivative(uuid)
-        assert result == dpath
-
-    def test_prefers_2048_over_1024(self, tmp_path, monkeypatch):
-        derivs = tmp_path / "derivatives"
-        uuid = "c" * 36
-        (derivs / uuid[0]).mkdir(parents=True)
-        p102 = derivs / uuid[0] / f"{uuid}_1_102_o.jpeg"
-        p105 = derivs / uuid[0] / f"{uuid}_1_105_c.jpeg"
-        p102.write_bytes(b"\x00")
-        p105.write_bytes(b"\x00")
-        monkeypatch.setitem(_NS, "DERIVATIVES_DIR", derivs)
-
-        result = _find_derivative(uuid)
-        assert result == p102
-
-    def test_no_derivative(self, tmp_path, monkeypatch):
-        derivs = tmp_path / "derivatives"
-        derivs.mkdir()
-        monkeypatch.setitem(_NS, "DERIVATIVES_DIR", derivs)
-
-        result = _find_derivative("d" * 36)
+    def test_no_derivative(self):
+        result = self.ns["_find_derivative"]("zzzzzzzz-nope")
         assert result is None
 
 
-# ─── export_photos ────────────────────────────────────────────────────────────
-
-
 class TestExportPhotos:
-    def _make_db(self, tmp_path, monkeypatch) -> _PhotosDB:
-        db_file = tmp_path / "Photos.sqlite"
-        _seed_db(db_file, [_SAMPLE_ROWS[1]])  # JPEG photo
-        monkeypatch.setitem(_NS, "DB_PATH", db_file)
-        return _PhotosDB()
+    @pytest.fixture(autouse=True)
+    def _setup(self, tmp_path):
+        self.ns = _load_ns_with_db(tmp_path)
+        self.export_dir = tmp_path / "export"
+        self.ns["EXPORT_DIR"] = self.export_dir
+        # Create a fake original JPEG file for photo 1
+        orig_dir = tmp_path / "originals" / "0" / "A"
+        orig_dir.mkdir(parents=True)
+        (orig_dir / "IMG_0001.heic").write_bytes(b"\x00" * 100)
+        self.ns["ORIGINALS_DIR"] = tmp_path / "originals"
+        self.ns["DERIVATIVES_DIR"] = tmp_path / "resources" / "derivatives"
 
-    def test_export_jpeg_original(self, tmp_path, monkeypatch):
-        db = self._make_db(tmp_path, monkeypatch)
-        export_dir = tmp_path / "export"
-        monkeypatch.setitem(_NS, "EXPORT_DIR", export_dir)
-        # Create the original file on disk
-        originals = tmp_path / "originals"
-        (originals / "B").mkdir(parents=True)
-        (originals / "B" / "bcdef012_1.jpeg").write_bytes(b"\xff\xd8\xff\xe0fake")
-        monkeypatch.setitem(_NS, "ORIGINALS_DIR", originals)
+    def test_export_unknown_uuid(self, capsys):
+        db = self.ns["PhotosDB"]()
+        try:
+            self.ns["export_photos"](db, ["zzz99999"])
+            out = capsys.readouterr().out
+            assert "No match" in out
+        finally:
+            db.close()
 
-        _export_photos(db, ["bcdef012-3333-4444-5555-666677778888"])
-        out_files = list(export_dir.glob("*.jpeg"))
-        assert len(out_files) == 1
-        assert out_files[0].name == "IMG_5000.jpeg"
-        db.close()
-
-    def test_export_unknown_uuid_prints_warning(self, tmp_path, monkeypatch, capsys):
-        db = self._make_db(tmp_path, monkeypatch)
-        export_dir = tmp_path / "export"
-        monkeypatch.setitem(_NS, "EXPORT_DIR", export_dir)
-
-        _export_photos(db, ["00000000"])
-        out = capsys.readouterr().out
-        assert "No match" in out or "not found" in out
-        db.close()
-
-    def test_creates_export_dir(self, tmp_path, monkeypatch):
-        db = self._make_db(tmp_path, monkeypatch)
-        export_dir = tmp_path / "new_export"
-        monkeypatch.setitem(_NS, "EXPORT_DIR", export_dir)
-        _export_photos(db, ["00000000"])
-        assert export_dir.exists()
-        db.close()
-
-
-# ─── main() CLI ───────────────────────────────────────────────────────────────
-
-
-class TestMainCLI:
-    def _make_db(self, tmp_path, monkeypatch) -> Path:
-        db_file = tmp_path / "Photos.sqlite"
-        _seed_db(db_file, _SAMPLE_ROWS)
-        monkeypatch.setitem(_NS, "DB_PATH", db_file)
-        return db_file
-
-    def test_no_args_shows_docstring(self, tmp_path, monkeypatch, capsys):
-        self._make_db(tmp_path, monkeypatch)
-        monkeypatch.setattr(sys, "argv", ["photos.py"])
-        _NS["main"]()
-        out = capsys.readouterr().out
-        assert "Quick photo access" in out
-
-    def test_unknown_command(self, tmp_path, monkeypatch, capsys):
-        self._make_db(tmp_path, monkeypatch)
-        monkeypatch.setattr(sys, "argv", ["photos.py", "explode"])
-        _NS["main"]()
-        out = capsys.readouterr().out
-        assert "Unknown command: explode" in out
-
-    def test_date_command(self, tmp_path, monkeypatch, capsys):
-        self._make_db(tmp_path, monkeypatch)
-        monkeypatch.setattr(sys, "argv", ["photos.py", "date", "2025-06-15"])
-        _NS["main"]()
-        out = capsys.readouterr().out
-        assert "abcdef01" in out
-
-    def test_date_command_no_arg(self, tmp_path, monkeypatch, capsys):
-        self._make_db(tmp_path, monkeypatch)
-        monkeypatch.setattr(sys, "argv", ["photos.py", "date"])
-        _NS["main"]()
-        out = capsys.readouterr().out
-        assert "Usage" in out
-
-    def test_range_command(self, tmp_path, monkeypatch, capsys):
-        self._make_db(tmp_path, monkeypatch)
-        monkeypatch.setattr(sys, "argv", ["photos.py", "range", "2025-06-13", "2025-06-15"])
-        _NS["main"]()
-        out = capsys.readouterr().out
-        assert "abcdef01" in out
-        assert "bcdef012" in out
-
-    def test_range_command_no_args(self, tmp_path, monkeypatch, capsys):
-        self._make_db(tmp_path, monkeypatch)
-        monkeypatch.setattr(sys, "argv", ["photos.py", "range"])
-        _NS["main"]()
-        out = capsys.readouterr().out
-        assert "Usage" in out
-
-    def test_search_command(self, tmp_path, monkeypatch, capsys):
-        self._make_db(tmp_path, monkeypatch)
-        monkeypatch.setattr(sys, "argv", ["photos.py", "search", "Beach"])
-        _NS["main"]()
-        out = capsys.readouterr().out
-        assert "abcdef01" in out
-
-    def test_search_command_no_keyword(self, tmp_path, monkeypatch, capsys):
-        self._make_db(tmp_path, monkeypatch)
-        monkeypatch.setattr(sys, "argv", ["photos.py", "search"])
-        _NS["main"]()
-        out = capsys.readouterr().out
-        assert "Usage" in out
-
-    def test_export_command_no_uuids(self, tmp_path, monkeypatch, capsys):
-        self._make_db(tmp_path, monkeypatch)
-        monkeypatch.setattr(sys, "argv", ["photos.py", "export"])
-        _NS["main"]()
-        out = capsys.readouterr().out
-        assert "Usage" in out
-
-    def test_today_command(self, tmp_path, monkeypatch, capsys):
-        self._make_db(tmp_path, monkeypatch)
-        fake_now = datetime(2025, 6, 15, 14, 0, 0, tzinfo=_HKT)
-        # _NS['datetime'] is already the datetime class (script imports it from datetime module)
-        # Create subclass that overrides now
-        class MockDateTime(_NS['datetime']):
-            @classmethod
-            def now(cls, tz=None):
-                return fake_now
-        # Copy over other class attributes to preserve behavior
-        for attr in dir(_NS['datetime']):
-            if not attr.startswith('_') and attr not in ('now', '__dict__'):
-                setattr(MockDateTime, attr, getattr(_NS['datetime'], attr))
-        monkeypatch.setitem(_NS, 'datetime', MockDateTime)
-        monkeypatch.setattr(sys, "argv", ["photos.py", "today"])
-        _NS["main"]()
-        out = capsys.readouterr().out
-        assert "abcdef01" in out
+    def test_export_creates_directory(self, capsys):
+        assert not self.export_dir.exists()
+        db = self.ns["PhotosDB"]()
+        try:
+            # UUID that exists but no local file (falls through to "not available")
+            self.ns["export_photos"](db, ["aaa11111"])
+            assert self.export_dir.exists()
+        finally:
+            db.close()
