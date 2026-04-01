@@ -391,7 +391,7 @@ def sense_disk_pressure() -> bool:
     record_event("disk_pressure", free_gb=round(free_gb, 1), action="lysosome")
 
     try:
-        from metabolon.enzymes.interoception import lysosome_digest  # type: ignore[import-untyped]
+        from metabolon.enzymes.interoception import lysosome_digest  # type: ignore
 
         result = lysosome_digest()
         log(f"Lysosome: freed {result.freed_gb}GB ({result.before_gb}→{result.after_gb}GB)")
@@ -714,7 +714,7 @@ def post_efferens_summary(total_systoles: int, stop_reason: str):
     try:
         import acta
 
-        acta.post(  # type: ignore[attr-defined]
+        acta.post(  # type: ignore
             f"Pulse completed {total_systoles} systole(s). Stop reason: {stop_reason}. "
             f"Check ~/epigenome/chromatin/Pulse Reports/ for details.",
             sender="pulse",

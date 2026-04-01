@@ -182,7 +182,7 @@ def internalize_stealth_url(url: str, profile_dir: Path) -> str | None:
     try:
         import asyncio
 
-        import nodriver as uc  # type: ignore[import-untyped]
+        import nodriver as uc  # type: ignore
 
         async def _fetch() -> str:
             browser = await uc.start(
@@ -217,7 +217,7 @@ def internalize_stealth_html(url: str, profile_dir: Path) -> str | None:
     try:
         import asyncio
 
-        import nodriver as uc  # type: ignore[import-untyped]
+        import nodriver as uc  # type: ignore
 
         async def _fetch() -> str:
             browser = await uc.start(
@@ -503,12 +503,12 @@ def internalize_web(
                     if not link:
                         a = tag.find("a")
                         link = str(a.get("href", "")) if a else ""
-                    if link and not str(link).startswith("http"):
+                    if link and not str(link).startswith("http"):  # type: ignore[arg-type]
                         link = urljoin(url, str(link))
                     # Rewrite javascript: or other non-HTTP links via template
-                    if link_template and (not link or str(link).startswith("javascript:")):
+                    if link_template and (not link or str(link).startswith("javascript:")):  # type: ignore[arg-type]
                         # Extract argument from javascript:fn('arg') pattern
-                        m = re.search(r"'([^']+)'", str(link)) if link else None
+                        m = re.search(r"'([^']+)'", str(link)) if link else None  # type: ignore[arg-type]
                         arg = m.group(1) if m else ""
                         link = link_template.replace("{id}", arg) if arg else ""
                     articles.append({"title": title, "date": "", "summary": "", "link": str(link)})
@@ -520,8 +520,8 @@ def internalize_web(
             title = tag.get_text().strip()
             if title and len(title) > 10:
                 link = str(tag.get("href", ""))
-                if link and not link.startswith("http"):
-                    link = urljoin(url, link)
+                if link and not link.startswith("http"):  # type: ignore[arg-type]
+                    link = urljoin(url, link)  # type: ignore[arg-type]
                 articles.append({"title": title, "date": "", "summary": "", "link": str(link)})
 
         if not articles:
