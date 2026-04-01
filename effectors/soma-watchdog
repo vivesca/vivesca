@@ -72,7 +72,7 @@ def clean_temps():
 
     # Python cache in germline
     subprocess.run(
-        "find /home/terry/germline -name __pycache__ -type d -exec rm -rf {} + 2>/dev/null",
+        f"find {GERMLINE} -name __pycache__ -type d -exec rm -rf {{}} + 2>/dev/null",
         shell=True, timeout=30
     )
 
