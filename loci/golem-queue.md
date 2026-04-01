@@ -32,7 +32,7 @@ All providers 89-97% capable — spread tasks across all 5 for quota pacing.
 - [ ] `golem [t-47b27f] --provider volcano --max-turns 30 "Write tests for effectors/start-chrome-debug.sh. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
 - [ ] `golem [t-435845] --provider infini --max-turns 30 "Write tests for effectors/agent-sync.sh. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
 - [ ] `golem [t-df9840] --provider zhipu --max-turns 30 "Write tests for effectors/pharos-health.sh. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
-- [ ] `golem [t-aa755e] --provider codex --max-turns 30 "Write tests for effectors/qmd-reindex.sh. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
+- [x] `golem [t-aa755e] --provider codex --max-turns 30 "Write tests for effectors/qmd-reindex.sh. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
 - [ ] `golem [t-9a3712] --provider gemini --max-turns 30 "Write tests for effectors/cibus.py. Read the script first. Test via subprocess.run — NEVER import. Write to assays/test_cibus.py. Run uv run pytest on the new file. Fix failures. Commit."`
 
 ### Consulting IP — Capco readiness

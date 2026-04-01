@@ -242,6 +242,106 @@ class TestTgNotify:
 # ── script permissions ──────────────────────────────────────────────────
 
 
+class TestMemoryFormat:
+    """Validate memory output format matches N/NMB."""
+
+    def test_mem_format(self, tmp_path):
+        r = _run(tmp_path, df_pcent=50, failed_units=0)
+        import re
+
+        match = re.search(r"mem=\d+/\d+MB", r.stdout)
+        assert match is not None, f"mem format not found in: {r.stdout!r}"
+
+
+class TestSystemctlFailure:
+    """When systemctl fails entirely, script falls back to FAILED=0."""
+
+    def test_systemctl_error_still_healthy(self, tmp_path):
+        """systemctl exits non-zero → FAILED=0 fallback → still healthy."""
+        mock_bin = _mock_bin(tmp_path, df_pcent=50, failed_units=0)
+        # Override systemctl to exit with error
+        bad_ctl = mock_bin / "systemctl"
+        bad_ctl.write_text("#!/bin/bash\nexit 1\n")
+        bad_ctl.chmod(0o755)
+        env = os.environ.copy()
+        env["HOME"] = str(tmp_path)
+        env["PATH"] = f"{mock_bin}:{env['PATH']}"
+        r = subprocess.run(
+            ["bash", str(SCRIPT)],
+            capture_output=True,
+            text=True,
+            env=env,
+            timeout=10,
+        )
+        assert r.returncode == 0
+        assert "failed_units=0" in r.stdout
+
+
+class TestAlertMessageDetail:
+    """Alert messages contain all three fields."""
+
+    def test_disk_alert_contains_all_fields(self, tmp_path):
+        r = _run(tmp_path, df_pcent=90, failed_units=0)
+        assert r.returncode == 1
+        output = r.stderr
+        assert "disk=90%" in output
+        assert "mem=" in output
+        assert "failed_units=0" in output
+
+    def test_failed_units_alert_contains_all_fields(self, tmp_path):
+        r = _run(tmp_path, df_pcent=50, failed_units=3)
+        assert r.returncode == 1
+        output = r.stderr
+        assert "disk=50%" in output
+        assert "mem=" in output
+        assert "failed_units=3" in output
+
+
+class TestDiskBoundary:
+    """Edge-case disk percentages."""
+
+    def test_disk_99_alert(self, tmp_path):
+        r = _run(tmp_path, df_pcent=99, failed_units=0)
+        assert r.returncode == 1
+        assert "disk=99%" in r.stderr
+
+    def test_disk_100_alert(self, tmp_path):
+        r = _run(tmp_path, df_pcent=100, failed_units=0)
+        assert r.returncode == 1
+        assert "disk=100%" in r.stderr
+
+    def test_disk_0_ok(self, tmp_path):
+        r = _run(tmp_path, df_pcent=0, failed_units=0)
+        assert r.returncode == 0
+        assert "disk=0%" in r.stdout
+
+
+class TestTgNotifyNotExecutable:
+    """tg-notify.sh exists but is not executable → stderr fallback."""
+
+    def test_tg_notify_not_executable_falls_back_to_stderr(self, tmp_path):
+        mock_bin = _mock_bin(tmp_path, df_pcent=90, failed_units=0)
+        fake_home = tmp_path / "home"
+        fake_home.mkdir()
+        scripts_dir = fake_home / "scripts"
+        scripts_dir.mkdir()
+        notify = scripts_dir / "tg-notify.sh"
+        notify.write_text("#!/bin/bash\necho should not run\n")
+        notify.chmod(0o644)  # not executable
+        env = os.environ.copy()
+        env["HOME"] = str(fake_home)
+        env["PATH"] = f"{mock_bin}:{env['PATH']}"
+        r = subprocess.run(
+            ["bash", str(SCRIPT)],
+            capture_output=True,
+            text=True,
+            env=env,
+            timeout=10,
+        )
+        assert r.returncode == 1
+        assert "ALERT:" in r.stderr
+
+
 class TestScriptPermissions:
     def test_script_is_executable(self):
         assert os.access(SCRIPT, os.X_OK)

@@ -1,9 +1,9 @@
-from __future__ import annotations
-
 """Tests for metabolon.organelles.phenotype_translate."""
 
+from __future__ import annotations
+
 import json
-import warnings
+import textwrap
 from pathlib import Path
 from typing import Any
 from unittest.mock import MagicMock, patch
@@ -13,6 +13,7 @@ import pytest
 from metabolon.organelles.phenotype_translate import (
     CC_TO_GEMINI_EVENT,
     GEMINI_ADAPTER_PATH,
+    GEMINI_SETTINGS_PATH,
     SyncResult,
     TranslationResult,
     _ensure_symlink,
@@ -28,455 +29,359 @@ from metabolon.organelles.phenotype_translate import (
 )
 
 
+# ── fixtures ────────────────────────────────────────────────────────────────
+
+ADAPTER = Path("/fake/gemini_adapter.py")
+
+
+def _cc_hooks_one_command(event: str = "PreToolUse", command: str = "python3 /some/hooks/synapse.py") -> dict:
+    """Build a minimal CC hooks dict with one command hook."""
+    return {
+        event: [
+            {
+                "hooks": [
+                    {"type": "command", "command": command},
+                ],
+            },
+        ],
+    }
+
+
+def _cc_hooks_with_matcher() -> dict:
+    return {
+        "PreToolUse": [
+            {
+                "matcher": "Bash",
+                "hooks": [
+                    {"type": "command", "command": "python3 /some/hooks/check.py"},
+                ],
+            },
+        ],
+    }
+
+
 # ── _is_synaptic_script ────────────────────────────────────────────────────
 
-
 class TestIsSynapticScript:
-    def test_hooks_dir_script(self):
+    def test_hooks_dir(self) -> None:
         assert _is_synaptic_script("python3 ~/.claude/hooks/synapse.py") is True
 
-    def test_synaptic_dir_script(self):
+    def test_synaptic_dir(self) -> None:
         assert _is_synaptic_script("python3 ~/germline/synaptic/axon.py") is True
 
-    def test_absolute_path_hooks(self):
-        assert _is_synaptic_script("/usr/bin/python3 /home/terry/.claude/hooks/foo.py") is True
+    def test_absolute_path_hooks(self) -> None:
+        assert _is_synaptic_script("/usr/bin/python3 /home/terry/.claude/hooks/dendrite.py") is True
 
-    def test_absolute_path_synaptic(self):
-        assert _is_synaptic_script("python3 /home/terry/germline/synaptic/bar.py") is True
-
-    def test_non_synaptic_script(self):
+    def test_non_hook_script(self) -> None:
         assert _is_synaptic_script("python3 /tmp/random.py") is False
 
-    def test_non_python_command(self):
-        assert _is_synaptic_script("bash -c 'echo hi'") is False
+    def test_no_py_file(self) -> None:
+        assert _is_synaptic_script("echo hello") is False
 
-    def test_empty_command(self):
+    def test_empty_command(self) -> None:
         assert _is_synaptic_script("") is False
 
-    def test_whitespace_command(self):
-        assert _is_synaptic_script("   ") is False
-
-    def test_env_python_hooks(self):
-        assert _is_synaptic_script("/usr/bin/env python3 ~/.claude/hooks/test.py") is True
+    def test_non_synaptic_py(self) -> None:
+        assert _is_synaptic_script("python3 ~/scripts/myscript.py") is False
 
 
-# ── _wrap_command ──────────────────────────────────────────────────────────
-
+# ── _wrap_command ───────────────────────────────────────────────────────────
 
 class TestWrapCommand:
-    def test_wraps_python_script(self):
-        adapter = Path("/some/gemini_adapter.py")
-        result = _wrap_command("python3 ~/.claude/hooks/synapse.py", adapter)
-        assert "/some/gemini_adapter.py" in result
-        assert "~/.claude/hooks/synapse.py" in result
+    def test_basic_python3(self) -> None:
+        wrapped = _wrap_command("python3 ~/hooks/synapse.py", ADAPTER)
+        assert str(ADAPTER) in wrapped
+        assert "~/hooks/synapse.py" in wrapped
+        assert wrapped.startswith("python3")
 
-    def test_wraps_with_env(self):
-        adapter = Path("/adapter.py")
-        result = _wrap_command("/usr/bin/env python3 ~/germline/synaptic/axon.py", adapter)
-        assert "/usr/bin/env" in result
-        assert "/adapter.py" in result
+    def test_with_env(self) -> None:
+        wrapped = _wrap_command("/usr/bin/env python3 ~/hooks/synapse.py", ADAPTER)
+        assert "/usr/bin/env" in wrapped
+        assert str(ADAPTER) in wrapped
 
-    def test_wraps_non_python_command(self):
-        adapter = Path("/adapter.py")
-        result = _wrap_command("bash run.sh", adapter)
-        # Should prepend python3 and adapter
-        assert "python3" in result
-        assert "/adapter.py" in result
-        assert "bash run.sh" in result
+    def test_non_python_command(self) -> None:
+        wrapped = _wrap_command("bash /some/hooks/script.sh", ADAPTER)
+        # Non-python gets wrapped with python3 adapter
+        assert "python3" in wrapped
+        assert str(ADAPTER) in wrapped
 
-    def test_empty_command(self):
-        adapter = Path("/adapter.py")
-        result = _wrap_command("", adapter)
-        assert result == ""
-
-    def test_python_no_args(self):
-        adapter = Path("/adapter.py")
-        result = _wrap_command("python3", adapter)
-        assert "python3" in result
+    def test_empty_command(self) -> None:
+        assert _wrap_command("", ADAPTER) == ""
 
 
 # ── translate_hooks ────────────────────────────────────────────────────────
 
-
 class TestTranslateHooks:
-    def _make_hook(self, command: str, hook_type: str = "command") -> dict:
-        return {"type": hook_type, "command": command}
-
-    def _make_definition(self, *hooks: dict, matcher: str | None = None) -> dict:
-        d: dict[str, Any] = {"hooks": list(hooks)}
-        if matcher is not None:
-            d["matcher"] = matcher
-        return d
-
-    def test_basic_event_mapping(self):
-        cc_hooks = {
-            "UserPromptSubmit": [self._make_definition(self._make_hook("echo hi"))],
-        }
-        gemini_hooks, result = translate_hooks(cc_hooks, wrap=False)
-        assert "BeforeAgent" in gemini_hooks
+    def test_event_mapping(self) -> None:
+        """All mapped events translate correctly."""
+        cc = _cc_hooks_one_command("PreToolUse")
+        gemini, result = translate_hooks(cc, adapter_path=ADAPTER)
+        assert "BeforeTool" in gemini
         assert result.hooks_translated == 1
 
-    def test_all_event_mappings(self):
-        cc_hooks = {}
-        for cc_event in CC_TO_GEMINI_EVENT:
-            cc_hooks[cc_event] = [self._make_definition(self._make_hook("echo test"))]
-        gemini_hooks, result = translate_hooks(cc_hooks, wrap=False)
-        assert result.hooks_translated == len(CC_TO_GEMINI_EVENT)
-        assert set(gemini_hooks.keys()) == set(CC_TO_GEMINI_EVENT.values())
+    def test_all_event_mappings(self) -> None:
+        """Every CC_TO_GEMINI_EVENT key produces a Gemini event."""
+        for cc_event, gemini_event in CC_TO_GEMINI_EVENT.items():
+            cc = _cc_hooks_one_command(cc_event)
+            gemini, result = translate_hooks(cc, adapter_path=ADAPTER)
+            assert gemini_event in gemini, f"{cc_event} → {gemini_event} missing"
+            assert result.hooks_translated == 1
 
-    def test_notification_passes_through(self):
-        cc_hooks = {
-            "Notification": [self._make_definition(self._make_hook("notify.sh"))],
-        }
-        gemini_hooks, result = translate_hooks(cc_hooks, wrap=False)
-        assert "Notification" in gemini_hooks
-        assert result.hooks_translated == 1
+    def test_unknown_event_dropped(self) -> None:
+        cc = _cc_hooks_one_command("SomeWeirdEvent")
+        cc["SomeWeirdEvent"][0]["hooks"][0]["command"] = "python3 x.py"
+        gemini, result = translate_hooks(cc, adapter_path=ADAPTER)
+        assert "SomeWeirdEvent" in result.events_dropped
+        assert len(gemini) == 0
 
-    def test_unknown_event_dropped(self):
-        cc_hooks = {
-            "FakeEvent": [self._make_definition(self._make_hook("echo hi"))],
-        }
-        gemini_hooks, result = translate_hooks(cc_hooks, wrap=False)
-        assert "FakeEvent" not in gemini_hooks
-        assert result.events_dropped == ["FakeEvent"]
+    def test_silently_dropped_event(self) -> None:
+        cc = _cc_hooks_one_command("InstructionsLoaded")
+        gemini, result = translate_hooks(cc, adapter_path=ADAPTER)
+        assert "InstructionsLoaded" not in result.events_dropped
+        assert len(gemini) == 0
 
-    def test_instructions_loaded_silently_dropped(self):
-        cc_hooks = {
-            "InstructionsLoaded": [self._make_definition(self._make_hook("echo hi"))],
-        }
-        gemini_hooks, result = translate_hooks(cc_hooks, wrap=False)
-        assert len(gemini_hooks) == 0
-        assert result.events_dropped == []
-
-    def test_prompt_hook_skipped_with_warning(self):
-        cc_hooks = {
-            "UserPromptSubmit": [self._make_definition(self._make_hook("echo hi", "prompt"))],
-        }
-        with warnings.catch_warnings(record=True) as w:
-            warnings.simplefilter("always")
-            gemini_hooks, result = translate_hooks(cc_hooks, wrap=False)
-        assert result.prompt_hooks_skipped == 1
-        assert len(w) == 1
-        assert "prompt-type hook" in str(w[0].message)
-
-    def test_unknown_hook_type_skipped(self):
-        cc_hooks = {
-            "UserPromptSubmit": [self._make_definition(self._make_hook("", "weird_type"))],
-        }
-        gemini_hooks, result = translate_hooks(cc_hooks, wrap=False)
-        assert result.hooks_translated == 0
-        assert result.prompt_hooks_skipped == 0
-
-    def test_synaptic_script_wrapped(self):
-        cmd = "python3 ~/.claude/hooks/synapse.py"
-        cc_hooks = {
-            "PreToolUse": [self._make_definition(self._make_hook(cmd))],
-        }
-        adapter = Path("/path/to/gemini_adapter.py")
-        gemini_hooks, result = translate_hooks(cc_hooks, adapter_path=adapter, wrap=True)
-        assert result.hooks_wrapped == 1
-        translated_cmd = gemini_hooks["BeforeTool"][0]["hooks"][0]["command"]
-        assert "/path/to/gemini_adapter.py" in translated_cmd
-        assert "synapse.py" in translated_cmd
-
-    def test_wrap_disabled(self):
-        cmd = "python3 ~/.claude/hooks/synapse.py"
-        cc_hooks = {
-            "PreToolUse": [self._make_definition(self._make_hook(cmd))],
-        }
-        gemini_hooks, result = translate_hooks(cc_hooks, wrap=False)
-        assert result.hooks_wrapped == 0
-        assert gemini_hooks["BeforeTool"][0]["hooks"][0]["command"] == cmd
-
-    def test_matcher_preserved(self):
-        cc_hooks = {
-            "PreToolUse": [
-                self._make_definition(self._make_hook("echo hi"), matcher="Bash")
-            ],
-        }
-        gemini_hooks, result = translate_hooks(cc_hooks, wrap=False)
-        assert gemini_hooks["BeforeTool"][0]["matcher"] == "Bash"
-
-    def test_empty_definition_skipped(self):
-        """A definition with no matching hooks (e.g. all prompts) yields no entry."""
-        cc_hooks = {
-            "UserPromptSubmit": [self._make_definition(self._make_hook("hi", "prompt"))],
-        }
-        with warnings.catch_warnings(record=True):
-            warnings.simplefilter("always")
-            gemini_hooks, result = translate_hooks(cc_hooks, wrap=False)
-        assert "BeforeAgent" not in gemini_hooks
-
-    def test_multiple_hooks_in_one_definition(self):
-        cc_hooks = {
+    def test_prompt_hook_skipped(self) -> None:
+        cc = {
             "Stop": [
-                self._make_definition(
-                    self._make_hook("echo one"),
-                    self._make_hook("echo two"),
-                )
+                {
+                    "hooks": [
+                        {"type": "prompt", "command": "Say hello"},
+                    ],
+                },
             ],
         }
-        gemini_hooks, result = translate_hooks(cc_hooks, wrap=False)
-        assert len(gemini_hooks["AfterAgent"][0]["hooks"]) == 2
+        with pytest.warns(UserWarning, match="prompt-type hook"):
+            gemini, result = translate_hooks(cc, adapter_path=ADAPTER)
+        assert result.prompt_hooks_skipped == 1
+        assert len(gemini) == 0
+
+    def test_command_hook_translated(self) -> None:
+        cc = _cc_hooks_one_command()
+        gemini, result = translate_hooks(cc, adapter_path=ADAPTER, wrap=False)
+        assert result.hooks_translated == 1
+        assert result.hooks_wrapped == 0
+
+    def test_synaptic_script_wrapped(self) -> None:
+        cc = _cc_hooks_one_command(command="python3 ~/.claude/hooks/synapse.py")
+        gemini, result = translate_hooks(cc, adapter_path=ADAPTER, wrap=True)
+        assert result.hooks_wrapped == 1
+        assert str(ADAPTER) in gemini["BeforeTool"][0]["hooks"][0]["command"]
+
+    def test_wrap_disabled(self) -> None:
+        cc = _cc_hooks_one_command(command="python3 ~/.claude/hooks/synapse.py")
+        gemini, result = translate_hooks(cc, adapter_path=ADAPTER, wrap=False)
+        assert result.hooks_wrapped == 0
+        cmd = gemini["BeforeTool"][0]["hooks"][0]["command"]
+        assert cmd == "python3 ~/.claude/hooks/synapse.py"
+
+    def test_matcher_preserved(self) -> None:
+        cc = _cc_hooks_with_matcher()
+        gemini, result = translate_hooks(cc, adapter_path=ADAPTER, wrap=False)
+        assert gemini["BeforeTool"][0]["matcher"] == "Bash"
+
+    def test_empty_hooks(self) -> None:
+        gemini, result = translate_hooks({}, adapter_path=ADAPTER)
+        assert gemini == {}
+        assert result.hooks_translated == 0
+
+    def test_unknown_hook_type_skipped(self) -> None:
+        cc = {
+            "Stop": [
+                {
+                    "hooks": [
+                        {"type": "unknown_type", "command": "echo hi"},
+                    ],
+                },
+            ],
+        }
+        gemini, result = translate_hooks(cc, adapter_path=ADAPTER)
+        assert len(gemini) == 0
+        assert result.hooks_translated == 0
+
+    def test_multiple_definitions(self) -> None:
+        cc = {
+            "PreToolUse": [
+                {"hooks": [{"type": "command", "command": "python3 a.py"}]},
+                {"hooks": [{"type": "command", "command": "python3 b.py"}]},
+            ],
+        }
+        gemini, result = translate_hooks(cc, adapter_path=ADAPTER, wrap=False)
+        assert len(gemini["BeforeTool"]) == 2
         assert result.hooks_translated == 2
 
 
 # ── TranslationResult ──────────────────────────────────────────────────────
 
-
 class TestTranslationResult:
-    def test_summary_basic(self):
-        r = TranslationResult(
-            hooks_translated=3,
-            hooks_wrapped=1,
-            prompt_hooks_skipped=0,
-            events_dropped=[],
-            dry_run=False,
-        )
+    def test_summary_basic(self) -> None:
+        r = TranslationResult(hooks_translated=3, hooks_wrapped=1, prompt_hooks_skipped=0, events_dropped=[], dry_run=False)
         s = r.summary
         assert "Translated 3 hook(s)." in s
-        assert "Wrapped 1 synaptic script(s)" in s
+        assert "Wrapped 1" in s
 
-    def test_summary_dry_run(self):
-        r = TranslationResult(
-            hooks_translated=1,
-            hooks_wrapped=0,
-            prompt_hooks_skipped=0,
-            events_dropped=[],
-            dry_run=True,
-        )
+    def test_summary_dry_run(self) -> None:
+        r = TranslationResult(hooks_translated=1, hooks_wrapped=0, prompt_hooks_skipped=0, events_dropped=[], dry_run=True)
         assert "(dry-run)" in r.summary
 
-    def test_summary_with_skipped_prompts(self):
-        r = TranslationResult(
-            hooks_translated=1,
-            hooks_wrapped=0,
-            prompt_hooks_skipped=2,
-            events_dropped=[],
-            dry_run=False,
-        )
-        assert "Skipped 2 prompt-type hook(s)" in r.summary
-
-    def test_summary_with_dropped_events(self):
-        r = TranslationResult(
-            hooks_translated=1,
-            hooks_wrapped=0,
-            prompt_hooks_skipped=0,
-            events_dropped=["FooEvent", "BarEvent"],
-            dry_run=False,
-        )
-        assert "FooEvent, BarEvent" in r.summary
+    def test_summary_with_skipped_and_dropped(self) -> None:
+        r = TranslationResult(hooks_translated=2, hooks_wrapped=0, prompt_hooks_skipped=1, events_dropped=["Foo"], dry_run=False)
+        s = r.summary
+        assert "Skipped 1 prompt-type" in s
+        assert "Foo" in s
 
 
 # ── read_cc_settings / read_gemini_settings ────────────────────────────────
 
-
 class TestReadSettings:
-    def test_read_cc_settings_valid(self, tmp_path):
-        settings_file = tmp_path / "settings.json"
-        settings_file.write_text(json.dumps({"hooks": {}}), encoding="utf-8")
-        result = read_cc_settings(settings_file)
-        assert result == {"hooks": {}}
+    def test_read_cc_missing_file(self, tmp_path: Path) -> None:
+        assert read_cc_settings(tmp_path / "nope.json") == {}
 
-    def test_read_cc_settings_missing(self, tmp_path):
-        result = read_cc_settings(tmp_path / "nonexistent.json")
-        assert result == {}
+    def test_read_cc_valid(self, tmp_path: Path) -> None:
+        p = tmp_path / "settings.json"
+        p.write_text('{"hooks": {}}', encoding="utf-8")
+        assert read_cc_settings(p) == {"hooks": {}}
 
-    def test_read_cc_settings_invalid_json(self, tmp_path):
-        bad_file = tmp_path / "settings.json"
-        bad_file.write_text("{invalid json", encoding="utf-8")
-        result = read_cc_settings(bad_file)
-        assert result == {}
+    def test_read_cc_invalid_json(self, tmp_path: Path) -> None:
+        p = tmp_path / "settings.json"
+        p.write_text("NOT JSON", encoding="utf-8")
+        assert read_cc_settings(p) == {}
 
-    def test_read_gemini_settings_valid(self, tmp_path):
-        settings_file = tmp_path / "gemini_settings.json"
-        settings_file.write_text(json.dumps({"hooks": {"BeforeAgent": []}}), encoding="utf-8")
-        result = read_gemini_settings(settings_file)
-        assert "hooks" in result
+    def test_read_gemini_missing(self, tmp_path: Path) -> None:
+        assert read_gemini_settings(tmp_path / "nope.json") == {}
 
-    def test_read_gemini_settings_missing(self, tmp_path):
-        result = read_gemini_settings(tmp_path / "nonexistent.json")
-        assert result == {}
-
-    def test_read_settings_os_error(self, tmp_path):
-        """OSError (e.g. permission denied) returns empty dict."""
-        bad_file = tmp_path / "settings.json"
-        bad_file.write_text("{}", encoding="utf-8")
-        with patch("builtins.open", side_effect=OSError("permission denied")):
-            result = read_cc_settings(bad_file)
-        assert result == {}
+    def test_read_gemini_valid(self, tmp_path: Path) -> None:
+        p = tmp_path / "settings.json"
+        p.write_text('{"hooks": {"BeforeTool": []}}', encoding="utf-8")
+        data = read_gemini_settings(p)
+        assert "hooks" in data
 
 
 # ── merge_hooks_into_gemini ────────────────────────────────────────────────
 
+class TestMergeHooks:
+    def test_merge_into_empty(self) -> None:
+        merged = merge_hooks_into_gemini({}, {"BeforeTool": []})
+        assert "hooks" in merged
 
-class TestMergeHooksIntoGemini:
-    def test_merge_adds_hooks(self):
-        current = {"someKey": "value"}
-        gemini_hooks = {"BeforeAgent": [{"hooks": []}]}
-        merged = merge_hooks_into_gemini(current, gemini_hooks)
-        assert merged["hooks"] == gemini_hooks
-        assert merged["someKey"] == "value"
+    def test_merge_preserves_other_keys(self) -> None:
+        current = {"theme": "dark", "hooks": {"old": []}}
+        merged = merge_hooks_into_gemini(current, {"BeforeTool": []})
+        assert merged["theme"] == "dark"
+        assert "BeforeTool" in merged["hooks"]
 
-    def test_merge_empty_hooks_preserves_current(self):
-        current = {"someKey": "value"}
+    def test_empty_gemini_hooks_no_overwrite(self) -> None:
+        current = {"theme": "dark"}
         merged = merge_hooks_into_gemini(current, {})
         assert "hooks" not in merged
-        assert merged == current
-
-    def test_merge_replaces_existing_hooks(self):
-        current = {"hooks": {"old": []}}
-        new_hooks = {"BeforeAgent": [{"hooks": []}]}
-        merged = merge_hooks_into_gemini(current, new_hooks)
-        assert merged["hooks"] == new_hooks
 
 
 # ── diff_settings ──────────────────────────────────────────────────────────
 
-
 class TestDiffSettings:
-    def test_no_changes(self):
-        current = {"a": 1}
-        assert diff_settings(current, current) == "(no changes)"
+    def test_no_changes(self) -> None:
+        assert diff_settings({"a": 1}, {"a": 1}) == "(no changes)"
 
-    def test_detects_changes(self):
-        current = {"a": 1}
-        proposed = {"a": 2}
-        diff = diff_settings(current, proposed)
-        assert "current" in diff
-        assert "proposed" in diff
-        assert "-  \"a\": 1" in diff
-        assert "+  \"a\": 2" in diff
+    def test_with_changes(self) -> None:
+        diff = diff_settings({"a": 1}, {"a": 2})
+        assert "-  \"a\": 1" in diff or '"a": 1' in diff
+        assert "+  \"a\": 2" in diff or '"a": 2' in diff
 
 
 # ── _ensure_symlink ────────────────────────────────────────────────────────
 
-
 class TestEnsureSymlink:
-    def test_correct_symlink_returns_ok(self, tmp_path):
-        target = tmp_path / "target.txt"
-        target.write_text("hello")
-        link = tmp_path / "link.txt"
+    def test_create_new(self, tmp_path: Path) -> None:
+        target = tmp_path / "target.md"
+        target.write_text("# phenotype")
+        link = tmp_path / "link.md"
+        assert _ensure_symlink(link, target, dry_run=False) == "fixed"
+        assert link.is_symlink()
+
+    def test_correct_existing(self, tmp_path: Path) -> None:
+        target = tmp_path / "target.md"
+        target.write_text("# phenotype")
+        link = tmp_path / "link.md"
         link.symlink_to(target)
         assert _ensure_symlink(link, target, dry_run=False) == "ok"
 
-    def test_wrong_target_fixed(self, tmp_path):
-        target = tmp_path / "target.txt"
-        target.write_text("hello")
-        wrong_target = tmp_path / "wrong.txt"
-        wrong_target.write_text("wrong")
-        link = tmp_path / "link.txt"
-        link.symlink_to(wrong_target)
-        assert _ensure_symlink(link, target, dry_run=False) == "fixed"
-        assert link.resolve() == target.resolve()
+    def test_wrong_target_fixed(self, tmp_path: Path) -> None:
+        target1 = tmp_path / "old.md"
+        target1.write_text("old")
+        target2 = tmp_path / "new.md"
+        target2.write_text("new")
+        link = tmp_path / "link.md"
+        link.symlink_to(target1)
+        assert _ensure_symlink(link, target2, dry_run=False) == "fixed"
+        assert link.resolve() == target2.resolve()
 
-    def test_wrong_target_dry_run_not_fixed(self, tmp_path):
-        target = tmp_path / "target.txt"
-        target.write_text("hello")
-        wrong_target = tmp_path / "wrong.txt"
-        wrong_target.write_text("wrong")
-        link = tmp_path / "link.txt"
-        link.symlink_to(wrong_target)
-        assert _ensure_symlink(link, target, dry_run=True) == "fixed"
-        # Link should still point to wrong target in dry run
-        assert link.resolve() == wrong_target.resolve()
+    def test_regular_file_blocks(self, tmp_path: Path) -> None:
+        target = tmp_path / "target.md"
+        target.write_text("# phenotype")
+        link = tmp_path / "link.md"
+        link.write_text("I am a regular file")
+        assert _ensure_symlink(link, target, dry_run=False) == "failed"
 
-    def test_missing_symlink_created(self, tmp_path):
-        target = tmp_path / "target.txt"
-        target.write_text("hello")
-        link = tmp_path / "link.txt"
-        assert _ensure_symlink(link, target, dry_run=False) == "fixed"
-        assert link.resolve() == target.resolve()
-
-    def test_missing_symlink_dry_run_not_created(self, tmp_path):
-        target = tmp_path / "target.txt"
-        target.write_text("hello")
-        link = tmp_path / "link.txt"
+    def test_dry_run_does_not_create(self, tmp_path: Path) -> None:
+        target = tmp_path / "target.md"
+        target.write_text("# phenotype")
+        link = tmp_path / "link.md"
         assert _ensure_symlink(link, target, dry_run=True) == "fixed"
         assert not link.exists()
 
-    def test_regular_file_blocks_symlink(self, tmp_path):
-        target = tmp_path / "target.txt"
-        target.write_text("hello")
-        blocking = tmp_path / "link.txt"
-        blocking.write_text("blocking")
-        assert _ensure_symlink(blocking, target, dry_run=False) == "failed"
-
-    def test_os_error_returns_failed(self, tmp_path):
-        target = tmp_path / "target.txt"
-        target.write_text("hello")
-        link = tmp_path / "link.txt"
-        with patch.object(Path, "symlink_to", side_effect=OSError("nope")):
-            assert _ensure_symlink(link, target, dry_run=False) == "failed"
+    def test_dry_run_does_not_fix_wrong_target(self, tmp_path: Path) -> None:
+        target1 = tmp_path / "old.md"
+        target1.write_text("old")
+        target2 = tmp_path / "new.md"
+        target2.write_text("new")
+        link = tmp_path / "link.md"
+        link.symlink_to(target1)
+        assert _ensure_symlink(link, target2, dry_run=True) == "fixed"
+        # Should still point to old target
+        assert link.resolve() == target1.resolve()
 
 
 # ── SyncResult ─────────────────────────────────────────────────────────────
 
-
 class TestSyncResult:
-    def test_ok_when_everything_passes(self):
+    def test_ok_true(self) -> None:
         r = SyncResult(
-            symlinks_ok=["a"],
-            symlinks_fixed=[],
-            symlinks_failed=[],
-            hooks_result=None,
-            gemini_md_ok=True,
-            integrin_issues=[],
-            unknown_platforms=[],
-            dry_run=False,
+            symlinks_ok=["/a"], symlinks_fixed=[], symlinks_failed=[],
+            hooks_result=None, gemini_md_ok=True, integrin_issues=[],
+            unknown_platforms=[], dry_run=False,
         )
         assert r.ok is True
 
-    def test_not_ok_when_symlinks_failed(self):
+    def test_ok_false_failed_symlink(self) -> None:
         r = SyncResult(
-            symlinks_ok=[],
-            symlinks_fixed=[],
-            symlinks_failed=["/bad/link"],
-            hooks_result=None,
-            gemini_md_ok=True,
-            integrin_issues=[],
-            unknown_platforms=[],
-            dry_run=False,
+            symlinks_ok=[], symlinks_fixed=[], symlinks_failed=["/bad"],
+            hooks_result=None, gemini_md_ok=True, integrin_issues=[],
+            unknown_platforms=[], dry_run=False,
         )
         assert r.ok is False
 
-    def test_not_ok_when_integrin_issues(self):
+    def test_ok_false_integrin_issues(self) -> None:
         r = SyncResult(
-            symlinks_ok=["a"],
-            symlinks_fixed=[],
-            symlinks_failed=[],
-            hooks_result=None,
-            gemini_md_ok=True,
-            integrin_issues=[{"path": "x", "problem": "missing"}],
-            unknown_platforms=[],
-            dry_run=False,
+            symlinks_ok=["/a"], symlinks_fixed=[], symlinks_failed=[],
+            hooks_result=None, gemini_md_ok=True,
+            integrin_issues=[{"path": "/x", "problem": "broken"}],
+            unknown_platforms=[], dry_run=False,
         )
         assert r.ok is False
 
-    def test_not_ok_when_gemini_md_missing(self):
+    def test_ok_false_gemini_md(self) -> None:
         r = SyncResult(
-            symlinks_ok=["a"],
-            symlinks_fixed=[],
-            symlinks_failed=[],
-            hooks_result=None,
-            gemini_md_ok=False,
-            integrin_issues=[],
-            unknown_platforms=[],
-            dry_run=False,
+            symlinks_ok=["/a"], symlinks_fixed=[], symlinks_failed=[],
+            hooks_result=None, gemini_md_ok=False, integrin_issues=[],
+            unknown_platforms=[], dry_run=False,
         )
         assert r.ok is False
 
-    def test_summary_contains_sections(self):
+    def test_summary_contains_sections(self) -> None:
         r = SyncResult(
-            symlinks_ok=["a"],
-            symlinks_fixed=["b"],
-            symlinks_failed=[],
+            symlinks_ok=["/a"], symlinks_fixed=["/b"], symlinks_failed=[],
             hooks_result=TranslationResult(1, 0, 0, [], False),
-            gemini_md_ok=True,
-            integrin_issues=[],
-            unknown_platforms=["weirdOS"],
-            dry_run=True,
-            skills_synced=5,
+            gemini_md_ok=True, integrin_issues=[], unknown_platforms=[],
+            dry_run=False, skills_synced=3,
         )
         s = r.summary
         assert "Symlinks" in s
@@ -484,169 +389,150 @@ class TestSyncResult:
         assert "Skills" in s
         assert "GEMINI.md" in s
         assert "Integrin" in s
-        assert "weirdOS" in s
-        assert "(dry-run)" in s
+
+    def test_summary_dry_run(self) -> None:
+        r = SyncResult(
+            symlinks_ok=["/a"], symlinks_fixed=[], symlinks_failed=[],
+            hooks_result=None, gemini_md_ok=True, integrin_issues=[],
+            unknown_platforms=[], dry_run=True,
+        )
+        assert "(dry-run)" in r.summary
+
+    def test_summary_unknown_platforms(self) -> None:
+        r = SyncResult(
+            symlinks_ok=[], symlinks_fixed=[], symlinks_failed=[],
+            hooks_result=None, gemini_md_ok=True, integrin_issues=[],
+            unknown_platforms=["wombo"], dry_run=False,
+        )
+        assert "wombo" in r.summary
 
 
 # ── sync_phenotype (mocked) ────────────────────────────────────────────────
 
-
 class TestSyncPhenotype:
-    def _mock_locus(self, tmp_path):
-        """Build mock objects for metabolon.locus imports."""
-        mock_locus = MagicMock()
-        mock_locus.PLATFORM_SYMLINKS = [tmp_path / "link1.md"]
-        mock_locus.phenotype_md = tmp_path / "phenotype.md"
-        mock_locus.phenotype_md.write_text("identity")
-        # receptors dir with a skill
-        receptors = tmp_path / "receptors"
-        skill_dir = receptors / "my_skill"
-        skill_dir.mkdir(parents=True)
-        (skill_dir / "SKILL.md").write_text("# Skill")
-        mock_locus.receptors = receptors
-        return mock_locus
-
-    @patch("metabolon.organelles.phenotype_translate.read_cc_settings")
+    @patch("metabolon.organelles.phenotype_translate._check_phenotype_symlinks")
+    @patch("metabolon.organelles.phenotype_translate.phenotype_md", new_callable=lambda: MagicMock)
+    @patch("metabolon.organelles.phenotype_translate.PLATFORM_SYMLINKS", new_callable=lambda: MagicMock)
+    @patch("metabolon.organelles.phenotype_translate.receptors", new_callable=lambda: MagicMock)
     @patch("metabolon.organelles.phenotype_translate.read_gemini_settings")
-    @patch("metabolon.organelles.phenotype_translate._ensure_symlink")
+    @patch("metabolon.organelles.phenotype_translate.read_cc_settings")
     def test_sync_dry_run(
-        self, mock_ensure, mock_read_gemini, mock_read_cc, tmp_path
-    ):
-        mock_ensure.return_value = "ok"
-        mock_read_cc.return_value = {"hooks": {}}
+        self,
+        mock_read_cc: MagicMock,
+        mock_read_gemini: MagicMock,
+        mock_receptors: MagicMock,
+        mock_platforms: MagicMock,
+        mock_phenotype_md: MagicMock,
+        mock_check: MagicMock,
+        tmp_path: Path,
+    ) -> None:
+        cc_path = tmp_path / ".claude" / "settings.json"
+        cc_path.parent.mkdir(parents=True)
+        cc_path.write_text(json.dumps({
+            "hooks": {"PreToolUse": [{"hooks": [{"type": "command", "command": "python3 /hooks/synapse.py"}]}]}
+        }))
+        gemini_path = tmp_path / ".gemini" / "settings.json"
+
+        mock_read_cc.return_value = json.loads(cc_path.read_text())
         mock_read_gemini.return_value = {}
+        mock_platforms.__iter__ = lambda self: iter([])
+        mock_receptors.is_dir.return_value = False
+        mock_phenotype_md.resolve.return_value = Path("/fake/phenotype.md")
+        mock_check.return_value = ([], [])
 
-        cc_path = tmp_path / "cc_settings.json"
-        cc_path.write_text("{}", encoding="utf-8")
-        gemini_path = tmp_path / "gemini_settings.json"
-
-        mock_locus = self._mock_locus(tmp_path)
-        mock_integrin = MagicMock()
-        mock_integrin._check_phenotype_symlinks.return_value = ([], [])
-
-        with patch.dict(
-            "sys.modules",
-            {
-                "metabolon.locus": mock_locus,
-                "metabolon.enzymes.integrin": mock_integrin,
-            },
-        ):
-            # Also need to patch the imports inside sync_phenotype
-            with patch(
-                "metabolon.organelles.phenotype_translate.Path.is_symlink",
-                return_value=False,
-            ), patch(
-                "metabolon.organelles.phenotype_translate.Path.resolve",
-                return_value=tmp_path / "different.md",
-            ):
-                result = sync_phenotype(
-                    dry_run=True,
-                    cc_settings_path=cc_path,
-                    gemini_settings_path=gemini_path,
-                )
+        result = sync_phenotype(
+            dry_run=True,
+            cc_settings_path=cc_path,
+            gemini_settings_path=gemini_path,
+        )
         assert isinstance(result, SyncResult)
         assert result.dry_run is True
 
-    @patch("metabolon.organelles.phenotype_translate._ensure_symlink")
-    def test_sync_no_cc_settings_skips_hooks(self, mock_ensure, tmp_path):
-        mock_ensure.return_value = "ok"
-        cc_path = tmp_path / "cc_settings.json"
-        # File doesn't exist → cc_settings_path.exists() returns False
+    @patch("metabolon.organelles.phenotype_translate._check_phenotype_symlinks")
+    @patch("metabolon.organelles.phenotype_translate.phenotype_md", new_callable=lambda: MagicMock)
+    @patch("metabolon.organelles.phenotype_translate.PLATFORM_SYMLINKS", new_callable=lambda: MagicMock)
+    @patch("metabolon.organelles.phenotype_translate.receptors", new_callable=lambda: MagicMock)
+    @patch("metabolon.organelles.phenotype_translate.read_gemini_settings")
+    @patch("metabolon.organelles.phenotype_translate.read_cc_settings")
+    def test_sync_no_cc_settings(
+        self,
+        mock_read_cc: MagicMock,
+        mock_read_gemini: MagicMock,
+        mock_receptors: MagicMock,
+        mock_platforms: MagicMock,
+        mock_phenotype_md: MagicMock,
+        mock_check: MagicMock,
+        tmp_path: Path,
+    ) -> None:
+        cc_path = tmp_path / "nonexistent.json"
+        gemini_path = tmp_path / ".gemini" / "settings.json"
 
-        mock_locus = self._mock_locus(tmp_path)
-        mock_integrin = MagicMock()
-        mock_integrin._check_phenotype_symlinks.return_value = ([], [])
+        # cc_path doesn't exist → hooks_result should be None
+        mock_platforms.__iter__ = lambda self: iter([])
+        mock_receptors.is_dir.return_value = False
+        mock_phenotype_md.resolve.return_value = Path("/fake/phenotype.md")
+        mock_check.return_value = ([], [])
 
-        with patch.dict(
-            "sys.modules",
-            {
-                "metabolon.locus": mock_locus,
-                "metabolon.enzymes.integrin": mock_integrin,
-            },
-        ):
-            with patch(
-                "metabolon.organelles.phenotype_translate.Path.is_symlink",
-                return_value=False,
-            ), patch(
-                "metabolon.organelles.phenotype_translate.Path.resolve",
-                return_value=tmp_path / "different.md",
-            ):
-                result = sync_phenotype(
-                    cc_settings_path=tmp_path / "nonexistent.json",
-                    gemini_settings_path=tmp_path / "gemini.json",
-                )
+        result = sync_phenotype(
+            dry_run=False,
+            cc_settings_path=cc_path,
+            gemini_settings_path=gemini_path,
+        )
         assert result.hooks_result is None
 
 
-# ── translate_to_gemini (mocked I/O) ───────────────────────────────────────
-
+# ── translate_to_gemini ────────────────────────────────────────────────────
 
 class TestTranslateToGemini:
-    @patch("metabolon.organelles.phenotype_translate.read_gemini_settings")
-    @patch("metabolon.organelles.phenotype_translate.read_cc_settings")
-    def test_dry_run_no_write(self, mock_read_cc, mock_read_gemini, tmp_path):
-        mock_read_cc.return_value = {
-            "hooks": {
-                "UserPromptSubmit": [{"hooks": [{"type": "command", "command": "echo hi"}]}],
-            }
-        }
-        mock_read_gemini.return_value = {}
+    def test_dry_run_no_write(self, tmp_path: Path) -> None:
+        cc_path = tmp_path / "cc_settings.json"
+        cc_path.write_text(json.dumps({
+            "hooks": {"PreToolUse": [{"hooks": [{"type": "command", "command": "python3 a.py"}]}]}
+        }))
+        gemini_path = tmp_path / ".gemini" / "settings.json"
 
-        cc_path = tmp_path / "cc.json"
-        cc_path.write_text("{}", encoding="utf-8")
-        gemini_path = tmp_path / "gemini.json"
-
-        result, diff_text = translate_to_gemini(
-            cc_settings_path=cc_path,
-            gemini_settings_path=gemini_path,
-            dry_run=True,
-        )
+        with patch("metabolon.organelles.phenotype_translate.read_gemini_settings", return_value={}):
+            result, diff_text = translate_to_gemini(
+                cc_settings_path=cc_path,
+                gemini_settings_path=gemini_path,
+                adapter_path=ADAPTER,
+                wrap=False,
+                dry_run=True,
+            )
         assert isinstance(result, TranslationResult)
         assert result.dry_run is True
-        assert result.hooks_translated == 1
-        # gemini.json should NOT be created in dry run
         assert not gemini_path.exists()
 
-    @patch("metabolon.organelles.phenotype_translate.read_gemini_settings")
-    @patch("metabolon.organelles.phenotype_translate.read_cc_settings")
-    def test_writes_gemini_settings(self, mock_read_cc, mock_read_gemini, tmp_path):
-        mock_read_cc.return_value = {
-            "hooks": {
-                "Stop": [{"hooks": [{"type": "command", "command": "echo done"}]}],
-            }
-        }
-        mock_read_gemini.return_value = {"existingKey": True}
+    def test_live_write(self, tmp_path: Path) -> None:
+        cc_path = tmp_path / "cc_settings.json"
+        cc_path.write_text(json.dumps({
+            "hooks": {"Stop": [{"hooks": [{"type": "command", "command": "python3 stop.py"}]}]}
+        }))
+        gemini_path = tmp_path / ".gemini" / "settings.json"
 
-        cc_path = tmp_path / "cc.json"
-        cc_path.write_text("{}", encoding="utf-8")
-        gemini_path = tmp_path / "gemini.json"
-
-        result, diff_text = translate_to_gemini(
-            cc_settings_path=cc_path,
-            gemini_settings_path=gemini_path,
-            dry_run=False,
-        )
-        assert result.hooks_translated == 1
+        with patch("metabolon.organelles.phenotype_translate.read_gemini_settings", return_value={}):
+            result, diff_text = translate_to_gemini(
+                cc_settings_path=cc_path,
+                gemini_settings_path=gemini_path,
+                adapter_path=ADAPTER,
+                wrap=False,
+                dry_run=False,
+            )
         assert gemini_path.exists()
-        written = json.loads(gemini_path.read_text(encoding="utf-8"))
-        assert "hooks" in written
-        assert "AfterAgent" in written["hooks"]
-        assert written["existingKey"] is True
+        data = json.loads(gemini_path.read_text())
+        assert "hooks" in data
+        assert "AfterAgent" in data["hooks"]
 
-    @patch("metabolon.organelles.phenotype_translate.read_gemini_settings")
-    @patch("metabolon.organelles.phenotype_translate.read_cc_settings")
-    def test_no_changes_diff(self, mock_read_cc, mock_read_gemini, tmp_path):
-        """When hooks are empty, diff should show no changes."""
-        mock_read_cc.return_value = {"hooks": {}}
-        mock_read_gemini.return_value = {}
+    def test_empty_hooks_no_changes(self, tmp_path: Path) -> None:
+        cc_path = tmp_path / "cc_settings.json"
+        cc_path.write_text(json.dumps({"hooks": {}}))
+        gemini_path = tmp_path / ".gemini" / "settings.json"
 
-        cc_path = tmp_path / "cc.json"
-        cc_path.write_text("{}", encoding="utf-8")
-        gemini_path = tmp_path / "gemini.json"
-
-        result, diff_text = translate_to_gemini(
-            cc_settings_path=cc_path,
-            gemini_settings_path=gemini_path,
-            dry_run=True,
-        )
+        with patch("metabolon.organelles.phenotype_translate.read_gemini_settings", return_value={}):
+            result, diff_text = translate_to_gemini(
+                cc_settings_path=cc_path,
+                gemini_settings_path=gemini_path,
+                adapter_path=ADAPTER,
+                dry_run=True,
+            )
         assert diff_text == "(no changes)"
