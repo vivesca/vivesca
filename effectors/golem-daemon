@@ -1792,15 +1792,16 @@ def cmd_stats() -> int:
             provider_stats[p]["passed"] += 1
         else:
             provider_stats[p]["failed"] += 1
-            # Classify as rate-limited if: fast exit, killed, or tail has RL markers
+            # Classify as rate-limited if: fast exit, killed, empty output, or tail has RL markers
             tail = r.get("tail", "")
             tail_lower = tail.lower()
             if (r.get("duration", 999) <= 10
                     or r.get("exit") == 137
+                    or not tail.strip()  # empty output = model never produced work = rate-limited
                     or "accountquota" in tail_lower
                     or "429" in tail
-                    or "rate" in tail_lower and "limit" in tail_lower
-                    or "usage" in tail_lower and "limit" in tail_lower
+                    or ("rate" in tail_lower and "limit" in tail_lower)
+                    or ("usage" in tail_lower and "limit" in tail_lower)
                     or "quota will reset" in tail_lower
                     or "golem_rate_limit" in tail):
                 provider_stats[p]["rate_limited"] += 1
