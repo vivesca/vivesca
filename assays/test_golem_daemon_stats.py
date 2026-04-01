@@ -308,3 +308,253 @@ class TestReturnCode:
         mod = _load_module(tmp_path / "golem.jsonl", tmp_path / "queue.md")
         _, rc = _run_stats(mod)
         assert rc == 0
+
+
+# ── missing fields in records ──────────────────────────────
+
+
+class TestMissingFields:
+    def test_missing_provider_defaults_unknown(self, tmp_path: Path):
+        """Records without 'provider' key appear under 'unknown'."""
+        jsonl = tmp_path / "golem.jsonl"
+        rec = _make_record()
+        del rec["provider"]
+        _write_jsonl(jsonl, [rec])
+        mod = _load_module(jsonl, tmp_path / "queue.md")
+        out, rc = _run_stats(mod)
+        assert rc == 0
+        assert "unknown" in out
+
+    def test_missing_duration_defaults_zero(self, tmp_path: Path):
+        """Records without 'duration' key default to 0."""
+        jsonl = tmp_path / "golem.jsonl"
+        rec = _make_record()
+        del rec["duration"]
+        _write_jsonl(jsonl, [rec])
+        mod = _load_module(jsonl, tmp_path / "queue.md")
+        out, rc = _run_stats(mod)
+        assert rc == 0
+        assert "0m00s" in out
+
+    def test_missing_exit_defaults_failed(self, tmp_path: Path):
+        """Records without 'exit' key count as failed."""
+        jsonl = tmp_path / "golem.jsonl"
+        rec = _make_record()
+        del rec["exit"]
+        _write_jsonl(jsonl, [rec])
+        mod = _load_module(jsonl, tmp_path / "queue.md")
+        out, rc = _run_stats(mod)
+        assert rc == 0
+        assert "Total tasks: 1 (passed: 0, failed: 1)" in out
+
+    def test_missing_ts_excluded_from_today(self, tmp_path: Path):
+        """Records without 'ts' key are excluded from today count but included in total."""
+        jsonl = tmp_path / "golem.jsonl"
+        rec = _make_record(exit_code=0)
+        del rec["ts"]
+        _write_jsonl(jsonl, [rec])
+        mod = _load_module(jsonl, tmp_path / "queue.md")
+        out, rc = _run_stats(mod)
+        assert rc == 0
+        assert "Total tasks: 1 (passed: 1, failed: 0)" in out
+        assert "(passed: 0, failed: 0)" in out  # today has 0
+
+
+# ── large duration formatting ──────────────────────────────
+
+
+class TestDurationFormatting:
+    def test_hour_plus_duration(self, tmp_path: Path):
+        """Duration over 60 minutes shows correct minutes."""
+        jsonl = tmp_path / "golem.jsonl"
+        _write_jsonl(jsonl, [_make_record(provider="zhipu", duration=3900, exit_code=0)])
+        mod = _load_module(jsonl, tmp_path / "queue.md")
+        out, rc = _run_stats(mod)
+        assert rc == 0
+        # 3900s = 65m00s
+        assert "65m00s" in out
+
+    def test_exact_minute_duration(self, tmp_path: Path):
+        """Duration that is exactly N minutes shows no extra seconds."""
+        jsonl = tmp_path / "golem.jsonl"
+        _write_jsonl(jsonl, [_make_record(provider="codex", duration=180, exit_code=0)])
+        mod = _load_module(jsonl, tmp_path / "queue.md")
+        out, rc = _run_stats(mod)
+        assert rc == 0
+        assert "3m00s" in out
+
+    def test_single_second_duration(self, tmp_path: Path):
+        """Duration of 1 second shows 0m01s."""
+        jsonl = tmp_path / "golem.jsonl"
+        _write_jsonl(jsonl, [_make_record(provider="gemini", duration=1, exit_code=0)])
+        mod = _load_module(jsonl, tmp_path / "queue.md")
+        out, rc = _run_stats(mod)
+        assert rc == 0
+        assert "0m01s" in out
+
+
+# ── permanently failed edge cases ──────────────────────────
+
+
+class TestPermanentlyFailedEdgeCases:
+    def test_high_priority_not_counted_as_failed(self, tmp_path: Path):
+        """[!!] tasks in queue are not counted as permanently failed."""
+        jsonl = tmp_path / "golem.jsonl"
+        queue = tmp_path / "queue.md"
+        _write_jsonl(jsonl, [_make_record(exit_code=0)])
+        queue.write_text("- [!!] `golem \"urgent pending\"\n## Done\n")
+        mod = _load_module(jsonl, queue)
+        out, rc = _run_stats(mod)
+        assert rc == 0
+        assert "Permanently failed (retries exhausted): 0" in out
+
+    def test_mixed_failed_and_pending_in_queue(self, tmp_path: Path):
+        """Only [!] lines count as permanently failed, not [ ] or [x]."""
+        jsonl = tmp_path / "golem.jsonl"
+        queue = tmp_path / "queue.md"
+        _write_jsonl(jsonl, [_make_record(exit_code=0)])
+        queue.write_text(
+            "- [!] `golem \"perma fail\"`\n"
+            "- [ ] `golem \"still pending\"`\n"
+            "- [x] `golem \"done\"`\n"
+            "## Done\n"
+        )
+        mod = _load_module(jsonl, queue)
+        out, rc = _run_stats(mod)
+        assert rc == 0
+        assert "Permanently failed (retries exhausted): 1" in out
+
+    def test_unreadable_queue_counts_zero(self, tmp_path: Path):
+        """Unreadable queue file results in 0 permanently failed."""
+        jsonl = tmp_path / "golem.jsonl"
+        queue = tmp_path / "queue.md"
+        _write_jsonl(jsonl, [_make_record(exit_code=0)])
+        queue.write_text("- [!] `golem \"failed\"`\n")
+        queue.chmod(0o000)
+        mod = _load_module(jsonl, queue)
+        try:
+            out, rc = _run_stats(mod)
+        finally:
+            queue.chmod(0o644)
+        assert rc == 0
+        assert "Permanently failed (retries exhausted): 0" in out
+
+
+# ── unreadable JSONL ───────────────────────────────────────
+
+
+class TestUnreadableJsonl:
+    def test_unreadable_jsonl_file(self, tmp_path: Path):
+        """cmd_stats handles unreadable JSONL file gracefully."""
+        jsonl = tmp_path / "golem.jsonl"
+        jsonl.write_text(json.dumps(_make_record()) + "\n")
+        jsonl.chmod(0o000)
+        mod = _load_module(jsonl, tmp_path / "queue.md")
+        try:
+            out, rc = _run_stats(mod)
+        finally:
+            jsonl.chmod(0o644)
+        assert rc == 0
+        assert "No task history found" in out
+
+    def test_unreadable_rotated_jsonl(self, tmp_path: Path):
+        """cmd_stats handles unreadable rotated JSONL file."""
+        jsonl = tmp_path / "golem.jsonl"
+        rotated = tmp_path / "golem.jsonl.1"
+        rotated.write_text(json.dumps(_make_record()) + "\n")
+        rotated.chmod(0o000)
+        mod = _load_module(jsonl, tmp_path / "queue.md")
+        try:
+            out, rc = _run_stats(mod)
+        finally:
+            rotated.chmod(0o644)
+        assert rc == 0
+        assert "No task history found" in out
+
+
+# ── main() dispatch ────────────────────────────────────────
+
+
+class TestMainDispatch:
+    def test_stats_command_dispatches(self, tmp_path: Path):
+        """main() with 'stats' arg calls cmd_stats."""
+        jsonl = tmp_path / "golem.jsonl"
+        _write_jsonl(jsonl, [_make_record(exit_code=0)])
+        mod = _load_module(jsonl, tmp_path / "queue.md")
+        buf = StringIO()
+        with patch("sys.argv", ["golem-daemon", "stats"]), patch("sys.stdout", buf):
+            rc = mod["main"]()
+        assert rc == 0
+        assert "Total tasks: 1" in buf.getvalue()
+
+    def test_unknown_command(self, tmp_path: Path):
+        """main() with unknown command returns 1."""
+        mod = _load_module(tmp_path / "golem.jsonl", tmp_path / "queue.md")
+        buf = StringIO()
+        with patch("sys.argv", ["golem-daemon", "bogus"]), patch("sys.stdout", buf):
+            rc = mod["main"]()
+        assert rc == 1
+        assert "Unknown command: bogus" in buf.getvalue()
+
+
+# ── single record ──────────────────────────────────────────
+
+
+class TestSingleRecord:
+    def test_single_pass(self, tmp_path: Path):
+        """Single passing record shows correct stats."""
+        jsonl = tmp_path / "golem.jsonl"
+        _write_jsonl(jsonl, [_make_record(provider="infini", exit_code=0, duration=90)])
+        mod = _load_module(jsonl, tmp_path / "queue.md")
+        out, rc = _run_stats(mod)
+        assert rc == 0
+        assert "Total tasks: 1 (passed: 1, failed: 0)" in out
+        assert "infini" in out
+        assert "1m30s" in out
+
+    def test_single_fail(self, tmp_path: Path):
+        """Single failing record shows correct stats."""
+        jsonl = tmp_path / "golem.jsonl"
+        _write_jsonl(jsonl, [_make_record(provider="volcano", exit_code=1, duration=30)])
+        mod = _load_module(jsonl, tmp_path / "queue.md")
+        out, rc = _run_stats(mod)
+        assert rc == 0
+        assert "Total tasks: 1 (passed: 0, failed: 1)" in out
+        assert "volcano" in out
+        assert "0m30s" in out
+
+
+# ── output format validation ───────────────────────────────
+
+
+class TestOutputFormat:
+    def test_output_has_header_sections(self, tmp_path: Path):
+        """Output contains expected section headers."""
+        jsonl = tmp_path / "golem.jsonl"
+        _write_jsonl(jsonl, [_make_record()])
+        mod = _load_module(jsonl, tmp_path / "queue.md")
+        out, rc = _run_stats(mod)
+        assert rc == 0
+        assert "Total tasks:" in out
+        assert "Permanently failed" in out
+        assert "Tasks today" in out
+        assert "By provider:" in out
+
+    def test_by_provider_aligned_columns(self, tmp_path: Path):
+        """Provider lines have consistent column alignment."""
+        jsonl = tmp_path / "golem.jsonl"
+        _write_jsonl(jsonl, [
+            _make_record(provider="codex", duration=60, exit_code=0),
+            _make_record(provider="verylongname", duration=120, exit_code=0),
+        ])
+        mod = _load_module(jsonl, tmp_path / "queue.md")
+        out, rc = _run_stats(mod)
+        assert rc == 0
+        lines = [l for l in out.splitlines() if l.strip().startswith("codex") or l.strip().startswith("verylongname")]
+        assert len(lines) == 2
+        # Both lines should contain "tasks", "passed", "failed", "avg"
+        for line in lines:
+            assert "tasks" in line
+            assert "passed" in line
+            assert "failed" in line
+            assert "avg" in line
