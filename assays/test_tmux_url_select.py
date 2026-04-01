@@ -260,3 +260,72 @@ def test_constant_fzf_selection_is_copied_even_if_not_first_match(tmp_path: Path
     assert result.returncode == 0
     assert base64.b64decode(extract_osc52_payload(result.stdout)).decode() == selected_url
     assert selected_url in tmux_calls_path.read_text()
+
+
+def test_osc52_sequence_format(tmp_path: Path):
+    """OSC 52 must be \\033]52;c;<base64>\\a exactly."""
+    url = "https://example.com/osc-test"
+    env, _, _ = build_mock_env(tmp_path, selection_mode="first")
+    with temporary_buffer(f"{url}\n"):
+        result = run_effector(env=env)
+
+    assert result.returncode == 0
+    expected_b64 = base64.b64encode(url.encode()).decode()
+    assert f"\x1b]52;c;{expected_b64}\x07" in result.stdout
+
+
+def test_multiple_urls_on_one_line(tmp_path: Path):
+    """All URLs on a single line should be extracted."""
+    urls_seen = extract_fzf_input(
+        tmp_path,
+        "Check https://a.com and https://b.com then http://c.net\n",
+    )
+    assert urls_seen == [
+        "https://a.com",
+        "https://b.com",
+        "http://c.net",
+    ]
+
+
+def test_url_with_query_string_and_fragment(tmp_path: Path):
+    """URLs with ?, =, &, # characters should be preserved."""
+    urls_seen = extract_fzf_input(
+        tmp_path,
+        "https://example.com/search?q=hello+world&lang=en#results\n",
+    )
+    assert urls_seen == [
+        "https://example.com/search?q=hello+world&lang=en#results",
+    ]
+
+
+def test_url_stops_at_single_quote(tmp_path: Path):
+    """The grep regex excludes single-quote characters from URLs."""
+    urls_seen = extract_fzf_input(
+        tmp_path,
+        "link=https://example.com/path'next\n",
+    )
+    assert urls_seen == ["https://example.com/path"]
+
+
+def test_tmux_display_message_includes_url(tmp_path: Path):
+    """tmux display-message should contain 'Copied: <url>'."""
+    url = "https://example.com/msg-test"
+    env, _, tmux_calls_path = build_mock_env(tmp_path, selection_mode="first")
+    with temporary_buffer(f"{url}\n"):
+        result = run_effector(env=env)
+
+    assert result.returncode == 0
+    tmux_output = tmux_calls_path.read_text()
+    assert f"display-message Copied: {url}" in tmux_output
+
+
+def test_single_url_in_buffer(tmp_path: Path):
+    """A buffer with exactly one URL should pass it to fzf."""
+    urls_seen = extract_fzf_input(tmp_path, "https://solo.example.org/only\n")
+    assert urls_seen == ["https://solo.example.org/only"]
+
+
+def test_url_with_trailing_parenthesis(tmp_path: Path):
+    """URL inside parentheses should not include the closing paren."""
+    urls_seen = extract_fzf_input(tmp_path, "(https://example.com/paren)\n")
+    assert urls_seen == ["https://example.com/paren"]
