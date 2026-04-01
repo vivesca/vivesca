@@ -714,7 +714,7 @@ class TestAddDirect:
     @patch.object(m, "generate_uuid", return_value="new-uuid")
     def test_appends_and_returns_uuid(self, mock_uid, mock_ts):
         data = _db()
-        uid = m.add_direct("Task", 5000, None, None)
+        uid = m.add_direct("Task", 5000, None, None, data)
         assert uid == "new-uuid"
         assert len(data["re"]) == 1
         assert data["re"][0]["n"] == "Task"
