@@ -70,7 +70,7 @@ packages = ["metabolon"]
 testpaths = ["assays"]
 asyncio_mode = "auto"
 tmp_path_retention_policy = "none"
-importmode = "importlib"
+import_mode = "importlib"
 addopts = "-m 'not slow' --basetemp=/tmp/pytest-vivesca"
 markers = ["slow: boots full MCP server (skip with default opts)"]
 
