@@ -130,7 +130,7 @@ class TestBootstrapSections:
             "install_pnpm": "npm install -g pnpm",
             "install_uv": "astral.sh/uv/install.sh",
             "tmux_config": ".tmux.conf",
-            "create_dirs": "mkdir -p",
+            "create_dirs": "~/code ~/scripts",
             "harden_ssh_password": "PasswordAuthentication no",
             "harden_ssh_root": "PermitRootLogin no",
             "restart_sshd": "systemctl restart sshd",
