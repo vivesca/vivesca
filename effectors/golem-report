@@ -1,249 +1,236 @@
 #!/usr/bin/env python3
-"""golem-report — Generate task completion reports from golem.jsonl and golem-queue.md.
+"""golem-report — Generate analytics report from golem task logs.
+
+Reads golem.jsonl and golem-queue.md, outputs markdown report:
+- Tasks completed today (or specified date)
+- By provider breakdown
+- Success rate, avg duration
+- Rate-limit events
+- Top 3 longest tasks
+- Top 3 most-retried tasks
 
 Usage:
-    golem-report                  # Report for today
-    golem-report --date 2026-04-01  # Report for specific date
+    golem-report              # Report for today
+    golem-report --date 2026-04-01   # Report for specific date
     golem-report --help
 """
 from __future__ import annotations
 
+import argparse
 import json
 import re
 import sys
-from datetime import datetime
-from pathlib import Path
 from collections import defaultdict
+from datetime import datetime, timezone
+from pathlib import Path
 
+# Paths
 JSONL_FILE = Path.home() / ".local" / "share" / "vivesca" / "golem.jsonl"
 QUEUE_FILE = Path.home() / "germline" / "loci" / "golem-queue.md"
 
+# Rate-limit detection patterns
+RATE_LIMIT_PATTERNS = re.compile(
+    r'429|AccountQuotaExceeded|rate.?limit|quota.?exceeded|20013|'
+    r'request.?limit.?exceeded|API Error.*429|too many requests|TooManyRequests|'
+    r'usage.?limit|hit your.*limit|quota will reset|try again at',
+    re.IGNORECASE,
+)
 
-def parse_jsonl(date_filter: str | None = None) -> list[dict]:
-    """Parse golem.jsonl, optionally filtering by date (YYYY-MM-DD)."""
-    records = []
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="Generate analytics report from golem task logs"
+    )
+    parser.add_argument(
+        "--date",
+        type=str,
+        default=None,
+        help="Date for report (YYYY-MM-DD). Default: today",
+    )
+    parser.add_argument(
+        "--json",
+        action="store_true",
+        help="Output as JSON instead of markdown",
+    )
+    return parser.parse_args()
+
+
+def parse_timestamp(ts_str: str) -> datetime | None:
+    """Parse ISO timestamp string to datetime."""
+    for fmt in ("%Y-%m-%dT%H:%M:%SZ", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%dT%H:%M:%S.%fZ"):
+        try:
+            return datetime.strptime(ts_str, fmt).replace(tzinfo=timezone.utc)
+        except ValueError:
+            continue
+    return None
+
+
+def load_jsonl(date_filter: str | None) -> list[dict]:
+    """Load JSONL records, optionally filtering by date."""
     if not JSONL_FILE.exists():
-        return records
+        return []
     
-    try:
-        for line in JSONL_FILE.read_text(errors="replace").splitlines():
-            line = line.strip()
-            if not line:
-                continue
-            try:
-                rec = json.loads(line)
-                # Filter by date if specified
+    records = []
+    for line in JSONL_FILE.read_text().strip().split("\n"):
+        if not line.strip():
+            continue
+        try:
+            rec = json.loads(line)
+            ts = parse_timestamp(rec.get("ts", ""))
+            if ts:
+                rec["_dt"] = ts
                 if date_filter:
-                    ts = rec.get("ts", "")
-                    # Handle both "2026-04-01T20:04:45Z" and "2026-04-01 12:34:56" formats
-                    ts_date = ts[:10] if ts else ""
-                    if ts_date != date_filter:
+                    rec_date = ts.strftime("%Y-%m-%d")
+                    if rec_date != date_filter:
                         continue
                 records.append(rec)
-            except (json.JSONDecodeError, ValueError):
-                pass
-    except (PermissionError, OSError):
-        pass
-    
+        except json.JSONDecodeError:
+            continue
     return records
 
 
-def parse_queue_retries() -> dict[str, int]:
-    """Parse golem-queue.md for retry counts per task_id."""
-    retries: dict[str, int] = {}
-    if not QUEUE_FILE.exists():
-        return retries
-    
-    try:
-        for line in QUEUE_FILE.read_text().splitlines():
-            # Match retry markers: [retry:N] or just (retry)
-            m = re.search(r'\[t-([0-9a-fA-F]+)\]', line)
-            if not m:
-                continue
-            task_id = f"t-{m.group(1)}"
-            
-            # Check for [retry:N] pattern
-            retry_match = re.search(r'\[retry:(\d+)\]', line)
-            if retry_match:
-                retries[task_id] = max(retries.get(task_id, 0), int(retry_match.group(1)))
-            elif '(retry)' in line:
-                retries[task_id] = max(retries.get(task_id, 0), 1)
-    except (PermissionError, OSError):
-        pass
-    
-    return retries
+def extract_task_id(prompt: str) -> str:
+    """Extract task ID from prompt if present."""
+    m = re.search(r'\[t-[a-f0-9]+\]', prompt)
+    if m:
+        return m.group(0)
+    return ""
 
 
 def is_rate_limited(rec: dict) -> bool:
-    """Determine if a task failure was due to rate-limiting."""
-    if rec.get("exit") == 0:
-        return False
-    
-    duration = rec.get("duration", 999)
-    tail = rec.get("tail", "").lower()
-    exit_code = rec.get("exit", 0)
-    
-    # Fast exit with empty output
-    if duration <= 10 and exit_code in (1, 2):
+    """Check if a record indicates rate limiting."""
+    tail = rec.get("tail", "")
+    if RATE_LIMIT_PATTERNS.search(tail):
         return True
-    # Killed (OOM/cleanup)
-    if exit_code == 137:
+    # Also check for exit=1 with empty tail (often rate limit)
+    if rec.get("exit") == 1 and not tail.strip() and rec.get("duration", 0) < 10:
         return True
-    # Empty output
-    if not rec.get("tail", "").strip():
-        return True
-    # Rate-limit patterns in output
-    patterns = ["429", "accountquota", "rate.limit", "quota.exceeded", "usage.limit"]
-    for p in patterns:
-        if p in tail:
-            return True
-    
     return False
 
 
-def format_duration(seconds: int) -> str:
-    """Format seconds as human-readable duration."""
-    if seconds < 60:
-        return f"{seconds}s"
-    mins = seconds // 60
-    secs = seconds % 60
-    return f"{mins}m{secs}s"
+def truncate_prompt(prompt: str, max_len: int = 60) -> str:
+    """Truncate prompt for display."""
+    # Remove coaching notes if present
+    if "<coaching-notes>" in prompt:
+        prompt = re.sub(r'<coaching-notes>.*?---\s*', '', prompt, flags=re.DOTALL)
+    prompt = prompt.strip()
+    if len(prompt) > max_len:
+        return prompt[:max_len-3] + "..."
+    return prompt
 
 
-def generate_report(date: str | None = None) -> str:
-    """Generate markdown report for the specified date."""
-    target_date = date or datetime.now().strftime("%Y-%m-%d")
-    records = parse_jsonl(target_date)
-    queue_retries = parse_queue_retries()
+def generate_report(records: list[dict], date_str: str) -> str:
+    """Generate markdown report from records."""
+    lines = []
+    lines.append(f"# Golem Report — {date_str}")
+    lines.append("")
     
     if not records:
-        return f"# Golem Report — {target_date}\n\nNo tasks found for this date.\n"
+        lines.append("*No tasks recorded for this date.*")
+        return "\n".join(lines)
     
-    # Calculate stats
+    # Overall stats
     total = len(records)
-    passed = sum(1 for r in records if r.get("exit") == 0)
-    failed = total - passed
-    success_rate = (passed / total * 100) if total > 0 else 0
+    succeeded = sum(1 for r in records if r.get("exit") == 0)
+    failed = total - succeeded
+    success_rate = (succeeded / total * 100) if total > 0 else 0
+    durations = [r.get("duration", 0) for r in records if r.get("duration", 0) > 0]
+    avg_duration = sum(durations) / len(durations) if durations else 0
+    rate_limits = sum(1 for r in records if is_rate_limited(r))
     
-    # Total duration
-    total_duration = sum(r.get("duration", 0) for r in records)
-    avg_duration = total_duration / total if total > 0 else 0
+    lines.append("## Summary")
+    lines.append("")
+    lines.append(f"| Metric | Value |")
+    lines.append(f"|--------|-------|")
+    lines.append(f"| Total tasks | {total} |")
+    lines.append(f"| Succeeded | {succeeded} |")
+    lines.append(f"| Failed | {failed} |")
+    lines.append(f"| Success rate | {success_rate:.1f}% |")
+    lines.append(f"| Avg duration | {avg_duration:.0f}s ({avg_duration/60:.1f}m) |")
+    lines.append(f"| Rate-limit events | {rate_limits} |")
+    lines.append("")
     
-    # Rate-limit events
-    rate_limited = sum(1 for r in records if is_rate_limited(r))
-    
-    # Per-provider stats
-    provider_stats: dict[str, dict] = defaultdict(lambda: {
-        "count": 0, "passed": 0, "failed": 0, "rate_limited": 0, "total_duration": 0
-    })
-    
+    # By provider breakdown
+    provider_stats = defaultdict(lambda: {"total": 0, "success": 0, "duration": 0, "rate_limits": 0})
     for r in records:
         p = r.get("provider", "unknown")
-        provider_stats[p]["count"] += 1
-        provider_stats[p]["total_duration"] += r.get("duration", 0)
+        provider_stats[p]["total"] += 1
         if r.get("exit") == 0:
-            provider_stats[p]["passed"] += 1
-        else:
-            provider_stats[p]["failed"] += 1
-            if is_rate_limited(r):
-                provider_stats[p]["rate_limited"] += 1
+            provider_stats[p]["success"] += 1
+        provider_stats[p]["duration"] += r.get("duration", 0)
+        if is_rate_limited(r):
+            provider_stats[p]["rate_limits"] += 1
+    
+    lines.append("## By Provider")
+    lines.append("")
+    lines.append("| Provider | Tasks | Success | Rate | Avg Duration | Rate Limits |")
+    lines.append("|----------|-------|---------|------|--------------|-------------|")
+    for p in sorted(provider_stats.keys()):
+        s = provider_stats[p]
+        rate = (s["success"] / s["total"] * 100) if s["total"] > 0 else 0
+        avg_dur = s["duration"] / s["total"] if s["total"] > 0 else 0
+        lines.append(f"| {p} | {s['total']} | {s['success']} | {rate:.0f}% | {avg_dur:.0f}s | {s['rate_limits']} |")
+    lines.append("")
     
     # Top 3 longest tasks
-    sorted_by_duration = sorted(records, key=lambda r: r.get("duration", 0), reverse=True)[:3]
+    sorted_by_duration = sorted(records, key=lambda r: r.get("duration", 0), reverse=True)
+    lines.append("## Top 3 Longest Tasks")
+    lines.append("")
+    for i, r in enumerate(sorted_by_duration[:3], 1):
+        dur = r.get("duration", 0)
+        prov = r.get("provider", "?")
+        prompt = truncate_prompt(r.get("prompt", ""))
+        status = "✓" if r.get("exit") == 0 else "✗"
+        lines.append(f"{i}. [{status}] **{prov}** — {dur}s ({dur/60:.1f}m): {prompt}")
+    lines.append("")
     
-    # Top 3 most-retried tasks (from queue + jsonl cross-reference)
-    task_retries: dict[str, int] = {}
+    # Top 3 most-retried tasks (by task_id occurrence)
+    task_id_counts = defaultdict(list)
     for r in records:
-        tid = r.get("task_id", "")
-        if tid and tid in queue_retries:
-            task_retries[tid] = queue_retries[tid]
-    top_retried = sorted(task_retries.items(), key=lambda x: x[1], reverse=True)[:3]
+        prompt = r.get("prompt", "")
+        tid = extract_task_id(prompt)
+        if tid:
+            task_id_counts[tid].append(r)
     
-    # Build report
-    lines = [
-        f"# Golem Report — {target_date}",
-        "",
-        "## Summary",
-        "",
-        f"| Metric | Value |",
-        f"|--------|-------|",
-        f"| Tasks completed | {total} |",
-        f"| Success rate | {success_rate:.1f}% ({passed}/{total}) |",
-        f"| Avg duration | {format_duration(int(avg_duration))} |",
-        f"| Rate-limit events | {rate_limited} |",
-        "",
-        "## By Provider",
-        "",
-        "| Provider | Tasks | Passed | Failed | Rate-limited | Avg duration |",
-        "|----------|-------|--------|--------|--------------|--------------|",
-    ]
-    
-    for provider in sorted(provider_stats.keys()):
-        s = provider_stats[provider]
-        avg_dur = s["total_duration"] / s["count"] if s["count"] > 0 else 0
-        lines.append(
-            f"| {provider} | {s['count']} | {s['passed']} | {s['failed']} | "
-            f"{s['rate_limited']} | {format_duration(int(avg_dur))} |"
-        )
-    
-    lines.extend([
-        "",
-        "## Top 3 Longest Tasks",
-        "",
-    ])
-    
-    if sorted_by_duration:
-        lines.append("| Task ID | Provider | Duration | Exit |")
-        lines.append("|---------|----------|----------|------|")
-        for r in sorted_by_duration:
-            tid = r.get("task_id", "n/a")
-            dur = r.get("duration", 0)
-            prov = r.get("provider", "?")
-            exit_code = r.get("exit", "?")
-            lines.append(f"| {tid} | {prov} | {format_duration(dur)} | {exit_code} |")
+    sorted_by_retries = sorted(task_id_counts.items(), key=lambda x: len(x[1]), reverse=True)
+    lines.append("## Top 3 Most-Retried Tasks")
+    lines.append("")
+    if not sorted_by_retries:
+        lines.append("*No task IDs found in records.*")
     else:
-        lines.append("_No tasks found._")
-    
-    lines.extend([
-        "",
-        "## Top 3 Most-Retried Tasks",
-        "",
-    ])
-    
-    if top_retried:
-        lines.append("| Task ID | Retries |")
-        lines.append("|---------|--------|")
-        for tid, count in top_retried:
-            lines.append(f"| {tid} | {count} |")
-    else:
-        lines.append("_No retried tasks found._")
-    
+        for i, (tid, recs) in enumerate(sorted_by_retries[:3], 1):
+            count = len(recs)
+            successes = sum(1 for r in recs if r.get("exit") == 0)
+            prompt = truncate_prompt(recs[0].get("prompt", ""))
+            lines.append(f"{i}. **{tid}** — {count} attempts, {successes} success: {prompt}")
     lines.append("")
     
     return "\n".join(lines)
 
 
-def main() -> int:
-    args = sys.argv[1:]
+def main() -> None:
+    args = parse_args()
     
-    if "-h" in args or "--help" in args:
-        print(__doc__)
-        return 0
+    # Determine date filter
+    if args.date:
+        date_str = args.date
+    else:
+        date_str = datetime.now().strftime("%Y-%m-%d")
     
-    date = None
-    if "--date" in args:
-        idx = args.index("--date")
-        if idx + 1 < len(args):
-            date = args[idx + 1]
-            # Validate date format
-            if not re.match(r'^\d{4}-\d{2}-\d{2}$', date):
-                print(f"Error: Invalid date format '{date}'. Use YYYY-MM-DD.", file=sys.stderr)
-                return 1
+    records = load_jsonl(date_str)
     
-    report = generate_report(date)
-    print(report)
-    return 0
+    if args.json:
+        # Output as JSON
+        output = {
+            "date": date_str,
+            "total": len(records),
+            "records": records,
+        }
+        print(json.dumps(output, indent=2, default=str))
+    else:
+        report = generate_report(records, date_str)
+        print(report)
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    main()

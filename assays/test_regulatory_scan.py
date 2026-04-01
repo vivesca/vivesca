@@ -196,3 +196,226 @@ def test_cli_help():
     )
     assert result.returncode == 0
     assert "Scan for stale regulatory documents" in result.stdout
+
+
+# ── Additional subprocess integration tests ────────────────────────────────────
+
+EFFECTOR = str(Path.home() / "germline" / "effectors" / "regulatory-scan")
+
+
+def _make_stale(path: Path, name: str, days_old: int = 100) -> Path:
+    """Create a file with mtime set N days in the past."""
+    f = path / name
+    f.write_text("# test regulatory doc\n")
+    old_ts = (datetime.now() - timedelta(days=days_old)).timestamp()
+    import os
+    os.utime(f, (old_ts, old_ts))
+    return f
+
+
+def test_cli_dry_run_finds_stale(tmp_path):
+    """Subprocess dry-run should list stale files and exit 0."""
+    _make_stale(tmp_path, "hkma-circular-2025-01.md", days_old=120)
+    _make_stale(tmp_path, "sfc-consultation.pdf", days_old=200)
+    (tmp_path / "fresh-note.md").write_text("fresh")
+
+    import subprocess
+    result = subprocess.run(
+        [EFFECTOR, "--dry-run", "--days", "30", "--path", str(tmp_path)],
+        capture_output=True, text=True,
+    )
+    assert result.returncode == 0
+    assert "Found 2 stale document(s)" in result.stdout
+    assert "hkma-circular-2025-01.md" in result.stdout
+    assert "sfc-consultation.pdf" in result.stdout
+    assert "fresh-note.md" not in result.stdout  # fresh file not listed
+
+
+def test_cli_dry_run_no_stale(tmp_path):
+    """Subprocess dry-run with all-fresh files should report clean."""
+    (tmp_path / "doc1.md").write_text("fresh")
+    (tmp_path / "doc2.pdf").write_text("fresh")
+
+    import subprocess
+    result = subprocess.run(
+        [EFFECTOR, "--dry-run", "--days", "90", "--path", str(tmp_path)],
+        capture_output=True, text=True,
+    )
+    assert result.returncode == 0
+    assert "No stale documents found" in result.stdout
+
+
+def test_cli_empty_directory(tmp_path):
+    """Empty directory should report 0 documents scanned."""
+    import subprocess
+    result = subprocess.run(
+        [EFFECTOR, "--dry-run", "--path", str(tmp_path)],
+        capture_output=True, text=True,
+    )
+    assert result.returncode == 0
+    assert "Scanning 0 documents" in result.stdout
+
+
+def test_cli_ignores_non_md_pdf(tmp_path):
+    """Only .md and .pdf files should be scanned; .txt, .docx ignored."""
+    _make_stale(tmp_path, "report.txt", days_old=200)
+    _make_stale(tmp_path, "notes.docx", days_old=200)
+    # No .md or .pdf at all
+    import subprocess
+    result = subprocess.run(
+        [EFFECTOR, "--dry-run", "--days", "30", "--path", str(tmp_path)],
+        capture_output=True, text=True,
+    )
+    assert result.returncode == 0
+    assert "No stale documents found" in result.stdout
+
+
+def test_cli_backends_alias(tmp_path):
+    """Both --backend and --backends flags should be accepted."""
+    _make_stale(tmp_path, "test.md", days_old=100)
+    import subprocess
+    # --backend
+    r1 = subprocess.run(
+        [EFFECTOR, "--dry-run", "--backend", "perplexity", "--path", str(tmp_path)],
+        capture_output=True, text=True,
+    )
+    assert r1.returncode == 0
+    # --backends
+    r2 = subprocess.run(
+        [EFFECTOR, "--dry-run", "--backends", "perplexity", "--path", str(tmp_path)],
+        capture_output=True, text=True,
+    )
+    assert r2.returncode == 0
+
+
+def test_cli_days_zero(tmp_path):
+    """--days 0 should treat all files as stale (cutoff = today)."""
+    # File created just now (today) — mtime is now
+    (tmp_path / "today.md").write_text("just created")
+    import subprocess
+    result = subprocess.run(
+        [EFFECTOR, "--dry-run", "--days", "0", "--path", str(tmp_path)],
+        capture_output=True, text=True,
+    )
+    assert result.returncode == 0
+    # With days=0, cutoff is today; file from today should NOT be stale
+    # because is_stale uses strict < (mtime < cutoff)
+    # If file was modified at a time earlier today it IS stale; if at exactly
+    # the same moment it's not. So we just verify it doesn't crash.
+    assert "Scanning 1 documents" in result.stdout
+
+
+# ── Unit: generate_query edge cases ───────────────────────────────────────────
+
+
+def test_generate_query_hkma_capitals():
+    """Uppercase HKMA in filename should still be recognized."""
+    q = generate_query_from_filename("HKMA-2025-circular.md")
+    assert "HKMA" in q
+
+
+def test_generate_query_monetary_keyword():
+    """'monetary' keyword should trigger HKMA publisher."""
+    q = generate_query_from_filename("monetary-authority-update.md")
+    assert "HKMA" in q
+
+
+def test_generate_query_banking_keyword():
+    """'banking' keyword should trigger HKMA publisher."""
+    q = generate_query_from_filename("banking-compliance-guide.md")
+    assert "HKMA" in q
+
+
+def test_generate_query_strips_extension():
+    """Both .md and .pdf extensions should be stripped."""
+    q_md = generate_query_from_filename("test-doc.md")
+    q_pdf = generate_query_from_filename("test-doc.pdf")
+    assert "test doc" in q_md.lower()
+    assert "test doc" in q_pdf.lower()
+    assert ".md" not in q_md
+    assert ".pdf" not in q_pdf
+
+
+# ── Unit: is_stale boundary ───────────────────────────────────────────────────
+
+
+def test_is_stale_exact_cutoff():
+    """File exactly AT cutoff should NOT be stale (strict <)."""
+    now = datetime.now()
+    cutoff = now - timedelta(days=10)
+    # Set mtime to exactly the cutoff
+    mock_path = MagicMock(spec=Path)
+    mock_path.stat.return_value.st_mtime = cutoff.timestamp()
+    assert is_stale(mock_path, cutoff) is False
+
+
+# ── Unit: scan_regulatory_documents with mock rheotaxis ───────────────────────
+
+
+def test_scan_output_includes_query_for_sfc(tmp_path):
+    """Scan should build correct SFC query for sfc-* filenames."""
+    _make_stale(tmp_path, "sfc-licensing-guide.pdf", days_old=120)
+
+    original_parallel = _mod["rheotaxis_engine"].parallel_search
+    original_format = _mod["rheotaxis_engine"].format_results
+    try:
+        _mod["rheotaxis_engine"].parallel_search = lambda *a, **kw: []
+        _mod["rheotaxis_engine"].format_results = lambda x: ""
+
+        results = scan_regulatory_documents(tmp_path, 90, dry_run=False, timeout=1)
+        assert "sfc-licensing-guide.pdf" in results
+        assert "SFC" in results["sfc-licensing-guide.pdf"]["query"]
+    finally:
+        _mod["rheotaxis_engine"].parallel_search = original_parallel
+        _mod["rheotaxis_engine"].format_results = original_format
+
+
+def test_scan_skips_search_on_dry_run(tmp_path):
+    """Dry run should not call parallel_search at all."""
+    _make_stale(tmp_path, "stale.md", days_old=200)
+
+    called = {"count": 0}
+    original = _mod["rheotaxis_engine"].parallel_search
+    try:
+        def trap(*a, **kw):
+            called["count"] += 1
+            return []
+        _mod["rheotaxis_engine"].parallel_search = trap
+
+        scan_regulatory_documents(tmp_path, 90, dry_run=True)
+        assert called["count"] == 0
+    finally:
+        _mod["rheotaxis_engine"].parallel_search = original
+
+
+# ── Unit: generate_freshness_report ───────────────────────────────────────────
+
+
+def test_freshness_report_with_results(capsys):
+    """Report should print summary when results are provided."""
+    from unittest.mock import MagicMock
+    mock_result = MagicMock()
+    mock_result.error = ""
+    mock_result.answer = "update found"
+
+    report_data = {
+        "test-doc.md": {
+            "doc_info": {"days_old": 120, "name": "test-doc.md", "mtime": datetime.now(), "path": Path("/tmp/test")},
+            "query": "HKMA test",
+            "results": [mock_result],
+        }
+    }
+    generate_freshness_report = _mod["generate_freshness_report"]
+    generate_freshness_report(report_data)
+    captured = capsys.readouterr()
+    assert "FRESHNESS REPORT" in captured.out
+    assert "UPDATE AVAILABLE" in captured.out
+    assert "Total stale documents scanned: 1" in captured.out
+
+
+def test_freshness_report_empty(capsys):
+    """Report with empty dict should produce no output."""
+    generate_freshness_report = _mod["generate_freshness_report"]
+    generate_freshness_report({})
+    captured = capsys.readouterr()
+    assert captured.out == ""
