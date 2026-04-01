@@ -5,10 +5,7 @@ from __future__ import annotations
 import base64
 import pytest
 
-# This module is entirely synchronous (subprocess.run); prevent
-# pytest-asyncio (AUTO mode) from wrapping tmp_path and causing
-# FileExistsError on basetemp recreation.
-pytestmark = [pytest.mark.anyio]  # anyio handles sync tests fine
+# Synchronous tests — no async mark needed
 import os
 import stat
 import subprocess

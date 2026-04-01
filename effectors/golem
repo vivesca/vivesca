@@ -400,7 +400,7 @@ _run_golem() {
     # 1. Explicit 429 strings in output
     # 2. Empty/whitespace-only output with non-zero exit (claude swallows 429 errors silently)
     local _is_ratelimit=false
-    if echo "$output" | grep -qiE '429|AccountQuotaExceeded|rate.limit|quota.*exceeded|20013|request.limit.exceeded|usage.limit|hit your.*limit'; then
+    if echo "$output" | grep -qiE '429|AccountQuotaExceeded|rate.limit|quota.*exceeded|20013|request.limit.exceeded|usage.limit|hit your.*limit|quota will reset'; then
       _is_ratelimit=true
     elif [[ -z "${output// /}" ]]; then
       # Empty output + failure = claude got 429 and retried internally until giving up

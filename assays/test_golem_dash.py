@@ -639,8 +639,8 @@ class TestEnrichRunningProgress:
         ]
         result = enrich_running_progress(running, recs)
         assert len(result) == 1
-        assert result[0]["estimated_pct"] == 50  # 100/200 (median)
-        assert result[0]["estimated_remaining"] == 100
+        assert result[0]["estimated_pct"] == 33  # 100/300 (90th percentile)
+        assert result[0]["estimated_remaining"] == 200
         assert result[0]["is_stale"] is False
 
     def test_stale_detection(self):

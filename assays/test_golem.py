@@ -482,7 +482,8 @@ class TestDashQueueStatus:
             '- [x] `golem "task B"` \u2192 exit=0\n'
             '- [!] `golem "task C"`\n'
         )
-        status_text, last_done = ns.queue_status(q, use_color=False)
+        # queue_status returns 5 values
+        status_text, last_done, pending, done, failed = ns.queue_status(q, use_color=False)
         assert "Pending: 1" in status_text
         assert "Done: 1" in status_text
         assert "Failed: 1" in status_text
@@ -753,10 +754,10 @@ class TestValidateFile:
     def test_hardcoded_mac_path(self, tmp_path):
         ns = _load("golem-validate")
         f = tmp_path / "path.py"
-        f.write_text('p = str(Path.home() / "germline")\n')
+        f.write_text('p = "/Users/terry/germline"\n')
         status, issues = ns.validate_file(f)
         assert status == "FAIL"
-        assert any(str(Path.home() / "") in i for i in issues)
+        assert any("hardcoded /Users/terry/" in i for i in issues)
 
     def test_todo_marker(self, tmp_path):
         ns = _load("golem-validate")

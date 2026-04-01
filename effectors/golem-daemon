@@ -67,7 +67,7 @@ PROVIDER_RATE_WINDOWS: dict[str, int] = {
 RATE_LIMIT_PATTERNS = re.compile(
     r'429|AccountQuotaExceeded|rate.?limit|quota.?exceeded|20013|'
     r'request.?limit.?exceeded|API Error.*429|too many requests|TooManyRequests|'
-    r'usage.?limit|hit your.*limit',
+    r'usage.?limit|hit your.*limit|quota will reset',
     re.IGNORECASE,
 )
 
@@ -1795,6 +1795,7 @@ def cmd_stats() -> int:
                     or "429" in tail
                     or "rate" in tail_lower and "limit" in tail_lower
                     or "usage" in tail_lower and "limit" in tail_lower
+                    or "quota will reset" in tail_lower
                     or "golem_rate_limit" in tail):
                 provider_stats[p]["rate_limited"] += 1
 
