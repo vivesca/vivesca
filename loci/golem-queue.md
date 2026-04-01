@@ -865,28 +865,28 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 
 - [!] `golem [t-0ba7f5] --provider volcano --max-turns 50 "Write assays/test_exocytosis.conf.py for effectors/exocytosis.conf. Run uv run pytest assays/test_exocytosis.conf.py -v --tb=short."`
 
-- [ ] `golem [t-889d28] --provider infini --max-turns 50 "Write assays/test_fix_symlinks.py for effectors/fix-symlinks. Run uv run pytest assays/test_fix_symlinks.py -v --tb=short."`
+- [!] `golem [t-889d28] --provider infini --max-turns 50 "Write assays/test_fix_symlinks.py for effectors/fix-symlinks. Run uv run pytest assays/test_fix_symlinks.py -v --tb=short."`
 
-- [ ] `golem [t-0108e4] --provider zhipu --max-turns 50 "Write assays/test_oci_region_subscribe.py for effectors/oci-region-subscribe. Run uv run pytest assays/test_oci_region_subscribe.py -v --tb=short."`
+- [!] `golem [t-0108e4] --provider zhipu --max-turns 50 "Write assays/test_oci_region_subscribe.py for effectors/oci-region-subscribe. Run uv run pytest assays/test_oci_region_subscribe.py -v --tb=short."`
 
 - [!] `golem [t-673620] --provider infini --max-turns 50 "Write assays/test_perplexity.sh.py for effectors/perplexity.sh. Run uv run pytest assays/test_perplexity.sh.py -v --tb=short."`
 
 - [!] `golem [t-597b6c] --provider zhipu --max-turns 50 "Write assays/test_plan_exec.deprecated.py for effectors/plan-exec.deprecated. Run uv run pytest assays/test_plan_exec.deprecated.py -v --tb=short."`
 
-- [ ] `golem [t-88b71d] --provider volcano --max-turns 50 "Write assays/test_soma_bootstrap.py for effectors/soma-bootstrap. Run uv run pytest assays/test_soma_bootstrap.py -v --tb=short."`
+- [!] `golem [t-88b71d] --provider volcano --max-turns 50 "Write assays/test_soma_bootstrap.py for effectors/soma-bootstrap. Run uv run pytest assays/test_soma_bootstrap.py -v --tb=short."`
 
-- [ ] `golem [t-09b489] --provider infini --max-turns 50 "Write assays/test_circadian_probe.conf.py for effectors/circadian-probe.conf. Run uv run pytest assays/test_circadian_probe.conf.py -v --tb=short."`
+- [!] `golem [t-09b489] --provider infini --max-turns 50 "Write assays/test_circadian_probe.conf.py for effectors/circadian-probe.conf. Run uv run pytest assays/test_circadian_probe.conf.py -v --tb=short."`
 
-- [ ] `golem [t-65e4f2] --provider zhipu --max-turns 50 "Write assays/test_com.vivesca.soma_pull.plist.py for effectors/com.vivesca.soma-pull.plist. Run uv run pytest assays/test_com.vivesca.soma_pull.plist.py -v --tb=short."`
+- [!] `golem [t-65e4f2] --provider zhipu --max-turns 50 "Write assays/test_com.vivesca.soma_pull.plist.py for effectors/com.vivesca.soma-pull.plist. Run uv run pytest assays/test_com.vivesca.soma_pull.plist.py -v --tb=short."`
 
-- [ ] `golem [t-b8334b] --provider volcano --max-turns 50 "Write assays/test_exocytosis.conf.py for effectors/exocytosis.conf. Run uv run pytest assays/test_exocytosis.conf.py -v --tb=short."`
+- [!] `golem [t-b8334b] --provider volcano --max-turns 50 "Write assays/test_exocytosis.conf.py for effectors/exocytosis.conf. Run uv run pytest assays/test_exocytosis.conf.py -v --tb=short."`
 
-- [ ] `golem [t-6d79d0] --provider infini --max-turns 50 "Write assays/test_fix_symlinks.py for effectors/fix-symlinks. Run uv run pytest assays/test_fix_symlinks.py -v --tb=short."`
+- [!] `golem [t-6d79d0] --provider infini --max-turns 50 "Write assays/test_fix_symlinks.py for effectors/fix-symlinks. Run uv run pytest assays/test_fix_symlinks.py -v --tb=short."`
 
 
 ### Auto-requeue (19 tasks @ 19:20)
-- [ ] `golem [t-be39e7] --provider zhipu --max-turns 40 "Run uv run pytest --co -q 2>&1 | grep ERROR. Fix ALL collection errors. Common: hardcoded paths, bad imports, syntax. Run --co again until 0 errors. Commit."`
-- [ ] `golem [t-32aac8] --provider infini --max-turns 50 "Run uv run pytest -q --tb=no --continue-on-collection-errors 2>&1 | grep FAILED | sed 's/::.*//g' | sort | uniq -c | sort -rn | head -5. For each of the top 5 failing test files: run pytest on it, read traceback, fix. Iterate until green. Commit."`
+- [!] `golem [t-be39e7] --provider zhipu --max-turns 40 "Run uv run pytest --co -q 2>&1 | grep ERROR. Fix ALL collection errors. Common: hardcoded paths, bad imports, syntax. Run --co again until 0 errors. Commit."`
+- [!] `golem [t-32aac8] --provider infini --max-turns 50 "Run uv run pytest -q --tb=no --continue-on-collection-errors 2>&1 | grep FAILED | sed 's/::.*//g' | sort | uniq -c | sort -rn | head -5. For each of the top 5 failing test files: run pytest on it, read traceback, fix. Iterate until green. Commit."`
 - [ ] `golem [t-457f44] --provider volcano --max-turns 30 "Health check: effector-usage, centrosome, golem-dash, receptor-health, x-feed-to-lustro, gemmule-sync, browse, git-activity, tmux-osc52.sh, overnight-gather. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
 - [ ] `golem [t-19116b] --provider zhipu --max-turns 30 "Write tests for /home/terry/germline/metabolon/metabolism/repair.py. Mock external calls. Write assays/test_metabolism_repair.py. Run uv run pytest. Fix failures. Commit."`
 - [ ] `golem [t-a1b119] --provider infini --max-turns 30 "Write tests for /home/terry/germline/metabolon/organelles/phenotype_translate.py. Mock external calls. Write assays/test_organelles_phenotype_translate.py. Run uv run pytest. Fix failures. Commit."`
@@ -917,6 +917,30 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 - [ ] `golem [t-8c9dd1] --provider volcano --max-turns 50 "Write assays/test_evident_brief.py for effectors/evident-brief. Run uv run pytest assays/test_evident_brief.py -v --tb=short."`
 
 - [ ] `golem [t-17e981] --provider infini --max-turns 50 "Write assays/test_exocytosis.conf.py for effectors/exocytosis.conf. Run uv run pytest assays/test_exocytosis.conf.py -v --tb=short."`
+
+- [ ] `golem --provider infini --max-turns 50 "Write assays/test_circadian_probe.conf.py for effectors/circadian-probe.conf. Run uv run pytest assays/test_circadian_probe.conf.py -v --tb=short."`
+
+- [ ] `golem --provider zhipu --max-turns 50 "Write assays/test_com.vivesca.soma_pull.plist.py for effectors/com.vivesca.soma-pull.plist. Run uv run pytest assays/test_com.vivesca.soma_pull.plist.py -v --tb=short."`
+
+- [ ] `golem --provider infini --max-turns 50 "Write assays/test_circadian_probe.conf.py for effectors/circadian-probe.conf. Run uv run pytest assays/test_circadian_probe.conf.py -v --tb=short."`
+
+- [ ] `golem --provider zhipu --max-turns 50 "Write assays/test_com.vivesca.soma_pull.plist.py for effectors/com.vivesca.soma-pull.plist. Run uv run pytest assays/test_com.vivesca.soma_pull.plist.py -v --tb=short."`
+
+- [ ] `golem --provider volcano --max-turns 50 "Write assays/test_evident_brief.py for effectors/evident-brief. Run uv run pytest assays/test_evident_brief.py -v --tb=short."`
+
+- [ ] `golem --provider infini --max-turns 50 "Write assays/test_exocytosis.conf.py for effectors/exocytosis.conf. Run uv run pytest assays/test_exocytosis.conf.py -v --tb=short."`
+
+- [ ] `golem --provider infini --max-turns 50 "Write assays/test_circadian_probe.conf.py for effectors/circadian-probe.conf. Run uv run pytest assays/test_circadian_probe.conf.py -v --tb=short."`
+
+- [ ] `golem --provider zhipu --max-turns 50 "Write assays/test_com.vivesca.soma_pull.plist.py for effectors/com.vivesca.soma-pull.plist. Run uv run pytest assays/test_com.vivesca.soma_pull.plist.py -v --tb=short."`
+
+- [ ] `golem --provider volcano --max-turns 50 "Write assays/test_evident_brief.py for effectors/evident-brief. Run uv run pytest assays/test_evident_brief.py -v --tb=short."`
+
+- [ ] `golem --provider infini --max-turns 50 "Write assays/test_circadian_probe.conf.py for effectors/circadian-probe.conf. Run uv run pytest assays/test_circadian_probe.conf.py -v --tb=short."`
+
+- [ ] `golem --provider zhipu --max-turns 50 "Write assays/test_com.vivesca.soma_pull.plist.py for effectors/com.vivesca.soma-pull.plist. Run uv run pytest assays/test_com.vivesca.soma_pull.plist.py -v --tb=short."`
+
+- [ ] `golem --provider volcano --max-turns 50 "Write assays/test_evident_brief.py for effectors/evident-brief. Run uv run pytest assays/test_evident_brief.py -v --tb=short."`
 
 ## Done (2026-03-31)
 
