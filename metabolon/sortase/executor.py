@@ -86,7 +86,7 @@ TOOL_COMMANDS: dict[str, Callable[[Path, str], list[str]]] = {
         "--sandbox",
         "danger-full-access",
         "--full-auto",
-        f"You are working in {project}. Execute the following spec exactly — only touch files listed in the spec.\n\n{prompt}",
+        prompt,
     ],
     "goose": lambda project, prompt: [
         "translocon",
