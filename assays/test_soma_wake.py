@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-"""Tests for effectors/gemmule-wake — start gemmule Fly.io machine."""
+"""Tests for effectors/soma-wake — start soma Fly.io machine."""
 
 import json
 import sys
@@ -14,8 +14,8 @@ import pytest
 # ── Load effector via exec ──────────────────────────────────────────────────
 
 def _load():
-    source = (Path.home() / "germline" / "effectors" / "gemmule-wake").read_text()
-    ns: dict = {"__name__": "gemmule_wake"}
+    source = (Path.home() / "germline" / "effectors" / "soma-wake").read_text()
+    ns: dict = {"__name__": "soma_wake"}
     exec(source, ns)
     return ns
 
@@ -108,7 +108,7 @@ def test_api_post_sends_request(monkeypatch):
     monkeypatch.setenv("FLY_API_TOKEN", "tok")
     monkeypatch.setitem(_mod, "urlopen", mock_urlopen_fn)
 
-    result = _api("POST", "/v1/apps/gemmule/machines/m-1/start")
+    result = _api("POST", "/v1/apps/soma/machines/m-1/start")
     assert result == {"ok": True}
 
     call_args = mock_urlopen_fn.call_args
@@ -310,7 +310,7 @@ def test_main_calls_wake_by_default(monkeypatch, capsys):
 
     monkeypatch.setenv("FLY_API_TOKEN", "tok")
     monkeypatch.setitem(_mod, "urlopen", mock_urlopen_fn)
-    monkeypatch.setattr(sys, "argv", ["gemmule-wake"])
+    monkeypatch.setattr(sys, "argv", ["soma-wake"])
 
     with pytest.raises(SystemExit) as exc:
         main()
@@ -331,7 +331,7 @@ def test_main_calls_status_with_flag(monkeypatch, capsys):
 
     monkeypatch.setenv("FLY_API_TOKEN", "tok")
     monkeypatch.setitem(_mod, "urlopen", mock_urlopen_fn)
-    monkeypatch.setattr(sys, "argv", ["gemmule-wake", "--status"])
+    monkeypatch.setattr(sys, "argv", ["soma-wake", "--status"])
 
     with pytest.raises(SystemExit) as exc:
         main()
@@ -352,7 +352,7 @@ def test_main_calls_status_with_bare_status(monkeypatch, capsys):
 
     monkeypatch.setenv("FLY_API_TOKEN", "tok")
     monkeypatch.setitem(_mod, "urlopen", mock_urlopen_fn)
-    monkeypatch.setattr(sys, "argv", ["gemmule-wake", "status"])
+    monkeypatch.setattr(sys, "argv", ["soma-wake", "status"])
 
     with pytest.raises(SystemExit) as exc:
         main()
@@ -367,4 +367,4 @@ def test_main_calls_status_with_bare_status(monkeypatch, capsys):
 def test_constants():
     """Verify expected API base and app name constants."""
     assert API_BASE == "https://api.machines.dev"
-    assert APP_NAME == "gemmule"
+    assert APP_NAME == "soma"

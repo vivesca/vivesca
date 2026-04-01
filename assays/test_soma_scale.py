@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-"""Tests for gemmule-scale — Fly.io machine resizer."""
+"""Tests for soma-scale — Fly.io machine resizer."""
 
 import json
 import os
@@ -13,10 +13,10 @@ import pytest
 # ── Load effector via exec (scripts aren't importable modules) ───────
 
 def _load_module():
-    """Load gemmule-scale by exec-ing, with urlopen mocked."""
-    source = open("/home/terry/germline/effectors/gemmule-scale").read()
+    """Load soma-scale by exec-ing, with urlopen mocked."""
+    source = open("/home/terry/germline/effectors/soma-scale").read()
     mock_urlopen = MagicMock()
-    ns: dict = {"__name__": "gemmule_scale", "__builtins__": __builtins__}
+    ns: dict = {"__name__": "soma_scale", "__builtins__": __builtins__}
     exec(source, ns)
     # Replace urlopen in the module namespace
     ns["urlopen"] = mock_urlopen
@@ -93,18 +93,18 @@ def test_api_get_parses_json():
     """_api GETs and parses JSON response."""
     mock_urlopen.return_value = _mock_response({"id": "m1"})
     with patch.dict(os.environ, {"FLY_API_TOKEN": "tok"}):
-        result = _api("GET", "/v1/apps/gemmule/machines")
+        result = _api("GET", "/v1/apps/soma/machines")
     assert result == {"id": "m1"}
     req = mock_urlopen.call_args[0][0]
     assert req.method == "GET"
-    assert "/v1/apps/gemmule/machines" in req.full_url
+    assert "/v1/apps/soma/machines" in req.full_url
 
 
 def test_api_post_empty_body():
     """_api POST with no body returns empty dict."""
     mock_urlopen.return_value = _mock_response({})
     with patch.dict(os.environ, {"FLY_API_TOKEN": "tok"}):
-        result = _api("POST", "/v1/apps/gemmule/machines/m1/stop")
+        result = _api("POST", "/v1/apps/soma/machines/m1/stop")
     assert result == {}
 
 
@@ -112,7 +112,7 @@ def test_api_sets_auth_header():
     """_api sets Authorization: Bearer header."""
     mock_urlopen.return_value = _mock_response({})
     with patch.dict(os.environ, {"FLY_API_TOKEN": "secret"}):
-        _api("GET", "/v1/apps/gemmule/machines")
+        _api("GET", "/v1/apps/soma/machines")
     req = mock_urlopen.call_args[0][0]
     # Request._headers is a list of (name, value) tuples
     assert any("Authorization" in h and "Bearer secret" in v

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Tests for effectors/gemmule-health — gemmule system health monitor."""
+"""Tests for effectors/soma-health — soma system health monitor."""
 
 import json
 import os
@@ -11,14 +11,14 @@ from unittest import mock
 
 import pytest
 
-EFFECTOR_PATH = Path(__file__).resolve().parents[1] / "effectors" / "gemmule-health"
+EFFECTOR_PATH = Path(__file__).resolve().parents[1] / "effectors" / "soma-health"
 
 
 @pytest.fixture
 def gh(tmp_path):
-    """Load gemmule-health effector into an isolated namespace."""
+    """Load soma-health effector into an isolated namespace."""
     source = EFFECTOR_PATH.read_text()
-    ns = {"__name__": "test_gemmule_health", "__file__": str(EFFECTOR_PATH)}
+    ns = {"__name__": "test_soma_health", "__file__": str(EFFECTOR_PATH)}
     exec(source, ns)
     # Redirect all paths to tmp for isolation
     ns["HOME"] = tmp_path
@@ -565,7 +565,7 @@ class TestMain:
         report = gh["HealthReport"](timestamp="2025-01-01")
         report.add(gh["Check"](name="disk", status="ok", value="50%"))
         gh["run_health"] = mock.Mock(return_value=report)
-        with mock.patch.object(sys, "argv", ["gemmule-health", "--json"]):
+        with mock.patch.object(sys, "argv", ["soma-health", "--json"]):
             with pytest.raises(SystemExit):
                 gh["main"]()
         data = json.loads(capsys.readouterr().out)
@@ -574,7 +574,7 @@ class TestMain:
     def test_daemon_flag_compact(self, gh, capsys):
         report = gh["HealthReport"]()
         gh["run_health"] = mock.Mock(return_value=report)
-        with mock.patch.object(sys, "argv", ["gemmule-health", "--daemon"]):
+        with mock.patch.object(sys, "argv", ["soma-health", "--daemon"]):
             with pytest.raises(SystemExit):
                 gh["main"]()
         out = capsys.readouterr().out
@@ -583,7 +583,7 @@ class TestMain:
     def test_fix_flag_passed(self, gh):
         report = gh["HealthReport"]()
         gh["run_health"] = mock.Mock(return_value=report)
-        with mock.patch.object(sys, "argv", ["gemmule-health", "--fix"]):
+        with mock.patch.object(sys, "argv", ["soma-health", "--fix"]):
             with pytest.raises(SystemExit):
                 gh["main"]()
         gh["run_health"].assert_called_once()
@@ -593,7 +593,7 @@ class TestMain:
     def test_default_no_fix_no_json(self, gh):
         report = gh["HealthReport"]()
         gh["run_health"] = mock.Mock(return_value=report)
-        with mock.patch.object(sys, "argv", ["gemmule-health"]):
+        with mock.patch.object(sys, "argv", ["soma-health"]):
             with pytest.raises(SystemExit):
                 gh["main"]()
         kw = gh["run_health"].call_args.kwargs
@@ -1062,7 +1062,7 @@ class TestMainExtended:
     def test_combined_fix_and_json(self, gh, capsys):
         report = gh["HealthReport"](timestamp="2025-01-01")
         gh["run_health"] = mock.Mock(return_value=report)
-        with mock.patch.object(sys, "argv", ["gemmule-health", "--fix", "--json"]):
+        with mock.patch.object(sys, "argv", ["soma-health", "--fix", "--json"]):
             with pytest.raises(SystemExit):
                 gh["main"]()
         data = json.loads(capsys.readouterr().out)
@@ -1071,7 +1071,7 @@ class TestMainExtended:
     def test_daemon_passes_flags(self, gh):
         report = gh["HealthReport"]()
         gh["run_health"] = mock.Mock(return_value=report)
-        with mock.patch.object(sys, "argv", ["gemmule-health", "--daemon"]):
+        with mock.patch.object(sys, "argv", ["soma-health", "--daemon"]):
             with pytest.raises(SystemExit):
                 gh["main"]()
         kw = gh["run_health"].call_args.kwargs

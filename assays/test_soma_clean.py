@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-"""Tests for gemmule-clean — temp/cache cleaner effector."""
+"""Tests for soma-clean — temp/cache cleaner effector."""
 
 import os
 import time
@@ -10,8 +10,8 @@ import pytest
 
 
 def _load_module() -> dict:
-    source = Path("/home/terry/germline/effectors/gemmule-clean").read_text()
-    ns: dict = {"__name__": "gemmule_clean"}
+    source = Path("/home/terry/germline/effectors/soma-clean").read_text()
+    ns: dict = {"__name__": "soma_clean"}
     exec(source, ns)
     return ns
 

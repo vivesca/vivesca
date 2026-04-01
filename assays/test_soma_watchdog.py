@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-"""Tests for gemmule-watchdog — system health monitor."""
+"""Tests for soma-watchdog — system health monitor."""
 
 import os
 import shutil
@@ -14,9 +14,9 @@ import pytest
 
 
 def _load():
-    """Load gemmule-watchdog by exec-ing its source."""
-    src = open("/home/terry/germline/effectors/gemmule-watchdog").read()
-    ns: dict = {"__name__": "gemmule_watchdog"}
+    """Load soma-watchdog by exec-ing its source."""
+    src = open("/home/terry/germline/effectors/soma-watchdog").read()
+    ns: dict = {"__name__": "soma_watchdog"}
     exec(src, ns)
     return ns
 
@@ -83,7 +83,7 @@ def test_germline_under_home():
 
 
 def test_log_path():
-    assert LOG == HOME / "tmp" / "gemmule-watchdog.log"
+    assert LOG == HOME / "tmp" / "soma-watchdog.log"
 
 
 # ── log() ──────────────────────────────────────────────────────────────
