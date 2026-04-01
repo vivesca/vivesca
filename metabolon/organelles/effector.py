@@ -30,5 +30,5 @@ def run_cli(
     except subprocess.TimeoutExpired:
         raise ValueError(f"{os.path.basename(path)} timed out ({timeout}s)")
     except subprocess.CalledProcessError as e:
-        error_msg = e.stderr.strip() or str(e)
+        error_msg = (e.stderr or "").strip() or str(e)
         raise ValueError(f"{os.path.basename(path)} error: {error_msg}")
