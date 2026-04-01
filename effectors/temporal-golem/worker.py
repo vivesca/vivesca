@@ -7,10 +7,12 @@ Each activity runs `bash effectors/golem --provider X task`, heartbeats every
 
 Usage:
     python worker.py                # Start worker
+    python worker.py --help         # Show this help
 """
 from __future__ import annotations
 
 import asyncio
+import sys
 from datetime import timedelta
 from pathlib import Path
 
@@ -118,6 +120,10 @@ async def run_golem_task(task: str, provider: str, max_turns: int = 50) -> dict:
 
 async def main() -> None:
     """Start the Temporal worker."""
+    if "--help" in sys.argv or "-h" in sys.argv:
+        print(__doc__)
+        sys.exit(0)
+
     client = await Client.connect("localhost:7233")
     worker = Worker(
         client=client,

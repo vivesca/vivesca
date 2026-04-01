@@ -3,6 +3,10 @@
 
 Repos are pulled quietly. Failures logged but don't block other repos.
 Safe to run concurrently — git pull uses fast-forward only.
+
+Usage:
+    soma-pull              # Pull all repos
+    soma-pull --help       # Show this help
 """
 import subprocess
 import sys
@@ -62,4 +66,7 @@ def main():
 
 
 if __name__ == "__main__":
+    if "--help" in sys.argv or "-h" in sys.argv:
+        print(__doc__)
+        sys.exit(0)
     main()
