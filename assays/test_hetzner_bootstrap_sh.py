@@ -138,6 +138,36 @@ class TestContentChecks:
         src = SCRIPT.read_text()
         assert "build-essential" in src
 
+    def test_installs_htop_jq_unzip(self):
+        src = SCRIPT.read_text()
+        assert "htop" in src
+        assert "jq" in src
+        assert "unzip" in src
+
+    def test_eval_fnm_env(self):
+        src = SCRIPT.read_text()
+        assert 'eval "$(fnm env)"' in src
+
+    def test_correct_claude_package(self):
+        src = SCRIPT.read_text()
+        assert "@anthropic-ai/claude-code" in src
+
+    def test_tailscale_install_url(self):
+        src = SCRIPT.read_text()
+        assert "https://tailscale.com/install.sh" in src
+
+    def test_tmux_mouse_on(self):
+        src = SCRIPT.read_text()
+        assert "set -g mouse on" in src
+
+    def test_mkdir_p_code_dirs(self):
+        src = SCRIPT.read_text()
+        assert "mkdir -p ~/code ~/scripts ~/code/epigenome/chromatin ~/skills" in src
+
+    def test_mentions_gh_auth_login(self):
+        src = SCRIPT.read_text()
+        assert "gh auth login" in src
+
     def test_harden_ssh_robust(self):
         """SSH hardening should match both commented and uncommented lines."""
         src = SCRIPT.read_text()
