@@ -134,7 +134,7 @@ class TestSubprocessCLI:
     def test_fix_mode_applies_changes(self, tmp_path: Path):
         """Verify subprocess works with --fix."""
         p = tmp_path / "test_sub.py"
-        p.write_text('X = str(Path.home() / "x")\n')
+        p.write_text('X = "/home/terry/x"\n')
         script = str(Path.home() / "germline/effectors/conftest-gen")
         result = subprocess.run(
             [script, "--fix", "--assays-dir", str(tmp_path)],

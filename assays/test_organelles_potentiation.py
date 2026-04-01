@@ -617,18 +617,19 @@ def test_topics_with_drills_missing_file(potentiation_module, mock_chromatin):
 
 def test_topics_with_drills(potentiation_module, mock_chromatin):
     """Topics with drills parses drill file."""
+    # The regex pattern looks for (M\d-[\w-]+) with parentheses
     drill_content = '''
-## M1-ai-risks Definition Drills
+## (M1-ai-risks) Definition Drills
 Some content
 
-## M2-clustering Definition Drills
+## (M2-clustering) Definition Drills
 More content
 '''
     drill_file = mock_chromatin / "GARP RAI Definition Drills.md"
     drill_file.write_text(drill_content)
-    
+
     result = potentiation_module._topics_with_drills()
-    
+
     assert "M1-ai-risks" in result
     assert "M2-clustering" in result
 

@@ -77,7 +77,7 @@ def test_fix_collection_errors_identifies_hardcoded_paths():
     
     # Create a test file in assays with hardcoded path
     temp_test_file = GERMLINE / "assays" / "tmp_test_hardcoded.py"
-    temp_test_file.write_text("test_path = str(Path.home() / "germline/some/file.py")\n")
+    temp_test_file.write_text("test_path = str(Path.home() / \"germline/some/file.py\")\n")
     
     try:
         # Mock the run function to return our test file as an error

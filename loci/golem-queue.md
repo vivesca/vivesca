@@ -687,7 +687,7 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 - [!] `golem [t-e0d1d7] --provider zhipu --max-turns 30 "Write tests for effectors/plan-exec.deprecated. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
 - [x] `golem [t-498dcd] --provider infini --max-turns 30 "Write tests for effectors/chromatin-backup.sh. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
 - [x] `golem [t-b7e945] --provider volcano --max-turns 30 "Write tests for effectors/start-chrome-debug.sh. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
-- [ ] `golem [t-6a6b0a] --provider zhipu --max-turns 30 "Write tests for effectors/perplexity.sh. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
+- [!] `golem [t-6a6b0a] --provider zhipu --max-turns 30 "Write tests for effectors/perplexity.sh. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
 - [x] `golem [t-8f9019] --provider infini --max-turns 30 "Write tests for effectors/update-compound-engineering-skills.sh. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
 - [x] `golem [t-694e0c] --provider volcano --max-turns 25 "Find unused imports in metabolon/**/*.py. Remove them. Commit."`
 - [x] `golem [t-f6a6b4] --provider zhipu --max-turns 25 "Find Python files missing shebang in effectors/. Add #!/usr/bin/env python3. Commit."`
@@ -747,7 +747,7 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 - [ ] `golem [t-bd8b48] --provider infini --max-turns 30 "Write tests for /home/terry/germline/metabolon/organelles/potentiation.py. Mock external calls. Write assays/test_organelles_potentiation.py. Run uv run pytest. Fix failures. Commit."`
 - [x] `golem [t-b73a10] --provider volcano --max-turns 30 "Write tests for /home/terry/germline/metabolon/enzymes/tachometer.py. Mock external calls. Write assays/test_enzymes_tachometer.py. Run uv run pytest. Fix failures. Commit."`
 - [ ] `golem [t-771ab7] --provider zhipu --max-turns 30 "Write tests for /home/terry/germline/metabolon/organelles/mitosis.py. Mock external calls. Write assays/test_organelles_mitosis.py. Run uv run pytest. Fix failures. Commit."`
-- [ ] `golem [t-482697] --provider infini --max-turns 30 "Write tests for effectors/update-compound-engineering. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
+- [x] `golem [t-482697] --provider infini --max-turns 30 "Write tests for effectors/update-compound-engineering. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
 - [x] `golem [t-5be80b] --provider volcano --max-turns 30 "Write tests for effectors/backup-due.sh. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
 - [ ] `golem [t-5e9fd4] --provider zhipu --max-turns 30 "Write tests for effectors/pharos-sync.sh. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
 - [x] `golem [t-8556d5] --provider infini --max-turns 30 "Write tests for effectors/tmux-url-select.sh. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
