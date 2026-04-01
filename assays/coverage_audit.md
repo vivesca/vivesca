@@ -18,7 +18,7 @@
 | metabolon/metabolism/substrates/hygiene.py | 293 | high |
 | metabolon/metabolism/substrates/memory.py | 278 | high |
 | metabolon/metabolism/substrates/mismatch_repair.py | 185 | high |
-| metabolon/metabolism/substrates/operons.py | 152 | high |
+| metabolon/metabolism/substrates/operon_monitor.py | 152 | high |
 | metabolon/metabolism/substrates/spending.py | 91 | med |
 | metabolon/metabolism/substrates/tools.py | 115 | high |
 | metabolon/metabolism/substrates/vasomotor.py | 634 | high |

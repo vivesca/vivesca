@@ -10,7 +10,7 @@ from datetime import UTC, datetime, timedelta
 
 from metabolon.metabolism.signals import Outcome, SensorySystem, Stimulus
 from metabolon.metabolism.substrate import Substrate
-from metabolon.metabolism.substrates.operons import OperonSubstrate, _infer_cadence
+from metabolon.metabolism.substrates.operon_monitor import OperonSubstrate, _infer_cadence
 from metabolon.operons import Operon
 
 # ── Helpers ──────────────────────────────────────────────────────
