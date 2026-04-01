@@ -97,8 +97,8 @@ class TestIsRealCommand:
             assert not _is_real_command(b), f"{b} should be excluded"
 
     def test_real_command(self):
-        assert _is_real_command("rg")
         assert _is_real_command("docker")
+        assert _is_real_command("terraform")
         assert _is_real_command("my-tool")
 
     def test_too_short(self):
@@ -363,9 +363,9 @@ class TestLogAnoikisCandidates:
         assert _log_anoikis_candidates([], retirement_log=log) is False
 
     def test_oserror_returns_false(self, tmp_path):
-        log = tmp_path / "nonexistent" / "deep" / "retirement.md"
-        # parent mkdir will succeed, but we'll make the open fail
-        with patch("builtins.open", side_effect=OSError("nope")):
+        log = tmp_path / "retirement.md"
+        log.write_text("")  # exists
+        with patch.object(Path, "open", side_effect=OSError("nope")):
             assert _log_anoikis_candidates(["x"], retirement_log=log) is False
 
 
@@ -625,6 +625,7 @@ class TestRunColonyProbe:
         tools = tmp_path / "tools"
         colonies.mkdir()
         buds.mkdir()
+        skills.mkdir()
         tools.mkdir()
 
         # Skill "alpha" exists
