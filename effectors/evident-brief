@@ -1,0 +1,286 @@
+#!/usr/bin/env python3
+# /// script
+# requires-python = ">=3.11"
+# ///
+"""Fetch the latest Evident Banking Brief via agent-browser and output as markdown.
+
+Usage:
+    evident-brief              # fetch latest, print markdown to stdout
+    evident-brief --save       # also save to ~/.cache/lustro-articles/
+    evident-brief --list       # list available briefs (title, date, slug)
+    evident-brief --slug X     # fetch a specific brief by slug
+
+Scrapes evidentinsights.com/bankingbrief/ using agent-browser (headless Playwright).
+Outputs clean markdown suitable for LLM analysis or vault notes.
+"""
+
+import argparse
+import json
+import re
+import subprocess
+import sys
+from datetime import UTC, datetime
+from pathlib import Path
+
+INDEX_URL = "https://evidentinsights.com/bankingbrief/"
+BASE_URL = "https://evidentinsights.com/bankingbrief/"
+CACHE_DIR = Path.home() / ".cache" / "lustro-articles"
+
+
+def run_browser(cmd: str, timeout: int = 15) -> str:
+    """Run an agent-browser command and return stdout."""
+    result = subprocess.run(
+        ["agent-browser"] + cmd.split(),
+        capture_output=True,
+        text=True,
+        timeout=timeout,
+    )
+    if result.returncode != 0:
+        print(f"agent-browser {cmd} failed: {result.stderr}", file=sys.stderr)
+    return result.stdout.strip()
+
+
+def dismiss_cookies() -> None:
+    """Accept cookie banner if present."""
+    snapshot = run_browser("snapshot")
+    # Look for "Accept all" button ref
+    for line in snapshot.splitlines():
+        if "Accept all" in line:
+            match = re.search(r'ref=(\w+)', line)
+            if match:
+                run_browser(f"click @{match.group(1)}")
+                import time
+                time.sleep(1)
+                return
+
+
+def parse_index_page() -> list[dict]:
+    """Parse the brief index page and return list of {title, date, slug, url}."""
+    run_browser(f"open {INDEX_URL}", timeout=20)
+    import time
+    time.sleep(2)
+    dismiss_cookies()
+
+    html = run_browser("get html main", timeout=10)
+
+    # Extract brief links: /bankingbrief/<slug>
+    briefs = []
+    # Pattern: link with href containing /bankingbrief/ and date text nearby
+    link_pattern = re.compile(
+        r'href="(?:/bankingbrief/|https://evidentinsights\.com/bankingbrief/)([^"/?]+)"',
+    )
+    # Date pattern near brief cards
+    date_pattern = re.compile(r'(\d{1,2}\s+\w+\s+\d{4})')
+
+    seen_slugs = set()
+    for match in link_pattern.finditer(html):
+        slug = match.group(1)
+        if slug in seen_slugs or slug in ("", "#"):
+            continue
+        seen_slugs.add(slug)
+        # Try to find title from slug
+        title = slug.replace("-", " ").title()
+        briefs.append({
+            "slug": slug,
+            "title": title,
+            "url": f"{BASE_URL}{slug}",
+        })
+
+    # Enrich with dates/titles from snapshot
+    snapshot = run_browser("snapshot")
+    card_dates = date_pattern.findall(snapshot)
+    # Match dates to briefs in order (they appear in same order)
+    for i, brief in enumerate(briefs):
+        if i < len(card_dates):
+            brief["date"] = card_dates[i]
+        # Get proper title from snapshot headings
+        for line in snapshot.splitlines():
+            if brief["slug"].replace("-", " ").lower() in line.lower() and "heading" in line:
+                title_match = re.search(r'"([^"]+)"', line)
+                if title_match:
+                    brief["title"] = title_match.group(1)
+                    break
+
+    return briefs
+
+
+def fetch_brief(slug: str) -> dict:
+    """Fetch a single brief by slug. Returns {title, date, text, url, sections}."""
+    url = f"{BASE_URL}{slug}"
+    run_browser(f"open {url}", timeout=20)
+    import time
+    time.sleep(3)
+
+    # Get the full text of the main content area
+    text = run_browser("get text main", timeout=10)
+    if not text:
+        text = run_browser("get text article", timeout=10)
+    if not text:
+        text = run_browser("get text body", timeout=10)
+
+    # Get page title
+    title = run_browser("get title", timeout=5)
+    # Clean up title - remove "Evident - " prefix and " | Banking Brief | Evident Insights" suffix
+    title = re.sub(r'^Evident\s*-\s*', '', title)
+    title = re.sub(r'\s*\|.*$', '', title)
+
+    # Extract date from text (pattern: DD MONTH YYYY near top)
+    date = ""
+    date_match = re.search(r'(\d{1,2}\s+(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{4})', text)
+    if date_match:
+        date = date_match.group(1)
+
+    return {
+        "title": title.strip(),
+        "date": date,
+        "slug": slug,
+        "url": url,
+        "text": text,
+    }
+
+
+def brief_to_markdown(brief: dict) -> str:
+    """Convert a brief dict to clean markdown."""
+    lines = [
+        f"# Evident Banking Brief: {brief['title']}",
+        "",
+        f"**Date:** {brief['date']}",
+        f"**Source:** [Evident Banking Brief]({brief['url']})",
+        "",
+        "---",
+        "",
+    ]
+
+    text = brief["text"]
+
+    # Remove the subscribe/signup boilerplate from top
+    # Find the actual article start (after "TOP OF THE NEWS" or the date line)
+    article_markers = ["TOP OF THE NEWS", "Welcome back to the Banking Brief"]
+    for marker in article_markers:
+        idx = text.find(marker)
+        if idx != -1:
+            # Include the welcome paragraph if that's our marker
+            if marker == "Welcome back":
+                # Go back to find the start of this paragraph
+                text = text[idx:]
+            else:
+                text = text[idx:]
+            break
+
+    # Remove trailing boilerplate (footer, copyright, etc.)
+    end_markers = [
+        "MORE NEWS\nStay on top",
+        "© Evident Insights",
+        "Unsubscribe",
+        "You are receiving this email",
+    ]
+    for marker in end_markers:
+        idx = text.find(marker)
+        if idx != -1:
+            text = text[:idx].rstrip()
+
+    # Convert known section headers to markdown headers
+    section_headers = [
+        "TOP OF THE NEWS",
+        "WHAT'S ON AT EVIDENT",
+        "BEYOND THE INDEX",
+        "STAT OF THE WEEK",
+        "TALENT MATTERS",
+        "USE CASE CORNER",
+        "NOTABLY QUOTABLE",
+        "IN THE NEWS",
+        "WHAT'S ON",
+    ]
+    for header in section_headers:
+        text = text.replace(f"\n{header}\n", f"\n## {header}\n")
+        if text.startswith(f"{header}\n"):
+            text = f"## {header}\n" + text[len(header) + 1:]
+
+    lines.append(text)
+    return "\n".join(lines)
+
+
+def save_to_cache(brief: dict, markdown: str) -> Path:
+    """Save brief to lustro article cache as JSON."""
+    CACHE_DIR.mkdir(parents=True, exist_ok=True)
+
+    # Parse date for filename
+    date_str = datetime.now(UTC).strftime("%Y-%m-%d")
+    if brief["date"]:
+        try:
+            dt = datetime.strptime(brief["date"], "%d %B %Y")
+            date_str = dt.strftime("%Y-%m-%d")
+        except ValueError:
+            pass
+
+    filename = f"{date_str}_evident-brief_{brief['slug']}.json"
+    filepath = CACHE_DIR / filename
+
+    record = {
+        "title": f"Evident Banking Brief: {brief['title']}",
+        "date": date_str,
+        "source": "Evident Banking Brief",
+        "tier": 1,
+        "link": brief["url"],
+        "summary": brief["text"][:300].strip().replace("\n", " "),
+        "text": markdown,
+        "fetched_at": datetime.now(UTC).isoformat(),
+    }
+
+    filepath.write_text(json.dumps(record, ensure_ascii=False, indent=2))
+    return filepath
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="Fetch the latest Evident Banking Brief via agent-browser.",
+    )
+    parser.add_argument("--save", action="store_true", help="Save to lustro article cache")
+    parser.add_argument("--list", action="store_true", help="List available briefs")
+    parser.add_argument("--slug", type=str, help="Fetch a specific brief by URL slug")
+    parser.add_argument("--json", action="store_true", help="Output as JSON instead of markdown")
+    args = parser.parse_args()
+
+    try:
+        if args.list:
+            briefs = parse_index_page()
+            for b in briefs:
+                date = b.get("date", "?")
+                print(f"  {date:<20} {b['title']:<45} {b['slug']}")
+            print(f"\n{len(briefs)} briefs found.", file=sys.stderr)
+            return
+
+        if args.slug:
+            slug = args.slug
+        else:
+            # Get latest brief slug from index
+            briefs = parse_index_page()
+            if not briefs:
+                print("No briefs found on index page.", file=sys.stderr)
+                sys.exit(1)
+            slug = briefs[0]["slug"]
+            print(f"Latest brief: {briefs[0].get('title', slug)}", file=sys.stderr)
+
+        brief = fetch_brief(slug)
+        markdown = brief_to_markdown(brief)
+
+        if args.json:
+            json.dump(brief, sys.stdout, ensure_ascii=False, indent=2)
+        else:
+            print(markdown)
+
+        if args.save:
+            path = save_to_cache(brief, markdown)
+            print(f"Saved to {path}", file=sys.stderr)
+
+    finally:
+        # Always close browser
+        subprocess.run(
+            ["agent-browser", "close"],
+            capture_output=True,
+            timeout=5,
+        )
+
+
+if __name__ == "__main__":
+    main()
