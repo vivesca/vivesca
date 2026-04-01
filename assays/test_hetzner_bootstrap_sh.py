@@ -370,3 +370,93 @@ class TestIdempotency:
         """SSH settings use sed replace (idempotent re-run)."""
         src = _src()
         assert "sed -i 's/^#\\?PasswordAuthentication" in src
+
+    def test_no_todo_fixme_markers(self):
+        """Script must not contain TODO or FIXME markers."""
+        src = _src()
+        for marker in ("TODO", "FIXME"):
+            assert marker not in src, f"Script contains {marker}"
+
+    def test_mentions_ubuntu_22_04(self):
+        """Help text and/or comments reference Ubuntu 22.04."""
+        src = _src()
+        assert "22.04" in src
+
+    def test_fnm_env_evaluated(self):
+        """fnm env is evaluated before using fnm."""
+        src = _src()
+        assert 'eval "$(fnm env)"' in src
+
+    def test_fnm_default_lts(self):
+        """fnm default is set to lts-latest."""
+        src = _src()
+        assert "fnm default lts-latest" in src
+
+    def test_banner_not_printed_as_nonroot(self):
+        """Banner is NOT printed when run as non-root (fails first)."""
+        r = subprocess.run(
+            ["bash", str(SCRIPT)],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        assert r.returncode == 1
+        assert "=== Hetzner Claude Code Bootstrap ===" not in r.stdout
+
+    def test_no_hardcoded_passwords(self):
+        """Script must not contain hardcoded passwords."""
+        src = _src()
+        # Common patterns that indicate hardcoded passwords
+        for pattern in ("password=", "PASSWORD=", "passwd="):
+            assert pattern not in src
+
+    def test_completion_message_is_last_section(self):
+        """Completion message appears after all operational sections."""
+        src = _src()
+        completion_pos = src.index("=== Bootstrap Complete ===")
+        sshd_restart_pos = src.index("systemctl restart sshd")
+        assert sshd_restart_pos < completion_pos
+
+    def test_all_curl_uses_fail_silent_flags(self):
+        """All curl invocations use -f (fail silently on HTTP errors) or -LsSf."""
+        src = _src()
+        # Find all curl lines
+        for i, line in enumerate(src.splitlines(), 1):
+            stripped = line.strip()
+            if stripped.startswith("curl ") or "curl " in stripped:
+                # Every curl should have -f or -fsSL or -LsSf
+                assert "-f" in stripped or "-LsSf" in stripped, (
+                    f"Line {i}: curl without fail flag: {stripped}"
+                )
+
+    def test_apt_get_uses_assume_yes(self):
+        """All apt-get install/upgrade commands use -y flag."""
+        src = _src()
+        for i, line in enumerate(src.splitlines(), 1):
+            stripped = line.strip()
+            if "apt-get install" in stripped or "apt-get upgrade" in stripped:
+                assert " -y" in stripped, (
+                    f"Line {i}: apt-get without -y: {stripped}"
+                )
+
+    def test_no_interactive_commands(self):
+        """Script must not contain interactive prompts (read, select)."""
+        src = _src()
+        # 'read' at start of command (not in comments/strings)
+        import re
+        # Avoid matching 'read' in words like 'unreadable' or in comments
+        for i, line in enumerate(src.splitlines(), 1):
+            stripped = line.strip()
+            if stripped.startswith("#"):
+                continue
+            # Match 'read ' as a command but not in a string context
+            if re.search(r"\bread\b", stripped) and "read -" not in stripped:
+                # Allow 'read' in echo strings
+                assert "echo" in stripped or "'" in stripped or '"' in stripped, (
+                    f"Line {i}: interactive 'read' command: {stripped}"
+                )
+
+    def test_tailscale_install_message(self):
+        """Script prints Tailscale authentication reminder."""
+        src = _src()
+        assert "tailscale up" in src
