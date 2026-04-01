@@ -28,6 +28,7 @@ Capture continuously — don't wait for `/cytokinesis`. The end-of-session pass 
 | Surprise / unexpected behavior | Antisera | Always file |
 | Repeated manual step (2+) | Hook candidate (methylation) | Always file |
 | Workflow improvement idea | Skill edit (now, not deferred) | Always file |
+| Domain knowhow discovered (3+ workarounds, fallback chains, per-target patterns) | **Proactively propose** skill + CLI split (see artifex §15-16) | Would next jurisdiction/batch benefit? |
 | Publishable insight | Tweet / garden | Ship immediately |
 | State change | Tonus.md | Always update |
 | Commitment / action | Praxis.md (with context) | Always file |

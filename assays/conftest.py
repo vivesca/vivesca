@@ -133,7 +133,9 @@ def clean_pytest_temp_dirs(pytestconfig: pytest.Config):
         try:
             if active_basetemp is not None and path == active_basetemp:
                 for child in list(path.iterdir()):
-                    if child.is_dir():
+                    if child.is_symlink():
+                        child.unlink()
+                    elif child.is_dir():
                         _force_rmtree(child)
                     else:
                         child.unlink(missing_ok=True)
