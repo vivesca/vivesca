@@ -280,17 +280,6 @@ class TestParallelSearch:
         backends = {r.backend for r in results}
         assert backends == {"perplexity", "exa", "tavily", "serper"}
 
-    @patch("metabolon.organelles.rheotaxis_engine.search_perplexity")
-    @patch("metabolon.organelles.rheotaxis_engine.search_exa")
-    def test_parallel_search_subset_backends(self, mock_exa, mock_perp):
-        mock_perp.return_value = RheotaxisResult(backend="perplexity", query="test", results=[], answer="")
-        mock_exa.return_value = RheotaxisResult(backend="exa", query="test", results=[], error="")
-
-        results = parallel_search("test query", backends=["perplexity", "exa"])
-        assert len(results) == 2
-        assert mock_perp.called
-        assert mock_exa.called
-
     def test_parallel_search_unknown_backend_skipped(self):
         with patch("metabolon.organelles.rheotaxis_engine.search_perplexity") as mock_perp:
             mock_perp.return_value = RheotaxisResult(backend="perplexity", query="test", results=[], error="")
@@ -376,3 +365,16 @@ class TestSearchPerplexity:
         assert result.error == "API failure"
         assert result.answer == ""
 
+    def test_parallel_search_subset_backends(self):
+        with patch("metabolon.organelles.rheotaxis_engine._BACKENDS") as mock_backends:
+            mock_perp = MagicMock()
+            mock_perp.return_value = RheotaxisResult(backend="perplexity", query="test", results=[], answer="")
+            mock_exa = MagicMock()
+            mock_exa.return_value = RheotaxisResult(backend="exa", query="test", results=[], error="")
+            mock_backends.__getitem__.side_effect = lambda key: {'perplexity': mock_perp, 'exa': mock_exa}[key]
+            mock_backends.__contains__.side_effect = lambda key: key in {'perplexity', 'exa'}
+
+            results = parallel_search("test query", backends=["perplexity", "exa"])
+            assert len(results) == 2
+            assert mock_perp.called
+            assert mock_exa.called
