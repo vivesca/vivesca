@@ -25,7 +25,7 @@ All providers 89-97% capable — spread tasks across all 5 for quota pacing.
 ### Test coverage — targeted modules
 
 - [ ] `golem [t-6ddb89] --provider codex --max-turns 40 "Write tests for /home/terry/germline/metabolon/organelles/phenotype_translate.py (560 lines). Read the module first. Mock external calls. Write to assays/test_organelles_phenotype_translate.py. Target 80%+ line coverage. Run uv run pytest assays/test_organelles_phenotype_translate.py -v. Fix all failures. Commit."`
-- [ ] `golem [t-8a7c3b] --provider gemini --max-turns 25 "Write tests for /home/terry/germline/metabolon/enzymes/kinesin.py (63 lines). Read the module first. Mock external calls. Write to assays/test_enzymes_kinesin.py. Aim for 100% coverage given small size. Run uv run pytest assays/test_enzymes_kinesin.py -v. Fix all failures. Commit."`
+- [x] `golem [t-8a7c3b] --provider gemini --max-turns 25 "Write tests for /home/terry/germline/metabolon/enzymes/kinesin.py (63 lines). Read the module first. Mock external calls. Write to assays/test_enzymes_kinesin.py. Aim for 100% coverage given small size. Run uv run pytest assays/test_enzymes_kinesin.py -v. Fix all failures. Commit."`
 
 ### Effector tests (dedup'd — one per effector)
 
