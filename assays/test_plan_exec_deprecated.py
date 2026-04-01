@@ -509,12 +509,13 @@ def test_main_timeout_is_600_seconds(tmp_path):
     assert captured_timeout["value"] == 600
 
 
-def test_main_output_file_per_backend(tmp_path, monkeypatch):
+def test_main_output_file_per_backend(tmp_path):
     """main creates one log file per backend attempted."""
     plan = tmp_path / "plan.md"
     plan.write_text("# Plan")
     results = tmp_path / "results"
-    monkeypatch.setattr(_mod, "RESULTS_DIR", results)
+    original_results = _mod["RESULTS_DIR"]
+    _mod["RESULTS_DIR"] = results
 
     call_count = 0
 
@@ -529,10 +530,13 @@ def test_main_output_file_per_backend(tmp_path, monkeypatch):
         stdout.flush()
         return MagicMock(returncode=0)
 
-    with patch("subprocess.run", side_effect=fake_run):
-        with pytest.raises(SystemExit):
-            with patch("sys.argv", ["plan-exec", str(plan)]):
-                main()
+    try:
+        with patch("subprocess.run", side_effect=fake_run):
+            with pytest.raises(SystemExit):
+                with patch("sys.argv", ["plan-exec", str(plan)]):
+                    main()
+    finally:
+        _mod["RESULTS_DIR"] = original_results
 
     # 3 backends attempted, so 3 log files
     run_dir = list(results.iterdir())[0]

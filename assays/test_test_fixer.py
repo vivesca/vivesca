@@ -63,10 +63,10 @@ def test_detect_hardcoded_linux_path():
     """detect_issues flags /home/terry/ hardcoded paths."""
     _mod = _load_test_fixer()
     detect_issues = _mod["detect_issues"]
-    
+
     test_code = '''
 def test_bar():
-    config = open(str(Path.home() / ".config/app.conf"))
+    config = open("/home/terry/.config/app.conf")
 '''
     issues = detect_issues(test_code)
     assert any("home/terry" in i for i in issues)
@@ -109,11 +109,11 @@ def test_fix_hardcoded_path():
     """apply_fixes replaces /Users/terry/ with Path.home()."""
     _mod = _load_test_fixer()
     apply_fixes = _mod["apply_fixes"]
-    
-    test_code = '''path = str(Path.home() / "germline/effectors/foo")'''
+
+    test_code = '''path = "/Users/terry/germline/effectors/foo"'''
     fixed = apply_fixes(test_code)
     assert "Path.home()" in fixed
-    assert str(Path.home() / "") not in fixed
+    assert "/Users/terry/" not in fixed
 
 
 def test_fix_hardcoded_linux_path():

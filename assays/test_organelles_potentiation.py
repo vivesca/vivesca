@@ -811,21 +811,45 @@ def test_cmd_coverage(potentiation_module, mock_chromatin, mock_now, capsys):
 
 def test_cmd_reconcile_in_sync(potentiation_module, mock_chromatin, mock_now, capsys):
     """cmd_reconcile reports in-sync."""
+    # Use the proper table format expected by _TOPIC_ROW_RE
     tracker_content = '''
+# GARP RAI Quiz Tracker
+
+## Summary
+
+| Metric | Value |
+|--------|-------|
 | Total Questions | 10 |
 | Correct | 8 |
 | Rate | 80% |
+| Sessions | 2 |
+
+## Topics
 
 | Topic | Attempts | Correct | Rate |
 |-------|----------|---------|------|
 | M1-ai-risks | 5 | 4 | 80% |
 | M2-clustering | 5 | 4 | 80% |
+| M3-bias-unfairness | 0 | 0 | — |
+| M3-fairness-measures | 0 | 0 | — |
+| M3-xai | 0 | 0 | — |
+| M3-autonomy-safety | 0 | 0 | — |
+| M3-reputational-existential | 0 | 0 | — |
+| M3-genai-risks | 0 | 0 | — |
+| M4-ethical-frameworks | 0 | 0 | — |
+| M4-ethics-principles | 0 | 0 | — |
+| M4-bias-discrimination | 0 | 0 | — |
+| M4-privacy-cybersecurity | 0 | 0 | — |
+| M4-governance-challenges | 0 | 0 | — |
+| M4-regulatory | 0 | 0 | — |
+| M5-data-governance | 0 | 0 | — |
+| M5-model-governance | 0 | 0 | — |
 '''
     tracker_file = mock_chromatin / "GARP RAI Quiz Tracker.md"
     tracker_file.write_text(tracker_content)
-    
+
     potentiation_module.cmd_reconcile()
-    
+
     captured = capsys.readouterr()
     assert "in sync" in captured.out.lower() or "no changes" in captured.out.lower()
 
