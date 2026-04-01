@@ -55,11 +55,19 @@ async def save_state(context, key: str) -> None:
 
 def _run_golem(input, context, provider: str) -> dict:
     """Shared golem execution logic."""
-    # Hatchet wraps payload in {"input": {...}} — unwrap if needed
-    if isinstance(input, dict) and "input" in input and isinstance(input["input"], dict):
-        input = input["input"]
-    task = input.get("task", "") if isinstance(input, dict) else str(input)
-    max_turns = input.get("max_turns", 50) if isinstance(input, dict) else 50
+    # Normalize input: Hatchet SDK passes pydantic EmptyModel for @hatchet.task,
+    # dict for @hatchet.durable_task. Handle both.
+    if hasattr(input, "task"):
+        task = input.task or ""
+        max_turns = getattr(input, "max_turns", 50) or 50
+    elif isinstance(input, dict):
+        if "input" in input and isinstance(input["input"], dict):
+            input = input["input"]
+        task = input.get("task", "")
+        max_turns = input.get("max_turns", 50)
+    else:
+        task = str(input)
+        max_turns = 50
 
     cmd = [
         "bash", str(GOLEM_SCRIPT),
@@ -103,11 +111,18 @@ async def golem_zhipu(input, context):
     already-completed sections. The subprocess re-runs only if the post-exec
     checkpoint was never reached (golem tasks are idempotent).
     """
-    # Hatchet wraps payload in {"input": {...}} — unwrap if needed
-    if isinstance(input, dict) and "input" in input and isinstance(input["input"], dict):
-        input = input["input"]
-    task = input.get("task", "") if isinstance(input, dict) else str(input)
-    max_turns = input.get("max_turns", 50) if isinstance(input, dict) else 50
+    # Normalize input: EmptyModel or dict depending on task type
+    if hasattr(input, "task"):
+        task = input.task or ""
+        max_turns = getattr(input, "max_turns", 50) or 50
+    elif isinstance(input, dict):
+        if "input" in input and isinstance(input["input"], dict):
+            input = input["input"]
+        task = input.get("task", "")
+        max_turns = input.get("max_turns", 50)
+    else:
+        task = str(input)
+        max_turns = 50
 
     # Save state: mark that execution has begun
     await save_state(context, "golem-zhipu-pre-exec")

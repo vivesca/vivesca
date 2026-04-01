@@ -21,12 +21,11 @@ services:
       postgresql:
         condition: service_healthy
     environment:
-      - DB=postgresql
+      - DB=postgres12
       - DB_PORT=5432
-      - DB_USER=temporal
-      - DB_PASSWORD=temporal
-      - DB_NAME=temporal
-      - DB_HOST=postgresql
+      - POSTGRES_USER=temporal
+      - POSTGRES_PWD=temporal
+      - POSTGRES_SEEDS=postgresql
       - ENABLE_UI=1
     ports:
       - "7233:7233"
