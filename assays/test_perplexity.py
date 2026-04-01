@@ -3,7 +3,8 @@ from __future__ import annotations
 """Tests for effectors/perplexity.sh — Perplexity API CLI wrapper.
 
 Covers: help, usage errors, mode validation, mode-to-model mapping,
-JSON query escaping, response parsing (success and error).
+JSON query escaping, response parsing (success, error, fallback),
+API key requirement, file basics.
 """
 
 import json
@@ -15,33 +16,20 @@ from pathlib import Path
 
 import pytest
 
-SCRIPT = Path.home() / "germline" / "effectors" / "perplexity.sh"
+SCRIPT = Path(__file__).parent.parent / "effectors" / "perplexity.sh"
 
 
-def _make_fake_curl(tmpdir: Path, response_body: str) -> Path:
-    """Create a fake curl that writes the request body to a file and returns response_body."""
-    fake = tmpdir / "curl"
-    capture = tmpdir / "captured_request.json"
-    fake.write_text(
-        f"""#!/usr/bin/env bash
-# Capture the -d argument (the request body)
-while [ "$#" -gt 0 ]; do
-    case "$1" in
-        -d) shift; echo -n "$1" > {capture}; shift ;;
-        *) shift ;;
-    esac
-done
-echo -n {json.dumps(response_body)}
-"""
-    )
-    fake.chmod(fake.stat().st_mode | stat.S_IEXEC)
-    return fake
+# ── helpers ─────────────────────────────────────────────────────────
 
 
-def _run(*args, env_extra: dict | None = None, timeout: int = 15) -> subprocess.CompletedProcess:
+def _run(
+    *args: str,
+    env_extra: dict | None = None,
+    timeout: int = 15,
+) -> subprocess.CompletedProcess:
+    """Run perplexity.sh in isolation (no real API key, no real home)."""
     env = os.environ.copy()
-    env["PERPLEXITY_API_KEY"] = "test-key-12345"
-    # Prevent sourcing real ~/.secrets from interfering
+    env.pop("PERPLEXITY_API_KEY", None)
     env["HOME"] = "/nonexistent-home-for-test"
     if env_extra:
         env.update(env_extra)
@@ -54,41 +42,109 @@ def _run(*args, env_extra: dict | None = None, timeout: int = 15) -> subprocess.
     )
 
 
+def _make_fake_curl(tmpdir: Path, response_body: str) -> Path:
+    """Create a fake curl that captures the -d body and prints response_body.
+
+    The response is written via a temp file to avoid shell-escaping issues
+    with complex JSON payloads.
+    """
+    fake = tmpdir / "curl"
+    capture = tmpdir / "captured_request.json"
+    resp_file = tmpdir / "mock_response.bin"
+    resp_file.write_text(response_body)
+    fake.write_text(
+        f"""#!/usr/bin/env bash
+# fake curl: capture -d argument, return canned response
+while [ "$#" -gt 0 ]; do
+    case "$1" in
+        -d) shift; printf '%s' "$1" > {capture}; shift ;;
+        *)  shift ;;
+    esac
+done
+cat {resp_file}
+"""
+    )
+    fake.chmod(fake.stat().st_mode | stat.S_IEXEC)
+    return fake
+
+
 def _run_with_fake_curl(
-    tmpdir: Path, mode: str, query: str, response_body: str
+    tmpdir: Path, mode: str, query: str, response_body: str,
 ) -> tuple[subprocess.CompletedProcess, dict]:
     """Run perplexity.sh with a fake curl; return (proc, captured_request)."""
-    fake_curl = _make_fake_curl(tmpdir, response_body)
-    env_extra = {"PATH": f"{tmpdir}:{os.environ.get('PATH', '')}"}
+    _make_fake_curl(tmpdir, response_body)
+    env_extra = {
+        "PATH": f"{tmpdir}:{os.environ.get('PATH', '')}",
+        "PERPLEXITY_API_KEY": "test-key-12345",
+    }
     proc = _run(mode, query, env_extra=env_extra)
     captured = tmpdir / "captured_request.json"
-    request = json.loads(captured.read_text()) if captured.exists() else {}
+    request: dict = {}
+    if captured.exists():
+        raw = captured.read_text()
+        if raw.strip():
+            request = json.loads(raw)
     return proc, request
 
 
-# ── Help and usage ───────────────────────────────────────────────────
+# ── File basics ─────────────────────────────────────────────────────
+
+
+class TestFileBasics:
+    def test_file_exists(self):
+        assert SCRIPT.exists()
+
+    def test_is_bash_script(self):
+        first_line = SCRIPT.read_text().split("\n")[0]
+        assert first_line == "#!/usr/bin/env bash"
+
+    def test_has_set_euo(self):
+        src = SCRIPT.read_text()
+        assert "set -euo pipefail" in src
+
+    def test_script_is_executable(self):
+        assert os.access(SCRIPT, os.X_OK)
+
+
+# ── Help and usage ──────────────────────────────────────────────────
 
 
 class TestHelp:
     def test_long_help(self):
         r = _run("--help")
         assert r.returncode == 0
-        assert "Usage" in r.stdout or "perplexity" in r.stdout
+        assert "Usage" in r.stdout
 
     def test_short_help(self):
         r = _run("-h")
         assert r.returncode == 0
-        assert "Usage" in r.stdout or "perplexity" in r.stdout
+        assert "Usage" in r.stdout
+
+    def test_help_mentions_modes(self):
+        r = _run("--help")
+        for mode in ("search", "ask", "research", "reason"):
+            assert mode in r.stdout
+
+    def test_help_shows_models(self):
+        r = _run("--help")
+        assert "sonar" in r.stdout
+
+
+# ── Usage errors ────────────────────────────────────────────────────
 
 
 class TestUsageErrors:
     def test_no_args_exits_1(self):
         r = _run()
-        assert r.returncode != 0
+        assert r.returncode == 1
         assert "Usage" in r.stderr
 
     def test_missing_query_exits_1(self):
         r = _run("search")
+        assert r.returncode != 0
+
+    def test_empty_query_exits_1(self):
+        r = _run("search", "")
         assert r.returncode != 0
 
     def test_unknown_mode_exits_1(self):
@@ -96,8 +152,13 @@ class TestUsageErrors:
         assert r.returncode != 0
         assert "Unknown mode" in r.stderr
 
+    def test_unknown_mode_suggests_valid_modes(self):
+        r = _run("foobar", "test")
+        assert r.returncode != 0
+        assert "search" in r.stderr
 
-# ── Mode-to-model mapping ───────────────────────────────────────────
+
+# ── Mode-to-model mapping ──────────────────────────────────────────
 
 
 class TestModeMapping:
@@ -113,17 +174,23 @@ class TestModeMapping:
     def test_mode_maps_to_correct_model(self, tmp_path, mode, expected_model):
         body = json.dumps({"choices": [{"message": {"content": "ok"}}]})
         proc, request = _run_with_fake_curl(tmp_path, mode, "test query", body)
-        assert proc.returncode == 0
+        assert proc.returncode == 0, f"stderr: {proc.stderr}"
         assert request.get("model") == expected_model
 
     def test_query_passed_through(self, tmp_path):
         body = json.dumps({"choices": [{"message": {"content": "ok"}}]})
         proc, request = _run_with_fake_curl(tmp_path, "search", "what is life?", body)
-        assert proc.returncode == 0
+        assert proc.returncode == 0, f"stderr: {proc.stderr}"
         messages = request.get("messages", [])
         assert len(messages) == 1
         assert messages[0]["role"] == "user"
         assert messages[0]["content"] == "what is life?"
+
+    @pytest.mark.parametrize("mode", ["search", "ask", "research", "reason"])
+    def test_valid_modes_pass_mode_check(self, mode):
+        """Valid modes should fail at API key, not at mode validation."""
+        r = _run(mode, "test query")
+        assert "Unknown mode" not in r.stderr
 
 
 # ── Response parsing ────────────────────────────────────────────────
@@ -158,21 +225,26 @@ class TestResponseParsing:
         assert proc.returncode == 0
         assert "weird" in proc.stdout
 
+    def test_non_json_response_passthrough(self, tmp_path):
+        """Non-JSON from curl should be printed as-is (parse error path)."""
+        body = "This is plain text, not JSON"
+        proc, _ = _run_with_fake_curl(tmp_path, "reason", "test", body)
+        assert proc.returncode == 0
+        assert "plain text" in proc.stdout
+
 
 # ── API key requirement ─────────────────────────────────────────────
 
 
 class TestAPIKey:
     def test_missing_api_key_exits_nonzero(self):
-        r = subprocess.run(
-            [str(SCRIPT), "search", "test"],
-            capture_output=True,
-            text=True,
-            timeout=10,
-            env={**{k: v for k, v in os.environ.items() if k != "PERPLEXITY_API_KEY"},
-                 "HOME": "/nonexistent-home-for-test"},
-        )
+        r = _run("search", "test")
         assert r.returncode != 0
+
+    def test_missing_api_key_error_mentions_var(self):
+        r = _run("ask", "what is 2+2")
+        assert r.returncode != 0
+        assert "PERPLEXITY_API_KEY" in r.stderr
 
 
 # ── JSON query escaping ─────────────────────────────────────────────
@@ -181,12 +253,32 @@ class TestAPIKey:
 class TestQueryEscaping:
     def test_query_with_quotes_escaped(self, tmp_path):
         body = json.dumps({"choices": [{"message": {"content": "ok"}}]})
-        proc, request = _run_with_fake_curl(tmp_path, "search", 'He said "hello"', body)
-        assert proc.returncode == 0
+        proc, request = _run_with_fake_curl(
+            tmp_path, "search", 'He said "hello"', body,
+        )
+        assert proc.returncode == 0, f"stderr: {proc.stderr}"
         assert request["messages"][0]["content"] == 'He said "hello"'
 
     def test_query_with_special_chars(self, tmp_path):
         body = json.dumps({"choices": [{"message": {"content": "ok"}}]})
-        proc, request = _run_with_fake_curl(tmp_path, "search", "price: $5 & <tag>", body)
-        assert proc.returncode == 0
+        proc, request = _run_with_fake_curl(
+            tmp_path, "search", "price: $5 & <tag>", body,
+        )
+        assert proc.returncode == 0, f"stderr: {proc.stderr}"
         assert request["messages"][0]["content"] == "price: $5 & <tag>"
+
+    def test_query_with_single_quotes(self, tmp_path):
+        body = json.dumps({"choices": [{"message": {"content": "ok"}}]})
+        proc, request = _run_with_fake_curl(
+            tmp_path, "search", "it's a test", body,
+        )
+        assert proc.returncode == 0, f"stderr: {proc.stderr}"
+        assert request["messages"][0]["content"] == "it's a test"
+
+    def test_query_with_unicode(self, tmp_path):
+        body = json.dumps({"choices": [{"message": {"content": "ok"}}]})
+        proc, request = _run_with_fake_curl(
+            tmp_path, "ask", "Héllo wörld 日本語", body,
+        )
+        assert proc.returncode == 0, f"stderr: {proc.stderr}"
+        assert request["messages"][0]["content"] == "Héllo wörld 日本語"

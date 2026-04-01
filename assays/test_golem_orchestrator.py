@@ -128,8 +128,7 @@ def test_docker_returns_completed_process():
     """_docker returns a CompletedProcess."""
     with patch("subprocess.run") as mock_run:
         mock_run.return_value = subprocess.CompletedProcess(
-            args=[], returncode=0, stdout="container1
-", stderr=""
+            args=[], returncode=0, stdout="container1\n", stderr=""
         )
         result = _docker("ps")
         assert result.returncode == 0

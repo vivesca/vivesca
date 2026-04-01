@@ -1358,11 +1358,14 @@ def daemon_loop():
                 # Check for completed tasks
                 done_futures = [f for f in running if f.done()]
                 for future in done_futures:
-                    line_num, cmd, provider, task_id = running.pop(future)
-                    provider_running[provider] = max(0, provider_running.get(provider, 0) - 1)
+                    line_num, cmd, provider, dispatch_provider, task_id = _running_entry_details(running.pop(future))
+                    provider_running[dispatch_provider] = max(0, provider_running.get(dispatch_provider, 0) - 1)
                     try:
                         _, exit_code, tail, duration = future.result()
-                        _write_jsonl_record(task_id, provider, exit_code, duration, cmd, tail=tail)
+                        _write_jsonl_record(
+                            task_id, provider, exit_code, duration, cmd, tail=tail,
+                            dispatch_provider=dispatch_provider,
+                        )
                         if exit_code == 0:
                             # Golem succeeded — run advisory checks (don't block on them)
                             passed, errors = validate_golem_output()
@@ -1372,7 +1375,7 @@ def daemon_loop():
                             if not test_passed:
                                 log(f"PYTEST WARN [{task_id}]: {cmd[:50]}... → {test_result}")
                             mark_done(line_num, f"exit={exit_code}", task_id=task_id)
-                            _unthrottle_provider(provider)  # adaptive: restore concurrency on success
+                            _unthrottle_provider(dispatch_provider)  # adaptive: restore concurrency on success
                             # Auto-commit every 5 successful completions
                             global _mark_done_count
                             _mark_done_count += 1
@@ -1382,7 +1385,7 @@ def daemon_loop():
                                 _mark_done_count = 0
                         else:
                             failed_result = mark_failed(line_num, f"exit={exit_code} {tail[:60]}", exit_code=exit_code, task_id=task_id, tail=tail)
-                            _throttle_provider(provider)  # adaptive: reduce concurrency on failure
+                            _throttle_provider(dispatch_provider)  # adaptive: reduce concurrency on failure
                             log(f"FAILED [{task_id}] (exit={exit_code}): {cmd[:60]}...")
                             # Detect rate-limiting from task output, fast-exit, or empty output
                             is_explicit_ratelimit = failed_result.get("rate_limited") or is_rate_limited(tail)
@@ -1396,24 +1399,24 @@ def daemon_loop():
                                 cooldown = window if window else RATE_LIMIT_COOLDOWN_SECONDS
                                 cooldown_end = time.time() + cooldown
                                 # Only extend, never shorten existing cooldown
-                                if provider_cooldown_until.get(provider, 0) < cooldown_end:
-                                    provider_cooldown_until[provider] = cooldown_end
-                                    _log_cooldown(provider, cooldown_end, f"task {task_id} exit={exit_code}")
+                                if provider_cooldown_until.get(dispatch_provider, 0) < cooldown_end:
+                                    provider_cooldown_until[dispatch_provider] = cooldown_end
+                                    _log_cooldown(dispatch_provider, cooldown_end, f"task {task_id} exit={exit_code}")
                                 cd_min = int(cooldown // 60)
                                 reason = "fast-exit" if is_fast_exit and not is_explicit_ratelimit else "empty-output" if is_empty_output and not is_explicit_ratelimit else "output-match"
-                                log(f"RATE-LIMITED [{provider}] [{task_id}] ({reason}): cooldown {cd_min}min (exit={exit_code}, dur={duration}s)")
+                                log(f"RATE-LIMITED [{dispatch_provider}] [{task_id}] ({reason}): cooldown {cd_min}min (exit={exit_code}, dur={duration}s)")
                                 # Don't count rate-limit failures toward failure threshold
                             else:
                                 # Track non-rate-limit failures in sliding window per provider
                                 now = time.time()
-                                if provider not in provider_failure_times:
-                                    provider_failure_times[provider] = []
-                                times = provider_failure_times[provider]
+                                if dispatch_provider not in provider_failure_times:
+                                    provider_failure_times[dispatch_provider] = []
+                                times = provider_failure_times[dispatch_provider]
                                 times.append(now)
                                 # Prune entries outside the window
                                 window_start = now - PROVIDER_FAILURE_WINDOW
-                                provider_failure_times[provider] = [t for t in times if t >= window_start]
-                                recent_fails = len(provider_failure_times[provider])
+                                provider_failure_times[dispatch_provider] = [t for t in times if t >= window_start]
+                                recent_fails = len(provider_failure_times[dispatch_provider])
                                 if recent_fails >= PROVIDER_FAILURE_THRESHOLD:
                                     # If failures suggest silent rate-limiting, use the
                                     # longer RATE_LIMIT cooldown instead of the shorter
@@ -1422,23 +1425,25 @@ def daemon_loop():
                                     #   2. exit=1 or 2 with short duration (≤10s) — rate-limited
                                     #      preflight/retry exhaustion completes fast
                                     #   3. Provider has a known rate-limit window (PROVIDER_RATE_WINDOWS)
-                                    known_window = provider in PROVIDER_RATE_WINDOWS
+                                    known_window = dispatch_provider in PROVIDER_RATE_WINDOWS
                                     silent_ratelimit = (
                                         (exit_code == 2 and not tail.strip())
                                         or (exit_code in (1, 2) and duration <= 10)
                                         or (known_window and duration <= 10)
                                     )
                                     if silent_ratelimit:
-                                        cooldown_dur = PROVIDER_RATE_WINDOWS.get(provider, RATE_LIMIT_COOLDOWN_SECONDS)
+                                        cooldown_dur = PROVIDER_RATE_WINDOWS.get(dispatch_provider, RATE_LIMIT_COOLDOWN_SECONDS)
                                     else:
                                         cooldown_dur = PROVIDER_COOLDOWN_SECONDS
                                     cooldown_end = now + cooldown_dur
-                                    provider_cooldown_until[provider] = cooldown_end
-                                    _log_cooldown(provider, cooldown_end, f"failure window {recent_fails} in {PROVIDER_FAILURE_WINDOW//60}min")
-                                    log(f"COOLDOWN: {provider} hit {recent_fails} failures in {PROVIDER_FAILURE_WINDOW//60}min window — pausing for {cooldown_dur//60}min{' (rate-limit suspected, exit={} dur={}s)'.format(exit_code, duration) if silent_ratelimit else ''}")
+                                    provider_cooldown_until[dispatch_provider] = cooldown_end
+                                    _log_cooldown(dispatch_provider, cooldown_end, f"failure window {recent_fails} in {PROVIDER_FAILURE_WINDOW//60}min")
+                                    log(f"COOLDOWN: {dispatch_provider} hit {recent_fails} failures in {PROVIDER_FAILURE_WINDOW//60}min window — pausing for {cooldown_dur//60}min{' (rate-limit suspected, exit={} dur={}s)'.format(exit_code, duration) if silent_ratelimit else ''}")
                     except Exception as e:
                         log(f"Future error: {e}")
-                        _write_jsonl_record(task_id, provider, 1, 0, cmd)
+                        _write_jsonl_record(
+                            task_id, provider, 1, 0, cmd, dispatch_provider=dispatch_provider,
+                        )
                         mark_failed(line_num, str(e), task_id=task_id)
                 if done_futures:
                     _update_running_file(running)
