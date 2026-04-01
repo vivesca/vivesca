@@ -81,8 +81,10 @@ class ConjugationResult:
 # ── readers ──────────────────────────────────────────────────────────────────
 
 
-def read_cc_settings(path: Path = CC_SETTINGS_PATH) -> dict[str, Any]:
+def read_cc_settings(path: Path | None = None) -> dict[str, Any]:
     """Read and parse Claude Code settings.json."""
+    if path is None:
+        path = CC_SETTINGS_PATH
     if not path.exists():
         return {}
     try:
@@ -92,8 +94,10 @@ def read_cc_settings(path: Path = CC_SETTINGS_PATH) -> dict[str, Any]:
         return {}
 
 
-def read_gemini_settings(path: Path = GEMINI_SETTINGS_PATH) -> dict[str, Any]:
+def read_gemini_settings(path: Path | None = None) -> dict[str, Any]:
     """Read and parse Gemini CLI settings.json. Returns empty dict if absent."""
+    if path is None:
+        path = GEMINI_SETTINGS_PATH
     if not path.exists():
         return {}
     try:
