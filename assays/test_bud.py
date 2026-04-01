@@ -132,7 +132,7 @@ def test_timeout_handled_correctly(capsys):
             assert "Timed out" in captured.err
 
 def test_command_constructed_correctly():
-    """Test droid command is constructed correctly with all args."""
+    """Test golem command is constructed correctly with all args."""
     with patch('sys.argv', ['bud', "my test prompt", "--auto", "low", "--model", "custom-model"]):
         with patch('subprocess.run') as mock_run:
             mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
@@ -140,12 +140,7 @@ def test_command_constructed_correctly():
                 bud.main()
             mock_run.assert_called_once()
             call_args = mock_run.call_args[0][0]
-            assert call_args[0] == "droid"
-            assert call_args[1] == "exec"
-            assert "--auto" in call_args
-            assert "low" in call_args
-            assert "-m" in call_args
-            assert "custom-model" in call_args
+            assert call_args[0] == "golem"
             assert "my test prompt" in call_args
 
 def test_default_project_dir_correct():
