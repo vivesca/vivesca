@@ -15023,4 +15023,4 @@ assays/test_x_feed_to_lustro.py::test_subprocess_called_correctly
 assays/test_x_feed_to_lustro.py::test_cache_dir_created
 assays/test_x_feed_to_lustro.py::test_record_fields
 
-15024/15030 tests collected (6 deselected) in 30.12s
+15024/15030 tests collected (6 deselected) in 7.84s
