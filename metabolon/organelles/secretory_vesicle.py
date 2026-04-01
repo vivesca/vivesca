@@ -8,6 +8,7 @@ Credentials: macOS keychain (telegram-bot-token, telegram-chat-id).
 
 
 import json
+import os
 import subprocess
 import tempfile
 import time
@@ -20,16 +21,48 @@ _LOCK = Path(tempfile.gettempdir()) / "deltos.lock"
 
 
 def _keychain(service: str) -> str:
-    """Read credential from macOS keychain."""
-    r = subprocess.run(
-        ["security", "find-generic-password", "-s", service, "-w"],
-        capture_output=True,
-        text=True,
-    timeout=300,
-    )
-    if r.returncode != 0 or not r.stdout.strip():
-        raise ValueError(f"Keychain credential missing: {service}")
-    return r.stdout.strip()
+    """Read credential from macOS keychain or 1Password on Linux."""
+    import platform
+    import shutil
+
+    # macOS: use native keychain
+    if platform.system() == "Darwin" and shutil.which("security"):
+        r = subprocess.run(
+            ["security", "find-generic-password", "-s", service, "-w"],
+            capture_output=True,
+            text=True,
+            timeout=300,
+        )
+        if r.returncode == 0 and r.stdout.strip():
+            return r.stdout.strip()
+
+    # Linux/fallback: check env vars first (set by importin/op-inject)
+    env_map = {
+        "telegram-bot-token": "TELEGRAM_BOT_TOKEN",
+        "telegram-chat-id": "TELEGRAM_CHAT_ID",
+    }
+    env_var = env_map.get(service, "")
+    if env_var and os.environ.get(env_var):
+        return os.environ[env_var].strip()
+
+    # Last resort: 1Password CLI
+    op_map = {
+        "telegram-bot-token": "op://Agents/Agent Environment/telegram_bot_token",
+        "telegram-chat-id": "op://Agents/Agent Environment/telegram_chat_id",
+    }
+    op_ref = op_map.get(service)
+    if op_ref:
+        op_bin = shutil.which("op") or os.path.expanduser("~/bin/op")
+        r = subprocess.run(
+            [op_bin, "read", op_ref],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        if r.returncode == 0 and r.stdout.strip():
+            return r.stdout.strip()
+
+    raise ValueError(f"Credential not found: {service} (tried keychain, env, op)")
 
 
 def _rate_limit() -> None:

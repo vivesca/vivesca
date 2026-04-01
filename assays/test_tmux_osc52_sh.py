@@ -2,8 +2,11 @@ from __future__ import annotations
 
 """Tests for effectors/tmux-osc52.sh — bash script tested via subprocess."""
 
+import base64
 import os
+import stat
 import subprocess
+import tempfile
 from pathlib import Path
 
 import pytest
@@ -11,38 +14,42 @@ import pytest
 SCRIPT = Path(__file__).parent.parent / "effectors" / "tmux-osc52.sh"
 
 
+def _run(
+    *args: str, env: dict[str, str] | None = None
+) -> subprocess.CompletedProcess:
+    return subprocess.run(
+        ["bash", str(SCRIPT), *args],
+        capture_output=True,
+        text=True,
+        timeout=10,
+        env=env,
+    )
+
+
 # ── help flag ───────────────────────────────────────────────────────────
 class TestHelp:
-    def _run_help(self, *args: str) -> subprocess.CompletedProcess:
-        return subprocess.run(
-            ["bash", str(SCRIPT), *args],
-            capture_output=True,
-            text=True,
-            timeout=10,
-        )
-
     def test_help_exits_zero(self):
-        r = self._run_help("--help")
+        r = _run("--help")
         assert r.returncode == 0
 
     def test_help_short_flag_exits_zero(self):
-        r = self._run_help("-h")
+        r = _run("-h")
         assert r.returncode == 0
 
     def test_help_shows_usage(self):
-        r = self._run_help("--help")
+        r = _run("--help")
         assert "Usage:" in r.stdout
 
     def test_help_mentions_tmux(self):
-        r = self._run_help("--help")
+        r = _run("--help")
         assert "tmux" in r.stdout
 
     def test_help_mentions_osc52(self):
-        r = self._run_help("--help")
+        r = _run("--help")
         assert "OSC 52" in r.stdout
 
     def test_help_no_stderr(self):
-        r = self._run_help("--help")
+        r = _run("--help")
         assert r.stderr == ""
 
 
@@ -63,3 +70,80 @@ class TestScriptPermissions:
 
     def test_script_file_not_directory(self):
         assert SCRIPT.is_file()
+
+
+# ── missing arguments ──────────────────────────────────────────────────
+class TestMissingArgs:
+    def test_no_args_nonzero_exit(self):
+        """Without pane_id and tty the script should fail."""
+        r = _run()
+        assert r.returncode != 0
+
+    def test_only_pane_id_nonzero_exit(self):
+        """Only pane_id, no tty — printf redirect to empty path fails."""
+        r = _run("%0")
+        assert r.returncode != 0
+
+
+# ── functional: mocked tmux + real tty file ────────────────────────────
+class TestFunctional:
+    @pytest.fixture()
+    def fake_tmux_dir(self, tmp_path: Path):
+        """Create a fake ``tmux`` that prints deterministic pane content."""
+        fake = tmp_path / "tmux"
+        fake.write_text("#!/bin/bash\necho 'hello pane'\n")
+        fake.chmod(fake.stat().st_mode | stat.S_IEXEC)
+        return tmp_path
+
+    @pytest.fixture()
+    def tty_file(self, tmp_path: Path) -> Path:
+        """A temp file that stands in for a TTY device."""
+        return tmp_path / "tty"
+
+    def _run_with_mock(
+        self,
+        pane: str,
+        tty: Path,
+        fake_tmux_dir: Path,
+    ) -> subprocess.CompletedProcess:
+        env = os.environ.copy()
+        env["PATH"] = str(fake_tmux_dir) + ":" + env.get("PATH", "/usr/bin:/bin")
+        return _run(pane, str(tty), env=env)
+
+    def test_writes_to_tty_file(self, fake_tmux_dir, tty_file):
+        self._run_with_mock("%0", tty_file, fake_tmux_dir)
+        assert tty_file.exists()
+        content = tty_file.read_bytes()
+        assert len(content) > 0
+
+    def test_output_starts_with_osc52_escape(self, fake_tmux_dir, tty_file):
+        self._run_with_mock("%0", tty_file, fake_tmux_dir)
+        raw = tty_file.read_bytes()
+        # OSC 52 sequence: ESC ] 52 ; c ; <base64> BEL
+        assert raw[:4] == b"\x1b]52"
+        assert raw[4:6] == b";c"
+
+    def test_output_ends_with_bell(self, fake_tmux_dir, tty_file):
+        self._run_with_mock("%0", tty_file, fake_tmux_dir)
+        raw = tty_file.read_bytes()
+        assert raw[-1:] == b"\x07"  # BEL character
+
+    def test_base64_payload_roundtrips(self, fake_tmux_dir, tty_file):
+        self._run_with_mock("%0", tty_file, fake_tmux_dir)
+        raw = tty_file.read_bytes()
+        # Extract between ";c;" and BEL
+        payload = raw.split(b";c;", 1)[1].rstrip(b"\x07")
+        decoded = base64.b64decode(payload).decode()
+        assert decoded.strip() == "hello pane"
+
+    def test_exit_code_zero_on_success(self, fake_tmux_dir, tty_file):
+        r = self._run_with_mock("%0", tty_file, fake_tmux_dir)
+        assert r.returncode == 0
+
+    def test_no_stdout_on_success(self, fake_tmux_dir, tty_file):
+        r = self._run_with_mock("%0", tty_file, fake_tmux_dir)
+        assert r.stdout == ""
+
+    def test_no_stderr_on_success(self, fake_tmux_dir, tty_file):
+        r = self._run_with_mock("%0", tty_file, fake_tmux_dir)
+        assert r.stderr == ""

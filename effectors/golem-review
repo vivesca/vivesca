@@ -729,7 +729,7 @@ def run_review(auto_requeue: bool = False, since: timedelta = timedelta(minutes=
     if auto_requeue and failed_diagnoses:
         fixed_count = write_fixed_tasks(failed_diagnoses)
 
-        # 7. Auto-generate if queue low
+    # 7. Auto-generate if queue low
     queued_count = 0
     pending = count_pending_tasks()
     if pending < 50:
@@ -739,7 +739,7 @@ def run_review(auto_requeue: bool = False, since: timedelta = timedelta(minutes=
             new_tasks = generate_queue_tasks(untested, needed)
             queued_count = append_tasks_to_queue(new_tasks)
 
-        # 8. Write review
+    # 8. Write review
     review = generate_review(
         activity=activity,
         recent_files=recent_files,

@@ -371,6 +371,36 @@ class TestReloadCommand:
         assert result.exit_code == 1
         assert "LaunchAgent not found" in result.output
 
+    @patch("subprocess.run")
+    def test_reload_linux_uses_systemctl(self, mock_run, monkeypatch):
+        """On Linux, reload should use systemctl --user restart."""
+        monkeypatch.setenv("HOME", "/home/testuser")
+        mock_result = MagicMock()
+        mock_result.returncode = 0
+        mock_run.return_value = mock_result
+
+        with patch("platform.system", return_value="Linux"):
+            runner = CliRunner()
+            result = runner.invoke(cli, ["reload"])
+
+        assert result.exit_code == 0
+        assert "systemctl" in result.output
+        mock_run.assert_called_once()
+        assert "systemctl" in mock_run.call_args[0][0]
+        assert "--user" in mock_run.call_args[0][0]
+
+    @patch("subprocess.run", side_effect=FileNotFoundError("systemctl not found"))
+    def test_reload_linux_systemctl_fails(self, mock_run, monkeypatch):
+        """On Linux without systemctl, reload should report error."""
+        monkeypatch.setenv("HOME", "/home/testuser")
+
+        with patch("platform.system", return_value="Linux"):
+            runner = CliRunner()
+            result = runner.invoke(cli, ["reload"])
+
+        assert result.exit_code == 1
+        assert "launchctl not available" in result.output
+
 
 class TestInitCommand:
     """Tests for init CLI command."""

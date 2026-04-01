@@ -7,7 +7,8 @@
 
 Reads golem.jsonl in real-time (tail -f style). Shows live updating table:
 per-provider active/completed/failed/rate-limited counts, rolling success rate,
-estimated time to queue drain. Uses rich for terminal UI.
+per-task progress with elapsed time, drain progress bar, ETA to queue drain.
+Uses rich for terminal UI.
 
 Usage:
     golem-dash              # Show live dashboard (auto-refresh)
@@ -24,6 +25,7 @@ from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
+from rich.bar import Bar
 from rich.console import Group
 from rich.live import Live
 from rich.panel import Panel
@@ -47,6 +49,9 @@ RATE_LIMIT_PATTERNS = re.compile(
 
 # Thresholds
 SHORT_DURATION_LIMIT = 10  # seconds — fast exits are likely rate-limits
+
+# Global: track when we first saw each running task_id (for elapsed time)
+_task_first_seen: dict[str, float] = {}
 
 
 def parse_ts(ts_str: str) -> datetime:
@@ -214,6 +219,28 @@ def fmt_eta(seconds: float) -> str:
         return f"{seconds / 86400:.1f}d"
 
 
+def update_task_first_seen(running: list[dict]) -> None:
+    """Track first-seen timestamps for running tasks to compute elapsed time."""
+    global _task_first_seen
+    now = time.time()
+    current_ids = set()
+    for task in running:
+        tid = task.get("task_id", "")
+        current_ids.add(tid)
+        if tid and tid not in _task_first_seen:
+            _task_first_seen[tid] = now
+    # Prune tasks no longer running
+    _task_first_seen = {k: v for k, v in _task_first_seen.items() if k in current_ids}
+
+
+def compute_elapsed(task_id: str) -> float:
+    """Return elapsed seconds since we first saw this task_id."""
+    first = _task_first_seen.get(task_id)
+    if first is None:
+        return 0.0
+    return time.time() - first
+
+
 def compute_provider_stats(
     window_records: list[dict],
     running: list[dict],
@@ -259,12 +286,53 @@ def compute_provider_stats(
     return stats
 
 
+def compute_per_provider_eta(
+    stats: dict[str, dict],
+    pending_by_provider: dict[str, int],
+    all_records: list[dict],
+) -> dict[str, float]:
+    """Estimate time to drain per-provider queue."""
+    now = datetime.now(timezone.utc)
+    one_hour_ago = now - timedelta(hours=1)
+    result: dict[str, float] = {}
+
+    for prov in set(list(stats.keys()) + list(pending_by_provider.keys())):
+        queue = pending_by_provider.get(prov, 0)
+        if queue == 0:
+            result[prov] = 0.0
+            continue
+
+        # Count completions for this provider in last hour
+        recent = sum(
+            1 for r in all_records
+            if parse_ts(r.get("ts", "")) >= one_hour_ago
+            and r.get("exit") == 0
+            and r.get("provider") == prov
+        )
+
+        if recent > 0:
+            result[prov] = (queue / recent) * 3600
+        else:
+            # Fallback: avg duration * queue / active workers
+            s = stats.get(prov, {})
+            total_count = s.get("total_count", 0)
+            total_duration = s.get("total_duration", 0)
+            active = s.get("active", 0)
+            if total_count > 0 and active > 0:
+                avg_dur = total_duration / total_count
+                result[prov] = (queue / active) * avg_dur
+            else:
+                result[prov] = float("inf")
+
+    return result
+
+
 def compute_eta(
     stats: dict[str, dict],
     pending_by_provider: dict[str, int],
     all_records: list[dict],
 ) -> float:
-    """Estimate time to drain the queue based on recent throughput."""
+    """Estimate overall time to drain the queue based on recent throughput."""
     total_pending = sum(pending_by_provider.values())
     if total_pending == 0:
         return 0.0
@@ -283,15 +351,98 @@ def compute_eta(
         durations = [r.get("duration", 0) for r in all_records if r.get("exit") == 0 and r.get("duration", 0) > 0]
         if durations:
             avg_duration = sum(durations) / len(durations)
-            # Estimate based on number of active workers
             total_active = sum(s["active"] for s in stats.values())
             if total_active > 0:
                 return (total_pending / total_active) * avg_duration
         return float("inf")
 
-    # Throughput = completions / hour
     throughput_per_hour = recent_completed
     return (total_pending / throughput_per_hour) * 3600
+
+
+def compute_throughput_trend(all_records: list[dict], bucket_minutes: int = 10) -> list[int]:
+    """Compute completions per time bucket for sparkline."""
+    now = datetime.now(timezone.utc)
+    buckets: list[int] = []
+    for i in range(6):
+        bucket_end = now - timedelta(minutes=bucket_minutes * i)
+        bucket_start = bucket_end - timedelta(minutes=bucket_minutes)
+        count = sum(
+            1 for r in all_records
+            if bucket_start <= parse_ts(r.get("ts", "")) < bucket_end
+            and r.get("exit") == 0
+        )
+        buckets.append(count)
+    buckets.reverse()
+    return buckets
+
+
+def sparkline(values: list[int]) -> str:
+    """Render a Unicode sparkline from a list of ints."""
+    chars = "▁▂▃▄▅▆▇█"
+    if not values or max(values) == 0:
+        return "▁" * len(values) if values else ""
+    mx = max(values)
+    return "".join(chars[min(int(v / mx * (len(chars) - 1)), len(chars) - 1)] for v in values)
+
+
+def build_running_tasks_table(running: list[dict]) -> Table:
+    """Build a table showing each running task with elapsed time."""
+    table = Table(
+        show_header=True,
+        header_style="bold",
+        border_style="dim",
+        padding=(0, 1),
+        title="[bold]Running Tasks[/bold]",
+    )
+    table.add_column("TaskID", style="cyan", min_width=9)
+    table.add_column("Provider", min_width=8)
+    table.add_column("Elapsed", justify="right", min_width=7)
+    table.add_column("Through", style="dim", min_width=10)
+    table.add_column("Prompt", style="dim", min_width=30, max_width=50, no_wrap=True)
+
+    for task in running:
+        tid = task.get("task_id", "?")
+        prov = task.get("provider", "?")
+        dispatch = task.get("dispatch_provider", "")
+        elapsed = compute_elapsed(tid)
+        cmd = task.get("cmd", "")
+
+        # Extract prompt snippet from cmd
+        prompt_match = re.search(r'"(.+)', cmd)
+        prompt = prompt_match.group(0).rstrip('"')[:48] if prompt_match else cmd[:48]
+
+        through_str = f"→ {dispatch}" if dispatch and dispatch != prov else ""
+
+        elapsed_str = fmt_duration(elapsed)
+        if elapsed > 600:
+            elapsed_str = f"[red]{elapsed_str}[/red]"
+        elif elapsed > 300:
+            elapsed_str = f"[yellow]{elapsed_str}[/yellow]"
+
+        table.add_row(tid, prov, elapsed_str, through_str, prompt)
+
+    return table
+
+
+def build_drain_progress(total_pending: int, total_completed: int, eta_seconds: float) -> Text:
+    """Build drain progress bar with ETA."""
+    total = total_pending + total_completed
+    if total == 0:
+        return Text("  No tasks in queue", style="dim")
+
+    pct = total_completed / total
+    bar_width = 30
+    filled = int(pct * bar_width)
+    bar_str = "█" * filled + "░" * (bar_width - filled)
+
+    line = Text()
+    line.append(f"  Drain: ", style="bold")
+    line.append(f"[{bar_str}] ", style="cyan")
+    line.append(f"{pct:.0%} ", style="bold cyan")
+    line.append(f"({total_completed}/{total}) ", style="dim")
+    line.append(f"ETA: {fmt_eta(eta_seconds)}", style="bold yellow")
+    return line
 
 
 def build_dashboard(
@@ -306,11 +457,17 @@ def build_dashboard(
     total_pending = sum(pending_by_provider.values())
     total_completed_queue = count_total_completed()
 
+    # Track first-seen for running tasks
+    update_task_first_seen(running)
+
     # Use cached all-records for ETA if provided (avoids re-reading on every refresh)
     all_records = all_records_cache if all_records_cache is not None else load_all_jsonl()
 
     stats = compute_provider_stats(window_records, running)
     eta_seconds = compute_eta(stats, pending_by_provider, all_records)
+    per_provider_eta = compute_per_provider_eta(stats, pending_by_provider, all_records)
+    trend = compute_throughput_trend(all_records)
+    spark = sparkline(trend)
 
     # === Header ===
     now_str = datetime.now().strftime("%H:%M:%S")
@@ -319,6 +476,7 @@ def build_dashboard(
     header.append(f"  {now_str}", style="dim")
     header.append(f"  window={window_minutes}m", style="dim")
     header.append(f"  queue={total_pending} pending / {total_completed_queue} done", style="yellow")
+    header.append(f"  throughput: {spark}", style="green")
 
     # === Provider table ===
     table = Table(
@@ -337,6 +495,7 @@ def build_dashboard(
     table.add_column("Rate", justify="right", min_width=8)
     table.add_column("AvgDur", justify="right", min_width=7)
     table.add_column("Queue", justify="right", style="cyan", min_width=6)
+    table.add_column("Drain ETA", justify="right", min_width=9)
     table.add_column("Status", min_width=10)
 
     provider_order = ["zhipu", "infini", "volcano", "codex", "gemini"]
@@ -350,6 +509,7 @@ def build_dashboard(
 
         avg_dur = s["total_duration"] / s["total_count"] if s["total_count"] > 0 else 0
         queue = pending_by_provider.get(prov, 0)
+        prov_eta = per_provider_eta.get(prov, 0.0)
 
         # Rate coloring
         if rate >= 80:
@@ -371,6 +531,8 @@ def build_dashboard(
         else:
             status = "[dim]idle[/dim]"
 
+        eta_str = fmt_eta(prov_eta) if queue > 0 else "[dim]—[/dim]"
+
         table.add_row(
             prov,
             str(s["active"]),
@@ -381,6 +543,7 @@ def build_dashboard(
             rate_str,
             fmt_duration(avg_dur),
             str(queue),
+            eta_str,
             status,
         )
 
@@ -400,6 +563,14 @@ def build_dashboard(
     summary.append(f"Success: {window_rate:.0f}%  ", style="bold green" if window_rate >= 80 else "bold yellow")
     summary.append(f"ETA: {fmt_eta(eta_seconds)}", style="bold cyan")
 
+    # === Drain progress ===
+    drain_progress = build_drain_progress(total_pending, total_completed_queue, eta_seconds)
+
+    # === Running tasks table ===
+    components = [header, table, summary, drain_progress]
+    if running:
+        components.append(build_running_tasks_table(running))
+
     # === Cooldown info ===
     cooldown_lines = []
     now_utc = datetime.now(timezone.utc)
@@ -415,9 +586,10 @@ def build_dashboard(
         cooldown_text.append("Cooldowns:\n", style="bold yellow")
         for cl in cooldown_lines:
             cooldown_text.append(cl + "\n", style="yellow")
+        components.append(cooldown_text)
 
     return Panel(
-        Group(header, table, summary, cooldown_text),
+        Group(*components),
         title="[bold]Golem Task Monitor[/bold]",
         border_style="blue",
         padding=(1, 2),

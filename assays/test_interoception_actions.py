@@ -112,3 +112,56 @@ class TestConstants:
         assert isinstance(HEALTH_LOG_RELATIVE, tuple)
         assert len(HEALTH_LOG_RELATIVE) == 2
         assert all(isinstance(part, str) for part in HEALTH_LOG_RELATIVE)
+
+
+# ---------------------------------------------------------------------------
+# Platform guards for launchctl
+# ---------------------------------------------------------------------------
+
+
+class TestSystemActionPlatformGuard:
+    """Verify the 'system' action uses systemctl on Linux instead of launchctl."""
+
+    def test_system_linux_uses_systemctl(self) -> None:
+        """On Linux, system action should use systemctl --user list-units."""
+        from unittest.mock import MagicMock, patch
+
+        from metabolon.enzymes.interoception import interoception
+
+        mock_result = MagicMock()
+        mock_result.stdout = "com.vivesca.mcp.service  loaded active running\n"
+        mock_result.returncode = 0
+
+        with patch("metabolon.enzymes.interoception.platform.system", return_value="Linux"), \
+             patch("metabolon.enzymes.interoception.subprocess.run", return_value=mock_result), \
+             patch("metabolon.metabolism.mismatch_repair") as mock_mr, \
+             patch("metabolon.metabolism.setpoint.Threshold") as mock_threshold:
+            mock_mr.summary.return_value = ""
+            mock_threshold_inst = MagicMock()
+            mock_threshold_inst.read.return_value = 15
+            mock_threshold.return_value = mock_threshold_inst
+            result = interoception(action="system")
+
+        assert any("Pulse:" in s for s in result.sections)
+
+    def test_system_darwin_uses_launchctl(self) -> None:
+        """On Darwin, system action should use launchctl list."""
+        from unittest.mock import MagicMock, patch
+
+        from metabolon.enzymes.interoception import interoception
+
+        mock_result = MagicMock()
+        mock_result.stdout = "1234  0  com.vivesca.mcp\n"
+        mock_result.returncode = 0
+
+        with patch("metabolon.enzymes.interoception.platform.system", return_value="Darwin"), \
+             patch("metabolon.enzymes.interoception.subprocess.run", return_value=mock_result), \
+             patch("metabolon.metabolism.mismatch_repair") as mock_mr, \
+             patch("metabolon.metabolism.setpoint.Threshold") as mock_threshold:
+            mock_mr.summary.return_value = ""
+            mock_threshold_inst = MagicMock()
+            mock_threshold_inst.read.return_value = 15
+            mock_threshold.return_value = mock_threshold_inst
+            result = interoception(action="system")
+
+        assert any("Pulse:" in s for s in result.sections)

@@ -63,6 +63,13 @@ def test_launchctl_status_timeout():
         assert status == {"running": False, "pid": None, "last_exit": None, "loaded": False}
 
 
+def test_launchctl_status_non_darwin():
+    """On non-Darwin platforms, _launchctl_status should return unavailable dict."""
+    with patch("metabolon.resources.oscillators.platform.system", return_value="Linux"):
+        status = oscillators._launchctl_status("com.vivesca.test")
+    assert status == {"running": False, "pid": None, "last_exit": None, "loaded": False}
+
+
 def test_format_calendar_interval():
     # Test various calendar intervals
     assert oscillators._format_calendar_interval({"Weekday": 1}) == "Mon"
