@@ -50,7 +50,7 @@ def scan_and_fix() -> tuple[int, int]:
 
 
 if __name__ == "__main__":
-    if len(sys.argv) > 0 and sys.argv[1] in ("--help", "-h"):
+    if len(sys.argv) > 1 and sys.argv[1] in ("--help", "-h"):
         print(__doc__)
         sys.exit(0)
     print("Scanning for broken Mac symlinks...")

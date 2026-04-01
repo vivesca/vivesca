@@ -3,10 +3,7 @@ from __future__ import annotations
 """Tests for soma-snapshot — Fly.io volume snapshot effector."""
 
 import json
-import sys
-from io import BytesIO
 from pathlib import Path
-from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -54,21 +51,35 @@ class FakeResponse:
 def _make_urlopen(responses):
     """Return a mock urlopen that returns responses in order.
 
-    Each element in *responses* is either bytes or a dict (auto-json-encoded).
+    Each element in *responses* is either bytes, a dict, or a list (auto-json-encoded).
     """
     it = iter(responses)
 
     def _urlopen(req, timeout=30):
         data = next(it)
-        if isinstance(data, dict):
-            raw = json.dumps(data).encode()
-        elif isinstance(data, list):
+        if isinstance(data, (dict, list)):
             raw = json.dumps(data).encode()
         else:
             raw = data
         return FakeResponse(raw)
 
     return _urlopen
+
+
+class patch_urlopen:
+    """Context manager that replaces urlopen in the exec namespace."""
+
+    def __init__(self, mock_fn):
+        self._mock = mock_fn
+        self._original = None
+
+    def __enter__(self):
+        self._original = _mod["urlopen"]
+        _mod["urlopen"] = self._mock
+        return self._mock
+
+    def __exit__(self, *args):
+        _mod["urlopen"] = self._original
 
 
 # ── _token tests ───────────────────────────────────────────────────────
@@ -95,9 +106,8 @@ def test_api_get_sends_correct_request(monkeypatch):
     """_api GET sends request with Bearer token and returns parsed JSON."""
     monkeypatch.setenv("FLY_API_TOKEN", "tok_xyz")
     fake_data = {"id": "vol_123", "state": "attached"}
-    urlopen_fn = _make_urlopen([fake_data])
 
-    with patch.object(_mod, "urlopen", urlopen_fn):
+    with patch_urlopen(_make_urlopen([fake_data])):
         result = _api("GET", "/v1/apps/soma/volumes")
 
     assert result == fake_data
@@ -115,7 +125,7 @@ def test_api_post_sends_body(monkeypatch):
 
     body = {"name": "test-snap"}
 
-    with patch.object(_mod, "urlopen", _urlopen):
+    with patch_urlopen(_urlopen):
         result = _api("POST", "/v1/apps/soma/volumes/vol_1/snapshots", body)
 
     assert result == response
@@ -127,7 +137,7 @@ def test_api_empty_response(monkeypatch):
     """_api returns {} for empty response body."""
     monkeypatch.setenv("FLY_API_TOKEN", "tok_empty")
 
-    with patch.object(_mod, "urlopen", lambda req, timeout=30: FakeResponse(b"")):
+    with patch_urlopen(lambda req, timeout=30: FakeResponse(b"")):
         result = _api("DELETE", "/v1/test")
 
     assert result == {}
@@ -141,7 +151,7 @@ def test_get_machine_returns_first(monkeypatch):
     monkeypatch.setenv("FLY_API_TOKEN", "tok_m")
     machines = [{"id": "m1", "state": "started"}, {"id": "m2", "state": "stopped"}]
 
-    with patch.object(_mod, "urlopen", _make_urlopen([machines])):
+    with patch_urlopen(_make_urlopen([machines])):
         m = _get_machine()
 
     assert m["id"] == "m1"
@@ -151,7 +161,7 @@ def test_get_machine_exits_on_empty(monkeypatch):
     """_get_machine exits when no machines found."""
     monkeypatch.setenv("FLY_API_TOKEN", "tok_m")
 
-    with patch.object(_mod, "urlopen", _make_urlopen([[]])):
+    with patch_urlopen(_make_urlopen([[]])):
         with pytest.raises(SystemExit) as exc_info:
             _get_machine()
     assert exc_info.value.code == 1
@@ -165,7 +175,7 @@ def test_get_volumes_returns_list(monkeypatch):
     monkeypatch.setenv("FLY_API_TOKEN", "tok_v")
     vols = [{"id": "vol_1"}, {"id": "vol_2"}]
 
-    with patch.object(_mod, "urlopen", _make_urlopen([vols])):
+    with patch_urlopen(_make_urlopen([vols])):
         result = _get_volumes()
 
     assert result == vols
@@ -181,7 +191,7 @@ def test_cmd_volume_prints_info(monkeypatch, capsys):
         {"id": "vol_abc", "size_gb": 10, "state": "attached", "region": "sjc", "name": "data"},
     ]
 
-    with patch.object(_mod, "urlopen", _make_urlopen([vols])):
+    with patch_urlopen(_make_urlopen([vols])):
         cmd_volume()
 
     out = capsys.readouterr().out
@@ -196,7 +206,7 @@ def test_cmd_volume_no_volumes(monkeypatch, capsys):
     """cmd_volume prints 'no volumes found' when list is empty."""
     monkeypatch.setenv("FLY_API_TOKEN", "tok_cv2")
 
-    with patch.object(_mod, "urlopen", _make_urlopen([[]])):
+    with patch_urlopen(_make_urlopen([[]])):
         cmd_volume()
 
     out = capsys.readouterr().out
@@ -214,7 +224,7 @@ def test_cmd_list_with_snapshots(monkeypatch, capsys):
         {"id": "snap_a", "created_at": "2026-03-15T10:00:00Z", "size": 5368709120},
     ]
 
-    with patch.object(_mod, "urlopen", _make_urlopen([vols, snaps])):
+    with patch_urlopen(_make_urlopen([vols, snaps])):
         cmd_list()
 
     out = capsys.readouterr().out
@@ -227,7 +237,7 @@ def test_cmd_list_no_snapshots(monkeypatch, capsys):
     monkeypatch.setenv("FLY_API_TOKEN", "tok_cl2")
     vols = [{"id": "vol_2"}]
 
-    with patch.object(_mod, "urlopen", _make_urlopen([vols, []])):
+    with patch_urlopen(_make_urlopen([vols, []])):
         cmd_list()
 
     out = capsys.readouterr().out
@@ -238,7 +248,7 @@ def test_cmd_list_no_volumes(monkeypatch, capsys):
     """cmd_list handles no volumes gracefully."""
     monkeypatch.setenv("FLY_API_TOKEN", "tok_cl3")
 
-    with patch.object(_mod, "urlopen", _make_urlopen([[]])):
+    with patch_urlopen(_make_urlopen([[]])):
         cmd_list()
 
     out = capsys.readouterr().out
@@ -256,17 +266,16 @@ def test_cmd_snapshot_running_machine(monkeypatch, capsys):
     stopped_machine = {"id": "m_1", "state": "stopped"}
     snap_result = {"id": "snap_new"}
 
-    # Call order: get_machine, get_volumes, stop, wait-poll get_machine, get_volumes/snap, start
     responses = [
         machines,             # _get_machine (initial)
         vols,                 # _get_volumes
         {},                   # stop API call
-        stopped_machine,      # _get_machine (poll: stopped)
+        stopped_machine,      # _get_machine (poll: stopped on 1st try)
         snap_result,          # snapshot creation
         {},                   # start API call
     ]
 
-    with patch.object(_mod, "urlopen", _make_urlopen(responses)):
+    with patch_urlopen(_make_urlopen(responses)):
         cmd_snapshot()
 
     out = capsys.readouterr().out
@@ -290,7 +299,7 @@ def test_cmd_snapshot_stopped_machine(monkeypatch, capsys):
         snap_result,  # snapshot creation
     ]
 
-    with patch.object(_mod, "urlopen", _make_urlopen(responses)):
+    with patch_urlopen(_make_urlopen(responses)):
         cmd_snapshot()
 
     out = capsys.readouterr().out
@@ -310,7 +319,7 @@ def test_cmd_snapshot_no_volumes(monkeypatch):
         [],        # _get_volumes -> empty
     ]
 
-    with patch.object(_mod, "urlopen", _make_urlopen(responses)):
+    with patch_urlopen(_make_urlopen(responses)):
         with pytest.raises(SystemExit) as exc_info:
             cmd_snapshot()
     assert exc_info.value.code == 1
@@ -324,7 +333,6 @@ def test_cmd_snapshot_slow_stop_proceeds_anyway(monkeypatch, capsys):
     still_running = {"id": "m_4", "state": "started"}
     snap_result = {"id": "snap_slow"}
 
-    # Build 30 still-running responses for the poll loop, then the snap and start
     responses = [
         machines,               # _get_machine (initial)
         vols,                   # _get_volumes
@@ -334,9 +342,13 @@ def test_cmd_snapshot_slow_stop_proceeds_anyway(monkeypatch, capsys):
     responses.append(snap_result)           # snapshot creation
     responses.append({})                    # start call
 
-    with patch.object(_mod, "urlopen", _make_urlopen(responses)), \
-         patch.object(_mod["time"], "sleep", lambda s: None):
-        cmd_snapshot()
+    original_sleep = _mod["time"].sleep
+    _mod["time"].sleep = lambda s: None
+    try:
+        with patch_urlopen(_make_urlopen(responses)):
+            cmd_snapshot()
+    finally:
+        _mod["time"].sleep = original_sleep
 
     out = capsys.readouterr().out
     assert "warning" in out.lower()
@@ -346,11 +358,15 @@ def test_cmd_snapshot_slow_stop_proceeds_anyway(monkeypatch, capsys):
 # ── main dispatch tests ───────────────────────────────────────────────
 
 
-def test_main_help(monkeypatch):
+def test_main_help():
     """main with --help prints docstring and exits."""
     with pytest.raises(SystemExit) as exc_info:
-        with patch.object(_mod["sys"], "argv", ["soma-snapshot", "--help"]):
-            main()
+        with patch_urlopen(lambda *a, **kw: FakeResponse()):
+            _mod["sys"].argv = ["soma-snapshot", "--help"]
+            try:
+                main()
+            finally:
+                pass
     assert exc_info.value.code == 0
 
 
@@ -358,10 +374,14 @@ def test_main_dispatches_list(monkeypatch, capsys):
     """main dispatches to cmd_list when --list is passed."""
     monkeypatch.setenv("FLY_API_TOKEN", "tok_disp")
     vols = [{"id": "vol_x"}]
+    original_argv = _mod["sys"].argv
 
-    with patch.object(_mod, "urlopen", _make_urlopen([vols, []])), \
-         patch.object(_mod["sys"], "argv", ["soma-snapshot", "--list"]):
-        main()
+    _mod["sys"].argv = ["soma-snapshot", "--list"]
+    try:
+        with patch_urlopen(_make_urlopen([vols, []])):
+            main()
+    finally:
+        _mod["sys"].argv = original_argv
 
     out = capsys.readouterr().out
     assert "vol_x" in out
@@ -371,10 +391,14 @@ def test_main_dispatches_volume(monkeypatch, capsys):
     """main dispatches to cmd_volume when --volume is passed."""
     monkeypatch.setenv("FLY_API_TOKEN", "tok_disp2")
     vols = [{"id": "vol_y", "size_gb": 5, "state": "attached", "region": "ewr", "name": "pv"}]
+    original_argv = _mod["sys"].argv
 
-    with patch.object(_mod, "urlopen", _make_urlopen([vols])), \
-         patch.object(_mod["sys"], "argv", ["soma-snapshot", "--volume"]):
-        main()
+    _mod["sys"].argv = ["soma-snapshot", "--volume"]
+    try:
+        with patch_urlopen(_make_urlopen([vols])):
+            main()
+    finally:
+        _mod["sys"].argv = original_argv
 
     out = capsys.readouterr().out
     assert "vol_y" in out
@@ -386,10 +410,14 @@ def test_main_dispatches_snapshot_by_default(monkeypatch, capsys):
     machines = [{"id": "m_d", "state": "stopped"}]
     vols = [{"id": "vol_d"}]
     snap = {"id": "snap_d"}
+    original_argv = _mod["sys"].argv
 
-    with patch.object(_mod, "urlopen", _make_urlopen([machines, vols, snap])), \
-         patch.object(_mod["sys"], "argv", ["soma-snapshot"]):
-        main()
+    _mod["sys"].argv = ["soma-snapshot"]
+    try:
+        with patch_urlopen(_make_urlopen([machines, vols, snap])):
+            main()
+    finally:
+        _mod["sys"].argv = original_argv
 
     out = capsys.readouterr().out
     assert "done" in out
@@ -399,10 +427,14 @@ def test_main_dispatches_bare_list_subcommand(monkeypatch, capsys):
     """main dispatches to cmd_list when 'list' (no dashes) is passed."""
     monkeypatch.setenv("FLY_API_TOKEN", "tok_disp4")
     vols = [{"id": "vol_z"}]
+    original_argv = _mod["sys"].argv
 
-    with patch.object(_mod, "urlopen", _make_urlopen([vols, []])), \
-         patch.object(_mod["sys"], "argv", ["soma-snapshot", "list"]):
-        main()
+    _mod["sys"].argv = ["soma-snapshot", "list"]
+    try:
+        with patch_urlopen(_make_urlopen([vols, []])):
+            main()
+    finally:
+        _mod["sys"].argv = original_argv
 
     out = capsys.readouterr().out
     assert "vol_z" in out
@@ -412,10 +444,14 @@ def test_main_dispatches_bare_volume_subcommand(monkeypatch, capsys):
     """main dispatches to cmd_volume when 'volume' (no dashes) is passed."""
     monkeypatch.setenv("FLY_API_TOKEN", "tok_disp5")
     vols = [{"id": "vol_bv", "size_gb": 1, "state": "ok", "region": "lax", "name": "bk"}]
+    original_argv = _mod["sys"].argv
 
-    with patch.object(_mod, "urlopen", _make_urlopen([vols])), \
-         patch.object(_mod["sys"], "argv", ["soma-snapshot", "volume"]):
-        main()
+    _mod["sys"].argv = ["soma-snapshot", "volume"]
+    try:
+        with patch_urlopen(_make_urlopen([vols])):
+            main()
+    finally:
+        _mod["sys"].argv = original_argv
 
     out = capsys.readouterr().out
     assert "vol_bv" in out
@@ -438,8 +474,28 @@ def test_api_returns_list(monkeypatch):
     monkeypatch.setenv("FLY_API_TOKEN", "tok_list")
     data = [{"id": "a"}, {"id": "b"}]
 
-    with patch.object(_mod, "urlopen", _make_urlopen([data])):
+    with patch_urlopen(_make_urlopen([data])):
         result = _api("GET", "/v1/test")
 
     assert isinstance(result, list)
     assert len(result) == 2
+
+
+# ── cmd_snapshot with multiple volumes ────────────────────────────────
+
+
+def test_cmd_snapshot_uses_first_volume(monkeypatch, capsys):
+    """cmd_snapshot snapshots the first volume when multiple exist."""
+    monkeypatch.setenv("FLY_API_TOKEN", "tok_mv")
+    machines = [{"id": "m_mv", "state": "stopped"}]
+    vols = [{"id": "vol_first"}, {"id": "vol_second"}]
+    snap = {"id": "snap_mv"}
+
+    responses = [machines, vols, snap]
+
+    with patch_urlopen(_make_urlopen(responses)):
+        cmd_snapshot()
+
+    out = capsys.readouterr().out
+    assert "creating snapshot of volume vol_first" in out
+    assert "vol_second" not in out

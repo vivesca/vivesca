@@ -719,7 +719,7 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 
 ### Auto-requeue (19 tasks @ 03:23)
 - [!] `golem [t-41e219] --provider zhipu --max-turns 40 "Run uv run pytest --co -q 2>&1 | grep ERROR. Fix ALL collection errors. Common: hardcoded paths, bad imports, syntax. Run --co again until 0 errors. Commit."`
-- [ ] `golem [t-e8eb1b] --provider infini --max-turns 50 "Run uv run pytest -q --tb=no --continue-on-collection-errors 2>&1 | grep FAILED | sed 's/::.*//g' | sort | uniq -c | sort -rn | head -5. For each of the top 5 failing test files: run pytest on it, read traceback, fix. Iterate until green. Commit."`
+- [ ] `golem [t-e8eb1b] --provider infini --max-turns 50 "Run uv run pytest -q --tb=no --continue-on-collection-errors 2>&1 | grep FAILED | sed 's/::.*//g' | sort | uniq -c | sort -rn | head -5. For each of the top 5 failing test files: run pytest on it, read traceback, fix. Iterate until green. Commit." (retry)`
 - [!] `golem [t-203f8a] --provider volcano --max-turns 30 "Health check: inflammasome-probe, centrosome, rheotaxis-local, circadian-probe.py, goose-worker, soma-bootstrap, golem-daemon-wrapper.sh, taste-score, receptor-health, gemmation-env. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit." (retry)`
 - [!] `golem [t-fe53c0] --provider zhipu --max-turns 30 "Write tests for /home/terry/germline/metabolon/organelles/crispr.py. Mock external calls. Write assays/test_organelles_crispr.py. Run uv run pytest. Fix failures. Commit."`
 - [x] `golem [t-294cb9] --provider infini --max-turns 30 "Write tests for /home/terry/germline/metabolon/sortase/coaching_cli.py. Mock external calls. Write assays/test_sortase_coaching_cli.py. Run uv run pytest. Fix failures. Commit."`
