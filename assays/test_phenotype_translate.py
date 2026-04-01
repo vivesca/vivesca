@@ -761,7 +761,12 @@ class TestSyncPhenotype:
             )
         assert "dry-run" in result.summary
 
-    def test_no_cc_settings_hooks_skipped(self, tmp_path):
+    @patch('metabolon.locus.PLATFORM_SYMLINKS', [])
+    @patch('metabolon.locus.phenotype_md', Path('/tmp/fake_phenotype.md'))
+    @patch('metabolon.locus.receptors', Path('/tmp/fake_receptors'))
+    @patch('metabolon.enzymes.integrin._check_phenotype_symlinks', return_value=([], []))
+    @patch('metabolon.organelles.phenotype_translate.GEMINI_ADAPTER_PATH', Path('/tmp/fake_adapter.py'))
+    def test_no_cc_settings_hooks_skipped(self, tmp_path, mock_check):
         missing_cc = tmp_path / "nonexistent_settings.json"
         gemini_settings = tmp_path / "settings.json"
         result = sync_phenotype(
