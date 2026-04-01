@@ -56,36 +56,22 @@ def _ab(cmd: str, timeout: int = 15) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Content extraction — delegate to pinocytosis
+# Content extraction — Jina Reader (best signal/noise for Evident, free)
 # ---------------------------------------------------------------------------
 
 def fetch_markdown(url: str) -> str:
-    """Fetch URL as markdown via pinocytosis (smart routing)."""
-    r = subprocess.run(
-        ["pinocytosis", "--json", url],
-        capture_output=True, text=True, timeout=60,
+    """Fetch URL as markdown via Jina Reader."""
+    import urllib.request
+    req = urllib.request.Request(
+        f"https://r.jina.ai/{url}",
+        headers={"Accept": "text/markdown", "User-Agent": "evident-brief/1.0"},
     )
-    if r.returncode == 0:
-        try:
-            result = json.loads(r.stdout)
-            if result.get("success") and result.get("text"):
-                print(f"[{result.get('method', '?')}] OK", file=sys.stderr)
-                return result["text"]
-        except json.JSONDecodeError:
-            # pinocytosis printed plain text (no --json support yet)
-            if r.stdout.strip() and len(r.stdout.strip()) > 100:
-                print("[pinocytosis] OK", file=sys.stderr)
-                return r.stdout.strip()
-    # Fallback: direct pinocytosis plain text
-    r = subprocess.run(
-        ["pinocytosis", url],
-        capture_output=True, text=True, timeout=60,
-    )
-    if r.returncode == 0 and r.stdout.strip() and len(r.stdout.strip()) > 100:
-        print("[pinocytosis-fallback] OK", file=sys.stderr)
-        return r.stdout.strip()
-    print("Extraction failed.", file=sys.stderr)
-    sys.exit(1)
+    with urllib.request.urlopen(req, timeout=30) as resp:
+        md = resp.read().decode("utf-8")
+    if len(md) < 100:
+        print(f"Jina returned too little content ({len(md)} chars).", file=sys.stderr)
+        sys.exit(1)
+    return md
 
 
 # ---------------------------------------------------------------------------
