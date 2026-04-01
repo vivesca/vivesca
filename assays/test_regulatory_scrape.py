@@ -263,8 +263,8 @@ def test_scrape_one_skips_existing(tmp_path):
 
 def test_scrape_one_returns_empty_on_fetch_failure(tmp_path):
     """scrape_one returns '' when fetch_content returns empty."""
-    with patch(f"{_mod['__name__']}.REG_DIR", str(tmp_path)), \
-         patch(f"{_mod['__name__']}.fetch_content", return_value=""):
+    with patch("regulatory_scrape.REG_DIR", str(tmp_path)), \
+         patch("regulatory_scrape.fetch_content", return_value=""):
         result = scrape_one(
             "https://example.com/doc", "fca", "2024-04-22",
             "AI Update", "guidance",
@@ -275,8 +275,8 @@ def test_scrape_one_returns_empty_on_fetch_failure(tmp_path):
 
 def test_scrape_one_auto_slug(tmp_path):
     """scrape_one auto-generates slug from title when slug is None."""
-    with patch(f"{_mod['__name__']}.REG_DIR", str(tmp_path)), \
-         patch(f"{_mod['__name__']}.fetch_content", return_value="Y" * 300):
+    with patch("regulatory_scrape.REG_DIR", str(tmp_path)), \
+         patch("regulatory_scrape.fetch_content", return_value="Y" * 300):
         result = scrape_one(
             "https://example.com/doc", "pra", "2024-06-01",
             "Dear CEO Letter", "letter",
@@ -294,7 +294,7 @@ def test_batch_processes_tsv(tmp_path):
     tsv.write_text("https://a.com\taa\t2024-01-01\tTitle A\tguidance\n"
                    "https://b.com\tbb\t2024-02-01\tTitle B\treport\n")
 
-    with patch(f"{_mod['__name__']}.scrape_one", return_value="/fake/path") as mock_so:
+    with patch("regulatory_scrape.scrape_one", return_value="/fake/path") as mock_so:
         batch(str(tsv))
 
     assert mock_so.call_count == 2
@@ -307,7 +307,7 @@ def test_batch_skips_comments_and_empty(tmp_path):
     tsv = tmp_path / "catalog.tsv"
     tsv.write_text("# comment\n\nhttps://a.com\taa\t2024-01-01\tTitle\tguidance\n")
 
-    with patch(f"{_mod['__name__']}.scrape_one", return_value="/fake/path") as mock_so:
+    with patch("regulatory_scrape.scrape_one", return_value="/fake/path") as mock_so:
         batch(str(tsv))
 
     assert mock_so.call_count == 1
@@ -318,7 +318,7 @@ def test_batch_with_slug_column(tmp_path):
     tsv = tmp_path / "catalog.tsv"
     tsv.write_text("https://a.com\taa\t2024-01-01\tTitle\tguidance\tmy-slug\n")
 
-    with patch(f"{_mod['__name__']}.scrape_one", return_value="/fake/path") as mock_so:
+    with patch("regulatory_scrape.scrape_one", return_value="/fake/path") as mock_so:
         batch(str(tsv))
 
     mock_so.assert_called_once_with("https://a.com", "aa", "2024-01-01", "Title", "guidance", "my-slug")
@@ -329,8 +329,8 @@ def test_batch_with_slug_column(tmp_path):
 
 def test_main_single_url_prints_path(tmp_path, capsys):
     """main prints the output path on success."""
-    with patch(f"{_mod['__name__']}.REG_DIR", str(tmp_path)), \
-         patch(f"{_mod['__name__']}.fetch_content", return_value="Z" * 300), \
+    with patch("regulatory_scrape.REG_DIR", str(tmp_path)), \
+         patch("regulatory_scrape.fetch_content", return_value="Z" * 300), \
          patch("sys.argv", ["regulatory-scrape", "https://example.com/doc",
                             "--issuer", "fca", "--date", "2024-04-22",
                             "--title", "Test Doc"]):
@@ -345,7 +345,7 @@ def test_main_batch_flag(tmp_path):
     tsv = tmp_path / "catalog.tsv"
     tsv.write_text("https://a.com\taa\t2024-01-01\tTitle\tguidance\n")
 
-    with patch(f"{_mod['__name__']}.scrape_one", return_value="/fake/path"), \
+    with patch("regulatory_scrape.scrape_one", return_value="/fake/path"), \
          patch("sys.argv", ["regulatory-scrape", "--batch", str(tsv)]):
         main()
 
@@ -359,8 +359,8 @@ def test_main_missing_args_exits(tmp_path):
 
 def test_main_fetch_failure_exits_1(tmp_path):
     """main exits 1 when fetch_content returns empty."""
-    with patch(f"{_mod['__name__']}.REG_DIR", str(tmp_path)), \
-         patch(f"{_mod['__name__']}.fetch_content", return_value=""), \
+    with patch("regulatory_scrape.REG_DIR", str(tmp_path)), \
+         patch("regulatory_scrape.fetch_content", return_value=""), \
          patch("sys.argv", ["regulatory-scrape", "https://example.com/doc",
                             "--issuer", "fca", "--date", "2024-04-22",
                             "--title", "Test Doc"]), \
