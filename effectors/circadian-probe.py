@@ -147,10 +147,6 @@ def scan_prospective_memory() -> list[str]:
         if not in_active or not line.strip().startswith("- WHEN:"):
             continue
 
-        # Check for date-based triggers
-        re.compile(
-            r"(?:~?\s*)?((?:Mon|Tue|Wed|Thu|Fri|Sat|Sun)\s+)?(\w{3}\s+\d{1,2})"
-        )
         # Also check for "any session" or "next session" triggers
         if "any session" in line or "next session" in line:
             # Extract the THEN action
@@ -254,6 +250,9 @@ def build_digest() -> str:
 def send_via_telegram(message: str) -> bool:
     """Send message via secretory vesicle (Telegram API directly)."""
     try:
+        _germline = str(Path.home() / "germline")
+        if _germline not in sys.path:
+            sys.path.insert(0, _germline)
         from metabolon.organelles.secretory_vesicle import secrete_text
 
         secrete_text(message, html=False, label="AKM Heartbeat")
