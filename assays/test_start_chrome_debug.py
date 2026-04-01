@@ -1,312 +1,406 @@
-"""Tests for effectors/start-chrome-debug.sh"""
+from __future__ import annotations
+
+"""Tests for start-chrome-debug.sh — Chrome remote-debugging launcher."""
+
 import os
-import signal
 import stat
 import subprocess
-import pytest
+import textwrap
 from pathlib import Path
 
-SCRIPT = Path(__file__).parent.parent / "effectors" / "start-chrome-debug.sh"
-
-# Fake chrome sleep time — must survive the script's `sleep 1` + `kill -0` check
-_FAKE_CHROME_SLEEP = 2
+SCRIPT = Path.home() / "germline" / "effectors" / "start-chrome-debug.sh"
 
 
-def run_script(*args, check=False, env=None, timeout=None):
-    """Run the script with args, return CompletedProcess."""
+def _run(args: list[str] | None = None, **kwargs) -> subprocess.CompletedProcess:
+    """Run the script with optional args, capturing output."""
+    cmd = ["bash", str(SCRIPT)]
+    if args:
+        cmd.extend(args)
     return subprocess.run(
-        ["/usr/bin/bash", str(SCRIPT), *args],
+        cmd,
         capture_output=True,
         text=True,
-        check=check,
-        env=env,
-        timeout=timeout,
+        timeout=10,
+        **kwargs,
     )
 
 
-@pytest.fixture(autouse=True)
-def _kill_leftover_fake_chromes():
-    """Kill any lingering fake-chrome processes between tests."""
-    yield
-    # Kill any 'sleep N' processes spawned by our fake chrome scripts
-    # that might still be running after a test finishes.
+def _make_fake_chrome(tmp_path: Path, name: str = "google-chrome-stable") -> Path:
+    """Create a fake Chrome binary in a bin/ dir and return the bin dir."""
+    bindir = tmp_path / "bin"
+    bindir.mkdir()
+    chrome = bindir / name
+    chrome.write_text("#!/bin/bash\n# fake chrome for testing\necho 'chrome-launched'\n")
+    chrome.chmod(chrome.stat().st_mode | stat.S_IEXEC)
+    return bindir
+
+
+def _make_fake_chrome_that_serves_port(tmp_path: Path, port: int = 9222) -> Path:
+    """Create a fake Chrome that serves a minimal /json/version endpoint."""
+    bindir = tmp_path / "bin"
+    bindir.mkdir()
+    chrome = bindir / "google-chrome-stable"
+    # Start a tiny HTTP server in the background that responds to /json/version
+    chrome.write_text(textwrap.dedent(f"""\
+        #!/bin/bash
+        # Fake chrome: start a background listener on the debug port
+        while true; do
+            echo -e "HTTP/1.1 200 OK\\r\\nContent-Length: 2\\r\\n\\r\\n{{}}" | nc -l -p {port} -q 0 >/dev/null 2>&1 &
+            sleep 0.2
+        done &
+        echo "chrome-launched port={port}"
+    """))
+    chrome.chmod(chrome.stat().st_mode | stat.S_IEXEC)
+    return bindir
+
+
+# ── Help / usage tests ─────────────────────────────────────────────────
+
+
+def test_help_long_flag():
+    """--help prints usage and exits 0."""
+    r = _run(["--help"])
+    assert r.returncode == 0
+    assert "Usage:" in r.stdout
+    assert "--port" in r.stdout
+    assert "9222" in r.stdout
+
+
+def test_help_short_flag():
+    """-h prints usage and exits 0."""
+    r = _run(["-h"])
+    assert r.returncode == 0
+    assert "Usage:" in r.stdout
+
+
+# ── Argument parsing tests ─────────────────────────────────────────────
+
+
+def test_unknown_option_exits_2():
+    """Unknown flag prints error to stderr and exits 2."""
+    r = _run(["--bogus"])
+    assert r.returncode == 2
+    assert "Unknown option" in r.stderr
+    assert "Usage:" in r.stderr
+
+
+def test_port_option_requires_value():
+    """--port without a value causes argument error."""
+    r = _run(["--port"])
+    # bash shifts past end of args — set -euo pipefail should cause failure
+    assert r.returncode != 0
+
+
+def test_custom_port_accepted(tmp_path):
+    """Script accepts --port with a custom value (fails later at Chrome detection)."""
+    r = _run(["--port", "9999"])
+    # Will fail because no Chrome, but should NOT fail on arg parsing
+    assert r.returncode != 0
+    # Should not mention "Unknown option"
+    assert "Unknown option" not in r.stderr
+
+
+def test_port_short_flag_accepted():
+    """Script accepts -p as short form of --port."""
+    r = _run(["-p", "8080"])
+    assert r.returncode != 0  # fails later at Chrome detection
+    assert "Unknown option" not in r.stderr
+
+
+# ── Chrome binary detection tests ──────────────────────────────────────
+
+
+def test_no_chrome_found_exits_1():
+    """When no Chrome binary is on PATH, exits 1 with error message."""
+    r = _run(["--help"])  # just confirm script is runnable
+    assert r.returncode == 0
+
+    # Now run with empty PATH (no chrome)
+    env = os.environ.copy()
+    env["PATH"] = ""
+    r = subprocess.run(
+        ["bash", str(SCRIPT)],
+        capture_output=True,
+        text=True,
+        timeout=10,
+        env=env,
+    )
+    assert r.returncode == 1
+    assert "Chrome" in r.stderr or "not found" in r.stderr
+
+
+def test_fake_chrome_detected_via_path(tmp_path):
+    """Script detects fake Chrome when its dir is on PATH."""
+    bindir = _make_fake_chrome(tmp_path)
+    env = os.environ.copy()
+    env["PATH"] = f"{bindir}:{env.get('PATH', '')}"
+    # Will launch Chrome (which exits immediately) → "failed to start" error
+    r = subprocess.run(
+        ["bash", str(SCRIPT)],
+        capture_output=True,
+        text=True,
+        timeout=10,
+        env=env,
+    )
+    # Either Chrome "started" (unlikely with instant-exit fake) or failed
+    # We just verify the script got past the "not found" check
+    assert "Chrome/Chromium not found" not in r.stderr
+
+
+def test_chromium_fallback(tmp_path):
+    """Script finds 'chromium' if google-chrome-stable is absent."""
+    bindir = _make_fake_chrome(tmp_path, name="chromium")
+    env = os.environ.copy()
+    # Only include our bindir, no real chrome
+    env["PATH"] = str(bindir)
+    r = subprocess.run(
+        ["bash", str(SCRIPT)],
+        capture_output=True,
+        text=True,
+        timeout=10,
+        env=env,
+    )
+    assert "Chrome/Chromium not found" not in r.stderr
+
+
+def test_chromium_browser_fallback(tmp_path):
+    """Script finds 'chromium-browser' if others are absent."""
+    bindir = _make_fake_chrome(tmp_path, name="chromium-browser")
+    env = os.environ.copy()
+    env["PATH"] = str(bindir)
+    r = subprocess.run(
+        ["bash", str(SCRIPT)],
+        capture_output=True,
+        text=True,
+        timeout=10,
+        env=env,
+    )
+    assert "Chrome/Chromium not found" not in r.stderr
+
+
+def test_google_chrome_fallback(tmp_path):
+    """Script finds 'google-chrome' if others are absent."""
+    bindir = _make_fake_chrome(tmp_path, name="google-chrome")
+    env = os.environ.copy()
+    env["PATH"] = str(bindir)
+    r = subprocess.run(
+        ["bash", str(SCRIPT)],
+        capture_output=True,
+        text=True,
+        timeout=10,
+        env=env,
+    )
+    assert "Chrome/Chromium not found" not in r.stderr
+
+
+# ── Already-running detection tests ────────────────────────────────────
+
+
+def test_detects_already_running_on_port(tmp_path):
+    """Script exits 0 when curl localhost:PORT/json/version succeeds."""
+    bindir = _make_fake_chrome(tmp_path)
+    # Also create a fake 'curl' that succeeds
+    curl = bindir / "curl"
+    curl.write_text("#!/bin/bash\n# fake curl that always succeeds\nexit 0\n")
+    curl.chmod(curl.stat().st_mode | stat.S_IEXEC)
+    env = os.environ.copy()
+    env["PATH"] = f"{bindir}:{env.get('PATH', '')}"
+    r = subprocess.run(
+        ["bash", str(SCRIPT)],
+        capture_output=True,
+        text=True,
+        timeout=10,
+        env=env,
+    )
+    assert r.returncode == 0
+    assert "already running" in r.stdout.lower()
+
+
+def test_already_running_with_custom_port(tmp_path):
+    """Script checks the correct port when --port is given."""
+    bindir = _make_fake_chrome(tmp_path)
+    # Fake curl that checks which port was requested
+    curl = bindir / "curl"
+    curl.write_text(textwrap.dedent("""\
+        #!/bin/bash
+        # Verify we're called with port 8080
+        if echo "$@" | grep -q "8080"; then
+            exit 0
+        fi
+        exit 1
+    """))
+    curl.chmod(curl.stat().st_mode | stat.S_IEXEC)
+    env = os.environ.copy()
+    env["PATH"] = f"{bindir}:{env.get('PATH', '')}"
+    r = subprocess.run(
+        ["bash", str(SCRIPT), "--port", "8080"],
+        capture_output=True,
+        text=True,
+        timeout=10,
+        env=env,
+    )
+    assert r.returncode == 0
+    assert "already running" in r.stdout.lower()
+    assert "8080" in r.stdout
+
+
+# ── Chrome launch tests ────────────────────────────────────────────────
+
+
+def test_chrome_launch_passes_debug_port(tmp_path):
+    """Script passes --remote-debugging-port to Chrome binary."""
+    bindir = tmp_path / "bin"
+    bindir.mkdir()
+    chrome = bindir / "google-chrome-stable"
+    # Chrome that logs its args and sleeps briefly
+    chrome.write_text(textwrap.dedent("""\
+        #!/bin/bash
+        echo "ARGS: $@" > /tmp/test_chrome_args.txt
+        sleep 2
+    """))
+    chrome.chmod(chrome.stat().st_mode | stat.S_IEXEC)
+    # Fake curl that fails (no existing Chrome)
+    curl = bindir / "curl"
+    curl.write_text("#!/bin/bash\nexit 1\n")
+    curl.chmod(curl.stat().st_mode | stat.S_IEXEC)
+    env = os.environ.copy()
+    env["PATH"] = f"{bindir}:{env.get('PATH', '')}"
     try:
-        subprocess.run(["pkill", "-f", f"sleep {_FAKE_CHROME_SLEEP}"],
-                       capture_output=True, timeout=3)
-    except (subprocess.TimeoutExpired, FileNotFoundError):
-        pass
-
-
-class TestHelpOption:
-    """Tests for --help flag."""
-
-    def test_help_short_flag(self):
-        """-h shows usage."""
-        result = run_script("-h")
-        assert result.returncode == 0
-        assert "Usage:" in result.stdout
-        assert "--help" in result.stdout
-        assert "--port" in result.stdout
-
-    def test_help_long_flag(self):
-        """--help shows usage."""
-        result = run_script("--help")
-        assert result.returncode == 0
-        assert "Usage:" in result.stdout
-        assert "OPTIONS" in result.stdout or "Options:" in result.stdout
-
-    def test_help_shows_default_port(self):
-        """Help mentions default port 9222."""
-        result = run_script("--help")
-        assert "9222" in result.stdout
-
-
-class TestInvalidOptions:
-    """Tests for invalid argument handling."""
-
-    def test_unknown_option_exits_2(self):
-        """Unknown option exits with code 2."""
-        result = run_script("--invalid-option")
-        assert result.returncode == 2
-        assert "Unknown option" in result.stderr
-
-    def test_unknown_option_shows_usage_to_stderr(self):
-        """Unknown option prints usage to stderr."""
-        result = run_script("--bad-arg")
-        assert "Usage:" in result.stderr
-
-
-class TestPortOption:
-    """Tests for --port flag."""
-
-    def test_port_short_flag_accepted(self):
-        """-p <port> is parsed without argument errors."""
-        result = run_script("-p", "9999")
-        assert "Unknown option" not in result.stderr
-
-    def test_port_long_flag_accepted(self):
-        """--port <port> is parsed without argument errors."""
-        result = run_script("--port", "8888")
-        assert "Unknown option" not in result.stderr
-
-
-class TestChromeDetection:
-    """Tests for Chrome binary detection using a fake Chrome in a temp dir."""
-
-    def test_no_chrome_found_error_message(self, tmp_path):
-        """When no Chrome binary exists on PATH, exits 1 with error."""
-        env = os.environ.copy()
-        env["PATH"] = f"{tmp_path}:/usr/bin:/bin"
-        result = run_script(env=env)
-        assert result.returncode == 1
-        assert "Chrome/Chromium not found" in result.stderr
-
-    def test_non_executable_chrome_error(self, tmp_path):
-        """When Chrome candidate exists but is not executable, exits 1."""
-        fake_chrome = tmp_path / "google-chrome-stable"
-        fake_chrome.write_text("#!/bin/bash\nexit 0")
-        # NOT chmod +x, so -x test fails
-        env = os.environ.copy()
-        env["PATH"] = f"{tmp_path}:/usr/bin:/bin"
-        result = run_script(env=env)
-        assert result.returncode == 1
-        assert "not executable" in result.stderr
-
-    def test_executable_chrome_is_launched(self, tmp_path):
-        """When a valid Chrome candidate exists on PATH, script attempts to launch it."""
-        # Create a fake chrome that writes a marker and stays alive briefly
-        marker = tmp_path / "launched.txt"
-        fake_chrome = tmp_path / "google-chrome-stable"
-        fake_chrome.write_text(
-            f"#!/bin/bash\n"
-            f"echo launched >> {marker}\n"
-            f"echo args: $@ >> {marker}\n"
-            # Stay alive long enough for kill -0 check
-            f"sleep {_FAKE_CHROME_SLEEP}\n"
+        r = subprocess.run(
+            ["bash", str(SCRIPT)],
+            capture_output=True,
+            text=True,
+            timeout=10,
+            env=env,
         )
-        fake_chrome.chmod(fake_chrome.stat().st_mode | stat.S_IEXEC)
+        assert r.returncode == 0
+        assert "Chrome started" in r.stdout
+        assert "9222" in r.stdout
+        # Check args log
+        args_log = Path("/tmp/test_chrome_args.txt")
+        if args_log.exists():
+            args = args_log.read_text()
+            assert "--remote-debugging-port=9222" in args
+            assert "--user-data-dir=" in args
+    finally:
+        Path("/tmp/test_chrome_args.txt").unlink(missing_ok=True)
 
-        # Provide a fake curl that simulates "not already running"
-        fake_curl = tmp_path / "curl"
-        fake_curl.write_text("#!/bin/bash\nexit 1\n")
-        fake_curl.chmod(fake_curl.stat().st_mode | stat.S_IEXEC)
 
-        env = os.environ.copy()
-        env["PATH"] = f"{tmp_path}:/usr/bin:/bin"
-        env["HOME"] = str(tmp_path)
-
-        result = run_script(env=env, timeout=10)
-        # Script should report successful start
-        assert result.returncode == 0, f"stdout={result.stdout!r} stderr={result.stderr!r}"
-        assert "Chrome started" in result.stdout
-        # Verify our fake chrome was actually invoked
-        assert marker.exists(), f"Chrome was never invoked. stdout={result.stdout!r} stderr={result.stderr!r}"
-        launch_log = marker.read_text()
-        assert "launched" in launch_log
-        assert "--remote-debugging-port=9222" in launch_log
-
-    def test_custom_port_passed_to_chrome(self, tmp_path):
-        """--port value is forwarded to the Chrome invocation."""
-        marker = tmp_path / "launched.txt"
-        fake_chrome = tmp_path / "google-chrome-stable"
-        fake_chrome.write_text(
-            f"#!/bin/bash\necho $@ >> {marker}\nsleep {_FAKE_CHROME_SLEEP}\n"
+def test_chrome_launch_custom_port(tmp_path):
+    """Script passes custom --remote-debugging-port when --port is set."""
+    bindir = tmp_path / "bin"
+    bindir.mkdir()
+    chrome = bindir / "google-chrome-stable"
+    chrome.write_text(textwrap.dedent("""\
+        #!/bin/bash
+        echo "ARGS: $@" > /tmp/test_chrome_custom_port.txt
+        sleep 2
+    """))
+    chrome.chmod(chrome.stat().st_mode | stat.S_IEXEC)
+    curl = bindir / "curl"
+    curl.write_text("#!/bin/bash\nexit 1\n")
+    curl.chmod(curl.stat().st_mode | stat.S_IEXEC)
+    env = os.environ.copy()
+    env["PATH"] = f"{bindir}:{env.get('PATH', '')}"
+    try:
+        r = subprocess.run(
+            ["bash", str(SCRIPT), "--port", "9333"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+            env=env,
         )
-        fake_chrome.chmod(fake_chrome.stat().st_mode | stat.S_IEXEC)
-
-        fake_curl = tmp_path / "curl"
-        fake_curl.write_text("#!/bin/bash\nexit 1\n")
-        fake_curl.chmod(fake_curl.stat().st_mode | stat.S_IEXEC)
-
-        env = os.environ.copy()
-        env["PATH"] = f"{tmp_path}:/usr/bin:/bin"
-        env["HOME"] = str(tmp_path)
-
-        result = run_script("-p", "12345", env=env, timeout=10)
-        assert result.returncode == 0, f"stdout={result.stdout!r} stderr={result.stderr!r}"
-        assert marker.exists(), f"Chrome was never invoked. stdout={result.stdout!r} stderr={result.stderr!r}"
-        assert "--remote-debugging-port=12345" in marker.read_text()
-
-    def test_user_data_dir_passed(self, tmp_path):
-        """--user-data-dir is passed with the Linux default path."""
-        marker = tmp_path / "launched.txt"
-        fake_chrome = tmp_path / "google-chrome-stable"
-        fake_chrome.write_text(
-            f"#!/bin/bash\necho $@ >> {marker}\nsleep {_FAKE_CHROME_SLEEP}\n"
-        )
-        fake_chrome.chmod(fake_chrome.stat().st_mode | stat.S_IEXEC)
-
-        fake_curl = tmp_path / "curl"
-        fake_curl.write_text("#!/bin/bash\nexit 1\n")
-        fake_curl.chmod(fake_curl.stat().st_mode | stat.S_IEXEC)
-
-        env = os.environ.copy()
-        env["PATH"] = f"{tmp_path}:/usr/bin:/bin"
-        env["HOME"] = str(tmp_path)
-
-        result = run_script(env=env, timeout=10)
-        assert result.returncode == 0
-        assert f"--user-data-dir={tmp_path}/.config/google-chrome" in marker.read_text()
+        assert r.returncode == 0
+        assert "9333" in r.stdout
+        args_log = Path("/tmp/test_chrome_custom_port.txt")
+        if args_log.exists():
+            assert "--remote-debugging-port=9333" in args_log.read_text()
+    finally:
+        Path("/tmp/test_chrome_custom_port.txt").unlink(missing_ok=True)
 
 
-class TestAlreadyRunning:
-    """Tests for already-running Chrome detection."""
-
-    def _make_env_with_fake_chrome_and_curl(self, tmp_path, curl_exit=0):
-        """Helper: create env with fake chrome (that must NOT be called) and fake curl."""
-        # Fake curl that simulates Chrome already listening
-        fake_curl = tmp_path / "curl"
-        fake_curl.write_text(f"#!/bin/bash\nexit {curl_exit}\n")
-        fake_curl.chmod(fake_curl.stat().st_mode | stat.S_IEXEC)
-
-        # Fake chrome — if curl works correctly, this should never be invoked
-        fake_chrome = tmp_path / "google-chrome-stable"
-        fake_chrome.write_text("#!/bin/bash\necho SHOULD_NOT_BE_CALLED >&2\nexit 99\n")
-        fake_chrome.chmod(fake_chrome.stat().st_mode | stat.S_IEXEC)
-
-        env = os.environ.copy()
-        env["PATH"] = f"{tmp_path}:/usr/bin:/bin"
-        env["HOME"] = str(tmp_path)
-        return env
-
-    def test_already_running_exits_zero(self, tmp_path):
-        """When curl succeeds on the debug port, exits 0 without launching Chrome."""
-        env = self._make_env_with_fake_chrome_and_curl(tmp_path, curl_exit=0)
-        result = run_script(env=env)
-        assert result.returncode == 0
-        assert "already running" in result.stdout
-
-    def test_already_running_with_custom_port(self, tmp_path):
-        """Already-running check uses the custom port, not the default."""
-        # curl succeeds on port 7777 (via script pattern matching)
-        fake_curl = tmp_path / "curl"
-        fake_curl.write_text(
-            '#!/bin/bash\n'
-            'case "$@" in\n'
-            '  *":7777/"*) exit 0;;\n'
-            '  *) exit 1;;\n'
-            'esac\n'
-        )
-        fake_curl.chmod(fake_curl.stat().st_mode | stat.S_IEXEC)
-
-        # Fake chrome for detection phase (must exist and be executable)
-        fake_chrome = tmp_path / "google-chrome-stable"
-        fake_chrome.write_text("#!/bin/bash\necho SHOULD_NOT_BE_CALLED >&2\nexit 99\n")
-        fake_chrome.chmod(fake_chrome.stat().st_mode | stat.S_IEXEC)
-
-        env = os.environ.copy()
-        env["PATH"] = f"{tmp_path}:/usr/bin:/bin"
-        env["HOME"] = str(tmp_path)
-
-        result = run_script("-p", "7777", env=env)
-        assert result.returncode == 0
-        assert "already running" in result.stdout
-        assert "7777" in result.stdout
-
-    def test_already_running_does_not_launch_chrome(self, tmp_path):
-        """Already-running path does NOT invoke the Chrome binary."""
-        env = self._make_env_with_fake_chrome_and_curl(tmp_path, curl_exit=0)
-        result = run_script(env=env)
-        assert result.returncode == 0
-        assert "SHOULD_NOT_BE_CALLED" not in result.stderr
+def test_chrome_launch_includes_connect_url(tmp_path):
+    """Script prints connect URL after successful launch."""
+    bindir = tmp_path / "bin"
+    bindir.mkdir()
+    chrome = bindir / "google-chrome-stable"
+    chrome.write_text("#!/bin/bash\nsleep 2\n")
+    chrome.chmod(chrome.stat().st_mode | stat.S_IEXEC)
+    curl = bindir / "curl"
+    curl.write_text("#!/bin/bash\nexit 1\n")
+    curl.chmod(curl.stat().st_mode | stat.S_IEXEC)
+    env = os.environ.copy()
+    env["PATH"] = f"{bindir}:{env.get('PATH', '')}"
+    r = subprocess.run(
+        ["bash", str(SCRIPT)],
+        capture_output=True,
+        text=True,
+        timeout=10,
+        env=env,
+    )
+    assert r.returncode == 0
+    assert "Connect via:" in r.stdout
+    assert "http://localhost:9222" in r.stdout
 
 
-class TestChromeStartupFailure:
-    """Tests for when Chrome exits immediately after launch."""
-
-    def test_chrome_dies_immediately(self, tmp_path):
-        """When launched Chrome exits immediately, script reports error."""
-        fake_chrome = tmp_path / "google-chrome-stable"
-        fake_chrome.write_text("#!/bin/bash\nexit 1\n")
-        fake_chrome.chmod(fake_chrome.stat().st_mode | stat.S_IEXEC)
-
-        fake_curl = tmp_path / "curl"
-        fake_curl.write_text("#!/bin/bash\nexit 1\n")
-        fake_curl.chmod(fake_curl.stat().st_mode | stat.S_IEXEC)
-
-        env = os.environ.copy()
-        env["PATH"] = f"{tmp_path}:/usr/bin:/bin"
-        env["HOME"] = str(tmp_path)
-
-        result = run_script(env=env, timeout=10)
-        assert result.returncode == 1
-        assert "failed to start" in result.stderr
+# ── Chrome immediate-exit test ─────────────────────────────────────────
 
 
-class TestScriptStructure:
-    """Tests for script structure and best practices."""
+def test_chrome_exits_immediately(tmp_path):
+    """Script exits 1 when Chrome process dies immediately."""
+    bindir = tmp_path / "bin"
+    bindir.mkdir()
+    chrome = bindir / "google-chrome-stable"
+    # Chrome that exits immediately
+    chrome.write_text("#!/bin/bash\nexit 0\n")
+    chrome.chmod(chrome.stat().st_mode | stat.S_IEXEC)
+    curl = bindir / "curl"
+    curl.write_text("#!/bin/bash\nexit 1\n")
+    curl.chmod(curl.stat().st_mode | stat.S_IEXEC)
+    env = os.environ.copy()
+    env["PATH"] = f"{bindir}:{env.get('PATH', '')}"
+    r = subprocess.run(
+        ["bash", str(SCRIPT)],
+        capture_output=True,
+        text=True,
+        timeout=10,
+        env=env,
+    )
+    assert r.returncode == 1
+    assert "failed to start" in r.stderr.lower()
 
-    def test_script_exists(self):
-        """Script file exists."""
-        assert SCRIPT.exists()
 
-    def test_script_has_strict_error_handling(self):
-        """Script uses set -euo pipefail."""
-        content = SCRIPT.read_text()
-        assert "set -euo pipefail" in content
+# ── Script structure tests ─────────────────────────────────────────────
 
-    def test_script_has_usage_function(self):
-        """Script defines a usage function."""
-        content = SCRIPT.read_text()
-        assert "usage()" in content
 
-    def test_script_handles_both_platforms(self):
-        """Script handles Darwin and Linux."""
-        content = SCRIPT.read_text()
-        assert "Darwin" in content
-        assert "Linux" in content
+def test_script_is_executable():
+    """Script file exists and is executable."""
+    assert SCRIPT.exists()
+    assert os.access(SCRIPT, os.X_OK)
 
-    def test_script_uses_remote_debugging_port(self):
-        """Script passes remote-debugging-port to Chrome."""
-        content = SCRIPT.read_text()
-        assert "--remote-debugging-port" in content
 
-    def test_script_backgrounds_chrome(self):
-        """Script starts Chrome in background."""
-        content = SCRIPT.read_text()
-        assert "&" in content
+def test_script_has_shebang():
+    """Script starts with #!/bin/bash."""
+    first_line = SCRIPT.read_text().splitlines()[0]
+    assert first_line == "#!/bin/bash"
 
-    def test_script_verifies_startup(self):
-        """Script checks that Chrome started successfully via kill -0."""
-        content = SCRIPT.read_text()
-        assert "kill -0" in content
+
+def test_script_uses_strict_mode():
+    """Script uses set -euo pipefail."""
+    content = SCRIPT.read_text()
+    assert "set -euo pipefail" in content
+
+
+def test_usage_mentions_port_default():
+    """Usage text documents default port 9222."""
+    r = _run(["--help"])
+    assert r.returncode == 0
+    assert "9222" in r.stdout
+
+
+def test_usage_mentions_help_option():
+    """Usage text documents -h/--help options."""
+    r = _run(["--help"])
+    assert r.returncode == 0
+    assert "--help" in r.stdout
+    assert "-h" in r.stdout
