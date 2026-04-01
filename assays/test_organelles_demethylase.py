@@ -899,3 +899,356 @@ class TestAnalyzeMark:
         p.write_text("---\nname: dig\ntype: feedback\n---\n\nBody.\n")
         mark = analyze_mark(p)
         assert mark.protected is True
+
+
+# ---------------------------------------------------------------------------
+# _effective_threshold direct tests
+# ---------------------------------------------------------------------------
+
+
+class TestEffectiveThreshold:
+    def test_zero_accesses(self):
+        assert _effective_threshold(90, 0) == 90
+
+    def test_one_access_doubles(self):
+        assert _effective_threshold(90, 1) == 180
+
+    def test_three_accesses_eight_times(self):
+        assert _effective_threshold(14, 3) == 14 * 8
+
+    def test_cap_at_eight_accesses(self):
+        """Access count > 8 is capped: 2^8 = 256x multiplier."""
+        assert _effective_threshold(90, 8) == 90 * 256
+        assert _effective_threshold(90, 10) == 90 * 256
+        assert _effective_threshold(90, 100) == 90 * 256
+
+    def test_acetyl_base(self):
+        assert _effective_threshold(14, 0) == 14
+
+
+# ---------------------------------------------------------------------------
+# _append_signal_history direct tests
+# ---------------------------------------------------------------------------
+
+
+class TestAppendSignalHistory:
+    def test_creates_parent_dirs_and_appends(self, tmp_path: Path, monkeypatch):
+        hist = tmp_path / "deep" / "state" / "signal-history.jsonl"
+        monkeypatch.setattr(
+            "metabolon.organelles.demethylase.SIGNAL_HISTORY_PATH", hist
+        )
+        from metabolon.organelles.demethylase import _append_signal_history
+
+        _append_signal_history(
+            name="sig1",
+            content="hello",
+            source="cc",
+            downstream=["echo hi"],
+            signal_path=Path("/fake/signal.md"),
+            fire_count=1,
+            deduplicated=False,
+        )
+        assert hist.exists()
+        import json
+
+        entry = json.loads(hist.read_text().strip())
+        assert entry["name"] == "sig1"
+        assert entry["deduplicated"] is False
+        assert entry["fire_count"] == 1
+        assert entry["downstream"] == ["echo hi"]
+
+    def test_appends_multiple_entries(self, tmp_path: Path, monkeypatch):
+        hist = tmp_path / "state" / "signal-history.jsonl"
+        hist.parent.mkdir(parents=True)
+        monkeypatch.setattr(
+            "metabolon.organelles.demethylase.SIGNAL_HISTORY_PATH", hist
+        )
+        from metabolon.organelles.demethylase import _append_signal_history
+
+        _append_signal_history(
+            name="a", content="c", source="s", downstream=None,
+            signal_path=Path("/a"), fire_count=1, deduplicated=False,
+        )
+        _append_signal_history(
+            name="b", content="d", source="s", downstream=None,
+            signal_path=Path("/b"), fire_count=2, deduplicated=True,
+        )
+        lines = hist.read_text().strip().splitlines()
+        assert len(lines) == 2
+        import json
+
+        assert json.loads(lines[0])["name"] == "a"
+        assert json.loads(lines[1])["name"] == "b"
+
+
+# ---------------------------------------------------------------------------
+# signal_history — name_filter and limit ordering
+# ---------------------------------------------------------------------------
+
+
+class TestSignalHistoryFiltering:
+    def test_name_filter_matches_prefix(self, tmp_path: Path, monkeypatch):
+        _patch_signals(monkeypatch, tmp_path)
+        emit_signal("alpha-one", "a", source="cc")
+        emit_signal("beta-one", "b", source="cc")
+        emit_signal("alpha-two", "c", source="cc")
+        results = signal_history(limit=10, name_filter="alpha")
+        assert len(results) == 2
+        assert all(r["name"].startswith("alpha") for r in results)
+
+    def test_most_recent_first(self, tmp_path: Path, monkeypatch):
+        _patch_signals(monkeypatch, tmp_path)
+        emit_signal("first", "a", source="cc")
+        emit_signal("second", "b", source="cc")
+        results = signal_history(limit=10)
+        assert results[0]["name"] == "second"
+        assert results[1]["name"] == "first"
+
+    def test_limit_truncates(self, tmp_path: Path, monkeypatch):
+        _patch_signals(monkeypatch, tmp_path)
+        for i in range(5):
+            emit_signal(f"sig-{i}", f"content-{i}", source="cc")
+        results = signal_history(limit=2)
+        assert len(results) == 2
+
+
+# ---------------------------------------------------------------------------
+# read_signals — name_filter and include_desensitized
+# ---------------------------------------------------------------------------
+
+
+class TestReadSignalsFiltering:
+    def test_name_filter(self, tmp_path: Path, monkeypatch):
+        _patch_signals(monkeypatch, tmp_path)
+        emit_signal("alpha-sig", "a", source="cc")
+        emit_signal("beta-sig", "b", source="cc")
+        results = read_signals(name_filter="alpha")
+        assert len(results) == 1
+        assert results[0]["name"] == "alpha-sig"
+
+    def test_include_desensitized(self, tmp_path: Path, monkeypatch):
+        _patch_signals(monkeypatch, tmp_path)
+        sig_path = emit_signal("overfire", "c", source="cc")
+        # Manually set fire_count high and desensitized
+        _update_frontmatter_field(sig_path, "fire_count", "10")
+        _update_frontmatter_field(sig_path, "desensitized", "true")
+
+        # Default: excluded
+        assert read_signals() == []
+
+        # With include_desensitized: included
+        results = read_signals(include_desensitized=True)
+        assert len(results) == 1
+        assert results[0]["desensitized"] is True
+
+    def test_successful_cascade_execution(self, tmp_path: Path, monkeypatch):
+        _patch_signals(monkeypatch, tmp_path)
+        emit_signal("ok-cascade", "go", source="cc", downstream=["true"])
+        results = read_signals(execute_cascade=True)
+        assert len(results) == 1
+        assert "true" in results[0]["cascades_fired"]
+        # Signal should now be marked transduced
+        fm = _parse_frontmatter(Path(results[0]["path"]))
+        assert fm.get("transduced", "").lower() == "true"
+
+    def test_signal_age_days(self, tmp_path: Path, monkeypatch):
+        _patch_signals(monkeypatch, tmp_path)
+        emit_signal("age-check", "content", source="cc")
+        results = read_signals()
+        assert len(results) == 1
+        assert results[0]["age_days"] == 0  # just created
+
+
+# ---------------------------------------------------------------------------
+# resensitize — successful path
+# ---------------------------------------------------------------------------
+
+
+class TestResensitizeSuccess:
+    def test_resensitize_resets_desensitized_signal(self, tmp_path: Path, monkeypatch):
+        _patch_signals(monkeypatch, tmp_path)
+        sig_path = emit_signal("tired-signal", "content", source="cc")
+        # Mark as desensitized
+        _update_frontmatter_field(sig_path, "desensitized", "true")
+        _update_frontmatter_field(sig_path, "fire_count", "7")
+
+        result = resensitize("tired-signal")
+        assert result is True
+
+        # Verify frontmatter was reset
+        fm = _parse_frontmatter(sig_path)
+        assert fm["desensitized"] == "false"
+        assert fm["fire_count"] == "1"
+
+
+# ---------------------------------------------------------------------------
+# consolidate — writes daily summary
+# ---------------------------------------------------------------------------
+
+
+class TestConsolidateSummary:
+    def test_writes_daily_summary_file(self, tmp_path: Path, monkeypatch):
+        monkeypatch.setattr(Path, "home", staticmethod(lambda: tmp_path))
+        d = tmp_path / "marks"
+        d.mkdir()
+        _write_mark(d / "feedback_one.md", "One", "feedback")
+        report = consolidate(d)
+        assert report.methylome_updated is True
+
+        # Check summary file exists
+        daily_dir = tmp_path / "epigenome" / "chromatin" / "Daily"
+        summaries = list(daily_dir.glob("*.md"))
+        assert len(summaries) == 1
+        content = summaries[0].read_text()
+        assert "Chromatin Remodeling" in content
+
+    def test_no_today_marks_shows_placeholder(self, tmp_path: Path, monkeypatch):
+        """When no marks were modified today, summary shows placeholder text."""
+        import os
+        import time
+
+        monkeypatch.setattr(Path, "home", staticmethod(lambda: tmp_path))
+        d = tmp_path / "marks"
+        d.mkdir()
+        p = d / "feedback_old.md"
+        _write_mark(p, "Old", "feedback")
+        # Age it beyond today
+        old_time = time.time() - 2 * 86400
+        os.utime(p, (old_time, old_time))
+
+        report = consolidate(d)
+        assert report.today_marks == []
+
+        daily_dir = tmp_path / "epigenome" / "chromatin" / "Daily"
+        summaries = list(daily_dir.glob("*.md"))
+        assert len(summaries) == 1
+        content = summaries[0].read_text()
+        assert "No marks modified today" in content
+
+
+# ---------------------------------------------------------------------------
+# emit_signal — deduplication path
+# ---------------------------------------------------------------------------
+
+
+class TestEmitSignalDeduplication:
+    def test_duplicate_name_increments_fire_count(self, tmp_path: Path, monkeypatch):
+        _patch_signals(monkeypatch, tmp_path)
+        p1 = emit_signal("dup", "content", source="cc")
+        p2 = emit_signal("dup", "content2", source="cc")
+        # Same path returned (deduplication)
+        assert p1 == p2
+
+        fm = _parse_frontmatter(p1)
+        assert fm["fire_count"] == "2"
+
+    def test_deduplicated_emission_writes_history(self, tmp_path: Path, monkeypatch):
+        hist = _patch_signals(monkeypatch, tmp_path)
+        hist = tmp_path / "state" / "signal-history.jsonl"
+        emit_signal("dedup-hist", "first", source="cc")
+        emit_signal("dedup-hist", "second", source="cc")
+
+        import json
+
+        lines = hist.read_text().strip().splitlines()
+        assert len(lines) == 2
+        assert json.loads(lines[0])["deduplicated"] is False
+        assert json.loads(lines[1])["deduplicated"] is True
+        assert json.loads(lines[1])["fire_count"] == 2
+
+
+# ---------------------------------------------------------------------------
+# _cluster_marks — empty list
+# ---------------------------------------------------------------------------
+
+
+class TestClusterMarksEdge:
+    def test_empty_marks(self):
+        assert _cluster_marks([]) == []
+
+    def test_single_word_stem_no_underscore(self):
+        """Stems without underscore are ignored (no topic extracted)."""
+        marks = [_make_mark(path=Path("/marks/readme.md"))]
+        assert _cluster_marks(marks) == []
+
+
+# ---------------------------------------------------------------------------
+# format_report — protected stale candidate
+# ---------------------------------------------------------------------------
+
+
+class TestFormatReportEdge:
+    def test_protected_stale_candidate_shows_cpg(self):
+        from metabolon.organelles.demethylase import DemethylaseReport
+
+        stale = [
+            _make_mark(
+                path=Path("/marks/feedback_keep_digging.md"),
+                age_days=9999,
+                durability="methyl",
+                protected=True,
+                stale=True,
+                reason="should not happen but testing display",
+            )
+        ]
+        report = DemethylaseReport(
+            total_marks=1,
+            stale_candidates=stale,
+            source_distribution={},
+            type_distribution={},
+        )
+        text = format_report(report)
+        assert "[CpG]" in text
+
+
+# ---------------------------------------------------------------------------
+# sweep — dry_run=False deletes stale signals
+# ---------------------------------------------------------------------------
+
+
+class TestSweepSignalDeletion:
+    def test_sweep_deletes_stale_signals_when_not_dry(self, tmp_path: Path, monkeypatch):
+        import os
+        import time
+
+        monkeypatch.setattr(Path, "home", staticmethod(lambda: tmp_path))
+        sig_dir = _patch_signals(monkeypatch, tmp_path)
+
+        sig_path = sig_dir / "signal_old_20250101-000000_abc123.md"
+        sig_path.parent.mkdir(parents=True, exist_ok=True)
+        sig_path.write_text("---\nname: old-sig\n---\n\ncontent\n")
+        old_time = time.time() - 20 * 86400
+        os.utime(sig_path, (old_time, old_time))
+
+        assert sig_path.exists()
+        report = sweep(tmp_path, dry_run=False)
+        assert not sig_path.exists()
+        assert any(m.path == sig_path for m in report.stale_candidates)
+
+
+# ---------------------------------------------------------------------------
+# _detect_staleness — project with access count
+# ---------------------------------------------------------------------------
+
+
+class TestDetectStalenessProjectAccess:
+    def test_project_with_access_not_stale(self):
+        """Project mark with 1 access: 30 * 2 = 60 day threshold."""
+        mark = _make_mark(mark_type="project", durability="methyl", age_days=50, access_count=1)
+        result = _detect_staleness(mark, threshold_days=90)
+        assert result.stale is False
+
+    def test_project_with_access_stale(self):
+        """Project mark with 1 access: 30 * 2 = 60; age 61 → stale."""
+        mark = _make_mark(mark_type="project", durability="methyl", age_days=61, access_count=1)
+        result = _detect_staleness(mark, threshold_days=90)
+        assert result.stale is True
+        assert "project" in result.reason
+
+    def test_acetyl_zero_days_not_stale(self):
+        mark = _make_mark(durability="acetyl", age_days=0)
+        assert _detect_staleness(mark).stale is False
+
+    def test_methyl_zero_days_not_stale(self):
+        mark = _make_mark(durability="methyl", age_days=0)
+        assert _detect_staleness(mark, threshold_days=90).stale is False

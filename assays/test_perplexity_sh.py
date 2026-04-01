@@ -199,3 +199,140 @@ def test_curl_receives_bearer_auth():
         _run(["search", "hi"], _mock_env(tmpdir))
         args = log.read_text()
         assert "Authorization: Bearer fake-key-123" in args
+
+
+# ── Content-Type header ──────────────────────────────────────────────
+
+
+def test_curl_sends_content_type_json():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        log = _setup_fake_curl(tmpdir, GOOD_RESPONSE)
+        _run(["search", "hi"], _mock_env(tmpdir))
+        args = log.read_text()
+        assert "Content-Type: application/json" in args
+
+
+# ── Request body structure ────────────────────────────────────────────
+
+
+def test_request_body_contains_messages_array():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        log = _setup_fake_curl(tmpdir, GOOD_RESPONSE)
+        _run(["search", "test question"], _mock_env(tmpdir))
+        args = log.read_text()
+        assert '"messages"' in args
+        assert '"role": "user"' in args
+        assert '"content": "test question"' in args
+
+
+def test_request_body_is_valid_json():
+    """The -d payload embedded by the script should be parseable JSON."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        log = _setup_fake_curl(tmpdir, GOOD_RESPONSE)
+        _run(["search", "simple query"], _mock_env(tmpdir))
+        args = log.read_text()
+        # Extract the -d argument (JSON payload between quotes after -d flag)
+        import re
+
+        # The fake curl receives all args; find the JSON blob after -d
+        # The script sends: -d "{ ... }"
+        match = re.search(r"-d\s+\"(\{.*?\})\"", args, re.DOTALL)
+        assert match, f"Could not find -d JSON payload in curl args: {args}"
+        payload = json.loads(match.group(1).replace('\\"', '"'))
+        assert payload["model"] == "sonar"
+        assert payload["messages"][0]["role"] == "user"
+        assert payload["messages"][0]["content"] == "simple query"
+
+
+# ── Additional query escaping ─────────────────────────────────────────
+
+
+def test_query_with_backslash():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        log = _setup_fake_curl(tmpdir, GOOD_RESPONSE)
+        r = _run(["search", "path\\to\\file"], _mock_env(tmpdir))
+        assert r.returncode == 0
+        args = log.read_text()
+        assert "path" in args
+
+
+def test_query_with_dollar_sign():
+    """Shell metacharacters in query should not cause script errors."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        log = _setup_fake_curl(tmpdir, GOOD_RESPONSE)
+        r = _run(["search", "cost is $5"], _mock_env(tmpdir))
+        assert r.returncode == 0
+
+
+def test_query_with_single_quotes():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        log = _setup_fake_curl(tmpdir, GOOD_RESPONSE)
+        r = _run(["search", "it's a test"], _mock_env(tmpdir))
+        assert r.returncode == 0
+
+
+def test_query_with_unicode():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        log = _setup_fake_curl(tmpdir, GOOD_RESPONSE)
+        r = _run(["search", "日本語テスト"], _mock_env(tmpdir))
+        assert r.returncode == 0
+
+
+# ── Usage message content ─────────────────────────────────────────────
+
+
+def test_help_lists_all_modes():
+    r = _run(["--help"])
+    assert r.returncode == 0
+    for mode in ("search", "ask", "research", "reason"):
+        assert mode in r.stdout
+
+
+def test_help_shows_models():
+    r = _run(["--help"])
+    assert r.returncode == 0
+    # The help text is extracted from lines 2-11 of the script which mentions model names
+    output = r.stdout
+    assert "sonar" in output or "Modes" in output
+
+
+# ── Additional mode validation ────────────────────────────────────────
+
+
+def test_case_sensitive_mode():
+    """Modes should be case-sensitive — 'Search' is not valid."""
+    r = _run(["Search", "test"])
+    assert r.returncode != 0
+    assert "Unknown mode" in r.stderr
+
+
+def test_partial_mode_name_invalid():
+    r = _run(["researc", "test"])
+    assert r.returncode != 0
+    assert "Unknown mode" in r.stderr
+
+
+# ── Response edge cases ───────────────────────────────────────────────
+
+
+def test_empty_content_in_choices():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        _setup_fake_curl(tmpdir, {"choices": [{"message": {"content": ""}}]})
+        r = _run(["search", "hi"], _mock_env(tmpdir))
+        assert r.returncode == 0
+
+
+def test_error_response_without_message_field():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        _setup_fake_curl(tmpdir, {"error": {"status": 429}})
+        r = _run(["search", "hi"], _mock_env(tmpdir))
+        assert r.returncode != 0
+
+
+def test_curl_silence_flag():
+    """The script uses curl -sS (silent but show errors)."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        log = _setup_fake_curl(tmpdir, GOOD_RESPONSE)
+        _run(["search", "hi"], _mock_env(tmpdir))
+        args = log.read_text()
+        assert "-sS" in args

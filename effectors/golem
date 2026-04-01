@@ -181,6 +181,32 @@ _fallback_provider() {
   esac
 }
 
+# Pre-flight health check: curl the provider's /v1/messages endpoint with a
+# minimal request. Returns 0 if healthy, 1 if rate-limited (prints reset time
+# on stdout), 2 if auth/connection error.
+_preflight_check() {
+  local _response _http_code _body
+  _body=$(curl -s -w '\n%{http_code}' \
+    "${_URL}/v1/messages" \
+    -H "x-api-key: ${_KEY}" \
+    -H "Content-Type: application/json" \
+    -H "anthropic-version: 2023-06-01" \
+    -d '{"model":"'"$_HAIKU"'","max_tokens":1,"messages":[{"role":"user","content":"ping"}]}' \
+    --connect-timeout 10 --max-time 30 2>/dev/null) || return 2
+  _http_code=$(echo "$_body" | tail -1)
+  _response=$(echo "$_body" | sed '$d')
+  case "$_http_code" in
+    200) return 0 ;;
+    429)
+      # Extract reset time from error JSON (e.g. "reset at 2026-04-01 11:05:30 +0800")
+      local _reset
+      _reset=$(echo "$_response" | grep -oE 'reset at [0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}' | head -1)
+      echo "${_reset:-rate-limited, no reset time}"
+      return 1 ;;
+    *) return 2 ;;
+  esac
+}
+
 _run_golem() {
   local prompt="$1"
 
@@ -203,14 +229,51 @@ _run_golem() {
   # All providers use ANTHROPIC_API_KEY (x-api-key header). Volcano accepts it too.
   unset ANTHROPIC_AUTH_TOKEN  # prevent inheritance from parent env
 
+  # Max wall-clock time for claude: max_turns * 60s + 120s buffer
+  local _claude_timeout=$(( MAX_TURNS * 60 + 120 ))
+
   # Retry loop with exponential backoff for rate limits (429)
   local _max_retries=3
   local _attempt=0
   local _backoff=30  # initial backoff in seconds
 
   while [[ $_attempt -lt $_max_retries ]]; do
+    # Pre-flight health check: detect rate-limit before wasting time on claude
+    local _preflight_result
+    _preflight_result=$(_preflight_check)
+    local _pf_rc=$?
+    if [[ $_pf_rc -eq 1 ]]; then
+      # Rate-limited — extract reset time and compute smart backoff
+      _attempt=$(( _attempt + 1 ))
+      if [[ $_attempt -lt $_max_retries ]]; then
+        # Parse "reset at YYYY-MM-DD HH:MM:SS" into epoch seconds
+        local _reset_str _reset_epoch _wait_secs
+        _reset_str=$(echo "$_preflight_result" | sed 's/reset at //')
+        if [[ -n "$_reset_str" ]]; then
+          _reset_epoch=$(date -d "$_reset_str" +%s 2>/dev/null || echo 0)
+          if [[ $_reset_epoch -gt 0 ]]; then
+            _wait_secs=$(( _reset_epoch - $(date +%s) + 30 ))  # 30s buffer past reset
+            [[ $_wait_secs -lt 30 ]] && _wait_secs=30
+            [[ $_wait_secs -gt 600 ]] && _wait_secs=600  # cap at 10 min
+          else
+            _wait_secs=$_backoff
+          fi
+        else
+          _wait_secs=$_backoff
+        fi
+        $QUIET || echo "[preflight] $PROVIDER rate-limited (attempt $_attempt/$_max_retries), waiting ${_wait_secs}s — $_preflight_result" >&2
+        sleep "$_wait_secs"
+        _backoff=$(( _backoff * 2 ))
+      fi
+      continue  # skip claude launch, retry the preflight
+    elif [[ $_pf_rc -eq 2 ]]; then
+      $QUIET || echo "[preflight] $PROVIDER auth/connection error, skipping health check" >&2
+      # Don't retry on auth errors — just try claude directly (maybe endpoint behaves differently)
+    fi
+
     output=$(
-    CLAUDECODE= \
+    timeout "$_claude_timeout" \
+    env CLAUDECODE= \
     ANTHROPIC_API_KEY="$_KEY" \
     ANTHROPIC_BASE_URL="$_URL" \
     ANTHROPIC_DEFAULT_OPUS_MODEL="$_OPUS" \
@@ -221,15 +284,27 @@ _run_golem() {
     claude "${args[@]}" -p "$prompt" < /dev/null 2>&1
     )
     exit_code=$?
+    # Timeout returns 124 — treat as rate-limit for retry purposes
+    [[ $exit_code -eq 124 ]] && exit_code=1
 
     # Success — break immediately
     [[ $exit_code -eq 0 ]] && break
 
-    # Detect rate-limiting in output (429 / AccountQuotaExceeded / rate limit / Infini 20013)
+    # Detect rate-limiting:
+    # 1. Explicit 429 strings in output
+    # 2. Empty/whitespace-only output with non-zero exit (claude swallows 429 errors silently)
+    local _is_ratelimit=false
     if echo "$output" | grep -qiE '429|AccountQuotaExceeded|rate.limit|quota.*exceeded|20013|request.limit.exceeded'; then
+      _is_ratelimit=true
+    elif [[ -z "${output// /}" ]]; then
+      # Empty output + failure = claude got 429 and retried internally until giving up
+      _is_ratelimit=true
+    fi
+
+    if $_is_ratelimit; then
       _attempt=$(( _attempt + 1 ))
       if [[ $_attempt -lt $_max_retries ]]; then
-        # Try to extract reset time from error message (e.g. "reset at 2026-04-01 11:05:30")
+        # Try to extract reset time from error message
         local _reset_time
         _reset_time=$(echo "$output" | grep -oE 'reset at [0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}' | head -1)
         $QUIET || echo "[retry] $PROVIDER rate-limited (attempt $_attempt/$_max_retries), backoff ${_backoff}s${_reset_time:+, $_reset_time}" >&2

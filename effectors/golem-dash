@@ -6,13 +6,15 @@
 """golem-dash — Dashboard for golem task queue.
 
 Reads golem.jsonl, golem-daemon.log, and golem-queue.md.
-Prints: (1) Real-time progress, (2) Provider stats, (3) Queue status,
-(4) ETA to drain, (5) Last 5 completed, (6) Disk free. Colorized output.
+Prints: (1) Progress bar, (2) Real-time running tasks, (3) ETA to drain,
+(4) Throughput rate, (5) Provider stats, (6) Queue status,
+(7) Last 5 completed, (8) Disk free. Colorized output.
 
 Usage:
-    golem-dash          # Show dashboard
-    golem-dash --no-color  # No ANSI colors
-    golem-dash --json   # Machine-readable output
+    golem-dash              # Show dashboard
+    golem-dash --no-color   # No ANSI colors
+    golem-dash --json       # Machine-readable output
+    golem-dash --watch 5    # Auto-refresh every 5 seconds
 """
 from __future__ import annotations
 
@@ -21,8 +23,9 @@ import re
 import shutil
 import subprocess
 import sys
+import time
 from collections import defaultdict
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 # Paths
@@ -64,6 +67,123 @@ def fmt_duration(seconds: int) -> str:
         d, rem = divmod(seconds, 86400)
         h, rem2 = divmod(rem, 3600)
         return f"{d}d {h}h"
+
+
+def progress_bar(done: int, total: int, width: int = 30, use_color: bool = True) -> str:
+    """Render a visual progress bar showing done/total.
+
+    Returns a string like '████████░░░░░░ 12/30 (40%)'.
+    """
+    if total == 0:
+        pct = 0
+    else:
+        pct = done / total
+
+    filled = int(width * pct)
+    empty = width - filled
+    bar = "█" * filled + "░" * empty
+
+    g = GREEN if use_color else ""
+    c = CYAN if use_color else ""
+    rst = RESET if use_color else ""
+
+    return f"{g}{bar}{rst} {c}{done}/{total}{rst} ({pct:.0f}%)"
+
+
+def eta_wall_clock(eta_seconds: int) -> str:
+    """Convert ETA seconds to a wall-clock completion time string.
+
+    Returns '—' for zero ETA, or 'HH:MM' (today) / 'tomorrow HH:MM'.
+    """
+    if eta_seconds <= 0:
+        return "—"
+
+    target = datetime.now() + timedelta(seconds=eta_seconds)
+    now = datetime.now()
+
+    if target.date() == now.date():
+        return f"today {target.strftime('%H:%M')}"
+    elif target.date() == (now + timedelta(days=1)).date():
+        return f"tomorrow {target.strftime('%H:%M')}"
+    else:
+        return target.strftime("%b %d %H:%M")
+
+
+def _parse_ts(ts_str: str) -> datetime | None:
+    """Parse a timestamp string from JSONL into a datetime object.
+
+    Handles formats: '2026-04-01 00:43:38', '2026-04-01T00:43:54Z',
+    '2026-04-01T00:43:54+08:00', ISO format.
+    """
+    if not ts_str:
+        return None
+
+    # Try ISO format first (Python 3.11+)
+    try:
+        return datetime.fromisoformat(ts_str.replace("Z", "+00:00")).replace(tzinfo=None)
+    except (ValueError, AttributeError):
+        pass
+
+    # Fallback: common formats
+    for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%d"):
+        try:
+            return datetime.strptime(ts_str, fmt)
+        except ValueError:
+            continue
+
+    return None
+
+
+def throughput_rate(records: list[dict], window_minutes: int = 60) -> float:
+    """Calculate tasks completed per hour within the given time window.
+
+    Only counts records with a valid timestamp and exit=0.
+    Returns tasks/hour (float).
+    """
+    if not records:
+        return 0.0
+
+    cutoff = datetime.now() - timedelta(minutes=window_minutes)
+    count = 0
+
+    for r in records:
+        ts_str = r.get("ts")
+        if not ts_str:
+            continue
+        ts = _parse_ts(ts_str)
+        if ts is None:
+            continue
+        if ts >= cutoff:
+            count += 1
+
+    # Scale to per-hour rate
+    rate = count / window_minutes * 60
+    return rate
+
+
+def completion_burst(records: list[dict]) -> tuple[int, int]:
+    """Count completions in the last 15 minutes and last 60 minutes.
+
+    Returns (last_15min_count, last_60min_count).
+    """
+    now = datetime.now()
+    cutoff_15 = now - timedelta(minutes=15)
+    cutoff_60 = now - timedelta(minutes=60)
+
+    m15 = m60 = 0
+    for r in records:
+        ts_str = r.get("ts")
+        if not ts_str:
+            continue
+        ts = _parse_ts(ts_str)
+        if ts is None:
+            continue
+        if ts >= cutoff_60:
+            m60 += 1
+            if ts >= cutoff_15:
+                m15 += 1
+
+    return m15, m60
 
 
 # ── Running tasks (from ps) ─────────────────────────────────────────

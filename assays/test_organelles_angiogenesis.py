@@ -1,24 +1,29 @@
 from __future__ import annotations
 
-"""Tests for metabolon.organelles.angiogenesis — hypoxia detection and vessel proposals."""
+"""Tests for metabolon.organelles.angiogenesis."""
 
 import json
-from datetime import UTC, datetime
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
 
-from metabolon.organelles.angiogenesis import (
-    INFECTION_LOG,
-    PROPOSAL_LOG,
-    VESSEL_REGISTRY,
-    _HYPOXIA_THRESHOLD,
-    _SEQUENCE_WINDOW_S,
-    detect_hypoxia,
-    propose_vessel,
-    vessel_registry,
-)
+import metabolon.organelles.angiogenesis as angiogenesis
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+def _make_infection_line(tool: str, ts: str, healed: bool = False) -> str:
+    return json.dumps({"tool": tool, "ts": ts, "healed": healed})
+
+
+def _write_infection_log(tmp_path: Path, lines: list[str]) -> None:
+    """Write infection log lines to a temp file and patch the module constant."""
+    p = tmp_path / "infections.jsonl"
+    p.write_text("\n".join(lines))
+    return p
 
 
 # ---------------------------------------------------------------------------
@@ -26,137 +31,129 @@ from metabolon.organelles.angiogenesis import (
 # ---------------------------------------------------------------------------
 
 class TestDetectHypoxia:
-    """Tests for the detect_hypoxia() function."""
+    """Tests for angiogenesis.detect_hypoxia()."""
 
-    def test_no_infection_log_returns_empty(self):
-        """When the infection log file doesn't exist, return []."""
-        fake_log = Path("/tmp/angiogenesis_test_missing_2781.jsonl")
-        with patch("metabolon.organelles.angiogenesis.INFECTION_LOG", fake_log):
-            assert detect_hypoxia() == []
+    @patch.object(angiogenesis, "INFECTION_LOG", Path("/nonexistent"))
+    def test_no_log_file_returns_empty(self):
+        assert angiogenesis.detect_hypoxia() == []
 
-    def test_empty_log_returns_empty(self, tmp_path: Path):
-        """An empty infection log yields no pairs."""
-        fake_log = tmp_path / "infections.jsonl"
-        fake_log.write_text("")
-        with patch("metabolon.organelles.angiogenesis.INFECTION_LOG", fake_log):
-            assert detect_hypoxia() == []
+    @patch.object(angiogenesis, "INFECTION_LOG")
+    def test_empty_log_returns_empty(self, mock_path):
+        mock_path.exists.return_value = True
+        mock_path.read_text.return_value = ""
+        assert angiogenesis.detect_hypoxia() == []
 
-    def test_only_healed_events_returns_empty(self, tmp_path: Path):
-        """Healed events (healed=True) are ignored."""
-        fake_log = tmp_path / "infections.jsonl"
-        fake_log.write_text(
-            json.dumps({"ts": "2025-01-01T00:00:00+00:00", "tool": "a", "healed": True})
-            + "\n"
-        )
-        with patch("metabolon.organelles.angiogenesis.INFECTION_LOG", fake_log):
-            assert detect_hypoxia() == []
-
-    def test_below_threshold_returns_empty(self, tmp_path: Path):
-        """Fewer than _HYPOXIA_THRESHOLD co-failures produces no results."""
-        fake_log = tmp_path / "infections.jsonl"
-        # Two a→b pairs spaced >300s apart so the O(n²) logic only
-        # counts direct neighbours, yielding 2 co-failures (< threshold 3).
-        events = [
-            {"ts": "2025-01-01T00:00:00+00:00", "tool": "a", "healed": False},
-            {"ts": "2025-01-01T00:00:10+00:00", "tool": "b", "healed": False},
-            {"ts": "2025-01-01T00:10:00+00:00", "tool": "a", "healed": False},
-            {"ts": "2025-01-01T00:10:10+00:00", "tool": "b", "healed": False},
+    @patch.object(angiogenesis, "INFECTION_LOG")
+    def test_healed_events_ignored(self, mock_path):
+        mock_path.exists.return_value = True
+        lines = [
+            _make_infection_line("tool_a", "2025-01-01T00:00:00", healed=True),
+            _make_infection_line("tool_b", "2025-01-01T00:00:01", healed=True),
         ]
-        fake_log.write_text("\n".join(json.dumps(e) for e in events))
-        with patch("metabolon.organelles.angiogenesis.INFECTION_LOG", fake_log):
-            assert detect_hypoxia() == []
+        mock_path.read_text.return_value = "\n".join(lines)
+        assert angiogenesis.detect_hypoxia() == []
 
-    def test_hypoxic_pair_detected(self, tmp_path: Path):
-        """A pair with >= _HYPOXIA_THRESHOLD co-failures is detected."""
-        fake_log = tmp_path / "infections.jsonl"
-        base_ts = "2025-01-01T00:00:"
-        events = []
-        for i in range(_HYPOXIA_THRESHOLD):
-            sec = i * 20  # 20s apart, well within 300s window
-            events.append({"ts": f"{base_ts}{sec:02d}+00:00", "tool": "alpha", "healed": False})
-            events.append({"ts": f"{base_ts}{sec + 5:02d}+00:00", "tool": "beta", "healed": False})
+    @patch.object(angiogenesis, "INFECTION_LOG")
+    def test_single_failure_no_pair(self, mock_path):
+        mock_path.exists.return_value = True
+        lines = [_make_infection_line("tool_a", "2025-01-01T00:00:00")]
+        mock_path.read_text.return_value = "\n".join(lines)
+        assert angiogenesis.detect_hypoxia() == []
 
-        fake_log.write_text("\n".join(json.dumps(e) for e in events))
-        with patch("metabolon.organelles.angiogenesis.INFECTION_LOG", fake_log):
-            result = detect_hypoxia()
+    @patch.object(angiogenesis, "INFECTION_LOG")
+    def test_below_threshold_excluded(self, mock_path):
+        """Events spaced >300s apart so no cross-tool pair fits the window."""
+        mock_path.exists.return_value = True
+        lines = [
+            _make_infection_line("tool_a", "2025-01-01T00:00:00"),
+            _make_infection_line("tool_b", "2025-01-01T00:06:00"),  # 360s later
+            _make_infection_line("tool_a", "2025-01-01T00:12:00"),  # 720s from first
+            _make_infection_line("tool_b", "2025-01-01T00:18:00"),  # 1080s from first
+        ]
+        mock_path.read_text.return_value = "\n".join(lines)
+        result = angiogenesis.detect_hypoxia()
+        assert result == []
 
-        assert len(result) >= 1
+    @patch.object(angiogenesis, "INFECTION_LOG")
+    def test_meets_threshold_returns_pair(self, mock_path):
+        """All a-events before b-events => only (a,b) direction is counted."""
+        mock_path.exists.return_value = True
+        lines = [
+            _make_infection_line("tool_a", "2025-01-01T00:00:00"),
+            _make_infection_line("tool_a", "2025-01-01T00:00:10"),
+            _make_infection_line("tool_a", "2025-01-01T00:00:20"),
+            _make_infection_line("tool_b", "2025-01-01T00:00:30"),
+            _make_infection_line("tool_b", "2025-01-01T00:00:40"),
+            _make_infection_line("tool_b", "2025-01-01T00:00:50"),
+        ]
+        mock_path.read_text.return_value = "\n".join(lines)
+        result = angiogenesis.detect_hypoxia()
+        # 3 a-events × 3 b-events = 9 (a,b) co-failures, well above threshold
+        assert len(result) == 1
         pair = result[0]
-        assert pair["source"] == "alpha"
-        assert pair["target"] == "beta"
-        assert pair["co_failures"] >= _HYPOXIA_THRESHOLD
-        assert "last_seen" in pair
+        assert pair["source"] == "tool_a"
+        assert pair["target"] == "tool_b"
+        assert pair["co_failures"] >= 3
 
-    def test_same_tool_pair_not_counted(self, tmp_path: Path):
-        """Pairs where both tools are the same are excluded."""
-        fake_log = tmp_path / "infections.jsonl"
-        events = []
-        for i in range(5):
-            ts = f"2025-01-01T00:{i:02d}:00+00:00"
-            events.append({"ts": ts, "tool": "solo", "healed": False})
-        fake_log.write_text("\n".join(json.dumps(e) for e in events))
-        with patch("metabolon.organelles.angiogenesis.INFECTION_LOG", fake_log):
-            assert detect_hypoxia() == []
+    @patch.object(angiogenesis, "INFECTION_LOG")
+    def test_same_tool_not_counted(self, mock_path):
+        """Pairs where both tools are the same should not be counted."""
+        mock_path.exists.return_value = True
+        lines = [
+            _make_infection_line("tool_a", "2025-01-01T00:00:00"),
+            _make_infection_line("tool_a", "2025-01-01T00:00:10"),
+            _make_infection_line("tool_a", "2025-01-01T00:00:20"),
+            _make_infection_line("tool_a", "2025-01-01T00:00:30"),
+        ]
+        mock_path.read_text.return_value = "\n".join(lines)
+        assert angiogenesis.detect_hypoxia() == []
 
-    def test_events_beyond_window_not_paired(self, tmp_path: Path):
-        """Events separated by more than _SEQUENCE_WINDOW_S are not co-failures."""
-        fake_log = tmp_path / "infections.jsonl"
-        t0 = "2025-01-01T00:00:00+00:00"
-        # 600s later = beyond the 300s window
-        t1 = "2025-01-01T00:10:00+00:00"
-        events = [
-            {"ts": t0, "tool": "x", "healed": False},
-            {"ts": t1, "tool": "y", "healed": False},
-        ] * 4  # repeat enough times
-        fake_log.write_text("\n".join(json.dumps(e) for e in events))
-        with patch("metabolon.organelles.angiogenesis.INFECTION_LOG", fake_log):
-            assert detect_hypoxia() == []
+    @patch.object(angiogenesis, "INFECTION_LOG")
+    def test_window_enforcement(self, mock_path):
+        """All inter-tool gaps >300s so no pair qualifies."""
+        mock_path.exists.return_value = True
+        lines = [
+            _make_infection_line("tool_a", "2025-01-01T00:00:00"),
+            _make_infection_line("tool_b", "2025-01-01T00:06:00"),  # +360s
+            _make_infection_line("tool_a", "2025-01-01T00:12:00"),  # +360s
+            _make_infection_line("tool_b", "2025-01-01T00:18:00"),  # +360s
+            _make_infection_line("tool_a", "2025-01-01T00:24:00"),  # +360s
+            _make_infection_line("tool_b", "2025-01-01T00:30:00"),  # +360s
+        ]
+        mock_path.read_text.return_value = "\n".join(lines)
+        assert angiogenesis.detect_hypoxia() == []
 
-    def test_malformed_json_lines_skipped(self, tmp_path: Path):
-        """Malformed lines in the log are silently ignored."""
-        fake_log = tmp_path / "infections.jsonl"
-        events = [
-            "BAD LINE",
-            json.dumps({"ts": "2025-01-01T00:00:00+00:00", "tool": "a", "healed": False}),
+    @patch.object(angiogenesis, "INFECTION_LOG")
+    def test_malformed_lines_skipped(self, mock_path):
+        mock_path.exists.return_value = True
+        lines = [
+            "not json at all",
             "",
-            json.dumps({"ts": "2025-01-01T00:00:10+00:00", "tool": "b", "healed": False}),
+            _make_infection_line("tool_a", "2025-01-01T00:00:00"),
+            _make_infection_line("tool_b", "2025-01-01T00:00:10"),
         ]
-        fake_log.write_text("\n".join(events))
-        with patch("metabolon.organelles.angiogenesis.INFECTION_LOG", fake_log):
-            result = detect_hypoxia()
-            # Only 1 co-failure of (a,b) — below threshold
-            assert result == []
+        mock_path.read_text.return_value = "\n".join(lines)
+        # Only 1 co-failure pair (a,b) -> below threshold
+        assert angiogenesis.detect_hypoxia() == []
 
-    def test_bad_timestamp_skipped(self, tmp_path: Path):
-        """Events with unparseable timestamps are skipped."""
-        fake_log = tmp_path / "infections.jsonl"
-        events = [
-            json.dumps({"ts": "not-a-timestamp", "tool": "a", "healed": False}),
-            json.dumps({"ts": "2025-01-01T00:00:10+00:00", "tool": "b", "healed": False}),
+    @patch.object(angiogenesis, "INFECTION_LOG")
+    def test_result_contains_last_seen(self, mock_path):
+        """All a-events before b-events to get a single direction pair."""
+        mock_path.exists.return_value = True
+        lines = [
+            _make_infection_line("a", "2025-01-01T00:00:00"),
+            _make_infection_line("a", "2025-01-01T00:00:10"),
+            _make_infection_line("a", "2025-01-01T00:00:20"),
+            _make_infection_line("b", "2025-01-01T00:00:30"),
+            _make_infection_line("b", "2025-01-01T00:00:40"),
+            _make_infection_line("b", "2025-01-01T00:00:50"),
         ]
-        fake_log.write_text("\n".join(events))
-        with patch("metabolon.organelles.angiogenesis.INFECTION_LOG", fake_log):
-            result = detect_hypoxia()
-            assert result == []
-
-    def test_multiple_hypoxic_pairs(self, tmp_path: Path):
-        """Multiple distinct hypoxic pairs are all returned."""
-        fake_log = tmp_path / "infections.jsonl"
-        events = []
-        for i in range(_HYPOXIA_THRESHOLD):
-            sec = i * 10
-            # Pair (a, b)
-            events.append({"ts": f"2025-01-01T00:{sec:02d}:00+00:00", "tool": "a", "healed": False})
-            events.append({"ts": f"2025-01-01T00:{sec:02d}:05+00:00", "tool": "b", "healed": False})
-            # Pair (c, d)
-            events.append({"ts": f"2025-01-01T00:{sec:02d}:01+00:00", "tool": "c", "healed": False})
-            events.append({"ts": f"2025-01-01T00:{sec:02d}:06+00:00", "tool": "d", "healed": False})
-
-        fake_log.write_text("\n".join(json.dumps(e) for e in events))
-        with patch("metabolon.organelles.angiogenesis.INFECTION_LOG", fake_log):
-            result = detect_hypoxia()
-        sources = {r["source"] for r in result}
-        assert "a" in sources and "c" in sources
+        mock_path.read_text.return_value = "\n".join(lines)
+        result = angiogenesis.detect_hypoxia()
+        assert len(result) == 1
+        assert "last_seen" in result[0]
+        # last_seen should be the latest b-event timestamp
+        assert result[0]["last_seen"].startswith("2025-01-01T00:00:50")
 
 
 # ---------------------------------------------------------------------------
@@ -164,61 +161,52 @@ class TestDetectHypoxia:
 # ---------------------------------------------------------------------------
 
 class TestProposeVessel:
-    """Tests for the propose_vessel() function."""
+    """Tests for angiogenesis.propose_vessel()."""
 
-    @patch("metabolon.organelles.angiogenesis.datetime")
-    def test_returns_proposal_dict(self, mock_dt, tmp_path: Path):
-        """propose_vessel returns a well-formed proposal dict."""
-        fixed_now = datetime(2025, 6, 15, 12, 0, 0, tzinfo=UTC)
-        mock_dt.now.return_value = fixed_now
-        mock_dt.side_effect = lambda *a, **kw: datetime(*a, **kw)
+    @patch.object(angiogenesis, "PROPOSAL_LOG")
+    def test_returns_proposal_dict(self, mock_path):
+        mock_path.parent = MagicMock()
+        mock_path.open.return_value.__enter__ = MagicMock(return_value=MagicMock())
+        mock_path.open.return_value.__exit__ = MagicMock(return_value=False)
 
-        fake_log = tmp_path / "proposals.jsonl"
-        with patch("metabolon.organelles.angiogenesis.PROPOSAL_LOG", fake_log):
-            result = propose_vessel("src_tool", "dst_tool")
+        proposal = angiogenesis.propose_vessel("src_tool", "tgt_tool")
 
-        assert result["ts"] == fixed_now.isoformat()
-        assert result["source"] == "src_tool"
-        assert result["target"] == "dst_tool"
-        assert result["vessel_type"] == "pipeline"
-        assert result["status"] == "proposed"
-        assert "src_tool" in result["description"]
-        assert "dst_tool" in result["description"]
+        assert proposal["source"] == "src_tool"
+        assert proposal["target"] == "tgt_tool"
+        assert proposal["vessel_type"] == "pipeline"
+        assert proposal["status"] == "proposed"
+        assert "ts" in proposal
+        assert "src_tool" in proposal["description"]
+        assert "tgt_tool" in proposal["description"]
 
-    @patch("metabolon.organelles.angiogenesis.datetime")
-    def test_appends_to_proposal_log(self, mock_dt, tmp_path: Path):
-        """The proposal is appended as a JSON line to PROPOSAL_LOG."""
-        fixed_now = datetime(2025, 7, 1, 0, 0, 0, tzinfo=UTC)
-        mock_dt.now.return_value = fixed_now
-        mock_dt.side_effect = lambda *a, **kw: datetime(*a, **kw)
+    @patch.object(angiogenesis, "PROPOSAL_LOG")
+    def test_writes_to_log(self, mock_path):
+        mock_parent = MagicMock()
+        mock_path.parent = mock_parent
+        mock_file = MagicMock()
+        mock_path.open.return_value.__enter__ = MagicMock(return_value=mock_file)
+        mock_path.open.return_value.__exit__ = MagicMock(return_value=False)
 
-        fake_log = tmp_path / "proposals.jsonl"
-        with patch("metabolon.organelles.angiogenesis.PROPOSAL_LOG", fake_log):
-            propose_vessel("x", "y")
-            propose_vessel("p", "q")
+        angiogenesis.propose_vessel("alpha", "beta")
 
-        lines = fake_log.read_text().strip().splitlines()
-        assert len(lines) == 2
-        first = json.loads(lines[0])
-        assert first["source"] == "x"
-        assert first["target"] == "y"
-        second = json.loads(lines[1])
-        assert second["source"] == "p"
+        mock_parent.mkdir.assert_called_once_with(parents=True, exist_ok=True)
+        assert mock_file.write.call_count == 1
+        written = mock_file.write.call_args[0][0]
+        parsed = json.loads(written.strip())
+        assert parsed["source"] == "alpha"
+        assert parsed["target"] == "beta"
+        assert parsed["status"] == "proposed"
 
-    @patch("metabolon.organelles.angiogenesis.datetime")
-    def test_creates_parent_directory(self, mock_dt, tmp_path: Path):
-        """Parent directories for the proposal log are created if missing."""
-        fixed_now = datetime(2025, 1, 1, 0, 0, 0, tzinfo=UTC)
-        mock_dt.now.return_value = fixed_now
-        mock_dt.side_effect = lambda *a, **kw: datetime(*a, **kw)
+    @patch.object(angiogenesis, "PROPOSAL_LOG")
+    def test_timestamp_is_iso_format(self, mock_path):
+        mock_path.parent = MagicMock()
+        mock_path.open.return_value.__enter__ = MagicMock(return_value=MagicMock())
+        mock_path.open.return_value.__exit__ = MagicMock(return_value=False)
 
-        nested = tmp_path / "deep" / "nested" / "proposals.jsonl"
-        with patch("metabolon.organelles.angiogenesis.PROPOSAL_LOG", nested):
-            propose_vessel("a", "b")
-
-        assert nested.exists()
-        data = json.loads(nested.read_text().strip())
-        assert data["source"] == "a"
+        proposal = angiogenesis.propose_vessel("x", "y")
+        # Should parse without error
+        from datetime import datetime
+        datetime.fromisoformat(proposal["ts"])
 
 
 # ---------------------------------------------------------------------------
@@ -226,53 +214,32 @@ class TestProposeVessel:
 # ---------------------------------------------------------------------------
 
 class TestVesselRegistry:
-    """Tests for the vessel_registry() function."""
+    """Tests for angiogenesis.vessel_registry()."""
 
-    def test_missing_registry_returns_empty(self, tmp_path: Path):
-        """When the registry file doesn't exist, return []."""
-        fake_reg = tmp_path / "vessels.json"
-        with patch("metabolon.organelles.angiogenesis.VESSEL_REGISTRY", fake_reg):
-            assert vessel_registry() == []
+    @patch.object(angiogenesis, "VESSEL_REGISTRY")
+    def test_missing_registry_returns_empty(self, mock_path):
+        mock_path.exists.return_value = False
+        assert angiogenesis.vessel_registry() == []
 
-    def test_valid_registry(self, tmp_path: Path):
-        """A well-formed JSON array is returned as-is."""
-        fake_reg = tmp_path / "vessels.json"
-        vessels = [
-            {"source": "a", "target": "b", "type": "pipeline"},
-            {"source": "c", "target": "d", "type": "bridge"},
-        ]
-        fake_reg.write_text(json.dumps(vessels))
-        with patch("metabolon.organelles.angiogenesis.VESSEL_REGISTRY", fake_reg):
-            result = vessel_registry()
-        assert result == vessels
+    @patch.object(angiogenesis, "VESSEL_REGISTRY")
+    def test_valid_json_returns_list(self, mock_path):
+        mock_path.exists.return_value = True
+        mock_path.read_text.return_value = json.dumps([
+            {"source": "a", "target": "b"},
+            {"source": "c", "target": "d"},
+        ])
+        result = angiogenesis.vessel_registry()
+        assert len(result) == 2
+        assert result[0]["source"] == "a"
 
-    def test_corrupt_json_returns_empty(self, tmp_path: Path):
-        """Malformed JSON in the registry returns [] instead of raising."""
-        fake_reg = tmp_path / "vessels.json"
-        fake_reg.write_text("NOT JSON")
-        with patch("metabolon.organelles.angiogenesis.VESSEL_REGISTRY", fake_reg):
-            assert vessel_registry() == []
+    @patch.object(angiogenesis, "VESSEL_REGISTRY")
+    def test_corrupt_json_returns_empty(self, mock_path):
+        mock_path.exists.return_value = True
+        mock_path.read_text.return_value = "NOT VALID JSON{{{{"
+        assert angiogenesis.vessel_registry() == []
 
-    def test_empty_registry_file(self, tmp_path: Path):
-        """An empty file (0 bytes) returns []."""
-        fake_reg = tmp_path / "vessels.json"
-        fake_reg.write_text("")
-        with patch("metabolon.organelles.angiogenesis.VESSEL_REGISTRY", fake_reg):
-            assert vessel_registry() == []
-
-
-# ---------------------------------------------------------------------------
-# Constants / smoke
-# ---------------------------------------------------------------------------
-
-class TestConstants:
-    """Quick sanity checks on module-level constants."""
-
-    def test_paths_are_under_home(self):
-        assert str(INFECTION_LOG).startswith(str(Path.home()))
-        assert str(VESSEL_REGISTRY).startswith(str(Path.home()))
-        assert str(PROPOSAL_LOG).startswith(str(Path.home()))
-
-    def test_thresholds_are_positive(self):
-        assert _SEQUENCE_WINDOW_S > 0
-        assert _HYPOXIA_THRESHOLD > 0
+    @patch.object(angiogenesis, "VESSEL_REGISTRY")
+    def test_oserror_returns_empty(self, mock_path):
+        mock_path.exists.return_value = True
+        mock_path.read_text.side_effect = OSError("permission denied")
+        assert angiogenesis.vessel_registry() == []

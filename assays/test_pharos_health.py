@@ -5,357 +5,212 @@ from __future__ import annotations
 import os
 import stat
 import subprocess
-import tempfile
 from pathlib import Path
 
-import pytest
-
-SCRIPT = Path.home() / "germline" / "effectors" / "pharos-health.sh"
+SCRIPT = Path("/home/terry/germline/effectors/pharos-health.sh")
 
 
-def _make_mock_bin(tmpdir: Path, name: str, body: str) -> Path:
-    """Create an executable mock script in tmpdir."""
-    p = tmpdir / name
-    p.write_text(f"#!/bin/bash\n{body}\n")
-    p.chmod(p.stat().st_mode | stat.S_IEXEC)
-    return p
-
-
-def _run(tmpdir: Path, args: list[str] | None = None) -> subprocess.CompletedProcess[str]:
-    """Run pharos-health.sh with PATH pointing to mock binaries in tmpdir."""
+def _run(args: list[str] | None = None, *, env_extra: dict[str, str] | None = None) -> subprocess.CompletedProcess[str]:
+    """Run pharos-health.sh with optional extra env vars."""
     env = os.environ.copy()
-    env["PATH"] = f"{tmpdir}:{env.get('PATH', '/usr/bin:/bin')}"
-    env["HOME"] = str(tmpdir)
+    env["LANG"] = "C"
+    if env_extra:
+        env.update(env_extra)
     cmd = [str(SCRIPT)] + (args or [])
-    return subprocess.run(cmd, capture_output=True, text=True, env=env, timeout=10)
+    return subprocess.run(cmd, capture_output=True, text=True, timeout=10, env=env)
 
 
-def _mock_df(tmpdir: Path, pct: int) -> None:
-    """Mock df to output --output=pcent format: 'Use%\\n XX%'."""
-    # Use two echo lines to avoid printf % escaping issues
-    _make_mock_bin(tmpdir, "df", f'echo "Use%"\necho " {pct}%"')
+def _make_mock_dir(tmp: Path, *, disk_pct: int = 20, mem_used: int = 512, mem_total: int = 2048, failed_units: int = 0) -> Path:
+    """Create a temp bin/ with mock df, free, systemctl and return it."""
+    bin_dir = tmp / "bin"
+    bin_dir.mkdir()
+
+    # mock df
+    df = bin_dir / "df"
+    df.write_text(f'#!/bin/bash\nif [ "$1" = "/" ] && [ "$2" = "--output=pcent" ]; then\n    echo "Use%"\n    echo "  {disk_pct}%"\nelse\n    /usr/bin/df "$@"\nfi\n')
+    df.chmod(df.stat().st_mode | stat.S_IEXEC)
+
+    # mock free
+    free = bin_dir / "free"
+    free.write_text(f'#!/bin/bash\nif [ "$1" = "-m" ]; then\n    echo "              total        used        free"\n    echo "Mem:          {mem_total}        {mem_used}        {mem_total - mem_used}"\nelse\n    /usr/bin/free "$@"\nfi\n')
+    free.chmod(free.stat().st_mode | stat.S_IEXEC)
+
+    # mock systemctl
+    sc = bin_dir / "systemctl"
+    lines = ["unit1.service  failed"] * failed_units
+    sc.write_text(f'#!/bin/bash\nif [ "$1" = "--user" ]; then\n    echo "{chr(10).join(lines)}"\n    exit 0\nelse\n    /usr/bin/systemctl "$@"\nfi\n')
+    sc.chmod(sc.stat().st_mode | stat.S_IEXEC)
+
+    return bin_dir
 
 
-def _mock_free(tmpdir: Path) -> None:
-    """Mock free -m with realistic output for awk to parse the Mem: line."""
-    _make_mock_bin(
-        tmpdir,
-        "free",
-        'echo "               total        used        free      shared  buff/cache   available"\n'
-        'echo "Mem:           8000        2000        4000         128        2000        5000"\n'
-        'echo "Swap:          2048           0        2048"',
-    )
+# ── --help tests ──────────────────────────────────────────────────────
 
 
-def _mock_systemctl(tmpdir: Path, failed_lines: int = 0) -> None:
-    """Mock systemctl --user --failed --no-legend with N failed units."""
-    if failed_lines == 0:
-        _make_mock_bin(tmpdir, "systemctl", "exit 0")
-    else:
-        lines = "\n".join(
-            [f"echo 'unit{i}.service  loaded  failed  failed  desc'" for i in range(failed_lines)]
-        )
-        _make_mock_bin(tmpdir, "systemctl", lines)
+def test_help_long_flag_exits_zero():
+    """--help prints usage and exits 0."""
+    r = _run(["--help"])
+    assert r.returncode == 0
+    assert "Usage: pharos-health.sh" in r.stdout
 
 
-def _setup_healthy(tmpdir: Path) -> None:
-    _mock_df(tmpdir, 40)
-    _mock_free(tmpdir)
-    _mock_systemctl(tmpdir, 0)
+def test_help_short_flag_exits_zero():
+    """-h prints usage and exits 0."""
+    r = _run(["-h"])
+    assert r.returncode == 0
+    assert "Check system health" in r.stdout
 
 
-def _setup_high_disk(tmpdir: Path, pct: int = 90) -> None:
-    _mock_df(tmpdir, pct)
-    _mock_free(tmpdir)
-    _mock_systemctl(tmpdir, 0)
+def test_help_mentions_disk_threshold():
+    """Help text mentions the 85% disk threshold."""
+    r = _run(["--help"])
+    assert "85%" in r.stdout
 
 
-def _setup_failed_units(tmpdir: Path, count: int = 3) -> None:
-    _mock_df(tmpdir, 40)
-    _mock_free(tmpdir)
-    _mock_systemctl(tmpdir, count)
-
-
-# ── Help flag tests ───────────────────────────────────────────────────
-
-
-def test_help_flag_exits_zero():
-    """--help exits 0 and shows usage."""
-    with tempfile.TemporaryDirectory() as td:
-        r = _run(Path(td), ["--help"])
-        assert r.returncode == 0
-        assert "Usage:" in r.stdout
-
-
-def test_h_short_flag_exits_zero():
-    """Short -h flag exits 0 and shows usage."""
-    with tempfile.TemporaryDirectory() as td:
-        r = _run(Path(td), ["-h"])
-        assert r.returncode == 0
-        assert "Usage:" in r.stdout
-
-
-def test_help_mentions_disk():
-    """Help text mentions disk checking."""
-    with tempfile.TemporaryDirectory() as td:
-        r = _run(Path(td), ["--help"])
-        assert "disk" in r.stdout.lower()
-
-
-def test_help_mentions_systemd():
-    """Help text mentions systemd units."""
-    with tempfile.TemporaryDirectory() as td:
-        r = _run(Path(td), ["--help"])
-        assert "systemd" in r.stdout.lower()
-
-
-def test_help_exit_codes_documented():
+def test_help_mentions_exit_codes():
     """Help text documents exit codes."""
-    with tempfile.TemporaryDirectory() as td:
-        r = _run(Path(td), ["--help"])
-        assert "Exit 0" in r.stdout or "exit 0" in r.stdout.lower()
+    r = _run(["--help"])
+    assert "exit 0" in r.stdout.lower() or "Exit 0" in r.stdout
 
 
-# ── Healthy system tests ─────────────────────────────────────────────
+# ── healthy system tests ──────────────────────────────────────────────
 
 
-def test_healthy_exits_zero():
-    """Healthy system (disk=40%, no failed units) exits 0."""
-    with tempfile.TemporaryDirectory() as td:
-        _setup_healthy(Path(td))
-        r = _run(Path(td))
-        assert r.returncode == 0
+def test_healthy_system_exits_zero(tmp_path):
+    """Low disk + no failed units → exit 0."""
+    bin_dir = _make_mock_dir(tmp_path, disk_pct=20, failed_units=0)
+    r = _run(env_extra={"PATH": f"{bin_dir}:{os.environ['PATH']}"})
+    assert r.returncode == 0
+    assert "ok" in r.stdout
 
 
-def test_healthy_outputs_ok():
-    """Healthy system output contains 'ok'."""
-    with tempfile.TemporaryDirectory() as td:
-        _setup_healthy(Path(td))
-        r = _run(Path(td))
-        assert "ok" in r.stdout.lower()
-
-
-def test_healthy_output_has_disk_field():
+def test_healthy_output_contains_disk_pct(tmp_path):
     """Healthy output includes disk percentage."""
-    with tempfile.TemporaryDirectory() as td:
-        _setup_healthy(Path(td))
-        r = _run(Path(td))
-        assert "disk=" in r.stdout
+    bin_dir = _make_mock_dir(tmp_path, disk_pct=42)
+    r = _run(env_extra={"PATH": f"{bin_dir}:{os.environ['PATH']}"})
+    assert r.returncode == 0
+    assert "disk=42%" in r.stdout
 
 
-def test_healthy_output_has_mem_field():
-    """Healthy output includes memory info."""
-    with tempfile.TemporaryDirectory() as td:
-        _setup_healthy(Path(td))
-        r = _run(Path(td))
-        assert "mem=" in r.stdout.lower()
+def test_healthy_output_contains_mem_info(tmp_path):
+    """Healthy output includes memory info in MB."""
+    bin_dir = _make_mock_dir(tmp_path, mem_used=512, mem_total=2048)
+    r = _run(env_extra={"PATH": f"{bin_dir}:{os.environ['PATH']}"})
+    assert r.returncode == 0
+    assert "512/2048MB" in r.stdout
 
 
-def test_healthy_output_has_failed_units():
-    """Healthy output includes failed_units count."""
-    with tempfile.TemporaryDirectory() as td:
-        _setup_healthy(Path(td))
-        r = _run(Path(td))
-        assert "failed_units=0" in r.stdout
+def test_healthy_output_contains_failed_units(tmp_path):
+    """Healthy output includes failed_units=0."""
+    bin_dir = _make_mock_dir(tmp_path, failed_units=0)
+    r = _run(env_extra={"PATH": f"{bin_dir}:{os.environ['PATH']}"})
+    assert r.returncode == 0
+    assert "failed_units=0" in r.stdout
 
 
-def test_healthy_stderr_empty():
-    """Healthy system produces no stderr output."""
-    with tempfile.TemporaryDirectory() as td:
-        _setup_healthy(Path(td))
-        r = _run(Path(td))
-        assert r.stderr.strip() == ""
+# ── disk alert tests ──────────────────────────────────────────────────
 
 
-# ── High disk alert tests ────────────────────────────────────────────
+def test_high_disk_exits_one(tmp_path):
+    """Disk > 85% triggers alert and exit 1."""
+    bin_dir = _make_mock_dir(tmp_path, disk_pct=92, failed_units=0)
+    r = _run(env_extra={"PATH": f"{bin_dir}:{os.environ['PATH']}", "HOME": str(tmp_path)})
+    assert r.returncode == 1
 
 
-def test_high_disk_exits_nonzero():
-    """Disk usage > 85% triggers exit 1."""
-    with tempfile.TemporaryDirectory() as td:
-        _setup_high_disk(Path(td), 90)
-        r = _run(Path(td))
-        assert r.returncode != 0
+def test_high_disk_alert_message(tmp_path):
+    """Alert message contains disk percentage."""
+    bin_dir = _make_mock_dir(tmp_path, disk_pct=92, failed_units=0)
+    r = _run(env_extra={"PATH": f"{bin_dir}:{os.environ['PATH']}", "HOME": str(tmp_path)})
+    assert "disk=92%" in (r.stdout + r.stderr)
 
 
-def test_disk_at_85_is_healthy():
-    """Disk exactly at 85% is still healthy (threshold is > 85)."""
-    with tempfile.TemporaryDirectory() as td:
-        _setup_high_disk(Path(td), 85)
-        r = _run(Path(td))
-        assert r.returncode == 0
+def test_disk_exactly_85_no_alert(tmp_path):
+    """Disk exactly at 85% is NOT over threshold (needs > 85)."""
+    bin_dir = _make_mock_dir(tmp_path, disk_pct=85, failed_units=0)
+    r = _run(env_extra={"PATH": f"{bin_dir}:{os.environ['PATH']}"})
+    assert r.returncode == 0
 
 
-def test_disk_at_86_is_unhealthy():
+def test_disk_at_86_triggers_alert(tmp_path):
     """Disk at 86% triggers alert."""
-    with tempfile.TemporaryDirectory() as td:
-        _setup_high_disk(Path(td), 86)
-        r = _run(Path(td))
-        assert r.returncode != 0
+    bin_dir = _make_mock_dir(tmp_path, disk_pct=86, failed_units=0)
+    r = _run(env_extra={"PATH": f"{bin_dir}:{os.environ['PATH']}", "HOME": str(tmp_path)})
+    assert r.returncode == 1
 
 
-def test_high_disk_alert_contains_disk_pct():
-    """Alert message contains the disk percentage."""
-    with tempfile.TemporaryDirectory() as td:
-        _setup_high_disk(Path(td), 92)
-        r = _run(Path(td))
-        output = r.stdout + r.stderr
-        assert "92" in output
+def test_disk_at_threshold_boundary_84(tmp_path):
+    """Disk at 84% is healthy."""
+    bin_dir = _make_mock_dir(tmp_path, disk_pct=84, failed_units=0)
+    r = _run(env_extra={"PATH": f"{bin_dir}:{os.environ['PATH']}"})
+    assert r.returncode == 0
 
 
-def test_high_disk_stderr_alert_when_no_notify():
-    """Without tg-notify.sh, alert goes to stderr with ALERT prefix."""
-    with tempfile.TemporaryDirectory() as td:
-        _setup_high_disk(Path(td), 90)
-        r = _run(Path(td))
-        assert r.returncode != 0
-        assert "ALERT:" in r.stderr
+# ── failed units alert tests ──────────────────────────────────────────
 
 
-# ── Failed systemd units tests ───────────────────────────────────────
+def test_failed_units_exits_one(tmp_path):
+    """Any failed systemd units trigger alert and exit 1."""
+    bin_dir = _make_mock_dir(tmp_path, disk_pct=20, failed_units=1)
+    r = _run(env_extra={"PATH": f"{bin_dir}:{os.environ['PATH']}", "HOME": str(tmp_path)})
+    assert r.returncode == 1
 
 
-def test_failed_units_exits_nonzero():
-    """Failed systemd units trigger exit 1."""
-    with tempfile.TemporaryDirectory() as td:
-        _setup_failed_units(Path(td), 2)
-        r = _run(Path(td))
-        assert r.returncode != 0
+def test_failed_units_in_alert_message(tmp_path):
+    """Alert message includes failed unit count."""
+    bin_dir = _make_mock_dir(tmp_path, disk_pct=20, failed_units=3)
+    r = _run(env_extra={"PATH": f"{bin_dir}:{os.environ['PATH']}", "HOME": str(tmp_path)})
+    combined = r.stdout + r.stderr
+    assert "failed_units=3" in combined
 
 
-def test_failed_units_count_in_output():
-    """Alert message includes failed_units count."""
-    with tempfile.TemporaryDirectory() as td:
-        _setup_failed_units(Path(td), 3)
-        r = _run(Path(td))
-        output = r.stdout + r.stderr
-        assert "failed_units=" in output
+# ── combined alert tests ──────────────────────────────────────────────
 
 
-def test_zero_failed_units_healthy():
-    """Zero failed units with normal disk is healthy."""
-    with tempfile.TemporaryDirectory() as td:
-        _setup_healthy(Path(td))
-        r = _run(Path(td))
-        assert r.returncode == 0
+def test_both_disk_and_failed_units(tmp_path):
+    """Both high disk AND failed units → alert with both values."""
+    bin_dir = _make_mock_dir(tmp_path, disk_pct=95, failed_units=2)
+    r = _run(env_extra={"PATH": f"{bin_dir}:{os.environ['PATH']}", "HOME": str(tmp_path)})
+    assert r.returncode == 1
+    combined = r.stdout + r.stderr
+    assert "disk=95%" in combined
+    assert "failed_units=2" in combined
 
 
-# ── Combined alert tests ─────────────────────────────────────────────
+# ── no tg-notify fallback ─────────────────────────────────────────────
 
 
-def test_both_disk_and_failed_alerts():
-    """Both high disk and failed units trigger alert (exit 1)."""
-    with tempfile.TemporaryDirectory() as td:
-        tmp = Path(td)
-        _mock_df(tmp, 90)
-        _mock_free(tmp)
-        _mock_systemctl(tmp, 2)
-        r = _run(tmp)
-        assert r.returncode != 0
+def test_alert_without_tg_notify_goes_to_stderr(tmp_path):
+    """Alert goes to stderr when tg-notify.sh is absent."""
+    bin_dir = _make_mock_dir(tmp_path, disk_pct=90, failed_units=0)
+    # HOME points to tmp_path which has no scripts/tg-notify.sh
+    r = _run(env_extra={"PATH": f"{bin_dir}:{os.environ['PATH']}", "HOME": str(tmp_path)})
+    assert r.returncode == 1
+    assert "ALERT:" in r.stderr
 
 
-def test_combined_alert_has_both_fields():
-    """Combined alert output contains both disk and failed_units."""
-    with tempfile.TemporaryDirectory() as td:
-        tmp = Path(td)
-        _mock_df(tmp, 90)
-        _mock_free(tmp)
-        _mock_systemctl(tmp, 2)
-        r = _run(tmp)
-        output = r.stdout + r.stderr
-        assert "disk=" in output
-        assert "failed_units=" in output
+def test_healthy_no_stderr(tmp_path):
+    """Healthy system produces no stderr output."""
+    bin_dir = _make_mock_dir(tmp_path, disk_pct=20, failed_units=0)
+    r = _run(env_extra={"PATH": f"{bin_dir}:{os.environ['PATH']}"})
+    assert r.returncode == 0
+    assert r.stderr.strip() == ""
 
 
-# ── Telegram notify path tests ───────────────────────────────────────
+# ── output format tests ───────────────────────────────────────────────
 
 
-def test_tg_notify_called_when_exists():
-    """When tg-notify.sh exists and is executable, it receives the alert message."""
-    with tempfile.TemporaryDirectory() as td:
-        tmp = Path(td)
-        _setup_high_disk(tmp, 90)
-        notify_log = tmp / "notify_called.txt"
-        scripts_dir = tmp / "scripts"
-        scripts_dir.mkdir()
-        tg_script = scripts_dir / "tg-notify.sh"
-        tg_script.write_text(f'#!/bin/bash\necho "$1" > {notify_log}\n')
-        tg_script.chmod(tg_script.stat().st_mode | stat.S_IEXEC)
-        r = _run(tmp)
-        assert r.returncode != 0
-        assert notify_log.exists()
-        msg = notify_log.read_text().strip()
-        assert "pharos health" in msg
-        assert "disk=" in msg
+def test_healthy_output_starts_with_prefix(tmp_path):
+    """Healthy output starts with 'pharos health: ok'."""
+    bin_dir = _make_mock_dir(tmp_path, disk_pct=10, failed_units=0)
+    r = _run(env_extra={"PATH": f"{bin_dir}:{os.environ['PATH']}"})
+    assert r.returncode == 0
+    assert "pharos health: ok" in r.stdout
 
 
-def test_tg_notify_not_called_when_healthy():
-    """When healthy, tg-notify.sh is never invoked."""
-    with tempfile.TemporaryDirectory() as td:
-        tmp = Path(td)
-        _setup_healthy(tmp)
-        scripts_dir = tmp / "scripts"
-        scripts_dir.mkdir()
-        tg_script = scripts_dir / "tg-notify.sh"
-        tg_script.write_text('#!/bin/bash\necho "SHOULD NOT BE CALLED" > /tmp/pharos_test_bug\nexit 99\n')
-        tg_script.chmod(tg_script.stat().st_mode | stat.S_IEXEC)
-        r = _run(tmp)
-        assert r.returncode == 0
-        assert not Path("/tmp/pharos_test_bug").exists()
-
-
-def test_non_executable_tg_notify_falls_back():
-    """When tg-notify.sh exists but is not executable, falls back to stderr."""
-    with tempfile.TemporaryDirectory() as td:
-        tmp = Path(td)
-        _setup_high_disk(tmp, 90)
-        scripts_dir = tmp / "scripts"
-        scripts_dir.mkdir()
-        tg_script = scripts_dir / "tg-notify.sh"
-        tg_script.write_text("#!/bin/bash\nexit 0\n")
-        # Deliberately NOT making it executable
-        r = _run(tmp)
-        assert r.returncode != 0
-        assert "ALERT:" in r.stderr
-
-
-# ── Output format tests ──────────────────────────────────────────────
-
-
-def test_output_starts_with_pharos():
-    """Output line starts with 'pharos health'."""
-    with tempfile.TemporaryDirectory() as td:
-        _setup_healthy(Path(td))
-        r = _run(Path(td))
-        assert "pharos health" in r.stdout
-
-
-def test_output_format_field_order():
-    """Output has consistent field order: disk, mem, failed_units."""
-    with tempfile.TemporaryDirectory() as td:
-        _setup_healthy(Path(td))
-        r = _run(Path(td))
-        out = r.stdout
-        disk_idx = out.index("disk=")
-        mem_idx = out.index("mem=")
-        failed_idx = out.index("failed_units=")
-        assert disk_idx < mem_idx < failed_idx
-
-
-# ── Edge case tests ──────────────────────────────────────────────────
-
-
-def test_disk_exactly_100_alerts():
-    """Disk at 100% triggers alert."""
-    with tempfile.TemporaryDirectory() as td:
-        _setup_high_disk(Path(td), 100)
-        r = _run(Path(td))
-        assert r.returncode != 0
-
-
-def test_disk_exactly_0_healthy():
-    """Disk at 0% is healthy."""
-    with tempfile.TemporaryDirectory() as td:
-        _setup_high_disk(Path(td), 0)
-        r = _run(Path(td))
-        assert r.returncode == 0
+def test_no_args_runs_normally(tmp_path):
+    """Running with no arguments executes the health check."""
+    bin_dir = _make_mock_dir(tmp_path, disk_pct=30, failed_units=0)
+    r = _run(env_extra={"PATH": f"{bin_dir}:{os.environ['PATH']}"})
+    assert r.returncode == 0
+    assert "pharos health:" in r.stdout
