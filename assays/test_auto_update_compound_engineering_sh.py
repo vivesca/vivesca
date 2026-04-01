@@ -3,10 +3,10 @@ from __future__ import annotations
 """Tests for effectors/auto-update-compound-engineering.sh — bash script tested via subprocess."""
 
 import os
+import re
 import shutil
 import stat
 import subprocess
-import textwrap
 from pathlib import Path
 
 import pytest
@@ -236,7 +236,6 @@ class TestLogging:
         log_text = _log_file(tmp_path).read_text()
         # Should contain a date-like string (e.g. "Mon 31 Mar 2026")
         # Just check that timestamps are present via the date command output
-        import re
         # date outputs vary but always contain a year
         assert re.search(r"20\d{2}", log_text) is not None
 
