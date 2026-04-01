@@ -103,7 +103,7 @@ class TestRenameOne:
         plist_path = dir / f"{name}.plist"
         data = {
             "Label": name,
-            "ProgramArguments": ["/Users/terry/run/com.terry-helper", "--debug"],
+            "ProgramArguments": [str(Path.home() / "run/com.terry-helper"), "--debug"],
             "KeepAlive": True,
         }
         with open(plist_path, "wb") as f:

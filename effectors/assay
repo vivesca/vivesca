@@ -41,7 +41,8 @@ def _ensure_metabolon_imports() -> None:
     from metabolon.locus import meal_plan  # noqa: F401
     _fetch = fetch_fn
     _get_token = token_fn
-    MEAL_PLAN = meal_plan
+    if MEAL_PLAN is None:
+        MEAL_PLAN = meal_plan
 
 VAULT = Path.home() / "epigenome" / "chromatin"
 EXPERIMENT_DIR = VAULT / "experiments"

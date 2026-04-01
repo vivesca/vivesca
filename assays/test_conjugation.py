@@ -10,6 +10,7 @@ Round-trip tests verify no hooks/MCP servers are silently dropped.
 
 
 import json
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -84,7 +85,7 @@ def sample_cc_hooks() -> dict[str, list[dict[str, Any]]]:
 def sample_cc_mcp_servers() -> dict[str, dict[str, Any]]:
     return {
         "vivesca": {
-            "command": "/Users/terry/.local/share/mise/installs/python/3.13.12/bin/vivesca",
+            "command": str(Path.home() / ".local/share/mise/installs/python/3.13.12/bin/vivesca"),
             "args": ["serve"],
         }
     }
