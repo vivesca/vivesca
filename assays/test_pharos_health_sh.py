@@ -11,6 +11,65 @@ import pytest
 SCRIPT = Path(__file__).parent.parent / "effectors" / "pharos-health.sh"
 
 
+# ── helpers ─────────────────────────────────────────────────────────────
+
+
+def _mock_bin(tmp_path: Path, df_pcent: int = 80, failed_units: int = 0):
+    """Create mock commands in tmp_path/mock-bin."""
+    mock_bin = tmp_path / "mock-bin"
+    mock_bin.mkdir(parents=True, exist_ok=True)
+
+    # Mock df
+    df = mock_bin / "df"
+    df.write_text(f"""#!/bin/bash
+echo "Use%"
+echo "{df_pcent}%"
+""")
+    df.chmod(0o755)
+
+    # Mock free
+    free = mock_bin / "free"
+    free.write_text("""#!/bin/bash
+echo "              total        used        free      shared  buff/cache   available"
+echo "Mem:           16000        8000        8000           0           0        8000"
+""")
+    free.chmod(0o755)
+
+    # Mock systemctl
+    systemctl = mock_bin / "systemctl"
+    if failed_units > 0:
+        lines = "\n".join([f"unit{i}.service loaded failed failed unit{i}" for i in range(failed_units)])
+        systemctl.write_text(f"""#!/bin/bash
+cat <<'EOF'
+{lines}
+EOF
+""")
+    else:
+        systemctl.write_text("""#!/bin/bash
+exit 0
+""")
+    systemctl.chmod(0o755)
+
+    return mock_bin
+
+
+def _run(tmp_path: Path, df_pcent: int = 80, failed_units: int = 0):
+    mock_bin = _mock_bin(tmp_path, df_pcent, failed_units)
+    env = os.environ.copy()
+    env["HOME"] = str(tmp_path)
+    env["PATH"] = f"{mock_bin}:{env['PATH']}"
+    return subprocess.run(
+        ["bash", str(SCRIPT)],
+        capture_output=True,
+        text=True,
+        env=env,
+        timeout=10,
+    )
+
+
+# ── help flag ───────────────────────────────────────────────────────────
+
+
 class TestHelp:
     def _run_help(self, *args: str) -> subprocess.CompletedProcess:
         return subprocess.run(
@@ -24,9 +83,28 @@ class TestHelp:
         r = self._run_help("--help")
         assert r.returncode == 0
 
+    def test_help_short_flag_exits_zero(self):
+        r = self._run_help("-h")
+        assert r.returncode == 0
+
     def test_help_shows_usage(self):
         r = self._run_help("--help")
         assert "Usage:" in r.stdout
+
+    def test_help_mentions_disk(self):
+        r = self._run_help("--help")
+        assert "disk" in r.stdout
+
+    def test_help_mentions_systemd(self):
+        r = self._run_help("--help")
+        assert "systemd" in r.stdout or "units" in r.stdout
+
+    def test_help_no_stderr(self):
+        r = self._run_help("--help")
+        assert r.stderr == ""
+
+
+# ── file basics ────────────────────────────────────────────────────────
 
 
 class TestFileBasics:
@@ -36,3 +114,76 @@ class TestFileBasics:
     def test_is_bash_script(self):
         first = SCRIPT.read_text().split("\n")[0]
         assert first.startswith("#!/bin/bash")
+
+    def test_has_set_euo(self):
+        src = SCRIPT.read_text()
+        assert "set -euo pipefail" in src
+
+
+# ── healthy case ───────────────────────────────────────────────────────
+
+
+class TestHealthyCase:
+    def test_exits_zero(self, tmp_path):
+        r = _run(tmp_path, df_pcent=80, failed_units=0)
+        assert r.returncode == 0
+
+    def test_prints_ok(self, tmp_path):
+        r = _run(tmp_path, df_pcent=80, failed_units=0)
+        assert "pharos health: ok" in r.stdout
+
+    def test_includes_disk(self, tmp_path):
+        r = _run(tmp_path, df_pcent=80, failed_units=0)
+        assert "disk=80%" in r.stdout
+
+    def test_includes_mem(self, tmp_path):
+        r = _run(tmp_path, df_pcent=80, failed_units=0)
+        assert "mem=" in r.stdout
+
+    def test_includes_failed_units(self, tmp_path):
+        r = _run(tmp_path, df_pcent=80, failed_units=0)
+        assert "failed_units=0" in r.stdout
+
+    def test_no_stderr(self, tmp_path):
+        r = _run(tmp_path, df_pcent=80, failed_units=0)
+        assert r.stderr == ""
+
+
+# ── alert cases ─────────────────────────────────────────────────────────
+
+
+class TestAlertCases:
+    def test_disk_over_85_exits_1(self, tmp_path):
+        r = _run(tmp_path, df_pcent=86, failed_units=0)
+        assert r.returncode == 1
+
+    def test_disk_over_85_prints_alert(self, tmp_path):
+        r = _run(tmp_path, df_pcent=86, failed_units=0)
+        assert "ALERT:" in r.stderr
+
+    def test_failed_units_exits_1(self, tmp_path):
+        r = _run(tmp_path, df_pcent=80, failed_units=1)
+        assert r.returncode == 1
+
+    def test_failed_units_prints_alert(self, tmp_path):
+        r = _run(tmp_path, df_pcent=80, failed_units=1)
+        assert "ALERT:" in r.stderr
+
+    def test_both_disk_and_failed_exits_1(self, tmp_path):
+        r = _run(tmp_path, df_pcent=90, failed_units=2)
+        assert r.returncode == 1
+
+    def test_disk_exactly_85_ok(self, tmp_path):
+        r = _run(tmp_path, df_pcent=85, failed_units=0)
+        assert r.returncode == 0
+
+
+# ── script permissions ──────────────────────────────────────────────────
+
+
+class TestScriptPermissions:
+    def test_script_is_executable(self):
+        assert os.access(SCRIPT, os.X_OK)
+
+    def test_script_file_not_directory(self):
+        assert SCRIPT.is_file()

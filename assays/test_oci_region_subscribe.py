@@ -77,43 +77,43 @@ def test_oci_returns_exit_code_and_output(mock_run):
 # ── get_subscribed_regions() ─────────────────────────────────────────
 
 
-@patch(f"{_mod['__name__']}.oci")
-def test_get_subscribed_regions_parses_data(mock_oci):
+def test_get_subscribed_regions_parses_data():
     """get_subscribed_regions extracts region-key from JSON data."""
-    mock_oci.return_value = (0, json.dumps({"data": [
+    mock_oci = MagicMock(return_value=(0, json.dumps({"data": [
         {"region-key": "PHX"},
         {"region-key": "IAD"},
         {"region-key": "KIX"},
-    ]}), "")
-    assert get_subscribed_regions() == ["PHX", "IAD", "KIX"]
+    ]}), ""))
+    with patch.dict(_mod, {"oci": mock_oci}):
+        assert get_subscribed_regions() == ["PHX", "IAD", "KIX"]
 
 
-@patch(f"{_mod['__name__']}.oci")
-def test_get_subscribed_regions_empty_data(mock_oci):
+def test_get_subscribed_regions_empty_data():
     """get_subscribed_regions returns [] when data is empty."""
-    mock_oci.return_value = (0, json.dumps({"data": []}), "")
-    assert get_subscribed_regions() == []
+    mock_oci = MagicMock(return_value=(0, json.dumps({"data": []}), ""))
+    with patch.dict(_mod, {"oci": mock_oci}):
+        assert get_subscribed_regions() == []
 
 
-@patch(f"{_mod['__name__']}.oci")
-def test_get_subscribed_regions_nonzero_rc(mock_oci):
+def test_get_subscribed_regions_nonzero_rc():
     """get_subscribed_regions returns [] on non-zero exit code."""
-    mock_oci.return_value = (1, "", "error")
-    assert get_subscribed_regions() == []
+    mock_oci = MagicMock(return_value=(1, "", "error"))
+    with patch.dict(_mod, {"oci": mock_oci}):
+        assert get_subscribed_regions() == []
 
 
-@patch(f"{_mod['__name__']}.oci")
-def test_get_subscribed_regions_bad_json(mock_oci):
+def test_get_subscribed_regions_bad_json():
     """get_subscribed_regions returns [] on malformed JSON."""
-    mock_oci.return_value = (0, "not json", "")
-    assert get_subscribed_regions() == []
+    mock_oci = MagicMock(return_value=(0, "not json", ""))
+    with patch.dict(_mod, {"oci": mock_oci}):
+        assert get_subscribed_regions() == []
 
 
-@patch(f"{_mod['__name__']}.oci")
-def test_get_subscribed_regions_passes_tenancy(mock_oci):
+def test_get_subscribed_regions_passes_tenancy():
     """get_subscribed_regions passes TENANCY as --tenancy-id."""
-    mock_oci.return_value = (0, json.dumps({"data": []}), "")
-    get_subscribed_regions()
+    mock_oci = MagicMock(return_value=(0, json.dumps({"data": []}), ""))
+    with patch.dict(_mod, {"oci": mock_oci}):
+        get_subscribed_regions()
     mock_oci.assert_called_once_with(
         "iam", "region-subscription", "list", "--tenancy-id", TENANCY
     )
@@ -122,48 +122,48 @@ def test_get_subscribed_regions_passes_tenancy(mock_oci):
 # ── subscribe_region() ───────────────────────────────────────────────
 
 
-@patch(f"{_mod['__name__']}.oci")
-def test_subscribe_region_success(mock_oci):
+def test_subscribe_region_success():
     """subscribe_region returns (True, 'OK') on rc=0."""
-    mock_oci.return_value = (0, '{"ok": true}', "")
-    ok, msg = subscribe_region("KIX")
+    mock_oci = MagicMock(return_value=(0, '{"ok": true}', ""))
+    with patch.dict(_mod, {"oci": mock_oci}):
+        ok, msg = subscribe_region("KIX")
     assert ok is True
     assert msg == "OK"
 
 
-@patch(f"{_mod['__name__']}.oci")
-def test_subscribe_region_payg_not_active(mock_oci):
+def test_subscribe_region_payg_not_active():
     """subscribe_region detects TenantCapacityExceeded."""
-    mock_oci.return_value = (1, "", "Error: TenantCapacityExceeded in region KIX")
-    ok, msg = subscribe_region("KIX")
+    mock_oci = MagicMock(return_value=(1, "", "Error: TenantCapacityExceeded in region KIX"))
+    with patch.dict(_mod, {"oci": mock_oci}):
+        ok, msg = subscribe_region("KIX")
     assert ok is False
     assert msg == "PAYG not active yet"
 
 
-@patch(f"{_mod['__name__']}.oci")
-def test_subscribe_region_other_error(mock_oci):
+def test_subscribe_region_other_error():
     """subscribe_region returns truncated error for other failures."""
-    mock_oci.return_value = (1, "", "Some other error occurred")
-    ok, msg = subscribe_region("SYD")
+    mock_oci = MagicMock(return_value=(1, "", "Some other error occurred"))
+    with patch.dict(_mod, {"oci": mock_oci}):
+        ok, msg = subscribe_region("SYD")
     assert ok is False
     assert msg == "Some other error occurred"
 
 
-@patch(f"{_mod['__name__']}.oci")
-def test_subscribe_region_truncates_long_error(mock_oci):
+def test_subscribe_region_truncates_long_error():
     """subscribe_region truncates error message to 100 chars."""
     long_err = "E" * 200
-    mock_oci.return_value = (1, "", long_err)
-    ok, msg = subscribe_region("ICN")
+    mock_oci = MagicMock(return_value=(1, "", long_err))
+    with patch.dict(_mod, {"oci": mock_oci}):
+        ok, msg = subscribe_region("ICN")
     assert ok is False
     assert len(msg) == 100
 
 
-@patch(f"{_mod['__name__']}.oci")
-def test_subscribe_region_passes_region_key(mock_oci):
+def test_subscribe_region_passes_region_key():
     """subscribe_region passes --region-key correctly."""
-    mock_oci.return_value = (0, "{}", "")
-    subscribe_region("SYD")
+    mock_oci = MagicMock(return_value=(0, "{}", ""))
+    with patch.dict(_mod, {"oci": mock_oci}):
+        subscribe_region("SYD")
     mock_oci.assert_called_once_with(
         "iam", "region-subscription", "create",
         "--tenancy-id", TENANCY, "--region-key", "SYD"
@@ -191,11 +191,12 @@ def test_notify_swallows_exception(mock_run):
 # ── main() — all regions already subscribed ──────────────────────────
 
 
-@patch(f"{_mod['__name__']}.notify")
-@patch(f"{_mod['__name__']}.get_subscribed_regions", return_value=["PHX", "KIX", "SYD", "ICN"])
-def test_main_all_subscribed(mock_regions, mock_notify, capsys):
+def test_main_all_subscribed(capsys):
     """main() exits cleanly when all target regions are already subscribed."""
-    main()
+    mock_get = MagicMock(return_value=["PHX", "KIX", "SYD", "ICN"])
+    mock_notify = MagicMock()
+    with patch.dict(_mod, {"get_subscribed_regions": mock_get, "notify": mock_notify}):
+        main()
     captured = capsys.readouterr()
     assert "All target regions already subscribed!" in captured.out
     mock_notify.assert_called_once_with("OCI: All regions subscribed (KIX/SYD/ICN)")
@@ -204,44 +205,56 @@ def test_main_all_subscribed(mock_regions, mock_notify, capsys):
 # ── main() — canary succeeds, subscribes rest ────────────────────────
 
 
-@patch(f"{_mod['__name__']}.time.sleep")
-@patch(f"{_mod['__name__']}.notify")
-@patch(f"{_mod['__name__']}.get_subscribed_regions")
-@patch(f"{_mod['__name__']}.subscribe_region")
-def test_main_canary_success_subscribes_rest(mock_sub, mock_regions, mock_notify, mock_sleep, capsys):
+def test_main_canary_success_subscribes_rest(capsys):
     """main() subscribes all regions when canary (first needed) succeeds."""
-    mock_regions.side_effect = [
-        ["PHX"],          # first call: only PHX subscribed
-        ["PHX", "KIX", "SYD", "ICN"],  # final call after subscribing
-    ]
-    mock_sub.side_effect = [
-        (True, "OK"),     # KIX canary
-        (True, "OK"),     # SYD
-        (True, "OK"),     # ICN
-    ]
-    main()
+    mock_get = MagicMock(side_effect=[
+        ["PHX"],                          # first call: only PHX subscribed
+        ["PHX", "KIX", "SYD", "ICN"],    # final call after subscribing
+    ])
+    mock_sub = MagicMock(side_effect=[
+        (True, "OK"),   # KIX canary
+        (True, "OK"),   # SYD
+        (True, "OK"),   # ICN
+    ])
+    mock_notify = MagicMock()
+    mock_sleep = MagicMock()
+    with patch.dict(_mod, {
+        "get_subscribed_regions": mock_get,
+        "subscribe_region": mock_sub,
+        "notify": mock_notify,
+        "time": MagicMock(sleep=mock_sleep, strftime=MagicMock(return_value="2026-01-01 00:00:00")),
+    }):
+        main()
     captured = capsys.readouterr()
     assert "SUBSCRIBED" in captured.out
     assert "Final regions" in captured.out
     mock_notify.assert_called()
 
 
-@patch(f"{_mod['__name__']}.time.sleep")
-@patch(f"{_mod['__name__']}.notify")
-@patch(f"{_mod['__name__']}.get_subscribed_regions")
-@patch(f"{_mod['__name__']}.subscribe_region")
-def test_main_partial_failure(mock_sub, mock_regions, mock_notify, mock_sleep, capsys):
+# ── main() — partial failure ─────────────────────────────────────────
+
+
+def test_main_partial_failure(capsys):
     """main() handles partial subscription failures gracefully."""
-    mock_regions.side_effect = [
+    mock_get = MagicMock(side_effect=[
         ["PHX"],                         # first call
         ["PHX", "KIX", "SYD", "ICN"],   # final call
-    ]
-    mock_sub.side_effect = [
+    ])
+    mock_sub = MagicMock(side_effect=[
         (True, "OK"),           # KIX canary succeeds
         (False, "quota error"), # SYD fails
         (True, "OK"),           # ICN succeeds
-    ]
-    main()
+    ])
+    mock_notify = MagicMock()
+    mock_sleep = MagicMock()
+    mock_time = MagicMock(sleep=mock_sleep, strftime=MagicMock(return_value="2026-01-01 00:00:00"))
+    with patch.dict(_mod, {
+        "get_subscribed_regions": mock_get,
+        "subscribe_region": mock_sub,
+        "notify": mock_notify,
+        "time": mock_time,
+    }):
+        main()
     captured = capsys.readouterr()
     assert "quota error" in captured.out
     assert "Done." in captured.out
@@ -250,12 +263,17 @@ def test_main_partial_failure(mock_sub, mock_regions, mock_notify, mock_sleep, c
 # ── main() — PAYG not active, no --loop ──────────────────────────────
 
 
-@patch(f"{_mod['__name__']}.get_subscribed_regions", return_value=["PHX"])
-@patch(f"{_mod['__name__']}.subscribe_region", return_value=(False, "PAYG not active yet"))
-def test_main_payg_not_active_no_loop(mock_sub, mock_regions, capsys):
+def test_main_payg_not_active_no_loop(capsys):
     """main() exits 1 when PAYG not active without --loop."""
-    with pytest.raises(SystemExit) as exc_info:
-        main()
+    mock_get = MagicMock(return_value=["PHX"])
+    mock_sub = MagicMock(return_value=(False, "PAYG not active yet"))
+    with patch.dict(_mod, {
+        "get_subscribed_regions": mock_get,
+        "subscribe_region": mock_sub,
+        "time": MagicMock(strftime=MagicMock(return_value="2026-01-01 00:00:00")),
+    }):
+        with pytest.raises(SystemExit) as exc_info:
+            main()
     assert exc_info.value.code == 1
     captured = capsys.readouterr()
     assert "PAYG not active" in captured.out
@@ -285,27 +303,32 @@ def test_main_h_flag(capsys):
 # ── main() — --loop retries on PAYG not active ───────────────────────
 
 
-@patch(f"{_mod['__name__']}.time.sleep")
-@patch(f"{_mod['__name__']}.notify")
-@patch(f"{_mod['__name__']}.get_subscribed_regions")
-@patch(f"{_mod['__name__']}.subscribe_region")
-def test_main_loop_retries_then_succeeds(mock_sub, mock_regions, mock_notify, mock_sleep, capsys):
+def test_main_loop_retries_then_succeeds(capsys):
     """main() --loop retries on PAYG failure, then succeeds."""
-    mock_regions.side_effect = [
+    mock_get = MagicMock(side_effect=[
         ["PHX"],                         # attempt 1: PAYG not active
         ["PHX"],                         # attempt 2: PAYG not active
         ["PHX"],                         # attempt 3: PAYG now active
         ["PHX", "KIX", "SYD", "ICN"],   # final check
-    ]
-    mock_sub.side_effect = [
+    ])
+    mock_sub = MagicMock(side_effect=[
         (False, "PAYG not active yet"),  # attempt 1
         (False, "PAYG not active yet"),  # attempt 2
         (True, "OK"),                    # KIX canary attempt 3
         (True, "OK"),                    # SYD
         (True, "OK"),                    # ICN
-    ]
-    with patch.object(sys, "argv", ["oci-region-subscribe", "--loop"]):
-        main()
+    ])
+    mock_sleep = MagicMock()
+    mock_notify = MagicMock()
+    mock_time = MagicMock(sleep=mock_sleep, strftime=MagicMock(return_value="2026-01-01 00:00:00"))
+    with patch.dict(_mod, {
+        "get_subscribed_regions": mock_get,
+        "subscribe_region": mock_sub,
+        "notify": mock_notify,
+        "time": mock_time,
+    }):
+        with patch.object(sys, "argv", ["oci-region-subscribe", "--loop"]):
+            main()
     captured = capsys.readouterr()
     assert "Attempt 1" in captured.out
     assert "Attempt 2" in captured.out
@@ -318,21 +341,26 @@ def test_main_loop_retries_then_succeeds(mock_sub, mock_regions, mock_notify, mo
 # ── main() — one region already subscribed ───────────────────────────
 
 
-@patch(f"{_mod['__name__']}.time.sleep")
-@patch(f"{_mod['__name__']}.notify")
-@patch(f"{_mod['__name__']}.get_subscribed_regions")
-@patch(f"{_mod['__name__']}.subscribe_region")
-def test_main_partial_already_subscribed(mock_sub, mock_regions, mock_notify, mock_sleep, capsys):
+def test_main_partial_already_subscribed(capsys):
     """main() only subscribes regions not already in the list."""
-    mock_regions.side_effect = [
+    mock_get = MagicMock(side_effect=[
         ["PHX", "KIX"],                  # KIX already done
         ["PHX", "KIX", "SYD", "ICN"],   # final
-    ]
-    mock_sub.side_effect = [
+    ])
+    mock_sub = MagicMock(side_effect=[
         (True, "OK"),   # SYD (first needed)
         (True, "OK"),   # ICN
-    ]
-    main()
+    ])
+    mock_notify = MagicMock()
+    mock_sleep = MagicMock()
+    mock_time = MagicMock(sleep=mock_sleep, strftime=MagicMock(return_value="2026-01-01 00:00:00"))
+    with patch.dict(_mod, {
+        "get_subscribed_regions": mock_get,
+        "subscribe_region": mock_sub,
+        "notify": mock_notify,
+        "time": mock_time,
+    }):
+        main()
     # subscribe_region called only for SYD and ICN (KIX already in)
     assert mock_sub.call_count == 2
     calls = [c[0][0] for c in mock_sub.call_args_list]

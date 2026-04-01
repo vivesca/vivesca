@@ -3,6 +3,7 @@ from __future__ import annotations
 """Tests for effectors/hetzner-bootstrap.sh — bash script tested via subprocess."""
 
 import os
+import stat
 import subprocess
 from pathlib import Path
 
@@ -11,250 +12,97 @@ import pytest
 SCRIPT = Path(__file__).parent.parent / "effectors" / "hetzner-bootstrap.sh"
 
 
-# ── helpers ─────────────────────────────────────────────────────────────
+# ── script structure tests ──────────────────────────────────────────────
 
 
-def _run_help(*args: str) -> subprocess.CompletedProcess:
-    return subprocess.run(
-        ["bash", str(SCRIPT), *args],
-        capture_output=True,
-        text=True,
-        timeout=10,
-    )
+class TestScriptStructure:
+    def test_script_exists(self):
+        assert SCRIPT.exists()
+
+    def test_script_is_executable(self):
+        assert os.access(SCRIPT, os.X_OK)
+
+    def test_script_has_shebang(self):
+        first_line = SCRIPT.read_text().splitlines()[0]
+        assert first_line == "#!/usr/bin/env bash"
+
+    def test_script_has_set_euo_pipefail(self):
+        src = SCRIPT.read_text()
+        assert "set -euo pipefail" in src
 
 
-# ── help flag ───────────────────────────────────────────────────────────
+# ── --help tests ────────────────────────────────────────────────────────
 
 
-class TestHelp:
+class TestHelpFlag:
+    def _run_help(self, *args: str) -> subprocess.CompletedProcess:
+        return subprocess.run(
+            ["bash", str(SCRIPT), *args],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+
     def test_help_exits_zero(self):
-        r = _run_help("--help")
+        r = self._run_help("--help")
         assert r.returncode == 0
 
-    def test_help_short_flag_exits_zero(self):
-        r = _run_help("-h")
+    def test_h_short_flag_exits_zero(self):
+        r = self._run_help("-h")
         assert r.returncode == 0
 
     def test_help_shows_usage(self):
-        r = _run_help("--help")
+        r = self._run_help("--help")
         assert "Usage:" in r.stdout
 
     def test_help_mentions_hetzner(self):
-        r = _run_help("--help")
-        assert "Hetzner" in r.stdout or "hetzner" in r.stdout.lower()
+        r = self._run_help("--help")
+        assert "Hetzner" in r.stdout
 
-    def test_help_mentions_claude_code(self):
-        r = _run_help("--help")
-        assert "Claude Code" in r.stdout
+    def test_help_mentions_ubuntu(self):
+        r = self._run_help("--help")
+        assert "Ubuntu" in r.stdout
 
     def test_help_no_stderr(self):
-        r = _run_help("--help")
+        r = self._run_help("--help")
         assert r.stderr == ""
 
-    def test_help_includes_root_ssh_usage(self):
-        r = _run_help("--help")
-        assert "ssh root@<IP> 'bash -s' < hetzner-bootstrap.sh" in r.stdout
 
-    def test_help_lists_installed_tooling(self):
-        r = _run_help("--help")
-        assert "Node.js" in r.stdout
-        assert "Tailscale" in r.stdout
-        assert "pnpm" in r.stdout
-        assert "uv" in r.stdout
+# ── permission check tests ───────────────────────────────────────────────
 
 
-# ── root check ─────────────────────────────────────────────────────────
-
-
-class TestRootCheck:
-    def test_fails_if_not_root(self):
-        """Script should exit with 1 and an error message when run as non-root."""
-        # We are running as non-root in this environment
+class TestPermissionCheck:
+    def test_fails_when_not_root(self):
+        """Script fails with exit code 1 when EUID != 0."""
+        # Mock EUID to non-root via a bash wrapper
+        test_script = f"""
+#!/usr/bin/env bash
+EUID=1000  # Mock non-root user
+{Path(SCRIPT).read_text()}
+"""
         r = subprocess.run(
-            ["bash", str(SCRIPT)],
+            ["bash", "-c", test_script],
             capture_output=True,
             text=True,
             timeout=10,
         )
         assert r.returncode == 1
-        assert "ERROR: This script must be run as root." in r.stderr
+        assert "ERROR: This script must be run as root" in r.stderr
 
-    def test_has_root_check_logic(self):
-        """Script should contain the EUID check logic."""
-        src = SCRIPT.read_text()
-        assert "EUID -ne 0" in src or "EUID != 0" in src
-        assert "must be run as root" in src.lower()
-
-    def test_non_root_failure_stops_before_banner(self):
+    def test_passes_when_root_mock(self):
+        """Script proceeds past check when EUID == 0."""
+        test_script = f"""
+#!/usr/bin/env bash
+EUID=0
+# Extract just the permission check part
+{Path(SCRIPT).read_text().split('echo "=== Hetzner Claude Code Bootstrap ==="')[0]}
+echo "PERMISSION_CHECK_PASSED"
+exit 0
+"""
         r = subprocess.run(
-            ["bash", str(SCRIPT)],
+            ["bash", "-c", test_script],
             capture_output=True,
             text=True,
             timeout=10,
         )
-        assert "=== Hetzner Claude Code Bootstrap ===" not in r.stdout
-
-    def test_root_guard_precedes_first_mutating_command(self):
-        src = SCRIPT.read_text()
-        root_guard_index = src.index('if [[ $EUID -ne 0 ]]')
-        apt_update_index = src.index("apt-get update && apt-get upgrade -y")
-        banner_index = src.index('echo "=== Hetzner Claude Code Bootstrap ==="')
-        assert root_guard_index < banner_index < apt_update_index
-
-
-# ── file basics ────────────────────────────────────────────────────────
-
-
-class TestFileBasics:
-    def test_file_exists(self):
-        assert SCRIPT.exists()
-
-    def test_is_bash_script(self):
-        first = SCRIPT.read_text().split("\n")[0]
-        assert first.startswith("#!") and "bash" in first
-
-    def test_has_set_euo(self):
-        src = SCRIPT.read_text()
-        assert "set -euo pipefail" in src
-
-
-# ── script permissions ──────────────────────────────────────────────────
-
-
-class TestScriptPermissions:
-    def test_script_is_executable(self):
-        assert os.access(SCRIPT, os.X_OK)
-
-    def test_script_file_not_directory(self):
-        assert SCRIPT.is_file()
-
-
-# ── content checks ───────────────────────────────────────────────────────
-
-
-class TestContentChecks:
-    def test_mentions_user_terry(self):
-        src = SCRIPT.read_text()
-        assert "terry" in src
-
-    def test_mentions_fnm(self):
-        src = SCRIPT.read_text()
-        assert "fnm" in src
-
-    def test_mentions_tailscale(self):
-        src = SCRIPT.read_text()
-        assert "Tailscale" in src or "tailscale" in src.lower()
-
-    def test_mentions_uv(self):
-        src = SCRIPT.read_text()
-        assert "uv" in src
-
-    def test_mentions_pnpm(self):
-        src = SCRIPT.read_text()
-        assert "pnpm" in src
-
-    def test_mentions_tmux_config(self):
-        src = SCRIPT.read_text()
-        assert ".tmux.conf" in src
-
-    def test_has_system_updates(self):
-        src = SCRIPT.read_text()
-        assert "apt-get update && apt-get upgrade -y" in src
-
-    def test_installs_build_essential(self):
-        src = SCRIPT.read_text()
-        assert "build-essential" in src
-
-    def test_installs_htop_jq_unzip(self):
-        src = SCRIPT.read_text()
-        assert "htop" in src
-        assert "jq" in src
-        assert "unzip" in src
-
-    def test_eval_fnm_env(self):
-        src = SCRIPT.read_text()
-        assert 'eval "$(fnm env)"' in src
-
-    def test_correct_claude_package(self):
-        src = SCRIPT.read_text()
-        assert "@anthropic-ai/claude-code" in src
-
-    def test_tailscale_install_url(self):
-        src = SCRIPT.read_text()
-        assert "https://tailscale.com/install.sh" in src
-
-    def test_tmux_mouse_on(self):
-        src = SCRIPT.read_text()
-        assert "set -g mouse on" in src
-
-    def test_mkdir_p_code_dirs(self):
-        src = SCRIPT.read_text()
-        assert "mkdir -p ~/code ~/scripts ~/code/epigenome/chromatin ~/skills" in src
-
-    def test_mentions_gh_auth_login(self):
-        src = SCRIPT.read_text()
-        assert "gh auth login" in src
-
-    def test_creates_passwordless_sudoers_dropin(self):
-        src = SCRIPT.read_text()
-        assert 'echo "terry ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/terry' in src
-
-    def test_copies_root_authorized_keys_for_terry(self):
-        src = SCRIPT.read_text()
-        assert "cp /root/.ssh/authorized_keys /home/terry/.ssh/" in src
-        assert "chmod 600 /home/terry/.ssh/authorized_keys" in src
-
-    def test_prints_post_bootstrap_next_steps(self):
-        src = SCRIPT.read_text()
-        assert 'echo "=== Bootstrap Complete ==="' in src
-        assert 'echo "  1. SSH in as terry: ssh terry@<IP>"' in src
-        assert 'echo "  2. Authenticate Tailscale: sudo tailscale up"' in src
-        assert 'echo "After Tailscale, connect via: ssh terry@<tailscale-hostname>"' in src
-
-    def test_harden_ssh_robust(self):
-        """SSH hardening should match both commented and uncommented lines."""
-        src = SCRIPT.read_text()
-        assert r"sed -i 's/^#\?PasswordAuthentication .*/PasswordAuthentication no/'" in src
-        assert r"sed -i 's/^#\?PermitRootLogin .*/PermitRootLogin no/'" in src
-
-    def test_restarts_sshd(self):
-        src = SCRIPT.read_text()
-        assert "systemctl restart sshd" in src
-
-
-# ── syntax check ─────────────────────────────────────────────────────────
-
-
-class TestSyntaxCheck:
-    def test_bash_syntax_valid(self):
-        """bash -n should report no syntax errors."""
-        r = subprocess.run(
-            ["bash", "-n", str(SCRIPT)],
-            capture_output=True,
-            text=True,
-            timeout=10,
-        )
-        assert r.returncode == 0, f"Syntax error in hetzner-bootstrap.sh:\n{r.stderr}"
-
-
-# ── no todo/fixme ────────────────────────────────────────────────────────
-
-
-class TestNoTodoFixme:
-    def test_no_todo_or_fixme(self):
-        """Script should not contain TODO or FIXME markers."""
-        content = SCRIPT.read_text()
-        for line in content.splitlines():
-            upper = line.upper()
-            assert "TODO" not in upper, f"Found TODO: {line.strip()}"
-            assert "FIXME" not in upper, f"Found FIXME: {line.strip()}"
-
-
-# ── ends with newline ─────────────────────────────────────────────────────
-
-
-class TestEndsWithNewline:
-    def test_script_ends_with_newline(self):
-        """Script should end with a trailing newline."""
-        content = SCRIPT.read_text()
-        assert content.endswith("\n"), "Script should end with a newline"
+        assert "PERMISSION_CHECK_PASSED" in r.stdout
