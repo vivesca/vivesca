@@ -2,6 +2,7 @@ from __future__ import annotations
 import pytest
 from unittest.mock import patch
 import sys
+import types
 
 from metabolon.resources.operons import express_operon_map
 
@@ -53,7 +54,15 @@ def test_express_operon_map_success():
         ),
     ]
     
-    with patch("metabolon.resources.operons.OPERONS", mock_operons):
+    # Create mock module
+    mock_module = types.ModuleType("metabolon.operons")
+    mock_module.OPERONS = mock_operons
+    
+    # Save original module and inject mock
+    original_module = sys.modules.pop("metabolon.operons", None)
+    sys.modules["metabolon.operons"] = mock_module
+    
+    try:
         result = express_operon_map()
         
         # Check header
@@ -73,3 +82,9 @@ def test_express_operon_map_success():
         # Check all expected columns are present
         assert "| Operon | Product | Precipitation | Enzymes |" in result
         assert "|--------|---------|---------------|---------|" in result
+    finally:
+        # Restore original module
+        if original_module is not None:
+            sys.modules["metabolon.operons"] = original_module
+        else:
+            sys.modules.pop("metabolon.operons", None)
