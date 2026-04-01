@@ -14,15 +14,13 @@ Usage from a client::
 """
 
 import asyncio
-from dataclasses import dataclass, field
 from datetime import timedelta
-from typing import List
 
 from temporalio import workflow
 from temporalio.common import RetryPolicy
 
 with workflow.unsafe.imports_passed_through():
-    from worker import GolemResult
+    from models import GolemDispatchInput, GolemDispatchOutput, GolemResult, GolemTaskSpec
 
 # ── Provider concurrency limits ──────────────────────────────────────
 
@@ -32,43 +30,6 @@ PROVIDER_CONCURRENCY: dict[str, int] = {
     "volcano": 16,
 }
 DEFAULT_CONCURRENCY = 4
-
-# ── Input / Output ───────────────────────────────────────────────────
-
-
-@dataclass
-class GolemTaskSpec:
-    """A single task to dispatch."""
-
-    provider: str
-    task: str
-
-
-@dataclass
-class GolemDispatchInput:
-    """Workflow input: a batch of golem tasks."""
-
-    tasks: List[GolemTaskSpec] = field(default_factory=list)
-
-
-@dataclass
-class GolemDispatchOutput:
-    """Workflow output: results keyed by provider."""
-
-    results: List[GolemResult] = field(default_factory=list)
-    total: int = 0
-    succeeded: int = 0
-    failed: int = 0
-
-    def __str__(self) -> str:
-        lines = [
-            f"GolemDispatch: {self.succeeded}/{self.total} succeeded, "
-            f"{self.failed} failed",
-        ]
-        for r in self.results:
-            marker = "OK" if r.ok else "FAIL"
-            lines.append(f"  [{marker}] {r.provider}: {r.task!r}")
-        return "\n".join(lines)
 
 
 # ── Retry policy (shared) ────────────────────────────────────────────

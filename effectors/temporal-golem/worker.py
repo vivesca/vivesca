@@ -12,8 +12,6 @@ backoff.
 import asyncio
 import logging
 import os
-import subprocess
-from dataclasses import dataclass
 from pathlib import Path
 
 from temporalio import activity, workflow
@@ -21,6 +19,7 @@ from temporalio.client import Client
 from temporalio.worker import Worker
 
 with workflow.unsafe.imports_passed_through():
+    from models import GolemResult
     from workflow import GolemDispatchWorkflow
 
 logger = logging.getLogger(__name__)
@@ -29,31 +28,6 @@ GERMLINE_ROOT = Path(__file__).resolve().parent.parent.parent
 GOLEM_BIN = GERMLINE_ROOT / "effectors" / "golem"
 
 TASK_QUEUE = "golem-tasks"
-
-# ── Activity result ──────────────────────────────────────────────────
-
-
-@dataclass
-class GolemResult:
-    """Outcome of a single golem invocation."""
-
-    provider: str
-    task: str
-    exit_code: int
-    stdout: str
-    stderr: str
-    timed_out: bool = False
-
-    @property
-    def ok(self) -> bool:
-        return self.exit_code == 0 and not self.timed_out
-
-    def __str__(self) -> str:
-        status = "OK" if self.ok else "FAIL"
-        return (
-            f"[{status}] provider={self.provider} exit={self.exit_code} "
-            f"task={self.task!r}"
-        )
 
 
 # ── Activity ─────────────────────────────────────────────────────────

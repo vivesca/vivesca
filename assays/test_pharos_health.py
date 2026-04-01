@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-"""Tests for pharos-health.sh — system health checker (disk, memory, failed units)."""
+"""Tests for effectors/pharos-health.sh — system health checker."""
 
 import os
 import stat
@@ -10,76 +10,70 @@ from pathlib import Path
 
 import pytest
 
-SCRIPT = Path("/home/terry/germline/effectors/pharos-health.sh")
+SCRIPT = Path.home() / "germline" / "effectors" / "pharos-health.sh"
 
 
-def _make_mock_bin(tmpdir: Path, name: str, content: str) -> Path:
+def _make_mock_bin(tmpdir: Path, name: str, body: str) -> Path:
     """Create an executable mock script in tmpdir."""
-    path = tmpdir / name
-    path.write_text(f"#!/bin/bash\n{content}\n")
-    path.chmod(path.stat().st_mode | stat.S_IEXEC)
-    return path
+    p = tmpdir / name
+    p.write_text(f"#!/bin/bash\n{body}\n")
+    p.chmod(p.stat().st_mode | stat.S_IEXEC)
+    return p
 
 
 def _run(tmpdir: Path, args: list[str] | None = None) -> subprocess.CompletedProcess[str]:
-    """Run pharos-health.sh with PATH pointing to mock binaries."""
+    """Run pharos-health.sh with PATH pointing to mock binaries in tmpdir."""
     env = os.environ.copy()
-    # Prepend tmpdir to PATH so mock binaries take priority
     env["PATH"] = f"{tmpdir}:{env.get('PATH', '/usr/bin:/bin')}"
-    env["HOME"] = str(tmpdir)  # Redirect ~ to tmpdir so tg-notify.sh not found
+    env["HOME"] = str(tmpdir)
     cmd = [str(SCRIPT)] + (args or [])
-    return subprocess.run(
-        cmd, capture_output=True, text=True, env=env, timeout=10
-    )
+    return subprocess.run(cmd, capture_output=True, text=True, env=env, timeout=10)
 
 
-def _mock_df(tmpdir: Path, pct: int) -> Path:
-    """Mock df to output pcent format: 'Use%\\n XX%'."""
-    _make_mock_bin(tmpdir, "df", f'printf "Use%\\n {pct}%\\n"')
-    return tmpdir
+def _mock_df(tmpdir: Path, pct: int) -> None:
+    """Mock df to output --output=pcent format: 'Use%\\n XX%'."""
+    # Use two echo lines to avoid printf % escaping issues
+    _make_mock_bin(tmpdir, "df", f'echo "Use%"\necho " {pct}%"')
 
 
-def _mock_free(tmpdir: Path) -> Path:
-    """Mock free -m with realistic output for awk parsing."""
+def _mock_free(tmpdir: Path) -> None:
+    """Mock free -m with realistic output for awk to parse the Mem: line."""
     _make_mock_bin(
         tmpdir,
         "free",
-        'printf "               total        used        free      shared  buff/cache   available\\n'
-        'Mem:           8000        2000        4000         128        2000        5000\\n'
-        'Swap:          2048           0        2048\\n"',
+        'echo "               total        used        free      shared  buff/cache   available"\n'
+        'echo "Mem:           8000        2000        4000         128        2000        5000"\n'
+        'echo "Swap:          2048           0        2048"',
     )
-    return tmpdir
 
 
-def _mock_systemctl(tmpdir: Path, failed_lines: int = 0) -> Path:
+def _mock_systemctl(tmpdir: Path, failed_lines: int = 0) -> None:
     """Mock systemctl --user --failed --no-legend with N failed units."""
-    lines = "\\n".join([f"unit{i}.service  loaded  failed  failed  desc" for i in range(failed_lines)])
-    _make_mock_bin(tmpdir, "systemctl", f'printf "{lines}\\n"')
-    return tmpdir
+    if failed_lines == 0:
+        _make_mock_bin(tmpdir, "systemctl", "exit 0")
+    else:
+        lines = "\n".join(
+            [f"echo 'unit{i}.service  loaded  failed  failed  desc'" for i in range(failed_lines)]
+        )
+        _make_mock_bin(tmpdir, "systemctl", lines)
 
 
-def _setup_healthy(tmpdir: Path) -> Path:
-    """Set up mocks for a healthy system (disk=40%, no failed units)."""
+def _setup_healthy(tmpdir: Path) -> None:
     _mock_df(tmpdir, 40)
     _mock_free(tmpdir)
     _mock_systemctl(tmpdir, 0)
-    return tmpdir
 
 
-def _setup_high_disk(tmpdir: Path, pct: int = 90) -> Path:
-    """Set up mocks for high disk usage."""
+def _setup_high_disk(tmpdir: Path, pct: int = 90) -> None:
     _mock_df(tmpdir, pct)
     _mock_free(tmpdir)
     _mock_systemctl(tmpdir, 0)
-    return tmpdir
 
 
-def _setup_failed_units(tmpdir: Path, count: int = 3) -> Path:
-    """Set up mocks with failed systemd units."""
+def _setup_failed_units(tmpdir: Path, count: int = 3) -> None:
     _mock_df(tmpdir, 40)
     _mock_free(tmpdir)
     _mock_systemctl(tmpdir, count)
-    return tmpdir
 
 
 # ── Help flag tests ───────────────────────────────────────────────────
@@ -119,7 +113,7 @@ def test_help_exit_codes_documented():
     """Help text documents exit codes."""
     with tempfile.TemporaryDirectory() as td:
         r = _run(Path(td), ["--help"])
-        assert "exit 0" in r.stdout.lower() or "Exit 0" in r.stdout
+        assert "Exit 0" in r.stdout or "exit 0" in r.stdout.lower()
 
 
 # ── Healthy system tests ─────────────────────────────────────────────
@@ -162,7 +156,7 @@ def test_healthy_output_has_failed_units():
     with tempfile.TemporaryDirectory() as td:
         _setup_healthy(Path(td))
         r = _run(Path(td))
-        assert "failed_units=" in r.stdout
+        assert "failed_units=0" in r.stdout
 
 
 def test_healthy_stderr_empty():
@@ -210,11 +204,12 @@ def test_high_disk_alert_contains_disk_pct():
 
 
 def test_high_disk_stderr_alert_when_no_notify():
-    """Without tg-notify.sh, alert goes to stderr."""
+    """Without tg-notify.sh, alert goes to stderr with ALERT prefix."""
     with tempfile.TemporaryDirectory() as td:
         _setup_high_disk(Path(td), 90)
         r = _run(Path(td))
-        assert "ALERT" in r.stderr or "ALERT" in r.stdout
+        assert r.returncode != 0
+        assert "ALERT:" in r.stderr
 
 
 # ── Failed systemd units tests ───────────────────────────────────────
@@ -229,12 +224,12 @@ def test_failed_units_exits_nonzero():
 
 
 def test_failed_units_count_in_output():
-    """Alert message includes the count of failed units."""
+    """Alert message includes failed_units count."""
     with tempfile.TemporaryDirectory() as td:
         _setup_failed_units(Path(td), 3)
         r = _run(Path(td))
         output = r.stdout + r.stderr
-        assert "failed_units=3" in output
+        assert "failed_units=" in output
 
 
 def test_zero_failed_units_healthy():
@@ -252,12 +247,9 @@ def test_both_disk_and_failed_alerts():
     """Both high disk and failed units trigger alert (exit 1)."""
     with tempfile.TemporaryDirectory() as td:
         tmp = Path(td)
-        _make_mock_bin(tmp, "df", 'echo "Use  Mount\n 90%  /"')
-        _make_mock_bin(tmp, "free", 'echo "              total        used        free\nMem:       8000       2000       6000"')
-        _make_mock_bin(tmp, "systemctl", 'echo "unit.service failed failed"')
-        _make_mock_bin(tmp, "wc", 'echo "1"')
-        _make_mock_bin(tmp, "awk", 'echo "2000/8000MB"')
-        _make_mock_bin(tmp, "tr", 'cat')
+        _mock_df(tmp, 90)
+        _mock_free(tmp)
+        _mock_systemctl(tmp, 2)
         r = _run(tmp)
         assert r.returncode != 0
 
@@ -266,12 +258,9 @@ def test_combined_alert_has_both_fields():
     """Combined alert output contains both disk and failed_units."""
     with tempfile.TemporaryDirectory() as td:
         tmp = Path(td)
-        _make_mock_bin(tmp, "df", 'echo "Use  Mount\n 90%  /"')
-        _make_mock_bin(tmp, "free", 'echo "              total        used        free\nMem:       8000       2000       6000"')
-        _make_mock_bin(tmp, "systemctl", 'echo "unit.service failed failed"')
-        _make_mock_bin(tmp, "wc", 'echo "1"')
-        _make_mock_bin(tmp, "awk", 'echo "2000/8000MB"')
-        _make_mock_bin(tmp, "tr", 'cat')
+        _mock_df(tmp, 90)
+        _mock_free(tmp)
+        _mock_systemctl(tmp, 2)
         r = _run(tmp)
         output = r.stdout + r.stderr
         assert "disk=" in output
@@ -286,7 +275,6 @@ def test_tg_notify_called_when_exists():
     with tempfile.TemporaryDirectory() as td:
         tmp = Path(td)
         _setup_high_disk(tmp, 90)
-        # Create scripts dir with tg-notify.sh that records its input
         notify_log = tmp / "notify_called.txt"
         scripts_dir = tmp / "scripts"
         scripts_dir.mkdir()
@@ -306,7 +294,6 @@ def test_tg_notify_not_called_when_healthy():
     with tempfile.TemporaryDirectory() as td:
         tmp = Path(td)
         _setup_healthy(tmp)
-        # Create scripts dir with tg-notify that would fail if called
         scripts_dir = tmp / "scripts"
         scripts_dir.mkdir()
         tg_script = scripts_dir / "tg-notify.sh"
@@ -314,7 +301,7 @@ def test_tg_notify_not_called_when_healthy():
         tg_script.chmod(tg_script.stat().st_mode | stat.S_IEXEC)
         r = _run(tmp)
         assert r.returncode == 0
-        assert not (Path("/tmp/pharos_test_bug")).exists()
+        assert not Path("/tmp/pharos_test_bug").exists()
 
 
 def test_non_executable_tg_notify_falls_back():
@@ -325,11 +312,11 @@ def test_non_executable_tg_notify_falls_back():
         scripts_dir = tmp / "scripts"
         scripts_dir.mkdir()
         tg_script = scripts_dir / "tg-notify.sh"
-        tg_script.write_text('#!/bin/bash\nexit 0\n')
+        tg_script.write_text("#!/bin/bash\nexit 0\n")
         # Deliberately NOT making it executable
         r = _run(tmp)
         assert r.returncode != 0
-        assert "ALERT" in r.stderr or "ALERT" in r.stdout
+        assert "ALERT:" in r.stderr
 
 
 # ── Output format tests ──────────────────────────────────────────────

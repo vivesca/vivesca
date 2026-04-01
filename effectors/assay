@@ -25,10 +25,23 @@ from datetime import date, timedelta
 from pathlib import Path
 from typing import Any
 
-# Oura data via chemoreceptor organelle
-sys.path.insert(0, str(Path.home() / "germline" / "metabolon"))
-from organelles.chemoreceptor import _fetch, _get_token
-from metabolon.locus import meal_plan as MEAL_PLAN
+# Lazy imports — these require metabolon on sys.path which may not be
+# available at --help time.  Import them only when a command needs them.
+_fetch = None
+_get_token = None
+MEAL_PLAN = None
+
+
+def _ensure_metabolon_imports() -> None:
+    global _fetch, _get_token, MEAL_PLAN
+    if _fetch is not None:
+        return
+    sys.path.insert(0, str(Path.home() / "germline" / "metabolon"))
+    from organelles.chemoreceptor import _fetch as fetch_fn, _get_token as token_fn  # noqa: F401
+    from metabolon.locus import meal_plan  # noqa: F401
+    _fetch = fetch_fn
+    _get_token = token_fn
+    MEAL_PLAN = meal_plan
 
 VAULT = Path.home() / "epigenome" / "chromatin"
 EXPERIMENT_DIR = VAULT / "experiments"
@@ -93,6 +106,7 @@ def _extract_keywords(name: str, hypothesis: str) -> list[str]:
 
 def pull_oura(start: str, end: str) -> dict[str, dict[str, Any]]:
     """Pull sleep + readiness data for a date range. Returns {date: {sleep_score, readiness_score, ...}}."""
+    _ensure_metabolon_imports()
     token = _get_token()
     sleep = _fetch("daily_sleep", start, end, token)
     readiness = _fetch("daily_readiness", start, end, token)
@@ -138,6 +152,7 @@ def summarise_period(data: dict[str, dict]) -> dict[str, Any]:
 
 def pull_intake(start: str, keywords: list[str]) -> list[str]:
     """Return Order log entries from meal plan since start_date matching any keyword."""
+    _ensure_metabolon_imports()
     if not MEAL_PLAN.exists():
         return []
 

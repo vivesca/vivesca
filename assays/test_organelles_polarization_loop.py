@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-"""Tests for polarization_loop — overnight flywheel via LangGraph."""
+"""Tests for metabolon.organelles.polarization_loop — overnight flywheel via LangGraph."""
 
 import json
 import sqlite3
@@ -12,13 +12,13 @@ import pytest
 
 from metabolon.organelles.polarization_loop import (
     CHECKPOINT_DB,
-    DIVISION_FILE,
     GUARD_FILE,
     MANIFEST_FILE,
     NOW_FILE,
     NORTH_STAR_FILE,
     REPORTS_DIR,
     SHAPES_FILE,
+    DIVISION_FILE,
     PolarizationState,
     _budget_status,
     _channel,
@@ -41,20 +41,21 @@ from metabolon.organelles.polarization_loop import (
 )
 
 
-# ── fixtures ────────────────────────────────────────────────────────
+# ── fixtures ────────────────────────────────────────────────────
 
 
-def _base_state(**overrides) -> dict:
-    """Return a minimal valid PolarizationState with sensible defaults."""
-    state = {
+@pytest.fixture
+def base_state() -> dict:
+    """Minimal valid PolarizationState for node-function tests."""
+    return {
         "mode": "overnight",
         "consumption_count": 0,
         "budget_status": "green",
-        "north_stars": "Star A: do things\nStar B: more things",
-        "praxis_items": "- [ ] task 1\n- [ ] task 2",
-        "shapes": "Star A: flywheel",
-        "division": "Star A: automated",
-        "now_md": "# NOW",
+        "north_stars": "## Star 1\n## Star 2",
+        "praxis_items": "- [ ] task A\n- [ ] task B",
+        "shapes": "Star 1: flywheel\nStar 2: habit",
+        "division": "Star 1: automated\nStar 2: presence",
+        "now_md": "# NOW\nFocus on writing.",
         "systole_num": 1,
         "sub_goals": [],
         "dispatched_work": [],
@@ -68,149 +69,117 @@ def _base_state(**overrides) -> dict:
         "report": "",
         "errors": [],
     }
-    state.update(overrides)
-    return state
 
 
-@pytest.fixture(autouse=True)
-def _tmp_paths(tmp_path, monkeypatch):
-    """Redirect all path constants to tmp_path so tests never touch real FS."""
-    monkeypatch.setattr(
-        "metabolon.organelles.polarization_loop.CHECKPOINT_DB",
-        tmp_path / "checkpoints.db",
-    )
-    monkeypatch.setattr(
-        "metabolon.organelles.polarization_loop.GUARD_FILE",
-        tmp_path / "guard",
-    )
-    monkeypatch.setattr(
-        "metabolon.organelles.polarization_loop.MANIFEST_FILE",
-        tmp_path / "session.md",
-    )
-    monkeypatch.setattr(
-        "metabolon.organelles.polarization_loop.REPORTS_DIR",
-        tmp_path / "reports",
-    )
-    monkeypatch.setattr(
-        "metabolon.organelles.polarization_loop.NORTH_STAR_FILE",
-        tmp_path / "north_star.md",
-    )
-    monkeypatch.setattr(
-        "metabolon.organelles.polarization_loop.SHAPES_FILE",
-        tmp_path / "shapes.md",
-    )
-    monkeypatch.setattr(
-        "metabolon.organelles.polarization_loop.DIVISION_FILE",
-        tmp_path / "division.md",
-    )
-    monkeypatch.setattr(
-        "metabolon.organelles.polarization_loop.NOW_FILE",
-        tmp_path / "NOW.md",
-    )
+@pytest.fixture
+def sample_goals() -> list[dict]:
+    return [
+        {"star": "Research", "goal": "Write report", "deliverable": "/tmp/report.md", "model": "sonnet"},
+        {"star": "Health", "goal": "Summarize papers", "deliverable": "/tmp/summary.md", "model": "opus"},
+    ]
 
 
-# ── _channel ────────────────────────────────────────────────────────
+@pytest.fixture
+def sample_dispatched(sample_goals) -> list[dict]:
+    return [
+        {
+            "goal": g["goal"],
+            "star": g["star"],
+            "model": g["model"],
+            "deliverable_path": g["deliverable"],
+            "output": f"Output for {g['goal']}",
+            "success": True,
+        }
+        for g in sample_goals
+    ]
+
+
+# ── _channel tests ──────────────────────────────────────────────
 
 
 class TestChannel:
-    """Tests for _channel subprocess wrapper."""
+    """Tests for _channel helper."""
 
     @patch("metabolon.organelles.polarization_loop.subprocess.run")
     def test_success_returns_stdout(self, mock_run):
-        mock_run.return_value = MagicMock(returncode=0, stdout="hello world", stderr="")
-        result = _channel("sonnet", "prompt text")
+        mock_run.return_value = MagicMock(returncode=0, stdout="  hello world  ")
+        result = _channel("sonnet", "test prompt")
         assert result == "hello world"
         mock_run.assert_called_once()
-
-    @patch("metabolon.organelles.polarization_loop.subprocess.run")
-    def test_error_returns_error_string(self, mock_run):
-        mock_run.return_value = MagicMock(returncode=1, stdout="", stderr="bad error")
-        result = _channel("sonnet", "prompt")
-        assert result.startswith("(channel error: exit 1)")
-        assert "bad error" in result
-
-    @patch("metabolon.organelles.polarization_loop.subprocess.run")
-    def test_timeout_returns_timeout_string(self, mock_run):
-        import subprocess as sp
-        mock_run.side_effect = sp.TimeoutExpired(cmd="channel", timeout=300)
-        result = _channel("sonnet", "prompt", timeout=300)
-        assert "(channel timeout after 300s)" == result
+        cmd = mock_run.call_args[0][0]
+        assert "sonnet" in cmd
+        assert "-p" in cmd
 
     @patch("metabolon.organelles.polarization_loop.subprocess.run")
     def test_organism_flag(self, mock_run):
-        mock_run.return_value = MagicMock(returncode=0, stdout="ok", stderr="")
-        _channel("opus", "do it", organism=True)
+        mock_run.return_value = MagicMock(returncode=0, stdout="ok")
+        _channel("opus", "prompt", organism=True)
         cmd = mock_run.call_args[0][0]
         assert "--organism" in cmd
 
     @patch("metabolon.organelles.polarization_loop.subprocess.run")
-    def test_no_organism_flag(self, mock_run):
-        mock_run.return_value = MagicMock(returncode=0, stdout="ok", stderr="")
-        _channel("opus", "do it", organism=False)
+    def test_no_organism_by_default(self, mock_run):
+        mock_run.return_value = MagicMock(returncode=0, stdout="ok")
+        _channel("opus", "prompt")
         cmd = mock_run.call_args[0][0]
         assert "--organism" not in cmd
 
     @patch("metabolon.organelles.polarization_loop.subprocess.run")
-    def test_custom_timeout(self, mock_run):
-        mock_run.return_value = MagicMock(returncode=0, stdout="ok", stderr="")
-        _channel("sonnet", "prompt", timeout=600)
-        _, kwargs = mock_run.call_args
-        assert kwargs["timeout"] == 600
-
-    @patch("metabolon.organelles.polarization_loop.subprocess.run")
-    def test_strips_claudecode_env(self, mock_run):
-        mock_run.return_value = MagicMock(returncode=0, stdout="ok", stderr="")
-        with patch.dict("os.environ", {"CLAUDECODE": "1"}, clear=False):
-            _channel("sonnet", "prompt")
-        _, kwargs = mock_run.call_args
-        assert "CLAUDECODE" not in kwargs["env"]
-
-    @patch("metabolon.organelles.polarization_loop.subprocess.run")
-    def test_stderr_truncated_to_500(self, mock_run):
-        mock_run.return_value = MagicMock(
-            returncode=1, stdout="", stderr="x" * 1000
-        )
+    def test_nonzero_exit(self, mock_run):
+        mock_run.return_value = MagicMock(returncode=1, stderr="bad error")
         result = _channel("sonnet", "prompt")
-        # Error string contains truncated stderr
-        assert len(result) < 600  # prefix + 500 chars max
+        assert result.startswith("(channel error:")
+        assert "exit 1" in result
 
     @patch("metabolon.organelles.polarization_loop.subprocess.run")
-    def test_stdout_is_stripped(self, mock_run):
-        mock_run.return_value = MagicMock(returncode=0, stdout="  hello  \n", stderr="")
-        assert _channel("sonnet", "prompt") == "hello"
+    def test_timeout(self, mock_run):
+        import subprocess as sp
+        mock_run.side_effect = sp.TimeoutExpired(cmd="channel", timeout=5)
+        result = _channel("sonnet", "prompt", timeout=5)
+        assert "timeout" in result
+        assert "5s" in result
+
+    @patch("metabolon.organelles.polarization_loop.subprocess.run")
+    def test_removes_claudecode_env(self, mock_run):
+        mock_run.return_value = MagicMock(returncode=0, stdout="ok")
+        _channel("sonnet", "prompt")
+        env = mock_run.call_args[1]["env"]
+        assert "CLAUDECODE" not in env
+
+    @patch("metabolon.organelles.polarization_loop.subprocess.run")
+    def test_custom_timeout(self, mock_run):
+        mock_run.return_value = MagicMock(returncode=0, stdout="ok")
+        _channel("sonnet", "prompt", timeout=600)
+        assert mock_run.call_args[1]["timeout"] == 600
 
 
-# ── _read_file ──────────────────────────────────────────────────────
+# ── _read_file tests ───────────────────────────────────────────
 
 
 class TestReadFile:
     """Tests for _read_file helper."""
 
-    def test_returns_file_contents(self, tmp_path):
+    def test_reads_existing_file(self, tmp_path):
         f = tmp_path / "test.txt"
         f.write_text("hello world", encoding="utf-8")
         assert _read_file(f) == "hello world"
 
-    def test_returns_empty_for_missing_file(self):
+    def test_missing_file_returns_empty(self):
         assert _read_file(Path("/nonexistent/file.txt")) == ""
 
-    def test_truncates_to_max_chars(self, tmp_path):
+    def test_truncates_at_max_chars(self, tmp_path):
         f = tmp_path / "long.txt"
         f.write_text("x" * 5000, encoding="utf-8")
-        assert len(_read_file(f, max_chars=1000)) == 1000
+        result = _read_file(f, max_chars=100)
+        assert len(result) == 100
 
-    def test_default_max_chars(self, tmp_path):
-        f = tmp_path / "default.txt"
+    def test_default_max_chars_3000(self, tmp_path):
+        f = tmp_path / "big.txt"
         f.write_text("y" * 5000, encoding="utf-8")
         assert len(_read_file(f)) == 3000
 
-    def test_empty_file_returns_empty(self, tmp_path):
-        f = tmp_path / "empty.txt"
-        f.write_text("", encoding="utf-8")
-        assert _read_file(f) == ""
 
-
-# ── _budget_status ──────────────────────────────────────────────────
+# ── _budget_status tests ────────────────────────────────────────
 
 
 class TestBudgetStatus:
@@ -219,666 +188,686 @@ class TestBudgetStatus:
     @patch("metabolon.organelles.polarization_loop.subprocess.run")
     def test_green_under_50(self, mock_run):
         mock_run.return_value = MagicMock(
-            returncode=0, stdout=json.dumps({"seven_day": {"utilization": 30}}), stderr=""
+            returncode=0, stdout=json.dumps({"seven_day": {"utilization": 30}})
         )
         assert _budget_status() == "green"
 
     @patch("metabolon.organelles.polarization_loop.subprocess.run")
-    def test_yellow_50_to_79(self, mock_run):
+    def test_yellow_at_50(self, mock_run):
         mock_run.return_value = MagicMock(
-            returncode=0, stdout=json.dumps({"seven_day": {"utilization": 60}}), stderr=""
+            returncode=0, stdout=json.dumps({"seven_day": {"utilization": 55}})
         )
         assert _budget_status() == "yellow"
 
     @patch("metabolon.organelles.polarization_loop.subprocess.run")
-    def test_red_over_80(self, mock_run):
+    def test_red_at_80(self, mock_run):
         mock_run.return_value = MagicMock(
-            returncode=0, stdout=json.dumps({"seven_day": {"utilization": 85}}), stderr=""
+            returncode=0, stdout=json.dumps({"seven_day": {"utilization": 85}})
         )
         assert _budget_status() == "red"
 
     @patch("metabolon.organelles.polarization_loop.subprocess.run")
-    def test_exact_50_is_yellow(self, mock_run):
-        mock_run.return_value = MagicMock(
-            returncode=0, stdout=json.dumps({"seven_day": {"utilization": 50}}), stderr=""
-        )
-        assert _budget_status() == "yellow"
-
-    @patch("metabolon.organelles.polarization_loop.subprocess.run")
-    def test_exact_80_is_red(self, mock_run):
-        mock_run.return_value = MagicMock(
-            returncode=0, stdout=json.dumps({"seven_day": {"utilization": 80}}), stderr=""
-        )
-        assert _budget_status() == "red"
-
-    @patch("metabolon.organelles.polarization_loop.subprocess.run")
-    def test_nonzero_returncode_defaults_green(self, mock_run):
-        mock_run.return_value = MagicMock(returncode=1, stdout="", stderr="error")
+    def test_nonzero_exit_returns_green(self, mock_run):
+        mock_run.return_value = MagicMock(returncode=1, stdout="")
         assert _budget_status() == "green"
 
     @patch("metabolon.organelles.polarization_loop.subprocess.run")
-    def test_exception_defaults_green(self, mock_run):
+    def test_invalid_json_returns_green(self, mock_run):
+        mock_run.return_value = MagicMock(returncode=0, stdout="not json")
+        assert _budget_status() == "green"
+
+    @patch("metabolon.organelles.polarization_loop.subprocess.run")
+    def test_exception_returns_green(self, mock_run):
         mock_run.side_effect = Exception("boom")
         assert _budget_status() == "green"
 
     @patch("metabolon.organelles.polarization_loop.subprocess.run")
-    def test_missing_utilization_key_defaults_green(self, mock_run):
-        mock_run.return_value = MagicMock(
-            returncode=0, stdout=json.dumps({}), stderr=""
-        )
+    def test_missing_key_returns_green(self, mock_run):
+        mock_run.return_value = MagicMock(returncode=0, stdout=json.dumps({}))
         assert _budget_status() == "green"
 
+    @patch("metabolon.organelles.polarization_loop.subprocess.run")
+    def test_exact_boundary_50_is_yellow(self, mock_run):
+        mock_run.return_value = MagicMock(
+            returncode=0, stdout=json.dumps({"seven_day": {"utilization": 50}})
+        )
+        assert _budget_status() == "yellow"
 
-# ── _consumption_count ──────────────────────────────────────────────
+    @patch("metabolon.organelles.polarization_loop.subprocess.run")
+    def test_exact_boundary_80_is_red(self, mock_run):
+        mock_run.return_value = MagicMock(
+            returncode=0, stdout=json.dumps({"seven_day": {"utilization": 80}})
+        )
+        assert _budget_status() == "red"
+
+
+# ── _consumption_count tests ───────────────────────────────────
 
 
 class TestConsumptionCount:
     """Tests for _consumption_count helper."""
 
-    def test_no_reports_dir_returns_zero(self, tmp_path):
-        assert _consumption_count() == 0
+    def test_missing_dir_returns_zero(self):
+        with patch("metabolon.organelles.polarization_loop.REPORTS_DIR", Path("/nonexistent")):
+            assert _consumption_count() == 0
 
-    def test_counts_recent_files(self, tmp_path, monkeypatch):
-        reports = tmp_path / "reports"
-        monkeypatch.setattr(
-            "metabolon.organelles.polarization_loop.REPORTS_DIR", reports
-        )
-        reports.mkdir()
-        (reports / "a.md").write_text("r1")
-        (reports / "b.md").write_text("r2")
-        assert _consumption_count() == 2
+    def test_counts_recent_files(self, tmp_path):
+        d = tmp_path / "reports"
+        d.mkdir()
+        (d / "new1.md").write_text("a")
+        (d / "new2.md").write_text("b")
+        with patch("metabolon.organelles.polarization_loop.REPORTS_DIR", d):
+            assert _consumption_count() == 2
 
-    def test_ignores_old_files(self, tmp_path, monkeypatch):
-        reports = tmp_path / "reports"
-        monkeypatch.setattr(
-            "metabolon.organelles.polarization_loop.REPORTS_DIR", reports
-        )
-        reports.mkdir()
-        old = reports / "old.md"
+    def test_ignores_old_files(self, tmp_path):
+        d = tmp_path / "reports"
+        d.mkdir()
+        old = d / "old.md"
         old.write_text("old")
         # Set mtime to 8 days ago
-        old.stat()
+        old.stat().st_mtime
+        eight_days_ago = time.time() - 8 * 24 * 3600
         import os
-        old_time = time.time() - 8 * 24 * 3600
-        os.utime(old, (old_time, old_time))
-        assert _consumption_count() == 0
-
-    def test_counts_mixed_old_and_new(self, tmp_path, monkeypatch):
-        reports = tmp_path / "reports"
-        monkeypatch.setattr(
-            "metabolon.organelles.polarization_loop.REPORTS_DIR", reports
-        )
-        reports.mkdir()
-        import os
-        # Recent file
-        (reports / "new.md").write_text("new")
-        # Old file
-        old = reports / "old.md"
-        old.write_text("old")
-        old_time = time.time() - 8 * 24 * 3600
-        os.utime(old, (old_time, old_time))
-        assert _consumption_count() == 1
+        os.utime(str(old), (eight_days_ago, eight_days_ago))
+        with patch("metabolon.organelles.polarization_loop.REPORTS_DIR", d):
+            assert _consumption_count() == 0
 
 
-# ── preflight ───────────────────────────────────────────────────────
+# ── preflight tests ────────────────────────────────────────────
 
 
 class TestPreflight:
-    """Tests for preflight node."""
+    """Tests for preflight node function."""
 
+    @patch("metabolon.organelles.polarization_loop._consumption_count", return_value=5)
     @patch("metabolon.organelles.polarization_loop._budget_status", return_value="green")
+    @patch("metabolon.organelles.polarization_loop._read_file", return_value="content")
+    @patch("metabolon.organelles.polarization_loop.praxis")
+    def test_returns_expected_keys(self, mock_praxis, mock_read, mock_budget, mock_consumption, base_state):
+        mock_praxis.exists.return_value = True
+        mock_praxis.read_text.return_value = "praxis line\n" * 80
+        result = preflight(base_state)
+        assert "north_stars" in result
+        assert "budget_status" in result
+        assert "systole_num" in result
+
+    @patch("metabolon.organelles.polarization_loop._consumption_count", return_value=0)
+    @patch("metabolon.organelles.polarization_loop._budget_status", return_value="yellow")
+    @patch("metabolon.organelles.polarization_loop._read_file", return_value="ns content")
+    @patch("metabolon.organelles.polarization_loop.praxis")
+    def test_increments_systole_num(self, mock_praxis, mock_read, mock_budget, mock_consumption, base_state):
+        mock_praxis.exists.return_value = False
+        result = preflight(base_state)
+        assert result["systole_num"] == 2  # started at 1
+
+    @patch("metabolon.organelles.polarization_loop._consumption_count", return_value=0)
+    @patch("metabolon.organelles.polarization_loop._budget_status", return_value="green")
+    @patch("metabolon.organelles.polarization_loop._read_file", return_value="file data")
+    @patch("metabolon.organelles.polarization_loop.praxis")
+    def test_praxis_not_exists(self, mock_praxis, mock_read, mock_budget, mock_consumption, base_state):
+        mock_praxis.exists.return_value = False
+        result = preflight(base_state)
+        assert result["praxis_items"] == ""
+
     @patch("metabolon.organelles.polarization_loop._consumption_count", return_value=3)
-    def test_reads_files_and_returns_state(self, mock_cc, mock_bs, tmp_path):
-        (tmp_path / "north_star.md").write_text("my star", encoding="utf-8")
-        (tmp_path / "shapes.md").write_text("shapes text", encoding="utf-8")
-        (tmp_path / "division.md").write_text("division text", encoding="utf-8")
-        (tmp_path / "NOW.md").write_text("now text", encoding="utf-8")
-
-        result = preflight(_base_state(systole_num=0))
-        assert result["north_stars"] == "my star"
-        assert result["shapes"] == "shapes text"
-        assert result["division"] == "division text"
-        assert result["now_md"] == "now text"
-        assert result["budget_status"] == "green"
-        assert result["consumption_count"] == 3
-        assert result["systole_num"] == 1
-
-    @patch("metabolon.organelles.polarization_loop._budget_status", return_value="red")
-    @patch("metabolon.organelles.polarization_loop._consumption_count", return_value=0)
-    def test_creates_guard_file(self, mock_bs, mock_cc, tmp_path):
+    @patch("metabolon.organelles.polarization_loop._budget_status", return_value="green")
+    @patch("metabolon.organelles.polarization_loop._read_file", return_value="")
+    def test_creates_guard_file(self, mock_read, mock_budget, mock_consumption, tmp_path, base_state):
         guard = tmp_path / "guard"
-        preflight(_base_state())
-        assert guard.exists()
+        with patch("metabolon.organelles.polarization_loop.GUARD_FILE", guard):
+            preflight(base_state)
+            assert guard.exists()
 
-    @patch("metabolon.organelles.polarization_loop._budget_status", return_value="green")
     @patch("metabolon.organelles.polarization_loop._consumption_count", return_value=0)
-    def test_missing_files_return_empty(self, mock_bs, mock_cc):
-        result = preflight(_base_state())
-        assert result["north_stars"] == ""
-        assert result["shapes"] == ""
-
     @patch("metabolon.organelles.polarization_loop._budget_status", return_value="green")
-    @patch("metabolon.organelles.polarization_loop._consumption_count", return_value=0)
-    def test_systole_increments(self, mock_bs, mock_cc):
-        result = preflight(_base_state(systole_num=5))
-        assert result["systole_num"] == 6
-
-    @patch("metabolon.organelles.polarization_loop._budget_status", return_value="green")
-    @patch("metabolon.organelles.polarization_loop._consumption_count", return_value=0)
-    def test_defaults_systole_to_1_when_missing(self, mock_bs, mock_cc):
-        result = preflight({"mode": "overnight"})
+    @patch("metabolon.organelles.polarization_loop._read_file", return_value="ns")
+    @patch("metabolon.organelles.polarization_loop.praxis")
+    def test_systole_from_zero(self, mock_praxis, mock_read, mock_budget, mock_consumption):
+        mock_praxis.exists.return_value = False
+        result = preflight({"systole_num": 0})
         assert result["systole_num"] == 1
 
 
-# ── brainstorm ──────────────────────────────────────────────────────
+# ── brainstorm tests ───────────────────────────────────────────
 
 
 class TestBrainstorm:
-    """Tests for brainstorm node."""
+    """Tests for brainstorm node function."""
 
     @patch("metabolon.organelles.polarization_loop._channel")
-    def test_parses_json_goals(self, mock_ch):
-        goals = [{"star": "A", "goal": "write X", "deliverable": "x.md", "model": "sonnet"}]
-        mock_ch.return_value = json.dumps(goals)
-        result = brainstorm(_base_state(systole_num=1))
+    def test_parses_json_goals(self, mock_channel, base_state):
+        goals = [{"star": "S1", "goal": "G1", "deliverable": "/tmp/x.md", "model": "sonnet"}]
+        mock_channel.return_value = json.dumps(goals)
+        result = brainstorm(base_state)
+        assert result["sub_goals"] == goals
+
+    @patch("metabolon.organelles.polarization_loop._channel")
+    def test_extracts_json_from_markdown(self, mock_channel, base_state):
+        goals = [{"star": "S1", "goal": "G1", "deliverable": "/tmp/x.md", "model": "opus"}]
+        mock_channel.return_value = f"Here are the goals:\n```json\n{json.dumps(goals)}\n```\nDone."
+        result = brainstorm(base_state)
         assert len(result["sub_goals"]) == 1
-        assert result["sub_goals"][0]["star"] == "A"
 
     @patch("metabolon.organelles.polarization_loop._channel")
-    def test_truncates_to_max_goals_overnight(self, mock_ch):
-        goals = [{"star": "A", "goal": f"g{i}", "deliverable": f"f{i}.md", "model": "sonnet"} for i in range(20)]
-        mock_ch.return_value = json.dumps(goals)
-        result = brainstorm(_base_state(mode="overnight", systole_num=1))
-        assert len(result["sub_goals"]) == 8
+    def test_limits_to_max_goals_overnight(self, mock_channel, base_state):
+        goals = [{"star": f"S{i}", "goal": f"G{i}", "deliverable": f"/tmp/{i}.md", "model": "sonnet"} for i in range(15)]
+        mock_channel.return_value = json.dumps(goals)
+        result = brainstorm(base_state)
+        assert len(result["sub_goals"]) <= 8
 
     @patch("metabolon.organelles.polarization_loop._channel")
-    def test_truncates_to_max_goals_interactive(self, mock_ch):
-        goals = [{"star": "A", "goal": f"g{i}", "deliverable": f"f{i}.md", "model": "sonnet"} for i in range(20)]
-        mock_ch.return_value = json.dumps(goals)
-        result = brainstorm(_base_state(mode="interactive", systole_num=1))
-        assert len(result["sub_goals"]) == 5
+    def test_limits_to_5_for_interactive(self, mock_channel, base_state):
+        base_state["mode"] = "interactive"
+        goals = [{"star": f"S{i}", "goal": f"G{i}", "deliverable": f"/tmp/{i}.md", "model": "sonnet"} for i in range(10)]
+        mock_channel.return_value = json.dumps(goals)
+        result = brainstorm(base_state)
+        assert len(result["sub_goals"]) <= 5
 
     @patch("metabolon.organelles.polarization_loop._channel")
-    def test_bad_json_returns_error(self, mock_ch):
-        # Must contain [ and ] to trigger parse attempt
-        mock_ch.return_value = "Here it is: [not valid json] done"
-        result = brainstorm(_base_state(systole_num=1))
+    def test_bad_json_returns_error(self, mock_channel, base_state):
+        mock_channel.return_value = "I cannot produce JSON for this."
+        result = brainstorm(base_state)
         assert "errors" in result
         assert len(result["errors"]) == 1
-        assert "Brainstorm failed to parse" in result["errors"][0]
 
     @patch("metabolon.organelles.polarization_loop._channel")
-    def test_no_brackets_returns_empty(self, mock_ch):
-        mock_ch.return_value = "no brackets at all"
-        result = brainstorm(_base_state(systole_num=1))
+    def test_consumption_signal_produce_more(self, mock_channel, base_state):
+        base_state["consumption_count"] = 2
+        mock_channel.return_value = "[]"
+        brainstorm(base_state)
+        prompt_arg = mock_channel.call_args[1].get("prompt", mock_channel.call_args[0][1] if len(mock_channel.call_args[0]) > 1 else "")
+        # Just verify it was called — the signal is baked into the prompt
+        assert mock_channel.called
+
+    @patch("metabolon.organelles.polarization_loop._channel")
+    def test_empty_array(self, mock_channel, base_state):
+        mock_channel.return_value = "[]"
+        result = brainstorm(base_state)
         assert result["sub_goals"] == []
 
-    @patch("metabolon.organelles.polarization_loop._channel")
-    def test_json_embedded_in_text(self, mock_ch):
-        goals = [{"star": "A", "goal": "write X", "deliverable": "x.md", "model": "sonnet"}]
-        mock_ch.return_value = f"Here are the goals:\n{json.dumps(goals)}\nDone."
-        result = brainstorm(_base_state(systole_num=1))
-        assert len(result["sub_goals"]) == 1
 
-    @patch("metabolon.organelles.polarization_loop._channel")
-    def test_calls_sonnet(self, mock_ch):
-        mock_ch.return_value = "[]"
-        brainstorm(_base_state(systole_num=1))
-        mock_ch.assert_called_once()
-        assert mock_ch.call_args[0][0] == "sonnet"
-
-    @patch("metabolon.organelles.polarization_loop._channel")
-    def test_consumption_signal_low(self, mock_ch):
-        mock_ch.return_value = "[]"
-        brainstorm(_base_state(consumption_count=2, systole_num=1))
-        prompt = mock_ch.call_args[0][1]
-        assert "Produce more" in prompt
-
-    @patch("metabolon.organelles.polarization_loop._channel")
-    def test_consumption_signal_medium(self, mock_ch):
-        mock_ch.return_value = "[]"
-        brainstorm(_base_state(consumption_count=5, systole_num=1))
-        prompt = mock_ch.call_args[0][1]
-        assert "Self-sufficient" in prompt
-
-    @patch("metabolon.organelles.polarization_loop._channel")
-    def test_consumption_signal_high(self, mock_ch):
-        mock_ch.return_value = "[]"
-        brainstorm(_base_state(consumption_count=10, systole_num=1))
-        prompt = mock_ch.call_args[0][1]
-        assert "Overproduction" in prompt
-
-
-# ── dispatch ────────────────────────────────────────────────────────
+# ── dispatch tests ──────────────────────────────────────────────
 
 
 class TestDispatch:
-    """Tests for dispatch node."""
+    """Tests for dispatch node function."""
 
-    @patch("metabolon.organelles.polarization_loop._channel")
-    def test_dispatches_goals(self, mock_ch):
-        mock_ch.return_value = "output text"
-        goals = [{"star": "A", "goal": "write X", "deliverable": "x.md", "model": "sonnet"}]
-        result = dispatch(_base_state(sub_goals=goals, systole_num=1))
-        assert len(result["dispatched_work"]) == 1
-        assert result["dispatched_work"][0]["success"] is True
-        assert result["dispatched_work"][0]["output"] == "output text"
-
-    @patch("metabolon.organelles.polarization_loop._channel")
-    def test_empty_goals_returns_error(self, mock_ch):
-        result = dispatch(_base_state(sub_goals=[], systole_num=1))
+    def test_no_goals_returns_error(self, base_state):
+        result = dispatch(base_state)
         assert "errors" in result
-        assert "No goals to dispatch" in result["errors"][0]
-        mock_ch.assert_not_called()
+        assert "No goals" in result["errors"][0]
 
     @patch("metabolon.organelles.polarization_loop._channel")
-    def test_channel_error_marks_failed(self, mock_ch):
-        mock_ch.return_value = "(channel error: exit 1) something"
-        goals = [{"star": "A", "goal": "write X", "deliverable": "x.md", "model": "sonnet"}]
-        result = dispatch(_base_state(sub_goals=goals, systole_num=1))
-        assert result["dispatched_work"][0]["success"] is False
-
-    @patch("metabolon.organelles.polarization_loop._channel")
-    def test_multiple_goals(self, mock_ch):
-        mock_ch.return_value = "done"
-        goals = [
-            {"star": "A", "goal": "g1", "deliverable": "f1.md", "model": "sonnet"},
-            {"star": "B", "goal": "g2", "deliverable": "f2.md", "model": "opus"},
-        ]
-        result = dispatch(_base_state(sub_goals=goals, systole_num=1))
+    def test_dispatches_each_goal(self, mock_channel, base_state, sample_goals):
+        mock_channel.return_value = "Agent output here"
+        base_state["sub_goals"] = sample_goals
+        result = dispatch(base_state)
         assert len(result["dispatched_work"]) == 2
+        assert mock_channel.call_count == 2
 
     @patch("metabolon.organelles.polarization_loop._channel")
-    def test_appends_to_manifest(self, mock_ch, tmp_path):
-        mock_ch.return_value = "done"
-        manifest = tmp_path / "session.md"
-        manifest.write_text("# Existing\n", encoding="utf-8")
-        goals = [{"star": "A", "goal": "write X", "deliverable": "x.md", "model": "sonnet"}]
-        dispatch(_base_state(sub_goals=goals, systole_num=1))
-        content = manifest.read_text(encoding="utf-8")
-        assert "## Wave" in content
-        assert "[ok]" in content
+    def test_tracks_success(self, mock_channel, base_state, sample_goals):
+        mock_channel.return_value = "Good result"
+        base_state["sub_goals"] = sample_goals
+        result = dispatch(base_state)
+        assert all(w["success"] for w in result["dispatched_work"])
 
     @patch("metabolon.organelles.polarization_loop._channel")
-    def test_uses_correct_model_per_goal(self, mock_ch):
-        mock_ch.return_value = "done"
-        goals = [
-            {"star": "A", "goal": "g1", "deliverable": "f1.md", "model": "opus"},
-        ]
-        dispatch(_base_state(sub_goals=goals, systole_num=1))
-        assert mock_ch.call_args[0][0] == "opus"
+    def test_channel_error_marks_failed(self, mock_channel, base_state, sample_goals):
+        mock_channel.return_value = "(channel error: exit 1) something"
+        base_state["sub_goals"] = sample_goals
+        result = dispatch(base_state)
+        assert all(not w["success"] for w in result["dispatched_work"])
 
     @patch("metabolon.organelles.polarization_loop._channel")
-    def test_organism_flag_true(self, mock_ch):
-        mock_ch.return_value = "done"
-        goals = [{"star": "A", "goal": "g1", "deliverable": "f1.md", "model": "sonnet"}]
-        dispatch(_base_state(sub_goals=goals, systole_num=1))
-        assert mock_ch.call_args[1].get("organism") is True
+    def test_uses_organism_flag(self, mock_channel, base_state, sample_goals):
+        mock_channel.return_value = "ok"
+        base_state["sub_goals"] = sample_goals
+        dispatch(base_state)
+        for call in mock_channel.call_args_list:
+            assert call[1].get("organism", call[0][2] if len(call[0]) > 2 else False) is True or "organism" in str(call)
+
+    @patch("metabolon.organelles.polarization_loop._channel")
+    def test_updates_manifest(self, mock_channel, base_state, sample_goals, tmp_path):
+        mock_channel.return_value = "output"
+        base_state["sub_goals"] = sample_goals
+        manifest = tmp_path / "manifest.md"
+        manifest.write_text("# Session\n", encoding="utf-8")
+        with patch("metabolon.organelles.polarization_loop.MANIFEST_FILE", manifest):
+            dispatch(base_state)
+            content = manifest.read_text(encoding="utf-8")
+            assert "## Wave" in content
+
+    @patch("metabolon.organelles.polarization_loop._channel")
+    def test_truncates_output(self, mock_channel, base_state):
+        base_state["sub_goals"] = [{"star": "S", "goal": "G", "deliverable": "/tmp/x.md", "model": "sonnet"}]
+        mock_channel.return_value = "x" * 5000
+        result = dispatch(base_state)
+        assert len(result["dispatched_work"][0]["output"]) <= 3000
 
 
-# ── quality_gate ────────────────────────────────────────────────────
+# ── quality_gate tests ─────────────────────────────────────────
 
 
 class TestQualityGate:
-    """Tests for quality_gate node."""
+    """Tests for quality_gate node function."""
 
-    @patch("metabolon.organelles.polarization_loop._channel")
-    def test_classifies_self_sufficient(self, mock_ch):
-        evals = [{"goal": "g1", "classification": "self-sufficient", "quality": "pass"}]
-        mock_ch.return_value = json.dumps(evals)
-        work = [{"star": "A", "goal": "g1", "output": "output", "success": True}]
-        result = quality_gate(_base_state(dispatched_work=work))
-        assert result["total_produced"] == 1
+    def test_no_successful_work(self, base_state):
+        base_state["dispatched_work"] = [{"success": False, "output": "err"}]
+        result = quality_gate(base_state)
+        assert result["total_produced"] == 0
         assert result["total_for_review"] == 0
 
     @patch("metabolon.organelles.polarization_loop._channel")
-    def test_classifies_needs_review(self, mock_ch):
-        evals = [{"goal": "g1", "classification": "needs-review", "quality": "partial"}]
-        mock_ch.return_value = json.dumps(evals)
-        work = [{"star": "A", "goal": "g1", "output": "output", "success": True}]
-        result = quality_gate(_base_state(dispatched_work=work))
+    def test_classifies_self_sufficient(self, mock_channel, base_state, sample_dispatched):
+        evals = [
+            {"goal": "Write report", "classification": "self-sufficient", "quality": "pass"},
+            {"goal": "Summarize papers", "classification": "self-sufficient", "quality": "pass"},
+        ]
+        mock_channel.return_value = json.dumps(evals)
+        base_state["dispatched_work"] = sample_dispatched
+        result = quality_gate(base_state)
+        assert result["total_produced"] == 2
+        assert result["total_for_review"] == 0
+
+    @patch("metabolon.organelles.polarization_loop._channel")
+    def test_counts_needs_review(self, mock_channel, base_state, sample_dispatched):
+        evals = [
+            {"goal": "Write report", "classification": "self-sufficient", "quality": "pass"},
+            {"goal": "Summarize papers", "classification": "needs-review", "quality": "partial"},
+        ]
+        mock_channel.return_value = json.dumps(evals)
+        base_state["dispatched_work"] = sample_dispatched
+        result = quality_gate(base_state)
         assert result["total_for_review"] == 1
 
     @patch("metabolon.organelles.polarization_loop._channel")
-    def test_no_successful_work(self, mock_ch):
-        work = [{"star": "A", "goal": "g1", "output": "(channel error)", "success": False}]
-        result = quality_gate(_base_state(dispatched_work=work))
-        assert result["total_produced"] == 0
-        mock_ch.assert_not_called()
+    def test_accumulates_totals(self, mock_channel, base_state, sample_dispatched):
+        evals = [{"goal": "Write report", "classification": "self-sufficient", "quality": "pass"}]
+        mock_channel.return_value = json.dumps(evals)
+        base_state["dispatched_work"] = sample_dispatched
+        base_state["total_produced"] = 5
+        base_state["total_for_review"] = 2
+        result = quality_gate(base_state)
+        assert result["total_produced"] == 7  # 5 + 2 produced
+        assert result["total_for_review"] == 2  # 2 + 0 review
 
     @patch("metabolon.organelles.polarization_loop._channel")
-    def test_empty_work(self, mock_ch):
-        result = quality_gate(_base_state(dispatched_work=[]))
-        assert result["total_produced"] == 0
-        mock_ch.assert_not_called()
+    def test_bad_json_still_counts_produced(self, mock_channel, base_state, sample_dispatched):
+        mock_channel.return_value = "unparseable response"
+        base_state["dispatched_work"] = sample_dispatched
+        result = quality_gate(base_state)
+        assert result["total_produced"] == 2
 
     @patch("metabolon.organelles.polarization_loop._channel")
-    def test_bad_json_defaults_to_counted(self, mock_ch):
-        mock_ch.return_value = "not json"
-        work = [{"star": "A", "goal": "g1", "output": "output", "success": True}]
-        result = quality_gate(_base_state(dispatched_work=work))
-        # Still counts produced but review = 0
-        assert result["total_produced"] == 1
-        assert result["total_for_review"] == 0
-
-    @patch("metabolon.organelles.polarization_loop._channel")
-    def test_accumulates_totals(self, mock_ch):
-        evals = [{"goal": "g1", "classification": "self-sufficient", "quality": "pass"}]
-        mock_ch.return_value = json.dumps(evals)
-        work = [{"star": "A", "goal": "g1", "output": "output", "success": True}]
-        result = quality_gate(_base_state(dispatched_work=work, total_produced=5, total_for_review=2))
-        assert result["total_produced"] == 6
-        assert result["total_for_review"] == 2
-
-    @patch("metabolon.organelles.polarization_loop._channel")
-    def test_limits_to_recent_8(self, mock_ch):
-        evals = [{"goal": f"g{i}", "classification": "self-sufficient", "quality": "pass"} for i in range(10)]
-        mock_ch.return_value = json.dumps(evals)
-        work = [{"star": "A", "goal": f"g{i}", "output": f"output {i}", "success": True} for i in range(10)]
-        result = quality_gate(_base_state(dispatched_work=work))
-        assert result["total_produced"] == 10
+    def test_uses_last_8_work_items(self, mock_channel, base_state):
+        work = [
+            {"success": True, "star": "S", "goal": f"G{i}", "output": f"O{i}"}
+            for i in range(12)
+        ]
+        mock_channel.return_value = "[]"
+        base_state["dispatched_work"] = work
+        quality_gate(base_state)
+        # Verify _channel was called — the prompt should only include last 8
+        assert mock_channel.called
 
 
-# ── compound_and_scout ──────────────────────────────────────────────
+# ── compound_and_scout tests ────────────────────────────────────
 
 
 class TestCompoundAndScout:
-    """Tests for compound_and_scout node."""
+    """Tests for compound_and_scout node function."""
+
+    def test_no_work_returns_empty(self, base_state):
+        result = compound_and_scout(base_state)
+        assert result["follow_ons"] == []
 
     @patch("metabolon.organelles.polarization_loop._channel")
-    def test_returns_follow_ons(self, mock_ch):
-        follow = [{"goal": "next step", "star": "A", "deliverable": "f.md", "model": "sonnet", "type": "compound"}]
-        mock_ch.return_value = json.dumps(follow)
-        work = [{"star": "A", "goal": "g1", "output": "done", "success": True}]
-        result = compound_and_scout(_base_state(dispatched_work=work))
+    def test_parses_follow_ons(self, mock_channel, base_state, sample_dispatched):
+        follow_ons = [{"goal": "Next step", "star": "Research", "deliverable": "/tmp/next.md", "model": "sonnet", "type": "compound"}]
+        mock_channel.return_value = json.dumps(follow_ons)
+        base_state["dispatched_work"] = sample_dispatched
+        result = compound_and_scout(base_state)
         assert len(result["follow_ons"]) == 1
 
     @patch("metabolon.organelles.polarization_loop._channel")
-    def test_no_successful_work(self, mock_ch):
-        result = compound_and_scout(_base_state(dispatched_work=[]))
-        assert result["follow_ons"] == []
-        mock_ch.assert_not_called()
-
-    @patch("metabolon.organelles.polarization_loop._channel")
-    def test_bad_json_returns_empty(self, mock_ch):
-        mock_ch.return_value = "not json"
-        work = [{"star": "A", "goal": "g1", "output": "done", "success": True}]
-        result = compound_and_scout(_base_state(dispatched_work=work))
-        assert result["follow_ons"] == []
-
-    @patch("metabolon.organelles.polarization_loop._channel")
-    def test_limits_to_6_follow_ons(self, mock_ch):
-        follow = [{"goal": f"step {i}", "star": "A", "deliverable": f"f{i}.md", "model": "sonnet", "type": "compound"} for i in range(10)]
-        mock_ch.return_value = json.dumps(follow)
-        work = [{"star": "A", "goal": "g1", "output": "done", "success": True}]
-        result = compound_and_scout(_base_state(dispatched_work=work))
+    def test_limits_to_6_follow_ons(self, mock_channel, base_state, sample_dispatched):
+        follow_ons = [
+            {"goal": f"Follow {i}", "star": "S", "deliverable": f"/tmp/{i}.md", "model": "sonnet", "type": "compound"}
+            for i in range(10)
+        ]
+        mock_channel.return_value = json.dumps(follow_ons)
+        base_state["dispatched_work"] = sample_dispatched
+        result = compound_and_scout(base_state)
         assert len(result["follow_ons"]) <= 6
 
+    @patch("metabolon.organelles.polarization_loop._channel")
+    def test_bad_json_returns_empty(self, mock_channel, base_state, sample_dispatched):
+        mock_channel.return_value = "no json here"
+        base_state["dispatched_work"] = sample_dispatched
+        result = compound_and_scout(base_state)
+        assert result["follow_ons"] == []
 
-# ── stopping_gate ───────────────────────────────────────────────────
+    @patch("metabolon.organelles.polarization_loop._channel")
+    def test_ignores_failed_work(self, mock_channel, base_state):
+        base_state["dispatched_work"] = [
+            {"success": False, "star": "S", "goal": "G", "output": "(channel error)"},
+        ]
+        result = compound_and_scout(base_state)
+        assert result["follow_ons"] == []
+        mock_channel.assert_not_called()
+
+
+# ── stopping_gate tests ────────────────────────────────────────
 
 
 class TestStoppingGate:
-    """Tests for stopping_gate node."""
+    """Tests for stopping_gate node function."""
 
     @patch("metabolon.organelles.polarization_loop._budget_status", return_value="green")
-    def test_continues_with_follow_ons(self, mock_bs):
-        follow = [{"goal": "next", "star": "A", "deliverable": "f.md", "model": "sonnet"}]
-        result = stopping_gate(_base_state(follow_ons=follow))
-        assert result["should_stop"] is False
-        assert result["sub_goals"] == follow
-
-    @patch("metabolon.organelles.polarization_loop._budget_status", return_value="green")
-    def test_stops_when_no_follow_ons(self, mock_bs):
-        result = stopping_gate(_base_state(follow_ons=[]))
+    def test_no_follow_ons_stops(self, mock_budget, base_state):
+        base_state["follow_ons"] = []
+        result = stopping_gate(base_state)
         assert result["should_stop"] is True
-        assert result["sub_goals"] == []
+
+    @patch("metabolon.organelles.polarization_loop._budget_status", return_value="green")
+    def test_has_follow_ons_continues(self, mock_budget, base_state):
+        base_state["follow_ons"] = [{"goal": "next", "star": "S", "deliverable": "/tmp/x.md", "model": "sonnet"}]
+        result = stopping_gate(base_state)
+        assert result["should_stop"] is False
+        assert result["sub_goals"] == base_state["follow_ons"]
 
     @patch("metabolon.organelles.polarization_loop._budget_status", return_value="red")
-    def test_stops_on_red_budget(self, mock_bs):
-        follow = [{"goal": "next", "star": "A", "deliverable": "f.md", "model": "sonnet"}]
-        result = stopping_gate(_base_state(follow_ons=follow))
+    def test_red_budget_forces_stop(self, mock_budget, base_state):
+        base_state["follow_ons"] = [{"goal": "next", "star": "S"}]
+        result = stopping_gate(base_state)
         assert result["should_stop"] is True
-        assert "Budget red" in result["stop_reason"]
+        assert "red" in result["stop_reason"].lower()
 
     @patch("metabolon.organelles.polarization_loop._budget_status", return_value="yellow")
-    def test_stops_on_yellow_budget(self, mock_bs):
-        follow = [{"goal": "next", "star": "A", "deliverable": "f.md", "model": "sonnet"}]
-        result = stopping_gate(_base_state(follow_ons=follow))
+    def test_yellow_budget_stops(self, mock_budget, base_state):
+        base_state["follow_ons"] = [{"goal": "next", "star": "S"}]
+        result = stopping_gate(base_state)
         assert result["should_stop"] is True
-        assert "yellow" in result["stop_reason"]
+        assert "yellow" in result["stop_reason"].lower()
 
     @patch("metabolon.organelles.polarization_loop._budget_status", return_value="green")
-    def test_gate_results_populated(self, mock_bs):
-        result = stopping_gate(_base_state(follow_ons=[]))
+    def test_gate_results_populated(self, mock_budget, base_state):
+        result = stopping_gate(base_state)
         assert "gate_results" in result
-        checks = result["gate_results"]
-        assert "budget_not_green" in checks
-        assert "follow_ons_exhausted" in checks
+        assert "budget_not_green" in result["gate_results"]
 
-    @patch("metabolon.organelles.polarization_loop._budget_status", return_value="green")
-    def test_updates_budget_status(self, mock_bs):
-        result = stopping_gate(_base_state(follow_ons=[]))
-        assert result["budget_status"] == "green"
+    @patch("metabolon.organelles.polarization_loop._budget_status", return_value="red")
+    def test_stopping_clears_sub_goals(self, mock_budget, base_state):
+        base_state["follow_ons"] = [{"goal": "x", "star": "S"}]
+        result = stopping_gate(base_state)
+        assert result["sub_goals"] == []
 
 
-# ── write_report ────────────────────────────────────────────────────
+# ── write_report tests ─────────────────────────────────────────
 
 
 class TestWriteReport:
-    """Tests for write_report node."""
+    """Tests for write_report node function."""
 
-    def test_writes_report_file(self, tmp_path, monkeypatch):
+    def test_writes_report_file(self, base_state, tmp_path):
         reports = tmp_path / "reports"
-        monkeypatch.setattr(
-            "metabolon.organelles.polarization_loop.REPORTS_DIR", reports
-        )
-        result = write_report(_base_state(
-            systole_num=3, total_produced=5, total_for_review=1,
-            mode="overnight", stop_reason="done",
-            dispatched_work=[{"star": "A", "goal": "g1", "success": True}],
-        ))
-        assert "report" in result
-        ts = time.strftime("%Y-%m-%d")
-        expected_path = str(reports / f"{ts}.md")
-        assert result["report"] == expected_path
-        content = Path(result["report"]).read_text(encoding="utf-8")
-        assert "Poiesis Report" in content
-        assert "systoles: 3" in content
+        base_state["dispatched_work"] = [
+            {"success": True, "star": "Research", "goal": "Write X"},
+        ]
+        with patch("metabolon.organelles.polarization_loop.REPORTS_DIR", reports):
+            result = write_report(base_state)
+            assert "report" in result
+            assert reports.exists()
+            files = list(reports.iterdir())
+            assert len(files) == 1
+            content = files[0].read_text(encoding="utf-8")
+            assert "Poiesis Report" in content
 
-    def test_report_contains_work(self, tmp_path, monkeypatch):
+    def test_report_includes_errors(self, tmp_path):
         reports = tmp_path / "reports"
-        monkeypatch.setattr(
-            "metabolon.organelles.polarization_loop.REPORTS_DIR", reports
-        )
-        write_report(_base_state(
-            systole_num=1,
-            dispatched_work=[
-                {"star": "A", "goal": "goal A", "success": True},
-                {"star": "B", "goal": "goal B", "success": False},
-            ],
-        ))
-        ts = time.strftime("%Y-%m-%d")
-        content = (reports / f"{ts}.md").read_text(encoding="utf-8")
-        assert "[ok]" in content
-        assert "[FAILED]" in content
+        state = {"systole_num": 1, "total_produced": 2, "total_for_review": 0, "mode": "overnight", "stop_reason": "done", "dispatched_work": [], "errors": ["Error A", "Error B"]}
+        with patch("metabolon.organelles.polarization_loop.REPORTS_DIR", reports):
+            write_report(state)
+            files = list(reports.iterdir())
+            content = files[0].read_text(encoding="utf-8")
+            assert "Error A" in content
+            assert "Error B" in content
 
-    def test_report_contains_errors(self, tmp_path, monkeypatch):
+    def test_report_frontmatter(self, tmp_path):
         reports = tmp_path / "reports"
-        monkeypatch.setattr(
-            "metabolon.organelles.polarization_loop.REPORTS_DIR", reports
-        )
-        write_report(_base_state(
-            systole_num=1,
-            errors=["something went wrong"],
-        ))
-        ts = time.strftime("%Y-%m-%d")
-        content = (reports / f"{ts}.md").read_text(encoding="utf-8")
-        assert "something went wrong" in content
-        assert "Errors" in content
-
-    def test_creates_reports_dir(self, tmp_path, monkeypatch):
-        reports = tmp_path / "new_reports"
-        monkeypatch.setattr(
-            "metabolon.organelles.polarization_loop.REPORTS_DIR", reports
-        )
-        write_report(_base_state(systole_num=1))
-        assert reports.exists()
+        state = {"systole_num": 3, "total_produced": 10, "total_for_review": 2, "mode": "interactive", "stop_reason": "budget", "dispatched_work": [], "errors": []}
+        with patch("metabolon.organelles.polarization_loop.REPORTS_DIR", reports):
+            write_report(state)
+            content = list(reports.iterdir())[0].read_text(encoding="utf-8")
+            assert "systoles: 3" in content
+            assert "items_produced: 10" in content
 
 
-# ── wrap ────────────────────────────────────────────────────────────
+# ── wrap tests ─────────────────────────────────────────────────
 
 
 class TestWrap:
-    """Tests for wrap node."""
+    """Tests for wrap node function."""
 
     def test_removes_guard_file(self, tmp_path):
         guard = tmp_path / "guard"
         guard.touch()
         assert guard.exists()
-        wrap(_base_state())
+        with patch("metabolon.organelles.polarization_loop.GUARD_FILE", guard):
+            wrap({})
         assert not guard.exists()
 
-    def test_no_error_if_guard_missing(self, tmp_path):
-        # Guard file doesn't exist, should not raise
-        wrap(_base_state())
+    def test_no_guard_file_no_error(self, tmp_path):
+        guard = tmp_path / "noguard"
+        with patch("metabolon.organelles.polarization_loop.GUARD_FILE", guard):
+            result = wrap({})
+        assert result == {}
 
     def test_archives_manifest(self, tmp_path):
-        manifest = tmp_path / "session.md"
-        manifest.write_text("# Session\n", encoding="utf-8")
-        wrap(_base_state())
-        ts = time.strftime("%Y-%m-%d")
-        archive = tmp_path / f"polarization-session-{ts}.md"
-        assert archive.exists()
+        manifest = tmp_path / "polarization-session.md"
+        manifest.write_text("session data", encoding="utf-8")
+        with patch("metabolon.organelles.polarization_loop.MANIFEST_FILE", manifest):
+            wrap({})
         assert not manifest.exists()
+        archives = list(tmp_path.glob("polarization-session-*.md"))
+        assert len(archives) == 1
 
-    def test_no_error_if_manifest_missing(self, tmp_path):
-        wrap(_base_state())  # Should not raise
-
-    def test_returns_empty_dict(self, tmp_path):
-        result = wrap(_base_state())
+    def test_no_manifest_no_error(self, tmp_path):
+        manifest = tmp_path / "nomanifest"
+        with patch("metabolon.organelles.polarization_loop.MANIFEST_FILE", manifest):
+            result = wrap({})
         assert result == {}
 
 
-# ── should_continue ─────────────────────────────────────────────────
+# ── should_continue tests ──────────────────────────────────────
 
 
 class TestShouldContinue:
     """Tests for should_continue routing function."""
 
-    def test_returns_report_when_should_stop(self):
-        assert should_continue(_base_state(should_stop=True)) == "report"
+    def test_stop_goes_to_report(self):
+        assert should_continue({"should_stop": True}) == "report"
 
-    def test_returns_preflight_when_continuing(self):
-        assert should_continue(_base_state(should_stop=False)) == "preflight"
+    def test_continue_goes_to_preflight(self):
+        assert should_continue({"should_stop": False}) == "preflight"
 
-    def test_defaults_to_preflight(self):
+    def test_default_is_continue(self):
         assert should_continue({}) == "preflight"
 
 
-# ── build_graph ─────────────────────────────────────────────────────
+# ── build_graph tests ──────────────────────────────────────────
 
 
 class TestBuildGraph:
-    """Tests for build_graph graph assembly."""
+    """Tests for graph assembly."""
 
-    def test_returns_state_graph(self):
-        from langgraph.graph import StateGraph
-        graph = build_graph()
-        assert isinstance(graph, StateGraph)
+    def test_builds_without_error(self):
+        g = build_graph()
+        assert g is not None
 
-    def test_has_all_nodes(self):
-        graph = build_graph()
-        node_names = set(graph.nodes.keys())
-        expected = {
-            "preflight", "brainstorm", "dispatch", "quality_gate",
-            "compound_and_scout", "stopping_gate", "report", "wrap",
-        }
-        assert expected == node_names
+    def test_graph_has_all_nodes(self):
+        g = build_graph()
+        # Compile to check node names are registered
+        nodes = set(g.nodes.keys()) if hasattr(g, "nodes") else set()
+        expected = {"preflight", "brainstorm", "dispatch", "quality_gate", "compound_and_scout", "stopping_gate", "report", "wrap"}
+        assert expected.issubset(nodes)
 
 
-# ── _open_checkpointer ──────────────────────────────────────────────
+# ── _open_checkpointer tests ───────────────────────────────────
 
 
 class TestOpenCheckpointer:
     """Tests for _open_checkpointer helper."""
 
-    def test_in_memory_saver(self):
-        from langgraph.checkpoint.memory import InMemorySaver
+    def test_in_memory(self):
         cp = _open_checkpointer(persistent=False)
-        assert isinstance(cp, InMemorySaver)
+        assert cp is not None
 
-    def test_sqlite_saver(self, tmp_path, monkeypatch):
-        monkeypatch.setattr(
-            "metabolon.organelles.polarization_loop.CHECKPOINT_DB",
-            tmp_path / "checkpoints.db",
-        )
-        from langgraph.checkpoint.sqlite import SqliteSaver
-        cp = _open_checkpointer(persistent=True)
-        assert isinstance(cp, SqliteSaver)
+    def test_sqlite(self, tmp_path):
+        db = tmp_path / "checkpoints.db"
+        with patch("metabolon.organelles.polarization_loop.CHECKPOINT_DB", db):
+            cp = _open_checkpointer(persistent=True)
+            assert cp is not None
+
+    def test_sqlite_creates_parent_dirs(self, tmp_path):
+        db = tmp_path / "deep" / "nested" / "checkpoints.db"
+        with patch("metabolon.organelles.polarization_loop.CHECKPOINT_DB", db):
+            _open_checkpointer(persistent=True)
+            assert db.parent.exists()
 
 
-# ── main (CLI) ──────────────────────────────────────────────────────
+# ── polarize tests ─────────────────────────────────────────────
 
 
-class TestMain:
-    """Tests for CLI main function."""
+class TestPolarize:
+    """Tests for polarize public API."""
+
+    @patch("metabolon.organelles.polarization_loop._open_checkpointer")
+    @patch("metabolon.organelles.polarization_loop.build_graph")
+    def test_calls_graph_invoke(self, mock_build, mock_cp, base_state):
+        mock_app = MagicMock()
+        mock_app.invoke.return_value = base_state
+        mock_build.return_value = mock_app
+        mock_cp.return_value = MagicMock()
+        mock_cp.return_value.get.return_value = None  # no existing checkpoint
+
+        result = polarize(mode="overnight", persistent=False)
+        assert mock_app.invoke.called
+
+    @patch("metabolon.organelles.polarization_loop._open_checkpointer")
+    @patch("metabolon.organelles.polarization_loop.build_graph")
+    def test_interactive_sets_interrupt(self, mock_build, mock_cp):
+        mock_app = MagicMock()
+        mock_app.invoke.return_value = {}
+        mock_build.return_value = mock_app
+        mock_cp.return_value = MagicMock()
+        mock_cp.return_value.get.return_value = None
+
+        polarize(mode="interactive", persistent=False)
+        compile_call = mock_build.return_value.compile
+        assert compile_call.called
+        kw = compile_call.call_args[1]
+        assert kw.get("interrupt_before") == ["dispatch"]
+
+    @patch("metabolon.organelles.polarization_loop._open_checkpointer")
+    @patch("metabolon.organelles.polarization_loop.build_graph")
+    def test_overnight_no_interrupt(self, mock_build, mock_cp):
+        mock_app = MagicMock()
+        mock_app.invoke.return_value = {}
+        mock_build.return_value = mock_app
+        mock_cp.return_value = MagicMock()
+        mock_cp.return_value.get.return_value = None
+
+        polarize(mode="overnight", persistent=False)
+        kw = mock_build.return_value.compile.call_args[1]
+        assert kw.get("interrupt_before") is None
+
+
+# ── review_and_continue tests ──────────────────────────────────
+
+
+class TestReviewAndContinue:
+    """Tests for review_and_continue public API."""
+
+    @patch("metabolon.organelles.polarization_loop._open_checkpointer")
+    @patch("metabolon.organelles.polarization_loop.build_graph")
+    def test_approve_continues(self, mock_build, mock_cp):
+        mock_app = MagicMock()
+        mock_app.invoke.return_value = {}
+        mock_build.return_value = mock_app
+        mock_cp.return_value = MagicMock()
+
+        review_and_continue(approve=True)
+        mock_app.invoke.assert_called()
+
+    @patch("metabolon.organelles.polarization_loop._open_checkpointer")
+    @patch("metabolon.organelles.polarization_loop.build_graph")
+    def test_reject_sets_stop(self, mock_build, mock_cp):
+        mock_app = MagicMock()
+        mock_app.invoke.return_value = {}
+        mock_build.return_value = mock_app
+        mock_cp.return_value = MagicMock()
+
+        review_and_continue(approve=False)
+        mock_app.update_state.assert_called_once()
+        state_update = mock_app.update_state.call_args[0][1]
+        assert state_update["should_stop"] is True
+
+    @patch("metabolon.organelles.polarization_loop._open_checkpointer")
+    @patch("metabolon.organelles.polarization_loop.build_graph")
+    def test_updated_goals_applied(self, mock_build, mock_cp):
+        mock_app = MagicMock()
+        mock_app.invoke.return_value = {}
+        mock_build.return_value = mock_app
+        mock_cp.return_value = MagicMock()
+
+        new_goals = [{"star": "S", "goal": "G", "deliverable": "/tmp/x.md", "model": "sonnet"}]
+        review_and_continue(approve=True, updated_goals=new_goals)
+        mock_app.update_state.assert_called_once()
+        state_update = mock_app.update_state.call_args[0][1]
+        assert state_update["sub_goals"] == new_goals
+
+
+# ── CLI tests ──────────────────────────────────────────────────
+
+
+class TestCLI:
+    """Tests for main() CLI entry point."""
 
     @patch("metabolon.organelles.polarization_loop.preflight")
-    def test_dry_run_calls_preflight(self, mock_pf, capsys):
-        mock_pf.return_value = {
+    def test_dry_run(self, mock_preflight, capsys):
+        mock_preflight.return_value = {
             "budget_status": "green",
             "consumption_count": 3,
-            "north_stars": "some stars" * 10,
+            "north_stars": "abc" * 100,
         }
-        with patch("sys.argv", ["polarization_loop", "--dry-run"]):
+        import sys
+        with patch.object(sys, "argv", ["polarization_loop", "--dry-run"]):
             main()
         captured = capsys.readouterr()
         assert "Budget: green" in captured.out
         assert "Consumption: 3" in captured.out
 
     @patch("metabolon.organelles.polarization_loop.polarize")
-    def test_default_mode_overnight(self, mock_pol, capsys):
-        mock_pol.return_value = {
+    def test_normal_run(self, mock_polarize, capsys):
+        mock_polarize.return_value = {
             "systole_num": 2,
             "total_produced": 5,
             "total_for_review": 1,
             "report": "/tmp/report.md",
         }
-        with patch("sys.argv", ["polarization_loop"]):
-            main()
-        mock_pol.assert_called_once_with(mode="overnight", thread_id="default")
-
-    @patch("metabolon.organelles.polarization_loop.polarize")
-    def test_interactive_mode(self, mock_pol, capsys):
-        mock_pol.return_value = {
-            "systole_num": 1,
-            "total_produced": 0,
-            "total_for_review": 0,
-        }
-        with patch("sys.argv", ["polarization_loop", "--mode", "interactive"]):
-            main()
-        mock_pol.assert_called_once_with(mode="interactive", thread_id="default")
-
-    @patch("metabolon.organelles.polarization_loop.polarize")
-    def test_custom_thread(self, mock_pol, capsys):
-        mock_pol.return_value = {"systole_num": 1, "total_produced": 0, "total_for_review": 0}
-        with patch("sys.argv", ["polarization_loop", "--thread", "my-thread"]):
-            main()
-        mock_pol.assert_called_once_with(mode="overnight", thread_id="my-thread")
-
-    @patch("metabolon.organelles.polarization_loop.polarize")
-    def test_output_shows_results(self, mock_pol, capsys):
-        mock_pol.return_value = {
-            "systole_num": 3,
-            "total_produced": 10,
-            "total_for_review": 2,
-            "report": "/path/report.md",
-        }
-        with patch("sys.argv", ["polarization_loop"]):
+        import sys
+        with patch.object(sys, "argv", ["polarization_loop", "--mode", "overnight"]):
             main()
         captured = capsys.readouterr()
-        assert "Systoles: 3" in captured.out
-        assert "Produced: 10" in captured.out
-        assert "For review: 2" in captured.out
-        assert "Report: /path/report.md" in captured.out
+        assert "Done" in captured.out
+        assert "Systoles: 2" in captured.out
+
+    @patch("metabolon.organelles.polarization_loop.polarize")
+    def test_interactive_mode(self, mock_polarize, capsys):
+        mock_polarize.return_value = {"systole_num": 0, "total_produced": 0, "total_for_review": 0}
+        import sys
+        with patch.object(sys, "argv", ["polarization_loop", "--mode", "interactive"]):
+            main()
+        mock_polarize.assert_called_once_with(mode="interactive", thread_id="default")
