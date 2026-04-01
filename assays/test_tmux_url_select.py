@@ -311,11 +311,16 @@ class TestPipeline:
     """Test the full grep+awk pipeline as the script actually runs it."""
 
     def _run_pipeline(self, buffer_content: str) -> tuple[int, str]:
-        """Run the exact grep+awk pipeline from the script via bash -c."""
+        """Run the exact grep+awk pipeline from the script via bash -c.
+
+        Includes ``set -o pipefail`` to match the script's ``set -euo pipefail``.
+        """
         _write_buffer(buffer_content)
         try:
             # Use the same quoting trick as the original script: '...'"'"'...'
-            cmd = """grep -oE 'https?://[^ >)"'"'"']+' /tmp/tmux-url-buffer | awk '!seen[$0]++'"""
+            grep_part = """grep -oE 'https?://[^ >)"'"'"']+' /tmp/tmux-url-buffer"""
+            awk_part = """awk '!seen[$0]++'"""
+            cmd = f"set -o pipefail; {grep_part} | {awk_part}"
             r = subprocess.run(
                 ["bash", "-c", cmd],
                 capture_output=True,
