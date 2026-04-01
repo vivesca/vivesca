@@ -40,6 +40,12 @@ ssh soma 'cd ~/germline && git status --short | head -20'
 ssh soma 'cd ~/germline && uv run pytest --co -q 2>&1 | tail -3'
 ```
 
+If on soma directly:
+```bash
+python3 effectors/golem-daemon status
+git log --oneline -10
+```
+
 If daemon produced work since last session: review, commit, push. Then write next batch.
 
 **Delegate everything possible to golems on soma** — including pytest runs, failure diagnosis, and verification. CC is the scheduler, not the executor.
@@ -92,31 +98,34 @@ Keep standalone when tasks have no shared context.
 
 ### Phase 3: Dispatch (on soma)
 
-**All dispatch happens on soma via Hatchet.** CC writes the queue, Hatchet workers drain it with per-provider concurrency and rate limits.
+**All dispatch happens on soma via golem-daemon.** CC writes tasks to `loci/golem-queue.md`, golem-daemon drains them with per-provider concurrency limits (zhipu:8, infini:1, volcano:16).
 
-**Option A — CC dispatches directly on soma:**
+**golem-daemon runs as a supervisor program on soma.** It polls the queue file, runs concurrent golem subprocesses, marks tasks done/failed, and handles rate-limit cooldowns automatically.
+
 ```bash
-ssh soma 'source ~/.env.fly && cd ~/germline && bash effectors/golem --provider infini --max-turns 50 "task..."' &
+# Check daemon status
+python3 effectors/golem-daemon status
+
+# Start/stop manually (supervisor handles this normally)
+python3 effectors/golem-daemon start
+python3 effectors/golem-daemon stop
+
+# Stats and maintenance
+python3 effectors/golem-daemon stats
+python3 effectors/golem-daemon retry-all   # re-queue all [!] as [ ]
+python3 effectors/golem-daemon clean       # remove old [x]/[!] entries
 ```
 
-**Option B — Write queue locally, push, Hatchet drains on soma:**
-```bash
-# 1. Write tasks to loci/golem-queue.md locally
-# 2. Push
-cd ~/germline && git add loci/golem-queue.md && git commit -m "queue: new tasks" && git push
-# 3. Pull on soma and trigger dispatch
-ssh soma 'cd ~/germline && git pull --ff-only && python3 effectors/hatchet-golem/dispatch.py'
-```
-
-**Option C — Write queue directly on soma via SSH:**
+**From iMac/Blink — write queue remotely, daemon picks up automatically:**
 ```bash
 ssh soma 'cat >> ~/germline/loci/golem-queue.md << "EOF"
 - [ ] `golem --provider zhipu --max-turns 40 "task..."`
 EOF'
-ssh soma 'cd ~/germline && python3 effectors/hatchet-golem/dispatch.py'
 ```
 
-**Hatchet runs on soma 24/7** — Docker containers (engine + API + workers). Cron task auto-requeues every 30min. CC writes judgment into the queue from anywhere (iMac, Blink, soma tmux). Hatchet executes even when CC is offline.
+No need to trigger dispatch — daemon polls continuously. CC writes judgment into the queue from anywhere; golem-daemon executes even when CC is offline.
+
+> **Experimental backends:** Hatchet (`effectors/hatchet-golem/`) and Temporal (`effectors/temporal-golem/`) exist as reference implementations. They add distributed coordination (useful if OCI becomes a second worker node) but have setup friction. See `finding_hatchet_self_hosted_issues.md` for known bugs. Don't use in production until the action listener subprocess issue is resolved.
 
 ### Phase 4: Verify + commit (on soma)
 
@@ -157,15 +166,15 @@ golem --full "task needing MCP"           # non-bare mode
 
 ### Provider config
 
-| Provider | Model | TTFB | Concurrent limit | Auth |
-|----------|-------|------|-----------------|------|
-| ZhiPu (default) | GLM-5.1 | 380ms | 4-5 | ANTHROPIC_API_KEY |
-| Infini | deepseek-v3.2 | 2.6s | 6-7 | ANTHROPIC_API_KEY |
-| Volcano | ark-code-latest | 11s | 8+ (degrades) | ANTHROPIC_AUTH_TOKEN |
+| Provider | Model | TTFB | golem-daemon limit | Auth |
+|----------|-------|------|--------------------|------|
+| ZhiPu (default) | GLM-5.1 | 380ms | 8 | ANTHROPIC_API_KEY |
+| Infini | deepseek-v3.2 | 2.6s | 1 (rate-limited) | ANTHROPIC_API_KEY |
+| Volcano | ark-code-latest | 11s | 16 | ANTHROPIC_AUTH_TOKEN |
 
-**Total concurrent budget: ~18-20 golems across all 3 providers.**
+**Total concurrent budget: ~25 golems across 3 providers.** golem-daemon manages this automatically with per-provider cooldowns on rate-limit detection.
 
-Priority: ZhiPu (fast) > Infini (good coder, decent speed) > Volcano (slow but high concurrency).
+Priority: ZhiPu (fast, reliable) > Volcano (slow but high concurrency) > Infini (good coder, strict rate limit).
 
 ## Gotchas
 
