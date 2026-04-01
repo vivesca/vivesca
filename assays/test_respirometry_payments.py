@@ -284,17 +284,15 @@ def test_schedule_payment_reminder_not_found(mock_run: MagicMock):
 # ── assess_missing_statements ────────────────────────────────────────
 
 
-@patch("metabolon.respirometry.payments.datetime")
+@patch.object(datetime, "now")
 def test_assess_missing_statements_flags_missing(
-    mock_dt: MagicMock, tmp_config: Path, tmp_path: Path, sample_cards_config: dict
+    mock_now_fn: MagicMock, tmp_config: Path, tmp_path: Path, sample_cards_config: dict
 ):
     """Flags cards past their grace period with no statement file."""
     # Set "today" to April 21 — past day 15+5=20 for hsbc, past day 18+5=23? no, 18+5=23, April 21 < 23
     # hsbc: statement_day=15, grace 5 → expected by day 20. April 21 >= 20 → flagged
     # citi: statement_day=18, grace 5 → expected by day 23. April 21 < 23 → not flagged
-    mock_now = datetime(2026, 4, 21, 12, 0, 0, tzinfo=HKT)
-    mock_dt.now.return_value = mock_now
-    mock_dt.side_effect = lambda *a, **kw: datetime(*a, **kw)
+    mock_now_fn.return_value = datetime(2026, 4, 21, 12, 0, 0, tzinfo=HKT)
     tmp_config.write_text(yaml.dump(sample_cards_config))
     spending_dir = tmp_path / "spending"
     spending_dir.mkdir()
@@ -306,33 +304,27 @@ def test_assess_missing_statements_flags_missing(
     assert "Missing statement" in alerts[0]
 
 
-@patch("metabolon.respirometry.payments.datetime")
+@patch.object(datetime, "now")
 def test_assess_missing_statements_skips_inactive(
-    mock_dt: MagicMock, tmp_config: Path, tmp_path: Path, sample_cards_config: dict
+    mock_now_fn: MagicMock, tmp_config: Path, tmp_path: Path, sample_cards_config: dict
 ):
     """Does not flag inactive cards."""
-    # Set date well past all grace periods
-    mock_now = datetime(2026, 4, 30, 12, 0, 0, tzinfo=HKT)
-    mock_dt.now.return_value = mock_now
-    mock_dt.side_effect = lambda *a, **kw: datetime(*a, **kw)
+    mock_now_fn.return_value = datetime(2026, 4, 30, 12, 0, 0, tzinfo=HKT)
     tmp_config.write_text(yaml.dump(sample_cards_config))
     spending_dir = tmp_path / "spending"
     spending_dir.mkdir()
 
     alerts = assess_missing_statements(tmp_config, spending_dir)
-    flagged_banks = [a for a in alerts]
     # sc is inactive, should not appear
-    assert not any("SC" in a for a in flagged_banks)
+    assert not any("SC" in a for a in alerts)
 
 
-@patch("metabolon.respirometry.payments.datetime")
+@patch.object(datetime, "now")
 def test_assess_missing_statements_statement_exists(
-    mock_dt: MagicMock, tmp_config: Path, tmp_path: Path, sample_cards_config: dict
+    mock_now_fn: MagicMock, tmp_config: Path, tmp_path: Path, sample_cards_config: dict
 ):
     """Does not flag when statement file already exists."""
-    mock_now = datetime(2026, 4, 21, 12, 0, 0, tzinfo=HKT)
-    mock_dt.now.return_value = mock_now
-    mock_dt.side_effect = lambda *a, **kw: datetime(*a, **kw)
+    mock_now_fn.return_value = datetime(2026, 4, 21, 12, 0, 0, tzinfo=HKT)
     tmp_config.write_text(yaml.dump(sample_cards_config))
     spending_dir = tmp_path / "spending"
     spending_dir.mkdir()
@@ -346,12 +338,10 @@ def test_assess_missing_statements_statement_exists(
 # ── flag_overdue_payments ────────────────────────────────────────────
 
 
-@patch("metabolon.respirometry.payments.datetime")
-def test_flag_overdue_overdue(mock_dt: MagicMock, tmp_payments: Path):
+@patch.object(datetime, "now")
+def test_flag_overdue_overdue(mock_now_fn: MagicMock, tmp_payments: Path):
     """Flags payments that are past due."""
-    mock_now = datetime(2026, 4, 20, 12, 0, 0, tzinfo=HKT)
-    mock_dt.now.return_value = mock_now
-    mock_dt.side_effect = lambda *a, **kw: datetime(*a, **kw)
+    mock_now_fn.return_value = datetime(2026, 4, 20, 12, 0, 0, tzinfo=HKT)
     pending = [
         {"bank": "hsbc", "amount": 5000.0, "due_date": "2026-04-15"},
     ]
@@ -362,12 +352,10 @@ def test_flag_overdue_overdue(mock_dt: MagicMock, tmp_payments: Path):
     assert "HSBC" in alerts[0]
 
 
-@patch("metabolon.respirometry.payments.datetime")
-def test_flag_overdue_due_soon(mock_dt: MagicMock, tmp_payments: Path):
+@patch.object(datetime, "now")
+def test_flag_overdue_due_soon(mock_now_fn: MagicMock, tmp_payments: Path):
     """Flags payments due within 2 days."""
-    mock_now = datetime(2026, 4, 14, 12, 0, 0, tzinfo=HKT)
-    mock_dt.now.return_value = mock_now
-    mock_dt.side_effect = lambda *a, **kw: datetime(*a, **kw)
+    mock_now_fn.return_value = datetime(2026, 4, 14, 12, 0, 0, tzinfo=HKT)
     pending = [
         {"bank": "citi", "amount": 3200.0, "due_date": "2026-04-15"},
     ]
@@ -378,12 +366,10 @@ def test_flag_overdue_due_soon(mock_dt: MagicMock, tmp_payments: Path):
     assert "CITI" in alerts[0]
 
 
-@patch("metabolon.respirometry.payments.datetime")
-def test_flag_overdue_no_alert_when_far(mock_dt: MagicMock, tmp_payments: Path):
+@patch.object(datetime, "now")
+def test_flag_overdue_no_alert_when_far(mock_now_fn: MagicMock, tmp_payments: Path):
     """No alert when payment is more than 2 days away."""
-    mock_now = datetime(2026, 4, 10, 12, 0, 0, tzinfo=HKT)
-    mock_dt.now.return_value = mock_now
-    mock_dt.side_effect = lambda *a, **kw: datetime(*a, **kw)
+    mock_now_fn.return_value = datetime(2026, 4, 10, 12, 0, 0, tzinfo=HKT)
     pending = [
         {"bank": "hsbc", "amount": 5000.0, "due_date": "2026-04-20"},
     ]
@@ -398,12 +384,10 @@ def test_flag_overdue_empty_payments(tmp_payments: Path):
     assert alerts == []
 
 
-@patch("metabolon.respirometry.payments.datetime")
-def test_flag_overdue_date_object(mock_dt: MagicMock, tmp_payments: Path):
+@patch.object(datetime, "now")
+def test_flag_overdue_date_object(mock_now_fn: MagicMock, tmp_payments: Path):
     """Handles due_date stored as a date object."""
-    mock_now = datetime(2026, 4, 20, 12, 0, 0, tzinfo=HKT)
-    mock_dt.now.return_value = mock_now
-    mock_dt.side_effect = lambda *a, **kw: datetime(*a, **kw)
+    mock_now_fn.return_value = datetime(2026, 4, 20, 12, 0, 0, tzinfo=HKT)
     pending = [
         {"bank": "hsbc", "amount": 5000.0, "due_date": date(2026, 4, 15)},
     ]
@@ -413,12 +397,10 @@ def test_flag_overdue_date_object(mock_dt: MagicMock, tmp_payments: Path):
     assert "OVERDUE" in alerts[0]
 
 
-@patch("metabolon.respirometry.payments.datetime")
-def test_flag_overdue_datetime_object(mock_dt: MagicMock, tmp_payments: Path):
+@patch.object(datetime, "now")
+def test_flag_overdue_datetime_object(mock_now_fn: MagicMock, tmp_payments: Path):
     """Handles due_date stored as a datetime object."""
-    mock_now = datetime(2026, 4, 20, 12, 0, 0, tzinfo=HKT)
-    mock_dt.now.return_value = mock_now
-    mock_dt.side_effect = lambda *a, **kw: datetime(*a, **kw)
+    mock_now_fn.return_value = datetime(2026, 4, 20, 12, 0, 0, tzinfo=HKT)
     pending = [
         {
             "bank": "hsbc",
@@ -432,12 +414,10 @@ def test_flag_overdue_datetime_object(mock_dt: MagicMock, tmp_payments: Path):
     assert "OVERDUE" in alerts[0]
 
 
-@patch("metabolon.respirometry.payments.datetime")
-def test_flag_overdue_exactly_1_day(mock_dt: MagicMock, tmp_payments: Path):
+@patch.object(datetime, "now")
+def test_flag_overdue_exactly_1_day(mock_now_fn: MagicMock, tmp_payments: Path):
     """Uses singular 'day' when exactly 1 day left."""
-    mock_now = datetime(2026, 4, 14, 12, 0, 0, tzinfo=HKT)
-    mock_dt.now.return_value = mock_now
-    mock_dt.side_effect = lambda *a, **kw: datetime(*a, **kw)
+    mock_now_fn.return_value = datetime(2026, 4, 14, 12, 0, 0, tzinfo=HKT)
     pending = [
         {"bank": "citi", "amount": 1000.0, "due_date": "2026-04-15"},
     ]

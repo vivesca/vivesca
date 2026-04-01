@@ -370,85 +370,75 @@ class TestScanHistory:
     @patch("metabolon.organelles.engram._scan_opencode", return_value=[])
     @patch("metabolon.organelles.engram._history_files")
     def test_basic_scan(self, mock_hf, mock_oc):
-        # Build ms for 2025-06-15 14:00 HKT
         ts_ms = _FIXED_MS
-        mock_hf.return_value = [
-            ("Claude", Path("/fake/claude/history.jsonl")),
-        ]
-        data = self._make_jsonl([
-            {"timestamp": ts_ms, "display": "hello", "sessionId": "sess-abc123"},
-        ])
-        mock_file = StringIO(data)
+        mock_path = MagicMock(spec=Path)
+        mock_path.exists.return_value = True
+        mock_path.open.return_value.__enter__ = lambda s: StringIO(
+            self._make_jsonl([{"timestamp": ts_ms, "display": "hello", "sessionId": "sess-abc123"}])
+        )
+        mock_path.open.return_value.__exit__ = MagicMock(return_value=False)
+        mock_hf.return_value = [("Claude", mock_path)]
 
-        with patch.object(Path, "exists", return_value=True), \
-             patch("builtins.open", return_value=mock_file):
-            result = _scan_history("2025-06-15")
-            assert len(result) == 1
-            assert result[0].prompt == "hello"
-            assert result[0].tool == "Claude"
-            assert result[0].session == "sess-abc"
+        result = _scan_history("2025-06-15")
+        assert len(result) == 1
+        assert result[0].prompt == "hello"
+        assert result[0].tool == "Claude"
+        assert result[0].session == "sess-abc"
 
     @patch("metabolon.organelles.engram._scan_opencode", return_value=[])
     @patch("metabolon.organelles.engram._history_files")
     def test_out_of_range_filtered(self, mock_hf, mock_oc):
         ts_ms = _FIXED_MS - 86400_000 * 10  # 10 days before
-        mock_hf.return_value = [
-            ("Claude", Path("/fake/claude/history.jsonl")),
-        ]
-        data = self._make_jsonl([
-            {"timestamp": ts_ms, "display": "old", "sessionId": "sess-old"},
-        ])
-        mock_file = StringIO(data)
+        mock_path = MagicMock(spec=Path)
+        mock_path.exists.return_value = True
+        mock_path.open.return_value.__enter__ = lambda s: StringIO(
+            self._make_jsonl([{"timestamp": ts_ms, "display": "old", "sessionId": "sess-old"}])
+        )
+        mock_path.open.return_value.__exit__ = MagicMock(return_value=False)
+        mock_hf.return_value = [("Claude", mock_path)]
 
-        with patch.object(Path, "exists", return_value=True), \
-             patch("builtins.open", return_value=mock_file):
-            result = _scan_history("2025-06-15")
-            assert len(result) == 0
+        result = _scan_history("2025-06-15")
+        assert len(result) == 0
 
     @patch("metabolon.organelles.engram._scan_opencode", return_value=[])
     @patch("metabolon.organelles.engram._history_files")
     def test_tool_filter(self, mock_hf, mock_oc):
         ts_ms = _FIXED_MS
-        mock_hf.return_value = [
-            ("Claude", Path("/fake/claude/history.jsonl")),
-            ("Codex", Path("/fake/codex/history.jsonl")),
-        ]
-        data = self._make_jsonl([
-            {"timestamp": ts_ms, "display": "claude prompt", "sessionId": "s1"},
-        ])
-        mock_file = StringIO(data)
+        mock_path = MagicMock(spec=Path)
+        mock_path.exists.return_value = True
+        mock_path.open.return_value.__enter__ = lambda s: StringIO(
+            self._make_jsonl([{"timestamp": ts_ms, "display": "claude prompt", "sessionId": "s1"}])
+        )
+        mock_path.open.return_value.__exit__ = MagicMock(return_value=False)
+        mock_hf.return_value = [("Claude", mock_path)]
 
-        with patch.object(Path, "exists", return_value=True), \
-             patch("builtins.open", return_value=mock_file):
-            result = _scan_history("2025-06-15", tool_filter="Claude")
-            assert all(r.tool == "Claude" for r in result)
+        result = _scan_history("2025-06-15", tool_filter="Claude")
+        assert all(r.tool == "Claude" for r in result)
 
     @patch("metabolon.organelles.engram._scan_opencode", return_value=[])
     @patch("metabolon.organelles.engram._history_files")
     def test_missing_file_skipped(self, mock_hf, mock_oc):
-        mock_hf.return_value = [
-            ("Claude", Path("/nonexistent/history.jsonl")),
-        ]
+        mock_path = MagicMock(spec=Path)
+        mock_path.exists.return_value = False
+        mock_hf.return_value = [("Claude", mock_path)]
 
-        with patch.object(Path, "exists", return_value=False):
-            result = _scan_history("2025-06-15")
-            assert result == []
+        result = _scan_history("2025-06-15")
+        assert result == []
 
     @patch("metabolon.organelles.engram._scan_opencode", return_value=[])
     @patch("metabolon.organelles.engram._history_files")
     def test_malformed_jsonl_lines_skipped(self, mock_hf, mock_oc):
         ts_ms = _FIXED_MS
-        mock_hf.return_value = [
-            ("Claude", Path("/fake/claude/history.jsonl")),
-        ]
         data = "not json\n" + json.dumps({"timestamp": ts_ms, "display": "ok", "sessionId": "s1"}) + "\n"
-        mock_file = StringIO(data)
+        mock_path = MagicMock(spec=Path)
+        mock_path.exists.return_value = True
+        mock_path.open.return_value.__enter__ = lambda s: StringIO(data)
+        mock_path.open.return_value.__exit__ = MagicMock(return_value=False)
+        mock_hf.return_value = [("Claude", mock_path)]
 
-        with patch.object(Path, "exists", return_value=True), \
-             patch("builtins.open", return_value=mock_file):
-            result = _scan_history("2025-06-15")
-            assert len(result) == 1
-            assert result[0].prompt == "ok"
+        result = _scan_history("2025-06-15")
+        assert len(result) == 1
+        assert result[0].prompt == "ok"
 
 
 # ---------------------------------------------------------------------------
@@ -457,26 +447,26 @@ class TestScanHistory:
 
 
 class TestSearchPrompts:
-    @patch("metabolon.organelles.engram._opencode_storage", return_value=Path("/fake/opencode"))
+    @patch("metabolon.organelles.engram._iter_opencode_messages", return_value=[])
     @patch("metabolon.organelles.engram._history_files")
-    def test_finds_match(self, mock_hf, mock_os):
+    def test_finds_match(self, mock_hf, mock_iter):
         ts_ms = _FIXED_MS
-        mock_hf.return_value = [
-            ("Claude", Path("/fake/claude/history.jsonl")),
-        ]
+        mock_path = MagicMock(spec=Path)
+        mock_path.exists.return_value = True
         data = json.dumps({"timestamp": ts_ms, "display": "findme please", "sessionId": "sess1"}) + "\n"
+        mock_path.open.return_value.__enter__ = lambda s: StringIO(data)
+        mock_path.open.return_value.__exit__ = MagicMock(return_value=False)
+        mock_hf.return_value = [("Claude", mock_path)]
+
         regex = re.compile("findme", re.IGNORECASE)
+        start, end = _date_to_range_ms("2025-06-15")
+        results = _search_prompts(regex, start, end, None, None, None)
+        assert len(results) == 1
+        assert "findme" in results[0].snippet
 
-        with patch.object(Path, "exists", return_value=True), \
-             patch("builtins.open", return_value=StringIO(data)):
-            start, end = _date_to_range_ms("2025-06-15")
-            results = _search_prompts(regex, start, end, None, None, None)
-            assert len(results) == 1
-            assert "findme" in results[0].snippet
-
-    @patch("metabolon.organelles.engram._opencode_storage", return_value=Path("/fake/opencode"))
+    @patch("metabolon.organelles.engram._iter_opencode_messages", return_value=[])
     @patch("metabolon.organelles.engram._history_files")
-    def test_role_filter_non_user_returns_empty(self, mock_hf, mock_os):
+    def test_role_filter_non_user_returns_empty(self, mock_hf, mock_iter):
         regex = re.compile("anything", re.IGNORECASE)
         start, end = _date_to_range_ms("2025-06-15")
         results = _search_prompts(regex, start, end, None, "claude", None)
@@ -489,9 +479,10 @@ class TestSearchPrompts:
 
 
 class TestSearchTranscripts:
-    @patch("metabolon.organelles.engram._projects_dir", return_value=Path("/fake/projects"))
-    @patch("metabolon.organelles.engram._opencode_storage", return_value=Path("/fake/opencode"))
-    def test_searches_claude_transcripts(self, mock_os, mock_pd):
+    @patch("metabolon.organelles.engram._iter_opencode_messages", return_value=[])
+    @patch("metabolon.organelles.engram._projects_dir")
+    @patch("metabolon.organelles.engram._opencode_storage")
+    def test_searches_claude_transcripts(self, mock_os, mock_pd, mock_iter):
         ts_iso = "2025-06-15T14:30:00+08:00"
         entry = {
             "type": "user",
@@ -503,26 +494,34 @@ class TestSearchTranscripts:
         }
         data = json.dumps(entry) + "\n"
 
-        # Mock project dir with one .jsonl file
-        jsonl_path = Path("/fake/projects/proj1/session-abc.jsonl")
+        # Build mock jsonl file with proper stat
+        mock_jsonl = MagicMock(spec=Path)
+        mock_jsonl.suffix = ".jsonl"
+        mock_jsonl.stem = "session-abc"
+        stat_result = MagicMock()
+        stat_result.st_mtime = _FIXED_MS / 1000
+        mock_jsonl.stat.return_value = stat_result
+        mock_jsonl.open.return_value.__enter__ = lambda s: StringIO(data)
+        mock_jsonl.open.return_value.__exit__ = MagicMock(return_value=False)
+
+        # Mock project dir
         mock_proj_dir = MagicMock()
         mock_proj_dir.is_dir.return_value = True
-        mock_proj_dir.iterdir.return_value = [jsonl_path]
-        mock_pd.return_value.iterdir.return_value = [mock_proj_dir]
+        mock_proj_dir.iterdir.return_value = [mock_jsonl]
+
+        mock_projects = MagicMock()
+        mock_projects.exists.return_value = True
+        mock_projects.iterdir.return_value = [mock_proj_dir]
+        mock_pd.return_value = mock_projects
+
+        mock_os.return_value = Path("/fake/opencode")
 
         regex = re.compile("pattern", re.IGNORECASE)
         start, end = _date_to_range_ms("2025-06-15")
 
-        with patch.object(Path, "exists", return_value=True), \
-             patch.object(Path, "stat") as mock_stat, \
-             patch("builtins.open", return_value=StringIO(data)):
-            mock_stat_result = MagicMock()
-            mock_stat_result.st_mtime = _FIXED_MS / 1000
-            mock_stat.return_value = mock_stat_result
-
-            results = _search_transcripts(regex, start, end, None, None, None)
-            assert len(results) == 1
-            assert results[0].role == "you"
+        results = _search_transcripts(regex, start, end, None, None, None)
+        assert len(results) == 1
+        assert results[0].role == "you"
 
 
 # ---------------------------------------------------------------------------
