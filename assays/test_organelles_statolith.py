@@ -167,6 +167,140 @@ class TestFetchers:
         assert result.scores[0].metrics["prompt_per_1m"] == 15.0
         assert result.scores[0].metrics["completion_per_1m"] == 75.0
 
+    @patch("httpx.Client.get")
+    def test_fetch_arena_json(self, mock_get, temp_dirs):
+        mock_get.return_value = MagicMock(
+            status_code=200,
+            json=lambda: {
+                "2024-01-01": {
+                    "text": {
+                        "overall": {
+                            "gpt-4": 1250,
+                            "claude-3": 1240
+                        }
+                    }
+                }
+            }
+        )
+        cache = statolith.Cache()
+        with httpx.Client() as client:
+            result = statolith._fetch_arena_json(cache, client)
+        
+        assert result.source == "arena"
+        assert len(result.scores) == 2
+        assert result.scores[0].source_model_name == "gpt-4"
+        assert result.scores[0].metrics["elo_score"] == 1250
+
+    @patch("httpx.Client.get")
+    def test_fetch_livebench(self, mock_get, temp_dirs):
+        # Mocking HuggingFace datasets server API
+        mock_get.return_value = MagicMock(
+            status_code=200,
+            json=lambda: {
+                "rows": [
+                    {"row": {"model": "m1", "score": 0.8}},
+                    {"row": {"model": "m1", "score": 0.9}},
+                ],
+                "num_rows_total": 2
+            }
+        )
+        cache = statolith.Cache()
+        with httpx.Client() as client:
+            result = statolith._fetch_livebench(cache, client)
+        
+        assert result.source == "livebench"
+        assert result.scores[0].source_model_name == "m1"
+        assert result.scores[0].metrics["global_average"] == 85.0
+
+    @patch("httpx.Client.get")
+    def test_fetch_terminal_bench(self, mock_get, temp_dirs):
+        mock_get.return_value = MagicMock(
+            status_code=200,
+            json=lambda: {
+                "siblings": [
+                    {"rfilename": "results/agent__model1/result.json"},
+                    {"rfilename": "results/agent__model1/other_result.json"},
+                    {"rfilename": "results/agent__model2/result.json"},
+                ]
+            }
+        )
+        cache = statolith.Cache()
+        with httpx.Client() as client:
+            result = statolith._fetch_tbench(cache, client)
+        
+        assert result.source == "terminal-bench"
+        # model1 has 2 results, model2 has 1
+        assert result.scores[0].model == "model1"
+        assert result.scores[0].metrics["tasks_completed"] == 2
+        assert result.scores[1].model == "model2"
+        assert result.scores[1].metrics["tasks_completed"] == 1
+
+
+# ============================================================================
+# CLI Commands
+# ============================================================================
+
+class TestCliCommands:
+    @patch("metabolon.organelles.statolith.fetch_all")
+    def test_cmd_rank(self, mock_fetch, temp_dirs):
+        mock_fetch.return_value = [
+            statolith.SourceResult(
+                source="arena",
+                scores=[statolith.ModelScore(model="gpt-4", source_model_name="gpt-4", rank=1)]
+            )
+        ]
+        cache = statolith.Cache()
+        aliases = statolith.AliasMap(_map={})
+        
+        with patch("builtins.print") as mock_print:
+            statolith.cmd_rank(cache, aliases, {}, "table", top=None, source_filter=None, tag=None, 
+                               sources_filter=None, aggregate=False, min_sources=None, 
+                               show_excluded=False, max_age=None, show_freshness=False, effort="all")
+        
+        # Check if output contains arena and gpt-4
+        output = "".join(call.args[0] for call in mock_print.call_args_list)
+        assert "arena" in output
+        assert "gpt-4" in output
+
+    @patch("metabolon.organelles.statolith.fetch_all")
+    def test_cmd_check(self, mock_fetch, temp_dirs):
+        mock_fetch.return_value = [
+            statolith.SourceResult(
+                source="arena",
+                scores=[statolith.ModelScore(model="gpt-4", source_model_name="gpt-4", rank=1)]
+            )
+        ]
+        cache = statolith.Cache()
+        aliases = statolith.AliasMap(_map={})
+        
+        with patch("builtins.print") as mock_print:
+            statolith.cmd_check(cache, aliases, "table", "gpt-4", show_matches=False)
+        
+        output = "".join(call.args[0] for call in mock_print.call_args_list)
+        assert "arena" in output
+        assert "gpt-4" in output
+
+    @patch("metabolon.organelles.statolith.fetch_all")
+    def test_cmd_compare(self, mock_fetch, temp_dirs):
+        mock_fetch.return_value = [
+            statolith.SourceResult(
+                source="arena",
+                scores=[
+                    statolith.ModelScore(model="gpt-4", source_model_name="gpt-4", rank=1),
+                    statolith.ModelScore(model="claude-3", source_model_name="claude-3", rank=2),
+                ]
+            )
+        ]
+        cache = statolith.Cache()
+        aliases = statolith.AliasMap(_map={})
+        
+        with patch("builtins.print") as mock_print:
+            statolith.cmd_compare(cache, aliases, "table", "gpt-4", "claude-3", effort="all")
+        
+        output = "".join(call.args[0] for call in mock_print.call_args_list)
+        assert "gpt-4" in output
+        assert "claude-3" in output
+
 
 # ============================================================================
 # Aggregation

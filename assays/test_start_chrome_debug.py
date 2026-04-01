@@ -17,9 +17,16 @@ SCRIPT = Path.home() / "germline" / "effectors" / "start-chrome-debug.sh"
 
 
 def _run(args: list[str] | None = None, *, env: dict | None = None) -> subprocess.CompletedProcess[str]:
-    """Run the script with optional args and env overrides."""
-    cmd = ["bash", str(SCRIPT)] + (args or [])
+    """Run the script with optional args and env overrides.
+
+    Uses /usr/bin/bash as executable so PATH overrides don't break it.
+    When env provides a custom PATH, system bin dirs are appended automatically.
+    """
+    cmd = ["/usr/bin/bash", str(SCRIPT)] + (args or [])
     merged = {**os.environ, **(env or {})}
+    # Ensure system dirs stay on PATH so curl etc. remain available
+    if env and "PATH" in env:
+        merged["PATH"] = env["PATH"] + ":/usr/bin:/bin"
     return subprocess.run(
         cmd,
         capture_output=True,

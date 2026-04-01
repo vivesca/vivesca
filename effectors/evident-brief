@@ -26,7 +26,7 @@ from pathlib import Path
 
 INDEX_URL = "https://evidentinsights.com/bankingbrief/"
 BASE_URL = "https://evidentinsights.com/bankingbrief/"
-CACHE_DIR = Path.home() / ".cache" / "lustro-articles"
+CHROMATIN_DIR = Path.home() / "epigenome" / "chromatin" / "euchromatin" / "evident"
 
 
 def _get_firecrawl_key() -> str:
@@ -236,9 +236,9 @@ def fetch_brief(slug: str, index_meta: dict | None = None) -> dict:
     }
 
 
-def save_to_cache(brief: dict) -> Path:
-    """Save brief to lustro article cache as JSON."""
-    CACHE_DIR.mkdir(parents=True, exist_ok=True)
+def save_brief(brief: dict) -> Path:
+    """Save brief as markdown to chromatin."""
+    CHROMATIN_DIR.mkdir(parents=True, exist_ok=True)
 
     date_str = datetime.now(UTC).strftime("%Y-%m-%d")
     if brief["date"]:
@@ -250,21 +250,9 @@ def save_to_cache(brief: dict) -> Path:
             except ValueError:
                 continue
 
-    filename = f"{date_str}_evident-brief_{brief['slug']}.json"
-    filepath = CACHE_DIR / filename
-
-    record = {
-        "title": f"Evident Banking Brief: {brief['title']}",
-        "date": date_str,
-        "source": "Evident Banking Brief",
-        "tier": 1,
-        "link": brief["url"],
-        "summary": brief["markdown"][:300].strip().replace("\n", " "),
-        "text": brief["markdown"],
-        "fetched_at": datetime.now(UTC).isoformat(),
-    }
-
-    filepath.write_text(json.dumps(record, ensure_ascii=False, indent=2))
+    filename = f"{date_str}_{brief['slug']}.md"
+    filepath = CHROMATIN_DIR / filename
+    filepath.write_text(brief["markdown"])
     return filepath
 
 
@@ -274,7 +262,7 @@ def save_to_cache(brief: dict) -> Path:
 
 def main():
     parser = argparse.ArgumentParser(description="Fetch the latest Evident Banking Brief.")
-    parser.add_argument("--save", action="store_true", help="Save to lustro article cache")
+    parser.add_argument("--save", action="store_true", help="Save to chromatin")
     parser.add_argument("--list", action="store_true", help="List available briefs")
     parser.add_argument("--slug", type=str, help="Fetch a specific brief by URL slug")
     parser.add_argument("--json", action="store_true", help="Output as JSON")
@@ -309,7 +297,7 @@ def main():
         print(brief["markdown"])
 
     if args.save:
-        path = save_to_cache(brief)
+        path = save_brief(brief)
         print(f"Saved to {path}", file=sys.stderr)
 
 
