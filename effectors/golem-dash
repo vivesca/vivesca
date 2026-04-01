@@ -56,6 +56,10 @@ _task_first_seen: dict[str, float] = {}
 
 def parse_ts(ts_str: str) -> datetime:
     """Parse a timestamp string (flexible formats)."""
+    # Strip trailing timezone offset like +00:00 so strptime can handle it
+    ts_str = re.sub(r'[+-]\d{2}:\d{2}$', '', ts_str)
+    # Strip fractional seconds like .123456
+    ts_str = re.sub(r'\.\d+', '', ts_str)
     for fmt in (
         "%Y-%m-%dT%H:%M:%SZ",
         "%Y-%m-%dT%H:%M:%S",
@@ -713,6 +717,19 @@ def build_dashboard(
     if running:
         avg_durs = compute_avg_duration_by_provider(all_records)
         components.append(build_running_tasks_table(running, avg_durs))
+
+        # === Stale task warnings ===
+        stale = detect_stale_tasks(running, avg_durs)
+        if stale:
+            stale_text = Text()
+            stale_text.append("  Stale tasks:\n", style="bold red")
+            for s in stale:
+                stale_text.append(
+                    f"    {s['task_id']} ({s['provider']}) "
+                    f"elapsed={fmt_duration(s['elapsed'])} vs avg={fmt_duration(s['avg'])}\n",
+                    style="red",
+                )
+            components.append(stale_text)
 
     # === Cooldown info ===
     cooldown_lines = []

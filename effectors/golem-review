@@ -201,34 +201,40 @@ def _detect_section_keyword(lines: list[str], keywords: tuple[str, ...]) -> bool
 def _compute_quality_score(entry: dict) -> int:
     """Compute a 0-100 quality score from consulting content checks.
 
-    Breakdown: words 25, headings 10, paragraphs 10, structure 10,
-               intro 10, conclusion 10, min_sections_ok 10,
-               section_count 10, no broken sections 5.
+    Breakdown: words 20, headings 8, paragraphs 8, structure 8,
+               intro 8, conclusion 8, min_sections_ok 8,
+               section_count 8, heading_hierarchy 8,
+               no broken sections -4, filler penalty -8.
     """
     score = 0
     wc = entry.get("word_count", 0)
-    score += min(25, int(wc / 500 * 25)) if wc > 0 else 0
+    score += min(20, int(wc / 500 * 20)) if wc > 0 else 0
     if entry.get("has_headings"):
-        score += 10
+        score += 8
     if entry.get("has_paragraphs"):
-        score += 10
+        score += 8
     if entry.get("has_structure_elements"):
-        score += 10
+        score += 8
     if entry.get("has_introduction"):
-        score += 10
+        score += 8
     if entry.get("has_conclusion"):
-        score += 10
+        score += 8
     if entry.get("min_sections_ok"):
-        score += 10
-    # Section count bonus: 2+ = 5, 4+ = 10
+        score += 8
+    if entry.get("has_proper_heading_hierarchy"):
+        score += 8
+    # Section count bonus: 2+ = 4, 4+ = 8
     sec = entry.get("section_count", 0)
     if sec >= 4:
-        score += 10
+        score += 8
     elif sec >= 2:
-        score += 5
+        score += 4
     # Penalty: broken sections reduce score
     broken = entry.get("broken_sections", 0)
-    score -= min(5, broken * 2)
+    score -= min(4, broken * 2)
+    # Penalty: filler content
+    if entry.get("has_filler_content"):
+        score -= 8
     return max(0, score)
 
 
@@ -274,6 +280,76 @@ def _count_sections(lines: list[str]) -> tuple[int, int]:
     return total, broken
 
 
+def _check_heading_hierarchy(lines: list[str]) -> bool:
+    """Return True if heading levels don't skip (e.g. H1 → H4 is bad).
+
+    Allows starting at any level and increasing by 1, but not jumping
+    more than 1 level at a time.
+    """
+    prev_level = 0
+    for line in lines:
+        stripped = line.strip()
+        if not stripped.startswith("#"):
+            continue
+        level = len(stripped) - len(stripped.lstrip("#"))
+        if level < 1:
+            continue
+        if prev_level == 0:
+            prev_level = level
+            continue
+        if level > prev_level + 1:
+            return False
+        prev_level = level
+    return True
+
+
+def _check_filler_content(text: str) -> bool:
+    """Return True if the text appears to be filler (repetitive content).
+
+    Checks for: same sentence repeated >3 times, or >50% of unique
+    sentences are very short (<5 words).
+    """
+    sentences = re.split(r'[.!?]+', text)
+    sentences = [s.strip() for s in sentences if s.strip() and len(s.strip()) > 2]
+    if len(sentences) < 4:
+        return False
+    # Check for repeated sentences (>3 identical)
+    from collections import Counter
+    counts = Counter(s.lower() for s in sentences)
+    for sentence, cnt in counts.items():
+        if cnt > 3:
+            return True
+    # Check if >50% of unique sentences are very short (<5 words)
+    short_count = sum(1 for s in set(sentences) if len(s.split()) < 5)
+    unique_count = len(set(sentences))
+    if unique_count > 0 and short_count / unique_count > 0.5:
+        return True
+    return False
+
+
+def _compute_paragraph_stats(lines: list[str]) -> float:
+    """Return average word count per paragraph block.
+
+    A paragraph is a contiguous block of non-blank, non-heading lines.
+    Returns 0.0 if no paragraphs found.
+    """
+    paragraphs: list[int] = []
+    current_words = 0
+    for line in lines:
+        stripped = line.strip()
+        if stripped == "" or stripped.startswith("#"):
+            if current_words > 0:
+                paragraphs.append(current_words)
+                current_words = 0
+            continue
+        current_words += len(stripped.split())
+    if current_words > 0:
+        paragraphs.append(current_words)
+    if not paragraphs:
+        return 0.0
+    return sum(paragraphs) / len(paragraphs)
+
+
 def check_consulting_content(files: list[str]) -> list[dict]:
     """Check each file: exists? adequate word count (>200)? proper structure?
 
@@ -281,6 +357,8 @@ def check_consulting_content(files: list[str]) -> list[dict]:
                      has_headings, has_paragraphs, has_structure_elements,
                      structure_ok, has_introduction, has_conclusion,
                      section_count, broken_sections, min_sections_ok,
+                     has_proper_heading_hierarchy, avg_paragraph_word_count,
+                     has_filler_content, overall_quality_pass,
                      quality_score, verdict}.
     """
     results = []
@@ -294,6 +372,10 @@ def check_consulting_content(files: list[str]) -> list[dict]:
             "has_introduction": False, "has_conclusion": False,
             "section_count": 0, "broken_sections": 0,
             "min_sections_ok": False,
+            "has_proper_heading_hierarchy": True,
+            "avg_paragraph_word_count": 0.0,
+            "has_filler_content": False,
+            "overall_quality_pass": False,
             "quality_score": 0, "verdict": "poor",
         }
 
@@ -366,9 +448,26 @@ def check_consulting_content(files: list[str]) -> list[dict]:
             lines, ("conclusion", "summary", "recommendations", "next steps", "takeaways"),
         )
 
+        # Heading hierarchy
+        entry["has_proper_heading_hierarchy"] = _check_heading_hierarchy(lines)
+
+        # Paragraph stats
+        entry["avg_paragraph_word_count"] = _compute_paragraph_stats(lines)
+
+        # Filler detection
+        entry["has_filler_content"] = _check_filler_content(text)
+
         # Quality score and verdict
         entry["quality_score"] = _compute_quality_score(entry)
         entry["verdict"] = _verdict_from_score(entry["quality_score"])
+
+        # Overall quality pass: adequate words, proper structure, no filler, hierarchy ok
+        entry["overall_quality_pass"] = (
+            entry["adequate"]
+            and entry["structure_ok"]
+            and not entry["has_filler_content"]
+            and entry["has_proper_heading_hierarchy"]
+        )
 
         results.append(entry)
 
@@ -663,11 +762,16 @@ def generate_review(
             sec_count = r.get("section_count", 0)
             broken = r.get("broken_sections", 0)
             min_ok = "M" if r.get("min_sections_ok") else "_"
+            hier = "↕" if r.get("has_proper_heading_hierarchy") else "⚠"
+            avg_p = r.get("avg_paragraph_word_count", 0.0)
+            filler = "FILLER" if r.get("has_filler_content") else ""
+            pass_mark = "✓" if r.get("overall_quality_pass") else "✗"
             lines.append(
                 f"- [{status}|{struct}] {r['file']}: {wc} words ({exists}) "
                 f"[{heads}{paras}{elems}{intro}{concl}{min_ok}] "
-                f"secs={sec_count}(broken:{broken}) "
-                f"score={score} ({verdict})"
+                f"secs={sec_count}(broken:{broken}) {hier} "
+                f"avg_p={avg_p:.0f}w {filler} "
+                f"score={score} ({verdict}) {pass_mark}"
             )
         lines.append("")
 

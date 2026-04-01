@@ -32,17 +32,6 @@ def _create_fake_bin(tmp_path: Path, name: str, body: str) -> Path:
     return script
 
 
-def _create_sysbin(tmp_path: Path) -> Path:
-    """Create a minimal sysbin/ with symlinks to essential system tools only."""
-    sysbin = tmp_path / "sysbin"
-    sysbin.mkdir(exist_ok=True)
-    for tool in ("bash", "date", "tee", "sed"):
-        link = sysbin / tool
-        if not link.exists():
-            link.symlink_to(f"/usr/bin/{tool}")
-    return sysbin
-
-
 def _env_with_fake_path(tmp_path: Path) -> dict[str, str]:
     """Build env dict with HOME=tmp_path and PATH=fake bin + /usr/bin for system tools."""
     env = os.environ.copy()

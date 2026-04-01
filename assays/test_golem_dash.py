@@ -332,13 +332,13 @@ def test_drain_progress_partial():
     result = build_drain_progress(5, 5, 3600.0)
     text = result.plain
     assert "50%" in text
-    assert "1h" in text
+    assert "1.0h" in text
 
 
 # ── count_pending_by_provider (mocked) ──────────────────────────────
 
 
-def test_count_pending_by_provider(tmp_path, monkeypatch):
+def test_count_pending_by_provider(tmp_path):
     """Count pending checkboxes by provider."""
     queue = tmp_path / "golem-queue.md"
     queue.write_text(
@@ -347,10 +347,7 @@ def test_count_pending_by_provider(tmp_path, monkeypatch):
         "- [x] task3 --provider infini\n"
         "- [ ] task4 --provider infini\n"
     )
-    import golem_dash_test
-    monkeypatch.setattr(golem_dash_test, "QUEUE_PATH", queue)
-    # Reimport with patched path
-    # Easier: patch the module-level constant via the ns
+    # Patch the module-level constant via the exec'd namespace
     _mod["QUEUE_PATH"] = queue
     counts = count_pending_by_provider()
     assert counts["infini"] == 2
