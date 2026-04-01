@@ -12,7 +12,6 @@ import logging
 import time
 import traceback
 from collections import deque
-from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 

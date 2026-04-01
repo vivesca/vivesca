@@ -12,7 +12,6 @@ Provides four public functions:
 
 import asyncio
 import random
-from typing import Any
 
 from playwright.async_api import BrowserContext, Page
 

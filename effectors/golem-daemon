@@ -938,12 +938,20 @@ def daemon_loop():
                         else:
                             mark_failed(line_num, f"exit={exit_code} {tail[:60]}", exit_code=exit_code, task_id=task_id)
                             log(f"FAILED [{task_id}] (exit={exit_code}): {cmd[:60]}...")
-                            # Track consecutive failures per provider
-                            provider_consecutive_fails[provider] = provider_consecutive_fails.get(provider, 0) + 1
-                            if provider_consecutive_fails[provider] >= 3:
-                                cooldown_end = time.time() + PROVIDER_COOLDOWN_SECONDS
+                            # Track failures in sliding window per provider
+                            now = time.time()
+                            if provider not in provider_failure_times:
+                                provider_failure_times[provider] = []
+                            times = provider_failure_times[provider]
+                            times.append(now)
+                            # Prune entries outside the window
+                            window_start = now - PROVIDER_FAILURE_WINDOW
+                            provider_failure_times[provider] = [t for t in times if t >= window_start]
+                            recent_fails = len(provider_failure_times[provider])
+                            if recent_fails >= PROVIDER_FAILURE_THRESHOLD:
+                                cooldown_end = now + PROVIDER_COOLDOWN_SECONDS
                                 provider_cooldown_until[provider] = cooldown_end
-                                log(f"COOLDOWN: {provider} hit {provider_consecutive_fails[provider]} consecutive failures — pausing for {PROVIDER_COOLDOWN_SECONDS//60}min")
+                                log(f"COOLDOWN: {provider} hit {recent_fails} failures in {PROVIDER_FAILURE_WINDOW//60}min window — pausing for {PROVIDER_COOLDOWN_SECONDS//60}min")
                     except Exception as e:
                         log(f"Future error: {e}")
                         _write_jsonl_record(task_id, provider, 1, 0, cmd)
@@ -1000,7 +1008,7 @@ def daemon_loop():
                     if now >= provider_cooldown_until[p]:
                         log(f"COOLDOWN LIFTED: {p} — resuming dispatch")
                         del provider_cooldown_until[p]
-                        provider_consecutive_fails[p] = 0
+                        provider_failure_times.pop(p, None)
 
                 for line_num, cmd, task_id in pending:
                     provider = parse_provider(cmd)

@@ -91,7 +91,7 @@ def test_port_option_requires_value():
     assert r.returncode != 0
 
 
-def test_custom_port_accepted(tmp_path):
+def test_custom_port_accepted():
     """Script accepts --port with a custom value (fails later at Chrome detection)."""
     r = _run(["--port", "9999"])
     # Will fail because no Chrome, but should NOT fail on arg parsing
@@ -115,9 +115,9 @@ def test_no_chrome_found_exits_1():
     r = _run(["--help"])  # just confirm script is runnable
     assert r.returncode == 0
 
-    # Now run with empty PATH (no chrome)
+    # Now run with minimal PATH (no chrome, but keep bash/uname/etc.)
     env = os.environ.copy()
-    env["PATH"] = ""
+    env["PATH"] = "/bin:/usr/bin"
     r = subprocess.run(
         ["bash", str(SCRIPT)],
         capture_output=True,
@@ -151,8 +151,8 @@ def test_chromium_fallback(tmp_path):
     """Script finds 'chromium' if google-chrome-stable is absent."""
     bindir = _make_fake_chrome(tmp_path, name="chromium")
     env = os.environ.copy()
-    # Only include our bindir, no real chrome
-    env["PATH"] = str(bindir)
+    # Only include our bindir plus system dirs (no real chrome)
+    env["PATH"] = f"{bindir}:/bin:/usr/bin"
     r = subprocess.run(
         ["bash", str(SCRIPT)],
         capture_output=True,
@@ -167,7 +167,7 @@ def test_chromium_browser_fallback(tmp_path):
     """Script finds 'chromium-browser' if others are absent."""
     bindir = _make_fake_chrome(tmp_path, name="chromium-browser")
     env = os.environ.copy()
-    env["PATH"] = str(bindir)
+    env["PATH"] = f"{bindir}:/bin:/usr/bin"
     r = subprocess.run(
         ["bash", str(SCRIPT)],
         capture_output=True,
