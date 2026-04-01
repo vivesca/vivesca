@@ -1199,12 +1199,36 @@ def daemon_loop():
                         del provider_cooldown_until[p]
                         provider_failure_times.pop(p, None)
 
+                # Per-provider preflight health check: ping each provider once per
+                # dispatch cycle before submitting tasks. Detects rate-limits proactively
+                # and prevents the "thundering herd" where N tasks get dispatched to a
+                # rate-limited provider simultaneously.
+                _preflight_checked: set[str] = set()
+                _golem_env_cache = _golem_env()
+
                 for line_num, cmd, task_id in pending:
                     provider = parse_provider(cmd)
 
                     # Skip providers in cooldown (rate-limited)
                     if provider in provider_cooldown_until:
                         continue
+
+                    # Per-provider preflight: check once per cycle, before first dispatch
+                    if provider not in _preflight_checked and provider not in ("default", "gemini", "codex"):
+                        _preflight_checked.add(provider)
+                        healthy, cooldown_secs = _provider_preflight(provider, _golem_env_cache)
+                        if not healthy and cooldown_secs is not None:
+                            # Rate-limited — set cooldown immediately
+                            cooldown_end = time.time() + cooldown_secs
+                            provider_cooldown_until[provider] = cooldown_end
+                            provider_failure_times.pop(provider, None)
+                            cd_min = cooldown_secs // 60
+                            log(f"PREFLIGHT: {provider} rate-limited — cooldown {cd_min}min")
+                            continue
+                        elif not healthy:
+                            # Connection/auth error — transient, skip this cycle but no cooldown
+                            log(f"PREFLIGHT: {provider} connection error — skipping dispatch this cycle")
+                            continue
 
                     current = provider_running.get(provider, 0)
                     limit = get_provider_limit(provider)
