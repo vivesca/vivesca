@@ -26,7 +26,7 @@ def _run(
     """Run pharos-health.sh with stubbed commands via PATH override."""
 
     stub_dir = tmp_path / "stubs"
-    stub_dir.mkdir()
+    stub_dir.mkdir(exist_ok=True)
 
     # Stub df — prints a disk percentage line
     df_stub = stub_dir / "df"
@@ -53,7 +53,7 @@ def _run(
     # Optional tg-notify.sh
     scripts_dir = tmp_path / "scripts"
     if tg_notify:
-        scripts_dir.mkdir()
+        scripts_dir.mkdir(exist_ok=True)
         notify = scripts_dir / "tg-notify.sh"
         notify.write_text("#!/bin/bash\necho \"TG_NOTIFY: $@\" >> $HOME/tg-notify.log\n")
         notify.chmod(0o755)
