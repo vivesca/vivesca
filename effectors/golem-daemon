@@ -17,6 +17,7 @@ from __future__ import annotations
 import ast
 import os
 import re
+import secrets
 import sys
 import time
 import signal
@@ -150,6 +151,9 @@ class QueueLock:
         fcntl.flock(self._fd, fcntl.LOCK_UN)
         self._fd.close()
 
+
+TASK_ID_RE = re.compile(r'\[t-([0-9a-f]{6})\]')
+RUNNING_FILE = Path.home() / ".local" / "share" / "vivesca" / "golem-running.json"
 
 # Per-provider concurrency limits
 PROVIDER_LIMITS = {

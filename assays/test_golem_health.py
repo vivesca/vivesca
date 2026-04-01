@@ -282,51 +282,41 @@ class TestProviderConfig:
 class TestMainFunction:
     """Test the main function."""
 
-    @mock.patch("subprocess.run")
-    def test_main_returns_zero_on_success(self, mock_run):
+    def test_main_returns_zero_on_success(self):
         """Test main returns 0 when all providers succeed."""
-        import importlib.util
+        module = _load_module()
 
-        mock_run.return_value = mock.Mock(
+        mock_run = mock.Mock(
             returncode=0,
             stdout="Hello!",
             stderr="",
         )
-
-        spec = importlib.util.spec_from_file_location("golem_health", GOLEM_HEALTH_PATH)
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
-
-        # Mock the golem path check
-        with mock.patch.object(Path, "exists", return_value=True):
-            with mock.patch.object(Path, "__truediv__", return_value=Path("/fake/golem")):
-                # Patch source_env_file to return keys
-                with mock.patch.object(module, "source_env_file", return_value={
-                    "ZHIPU_API_KEY": "key",
-                    "INFINI_API_KEY": "key",
-                    "VOLCANO_API_KEY": "key",
-                }):
-                    exit_code = module.main(["--provider", "zhipu", "--json"])
+        with mock.patch.object(module.subprocess, "run", return_value=mock_run):
+            # Mock the golem path check
+            with mock.patch.object(Path, "exists", return_value=True):
+                with mock.patch.object(Path, "__truediv__", return_value=Path("/fake/golem")):
+                    # Patch source_env_file to return keys
+                    with mock.patch.object(module, "source_env_file", return_value={
+                        "ZHIPU_API_KEY": "key",
+                        "INFINI_API_KEY": "key",
+                        "VOLCANO_API_KEY": "key",
+                    }):
+                        exit_code = module.main(["--provider", "zhipu", "--json"])
         assert exit_code == 0
 
-    @mock.patch("subprocess.run")
-    def test_main_returns_one_on_failure(self, mock_run):
+    def test_main_returns_one_on_failure(self):
         """Test main returns 1 when provider fails."""
-        import importlib.util
+        module = _load_module()
 
-        mock_run.return_value = mock.Mock(
+        mock_run = mock.Mock(
             returncode=1,
             stdout="",
             stderr="Error",
         )
-
-        spec = importlib.util.spec_from_file_location("golem_health", GOLEM_HEALTH_PATH)
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
-
-        with mock.patch.object(Path, "exists", return_value=True):
-            with mock.patch.object(module, "source_env_file", return_value={
-                "ZHIPU_API_KEY": "key",
-            }):
-                exit_code = module.main(["--provider", "zhipu", "--json"])
+        with mock.patch.object(module.subprocess, "run", return_value=mock_run):
+            with mock.patch.object(Path, "exists", return_value=True):
+                with mock.patch.object(module, "source_env_file", return_value={
+                    "ZHIPU_API_KEY": "key",
+                }):
+                    exit_code = module.main(["--provider", "zhipu", "--json"])
         assert exit_code == 1
