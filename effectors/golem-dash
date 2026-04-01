@@ -336,6 +336,267 @@ def load_jsonl(path: Path) -> list[dict]:
     return records
 
 
+def load_running_json(path: Path) -> list[dict]:
+    """Parse golem-running.json for currently running tasks with task IDs."""
+    if not path.exists():
+        return []
+    try:
+        data = json.loads(path.read_text(encoding="utf-8", errors="replace"))
+        if isinstance(data, list):
+            return data
+        return []
+    except (json.JSONDecodeError, OSError):
+        return []
+
+
+def load_cooldowns(path: Path) -> list[dict]:
+    """Parse golem-cooldowns.json for provider cooldown entries."""
+    if not path.exists():
+        return []
+    try:
+        data = json.loads(path.read_text(encoding="utf-8", errors="replace"))
+        if isinstance(data, list):
+            return data
+        return []
+    except (json.JSONDecodeError, OSError):
+        return []
+
+
+def active_cooldowns(cooldowns: list[dict]) -> dict[str, dict]:
+    """Return dict of provider -> cooldown info for currently active cooldowns.
+
+    Each value has keys: resets_at (datetime), reason (str), remaining_secs (int).
+    """
+    now = datetime.now()
+    result: dict[str, dict] = {}
+    for entry in cooldowns:
+        provider = entry.get("provider", "")
+        resets_str = entry.get("resets_at", "")
+        if not provider or not resets_str:
+            continue
+        resets_at = _parse_ts(resets_str)
+        if resets_at is None:
+            continue
+        remaining = (resets_at - now).total_seconds()
+        if remaining > 0:
+            result[provider] = {
+                "resets_at": resets_at,
+                "reason": entry.get("reason", ""),
+                "remaining_secs": int(remaining),
+            }
+    return result
+
+
+def cooldown_display(cooldowns: list[dict], use_color: bool = True) -> str:
+    """Format provider cooldown status for the dashboard."""
+    active = active_cooldowns(cooldowns)
+    if not active:
+        return ""
+
+    r_col = RED if use_color else ""
+    y = YELLOW if use_color else ""
+    dim = DIM if use_color else ""
+    rst = RESET if use_color else ""
+
+    lines = []
+    for prov in sorted(active):
+        info = active[prov]
+        rem = fmt_duration(info["remaining_secs"])
+        reason = info["reason"][:40]
+        lines.append(f"  {r_col}{prov}{rst}  cooldown {y}{rem}{rst}  {dim}({reason}){rst}")
+
+    return "\n".join(lines)
+
+
+def merge_running_sources(
+    ps_running: list[dict], json_running: list[dict], records: list[dict],
+) -> list[dict]:
+    """Merge running tasks from ps and golem-running.json.
+
+    golem-running.json has task_id and cmd; ps has pid and elapsed time.
+    Merge by matching provider + task snippet. Tasks only in JSON get
+    synthetic entries. Tasks only in ps keep their data.
+    """
+    if not json_running:
+        return ps_running
+    if not ps_running:
+        # Build synthetic running tasks from JSON
+        result = []
+        for jt in json_running:
+            provider = jt.get("provider", "unknown")
+            cmd = jt.get("cmd", "")
+            task_id = jt.get("task_id", "")
+            task = extract_task_snippet(cmd)
+            result.append({
+                "pid": 0,
+                "provider": provider,
+                "etime": "?",
+                "duration_secs": 0,
+                "task": f"[{task_id}] {task}" if task_id else task,
+                "task_id": task_id,
+            })
+        return enrich_running_progress(result, records)
+
+    # Index ps results by (provider, task_snippet)
+    ps_by_key: dict[str, dict] = {}
+    for t in ps_running:
+        key = f"{t['provider']}:{t['task']}"
+        ps_by_key[key] = t
+
+    # Index JSON results by task_id
+    json_by_id: dict[str, dict] = {jt.get("task_id", ""): jt for jt in json_running}
+
+    # Try to match: for each ps task, find matching JSON task
+    matched_json_ids: set[str] = set()
+    for t in ps_running:
+        best_match: str | None = None
+        best_score = 0
+        ps_task = t["task"][:30]
+        for jt in json_running:
+            jid = jt.get("task_id", "")
+            if jid in matched_json_ids:
+                continue
+            if jt.get("provider") != t["provider"]:
+                continue
+            jtask = extract_task_snippet(jt.get("cmd", ""))[:30]
+            # Simple overlap score
+            if ps_task == jtask:
+                best_score = 100
+                best_match = jid
+                break
+            overlap = len(set(ps_task.split()) & set(jtask.split()))
+            if overlap > best_score:
+                best_score = overlap
+                best_match = jid
+        if best_match and best_score > 0:
+            matched_json_ids.add(best_match)
+            t["task_id"] = best_match
+
+    # Add unmatched JSON tasks as synthetic entries
+    for jt in json_running:
+        jid = jt.get("task_id", "")
+        if jid not in matched_json_ids:
+            provider = jt.get("provider", "unknown")
+            cmd = jt.get("cmd", "")
+            task = extract_task_snippet(cmd)
+            ps_running.append({
+                "pid": 0,
+                "provider": provider,
+                "etime": "?",
+                "duration_secs": 0,
+                "task": f"[{jid}] {task}" if jid else task,
+                "task_id": jid,
+            })
+
+    return ps_running
+
+
+def parse_daemon_log_start_times(log_path: Path) -> dict[str, datetime]:
+    """Parse daemon log for Starting entries to get task start times.
+
+    Returns dict of task snippet -> datetime for the most recent start.
+    """
+    if not log_path.exists():
+        return {}
+    result: dict[str, datetime] = {}
+    try:
+        text = log_path.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return {}
+    for line in text.splitlines():
+        if "Starting:" not in line:
+            continue
+        # Format: [2026-04-01 23:12:19] Starting: golem --provider zhipu ...
+        ts_match = re.match(r"\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\]", line)
+        if not ts_match:
+            continue
+        ts = _parse_ts(ts_match.group(1))
+        if ts is None:
+            continue
+        # Extract the command after "Starting:"
+        rest = line.split("Starting:", 1)[-1].strip()
+        # Use provider+snippet as key
+        prov_match = PROVIDER_RE.search(rest)
+        provider = prov_match.group(1) if prov_match else "unknown"
+        task = extract_task_snippet(rest)
+        key = f"{provider}:{task[:40]}"
+        result[key] = ts  # Last occurrence wins (most recent)
+    return result
+
+
+def recent_activity_timeline(
+    log_path: Path, limit: int = 8,
+) -> list[tuple[str, str, str]]:
+    """Parse daemon log for recent Starting/Finished events.
+
+    Returns list of (timestamp_str, event_type, description) tuples,
+    most recent first, up to `limit` entries.
+    """
+    if not log_path.exists():
+        return []
+    events: list[tuple[datetime, str, str, str]] = []
+    try:
+        text = log_path.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return []
+    for line in text.splitlines():
+        ts_match = re.match(r"\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\]", line)
+        if not ts_match:
+            continue
+        ts = _parse_ts(ts_match.group(1))
+        if ts is None:
+            continue
+        if "Starting:" in line:
+            desc = line.split("Starting:", 1)[-1].strip()[:60]
+            events.append((ts, ts_match.group(1), "start", desc))
+        elif "Finished" in line:
+            desc = line.split("Finished", 1)[-1].strip()[:60]
+            events.append((ts, ts_match.group(1), "finish", desc))
+        elif "FAILED" in line:
+            desc = line.split("FAILED", 1)[-1].strip()[:60]
+            events.append((ts, ts_match.group(1), "fail", desc))
+        elif "Re-queued" in line:
+            desc = line.split("Re-queued", 1)[-1].strip()[:60]
+            events.append((ts, ts_match.group(1), "retry", desc))
+
+    # Sort most recent first, take limit
+    events.sort(key=lambda x: x[0], reverse=True)
+    return [(ts_str, ev_type, desc) for _, ts_str, ev_type, desc in events[:limit]]
+
+
+def timeline_display(
+    events: list[tuple[str, str, str]], use_color: bool = True,
+) -> str:
+    """Format recent activity timeline for the dashboard."""
+    if not events:
+        return "  No recent activity."
+
+    g = GREEN if use_color else ""
+    r_col = RED if use_color else ""
+    y = YELLOW if use_color else ""
+    c = CYAN if use_color else ""
+    dim = DIM if use_color else ""
+    rst = RESET if use_color else ""
+
+    icon_map = {
+        "start": f"{c}▶{rst}",
+        "finish": f"{g}✓{rst}",
+        "fail": f"{r_col}✗{rst}",
+        "retry": f"{y}↻{rst}",
+    }
+
+    lines = []
+    for ts_str, ev_type, desc in events:
+        icon = icon_map.get(ev_type, "·")
+        # Shorten timestamp to HH:MM:SS
+        time_short = ts_str.split(" ")[1] if " " in ts_str else ts_str
+        # Shorten description
+        short_desc = desc[:55] + "…" if len(desc) > 55 else desc
+        lines.append(f"  {icon} {dim}{time_short}{rst} {short_desc}")
+
+    return "\n".join(lines)
+
+
 def provider_stats(records: list[dict], use_color: bool = True) -> str:
     """Build provider stats table from JSONL records."""
     stats: dict[str, dict] = defaultdict(lambda: {"pass": 0, "fail": 0, "durations": []})
