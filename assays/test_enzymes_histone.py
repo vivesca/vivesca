@@ -46,7 +46,7 @@ def test_histone_search_missing_query():
 
 
 def test_histone_mark_success():
-    with patch("metabolon.enzymes.histone.add") as mock_add:
+    with patch("metabolon.organelles.chromatin.add") as mock_add:
         mock_add.return_value = {"file": "test_file.md"}
         result = histone("mark", content="test content", category="test", confidence=0.9)
         assert isinstance(result, EffectorResult)
@@ -56,7 +56,7 @@ def test_histone_mark_success():
 
 
 def test_histone_mark_default_category():
-    with patch("metabolon.enzymes.histone.add") as mock_add:
+    with patch("metabolon.organelles.chromatin.add") as mock_add:
         mock_add.return_value = {"file": "gotcha_file.md"}
         result = histone("mark", content="test content")
         assert isinstance(result, EffectorResult)

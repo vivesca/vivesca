@@ -111,8 +111,11 @@ def clean_pytest_temp_dirs(pytestconfig: pytest.Config):
                 for name in dirnames:
                     d = os.path.join(dirpath, name)
                     try:
-                        os.chmod(d, stat.S_IRWXU | stat.S_IRWXG | stat.S_IRWXO)
-                        os.rmdir(d)
+                        if os.path.islink(d):
+                            os.unlink(d)
+                        else:
+                            os.chmod(d, stat.S_IRWXU | stat.S_IRWXG | stat.S_IRWXO)
+                            os.rmdir(d)
                     except OSError:
                         pass
             try:
