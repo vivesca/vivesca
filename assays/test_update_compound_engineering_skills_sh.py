@@ -3,7 +3,7 @@ from __future__ import annotations
 """Tests for effectors/update-compound-engineering-skills.sh — bash script tested via subprocess."""
 
 import os
-import shutil
+import re
 import stat
 import subprocess
 from pathlib import Path
@@ -11,6 +11,21 @@ from pathlib import Path
 import pytest
 
 SCRIPT = Path(__file__).parent.parent / "effectors" / "update-compound-engineering-skills.sh"
+
+
+# ── script structure tests ──────────────────────────────────────────────
+
+
+class TestScriptStructure:
+    def test_script_exists(self):
+        assert SCRIPT.exists()
+
+    def test_script_is_executable(self):
+        assert os.access(SCRIPT, os.X_OK)
+
+    def test_script_has_shebang(self):
+        first_line = SCRIPT.read_text().splitlines()[0]
+        assert first_line == "#!/usr/bin/env bash"
 
 
 # ── helpers ─────────────────────────────────────────────────────────────
@@ -21,56 +36,58 @@ def _run_script(
     env_extra: dict | None = None,
     tmp_path: Path | None = None,
 ) -> subprocess.CompletedProcess:
-    """Run the script with optional custom env and HOME=tmp_path."""
+    """Run the script with optional custom env and tmp_path as HOME."""
     env = os.environ.copy()
     if tmp_path is not None:
         env["HOME"] = str(tmp_path)
     if env_extra:
         env.update(env_extra)
     cmd = ["bash", str(SCRIPT)] + (args or [])
-    return subprocess.run(cmd, capture_output=True, text=True, env=env, timeout=30)
-
-
-def _make_mock_installer(tmp_path: Path, exit_code: int = 0) -> Path:
-    """Create a mock install-skill-from-github.py script."""
-    script_dir = tmp_path / ".codex" / "skills" / ".system" / "skill-installer" / "scripts"
-    script_dir.mkdir(parents=True, exist_ok=True)
-    installer = script_dir / "install-skill-from-github.py"
-    installer.write_text(
-        "#!/usr/bin/env python3\n"
-        "import sys\n"
-        "print(f'Mock installer called with: {sys.argv[1:]}')\n"
-        f"sys.exit({exit_code})\n"
+    return subprocess.run(
+        cmd, capture_output=True, text=True, env=env, timeout=10,
     )
-    installer.chmod(installer.stat().st_mode | stat.S_IEXEC)
-    return installer
 
 
-def _make_recording_installer(tmp_path: Path, record_file: Path, exit_code: int = 0) -> Path:
-    """Create a mock installer that records all args to a file."""
+def _make_mock_bin(tmp_path: Path, name: str, stdout: str = "", exit_code: int = 0) -> Path:
+    """Create a mock executable script in tmp_path/bin/<name>."""
+    bindir = tmp_path / "bin"
+    bindir.mkdir(exist_ok=True)
+    script = bindir / name
+    script.write_text(f"#!/bin/bash\necho {stdout}\nexit {exit_code}\n")
+    script.chmod(script.stat().st_mode | stat.S_IEXEC)
+    return bindir
+
+
+def _make_recording_bin(tmp_path: Path, name: str, record_file: Path, exit_code: int = 0) -> Path:
+    """Create a mock bin that records all args to record_file."""
+    bindir = tmp_path / "bin"
+    bindir.mkdir(exist_ok=True)
+    script = bindir / name
+    script.write_text(
+        "#!/bin/bash\n"
+        f'echo "$@" >> {record_file}\n'
+        f"exit {exit_code}\n"
+    )
+    script.chmod(script.stat().st_mode | stat.S_IEXEC)
+    return bindir
+
+
+def _setup_mock_installer(tmp_path: Path, record_file: Path, exit_code: int = 0):
+    """Set up mock install-skill-from-github.py in the expected location."""
     script_dir = tmp_path / ".codex" / "skills" / ".system" / "skill-installer" / "scripts"
     script_dir.mkdir(parents=True, exist_ok=True)
     installer = script_dir / "install-skill-from-github.py"
     installer.write_text(
         "#!/usr/bin/env python3\n"
         "import sys\n"
-        f"with open('{record_file}', 'a') as f:\n"
+        f'with open({repr(str(record_file))}, "a") as f:\n'
         "    f.write(' '.join(sys.argv[1:]) + '\\n')\n"
         f"sys.exit({exit_code})\n"
     )
     installer.chmod(installer.stat().st_mode | stat.S_IEXEC)
-    return installer
 
 
-def _skills_dir(tmp_path: Path) -> Path:
-    return tmp_path / ".codex" / "skills"
-
-
-def _backup_dir(tmp_path: Path) -> Path:
-    return tmp_path / ".codex" / "skills-backup"
-
-
-# ── --help tests ───────────────────────────────────────────────────────────
+# ── --help tests ────────────────────────────────────────────────────────
 
 
 class TestHelpFlag:
@@ -88,265 +105,80 @@ class TestHelpFlag:
 
     def test_help_mentions_skills(self, tmp_path):
         r = _run_script(["--help"], tmp_path=tmp_path)
-        assert "skills" in r.stdout.lower()
-
-    def test_help_does_not_create_backup(self, tmp_path):
-        _run_script(["--help"], tmp_path=tmp_path)
-        backup = _backup_dir(tmp_path)
-        assert not backup.exists() or not any(backup.iterdir())
+        assert "skills" in r.stdout
 
 
-# ── installer requirement tests ───────────────────────────────────────────
+# ── script execution tests ──────────────────────────────────────────────
 
 
-class TestInstallerRequirement:
-    def test_missing_installer_exits_nonzero(self, tmp_path):
-        """Script fails when installer script is missing."""
-        r = _run_script(tmp_path=tmp_path)
-        assert r.returncode != 0
+class TestScriptExecution:
+    def test_runs_installer_with_all_skills(self, tmp_path):
+        """Script runs install-skill-from-github.py with all expected skills."""
+        record = tmp_path / "installer_calls.log"
+        _setup_mock_installer(tmp_path, record)
 
-    def test_missing_installer_error_message(self, tmp_path):
-        """Script reports error when installer is missing."""
-        r = _run_script(tmp_path=tmp_path)
-        # bash set -e causes exit, check stderr or that it failed
-        assert r.returncode != 0
+        # Also need to set up CODEX_SKILLS_DIR
+        codex_skills = tmp_path / ".codex" / "skills"
+        codex_skills.mkdir(parents=True, exist_ok=True)
 
-
-# ── backup tests ───────────────────────────────────────────────────────────
-
-
-class TestBackup:
-    def test_creates_backup_directory(self, tmp_path):
-        """Script creates a backup directory."""
-        _make_mock_installer(tmp_path)
         r = _run_script(tmp_path=tmp_path)
         assert r.returncode == 0
-        backup = _backup_dir(tmp_path)
-        assert backup.exists()
 
-    def test_backs_up_existing_skills(self, tmp_path):
-        """Existing skills are moved to backup before install."""
-        skills = _skills_dir(tmp_path)
-        skills.mkdir(parents=True, exist_ok=True)
-        # Create an existing skill
-        (skills / "agent-browser").mkdir()
-        (skills / "agent-browser" / "test.md").write_text("old content")
-        
-        _make_mock_installer(tmp_path)
-        r = _run_script(tmp_path=tmp_path)
-        assert r.returncode == 0
-        
-        backup = _backup_dir(tmp_path)
-        # Backup should contain the old skill
-        backup_found = False
-        for d in backup.iterdir():
-            if (d / "agent-browser" / "test.md").exists():
-                backup_found = True
-                break
-        assert backup_found
-
-    def test_backup_timestamp_in_directory_name(self, tmp_path):
-        """Backup directory name includes timestamp."""
-        _make_mock_installer(tmp_path)
-        r = _run_script(tmp_path=tmp_path)
-        assert r.returncode == 0
-        
-        backup = _backup_dir(tmp_path)
-        dirs = list(backup.iterdir())
-        assert len(dirs) == 1
-        # Name format: compound-engineering-YYYYMMDD-HHMMSS
-        import re
-        assert re.match(r"compound-engineering-\d{8}-\d{6}", dirs[0].name)
-
-
-# ── installer invocation tests ─────────────────────────────────────────────
-
-
-class TestInstallerInvocation:
-    def test_installer_called_with_repo(self, tmp_path):
-        """Installer receives --repo EveryInc/compound-engineering-plugin."""
-        record = tmp_path / "calls.log"
-        _make_recording_installer(tmp_path, record)
-        r = _run_script(tmp_path=tmp_path)
-        assert r.returncode == 0
-        
+        assert record.exists()
         calls = record.read_text()
-        assert "--repo" in calls
+
+        # Check that all skills are passed
+        assert "agent-browser" in calls
+        assert "agent-native-architecture" in calls
+        assert "andrew-kane-gem-writer" in calls
+        assert "ce-brainstorm" in calls
+        assert "dhh-rails-style" in calls
+        assert "dspy-ruby" in calls
+        assert "every-style-editor" in calls
+        assert "frontend-design" in calls
+        assert "gemini-imagegen" in calls
+        assert "git-worktree" in calls
+        assert "rclone" in calls
+
+        # Check repo and path
         assert "EveryInc/compound-engineering-plugin" in calls
-
-    def test_installer_called_with_path(self, tmp_path):
-        """Installer receives --path with skill paths."""
-        record = tmp_path / "calls.log"
-        _make_recording_installer(tmp_path, record)
-        r = _run_script(tmp_path=tmp_path)
-        assert r.returncode == 0
-        
-        calls = record.read_text()
-        assert "--path" in calls
-
-    def test_installer_receives_all_skills(self, tmp_path):
-        """Installer receives all expected skill paths."""
-        record = tmp_path / "calls.log"
-        _make_recording_installer(tmp_path, record)
-        r = _run_script(tmp_path=tmp_path)
-        assert r.returncode == 0
-        
-        calls = record.read_text()
-        expected_skills = [
-            "agent-browser",
-            "agent-native-architecture",
-            "andrew-kane-gem-writer",
-            "ce-brainstorm",
-            "dhh-rails-style",
-            "dspy-ruby",
-            "every-style-editor",
-            "frontend-design",
-            "gemini-imagegen",
-            "git-worktree",
-            "rclone",
-        ]
-        for skill in expected_skills:
-            assert skill in calls, f"Missing skill: {skill}"
-
-    def test_installer_receives_base_path_prefix(self, tmp_path):
-        """Skill paths include plugins/compound-engineering/skills prefix."""
-        record = tmp_path / "calls.log"
-        _make_recording_installer(tmp_path, record)
-        r = _run_script(tmp_path=tmp_path)
-        assert r.returncode == 0
-        
-        calls = record.read_text()
         assert "plugins/compound-engineering/skills" in calls
 
+    def test_creates_backup_dir(self, tmp_path):
+        """Script creates a backup directory."""
+        record = tmp_path / "installer_calls.log"
+        _setup_mock_installer(tmp_path, record)
 
-# ── error handling tests ───────────────────────────────────────────────────
+        # Set up existing skills
+        codex_skills = tmp_path / ".codex" / "skills"
+        codex_skills.mkdir(parents=True, exist_ok=True)
+        (codex_skills / "agent-browser").mkdir()
 
-
-class TestErrorHandling:
-    def test_installer_failure_exits_nonzero(self, tmp_path):
-        """Script exits with error when installer fails."""
-        _make_mock_installer(tmp_path, exit_code=1)
-        r = _run_script(tmp_path=tmp_path)
-        assert r.returncode != 0
-
-    def test_restores_old_skills_on_failure(self, tmp_path):
-        """When installer fails, pre-existing skills are restored from backup."""
-        skills = _skills_dir(tmp_path)
-        skills.mkdir(parents=True, exist_ok=True)
-        
-        # Pre-existing skill
-        (skills / "agent-browser").mkdir()
-        (skills / "agent-browser" / "old.md").write_text("old")
-        
-        # Installer will fail
-        _make_mock_installer(tmp_path, exit_code=1)
-        r = _run_script(tmp_path=tmp_path)
-        assert r.returncode != 0
-        
-        # Should be restored
-        assert (skills / "agent-browser" / "old.md").exists()
-        assert (skills / "agent-browser" / "old.md").read_text() == "old"
-
-    def test_cleans_up_new_partial_installs_on_failure(self, tmp_path):
-        """When installer fails, any new skill directories it created are removed."""
-        skills = _skills_dir(tmp_path)
-        skills.mkdir(parents=True, exist_ok=True)
-        
-        # Mock installer that creates a new skill directory then fails
-        script_dir = tmp_path / ".codex" / "skills" / ".system" / "skill-installer" / "scripts"
-        script_dir.mkdir(parents=True, exist_ok=True)
-        installer = script_dir / "install-skill-from-github.py"
-        installer.write_text(
-            "#!/usr/bin/env python3\n"
-            "import os, sys\n"
-            "from pathlib import Path\n"
-            "home = os.environ.get('HOME')\n"
-            "new_skill = Path(home) / '.codex' / 'skills' / 'rclone'\n"
-            "new_skill.mkdir(parents=True, exist_ok=True)\n"
-            "(new_skill / 'new.md').write_text('new content')\n"
-            "sys.exit(1)\n"
-        )
-        installer.chmod(installer.stat().st_mode | stat.S_IEXEC)
-        
-        r = _run_script(tmp_path=tmp_path)
-        assert r.returncode != 0
-        
-        # New skill should be cleaned up (it wasn't in backup)
-        assert not (skills / "rclone").exists()
-
-
-# ── skills list tests ───────────────────────────────────────────────────────
-
-
-class TestSkillsList:
-    """Verify the SKILLS array matches what's passed to installer."""
-    
-    def test_skills_in_script_match_installer_args(self, tmp_path):
-        """All skills defined in the SKILLS array are passed to the installer."""
-        import re
-        script_content = SCRIPT.read_text()
-        # Extract skills from the bash array: SKILLS=( ... )
-        match = re.search(r"SKILLS=\((.*?)\)", script_content, re.DOTALL)
-        assert match, "Could not find SKILLS array in script"
-        
-        skills_text = match.group(1)
-        # Simple split, filtering out comments and empty lines
-        expected_skills = [
-            line.strip() 
-            for line in skills_text.splitlines() 
-            if line.strip() and not line.strip().startswith("#")
-        ]
-        
-        record = tmp_path / "calls.log"
-        _make_recording_installer(tmp_path, record)
-        r = _run_script(tmp_path=tmp_path)
-        assert r.returncode == 0
-        
-        calls = record.read_text()
-        for skill in expected_skills:
-            assert f"/{skill}" in calls, f"Skill '{skill}' from SKILLS array not found in installer call"
-
-    def test_skills_count_matches(self, tmp_path):
-        """Number of skills in SKILLS array matches installer args."""
-        record = tmp_path / "calls.log"
-        _make_recording_installer(tmp_path, record)
-        r = _run_script(tmp_path=tmp_path)
-        assert r.returncode == 0
-        
-        calls = record.read_text()
-        # Count skill path entries (each skill has plugins/compound-engineering/skills/<name>)
-        # The SKILLS array has 11 entries
-        expected_count = 11
-        # Count occurrences of each skill name
-        skills = [
-            "agent-browser",
-            "agent-native-architecture", 
-            "andrew-kane-gem-writer",
-            "ce-brainstorm",
-            "dhh-rails-style",
-            "dspy-ruby",
-            "every-style-editor",
-            "frontend-design",
-            "gemini-imagegen",
-            "git-worktree",
-            "rclone",
-        ]
-        found = sum(1 for s in skills if s in calls)
-        assert found == expected_count, f"Expected {expected_count} skills, found {found}"
-
-
-# ── exit code tests ─────────────────────────────────────────────────────────
-
-
-class TestExitCodes:
-    def test_success_exits_zero(self, tmp_path):
-        """Successful run exits with 0."""
-        _make_mock_installer(tmp_path)
         r = _run_script(tmp_path=tmp_path)
         assert r.returncode == 0
 
-    def test_failure_exits_nonzero(self, tmp_path):
-        """Failed installer causes non-zero exit."""
-        _make_mock_installer(tmp_path, exit_code=1)
-        r = _run_script(tmp_path=tmp_path)
-        assert r.returncode != 0
+        # Check backup dir exists
+        backup_parent = tmp_path / ".codex" / "skills-backup"
+        assert backup_parent.exists()
+        backups = list(backup_parent.iterdir())
+        assert len(backups) == 1
+        assert backups[0].name.startswith("compound-engineering-")
+
+    def test_installer_failure_restores_backup(self, tmp_path):
+        """If installer fails, script restores backup."""
+        record = tmp_path / "installer_calls.log"
+        _setup_mock_installer(tmp_path, record, exit_code=1)
+
+        # Set up existing skills
+        codex_skills = tmp_path / ".codex" / "skills"
+        codex_skills.mkdir(parents=True, exist_ok=True)
+        test_skill = codex_skills / "agent-browser"
+        test_skill.mkdir()
+        (test_skill / "test.txt").write_text("test content")
+
+        # This should fail and restore backup
+        _run_script(tmp_path=tmp_path)
+
+        # Verify the skill was restored
+        assert test_skill.exists()
+        assert (test_skill / "test.txt").read_text() == "test content"

@@ -600,6 +600,10 @@ def is_safe_to_autoapply(response: str) -> bool:
 # ---------------------------------------------------------------------------
 
 def main() -> None:
+    import sys
+    if "--help" in sys.argv or "-h" in sys.argv:
+        print(__doc__)
+        return
     date_str = datetime.now(UTC).strftime("%Y-%m-%d")
     log(f"methylation starting — date={date_str}, window={WINDOW_DAYS}d, threshold={MIN_PATTERN_COUNT}")
 
