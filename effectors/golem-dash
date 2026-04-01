@@ -698,6 +698,8 @@ def build_dashboard(
     per_provider_eta = compute_per_provider_eta(stats, pending_by_provider, all_records)
     trend = compute_throughput_trend(all_records)
     spark = sparkline(trend)
+    drain_velocity = compute_drain_velocity(all_records, pending_by_provider)
+    utilization = compute_provider_utilization(stats, PROVIDER_LIMITS)
 
     # === Header ===
     now_str = datetime.now().strftime("%H:%M:%S")
@@ -707,6 +709,7 @@ def build_dashboard(
     header.append(f"  window={window_minutes}m", style="dim")
     header.append(f"  queue={total_pending} pending / {total_completed_queue} done", style="yellow")
     header.append(f"  throughput: {spark}", style="green")
+    header.append(f"  {drain_velocity}", style="bold")
 
     # === Provider table ===
     table = Table(
