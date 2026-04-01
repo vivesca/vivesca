@@ -9,6 +9,7 @@ Usage:
   oci-region-subscribe              # one-shot check
   oci-region-subscribe --loop       # poll every 5 min until success
 """
+import os
 import subprocess, sys, time, json
 
 TENANCY = "ocid1.tenancy.oc1..aaaaaaaapkyvu7vwtpn5x7fgvcoy45wo6m457s4c6frhcwqivfzig5mizgya"
@@ -19,7 +20,7 @@ def oci(*args):
     r = subprocess.run(
         ["oci"] + list(args),
         capture_output=True, text=True,
-        env={**__import__("os").environ, **ENV},
+        env={**os.environ, **ENV},
         timeout=300,
     )
     return r.returncode, r.stdout, r.stderr
