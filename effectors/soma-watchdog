@@ -133,7 +133,7 @@ def check_cycle():
 
         if vol_after < DISK_CRIT_GB:
             # Emergency: kill all golems to stop disk writes
-            subprocess.run("pkill -f 'claude.*--print' 2>/dev/null", shell=True, timeout=300, )
+            subprocess.run("pkill -f 'claude.*--print' 2>/dev/null", shell=True, timeout=300)
             log(f"DISK CRITICAL: killed all golems. Volume at {vol_after:.1f}GB")
 
     # Disk: root
