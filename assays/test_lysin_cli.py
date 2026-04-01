@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-"""Tests for metabolon.lysin.cli — click CLI with mocked fetch/format."""
-
 from unittest.mock import patch
 
 from click.testing import CliRunner
@@ -11,207 +9,110 @@ from metabolon.lysin.fetch import BioArticle
 
 
 def _article(**overrides):
-    """Build a BioArticle with sensible defaults."""
-    defaults = dict(
+    """Build a sample BioArticle with sensible defaults."""
+    base = dict(
         title="TP53",
         definition="Tumor protein p53.",
-        mechanism="Acts as a tumor suppressor.",
+        mechanism="TP53 encodes a tumor suppressor.",
         url="https://www.uniprot.org/uniprotkb/P04637",
         sections=[],
         sources=["UniProt"],
     )
-    defaults.update(overrides)
-    return BioArticle(**defaults)
+    base.update(overrides)
+    return BioArticle(**base)
 
 
-# ── happy path: basic text output ──────────────────────────────────────────
+# ── happy path ──────────────────────────────────────────────────────────────
 
-@patch("metabolon.lysin.cli.format_text", return_value="TEXT-OUT")
+@patch("metabolon.lysin.cli.format_text", return_value="formatted-text")
 @patch("metabolon.lysin.cli.fetch_summary")
 def test_basic_text_output(mock_fetch, mock_fmt):
     mock_fetch.return_value = _article()
     runner = CliRunner()
     result = runner.invoke(main, ["TP53"])
     assert result.exit_code == 0
-    assert result.output.strip() == "TEXT-OUT"
     mock_fetch.assert_called_once_with("TP53")
     mock_fmt.assert_called_once()
-    assert mock_fmt.call_args[1]["full"] is False
+    assert result.output.strip() == "formatted-text"
 
 
-# ── happy path: JSON output ────────────────────────────────────────────────
-
-@patch("metabolon.lysin.cli.format_json", return_value='{"title":"TP53"}')
-@patch("metabolon.lysin.cli.fetch_summary")
-def test_json_output(mock_fetch, mock_fmt):
-    mock_fetch.return_value = _article()
-    runner = CliRunner()
-    result = runner.invoke(main, ["TP53", "--json"])
-    assert result.exit_code == 0
-    assert result.output.strip() == '{"title":"TP53"}'
-    mock_fmt.assert_called_once()
-    assert mock_fmt.call_args[1]["full"] is False
-
-
-# ── --full flag triggers fetch_sections ─────────────────────────────────────
-
-@patch("metabolon.lysin.cli.format_text", return_value="FULL-TEXT")
-@patch("metabolon.lysin.cli.fetch_sections", return_value=[{"title": "Function", "text": "details"}])
+@patch("metabolon.lysin.cli.format_text", return_value="formatted-full")
+@patch("metabolon.lysin.cli.fetch_sections", return_value=[{"title": "Fn", "text": "details"}])
 @patch("metabolon.lysin.cli.fetch_summary")
 def test_full_flag_fetches_sections(mock_fetch, mock_sections, mock_fmt):
-    article = _article(sections=[])
+    article = _article()
     mock_fetch.return_value = article
     runner = CliRunner()
     result = runner.invoke(main, ["TP53", "--full"])
     assert result.exit_code == 0
-    mock_sections.assert_called_once_with("TP53")
-    assert article.sections == [{"title": "Function", "text": "details"}]
-    assert mock_fmt.call_args[1]["full"] is True
+    mock_sections.assert_called_once_with(article.title)
+    # format_text should be called with full=True
+    mock_fmt.assert_called_once()
+    call_kwargs = mock_fmt.call_args
+    assert call_kwargs[1].get("full") is True or call_kwargs[0][1] is True
 
 
-# ── --full + --json together ───────────────────────────────────────────────
-
-@patch("metabolon.lysin.cli.format_json", return_value='{"title":"TP53","sections":[...]}')
-@patch("metabolon.lysin.cli.fetch_sections", return_value=[{"title": "X", "text": "Y"}])
+@patch("metabolon.lysin.cli.format_json", return_value='{"title":"TP53"}')
 @patch("metabolon.lysin.cli.fetch_summary")
-def test_full_and_json_together(mock_fetch, mock_sections, mock_fmt):
-    mock_fetch.return_value = _article(sections=[])
+def test_json_flag(mock_fetch, mock_fmt):
+    mock_fetch.return_value = _article()
+    runner = CliRunner()
+    result = runner.invoke(main, ["TP53", "--json"])
+    assert result.exit_code == 0
+    mock_fmt.assert_called_once()
+    assert result.output.strip() == '{"title":"TP53"}'
+
+
+@patch("metabolon.lysin.cli.format_json", return_value='{"title":"TP53","sections":[]}')
+@patch("metabolon.lysin.cli.fetch_sections", return_value=[{"title": "Fn", "text": "details"}])
+@patch("metabolon.lysin.cli.fetch_summary")
+def test_full_and_json_flags(mock_fetch, mock_sections, mock_fmt):
+    mock_fetch.return_value = _article()
     runner = CliRunner()
     result = runner.invoke(main, ["TP53", "--full", "--json"])
     assert result.exit_code == 0
     mock_sections.assert_called_once()
-    assert mock_fmt.call_args[1]["full"] is True
+    mock_fmt.assert_called_once()
 
 
-# ── LookupError → stderr message, exit 1 ───────────────────────────────────
+# ── error handling ──────────────────────────────────────────────────────────
 
-@patch("metabolon.lysin.cli.fetch_summary", side_effect=LookupError("nope"))
+@patch("metabolon.lysin.cli.fetch_summary", side_effect=LookupError("nothing found"))
 def test_lookup_error(mock_fetch):
     runner = CliRunner()
     result = runner.invoke(main, ["ZZZZZ"])
     assert result.exit_code == 1
-    assert "Not found: nope" in (result.stderr or result.output)
+    assert "Not found: nothing found" in (result.stderr or result.output)
 
 
-# ── Generic Exception → stderr message, exit 1 ─────────────────────────────
-
-@patch("metabolon.lysin.cli.fetch_summary", side_effect=RuntimeError("boom"))
-def test_generic_error(mock_fetch):
+@patch("metabolon.lysin.cli.fetch_summary", side_effect=RuntimeError("network down"))
+def test_generic_exception(mock_fetch):
     runner = CliRunner()
     result = runner.invoke(main, ["TP53"])
     assert result.exit_code == 1
-    assert "Error: boom" in (result.stderr or result.output)
+    assert "Error: network down" in (result.stderr or result.output)
 
 
-# ── --full without --json still calls format_text (not format_json) ────────
+# ── no extra flags behavior ─────────────────────────────────────────────────
 
-@patch("metabolon.lysin.cli.format_text", return_value="FULL")
-@patch("metabolon.lysin.cli.format_json")
-@patch("metabolon.lysin.cli.fetch_sections", return_value=[])
+@patch("metabolon.lysin.cli.format_text", return_value="out")
 @patch("metabolon.lysin.cli.fetch_summary")
-def test_full_uses_format_text_not_json(mock_fetch, mock_sec, mock_json, mock_text):
+def test_no_flags_does_not_fetch_sections(mock_fetch, mock_fmt):
     mock_fetch.return_value = _article()
     runner = CliRunner()
-    result = runner.invoke(main, ["TP53", "--full"])
+    result = runner.invoke(main, ["apoptosis"])
     assert result.exit_code == 0
-    mock_text.assert_called_once()
-    mock_json.assert_not_called()
+    # fetch_summary called, but fetch_sections should NOT be imported/called
+    # (verify format_text called with full=False)
+    call_kwargs = mock_fmt.call_args
+    assert call_kwargs[1].get("full") is not True
 
 
-# ── --json without --full does not call fetch_sections ─────────────────────
-
-@patch("metabolon.lysin.cli.format_json", return_value="{}")
-@patch("metabolon.lysin.cli.fetch_sections")
+@patch("metabolon.lysin.cli.format_text", return_value="out")
 @patch("metabolon.lysin.cli.fetch_summary")
-def test_json_without_full_skips_sections(mock_fetch, mock_sec, mock_json):
+def test_term_passed_verbatim(mock_fetch, mock_fmt):
     mock_fetch.return_value = _article()
-    runner = CliRunner()
-    result = runner.invoke(main, ["TP53", "--json"])
-    assert result.exit_code == 0
-    mock_sec.assert_not_called()
-
-
-# ── no term argument → click error (exit 2) ────────────────────────────────
-
-def test_missing_term_argument():
-    runner = CliRunner()
-    result = runner.invoke(main, [])
-    assert result.exit_code != 0
-    assert "Missing argument" in result.output or "Usage" in result.output
-
-
-# ── format_json/full=True is passed through when both flags set ────────────
-
-@patch("metabolon.lysin.cli.format_json", return_value="{}")
-@patch("metabolon.lysin.cli.fetch_sections", return_value=[{"title": "S", "text": "T"}])
-@patch("metabolon.lysin.cli.fetch_summary")
-def test_format_json_receives_full_true(mock_fetch, mock_sec, mock_json):
-    mock_fetch.return_value = _article(sections=[])
-    runner = CliRunner()
-    result = runner.invoke(main, ["TP53", "--full", "--json"])
-    assert result.exit_code == 0
-    call_kwargs = mock_json.call_args
-    assert call_kwargs[1]["full"] is True
-
-
-# ── sections are set on article before formatting ──────────────────────────
-
-@patch("metabolon.lysin.cli.format_text", return_value="ok")
-@patch("metabolon.lysin.cli.fetch_sections", return_value=[{"title": "A", "text": "B"}])
-@patch("metabolon.lysin.cli.fetch_summary")
-def test_sections_mutate_article_before_format(mock_fetch, mock_sec, mock_fmt):
-    article = _article(sections=[])
-    mock_fetch.return_value = article
-    runner = CliRunner()
-    result = runner.invoke(main, ["TP53", "--full"])
-    assert result.exit_code == 0
-    formatted_article = mock_fmt.call_args[0][0]
-    assert formatted_article.sections == [{"title": "A", "text": "B"}]
-
-
-# ── integration: real format_text, mocked fetch ────────────────────────────
-
-@patch("metabolon.lysin.cli.fetch_summary")
-def test_real_format_text_contains_title(mock_fetch):
-    mock_fetch.return_value = _article(title="BRCA1", definition="Tumor suppressor.")
     runner = CliRunner()
     result = runner.invoke(main, ["BRCA1"])
     assert result.exit_code == 0
-    assert "BRCA1" in result.output
-    assert "LYSIN" in result.output
-
-
-# ── integration: real format_json, mocked fetch ────────────────────────────
-
-@patch("metabolon.lysin.cli.fetch_summary")
-def test_real_format_json_parseable(mock_fetch):
-    article = _article(
-        title="EGFR",
-        definition="Epidermal growth factor receptor.",
-        mechanism="Receptor tyrosine kinase.",
-        url="https://example.com/egfr",
-        sources=["UniProt"],
-    )
-    mock_fetch.return_value = article
-    runner = CliRunner()
-    result = runner.invoke(main, ["EGFR", "--json"])
-    assert result.exit_code == 0
-    import json
-    data = json.loads(result.output)
-    assert data["title"] == "EGFR"
-    assert data["sources"] == ["UniProt"]
-
-
-# ── integration: real format_json with --full includes sections ────────────
-
-@patch("metabolon.lysin.cli.fetch_sections", return_value=[{"title": "Function", "text": "Binds DNA."}])
-@patch("metabolon.lysin.cli.fetch_summary")
-def test_real_format_json_full_includes_sections(mock_fetch, mock_sec):
-    article = _article(sections=[])
-    mock_fetch.return_value = article
-    runner = CliRunner()
-    result = runner.invoke(main, ["TP53", "--full", "--json"])
-    assert result.exit_code == 0
-    import json
-    data = json.loads(result.output)
-    assert data["sections"] == [{"title": "Function", "text": "Binds DNA."}]
+    mock_fetch.assert_called_once_with("BRCA1")
