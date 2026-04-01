@@ -489,6 +489,196 @@ def eta_confidence(records: list[dict]) -> str:
     return "none"
 
 
+def eta_confidence_intervals(
+    records: list[dict], pending: int, running_count: int,
+    running_tasks: list[dict] | None = None,
+) -> dict:
+    """Calculate best/expected/worst case ETAs from duration percentiles.
+
+    Uses p25 (optimistic), p50 (expected), p75 (pessimistic) of the duration
+    distribution to produce a range of ETAs.
+
+    Returns dict with keys: best, expected, worst (all in seconds).
+    """
+    durations = sorted(r.get("duration") for r in records if r.get("duration") is not None)
+    if not durations:
+        p25, p50, p75 = 90, 120, 180  # defaults
+    else:
+        n = len(durations)
+        p25 = durations[max(0, int(n * 0.25) - 1)]
+        p50 = durations[n // 2]
+        p75 = durations[min(n - 1, int(n * 0.75))]
+        if p25 == 0:
+            p25 = 1  # floor at 1s
+
+    workers = max(running_count, 1)
+
+    # Account for running task progress
+    running_remaining = 0
+    if running_tasks:
+        running_remaining = max(
+            t.get("estimated_remaining", p50) for t in running_tasks
+        )
+
+    def _eta(dur: int) -> int:
+        if pending == 0 and running_count == 0:
+            return 0
+        if pending == 0:
+            return running_remaining
+        batch = int(pending * dur / workers)
+        if pending <= running_count:
+            return running_remaining
+        return max(running_remaining, batch)
+
+    return {
+        "best": _eta(p25),
+        "expected": _eta(p50),
+        "worst": _eta(p75),
+    }
+
+
+def time_since_last_completion(records: list[dict]) -> int | None:
+    """Return seconds since the most recent task completion, or None if no records.
+
+    Used for stall detection: if no task has completed in a long time while
+    tasks are pending, the queue may be stuck.
+    """
+    latest: datetime | None = None
+    now = datetime.now()
+    for r in records:
+        ts_str = r.get("ts")
+        if not ts_str:
+            continue
+        ts = _parse_ts(ts_str)
+        if ts is None:
+            continue
+        if latest is None or ts > latest:
+            latest = ts
+    if latest is None:
+        return None
+    return int((now - latest).total_seconds())
+
+
+def per_provider_throughput(records: list[dict], window_minutes: int = 60) -> dict[str, float]:
+    """Calculate per-provider throughput in tasks/hour within the time window.
+
+    Returns dict of provider -> tasks/hour.
+    """
+    if not records:
+        return {}
+
+    cutoff = datetime.now() - timedelta(minutes=window_minutes)
+    counts: dict[str, int] = defaultdict(int)
+
+    for r in records:
+        ts_str = r.get("ts")
+        if not ts_str:
+            continue
+        ts = _parse_ts(ts_str)
+        if ts is None or ts < cutoff:
+            continue
+        provider = r.get("provider", "unknown")
+        counts[provider] += 1
+
+    return {prov: count / window_minutes * 60 for prov, count in counts.items()}
+
+
+def per_provider_eta(
+    records: list[dict], prov_pending: dict[str, int],
+    running: list[dict] | None = None,
+) -> dict[str, dict]:
+    """Calculate per-provider ETA to drain their pending tasks.
+
+    Uses per-provider median duration and throughput. Falls back to
+    overall median for providers with no history.
+
+    Returns dict of provider -> {pending, eta_seconds, eta_str, rate}.
+    """
+    # Compute per-provider median duration
+    by_prov: dict[str, list] = defaultdict(list)
+    for r in records:
+        dur = r.get("duration")
+        if dur is not None:
+            by_prov[r.get("provider", "unknown")].append(dur)
+
+    all_durations = [d for durs in by_prov.values() for d in durs]
+    overall_median = sorted(all_durations)[len(all_durations) // 2] if all_durations else 120
+
+    # Count running per provider
+    running_by_prov: dict[str, int] = defaultdict(int)
+    if running:
+        for t in running:
+            running_by_prov[t.get("provider", "unknown")] += 1
+
+    # Per-provider throughput
+    prov_rates = per_provider_throughput(records)
+
+    result: dict[str, dict] = {}
+    for prov, pend_count in prov_pending.items():
+        medians = by_prov.get(prov, [])
+        med = sorted(medians)[len(medians) // 2] if medians else overall_median
+        workers = max(running_by_prov.get(prov, 0), 1)
+        rate = prov_rates.get(prov, 0)
+
+        if pend_count == 0 and running_by_prov.get(prov, 0) == 0:
+            eta_s = 0
+        elif pend_count == 0:
+            # Just waiting for running
+            if running:
+                prov_running = [t for t in running if t.get("provider") == prov]
+                eta_s = max((t.get("estimated_remaining", med) for t in prov_running), default=0)
+            else:
+                eta_s = 0
+        else:
+            eta_s = int(pend_count * med / workers)
+
+        result[prov] = {
+            "pending": pend_count,
+            "eta_seconds": eta_s,
+            "eta_str": fmt_duration(eta_s) if eta_s > 0 else "—",
+            "rate": round(rate, 1),
+        }
+
+    return result
+
+
+def throughput_trend(records: list[dict]) -> str:
+    """Detect whether throughput is accelerating, steady, or decelerating.
+
+    Compares completions in the most recent 15-minute window against the
+    prior 15-minute window. Returns 'accelerating', 'steady', or 'decelerating'.
+    """
+    now = datetime.now()
+    recent_cutoff = now - timedelta(minutes=15)
+    prior_cutoff = now - timedelta(minutes=30)
+
+    recent = 0
+    prior = 0
+    for r in records:
+        ts_str = r.get("ts")
+        if not ts_str:
+            continue
+        ts = _parse_ts(ts_str)
+        if ts is None:
+            continue
+        if ts >= recent_cutoff:
+            recent += 1
+        elif ts >= prior_cutoff:
+            prior += 1
+
+    if prior == 0 and recent == 0:
+        return "steady"
+    if prior == 0:
+        return "accelerating" if recent > 0 else "steady"
+
+    ratio = recent / prior
+    if ratio >= 1.3:
+        return "accelerating"
+    elif ratio <= 0.7:
+        return "decelerating"
+    return "steady"
+
+
 def provider_concurrency_display(
     records: list[dict], running: list[dict], use_color: bool = True
 ) -> str:
@@ -590,6 +780,9 @@ def print_compact() -> None:
         parts.append(f"{thr:.1f}/hr")
 
     print(" | ".join(parts))
+
+
+def calculate_eta(
     records: list[dict],
     pending: int,
     running_count: int,
@@ -911,11 +1104,11 @@ def print_dashboard(use_color: bool = True, json_output: bool = False) -> int:
     print(f"\n{b}Provider Concurrency{rst}")
     print(prov_concurrency)
 
-    # 7. Last 5 completed
+    # 8. Last 5 completed
     print(f"\n{b}Last Completed{rst}")
     print(last_completed_table(last_done, use_color))
 
-    # 8. Disk free
+    # 9. Disk free
     print(f"\n{b}Disk{rst}")
     print(disk_free(use_color))
     print()
@@ -930,6 +1123,11 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     use_color = "--no-color" not in args
     json_output = "--json" in args
+    compact = "--compact" in args
+
+    if compact:
+        print_compact()
+        return 0
 
     # Parse --watch N
     watch_seconds = 0
