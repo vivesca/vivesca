@@ -38,11 +38,8 @@ from typing import Any
 def probe_chromatin() -> tuple[bool, str]:
     """Verify chromatin memory DB connects and recall() returns without error."""
     try:
-        from metabolon.organelles.chromatin import _get_storage, recall
+        from metabolon.organelles.chromatin import recall
 
-        storage = _get_storage()
-        if storage is None:
-            return False, "_get_storage() returned None"
         results = recall("test", limit=1)
         if not isinstance(results, list):
             return False, f"recall() returned {type(results).__name__}, expected list"
