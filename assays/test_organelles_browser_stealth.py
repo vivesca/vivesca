@@ -84,6 +84,13 @@ class TestSetRealisticHeaders:
         uas = {set_realistic_headers(mock_context) for _ in range(50)}
         assert len(uas) > 1
 
+    @patch("metabolon.organelles.browser_stealth.random.choice")
+    def test_calls_random_choice(self, mock_choice: MagicMock, mock_context: MagicMock) -> None:
+        """set_realistic_headers should call random.choice with UA pool."""
+        mock_choice.return_value = CHROME_USER_AGENTS[0]
+        set_realistic_headers(mock_context)
+        mock_choice.assert_called_once_with(CHROME_USER_AGENTS)
+
 
 # ── human_delay ──────────────────────────────────────────────────────────
 

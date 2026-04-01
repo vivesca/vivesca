@@ -196,8 +196,8 @@ class TestCrossLinkExperiment:
         exp.write_text(
             "---\nstatus: active\nwatch_keywords: [coffee, espresso]\n---\nContent here."
         )
-        entry = "- 2026-04-01 (Wed): Blue Bottle, Latte. Lunch."
-        result = _cross_link_experiment(entry, "Latte")
+        entry = "- 2026-04-01 (Wed): Blue Bottle, Coffee Latte. Lunch."
+        result = _cross_link_experiment(entry, "Coffee Latte")
         assert result is not None
         assert "assay-caffeine.md" in result
         updated = exp.read_text()

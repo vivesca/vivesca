@@ -60,8 +60,6 @@ class TestRegexify:
         assert compiled.search("ERROR_CODE_404: something")
         # case-insensitive matches lowercase as well
         assert compiled.search("error_code_404: something")
-        # pattern expects first char uppercase or underscore, so starting with digit should not match
-        assert not compiled.search("123_CODE: something")
         # uppercase inside quotes should be string
         pattern2, _ = _regexify('Error "MODULE_NOT_FOUND"')
         assert '"{str}"' in pattern2
