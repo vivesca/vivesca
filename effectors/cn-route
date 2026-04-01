@@ -12,6 +12,7 @@ Usage:
 
 import json
 import os
+import socket
 import subprocess
 import sys
 
@@ -64,15 +65,11 @@ CN_API_HOSTS = [
 
 
 def _resolve(host: str) -> list[str]:
-    """Resolve hostname to IPs, skipping CNAMEs."""
-    result = subprocess.run(
-        ["dig", "+short", host], capture_output=True, text=True, timeout=5
-    )
-    return [
-        line.strip()
-        for line in result.stdout.splitlines()
-        if line.strip() and not line.strip().endswith(".")
-    ]
+    """Resolve hostname to IPv4 addresses."""
+    try:
+        return list({addr[4][0] for addr in socket.getaddrinfo(host, None, socket.AF_INET)})
+    except socket.gaierror:
+        return []
 
 
 def _lan_gateway() -> str | None:
@@ -159,14 +156,11 @@ def add_routes() -> None:
 
     added = 0
     for ip in sorted(all_ips):
-        result = subprocess.run(
-            _route_cmd("-n", "add", f"{ip}/32", gateway),
-            capture_output=True, text=True, timeout=30,
-        )
+        result = _add_host_route(ip, gateway)
         if result.returncode == 0:
             print(f"  + {ip} via {gateway}")
             added += 1
-        elif "already in table" in result.stderr:
+        elif "already in table" in result.stderr or "File exists" in result.stderr:
             print(f"  = {ip} (already routed)")
         else:
             print(f"  ! {ip} failed: {result.stderr.strip()}")
@@ -180,10 +174,7 @@ def remove_routes() -> None:
         all_ips.update(_resolve(host))
 
     for ip in sorted(all_ips):
-        subprocess.run(
-            _route_cmd("-n", "delete", f"{ip}/32"),
-            capture_output=True, text=True, timeout=30,
-        )
+        _del_host_route(ip)
         print(f"  - {ip}")
     print("Routes removed.")
 
@@ -211,7 +202,7 @@ def show_status() -> None:
             print("No bypass routes needed — no exit node active.")
     else:
         for ip, iface in sorted(routes.items()):
-            bypassed = not iface.startswith("utun")
+            bypassed = not iface.startswith(("utun", "tailscale"))
             print(f"  {ip} → {iface} ({'direct' if bypassed else 'TUNNELED'})")
 
 
