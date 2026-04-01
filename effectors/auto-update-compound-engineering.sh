@@ -15,7 +15,8 @@ fi
 
 LOG_FILE="$HOME/.compound-engineering-updates.log"
 
-# Use bunx if available, fall back to npx
+# Use bunx if available, fall back to npx — clear hash first to get fresh path
+hash -r 2>/dev/null || true
 if command -v bunx &>/dev/null; then
     RUNNER=bunx
 elif command -v npx &>/dev/null; then
