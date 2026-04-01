@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import textwrap
+from datetime import datetime
 from io import StringIO
 from pathlib import Path
 from unittest.mock import patch
@@ -158,7 +159,7 @@ class TestPermanentlyFailed:
 class TestTodayFilter:
     def test_today_tasks(self, tmp_path: Path):
         jsonl = tmp_path / "golem.jsonl"
-        today_str = "2026-04-01"
+        today_str = datetime.now().strftime("%Y-%m-%d")
         _write_jsonl(jsonl, [
             _make_record(exit_code=0, ts=f"{today_str} 09:00:00"),
             _make_record(exit_code=1, ts=f"{today_str} 10:00:00"),
