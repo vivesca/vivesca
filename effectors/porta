@@ -1,0 +1,561 @@
+#!/usr/bin/env python3
+# /// script
+# requires-python = ">=3.11"
+# dependencies = []
+# ///
+from __future__ import annotations
+"""
+porta — web auth gateway for headless automation.
+
+Manage browser cookies / auth state stored as portable JSON sessions.
+Supports extracting cookies from Chrome (Linux) and exporting them in
+formats usable by curl, requests, or Playwright.
+
+Usage:
+    porta status                          Show stored sessions
+    porta login <service> [--domain D]    Capture cookies from browser
+    porta export --service X [--format F] Export cookies (curl/headers/json)
+    porta inject --browser chrome --domain D   Extract cookies for domain
+    porta clear --service X [--all]       Delete stored session(s)
+
+Sessions stored at ~/.config/porta/sessions/<service>.json
+"""
+
+import argparse
+import base64
+import hashlib
+import json
+import os
+import shutil
+import sqlite3
+import sys
+import tempfile
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any
+
+# ── Constants ──────────────────────────────────────────────────────────────
+
+SESSION_DIR = Path.home() / ".config" / "porta" / "sessions"
+
+# Chrome paths on Linux
+CHROME_BASE_LINUX = Path.home() / ".config" / "google-chrome"
+CHROME_BASE_MACOS = Path.home() / "Library" / "Application Support" / "Google" / "Chrome"
+
+# Firefox paths
+FIREFOX_BASE_LINUX = Path.home() / ".mozilla" / "firefox"
+FIREFOX_BASE_MACOS = Path.home() / "Library" / "Application Support" / "Firefox" / "Profiles"
+
+# Linux Chrome uses "peanuts" as PBKDF2 password
+PBKDF2_SALT = b"saltysalt"
+PBKDF2_ITERATIONS = 1
+KEY_LENGTH = 16  # AES-128
+
+V10_PREFIX = b"v10"
+V11_PREFIX = b"v11"
+
+SAMESITE_MAP = {-1: "None", 0: "Unspecified", 1: "Lax", 2: "Strict", 3: "None"}
+
+# ── Chrome key derivation (Linux) ─────────────────────────────────────────
+
+
+def _chrome_base() -> Path:
+    """Return the Chrome data directory for this platform."""
+    if sys.platform == "darwin":
+        return CHROME_BASE_MACOS
+    return CHROME_BASE_LINUX
+
+
+def _chrome_key() -> bytes:
+    """Derive the AES-128 decryption key.
+
+    On Linux Chrome uses PBKDF2 with password "peanuts".
+    On macOS it uses the Keychain — not supported here; fall back to "peanuts".
+    """
+    password = b"peanuts"
+    iterations = 1 if sys.platform == "linux" else 1003
+    return hashlib.pbkdf2_hmac("sha1", password, PBKDF2_SALT, iterations, dklen=KEY_LENGTH)
+
+
+# ── Decryption ────────────────────────────────────────────────────────────
+
+
+def _decrypt_v10(encrypted: bytes, key: bytes) -> str:
+    """Decrypt v10 cookie (AES-128-CBC, IV = 16 space bytes, PKCS7)."""
+    from cryptography.hazmat.primitives import padding as sym_padding
+    from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+
+    iv = b" " * 16
+    ciphertext = encrypted[3:]  # strip "v10"
+    cipher = Cipher(algorithms.AES(key), modes.CBC(iv))
+    decryptor = cipher.decryptor()
+    padded = decryptor.update(ciphertext) + decryptor.finalize()
+    unpadder = sym_padding.PKCS7(128).unpadder()
+    plaintext = unpadder.update(padded) + unpadder.finalize()
+    return plaintext.decode("utf-8", errors="replace")
+
+
+def _decrypt_v11(encrypted: bytes, key: bytes) -> str:
+    """Decrypt v11 cookie (AES-128-GCM).
+
+    Layout: b"v11" + 12-byte nonce + ciphertext + 16-byte auth tag.
+    """
+    from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+
+    nonce = encrypted[3:15]
+    ciphertext_and_tag = encrypted[15:]
+    aesgcm = AESGCM(key)
+    plaintext = aesgcm.decrypt(nonce, ciphertext_and_tag, None)
+    return plaintext.decode("utf-8", errors="replace")
+
+
+def _decrypt_value(raw: bytes | None, key: bytes) -> str:
+    """Decrypt a cookie value, handling v10, v11, and plaintext."""
+    if raw is None:
+        return ""
+    if raw.startswith(V10_PREFIX):
+        return _decrypt_v10(raw, key)
+    if raw.startswith(V11_PREFIX):
+        return _decrypt_v11(raw, key)
+    return raw.decode("utf-8", errors="replace")
+
+
+def _samesite_str(val: int) -> str:
+    """Convert Chrome SameSite int to string label."""
+    return SAMESITE_MAP.get(val, "Unspecified")
+
+
+# ── Cookie reading ────────────────────────────────────────────────────────
+
+
+def read_chrome_cookies(
+    profile: str = "Default",
+    domain_filter: str | None = None,
+) -> list[dict[str, Any]]:
+    """Read and decrypt cookies from Chrome's SQLite database.
+
+    Chrome locks the DB, so we copy to a temp file first.
+    Returns a list of cookie dicts with decrypted values.
+    """
+    db_path = _chrome_base() / profile / "Cookies"
+    if not db_path.exists():
+        print(f"Chrome cookies DB not found: {db_path}", file=sys.stderr)
+        return []
+
+    key = _chrome_key()
+    tmp_fd, tmp_path = tempfile.mkstemp(suffix=".db")
+    os.close(tmp_fd)
+    try:
+        shutil.copy2(db_path, tmp_path)
+        conn = sqlite3.connect(tmp_path)
+        cur = conn.cursor()
+        query = (
+            "SELECT host_key, name, path, encrypted_value, expires_utc, "
+            "is_secure, is_httponly, samesite FROM cookies"
+        )
+        params: tuple = ()
+        if domain_filter:
+            query += " WHERE host_key LIKE ?"
+            params = (f"%{domain_filter}%",)
+        cur.execute(query, params)
+        cookies: list[dict[str, Any]] = []
+        for row in cur.fetchall():
+            host_key, name, path, enc_val, expires_utc, is_secure, is_httponly, samesite = row
+            cookies.append({
+                "domain": host_key,
+                "name": name,
+                "value": _decrypt_value(enc_val, key),
+                "path": path,
+                "expires": expires_utc,
+                "secure": bool(is_secure),
+                "httponly": bool(is_httponly),
+                "samesite": _samesite_str(samesite),
+            })
+        conn.close()
+    finally:
+        os.unlink(tmp_path)
+    return cookies
+
+
+def read_firefox_cookies(
+    domain_filter: str | None = None,
+) -> list[dict[str, Any]]:
+    """Read cookies from Firefox's cookies.sqlite (plaintext on disk)."""
+    base = FIREFOX_BASE_LINUX if sys.platform != "darwin" else FIREFOX_BASE_MACOS
+    if not base.exists():
+        return []
+
+    cookies: list[dict[str, Any]] = []
+    for profile_dir in base.iterdir():
+        db_path = profile_dir / "cookies.sqlite"
+        if not db_path.exists():
+            continue
+        tmp_fd, tmp_path = tempfile.mkstemp(suffix=".db")
+        os.close(tmp_fd)
+        try:
+            shutil.copy2(db_path, tmp_path)
+            conn = sqlite3.connect(tmp_path)
+            cur = conn.cursor()
+            query = (
+                "SELECT host, name, value, path, expiry, isSecure, isHttpOnly "
+                "FROM moz_cookies"
+            )
+            params: tuple = ()
+            if domain_filter:
+                query += " WHERE host LIKE ?"
+                params = (f"%{domain_filter}%",)
+            cur.execute(query, params)
+            for row in cur.fetchall():
+                host, name, value, path, expiry, is_secure, is_httponly = row
+                cookies.append({
+                    "domain": host,
+                    "name": name,
+                    "value": value,
+                    "path": path,
+                    "expires": expiry,
+                    "secure": bool(is_secure),
+                    "httponly": bool(is_httponly),
+                    "samesite": "Unspecified",
+                })
+            conn.close()
+        finally:
+            os.unlink(tmp_path)
+    return cookies
+
+
+# ── Session storage ───────────────────────────────────────────────────────
+
+
+def _session_path(service: str) -> Path:
+    """Return the JSON file path for a given service name."""
+    safe = service.replace("/", "_").replace("..", "_")
+    return SESSION_DIR / f"{safe}.json"
+
+
+def save_session(
+    service: str,
+    domain: str,
+    cookies: list[dict[str, Any]],
+    source: str = "chrome",
+) -> Path:
+    """Save cookies as a session file and return its path."""
+    SESSION_DIR.mkdir(parents=True, exist_ok=True)
+    session = {
+        "service": service,
+        "domain": domain,
+        "cookies": cookies,
+        "captured_at": datetime.now(timezone.utc).isoformat(),
+        "cookie_count": len(cookies),
+        "source": source,
+    }
+    path = _session_path(service)
+    path.write_text(json.dumps(session, indent=2, ensure_ascii=False), encoding="utf-8")
+    return path
+
+
+def load_session(service: str) -> dict[str, Any] | None:
+    """Load a session file. Returns None if not found."""
+    path = _session_path(service)
+    if not path.exists():
+        return None
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def list_sessions() -> list[dict[str, Any]]:
+    """List all stored sessions with metadata."""
+    if not SESSION_DIR.exists():
+        return []
+    sessions: list[dict[str, Any]] = []
+    for f in sorted(SESSION_DIR.glob("*.json")):
+        try:
+            data = json.loads(f.read_text(encoding="utf-8"))
+            sessions.append({
+                "service": data.get("service", f.stem),
+                "domain": data.get("domain", "?"),
+                "cookies": data.get("cookie_count", 0),
+                "captured_at": data.get("captured_at", "?"),
+                "source": data.get("source", "?"),
+                "path": str(f),
+            })
+        except (json.JSONDecodeError, KeyError):
+            sessions.append({
+                "service": f.stem,
+                "domain": "?",
+                "cookies": 0,
+                "captured_at": "?",
+                "source": "?",
+                "path": str(f),
+            })
+    return sessions
+
+
+def delete_session(service: str) -> bool:
+    """Delete a session file. Returns True if deleted."""
+    path = _session_path(service)
+    if path.exists():
+        path.unlink()
+        return True
+    return False
+
+
+def clear_all_sessions() -> int:
+    """Delete all session files. Returns count deleted."""
+    if not SESSION_DIR.exists():
+        return 0
+    count = 0
+    for f in SESSION_DIR.glob("*.json"):
+        f.unlink()
+        count += 1
+    return count
+
+
+# ── Export formatters ─────────────────────────────────────────────────────
+
+
+def format_curl(cookies: list[dict[str, Any]]) -> str:
+    """Format cookies as a curl -b header string."""
+    pairs = "; ".join(f'{c["name"]}={c["value"]}' for c in cookies)
+    return pairs
+
+
+def format_headers(cookies: list[dict[str, Any]], domain: str) -> str:
+    """Format cookies as Cookie header for HTTP."""
+    pairs = "; ".join(f'{c["name"]}={c["value"]}' for c in cookies)
+    return f"Cookie: {pairs}"
+
+
+def format_json(cookies: list[dict[str, Any]]) -> str:
+    """Format cookies as JSON array (Playwright-compatible)."""
+    return json.dumps(cookies, indent=2, ensure_ascii=False)
+
+
+def format_dict(cookies: list[dict[str, Any]]) -> str:
+    """Format cookies as a Python dict for requests.Session."""
+    pairs = {c["name"]: c["value"] for c in cookies}
+    return json.dumps(pairs, indent=2, ensure_ascii=False)
+
+
+def format_netscape(cookies: list[dict[str, Any]]) -> str:
+    """Format as Netscape cookies.txt for wget/curl --cookie-jar."""
+    lines = ["# HTTP Cookie File"]
+    for c in cookies:
+        flag = "TRUE" if c.get("domain", "").startswith(".") else "FALSE"
+        secure = "TRUE" if c.get("secure") else "FALSE"
+        expires = str(int(c.get("expires", 0)))
+        lines.append(
+            f"{c.get('domain', '')}\t{flag}\t{c.get('path', '/')}\t{secure}\t{expires}\t{c['name']}\t{c['value']}"
+        )
+    return "\n".join(lines)
+
+
+# ── Subcommand handlers ──────────────────────────────────────────────────
+
+
+def cmd_status(_args: argparse.Namespace) -> int:
+    """Show stored sessions."""
+    sessions = list_sessions()
+    if not sessions:
+        print("No sessions stored.")
+        print(f"Session directory: {SESSION_DIR}")
+        return 0
+
+    print(f"Sessions in {SESSION_DIR}:\n")
+    for s in sessions:
+        print(f"  {s['service']:20s}  domain={s['domain']:<30s}  cookies={s['cookies']:>3d}  source={s['source']}")
+        print(f"  {'':20s}  captured={s['captured_at']}")
+    print(f"\nTotal: {len(sessions)} session(s)")
+    return 0
+
+
+def cmd_login(args: argparse.Namespace) -> int:
+    """Capture cookies from browser for a service."""
+    service = args.service
+    domain = args.domain or service
+    browser = args.browser
+
+    if browser == "firefox":
+        cookies = read_firefox_cookies(domain_filter=domain)
+        source = "firefox"
+    else:
+        cookies = read_chrome_cookies(
+            profile=args.profile,
+            domain_filter=domain,
+        )
+        source = "chrome"
+
+    if not cookies:
+        print(f"No cookies found for domain '{domain}' in {source}.", file=sys.stderr)
+        print("Make sure you have logged in via the browser first.", file=sys.stderr)
+        return 1
+
+    path = save_session(service, domain, cookies, source=source)
+    print(f"Captured {len(cookies)} cookies for '{service}' ({domain}) from {source}")
+    print(f"Saved to: {path}")
+    return 0
+
+
+def cmd_export(args: argparse.Namespace) -> int:
+    """Export stored cookies in various formats."""
+    session = load_session(args.service)
+    if session is None:
+        print(f"No session found for '{args.service}'.", file=sys.stderr)
+        print("Run 'porta login' first.", file=sys.stderr)
+        return 1
+
+    cookies = session.get("cookies", [])
+    if not cookies:
+        print(f"Session '{args.service}' has no cookies.", file=sys.stderr)
+        return 1
+
+    fmt = args.format
+    if fmt == "curl":
+        print(format_curl(cookies))
+    elif fmt == "headers":
+        print(format_headers(cookies, session.get("domain", "")))
+    elif fmt == "json":
+        print(format_json(cookies))
+    elif fmt == "dict":
+        print(format_dict(cookies))
+    elif fmt == "netscape":
+        print(format_netscape(cookies))
+    else:
+        print(f"Unknown format: {fmt}", file=sys.stderr)
+        return 1
+    return 0
+
+
+def cmd_inject(args: argparse.Namespace) -> int:
+    """Extract cookies from browser for a domain (alias for login)."""
+    browser = args.browser
+    domain = args.domain
+
+    if browser == "firefox":
+        cookies = read_firefox_cookies(domain_filter=domain)
+        source = "firefox"
+    else:
+        cookies = read_chrome_cookies(domain_filter=domain)
+        source = "chrome"
+
+    if not cookies:
+        print(f"No cookies found for '{domain}' in {source}.", file=sys.stderr)
+        return 1
+
+    # Use domain as service name (cleaned)
+    service = domain.lstrip(".").split(".")[0]
+    path = save_session(service, domain, cookies, source=source)
+    print(json.dumps(cookies, indent=2, ensure_ascii=False))
+    return 0
+
+
+def cmd_run(args: argparse.Namespace) -> int:
+    """Show stored cookies for a domain (export as JSON to stdout)."""
+    domain = args.domain
+    # Try to find a matching session
+    sessions = list_sessions()
+    match = None
+    for s in sessions:
+        if domain in s.get("domain", ""):
+            match = s
+            break
+
+    if match is None:
+        # Try extracting fresh from browser
+        for browser_fn, source in [(read_chrome_cookies, "chrome"), (read_firefox_cookies, "firefox")]:
+            cookies = browser_fn(domain_filter=domain)
+            if cookies:
+                print(json.dumps(cookies, indent=2, ensure_ascii=False))
+                return 0
+        print(f"No cookies found for '{domain}'.", file=sys.stderr)
+        return 1
+
+    # Load and output the stored session
+    session = load_session(match["service"])
+    if session and session.get("cookies"):
+        print(format_json(session["cookies"]))
+        return 0
+    print(f"Session '{match['service']}' has no cookies.", file=sys.stderr)
+    return 1
+
+
+def cmd_clear(args: argparse.Namespace) -> int:
+    """Delete stored session(s)."""
+    if args.all:
+        count = clear_all_sessions()
+        print(f"Cleared {count} session(s).")
+        return 0
+
+    if not args.service:
+        print("Specify --service or --all.", file=sys.stderr)
+        return 1
+
+    if delete_session(args.service):
+        print(f"Cleared session '{args.service}'.")
+        return 0
+    print(f"No session found for '{args.service}'.", file=sys.stderr)
+    return 1
+
+
+# ── CLI ────────────────────────────────────────────────────────────────────
+
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        prog="porta",
+        description="Web auth gateway — manage browser cookies for headless automation",
+    )
+    sub = parser.add_subparsers(dest="command")
+
+    # status
+    sub.add_parser("status", help="Show stored sessions")
+
+    # login
+    login_p = sub.add_parser("login", help="Capture cookies from browser for a service")
+    login_p.add_argument("service", help="Service name (e.g. linkedin, github)")
+    login_p.add_argument("--domain", "-d", default=None, help="Domain filter (default: service name)")
+    login_p.add_argument("--browser", "-b", default="chrome", choices=["chrome", "firefox"], help="Browser to read from")
+    login_p.add_argument("--profile", "-p", default="Default", help="Browser profile name")
+
+    # export
+    export_p = sub.add_parser("export", help="Export stored cookies in various formats")
+    export_p.add_argument("--service", "-s", required=True, help="Service name to export")
+    export_p.add_argument("--format", "-f", default="curl", choices=["curl", "headers", "json", "dict", "netscape"], help="Output format (default: curl)")
+
+    # inject (compat with adhesion receptor)
+    inject_p = sub.add_parser("inject", help="Extract cookies from browser for a domain")
+    inject_p.add_argument("--browser", "-b", default="chrome", choices=["chrome", "firefox"], help="Browser source")
+    inject_p.add_argument("--domain", "-d", required=True, help="Domain to extract cookies for")
+
+    # run (compat with circadian receptor)
+    run_p = sub.add_parser("run", help="Output cookies for a domain (stored or fresh)")
+    run_p.add_argument("--domain", "-d", required=True, help="Domain to fetch cookies for")
+
+    # clear
+    clear_p = sub.add_parser("clear", help="Delete stored session(s)")
+    clear_p.add_argument("--service", "-s", default=None, help="Service name to clear")
+    clear_p.add_argument("--all", action="store_true", help="Clear all sessions")
+
+    return parser
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = build_parser()
+    args = parser.parse_args(argv)
+
+    dispatch = {
+        "status": cmd_status,
+        "login": cmd_login,
+        "export": cmd_export,
+        "inject": cmd_inject,
+        "run": cmd_run,
+        "clear": cmd_clear,
+    }
+
+    handler = dispatch.get(args.command)
+    if handler is None:
+        parser.print_help()
+        return 1
+    return handler(args)
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

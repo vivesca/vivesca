@@ -45,7 +45,8 @@ def _make_fake_command(name: str, work_dir: Path, output: str = "", exit_code: i
     bindir = work_dir / "bin"
     bindir.mkdir(exist_ok=True)
     fake = bindir / name
-    fake.write_text(f"#!/bin/bash\n{output and f'echo \"{output}\"'\n}\nexit {exit_code}\n")
+    echo_line = f'echo "{output}"' if output else ""
+    fake.write_text(f"#!/bin/bash\n{echo_line}\nexit {exit_code}\n")
     fake.chmod(fake.stat().st_mode | stat.S_IEXEC)
     return bindir
 

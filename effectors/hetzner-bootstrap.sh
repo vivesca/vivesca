@@ -32,11 +32,11 @@ if ! id terry &>/dev/null; then
   echo "terry ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/terry
 
   # Copy SSH keys from root
-  mkdir -p /home/terry/.ssh
-  cp /root/.ssh/authorized_keys /home/terry/.ssh/
-  chown -R terry:terry /home/terry/.ssh
-  chmod 700 /home/terry/.ssh
-  chmod 600 /home/terry/.ssh/authorized_keys
+  mkdir -p ~terry/.ssh
+  cp /root/.ssh/authorized_keys ~terry/.ssh/
+  chown -R terry:terry ~terry/.ssh
+  chmod 700 ~terry/.ssh
+  chmod 600 ~terry/.ssh/authorized_keys
 fi
 
 # 3. Install Node.js (LTS via fnm)
