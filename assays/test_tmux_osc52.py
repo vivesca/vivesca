@@ -3,6 +3,11 @@ from __future__ import annotations
 """Tests for tmux-osc52.sh — OSC 52 clipboard via tmux pane capture."""
 
 import base64
+
+# This module is entirely synchronous (subprocess.run); prevent
+# pytest-asyncio (AUTO mode) from wrapping tmp_path and causing
+# FileExistsError on basetemp recreation.
+pytestmark = [pytest.mark.anyio]  # anyio handles sync tests fine
 import os
 import stat
 import subprocess
