@@ -71,7 +71,7 @@ def test_histone_mark_missing_content():
 
 
 def test_histone_stats():
-    with patch("metabolon.enzymes.histone.stats") as mock_stats:
+    with patch("metabolon.organelles.chromatin.stats") as mock_stats:
         mock_stats.return_value = {"count": 10, "size_kb": 50, "path": "/test/path"}
         result = histone("stats")
         assert isinstance(result, HistoneResult)
@@ -81,7 +81,7 @@ def test_histone_stats():
 
 
 def test_histone_status():
-    with patch("metabolon.enzymes.histone.status") as mock_status:
+    with patch("metabolon.organelles.chromatin.status") as mock_status:
         mock_status.return_value = "Chromatin is healthy"
         result = histone("status")
         assert isinstance(result, Vital)
