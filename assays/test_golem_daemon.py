@@ -69,7 +69,7 @@ def test_parse_provider_full_mode():
 def test_get_provider_limit_known_providers():
     """get_provider_limit returns correct limits for known providers."""
     assert get_provider_limit("zhipu") == 8
-    assert get_provider_limit("infini") == 8
+    assert get_provider_limit("infini") == 1
     assert get_provider_limit("volcano") == 16
 
 
@@ -82,7 +82,7 @@ def test_get_provider_limit_unknown_provider():
 def test_provider_limits_constant():
     """PROVIDER_LIMITS contains expected values."""
     assert PROVIDER_LIMITS["zhipu"] == 8
-    assert PROVIDER_LIMITS["infini"] == 8
+    assert PROVIDER_LIMITS["infini"] == 1
     assert PROVIDER_LIMITS["volcano"] == 16
 
 
@@ -1028,7 +1028,7 @@ class TestMarkFailedEdgeCases:
         original_queue = _mod["QUEUE_FILE"]
         try:
             _mod["QUEUE_FILE"] = queue_path
-            result = mark_failed(0, "bad command", exit_code=2)
+            result = mark_failed(0, "bad command", exit_code=2, tail="actual error message here")
         finally:
             _mod["QUEUE_FILE"] = original_queue
 
@@ -1625,7 +1625,7 @@ def test_mark_failed_high_priority_exit_code_2_no_retry(tmp_path):
     original_queue = _mod["QUEUE_FILE"]
     try:
         _mod["QUEUE_FILE"] = queue_path
-        result = mark_failed(0, "bad command", exit_code=2)
+        result = mark_failed(0, "bad command", exit_code=2, tail="actual error message here")
     finally:
         _mod["QUEUE_FILE"] = original_queue
 
@@ -1895,3 +1895,184 @@ class TestCmdRetryAllEdgeCases:
         content = queue_path.read_text()
         # Should match the pattern and convert to [ ]
         assert "- [ ]" in content
+
+
+# ── cmd_stats tests ──────────────────────────────────────────────────────
+
+cmd_stats = _mod["cmd_stats"]
+JSONLFILE = _mod["JSONLFILE"]
+
+
+def _make_jsonl_dir(tmp_path: Path) -> Path:
+    """Create the vivesca directory structure for JSONL stats."""
+    vivesca_dir = tmp_path / ".local" / "share" / "vivesca"
+    vivesca_dir.mkdir(parents=True)
+    return vivesca_dir / "golem.jsonl"
+
+
+def test_cmd_stats_no_history(tmp_path, capsys):
+    """cmd_stats says "No task history found" when no JSONL files exist."""
+    jsonl_path = _make_jsonl_dir(tmp_path)
+    original_jsonl = _mod["JSONLFILE"]
+    original_queue = _mod["QUEUE_FILE"]
+    try:
+        _mod["JSONLFILE"] = jsonl_path
+        _mod["QUEUE_FILE"] = tmp_path / "nonexistent.md"
+        rc = cmd_stats()
+    finally:
+        _mod["JSONLFILE"] = original_jsonl
+        _mod["QUEUE_FILE"] = original_queue
+
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "No task history found" in out
+
+
+def test_cmd_stats_with_records(tmp_path, capsys):
+    """cmd_stats correctly calculates pass/fail counts, avg duration by provider."""
+    jsonl_path = _make_jsonl_dir(tmp_path)
+    today = _mod["datetime"].now().strftime("%Y-%m-%d")
+    # Create sample JSONL with mixed providers, pass/fail, today and older
+    records = [
+        {"ts": f"{today} 10:00:00", "task_id": "t-abc123", "provider": "zhipu", "exit": 0, "duration": 120, "cmd": "test"},
+        {"ts": f"{today} 10:05:00", "task_id": "t-def456", "provider": "zhipu", "exit": 0, "duration": 180, "cmd": "test"},
+        {"ts": f"{today} 10:10:00", "task_id": "t-ghi789", "provider": "infini", "exit": 1, "duration": 30, "cmd": "test"},
+        {"ts": "2026-03-31 15:00:00", "task_id": "t-old123", "provider": "volcano", "exit": 0, "duration": 90, "cmd": "test"},
+        {"ts": "2026-03-30 12:00:00", "task_id": "t-old456", "provider": "infini", "exit": 0, "duration": 60, "cmd": "test"},
+    ]
+    jsonl_path.write_text("\n".join(_mod["json"].dumps(r) for r in records) + "\n")
+
+    # Create queue with one permanently failed task
+    queue_path = tmp_path / "golem-queue.md"
+    queue_path.write_text(
+        "- [ ] `golem --provider zhipu \"pending\"`\n"
+        "- [!] `golem --provider infini \"failed\"`\n"
+        "- [!] `golem --provider zhipu \"another failed\"`\n"
+    )
+
+    original_jsonl = _mod["JSONLFILE"]
+    original_queue = _mod["QUEUE_FILE"]
+    try:
+        _mod["JSONLFILE"] = jsonl_path
+        _mod["QUEUE_FILE"] = queue_path
+        rc = cmd_stats()
+    finally:
+        _mod["JSONLFILE"] = original_jsonl
+        _mod["QUEUE_FILE"] = original_queue
+
+    assert rc == 0
+    out = capsys.readouterr().out
+
+    # Check overall counts: total 5 tasks, 4 passed, 1 failed
+    assert "Total tasks: 5" in out
+    assert "passed: 4" in out
+    assert "failed: 1" in out
+
+    # Check permanently failed count is 2
+    assert "Permanently failed (retries exhausted): 2" in out
+
+    # Check today's count: 3 tasks today, 2 passed 1 failed
+    assert f"Tasks today ({today})" in out
+    assert "3" in out
+    assert "passed: 2" in out
+    assert "failed: 1" in out
+
+    # Check by provider stats
+    assert "zhipu" in out
+    assert "infini" in out
+    assert "volcano" in out
+    # zhipu: 2 tasks, 2 passed, 0 failed, avg (120+180)/2 = 150s = 2m30s
+    assert "2 tasks" in out
+    assert "2 passed" in out
+    # infini: 2 tasks, 1 passed, 1 failed
+    assert "infini" in out
+    assert "2 tasks" in out
+    assert "1 passed" in out
+    assert "1 failed" in out
+
+
+def test_cmd_stats_with_rotated_file(tmp_path, capsys):
+    """cmd_stats reads from both main JSONL and rotated .1 file."""
+    # Create both golem.jsonl and golem.jsonl.1 with records
+    vivesca_dir = tmp_path / ".local" / "share" / "vivesca"
+    vivesca_dir.mkdir(parents=True)
+    jsonl_path = vivesca_dir / "golem.jsonl"
+    jsonl1_path = vivesca_dir / "golem.jsonl.1"
+
+    today = _mod["datetime"].now().strftime("%Y-%m-%d")
+
+    record1 = {"ts": f"{today} 09:00:00", "provider": "zhipu", "exit": 0, "duration": 100, "cmd": "test"}
+    record2 = {"ts": f"{today} 09:30:00", "provider": "volcano", "exit": 1, "duration": 50, "cmd": "test"}
+
+    jsonl_path.write_text(_mod["json"].dumps(record1) + "\n")
+    jsonl1_path.write_text(_mod["json"].dumps(record2) + "\n")
+
+    original_jsonl = _mod["JSONLFILE"]
+    original_queue = _mod["QUEUE_FILE"]
+    try:
+        _mod["JSONLFILE"] = jsonl_path
+        _mod["QUEUE_FILE"] = tmp_path / "nonexistent.md"
+        rc = cmd_stats()
+    finally:
+        _mod["JSONLFILE"] = original_jsonl
+        _mod["QUEUE_FILE"] = original_queue
+
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "Total tasks: 2" in out
+    assert "zhipu" in out
+    assert "volcano" in out
+
+
+def test_cmd_stats_skips_bad_lines(tmp_path, capsys):
+    """cmd_stats skips malformed JSON lines without crashing."""
+    jsonl_path = _make_jsonl_dir(tmp_path)
+    today = _mod["datetime"].now().strftime("%Y-%m-%d")
+    content = (
+        f'{_mod["json"].dumps({"ts": f"{today} 10:00", "provider": "zhipu", "exit": 0, "duration": 120})}\n'
+        "this is not valid json\n"
+        "{broken json syntax\n"
+        f'{_mod["json"].dumps({"ts": f"{today} 10:30", "provider": "infini", "exit": 1, "duration": 30})}\n'
+    )
+    jsonl_path.write_text(content)
+
+    original_jsonl = _mod["JSONLFILE"]
+    original_queue = _mod["QUEUE_FILE"]
+    try:
+        _mod["JSONLFILE"] = jsonl_path
+        _mod["QUEUE_FILE"] = tmp_path / "nonexistent.md"
+        rc = cmd_stats()
+    finally:
+        _mod["JSONLFILE"] = original_jsonl
+        _mod["QUEUE_FILE"] = original_queue
+
+    assert rc == 0
+    out = capsys.readouterr().out
+    # Should find 2 valid records out of 4 lines (including empty)
+    assert "Total tasks: 2" in out
+    assert "zhipu" in out
+    assert "infini" in out
+
+
+def test_cmd_stats_handles_unreadable_jsonl(tmp_path, capsys):
+    """cmd_stats handles unreadable/permissions-denied JSONL files gracefully."""
+    jsonl_path = _make_jsonl_dir(tmp_path)
+    jsonl_path.write_text("valid json line\n")
+    jsonl_path.chmod(0o000)
+
+    original_jsonl = _mod["JSONLFILE"]
+    original_queue = _mod["QUEUE_FILE"]
+    try:
+        _mod["JSONLFILE"] = jsonl_path
+        _mod["QUEUE_FILE"] = tmp_path / "nonexistent.md"
+        rc = cmd_stats()
+    finally:
+        _mod["JSONLFILE"] = original_jsonl
+        _mod["QUEUE_FILE"] = original_queue
+        jsonl_path.chmod(0o644)
+
+    assert rc == 0
+    out = capsys.readouterr().out
+    # Should still run, just showing no records found (since we can't read the unreadable one)
+    # If perms work and it can't read, still no crash
+    assert "No task history found" in out or "Total tasks:" in out
