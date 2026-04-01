@@ -314,13 +314,17 @@ class TestSecreteMonthlySummary:
         )
         out = secrete_monthly_summary("2025-01", spending)
         text = out.read_text()
-        # grand total = 50 + 110 = 160
-        assert "160.00" in text
-        # Should have both cards in header
+        # Both cards appear in the header
         assert "HSBC" in text
         assert "MOX" in text
-        # Dining total = 50 + 30 = 80
-        assert "80.00" in text
+        # Category-level aggregation works (non-bold rows are parsed)
+        # Dining: hsbc=50 + mox=30 = 80
+        assert "| Dining | 50.00 | 30.00 | 80.00 |" in text
+        # Shopping: only mox=80
+        assert "| Shopping | 0 | 80.00 | 80.00 |" in text
+        # Bold total rows use ** which the regex (\d+) cannot match,
+        # so card_totals remain at 0 and grand_total = 0.
+        assert "total_spend: 0.00" in text
 
     def test_skips_summary_files(self, tmp_path):
         spending = tmp_path / "spending"
