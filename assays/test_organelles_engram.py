@@ -791,15 +791,13 @@ class TestTraceFragment:
 
 
 class TestIterOpencodeMessages:
-    @patch("metabolon.organelles.engram._opencode_storage")
-    def test_no_session_dir(self, mock_os):
-        storage = MagicMock()
-        session_dir = MagicMock()
-        session_dir.exists.return_value = False
-        storage.__truediv__ = MagicMock(return_value=session_dir)
-        storage.__getattr__ = lambda self, name: MagicMock()
-        mock_os.return_value = storage
-        results = list(_iter_opencode_messages(0, 9999999999999, None))
+    def test_no_session_dir(self):
+        mock_storage = MagicMock()
+        mock_session_dir = MagicMock()
+        mock_session_dir.exists.return_value = False
+        mock_storage.__truediv__ = MagicMock(return_value=mock_session_dir)
+        with patch("metabolon.organelles.engram._opencode_storage", return_value=mock_storage):
+            results = list(_iter_opencode_messages(0, 9999999999999, None))
         assert results == []
 
 
@@ -810,12 +808,6 @@ class TestIterOpencodeMessages:
 
 class TestReadOpencodeText:
     def test_missing_part_dir(self):
-        storage = MagicMock()
-        part_dir = MagicMock()
-        part_dir.exists.return_value = False
-        storage.__truediv__ = MagicMock(return_value=part_dir)
-        result = _read_opencode_text.__wrapped__(storage, "msg-1") if hasattr(_read_opencode_text, '__wrapped__') else ""
-        # Call with a mock storage that returns non-existent part dir
         from metabolon.organelles.engram import _read_opencode_text as _rot
         mock_storage = MagicMock()
         mock_part_dir = MagicMock()
