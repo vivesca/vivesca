@@ -357,11 +357,12 @@ class TestCheckConsultingContent:
 
     def test_well_structured(self, tmp_path):
         f = tmp_path / "good.md"
-        f.write_text(textwrap.dedent("""\
+        body = ("This is the introduction paragraph with enough content "
+                "to meet the word count requirement for a proper report. " * 15)
+        f.write_text(textwrap.dedent(f"""\
             # Good Consulting Report
 
-            This is the introduction paragraph with enough content
-            to meet the word count requirement for a proper report.
+            {body}
 
             ## Analysis
 
@@ -742,10 +743,10 @@ def _setup_env(tmp_path):
     lp = tmp_path / "golem-daemon.log"
     lp.write_text("")
     cd = germline / "loci" / "copia"
-    cd.mkdir(parents=True)
+    cd.mkdir(parents=True, exist_ok=True)
     rp = cd / "golem-review-latest.md"
     qd = germline / "loci"
-    qd.mkdir(parents=True)
+    qd.mkdir(parents=True, exist_ok=True)
     qp = qd / "golem-queue.md"
     qp.write_text("## Pending\n\n## Done\n")
     ed = germline / "effectors"
