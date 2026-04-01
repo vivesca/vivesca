@@ -10,8 +10,8 @@ Usage:
     evident-brief --list       # list available briefs (title, date, slug)
     evident-brief --slug X     # fetch a specific brief by slug
 
-Primary: Jina Reader (r.jina.ai) — single HTTP call, preserves links/formatting.
-Fallback: agent-browser headless if Jina fails.
+Content: Jina Reader (r.jina.ai) — preserves links/formatting, one HTTP call.
+Index: agent-browser (cookie wall blocks Jina on index page).
 """
 
 import argparse
@@ -19,6 +19,7 @@ import json
 import re
 import subprocess
 import sys
+import time
 import urllib.request
 from datetime import UTC, datetime
 from pathlib import Path
@@ -30,10 +31,10 @@ CACHE_DIR = Path.home() / ".cache" / "lustro-articles"
 
 
 # ---------------------------------------------------------------------------
-# Jina Reader (primary)
+# Jina Reader
 # ---------------------------------------------------------------------------
 
-def jina_fetch(url: str, timeout: int = 20) -> str:
+def jina_fetch(url: str, timeout: int = 30) -> str:
     """Fetch a URL via Jina Reader API. Returns markdown string."""
     req = urllib.request.Request(
         f"{JINA_PREFIX}{url}",
@@ -44,107 +45,116 @@ def jina_fetch(url: str, timeout: int = 20) -> str:
 
 
 # ---------------------------------------------------------------------------
-# agent-browser (fallback)
+# agent-browser helpers
 # ---------------------------------------------------------------------------
 
-def browser_fetch(url: str) -> str:
-    """Fetch page text via agent-browser. Slower, no link preservation."""
-    def run(cmd: str, t: int = 15) -> str:
-        r = subprocess.run(
-            ["agent-browser"] + cmd.split(),
-            capture_output=True, text=True, timeout=t,
-        )
-        return r.stdout.strip()
-
-    try:
-        run(f"open {url}", t=20)
-        import time; time.sleep(3)
-        # Dismiss cookie banner if present
-        snap = run("snapshot")
-        for line in snap.splitlines():
-            if "Accept all" in line:
-                m = re.search(r'ref=(\w+)', line)
-                if m:
-                    run(f"click @{m.group(1)}")
-                    time.sleep(1)
-                break
-        return run("get text main", t=10) or run("get text body", t=10)
-    finally:
-        subprocess.run(["agent-browser", "close"], capture_output=True, timeout=5)
+def _ab(cmd: str, timeout: int = 15) -> str:
+    """Run an agent-browser command."""
+    r = subprocess.run(
+        ["agent-browser"] + cmd.split(),
+        capture_output=True, text=True, timeout=timeout,
+    )
+    return r.stdout.strip()
 
 
-def fetch_markdown(url: str) -> str:
-    """Fetch URL as markdown. Jina first, agent-browser fallback."""
-    try:
-        return jina_fetch(url)
-    except Exception as e:
-        print(f"Jina failed ({e}), falling back to agent-browser", file=sys.stderr)
-        return browser_fetch(url)
+def _ab_close():
+    subprocess.run(["agent-browser", "close"], capture_output=True, timeout=5)
 
 
 # ---------------------------------------------------------------------------
-# Index parsing
+# Index (agent-browser — cookie wall blocks Jina)
 # ---------------------------------------------------------------------------
 
 def parse_index() -> list[dict]:
     """Parse the brief index page. Returns [{title, date, slug, url}, ...]."""
-    raw = fetch_markdown(INDEX_URL)
+    try:
+        _ab(f"open {INDEX_URL}", timeout=20)
+        time.sleep(2)
 
-    briefs = []
-    seen = set()
-    # Jina output has markdown links: [Title](url)
-    # Also look for bare href patterns
-    link_re = re.compile(
-        r'\[([^\]]+)\]\((?:https://evidentinsights\.com)?/bankingbrief/([a-z0-9-]+)\)',
-    )
-    for title, slug in link_re.findall(raw):
-        if slug in seen or not slug:
-            continue
-        seen.add(slug)
-        briefs.append({"title": title, "slug": slug, "url": f"{BASE_URL}{slug}"})
+        # Dismiss cookie banner
+        snap = _ab("snapshot")
+        for line in snap.splitlines():
+            if "Accept all" in line:
+                m = re.search(r'ref=(\w+)', line)
+                if m:
+                    _ab(f"click @{m.group(1)}")
+                    time.sleep(1)
+                break
 
-    # Fallback: extract slugs from href patterns
-    if not briefs:
-        slug_re = re.compile(r'/bankingbrief/([a-z0-9][-a-z0-9]+)')
-        for slug in slug_re.findall(raw):
-            if slug in seen:
-                continue
-            seen.add(slug)
-            briefs.append({
-                "title": slug.replace("-", " ").title(),
-                "slug": slug,
-                "url": f"{BASE_URL}{slug}",
-            })
+        snap = _ab("snapshot")
 
-    # Extract dates (DD MONTH YYYY patterns near brief entries)
-    date_re = re.compile(r'(\d{1,2}\s+(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{4})', re.IGNORECASE)
-    dates = date_re.findall(raw)
-    for i, b in enumerate(briefs):
-        if i < len(dates):
-            b["date"] = dates[i]
+        # Parse briefs from snapshot: links contain /bankingbrief/<slug>
+        briefs = []
+        seen = set()
+        # Find link lines with brief slugs and their headings
+        lines = snap.splitlines()
+        date_re = re.compile(r'(\d{1,2}\s+(?:JANUARY|FEBRUARY|MARCH|APRIL|MAY|JUNE|JULY|AUGUST|SEPTEMBER|OCTOBER|NOVEMBER|DECEMBER)\s+\d{4})', re.IGNORECASE)
 
-    return briefs
+        current_date = None
+        for line in lines:
+            # Capture date from StaticText
+            dm = date_re.search(line)
+            if dm:
+                current_date = dm.group(1).title()
+
+            # Capture brief link with title
+            if 'link "' in line and 'bankingbrief' not in line.lower():
+                # This might be a brief card link
+                title_m = re.search(r'link "([^"]+)"', line)
+                href_m = re.search(r'ref=(\w+)', line)
+                if title_m and title_m.group(1) not in ("Read more", "SIGN IN", "Sign up to our newsletter", "privacy policy", "Learn more about Membership"):
+                    title = title_m.group(1)
+                    # Need the slug — check if there's a heading with this title
+                    slug = title.lower().strip()
+                    slug = re.sub(r'[^a-z0-9\s-]', '', slug)
+                    slug = re.sub(r'\s+', '-', slug).strip('-')
+                    if slug and slug not in seen:
+                        seen.add(slug)
+                        briefs.append({
+                            "title": title,
+                            "slug": slug,
+                            "url": f"{BASE_URL}{slug}",
+                            "date": current_date or "",
+                        })
+                        current_date = None  # consumed
+
+        # Filter: real briefs have dates; nav/footer links don't
+        return [b for b in briefs if b.get("date")]
+    finally:
+        _ab_close()
 
 
 # ---------------------------------------------------------------------------
-# Brief fetching & formatting
+# Brief content (Jina primary, agent-browser fallback)
 # ---------------------------------------------------------------------------
 
-def fetch_brief(slug: str) -> dict:
+def fetch_brief(slug: str, index_meta: dict | None = None) -> dict:
     """Fetch a single brief. Returns {title, date, slug, url, markdown}."""
     url = f"{BASE_URL}{slug}"
-    raw = fetch_markdown(url)
 
-    # Extract title from Jina header or first heading
+    # Try Jina first
+    try:
+        raw = jina_fetch(url)
+    except Exception as e:
+        print(f"Jina failed ({e}), falling back to agent-browser", file=sys.stderr)
+        try:
+            _ab(f"open {url}", timeout=20)
+            time.sleep(3)
+            raw = _ab("get text main", timeout=10)
+        finally:
+            _ab_close()
+
+    # Extract title from Jina header
     title = slug.replace("-", " ").title()
     title_match = re.search(r'^Title:\s*(.+)', raw, re.MULTILINE)
     if title_match:
-        title = title_match.group(1).strip()
-        # Clean Evident prefix/suffix
-        title = re.sub(r'^Evident\s*-\s*', '', title)
-        title = re.sub(r'\s*\|.*$', '', title)
+        t = title_match.group(1).strip()
+        t = re.sub(r'^Evident\s*-\s*', '', t)
+        t = re.sub(r'\s*\|.*$', '', t)
+        if t:
+            title = t
 
-    # Extract date
+    # Extract date from content or index metadata
     date = ""
     date_match = re.search(
         r'(\d{1,2}\s+(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{4})',
@@ -152,13 +162,15 @@ def fetch_brief(slug: str) -> dict:
     )
     if date_match:
         date = date_match.group(1)
+    elif index_meta and index_meta.get("date"):
+        date = index_meta["date"]
 
-    # Clean the markdown: strip Jina metadata header, boilerplate
+    # Clean markdown
     md = raw
-    # Remove Jina header lines (Title:, URL Source:, Markdown Content:)
+    # Remove Jina metadata lines
     md = re.sub(r'^(?:Title|URL Source|Markdown Content):.*\n?', '', md, flags=re.MULTILINE)
 
-    # Strip subscribe/signup boilerplate from top
+    # Strip pre-article boilerplate
     for marker in ["TOP OF THE NEWS", "Welcome back to the Banking Brief"]:
         idx = md.find(marker)
         if idx != -1:
@@ -171,7 +183,7 @@ def fetch_brief(slug: str) -> dict:
         if idx != -1:
             md = md[:idx].rstrip()
 
-    # Prepend header
+    # Add header
     header = (
         f"# Evident Banking Brief: {title}\n\n"
         f"**Date:** {date}\n"
@@ -194,11 +206,13 @@ def save_to_cache(brief: dict) -> Path:
 
     date_str = datetime.now(UTC).strftime("%Y-%m-%d")
     if brief["date"]:
-        try:
-            dt = datetime.strptime(brief["date"], "%d %B %Y")
-            date_str = dt.strftime("%Y-%m-%d")
-        except ValueError:
-            pass
+        for fmt in ("%d %B %Y", "%d %b %Y"):
+            try:
+                dt = datetime.strptime(brief["date"], fmt)
+                date_str = dt.strftime("%Y-%m-%d")
+                break
+            except ValueError:
+                continue
 
     filename = f"{date_str}_evident-brief_{brief['slug']}.json"
     filepath = CACHE_DIR / filename
@@ -223,34 +237,34 @@ def save_to_cache(brief: dict) -> Path:
 # ---------------------------------------------------------------------------
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="Fetch the latest Evident Banking Brief.",
-    )
+    parser = argparse.ArgumentParser(description="Fetch the latest Evident Banking Brief.")
     parser.add_argument("--save", action="store_true", help="Save to lustro article cache")
     parser.add_argument("--list", action="store_true", help="List available briefs")
     parser.add_argument("--slug", type=str, help="Fetch a specific brief by URL slug")
-    parser.add_argument("--json", action="store_true", help="Output as JSON instead of markdown")
+    parser.add_argument("--json", action="store_true", help="Output as JSON")
     args = parser.parse_args()
 
     if args.list:
         briefs = parse_index()
         for b in briefs:
-            date = b.get("date", "?")
-            print(f"  {date:<20} {b['title']:<45} {b['slug']}")
+            print(f"  {b.get('date', '?'):<22} {b['title']:<45} {b['slug']}")
         print(f"\n{len(briefs)} briefs found.", file=sys.stderr)
         return
+
+    # Get index for metadata + latest slug
+    briefs = parse_index()
+    brief_meta = {b["slug"]: b for b in briefs}
 
     if args.slug:
         slug = args.slug
     else:
-        briefs = parse_index()
         if not briefs:
             print("No briefs found on index page.", file=sys.stderr)
             sys.exit(1)
         slug = briefs[0]["slug"]
-        print(f"Latest: {briefs[0].get('title', slug)}", file=sys.stderr)
+        print(f"Latest: {briefs[0]['title']}", file=sys.stderr)
 
-    brief = fetch_brief(slug)
+    brief = fetch_brief(slug, index_meta=brief_meta.get(slug))
 
     if args.json:
         out = {k: v for k, v in brief.items() if k != "markdown"}
