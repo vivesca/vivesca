@@ -1,8 +1,9 @@
 # gemmule — dormant capsule containing everything needed to regenerate the soma.
 #
 # Contains: OS, runtimes, tools, op CLI. No secrets, no state.
-# Push to registry: docker build -t ghcr.io/terryli-vt/gemmule:latest .
-#                   docker push ghcr.io/terryli-vt/gemmule:latest
+# Push to registry (multi-arch):
+#   docker buildx build --platform linux/amd64,linux/arm64 \
+#     -t ghcr.io/terryli-vt/gemmule:latest --push .
 #
 # Regenerate soma:  fly machine run ghcr.io/terryli-vt/gemmule:latest ...
 #                   then run: soma-activate (injects secrets, clones repos, links)
@@ -27,7 +28,8 @@ RUN apt-get update -qq && apt-get install -y -qq --no-install-recommends \
 
 # Go
 ARG GO_VERSION=1.24.1
-RUN wget -q "https://go.dev/dl/go${GO_VERSION}.linux-amd64.tar.gz" -O /tmp/go.tar.gz \
+ARG TARGETARCH
+RUN wget -q "https://go.dev/dl/go${GO_VERSION}.linux-${TARGETARCH}.tar.gz" -O /tmp/go.tar.gz \
     && tar -C /usr/local -xzf /tmp/go.tar.gz \
     && rm /tmp/go.tar.gz
 
@@ -46,7 +48,8 @@ RUN curl -fsSL https://tailscale.com/install.sh | sh
 
 # 1Password CLI
 ARG OP_VERSION=2.30.3
-RUN curl -sS "https://cache.agilebits.com/dist/1P/op2/pkg/v${OP_VERSION}/op_linux_amd64_v${OP_VERSION}.zip" \
+ARG TARGETARCH
+RUN curl -sS "https://cache.agilebits.com/dist/1P/op2/pkg/v${OP_VERSION}/op_linux_${TARGETARCH}_v${OP_VERSION}.zip" \
     -o /tmp/op.zip \
     && unzip -o /tmp/op.zip op -d /usr/local/bin/ \
     && chmod +x /usr/local/bin/op \
@@ -79,20 +82,22 @@ RUN curl -fsSL https://bun.sh/install | bash
 # starship prompt (install to ~/.local/bin)
 RUN mkdir -p ~/.local/bin && curl -sS https://starship.rs/install.sh | sh -s -- -y -b ~/.local/bin
 
-# eza (modern ls)
-RUN curl -sL https://github.com/eza-community/eza/releases/latest/download/eza_x86_64-unknown-linux-gnu.tar.gz \
-    | tar xz -C ~/.local/bin/
+# Arch mapping for Rust binaries: amd64->x86_64, arm64->aarch64
+ARG TARGETARCH
+RUN RUST_ARCH=$([ "$TARGETARCH" = "arm64" ] && echo "aarch64" || echo "x86_64") \
+    && echo "Building for ${RUST_ARCH}" \
+    # eza (modern ls)
+    && curl -sL "https://github.com/eza-community/eza/releases/latest/download/eza_${RUST_ARCH}-unknown-linux-gnu.tar.gz" \
+       | tar xz -C ~/.local/bin/ \
+    # bat (modern cat)
+    && curl -sL "https://github.com/sharkdp/bat/releases/download/v0.25.0/bat-v0.25.0-${RUST_ARCH}-unknown-linux-gnu.tar.gz" \
+       | tar xz --strip-components=1 -C /tmp && mv /tmp/bat ~/.local/bin/bat \
+    # fd (modern find)
+    && curl -sL "https://github.com/sharkdp/fd/releases/download/v10.2.0/fd-v10.2.0-${RUST_ARCH}-unknown-linux-gnu.tar.gz" \
+       | tar xz --strip-components=1 -C /tmp && mv /tmp/fd ~/.local/bin/fd
 
-# zoxide (smart cd) — install to ~/.local/bin
+# zoxide (smart cd) — install script auto-detects arch
 RUN curl -sSfL https://raw.githubusercontent.com/ajeetdsouza/zoxide/main/install.sh | sh -s -- --bin-dir ~/.local/bin
-
-# bat (modern cat)
-RUN curl -sL https://github.com/sharkdp/bat/releases/download/v0.25.0/bat-v0.25.0-x86_64-unknown-linux-gnu.tar.gz \
-    | tar xz --strip-components=1 -C /tmp && mv /tmp/bat ~/.local/bin/bat
-
-# fd (modern find)
-RUN curl -sL https://github.com/sharkdp/fd/releases/download/v10.2.0/fd-v10.2.0-x86_64-unknown-linux-gnu.tar.gz \
-    | tar xz --strip-components=1 -C /tmp && mv /tmp/fd ~/.local/bin/fd
 
 # ---------------------------------------------------------------------------
 # Custom CLIs — all Python, installed by soma-activate from ~/bin/

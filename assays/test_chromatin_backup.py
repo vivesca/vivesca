@@ -331,17 +331,27 @@ class TestEdgeCases:
         # Will fail on git commands - exit 1 since cd succeeds but git fails
         assert r.returncode != 0
 
-    def test_git_fetch_fails_gracefully(self, tmp_path):
-        """Script handles git fetch failure when no remote configured."""
+    def test_git_fetch_fails_gracefully_no_remote(self, tmp_path):
+        """Script with no remote: fetch fails silently, skip-if-clean exits 0."""
         chromatin = tmp_path / "epigenome" / "chromatin"
         chromatin.mkdir(parents=True)
         _init_git_repo(chromatin)
 
-        # No remote configured - fetch will fail, but script handles it
-        # However push will also fail, so overall exit is 1
+        # No remote configured, no changes — script skips commit/push, exits 0
         r = _run(SCRIPT, env={"HOME": str(tmp_path)})
-        # With no remote, fetch fails silently but push fails loudly
-        # This is expected behavior - script exits 1 on push failure
+        assert r.returncode == 0
+
+    def test_push_fails_without_remote_when_changes(self, tmp_path):
+        """Script exits non-zero when changes exist but no remote to push to."""
+        chromatin = tmp_path / "epigenome" / "chromatin"
+        chromatin.mkdir(parents=True)
+        _init_git_repo(chromatin)
+
+        (chromatin / "orphan.md").write_text("no remote\n")
+
+        r = _run(SCRIPT, env={"HOME": str(tmp_path)})
+        # Push will fail since there's no remote
+        assert r.returncode != 0
 
     def test_subdirectory_changes(self, tmp_path):
         """Script commits changes in subdirectories and pushes."""
