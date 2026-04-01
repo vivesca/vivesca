@@ -1,16 +1,15 @@
 #!/usr/bin/env python3
-"""test-fixer — Parse pytest failures, group by file, diagnose likely causes.
-
-Runs pytest -q --tb=line, parses FAILED/ERROR lines, groups results by file,
-and outputs a markdown report with failure details and likely root causes.
-
-Usage:
-    test-fixer           # Run pytest, print markdown report
-    test-fixer --json    # Output JSON instead
-    test-fixer --dir /path/to/project   # Run against a different directory
-"""
 from __future__ import annotations
 
+"""test-fixer — run pytest, parse failures, group by file, report likely causes.
+
+Usage:
+    test-fixer              # run against ~/germline, markdown report to stdout
+    test-fixer --json       # JSON report to stdout
+    test-fixer --dir PATH   # run pytest in a different directory
+"""
+
+import argparse
 import json
 import re
 import subprocess
@@ -18,172 +17,179 @@ import sys
 from collections import defaultdict
 from pathlib import Path
 
-GERMLINE_ROOT = Path.home() / "germline"
+
+# ---------------------------------------------------------------------------
+# Failure classification
+# ---------------------------------------------------------------------------
+
+_PATTERNS: list[tuple[re.Pattern[str], str]] = [
+    (re.compile(r"ImportError|ModuleNotFoundError"), "missing or circular import"),
+    (re.compile(r"AttributeError"), "attribute access on wrong type or misspelled name"),
+    (re.compile(r"TypeError"), "type mismatch — wrong argument count or type"),
+    (re.compile(r"NameError"), "undefined name (typo or missing import)"),
+    (re.compile(r"FileNotFoundError"), "missing fixture file or bad path"),
+    (re.compile(r"KeyError"), "dict key missing — data shape changed"),
+    (re.compile(r"ValueError"), "bad value — conversion or validation failure"),
+    (re.compile(r"IndexError"), "list/tuple index out of range"),
+    (re.compile(r"SyntaxError"), "syntax error in source file"),
+    (re.compile(r"IndentationError"), "incorrect indentation"),
+    (re.compile(r"AssertionError"), "assertion failed — logic or data mismatch"),
+    (re.compile(r"pytest\.exit"), "pytest forced exit (likely fixture teardown issue)"),
+    (re.compile(r"recursion depth|RecursionError"), "infinite recursion"),
+    (re.compile(r"TimeoutError|timeout"), "test timed out"),
+]
 
 
-def run_pytest(cwd: Path | None = None) -> str:
-    """Run pytest -q --tb=line and return stdout."""
-    result = subprocess.run(
-        [sys.executable, "-m", "pytest", "-q", "--tb=line", "--no-header"],
-        capture_output=True,
-        text=True,
-        cwd=cwd or GERMLINE_ROOT,
-        timeout=300,
-    )
-    return result.stdout + result.stderr
+def classify_error(line: str) -> str:
+    """Return a short likely-cause string for a traceback line."""
+    for pattern, cause in _PATTERNS:
+        if pattern.search(line):
+            return cause
+    return "unknown error type"
 
 
-def parse_pytest_output(output: str) -> list[dict]:
-    """Parse pytest output, extracting FAILED and ERROR lines.
+# ---------------------------------------------------------------------------
+# Pytest output parsing
+# ---------------------------------------------------------------------------
 
-    Returns list of dicts with keys: file, test, error, error_type.
-    Deduplicates lines that appear in both the body and the short summary.
+_RE_FAILED_LINE = re.compile(r"FAILED\s+(.+?)::(\S+)\s*-\s*(.+)")
+_RE_FAILED_SHORT = re.compile(r"FAILED\s+(.+?)::(\S+)")
+_RE_TB_LINE = re.compile(r"^(.+?):(\d+):\s*(.+)")
+_RE_SUMMARY_HEADER = re.compile(r"^=+\s*short test summary")
+_RE_FAILED_SUMMARY = re.compile(r"^FAILED\s+")
+
+
+def parse_failures(stdout: str) -> dict[str, list[dict]]:
+    """Parse pytest -q --tb=line output into failures grouped by file.
+
+    Returns {filepath: [{"test": str, "line": str, "error": str, "cause": str}, ...]}
     """
-    seen: set[str] = set()
-    results: list[dict] = []
-    # Match FAILED and ERROR lines: FILE::TEST - ERROR_MSG
-    pattern = re.compile(
-        r"^(FAILED|ERROR)\s+(?P<file>\S+?)::(?P<test>\S+?)\s*-\s*(?P<error>.+)$",
-        re.MULTILINE,
-    )
-    for m in pattern.finditer(output):
-        key = f"{m.group('file')}::{m.group('test')}"
-        if key in seen:
+    groups: dict[str, list[dict]] = defaultdict(list)
+    lines = stdout.splitlines()
+
+    for line in lines:
+        m = _RE_FAILED_LINE.match(line)
+        if not m:
+            m = _RE_FAILED_SHORT.match(line)
+        if m:
+            filepath, test_name = m.group(1), m.group(2)
+            error = m.group(3).strip() if m.lastindex and m.lastindex >= 3 else ""
+            cause = classify_error(error)
+            groups[filepath].append({
+                "test": test_name,
+                "line": "",
+                "error": error,
+                "cause": cause,
+            })
             continue
-        seen.add(key)
-        error_msg = m.group("error").strip()
-        # Extract error type (exception class name)
-        error_type_match = re.match(r"([\w.]+Error|[\w.]+Exception|assert)", error_msg)
-        error_type = error_type_match.group(1) if error_type_match else "Unknown"
-        results.append({
-            "file": m.group("file"),
-            "test": m.group("test"),
-            "error": error_msg,
-            "error_type": error_type,
-        })
-    return results
+
+        # Try traceback line format: file.py:42: ErrorType: message
+        m2 = _RE_TB_LINE.match(line)
+        if m2 and "FAILED" not in line:
+            filepath, lineno, msg = m2.group(1), m2.group(2), m2.group(3)
+            if filepath in groups and groups[filepath]:
+                # Attach line number to the last failure for this file
+                groups[filepath][-1]["line"] = lineno
+                if not groups[filepath][-1]["error"]:
+                    groups[filepath][-1]["error"] = msg
+                    groups[filepath][-1]["cause"] = classify_error(msg)
+
+    return dict(groups)
 
 
-def group_by_file(results: list[dict]) -> dict[str, list[dict]]:
-    """Group failure results by file path."""
-    grouped: dict[str, list[dict]] = defaultdict(list)
-    for r in results:
-        grouped[r["file"]].append(r)
-    return dict(grouped)
+# ---------------------------------------------------------------------------
+# Report formatting
+# ---------------------------------------------------------------------------
 
+def format_markdown(groups: dict[str, list[dict]], total_failed: int) -> str:
+    """Format parsed failures as a markdown report."""
+    if not groups:
+        return "## Test Results\n\n**No failures found.** All tests passing.\n"
 
-def diagnose_failure(error_type: str, error_msg: str) -> str:
-    """Return a likely cause string for a given error type and message."""
-    et = error_type.lower()
-    msg = error_msg.lower()
-
-    if "assert" in et or "assertionerror" in et:
-        if "none" in msg or "null" in msg:
-            return "Returned None unexpectedly — check upstream function return value"
-        return "Assertion failed — test expectation doesn't match actual output (logic bug)"
-
-    if "import" in et or "module" in et:
-        return "Missing import or dependency — module not installed or path wrong"
-
-    if "type" in et and "error" in et:
-        return "Type mismatch — wrong argument type or None passed to operation"
-
-    if "attribute" in et:
-        if "nonetype" in msg:
-            return "Attribute access on None — upstream returned None instead of expected object"
-        return "Missing attribute — class/object doesn't have expected method or field"
-
-    if "name" in et:
-        return "Undefined name — typo or missing variable/function definition"
-
-    if "key" in et:
-        return "Missing dict key — accessed key that doesn't exist"
-
-    if "index" in et:
-        return "Index out of range — list/sequence shorter than expected"
-
-    if "value" in et:
-        return "Invalid value — function received unexpected value"
-
-    if "syntax" in et:
-        return "Syntax error — malformed Python in source or test file"
-
-    if "connection" in et or "refused" in msg or "timeout" in msg:
-        return "Infrastructure/network issue — external service or DB not reachable"
-
-    if "filenotfound" in et or "file" in et and "not found" in msg:
-        return "File not found — missing fixture file or wrong path"
-
-    if "fixture" in msg:
-        return "Fixture issue — missing or misconfigured pytest fixture"
-
-    if "operational" in et:
-        return "Database operational error — schema mismatch or connection problem"
-
-    return f"Unclassified error ({error_type}) — inspect full traceback"
-
-
-def generate_markdown(
-    grouped: dict[str, list[dict]],
-    all_results: list[dict],
-) -> str:
-    """Generate markdown report from grouped failure data."""
-    if not all_results:
-        return "# Test Failure Report\n\n✅ All tests passed — no failures found.\n"
-
-    lines: list[str] = [
-        "# Test Failure Report\n",
-        f"**{len(all_results)} failure(s) across {len(grouped)} file(s)**\n",
+    lines = [
+        "## Test Failure Report",
+        "",
+        f"**{total_failed} failure(s)** across **{len(groups)} file(s)**",
+        "",
     ]
 
-    # Summary table
-    lines.append("## Summary\n")
-    lines.append("| File | Failures | Error Types |")
-    lines.append("|------|----------|-------------|")
-    for fpath, failures in sorted(grouped.items()):
-        types = ", ".join(sorted({r["error_type"] for r in failures}))
-        lines.append(f"| `{fpath}` | {len(failures)} | {types} |")
-    lines.append("")
-
-    # Per-file details
-    lines.append("## Details\n")
-    for fpath in sorted(grouped):
-        failures = grouped[fpath]
-        lines.append(f"### `{fpath}`\n")
+    for filepath in sorted(groups):
+        failures = groups[filepath]
+        lines.append(f"### `{filepath}` ({len(failures)} failure(s))")
+        lines.append("")
+        lines.append("| Test | Line | Error | Likely Cause |")
+        lines.append("|------|------|-------|-------------|")
         for f in failures:
-            cause = diagnose_failure(f["error_type"], f["error"])
-            lines.append(f"- **{f['test']}**")
-            lines.append(f"  - Error: `{f['error']}`")
-            lines.append(f"  - Likely cause: {cause}")
+            test = f["test"]
+            ln = f["line"] or "—"
+            err = f["error"][:80] if f["error"] else "—"
+            cause = f["cause"]
+            lines.append(f"| `{test}` | {ln} | {err} | {cause} |")
         lines.append("")
 
     return "\n".join(lines)
 
 
+def format_json(groups: dict[str, list[dict]], total_failed: int) -> str:
+    """Format parsed failures as JSON."""
+    return json.dumps({
+        "total_failed": total_failed,
+        "files_affected": len(groups),
+        "failures": {
+            fp: entries for fp, entries in sorted(groups.items())
+        },
+    }, indent=2)
+
+
+# ---------------------------------------------------------------------------
+# Runner
+# ---------------------------------------------------------------------------
+
+def run_pytest(directory: Path) -> tuple[str, int]:
+    """Run pytest -q --tb=line and return (stdout, returncode)."""
+    result = subprocess.run(
+        [sys.executable, "-m", "pytest", "-q", "--tb=line", "-x", "--no-header"],
+        cwd=str(directory),
+        capture_output=True,
+        text=True,
+        timeout=300,
+    )
+    return result.stdout, result.returncode
+
+
+# ---------------------------------------------------------------------------
+# CLI
+# ---------------------------------------------------------------------------
+
 def main(argv: list[str] | None = None) -> None:
-    """CLI entry point."""
-    args = argv or sys.argv[1:]
-    use_json = "--json" in args
-    cwd: Path | None = None
+    parser = argparse.ArgumentParser(
+        description="Run pytest, parse failures, and report likely causes."
+    )
+    parser.add_argument(
+        "--json", action="store_true", dest="json_output",
+        help="Output JSON instead of markdown",
+    )
+    parser.add_argument(
+        "--dir", type=Path, default=Path.home() / "germline",
+        help="Project directory to run pytest in (default: ~/germline)",
+    )
+    args = parser.parse_args(argv)
 
-    # Parse --dir flag
-    for i, arg in enumerate(args):
-        if arg == "--dir" and i + 1 < len(args):
-            cwd = Path(args[i + 1])
+    stdout, rc = run_pytest(args.dir)
 
-    output = run_pytest(cwd)
-    results = parse_pytest_output(output)
-    grouped = group_by_file(results)
-
-    if use_json:
-        print(json.dumps({
-            "failures": results,
-            "total": len(results),
-            "files_affected": len(grouped),
-            "grouped": {k: v for k, v in grouped.items()},
-        }, indent=2))
+    if rc == 0:
+        groups: dict[str, list[dict]] = {}
+        total_failed = 0
     else:
-        print(generate_markdown(grouped, results))
+        groups = parse_failures(stdout)
+        total_failed = sum(len(v) for v in groups.values())
+
+    if args.json_output:
+        print(format_json(groups, total_failed))
+    else:
+        print(format_markdown(groups, total_failed))
+
+    sys.exit(rc if total_failed else 0)
 
 
 if __name__ == "__main__":
