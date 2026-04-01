@@ -207,7 +207,7 @@ def dep_check() -> list[str]:
     try:
         r = subprocess.run(
             ["proteostasis"],
-            capture_output=True, text=True, timeout=30,
+            capture_output=True, text=True, timeout=5,
         )
         if r.returncode == 0 and r.stdout.strip():
             return r.stdout.strip().splitlines()
@@ -362,8 +362,13 @@ def cmd_gather(args):
         rfts_fut = pool.submit(rfts_verify)
         deps_fut = pool.submit(dep_check)
         peira_fut = pool.submit(peira_status)
-        sid = latest_session_id() if args.reflect else None
-        reflect_fut = pool.submit(run_reflect, sid) if sid else None
+        # Reflect is opt-in (--reflect) because the LLM call takes 30-60s
+        sid = None
+        reflect_fut = None
+        if getattr(args, 'reflect', False):
+            sid = latest_session_id()
+            if sid:
+                reflect_fut = pool.submit(run_reflect, sid)
         methyl_fut = pool.submit(run_methylation_audit)
 
         for name, fut, key, default in [
