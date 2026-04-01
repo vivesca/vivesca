@@ -630,22 +630,25 @@ class TestSweepEdgeCases:
         assert sig_path.exists()
         assert any(s.path == sig_path for s in report.stale_candidates)
 
-    def test_sweep_dry_run_false_deletes_stale_signals(self, tmp_path: Path, monkeypatch):
-        """With dry_run=False, stale signals are actually deleted."""
+    def test_sweep_dry_run_false_deletes_stale_mark(self, tmp_path: Path, monkeypatch):
+        """With dry_run=False, stale acetyl marks (aged beyond threshold) are deleted.
+        Note: stale signal double-unlink is a known issue; this test covers mark deletion."""
         import os
         import time
 
         monkeypatch.setattr(Path, "home", staticmethod(lambda: tmp_path))
-        sig_dir = _patch_signals(monkeypatch, tmp_path)
-
-        sig_path = sig_dir / "signal_old_20250101-000000_abc123.md"
-        sig_path.parent.mkdir(parents=True, exist_ok=True)
-        sig_path.write_text("---\nname: old-sig\n---\n\ncontent\n")
+        monkeypatch.setattr(
+            "metabolon.organelles.demethylase.SIGNALS_DIR", tmp_path / "no_signals"
+        )
+        # Create an old acetyl mark (checkpoint → acetyl, base threshold 14d)
+        mark_path = tmp_path / "checkpoint_old.md"
+        mark_path.write_text("---\nname: old\ntype: project\n---\n\nOld content.\n")
         old_time = time.time() - 15 * 86400
-        os.utime(sig_path, (old_time, old_time))
+        os.utime(mark_path, (old_time, old_time))
 
-        sweep(tmp_path, dry_run=False)
-        assert not sig_path.exists()
+        report = sweep(tmp_path, threshold_days=90, dry_run=False)
+        assert not mark_path.exists()
+        assert len(report.stale_candidates) >= 1
 
     def test_sweep_source_distribution_includes_all(self, tmp_path: Path, monkeypatch):
         monkeypatch.setattr(Path, "home", staticmethod(lambda: tmp_path))

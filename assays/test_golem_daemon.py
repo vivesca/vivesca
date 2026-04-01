@@ -167,7 +167,7 @@ def test_parse_queue_returns_line_numbers(tmp_path):
         _mod["QUEUE_FILE"] = original_queue
 
     # Line numbers should be unique
-    line_nums = [ln for ln, _ in pending]
+    line_nums = [ln for ln, _, _ in pending]
     assert len(set(line_nums)) == len(line_nums)
 
 
