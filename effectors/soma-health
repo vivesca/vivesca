@@ -79,7 +79,7 @@ class HealthReport:
 
 
 def check_disk() -> Check:
-    """Check disk usage on /home/terry volume."""
+    """Check disk usage on home volume."""
     try:
         usage = shutil.disk_usage(HOME)
         pct = (usage.used / usage.total) * 100
