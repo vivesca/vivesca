@@ -728,11 +728,12 @@ class TestSmoketestReadException:
 class TestSmoketestAuthException:
     """Cover lines 536-537: exception during claude --version in smoketest()."""
 
+    @patch("random.choices", return_value=list("testcode"))
     @patch("metabolon.organelles.mitosis.sync")
     @patch("metabolon.organelles.mitosis._fly_cmd")
     @patch("metabolon.organelles.mitosis._is_soma_reachable", return_value=True)
-    def test_claude_version_exception(self, _, mock_fly, mock_sync):
-        passcode = "mitosis-testcode1"
+    def test_claude_version_exception(self, _, mock_fly, mock_sync, __):
+        passcode = "mitosis-testcode"
 
         good_report = FidelityReport(
             results=[ReplicationResult("epigenome", True, 0.1)]
@@ -749,7 +750,6 @@ class TestSmoketestAuthException:
 
         with patch("metabolon.organelles.mitosis.Path") as mock_path:
             mock_probe = MagicMock()
-            # Make write_text a no-op and __str__ return something usable
             mock_path.home.return_value.__truediv__.return_value.__truediv__.return_value.__truediv__.return_value = mock_probe
             result = smoketest()
 
@@ -761,10 +761,11 @@ class TestSmoketestAuthException:
 class TestSmoketestFlyNoiseFiltered:
     """Cover line 521: fly noise lines filtered during smoketest read."""
 
+    @patch("random.choices", return_value=list("noiseok1"))
     @patch("metabolon.organelles.mitosis.sync")
     @patch("metabolon.organelles.mitosis._fly_cmd")
     @patch("metabolon.organelles.mitosis._is_soma_reachable", return_value=True)
-    def test_fly_noise_in_read_response(self, _, mock_fly, mock_sync):
+    def test_fly_noise_in_read_response(self, _, mock_fly, mock_sync, __):
         passcode = "mitosis-noiseok1"
 
         good_report = FidelityReport(
