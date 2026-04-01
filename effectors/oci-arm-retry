@@ -1,15 +1,17 @@
 #!/usr/bin/env python3
 """Retry OCI ARM A1 instance launch until capacity is available.
 
-Tries every 5 minutes. Logs attempts. Stops on success or after --max-attempts.
+Tries every 5 minutes, rotating through all subscribed regions.
+Logs attempts. Stops on success or after --max-attempts.
 Sends Telegram notification on success via deltos.
 
 Usage:
-    oci-arm-retry                    # run once
-    oci-arm-retry --loop             # retry every 5 minutes
+    oci-arm-retry                    # run once (Tokyo only)
+    oci-arm-retry --loop             # retry every 5 minutes (Tokyo only)
+    oci-arm-retry --loop --multi     # rotate through ALL subscribed regions
     oci-arm-retry --loop --interval 300  # custom interval in seconds
     oci-arm-retry --max-attempts 100 # limit retries
-    oci-arm-retry --region ap-osaka-1 --ad GrDg:AP-OSAKA-1-AD-1  # try a different region
+    oci-arm-retry --region ap-osaka-1 --ad GrDg:AP-OSAKA-1-AD-1  # specific region
 """
 from __future__ import annotations
 
@@ -36,6 +38,34 @@ DEFAULT_CONFIG = {
     "display_name": "vivesca-arm",
     "ssh_key_file": str(Path.home() / ".ssh" / "id_ed25519.pub"),
 }
+
+# Multi-region configs — populated after PAYG + region subscription
+# Each region needs its own subnet, image, and AD
+# These get created via `oci-region-setup <region>` after subscribing
+REGION_CONFIGS = {
+    "ap-tokyo-1": DEFAULT_CONFIG,
+    # After subscribing, add:
+    # "ap-osaka-1": {...},
+    # "ap-sydney-1": {...},
+    # "ap-seoul-1": {...},
+}
+
+
+def get_subscribed_regions() -> list[str]:
+    """Get list of subscribed region names from OCI CLI."""
+    import os
+    r = subprocess.run(
+        ["oci", "iam", "region-subscription", "list",
+         "--tenancy-id", DEFAULT_CONFIG["compartment_id"]],
+        capture_output=True, text=True,
+        env={**os.environ, "SUPPRESS_LABEL_WARNING": "True"},
+    )
+    if r.returncode != 0:
+        return ["ap-tokyo-1"]
+    try:
+        return [reg["region-name"] for reg in json.loads(r.stdout).get("data", [])]
+    except Exception:
+        return ["ap-tokyo-1"]
 
 
 def log(msg: str) -> None:
@@ -101,6 +131,7 @@ def try_launch(config: dict) -> dict | None:
 def main():
     parser = argparse.ArgumentParser(description="Retry OCI ARM A1 instance launch")
     parser.add_argument("--loop", action="store_true", help="Retry in a loop")
+    parser.add_argument("--multi", action="store_true", help="Rotate through all subscribed regions with configs")
     parser.add_argument("--interval", type=int, default=300, help="Seconds between retries (default: 300)")
     parser.add_argument("--max-attempts", type=int, default=0, help="Max attempts (0 = unlimited)")
     parser.add_argument("--region", default=DEFAULT_CONFIG["region"])
@@ -109,25 +140,35 @@ def main():
     parser.add_argument("--image-id", default=DEFAULT_CONFIG["image_id"])
     args = parser.parse_args()
 
-    config = DEFAULT_CONFIG.copy()
-    config["region"] = args.region
-    config["ad"] = args.ad
-    config["subnet_id"] = args.subnet_id
-    config["image_id"] = args.image_id
+    if args.multi:
+        # Rotate through all regions that have configs
+        subscribed = get_subscribed_regions()
+        configs = [REGION_CONFIGS[r] for r in subscribed if r in REGION_CONFIGS]
+        if not configs:
+            configs = [DEFAULT_CONFIG]
+        log(f"Multi-region mode: {[c['region'] for c in configs]}")
+    else:
+        config = DEFAULT_CONFIG.copy()
+        config["region"] = args.region
+        config["ad"] = args.ad
+        config["subnet_id"] = args.subnet_id
+        config["image_id"] = args.image_id
+        configs = [config]
 
     attempt = 0
     while True:
-        attempt += 1
-        log(f"Attempt {attempt} — {config['region']} / {config['ad']}")
+        for config in configs:
+            attempt += 1
+            log(f"Attempt {attempt} — {config['region']} / {config['ad']}")
 
-        data = try_launch(config)
-        if data:
-            instance_id = data.get("id", "unknown")
-            state = data.get("lifecycle-state", "unknown")
-            log(f"SUCCESS! Instance {instance_id} is {state}")
-            notify(f"OCI ARM A1 launched! {config['display_name']} in {config['region']}")
-            print(json.dumps(data, indent=2))
-            sys.exit(0)
+            data = try_launch(config)
+            if data:
+                instance_id = data.get("id", "unknown")
+                state = data.get("lifecycle-state", "unknown")
+                log(f"SUCCESS! Instance {instance_id} is {state}")
+                notify(f"OCI ARM A1 launched! {config['display_name']} in {config['region']}")
+                print(json.dumps(data, indent=2))
+                sys.exit(0)
 
         if not args.loop:
             sys.exit(1)

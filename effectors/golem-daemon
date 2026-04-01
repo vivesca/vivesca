@@ -182,6 +182,7 @@ PROVIDER_LIMITS = {
     "codex": 4,
 }
 DEFAULT_LIMIT = 4  # Fallback for unknown providers
+MAX_TOTAL_CONCURRENT = 24  # Global cap across all providers (memory safety on 32GB)
 
 # Counter for successful mark_done calls (reset on auto-commit)
 _mark_done_count = 0
@@ -510,20 +511,53 @@ def get_provider_limit(provider: str) -> int:
     """Get concurrency limit for a provider."""
     return PROVIDER_LIMITS.get(provider, DEFAULT_LIMIT)
 
+_PENDING_PREFIXES = ("- [ ] ", "- [!!] ", "- [!] ")  # pending, high-priority, failed (retryable)
+
+def _find_task_line(lines: list[str], line_num: int, task_id: str) -> int:
+    """Find task line by task_id, falling back to line_num.
+
+    External edits to the queue file can shift line numbers. When the line at
+    line_num doesn't match, scan for the task_id to find the correct line.
+    Matches [ ], [!!], and [!] states — tasks may change state between dispatch
+    and completion due to concurrent daemon restarts.
+    Returns -1 if not found.
+    """
+    def _is_task(s: str) -> bool:
+        return any(s.startswith(p) for p in _PENDING_PREFIXES)
+
+    # Fast path: line_num is still correct
+    if 0 <= line_num < len(lines):
+        line = lines[line_num].strip()
+        if task_id and f"[{task_id}]" in line and _is_task(line):
+            return line_num
+    # Slow path: scan by task_id
+    if task_id:
+        for i, line in enumerate(lines):
+            stripped = line.strip()
+            if f"[{task_id}]" in stripped and _is_task(stripped):
+                return i
+    # Final fallback: original line_num if it's a pending task
+    if 0 <= line_num < len(lines):
+        stripped = lines[line_num].strip()
+        if _is_task(stripped):
+            return line_num
+    return -1
+
+
 def mark_done(line_num: int, result: str = "", task_id: str = ""):
     """Mark task as done in queue file, move to Done section."""
     with QueueLock():
         if not QUEUE_FILE.exists():
             return
-        if line_num < 0:
-            return
         try:
             lines = QUEUE_FILE.read_text().splitlines()
         except (PermissionError, OSError, UnicodeDecodeError):
             return
-        if line_num >= len(lines):
+        actual_line = _find_task_line(lines, line_num, task_id)
+        if actual_line < 0:
+            log(f"WARN mark_done: task [{task_id}] not found at line {line_num} (queue may have been edited)")
             return
-        original = lines[line_num]
+        original = lines[actual_line]
         # Verify the line is still a pending task (normal or high-priority)
         stripped = original.strip()
         if stripped.startswith("- [!!] "):
@@ -532,7 +566,7 @@ def mark_done(line_num: int, result: str = "", task_id: str = ""):
             done_line = original.replace("- [ ] ", "- [x] ", 1)
         else:
             return
-        lines[line_num] = done_line
+        lines[actual_line] = done_line
         for i, line in enumerate(lines):
             if line.strip() == "## Done":
                 prefix = f"[{task_id}] " if task_id else ""
@@ -558,15 +592,15 @@ def mark_failed(line_num: int, result: str = "", exit_code: int = 1,
     with QueueLock():
         if not QUEUE_FILE.exists():
             return {"retried": False, "rate_limited": rate_limited}
-        if line_num < 0:
-            return {"retried": False, "rate_limited": rate_limited}
         try:
             lines = QUEUE_FILE.read_text().splitlines()
         except (PermissionError, OSError, UnicodeDecodeError):
             return {"retried": False, "rate_limited": rate_limited}
-        if line_num >= len(lines):
+        actual_line = _find_task_line(lines, line_num, task_id)
+        if actual_line < 0:
+            log(f"WARN mark_failed: task [{task_id}] not found at line {line_num} (queue may have been edited)")
             return {"retried": False, "rate_limited": rate_limited}
-        original = lines[line_num]
+        original = lines[actual_line]
         # Verify the line is still a pending task (normal or high-priority)
         stripped = original.strip()
         is_high = stripped.startswith("- [!!] ")
@@ -588,14 +622,14 @@ def mark_failed(line_num: int, result: str = "", exit_code: int = 1,
         # Use raw tail for empty check (result always contains "exit=..." prefix).
         empty_output = not tail or not tail.strip()
         if (exit_code == 2 and not rate_limited and not empty_output) or not cmd_match:
-            lines[line_num] = _to_failed(original)
+            lines[actual_line] = _to_failed(original)
         elif '(retry)' not in cmd_match.group(1):
             old_cmd = cmd_match.group(1)
             new_cmd = old_cmd + ' (retry)'
-            lines[line_num] = original.replace(f'`{old_cmd}`', f'`{new_cmd}`', 1)
+            lines[actual_line] = original.replace(f'`{old_cmd}`', f'`{new_cmd}`', 1)
             retried = True
         else:
-            lines[line_num] = _to_failed(original)
+            lines[actual_line] = _to_failed(original)
 
         try:
             QUEUE_FILE.write_text("\n".join(lines) + "\n")
@@ -1082,8 +1116,7 @@ def daemon_loop():
     signal.signal(signal.SIGTERM, _handle_sigterm)
     _shutdown_event.clear()
 
-    # Max workers = max provider limit (volcano=16)
-    max_workers = max(PROVIDER_LIMITS.values())
+    max_workers = MAX_TOTAL_CONCURRENT
     running = {}  # future -> (line_num, cmd, provider, task_id)
     provider_running: dict[str, int] = {}  # provider -> count of running tasks
     provider_failure_times: dict[str, list[float]] = {}  # provider -> list of failure timestamps
@@ -1302,6 +1335,10 @@ def daemon_loop():
                             log(f"PREFLIGHT: {provider} connection error — skipping dispatch this cycle")
                             continue
 
+                    # Global cap: don't exceed MAX_TOTAL_CONCURRENT across all providers
+                    if len(running) >= MAX_TOTAL_CONCURRENT:
+                        break
+
                     current = provider_running.get(provider, 0)
                     limit = get_provider_limit(provider)
 
@@ -1419,7 +1456,7 @@ def cmd_status():
             for p, n in sorted(by_provider.items())
         ) if by_provider else "none"
 
-        print(f"Daemon running (PID {pid}), {len(pending)} pending tasks ({provider_info})")
+        print(f"Daemon running (PID {pid}), {len(pending)} pending tasks ({provider_info}), global cap {MAX_TOTAL_CONCURRENT}")
 
         # Show running task IDs from state file
         if RUNNING_FILE.exists():

@@ -262,12 +262,17 @@ _preflight_check() {
 _run_golem() {
   local prompt="$1"
 
-  # Prepend coaching notes (same file all providers get)
-  if [[ -f "$COACHING_FILE" ]]; then
+  # Prepend provider-specific coaching notes
+  local _coaching_source="$COACHING_FILE"
+  case "$PROVIDER" in
+    codex)  _coaching_source="${COACHING_FILE%.*}_codex.md" ;;
+    gemini) _coaching_source="${COACHING_FILE%.*}_gemini.md" ;;
+  esac
+  if [[ -f "$_coaching_source" ]]; then
     local _coaching_tmp
     _coaching_tmp="$(mktemp)"
     printf '%s\n' "<coaching-notes>" > "$_coaching_tmp"
-    cat "$COACHING_FILE" >> "$_coaching_tmp"
+    cat "$_coaching_source" >> "$_coaching_tmp"
     printf '\n%s\n\n' "</coaching-notes>" >> "$_coaching_tmp"
     printf '%s' "$prompt" >> "$_coaching_tmp"
     prompt="$(cat "$_coaching_tmp")"
