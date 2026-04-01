@@ -108,3 +108,41 @@ class TestContentChecks:
         src = SCRIPT.read_text()
         assert ".tmux.conf" in src
 
+
+# ── syntax check ─────────────────────────────────────────────────────────
+
+
+class TestSyntaxCheck:
+    def test_bash_syntax_valid(self):
+        """bash -n should report no syntax errors."""
+        r = subprocess.run(
+            ["bash", "-n", str(SCRIPT)],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        assert r.returncode == 0, f"Syntax error in hetzner-bootstrap.sh:\n{r.stderr}"
+
+
+# ── no todo/fixme ────────────────────────────────────────────────────────
+
+
+class TestNoTodoFixme:
+    def test_no_todo_or_fixme(self):
+        """Script should not contain TODO or FIXME markers."""
+        content = SCRIPT.read_text()
+        for line in content.splitlines():
+            upper = line.upper()
+            assert "TODO" not in upper, f"Found TODO: {line.strip()}"
+            assert "FIXME" not in upper, f"Found FIXME: {line.strip()}"
+
+
+# ── ends with newline ─────────────────────────────────────────────────────
+
+
+class TestEndsWithNewline:
+    def test_script_ends_with_newline(self):
+        """Script should end with a trailing newline."""
+        content = SCRIPT.read_text()
+        assert content.endswith("\n"), "Script should end with a newline"
+
