@@ -3,6 +3,7 @@
 # requires-python = ">=3.11"
 # dependencies = ["playwright"]
 # ///
+from __future__ import annotations
 """
 cookie-sync — Export Chrome cookies to JSON and import into Playwright.
 
@@ -27,8 +28,6 @@ Output format (JSON array):
   }
 ]
 """
-
-from __future__ import annotations
 
 import argparse
 import base64
