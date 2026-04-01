@@ -361,7 +361,7 @@ _run_golem() {
       output=$(
       timeout "$_claude_timeout" \
       env GEMINI_API_KEY="$_KEY" GOOGLE_API_KEY="$_KEY" \
-      gemini -p "$prompt" < /dev/null 2>&1
+      gemini --sandbox=false --yolo -p "$prompt" < /dev/null 2>&1
       ) && exit_code=0 || exit_code=$?
       _claude_ran=true
     elif [[ "${_CLI:-claude}" == "codex" ]]; then

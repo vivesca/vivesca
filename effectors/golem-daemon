@@ -184,6 +184,54 @@ PROVIDER_LIMITS = {
 DEFAULT_LIMIT = 4  # Fallback for unknown providers
 MAX_TOTAL_CONCURRENT = 24  # Global cap across all providers (memory safety on 32GB)
 
+# Provider fallback chain — ordered by pass rate. When a provider is in cooldown,
+# its tasks route to the next available provider in this chain.
+PROVIDER_FALLBACK = {
+    "codex": ["gemini", "zhipu"],
+    "gemini": ["codex", "zhipu"],
+    "zhipu": ["codex", "gemini"],
+    "infini": ["codex", "gemini"],
+    "volcano": ["codex", "gemini"],
+}
+
+COOLDOWN_LOG = Path.home() / ".local" / "share" / "vivesca" / "golem-cooldowns.json"
+
+
+def _log_cooldown(provider: str, cooldown_until: float, reason: str = ""):
+    """Append cooldown event to persistent log for visibility."""
+    entry = {
+        "ts": time.strftime("%Y-%m-%d %H:%M:%S"),
+        "provider": provider,
+        "resets_at": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(cooldown_until)),
+        "reason": reason[:100],
+    }
+    try:
+        entries = json.loads(COOLDOWN_LOG.read_text()) if COOLDOWN_LOG.exists() else []
+    except (json.JSONDecodeError, OSError):
+        entries = []
+    entries.append(entry)
+    # Keep last 100 entries
+    entries = entries[-100:]
+    COOLDOWN_LOG.write_text(json.dumps(entries, indent=2) + "\n")
+
+
+def _swap_provider(cmd: str, old_provider: str, new_provider: str) -> str:
+    """Swap --provider in a golem command string for runtime fallback."""
+    return cmd.replace(f"--provider {old_provider}", f"--provider {new_provider}", 1)
+
+
+def _pick_fallback(provider: str, provider_cooldown_until: dict, provider_running: dict) -> str | None:
+    """Find an available fallback provider. Returns None if all are in cooldown."""
+    for fallback in PROVIDER_FALLBACK.get(provider, []):
+        if fallback in provider_cooldown_until:
+            continue
+        current = provider_running.get(fallback, 0)
+        limit = PROVIDER_LIMITS.get(fallback, DEFAULT_LIMIT)
+        if current < limit:
+            return fallback
+    return None
+
+
 # Counter for successful mark_done calls (reset on auto-commit)
 _mark_done_count = 0
 
@@ -1210,6 +1258,7 @@ def daemon_loop():
                                 # Only extend, never shorten existing cooldown
                                 if provider_cooldown_until.get(provider, 0) < cooldown_end:
                                     provider_cooldown_until[provider] = cooldown_end
+                                    _log_cooldown(provider, cooldown_end, f"task {task_id} exit={exit_code}")
                                 cd_min = int(cooldown // 60)
                                 reason = "fast-exit" if is_fast_exit and not is_explicit_ratelimit else "output-match"
                                 log(f"RATE-LIMITED [{provider}] [{task_id}] ({reason}): cooldown {cd_min}min (exit={exit_code}, dur={duration}s)")
@@ -1245,6 +1294,7 @@ def daemon_loop():
                                         cooldown_dur = PROVIDER_COOLDOWN_SECONDS
                                     cooldown_end = now + cooldown_dur
                                     provider_cooldown_until[provider] = cooldown_end
+                                    _log_cooldown(provider, cooldown_end, f"failure window {recent_fails} in {PROVIDER_FAILURE_WINDOW//60}min")
                                     log(f"COOLDOWN: {provider} hit {recent_fails} failures in {PROVIDER_FAILURE_WINDOW//60}min window — pausing for {cooldown_dur//60}min{' (rate-limit suspected, exit={} dur={}s)'.format(exit_code, duration) if silent_ratelimit else ''}")
                     except Exception as e:
                         log(f"Future error: {e}")
@@ -1314,9 +1364,15 @@ def daemon_loop():
                 for line_num, cmd, task_id in pending:
                     provider = parse_provider(cmd)
 
-                    # Skip providers in cooldown (rate-limited)
+                    # Provider in cooldown → try fallback
                     if provider in provider_cooldown_until:
-                        continue
+                        fallback = _pick_fallback(provider, provider_cooldown_until, provider_running)
+                        if fallback:
+                            original_provider = provider
+                            cmd = _swap_provider(cmd, provider, fallback)
+                            provider = fallback
+                        else:
+                            continue  # all providers burnt
 
                     # Per-provider preflight: check once per cycle, before first dispatch
                     if provider not in _preflight_checked and provider not in ("default", "gemini", "codex"):
@@ -1326,6 +1382,7 @@ def daemon_loop():
                             # Rate-limited — set cooldown immediately
                             cooldown_end = time.time() + cooldown_secs
                             provider_cooldown_until[provider] = cooldown_end
+                            _log_cooldown(provider, cooldown_end, "preflight rate-limit")
                             provider_failure_times.pop(provider, None)
                             cd_min = cooldown_secs // 60
                             log(f"PREFLIGHT: {provider} rate-limited — cooldown {cd_min}min")
@@ -1457,6 +1514,21 @@ def cmd_status():
         ) if by_provider else "none"
 
         print(f"Daemon running (PID {pid}), {len(pending)} pending tasks ({provider_info}), global cap {MAX_TOTAL_CONCURRENT}")
+
+        # Show cooldown status from log
+        if COOLDOWN_LOG.exists():
+            try:
+                entries = json.loads(COOLDOWN_LOG.read_text())
+                now = time.time()
+                active = []
+                for e in entries:
+                    reset_time = time.mktime(time.strptime(e["resets_at"], "%Y-%m-%d %H:%M:%S"))
+                    if reset_time > now:
+                        active.append(f"{e['provider']} (resets {e['resets_at'][11:16]})")
+                if active:
+                    print(f"Cooldowns: {', '.join(active)}")
+            except (json.JSONDecodeError, OSError, KeyError, ValueError):
+                pass
 
         # Show running task IDs from state file
         if RUNNING_FILE.exists():

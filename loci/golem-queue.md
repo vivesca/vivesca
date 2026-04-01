@@ -34,13 +34,11 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 
 #### Consulting IP — deep cards (10 tasks)
 
-- [ ] `golem [t-041067] --provider codex --max-turns 40 "Create ~/epigenome/chromatin/euchromatin/consulting/cards/ai-talent-strategy-banking.md — consulting insight card on AI talent strategy for banks. Cover: build vs buy vs partner for AI capabilities, upskilling existing staff, data scientist vs ML engineer roles, retention challenges, realistic timelines. 500-800 words. Commit."`
 - [!] `golem [t-ddf8d2] --provider gemini --max-turns 40 "Create ~/epigenome/chromatin/euchromatin/consulting/cards/ai-operating-model.md — consulting insight card on AI operating model design for banks. Cover: centralized vs federated vs hub-and-spoke, Center of Excellence patterns, embedding AI in business lines, reporting lines, common pitfalls. 500-800 words. Commit."`
 - [ ] `golem [t-a4b7ef] --provider codex --max-turns 40 "Create ~/epigenome/chromatin/euchromatin/consulting/cards/ai-data-strategy-banking.md — consulting insight card on data strategy for AI in banking. Cover: data quality as AI bottleneck, data lineage requirements, feature stores, synthetic data for testing, data mesh vs warehouse for ML, regulatory data constraints. 500-800 words. Commit."`
 - [!] `golem [t-7a34d6] --provider gemini --max-turns 40 "Create ~/epigenome/chromatin/euchromatin/consulting/cards/conversational-ai-banking.md — consulting insight card on conversational AI deployment in banking. Cover: chatbot maturity model, IVR modernization, agent assist vs full automation, measuring deflection and CSAT, compliance recording requirements, vendor landscape. 500-800 words. Commit."`
 - [ ] `golem [t-2afc07] --provider codex --max-turns 40 "Create ~/epigenome/chromatin/euchromatin/consulting/cards/ai-in-credit-risk.md — consulting insight card on AI in credit risk. Cover: traditional scorecards vs ML models, explainability requirements (HKMA/ECOA), challenger model framework, monitoring for drift, regulatory approval process, back-testing requirements. 500-800 words. Commit."`
 - [!] `golem [t-159add] --provider gemini --max-turns 40 "Create ~/epigenome/chromatin/euchromatin/consulting/cards/ai-aml-kyc.md — consulting insight card on AI for AML/KYC in banking. Cover: transaction monitoring ML, name screening NLP, network analysis for suspicious patterns, false positive reduction, regulatory expectations (HKMA 2024 AML circular), vendor landscape. 500-800 words. Commit."`
-- [ ] `golem [t-fef9bd] --provider codex --max-turns 40 "Create ~/epigenome/chromatin/euchromatin/consulting/cards/cloud-ai-banking.md — consulting insight card on cloud strategy for AI workloads in banking. Cover: on-prem vs cloud vs hybrid, data residency (HK PDPO, China PIPL), GPU provisioning, cost management, multi-cloud risks, regulatory stance on cloud outsourcing. 500-800 words. Commit."`
 - [!] `golem [t-afa884] --provider gemini --max-turns 40 "Create ~/epigenome/chromatin/euchromatin/consulting/cards/ai-testing-validation.md — consulting insight card on AI testing and validation for banks. Cover: unit testing for ML pipelines, A/B testing in production, shadow deployment, champion-challenger, bias testing, adversarial testing, regulatory validation requirements. 500-800 words. Commit."`
 - [ ] `golem [t-de4aa4] --provider codex --max-turns 40 "Create ~/epigenome/chromatin/euchromatin/consulting/cards/ai-change-management.md — consulting insight card on change management for AI initiatives in banks. Cover: stakeholder alignment, fear of job displacement, training programs, quick wins strategy, executive sponsorship, communication plan, measuring adoption. 500-800 words. Commit."`
 - [!] `golem [t-a12f1a] --provider gemini --max-turns 40 "Create ~/epigenome/chromatin/euchromatin/consulting/cards/ai-ethics-board.md — consulting insight card on establishing an AI ethics board/committee in a bank. Cover: composition, charter, decision authority, escalation criteria, case study review process, integration with existing risk governance, common failures. 500-800 words. Commit."`
@@ -67,7 +65,6 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 
 - [ ] `golem [t-538257] --provider codex --max-turns 40 "Create ~/epigenome/chromatin/euchromatin/consulting/case-studies/genai-customer-service.md — a case study shell for a GenAI-powered customer service transformation at a mid-size HK bank. Structure: situation (bank context, pain points), approach (phases, technology choices), results (metrics), lessons learned, Capco role. 600-1000 words. Commit."`
 - [!] `golem [t-02875f] --provider gemini --max-turns 40 "Create ~/epigenome/chromatin/euchromatin/consulting/case-studies/ml-credit-scoring.md — a case study shell for ML-based credit scoring at a retail bank. Cover: legacy scorecard limitations, model development approach, explainability solution, regulatory approval process, production deployment, results. 600-1000 words. Commit."`
-- [ ] `golem [t-4702c6] --provider codex --max-turns 40 "Create ~/epigenome/chromatin/euchromatin/consulting/case-studies/aml-ai-transformation.md — a case study shell for AI-driven AML transformation. Cover: false positive problem (80%+ rate), ML model for transaction monitoring, alert prioritization, regulatory engagement, phased rollout, results. 600-1000 words. Commit."`
 - [!] `golem [t-89b52a] --provider gemini --max-turns 40 "Create ~/epigenome/chromatin/euchromatin/consulting/case-studies/ai-operating-model.md — a case study shell for establishing an AI Center of Excellence at an APAC bank. Cover: starting from zero, talent acquisition, governance framework, first 5 use cases, scaling challenges, 18-month roadmap. 600-1000 words. Commit."`
 - [ ] `golem [t-fb81f2] --provider codex --max-turns 40 "Create ~/epigenome/chromatin/euchromatin/consulting/case-studies/data-quality-ai-readiness.md — a case study shell for data quality remediation enabling AI adoption. Cover: data assessment findings, data lineage gaps, remediation program, feature store implementation, measurable improvement in model performance. 600-1000 words. Commit."`
 
@@ -189,11 +186,8 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 
 #### Retries -- consulting case studies + tooling
 
-- [ ] `golem [t-b1bafd] --provider codex --max-turns 40 "Create ~/epigenome/chromatin/euchromatin/consulting/case-studies/genai-customer-service.md -- case study shell for GenAI customer service at a HK bank. 600-1000 words. Commit."`
 - [!] `golem [t-44c34b] --provider gemini --max-turns 40 "Create ~/epigenome/chromatin/euchromatin/consulting/case-studies/ml-credit-scoring.md -- case study shell for ML credit scoring. 600-1000 words. Commit."`
-- [ ] `golem [t-c10b08] --provider codex --max-turns 40 "Create ~/epigenome/chromatin/euchromatin/consulting/case-studies/aml-ai-transformation.md -- case study shell for AI AML transformation. 600-1000 words. Commit."`
 - [!] `golem [t-614b9c] --provider gemini --max-turns 40 "Create ~/epigenome/chromatin/euchromatin/consulting/case-studies/ai-operating-model.md -- case study shell for AI CoE at an APAC bank. 600-1000 words. Commit."`
-- [ ] `golem [t-5b3e7e] --provider codex --max-turns 40 "Create ~/epigenome/chromatin/euchromatin/consulting/case-studies/data-quality-ai-readiness.md -- case study shell for data quality remediation. 600-1000 words. Commit."`
 - [!] `golem [t-175bcf] --provider gemini --max-turns 40 "Create effectors/coverage-map as Python script. Read assays/ and metabolon/ to produce coverage matrix. Add --json flag. Write tests. Commit."`
 - [ ] `golem [t-fc3807] --provider codex --max-turns 40 "Create effectors/test-fixer as Python script. Run pytest -q --tb=line, parse failures, group by file, output markdown report. Add --json flag. Write tests. Commit."`
 
@@ -388,7 +382,6 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 ### Auto-requeue (19 tasks @ 07:49)
 - [ ] `golem [t-158f13] --provider codex --max-turns 50 "Run uv run pytest -q --tb=no --continue-on-collection-errors 2>&1 | grep FAILED | sed 's/::.*//g' | sort | uniq -c | sort -rn | head -5. For each of the top 5 failing test files: run pytest on it, read traceback, fix. Iterate until green. Commit." (retry)`
 - [!] `golem [t-6129f5] --provider gemini --max-turns 25 "Scan effectors/ for hardcoded paths. Fix with Path.home() or $HOME. Commit." (retry)`
-- [ ] `golem [t-4fc1e0] --provider codex --max-turns 30 "Write a consulting insight card: GenAI policy template for bank employees. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/genai-policy-template.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words." (retry)`
 
 ### Auto-requeue (19 tasks @ 07:53)
 - [!] `golem [t-0b1c3f] --provider gemini --max-turns 50 "Run uv run pytest -q --tb=no --continue-on-collection-errors 2>&1 | grep FAILED | sed 's/::.*//g' | sort | uniq -c | sort -rn | head -5. For each of the top 5 failing test files: run pytest on it, read traceback, fix. Iterate until green. Commit." (retry)`
@@ -429,7 +422,6 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 - [x] `golem [t-86c4c7] --provider volcano --max-turns 25 "Find test files with SyntaxError. Fix syntax. Commit."`
 - [x] `golem [t-7af5ce] --provider zhipu --max-turns 25 "Find subprocess.run calls without timeout in effectors/. Add timeout=300. Commit."`
 - [!] `golem [t-5c2df2] --provider gemini --max-turns 25 "Find unused imports in metabolon/**/*.py. Remove them. Commit." (retry)`
-- [ ] `golem [t-46c2fc] --provider codex --max-turns 30 "Write a consulting insight card: GenAI policy template for bank employees. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/genai-policy-template.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words." (retry)`
 - [x] `golem [t-450d8f] --provider zhipu --max-turns 30 "Write a consulting insight card: AI skills gap assessment for banking technology teams. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-skills-gap.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [!] `golem [t-5e4a13] --provider gemini --max-turns 35 "Read effectors/golem-dash (if exists). Improve to show real-time task progress, ETA to drain. Write tests. Run uv run pytest. Commit." (retry)`
 
@@ -457,7 +449,6 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 - [!] `golem [t-66ea82] --provider gemini --max-turns 25 "Find unused imports in metabolon/**/*.py. Remove them. Commit." (retry)`
 - [ ] `golem [t-319968] --provider codex --max-turns 25 "Find Python files missing shebang in effectors/. Add #!/usr/bin/env python3. Commit."`
 - [!] `golem [t-514bb1] --provider gemini --max-turns 30 "Write a consulting insight card: GenAI policy template for bank employees. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/genai-policy-template.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words." (retry)`
-- [ ] `golem [t-78fa17] --provider codex --max-turns 30 "Write a consulting insight card: AI incident response playbook for financial services. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-incident-response.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words." (retry)`
 - [!] `golem [t-1f5574] --provider gemini --max-turns 35 "Read effectors/golem. Add --json flag that outputs result as JSON instead of raw text. Useful for piping. Write tests. Run uv run pytest. Commit."`
 
 ### Auto-requeue (19 tasks @ 01:34)
@@ -467,7 +458,6 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 - [!] `golem [t-30c5ab] --provider gemini --max-turns 25 "Find test files with SyntaxError. Fix syntax. Commit."`
 - [ ] `golem [t-b8374f] --provider codex --max-turns 25 "Find unused imports in metabolon/**/*.py. Remove them. Commit."`
 - [!] `golem [t-f0b5f0] --provider gemini --max-turns 25 "Check all assays/test_*.py can be collected by pytest --co. Fix any that error. Commit." (retry)`
-- [ ] `golem [t-5dd32b] --provider codex --max-turns 30 "Write a consulting insight card: Responsible AI governance checklist for financial institutions. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/responsible-ai-checklist.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [!] `golem [t-0cd68b] --provider gemini --max-turns 30 "Write a consulting insight card: AI incident response playbook for financial services. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-incident-response.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [x] `golem [t-96f1e2] --provider zhipu --max-turns 35 "Read effectors/golem-dash (if exists). Improve to show real-time task progress, ETA to drain. Write tests. Run uv run pytest. Commit."`
 
@@ -478,7 +468,6 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 - [!] `golem [t-0799b9] --provider gemini --max-turns 25 "Scan assays/ for hardcoded /Users/terry paths. Replace with Path.home(). Commit."`
 - [ ] `golem [t-04c730] --provider codex --max-turns 25 "Find unused imports in metabolon/**/*.py. Remove them. Commit."`
 - [!] `golem [t-41983e] --provider gemini --max-turns 25 "Find Python files missing shebang in effectors/. Add #!/usr/bin/env python3. Commit."`
-- [ ] `golem [t-b6be34] --provider codex --max-turns 30 "Write a consulting insight card: Data governance for AI/ML training data in banking. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/data-governance-ai.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [!] `golem [t-f6ee5b] --provider gemini --max-turns 30 "Write a consulting insight card: LLM deployment risks in banking — regulatory expectations vs reality. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/llm-deployment-risks.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [ ] `golem [t-0aa0c0] --provider codex --max-turns 35 "Read effectors/golem-daemon. Add cmd_stats — show pass/fail/retry counts, avg duration by provider, tasks completed today. Usage: golem-daemon stats. Write tests. Run uv run pytest. Commit."`
 
@@ -490,7 +479,6 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 - [!] `golem [t-91e3ba] --provider gemini --max-turns 25 "Find subprocess.run calls without timeout in effectors/. Add timeout=300. Commit." (retry)`
 - [ ] `golem [t-7ea4a1] --provider codex --max-turns 25 "Find unused imports in metabolon/**/*.py. Remove them. Commit."`
 - [!] `golem [t-4c5315] --provider gemini --max-turns 30 "Write a consulting insight card: AI bias testing framework for credit decisioning. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-bias-testing.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words." (retry)`
-- [ ] `golem [t-8515d5] --provider codex --max-turns 30 "Write a consulting insight card: Responsible AI governance checklist for financial institutions. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/responsible-ai-checklist.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words." (retry)`
 - [!] `golem [t-ff9d44] --provider gemini --max-turns 35 "Read effectors/golem-dash (if exists). Improve to show real-time task progress, ETA to drain. Write tests. Run uv run pytest. Commit."`
 
 ### Auto-requeue (19 tasks @ 01:50)
@@ -504,7 +492,6 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 - [!] `golem [t-3e00f5] --provider gemini --max-turns 25 "Check all assays/test_*.py can be collected by pytest --co. Fix any that error. Commit."`
 - [ ] `golem [t-2b11d2] --provider codex --max-turns 25 "Scan assays/ for hardcoded /Users/terry paths. Replace with Path.home(). Commit."`
 - [!] `golem [t-95083d] --provider gemini --max-turns 30 "Write a consulting insight card: Responsible AI governance checklist for financial institutions. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/responsible-ai-checklist.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
-- [ ] `golem [t-71bc8e] --provider codex --max-turns 30 "Write a consulting insight card: Board-level AI risk reporting template for banks. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/board-ai-risk-reporting.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words." (retry)`
 - [x] `golem [t-133735] --provider zhipu --max-turns 35 "Read effectors/golem-dash (if exists). Improve to show real-time task progress, ETA to drain. Write tests. Run uv run pytest. Commit."`
 
 ### Auto-requeue (19 tasks @ 01:52)
@@ -516,7 +503,6 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 - [!] `golem [t-8c5a97] --provider gemini --max-turns 25 "Find test files with SyntaxError. Fix syntax. Commit."`
 - [ ] `golem [t-e9a281] --provider codex --max-turns 25 "Find subprocess.run calls without timeout in effectors/. Add timeout=300. Commit." (retry)`
 - [!] `golem [t-7132c1] --provider gemini --max-turns 30 "Write a consulting insight card: AI bias testing framework for credit decisioning. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-bias-testing.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
-- [ ] `golem [t-80e3d8] --provider codex --max-turns 30 "Write a consulting insight card: LLM deployment risks in banking — regulatory expectations vs reality. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/llm-deployment-risks.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [!] `golem [t-3997be] --provider gemini --max-turns 35 "Read effectors/golem-dash (if exists). Improve to show real-time task progress, ETA to drain. Write tests. Run uv run pytest. Commit."`
 
 ### Auto-requeue (19 tasks @ 02:01)
@@ -526,7 +512,6 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 - [!] `golem [t-93b283] --provider gemini --max-turns 25 "Find Python files missing shebang in effectors/. Add #!/usr/bin/env python3. Commit."`
 - [ ] `golem [t-c91c68] --provider codex --max-turns 25 "Find test files with SyntaxError. Fix syntax. Commit."`
 - [!] `golem [t-e235e1] --provider gemini --max-turns 25 "Check all effectors respond to --help without crashing. Fix crashers. Commit."`
-- [ ] `golem [t-3a45a8] --provider codex --max-turns 30 "Write a consulting insight card: Responsible AI governance checklist for financial institutions. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/responsible-ai-checklist.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [!] `golem [t-8110e1] --provider gemini --max-turns 30 "Write a consulting insight card: Cross-border AI regulation comparison — HK vs SG vs UK vs EU. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/cross-border-ai-regulation.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [ ] `golem [t-cd6401] --provider codex --max-turns 35 "Read effectors/golem-daemon. Add cmd_stats — show pass/fail/retry counts, avg duration by provider, tasks completed today. Usage: golem-daemon stats. Write tests. Run uv run pytest. Commit."`
 
@@ -553,7 +538,6 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 - [!] `golem [t-674ba2] --provider gemini --max-turns 25 "Scan effectors/ for hardcoded paths. Fix with Path.home() or $HOME. Commit." (retry)`
 - [ ] `golem [t-765101] --provider codex --max-turns 25 "Scan assays/ for hardcoded /Users/terry paths. Replace with Path.home(). Commit."`
 - [!] `golem [t-789fef] --provider gemini --max-turns 30 "Write a consulting insight card: AI model risk management framework for banks — write a consulting brief with problem, approach, key considerations. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-model-risk-framework.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
-- [ ] `golem [t-c9796e] --provider codex --max-turns 30 "Write a consulting insight card: Responsible AI governance checklist for financial institutions. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/responsible-ai-checklist.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words." (retry)`
 - [x] `golem [t-c2aa96] --provider zhipu --max-turns 35 "Read effectors/golem. Add --json flag that outputs result as JSON instead of raw text. Useful for piping. Write tests. Run uv run pytest. Commit."`
 
 ### Auto-requeue (19 tasks @ 02:20)
@@ -566,7 +550,6 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 - [!] `golem [t-0c36a1] --provider gemini --max-turns 25 "Scan effectors/ for hardcoded paths. Fix with Path.home() or $HOME. Commit." (retry)`
 - [ ] `golem [t-680707] --provider codex --max-turns 25 "Check all assays/test_*.py can be collected by pytest --co. Fix any that error. Commit." (retry)`
 - [!] `golem [t-254bca] --provider gemini --max-turns 25 "Find unused imports in metabolon/**/*.py. Remove them. Commit."`
-- [ ] `golem [t-7e0ece] --provider codex --max-turns 30 "Write a consulting insight card: AI bias testing framework for credit decisioning. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-bias-testing.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words." (retry)`
 - [!] `golem [t-067989] --provider gemini --max-turns 30 "Write a consulting insight card: Board-level AI risk reporting template for banks. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/board-ai-risk-reporting.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words." (retry)`
 - [x] `golem [t-e8883e] --provider zhipu --max-turns 35 "Read effectors/golem-daemon. Add cmd_stats — show pass/fail/retry counts, avg duration by provider, tasks completed today. Usage: golem-daemon stats. Write tests. Run uv run pytest. Commit."`
 
@@ -580,7 +563,6 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 - [ ] `golem [t-ec0314] --provider codex --max-turns 25 "Scan effectors/ for hardcoded paths. Fix with Path.home() or $HOME. Commit."`
 - [!] `golem [t-2979aa] --provider gemini --max-turns 25 "Find test files with SyntaxError. Fix syntax. Commit."`
 - [x] `golem [t-959fe2] --provider zhipu --max-turns 30 "Write a consulting insight card: AI skills gap assessment for banking technology teams. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-skills-gap.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
-- [ ] `golem [t-0d7279] --provider codex --max-turns 30 "Write a consulting insight card: AI audit methodology for internal audit teams. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-audit-methodology.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [!] `golem [t-cad42a] --provider gemini --max-turns 35 "Read effectors/golem-daemon. Add cmd_stats — show pass/fail/retry counts, avg duration by provider, tasks completed today. Usage: golem-daemon stats. Write tests. Run uv run pytest. Commit."`
 
 ### Auto-requeue (19 tasks @ 10:36)
@@ -622,7 +604,6 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 - [ ] `golem [t-78c2bb] --provider codex --max-turns 25 "Find subprocess.run calls without timeout in effectors/. Add timeout=300. Commit."`
 - [x] `golem [t-15ec11] --provider volcano --max-turns 25 "Find test files with SyntaxError. Fix syntax. Commit." (retry)`
 - [!] `golem [t-21b3f4] --provider gemini --max-turns 30 "Write a consulting insight card: AI model risk management framework for banks — write a consulting brief with problem, approach, key considerations. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-model-risk-framework.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
-- [ ] `golem [t-e1b739] --provider codex --max-turns 30 "Write a consulting insight card: AI skills gap assessment for banking technology teams. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-skills-gap.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [!] `golem [t-9e9f59] --provider gemini --max-turns 35 "Read effectors/golem-daemon. Add cmd_stats — show pass/fail/retry counts, avg duration by provider, tasks completed today. Usage: golem-daemon stats. Write tests. Run uv run pytest. Commit." (retry)`
 
 ### Auto-requeue (19 tasks @ 03:02)
@@ -636,7 +617,6 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 - [ ] `golem [t-a37d09] --provider codex --max-turns 25 "Find Python files missing shebang in effectors/. Add #!/usr/bin/env python3. Commit."`
 - [!] `golem [t-9156b4] --provider gemini --max-turns 25 "Scan assays/ for hardcoded /Users/terry paths. Replace with Path.home(). Commit."`
 - [x] `golem [t-9ba63e] --provider volcano --max-turns 30 "Write a consulting insight card: AI incident response playbook for financial services. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-incident-response.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
-- [ ] `golem [t-2c959d] --provider codex --max-turns 30 "Write a consulting insight card: Board-level AI risk reporting template for banks. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/board-ai-risk-reporting.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [!] `golem [t-7734fa] --provider gemini --max-turns 35 "Read effectors/golem. Add --json flag that outputs result as JSON instead of raw text. Useful for piping. Write tests. Run uv run pytest. Commit."`
 
 ### Auto-requeue (19 tasks @ 03:05)
@@ -723,7 +703,6 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 - [!] `golem [t-f2fe18] --provider gemini --max-turns 25 "Scan effectors/ for hardcoded paths. Fix with Path.home() or $HOME. Commit."`
 - [x] `golem [t-034aff] --provider infini --max-turns 25 "Find test files with SyntaxError. Fix syntax. Commit."`
 - [x] `golem [t-d12387] --provider volcano --max-turns 25 "Check all effectors respond to --help without crashing. Fix crashers. Commit."`
-- [ ] `golem [t-480c99] --provider codex --max-turns 30 "Write a consulting insight card: Responsible AI governance checklist for financial institutions. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/responsible-ai-checklist.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [x] `golem [t-d440fd] --provider infini --max-turns 30 "Write a consulting insight card: AI incident response playbook for financial services. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-incident-response.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [x] `golem [t-b63915] --provider volcano --max-turns 35 "Read effectors/golem. Add --json flag that outputs result as JSON instead of raw text. Useful for piping. Write tests. Run uv run pytest. Commit."`
 
@@ -798,7 +777,6 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 - [!] `golem [t-1d302e] --provider gemini --max-turns 25 "Scan effectors/ for hardcoded paths. Fix with Path.home() or $HOME. Commit."`
 - [ ] `golem [t-7cf772] --provider codex --max-turns 25 "Scan assays/ for hardcoded /Users/terry paths. Replace with Path.home(). Commit."`
 - [!] `golem [t-dc3e63] --provider gemini --max-turns 30 "Write a consulting insight card: Cross-border AI regulation comparison — HK vs SG vs UK vs EU. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/cross-border-ai-regulation.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
-- [ ] `golem [t-1426bb] --provider codex --max-turns 30 "Write a consulting insight card: AI audit methodology for internal audit teams. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-audit-methodology.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [!] `golem [t-f0f2c4] --provider gemini --max-turns 35 "Read effectors/golem-dash (if exists). Improve to show real-time task progress, ETA to drain. Write tests. Run uv run pytest. Commit."`
 
 ### Auto-requeue (19 tasks @ 15:42)
@@ -808,7 +786,6 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 - [!] `golem [t-c2e5f4] --provider gemini --max-turns 25 "Scan assays/ for hardcoded /Users/terry paths. Replace with Path.home(). Commit."`
 - [ ] `golem [t-1eb311] --provider codex --max-turns 25 "Check all effectors respond to --help without crashing. Fix crashers. Commit."`
 - [!] `golem [t-b336f9] --provider gemini --max-turns 25 "Scan effectors/ for hardcoded paths. Fix with Path.home() or $HOME. Commit."`
-- [ ] `golem [t-a675bf] --provider codex --max-turns 30 "Write a consulting insight card: AI incident response playbook for financial services. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-incident-response.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [!] `golem [t-232278] --provider gemini --max-turns 30 "Write a consulting insight card: Data governance for AI/ML training data in banking. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/data-governance-ai.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [ ] `golem [t-0804ea] --provider codex --max-turns 35 "Read effectors/golem-daemon. Add cmd_stats — show pass/fail/retry counts, avg duration by provider, tasks completed today. Usage: golem-daemon stats. Write tests. Run uv run pytest. Commit."`
 
@@ -820,7 +797,6 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 - [!] `golem [t-07f4ed] --provider gemini --max-turns 25 "Scan assays/ for hardcoded /Users/terry paths. Replace with Path.home(). Commit."`
 - [ ] `golem [t-7fecd4] --provider codex --max-turns 25 "Scan effectors/ for hardcoded paths. Fix with Path.home() or $HOME. Commit."`
 - [!] `golem [t-b5fa04] --provider gemini --max-turns 30 "Write a consulting insight card: Responsible AI governance checklist for financial institutions. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/responsible-ai-checklist.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
-- [ ] `golem [t-daa513] --provider codex --max-turns 30 "Write a consulting insight card: LLM deployment risks in banking — regulatory expectations vs reality. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/llm-deployment-risks.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [!] `golem [t-ab475a] --provider gemini --max-turns 35 "Read effectors/golem-dash (if exists). Improve to show real-time task progress, ETA to drain. Write tests. Run uv run pytest. Commit."`
 
 ### Auto-requeue (19 tasks @ 15:43)
@@ -842,7 +818,6 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 - [!] `golem [t-614f5a] --provider gemini --max-turns 25 "Find unused imports in metabolon/**/*.py. Remove them. Commit."`
 - [ ] `golem [t-38cb30] --provider codex --max-turns 25 "Check all effectors respond to --help without crashing. Fix crashers. Commit."`
 - [!] `golem [t-22622d] --provider gemini --max-turns 30 "Write a consulting insight card: GenAI policy template for bank employees. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/genai-policy-template.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
-- [ ] `golem [t-4eab49] --provider codex --max-turns 30 "Write a consulting insight card: LLM deployment risks in banking — regulatory expectations vs reality. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/llm-deployment-risks.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [!] `golem [t-452519] --provider gemini --max-turns 35 "Read effectors/golem. Add --json flag that outputs result as JSON instead of raw text. Useful for piping. Write tests. Run uv run pytest. Commit."`
 
 ### Auto-requeue (19 tasks @ 15:44)
@@ -852,7 +827,6 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 - [!] `golem [t-27fba1] --provider gemini --max-turns 25 "Check all assays/test_*.py can be collected by pytest --co. Fix any that error. Commit."`
 - [ ] `golem [t-ff944d] --provider codex --max-turns 25 "Find Python files missing shebang in effectors/. Add #!/usr/bin/env python3. Commit."`
 - [!] `golem [t-0e658c] --provider gemini --max-turns 25 "Find test files with SyntaxError. Fix syntax. Commit."`
-- [ ] `golem [t-7db91c] --provider codex --max-turns 30 "Write a consulting insight card: AI incident response playbook for financial services. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-incident-response.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [!] `golem [t-4444e6] --provider gemini --max-turns 30 "Write a consulting insight card: AI model risk management framework for banks — write a consulting brief with problem, approach, key considerations. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-model-risk-framework.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [ ] `golem [t-a0f9b8] --provider codex --max-turns 35 "Read effectors/golem. Add --json flag that outputs result as JSON instead of raw text. Useful for piping. Write tests. Run uv run pytest. Commit."`
 
@@ -864,7 +838,6 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 - [!] `golem [t-d98713] --provider gemini --max-turns 25 "Check all effectors respond to --help without crashing. Fix crashers. Commit."`
 - [ ] `golem [t-bc0335] --provider codex --max-turns 25 "Find test files with SyntaxError. Fix syntax. Commit."`
 - [!] `golem [t-8db045] --provider gemini --max-turns 30 "Write a consulting insight card: AI incident response playbook for financial services. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-incident-response.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
-- [ ] `golem [t-bd6f96] --provider codex --max-turns 30 "Write a consulting insight card: GenAI policy template for bank employees. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/genai-policy-template.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [!] `golem [t-3badd9] --provider gemini --max-turns 35 "Read effectors/golem. Add --json flag that outputs result as JSON instead of raw text. Useful for piping. Write tests. Run uv run pytest. Commit."`
 
 ### Auto-requeue (19 tasks @ 15:46)
@@ -874,7 +847,6 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 - [!] `golem [t-394473] --provider gemini --max-turns 25 "Scan assays/ for hardcoded /Users/terry paths. Replace with Path.home(). Commit."`
 - [ ] `golem [t-51cf69] --provider codex --max-turns 25 "Find test files with SyntaxError. Fix syntax. Commit."`
 - [!] `golem [t-0ac09c] --provider gemini --max-turns 25 "Scan effectors/ for hardcoded paths. Fix with Path.home() or $HOME. Commit."`
-- [ ] `golem [t-b2da52] --provider codex --max-turns 30 "Write a consulting insight card: GenAI policy template for bank employees. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/genai-policy-template.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [!] `golem [t-b3557b] --provider gemini --max-turns 30 "Write a consulting insight card: Data governance for AI/ML training data in banking. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/data-governance-ai.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [ ] `golem [t-55842b] --provider codex --max-turns 35 "Read effectors/golem-dash (if exists). Improve to show real-time task progress, ETA to drain. Write tests. Run uv run pytest. Commit."`
 
@@ -886,7 +858,6 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 - [!] `golem [t-f4bd44] --provider gemini --max-turns 25 "Find unused imports in metabolon/**/*.py. Remove them. Commit."`
 - [ ] `golem [t-971629] --provider codex --max-turns 25 "Find Python files missing shebang in effectors/. Add #!/usr/bin/env python3. Commit."`
 - [!] `golem [t-56913b] --provider gemini --max-turns 30 "Write a consulting insight card: LLM deployment risks in banking — regulatory expectations vs reality. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/llm-deployment-risks.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
-- [ ] `golem [t-9f1771] --provider codex --max-turns 30 "Write a consulting insight card: AI skills gap assessment for banking technology teams. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-skills-gap.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [!] `golem [t-05c708] --provider gemini --max-turns 35 "Read effectors/golem-dash (if exists). Improve to show real-time task progress, ETA to drain. Write tests. Run uv run pytest. Commit."`
 
 ### Auto-requeue (19 tasks @ 15:47)
@@ -896,7 +867,6 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 - [!] `golem [t-df2d5a] --provider gemini --max-turns 25 "Check all effectors respond to --help without crashing. Fix crashers. Commit."`
 - [ ] `golem [t-326b45] --provider codex --max-turns 25 "Find subprocess.run calls without timeout in effectors/. Add timeout=300. Commit."`
 - [!] `golem [t-94fbc7] --provider gemini --max-turns 25 "Find test files with SyntaxError. Fix syntax. Commit."`
-- [ ] `golem [t-eba31c] --provider codex --max-turns 30 "Write a consulting insight card: AI vendor due diligence questionnaire for banks. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-vendor-due-diligence.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [!] `golem [t-0d122f] --provider gemini --max-turns 30 "Write a consulting insight card: AI audit methodology for internal audit teams. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-audit-methodology.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [ ] `golem [t-e60282] --provider codex --max-turns 35 "Read effectors/golem. Add --json flag that outputs result as JSON instead of raw text. Useful for piping. Write tests. Run uv run pytest. Commit."`
 
@@ -908,7 +878,6 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 - [!] `golem [t-6e34df] --provider gemini --max-turns 25 "Find unused imports in metabolon/**/*.py. Remove them. Commit."`
 - [ ] `golem [t-4aceaa] --provider codex --max-turns 25 "Check all effectors respond to --help without crashing. Fix crashers. Commit."`
 - [!] `golem [t-be822e] --provider gemini --max-turns 30 "Write a consulting insight card: GenAI policy template for bank employees. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/genai-policy-template.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
-- [ ] `golem [t-57e5d1] --provider codex --max-turns 30 "Write a consulting insight card: Cross-border AI regulation comparison — HK vs SG vs UK vs EU. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/cross-border-ai-regulation.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [!] `golem [t-f176ac] --provider gemini --max-turns 35 "Read effectors/golem-dash (if exists). Improve to show real-time task progress, ETA to drain. Write tests. Run uv run pytest. Commit."`
 
 ### Auto-requeue (19 tasks @ 15:49)
@@ -918,7 +887,6 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 - [!] `golem [t-4f8780] --provider gemini --max-turns 25 "Find test files with SyntaxError. Fix syntax. Commit."`
 - [ ] `golem [t-d6e95c] --provider codex --max-turns 25 "Find Python files missing shebang in effectors/. Add #!/usr/bin/env python3. Commit."`
 - [!] `golem [t-d466df] --provider gemini --max-turns 25 "Find subprocess.run calls without timeout in effectors/. Add timeout=300. Commit."`
-- [ ] `golem [t-eb131e] --provider codex --max-turns 30 "Write a consulting insight card: Cross-border AI regulation comparison — HK vs SG vs UK vs EU. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/cross-border-ai-regulation.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [!] `golem [t-f563d7] --provider gemini --max-turns 30 "Write a consulting insight card: GenAI policy template for bank employees. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/genai-policy-template.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [ ] `golem [t-47ead0] --provider codex --max-turns 35 "Read effectors/golem. Add --json flag that outputs result as JSON instead of raw text. Useful for piping. Write tests. Run uv run pytest. Commit."`
 
@@ -930,7 +898,6 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 - [!] `golem [t-04e62c] --provider gemini --max-turns 25 "Scan assays/ for hardcoded /Users/terry paths. Replace with Path.home(). Commit."`
 - [ ] `golem [t-0b22b0] --provider codex --max-turns 25 "Find test files with SyntaxError. Fix syntax. Commit."`
 - [!] `golem [t-ed9d1e] --provider gemini --max-turns 30 "Write a consulting insight card: Responsible AI governance checklist for financial institutions. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/responsible-ai-checklist.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
-- [ ] `golem [t-1569a5] --provider codex --max-turns 30 "Write a consulting insight card: AI vendor due diligence questionnaire for banks. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-vendor-due-diligence.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [!] `golem [t-d6473a] --provider gemini --max-turns 35 "Read effectors/golem-review (if exists). Enhance to also check consulting content quality (>200 words, proper structure). Write tests. Run uv run pytest. Commit."`
 
 ### Auto-requeue (19 tasks @ 15:50)
@@ -940,7 +907,6 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 - [!] `golem [t-21dbb2] --provider gemini --max-turns 25 "Find test files with SyntaxError. Fix syntax. Commit."`
 - [ ] `golem [t-03738e] --provider codex --max-turns 25 "Find Python files missing shebang in effectors/. Add #!/usr/bin/env python3. Commit."`
 - [!] `golem [t-80cf50] --provider gemini --max-turns 25 "Check all assays/test_*.py can be collected by pytest --co. Fix any that error. Commit."`
-- [ ] `golem [t-398a1d] --provider codex --max-turns 30 "Write a consulting insight card: AI bias testing framework for credit decisioning. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-bias-testing.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [!] `golem [t-9c05b1] --provider gemini --max-turns 30 "Write a consulting insight card: Cross-border AI regulation comparison — HK vs SG vs UK vs EU. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/cross-border-ai-regulation.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [ ] `golem [t-9b7b7e] --provider codex --max-turns 35 "Read effectors/golem-dash (if exists). Improve to show real-time task progress, ETA to drain. Write tests. Run uv run pytest. Commit."`
 
@@ -952,7 +918,6 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 - [!] `golem [t-471069] --provider gemini --max-turns 25 "Scan assays/ for hardcoded /Users/terry paths. Replace with Path.home(). Commit."`
 - [ ] `golem [t-ac0903] --provider codex --max-turns 25 "Check all effectors respond to --help without crashing. Fix crashers. Commit."`
 - [!] `golem [t-109357] --provider gemini --max-turns 30 "Write a consulting insight card: Board-level AI risk reporting template for banks. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/board-ai-risk-reporting.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
-- [ ] `golem [t-92e70a] --provider codex --max-turns 30 "Write a consulting insight card: AI model risk management framework for banks — write a consulting brief with problem, approach, key considerations. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-model-risk-framework.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [!] `golem [t-252ff4] --provider gemini --max-turns 35 "Read effectors/golem-review (if exists). Enhance to also check consulting content quality (>200 words, proper structure). Write tests. Run uv run pytest. Commit."`
 
 ### Auto-requeue (19 tasks @ 15:52)
@@ -962,7 +927,6 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 - [!] `golem [t-8736af] --provider gemini --max-turns 25 "Check all assays/test_*.py can be collected by pytest --co. Fix any that error. Commit."`
 - [ ] `golem [t-4abfec] --provider codex --max-turns 25 "Find subprocess.run calls without timeout in effectors/. Add timeout=300. Commit."`
 - [!] `golem [t-0245ad] --provider gemini --max-turns 25 "Find Python files missing shebang in effectors/. Add #!/usr/bin/env python3. Commit."`
-- [ ] `golem [t-7438dc] --provider codex --max-turns 30 "Write a consulting insight card: AI model risk management framework for banks — write a consulting brief with problem, approach, key considerations. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-model-risk-framework.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [!] `golem [t-764790] --provider gemini --max-turns 30 "Write a consulting insight card: AI vendor due diligence questionnaire for banks. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-vendor-due-diligence.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [ ] `golem [t-fe6cf5] --provider codex --max-turns 35 "Read effectors/golem-daemon. Add cmd_stats — show pass/fail/retry counts, avg duration by provider, tasks completed today. Usage: golem-daemon stats. Write tests. Run uv run pytest. Commit."`
 
@@ -974,7 +938,6 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 - [!] `golem [t-2320fc] --provider gemini --max-turns 25 "Find test files with SyntaxError. Fix syntax. Commit."`
 - [ ] `golem [t-b0a477] --provider codex --max-turns 25 "Find unused imports in metabolon/**/*.py. Remove them. Commit."`
 - [!] `golem [t-6f19d2] --provider gemini --max-turns 30 "Write a consulting insight card: Data governance for AI/ML training data in banking. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/data-governance-ai.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
-- [ ] `golem [t-d2e611] --provider codex --max-turns 30 "Write a consulting insight card: Responsible AI governance checklist for financial institutions. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/responsible-ai-checklist.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [!] `golem [t-662aef] --provider gemini --max-turns 35 "Read effectors/golem-review (if exists). Enhance to also check consulting content quality (>200 words, proper structure). Write tests. Run uv run pytest. Commit."`
 
 ### Auto-requeue (19 tasks @ 15:53)
@@ -984,7 +947,6 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 - [!] `golem [t-ddbeac] --provider gemini --max-turns 25 "Find test files with SyntaxError. Fix syntax. Commit."`
 - [ ] `golem [t-321274] --provider codex --max-turns 25 "Scan effectors/ for hardcoded paths. Fix with Path.home() or $HOME. Commit."`
 - [!] `golem [t-3b3676] --provider gemini --max-turns 25 "Find subprocess.run calls without timeout in effectors/. Add timeout=300. Commit."`
-- [ ] `golem [t-e30ca9] --provider codex --max-turns 30 "Write a consulting insight card: Data governance for AI/ML training data in banking. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/data-governance-ai.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [!] `golem [t-fcb541] --provider gemini --max-turns 30 "Write a consulting insight card: AI incident response playbook for financial services. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-incident-response.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [ ] `golem [t-f24ea7] --provider codex --max-turns 35 "Read effectors/golem-daemon. Add cmd_stats — show pass/fail/retry counts, avg duration by provider, tasks completed today. Usage: golem-daemon stats. Write tests. Run uv run pytest. Commit."`
 
@@ -996,7 +958,6 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 - [!] `golem [t-d43d76] --provider gemini --max-turns 25 "Scan assays/ for hardcoded /Users/terry paths. Replace with Path.home(). Commit."`
 - [ ] `golem [t-c58131] --provider codex --max-turns 25 "Find Python files missing shebang in effectors/. Add #!/usr/bin/env python3. Commit."`
 - [!] `golem [t-4a871d] --provider gemini --max-turns 30 "Write a consulting insight card: Data governance for AI/ML training data in banking. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/data-governance-ai.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
-- [ ] `golem [t-747e7b] --provider codex --max-turns 30 "Write a consulting insight card: AI model risk management framework for banks — write a consulting brief with problem, approach, key considerations. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-model-risk-framework.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [!] `golem [t-315568] --provider gemini --max-turns 35 "Read effectors/golem-daemon. Add cmd_stats — show pass/fail/retry counts, avg duration by provider, tasks completed today. Usage: golem-daemon stats. Write tests. Run uv run pytest. Commit."`
 
 ### Auto-requeue (19 tasks @ 15:54)
@@ -1006,7 +967,6 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 - [!] `golem [t-5c9e4a] --provider gemini --max-turns 25 "Check all assays/test_*.py can be collected by pytest --co. Fix any that error. Commit."`
 - [ ] `golem [t-75cbd2] --provider codex --max-turns 25 "Find unused imports in metabolon/**/*.py. Remove them. Commit."`
 - [!] `golem [t-a4a243] --provider gemini --max-turns 25 "Check all effectors respond to --help without crashing. Fix crashers. Commit."`
-- [ ] `golem [t-4d0b86] --provider codex --max-turns 30 "Write a consulting insight card: AI incident response playbook for financial services. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-incident-response.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [!] `golem [t-14e4ef] --provider gemini --max-turns 30 "Write a consulting insight card: Responsible AI governance checklist for financial institutions. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/responsible-ai-checklist.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [ ] `golem [t-40eef2] --provider codex --max-turns 35 "Read effectors/golem. Add --json flag that outputs result as JSON instead of raw text. Useful for piping. Write tests. Run uv run pytest. Commit."`
 
@@ -1018,7 +978,6 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 - [!] `golem [t-695a48] --provider gemini --max-turns 25 "Find subprocess.run calls without timeout in effectors/. Add timeout=300. Commit."`
 - [ ] `golem [t-8972c4] --provider codex --max-turns 25 "Scan effectors/ for hardcoded paths. Fix with Path.home() or $HOME. Commit."`
 - [!] `golem [t-18c373] --provider gemini --max-turns 30 "Write a consulting insight card: AI vendor due diligence questionnaire for banks. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-vendor-due-diligence.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
-- [ ] `golem [t-b81fd6] --provider codex --max-turns 30 "Write a consulting insight card: LLM deployment risks in banking — regulatory expectations vs reality. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/llm-deployment-risks.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [!] `golem [t-3e2216] --provider gemini --max-turns 35 "Read effectors/golem-daemon. Add cmd_stats — show pass/fail/retry counts, avg duration by provider, tasks completed today. Usage: golem-daemon stats. Write tests. Run uv run pytest. Commit."`
 
 ### Auto-requeue (19 tasks @ 15:56)
@@ -1028,7 +987,6 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 - [!] `golem [t-a91a15] --provider gemini --max-turns 25 "Check all assays/test_*.py can be collected by pytest --co. Fix any that error. Commit."`
 - [ ] `golem [t-e92f92] --provider codex --max-turns 25 "Scan assays/ for hardcoded /Users/terry paths. Replace with Path.home(). Commit."`
 - [!] `golem [t-d5f19d] --provider gemini --max-turns 25 "Find Python files missing shebang in effectors/. Add #!/usr/bin/env python3. Commit."`
-- [ ] `golem [t-d1a4a8] --provider codex --max-turns 30 "Write a consulting insight card: Responsible AI governance checklist for financial institutions. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/responsible-ai-checklist.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [!] `golem [t-be144d] --provider gemini --max-turns 30 "Write a consulting insight card: Cross-border AI regulation comparison — HK vs SG vs UK vs EU. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/cross-border-ai-regulation.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [ ] `golem [t-fddfb9] --provider codex --max-turns 35 "Read effectors/golem-dash (if exists). Improve to show real-time task progress, ETA to drain. Write tests. Run uv run pytest. Commit."`
 
@@ -1040,7 +998,6 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 - [!] `golem [t-42fa5a] --provider gemini --max-turns 25 "Find subprocess.run calls without timeout in effectors/. Add timeout=300. Commit."`
 - [ ] `golem [t-ad436e] --provider codex --max-turns 25 "Find unused imports in metabolon/**/*.py. Remove them. Commit."`
 - [!] `golem [t-417a17] --provider gemini --max-turns 30 "Write a consulting insight card: Data governance for AI/ML training data in banking. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/data-governance-ai.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
-- [ ] `golem [t-54aacf] --provider codex --max-turns 30 "Write a consulting insight card: AI skills gap assessment for banking technology teams. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-skills-gap.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [!] `golem [t-f9eb50] --provider gemini --max-turns 35 "Read effectors/golem-dash (if exists). Improve to show real-time task progress, ETA to drain. Write tests. Run uv run pytest. Commit."`
 
 ### Auto-requeue (19 tasks @ 15:57)
@@ -1050,7 +1007,6 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 - [!] `golem [t-45f3b8] --provider gemini --max-turns 25 "Find Python files missing shebang in effectors/. Add #!/usr/bin/env python3. Commit."`
 - [ ] `golem [t-c72c72] --provider codex --max-turns 25 "Scan effectors/ for hardcoded paths. Fix with Path.home() or $HOME. Commit."`
 - [!] `golem [t-d9c842] --provider gemini --max-turns 25 "Find unused imports in metabolon/**/*.py. Remove them. Commit."`
-- [ ] `golem [t-2a34fa] --provider codex --max-turns 30 "Write a consulting insight card: AI vendor due diligence questionnaire for banks. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-vendor-due-diligence.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [!] `golem [t-386cfd] --provider gemini --max-turns 30 "Write a consulting insight card: AI skills gap assessment for banking technology teams. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-skills-gap.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [ ] `golem [t-2279f2] --provider codex --max-turns 35 "Read effectors/golem-review (if exists). Enhance to also check consulting content quality (>200 words, proper structure). Write tests. Run uv run pytest. Commit."`
 
@@ -1062,7 +1018,6 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 - [!] `golem [t-028b8d] --provider gemini --max-turns 25 "Check all effectors respond to --help without crashing. Fix crashers. Commit."`
 - [ ] `golem [t-5c4a21] --provider codex --max-turns 25 "Scan assays/ for hardcoded /Users/terry paths. Replace with Path.home(). Commit."`
 - [!] `golem [t-7bdfde] --provider gemini --max-turns 30 "Write a consulting insight card: AI skills gap assessment for banking technology teams. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-skills-gap.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
-- [ ] `golem [t-83b961] --provider codex --max-turns 30 "Write a consulting insight card: AI vendor due diligence questionnaire for banks. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-vendor-due-diligence.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [!] `golem [t-e129eb] --provider gemini --max-turns 35 "Read effectors/golem-review (if exists). Enhance to also check consulting content quality (>200 words, proper structure). Write tests. Run uv run pytest. Commit."`
 
 ### Auto-requeue (19 tasks @ 15:58)
@@ -1072,7 +1027,6 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 - [!] `golem [t-8426ea] --provider gemini --max-turns 25 "Find subprocess.run calls without timeout in effectors/. Add timeout=300. Commit."`
 - [ ] `golem [t-12390d] --provider codex --max-turns 25 "Check all effectors respond to --help without crashing. Fix crashers. Commit."`
 - [!] `golem [t-502e6a] --provider gemini --max-turns 25 "Scan effectors/ for hardcoded paths. Fix with Path.home() or $HOME. Commit."`
-- [ ] `golem [t-40e5bd] --provider codex --max-turns 30 "Write a consulting insight card: Cross-border AI regulation comparison — HK vs SG vs UK vs EU. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/cross-border-ai-regulation.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [!] `golem [t-d3bc5c] --provider gemini --max-turns 30 "Write a consulting insight card: LLM deployment risks in banking — regulatory expectations vs reality. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/llm-deployment-risks.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [ ] `golem [t-d8d1d4] --provider codex --max-turns 35 "Read effectors/golem. Add --json flag that outputs result as JSON instead of raw text. Useful for piping. Write tests. Run uv run pytest. Commit."`
 
@@ -1084,7 +1038,6 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 - [!] `golem [t-e4bc59] --provider gemini --max-turns 25 "Check all assays/test_*.py can be collected by pytest --co. Fix any that error. Commit."`
 - [ ] `golem [t-a0a5da] --provider codex --max-turns 25 "Find unused imports in metabolon/**/*.py. Remove them. Commit."`
 - [!] `golem [t-253a49] --provider gemini --max-turns 30 "Write a consulting insight card: AI skills gap assessment for banking technology teams. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-skills-gap.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
-- [ ] `golem [t-394b4d] --provider codex --max-turns 30 "Write a consulting insight card: Board-level AI risk reporting template for banks. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/board-ai-risk-reporting.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [!] `golem [t-1028d1] --provider gemini --max-turns 35 "Read effectors/golem. Add --json flag that outputs result as JSON instead of raw text. Useful for piping. Write tests. Run uv run pytest. Commit."`
 
 ### Auto-requeue (19 tasks @ 16:00)
@@ -1094,7 +1047,6 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 - [!] `golem [t-d86cde] --provider gemini --max-turns 25 "Scan effectors/ for hardcoded paths. Fix with Path.home() or $HOME. Commit."`
 - [ ] `golem [t-667cff] --provider codex --max-turns 25 "Find unused imports in metabolon/**/*.py. Remove them. Commit."`
 - [!] `golem [t-e3d623] --provider gemini --max-turns 25 "Find subprocess.run calls without timeout in effectors/. Add timeout=300. Commit."`
-- [ ] `golem [t-3e72b4] --provider codex --max-turns 30 "Write a consulting insight card: AI skills gap assessment for banking technology teams. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-skills-gap.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [!] `golem [t-cf267d] --provider gemini --max-turns 30 "Write a consulting insight card: AI vendor due diligence questionnaire for banks. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-vendor-due-diligence.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [ ] `golem [t-dd251b] --provider codex --max-turns 35 "Read effectors/golem-daemon. Add cmd_stats — show pass/fail/retry counts, avg duration by provider, tasks completed today. Usage: golem-daemon stats. Write tests. Run uv run pytest. Commit."`
 
@@ -1106,7 +1058,6 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 - [!] `golem [t-998226] --provider gemini --max-turns 25 "Find test files with SyntaxError. Fix syntax. Commit."`
 - [ ] `golem [t-38bcb7] --provider codex --max-turns 25 "Find Python files missing shebang in effectors/. Add #!/usr/bin/env python3. Commit."`
 - [!] `golem [t-c0ba9a] --provider gemini --max-turns 30 "Write a consulting insight card: Data governance for AI/ML training data in banking. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/data-governance-ai.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
-- [ ] `golem [t-734a4b] --provider codex --max-turns 30 "Write a consulting insight card: Board-level AI risk reporting template for banks. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/board-ai-risk-reporting.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [!] `golem [t-90e765] --provider gemini --max-turns 35 "Read effectors/golem-review (if exists). Enhance to also check consulting content quality (>200 words, proper structure). Write tests. Run uv run pytest. Commit."`
 
 ### Auto-requeue (19 tasks @ 16:01)
@@ -1116,7 +1067,6 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 - [!] `golem [t-2eafed] --provider gemini --max-turns 25 "Find Python files missing shebang in effectors/. Add #!/usr/bin/env python3. Commit."`
 - [ ] `golem [t-e9e495] --provider codex --max-turns 25 "Check all assays/test_*.py can be collected by pytest --co. Fix any that error. Commit."`
 - [!] `golem [t-80a926] --provider gemini --max-turns 25 "Scan assays/ for hardcoded /Users/terry paths. Replace with Path.home(). Commit."`
-- [ ] `golem [t-9553b8] --provider codex --max-turns 30 "Write a consulting insight card: Cross-border AI regulation comparison — HK vs SG vs UK vs EU. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/cross-border-ai-regulation.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [!] `golem [t-73bf8d] --provider gemini --max-turns 30 "Write a consulting insight card: GenAI policy template for bank employees. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/genai-policy-template.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [ ] `golem [t-03d973] --provider codex --max-turns 35 "Read effectors/golem-daemon. Add cmd_stats — show pass/fail/retry counts, avg duration by provider, tasks completed today. Usage: golem-daemon stats. Write tests. Run uv run pytest. Commit."`
 
@@ -1128,7 +1078,6 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 - [!] `golem [t-ff01c4] --provider gemini --max-turns 25 "Check all effectors respond to --help without crashing. Fix crashers. Commit."`
 - [ ] `golem [t-33515b] --provider codex --max-turns 25 "Scan effectors/ for hardcoded paths. Fix with Path.home() or $HOME. Commit."`
 - [!] `golem [t-6fe553] --provider gemini --max-turns 30 "Write a consulting insight card: GenAI policy template for bank employees. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/genai-policy-template.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
-- [ ] `golem [t-4c53c8] --provider codex --max-turns 30 "Write a consulting insight card: AI audit methodology for internal audit teams. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-audit-methodology.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [!] `golem [t-e866de] --provider gemini --max-turns 35 "Read effectors/golem-daemon. Add cmd_stats — show pass/fail/retry counts, avg duration by provider, tasks completed today. Usage: golem-daemon stats. Write tests. Run uv run pytest. Commit."`
 
 ### Auto-requeue (19 tasks @ 16:02)
@@ -1138,7 +1087,6 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 - [!] `golem [t-faf289] --provider gemini --max-turns 25 "Check all assays/test_*.py can be collected by pytest --co. Fix any that error. Commit."`
 - [ ] `golem [t-6aab57] --provider codex --max-turns 25 "Find unused imports in metabolon/**/*.py. Remove them. Commit."`
 - [!] `golem [t-d78283] --provider gemini --max-turns 25 "Find Python files missing shebang in effectors/. Add #!/usr/bin/env python3. Commit."`
-- [ ] `golem [t-30a732] --provider codex --max-turns 30 "Write a consulting insight card: Data governance for AI/ML training data in banking. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/data-governance-ai.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [!] `golem [t-067d77] --provider gemini --max-turns 30 "Write a consulting insight card: AI skills gap assessment for banking technology teams. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-skills-gap.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [ ] `golem [t-5047d5] --provider codex --max-turns 35 "Read effectors/golem-review (if exists). Enhance to also check consulting content quality (>200 words, proper structure). Write tests. Run uv run pytest. Commit."`
 
@@ -1150,7 +1098,6 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 - [!] `golem [t-068a44] --provider gemini --max-turns 25 "Find test files with SyntaxError. Fix syntax. Commit."`
 - [ ] `golem [t-47a77c] --provider codex --max-turns 25 "Scan effectors/ for hardcoded paths. Fix with Path.home() or $HOME. Commit."`
 - [!] `golem [t-9a4216] --provider gemini --max-turns 30 "Write a consulting insight card: Responsible AI governance checklist for financial institutions. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/responsible-ai-checklist.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
-- [ ] `golem [t-1eff24] --provider codex --max-turns 30 "Write a consulting insight card: Cross-border AI regulation comparison — HK vs SG vs UK vs EU. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/cross-border-ai-regulation.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [!] `golem [t-a44833] --provider gemini --max-turns 35 "Read effectors/golem-dash (if exists). Improve to show real-time task progress, ETA to drain. Write tests. Run uv run pytest. Commit."`
 
 ### Auto-requeue (19 tasks @ 16:04)
@@ -1160,7 +1107,6 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 - [!] `golem [t-1e1c3a] --provider gemini --max-turns 25 "Find test files with SyntaxError. Fix syntax. Commit."`
 - [ ] `golem [t-a6e375] --provider codex --max-turns 25 "Find subprocess.run calls without timeout in effectors/. Add timeout=300. Commit."`
 - [!] `golem [t-e5b366] --provider gemini --max-turns 25 "Scan assays/ for hardcoded /Users/terry paths. Replace with Path.home(). Commit."`
-- [ ] `golem [t-a5eb4c] --provider codex --max-turns 30 "Write a consulting insight card: AI incident response playbook for financial services. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-incident-response.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [!] `golem [t-fe088d] --provider gemini --max-turns 30 "Write a consulting insight card: LLM deployment risks in banking — regulatory expectations vs reality. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/llm-deployment-risks.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [ ] `golem [t-9ce446] --provider codex --max-turns 35 "Read effectors/golem. Add --json flag that outputs result as JSON instead of raw text. Useful for piping. Write tests. Run uv run pytest. Commit."`
 
@@ -1172,7 +1118,6 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 - [!] `golem [t-f929e2] --provider gemini --max-turns 25 "Find Python files missing shebang in effectors/. Add #!/usr/bin/env python3. Commit."`
 - [ ] `golem [t-ca9590] --provider codex --max-turns 25 "Scan assays/ for hardcoded /Users/terry paths. Replace with Path.home(). Commit."`
 - [!] `golem [t-8b740a] --provider gemini --max-turns 30 "Write a consulting insight card: AI bias testing framework for credit decisioning. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-bias-testing.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
-- [ ] `golem [t-52ea18] --provider codex --max-turns 30 "Write a consulting insight card: LLM deployment risks in banking — regulatory expectations vs reality. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/llm-deployment-risks.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [!] `golem [t-4207b1] --provider gemini --max-turns 35 "Read effectors/golem-daemon. Add cmd_stats — show pass/fail/retry counts, avg duration by provider, tasks completed today. Usage: golem-daemon stats. Write tests. Run uv run pytest. Commit."`
 
 ### Auto-requeue (19 tasks @ 16:05)
@@ -1182,7 +1127,6 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 - [!] `golem [t-f4b75f] --provider gemini --max-turns 25 "Find subprocess.run calls without timeout in effectors/. Add timeout=300. Commit."`
 - [ ] `golem [t-828db7] --provider codex --max-turns 25 "Check all effectors respond to --help without crashing. Fix crashers. Commit."`
 - [!] `golem [t-686724] --provider gemini --max-turns 25 "Find test files with SyntaxError. Fix syntax. Commit."`
-- [ ] `golem [t-00875c] --provider codex --max-turns 30 "Write a consulting insight card: LLM deployment risks in banking — regulatory expectations vs reality. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/llm-deployment-risks.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [!] `golem [t-886d6c] --provider gemini --max-turns 30 "Write a consulting insight card: AI model risk management framework for banks — write a consulting brief with problem, approach, key considerations. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-model-risk-framework.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [ ] `golem [t-8f6ab6] --provider codex --max-turns 35 "Read effectors/golem. Add --json flag that outputs result as JSON instead of raw text. Useful for piping. Write tests. Run uv run pytest. Commit."`
 
@@ -1194,7 +1138,6 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 - [!] `golem [t-fe6e97] --provider gemini --max-turns 25 "Check all assays/test_*.py can be collected by pytest --co. Fix any that error. Commit."`
 - [ ] `golem [t-8f2b7c] --provider codex --max-turns 25 "Scan assays/ for hardcoded /Users/terry paths. Replace with Path.home(). Commit."`
 - [!] `golem [t-8e4fbf] --provider gemini --max-turns 30 "Write a consulting insight card: Responsible AI governance checklist for financial institutions. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/responsible-ai-checklist.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
-- [ ] `golem [t-295229] --provider codex --max-turns 30 "Write a consulting insight card: Cross-border AI regulation comparison — HK vs SG vs UK vs EU. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/cross-border-ai-regulation.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [!] `golem [t-cc7b0a] --provider gemini --max-turns 35 "Read effectors/golem-review (if exists). Enhance to also check consulting content quality (>200 words, proper structure). Write tests. Run uv run pytest. Commit."`
 
 ### Auto-requeue (19 tasks @ 16:06)
@@ -1204,7 +1147,6 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 - [!] `golem [t-78ea59] --provider gemini --max-turns 25 "Check all assays/test_*.py can be collected by pytest --co. Fix any that error. Commit."`
 - [ ] `golem [t-c0b6ff] --provider codex --max-turns 25 "Scan effectors/ for hardcoded paths. Fix with Path.home() or $HOME. Commit."`
 - [!] `golem [t-eed2c5] --provider gemini --max-turns 25 "Find Python files missing shebang in effectors/. Add #!/usr/bin/env python3. Commit."`
-- [ ] `golem [t-05565e] --provider codex --max-turns 30 "Write a consulting insight card: Responsible AI governance checklist for financial institutions. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/responsible-ai-checklist.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [!] `golem [t-14c970] --provider gemini --max-turns 30 "Write a consulting insight card: AI incident response playbook for financial services. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-incident-response.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [ ] `golem [t-cf8ec5] --provider codex --max-turns 35 "Read effectors/golem-review (if exists). Enhance to also check consulting content quality (>200 words, proper structure). Write tests. Run uv run pytest. Commit."`
 
@@ -1216,7 +1158,6 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 - [!] `golem [t-6caa07] --provider gemini --max-turns 25 "Find subprocess.run calls without timeout in effectors/. Add timeout=300. Commit."`
 - [ ] `golem [t-a718ab] --provider codex --max-turns 25 "Scan effectors/ for hardcoded paths. Fix with Path.home() or $HOME. Commit."`
 - [!] `golem [t-c38632] --provider gemini --max-turns 30 "Write a consulting insight card: Data governance for AI/ML training data in banking. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/data-governance-ai.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
-- [ ] `golem [t-b82455] --provider codex --max-turns 30 "Write a consulting insight card: AI incident response playbook for financial services. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-incident-response.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [!] `golem [t-257f61] --provider gemini --max-turns 35 "Read effectors/golem. Add --json flag that outputs result as JSON instead of raw text. Useful for piping. Write tests. Run uv run pytest. Commit."`
 
 ### Auto-requeue (19 tasks @ 16:08)
@@ -1226,7 +1167,6 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 - [!] `golem [t-8e6c5c] --provider gemini --max-turns 25 "Find subprocess.run calls without timeout in effectors/. Add timeout=300. Commit."`
 - [ ] `golem [t-b9bee2] --provider codex --max-turns 25 "Scan effectors/ for hardcoded paths. Fix with Path.home() or $HOME. Commit."`
 - [!] `golem [t-9520ef] --provider gemini --max-turns 25 "Check all assays/test_*.py can be collected by pytest --co. Fix any that error. Commit."`
-- [ ] `golem [t-e27246] --provider codex --max-turns 30 "Write a consulting insight card: AI incident response playbook for financial services. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-incident-response.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [!] `golem [t-78676f] --provider gemini --max-turns 30 "Write a consulting insight card: AI model risk management framework for banks — write a consulting brief with problem, approach, key considerations. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-model-risk-framework.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [ ] `golem [t-ae8cde] --provider codex --max-turns 35 "Read effectors/golem. Add --json flag that outputs result as JSON instead of raw text. Useful for piping. Write tests. Run uv run pytest. Commit."`
 
@@ -1238,7 +1178,6 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 - [!] `golem [t-3b41d4] --provider gemini --max-turns 25 "Find Python files missing shebang in effectors/. Add #!/usr/bin/env python3. Commit."`
 - [ ] `golem [t-1f3c5e] --provider codex --max-turns 25 "Check all assays/test_*.py can be collected by pytest --co. Fix any that error. Commit."`
 - [!] `golem [t-680b6a] --provider gemini --max-turns 30 "Write a consulting insight card: AI bias testing framework for credit decisioning. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-bias-testing.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
-- [ ] `golem [t-dfa8ec] --provider codex --max-turns 30 "Write a consulting insight card: GenAI policy template for bank employees. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/genai-policy-template.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [!] `golem [t-f1356c] --provider gemini --max-turns 35 "Read effectors/golem-daemon. Add cmd_stats — show pass/fail/retry counts, avg duration by provider, tasks completed today. Usage: golem-daemon stats. Write tests. Run uv run pytest. Commit."`
 
 ### Auto-requeue (19 tasks @ 16:09)
@@ -1248,7 +1187,6 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 - [!] `golem [t-c6d691] --provider gemini --max-turns 25 "Check all assays/test_*.py can be collected by pytest --co. Fix any that error. Commit."`
 - [ ] `golem [t-754ff4] --provider codex --max-turns 25 "Check all effectors respond to --help without crashing. Fix crashers. Commit."`
 - [!] `golem [t-0e0887] --provider gemini --max-turns 25 "Find Python files missing shebang in effectors/. Add #!/usr/bin/env python3. Commit."`
-- [ ] `golem [t-3b39ee] --provider codex --max-turns 30 "Write a consulting insight card: AI bias testing framework for credit decisioning. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-bias-testing.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [!] `golem [t-f55d9b] --provider gemini --max-turns 30 "Write a consulting insight card: AI model risk management framework for banks — write a consulting brief with problem, approach, key considerations. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-model-risk-framework.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [ ] `golem [t-112119] --provider codex --max-turns 35 "Read effectors/golem. Add --json flag that outputs result as JSON instead of raw text. Useful for piping. Write tests. Run uv run pytest. Commit."`
 
@@ -1260,7 +1198,6 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 - [!] `golem [t-f2ad8b] --provider gemini --max-turns 25 "Scan assays/ for hardcoded /Users/terry paths. Replace with Path.home(). Commit."`
 - [ ] `golem [t-7d11e4] --provider codex --max-turns 25 "Scan effectors/ for hardcoded paths. Fix with Path.home() or $HOME. Commit."`
 - [!] `golem [t-1787f1] --provider gemini --max-turns 30 "Write a consulting insight card: AI model risk management framework for banks — write a consulting brief with problem, approach, key considerations. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-model-risk-framework.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
-- [ ] `golem [t-7c0d18] --provider codex --max-turns 30 "Write a consulting insight card: GenAI policy template for bank employees. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/genai-policy-template.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [!] `golem [t-f46c4c] --provider gemini --max-turns 35 "Read effectors/golem. Add --json flag that outputs result as JSON instead of raw text. Useful for piping. Write tests. Run uv run pytest. Commit."`
 
 ### Auto-requeue (19 tasks @ 16:10)
@@ -1270,7 +1207,6 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 - [!] `golem [t-c7fcc9] --provider gemini --max-turns 25 "Find test files with SyntaxError. Fix syntax. Commit."`
 - [ ] `golem [t-e88edb] --provider codex --max-turns 25 "Scan assays/ for hardcoded /Users/terry paths. Replace with Path.home(). Commit."`
 - [!] `golem [t-722000] --provider gemini --max-turns 25 "Scan effectors/ for hardcoded paths. Fix with Path.home() or $HOME. Commit."`
-- [ ] `golem [t-d03c10] --provider codex --max-turns 30 "Write a consulting insight card: Cross-border AI regulation comparison — HK vs SG vs UK vs EU. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/cross-border-ai-regulation.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [!] `golem [t-ce42e7] --provider gemini --max-turns 30 "Write a consulting insight card: Board-level AI risk reporting template for banks. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/board-ai-risk-reporting.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [ ] `golem [t-05713f] --provider codex --max-turns 35 "Read effectors/golem. Add --json flag that outputs result as JSON instead of raw text. Useful for piping. Write tests. Run uv run pytest. Commit."`
 
@@ -1282,7 +1218,6 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 - [!] `golem [t-ce270b] --provider gemini --max-turns 25 "Check all assays/test_*.py can be collected by pytest --co. Fix any that error. Commit."`
 - [ ] `golem [t-570465] --provider codex --max-turns 25 "Find unused imports in metabolon/**/*.py. Remove them. Commit."`
 - [!] `golem [t-47c413] --provider gemini --max-turns 30 "Write a consulting insight card: Responsible AI governance checklist for financial institutions. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/responsible-ai-checklist.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
-- [ ] `golem [t-21ab83] --provider codex --max-turns 30 "Write a consulting insight card: AI bias testing framework for credit decisioning. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-bias-testing.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [!] `golem [t-622bbb] --provider gemini --max-turns 35 "Read effectors/golem-dash (if exists). Improve to show real-time task progress, ETA to drain. Write tests. Run uv run pytest. Commit."`
 
 ### Auto-requeue (19 tasks @ 16:12)
@@ -1292,7 +1227,6 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 - [!] `golem [t-b6832a] --provider gemini --max-turns 25 "Find subprocess.run calls without timeout in effectors/. Add timeout=300. Commit."`
 - [ ] `golem [t-87248e] --provider codex --max-turns 25 "Check all assays/test_*.py can be collected by pytest --co. Fix any that error. Commit."`
 - [!] `golem [t-43452e] --provider gemini --max-turns 25 "Scan assays/ for hardcoded /Users/terry paths. Replace with Path.home(). Commit."`
-- [ ] `golem [t-6c1f4f] --provider codex --max-turns 30 "Write a consulting insight card: Data governance for AI/ML training data in banking. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/data-governance-ai.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [!] `golem [t-aa55a9] --provider gemini --max-turns 30 "Write a consulting insight card: AI model risk management framework for banks — write a consulting brief with problem, approach, key considerations. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-model-risk-framework.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [ ] `golem [t-22468f] --provider codex --max-turns 35 "Read effectors/golem-daemon. Add cmd_stats — show pass/fail/retry counts, avg duration by provider, tasks completed today. Usage: golem-daemon stats. Write tests. Run uv run pytest. Commit."`
 
@@ -1304,7 +1238,6 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 - [!] `golem [t-11d873] --provider gemini --max-turns 25 "Find subprocess.run calls without timeout in effectors/. Add timeout=300. Commit."`
 - [ ] `golem [t-372495] --provider codex --max-turns 25 "Scan assays/ for hardcoded /Users/terry paths. Replace with Path.home(). Commit."`
 - [!] `golem [t-ead0a6] --provider gemini --max-turns 30 "Write a consulting insight card: LLM deployment risks in banking — regulatory expectations vs reality. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/llm-deployment-risks.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
-- [ ] `golem [t-793b49] --provider codex --max-turns 30 "Write a consulting insight card: Board-level AI risk reporting template for banks. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/board-ai-risk-reporting.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [!] `golem [t-d3a31a] --provider gemini --max-turns 35 "Read effectors/golem-dash (if exists). Improve to show real-time task progress, ETA to drain. Write tests. Run uv run pytest. Commit."`
 
 ### Auto-requeue (19 tasks @ 16:13)
@@ -1314,7 +1247,6 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 - [!] `golem [t-82997c] --provider gemini --max-turns 25 "Scan effectors/ for hardcoded paths. Fix with Path.home() or $HOME. Commit."`
 - [ ] `golem [t-5605ab] --provider codex --max-turns 25 "Find subprocess.run calls without timeout in effectors/. Add timeout=300. Commit."`
 - [!] `golem [t-0d0543] --provider gemini --max-turns 25 "Check all effectors respond to --help without crashing. Fix crashers. Commit."`
-- [ ] `golem [t-4c3a9f] --provider codex --max-turns 30 "Write a consulting insight card: AI skills gap assessment for banking technology teams. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-skills-gap.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [!] `golem [t-3518bc] --provider gemini --max-turns 30 "Write a consulting insight card: Cross-border AI regulation comparison — HK vs SG vs UK vs EU. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/cross-border-ai-regulation.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [ ] `golem [t-63dc9e] --provider codex --max-turns 35 "Read effectors/golem-daemon. Add cmd_stats — show pass/fail/retry counts, avg duration by provider, tasks completed today. Usage: golem-daemon stats. Write tests. Run uv run pytest. Commit."`
 
@@ -1326,7 +1258,6 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 - [!] `golem [t-8ee61e] --provider gemini --max-turns 25 "Check all assays/test_*.py can be collected by pytest --co. Fix any that error. Commit."`
 - [ ] `golem [t-d8d3c8] --provider codex --max-turns 25 "Find test files with SyntaxError. Fix syntax. Commit."`
 - [!] `golem [t-58f871] --provider gemini --max-turns 30 "Write a consulting insight card: AI skills gap assessment for banking technology teams. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-skills-gap.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
-- [ ] `golem [t-a89db9] --provider codex --max-turns 30 "Write a consulting insight card: AI bias testing framework for credit decisioning. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-bias-testing.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [!] `golem [t-bd9bf6] --provider gemini --max-turns 35 "Read effectors/golem. Add --json flag that outputs result as JSON instead of raw text. Useful for piping. Write tests. Run uv run pytest. Commit."`
 
 ### Auto-requeue (19 tasks @ 16:15)
@@ -1336,7 +1267,6 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 - [!] `golem [t-2cd1c8] --provider gemini --max-turns 25 "Check all effectors respond to --help without crashing. Fix crashers. Commit."`
 - [ ] `golem [t-8b3e73] --provider codex --max-turns 25 "Check all assays/test_*.py can be collected by pytest --co. Fix any that error. Commit."`
 - [!] `golem [t-fe5985] --provider gemini --max-turns 25 "Find test files with SyntaxError. Fix syntax. Commit."`
-- [ ] `golem [t-8df52f] --provider codex --max-turns 30 "Write a consulting insight card: Data governance for AI/ML training data in banking. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/data-governance-ai.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [!] `golem [t-db4757] --provider gemini --max-turns 30 "Write a consulting insight card: AI incident response playbook for financial services. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-incident-response.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [ ] `golem [t-bc2c81] --provider codex --max-turns 35 "Read effectors/golem. Add --json flag that outputs result as JSON instead of raw text. Useful for piping. Write tests. Run uv run pytest. Commit."`
 
@@ -1348,7 +1278,6 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 - [!] `golem [t-743b25] --provider gemini --max-turns 25 "Find test files with SyntaxError. Fix syntax. Commit."`
 - [ ] `golem [t-ce70e4] --provider codex --max-turns 25 "Check all assays/test_*.py can be collected by pytest --co. Fix any that error. Commit."`
 - [!] `golem [t-099897] --provider gemini --max-turns 30 "Write a consulting insight card: AI incident response playbook for financial services. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-incident-response.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
-- [ ] `golem [t-42b397] --provider codex --max-turns 30 "Write a consulting insight card: AI model risk management framework for banks — write a consulting brief with problem, approach, key considerations. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-model-risk-framework.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [!] `golem [t-0928db] --provider gemini --max-turns 35 "Read effectors/golem. Add --json flag that outputs result as JSON instead of raw text. Useful for piping. Write tests. Run uv run pytest. Commit."`
 
 ### Auto-requeue (19 tasks @ 16:17)
@@ -1358,7 +1287,6 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 - [!] `golem [t-feae3a] --provider gemini --max-turns 25 "Find test files with SyntaxError. Fix syntax. Commit."`
 - [ ] `golem [t-9a36e0] --provider codex --max-turns 25 "Scan effectors/ for hardcoded paths. Fix with Path.home() or $HOME. Commit."`
 - [!] `golem [t-541637] --provider gemini --max-turns 25 "Find subprocess.run calls without timeout in effectors/. Add timeout=300. Commit."`
-- [ ] `golem [t-fb536d] --provider codex --max-turns 30 "Write a consulting insight card: GenAI policy template for bank employees. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/genai-policy-template.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [!] `golem [t-f8a685] --provider gemini --max-turns 30 "Write a consulting insight card: Cross-border AI regulation comparison — HK vs SG vs UK vs EU. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/cross-border-ai-regulation.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [ ] `golem [t-227f83] --provider codex --max-turns 35 "Read effectors/golem-daemon. Add cmd_stats — show pass/fail/retry counts, avg duration by provider, tasks completed today. Usage: golem-daemon stats. Write tests. Run uv run pytest. Commit."`
 
@@ -1370,7 +1298,6 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 - [!] `golem [t-98f96e] --provider gemini --max-turns 25 "Scan effectors/ for hardcoded paths. Fix with Path.home() or $HOME. Commit."`
 - [ ] `golem [t-c568ad] --provider codex --max-turns 25 "Check all assays/test_*.py can be collected by pytest --co. Fix any that error. Commit."`
 - [!] `golem [t-5124c6] --provider gemini --max-turns 30 "Write a consulting insight card: LLM deployment risks in banking — regulatory expectations vs reality. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/llm-deployment-risks.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
-- [ ] `golem [t-eca29c] --provider codex --max-turns 30 "Write a consulting insight card: Data governance for AI/ML training data in banking. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/data-governance-ai.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [!] `golem [t-b53b49] --provider gemini --max-turns 35 "Read effectors/golem-daemon. Add cmd_stats — show pass/fail/retry counts, avg duration by provider, tasks completed today. Usage: golem-daemon stats. Write tests. Run uv run pytest. Commit."`
 
 ### Auto-requeue (19 tasks @ 16:18)
@@ -1380,7 +1307,6 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 - [!] `golem [t-d710fb] --provider gemini --max-turns 25 "Find Python files missing shebang in effectors/. Add #!/usr/bin/env python3. Commit."`
 - [ ] `golem [t-5a9956] --provider codex --max-turns 25 "Find unused imports in metabolon/**/*.py. Remove them. Commit."`
 - [!] `golem [t-d359ce] --provider gemini --max-turns 25 "Find test files with SyntaxError. Fix syntax. Commit."`
-- [ ] `golem [t-8bbd2d] --provider codex --max-turns 30 "Write a consulting insight card: GenAI policy template for bank employees. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/genai-policy-template.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [!] `golem [t-6c22c0] --provider gemini --max-turns 30 "Write a consulting insight card: AI audit methodology for internal audit teams. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-audit-methodology.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [ ] `golem [t-7bee36] --provider codex --max-turns 35 "Read effectors/golem-dash (if exists). Improve to show real-time task progress, ETA to drain. Write tests. Run uv run pytest. Commit."`
 
@@ -1392,7 +1318,6 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 - [!] `golem [t-df6da7] --provider gemini --max-turns 25 "Find subprocess.run calls without timeout in effectors/. Add timeout=300. Commit."`
 - [ ] `golem [t-e4d02f] --provider codex --max-turns 25 "Scan effectors/ for hardcoded paths. Fix with Path.home() or $HOME. Commit."`
 - [!] `golem [t-c756fd] --provider gemini --max-turns 30 "Write a consulting insight card: Board-level AI risk reporting template for banks. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/board-ai-risk-reporting.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
-- [ ] `golem [t-17968a] --provider codex --max-turns 30 "Write a consulting insight card: LLM deployment risks in banking — regulatory expectations vs reality. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/llm-deployment-risks.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [!] `golem [t-ab8052] --provider gemini --max-turns 35 "Read effectors/golem-dash (if exists). Improve to show real-time task progress, ETA to drain. Write tests. Run uv run pytest. Commit."`
 
 ### Auto-requeue (19 tasks @ 16:19)
@@ -1402,7 +1327,6 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 - [!] `golem [t-1bf6a4] --provider gemini --max-turns 25 "Find unused imports in metabolon/**/*.py. Remove them. Commit."`
 - [ ] `golem [t-359de6] --provider codex --max-turns 25 "Scan assays/ for hardcoded /Users/terry paths. Replace with Path.home(). Commit."`
 - [!] `golem [t-f9659e] --provider gemini --max-turns 25 "Find test files with SyntaxError. Fix syntax. Commit."`
-- [ ] `golem [t-beb440] --provider codex --max-turns 30 "Write a consulting insight card: GenAI policy template for bank employees. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/genai-policy-template.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [!] `golem [t-c15ff4] --provider gemini --max-turns 30 "Write a consulting insight card: AI bias testing framework for credit decisioning. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-bias-testing.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [ ] `golem [t-5860de] --provider codex --max-turns 35 "Read effectors/golem. Add --json flag that outputs result as JSON instead of raw text. Useful for piping. Write tests. Run uv run pytest. Commit."`
 
@@ -1414,7 +1338,6 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 - [!] `golem [t-333eb9] --provider gemini --max-turns 25 "Find unused imports in metabolon/**/*.py. Remove them. Commit."`
 - [ ] `golem [t-84ab26] --provider codex --max-turns 25 "Check all assays/test_*.py can be collected by pytest --co. Fix any that error. Commit."`
 - [!] `golem [t-d826f8] --provider gemini --max-turns 30 "Write a consulting insight card: Board-level AI risk reporting template for banks. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/board-ai-risk-reporting.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
-- [ ] `golem [t-ffddf7] --provider codex --max-turns 30 "Write a consulting insight card: AI incident response playbook for financial services. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-incident-response.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [!] `golem [t-ab3085] --provider gemini --max-turns 35 "Read effectors/golem-daemon. Add cmd_stats — show pass/fail/retry counts, avg duration by provider, tasks completed today. Usage: golem-daemon stats. Write tests. Run uv run pytest. Commit."`
 
 ### Auto-requeue (19 tasks @ 16:21)
@@ -1424,7 +1347,6 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 - [!] `golem [t-e69f95] --provider gemini --max-turns 25 "Check all effectors respond to --help without crashing. Fix crashers. Commit."`
 - [ ] `golem [t-bd3e5e] --provider codex --max-turns 25 "Scan assays/ for hardcoded /Users/terry paths. Replace with Path.home(). Commit."`
 - [!] `golem [t-0f6745] --provider gemini --max-turns 25 "Find unused imports in metabolon/**/*.py. Remove them. Commit."`
-- [ ] `golem [t-da3220] --provider codex --max-turns 30 "Write a consulting insight card: Responsible AI governance checklist for financial institutions. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/responsible-ai-checklist.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [!] `golem [t-f2e2e1] --provider gemini --max-turns 30 "Write a consulting insight card: AI vendor due diligence questionnaire for banks. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-vendor-due-diligence.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [ ] `golem [t-350b88] --provider codex --max-turns 35 "Read effectors/golem-review (if exists). Enhance to also check consulting content quality (>200 words, proper structure). Write tests. Run uv run pytest. Commit."`
 
@@ -1436,7 +1358,6 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 - [!] `golem [t-d65619] --provider gemini --max-turns 25 "Find subprocess.run calls without timeout in effectors/. Add timeout=300. Commit."`
 - [ ] `golem [t-763247] --provider codex --max-turns 25 "Check all effectors respond to --help without crashing. Fix crashers. Commit."`
 - [!] `golem [t-b89e76] --provider gemini --max-turns 30 "Write a consulting insight card: Data governance for AI/ML training data in banking. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/data-governance-ai.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
-- [ ] `golem [t-8d8f60] --provider codex --max-turns 30 "Write a consulting insight card: Board-level AI risk reporting template for banks. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/board-ai-risk-reporting.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [!] `golem [t-cde7c4] --provider gemini --max-turns 35 "Read effectors/golem-daemon. Add cmd_stats — show pass/fail/retry counts, avg duration by provider, tasks completed today. Usage: golem-daemon stats. Write tests. Run uv run pytest. Commit."`
 
 ### Auto-requeue (19 tasks @ 16:23)
@@ -1446,7 +1367,6 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 - [!] `golem [t-bb63bb] --provider gemini --max-turns 25 "Find subprocess.run calls without timeout in effectors/. Add timeout=300. Commit."`
 - [ ] `golem [t-332c19] --provider codex --max-turns 25 "Scan assays/ for hardcoded /Users/terry paths. Replace with Path.home(). Commit."`
 - [!] `golem [t-5d32bc] --provider gemini --max-turns 25 "Find Python files missing shebang in effectors/. Add #!/usr/bin/env python3. Commit."`
-- [ ] `golem [t-c463d0] --provider codex --max-turns 30 "Write a consulting insight card: AI skills gap assessment for banking technology teams. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-skills-gap.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [!] `golem [t-3f69e8] --provider gemini --max-turns 30 "Write a consulting insight card: AI incident response playbook for financial services. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-incident-response.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [ ] `golem [t-a79729] --provider codex --max-turns 35 "Read effectors/golem-review (if exists). Enhance to also check consulting content quality (>200 words, proper structure). Write tests. Run uv run pytest. Commit."`
 
@@ -1458,7 +1378,6 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 - [!] `golem [t-d6819a] --provider gemini --max-turns 25 "Find Python files missing shebang in effectors/. Add #!/usr/bin/env python3. Commit."`
 - [ ] `golem [t-5541da] --provider codex --max-turns 25 "Check all assays/test_*.py can be collected by pytest --co. Fix any that error. Commit."`
 - [!] `golem [t-55d31f] --provider gemini --max-turns 30 "Write a consulting insight card: GenAI policy template for bank employees. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/genai-policy-template.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
-- [ ] `golem [t-06d75c] --provider codex --max-turns 30 "Write a consulting insight card: AI skills gap assessment for banking technology teams. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-skills-gap.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [!] `golem [t-d9ec29] --provider gemini --max-turns 35 "Read effectors/golem-review (if exists). Enhance to also check consulting content quality (>200 words, proper structure). Write tests. Run uv run pytest. Commit."`
 
 ### Auto-requeue (19 tasks @ 16:24)
@@ -1468,7 +1387,6 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 - [!] `golem [t-e702ce] --provider gemini --max-turns 25 "Scan effectors/ for hardcoded paths. Fix with Path.home() or $HOME. Commit."`
 - [ ] `golem [t-3c10cf] --provider codex --max-turns 25 "Check all effectors respond to --help without crashing. Fix crashers. Commit."`
 - [!] `golem [t-7bebf3] --provider gemini --max-turns 25 "Find Python files missing shebang in effectors/. Add #!/usr/bin/env python3. Commit."`
-- [ ] `golem [t-fd6c8c] --provider codex --max-turns 30 "Write a consulting insight card: Board-level AI risk reporting template for banks. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/board-ai-risk-reporting.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [!] `golem [t-5ac279] --provider gemini --max-turns 30 "Write a consulting insight card: AI vendor due diligence questionnaire for banks. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-vendor-due-diligence.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [ ] `golem [t-db2b95] --provider codex --max-turns 35 "Read effectors/golem. Add --json flag that outputs result as JSON instead of raw text. Useful for piping. Write tests. Run uv run pytest. Commit."`
 
@@ -1480,7 +1398,6 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 - [!] `golem [t-81d628] --provider gemini --max-turns 25 "Find unused imports in metabolon/**/*.py. Remove them. Commit."`
 - [ ] `golem [t-0c63b7] --provider codex --max-turns 25 "Find subprocess.run calls without timeout in effectors/. Add timeout=300. Commit."`
 - [!] `golem [t-471797] --provider gemini --max-turns 30 "Write a consulting insight card: AI bias testing framework for credit decisioning. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-bias-testing.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
-- [ ] `golem [t-5859b1] --provider codex --max-turns 30 "Write a consulting insight card: Board-level AI risk reporting template for banks. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/board-ai-risk-reporting.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [!] `golem [t-923acd] --provider gemini --max-turns 35 "Read effectors/golem-review (if exists). Enhance to also check consulting content quality (>200 words, proper structure). Write tests. Run uv run pytest. Commit."`
 
 ### Auto-requeue (19 tasks @ 16:25)
@@ -1490,7 +1407,6 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 - [!] `golem [t-a7b721] --provider gemini --max-turns 25 "Scan assays/ for hardcoded /Users/terry paths. Replace with Path.home(). Commit."`
 - [ ] `golem [t-383cec] --provider codex --max-turns 25 "Scan effectors/ for hardcoded paths. Fix with Path.home() or $HOME. Commit."`
 - [!] `golem [t-0d1033] --provider gemini --max-turns 25 "Check all effectors respond to --help without crashing. Fix crashers. Commit."`
-- [ ] `golem [t-15a704] --provider codex --max-turns 30 "Write a consulting insight card: AI audit methodology for internal audit teams. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-audit-methodology.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [!] `golem [t-7ea3a7] --provider gemini --max-turns 30 "Write a consulting insight card: GenAI policy template for bank employees. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/genai-policy-template.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [ ] `golem [t-a7e2f0] --provider codex --max-turns 35 "Read effectors/golem-review (if exists). Enhance to also check consulting content quality (>200 words, proper structure). Write tests. Run uv run pytest. Commit."`
 
@@ -1502,7 +1418,6 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 - [!] `golem [t-d078a0] --provider gemini --max-turns 25 "Check all assays/test_*.py can be collected by pytest --co. Fix any that error. Commit."`
 - [ ] `golem [t-b4cbd1] --provider codex --max-turns 25 "Find unused imports in metabolon/**/*.py. Remove them. Commit."`
 - [!] `golem [t-1e4c68] --provider gemini --max-turns 30 "Write a consulting insight card: Cross-border AI regulation comparison — HK vs SG vs UK vs EU. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/cross-border-ai-regulation.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
-- [ ] `golem [t-eefe35] --provider codex --max-turns 30 "Write a consulting insight card: AI skills gap assessment for banking technology teams. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-skills-gap.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [!] `golem [t-191c39] --provider gemini --max-turns 35 "Read effectors/golem-daemon. Add cmd_stats — show pass/fail/retry counts, avg duration by provider, tasks completed today. Usage: golem-daemon stats. Write tests. Run uv run pytest. Commit."`
 
 ### Auto-requeue (19 tasks @ 16:27)
@@ -1512,7 +1427,6 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 - [!] `golem [t-94223a] --provider gemini --max-turns 25 "Find test files with SyntaxError. Fix syntax. Commit."`
 - [ ] `golem [t-d6a6c7] --provider codex --max-turns 25 "Find subprocess.run calls without timeout in effectors/. Add timeout=300. Commit."`
 - [!] `golem [t-49b62e] --provider gemini --max-turns 25 "Check all effectors respond to --help without crashing. Fix crashers. Commit."`
-- [ ] `golem [t-899813] --provider codex --max-turns 30 "Write a consulting insight card: AI bias testing framework for credit decisioning. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-bias-testing.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [!] `golem [t-bab3a7] --provider gemini --max-turns 30 "Write a consulting insight card: Data governance for AI/ML training data in banking. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/data-governance-ai.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [ ] `golem [t-6819e5] --provider codex --max-turns 35 "Read effectors/golem-dash (if exists). Improve to show real-time task progress, ETA to drain. Write tests. Run uv run pytest. Commit."`
 
@@ -1524,7 +1438,6 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 - [!] `golem [t-d584a5] --provider gemini --max-turns 25 "Scan effectors/ for hardcoded paths. Fix with Path.home() or $HOME. Commit."`
 - [ ] `golem [t-fa0ded] --provider codex --max-turns 25 "Check all effectors respond to --help without crashing. Fix crashers. Commit."`
 - [!] `golem [t-823ef1] --provider gemini --max-turns 30 "Write a consulting insight card: Data governance for AI/ML training data in banking. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/data-governance-ai.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
-- [ ] `golem [t-0f42ce] --provider codex --max-turns 30 "Write a consulting insight card: Cross-border AI regulation comparison — HK vs SG vs UK vs EU. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/cross-border-ai-regulation.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [!] `golem [t-45d201] --provider gemini --max-turns 35 "Read effectors/golem. Add --json flag that outputs result as JSON instead of raw text. Useful for piping. Write tests. Run uv run pytest. Commit."`
 
 ### Auto-requeue (19 tasks @ 16:28)
@@ -1534,7 +1447,6 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 - [!] `golem [t-f3eafd] --provider gemini --max-turns 25 "Find test files with SyntaxError. Fix syntax. Commit."`
 - [ ] `golem [t-1ca3c1] --provider codex --max-turns 25 "Find unused imports in metabolon/**/*.py. Remove them. Commit."`
 - [!] `golem [t-36af34] --provider gemini --max-turns 25 "Scan effectors/ for hardcoded paths. Fix with Path.home() or $HOME. Commit."`
-- [ ] `golem [t-e02501] --provider codex --max-turns 30 "Write a consulting insight card: AI model risk management framework for banks — write a consulting brief with problem, approach, key considerations. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-model-risk-framework.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [!] `golem [t-02201b] --provider gemini --max-turns 30 "Write a consulting insight card: Responsible AI governance checklist for financial institutions. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/responsible-ai-checklist.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [ ] `golem [t-5ce644] --provider codex --max-turns 35 "Read effectors/golem. Add --json flag that outputs result as JSON instead of raw text. Useful for piping. Write tests. Run uv run pytest. Commit."`
 
@@ -1546,314 +1458,286 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 - [!] `golem [t-a5ab65] --provider gemini --max-turns 25 "Find unused imports in metabolon/**/*.py. Remove them. Commit."`
 - [ ] `golem [t-929b4d] --provider codex --max-turns 25 "Scan effectors/ for hardcoded paths. Fix with Path.home() or $HOME. Commit."`
 - [!] `golem [t-07d6d6] --provider gemini --max-turns 30 "Write a consulting insight card: AI bias testing framework for credit decisioning. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-bias-testing.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
-- [ ] `golem [t-bbe9cb] --provider codex --max-turns 30 "Write a consulting insight card: Cross-border AI regulation comparison — HK vs SG vs UK vs EU. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/cross-border-ai-regulation.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
-- [ ] `golem [t-a89e22] --provider gemini --max-turns 35 "Read effectors/golem-dash (if exists). Improve to show real-time task progress, ETA to drain. Write tests. Run uv run pytest. Commit."`
+- [!] `golem [t-a89e22] --provider gemini --max-turns 35 "Read effectors/golem-dash (if exists). Improve to show real-time task progress, ETA to drain. Write tests. Run uv run pytest. Commit."`
 
 ### Auto-requeue (19 tasks @ 16:29)
 - [ ] `golem [t-7c4bd2] --provider codex --max-turns 40 "Run uv run pytest --co -q 2>&1 | grep ERROR. Fix ALL collection errors. Common: hardcoded paths, bad imports, syntax. Run --co again until 0 errors. Commit."`
-- [ ] `golem [t-7d81e9] --provider gemini --max-turns 50 "Run uv run pytest -q --tb=no --continue-on-collection-errors 2>&1 | grep FAILED | sed 's/::.*//g' | sort | uniq -c | sort -rn | head -5. For each of the top 5 failing test files: run pytest on it, read traceback, fix. Iterate until green. Commit."`
+- [!] `golem [t-7d81e9] --provider gemini --max-turns 50 "Run uv run pytest -q --tb=no --continue-on-collection-errors 2>&1 | grep FAILED | sed 's/::.*//g' | sort | uniq -c | sort -rn | head -5. For each of the top 5 failing test files: run pytest on it, read traceback, fix. Iterate until green. Commit."`
 - [ ] `golem [t-e59bd9] --provider codex --max-turns 30 "Health check: auto-update-compound-engineering.sh, overnight-gather, soma-health, receptor-scan, test-dashboard, oura-weekly-digest.py, golem-top, golem-reviewer, secrets-sync, cytokinesis. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
-- [ ] `golem [t-bdebed] --provider gemini --max-turns 25 "Scan effectors/ for hardcoded paths. Fix with Path.home() or $HOME. Commit."`
+- [!] `golem [t-bdebed] --provider gemini --max-turns 25 "Scan effectors/ for hardcoded paths. Fix with Path.home() or $HOME. Commit."`
 - [ ] `golem [t-123823] --provider codex --max-turns 25 "Find subprocess.run calls without timeout in effectors/. Add timeout=300. Commit."`
-- [ ] `golem [t-248ffd] --provider gemini --max-turns 25 "Scan assays/ for hardcoded /Users/terry paths. Replace with Path.home(). Commit."`
-- [ ] `golem [t-47063c] --provider codex --max-turns 30 "Write a consulting insight card: AI audit methodology for internal audit teams. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-audit-methodology.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
-- [ ] `golem [t-ee66b3] --provider gemini --max-turns 30 "Write a consulting insight card: AI incident response playbook for financial services. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-incident-response.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
+- [!] `golem [t-248ffd] --provider gemini --max-turns 25 "Scan assays/ for hardcoded /Users/terry paths. Replace with Path.home(). Commit."`
+- [!] `golem [t-ee66b3] --provider gemini --max-turns 30 "Write a consulting insight card: AI incident response playbook for financial services. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-incident-response.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [ ] `golem [t-4d1d3a] --provider codex --max-turns 35 "Read effectors/golem. Add --json flag that outputs result as JSON instead of raw text. Useful for piping. Write tests. Run uv run pytest. Commit."`
 
 ### Auto-requeue (19 tasks @ 16:30)
-- [ ] `golem [t-b851bb] --provider gemini --max-turns 40 "Run uv run pytest --co -q 2>&1 | grep ERROR. Fix ALL collection errors. Common: hardcoded paths, bad imports, syntax. Run --co again until 0 errors. Commit."`
+- [!] `golem [t-b851bb] --provider gemini --max-turns 40 "Run uv run pytest --co -q 2>&1 | grep ERROR. Fix ALL collection errors. Common: hardcoded paths, bad imports, syntax. Run --co again until 0 errors. Commit."`
 - [ ] `golem [t-7b9be4] --provider codex --max-turns 50 "Run uv run pytest -q --tb=no --continue-on-collection-errors 2>&1 | grep FAILED | sed 's/::.*//g' | sort | uniq -c | sort -rn | head -5. For each of the top 5 failing test files: run pytest on it, read traceback, fix. Iterate until green. Commit."`
-- [ ] `golem [t-78e9cb] --provider gemini --max-turns 30 "Health check: chat_history.py, golem-top, soma-clean, chromatin-backup.sh, agent-sync.sh, x-feed-to-lustro, ck, disk-audit, transduction-daily-run, sortase. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
+- [!] `golem [t-78e9cb] --provider gemini --max-turns 30 "Health check: chat_history.py, golem-top, soma-clean, chromatin-backup.sh, agent-sync.sh, x-feed-to-lustro, ck, disk-audit, transduction-daily-run, sortase. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
 - [ ] `golem [t-799bfb] --provider codex --max-turns 25 "Check all assays/test_*.py can be collected by pytest --co. Fix any that error. Commit."`
-- [ ] `golem [t-591b5f] --provider gemini --max-turns 25 "Find test files with SyntaxError. Fix syntax. Commit."`
+- [!] `golem [t-591b5f] --provider gemini --max-turns 25 "Find test files with SyntaxError. Fix syntax. Commit."`
 - [ ] `golem [t-ca2c79] --provider codex --max-turns 25 "Find Python files missing shebang in effectors/. Add #!/usr/bin/env python3. Commit."`
-- [ ] `golem [t-92fed9] --provider gemini --max-turns 30 "Write a consulting insight card: Responsible AI governance checklist for financial institutions. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/responsible-ai-checklist.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
-- [ ] `golem [t-655338] --provider codex --max-turns 30 "Write a consulting insight card: Data governance for AI/ML training data in banking. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/data-governance-ai.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
-- [ ] `golem [t-70e9a9] --provider gemini --max-turns 35 "Read effectors/golem-daemon. Add cmd_stats — show pass/fail/retry counts, avg duration by provider, tasks completed today. Usage: golem-daemon stats. Write tests. Run uv run pytest. Commit."`
+- [!] `golem [t-92fed9] --provider gemini --max-turns 30 "Write a consulting insight card: Responsible AI governance checklist for financial institutions. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/responsible-ai-checklist.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
+- [!] `golem [t-70e9a9] --provider gemini --max-turns 35 "Read effectors/golem-daemon. Add cmd_stats — show pass/fail/retry counts, avg duration by provider, tasks completed today. Usage: golem-daemon stats. Write tests. Run uv run pytest. Commit."`
 
 ### Auto-requeue (19 tasks @ 16:31)
 - [ ] `golem [t-f9b2ec] --provider codex --max-turns 40 "Run uv run pytest --co -q 2>&1 | grep ERROR. Fix ALL collection errors. Common: hardcoded paths, bad imports, syntax. Run --co again until 0 errors. Commit."`
-- [ ] `golem [t-7fc40e] --provider gemini --max-turns 50 "Run uv run pytest -q --tb=no --continue-on-collection-errors 2>&1 | grep FAILED | sed 's/::.*//g' | sort | uniq -c | sort -rn | head -5. For each of the top 5 failing test files: run pytest on it, read traceback, fix. Iterate until green. Commit."`
+- [!] `golem [t-7fc40e] --provider gemini --max-turns 50 "Run uv run pytest -q --tb=no --continue-on-collection-errors 2>&1 | grep FAILED | sed 's/::.*//g' | sort | uniq -c | sort -rn | head -5. For each of the top 5 failing test files: run pytest on it, read traceback, fix. Iterate until green. Commit."`
 - [ ] `golem [t-8c9025] --provider codex --max-turns 30 "Health check: legatum-verify, receptor-health, soma-activate, fix-symlinks, circadian-probe.py, log-summary, x-feed-to-lustro, cn-route, soma-scale, grep. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
-- [ ] `golem [t-205360] --provider gemini --max-turns 25 "Find unused imports in metabolon/**/*.py. Remove them. Commit."`
+- [!] `golem [t-205360] --provider gemini --max-turns 25 "Find unused imports in metabolon/**/*.py. Remove them. Commit."`
 - [ ] `golem [t-1854f9] --provider codex --max-turns 25 "Find test files with SyntaxError. Fix syntax. Commit."`
-- [ ] `golem [t-e08568] --provider gemini --max-turns 25 "Scan assays/ for hardcoded /Users/terry paths. Replace with Path.home(). Commit."`
-- [ ] `golem [t-60f271] --provider codex --max-turns 30 "Write a consulting insight card: Board-level AI risk reporting template for banks. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/board-ai-risk-reporting.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
-- [ ] `golem [t-53d3c1] --provider gemini --max-turns 30 "Write a consulting insight card: Cross-border AI regulation comparison — HK vs SG vs UK vs EU. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/cross-border-ai-regulation.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
+- [!] `golem [t-e08568] --provider gemini --max-turns 25 "Scan assays/ for hardcoded /Users/terry paths. Replace with Path.home(). Commit."`
+- [!] `golem [t-53d3c1] --provider gemini --max-turns 30 "Write a consulting insight card: Cross-border AI regulation comparison — HK vs SG vs UK vs EU. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/cross-border-ai-regulation.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [ ] `golem [t-5f5674] --provider codex --max-turns 35 "Read effectors/golem-review (if exists). Enhance to also check consulting content quality (>200 words, proper structure). Write tests. Run uv run pytest. Commit."`
 
 ### Auto-requeue (19 tasks @ 16:31)
-- [ ] `golem [t-e01958] --provider gemini --max-turns 40 "Run uv run pytest --co -q 2>&1 | grep ERROR. Fix ALL collection errors. Common: hardcoded paths, bad imports, syntax. Run --co again until 0 errors. Commit."`
+- [!] `golem [t-e01958] --provider gemini --max-turns 40 "Run uv run pytest --co -q 2>&1 | grep ERROR. Fix ALL collection errors. Common: hardcoded paths, bad imports, syntax. Run --co again until 0 errors. Commit."`
 - [ ] `golem [t-49b023] --provider codex --max-turns 50 "Run uv run pytest -q --tb=no --continue-on-collection-errors 2>&1 | grep FAILED | sed 's/::.*//g' | sort | uniq -c | sort -rn | head -5. For each of the top 5 failing test files: run pytest on it, read traceback, fix. Iterate until green. Commit."`
-- [ ] `golem [t-4905ca] --provider gemini --max-turns 30 "Health check: judge, x-feed-to-lustro, cytokinesis, goose-worker, commensal, translocon, engram, receptor-health, methylation, inflammasome-probe. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
+- [!] `golem [t-4905ca] --provider gemini --max-turns 30 "Health check: judge, x-feed-to-lustro, cytokinesis, goose-worker, commensal, translocon, engram, receptor-health, methylation, inflammasome-probe. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
 - [ ] `golem [t-73f6da] --provider codex --max-turns 25 "Find unused imports in metabolon/**/*.py. Remove them. Commit."`
-- [ ] `golem [t-8dfb35] --provider gemini --max-turns 25 "Find test files with SyntaxError. Fix syntax. Commit."`
+- [!] `golem [t-8dfb35] --provider gemini --max-turns 25 "Find test files with SyntaxError. Fix syntax. Commit."`
 - [ ] `golem [t-09d8f2] --provider codex --max-turns 25 "Check all effectors respond to --help without crashing. Fix crashers. Commit."`
-- [ ] `golem [t-7864e8] --provider gemini --max-turns 30 "Write a consulting insight card: LLM deployment risks in banking — regulatory expectations vs reality. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/llm-deployment-risks.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
-- [ ] `golem [t-6124cf] --provider codex --max-turns 30 "Write a consulting insight card: Data governance for AI/ML training data in banking. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/data-governance-ai.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
-- [ ] `golem [t-0051a7] --provider gemini --max-turns 35 "Read effectors/golem-daemon. Add cmd_stats — show pass/fail/retry counts, avg duration by provider, tasks completed today. Usage: golem-daemon stats. Write tests. Run uv run pytest. Commit."`
+- [!] `golem [t-7864e8] --provider gemini --max-turns 30 "Write a consulting insight card: LLM deployment risks in banking — regulatory expectations vs reality. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/llm-deployment-risks.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
+- [!] `golem [t-0051a7] --provider gemini --max-turns 35 "Read effectors/golem-daemon. Add cmd_stats — show pass/fail/retry counts, avg duration by provider, tasks completed today. Usage: golem-daemon stats. Write tests. Run uv run pytest. Commit."`
 
 ### Auto-requeue (19 tasks @ 16:32)
 - [ ] `golem [t-23fdd3] --provider codex --max-turns 40 "Run uv run pytest --co -q 2>&1 | grep ERROR. Fix ALL collection errors. Common: hardcoded paths, bad imports, syntax. Run --co again until 0 errors. Commit."`
-- [ ] `golem [t-110bcd] --provider gemini --max-turns 50 "Run uv run pytest -q --tb=no --continue-on-collection-errors 2>&1 | grep FAILED | sed 's/::.*//g' | sort | uniq -c | sort -rn | head -5. For each of the top 5 failing test files: run pytest on it, read traceback, fix. Iterate until green. Commit."`
+- [!] `golem [t-110bcd] --provider gemini --max-turns 50 "Run uv run pytest -q --tb=no --continue-on-collection-errors 2>&1 | grep FAILED | sed 's/::.*//g' | sort | uniq -c | sort -rn | head -5. For each of the top 5 failing test files: run pytest on it, read traceback, fix. Iterate until green. Commit."`
 - [ ] `golem [t-a09f88] --provider codex --max-turns 30 "Health check: backfill-marks, tm, proteostasis, soma-activate, pharos-env.sh, transduction-daily-run, cytokinesis, coaching-stats, chromatin-backup.sh, quorum. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
-- [ ] `golem [t-624d45] --provider gemini --max-turns 25 "Find unused imports in metabolon/**/*.py. Remove them. Commit."`
+- [!] `golem [t-624d45] --provider gemini --max-turns 25 "Find unused imports in metabolon/**/*.py. Remove them. Commit."`
 - [ ] `golem [t-be2ef7] --provider codex --max-turns 25 "Check all effectors respond to --help without crashing. Fix crashers. Commit."`
-- [ ] `golem [t-ff2690] --provider gemini --max-turns 25 "Find subprocess.run calls without timeout in effectors/. Add timeout=300. Commit."`
-- [ ] `golem [t-8bef80] --provider codex --max-turns 30 "Write a consulting insight card: AI vendor due diligence questionnaire for banks. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-vendor-due-diligence.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
-- [ ] `golem [t-f7f343] --provider gemini --max-turns 30 "Write a consulting insight card: Data governance for AI/ML training data in banking. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/data-governance-ai.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
+- [!] `golem [t-ff2690] --provider gemini --max-turns 25 "Find subprocess.run calls without timeout in effectors/. Add timeout=300. Commit."`
+- [!] `golem [t-f7f343] --provider gemini --max-turns 30 "Write a consulting insight card: Data governance for AI/ML training data in banking. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/data-governance-ai.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [ ] `golem [t-9f4bb9] --provider codex --max-turns 35 "Read effectors/golem. Add --json flag that outputs result as JSON instead of raw text. Useful for piping. Write tests. Run uv run pytest. Commit."`
 
 ### Auto-requeue (19 tasks @ 16:32)
-- [ ] `golem [t-52246f] --provider gemini --max-turns 40 "Run uv run pytest --co -q 2>&1 | grep ERROR. Fix ALL collection errors. Common: hardcoded paths, bad imports, syntax. Run --co again until 0 errors. Commit."`
+- [!] `golem [t-52246f] --provider gemini --max-turns 40 "Run uv run pytest --co -q 2>&1 | grep ERROR. Fix ALL collection errors. Common: hardcoded paths, bad imports, syntax. Run --co again until 0 errors. Commit."`
 - [ ] `golem [t-1808a9] --provider codex --max-turns 50 "Run uv run pytest -q --tb=no --continue-on-collection-errors 2>&1 | grep FAILED | sed 's/::.*//g' | sort | uniq -c | sort -rn | head -5. For each of the top 5 failing test files: run pytest on it, read traceback, fix. Iterate until green. Commit."`
-- [ ] `golem [t-c75121] --provider gemini --max-turns 30 "Health check: commensal, oci-arm-retry, chromatin-backup.sh, receptor-scan, electroreception, replisome, pulse-review, importin, golem-validate, rg. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
+- [!] `golem [t-c75121] --provider gemini --max-turns 30 "Health check: commensal, oci-arm-retry, chromatin-backup.sh, receptor-scan, electroreception, replisome, pulse-review, importin, golem-validate, rg. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
 - [ ] `golem [t-de9d5e] --provider codex --max-turns 25 "Find unused imports in metabolon/**/*.py. Remove them. Commit."`
-- [ ] `golem [t-795f33] --provider gemini --max-turns 25 "Find subprocess.run calls without timeout in effectors/. Add timeout=300. Commit."`
+- [!] `golem [t-795f33] --provider gemini --max-turns 25 "Find subprocess.run calls without timeout in effectors/. Add timeout=300. Commit."`
 - [ ] `golem [t-20444d] --provider codex --max-turns 25 "Scan effectors/ for hardcoded paths. Fix with Path.home() or $HOME. Commit."`
-- [ ] `golem [t-de09d3] --provider gemini --max-turns 30 "Write a consulting insight card: Data governance for AI/ML training data in banking. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/data-governance-ai.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
-- [ ] `golem [t-b889d9] --provider codex --max-turns 30 "Write a consulting insight card: AI incident response playbook for financial services. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-incident-response.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
-- [ ] `golem [t-fdbb01] --provider gemini --max-turns 35 "Read effectors/golem-dash (if exists). Improve to show real-time task progress, ETA to drain. Write tests. Run uv run pytest. Commit."`
+- [!] `golem [t-de09d3] --provider gemini --max-turns 30 "Write a consulting insight card: Data governance for AI/ML training data in banking. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/data-governance-ai.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
+- [!] `golem [t-fdbb01] --provider gemini --max-turns 35 "Read effectors/golem-dash (if exists). Improve to show real-time task progress, ETA to drain. Write tests. Run uv run pytest. Commit."`
 
 ### Auto-requeue (19 tasks @ 16:33)
 - [ ] `golem [t-2bc127] --provider codex --max-turns 40 "Run uv run pytest --co -q 2>&1 | grep ERROR. Fix ALL collection errors. Common: hardcoded paths, bad imports, syntax. Run --co again until 0 errors. Commit."`
-- [ ] `golem [t-4c0664] --provider gemini --max-turns 50 "Run uv run pytest -q --tb=no --continue-on-collection-errors 2>&1 | grep FAILED | sed 's/::.*//g' | sort | uniq -c | sort -rn | head -5. For each of the top 5 failing test files: run pytest on it, read traceback, fix. Iterate until green. Commit."`
+- [!] `golem [t-4c0664] --provider gemini --max-turns 50 "Run uv run pytest -q --tb=no --continue-on-collection-errors 2>&1 | grep FAILED | sed 's/::.*//g' | sort | uniq -c | sort -rn | head -5. For each of the top 5 failing test files: run pytest on it, read traceback, fix. Iterate until green. Commit."`
 - [ ] `golem [t-41ba30] --provider codex --max-turns 30 "Health check: cibus.py, vesicle, soma-pull, demethylase, soma-watchdog, cytokinesis, goose-worker, pulse-review, switch-layer, grok. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
-- [ ] `golem [t-16e09d] --provider gemini --max-turns 25 "Find unused imports in metabolon/**/*.py. Remove them. Commit."`
+- [!] `golem [t-16e09d] --provider gemini --max-turns 25 "Find unused imports in metabolon/**/*.py. Remove them. Commit."`
 - [ ] `golem [t-623bcf] --provider codex --max-turns 25 "Find Python files missing shebang in effectors/. Add #!/usr/bin/env python3. Commit."`
-- [ ] `golem [t-e3e6a6] --provider gemini --max-turns 25 "Find test files with SyntaxError. Fix syntax. Commit."`
-- [ ] `golem [t-66aa9a] --provider codex --max-turns 30 "Write a consulting insight card: AI skills gap assessment for banking technology teams. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-skills-gap.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
-- [ ] `golem [t-f54c96] --provider gemini --max-turns 30 "Write a consulting insight card: GenAI policy template for bank employees. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/genai-policy-template.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
+- [!] `golem [t-e3e6a6] --provider gemini --max-turns 25 "Find test files with SyntaxError. Fix syntax. Commit."`
+- [!] `golem [t-f54c96] --provider gemini --max-turns 30 "Write a consulting insight card: GenAI policy template for bank employees. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/genai-policy-template.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [ ] `golem [t-7e2662] --provider codex --max-turns 35 "Read effectors/golem. Add --json flag that outputs result as JSON instead of raw text. Useful for piping. Write tests. Run uv run pytest. Commit."`
 
 ### Auto-requeue (19 tasks @ 16:34)
-- [ ] `golem [t-c88791] --provider gemini --max-turns 40 "Run uv run pytest --co -q 2>&1 | grep ERROR. Fix ALL collection errors. Common: hardcoded paths, bad imports, syntax. Run --co again until 0 errors. Commit."`
+- [!] `golem [t-c88791] --provider gemini --max-turns 40 "Run uv run pytest --co -q 2>&1 | grep ERROR. Fix ALL collection errors. Common: hardcoded paths, bad imports, syntax. Run --co again until 0 errors. Commit."`
 - [ ] `golem [t-d2d39e] --provider codex --max-turns 50 "Run uv run pytest -q --tb=no --continue-on-collection-errors 2>&1 | grep FAILED | sed 's/::.*//g' | sort | uniq -c | sort -rn | head -5. For each of the top 5 failing test files: run pytest on it, read traceback, fix. Iterate until green. Commit."`
-- [ ] `golem [t-d9a9e0] --provider gemini --max-turns 30 "Health check: fix-symlinks, channel, lysis, circadian-probe.py, ck, test-dashboard, agent-sync.sh, soma-wake, gap_junction_sync, poiesis. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
+- [!] `golem [t-d9a9e0] --provider gemini --max-turns 30 "Health check: fix-symlinks, channel, lysis, circadian-probe.py, ck, test-dashboard, agent-sync.sh, soma-wake, gap_junction_sync, poiesis. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
 - [ ] `golem [t-ee59a8] --provider codex --max-turns 25 "Find unused imports in metabolon/**/*.py. Remove them. Commit."`
-- [ ] `golem [t-dc7d7d] --provider gemini --max-turns 25 "Check all assays/test_*.py can be collected by pytest --co. Fix any that error. Commit."`
+- [!] `golem [t-dc7d7d] --provider gemini --max-turns 25 "Check all assays/test_*.py can be collected by pytest --co. Fix any that error. Commit."`
 - [ ] `golem [t-daa395] --provider codex --max-turns 25 "Scan effectors/ for hardcoded paths. Fix with Path.home() or $HOME. Commit."`
-- [ ] `golem [t-b5b00f] --provider gemini --max-turns 30 "Write a consulting insight card: LLM deployment risks in banking — regulatory expectations vs reality. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/llm-deployment-risks.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
-- [ ] `golem [t-6f1f74] --provider codex --max-turns 30 "Write a consulting insight card: AI incident response playbook for financial services. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-incident-response.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
-- [ ] `golem [t-460f92] --provider gemini --max-turns 35 "Read effectors/golem-dash (if exists). Improve to show real-time task progress, ETA to drain. Write tests. Run uv run pytest. Commit."`
+- [!] `golem [t-b5b00f] --provider gemini --max-turns 30 "Write a consulting insight card: LLM deployment risks in banking — regulatory expectations vs reality. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/llm-deployment-risks.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
+- [!] `golem [t-460f92] --provider gemini --max-turns 35 "Read effectors/golem-dash (if exists). Improve to show real-time task progress, ETA to drain. Write tests. Run uv run pytest. Commit."`
 
 ### Auto-requeue (19 tasks @ 16:34)
 - [ ] `golem [t-fbd875] --provider codex --max-turns 40 "Run uv run pytest --co -q 2>&1 | grep ERROR. Fix ALL collection errors. Common: hardcoded paths, bad imports, syntax. Run --co again until 0 errors. Commit."`
-- [ ] `golem [t-25a291] --provider gemini --max-turns 50 "Run uv run pytest -q --tb=no --continue-on-collection-errors 2>&1 | grep FAILED | sed 's/::.*//g' | sort | uniq -c | sort -rn | head -5. For each of the top 5 failing test files: run pytest on it, read traceback, fix. Iterate until green. Commit."`
+- [!] `golem [t-25a291] --provider gemini --max-turns 50 "Run uv run pytest -q --tb=no --continue-on-collection-errors 2>&1 | grep FAILED | sed 's/::.*//g' | sort | uniq -c | sort -rn | head -5. For each of the top 5 failing test files: run pytest on it, read traceback, fix. Iterate until green. Commit."`
 - [ ] `golem [t-599411] --provider codex --max-turns 30 "Health check: commensal, chat_history.py, lacuna, council, golem-reviewer, pharos-env.sh, wacli-ro, overnight-gather, regulatory-scan, perplexity.sh. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
-- [ ] `golem [t-30404e] --provider gemini --max-turns 25 "Find unused imports in metabolon/**/*.py. Remove them. Commit."`
+- [!] `golem [t-30404e] --provider gemini --max-turns 25 "Find unused imports in metabolon/**/*.py. Remove them. Commit."`
 - [ ] `golem [t-917167] --provider codex --max-turns 25 "Find Python files missing shebang in effectors/. Add #!/usr/bin/env python3. Commit."`
-- [ ] `golem [t-81e276] --provider gemini --max-turns 25 "Scan effectors/ for hardcoded paths. Fix with Path.home() or $HOME. Commit."`
-- [ ] `golem [t-b12afa] --provider codex --max-turns 30 "Write a consulting insight card: AI vendor due diligence questionnaire for banks. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-vendor-due-diligence.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
-- [ ] `golem [t-069984] --provider gemini --max-turns 30 "Write a consulting insight card: AI bias testing framework for credit decisioning. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-bias-testing.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
+- [!] `golem [t-81e276] --provider gemini --max-turns 25 "Scan effectors/ for hardcoded paths. Fix with Path.home() or $HOME. Commit."`
+- [!] `golem [t-069984] --provider gemini --max-turns 30 "Write a consulting insight card: AI bias testing framework for credit decisioning. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-bias-testing.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [ ] `golem [t-013b25] --provider codex --max-turns 35 "Read effectors/golem. Add --json flag that outputs result as JSON instead of raw text. Useful for piping. Write tests. Run uv run pytest. Commit."`
 
 ### Auto-requeue (19 tasks @ 16:35)
-- [ ] `golem [t-a289e6] --provider gemini --max-turns 40 "Run uv run pytest --co -q 2>&1 | grep ERROR. Fix ALL collection errors. Common: hardcoded paths, bad imports, syntax. Run --co again until 0 errors. Commit."`
+- [!] `golem [t-a289e6] --provider gemini --max-turns 40 "Run uv run pytest --co -q 2>&1 | grep ERROR. Fix ALL collection errors. Common: hardcoded paths, bad imports, syntax. Run --co again until 0 errors. Commit."`
 - [ ] `golem [t-4e6661] --provider codex --max-turns 50 "Run uv run pytest -q --tb=no --continue-on-collection-errors 2>&1 | grep FAILED | sed 's/::.*//g' | sort | uniq -c | sort -rn | head -5. For each of the top 5 failing test files: run pytest on it, read traceback, fix. Iterate until green. Commit."`
-- [ ] `golem [t-3cd869] --provider gemini --max-turns 30 "Health check: chemoreception.py, autoimmune.py, wacli-ro, transduction-daily-run, tmux-workspace.py, consulting-card.py, engram, generate-solutions-index.py, mismatch-repair, rheotaxis-local. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
+- [!] `golem [t-3cd869] --provider gemini --max-turns 30 "Health check: chemoreception.py, autoimmune.py, wacli-ro, transduction-daily-run, tmux-workspace.py, consulting-card.py, engram, generate-solutions-index.py, mismatch-repair, rheotaxis-local. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
 - [ ] `golem [t-21c812] --provider codex --max-turns 25 "Scan assays/ for hardcoded /Users/terry paths. Replace with Path.home(). Commit."`
-- [ ] `golem [t-544429] --provider gemini --max-turns 25 "Find unused imports in metabolon/**/*.py. Remove them. Commit."`
+- [!] `golem [t-544429] --provider gemini --max-turns 25 "Find unused imports in metabolon/**/*.py. Remove them. Commit."`
 - [ ] `golem [t-86bd0f] --provider codex --max-turns 25 "Check all assays/test_*.py can be collected by pytest --co. Fix any that error. Commit."`
-- [ ] `golem [t-076717] --provider gemini --max-turns 30 "Write a consulting insight card: AI bias testing framework for credit decisioning. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-bias-testing.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
-- [ ] `golem [t-d35ed7] --provider codex --max-turns 30 "Write a consulting insight card: AI skills gap assessment for banking technology teams. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-skills-gap.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
-- [ ] `golem [t-1664a3] --provider gemini --max-turns 35 "Read effectors/golem-review (if exists). Enhance to also check consulting content quality (>200 words, proper structure). Write tests. Run uv run pytest. Commit."`
+- [!] `golem [t-076717] --provider gemini --max-turns 30 "Write a consulting insight card: AI bias testing framework for credit decisioning. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-bias-testing.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
+- [!] `golem [t-1664a3] --provider gemini --max-turns 35 "Read effectors/golem-review (if exists). Enhance to also check consulting content quality (>200 words, proper structure). Write tests. Run uv run pytest. Commit."`
 
 ### Auto-requeue (19 tasks @ 16:35)
 - [ ] `golem [t-a22abb] --provider codex --max-turns 40 "Run uv run pytest --co -q 2>&1 | grep ERROR. Fix ALL collection errors. Common: hardcoded paths, bad imports, syntax. Run --co again until 0 errors. Commit."`
-- [ ] `golem [t-4cbc61] --provider gemini --max-turns 50 "Run uv run pytest -q --tb=no --continue-on-collection-errors 2>&1 | grep FAILED | sed 's/::.*//g' | sort | uniq -c | sort -rn | head -5. For each of the top 5 failing test files: run pytest on it, read traceback, fix. Iterate until green. Commit."`
+- [!] `golem [t-4cbc61] --provider gemini --max-turns 50 "Run uv run pytest -q --tb=no --continue-on-collection-errors 2>&1 | grep FAILED | sed 's/::.*//g' | sort | uniq -c | sort -rn | head -5. For each of the top 5 failing test files: run pytest on it, read traceback, fix. Iterate until green. Commit."`
 - [ ] `golem [t-d8f473] --provider codex --max-turns 30 "Health check: transduction-daily-run, browse, chat_history.py, test-fixer, golem-daemon, golem-dash, cytokinesis, mismatch-repair, client-brief, judge. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
-- [ ] `golem [t-8839b5] --provider gemini --max-turns 25 "Check all effectors respond to --help without crashing. Fix crashers. Commit."`
+- [!] `golem [t-8839b5] --provider gemini --max-turns 25 "Check all effectors respond to --help without crashing. Fix crashers. Commit."`
 - [ ] `golem [t-4cefba] --provider codex --max-turns 25 "Find Python files missing shebang in effectors/. Add #!/usr/bin/env python3. Commit."`
-- [ ] `golem [t-e8f1ff] --provider gemini --max-turns 25 "Scan assays/ for hardcoded /Users/terry paths. Replace with Path.home(). Commit."`
-- [ ] `golem [t-c35f5b] --provider codex --max-turns 30 "Write a consulting insight card: AI audit methodology for internal audit teams. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-audit-methodology.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
-- [ ] `golem [t-255c15] --provider gemini --max-turns 30 "Write a consulting insight card: AI skills gap assessment for banking technology teams. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-skills-gap.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
+- [!] `golem [t-e8f1ff] --provider gemini --max-turns 25 "Scan assays/ for hardcoded /Users/terry paths. Replace with Path.home(). Commit."`
+- [!] `golem [t-255c15] --provider gemini --max-turns 30 "Write a consulting insight card: AI skills gap assessment for banking technology teams. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-skills-gap.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [ ] `golem [t-e978ec] --provider codex --max-turns 35 "Read effectors/golem. Add --json flag that outputs result as JSON instead of raw text. Useful for piping. Write tests. Run uv run pytest. Commit."`
 
 ### Auto-requeue (19 tasks @ 16:36)
-- [ ] `golem [t-3f3cd0] --provider gemini --max-turns 40 "Run uv run pytest --co -q 2>&1 | grep ERROR. Fix ALL collection errors. Common: hardcoded paths, bad imports, syntax. Run --co again until 0 errors. Commit."`
+- [!] `golem [t-3f3cd0] --provider gemini --max-turns 40 "Run uv run pytest --co -q 2>&1 | grep ERROR. Fix ALL collection errors. Common: hardcoded paths, bad imports, syntax. Run --co again until 0 errors. Commit."`
 - [ ] `golem [t-a4f878] --provider codex --max-turns 50 "Run uv run pytest -q --tb=no --continue-on-collection-errors 2>&1 | grep FAILED | sed 's/::.*//g' | sort | uniq -c | sort -rn | head -5. For each of the top 5 failing test files: run pytest on it, read traceback, fix. Iterate until green. Commit."`
-- [ ] `golem [t-ad4ec1] --provider gemini --max-turns 30 "Health check: rg, chromatin-backup.sh, browse, linkedin-monitor, soma-bootstrap, immunosurveillance.py, generate-solutions-index.py, provider-bench, gemmation-env, lysis. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
+- [!] `golem [t-ad4ec1] --provider gemini --max-turns 30 "Health check: rg, chromatin-backup.sh, browse, linkedin-monitor, soma-bootstrap, immunosurveillance.py, generate-solutions-index.py, provider-bench, gemmation-env, lysis. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
 - [ ] `golem [t-62d671] --provider codex --max-turns 25 "Scan assays/ for hardcoded /Users/terry paths. Replace with Path.home(). Commit."`
-- [ ] `golem [t-5e32e8] --provider gemini --max-turns 25 "Find unused imports in metabolon/**/*.py. Remove them. Commit."`
+- [!] `golem [t-5e32e8] --provider gemini --max-turns 25 "Find unused imports in metabolon/**/*.py. Remove them. Commit."`
 - [ ] `golem [t-5843e0] --provider codex --max-turns 25 "Scan effectors/ for hardcoded paths. Fix with Path.home() or $HOME. Commit."`
-- [ ] `golem [t-def3d8] --provider gemini --max-turns 30 "Write a consulting insight card: AI audit methodology for internal audit teams. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-audit-methodology.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
-- [ ] `golem [t-0c44a2] --provider codex --max-turns 30 "Write a consulting insight card: AI vendor due diligence questionnaire for banks. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-vendor-due-diligence.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
-- [ ] `golem [t-02c270] --provider gemini --max-turns 35 "Read effectors/golem-dash (if exists). Improve to show real-time task progress, ETA to drain. Write tests. Run uv run pytest. Commit."`
+- [!] `golem [t-def3d8] --provider gemini --max-turns 30 "Write a consulting insight card: AI audit methodology for internal audit teams. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-audit-methodology.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
+- [!] `golem [t-02c270] --provider gemini --max-turns 35 "Read effectors/golem-dash (if exists). Improve to show real-time task progress, ETA to drain. Write tests. Run uv run pytest. Commit."`
 
 ### Auto-requeue (19 tasks @ 16:37)
 - [ ] `golem [t-c4853d] --provider codex --max-turns 40 "Run uv run pytest --co -q 2>&1 | grep ERROR. Fix ALL collection errors. Common: hardcoded paths, bad imports, syntax. Run --co again until 0 errors. Commit."`
-- [ ] `golem [t-c77ed8] --provider gemini --max-turns 50 "Run uv run pytest -q --tb=no --continue-on-collection-errors 2>&1 | grep FAILED | sed 's/::.*//g' | sort | uniq -c | sort -rn | head -5. For each of the top 5 failing test files: run pytest on it, read traceback, fix. Iterate until green. Commit."`
+- [!] `golem [t-c77ed8] --provider gemini --max-turns 50 "Run uv run pytest -q --tb=no --continue-on-collection-errors 2>&1 | grep FAILED | sed 's/::.*//g' | sort | uniq -c | sort -rn | head -5. For each of the top 5 failing test files: run pytest on it, read traceback, fix. Iterate until green. Commit."`
 - [ ] `golem [t-93d301] --provider codex --max-turns 30 "Health check: coverage-map, oci-arm-retry, diapedesis, test-spec-gen, tmux-osc52.sh, golem-daemon, agent-sync.sh, cleanup-stuck, grok, auto-update-compound-engineering.sh. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
-- [ ] `golem [t-4a953d] --provider gemini --max-turns 25 "Scan assays/ for hardcoded /Users/terry paths. Replace with Path.home(). Commit."`
+- [!] `golem [t-4a953d] --provider gemini --max-turns 25 "Scan assays/ for hardcoded /Users/terry paths. Replace with Path.home(). Commit."`
 - [ ] `golem [t-d357b1] --provider codex --max-turns 25 "Find unused imports in metabolon/**/*.py. Remove them. Commit."`
-- [ ] `golem [t-11a0cd] --provider gemini --max-turns 25 "Check all effectors respond to --help without crashing. Fix crashers. Commit."`
-- [ ] `golem [t-b57e8a] --provider codex --max-turns 30 "Write a consulting insight card: GenAI policy template for bank employees. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/genai-policy-template.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
-- [ ] `golem [t-87c7e5] --provider gemini --max-turns 30 "Write a consulting insight card: Cross-border AI regulation comparison — HK vs SG vs UK vs EU. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/cross-border-ai-regulation.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
+- [!] `golem [t-11a0cd] --provider gemini --max-turns 25 "Check all effectors respond to --help without crashing. Fix crashers. Commit."`
+- [!] `golem [t-87c7e5] --provider gemini --max-turns 30 "Write a consulting insight card: Cross-border AI regulation comparison — HK vs SG vs UK vs EU. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/cross-border-ai-regulation.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [ ] `golem [t-75d417] --provider codex --max-turns 35 "Read effectors/golem. Add --json flag that outputs result as JSON instead of raw text. Useful for piping. Write tests. Run uv run pytest. Commit."`
 
 ### Auto-requeue (19 tasks @ 16:37)
-- [ ] `golem [t-581d4f] --provider gemini --max-turns 40 "Run uv run pytest --co -q 2>&1 | grep ERROR. Fix ALL collection errors. Common: hardcoded paths, bad imports, syntax. Run --co again until 0 errors. Commit."`
+- [!] `golem [t-581d4f] --provider gemini --max-turns 40 "Run uv run pytest --co -q 2>&1 | grep ERROR. Fix ALL collection errors. Common: hardcoded paths, bad imports, syntax. Run --co again until 0 errors. Commit."`
 - [ ] `golem [t-52ed5d] --provider codex --max-turns 50 "Run uv run pytest -q --tb=no --continue-on-collection-errors 2>&1 | grep FAILED | sed 's/::.*//g' | sort | uniq -c | sort -rn | head -5. For each of the top 5 failing test files: run pytest on it, read traceback, fix. Iterate until green. Commit."`
-- [ ] `golem [t-15825b] --provider gemini --max-turns 30 "Health check: goose-worker, golem, golem-validate, circadian-probe.py, vesicle, queue-stats, soma-snapshot, soma-health, plan-exec.deprecated, test-fixer. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
+- [!] `golem [t-15825b] --provider gemini --max-turns 30 "Health check: goose-worker, golem, golem-validate, circadian-probe.py, vesicle, queue-stats, soma-snapshot, soma-health, plan-exec.deprecated, test-fixer. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
 - [ ] `golem [t-7958ff] --provider codex --max-turns 25 "Scan assays/ for hardcoded /Users/terry paths. Replace with Path.home(). Commit."`
-- [ ] `golem [t-d4faf4] --provider gemini --max-turns 25 "Find Python files missing shebang in effectors/. Add #!/usr/bin/env python3. Commit."`
+- [!] `golem [t-d4faf4] --provider gemini --max-turns 25 "Find Python files missing shebang in effectors/. Add #!/usr/bin/env python3. Commit."`
 - [ ] `golem [t-9f80ed] --provider codex --max-turns 25 "Check all assays/test_*.py can be collected by pytest --co. Fix any that error. Commit."`
-- [ ] `golem [t-c62787] --provider gemini --max-turns 30 "Write a consulting insight card: AI bias testing framework for credit decisioning. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-bias-testing.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
-- [ ] `golem [t-bf642f] --provider codex --max-turns 30 "Write a consulting insight card: Responsible AI governance checklist for financial institutions. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/responsible-ai-checklist.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
-- [ ] `golem [t-735734] --provider gemini --max-turns 35 "Read effectors/golem-review (if exists). Enhance to also check consulting content quality (>200 words, proper structure). Write tests. Run uv run pytest. Commit."`
+- [!] `golem [t-c62787] --provider gemini --max-turns 30 "Write a consulting insight card: AI bias testing framework for credit decisioning. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-bias-testing.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
+- [!] `golem [t-735734] --provider gemini --max-turns 35 "Read effectors/golem-review (if exists). Enhance to also check consulting content quality (>200 words, proper structure). Write tests. Run uv run pytest. Commit."`
 
 ### Auto-requeue (19 tasks @ 16:38)
 - [ ] `golem [t-ca25c3] --provider codex --max-turns 40 "Run uv run pytest --co -q 2>&1 | grep ERROR. Fix ALL collection errors. Common: hardcoded paths, bad imports, syntax. Run --co again until 0 errors. Commit."`
-- [ ] `golem [t-95a8e8] --provider gemini --max-turns 50 "Run uv run pytest -q --tb=no --continue-on-collection-errors 2>&1 | grep FAILED | sed 's/::.*//g' | sort | uniq -c | sort -rn | head -5. For each of the top 5 failing test files: run pytest on it, read traceback, fix. Iterate until green. Commit."`
+- [!] `golem [t-95a8e8] --provider gemini --max-turns 50 "Run uv run pytest -q --tb=no --continue-on-collection-errors 2>&1 | grep FAILED | sed 's/::.*//g' | sort | uniq -c | sort -rn | head -5. For each of the top 5 failing test files: run pytest on it, read traceback, fix. Iterate until green. Commit."`
 - [ ] `golem [t-31d31a] --provider codex --max-turns 30 "Health check: council, lysis, exocytosis.py, centrosome, poiesis, grep, respirometry, skill-lint, methylation-review, pulse-review. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
-- [ ] `golem [t-10d1a2] --provider gemini --max-turns 25 "Scan effectors/ for hardcoded paths. Fix with Path.home() or $HOME. Commit."`
+- [!] `golem [t-10d1a2] --provider gemini --max-turns 25 "Scan effectors/ for hardcoded paths. Fix with Path.home() or $HOME. Commit."`
 - [ ] `golem [t-45ee0d] --provider codex --max-turns 25 "Scan assays/ for hardcoded /Users/terry paths. Replace with Path.home(). Commit."`
-- [ ] `golem [t-527f61] --provider gemini --max-turns 25 "Find subprocess.run calls without timeout in effectors/. Add timeout=300. Commit."`
-- [ ] `golem [t-ff4f0c] --provider codex --max-turns 30 "Write a consulting insight card: Responsible AI governance checklist for financial institutions. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/responsible-ai-checklist.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
-- [ ] `golem [t-6886b2] --provider gemini --max-turns 30 "Write a consulting insight card: Cross-border AI regulation comparison — HK vs SG vs UK vs EU. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/cross-border-ai-regulation.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
+- [!] `golem [t-527f61] --provider gemini --max-turns 25 "Find subprocess.run calls without timeout in effectors/. Add timeout=300. Commit."`
+- [!] `golem [t-6886b2] --provider gemini --max-turns 30 "Write a consulting insight card: Cross-border AI regulation comparison — HK vs SG vs UK vs EU. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/cross-border-ai-regulation.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [ ] `golem [t-087f5f] --provider codex --max-turns 35 "Read effectors/golem-daemon. Add cmd_stats — show pass/fail/retry counts, avg duration by provider, tasks completed today. Usage: golem-daemon stats. Write tests. Run uv run pytest. Commit."`
 
 ### Auto-requeue (19 tasks @ 16:39)
-- [ ] `golem [t-8cc4d6] --provider gemini --max-turns 40 "Run uv run pytest --co -q 2>&1 | grep ERROR. Fix ALL collection errors. Common: hardcoded paths, bad imports, syntax. Run --co again until 0 errors. Commit."`
+- [!] `golem [t-8cc4d6] --provider gemini --max-turns 40 "Run uv run pytest --co -q 2>&1 | grep ERROR. Fix ALL collection errors. Common: hardcoded paths, bad imports, syntax. Run --co again until 0 errors. Commit."`
 - [ ] `golem [t-27c9e2] --provider codex --max-turns 50 "Run uv run pytest -q --tb=no --continue-on-collection-errors 2>&1 | grep FAILED | sed 's/::.*//g' | sort | uniq -c | sort -rn | head -5. For each of the top 5 failing test files: run pytest on it, read traceback, fix. Iterate until green. Commit."`
-- [ ] `golem [t-e8b1b9] --provider gemini --max-turns 30 "Health check: find, channel, nightly, generate-solutions-index.py, receptor-scan, queue-stats, receptor-health, pharos-sync.sh, rg, skill-search. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
+- [!] `golem [t-e8b1b9] --provider gemini --max-turns 30 "Health check: find, channel, nightly, generate-solutions-index.py, receptor-scan, queue-stats, receptor-health, pharos-sync.sh, rg, skill-search. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
 - [ ] `golem [t-14c7fb] --provider codex --max-turns 25 "Scan assays/ for hardcoded /Users/terry paths. Replace with Path.home(). Commit."`
-- [ ] `golem [t-c65fd1] --provider gemini --max-turns 25 "Find unused imports in metabolon/**/*.py. Remove them. Commit."`
+- [!] `golem [t-c65fd1] --provider gemini --max-turns 25 "Find unused imports in metabolon/**/*.py. Remove them. Commit."`
 - [ ] `golem [t-c620de] --provider codex --max-turns 25 "Find test files with SyntaxError. Fix syntax. Commit."`
-- [ ] `golem [t-6932ca] --provider gemini --max-turns 30 "Write a consulting insight card: AI vendor due diligence questionnaire for banks. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-vendor-due-diligence.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
-- [ ] `golem [t-55a988] --provider codex --max-turns 30 "Write a consulting insight card: AI bias testing framework for credit decisioning. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-bias-testing.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
-- [ ] `golem [t-12dcbf] --provider gemini --max-turns 35 "Read effectors/golem-daemon. Add cmd_stats — show pass/fail/retry counts, avg duration by provider, tasks completed today. Usage: golem-daemon stats. Write tests. Run uv run pytest. Commit."`
+- [!] `golem [t-6932ca] --provider gemini --max-turns 30 "Write a consulting insight card: AI vendor due diligence questionnaire for banks. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-vendor-due-diligence.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
+- [!] `golem [t-12dcbf] --provider gemini --max-turns 35 "Read effectors/golem-daemon. Add cmd_stats — show pass/fail/retry counts, avg duration by provider, tasks completed today. Usage: golem-daemon stats. Write tests. Run uv run pytest. Commit."`
 
 ### Auto-requeue (19 tasks @ 16:39)
 - [ ] `golem [t-647959] --provider codex --max-turns 40 "Run uv run pytest --co -q 2>&1 | grep ERROR. Fix ALL collection errors. Common: hardcoded paths, bad imports, syntax. Run --co again until 0 errors. Commit."`
-- [ ] `golem [t-e8e7dc] --provider gemini --max-turns 50 "Run uv run pytest -q --tb=no --continue-on-collection-errors 2>&1 | grep FAILED | sed 's/::.*//g' | sort | uniq -c | sort -rn | head -5. For each of the top 5 failing test files: run pytest on it, read traceback, fix. Iterate until green. Commit."`
+- [!] `golem [t-e8e7dc] --provider gemini --max-turns 50 "Run uv run pytest -q --tb=no --continue-on-collection-errors 2>&1 | grep FAILED | sed 's/::.*//g' | sort | uniq -c | sort -rn | head -5. For each of the top 5 failing test files: run pytest on it, read traceback, fix. Iterate until green. Commit."`
 - [ ] `golem [t-9a28ed] --provider codex --max-turns 30 "Health check: browse, diapedesis, rheotaxis, regulatory-capture, lacuna, assay, overnight-gather, golem-cost, orphan-scan, safe_search.py. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
-- [ ] `golem [t-861f6d] --provider gemini --max-turns 25 "Find subprocess.run calls without timeout in effectors/. Add timeout=300. Commit."`
+- [!] `golem [t-861f6d] --provider gemini --max-turns 25 "Find subprocess.run calls without timeout in effectors/. Add timeout=300. Commit."`
 - [ ] `golem [t-67cee1] --provider codex --max-turns 25 "Find test files with SyntaxError. Fix syntax. Commit."`
-- [ ] `golem [t-39bc39] --provider gemini --max-turns 25 "Find Python files missing shebang in effectors/. Add #!/usr/bin/env python3. Commit."`
-- [ ] `golem [t-25198c] --provider codex --max-turns 30 "Write a consulting insight card: LLM deployment risks in banking — regulatory expectations vs reality. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/llm-deployment-risks.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
-- [ ] `golem [t-8a825e] --provider gemini --max-turns 30 "Write a consulting insight card: AI skills gap assessment for banking technology teams. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-skills-gap.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
+- [!] `golem [t-39bc39] --provider gemini --max-turns 25 "Find Python files missing shebang in effectors/. Add #!/usr/bin/env python3. Commit."`
+- [!] `golem [t-8a825e] --provider gemini --max-turns 30 "Write a consulting insight card: AI skills gap assessment for banking technology teams. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-skills-gap.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [ ] `golem [t-fd3444] --provider codex --max-turns 35 "Read effectors/golem-dash (if exists). Improve to show real-time task progress, ETA to drain. Write tests. Run uv run pytest. Commit."`
 
 ### Auto-requeue (19 tasks @ 16:40)
-- [ ] `golem [t-c4f526] --provider gemini --max-turns 40 "Run uv run pytest --co -q 2>&1 | grep ERROR. Fix ALL collection errors. Common: hardcoded paths, bad imports, syntax. Run --co again until 0 errors. Commit."`
+- [!] `golem [t-c4f526] --provider gemini --max-turns 40 "Run uv run pytest --co -q 2>&1 | grep ERROR. Fix ALL collection errors. Common: hardcoded paths, bad imports, syntax. Run --co again until 0 errors. Commit."`
 - [ ] `golem [t-e0dbe0] --provider codex --max-turns 50 "Run uv run pytest -q --tb=no --continue-on-collection-errors 2>&1 | grep FAILED | sed 's/::.*//g' | sort | uniq -c | sort -rn | head -5. For each of the top 5 failing test files: run pytest on it, read traceback, fix. Iterate until green. Commit."`
-- [ ] `golem [t-3b993a] --provider gemini --max-turns 30 "Health check: rheotaxis, cleanup-stuck, engram, grep, transduction-daily-run, backfill-marks, immunosurveillance, orphan-scan, assay, commensal. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
+- [!] `golem [t-3b993a] --provider gemini --max-turns 30 "Health check: rheotaxis, cleanup-stuck, engram, grep, transduction-daily-run, backfill-marks, immunosurveillance, orphan-scan, assay, commensal. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
 - [ ] `golem [t-2b0ff6] --provider codex --max-turns 25 "Find test files with SyntaxError. Fix syntax. Commit."`
-- [ ] `golem [t-c392c4] --provider gemini --max-turns 25 "Check all assays/test_*.py can be collected by pytest --co. Fix any that error. Commit."`
+- [!] `golem [t-c392c4] --provider gemini --max-turns 25 "Check all assays/test_*.py can be collected by pytest --co. Fix any that error. Commit."`
 - [ ] `golem [t-07a20b] --provider codex --max-turns 25 "Find unused imports in metabolon/**/*.py. Remove them. Commit."`
-- [ ] `golem [t-37777f] --provider gemini --max-turns 30 "Write a consulting insight card: GenAI policy template for bank employees. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/genai-policy-template.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
-- [ ] `golem [t-f155d7] --provider codex --max-turns 30 "Write a consulting insight card: AI audit methodology for internal audit teams. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-audit-methodology.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
-- [ ] `golem [t-a4d12e] --provider gemini --max-turns 35 "Read effectors/golem. Add --json flag that outputs result as JSON instead of raw text. Useful for piping. Write tests. Run uv run pytest. Commit."`
+- [!] `golem [t-37777f] --provider gemini --max-turns 30 "Write a consulting insight card: GenAI policy template for bank employees. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/genai-policy-template.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
+- [!] `golem [t-a4d12e] --provider gemini --max-turns 35 "Read effectors/golem. Add --json flag that outputs result as JSON instead of raw text. Useful for piping. Write tests. Run uv run pytest. Commit."`
 
 ### Auto-requeue (19 tasks @ 16:41)
 - [ ] `golem [t-8ad577] --provider codex --max-turns 40 "Run uv run pytest --co -q 2>&1 | grep ERROR. Fix ALL collection errors. Common: hardcoded paths, bad imports, syntax. Run --co again until 0 errors. Commit."`
-- [ ] `golem [t-29d2f3] --provider gemini --max-turns 50 "Run uv run pytest -q --tb=no --continue-on-collection-errors 2>&1 | grep FAILED | sed 's/::.*//g' | sort | uniq -c | sort -rn | head -5. For each of the top 5 failing test files: run pytest on it, read traceback, fix. Iterate until green. Commit."`
+- [!] `golem [t-29d2f3] --provider gemini --max-turns 50 "Run uv run pytest -q --tb=no --continue-on-collection-errors 2>&1 | grep FAILED | sed 's/::.*//g' | sort | uniq -c | sort -rn | head -5. For each of the top 5 failing test files: run pytest on it, read traceback, fix. Iterate until green. Commit."`
 - [ ] `golem [t-946314] --provider codex --max-turns 30 "Health check: exocytosis.py, golem-top, immunosurveillance.py, perplexity.sh, regulatory-capture, queue-gen, importin, safe_rm.py, coverage-map, goose-worker. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
-- [ ] `golem [t-07c809] --provider gemini --max-turns 25 "Find unused imports in metabolon/**/*.py. Remove them. Commit."`
+- [!] `golem [t-07c809] --provider gemini --max-turns 25 "Find unused imports in metabolon/**/*.py. Remove them. Commit."`
 - [ ] `golem [t-62011c] --provider codex --max-turns 25 "Check all assays/test_*.py can be collected by pytest --co. Fix any that error. Commit."`
-- [ ] `golem [t-16f98f] --provider gemini --max-turns 25 "Find Python files missing shebang in effectors/. Add #!/usr/bin/env python3. Commit."`
-- [ ] `golem [t-94d840] --provider codex --max-turns 30 "Write a consulting insight card: AI model risk management framework for banks — write a consulting brief with problem, approach, key considerations. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-model-risk-framework.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
-- [ ] `golem [t-4ab3ca] --provider gemini --max-turns 30 "Write a consulting insight card: AI audit methodology for internal audit teams. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-audit-methodology.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
+- [!] `golem [t-16f98f] --provider gemini --max-turns 25 "Find Python files missing shebang in effectors/. Add #!/usr/bin/env python3. Commit."`
+- [!] `golem [t-4ab3ca] --provider gemini --max-turns 30 "Write a consulting insight card: AI audit methodology for internal audit teams. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-audit-methodology.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [ ] `golem [t-6cd42f] --provider codex --max-turns 35 "Read effectors/golem-dash (if exists). Improve to show real-time task progress, ETA to drain. Write tests. Run uv run pytest. Commit."`
 
 ### Auto-requeue (19 tasks @ 16:41)
-- [ ] `golem [t-4ab9c5] --provider gemini --max-turns 40 "Run uv run pytest --co -q 2>&1 | grep ERROR. Fix ALL collection errors. Common: hardcoded paths, bad imports, syntax. Run --co again until 0 errors. Commit."`
+- [!] `golem [t-4ab9c5] --provider gemini --max-turns 40 "Run uv run pytest --co -q 2>&1 | grep ERROR. Fix ALL collection errors. Common: hardcoded paths, bad imports, syntax. Run --co again until 0 errors. Commit."`
 - [ ] `golem [t-7f1029] --provider codex --max-turns 50 "Run uv run pytest -q --tb=no --continue-on-collection-errors 2>&1 | grep FAILED | sed 's/::.*//g' | sort | uniq -c | sort -rn | head -5. For each of the top 5 failing test files: run pytest on it, read traceback, fix. Iterate until green. Commit."`
-- [ ] `golem [t-7443fc] --provider gemini --max-turns 30 "Health check: goose-worker, compound-engineering-status, golem-top, skill-lint, circadian-probe.py, soma-activate, tmux-url-select.sh, wacli-ro, weekly-gather, skill-search. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
+- [!] `golem [t-7443fc] --provider gemini --max-turns 30 "Health check: goose-worker, compound-engineering-status, golem-top, skill-lint, circadian-probe.py, soma-activate, tmux-url-select.sh, wacli-ro, weekly-gather, skill-search. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
 - [ ] `golem [t-c0b9d1] --provider codex --max-turns 25 "Scan effectors/ for hardcoded paths. Fix with Path.home() or $HOME. Commit."`
-- [ ] `golem [t-19842e] --provider gemini --max-turns 25 "Scan assays/ for hardcoded /Users/terry paths. Replace with Path.home(). Commit."`
+- [!] `golem [t-19842e] --provider gemini --max-turns 25 "Scan assays/ for hardcoded /Users/terry paths. Replace with Path.home(). Commit."`
 - [ ] `golem [t-214e7b] --provider codex --max-turns 25 "Find unused imports in metabolon/**/*.py. Remove them. Commit."`
-- [ ] `golem [t-de6af1] --provider gemini --max-turns 30 "Write a consulting insight card: Board-level AI risk reporting template for banks. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/board-ai-risk-reporting.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
-- [ ] `golem [t-075658] --provider codex --max-turns 30 "Write a consulting insight card: AI vendor due diligence questionnaire for banks. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-vendor-due-diligence.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
-- [ ] `golem [t-4432bb] --provider gemini --max-turns 35 "Read effectors/golem. Add --json flag that outputs result as JSON instead of raw text. Useful for piping. Write tests. Run uv run pytest. Commit."`
+- [!] `golem [t-de6af1] --provider gemini --max-turns 30 "Write a consulting insight card: Board-level AI risk reporting template for banks. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/board-ai-risk-reporting.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
+- [!] `golem [t-4432bb] --provider gemini --max-turns 35 "Read effectors/golem. Add --json flag that outputs result as JSON instead of raw text. Useful for piping. Write tests. Run uv run pytest. Commit."`
 
 ### Auto-requeue (19 tasks @ 16:42)
 - [ ] `golem [t-596a4a] --provider codex --max-turns 40 "Run uv run pytest --co -q 2>&1 | grep ERROR. Fix ALL collection errors. Common: hardcoded paths, bad imports, syntax. Run --co again until 0 errors. Commit."`
-- [ ] `golem [t-952144] --provider gemini --max-turns 50 "Run uv run pytest -q --tb=no --continue-on-collection-errors 2>&1 | grep FAILED | sed 's/::.*//g' | sort | uniq -c | sort -rn | head -5. For each of the top 5 failing test files: run pytest on it, read traceback, fix. Iterate until green. Commit."`
+- [!] `golem [t-952144] --provider gemini --max-turns 50 "Run uv run pytest -q --tb=no --continue-on-collection-errors 2>&1 | grep FAILED | sed 's/::.*//g' | sort | uniq -c | sort -rn | head -5. For each of the top 5 failing test files: run pytest on it, read traceback, fix. Iterate until green. Commit."`
 - [ ] `golem [t-50083b] --provider codex --max-turns 30 "Health check: pulse-review, complement, golem-dash, browser, disk-audit, effector-usage, immunosurveillance, rheotaxis-local, transduction-daily-run, soma-watchdog. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
-- [ ] `golem [t-13f70c] --provider gemini --max-turns 25 "Find unused imports in metabolon/**/*.py. Remove them. Commit."`
+- [!] `golem [t-13f70c] --provider gemini --max-turns 25 "Find unused imports in metabolon/**/*.py. Remove them. Commit."`
 - [ ] `golem [t-9debe6] --provider codex --max-turns 25 "Find test files with SyntaxError. Fix syntax. Commit."`
-- [ ] `golem [t-2779d9] --provider gemini --max-turns 25 "Find subprocess.run calls without timeout in effectors/. Add timeout=300. Commit."`
-- [ ] `golem [t-f91556] --provider codex --max-turns 30 "Write a consulting insight card: Data governance for AI/ML training data in banking. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/data-governance-ai.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
-- [ ] `golem [t-8c0299] --provider gemini --max-turns 30 "Write a consulting insight card: AI model risk management framework for banks — write a consulting brief with problem, approach, key considerations. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-model-risk-framework.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
+- [!] `golem [t-2779d9] --provider gemini --max-turns 25 "Find subprocess.run calls without timeout in effectors/. Add timeout=300. Commit."`
+- [!] `golem [t-8c0299] --provider gemini --max-turns 30 "Write a consulting insight card: AI model risk management framework for banks — write a consulting brief with problem, approach, key considerations. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-model-risk-framework.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [ ] `golem [t-980eaf] --provider codex --max-turns 35 "Read effectors/golem-daemon. Add cmd_stats — show pass/fail/retry counts, avg duration by provider, tasks completed today. Usage: golem-daemon stats. Write tests. Run uv run pytest. Commit."`
 
 ### Auto-requeue (19 tasks @ 16:43)
-- [ ] `golem [t-764db2] --provider gemini --max-turns 40 "Run uv run pytest --co -q 2>&1 | grep ERROR. Fix ALL collection errors. Common: hardcoded paths, bad imports, syntax. Run --co again until 0 errors. Commit."`
+- [!] `golem [t-764db2] --provider gemini --max-turns 40 "Run uv run pytest --co -q 2>&1 | grep ERROR. Fix ALL collection errors. Common: hardcoded paths, bad imports, syntax. Run --co again until 0 errors. Commit."`
 - [ ] `golem [t-6f5470] --provider codex --max-turns 50 "Run uv run pytest -q --tb=no --continue-on-collection-errors 2>&1 | grep FAILED | sed 's/::.*//g' | sort | uniq -c | sort -rn | head -5. For each of the top 5 failing test files: run pytest on it, read traceback, fix. Iterate until green. Commit."`
-- [ ] `golem [t-c5ef31] --provider gemini --max-turns 30 "Health check: methylation, immunosurveillance.py, plan-exec, legatum, wewe-rss-health.py, queue-gen, wacli-ro, soma-pull, agent-sync.sh, soma-snapshot. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
+- [!] `golem [t-c5ef31] --provider gemini --max-turns 30 "Health check: methylation, immunosurveillance.py, plan-exec, legatum, wewe-rss-health.py, queue-gen, wacli-ro, soma-pull, agent-sync.sh, soma-snapshot. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
 - [ ] `golem [t-9e41f0] --provider codex --max-turns 25 "Find subprocess.run calls without timeout in effectors/. Add timeout=300. Commit."`
-- [ ] `golem [t-71ed83] --provider gemini --max-turns 25 "Scan effectors/ for hardcoded paths. Fix with Path.home() or $HOME. Commit."`
+- [!] `golem [t-71ed83] --provider gemini --max-turns 25 "Scan effectors/ for hardcoded paths. Fix with Path.home() or $HOME. Commit."`
 - [ ] `golem [t-3af6b9] --provider codex --max-turns 25 "Find Python files missing shebang in effectors/. Add #!/usr/bin/env python3. Commit."`
-- [ ] `golem [t-3c16bc] --provider gemini --max-turns 30 "Write a consulting insight card: Cross-border AI regulation comparison — HK vs SG vs UK vs EU. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/cross-border-ai-regulation.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
-- [ ] `golem [t-dff96b] --provider codex --max-turns 30 "Write a consulting insight card: Board-level AI risk reporting template for banks. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/board-ai-risk-reporting.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
-- [ ] `golem [t-c80e91] --provider gemini --max-turns 35 "Read effectors/golem. Add --json flag that outputs result as JSON instead of raw text. Useful for piping. Write tests. Run uv run pytest. Commit."`
+- [!] `golem [t-3c16bc] --provider gemini --max-turns 30 "Write a consulting insight card: Cross-border AI regulation comparison — HK vs SG vs UK vs EU. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/cross-border-ai-regulation.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
+- [!] `golem [t-c80e91] --provider gemini --max-turns 35 "Read effectors/golem. Add --json flag that outputs result as JSON instead of raw text. Useful for piping. Write tests. Run uv run pytest. Commit."`
 
 ### Auto-requeue (19 tasks @ 16:43)
 - [ ] `golem [t-a60e37] --provider codex --max-turns 40 "Run uv run pytest --co -q 2>&1 | grep ERROR. Fix ALL collection errors. Common: hardcoded paths, bad imports, syntax. Run --co again until 0 errors. Commit."`
-- [ ] `golem [t-0ee71c] --provider gemini --max-turns 50 "Run uv run pytest -q --tb=no --continue-on-collection-errors 2>&1 | grep FAILED | sed 's/::.*//g' | sort | uniq -c | sort -rn | head -5. For each of the top 5 failing test files: run pytest on it, read traceback, fix. Iterate until green. Commit."`
+- [!] `golem [t-0ee71c] --provider gemini --max-turns 50 "Run uv run pytest -q --tb=no --continue-on-collection-errors 2>&1 | grep FAILED | sed 's/::.*//g' | sort | uniq -c | sort -rn | head -5. For each of the top 5 failing test files: run pytest on it, read traceback, fix. Iterate until green. Commit."`
 - [ ] `golem [t-bb69d8] --provider codex --max-turns 30 "Health check: pinocytosis, goose-worker, soma-snapshot, cg, gap_junction_sync, soma-watchdog, coaching-stats, chemoreception.py, electroreception, linkedin-monitor. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
-- [ ] `golem [t-105023] --provider gemini --max-turns 25 "Find Python files missing shebang in effectors/. Add #!/usr/bin/env python3. Commit."`
+- [!] `golem [t-105023] --provider gemini --max-turns 25 "Find Python files missing shebang in effectors/. Add #!/usr/bin/env python3. Commit."`
 - [ ] `golem [t-828f5e] --provider codex --max-turns 25 "Find subprocess.run calls without timeout in effectors/. Add timeout=300. Commit."`
-- [ ] `golem [t-0507bb] --provider gemini --max-turns 25 "Find test files with SyntaxError. Fix syntax. Commit."`
-- [ ] `golem [t-19f41e] --provider codex --max-turns 30 "Write a consulting insight card: AI skills gap assessment for banking technology teams. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-skills-gap.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
-- [ ] `golem [t-ab9663] --provider gemini --max-turns 30 "Write a consulting insight card: Cross-border AI regulation comparison — HK vs SG vs UK vs EU. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/cross-border-ai-regulation.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
+- [!] `golem [t-0507bb] --provider gemini --max-turns 25 "Find test files with SyntaxError. Fix syntax. Commit."`
+- [!] `golem [t-ab9663] --provider gemini --max-turns 30 "Write a consulting insight card: Cross-border AI regulation comparison — HK vs SG vs UK vs EU. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/cross-border-ai-regulation.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [ ] `golem [t-747178] --provider codex --max-turns 35 "Read effectors/golem. Add --json flag that outputs result as JSON instead of raw text. Useful for piping. Write tests. Run uv run pytest. Commit."`
 
 ### Auto-requeue (19 tasks @ 16:44)
-- [ ] `golem [t-b1eced] --provider gemini --max-turns 40 "Run uv run pytest --co -q 2>&1 | grep ERROR. Fix ALL collection errors. Common: hardcoded paths, bad imports, syntax. Run --co again until 0 errors. Commit."`
+- [!] `golem [t-b1eced] --provider gemini --max-turns 40 "Run uv run pytest --co -q 2>&1 | grep ERROR. Fix ALL collection errors. Common: hardcoded paths, bad imports, syntax. Run --co again until 0 errors. Commit."`
 - [ ] `golem [t-02dd75] --provider codex --max-turns 50 "Run uv run pytest -q --tb=no --continue-on-collection-errors 2>&1 | grep FAILED | sed 's/::.*//g' | sort | uniq -c | sort -rn | head -5. For each of the top 5 failing test files: run pytest on it, read traceback, fix. Iterate until green. Commit."`
-- [ ] `golem [t-7b3485] --provider gemini --max-turns 30 "Health check: compound-engineering-status, soma-pull, rename-kindle-asins.py, electroreception, hetzner-bootstrap.sh, start-chrome-debug.sh, synthase, rg, nightly, test-spec-gen. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
+- [!] `golem [t-7b3485] --provider gemini --max-turns 30 "Health check: compound-engineering-status, soma-pull, rename-kindle-asins.py, electroreception, hetzner-bootstrap.sh, start-chrome-debug.sh, synthase, rg, nightly, test-spec-gen. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
 - [ ] `golem [t-72a11f] --provider codex --max-turns 30 "Write tests for effectors/chromatin-backup.sh. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
-- [ ] `golem [t-a73f07] --provider gemini --max-turns 25 "Check all assays/test_*.py can be collected by pytest --co. Fix any that error. Commit."`
+- [!] `golem [t-a73f07] --provider gemini --max-turns 25 "Check all assays/test_*.py can be collected by pytest --co. Fix any that error. Commit."`
 - [ ] `golem [t-3835fe] --provider codex --max-turns 25 "Find Python files missing shebang in effectors/. Add #!/usr/bin/env python3. Commit."`
-- [ ] `golem [t-7dc892] --provider gemini --max-turns 25 "Find test files with SyntaxError. Fix syntax. Commit."`
-- [ ] `golem [t-d8be1b] --provider codex --max-turns 30 "Write a consulting insight card: Responsible AI governance checklist for financial institutions. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/responsible-ai-checklist.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
-- [ ] `golem [t-426e05] --provider gemini --max-turns 30 "Write a consulting insight card: Cross-border AI regulation comparison — HK vs SG vs UK vs EU. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/cross-border-ai-regulation.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
+- [!] `golem [t-7dc892] --provider gemini --max-turns 25 "Find test files with SyntaxError. Fix syntax. Commit."`
+- [!] `golem [t-426e05] --provider gemini --max-turns 30 "Write a consulting insight card: Cross-border AI regulation comparison — HK vs SG vs UK vs EU. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/cross-border-ai-regulation.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
 - [ ] `golem [t-d897fe] --provider codex --max-turns 35 "Read effectors/golem-daemon. Add cmd_stats — show pass/fail/retry counts, avg duration by provider, tasks completed today. Usage: golem-daemon stats. Write tests. Run uv run pytest. Commit."`
 
 ### Auto-requeue (19 tasks @ 16:45)
-- [ ] `golem [t-a56584] --provider gemini --max-turns 40 "Run uv run pytest --co -q 2>&1 | grep ERROR. Fix ALL collection errors. Common: hardcoded paths, bad imports, syntax. Run --co again until 0 errors. Commit."`
+- [!] `golem [t-a56584] --provider gemini --max-turns 40 "Run uv run pytest --co -q 2>&1 | grep ERROR. Fix ALL collection errors. Common: hardcoded paths, bad imports, syntax. Run --co again until 0 errors. Commit."`
 - [ ] `golem [t-19b971] --provider codex --max-turns 50 "Run uv run pytest -q --tb=no --continue-on-collection-errors 2>&1 | grep FAILED | sed 's/::.*//g' | sort | uniq -c | sort -rn | head -5. For each of the top 5 failing test files: run pytest on it, read traceback, fix. Iterate until green. Commit."`
-- [ ] `golem [t-cea82d] --provider gemini --max-turns 30 "Health check: paracrine, soma-pull, git-activity, x-feed-to-lustro, publish, auto-update-compound-engineering.sh, phagocytosis.py, safe_rm.py, rheotaxis, effector-usage. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
+- [!] `golem [t-cea82d] --provider gemini --max-turns 30 "Health check: paracrine, soma-pull, git-activity, x-feed-to-lustro, publish, auto-update-compound-engineering.sh, phagocytosis.py, safe_rm.py, rheotaxis, effector-usage. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
 - [ ] `golem [t-dd888f] --provider codex --max-turns 30 "Write tests for /home/terry/germline/metabolon/organelles/circadian_clock.py. Mock external calls. Write assays/test_organelles_circadian_clock.py. Run uv run pytest. Fix failures. Commit."`
-- [ ] `golem [t-8f87f6] --provider gemini --max-turns 30 "Write tests for /home/terry/germline/metabolon/organelles/browser_stealth.py. Mock external calls. Write assays/test_organelles_browser_stealth.py. Run uv run pytest. Fix failures. Commit."`
+- [!] `golem [t-8f87f6] --provider gemini --max-turns 30 "Write tests for /home/terry/germline/metabolon/organelles/browser_stealth.py. Mock external calls. Write assays/test_organelles_browser_stealth.py. Run uv run pytest. Fix failures. Commit."`
 - [ ] `golem [t-f1beb3] --provider codex --max-turns 30 "Write tests for /home/terry/germline/metabolon/metabolism/substrate.py. Mock external calls. Write assays/test_metabolism_substrate.py. Run uv run pytest. Fix failures. Commit."`
-- [ ] `golem [t-47384f] --provider gemini --max-turns 30 "Write tests for /home/terry/germline/metabolon/organelles/talking_points.py. Mock external calls. Write assays/test_organelles_talking_points.py. Run uv run pytest. Fix failures. Commit."`
+- [!] `golem [t-47384f] --provider gemini --max-turns 30 "Write tests for /home/terry/germline/metabolon/organelles/talking_points.py. Mock external calls. Write assays/test_organelles_talking_points.py. Run uv run pytest. Fix failures. Commit."`
 - [ ] `golem [t-d111ae] --provider codex --max-turns 30 "Write tests for /home/terry/germline/metabolon/resources/consolidation.py. Mock external calls. Write assays/test_resources_consolidation.py. Run uv run pytest. Fix failures. Commit."`
-- [ ] `golem [t-3a7d70] --provider gemini --max-turns 30 "Write tests for effectors/plan-exec.deprecated. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
+- [!] `golem [t-3a7d70] --provider gemini --max-turns 30 "Write tests for effectors/plan-exec.deprecated. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
 - [ ] `golem [t-baacb1] --provider codex --max-turns 30 "Write tests for effectors/oci-arm-retry. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
-- [ ] `golem [t-a1ef6d] --provider gemini --max-turns 30 "Write tests for effectors/update-coding-tools.sh. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
+- [!] `golem [t-a1ef6d] --provider gemini --max-turns 30 "Write tests for effectors/update-coding-tools.sh. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
 - [ ] `golem [t-3d855c] --provider codex --max-turns 30 "Write tests for effectors/tmux-url-select.sh. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
-- [ ] `golem [t-c43ef1] --provider gemini --max-turns 30 "Write tests for effectors/pharos-health.sh. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
+- [!] `golem [t-c43ef1] --provider gemini --max-turns 30 "Write tests for effectors/pharos-health.sh. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
 - [ ] `golem [t-d8f5a7] --provider codex --max-turns 25 "Check all assays/test_*.py can be collected by pytest --co. Fix any that error. Commit."`
-- [ ] `golem [t-f78632] --provider gemini --max-turns 25 "Find Python files missing shebang in effectors/. Add #!/usr/bin/env python3. Commit."`
+- [!] `golem [t-f78632] --provider gemini --max-turns 25 "Find Python files missing shebang in effectors/. Add #!/usr/bin/env python3. Commit."`
 - [ ] `golem [t-8ff51e] --provider codex --max-turns 25 "Scan effectors/ for hardcoded paths. Fix with Path.home() or $HOME. Commit."`
-- [ ] `golem [t-720ee6] --provider gemini --max-turns 30 "Write a consulting insight card: AI model risk management framework for banks — write a consulting brief with problem, approach, key considerations. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-model-risk-framework.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
-- [ ] `golem [t-292be5] --provider codex --max-turns 30 "Write a consulting insight card: AI vendor due diligence questionnaire for banks. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-vendor-due-diligence.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
-- [ ] `golem [t-1bb250] --provider gemini --max-turns 35 "Read effectors/golem-review (if exists). Enhance to also check consulting content quality (>200 words, proper structure). Write tests. Run uv run pytest. Commit."`
+- [!] `golem [t-720ee6] --provider gemini --max-turns 30 "Write a consulting insight card: AI model risk management framework for banks — write a consulting brief with problem, approach, key considerations. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-model-risk-framework.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
+- [!] `golem [t-1bb250] --provider gemini --max-turns 35 "Read effectors/golem-review (if exists). Enhance to also check consulting content quality (>200 words, proper structure). Write tests. Run uv run pytest. Commit."`
 
 ### Auto-requeue (19 tasks @ 16:45)
 - [ ] `golem [t-a82e47] --provider codex --max-turns 40 "Run uv run pytest --co -q 2>&1 | grep ERROR. Fix ALL collection errors. Common: hardcoded paths, bad imports, syntax. Run --co again until 0 errors. Commit."`
-- [ ] `golem [t-a9f0a5] --provider gemini --max-turns 50 "Run uv run pytest -q --tb=no --continue-on-collection-errors 2>&1 | grep FAILED | sed 's/::.*//g' | sort | uniq -c | sort -rn | head -5. For each of the top 5 failing test files: run pytest on it, read traceback, fix. Iterate until green. Commit."`
+- [!] `golem [t-a9f0a5] --provider gemini --max-turns 50 "Run uv run pytest -q --tb=no --continue-on-collection-errors 2>&1 | grep FAILED | sed 's/::.*//g' | sort | uniq -c | sort -rn | head -5. For each of the top 5 failing test files: run pytest on it, read traceback, fix. Iterate until green. Commit."`
 - [ ] `golem [t-2e505c] --provider codex --max-turns 30 "Health check: channel, weekly-gather, effector-usage, circadian-probe.py, rename-plists, soma-snapshot, agent-sync.sh, importin, methylation-review, soma-wake. For each: run --help, ast.parse if Python, check shebang. Fix broken ones. Commit."`
-- [ ] `golem [t-da856e] --provider gemini --max-turns 30 "Write tests for /home/terry/germline/metabolon/enzymes/turgor.py. Mock external calls. Write assays/test_enzymes_turgor.py. Run uv run pytest. Fix failures. Commit."`
+- [!] `golem [t-da856e] --provider gemini --max-turns 30 "Write tests for /home/terry/germline/metabolon/enzymes/turgor.py. Mock external calls. Write assays/test_enzymes_turgor.py. Run uv run pytest. Fix failures. Commit."`
 - [ ] `golem [t-c3212b] --provider codex --max-turns 30 "Write tests for /home/terry/germline/metabolon/organelles/translocon_metrics.py. Mock external calls. Write assays/test_organelles_translocon_metrics.py. Run uv run pytest. Fix failures. Commit."`
-- [ ] `golem [t-897726] --provider gemini --max-turns 30 "Write tests for /home/terry/germline/metabolon/enzymes/circadian.py. Mock external calls. Write assays/test_enzymes_circadian.py. Run uv run pytest. Fix failures. Commit."`
+- [!] `golem [t-897726] --provider gemini --max-turns 30 "Write tests for /home/terry/germline/metabolon/enzymes/circadian.py. Mock external calls. Write assays/test_enzymes_circadian.py. Run uv run pytest. Fix failures. Commit."`
 - [ ] `golem [t-c83170] --provider codex --max-turns 30 "Write tests for /home/terry/germline/metabolon/enzymes/demethylase.py. Mock external calls. Write assays/test_enzymes_demethylase.py. Run uv run pytest. Fix failures. Commit."`
-- [ ] `golem [t-761387] --provider gemini --max-turns 30 "Write tests for /home/terry/germline/metabolon/organelles/gradient_sense.py. Mock external calls. Write assays/test_organelles_gradient_sense.py. Run uv run pytest. Fix failures. Commit."`
+- [!] `golem [t-761387] --provider gemini --max-turns 30 "Write tests for /home/terry/germline/metabolon/organelles/gradient_sense.py. Mock external calls. Write assays/test_organelles_gradient_sense.py. Run uv run pytest. Fix failures. Commit."`
 - [ ] `golem [t-41d8fb] --provider codex --max-turns 30 "Write tests for effectors/qmd-reindex.sh. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
-- [ ] `golem [t-946da8] --provider gemini --max-turns 30 "Write tests for effectors/fix-symlinks. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
+- [!] `golem [t-946da8] --provider gemini --max-turns 30 "Write tests for effectors/fix-symlinks. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
 - [ ] `golem [t-e215af] --provider codex --max-turns 30 "Write tests for effectors/backup-due.sh. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
-- [ ] `golem [t-9f5936] --provider gemini --max-turns 30 "Write tests for effectors/update-coding-tools.sh. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
+- [!] `golem [t-9f5936] --provider gemini --max-turns 30 "Write tests for effectors/update-coding-tools.sh. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
 - [ ] `golem [t-343b81] --provider codex --max-turns 30 "Write tests for effectors/soma-bootstrap. Effectors are scripts — use exec or subprocess.run. NEVER import. Run uv run pytest. Fix failures. Commit."`
-- [ ] `golem [t-1d74a0] --provider gemini --max-turns 25 "Find unused imports in metabolon/**/*.py. Remove them. Commit."`
+- [!] `golem [t-1d74a0] --provider gemini --max-turns 25 "Find unused imports in metabolon/**/*.py. Remove them. Commit."`
 - [ ] `golem [t-6f05d4] --provider codex --max-turns 25 "Find test files with SyntaxError. Fix syntax. Commit."`
-- [ ] `golem [t-034f19] --provider gemini --max-turns 25 "Scan effectors/ for hardcoded paths. Fix with Path.home() or $HOME. Commit."`
-- [ ] `golem [t-0e7645] --provider codex --max-turns 30 "Write a consulting insight card: GenAI policy template for bank employees. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/genai-policy-template.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
-- [ ] `golem [t-c6f546] --provider gemini --max-turns 30 "Write a consulting insight card: Cross-border AI regulation comparison — HK vs SG vs UK vs EU. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/cross-border-ai-regulation.md. Structure: problem (2 sentences), why it matters (3 bullets), approach (numbered steps), considerations, Capco angle. 500-800 words."`
+- [!] `golem [t-034f19] --provider gemini --max-turns 25 "Scan effectors/ for hardcoded paths. Fix with Path.home() or $HOME. Commit."`
 - [ ] `golem [t-0f5421] --provider codex --max-turns 35 "Read effectors/golem-dash (if exists). Improve to show real-time task progress, ETA to drain. Write tests. Run uv run pytest. Commit."`
 ## Done (2026-03-31)
 
@@ -1869,7 +1753,7 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 
 - [x] `golem [t-0263fc] --provider zhipu --max-turns 50 "Read metabolon/organelles/circulation.py (535 lines). Read effectors/golem-daemon auto_requeue function. Design integration: (1) Create effectors/circulate-dispatch as Python. It runs circulation.select_goals() to get intelligent goal list, then converts each goal into a golem queue entry in loci/golem-queue.md. Uses symbiont.transduce_safe() for CC-powered goal selection (reads Tonus.md + priorities.md + calendar). Writes queue entries. Usage: circulate-dispatch [--max-goals 8]. (2) Wire this into golem-daemon auto_requeue: when queue < 50, call circulate-dispatch instead of random task generation. Write tests. Run uv run pytest. Commit."`
 
-- [ ] `golem [t-0ed7c8] --provider gemini --max-turns 40 "Read metabolon/organelles/circulation.py. Extract the evaluate() and compound() functions into a standalone effectors/circulate-evaluate as Python. After golem tasks complete, this reads results and: (1) updates coaching notes if new failure patterns found, (2) updates priorities.md if goals were completed, (3) writes a cycle report. Called by golem-reviewer periodically. Write tests. Run uv run pytest. Commit." (retry)`
+- [!] `golem [t-0ed7c8] --provider gemini --max-turns 40 "Read metabolon/organelles/circulation.py. Extract the evaluate() and compound() functions into a standalone effectors/circulate-evaluate as Python. After golem tasks complete, this reads results and: (1) updates coaching notes if new failure patterns found, (2) updates priorities.md if goals were completed, (3) writes a cycle report. Called by golem-reviewer periodically. Write tests. Run uv run pytest. Commit." (retry)`
 
 
 ### High-priority — infra + task IDs (queued by CC)
@@ -1884,7 +1768,7 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 - [x] `golem --provider zhipu --max-turns 40 "Run uv run pytest --co -q 2>&1 | grep ERROR. Fix ALL collection errors. Common causes: hardcoded /Users/terry paths, bad imports, duplicate from __future__, missing modules. Run --co again until 0 errors. Commit."`
 
 #### Fix top 10 failing tests
-- [ ] `golem [t-58b1ff] --provider gemini --max-turns 50 "Run uv run pytest -q --tb=no --continue-on-collection-errors 2>&1 | grep FAILED | sed 's/::.*//g' | sort | uniq -c | sort -rn | head -10. For each of the top 10 failing test files: run pytest on it, read traceback, fix. Iterate until green. Commit." (retry)`
+- [!] `golem [t-58b1ff] --provider gemini --max-turns 50 "Run uv run pytest -q --tb=no --continue-on-collection-errors 2>&1 | grep FAILED | sed 's/::.*//g' | sort | uniq -c | sort -rn | head -10. For each of the top 10 failing test files: run pytest on it, read traceback, fix. Iterate until green. Commit." (retry)`
 
 ### Consulting IP — Capco prep (T-7)
 
@@ -1900,7 +1784,7 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 - [x] `golem [t-0f22c4] --provider zhipu --max-turns 30 "Create effectors/gemmule-sync as a Python script. It should: 1) rsync terry@100.94.27.93:~/epigenome/chromatin/ ~/epigenome/chromatin/ 2) rsync terry@100.94.27.93:~/notes/ ~/notes/ 3) rsync terry@100.94.27.93:~/code/acta/ ~/code/acta/ 4) Log results to ~/.local/share/vivesca/gemmule-sync.log. Add --dry-run flag. Make it idempotent. Write tests. Commit."`
 
 #### Scan and fix hardcoded macOS paths
-- [ ] `golem [t-f031c4] --provider gemini --max-turns 30 "Find ALL files in ~/germline/ containing /Users/terry. Replace with Path.home() (Python) or $HOME (shell). Verify nothing breaks. Commit." (retry)`
+- [!] `golem [t-f031c4] --provider gemini --max-turns 30 "Find ALL files in ~/germline/ containing /Users/terry. Replace with Path.home() (Python) or $HOME (shell). Verify nothing breaks. Commit." (retry)`
 
 ### Research — workflow orchestration for golem-daemon
 
@@ -1919,7 +1803,7 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 - [x] `golem [t-31363b] --provider zhipu --max-turns 40 "Read effectors/golem (the golem script, not golem-daemon). Add provider failover: if the primary provider returns HTTP 429 (rate limit) or 5xx, automatically retry with the next provider in priority order (zhipu -> infini -> volcano). Add a --fallback flag to opt-in. Log the failover. Write tests in assays/test_golem_failover.py. Commit." (retry)`
 
 #### Watchdog — detect and fix stuck golems
-- [ ] `golem [t-cb5765] --provider gemini --max-turns 40 "Read effectors/golem-daemon. Add a watchdog: every 5 poll cycles, check if any running golem has exceeded GOLEM_TIMEOUT (1800s). If so: 1) kill the subprocess 2) mark task as failed with 'timeout' 3) log a warning. Currently the ThreadPoolExecutor handles timeouts but subprocess.run may hang. Add subprocess-level kill via os.kill(). Write tests. Commit."`
+- [!] `golem [t-cb5765] --provider gemini --max-turns 40 "Read effectors/golem-daemon. Add a watchdog: every 5 poll cycles, check if any running golem has exceeded GOLEM_TIMEOUT (1800s). If so: 1) kill the subprocess 2) mark task as failed with 'timeout' 3) log a warning. Currently the ThreadPoolExecutor handles timeouts but subprocess.run may hang. Add subprocess-level kill via os.kill(). Write tests. Commit."`
 
 #### Graceful shutdown — commit before dying
 - [x] `golem [t-ad7830] --provider zhipu --max-turns 30 "Read effectors/golem-daemon. Improve the SIGTERM handler: on shutdown signal, 1) stop accepting new tasks 2) wait up to 60s for running golems to finish 3) auto-commit any uncommitted work 4) push to remote 5) then exit. Currently it just removes the pidfile. Write tests. Commit."`
@@ -1931,7 +1815,7 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 - [ ] `golem [t-9eecea] --provider codex --max-turns 50 "Create effectors/mismatch-repair as a Python script (biology: mismatch repair fixes DNA errors). It should detect and fix common vivesca breakages: 1) Duplicate 'from __future__ import annotations' in any .py file under ~/germline/ or ~/.claude/hooks/ — remove the second occurrence 2) Hardcoded /Users/terry paths — replace with Path.home() 3) Broken symlinks in ~/ — report them 4) Stale .pyc files — delete 5) pytest collection errors — run --co and report. Add --fix flag to auto-repair vs --check for dry-run. Write tests in assays/test_mismatch_repair.py. Commit."`
 
 #### Network resilience — retry git operations
-- [ ] `golem [t-9dffa6] --provider gemini --max-turns 30 "Read effectors/golem-daemon, specifically auto_commit(). Add retry logic: if git push fails (network error), retry 3 times with 30s backoff. If all retries fail, log error but don't crash daemon. Also add: if git pull fails at startup, continue with local state rather than crashing. Write tests. Commit." (retry)`
+- [!] `golem [t-9dffa6] --provider gemini --max-turns 30 "Read effectors/golem-daemon, specifically auto_commit(). Add retry logic: if git push fails (network error), retry 3 times with 30s backoff. If all retries fail, log error but don't crash daemon. Also add: if git pull fails at startup, continue with local state rather than crashing. Write tests. Commit." (retry)`
 
 #### Backup marks/memory to git
 - [ ] `golem [t-a6dcae] --provider codex --max-turns 30 "The epigenome/marks directory contains critical behavioral memory files. Ensure they are tracked in git: cd ~/epigenome && git add marks/ && git status. If there are untracked marks, commit them. Also create a pre-push hook or effector that validates all marks have valid YAML frontmatter. Write tests. Commit."`
@@ -1939,7 +1823,7 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 ### Temporal migration — Phase 1
 
 #### Scaffold Temporal-based golem orchestrator
-- [ ] `golem [t-c500c0] --provider gemini --max-turns 50 "Build a Temporal.io-based orchestrator to replace the golem-daemon markdown queue. Phase 1 — scaffold only. 1) Create effectors/temporal-golem/ directory 2) Add pyproject.toml with temporalio SDK dependency 3) Create worker.py — a Temporal worker that polls a 'golem-tasks' task queue and executes golem commands as activities. Each activity: runs 'bash effectors/golem --provider gemini task', heartbeats every 30s, has 30min timeout, retry policy (3 attempts, backoff). 4) Create workflow.py — a GolemDispatchWorkflow that accepts a list of tasks, dispatches them respecting per-provider concurrency (zhipu:8, infini:8, volcano:16), and reports results. 5) Create cli.py — CLI to submit workflows: 'temporal-golem submit --provider gemini --task ...' and 'temporal-golem status'. 6) Create docker-compose.yml for Temporal server + PostgreSQL + Web UI. 7) Write a README.md explaining the setup. 8) Write tests in assays/test_temporal_golem.py (mock the Temporal client). Commit everything." (retry)`
+- [!] `golem [t-c500c0] --provider gemini --max-turns 50 "Build a Temporal.io-based orchestrator to replace the golem-daemon markdown queue. Phase 1 — scaffold only. 1) Create effectors/temporal-golem/ directory 2) Add pyproject.toml with temporalio SDK dependency 3) Create worker.py — a Temporal worker that polls a 'golem-tasks' task queue and executes golem commands as activities. Each activity: runs 'bash effectors/golem --provider gemini task', heartbeats every 30s, has 30min timeout, retry policy (3 attempts, backoff). 4) Create workflow.py — a GolemDispatchWorkflow that accepts a list of tasks, dispatches them respecting per-provider concurrency (zhipu:8, infini:8, volcano:16), and reports results. 5) Create cli.py — CLI to submit workflows: 'temporal-golem submit --provider gemini --task ...' and 'temporal-golem status'. 6) Create docker-compose.yml for Temporal server + PostgreSQL + Web UI. 7) Write a README.md explaining the setup. 8) Write tests in assays/test_temporal_golem.py (mock the Temporal client). Commit everything." (retry)`
 
 #### Docker compose for Temporal server
 - [ ] `golem [t-74f0cc] --provider codex --max-turns 30 "Create effectors/temporal-golem/docker-compose.yml for running Temporal locally. Include: 1) temporal-server (temporalio/server:latest) 2) PostgreSQL 15 for persistence 3) temporal-web (temporalio/web:latest) on port 8080 4) temporal-admin-tools for CLI access. Use environment variables for config. Add a startup script effectors/temporal-golem/start.sh that does 'docker compose up -d' and waits for health check. Write to effectors/temporal-golem/. Commit." (retry)`
@@ -1947,7 +1831,7 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 ### Provider troubleshooting
 
 #### Diagnose and fix Volcano provider failures
-- [ ] `golem [t-f8bcd2] --provider gemini --max-turns 40 "Read effectors/golem (the shell script). Volcano provider (ark-code-latest) is returning exit=2 with 0s duration — the golem process fails before starting. Debug: 1) Check how volcano auth works (VOLCANO_API_KEY vs ANTHROPIC_AUTH_TOKEN) 2) Test the volcano endpoint directly with curl: curl -s https://ark.cn-beijing.volces.com/api/v3/chat/completions -H 'Authorization: Bearer $VOLCANO_API_KEY' 3) Check if the Claude Code --provider gemini accepts volcano's URL format 4) Read recent daemon logs for volcano error messages. If the issue is auth token format, fix it in the golem script. If it's rate limiting, add exponential backoff. Write findings and fix to effectors/golem. Write tests. Commit." (retry)`
+- [!] `golem [t-f8bcd2] --provider gemini --max-turns 40 "Read effectors/golem (the shell script). Volcano provider (ark-code-latest) is returning exit=2 with 0s duration — the golem process fails before starting. Debug: 1) Check how volcano auth works (VOLCANO_API_KEY vs ANTHROPIC_AUTH_TOKEN) 2) Test the volcano endpoint directly with curl: curl -s https://ark.cn-beijing.volces.com/api/v3/chat/completions -H 'Authorization: Bearer $VOLCANO_API_KEY' 3) Check if the Claude Code --provider gemini accepts volcano's URL format 4) Read recent daemon logs for volcano error messages. If the issue is auth token format, fix it in the golem script. If it's rate limiting, add exponential backoff. Write findings and fix to effectors/golem. Write tests. Commit." (retry)`
 
 #### Diagnose and fix Infini provider failures  
 - [ ] `golem [t-f1adb3] --provider codex --max-turns 40 "Read effectors/golem (the shell script). Infini provider (deepseek-v3.2 at cloud.infini-ai.com) has intermittent exit=2 failures with 0s duration. Debug: 1) Check INFINI_API_KEY is correctly formatted 2) Test the endpoint directly: curl -s https://cloud.infini-ai.com/maas/coding/v1/chat/completions -H 'Authorization: Bearer $INFINI_API_KEY' -H 'Content-Type: application/json' -d '{\"model\":\"deepseek-v3.2\",\"messages\":[{\"role\":\"user\",\"content\":\"hi\"}]}' 3) Check if rate limiting or quota exhaustion is the cause 4) Read daemon logs for infini-specific error patterns. If rate limited, implement per-provider cooldown in golem-daemon. Write findings and fix. Commit." (retry)`
@@ -1955,13 +1839,13 @@ CC writes fully-specified entries. Daemon executes mindlessly. Provider + turns 
 ### Hatchet features — wire up advanced capabilities
 
 #### Rate limits — per-provider server-side throttling
-- [ ] `golem [t-595036] --provider gemini --max-turns 50 "Read effectors/hatchet-golem/worker.py. Add Hatchet server-side rate limits for each provider. Use h.rate_limits.put() to create rate limit keys: 'zhipu-rpm' (1000 req/5hr = 200/hr), 'infini-rpm' (1000 req/5hr = 200/hr), 'volcano-rpm' (1000 req/5hr = 200/hr), 'gemini-rpm' (60/min). Then add rate_limits=[RateLimit(key='<provider>-rpm', units=1)] to each @hatchet.task decorator. This replaces the manual cooldown in golem-daemon. Write tests in assays/test_hatchet_rate_limits.py. Commit." (retry)`
+- [!] `golem [t-595036] --provider gemini --max-turns 50 "Read effectors/hatchet-golem/worker.py. Add Hatchet server-side rate limits for each provider. Use h.rate_limits.put() to create rate limit keys: 'zhipu-rpm' (1000 req/5hr = 200/hr), 'infini-rpm' (1000 req/5hr = 200/hr), 'volcano-rpm' (1000 req/5hr = 200/hr), 'gemini-rpm' (60/min). Then add rate_limits=[RateLimit(key='<provider>-rpm', units=1)] to each @hatchet.task decorator. This replaces the manual cooldown in golem-daemon. Write tests in assays/test_hatchet_rate_limits.py. Commit." (retry)`
 
 #### Cron — scheduled auto-requeue and health checks
 - [x] `golem [t-242f4d] --provider zhipu --max-turns 50 "Read effectors/hatchet-golem/worker.py and effectors/hatchet-golem/dispatch.py. Add two cron-triggered Hatchet tasks: 1) @hatchet.task with on_crons=['*/30 * * * *'] named 'golem-requeue' that checks if golem-queue.md has < 20 pending tasks and auto-generates new ones (port the auto_requeue logic from effectors/golem-daemon). 2) @hatchet.task with on_crons=['*/15 * * * *'] named 'golem-health' that runs effectors/gemmule-health --daemon and logs the result. Register both in the worker. Write tests. Commit."`
 
 #### Metrics — task stats and Prometheus endpoint
-- [ ] `golem [t-2e6bc8] --provider codex --max-turns 40 "Read the Hatchet SDK metrics API. Create effectors/hatchet-golem/stats.py that: 1) Calls h.metrics.get_task_metrics() and h.metrics.get_queue_metrics() 2) Prints a summary: tasks completed/failed/pending per provider, avg duration, queue depth 3) Optionally outputs as JSON (--json flag) 4) Add a 'golem-metrics' @hatchet.task with on_crons=['0 * * * *'] that logs hourly stats to ~/.local/share/vivesca/hatchet-metrics.jsonl. Write tests. Commit."`
+- [!] `golem [t-2e6bc8] --provider codex --max-turns 40 "Read the Hatchet SDK metrics API. Create effectors/hatchet-golem/stats.py that: 1) Calls h.metrics.get_task_metrics() and h.metrics.get_queue_metrics() 2) Prints a summary: tasks completed/failed/pending per provider, avg duration, queue depth 3) Optionally outputs as JSON (--json flag) 4) Add a 'golem-metrics' @hatchet.task with on_crons=['0 * * * *'] that logs hourly stats to ~/.local/share/vivesca/hatchet-metrics.jsonl. Write tests. Commit."`
 
 #### Event-driven dispatch — git push triggers task pickup
 - [x] `golem [t-5f4e68] --provider zhipu --max-turns 40 "Read effectors/hatchet-golem/dispatch.py. Add an event-driven mode: create a @hatchet.task named 'golem-queue-changed' triggered by on_events=['queue:updated']. When triggered, it reads golem-queue.md and dispatches any new pending tasks. Then create a git post-commit hook at ~/germline/.git/hooks/post-commit that calls 'python3 -c \"from hatchet_sdk import Hatchet; h=Hatchet(); h.event.push('queue:updated', {})\"' when golem-queue.md changes. This replaces polling with event-driven dispatch. Write tests. Commit."`
@@ -1986,7 +1870,7 @@ All tools: single Python file at ~/bin/<name>, #!/usr/bin/env python3, use reque
 
 - [x] `golem [t-ba1380] --provider zhipu --max-turns 30 "Build ~/bin/consilium as a Python CLI for multi-model deliberation. Env: uses ANTHROPIC_API_KEY, OPENAI_API_KEY, GEMINI_API_KEY, OPENROUTER_API_KEY. Takes a question as positional arg. Modes: --quick (parallel query to 3+ models, print each answer), --council (blind answers -> debate -> judge synthesizes), --redteam (adversarial stress test). Use requests to call each API. Models: Claude via Anthropic API, GPT-4o via OpenAI API, Gemini via Google AI API. Print each model's response labeled. Default mode: --quick. Test with: consilium --quick 'what is 2+2'. chmod +x."`
 
-- [ ] `golem [t-816e83] --provider gemini --max-turns 30 "Build ~/bin/stips as a Python CLI for OpenRouter credits. Env: OPENROUTER_API_KEY. Subcommands: credits (GET https://openrouter.ai/api/v1/auth/key — print balance), usage (GET https://openrouter.ai/api/v1/activity — print recent usage), key (print masked key). Use requests. Test with: stips credits. chmod +x."`
+- [!] `golem [t-816e83] --provider gemini --max-turns 30 "Build ~/bin/stips as a Python CLI for OpenRouter credits. Env: OPENROUTER_API_KEY. Subcommands: credits (GET https://openrouter.ai/api/v1/auth/key — print balance), usage (GET https://openrouter.ai/api/v1/activity — print recent usage), key (print masked key). Use requests. Test with: stips credits. chmod +x."`
 
 #### Tier 2 — weekly use
 
@@ -1996,7 +1880,7 @@ All tools: single Python file at ~/bin/<name>, #!/usr/bin/env python3, use reque
 
 - [x] `golem [t-267c1c] --provider zhipu --max-turns 30 "Build ~/bin/pondus as a Python CLI for AI model benchmark aggregation. Subcommands: rank (fetch and merge rankings from multiple benchmark sources — Chatbot Arena at https://lmarena.ai, LiveBench, MMLU — print sorted table), check <model> (show one model across sources), compare <modelA> <modelB> (head-to-head), sources (list all sources and cache status), refresh (clear cache at ~/.cache/pondus/), recommend <task-type> (suggest models for coding/reasoning/creative). Cache results for 24h in ~/.cache/pondus/. Flags: --format json|table|markdown. Use requests + simple HTML parsing. Test with: pondus sources. chmod +x."`
 
-- [ ] `golem [t-b1e7c2] --provider gemini --max-turns 30 "Build ~/bin/sarcio as a Python CLI for managing a digital garden. Posts live at ~/notes/Writing/Blog/Published/. Subcommands: new <title> (create a new draft .md file with frontmatter: title, date, tags, status=draft), list (list all posts with status), publish <filename> (set status=published in frontmatter, add published_date), revise <filename> (open in EDITOR), open <filename> (open in EDITOR), index (regenerate index.md listing all published posts). Use pathlib and yaml (PyYAML or frontmatter parsing). Test with: sarcio list. chmod +x."`
+- [!] `golem [t-b1e7c2] --provider gemini --max-turns 30 "Build ~/bin/sarcio as a Python CLI for managing a digital garden. Posts live at ~/notes/Writing/Blog/Published/. Subcommands: new <title> (create a new draft .md file with frontmatter: title, date, tags, status=draft), list (list all posts with status), publish <filename> (set status=published in frontmatter, add published_date), revise <filename> (open in EDITOR), open <filename> (open in EDITOR), index (regenerate index.md listing all published posts). Use pathlib and yaml (PyYAML or frontmatter parsing). Test with: sarcio list. chmod +x."`
 
 #### Tier 3 — specialized
 
@@ -2011,7 +1895,7 @@ All tools: single Python file at ~/bin/<name>, #!/usr/bin/env python3, use reque
 ### Hatchet dogfooding — advanced features
 
 #### Webhooks — trigger from GitHub push
-- [ ] `golem [t-013aa4] --provider gemini --max-turns 40 "Read Hatchet webhooks API. Create a webhook endpoint that GitHub can call on push to vivesca repo. When triggered, dispatch new pending tasks from golem-queue.md. Steps: 1) Use h.webhooks.create() to register a webhook 2) Create effectors/hatchet-golem/webhook.py that handles the GitHub payload 3) Update .github/workflows/gemmule-wake.yml to also POST to the Hatchet webhook after waking gemmule. This replaces polling — tasks dispatch on push. Write tests. Commit."`
+- [!] `golem [t-013aa4] --provider gemini --max-turns 40 "Read Hatchet webhooks API. Create a webhook endpoint that GitHub can call on push to vivesca repo. When triggered, dispatch new pending tasks from golem-queue.md. Steps: 1) Use h.webhooks.create() to register a webhook 2) Create effectors/hatchet-golem/webhook.py that handles the GitHub payload 3) Update .github/workflows/gemmule-wake.yml to also POST to the Hatchet webhook after waking gemmule. This replaces polling — tasks dispatch on push. Write tests. Commit."`
 
 #### Worker labels + sticky sessions — provider affinity
 - [x] `golem [t-c7a3b1] --provider zhipu --max-turns 40 "Read Hatchet worker labels and sticky session docs. Modify effectors/hatchet-golem/worker.py to: 1) Register workers with labels like {provider: 'zhipu', region: 'cn'} 2) Use desired_worker_labels on tasks so zhipu tasks prefer zhipu-labeled workers 3) Add sticky=StickyStrategy.SOFT so repeated tasks from the same queue entry stick to the same worker (warm cache). Write tests. Commit."`
@@ -2040,7 +1924,6 @@ All tools: single Python file at ~/bin/<name>, #!/usr/bin/env python3, use reque
 - [x] `golem [t-886dee] --provider zhipu --max-turns 50 "Write a consulting insight card comparing Hatchet and Temporal for AI agent orchestration in financial services. Structure: 1) Executive summary (2 sentences) 2) Problem statement — banks deploying AI agents need orchestration beyond simple task queues 3) Head-to-head comparison table: setup complexity, Python SDK maturity, concurrency model, rate limiting, observability, enterprise adoption, self-hosting, cost, AI-native features 4) When to recommend Temporal: regulated environments needing audit trails, existing Java/Go teams, complex multi-step compliance workflows 5) When to recommend Hatchet: AI-first teams, rapid prototyping, per-provider rate limiting, simpler ops 6) Hands-on experience section: 'We run both in production — Hatchet dispatches 30+ concurrent AI coding agents across 5 LLM providers with built-in rate limiting and concurrency control. Temporal provides durable execution for long-running compliance workflows.' 7) Key risks: Hatchet maturity (18 months old), Temporal operational complexity. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/hatchet-vs-temporal-banking.md. 800+ words. Commit."`
 
 #### AI agent orchestration patterns for enterprise
-- [ ] `golem [t-fbf738] --provider codex --max-turns 50 "Write a consulting brief on AI agent orchestration patterns for enterprise banking. Cover: 1) The problem — banks running multiple AI agents (coding assistants, document processors, compliance checkers) need infrastructure beyond cron jobs 2) Pattern 1: Task queue (Celery/BullMQ) — simple but no durability 3) Pattern 2: Workflow engine (Temporal/Cadence) — durable but complex 4) Pattern 3: AI-native orchestrator (Hatchet) — built for LLM workloads 5) Pattern 4: Custom daemon — what most teams start with, why they outgrow it 6) Decision framework: when to use which 7) Reference architecture for a bank running 50+ AI agents 8) Our experience: migrated from custom daemon to Hatchet in one session, 2x reduction in code, built-in rate limiting replaced manual cooldown. Write to ~/epigenome/chromatin/euchromatin/consulting/cards/ai-agent-orchestration-patterns.md. 1000+ words. Commit." (retry)`
 
 #### Hatchet quick-start guide for technical audience
 - [x] `golem [t-081685] --provider zhipu --max-turns 40 "Write a technical quick-start guide for Hatchet aimed at a bank's platform engineering team. Include: 1) What Hatchet is (one paragraph) 2) docker-compose setup (exact YAML for postgres + rabbitmq + engine + dashboard) 3) Python worker example — a simple task that calls an LLM API 4) Concurrency control — per-model rate limiting 5) Monitoring — dashboard + metrics API 6) Security considerations for banking (self-hosted, data sovereignty, auth tokens) 7) Comparison with what they're probably using (Airflow/Celery). Write to ~/epigenome/chromatin/euchromatin/consulting/cards/hatchet-quickstart-banking.md. Commit."`
