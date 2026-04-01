@@ -107,21 +107,21 @@ class TestClaudeNotFound:
         if have_existing:
             pytest.skip("claude exists in system hardcoded path, skipping test")
 
-        # We have an API key but no claude - filter PATH to remove claude
+        # We have an API key but no claude - build a PATH without claude
         filtered_path_dirs = []
         for dir_path in os.environ.get("PATH", "").split(os.pathsep):
             if not dir_path:
                 continue
             # Skip any directory that contains claude
             if not (Path(dir_path) / "claude").exists():
-                filtered_path_dirs.append(Path(dir_path))
+                filtered_path_dirs.append(dir_path)
         # Add empty bin dir at the beginning
         bindir = tmp_path / "bin"
         bindir.mkdir()
-        filtered_path_dirs.insert(0, bindir)
+        filtered_path = str(bindir) + os.pathsep + os.pathsep.join(filtered_path_dirs)
+        # Pass PATH via env_extra so _run_script doesn't re-append original PATH
         r = _run_script(
-            path_dirs=filtered_path_dirs,
-            env_extra={"MOONSHOT_API_KEY": "test_key"},
+            env_extra={"MOONSHOT_API_KEY": "test_key", "PATH": filtered_path},
         )
         assert r.returncode == 1
         assert "error: claude binary not found" in r.stderr

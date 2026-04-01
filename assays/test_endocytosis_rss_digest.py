@@ -349,7 +349,9 @@ def test_metabolize_weekly_returns_count_and_path(xdg_env, monkeypatch, tmp_path
         "metabolon.organelles.endocytosis_rss.digest.recall_affinity_entries", lambda _since: []
     )
 
-    item_count, output_path = metabolize_weekly(cfg=cfg)
+    # Use an anchor date that includes 2026-03-24 in the 7-day window
+    anchor = datetime(2026, 3, 25, 12, 0, 0, tzinfo=UTC)
+    item_count, output_path = metabolize_weekly(cfg=cfg, week_date=anchor)
 
     # Two ★ items were logged; without affinity scores they pass via transcytose flag
     assert item_count >= 2

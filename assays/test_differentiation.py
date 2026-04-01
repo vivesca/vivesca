@@ -19,18 +19,28 @@ def test_latest_log_no_logs():
         assert result == "No gym logs found."
 
 
+class _FakePath:
+    """Minimal Path-like supporting sorted() via __lt__ on name."""
+
+    def __init__(self, name: str, content: str):
+        self.name = name
+        self._content = content
+
+    def read_text(self):
+        return self._content
+
+    def __lt__(self, other: _FakePath) -> bool:
+        return self.name < other.name
+
+    def __str__(self) -> str:
+        return self.name
+
+
 def test_latest_log_with_logs():
     """Test latest_log returns the most recent log content."""
     with patch("metabolon.enzymes.differentiation.HEALTH_DIR") as mock_dir:
-        # Create mock log files sorted by name (date order)
-        mock_old = MagicMock()
-        mock_old.name = "Gym Log - 2026-03-25.md"
-        mock_old.read_text.return_value = "Old workout"
-
-        mock_new = MagicMock()
-        mock_new.name = "Gym Log - 2026-03-30.md"
-        mock_new.read_text.return_value = "New workout"
-
+        mock_old = _FakePath("Gym Log - 2026-03-25.md", "Old workout")
+        mock_new = _FakePath("Gym Log - 2026-03-30.md", "New workout")
         mock_dir.glob.return_value = [mock_old, mock_new]
 
         result = differentiation("latest_log")
