@@ -116,3 +116,131 @@ def test_term_passed_verbatim(mock_fetch, mock_fmt):
     result = runner.invoke(main, ["BRCA1"])
     assert result.exit_code == 0
     mock_fetch.assert_called_once_with("BRCA1")
+
+
+# ── argument validation ──────────────────────────────────────────────────────
+
+
+def test_no_term_shows_usage_error():
+    runner = CliRunner()
+    result = runner.invoke(main, [])
+    assert result.exit_code != 0
+    assert "Missing argument" in result.output or "Usage" in result.output
+
+
+def test_help_flag():
+    runner = CliRunner()
+    result = runner.invoke(main, ["--help"])
+    assert result.exit_code == 0
+    assert "term" in result.output.lower()
+    assert "--full" in result.output
+    assert "--json" in result.output
+
+
+# ── section assignment ───────────────────────────────────────────────────────
+
+
+@patch("metabolon.lysin.cli.format_text", return_value="formatted-full")
+@patch("metabolon.lysin.cli.fetch_sections", return_value=[{"title": "Fn", "text": "details"}])
+@patch("metabolon.lysin.cli.fetch_summary")
+def test_full_flag_sets_sections_on_article(mock_fetch, mock_sections, mock_fmt):
+    article = _article()
+    mock_fetch.return_value = article
+    runner = CliRunner()
+    runner.invoke(main, ["TP53", "--full"])
+    # The article object returned by fetch_summary should have its .sections
+    # updated to the return value of fetch_sections
+    assert article.sections == [{"title": "Fn", "text": "details"}]
+
+
+@patch("metabolon.lysin.cli.format_json", return_value="{}")
+@patch("metabolon.lysin.cli.fetch_summary")
+def test_json_without_full_does_not_call_fetch_sections(mock_fetch, mock_fmt):
+    mock_fetch.return_value = _article()
+    runner = CliRunner()
+    with patch("metabolon.lysin.cli.fetch_sections") as mock_secs:
+        result = runner.invoke(main, ["TP53", "--json"])
+    assert result.exit_code == 0
+    mock_secs.assert_not_called()
+    # format_json should be called with full=False
+    mock_fmt.assert_called_once()
+    assert mock_fmt.call_args[1].get("full") is not True
+
+
+# ── multi-word / special terms ───────────────────────────────────────────────
+
+
+@patch("metabolon.lysin.cli.format_text", return_value="out")
+@patch("metabolon.lysin.cli.fetch_summary")
+def test_multi_word_term(mock_fetch, mock_fmt):
+    mock_fetch.return_value = _article(title="apoptosis pathway")
+    runner = CliRunner()
+    result = runner.invoke(main, ["apoptosis pathway"])
+    assert result.exit_code == 0
+    mock_fetch.assert_called_once_with("apoptosis pathway")
+
+
+@patch("metabolon.lysin.cli.format_text", return_value="out")
+@patch("metabolon.lysin.cli.fetch_summary")
+def test_empty_string_term(mock_fetch, mock_fmt):
+    mock_fetch.return_value = _article()
+    runner = CliRunner()
+    result = runner.invoke(main, [""])
+    assert result.exit_code == 0
+    mock_fetch.assert_called_once_with("")
+
+
+# ── format function receives correct article ─────────────────────────────────
+
+
+@patch("metabolon.lysin.cli.format_text", return_value="out")
+@patch("metabolon.lysin.cli.fetch_summary")
+def test_format_text_receives_article_object(mock_fetch, mock_fmt):
+    art = _article(title="EGFR", definition="Epidermal growth factor receptor.")
+    mock_fetch.return_value = art
+    runner = CliRunner()
+    result = runner.invoke(main, ["EGFR"])
+    assert result.exit_code == 0
+    # format_text is called with the article as first positional arg
+    assert mock_fmt.call_args[0][0] is art
+
+
+@patch("metabolon.lysin.cli.format_json", return_value="{}")
+@patch("metabolon.lysin.cli.fetch_summary")
+def test_format_json_receives_article_object(mock_fetch, mock_fmt):
+    art = _article(title="MYC")
+    mock_fetch.return_value = art
+    runner = CliRunner()
+    result = runner.invoke(main, ["MYC", "--json"])
+    assert result.exit_code == 0
+    assert mock_fmt.call_args[0][0] is art
+
+
+# ── error message content ────────────────────────────────────────────────────
+
+
+@patch("metabolon.lysin.cli.fetch_summary", side_effect=LookupError("FOOBAR not found"))
+def test_lookup_error_message_contains_term(mock_fetch):
+    runner = CliRunner()
+    result = runner.invoke(main, ["FOOBAR"])
+    assert result.exit_code == 1
+    output = result.stderr or result.output
+    assert "Not found" in output
+    assert "FOOBAR not found" in output
+
+
+@patch("metabolon.lysin.cli.fetch_summary", side_effect=ConnectionError("timeout"))
+def test_connection_error_exit_1(mock_fetch):
+    runner = CliRunner()
+    result = runner.invoke(main, ["TP53"])
+    assert result.exit_code == 1
+    output = result.stderr or result.output
+    assert "Error: timeout" in output
+
+
+@patch("metabolon.lysin.cli.fetch_summary", side_effect=ValueError("bad data"))
+def test_value_error_exit_1(mock_fetch):
+    runner = CliRunner()
+    result = runner.invoke(main, ["TP53"])
+    assert result.exit_code == 1
+    assert "Error: bad data" in (result.stderr or result.output)
