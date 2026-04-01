@@ -215,3 +215,87 @@ class TestExecution:
 
         recorded_path = path_log.read_text().strip()
         assert f"{tmp_path}/.bun/bin" in recorded_path
+
+    def test_suppresses_qmd_stderr(self, tmp_path):
+        """Script redirects qmd stderr to /dev/null, so script stderr stays clean."""
+        _create_mock_bin(tmp_path, "pgrep", exit_code=1)
+
+        qmd_path = tmp_path / "bin" / "qmd"
+        qmd_path.parent.mkdir(parents=True, exist_ok=True)
+        qmd_path.write_text(
+            '#!/bin/bash\necho "error output" >&2\nexit 0'
+        )
+        qmd_path.chmod(0o755)
+
+        env = os.environ.copy()
+        env["HOME"] = str(tmp_path)
+        env["PATH"] = f"{tmp_path}/bin:{env['PATH']}"
+
+        r = _run_script(env=env)
+        assert r.returncode == 0
+        assert r.stderr == ""
+
+    def test_pgrep_called_with_correct_args(self, tmp_path):
+        """pgrep is invoked with -f 'qmd embed'."""
+        _create_mock_bin(tmp_path, "pgrep", exit_code=1)
+
+        pgrep_log = tmp_path / "pgrep_args"
+        pgrep_path = tmp_path / "bin" / "pgrep"
+        pgrep_path.parent.mkdir(parents=True, exist_ok=True)
+        pgrep_path.write_text(f'#!/bin/bash\necho "$@" >> {pgrep_log}\nexit 1')
+        pgrep_path.chmod(0o755)
+
+        qmd_path = tmp_path / "bin" / "qmd"
+        qmd_path.parent.mkdir(parents=True, exist_ok=True)
+        qmd_path.write_text('#!/bin/bash\nexit 0')
+        qmd_path.chmod(0o755)
+
+        env = os.environ.copy()
+        env["HOME"] = str(tmp_path)
+        env["PATH"] = f"{tmp_path}/bin:{env['PATH']}"
+
+        _run_script(env=env)
+
+        args = pgrep_log.read_text().strip()
+        assert "-f" in args
+        assert "qmd embed" in args
+
+    def test_no_args_runs_normally(self, tmp_path):
+        """Script runs qmd update && qmd embed when called with no arguments."""
+        _create_mock_bin(tmp_path, "pgrep", exit_code=1)
+
+        qmd_call_log = tmp_path / "qmd_calls"
+        qmd_path = tmp_path / "bin" / "qmd"
+        qmd_path.parent.mkdir(parents=True, exist_ok=True)
+        qmd_path.write_text(f'#!/bin/bash\necho "$@" >> {qmd_call_log}\nexit 0')
+        qmd_path.chmod(0o755)
+
+        env = os.environ.copy()
+        env["HOME"] = str(tmp_path)
+        env["PATH"] = f"{tmp_path}/bin:{env['PATH']}"
+
+        r = _run_script(env=env)
+        assert r.returncode == 0
+
+        calls = qmd_call_log.read_text().splitlines()
+        assert calls == ["update", "embed"]
+
+    def test_qmd_update_stderr_suppressed_on_failure(self, tmp_path):
+        """Even when qmd update fails, its stderr is swallowed by 2>/dev/null."""
+        _create_mock_bin(tmp_path, "pgrep", exit_code=1)
+
+        qmd_path = tmp_path / "bin" / "qmd"
+        qmd_path.parent.mkdir(parents=True, exist_ok=True)
+        qmd_path.write_text(
+            '#!/bin/bash\necho "fatal error" >&2\nexit 1'
+        )
+        qmd_path.chmod(0o755)
+
+        env = os.environ.copy()
+        env["HOME"] = str(tmp_path)
+        env["PATH"] = f"{tmp_path}/bin:{env['PATH']}"
+
+        r = _run_script(env=env)
+        # Script fails (set -e) but stderr is empty (2>/dev/null)
+        assert r.returncode != 0
+        assert r.stderr == ""
