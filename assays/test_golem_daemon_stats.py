@@ -195,8 +195,8 @@ class TestProviderStats:
         assert rc == 0
         assert "zhipu" in out
         assert "2 tasks" in out
-        assert "1 passed" in out
-        assert "1 failed" in out
+        assert "1 pass" in out
+        assert "1 rate-limited" in out
         # avg = (60+120)/2 = 90s = 1m30s
         assert "1m30s" in out
 
@@ -555,6 +555,7 @@ class TestOutputFormat:
         # Both lines should contain "tasks", "passed", "failed", "avg"
         for line in lines:
             assert "tasks" in line
-            assert "passed" in line
-            assert "failed" in line
+            assert "pass" in line
+            assert "rate-limited" in line
+            assert "real-fail" in line
             assert "avg" in line

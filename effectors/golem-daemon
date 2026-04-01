@@ -706,7 +706,7 @@ def mark_failed(line_num: int, result: str = "", exit_code: int = 1,
     High-priority [!!] tasks keep their priority on retry; they become [!] on
     permanent failure just like normal tasks.
     """
-    rate_limited = is_rate_limited(result)
+    rate_limited = is_rate_limited(result) or not tail.strip()  # empty output = rate-limit exhaustion
     with QueueLock():
         if not QUEUE_FILE.exists():
             return {"retried": False, "rate_limited": rate_limited}
@@ -1324,11 +1324,13 @@ def daemon_loop():
                             failed_result = mark_failed(line_num, f"exit={exit_code} {tail[:60]}", exit_code=exit_code, task_id=task_id, tail=tail)
                             _throttle_provider(provider)  # adaptive: reduce concurrency on failure
                             log(f"FAILED [{task_id}] (exit={exit_code}): {cmd[:60]}...")
-                            # Detect rate-limiting from task output or fast-exit pattern
+                            # Detect rate-limiting from task output, fast-exit, or empty output
                             is_explicit_ratelimit = failed_result.get("rate_limited") or is_rate_limited(tail)
                             # Fast-exit: exit 1/2 in ≤5s with empty output = silent rate-limit
                             is_fast_exit = exit_code in (1, 2) and duration <= 5 and not tail.strip()
-                            if is_explicit_ratelimit or is_fast_exit:
+                            # Empty output: model never produced work — rate-limit retry exhaustion
+                            is_empty_output = not tail.strip() and exit_code != 0
+                            if is_explicit_ratelimit or is_fast_exit or is_empty_output:
                                 # Rate-limited: apply proportional cooldown immediately
                                 window = parse_rate_limit_window(tail)
                                 cooldown = window if window else RATE_LIMIT_COOLDOWN_SECONDS
@@ -1338,7 +1340,7 @@ def daemon_loop():
                                     provider_cooldown_until[provider] = cooldown_end
                                     _log_cooldown(provider, cooldown_end, f"task {task_id} exit={exit_code}")
                                 cd_min = int(cooldown // 60)
-                                reason = "fast-exit" if is_fast_exit and not is_explicit_ratelimit else "output-match"
+                                reason = "fast-exit" if is_fast_exit and not is_explicit_ratelimit else "empty-output" if is_empty_output and not is_explicit_ratelimit else "output-match"
                                 log(f"RATE-LIMITED [{provider}] [{task_id}] ({reason}): cooldown {cd_min}min (exit={exit_code}, dur={duration}s)")
                                 # Don't count rate-limit failures toward failure threshold
                             else:
