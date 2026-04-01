@@ -1076,3 +1076,195 @@ class TestMainExtended:
                 gh["main"]()
         kw = gh["run_health"].call_args.kwargs
         assert kw["daemon_mode"] is True
+
+
+# ── check_disk_data ────────────────────────────────────────────────────────────
+
+
+class TestCheckDiskData:
+    def _usage(self, used, total):
+        return mock.Mock(used=used, total=total, free=total - used)
+
+    def test_ok(self, gh):
+        with mock.patch("shutil.disk_usage", return_value=self._usage(30, 100)):
+            with mock.patch.object(Path, "is_mount", return_value=True):
+                c = gh["check_disk_data"]()
+        assert c.status == "ok"
+        assert c.name == "disk_data"
+        assert "30%" in c.value
+
+    def test_warn_at_threshold(self, gh):
+        with mock.patch("shutil.disk_usage", return_value=self._usage(80, 100)):
+            with mock.patch.object(Path, "is_mount", return_value=True):
+                c = gh["check_disk_data"]()
+        assert c.status == "warn"
+
+    def test_crit_at_threshold(self, gh):
+        with mock.patch("shutil.disk_usage", return_value=self._usage(90, 100)):
+            with mock.patch.object(Path, "is_mount", return_value=True):
+                c = gh["check_disk_data"]()
+        assert c.status == "crit"
+
+    def test_not_mounted(self, gh):
+        with mock.patch.object(Path, "is_mount", return_value=False):
+            c = gh["check_disk_data"]()
+        assert c.status == "warn"
+        assert c.value == "not mounted"
+
+    def test_error_on_exception(self, gh):
+        with mock.patch.object(Path, "is_mount", side_effect=PermissionError("denied")):
+            c = gh["check_disk_data"]()
+        assert c.status == "error"
+
+    def test_detail_format(self, gh):
+        with mock.patch("shutil.disk_usage", return_value=self._usage(40, 100)):
+            with mock.patch.object(Path, "is_mount", return_value=True):
+                c = gh["check_disk_data"]()
+        assert "free" in c.detail
+        assert "total" in c.detail
+
+
+# ── check_golem_processes ──────────────────────────────────────────────────────
+
+
+class TestCheckGolemProcesses:
+    def test_count_running(self, gh):
+        with mock.patch(
+            "subprocess.run",
+            return_value=mock.Mock(returncode=0, stdout="3\n", stderr=""),
+        ):
+            c = gh["check_golem_processes"]()
+        assert c.status == "ok"
+        assert c.name == "golem_procs"
+        assert c.value == "3"
+
+    def test_zero_processes(self, gh):
+        with mock.patch(
+            "subprocess.run",
+            return_value=mock.Mock(returncode=1, stdout="", stderr=""),
+        ):
+            c = gh["check_golem_processes"]()
+        assert c.status == "ok"
+        assert c.value == "0"
+
+    def test_error(self, gh):
+        with mock.patch("subprocess.run", side_effect=Exception("pgrep fail")):
+            c = gh["check_golem_processes"]()
+        assert c.status == "error"
+        assert "pgrep fail" in c.detail
+
+    def test_detail_shows_count(self, gh):
+        with mock.patch(
+            "subprocess.run",
+            return_value=mock.Mock(returncode=0, stdout="5\n", stderr=""),
+        ):
+            c = gh["check_golem_processes"]()
+        assert "5" in c.detail
+
+
+# ── check_hatchet ──────────────────────────────────────────────────────────────
+
+
+class TestCheckHatchet:
+    def test_healthy_container(self, gh):
+        output = "hatchet-worker\tUp 3 hours (healthy)\n"
+        with mock.patch(
+            "subprocess.run",
+            return_value=mock.Mock(returncode=0, stdout=output, stderr=""),
+        ):
+            c = gh["check_hatchet"]()
+        assert c.status == "ok"
+        assert c.name == "hatchet"
+        assert "1 running" in c.value
+        assert "hatchet-worker" in c.detail
+
+    def test_no_containers(self, gh):
+        with mock.patch(
+            "subprocess.run",
+            return_value=mock.Mock(returncode=0, stdout="", stderr=""),
+        ):
+            c = gh["check_hatchet"]()
+        assert c.status == "warn"
+        assert c.value == "not running"
+
+    def test_unhealthy_container(self, gh):
+        output = "hatchet-api\tUnhealthy (exit code 1)\n"
+        with mock.patch(
+            "subprocess.run",
+            return_value=mock.Mock(returncode=0, stdout=output, stderr=""),
+        ):
+            c = gh["check_hatchet"]()
+        assert c.status == "crit"
+        assert "1 unhealthy" in c.value
+        assert "hatchet-api" in c.detail
+
+    def test_exited_container(self, gh):
+        output = "hatchet-worker\tExited (137) 2 minutes ago\n"
+        with mock.patch(
+            "subprocess.run",
+            return_value=mock.Mock(returncode=0, stdout=output, stderr=""),
+        ):
+            c = gh["check_hatchet"]()
+        assert c.status == "crit"
+        assert "1 unhealthy" in c.value
+
+    def test_docker_error(self, gh):
+        with mock.patch(
+            "subprocess.run",
+            return_value=mock.Mock(returncode=1, stdout="", stderr="Cannot connect to Docker daemon"),
+        ):
+            c = gh["check_hatchet"]()
+        assert c.status == "error"
+        assert c.value == "docker error"
+
+    def test_no_docker_binary(self, gh):
+        with mock.patch("subprocess.run", side_effect=FileNotFoundError()):
+            c = gh["check_hatchet"]()
+        assert c.status == "warn"
+        assert c.value == "no docker"
+
+    def test_timeout(self, gh):
+        with mock.patch(
+            "subprocess.run",
+            side_effect=subprocess.TimeoutExpired(cmd="docker", timeout=15),
+        ):
+            c = gh["check_hatchet"]()
+        assert c.status == "warn"
+        assert c.value == "timeout"
+
+    def test_multiple_mixed(self, gh):
+        output = "hatchet-api\tUp 2 hours (healthy)\nhatchet-worker\tUnhealthy\n"
+        with mock.patch(
+            "subprocess.run",
+            return_value=mock.Mock(returncode=0, stdout=output, stderr=""),
+        ):
+            c = gh["check_hatchet"]()
+        assert c.status == "crit"
+        assert "1 unhealthy" in c.value
+
+    def test_multiple_healthy(self, gh):
+        output = "hatchet-api\tUp 2 hours\nhatchet-worker\tUp 3 hours\n"
+        with mock.patch(
+            "subprocess.run",
+            return_value=mock.Mock(returncode=0, stdout=output, stderr=""),
+        ):
+            c = gh["check_hatchet"]()
+        assert c.status == "ok"
+        assert "2 running" in c.value
+
+
+# ── run_health includes new checks ─────────────────────────────────────────────
+
+
+class TestRunHealthNewChecks:
+    def test_all_new_checks_present(self, gh):
+        mock_run = mock.Mock(return_value=mock.Mock(returncode=0, stdout="", stderr=""))
+        with mock.patch("subprocess.run", mock_run):
+            with mock.patch("shutil.disk_usage", return_value=mock.Mock(used=40, total=100, free=60)):
+                with mock.patch("builtins.open", mock.mock_open(read_data="MemTotal: 8000000 kB\nMemAvailable: 4000000 kB\n")):
+                    with mock.patch.object(Path, "is_mount", return_value=True):
+                        report = gh["run_health"](fix=False)
+        names = [c.name for c in report.checks]
+        assert "disk_data" in names
+        assert "golem_procs" in names
+        assert "hatchet" in names
