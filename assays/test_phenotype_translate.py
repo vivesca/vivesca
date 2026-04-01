@@ -701,15 +701,23 @@ class TestEnsureSymlink:
 
 
 class TestSyncPhenotype:
-    def test_dry_run_does_not_write_gemini_settings(self, tmp_path):
+    @patch('metabolon.locus.PLATFORM_SYMLINKS', [])
+    @patch('metabolon.locus.phenotype_md', Path('/tmp/fake_phenotype.md'))
+    @patch('metabolon.locus.receptors', Path('/tmp/fake_receptors'))
+    @patch('metabolon.enzymes.integrin._check_phenotype_symlinks', return_value=([], []))
+    @patch('metabolon.organelles.phenotype_translate.GEMINI_ADAPTER_PATH', Path('/tmp/fake_adapter.py'))
+    def test_dry_run_does_not_write_gemini_settings(self, tmp_path, mock_check):
         gemini_settings = tmp_path / "settings.json"
+        cc_settings = tmp_path / "cc_settings.json"
+        cc_settings.write_text(json.dumps({"hooks": {}}))
         from metabolon.organelles.phenotype_translate import CC_SETTINGS_PATH
-
-        result = sync_phenotype(
-            dry_run=True,
-            cc_settings_path=CC_SETTINGS_PATH,
-            gemini_settings_path=gemini_settings,
-        )
+        # patch CC_SETTINGS_PATH for this test only
+        with patch('metabolon.organelles.phenotype_translate.CC_SETTINGS_PATH', cc_settings):
+            result = sync_phenotype(
+                dry_run=True,
+                cc_settings_path=cc_settings,
+                gemini_settings_path=gemini_settings,
+            )
         assert not gemini_settings.exists(), "dry_run must not write settings.json"
         assert result.dry_run is True
 

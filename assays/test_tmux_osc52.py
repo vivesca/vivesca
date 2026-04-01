@@ -3,6 +3,7 @@ from __future__ import annotations
 """Tests for tmux-osc52.sh — OSC 52 clipboard via tmux pane capture."""
 
 import base64
+import pytest
 
 # This module is entirely synchronous (subprocess.run); prevent
 # pytest-asyncio (AUTO mode) from wrapping tmp_path and causing
@@ -12,8 +13,6 @@ import os
 import stat
 import subprocess
 from pathlib import Path
-
-import pytest
 
 SCRIPT = Path(__file__).parent.parent / "effectors" / "tmux-osc52.sh"
 

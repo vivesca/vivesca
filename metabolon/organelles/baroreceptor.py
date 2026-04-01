@@ -142,7 +142,8 @@ def build_weather_line(now: dict, fnd: dict, warn: dict) -> str:
 
     line = ", ".join(parts)
     if warnings:
-        line = f"\u26a0\ufe0f {' \u2022 '.join(warnings)}\n{line}"
+        warn_str = " \u2022 ".join(warnings)
+        line = f"\u26a0\ufe0f {warn_str}\n{line}"
 
     return line
 
