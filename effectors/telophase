@@ -661,7 +661,6 @@ def cmd_extract(args):
 # ── Main ─────────────────────────────────────────────────────────────────────
 def main():
     parser = argparse.ArgumentParser(
-        prog="legatum",
         description="Deterministic session-close gathering.",
     )
     sub = parser.add_subparsers(dest="command")
