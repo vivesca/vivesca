@@ -175,10 +175,10 @@ def flag_overdue_payments(payments_file: Path) -> list[str]:
     for entry in pending:
         try:
             due_date_val = entry["due_date"]
-            if isinstance(due_date_val, date):
-                due = due_date_val
-            elif isinstance(due_date_val, datetime):
+            if isinstance(due_date_val, datetime):
                 due = due_date_val.date()
+            elif isinstance(due_date_val, date):
+                due = due_date_val
             elif isinstance(due_date_val, str):
                 due = datetime.strptime(due_date_val, "%Y-%m-%d").date()
             else:
