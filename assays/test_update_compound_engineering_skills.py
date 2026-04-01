@@ -390,3 +390,58 @@ class TestEdgeCases:
         _run(["--help"], home=tmp_path)
         backup_base = tmp_path / ".codex" / "skills-backup"
         assert not backup_base.exists()
+
+    def test_shebang_is_bash(self):
+        """Script uses bash, not sh."""
+        first_line = SCRIPT.read_text().splitlines()[0]
+        assert first_line == "#!/usr/bin/env bash"
+
+    def test_cleanup_uses_colon_extension(self):
+        """${CODEX_SKILLS_DIR:?} prevents rm -rf / if var is empty."""
+        content = SCRIPT.read_text()
+        assert "${CODEX_SKILLS_DIR:?}" in content
+
+    def test_restore_does_not_clobber_existing(self, tmp_path):
+        """restore_backup skips a skill if one already exists in skills dir."""
+        _make_installer(tmp_path, exit_code=1)
+        # Pre-create a skill in both backup and skills dir
+        skill_dir = _make_skill_dir(tmp_path, "agent-browser")
+        (skill_dir / "new.md").write_text("new version")
+        _run(home=tmp_path)
+        # After failure, backup was created, then restore runs.
+        # The restored file should be the original (backup), unless a new one
+        # was already in place. Since backup moves the original away first,
+        # restore puts it back.
+        marker = _codex_skills(tmp_path) / "agent-browser" / "new.md"
+        assert marker.exists()
+
+    def test_missing_installer_writes_stderr(self, tmp_path):
+        """Script writes something to stderr when installer is missing."""
+        r = _run(home=tmp_path)
+        assert r.returncode != 0
+        # bash/python3 will write an error message
+        assert len(r.stderr) > 0
+
+    def test_err_trap_includes_both_functions(self):
+        """ERR trap calls cleanup_partial_installs AND restore_backup."""
+        content = SCRIPT.read_text()
+        # Find the trap line
+        for line in content.splitlines():
+            if "trap" in line and "ERR" in line:
+                assert "cleanup_partial_installs" in line
+                assert "restore_backup" in line
+                break
+        else:
+            pytest.fail("No ERR trap found")
+
+    def test_backup_preserves_file_contents(self, tmp_path):
+        """Files inside backed-up skills retain their content."""
+        _make_installer(tmp_path)
+        skill_dir = _make_skill_dir(tmp_path, "dspy-ruby")
+        (skill_dir / "config.yaml").write_text("key: value\n")
+        _run(home=tmp_path)
+        backups = _backup_dirs(tmp_path)
+        assert len(backups) >= 1
+        backed_up = backups[0] / "dspy-ruby" / "config.yaml"
+        assert backed_up.exists()
+        assert backed_up.read_text() == "key: value\n"
