@@ -144,3 +144,108 @@ def test_ignores_done_section():
     assert "1" in first_row.split()[1], f"expected 1 task for zhipu, got: {first_row}"
     # Should NOT see infini (it's only in Done)
     assert "infini" not in result.stdout.lower()
+
+
+def test_shows_concurrency_column():
+    """Report includes concurrency info per provider."""
+    queue = textwrap.dedent("""\
+        # Queue
+        - [ ] `golem --provider zhipu --max-turns 30 "Task A"`
+        - [ ] `golem --provider volcano --max-turns 30 "Task B"`
+    """)
+    import tempfile
+    with tempfile.TemporaryDirectory() as td:
+        result = _run_queue_balance(queue, Path(td))
+    assert result.returncode == 0, f"stderr: {result.stderr}"
+    # Table should have Conc column header
+    assert "Conc" in result.stdout
+    # zhipu concurrency is 4
+    assert "4" in result.stdout
+
+
+def test_throughput_drain_time():
+    """Report shows drain time estimates (rounds)."""
+    queue = textwrap.dedent("""\
+        # Queue
+        - [ ] `golem --provider zhipu --max-turns 30 "Task A"`
+        - [ ] `golem --provider zhipu --max-turns 30 "Task B"`
+        - [ ] `golem --provider zhipu --max-turns 30 "Task C"`
+        - [ ] `golem --provider zhipu --max-turns 30 "Task D"`
+        - [ ] `golem --provider zhipu --max-turns 30 "Task E"`
+        - [ ] `golem --provider volcano --max-turns 30 "Task F"`
+    """)
+    import tempfile
+    with tempfile.TemporaryDirectory() as td:
+        result = _run_queue_balance(queue, Path(td))
+    assert result.returncode == 0, f"stderr: {result.stderr}"
+    # Should show throughput section
+    assert "rounds" in result.stdout.lower()
+    # zhipu has 5 tasks / 4 conc = 2 rounds
+    assert "2 rounds" in result.stdout
+
+
+def test_throughput_imbalance_suggestion():
+    """When drain times differ >2x, suggests redistribution."""
+    queue = textwrap.dedent("""\
+        # Queue
+        - [ ] `golem --provider zhipu --max-turns 30 "T1"`
+        - [ ] `golem --provider zhipu --max-turns 30 "T2"`
+        - [ ] `golem --provider zhipu --max-turns 30 "T3"`
+        - [ ] `golem --provider zhipu --max-turns 30 "T4"`
+        - [ ] `golem --provider zhipu --max-turns 30 "T5"`
+        - [ ] `golem --provider zhipu --max-turns 30 "T6"`
+        - [ ] `golem --provider zhipu --max-turns 30 "T7"`
+        - [ ] `golem --provider zhipu --max-turns 30 "T8"`
+        - [ ] `golem --provider volcano --max-turns 30 "T9"`
+    """)
+    import tempfile
+    with tempfile.TemporaryDirectory() as td:
+        result = _run_queue_balance(queue, Path(td))
+    assert result.returncode == 0, f"stderr: {result.stderr}"
+    # zhipu: 8/4 = 2 rounds, volcano: 1/8 = 1 round
+    # Should detect throughput imbalance
+    assert "imbalance" in result.stdout.lower() or "move" in result.stdout.lower()
+
+
+def test_json_output():
+    """--json flag produces valid JSON with expected keys."""
+    queue = textwrap.dedent("""\
+        # Queue
+        - [ ] `golem --provider zhipu --max-turns 30 "Task A"`
+        - [ ] `golem --provider volcano --max-turns 30 "Task B"`
+    """)
+    import json
+    import tempfile
+    with tempfile.TemporaryDirectory() as td:
+        queue_file = Path(td) / "golem-queue.md"
+        queue_file.write_text(queue)
+        result = subprocess.run(
+            [sys.executable, str(EFFECTOR), str(queue_file), "--json"],
+            capture_output=True, text=True, timeout=30,
+        )
+    assert result.returncode == 0, f"stderr: {result.stderr}"
+    data = json.loads(result.stdout)
+    assert "provider_counts" in data
+    assert "throughput" in data
+    assert "concurrency" in data
+    assert data["provider_counts"]["zhipu"] == 1
+    assert data["provider_counts"]["volcano"] == 1
+    assert data["concurrency"]["zhipu"] == 4
+    assert data["concurrency"]["volcano"] == 8
+
+
+def test_unassigned_assigns_to_spare_capacity():
+    """Unassigned tasks should be suggested for provider with most spare."""
+    queue = textwrap.dedent("""\
+        # Queue
+        #### Build — orphan task 1
+        #### Build — orphan task 2
+        - [ ] `golem --provider volcano --max-turns 30 "Task A"`
+    """)
+    import tempfile
+    with tempfile.TemporaryDirectory() as td:
+        result = _run_queue_balance(queue, Path(td))
+    assert result.returncode == 0, f"stderr: {result.stderr}"
+    assert "unassigned" in result.stdout.lower()
+    # Should suggest assigning to a provider with spare capacity
+    assert "assign" in result.stdout.lower() or "dispatch" in result.stdout.lower()
