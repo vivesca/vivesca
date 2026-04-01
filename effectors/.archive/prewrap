@@ -23,7 +23,7 @@ except Exception as e:
 for label, path in [("skills", SKILLS), ("officina", os.path.expanduser("~/officina"))]:
     try:
         r = subprocess.run(
-            ["git", "-C", path, "status", "--short"], capture_output=True, text=True
+            ["git", "-C", path, "status", "--short"], capture_output=True, text=True, timeout=300
         )
         if r.stdout.strip():
             print(f"⚠  {label} dirty:\n{r.stdout.rstrip()}")
@@ -42,11 +42,11 @@ except Exception as e:
     print(f"?  MEMORY.md budget check unavailable: {e}")
 
 # Tonus age
-r = subprocess.run(["now-age"], capture_output=True, text=True)
+r = subprocess.run(["now-age"], capture_output=True, text=True, timeout=300)
 print(f"✓  Tonus: {r.stdout.strip()}")
 
 # Peira experiment status (optional — non-zero exit is not an error)
-r = subprocess.run(["peira", "status"], capture_output=True, text=True)
+r = subprocess.run(["peira", "status"], capture_output=True, text=True, timeout=300)
 if r.returncode == 0 and r.stdout.strip():
     print(f"⚠  Peira active: {r.stdout.strip()}")
 

@@ -21,6 +21,7 @@ Usage:
 from __future__ import annotations
 
 import json
+import math
 import re
 import shutil
 import subprocess
@@ -37,6 +38,9 @@ LOG_PATH = VIVESCA_DIR / "golem-daemon.log"
 QUEUE_PATH = Path.home() / "germline" / "loci" / "golem-queue.md"
 RUNNING_JSON_PATH = VIVESCA_DIR / "golem-running.json"
 COOLDOWNS_PATH = VIVESCA_DIR / "golem-cooldowns.json"
+
+# Progress estimation percentile (50 = median, 90 = conservative)
+PROGRESS_PERCENTILE = 90
 
 # ANSI colors
 GREEN = "\033[32m"

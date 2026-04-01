@@ -156,6 +156,11 @@ def test_conflict_accept_theirs(mock_home):
     subprocess.run(["git", "commit", "-m", "remote conflict"], cwd=temp_clone, check=True)
     subprocess.run(["git", "push", "origin", "main"], cwd=temp_clone, check=True)
 
+    # Remote has: 'initial', 'local commit', 'remote conflict' -> 3 commits.
+    initial_remote_log = subprocess.run(["git", "log", "--oneline"], cwd=remote_dir, capture_output=True, text=True).stdout
+    initial_remote_commits = initial_remote_log.strip().split("\n")
+    assert len(initial_remote_commits) == 3
+
     # Now repo_dir has "modified local" and remote has "modified remote" on the same line/file.
     # Rebase and merge should fail if not careful.
 
@@ -170,6 +175,6 @@ def test_conflict_accept_theirs(mock_home):
 
     # Verify it was pushed to remote
     remote_log = subprocess.run(["git", "log", "--oneline"], cwd=remote_dir, capture_output=True, text=True).stdout
-    # If the script has the bug, this might NOT contain the merge commit or the conflict resolution.
-    # Actually, in the 'accept theirs' case, it might just match the remote's latest commit.
-    # But it should have a new commit locally if it was a merge.
+    remote_commits = remote_log.strip().split("\n")
+    # If it was pushed, it should have 4 or more commits.
+    assert len(remote_commits) > 3, f"Remote log only has: {remote_log}"
