@@ -9,11 +9,22 @@ Fake Chrome binaries are created in tmp directories to isolate from the host.
 import os
 import stat
 import subprocess
+import time
 from pathlib import Path
 
 import pytest
 
 SCRIPT = Path(__file__).parent.parent / "effectors" / "start-chrome-debug.sh"
+
+
+def _wait_for_file(path: Path, timeout: float = 3.0, interval: float = 0.1) -> None:
+    """Poll until *path* exists, raising AssertionError on timeout."""
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        if path.exists():
+            return
+        time.sleep(interval)
+    raise AssertionError(f"File not created within {timeout}s: {path}")
 
 
 def _read_script() -> str:
@@ -230,6 +241,7 @@ class TestChromeArgs:
 
         r = _run(["--port", "9333"], env={"PATH": str(bin_dir)})
         assert r.returncode == 0
+        _wait_for_file(log)
         args = log.read_text()
         assert "--remote-debugging-port=9333" in args
 
@@ -243,6 +255,7 @@ class TestChromeArgs:
 
         r = _run(env={"PATH": str(bin_dir)})
         assert r.returncode == 0
+        _wait_for_file(log)
         args = log.read_text()
         assert "--user-data-dir=" in args
 
