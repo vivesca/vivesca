@@ -134,8 +134,8 @@ class TestNormalRun:
         # Our subprocess captures the script's combined output
         assert r.returncode == 0
 
-    def test_continues_if_qmd_update_fails(self, tmp_path):
-        """Even if qmd update fails, qmd embed is still called."""
+    def test_exits_on_qmd_update_failure(self, tmp_path):
+        """With set -e, script exits immediately when qmd update fails."""
         log = tmp_path / "qmd.log"
         # Fake qmd that logs args, update fails, embed succeeds
         _make_fake_qmd(
@@ -151,10 +151,11 @@ exit 0
         )
         _make_fake_pgrep(tmp_path, body="exit 1")
         r = _run(tmp_path, env_extra={"PATH": str(tmp_path / "fake-bin") + ":" + os.environ.get("PATH", "")})
-        # Script should still exit 0 because qmd embed's exit code is last
-        assert r.returncode == 0
+        # set -e causes exit on first failure
+        assert r.returncode == 1
         calls = log.read_text().strip().splitlines()
-        assert calls == ["update", "embed"]
+        # Only update was called; embed was never reached
+        assert calls == ["update"]
 
 
 class TestMissingQmd:
