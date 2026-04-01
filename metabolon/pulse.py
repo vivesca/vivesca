@@ -499,8 +499,8 @@ def fire_systole(
             )
         )
 
-    log_fh = open(log_file, "a")
-    try:
+    with open(log_file, "a") as log_fh:
+     try:
         proc = subprocess.Popen(
             cmd,
             stdout=log_fh,

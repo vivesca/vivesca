@@ -24,6 +24,7 @@ scan_jsonl = _mod["scan_jsonl"]
 scan_daemon_log = _mod["scan_daemon_log"]
 compute_report = _mod["compute_report"]
 list_effectors = _mod["list_effectors"]
+scan_claude_sources = _mod["scan_claude_sources"]
 RE_EFFECTOR = _mod["RE_EFFECTOR"]
 
 

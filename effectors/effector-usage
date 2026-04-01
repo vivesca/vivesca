@@ -36,7 +36,7 @@ RECENT_DAYS = 7
 # This prevents matching truncated names like "gole..." or "tes..."
 RE_EFFECTOR = re.compile(
     r"effectors/([a-zA-Z0-9][a-zA-Z0-9_.+-]+)"
-    r"(?=[\s\"'),;:!?\]}>]|$)"
+    r"(?=[\s\"'`),;:!?\]}>]|$)"
 )
 # Daemon log timestamp: [2026-03-31 10:53:29]
 RE_LOG_TS = re.compile(r"^\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\] (.+)$")
