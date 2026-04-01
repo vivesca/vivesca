@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # /// script
 # requires-python = ">=3.11"
+# dependencies = ["firecrawl-py>=4"]
 # ///
 """Fetch the latest Evident Banking Brief and output as markdown.
 
@@ -10,12 +11,12 @@ Usage:
     evident-brief --list       # list available briefs (title, date, slug)
     evident-brief --slug X     # fetch a specific brief by slug
 
-Content: Jina Reader (r.jina.ai) — preserves links/formatting, one HTTP call.
-Index: agent-browser (cookie wall blocks Jina on index page).
+Extraction chain: Firecrawl (richest) → Jina Reader (fast/free) → agent-browser (last resort).
 """
 
 import argparse
 import json
+import os
 import re
 import subprocess
 import sys
@@ -29,9 +30,24 @@ BASE_URL = "https://evidentinsights.com/bankingbrief/"
 JINA_PREFIX = "https://r.jina.ai/"
 CACHE_DIR = Path.home() / ".cache" / "lustro-articles"
 
+# Firecrawl API key — from env or hardcoded fallback
+FIRECRAWL_KEY = os.environ.get("FIRECRAWL_API_KEY", "fc-38b9a21d9df3447a977325d380c0d67c")
+
 
 # ---------------------------------------------------------------------------
-# Jina Reader
+# Tier 1: Firecrawl (richest output — links, bold, date, metadata)
+# ---------------------------------------------------------------------------
+
+def firecrawl_fetch(url: str) -> str:
+    """Fetch a URL via Firecrawl. Returns markdown string."""
+    from firecrawl import FirecrawlApp
+    fc = FirecrawlApp(api_key=FIRECRAWL_KEY)
+    doc = fc.scrape(url, formats=["markdown"])
+    return doc.markdown or ""
+
+
+# ---------------------------------------------------------------------------
+# Tier 2: Jina Reader (fast, free, good quality)
 # ---------------------------------------------------------------------------
 
 def jina_fetch(url: str, timeout: int = 30) -> str:
@@ -45,11 +61,10 @@ def jina_fetch(url: str, timeout: int = 30) -> str:
 
 
 # ---------------------------------------------------------------------------
-# agent-browser helpers
+# Tier 3: agent-browser (last resort — plain text, slow)
 # ---------------------------------------------------------------------------
 
 def _ab(cmd: str, timeout: int = 15) -> str:
-    """Run an agent-browser command."""
     r = subprocess.run(
         ["agent-browser"] + cmd.split(),
         capture_output=True, text=True, timeout=timeout,
@@ -57,12 +72,46 @@ def _ab(cmd: str, timeout: int = 15) -> str:
     return r.stdout.strip()
 
 
-def _ab_close():
-    subprocess.run(["agent-browser", "close"], capture_output=True, timeout=5)
+def browser_fetch(url: str) -> str:
+    """Fetch page text via agent-browser."""
+    try:
+        _ab(f"open {url}", timeout=20)
+        time.sleep(3)
+        snap = _ab("snapshot")
+        for line in snap.splitlines():
+            if "Accept all" in line:
+                m = re.search(r'ref=(\w+)', line)
+                if m:
+                    _ab(f"click @{m.group(1)}")
+                    time.sleep(1)
+                break
+        return _ab("get text main", timeout=10) or _ab("get text body", timeout=10)
+    finally:
+        subprocess.run(["agent-browser", "close"], capture_output=True, timeout=5)
 
 
 # ---------------------------------------------------------------------------
-# Index (agent-browser — cookie wall blocks Jina)
+# Unified fetch with fallback chain
+# ---------------------------------------------------------------------------
+
+def fetch_markdown(url: str) -> str:
+    """Fetch URL as markdown. Firecrawl → Jina → agent-browser."""
+    for name, fn in [("firecrawl", lambda: firecrawl_fetch(url)),
+                     ("jina", lambda: jina_fetch(url)),
+                     ("agent-browser", lambda: browser_fetch(url))]:
+        try:
+            result = fn()
+            if result and len(result) > 100:
+                print(f"[{name}] OK", file=sys.stderr)
+                return result
+        except Exception as e:
+            print(f"[{name}] failed: {e}", file=sys.stderr)
+    print("All extraction methods failed.", file=sys.stderr)
+    sys.exit(1)
+
+
+# ---------------------------------------------------------------------------
+# Index parsing (agent-browser — cookie wall blocks Firecrawl/Jina on index)
 # ---------------------------------------------------------------------------
 
 def parse_index() -> list[dict]:
@@ -71,7 +120,6 @@ def parse_index() -> list[dict]:
         _ab(f"open {INDEX_URL}", timeout=20)
         time.sleep(2)
 
-        # Dismiss cookie banner
         snap = _ab("snapshot")
         for line in snap.splitlines():
             if "Accept all" in line:
@@ -83,29 +131,27 @@ def parse_index() -> list[dict]:
 
         snap = _ab("snapshot")
 
-        # Parse briefs from snapshot: links contain /bankingbrief/<slug>
         briefs = []
         seen = set()
-        # Find link lines with brief slugs and their headings
-        lines = snap.splitlines()
-        date_re = re.compile(r'(\d{1,2}\s+(?:JANUARY|FEBRUARY|MARCH|APRIL|MAY|JUNE|JULY|AUGUST|SEPTEMBER|OCTOBER|NOVEMBER|DECEMBER)\s+\d{4})', re.IGNORECASE)
+        date_re = re.compile(
+            r'(\d{1,2}\s+(?:JANUARY|FEBRUARY|MARCH|APRIL|MAY|JUNE|JULY|AUGUST|SEPTEMBER|OCTOBER|NOVEMBER|DECEMBER)\s+\d{4})',
+            re.IGNORECASE,
+        )
+        skip = {
+            "Read more", "SIGN IN", "Sign up to our newsletter", "privacy policy",
+            "Learn more about Membership", "Show more", "Register here", "Apply here",
+        }
 
         current_date = None
-        for line in lines:
-            # Capture date from StaticText
+        for line in snap.splitlines():
             dm = date_re.search(line)
             if dm:
                 current_date = dm.group(1).title()
 
-            # Capture brief link with title
             if 'link "' in line and 'bankingbrief' not in line.lower():
-                # This might be a brief card link
                 title_m = re.search(r'link "([^"]+)"', line)
-                href_m = re.search(r'ref=(\w+)', line)
-                skip = {"Read more", "SIGN IN", "Sign up to our newsletter", "privacy policy", "Learn more about Membership", "Show more", "Register here", "Apply here"}
                 if title_m and title_m.group(1) not in skip:
                     title = title_m.group(1)
-                    # Need the slug — check if there's a heading with this title
                     slug = title.lower().strip()
                     slug = re.sub(r'[^a-z0-9\s-]', '', slug)
                     slug = re.sub(r'\s+', '-', slug).strip('-')
@@ -117,35 +163,23 @@ def parse_index() -> list[dict]:
                             "url": f"{BASE_URL}{slug}",
                             "date": current_date or "",
                         })
-                        current_date = None  # consumed
+                        current_date = None
 
-        # Filter: real briefs have dates; nav/footer links don't
         return [b for b in briefs if b.get("date")]
     finally:
-        _ab_close()
+        subprocess.run(["agent-browser", "close"], capture_output=True, timeout=5)
 
 
 # ---------------------------------------------------------------------------
-# Brief content (Jina primary, agent-browser fallback)
+# Brief fetching & formatting
 # ---------------------------------------------------------------------------
 
 def fetch_brief(slug: str, index_meta: dict | None = None) -> dict:
     """Fetch a single brief. Returns {title, date, slug, url, markdown}."""
     url = f"{BASE_URL}{slug}"
+    raw = fetch_markdown(url)
 
-    # Try Jina first
-    try:
-        raw = jina_fetch(url)
-    except Exception as e:
-        print(f"Jina failed ({e}), falling back to agent-browser", file=sys.stderr)
-        try:
-            _ab(f"open {url}", timeout=20)
-            time.sleep(3)
-            raw = _ab("get text main", timeout=10)
-        finally:
-            _ab_close()
-
-    # Extract title from Jina header
+    # Extract title
     title = slug.replace("-", " ").title()
     title_match = re.search(r'^Title:\s*(.+)', raw, re.MULTILINE)
     if title_match:
@@ -154,8 +188,12 @@ def fetch_brief(slug: str, index_meta: dict | None = None) -> dict:
         t = re.sub(r'\s*\|.*$', '', t)
         if t:
             title = t
+    # Firecrawl uses H1 directly
+    h1_match = re.search(r'^# (.+)', raw, re.MULTILINE)
+    if h1_match and len(h1_match.group(1)) < 80:
+        title = h1_match.group(1).strip()
 
-    # Extract date from content or index metadata
+    # Extract date
     date = ""
     date_match = re.search(
         r'(\d{1,2}\s+(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{4})',
@@ -168,23 +206,19 @@ def fetch_brief(slug: str, index_meta: dict | None = None) -> dict:
 
     # Clean markdown
     md = raw
-    # Remove Jina metadata lines
     md = re.sub(r'^(?:Title|URL Source|Markdown Content):.*\n?', '', md, flags=re.MULTILINE)
 
-    # Strip pre-article boilerplate
     for marker in ["TOP OF THE NEWS", "Welcome back to the Banking Brief"]:
         idx = md.find(marker)
         if idx != -1:
             md = md[idx:]
             break
 
-    # Strip trailing boilerplate
     for marker in ["Explore the archive", "MORE NEWS", "You are receiving this"]:
         idx = md.find(marker)
         if idx != -1:
             md = md[:idx].rstrip()
 
-    # Add header
     header = (
         f"# Evident Banking Brief: {title}\n\n"
         f"**Date:** {date}\n"
@@ -252,7 +286,6 @@ def main():
         print(f"\n{len(briefs)} briefs found.", file=sys.stderr)
         return
 
-    # Get index for metadata + latest slug
     briefs = parse_index()
     brief_meta = {b["slug"]: b for b in briefs}
 
