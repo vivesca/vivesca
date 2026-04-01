@@ -137,10 +137,10 @@ class TestChromeDetection:
 
         result = run_script(env=env, timeout=10)
         # Script should report successful start
-        assert result.returncode == 0
+        assert result.returncode == 0, f"stdout={result.stdout!r} stderr={result.stderr!r}"
         assert "Chrome started" in result.stdout
         # Verify our fake chrome was actually invoked
-        assert marker.exists()
+        assert marker.exists(), f"Chrome was never invoked. stdout={result.stdout!r} stderr={result.stderr!r}"
         launch_log = marker.read_text()
         assert "launched" in launch_log
         assert "--remote-debugging-port=9222" in launch_log

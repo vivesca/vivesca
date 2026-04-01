@@ -260,10 +260,23 @@ def remove_pid():
     """Remove pidfile."""
     PIDFILE.unlink(missing_ok=True)
 
-def parse_queue() -> list[tuple[int, str]]:
-    """Parse queue file, return list of (line_number, command) for pending tasks.
+def _extract_task_id(cmd: str) -> str:
+    """Extract task ID (t-xxxxxx) from command, or empty string if none."""
+    m = TASK_ID_RE.search(cmd)
+    return f"t-{m.group(1)}" if m else ""
+
+
+def _generate_task_id() -> str:
+    """Generate a short task ID: t-xxxxxx (6 hex chars)."""
+    return f"t-{secrets.token_hex(3)}"
+
+
+def parse_queue() -> list[tuple[int, str, str]]:
+    """Parse queue file, return list of (line_number, command, task_id) for pending tasks.
 
     High-priority tasks ([!!]) are sorted before normal tasks ([ ]).
+    Generates a unique task ID (t-xxxxxx) for each task that doesn't have one,
+    and writes it back into the queue file inside the backtick.
     """
     if not QUEUE_FILE.exists():
         return []
@@ -274,6 +287,7 @@ def parse_queue() -> list[tuple[int, str]]:
         return []
 
     pending = []
+    modified = False
 
     for i, line in enumerate(lines):
         # Match: - [!!] `golem ...` (high priority, priority=0)
@@ -281,18 +295,44 @@ def parse_queue() -> list[tuple[int, str]]:
         if m:
             cmd = m.group(1).strip()
             if cmd.startswith("golem "):
-                pending.append((i, cmd, 0))
+                tid_match = TASK_ID_RE.search(cmd)
+                if tid_match:
+                    task_id = f"t-{tid_match.group(1)}"
+                else:
+                    task_id = _generate_task_id()
+                    new_cmd = cmd.replace("golem ", f"golem [{task_id}] ", 1)
+                    lines[i] = line.replace(f'`{cmd}`', f'`{new_cmd}`', 1)
+                    cmd = new_cmd
+                    modified = True
+                pending.append((i, cmd, task_id, 0))
             continue
         # Match: - [ ] `golem ...` (normal priority, priority=1)
         m = re.match(r'^- \[ \] `([^`]+)`', line)
         if m:
             cmd = m.group(1).strip()
             if cmd.startswith("golem "):
-                pending.append((i, cmd, 1))
+                tid_match = TASK_ID_RE.search(cmd)
+                if tid_match:
+                    task_id = f"t-{tid_match.group(1)}"
+                else:
+                    task_id = _generate_task_id()
+                    new_cmd = cmd.replace("golem ", f"golem [{task_id}] ", 1)
+                    lines[i] = line.replace(f'`{cmd}`', f'`{new_cmd}`', 1)
+                    cmd = new_cmd
+                    modified = True
+                pending.append((i, cmd, task_id, 1))
+
+    # Write back if any IDs were generated
+    if modified:
+        try:
+            with QueueLock():
+                QUEUE_FILE.write_text("\n".join(lines) + "\n")
+        except (PermissionError, OSError):
+            pass  # Don't crash on write failure
 
     # Sort: high priority (0) first, then normal (1); stable sort preserves file order
-    pending.sort(key=lambda x: x[2])
-    return [(i, cmd) for i, cmd, _ in pending]
+    pending.sort(key=lambda x: x[3])
+    return [(i, cmd, tid) for i, cmd, tid, _ in pending]
 
 
 def parse_provider(cmd: str) -> str:

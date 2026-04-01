@@ -243,6 +243,52 @@ def log_results(state: SortaseState) -> dict:
     return {"success": success, "log_entry": entry}
 
 
+# ── DOT visualisation helpers ────────────────────────────────
+
+
+def to_dot(state: SortaseState | dict) -> str:
+    """Render task dependency graph as a DOT string.
+
+    Nodes are task names, labelled with their assigned tool (or "unrouted").
+    Edges follow prerequisite links.
+    """
+    tasks = state.get("tasks", [])
+    tool_by_task = state.get("tool_by_task", {})
+
+    lines: list[str] = ["digraph tasks {"]
+
+    for t in tasks:
+        name = t["name"]
+        # Quote names that may contain special characters
+        safe_name = f'"{name}"'
+        tool = tool_by_task.get(name, "unrouted")
+        lines.append(f"    {safe_name} [label=\"{name} ({tool})\"];")
+
+    for t in tasks:
+        prereq = t.get("prerequisite")
+        if prereq:
+            lines.append(f'    "{prereq}" -> "{t["name"]}";')
+
+    lines.append("}")
+    return "\n".join(lines)
+
+
+def pipeline_dot() -> str:
+    """Render the LangGraph node graph as a DOT string."""
+    edges = [
+        ("decompose", "route"),
+        ("route", "execute"),
+        ("execute", "validate"),
+        ("validate", "log_results"),
+        ("log_results", "END"),
+    ]
+    lines: list[str] = ["digraph pipeline {"]
+    for a, b in edges:
+        lines.append(f'    "{a}" -> "{b}";')
+    lines.append("}")
+    return "\n".join(lines)
+
+
 # ── graph assembly ───────────────────────────────────────────
 
 
