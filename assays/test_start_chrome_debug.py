@@ -190,6 +190,18 @@ class TestPortFlag:
         assert r.returncode == 0
         assert "9333" in r.stdout
 
+    def test_short_flag_p(self, tmp_path):
+        """Short -p flag should behave identically to --port."""
+        bin_dir = tmp_path / "bin"
+        bin_dir.mkdir()
+        chrome = bin_dir / "google-chrome-stable"
+        chrome.write_text("#!/bin/bash\nsleep 3\n")
+        chrome.chmod(chrome.stat().st_mode | stat.S_IEXEC)
+
+        r = _run(["-p", "9444"], env={"PATH": str(bin_dir)})
+        assert r.returncode == 0
+        assert "9444" in r.stdout
+
     def test_default_port_is_9222(self, tmp_path):
         bin_dir = tmp_path / "bin"
         bin_dir.mkdir()
@@ -200,6 +212,88 @@ class TestPortFlag:
         r = _run(env={"PATH": str(bin_dir)})
         assert r.returncode == 0
         assert "9222" in r.stdout
+
+
+# ── Chrome receives correct flags ─────────────────────────────────────
+
+
+class TestChromeArgs:
+    """Verify Chrome is launched with the correct arguments."""
+
+    def test_remote_debugging_port_flag(self, tmp_path):
+        bin_dir = tmp_path / "bin"
+        bin_dir.mkdir()
+        log = tmp_path / "chrome_args.log"
+        chrome = bin_dir / "google-chrome-stable"
+        chrome.write_text(f"#!/bin/bash\necho \"$@\" > {log}\nsleep 3\n")
+        chrome.chmod(chrome.stat().st_mode | stat.S_IEXEC)
+
+        r = _run(["--port", "9333"], env={"PATH": str(bin_dir)})
+        assert r.returncode == 0
+        args = log.read_text()
+        assert "--remote-debugging-port=9333" in args
+
+    def test_user_data_dir_flag(self, tmp_path):
+        bin_dir = tmp_path / "bin"
+        bin_dir.mkdir()
+        log = tmp_path / "chrome_args.log"
+        chrome = bin_dir / "google-chrome-stable"
+        chrome.write_text(f"#!/bin/bash\necho \"$@\" > {log}\nsleep 3\n")
+        chrome.chmod(chrome.stat().st_mode | stat.S_IEXEC)
+
+        r = _run(env={"PATH": str(bin_dir)})
+        assert r.returncode == 0
+        args = log.read_text()
+        assert "--user-data-dir=" in args
+
+    def test_connect_url_printed(self, tmp_path):
+        """Script should print the connect URL after launch."""
+        bin_dir = tmp_path / "bin"
+        bin_dir.mkdir()
+        chrome = bin_dir / "google-chrome-stable"
+        chrome.write_text("#!/bin/bash\nsleep 3\n")
+        chrome.chmod(chrome.stat().st_mode | stat.S_IEXEC)
+
+        r = _run(env={"PATH": str(bin_dir)})
+        assert r.returncode == 0
+        assert "Connect via: http://localhost:9222" in r.stdout
+
+
+# ── Chromium fallback ─────────────────────────────────────────────────
+
+
+class TestChromiumFallback:
+    """Verify the script picks up alternative Chrome/Chromium binary names."""
+
+    @pytest.mark.parametrize("name", ["google-chrome-stable", "google-chrome",
+                                       "chromium-browser", "chromium"])
+    def test_fallback_binary_found(self, tmp_path, name: str):
+        bin_dir = tmp_path / "bin"
+        bin_dir.mkdir()
+        chrome = bin_dir / name
+        chrome.write_text("#!/bin/bash\nsleep 3\n")
+        chrome.chmod(chrome.stat().st_mode | stat.S_IEXEC)
+
+        r = _run(env={"PATH": str(bin_dir)})
+        assert r.returncode == 0
+        assert "Chrome started" in r.stdout
+
+    def test_first_candidate_wins(self, tmp_path):
+        """When multiple candidates exist, the first (google-chrome-stable) wins."""
+        bin_dir = tmp_path / "bin"
+        bin_dir.mkdir()
+        log = tmp_path / "which_chrome.log"
+
+        for name in ("google-chrome-stable", "google-chrome",
+                     "chromium-browser", "chromium"):
+            chrome = bin_dir / name
+            chrome.write_text(f"#!/bin/bash\necho '{name}' >> {log}\nsleep 3\n")
+            chrome.chmod(chrome.stat().st_mode | stat.S_IEXEC)
+
+        r = _run(env={"PATH": str(bin_dir)})
+        assert r.returncode == 0
+        lines = log.read_text().strip().splitlines()
+        assert lines == ["google-chrome-stable"]
 
 
 # ── Platform detection ────────────────────────────────────────────────

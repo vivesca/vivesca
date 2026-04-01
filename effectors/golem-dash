@@ -957,6 +957,109 @@ def failure_adjusted_throughput(
     return raw_rate, adjusted_rate, failure_pct
 
 
+def next_completion(running: list[dict]) -> dict | None:
+    """Identify which running task will finish next.
+
+    Returns the task dict with the smallest estimated_remaining, or None
+    if no tasks are running. Adds keys: 'finishes_at' (datetime), 'finishes_in' (int secs).
+    """
+    if not running:
+        return None
+
+    best: dict | None = None
+    for t in running:
+        remaining = t.get("estimated_remaining", 0)
+        if remaining <= 0:
+            continue
+        if best is None or remaining < best.get("estimated_remaining", float("inf")):
+            best = t
+
+    if best is None:
+        # All tasks have 0 remaining — first one by duration is "closest"
+        for t in running:
+            dur = t.get("duration_secs", 0)
+            if best is None or dur > t.get("duration_secs", 0):
+                best = t
+        if best:
+            best["finishes_at"] = datetime.now()
+            best["finishes_in"] = 0
+        return best
+
+    best = dict(best)  # copy to avoid mutating input
+    best["finishes_at"] = datetime.now() + timedelta(seconds=best["estimated_remaining"])
+    best["finishes_in"] = best["estimated_remaining"]
+    return best
+
+
+def throughput_based_eta(
+    records: list[dict], pending: int, running_count: int,
+    ewma_rate: float = 0.0,
+) -> int:
+    """Calculate ETA using throughput rate rather than median duration.
+
+    If ewma_rate > 0, uses it directly. Otherwise falls back to counting
+    completions in the last hour. Returns ETA in seconds.
+    """
+    if pending == 0 and running_count == 0:
+        return 0
+
+    rate = ewma_rate  # tasks/hour
+    if rate <= 0:
+        # Fall back to simple windowed rate
+        rate = throughput_rate(records, window_minutes=60)
+
+    if rate <= 0:
+        return 0  # Can't estimate without throughput data
+
+    tasks_per_sec = rate / 3600.0
+    total_remaining = pending + running_count
+
+    # Account for parallelism: use max(running_count, 1) workers
+    workers = max(running_count, 1)
+    # At rate R tasks/hr with W workers, effective throughput ≈ R
+    # Time = tasks / (tasks/sec)
+    eta_secs = int(total_remaining / tasks_per_sec) if tasks_per_sec > 0 else 0
+
+    return eta_secs
+
+
+def drain_projection(
+    records: list[dict], pending: int, running: list[dict],
+    ewma_rate: float = 0.0,
+) -> list[dict]:
+    """Project a timeline of when tasks will complete.
+
+    Returns list of dicts with keys: offset_secs, event, description.
+    Events include 'next_done', 'quarter', 'half', 'drain'.
+    """
+    events: list[dict] = []
+
+    # Next completion from running tasks
+    nxt = next_completion(running)
+    if nxt and nxt.get("finishes_in", 0) > 0:
+        events.append({
+            "offset_secs": nxt["finishes_in"],
+            "event": "next_done",
+            "description": f"Next task done ({nxt['provider']})",
+        })
+
+    # Throughput-based drain projection
+    tp_eta = throughput_based_eta(records, pending, len(running), ewma_rate)
+    total = pending + len(running)
+
+    if total > 0 and tp_eta > 0:
+        for label, pct in [("quarter", 25), ("half", 50), ("drain", 100)]:
+            offset = int(tp_eta * pct / 100)
+            events.append({
+                "offset_secs": offset,
+                "event": label,
+                "description": f"{pct}% drained ({int(total * pct / 100)}/{total})",
+            })
+
+    events.sort(key=lambda e: e["offset_secs"])
+    return events
+
+
 def worker_utilization(
     running: list[dict], provider_max: dict[str, int],
 ) -> dict:
@@ -1153,6 +1256,12 @@ def print_compact() -> None:
     if stall_secs is not None and stall_secs > 300 and pending > 0:
         parts.append("⚠ stall")
 
+    # Next completion prediction
+    nxt = next_completion(running)
+    if nxt and nxt.get("finishes_in", 0) > 0:
+        nxt_str = fmt_duration(nxt["finishes_in"])
+        parts.append(f"next:{nxt_str}")
+
     print(" | ".join(parts))
 
 
@@ -1267,7 +1376,17 @@ def running_tasks_table(running: list[dict], use_color: bool = True) -> str:
     g = GREEN if use_color else ""
     r_col = RED if use_color else ""
     dim = DIM if use_color else ""
+    b = BOLD if use_color else ""
     rst = RESET if use_color else ""
+
+    # Identify leading task (closest to completion)
+    leading_pid = 0
+    best_remaining = float("inf")
+    for t in running:
+        rem = t.get("estimated_remaining", 0)
+        if not t.get("is_stale") and 0 < rem < best_remaining:
+            best_remaining = rem
+            leading_pid = t["pid"]
 
     lines = []
     for t in sorted(running, key=lambda x: x.get("estimated_pct", 0)):
@@ -1275,6 +1394,7 @@ def running_tasks_table(running: list[dict], use_color: bool = True) -> str:
         pct = t.get("estimated_pct", 0)
         remaining = t.get("estimated_remaining", 0)
         stale = t.get("is_stale", False)
+        is_leading = t["pid"] == leading_pid and leading_pid > 0
 
         # Mini progress bar (10 chars wide)
         filled = int(10 * pct / 100)
@@ -1282,16 +1402,19 @@ def running_tasks_table(running: list[dict], use_color: bool = True) -> str:
 
         if stale:
             pct_str = f"{r_col}{bar_chars} STALE{rst}"
+        elif is_leading:
+            pct_str = f"{b}{bar_chars} {pct:.0f}%{rst}"
         else:
             pct_str = f"{dim}{bar_chars}{rst} {g}{pct:.0f}%{rst}"
 
+        leader_marker = f"{g}★{rst} " if is_leading else "  "
         rem_str = f" ~{fmt_duration(remaining)}" if remaining > 0 and not stale else ""
         wall_str = ""
         if remaining > 0 and not stale:
             wall = eta_wall_clock(remaining)
             wall_str = f" {dim}finish@{wall}{rst}"
         lines.append(
-            f"  {c}[{t['pid']}] {t['provider']:<8}{rst} {y}{dur:>6}{rst}  "
+            f"  {leader_marker}{c}[{t['pid']}] {t['provider']:<8}{rst} {y}{dur:>6}{rst}  "
             f"{pct_str}{rem_str}{wall_str}  {t['task']}"
         )
 
@@ -1313,8 +1436,11 @@ def eta_section(
     stall_secs: int | None = None, trend: str = "",
     utilization: dict | None = None,
     failure_adjusted: tuple[float, float, float] | None = None,
+    next_done: dict | None = None,
+    tp_eta: int = 0,
+    projection: list[dict] | None = None,
 ) -> str:
-    """Format ETA section with throughput, wall-clock estimate, confidence intervals, utilization, and stall detection."""
+    """Format ETA section with throughput, wall-clock estimate, confidence intervals, utilization, stall detection, next completion, throughput-based ETA, and drain projection."""
     b = BOLD if use_color else ""
     c = CYAN if use_color else ""
     g = GREEN if use_color else ""
@@ -1399,6 +1525,41 @@ def eta_section(
             clock = eta_wall_clock(secs)
             parts.append(f"{pct}%@{clock}")
         lines.append(f"  {dim}Milestones: {' \u2192 '.join(parts)}{rst}")
+
+    # Next completion prediction
+    if next_done and next_done.get("finishes_in", 0) > 0:
+        fin_in = fmt_duration(next_done["finishes_in"])
+        fin_at = eta_wall_clock(next_done["finishes_in"])
+        lines.append(
+            f"  {b}Next done:{rst} ~{fin_in}  ({fin_at})"
+        )
+
+    # Throughput-based ETA (alternative view)
+    if tp_eta > 0 and eta["eta_seconds"] > 0:
+        tp_str = fmt_duration(tp_eta)
+        tp_wall = eta_wall_clock(tp_eta)
+        dur_str = fmt_duration(eta["eta_seconds"])
+        diff = tp_eta - eta["eta_seconds"]
+        if abs(diff) > 30:
+            faster = diff < 0
+            diff_str = fmt_duration(abs(diff))
+            cmp_arrow = "faster" if faster else "slower"
+            lines.append(
+                f"  {dim}Rate-based: {tp_str} ({tp_wall}) [{cmp_arrow} by {diff_str}]{rst}"
+            )
+        else:
+            lines.append(
+                f"  {dim}Rate-based: {tp_str} ({tp_wall}) [matches]{rst}"
+            )
+
+    # Drain projection timeline
+    if projection:
+        proj_parts = []
+        for ev in projection:
+            offset_str = fmt_duration(ev["offset_secs"])
+            label = ev["event"].replace("next_done", "next").replace("quarter", "25%").replace("half", "50%").replace("drain", "100%")
+            proj_parts.append(f"{label} {offset_str}")
+        lines.append(f"  {dim}Projection: {' \u2192 '.join(proj_parts)}{rst}")
 
     return "\n".join(lines)
 
@@ -1527,6 +1688,11 @@ def print_dashboard(use_color: bool = True, json_output: bool = False) -> int:
     # New: recent activity timeline
     timeline = recent_activity_timeline(LOG_PATH, limit=8)
 
+    # New: next completion, throughput-based ETA, drain projection
+    nxt_done = next_completion(running)
+    tp_eta = throughput_based_eta(records, pending, len(running), ewma)
+    projection = drain_projection(records, pending, running, ewma)
+
     if json_output:
         data = {
             "timestamp": datetime.now().isoformat(),
@@ -1563,6 +1729,12 @@ def print_dashboard(use_color: bool = True, json_output: bool = False) -> int:
             "recent_activity": [
                 {"ts": ts, "type": ev, "desc": desc} for ts, ev, desc in timeline
             ],
+            "next_completion": {
+                "provider": nxt_done["provider"] if nxt_done else None,
+                "finishes_in": nxt_done.get("finishes_in", 0) if nxt_done else 0,
+            } if nxt_done else None,
+            "throughput_based_eta_seconds": tp_eta,
+            "drain_projection": projection,
         }
         print(json.dumps(data, indent=2))
         return 0
@@ -1598,6 +1770,9 @@ def print_dashboard(use_color: bool = True, json_output: bool = False) -> int:
         trend=trend,
         utilization=util,
         failure_adjusted=fa_throughput,
+        next_done=nxt_done,
+        tp_eta=tp_eta,
+        projection=projection,
     ))
     # Show EWMA throughput and confidence indicator
     y = YELLOW if use_color else ""

@@ -1,0 +1,27 @@
+============================= test session starts ==============================
+platform linux -- Python 3.13.12, pytest-9.0.2, pluggy-1.6.0 -- /home/terry/germline/.venv/bin/python
+cachedir: .pytest_cache
+rootdir: /home/terry/germline
+configfile: pyproject.toml
+plugins: langsmith-0.7.22, cov-7.1.0, anyio-4.13.0, asyncio-1.3.0
+asyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collecting ... collected 33 items
+
+assays/test_start_chrome_debug.py::TestScriptStructure::test_file_exists PASSED [  3%]
+assays/test_start_chrome_debug.py::TestScriptStructure::test_executable PASSED [  6%]
+assays/test_start_chrome_debug.py::TestScriptStructure::test_shebang PASSED [  9%]
+assays/test_start_chrome_debug.py::TestScriptStructure::test_strict_mode PASSED [ 12%]
+assays/test_start_chrome_debug.py::TestScriptStructure::test_default_port_set PASSED [ 15%]
+assays/test_start_chrome_debug.py::TestScriptStructure::test_no_todo_or_fixme PASSED [ 18%]
+assays/test_start_chrome_debug.py::TestScriptStructure::test_script_ends_with_newline PASSED [ 21%]
+assays/test_start_chrome_debug.py::TestSyntaxCheck::test_bash_syntax_valid PASSED [ 24%]
+assays/test_start_chrome_debug.py::TestSyntaxCheck::test_shellcheck_if_available SKIPPED [ 27%]
+assays/test_start_chrome_debug.py::TestHelp::test_help_long_flag PASSED  [ 30%]
+assays/test_start_chrome_debug.py::TestHelp::test_help_short_flag PASSED [ 33%]
+assays/test_start_chrome_debug.py::TestHelp::test_help_mentions_default_port PASSED [ 36%]
+assays/test_start_chrome_debug.py::TestUnknownOption::test_unknown_flag_exits_2 PASSED [ 39%]
+assays/test_start_chrome_debug.py::TestUnknownOption::test_unknown_flag_stderr_message PASSED [ 42%]
+assays/test_start_chrome_debug.py::TestChromeNotFound::test_exits_1_when_no_chrome PASSED [ 45%]
+assays/test_start_chrome_debug.py::TestChromeNotExecutable::test_non_executable_chrome_exits_1 PASSED [ 48%]
+assays/test_start_chrome_debug.py::TestPortFlag::test_custom_port_passed_through PASSED [ 51%]
+assays/test_start_chrome_debug.py::TestPortFlag::test_short_flag_p 
