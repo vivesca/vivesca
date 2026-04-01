@@ -382,7 +382,7 @@ _run_golem() {
       ANTHROPIC_DEFAULT_HAIKU_MODEL="$_HAIKU" \
       API_TIMEOUT_MS=3000000 \
       CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1 \
-      CLAUDE_CODE_MAX_RETRIES="${GOLEM_CLAUDE_RETRIES:-2}" \
+      CLAUDE_CODE_MAX_RETRIES="${GOLEM_CLAUDE_RETRIES:-0}" \
       claude "${args[@]}" -p "$prompt" < /dev/null 2>&1
       ) && exit_code=0 || exit_code=$?
       _claude_ran=true
